@@ -51,22 +51,12 @@ export const PerformanceService = Object.freeze({
       ? stabilization.currentDailyTarget
       : null
     const targetAvailable = canonicalTarget != null
-    const effectiveMonthlyTarget = Number.isFinite(stabilization.effectiveMonthlyTarget)
-      ? stabilization.effectiveMonthlyTarget
-      : NaN
-    const targetMonth = currentDay ? istMonthRange(currentDay) : null
-    const periodCoversTargetMonth = targetMonth
-      ? range.from <= targetMonth.from && range.to >= targetMonth.to
-      : false
-    const periodTarget = targetAvailable && periodCoversTargetMonth ? effectiveMonthlyTarget : NaN
     const dailyBreakEvenRevenue = monthlyBreakEvenRevenue != null && Number.isFinite(stabilization.remainingEligibleDays)
       ? monthlyBreakEvenRevenue / stabilization.remainingEligibleDays
       : null
 
     return {
       ...metrics,
-      // `breakEvenRevenue` is the single monthly authority. The engine's
-      // selected-period economics are not a competing break-even calculation.
       breakEvenRevenue: monthlyBreakEvenRevenue,
       target: canonicalTarget,
       monthlyBreakEvenRevenue,
@@ -91,18 +81,12 @@ export const PerformanceService = Object.freeze({
       driverTargetAllocatedBeforeCurrentDay: stabilization.targetAllocatedBeforeCurrentDay,
       driverTargetRemainingObligation: stabilization.remainingObligation,
       pace: {
-        ...metrics.pace,
+        // Pace compares like-for-like daily units only: actual revenue per
+        // financial day versus the current dynamic Driver Target per financial day.
         currentRevenuePerFinancialDay: metrics.revenuePerActiveDay,
         requiredRevenuePerFinancialDay: canonicalTarget,
         paceVariance: Number.isFinite(metrics.revenuePerActiveDay) && Number.isFinite(canonicalTarget)
           ? metrics.revenuePerActiveDay - canonicalTarget
-          : NaN,
-        // No projection is used for Driver Target. It would mix a selected
-        // reporting period with a dynamic one-day obligation and create a
-        // second interpretation of target performance.
-        projectedRevenue: NaN,
-        targetGap: Number.isFinite(metrics.projectedRevenue) && Number.isFinite(periodTarget)
-          ? metrics.projectedRevenue - periodTarget
           : NaN,
       },
     }
