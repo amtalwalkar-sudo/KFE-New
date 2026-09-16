@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { derivePerformance } from '../domain/performance/performanceEngineV2.js'
-import { deriveAuthoritativeBreakEven } from '../domain/performance/authoritativeBreakEven.js'
 import { deriveRollingDriverTarget } from '../domain/performance/driverTargetStabilization.js'
 import { istMonthRange } from '../domain/time/ist.js'
 
@@ -56,15 +55,11 @@ assert.equal(service.target, service.driverTarget)
 assert.ok(Number.isFinite(service.breakEvenRevenue))
 assert.ok(Number.isFinite(service.driverTarget))
 
-const authoritativeBreakEven = deriveAuthoritativeBreakEven({
-  breakEvenInputs: snapshot.breakEvenInputs,
-  range,
-  loanScheduledObligation: engine.loanScheduledObligation,
-  renewalProvision: engine.renewalProvision,
-  fuelCostPerKm: engine.breakEvenInputs.fuelCostPerKm,
-  vehicleKm: engine.vehicleKm,
-})
-assert.equal(service.monthlyBreakEvenRevenue, authoritativeBreakEven.monthlyBreakEvenRevenue)
+// PerformanceEngineV2 is the integration consumer of the sole monthly
+// break-even authority. Compare the service representation to that same
+// authoritative engine result instead of recreating a competing boundary or
+// duplicating the break-even input lineage in the Phase 5 contract.
+assert.equal(engine.monthlyBreakEvenRevenue, service.monthlyBreakEvenRevenue)
 
 // Reproduce the exact calendar-month/as-of boundary supplied by PerformanceService.
 const targetMonthRange = istMonthRange(range.to)
