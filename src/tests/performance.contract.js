@@ -114,9 +114,9 @@ const changedInput = { ...snapshot, breakEvenInputs: [{ effectiveFrom:'2026-09-0
 const changedEngineSnapshot = { ...engineSnapshot, breakEvenInputs: changedInput.breakEvenInputs }
 const changedEngineMetrics = derivePerformance(changedEngineSnapshot, range, previousRange(range))
 const changedServiceMetrics = PerformanceService.getMetrics(changedInput, range)
-near(changedEngineMetrics.breakEvenRevenue - m.breakEvenRevenue, 200, 'engine BE change')
+near(changedEngineMetrics.monthlyBreakEvenRevenue - m.monthlyBreakEvenRevenue, 200, 'engine BE change')
 near(changedServiceMetrics.breakEvenRevenue - serviceMetrics.breakEvenRevenue, 200, 'service BE change')
-near(changedEngineMetrics.breakEvenRevenue, changedServiceMetrics.breakEvenRevenue, 'single BE authority')
+near(changedEngineMetrics.monthlyBreakEvenRevenue, changedServiceMetrics.breakEvenRevenue, 'single BE authority')
 near(changedServiceMetrics.monthlyBreakEvenRevenue - serviceMetrics.monthlyBreakEvenRevenue, 200, 'monthly BE change')
 near(changedServiceMetrics.dailyBreakEvenRevenue - serviceMetrics.dailyBreakEvenRevenue, 200 / serviceMetrics.driverTargetRemainingEligibleDays, 'daily BE change')
 
@@ -125,7 +125,7 @@ const missingEngineSnapshot = { ...engineSnapshot, breakEvenInputs: missingMaint
 const missingEngineMetrics = derivePerformance(missingEngineSnapshot, range, previousRange(range))
 const missingServiceMetrics = PerformanceService.getMetrics(missingMaintenanceInput, range)
 assert.equal(missingEngineMetrics.completeness.breakEven, false)
-assert.ok(Number.isNaN(missingEngineMetrics.breakEvenRevenue))
+assert.ok(Number.isNaN(missingEngineMetrics.monthlyBreakEvenRevenue))
 assert.equal(missingServiceMetrics.completeness.breakEven, false)
 assert.equal(missingServiceMetrics.driverTargetAvailable, false)
 assert.equal(missingServiceMetrics.driverTarget, null)
