@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { MovementAccountingService, filterGpsTrace, haversineDistanceKm } from "../movementAccountingService.js"
+import { MovementAccountingService, filterGpsTrace, haversineDistanceKm } from "../../domain/movement/movementAccounting.js"
 const garage = { latitude: 19, longitude: 72, accuracy: 5 }
 const pickup1 = { latitude: 19.01, longitude: 72, accuracy: 5 }; const drop1 = { latitude: 19.02, longitude: 72, accuracy: 5 }; const pickup2 = { latitude: 19.03, longitude: 72, accuracy: 5 }; const drop2 = { latitude: 19.04, longitude: 72, accuracy: 5 }
 const trips = [{ id: "trip-1", status: "COMPLETED", tripStartAt: "2026-09-12T08:00:00Z", tripEndAt: "2026-09-12T08:30:00Z", tripStartLocation: pickup1, tripEndLocation: drop1 }, { id: "trip-2", status: "COMPLETED", tripStartAt: "2026-09-12T09:00:00Z", tripEndAt: "2026-09-12T09:30:00Z", tripStartLocation: pickup2, tripEndLocation: drop2 }]
