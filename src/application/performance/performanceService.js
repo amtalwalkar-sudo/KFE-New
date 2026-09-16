@@ -6,11 +6,12 @@ import { deriveAuthoritativeBreakEven } from '../../domain/performance/authorita
 const normalizeLoan = loan => {
   if (!loan) return null
   const startDate = loan.startDate ?? loan.start_date ?? loan.loanStartDate ?? loan.loan_start_date
-  const tenureMonths = Number.isFinite(Number(loan.tenureMonths))
+  const hasNumber = value => value != null && value !== '' && Number.isFinite(Number(value))
+  const tenureMonths = hasNumber(loan.tenureMonths)
     ? Number(loan.tenureMonths)
-    : Number.isFinite(Number(loan.tenureYears))
+    : hasNumber(loan.tenureYears)
       ? Number(loan.tenureYears) * 12
-      : Number.isFinite(Number(loan.term_months))
+      : hasNumber(loan.term_months)
         ? Number(loan.term_months)
         : null
   return {
@@ -70,8 +71,11 @@ export const PerformanceService = Object.freeze({
       ? stabilization.currentDailyTarget
       : null
     const targetAvailable = canonicalTarget != null
+    // Driver Target stabilization is shift-defined. Do not substitute the
+    // separate completed-trip activeFinancialDays metric for target period math.
+    const targetActiveDays = stabilization.activeDays || 0
     const periodTarget = targetAvailable
-      ? canonicalTarget * Math.max(1, metrics.counts.activeFinancialDays || 0)
+      ? canonicalTarget * Math.max(1, targetActiveDays)
       : NaN
     return {
       ...metrics,
