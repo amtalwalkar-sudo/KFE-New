@@ -38,7 +38,7 @@ PHASE 10 Hardening / Release
 - **Phase 7:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-7-FREEZE.md`; full verification CI #341 green.
 - **Phase 8:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-8-FREEZE.md`; managed local backup/restore is complete and contract-covered.
 - **Phase 9:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-9-FREEZE.md`; provider-independent cloud backup/sync orchestration is complete and contract-covered.
-- **Phase 10:** IN PROGRESS — Hardening / Release; dedicated release gate added and full CI verification running.
+- **Phase 10:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-10-FREEZE.md`; hardening/release gate, full contract suite, production PWA build, Capacitor Android synchronization, and Android debug APK build passed in final CI #357, establishing the **RELEASE CANDIDATE** baseline.
 
 ## Phase 0 — Baseline & Governance
 Establish the clean repository, CI, architecture, dependency, calculation-authority, and development-governance baseline. Exit: **MAIN BASELINE GREEN**.
