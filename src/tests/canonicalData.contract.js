@@ -125,7 +125,7 @@ assert.doesNotMatch(shiftTripSource, /objectStore\([^)]*\)\.delete\(id\)/)
 assert.doesNotMatch(fuelSource, /objectStore\([^)]*\)\.delete\(id\)/)
 assert.match(canonicalDoc, /An operational status transition must never be implemented as deletion/)
 assert.match(canonicalDoc, /Hard deletion of canonical business records requires a separately governed data-destruction contract/)
-assert.match(canonicalDoc, /Entity-specific lifecycle and deletion contracts are explicit below/)
+assert.match(canonicalDoc, /### Entity-specific contract/)
 
 // Relationship and odometer invariants are enforced at the canonical repository boundary.
 assert.match(shiftTripSource, /shiftId is required for a Trip/)
