@@ -4,6 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { istDateKey } from '../domain/time/ist.js'
 import { normalizeCalculationSnapshot } from '../application/performance/normalizeCalculationSnapshot.js'
+import { normalizeShiftInput, normalizeTripInput, normalizeFuelInput } from '../domain/canonicalNormalization.js'
 import { normalizeFormValues, validateAdminForm } from '../application/admin/universalFormRules.js'
 import { getAdminFormDefinition } from '../application/admin/adminFormDefinitions.js'
 
@@ -15,6 +16,9 @@ const adminSource = read('src/repositories/adminRepository.js')
 const shiftTripSource = read('src/repositories/shiftTripRepository.js')
 const fuelSource = read('src/repositories/fuelRepository.js')
 const mutationSource = read('src/repositories/mutationRepository.js')
+const normalizationSource = read('src/domain/canonicalNormalization.js')
+const breakEvenSource = read('src/domain/performance/authoritativeBreakEven.js')
+const targetSource = read('src/domain/performance/driverTargetStabilization.js')
 const authorityDoc = read('docs/CALCULATION-AUTHORITY-MATRIX.md')
 const canonicalDoc = read('docs/KFE-CANONICAL-DATA-CONTRACT.md')
 
@@ -28,8 +32,11 @@ assert.match(mutationSource, /id: generateUUID\(\)/)
 // comparisons must be calendar based rather than UTC-midnight based.
 assert.equal(istDateKey(new Date('2026-09-10T17:59:59Z')), '2026-09-10')
 assert.equal(istDateKey(new Date('2026-09-10T18:30:00Z')), '2026-09-11')
+assert.equal(istDateKey('2026-09-10'), '2026-09-10')
 assert.match(canonicalDoc, /BUSINESS DATE → IST date  → compare as calendar date/)
 assert.match(canonicalDoc, /Date-only values must not be converted through UTC midnight/)
+assert.match(breakEvenSource, /istDateKey/)
+assert.match(targetSource, /effectiveDateKey = x => keyOf\(x\?\.effectiveFrom/)
 
 // Normalization: aliases converge to canonical names and canonical values/types.
 const normalized = normalizeCalculationSnapshot({
@@ -60,19 +67,37 @@ assert.equal('fare' in normalized.trips[0], false)
 assert.equal('tenureYears' in normalized.loans[0], false)
 assert.equal(normalizeCalculationSnapshot({ trips: [{ trip_km: 'not-a-number' }] }).trips.length, 0)
 
+const shiftNormalized = normalizeShiftInput({ start_odometer: '1000', end_odometer: '1200', toll_cost: '50' })
+const tripNormalized = normalizeTripInput({ shiftId: 's1', trip_km: '18.4', fare: '327' })
+const fuelNormalized = normalizeFuelInput({ odometer_km: '1200', total_cost: '820', kg: '10', created_at: '2026-09-10T18:00:00+05:30' })
+assert.equal(shiftNormalized.startOdometer, 1000)
+assert.equal(shiftNormalized.endOdometer, 1200)
+assert.equal(shiftNormalized.toll, 50)
+assert.equal(tripNormalized.tripKm, 18.4)
+assert.equal(tripNormalized.revenue, 327)
+assert.equal(fuelNormalized.odometer, 1200)
+assert.equal(fuelNormalized.amount, 820)
+assert.equal(fuelNormalized.quantityKg, 10)
+assert.match(normalizationSource, /normalizeShiftInput/)
+assert.match(normalizationSource, /normalizeTripInput/)
+assert.match(normalizationSource, /normalizeFuelInput/)
+
 const vehicleDefinition = getAdminFormDefinition('vehicle')
 const vehicleNormalized = normalizeFormValues(vehicleDefinition, { registrationNumber: ' X ', make: 'A', model: 'B', acquiredOn: '2026-04-09', openingOdometerKm: '65000', fuelType: 'CNG', status: 'Active' })
 assert.equal(vehicleNormalized.registrationNumber, 'X')
 assert.equal(vehicleNormalized.openingOdometerKm, 65000)
 assert.equal(validateAdminForm(vehicleDefinition, vehicleNormalized).valid, true)
+assert.match(adminSource, /validateAdminForm\(definition, values\)/)
+assert.match(adminSource, /validateRelationships\(db, formKey, values\)/)
+assert.match(adminSource, /relationshipStore/)
 
-// Provenance and authority remain distinct: OCR/manual origin does not itself
-// grant authority; correction authority is explicitly field-level on Trip.
+// Provenance and authority remain distinct: origin does not itself grant
+// calculation authority; correction authority is explicitly field-level on Trip.
 assert.match(shiftTripSource, /trip\.tripKmAuthority = 'MANUAL'/)
 assert.match(shiftTripSource, /trip\.revenueAuthority = 'MANUAL'/)
-assert.match(shiftTripSource, /tripKmProvenance: data\.tripKmProvenance \?\? null/)
-assert.match(shiftTripSource, /revenueProvenance: data\.revenueProvenance \?\? null/)
-assert.match(fuelSource, /provenance: fuelData\.provenance \?\? null/)
+assert.match(shiftTripSource, /tripKmProvenance: normalized\.tripKmProvenance \?\? null/)
+assert.match(shiftTripSource, /revenueProvenance: normalized\.revenueProvenance \?\? null/)
+assert.match(fuelSource, /provenance: normalized\.provenance \?\? null/)
 assert.match(canonicalDoc, /provenance = where a value came from\?/)
 assert.match(canonicalDoc, /authority = can this value feed the calculation as authoritative\?/)
 
@@ -88,9 +113,14 @@ assert.doesNotMatch(fuelSource, /objectStore\([^)]*\)\.delete\(id\)/)
 assert.match(canonicalDoc, /An operational status transition must never be implemented as deletion/)
 assert.match(canonicalDoc, /Hard deletion of canonical business records requires a separately governed data-destruction contract/)
 
+// Relationship and odometer invariants are enforced at the canonical repository boundary.
+assert.match(shiftTripSource, /shiftId is required for a Trip/)
+assert.match(shiftTripSource, /endOdometer cannot be less than startOdometer/)
+assert.match(fuelSource, /must be a finite number/)
+
 // Revenue and odometer ownership: Trip revenue is the source of truth; Shift
 // revenue is only a representation; Shift odometers own vehicle movement.
-assert.match(shiftTripSource, /shift\.revenue = Number\(data\.revenue \|\| 0\)/)
+assert.match(shiftTripSource, /shift\.revenue = Number\(normalized\.revenue \|\| 0\)/)
 assert.match(canonicalDoc, /Shift-level `revenue` is an aggregate\/lifecycle representation only/)
 assert.match(canonicalDoc, /`Trip\.revenue` is the authoritative revenue input/)
 assert.match(authorityDoc, /Revenue.*trips/)
@@ -102,12 +132,10 @@ for (const store of requiredStores) assert.match(indexedDBSource, new RegExp(`['
 assert.match(canonicalDoc, /ShiftTripRepository/)
 assert.match(canonicalDoc, /FuelRepository/)
 assert.match(canonicalDoc, /MutationRepository/)
+assert.match(canonicalDoc, /AdminRepository/)
 
-// Supporting stores are infrastructure/supporting records, not replacement
-// business authorities.
-for (const store of ['days', 'odoGaps', 'gps_snapshots', 'movement_artifacts']) {
-  assert.match(indexedDBSource, new RegExp(`['"]${store}['"]`), `${store} must remain explicitly represented`)
-}
+// Supporting stores are infrastructure/supporting records, not replacement business authorities.
+for (const store of ['days', 'odoGaps', 'gps_snapshots', 'movement_artifacts']) assert.match(indexedDBSource, new RegExp(`['"]${store}['"]`), `${store} must remain explicitly represented`)
 assert.match(canonicalDoc, /supporting stores/i)
 
 // Mutation propagation remains part of the canonical write contract.
