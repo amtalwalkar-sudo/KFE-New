@@ -1,7 +1,6 @@
 import { PerformanceRepository } from '../../repositories/performanceRepository.js'
 import { derivePerformance, layerRows, previousRange } from '../../domain/performance/performanceEngineV2.js'
 import { deriveRollingDriverTarget } from '../../domain/performance/driverTargetStabilization.js'
-import { deriveAuthoritativeBreakEven } from '../../domain/performance/authoritativeBreakEven.js'
 import { normalizeCalculationSnapshot } from './normalizeCalculationSnapshot.js'
 import { istMonthRange } from '../../domain/time/ist.js'
 
@@ -14,7 +13,10 @@ export const PerformanceService = Object.freeze({
     const metrics = derivePerformance(calculationSnapshot, range, previousRange(range))
     const monthlyBreakEvenCache = new Map()
 
-    const monthlyBreakEvenForDay = ({ day }) => {
+    // The domain engine owns break-even calculation. This service helper only
+    // selects the authoritative monthly result for a target month; it never
+    // recalculates break-even independently.
+    const authoritativeMonthlyBreakEvenForDay = ({ day }) => {
       const monthRange = istMonthRange(day)
       if (!monthRange) return null
       const key = monthRange.from.toISOString().slice(0, 7)
@@ -34,7 +36,7 @@ export const PerformanceService = Object.freeze({
       .filter(x => !Number.isNaN(x.getTime()) && x >= range.from && x <= range.to)
       .sort((a, b) => b - a)[0]
 
-    const monthlyBreakEvenRevenue = currentDay ? monthlyBreakEvenForDay({ day: currentDay }) : null
+    const monthlyBreakEvenRevenue = currentDay ? authoritativeMonthlyBreakEvenForDay({ day: currentDay }) : null
     const stabilization = deriveRollingDriverTarget({
       trips: calculationSnapshot?.trips,
       shifts: calculationSnapshot?.shifts,
@@ -42,8 +44,8 @@ export const PerformanceService = Object.freeze({
       from: range.from,
       to: range.to,
       applicableBreakEven: monthlyBreakEvenRevenue,
-      historicalBreakEvenForDay: monthlyBreakEvenForDay,
-      applicableBreakEvenForDay: monthlyBreakEvenForDay,
+      historicalBreakEvenForDay: authoritativeMonthlyBreakEvenForDay,
+      applicableBreakEvenForDay: authoritativeMonthlyBreakEvenForDay,
     })
     const canonicalTarget = stabilization.available && Number.isFinite(stabilization.currentDailyTarget)
       ? stabilization.currentDailyTarget
