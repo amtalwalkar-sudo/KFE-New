@@ -11,10 +11,6 @@ export const PerformanceService = Object.freeze({
   getMetrics(snapshot, range) {
     const calculationSnapshot = normalizeCalculationSnapshot(snapshot)
     const metrics = derivePerformance(calculationSnapshot, range, previousRange(range))
-
-    // There is one break-even calculation. Historical target reconstruction asks
-    // the domain engine for the authoritative monthly result for that month; it
-    // does not reproduce the break-even formula here.
     const monthlyBreakEvenCache = new Map()
     const monthlyBreakEvenForDay = ({ day }) => {
       const monthRange = istMonthRange(day)
@@ -22,16 +18,13 @@ export const PerformanceService = Object.freeze({
       const key = monthRange.from.toISOString().slice(0, 7)
       if (monthlyBreakEvenCache.has(key)) return monthlyBreakEvenCache.get(key)
       const monthMetrics = derivePerformance(calculationSnapshot, monthRange, previousRange(monthRange))
-      const monthBreakEven = Number.isFinite(monthMetrics.breakEvenRevenue) ? monthMetrics.breakEvenRevenue : null
+      const monthBreakEven = Number.isFinite(monthMetrics.monthlyBreakEvenRevenue) ? monthMetrics.monthlyBreakEvenRevenue : null
       monthlyBreakEvenCache.set(key, monthBreakEven)
       return monthBreakEven
     }
 
-    // A Driver Target becomes a financial-day target only after a completed trip.
-    // Shifts remain an actual-economics source, but they do not manufacture a
-    // target-bearing day by themselves.
     const currentDay = [...(calculationSnapshot?.trips || [])]
-      .filter(x => !x?.deletedAt && x?.deleted !== true && x?.status === 'COMPLETED')
+      .filter(x => !x?.deletedAt && !x?.deleted && x?.status === 'COMPLETED')
       .map(x => new Date(x.tripEndAt || x.tripStartAt))
       .filter(x => !Number.isNaN(x.getTime()) && x >= range.from && x <= range.to)
       .sort((a, b) => b - a)[0]
@@ -81,8 +74,6 @@ export const PerformanceService = Object.freeze({
       driverTargetAllocatedBeforeCurrentDay: stabilization.targetAllocatedBeforeCurrentDay,
       driverTargetRemainingObligation: stabilization.remainingObligation,
       pace: {
-        // Pace compares like-for-like daily units only: actual revenue per
-        // financial day versus the current dynamic Driver Target per financial day.
         currentRevenuePerFinancialDay: metrics.revenuePerActiveDay,
         requiredRevenuePerFinancialDay: canonicalTarget,
         paceVariance: Number.isFinite(metrics.revenuePerActiveDay) && Number.isFinite(canonicalTarget)
