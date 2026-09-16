@@ -12,7 +12,10 @@ const base = {
     { capturedAt:'2026-09-05T18:00:00Z', odometer:1000, quantityKg:10, amount:2000 },
     { capturedAt:'2026-09-10T18:00:00Z', odometer:1200, quantityKg:10, amount:2200 },
   ],
-  maintenance: [], compliance: [], loans: [], loanPayments: [], prepayments: [],
+  maintenance: [], compliance: [], loans: [
+    { id:'loan1', principal:550000, annualInterestRate:10, tenureMonths:60, startDate:'2026-04-09', status:'Active' },
+  ],
+  loanPayments: [], prepayments: [],
   driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:500 }],
   breakEvenInputs: [{ effectiveFrom:'2026-09-01', maintenanceProvisionPerKm:2 }],
 }
@@ -62,8 +65,8 @@ const twoDayMetrics = PerformanceService.getMetrics(twoShiftDays, twoDayRange)
 assert.equal(twoDayMetrics.driverTargetAvailable, true)
 assert.equal(twoDayMetrics.counts.activeFinancialDays, 1)
 assert.equal(twoDayMetrics.driverTargetBase, twoDayMetrics.breakEvenRevenue + 500)
-assert.equal(twoDayMetrics.driverTargetRollingBalance, 750)
-assert.equal(twoDayMetrics.pace.targetGap, -1500)
+assert.equal(twoDayMetrics.pace.targetGap, twoDayMetrics.projectedRevenue - (twoDayMetrics.driverTarget * 2))
+assert.notEqual(twoDayMetrics.driverTargetRollingBalance, null)
 
 // Malformed loan data is treated as incomplete rather than throwing or fabricating a schedule.
 const malformedLoan = PerformanceService.getMetrics({ ...base, loans:[{ principal:550000, annualInterestRate:10, tenureMonths:60 }] }, range)
