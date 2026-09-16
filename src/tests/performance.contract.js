@@ -7,7 +7,7 @@ const snapshot = {
   shifts: [{ id:'s1', shiftStartAt:'2026-09-10T08:00:00Z', shiftEndAt:'2026-09-10T18:00:00Z', startOdometer:1000, endOdometer:1200, toll:100, parking:50 }],
   fuelLogs: [{ capturedAt:'2026-09-10T18:00:00Z', odometer:1200, quantityKg:10, amount:2200 }],
   maintenance: [{ performedOn:'2026-09-10', cost:300 }],
-  loan: { principal:550000, annualInterestRate:10, tenureYears:5 },
+  loan: { principal:550000, annualInterestRate:10, tenureYears:5, startDate:'2026-09-01' },
   renewals: [{ type:'insurance', validFrom:'2026-01-01', validUntil:'2026-12-31', cost:24000 }],
   breakEvenInputs: [{ effectiveFrom:'2026-09-01', maintenanceProvisionPerKm:3, active:true }],
   driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:1000, workingDays:2, active:true }],
