@@ -25,50 +25,58 @@ assert.equal(empty.driverTargetAvailable, false)
 assert.equal(empty.driverTarget, null)
 assert.equal(empty.completeness.breakEven, false)
 
-// Future records must not leak into an earlier actual-performance period.
+// Future records must not leak into an earlier actual-performance period or its
+// monthly break-even as-of boundary.
 const historical = derivePerformance(base, range)
 const futureFuel = { ...base, fuelLogs: [...base.fuelLogs, { capturedAt:'2026-09-11T18:00:00Z', odometer:1400, quantityKg:10, amount:10000 }] }
 const historicalWithFutureFuel = derivePerformance(futureFuel, range)
 assert.equal(historicalWithFutureFuel.fuelCostPerKm, historical.fuelCostPerKm)
-assert.equal(historicalWithFutureFuel.breakEvenRevenue, historical.breakEvenRevenue)
+assert.equal(historicalWithFutureFuel.monthlyBreakEvenRevenue, historical.monthlyBreakEvenRevenue)
 
 const futureOperational = { ...base, trips: [...base.trips, { id:'future', status:'COMPLETED', tripStartAt:'2026-09-11T09:00:00Z', tripEndAt:'2026-09-11T10:00:00Z', tripKm:500, revenue:99999 }] }
 const historicalWithFutureOperations = derivePerformance(futureOperational, range)
 assert.equal(historicalWithFutureOperations.revenue, historical.revenue)
 assert.equal(historicalWithFutureOperations.vehicleKm, historical.vehicleKm)
 
-// Soft-deleted source records are excluded from actual calculations.
+// Soft-deleted source records are excluded from actual calculations and financial-day classification.
 const deletedTrip = { ...base.trips[0], deletedAt:'2026-09-10T20:00:00Z', deleted:true }
-const withoutDeletedTrip = derivePerformance({ ...base, trips:[deletedTrip] }, range)
+const withoutDeletedTrip = PerformanceService.getMetrics({ ...base, trips:[deletedTrip] }, range)
 assert.equal(withoutDeletedTrip.revenue, 0)
-assert.equal(withoutDeletedTrip.businessKm, 0)
+assert.equal(withoutDeletedTrip.completeness.target, false)
+assert.equal(withoutDeletedTrip.driverTarget, null)
 
-// An active shift with zero completed trips still creates a target-bearing active day.
-const zeroRevenue = PerformanceService.getMetrics({ ...base, trips:[] }, range)
-assert.equal(zeroRevenue.driverTargetAvailable, true)
-assert.equal(zeroRevenue.counts.activeFinancialDays, 0)
-assert.equal(zeroRevenue.driverTargetBase, zeroRevenue.dailyBreakEvenRevenue + 250)
-assert.equal(zeroRevenue.dailyBreakEvenRevenue, zeroRevenue.monthlyBreakEvenRevenue / 2)
+// An active shift with zero completed trips is a holiday/non-financial day and
+// therefore does not manufacture a Driver Target.
+const holiday = PerformanceService.getMetrics({ ...base, trips:[] }, range)
+assert.equal(holiday.driverTargetAvailable, false)
+assert.equal(holiday.counts.activeFinancialDays, 0)
+assert.equal(holiday.driverTarget, null)
 
-// Target period math uses shift-defined active days, while the target amount itself
-// is derived from the authoritative monthly break-even and monthly desired profit.
-const twoShiftDays = {
+// Financial-day target calculation uses the same dynamic remaining-eligible-day
+// denominator for daily BE and Driver Target. Configured workingDays is ignored
+// as a competing divisor.
+const financialDay = PerformanceService.getMetrics(base, range)
+assert.equal(financialDay.driverTargetAvailable, true)
+assert.equal(financialDay.dailyBreakEvenRevenue, financialDay.monthlyBreakEvenRevenue / financialDay.driverTargetRemainingEligibleDays)
+assert.equal(financialDay.driverTargetBase, financialDay.dailyBreakEvenRevenue + 500 / financialDay.driverTargetRemainingEligibleDays)
+
+const workingDays2 = PerformanceService.getMetrics(base, range)
+const workingDays20 = PerformanceService.getMetrics({ ...base, driverTargets:[{ ...base.driverTargets[0], workingDays:20 }] }, range)
+assert.equal(workingDays2.driverTarget, workingDays20.driverTarget)
+
+// A known holiday between financial days consumes no target allocation; the
+// untouched monthly obligation is carried to the later eligible day.
+const withLaterFinancialDay = {
   ...base,
-  shifts: [
-    base.shifts[0],
-    { id:'s2', shiftStartAt:'2026-09-11T08:00:00Z', shiftEndAt:'2026-09-11T18:00:00Z', startOdometer:1200, endOdometer:1300, toll:0, parking:0 },
+  trips: [
+    base.trips[0],
+    { id:'later', status:'COMPLETED', tripStartAt:'2026-09-12T09:00:00Z', tripEndAt:'2026-09-12T10:00:00Z', tripKm:40, revenue:0 },
   ],
-  trips: [base.trips[0]],
 }
-const twoDayRange = { from:new Date('2026-09-10T00:00:00Z'), to:new Date('2026-09-11T23:59:59Z') }
-const twoDayMetrics = PerformanceService.getMetrics(twoShiftDays, twoDayRange)
-const day11Metrics = PerformanceService.getMetrics(twoShiftDays, { from:new Date('2026-09-11T00:00:00Z'), to:new Date('2026-09-11T23:59:59Z') })
-assert.equal(twoDayMetrics.driverTargetAvailable, true)
-assert.equal(twoDayMetrics.counts.activeFinancialDays, 1)
-assert.equal(day11Metrics.driverTargetBase, day11Metrics.dailyBreakEvenRevenue + 250)
-assert.equal(twoDayMetrics.driverTargetBase, day11Metrics.driverTargetBase)
-assert.equal(twoDayMetrics.pace.targetGap, twoDayMetrics.projectedRevenue - (twoDayMetrics.driverTarget * 2))
-assert.notEqual(twoDayMetrics.driverTargetRollingBalance, null)
+const later = PerformanceService.getMetrics(withLaterFinancialDay, { from:new Date('2026-09-10T00:00:00Z'), to:new Date('2026-09-12T23:59:59Z') })
+assert.equal(later.driverTargetAvailable, true)
+assert.ok(later.driverTarget > 0)
+assert.equal(later.driverTargetEffectiveMonthlyTarget, 500)
 
 // Malformed loan data is treated as incomplete rather than throwing or fabricating a schedule.
 const malformedLoan = PerformanceService.getMetrics({ ...base, loans:[{ principal:550000, annualInterestRate:10, tenureMonths:60 }] }, range)
