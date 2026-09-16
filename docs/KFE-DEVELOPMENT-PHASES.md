@@ -18,11 +18,11 @@ PHASE 5  Calculation & Performance Integration
    ↓
 PHASE 6  Dashboard / UX
    ↓
-PHASE 7  Backup & Restore
+PHASE 7  Capacitor / Android Integration
    ↓
-PHASE 8  Cloud Backup
+PHASE 8  Backup & Restore
    ↓
-PHASE 9  Multi-Device Sync
+PHASE 9  Cloud Backup / Sync
    ↓
 PHASE 10 Hardening / Release
 ```
@@ -33,8 +33,12 @@ PHASE 10 Hardening / Release
 - **Phase 2:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-2-FREEZE.md`; final verification CI #323 green.
 - **Phase 3:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-3-FREEZE.md`; provider-independent Ride Capture boundary preserved.
 - **Phase 4:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-4-FREEZE.md`; verification CI #332 green.
-- **Phase 5:** IN PROGRESS — Calculation & Performance Integration contract and focused authority coverage added.
-- **Phases 6–10:** remain in chronological order.
+- **Phase 5:** FROZEN — calculation/performance integration completed and verified through the full CI gate.
+- **Phase 6:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-6-FREEZE.md`.
+- **Phase 7:** COMPLETE — Capacitor / Android integration is present, contract-covered, synchronized from the production PWA build, and verified by the Android debug APK build in CI.
+- **Phase 8:** NEXT — Backup & Restore.
+- **Phase 9:** PENDING — Cloud Backup / Sync.
+- **Phase 10:** PENDING — Hardening / Release.
 
 ## Phase 0 — Baseline & Governance
 Establish the clean repository, CI, architecture, dependency, calculation-authority, and development-governance baseline. Exit: **MAIN BASELINE GREEN**.
@@ -63,14 +67,18 @@ Connect validated canonical records to the protected authoritative calculation c
 ## Phase 6 — Dashboard / UX
 Build production-facing screens consuming application/domain outputs without recreating business formulas in UI.
 
-## Phase 7 — Backup & Restore
+**Exit condition:** production PWA presentation layer is wired to the established application/domain boundaries and passes the full CI gate. Freeze recorded in `docs/KFE-PHASE-6-FREEZE.md`.
+
+## Phase 7 — Capacitor / Android Integration
+Wrap the verified production PWA in Capacitor without moving business authority into the native shell. The Android project consumes the production `dist` output, preserves the existing web application as the UI source, and includes the native Capacitor integrations already required by the application.
+
+**Exit condition:** Phase 7 integration contract passes; production PWA assets build successfully; `npx cap sync android` succeeds; Android debug APK builds successfully in CI.
+
+## Phase 8 — Backup & Restore
 Implement complete managed local backup/restore, validation, versioning, migration compatibility, and safe restoration.
 
-## Phase 8 — Cloud Backup
-Add provider-independent cloud backup with daily automatic and manual backup while preserving local-first operation.
-
-## Phase 9 — Multi-Device Sync
-Implement authorized multi-device synchronization, offline queues, conflict handling, deletion propagation, retries, and convergence.
+## Phase 9 — Cloud Backup / Sync
+Add provider-independent cloud backup/sync while preserving local-first operation and the established provider-independent application/domain boundaries.
 
 ## Phase 10 — Hardening / Release
 Complete full-system testing, migration/corruption/offline/large-history testing, security/performance review, PWA/Capacitor/Android release validation, and release procedures. Exit: **RELEASE CANDIDATE**.
