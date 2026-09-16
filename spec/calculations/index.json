@@ -1,10 +1,44 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "calculations": {
-    "profitability": {
+    "financialModel": {
       "version": 1,
-      "formula": "revenue - (fuel + maintenanceProvision + fixedOverhead + loanPrincipal + loanInterest + otherBusinessCosts)",
-      "target": "js/domain/dashboard.js"
+      "layers": {
+        "revenue": {
+          "definition": "Revenue from validated completed trip records only.",
+          "formula": "sum(completedTrip.revenue)",
+          "authority": "COMPLETED_TRIP_RECORDS"
+        },
+        "operatingCost": {
+          "definition": "Actual operating costs recorded for the reporting period.",
+          "formula": "fuel + toll + parking + actualMaintenance",
+          "authority": "FUEL_LOGS_PLUS_SHIFT_TOLL_PARKING_PLUS_ACTUAL_MAINTENANCE"
+        },
+        "operatingProfit": {
+          "definition": "Revenue remaining after actual operating costs.",
+          "formula": "revenue - operatingCost"
+        },
+        "provisionAdjustedProfit": {
+          "definition": "Operating profit after planned provisions for future defined costs. Financing payments are not included in this profit layer.",
+          "formula": "operatingProfit - maintenanceProvision - renewalProvision - otherProvision",
+          "authority": "MAINTENANCE_PROVISION_PLUS_COMPLIANCE_VALIDITY_AND_COST_PLUS_DEFINED_OTHER_PROVISIONS"
+        },
+        "financingCash": {
+          "definition": "Cash remaining after actual loan payments. Loan principal and interest remain separately reported by the loan calculation.",
+          "formula": "operatingProfit - actualLoanPaid",
+          "authority": "LOAN_PAYMENT_RECORDS"
+        }
+      },
+      "scheduledFinancing": {
+        "definition": "Loan obligation scheduled for the reporting period; it is reported separately and is not silently treated as profit expense or cash paid.",
+        "authority": "LOAN_AMORTIZATION_SCHEDULE"
+      },
+      "loanComponents": {
+        "rule": "Amortization separates principal and interest; prepayment has zero prepayment charge. Principal, interest, scheduled obligation, and actual payment remain separately visible."
+      },
+      "unmodeledOtherBusinessCosts": {
+        "rule": "No unsupported other-business-cost amount is invented. A future authoritative input must be added before such costs enter the financial model."
+      }
     },
     "fuelCostPerKm": {
       "version": 1,
