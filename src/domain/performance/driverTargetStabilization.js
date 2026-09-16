@@ -14,18 +14,23 @@ const applies = (x, day) => {
 }
 const latestForDay = (xs, day) => live(xs).filter(x => applies(x, day)).sort((a, b) => String(b.effectiveFrom || b.startDate || '').localeCompare(String(a.effectiveFrom || a.startDate || '')))[0] || null
 const desiredDriverProfit = record => finite(record?.desiredDriverProfit ?? record?.desiredTakeHome ?? record?.desiredProfit)
-
-// The stabilization API operates in active-day units. The applicable break-even
-// passed to it must therefore be the break-even for that active day. workingDays
-// is descriptive period metadata and must not divide the authoritative target.
-const baseDailyFor = (record, applicableBreakEven = null) => {
-  const desiredProfit = desiredDriverProfit(record)
-  const breakEven = finite(applicableBreakEven)
-  if (desiredProfit == null || breakEven == null) return null
-  return finite(breakEven + desiredProfit)
+const workingDays = record => {
+  const value = finite(record?.workingDays ?? record?.targetWorkingDays ?? record?.activeWorkingDays)
+  return value != null && value > 0 ? value : null
 }
 
-export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTargets = [], from, to, applicableBreakEven = null, historicalBreakEvenForDay = null } = {}) {
+// The authoritative target inputs are monthly amounts. Daily guidance is derived
+// from the applicable monthly break-even and monthly desired profit using the
+// configured working-day count for that driver-target period.
+const baseDailyFor = (record, monthlyBreakEven = null) => {
+  const desiredProfit = desiredDriverProfit(record)
+  const breakEven = finite(monthlyBreakEven)
+  const days = workingDays(record)
+  if (desiredProfit == null || breakEven == null || days == null) return null
+  return finite((breakEven + desiredProfit) / days)
+}
+
+export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTargets = [], from, to, applicableBreakEven = null, historicalBreakEvenForDay = null, applicableBreakEvenForDay = null } = {}) {
   const start = dateOf(from), end = dateOf(to)
   if (!start || !end || end < start) return { available: false, reason: 'INVALID_PERIOD', balanceBefore: null, currentDailyTarget: null, currentBaseDaily: null }
   const completed = live(trips).filter(x => x.status === 'COMPLETED')
@@ -90,15 +95,12 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     const day = dateOf(dayKey)
     const record = latestForDay(driverTargets, day)
     if (!record) continue
-    // Current active days use the authoritative break-even for the requested
-    // performance period. Historical per-day break-even is only for recovery
-    // balance calculations before the requested period.
-    const dayBreakEven = applicableBreakEven
+    const dayBreakEven = typeof applicableBreakEvenForDay === 'function'
+      ? applicableBreakEvenForDay({ record, day })
+      : applicableBreakEven
     const baseDaily = baseDailyFor(record, dayBreakEven)
     if (baseDaily == null) continue
     currentBaseDaily = baseDaily
-    // Kept for API compatibility; it is explicitly a daily amount, not a
-    // multi-day period total and is therefore not divided by workingDays.
     currentPeriodBaseTarget = baseDaily
     currentDailyTarget = baseDaily + balance
     balanceBeforeCurrent = balance
