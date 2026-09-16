@@ -156,7 +156,7 @@ assert.match(canonicalDoc, /supporting\/infrastructure stores/i)
 assert.match(canonicalDoc, /Historical\/as-of resolution must compare the business date in IST/)
 assert.match(breakEvenSource, /istDateKey/)
 assert.match(targetSource, /effectiveDateKey/)
-assert.match(canonicalDoc, /effective-date history/)
+assert.match(canonicalDoc, /Effective-date and validity comparisons use IST calendar-date semantics/)
 
 // Mutation propagation remains part of the canonical write contract.
 assert.match(adminSource, /notifyCanonicalDataChanged/)
