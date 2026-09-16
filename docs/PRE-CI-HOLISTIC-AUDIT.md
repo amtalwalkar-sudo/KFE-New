@@ -46,7 +46,7 @@ Every calculation is checked for authority, source lineage, period, unit, sign, 
 | 1 | Persistence | 🟢 | Canonical calculation snapshot reads canonical stores through repositories; no duplicate calculation DB is used by Performance. |
 | 2 | Normalization | 🟢 | Persisted compatibility aliases are resolved at the application normalization boundary and removed from normalized records. |
 | 3 | Actual economics | 🟢 | Revenue, vehicle KM, business KM, dead KM, fuel, maintenance, toll, parking, financing and renewal have identified calculation owners. |
-| 4 | Monthly break-even | 🟢 | `deriveAuthoritativeBreakEven()` is the monthly BE formula owner; daily BE is derived from that result. |
+| 4 | Monthly break-even | 🟢 | `deriveAuthoritativeBreakEven()` is the monthly BE formula owner; the service no longer makes BE availability depend on a completed trip day. |
 | 5 | Driver Target | 🟢 | Monthly BE + monthly desired driver profit + opening rolling balance is the effective monthly obligation. |
 | 6 | Rolling balance | 🟢 | Closed-month variance rolls; active-month variance remains provisional. |
 | 7 | Daily representation | 🟢 | Dynamic remaining eligible days are used; `workingDays` is not a competing divisor. |
@@ -54,11 +54,15 @@ Every calculation is checked for authority, source lineage, period, unit, sign, 
 | 9 | UI / architecture | 🟢 | Performance UI consumes `PerformanceService`; persistence remains behind repository/application boundaries. |
 | 10 | Adversarial / end-to-end | 🟡 | Core adversarial contracts are present, but the final repo-wide arithmetic classification and exhaustive mutation-path audit are still open. |
 
-## First closure pass completed
+## Closure pass completed
 
 ### As-of reporting purity — CLOSED
 
 `performanceEngineV2` no longer uses wall-clock `Date.now()` for `elapsedDays`. Reporting metadata is now derived entirely from the selected IST-bounded reporting range, so historical/custom calculations are deterministic and isolated from the machine clock.
+
+### Monthly break-even independence — CLOSED
+
+`PerformanceService` now consumes the authoritative monthly BE produced by the domain engine even when the selected period contains zero completed trips. A financial trip day is required for Driver Target availability, but it is not a prerequisite for the monthly break-even business requirement. An adversarial contract now locks this distinction.
 
 ### Stale duplicate calculation services — CLOSED
 
@@ -68,6 +72,10 @@ Removed:
 - `src/services/revenueReconciliationService.js`
 
 The first independently calculated vehicle/inter-shift mileage from an obsolete repository and the second used obsolete shift/`uberRevenue` reconciliation semantics. The architecture contract now explicitly prevents either path from being reintroduced.
+
+### Arithmetic boundary guard — ADDED
+
+A new `calculationArithmetic.contract.js` is part of the standard test gate. It checks presentation/domain boundaries for known financial-authority arithmetic, legacy target aliases, wall-clock use in domain calculations, and the single monthly BE formula owner.
 
 ## Confirmed architectural chain
 
