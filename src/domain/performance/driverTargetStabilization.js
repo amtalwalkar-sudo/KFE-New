@@ -90,9 +90,10 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     const day = dateOf(dayKey)
     const record = latestForDay(driverTargets, day)
     if (!record) continue
-    const dayBreakEven = typeof historicalBreakEvenForDay === 'function'
-      ? historicalBreakEvenForDay({ record, day })
-      : applicableBreakEven
+    // Current active days use the authoritative break-even for the requested
+    // performance period. Historical per-day break-even is only for recovery
+    // balance calculations before the requested period.
+    const dayBreakEven = applicableBreakEven
     const baseDaily = baseDailyFor(record, dayBreakEven)
     if (baseDaily == null) continue
     currentBaseDaily = baseDaily
