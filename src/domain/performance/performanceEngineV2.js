@@ -1,6 +1,6 @@
 import { calculateRollingFuelCostPerKm } from '../math/fuel.js'
 import { deriveAuthoritativeBreakEven } from './authoritativeBreakEven.js'
-import { istDateKey, istMonthRange } from '../time/ist.js'
+import { istDateKey, istMonthRange, addIstMonths } from '../time/ist.js'
 
 const n = v => Number.isFinite(Number(v)) ? Number(v) : 0
 const d = v => { const x = v ? new Date(v) : null; return x && !Number.isNaN(x.getTime()) ? x : null }
@@ -21,7 +21,7 @@ const loan = (loans, pays, pre, r) => {
   const emi = monthlyRate ? P * monthlyRate * Math.pow(1 + monthlyRate, T) / (Math.pow(1 + monthlyRate, T) - 1) : P / T
   let bal = P, scheduled = 0, principal = 0, interest = 0, previousDate = d(l.startDate)
   for (let i = 0; i < T && bal > 0; i += 1) {
-    const due = new Date(previousDate); due.setUTCMonth(due.getUTCMonth() + 1)
+    const due = addIstMonths(previousDate, 1)
     const actualDays = Math.max(1, Math.ceil((due - previousDate) / 86400000))
     const int = bal * annualRate * actualDays / 365
     const pr = Math.min(bal, Math.max(0, emi - int))
