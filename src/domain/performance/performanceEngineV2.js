@@ -68,7 +68,7 @@ export function derivePerformance(s, r, p = previousRange(r)) {
   })
   const maintenanceRate = authoritativeBreakEven.available ? authoritativeBreakEven.maintenanceProvisionPerKm : NaN
   const maintenanceProvision = a.vehicleKm * maintenanceRate, provision = maintenanceProvision + ren, prevMaintenanceProvision = q.vehicleKm * maintenanceRate, prevProvision = prevMaintenanceProvision + pren
-  const wd = days(r.from, r.to), elapsed = Math.max(1, Math.min(wd, Math.ceil((Math.min(Date.now(), r.to) - r.from) / 86400000))), activeDays = new Set(a.tr.map(x => istDateKey(d(x.tripEndAt || x.tripStartAt))).filter(Boolean)).size, prevActive = new Set(q.tr.map(x => istDateKey(d(x.tripEndAt || x.tripStartAt))).filter(Boolean)).size
+  const wd = days(r.from, r.to), elapsed = wd, activeDays = new Set(a.tr.map(x => istDateKey(d(x.tripEndAt || x.tripStartAt))).filter(Boolean)).size, prevActive = new Set(q.tr.map(x => istDateKey(d(x.tripEndAt || x.tripStartAt))).filter(Boolean)).size
   const perDay = activeDays ? a.revenue / activeDays : NaN
   const monthlyBreakEvenRevenue = authoritativeBreakEven.available ? authoritativeBreakEven.monthlyBreakEvenRevenue : NaN
   const actualLoanPaid = ln.ok ? ln.paid : 0, actualPrepayment = ln.ok ? ln.prepaid : 0, actualFinancingOutflow = ln.ok ? ln.actualFinancingOutflow : 0
