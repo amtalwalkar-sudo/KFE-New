@@ -94,6 +94,12 @@ Complete full-system testing, migration and corruption testing, offline/large-hi
 
 Exit condition: **RELEASE CANDIDATE**.
 
+## Current phase status
+
+- **Phase 0:** COMPLETE — main baseline green.
+- **Phase 1:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-1-FREEZE.md`; final verification CI #317 green.
+- **Phase 2:** IN PROGRESS — local-first persistence contract and contract coverage are being completed under the bounded phase protocol.
+
 ## Efficient phase execution protocol
 
 Every phase uses one bounded engineering cycle rather than a serial fix/test loop:
