@@ -18,6 +18,7 @@ const suites = [
   'integrity.contract.js',
   'calculationBoundary.confirmed.contract.js',
   'calculationBoundary.adversarial.contract.js',
+  'boundaryRegression.contract.js',
   'calculationAuthority.contract.js',
   'calculationArithmetic.contract.js',
   'calculationInvalidation.contract.js'
