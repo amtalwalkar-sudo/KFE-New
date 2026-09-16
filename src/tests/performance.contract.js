@@ -57,6 +57,7 @@ near(higherProfitTargetMetrics.driverTarget - serviceMetrics.driverTarget, 4000 
 
 const historicalBaseSnapshot = {
   ...snapshot,
+  loan: { ...snapshot.loan, startDate:'2026-04-09' },
   shifts: [
     { id:'historical', shiftStartAt:'2026-08-05T08:00:00Z', shiftEndAt:'2026-08-05T18:00:00Z', startOdometer:600, endOdometer:800, toll:0, parking:0 },
     ...snapshot.shifts,
