@@ -15,7 +15,7 @@ const snapshot = {
   loans: [{ id:'loan1', principal:550000, annualInterestRate:10, tenureMonths:60, startDate:'2026-04-01', status:'Closed' }],
   loanPayments: [{ loanId:'loan1', paidOn:'2026-09-05', amount:12000, charges:100, status:'Paid' }],
   prepayments: [{ loanId:'loan1', paidOn:'2026-09-15', amount:5000, status:'Applied' }],
-  driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', targetRevenue:2000, active:true }],
+  driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:2000, active:true }],
   breakEvenInputs: [{ effectiveFrom:'2026-09-01', maintenanceProvisionPerKm:2, active:true }]
 }
 const m = derivePerformance(snapshot, range, previousRange(range))
@@ -45,7 +45,11 @@ assert.equal(m.authority.deadKm, 'VEHICLE_KM_MINUS_BUSINESS_KM')
 
 const serviceMetrics = PerformanceService.getMetrics(snapshot, range)
 assert.ok(Number.isFinite(serviceMetrics.driverTarget))
-assert.equal(serviceMetrics.driverTarget, 2000 / 30)
+assert.equal(serviceMetrics.driverTarget, (m.breakEvenRevenue + 2000) / 30)
 assert.equal(serviceMetrics.pace.requiredRevenuePerActiveDay, serviceMetrics.driverTarget)
 
-console.log('Performance contract passed: canonical sources, vehicle-KM economics, full-tank fuel cost, actual maintenance, actual financing cash flow, provisions, break-even and stabilized driver target wiring are covered.')
+const missingTargetInput = PerformanceService.getMetrics({ ...snapshot, driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', targetRevenue:2000, active:true }] }, range)
+assert.equal(missingTargetInput.driverTargetAvailable, false)
+assert.equal(missingTargetInput.driverTarget, null)
+
+console.log('Performance contract passed: canonical sources, vehicle-KM economics, full-tank fuel cost, actual maintenance, actual financing cash flow, provisions, break-even and authoritative stabilized driver target wiring are covered.')
