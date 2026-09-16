@@ -13,8 +13,8 @@ export const initializeApplication = async () => {
   await platform.initializeStorage()
   await platform.registerServiceWorker()
   await BackupService.maybeDailyLocalBackup()
-  await CloudBackupLifecycle.registerDailyCloudBackupSchedule()
-  await CloudBackupLifecycle.maybeDailyCloudBackup()
+  try { await CloudBackupLifecycle.registerDailyCloudBackupSchedule() } catch (error) { console.warn('KFE cloud backup schedule registration failed:', error) }
+  try { await CloudBackupLifecycle.maybeDailyCloudBackup() } catch (error) { console.warn('KFE cloud backup lifecycle failed:', error) }
   await MutationRepository.recoverStaleSyncing()
   return { ready: true }
 }
