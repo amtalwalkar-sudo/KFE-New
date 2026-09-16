@@ -37,8 +37,8 @@ PHASE 10 Hardening / Release
 - **Phase 6:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-6-FREEZE.md`.
 - **Phase 7:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-7-FREEZE.md`; full verification CI #341 green.
 - **Phase 8:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-8-FREEZE.md`; managed local backup/restore is complete and contract-covered.
-- **Phase 9:** COMPLETE — provider-independent cloud backup/sync orchestration is implemented and contract-covered; cloud providers remain replaceable infrastructure adapters and local-first operation remains authoritative.
-- **Phase 10:** PENDING — Hardening / Release.
+- **Phase 9:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-9-FREEZE.md`; provider-independent cloud backup/sync orchestration is complete and contract-covered.
+- **Phase 10:** IN PROGRESS — Hardening / Release; dedicated release gate added and full CI verification running.
 
 ## Phase 0 — Baseline & Governance
 Establish the clean repository, CI, architecture, dependency, calculation-authority, and development-governance baseline. Exit: **MAIN BASELINE GREEN**.
@@ -85,7 +85,9 @@ Add provider-independent cloud backup/sync while preserving local-first operatio
 **Exit condition:** cloud backup lifecycle and provider-independent sync orchestration are contract-covered, online/offline behavior is explicit, local mutations are acknowledged/removed only after successful provider acknowledgement, failures remain retryable, pulled changes cross an explicit application boundary, and the full CI gate passes.
 
 ## Phase 10 — Hardening / Release
-Complete full-system testing, migration/corruption/offline/large-history testing, security/performance review, PWA/Capacitor/Android release validation, and release procedures. Exit: **RELEASE CANDIDATE**.
+Complete full-system testing, migration/corruption/offline/large-history testing, security/performance review, PWA/Capacitor/Android release validation, and release procedures.
+
+**Exit condition:** dedicated Phase 10 hardening/release gate passes together with the full contract suite, production PWA build, Capacitor Android synchronization, and Android debug APK build, establishing the **RELEASE CANDIDATE** baseline.
 
 ## Efficient phase execution protocol
 ```text
