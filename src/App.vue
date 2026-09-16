@@ -16,6 +16,7 @@ onMounted(async () => {
     await ShellService.initialize()
     storageReady.value = true
     try { await BackupService.maybeDailyLocalBackup() } catch (error) { console.warn('KFE daily local backup checkpoint failed:', error) }
+    void CloudBackupLifecycle.registerDailyCloudBackupSchedule()
     void CloudBackupLifecycle.maybeDailyCloudBackup().catch(error => console.warn('KFE cloud backup lifecycle failed:', error))
   } catch (e) { console.error('Application shell initialization failed:', e); storageError.value = e?.message || 'Application initialization failed.' }
 })
