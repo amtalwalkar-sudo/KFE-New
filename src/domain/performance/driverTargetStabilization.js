@@ -34,7 +34,7 @@ const baseDailyFor = (record, applicableBreakEven = null) => {
   return finite(periodTarget) == null ? null : finite(periodTarget / periodDays(record))
 }
 
-export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTargets = [], from, to, applicableBreakEven = null } = {}) {
+export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTargets = [], from, to, applicableBreakEven = null, historicalBreakEvenForDay = null } = {}) {
   const start = dateOf(from), end = dateOf(to)
   if (!start || !end || end < start) return { available: false, reason: 'INVALID_PERIOD', balanceBefore: null, currentDailyTarget: null, periodBaseTarget: null }
   const completed = live(trips).filter(x => x.status === 'COMPLETED')
@@ -57,7 +57,10 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     if (!day || day >= start) break
     const record = latestForDay(driverTargets, day)
     if (!record) continue
-    const baseDaily = baseDailyFor(record)
+    const historicalBreakEven = typeof historicalBreakEvenForDay === 'function'
+      ? historicalBreakEvenForDay({ record, day })
+      : null
+    const baseDaily = baseDailyFor(record, historicalBreakEven)
     if (baseDaily == null) {
       historicalBalanceComplete = false
       break
