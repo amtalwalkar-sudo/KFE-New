@@ -42,15 +42,33 @@ assert.ok(Number.isFinite(m.breakEvenRevenue))
 assert.ok(Number.isFinite(m.loanScheduledObligation))
 assert.ok(Number.isFinite(m.actualLoanPaid))
 assert.equal(m.authority.deadKm, 'VEHICLE_KM_MINUS_BUSINESS_KM')
+assert.equal(m.authority.breakEven, 'BREAK_EVEN_INPUTS_PLUS_CANONICAL_PERFORMANCE_COSTS')
+assert.equal(m.breakEvenInputs.maintenanceProvisionPerKm, 3)
 
 const serviceMetrics = PerformanceService.getMetrics(snapshot, range)
 assert.ok(Number.isFinite(serviceMetrics.breakEvenRevenue))
 assert.equal(serviceMetrics.breakEvenInputs.maintenanceProvisionPerKm, 3)
-assert.equal(serviceMetrics.breakEvenRevenue, m.breakEvenRevenue + 200)
+assert.equal(serviceMetrics.breakEvenRevenue, m.breakEvenRevenue)
 assert.equal(serviceMetrics.authority.breakEven, 'BREAK_EVEN_INPUTS_PLUS_CANONICAL_PERFORMANCE_COSTS')
 assert.ok(Number.isFinite(serviceMetrics.driverTarget))
 assert.equal(serviceMetrics.driverTarget, (serviceMetrics.breakEvenRevenue + 2000) / 30)
 assert.equal(serviceMetrics.pace.requiredRevenuePerActiveDay, serviceMetrics.driverTarget)
+
+const changedInput = { ...snapshot, breakEvenInputs: [{ effectiveFrom:'2026-09-01', maintenanceProvisionPerKm:4, active:true }] }
+const changedEngineMetrics = derivePerformance(changedInput, range, previousRange(range))
+const changedServiceMetrics = PerformanceService.getMetrics(changedInput, range)
+assert.equal(changedEngineMetrics.breakEvenRevenue - m.breakEvenRevenue, 200)
+assert.equal(changedServiceMetrics.breakEvenRevenue - serviceMetrics.breakEvenRevenue, 200)
+assert.equal(changedEngineMetrics.breakEvenRevenue, changedServiceMetrics.breakEvenRevenue)
+
+const missingMaintenanceInput = { ...snapshot, breakEvenInputs: [{ effectiveFrom:'2026-09-01', active:true }] }
+const missingEngineMetrics = derivePerformance(missingMaintenanceInput, range, previousRange(range))
+const missingServiceMetrics = PerformanceService.getMetrics(missingMaintenanceInput, range)
+assert.equal(missingEngineMetrics.completeness.breakEven, false)
+assert.equal(missingEngineMetrics.breakEvenRevenue, NaN)
+assert.equal(missingServiceMetrics.completeness.breakEven, false)
+assert.equal(missingServiceMetrics.driverTargetAvailable, false)
+assert.equal(missingServiceMetrics.driverTarget, null)
 
 const missingBreakEvenInput = PerformanceService.getMetrics({ ...snapshot, breakEvenInputs: [] }, range)
 assert.equal(missingBreakEvenInput.completeness.breakEven, false)
@@ -61,4 +79,4 @@ const missingTargetInput = PerformanceService.getMetrics({ ...snapshot, driverTa
 assert.equal(missingTargetInput.driverTargetAvailable, false)
 assert.equal(missingTargetInput.driverTarget, null)
 
-console.log('Performance contract passed: canonical sources, vehicle-KM economics, full-tank fuel cost, actual maintenance, actual financing cash flow, provisions, authoritative break-even inputs and stabilized driver target wiring are covered.')
+console.log('Performance contract passed: canonical sources, engine/service break-even parity, configurable break-even inputs, no maintenance fallback, full-tank fuel cost, financing cash flow, provisions and stabilized driver target wiring are covered.')
