@@ -35,8 +35,8 @@ PHASE 10 Hardening / Release
 - **Phase 4:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-4-FREEZE.md`; verification CI #332 green.
 - **Phase 5:** FROZEN — calculation/performance integration completed and verified through the full CI gate.
 - **Phase 6:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-6-FREEZE.md`.
-- **Phase 7:** COMPLETE — Capacitor / Android integration is present, contract-covered, synchronized from the production PWA build, and verified by the Android debug APK build in CI.
-- **Phase 8:** NEXT — Backup & Restore.
+- **Phase 7:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-7-FREEZE.md`; full verification CI #341 green.
+- **Phase 8:** COMPLETE — managed local backup/restore is implemented and contract-covered; validation, version migration compatibility, complete canonical-store snapshots, local recovery copies, file export/import, and confirmed replacement restore are verified.
 - **Phase 9:** PENDING — Cloud Backup / Sync.
 - **Phase 10:** PENDING — Hardening / Release.
 
@@ -76,6 +76,8 @@ Wrap the verified production PWA in Capacitor without moving business authority 
 
 ## Phase 8 — Backup & Restore
 Implement complete managed local backup/restore, validation, versioning, migration compatibility, and safe restoration.
+
+**Exit condition:** a complete canonical snapshot can be validated/serialized, exported to and imported from a file, retained as a local recovery copy, restored only after validation and explicit confirmation at the UI boundary, and atomically written to the canonical local database with a recovery copy refreshed from the restored dataset.
 
 ## Phase 9 — Cloud Backup / Sync
 Add provider-independent cloud backup/sync while preserving local-first operation and the established provider-independent application/domain boundaries.
