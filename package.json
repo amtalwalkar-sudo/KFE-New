@@ -21,7 +21,6 @@
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
-    "@capacitor/android": "^8.5.1",
     "@capacitor/cli": "^8.5.1",
     "@playwright/test": "^1.55.0",
     "@vitejs/plugin-vue": "^6.0.1",
