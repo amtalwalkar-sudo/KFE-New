@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { derivePerformance, previousRange } from '../domain/performance/performanceEngineV2.js'
 
+const near = (actual, expected, message) => assert.ok(Math.abs(actual - expected) < 1e-10, `${message || 'values differ'}: ${actual} !== ${expected}`)
+
 const snapshot = {
   trips: [{ id:'t1', status:'COMPLETED', tripStartAt:'2026-09-10T09:00:00Z', tripEndAt:'2026-09-10T12:00:00Z', tripKm:150, revenue:1000 }],
   shifts: [{ id:'s1', shiftStartAt:'2026-09-10T08:00:00Z', shiftEndAt:'2026-09-10T18:00:00Z', startOdometer:1000, endOdometer:1200, toll:100, parking:50 }],
@@ -18,34 +20,27 @@ const snapshot = {
   driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:1000, active:true }],
 }
 
-const engineSnapshot = {
-  ...snapshot,
-  loans: [{ ...snapshot.loan, tenureMonths: snapshot.loan.tenureYears * 12 }],
-  compliance: snapshot.renewals,
-}
-
+const engineSnapshot = { ...snapshot, loans: [{ ...snapshot.loan, tenureMonths: snapshot.loan.tenureYears * 12 }], compliance: snapshot.renewals }
 const range = { from: new Date('2026-09-10T00:00:00Z'), to: new Date('2026-09-10T23:59:59Z') }
 const m = derivePerformance(engineSnapshot, range, previousRange(range))
 const serviceMetrics = PerformanceService.getMetrics(snapshot, range)
+
 assert.equal(serviceMetrics.driverTargetAvailable, true)
 assert.equal(serviceMetrics.driverTarget, serviceMetrics.target)
-assert.equal(serviceMetrics.driverTarget, serviceMetrics.driverTargetBase + serviceMetrics.driverTargetRecoveryAdjustment)
+near(serviceMetrics.driverTarget, serviceMetrics.driverTargetBase + serviceMetrics.driverTargetRecoveryAdjustment, 'target decomposition')
 assert.equal(serviceMetrics.completeness.target, true)
 assert.ok(Number.isFinite(serviceMetrics.breakEvenRevenue))
 assert.equal(serviceMetrics.breakEvenRevenue, serviceMetrics.monthlyBreakEvenRevenue)
 assert.ok(Number.isFinite(serviceMetrics.monthlyBreakEvenRevenue))
 assert.ok(Number.isFinite(serviceMetrics.driverTargetRemainingEligibleDays))
-assert.equal(serviceMetrics.dailyBreakEvenRevenue, serviceMetrics.monthlyBreakEvenRevenue / serviceMetrics.driverTargetRemainingEligibleDays)
-assert.equal(serviceMetrics.driverTargetBase, serviceMetrics.dailyBreakEvenRevenue + 1000 / serviceMetrics.driverTargetRemainingEligibleDays)
-assert.equal(serviceMetrics.driverTargetEffectiveMonthlyTarget, serviceMetrics.driverTargetBase * serviceMetrics.driverTargetRemainingEligibleDays + serviceMetrics.driverTargetAllocatedBeforeCurrentDay)
+near(serviceMetrics.dailyBreakEvenRevenue, serviceMetrics.monthlyBreakEvenRevenue / serviceMetrics.driverTargetRemainingEligibleDays, 'daily BE derivation')
+near(serviceMetrics.driverTargetBase, serviceMetrics.dailyBreakEvenRevenue + 1000 / serviceMetrics.driverTargetRemainingEligibleDays, 'base target derivation')
+near(serviceMetrics.driverTargetEffectiveMonthlyTarget, serviceMetrics.driverTargetBase * serviceMetrics.driverTargetRemainingEligibleDays + serviceMetrics.driverTargetAllocatedBeforeCurrentDay, 'effective monthly target reconstruction')
 
-const manualDailyTargetInput = {
-  ...snapshot,
-  driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:1000, dailyTarget:1, targetPerActiveDay:2, active:true }],
-}
+const manualDailyTargetInput = { ...snapshot, driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:1000, dailyTarget:1, targetPerActiveDay:2, active:true }] }
 const manualDailyTargetMetrics = PerformanceService.getMetrics(manualDailyTargetInput, range)
 assert.equal(manualDailyTargetMetrics.driverTargetAvailable, true)
-assert.equal(manualDailyTargetMetrics.target, serviceMetrics.driverTarget)
+near(manualDailyTargetMetrics.target, serviceMetrics.driverTarget, 'manual daily target must be ignored')
 
 const higherProfitTargetMetrics = PerformanceService.getMetrics({
   ...snapshot,
@@ -58,7 +53,7 @@ for (const key of [
   'provisionAdjustedProfit', 'availableCash', 'breakEvenRevenue', 'monthlyBreakEvenRevenue',
   'dailyBreakEvenRevenue',
 ]) assert.equal(higherProfitTargetMetrics[key], serviceMetrics[key], `target input changed actual metric: ${key}`)
-assert.equal(higherProfitTargetMetrics.driverTarget - serviceMetrics.driverTarget, 4000 / serviceMetrics.driverTargetRemainingEligibleDays)
+near(higherProfitTargetMetrics.driverTarget - serviceMetrics.driverTarget, 4000 / serviceMetrics.driverTargetRemainingEligibleDays, 'desired profit delta')
 
 const historicalBaseSnapshot = {
   ...snapshot,
@@ -90,48 +85,39 @@ assert.ok(historicalDeficitMetrics.driverTargetAvailable, JSON.stringify(histori
 assert.ok(Number.isFinite(historicalDeficitMetrics.driverTargetRollingBalance), JSON.stringify(historicalDeficitMetrics))
 assert.ok(historicalDeficitMetrics.driverTarget > historicalDeficitMetrics.driverTargetBase, JSON.stringify(historicalDeficitMetrics))
 
-const historicalSurplusSnapshot = {
-  ...historicalBaseSnapshot,
-  trips: [
-    { id:'historical', status:'COMPLETED', tripStartAt:'2026-08-05T09:00:00Z', tripEndAt:'2026-08-05T12:00:00Z', tripKm:150, revenue:100000 },
-    snapshot.trips[0],
-  ],
-}
+const historicalSurplusSnapshot = { ...historicalBaseSnapshot, trips: [
+  { id:'historical', status:'COMPLETED', tripStartAt:'2026-08-05T09:00:00Z', tripEndAt:'2026-08-05T12:00:00Z', tripKm:150, revenue:100000 },
+  snapshot.trips[0],
+] }
 const historicalSurplusMetrics = PerformanceService.getMetrics(historicalSurplusSnapshot, range)
 assert.equal(historicalSurplusMetrics.driverTargetAvailable, true)
 assert.ok(Number.isFinite(historicalSurplusMetrics.driverTargetRollingBalance))
 assert.ok(historicalSurplusMetrics.driverTargetRollingBalance < 0)
 assert.ok(historicalSurplusMetrics.driverTarget < historicalSurplusMetrics.driverTargetBase)
 
-const holidaySnapshot = {
-  ...snapshot,
-  trips: [
-    { id:'early', status:'COMPLETED', tripStartAt:'2026-09-05T09:00:00Z', tripEndAt:'2026-09-05T12:00:00Z', tripKm:100, revenue:1000 },
-    snapshot.trips[0],
-  ],
-}
-const noHolidayEquivalent = {
-  ...holidaySnapshot,
-  trips: [
-    holidaySnapshot.trips[0],
-    { id:'mid', status:'COMPLETED', tripStartAt:'2026-09-09T09:00:00Z', tripEndAt:'2026-09-09T12:00:00Z', tripKm:100, revenue:1000 },
-    snapshot.trips[0],
-  ],
-}
+const holidaySnapshot = { ...snapshot, trips: [
+  { id:'early', status:'COMPLETED', tripStartAt:'2026-09-05T09:00:00Z', tripEndAt:'2026-09-05T12:00:00Z', tripKm:100, revenue:1000 },
+  snapshot.trips[0],
+] }
+const noHolidayEquivalent = { ...holidaySnapshot, trips: [
+  holidaySnapshot.trips[0],
+  { id:'mid', status:'COMPLETED', tripStartAt:'2026-09-09T09:00:00Z', tripEndAt:'2026-09-09T12:00:00Z', tripKm:100, revenue:1000 },
+  snapshot.trips[0],
+] }
 const holidayMetrics = PerformanceService.getMetrics(holidaySnapshot, range)
 const noHolidayMetrics = PerformanceService.getMetrics(noHolidayEquivalent, range)
 assert.ok(holidayMetrics.driverTarget > noHolidayMetrics.driverTarget)
-assert.equal(holidayMetrics.driverTargetEffectiveMonthlyTarget, noHolidayMetrics.driverTargetEffectiveMonthlyTarget)
+near(holidayMetrics.driverTargetEffectiveMonthlyTarget, noHolidayMetrics.driverTargetEffectiveMonthlyTarget, 'holiday must not reduce monthly obligation')
 
 const changedInput = { ...snapshot, breakEvenInputs: [{ effectiveFrom:'2026-09-01', maintenanceProvisionPerKm:4, active:true }] }
 const changedEngineSnapshot = { ...engineSnapshot, breakEvenInputs: changedInput.breakEvenInputs }
 const changedEngineMetrics = derivePerformance(changedEngineSnapshot, range, previousRange(range))
 const changedServiceMetrics = PerformanceService.getMetrics(changedInput, range)
-assert.equal(changedEngineMetrics.breakEvenRevenue - m.breakEvenRevenue, 200)
-assert.equal(changedServiceMetrics.breakEvenRevenue - serviceMetrics.breakEvenRevenue, 200)
-assert.equal(changedEngineMetrics.breakEvenRevenue, changedServiceMetrics.breakEvenRevenue)
-assert.equal(changedServiceMetrics.monthlyBreakEvenRevenue - serviceMetrics.monthlyBreakEvenRevenue, 200)
-assert.equal(changedServiceMetrics.dailyBreakEvenRevenue - serviceMetrics.dailyBreakEvenRevenue, 200 / serviceMetrics.driverTargetRemainingEligibleDays)
+near(changedEngineMetrics.breakEvenRevenue - m.breakEvenRevenue, 200, 'engine BE change')
+near(changedServiceMetrics.breakEvenRevenue - serviceMetrics.breakEvenRevenue, 200, 'service BE change')
+near(changedEngineMetrics.breakEvenRevenue, changedServiceMetrics.breakEvenRevenue, 'single BE authority')
+near(changedServiceMetrics.monthlyBreakEvenRevenue - serviceMetrics.monthlyBreakEvenRevenue, 200, 'monthly BE change')
+near(changedServiceMetrics.dailyBreakEvenRevenue - serviceMetrics.dailyBreakEvenRevenue, 200 / serviceMetrics.driverTargetRemainingEligibleDays, 'daily BE change')
 
 const missingMaintenanceInput = { ...snapshot, breakEvenInputs: [{ effectiveFrom:'2026-09-01', active:true }] }
 const missingEngineSnapshot = { ...engineSnapshot, breakEvenInputs: missingMaintenanceInput.breakEvenInputs }
