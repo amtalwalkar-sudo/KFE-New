@@ -8,7 +8,7 @@
     "dev:https": "vite --host 0.0.0.0 --https",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node src/tests/architecture.contract.js && node src/tests/offlineSync.contract.js && node src/tests/work.contract.js && node src/tests/performance.contract.js && node src/tests/admin.contract.js && node src/tests/shell.contract.js && node src/tests/ui.contract.js && node src/tests/backup.contract.js && node src/tests/backupConfig.contract.js && node src/tests/erpFormCalculation.contract.js && node src/tests/auditMutation.contract.js"
+    "test": "node src/tests/architecture.contract.js && node src/tests/offlineSync.contract.js && node src/tests/work.contract.js && node src/tests/performance.contract.js && node src/tests/admin.contract.js && node src/tests/shell.contract.js && node src/tests/ui.contract.js && node src/tests/backup.contract.js && node src/tests/backupConfig.contract.js && node src/tests/erpFormCalculation.contract.js && node src/tests/auditMutation.contract.js && node src/tests/integrity.contract.js"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.1",
