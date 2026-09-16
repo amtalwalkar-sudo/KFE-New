@@ -10,7 +10,11 @@ The base requirement is:
 
 `baseTarget = applicableBreakEvenCost + desiredDriverProfit`
 
-The existing frozen lifetime/rolling recovery mechanism supplies the adjustment to that base requirement.
+The desired driver take-home/profit must be an explicit authoritative input on the applicable driver-target record (`desiredDriverProfit`, `desiredTakeHome`, or `desiredProfit`). A legacy `targetRevenue` value must not be interpreted as the desired profit input.
+
+If the authoritative desired-profit input or applicable break-even requirement is unavailable, the driver-target calculation is unavailable rather than silently substituting an unrelated target value.
+
+The rolling recovery/surplus adjustment is reconstructed from authoritative historical completed-trip revenue and shift-defined active days. This reconstruction must remain the implementation of the frozen rolling mechanism and must not become a second business ledger.
 
 ## Day participation
 
@@ -31,4 +35,4 @@ This clarification does not introduce:
 - a second recovery ledger;
 - a replacement for the existing frozen rolling balance.
 
-If the authoritative persisted rolling balance cannot be located, the implementation must expose the calculation as incomplete rather than fabricate one.
+The canonical data model already contains `break_even_inputs`; implementations must use its authoritative fields rather than inventing parallel break-even inputs.
