@@ -45,7 +45,16 @@ export const PerformanceService = Object.freeze({
     const breakEvenRevenue = authoritativeBreakEven.available ? authoritativeBreakEven.breakEvenRevenue : NaN
     const historicalBreakEvenForDay = ({ day }) => {
       const historicalRange = { from: day, to: new Date(day.getTime() + 86400000 - 1) }
-      const historicalMetrics = derivePerformance(calculationSnapshot, historicalRange, previousRange(historicalRange))
+      // Historical fuel cost/km must not use observations captured after the day.
+      const historicalSnapshot = {
+        ...calculationSnapshot,
+        fuelLogs: (calculationSnapshot?.fuelLogs || []).filter(x => {
+          const capturedAt = x?.capturedAt || x?.createdAt
+          const capturedDate = capturedAt ? new Date(capturedAt) : null
+          return capturedDate && !Number.isNaN(capturedDate.getTime()) && capturedDate <= historicalRange.to
+        }),
+      }
+      const historicalMetrics = derivePerformance(historicalSnapshot, historicalRange, previousRange(historicalRange))
       return Number.isFinite(historicalMetrics.breakEvenRevenue) ? historicalMetrics.breakEvenRevenue : null
     }
     const stabilization = deriveRollingDriverTarget({
