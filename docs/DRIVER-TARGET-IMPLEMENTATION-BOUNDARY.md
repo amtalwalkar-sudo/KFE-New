@@ -14,7 +14,7 @@ The target chain is:
 
 Monthly break-even is the single authoritative monthly business-calculation figure. Monthly desired driver profit is the amount the driver wants above that month's break-even. The opening rolling balance is the carried result from prior closed months. Daily break-even and daily Driver Target are derived representations; they are not independent business inputs.
 
-For the active day:
+For the active financial day:
 
 `dailyBreakEven = monthlyBreakEven / remainingEligibleDays`
 
@@ -34,10 +34,25 @@ For the active day:
 - A known holiday redistributes its untouched monthly obligation across later eligible days.
 - The monthly obligation itself is never reduced because of holidays.
 - The current day's target is derived from the remaining monthly obligation; actual current-month revenue does not immediately mutate that day's target or opening rolling balance.
+- All calendar classification uses IST / `Asia/Kolkata`, independent of device/browser timezone.
 
 Configured `workingDays` may remain in persisted compatibility/schema data, but it is not a competing divisor or target authority. Missing `workingDays` therefore does not make the monthly target unavailable.
 
-The desired driver take-home/profit must be an explicit authoritative input on the applicable driver-target record (`desiredDriverProfit`, `desiredTakeHome`, or `desiredProfit`). Legacy/manual `targetRevenue`, `dailyTarget`, and `targetPerActiveDay` values are not authoritative.
+## Normalization boundary
+
+Persisted compatibility variants are resolved before entering the Driver Target domain:
+
+```text
+Persisted variants
+      ↓
+NORMALIZATION
+      ↓
+Canonical Driver Target object
+      ↓
+Driver Target domain
+```
+
+The canonical domain field is `desiredDriverProfit`. Legacy names such as `desiredTakeHome`, `desiredProfit`, snake_case variants, and manual `dailyTarget`/`targetPerActiveDay` are not interpreted by the Driver Target domain.
 
 If the authoritative desired-profit input or applicable monthly break-even requirement is unavailable, the driver-target calculation is unavailable rather than silently substituting an unrelated target value.
 
@@ -80,6 +95,7 @@ This clarification does not introduce:
 - a second recovery ledger;
 - manual daily target authority;
 - `workingDays` as a competing daily-target divisor;
-- a reduction of monthly obligation for holidays.
+- a reduction of monthly obligation for holidays;
+- a projected-revenue target authority or period-mixed target gap.
 
 The canonical data model already contains `break_even_inputs`; implementations must use its authoritative fields rather than inventing parallel break-even inputs.
