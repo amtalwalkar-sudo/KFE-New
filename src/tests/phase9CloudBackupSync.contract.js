@@ -12,7 +12,7 @@ assert(source.includes("../../repositories/mutationRepository.js"), 'Cloud sync 
 assert(!source.includes('dropbox') && !source.includes('supabase') && !source.includes('firebase'), 'Cloud sync application layer must remain provider-independent')
 assert.equal(CloudSyncService.getCloudSyncProviderName(), null)
 assert.deepEqual(await CloudSyncService.syncNow({ online: false }), { status: 'OFFLINE', pushed: 0, pulled: 0 })
-assert.throws(() => CloudSyncService.syncNow({ online: true }), /No cloud sync provider is configured/)
+await assert.rejects(() => CloudSyncService.syncNow({ online: true }), /No cloud sync provider is configured/)
 
 const mutation = buildMutationRecord({ entityId: 'entity-1', entityType: 'SHIFT', action: 'CREATE', payload: { id: 'entity-1' }, createdAt: '2026-09-17T00:00:00.000Z' })
 const remote = { mutationId: 'remote-1', entityId: 'entity-2', entityType: 'TRIP', action: 'CREATE', payload: { id: 'entity-2' } }
