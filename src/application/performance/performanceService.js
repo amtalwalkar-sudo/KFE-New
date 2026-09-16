@@ -35,8 +35,9 @@ const monthRangeFor = (day, asOf = new Date()) => {
   const monthEnd = new Date(Date.UTC(year, month + 1, 1) - 1)
   const currentMonthKey = asOf.toISOString().slice(0, 7)
   const monthKey = from.toISOString().slice(0, 7)
+  const dayEnd = new Date(Date.UTC(year, month, day.getUTCDate(), 23, 59, 59, 999))
   const to = monthKey === currentMonthKey
-    ? new Date(Math.min(monthEnd.getTime(), day.getTime()))
+    ? new Date(Math.min(monthEnd.getTime(), dayEnd.getTime()))
     : monthEnd
   return { from, to }
 }
