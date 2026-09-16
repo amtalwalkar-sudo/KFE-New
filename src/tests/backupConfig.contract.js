@@ -13,7 +13,10 @@ const configured = saveBackupConfiguration({ enabled: true, accessToken: '  toke
 assert.deepEqual(configured, { enabled: true, accessToken: 'token-123', path: 'Apps/KFE/test.json', lastCloudBackupAt: null })
 assert.equal(getBackupConfiguration().accessToken, 'token-123')
 assert.equal(getBackupConfiguration().path, 'Apps/KFE/test.json')
+const originalFetch = globalThis.fetch
+globalThis.fetch = async () => { throw new Error('network disabled for contract test') }
 assert.equal((await CloudBackupLifecycle.maybeDailyCloudBackup()).status, 'failed')
+globalThis.fetch = originalFetch
 
 clearBackupConfiguration()
 assert.equal((await CloudBackupLifecycle.maybeDailyCloudBackup()).status, 'disabled')
