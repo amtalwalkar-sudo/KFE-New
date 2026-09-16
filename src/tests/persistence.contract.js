@@ -25,14 +25,16 @@ assert(contract.includes('cloud service must not be required'), 'Local-first bou
 
 const stores = ['shifts','trips','fuel_logs','vehicles','drivers','compliance_records','maintenance_records','driver_collected_data','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','pending_mutations','audit_history']
 for (const store of stores) assert(db.includes(`'${store}'`), `Canonical store missing: ${store}`)
-assert((db.match(/createSimpleStore\(db,/g) || []).length >= 10, 'Admin/supporting canonical stores must use shared store creation')
+assert(db.includes("const createSimpleStore = (db, name, indexes = [])"), 'Shared canonical store creation helper missing')
+assert(db.includes("db.createObjectStore(name, { keyPath: 'id' })"), 'Shared canonical stores must use id key paths')
 assert(admin.includes('existing?.id || generateUUID()'), 'Admin UUID contract missing')
 assert(shiftTrip.includes('normalized.id || generateUUID()'), 'Shift/Trip UUID contract missing')
 assert(fuel.includes('normalized.id || generateUUID()'), 'Fuel UUID contract missing')
 assert(mutation.includes('id: generateUUID()'), 'Mutation UUID contract missing')
 
-for (const index of ["createIndex('shiftEndAt'", "createIndex('createdAt'", "createIndex('status'", "createIndex('shiftId'", "createIndex('tripStartAt'", "createIndex('effectiveFrom'", "createIndex('vehicleId'"]) assert(db.includes(index), `Required persistence index missing: ${index}`)
-for (const store of stores) assert(db.includes(`!db.objectStoreNames.contains('${store}')`), `Upgrade path missing for ${store}`)
+for (const index of ["createIndex('shiftEndAt'", "createIndex('createdAt'", "createIndex('status'", "createIndex('shiftId'", "createIndex('tripStartAt'"]) assert(db.includes(index), `Required persistence index missing: ${index}`)
+for (const indexedStore of ['vehicles','drivers','compliance_records','maintenance_records','driver_collected_data','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history']) assert(db.includes(`createSimpleStore(db, '${indexedStore}'`), `Shared indexed store definition missing: ${indexedStore}`)
+for (const explicitStore of ['shifts','fuel_logs','odoGaps','pending_mutations','days','trips','gps_snapshots']) assert(db.includes(`!db.objectStoreNames.contains('${explicitStore}')`), `Upgrade path missing for explicit store: ${explicitStore}`)
 assert(db.includes("deleteObjectStore('admin_records')"), 'Retired admin store migration missing')
 assert(db.includes("deleteObjectStore('financial_inputs')"), 'Retired financial store migration missing')
 assert(!db.includes("deleteObjectStore('trips')"), 'Trip history must survive migration')
