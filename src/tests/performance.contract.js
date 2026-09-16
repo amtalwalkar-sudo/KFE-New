@@ -77,10 +77,10 @@ const historicalBaseSnapshot = {
   ],
 }
 const historicalDeficitMetrics = PerformanceService.getMetrics(historicalBaseSnapshot, historicalRange)
-assert.equal(historicalDeficitMetrics.driverTargetAvailable, true)
-assert.ok(Number.isFinite(historicalDeficitMetrics.driverTargetRollingBalance))
-assert.ok(historicalDeficitMetrics.driverTargetRollingBalance > 0)
-assert.ok(historicalDeficitMetrics.driverTarget > historicalDeficitMetrics.driverTargetBase)
+assert.ok(historicalDeficitMetrics.driverTargetAvailable, JSON.stringify(historicalDeficitMetrics))
+assert.ok(Number.isFinite(historicalDeficitMetrics.driverTargetRollingBalance), JSON.stringify(historicalDeficitMetrics))
+assert.ok(historicalDeficitMetrics.driverTargetRollingBalance > 0, JSON.stringify(historicalDeficitMetrics))
+assert.ok(historicalDeficitMetrics.driverTarget > historicalDeficitMetrics.driverTargetBase, JSON.stringify(historicalDeficitMetrics))
 
 const historicalSurplusSnapshot = {
   ...historicalBaseSnapshot,
