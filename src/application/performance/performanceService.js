@@ -19,10 +19,6 @@ export const PerformanceService = Object.freeze({
     })
     const breakEvenRevenue = authoritativeBreakEven.available ? authoritativeBreakEven.breakEvenRevenue : NaN
     const historicalBreakEvenForDay = ({ day }) => {
-      // Historical reconstruction must calculate the applicable break-even for
-      // that specific active day. Expanding the range to the target record's
-      // validity window would aggregate unrelated days and distort the daily
-      // rolling balance.
       const historicalRange = { from: day, to: new Date(day.getTime() + 86400000 - 1) }
       const historicalMetrics = derivePerformance(snapshot, historicalRange, previousRange(historicalRange))
       return Number.isFinite(historicalMetrics.breakEvenRevenue) ? historicalMetrics.breakEvenRevenue : null
@@ -36,33 +32,35 @@ export const PerformanceService = Object.freeze({
       applicableBreakEven: breakEvenRevenue,
       historicalBreakEvenForDay,
     })
-    const required = stabilization.currentDailyTarget
-    const targetAvailable = stabilization.available
-    const periodTarget = targetAvailable && Number.isFinite(required)
-      ? required * Math.max(1, metrics.counts.activeFinancialDays || 0)
+    const canonicalTarget = stabilization.available && Number.isFinite(stabilization.currentDailyTarget)
+      ? stabilization.currentDailyTarget
+      : null
+    const targetAvailable = canonicalTarget != null
+    const periodTarget = targetAvailable
+      ? canonicalTarget * Math.max(1, metrics.counts.activeFinancialDays || 0)
       : NaN
     return {
       ...metrics,
-      target: required,
+      target: canonicalTarget,
       breakEvenRevenue,
       breakEvenInputs: authoritativeBreakEven.available
         ? { ...metrics.breakEvenInputs, maintenanceProvisionPerKm: authoritativeBreakEven.maintenanceProvisionPerKm, fixedCosts: authoritativeBreakEven.fixedCosts, fuelCostPerKm: authoritativeBreakEven.fuelCostPerKm }
         : { ...metrics.breakEvenInputs, available: false, reason: authoritativeBreakEven.reason },
       authority: { ...metrics.authority, target: 'AUTHORITATIVE_DRIVER_TARGET_BREAK_EVEN_PLUS_DESIRED_PROFIT_PLUS_ROLLING_BALANCE', breakEven: authoritativeBreakEven.authority || 'BREAK_EVEN_INPUTS' },
       completeness: { ...metrics.completeness, target: targetAvailable, breakEven: authoritativeBreakEven.available },
-      driverTarget: required,
+      driverTarget: canonicalTarget,
       driverTargetBase: stabilization.currentBaseDaily,
       driverTargetRecoveryAdjustment: stabilization.recoveryAdjustment,
       driverTargetRollingBalance: stabilization.balance,
       driverTargetAvailable: targetAvailable,
       pace: {
         ...metrics.pace,
-        requiredRevenuePerActiveDay: required,
+        requiredRevenuePerActiveDay: canonicalTarget,
         targetGap: Number.isFinite(metrics.projectedRevenue) && Number.isFinite(periodTarget)
           ? metrics.projectedRevenue - periodTarget
           : NaN,
-        paceVariance: Number.isFinite(metrics.revenuePerActiveDay) && Number.isFinite(required)
-          ? metrics.revenuePerActiveDay - required
+        paceVariance: Number.isFinite(metrics.revenuePerActiveDay) && Number.isFinite(canonicalTarget)
+          ? metrics.revenuePerActiveDay - canonicalTarget
           : NaN,
       },
     }
