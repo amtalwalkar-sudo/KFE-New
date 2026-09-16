@@ -3,7 +3,7 @@
 **Audit phase:** Calculation & Data Authority Audit — phase 1
 **Date:** 2026-09-16
 **Calendar timezone:** IST / `Asia/Kolkata`
-**Status:** In progress; Gate 10 is intentionally deferred.
+**Status:** CI verification pending; Gate 10 remains deferred until the full repository workflow is green.
 
 ## Non-negotiable architecture
 
