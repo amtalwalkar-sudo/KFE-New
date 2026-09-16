@@ -8,7 +8,7 @@ assert.equal(typeof scripts.build, 'string', 'production build script must exist
 assert.equal(typeof scripts.test, 'string', 'test script must exist')
 assert.ok(existsSync('dist'), 'production dist directory must exist after build')
 assert.ok(existsSync('android'), 'Capacitor Android project must exist')
-assert.ok(existsSync('capacitor.config.js') || existsSync('capacitor.config.ts'), 'Capacitor configuration must exist')
+assert.ok(existsSync('capacitor.config.json'), 'Capacitor configuration must exist')
 assert.ok(existsSync('src/tests/runAllContracts.js'), 'full contract runner must exist')
 assert.ok(existsSync('docs/KFE-HOLISTIC-CI-FAILURE-PROTOCOL.md'), 'CI failure protocol must remain documented')
 assert.ok(existsSync('docs/KFE-DEVELOPMENT-PHASES.md'), 'phase roadmap must remain documented')
