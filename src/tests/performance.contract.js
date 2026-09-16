@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { derivePerformance, previousRange } from '../domain/performance/performanceEngineV2.js'
+import { PerformanceService } from '../application/performance/performanceService.js'
 
 const range = { from: new Date('2026-09-01T00:00:00Z'), to: new Date('2026-09-30T23:59:59Z') }
 const snapshot = {
@@ -41,4 +42,10 @@ assert.ok(Number.isFinite(m.breakEvenRevenue))
 assert.ok(Number.isFinite(m.loanScheduledObligation))
 assert.ok(Number.isFinite(m.actualLoanPaid))
 assert.equal(m.authority.deadKm, 'VEHICLE_KM_MINUS_BUSINESS_KM')
-console.log('Performance contract passed: canonical sources, vehicle-KM economics, full-tank fuel cost, actual maintenance, actual financing cash flow, provisions and break-even are wired.')
+
+const serviceMetrics = PerformanceService.getMetrics(snapshot, range)
+assert.ok(Number.isFinite(serviceMetrics.driverTarget))
+assert.equal(serviceMetrics.driverTarget, 2000 / 30)
+assert.equal(serviceMetrics.pace.requiredRevenuePerActiveDay, serviceMetrics.driverTarget)
+
+console.log('Performance contract passed: canonical sources, vehicle-KM economics, full-tank fuel cost, actual maintenance, actual financing cash flow, provisions, break-even and stabilized driver target wiring are covered.')
