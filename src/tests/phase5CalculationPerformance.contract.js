@@ -4,6 +4,7 @@ import { PerformanceService } from '../application/performance/performanceServic
 import { derivePerformance } from '../domain/performance/performanceEngineV2.js'
 import { deriveAuthoritativeBreakEven } from '../domain/performance/authoritativeBreakEven.js'
 import { deriveRollingDriverTarget } from '../domain/performance/driverTargetStabilization.js'
+import { istMonthRange } from '../domain/time/ist.js'
 
 const read = path => fs.readFileSync(new URL(path, import.meta.url), 'utf8')
 const engineSource = read('../domain/performance/performanceEngineV2.js')
@@ -65,16 +66,29 @@ const authoritativeBreakEven = deriveAuthoritativeBreakEven({
 })
 assert.equal(service.monthlyBreakEvenRevenue, authoritativeBreakEven.monthlyBreakEvenRevenue)
 
+// Reproduce the exact calendar-month/as-of boundary supplied by PerformanceService.
+const targetMonthRange = istMonthRange(range.to)
+const stabilizationFrom = targetMonthRange?.from || range.from
+const stabilizationTo = targetMonthRange
+  ? new Date(Math.min(targetMonthRange.to.getTime(), range.to.getTime()))
+  : range.to
 const target = deriveRollingDriverTarget({
   trips: snapshot.trips,
   shifts: snapshot.shifts,
   driverTargets: snapshot.driverTargets,
-  from: new Date('2026-09-01T00:00:00Z'),
-  to: range.to,
+  from: stabilizationFrom,
+  to: stabilizationTo,
   applicableBreakEven: service.monthlyBreakEvenRevenue,
-  historicalBreakEvenForDay: () => service.monthlyBreakEvenRevenue,
+  historicalBreakEvenForDay: ({ day }) => {
+    const monthRange = istMonthRange(day)
+    assert.ok(monthRange)
+    return service.monthlyBreakEvenRevenue
+  },
 })
 assert.equal(service.driverTarget, target.currentDailyTarget)
+assert.equal(service.driverTargetRemainingEligibleDays, target.remainingEligibleDays)
+assert.equal(service.driverTargetAllocatedBeforeCurrentDay, target.targetAllocatedBeforeCurrentDay)
+assert.equal(service.driverTargetRemainingObligation, target.remainingObligation)
 
 const higherTargetInput = {
   ...snapshot,
