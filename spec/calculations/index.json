@@ -1,5 +1,10 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
+  "authorities": {
+    "businessRules": "../../docs/KFE-BUSINESS-RULES.md",
+    "calculationSpecification": "../../docs/KFE-CALCULATION-SPECIFICATION.md",
+    "architectureContract": "../../docs/KFE-ARCHITECTURE-CONTRACT.md"
+  },
   "calculations": {
     "financialModel": {
       "version": 2,
@@ -43,22 +48,22 @@
     "fuelCostPerKm": {
       "version": 1,
       "rule": "full-tank intervals only; first full-tank fill establishes baseline; latest rolling observations are averaged",
-      "target": "js/domain/fuel.js"
+      "target": "src/domain/fuel.js"
     },
     "maintenance": {
       "version": 1,
       "rule": "exactly one dimension per maintenance item: KM or TIME; provision and actual invoice remain separate",
-      "target": "js/domain/maintenance.js"
+      "target": "src/domain/maintenance.js"
     },
     "currency": {
       "version": 1,
       "rule": "safe integer paise at monetary boundaries",
-      "target": "js/domain/shared.js"
+      "target": "src/domain/shared.js"
     },
     "loan": {
       "version": 1,
       "rule": "amortization separates principal and interest; prepayment has zero prepayment charge",
-      "target": "js/domain/loans.js"
+      "target": "src/domain/loans.js"
     }
   },
   "goldenPolicy": "Every changed financial formula requires a deterministic regression vector before deployment."
