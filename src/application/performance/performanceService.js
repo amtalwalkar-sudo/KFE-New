@@ -1,46 +1,8 @@
 import { PerformanceRepository } from '../../repositories/performanceRepository.js'
 import { derivePerformance, layerRows, previousRange } from '../../domain/performance/performanceEngineV2.js'
 import { deriveRollingDriverTarget } from '../../domain/performance/driverTargetStabilization.js'
-import { deriveAuthoritativeBreakEven } from '../../domain/performance/authoritativeBreakEven.js'
-
-const normalizeLoan = loan => {
-  if (!loan) return null
-  const startDate = loan.startDate ?? loan.start_date ?? loan.loanStartDate ?? loan.loan_start_date
-  const hasNumber = value => value != null && value !== '' && Number.isFinite(Number(value))
-  const tenureMonths = hasNumber(loan.tenureMonths)
-    ? Number(loan.tenureMonths)
-    : hasNumber(loan.tenureYears)
-      ? Number(loan.tenureYears) * 12
-      : hasNumber(loan.term_months)
-        ? Number(loan.term_months)
-        : null
-  return {
-    ...loan,
-    ...(startDate != null ? { startDate } : {}),
-    ...(tenureMonths != null ? { tenureMonths } : {}),
-    ...(loan.annualInterestRate == null && loan.annual_rate_percent != null ? { annualInterestRate: Number(loan.annual_rate_percent) } : {}),
-  }
-}
-
-const normalizeCalculationSnapshot = snapshot => ({
-  ...snapshot,
-  loans: (snapshot?.loans?.length ? snapshot.loans : snapshot?.loan ? [snapshot.loan] : []).map(normalizeLoan).filter(Boolean),
-  compliance: snapshot?.compliance?.length ? snapshot.compliance : (snapshot?.renewals || []),
-})
-
-const monthRangeFor = (day, asOf = new Date()) => {
-  const year = day.getUTCFullYear()
-  const month = day.getUTCMonth()
-  const from = new Date(Date.UTC(year, month, 1))
-  const monthEnd = new Date(Date.UTC(year, month + 1, 1) - 1)
-  const currentMonthKey = asOf.toISOString().slice(0, 7)
-  const monthKey = from.toISOString().slice(0, 7)
-  const dayEnd = new Date(Date.UTC(year, month, day.getUTCDate(), 23, 59, 59, 999))
-  const to = monthKey === currentMonthKey
-    ? new Date(Math.min(monthEnd.getTime(), dayEnd.getTime()))
-    : monthEnd
-  return { from, to }
-}
+import { normalizeCalculationSnapshot } from './normalizeCalculationSnapshot.js'
+import { istMonthRange } from '../../domain/time/ist.js'
 
 export const PerformanceService = Object.freeze({
   async getSnapshot() {
@@ -49,29 +11,18 @@ export const PerformanceService = Object.freeze({
   getMetrics(snapshot, range) {
     const calculationSnapshot = normalizeCalculationSnapshot(snapshot)
     const metrics = derivePerformance(calculationSnapshot, range, previousRange(range))
+
+    // There is one break-even calculation. Historical target reconstruction asks
+    // the domain engine for the authoritative monthly result for that month; it
+    // does not reproduce the break-even formula here.
     const monthlyBreakEvenCache = new Map()
     const monthlyBreakEvenForDay = ({ day }) => {
-      const monthRange = monthRangeFor(day)
+      const monthRange = istMonthRange(day)
+      if (!monthRange) return null
       const key = monthRange.from.toISOString().slice(0, 7)
       if (monthlyBreakEvenCache.has(key)) return monthlyBreakEvenCache.get(key)
-      const monthSnapshot = {
-        ...calculationSnapshot,
-        fuelLogs: (calculationSnapshot?.fuelLogs || []).filter(x => {
-          const capturedAt = x?.capturedAt || x?.createdAt
-          const capturedDate = capturedAt ? new Date(capturedAt) : null
-          return capturedDate && !Number.isNaN(capturedDate.getTime()) && capturedDate <= monthRange.to
-        }),
-      }
-      const monthMetrics = derivePerformance(monthSnapshot, monthRange, previousRange(monthRange))
-      const authoritative = deriveAuthoritativeBreakEven({
-        breakEvenInputs: monthSnapshot?.breakEvenInputs,
-        range: monthRange,
-        loanScheduledObligation: monthMetrics.loanScheduledObligation,
-        renewalProvision: monthMetrics.renewalProvision,
-        fuelCostPerKm: monthMetrics.fuelCostPerKm,
-        vehicleKm: monthMetrics.vehicleKm,
-      })
-      const monthBreakEven = authoritative.available ? authoritative.breakEvenRevenue : null
+      const monthMetrics = derivePerformance(calculationSnapshot, monthRange, previousRange(monthRange))
+      const monthBreakEven = Number.isFinite(monthMetrics.breakEvenRevenue) ? monthMetrics.breakEvenRevenue : null
       monthlyBreakEvenCache.set(key, monthBreakEven)
       return monthBreakEven
     }
@@ -103,8 +54,9 @@ export const PerformanceService = Object.freeze({
     const effectiveMonthlyTarget = Number.isFinite(stabilization.effectiveMonthlyTarget)
       ? stabilization.effectiveMonthlyTarget
       : NaN
-    const periodCoversTargetMonth = currentDay
-      ? range.from <= new Date(Date.UTC(currentDay.getUTCFullYear(), currentDay.getUTCMonth(), 1)) && range.to >= new Date(Date.UTC(currentDay.getUTCFullYear(), currentDay.getUTCMonth() + 1, 0, 23, 59, 59, 999))
+    const targetMonth = currentDay ? istMonthRange(currentDay) : null
+    const periodCoversTargetMonth = targetMonth
+      ? range.from <= targetMonth.from && range.to >= targetMonth.to
       : false
     const periodTarget = targetAvailable && periodCoversTargetMonth ? effectiveMonthlyTarget : NaN
     const dailyBreakEvenRevenue = monthlyBreakEvenRevenue != null && Number.isFinite(stabilization.remainingEligibleDays)
@@ -114,7 +66,7 @@ export const PerformanceService = Object.freeze({
     return {
       ...metrics,
       // `breakEvenRevenue` is the single monthly authority. The engine's
-      // period-local break-even is not exposed as a competing authority here.
+      // selected-period economics are not a competing break-even calculation.
       breakEvenRevenue: monthlyBreakEvenRevenue,
       target: canonicalTarget,
       monthlyBreakEvenRevenue,
@@ -123,7 +75,7 @@ export const PerformanceService = Object.freeze({
       authority: {
         ...metrics.authority,
         target: 'MONTHLY_BREAK_EVEN_PLUS_MONTHLY_DESIRED_DRIVER_PROFIT_PLUS_OPENING_ROLLING_BALANCE_AMORTIZED_OVER_REMAINING_ELIGIBLE_DAYS',
-        breakEven: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN'
+        breakEven: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN',
       },
       completeness: { ...metrics.completeness, target: targetAvailable, breakEven: monthlyBreakEvenRevenue != null },
       driverTarget: canonicalTarget,
@@ -140,12 +92,17 @@ export const PerformanceService = Object.freeze({
       driverTargetRemainingObligation: stabilization.remainingObligation,
       pace: {
         ...metrics.pace,
-        requiredRevenuePerActiveDay: canonicalTarget,
-        targetGap: Number.isFinite(metrics.projectedRevenue) && Number.isFinite(periodTarget)
-          ? metrics.projectedRevenue - periodTarget
-          : NaN,
+        currentRevenuePerFinancialDay: metrics.revenuePerActiveDay,
+        requiredRevenuePerFinancialDay: canonicalTarget,
         paceVariance: Number.isFinite(metrics.revenuePerActiveDay) && Number.isFinite(canonicalTarget)
           ? metrics.revenuePerActiveDay - canonicalTarget
+          : NaN,
+        // No projection is used for Driver Target. It would mix a selected
+        // reporting period with a dynamic one-day obligation and create a
+        // second interpretation of target performance.
+        projectedRevenue: NaN,
+        targetGap: Number.isFinite(metrics.projectedRevenue) && Number.isFinite(periodTarget)
+          ? metrics.projectedRevenue - periodTarget
           : NaN,
       },
     }
