@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { normalizeCalculationSnapshot } from '../application/performance/normalizeCalculationSnapshot.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { derivePerformance } from '../domain/performance/performanceEngineV2.js'
+import { deriveRollingDriverTarget } from '../domain/performance/driverTargetStabilization.js'
 import { istDateKey, istMonthRange } from '../domain/time/ist.js'
 
 const range = {
@@ -42,6 +43,11 @@ assert.equal(normalized.loans[0].tenureMonths, 60)
 assert.equal(normalized.loans[0].annualInterestRate, 10)
 assert.equal(normalized.driverTargets[0].desiredDriverProfit, 1000)
 assert.equal(normalized.breakEvenInputs[0].maintenanceProvisionPerKm, 3)
+assert.equal('trip_start_at' in normalized.trips[0], false)
+assert.equal('fare' in normalized.trips[0], false)
+assert.equal('created_at' in normalized.fuelLogs[0], false)
+assert.equal('desiredProfit' in normalized.driverTargets[0], false)
+assert.equal('tenureYears' in normalized.loans[0], false)
 
 const canonicalMetrics = derivePerformance(canonical, range)
 const variantMetrics = derivePerformance(normalized, range)
@@ -62,6 +68,27 @@ assert.equal(metrics.pace.paceVariance, metrics.revenuePerActiveDay - metrics.ta
 
 // Daily BE and Driver Target use the same remaining eligible financial-day denominator.
 assert.equal(metrics.dailyBreakEvenRevenue, metrics.monthlyBreakEvenRevenue / metrics.driverTargetRemainingEligibleDays)
+
+// Driver Target reconstruction is bounded by the calculation end/as-of boundary.
+const futureTrip = { id: 'future', status: 'COMPLETED', tripStartAt: '2026-09-11T09:00:00+05:30', tripEndAt: '2026-09-11T10:00:00+05:30', tripKm: 500, revenue: 99999 }
+const boundedTarget = deriveRollingDriverTarget({
+  trips: [...canonical.trips, futureTrip],
+  shifts: canonical.shifts,
+  driverTargets: canonical.driverTargets,
+  from: range.from,
+  to: range.to,
+  applicableBreakEven: canonicalMetrics.monthlyBreakEvenRevenue,
+})
+const baseTarget = deriveRollingDriverTarget({
+  trips: canonical.trips,
+  shifts: canonical.shifts,
+  driverTargets: canonical.driverTargets,
+  from: range.from,
+  to: range.to,
+  applicableBreakEven: canonicalMetrics.monthlyBreakEvenRevenue,
+})
+assert.equal(boundedTarget.currentDailyTarget, baseTarget.currentDailyTarget)
+assert.equal(boundedTarget.closingBalance, baseTarget.closingBalance)
 
 // IST, not device/browser timezone, owns calendar classification.
 assert.equal(istDateKey(new Date('2026-09-10T23:00:00Z')), '2026-09-11')
