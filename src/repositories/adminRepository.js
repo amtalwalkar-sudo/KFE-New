@@ -1,25 +1,35 @@
 import { initializeCanonicalStorage, notifyCanonicalDataChanged } from '../utils/indexedDB.js'
 import { generateUUID } from '../utils/uuid.js'
 import { writeMutationAndAudit } from './mutationRepository.js'
+import { getAdminFormDefinition } from '../application/admin/adminFormDefinitions.js'
+import { validateAdminForm } from '../application/admin/universalFormRules.js'
 
-const FORM_STORE = Object.freeze({
-  vehicle: 'vehicles', driver: 'drivers', compliance: 'compliance_records', maintenance: 'maintenance_records',
-  driverCollectedData: 'driver_collected_data', loan: 'loans', loanPayment: 'loan_payments', prepayment: 'prepayments',
-  driverTarget: 'driver_targets', breakEvenInputs: 'break_even_inputs', backupRestore: 'settings', themes: 'settings', dataReset: 'settings',
-})
+const FORM_STORE = Object.freeze({ vehicle: 'vehicles', driver: 'drivers', compliance: 'compliance_records', maintenance: 'maintenance_records', driverCollectedData: 'driver_collected_data', loan: 'loans', loanPayment: 'loan_payments', prepayment: 'prepayments', driverTarget: 'driver_targets', breakEvenInputs: 'break_even_inputs', backupRestore: 'settings', themes: 'settings', dataReset: 'settings' })
 const isSettingsForm = key => key === 'backupRestore' || key === 'themes' || key === 'dataReset'
 const isDeleted = record => record?.deletedAt || record?.deleted === true
 function storeFor(formKey) { const store = FORM_STORE[formKey]; if (!store) throw new Error(`No canonical store is defined for Admin form: ${formKey}`); return store }
 function toStoredRecord(formKey, values, existing = null) { const now = new Date().toISOString(); const id = existing?.id || generateUUID(); const base = { id, createdAt: existing?.createdAt || now, updatedAt: now }; if (isSettingsForm(formKey)) return { ...base, settingKey: formKey, values: structuredClone(values) }; return { ...base, ...structuredClone(values) } }
 const readAll = async storeName => { const db = await initializeCanonicalStorage(); return new Promise((resolve, reject) => { const request = db.transaction(storeName, 'readonly').objectStore(storeName).getAll(); request.onsuccess = () => resolve(request.result || []); request.onerror = () => reject(request.error || new Error(`Failed to read ${storeName}.`)) }) }
 function toFormRecord(formKey, record) { if (!record) return null; if (isSettingsForm(formKey)) return { id: record.id, values: structuredClone(record.values || {}), createdAt: record.createdAt, updatedAt: record.updatedAt }; const { id, createdAt, updatedAt, deletedAt, deleted, ...values } = record; return { id, values: structuredClone(values), createdAt, updatedAt, ...(deletedAt ? { deletedAt } : {}), ...(deleted ? { deleted } : {}) } }
+const relationshipStore = Object.freeze({ compliance: [['vehicleId', 'vehicles']], maintenance: [['vehicleId', 'vehicles']], driverCollectedData: [['driverId', 'drivers'], ['vehicleId', 'vehicles']], loanPayment: [['loanId', 'loans']], prepayment: [['loanId', 'loans']], driverTarget: [['driverId', 'drivers']] })
+async function validateRelationships(db, formKey, values) {
+  for (const [field, storeName] of relationshipStore[formKey] || []) {
+    const id = values[field]
+    if (!id) continue
+    const record = await new Promise((resolve, reject) => { const request = db.transaction(storeName, 'readonly').objectStore(storeName).get(id); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error) })
+    if (!record || isDeleted(record)) throw new Error(`${field} references a missing or deleted canonical record.`)
+  }
+}
 
 export const AdminRepository = {
   async list(formKey) { const records = await readAll(storeFor(formKey)); return records.filter(record => !isDeleted(record) && (!isSettingsForm(formKey) || record.settingKey === formKey)).map(record => toFormRecord(formKey, record)).sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''))) },
   async get(formKey, id) { const db = await initializeCanonicalStorage(); return new Promise((resolve, reject) => { const request = db.transaction(storeFor(formKey), 'readonly').objectStore(storeFor(formKey)).get(id); request.onsuccess = () => resolve(toFormRecord(formKey, request.result)); request.onerror = () => reject(request.error || new Error(`Failed to read ${formKey}.`)) }) },
   async save(formKey, values, existingId = null) {
+    const definition = getAdminFormDefinition(formKey)
+    if (definition) { const validation = validateAdminForm(definition, values); if (!validation.valid) throw new Error(`Invalid ${formKey}: ${Object.values(validation.errors).join(' ')}`); values = validation.values }
     const db = await initializeCanonicalStorage(); const storeName = storeFor(formKey); const existing = existingId ? await this.get(formKey, existingId) : null
     const existingRaw = existing ? { id: existing.id, createdAt: existing.createdAt, updatedAt: existing.updatedAt, deletedAt: existing.deletedAt, deleted: existing.deleted, ...existing.values } : null
+    await validateRelationships(db, formKey, values)
     const record = toStoredRecord(formKey, values, existingRaw); const now = record.updatedAt; const action = existing ? 'UPDATE' : 'CREATE'
     return new Promise((resolve, reject) => {
       const tx = db.transaction([storeName, 'pending_mutations', 'audit_history'], 'readwrite')
@@ -30,15 +40,8 @@ export const AdminRepository = {
   async remove(formKey, id) {
     const db = await initializeCanonicalStorage(); const storeName = storeFor(formKey); const now = new Date().toISOString()
     return new Promise((resolve, reject) => {
-      const tx = db.transaction([storeName, 'pending_mutations', 'audit_history'], 'readwrite')
-      const store = tx.objectStore(storeName); const request = store.get(id)
-      request.onsuccess = () => {
-        const record = request.result
-        if (!record) { try { tx.abort() } catch (_) {}; reject(new Error(`Cannot delete missing ${formKey} record.`)); return }
-        record.deletedAt = now; record.updatedAt = now; record.deleted = true
-        store.put(record)
-        writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: id, entityType: formKey, action: 'DELETE', payload: { id, formKey, deletedAt: now }, createdAt: now })
-      }
+      const tx = db.transaction([storeName, 'pending_mutations', 'audit_history'], 'readwrite'); const store = tx.objectStore(storeName); const request = store.get(id)
+      request.onsuccess = () => { const record = request.result; if (!record) { try { tx.abort() } catch (_) {}; reject(new Error(`Cannot delete missing ${formKey} record.`)); return }; record.deletedAt = now; record.updatedAt = now; record.deleted = true; store.put(record); writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: id, entityType: formKey, action: 'DELETE', payload: { id, formKey, deletedAt: now }, createdAt: now }) }
       request.onerror = () => { try { tx.abort() } catch (_) {}; reject(request.error || new Error(`Failed to read ${formKey} for deletion.`)) }
       tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: [storeName], reason: 'admin:DELETE' }); resolve(true) }; tx.onerror = () => reject(tx.error || new Error(`Failed to delete ${formKey}.`)); tx.onabort = () => reject(tx.error || new Error(`Delete ${formKey} aborted.`))
     })
