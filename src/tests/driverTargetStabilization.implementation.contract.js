@@ -14,18 +14,15 @@ assert.equal(surplus.nextBalance, -200)
 assert.equal(stabilizeActiveDay({ baseTarget: 1200, balance: -200 }).target, 1000)
 
 const offDay = deriveRollingDriverTarget({
-  from: '2026-09-10',
-  to: '2026-09-10',
-  trips: [],
-  shifts: [],
-  driverTargets: [{ effectiveFrom: '2026-09-01', effectiveUntil: '2026-09-30', targetRevenue: 2000 }]
+  from: '2026-09-10', to: '2026-09-10', trips: [], shifts: [],
+  driverTargets: [{ effectiveFrom: '2026-09-01', effectiveUntil: '2026-09-30', desiredDriverProfit: 200 }],
+  applicableBreakEven: 800
 })
 assert.equal(offDay.activeDays, 0)
 assert.equal(offDay.currentDailyTarget, null)
 
 const activeDays = deriveRollingDriverTarget({
-  from: '2026-09-10',
-  to: '2026-09-11',
+  from: '2026-09-10', to: '2026-09-11',
   shifts: [
     { shiftStartAt: '2026-09-10T08:00:00Z', shiftEndAt: '2026-09-10T20:00:00Z' },
     { shiftStartAt: '2026-09-11T08:00:00Z', shiftEndAt: '2026-09-11T20:00:00Z' }
@@ -34,21 +31,46 @@ const activeDays = deriveRollingDriverTarget({
     { status: 'COMPLETED', tripEndAt: '2026-09-10T10:00:00Z', revenue: 1000 },
     { status: 'COMPLETED', tripEndAt: '2026-09-11T10:00:00Z', revenue: 1200 }
   ],
-  driverTargets: [{ effectiveFrom: '2026-09-01', effectiveUntil: '2026-09-30', targetRevenue: 2000, workingDays: 2 }]
+  driverTargets: [{ effectiveFrom: '2026-09-01', effectiveUntil: '2026-09-30', desiredDriverProfit: 200, workingDays: 2 }],
+  applicableBreakEven: 800
 })
 assert.equal(activeDays.activeDays, 2)
 assert.equal(activeDays.currentBaseDaily, 1000)
 assert.equal(activeDays.currentDailyTarget, 1000)
 
 const zeroRevenueActiveDay = deriveRollingDriverTarget({
-  from: '2026-09-12',
-  to: '2026-09-12',
+  from: '2026-09-12', to: '2026-09-12',
   shifts: [{ shiftStartAt: '2026-09-12T08:00:00Z', shiftEndAt: '2026-09-12T20:00:00Z' }],
   trips: [],
-  driverTargets: [{ effectiveFrom: '2026-09-01', effectiveUntil: '2026-09-30', targetRevenue: 2000, workingDays: 2 }]
+  driverTargets: [{ effectiveFrom: '2026-09-01', effectiveUntil: '2026-09-30', desiredDriverProfit: 200, workingDays: 2 }],
+  applicableBreakEven: 800
 })
 assert.equal(zeroRevenueActiveDay.activeDays, 1)
 assert.equal(zeroRevenueActiveDay.currentDailyTarget, 1000)
 assert.equal(zeroRevenueActiveDay.balance, 1000)
+
+const missingAuthoritativeInput = deriveRollingDriverTarget({
+  from: '2026-09-12', to: '2026-09-12',
+  shifts: [{ shiftStartAt: '2026-09-12T08:00:00Z', shiftEndAt: '2026-09-12T20:00:00Z' }],
+  trips: [],
+  driverTargets: [{ effectiveFrom: '2026-09-01', effectiveUntil: '2026-09-30', targetRevenue: 2000, workingDays: 2 }],
+  applicableBreakEven: 800
+})
+assert.equal(missingAuthoritativeInput.available, false)
+assert.equal(missingAuthoritativeInput.currentDailyTarget, null)
+
+const incompleteHistoricalBalance = deriveRollingDriverTarget({
+  from: '2026-09-12', to: '2026-09-12',
+  shifts: [
+    { shiftStartAt: '2026-09-10T08:00:00Z', shiftEndAt: '2026-09-10T20:00:00Z' },
+    { shiftStartAt: '2026-09-12T08:00:00Z', shiftEndAt: '2026-09-12T20:00:00Z' }
+  ],
+  trips: [{ status: 'COMPLETED', tripEndAt: '2026-09-10T10:00:00Z', revenue: 1000 }],
+  driverTargets: [{ effectiveFrom: '2026-09-01', effectiveUntil: '2026-09-30', desiredDriverProfit: 200, workingDays: 2 }],
+  applicableBreakEven: 800
+})
+assert.equal(incompleteHistoricalBalance.available, false)
+assert.equal(incompleteHistoricalBalance.reason, 'MISSING_HISTORICAL_DRIVER_TARGET_INPUT')
+assert.equal(incompleteHistoricalBalance.currentDailyTarget, null)
 
 console.log('Driver target stabilization implementation contract passed.')

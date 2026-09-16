@@ -1,4 +1,7 @@
-const finite = v => Number.isFinite(Number(v)) ? Number(v) : null
+const finite = v => {
+  if (v == null || v === '') return null
+  return Number.isFinite(Number(v)) ? Number(v) : null
+}
 const dateOf = v => { const x = v ? new Date(v) : null; return x && !Number.isNaN(x.getTime()) ? x : null }
 const keyOf = v => { const x = dateOf(v); return x ? x.toISOString().slice(0, 10) : null }
 const live = xs => (xs || []).filter(x => !x?.deletedAt && x?.deleted !== true)
@@ -10,31 +13,21 @@ const applies = (x, day) => {
   return x?.active !== false && x?.status !== 'INACTIVE' && from <= day && day <= until
 }
 const latestForDay = (xs, day) => live(xs).filter(x => applies(x, day)).sort((a, b) => String(b.effectiveFrom || b.startDate || '').localeCompare(String(a.effectiveFrom || a.startDate || '')))[0] || null
-const calendarDays = (from, to) => {
-  const a = dateOf(from), b = dateOf(to)
-  return a && b && b >= a ? Math.max(1, Math.ceil((b - a) / 86400000) + 1) : null
-}
-const periodDays = record => {
-  const explicit = finite(record?.workingDays ?? record?.activeWorkingDays ?? record?.targetWorkingDays)
-  if (explicit != null && explicit > 0) return explicit
-  return calendarDays(effectiveFrom(record), effectiveUntil(record)) || 1
-}
-const periodBaseTarget = (record, applicableBreakEven = null) => {
-  const desiredProfit = finite(record?.desiredDriverProfit ?? record?.desiredTakeHome ?? record?.desiredProfit)
-  if (desiredProfit != null && applicableBreakEven != null) return applicableBreakEven + desiredProfit
-  const configured = finite(record?.targetRevenue ?? record?.target ?? record?.amount)
-  return configured
-}
+const desiredDriverProfit = record => finite(record?.desiredDriverProfit ?? record?.desiredTakeHome ?? record?.desiredProfit)
+
+// The stabilization API operates in active-day units. The applicable break-even
+// passed to it must therefore be the break-even for that active day. workingDays
+// is descriptive period metadata and must not divide the authoritative target.
 const baseDailyFor = (record, applicableBreakEven = null) => {
-  const periodTarget = periodBaseTarget(record, applicableBreakEven)
-  const dailyTarget = finite(record?.dailyTarget ?? record?.targetPerActiveDay)
-  if (dailyTarget != null) return dailyTarget
-  return periodTarget == null ? null : periodTarget / periodDays(record)
+  const desiredProfit = desiredDriverProfit(record)
+  const breakEven = finite(applicableBreakEven)
+  if (desiredProfit == null || breakEven == null) return null
+  return finite(breakEven + desiredProfit)
 }
 
-export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTargets = [], from, to, applicableBreakEven = null } = {}) {
+export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTargets = [], from, to, applicableBreakEven = null, historicalBreakEvenForDay = null } = {}) {
   const start = dateOf(from), end = dateOf(to)
-  if (!start || !end || end < start) return { available: false, reason: 'INVALID_PERIOD', balanceBefore: null, currentDailyTarget: null, periodBaseTarget: null }
+  if (!start || !end || end < start) return { available: false, reason: 'INVALID_PERIOD', balanceBefore: null, currentDailyTarget: null, currentBaseDaily: null }
   const completed = live(trips).filter(x => x.status === 'COMPLETED')
   const byDay = new Map()
   for (const trip of completed) {
@@ -49,14 +42,41 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
   }
   const allActiveDays = [...activeDaySet].sort()
   let balance = 0
+  let historicalBalanceComplete = true
   for (const dayKey of allActiveDays) {
     const day = dateOf(dayKey)
     if (!day || day >= start) break
     const record = latestForDay(driverTargets, day)
-    if (!record) continue
-    const baseDaily = baseDailyFor(record)
-    if (baseDaily == null) continue
+    if (!record) {
+      historicalBalanceComplete = false
+      break
+    }
+    const historicalBreakEven = typeof historicalBreakEvenForDay === 'function'
+      ? historicalBreakEvenForDay({ record, day })
+      : null
+    const baseDaily = baseDailyFor(record, historicalBreakEven)
+    if (baseDaily == null) {
+      historicalBalanceComplete = false
+      break
+    }
     balance += baseDaily - (byDay.get(dayKey) || 0)
+  }
+  if (!historicalBalanceComplete) {
+    return {
+      available: false,
+      reason: 'MISSING_HISTORICAL_DRIVER_TARGET_INPUT',
+      balanceBefore: null,
+      balance: null,
+      currentDailyTarget: null,
+      currentBaseDaily: null,
+      currentPeriodBaseTarget: null,
+      recoveryAdjustment: null,
+      activeDays: allActiveDays.filter(k => {
+        const day = dateOf(k)
+        return day && day >= start && day <= end
+      }).length,
+      authority: 'COMPLETED_TRIPS_FOR_REVENUE_AND_SHIFTS_FOR_ACTIVE_DAYS'
+    }
   }
   const currentDays = allActiveDays.filter(k => {
     const day = dateOf(k)
@@ -70,23 +90,29 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     const day = dateOf(dayKey)
     const record = latestForDay(driverTargets, day)
     if (!record) continue
-    const baseDaily = baseDailyFor(record, applicableBreakEven)
+    const dayBreakEven = typeof historicalBreakEvenForDay === 'function'
+      ? historicalBreakEvenForDay({ record, day })
+      : applicableBreakEven
+    const baseDaily = baseDailyFor(record, dayBreakEven)
     if (baseDaily == null) continue
     currentBaseDaily = baseDaily
-    currentPeriodBaseTarget = periodBaseTarget(record, applicableBreakEven)
+    // Kept for API compatibility; it is explicitly a daily amount, not a
+    // multi-day period total and is therefore not divided by workingDays.
+    currentPeriodBaseTarget = baseDaily
     currentDailyTarget = baseDaily + balance
     balanceBeforeCurrent = balance
     balance += baseDaily - (byDay.get(dayKey) || 0)
   }
+  const available = finite(currentDailyTarget) != null
   return {
-    available: currentDailyTarget != null,
-    reason: currentDailyTarget == null ? 'NO_APPLICABLE_ACTIVE_DAY_TARGET' : null,
+    available,
+    reason: available ? null : 'MISSING_AUTHORITATIVE_TARGET_INPUT',
     balanceBefore: balanceBeforeCurrent,
     balance,
-    currentDailyTarget,
-    currentBaseDaily,
-    currentPeriodBaseTarget,
-    recoveryAdjustment: currentDailyTarget != null && currentBaseDaily != null ? currentDailyTarget - currentBaseDaily : null,
+    currentDailyTarget: available ? currentDailyTarget : null,
+    currentBaseDaily: finite(currentBaseDaily) != null ? currentBaseDaily : null,
+    currentPeriodBaseTarget: finite(currentPeriodBaseTarget) != null ? currentPeriodBaseTarget : null,
+    recoveryAdjustment: available && finite(currentBaseDaily) != null ? currentDailyTarget - currentBaseDaily : null,
     activeDays: currentDays.length,
     authority: 'COMPLETED_TRIPS_FOR_REVENUE_AND_SHIFTS_FOR_ACTIVE_DAYS'
   }
