@@ -68,15 +68,22 @@ export const PerformanceService = Object.freeze({
       monthlyBreakEvenCache.set(key, monthBreakEven)
       return monthBreakEven
     }
+    const currentDay = [...(calculationSnapshot?.shifts || [])]
+      .filter(x => !x?.deletedAt && x?.deleted !== true)
+      .map(x => new Date(x.shiftEndAt || x.shiftStartAt))
+      .filter(x => !Number.isNaN(x.getTime()) && x >= range.from && x <= range.to)
+      .sort((a, b) => b - a)[0]
+    const monthlyBreakEvenRevenue = currentDay ? monthlyBreakEvenForDay({ day: currentDay }) : null
     const stabilization = deriveRollingDriverTarget({
       trips: calculationSnapshot?.trips,
       shifts: calculationSnapshot?.shifts,
       driverTargets: calculationSnapshot?.driverTargets,
       from: range.from,
       to: range.to,
-      applicableBreakEven: breakEvenRevenue,
+      // Driver-target stabilization consumes the authoritative MONTHLY break-even.
+      // breakEvenRevenue is the period calculation figure and must not be treated as monthly.
+      applicableBreakEven: monthlyBreakEvenRevenue,
       historicalBreakEvenForDay: monthlyBreakEvenForDay,
-      applicableBreakEvenForDay: monthlyBreakEvenForDay,
     })
     const canonicalTarget = stabilization.available && Number.isFinite(stabilization.currentDailyTarget)
       ? stabilization.currentDailyTarget
@@ -86,12 +93,6 @@ export const PerformanceService = Object.freeze({
     const periodTarget = targetAvailable
       ? canonicalTarget * Math.max(1, targetActiveDays)
       : NaN
-    const currentDay = [...(calculationSnapshot?.shifts || [])]
-      .filter(x => !x?.deletedAt && x?.deleted !== true)
-      .map(x => new Date(x.shiftEndAt || x.shiftStartAt))
-      .filter(x => !Number.isNaN(x.getTime()) && x >= range.from && x <= range.to)
-      .sort((a, b) => b - a)[0]
-    const monthlyBreakEvenRevenue = currentDay ? monthlyBreakEvenForDay({ day: currentDay }) : null
     const currentRecord = currentDay ? (calculationSnapshot?.driverTargets || []).filter(x => {
       const from = x?.effectiveFrom ? new Date(x.effectiveFrom) : new Date(0)
       const until = x?.effectiveUntil ? new Date(x.effectiveUntil) : new Date('9999-12-31T23:59:59.999Z')
