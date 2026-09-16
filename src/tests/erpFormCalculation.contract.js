@@ -10,7 +10,7 @@ required('maintenance', ['performedOn','cost','odometerKm'])
 required('loan', ['principal','annualInterestRate','tenureMonths','startDate'])
 required('loanPayment', ['loanId','paidOn','amount','charges','status'])
 required('prepayment', ['loanId','paidOn','amount','status'])
-required('driverTarget', ['driverId','effectiveFrom','targetRevenue'])
+required('driverTarget', ['driverId','effectiveFrom','desiredDriverProfit'])
 required('breakEvenInputs', ['effectiveFrom','maintenanceProvisionPerKm'])
 
 assert.equal(getAdminFormDefinition('driverCollectedData').calculationRole, 'supporting-only')
