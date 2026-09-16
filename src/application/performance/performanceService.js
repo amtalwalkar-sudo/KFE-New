@@ -1,6 +1,7 @@
 import { PerformanceRepository } from '../../repositories/performanceRepository.js'
 import { derivePerformance, layerRows, previousRange } from '../../domain/performance/performanceEngineV2.js'
 import { deriveRollingDriverTarget } from '../../domain/performance/driverTargetStabilization.js'
+import { deriveAuthoritativeBreakEven } from '../../domain/performance/authoritativeBreakEven.js'
 import { normalizeCalculationSnapshot } from './normalizeCalculationSnapshot.js'
 import { istMonthRange } from '../../domain/time/ist.js'
 
@@ -12,15 +13,19 @@ export const PerformanceService = Object.freeze({
     const calculationSnapshot = normalizeCalculationSnapshot(snapshot)
     const metrics = derivePerformance(calculationSnapshot, range, previousRange(range))
     const monthlyBreakEvenCache = new Map()
+
     const monthlyBreakEvenForDay = ({ day }) => {
       const monthRange = istMonthRange(day)
       if (!monthRange) return null
       const key = monthRange.from.toISOString().slice(0, 7)
       if (monthlyBreakEvenCache.has(key)) return monthlyBreakEvenCache.get(key)
+
       const monthMetrics = derivePerformance(calculationSnapshot, monthRange, previousRange(monthRange))
-      const monthBreakEven = Number.isFinite(monthMetrics.monthlyBreakEvenRevenue) ? monthMetrics.monthlyBreakEvenRevenue : null
-      monthlyBreakEvenCache.set(key, monthBreakEven)
-      return monthBreakEven
+      const monthlyBreakEven = Number.isFinite(monthMetrics.monthlyBreakEvenRevenue)
+        ? monthMetrics.monthlyBreakEvenRevenue
+        : null
+      monthlyBreakEvenCache.set(key, monthlyBreakEven)
+      return monthlyBreakEven
     }
 
     const currentDay = [...(calculationSnapshot?.trips || [])]
