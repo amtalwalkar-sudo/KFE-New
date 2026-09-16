@@ -45,7 +45,7 @@ Every calculation is checked for authority, source lineage, period, unit, sign, 
 |---|---|---|---|
 | 1 | Persistence | 🟢 | Canonical calculation snapshot reads canonical stores through repositories; no duplicate calculation DB is used by Performance. |
 | 2 | Normalization | 🟢 | Persisted compatibility aliases are resolved at the application normalization boundary and removed from normalized records. |
-| 3 | Actual economics | 🟢 | Revenue, vehicle KM, business KM, dead KM, fuel, maintenance, toll, parking, financing and renewal have identified calculation owners. |
+| 3 | Actual economics | 🟢 | Revenue, vehicle KM, business KM, dead KM, fuel, maintenance, toll, parking, financing and renewal have identified calculation owners. GPS movement accounting is explicitly treated as estimation/reconciliation support, not the Performance authority. |
 | 4 | Monthly break-even | 🟢 | `deriveAuthoritativeBreakEven()` is the monthly BE formula owner; the service no longer makes BE availability depend on a completed trip day. |
 | 5 | Driver Target | 🟢 | Monthly BE + monthly desired driver profit + opening rolling balance is the effective monthly obligation. |
 | 6 | Rolling balance | 🟢 | Closed-month variance rolls; active-month variance remains provisional. |
@@ -76,6 +76,10 @@ The first independently calculated vehicle/inter-shift mileage from an obsolete 
 ### Arithmetic boundary guard — ADDED
 
 A new `calculationArithmetic.contract.js` is part of the standard test gate. It checks presentation/domain boundaries for known financial-authority arithmetic, legacy target aliases, wall-clock use in domain calculations, and the single monthly BE formula owner.
+
+### GPS movement accounting — CLASSIFIED
+
+`domain/movement/movementAccounting.js` remains a separate estimation/reconciliation capability. Its GPS-derived segments are marked with explicit estimate/manual/odometer-remainder authority labels and are not consumed by the authoritative Performance calculation chain. The frozen actual vehicle-KM authority remains shift end odometer minus shift start odometer.
 
 ## Confirmed architectural chain
 
