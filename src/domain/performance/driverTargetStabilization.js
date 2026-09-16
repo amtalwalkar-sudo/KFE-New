@@ -95,12 +95,18 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     financialDaysByMonth.get(month).add(day)
   }
 
-  const startDayKey = keyOf(start)
-  const financialDayKeys = [...financialDaysByMonth.values()].flatMap(set => [...set]).filter(k => k >= startDayKey && k <= endDayKey).sort()
+  // Driver Target is a calendar-month obligation. The caller's `from` may be a
+  // partial reporting range, but that must not truncate the target month before
+  // the selected as-of boundary. The end timestamp determines the target month.
+  const targetMonth = monthKeyOf(end)
+  const targetMonthStartKey = keyOf(monthBounds(targetMonth).from)
+  const financialDayKeys = [...(financialDaysByMonth.get(targetMonth) || new Set())]
+    .filter(k => k >= targetMonthStartKey && k <= endDayKey)
+    .sort()
   if (!financialDayKeys.length) return failure('NO_FINANCIAL_DRIVER_TARGET_DAY', null, 0)
 
   const currentDay = dateOf(financialDayKeys[financialDayKeys.length - 1])
-  const currentMonth = monthKeyOf(currentDay)
+  const currentMonth = targetMonth
   const targetMonths = live(driverTargets).map(x => monthKeyOf(effectiveFrom(x))).filter(Boolean)
   const historicalMonths = [...new Set([...revenueByMonth.keys(), ...targetMonths])]
     .filter(month => month < currentMonth && monthBounds(month).from <= end)
