@@ -53,12 +53,47 @@ assert.equal(serviceMetrics.breakEvenRevenue, m.breakEvenRevenue)
 assert.equal(serviceMetrics.authority.breakEven, 'BREAK_EVEN_INPUTS_PLUS_CANONICAL_PERFORMANCE_COSTS')
 assert.ok(Number.isFinite(serviceMetrics.driverTarget))
 assert.equal(serviceMetrics.driverTarget, (serviceMetrics.breakEvenRevenue + 2000) / 30)
+assert.equal(serviceMetrics.target, serviceMetrics.driverTarget)
+assert.equal(serviceMetrics.completeness.target, true)
+assert.equal(serviceMetrics.authority.target, 'AUTHORITATIVE_DRIVER_TARGET_BREAK_EVEN_PLUS_DESIRED_PROFIT_PLUS_ROLLING_BALANCE')
 assert.equal(serviceMetrics.pace.requiredRevenuePerActiveDay, serviceMetrics.driverTarget)
 
 const manualDailyTargetInput = { ...snapshot, driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:2000, dailyTarget:1, targetPerActiveDay:2, active:true }] }
 const manualDailyTargetMetrics = PerformanceService.getMetrics(manualDailyTargetInput, range)
 assert.equal(manualDailyTargetMetrics.driverTargetAvailable, true)
 assert.equal(manualDailyTargetMetrics.driverTarget, serviceMetrics.driverTarget)
+assert.equal(manualDailyTargetMetrics.target, serviceMetrics.driverTarget)
+
+const historicalRange = { from: new Date('2026-09-10T00:00:00Z'), to: new Date('2026-09-10T23:59:59Z') }
+const historicalBaseSnapshot = {
+  ...snapshot,
+  shifts: [
+    { id:'historical', shiftStartAt:'2026-09-05T08:00:00Z', shiftEndAt:'2026-09-05T18:00:00Z', startOdometer:800, endOdometer:1000, toll:100, parking:50 },
+    ...snapshot.shifts,
+  ],
+  trips: [
+    { id:'historical', status:'COMPLETED', tripStartAt:'2026-09-05T09:00:00Z', tripEndAt:'2026-09-05T12:00:00Z', tripKm:150, revenue:0 },
+    ...snapshot.trips,
+  ],
+}
+const historicalDeficitMetrics = PerformanceService.getMetrics(historicalBaseSnapshot, historicalRange)
+assert.equal(historicalDeficitMetrics.driverTargetAvailable, true)
+assert.ok(Number.isFinite(historicalDeficitMetrics.driverTargetRollingBalance))
+assert.ok(historicalDeficitMetrics.driverTargetRollingBalance > 0)
+assert.ok(historicalDeficitMetrics.driverTarget > historicalDeficitMetrics.driverTargetBase)
+
+const historicalSurplusSnapshot = {
+  ...historicalBaseSnapshot,
+  trips: [
+    { id:'historical', status:'COMPLETED', tripStartAt:'2026-09-05T09:00:00Z', tripEndAt:'2026-09-05T12:00:00Z', tripKm:150, revenue:100000 },
+    snapshot.trips[0],
+  ],
+}
+const historicalSurplusMetrics = PerformanceService.getMetrics(historicalSurplusSnapshot, historicalRange)
+assert.equal(historicalSurplusMetrics.driverTargetAvailable, true)
+assert.ok(Number.isFinite(historicalSurplusMetrics.driverTargetRollingBalance))
+assert.ok(historicalSurplusMetrics.driverTargetRollingBalance < 0)
+assert.ok(historicalSurplusMetrics.driverTarget < historicalSurplusMetrics.driverTargetBase)
 
 const changedInput = { ...snapshot, breakEvenInputs: [{ effectiveFrom:'2026-09-01', maintenanceProvisionPerKm:4, active:true }] }
 const changedEngineMetrics = derivePerformance(changedInput, range, previousRange(range))
@@ -75,14 +110,17 @@ assert.ok(Number.isNaN(missingEngineMetrics.breakEvenRevenue))
 assert.equal(missingServiceMetrics.completeness.breakEven, false)
 assert.equal(missingServiceMetrics.driverTargetAvailable, false)
 assert.equal(missingServiceMetrics.driverTarget, null)
+assert.equal(missingServiceMetrics.target, null)
 
 const missingBreakEvenInput = PerformanceService.getMetrics({ ...snapshot, breakEvenInputs: [] }, range)
 assert.equal(missingBreakEvenInput.completeness.breakEven, false)
 assert.equal(missingBreakEvenInput.driverTargetAvailable, false)
 assert.equal(missingBreakEvenInput.driverTarget, null)
+assert.equal(missingBreakEvenInput.target, null)
 
 const missingTargetInput = PerformanceService.getMetrics({ ...snapshot, driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', targetRevenue:2000, active:true }] }, range)
 assert.equal(missingTargetInput.driverTargetAvailable, false)
 assert.equal(missingTargetInput.driverTarget, null)
+assert.equal(missingTargetInput.target, null)
 
-console.log('Performance contract passed: canonical sources, engine/service break-even parity, configurable break-even inputs, no maintenance fallback, full-tank fuel cost, financing cash flow, provisions and stabilized driver target wiring are covered.')
+console.log('Performance contract passed: canonical sources, engine/service break-even parity, authoritative Driver Target display, historical rolling recovery/surplus reconstruction, no manual-target override, no maintenance fallback and financing/provision calculations are covered.')
