@@ -7,6 +7,7 @@ const normalizeRecord = (record, aliases) => {
   for (const [canonical, candidates] of Object.entries(aliases)) {
     const value = first(record[canonical], ...candidates.map(key => record[key]))
     if (value != null) normalized[canonical] = value
+    for (const key of candidates) delete normalized[key]
   }
   return normalized
 }
@@ -14,11 +15,12 @@ const normalizeRecord = (record, aliases) => {
 const normalizeLoan = loan => {
   const record = normalizeRecord(loan, {
     startDate: ['start_date', 'loanStartDate', 'loan_start_date'],
-    tenureMonths: ['tenure_months', 'term_months'],
+    tenureMonths: ['tenureMonths', 'tenure_months', 'term_months'],
     annualInterestRate: ['annual_rate_percent'],
   })
   if (!record) return null
   if (!finiteNumber(record.tenureMonths) && finiteNumber(loan.tenureYears)) record.tenureMonths = Number(loan.tenureYears) * 12
+  delete record.tenureYears
   if (finiteNumber(record.tenureMonths)) record.tenureMonths = Number(record.tenureMonths)
   if (finiteNumber(record.annualInterestRate)) record.annualInterestRate = Number(record.annualInterestRate)
   return record
