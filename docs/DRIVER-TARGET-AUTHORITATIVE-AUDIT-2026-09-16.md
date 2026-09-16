@@ -18,19 +18,33 @@ The implementation now requires an explicit `desiredDriverProfit`, `desiredTakeH
 
 If the authoritative desired-profit input is missing, the stabilization result is explicitly unavailable rather than silently falling back to an unrelated target field.
 
-### 2. Break-even source
+### 2. Driver Target is informational and does not alter actual calculations
+
+The Driver Target is a driver-facing motivation and situational-awareness value. It is not an input to the underlying actual business calculations and must never modify actual revenue, cost, break-even, profit, or other authoritative financial calculations.
+
+The displayed Driver Target must always be derived from the authoritative Driver Target chain:
+
+`applicable break-even requirement + Admin-defined desired driver profit + rolling recovery/surplus adjustment`
+
+An explicitly stored `dailyTarget` or `targetPerActiveDay` must not override or replace that derivation. Legacy target fields such as `targetRevenue`, `target`, or `amount` must not become alternate authorities for the displayed Driver Target.
+
+If the authoritative break-even requirement or desired driver profit is unavailable, the Driver Target is unavailable rather than falling back to a manually stored target.
+
+The rolling recovery/surplus adjustment affects only the displayed Driver Target. It does not feed back into or change the actual calculation layer.
+
+### 3. Break-even source
 
 The canonical IndexedDB schema contains `break_even_inputs`, and the performance repository already reads that store. The current performance engine has a legacy path that does not yet consume that snapshot collection directly for all break-even inputs. This is retained as an explicit follow-up boundary rather than silently inventing a new mapping.
 
-### 3. Rolling recovery
+### 4. Rolling recovery
 
 Repository audit did not identify a separate persisted rolling-recovery balance store. The current stabilization reconstructs the carried balance from authoritative completed-trip revenue and shift-defined active days. This is reconstructable from authoritative records and uses no N-day smoothing window, but it must continue to be treated as the implementation of the frozen rolling mechanism, not as a second business ledger.
 
-### 4. Active/off-day behavior
+### 5. Active/off-day behavior
 
 Active days are derived from shifts. A shift day participates even when it has zero completed trips. A day without a shift does not create a driver target or recovery increment.
 
-### 5. Calculation chain
+### 6. Calculation chain
 
 The current chain is:
 
