@@ -22,7 +22,11 @@ assert.equal(remainingDaily(effectiveMonthly(10000, 4000, 2000), 0, 20), 800)
 const beforeHoliday = remainingDaily(14000, 0, 21)
 const afterHoliday = remainingDaily(14000, beforeHoliday, 19)
 assert.ok(afterHoliday > beforeHoliday)
-assert.equal(remainingDaily(14000, beforeHoliday, 20), 700)
+// After one eligible day has been allocated, 20 eligible days remain. The
+// remaining obligation is therefore 14000 - (14000 / 21), divided by 20.
+const expectedAfterOneAllocation = (14000 - beforeHoliday) / 20
+assert.ok(Math.abs(remainingDaily(14000, beforeHoliday, 20) - expectedAfterOneAllocation) < 1e-12)
+assert.ok(Math.abs(expectedAfterOneAllocation - (14000 / 21)) < 1e-12)
 
 // Configured workingDays is not a competing divisor for the target authority.
 const configured20 = remainingDaily(14000, 0, 20)
