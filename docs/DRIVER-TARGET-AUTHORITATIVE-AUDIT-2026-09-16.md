@@ -2,9 +2,9 @@
 
 ## CI
 
-The post-merge CI for `main` commit `0f03cdd0bbd2458906c557a8bd1fea6898d6de60` was reported green after the Driver Target stabilization merge.
+The post-merge CI for `main` commit `2cde14ba55ec99dda3aadd5029945fc3d07ebda9` completed successfully as workflow run #160 (`KFE 2.0 single CI`). The build-and-test job completed all configured foundation contract tests, production PWA build, Capacitor Android sync, and Android debug APK build successfully.
 
-The standard `npm test` script includes both the structural stabilization contract and the implementation contract.
+The standard `npm test` script includes both the structural stabilization contract and the implementation contract, plus the calculation-boundary adversarial contract.
 
 ## Audit findings
 
@@ -15,6 +15,8 @@ The frozen rule requires:
 `baseTarget = applicableBreakEvenCost + desiredDriverProfit`
 
 The implementation now requires an explicit `desiredDriverProfit`, `desiredTakeHome`, or `desiredProfit` field when deriving a target from break-even. A legacy `targetRevenue` value is no longer accepted by the stabilization implementation as a substitute for desired take-home/profit.
+
+The Admin Driver Target form now also marks `desiredDriverProfit` as required, so the authoritative input cannot be omitted silently at the form boundary.
 
 If the authoritative desired-profit input is missing, the stabilization result is explicitly unavailable rather than silently falling back to an unrelated target field.
 
@@ -34,7 +36,7 @@ The rolling recovery/surplus adjustment affects only the displayed Driver Target
 
 ### 3. Break-even source
 
-The canonical IndexedDB schema contains `break_even_inputs`, and the performance repository already reads that store. The current performance engine has a legacy path that does not yet consume that snapshot collection directly for all break-even inputs. This is retained as an explicit follow-up boundary rather than silently inventing a new mapping.
+The canonical IndexedDB schema contains `break_even_inputs`, and the performance repository reads that store directly. The performance service passes those authoritative inputs through the calculation boundary and re-derives break-even from canonical performance costs.
 
 ### 4. Rolling recovery
 
@@ -42,7 +44,9 @@ Repository audit did not identify a separate persisted rolling-recovery balance 
 
 ### 5. Active/off-day behavior
 
-Active days are derived from shifts. A shift day participates even when it has zero completed trips. A day without a shift does not create a driver target or recovery increment.
+Active days are derived from shifts inside the Driver Target stabilization service. A shift day participates even when it has zero completed trips. A day without a shift does not create a driver target or recovery increment.
+
+The existing performance-period `activeFinancialDays` metric remains a separate revenue/activity metric derived from completed trips; it must not be silently substituted for Driver Target stabilization's shift-defined active-day authority.
 
 ### 6. Calculation chain
 
@@ -51,6 +55,12 @@ The current chain is:
 `completed trips + shifts + driver target inputs → break-even → base driver requirement → carried rolling adjustment → current active-day driver target → pace requirement`
 
 The stabilized target is wired through `PerformanceService` into the pace calculation.
+
+### 7. Data-boundary and integrity audit
+
+The calculation boundary normalizes persisted loan schema variants (`tenureYears`/`tenureMonths`, alternate start-date and rate field names) before the canonical engine. The ERP form contract covers authoritative source fields. Records use client-generated UUIDs, and source-record deletion is implemented as soft deletion so historical records remain available to audit/recovery while being excluded from calculations.
+
+An adversarial regression contract now protects the following boundaries: empty/partial data, future-record leakage into historical calculations, soft-deleted records, active shift with zero completed trips, malformed loan data, and UUID uniqueness.
 
 ## Regression boundary
 
@@ -63,6 +73,12 @@ The contracts cover:
 - off-day behavior;
 - active shift with zero revenue;
 - missing authoritative desired-profit input;
-- service-level target wiring.
+- service-level target wiring;
+- Driver Target invariance against actual economics;
+- historical as-of-day fuel isolation;
+- future operational-record isolation;
+- soft-delete exclusion;
+- malformed authoritative finance records;
+- client-generated ID uniqueness.
 
 No N-day averaging or arbitrary smoothing window is introduced.
