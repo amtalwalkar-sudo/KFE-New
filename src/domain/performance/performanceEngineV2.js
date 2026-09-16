@@ -1,4 +1,5 @@
 import { calculateRollingFuelCostPerKm } from '../math/fuel.js'
+import { deriveAuthoritativeBreakEven } from './authoritativeBreakEven.js'
 
 const n = v => Number.isFinite(Number(v)) ? Number(v) : 0
 const d = v => { const x = v ? new Date(v) : null; return x && !Number.isNaN(x.getTime()) ? x : null }
@@ -13,7 +14,6 @@ export const previousRange = r => { const x = Math.max(1, r.to - r.from + 1); re
 const active = (xs, r) => live(xs).filter(x => x.active !== false && x.status !== 'INACTIVE' && (d(x.effectiveFrom || x.validFrom || x.startDate) || new Date(0)) <= r.to && (d(x.effectiveUntil || x.validUntil || x.endDate) || new Date('9999-12-31')) >= r.from)
 const latest = (xs, r) => active(xs, r).sort((a, b) => String(b.effectiveFrom || b.startDate || '').localeCompare(String(a.effectiveFrom || a.startDate || '')))[0]
 const target = (xs, r) => { const x = latest(xs, r); const v = x?.targetRevenue ?? x?.target ?? x?.amount; return Number.isFinite(Number(v)) ? Number(v) : null }
-const be = (xs, r) => { const x = latest(xs, r); return x ? { maintenanceProvisionPerKm: Number.isFinite(Number(x.maintenanceProvisionPerKm)) ? Number(x.maintenanceProvisionPerKm) : 2 } : { maintenanceProvisionPerKm: 2 } }
 const loan = (loans, pays, pre, r) => {
   const l = latest(loans, r)
   if (!l || !n(l.principal) || !d(l.startDate)) return { ok: false }
@@ -45,25 +45,25 @@ export function derivePerformance(s, r, p = previousRange(r)) {
     const operatingCost = fuelCost + toll + parking + maintenance
     return { sh, tr, fu, ma, revenue, vehicleKm, businessKm, deadKm, fuelCost, fuelQty, toll, parking, maintenance, workingHours, operatingCost, operatingProfit: revenue - operatingCost }
   }
-  const a = calc(r), q = calc(p), tar = target(DT, r), b = be([], r), ln = loan(L, LP, PP, r), pln = loan(L, LP, PP, p), ren = renewal(C, r), pren = renewal(C, p)
+  const a = calc(r), q = calc(p), tar = target(DT, r), ln = loan(L, LP, PP, r), pln = loan(L, LP, PP, p), ren = renewal(C, r), pren = renewal(C, p)
   const fuelModel = calculateRollingFuelCostPerKm(F, 10), fuelCostPerKm = fuelModel.rollingCostPerKm
-  const maintenanceRate = b.maintenanceProvisionPerKm, maintenanceProvision = a.vehicleKm * maintenanceRate, provision = maintenanceProvision + ren, prevMaintenanceProvision = q.vehicleKm * maintenanceRate, prevProvision = prevMaintenanceProvision + pren
+  const authoritativeBreakEven = deriveAuthoritativeBreakEven({ breakEvenInputs: s.breakEvenInputs, range: r, loanScheduledObligation: ln.ok ? ln.scheduled : NaN, renewalProvision: ren, fuelCostPerKm, vehicleKm: a.vehicleKm })
+  const maintenanceRate = authoritativeBreakEven.available ? authoritativeBreakEven.maintenanceProvisionPerKm : NaN
+  const maintenanceProvision = a.vehicleKm * maintenanceRate, provision = maintenanceProvision + ren, prevMaintenanceProvision = q.vehicleKm * maintenanceRate, prevProvision = prevMaintenanceProvision + pren
   const wd = days(r.from, r.to), elapsed = Math.max(1, Math.min(wd, Math.ceil((Math.min(Date.now(), r.to) - r.from) / 86400000))), activeDays = new Set(a.tr.map(x => (d(x.tripEndAt || x.tripStartAt) || {}).toISOString?.().slice(0, 10)).filter(Boolean)).size, prevActive = new Set(q.tr.map(x => (d(x.tripEndAt || x.tripStartAt) || {}).toISOString?.().slice(0, 10)).filter(Boolean)).size
   const perDay = activeDays ? a.revenue / activeDays : NaN, required = tar != null ? tar / wd : NaN, projected = activeDays ? perDay * wd : NaN
-  const fixedBreakEven = (ln.ok ? ln.scheduled : 0) + ren
-  const dynamicBreakEven = Number.isFinite(fuelCostPerKm) ? a.vehicleKm * fuelCostPerKm + a.vehicleKm * maintenanceRate : NaN
-  const breakEven = fixedBreakEven + dynamicBreakEven
+  const breakEven = authoritativeBreakEven.available ? authoritativeBreakEven.breakEvenRevenue : NaN
   const actualLoanPaid = ln.ok ? ln.paid : 0, actualPrepayment = ln.ok ? ln.prepaid : 0, actualFinancingOutflow = ln.ok ? ln.actualFinancingOutflow : 0
   const availableCash = a.operatingProfit - actualFinancingOutflow, provisionAdjustedProfit = a.operatingProfit - provision, prevActualFinancingOutflow = pln.ok ? pln.actualFinancingOutflow : 0, prevAvailableCash = q.operatingProfit - prevActualFinancingOutflow, prevProvisionAdjustedProfit = q.operatingProfit - prevProvision
   return {
     period: { from: r.from, to: r.to, previousFrom: p.from, previousTo: p.to },
-    authority: { revenue: 'COMPLETED_TRIP_RECORDS', vehicleKm: 'SHIFT_END_MINUS_START_ODOMETER', businessKm: 'VALIDATED_COMPLETED_TRIP_KM', deadKm: 'VEHICLE_KM_MINUS_BUSINESS_KM', costs: 'FUEL_LOGS_PLUS_SHIFT_TOLL_PARKING_PLUS_ACTUAL_MAINTENANCE', loan: 'LOAN_SCHEDULE_PLUS_LOAN_PAYMENT_RECORDS_PLUS_APPLIED_PREPAYMENTS', renewal: 'COMPLIANCE_VALIDITY_AND_COST', target: 'DRIVER_TARGETS', breakEven: 'LOAN_COMPLIANCE_AND_VEHICLE_KM_DYNAMIC_COSTS' },
-    completeness: { target: tar != null, loan: ln.ok, renewal: ren > 0, hourlyData: a.workingHours > 0, breakEven: Number.isFinite(breakEven), fuelCostPerKm: Number.isFinite(fuelCostPerKm) },
+    authority: { revenue: 'COMPLETED_TRIP_RECORDS', vehicleKm: 'SHIFT_END_MINUS_START_ODOMETER', businessKm: 'VALIDATED_COMPLETED_TRIP_KM', deadKm: 'VEHICLE_KM_MINUS_BUSINESS_KM', costs: 'FUEL_LOGS_PLUS_SHIFT_TOLL_PARKING_PLUS_ACTUAL_MAINTENANCE', loan: 'LOAN_SCHEDULE_PLUS_LOAN_PAYMENT_RECORDS_PLUS_APPLIED_PREPAYMENTS', renewal: 'COMPLIANCE_VALIDITY_AND_COST', target: 'DRIVER_TARGETS', breakEven: authoritativeBreakEven.authority || 'BREAK_EVEN_INPUTS_PLUS_CANONICAL_PERFORMANCE_COSTS' },
+    completeness: { target: tar != null, loan: ln.ok, renewal: ren > 0, hourlyData: a.workingHours > 0, breakEven: authoritativeBreakEven.available, fuelCostPerKm: Number.isFinite(fuelCostPerKm) },
     counts: { trips: a.tr.length, activeFinancialDays: activeDays, workingDays: wd, elapsedDays: elapsed, daysRemaining: Math.max(0, wd - elapsed) }, previousCounts: { trips: q.tr.length, activeFinancialDays: prevActive },
     revenue: a.revenue, previousRevenue: q.revenue, vehicleKm: a.vehicleKm, previousVehicleKm: q.vehicleKm, businessKm: a.businessKm, previousBusinessKm: q.businessKm, deadKm: a.deadKm, previousDeadKm: q.deadKm, fuelCost: a.fuelCost, fuelQty: a.fuelQty, fuelCostPerKm, fuelCostPerKmObservations: fuelModel.observations.length, toll: a.toll, parking: a.parking, actualMaintenance: a.maintenance, workingHours: a.workingHours, previousWorkingHours: q.workingHours, runningCost: a.operatingCost, previousRunningCost: q.operatingCost, actualOperatingCost: a.operatingCost, previousActualOperatingCost: q.operatingCost,
     maintenanceProvision, previousMaintenanceProvision: prevMaintenanceProvision, loanScheduledObligation: ln.ok ? ln.scheduled : NaN, loanPrincipal: ln.ok ? ln.principal : NaN, loanInterest: ln.ok ? ln.interest : NaN, actualLoanPaid, actualPrepayment, actualFinancingOutflow, renewalProvision: ren, otherProvision: 0, provisionRequired: provision, previousProvisionRequired: prevProvision, provisionSetAside: provision, operatingProfit: a.operatingProfit, previousOperatingProfit: q.operatingProfit, provisionAdjustedProfit, previousProvisionAdjustedProfit: prevProvisionAdjustedProfit, availableCash, previousAvailableCash: prevAvailableCash,
     cashSurplusAfterFinancing: availableCash, previousCashSurplusAfterFinancing: prevAvailableCash, breakEvenRevenue: breakEven, revenuePerKm: a.vehicleKm ? a.revenue / a.vehicleKm : NaN, revenuePerTrip: a.tr.length ? a.revenue / a.tr.length : NaN, revenuePerHour: a.workingHours ? a.revenue / a.workingHours : NaN, costPerKm: a.vehicleKm ? a.operatingCost / a.vehicleKm : NaN, profitPerKm: a.vehicleKm ? a.operatingProfit / a.vehicleKm : NaN, profitPerHour: a.workingHours ? a.operatingProfit / a.workingHours : NaN, revenueGrowth: q.revenue ? (a.revenue - q.revenue) / Math.abs(q.revenue) * 100 : NaN, profitGrowth: q.operatingProfit ? (a.operatingProfit - q.operatingProfit) / Math.abs(q.operatingProfit) * 100 : NaN, revenuePerActiveDay: perDay, projectedRevenue: projected, target: tar,
-    breakEvenInputs: { maintenanceProvisionPerKm: maintenanceRate, fixedCosts: fixedBreakEven, fuelCostPerKm }, pace: { currentRevenuePerActiveDay: perDay, requiredRevenuePerActiveDay: required, paceVariance: Number.isFinite(perDay) && Number.isFinite(required) ? perDay - required : NaN, projectedRevenue: projected, targetGap: Number.isFinite(projected) && tar != null ? projected - tar : NaN }, trips: a.tr, shifts: a.sh, fuelLogs: a.fu, maintenance: a.ma,
+    breakEvenInputs: { maintenanceProvisionPerKm: maintenanceRate, fixedCosts: authoritativeBreakEven.fixedCosts, fuelCostPerKm }, pace: { currentRevenuePerActiveDay: perDay, requiredRevenuePerActiveDay: required, paceVariance: Number.isFinite(perDay) && Number.isFinite(required) ? perDay - required : NaN, projectedRevenue: projected, targetGap: Number.isFinite(projected) && tar != null ? projected - tar : NaN }, trips: a.tr, shifts: a.sh, fuelLogs: a.fu, maintenance: a.ma,
     loan: ln, previous: { revenue: q.revenue, cost: q.operatingCost, operatingProfit: q.operatingProfit, provisionAdjustedProfit: prevProvisionAdjustedProfit, availableCash: prevAvailableCash, cashSurplusAfterFinancing: prevAvailableCash, businessKm: q.businessKm, vehicleKm: q.vehicleKm, deadKm: q.deadKm, workingHours: q.workingHours }
   }
 }
