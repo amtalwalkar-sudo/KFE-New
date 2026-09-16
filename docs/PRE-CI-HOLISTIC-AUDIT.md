@@ -51,8 +51,23 @@ Every calculation is checked for authority, source lineage, period, unit, sign, 
 | 6 | Rolling balance | 🟢 | Closed-month variance rolls; active-month variance remains provisional. |
 | 7 | Daily representation | 🟢 | Dynamic remaining eligible days are used; `workingDays` is not a competing divisor. |
 | 8 | Pace / projection | 🟢 | Pace uses ₹/financial-day against ₹/financial-day; projection is removed from target authority. |
-| 9 | UI / architecture | 🟢 | Performance UI consumes `PerformanceService`; the persistence boundary is repository-owned. |
-| 10 | Adversarial / end-to-end | 🟡 | Existing adversarial contracts cover future leakage, deletes, malformed inputs, holidays, rolling and target invariants; broader mutation-path and repo-wide arithmetic audit remains to be closed. |
+| 9 | UI / architecture | 🟢 | Performance UI consumes `PerformanceService`; persistence remains behind repository/application boundaries. |
+| 10 | Adversarial / end-to-end | 🟡 | Core adversarial contracts are present, but the final repo-wide arithmetic classification and exhaustive mutation-path audit are still open. |
+
+## First closure pass completed
+
+### As-of reporting purity — CLOSED
+
+`performanceEngineV2` no longer uses wall-clock `Date.now()` for `elapsedDays`. Reporting metadata is now derived entirely from the selected IST-bounded reporting range, so historical/custom calculations are deterministic and isolated from the machine clock.
+
+### Stale duplicate calculation services — CLOSED
+
+Removed:
+
+- `src/services/mileageAccountingService.js`
+- `src/services/revenueReconciliationService.js`
+
+The first independently calculated vehicle/inter-shift mileage from an obsolete repository and the second used obsolete shift/`uberRevenue` reconciliation semantics. The architecture contract now explicitly prevents either path from being reintroduced.
 
 ## Confirmed architectural chain
 
@@ -67,25 +82,20 @@ Canonical DB mutation
   → UI
 ```
 
-Admin, shift/trip, fuel and backup restore mutation paths emit the canonical data-change notification. The application subscription boundary prevents presentation from importing raw IndexedDB.
+Confirmed mutation notifications currently include:
 
-## Findings that must be closed before the pre-CI certificate
+- Admin source records: vehicle, driver, compliance, maintenance, driver-collected data, loan, loan payment, prepayment, driver target, break-even inputs.
+- Shift/trip lifecycle and trip corrections.
+- Fuel logs.
+- Full canonical backup restore.
 
-### 1. Reporting as-of purity
+This means the calculation-relevant sources currently feeding Performance have an invalidation path. Location/GPS and local-backup-only writes do not alter Performance metrics and therefore do not need to trigger a calculation refresh.
 
-`performanceEngineV2` currently derives the `elapsedDays` display metadata using `Date.now()`. Core financial authorities are bounded by the selected range, but this reporting field can therefore depend on wall-clock time for historical/custom ranges. It must be made range/as-of deterministic before certification.
+## Remaining pre-CI audit work
 
-### 2. Stale calculation services
+### 1. Repo-wide arithmetic sweep
 
-`src/services/mileageAccountingService.js` is stale relative to the canonical architecture: it imports a `ShiftRepository` that no longer exists and independently calculates vehicle-distance/inter-shift mileage concepts that are now owned by the canonical performance calculation chain.
-
-`src/services/revenueReconciliationService.js` is also stale: it treats shift revenue and `uberRevenue` as reconciliation inputs while the current canonical revenue authority is completed trip records.
-
-These files must be removed or explicitly quarantined from the active architecture before certification; they must not remain silent alternative calculation authorities.
-
-### 3. Repo-wide arithmetic sweep
-
-The remaining audit must inspect `/`, `*`, `+`, and `-` usage across UI, stores, application services and domain code and classify each occurrence as:
+Inspect `/`, `*`, `+`, and `-` usage across UI, stores, application services and domain code and classify each occurrence as:
 
 - formatting/UI-only;
 - validation;
@@ -93,11 +103,35 @@ The remaining audit must inspect `/`, `*`, `+`, and `-` usage across UI, stores,
 - duplicate authority;
 - stale/legacy calculation.
 
-The sweep must specifically check for reintroduction of period mixing, `workingDays` divisors, monthly BE formulas outside the authoritative owner, legacy target fields, projection-based target logic, and UI financial arithmetic.
+Specifically check for:
 
-### 4. Mutation propagation completeness
+- period-mixed comparisons;
+- `workingDays` divisors;
+- monthly BE formulas outside `deriveAuthoritativeBreakEven()`;
+- legacy target fields surviving past normalization;
+- projection-based target logic;
+- UI financial arithmetic;
+- duplicated revenue/KM/cost authorities.
 
-The current event path is confirmed for the major calculation sources, but the audit must explicitly verify every calculation-relevant mutation boundary, including maintenance, compliance, loans, loan payments, prepayments, driver targets, break-even inputs and backup restore.
+### 2. Mutation-path audit — final verification
+
+The major mutation paths are confirmed, but the final audit must verify the complete call graph rather than relying only on repository inspection. Each calculation-relevant write must end in the canonical data-change event after the transaction commits.
+
+### 3. Adversarial propagation matrix
+
+For each source mutation, verify exactly which outputs are allowed to change and which must remain invariant. Minimum matrix:
+
+- trip revenue / trip KM;
+- shift start/end odometer;
+- fuel amount / quantity;
+- maintenance cost;
+- compliance validity/cost;
+- loan schedule/payment/prepayment;
+- desired driver profit;
+- break-even inputs;
+- soft delete;
+- backup restore;
+- future-dated record insertion.
 
 ## Non-negotiable final condition
 
