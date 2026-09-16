@@ -15,7 +15,7 @@ const snapshot = {
   loans: [{ id:'loan1', principal:550000, annualInterestRate:10, tenureMonths:60, startDate:'2026-04-01', status:'Closed' }],
   loanPayments: [{ loanId:'loan1', paidOn:'2026-09-05', amount:12000, charges:100, status:'Paid' }],
   prepayments: [{ loanId:'loan1', paidOn:'2026-09-15', amount:5000, status:'Applied' }],
-  driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:2000, active:true }],
+  driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', targetRevenue:2000, desiredDriverProfit:2000, active:true }],
   breakEvenInputs: [{ effectiveFrom:'2026-09-01', maintenanceProvisionPerKm:2, active:true }]
 }
 const m = derivePerformance(snapshot, range, previousRange(range))
