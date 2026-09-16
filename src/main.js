@@ -5,13 +5,16 @@ import router from './router'
 import { StartupService } from './application/startup/startupService.js'
 import { BackupConfig } from './application/backup/backupConfig.js'
 import { CloudBackupLifecycle } from './application/backup/cloudBackupLifecycle.js'
+import { configureLocationProvider } from './application/work/locationProvider.js'
 import { createBackupConfigAdapter } from './infrastructure/backup/backupConfigAdapter.js'
 import { createCloudBackupScheduler } from './infrastructure/backup/cloudBackupScheduler.js'
+import { captureCurrentLocation } from './infrastructure/location/currentLocation.js'
 import { PlatformStartup } from './infrastructure/startup/platformStartup.js'
 import './styles/ui-system.css'
 
 BackupConfig.configureBackupConfig(createBackupConfigAdapter())
 CloudBackupLifecycle.configureCloudBackupScheduler(createCloudBackupScheduler())
+configureLocationProvider(captureCurrentLocation)
 StartupService.configureStartupPlatform(PlatformStartup)
 
 let startupError = null
