@@ -1,10 +1,12 @@
+import { istDateKey, istMonthKey } from '../time/ist.js'
+
 const finite = v => {
   if (v == null || v === '') return null
   return Number.isFinite(Number(v)) ? Number(v) : null
 }
 const dateOf = v => { const x = v ? new Date(v) : null; return x && !Number.isNaN(x.getTime()) ? x : null }
-const keyOf = v => { const x = dateOf(v); return x ? x.toISOString().slice(0, 10) : null }
-const monthKeyOf = v => { const x = dateOf(v); return x ? x.toISOString().slice(0, 7) : null }
+const keyOf = v => istDateKey(v)
+const monthKeyOf = v => istMonthKey(v)
 const live = xs => (xs || []).filter(x => !x?.deletedAt && x?.deleted !== true)
 const effectiveFrom = x => dateOf(x?.effectiveFrom || x?.validFrom || x?.startDate)
 const effectiveUntil = x => dateOf(x?.effectiveUntil || x?.validUntil || x?.endDate)
@@ -14,19 +16,19 @@ const applies = (x, day) => {
   return x?.active !== false && x?.status !== 'INACTIVE' && from <= day && day <= until
 }
 const latestForDay = (xs, day) => live(xs).filter(x => applies(x, day)).sort((a, b) => String(effectiveFrom(b) || '').localeCompare(String(effectiveFrom(a) || '')))[0] || null
-const desiredDriverProfit = record => finite(record?.desiredDriverProfit ?? record?.desiredTakeHome ?? record?.desiredProfit)
+const desiredDriverProfit = record => finite(record?.desiredDriverProfit)
 const baseMonthlyFor = (record, monthlyBreakEven = null) => {
   const desiredProfit = desiredDriverProfit(record)
   const breakEven = finite(monthlyBreakEven)
   if (desiredProfit == null || breakEven == null) return null
   return finite(breakEven + desiredProfit)
 }
+
 const monthBounds = month => {
   const [year, monthNumber] = month.split('-').map(Number)
-  return {
-    from: new Date(Date.UTC(year, monthNumber - 1, 1)),
-    to: new Date(Date.UTC(year, monthNumber, 0, 23, 59, 59, 999))
-  }
+  const from = new Date(Date.UTC(year, monthNumber - 1, 1) - 330 * 60000)
+  const nextMonth = new Date(Date.UTC(year, monthNumber, 1) - 330 * 60000)
+  return { from, to: new Date(nextMonth.getTime() - 1) }
 }
 const calendarDaysInMonth = month => {
   const { from, to } = monthBounds(month)
@@ -40,13 +42,13 @@ const calendarDayKeys = month => {
 
 // A target is allocated only on a financial day (a day with a completed trip).
 // All calendar days are eligible by default. A known holiday therefore remains
-// outside the remaining-day denominator, which automatically redistributes the
-// untouched monthly obligation across later eligible days.
+// outside the remaining-day denominator, redistributing untouched obligation
+// across later eligible financial days.
 const remainingEligibleDays = ({ month, currentDay, priorHolidayKeys = [] }) => {
   const currentKey = keyOf(currentDay)
   const holidays = new Set(priorHolidayKeys)
-  const days = calendarDayKeys(month).filter(day => day >= currentKey && !holidays.has(day))
-  return Math.max(1, days.length)
+  const eligible = calendarDayKeys(month).filter(day => day >= currentKey && !holidays.has(day))
+  return Math.max(1, eligible.length)
 }
 
 const failure = (reason, balance = null, activeDays = 0) => ({
@@ -130,9 +132,6 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
   const priorFinancialDays = currentMonthFinancialDays.filter(day => day < keyOf(currentDay))
   const priorHolidayKeys = calendarDayKeys(currentMonth).filter(day => day < keyOf(currentDay) && !currentMonthFinancialDays.includes(day))
 
-  // Reconstruct the target that was already allocated on each earlier
-  // financial day. The allocation uses the remaining eligible calendar days
-  // known at that point; actual revenue is deliberately not used here.
   let targetAllocatedBeforeCurrentDay = 0
   let priorRemainingObligation = effectiveMonthlyTarget
   for (const financialDay of priorFinancialDays) {
