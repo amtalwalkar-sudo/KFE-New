@@ -79,7 +79,7 @@ const withLaterFinancialDay = {
 const later = PerformanceService.getMetrics(withLaterFinancialDay, { from:new Date('2026-09-10T00:00:00Z'), to:new Date('2026-09-12T23:59:59Z') })
 assert.equal(later.driverTargetAvailable, true)
 assert.ok(later.driverTarget > 0)
-assert.equal(later.driverTargetEffectiveMonthlyTarget, 500)
+assert.equal(later.driverTargetEffectiveMonthlyTarget, later.monthlyBreakEvenRevenue + 500)
 
 // Malformed loan data is treated as incomplete rather than throwing or fabricating a schedule.
 const malformedLoan = PerformanceService.getMetrics({ ...base, loans:[{ principal:550000, annualInterestRate:10, tenureMonths:60 }] }, range)
