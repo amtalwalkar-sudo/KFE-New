@@ -48,10 +48,9 @@ export const createBackupRepository = stores => Object.freeze({
           for (const record of snapshot[storeName] || []) store.add(structuredClone(record))
         }
       } catch (error) { try { tx.abort() } catch (_) {}; reject(error); return }
-      tx.oncomplete = resolve
+      tx.oncomplete = () => { notifyCanonicalDataChanged({ stores, reason: 'backup:restore' }); resolve() }
       tx.onerror = () => reject(tx.error || new Error('KFE restore transaction failed.'))
       tx.onabort = () => reject(tx.error || new Error('KFE restore transaction aborted.'))
-      tx.oncomplete = () => { notifyCanonicalDataChanged({ stores, reason: 'backup:restore' }); resolve() }
     })
   },
 
