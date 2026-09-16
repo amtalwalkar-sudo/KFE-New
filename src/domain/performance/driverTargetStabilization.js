@@ -51,14 +51,35 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
   }
   const allActiveDays = [...activeDaySet].sort()
   let balance = 0
+  let historicalBalanceComplete = true
   for (const dayKey of allActiveDays) {
     const day = dateOf(dayKey)
     if (!day || day >= start) break
     const record = latestForDay(driverTargets, day)
     if (!record) continue
     const baseDaily = baseDailyFor(record)
-    if (baseDaily == null) continue
+    if (baseDaily == null) {
+      historicalBalanceComplete = false
+      break
+    }
     balance += baseDaily - (byDay.get(dayKey) || 0)
+  }
+  if (!historicalBalanceComplete) {
+    return {
+      available: false,
+      reason: 'MISSING_HISTORICAL_BREAK_EVEN_FOR_ROLLING_BALANCE',
+      balanceBefore: null,
+      balance: null,
+      currentDailyTarget: null,
+      currentBaseDaily: null,
+      currentPeriodBaseTarget: null,
+      recoveryAdjustment: null,
+      activeDays: allActiveDays.filter(k => {
+        const day = dateOf(k)
+        return day && day >= start && day <= end
+      }).length,
+      authority: 'COMPLETED_TRIPS_FOR_REVENUE_AND_SHIFTS_FOR_ACTIVE_DAYS'
+    }
   }
   const currentDays = allActiveDays.filter(k => {
     const day = dateOf(k)
