@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "definition": "The active-day driver target is the current required target after applying the existing lifetime/rolling recovery balance.",
+  "baseRequirement": "applicableBreakEvenCost + desiredDriverProfit",
+  "rule": "Active working days participate in the carried rolling balance; inactive/off days create no target and do not increase recovery. Below-target active days reinforce recovery; above-target active days reduce recovery or create surplus. Future active-day targets adjust progressively from the existing balance.",
+  "prohibited": ["new smoothing window", "arbitrary averaging period", "targetRevenue treated as complete active-day target", "invented replacement recovery ledger"],
+  "authority": "FROZEN_ROLLING_RECOVERY_MECHANISM"
+}
