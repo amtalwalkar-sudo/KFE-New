@@ -16,6 +16,8 @@ If the authoritative desired-profit input or applicable break-even requirement i
 
 The rolling recovery/surplus adjustment is reconstructed from authoritative historical completed-trip revenue and shift-defined active days. This reconstruction must remain the implementation of the frozen rolling mechanism and must not become a second business ledger.
 
+When historical active days are part of the reconstruction, their authoritative base requirement must also be available. If the historical applicable break-even requirement cannot be resolved, the rolling balance is incomplete and the current Driver Target must be exposed as unavailable rather than silently starting the balance at zero.
+
 ## Day participation
 
 - Active working days participate in the rolling balance.
