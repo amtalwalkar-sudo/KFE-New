@@ -21,7 +21,16 @@ const dateTimeFormatter = new Intl.DateTimeFormat('en-CA', {
   hourCycle: 'h23',
 })
 
+const dateOnlyParts = value => {
+  if (typeof value !== 'string') return null
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) return null
+  return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) }
+}
+
 export const istParts = value => {
+  const dateOnly = dateOnlyParts(value)
+  if (dateOnly) return dateOnly
   const date = value instanceof Date ? value : new Date(value)
   if (Number.isNaN(date.getTime())) return null
   const parts = Object.fromEntries(partsFormatter.formatToParts(date).filter(x => x.type !== 'literal').map(x => [x.type, x.value]))
@@ -29,6 +38,8 @@ export const istParts = value => {
 }
 
 const istDateTimeParts = value => {
+  const dateOnly = dateOnlyParts(value)
+  if (dateOnly) return { ...dateOnly, hour: 0, minute: 0, second: 0 }
   const date = value instanceof Date ? value : new Date(value)
   if (Number.isNaN(date.getTime())) return null
   const parts = Object.fromEntries(dateTimeFormatter.formatToParts(date).filter(x => x.type !== 'literal').map(x => [x.type, x.value]))
