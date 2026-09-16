@@ -19,11 +19,11 @@ const periodDays = record => {
   if (explicit != null && explicit > 0) return explicit
   return calendarDays(effectiveFrom(record), effectiveUntil(record)) || 1
 }
+const desiredDriverProfit = record => finite(record?.desiredDriverProfit ?? record?.desiredTakeHome ?? record?.desiredProfit)
 const periodBaseTarget = (record, applicableBreakEven = null) => {
-  const desiredProfit = finite(record?.desiredDriverProfit ?? record?.desiredTakeHome ?? record?.desiredProfit)
-  if (desiredProfit != null && applicableBreakEven != null) return applicableBreakEven + desiredProfit
-  const configured = finite(record?.targetRevenue ?? record?.target ?? record?.amount)
-  return configured
+  const desiredProfit = desiredDriverProfit(record)
+  if (desiredProfit == null || applicableBreakEven == null) return null
+  return applicableBreakEven + desiredProfit
 }
 const baseDailyFor = (record, applicableBreakEven = null) => {
   const periodTarget = periodBaseTarget(record, applicableBreakEven)
@@ -80,7 +80,7 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
   }
   return {
     available: currentDailyTarget != null,
-    reason: currentDailyTarget == null ? 'NO_APPLICABLE_ACTIVE_DAY_TARGET' : null,
+    reason: currentDailyTarget == null ? 'MISSING_AUTHORITATIVE_TARGET_INPUT' : null,
     balanceBefore: balanceBeforeCurrent,
     balance,
     currentDailyTarget,
