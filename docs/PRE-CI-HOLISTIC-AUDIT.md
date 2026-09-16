@@ -81,6 +81,15 @@ A new `calculationArithmetic.contract.js` is part of the standard test gate. It 
 
 `domain/movement/movementAccounting.js` remains a separate estimation/reconciliation capability. Its GPS-derived segments are marked with explicit estimate/manual/odometer-remainder authority labels and are not consumed by the authoritative Performance calculation chain. The frozen actual vehicle-KM authority remains shift end odometer minus shift start odometer.
 
+### Test/spec drift found and corrected — CLOSED
+
+The holistic audit found two contracts still expressing superseded semantics:
+
+- `financialModel.contract.js` referenced the old `breakEvenRevenue` authority instead of the authoritative monthly result.
+- `calculationBoundary.confirmed.contract.js` still encoded `workingDays`-style arithmetic (`+250`) instead of the dynamic remaining-eligible-day divisor.
+
+Both were corrected to assert the current frozen design rather than weakening implementation code to satisfy stale tests.
+
 ## Confirmed architectural chain
 
 ```text
