@@ -106,21 +106,13 @@ export const PerformanceService = Object.freeze({
       ? range.from <= new Date(Date.UTC(currentDay.getUTCFullYear(), currentDay.getUTCMonth(), 1)) && range.to >= new Date(Date.UTC(currentDay.getUTCFullYear(), currentDay.getUTCMonth() + 1, 0, 23, 59, 59, 999))
       : false
     const periodTarget = targetAvailable && periodCoversTargetMonth ? effectiveMonthlyTarget : NaN
-    const currentRecord = currentDay ? (calculationSnapshot?.driverTargets || []).filter(x => {
-      const from = x?.effectiveFrom ? new Date(x.effectiveFrom) : new Date(0)
-      const until = x?.effectiveUntil ? new Date(x.effectiveUntil) : new Date('9999-12-31T23:59:59.999Z')
-      return x?.active !== false && x?.status !== 'INACTIVE' && from <= currentDay && currentDay <= until
-    }).sort((a, b) => String(b.effectiveFrom || '').localeCompare(String(a.effectiveFrom || '')))[0] : null
-    const targetWorkingDays = currentRecord?.workingDays != null && Number(currentRecord.workingDays) > 0
-      ? Number(currentRecord.workingDays)
-      : null
-    const dailyBreakEvenRevenue = monthlyBreakEvenRevenue != null && targetWorkingDays != null
-      ? monthlyBreakEvenRevenue / targetWorkingDays
+    const dailyBreakEvenRevenue = monthlyBreakEvenRevenue != null && Number.isFinite(stabilization.remainingEligibleDays)
+      ? monthlyBreakEvenRevenue / stabilization.remainingEligibleDays
       : null
 
     return {
       ...metrics,
-      // `breakEvenRevenue` is now the single monthly authority. The engine's
+      // `breakEvenRevenue` is the single monthly authority. The engine's
       // period-local break-even is not exposed as a competing authority here.
       breakEvenRevenue: monthlyBreakEvenRevenue,
       target: canonicalTarget,
@@ -129,7 +121,7 @@ export const PerformanceService = Object.freeze({
       breakEvenInputs: metrics.breakEvenInputs,
       authority: {
         ...metrics.authority,
-        target: 'MONTHLY_BREAK_EVEN_PLUS_MONTHLY_DESIRED_DRIVER_PROFIT_DERIVED_TO_DAILY_TARGET_WITH_ROLLING_BALANCE',
+        target: 'MONTHLY_BREAK_EVEN_PLUS_MONTHLY_DESIRED_DRIVER_PROFIT_PLUS_OPENING_ROLLING_BALANCE_AMORTIZED_OVER_REMAINING_ELIGIBLE_DAYS',
         breakEven: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN'
       },
       completeness: { ...metrics.completeness, target: targetAvailable, breakEven: monthlyBreakEvenRevenue != null },
@@ -142,6 +134,9 @@ export const PerformanceService = Object.freeze({
       driverTargetMonthlyVariance: stabilization.monthlyVariance,
       driverTargetClosingBalance: stabilization.closingBalance,
       driverTargetEffectiveMonthlyTarget: stabilization.effectiveMonthlyTarget,
+      driverTargetRemainingEligibleDays: stabilization.remainingEligibleDays,
+      driverTargetAllocatedBeforeCurrentDay: stabilization.targetAllocatedBeforeCurrentDay,
+      driverTargetRemainingObligation: stabilization.remainingObligation,
       pace: {
         ...metrics.pace,
         requiredRevenuePerActiveDay: canonicalTarget,
