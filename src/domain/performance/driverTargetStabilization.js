@@ -47,7 +47,10 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     const day = dateOf(dayKey)
     if (!day || day >= start) break
     const record = latestForDay(driverTargets, day)
-    if (!record) continue
+    if (!record) {
+      historicalBalanceComplete = false
+      break
+    }
     const historicalBreakEven = typeof historicalBreakEvenForDay === 'function'
       ? historicalBreakEvenForDay({ record, day })
       : null
@@ -61,7 +64,7 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
   if (!historicalBalanceComplete) {
     return {
       available: false,
-      reason: 'MISSING_HISTORICAL_BREAK_EVEN_FOR_ROLLING_BALANCE',
+      reason: 'MISSING_HISTORICAL_DRIVER_TARGET_INPUT',
       balanceBefore: null,
       balance: null,
       currentDailyTarget: null,
