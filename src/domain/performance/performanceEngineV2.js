@@ -34,6 +34,17 @@ const loan = (loans, pays, pre, r) => {
   return { ok: true, emi, scheduled, principal, interest, paid, prepaid, actualFinancingOutflow: paid + prepaid, balance: bal }
 }
 const renewal = (xs, r) => live(xs).reduce((s, x) => { const a = d(x.validFrom), b = d(x.validUntil), c = n(x.cost); if (!a || !b || !c || b < r.from || a > r.to) return s; const lo = a > r.from ? a : r.from, hi = b < r.to ? b : r.to; return s + c * days(lo, hi) / days(a, b) }, 0)
+const monthRangeFor = (day, asOf = new Date()) => {
+  const year = day.getUTCFullYear()
+  const month = day.getUTCMonth()
+  const from = new Date(Date.UTC(year, month, 1))
+  const monthEnd = new Date(Date.UTC(year, month + 1, 1) - 1)
+  const currentMonthKey = asOf.toISOString().slice(0, 7)
+  const monthKey = from.toISOString().slice(0, 7)
+  const dayEnd = new Date(Date.UTC(year, month, day.getUTCDate(), 23, 59, 59, 999))
+  const to = monthKey === currentMonthKey ? new Date(Math.min(monthEnd.getTime(), dayEnd.getTime())) : monthEnd
+  return { from, to }
+}
 
 export function derivePerformance(s, r, p = previousRange(r)) {
   const S = live(s.shifts), T = live(s.trips), F = live(s.fuelLogs), M = live(s.maintenance), C = live(s.compliance), L = live(s.loans), LP = live(s.loanPayments), PP = live(s.prepayments)
@@ -45,12 +56,27 @@ export function derivePerformance(s, r, p = previousRange(r)) {
     return { sh, tr, fu, ma, revenue, vehicleKm, businessKm, deadKm, fuelCost, fuelQty, toll, parking, maintenance, workingHours, operatingCost, operatingProfit: revenue - operatingCost }
   }
   const a = calc(r), q = calc(p), ln = loan(L, LP, PP, r), pln = loan(L, LP, PP, p), ren = renewal(C, r), pren = renewal(C, p)
-  const asOfFuelLogs = F.filter(x => {
-    const capturedAt = d(x.capturedAt || x.createdAt)
-    return capturedAt && capturedAt <= r.to
-  })
+  const asOfFuelLogs = F.filter(x => { const capturedAt = d(x.capturedAt || x.createdAt); return capturedAt && capturedAt <= r.to })
   const fuelModel = calculateRollingFuelCostPerKm(asOfFuelLogs, 10), fuelCostPerKm = fuelModel.rollingCostPerKm
-  const authoritativeBreakEven = deriveAuthoritativeBreakEven({ breakEvenInputs: s.breakEvenInputs, range: r, loanScheduledObligation: ln.ok ? ln.scheduled : NaN, renewalProvision: ren, fuelCostPerKm, vehicleKm: a.vehicleKm })
+
+  // Break-even is a monthly authority. For a current/open month it is calculated
+  // from month start through the current calendar day; for a closed month it uses
+  // the complete calendar month. Daily/period views derive from this value.
+  const breakEvenDay = d(r.to) || d(r.from)
+  const breakEvenRange = breakEvenDay ? monthRangeFor(breakEvenDay) : r
+  const breakEvenFuelLogs = F.filter(x => { const capturedAt = d(x.capturedAt || x.createdAt); return capturedAt && capturedAt <= breakEvenRange.to })
+  const breakEvenFuelModel = calculateRollingFuelCostPerKm(breakEvenFuelLogs, 10)
+  const breakEvenLoan = loan(L, LP, PP, breakEvenRange)
+  const breakEvenRenewal = renewal(C, breakEvenRange)
+  const breakEvenVehicleKm = calc(breakEvenRange).vehicleKm
+  const authoritativeBreakEven = deriveAuthoritativeBreakEven({
+    breakEvenInputs: s.breakEvenInputs,
+    range: breakEvenRange,
+    loanScheduledObligation: breakEvenLoan.ok ? breakEvenLoan.scheduled : NaN,
+    renewalProvision: breakEvenRenewal,
+    fuelCostPerKm: breakEvenFuelModel.rollingCostPerKm,
+    vehicleKm: breakEvenVehicleKm,
+  })
   const maintenanceRate = authoritativeBreakEven.available ? authoritativeBreakEven.maintenanceProvisionPerKm : NaN
   const maintenanceProvision = a.vehicleKm * maintenanceRate, provision = maintenanceProvision + ren, prevMaintenanceProvision = q.vehicleKm * maintenanceRate, prevProvision = prevMaintenanceProvision + pren
   const wd = days(r.from, r.to), elapsed = Math.max(1, Math.min(wd, Math.ceil((Math.min(Date.now(), r.to) - r.from) / 86400000))), activeDays = new Set(a.tr.map(x => (d(x.tripEndAt || x.tripStartAt) || {}).toISOString?.().slice(0, 10)).filter(Boolean)).size, prevActive = new Set(q.tr.map(x => (d(x.tripEndAt || x.tripStartAt) || {}).toISOString?.().slice(0, 10)).filter(Boolean)).size
@@ -66,7 +92,7 @@ export function derivePerformance(s, r, p = previousRange(r)) {
     revenue: a.revenue, previousRevenue: q.revenue, vehicleKm: a.vehicleKm, previousVehicleKm: q.vehicleKm, businessKm: a.businessKm, previousBusinessKm: q.businessKm, deadKm: a.deadKm, previousDeadKm: q.deadKm, fuelCost: a.fuelCost, fuelQty: a.fuelQty, fuelCostPerKm, fuelCostPerKmObservations: fuelModel.observations.length, toll: a.toll, parking: a.parking, actualMaintenance: a.maintenance, workingHours: a.workingHours, previousWorkingHours: q.workingHours, runningCost: a.operatingCost, previousRunningCost: q.operatingCost, actualOperatingCost: a.operatingCost, previousActualOperatingCost: q.operatingCost,
     maintenanceProvision, previousMaintenanceProvision: prevMaintenanceProvision, loanScheduledObligation: ln.ok ? ln.scheduled : NaN, loanPrincipal: ln.ok ? ln.principal : NaN, loanInterest: ln.ok ? ln.interest : NaN, actualLoanPaid, actualPrepayment, actualFinancingOutflow, renewalProvision: ren, otherProvision: 0, provisionRequired: provision, provisionSetAside: provision, operatingProfit: a.operatingProfit, previousOperatingProfit: q.operatingProfit, provisionAdjustedProfit, previousProvisionAdjustedProfit: prevProvisionAdjustedProfit, availableCash, previousAvailableCash: prevAvailableCash,
     cashSurplusAfterFinancing: availableCash, previousCashSurplusAfterFinancing: prevAvailableCash, breakEvenRevenue: breakEven, revenuePerKm: a.vehicleKm ? a.revenue / a.vehicleKm : NaN, revenuePerTrip: a.tr.length ? a.revenue / a.tr.length : NaN, revenuePerHour: a.workingHours ? a.revenue / a.workingHours : NaN, profitPerKm: a.vehicleKm ? a.operatingProfit / a.vehicleKm : NaN, profitPerHour: a.workingHours ? a.operatingProfit / a.workingHours : NaN, revenueGrowth: q.revenue ? (a.revenue - q.revenue) / Math.abs(q.revenue) * 100 : NaN, profitGrowth: q.operatingProfit ? (a.operatingProfit - q.operatingProfit) / Math.abs(q.operatingProfit) * 100 : NaN, revenuePerActiveDay: perDay, projectedRevenue: projected, target: null,
-    breakEvenInputs: { maintenanceProvisionPerKm: maintenanceRate, fixedCosts: authoritativeBreakEven.fixedCosts, fuelCostPerKm }, pace: { currentRevenuePerActiveDay: perDay, requiredRevenuePerActiveDay: NaN, paceVariance: NaN, projectedRevenue: projected, targetGap: NaN }, trips: a.tr, shifts: a.sh, fuelLogs: a.fu, maintenance: a.ma,
+    breakEvenInputs: { maintenanceProvisionPerKm: maintenanceRate, fixedCosts: authoritativeBreakEven.fixedCosts, fuelCostPerKm: breakEvenFuelModel.rollingCostPerKm }, pace: { currentRevenuePerActiveDay: perDay, requiredRevenuePerActiveDay: NaN, paceVariance: NaN, projectedRevenue: projected, targetGap: NaN }, trips: a.tr, shifts: a.sh, fuelLogs: a.fu, maintenance: a.ma,
     loan: ln, previous: { revenue: q.revenue, cost: q.operatingCost, operatingProfit: q.operatingProfit, provisionAdjustedProfit: prevProvisionAdjustedProfit, availableCash: prevAvailableCash, cashSurplusAfterFinancing: prevAvailableCash, businessKm: q.businessKm, vehicleKm: q.vehicleKm, deadKm: q.deadKm, workingHours: q.workingHours }
   }
 }
