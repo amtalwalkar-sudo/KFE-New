@@ -2,6 +2,7 @@
 import { ref, onErrorCaptured, onMounted } from 'vue'
 import { ShellService } from './application/shell/shellService.js'
 import { BackupService } from './application/backup/backupService.js'
+import { CloudBackupLifecycle } from './application/backup/cloudBackupLifecycle.js'
 import DiagnosticBubble from './components/DiagnosticBubble.vue'
 
 const renderError = ref(null)
@@ -14,7 +15,8 @@ onMounted(async () => {
   try {
     await ShellService.initialize()
     storageReady.value = true
-    void BackupService.maybeDailyLocalBackup().catch(error => console.warn('KFE daily local backup checkpoint failed:', error))
+    try { await BackupService.maybeDailyLocalBackup() } catch (error) { console.warn('KFE daily local backup checkpoint failed:', error) }
+    void CloudBackupLifecycle.maybeDailyCloudBackup().catch(error => console.warn('KFE cloud backup lifecycle failed:', error))
   } catch (e) { console.error('Application shell initialization failed:', e); storageError.value = e?.message || 'Application initialization failed.' }
 })
 </script>
