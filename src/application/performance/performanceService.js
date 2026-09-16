@@ -17,15 +17,14 @@ export const PerformanceService = Object.freeze({
     const metrics = derivePerformance(calculationSnapshot, range, previousRange(range))
     const monthlyBreakEvenCache = new Map()
 
-    // The domain engine owns break-even calculation. This service helper only
-    // selects the authoritative monthly result for a target month; it never
-    // recalculates break-even independently.
+    // Historical months are resolved through the same domain authority as the
+    // current month. This helper selects a monthly result; it does not calculate
+    // a second break-even formula.
     const authoritativeMonthlyBreakEvenForDay = ({ day }) => {
       const monthRange = istMonthRange(day)
       if (!monthRange) return null
       const key = monthRange.from.toISOString().slice(0, 7)
       if (monthlyBreakEvenCache.has(key)) return monthlyBreakEvenCache.get(key)
-
       const monthMetrics = derivePerformance(calculationSnapshot, monthRange, previousRange(monthRange))
       const monthlyBreakEven = Number.isFinite(monthMetrics.monthlyBreakEvenRevenue)
         ? monthMetrics.monthlyBreakEvenRevenue
@@ -34,9 +33,9 @@ export const PerformanceService = Object.freeze({
       return monthlyBreakEven
     }
 
-    // Monthly break-even is authoritative even when the selected period has
-    // zero completed trips. A trip day is required for Driver Target availability,
-    // not for the underlying monthly break-even business requirement.
+    // The selected reporting result already contains the authoritative monthly
+    // break-even for the target month. The stabilization domain consumes exactly
+    // this value; it must not resolve the current month's break-even independently.
     const monthlyBreakEvenRevenue = Number.isFinite(metrics.monthlyBreakEvenRevenue)
       ? metrics.monthlyBreakEvenRevenue
       : null
@@ -49,21 +48,23 @@ export const PerformanceService = Object.freeze({
       to: range.to,
       applicableBreakEven: monthlyBreakEvenRevenue,
       historicalBreakEvenForDay: authoritativeMonthlyBreakEvenForDay,
-      applicableBreakEvenForDay: authoritativeMonthlyBreakEvenForDay,
     })
     const canonicalTarget = stabilization.available && Number.isFinite(stabilization.currentDailyTarget)
       ? stabilization.currentDailyTarget
       : null
     const targetAvailable = canonicalTarget != null
-    const dailyBreakEvenRevenue = monthlyBreakEvenRevenue != null && Number.isFinite(stabilization.remainingEligibleDays)
-      ? monthlyBreakEvenRevenue / stabilization.remainingEligibleDays
+    const authoritativeMonthlyBreakEven = Number.isFinite(stabilization.monthlyBreakEvenRevenue)
+      ? stabilization.monthlyBreakEvenRevenue
+      : monthlyBreakEvenRevenue
+    const dailyBreakEvenRevenue = authoritativeMonthlyBreakEven != null && Number.isFinite(stabilization.remainingEligibleDays)
+      ? authoritativeMonthlyBreakEven / stabilization.remainingEligibleDays
       : null
 
     return {
       ...metrics,
-      breakEvenRevenue: monthlyBreakEvenRevenue,
+      breakEvenRevenue: authoritativeMonthlyBreakEven,
       target: canonicalTarget,
-      monthlyBreakEvenRevenue,
+      monthlyBreakEvenRevenue: authoritativeMonthlyBreakEven,
       dailyBreakEvenRevenue,
       breakEvenInputs: metrics.breakEvenInputs,
       authority: {
@@ -71,7 +72,7 @@ export const PerformanceService = Object.freeze({
         target: 'MONTHLY_BREAK_EVEN_PLUS_MONTHLY_DESIRED_DRIVER_PROFIT_PLUS_OPENING_ROLLING_BALANCE_AMORTIZED_OVER_REMAINING_ELIGIBLE_DAYS',
         breakEven: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN',
       },
-      completeness: { ...metrics.completeness, target: targetAvailable, breakEven: monthlyBreakEvenRevenue != null },
+      completeness: { ...metrics.completeness, target: targetAvailable, breakEven: authoritativeMonthlyBreakEven != null },
       driverTarget: canonicalTarget,
       driverTargetBase: stabilization.currentBaseDaily,
       driverTargetRecoveryAdjustment: stabilization.recoveryAdjustment,
