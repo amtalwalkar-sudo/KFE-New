@@ -40,10 +40,6 @@ const calendarDayKeys = month => {
   return Array.from({ length: count }, (_, i) => keyOf(new Date(from.getTime() + i * 86400000)))
 }
 
-// A target is allocated only on a financial day (a day with a completed trip).
-// All calendar days are eligible by default. A known holiday therefore remains
-// outside the remaining-day denominator, redistributing untouched obligation
-// across later eligible financial days.
 const remainingEligibleDays = ({ month, currentDay, priorHolidayKeys = [] }) => {
   const currentKey = keyOf(currentDay)
   const holidays = new Set(priorHolidayKeys)
@@ -75,7 +71,13 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
   const start = dateOf(from), end = dateOf(to)
   if (!start || !end || end < start) return failure('INVALID_PERIOD')
 
-  const completed = live(trips).filter(x => x.status === 'COMPLETED')
+  // The selected calculation end is the as-of boundary. Future operational
+  // records must never affect current or historical target reconstruction.
+  const completed = live(trips).filter(x => {
+    if (x.status !== 'COMPLETED') return false
+    const tripDate = dateOf(x.tripEndAt || x.tripStartAt)
+    return tripDate && tripDate <= end
+  })
   const revenueByMonth = new Map()
   const financialDaysByMonth = new Map()
   for (const trip of completed) {
@@ -97,7 +99,7 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
   const currentMonth = monthKeyOf(currentDay)
   const targetMonths = live(driverTargets).map(x => monthKeyOf(effectiveFrom(x))).filter(Boolean)
   const historicalMonths = [...new Set([...revenueByMonth.keys(), ...targetMonths])]
-    .filter(month => month < currentMonth)
+    .filter(month => month < currentMonth && monthBounds(month).from <= end)
     .sort()
 
   let balance = 0
