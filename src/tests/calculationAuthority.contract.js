@@ -45,14 +45,12 @@ assert.equal(normalized.breakEvenInputs[0].maintenanceProvisionPerKm, 3)
 
 const canonicalMetrics = derivePerformance(canonical, range)
 const variantMetrics = derivePerformance(normalized, range)
-for (const key of ['revenue', 'vehicleKm', 'businessKm', 'deadKm', 'fuelCost', 'fuelQty', 'actualMaintenance', 'loanScheduledObligation', 'breakEvenRevenue']) {
+for (const key of ['revenue', 'vehicleKm', 'businessKm', 'deadKm', 'fuelCost', 'fuelQty', 'actualMaintenance', 'loanScheduledObligation', 'monthlyBreakEvenRevenue']) {
   assert.equal(variantMetrics[key], canonicalMetrics[key], `normalized variant changed ${key}`)
 }
 
-// The selected reporting range and monthly break-even authority are distinct.
-// The latter always belongs to the IST calendar month containing the as-of day.
 assert.equal(variantMetrics.period.timeZone, 'Asia/Kolkata')
-assert.equal(PerformanceService.getMetrics(canonical, range).breakEvenRevenue, canonicalMetrics.breakEvenRevenue)
+assert.equal(PerformanceService.getMetrics(canonical, range).breakEvenRevenue, canonicalMetrics.monthlyBreakEvenRevenue)
 
 // No projection or period-mixed target gap is part of the canonical pace contract.
 const metrics = PerformanceService.getMetrics(canonical, range)
@@ -62,8 +60,7 @@ assert.equal(metrics.pace.currentRevenuePerFinancialDay, metrics.revenuePerActiv
 assert.equal(metrics.pace.requiredRevenuePerFinancialDay, metrics.target)
 assert.equal(metrics.pace.paceVariance, metrics.revenuePerActiveDay - metrics.target)
 
-// The daily break-even representation and Driver Target use the same remaining
-// eligible financial-day denominator.
+// Daily BE and Driver Target use the same remaining eligible financial-day denominator.
 assert.equal(metrics.dailyBreakEvenRevenue, metrics.monthlyBreakEvenRevenue / metrics.driverTargetRemainingEligibleDays)
 
 // IST, not device/browser timezone, owns calendar classification.
