@@ -103,48 +103,23 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
   for (const month of historicalMonths) {
     const { from: monthStart } = monthBounds(month)
     const record = latestForDay(driverTargets, monthStart)
-    if (!record) {
-      return {
-        available: false,
-        reason: 'MISSING_HISTORICAL_DRIVER_TARGET_INPUT',
-        balanceBefore: null,
-        balance: null,
-        openingBalance: null,
-        monthlyVariance: null,
-        closingBalance: null,
-        effectiveMonthlyTarget: null,
-        currentDailyTarget: null,
-        currentBaseDaily: null,
-        currentPeriodBaseTarget: null,
-        recoveryAdjustment: null,
-        activeDays: financialDayKeys.length,
-        financialDays: financialDayKeys.length,
-        authority: 'COMPLETED_TRIPS_DEFINE_FINANCIAL_DAYS'
-      }
+    if (!record) return {
+      available: false, reason: 'MISSING_HISTORICAL_DRIVER_TARGET_INPUT', balanceBefore: null, balance: null,
+      openingBalance: null, monthlyVariance: null, closingBalance: null, effectiveMonthlyTarget: null,
+      currentDailyTarget: null, currentBaseDaily: null, currentPeriodBaseTarget: null, recoveryAdjustment: null,
+      activeDays: financialDayKeys.length, financialDays: financialDayKeys.length,
+      authority: 'COMPLETED_TRIPS_DEFINE_FINANCIAL_DAYS'
     }
     const historicalBreakEven = typeof historicalBreakEvenForDay === 'function'
       ? historicalBreakEvenForDay({ record, day: monthStart })
       : null
     const baseMonthly = baseMonthlyFor(record, historicalBreakEven)
-    const workingDays = configuredWorkingDays(record) ?? calendarDaysInMonth(month)
-    if (baseMonthly == null || workingDays <= 0) {
-      return {
-        available: false,
-        reason: 'MISSING_HISTORICAL_DRIVER_TARGET_INPUT',
-        balanceBefore: null,
-        balance: null,
-        openingBalance: null,
-        monthlyVariance: null,
-        closingBalance: null,
-        effectiveMonthlyTarget: null,
-        currentDailyTarget: null,
-        currentBaseDaily: null,
-        currentPeriodBaseTarget: null,
-        recoveryAdjustment: null,
-        activeDays: financialDayKeys.length,
-        financialDays: financialDayKeys.length,
-        authority: 'COMPLETED_TRIPS_DEFINE_FINANCIAL_DAYS'
-      }
+    if (baseMonthly == null) return {
+      available: false, reason: 'MISSING_HISTORICAL_DRIVER_TARGET_INPUT', balanceBefore: null, balance: null,
+      openingBalance: null, monthlyVariance: null, closingBalance: null, effectiveMonthlyTarget: null,
+      currentDailyTarget: null, currentBaseDaily: null, currentPeriodBaseTarget: null, recoveryAdjustment: null,
+      activeDays: financialDayKeys.length, financialDays: financialDayKeys.length,
+      authority: 'COMPLETED_TRIPS_DEFINE_FINANCIAL_DAYS'
     }
     const openingBalance = balance
     const monthlyVariance = baseMonthly - (revenueByMonth.get(month) || 0)
@@ -154,24 +129,12 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
   }
 
   const currentRecord = latestForDay(driverTargets, currentDay)
-  if (!currentRecord) {
-    return {
-      available: false,
-      reason: 'MISSING_AUTHORITATIVE_TARGET_INPUT',
-      balanceBefore: balance,
-      balance,
-      openingBalance: balance,
-      monthlyVariance: null,
-      closingBalance: balance,
-      effectiveMonthlyTarget: null,
-      currentDailyTarget: null,
-      currentBaseDaily: null,
-      currentPeriodBaseTarget: null,
-      recoveryAdjustment: null,
-      activeDays: financialDayKeys.length,
-      financialDays: financialDayKeys.length,
-      authority: 'COMPLETED_TRIPS_DEFINE_FINANCIAL_DAYS'
-    }
+  if (!currentRecord) return {
+    available: false, reason: 'MISSING_AUTHORITATIVE_TARGET_INPUT', balanceBefore: balance, balance,
+    openingBalance: balance, monthlyVariance: null, closingBalance: balance, effectiveMonthlyTarget: null,
+    currentDailyTarget: null, currentBaseDaily: null, currentPeriodBaseTarget: null, recoveryAdjustment: null,
+    activeDays: financialDayKeys.length, financialDays: financialDayKeys.length,
+    authority: 'COMPLETED_TRIPS_DEFINE_FINANCIAL_DAYS'
   }
 
   const monthBreakEven = typeof applicableBreakEvenForDay === 'function'
@@ -179,43 +142,25 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     : applicableBreakEven
   const baseMonthly = baseMonthlyFor(currentRecord, monthBreakEven)
   const workingDays = configuredWorkingDays(currentRecord) ?? calendarDaysInMonth(currentMonth)
-  if (baseMonthly == null || workingDays <= 0) {
-    return {
-      available: false,
-      reason: 'MISSING_AUTHORITATIVE_TARGET_INPUT',
-      balanceBefore: balance,
-      balance,
-      openingBalance: balance,
-      monthlyVariance: null,
-      closingBalance: balance,
-      effectiveMonthlyTarget: null,
-      currentDailyTarget: null,
-      currentBaseDaily: null,
-      currentPeriodBaseTarget: null,
-      recoveryAdjustment: null,
-      activeDays: financialDayKeys.length,
-      financialDays: financialDayKeys.length,
-      authority: 'COMPLETED_TRIPS_DEFINE_FINANCIAL_DAYS'
-    }
+  if (baseMonthly == null || workingDays <= 0) return {
+    available: false, reason: 'MISSING_AUTHORITATIVE_TARGET_INPUT', balanceBefore: balance, balance,
+    openingBalance: balance, monthlyVariance: null, closingBalance: balance, effectiveMonthlyTarget: null,
+    currentDailyTarget: null, currentBaseDaily: null, currentPeriodBaseTarget: null, recoveryAdjustment: null,
+    activeDays: financialDayKeys.length, financialDays: financialDayKeys.length,
+    authority: 'COMPLETED_TRIPS_DEFINE_FINANCIAL_DAYS'
   }
 
   const effectiveMonthlyTarget = baseMonthly + balance
   const currentMonthFinancialDays = financialDaysByMonth.get(currentMonth) || new Set()
-  const currentDayKey = keyOf(currentDay)
-  const revenueBeforeCurrentDay = completed
-    .filter(trip => {
-      const day = keyOf(trip.tripEndAt || trip.tripStartAt)
-      return day && monthKeyOf(day) === currentMonth && day < currentDayKey
-    })
-    .reduce((sum, trip) => sum + (finite(trip.revenue) || 0), 0)
   const remainingEligibleDays = currentMonthRemainingEligibleDays({
     month: currentMonth,
     currentDay,
     financialDayKeys: [...currentMonthFinancialDays],
     workingDays: configuredWorkingDays(currentRecord)
   })
-  const remainingTarget = effectiveMonthlyTarget - revenueBeforeCurrentDay
-  const currentDailyTarget = remainingTarget / remainingEligibleDays
+  // Current-month actual revenue changes the month-end variance, not today's
+  // target. Only the closed-month carried balance changes the effective target.
+  const currentDailyTarget = effectiveMonthlyTarget / remainingEligibleDays
   const baseDaily = baseMonthly / workingDays
   const recoveryAdjustment = currentDailyTarget - baseDaily
   const monthlyActualRevenue = revenueByMonth.get(currentMonth) || 0
@@ -226,7 +171,9 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     available: Number.isFinite(currentDailyTarget),
     reason: Number.isFinite(currentDailyTarget) ? null : 'MISSING_AUTHORITATIVE_TARGET_INPUT',
     balanceBefore: balance,
-    balance: closingBalance,
+    // `balance` is the carried opening balance for the active month. The
+    // provisional current-month closing balance is exposed separately.
+    balance,
     openingBalance: balance,
     monthlyVariance,
     closingBalance,
