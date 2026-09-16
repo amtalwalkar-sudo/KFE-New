@@ -16,6 +16,7 @@ const suites = [
   'erpFormCalculation.contract.js',
   'auditMutation.contract.js',
   'integrity.contract.js',
+  'canonicalData.contract.js',
   'calculationBoundary.confirmed.contract.js',
   'calculationBoundary.adversarial.contract.js',
   'boundaryRegression.contract.js',
