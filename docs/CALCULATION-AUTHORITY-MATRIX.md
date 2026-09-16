@@ -46,7 +46,7 @@ Compatibility aliases are accepted at the normalization boundary only. Domain ca
 | Financing obligation | `loans` + schedule | `loanScheduledObligation` | loan calculation inside performance domain | ₹ / selected period | Display only |
 | Actual financing outflow | `loan_payments` + applied `prepayments` | `actualFinancingOutflow` | loan calculation inside performance domain | ₹ / selected period | Display only |
 | Renewal provision | `compliance_records` validity/cost | `renewalProvision` | renewal calculation inside performance domain | ₹ / selected period | Display only |
-| Monthly break-even | `break_even_inputs` + canonical monthly cost inputs | `monthlyBreakEvenRevenue` | `deriveAuthoritativeBreakEven` | ₹ / calendar month | Never recalculate in UI |
+| **Monthly break-even** | `break_even_inputs` + canonical monthly cost inputs | `monthlyBreakEvenRevenue` | `deriveAuthoritativeBreakEven` | ₹ / calendar month | Never recalculate in UI |
 | Daily break-even | monthly BE representation | `dailyBreakEvenRevenue` | application/service derivation | ₹ / remaining eligible financial day | Never persisted as authority |
 | Monthly desired driver profit | `driver_targets.desiredDriverProfit` | `monthlyDesiredDriverProfit` | Driver Target domain | ₹ / calendar month | Never reinterpret as daily authority |
 | Opening rolling balance | prior closed month's closing state | `openingBalance` | Driver Target domain | ₹ / month | Display only |
@@ -60,11 +60,13 @@ Compatibility aliases are accepted at the normalization boundary only. Domain ca
 | Pace variance | actual pace − current Driver Target | `paceVariance` | performance service | ₹ / financial day | Display only |
 | Projection | **Not an authority and not required for Driver Target** | removed from target/pace contract | none | n/a | Do not display as target logic |
 
+**Authority identifier:** `AUTHORITATIVE_MONTHLY_BREAK_EVEN` is the canonical ownership marker for the monthly break-even result.
+
 ## Period rules
 
 - Actual economics remain tied to the selected reporting range.
 - Break-even is always a **calendar-month authority**. A selected reporting range does not create a competing break-even authority.
-- Open/current month is evaluated through the current IST calendar day end.
+- The open/current month is evaluated through the calculation as-of boundary, capped at the selected end timestamp so future observations cannot leak into a historical/current-day calculation.
 - Closed months use the complete IST calendar month.
 - Driver Target is a monthly obligation represented as a dynamic daily amount.
 - A financial/target-bearing day requires at least one completed trip.
