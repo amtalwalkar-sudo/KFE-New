@@ -14,7 +14,7 @@ assert.equal(Object.keys(CANONICAL_ADMIN_STORE_MAP).length, 13, 'All Admin form/
 assert.match(adminRepositorySource, /deletedAt/)
 assert.match(adminRepositorySource, /record\.deleted\s*=\s*true/)
 assert.doesNotMatch(adminRepositorySource, /objectStore\([^)]*\)\.delete\(id\)/)
-assert.match(performanceSource, /const live=/)
+assert.match(performanceSource, /const live\s*=/)
 assert.match(performanceSource, /!x\?\.deletedAt/)
 assert.match(serviceWorkerSource, /periodicsync/)
 assert.match(serviceWorkerSource, /kfe-daily-cloud-backup/)
