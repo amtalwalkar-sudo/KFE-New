@@ -17,6 +17,10 @@ const error = ref('')
 const snapshot = ref({ shifts: [], trips: [], fuelLogs: [], vehicles: [], drivers: [], compliance: [], maintenance: [], driverCollectedData: [], loans: [], loanPayments: [], prepayments: [], driverTargets: [], breakEvenInputs: [] })
 let unsubscribeChanges = () => {}
 
+const money = value => Number.isFinite(value) ? `₹${Math.round(value).toLocaleString('en-IN')}` : '—'
+const num = value => Number.isFinite(value) ? value.toLocaleString('en-IN', { maximumFractionDigits: 1 }) : '—'
+const pct = value => Number.isFinite(value) ? `${value.toFixed(1)}%` : '—'
+
 const range = computed(() => {
   if (period.value === 'CUSTOM RANGE' && customFrom.value && customTo.value) {
     const from = istDayRange(`${customFrom.value}T00:00:00+05:30`)
