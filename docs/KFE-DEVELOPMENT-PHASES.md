@@ -36,8 +36,8 @@ PHASE 10 Hardening / Release
 - **Phase 5:** FROZEN — calculation/performance integration completed and verified through the full CI gate.
 - **Phase 6:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-6-FREEZE.md`.
 - **Phase 7:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-7-FREEZE.md`; full verification CI #341 green.
-- **Phase 8:** COMPLETE — managed local backup/restore is implemented and contract-covered; validation, version migration compatibility, complete canonical-store snapshots, local recovery copies, file export/import, and confirmed replacement restore are verified.
-- **Phase 9:** PENDING — Cloud Backup / Sync.
+- **Phase 8:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-8-FREEZE.md`; managed local backup/restore is complete and contract-covered.
+- **Phase 9:** COMPLETE — provider-independent cloud backup/sync orchestration is implemented and contract-covered; cloud providers remain replaceable infrastructure adapters and local-first operation remains authoritative.
 - **Phase 10:** PENDING — Hardening / Release.
 
 ## Phase 0 — Baseline & Governance
@@ -80,7 +80,9 @@ Implement complete managed local backup/restore, validation, versioning, migrati
 **Exit condition:** a complete canonical snapshot can be validated/serialized, exported to and imported from a file, retained as a local recovery copy, restored only after validation and explicit confirmation at the UI boundary, and atomically written to the canonical local database with a recovery copy refreshed from the restored dataset.
 
 ## Phase 9 — Cloud Backup / Sync
-Add provider-independent cloud backup/sync while preserving local-first operation and the established provider-independent application/domain boundaries.
+Add provider-independent cloud backup/sync while preserving local-first operation and the established provider-independent application/domain boundaries. Cloud backup may use an injected infrastructure provider; cloud sync uses an injected `sync()` provider and operates on mutation envelopes. A provider failure leaves local canonical data authoritative and mutations retryable. Pulled changes cross into the application through an explicit `applyRemoteChanges` boundary rather than embedding provider or business logic in the sync service.
+
+**Exit condition:** cloud backup lifecycle and provider-independent sync orchestration are contract-covered, online/offline behavior is explicit, local mutations are acknowledged/removed only after successful provider acknowledgement, failures remain retryable, pulled changes cross an explicit application boundary, and the full CI gate passes.
 
 ## Phase 10 — Hardening / Release
 Complete full-system testing, migration/corruption/offline/large-history testing, security/performance review, PWA/Capacitor/Android release validation, and release procedures. Exit: **RELEASE CANDIDATE**.
