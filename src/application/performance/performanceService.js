@@ -34,13 +34,13 @@ export const PerformanceService = Object.freeze({
       return monthlyBreakEven
     }
 
-    const currentDay = [...(calculationSnapshot?.trips || [])]
-      .filter(x => !x?.deletedAt && !x?.deleted && x?.status === 'COMPLETED')
-      .map(x => new Date(x.tripEndAt || x.tripStartAt))
-      .filter(x => !Number.isNaN(x.getTime()) && x >= range.from && x <= range.to)
-      .sort((a, b) => b - a)[0]
+    // Monthly break-even is authoritative even when the selected period has
+    // zero completed trips. A trip day is required for Driver Target availability,
+    // not for the underlying monthly break-even business requirement.
+    const monthlyBreakEvenRevenue = Number.isFinite(metrics.monthlyBreakEvenRevenue)
+      ? metrics.monthlyBreakEvenRevenue
+      : null
 
-    const monthlyBreakEvenRevenue = currentDay ? authoritativeMonthlyBreakEvenForDay({ day: currentDay }) : null
     const stabilization = deriveRollingDriverTarget({
       trips: calculationSnapshot?.trips,
       shifts: calculationSnapshot?.shifts,
