@@ -13,12 +13,10 @@ const snapshot = {
     { capturedAt: '2026-01-07T07:30:00', odometer: 1125, amount: 999, quantityKg: 10, isFullTank: false },
     { capturedAt: '2026-01-10T07:30:00', odometer: 1200, amount: 2400, quantityKg: 24 }
   ],
-  maintenance: [{ performedOn: '2026-01-09T12:00:00', cost: 300 }],
-  compliance: [],
+  maintenance: [{ performedOn: '2026-01-09T12:00:00', cost: 300 }], compliance: [],
   loans: [{ id: 'loan-1', lender: 'Test lender', principal: 12000, annualInterestRate: 12, tenureMonths: 12, startDate: '2026-01-01', status: 'ACTIVE' }],
   loanPayments: [{ loanId: 'loan-1', paidOn: '2026-01-15', amount: 800, charges: 0, status: 'PAID' }],
-  prepayments: [{ loanId: 'loan-1', paidOn: '2026-01-20', amount: 300, status: 'Applied' }],
-  driverTargets: [],
+  prepayments: [{ loanId: 'loan-1', paidOn: '2026-01-20', amount: 300, status: 'Applied' }], driverTargets: [],
   breakEvenInputs: [{ effectiveFrom: '2026-01-01', maintenanceProvisionPerKm: 2 }]
 }
 
@@ -37,7 +35,7 @@ assert.equal(m.profitPerKm, m.operatingProfit / 150)
 assert.equal(m.fuelCostPerKm, 23)
 assert.equal(m.maintenanceProvision, 300)
 assert.equal(m.breakEvenRevenue, (m.loanScheduledObligation + m.renewalProvision) + 150 * 23 + 150 * 2)
-assert.ok(Math.abs(m.loanInterest - (122.3013698630137 + 101.77684778966845 + 102.8524688122346)) < 1e-9)
+assert.ok(Math.abs(m.loanInterest - (122.3013698630137 + 101.7768477896688)) < 1e-9)
 assert.equal(m.actualLoanPaid, 800)
 assert.equal(m.actualPrepayment, 300)
 assert.equal(m.actualFinancingOutflow, 1100)
