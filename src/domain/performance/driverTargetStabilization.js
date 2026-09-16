@@ -1,4 +1,7 @@
-const finite = v => Number.isFinite(Number(v)) ? Number(v) : null
+const finite = v => {
+  if (v == null || v === '') return null
+  return Number.isFinite(Number(v)) ? Number(v) : null
+}
 const dateOf = v => { const x = v ? new Date(v) : null; return x && !Number.isNaN(x.getTime()) ? x : null }
 const keyOf = v => { const x = dateOf(v); return x ? x.toISOString().slice(0, 10) : null }
 const live = xs => (xs || []).filter(x => !x?.deletedAt && x?.deleted !== true)
