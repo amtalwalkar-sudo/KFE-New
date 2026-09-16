@@ -94,6 +94,46 @@ Complete full-system testing, migration and corruption testing, offline/large-hi
 
 Exit condition: **RELEASE CANDIDATE**.
 
+## Efficient phase execution protocol
+
+Every phase uses one bounded engineering cycle rather than a serial fix/test loop:
+
+```text
+PHASE START
+    ↓
+① Phase Contract
+    ↓
+② Comprehensive Gap Audit
+    ↓
+③ Batch/Classify ALL findings
+    ↓
+④ ONE Coordinated Correction Pass
+    ↓
+⑤ ONE Focused Phase Test Gate
+    ↓
+⑥ Holistic Regression Audit
+    ↓
+⑦ ONE Full CI Verification
+    ↓
+⑧ Phase Completion / Freeze-Readiness
+    ↓
+NEXT PHASE
+```
+
+### Phase-cycle rules
+
+- Audit the complete phase scope before correcting isolated findings.
+- Batch related implementation, architecture, calculation, data, contract, test, and documentation gaps.
+- Classify findings as **must-fix**, **phase-completion gap**, or **future-phase** work.
+- Resolve related must-fix and phase-completion findings in one coordinated correction pass where practical.
+- Do not repeatedly rediscover or re-test already-closed findings unless a regression audit requires it.
+- Run one focused phase test gate after the coordinated correction pass.
+- Perform one holistic regression audit before verification CI.
+- Normally run one complete CI verification per phase exit.
+- If CI is red, `docs/KFE-HOLISTIC-CI-FAILURE-PROTOCOL.md` takes precedence; do not enter a single-failure correction loop.
+- A phase is not automatically frozen by passing tests or CI. Complete a freeze-readiness assessment and obtain explicit approval before recording a freeze.
+- Do not pull work from later phases into the current phase unless required to preserve an established boundary or explicit dependency.
+
 ## Phase discipline
 
 - Do not silently skip or reorder phases.
