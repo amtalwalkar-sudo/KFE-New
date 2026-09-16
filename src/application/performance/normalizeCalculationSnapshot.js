@@ -15,7 +15,7 @@ const normalizeRecord = (record, aliases) => {
 const normalizeLoan = loan => {
   const record = normalizeRecord(loan, {
     startDate: ['start_date', 'loanStartDate', 'loan_start_date'],
-    tenureMonths: ['tenureMonths', 'tenure_months', 'term_months'],
+    tenureMonths: ['tenure_months', 'term_months'],
     annualInterestRate: ['annual_rate_percent'],
   })
   if (!record) return null
