@@ -66,8 +66,14 @@ assert.equal(metrics.pace.currentRevenuePerFinancialDay, metrics.revenuePerActiv
 assert.equal(metrics.pace.requiredRevenuePerFinancialDay, metrics.target)
 assert.equal(metrics.pace.paceVariance, metrics.revenuePerActiveDay - metrics.target)
 
-// Daily BE and Driver Target use the same remaining eligible financial-day denominator.
-assert.equal(metrics.dailyBreakEvenRevenue, metrics.monthlyBreakEvenRevenue / metrics.driverTargetRemainingEligibleDays)
+// Public service/API semantics: unavailable derived values are null. NaN remains
+// an internal numeric sentinel only and must not leak through this boundary.
+assert.equal(
+  metrics.dailyBreakEvenRevenue,
+  metrics.monthlyBreakEvenRevenue == null || metrics.driverTargetRemainingEligibleDays == null
+    ? null
+    : metrics.monthlyBreakEvenRevenue / metrics.driverTargetRemainingEligibleDays,
+)
 
 // Driver Target reconstruction is bounded by the calculation end/as-of boundary.
 const futureTrip = { id: 'future', status: 'COMPLETED', tripStartAt: '2026-09-11T09:00:00+05:30', tripEndAt: '2026-09-11T10:00:00+05:30', tripKm: 500, revenue: 99999 }
