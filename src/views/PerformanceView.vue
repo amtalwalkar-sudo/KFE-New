@@ -1,7 +1,8 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { PerformanceService } from '../application/performance/performanceService.js'
-import { istDayRange, reportingRangeFor, subscribeCanonicalDataChanges, KFE_TIME_ZONE_LABEL } from '../utils/indexedDB.js'
+import { istDayRange, reportingRangeFor, KFE_TIME_ZONE_LABEL } from '../domain/time/ist.js'
+import { subscribeCanonicalDataChanges } from '../utils/indexedDB.js'
 
 const PERIODS = ['DAY','WEEK','MONTH','3 MONTHS','6 MONTHS','1 YEAR','MULTI-YEAR','TILL DATE','CUSTOM RANGE']
 const LAYERS = { target:['Position','Pace','Target drivers','Comparison','Detailed period'], revenue:['Revenue position','Revenue composition','Revenue efficiency','Time & trend','Detailed revenue'], cost:['Break-even position','Cost drivers','Cost movement','Break-even analysis','Detailed costs'], profit:['Operating profit','Available cash','Financing detail','Provision planning','Profit trend','Detailed financial records'] }
