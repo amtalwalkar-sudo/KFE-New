@@ -65,7 +65,7 @@ const missingMaintenanceInput = { ...snapshot, breakEvenInputs: [{ effectiveFrom
 const missingEngineMetrics = derivePerformance(missingMaintenanceInput, range, previousRange(range))
 const missingServiceMetrics = PerformanceService.getMetrics(missingMaintenanceInput, range)
 assert.equal(missingEngineMetrics.completeness.breakEven, false)
-assert.equal(missingEngineMetrics.breakEvenRevenue, NaN)
+assert.ok(Number.isNaN(missingEngineMetrics.breakEvenRevenue))
 assert.equal(missingServiceMetrics.completeness.breakEven, false)
 assert.equal(missingServiceMetrics.driverTargetAvailable, false)
 assert.equal(missingServiceMetrics.driverTarget, null)
