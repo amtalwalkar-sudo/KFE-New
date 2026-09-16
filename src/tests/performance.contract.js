@@ -55,6 +55,11 @@ assert.ok(Number.isFinite(serviceMetrics.driverTarget))
 assert.equal(serviceMetrics.driverTarget, (serviceMetrics.breakEvenRevenue + 2000) / 30)
 assert.equal(serviceMetrics.pace.requiredRevenuePerActiveDay, serviceMetrics.driverTarget)
 
+const manualDailyTargetInput = { ...snapshot, driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:2000, dailyTarget:1, targetPerActiveDay:2, active:true }] }
+const manualDailyTargetMetrics = PerformanceService.getMetrics(manualDailyTargetInput, range)
+assert.equal(manualDailyTargetMetrics.driverTargetAvailable, true)
+assert.equal(manualDailyTargetMetrics.driverTarget, serviceMetrics.driverTarget)
+
 const changedInput = { ...snapshot, breakEvenInputs: [{ effectiveFrom:'2026-09-01', maintenanceProvisionPerKm:4, active:true }] }
 const changedEngineMetrics = derivePerformance(changedInput, range, previousRange(range))
 const changedServiceMetrics = PerformanceService.getMetrics(changedInput, range)
