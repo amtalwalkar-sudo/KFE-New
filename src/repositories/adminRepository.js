@@ -1,4 +1,4 @@
-import { initializeCanonicalStorage } from '../utils/indexedDB.js'
+import { initializeCanonicalStorage, notifyCanonicalDataChanged } from '../utils/indexedDB.js'
 import { generateUUID } from '../utils/uuid.js'
 import { writeMutationAndAudit } from './mutationRepository.js'
 
@@ -24,7 +24,7 @@ export const AdminRepository = {
     return new Promise((resolve, reject) => {
       const tx = db.transaction([storeName, 'pending_mutations', 'audit_history'], 'readwrite')
       try { tx.objectStore(storeName).put(record); writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: record.id, entityType: formKey, action, payload: record, createdAt: now }) } catch (error) { try { tx.abort() } catch (_) {}; reject(error); return }
-      tx.oncomplete = () => resolve(toFormRecord(formKey, record)); tx.onerror = () => reject(tx.error || new Error(`Failed to save ${formKey}.`)); tx.onabort = () => reject(tx.error || new Error(`Save ${formKey} aborted.`))
+      tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: [storeName], reason: `admin:${action}` }); resolve(toFormRecord(formKey, record)) }; tx.onerror = () => reject(tx.error || new Error(`Failed to save ${formKey}.`)); tx.onabort = () => reject(tx.error || new Error(`Save ${formKey} aborted.`))
     })
   },
   async remove(formKey, id) {
@@ -40,7 +40,7 @@ export const AdminRepository = {
         writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: id, entityType: formKey, action: 'DELETE', payload: { id, formKey, deletedAt: now }, createdAt: now })
       }
       request.onerror = () => { try { tx.abort() } catch (_) {}; reject(request.error || new Error(`Failed to read ${formKey} for deletion.`)) }
-      tx.oncomplete = () => resolve(true); tx.onerror = () => reject(tx.error || new Error(`Failed to delete ${formKey}.`)); tx.onabort = () => reject(tx.error || new Error(`Delete ${formKey} aborted.`))
+      tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: [storeName], reason: 'admin:DELETE' }); resolve(true) }; tx.onerror = () => reject(tx.error || new Error(`Failed to delete ${formKey}.`)); tx.onabort = () => reject(tx.error || new Error(`Delete ${formKey} aborted.`))
     })
   },
 }

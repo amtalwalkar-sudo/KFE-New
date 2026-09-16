@@ -1,38 +1,88 @@
 # Driver Target Implementation Boundary
 
-The frozen driver-target design is executable through an explicit invariant, but it does not authorize a newly invented recovery calculation.
+The frozen driver-target design is executable through an explicit monthly obligation and dynamic remaining-day amortization. It does not authorize a newly invented recovery calculation.
 
 ## Authoritative interpretation
 
-`Driver Target = current required target after applying the existing lifetime/rolling recovery balance`
+The target chain is:
 
-The base requirement is:
+`Monthly Break-even + Monthly Desired Driver Profit + Opening Rolling Balance = Effective Monthly Obligation`
 
-`baseTarget = applicableBreakEvenCost + desiredDriverProfit`
+`Effective Monthly Obligation − Target Already Allocated/Fulfilled = Remaining Obligation`
 
-For the displayed active-day Driver Target, both terms are active-day amounts: the applicable break-even requirement is resolved for the active day, and `desiredDriverProfit` is the administrator-defined desired profit for that active day. There is no additional division by `workingDays`, `activeWorkingDays`, `targetWorkingDays`, or an arbitrary period length.
+`Remaining Obligation / Remaining Eligible Calendar/Financial Target Days = Current Driver Target`
 
-The desired driver take-home/profit must be an explicit authoritative input on the applicable driver-target record (`desiredDriverProfit`, `desiredTakeHome`, or `desiredProfit`). A legacy `targetRevenue` value must not be interpreted as the desired profit input. Legacy/manual `dailyTarget` and `targetPerActiveDay` values are not authoritative.
+Monthly break-even is the single authoritative monthly business-calculation figure. Monthly desired driver profit is the amount the driver wants above that month's break-even. The opening rolling balance is the carried result from prior closed months. Daily break-even and daily Driver Target are derived representations; they are not independent business inputs.
 
-If the authoritative desired-profit input or applicable break-even requirement is unavailable, the driver-target calculation is unavailable rather than silently substituting an unrelated target value.
+For the active financial day:
 
-The rolling recovery/surplus adjustment is reconstructed from authoritative historical completed-trip revenue and shift-defined active days. This reconstruction must remain the implementation of the frozen rolling mechanism and must not become a second business ledger.
+`dailyBreakEven = monthlyBreakEven / remainingEligibleDays`
 
-When historical active days are part of the reconstruction, their authoritative base requirement must also be available. Historical break-even reconstruction must be day-scoped and must use only information available by that historical day; future fuel observations or other future-dated calculation inputs must not leak backward into the historical balance.
+`currentDriverTarget = remainingEffectiveMonthlyObligation / remainingEligibleDays`
 
-## Day participation
+`driverTargetBase = (monthlyBreakEven + monthlyDesiredDriverProfit) / remainingEligibleDays`
 
-- Active working days participate in the rolling balance.
-- Inactive/off days have no driver target.
-- Inactive/off days do not increase recovery.
-- Below-target active performance reinforces recovery.
-- Above-target active performance reduces outstanding recovery or creates surplus.
-- The carried balance affects subsequent active-day targets progressively.
-- `workingDays` on a Driver Target record is descriptive period metadata; it is not a divisor or alternate target authority.
+`recoveryAdjustment = currentDriverTarget − driverTargetBase`
+
+`remainingEligibleDays` is dynamic. It is not a fixed `workingDays` divisor.
+
+## Calendar / financial-day semantics
+
+- All calendar days are eligible by default.
+- A day with a completed trip is a financial/target-bearing day.
+- A day with no completed trip is a holiday/non-financial day and consumes no target allocation.
+- A known holiday redistributes its untouched monthly obligation across later eligible days.
+- The monthly obligation itself is never reduced because of holidays.
+- The current day's target is derived from the remaining monthly obligation; actual current-month revenue does not immediately mutate that day's target or opening rolling balance.
+- All calendar classification uses IST / `Asia/Kolkata`, independent of device/browser timezone.
+
+Configured `workingDays` may remain in persisted compatibility/schema data, but it is not a competing divisor or target authority. Missing `workingDays` therefore does not make the monthly target unavailable.
+
+## Normalization boundary
+
+Persisted compatibility variants are resolved before entering the Driver Target domain:
+
+```text
+Persisted variants
+      ↓
+NORMALIZATION
+      ↓
+Canonical Driver Target object
+      ↓
+Driver Target domain
+```
+
+The canonical domain field is `desiredDriverProfit`. Legacy names such as `desiredTakeHome`, `desiredProfit`, snake_case variants, and manual `dailyTarget`/`targetPerActiveDay` are not interpreted by the Driver Target domain.
+
+If the authoritative desired-profit input or applicable monthly break-even requirement is unavailable, the driver-target calculation is unavailable rather than silently substituting an unrelated target value.
+
+## Rolling recovery / surplus
+
+The monthly state is explicit:
+
+`openingBalance → monthlyVariance → closingBalance`
+
+For a closed month:
+
+`monthlyVariance = monthlyBaseTarget − actualMonthlyRevenue`
+
+`closingBalance = openingBalance + monthlyVariance`
+
+`openingBalance[next month] = closingBalance[previous month]`
+
+Positive balance represents shortfall/recovery owed. Negative balance represents surplus carried forward.
+
+The active month's variance is provisional and is not immediately added to today's opening balance. It becomes rolling state when the month closes.
+
+## Target allocation
+
+The current month's effective obligation is allocated dynamically. Earlier financial days consume their target allocation; holidays consume none. The current target is always computed from the remaining obligation divided by the remaining eligible days.
+
+This preserves the full monthly obligation while allowing target guidance to rise after holidays or carried recovery without creating a second monthly authority.
 
 ## Actual calculations remain independent
 
-Driver Target is informational/motivational only. Changing `desiredDriverProfit` changes the displayed target and its rolling target adjustment, but must not change actual revenue, vehicle/business/dead KM, fuel, maintenance, financing, renewal, cash, profit, or authoritative break-even calculations.
+Driver Target is informational/motivational only. Changing desired driver profit changes the displayed target and its rolling target state, but must not change actual revenue, vehicle/business/dead KM, fuel, maintenance, financing, renewal, cash, profit, or the authoritative monthly break-even calculation.
 
 ## Explicit non-rules
 
@@ -40,8 +90,12 @@ This clarification does not introduce:
 
 - an N-day smoothing window;
 - an arbitrary averaging period;
+- a second monthly break-even authority;
 - a second target calculation;
 - a second recovery ledger;
-- a replacement for the existing frozen rolling balance.
+- manual daily target authority;
+- `workingDays` as a competing daily-target divisor;
+- a reduction of monthly obligation for holidays;
+- a projected-revenue target authority or period-mixed target gap.
 
 The canonical data model already contains `break_even_inputs`; implementations must use its authoritative fields rather than inventing parallel break-even inputs.

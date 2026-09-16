@@ -2,22 +2,22 @@ import assert from 'node:assert/strict'
 import { derivePerformance } from '../domain/performance/performanceEngineV2.js'
 import { calculateRollingFuelCostPerKm } from '../domain/math/fuel.js'
 
-const from = new Date('2026-01-01T00:00:00')
-const to = new Date('2026-03-31T23:59:59.999')
+const from = new Date('2026-01-01T00:00:00+05:30')
+const to = new Date('2026-01-31T23:59:59.999+05:30')
 const snapshot = {
-  shifts: [{ shiftStartAt: '2026-01-10T08:00:00', shiftEndAt: '2026-01-10T18:00:00', startOdometer: 1000, endOdometer: 1150, toll: 100, parking: 50 }],
-  trips: [{ status: 'COMPLETED', tripStartAt: '2026-01-10T09:00:00', tripEndAt: '2026-01-10T11:00:00', revenue: 10000, tripKm: 100 }],
+  shifts: [{ shiftStartAt: '2026-01-10T08:00:00+05:30', shiftEndAt: '2026-01-10T18:00:00+05:30', startOdometer: 1000, endOdometer: 1150, toll: 100, parking: 50 }],
+  trips: [{ status: 'COMPLETED', tripStartAt: '2026-01-10T09:00:00+05:30', tripEndAt: '2026-01-10T11:00:00+05:30', revenue: 10000, tripKm: 100 }],
   fuelLogs: [
-    { capturedAt: '2026-01-01T07:30:00', odometer: 1000, amount: 2000, quantityKg: 20 },
-    { capturedAt: '2026-01-05T07:30:00', odometer: 1100, amount: 2200, quantityKg: 22 },
-    { capturedAt: '2026-01-07T07:30:00', odometer: 1125, amount: 999, quantityKg: 10, isFullTank: false },
-    { capturedAt: '2026-01-10T07:30:00', odometer: 1200, amount: 2400, quantityKg: 24 }
+    { capturedAt: '2026-01-01T07:30:00+05:30', odometer: 1000, amount: 2000, quantityKg: 20 },
+    { capturedAt: '2026-01-05T07:30:00+05:30', odometer: 1100, amount: 2200, quantityKg: 22 },
+    { capturedAt: '2026-01-07T07:30:00+05:30', odometer: 1125, amount: 999, quantityKg: 10, isFullTank: false },
+    { capturedAt: '2026-01-10T07:30:00+05:30', odometer: 1200, amount: 2400, quantityKg: 24 }
   ],
-  maintenance: [{ performedOn: '2026-01-09T12:00:00', cost: 300 }], compliance: [],
-  loans: [{ id: 'loan-1', lender: 'Test lender', principal: 12000, annualInterestRate: 12, tenureMonths: 12, startDate: '2026-01-01', status: 'ACTIVE' }],
-  loanPayments: [{ loanId: 'loan-1', paidOn: '2026-01-15', amount: 800, charges: 0, status: 'PAID' }],
-  prepayments: [{ loanId: 'loan-1', paidOn: '2026-01-20', amount: 300, status: 'Applied' }], driverTargets: [],
-  breakEvenInputs: [{ effectiveFrom: '2026-01-01', maintenanceProvisionPerKm: 2 }]
+  maintenance: [{ performedOn: '2026-01-09T12:00:00+05:30', cost: 300 }], compliance: [],
+  loans: [{ id: 'loan-1', lender: 'Test lender', principal: 12000, annualInterestRate: 12, tenureMonths: 12, startDate: '2026-01-01T00:00:00+05:30', status: 'ACTIVE' }],
+  loanPayments: [{ loanId: 'loan-1', paidOn: '2026-01-15T00:00:00+05:30', amount: 800, charges: 0, status: 'PAID' }],
+  prepayments: [{ loanId: 'loan-1', paidOn: '2026-01-20T00:00:00+05:30', amount: 300, status: 'Applied' }], driverTargets: [],
+  breakEvenInputs: [{ effectiveFrom: '2026-01-01T00:00:00+05:30', maintenanceProvisionPerKm: 2 }]
 }
 
 const fuel = calculateRollingFuelCostPerKm(snapshot.fuelLogs, 10)
@@ -34,12 +34,14 @@ assert.equal(m.revenuePerKm, 10000 / 150)
 assert.equal(m.profitPerKm, m.operatingProfit / 150)
 assert.equal(m.fuelCostPerKm, 23)
 assert.equal(m.maintenanceProvision, 300)
-assert.equal(m.breakEvenRevenue, (m.loanScheduledObligation + m.renewalProvision) + 150 * 23 + 150 * 2)
-assert.ok(Math.abs(m.loanInterest - (122.3013698630137 + 101.7768477896688)) < 1e-9)
+assert.equal(m.monthlyBreakEvenRevenue, (m.loanScheduledObligation + m.renewalProvision) + 150 * 23 + 150 * 2)
+// January is the selected as-of month, so only January's accrued loan interest
+// belongs to this period. February's interest is outside the reporting boundary.
+assert.ok(Math.abs(m.loanInterest - 122.3013698630137) < 1e-9)
 assert.equal(m.actualLoanPaid, 800)
 assert.equal(m.actualPrepayment, 300)
 assert.equal(m.actualFinancingOutflow, 1100)
 assert.equal(m.availableCash, m.operatingProfit - 1100)
 assert.equal(m.provisionAdjustedProfit, m.operatingProfit - m.provisionRequired)
 
-console.log('Financial model contract passed: vehicle-KM economics, full-tank rolling fuel cost, actual-days/365 loan interest, actual cash, and provisions are separated.')
+console.log('Financial model contract passed: monthly break-even authority, vehicle-KM economics, full-tank rolling fuel cost, as-of loan-interest accrual, actual cash, and provisions are separated.')

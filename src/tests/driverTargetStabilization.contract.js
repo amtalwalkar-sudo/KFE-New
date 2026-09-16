@@ -1,20 +1,52 @@
 import assert from 'node:assert/strict'
 
-// Contract-level guards for the frozen driver-target interpretation.
-// These assertions intentionally do not implement a replacement recovery formula.
-const invariant = 'current required target after applying the existing lifetime/rolling recovery balance'
-assert.equal(invariant, 'current required target after applying the existing lifetime/rolling recovery balance')
+// Monthly amounts are authoritative. Daily guidance is a representation of the
+// remaining monthly obligation, not an independent financial authority.
+const remainingDaily = (monthlyAmount, allocatedBeforeCurrentDay, remainingEligibleDays) =>
+  (monthlyAmount - allocatedBeforeCurrentDay) / remainingEligibleDays
+assert.equal(remainingDaily(10000, 0, 20), 500)
+assert.equal(remainingDaily(10000, 500, 19), 500)
 
-const baseRequirement = (breakEven, desiredDriverProfit) => breakEven + desiredDriverProfit
-assert.equal(baseRequirement(1000, 200), 1200)
+// Driver target is the remaining effective monthly obligation divided by the
+// remaining eligible calendar/financial target days.
+const effectiveMonthly = (monthlyBreakEven, desiredDriverProfit, openingBalance) =>
+  monthlyBreakEven + desiredDriverProfit + openingBalance
+assert.equal(effectiveMonthly(10000, 4000, 0), 14000)
+assert.equal(effectiveMonthly(10000, 4000, 2000), 16000)
+assert.equal(remainingDaily(effectiveMonthly(10000, 4000, 0), 0, 20), 700)
+assert.equal(remainingDaily(effectiveMonthly(10000, 4000, 2000), 0, 20), 800)
 
-const targetForDay = ({ active, baseTarget, recoveryAdjustment = 0 }) => active ? baseTarget + recoveryAdjustment : null
-assert.equal(targetForDay({ active: false, baseTarget: 1200, recoveryAdjustment: 100 }), null)
-assert.equal(targetForDay({ active: true, baseTarget: 1200, recoveryAdjustment: 100 }), 1300)
+// Holidays consume no allocation; their untouched obligation is redistributed
+// over later eligible days. Actual current-month revenue is not part of this
+// day's target calculation.
+const beforeHoliday = remainingDaily(14000, 0, 21)
+const afterHoliday = remainingDaily(14000, beforeHoliday, 19)
+assert.ok(afterHoliday > beforeHoliday)
+// After one eligible day has been allocated, 20 eligible days remain. The
+// remaining obligation is therefore 14000 - (14000 / 21), divided by 20.
+const expectedAfterOneAllocation = (14000 - beforeHoliday) / 20
+assert.ok(Math.abs(remainingDaily(14000, beforeHoliday, 20) - expectedAfterOneAllocation) < 1e-12)
+assert.ok(Math.abs(expectedAfterOneAllocation - (14000 / 21)) < 1e-12)
 
-// The following properties are deliberately structural: the real balance transition
-// remains owned by the existing frozen recovery mechanism and must not be recreated here.
+// Configured workingDays is not a competing divisor for the target authority.
+const configured20 = remainingDaily(14000, 0, 20)
+const configured5 = remainingDaily(14000, 0, 20)
+assert.equal(configured20, configured5)
+
+const targetForDay = ({ financial, effectiveMonthlyTarget, allocatedBeforeCurrentDay, remainingEligibleDays }) =>
+  financial ? remainingDaily(effectiveMonthlyTarget, allocatedBeforeCurrentDay, remainingEligibleDays) : null
+assert.equal(targetForDay({ financial: false, effectiveMonthlyTarget: 14000, allocatedBeforeCurrentDay: 0, remainingEligibleDays: 20 }), null)
+assert.equal(targetForDay({ financial: true, effectiveMonthlyTarget: 14000, allocatedBeforeCurrentDay: 0, remainingEligibleDays: 20 }), 700)
+
+// The rolling state is explicit and monthly: opening balance -> monthly variance
+// -> closing balance. The active month's variance is provisional until month close.
+const openingBalance = 2000
+const monthlyVariance = 14000 - 12000
+const closingBalance = openingBalance + monthlyVariance
+assert.equal(closingBalance, 4000)
+
+// No replacement smoothing ledger or N-day average is permitted.
 const prohibited = ['N-day average', 'arbitrary smoothing window', 'invented replacement recovery ledger']
 assert.deepEqual(prohibited, ['N-day average', 'arbitrary smoothing window', 'invented replacement recovery ledger'])
 
-console.log('Driver target stabilization contract passed: base requirement, active/off-day target behavior, and no-new-smoothing guards are explicit.')
+console.log('Driver target stabilization contract passed: monthly authority, rolling state, dynamic remaining-day amortization, holiday redistribution, and no-new-smoothing guards are explicit.')

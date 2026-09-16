@@ -1,9 +1,37 @@
 const CANONICAL_DB_NAME = 'kanishka_kfe_canonical_db'
 const CANONICAL_DB_VERSION = 9
+const CANONICAL_DB_CHANGE_EVENT = 'kfe:canonical-data-changed'
+const CANONICAL_DB_CHANNEL = 'kfe-canonical-db-changes'
 
 let dbInstance = null
 let initializationPromise = null
 let isInitialized = false
+
+let changeChannel = null
+const getChangeChannel = () => {
+  if (typeof BroadcastChannel === 'undefined') return null
+  if (!changeChannel) changeChannel = new BroadcastChannel(CANONICAL_DB_CHANNEL)
+  return changeChannel
+}
+
+export const notifyCanonicalDataChanged = ({ stores = [], reason = 'mutation' } = {}) => {
+  const detail = { stores: [...new Set(stores)], reason, changedAt: new Date().toISOString() }
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(CANONICAL_DB_CHANGE_EVENT, { detail }))
+  getChangeChannel()?.postMessage(detail)
+}
+
+export const subscribeCanonicalDataChanges = callback => {
+  if (typeof window === 'undefined') return () => {}
+  const handler = event => callback(event.detail || {})
+  window.addEventListener(CANONICAL_DB_CHANGE_EVENT, handler)
+  const channel = getChangeChannel()
+  const channelHandler = event => callback(event.data || {})
+  channel?.addEventListener('message', channelHandler)
+  return () => {
+    window.removeEventListener(CANONICAL_DB_CHANGE_EVENT, handler)
+    channel?.removeEventListener('message', channelHandler)
+  }
+}
 
 const createSimpleStore = (db, name, indexes = []) => {
   if (db.objectStoreNames.contains(name)) return
@@ -23,7 +51,7 @@ export const openCanonicalDB = () => new Promise((resolve, reject) => {
     if (!db.objectStoreNames.contains('days')) { const store = db.createObjectStore('days', { keyPath: 'id' }); store.createIndex('status', 'status', { unique: false }); store.createIndex('dayStartAt', 'dayStartAt', { unique: false }) }
     if (!db.objectStoreNames.contains('trips')) { const store = db.createObjectStore('trips', { keyPath: 'id' }); store.createIndex('dayId', 'dayId', { unique: false }); store.createIndex('shiftId', 'shiftId', { unique: false }); store.createIndex('status', 'status', { unique: false }); store.createIndex('tripStartAt', 'tripStartAt', { unique: false }) }
     if (!db.objectStoreNames.contains('gps_snapshots')) { const store = db.createObjectStore('gps_snapshots', { keyPath: 'id' }); store.createIndex('entityType', 'entityType', { unique: false }); store.createIndex('entityId', 'entityId', { unique: false }); store.createIndex('capturedAt', 'capturedAt', { unique: false }) }
-    if (!db.objectStoreNames.contains('movement_artifacts')) { const store = db.createObjectStore('movement_artifacts', { keyPath: 'id' }); store.createIndex('shiftId', 'shiftId', { unique: false }); store.createIndex('generatedAt', 'generatedAt', { unique: false }) }
+    if (!db.objectStoreNames.contains('movement_artifacts')) { storeOrCreate(db, 'movement_artifacts', ['shiftId', 'generatedAt']) }
     createSimpleStore(db, 'vehicles', ['registrationNumber', 'active'])
     createSimpleStore(db, 'drivers', ['status', 'name'])
     createSimpleStore(db, 'compliance_records', ['vehicleId', 'complianceType', 'validUntil'])
@@ -43,6 +71,12 @@ export const openCanonicalDB = () => new Promise((resolve, reject) => {
   request.onerror = () => reject(request.error || new Error('Canonical database could not be opened.'))
 })
 
+const storeOrCreate = (db, name, indexes = []) => {
+  if (db.objectStoreNames.contains(name)) return
+  const store = db.createObjectStore(name, { keyPath: 'id' })
+  indexes.forEach(index => store.createIndex(index, index, { unique: false }))
+}
+
 export const initializeCanonicalStorage = async () => {
   if (isInitialized && dbInstance) return dbInstance
   if (initializationPromise) return initializationPromise
@@ -59,4 +93,4 @@ export const getLastOdometer = async () => {
   })
 }
 
-export { CANONICAL_DB_NAME, CANONICAL_DB_VERSION }
+export { CANONICAL_DB_NAME, CANONICAL_DB_VERSION, CANONICAL_DB_CHANGE_EVENT, CANONICAL_DB_CHANNEL }

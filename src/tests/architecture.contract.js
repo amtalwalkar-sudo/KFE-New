@@ -39,7 +39,13 @@ for (const relativePath of obsoleteAndroidPaths) if (fs.existsSync(path.join(pro
 const manifestPath = path.join(projectRoot, 'android/app/src/main/AndroidManifest.xml')
 if (fs.existsSync(manifestPath)) { const manifest = fs.readFileSync(manifestPath, 'utf8'); if (/SYSTEM_ALERT_WINDOW|FloatingWidgetService/.test(manifest)) violations.push('Android manifest still grants or registers the obsolete floating widget overlay.') }
 
-const obsoleteFiles = ['application/shell/shellService.js','presentation/application/presentation-api.js','services/movementAccountingService.js']
+const obsoleteFiles = [
+  'application/shell/shellService.js',
+  'presentation/application/presentation-api.js',
+  'services/movementAccountingService.js',
+  'services/mileageAccountingService.js',
+  'services/revenueReconciliationService.js',
+]
 for (const relativePath of obsoleteFiles) if (fs.existsSync(path.join(root, relativePath))) violations.push(`Obsolete implementation still exists: ${relativePath}`)
 
 if (violations.length) { console.error(violations.join('\n')); process.exit(1) }

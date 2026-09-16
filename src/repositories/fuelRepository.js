@@ -1,4 +1,4 @@
-import { initializeCanonicalStorage } from '../utils/indexedDB.js'
+import { initializeCanonicalStorage, notifyCanonicalDataChanged } from '../utils/indexedDB.js'
 import { generateUUID } from '../utils/uuid.js'
 import { writeMutationAndAudit } from './mutationRepository.js'
 
@@ -16,7 +16,7 @@ export const FuelRepository = {
         latitude: fuelData.latitude ?? null, longitude: fuelData.longitude ?? null, accuracy: fuelData.accuracy ?? null, capturedAt: fuelData.capturedAt || now, createdAt: fuelData.createdAt || now, updatedAt: now
       }
       try { fuelStore.put(fuelRecord); writeMutationAndAudit(mutationStore, auditStore, { entityId: fuelRecord.id, entityType: 'FUEL', action: 'CREATE', payload: fuelRecord, createdAt: now }) } catch (error) { try { tx.abort() } catch (_) {}; reject(error); return }
-      tx.oncomplete = () => resolve(fuelRecord)
+      tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: ['fuel_logs'], reason: 'fuel:CREATE' }); resolve(fuelRecord) }
       tx.onerror = () => reject(tx.error || new Error('Atomic fuel log persistence failed.'))
       tx.onabort = () => reject(tx.error || new Error('Fuel log transaction aborted.'))
     })

@@ -21,11 +21,11 @@ export function deriveAuthoritativeBreakEven({ breakEvenInputs = [], range, loan
   const dynamicCosts = Number(vehicleKm) * Number(fuelCostPerKm) + Number(vehicleKm) * maintenanceProvisionPerKm
   return {
     available: true,
-    breakEvenRevenue: fixedCosts + dynamicCosts,
+    monthlyBreakEvenRevenue: fixedCosts + dynamicCosts,
     maintenanceProvisionPerKm,
     fixedCosts,
     fuelCostPerKm: Number(fuelCostPerKm),
     vehicleKm: Number(vehicleKm),
-    authority: 'BREAK_EVEN_INPUTS_PLUS_CANONICAL_PERFORMANCE_COSTS'
+    authority: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN'
   }
 }

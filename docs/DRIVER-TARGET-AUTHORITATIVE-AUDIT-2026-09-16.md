@@ -1,68 +1,115 @@
 # Driver Target Authoritative Audit — 2026-09-16
 
-## CI
+## CI baseline
 
-The post-merge CI for `main` commit `0f03cdd0bbd2458906c557a8bd1fea6898d6de60` was reported green after the Driver Target stabilization merge.
+The post-merge CI for `main` commit `2cde14ba55ec99dda3aadd5029945fc3d07ebda9` completed successfully as workflow run #160 (`KFE 2.0 single CI`). That baseline build-and-test job completed the configured foundation contract tests, production PWA build, Capacitor Android sync, and Android debug APK build successfully.
 
-The standard `npm test` script includes both the structural stabilization contract and the implementation contract.
+The current hardening branch has additional changes after that baseline. Current branch CI must be green again before merge.
 
 ## Audit findings
 
-### 1. Driver target input authority
+### 1. Driver Target input authority and normalization
 
-The frozen rule requires:
+The authoritative persisted Driver Target input is `desiredDriverProfit`.
 
-`baseTarget = applicableBreakEvenCost + desiredDriverProfit`
+Persisted compatibility variants such as `desiredTakeHome`, `desiredProfit`, snake_case field names, and other legacy aliases are resolved once at the application normalization boundary. The canonical Driver Target domain object exposes `desiredDriverProfit`; the Driver Target domain does not interpret those legacy names.
 
-The implementation now requires an explicit `desiredDriverProfit`, `desiredTakeHome`, or `desiredProfit` field when deriving a target from break-even. A legacy `targetRevenue` value is no longer accepted by the stabilization implementation as a substitute for desired take-home/profit.
+An explicitly stored `dailyTarget` or `targetPerActiveDay` is not an authority. A legacy `targetRevenue`, `target`, or unrelated `amount` field cannot substitute for desired driver profit.
 
-If the authoritative desired-profit input is missing, the stabilization result is explicitly unavailable rather than silently falling back to an unrelated target field.
+The Admin Driver Target form requires the authoritative desired-profit input. If the canonical desired-profit input is unavailable after normalization, the Driver Target result is unavailable rather than silently falling back to another field.
 
 ### 2. Driver Target is informational and does not alter actual calculations
 
-The Driver Target is a driver-facing motivation and situational-awareness value. It is not an input to the underlying actual business calculations and must never modify actual revenue, cost, break-even, profit, or other authoritative financial calculations.
+Driver Target is a driver-facing motivation and situational-awareness value. It is not an input to actual business economics and must never modify actual revenue, KM, fuel, cost, break-even, profit, cash, financing, or renewal calculations.
 
-The displayed Driver Target must always be derived from the authoritative Driver Target chain:
+The authoritative target chain is:
 
-`applicable break-even requirement + Admin-defined desired driver profit + rolling recovery/surplus adjustment`
+`monthlyBreakEvenRevenue + monthlyDesiredDriverProfit + openingRollingBalance → effectiveMonthlyObligation → remainingObligation → currentDailyTarget`
 
-An explicitly stored `dailyTarget` or `targetPerActiveDay` must not override or replace that derivation. Legacy target fields such as `targetRevenue`, `target`, or `amount` must not become alternate authorities for the displayed Driver Target.
+The current daily target is amortized over the remaining eligible financial/calendar days. The denominator changes as financial days and known holidays are established.
 
-If the authoritative break-even requirement or desired driver profit is unavailable, the Driver Target is unavailable rather than falling back to a manually stored target.
+### 3. Monthly break-even is the sole break-even authority
 
-The rolling recovery/surplus adjustment affects only the displayed Driver Target. It does not feed back into or change the actual calculation layer.
+The canonical IndexedDB schema contains `break_even_inputs`, and the performance repository reads that store directly.
 
-### 3. Break-even source
+`deriveAuthoritativeBreakEven()` produces the canonical result:
 
-The canonical IndexedDB schema contains `break_even_inputs`, and the performance repository already reads that store. The current performance engine has a legacy path that does not yet consume that snapshot collection directly for all break-even inputs. This is retained as an explicit follow-up boundary rather than silently inventing a new mapping.
+`monthlyBreakEvenRevenue`
+
+The selected reporting range does not create a second period-level break-even authority. Daily break-even is only a representation of the monthly authority.
 
 ### 4. Rolling recovery
 
-Repository audit did not identify a separate persisted rolling-recovery balance store. The current stabilization reconstructs the carried balance from authoritative completed-trip revenue and shift-defined active days. This is reconstructable from authoritative records and uses no N-day smoothing window, but it must continue to be treated as the implementation of the frozen rolling mechanism, not as a second business ledger.
+No separate persisted rolling-recovery balance store is used.
 
-### 5. Active/off-day behavior
+The current stabilization reconstructs rolling state from authoritative monthly Driver Target requirements and actual completed-trip revenue:
 
-Active days are derived from shifts. A shift day participates even when it has zero completed trips. A day without a shift does not create a driver target or recovery increment.
+`openingBalance → monthlyVariance → closingBalance → next month's openingBalance`
 
-### 6. Calculation chain
+Only closed-month variance is carried into the next month. Active-month variance is provisional.
 
-The current chain is:
+No N-day smoothing window or replacement recovery ledger is introduced.
 
-`completed trips + shifts + driver target inputs → break-even → base driver requirement → carried rolling adjustment → current active-day driver target → pace requirement`
+### 5. Financial-day and holiday behavior
 
-The stabilized target is wired through `PerformanceService` into the pace calculation.
+A day becomes a financial/target-bearing day only when it contains at least one completed trip.
+
+A shift without a completed trip is an actual operational record but does not manufacture a Driver Target day.
+
+A day without a completed trip consumes no target allocation. Its untouched monthly obligation remains for later eligible financial days.
+
+The same financial-day/holiday rule is used by both daily break-even representation and Driver Target amortization.
+
+### 6. Daily target and pace units
+
+Monthly values remain monthly values. Daily values are derived representations.
+
+`dailyBreakEvenRevenue = monthlyBreakEvenRevenue / remainingEligibleDays`
+
+`currentDailyTarget = remainingObligation / remainingEligibleDays`
+
+Pace compares like-for-like units only:
+
+`currentRevenuePerFinancialDay - currentDailyTarget`
+
+The previous period-mixed projection/target-gap calculation is not part of the target authority and has been removed from the performance contract/UI.
+
+### 7. Timezone and calendar boundary
+
+KFE calendar classification uses IST / `Asia/Kolkata` regardless of device/browser timezone.
+
+This applies to day, week, month, open/current-month, closed-month, financial-day, and holiday boundaries.
+
+### 8. Data-boundary and integrity audit
+
+Persisted schema variants are normalized before domain calculations. The domain calculation layer consumes canonical names only.
+
+Records use client-generated UUIDs. Source-record deletion is implemented as soft deletion so historical records remain available to audit/recovery while being excluded from calculations.
+
+Future operational records and future fuel records must not leak into an earlier reporting/as-of calculation.
+
+### 9. Live calculation consumption
+
+The Performance UI consumes a snapshot from the Performance Repository. Canonical mutations notify the application so the Performance snapshot is refreshed and computed metrics update.
+
+Current notification coverage includes canonical Admin writes, shift/trip writes, fuel writes, and backup restore. Additional repository mutation paths remain part of the later full Gate 10 audit.
 
 ## Regression boundary
 
-The contracts cover:
+The contracts cover or are being extended to protect:
 
-- exact active-day target;
-- below-target recovery;
-- recovery absorption by above-target performance;
-- surplus carry-forward;
-- off-day behavior;
-- active shift with zero revenue;
-- missing authoritative desired-profit input;
-- service-level target wiring.
+- normalization equivalence between persisted variants and canonical records;
+- canonical monthly break-even output;
+- dynamic remaining eligible-day target allocation;
+- financial-day/holiday behavior;
+- rolling deficit/surplus state;
+- Driver Target invariance against actual economics;
+- historical as-of-day fuel isolation;
+- future operational-record isolation;
+- soft-delete exclusion;
+- malformed authoritative finance records;
+- client-generated ID uniqueness;
+- IST calendar boundaries;
+- no projection/period-mixed target-gap authority.
 
-No N-day averaging or arbitrary smoothing window is introduced.
+This document is subordinate to the frozen KFE calculation semantics and must be updated when the implementation changes a source, owner, unit, period, or authority.
