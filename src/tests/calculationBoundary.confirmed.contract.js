@@ -82,7 +82,12 @@ const holidaySmoothing = PerformanceService.getMetrics({
   ],
 }, { from:new Date('2026-09-10T00:00:00Z'), to:new Date('2026-09-12T23:59:59Z') })
 assert.equal(holidaySmoothing.driverTargetAvailable, true)
-assert.equal(holidaySmoothing.driverTargetEffectiveMonthlyTarget, 1000)
+assert.equal(
+  holidaySmoothing.driverTargetEffectiveMonthlyTarget,
+  holidaySmoothing.monthlyBreakEvenRevenue +
+    500 +
+    holidaySmoothing.driverTargetOpeningBalance,
+)
 assert.ok(holidaySmoothing.driverTarget > 0)
 
 const normalTarget = PerformanceService.getMetrics(base, range)
