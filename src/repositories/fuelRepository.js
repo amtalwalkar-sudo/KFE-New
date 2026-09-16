@@ -12,17 +12,8 @@ export const FuelRepository = {
       const auditStore = tx.objectStore('audit_history')
       const now = new Date().toISOString()
       const fuelRecord = {
-        id: fuelData.id || generateUUID(),
-        odometer: Number(fuelData.odometer),
-        pricePerKg: Number(fuelData.pricePerKg),
-        amount: Number(fuelData.amount),
-        quantityKg: Number(fuelData.quantityKg),
-        latitude: fuelData.latitude ?? null,
-        longitude: fuelData.longitude ?? null,
-        accuracy: fuelData.accuracy ?? null,
-        capturedAt: fuelData.capturedAt || now,
-        createdAt: fuelData.createdAt || now,
-        updatedAt: now
+        id: fuelData.id || generateUUID(), odometer: Number(fuelData.odometer), pricePerKg: Number(fuelData.pricePerKg), amount: Number(fuelData.amount), quantityKg: Number(fuelData.quantityKg), isFullTank: fuelData.isFullTank !== false,
+        latitude: fuelData.latitude ?? null, longitude: fuelData.longitude ?? null, accuracy: fuelData.accuracy ?? null, capturedAt: fuelData.capturedAt || now, createdAt: fuelData.createdAt || now, updatedAt: now
       }
       try { fuelStore.put(fuelRecord); writeMutationAndAudit(mutationStore, auditStore, { entityId: fuelRecord.id, entityType: 'FUEL', action: 'CREATE', payload: fuelRecord, createdAt: now }) } catch (error) { try { tx.abort() } catch (_) {}; reject(error); return }
       tx.oncomplete = () => resolve(fuelRecord)

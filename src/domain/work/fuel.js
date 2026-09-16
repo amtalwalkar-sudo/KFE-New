@@ -6,10 +6,10 @@ export function calculateFuelQuantity({ pricePerKg, amount }) {
   return { valid: true, quantityKg: total / price }
 }
 
-export function validateFuelEntry({ odometer, pricePerKg, amount }) {
+export function validateFuelEntry({ odometer, pricePerKg, amount, isFullTank = true }) {
   const odo = Number(odometer)
   if (!Number.isFinite(odo) || odo < 0) return { valid: false, reason: 'ODOMETER_REQUIRED' }
   const quantity = calculateFuelQuantity({ pricePerKg, amount })
   if (!quantity.valid) return quantity
-  return { valid: true, odometer: odo, pricePerKg: Number(pricePerKg), amount: Number(amount), quantityKg: quantity.quantityKg }
+  return { valid: true, odometer: odo, pricePerKg: Number(pricePerKg), amount: Number(amount), quantityKg: quantity.quantityKg, isFullTank: isFullTank !== false }
 }

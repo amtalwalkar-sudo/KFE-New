@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "authorities": {
     "businessRules": "../../docs/KFE-BUSINESS-RULES.md",
     "calculationSpecification": "../../docs/KFE-CALCULATION-SPECIFICATION.md",
@@ -7,64 +7,27 @@
   },
   "calculations": {
     "financialModel": {
-      "version": 2,
+      "version": 3,
       "layers": {
-        "revenue": {
-          "definition": "Revenue from validated completed trip records only.",
-          "formula": "sum(completedTrip.revenue)",
-          "authority": "COMPLETED_TRIP_RECORDS"
-        },
-        "operatingCost": {
-          "definition": "Actual operating costs recorded for the reporting period.",
-          "formula": "fuel + toll + parking + actualMaintenance",
-          "authority": "FUEL_LOGS_PLUS_SHIFT_TOLL_PARKING_PLUS_ACTUAL_MAINTENANCE"
-        },
-        "operatingProfit": {
-          "definition": "Revenue remaining after actual operating costs.",
-          "formula": "revenue - operatingCost"
-        },
-        "availableCash": {
-          "definition": "Actual cash remaining after actual financing outflows recorded for the reporting period. Provisions are not deducted from this actual result.",
-          "formula": "operatingProfit - actualLoanPayments - actualAppliedPrepayments",
-          "authority": "LOAN_PAYMENT_RECORDS_PLUS_APPLIED_PREPAYMENT_RECORDS"
-        },
-        "provisionPlanning": {
-          "definition": "Planned amounts to reserve for future defined costs. These remain visible for planning and are not deducted from actual performance or available cash.",
-          "formula": "maintenanceProvision + renewalProvision + otherProvision",
-          "authority": "MAINTENANCE_PROVISION_PLUS_COMPLIANCE_VALIDITY_AND_COST_PLUS_DEFINED_OTHER_PROVISIONS"
-        },
-        "financingDetail": {
-          "definition": "Loan schedule and actual financing detail shown separately from operating profit and available cash.",
-          "rule": "Amortization separates principal and interest. Scheduled obligation is informational; actual loan payments and applied prepayments affect available cash."
-        }
+        "revenue": {"definition":"Revenue from validated completed trip records only.","formula":"sum(completedTrip.revenue)","authority":"COMPLETED_TRIP_RECORDS"},
+        "operatingCost": {"definition":"Actual operating costs recorded for the reporting period.","formula":"fuel + toll + parking + actualMaintenance","authority":"FUEL_LOGS_PLUS_SHIFT_TOLL_PARKING_PLUS_ACTUAL_MAINTENANCE"},
+        "operatingProfit": {"definition":"Revenue remaining after actual operating costs.","formula":"revenue - operatingCost"},
+        "availableCash": {"definition":"Actual cash remaining after actual financing outflows recorded for the reporting period. Provisions are not deducted from this actual result.","formula":"operatingProfit - actualLoanPayments - actualAppliedPrepayments","authority":"LOAN_PAYMENT_RECORDS_PLUS_APPLIED_PREPAYMENT_RECORDS"},
+        "provisionPlanning": {"definition":"Planned amounts to reserve for future defined costs. These remain visible for planning and are not deducted from actual performance or available cash.","formula":"maintenanceProvision + renewalProvision + otherProvision"},
+        "financingDetail": {"definition":"Loan schedule and actual financing detail shown separately from operating profit and available cash.","rule":"Amortization separates principal and interest. Scheduled obligation is informational; actual loan payments and applied prepayments affect available cash."}
       },
-      "loanComponents": {
-        "rule": "Amortization separates principal and interest; prepayment has zero prepayment charge. Principal reduces outstanding debt, interest is a financing cost, actual payment is a cash outflow, and no financing amount is deducted twice."
-      },
-      "unmodeledOtherBusinessCosts": {
-        "rule": "No unsupported other-business-cost amount is invented. A future authoritative input must be added before such costs enter the financial model."
-      }
+      "loanComponents": {"rule":"Amortization separates principal and interest using actual days/365 interest; prepayment has zero prepayment charge. Principal reduces outstanding debt, interest is a financing cost, actual payment is a cash outflow, and no financing amount is deducted twice."},
+      "movementEconomics": {"rule":"Vehicle KM is the denominator for Revenue/KM, Profit/KM, Cost/KM and vehicle-based break-even. Dead KM is reported separately for knowledge but remains included in vehicle KM."},
+      "unmodeledOtherBusinessCosts": {"rule":"No unsupported other-business-cost amount is invented. A future authoritative input must be added before such costs enter the financial model."}
     },
     "fuelCostPerKm": {
-      "version": 1,
-      "rule": "full-tank intervals only; first full-tank fill establishes baseline; latest rolling observations are averaged",
-      "target": "src/domain/fuel.js"
+      "version": 2,
+      "rule": "Full-tank-to-full-tank intervals only; first full-tank fill establishes baseline; partial fills are recorded but excluded; use latest 10 completed full-tank interval observations, and while the current interval is open use the previous completed observations.",
+      "target": "src/domain/math/fuel.js"
     },
-    "maintenance": {
-      "version": 1,
-      "rule": "exactly one dimension per maintenance item: KM or TIME; provision and actual invoice remain separate",
-      "target": "src/domain/maintenance.js"
-    },
-    "currency": {
-      "version": 1,
-      "rule": "safe integer paise at monetary boundaries",
-      "target": "src/domain/shared.js"
-    },
-    "loan": {
-      "version": 1,
-      "rule": "amortization separates principal and interest; prepayment has zero prepayment charge",
-      "target": "src/domain/loans.js"
-    }
+    "maintenance": {"version":1,"rule":"exactly one dimension per maintenance item: KM or TIME; provision and actual invoice remain separate","target":"src/domain/maintenance.js"},
+    "currency": {"version":1,"rule":"safe integer paise at monetary boundaries","target":"src/domain/shared.js"},
+    "loan": {"version":2,"rule":"reducing-balance amortization with actual days/365 interest; prepayment has zero prepayment charge","target":"src/domain/performance/performanceEngineV2.js"}
   },
-  "goldenPolicy": "Every changed financial formula requires a deterministic regression vector before deployment."
+  "goldenPolicy":"Every changed financial formula requires a deterministic regression vector before deployment."
 }

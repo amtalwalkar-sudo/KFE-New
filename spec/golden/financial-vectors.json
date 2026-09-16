@@ -1,11 +1,23 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "vectors": [
     {
-      "id": "PROFITABILITY-001",
-      "function": "js/domain/dashboard.js#profitability",
-      "input": {"revenue": 1000000, "fuel": 100000, "maintenanceProvision": 50000, "fixedOverhead": 100000, "loanPrincipal": 100000, "loanInterest": 20000, "otherBusinessCosts": 30000, "takeHomeTargetPaise": 200000},
-      "expected": {"revenuePaise": 1000000, "costsPaise": 400000, "netProfitPaise": 600000, "takeHomeTargetPaise": 200000, "aboveTakeHomeTargetPaise": 400000}
+      "id": "VEHICLE-KM-ECONOMICS-001",
+      "function": "derivePerformance",
+      "input": {"vehicleKm": 150, "businessKm": 100, "deadKm": 50, "revenue": 10000, "operatingProfit": 7550},
+      "expected": {"revenuePerKm": 66.66666666666667, "profitPerKm": 50.333333333333336, "denominator": "vehicleKm"}
+    },
+    {
+      "id": "FUEL-FULL-TANK-ROLLING-001",
+      "function": "calculateRollingFuelCostPerKm",
+      "input": {"fullTankIntervals": [{"km":100,"cost":2200},{"km":100,"cost":2400}],"partialFills": [{"km":25,"cost":999}]},
+      "expected": {"rollingCostPerKm": 23, "partialFillsIncluded": false}
+    },
+    {
+      "id": "LOAN-ACTUAL-DAYS-365-001",
+      "function": "loan amortization",
+      "input": {"openingPrincipal":12000,"annualRate":0.12,"actualDays":31},
+      "expected": {"interest":122.3013698630137,"basis":"actualDays/365"}
     }
   ],
   "expansionPolicy": "Add a golden vector whenever an approved specification changes a financial calculation or an edge case is discovered. Do not invent expected values without an approved rule or verified calculation."
