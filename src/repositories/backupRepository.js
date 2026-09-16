@@ -1,4 +1,4 @@
-import { initializeCanonicalStorage } from '../utils/indexedDB.js'
+import { initializeCanonicalStorage, notifyCanonicalDataChanged } from '../utils/indexedDB.js'
 
 export const LOCAL_BACKUP_DB_NAME = 'kanishka_kfe_local_backup_db'
 export const LOCAL_BACKUP_DB_VERSION = 1
@@ -51,6 +51,7 @@ export const createBackupRepository = stores => Object.freeze({
       tx.oncomplete = resolve
       tx.onerror = () => reject(tx.error || new Error('KFE restore transaction failed.'))
       tx.onabort = () => reject(tx.error || new Error('KFE restore transaction aborted.'))
+      tx.oncomplete = () => { notifyCanonicalDataChanged({ stores, reason: 'backup:restore' }); resolve() }
     })
   },
 
