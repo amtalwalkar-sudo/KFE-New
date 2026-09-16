@@ -1,10 +1,14 @@
 {
-  "version": 2,
-  "definition": "The active-day driver target is the current required daily target after deriving the monthly requirement and applying the existing lifetime/rolling recovery balance.",
-  "monthlyHierarchy": "monthlyBreakEven + monthlyDesiredDriverProfit -> effectiveMonthlyTarget -> daily derived target",
-  "dailyDerivation": "dailyBreakEven = monthlyBreakEven / workingDays; dailyDesiredDriverProfit = monthlyDesiredDriverProfit / workingDays; baseDailyTarget = dailyBreakEven + dailyDesiredDriverProfit",
-  "rule": "Active working days participate in the carried rolling balance; inactive/off days create no target and do not increase recovery. Monthly shortfall/surplus rolls forward and is applied progressively to future active-day targets.",
-  "requiredInputs": ["applicable monthly break-even", "monthly desired driver profit", "workingDays"],
-  "prohibited": ["new smoothing window", "arbitrary averaging period", "targetRevenue treated as complete target", "manual dailyTarget treated as authority", "invented replacement recovery ledger"],
-  "authority": "FROZEN_ROLLING_RECOVERY_MECHANISM"
+  "version": 3,
+  "definition": "The current Driver Target is the required daily obligation after deriving the authoritative monthly requirement and applying the existing rolling recovery balance.",
+  "monthlyHierarchy": "monthlyBreakEven + monthlyDesiredDriverProfit + openingRollingBalance -> effectiveMonthlyObligation -> remainingObligation -> currentDailyTarget",
+  "dailyDerivation": "dailyBreakEven = monthlyBreakEven / remainingEligibleDays; dailyDesiredDriverProfit = monthlyDesiredDriverProfit / remainingEligibleDays; currentDailyTarget = remainingObligation / remainingEligibleDays",
+  "eligibleDayRule": "A calendar day becomes a financial/target-bearing day only when it contains at least one completed trip. A day without a completed trip consumes no target allocation and its untouched obligation remains for later eligible days.",
+  "dynamicRule": "The current daily target is dynamically amortized over the remaining eligible calendar/financial days. The denominator changes as financial days and known holidays are established.",
+  "rollingRule": "openingBalance = prior closed month's closingBalance; monthlyVariance = monthlyBaseTarget - actualMonthlyRevenue; closingBalance = openingBalance + monthlyVariance. The active month's variance is provisional and does not immediately mutate today's target.",
+  "requiredInputs": ["applicable authoritative monthly break-even", "monthly desired driver profit", "opening rolling balance", "remaining eligible calendar/financial days"],
+  "workingDaysRule": "workingDays may exist as persisted compatibility/configuration metadata, but it is not a competing divisor or authority for Driver Target or daily break-even.",
+  "prohibited": ["new smoothing window", "arbitrary averaging period", "targetRevenue treated as complete target", "manual dailyTarget treated as authority", "workingDays used as a competing divisor", "invented replacement recovery ledger", "selected-period revenue compared directly with a one-day target without an explicit same-unit conversion", "projected revenue used as Driver Target authority"],
+  "timeZone": "Asia/Kolkata",
+  "authority": "MONTHLY_BREAK_EVEN_PLUS_MONTHLY_DESIRED_DRIVER_PROFIT_PLUS_MONTHLY_ROLLING_BALANCE_WITH_DYNAMIC_REMAINING_ELIGIBLE_DAYS"
 }
