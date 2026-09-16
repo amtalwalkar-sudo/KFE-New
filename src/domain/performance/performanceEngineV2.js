@@ -21,7 +21,7 @@ const loan = (loans, pays, pre, r) => {
   const emi = monthlyRate ? P * monthlyRate * Math.pow(1 + monthlyRate, T) / (Math.pow(1 + monthlyRate, T) - 1) : P / T
   let bal = P, scheduled = 0, principal = 0, interest = 0, previousDate = d(l.startDate)
   for (let i = 0; i < T && bal > 0; i += 1) {
-    const due = new Date(previousDate); due.setMonth(due.getMonth() + 1)
+    const due = new Date(previousDate); due.setUTCMonth(due.getUTCMonth() + 1)
     const actualDays = Math.max(1, Math.ceil((due - previousDate) / 86400000))
     const int = bal * annualRate * actualDays / 365
     const pr = Math.min(bal, Math.max(0, emi - int))
@@ -30,7 +30,7 @@ const loan = (loans, pays, pre, r) => {
     if (overlapEnd > overlapStart) interest += bal * annualRate * ((overlapEnd - overlapStart) / 86400000) / 365
     if (due >= r.from && due <= r.to) { scheduled += Math.min(bal + int, emi); principal += pr }
     bal = Math.max(0, bal - pr)
-    for (const x of live(pre).filter(x => x.loanId === l.id && x.status === 'Applied' && d(x.paidOn) && d(x.paidOn).getFullYear() === due.getFullYear() && d(x.paidOn).getMonth() === due.getMonth())) bal = Math.max(0, bal - n(x.amount))
+    for (const x of live(pre).filter(x => x.loanId === l.id && x.status === 'Applied' && d(x.paidOn) && d(x.paidOn).getUTCFullYear() === due.getUTCFullYear() && d(x.paidOn).getUTCMonth() === due.getUTCMonth())) bal = Math.max(0, bal - n(x.amount))
     previousDate = due
   }
   const paid = live(pays).filter(x => x.loanId === l.id && x.status !== 'Reversed' && inR(x.paidOn, r)).reduce((s, x) => s + n(x.amount) + n(x.charges), 0)
