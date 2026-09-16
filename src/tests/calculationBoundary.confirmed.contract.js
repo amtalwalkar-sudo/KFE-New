@@ -59,7 +59,7 @@ assert.equal(twoDayMetrics.driverTargetAvailable, true)
 assert.equal(twoDayMetrics.counts.activeFinancialDays, 1)
 assert.equal(twoDayMetrics.driverTargetBase, twoDayMetrics.dailyBreakEvenRevenue + 500 / twoDayMetrics.driverTargetRemainingEligibleDays)
 assert.equal(twoDayMetrics.driverTarget, twoDayMetrics.driverTargetBase)
-assert.equal(Number.isNaN(twoDayMetrics.pace.paceVariance), true)
+assert.equal(twoDayMetrics.pace.paceVariance, twoDayMetrics.revenuePerActiveDay - twoDayMetrics.target)
 assert.equal(twoDayMetrics.driverTargetOpeningBalance, 0)
 
 const defaultCalendarDays = PerformanceService.getMetrics({
