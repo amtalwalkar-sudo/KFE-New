@@ -3,8 +3,6 @@ import { derivePerformance, layerRows, previousRange } from '../../domain/perfor
 import { deriveRollingDriverTarget } from '../../domain/performance/driverTargetStabilization.js'
 import { deriveAuthoritativeBreakEven } from '../../domain/performance/authoritativeBreakEven.js'
 
-const dateOf = v => { const x = v ? new Date(v) : null; return x && !Number.isNaN(x.getTime()) ? x : null }
-
 export const PerformanceService = Object.freeze({
   async getSnapshot() {
     return PerformanceRepository.getSnapshot()
@@ -20,13 +18,12 @@ export const PerformanceService = Object.freeze({
       vehicleKm: metrics.vehicleKm,
     })
     const breakEvenRevenue = authoritativeBreakEven.available ? authoritativeBreakEven.breakEvenRevenue : NaN
-    const historicalBreakEvenForDay = ({ record, day }) => {
-      const recordFrom = dateOf(record?.effectiveFrom || record?.validFrom || record?.startDate)
-      const recordUntil = dateOf(record?.effectiveUntil || record?.validUntil || record?.endDate)
-      const historicalRange = {
-        from: recordFrom && recordFrom <= day ? recordFrom : day,
-        to: recordUntil && recordUntil >= day ? recordUntil : day,
-      }
+    const historicalBreakEvenForDay = ({ day }) => {
+      // Historical reconstruction must calculate the applicable break-even for
+      // that specific active day. Expanding the range to the target record's
+      // validity window would aggregate unrelated days and distort the daily
+      // rolling balance.
+      const historicalRange = { from: day, to: new Date(day.getTime() + 86400000 - 1) }
       const historicalMetrics = derivePerformance(snapshot, historicalRange, previousRange(historicalRange))
       return Number.isFinite(historicalMetrics.breakEvenRevenue) ? historicalMetrics.breakEvenRevenue : null
     }
