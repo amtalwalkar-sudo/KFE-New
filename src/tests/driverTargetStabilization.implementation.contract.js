@@ -93,7 +93,7 @@ const monthlyRollover = deriveRollingDriverTarget({
     { effectiveFrom: '2026-08-01', effectiveUntil: '2026-08-31', desiredDriverProfit: 200, workingDays: 2 },
     { effectiveFrom: '2026-09-01', effectiveUntil: '2026-09-30', desiredDriverProfit: 200, workingDays: 2 }
   ],
-  applicableBreakEvenForDay: () => 800,
+  applicableBreakEven: 800,
   historicalBreakEvenForDay: () => 800,
 })
 assert.equal(monthlyRollover.activeDays, 1)
