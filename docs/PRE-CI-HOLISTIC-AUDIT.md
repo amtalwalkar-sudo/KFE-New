@@ -1,8 +1,9 @@
 # KFE Pre-CI Holistic Audit
 
-**Branch:** `audit/calculation-chain-hardening`
+**Historical audit branch:** `audit/calculation-chain-hardening`
 **Audit date:** 2026-09-16
 **Audit conclusion:** `PRE-CI CERTIFIED — NO KNOWN AUTHORITY / PERIOD / UNIT / ARCHITECTURE CONFLICTS`
+**Historical status:** This document records the pre-merge audit performed on the historical hardening branch. The audited work was subsequently merged to `main`; the verification CI result is recorded in the repository's later history.
 
 > The GitHub pull-request workflow may auto-start after branch pushes; that automatic workflow is not being used as the audit mechanism or as evidence of correctness. The certificate below is based on the repository audit and contracts.
 
@@ -12,8 +13,6 @@
 Frozen KFE design
   ↓
 Persistence
-  ↓
-Normalization
   ↓
 Actual economics
   ↓
@@ -132,3 +131,7 @@ The Performance UI consumes metrics and layer rows from the application/domain c
 The audit is complete **before relying on CI as evidence**. The next full CI result is therefore a verification step, not a discovery loop.
 
 **No merge. No phone test. No cosmetic/UI work based on CI success alone.**
+
+## Historical record note
+
+This file is intentionally preserved as an audit record. Its historical branch name and pre-CI framing are descriptive facts about when and where the audit was performed; they are not current `main` state. Current phase status and later verification belong to the phase/governance records rather than retroactively rewriting this historical certificate.
