@@ -222,7 +222,7 @@ Important:
 
 The driver target is not a new smoothing-window calculation.
 
-Base requirement:
+### Base requirement
 
 `baseTarget = applicableBreakEvenCost + desiredDriverProfit`
 
@@ -234,14 +234,36 @@ Conceptually:
 
 where `recoveryAdjustment` represents the outstanding historical/rolling recovery burden after prior active-day results and surplus have been applied.
 
+### Driver Target Stabilization — implementation clarification
+
+The driver's daily target is dynamically derived from the applicable break-even requirement, the Admin-defined desired take-home/profit amount, and the driver's existing rolling recovery/surplus balance.
+
+- Active working days participate in the rolling balance.
+- Inactive/off days do not create a driver target and do not increase the recovery requirement.
+- A below-target active day creates/reinforces recovery.
+- An above-target active day reduces outstanding recovery or creates surplus.
+- Future active-day targets adjust progressively from the existing carried balance rather than resetting independently each day.
+- No separate smoothing window, arbitrary averaging period, or new target-smoothing formula is introduced.
+
+### Implementation invariant
+
+> **Driver Target = current required target after applying the existing lifetime/rolling recovery balance.**
+
+This invariant defines how the frozen rolling mechanism must be interpreted by implementation. It does not create a second target formula or a new smoothing system.
+
+### Required implementation boundary
+
+The rolling recovery/surplus balance is an existing frozen business mechanism and must remain the source of truth for `recoveryAdjustment`. Implementations must not substitute `targetRevenue` alone, an N-day average, an arbitrary smoothing window, or an independently invented recovery ledger when deriving the active-day driver target.
+
+Until the authoritative persisted representation and exact existing balance transition are available to the implementation, code must not invent a replacement balance formula. The specification and regression contract must instead prevent such silent reinterpretation.
+
 Rules:
 
 - Off/inactive day: no target.
 - Bad active day: recovery balance increases.
 - Good active day: recovery balance decreases; surplus can carry forward.
 - Target changes are stabilized through the carried balance, not an arbitrary newly introduced N-day average.
-
-The recovery balance must remain auditable.
+- The recovery balance must remain auditable.
 
 ## 16. Pre-activation recovery calculations
 
@@ -365,6 +387,8 @@ Regression vectors must cover, where applicable:
 - zero/empty periods
 - missing authoritative inputs
 - boundary dates
+- active-day versus inactive/off-day target behavior
+- carried recovery/surplus behavior without introducing an averaging window
 
 ## 24. Calculation ownership map
 
@@ -393,4 +417,6 @@ The following must not return:
 - break-even based only on business-trip KM;
 - an independent variable-cost-per-hour break-even component without an approved rule;
 - arbitrary new smoothing windows for the driver target;
+- treating the Admin-entered desired driver profit/take-home as the complete active-day target without the existing rolling recovery/surplus balance;
+- inventing a replacement recovery balance when the authoritative existing balance representation is unavailable;
 - invented “other business costs”.

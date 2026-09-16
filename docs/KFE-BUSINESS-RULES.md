@@ -184,13 +184,17 @@ The break-even model is therefore based on vehicle movement, not business-trip K
 
 - Admin enters desired driver take-home/profit target.
 - The desired amount is above the applicable break-even requirement.
-- Driver target is stabilized using the already-frozen rolling mechanism; KFE must not invent a new arbitrary smoothing window.
-- Active financial days are the days on which a driver target is applicable.
-- Inactive/off days do not create a driver target.
-- A bad active day creates or increases a recovery/negative rolling balance.
-- A good active day reduces outstanding recovery and/or creates surplus.
+- The daily driver target is dynamically derived from the applicable break-even requirement, the Admin-defined desired take-home/profit amount, and the driver's existing lifetime/rolling recovery/surplus balance.
+- Driver Target = current required target after applying the existing lifetime/rolling recovery balance.
+- Active working days participate in the rolling balance.
+- Inactive/off days do not create a driver target and do not increase the recovery requirement.
+- A below-target active day creates/reinforces recovery.
+- An above-target active day reduces outstanding recovery or creates surplus.
+- Future active-day targets adjust progressively from the existing carried balance rather than resetting independently each day.
 - The rolling balance is carried forward so target changes are smooth rather than resetting each day.
 - Lifetime rolling profit/loss and recovery contribution remain visible to the target system.
+- No separate smoothing window, arbitrary averaging period, or new target-smoothing formula is introduced.
+- The frozen rolling recovery/surplus mechanism remains the source of truth for the target adjustment; an implementation must not replace it with an N-day average or an independently invented recovery ledger.
 
 ## 16. Calculation confidence and history
 
