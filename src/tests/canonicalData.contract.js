@@ -150,7 +150,7 @@ assert.match(canonicalDoc, /prepayments/)
 
 // Supporting stores are infrastructure/supporting records, not replacement business authorities.
 for (const store of ['days', 'odoGaps', 'gps_snapshots', 'movement_artifacts']) assert.match(indexedDBSource, new RegExp(`['\"]${store}['\"]`), `${store} must remain explicitly represented`)
-assert.match(canonicalDoc, /supporting stores/i)
+assert.match(canonicalDoc, /supporting\/infrastructure stores/i)
 
 // Historical/as-of relationships: effective-dated domains resolve by IST business date.
 assert.match(canonicalDoc, /Historical\/as-of resolution must compare the business date in IST/)
