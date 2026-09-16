@@ -10,6 +10,7 @@ export const PerformanceService = Object.freeze({
     const metrics = derivePerformance(snapshot, range, previousRange(range))
     const stabilization = deriveRollingDriverTarget({
       trips: snapshot?.trips,
+      shifts: snapshot?.shifts,
       driverTargets: snapshot?.driverTargets,
       from: range.from,
       to: range.to,
