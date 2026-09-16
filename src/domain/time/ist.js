@@ -1,6 +1,7 @@
 export const KFE_TIME_ZONE = 'Asia/Kolkata'
 export const KFE_TIME_ZONE_LABEL = 'IST (Asia/Kolkata)'
 const IST_OFFSET_MINUTES = 330
+const DAY_MS = 86400000
 
 const partsFormatter = new Intl.DateTimeFormat('en-CA', {
   timeZone: KFE_TIME_ZONE,
@@ -9,11 +10,32 @@ const partsFormatter = new Intl.DateTimeFormat('en-CA', {
   day: '2-digit',
 })
 
+const dateTimeFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: KFE_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23',
+})
+
 export const istParts = value => {
   const date = value instanceof Date ? value : new Date(value)
   if (Number.isNaN(date.getTime())) return null
   const parts = Object.fromEntries(partsFormatter.formatToParts(date).filter(x => x.type !== 'literal').map(x => [x.type, x.value]))
   return { year: Number(parts.year), month: Number(parts.month), day: Number(parts.day) }
+}
+
+const istDateTimeParts = value => {
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  const parts = Object.fromEntries(dateTimeFormatter.formatToParts(date).filter(x => x.type !== 'literal').map(x => [x.type, x.value]))
+  return {
+    year: Number(parts.year), month: Number(parts.month), day: Number(parts.day),
+    hour: Number(parts.hour), minute: Number(parts.minute), second: Number(parts.second),
+  }
 }
 
 export const istDateKey = value => {
@@ -28,6 +50,19 @@ export const istMonthKey = value => {
 
 const utcForIst = (year, month, day, hour, minute, second, ms) =>
   new Date(Date.UTC(year, month - 1, day, hour, minute, second, ms) - IST_OFFSET_MINUTES * 60000)
+
+const dateKeyOrdinal = key => {
+  if (!key) return null
+  const [year, month, day] = String(key).split('-').map(Number)
+  if (![year, month, day].every(Number.isFinite)) return null
+  return Date.UTC(year, month - 1, day) / DAY_MS
+}
+
+export const istCalendarDaysInclusive = (from, to) => {
+  const a = dateKeyOrdinal(istDateKey(from))
+  const b = dateKeyOrdinal(istDateKey(to))
+  return a == null || b == null || b < a ? 0 : b - a + 1
+}
 
 export const istDayRange = value => {
   const p = istParts(value)
@@ -51,13 +86,13 @@ export const istMonthRange = (value, asOf = new Date()) => {
 }
 
 export const addIstMonths = (value, months) => {
-  const p = istParts(value)
-  if (!p) return null
-  const index = p.year * 12 + (p.month - 1) + months
+  const p = istDateTimeParts(value)
+  if (!p || !Number.isFinite(Number(months))) return null
+  const index = p.year * 12 + (p.month - 1) + Number(months)
   const year = Math.floor(index / 12)
   const month = index % 12 + 1
   const day = Math.min(p.day, new Date(Date.UTC(year, month, 0)).getUTCDate())
-  return utcForIst(year, month, day, 12, 0, 0, 0)
+  return utcForIst(year, month, day, p.hour, p.minute, p.second, value instanceof Date ? value.getUTCMilliseconds() : 0)
 }
 
 export const reportingRangeFor = (period, now = new Date()) => {
@@ -70,7 +105,7 @@ export const reportingRangeFor = (period, now = new Date()) => {
     const day = new Date(utcForIst(p.year, p.month, p.day, 12, 0, 0, 0))
     const weekday = day.getUTCDay()
     const mondayOffset = (weekday + 6) % 7
-    const monday = new Date(day.getTime() - mondayOffset * 86400000)
+    const monday = new Date(day.getTime() - mondayOffset * DAY_MS)
     return { from: istDayRange(monday).from, to: istDayRange(now).to }
   }
   const months = { '3 MONTHS': 3, '6 MONTHS': 6, '1 YEAR': 12, 'MULTI-YEAR': 60 }[period]
