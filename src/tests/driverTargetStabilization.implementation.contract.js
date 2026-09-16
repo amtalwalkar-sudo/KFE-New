@@ -65,4 +65,19 @@ const missingAuthoritativeInput = deriveRollingDriverTarget({
 assert.equal(missingAuthoritativeInput.available, false)
 assert.equal(missingAuthoritativeInput.currentDailyTarget, null)
 
+const incompleteHistoricalBalance = deriveRollingDriverTarget({
+  from: '2026-09-12',
+  to: '2026-09-12',
+  shifts: [
+    { shiftStartAt: '2026-09-10T08:00:00Z', shiftEndAt: '2026-09-10T20:00:00Z' },
+    { shiftStartAt: '2026-09-12T08:00:00Z', shiftEndAt: '2026-09-12T20:00:00Z' }
+  ],
+  trips: [{ status: 'COMPLETED', tripEndAt: '2026-09-10T10:00:00Z', revenue: 1000 }],
+  driverTargets: [{ effectiveFrom: '2026-09-01', effectiveUntil: '2026-09-30', desiredDriverProfit: 1200, workingDays: 2 }],
+  applicableBreakEven: 800
+})
+assert.equal(incompleteHistoricalBalance.available, false)
+assert.equal(incompleteHistoricalBalance.reason, 'MISSING_HISTORICAL_BREAK_EVEN_FOR_ROLLING_BALANCE')
+assert.equal(incompleteHistoricalBalance.currentDailyTarget, null)
+
 console.log('Driver target stabilization implementation contract passed.')
