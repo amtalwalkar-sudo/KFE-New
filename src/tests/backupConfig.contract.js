@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
 import { BackupConfig } from '../application/backup/backupConfig.js'
 import { CloudBackupLifecycle } from '../application/backup/cloudBackupLifecycle.js'
+import { createBackupConfigAdapter } from '../infrastructure/backup/backupConfigAdapter.js'
 
+BackupConfig.configureBackupConfig(createBackupConfigAdapter())
 await BackupConfig.clearBackupConfiguration()
 let config = await BackupConfig.getBackupConfiguration()
 assert.equal(config.enabled, false)
