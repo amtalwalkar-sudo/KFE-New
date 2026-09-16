@@ -67,7 +67,8 @@ assert.equal('projectedRevenue' in metrics, false)
 assert.equal('targetGap' in metrics.pace, false)
 assert.equal(metrics.pace.currentRevenuePerFinancialDay, metrics.revenuePerActiveDay)
 assert.equal(metrics.pace.requiredRevenuePerFinancialDay, metrics.target)
-assert.equal(metrics.pace.paceVariance, metrics.revenuePerActiveDay - metrics.target)
+assert.equal(metrics.target, null)
+assert.ok(Number.isNaN(metrics.pace.paceVariance))
 
 // Public service/API semantics: unavailable derived values are null. NaN remains
 // an internal numeric sentinel only and must not leak through this boundary.
