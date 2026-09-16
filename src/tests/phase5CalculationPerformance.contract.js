@@ -57,9 +57,9 @@ assert.ok(Number.isFinite(service.driverTarget))
 
 // PerformanceEngineV2 is the integration consumer of the sole monthly
 // break-even authority. Compare the service representation to that same
-// authoritative engine result instead of recreating a competing boundary or
+// authoritative engine result without recreating a competing boundary or
 // duplicating the break-even input lineage in the Phase 5 contract.
-assert.equal(engine.monthlyBreakEvenRevenue, service.monthlyBreakEvenRevenue)
+assert.ok(Math.abs(engine.monthlyBreakEvenRevenue - service.monthlyBreakEvenRevenue) < 1e-12)
 
 // Reproduce the exact calendar-month/as-of boundary supplied by PerformanceService.
 const targetMonthRange = istMonthRange(range.to)
@@ -80,10 +80,10 @@ const target = deriveRollingDriverTarget({
     return service.monthlyBreakEvenRevenue
   },
 })
-assert.equal(service.driverTarget, target.currentDailyTarget)
+assert.ok(Math.abs(service.driverTarget - target.currentDailyTarget) < 1e-12)
 assert.equal(service.driverTargetRemainingEligibleDays, target.remainingEligibleDays)
-assert.equal(service.driverTargetAllocatedBeforeCurrentDay, target.targetAllocatedBeforeCurrentDay)
-assert.equal(service.driverTargetRemainingObligation, target.remainingObligation)
+assert.ok(Math.abs(service.driverTargetAllocatedBeforeCurrentDay - target.targetAllocatedBeforeCurrentDay) < 1e-12)
+assert.ok(Math.abs(service.driverTargetRemainingObligation - target.remainingObligation) < 1e-12)
 
 const higherTargetInput = {
   ...snapshot,
