@@ -11,7 +11,7 @@ const snapshot = {
   compliance: [],
   loans: [{ id: 'loan-1', lender: 'Test lender', principal: 12000, annualInterestRate: 0, tenureMonths: 12, startDate: '2026-01-01', status: 'ACTIVE' }],
   loanPayments: [{ loanId: 'loan-1', paidOn: '2026-01-15', amount: 800, charges: 0, status: 'PAID' }],
-  prepayments: [],
+  prepayments: [{ loanId: 'loan-1', paidOn: '2026-01-20', amount: 300, status: 'Applied' }],
   driverTargets: [],
   breakEvenInputs: [{ effectiveFrom: '2026-01-01', fixedCosts: 0, variableCostPerKm: 2, variableCostPerHour: 0 }]
 }
@@ -26,6 +26,9 @@ assert.equal(m.loanScheduledObligation, 1000)
 assert.equal(m.loanPrincipal, 1000)
 assert.equal(m.loanInterest, 0)
 assert.equal(m.actualLoanPaid, 800)
-assert.equal(m.cashSurplusAfterFinancing, 6750)
+assert.equal(m.actualPrepayment, 300)
+assert.equal(m.actualFinancingOutflow, 1100)
+assert.equal(m.availableCash, 6450)
+assert.equal(m.cashSurplusAfterFinancing, 6450)
 
-console.log('Financial model contract passed: revenue, operating cost/profit, provisions, scheduled financing, and cash-after-financing remain separated.')
+console.log('Financial model contract passed: actual costs and financing outflows drive available cash; provisions remain planning-only.')
