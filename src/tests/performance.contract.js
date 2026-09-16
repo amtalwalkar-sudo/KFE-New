@@ -2,8 +2,6 @@ import assert from 'node:assert/strict'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { derivePerformance, previousRange } from '../domain/performance/performanceEngineV2.js'
 
-// Persistence-shaped fixture: this is intentionally what the application boundary
-// must normalize before calling the canonical domain engine.
 const snapshot = {
   trips: [{ id:'t1', status:'COMPLETED', tripStartAt:'2026-09-10T09:00:00Z', tripEndAt:'2026-09-10T12:00:00Z', tripKm:150, revenue:1000 }],
   shifts: [{ id:'s1', shiftStartAt:'2026-09-10T08:00:00Z', shiftEndAt:'2026-09-10T18:00:00Z', startOdometer:1000, endOdometer:1200, toll:100, parking:50 }],
@@ -20,8 +18,6 @@ const snapshot = {
   driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:1000, workingDays:2, active:true }],
 }
 
-// Canonical domain fixture: direct engine tests must use the domain schema, not
-// the persisted application schema above.
 const engineSnapshot = {
   ...snapshot,
   loans: [{ ...snapshot.loan, tenureMonths: snapshot.loan.tenureYears * 12 }],
@@ -36,15 +32,17 @@ assert.equal(serviceMetrics.driverTarget, serviceMetrics.target)
 assert.equal(serviceMetrics.driverTarget, serviceMetrics.driverTargetBase)
 assert.equal(serviceMetrics.completeness.target, true)
 assert.equal(serviceMetrics.breakEvenRevenue, m.breakEvenRevenue)
-assert.equal(serviceMetrics.driverTarget, serviceMetrics.breakEvenRevenue + 1000)
-assert.equal(serviceMetrics.driverTargetBase, serviceMetrics.breakEvenRevenue + 1000)
+assert.ok(Number.isFinite(serviceMetrics.monthlyBreakEvenRevenue))
+assert.equal(serviceMetrics.dailyBreakEvenRevenue, serviceMetrics.monthlyBreakEvenRevenue / 2)
+assert.equal(serviceMetrics.driverTargetBase, serviceMetrics.dailyBreakEvenRevenue + 500)
+assert.equal(serviceMetrics.driverTarget, serviceMetrics.driverTargetBase)
 assert.equal(serviceMetrics.driverTargetRecoveryAdjustment, 0)
 
-// Legacy/manual daily target fields are ignored; the authoritative desired profit
-// remains the only target-input authority.
+// Manual daily target fields remain non-authoritative; the monthly desired profit
+// plus monthly break-even are converted to the daily target through workingDays.
 const manualDailyTargetInput = {
   ...snapshot,
-  driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:1000, dailyTarget:1, targetPerActiveDay:2, active:true }],
+  driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:1000, workingDays:2, dailyTarget:1, targetPerActiveDay:2, active:true }],
 }
 const manualDailyTargetMetrics = PerformanceService.getMetrics(manualDailyTargetInput, range)
 assert.equal(manualDailyTargetMetrics.driverTargetAvailable, true)
@@ -53,15 +51,16 @@ assert.equal(manualDailyTargetMetrics.target, serviceMetrics.driverTarget)
 // Driver Target must not affect actual financial/business calculations.
 const higherProfitTargetMetrics = PerformanceService.getMetrics({
   ...snapshot,
-  driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:5000, active:true }],
+  driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:5000, workingDays:2, active:true }],
 }, range)
 for (const key of [
   'revenue', 'vehicleKm', 'businessKm', 'deadKm', 'fuelCost', 'fuelQty', 'toll', 'parking',
   'actualMaintenance', 'workingHours', 'runningCost', 'loanScheduledObligation', 'actualLoanPaid',
   'actualPrepayment', 'actualFinancingOutflow', 'renewalProvision', 'operatingProfit',
-  'provisionAdjustedProfit', 'availableCash', 'breakEvenRevenue',
+  'provisionAdjustedProfit', 'availableCash', 'breakEvenRevenue', 'monthlyBreakEvenRevenue',
+  'dailyBreakEvenRevenue',
 ]) assert.equal(higherProfitTargetMetrics[key], serviceMetrics[key], `target input changed actual metric: ${key}`)
-assert.notEqual(higherProfitTargetMetrics.driverTarget, serviceMetrics.driverTarget)
+assert.equal(higherProfitTargetMetrics.driverTarget - serviceMetrics.driverTarget, 2000)
 
 const historicalRange = { from: new Date('2026-09-10T00:00:00Z'), to: new Date('2026-09-10T23:59:59Z') }
 const historicalBaseSnapshot = {
@@ -100,6 +99,9 @@ const changedServiceMetrics = PerformanceService.getMetrics(changedInput, range)
 assert.equal(changedEngineMetrics.breakEvenRevenue - m.breakEvenRevenue, 200)
 assert.equal(changedServiceMetrics.breakEvenRevenue - serviceMetrics.breakEvenRevenue, 200)
 assert.equal(changedEngineMetrics.breakEvenRevenue, changedServiceMetrics.breakEvenRevenue)
+assert.equal(changedServiceMetrics.monthlyBreakEvenRevenue - serviceMetrics.monthlyBreakEvenRevenue, 200)
+assert.equal(changedServiceMetrics.dailyBreakEvenRevenue - serviceMetrics.dailyBreakEvenRevenue, 100)
+assert.equal(changedServiceMetrics.driverTargetBase - serviceMetrics.driverTargetBase, 100)
 
 const missingMaintenanceInput = { ...snapshot, breakEvenInputs: [{ effectiveFrom:'2026-09-01', active:true }] }
 const missingEngineSnapshot = { ...engineSnapshot, breakEvenInputs: missingMaintenanceInput.breakEvenInputs }
