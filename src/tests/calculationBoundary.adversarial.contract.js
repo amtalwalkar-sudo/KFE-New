@@ -48,10 +48,30 @@ assert.equal(zeroRevenue.driverTargetAvailable, true)
 assert.equal(zeroRevenue.counts.activeFinancialDays, 0)
 assert.equal(zeroRevenue.driverTargetBase, zeroRevenue.breakEvenRevenue + 500)
 
+// Target period math uses shift-defined active days, not completed-trip activeFinancialDays.
+const twoShiftDays = {
+  ...base,
+  shifts: [
+    base.shifts[0],
+    { id:'s2', shiftStartAt:'2026-09-11T08:00:00Z', shiftEndAt:'2026-09-11T18:00:00Z', startOdometer:1200, endOdometer:1300, toll:0, parking:0 },
+  ],
+  trips: [base.trips[0]],
+}
+const twoDayRange = { from:new Date('2026-09-10T00:00:00Z'), to:new Date('2026-09-11T23:59:59Z') }
+const twoDayMetrics = PerformanceService.getMetrics(twoShiftDays, twoDayRange)
+assert.equal(twoDayMetrics.driverTargetAvailable, true)
+assert.equal(twoDayMetrics.counts.activeFinancialDays, 1)
+assert.equal(twoDayMetrics.driverTargetBase, twoDayMetrics.breakEvenRevenue + 500)
+assert.equal(twoDayMetrics.driverTargetRollingBalance, twoDayMetrics.driverTargetBase - 2000)
+assert.equal(twoDayMetrics.pace.targetGap, 0)
+
 // Malformed loan data is treated as incomplete rather than throwing or fabricating a schedule.
 const malformedLoan = PerformanceService.getMetrics({ ...base, loans:[{ principal:550000, annualInterestRate:10, tenureMonths:60 }] }, range)
 assert.equal(malformedLoan.completeness.loan, false)
 assert.equal(Number.isNaN(malformedLoan.loanScheduledObligation), true)
+const blankTenureLoan = PerformanceService.getMetrics({ ...base, loans:[{ principal:550000, annualInterestRate:10, startDate:'2026-04-09', tenureMonths:'' }] }, range)
+assert.equal(blankTenureLoan.completeness.loan, false)
+assert.equal(Number.isNaN(blankTenureLoan.loanScheduledObligation), true)
 
 // IDs are client-generated and opaque; two new records must not collide.
 const id1 = generateUUID(); const id2 = generateUUID()
