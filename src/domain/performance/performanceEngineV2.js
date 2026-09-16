@@ -25,7 +25,21 @@ const loan = (loans, pays, pre, r) => {
     const actualDays = Math.max(1, Math.ceil((due - previousDate) / 86400000))
     const int = bal * annualRate * actualDays / 365
     const pr = Math.min(bal, Math.max(0, emi - int))
-    if (due >= r.from && due <= r.to) { scheduled += Math.min(bal + int, emi); principal += pr; interest += int }
+
+    // Interest is an accrued economic cost, so it is included for the portion
+    // of each loan period that overlaps the selected reporting range. Scheduled
+    // EMI/principal remain due-date based and therefore do not become period
+    // costs merely because interest accrued before the payment date.
+    const overlapStart = previousDate > r.from ? previousDate : r.from
+    const overlapEnd = due < r.to ? due : r.to
+    if (overlapEnd > overlapStart) {
+      interest += bal * annualRate * ((overlapEnd - overlapStart) / 86400000) / 365
+    }
+    if (due >= r.from && due <= r.to) {
+      scheduled += Math.min(bal + int, emi)
+      principal += pr
+    }
+
     bal = Math.max(0, bal - pr)
     for (const x of live(pre).filter(x => x.loanId === l.id && x.status === 'Applied' && d(x.paidOn) && d(x.paidOn).getFullYear() === due.getFullYear() && d(x.paidOn).getMonth() === due.getMonth())) bal = Math.max(0, bal - n(x.amount))
     previousDate = due
@@ -50,9 +64,14 @@ export function derivePerformance(s, r, p = previousRange(r)) {
   const fuelModel = calculateRollingFuelCostPerKm(asOfFuelLogs, 10), fuelCostPerKm = fuelModel.rollingCostPerKm
 
   // Monthly break-even is the only break-even authority. The selected report
-  // range is never used as an independent break-even period.
+  // range is never used as an independent break-even formula or denominator.
+  // Its cost inputs are evaluated at the reporting as-of boundary so future
+  // fuel/operational records cannot leak into a historical/current-day result.
   const breakEvenDay = d(r.to) || d(r.from)
-  const breakEvenRange = breakEvenDay ? istMonthRange(breakEvenDay) : r
+  const fullMonthRange = breakEvenDay ? istMonthRange(breakEvenDay) : r
+  const breakEvenRange = fullMonthRange && fullMonthRange.to > r.to
+    ? { ...fullMonthRange, to: r.to }
+    : fullMonthRange || r
   const breakEvenFuelLogs = F.filter(x => { const capturedAt = d(x.capturedAt); return capturedAt && capturedAt <= breakEvenRange.to })
   const breakEvenFuelModel = calculateRollingFuelCostPerKm(breakEvenFuelLogs, 10)
   const breakEvenLoan = loan(L, LP, PP, breakEvenRange)
@@ -72,7 +91,7 @@ export function derivePerformance(s, r, p = previousRange(r)) {
   const perDay = activeDays ? a.revenue / activeDays : NaN
   const monthlyBreakEvenRevenue = authoritativeBreakEven.available ? authoritativeBreakEven.monthlyBreakEvenRevenue : NaN
   const actualLoanPaid = ln.ok ? ln.paid : 0, actualPrepayment = ln.ok ? ln.prepaid : 0, actualFinancingOutflow = ln.ok ? ln.actualFinancingOutflow : 0
-  const availableCash = a.operatingProfit - actualFinancingOutflow, provisionAdjustedProfit = a.operatingProfit - provision, prevActualFinancingOutflow = pln.ok ? pln.actualFinancingOutflow : 0, prevAvailableCash = q.operatingProfit - prevActualFinancingOutflow, prevProvisionAdjustedProfit = q.operatingProfit - prevProvision
+  const availableCash = a.operatingProfit - actualFinancingOutflow, provisionAdjustedProfit = a.operatingProfit - provision, prevActualFinancingOutflow = pln.ok ? pln.actualFinancingOutflow : 0, prevAvailableCash = q.operatingProfit - prevActualFinancingOutflow, prevProvisionAdjustedProfit = pln.ok ? pln.provisionAdjustedProfit : q.operatingProfit - prevProvision
   const costPerKm = a.vehicleKm ? a.operatingCost / a.vehicleKm : NaN
   return {
     period: { from: r.from, to: r.to, previousFrom: p.from, previousTo: p.to, timeZone: 'Asia/Kolkata' },
