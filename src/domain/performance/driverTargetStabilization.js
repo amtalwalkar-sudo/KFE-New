@@ -22,14 +22,14 @@ const periodDays = record => {
 const desiredDriverProfit = record => finite(record?.desiredDriverProfit ?? record?.desiredTakeHome ?? record?.desiredProfit)
 const periodBaseTarget = (record, applicableBreakEven = null) => {
   const desiredProfit = desiredDriverProfit(record)
-  if (desiredProfit == null || applicableBreakEven == null) return null
-  return applicableBreakEven + desiredProfit
+  if (desiredProfit == null || finite(applicableBreakEven) == null) return null
+  return finite(applicableBreakEven) + desiredProfit
 }
 const baseDailyFor = (record, applicableBreakEven = null) => {
   const periodTarget = periodBaseTarget(record, applicableBreakEven)
   const dailyTarget = finite(record?.dailyTarget ?? record?.targetPerActiveDay)
   if (dailyTarget != null) return dailyTarget
-  return periodTarget == null ? null : periodTarget / periodDays(record)
+  return finite(periodTarget) == null ? null : periodTarget / periodDays(record)
 }
 
 export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTargets = [], from, to, applicableBreakEven = null } = {}) {
@@ -78,15 +78,16 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     balanceBeforeCurrent = balance
     balance += baseDaily - (byDay.get(dayKey) || 0)
   }
+  const available = finite(currentDailyTarget) != null
   return {
-    available: currentDailyTarget != null,
-    reason: currentDailyTarget == null ? 'MISSING_AUTHORITATIVE_TARGET_INPUT' : null,
+    available,
+    reason: available ? null : 'MISSING_AUTHORITATIVE_TARGET_INPUT',
     balanceBefore: balanceBeforeCurrent,
     balance,
-    currentDailyTarget,
-    currentBaseDaily,
-    currentPeriodBaseTarget,
-    recoveryAdjustment: currentDailyTarget != null && currentBaseDaily != null ? currentDailyTarget - currentBaseDaily : null,
+    currentDailyTarget: available ? currentDailyTarget : null,
+    currentBaseDaily: finite(currentBaseDaily) != null ? currentBaseDaily : null,
+    currentPeriodBaseTarget: finite(currentPeriodBaseTarget) != null ? currentPeriodBaseTarget : null,
+    recoveryAdjustment: available && finite(currentBaseDaily) != null ? currentDailyTarget - currentBaseDaily : null,
     activeDays: currentDays.length,
     authority: 'COMPLETED_TRIPS_FOR_REVENUE_AND_SHIFTS_FOR_ACTIVE_DAYS'
   }
