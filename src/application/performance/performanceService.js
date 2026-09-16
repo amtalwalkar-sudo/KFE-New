@@ -17,9 +17,6 @@ export const PerformanceService = Object.freeze({
     const metrics = derivePerformance(calculationSnapshot, range, previousRange(range))
     const monthlyBreakEvenCache = new Map()
 
-    // Historical months are resolved through the same domain authority as the
-    // current month. This helper selects a monthly result; it does not calculate
-    // a second break-even formula.
     const authoritativeMonthlyBreakEvenForDay = ({ day }) => {
       const monthRange = istMonthRange(day)
       if (!monthRange) return null
@@ -33,9 +30,16 @@ export const PerformanceService = Object.freeze({
       return monthlyBreakEven
     }
 
-    // The selected reporting result already contains the authoritative monthly
-    // break-even for the target month. The stabilization domain consumes exactly
-    // this value; it must not resolve the current month's break-even independently.
+    // Driver Target is a calendar-month obligation evaluated as-of the selected
+    // end boundary. The selected reporting range may be a single day or a
+    // partial month, so stabilization must receive the target month's calendar
+    // start while retaining the selected end as the as-of boundary.
+    const targetMonthRange = istMonthRange(range.to)
+    const stabilizationFrom = targetMonthRange?.from || range.from
+    const stabilizationTo = targetMonthRange
+      ? new Date(Math.min(targetMonthRange.to.getTime(), range.to.getTime()))
+      : range.to
+
     const monthlyBreakEvenRevenue = Number.isFinite(metrics.monthlyBreakEvenRevenue)
       ? metrics.monthlyBreakEvenRevenue
       : null
@@ -44,8 +48,8 @@ export const PerformanceService = Object.freeze({
       trips: calculationSnapshot?.trips,
       shifts: calculationSnapshot?.shifts,
       driverTargets: calculationSnapshot?.driverTargets,
-      from: range.from,
-      to: range.to,
+      from: stabilizationFrom,
+      to: stabilizationTo,
       applicableBreakEven: monthlyBreakEvenRevenue,
       historicalBreakEvenForDay: authoritativeMonthlyBreakEvenForDay,
     })
