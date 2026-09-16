@@ -693,6 +693,94 @@ Implementation follows only after ownership and boundaries are sufficiently defi
 
 ---
 
+# 24. OBSOLETE IMPLEMENTATION CLEANUP RULE
+
+Once KFE has a validated replacement for an obsolete implementation, the old implementation must not remain alongside it merely for convenience or historical compatibility.
+
+## REPLACE AND DELETE — SAME RUN
+
+When obsolete code, architecture, configuration, or references are identified:
+
+```text
+IDENTIFY OLD IMPLEMENTATION
+        ↓
+CHECK REFERENCES / DEPENDENCIES
+        ↓
+VERIFY CURRENT REPLACEMENT
+        ↓
+WIRE CURRENT IMPLEMENTATION
+        ↓
+DELETE OBSOLETE IMPLEMENTATION
+        ↓
+DELETE OBSOLETE REFERENCES
+        ↓
+SEARCH AGAIN FOR STALE REFERENCES
+        ↓
+RUN RELEVANT TESTS / BUILD
+```
+
+The rule is:
+
+> **Do not merely replace obsolete KFE code. Replace it AND delete the obsolete implementation/references in the same run.**
+
+This applies to, among other things:
+
+- old service workers
+- duplicate PWA shells
+- obsolete shell/layout implementations
+- abandoned routes and screens
+- duplicate components
+- old repositories and adapters
+- obsolete calculation engines or calculation paths
+- legacy storage paths
+- stale configuration
+- old backup implementations
+- obsolete sync implementations
+- old provider-specific paths
+- obsolete Cordova/PWA architecture
+- dead compatibility code
+- stale documentation/configuration references when they describe the removed implementation as active
+
+## SAFETY RULE
+
+Deletion is not blind deletion.
+
+Before deleting an obsolete item, KFE must first establish that:
+
+1. The item is actually obsolete.
+2. Its current references have been identified.
+3. Any required responsibility has a valid current owner.
+4. The replacement is wired into the authoritative path.
+5. Deleting the old item will not remove a still-required capability.
+
+If those conditions are not established, deletion becomes an investigation item rather than an assumption.
+
+## NO PARALLEL LEGACY PATHS
+
+After replacement and cleanup, the repository should not retain an old implementation as a hidden fallback, second source of truth, duplicate provider adapter, or parallel architecture unless that compatibility path has been explicitly approved as a current requirement.
+
+A temporary migration path must have a defined owner, purpose, and removal condition. It must not silently become permanent.
+
+## VERIFICATION REQUIREMENT
+
+Every obsolete-code cleanup should end with a repository-wide stale-reference check and the relevant tests/build/CI verification.
+
+A successful replacement is therefore not:
+
+> **new implementation exists**
+
+It is:
+
+> **new implementation exists + old implementation deleted + stale references deleted + wiring verified + tests/build verified**
+
+If a cleanup reveals a conflict with an accepted or frozen KFE rule, stop and mark:
+
+> 🔴 **DESIGN DRIFT / CONFLICT WARNING**
+
+Do not preserve obsolete architecture merely because deleting it exposes a historical dependency. Resolve the dependency against the current KFE blueprint and authoritative decision.
+
+---
+
 # FINAL PRINCIPLE
 
 > **We are not cleaning up the old KFE.**
@@ -700,3 +788,5 @@ Implementation follows only after ownership and boundaries are sufficiently defi
 > **We are using the old KFE as evidence to build a new, clean KFE.**
 >
 > **No duplicates. No competing authorities. No silent drift. One responsibility, one owner, one authoritative source, one implementation path.**
+>
+> **When an implementation is obsolete, replace it and delete it in the same run. Do not leave the old path behind.**
