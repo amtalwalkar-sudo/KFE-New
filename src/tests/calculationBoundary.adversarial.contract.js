@@ -16,24 +16,22 @@ const base = {
     { id:'loan1', principal:550000, annualInterestRate:10, tenureMonths:60, startDate:'2026-04-09', status:'Active' },
   ],
   loanPayments: [], prepayments: [],
-  driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:500 }],
+  driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:500, workingDays:2 }],
   breakEvenInputs: [{ effectiveFrom:'2026-09-01', maintenanceProvisionPerKm:2 }],
 }
 
-// Empty/partial data must not throw or invent an authoritative target.
 const empty = PerformanceService.getMetrics({}, range)
 assert.equal(empty.driverTargetAvailable, false)
 assert.equal(empty.driverTarget, null)
 assert.equal(empty.completeness.breakEven, false)
 
-// Future records must not alter a historical day's fuel-derived break-even.
+// Future records must not leak into an earlier actual-performance period.
 const historical = derivePerformance(base, range)
 const futureFuel = { ...base, fuelLogs: [...base.fuelLogs, { capturedAt:'2026-09-11T18:00:00Z', odometer:1400, quantityKg:10, amount:10000 }] }
 const historicalWithFutureFuel = derivePerformance(futureFuel, range)
 assert.equal(historicalWithFutureFuel.fuelCostPerKm, historical.fuelCostPerKm)
 assert.equal(historicalWithFutureFuel.breakEvenRevenue, historical.breakEvenRevenue)
 
-// Future operational records must not leak into an earlier period.
 const futureOperational = { ...base, trips: [...base.trips, { id:'future', status:'COMPLETED', tripStartAt:'2026-09-11T09:00:00Z', tripEndAt:'2026-09-11T10:00:00Z', tripKm:500, revenue:99999 }] }
 const historicalWithFutureOperations = derivePerformance(futureOperational, range)
 assert.equal(historicalWithFutureOperations.revenue, historical.revenue)
@@ -49,9 +47,11 @@ assert.equal(withoutDeletedTrip.businessKm, 0)
 const zeroRevenue = PerformanceService.getMetrics({ ...base, trips:[] }, range)
 assert.equal(zeroRevenue.driverTargetAvailable, true)
 assert.equal(zeroRevenue.counts.activeFinancialDays, 0)
-assert.equal(zeroRevenue.driverTargetBase, zeroRevenue.breakEvenRevenue + 500)
+assert.equal(zeroRevenue.driverTargetBase, zeroRevenue.dailyBreakEvenRevenue + 250)
+assert.equal(zeroRevenue.dailyBreakEvenRevenue, zeroRevenue.monthlyBreakEvenRevenue / 2)
 
-// Target period math uses shift-defined active days, not completed-trip activeFinancialDays.
+// Target period math uses shift-defined active days, while the target amount itself
+// is derived from the authoritative monthly break-even and monthly desired profit.
 const twoShiftDays = {
   ...base,
   shifts: [
@@ -65,9 +65,7 @@ const twoDayMetrics = PerformanceService.getMetrics(twoShiftDays, twoDayRange)
 const day11Metrics = PerformanceService.getMetrics(twoShiftDays, { from:new Date('2026-09-11T00:00:00Z'), to:new Date('2026-09-11T23:59:59Z') })
 assert.equal(twoDayMetrics.driverTargetAvailable, true)
 assert.equal(twoDayMetrics.counts.activeFinancialDays, 1)
-// breakEvenRevenue is the authoritative total for the requested performance period;
-// Driver Target base is a daily requirement and uses the applicable active-day break-even.
-assert.equal(day11Metrics.driverTargetBase, day11Metrics.breakEvenRevenue + 500)
+assert.equal(day11Metrics.driverTargetBase, day11Metrics.dailyBreakEvenRevenue + 250)
 assert.equal(twoDayMetrics.driverTargetBase, day11Metrics.driverTargetBase)
 assert.equal(twoDayMetrics.pace.targetGap, twoDayMetrics.projectedRevenue - (twoDayMetrics.driverTarget * 2))
 assert.notEqual(twoDayMetrics.driverTargetRollingBalance, null)
@@ -80,7 +78,6 @@ const blankTenureLoan = PerformanceService.getMetrics({ ...base, loans:[{ princi
 assert.equal(blankTenureLoan.completeness.loan, false)
 assert.equal(Number.isNaN(blankTenureLoan.loanScheduledObligation), true)
 
-// IDs are client-generated and opaque; two new records must not collide.
 const id1 = generateUUID(); const id2 = generateUUID()
 assert.equal(typeof id1, 'string'); assert.equal(typeof id2, 'string'); assert.notEqual(id1, id2)
 
