@@ -31,8 +31,8 @@ PHASE 10 Hardening / Release
 - **Phase 0:** COMPLETE — main baseline green.
 - **Phase 1:** FROZEN — explicit freeze recorded; final verification CI #317 green.
 - **Phase 2:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-2-FREEZE.md`; final verification CI #323 green.
-- **Phase 3:** IN PROGRESS — provider-independent Ride Capture adapter, validation/confirmation service, and contract coverage added.
-- **Phase 4:** NEXT — Operational Records.
+- **Phase 3:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-3-FREEZE.md`; provider-independent Ride Capture boundary preserved.
+- **Phase 4:** IN PROGRESS — Operational Records contract and reconstruction service added; focused/full verification pending.
 - **Phases 5–10:** remain in chronological order.
 
 ## Phase 0 — Baseline & Governance
@@ -50,7 +50,9 @@ Connect the frozen screenshot-fed Ride Capture design through a provider-indepen
 **Exit condition:** screenshot → injected extraction adapter → validated candidate → review/confirmation → canonical Trip record.
 
 ## Phase 4 — Operational Records
-Implement canonical operational records needed for real vehicle operation: shifts, odometer, refuelling, expenses, revenue, and related inputs. Exit: KFE reconstructs an operational working day/shift.
+Implement canonical operational records needed for real vehicle operation: shifts, odometer, refuelling, expenses, revenue, and related inputs. Reconstruct a working shift/day from canonical records without introducing a competing aggregate authority.
+
+**Exit condition:** a canonical Shift can be reconstructed with its Trips, authoritative revenue/business KM, odometer-derived vehicle/dead KM where available, relevant fuel, and shift toll/parking inputs.
 
 ## Phase 5 — Calculation & Performance Integration
 Connect validated canonical records to the protected authoritative calculation chain while preserving one authority per concept.

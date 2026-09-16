@@ -7,7 +7,6 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = file => fs.readFileSync(path.join(root, file), 'utf8')
 const service = read('services/rideCaptureService.js')
 const adapter = read('services/adapters/rideCaptureAdapter.js')
-const normalization = read('domain/canonicalNormalization.js')
 const repository = read('repositories/shiftTripRepository.js')
 const contract = fs.readFileSync(path.join(root, '..', 'docs', 'KFE-CANONICAL-DATA-CONTRACT.md'), 'utf8')
 
@@ -44,7 +43,7 @@ assert(!service.includes('ride_capture'), 'No competing Ride persistence store m
 assert(repository.includes('shiftId: normalized.shiftId'), 'Canonical Trip must retain shift relationship')
 assert(repository.includes('tripKmAuthority'), 'Trip distance authority boundary missing')
 assert(repository.includes('revenueAuthority'), 'Trip revenue authority boundary missing')
-assert(repository.includes('saveMutation(mutations, audit, record.id, \'TRIP\', \'CREATE\''), 'Trip creation must retain mutation/audit lineage')
+assert(repository.includes("saveMutation(m, a, record.id, 'TRIP', 'CREATE', record, now)"), 'Trip creation must retain mutation/audit lineage')
 assert(contract.includes('provenance'), 'Canonical contract must retain provenance boundary')
 
 // Duration is a derived presentation value when timestamps are available; it is not a second business authority.
