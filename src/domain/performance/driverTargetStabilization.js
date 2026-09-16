@@ -22,14 +22,13 @@ const periodDays = record => {
 const desiredDriverProfit = record => finite(record?.desiredDriverProfit ?? record?.desiredTakeHome ?? record?.desiredProfit)
 const periodBaseTarget = (record, applicableBreakEven = null) => {
   const desiredProfit = desiredDriverProfit(record)
-  if (desiredProfit == null || finite(applicableBreakEven) == null) return null
-  return finite(applicableBreakEven) + desiredProfit
+  const breakEven = finite(applicableBreakEven)
+  if (desiredProfit == null || breakEven == null) return null
+  return finite(breakEven + desiredProfit)
 }
 const baseDailyFor = (record, applicableBreakEven = null) => {
   const periodTarget = periodBaseTarget(record, applicableBreakEven)
-  const dailyTarget = finite(record?.dailyTarget ?? record?.targetPerActiveDay)
-  if (dailyTarget != null) return dailyTarget
-  return finite(periodTarget) == null ? null : periodTarget / periodDays(record)
+  return finite(periodTarget) == null ? null : finite(periodTarget / periodDays(record))
 }
 
 export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTargets = [], from, to, applicableBreakEven = null } = {}) {
