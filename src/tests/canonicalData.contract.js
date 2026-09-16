@@ -24,8 +24,8 @@ const canonicalDoc = read('docs/KFE-CANONICAL-DATA-CONTRACT.md')
 
 // Identity: canonical persistence uses stable client-generated UUIDs.
 assert.match(adminSource, /existing\?\.id \|\| generateUUID\(\)/)
-assert.match(shiftTripSource, /data\.id \|\| generateUUID\(\)/)
-assert.match(fuelSource, /fuelData\.id \|\| generateUUID\(\)/)
+assert.match(shiftTripSource, /normalized\.id \|\| generateUUID\(\)/)
+assert.match(fuelSource, /normalized\.id \|\| generateUUID\(\)/)
 assert.match(mutationSource, /id: generateUUID\(\)/)
 
 // IST boundary: true instants and business dates are distinct; date-only
@@ -78,6 +78,7 @@ assert.equal(tripNormalized.revenue, 327)
 assert.equal(fuelNormalized.odometer, 1200)
 assert.equal(fuelNormalized.amount, 820)
 assert.equal(fuelNormalized.quantityKg, 10)
+assert.equal(fuelNormalized.capturedAt, '2026-09-10T18:00:00+05:30')
 assert.match(normalizationSource, /normalizeShiftInput/)
 assert.match(normalizationSource, /normalizeTripInput/)
 assert.match(normalizationSource, /normalizeFuelInput/)
