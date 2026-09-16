@@ -3,6 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const projectRoot = path.resolve(root, '..')
 const readFiles = dir => fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
   const target = path.join(dir, entry.name)
   if (entry.isDirectory()) return readFiles(target)
@@ -61,9 +62,22 @@ for (const relativePath of legacyPaths) {
   if (fs.existsSync(path.join(root, relativePath))) violations.push(`Legacy duplicate path still exists: ${relativePath}`)
 }
 
+const obsoleteAndroidPaths = [
+  'android/app/src/main/java/com/kanishka/pwa/FloatingWidgetService.java',
+  'android/app/src/main/res/layout/layout_floating_widget.xml'
+]
+for (const relativePath of obsoleteAndroidPaths) {
+  if (fs.existsSync(path.join(projectRoot, relativePath))) violations.push(`Obsolete floating widget artifact still exists: ${relativePath}`)
+}
+const manifestPath = path.join(projectRoot, 'android/app/src/main/AndroidManifest.xml')
+if (fs.existsSync(manifestPath)) {
+  const manifest = fs.readFileSync(manifestPath, 'utf8')
+  if (/SYSTEM_ALERT_WINDOW|FloatingWidgetService/.test(manifest)) violations.push('Android manifest still grants or registers the obsolete floating widget overlay.')
+}
+
 if (violations.length) {
   console.error(violations.join('\n'))
   process.exit(1)
 }
 
-console.log('Architecture contract passed: presentation, state, domain and persistence boundaries are clean.')
+console.log('Architecture contract passed: presentation, state, domain, persistence and Android shell boundaries are clean.')
