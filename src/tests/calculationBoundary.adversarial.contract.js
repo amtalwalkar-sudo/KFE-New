@@ -62,9 +62,13 @@ const twoShiftDays = {
 }
 const twoDayRange = { from:new Date('2026-09-10T00:00:00Z'), to:new Date('2026-09-11T23:59:59Z') }
 const twoDayMetrics = PerformanceService.getMetrics(twoShiftDays, twoDayRange)
+const day11Metrics = PerformanceService.getMetrics(twoShiftDays, { from:new Date('2026-09-11T00:00:00Z'), to:new Date('2026-09-11T23:59:59Z') })
 assert.equal(twoDayMetrics.driverTargetAvailable, true)
 assert.equal(twoDayMetrics.counts.activeFinancialDays, 1)
-assert.equal(twoDayMetrics.driverTargetBase, twoDayMetrics.breakEvenRevenue + 500)
+// breakEvenRevenue is the authoritative total for the requested performance period;
+// Driver Target base is a daily requirement and uses the applicable active-day break-even.
+assert.equal(day11Metrics.driverTargetBase, day11Metrics.breakEvenRevenue + 500)
+assert.equal(twoDayMetrics.driverTargetBase, day11Metrics.driverTargetBase)
 assert.equal(twoDayMetrics.pace.targetGap, twoDayMetrics.projectedRevenue - (twoDayMetrics.driverTarget * 2))
 assert.notEqual(twoDayMetrics.driverTargetRollingBalance, null)
 
