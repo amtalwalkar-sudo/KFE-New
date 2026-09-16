@@ -35,11 +35,13 @@ assert.equal(m.profitPerKm, m.operatingProfit / 150)
 assert.equal(m.fuelCostPerKm, 23)
 assert.equal(m.maintenanceProvision, 300)
 assert.equal(m.monthlyBreakEvenRevenue, (m.loanScheduledObligation + m.renewalProvision) + 150 * 23 + 150 * 2)
-assert.ok(Math.abs(m.loanInterest - (122.3013698630137 + 101.7768477896688)) < 1e-9)
+// January is the selected as-of month, so only January's accrued loan interest
+// belongs to this period. February's interest is outside the reporting boundary.
+assert.ok(Math.abs(m.loanInterest - 122.3013698630137) < 1e-9)
 assert.equal(m.actualLoanPaid, 800)
 assert.equal(m.actualPrepayment, 300)
 assert.equal(m.actualFinancingOutflow, 1100)
 assert.equal(m.availableCash, m.operatingProfit - 1100)
 assert.equal(m.provisionAdjustedProfit, m.operatingProfit - m.provisionRequired)
 
-console.log('Financial model contract passed: monthly break-even authority, vehicle-KM economics, full-tank rolling fuel cost, actual-days/365 loan interest, actual cash, and provisions are separated.')
+console.log('Financial model contract passed: monthly break-even authority, vehicle-KM economics, full-tank rolling fuel cost, as-of loan-interest accrual, actual cash, and provisions are separated.')
