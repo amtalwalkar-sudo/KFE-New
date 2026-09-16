@@ -16,12 +16,12 @@ const applies = (x, day) => {
   return x?.active !== false && x?.status !== 'INACTIVE' && from <= day && day <= until
 }
 const latestForDay = (xs, day) => live(xs).filter(x => applies(x, day)).sort((a, b) => String(effectiveFrom(b) || '').localeCompare(String(effectiveFrom(a) || '')))[0] || null
-const desiredDriverProfit = record => finite(record?.desiredDriverProfit)
+const readDriverProfit = record => finite(record?.desiredDriverProfit)
 const baseMonthlyFor = (record, monthlyBreakEven = null) => {
-  const desiredProfit = desiredDriverProfit(record)
+  const driverProfit = readDriverProfit(record)
   const breakEven = finite(monthlyBreakEven)
-  if (desiredProfit == null || breakEven == null) return null
-  return finite(breakEven + desiredProfit)
+  if (driverProfit == null || breakEven == null) return null
+  return finite(breakEven + driverProfit)
 }
 
 const monthBounds = month => {
@@ -53,6 +53,7 @@ const failure = (reason, balance = null, activeDays = 0) => ({
   balanceBefore: balance,
   balance,
   openingBalance: balance,
+  monthlyBreakEvenRevenue: null,
   monthlyVariance: null,
   closingBalance: balance,
   effectiveMonthlyTarget: null,
@@ -64,19 +65,24 @@ const failure = (reason, balance = null, activeDays = 0) => ({
   financialDays: activeDays,
   remainingEligibleDays: null,
   targetAllocatedBeforeCurrentDay: null,
+  remainingObligation: null,
   authority: 'MONTHLY_BREAK_EVEN_PLUS_MONTHLY_DESIRED_PROFIT_WITH_MONTHLY_ROLLING_BALANCE_AND_DYNAMIC_REMAINING_ELIGIBLE_DAYS'
 })
 
-export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTargets = [], from, to, applicableBreakEven = null, historicalBreakEvenForDay = null, applicableBreakEvenForDay = null } = {}) {
+export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTargets = [], from, to, applicableBreakEven = null, historicalBreakEvenForDay = null } = {}) {
   const start = dateOf(from), end = dateOf(to)
   if (!start || !end || end < start) return failure('INVALID_PERIOD')
 
   // The selected calculation end is the as-of boundary. Future operational
   // records must never affect current or historical target reconstruction.
+  // Target participation is day-based, so the inclusive end date owns the full
+  // IST calendar day even when callers supply midnight timestamps.
+  const endDayKey = keyOf(end)
   const completed = live(trips).filter(x => {
     if (x.status !== 'COMPLETED') return false
     const tripDate = dateOf(x.tripEndAt || x.tripStartAt)
-    return tripDate && tripDate <= end
+    const tripDayKey = tripDate ? keyOf(tripDate) : null
+    return tripDayKey && tripDayKey <= endDayKey
   })
   const revenueByMonth = new Map()
   const financialDaysByMonth = new Map()
@@ -89,10 +95,8 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     financialDaysByMonth.get(month).add(day)
   }
 
-  const financialDayKeys = [...financialDaysByMonth.values()].flatMap(set => [...set]).filter(k => {
-    const day = dateOf(k)
-    return day && day >= start && day <= end
-  }).sort()
+  const startDayKey = keyOf(start)
+  const financialDayKeys = [...financialDaysByMonth.values()].flatMap(set => [...set]).filter(k => k >= startDayKey && k <= endDayKey).sort()
   if (!financialDayKeys.length) return failure('NO_FINANCIAL_DRIVER_TARGET_DAY', null, 0)
 
   const currentDay = dateOf(financialDayKeys[financialDayKeys.length - 1])
@@ -114,7 +118,8 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     const baseMonthly = baseMonthlyFor(record, historicalBreakEven)
     if (baseMonthly == null) return failure('MISSING_HISTORICAL_DRIVER_TARGET_INPUT', null, financialDayKeys.length)
     const openingBalance = balance
-    const monthlyVariance = baseMonthly - (revenueByMonth.get(month) || 0)
+    const monthlyActualRevenue = revenueByMonth.get(month) || 0
+    const monthlyVariance = baseMonthly - monthlyActualRevenue
     const closingBalance = openingBalance + monthlyVariance
     historicalState.push({ month, openingBalance, monthlyVariance, closingBalance, effectiveMonthlyTarget: baseMonthly + openingBalance })
     balance = closingBalance
@@ -123,10 +128,10 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
   const currentRecord = latestForDay(driverTargets, currentDay)
   if (!currentRecord) return failure('MISSING_AUTHORITATIVE_TARGET_INPUT', balance, financialDayKeys.length)
 
-  const monthBreakEven = typeof applicableBreakEvenForDay === 'function'
-    ? applicableBreakEvenForDay({ record: currentRecord, day: currentDay })
-    : applicableBreakEven
-  const baseMonthly = baseMonthlyFor(currentRecord, monthBreakEven)
+  // The current month's monthly break-even is supplied by the service from the
+  // same authoritative performance result used elsewhere. There is deliberately
+  // no second applicable-break-even resolver for the current month.
+  const baseMonthly = baseMonthlyFor(currentRecord, applicableBreakEven)
   if (baseMonthly == null) return failure('MISSING_AUTHORITATIVE_TARGET_INPUT', balance, financialDayKeys.length)
 
   const effectiveMonthlyTarget = baseMonthly + balance
@@ -163,6 +168,7 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     balanceBefore: balance,
     balance,
     openingBalance: balance,
+    monthlyBreakEvenRevenue: baseMonthly - readDriverProfit(currentRecord),
     monthlyVariance,
     closingBalance,
     effectiveMonthlyTarget,
