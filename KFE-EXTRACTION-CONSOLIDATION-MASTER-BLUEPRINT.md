@@ -781,6 +781,244 @@ Do not preserve obsolete architecture merely because deleting it exposes a histo
 
 ---
 
+# 25. CHANGE ISOLATION / BOUNDED IMPACT RULE
+
+KFE must be designed so that a change in one responsibility has the smallest reasonable and explicitly controlled impact on other responsibilities.
+
+The objective is not to eliminate every dependency. A clean system still has necessary dependencies. The objective is to ensure that dependencies cross **explicit contracts**, not implementation internals.
+
+The governing principle is:
+
+> **CHANGE ONE THING → ONLY ITS DEFINED DEPENDENTS SHOULD NEED TO CHANGE**
+
+A UI/UX change must not silently alter calculations, database rules, backup behavior, OCR behavior, or business meaning.
+
+A calculation change must not require rewriting the shell, storage engine, OCR provider, or Android integration merely because those parts are coupled to its implementation details.
+
+A provider change must not require changing KFE business/domain meaning.
+
+## 25.1 DEPENDENCY DIRECTION
+
+The intended dependency direction is:
+
+```text
+UI / UX / Presentation
+          ↓
+Application / Use Cases
+          ↓
+Domain / Business Rules / Calculations
+          ↓
+Persistence Contracts
+          ↓
+Persistence Implementation
+          ↓
+Infrastructure Adapters
+          ↓
+External Providers / Platform
+```
+
+Supporting infrastructure may also implement explicit contracts for:
+
+```text
+OCR / AI
+Backup / Restore
+Sync
+Notifications
+Capacitor / Android
+Network
+Cloud providers
+```
+
+These providers must not become dependencies of the business/domain layer merely because they are currently used by KFE.
+
+## 25.2 HARD BOUNDARIES
+
+The following boundaries must be protected:
+
+- Presentation must not own business calculations.
+- Presentation must not directly access database internals.
+- Presentation must not import provider-specific infrastructure when an application/contract boundary exists.
+- Domain must not import UI, Vue, browser presentation code, Capacitor, Dropbox, OCR providers, or other external provider implementations.
+- Calculations must not depend on UI state, screen components, browser rendering, or provider SDKs.
+- Application use cases may coordinate domain and contracts, but must not become a second calculation engine.
+- Repositories persist and retrieve authoritative data; they must not silently become the owner of business calculations.
+- Infrastructure adapters translate external/provider behavior into KFE contracts; provider-specific types must not leak into domain meaning.
+- The shell starts and hosts the application; it must not become a hidden business-logic owner.
+- Backup/restore and sync must operate through authoritative persistence/contracts rather than maintaining a competing business-data authority.
+
+## 25.3 STATE OWNERSHIP
+
+Every important state value must have one owner.
+
+```text
+AUTHORITATIVE BUSINESS DATA
+        ↓
+PERSISTED AUTHORITY
+
+DERIVED BUSINESS VALUES
+        ↓
+DOMAIN / CALCULATION AUTHORITY
+
+WORKFLOW STATE
+        ↓
+APPLICATION
+
+SCREEN / FORM / INTERACTION STATE
+        ↓
+PRESENTATION
+```
+
+Temporary UI state may exist, but it must not silently become persistent business authority.
+
+Derived values must not be independently edited or persisted as competing facts unless explicitly required by the business design.
+
+## 25.4 CONTRACT-FIRST REPLACEABILITY
+
+Where a responsibility is expected to be replaceable, consumers depend on a stable KFE contract rather than the concrete implementation.
+
+Examples include:
+
+- repository implementations
+- backup providers
+- sync providers
+- OCR/AI providers
+- native notification implementations
+- external cloud providers
+
+Replacing one implementation should therefore follow:
+
+```text
+KEEP KFE CONTRACT
+        ↓
+REPLACE ADAPTER / IMPLEMENTATION
+        ↓
+VERIFY WIRING
+        ↓
+RUN CONTRACT TESTS
+        ↓
+DELETE OLD IMPLEMENTATION
+```
+
+The contract is the stable seam; the provider implementation is replaceable.
+
+## 25.5 SINGLE AUTHORITATIVE CALCULATION PATH
+
+Every business calculation must have one authoritative calculation owner.
+
+UI formatting, dashboards, reports, exports, and notifications may consume calculated results, but must not independently recreate the same business formula.
+
+Examples include:
+
+- revenue
+- total vehicle KM
+- ride KM
+- dead KM
+- fuel consumption/cost
+- maintenance
+- loan/EMI
+- renewals
+- targets
+- break-even
+- profitability
+- shift/timeline derivations
+
+If two paths calculate the same business fact differently, this is a potential architectural defect and must be investigated rather than accepted as normal duplication.
+
+## 25.6 SINGLE AUTHORITATIVE SHELL
+
+KFE must have one active application shell and one authoritative shell startup path.
+
+The shell may provide:
+
+- application bootstrap
+- routing host
+- global layout
+- global error boundary
+- registration of platform services
+- presentation-level providers
+
+It must not become a second application architecture or contain hidden business workflows.
+
+Old shells, duplicate shells, stale service-worker assumptions, abandoned route trees, and compatibility shells are subject to the **REPLACE AND DELETE — SAME RUN** rule.
+
+## 25.7 FORM ISOLATION
+
+Forms are presentation mechanisms for collecting authoritative inputs.
+
+A form may perform presentation validation such as required fields, formatting, and user feedback, but business validation and calculations must remain owned by the appropriate domain/application layer.
+
+Changing a field layout, label, component, or UX interaction must not change the underlying business rule unless the explicitly defined contract itself changes.
+
+## 25.8 REGRESSION GUARDRAILS
+
+The repository must protect the boundaries with automated checks wherever practical.
+
+At minimum, guardrails should detect:
+
+1. Domain importing presentation code.
+2. Domain importing provider/platform implementations.
+3. Calculation modules importing UI or persistence internals.
+4. Presentation importing database/provider internals directly.
+5. Duplicate calculation authorities.
+6. Duplicate active shells.
+7. Duplicate persistence authorities.
+8. Stale service-worker or obsolete architecture references.
+9. Provider-specific types leaking into domain/application contracts.
+10. Business calculations embedded in forms or screens.
+
+These checks should be treated as architecture/integrity tests, not optional style checks.
+
+## 25.9 BOUNDED-CHANGE TEST
+
+For any material change, ask:
+
+> **What is the intended blast radius of this change?**
+
+Then verify that files outside that boundary do not change merely because of hidden coupling.
+
+Examples:
+
+| Change | Should primarily affect | Should NOT require implementation changes in |
+|---|---|---|
+| UI styling/layout | Presentation | Domain, calculations, persistence, providers |
+| Form component change | Presentation | Calculation engine, DB adapter, OCR provider |
+| Calculation rule change | Domain/calculation + defined consumers | Shell internals, provider SDKs |
+| Database implementation change | Persistence/adapter | Domain business meaning, UI internals |
+| OCR provider change | OCR adapter/integration | Ride business rules, shell, calculations |
+| Backup provider change | Backup adapter | Domain meaning, forms, calculation engine |
+| Android/native implementation change | Capacitor/native boundary | Domain calculations, business rules |
+
+This table describes the intended architecture, not a promise that no legitimate dependent code can ever change. If a legitimate dependency is discovered, it must be explicit and owned.
+
+## 25.10 NO MAGIC CROSS-LAYER ACCESS
+
+Convenience imports, global mutable objects, direct database calls, provider SDK calls, or hidden singleton state must not be used to bypass an established boundary.
+
+If a cross-layer dependency is genuinely required, it must be exposed through an explicit contract and assigned to the correct owner.
+
+## 25.11 CHANGE-ISOLATION REVIEW GATE
+
+Before accepting a significant architectural or implementation change, verify:
+
+1. Responsibility owner is identified.
+2. Authoritative data source is identified.
+3. Dependency direction remains valid.
+4. Public contract is stable or deliberately versioned.
+5. No second source of truth was introduced.
+6. No duplicate calculation path was introduced.
+7. No UI-to-infrastructure shortcut was introduced.
+8. No provider-specific business dependency was introduced.
+9. Obsolete implementation was removed if replaced.
+10. Relevant contract/integrity tests pass.
+
+If any item fails because an accepted or frozen decision would need to change, mark:
+
+> 🔴 **DESIGN DRIFT / CONFLICT WARNING**
+
+Do not silently weaken an existing boundary to make an implementation easier.
+
+---
+
 # FINAL PRINCIPLE
 
 > **We are not cleaning up the old KFE.**
@@ -790,3 +1028,5 @@ Do not preserve obsolete architecture merely because deleting it exposes a histo
 > **No duplicates. No competing authorities. No silent drift. One responsibility, one owner, one authoritative source, one implementation path.**
 >
 > **When an implementation is obsolete, replace it and delete it in the same run. Do not leave the old path behind.**
+>
+> **When a responsibility changes, its impact must remain bounded by explicit contracts and ownership boundaries. UI/UX, shell, application, domain/calculations, persistence, backup/sync, OCR, and native/platform concerns must remain replaceable without hidden coupling.**
