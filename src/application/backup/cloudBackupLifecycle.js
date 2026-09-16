@@ -2,25 +2,21 @@ import { BackupService } from './backupService.js'
 import { BackupConfig } from './backupConfig.js'
 
 const DAY_MS = 24 * 60 * 60 * 1000
+let scheduler = null
+
+export const configureCloudBackupScheduler = nextScheduler => {
+  if (!nextScheduler || typeof nextScheduler.registerDaily !== 'function') throw new TypeError('Invalid cloud backup scheduler.')
+  scheduler = nextScheduler
+}
 
 export const initializeConfiguredCloudBackupProvider = async () => {
-  const provider = await BackupConfig.registerConfiguredDropboxProvider()
+  const provider = await BackupConfig.registerConfiguredBackupProvider()
   if (!provider) return null
   BackupService.registerCloudBackupProvider(provider)
   return provider
 }
 
-export const registerDailyCloudBackupSchedule = async () => {
-  try {
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'periodicSync' in ServiceWorkerRegistration.prototype) {
-      const registration = await navigator.serviceWorker.ready
-      const permission = await navigator.permissions?.query?.({ name: 'periodic-background-sync' }).catch(() => null)
-      if (!permission || permission.state !== 'denied') await registration.periodicSync.register('kfe-daily-cloud-backup', { minInterval: DAY_MS })
-      return true
-    }
-  } catch (error) { console.warn('KFE periodic cloud backup registration unavailable:', error) }
-  return false
-}
+export const registerDailyCloudBackupSchedule = async () => scheduler ? scheduler.registerDaily() : false
 
 export const maybeDailyCloudBackup = async ({ force = false } = {}) => {
   const config = await BackupConfig.getBackupConfiguration()
@@ -43,8 +39,8 @@ export const maybeDailyCloudBackup = async ({ force = false } = {}) => {
 export const backupToConfiguredCloud = async () => maybeDailyCloudBackup({ force: true })
 export const restoreFromConfiguredCloud = async () => {
   const provider = await initializeConfiguredCloudBackupProvider()
-  if (!provider) throw new Error('Dropbox cloud backup is not configured.')
+  if (!provider) throw new Error('Configured cloud backup is unavailable.')
   return BackupService.restoreFromCloud()
 }
 
-export const CloudBackupLifecycle = Object.freeze({ initializeConfiguredCloudBackupProvider, registerDailyCloudBackupSchedule, maybeDailyCloudBackup, backupToConfiguredCloud, restoreFromConfiguredCloud })
+export const CloudBackupLifecycle = Object.freeze({ configureCloudBackupScheduler, initializeConfiguredCloudBackupProvider, registerDailyCloudBackupSchedule, maybeDailyCloudBackup, backupToConfiguredCloud, restoreFromConfiguredCloud })
