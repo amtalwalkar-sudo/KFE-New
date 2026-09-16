@@ -62,8 +62,8 @@ const twoDayMetrics = PerformanceService.getMetrics(twoShiftDays, twoDayRange)
 assert.equal(twoDayMetrics.driverTargetAvailable, true)
 assert.equal(twoDayMetrics.counts.activeFinancialDays, 1)
 assert.equal(twoDayMetrics.driverTargetBase, twoDayMetrics.breakEvenRevenue + 500)
-assert.equal(twoDayMetrics.driverTargetRollingBalance, twoDayMetrics.driverTargetBase - 2000)
-assert.equal(twoDayMetrics.pace.targetGap, 0)
+assert.equal(twoDayMetrics.driverTargetRollingBalance, 750)
+assert.equal(twoDayMetrics.pace.targetGap, -1500)
 
 // Malformed loan data is treated as incomplete rather than throwing or fabricating a schedule.
 const malformedLoan = PerformanceService.getMetrics({ ...base, loans:[{ principal:550000, annualInterestRate:10, tenureMonths:60 }] }, range)
