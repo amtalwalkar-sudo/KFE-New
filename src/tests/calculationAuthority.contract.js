@@ -56,10 +56,13 @@ for (const key of ['revenue', 'vehicleKm', 'businessKm', 'deadKm', 'fuelCost', '
 }
 
 assert.equal(variantMetrics.period.timeZone, 'Asia/Kolkata')
-assert.equal(PerformanceService.getMetrics(canonical, range).breakEvenRevenue, canonicalMetrics.monthlyBreakEvenRevenue)
+const serviceMetrics = PerformanceService.getMetrics(canonical, range)
+assert.equal(serviceMetrics.breakEvenRevenue, serviceMetrics.monthlyBreakEvenRevenue)
+assert.equal(serviceMetrics.breakEvenRevenue, null)
+assert.ok(Number.isNaN(canonicalMetrics.monthlyBreakEvenRevenue))
 
 // No projection or period-mixed target gap is part of the canonical pace contract.
-const metrics = PerformanceService.getMetrics(canonical, range)
+const metrics = serviceMetrics
 assert.equal('projectedRevenue' in metrics, false)
 assert.equal('targetGap' in metrics.pace, false)
 assert.equal(metrics.pace.currentRevenuePerFinancialDay, metrics.revenuePerActiveDay)
