@@ -32,8 +32,9 @@ PHASE 10 Hardening / Release
 - **Phase 1:** FROZEN — explicit freeze recorded; final verification CI #317 green.
 - **Phase 2:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-2-FREEZE.md`; final verification CI #323 green.
 - **Phase 3:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-3-FREEZE.md`; provider-independent Ride Capture boundary preserved.
-- **Phase 4:** IN PROGRESS — Operational Records contract and reconstruction service added; focused/full verification pending.
-- **Phases 5–10:** remain in chronological order.
+- **Phase 4:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-4-FREEZE.md`; verification CI #332 green.
+- **Phase 5:** IN PROGRESS — Calculation & Performance Integration contract and focused authority coverage added.
+- **Phases 6–10:** remain in chronological order.
 
 ## Phase 0 — Baseline & Governance
 Establish the clean repository, CI, architecture, dependency, calculation-authority, and development-governance baseline. Exit: **MAIN BASELINE GREEN**.
@@ -55,7 +56,9 @@ Implement canonical operational records needed for real vehicle operation: shift
 **Exit condition:** a canonical Shift can be reconstructed with its Trips, authoritative revenue/business KM, odometer-derived vehicle/dead KM where available, relevant fuel, and shift toll/parking inputs.
 
 ## Phase 5 — Calculation & Performance Integration
-Connect validated canonical records to the protected authoritative calculation chain while preserving one authority per concept.
+Connect validated canonical records to the protected authoritative calculation chain while preserving one authority per concept. Integrate actual economics, fuel cost/efficiency, maintenance provision, financing, renewal provision, monthly break-even, and Driver Target through their existing domain owners and expose only derived representations through the application performance boundary.
+
+**Exit condition:** a reproducible selected-period performance result is produced from canonical inputs, with authoritative monthly break-even and Driver Target consumed from their single owners, no duplicate formulas, explicit unavailable states, and passing full CI.
 
 ## Phase 6 — Dashboard / UX
 Build production-facing screens consuming application/domain outputs without recreating business formulas in UI.
