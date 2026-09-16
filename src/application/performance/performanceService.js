@@ -28,10 +28,17 @@ const normalizeCalculationSnapshot = snapshot => ({
   compliance: snapshot?.compliance?.length ? snapshot.compliance : (snapshot?.renewals || []),
 })
 
-const monthRangeFor = day => {
+const monthRangeFor = (day, asOf = new Date()) => {
   const year = day.getUTCFullYear()
   const month = day.getUTCMonth()
-  return { from: new Date(Date.UTC(year, month, 1)), to: new Date(Date.UTC(year, month + 1, 1) - 1) }
+  const from = new Date(Date.UTC(year, month, 1))
+  const monthEnd = new Date(Date.UTC(year, month + 1, 1) - 1)
+  const currentMonthKey = asOf.toISOString().slice(0, 7)
+  const monthKey = from.toISOString().slice(0, 7)
+  const to = monthKey === currentMonthKey
+    ? new Date(Math.min(monthEnd.getTime(), day.getTime()))
+    : monthEnd
+  return { from, to }
 }
 
 export const PerformanceService = Object.freeze({
@@ -41,15 +48,6 @@ export const PerformanceService = Object.freeze({
   getMetrics(snapshot, range) {
     const calculationSnapshot = normalizeCalculationSnapshot(snapshot)
     const metrics = derivePerformance(calculationSnapshot, range, previousRange(range))
-    const authoritativeBreakEven = deriveAuthoritativeBreakEven({
-      breakEvenInputs: calculationSnapshot?.breakEvenInputs,
-      range,
-      loanScheduledObligation: metrics.loanScheduledObligation,
-      renewalProvision: metrics.renewalProvision,
-      fuelCostPerKm: metrics.fuelCostPerKm,
-      vehicleKm: metrics.vehicleKm,
-    })
-    const breakEvenRevenue = authoritativeBreakEven.available ? authoritativeBreakEven.breakEvenRevenue : NaN
     const monthlyBreakEvenCache = new Map()
     const monthlyBreakEvenForDay = ({ day }) => {
       const monthRange = monthRangeFor(day)
@@ -64,15 +62,28 @@ export const PerformanceService = Object.freeze({
         }),
       }
       const monthMetrics = derivePerformance(monthSnapshot, monthRange, previousRange(monthRange))
-      const monthBreakEven = Number.isFinite(monthMetrics.breakEvenRevenue) ? monthMetrics.breakEvenRevenue : null
+      const authoritative = deriveAuthoritativeBreakEven({
+        breakEvenInputs: monthSnapshot?.breakEvenInputs,
+        range: monthRange,
+        loanScheduledObligation: monthMetrics.loanScheduledObligation,
+        renewalProvision: monthMetrics.renewalProvision,
+        fuelCostPerKm: monthMetrics.fuelCostPerKm,
+        vehicleKm: monthMetrics.vehicleKm,
+      })
+      const monthBreakEven = authoritative.available ? authoritative.breakEvenRevenue : null
       monthlyBreakEvenCache.set(key, monthBreakEven)
       return monthBreakEven
     }
-    const currentDay = [...(calculationSnapshot?.shifts || [])]
-      .filter(x => !x?.deletedAt && x?.deleted !== true)
-      .map(x => new Date(x.shiftEndAt || x.shiftStartAt))
+
+    // A Driver Target becomes a financial-day target only after a completed trip.
+    // Shifts remain an actual-economics source, but they do not manufacture a
+    // target-bearing day by themselves.
+    const currentDay = [...(calculationSnapshot?.trips || [])]
+      .filter(x => !x?.deletedAt && x?.deleted !== true && x?.status === 'COMPLETED')
+      .map(x => new Date(x.tripEndAt || x.tripStartAt))
       .filter(x => !Number.isNaN(x.getTime()) && x >= range.from && x <= range.to)
       .sort((a, b) => b - a)[0]
+
     const monthlyBreakEvenRevenue = currentDay ? monthlyBreakEvenForDay({ day: currentDay }) : null
     const stabilization = deriveRollingDriverTarget({
       trips: calculationSnapshot?.trips,
@@ -80,42 +91,57 @@ export const PerformanceService = Object.freeze({
       driverTargets: calculationSnapshot?.driverTargets,
       from: range.from,
       to: range.to,
-      // Driver-target stabilization consumes the authoritative MONTHLY break-even.
-      // breakEvenRevenue is the period calculation figure and must not be treated as monthly.
       applicableBreakEven: monthlyBreakEvenRevenue,
       historicalBreakEvenForDay: monthlyBreakEvenForDay,
+      applicableBreakEvenForDay: monthlyBreakEvenForDay,
     })
     const canonicalTarget = stabilization.available && Number.isFinite(stabilization.currentDailyTarget)
       ? stabilization.currentDailyTarget
       : null
     const targetAvailable = canonicalTarget != null
-    const targetActiveDays = stabilization.activeDays || 0
-    const periodTarget = targetAvailable
-      ? canonicalTarget * Math.max(1, targetActiveDays)
+    const effectiveMonthlyTarget = Number.isFinite(stabilization.effectiveMonthlyTarget)
+      ? stabilization.effectiveMonthlyTarget
       : NaN
+    const periodCoversTargetMonth = currentDay
+      ? range.from <= new Date(Date.UTC(currentDay.getUTCFullYear(), currentDay.getUTCMonth(), 1)) && range.to >= new Date(Date.UTC(currentDay.getUTCFullYear(), currentDay.getUTCMonth() + 1, 0, 23, 59, 59, 999))
+      : false
+    const periodTarget = targetAvailable && periodCoversTargetMonth ? effectiveMonthlyTarget : NaN
     const currentRecord = currentDay ? (calculationSnapshot?.driverTargets || []).filter(x => {
       const from = x?.effectiveFrom ? new Date(x.effectiveFrom) : new Date(0)
       const until = x?.effectiveUntil ? new Date(x.effectiveUntil) : new Date('9999-12-31T23:59:59.999Z')
       return x?.active !== false && x?.status !== 'INACTIVE' && from <= currentDay && currentDay <= until
     }).sort((a, b) => String(b.effectiveFrom || '').localeCompare(String(a.effectiveFrom || '')))[0] : null
-    const targetWorkingDays = currentRecord?.workingDays != null && Number(currentRecord.workingDays) > 0 ? Number(currentRecord.workingDays) : null
-    const dailyBreakEvenRevenue = monthlyBreakEvenRevenue != null && targetWorkingDays != null ? monthlyBreakEvenRevenue / targetWorkingDays : null
+    const targetWorkingDays = currentRecord?.workingDays != null && Number(currentRecord.workingDays) > 0
+      ? Number(currentRecord.workingDays)
+      : null
+    const dailyBreakEvenRevenue = monthlyBreakEvenRevenue != null && targetWorkingDays != null
+      ? monthlyBreakEvenRevenue / targetWorkingDays
+      : null
+
     return {
       ...metrics,
+      // `breakEvenRevenue` is now the single monthly authority. The engine's
+      // period-local break-even is not exposed as a competing authority here.
+      breakEvenRevenue: monthlyBreakEvenRevenue,
       target: canonicalTarget,
-      breakEvenRevenue,
       monthlyBreakEvenRevenue,
       dailyBreakEvenRevenue,
-      breakEvenInputs: authoritativeBreakEven.available
-        ? { ...metrics.breakEvenInputs, maintenanceProvisionPerKm: authoritativeBreakEven.maintenanceProvisionPerKm, fixedCosts: authoritativeBreakEven.fixedCosts, fuelCostPerKm: authoritativeBreakEven.fuelCostPerKm }
-        : { ...metrics.breakEvenInputs, available: false, reason: authoritativeBreakEven.reason },
-      authority: { ...metrics.authority, target: 'MONTHLY_BREAK_EVEN_PLUS_MONTHLY_DESIRED_DRIVER_PROFIT_DERIVED_TO_DAILY_TARGET_WITH_ROLLING_BALANCE', breakEven: authoritativeBreakEven.authority || 'BREAK_EVEN_INPUTS' },
-      completeness: { ...metrics.completeness, target: targetAvailable, breakEven: authoritativeBreakEven.available },
+      breakEvenInputs: metrics.breakEvenInputs,
+      authority: {
+        ...metrics.authority,
+        target: 'MONTHLY_BREAK_EVEN_PLUS_MONTHLY_DESIRED_DRIVER_PROFIT_DERIVED_TO_DAILY_TARGET_WITH_ROLLING_BALANCE',
+        breakEven: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN'
+      },
+      completeness: { ...metrics.completeness, target: targetAvailable, breakEven: monthlyBreakEvenRevenue != null },
       driverTarget: canonicalTarget,
       driverTargetBase: stabilization.currentBaseDaily,
       driverTargetRecoveryAdjustment: stabilization.recoveryAdjustment,
       driverTargetRollingBalance: stabilization.balance,
       driverTargetAvailable: targetAvailable,
+      driverTargetOpeningBalance: stabilization.openingBalance,
+      driverTargetMonthlyVariance: stabilization.monthlyVariance,
+      driverTargetClosingBalance: stabilization.closingBalance,
+      driverTargetEffectiveMonthlyTarget: stabilization.effectiveMonthlyTarget,
       pace: {
         ...metrics.pace,
         requiredRevenuePerActiveDay: canonicalTarget,
