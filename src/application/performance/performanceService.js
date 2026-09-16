@@ -3,10 +3,14 @@ import { derivePerformance, layerRows, previousRange } from '../../domain/perfor
 import { deriveRollingDriverTarget } from '../../domain/performance/driverTargetStabilization.js'
 import { normalizeCalculationSnapshot } from './normalizeCalculationSnapshot.js'
 import { istMonthRange } from '../../domain/time/ist.js'
+import { subscribeCanonicalDataChanges } from '../canonicalDataChangeService.js'
 
 export const PerformanceService = Object.freeze({
   async getSnapshot() {
     return PerformanceRepository.getSnapshot()
+  },
+  subscribeDataChanges(callback) {
+    return subscribeCanonicalDataChanges(callback)
   },
   getMetrics(snapshot, range) {
     const calculationSnapshot = normalizeCalculationSnapshot(snapshot)
