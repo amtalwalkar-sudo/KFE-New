@@ -38,8 +38,6 @@ assert.equal(serviceMetrics.driverTargetBase, serviceMetrics.dailyBreakEvenReven
 assert.equal(serviceMetrics.driverTarget, serviceMetrics.driverTargetBase)
 assert.equal(serviceMetrics.driverTargetRecoveryAdjustment, 0)
 
-// Manual daily target fields remain non-authoritative; the monthly desired profit
-// plus monthly break-even are converted to the daily target through workingDays.
 const manualDailyTargetInput = {
   ...snapshot,
   driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:1000, workingDays:2, dailyTarget:1, targetPerActiveDay:2, active:true }],
@@ -62,19 +60,33 @@ for (const key of [
 ]) assert.equal(higherProfitTargetMetrics[key], serviceMetrics[key], `target input changed actual metric: ${key}`)
 assert.equal(higherProfitTargetMetrics.driverTarget - serviceMetrics.driverTarget, 2000)
 
-const historicalRange = { from: new Date('2026-09-10T00:00:00Z'), to: new Date('2026-09-10T23:59:59Z') }
+// A prior month's shortfall rolls into the next month's effective target.
 const historicalBaseSnapshot = {
   ...snapshot,
   shifts: [
-    { id:'historical', shiftStartAt:'2026-09-05T08:00:00Z', shiftEndAt:'2026-09-05T18:00:00Z', startOdometer:800, endOdometer:1000, toll:100, parking:50 },
+    { id:'historical', shiftStartAt:'2026-08-05T08:00:00Z', shiftEndAt:'2026-08-05T18:00:00Z', startOdometer:600, endOdometer:800, toll:0, parking:0 },
     ...snapshot.shifts,
   ],
   trips: [
-    { id:'historical', status:'COMPLETED', tripStartAt:'2026-09-05T09:00:00Z', tripEndAt:'2026-09-05T12:00:00Z', tripKm:150, revenue:0 },
+    { id:'historical', status:'COMPLETED', tripStartAt:'2026-08-05T09:00:00Z', tripEndAt:'2026-08-05T12:00:00Z', tripKm:150, revenue:0 },
     ...snapshot.trips,
   ],
+  fuelLogs: [
+    { capturedAt:'2026-08-01T18:00:00Z', odometer:400, quantityKg:10, amount:2000 },
+    { capturedAt:'2026-08-03T18:00:00Z', odometer:600, quantityKg:10, amount:2000 },
+    { capturedAt:'2026-08-05T18:00:00Z', odometer:800, quantityKg:10, amount:2000 },
+    ...snapshot.fuelLogs,
+  ],
+  breakEvenInputs: [
+    { effectiveFrom:'2026-08-01', effectiveUntil:'2026-08-31', maintenanceProvisionPerKm:3, active:true },
+    snapshot.breakEvenInputs[0],
+  ],
+  driverTargets: [
+    { effectiveFrom:'2026-08-01', effectiveUntil:'2026-08-31', desiredDriverProfit:1000, workingDays:2, active:true },
+    snapshot.driverTargets[0],
+  ],
 }
-const historicalDeficitMetrics = PerformanceService.getMetrics(historicalBaseSnapshot, historicalRange)
+const historicalDeficitMetrics = PerformanceService.getMetrics(historicalBaseSnapshot, range)
 assert.ok(historicalDeficitMetrics.driverTargetAvailable, JSON.stringify(historicalDeficitMetrics))
 assert.ok(Number.isFinite(historicalDeficitMetrics.driverTargetRollingBalance), JSON.stringify(historicalDeficitMetrics))
 assert.ok(historicalDeficitMetrics.driverTarget > historicalDeficitMetrics.driverTargetBase, JSON.stringify(historicalDeficitMetrics))
@@ -82,11 +94,11 @@ assert.ok(historicalDeficitMetrics.driverTarget > historicalDeficitMetrics.drive
 const historicalSurplusSnapshot = {
   ...historicalBaseSnapshot,
   trips: [
-    { id:'historical', status:'COMPLETED', tripStartAt:'2026-09-05T09:00:00Z', tripEndAt:'2026-09-05T12:00:00Z', tripKm:150, revenue:100000 },
+    { id:'historical', status:'COMPLETED', tripStartAt:'2026-08-05T09:00:00Z', tripEndAt:'2026-08-05T12:00:00Z', tripKm:150, revenue:100000 },
     snapshot.trips[0],
   ],
 }
-const historicalSurplusMetrics = PerformanceService.getMetrics(historicalSurplusSnapshot, historicalRange)
+const historicalSurplusMetrics = PerformanceService.getMetrics(historicalSurplusSnapshot, range)
 assert.equal(historicalSurplusMetrics.driverTargetAvailable, true)
 assert.ok(Number.isFinite(historicalSurplusMetrics.driverTargetRollingBalance))
 assert.ok(historicalSurplusMetrics.driverTargetRollingBalance < 0)
