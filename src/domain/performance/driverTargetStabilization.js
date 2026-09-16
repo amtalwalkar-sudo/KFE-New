@@ -7,15 +7,17 @@ const finite = v => {
 const dateOf = v => { const x = v ? new Date(v) : null; return x && !Number.isNaN(x.getTime()) ? x : null }
 const keyOf = v => istDateKey(v)
 const monthKeyOf = v => istMonthKey(v)
+const dayFromKey = key => key ? new Date(`${key}T12:00:00+05:30`) : null
 const live = xs => (xs || []).filter(x => !x?.deletedAt && x?.deleted !== true)
-const effectiveFrom = x => dateOf(x?.effectiveFrom || x?.validFrom || x?.startDate)
-const effectiveUntil = x => dateOf(x?.effectiveUntil || x?.validUntil || x?.endDate)
+const effectiveDateKey = x => keyOf(x?.effectiveFrom || x?.validFrom || x?.startDate)
+const effectiveUntilKey = x => keyOf(x?.effectiveUntil || x?.validUntil || x?.endDate)
 const applies = (x, day) => {
-  const from = effectiveFrom(x) || new Date(0)
-  const until = effectiveUntil(x) || new Date('9999-12-31T23:59:59.999Z')
-  return x?.active !== false && x?.status !== 'INACTIVE' && from <= day && day <= until
+  const dayKey = keyOf(day)
+  const fromKey = effectiveDateKey(x) || '1970-01-01'
+  const untilKey = effectiveUntilKey(x) || '9999-12-31'
+  return !!dayKey && x?.active !== false && x?.status !== 'INACTIVE' && fromKey <= dayKey && dayKey <= untilKey
 }
-const latestForDay = (xs, day) => live(xs).filter(x => applies(x, day)).sort((a, b) => String(effectiveFrom(b) || '').localeCompare(String(effectiveFrom(a) || '')))[0] || null
+const latestForDay = (xs, day) => live(xs).filter(x => applies(x, day)).sort((a, b) => String(effectiveDateKey(b) || '').localeCompare(String(effectiveDateKey(a) || '')))[0] || null
 const readDriverProfit = record => finite(record?.desiredDriverProfit)
 const baseMonthlyFor = (record, monthlyBreakEven = null) => {
   const driverProfit = readDriverProfit(record)
@@ -105,9 +107,9 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     .sort()
   if (!financialDayKeys.length) return failure('NO_FINANCIAL_DRIVER_TARGET_DAY', null, 0)
 
-  const currentDay = dateOf(financialDayKeys[financialDayKeys.length - 1])
+  const currentDay = dayFromKey(financialDayKeys[financialDayKeys.length - 1])
   const currentMonth = targetMonth
-  const targetMonths = live(driverTargets).map(x => monthKeyOf(effectiveFrom(x))).filter(Boolean)
+  const targetMonths = live(driverTargets).map(x => monthKeyOf(x?.effectiveFrom || x?.validFrom || x?.startDate)).filter(Boolean)
   const historicalMonths = [...new Set([...revenueByMonth.keys(), ...targetMonths])]
     .filter(month => month < currentMonth && monthBounds(month).from <= end)
     .sort()
@@ -148,7 +150,7 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
   let targetAllocatedBeforeCurrentDay = 0
   let priorRemainingObligation = effectiveMonthlyTarget
   for (const financialDay of priorFinancialDays) {
-    const day = dateOf(financialDay)
+    const day = dayFromKey(financialDay)
     const holidaysKnownBeforeDay = calendarDayKeys(currentMonth).filter(candidate => {
       if (candidate >= financialDay) return false
       return !currentMonthFinancialDays.includes(candidate)
