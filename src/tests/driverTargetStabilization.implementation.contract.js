@@ -25,31 +25,29 @@ assert.equal(holiday.activeDays, 0)
 assert.equal(holiday.currentDailyTarget, null)
 assert.equal(holiday.reason, 'NO_FINANCIAL_DRIVER_TARGET_DAY')
 
-// Two financial days consume two configured target slots. Current-month actual
-// revenue does not change the target until month close.
+// The configured working-day count is not the divisor. A monthly obligation is
+// amortized over the remaining eligible calendar days, with only financial days
+// consuming an allocation.
 const financialDays = deriveRollingDriverTarget({
   from: '2026-09-10', to: '2026-09-11',
-  shifts: [
-    { shiftStartAt: '2026-09-10T08:00:00Z', shiftEndAt: '2026-09-10T20:00:00Z' },
-    { shiftStartAt: '2026-09-11T08:00:00Z', shiftEndAt: '2026-09-11T20:00:00Z' }
-  ],
   trips: [
     { status: 'COMPLETED', tripEndAt: '2026-09-10T10:00:00Z', revenue: 500 },
     { status: 'COMPLETED', tripEndAt: '2026-09-11T10:00:00Z', revenue: 600 }
   ],
+  shifts: [],
   driverTargets: [{ effectiveFrom: '2026-09-01', effectiveUntil: '2026-09-30', desiredDriverProfit: 200, workingDays: 2 }],
   applicableBreakEven: 800
 })
 assert.equal(financialDays.activeDays, 2)
-assert.equal(financialDays.currentBaseDaily, 500)
-assert.equal(financialDays.currentDailyTarget, 500)
-assert.equal(financialDays.openingBalance, 0)
 assert.equal(financialDays.effectiveMonthlyTarget, 1000)
+assert.equal(financialDays.remainingEligibleDays, 20)
+assert.equal(financialDays.targetAllocatedBeforeCurrentDay, 1000 / 21)
+assert.ok(Math.abs(financialDays.currentDailyTarget - 1000 / 21) < 1e-12)
 assert.equal(financialDays.monthlyVariance, -100)
 assert.equal(financialDays.closingBalance, -100)
 
-// A holiday is removed from the remaining configured working slots, so the
-// next financial day absorbs the full remaining monthly obligation.
+// A holiday consumes no target allocation. Once known, its untouched share is
+// redistributed over the remaining eligible days.
 const holidaySmoothing = deriveRollingDriverTarget({
   from: '2026-09-10', to: '2026-09-12',
   trips: [
@@ -60,8 +58,8 @@ const holidaySmoothing = deriveRollingDriverTarget({
   applicableBreakEven: 800
 })
 assert.equal(holidaySmoothing.activeDays, 2)
-assert.equal(holidaySmoothing.currentDailyTarget, 1000)
-assert.equal(holidaySmoothing.remainingEligibleDays, 1)
+assert.equal(holidaySmoothing.remainingEligibleDays, 19)
+assert.ok(Math.abs(holidaySmoothing.currentDailyTarget - ((1000 - 1000 / 21) / 19)) < 1e-12)
 
 const missingAuthoritativeInput = deriveRollingDriverTarget({
   from: '2026-09-12', to: '2026-09-12',
@@ -79,11 +77,12 @@ const missingWorkingDays = deriveRollingDriverTarget({
   applicableBreakEven: 800
 })
 assert.equal(missingWorkingDays.available, true)
-assert.equal(missingWorkingDays.currentDailyTarget, 1000 / 30)
+assert.equal(missingWorkingDays.remainingEligibleDays, 19)
+assert.ok(Math.abs(missingWorkingDays.currentDailyTarget - 1000 / 19) < 1e-12)
 
-// A completed month's shortfall rolls into the next month. The current month's
-// target is derived from the carried opening balance; its own variance is not
-// rolled forward until month close.
+// A completed month's shortfall rolls into the next month. The carried opening
+// balance remains part of the monthly obligation and is amortized over the
+// remaining eligible days; current-month variance is only provisional.
 const monthlyRollover = deriveRollingDriverTarget({
   from: '2026-09-01', to: '2026-09-30',
   trips: [
@@ -98,11 +97,11 @@ const monthlyRollover = deriveRollingDriverTarget({
   historicalBreakEvenForDay: () => 800,
 })
 assert.equal(monthlyRollover.activeDays, 1)
-assert.equal(monthlyRollover.currentBaseDaily, 500)
 assert.equal(monthlyRollover.balanceBefore, 1000)
 assert.equal(monthlyRollover.openingBalance, 1000)
 assert.equal(monthlyRollover.effectiveMonthlyTarget, 2000)
-assert.equal(monthlyRollover.currentDailyTarget, 2000)
+assert.equal(monthlyRollover.remainingEligibleDays, 21)
+assert.ok(Math.abs(monthlyRollover.currentDailyTarget - 2000 / 21) < 1e-12)
 assert.equal(monthlyRollover.monthlyVariance, 1000)
 assert.equal(monthlyRollover.closingBalance, 2000)
 
