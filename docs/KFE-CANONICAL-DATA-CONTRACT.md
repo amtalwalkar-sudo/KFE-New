@@ -101,6 +101,8 @@ Validation must cover, where applicable:
 
 Validation must reject invalid canonical data rather than weakening downstream calculations to accommodate it.
 
+The current implementation exposes a universal Admin normalization/validation path for every Admin canonical form, plus repository-boundary normalization and invariants for Shift/Trip/Fuel. Contract tests cover those paths explicitly.
+
 ## 6. Universal normalization contract
 
 Normalization is the only compatibility boundary between external/persisted variants and canonical domain meaning.
@@ -124,6 +126,8 @@ Rules:
 - Normalization preserves UUIDs and timestamps when supplied and generates them only for genuinely new records at the persistence boundary.
 - Normalization must not change business meaning, authority, period, unit, sign, or provenance.
 - Each canonical entity type must have an auditable normalization path, even if several paths share implementation helpers.
+
+Current coverage is explicit for Shift, Trip, Fuel and all Admin canonical forms. Calculation snapshots use the same canonical operational normalizers rather than creating a second semantic normalization rule.
 
 ## 7. Entity canonical contract
 
@@ -165,9 +169,9 @@ Rules:
 
 **Authority:** `startOdometer` and `endOdometer` are authoritative for vehicle KM. Shift-level `revenue` is an aggregate/lifecycle representation only; it is **not** an independent revenue authority. Trip revenue remains the source of truth for revenue calculations.
 
-**Lifecycle:** operational state includes at least `ACTIVE` and `COMPLETED` in the current model. Allowed transitions must be explicit and tested. Operational status is not equivalent to deletion.
+**Lifecycle:** operational state includes at least `ACTIVE` and `COMPLETED` in the current model. Allowed transitions are repository-controlled; operational status is not equivalent to deletion.
 
-**Deletion:** no universal hard/soft deletion rule is assumed until explicitly implemented and tested. A shift must not be physically removed in a way that silently invalidates historical trip/odometer lineage.
+**Deletion:** Shift has no incidental repository hard-delete operation. Historical shift/odometer lineage is therefore retained unless a separately governed data-destruction workflow is introduced.
 
 **Repository:** `ShiftTripRepository` / `shifts` store.
 
@@ -181,9 +185,9 @@ Rules:
 
 **Authority:** completed-trip `tripKm` is authoritative business KM input; `revenue` is authoritative revenue input. Correction paths explicitly mark manually corrected fields as manual authority.
 
-**Lifecycle:** current operational states include `ACTIVE`, `COMPLETED`, and `CANCELLED`. Only valid transitions may be permitted. Cancellation is an operational outcome, not administrative deletion.
+**Lifecycle:** current operational states include `ACTIVE`, `COMPLETED`, and `CANCELLED`. Cancellation is an operational outcome, not administrative deletion.
 
-**Deletion:** physical deletion must not be used to erase historical business evidence without an explicit governed deletion contract. Current implementation has no universal trip soft-delete contract; this remains a Phase 1 implementation/test gap.
+**Deletion:** Trip has no incidental repository hard-delete operation. Historical trip evidence is retained unless a separately governed data-destruction workflow is introduced.
 
 **Repository:** `ShiftTripRepository` / `trips` store.
 
@@ -195,7 +199,7 @@ Rules:
 
 **Derived:** `vehicleKm = endOdometer - startOdometer`.
 
-**Validation:** finite numeric values and valid chronological/movement ordering; invalid negative vehicle movement must be rejected unless an explicit correction/replacement workflow exists.
+**Validation:** finite numeric values and valid chronological/movement ordering; invalid negative vehicle movement is rejected unless an explicit correction/replacement workflow exists.
 
 **Repository:** `ShiftTripRepository` / `shifts` store.
 
@@ -209,7 +213,7 @@ Rules:
 
 **Authority:** fuel logs are authoritative fuel cost/quantity inputs; derived fuel efficiency/cost-per-km is calculated from their history and applicable boundaries.
 
-**Deletion:** must preserve historical economic lineage; current absence of a universal fuel soft-delete rule is a Phase 1 gap.
+**Deletion:** Fuel has no incidental repository hard-delete operation. Historical fuel economic lineage is retained unless a separately governed data-destruction workflow is introduced.
 
 **Repository:** `FuelRepository` / `fuel_logs` store.
 
@@ -241,7 +245,7 @@ Component-specific stores remain canonical where their semantics differ: fuel, m
 
 **Authority:** loan terms and schedule define scheduled financing obligation; actual payment/prepayment records define actual financing outflow.
 
-**Deletion:** historical financing lineage must remain recoverable; administrative deletion must not silently erase applied payment/prepayment history.
+**Deletion:** these financing records use the governed Admin soft-delete path; deletion retains identity and mutation/audit lineage and does not physically remove the canonical record.
 
 **Repository:** `AdminRepository` for canonical admin financing records, with financing calculation/domain logic consuming them.
 
@@ -281,7 +285,7 @@ Component-specific stores remain canonical where their semantics differ: fuel, m
 
 **Authority:** `deriveAuthoritativeBreakEven()` owns the monthly break-even result. Inputs are authoritative data; the result is derived authority.
 
-**Time:** effective dates are IST business dates; historical/as-of selection must use the correct effective record.
+**Time:** effective dates are IST business dates; historical/as-of selection uses the correct effective record.
 
 **Derived boundary:** daily break-even is a service representation of monthly break-even and is never a competing persisted authority.
 
@@ -317,7 +321,7 @@ Component-specific stores remain canonical where their semantics differ: fuel, m
 
 ## 8. Authoritative versus derived map
 
-The authoritative calculation ownership is defined by `docs/CALCULATION-AUTHORITY-MATRIX.md` and is preserved by this contract. fileciteturn134file0
+The authoritative calculation ownership is defined by `docs/CALCULATION-AUTHORITY-MATRIX.md` and is preserved by this contract.
 
 | Concept | Authority | Derived representation |
 |---|---|---|
@@ -338,7 +342,7 @@ The authoritative calculation ownership is defined by `docs/CALCULATION-AUTHORIT
 | Pace | performance domain | pace/variance display values |
 | Projection | none | not an authority and not required for target logic |
 
-UI code may format and display these results but must not reproduce their business formulas. fileciteturn134file0
+UI code may format and display these results but must not reproduce their business formulas.
 
 ## 9. Lifecycle and deletion rules
 
@@ -352,16 +356,28 @@ ADMINISTRATIVE LIFECYCLE
 ACTIVE / SOFT-DELETED
 ```
 
+### Entity-specific contract
+
+| Entity group | Operational lifecycle | Administrative deletion | Historical rule |
+|---|---|---|---|
+| Vehicle / Driver | master-data status | Admin soft-delete | retain identity and references |
+| Compliance / Maintenance / Driver data | source-record state | Admin soft-delete | retain historical record |
+| Loan / Loan Payment / Prepayment | financing-record status | Admin soft-delete | retain financing lineage |
+| Driver Target / Break-even inputs | effective-dated source state | Admin soft-delete | retain effective history |
+| Settings | configuration lifecycle | governed Admin lifecycle | operational history is not deleted by reset |
+| Shift | `ACTIVE` / `COMPLETED` | no incidental hard-delete operation | retain odometer/trip lineage |
+| Trip | `ACTIVE` / `COMPLETED` / `CANCELLED` | no incidental hard-delete operation | cancellation is retained as business evidence |
+| Fuel | fuel-log record | no incidental hard-delete operation | retain economic lineage |
+| Audit / Mutation | workflow/audit state | mutation removal only under sync workflow rules | preserve audit meaning |
+
 Rules:
 
 - An operational status transition must never be implemented as deletion.
 - Administrative soft deletion must retain identity and historical lineage.
 - Active queries exclude administratively deleted records.
-- Historical calculations must explicitly define whether deleted records remain part of historical truth; they must not inherit an accidental filter from UI list behavior.
+- Historical calculations must explicitly define whether administratively deleted records remain part of historical truth; they must not inherit an accidental filter from UI list behavior.
 - Hard deletion of canonical business records requires a separately governed data-destruction contract and is not permitted as an incidental repository convenience.
-- Entity-specific allowed transitions and deletion permissions must be contract-tested.
-
-Current admin persistence already records `deletedAt`/`deleted`, filters deleted records from normal lists, and writes mutation/audit entries transactionally. fileciteturn137file0
+- Entity-specific lifecycle/deletion behavior is contract-tested for the current implementation: Admin entities use soft deletion; Shift/Trip/Fuel have no incidental physical deletion path.
 
 ## 10. Mutation propagation
 
@@ -379,56 +395,88 @@ computed metrics recompute
 UI update
 ```
 
-Repository mutation and audit writes must remain atomic with the canonical write where supported. Current Shift/Trip and Admin repository paths already couple mutation/audit persistence and notification to successful transaction completion. fileciteturn137file0 fileciteturn138file0
+Repository mutation and audit writes must remain atomic with the canonical write where supported. Current Shift/Trip, Fuel and Admin repository paths couple mutation/audit persistence and notification to successful transaction completion.
 
 ## 11. Repository ownership contract
 
 | Canonical area | Owner |
 |---|---|
-| Vehicle / Driver / Compliance / Maintenance / Driver data / Loan / Driver Target / Break-even inputs / Settings | `AdminRepository` and mapped canonical stores |
-| Shift / Trip / Odometer | `ShiftTripRepository` and `shifts` / `trips` |
-| Fuel | `FuelRepository` and `fuel_logs` |
-| Mutation / Audit | `MutationRepository` plus transactional repository writers |
-| Monthly break-even result | `deriveAuthoritativeBreakEven` |
-| Driver Target derived results | Driver Target domain |
-| Performance metrics | Performance domain/service; consumes authorities |
+| Vehicle | `AdminRepository` → `vehicles` |
+| Driver | `AdminRepository` → `drivers` |
+| Compliance | `AdminRepository` → `compliance_records` |
+| Maintenance | `AdminRepository` → `maintenance_records` |
+| Driver-collected data | `AdminRepository` → `driver_collected_data` |
+| Loan | `AdminRepository` → `loans` |
+| Loan payment | `AdminRepository` → `loan_payments` |
+| Prepayment | `AdminRepository` → `prepayments` |
+| Driver Target | `AdminRepository` → `driver_targets` |
+| Break-even inputs | `AdminRepository` → `break_even_inputs` |
+| Settings | `AdminRepository` → `settings` |
+| Shift | `ShiftTripRepository` → `shifts` |
+| Trip / Ride | `ShiftTripRepository` → `trips` |
+| Odometer observations | `ShiftTripRepository` → Shift fields in `shifts` |
+| Fuel / Refuelling | `FuelRepository` → `fuel_logs` |
+| Mutation queue | `MutationRepository` → `pending_mutations` |
+| Audit history | `MutationRepository` / transactional repository writers → `audit_history` |
 
-No secondary repository may silently become a competing writer for an authoritative concept.
+No supporting store may silently become a replacement business authority. `days`, `odoGaps`, `gps_snapshots`, and `movement_artifacts` remain supporting/infrastructure stores.
 
-## 12. Contract-test requirements
+## 12. Relationship and historical/as-of contract
 
-Before Phase 1 can freeze, dedicated tests must establish:
+Canonical relationships are explicit and validated where required:
 
-1. UUID generation, preservation, and uniqueness expectations.
-2. Required entity relationships and orphan-reference behavior.
-3. True-instant timestamp semantics.
-4. IST date-only semantics across UTC-midnight boundaries.
-5. Entity-by-entity normalization into canonical shapes.
-6. Provenance preservation across manual/OCR/import/synthetic/system paths that currently exist.
-7. Allowed operational lifecycle transitions.
-8. Administrative deletion behavior per entity.
-9. Mutation/audit linkage and transaction coupling.
-10. `canonical-data-changed` propagation across every canonical repository mutation surface.
-11. Trip revenue authority versus shift aggregate representation.
-12. Shift odometer ownership and vehicle-KM derivation.
-13. Settings remaining configuration-only.
-14. Historical/as-of effective-date selection for Driver Target and break-even inputs.
+- Trip → Shift through `shiftId`.
+- Compliance → Vehicle through `vehicleId`.
+- Maintenance → Vehicle through `vehicleId`.
+- Driver-collected data → Driver and Vehicle.
+- Loan payment → Loan through `loanId`.
+- Prepayment → Loan through `loanId`.
+- Driver Target → Driver through `driverId`.
 
-Existing calculation authority contracts remain valid and must not be weakened to satisfy canonical-data tests. The contract-test runner is explicitly designed to inventory all suite failures together rather than entering a one-failure-at-a-time correction loop. fileciteturn141file0
+Required relationships must reference an existing non-deleted canonical record at the Admin repository boundary.
 
-## 13. Freeze gate
+Effective-dated authorities use IST calendar-date semantics. Historical/as-of selection must resolve the record effective on the requested IST business date; it must not compare raw UTC-midnight conversions for date-only values.
 
-Phase 1 is **FREEZE READY** only when all of the following are true:
+The break-even and Driver Target authorities are explicitly covered by IST boundary tests, and no selected reporting range may create a second effective-date authority.
 
-- this canonical contract matches implementation or implementation has been corrected to it;
-- no competing authority or duplicate writer remains for an authoritative concept;
-- normalization boundaries are explicit and tested;
-- provenance semantics are preserved and tested;
-- lifecycle/deletion semantics are explicit and tested;
-- IST instant/date-only boundaries are regression-tested;
-- repository ownership is verified;
-- mutation/audit/notification propagation is verified;
-- no known related defect remains uninspected;
-- one complete verification CI run is green after the holistic regression audit.
+## 13. Phase 1 completeness reconciliation
 
-Until that gate is met, Phase 1 remains open and Phase 2 must not begin.
+The implementation comparison and contract suite cover the Phase 1 dependency chain:
+
+```text
+Persisted inputs
+      ↓
+Normalization
+      ↓
+Canonical entities
+      ↓
+Relationships
+      ↓
+Authoritative vs derived
+      ↓
+UUID / identity
+      ↓
+timestamps / IST
+      ↓
+validation / provenance
+      ↓
+delete / lifecycle
+      ↓
+repository boundary
+      ↓
+tests / contracts
+```
+
+The current contract deliberately does **not** introduce:
+
+- a separate persisted Odometer entity;
+- a generic Expense authority;
+- a second revenue authority;
+- a second break-even authority;
+- a second Driver Target authority;
+- an OCR/AI provider dependency;
+- a backup/sync provider dependency.
+
+The exact provenance enum remains intentionally open until all ingestion paths are implemented; known provenance is nevertheless preserved on the currently audited Trip/Fuel paths. This is an implementation detail, not a competing canonical meaning.
+
+Phase 1 remains freeze-pending until the complete contract suite passes and the subsequent holistic regression audit confirms that implementation, contract, authority, relationship, lifecycle, and historical/as-of semantics remain aligned.
