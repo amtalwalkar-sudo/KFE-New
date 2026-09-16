@@ -1,9 +1,9 @@
 import { PerformanceRepository } from '../../repositories/performanceRepository.js'
+import { subscribeCanonicalDataChanges } from '../../repositories/canonicalDataChangeRepository.js'
 import { derivePerformance, layerRows, previousRange } from '../../domain/performance/performanceEngineV2.js'
 import { deriveRollingDriverTarget } from '../../domain/performance/driverTargetStabilization.js'
 import { normalizeCalculationSnapshot } from './normalizeCalculationSnapshot.js'
 import { istMonthRange } from '../../domain/time/ist.js'
-import { subscribeCanonicalDataChanges } from '../canonicalDataChangeService.js'
 
 export const PerformanceService = Object.freeze({
   async getSnapshot() {
