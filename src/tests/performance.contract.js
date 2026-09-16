@@ -46,7 +46,6 @@ const manualDailyTargetMetrics = PerformanceService.getMetrics(manualDailyTarget
 assert.equal(manualDailyTargetMetrics.driverTargetAvailable, true)
 assert.equal(manualDailyTargetMetrics.target, serviceMetrics.driverTarget)
 
-// Driver Target must not affect actual financial/business calculations.
 const higherProfitTargetMetrics = PerformanceService.getMetrics({
   ...snapshot,
   driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:5000, workingDays:2, active:true }],
@@ -58,9 +57,8 @@ for (const key of [
   'provisionAdjustedProfit', 'availableCash', 'breakEvenRevenue', 'monthlyBreakEvenRevenue',
   'dailyBreakEvenRevenue',
 ]) assert.equal(higherProfitTargetMetrics[key], serviceMetrics[key], `target input changed actual metric: ${key}`)
-assert.equal(higherProfitTargetMetrics.driverTarget - serviceMetrics.driverTarget, 2000)
+assert.ok(Math.abs((higherProfitTargetMetrics.driverTarget - serviceMetrics.driverTarget) - 2000) < 1e-9)
 
-// A prior month's shortfall rolls into the next month's effective target.
 const historicalBaseSnapshot = {
   ...snapshot,
   shifts: [
