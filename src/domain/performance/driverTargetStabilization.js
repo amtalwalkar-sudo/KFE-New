@@ -32,7 +32,7 @@ const baseDailyFor = (record, applicableBreakEven = null) => {
   return periodTarget == null ? null : periodTarget / periodDays(record)
 }
 
-export function deriveRollingDriverTarget({ trips = [], driverTargets = [], from, to, applicableBreakEven = null } = {}) {
+export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTargets = [], from, to, applicableBreakEven = null } = {}) {
   const start = dateOf(from), end = dateOf(to)
   if (!start || !end || end < start) return { available: false, reason: 'INVALID_PERIOD', balanceBefore: null, currentDailyTarget: null, periodBaseTarget: null }
   const completed = live(trips).filter(x => x.status === 'COMPLETED')
@@ -42,9 +42,14 @@ export function deriveRollingDriverTarget({ trips = [], driverTargets = [], from
     if (!day) continue
     byDay.set(day, (byDay.get(day) || 0) + (finite(trip.revenue) || 0))
   }
-  const allDays = [...byDay.keys()].sort()
+  const activeDaySet = new Set()
+  for (const shift of live(shifts)) {
+    const day = keyOf(shift.shiftEndAt || shift.shiftStartAt)
+    if (day) activeDaySet.add(day)
+  }
+  const allActiveDays = [...activeDaySet].sort()
   let balance = 0
-  for (const dayKey of allDays) {
+  for (const dayKey of allActiveDays) {
     const day = dateOf(dayKey)
     if (!day || day >= start) break
     const record = latestForDay(driverTargets, day)
@@ -53,12 +58,14 @@ export function deriveRollingDriverTarget({ trips = [], driverTargets = [], from
     if (baseDaily == null) continue
     balance += baseDaily - (byDay.get(dayKey) || 0)
   }
-  const currentDays = [...byDay.keys()].filter(k => {
-    const d = dateOf(k); return d && d >= start && d <= end
-  }).sort()
+  const currentDays = allActiveDays.filter(k => {
+    const day = dateOf(k)
+    return day && day >= start && day <= end
+  })
   let currentDailyTarget = null
   let currentBaseDaily = null
   let currentPeriodBaseTarget = null
+  let balanceBeforeCurrent = balance
   for (const dayKey of currentDays) {
     const day = dateOf(dayKey)
     const record = latestForDay(driverTargets, day)
@@ -68,29 +75,20 @@ export function deriveRollingDriverTarget({ trips = [], driverTargets = [], from
     currentBaseDaily = baseDaily
     currentPeriodBaseTarget = periodBaseTarget(record, applicableBreakEven)
     currentDailyTarget = baseDaily + balance
-    const actual = byDay.get(dayKey) || 0
-    balance += baseDaily - actual
-  }
-  if (currentDailyTarget == null) {
-    const firstActive = new Date(Math.max(start.getTime(), Date.now()))
-    const record = latestForDay(driverTargets, firstActive)
-    if (record) {
-      currentBaseDaily = baseDailyFor(record, applicableBreakEven)
-      currentPeriodBaseTarget = periodBaseTarget(record, applicableBreakEven)
-      currentDailyTarget = currentBaseDaily == null ? null : currentBaseDaily + balance
-    }
+    balanceBeforeCurrent = balance
+    balance += baseDaily - (byDay.get(dayKey) || 0)
   }
   return {
     available: currentDailyTarget != null,
     reason: currentDailyTarget == null ? 'NO_APPLICABLE_ACTIVE_DAY_TARGET' : null,
-    balanceBefore: balance - (currentDailyTarget == null || currentBaseDaily == null ? 0 : 0),
+    balanceBefore: balanceBeforeCurrent,
     balance,
     currentDailyTarget,
     currentBaseDaily,
     currentPeriodBaseTarget,
     recoveryAdjustment: currentDailyTarget != null && currentBaseDaily != null ? currentDailyTarget - currentBaseDaily : null,
     activeDays: currentDays.length,
-    authority: 'DERIVED_FROM_AUTHORITATIVE_COMPLETED_TRIPS_AND_DRIVER_TARGET_INPUTS'
+    authority: 'COMPLETED_TRIPS_FOR_REVENUE_AND_SHIFTS_FOR_ACTIVE_DAYS'
   }
 }
 
