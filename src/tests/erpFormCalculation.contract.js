@@ -11,7 +11,7 @@ required('loan', ['principal','annualInterestRate','tenureMonths','startDate'])
 required('loanPayment', ['loanId','paidOn','amount','charges','status'])
 required('prepayment', ['loanId','paidOn','amount','status'])
 required('driverTarget', ['driverId','effectiveFrom','targetRevenue'])
-required('breakEvenInputs', ['effectiveFrom','fixedCosts','variableCostPerKm','variableCostPerHour'])
+required('breakEvenInputs', ['effectiveFrom','maintenanceProvisionPerKm'])
 
 assert.equal(getAdminFormDefinition('driverCollectedData').calculationRole, 'supporting-only')
 assert.equal(getAdminFormDefinition('loanPayment').calculationRole, 'authoritative-payment-record')
