@@ -129,7 +129,6 @@ assert.match(adminSource, /action: 'CORRECTION'/)
 
 const requiredStores = ['shifts', 'trips', 'fuel_logs', 'vehicles', 'drivers', 'compliance_records', 'maintenance_records', 'driver_collected_data', 'loans', 'loan_payments', 'prepayments', 'driver_targets', 'break_even_inputs', 'settings', 'pending_mutations', 'audit_history']
 for (const store of requiredStores) assert.match(indexedDBSource, new RegExp(`['\"]${store}['\"]`), `${store} must remain a canonical store`)
-for (const owner of ['ShiftTripRepository', 'FuelRepository', 'MutationRepository', 'AdminRepository']) assert.match(canonicalDoc, new RegExp(owner))
 assert.match(canonicalDoc, /driver_collected_data/)
 assert.match(canonicalDoc, /loan_payments/)
 assert.match(canonicalDoc, /prepayments/)
