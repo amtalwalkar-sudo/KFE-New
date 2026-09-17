@@ -10,12 +10,21 @@ export const configureStartupPlatform = adapter => {
 
 export const initializeApplication = async () => {
   if (!platform) throw new Error('Startup platform adapter has not been configured.')
+
+  // Critical readiness gate: canonical storage must be available and stale mutations
+  // must be recovered before business UI is considered ready.
   await platform.initializeStorage()
-  await platform.registerServiceWorker()
-  await BackupService.maybeDailyLocalBackup()
-  try { await CloudBackupLifecycle.registerDailyCloudBackupSchedule() } catch (error) { console.warn('KFE cloud backup schedule registration failed:', error) }
-  try { await CloudBackupLifecycle.maybeDailyCloudBackup() } catch (error) { console.warn('KFE cloud backup lifecycle failed:', error) }
   await MutationRepository.recoverStaleSyncing()
+
+  // Non-critical infrastructure remains part of the startup lifecycle, but must not
+  // block the first usable paint. It runs in the background after the readiness gate.
+  void platform.registerServiceWorker().catch(error => console.warn('KFE service worker registration unavailable:', error))
+  void BackupService.maybeDailyLocalBackup().catch(error => console.warn('KFE local daily backup failed:', error))
+  void (async () => {
+    try { await CloudBackupLifecycle.registerDailyCloudBackupSchedule() } catch (error) { console.warn('KFE cloud backup schedule registration failed:', error) }
+    try { await CloudBackupLifecycle.maybeDailyCloudBackup() } catch (error) { console.warn('KFE cloud backup lifecycle failed:', error) }
+  })()
+
   return { ready: true }
 }
 
