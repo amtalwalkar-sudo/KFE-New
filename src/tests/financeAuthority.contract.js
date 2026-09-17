@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { calculateEmi, deriveLoanPosition, paymentAllocationPreview, calculatePrepaymentEstimate, calculatePreBusinessRecovery } from '../domain/finance/loanEngine.js'
 
-const loan = { id: 'loan-1', principal: 12000, tenureMonths: 12, startDate: '2026-01-01T00:00:00+05:30', status: 'Active' }
-const emi = calculateEmi(loan.principal, loan.tenureMonths)
+const loan = { id: 'loan-1', principal: 12000, tenureMonths: 12, startDate: '2026-01-01T00:00:00+05:30', annualInterestRatePercent: 10, status: 'Active' }
+const emi = calculateEmi(loan.principal, loan.tenureMonths, loan.annualInterestRatePercent)
 assert.ok(emi > 1000 && emi < 1100)
 
 const empty = deriveLoanPosition({ loan, asOf: '2026-03-15T00:00:00+05:30' })
@@ -93,4 +93,4 @@ const recovery = calculatePreBusinessRecovery({
 assert.ok(recovery > 0)
 assert.equal(recovery, Math.round((empty.overdue[0].overdueAmount + empty.overdue[1].overdueAmount) / 12 * 100) / 100)
 
-console.log('Finance authority contract passed: fixed 10% rate, chronological payment allocation, zero overdue interest on due date, overdue interest, prepayment gating, tenure reduction and pre-business 12-month normalization.')
+console.log('Finance authority contract passed: explicit loan rate, chronological payment allocation, zero overdue interest on due date, overdue interest, prepayment gating, tenure reduction and pre-business 12-month normalization.')
