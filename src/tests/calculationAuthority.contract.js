@@ -40,7 +40,7 @@ assert.equal(normalized.fuelLogs[0].amount, 2200)
 assert.equal(normalized.fuelLogs[0].quantityKg, 10)
 assert.equal(normalized.maintenance[0].cost, 300)
 assert.equal(normalized.loans[0].tenureMonths, 60)
-assert.equal(normalized.loans[0].annualInterestRate, 10)
+assert.equal(normalized.loans[0].annualInterestRatePercent, 10)
 assert.equal(normalized.driverTargets[0].desiredDriverProfit, 1000)
 assert.equal(normalized.breakEvenInputs[0].maintenanceProvisionPerKm, 3)
 assert.equal('trip_start_at' in normalized.trips[0], false)
@@ -61,7 +61,6 @@ assert.equal(serviceMetrics.breakEvenRevenue, serviceMetrics.monthlyBreakEvenRev
 assert.equal(serviceMetrics.breakEvenRevenue, null)
 assert.ok(Number.isNaN(canonicalMetrics.monthlyBreakEvenRevenue))
 
-// No projection or period-mixed target gap is part of the canonical pace contract.
 const metrics = serviceMetrics
 assert.equal('projectedRevenue' in metrics, false)
 assert.equal('targetGap' in metrics.pace, false)
@@ -70,8 +69,6 @@ assert.equal(metrics.pace.requiredRevenuePerFinancialDay, metrics.target)
 assert.equal(metrics.target, null)
 assert.ok(Number.isNaN(metrics.pace.paceVariance))
 
-// Public service/API semantics: unavailable derived values are null. NaN remains
-// an internal numeric sentinel only and must not leak through this boundary.
 assert.equal(
   metrics.dailyBreakEvenRevenue,
   metrics.monthlyBreakEvenRevenue == null || metrics.driverTargetRemainingEligibleDays == null
@@ -79,7 +76,6 @@ assert.equal(
     : metrics.monthlyBreakEvenRevenue / metrics.driverTargetRemainingEligibleDays,
 )
 
-// Driver Target reconstruction is bounded by the calculation end/as-of boundary.
 const futureTrip = { id: 'future', status: 'COMPLETED', tripStartAt: '2026-09-11T09:00:00+05:30', tripEndAt: '2026-09-11T10:00:00+05:30', tripKm: 500, revenue: 99999 }
 const boundedTarget = deriveRollingDriverTarget({
   trips: [...canonical.trips, futureTrip],
@@ -100,7 +96,6 @@ const baseTarget = deriveRollingDriverTarget({
 assert.equal(boundedTarget.currentDailyTarget, baseTarget.currentDailyTarget)
 assert.equal(boundedTarget.closingBalance, baseTarget.closingBalance)
 
-// IST, not device/browser timezone, owns calendar classification.
 assert.equal(istDateKey(new Date('2026-09-10T23:00:00Z')), '2026-09-11')
 assert.equal(istDateKey(new Date('2026-09-10T17:59:59Z')), '2026-09-10')
 const currentMonth = istMonthRange(new Date('2026-09-10T12:00:00Z'), new Date('2026-09-16T12:00:00Z'))
