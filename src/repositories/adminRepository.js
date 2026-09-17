@@ -5,7 +5,7 @@ import { getAdminFormDefinition } from '../application/admin/adminFormDefinition
 import { validateAdminForm } from '../application/admin/universalFormRules.js'
 import { deriveLoanPosition, paymentAllocationPreview, calculatePrepaymentEstimate, calculateEmi } from '../domain/finance/loanEngine.js'
 
-const FORM_STORE = Object.freeze({ vehicle: 'vehicles', driver: 'drivers', compliance: 'compliance_records', maintenance: 'maintenance_records', driverCollectedData: 'driver_collected_data', shift: 'shifts', loan: 'loans', loanPayment: 'loan_payments', prepayment: 'prepayments', driverTarget: 'driver_targets', breakEvenInputs: 'break_even_inputs', backupRestore: 'settings', themes: 'settings', dataReset: 'settings' })
+const FORM_STORE = Object.freeze({ vehicle: 'vehicles', driver: 'drivers', compliance: 'compliance_records', maintenance: 'maintenance_records', driverCollectedData: 'driver_collected_data', ride: 'trips', shift: 'shifts', loan: 'loans', loanPayment: 'loan_payments', prepayment: 'prepayments', driverTarget: 'driver_targets', breakEvenInputs: 'break_even_inputs', backupRestore: 'settings', themes: 'settings', dataReset: 'settings' })
 const isSettingsForm = key => key === 'backupRestore' || key === 'themes' || key === 'dataReset'
 const isFinanceForm = key => key === 'loan' || key === 'loanPayment' || key === 'prepayment'
 const isDeleted = record => record?.deletedAt || record?.deleted === true
@@ -31,7 +31,7 @@ function toFormRecord(formKey, record) {
   }
   return { id, values: structuredClone(values), createdAt, updatedAt, ...(deletedAt ? { deletedAt } : {}), ...(deleted ? { deleted } : {}) }
 }
-const relationshipStore = Object.freeze({ compliance: [['vehicleId', 'vehicles']], maintenance: [['vehicleId', 'vehicles']], driverCollectedData: [['driverId', 'drivers'], ['vehicleId', 'vehicles']], loanPayment: [['loanId', 'loans']], prepayment: [['loanId', 'loans']], driverTarget: [['driverId', 'drivers']] })
+const relationshipStore = Object.freeze({ compliance: [['vehicleId', 'vehicles']], maintenance: [['vehicleId', 'vehicles']], driverCollectedData: [['driverId', 'drivers'], ['vehicleId', 'vehicles']], ride: [['shiftId', 'shifts']], loanPayment: [['loanId', 'loans']], prepayment: [['loanId', 'loans']], driverTarget: [['driverId', 'drivers']] })
 async function validateRelationships(db, formKey, values) {
   for (const [field, storeName] of relationshipStore[formKey] || []) {
     const id = values[field]
