@@ -97,6 +97,26 @@ All KFE calendar classification and reporting boundaries use **IST (`Asia/Kolkat
 - Presentation-specific state projection
 - Browser/UI tests that assert obsolete DOM structure
 
+## Presentation change impact warning — permanent rule
+
+KFE must not silently treat a presentation change as isolated when other components depend on it.
+
+Before moving, replacing, or materially restructuring a presentation component, the dependency impact must be inspectable. The repository provides:
+
+```bash
+npm run ui:impact -- <src/path>
+```
+
+The impact guard reports local import dependents and classifies them as:
+
+- 🟢 **ISOLATED** — no local import dependents found.
+- 🟡 **DEPENDENCY WARNING** — other presentation files depend on the item; review the complete presentation change set.
+- 🔴 **CHANGE IMPACT WARNING** — the change reaches a protected KFE layer; do not treat it as presentation-only until the dependency is reviewed.
+
+This warning mechanism is a development guard, not permission to change protected layers. A warning must never be bypassed by silently moving business logic, persistence, calculation, or repository code into the presentation layer.
+
+A presentation redesign may legitimately affect multiple presentation files. The warning exists so those effects are visible rather than silent.
+
 ## Clean Work presentation reset
 
 Work remains an active KFE product area and its domain/application capability remains authoritative. The old Work presentation implementation is not to be resurrected or copied from historical code. If Work UI is rebuilt, it must be created from the current Work contracts and the Master Blueprint.
