@@ -1,4 +1,4 @@
-import { derivePerformance as legacyDerivePerformance, previousRange } from './performanceEngineV2.js'
+import { derivePerformance as legacyDerivePerformance, previousRange as derivePreviousRange } from './performanceEngineV2.js'
 import { deriveAuthoritativeBreakEven } from './authoritativeBreakEven.js'
 import { deriveLoanPosition, calculatePreBusinessRecovery } from '../finance/loanEngine.js'
 import { istMonthRange } from '../time/ist.js'
@@ -13,10 +13,10 @@ const businessStartDate = snapshot => {
 const asOf = range => dateOf(range?.to) || new Date()
 const inRange = (value, range) => { const date = dateOf(value); return !!date && date >= range.from && date <= range.to }
 
-export function deriveFinanceAwarePerformance(snapshot, range, previousRange) {
-  const base = legacyDerivePerformance(snapshot, range, previousRange)
+export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
+  const base = legacyDerivePerformance(snapshot, range, previousPeriod)
   const currentAsOf = asOf(range)
-  const previousAsOf = asOf(previousRange)
+  const previousAsOf = asOf(previousPeriod)
   const loanRecords = live(snapshot?.loans)
   const paymentRecords = live(snapshot?.loanPayments)
   const prepaymentRecords = live(snapshot?.prepayments)
@@ -35,7 +35,7 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousRange) {
   const currentScheduledInterest = finance.schedule.filter(row => inRange(row.dueDate, range)).reduce((sum, row) => sum + money(row.originalInterestComponent), 0)
 
   const breakEvenMonthRange = istMonthRange(range?.to) || range
-  const monthlyBase = legacyDerivePerformance(snapshot, breakEvenMonthRange, previousRange(breakEvenMonthRange))
+  const monthlyBase = legacyDerivePerformance(snapshot, breakEvenMonthRange, derivePreviousRange(breakEvenMonthRange))
   const monthAsOf = asOf(breakEvenMonthRange)
   const monthFinance = deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: monthAsOf })
   const monthScheduledEmi = monthFinance.schedule
