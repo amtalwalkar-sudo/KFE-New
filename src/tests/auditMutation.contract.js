@@ -27,8 +27,9 @@ assert.equal(writes[1][1].mutationId, written.id)
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8')
 const indexedDb = read('utils/indexedDB.js')
-assert.match(indexedDb, /CANONICAL_DB_VERSION\s*=\s*9/)
+assert.match(indexedDb, /CANONICAL_DB_VERSION\s*=\s*10/)
 assert.match(indexedDb, /audit_history/)
+assert.match(indexedDb, /deleteObjectStore\('driver_collected_data'\)/)
 
 const mutationWriters = [
   'repositories/adminRepository.js',
