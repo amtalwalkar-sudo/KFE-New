@@ -97,7 +97,7 @@ All KFE calendar classification and reporting boundaries use **IST (`Asia/Kolkat
 - Presentation-specific state projection
 - Browser/UI tests that assert obsolete DOM structure
 
-## Presentation change impact warning — permanent rule
+## 🔴 CHANGE IMPACT WARNING — permanent rule
 
 KFE must not silently treat a presentation change as isolated when other components depend on it.
 
