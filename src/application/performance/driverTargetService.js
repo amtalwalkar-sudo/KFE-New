@@ -4,6 +4,7 @@ import { deriveFinanceAwarePerformance } from '../../domain/performance/financeP
 import { deriveRollingDriverTarget } from '../../domain/performance/driverTargetStabilization.js'
 import { istMonthRange } from '../../domain/time/ist.js'
 import { normalizeCalculationSnapshot } from './normalizeCalculationSnapshot.js'
+import { previousRange } from '../../domain/performance/performanceEngineV2.js'
 
 const monthlyBreakEvenCacheFor = snapshot => {
   const cache = new Map()
@@ -12,7 +13,7 @@ const monthlyBreakEvenCacheFor = snapshot => {
     if (!monthRange) return null
     const key = monthRange.from.toISOString().slice(0, 7)
     if (cache.has(key)) return cache.get(key)
-    const metrics = deriveFinanceAwarePerformance(snapshot, monthRange, null)
+    const metrics = deriveFinanceAwarePerformance(snapshot, monthRange, previousRange(monthRange))
     const value = Number.isFinite(metrics.monthlyBreakEvenRevenue) ? metrics.monthlyBreakEvenRevenue : null
     cache.set(key, value)
     return value
@@ -22,11 +23,11 @@ const monthlyBreakEvenCacheFor = snapshot => {
 export const DriverTargetService = Object.freeze({
   async getTarget(asOf = new Date()) {
     const snapshot = normalizeCalculationSnapshot(await PerformanceRepository.getSnapshot())
-    const range = istMonthRange(asOf)
-    if (!range) return { available: false, target: null, reason: 'INVALID_TARGET_DATE' }
     const monthRange = istMonthRange(asOf, asOf)
-    const targetTo = new Date(Math.min(monthRange.to.getTime(), new Date(asOf).getTime()))
-    const metrics = deriveFinanceAwarePerformance(snapshot, range, null)
+    if (!monthRange) return { available: false, target: null, reason: 'INVALID_TARGET_DATE' }
+    const asOfDate = new Date(asOf)
+    const targetTo = new Date(Math.min(monthRange.to.getTime(), asOfDate.getTime()))
+    const metrics = deriveFinanceAwarePerformance(snapshot, monthRange, previousRange(monthRange))
     const monthlyBreakEvenRevenue = Number.isFinite(metrics.monthlyBreakEvenRevenue) ? metrics.monthlyBreakEvenRevenue : null
     const stabilization = deriveRollingDriverTarget({
       trips: snapshot?.trips,
