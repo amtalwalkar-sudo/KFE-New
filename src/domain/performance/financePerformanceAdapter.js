@@ -1,6 +1,7 @@
-import { derivePerformance as legacyDerivePerformance } from './performanceEngineV2.js'
+import { derivePerformance as legacyDerivePerformance, previousRange } from './performanceEngineV2.js'
 import { deriveAuthoritativeBreakEven } from './authoritativeBreakEven.js'
 import { deriveLoanPosition, calculatePreBusinessRecovery } from '../finance/loanEngine.js'
+import { istMonthRange } from '../time/ist.js'
 
 const live = records => (records || []).filter(record => !record?.deletedAt && record?.deleted !== true)
 const dateOf = value => { const date = value ? new Date(value) : null; return date && !Number.isNaN(date.getTime()) ? date : null }
@@ -33,14 +34,7 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousRange) {
   const currentScheduledEmi = finance.schedule.filter(row => inRange(row.dueDate, range)).reduce((sum, row) => sum + money(row.originalEmiAmount), 0)
   const currentScheduledInterest = finance.schedule.filter(row => inRange(row.dueDate, range)).reduce((sum, row) => sum + money(row.originalInterestComponent), 0)
 
-  const breakEvenMonthRange = dateOf(range?.to)
-    ? (() => {
-        const month = new Date(range.to)
-        const from = new Date(month.getFullYear(), month.getMonth(), 1)
-        const to = new Date(month.getFullYear(), month.getMonth() + 1, 0, 23, 59, 59, 999)
-        return { from, to }
-      })()
-    : range
+  const breakEvenMonthRange = istMonthRange(range?.to) || range
   const monthlyBase = legacyDerivePerformance(snapshot, breakEvenMonthRange, previousRange(breakEvenMonthRange))
   const monthAsOf = asOf(breakEvenMonthRange)
   const monthFinance = deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: monthAsOf })
