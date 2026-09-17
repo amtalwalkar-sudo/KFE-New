@@ -2,12 +2,16 @@ import { initializeCanonicalStorage, notifyCanonicalDataChanged } from '../utils
 import { generateUUID } from '../utils/uuid.js'
 import { writeMutationAndAudit } from './mutationRepository.js'
 import { normalizeFuelInput } from '../domain/canonicalNormalization.js'
+import { validateFuelEntry } from '../domain/work/fuel.js'
 
 export const FuelRepository = {
   async create(fuelData) {
     const db = await initializeCanonicalStorage()
     const normalized = normalizeFuelInput(fuelData)
     for (const field of ['odometer', 'pricePerKg', 'amount', 'quantityKg']) if (!Number.isFinite(Number(normalized[field]))) throw new Error(`${field} must be a finite number.`)
+    const validation = validateFuelEntry({ odometer: normalized.odometer, pricePerKg: normalized.pricePerKg, amount: normalized.amount, isFullTank: normalized.isFullTank })
+    if (!validation.valid) throw new Error(validation.reason)
+    if (Math.abs(Number(validation.quantityKg) - Number(normalized.quantityKg)) > 1e-9) throw new Error('FUEL_QUANTITY_MISMATCH')
     const now = new Date().toISOString()
     const fuelRecord = {
       id: normalized.id || generateUUID(), odometer: Number(normalized.odometer), pricePerKg: Number(normalized.pricePerKg), amount: Number(normalized.amount), quantityKg: Number(normalized.quantityKg), isFullTank: normalized.isFullTank !== false,
