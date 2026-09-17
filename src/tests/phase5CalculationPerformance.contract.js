@@ -18,8 +18,8 @@ assert.doesNotMatch(serviceSource, /function\s+deriveAuthoritativeBreakEven/)
 assert.doesNotMatch(serviceSource, /function\s+deriveRollingDriverTarget/)
 
 const snapshot = {
-  trips: [{ id:'t1', status:'COMPLETED', tripStartAt:'2026-09-10T09:00:00Z', tripEndAt:'2026-09-10T12:00:00Z', tripKm:150, revenue:1000 }],
-  shifts: [{ id:'s1', shiftStartAt:'2026-09-10T08:00:00Z', shiftEndAt:'2026-09-10T18:00:00Z', startOdometer:1000, endOdometer:1200, toll:100, parking:50 }],
+  trips: [{ id:'t1', status:'COMPLETED', tripStartAt:'2026-09-10T09:00:00Z', tripEndAt:'2026-09-10T12:00:00Z', tripKm:150, revenue:1 }],
+  shifts: [{ id:'s1', shiftStartAt:'2026-09-10T08:00:00Z', shiftEndAt:'2026-09-10T18:00:00Z', startOdometer:1000, endOdometer:1200, toll:100, parking:50, revenue:1000 }],
   fuelLogs: [
     { capturedAt:'2026-09-04T18:00:00Z', odometer:600, quantityKg:10, amount:2000 },
     { capturedAt:'2026-09-05T18:00:00Z', odometer:800, quantityKg:10, amount:2000 },
@@ -55,11 +55,8 @@ assert.equal(service.target, service.driverTarget)
 assert.ok(Number.isFinite(service.breakEvenRevenue))
 assert.ok(Number.isFinite(service.driverTarget))
 
-// PerformanceEngineV2 remains the lower-level integration consumer of the sole monthly
-// break-even authority. The service now reaches that authority through the finance-aware adapter.
 assert.ok(Math.abs(engine.monthlyBreakEvenRevenue - service.monthlyBreakEvenRevenue) < 1e-12)
 
-// Reproduce the exact calendar-month/as-of boundary supplied by PerformanceService.
 const targetMonthRange = istMonthRange(range.to)
 const stabilizationFrom = targetMonthRange?.from || range.from
 const stabilizationTo = targetMonthRange
