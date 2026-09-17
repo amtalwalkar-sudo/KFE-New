@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process'
 const preview = spawn('npm', ['run', 'preview', '--', '--host', '127.0.0.1'], {
   stdio: ['ignore', 'pipe', 'pipe'],
   env: { ...process.env, BROWSER: 'none' },
+  detached: true,
 })
 
 let output = ''
@@ -20,6 +21,19 @@ const waitForPreview = async () => {
     await new Promise(resolve => setTimeout(resolve, 250))
   }
   throw new Error(`Vite preview did not become ready. Output:\n${output}`)
+}
+
+const stopPreview = async () => {
+  if (!preview.pid) return
+  try {
+    process.kill(-preview.pid, 'SIGTERM')
+  } catch (_) {
+    try { preview.kill('SIGTERM') } catch (_) {}
+  }
+  await new Promise(resolve => setTimeout(resolve, 500))
+  try {
+    process.kill(-preview.pid, 'SIGKILL')
+  } catch (_) {}
 }
 
 let browser = null
@@ -46,5 +60,5 @@ try {
   console.log('GitHub Pages runtime smoke passed: built PWA loads, Vue mounts, startup completes, and the Work shell renders.')
 } finally {
   await browser?.close()
-  preview.kill('SIGTERM')
+  await stopPreview()
 }
