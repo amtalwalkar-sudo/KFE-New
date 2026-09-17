@@ -133,14 +133,15 @@ assert.match(adminSource, /action: 'CORRECTION'/)
 
 const requiredStores = ['shifts', 'trips', 'fuel_logs', 'vehicles', 'drivers', 'compliance_records', 'maintenance_records', 'loans', 'loan_payments', 'prepayments', 'driver_targets', 'break_even_inputs', 'settings', 'pending_mutations', 'audit_history']
 for (const store of requiredStores) assert.match(indexedDBSource, new RegExp(`['\"]${store}['\"]`), `${store} must remain a canonical store`)
-assert.doesNotMatch(indexedDBSource, /driver_collected_data/)
+assert.doesNotMatch(indexedDBSource, /createSimpleStore\(db, 'driver_collected_data'/)
+assert.match(indexedDBSource, /deleteObjectStore\('driver_collected_data'\)/)
 assert.equal(CANONICAL_BACKUP_STORES.includes('driver_collected_data'), false)
 assert.equal(BACKUP_FORMAT_VERSION, 3)
-assert.match(backupSource, /formatVersion === 2/) 
+assert.match(backupSource, /formatVersion === 2/)
 assert.match(backupSource, /driver_collected_data: _removed/)
 assert.match(canonicalDoc, /driver_collected_data is not part of the current canonical model/)
 assert.match(canonicalDoc, /database migration from version 9 to version 10 explicitly removes the obsolete store/)
-assert.match(canonicalDoc, /Backup format version 3/) 
+assert.match(canonicalDoc, /Backup format version 3/)
 
 const legacyV2Stores = Object.fromEntries([
   ...CANONICAL_BACKUP_STORES.slice(0, 11).map(store => [store, []]),
