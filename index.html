@@ -9,7 +9,26 @@
     <link rel="manifest" href="./manifest.json" />
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <div id="kfe-boot" style="min-height:100vh;display:grid;place-items:center;padding:24px;box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif;color:#0f172a;background:#f8fafc;text-align:center">
+        <div>
+          <strong style="display:block;font-size:1.05rem">Kanishka Enterprises</strong>
+          <span style="display:block;margin-top:6px;color:#64748b">Starting KFE…</span>
+        </div>
+      </div>
+    </div>
+    <script>
+      (() => {
+        const showBootError = (error) => {
+          const root = document.getElementById('kfe-boot')
+          if (!root) return
+          const message = error?.message || String(error || 'Unknown startup error')
+          root.innerHTML = `<div><strong style="display:block;font-size:1.05rem;color:#991b1b">KFE could not start</strong><pre style="margin-top:10px;max-width:680px;white-space:pre-wrap;text-align:left;background:#fff1f2;padding:12px;border-radius:8px;overflow:auto;font:12px/1.5 ui-monospace,monospace">${message.replace(/[&<>\"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[character]))}</pre><button onclick="location.reload()" style="min-height:44px;padding:10px 16px;border:0;border-radius:8px;background:#2563eb;color:white;font-weight:700">Reload</button></div>`
+        }
+        window.addEventListener('error', event => showBootError(event.error || event.message))
+        window.addEventListener('unhandledrejection', event => showBootError(event.reason))
+      })()
+    </script>
     <script type="module" src="./src/main.js"></script>
   </body>
 </html>
