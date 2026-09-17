@@ -60,9 +60,16 @@ export const PerformanceService = Object.freeze({
     const dailyBreakEvenRevenue = authoritativeMonthlyBreakEven != null && Number.isFinite(stabilization.remainingEligibleDays)
       ? authoritativeMonthlyBreakEven / stabilization.remainingEligibleDays
       : null
+    const financialDays = Number.isFinite(stabilization.financialDays) ? stabilization.financialDays : 0
+    const revenuePerFinancialDay = financialDays > 0 ? metrics.revenue / financialDays : NaN
 
     return {
       ...metrics,
+      counts: {
+        ...metrics.counts,
+        activeFinancialDays: financialDays,
+      },
+      revenuePerActiveDay: revenuePerFinancialDay,
       breakEvenRevenue: authoritativeMonthlyBreakEven,
       target: canonicalTarget,
       monthlyBreakEvenRevenue: authoritativeMonthlyBreakEven,
@@ -88,10 +95,10 @@ export const PerformanceService = Object.freeze({
       driverTargetAllocatedBeforeCurrentDay: stabilization.targetAllocatedBeforeCurrentDay,
       driverTargetRemainingObligation: stabilization.remainingObligation,
       pace: {
-        currentRevenuePerFinancialDay: metrics.revenuePerActiveDay,
+        currentRevenuePerFinancialDay: revenuePerFinancialDay,
         requiredRevenuePerFinancialDay: canonicalTarget,
-        paceVariance: Number.isFinite(metrics.revenuePerActiveDay) && Number.isFinite(canonicalTarget)
-          ? metrics.revenuePerActiveDay - canonicalTarget
+        paceVariance: Number.isFinite(revenuePerFinancialDay) && Number.isFinite(canonicalTarget)
+          ? revenuePerFinancialDay - canonicalTarget
           : NaN,
       },
     }
