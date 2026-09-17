@@ -15,7 +15,7 @@ required('driverTarget', ['driverId','effectiveFrom','desiredDriverProfit'])
 required('breakEvenInputs', ['effectiveFrom','maintenanceProvisionPerKm'])
 requiredField('driverTarget', 'desiredDriverProfit')
 
-assert.equal(getAdminFormDefinition('driverCollectedData').calculationRole, 'supporting-only')
+assert.equal(getAdminFormDefinition('driverCollectedData'), null)
 assert.equal(getAdminFormDefinition('shift').calculationRole, 'authoritative-source-correction')
 assert.equal(getAdminFormDefinition('loan').calculationRole, 'authoritative')
 assert.equal(getAdminFormDefinition('loanPayment').calculationRole, 'authoritative-payment-record')
