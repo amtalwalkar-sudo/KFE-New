@@ -38,7 +38,7 @@ export const OperationalRecordService = {
       FuelRepository.getAll()
     ])
     const completed = completedTrips(trips)
-    const revenue = completed.reduce((sum, trip) => sum + (Number.isFinite(Number(trip.revenue)) ? Number(trip.revenue) : 0), 0)
+    const revenue = Number.isFinite(Number(shift.revenue)) ? Number(shift.revenue) : 0
     const businessKm = completed.reduce((sum, trip) => sum + (Number.isFinite(Number(trip.tripKm)) ? Number(trip.tripKm) : 0), 0)
     const vehicleKm = shift.endOdometer == null ? null : finiteNonNegative(Number(shift.endOdometer) - Number(shift.startOdometer), 'vehicleKm')
     const deadKm = vehicleKm == null ? null : vehicleKm - businessKm
