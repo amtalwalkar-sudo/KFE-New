@@ -31,7 +31,8 @@ Compatibility aliases are accepted at the normalization boundary only. Domain ca
 
 | Concept | Persisted source of truth | Canonical domain field/result | Calculation owner | Period/unit | UI rule |
 |---|---|---|---|---|---|
-| Revenue | `trips` | `revenue` | `performanceEngineV2` | ₹ / selected reporting period | Display only |
+| Revenue | `shifts.revenue` at shift completion | `revenue` | `authoritativeRevenue` / performance domain | ₹ / selected reporting period | Display only |
+| Trip revenue detail | `trips.revenue` | supporting trip revenue detail | Trip/Ride repository | ₹ / trip | Never used as ERP revenue authority |
 | Vehicle KM | `shifts.startOdometer/endOdometer` | `vehicleKm` | `performanceEngineV2` | km / selected reporting period | Display only |
 | Business KM | completed `trips.tripKm` | `businessKm` | `performanceEngineV2` | km / selected reporting period | Display only |
 | Dead KM | derived | `deadKm = vehicleKm - businessKm` | `performanceEngineV2` | km / selected reporting period | Display only |
@@ -60,7 +61,7 @@ Compatibility aliases are accepted at the normalization boundary only. Domain ca
 | Pace variance | actual pace − current Driver Target | `paceVariance` | performance service | ₹ / financial day | Display only |
 | Projection | **Not an authority and not required for Driver Target** | removed from target/pace contract | none | n/a | Do not display as target logic |
 
-**Authority identifier:** `AUTHORITATIVE_MONTHLY_BREAK_EVEN` is the canonical ownership marker for the monthly break-even result.
+**Authority identifier:** `SHIFT_END_REVENUE` is the canonical ownership marker for operational revenue. `AUTHORITATIVE_MONTHLY_BREAK_EVEN` remains the ownership marker for monthly break-even.
 
 ## Period rules
 
