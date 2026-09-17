@@ -5,7 +5,7 @@ import { getAdminFormDefinition } from '../application/admin/adminFormDefinition
 import { validateAdminForm } from '../application/admin/universalFormRules.js'
 import { deriveLoanPosition, paymentAllocationPreview, calculatePrepaymentEstimate, calculateEmi } from '../domain/finance/loanEngine.js'
 
-const FORM_STORE = Object.freeze({ vehicle: 'vehicles', driver: 'drivers', compliance: 'compliance_records', maintenance: 'maintenance_records', driverCollectedData: 'driver_collected_data', ride: 'trips', shift: 'shifts', loan: 'loans', loanPayment: 'loan_payments', prepayment: 'prepayments', driverTarget: 'driver_targets', breakEvenInputs: 'break_even_inputs', backupRestore: 'settings', themes: 'settings', dataReset: 'settings' })
+const FORM_STORE = Object.freeze({ vehicle: 'vehicles', driver: 'drivers', compliance: 'compliance_records', maintenance: 'maintenance_records', ride: 'trips', shift: 'shifts', loan: 'loans', loanPayment: 'loan_payments', prepayment: 'prepayments', driverTarget: 'driver_targets', breakEvenInputs: 'break_even_inputs', backupRestore: 'settings', themes: 'settings', dataReset: 'settings' })
 const isSettingsForm = key => key === 'backupRestore' || key === 'themes' || key === 'dataReset'
 const isFinanceForm = key => key === 'loan' || key === 'loanPayment' || key === 'prepayment'
 const isDeleted = record => record?.deletedAt || record?.deleted === true
@@ -32,7 +32,7 @@ function toFormRecord(formKey, record) {
   }
   return { id, values: structuredClone(values), createdAt, updatedAt, ...(deletedAt ? { deletedAt } : {}), ...(deleted ? { deleted } : {}) }
 }
-const relationshipStore = Object.freeze({ compliance: [['vehicleId', 'vehicles']], maintenance: [['vehicleId', 'vehicles']], driverCollectedData: [['driverId', 'drivers'], ['vehicleId', 'vehicles']], ride: [['shiftId', 'shifts']], loanPayment: [['loanId', 'loans']], prepayment: [['loanId', 'loans']], driverTarget: [['driverId', 'drivers']] })
+const relationshipStore = Object.freeze({ compliance: [['vehicleId', 'vehicles']], maintenance: [['vehicleId', 'vehicles']], ride: [['shiftId', 'shifts']], loanPayment: [['loanId', 'loans']], prepayment: [['loanId', 'loans']], driverTarget: [['driverId', 'drivers']] })
 async function validateRelationships(db, formKey, values) {
   for (const [field, storeName] of relationshipStore[formKey] || []) {
     const id = values[field]
@@ -51,19 +51,16 @@ async function prepareFinanceValues(formKey, values, existingId) {
     if (!(principal > 0) || !(tenureMonths > 0) || !Number.isFinite(annualInterestRatePercent) || annualInterestRatePercent < 0 || !startDate) throw new Error('Loan amount, interest rate, tenure and start date are required.')
     return { ...values, principal, tenureMonths, annualInterestRatePercent, emi: calculateEmi(principal, tenureMonths, annualInterestRatePercent), status: values.status || 'Active' }
   }
-
   const loans = (await readAll('loans')).filter(record => !isDeleted(record))
   const payments = (await readAll('loan_payments')).filter(record => !isDeleted(record))
   const prepayments = (await readAll('prepayments')).filter(record => !isDeleted(record))
   const loan = loans.find(record => record.id === values.loanId)
   if (!loan) throw new Error('The selected loan does not exist.')
-
   if (formKey === 'loanPayment') {
     const preview = paymentAllocationPreview({ loan, payments: existingId ? payments.filter(payment => payment.id !== existingId) : payments, prepayments, amount: Number(values.amount), paidOn: values.paidOn })
     if (!preview.available) throw new Error(preview.reason === 'PAYMENT_EXCEEDS_EMI_OBLIGATIONS' ? 'Payment exceeds the payable EMI obligations. Record the excess separately as a prepayment after overdue obligations are settled.' : preview.reason)
     return { ...values, status: 'PAID', allocatedAmount: preview.allocatedAmount, allocations: preview.allocations }
   }
-
   const position = deriveLoanPosition({ loan, payments, prepayments, asOf: values.paidOn })
   if (position.totalOverdue > 0.005) throw new Error(`Prepayment is blocked until all overdue EMIs are settled. Current overdue: ₹${position.totalOverdue.toFixed(2)}.`)
   const estimate = calculatePrepaymentEstimate({ loan, payments, prepayments, amount: Number(values.amount), paidOn: values.paidOn })
@@ -71,7 +68,6 @@ async function prepareFinanceValues(formKey, values, existingId) {
   if (estimate.appliedAmount <= 0) throw new Error('Prepayment amount must be greater than zero.')
   return { ...values, amount: estimate.appliedAmount, outstandingBefore: estimate.outstandingBefore, outstandingAfter: estimate.outstandingAfter, effect: estimate.effect === 'CLOSE_LOAN' ? 'Close loan' : 'Reduce tenure', status: 'Applied' }
 }
-
 export const AdminRepository = {
   async list(formKey) { const records = await readAll(storeFor(formKey)); return records.filter(record => !isDeleted(record) && (!isSettingsForm(formKey) || record.settingKey === formKey)).map(record => toFormRecord(formKey, record)).sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''))) },
   async get(formKey, id) { return toFormRecord(formKey, await readOne(storeFor(formKey), id)) },
