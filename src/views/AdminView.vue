@@ -7,7 +7,7 @@ import { AdminService } from '../application/admin/adminService.js'
 import { BackupService } from '../application/backup/backupService.js'
 
 const groups = [
-  { key: 'operations', title: 'Operations', icon: '◉', forms: ['vehicle', 'driver', 'compliance', 'maintenance', 'driverCollectedData'] },
+  { key: 'operations', title: 'Operations', icon: '◉', forms: ['vehicle', 'driver', 'compliance', 'maintenance', 'driverCollectedData', 'shift'] },
   { key: 'finance', title: 'Finance', icon: '₹', forms: ['loan', 'loanPayment', 'prepayment'] },
   { key: 'targetBreakEven', title: 'Planning', icon: '⌁', forms: ['driverTarget', 'breakEvenInputs'] }
 ]
@@ -28,6 +28,7 @@ const error = ref('')
 const notice = ref('')
 const baseDefinition = computed(() => ADMIN_FORM_DEFINITIONS[selected.value])
 const currentGroup = computed(() => groups.find(group => group.forms.includes(selected.value)))
+const shiftCorrectionOnly = computed(() => selected.value === 'shift')
 const all = ref({ vehicle: [], driver: [], loan: [] })
 const activeDefinition = computed(() => {
   const definition = structuredClone(baseDefinition.value)
@@ -46,7 +47,9 @@ function label(key, record) {
       ? value.name || record.id
       : key === 'loan'
         ? [value.lender, value.accountReference].filter(Boolean).join(' · ') || record.id
-        : record.id
+        : key === 'shift'
+          ? `${value.status || 'Shift'} · ${value.shiftEndAt || value.shiftStartAt || record.id}`
+          : record.id
 }
 function display(value) {
   for (const key of ['vehicle', 'driver', 'loan']) {
@@ -152,7 +155,7 @@ onMounted(load)
     <section class="workspace">
       <div class="workspace-head">
         <div><div class="section-label">{{ currentGroup?.title }}</div><h2>{{ baseDefinition.title }}</h2></div>
-        <button class="primary" @click="add"><span>＋</span> New record</button>
+        <button v-if="!shiftCorrectionOnly" class="primary" @click="add"><span>＋</span> New record</button>
       </div>
 
       <nav class="record-tabs" :aria-label="`${currentGroup?.title} sub menu`">
@@ -161,16 +164,17 @@ onMounted(load)
 
       <p v-if="error" class="message error">{{ error }}</p>
       <p v-if="notice" class="message notice">✓ {{ notice }}</p>
+      <p v-if="shiftCorrectionOnly" class="message notice">Work creates shifts. Admin only corrects shift-level revenue, toll, parking and personal allocations here.</p>
 
       <UniversalAdminForm v-if="formOpen" :definition="activeDefinition" :model-value="draft" @update:model-value="draft = $event" @submit="save" @cancel="formOpen = false; editing = null; draft = {}" :submit-label="editing !== null ? 'Update record' : 'Save record'" />
       <div v-else-if="loading" class="empty-state"><span class="spinner"></span><strong>Loading records…</strong></div>
       <div v-else-if="records.length" class="record-list">
         <article v-for="record in records" :key="record.id" class="record">
           <div class="record-main"><div class="record-title"><strong>{{ label(selected, record) }}</strong><span class="record-status">Source record</span></div><small>Updated {{ record.updatedAt || '—' }}</small><div class="chips"><span v-for="(value, key) in record.values" v-if="value !== '' && value !== null && value !== undefined && key !== 'notes'" :key="key">{{ display(value) }}</span></div></div>
-          <div class="actions"><button @click="edit(record)">Edit</button><button class="delete" @click="remove(record)">Delete</button></div>
+          <div class="actions"><button @click="edit(record)">Edit</button><button v-if="!shiftCorrectionOnly" class="delete" @click="remove(record)">Delete</button></div>
         </article>
       </div>
-      <div v-else class="empty-state"><div class="empty-icon">＋</div><strong>No {{ baseDefinition.title }} records yet</strong><span>Create the first authoritative source record for this section.</span><button class="primary" @click="add">Create {{ baseDefinition.title }}</button></div>
+      <div v-else class="empty-state"><div class="empty-icon">＋</div><strong>No {{ baseDefinition.title }} records yet</strong><span>{{ shiftCorrectionOnly ? 'Shifts are created from Work and become editable here after they exist.' : `Create the first authoritative source record for this section.` }}</span><button v-if="!shiftCorrectionOnly" class="primary" @click="add">Create {{ baseDefinition.title }}</button></div>
     </section>
   </template>
 
