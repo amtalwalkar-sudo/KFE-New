@@ -6,6 +6,7 @@ const live = records => (records || []).filter(record => !record?.deletedAt && r
 const dateOf = value => { const date = value ? new Date(value) : null; return date && !Number.isNaN(date.getTime()) ? date : null }
 const roundMoney = value => Math.round(finite(value) * 100) / 100
 const dayCount = (from, to) => Math.max(1, Math.ceil((to - from) / 86400000))
+const overdueDayCount = (from, to) => Math.max(0, Math.ceil((to - from) / 86400000))
 const addMonths = (date, months) => { const result = new Date(date); const day = result.getDate(); result.setDate(1); result.setMonth(result.getMonth() + months); const last = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate(); result.setDate(Math.min(day, last)); return result }
 
 export const KFE_LOAN_ANNUAL_RATE_PERCENT = 10
@@ -94,7 +95,6 @@ function allocationState(schedule, payments, asOf) {
     scheduledPrincipalPaid: 0,
     allocations: [],
   }))
-  const byId = new Map(rows.map(row => [row.id, row]))
   const orderedPayments = live(payments)
     .filter(payment => payment.loanId === schedule[0]?.loanId && String(payment.status || '').toLowerCase() !== 'reversed')
     .filter(payment => dateOf(payment.paidOn))
@@ -108,7 +108,7 @@ function allocationState(schedule, payments, asOf) {
       if (remaining <= 0 || dateOf(row.dueDate) > paymentDate) continue
       const unpaidInterest = Math.max(0, row.originalInterestComponent - row.scheduledInterestPaid)
       const unpaidPrincipal = Math.max(0, row.originalPrincipalComponent - row.scheduledPrincipalPaid)
-      const overdueDays = Math.max(0, dayCount(dateOf(row.dueDate), paymentDate))
+      const overdueDays = overdueDayCount(dateOf(row.dueDate), paymentDate)
       const additionalOverdueInterest = roundMoney(unpaidInterest * KFE_LOAN_ANNUAL_RATE * overdueDays / DAYS_IN_YEAR)
       const alreadyOverduePaid = row.overdueInterestPaid
       const overdueDue = Math.max(0, additionalOverdueInterest - alreadyOverduePaid)
@@ -146,7 +146,7 @@ export function deriveLoanPosition({ loan, payments = [], prepayments = [], asOf
     .map(row => {
       const unpaidInterest = Math.max(0, row.originalInterestComponent - row.scheduledInterestPaid)
       const unpaidPrincipal = Math.max(0, row.originalPrincipalComponent - row.scheduledPrincipalPaid)
-      const overdueDays = Math.max(0, dayCount(dateOf(row.dueDate), effectiveAsOf))
+      const overdueDays = overdueDayCount(dateOf(row.dueDate), effectiveAsOf)
       const additionalOverdueInterest = roundMoney(unpaidInterest * KFE_LOAN_ANNUAL_RATE * overdueDays / DAYS_IN_YEAR)
       const unpaidOverdueInterest = Math.max(0, additionalOverdueInterest - row.overdueInterestPaid)
       return { ...row, overdueDays, additionalOverdueInterest, unpaidPrincipal, unpaidScheduledInterest: unpaidInterest, overdueAmount: roundMoney(unpaidPrincipal + unpaidInterest + unpaidOverdueInterest) }
