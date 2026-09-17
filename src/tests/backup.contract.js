@@ -25,9 +25,17 @@ assert.throws(() => BackupService.validateBackup(badId), /invalid record/)
 const serialized = BackupService.serializeBackup(withRecord)
 assert.equal(typeof serialized, 'string')
 assert.deepEqual(BackupService.validateBackup(serialized), withRecord)
-const legacyV1 = structuredClone(valid); legacyV1.formatVersion = 1; legacyV1.source.dbVersion = 8; delete legacyV1.stores.audit_history
-assert.equal(BackupService.validateBackup(legacyV1).formatVersion, BACKUP_FORMAT_VERSION)
-assert.equal(BackupService.validateBackup(legacyV1).stores.audit_history.length, 0)
+const legacyV1Stores = Object.fromEntries([
+  ...CANONICAL_BACKUP_STORES.filter(store => store !== 'audit_history').slice(0, 11).map(store => [store, []]),
+  ['driver_collected_data', []],
+  ...CANONICAL_BACKUP_STORES.filter(store => store !== 'audit_history').slice(11).map(store => [store, []]),
+])
+const legacyV1 = { format: BACKUP_FORMAT, formatVersion: 1, source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: 8 }, exportedAt: valid.exportedAt, stores: legacyV1Stores }
+const migratedV1 = BackupService.validateBackup(legacyV1)
+assert.equal(migratedV1.formatVersion, BACKUP_FORMAT_VERSION)
+assert.equal(migratedV1.source.dbVersion, 10)
+assert.equal('driver_collected_data' in migratedV1.stores, false)
+assert.deepEqual(migratedV1.stores.audit_history, [])
 const legacyV2 = structuredClone(emptyStores)
 legacyV2.driver_collected_data = []
 const legacyV2Backup = { format: BACKUP_FORMAT, formatVersion: 2, source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: 9 }, exportedAt: valid.exportedAt, stores: legacyV2 }
