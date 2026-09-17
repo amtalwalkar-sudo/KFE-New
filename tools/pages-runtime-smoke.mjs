@@ -22,9 +22,10 @@ const waitForPreview = async () => {
   throw new Error(`Vite preview did not become ready. Output:\n${output}`)
 }
 
+let browser = null
 try {
   await waitForPreview()
-  const browser = await chromium.launch({ headless: true })
+  browser = await chromium.launch({ headless: true })
   const page = await browser.newPage()
   const errors = []
   const failedRequests = []
@@ -32,7 +33,7 @@ try {
   page.on('pageerror', error => errors.push(error.stack || error.message))
   page.on('requestfailed', request => failedRequests.push(`${request.method()} ${request.url()} — ${request.failure()?.errorText || 'request failed'}`))
 
-  const response = await page.goto('http://127.0.0.1:4173/KFE-New/', { waitUntil: 'networkidle', timeout: 30000 })
+  const response = await page.goto('http://127.0.0.1:4173/KFE-New/', { waitUntil: 'domcontentloaded', timeout: 30000 })
   if (!response?.ok()) throw new Error(`Pages entry response was not successful: ${response?.status()}`)
 
   await page.locator('header.top-bar').waitFor({ state: 'visible', timeout: 15000 })
@@ -42,8 +43,8 @@ try {
   if (errors.length) throw new Error(`Browser runtime errors:\n${errors.join('\n\n')}`)
   if (failedRequests.length) throw new Error(`Failed browser requests:\n${failedRequests.join('\n')}`)
 
-  await browser.close()
   console.log('GitHub Pages runtime smoke passed: built PWA loads, Vue mounts, startup completes, and the Work shell renders.')
 } finally {
+  await browser?.close()
   preview.kill('SIGTERM')
 }
