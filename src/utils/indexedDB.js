@@ -1,5 +1,5 @@
 const CANONICAL_DB_NAME = 'kanishka_kfe_canonical_db'
-const CANONICAL_DB_VERSION = 9
+const CANONICAL_DB_VERSION = 10
 const CANONICAL_DB_CHANGE_EVENT = 'kfe:canonical-data-changed'
 const CANONICAL_DB_CHANNEL = 'kfe-canonical-db-changes'
 
@@ -56,7 +56,6 @@ export const openCanonicalDB = () => new Promise((resolve, reject) => {
     createSimpleStore(db, 'drivers', ['status', 'name'])
     createSimpleStore(db, 'compliance_records', ['vehicleId', 'complianceType', 'validUntil'])
     createSimpleStore(db, 'maintenance_records', ['vehicleId', 'performedOn'])
-    createSimpleStore(db, 'driver_collected_data', ['driverId', 'vehicleId', 'recordedOn'])
     createSimpleStore(db, 'loans', ['status', 'startDate'])
     createSimpleStore(db, 'loan_payments', ['loanId', 'paidOn', 'status'])
     createSimpleStore(db, 'prepayments', ['loanId', 'paidOn'])
@@ -64,6 +63,7 @@ export const openCanonicalDB = () => new Promise((resolve, reject) => {
     createSimpleStore(db, 'break_even_inputs', ['effectiveFrom'])
     createSimpleStore(db, 'settings', ['settingKey', 'updatedAt'])
     createSimpleStore(db, 'audit_history', ['entityId', 'entityType', 'action', 'createdAt'])
+    if (db.objectStoreNames.contains('driver_collected_data')) db.deleteObjectStore('driver_collected_data')
     if (db.objectStoreNames.contains('admin_records')) db.deleteObjectStore('admin_records')
     if (db.objectStoreNames.contains('financial_inputs')) db.deleteObjectStore('financial_inputs')
   }
