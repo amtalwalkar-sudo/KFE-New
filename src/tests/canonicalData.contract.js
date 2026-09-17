@@ -20,17 +20,15 @@ const normalizationSource = read('src/domain/canonicalNormalization.js')
 const formRulesSource = read('src/application/admin/universalFormRules.js')
 const breakEvenSource = read('src/domain/performance/authoritativeBreakEven.js')
 const targetSource = read('src/domain/performance/driverTargetStabilization.js')
+const financeAdapterSource = read('src/domain/performance/financePerformanceAdapter.js')
 const authorityDoc = read('docs/CALCULATION-AUTHORITY-MATRIX.md')
 const canonicalDoc = read('docs/KFE-CANONICAL-DATA-CONTRACT.md')
 
-// Identity: canonical persistence uses stable client-generated UUIDs.
 assert.match(adminSource, /existing\?\.id \|\| generateUUID\(\)/)
 assert.match(shiftTripSource, /normalized\.id \|\| generateUUID\(\)/)
 assert.match(fuelSource, /normalized\.id \|\| generateUUID\(\)/)
 assert.match(mutationSource, /id: generateUUID\(\)/)
 
-// IST boundary: true instants and business dates are distinct; date-only
-// comparisons must be calendar based rather than UTC-midnight based.
 assert.equal(istDateKey(new Date('2026-09-10T17:59:59Z')), '2026-09-10')
 assert.equal(istDateKey(new Date('2026-09-10T18:30:00Z')), '2026-09-11')
 assert.equal(istDateKey('2026-09-10'), '2026-09-10')
@@ -39,7 +37,6 @@ assert.match(canonicalDoc, /Date-only values must not be converted through UTC m
 assert.match(breakEvenSource, /istDateKey/)
 assert.match(targetSource, /effectiveDateKey = x => keyOf\(x\?\.effectiveFrom/)
 
-// Normalization: aliases converge to canonical names and canonical values/types.
 const normalized = normalizeCalculationSnapshot({
   shifts: [{ id: 's1', start_odometer: '1000', end_odometer: '1200', shift_start_at: '2026-09-10T08:00:00+05:30', shift_end_at: '2026-09-10T18:00:00+05:30' }],
   trips: [{ id: 't1', trip_start_at: '2026-09-10T09:00:00+05:30', trip_end_at: '2026-09-10T10:00:00+05:30', trip_km: '18.4', fare: '327', status: 'COMPLETED', tripKmAuthority: 'OCR', revenueAuthority: 'OCR', tripKmProvenance: 'OCR', revenueProvenance: 'OCR' }],
@@ -84,7 +81,6 @@ assert.match(normalizationSource, /normalizeShiftInput/)
 assert.match(normalizationSource, /normalizeTripInput/)
 assert.match(normalizationSource, /normalizeFuelInput/)
 
-// Every Admin canonical entity has a defined normalization + validation path.
 for (const formKey of ADMIN_FORM_KEYS) {
   const definition = getAdminFormDefinition(formKey)
   assert.ok(definition, `${formKey} must have a canonical form definition`)
@@ -104,18 +100,14 @@ assert.match(adminSource, /validateAdminForm\(definition, values\)/)
 assert.match(adminSource, /validateRelationships\(db, formKey, values\)/)
 assert.match(adminSource, /relationshipStore/)
 
-// Provenance and authority remain distinct: origin does not itself grant
-// calculation authority; correction authority is explicitly field-level on Trip.
 assert.match(shiftTripSource, /trip\.tripKmAuthority = 'MANUAL'/)
-assert.match(shiftTripSource, /trip\.revenueAuthority = 'MANUAL'/)
+assert.match(shiftTripSource, /trip\.revenueAuthority = 'SUPPORTING_ONLY'/)
 assert.match(shiftTripSource, /tripKmProvenance: normalized\.tripKmProvenance \?\? null/)
 assert.match(shiftTripSource, /revenueProvenance: normalized\.revenueProvenance \?\? null/)
 assert.match(fuelSource, /provenance: normalized\.provenance \?\? null/)
 assert.match(canonicalDoc, /Provenance answers \*\*where a value came from\*\*\./)
 assert.match(canonicalDoc, /authority, which answers \*\*whether the value is permitted to feed an authoritative calculation\*\*/)
 
-// Lifecycle/deletion: operational state is separate from administrative deletion.
-// Admin entities use governed soft deletion; operational Shift/Trip/Fuel paths do not expose incidental physical deletion.
 assert.match(shiftTripSource, /status !== 'ACTIVE'/)
 assert.match(shiftTripSource, /status = status/)
 assert.match(adminSource, /record\.deletedAt = now/)
@@ -127,20 +119,21 @@ assert.match(canonicalDoc, /An operational status transition must never be imple
 assert.match(canonicalDoc, /Hard deletion of canonical business records requires a separately governed data-destruction contract/)
 assert.match(canonicalDoc, /### Entity-specific contract/)
 
-// Relationship and odometer invariants are enforced at the canonical repository boundary.
 assert.match(shiftTripSource, /shiftId is required for a Trip/)
 assert.match(shiftTripSource, /endOdometer cannot be less than startOdometer/)
 assert.match(fuelSource, /must be a finite number/)
 
-// Revenue and odometer ownership: Trip revenue is the source of truth; Shift
-// revenue is only a representation; Shift odometers own vehicle movement.
+// Shift-end revenue is the sole ERP revenue authority. Trip revenue is retained only as optional supporting detail.
 assert.match(shiftTripSource, /shift\.revenue = Number\(normalized\.revenue \|\| 0\)/)
-assert.match(canonicalDoc, /Shift-level `revenue` is an aggregate\/lifecycle representation only/)
-assert.match(canonicalDoc, /`Trip\.revenue` is the authoritative revenue input/)
-assert.match(authorityDoc, /Revenue.*trips/)
+assert.match(shiftTripSource, /revenueAuthority = 'SUPPORTING_ONLY'/)
+assert.match(canonicalDoc, /Shift-level `revenue`.*authoritative/i)
+assert.match(canonicalDoc, /Trip\.revenue.*supporting/i)
+assert.match(authorityDoc, /Revenue.*shifts/)
 assert.match(authorityDoc, /Vehicle KM.*shifts/)
+assert.match(financeAdapterSource, /annualInterestRatePercent/)
+assert.doesNotMatch(financeAdapterSource, /annualInterestRate\s*:\s*10/)
+assert.match(financeAdapterSource, /status \|\| ''\)\.toUpperCase\(\) === 'ACTIVE'/)
 
-// Repository ownership and canonical stores must remain explicit.
 const requiredStores = ['shifts', 'trips', 'fuel_logs', 'vehicles', 'drivers', 'compliance_records', 'maintenance_records', 'driver_collected_data', 'loans', 'loan_payments', 'prepayments', 'driver_targets', 'break_even_inputs', 'settings', 'pending_mutations', 'audit_history']
 for (const store of requiredStores) assert.match(indexedDBSource, new RegExp(`['\"]${store}['\"]`), `${store} must remain a canonical store`)
 for (const owner of ['ShiftTripRepository', 'FuelRepository', 'MutationRepository', 'AdminRepository']) assert.match(canonicalDoc, new RegExp(owner))
@@ -148,17 +141,12 @@ assert.match(canonicalDoc, /driver_collected_data/)
 assert.match(canonicalDoc, /loan_payments/)
 assert.match(canonicalDoc, /prepayments/)
 
-// Supporting stores are infrastructure/supporting records, not replacement business authorities.
 for (const store of ['days', 'odoGaps', 'gps_snapshots', 'movement_artifacts']) assert.match(indexedDBSource, new RegExp(`['\"]${store}['\"]`), `${store} must remain explicitly represented`)
 assert.match(canonicalDoc, /supporting\/infrastructure stores/i)
-
-// Historical/as-of relationships: effective-dated domains resolve by IST business date.
 assert.match(canonicalDoc, /Historical\/as-of resolution must compare the business date in IST/)
 assert.match(breakEvenSource, /istDateKey/)
 assert.match(targetSource, /effectiveDateKey/)
 assert.match(canonicalDoc, /Effective-date and validity comparisons use IST calendar-date semantics/)
-
-// Mutation propagation remains part of the canonical write contract.
 assert.match(adminSource, /notifyCanonicalDataChanged/)
 assert.match(shiftTripSource, /notifyCanonicalDataChanged/)
 assert.match(fuelSource, /notifyCanonicalDataChanged/)
