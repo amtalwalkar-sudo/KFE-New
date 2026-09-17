@@ -39,6 +39,11 @@ jobs:
       - name: Build Production PWA
         run: npm run build
 
+      - name: Complete PWA Static Assets
+        run: |
+          cp icon-192.png dist/icon-192.png
+          cp icon-512.png dist/icon-512.png
+
       - name: Validate GitHub Pages Artifact
         run: |
           test -f dist/index.html
