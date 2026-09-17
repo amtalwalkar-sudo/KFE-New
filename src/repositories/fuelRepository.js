@@ -5,11 +5,15 @@ import { normalizeFuelInput } from '../domain/canonicalNormalization.js'
 import { validateFuelEntry } from '../domain/work/fuel.js'
 
 const stores = ['fuel_logs', 'pending_mutations', 'audit_history']
-const validateNormalizedFuel = normalized => {
-  for (const field of ['odometer', 'pricePerKg', 'amount', 'quantityKg']) if (!Number.isFinite(Number(normalized[field]))) throw new Error(`${field} must be a finite number.`)
+const validateNormalizedFuel = (normalized, requireQuantityMatch = true) => {
+  for (const field of ['odometer', 'pricePerKg', 'amount']) if (!Number.isFinite(Number(normalized[field]))) throw new Error(`${field} must be a finite number.`)
   const validation = validateFuelEntry({ odometer: normalized.odometer, pricePerKg: normalized.pricePerKg, amount: normalized.amount, isFullTank: normalized.isFullTank })
   if (!validation.valid) throw new Error(validation.reason)
-  if (Math.abs(Number(validation.quantityKg) - Number(normalized.quantityKg)) > 1e-9) throw new Error('FUEL_QUANTITY_MISMATCH')
+  if (requireQuantityMatch) {
+    if (!Number.isFinite(Number(normalized.quantityKg))) throw new Error('quantityKg must be a finite number.')
+    if (Math.abs(Number(validation.quantityKg) - Number(normalized.quantityKg)) > 1e-9) throw new Error('FUEL_QUANTITY_MISMATCH')
+  }
+  return validation
 }
 const isDeleted = record => record?.deletedAt || record?.deleted === true
 
@@ -38,11 +42,11 @@ export const FuelRepository = {
     })
     if (!existing || isDeleted(existing)) throw new Error('Cannot update missing fuel log.')
     const normalized = normalizeFuelInput({ ...existing, ...fuelData, id: existing.id, createdAt: existing.createdAt, capturedAt: existing.capturedAt })
-    validateNormalizedFuel(normalized)
+    const validation = validateNormalizedFuel(normalized, false)
     const now = new Date().toISOString()
     const fuelRecord = {
       ...existing,
-      odometer: Number(normalized.odometer), pricePerKg: Number(normalized.pricePerKg), amount: Number(normalized.amount), quantityKg: Number(normalized.quantityKg), isFullTank: normalized.isFullTank !== false,
+      odometer: Number(normalized.odometer), pricePerKg: Number(normalized.pricePerKg), amount: Number(normalized.amount), quantityKg: Number(validation.quantityKg), isFullTank: normalized.isFullTank !== false,
       updatedAt: now
     }
     return new Promise((resolve, reject) => {
