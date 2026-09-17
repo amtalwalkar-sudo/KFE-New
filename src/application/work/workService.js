@@ -17,6 +17,7 @@ export const WorkService = Object.freeze({
   validateTripCorrection(data) { return validateTripCorrection(data) },
   async getActiveState() { return ShiftTripRepository.getActive() },
   async getTripsForShift(shiftId) { return ShiftTripRepository.getTripsForShift(shiftId) },
+  async getAllTrips() { return ShiftTripRepository.getAllTrips() },
   async getLastCompletedShift() { return ShiftTripRepository.getLastCompletedShift() },
   async getLastCompletedTrip() { return ShiftTripRepository.getLastCompletedTrip() },
   async getFuelLogs() { return FuelRepository.getAll() },
