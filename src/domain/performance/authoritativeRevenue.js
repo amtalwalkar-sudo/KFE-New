@@ -1,3 +1,5 @@
+import { istMonthKey } from '../time/ist.js'
+
 const live = records => (records || []).filter(record => !record?.deletedAt && record?.deleted !== true)
 const dateOf = value => { const date = value ? new Date(value) : null; return date && !Number.isNaN(date.getTime()) ? date : null }
 const inRange = (value, range) => { const date = dateOf(value); return !!date && date >= range.from && date <= range.to }
@@ -13,7 +15,7 @@ export const authoritativeShiftRevenueByMonth = shifts => {
   for (const shift of live(shifts)) {
     const date = dateOf(shift.shiftEndAt || shift.shiftStartAt)
     if (!date) continue
-    const month = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`
+    const month = istMonthKey(date)
     result.set(month, (result.get(month) || 0) + amount(shift.revenue))
   }
   return result
