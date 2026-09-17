@@ -28,6 +28,9 @@ const normalizeLoan = loan => {
   if (!record) return null
   if (!finiteNumber(record.tenureMonths) && finiteNumber(loan.tenureYears)) record.tenureMonths = Number(loan.tenureYears) * 12
   delete record.tenureYears
+  // KFE loan rate is a domain constant. Legacy source records are normalized
+  // to the frozen KFE rate rather than retaining a competing rate input.
+  record.annualInterestRate = 10
   return record
 }
 
