@@ -11,6 +11,20 @@ This document consolidates the accepted architectural principles from the Master
 
 KFE must not accumulate parallel implementations merely because historical versions contained them.
 
+### 1.1 Consolidation / keep-one rule
+
+> **IF TWO IMPLEMENTATIONS PERFORM THE SAME RESPONSIBILITY, KEEP ONE CANONICAL IMPLEMENTATION AND DELETE OR NEUTRALIZE THE OTHER.**
+
+This is a permanent KFE implementation rule.
+
+- Identify all implementations performing the same responsibility.
+- Keep exactly one canonical implementation/path for that responsibility.
+- Delete genuinely redundant implementations and obsolete references in the same run.
+- If an apparent duplicate is required only as UX, compatibility glue, adapter wiring or another explicitly distinct responsibility, it must not become a second business/data authority.
+- A UI constraint may remain for user experience, but it must not duplicate or redefine authoritative business validation.
+- Do not retain duplicate code merely because it is harmless, historical, convenient, or currently unused.
+- After consolidation, search again for stale references and verify the surviving path with tests/build.
+
 ## 2. Layer direction
 
 ```text
@@ -162,6 +176,7 @@ Presentation contracts define presentation behavior; historical UI documents are
 - No UI-owned persistence authority.
 - No duplicate calculation service that can produce a competing answer.
 - If a service is replaced, references to the obsolete implementation are removed in the same run.
+- The consolidation / keep-one rule in §1.1 applies to every implementation path, not only repositories and services.
 
 ## 12. Replace-and-delete rule
 
