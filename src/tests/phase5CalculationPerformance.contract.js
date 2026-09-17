@@ -11,7 +11,7 @@ const serviceSource = read('../application/performance/performanceService.js')
 
 assert.match(engineSource, /deriveAuthoritativeBreakEven/)
 assert.match(serviceSource, /deriveRollingDriverTarget/)
-assert.match(serviceSource, /derivePerformance\(/)
+assert.match(serviceSource, /deriveFinanceAwarePerformance\(/)
 assert.match(serviceSource, /authoritativeMonthlyBreakEven/)
 assert.match(serviceSource, /AUTHORITATIVE_MONTHLY_BREAK_EVEN/)
 assert.doesNotMatch(serviceSource, /function\s+deriveAuthoritativeBreakEven/)
@@ -55,10 +55,8 @@ assert.equal(service.target, service.driverTarget)
 assert.ok(Number.isFinite(service.breakEvenRevenue))
 assert.ok(Number.isFinite(service.driverTarget))
 
-// PerformanceEngineV2 is the integration consumer of the sole monthly
-// break-even authority. Compare the service representation to that same
-// authoritative engine result without recreating a competing boundary or
-// duplicating the break-even input lineage in the Phase 5 contract.
+// PerformanceEngineV2 remains the lower-level integration consumer of the sole monthly
+// break-even authority. The service now reaches that authority through the finance-aware adapter.
 assert.ok(Math.abs(engine.monthlyBreakEvenRevenue - service.monthlyBreakEvenRevenue) < 1e-12)
 
 // Reproduce the exact calendar-month/as-of boundary supplied by PerformanceService.
