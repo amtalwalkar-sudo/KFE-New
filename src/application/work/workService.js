@@ -5,7 +5,7 @@ import { captureLifecycleLocation } from './location.js'
 import { completeEndShift } from './endShift.js'
 import { recordFuelEntry } from './fuel.js'
 import { validateShiftStartOdometer, validateGapAllocation } from '../../domain/work/shift.js'
-import { calculateFuelQuantity } from '../../domain/work/fuel.js'
+import { calculateFuelQuantity, validateFuelEntry } from '../../domain/work/fuel.js'
 import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } from '../../domain/work/trip.js'
 import { BackupService } from '../backup/backupService.js'
 
@@ -15,6 +15,7 @@ export const WorkService = Object.freeze({
   getTripOperators() { return WORK_TRIP_OPERATORS },
   validateTripOperator(operator) { return validateTripOperator(operator) },
   validateTripCorrection(data) { return validateTripCorrection(data) },
+  validateFuelEntry(data) { return validateFuelEntry(data) },
   async getActiveState() { return ShiftTripRepository.getActive() },
   async getTripsForShift(shiftId) { return ShiftTripRepository.getTripsForShift(shiftId) },
   async getAllTrips() { return ShiftTripRepository.getAllTrips() },
@@ -39,6 +40,8 @@ export const WorkService = Object.freeze({
     if (!validation.valid) return { ok: false, reason: validation.reason }
     const result = await ShiftTripRepository.updateTrip({ ...data, ...validation }); checkpoint(); return result
   },
+  async updateFuel(data) { const result = await FuelRepository.update(data.id, data); checkpoint(); return { ok: true, record: result } },
+  async deleteFuel(id) { const result = await FuelRepository.remove(id); checkpoint(); return { ok: result } },
   async endShift(data) { const result = await completeEndShift(data); checkpoint(); return result },
   async recordFuel(data) { const result = await recordFuelEntry(data); checkpoint(); return result },
 })
