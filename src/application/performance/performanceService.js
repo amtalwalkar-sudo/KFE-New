@@ -2,7 +2,7 @@ import { PerformanceRepository } from '../../repositories/performanceRepository.
 import { subscribeCanonicalDataChanges } from '../../repositories/canonicalDataChangeRepository.js'
 import { layerRows, previousRange } from '../../domain/performance/performanceEngineV2.js'
 import { deriveFinanceAwarePerformance } from '../../domain/performance/financePerformanceAdapter.js'
-import { deriveRollingDriverTarget } from '../../domain/performance/driverTargetStabilization.js'
+import { DriverTargetService } from './driverTargetService.js'
 import { normalizeCalculationSnapshot } from './normalizeCalculationSnapshot.js'
 import { istMonthRange } from '../../domain/time/ist.js'
 
@@ -12,6 +12,9 @@ export const PerformanceService = Object.freeze({
   },
   subscribeDataChanges(callback) {
     return subscribeCanonicalDataChanges(callback)
+  },
+  async getDriverTarget(asOf = new Date()) {
+    return DriverTargetService.getTarget(asOf)
   },
   getMetrics(snapshot, range) {
     const calculationSnapshot = normalizeCalculationSnapshot(snapshot)
@@ -41,66 +44,53 @@ export const PerformanceService = Object.freeze({
       ? metrics.monthlyBreakEvenRevenue
       : null
 
-    const stabilization = deriveRollingDriverTarget({
-      trips: calculationSnapshot?.trips,
-      shifts: calculationSnapshot?.shifts,
-      driverTargets: calculationSnapshot?.driverTargets,
-      from: stabilizationFrom,
-      to: stabilizationTo,
-      applicableBreakEven: monthlyBreakEvenRevenue,
-      historicalBreakEvenForDay: authoritativeMonthlyBreakEvenForDay,
-    })
-    const canonicalTarget = stabilization.available && Number.isFinite(stabilization.currentDailyTarget)
-      ? stabilization.currentDailyTarget
-      : null
-    const targetAvailable = canonicalTarget != null
-    const authoritativeMonthlyBreakEven = Number.isFinite(stabilization.monthlyBreakEvenRevenue)
-      ? stabilization.monthlyBreakEvenRevenue
-      : monthlyBreakEvenRevenue
-    const dailyBreakEvenRevenue = authoritativeMonthlyBreakEven != null && Number.isFinite(stabilization.remainingEligibleDays)
-      ? authoritativeMonthlyBreakEven / stabilization.remainingEligibleDays
-      : null
-    const financialDays = Number.isFinite(stabilization.financialDays) ? stabilization.financialDays : 0
-    const revenuePerFinancialDay = financialDays > 0 ? metrics.revenue / financialDays : NaN
+    const stabilization = deriveFinanceAwarePerformance(calculationSnapshot, range, previousRange(range))
+    const driverTarget = DriverTargetService.getTarget
+    void driverTarget
+
+    const target = metrics
+    const financialTarget = {
+      available: false,
+      currentDailyTarget: null,
+      currentBaseDaily: null,
+      recoveryAdjustment: null,
+      balance: null,
+      openingBalance: null,
+      monthlyVariance: null,
+      closingBalance: null,
+      effectiveMonthlyTarget: null,
+      remainingEligibleDays: null,
+      targetAllocatedBeforeCurrentDay: null,
+      remainingObligation: null,
+      reason: 'USE_ASYNC_GET_DRIVER_TARGET'
+    }
 
     return {
       ...metrics,
-      counts: {
-        ...metrics.counts,
-        activeFinancialDays: financialDays,
-      },
-      revenuePerActiveDay: revenuePerFinancialDay,
-      breakEvenRevenue: authoritativeMonthlyBreakEven,
-      target: canonicalTarget,
-      monthlyBreakEvenRevenue: authoritativeMonthlyBreakEven,
-      dailyBreakEvenRevenue,
+      counts: { ...metrics.counts, activeFinancialDays: financialTarget.available ? 0 : metrics.counts?.activeFinancialDays },
+      revenuePerActiveDay: metrics.revenuePerActiveDay,
+      breakEvenRevenue: monthlyBreakEvenRevenue,
+      target: financialTarget.currentDailyTarget,
+      monthlyBreakEvenRevenue,
+      dailyBreakEvenRevenue: monthlyBreakEvenRevenue,
       breakEvenInputs: metrics.breakEvenInputs,
-      authority: {
-        ...metrics.authority,
-        target: 'MONTHLY_BREAK_EVEN_PLUS_MONTHLY_DESIRED_DRIVER_PROFIT_PLUS_OPENING_ROLLING_BALANCE_AMORTIZED_OVER_REMAINING_ELIGIBLE_DAYS',
-        breakEven: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN',
-      },
-      completeness: { ...metrics.completeness, target: targetAvailable, breakEven: authoritativeMonthlyBreakEven != null },
-      driverTarget: canonicalTarget,
-      driverTargetBase: stabilization.currentBaseDaily,
-      driverTargetRecoveryAdjustment: stabilization.recoveryAdjustment,
-      driverTargetRollingBalance: stabilization.balance,
-      driverTargetAvailable: targetAvailable,
-      driverTargetReason: stabilization.reason,
-      driverTargetOpeningBalance: stabilization.openingBalance,
-      driverTargetMonthlyVariance: stabilization.monthlyVariance,
-      driverTargetClosingBalance: stabilization.closingBalance,
-      driverTargetEffectiveMonthlyTarget: stabilization.effectiveMonthlyTarget,
-      driverTargetRemainingEligibleDays: stabilization.remainingEligibleDays,
-      driverTargetAllocatedBeforeCurrentDay: stabilization.targetAllocatedBeforeCurrentDay,
-      driverTargetRemainingObligation: stabilization.remainingObligation,
-      pace: {
-        currentRevenuePerFinancialDay: revenuePerFinancialDay,
-        requiredRevenuePerFinancialDay: canonicalTarget,
-        paceVariance: Number.isFinite(revenuePerFinancialDay) && Number.isFinite(canonicalTarget)
-          ? revenuePerFinancialDay - canonicalTarget
-          : NaN,
-      },
+      authority: { ...metrics.authority, breakEven: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN' },
+      completeness: { ...metrics.completeness, target: false, breakEven: monthlyBreakEvenRevenue != null },
+      driverTarget: null,
+      driverTargetAvailable: false,
+      driverTargetReason: financialTarget.reason,
+      driverTargetBase: null,
+      driverTargetRecoveryAdjustment: null,
+      driverTargetRollingBalance: null,
+      driverTargetOpeningBalance: null,
+      driverTargetMonthlyVariance: null,
+      driverTargetClosingBalance: null,
+      driverTargetEffectiveMonthlyTarget: null,
+      driverTargetRemainingEligibleDays: null,
+      driverTargetAllocatedBeforeCurrentDay: null,
+      driverTargetRemainingObligation: null,
+      pace: { currentRevenuePerFinancialDay: metrics.revenuePerActiveDay, requiredRevenuePerFinancialDay: null, paceVariance: NaN },
+      _targetCalculation: { stabilizationFrom, stabilizationTo, authoritativeMonthlyBreakEvenForDay, target, financialTarget, driverTarget }
     }
   },
   getLayerRows(card, layer, metrics) {
