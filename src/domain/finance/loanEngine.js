@@ -1,4 +1,3 @@
-const KFE_LOAN_ANNUAL_RATE = 0.10
 const DAYS_IN_YEAR = 365
 
 const finite = value => Number.isFinite(Number(value)) ? Number(value) : 0
@@ -8,17 +7,15 @@ const roundMoney = value => Math.round(finite(value) * 100) / 100
 const dayCount = (from, to) => Math.max(0, Math.ceil((to - from) / 86400000))
 const overdueDayCount = (from, to) => Math.max(0, Math.ceil((to - from) / 86400000))
 const addMonths = (date, months) => { const result = new Date(date); const day = result.getDate(); result.setDate(1); result.setMonth(result.getMonth() + months); const last = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate(); result.setDate(Math.min(day, last)); return result }
-const annualRateForLoan = loan => Math.max(0, finite(loan?.annualInterestRatePercent) || 10) / 100
+const annualRateForLoan = loan => Math.max(0, finite(loan?.annualInterestRatePercent)) / 100
 
-export const KFE_LOAN_ANNUAL_RATE_PERCENT = 10
-export { KFE_LOAN_ANNUAL_RATE }
-
-export function calculateEmi(principal, tenureMonths, annualInterestRatePercent = KFE_LOAN_ANNUAL_RATE_PERCENT) {
+export function calculateEmi(principal, tenureMonths, annualInterestRatePercent) {
   const P = Math.max(0, finite(principal))
   const T = Math.max(1, Math.floor(finite(tenureMonths)))
   const annualRate = Math.max(0, finite(annualInterestRatePercent)) / 100
-  const monthlyRate = annualRate / 12
   if (!P) return 0
+  if (!Number.isFinite(Number(annualInterestRatePercent))) throw new Error('Loan annual interest rate is required to calculate EMI.')
+  const monthlyRate = annualRate / 12
   if (!monthlyRate) return roundMoney(P / T)
   const emi = P * monthlyRate * Math.pow(1 + monthlyRate, T) / (Math.pow(1 + monthlyRate, T) - 1)
   return roundMoney(emi)
