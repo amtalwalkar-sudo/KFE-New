@@ -1,9 +1,10 @@
 import { createBackupRepository } from '../../repositories/backupRepository.js'
 
 export const BACKUP_FORMAT = 'KFE_BACKUP'
-export const BACKUP_FORMAT_VERSION = 2
-export const CANONICAL_BACKUP_STORES = Object.freeze(['shifts','fuel_logs','odoGaps','pending_mutations','days','trips','gps_snapshots','movement_artifacts','vehicles','drivers','compliance_records','maintenance_records','driver_collected_data','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history'])
-const LEGACY_BACKUP_STORES = CANONICAL_BACKUP_STORES.filter(name => name !== 'audit_history')
+export const BACKUP_FORMAT_VERSION = 3
+export const CANONICAL_BACKUP_STORES = Object.freeze(['shifts','fuel_logs','odoGaps','pending_mutations','days','trips','gps_snapshots','movement_artifacts','vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history'])
+const LEGACY_BACKUP_STORES_V1 = Object.freeze(CANONICAL_BACKUP_STORES.filter(name => name !== 'audit_history'))
+const LEGACY_BACKUP_STORES_V2 = Object.freeze([...CANONICAL_BACKUP_STORES.slice(0, 11), 'driver_collected_data', ...CANONICAL_BACKUP_STORES.slice(11)])
 const backupRepository = createBackupRepository(CANONICAL_BACKUP_STORES)
 
 export const validateBackup = input => {
@@ -11,12 +12,13 @@ export const validateBackup = input => {
   if (typeof input === 'string') { try { backup = JSON.parse(input) } catch (_) { throw new Error('Backup file is not valid JSON.') } }
   if (!backup || typeof backup !== 'object' || Array.isArray(backup)) throw new Error('Backup must be a JSON object.')
   if (backup.format !== BACKUP_FORMAT) throw new Error('Unsupported KFE backup format.')
-  if (backup.formatVersion !== 1 && backup.formatVersion !== BACKUP_FORMAT_VERSION) throw new Error(`Unsupported backup format version: ${backup.formatVersion}.`)
+  if (![1, 2, BACKUP_FORMAT_VERSION].includes(backup.formatVersion)) throw new Error(`Unsupported backup format version: ${backup.formatVersion}.`)
   const sourceVersion = backup.source?.dbVersion
-  if (!backup.source || backup.source.dbName !== 'kanishka_kfe_canonical_db' || (sourceVersion !== 8 && sourceVersion !== 9)) throw new Error('Backup source does not match a supported canonical KFE database version.')
+  const supportedSourceVersions = backup.formatVersion === BACKUP_FORMAT_VERSION ? [10] : [8, 9]
+  if (!backup.source || backup.source.dbName !== 'kanishka_kfe_canonical_db' || !supportedSourceVersions.includes(sourceVersion)) throw new Error('Backup source does not match a supported canonical KFE database version.')
   if (typeof backup.exportedAt !== 'string' || Number.isNaN(Date.parse(backup.exportedAt))) throw new Error('Backup exportedAt timestamp is invalid.')
   if (!backup.stores || typeof backup.stores !== 'object' || Array.isArray(backup.stores)) throw new Error('Backup stores section is missing.')
-  const expected = new Set(backup.formatVersion === 1 ? LEGACY_BACKUP_STORES : CANONICAL_BACKUP_STORES)
+  const expected = new Set(backup.formatVersion === 1 ? LEGACY_BACKUP_STORES_V1 : backup.formatVersion === 2 ? LEGACY_BACKUP_STORES_V2 : CANONICAL_BACKUP_STORES)
   const actual = Object.keys(backup.stores)
   if (actual.length !== expected.size || actual.some(name => !expected.has(name))) throw new Error('Backup store set does not exactly match the supported KFE database.')
   for (const storeName of expected) {
@@ -29,14 +31,18 @@ export const validateBackup = input => {
       ids.add(record.id)
     }
   }
-  if (backup.formatVersion === 1) backup = { ...backup, formatVersion: BACKUP_FORMAT_VERSION, source: { ...backup.source, dbVersion: 9 }, stores: { ...backup.stores, audit_history: [] } }
+  if (backup.formatVersion === 1) backup = { ...backup, formatVersion: BACKUP_FORMAT_VERSION, source: { ...backup.source, dbVersion: 10 }, stores: { ...backup.stores, audit_history: [] } }
+  if (backup.formatVersion === 2) {
+    const { driver_collected_data: _removed, ...storesWithoutRemovedStore } = backup.stores
+    backup = { ...backup, formatVersion: BACKUP_FORMAT_VERSION, source: { ...backup.source, dbVersion: 10 }, stores: storesWithoutRemovedStore }
+  }
   return backup
 }
 
 export const createBackup = async () => validateBackup({
   format: BACKUP_FORMAT,
   formatVersion: BACKUP_FORMAT_VERSION,
-  source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: 9 },
+  source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: 10 },
   exportedAt: new Date().toISOString(),
   stores: await backupRepository.readCanonicalSnapshot(),
 })
