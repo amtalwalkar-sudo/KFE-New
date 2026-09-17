@@ -5,8 +5,8 @@ import { calculateRollingFuelCostPerKm } from '../domain/math/fuel.js'
 const from = new Date('2026-01-01T00:00:00+05:30')
 const to = new Date('2026-01-31T23:59:59.999+05:30')
 const snapshot = {
-  shifts: [{ shiftStartAt: '2026-01-10T08:00:00+05:30', shiftEndAt: '2026-01-10T18:00:00+05:30', startOdometer: 1000, endOdometer: 1150, toll: 100, parking: 50 }],
-  trips: [{ status: 'COMPLETED', tripStartAt: '2026-01-10T09:00:00+05:30', tripEndAt: '2026-01-10T11:00:00+05:30', revenue: 10000, tripKm: 100 }],
+  shifts: [{ shiftStartAt: '2026-01-10T08:00:00+05:30', shiftEndAt: '2026-01-10T18:00:00+05:30', startOdometer: 1000, endOdometer: 1150, toll: 100, parking: 50, revenue: 10000 }],
+  trips: [{ status: 'COMPLETED', tripStartAt: '2026-01-10T09:00:00+05:30', tripEndAt: '2026-01-10T11:00:00+05:30', revenue: 1, tripKm: 100 }],
   fuelLogs: [
     { capturedAt: '2026-01-01T07:30:00+05:30', odometer: 1000, amount: 2000, quantityKg: 20 },
     { capturedAt: '2026-01-05T07:30:00+05:30', odometer: 1100, amount: 2200, quantityKg: 22 },
@@ -42,4 +42,4 @@ assert.equal(m.actualFinancingOutflow, 1100)
 assert.equal(m.availableCash, m.operatingProfit - 1100)
 assert.equal(m.provisionAdjustedProfit, m.operatingProfit - m.provisionRequired)
 
-console.log('Financial model contract passed: monthly break-even authority, vehicle-KM economics, full-tank rolling fuel cost, frozen 10% loan rate, actual cash, and provisions are separated.')
+console.log('Financial model contract passed: monthly break-even authority, vehicle-KM economics, full-tank rolling fuel cost, explicit loan rate, actual cash, and provisions are separated.')
