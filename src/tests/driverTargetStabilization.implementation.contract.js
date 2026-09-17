@@ -13,11 +13,10 @@ const surplus = stabilizeActiveDay({ baseTarget: 1200, balance: 0, actualRevenue
 assert.equal(surplus.nextBalance, -200)
 assert.equal(stabilizeActiveDay({ baseTarget: 1200, balance: -200 }).target, 1000)
 
-// A shift without a completed trip is a holiday/non-financial day: no target is emitted.
 const holiday = deriveRollingDriverTarget({
   from: '2026-09-10', to: '2026-09-10',
   trips: [],
-  shifts: [{ shiftStartAt: '2026-09-10T08:00:00Z', shiftEndAt: '2026-09-10T20:00:00Z' }],
+  shifts: [{ shiftStartAt: '2026-09-10T08:00:00Z', shiftEndAt: '2026-09-10T20:00:00Z', revenue: 0 }],
   driverTargets: [{ effectiveFrom: '2026-09-01', effectiveUntil: '2026-09-30', desiredDriverProfit: 200, workingDays: 2 }],
   applicableBreakEven: 800
 })
@@ -25,16 +24,16 @@ assert.equal(holiday.activeDays, 0)
 assert.equal(holiday.currentDailyTarget, null)
 assert.equal(holiday.reason, 'NO_FINANCIAL_DRIVER_TARGET_DAY')
 
-// The configured working-day count is not the divisor. A monthly obligation is
-// amortized over the remaining eligible calendar days, with only financial days
-// consuming an allocation.
 const financialDays = deriveRollingDriverTarget({
   from: '2026-09-10', to: '2026-09-11',
   trips: [
     { status: 'COMPLETED', tripEndAt: '2026-09-10T10:00:00Z', revenue: 500 },
     { status: 'COMPLETED', tripEndAt: '2026-09-11T10:00:00Z', revenue: 600 }
   ],
-  shifts: [],
+  shifts: [
+    { shiftStartAt: '2026-09-10T08:00:00Z', shiftEndAt: '2026-09-10T12:00:00Z', revenue: 500 },
+    { shiftStartAt: '2026-09-11T08:00:00Z', shiftEndAt: '2026-09-11T12:00:00Z', revenue: 600 }
+  ],
   driverTargets: [{ effectiveFrom: '2026-09-01', effectiveUntil: '2026-09-30', desiredDriverProfit: 200, workingDays: 2 }],
   applicableBreakEven: 800
 })
@@ -46,13 +45,15 @@ assert.ok(Math.abs(financialDays.currentDailyTarget - 1000 / 21) < 1e-12)
 assert.equal(financialDays.monthlyVariance, -100)
 assert.equal(financialDays.closingBalance, -100)
 
-// A holiday consumes no target allocation. Once known, its untouched share is
-// redistributed over the remaining eligible days.
 const holidaySmoothing = deriveRollingDriverTarget({
   from: '2026-09-10', to: '2026-09-12',
   trips: [
     { status: 'COMPLETED', tripEndAt: '2026-09-10T10:00:00Z', revenue: 0 },
     { status: 'COMPLETED', tripEndAt: '2026-09-12T10:00:00Z', revenue: 0 }
+  ],
+  shifts: [
+    { shiftStartAt: '2026-09-10T08:00:00Z', shiftEndAt: '2026-09-10T12:00:00Z', revenue: 0 },
+    { shiftStartAt: '2026-09-12T08:00:00Z', shiftEndAt: '2026-09-12T12:00:00Z', revenue: 0 }
   ],
   driverTargets: [{ effectiveFrom: '2026-09-01', effectiveUntil: '2026-09-30', desiredDriverProfit: 200, workingDays: 2 }],
   applicableBreakEven: 800
@@ -64,6 +65,7 @@ assert.ok(Math.abs(holidaySmoothing.currentDailyTarget - ((1000 - 1000 / 21) / 1
 const missingAuthoritativeInput = deriveRollingDriverTarget({
   from: '2026-09-12', to: '2026-09-12',
   trips: [{ status: 'COMPLETED', tripEndAt: '2026-09-12T10:00:00Z', revenue: 0 }],
+  shifts: [{ shiftStartAt: '2026-09-12T08:00:00Z', shiftEndAt: '2026-09-12T12:00:00Z', revenue: 0 }],
   driverTargets: [{ effectiveFrom: '2026-09-01', effectiveUntil: '2026-09-30', targetRevenue: 2000, workingDays: 2 }],
   applicableBreakEven: 800
 })
@@ -73,6 +75,7 @@ assert.equal(missingAuthoritativeInput.currentDailyTarget, null)
 const missingWorkingDays = deriveRollingDriverTarget({
   from: '2026-09-12', to: '2026-09-12',
   trips: [{ status: 'COMPLETED', tripEndAt: '2026-09-12T10:00:00Z', revenue: 0 }],
+  shifts: [{ shiftStartAt: '2026-09-12T08:00:00Z', shiftEndAt: '2026-09-12T12:00:00Z', revenue: 0 }],
   driverTargets: [{ effectiveFrom: '2026-09-01', effectiveUntil: '2026-09-30', desiredDriverProfit: 200 }],
   applicableBreakEven: 800
 })
@@ -80,14 +83,15 @@ assert.equal(missingWorkingDays.available, true)
 assert.equal(missingWorkingDays.remainingEligibleDays, 19)
 assert.ok(Math.abs(missingWorkingDays.currentDailyTarget - 1000 / 19) < 1e-12)
 
-// A completed month's shortfall rolls into the next month. The carried opening
-// balance remains part of the monthly obligation and is amortized over the
-// remaining eligible days; current-month variance is only provisional.
 const monthlyRollover = deriveRollingDriverTarget({
   from: '2026-09-01', to: '2026-09-30',
   trips: [
     { status: 'COMPLETED', tripEndAt: '2026-08-10T10:00:00Z', revenue: 0 },
     { status: 'COMPLETED', tripEndAt: '2026-09-10T10:00:00Z', revenue: 0 }
+  ],
+  shifts: [
+    { shiftStartAt: '2026-08-10T08:00:00Z', shiftEndAt: '2026-08-10T12:00:00Z', revenue: 0 },
+    { shiftStartAt: '2026-09-10T08:00:00Z', shiftEndAt: '2026-09-10T12:00:00Z', revenue: 0 }
   ],
   driverTargets: [
     { effectiveFrom: '2026-08-01', effectiveUntil: '2026-08-31', desiredDriverProfit: 200, workingDays: 2 },
@@ -110,6 +114,10 @@ const incompleteHistoricalBalance = deriveRollingDriverTarget({
   trips: [
     { status: 'COMPLETED', tripEndAt: '2026-08-10T10:00:00Z', revenue: 500 },
     { status: 'COMPLETED', tripEndAt: '2026-09-12T10:00:00Z', revenue: 0 }
+  ],
+  shifts: [
+    { shiftStartAt: '2026-08-10T08:00:00Z', shiftEndAt: '2026-08-10T12:00:00Z', revenue: 500 },
+    { shiftStartAt: '2026-09-12T08:00:00Z', shiftEndAt: '2026-09-12T12:00:00Z', revenue: 0 }
   ],
   driverTargets: [{ effectiveFrom: '2026-09-01', effectiveUntil: '2026-09-30', desiredDriverProfit: 200, workingDays: 2 }],
   historicalBreakEvenForDay: () => null,
