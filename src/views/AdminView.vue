@@ -7,7 +7,7 @@ import { AdminService } from '../application/admin/adminService.js'
 import { BackupService } from '../application/backup/backupService.js'
 
 const groups = [
-  { key: 'operations', title: 'Operations', icon: '◉', forms: ['vehicle', 'driver', 'compliance', 'maintenance', 'driverCollectedData', 'shift'] },
+  { key: 'operations', title: 'Operations', icon: '◉', forms: ['vehicle', 'driver', 'compliance', 'maintenance', 'ride', 'shift'] },
   { key: 'finance', title: 'Finance', icon: '₹', forms: ['loan', 'loanPayment', 'prepayment'] },
   { key: 'targetBreakEven', title: 'Planning', icon: '⌁', forms: ['driverTarget', 'breakEvenInputs'] }
 ]
@@ -41,15 +41,11 @@ const activeDefinition = computed(() => {
 })
 function label(key, record) {
   const value = record.values || record
-  return key === 'vehicle'
-    ? [value.registrationNumber, value.make, value.model].filter(Boolean).join(' · ') || record.id
-    : key === 'driver'
-      ? value.name || record.id
-      : key === 'loan'
-        ? [value.lender, value.accountReference].filter(Boolean).join(' · ') || record.id
-        : key === 'shift'
-          ? `${value.status || 'Shift'} · ${value.shiftEndAt || value.shiftStartAt || record.id}`
-          : record.id
+  return key === 'vehicle' ? [value.registrationNumber, value.make, value.model].filter(Boolean).join(' · ') || record.id
+    : key === 'driver' ? value.name || record.id
+    : key === 'loan' ? [value.lender, value.accountReference].filter(Boolean).join(' · ') || record.id
+    : key === 'shift' ? `${value.status || 'Shift'} · ${value.shiftEndAt || value.shiftStartAt || record.id}`
+    : record.id
 }
 function display(value) {
   for (const key of ['vehicle', 'driver', 'loan']) {
@@ -59,25 +55,14 @@ function display(value) {
   return value
 }
 async function load() {
-  loading.value = true
-  error.value = ''
+  loading.value = true; error.value = ''
   try {
     records.value = await AdminService.list(selected.value)
     for (const key of Object.keys(all.value)) all.value[key] = await AdminService.list(key)
-  } catch (e) {
-    error.value = e.message || 'Unable to load records.'
-  } finally {
-    loading.value = false
-  }
+  } catch (e) { error.value = e.message || 'Unable to load records.' }
+  finally { loading.value = false }
 }
-function choose(key) {
-  selected.value = key
-  editing.value = null
-  draft.value = {}
-  formOpen.value = false
-  notice.value = ''
-  load()
-}
+function choose(key) { selected.value = key; editing.value = null; draft.value = {}; formOpen.value = false; notice.value = ''; load() }
 function chooseGroup(group) { choose(group.forms[0]) }
 function openRecords() { adminSection.value = 'records'; notice.value = ''; error.value = '' }
 function openSettings() { adminSection.value = 'settings'; formOpen.value = false; editing.value = null; draft.value = {}; notice.value = ''; error.value = '' }
@@ -85,123 +70,54 @@ function chooseSetting(key) { settingsSelected.value = key; error.value = ''; no
 function add() { editing.value = null; draft.value = {}; formOpen.value = true }
 function edit(record) { editing.value = record.id; draft.value = structuredClone(record.values || {}); formOpen.value = true }
 async function save(values) {
-  loading.value = true
-  error.value = ''
-  notice.value = ''
+  loading.value = true; error.value = ''; notice.value = ''
   try {
     await AdminService.save(selected.value, values, editing.value)
     notice.value = editing.value !== null ? 'Record updated successfully.' : 'Record created successfully.'
-    editing.value = null
-    draft.value = {}
-    formOpen.value = false
-    await load()
-  } catch (e) {
-    error.value = e.validation ? Object.values(e.validation).join(' ') : e.message || 'Save failed.'
-  } finally {
-    loading.value = false
-  }
+    editing.value = null; draft.value = {}; formOpen.value = false; await load()
+  } catch (e) { error.value = e.validation ? Object.values(e.validation).join(' ') : e.message || 'Save failed.' }
+  finally { loading.value = false }
 }
 async function remove(record) {
   if (!confirm('Delete this source record? Related records may prevent deletion.')) return
-  loading.value = true
-  error.value = ''
-  try {
-    await AdminService.remove(selected.value, record.id)
-    notice.value = 'Record deleted.'
-    await load()
-  } catch (e) {
-    error.value = e.message || 'Delete failed.'
-  } finally {
-    loading.value = false
-  }
+  loading.value = true; error.value = ''
+  try { await AdminService.remove(selected.value, record.id); notice.value = 'Record deleted.'; await load() }
+  catch (e) { error.value = e.message || 'Delete failed.' }
+  finally { loading.value = false }
 }
 async function resetData() {
-  if (!confirm('Reset all KFE data? This permanently clears the canonical dataset. Create a backup first if you may need the current data.')) return
+  if (!confirm('Reset all KFE data? Create a backup first if you may need the current data.')) return
   if (!confirm('Final confirmation: permanently delete all current KFE records?')) return
-  loading.value = true
-  error.value = ''
-  notice.value = ''
-  try {
-    await BackupService.resetData()
-    notice.value = 'All canonical KFE data has been reset.'
-  } catch (e) {
-    error.value = e.message || 'Data reset failed.'
-  } finally {
-    loading.value = false
-  }
+  loading.value = true; error.value = ''; notice.value = ''
+  try { await BackupService.resetData(); notice.value = 'All canonical KFE data has been reset.' }
+  catch (e) { error.value = e.message || 'Data reset failed.' }
+  finally { loading.value = false }
 }
 onMounted(load)
 </script>
 
 <template>
 <section class="admin-page" aria-label="Admin">
-  <header class="admin-head">
-    <div><div class="eyebrow">ADMIN · CONTROL CENTRE</div><h1>Admin</h1><p>Manage authoritative source records and protected application settings.</p></div>
-    <div class="admin-badge"><span>●</span> Controlled data</div>
-  </header>
-
-  <nav class="admin-nav" aria-label="Admin menu">
-    <button :class="{ active: adminSection === 'records' }" @click="openRecords"><span>▦</span><strong>Records</strong></button>
-    <button :class="{ active: adminSection === 'settings' }" @click="openSettings"><span>⚙</span><strong>Settings</strong></button>
-  </nav>
-
+  <header class="admin-head"><div><div class="eyebrow">ADMIN · CONTROL CENTRE</div><h1>Admin</h1><p>Manage authoritative source records and protected application settings.</p></div><div class="admin-badge"><span>●</span> Controlled data</div></header>
+  <nav class="admin-nav" aria-label="Admin menu"><button :class="{ active: adminSection === 'records' }" @click="openRecords"><span>▦</span><strong>Records</strong></button><button :class="{ active: adminSection === 'settings' }" @click="openSettings"><span>⚙</span><strong>Settings</strong></button></nav>
   <template v-if="adminSection === 'records'">
-    <nav class="group-swipe" aria-label="Admin record sections">
-      <button v-for="group in groups" :key="group.key" class="group-tab" :class="{ active: currentGroup?.key === group.key }" @click="chooseGroup(group)">
-        <span>{{ group.icon }}</span><strong>{{ group.title }}</strong>
-      </button>
-    </nav>
-
+    <nav class="group-swipe" aria-label="Admin record sections"><button v-for="group in groups" :key="group.key" class="group-tab" :class="{ active: currentGroup?.key === group.key }" @click="chooseGroup(group)"><span>{{ group.icon }}</span><strong>{{ group.title }}</strong></button></nav>
     <section class="workspace">
-      <div class="workspace-head">
-        <div><div class="section-label">{{ currentGroup?.title }}</div><h2>{{ baseDefinition.title }}</h2></div>
-        <button v-if="!shiftCorrectionOnly" class="primary" @click="add"><span>＋</span> New record</button>
-      </div>
-
-      <nav class="record-tabs" :aria-label="`${currentGroup?.title} sub menu`">
-        <button v-for="key in currentGroup.forms" :key="key" :class="{ active: selected === key }" @click="choose(key)">{{ ADMIN_FORM_DEFINITIONS[key].title }}</button>
-      </nav>
-
-      <p v-if="error" class="message error">{{ error }}</p>
-      <p v-if="notice" class="message notice">✓ {{ notice }}</p>
+      <div class="workspace-head"><div><div class="section-label">{{ currentGroup?.title }}</div><h2>{{ baseDefinition.title }}</h2></div><button v-if="!shiftCorrectionOnly" class="primary" @click="add"><span>＋</span> New record</button></div>
+      <nav class="record-tabs" :aria-label="`${currentGroup?.title} sub menu`"><button v-for="key in currentGroup.forms" :key="key" :class="{ active: selected === key }" @click="choose(key)">{{ ADMIN_FORM_DEFINITIONS[key].title }}</button></nav>
+      <p v-if="error" class="message error">{{ error }}</p><p v-if="notice" class="message notice">✓ {{ notice }}</p>
       <p v-if="shiftCorrectionOnly" class="message notice">Work creates shifts. Admin only corrects shift-level revenue, toll, parking and personal allocations here.</p>
-
       <UniversalAdminForm v-if="formOpen" :definition="activeDefinition" :model-value="draft" @update:model-value="draft = $event" @submit="save" @cancel="formOpen = false; editing = null; draft = {}" :submit-label="editing !== null ? 'Update record' : 'Save record'" />
       <div v-else-if="loading" class="empty-state"><span class="spinner"></span><strong>Loading records…</strong></div>
-      <div v-else-if="records.length" class="record-list">
-        <article v-for="record in records" :key="record.id" class="record">
-          <div class="record-main"><div class="record-title"><strong>{{ label(selected, record) }}</strong><span class="record-status">Source record</span></div><small>Updated {{ record.updatedAt || '—' }}</small><div class="chips"><span v-for="(value, key) in record.values" v-if="value !== '' && value !== null && value !== undefined && key !== 'notes'" :key="key">{{ display(value) }}</span></div></div>
-          <div class="actions"><button @click="edit(record)">Edit</button><button v-if="!shiftCorrectionOnly" class="delete" @click="remove(record)">Delete</button></div>
-        </article>
-      </div>
-      <div v-else class="empty-state"><div class="empty-icon">＋</div><strong>No {{ baseDefinition.title }} records yet</strong><span>{{ shiftCorrectionOnly ? 'Shifts are created from Work and become editable here after they exist.' : `Create the first authoritative source record for this section.` }}</span><button v-if="!shiftCorrectionOnly" class="primary" @click="add">Create {{ baseDefinition.title }}</button></div>
+      <div v-else-if="records.length" class="record-list"><article v-for="record in records" :key="record.id" class="record"><div class="record-main"><div class="record-title"><strong>{{ label(selected, record) }}</strong><span class="record-status">Source record</span></div><small>Updated {{ record.updatedAt || '—' }}</small><div class="chips"><span v-for="(value, key) in record.values" v-if="value !== '' && value !== null && value !== undefined && key !== 'notes'" :key="key">{{ display(value) }}</span></div></div><div class="actions"><button @click="edit(record)">Edit</button><button v-if="!shiftCorrectionOnly" class="delete" @click="remove(record)">Delete</button></div></article></div>
+      <div v-else class="empty-state"><div class="empty-icon">＋</div><strong>No {{ baseDefinition.title }} records yet</strong><span>{{ shiftCorrectionOnly ? 'Shifts are created from Work and become editable here after they exist.' : 'Create the first authoritative source record for this section.' }}</span><button v-if="!shiftCorrectionOnly" class="primary" @click="add">Create {{ baseDefinition.title }}</button></div>
     </section>
   </template>
-
   <template v-else>
-    <section class="settings-layout">
-      <aside class="settings-menu" aria-label="Settings menu">
-        <div class="section-label">SETTINGS</div><h2>Application settings</h2>
-        <button v-for="item in settingsMenu" :key="item.key" :class="{ active: settingsSelected === item.key }" @click="chooseSetting(item.key)"><span class="settings-icon">{{ item.icon }}</span><span><strong>{{ item.title }}</strong><small>{{ item.subtitle }}</small></span><b>›</b></button>
-      </aside>
-      <section v-if="settingsSelected === 'backup'" class="settings-workspace">
-        <div class="settings-heading"><div><div class="section-label">DATA PROTECTION</div><h2>Backup &amp; Restore</h2><p>Manage the complete KFE backup and recovery workflow from one place.</p></div><span class="settings-status">Protected</span></div>
-        <BackupRestorePanel />
-      </section>
-      <section v-else-if="settingsSelected === 'calculations'" class="settings-workspace">
-        <div class="settings-heading"><div><div class="section-label">CALCULATION AUTHORITY</div><h2>ERP Calculations</h2><p>Calculation rules and derived metrics are produced from authoritative records.</p></div><span class="settings-status">Automatic</span></div>
-        <div class="derived"><div class="section-label">CALCULATED AUTOMATICALLY</div><h2>Derived ERP metrics</h2><p>Vehicle KM, Business KM, Dead KM, mileage, revenue/KM, revenue/hour, cost/KM, profit, break-even result, achievement, pace, projection and provision totals are calculated from authoritative records.</p></div>
-      </section>
-      <section v-else class="settings-workspace reset-workspace">
-        <div class="settings-heading"><div><div class="section-label">DESTRUCTIVE DATA CONTROL</div><h2>Data Reset</h2><p>Permanently clear the canonical KFE dataset. This does not remove the application itself.</p></div><span class="settings-status danger-status">Destructive</span></div>
-        <div class="reset-card">
-          <div class="reset-icon">⚠</div>
-          <div><h2>Reset all KFE data</h2><p>This clears all authoritative records in the canonical database. Local backup copies are not deleted, so you can restore from a backup afterward if required.</p></div>
-          <button class="reset-button" :disabled="loading" @click="resetData">Reset all data</button>
-        </div>
-        <p v-if="error" class="message error">{{ error }}</p>
-        <p v-if="notice" class="message notice">✓ {{ notice }}</p>
-      </section>
+    <section class="settings-layout"><aside class="settings-menu"><div class="section-label">SETTINGS</div><h2>Application settings</h2><button v-for="item in settingsMenu" :key="item.key" :class="{ active: settingsSelected === item.key }" @click="chooseSetting(item.key)"><span class="settings-icon">{{ item.icon }}</span><span><strong>{{ item.title }}</strong><small>{{ item.subtitle }}</small></span><b>›</b></button></aside>
+      <section v-if="settingsSelected === 'backup'" class="settings-workspace"><div class="settings-heading"><div><div class="section-label">DATA PROTECTION</div><h2>Backup &amp; Restore</h2><p>Manage the complete KFE backup and recovery workflow from one place.</p></div><span class="settings-status">Protected</span></div><BackupRestorePanel /></section>
+      <section v-else-if="settingsSelected === 'calculations'" class="settings-workspace"><div class="settings-heading"><div><div class="section-label">CALCULATION AUTHORITY</div><h2>ERP Calculations</h2><p>Calculation rules and derived metrics are produced from authoritative records.</p></div><span class="settings-status">Automatic</span></div><div class="derived"><div class="section-label">CALCULATED AUTOMATICALLY</div><h2>Derived ERP metrics</h2><p>Vehicle KM, Business KM, Dead KM, mileage, revenue/KM, revenue/hour, cost/KM, profit, break-even result, achievement, pace, projection and provision totals are calculated from authoritative records.</p></div></section>
+      <section v-else class="settings-workspace reset-workspace"><div class="settings-heading"><div><div class="section-label">DESTRUCTIVE DATA CONTROL</div><h2>Data Reset</h2><p>Permanently clear the canonical KFE dataset. This does not remove the application itself.</p></div><span class="settings-status danger-status">Destructive</span></div><div class="reset-card"><div class="reset-icon">⚠</div><div><h2>Reset all KFE data</h2><p>This clears all authoritative records in the canonical database. Local backup copies are not deleted, so you can restore from a backup afterward if required.</p></div><button class="reset-button" :disabled="loading" @click="resetData">Reset all data</button></div><p v-if="error" class="message error">{{ error }}</p><p v-if="notice" class="message notice">✓ {{ notice }}</p></section>
     </section>
   </template>
 </section>
