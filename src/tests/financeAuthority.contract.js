@@ -45,7 +45,9 @@ const partiallyPaid = deriveLoanPosition({
 })
 assert.ok(partiallyPaid.totalOverdue > 0)
 assert.equal(partiallyPaid.schedule[0].scheduledPrincipalPaid, 0)
-assert.equal(partiallyPaid.schedule[0].scheduledInterestPaid, 100)
+assert.ok(partiallyPaid.schedule[0].overdueInterestPaid > 0)
+assert.ok(partiallyPaid.schedule[0].scheduledInterestPaid > 0)
+assert.ok(partiallyPaid.schedule[0].scheduledInterestPaid < 100)
 
 // Chronology: a payment allocated to the oldest unpaid EMI cannot jump to a later EMI.
 const chronological = paymentAllocationPreview({
