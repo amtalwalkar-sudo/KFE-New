@@ -25,9 +25,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
-      - name: Install Dependencies
-        run: npm install
+      - name: Require deterministic npm lockfile
+        run: test -f package-lock.json && npm ci
 
       - name: Run KFE Foundation Contract Tests
         run: npm test
