@@ -3,7 +3,7 @@ import { generateUUID } from '../utils/uuid.js'
 import { writeMutationAndAudit } from './mutationRepository.js'
 import { getAdminFormDefinition } from '../application/admin/adminFormDefinitions.js'
 import { validateAdminForm } from '../application/admin/universalFormRules.js'
-import { deriveLoanPosition, paymentAllocationPreview, calculatePrepaymentEstimate, KFE_LOAN_ANNUAL_RATE_PERCENT, calculateEmi } from '../domain/finance/loanEngine.js'
+import { deriveLoanPosition, paymentAllocationPreview, calculatePrepaymentEstimate, calculateEmi } from '../domain/finance/loanEngine.js'
 
 const FORM_STORE = Object.freeze({ vehicle: 'vehicles', driver: 'drivers', compliance: 'compliance_records', maintenance: 'maintenance_records', driverCollectedData: 'driver_collected_data', shift: 'shifts', loan: 'loans', loanPayment: 'loan_payments', prepayment: 'prepayments', driverTarget: 'driver_targets', breakEvenInputs: 'break_even_inputs', backupRestore: 'settings', themes: 'settings', dataReset: 'settings' })
 const isSettingsForm = key => key === 'backupRestore' || key === 'themes' || key === 'dataReset'
@@ -45,9 +45,10 @@ async function prepareFinanceValues(formKey, values, existingId) {
   if (formKey === 'loan') {
     const principal = Number(values.principal)
     const tenureMonths = Number(values.tenureMonths)
+    const annualInterestRatePercent = Number(values.annualInterestRatePercent)
     const startDate = values.startDate
-    if (!(principal > 0) || !(tenureMonths > 0) || !startDate) throw new Error('Loan amount, tenure and start date are required.')
-    return { ...values, principal, tenureMonths, annualInterestRate: KFE_LOAN_ANNUAL_RATE_PERCENT, emi: calculateEmi(principal, tenureMonths), status: values.status || 'Active' }
+    if (!(principal > 0) || !(tenureMonths > 0) || !Number.isFinite(annualInterestRatePercent) || annualInterestRatePercent < 0 || !startDate) throw new Error('Loan amount, interest rate, tenure and start date are required.')
+    return { ...values, principal, tenureMonths, annualInterestRatePercent, emi: calculateEmi(principal, tenureMonths, annualInterestRatePercent), status: values.status || 'Active' }
   }
 
   const loans = (await readAll('loans')).filter(record => !isDeleted(record))
