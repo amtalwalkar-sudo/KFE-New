@@ -79,7 +79,7 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
     },
     finance: {
       ...finance,
-      annualInterestRatePercent: 10,
+      annualInterestRatePercent: finance.annualInterestRatePercent,
       preBusinessRecoveryMonthly,
       businessStartDate: businessStart?.toISOString() || null,
       previousOutstandingPrincipal: previousFinance.available ? previousFinance.outstandingPrincipal : null,
