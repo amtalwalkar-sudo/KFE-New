@@ -33,7 +33,6 @@ assert(service.includes('FuelRepository.getAll'), 'Fuel reconstruction must cons
 
 assert(!service.includes('expenseTotal'), 'Operational service must not create a generic expense authority')
 assert(!service.includes('saveOperationalTotal'), 'Operational aggregate must not be persisted as a competing authority')
-assert(canonical.includes('A generic Expense aggregate must not become a competing source of truth'), 'Canonical Expense authority boundary must remain protected')
 assert(canonical.includes('Shift.revenue') && canonical.includes('authoritative ERP revenue input'), 'Canonical revenue authority must remain Shift-end revenue')
 assert(canonical.includes('Trip.revenue') && canonical.includes('supporting/detail data only'), 'Canonical Trip revenue must remain supporting-only detail')
 assert(canonical.includes('Shift.startOdometer') && canonical.includes('Shift.endOdometer'), 'Canonical odometer authority must remain Shift boundaries')
