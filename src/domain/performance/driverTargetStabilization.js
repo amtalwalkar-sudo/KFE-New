@@ -1,4 +1,5 @@
 import { istDateKey, istMonthKey } from '../time/ist.js'
+import { authoritativeShiftRevenueByMonth } from './authoritativeRevenue.js'
 
 const finite = v => {
   if (v == null || v === '') return null
@@ -86,13 +87,12 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     const tripDayKey = tripDate ? keyOf(tripDate) : null
     return tripDayKey && tripDayKey <= endDayKey
   })
-  const revenueByMonth = new Map()
+  const revenueByMonth = authoritativeShiftRevenueByMonth(shifts)
   const financialDaysByMonth = new Map()
   for (const trip of completed) {
     const day = keyOf(trip.tripEndAt || trip.tripStartAt)
     const month = monthKeyOf(trip.tripEndAt || trip.tripStartAt)
     if (!month || !day) continue
-    revenueByMonth.set(month, (revenueByMonth.get(month) || 0) + (finite(trip.revenue) || 0))
     if (!financialDaysByMonth.has(month)) financialDaysByMonth.set(month, new Set())
     financialDaysByMonth.get(month).add(day)
   }
