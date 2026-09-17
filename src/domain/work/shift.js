@@ -14,13 +14,21 @@ export function validateShiftStartOdometer(currentOdometer, previousOdometer = n
   return { valid: true, gapKm: current - previous }
 }
 
-export function validateGapAllocation(gapKm, personalKm = 0, deadKm = 0) {
+export function validateGapAllocation(gapKm, category = null) {
   const gap = Number(gapKm)
-  const personal = Number(personalKm || 0)
-  const dead = Number(deadKm || 0)
-  const tolerance = 0.000001
-  if (!Number.isFinite(gap) || gap < 0 || !Number.isFinite(personal) || !Number.isFinite(dead) || personal < 0 || dead < 0 || Math.abs((personal + dead) - gap) > tolerance) {
+  if (!Number.isFinite(gap) || gap < 0) {
     return { valid: false, requiresGapAllocation: true, gapKm: gap }
   }
-  return { valid: true, personalKm: personal, deadKm: dead }
+  if (gap === 0) {
+    return { valid: true, category: null, personalKm: 0, deadKm: 0 }
+  }
+  if (category !== 'PERSONAL' && category !== 'DEAD') {
+    return { valid: false, requiresGapAllocation: true, gapKm: gap }
+  }
+  return {
+    valid: true,
+    category,
+    personalKm: category === 'PERSONAL' ? gap : 0,
+    deadKm: category === 'DEAD' ? gap : 0
+  }
 }
