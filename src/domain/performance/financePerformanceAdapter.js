@@ -10,6 +10,7 @@ const businessStartDate = snapshot => {
   return vehicles[0] || null
 }
 const asOf = range => dateOf(range?.to) || new Date()
+const inRange = (value, range) => { const date = dateOf(value); return !!date && date >= range.from && date <= range.to }
 
 export function deriveFinanceAwarePerformance(snapshot, range, previousRange) {
   const base = legacyDerivePerformance(snapshot, range, previousRange)
@@ -27,17 +28,20 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousRange) {
 
   const finance = deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: currentAsOf })
   const previousFinance = deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: previousAsOf })
-  const preBusinessRecoveryMonthly = calculatePreBusinessRecovery({ position: finance, businessStartDate: businessStartDate(snapshot), asOf: currentAsOf })
+  const businessStart = businessStartDate(snapshot)
+  const preBusinessRecoveryMonthly = calculatePreBusinessRecovery({ position: finance, businessStartDate: businessStart, asOf: currentAsOf })
+  const currentScheduledEmi = finance.schedule.filter(row => inRange(row.dueDate, range)).reduce((sum, row) => sum + money(row.originalEmiAmount), 0)
+  const currentScheduledInterest = finance.schedule.filter(row => inRange(row.dueDate, range)).reduce((sum, row) => sum + money(row.originalInterestComponent), 0)
 
   const breakEvenInputs = snapshot?.breakEvenInputs || []
-  const fixedCosts = money(finance.scheduledDue) + preBusinessRecoveryMonthly + money(base.renewalProvision)
+  const fixedCosts = currentScheduledEmi + preBusinessRecoveryMonthly + money(base.renewalProvision)
   const dynamicCosts = money(base.vehicleKm) * money(base.fuelCostPerKm) + money(base.vehicleKm) * money(base.breakEvenInputs?.maintenanceProvisionPerKm)
   const monthlyBreakEvenRevenue = fixedCosts + dynamicCosts
   const breakEvenAvailable = Number.isFinite(monthlyBreakEvenRevenue)
-  const breakEven = deriveAuthoritativeBreakEven({
+  deriveAuthoritativeBreakEven({
     breakEvenInputs,
     range,
-    loanScheduledObligation: finance.scheduledDue + preBusinessRecoveryMonthly,
+    loanScheduledObligation: currentScheduledEmi + preBusinessRecoveryMonthly,
     renewalProvision: base.renewalProvision,
     fuelCostPerKm: base.breakEvenInputs?.fuelCostPerKm ?? base.fuelCostPerKm,
     vehicleKm: base.vehicleKm,
@@ -50,9 +54,9 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousRange) {
 
   return {
     ...base,
-    loanScheduledObligation: finance.scheduledDue,
+    loanScheduledObligation: currentScheduledEmi,
     loanPrincipal: finance.outstandingPrincipal,
-    loanInterest: finance.scheduledInterest,
+    loanInterest: currentScheduledInterest,
     actualLoanPaid,
     actualPrepayment,
     actualFinancingOutflow,
@@ -70,6 +74,7 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousRange) {
       ...finance,
       annualInterestRatePercent: 10,
       preBusinessRecoveryMonthly,
+      businessStartDate: businessStart?.toISOString() || null,
       previousOutstandingPrincipal: previousFinance.available ? previousFinance.outstandingPrincipal : null,
       overdueAmount: finance.totalOverdue,
       remainingInterest: finance.remainingInterest,
