@@ -10,17 +10,33 @@ assert.equal(empty.annualInterestRatePercent, 10)
 assert.ok(empty.schedule.length >= 12)
 assert.ok(empty.totalOverdue > 0)
 
-const paymentPreview = paymentAllocationPreview({
+// Frozen allocation order: oldest EMI -> overdue interest -> scheduled interest -> principal.
+const allocationExample = paymentAllocationPreview({
   loan,
   payments: [],
   prepayments: [],
   amount: 100,
   paidOn: '2026-02-15T00:00:00+05:30',
 })
-assert.equal(paymentPreview.available, true)
-assert.equal(paymentPreview.allocations[0].obligationId, 'loan-1:emi:1')
-assert.ok(paymentPreview.allocations[0].overdueInterest >= 0)
+assert.equal(allocationExample.available, true)
+assert.equal(allocationExample.allocations[0].obligationId, 'loan-1:emi:1')
+assert.ok(allocationExample.allocations[0].overdueInterest >= 0)
+assert.equal(allocationExample.allocations[0].scheduledPrincipal, 0)
 
+// A payment on the EMI due date has zero overdue days and therefore zero additional overdue interest.
+const dueDateAllocation = paymentAllocationPreview({
+  loan,
+  payments: [],
+  prepayments: [],
+  amount: emi,
+  paidOn: '2026-02-01T00:00:00+05:30',
+})
+assert.equal(dueDateAllocation.available, true)
+assert.equal(dueDateAllocation.allocations[0].overdueInterest, 0)
+assert.ok(dueDateAllocation.allocations[0].scheduledInterest > 0)
+assert.ok(dueDateAllocation.allocations[0].scheduledPrincipal > 0)
+
+// Partial payment never reduces principal while the EMI's interest obligations remain unpaid.
 const partiallyPaid = deriveLoanPosition({
   loan,
   payments: [{ id: 'payment-1', loanId: 'loan-1', amount: 100, paidOn: '2026-02-15T00:00:00+05:30', status: 'PAID' }],
@@ -28,7 +44,20 @@ const partiallyPaid = deriveLoanPosition({
   asOf: '2026-02-20T00:00:00+05:30',
 })
 assert.ok(partiallyPaid.totalOverdue > 0)
-assert.ok(partiallyPaid.outstandingPrincipal < loan.principal)
+assert.equal(partiallyPaid.schedule[0].scheduledPrincipalPaid, 0)
+assert.equal(partiallyPaid.schedule[0].scheduledInterestPaid, 100)
+
+// Chronology: a payment allocated to the oldest unpaid EMI cannot jump to a later EMI.
+const chronological = paymentAllocationPreview({
+  loan,
+  payments: [],
+  prepayments: [],
+  amount: emi,
+  paidOn: '2026-03-15T00:00:00+05:30',
+})
+assert.equal(chronological.available, true)
+assert.equal(chronological.allocations[0].obligationId, 'loan-1:emi:1')
+assert.ok(chronological.allocations.every(allocation => allocation.obligationId === 'loan-1:emi:1'))
 
 const blockedPrepayment = calculatePrepaymentEstimate({
   loan,
@@ -62,4 +91,4 @@ const recovery = calculatePreBusinessRecovery({
 assert.ok(recovery > 0)
 assert.equal(recovery, Math.round((empty.overdue[0].overdueAmount + empty.overdue[1].overdueAmount) / 12 * 100) / 100)
 
-console.log('Finance authority contract passed: fixed 10% rate, chronological payment allocation, overdue interest, prepayment gating, tenure reduction and pre-business 12-month normalization.')
+console.log('Finance authority contract passed: fixed 10% rate, chronological payment allocation, zero overdue interest on due date, overdue interest, prepayment gating, tenure reduction and pre-business 12-month normalization.')
