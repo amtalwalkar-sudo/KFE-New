@@ -10,7 +10,7 @@ const overdueDayCount = (from, to) => Math.max(0, Math.ceil((to - from) / 864000
 const addMonths = (date, months) => { const result = new Date(date); const day = result.getDate(); result.setDate(1); result.setMonth(result.getMonth() + months); const last = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate(); result.setDate(Math.min(day, last)); return result }
 
 export const KFE_LOAN_ANNUAL_RATE_PERCENT = 10
-export const KFE_LOAN_ANNUAL_RATE = KFE_LOAN_ANNUAL_RATE
+export { KFE_LOAN_ANNUAL_RATE }
 
 export function calculateEmi(principal, tenureMonths) {
   const P = Math.max(0, finite(principal))
