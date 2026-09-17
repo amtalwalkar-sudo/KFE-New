@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { ADMIN_FORM_DEFINITIONS } from '../application/admin/adminFormDefinitions.js'
 import {
+  KFE_LOAN_ANNUAL_RATE_PERCENT,
   calculateEmi,
   deriveLoanPosition,
   paymentAllocationPreview,
@@ -12,15 +13,31 @@ const loan = {
   principal: 550000,
   tenureMonths: 60,
   startDate: '2026-01-01',
+  annualInterestRatePercent: 10,
   status: 'Active',
 }
 
-const emi = calculateEmi(loan.principal, loan.tenureMonths)
+const emi = calculateEmi(loan.principal, loan.tenureMonths, loan.annualInterestRatePercent)
 assert.ok(emi > 0, 'EMI must be calculated from loan source inputs')
+assert.equal(KFE_LOAN_ANNUAL_RATE_PERCENT, 10, 'Default loan rate must remain 10%')
 assert.equal(ADMIN_FORM_DEFINITIONS.loan.fields.some(field => field.key === 'emi'), false, 'EMI must not be a user-entered loan source field')
-assert.equal(ADMIN_FORM_DEFINITIONS.loan.fields.some(field => field.key === 'annual_rate_percent'), false, 'Interest rate must not be a user-entered loan source field')
+const rateField = ADMIN_FORM_DEFINITIONS.loan.fields.find(field => field.key === 'annualInterestRatePercent')
+assert.ok(rateField, 'Annual interest rate must be an editable loan source field')
+assert.equal(rateField.defaultValue, 10, 'Annual interest rate must default to 10%')
+assert.equal(rateField.required, true)
 assert.equal(ADMIN_FORM_DEFINITIONS.loanPayment.calculationRole, 'authoritative-payment-record')
 assert.equal(ADMIN_FORM_DEFINITIONS.prepayment.calculationRole, 'authoritative-prepayment-record')
+
+// Per-loan override: another vehicle/loan may use a different rate without changing the KFE default.
+{
+  const alternateLoan = { ...loan, id: 'loan-e2e-alt', annualInterestRatePercent: 12 }
+  const alternateEmi = calculateEmi(alternateLoan.principal, alternateLoan.tenureMonths, alternateLoan.annualInterestRatePercent)
+  const defaultEmi = calculateEmi(alternateLoan.principal, alternateLoan.tenureMonths)
+  assert.ok(alternateEmi > defaultEmi)
+  const alternatePosition = deriveLoanPosition({ loan: alternateLoan, asOf: '2026-02-01' })
+  assert.equal(alternatePosition.annualInterestRatePercent, 12)
+  assert.equal(alternatePosition.emi, alternateEmi)
+}
 
 const due = '2026-02-01'
 const late = '2026-02-11'
@@ -105,4 +122,4 @@ const later = '2026-04-01'
   assert.equal(after.outstandingPrincipal, estimate.outstandingAfter)
 }
 
-console.log('Loan finance E2E contract passed: source forms, persistence boundary, payment allocation, overdue scenarios, prepayment gating, principal/outflow and downstream finance inputs.')
+console.log('Loan finance E2E contract passed: editable per-loan rate with 10% default, source forms, payment allocation, overdue scenarios, prepayment gating, principal/outflow and downstream finance inputs.')
