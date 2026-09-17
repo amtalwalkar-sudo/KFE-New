@@ -4,7 +4,7 @@ import { writeMutationAndAudit } from './mutationRepository.js'
 import { getAdminFormDefinition } from '../application/admin/adminFormDefinitions.js'
 import { validateAdminForm } from '../application/admin/universalFormRules.js'
 
-const FORM_STORE = Object.freeze({ vehicle: 'vehicles', driver: 'drivers', compliance: 'compliance_records', maintenance: 'maintenance_records', driverCollectedData: 'driver_collected_data', loan: 'loans', loanPayment: 'loan_payments', prepayment: 'prepayments', driverTarget: 'driver_targets', breakEvenInputs: 'break_even_inputs', backupRestore: 'settings', themes: 'settings', dataReset: 'settings' })
+const FORM_STORE = Object.freeze({ vehicle: 'vehicles', driver: 'drivers', compliance: 'compliance_records', maintenance: 'maintenance_records', driverCollectedData: 'driver_collected_data', shift: 'shifts', loan: 'loans', loanPayment: 'loan_payments', prepayment: 'prepayments', driverTarget: 'driver_targets', breakEvenInputs: 'break_even_inputs', backupRestore: 'settings', themes: 'settings', dataReset: 'settings' })
 const isSettingsForm = key => key === 'backupRestore' || key === 'themes' || key === 'dataReset'
 const isDeleted = record => record?.deletedAt || record?.deleted === true
 function storeFor(formKey) { const store = FORM_STORE[formKey]; if (!store) throw new Error(`No canonical store is defined for Admin form: ${formKey}`); return store }
@@ -28,9 +28,11 @@ export const AdminRepository = {
     const definition = getAdminFormDefinition(formKey)
     if (definition) { const validation = validateAdminForm(definition, values); if (!validation.valid) throw new Error(`Invalid ${formKey}: ${Object.values(validation.errors).join(' ')}`); values = validation.values }
     const db = await initializeCanonicalStorage(); const storeName = storeFor(formKey); const existing = existingId ? await this.get(formKey, existingId) : null
+    if (formKey === 'shift' && !existing) throw new Error('Shift corrections require an existing Work-created shift.')
     const existingRaw = existing ? { id: existing.id, createdAt: existing.createdAt, updatedAt: existing.updatedAt, deletedAt: existing.deletedAt, deleted: existing.deleted, ...existing.values } : null
     await validateRelationships(db, formKey, values)
-    const record = toStoredRecord(formKey, values, existingRaw); const now = record.updatedAt; const action = existing ? 'UPDATE' : 'CREATE'
+    const record = formKey === 'shift' ? { ...existingRaw, ...structuredClone(values), id: existingRaw.id, createdAt: existingRaw.createdAt, updatedAt: new Date().toISOString() } : toStoredRecord(formKey, values, existingRaw)
+    const now = record.updatedAt; const action = existing ? 'UPDATE' : 'CREATE'
     return new Promise((resolve, reject) => {
       const tx = db.transaction([storeName, 'pending_mutations', 'audit_history'], 'readwrite')
       try { tx.objectStore(storeName).put(record); writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: record.id, entityType: formKey, action, payload: record, createdAt: now }) } catch (error) { try { tx.abort() } catch (_) {}; reject(error); return }
@@ -38,6 +40,7 @@ export const AdminRepository = {
     })
   },
   async remove(formKey, id) {
+    if (formKey === 'shift') throw new Error('Shift records are not deletable; correct the Work-created source record instead.')
     const db = await initializeCanonicalStorage(); const storeName = storeFor(formKey); const now = new Date().toISOString()
     return new Promise((resolve, reject) => {
       const tx = db.transaction([storeName, 'pending_mutations', 'audit_history'], 'readwrite'); const store = tx.objectStore(storeName); const request = store.get(id)
