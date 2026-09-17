@@ -97,7 +97,7 @@ No separate persisted Odometer entity is required in the current single-vehicle 
 
 The finance domain calculates EMI and financing results from the individual loan's explicit terms. Stored contractual terms are authoritative once active.
 
-Normal edit of an existing loan cannot change contractual source terms. Genuine contractual correction uses `AdminRepository.correctLoan(existingId, values, correctionReason)`, which recalculates EMI from the corrected explicit terms and writes an audited `CORRECTION` mutation. A correction reason is required.
+Normal edit of an existing loan cannot change contractual source terms. Genuine contractual correction uses `AdminRepository.correctLoan(values, correctionReason, existingId)`, which recalculates EMI from the corrected explicit terms and writes an audited `CORRECTION` mutation. A correction reason is required.
 
 Loan status (`Active`, `Closed`, `Settled`) is lifecycle state and is distinct from administrative deletion. Performance finance selection considers only a non-deleted `Active` loan whose start date is effective as of the reporting boundary.
 
