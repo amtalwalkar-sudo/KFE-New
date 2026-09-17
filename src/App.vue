@@ -6,5 +6,54 @@ const props = defineProps({ startupError: { type: String, default: null } })
 const renderError = ref(null)
 const recoverApp = () => { renderError.value = null; window.location.reload() }
 </script>
-<template><div class="viewport-wrapper"><a class="kfe-skip-link" href="#main-content">Skip to main content</a><header class="top-bar" aria-label="KFE application header"><span class="app-title">Kanishka Enterprises</span><span class="app-context">KFE</span></header><main id="main-content" class="content-scroll-area" tabindex="-1"><div v-if="renderError" class="error-container" role="alert"><h3>Something went wrong</h3><p>{{renderError}}</p><button @click="recoverApp" class="retry-btn">Reload Application</button></div><div v-else-if="props.startupError" class="error-container" role="alert"><h3>Application initialization failed</h3><p>{{props.startupError}}</p><button @click="recoverApp" class="retry-btn">Retry Initialization</button></div><router-view v-else v-slot="{Component}"><keep-alive><component :is="Component" /></keep-alive></router-view></main><DiagnosticBubble/><nav class="bottom-nav" aria-label="Primary navigation"><router-link to="/" class="nav-item" exact-active-class="nav-item-active" aria-label="Work"><span class="icon" aria-hidden="true">WORK</span><span>Work</span></router-link><router-link to="/performance" class="nav-item" exact-active-class="nav-item-active" aria-label="Performance"><span class="icon" aria-hidden="true">KPI</span><span>Performance</span></router-link><router-link to="/admin" class="nav-item" exact-active-class="nav-item-active" aria-label="Admin"><span class="icon" aria-hidden="true">ADMIN</span><span>Admin</span></router-link></nav></div></template>
-<style scoped>.viewport-wrapper{position:fixed;inset:0;display:flex;flex-direction:column;height:100vh;height:100dvh;width:100vw;background:var(--kfe-bg);overflow:hidden}.top-bar{position:fixed;top:0;left:0;right:0;min-height:52px;height:52px;background:var(--kfe-text);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 max(16px,env(safe-area-inset-right)) 0 max(16px,env(safe-area-inset-left));padding-top:env(safe-area-inset-top);z-index:9999}.app-title{font-weight:800;font-size:.9rem}.app-context{font-size:.7rem;font-weight:800;letter-spacing:.08em;opacity:.75}.content-scroll-area{position:absolute;top:52px;bottom:64px;left:0;right:0;overflow-y:auto;-webkit-overflow-scrolling:touch;scroll-padding-top:12px;padding-bottom:env(safe-area-inset-bottom)}.bottom-nav{position:fixed;bottom:0;left:0;right:0;height:64px;padding-bottom:env(safe-area-inset-bottom);background:var(--kfe-surface);border-top:1px solid var(--kfe-border);display:flex;justify-content:space-around;align-items:center;z-index:9999}.nav-item{display:flex;flex:1;max-width:140px;min-height:44px;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-decoration:none;color:var(--kfe-text-muted);font-size:.75rem}.nav-item-active{color:var(--kfe-primary);font-weight:800}.icon{font-size:.58rem;font-weight:900;letter-spacing:.04em}.error-container{max-width:560px;margin:auto;padding:28px 20px;text-align:center;color:var(--kfe-danger)}.retry-btn{min-height:44px;padding:10px 16px;background:var(--kfe-primary);color:#fff;border:0;border-radius:var(--kfe-radius-sm);font-weight:800;cursor:pointer}@media(max-width:600px){.content-scroll-area{bottom:68px}.bottom-nav{height:68px}}</style>
+
+<template>
+  <div class="viewport-wrapper">
+    <a class="kfe-skip-link" href="#main-content">Skip to main content</a>
+
+    <header class="top-bar" aria-label="KFE application header">
+      <div class="brand-lockup">
+        <div class="brand-mark" aria-hidden="true">K</div>
+        <div class="brand-copy">
+          <strong>Kanishka Enterprises</strong>
+          <span>Fleet ERP · KFE 2.0</span>
+        </div>
+      </div>
+      <div class="header-status"><span class="status-dot" aria-hidden="true"></span><span>Local-first</span></div>
+    </header>
+
+    <main id="main-content" class="content-scroll-area" tabindex="-1">
+      <div v-if="renderError" class="error-container" role="alert">
+        <h3>Something went wrong</h3><p>{{ renderError }}</p><button @click="recoverApp" class="retry-btn">Reload Application</button>
+      </div>
+      <div v-else-if="props.startupError" class="error-container" role="alert">
+        <h3>Application initialization failed</h3><p>{{ props.startupError }}</p><button @click="recoverApp" class="retry-btn">Retry Initialization</button>
+      </div>
+      <router-view v-else v-slot="{ Component }"><keep-alive><component :is="Component" /></keep-alive></router-view>
+    </main>
+
+    <DiagnosticBubble />
+
+    <nav class="bottom-nav" aria-label="Primary navigation">
+      <router-link to="/" class="nav-item" exact-active-class="nav-item-active" aria-label="Work">
+        <span class="nav-icon" aria-hidden="true">⌂</span><span>Work</span>
+      </router-link>
+      <router-link to="/performance" class="nav-item" exact-active-class="nav-item-active" aria-label="Performance">
+        <span class="nav-icon" aria-hidden="true">↗</span><span>Performance</span>
+      </router-link>
+      <router-link to="/admin" class="nav-item" exact-active-class="nav-item-active" aria-label="Admin">
+        <span class="nav-icon" aria-hidden="true">☷</span><span>Admin</span>
+      </router-link>
+    </nav>
+  </div>
+</template>
+
+<style scoped>
+.viewport-wrapper{position:fixed;inset:0;display:flex;flex-direction:column;width:100vw;height:100dvh;background:var(--kfe-ui-bg,#f5f7fb);overflow:hidden;color:var(--kfe-ui-text,#101828)}
+.top-bar{position:fixed;top:0;left:0;right:0;min-height:64px;height:64px;padding:8px max(16px,env(safe-area-inset-right)) 8px max(16px,env(safe-area-inset-left));display:flex;align-items:center;justify-content:space-between;gap:12px;background:color-mix(in srgb,var(--kfe-ui-surface,#fff) 94%,transparent);border-bottom:1px solid var(--kfe-ui-border,#e4e7ec);box-shadow:0 4px 18px rgba(16,24,40,.05);backdrop-filter:blur(16px);z-index:9999}
+.brand-lockup{display:flex;align-items:center;gap:10px;min-width:0}.brand-mark{width:38px;height:38px;display:grid;place-items:center;flex:0 0 38px;border-radius:12px;background:var(--kfe-ui-accent,#2563eb);color:#fff;font-size:1.05rem;font-weight:950;box-shadow:0 5px 14px rgba(37,99,235,.2)}.brand-copy{display:grid;min-width:0;line-height:1.15}.brand-copy strong{font-size:.9rem;font-weight:900;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.brand-copy span{margin-top:3px;font-size:.62rem;font-weight:700;color:var(--kfe-muted-text,#667085);letter-spacing:.03em}.header-status{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid var(--kfe-ui-border,#e4e7ec);border-radius:999px;background:var(--kfe-ui-bg,#f5f7fb);font-size:.61rem;font-weight:800;color:var(--kfe-muted-text,#667085);white-space:nowrap}.status-dot{width:7px;height:7px;border-radius:50%;background:var(--kfe-success,#079455);box-shadow:0 0 0 3px color-mix(in srgb,var(--kfe-success,#079455) 13%,transparent)}
+.content-scroll-area{position:absolute;top:64px;bottom:76px;left:0;right:0;overflow-y:auto;-webkit-overflow-scrolling:touch;scroll-padding-top:14px;padding:0 max(0px,env(safe-area-inset-left)) max(20px,env(safe-area-inset-bottom))}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;min-height:76px;padding:7px 10px max(7px,env(safe-area-inset-bottom));display:flex;justify-content:center;gap:6px;background:color-mix(in srgb,var(--kfe-ui-surface,#fff) 97%,transparent);border-top:1px solid var(--kfe-ui-border,#e4e7ec);box-shadow:0 -6px 24px rgba(16,24,40,.05);backdrop-filter:blur(16px);z-index:9999}.nav-item{display:flex;flex:1;max-width:150px;min-height:58px;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-radius:14px;text-decoration:none;color:var(--kfe-muted-text,#667085);font-size:.65rem;font-weight:750;transition:background .15s ease,color .15s ease,transform .08s ease}.nav-item:hover{background:var(--kfe-ui-bg,#f5f7fb)}.nav-item:active{transform:translateY(1px)}.nav-item-active{background:var(--kfe-accent-soft,#eff6ff);color:var(--kfe-ui-accent,#2563eb);font-weight:900}.nav-icon{font-size:1.15rem;line-height:1;font-weight:800}.nav-item-active .nav-icon{transform:translateY(-1px)}
+.error-container{max-width:560px;margin:48px auto;padding:28px 20px;text-align:center;color:var(--kfe-danger,#d92d20)}.error-container h3{margin:0 0 8px;font-size:1.1rem}.error-container p{color:var(--kfe-muted-text,#667085);font-size:.8rem;line-height:1.5}.retry-btn{min-height:46px;padding:10px 16px;background:var(--kfe-ui-accent,#2563eb);color:#fff;border:0;border-radius:12px;font-weight:850;cursor:pointer}.kfe-skip-link{position:fixed;top:8px;left:8px;z-index:20000;padding:10px 14px;border-radius:10px;background:var(--kfe-ui-text,#101828);color:#fff;text-decoration:none;font-weight:800;transform:translateY(-150%);transition:transform .15s ease}.kfe-skip-link:focus{transform:translateY(0)}
+@media(max-width:600px){.top-bar{min-height:62px;height:62px}.content-scroll-area{top:62px;bottom:76px}.header-status{padding:6px 8px}.brand-mark{width:36px;height:36px;flex-basis:36px}.brand-copy strong{font-size:.84rem}.brand-copy span{font-size:.58rem}.bottom-nav{min-height:76px}}
+</style>
