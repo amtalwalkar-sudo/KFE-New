@@ -10,7 +10,7 @@ assert.equal(validateAdminForm(vehicle,{registrationNumber:'X',make:'A',model:'B
 const compliance=getAdminFormDefinition('compliance')
 assert.equal(validateAdminForm(compliance,{vehicleId:'v1',complianceType:'PUC',validFrom:'2026-09-10',validUntil:'2026-09-01'}).valid,false)
 const loanPayment=getAdminFormDefinition('loanPayment')
-assert.equal(validateAdminForm(loanPayment,{loanId:'l1',paidOn:'2026-09-01',amount:100,status:'Paid'}).valid,true)
+assert.equal(validateAdminForm(loanPayment,{loanId:'l1',paidOn:'2026-09-01',amount:100}).valid,true)
 const maintenance=getAdminFormDefinition('maintenance')
 assert.equal(validateAdminForm(maintenance,{vehicleId:'v1',performedOn:'2026-09-01',maintenanceType:'Service',validityType:'KM based',cost:100}).valid,false)
 console.log('Admin contract passed: all authoritative forms are defined and critical cross-field rules reject invalid records.')
