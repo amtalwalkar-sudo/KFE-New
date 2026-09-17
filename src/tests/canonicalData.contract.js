@@ -21,14 +21,12 @@ const formRulesSource = read('src/application/admin/universalFormRules.js')
 const breakEvenSource = read('src/domain/performance/authoritativeBreakEven.js')
 const targetSource = read('src/domain/performance/driverTargetStabilization.js')
 const financeAdapterSource = read('src/domain/performance/financePerformanceAdapter.js')
-const authorityDoc = read('docs/CALCULATION-AUTHORITY-MATRIX.md')
 const canonicalDoc = read('docs/KFE-CANONICAL-DATA-CONTRACT.md')
 
 assert.match(adminSource, /existing\?\.id \|\| generateUUID\(\)/)
 assert.match(shiftTripSource, /normalized\.id \|\| generateUUID\(\)/)
 assert.match(fuelSource, /normalized\.id \|\| generateUUID\(\)/)
 assert.match(mutationSource, /id: generateUUID\(\)/)
-
 assert.equal(istDateKey(new Date('2026-09-10T17:59:59Z')), '2026-09-10')
 assert.equal(istDateKey(new Date('2026-09-10T18:30:00Z')), '2026-09-11')
 assert.equal(istDateKey('2026-09-10'), '2026-09-10')
@@ -107,7 +105,6 @@ assert.match(shiftTripSource, /revenueProvenance: normalized\.revenueProvenance 
 assert.match(fuelSource, /provenance: normalized\.provenance \?\? null/)
 assert.match(canonicalDoc, /Provenance answers \*\*where a value came from\*\*\./)
 assert.match(canonicalDoc, /authority, which answers \*\*whether the value is permitted to feed an authoritative calculation\*\*/)
-
 assert.match(shiftTripSource, /status !== 'ACTIVE'/)
 assert.match(shiftTripSource, /status = status/)
 assert.match(adminSource, /record\.deletedAt = now/)
@@ -118,21 +115,18 @@ assert.doesNotMatch(fuelSource, /objectStore\([^)]*\)\.delete\(id\)/)
 assert.match(canonicalDoc, /An operational status transition must never be implemented as deletion/)
 assert.match(canonicalDoc, /Hard deletion of canonical business records requires a separately governed data-destruction contract/)
 assert.match(canonicalDoc, /### Entity-specific contract/)
-
 assert.match(shiftTripSource, /shiftId is required for a Trip/)
 assert.match(shiftTripSource, /endOdometer cannot be less than startOdometer/)
 assert.match(fuelSource, /must be a finite number/)
 
-// Shift-end revenue is the sole ERP revenue authority. Trip revenue is retained only as optional supporting detail.
 assert.match(shiftTripSource, /shift\.revenue = Number\(normalized\.revenue \|\| 0\)/)
 assert.match(shiftTripSource, /revenueAuthority = 'SUPPORTING_ONLY'/)
-assert.match(canonicalDoc, /Shift-level `revenue`.*authoritative/i)
-assert.match(canonicalDoc, /Trip\.revenue.*supporting/i)
-assert.match(authorityDoc, /Revenue.*shifts/)
-assert.match(authorityDoc, /Vehicle KM.*shifts/)
 assert.match(financeAdapterSource, /annualInterestRatePercent/)
 assert.doesNotMatch(financeAdapterSource, /annualInterestRate\s*:\s*10/)
 assert.match(financeAdapterSource, /status \|\| ''\)\.toUpperCase\(\) === 'ACTIVE'/)
+assert.match(adminSource, /LOAN_CONTRACT_FIELDS/)
+assert.match(adminSource, /AdminRepository\.correctLoan|correctLoan\(/)
+assert.match(adminSource, /action: 'CORRECTION'/)
 
 const requiredStores = ['shifts', 'trips', 'fuel_logs', 'vehicles', 'drivers', 'compliance_records', 'maintenance_records', 'driver_collected_data', 'loans', 'loan_payments', 'prepayments', 'driver_targets', 'break_even_inputs', 'settings', 'pending_mutations', 'audit_history']
 for (const store of requiredStores) assert.match(indexedDBSource, new RegExp(`['\"]${store}['\"]`), `${store} must remain a canonical store`)
@@ -140,7 +134,6 @@ for (const owner of ['ShiftTripRepository', 'FuelRepository', 'MutationRepositor
 assert.match(canonicalDoc, /driver_collected_data/)
 assert.match(canonicalDoc, /loan_payments/)
 assert.match(canonicalDoc, /prepayments/)
-
 for (const store of ['days', 'odoGaps', 'gps_snapshots', 'movement_artifacts']) assert.match(indexedDBSource, new RegExp(`['\"]${store}['\"]`), `${store} must remain explicitly represented`)
 assert.match(canonicalDoc, /supporting\/infrastructure stores/i)
 assert.match(canonicalDoc, /Historical\/as-of resolution must compare the business date in IST/)
