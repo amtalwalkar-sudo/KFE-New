@@ -2,6 +2,7 @@ import { PerformanceRepository } from '../../repositories/performanceRepository.
 import { subscribeCanonicalDataChanges } from '../../repositories/canonicalDataChangeRepository.js'
 import { layerRows, previousRange } from '../../domain/performance/performanceEngineV2.js'
 import { deriveFinanceAwarePerformance } from '../../domain/performance/financePerformanceAdapter.js'
+import { deriveRollingDriverTarget } from '../../domain/performance/driverTargetStabilization.js'
 import { DriverTargetService } from './driverTargetService.js'
 import { normalizeCalculationSnapshot } from './normalizeCalculationSnapshot.js'
 import { istMonthRange } from '../../domain/time/ist.js'
@@ -68,10 +69,7 @@ export const PerformanceService = Object.freeze({
 
     return {
       ...metrics,
-      counts: {
-        ...metrics.counts,
-        activeFinancialDays: financialDays,
-      },
+      counts: { ...metrics.counts, activeFinancialDays: financialDays },
       revenuePerActiveDay: revenuePerFinancialDay,
       breakEvenRevenue: authoritativeMonthlyBreakEven,
       target: canonicalTarget,
