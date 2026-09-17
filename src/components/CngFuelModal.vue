@@ -3,11 +3,14 @@ import { ref, watch, onUnmounted } from 'vue'
 const props = defineProps({ isOpen: Boolean })
 const emit = defineEmits(['close', 'save'])
 const odometer = ref(''), amount = ref(''), kg = ref(''), isFullTank = ref(true)
+const MAX_CNG_KG = 15
 watch(() => props.isOpen, newVal => { document.body.style.overflow = newVal ? 'hidden' : ''; document.body.style.position = newVal ? 'fixed' : ''; document.body.style.width = newVal ? '100%' : '' }, { immediate: true })
 onUnmounted(() => { document.body.style.overflow = ''; document.body.style.position = ''; document.body.style.width = '' })
 const handleSave = () => {
   if (!odometer.value || !amount.value) return alert('Please fill in Odometer and Amount')
-  emit('save', { odometer: Number(odometer.value), amount: Number(amount.value), kg: kg.value ? Number(kg.value) : 0, isFullTank: isFullTank.value })
+  const enteredKg = kg.value ? Number(kg.value) : 0
+  if (enteredKg > MAX_CNG_KG) return alert(`CNG quantity cannot exceed ${MAX_CNG_KG} kg (tank capacity).`)
+  emit('save', { odometer: Number(odometer.value), amount: Number(amount.value), kg: enteredKg, isFullTank: isFullTank.value })
   odometer.value = ''; amount.value = ''; kg.value = ''; isFullTank.value = true
 }
 </script>
@@ -18,7 +21,7 @@ const handleSave = () => {
       <div style="padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:12px">
         <label>Odometer Reading (km) *<input v-model="odometer" type="number" style="width:100%"></label>
         <label>Amount Paid (₹) *<input v-model="amount" type="number" style="width:100%"></label>
-        <label>CNG Quantity (kg) - Optional<input v-model="kg" type="number" step="0.01" style="width:100%"></label>
+        <label>CNG Quantity (kg) - Optional<input v-model="kg" type="number" min="0" max="15" step="0.01" style="width:100%"><small>Maximum tank capacity: 15 kg</small></label>
         <label style="display:flex;gap:8px;align-items:center"><input v-model="isFullTank" type="checkbox"> Full tank (default)</label>
         <small v-if="!isFullTank">Partial fill is recorded but excluded from fuel cost/km calculations.</small>
       </div>
