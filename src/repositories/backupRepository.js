@@ -54,6 +54,19 @@ export const createBackupRepository = stores => Object.freeze({
     })
   },
 
+  async resetCanonicalData() {
+    const db = await initializeCanonicalStorage()
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(stores, 'readwrite')
+      try {
+        for (const storeName of stores) tx.objectStore(storeName).clear()
+      } catch (error) { try { tx.abort() } catch (_) {}; reject(error); return }
+      tx.oncomplete = () => { notifyCanonicalDataChanged({ stores, reason: 'data:reset' }); resolve() }
+      tx.onerror = () => reject(tx.error || new Error('KFE data reset transaction failed.'))
+      tx.onabort = () => reject(tx.error || new Error('KFE data reset transaction aborted.'))
+    })
+  },
+
   async saveLocalBackup(backup) {
     const db = await openLocalBackupDB()
     return new Promise((resolve, reject) => {
