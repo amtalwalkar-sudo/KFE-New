@@ -12,7 +12,7 @@ const packageJson = JSON.parse(await readFile(packageFile, 'utf8'))
 assert.equal(packageJson.scripts['ui:impact'], 'node tools/presentation-impact.mjs')
 
 const boundaryText = await readFile(boundary, 'utf8')
-assert.match(boundaryText, /Presentation change impact warning — permanent rule/)
+assert.match(boundaryText, /🔴 CHANGE IMPACT WARNING — permanent rule/)
 assert.match(boundaryText, /npm run ui:impact -- <src\/path>/)
 assert.match(boundaryText, /🔴 CHANGE IMPACT WARNING/)
 
