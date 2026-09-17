@@ -39,6 +39,23 @@ jobs:
       - name: Build Production PWA
         run: npm run build
 
+      - name: Validate GitHub Pages Artifact
+        run: |
+          test -f dist/index.html
+          test -f dist/manifest.json
+          test -f dist/service-worker.js
+          test -f dist/icon-192.png
+          test -f dist/icon-512.png
+          grep -q '/KFE-New/assets/' dist/index.html
+          ! grep -q './src/main.js' dist/index.html
+          echo 'GitHub Pages artifact structure and Vite asset paths are valid.'
+
+      - name: Install Chromium for Runtime Smoke Test
+        run: npx playwright install --with-deps chromium
+
+      - name: Run GitHub Pages Runtime Smoke Test
+        run: node tools/pages-runtime-smoke.mjs
+
       - name: Preserve SPA Routes for GitHub Pages
         run: cp dist/index.html dist/404.html
 
