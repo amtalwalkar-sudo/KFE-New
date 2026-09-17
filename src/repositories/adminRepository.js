@@ -9,6 +9,7 @@ const FORM_STORE = Object.freeze({ vehicle: 'vehicles', driver: 'drivers', compl
 const isSettingsForm = key => key === 'backupRestore' || key === 'themes' || key === 'dataReset'
 const isFinanceForm = key => key === 'loan' || key === 'loanPayment' || key === 'prepayment'
 const isDeleted = record => record?.deletedAt || record?.deleted === true
+const LOAN_CONTRACT_FIELDS = Object.freeze(['lender','accountReference','principal','tenureMonths','startDate','annualInterestRatePercent'])
 function storeFor(formKey) { const store = FORM_STORE[formKey]; if (!store) throw new Error(`No canonical store is defined for Admin form: ${formKey}`); return store }
 function toStoredRecord(formKey, values, existing = null) { const now = new Date().toISOString(); const id = existing?.id || generateUUID(); const base = { id, createdAt: existing?.createdAt || now, updatedAt: now }; if (isSettingsForm(formKey)) return { ...base, settingKey: formKey, values: structuredClone(values) }; return { ...base, ...structuredClone(values) } }
 const readAll = async storeName => { const db = await initializeCanonicalStorage(); return new Promise((resolve, reject) => { const request = db.transaction(storeName, 'readonly').objectStore(storeName).getAll(); request.onsuccess = () => resolve(request.result || []); request.onerror = () => reject(request.error || new Error(`Failed to read ${storeName}.`)) }) }
@@ -40,7 +41,7 @@ async function validateRelationships(db, formKey, values) {
     if (!record || isDeleted(record)) throw new Error(`${field} references a missing or deleted canonical record.`)
   }
 }
-
+function changedLoanContractFields(existing, next) { return LOAN_CONTRACT_FIELDS.filter(field => String(existing?.[field] ?? '') !== String(next?.[field] ?? '')) }
 async function prepareFinanceValues(formKey, values, existingId) {
   if (formKey === 'loan') {
     const principal = Number(values.principal)
@@ -80,6 +81,10 @@ export const AdminRepository = {
     const db = await initializeCanonicalStorage(); const storeName = storeFor(formKey); const existing = existingId ? await this.get(formKey, existingId) : null
     if (formKey === 'shift' && !existing) throw new Error('Shift corrections require an existing Work-created shift.')
     const existingRaw = existing ? { id: existing.id, createdAt: existing.createdAt, updatedAt: existing.updatedAt, deletedAt: existing.deletedAt, deleted: existing.deleted, ...existing.values } : null
+    if (formKey === 'loan' && existingRaw) {
+      const changed = changedLoanContractFields(existingRaw, values)
+      if (changed.length) throw new Error(`Active/contractual loan terms are immutable through normal edit. Use AdminRepository.correctLoan() for an audited correction: ${changed.join(', ')}.`)
+    }
     await validateRelationships(db, formKey, values)
     const financeValues = isFinanceForm(formKey) ? await prepareFinanceValues(formKey, values, existingId) : values
     const record = formKey === 'shift' ? { ...existingRaw, ...structuredClone(financeValues), id: existingRaw.id, createdAt: existingRaw.createdAt, updatedAt: new Date().toISOString() } : toStoredRecord(formKey, financeValues, existingRaw)
@@ -89,6 +94,27 @@ export const AdminRepository = {
       const tx = db.transaction(stores, 'readwrite')
       try { tx.objectStore(storeName).put(record); writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: record.id, entityType: formKey, action, payload: record, createdAt: now }) } catch (error) { try { tx.abort() } catch (_) {}; reject(error); return }
       tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: [storeName], reason: `admin:${action}` }); resolve(toFormRecord(formKey, record)) }; tx.onerror = () => reject(tx.error || new Error(`Failed to save ${formKey}.`)); tx.onabort = () => reject(tx.error || new Error(`Save ${formKey} aborted.`))
+    })
+  },
+  async correctLoan(values, correctionReason, existingId) {
+    if (!existingId) throw new Error('A loan ID is required for contractual correction.')
+    if (!String(correctionReason || '').trim()) throw new Error('A correction reason is required for a loan contractual correction.')
+    const definition = getAdminFormDefinition('loan')
+    const validation = validateAdminForm(definition, values)
+    if (!validation.valid) throw new Error(`Invalid loan correction: ${Object.values(validation.errors).join(' ')}`)
+    const db = await initializeCanonicalStorage(); const storeName = storeFor('loan'); const current = await readOne(storeName, existingId)
+    if (!current || isDeleted(current)) throw new Error('Cannot correct a missing or deleted loan.')
+    const nextValues = validation.values
+    const currentForm = toFormRecord('loan', current)?.values || {}
+    const changed = changedLoanContractFields(currentForm, nextValues)
+    if (!changed.length) throw new Error('Loan correction does not change any contractual source term.')
+    const financeValues = await prepareFinanceValues('loan', nextValues, existingId)
+    const now = new Date().toISOString()
+    const record = { ...current, ...structuredClone(financeValues), id: current.id, createdAt: current.createdAt, updatedAt: now }
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([storeName, 'pending_mutations', 'audit_history'], 'readwrite')
+      try { tx.objectStore(storeName).put(record); writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: record.id, entityType: 'loan', action: 'CORRECTION', payload: { ...record, correctionReason: String(correctionReason).trim(), correctedFields: changed }, createdAt: now }) } catch (error) { try { tx.abort() } catch (_) {}; reject(error); return }
+      tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: [storeName], reason: 'admin:CORRECTION' }); resolve(toFormRecord('loan', record)) }; tx.onerror = () => reject(tx.error || new Error('Failed to correct loan.')); tx.onabort = () => reject(tx.error || new Error('Loan correction aborted.'))
     })
   },
   async remove(formKey, id) {
