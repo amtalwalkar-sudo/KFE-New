@@ -1,5 +1,5 @@
 // KFE PWA infrastructure boundary. The service worker never imports application/domain/UI code.
-const CACHE_NAME = 'kfe-pwa-shell-v1'
+const CACHE_NAME = 'kfe-pwa-shell-v2'
 
 self.addEventListener('install', event => {
   event.waitUntil(
