@@ -33,19 +33,30 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousRange) {
   const currentScheduledEmi = finance.schedule.filter(row => inRange(row.dueDate, range)).reduce((sum, row) => sum + money(row.originalEmiAmount), 0)
   const currentScheduledInterest = finance.schedule.filter(row => inRange(row.dueDate, range)).reduce((sum, row) => sum + money(row.originalInterestComponent), 0)
 
-  const breakEvenInputs = snapshot?.breakEvenInputs || []
-  const fixedCosts = currentScheduledEmi + preBusinessRecoveryMonthly + money(base.renewalProvision)
-  const dynamicCosts = money(base.vehicleKm) * money(base.fuelCostPerKm) + money(base.vehicleKm) * money(base.breakEvenInputs?.maintenanceProvisionPerKm)
-  const monthlyBreakEvenRevenue = fixedCosts + dynamicCosts
-  const breakEvenAvailable = Number.isFinite(monthlyBreakEvenRevenue)
-  deriveAuthoritativeBreakEven({
-    breakEvenInputs,
-    range,
-    loanScheduledObligation: currentScheduledEmi + preBusinessRecoveryMonthly,
-    renewalProvision: base.renewalProvision,
-    fuelCostPerKm: base.breakEvenInputs?.fuelCostPerKm ?? base.fuelCostPerKm,
-    vehicleKm: base.vehicleKm,
+  const breakEvenMonthRange = dateOf(range?.to)
+    ? (() => {
+        const month = new Date(range.to)
+        const from = new Date(month.getFullYear(), month.getMonth(), 1)
+        const to = new Date(month.getFullYear(), month.getMonth() + 1, 0, 23, 59, 59, 999)
+        return { from, to }
+      })()
+    : range
+  const monthlyBase = legacyDerivePerformance(snapshot, breakEvenMonthRange, previousRange(breakEvenMonthRange))
+  const monthAsOf = asOf(breakEvenMonthRange)
+  const monthFinance = deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: monthAsOf })
+  const monthScheduledEmi = monthFinance.schedule
+    .filter(row => inRange(row.dueDate, breakEvenMonthRange))
+    .reduce((sum, row) => sum + money(row.originalEmiAmount), 0)
+  const monthPreBusinessRecovery = calculatePreBusinessRecovery({ position: monthFinance, businessStartDate: businessStart, asOf: monthAsOf })
+  const breakEven = deriveAuthoritativeBreakEven({
+    breakEvenInputs: snapshot?.breakEvenInputs || [],
+    range: breakEvenMonthRange,
+    loanScheduledObligation: monthScheduledEmi + monthPreBusinessRecovery,
+    renewalProvision: monthlyBase.renewalProvision,
+    fuelCostPerKm: monthlyBase.breakEvenInputs?.fuelCostPerKm ?? monthlyBase.fuelCostPerKm,
+    vehicleKm: monthlyBase.vehicleKm,
   })
+  const monthlyBreakEvenRevenue = breakEven.available ? breakEven.monthlyBreakEvenRevenue : NaN
 
   const actualLoanPaid = money(finance.actualPaid)
   const actualPrepayment = money(finance.actualPrepayment)
@@ -62,13 +73,13 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousRange) {
     actualFinancingOutflow,
     availableCash,
     cashSurplusAfterFinancing: availableCash,
-    monthlyBreakEvenRevenue: breakEvenAvailable ? monthlyBreakEvenRevenue : NaN,
-    breakEvenRevenue: breakEvenAvailable ? monthlyBreakEvenRevenue : NaN,
+    monthlyBreakEvenRevenue,
+    breakEvenRevenue: monthlyBreakEvenRevenue,
     breakEvenInputs: {
       ...(base.breakEvenInputs || {}),
-      fixedCosts,
-      preBusinessRecoveryMonthly,
-      fuelCostPerKm: base.breakEvenInputs?.fuelCostPerKm ?? base.fuelCostPerKm,
+      fixedCosts: breakEven.fixedCosts,
+      preBusinessRecoveryMonthly: monthPreBusinessRecovery,
+      fuelCostPerKm: breakEven.fuelCostPerKm,
     },
     finance: {
       ...finance,
@@ -84,12 +95,12 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousRange) {
     authority: {
       ...(base.authority || {}),
       loan: 'CANONICAL_FINANCE_LOAN_ENGINE',
-      breakEven: breakEvenAvailable ? 'CANONICAL_FINANCE_PLUS_AUTHORITATIVE_BREAK_EVEN' : base.authority?.breakEven,
+      breakEven: breakEven.available ? 'AUTHORITATIVE_MONTHLY_BREAK_EVEN' : base.authority?.breakEven,
     },
     completeness: {
       ...(base.completeness || {}),
       loan: finance.available,
-      breakEven: breakEvenAvailable,
+      breakEven: breakEven.available,
     },
   }
 }
