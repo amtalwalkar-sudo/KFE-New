@@ -7,6 +7,7 @@ import { normalizeCalculationSnapshot } from '../application/performance/normali
 import { normalizeShiftInput, normalizeTripInput, normalizeFuelInput } from '../domain/canonicalNormalization.js'
 import { normalizeFormValues, validateAdminForm } from '../application/admin/universalFormRules.js'
 import { getAdminFormDefinition, ADMIN_FORM_KEYS } from '../application/admin/adminFormDefinitions.js'
+import { CANONICAL_BACKUP_STORES, BACKUP_FORMAT_VERSION, validateBackup } from '../application/backup/backupService.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(here, '../..')
@@ -21,6 +22,7 @@ const formRulesSource = read('src/application/admin/universalFormRules.js')
 const breakEvenSource = read('src/domain/performance/authoritativeBreakEven.js')
 const targetSource = read('src/domain/performance/driverTargetStabilization.js')
 const financeAdapterSource = read('src/domain/performance/financePerformanceAdapter.js')
+const backupSource = read('src/application/backup/backupService.js')
 const canonicalDoc = read('docs/KFE-CANONICAL-DATA-CONTRACT.md')
 
 assert.match(adminSource, /existing\?\.id \|\| generateUUID\(\)/)
@@ -86,6 +88,7 @@ for (const formKey of ADMIN_FORM_KEYS) {
   const normalizedValues = normalizeFormValues(definition, values)
   assert.deepEqual(Object.keys(normalizedValues).sort(), (definition.fields ?? []).map(field => field.key).sort(), `${formKey} normalization must cover every canonical field`)
 }
+assert.ok(!ADMIN_FORM_KEYS.includes('driverCollectedData'))
 assert.match(formRulesSource, /normalizeFormValues/)
 assert.match(formRulesSource, /numbersMustBeFinite:true/)
 
@@ -97,6 +100,7 @@ assert.equal(validateAdminForm(vehicleDefinition, vehicleNormalized).valid, true
 assert.match(adminSource, /validateAdminForm\(definition, values\)/)
 assert.match(adminSource, /validateRelationships\(db, formKey, values\)/)
 assert.match(adminSource, /relationshipStore/)
+assert.doesNotMatch(adminSource, /driverCollectedData|driver_collected_data/)
 
 assert.match(shiftTripSource, /trip\.tripKmAuthority = 'MANUAL'/)
 assert.match(shiftTripSource, /trip\.revenueAuthority = 'SUPPORTING_ONLY'/)
@@ -127,11 +131,30 @@ assert.match(adminSource, /LOAN_CONTRACT_FIELDS/)
 assert.match(adminSource, /AdminRepository\.correctLoan|correctLoan\(/)
 assert.match(adminSource, /action: 'CORRECTION'/)
 
-const requiredStores = ['shifts', 'trips', 'fuel_logs', 'vehicles', 'drivers', 'compliance_records', 'maintenance_records', 'driver_collected_data', 'loans', 'loan_payments', 'prepayments', 'driver_targets', 'break_even_inputs', 'settings', 'pending_mutations', 'audit_history']
+const requiredStores = ['shifts', 'trips', 'fuel_logs', 'vehicles', 'drivers', 'compliance_records', 'maintenance_records', 'loans', 'loan_payments', 'prepayments', 'driver_targets', 'break_even_inputs', 'settings', 'pending_mutations', 'audit_history']
 for (const store of requiredStores) assert.match(indexedDBSource, new RegExp(`['\"]${store}['\"]`), `${store} must remain a canonical store`)
-assert.match(canonicalDoc, /driver_collected_data/)
-assert.match(canonicalDoc, /loan_payments/)
-assert.match(canonicalDoc, /prepayments/)
+assert.doesNotMatch(indexedDBSource, /driver_collected_data/)
+assert.equal(CANONICAL_BACKUP_STORES.includes('driver_collected_data'), false)
+assert.equal(BACKUP_FORMAT_VERSION, 3)
+assert.match(backupSource, /formatVersion === 2/) 
+assert.match(backupSource, /driver_collected_data: _removed/)
+assert.match(canonicalDoc, /driver_collected_data is not part of the current canonical model/)
+assert.match(canonicalDoc, /database migration from version 9 to version 10 explicitly removes the obsolete store/)
+assert.match(canonicalDoc, /Backup format version 3/) 
+
+const legacyV2Stores = Object.fromEntries([
+  ...CANONICAL_BACKUP_STORES.slice(0, 11).map(store => [store, []]),
+  ['driver_collected_data', []],
+  ...CANONICAL_BACKUP_STORES.slice(11).map(store => [store, []]),
+])
+const migratedBackup = validateBackup({
+  format: 'KFE_BACKUP', formatVersion: 2,
+  source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: 9 },
+  exportedAt: new Date().toISOString(), stores: legacyV2Stores,
+})
+assert.equal(migratedBackup.formatVersion, 3)
+assert.equal('driver_collected_data' in migratedBackup.stores, false)
+
 for (const store of ['days', 'odoGaps', 'gps_snapshots', 'movement_artifacts']) assert.match(indexedDBSource, new RegExp(`['\"]${store}['\"]`), `${store} must remain explicitly represented`)
 assert.match(canonicalDoc, /supporting\/detail data only/i)
 assert.match(canonicalDoc, /historical references/i)
