@@ -10,7 +10,10 @@ const groups = [
   { key: 'finance', title: 'Finance', icon: '₹', forms: ['loan', 'loanPayment', 'prepayment'] },
   { key: 'targetBreakEven', title: 'Planning', icon: '⌁', forms: ['driverTarget', 'breakEvenInputs'] }
 ]
-const settingsMenu = [{ key: 'backup', title: 'Backup & Restore', subtitle: 'Protect and recover your KFE data', icon: '↥' }]
+const settingsMenu = [
+  { key: 'backup', title: 'Backup & Restore', subtitle: 'Protect and recover your KFE data', icon: '↥' },
+  { key: 'calculations', title: 'ERP Calculations', subtitle: 'Calculation rules and derived metrics', icon: '∑' }
+]
 const adminSection = ref('records')
 const selected = ref('vehicle')
 const settingsSelected = ref('backup')
@@ -152,8 +155,6 @@ onMounted(load)
       </div>
       <div v-else class="empty-state"><div class="empty-icon">＋</div><strong>No {{ baseDefinition.title }} records yet</strong><span>Create the first authoritative source record for this section.</span><button class="primary" @click="add">Create {{ baseDefinition.title }}</button></div>
     </section>
-
-    <section class="derived"><div class="section-label">ERP CALCULATIONS</div><h2>Calculated automatically</h2><p>Vehicle KM, Business KM, Dead KM, mileage, revenue/KM, revenue/hour, cost/KM, profit, break-even result, achievement, pace, projection and provision totals are calculated from authoritative records.</p></section>
   </template>
 
   <template v-else>
@@ -166,10 +167,12 @@ onMounted(load)
         <div class="settings-heading"><div><div class="section-label">DATA PROTECTION</div><h2>Backup &amp; Restore</h2><p>Manage the complete KFE backup and recovery workflow from one place.</p></div><span class="settings-status">Protected</span></div>
         <BackupRestorePanel />
       </section>
+      <section v-else-if="settingsSelected === 'calculations'" class="settings-workspace">
+        <div class="settings-heading"><div><div class="section-label">CALCULATION AUTHORITY</div><h2>ERP Calculations</h2><p>Calculation rules and derived metrics are produced from authoritative records.</p></div><span class="settings-status">Automatic</span></div>
+        <div class="derived"><div class="section-label">CALCULATED AUTOMATICALLY</div><h2>Derived ERP metrics</h2><p>Vehicle KM, Business KM, Dead KM, mileage, revenue/KM, revenue/hour, cost/KM, profit, break-even result, achievement, pace, projection and provision totals are calculated from authoritative records.</p></div>
+      </section>
     </section>
   </template>
-
-  <aside class="boundary"><span class="shield">✓</span><span><strong>Controlled boundary</strong><br>Admin manages source records and protected application settings through the Admin application path. Operational execution and ERP calculations remain outside this screen.</span></aside>
 </section>
 </template>
 
