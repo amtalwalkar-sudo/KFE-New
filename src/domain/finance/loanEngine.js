@@ -5,18 +5,21 @@ const finite = value => Number.isFinite(Number(value)) ? Number(value) : 0
 const live = records => (records || []).filter(record => !record?.deletedAt && record?.deleted !== true)
 const dateOf = value => { const date = value ? new Date(value) : null; return date && !Number.isNaN(date.getTime()) ? date : null }
 const roundMoney = value => Math.round(finite(value) * 100) / 100
-const dayCount = (from, to) => Math.max(1, Math.ceil((to - from) / 86400000))
+const dayCount = (from, to) => Math.max(0, Math.ceil((to - from) / 86400000))
 const overdueDayCount = (from, to) => Math.max(0, Math.ceil((to - from) / 86400000))
 const addMonths = (date, months) => { const result = new Date(date); const day = result.getDate(); result.setDate(1); result.setMonth(result.getMonth() + months); const last = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate(); result.setDate(Math.min(day, last)); return result }
+const annualRateForLoan = loan => Math.max(0, finite(loan?.annualInterestRatePercent) || 10) / 100
 
 export const KFE_LOAN_ANNUAL_RATE_PERCENT = 10
 export { KFE_LOAN_ANNUAL_RATE }
 
-export function calculateEmi(principal, tenureMonths) {
+export function calculateEmi(principal, tenureMonths, annualInterestRatePercent = KFE_LOAN_ANNUAL_RATE_PERCENT) {
   const P = Math.max(0, finite(principal))
   const T = Math.max(1, Math.floor(finite(tenureMonths)))
-  const monthlyRate = KFE_LOAN_ANNUAL_RATE / 12
+  const annualRate = Math.max(0, finite(annualInterestRatePercent)) / 100
+  const monthlyRate = annualRate / 12
   if (!P) return 0
+  if (!monthlyRate) return roundMoney(P / T)
   const emi = P * monthlyRate * Math.pow(1 + monthlyRate, T) / (Math.pow(1 + monthlyRate, T) - 1)
   return roundMoney(emi)
 }
@@ -32,9 +35,10 @@ function prepaymentsBeforeOrOn(prepayments, loanId, date) {
 function scheduleWithPrepayments(loan, prepayments = [], asOf = null) {
   const principal = Math.max(0, finite(loan.principal))
   const tenure = Math.max(1, Math.floor(finite(loan.tenureMonths)))
+  const annualRate = annualRateForLoan(loan)
   const start = dateOf(loan.startDate)
   if (!principal || !start) return []
-  const emi = calculateEmi(principal, tenure)
+  const emi = calculateEmi(principal, tenure, loan.annualInterestRatePercent)
   const rows = []
   let openingPrincipal = principal
   let previousDate = start
@@ -54,11 +58,11 @@ function scheduleWithPrepayments(loan, prepayments = [], asOf = null) {
     let segmentPrincipal = openingPrincipal
     for (const prepayment of applicablePrepayments) {
       const paidOn = dateOf(prepayment.paidOn)
-      interest += segmentPrincipal * KFE_LOAN_ANNUAL_RATE * dayCount(segmentStart, paidOn) / DAYS_IN_YEAR
+      interest += segmentPrincipal * annualRate * dayCount(segmentStart, paidOn) / DAYS_IN_YEAR
       segmentPrincipal = Math.max(0, segmentPrincipal - finite(prepayment.amount))
       segmentStart = paidOn
     }
-    interest += segmentPrincipal * KFE_LOAN_ANNUAL_RATE * dayCount(segmentStart, periodEnd) / DAYS_IN_YEAR
+    interest += segmentPrincipal * annualRate * dayCount(segmentStart, periodEnd) / DAYS_IN_YEAR
 
     const scheduledInterest = roundMoney(interest)
     const scheduledPrincipal = roundMoney(Math.min(segmentPrincipal, Math.max(0, emi - scheduledInterest)))
@@ -86,7 +90,7 @@ function scheduleWithPrepayments(loan, prepayments = [], asOf = null) {
   return rows
 }
 
-function allocationState(schedule, payments, asOf) {
+function allocationState(schedule, payments, asOf, annualRate) {
   const rows = schedule.map(row => ({
     ...row,
     paidAmount: 0,
@@ -109,7 +113,7 @@ function allocationState(schedule, payments, asOf) {
       const unpaidInterest = Math.max(0, row.originalInterestComponent - row.scheduledInterestPaid)
       const unpaidPrincipal = Math.max(0, row.originalPrincipalComponent - row.scheduledPrincipalPaid)
       const overdueDays = overdueDayCount(dateOf(row.dueDate), paymentDate)
-      const additionalOverdueInterest = roundMoney(unpaidInterest * KFE_LOAN_ANNUAL_RATE * overdueDays / DAYS_IN_YEAR)
+      const additionalOverdueInterest = roundMoney(unpaidInterest * annualRate * overdueDays / DAYS_IN_YEAR)
       const alreadyOverduePaid = row.overdueInterestPaid
       const overdueDue = Math.max(0, additionalOverdueInterest - alreadyOverduePaid)
       const overdueInterest = Math.min(remaining, overdueDue)
@@ -139,15 +143,17 @@ function allocationState(schedule, payments, asOf) {
 export function deriveLoanPosition({ loan, payments = [], prepayments = [], asOf = new Date() } = {}) {
   if (!loan || !dateOf(loan.startDate)) return { available: false, reason: 'INVALID_LOAN' }
   const effectiveAsOf = dateOf(asOf) || new Date()
+  const annualRate = annualRateForLoan(loan)
+  const annualInterestRatePercent = annualRate * 100
   const schedule = scheduleWithPrepayments(loan, prepayments, effectiveAsOf)
-  const obligations = allocationState(schedule, payments, effectiveAsOf)
+  const obligations = allocationState(schedule, payments, effectiveAsOf, annualRate)
   const overdue = obligations
     .filter(row => dateOf(row.dueDate) <= effectiveAsOf)
     .map(row => {
       const unpaidInterest = Math.max(0, row.originalInterestComponent - row.scheduledInterestPaid)
       const unpaidPrincipal = Math.max(0, row.originalPrincipalComponent - row.scheduledPrincipalPaid)
       const overdueDays = overdueDayCount(dateOf(row.dueDate), effectiveAsOf)
-      const additionalOverdueInterest = roundMoney(unpaidInterest * KFE_LOAN_ANNUAL_RATE * overdueDays / DAYS_IN_YEAR)
+      const additionalOverdueInterest = roundMoney(unpaidInterest * annualRate * overdueDays / DAYS_IN_YEAR)
       const unpaidOverdueInterest = Math.max(0, additionalOverdueInterest - row.overdueInterestPaid)
       return { ...row, overdueDays, additionalOverdueInterest, unpaidPrincipal, unpaidScheduledInterest: unpaidInterest, overdueAmount: roundMoney(unpaidPrincipal + unpaidInterest + unpaidOverdueInterest) }
     })
@@ -164,8 +170,8 @@ export function deriveLoanPosition({ loan, payments = [], prepayments = [], asOf
   const totalRemainingInterest = roundMoney(obligations.reduce((sum, row) => sum + Math.max(0, row.originalInterestComponent - row.scheduledInterestPaid), 0))
   return {
     available: true,
-    annualInterestRatePercent: KFE_LOAN_ANNUAL_RATE_PERCENT,
-    emi: calculateEmi(loan.principal, loan.tenureMonths),
+    annualInterestRatePercent,
+    emi: calculateEmi(loan.principal, loan.tenureMonths, loan.annualInterestRatePercent),
     schedule: obligations,
     overdue,
     totalOverdue,
