@@ -60,7 +60,7 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     if (isShiftActive.value) return { ok: false, reason: 'A Shift is already active.' }
     const check = calculateGap(odo)
     if (!check.valid) return { ok: false, reason: check.reason }
-    const allocationCheck = WorkService.validateGapAllocation(check.gapKm, allocation?.personalKm, allocation?.deadKm)
+    const allocationCheck = WorkService.validateGapAllocation(check.gapKm, allocation?.category)
     if (!allocationCheck.valid) return allocationCheck
     const record = await WorkService.startShift({ startOdometer: Number(odo), openingPersonalKm: allocationCheck.personalKm, openingDeadKm: allocationCheck.deadKm, openingPersonalToll: Number(allocation?.personalToll || 0), openingPersonalParking: Number(allocation?.personalParking || 0) })
     shift.value = record
