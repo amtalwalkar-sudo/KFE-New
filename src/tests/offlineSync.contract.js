@@ -23,12 +23,11 @@ async function runContractTests() {
     assert(source.includes('audit_history'), `${file}: audit store missing`)
     assert(source.includes('tx.oncomplete'), `${file}: commit completion handling missing`)
   }
-
   const dbSource = fs.readFileSync(path.join(srcRoot, 'utils', 'indexedDB.js'), 'utf8')
-  assert(dbSource.includes('CANONICAL_DB_VERSION = 9'), 'Canonical DB version is not v9')
+  assert(dbSource.includes('CANONICAL_DB_VERSION = 10'), 'Canonical DB version is not v10')
   for (const store of ['shifts', 'fuel_logs', 'odoGaps', 'pending_mutations', 'audit_history', 'days', 'trips', 'vehicles', 'drivers', 'settings']) assert(dbSource.includes(`'${store}'`), `Canonical store missing: ${store}`)
-  assert(dbSource.includes("createIndex('createdAt', 'createdAt'"), 'pending mutation createdAt index missing')
-  assert(dbSource.includes("createIndex('status', 'status'"), 'pending mutation status index missing')
+  assert(!dbSource.includes("createSimpleStore(db, 'driver_collected_data'"), 'Removed driver-collected store must not be recreated')
+  assert(dbSource.includes("deleteObjectStore('driver_collected_data')"), 'Removed driver-collected store migration missing')
   assert(dbSource.includes("deleteObjectStore('admin_records')"), 'Legacy admin_records cleanup missing')
   assert(dbSource.includes("deleteObjectStore('financial_inputs')"), 'Legacy financial_inputs cleanup missing')
 
