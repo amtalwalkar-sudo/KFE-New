@@ -121,7 +121,7 @@ const noHolidayEquivalent = { ...holidaySnapshot, trips: [
   snapshot.trips[0],
 ], shifts: [
   holidaySnapshot.shifts[0],
-  { id:'mid-shift', shiftStartAt:'2026-09-09T08:00:00Z', shiftEndAt:'2026-09-09T18:00:00Z', startOdometer:800, endOdometer:900, toll:0, parking:0, revenue:0 },
+  { id:'mid-shift', shiftStartAt:'2026-09-09T08:00:00Z', shiftEndAt:'2026-09-09T18:00:00Z', startOdometer:800, endOdometer:800, toll:0, parking:0, revenue:0 },
   snapshot.shifts[0],
 ] }
 const holidayMetrics = PerformanceService.getMetrics(holidaySnapshot, range)
