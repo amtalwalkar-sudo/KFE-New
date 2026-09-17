@@ -55,6 +55,10 @@ export const restoreBackup = async input => {
   await saveLocalBackup(backup)
   return getBackupSummary(backup)
 }
+export const resetData = async () => {
+  await backupRepository.resetCanonicalData()
+  return { ok: true }
+}
 export const readBackupText = input => validateBackup(input)
 export const requestLocalBackupCheckpoint = () => {
   checkpointRequested = true
@@ -89,4 +93,4 @@ export const registerCloudBackupProvider = provider => {
 export const getCloudBackupProviderName = () => cloudProvider?.name || null
 export const backupToCloud = async backup => { if (!cloudProvider) throw new Error('No cloud backup provider is configured.'); return cloudProvider.upload(validateBackup(backup)) }
 export const restoreFromCloud = async () => { if (!cloudProvider) throw new Error('No cloud backup provider is configured.'); const backup = validateBackup(await cloudProvider.download()); await restoreBackup(backup); return getBackupSummary(backup) }
-export const BackupService = Object.freeze({ createBackup, validateBackup, serializeBackup, getBackupSummary, saveLocalBackup, getLocalBackup, restoreBackup, readBackupText, requestLocalBackupCheckpoint, maybeDailyLocalBackup, registerCloudBackupProvider, getCloudBackupProviderName, backupToCloud, restoreFromCloud })
+export const BackupService = Object.freeze({ createBackup, validateBackup, serializeBackup, getBackupSummary, saveLocalBackup, getLocalBackup, restoreBackup, resetData, readBackupText, requestLocalBackupCheckpoint, maybeDailyLocalBackup, registerCloudBackupProvider, getCloudBackupProviderName, backupToCloud, restoreFromCloud })
