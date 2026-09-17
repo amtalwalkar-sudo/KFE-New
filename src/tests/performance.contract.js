@@ -5,8 +5,8 @@ import { derivePerformance, previousRange } from '../domain/performance/performa
 const near = (actual, expected, message) => assert.ok(Math.abs(actual - expected) < 1e-10, `${message || 'values differ'}: ${actual} !== ${expected}`)
 
 const snapshot = {
-  trips: [{ id:'t1', status:'COMPLETED', tripStartAt:'2026-09-10T09:00:00Z', tripEndAt:'2026-09-10T12:00:00Z', tripKm:150, revenue:1000 }],
-  shifts: [{ id:'s1', shiftStartAt:'2026-09-10T08:00:00Z', shiftEndAt:'2026-09-10T18:00:00Z', startOdometer:1000, endOdometer:1200, toll:100, parking:50 }],
+  trips: [{ id:'t1', status:'COMPLETED', tripStartAt:'2026-09-10T09:00:00Z', tripEndAt:'2026-09-10T12:00:00Z', tripKm:150, revenue:9999 }],
+  shifts: [{ id:'s1', shiftStartAt:'2026-09-10T08:00:00Z', shiftEndAt:'2026-09-10T18:00:00Z', startOdometer:1000, endOdometer:1200, toll:100, parking:50, revenue:1000 }],
   fuelLogs: [
     { capturedAt:'2026-09-04T18:00:00Z', odometer:600, quantityKg:10, amount:2000 },
     { capturedAt:'2026-09-05T18:00:00Z', odometer:800, quantityKg:10, amount:2000 },
@@ -24,6 +24,12 @@ const engineSnapshot = { ...snapshot, loans: [{ ...snapshot.loan, tenureMonths: 
 const range = { from: new Date('2026-09-10T00:00:00Z'), to: new Date('2026-09-10T23:59:59Z') }
 const m = derivePerformance(engineSnapshot, range, previousRange(range))
 const serviceMetrics = PerformanceService.getMetrics(snapshot, range)
+
+assert.equal(m.revenue, 1000)
+assert.equal(serviceMetrics.revenue, 1000)
+assert.equal(serviceMetrics.revenue, snapshot.shifts[0].revenue)
+assert.notEqual(serviceMetrics.revenue, snapshot.trips[0].revenue)
+assert.equal(serviceMetrics.authority.revenue, 'SHIFT_END_REVENUE')
 
 assert.equal(serviceMetrics.driverTargetAvailable, true)
 assert.equal(serviceMetrics.driverTarget, serviceMetrics.target)
@@ -59,11 +65,11 @@ const historicalBaseSnapshot = {
   ...snapshot,
   loan: { ...snapshot.loan, startDate:'2026-04-09' },
   shifts: [
-    { id:'historical', shiftStartAt:'2026-08-05T08:00:00Z', shiftEndAt:'2026-08-05T18:00:00Z', startOdometer:600, endOdometer:800, toll:0, parking:0 },
+    { id:'historical', shiftStartAt:'2026-08-05T08:00:00Z', shiftEndAt:'2026-08-05T18:00:00Z', startOdometer:600, endOdometer:800, toll:0, parking:0, revenue:0 },
     ...snapshot.shifts,
   ],
   trips: [
-    { id:'historical', status:'COMPLETED', tripStartAt:'2026-08-05T09:00:00Z', tripEndAt:'2026-08-05T12:00:00Z', tripKm:150, revenue:0 },
+    { id:'historical', status:'COMPLETED', tripStartAt:'2026-08-05T09:00:00Z', tripEndAt:'2026-08-05T12:00:00Z', tripKm:150, revenue:99999 },
     ...snapshot.trips,
   ],
   fuelLogs: [
@@ -86,10 +92,16 @@ assert.ok(historicalDeficitMetrics.driverTargetAvailable, JSON.stringify(histori
 assert.ok(Number.isFinite(historicalDeficitMetrics.driverTargetRollingBalance), JSON.stringify(historicalDeficitMetrics))
 assert.ok(historicalDeficitMetrics.driverTarget > historicalDeficitMetrics.driverTargetBase, JSON.stringify(historicalDeficitMetrics))
 
-const historicalSurplusSnapshot = { ...historicalBaseSnapshot, trips: [
-  { id:'historical', status:'COMPLETED', tripStartAt:'2026-08-05T09:00:00Z', tripEndAt:'2026-08-05T12:00:00Z', tripKm:150, revenue:100000 },
-  snapshot.trips[0],
-] }
+const historicalSurplusSnapshot = { ...historicalBaseSnapshot,
+  shifts: [
+    { id:'historical', shiftStartAt:'2026-08-05T08:00:00Z', shiftEndAt:'2026-08-05T18:00:00Z', startOdometer:600, endOdometer:800, toll:0, parking:0, revenue:100000 },
+    snapshot.shifts[0],
+  ],
+  trips: [
+    { id:'historical', status:'COMPLETED', tripStartAt:'2026-08-05T09:00:00Z', tripEndAt:'2026-08-05T12:00:00Z', tripKm:150, revenue:1 },
+    snapshot.trips[0],
+  ]
+}
 const historicalSurplusMetrics = PerformanceService.getMetrics(historicalSurplusSnapshot, range)
 assert.equal(historicalSurplusMetrics.driverTargetAvailable, true)
 assert.ok(Number.isFinite(historicalSurplusMetrics.driverTargetRollingBalance))
@@ -97,13 +109,20 @@ assert.ok(historicalSurplusMetrics.driverTargetRollingBalance < 0)
 assert.ok(historicalSurplusMetrics.driverTarget < historicalSurplusMetrics.driverTargetBase)
 
 const holidaySnapshot = { ...snapshot, trips: [
-  { id:'early', status:'COMPLETED', tripStartAt:'2026-09-05T09:00:00Z', tripEndAt:'2026-09-05T12:00:00Z', tripKm:100, revenue:1000 },
+  { id:'early', status:'COMPLETED', tripStartAt:'2026-09-05T09:00:00Z', tripEndAt:'2026-09-05T12:00:00Z', tripKm:100, revenue:1 },
   snapshot.trips[0],
+], shifts: [
+  { id:'early-shift', shiftStartAt:'2026-09-05T08:00:00Z', shiftEndAt:'2026-09-05T18:00:00Z', startOdometer:700, endOdometer:800, toll:0, parking:0, revenue:1000 },
+  snapshot.shifts[0],
 ] }
 const noHolidayEquivalent = { ...holidaySnapshot, trips: [
   holidaySnapshot.trips[0],
-  { id:'mid', status:'COMPLETED', tripStartAt:'2026-09-09T09:00:00Z', tripEndAt:'2026-09-09T12:00:00Z', tripKm:100, revenue:1000 },
+  { id:'mid', status:'COMPLETED', tripStartAt:'2026-09-09T09:00:00Z', tripEndAt:'2026-09-09T12:00:00Z', tripKm:100, revenue:1 },
   snapshot.trips[0],
+], shifts: [
+  holidaySnapshot.shifts[0],
+  { id:'mid-shift', shiftStartAt:'2026-09-09T08:00:00Z', shiftEndAt:'2026-09-09T18:00:00Z', startOdometer:800, endOdometer:900, toll:0, parking:0, revenue:1000 },
+  snapshot.shifts[0],
 ] }
 const holidayMetrics = PerformanceService.getMetrics(holidaySnapshot, range)
 const noHolidayMetrics = PerformanceService.getMetrics(noHolidayEquivalent, range)
