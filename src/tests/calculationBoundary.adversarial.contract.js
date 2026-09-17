@@ -28,6 +28,7 @@ assert.equal(empty.completeness.breakEven, false)
 // Future records must not leak into an earlier actual-performance period or its
 // monthly break-even as-of boundary.
 const historical = derivePerformance(base, range)
+const historicalService = PerformanceService.getMetrics(base, range)
 const futureFuel = { ...base, fuelLogs: [...base.fuelLogs, { capturedAt:'2026-09-11T18:00:00Z', odometer:1400, quantityKg:10, amount:10000 }] }
 const historicalWithFutureFuel = derivePerformance(futureFuel, range)
 assert.equal(historicalWithFutureFuel.fuelCostPerKm, historical.fuelCostPerKm)
@@ -53,7 +54,7 @@ assert.equal(holiday.driverTargetAvailable, false)
 assert.equal(holiday.counts.activeFinancialDays, 0)
 assert.equal(holiday.driverTarget, null)
 assert.equal(holiday.completeness.breakEven, true)
-assert.equal(holiday.monthlyBreakEvenRevenue, historical.monthlyBreakEvenRevenue)
+assert.equal(holiday.monthlyBreakEvenRevenue, historicalService.monthlyBreakEvenRevenue)
 
 // Financial-day target calculation uses the same dynamic remaining-eligible-day
 // denominator for daily BE and Driver Target. Configured workingDays is ignored
