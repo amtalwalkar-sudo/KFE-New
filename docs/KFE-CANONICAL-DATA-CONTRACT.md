@@ -59,7 +59,7 @@ Authoritative driver/master-data input. Administrative deletion is soft deletion
 
 ### Shift
 
-Operational boundary for vehicle movement and shift lifecycle. `startOdometer` and `endOdometer` are authoritative for vehicle KM.
+Operational boundary for vehicle movement and shift lifecycle. `Shift.startOdometer` and `Shift.endOdometer` are authoritative for vehicle KM.
 
 **Revenue authority:** `Shift.revenue`, entered/confirmed at shift completion, is the authoritative ERP revenue input for the shift. It is the value used by performance, target, break-even and reporting calculations that require operational revenue.
 
@@ -77,7 +77,7 @@ Ride cancellation is an operational status/outcome, not deletion. Trip history i
 
 No separate persisted Odometer entity is required in the current single-vehicle model. Shift start/end odometer observations own vehicle movement.
 
-`vehicleKm = endOdometer - startOdometer`.
+`vehicleKm = Shift.endOdometer - Shift.startOdometer`.
 
 ### Fuel / Refuelling
 
@@ -90,6 +90,10 @@ No separate persisted Odometer entity is required in the current single-vehicle 
 ### Compliance / Renewal
 
 `compliance_records` are authoritative compliance and renewal inputs. Validity uses IST calendar-date semantics; renewal provision is derived.
+
+### Driver-collected data
+
+`driver_collected_data` is a canonical supporting/input store for driver-provided operational evidence. Its records retain provenance and audit lineage and do not create a competing calculation authority unless a specific domain contract explicitly assigns one.
 
 ### Loan / Financing
 
