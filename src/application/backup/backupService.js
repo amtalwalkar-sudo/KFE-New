@@ -3,8 +3,8 @@ import { createBackupRepository } from '../../repositories/backupRepository.js'
 export const BACKUP_FORMAT = 'KFE_BACKUP'
 export const BACKUP_FORMAT_VERSION = 3
 export const CANONICAL_BACKUP_STORES = Object.freeze(['shifts','fuel_logs','odoGaps','pending_mutations','days','trips','gps_snapshots','movement_artifacts','vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history'])
-const LEGACY_BACKUP_STORES_V1 = Object.freeze(CANONICAL_BACKUP_STORES.filter(name => name !== 'audit_history'))
-const LEGACY_BACKUP_STORES_V2 = Object.freeze([...CANONICAL_BACKUP_STORES.slice(0, 11), 'driver_collected_data', ...CANONICAL_BACKUP_STORES.slice(11)])
+const LEGACY_BACKUP_STORES_V1 = Object.freeze([...CANONICAL_BACKUP_STORES.filter(name => name !== 'audit_history').slice(0, 11), 'driver_collected_data', ...CANONICAL_BACKUP_STORES.filter(name => name !== 'audit_history').slice(11)])
+const LEGACY_BACKUP_STORES_V2 = LEGACY_BACKUP_STORES_V1
 const backupRepository = createBackupRepository(CANONICAL_BACKUP_STORES)
 
 export const validateBackup = input => {
@@ -31,9 +31,9 @@ export const validateBackup = input => {
       ids.add(record.id)
     }
   }
-  if (backup.formatVersion === 1) backup = { ...backup, formatVersion: BACKUP_FORMAT_VERSION, source: { ...backup.source, dbVersion: 10 }, stores: { ...backup.stores, audit_history: [] } }
-  if (backup.formatVersion === 2) {
+  if (backup.formatVersion === 1 || backup.formatVersion === 2) {
     const { driver_collected_data: _removed, ...storesWithoutRemovedStore } = backup.stores
+    if (backup.formatVersion === 1) storesWithoutRemovedStore.audit_history = []
     backup = { ...backup, formatVersion: BACKUP_FORMAT_VERSION, source: { ...backup.source, dbVersion: 10 }, stores: storesWithoutRemovedStore }
   }
   return backup
