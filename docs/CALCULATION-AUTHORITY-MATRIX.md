@@ -1,9 +1,9 @@
 # KFE Calculation Authority Matrix
 
 **Audit phase:** Calculation & Data Authority Audit — phase 1
-**Date:** 2026-09-16
+**Date:** 2026-09-17
 **Calendar timezone:** IST / `Asia/Kolkata`
-**Status:** CI verification pending; Gate 10 remains deferred until the full repository workflow is green.
+**Status:** Repository CI verification completed on `main`; the consolidated workflow includes contract tests, production PWA build, Capacitor Android sync, Android debug build, and Phase 10 hardening/release gate. Local Termux installation, Android build, and real-device runtime smoke testing remain external transfer-gate activities and are not represented as completed by this document.
 
 ## Non-negotiable architecture
 
@@ -109,4 +109,4 @@ This invalidation path is implemented for the current canonical admin, shift/tri
 
 ## Audit status
 
-This artifact is the working source for the authority audit. It must be updated whenever code/specification findings change the ownership, period, unit, or canonical field of a calculation.
+This artifact is the working source for the authority audit. It records repository-level CI verification as completed while explicitly leaving local Termux/device execution outside the GitHub-side claim. It must be updated whenever code/specification findings change the ownership, period, unit, or canonical field of a calculation.
