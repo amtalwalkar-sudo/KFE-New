@@ -111,7 +111,7 @@ onBeforeUnmount(() => unsubscribeChanges())
     <div v-else-if="error" class="state-card error-state"><strong>Performance unavailable</strong><span>{{ error }}</span></div>
     <template v-else-if="!activeCard">
       <header class="head">
-        <div><small>PERFORMANCE</small><h1>Business position</h1><p>Situational awareness first. Detail stays one tap away.</p></div>
+        <div><small>PERFORMANCE</small><h1>Business position</h1></div>
         <button class="period" @click="navigatorOpen = true">{{ period }} <b>⌄</b></button>
       </header>
 
