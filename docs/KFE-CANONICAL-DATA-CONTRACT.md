@@ -33,7 +33,7 @@ Every canonical entity has a client-generated UUID `id`. Existing IDs are preser
 
 True instants (`createdAt`, `updatedAt`, `shiftStartAt`, `shiftEndAt`, `tripStartAt`, `tripEndAt`, `capturedAt`) are persisted as unambiguous timestamps and interpreted in IST for business display/grouping.
 
-Business calendar dates (`effectiveFrom`, `validUntil`, `performedOn`, `recordedOn`) are IST dates. They must not be compared by passing UTC-midnight conversions through timestamp arithmetic.
+Business calendar dates (`effectiveFrom`, `validUntil`, `performedOn`) are IST dates. They must not be compared by passing UTC-midnight conversions through timestamp arithmetic.
 
 ## 3. Provenance and authority
 
@@ -90,10 +90,6 @@ No separate persisted Odometer entity is required in the current single-vehicle 
 ### Compliance / Renewal
 
 `compliance_records` are authoritative compliance and renewal inputs. Validity uses IST calendar-date semantics; renewal provision is derived.
-
-### Driver-collected data
-
-`driver_collected_data` is a canonical supporting/input store for driver-provided operational evidence. Its records retain provenance and audit lineage and do not create a competing calculation authority unless a specific domain contract explicitly assigns one.
 
 ### Loan / Financing
 
@@ -153,7 +149,7 @@ ADMINISTRATIVE LIFECYCLE
 ACTIVE / SOFT-DELETED
 ```
 
-- Vehicle, Driver, Compliance, Maintenance, Driver-collected data, Loan, Loan Payment, Prepayment, Driver Target and Break-even input records use governed Admin soft deletion.
+- Vehicle, Driver, Compliance, Maintenance, Loan, Loan Payment, Prepayment, Driver Target and Break-even input records use governed Admin soft deletion.
 - Shift, Trip and Fuel repositories do not expose incidental physical deletion; historical business evidence remains retained.
 - Operational status transitions are never implemented as deletion.
 - Soft-deleted records are excluded from normal active lists and live calculation snapshots unless a calculation explicitly defines historical inclusion.
@@ -184,3 +180,11 @@ Users enter source facts and contractual/source inputs. KFE derives values that 
 Manual input must not be provided for derived values such as ride duration, total vehicle KM, dead KM, fuel quantity when calculated from amount/price, EMI, interest/principal allocation, outstanding balance, financing outflow, renewal provision, maintenance provision, break-even revenue, or target calculations.
 
 Shift-end revenue is the explicit exception to any ride-level revenue detail: it is a user-entered source fact and is the ERP revenue authority.
+
+## 10. Removed legacy/supporting store
+
+`driver_collected_data` is not part of the current canonical model. The former store was supporting-only and did not own an independent calculation authority; its operational fields duplicated facts already owned by Shift/Work or had no authoritative ERP calculation role.
+
+The canonical database migration from version 9 to version 10 explicitly removes the obsolete store. New backups no longer contain it. Backup format version 3 remains backward-compatible with legacy format versions 1 and 2 by accepting and discarding the removed `driver_collected_data` payload during validation/upgrade before restore.
+
+There is intentionally no replacement Admin entry for generic driver-collected data. Operational facts have one natural entry point and one authority.
