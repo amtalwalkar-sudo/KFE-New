@@ -23,6 +23,8 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   const activeLoan = loanRecords
     .filter(loan => String(loan.status || '').toUpperCase() !== 'INACTIVE')
     .filter(loan => dateOf(loan.startDate) && dateOf(loan.startDate) <= currentAsOf)
+    .filter(loan => Number.isFinite(Number(loan.principal)) && Number(loan.principal) > 0)
+    .filter(loan => Number.isFinite(Number(loan.tenureMonths)) && Number(loan.tenureMonths) > 0)
     .sort((a, b) => (dateOf(b.startDate)?.getTime() || 0) - (dateOf(a.startDate)?.getTime() || 0))[0]
 
   if (!activeLoan) return { ...base, finance: { available: false, reason: 'NO_ACTIVE_LOAN' } }
