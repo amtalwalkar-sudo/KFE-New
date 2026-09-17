@@ -10,7 +10,8 @@ const adminRepositorySource = fs.readFileSync(path.join(root, 'src/repositories/
 const performanceSource = fs.readFileSync(path.join(root, 'src/domain/performance/performanceEngineV2.js'), 'utf8')
 const serviceWorkerSource = fs.readFileSync(path.join(root, 'public/service-worker.js'), 'utf8')
 
-assert.equal(Object.keys(CANONICAL_ADMIN_STORE_MAP).length, 15, 'All Admin form/settings mappings must remain declared.')
+assert.equal(Object.keys(CANONICAL_ADMIN_STORE_MAP).length, 14, 'All active Admin form/settings mappings must remain declared.')
+assert.equal(Object.prototype.hasOwnProperty.call(CANONICAL_ADMIN_STORE_MAP, 'driverCollectedData'), false)
 assert.match(adminRepositorySource, /deletedAt/)
 assert.match(adminRepositorySource, /record\.deleted\s*=\s*true/)
 assert.doesNotMatch(adminRepositorySource, /objectStore\([^)]*\)\.delete\(id\)/)
