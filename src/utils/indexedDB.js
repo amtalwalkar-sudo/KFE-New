@@ -85,6 +85,7 @@ export const setActiveDataSource = source => {
 export const getActiveDataSource = () => getActiveSource()
 export const initializeCanonicalStorage = async ({ dataSource } = {}) => initializeDatabase(dbNameFor(dataSource || getActiveSource()))
 export const initializeSyntheticStorage = async () => initializeDatabase(SYNTHETIC_DB_NAME)
+export const openCanonicalDB = () => initializeCanonicalStorage({ dataSource: 'canonical' })
 
 export const getLastOdometer = async () => {
   const db = await initializeCanonicalStorage()
