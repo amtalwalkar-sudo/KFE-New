@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import UniversalAdminForm from '../components/admin/UniversalAdminForm.vue'
 import BackupRestorePanel from '../components/admin/BackupRestorePanel.vue'
+import SyntheticDataPanel from '../components/admin/SyntheticDataPanel.vue'
 import { ADMIN_FORM_DEFINITIONS } from '../application/admin/adminFormDefinitions.js'
 import { AdminService } from '../application/admin/adminService.js'
 import { BackupService } from '../application/backup/backupService.js'
@@ -15,7 +16,8 @@ const groups=[
 const settingsMenu=[
  {key:'backup',title:'Backup & Restore',subtitle:'Protect and recover complete KFE data',icon:'↥'},
  {key:'application',title:'Application Settings',subtitle:'Application-level preferences and controls',icon:'⚙'},
- {key:'reset',title:'Data Reset',subtitle:'Clear the canonical KFE dataset',icon:'⚠'}
+ {key:'reset',title:'Data Reset',subtitle:'Clear the canonical KFE dataset',icon:'⚠'},
+ {key:'synthetic',title:'Synthetic Data',subtitle:'Isolated test dataset only',icon:'🧪'}
 ]
 const adminSection=ref('records'),selected=ref('vehicle'),settingsSelected=ref('backup'),categoryTouchStartX=ref(null)
 const records=ref([]),editing=ref(null),draft=ref({}),formOpen=ref(false),loading=ref(false),error=ref(''),notice=ref('')
@@ -58,6 +60,7 @@ onMounted(load)
 <section class="settings-layout"><aside class="settings-menu"><div class="section-label">SETTINGS &amp; DATA</div><h2>Control centre</h2><button v-for="item in settingsMenu" :key="item.key" :class="{active:settingsSelected===item.key}" @click="chooseSetting(item.key)"><span class="settings-icon">{{item.icon}}</span><span><strong>{{item.title}}</strong><small>{{item.subtitle}}</small></span><b>›</b></button></aside>
 <section v-if="settingsSelected==='backup'" class="settings-workspace"><div class="settings-heading"><div><div class="section-label">DATA PROTECTION</div><h2>Backup &amp; Restore</h2><p>One managed backup contains the complete recoverable KFE dataset, including settings.</p></div><span class="status">Protected</span></div><BackupRestorePanel /></section>
 <section v-else-if="settingsSelected==='application'" class="settings-workspace"><div class="settings-heading"><div><div class="section-label">APPLICATION SETTINGS</div><h2>Application Settings</h2><p>Application-level preferences belong here rather than being mixed into business records.</p></div><span class="status">Settings</span></div><div class="info-card"><strong>Settings travel with backup and restore</strong><p>KFE application settings are part of the canonical backup/restore boundary. Backup/sync provider configuration remains separate from portable business data.</p></div></section>
+<section v-else-if="settingsSelected==='synthetic'" class="settings-workspace"><div class="settings-heading"><div><div class="section-label">TEST DATA ONLY</div><h2>Synthetic Data</h2><p>Load staged synthetic history without touching the real KFE database or its backup boundary.</p></div><span class="status">Isolated</span></div><SyntheticDataPanel /></section>
 <section v-else class="settings-workspace"><div class="settings-heading"><div><div class="section-label">DESTRUCTIVE DATA CONTROL</div><h2>Data Reset</h2><p>Permanently clear the canonical KFE dataset. The application itself remains installed.</p></div><span class="status danger">Destructive</span></div><div class="reset-card"><div><h2>Reset all KFE data</h2><p>This clears canonical business records. Local backup copies are not deleted, so a backup can be restored afterward.</p></div><button class="reset-button" :disabled="loading" @click="resetData">Reset all data</button></div><p v-if="error" class="message error">{{error}}</p><p v-if="notice" class="message notice">✓ {{notice}}</p></section></section>
 </template>
 </section>
