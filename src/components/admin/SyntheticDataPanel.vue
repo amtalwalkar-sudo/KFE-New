@@ -23,7 +23,7 @@ const load = async key => {
   } catch (e) { error.value = e.message || 'Synthetic data load failed.' } finally { loading.value = false }
 }
 const clear = async () => {
-  if (!confirm('Clear the isolated synthetic dataset and return to the real KFE database?')) return
+  if (!confirm('Reset the isolated synthetic dataset and return to the real KFE database?')) return
   loading.value = true; message.value = ''; error.value = ''
   try {
     await SyntheticDataService.clearSyntheticData()
@@ -37,12 +37,12 @@ onMounted(refresh)
 
 <template>
 <section class="synthetic-panel" aria-label="Synthetic test data">
-  <div class="head"><div><div class="label">TEST DATA ONLY</div><h2>Synthetic Data</h2><p>This dataset lives in a separate IndexedDB database. It is never included in KFE backup or cloud backup.</p></div><span :class="['mode',active==='synthetic'?'on':'']">{{active==='synthetic'?'SYNTHETIC':'REAL DATA'}}</span></div>
+  <div class="head"><div><div class="label">TEMPORARY TEST CONTROL</div><h2>Test Data Reset</h2><p>Temporary development/test data lives in a separate IndexedDB database. It is never included in KFE backup or cloud backup.</p></div><span :class="['mode',active==='synthetic'?'on':'']">{{active==='synthetic'?'SYNTHETIC':'REAL DATA'}}</span></div>
   <div class="stages">
     <button v-for="stage in SyntheticDataService.SYNTHETIC_STAGES" :key="stage.key" :disabled="loading" @click="load(stage.key)">{{stage.title}}</button>
   </div>
   <div v-if="status" class="status">Loaded through {{status.endDate}} · {{status.days}} days</div>
-  <div class="actions"><button class="danger" :disabled="loading || !status" @click="clear">Clear synthetic data</button></div>
+  <div class="actions"><button class="danger" :disabled="loading || !status" @click="clear">Test Data Reset</button></div>
   <p v-if="message" class="notice">{{message}}</p><p v-if="error" class="error">{{error}}</p>
 </section>
 </template>
