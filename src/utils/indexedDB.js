@@ -1,6 +1,6 @@
 const CANONICAL_DB_NAME = 'kanishka_kfe_canonical_db'
 const SYNTHETIC_DB_NAME = 'kanishka_kfe_synthetic_db'
-const CANONICAL_DB_VERSION = 10
+const CANONICAL_DB_VERSION = 11
 const DATA_SOURCE_KEY = 'kfe:active-data-source'
 const DATA_SOURCE_CHANGE_EVENT = 'kfe:data-source-changed'
 const CANONICAL_DB_CHANGE_EVENT = 'kfe:canonical-data-changed'
@@ -48,7 +48,7 @@ const openDatabase = name => new Promise((resolve, reject) => {
   request.onupgradeneeded = e => {
     const db = e.target.result
     if (!db.objectStoreNames.contains('shifts')) { const store = db.createObjectStore('shifts', { keyPath: 'id' }); store.createIndex('shiftEndAt', 'shiftEndAt', { unique: false }) }
-    if (!db.objectStoreNames.contains('fuel_logs')) { const store = db.createObjectStore('fuel_logs', { keyPath: 'id' }); store.createIndex('createdAt', 'createdAt', { unique: false }) }
+    if (!db.objectStoreNames.contains('fuel_logs')) { const store = db.createObjectStore('fuel_logs', { keyPath: 'id' }); store.createIndex('createdAt', 'createdAt', { unique: false }); store.createIndex('clientMutationId', 'clientMutationId', { unique: false }) }
     if (!db.objectStoreNames.contains('odoGaps')) db.createObjectStore('odoGaps', { keyPath: 'id' })
     if (!db.objectStoreNames.contains('pending_mutations')) { const store = db.createObjectStore('pending_mutations', { keyPath: 'id' }); store.createIndex('createdAt', 'createdAt', { unique: false }); store.createIndex('status', 'status', { unique: false }) }
     if (!db.objectStoreNames.contains('days')) { const store = db.createObjectStore('days', { keyPath: 'id' }); store.createIndex('status', 'status', { unique: false }); store.createIndex('dayStartAt', 'dayStartAt', { unique: false }) }

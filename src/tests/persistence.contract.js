@@ -22,7 +22,7 @@ assert(db.includes('onupgradeneeded'), 'Migration hook missing')
 assert(db.includes('initializationPromise'), 'Initialization guard missing')
 assert(db.includes('dbInstance.onversionchange'), 'Version-change lifecycle handling missing')
 const version = Number(db.match(/CANONICAL_DB_VERSION\s*=\s*(\d+)/)?.[1])
-assert(version === 10, 'Canonical DB must be version 10 after driver-collected store removal')
+assert(version === 11, 'Canonical DB must be version 11 after fuel idempotency migration')
 assert(contract.includes('cloud service must not be required'), 'Local-first boundary missing')
 
 const stores = ['shifts','trips','fuel_logs','vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','pending_mutations','audit_history']
