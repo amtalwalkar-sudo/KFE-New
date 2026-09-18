@@ -23,9 +23,9 @@ for (const snapshot of [week, month, full]) {
   assert.equal(snapshot.settings[0].synthetic, undefined)
   assert.equal(snapshot.settings[0].values.synthetic, true)
 }
-assert.equal(week.shifts.length, 6)
-assert.equal(month.shifts.length, 29)
-assert.equal(full.shifts.length, 1817)
+assert.equal(week.shifts.length, 7)
+assert.equal(month.shifts.length, 30)
+assert.equal(full.shifts.length, 1818)
 assert.equal(week.loan_payments.length, 0)
 assert.ok(month.loan_payments.length === 0)
 assert.ok(full.loan_payments.length > 0)
