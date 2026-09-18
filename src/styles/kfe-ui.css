@@ -726,3 +726,222 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
 .gap-expenses{margin-top:6px!important;gap:6px!important}
 .gap-expenses label{font-size:.7rem}
 .gap-expenses input{min-height:36px;font-size:.82rem}
+
+
+/* DRIVER COCKPIT — VISUAL + ERGONOMIC HIERARCHY
+ * Fixed information architecture: no tab/card relocation, no workflow changes.
+ * State changes only alter visual weight, proximity, touch emphasis and scroll rhythm.
+ * Interaction path: LOOK -> UNDERSTAND -> DECIDE -> TOUCH -> CONFIRM -> CONTINUE.
+ */
+.cockpit{
+  --cockpit-state-weight:800;
+  --cockpit-secondary-opacity:1;
+  scroll-behavior:smooth;
+}
+.cockpit .hero{
+  position:relative;
+  margin-bottom:12px;
+  padding-bottom:2px;
+}
+.cockpit .hero h1{
+  font-size:clamp(1.42rem,5vw,1.68rem);
+  font-weight:900;
+}
+.cockpit .hero small{
+  font-size:.58rem;
+  letter-spacing:.14em;
+}
+.cockpit .hero-actions{
+  flex:0 0 auto;
+}
+.cockpit .online-control{
+  padding:4px 5px;
+  border:1px solid var(--kfe-ui-border);
+  border-radius:999px;
+  background:var(--kfe-ui-surface);
+  box-shadow:0 2px 8px color-mix(in srgb,var(--kfe-ui-text) 5%,transparent);
+}
+.cockpit .online-control span{
+  font-size:.54rem;
+  letter-spacing:.03em;
+}
+.cockpit--offline .online-control{
+  border-color:var(--kfe-ui-border);
+}
+.cockpit--online .online-control{
+  border-color:color-mix(in srgb,var(--kfe-success) 34%,var(--kfe-ui-border));
+  background:color-mix(in srgb,var(--kfe-success) 5%,var(--kfe-ui-surface));
+}
+.cockpit--trip .online-control{
+  border-color:color-mix(in srgb,var(--kfe-success) 48%,var(--kfe-ui-border));
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--kfe-success) 8%,transparent);
+}
+.cockpit .card,.cockpit .target-card{
+  transition:box-shadow var(--kfe-motion-standard),border-color var(--kfe-motion-standard),transform var(--kfe-motion-standard);
+}
+.cockpit .gate{
+  padding:15px;
+}
+.cockpit--offline .gate{
+  border-color:color-mix(in srgb,var(--kfe-ui-accent) 22%,var(--kfe-ui-border));
+  box-shadow:0 5px 20px color-mix(in srgb,var(--kfe-ui-accent) 7%,transparent);
+}
+.cockpit--offline .gate h2{
+  font-size:1.12rem;
+  font-weight:900;
+}
+.cockpit--offline .gate > p.muted{
+  max-width:48ch;
+  line-height:1.42;
+}
+.cockpit .target-card{
+  border-color:color-mix(in srgb,var(--kfe-ui-accent) 16%,var(--kfe-ui-border));
+}
+.cockpit--online .target-card{
+  padding:15px 16px 13px;
+  box-shadow:0 5px 20px color-mix(in srgb,var(--kfe-ui-accent) 7%,transparent);
+}
+.cockpit--online .target-card strong{
+  font-size:clamp(1.5rem,7vw,1.8rem);
+  font-weight:950;
+  letter-spacing:-.025em;
+}
+.cockpit--trip .trip{
+  border-color:color-mix(in srgb,var(--kfe-success) 28%,var(--kfe-ui-border));
+  box-shadow:0 6px 22px color-mix(in srgb,var(--kfe-success) 8%,transparent);
+}
+.cockpit--trip .trip > small{
+  font-size:.64rem;
+  letter-spacing:.14em;
+  font-weight:950;
+}
+.cockpit--trip .trip h2{
+  margin-top:5px;
+  font-size:1.25rem;
+  font-weight:900;
+}
+.cockpit--trip .timer{
+  margin:10px 0 12px;
+  font-size:clamp(2rem,10vw,2.5rem);
+  font-weight:800;
+  letter-spacing:-.035em;
+}
+.cockpit--trip .cockpit-target{
+  margin-top:10px;
+  padding:8px 10px;
+  border-radius:10px;
+  background:var(--kfe-ui-surface-2);
+  text-align:left;
+}
+.cockpit--trip .cockpit-target strong{
+  font-size:1rem;
+  margin-top:2px;
+}
+.cockpit--trip .trip .quiet,
+.cockpit--trip .trip .secondary{
+  font-size:.72rem;
+  min-height:40px;
+}
+.cockpit--trip .locations,
+.cockpit--online .locations{
+  opacity:.86;
+}
+.cockpit .locations .section-heading{
+  margin-bottom:7px;
+}
+.cockpit .locations .location-row{
+  padding:8px 0;
+}
+.cockpit .locations .location-detail span{
+  font-size:.76rem;
+}
+.cockpit--end-shift .end-shift-card{
+  border-color:color-mix(in srgb,var(--kfe-ui-accent) 28%,var(--kfe-ui-border));
+  box-shadow:0 6px 22px color-mix(in srgb,var(--kfe-ui-accent) 8%,transparent);
+}
+.cockpit--end-shift .end-shift-card h2{
+  font-size:1.12rem;
+  font-weight:900;
+}
+.cockpit--end-shift .end-shift-card .back-button{
+  min-height:40px;
+}
+.cockpit--end-shift .start-odo-reference{
+  background:var(--kfe-ui-surface-2);
+}
+.cockpit--end-shift .end-shift-card > label{
+  margin-top:10px;
+}
+.cockpit--end-shift .end-shift-card > .primary{
+  min-height:50px;
+  font-size:.88rem;
+  font-weight:950;
+}
+.cockpit .persistent-action{
+  padding-top:6px;
+  height:70px;
+}
+.cockpit .swipe-bar{
+  height:46px;
+  min-height:46px;
+  font-size:.78rem;
+  letter-spacing:.02em;
+}
+.cockpit .swipe-bar > span:first-child{
+  font-size:1.2rem;
+}
+.cockpit .swipe-hint{
+  font-size:.61rem;
+}
+.cockpit--offline .persistent-action{
+  display:none;
+}
+.cockpit--end-shift .persistent-action,
+.cockpit--fuel .persistent-action{
+  display:none;
+}
+.cockpit .action-reserve{
+  height:70px;
+}
+.cockpit .operators button,
+.cockpit .allocation-actions button{
+  min-height:48px;
+}
+.cockpit .fuel-form-card .primary{
+  min-height:48px;
+  font-weight:900;
+}
+.cockpit .message,.cockpit .error{
+  margin-bottom:10px;
+}
+.cockpit .muted{
+  line-height:1.38;
+}
+@media(max-width:600px){
+  .cockpit{
+    padding-left:12px;
+    padding-right:12px;
+    padding-top:16px;
+  }
+  .cockpit .hero{
+    gap:8px;
+    margin-bottom:10px;
+  }
+  .cockpit .hero h1{
+    font-size:1.4rem;
+  }
+  .cockpit .online-control{
+    gap:4px;
+  }
+  .cockpit .target-card strong{
+    font-size:1.55rem;
+  }
+  .cockpit--trip .timer{
+    font-size:2.15rem;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .cockpit .card,.cockpit .target-card{
+    transition:none;
+  }
+}
