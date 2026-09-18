@@ -105,4 +105,26 @@ onMounted(load)
 .info-card,.reset-card{border-radius:var(--kfe-radius-md)}
 @media(max-width:700px){.admin-page{padding-left:12px;padding-right:12px}.workspace{padding:13px}}
 
+
+/* KFE Visual DNA — final Admin control-centre correction */
+.admin-page{max-width:1160px!important;padding:26px 16px 42px!important}
+.admin-head{padding:16px 0!important;margin-bottom:14px!important;border-bottom:1px solid var(--kfe-ui-border)!important}
+.admin-head h1{font-size:clamp(1.55rem,5vw,2rem)!important;letter-spacing:-.045em!important}
+.settings-link{min-height:46px!important;border-radius:10px!important}
+.category-slider{padding:5px!important;border-radius:12px!important;background:var(--kfe-ui-surface)!important}
+.category-tab{min-height:46px!important;border-radius:9px!important}
+.category-tab.active{background:var(--kfe-ui-accent)!important;color:#fff!important}
+.workspace,.settings-menu,.settings-workspace{border-radius:14px!important;box-shadow:0 4px 18px color-mix(in srgb,var(--kfe-ui-text) 6%,transparent)!important}
+.workspace{padding:18px!important}
+.workspace-head h2,.settings-heading h2,.settings-menu h2{font-size:1.2rem!important}
+.primary{min-height:46px!important;border-radius:10px!important}
+.record-tabs button{min-height:44px!important;border-radius:9px!important}.record-tabs button.active{background:var(--kfe-ui-accent)!important;color:#fff!important}
+.record-list{gap:10px!important}.record{padding:15px!important;border-radius:11px!important;border-left:3px solid var(--kfe-ui-border)!important}
+.record:hover{border-left-color:var(--kfe-ui-accent)!important}
+.actions button{min-height:42px!important;border-radius:9px!important}
+.settings-menu button{min-height:58px!important;border-radius:10px!important}
+.settings-menu button.active{background:color-mix(in srgb,var(--kfe-ui-accent) 12%,var(--kfe-ui-surface))!important;border-left:3px solid var(--kfe-ui-accent)!important}
+.info-card,.reset-card{border-radius:12px!important}
+@media(max-width:700px){.admin-page{padding:16px 12px 32px!important}.workspace{padding:14px!important}}
+
 </style>
