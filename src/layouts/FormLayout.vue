@@ -97,4 +97,5 @@ const emit = defineEmits(['submit', 'cancel'])
   border: 1px solid var(--border-color, #cbd5e1);
   color: var(--text-main, #0f172a);
 }
+.form-layout{gap:14px!important;background:var(--kfe-ui-surface)!important;padding:16px!important;border-radius:14px!important;border:1px solid var(--kfe-ui-border)!important;box-shadow:var(--kfe-ui-shadow)!important}.form-title{font-size:1.05rem!important;font-weight:900!important;color:var(--kfe-ui-text)!important}.form-subtitle{font-size:.7rem!important;color:var(--kfe-muted-text)!important}.form-actions{gap:8px!important;border-color:var(--kfe-ui-border)!important;padding-top:12px!important}.btn-primary,.btn-secondary{min-height:46px!important;padding:10px 14px!important;border-radius:10px!important;font-weight:850!important}.btn-primary{background:var(--kfe-ui-accent)!important}.btn-secondary{background:var(--kfe-ui-surface)!important;border-color:var(--kfe-ui-border)!important;color:var(--kfe-ui-text)!important}
 </style>
