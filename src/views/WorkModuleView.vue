@@ -3,7 +3,8 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useShiftTripStore } from '../stores/shiftTrip.js'
 import { useFuelStore } from '../stores/fuel.js'
 import { DriverTargetService } from '../application/performance/driverTargetService.js'
-import { getKfeReferenceNow } from '../domain/time/ist.js'
+import { PerformanceService } from '../application/performance/performanceService.js'
+import { getKfeReferenceNow, reportingRangeFor, istCalendarDaysInclusive, istParts } from '../domain/time/ist.js'
 
 const store = useShiftTripStore()
 const fuelStore = useFuelStore()
@@ -57,6 +58,43 @@ const allocatedGap = computed(() => gapCategory.value ? gapKm.value : 0)
 const fuelQuantity = computed(() => fuelStore.calculateQuantity(fuelPrice.value, fuelAmount.value))
 const targetValue = computed(() => target.value?.target !== null && target.value?.target !== undefined && Number.isFinite(Number(target.value.target)) ? Number(target.value.target) : null)
 const targetText = computed(() => targetValue.value == null ? '—' : `₹${targetValue.value.toLocaleString('en-IN',{maximumFractionDigits:0})}`)
+const performanceSnapshot = ref(null)
+const performanceMoney = value => Number.isFinite(Number(value)) ? `₹${Math.round(Number(value)).toLocaleString('en-IN')}` : '—'
+const performanceRevenue = metrics => Number(metrics?.revenue || 0) + Number(metrics?.toll || 0) + Number(metrics?.parking || 0)
+const performanceBreakEven = (metrics, range) => {
+  const monthly = Number(metrics?.monthlyBreakEvenRevenue)
+  if (!Number.isFinite(monthly) || !range?.from || !range?.to) return 0
+  const monthDays = new Date(Date.UTC(istParts(range.to).year, istParts(range.to).month, 0)).getUTCDate()
+  const periodDays = istCalendarDaysInclusive(range.from, range.to)
+  return monthly * Math.max(0, Math.min(monthDays, periodDays)) / monthDays
+}
+const buildPerformanceCard = (metrics, range, label) => {
+  const revenue = performanceRevenue(metrics)
+  const breakEven = performanceBreakEven(metrics, range)
+  return { date: label, revenue, profit: revenue - breakEven }
+}
+const weeklyPerformance = ref(null)
+const yesterdayPerformance = ref(null)
+const refreshPerformance = async () => {
+  try {
+    const now = getKfeReferenceNow()
+    const snapshot = await PerformanceService.getSnapshot()
+    performanceSnapshot.value = snapshot
+    const weekRange = reportingRangeFor('WEEK', now)
+    const yesterdayDate = new Date(istDayRange(now).from.getTime() - 86400000)
+    const yesterdayRange = reportingRangeFor('DAY', yesterdayDate)
+    const weekMetrics = PerformanceService.getMetrics(snapshot, weekRange)
+    const yesterdayMetrics = PerformanceService.getMetrics(snapshot, yesterdayRange)
+    const weekParts = istParts(weekRange.to)
+    const yesterdayParts = istParts(yesterdayRange.from)
+    const weekStart = istParts(weekRange.from)
+    weeklyPerformance.value = buildPerformanceCard(weekMetrics, weekRange, `${weekStart.day}/${weekStart.month} – ${weekParts.day}/${weekParts.month}/${weekParts.year}`)
+    yesterdayPerformance.value = buildPerformanceCard(yesterdayMetrics, yesterdayRange, `${yesterdayParts.day}/${yesterdayParts.month}/${yesterdayParts.year}`)
+  } catch (_) {
+    weeklyPerformance.value = null
+    yesterdayPerformance.value = null
+  }
+}
 const tripTimer = computed(() => {
   if (!store.trip?.tripStartAt) return '00:00:00'
   const seconds = Math.max(0, Math.floor((clock.value - Date.parse(store.trip.tripStartAt)) / 1000))
@@ -122,7 +160,7 @@ const onSwipeMove = event => { if(!swipeTracking.value||swipeStartX.value==null)
 const onSwipeEnd = async event => { if(!swipeTracking.value||swipeStartX.value==null)return; const distance=event.clientX-swipeStartX.value; const width=swipeTrack.value?.clientWidth||320; const trigger=width*0.8; swipeTracking.value=false;swipeStartX.value=null;swipeOffset.value=0;if(distance>=trigger)await primaryTripAction() }
 const onSwipeCancel = () => { swipeTracking.value=false;swipeStartX.value=null;swipeOffset.value=0 }
 const onSwipeKey = async event => { if(event.key==='Enter'||event.key===' '){event.preventDefault();await primaryTripAction()} }
-onMounted(async()=>{await store.initialize();await fuelStore.refresh();await refreshTarget();startOdo.value=store.lastKnownOdometer??'';selectedOperator.value=store.defaultOperator;loadFuelDraft();unsubscribeTarget=DriverTargetService.subscribeDataChanges(()=>{void refreshTarget()});interval=window.setInterval(()=>{clock.value=Date.now()},1000)})
+onMounted(async()=>{await store.initialize();await fuelStore.refresh();await refreshTarget();await refreshPerformance();startOdo.value=store.lastKnownOdometer??'';selectedOperator.value=store.defaultOperator;loadFuelDraft();unsubscribeTarget=DriverTargetService.subscribeDataChanges(()=>{void refreshTarget();void refreshPerformance()});interval=window.setInterval(()=>{clock.value=Date.now()},1000)})
 onUnmounted(()=>{window.clearInterval(interval);unsubscribeTarget?.()})
 </script>
 
