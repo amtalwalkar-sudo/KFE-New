@@ -70,7 +70,7 @@ const openDatabase = name => new Promise((resolve, reject) => {
 const initializeDatabase = async name => {
   if (dbInstances.has(name)) return dbInstances.get(name)
   if (initializationPromises.has(name)) return initializationPromises.get(name)
-  const initializationPromise = openDatabase(name).then(db => { dbInstances.set(name, dbInstance); return dbInstance }).finally(() => initializationPromises.delete(name))
+  const initializationPromise = openDatabase(name).then(db => { const dbInstance = db; dbInstances.set(name, dbInstance); return dbInstance }).finally(() => initializationPromises.delete(name))
   initializationPromises.set(name, initializationPromise)
   return initializationPromise
 }
