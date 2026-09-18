@@ -136,4 +136,22 @@ h1{font-size:clamp(1.3rem,5vw,1.65rem)}
 .editor{border:1px solid var(--kfe-ui-border);box-shadow:0 18px 50px color-mix(in srgb,var(--kfe-ui-text) 18%,transparent)}
 @media(max-width:560px){.timeline{padding-left:12px;padding-right:12px}.event,.personal-event{padding-right:2px}.event time,.personal-event time{width:54px;flex-basis:54px}}
 
+
+/* KFE Visual DNA — final Driver timeline correction */
+.timeline{max-width:900px!important;padding:26px 16px 34px!important}
+.timeline>header{padding:16px 0 14px!important;border-bottom:1px solid var(--kfe-ui-border)!important;margin-bottom:12px!important}
+.timeline h1{font-size:clamp(1.5rem,5vw,1.9rem)!important;letter-spacing:-.04em!important}
+.slider{padding:4px!important;border-radius:12px!important;background:var(--kfe-ui-surface)!important;box-shadow:0 2px 10px color-mix(in srgb,var(--kfe-ui-text) 5%,transparent)!important}
+.slider button{min-height:46px!important}.slider button.active{background:var(--kfe-ui-accent)!important;color:#fff!important}
+.period{padding:10px 0!important}.period strong{font-size:.9rem!important}
+.day-snapshot>div,.summary-card>div{padding:14px!important;border-radius:10px!important;background:var(--kfe-ui-surface)!important}
+.day-snapshot strong,.summary-card strong{font-size:1rem!important}
+.event,.personal-event{position:relative!important;padding:15px 0 15px 14px!important;border-bottom:0!important;margin-left:20px!important;border-left:2px solid var(--kfe-ui-border)!important}
+.event:before,.personal-event:before{content:"";position:absolute;left:-7px;top:19px;width:10px;height:10px;border-radius:50%;background:var(--kfe-ui-accent);border:2px solid var(--kfe-ui-surface)}
+.event time,.personal-event time{width:62px!important;flex-basis:62px!important;font-size:.7rem!important}
+.groups button{border:1px solid var(--kfe-ui-border)!important;border-radius:10px!important;background:var(--kfe-ui-surface)!important;min-height:58px!important;padding:10px 12px!important}
+.groups button:hover{border-color:var(--kfe-ui-accent)!important}
+.overlay{background:color-mix(in srgb,var(--kfe-ui-text) 48%,transparent)!important}
+.editor,.navigator{border-radius:16px!important;border:1px solid var(--kfe-ui-border)!important}
+
 </style>
