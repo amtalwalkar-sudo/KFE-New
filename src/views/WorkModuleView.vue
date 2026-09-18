@@ -12,6 +12,7 @@ const gapCategory = ref(null)
 const personalToll = ref('')
 const personalParking = ref('')
 const selectedOperator = ref('')
+const operatorMenuOpen = ref(false)
 const closingOdo = ref('')
 const shiftRevenue = ref('')
 const toll = ref('')
@@ -78,7 +79,7 @@ const saveFuelDraft = () => { const draft={savedAt:Date.now(),odometer:fuelOdome
 const loadFuelDraft = () => { try { const draft=JSON.parse(sessionStorage.getItem(fuelDraftKey)||'null'); if(!draft || Date.now()-Number(draft.savedAt||0)>fuelDraftTtlMs){sessionStorage.removeItem(fuelDraftKey);return} fuelOdometer.value=draft.odometer||''; fuelPrice.value=draft.pricePerKg||''; fuelAmount.value=draft.amount||'' } catch(_) {} }
 const openFuelForm = () => { fuelFormOpen.value = !fuelFormOpen.value; if (fuelFormOpen.value) { endShiftOpen.value=false; loadFuelDraft() } else saveFuelDraft(); error.value=''; message.value='' }
 const closeFuelForm = () => { saveFuelDraft(); fuelFormOpen.value=false; error.value=''; message.value='' }
-const changeTripOperator = async operator => { if(!store.isTripActive){selectedOperator.value=operator;return} if(operator===store.trip.operator)return; const result=await store.updateTrip({id:store.trip.id,operator}); if(!result.ok)return fail(result.reason); selectedOperator.value=operator; notify(`Operator changed to ${operator}.`) }
+const changeTripOperator = async operator => { if(!store.isTripActive){selectedOperator.value=operator;operatorMenuOpen.value=false;return} if(operator===store.trip.operator){operatorMenuOpen.value=false;return} const result=await store.updateTrip({id:store.trip.id,operator}); if(!result.ok)return fail(result.reason); selectedOperator.value=operator; operatorMenuOpen.value=false; notify(`Operator changed to ${operator}.`) }
 const startTrip = async () => { const result=await store.startTrip(selectedOperator.value||store.defaultOperator); if(!result.ok)return fail(result.reason); selectedOperator.value=result.trip.operator; notify('Trip started.') }
 const endTrip = async () => { if(await store.endTrip()){ await refreshTarget(); notify('Trip completed.') } }
 const cancelAccidentalTrip = async () => { if(!confirm('Cancel this accidental trip? It will be recorded as a cancelled driver-mistake trip.'))return; if(await store.cancelTrip({reason:'DRIVER_MISTAKE'})){await refreshTarget();notify('Accidental trip cancelled.')} }
@@ -138,14 +139,14 @@ onUnmounted(()=>{window.clearInterval(interval);unsubscribeTarget?.()})
     <section v-else-if="!store.isTripActive && store.isOnline && !endShiftOpen" class="cockpit-state cockpit-ready-state">
       <div class="state-kicker online">ONLINE</div>
       <h2>READY FOR NEXT TRIP</h2>
-      <div class="ready-context"><div class="operator-inline"><span>Operator</span><button type="button" class="operator-select" @click="selectedOperator = selectedOperator === '__menu__' ? store.defaultOperator : '__menu__'">{{selectedOperator==='__menu__' ? 'Choose operator ▴' : (selectedOperator||store.defaultOperator)+' ▾'}}</button></div><div v-if="selectedOperator==='__menu__'" class="operator-menu"><button v-for="operator in store.operators" :key="operator" type="button" :class="{selected:(store.defaultOperator===operator&&selectedOperator!=='__menu__')}" @click="selectedOperator=operator">{{operator}}</button></div></div>
+      <div class="ready-context"><div class="operator-inline"><span>Operator</span><button type="button" class="operator-select" @click="operatorMenuOpen=!operatorMenuOpen">{{(selectedOperator||store.defaultOperator)+' ▾'}}</button></div><div v-if="operatorMenuOpen" class="operator-menu"><button v-for="operator in store.operators" :key="operator" type="button" :class="{selected:(store.defaultOperator===operator&&selectedOperator!=='__menu__')}" @click="changeTripOperator(operator)">{{operator}}</button></div></div>
       <div class="target-inline"><span>TODAY'S TARGET</span><strong>{{targetText}}</strong></div>
       <div class="next-event"><span>NEXT</span><strong>START TRIP</strong></div>
     </section>
 
     <section v-if="store.isTripActive && !endShiftOpen" class="cockpit-state cockpit-trip-state">
       <div class="state-kicker online">ON TRIP</div>
-      <div class="trip-operator-row"><span>Operator</span><button type="button" class="operator-select" @click="selectedOperator = selectedOperator === '__menu__' ? store.trip.operator : '__menu__'">{{selectedOperator==='__menu__' ? 'Choose operator ▴' : store.trip.operator+' ▾'}}</button></div>
+      <div class="trip-operator-row"><span>Operator</span><button type="button" class="operator-select" @click="selectedOperator = selectedOperator === '__menu__' ? store.trip.operator : '__menu__'">{{store.trip.operator+' ▾'}}</button></div>
       <div v-if="selectedOperator==='__menu__'" class="operator-menu"><button v-for="operator in store.operators" :key="operator" type="button" :class="{selected:store.trip.operator===operator}" @click="changeTripOperator(operator)">{{operator}}</button></div>
       <div class="trip-core"><div class="timer">{{tripTimer}}</div><div class="trip-continuity">Trip in progress · operator can be corrected before trip ends</div></div>
       <div class="next-event"><span>NEXT</span><strong>END TRIP</strong></div>
