@@ -17,6 +17,24 @@ import { startKfeThemeController } from './services/kfeThemeController.js'
 
 startKfeThemeController()
 
+// Keep installed/browser PWA instances aligned with the deployed build.
+// The service worker is presentation/infrastructure-only; it never touches KFE data.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js', { scope: './' }).then(registration => {
+      if (registration.waiting) registration.waiting.postMessage({ type: 'kfe:activate-update' })
+      registration.update().catch(() => {})
+    }).catch(error => console.warn('KFE service worker registration failed:', error))
+  })
+
+  let reloadedForController = false
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloadedForController) return
+    reloadedForController = true
+    window.location.reload()
+  })
+}
+
 BackupConfig.configureBackupConfig(createBackupConfigAdapter())
 CloudBackupLifecycle.configureCloudBackupScheduler(createCloudBackupScheduler())
 configureLocationProvider(captureCurrentLocation)
