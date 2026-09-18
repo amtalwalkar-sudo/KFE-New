@@ -945,3 +945,45 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
     transition:none;
   }
 }
+
+
+/* KFE FROSTED GLASS SHELL — FROZEN VISUAL DNA */
+/* Shell glass only: operational content remains solid. */
+:root{
+  --kfe-glass-top:color-mix(in srgb,var(--kfe-ui-surface) 78%,transparent);
+  --kfe-glass-bottom:color-mix(in srgb,var(--kfe-ui-surface) 84%,transparent);
+  --kfe-glass-border:color-mix(in srgb,var(--kfe-ui-text) 11%,transparent);
+  --kfe-glass-shadow:0 8px 28px color-mix(in srgb,var(--kfe-ui-text) 10%,transparent);
+  --kfe-glass-blur:18px;
+  --kfe-glass-saturate:135%;
+}
+.top-bar{
+  background:var(--kfe-glass-top);
+  border-bottom:1px solid var(--kfe-glass-border);
+  box-shadow:var(--kfe-glass-shadow);
+  -webkit-backdrop-filter:blur(var(--kfe-glass-blur)) saturate(var(--kfe-glass-saturate));
+  backdrop-filter:blur(var(--kfe-glass-blur)) saturate(var(--kfe-glass-saturate));
+}
+.bottom-nav{
+  background:var(--kfe-glass-bottom);
+  border-top:1px solid var(--kfe-glass-border);
+  box-shadow:0 -8px 28px color-mix(in srgb,var(--kfe-ui-text) 9%,transparent);
+  -webkit-backdrop-filter:blur(var(--kfe-glass-blur)) saturate(var(--kfe-glass-saturate));
+  backdrop-filter:blur(var(--kfe-glass-blur)) saturate(var(--kfe-glass-saturate));
+}
+.header-gps,.fuel-icon,.online-control{
+  -webkit-backdrop-filter:blur(10px) saturate(125%);
+  backdrop-filter:blur(10px) saturate(125%);
+}
+.header-gps,.fuel-icon{
+  background:color-mix(in srgb,var(--kfe-ui-surface) 70%,transparent);
+  border-color:var(--kfe-glass-border);
+}
+.online-control{background:color-mix(in srgb,var(--kfe-ui-surface) 72%,transparent)!important}
+@media(prefers-reduced-transparency:reduce){
+  .top-bar,.bottom-nav,.header-gps,.fuel-icon,.online-control{
+    -webkit-backdrop-filter:none;
+    backdrop-filter:none;
+    background:var(--kfe-ui-surface);
+  }
+}
