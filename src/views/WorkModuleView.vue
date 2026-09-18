@@ -36,6 +36,7 @@ const fuelDraftTtlMs = 30 * 60 * 1000
 const fuelOdometer = ref('')
 const fuelPrice = ref('')
 const fuelAmount = ref('')
+const fuelClientMutationId = ref('')
 const message = ref('')
 const error = ref('')
 const target = ref(null)
@@ -93,16 +94,16 @@ const onEndShiftSwipeEnd = event => { if(!endShiftSwipeTracking.value||endShiftS
 const onEndShiftSwipeCancel = () => { endShiftSwipeTracking.value=false; endShiftSwipeStartX.value=null; endShiftSwipeOffset.value=0 }
 const toggleOnline = async () => { if(store.isTripActive)return fail('End the active Trip before going Offline.'); if(store.isOnline){ openEndShift(); return } return goOnline() }
 const cancelOffline = () => { endShiftOpen.value = false; endShiftStep.value=1; error.value = ''; notify('Still Online — End Shift cancelled.') }
-const saveFuelDraft = () => { const draft={savedAt:Date.now(),odometer:fuelOdometer.value,pricePerKg:fuelPrice.value,amount:fuelAmount.value}; if(draft.odometer||draft.pricePerKg||draft.amount) sessionStorage.setItem(fuelDraftKey,JSON.stringify(draft)); else sessionStorage.removeItem(fuelDraftKey) }
-const loadFuelDraft = () => { try { const draft=JSON.parse(sessionStorage.getItem(fuelDraftKey)||'null'); if(!draft || Date.now()-Number(draft.savedAt||0)>fuelDraftTtlMs){sessionStorage.removeItem(fuelDraftKey);return} fuelOdometer.value=draft.odometer||''; fuelPrice.value=draft.pricePerKg||''; fuelAmount.value=draft.amount||'' } catch(_) {} }
-const openFuelForm = () => { fuelFormOpen.value = !fuelFormOpen.value; if (fuelFormOpen.value) { endShiftOpen.value=false; loadFuelDraft() } else saveFuelDraft(); error.value=''; message.value='' }
+const saveFuelDraft = () => { const draft={savedAt:Date.now(),clientMutationId:fuelClientMutationId.value,odometer:fuelOdometer.value,pricePerKg:fuelPrice.value,amount:fuelAmount.value}; if(draft.odometer||draft.pricePerKg||draft.amount) sessionStorage.setItem(fuelDraftKey,JSON.stringify(draft)); else sessionStorage.removeItem(fuelDraftKey) }
+const loadFuelDraft = () => { try { const draft=JSON.parse(sessionStorage.getItem(fuelDraftKey)||'null'); if(!draft || Date.now()-Number(draft.savedAt||0)>fuelDraftTtlMs){sessionStorage.removeItem(fuelDraftKey);return} fuelClientMutationId.value=draft.clientMutationId||crypto.randomUUID(); fuelOdometer.value=draft.odometer||''; fuelPrice.value=draft.pricePerKg||''; fuelAmount.value=draft.amount||'' } catch(_) {} }
+const openFuelForm = () => { fuelFormOpen.value = !fuelFormOpen.value; if (fuelFormOpen.value) { endShiftOpen.value=false; if(!fuelClientMutationId.value) fuelClientMutationId.value=crypto.randomUUID(); loadFuelDraft() } else saveFuelDraft(); error.value=''; message.value='' }
 const closeFuelForm = () => { saveFuelDraft(); fuelFormOpen.value=false; error.value=''; message.value='' }
 const changeTripOperator = async operator => { if(!store.isTripActive){selectedOperator.value=operator;operatorMenuOpen.value=false;return} if(operator===store.trip.operator){operatorMenuOpen.value=false;return} const result=await store.updateTrip({id:store.trip.id,operator}); if(!result.ok)return fail(result.reason); selectedOperator.value=operator; operatorMenuOpen.value=false; notify(`Operator changed to ${operator}.`) }
 const startTrip = async () => { const result=await store.startTrip(selectedOperator.value||store.defaultOperator); if(!result.ok)return fail(result.reason); selectedOperator.value=result.trip.operator; notify('Trip started.') }
 const endTrip = async () => { if(await store.endTrip()){ await refreshTarget(); notify('Trip completed.') } }
 const cancelAccidentalTrip = async () => { if(!confirm('Cancel this accidental trip? It will be recorded as a cancelled driver-mistake trip.'))return; if(await store.cancelTrip({reason:'DRIVER_MISTAKE'})){await refreshTarget();notify('Accidental trip cancelled.')} }
 const cancelTripWithRevenue = async () => { if(!confirm('Record this trip as cancelled? Optional revenue will be retained if entered.'))return; if(await store.cancelTrip({reason:cancelReason.value,revenue:cancelledRevenue.value})){cancelledRevenue.value='';cancelPanel.value=false;await refreshTarget();notify('Cancelled trip recorded.')} }
-const saveFuel = async () => { const result=await fuelStore.save({odometer:fuelOdometer.value,pricePerKg:fuelPrice.value,amount:fuelAmount.value}); if(!result.ok)return fail(result.reason); fuelOdometer.value='';fuelPrice.value='';fuelAmount.value='';sessionStorage.removeItem(fuelDraftKey);fuelFormOpen.value=false;notify(`Refuelling recorded: ${result.record.quantityKg.toFixed(2)} kg.`) }
+const saveFuel = async () => { if (fuelStore.saving) return; const result=await fuelStore.save({odometer:fuelOdometer.value,pricePerKg:fuelPrice.value,amount:fuelAmount.value,clientMutationId:fuelClientMutationId.value}); if(!result.ok)return fail(result.reason); fuelOdometer.value='';fuelPrice.value='';fuelAmount.value='';fuelClientMutationId.value=crypto.randomUUID();sessionStorage.removeItem(fuelDraftKey);fuelFormOpen.value=false;notify(`Refuelling recorded: ${result.record.quantityKg.toFixed(2)} kg.`) }
 const primaryTripAction = () => store.isTripActive ? endTrip() : startTrip()
 const tripActionLabel = computed(() => store.isTripActive ? 'SWIPE → END TRIP' : 'SWIPE → START TRIP')
 const tripActionHint = computed(() => store.isTripActive ? 'Swipe from left to right to end this trip' : 'Swipe from left to right to start this trip')
