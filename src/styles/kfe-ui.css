@@ -708,3 +708,21 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
 .exclude-check span{font-size:.78rem;font-weight:750;color:var(--kfe-muted-text)}
 .trip-action{touch-action:pan-y;user-select:none}
 @media(max-width:600px){.expense-pair{gap:6px}.expense-pair input{font-size:.88rem}}
+
+/* COMPACT ODOMETER GAP */
+.gap-compact{padding:9px 10px}
+.gap-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}
+.gap-head strong{font-size:.88rem}
+.gap-head span{font-size:.68rem;font-weight:750;color:var(--kfe-muted-text)}
+.gap-compact .allocation-summary{margin:0 0 7px}
+.gap-compact .allocation-summary div{padding:6px 8px}
+.gap-compact .allocation-summary span{font-size:.68rem}
+.gap-compact .allocation-summary strong{font-size:.95rem}
+.gap-compact .allocation-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.gap-compact .allocation-actions button{min-height:38px;padding:7px 8px;font-size:.78rem}
+.gap-status{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:7px;font-size:.7rem;color:var(--kfe-muted-text)}
+.gap-status .gap-confirm{width:auto;margin:0;min-height:34px;padding:6px 10px;font-size:.74rem}
+.gap-status .confirmed-text{font-weight:800;color:var(--kfe-success)}
+.gap-expenses{margin-top:6px!important;gap:6px!important}
+.gap-expenses label{font-size:.7rem}
+.gap-expenses input{min-height:36px;font-size:.82rem}
