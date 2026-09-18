@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { SYNTHETIC_STAGES, buildSyntheticSnapshot } from '../application/synthetic/syntheticDataService.js'
 import { clearSyntheticDateContext, getKfeReferenceNow, istCalendarDaysInclusive, istDateKey, reportingRangeFor, setSyntheticDateContext } from '../domain/time/ist.js'
+import { deriveLoanPosition } from '../domain/finance/loanEngine.js'
 
 assert.deepEqual(SYNTHETIC_STAGES.map(stage => stage.days), [7, 30, 182, 365, 1818])
 const week = buildSyntheticSnapshot(7)
@@ -33,6 +34,10 @@ assert.equal(full.shifts.length, expectedFullShiftDays)
 assert.equal(week.loan_payments.length, 0)
 assert.equal(month.loan_payments.length, 0)
 assert.equal(full.loan_payments.length, 0)
+const syntheticLoanPosition = deriveLoanPosition({ loan: full.loans[0], payments: full.loan_payments, prepayments: full.prepayments, asOf: full.settings[0].values.currentDateTime })
+assert.equal(syntheticLoanPosition.available, true)
+assert.ok(syntheticLoanPosition.overdue.length >= 1, 'Synthetic loan must expose unpaid overdue EMIs through the current date')
+assert.ok(syntheticLoanPosition.totalOverdue > 0, 'Synthetic loan must expose a positive overdue amount')
 assert.equal(week.settings[0].values.startDate, '2026-05-01')
 assert.equal(week.settings[0].values.endDate, istToday)
 assert.ok(full.compliance_records.some(row => row.complianceType === 'Road Tax'))
