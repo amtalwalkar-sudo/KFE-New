@@ -1357,3 +1357,16 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
 .timeline-quick-edit-overlay{z-index:20001!important;padding:12px 12px calc(var(--kfe-nav-height) + 16px + env(safe-area-inset-bottom,0px))!important}
 .timeline-quick-edit-overlay .editor{max-height:calc(100dvh - var(--kfe-nav-height) - 28px - env(safe-area-inset-bottom,0px));overflow-y:auto;padding-bottom:250px}
 .timeline-number-pad{position:fixed;left:12px;right:12px;bottom:calc(var(--kfe-nav-height) + 8px + env(safe-area-inset-bottom,0px));width:auto;max-width:520px;margin:0 auto;z-index:20002}
+
+/* PERFORMANCE — inline calendar controls aligned with Timeline interaction. */
+.performance-period-controls{margin:4px 0 14px}
+.performance-slider{grid-template-columns:repeat(5,minmax(0,1fr))}
+.performance-slider button{min-height:42px;font-size:.66rem}
+.performance-period{margin:10px 0 0}
+.performance-period strong{font-size:.8rem}
+.performance-custom-range{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;margin-top:10px}
+.performance-custom-range label{display:grid;gap:4px;font-size:.64rem;font-weight:800;color:var(--kfe-muted-text)}
+.performance-custom-range input{width:100%;padding:8px;border:1px solid var(--kfe-ui-border);border-radius:var(--kfe-radius-sm);background:var(--kfe-ui-surface);color:var(--kfe-ui-text)}
+.performance-custom-range button{min-height:48px;padding:0 12px;border:1px solid var(--kfe-ui-accent);border-radius:var(--kfe-radius-sm);background:var(--kfe-ui-accent);color:#fff;font-weight:850}
+.performance-custom-range button:disabled{opacity:.45}
+@media(max-width:560px){.performance-slider{grid-template-columns:repeat(2,minmax(0,1fr))}.performance-custom-range{grid-template-columns:1fr 1fr}.performance-custom-range button{grid-column:1/-1}}
