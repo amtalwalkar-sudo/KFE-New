@@ -993,7 +993,18 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
   display:flex;
   flex-direction:column;
   align-items:stretch;
-  gap:4px;
+  gap:5px;
+  position:fixed;
+  left:0;
+  right:0;
+  bottom:76px;
+  height:100px;
+  padding:8px 12px 6px;
+  box-sizing:border-box;
+  z-index:9998;
+  background:color-mix(in srgb,var(--kfe-ui-surface) 97%,transparent);
+  border-top:1px solid var(--kfe-ui-border);
+  backdrop-filter:blur(10px);
 }
 .cockpit .swipe-bar{
   position:relative;
@@ -1001,8 +1012,8 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
   display:flex;
   align-items:center;
   justify-content:center;
-  height:54px;
-  min-height:54px;
+  height:81px;
+  min-height:81px;
   padding:0 62px 0 66px;
   overflow:hidden;
   border:1px solid var(--kfe-ui-border);
@@ -1058,16 +1069,20 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
 .cockpit .swipe-label{
   position:relative;
   z-index:1;
+  width:48%;
+  margin:0 auto;
+  text-align:center;
   font-size:.76rem;
   font-weight:950;
   letter-spacing:.025em;
+  line-height:1.15;
   pointer-events:none;
   transition:opacity .12s ease;
 }
 .cockpit .swipe-threshold{
   position:absolute;
   left:calc(80% - 18px);
-  top:9px;
+  top:13px;
   display:flex;
   flex-direction:column;
   align-items:center;
@@ -1077,7 +1092,7 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
 }
 .cockpit .swipe-threshold i{
   width:3px;
-  height:27px;
+  height:43px;
   border-radius:99px;
   background:color-mix(in srgb,var(--swipe-action-color) 60%,transparent);
 }
@@ -1113,7 +1128,8 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
   outline-offset:2px;
 }
 @media(max-width:600px){
-  .cockpit .swipe-bar{height:56px;min-height:56px;padding-left:68px;padding-right:58px}
+  .cockpit .persistent-action{height:100px;bottom:76px;padding:8px 12px 6px}
+  .cockpit .swipe-bar{height:81px;min-height:81px;padding-left:68px;padding-right:58px}
   .cockpit .swipe-thumb{width:52px}
 }
 @media(prefers-reduced-motion:reduce){
