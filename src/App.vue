@@ -59,4 +59,17 @@ const recoverApp = () => { renderError.value = null; window.location.reload() }
 .bottom-nav{position:fixed;bottom:0;left:0;right:0;min-height:76px;padding:7px 10px max(7px,env(safe-area-inset-bottom));display:flex;justify-content:center;gap:6px;background:color-mix(in srgb,var(--kfe-ui-surface) 98%,transparent);border-top:1px solid var(--kfe-ui-border);box-shadow:0 -5px 20px color-mix(in srgb,var(--kfe-ui-text) 6%,transparent);backdrop-filter:blur(14px);z-index:9999}.nav-item{display:flex;flex:1;max-width:150px;min-height:58px;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-radius:var(--kfe-radius-md,14px);text-decoration:none;color:var(--kfe-muted-text);font-size:.65rem;font-weight:750;transition:background .15s ease,color .15s ease,transform .08s ease}.nav-item:hover{background:var(--kfe-ui-surface-2)}.nav-item:active{transform:translateY(1px)}.nav-item-active{background:color-mix(in srgb,var(--kfe-ui-accent) 11%,var(--kfe-ui-surface));color:var(--kfe-ui-accent);font-weight:900}.nav-icon{font-size:1.15rem;line-height:1;font-weight:800}.nav-item-active .nav-icon{transform:translateY(-1px)}
 .error-container{max-width:560px;margin:48px auto;padding:28px 20px;text-align:center;color:var(--kfe-danger)}.error-container h3{margin:0 0 8px;font-size:1.1rem}.error-container p{color:var(--kfe-muted-text);font-size:.8rem;line-height:1.5}.retry-btn{min-height:46px;padding:10px 16px;background:var(--kfe-ui-accent);color:#fff;border:0;border-radius:var(--kfe-radius-md,12px);font-weight:850;cursor:pointer}.kfe-skip-link{position:fixed;top:8px;left:8px;z-index:20000;padding:10px 14px;border-radius:10px;background:var(--kfe-ui-text);color:var(--kfe-ui-bg);text-decoration:none;font-weight:800;transform:translateY(-150%);transition:transform .15s ease}.kfe-skip-link:focus{transform:translateY(0)}
 @media(max-width:600px){.top-bar{min-height:62px;height:62px}.content-scroll-area{top:62px;bottom:76px}.header-status{padding:6px 8px}.brand-mark{width:36px;height:36px;flex-basis:36px}.brand-copy strong{font-size:.84rem}.brand-copy span{font-size:.58rem}.bottom-nav{min-height:76px}}
+
+/* KFE Visual DNA — final shell correction: unmistakable product shell */
+.viewport-wrapper{background:var(--kfe-ui-bg)!important}
+.top-bar{min-height:72px;height:72px;padding:10px 18px!important;background:var(--kfe-ui-surface)!important;border-bottom:1px solid var(--kfe-ui-border)!important;box-shadow:0 2px 12px color-mix(in srgb,var(--kfe-ui-text) 5%,transparent)!important;backdrop-filter:none!important}
+.brand-lockup{gap:12px}.brand-mark{width:42px;height:42px;flex-basis:42px;border-radius:12px;font-size:1.1rem}
+.brand-copy strong{font-size:.95rem}.brand-copy span{font-size:.65rem}
+.header-status{border-radius:10px;background:var(--kfe-ui-surface-2)!important;padding:8px 10px}
+.content-scroll-area{top:72px!important}
+.bottom-nav{min-height:82px!important;background:var(--kfe-ui-surface)!important;border-top:1px solid var(--kfe-ui-border)!important;box-shadow:0 -4px 16px color-mix(in srgb,var(--kfe-ui-text) 5%,transparent)!important;backdrop-filter:none!important}
+.nav-item{min-height:62px;border-radius:12px}.nav-item-active{background:var(--kfe-ui-accent)!important;color:#fff!important}.nav-item-active .nav-icon{color:#fff!important}
+.nav-icon{font-size:1.2rem}
+@media(max-width:600px){.top-bar{min-height:68px;height:68px;padding:9px 12px!important}.content-scroll-area{top:68px!important}.bottom-nav{min-height:78px!important}.brand-copy strong{font-size:.86rem}}
+
 </style>
