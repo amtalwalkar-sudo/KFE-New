@@ -987,3 +987,135 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
     background:var(--kfe-ui-surface);
   }
 }
+
+/* FROZEN SWIPE ACTION — BLUE START / RED END */
+.cockpit .persistent-action{
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:4px;
+}
+.cockpit .swipe-bar{
+  position:relative;
+  isolation:isolate;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  height:54px;
+  min-height:54px;
+  padding:0 62px 0 66px;
+  overflow:hidden;
+  border:1px solid var(--kfe-ui-border);
+  border-radius:15px;
+  background:var(--kfe-ui-surface-2);
+  color:var(--kfe-ui-text);
+  box-shadow:inset 0 1px 0 color-mix(in srgb,var(--kfe-ui-text) 5%,transparent),0 5px 16px color-mix(in srgb,var(--kfe-ui-text) 7%,transparent);
+  cursor:grab;
+  touch-action:pan-y;
+  user-select:none;
+  transform:none;
+}
+.cockpit .swipe-bar:active{cursor:grabbing}
+.cockpit .swipe-bar::after{
+  content:'';
+  position:absolute;
+  left:80%;
+  top:8px;
+  bottom:8px;
+  width:1px;
+  background:color-mix(in srgb,var(--kfe-ui-text) 22%,transparent);
+  z-index:2;
+}
+.cockpit .swipe-progress{
+  position:absolute;
+  left:0;
+  top:0;
+  bottom:0;
+  width:var(--swipe-progress,0%);
+  background:color-mix(in srgb,var(--swipe-action-color) 14%,var(--kfe-ui-surface-2));
+  border-radius:inherit;
+  transition:width .08s linear,background .12s ease;
+  z-index:0;
+}
+.cockpit .swipe-thumb{
+  position:absolute;
+  left:7px;
+  top:7px;
+  bottom:7px;
+  width:50px;
+  display:grid;
+  place-items:center;
+  border-radius:11px;
+  background:var(--swipe-action-color);
+  color:#fff;
+  box-shadow:0 3px 10px color-mix(in srgb,var(--swipe-action-color) 35%,transparent);
+  transform:translateX(var(--swipe-offset,0));
+  transition:transform .08s linear,box-shadow .12s ease,background .12s ease;
+  z-index:3;
+  pointer-events:none;
+}
+.cockpit .swipe-thumb b{font-size:1.18rem;font-weight:950;line-height:1}
+.cockpit .swipe-label{
+  position:relative;
+  z-index:1;
+  font-size:.76rem;
+  font-weight:950;
+  letter-spacing:.025em;
+  pointer-events:none;
+  transition:opacity .12s ease;
+}
+.cockpit .swipe-threshold{
+  position:absolute;
+  left:calc(80% - 18px);
+  top:9px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:2px;
+  z-index:4;
+  pointer-events:none;
+}
+.cockpit .swipe-threshold i{
+  width:3px;
+  height:27px;
+  border-radius:99px;
+  background:color-mix(in srgb,var(--swipe-action-color) 60%,transparent);
+}
+.cockpit .swipe-threshold em{
+  font-size:.48rem;
+  font-style:normal;
+  font-weight:900;
+  letter-spacing:.04em;
+  color:color-mix(in srgb,var(--kfe-ui-text) 58%,transparent);
+}
+.cockpit .swipe-hint{
+  min-height:16px;
+  text-align:center;
+  font-size:.61rem;
+  font-weight:800;
+  letter-spacing:.03em;
+  color:var(--kfe-muted-text);
+}
+.cockpit .swipe-bar--start{--swipe-action-color:var(--kfe-ui-accent)}
+.cockpit .swipe-bar--end{--swipe-action-color:var(--kfe-danger)}
+.cockpit .swipe-bar.is-swiping .swipe-label{opacity:.72}
+.cockpit .swipe-bar.is-threshold .swipe-progress{
+  background:color-mix(in srgb,var(--swipe-action-color) 28%,var(--kfe-ui-surface-2));
+}
+.cockpit .swipe-bar.is-threshold .swipe-thumb{
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--swipe-action-color) 18%,transparent),0 4px 14px color-mix(in srgb,var(--swipe-action-color) 42%,transparent);
+}
+.cockpit .swipe-bar.is-threshold .swipe-threshold i{
+  background:var(--swipe-action-color);
+}
+.cockpit .swipe-bar:focus-visible{
+  outline:3px solid color-mix(in srgb,var(--swipe-action-color) 45%,transparent);
+  outline-offset:2px;
+}
+@media(max-width:600px){
+  .cockpit .swipe-bar{height:56px;min-height:56px;padding-left:68px;padding-right:58px}
+  .cockpit .swipe-thumb{width:52px}
+}
+@media(prefers-reduced-motion:reduce){
+  .cockpit .swipe-progress,.cockpit .swipe-thumb,.cockpit .swipe-label{transition:none}
+}
