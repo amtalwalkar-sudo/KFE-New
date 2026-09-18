@@ -1340,3 +1340,15 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
 .number-pad-done{width:100%;min-height:46px;margin-top:8px;border:0;border-radius:12px;background:var(--kfe-ui-accent);color:#fff;font-weight:950;letter-spacing:.04em}
 @media(max-width:600px){.kfe-number-pad{margin-top:6px;padding:8px}.number-pad-grid{gap:6px}.number-pad-grid button{min-height:44px}}
 @media(prefers-reduced-motion:reduce){.kfe-work-cockpit.cockpit--end-shift .cockpit-end-state{transition:none}}
+
+
+/* PERFORMANCE — CALENDAR-BASED PERIOD NAVIGATION */
+.performance-filter-overlay{z-index:10002!important}
+.performance-navigator .periods{grid-template-columns:repeat(2,minmax(0,1fr))}
+.performance-navigator .periods button{min-height:48px}
+.performance-navigator .period-picker{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;gap:8px;margin-top:10px}
+.performance-navigator .period-picker button{min-height:44px;border:1px solid var(--kfe-ui-border);border-radius:10px;background:var(--kfe-ui-surface);color:var(--kfe-ui-text);font-size:1.2rem;font-weight:900}
+.performance-navigator .period-picker strong{text-align:center;font-size:.72rem;font-weight:900}
+.performance-navigator .custom{margin-top:10px}
+.performance-navigator .custom button:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:460px){.performance-navigator .periods{grid-template-columns:1fr}}
