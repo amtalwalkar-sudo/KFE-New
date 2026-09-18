@@ -1,4 +1,4 @@
-import { initializeSyntheticStorage, setActiveDataSource, SYNTHETIC_DB_NAME } from '../../utils/indexedDB.js'
+import { SyntheticDataRepository } from '../../repositories/syntheticDataRepository.js'
 
 export const SYNTHETIC_STAGES = Object.freeze([
   { key: 'week', title: '1 week', days: 7 },
@@ -152,53 +152,17 @@ export const buildSyntheticSnapshot = days => {
   }
 }
 
-const writeSnapshot = async snapshot => {
-  const db = await initializeSyntheticStorage()
-  const stores = Object.keys(snapshot)
-  await new Promise((resolve, reject) => {
-    const tx = db.transaction(stores, 'readwrite')
-    try {
-      for (const storeName of stores) {
-        const store = tx.objectStore(storeName)
-        store.clear()
-        for (const record of snapshot[storeName]) store.put(structuredClone(record))
-      }
-    } catch (error) { try { tx.abort() } catch (_) {}; reject(error); return }
-    tx.oncomplete = resolve
-    tx.onerror = () => reject(tx.error || new Error('Synthetic dataset write failed.'))
-    tx.onabort = () => reject(tx.error || new Error('Synthetic dataset write aborted.'))
-  })
-}
-
-export const getSyntheticDataStatus = async () => {
-  const db = await initializeSyntheticStorage()
-  return new Promise((resolve, reject) => {
-    const request = db.transaction('settings', 'readonly').objectStore('settings').get('synthetic-setting-manifest')
-    request.onsuccess = () => resolve(request.result?.values || null)
-    request.onerror = () => reject(request.error || new Error('Synthetic dataset status lookup failed.'))
-  })
-}
+export const getSyntheticDataStatus = () => SyntheticDataRepository.getStatus()
 
 export const loadSyntheticStage = async key => {
   const stage = SYNTHETIC_STAGES.find(item => item.key === key)
   if (!stage) throw new Error('Unknown synthetic data stage.')
   const snapshot = buildSyntheticSnapshot(stage.days)
-  await writeSnapshot(snapshot)
-  setActiveDataSource('synthetic')
+  await SyntheticDataRepository.writeSnapshot(snapshot)
+  SyntheticDataRepository.activate()
   return { stage: stage.title, counts: Object.fromEntries(Object.entries(snapshot).map(entry => [entry[0], entry[1].length])) }
 }
 
-export const clearSyntheticData = async () => {
-  const db = await initializeSyntheticStorage()
-  const stores = ['shifts','fuel_logs','odoGaps','pending_mutations','days','trips','gps_snapshots','movement_artifacts','vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history']
-  await new Promise((resolve, reject) => {
-    const tx = db.transaction(stores, 'readwrite')
-    stores.forEach(name => tx.objectStore(name).clear())
-    tx.oncomplete = resolve
-    tx.onerror = () => reject(tx.error || new Error('Synthetic data clear failed.'))
-    tx.onabort = () => reject(tx.error || new Error('Synthetic data clear aborted.'))
-  })
-  setActiveDataSource('canonical')
-}
+export const clearSyntheticData = () => SyntheticDataRepository.clear()
 
-export const SyntheticDataService = Object.freeze({ buildSyntheticSnapshot, loadSyntheticStage, getSyntheticDataStatus, clearSyntheticData, SYNTHETIC_STAGES, SYNTHETIC_DB_NAME })
+export const SyntheticDataService = Object.freeze({ buildSyntheticSnapshot, loadSyntheticStage, getSyntheticDataStatus, clearSyntheticData, SYNTHETIC_STAGES })
