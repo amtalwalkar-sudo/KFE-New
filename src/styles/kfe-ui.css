@@ -610,6 +610,18 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
   max-height:calc(100dvh - var(--kfe-nav-height) - 28px - env(safe-area-inset-bottom,0px));
   overflow-y:auto;
 }
+.timeline-number-pad{
+  position:fixed;
+  left:12px;
+  right:12px;
+  bottom:calc(var(--kfe-nav-height) + 8px + env(safe-area-inset-bottom,0px));
+  width:auto;
+  max-width:520px;
+  margin:0 auto;
+  z-index:20002;
+}
+.timeline-quick-edit-overlay .editor{padding-bottom:250px}
+
 .overlay{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center;background:color-mix(in srgb,var(--kfe-ui-text) 35%,transparent);padding:12px}.navigator{width:min(100%,520px);max-height:88vh;overflow:auto;padding:16px;border-radius:var(--kfe-radius-lg,20px);background:var(--kfe-ui-surface);color:var(--kfe-ui-text);box-shadow:var(--kfe-ui-shadow-strong,0 20px 60px rgba(0,0,0,.25))}.navigator header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}.navigator h2{margin:4px 0;font-size:1.1rem}.close{width:40px}.periods{display:grid;gap:6px}.periods button{min-height:44px;display:flex;justify-content:space-between;align-items:center;padding:0 12px;border:1px solid var(--kfe-ui-border);border-radius:11px;background:var(--kfe-ui-surface-2);font-size:.68rem;font-weight:800;color:var(--kfe-ui-text)}.periods button.selected{border-color:var(--kfe-ui-accent);background:color-mix(in srgb,var(--kfe-ui-accent) 10%,var(--kfe-ui-surface));color:var(--kfe-ui-accent)}.custom{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.custom label{display:grid;gap:5px;font-size:.63rem;font-weight:800}.custom input,.custom button{min-height:42px;border:1px solid var(--kfe-ui-border);border-radius:10px;padding:0 9px;background:var(--kfe-ui-surface);color:var(--kfe-ui-text)}.custom button{grid-column:1/-1;background:var(--kfe-ui-accent);color:white;font-weight:850}
 @media(max-width:720px){.financial-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.metric-grid.five{grid-template-columns:repeat(3,minmax(0,1fr))}.target-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:460px){.performance-page{padding:18px 12px 28px}.financial-card{min-height:112px;padding:13px}.financial-card strong{font-size:1.35rem}.metric-grid.four,.metric-grid.five{grid-template-columns:repeat(2,minmax(0,1fr))}.head p{max-width:210px}.section-head h2{font-size:.92rem}}
 
