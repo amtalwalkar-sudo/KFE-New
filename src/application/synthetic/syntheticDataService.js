@@ -133,7 +133,7 @@ export const buildSyntheticSnapshot = days => {
   const driverTargets = [{ id: id('target', 1), driverId: DRIVER_ID, effectiveFrom: KFE_START, effectiveUntil: END,
     desiredDriverProfit: 1000, targetHours: 12, targetKm: 300, active: true, synthetic: true }]
   const breakEvenInputs = [
-    { id: id('break-even', 'pre-kfe'), effectiveFrom: '2026-04-09', effectiveUntil: KFE_START, maintenanceProvisionPerKm: 0.6, active: true, synthetic: true },
+    { id: id('break-even', 'pre-kfe'), effectiveFrom: '2026-04-01', effectiveUntil: '2026-04-08', maintenanceProvisionPerKm: 0.6, active: true, synthetic: true },
     { id: id('break-even', 'kfe'), effectiveFrom: KFE_START, effectiveUntil: END, maintenanceProvisionPerKm: 1.6, active: true, synthetic: true },
   ]
   const settings = [{ id: 'synthetic-setting-manifest', settingKey: 'synthetic_dataset_manifest',
