@@ -12,9 +12,9 @@ const readAll = async storeName => {
 
 export const PerformanceRepository = {
   async getSnapshot() {
-    const [shifts, trips, fuelLogs, vehicles, drivers, compliance, maintenance, driverCollectedData, loans, loanPayments, prepayments, driverTargets, breakEvenInputs] = await Promise.all([
-      readAll('shifts'), readAll('trips'), readAll('fuel_logs'), readAll('vehicles'), readAll('drivers'), readAll('compliance_records'), readAll('maintenance_records'), readAll('driver_collected_data'), readAll('loans'), readAll('loan_payments'), readAll('prepayments'), readAll('driver_targets'), readAll('break_even_inputs'),
+    const [shifts, trips, fuelLogs, vehicles, drivers, compliance, maintenance, loans, loanPayments, prepayments, driverTargets, breakEvenInputs] = await Promise.all([
+      readAll('shifts'), readAll('trips'), readAll('fuel_logs'), readAll('vehicles'), readAll('drivers'), readAll('compliance_records'), readAll('maintenance_records'), readAll('loans'), readAll('loan_payments'), readAll('prepayments'), readAll('driver_targets'), readAll('break_even_inputs'),
     ])
-    return { shifts, trips, fuelLogs, vehicles, drivers, compliance, maintenance, driverCollectedData, loans, loanPayments, prepayments, driverTargets, breakEvenInputs }
+    return { shifts, trips, fuelLogs, vehicles, drivers, compliance, maintenance, loans, loanPayments, prepayments, driverTargets, breakEvenInputs }
   }
 }
