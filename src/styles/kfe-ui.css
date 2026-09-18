@@ -681,3 +681,18 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
   .brand-copy strong{font-size:clamp(1rem,5vw,1.24rem)}
   .header-gps{width:42px;height:42px;min-width:42px;min-height:42px}
 }
+
+
+/* WORK OFFLINE + REFUELLING ACTIONS */
+.hero-actions{display:flex;align-items:center;gap:8px}
+.fuel-icon{width:42px;height:42px;display:grid;place-items:center;padding:0;border:1px solid var(--kfe-ui-border);border-radius:50%;background:var(--kfe-ui-surface-2);color:var(--kfe-muted-text);cursor:pointer;font-size:1.08rem}
+.fuel-icon.active{color:var(--kfe-ui-accent);border-color:color-mix(in srgb,var(--kfe-ui-accent) 38%,var(--kfe-ui-border));background:color-mix(in srgb,var(--kfe-ui-accent) 9%,var(--kfe-ui-surface))}
+.fuel-icon:focus-visible{outline:3px solid color-mix(in srgb,var(--kfe-ui-accent) 55%,transparent);outline-offset:2px}
+.fuel-form-card,.end-shift-card{margin-top:10px}
+.back-button{min-width:72px}
+.start-odo-reference{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 13px;margin:2px 0 4px;border:1px solid var(--kfe-ui-border);border-radius:12px;background:var(--kfe-ui-surface-2)}
+.start-odo-reference span{color:var(--kfe-muted-text);font-size:.72rem;font-weight:750}
+.start-odo-reference strong{font-size:.88rem}
+.gap-confirm{width:100%;margin-top:10px}
+.confirmed-text{display:block;margin-top:10px;color:var(--kfe-success);font-weight:800}
+@media(max-width:600px){.hero-actions{gap:5px}.fuel-icon{width:40px;height:40px}.online-control{gap:5px}}
