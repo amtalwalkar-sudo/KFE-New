@@ -16,7 +16,7 @@ const openLocalBackupDB = () => new Promise((resolve, reject) => {
 
 export const createBackupRepository = stores => Object.freeze({
   async readCanonicalSnapshot() {
-    const db = await initializeCanonicalStorage()
+    const db = await initializeCanonicalStorage({ dataSource: 'canonical' })
     return new Promise((resolve, reject) => {
       const tx = db.transaction(stores, 'readonly')
       const result = {}
