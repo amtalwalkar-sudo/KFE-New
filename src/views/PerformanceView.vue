@@ -146,7 +146,7 @@ onBeforeUnmount(() => unsubscribeChanges())
         <button class="today-period" @click="anchor = getKfeReferenceNow(); period = 'MONTHLY'">Current month</button>
       </header>
       <div class="performance-period-controls" aria-label="Performance date filters">
-        <div class="slider performance-slider">
+        <div class="slider performance-slider" :style="{ '--period-index': PERIODS.indexOf(period) }">
           <button v-for="item in PERIODS" :key="item" :class="{active: period === item}" @click="choosePeriod(item)">{{ item }}</button>
         </div>
         <div v-if="period !== 'CUSTOM DURATION'" class="period performance-period">
