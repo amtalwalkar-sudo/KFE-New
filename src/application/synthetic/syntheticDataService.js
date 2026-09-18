@@ -40,6 +40,8 @@ const complianceRows = () => {
 }
 
 export const buildSyntheticSnapshot = days => {
+  const stageEnd = dayAt(days - 1)
+  const stageEndDate = isoDate(stageEnd)
   const vehicles = [{ id: VEHICLE_ID, registrationNumber: 'SYN-KFE-001', make: 'Synthetic', model: 'Test Vehicle', variant: 'CNG',
     acquiredOn: '2026-04-09', acquisitionValue: 0, openingOdometerKm: OPENING_ODO, fuelType: 'CNG', tankCapacity: 14,
     status: 'Active', active: true, synthetic: true }]
@@ -144,8 +146,8 @@ export const buildSyntheticSnapshot = days => {
 
   return {
     shifts, fuel_logs, odoGaps, days: daysStore, trips, gps_snapshots: [], movement_artifacts: [],
-    vehicles, drivers, compliance_records: complianceRows().filter(row => row.validFrom <= END), maintenance_records,
-    loans: loan, loan_payments: loanPayments, prepayments: [], driver_targets: driverTargets, break_even_inputs: breakEvenInputs,
+    vehicles, drivers, compliance_records: complianceRows().filter(row => row.validFrom <= stageEndDate), maintenance_records,
+    loans: loan, loan_payments: loanPayments.filter(row => row.paidOn <= stageEndDate), prepayments: [], driver_targets: driverTargets, break_even_inputs: breakEvenInputs,
     settings, pending_mutations: [], audit_history: [],
   }
 }
