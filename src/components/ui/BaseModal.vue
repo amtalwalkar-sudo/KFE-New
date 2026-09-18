@@ -82,4 +82,5 @@ const emit = defineEmits(['close'])
   justify-content: flex-end;
   gap: 0.5rem;
 }
+.modal-backdrop{background:color-mix(in srgb,var(--kfe-ui-text) 48%,transparent)!important;backdrop-filter:blur(4px)!important}.modal-card{background:var(--kfe-ui-surface)!important;border:1px solid var(--kfe-ui-border)!important;border-radius:16px!important;box-shadow:0 20px 50px color-mix(in srgb,var(--kfe-ui-text) 18%,transparent)!important;max-width:520px!important}.modal-header{padding:15px 16px!important;border-color:var(--kfe-ui-border)!important}.modal-title{font-size:1rem!important;font-weight:900!important;color:var(--kfe-ui-text)!important}.modal-close-btn{min-width:42px!important;min-height:42px!important;border-radius:10px!important;color:var(--kfe-muted-text)!important}.modal-body{padding:16px!important}.modal-footer{padding:12px 16px!important;border-color:var(--kfe-ui-border)!important}.modal-footer button{min-height:46px!important;border-radius:10px!important}
 </style>
