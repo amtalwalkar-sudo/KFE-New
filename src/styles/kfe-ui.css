@@ -635,32 +635,49 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
   line-height:1.05;
 }
 .header-gps{
-  min-height:42px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:7px;
-  padding:0 11px;
+  width:46px;
+  height:46px;
+  min-width:46px;
+  min-height:46px;
+  display:grid;
+  place-items:center;
+  padding:0;
   border:1px solid var(--kfe-ui-border);
-  border-radius:999px;
+  border-radius:50%;
   background:var(--kfe-ui-surface-2);
   color:var(--kfe-muted-text);
-  font-size:.61rem;
-  font-weight:900;
   cursor:pointer;
-  white-space:nowrap;
 }
-.gps-icon{width:19px;height:19px;flex:0 0 19px}
+.gps-icon{width:22px;height:22px;display:block}
+.header-gps.is-checking{
+  color:var(--kfe-ui-accent);
+  border-color:color-mix(in srgb,var(--kfe-ui-accent) 30%,var(--kfe-ui-border));
+}
+.header-gps.is-checking .gps-icon{animation:kfe-gps-pulse 1.35s ease-in-out infinite}
 .header-gps.is-connected{
   color:var(--kfe-success);
   background:color-mix(in srgb,var(--kfe-success) 9%,var(--kfe-ui-surface));
-  border-color:color-mix(in srgb,var(--kfe-success) 28%,var(--kfe-ui-border));
+  border-color:color-mix(in srgb,var(--kfe-success) 35%,var(--kfe-ui-border));
 }
-.header-gps.is-checking{color:var(--kfe-ui-accent)}
-.header-gps.is-permission,.header-gps.is-unavailable,.header-gps.is-unsupported{color:var(--kfe-warning)}
-.header-gps:focus-visible{outline:3px solid color-mix(in srgb,var(--kfe-ui-accent) 55%,transparent);outline-offset:2px}
+.header-gps.is-permission,
+.header-gps.is-unavailable,
+.header-gps.is-unsupported{
+  color:var(--kfe-warning);
+  background:color-mix(in srgb,var(--kfe-warning) 9%,var(--kfe-ui-surface));
+  border-color:color-mix(in srgb,var(--kfe-warning) 32%,var(--kfe-ui-border));
+}
+.header-gps:focus-visible{
+  outline:3px solid color-mix(in srgb,var(--kfe-ui-accent) 55%,transparent);
+  outline-offset:2px;
+}
+@keyframes kfe-gps-pulse{
+  0%,100%{transform:scale(1);opacity:.72}
+  50%{transform:scale(1.12);opacity:1}
+}
+@media(prefers-reduced-motion:reduce){
+  .header-gps.is-checking .gps-icon{animation:none}
+}
 @media(max-width:600px){
   .brand-copy strong{font-size:clamp(1rem,5vw,1.24rem)}
-  .header-gps{min-height:40px;padding:0 9px}
-  .header-gps span{font-size:.57rem}
+  .header-gps{width:42px;height:42px;min-width:42px;min-height:42px}
 }
