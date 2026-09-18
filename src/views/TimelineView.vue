@@ -115,4 +115,25 @@ header{display:flex;justify-content:space-between;align-items:center;margin-bott
 .overlay{position:fixed;inset:0;background:color-mix(in srgb,var(--kfe-ui-text) 38%,transparent);display:grid;place-items:end center;padding:16px;z-index:10000}.editor{width:min(520px,100%);background:var(--kfe-ui-surface);color:var(--kfe-ui-text);border-radius:var(--kfe-radius-lg,16px);padding:18px;box-sizing:border-box;box-shadow:var(--kfe-ui-shadow-strong,0 18px 50px rgba(0,0,0,.2))}
 .editor-head{display:flex;justify-content:space-between;align-items:flex-start}.editor-head h2{margin:0;font-size:1rem}.editor-head button{font-size:1.2rem;padding:5px 9px}.editor label{display:block;margin:12px 0;font-size:.72rem;font-weight:800}.editor input,.editor select{display:block;width:100%;box-sizing:border-box;margin-top:5px;padding:10px;border:1px solid var(--kfe-ui-border);border-radius:var(--kfe-radius-sm,8px);background:var(--kfe-ui-surface);color:var(--kfe-ui-text);font:inherit}.save{width:100%;min-height:44px;padding:12px;border:0;border-radius:var(--kfe-radius-sm,10px);background:var(--kfe-ui-accent);color:#fff;font-weight:900}.calculated{padding:10px;border-radius:8px;background:var(--kfe-ui-surface-2);font-size:.68rem;color:var(--kfe-muted-text)}.check{display:flex!important;gap:8px;align-items:center}.check input{width:auto!important;margin:0!important}
 @media(max-width:560px){.summary-card.wide{grid-template-columns:repeat(2,1fr)}}@media(min-width:900px){.timeline{padding-top:26px}}
+
+/* KFE Visual DNA — Driver / chronological operational timeline */
+.timeline{max-width:820px;padding:24px 16px 34px}
+.timeline>header{padding-bottom:12px;border-bottom:1px solid var(--kfe-ui-border)}
+h1{font-size:clamp(1.3rem,5vw,1.65rem)}
+.today{min-height:44px}
+.slider{padding:4px;border-radius:var(--kfe-radius-md);box-shadow:var(--kfe-ui-shadow)}
+.slider button{min-height:44px}
+.period{padding:4px 0}
+.day-snapshot,.summary-card{gap:10px}
+.day-snapshot>div,.summary-card>div{padding:13px;border-radius:var(--kfe-radius-md);box-shadow:var(--kfe-ui-shadow)}
+.event,.personal-event{position:relative;gap:12px;padding:14px 8px 14px 0}
+.event time,.personal-event time{width:64px;flex-basis:64px;font-variant-numeric:tabular-nums}
+.event>div:nth-child(2),.personal-event>div{padding-left:10px;border-left:3px solid var(--kfe-ui-border)}
+.event:has(.top small)>div:nth-child(2){border-left-color:var(--kfe-success)}
+.personal-event>div{border-left-color:var(--kfe-ui-accent)}
+.groups button{min-height:60px;border-radius:var(--kfe-radius-md);box-shadow:var(--kfe-ui-shadow)}
+.overlay{background:color-mix(in srgb,var(--kfe-ui-text) 48%,transparent)}
+.editor{border:1px solid var(--kfe-ui-border);box-shadow:0 18px 50px color-mix(in srgb,var(--kfe-ui-text) 18%,transparent)}
+@media(max-width:560px){.timeline{padding-left:12px;padding-right:12px}.event,.personal-event{padding-right:2px}.event time,.personal-event time{width:54px;flex-basis:54px}}
+
 </style>
