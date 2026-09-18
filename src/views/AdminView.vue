@@ -23,6 +23,7 @@ const settingsMenu=[
 ]
 const adminSection=ref('records'),selected=ref('vehicle'),settingsSelected=ref('backup'),categoryTouchStartX=ref(null)
 const records=ref([]),editing=ref(null),draft=ref({}),formOpen=ref(false),loading=ref(false),error=ref(''),notice=ref('')
+const money=value=>Number.isFinite(Number(value))?`₹${Number(value).toLocaleString('en-IN',{maximumFractionDigits:2})}`:'—'
 const all=ref({vehicle:[],driver:[],loan:[]})
 const loanReadModel=ref({loans:[]})
 const currentGroup=computed(()=>groups.find(g=>g.forms.includes(selected.value))||groups[0])
