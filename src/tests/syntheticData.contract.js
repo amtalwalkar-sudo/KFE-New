@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { SYNTHETIC_STAGES, buildSyntheticSnapshot } from '../application/synthetic/syntheticDataService.js'
-import { clearSyntheticDateContext, getKfeReferenceNow, istDateKey, reportingRangeFor, setSyntheticDateContext } from '../domain/time/ist.js'
+import { clearSyntheticDateContext, getKfeReferenceNow, istCalendarDaysInclusive, istDateKey, reportingRangeFor, setSyntheticDateContext } from '../domain/time/ist.js'
 
 assert.deepEqual(SYNTHETIC_STAGES.map(stage => stage.days), [7, 30, 182, 365, 1818])
 const week = buildSyntheticSnapshot(7)
@@ -26,12 +26,15 @@ for (const snapshot of [week, month, full]) {
 }
 assert.equal(week.shifts.length, 7)
 assert.equal(month.shifts.length, 30)
-assert.equal(full.shifts.length, Math.floor((Date.parse(new Date().toISOString().slice(0, 10)) - Date.parse('2026-05-01')) / 86400000))
+const istToday = istDateKey(new Date())
+const istYesterday = istDateKey(new Date(Date.parse(`${istToday}T00:00:00Z`) - 86400000))
+const expectedFullShiftDays = istCalendarDaysInclusive('2026-05-01', istYesterday)
+assert.equal(full.shifts.length, expectedFullShiftDays)
 assert.equal(week.loan_payments.length, 0)
 assert.equal(month.loan_payments.length, 0)
 assert.equal(full.loan_payments.length, 0)
 assert.equal(week.settings[0].values.startDate, '2026-05-01')
-assert.equal(week.settings[0].values.endDate, new Date().toISOString().slice(0, 10))
+assert.equal(week.settings[0].values.endDate, istToday)
 assert.ok(full.compliance_records.some(row => row.complianceType === 'Road Tax'))
 assert.ok(full.compliance_records.some(row => row.complianceType === 'Authorization'))
 assert.ok(full.break_even_inputs.some(row => row.maintenanceProvisionPerKm === 0.6))
