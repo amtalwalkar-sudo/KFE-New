@@ -13,6 +13,9 @@ import { PlatformStartup } from './infrastructure/startup/platformStartup.js'
 import './styles/ui-tokens.css'
 import './styles/ui-system.css'
 import './styles/kfe-visual-application.css'
+import { startKfeThemeController } from './services/kfeThemeController.js'
+
+startKfeThemeController()
 
 BackupConfig.configureBackupConfig(createBackupConfigAdapter())
 CloudBackupLifecycle.configureCloudBackupScheduler(createCloudBackupScheduler())
