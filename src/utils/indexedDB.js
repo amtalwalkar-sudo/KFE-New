@@ -64,7 +64,7 @@ const openDatabase = name => new Promise((resolve, reject) => {
     if (db.objectStoreNames.contains('admin_records')) db.deleteObjectStore('admin_records')
     if (db.objectStoreNames.contains('financial_inputs')) db.deleteObjectStore('financial_inputs')
   }
-  request.onsuccess = () => { const db = request.result; db.onversionchange = () => { db.close(); dbInstances.delete(name); initializationPromises.delete(name) }; resolve(db) }
+  request.onsuccess = () => { const dbInstance = request.result; dbInstance.onversionchange = () => { dbInstance.close(); dbInstances.delete(name); initializationPromises.delete(name) }; resolve(dbInstance) }
   request.onerror = () => reject(request.error || new Error('KFE database could not be opened.'))
 })
 const initializeDatabase = async name => {
