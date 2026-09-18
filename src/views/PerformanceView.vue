@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { PerformanceService } from '../application/performance/performanceService.js'
-import { istDayRange, istMonthRange, istParts, reportingRangeFor, KFE_TIME_ZONE_LABEL } from '../domain/time/ist.js'
+import { istDayRange, getKfeReferenceNow, istMonthRange, istParts, reportingRangeFor, KFE_TIME_ZONE_LABEL } from '../domain/time/ist.js'
 
 const PERIODS = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY', 'CUSTOM DURATION']
 const LAYERS = {
@@ -11,7 +11,7 @@ const LAYERS = {
   profit: ['Operating profit', 'Available cash', 'Financing detail', 'Provision planning', 'Detailed financial records'],
 }
 const period = ref('MONTHLY')
-const anchor = ref(new Date())
+const anchor = ref(getKfeReferenceNow())
 const navigatorOpen = ref(false)
 const activeCard = ref(null)
 const activeLayer = ref(0)
