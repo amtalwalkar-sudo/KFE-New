@@ -2,6 +2,7 @@ export const KFE_TIME_ZONE = 'Asia/Kolkata'
 export const KFE_TIME_ZONE_LABEL = 'IST (Asia/Kolkata)'
 const IST_OFFSET_MINUTES = 330
 const DAY_MS = 86400000
+const SYNTHETIC_CONTEXT_KEY = 'kfe:synthetic-date-context'
 
 const partsFormatter = new Intl.DateTimeFormat('en-CA', {
   timeZone: KFE_TIME_ZONE,
@@ -106,23 +107,67 @@ export const addIstMonths = (value, months) => {
   return utcForIst(year, month, day, p.hour, p.minute, p.second, value instanceof Date ? value.getUTCMilliseconds() : 0)
 }
 
-export const reportingRangeFor = (period, now = new Date()) => {
+export const setSyntheticDateContext = ({ startDate, endDate } = {}) => {
+  if (typeof sessionStorage === 'undefined') return
+  if (!startDate || !endDate) {
+    sessionStorage.removeItem(SYNTHETIC_CONTEXT_KEY)
+    return
+  }
+  sessionStorage.setItem(SYNTHETIC_CONTEXT_KEY, JSON.stringify({ startDate, endDate }))
+}
+
+export const clearSyntheticDateContext = () => {
+  if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(SYNTHETIC_CONTEXT_KEY)
+}
+
+export const getSyntheticDateContext = () => {
+  if (typeof sessionStorage === 'undefined') return null
+  try {
+    const value = JSON.parse(sessionStorage.getItem(SYNTHETIC_CONTEXT_KEY) || 'null')
+    if (!value?.startDate || !value?.endDate) return null
+    return value
+  } catch (_) {
+    return null
+  }
+}
+
+export const getKfeReferenceNow = (fallback = new Date()) => {
+  const context = getSyntheticDateContext()
+  if (!context?.endDate) return fallback
+  const date = new Date(`${context.endDate}T23:59:59+05:30`)
+  return Number.isNaN(date.getTime()) ? fallback : date
+}
+
+const clampRangeToSyntheticContext = range => {
+  const context = getSyntheticDateContext()
+  if (!context || !range) return range
+  const contextRange = {
+    from: istDayRange(context.startDate).from,
+    to: istDayRange(context.endDate).to,
+  }
+  return {
+    from: new Date(Math.max(range.from.getTime(), contextRange.from.getTime())),
+    to: new Date(Math.min(range.to.getTime(), contextRange.to.getTime())),
+  }
+}
+
+export const reportingRangeFor = (period, now = getKfeReferenceNow()) => {
   if (period === 'CUSTOM RANGE') return null
-  if (period === 'TILL DATE') return { from: new Date(0), to: now }
-  if (period === 'DAY') return istDayRange(now)
-  if (period === 'MONTH') return istMonthRange(now, now)
+  if (period === 'TILL DATE') return clampRangeToSyntheticContext({ from: new Date(0), to: now })
+  if (period === 'DAY') return clampRangeToSyntheticContext(istDayRange(now))
+  if (period === 'MONTH') return clampRangeToSyntheticContext(istMonthRange(now, now))
   if (period === 'WEEK') {
     const p = istParts(now)
     const day = new Date(utcForIst(p.year, p.month, p.day, 12, 0, 0, 0))
     const weekday = day.getUTCDay()
     const mondayOffset = (weekday + 6) % 7
     const monday = new Date(day.getTime() - mondayOffset * DAY_MS)
-    return { from: istDayRange(monday).from, to: istDayRange(now).to }
+    return clampRangeToSyntheticContext({ from: istDayRange(monday).from, to: istDayRange(now).to })
   }
   const months = { '3 MONTHS': 3, '6 MONTHS': 6, '1 YEAR': 12, 'MULTI-YEAR': 60 }[period]
   if (months) {
     const start = addIstMonths(now, -months)
-    return { from: istDayRange(start).from, to: istDayRange(now).to }
+    return clampRangeToSyntheticContext({ from: istDayRange(start).from, to: istDayRange(now).to })
   }
-  return istDayRange(now)
+  return clampRangeToSyntheticContext(istDayRange(now))
 }
