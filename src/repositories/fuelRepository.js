@@ -24,12 +24,12 @@ export const FuelRepository = {
     validateNormalizedFuel(normalized)
     const now = new Date().toISOString()
     const fuelRecord = {
-      id: normalized.id || generateUUID(), odometer: Number(normalized.odometer), pricePerKg: Number(normalized.pricePerKg), amount: Number(normalized.amount), quantityKg: Number(normalized.quantityKg), isFullTank: normalized.isFullTank !== false,
+      id: normalized.id || generateUUID(), clientMutationId: normalized.clientMutationId || null, odometer: Number(normalized.odometer), pricePerKg: Number(normalized.pricePerKg), amount: Number(normalized.amount), quantityKg: Number(normalized.quantityKg), isFullTank: normalized.isFullTank !== false,
       latitude: normalized.latitude ?? null, longitude: normalized.longitude ?? null, accuracy: normalized.accuracy ?? null, provenance: normalized.provenance ?? null, capturedAt: normalized.capturedAt || now, createdAt: normalized.createdAt || now, updatedAt: now
     }
     return new Promise((resolve, reject) => {
       const tx = db.transaction(stores, 'readwrite'); const fuelStore = tx.objectStore('fuel_logs'); const mutationStore = tx.objectStore('pending_mutations'); const auditStore = tx.objectStore('audit_history')
-      try { fuelStore.put(fuelRecord); writeMutationAndAudit(mutationStore, auditStore, { entityId: fuelRecord.id, entityType: 'FUEL', action: 'CREATE', payload: fuelRecord, createdAt: now }) } catch (error) { try { tx.abort() } catch (_) {}; reject(error); return }
+      try { if (fuelRecord.clientMutationId) { const existingRequest = fuelStore.index('clientMutationId').get(fuelRecord.clientMutationId); existingRequest.onsuccess = () => { if (existingRequest.result && !isDeleted(existingRequest.result)) { try { tx.abort() } catch (_) {}; resolve(existingRequest.result); return } fuelStore.put(fuelRecord); writeMutationAndAudit(mutationStore, auditStore, { entityId: fuelRecord.id, entityType: 'FUEL', action: 'CREATE', payload: fuelRecord, createdAt: now }) }; existingRequest.onerror = () => { try { tx.abort() } catch (_) {}; reject(existingRequest.error || new Error('Fuel idempotency lookup failed.')) } } else { fuelStore.put(fuelRecord); writeMutationAndAudit(mutationStore, auditStore, { entityId: fuelRecord.id, entityType: 'FUEL', action: 'CREATE', payload: fuelRecord, createdAt: now }) } } catch (error) { try { tx.abort() } catch (_) {}; reject(error); return }
       tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: ['fuel_logs'], reason: 'fuel:CREATE' }); resolve(fuelRecord) }; tx.onerror = () => reject(tx.error || new Error('Atomic fuel log persistence failed.')); tx.onabort = () => reject(tx.error || new Error('Fuel log transaction aborted.'))
     })
   },
