@@ -3,11 +3,11 @@ import { computed, onMounted, ref } from 'vue'
 import { WorkService } from '../application/work/workService.js'
 import { TimelineService } from '../application/timeline/timelineService.js'
 import { useFuelStore } from '../stores/fuel.js'
-import { istDateKey, istDayRange, istMonthRange, istParts } from '../domain/time/ist.js'
+import { getKfeReferenceNow, istDateKey, istDayRange, istMonthRange, istParts } from '../domain/time/ist.js'
 
 const fuelStore = useFuelStore()
 const period = ref('day')
-const anchor = ref(new Date())
+const anchor = ref(getKfeReferenceNow())
 const data = ref(null)
 const loading = ref(true)
 const error = ref('')
@@ -50,7 +50,7 @@ const shiftLabel = summary => { const starts=(summary?.shifts||[]).map(x=>x.shif
 const load = async () => { loading.value=true; error.value=''; try { if(period.value==='day') data.value=await TimelineService.getDay(anchor.value); else if(period.value==='personal') data.value=await TimelineService.getPersonal(range.value); else if(period.value==='week') data.value=await TimelineService.getWeek(range.value); else data.value=await TimelineService.getMonth(range.value) } catch(e) { error.value=e?.message||'Unable to load timeline.'; data.value=null } finally { loading.value=false } }
 const move = amount => { const d=dayAtNoon(anchor.value); if(period.value==='month') d.setUTCMonth(d.getUTCMonth()+amount); else if(period.value==='week') d.setUTCDate(d.getUTCDate()+amount*7); else d.setUTCDate(d.getUTCDate()+amount); anchor.value=d; void load() }
 const choosePeriod = next => { period.value=next; void load() }
-const today = () => { anchor.value=new Date(); period.value='day'; void load() }
+const today = () => { anchor.value=getKfeReferenceNow(); period.value='day'; void load() }
 const openEdit = trip => { editing.value=trip; form.value={operator:trip.operator||'',tripKm:trip.tripKm??'',revenue:trip.revenue??''} }
 const openFuelEdit = fuel => { editingFuel.value=fuel; fuelForm.value={odometer:fuel.odometer??'',pricePerKg:fuel.pricePerKg??'',amount:fuel.amount??'',isFullTank:fuel.isFullTank!==false} }
 const save = async () => { saving.value=true; error.value=''; try { const r=await WorkService.updateTrip({id:editing.value.id,operator:form.value.operator,tripKm:form.value.tripKm,revenue:form.value.revenue}); if(!r?.ok) throw new Error(r?.reason||'Trip update failed.'); editing.value=null; await load() } catch(e) { error.value=e?.message||'Trip update failed.' } finally { saving.value=false } }
