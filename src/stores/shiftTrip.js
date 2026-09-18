@@ -10,6 +10,8 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
   const lifecycleLocations = ref([])
   const tripLocations = ref([])
   const lastKnownOdometer = ref(null)
+  const businessStartBaseline = ref(null)
+  const firstKfeDay = ref(false)
   const operators = WorkService.getTripOperators()
   const defaultOperator = ref(operators[0])
   const initialized = ref(false)
@@ -47,6 +49,8 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     }
     const previous = await WorkService.getLastCompletedShift()
     lastKnownOdometer.value = previous?.endOdometer ?? null
+    businessStartBaseline.value = await WorkService.getBusinessStartBaseline()
+    firstKfeDay.value = !previous && !shift.value
     const previousTrip = await WorkService.getLastCompletedTrip()
     if (previousTrip?.operator && operators.includes(previousTrip.operator)) defaultOperator.value = previousTrip.operator
     await loadLifecycleLocations()
@@ -54,7 +58,9 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
   }
 
   const initialize = async () => { if (!initialized.value) await refresh() }
-  const calculateGap = odo => WorkService.validateShiftStartOdometer(odo, lastKnownOdometer.value)
+  const calculateGap = odo => firstKfeDay.value
+    ? WorkService.validateFirstDayShiftStartOdometer(odo, businessStartBaseline.value?.businessStartOdometer)
+    : WorkService.validateShiftStartOdometer(odo, lastKnownOdometer.value)
 
   const startShift = async (odo, allocation = null) => {
     if (isShiftActive.value) return { ok: false, reason: 'A Shift is already active.' }
@@ -62,7 +68,7 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     if (!check.valid) return { ok: false, reason: check.reason }
     const allocationCheck = WorkService.validateGapAllocation(check.gapKm, allocation?.category)
     if (!allocationCheck.valid) return allocationCheck
-    const record = await WorkService.startShift({ startOdometer: Number(odo), openingPersonalKm: allocationCheck.personalKm, openingDeadKm: allocationCheck.deadKm, openingPersonalToll: Number(allocation?.personalToll || 0), openingPersonalParking: Number(allocation?.personalParking || 0) })
+    const record = await WorkService.startShift({ startOdometer: Number(odo), openingPersonalKm: allocationCheck.personalKm, openingDeadKm: allocationCheck.deadKm, openingPersonalToll: Number(allocation?.personalToll || 0), openingPersonalParking: Number(allocation?.personalParking || 0), openingBaselineType: firstKfeDay.value ? 'BUSINESS_START_FIRST_DAY' : 'POST_KFE_GAP', historicalOdometerGapKm: firstKfeDay.value ? Number(check.historicalKm || 0) : 0, businessStartDate: businessStartBaseline.value?.businessStartDate || null, businessStartOdometer: businessStartBaseline.value?.businessStartOdometer ?? null })
     shift.value = record
     await refresh()
     captureAndRefreshLocation({ entityType: 'SHIFT', entityId: record.id, eventType: 'ONLINE' })
@@ -119,5 +125,5 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     return result
   }
 
-  return { shift, trip, registeredTrips, completedTrips, lifecycleLocations, tripLocations, operators, defaultOperator, lastKnownOdometer, startOdometer, isShiftActive, isTripActive, isOnline, isFinancialDayActive, headerShiftStatus, headerTripStatus, initialize, refresh, calculateGap, startShift, startTrip, endTrip, cancelTrip, updateTrip, endShift }
+  return { shift, trip, registeredTrips, completedTrips, lifecycleLocations, tripLocations, operators, defaultOperator, lastKnownOdometer, businessStartBaseline, firstKfeDay, startOdometer, isShiftActive, isTripActive, isOnline, isFinancialDayActive, headerShiftStatus, headerTripStatus, initialize, refresh, calculateGap, startShift, startTrip, endTrip, cancelTrip, updateTrip, endShift }
 })
