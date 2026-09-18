@@ -1,5 +1,5 @@
 // KFE PWA infrastructure boundary. The service worker never imports application/domain/UI code.
-const CACHE_NAME = 'kfe-pwa-shell-v2'
+const CACHE_NAME = 'kfe-pwa-shell-v3'
 
 self.addEventListener('install', event => {
   event.waitUntil(
@@ -15,6 +15,10 @@ self.addEventListener('activate', event => {
       .then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))))
       .then(() => self.clients.claim())
   )
+})
+
+self.addEventListener('message', event => {
+  if (event.data?.type === 'kfe:activate-update') self.skipWaiting()
 })
 
 self.addEventListener('sync', event => {
