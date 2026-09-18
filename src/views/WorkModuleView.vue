@@ -29,7 +29,8 @@ const endShiftSaved = ref({ 1: false, 2: false, 3: false })
 const endShiftSwipeStartX = ref(null)
 const endShiftSwipeTracking = ref(false)
 const endShiftSwipeOffset = ref(0)
-const endShiftSwipeTrack = ref(null)
+const endShiftActiveField = ref(null)
+const endShiftKeypadVisible = ref(false)
 const fuelDraftKey = 'kfe.work.fuelDraft.v1'
 const fuelDraftTtlMs = 30 * 60 * 1000
 const fuelOdometer = ref('')
@@ -68,8 +69,8 @@ const refreshTarget = async () => { try { target.value = await DriverTargetServi
 const selectGapCategory = category => { if (!gap.value.valid || gapKm.value <= 0) return; gapCategory.value = category; if (category !== 'PERSONAL') { personalToll.value = ''; personalParking.value = '' } }
 const goOnline = async () => { const needsGap = gap.value.valid && gapKm.value > 0; if (!startOdo.value) return fail('Enter the start odometer before going Online.'); if (needsGap && !gapCategory.value) return fail('Choose Personal KM or Dead KM before going Online.'); const allocation = needsGap ? { category: gapCategory.value, personalToll: personalToll.value, personalParking: personalParking.value } : null; const result = await store.startShift(startOdo.value, allocation); if (result.requiresGapAllocation) return fail(`Choose Personal KM or Dead KM to allocate the full ${result.gapKm} km before going Online.`); if (!result.ok) return fail(result.reason); startOdo.value=''; gapCategory.value=null; personalToll.value=''; personalParking.value=''; await refreshTarget(); notify('Online.') }
 const goOffline = async (confirmLargeDistance = false) => { const trips = reviewTrips.value ? store.completedTrips.map(t => ({ id:t.id, operator:t.operator, tripKm:t.tripKm??'', revenue:t.revenue??'' })) : []; const result = await store.endShift({ closingOdometer:closingOdo.value, revenue:shiftRevenue.value, toll:toll.value, parking:parking.value, tollParkingRevenueTreatment:tollTreatment.value, trips, confirmLargeDistance }); if(result.requiresConfirmation){ const confirmed=window.confirm(`⚠️ Closing odometer shows ${result.distanceKm} km for this shift. If the odometer is correct, confirm to end the Shift.`); if(!confirmed)return; return goOffline(true) } if(!result.ok)return fail(result.reason); clearEndShiftFlow(); await refreshTarget(); notify('Offline.') }
-const clearEndShiftFlow = () => { closingOdo.value=''; shiftRevenue.value=''; toll.value=''; parking.value=''; tollTreatment.value='INCLUDED'; reviewTrips.value=false; endShiftStep.value=1; endShiftSaved.value={1:false,2:false,3:false}; endShiftSwipeStartX.value=null; endShiftSwipeTracking.value=false; endShiftSwipeOffset.value=0; endShiftOpen.value=false }
-const openEndShift = () => { fuelFormOpen.value=false; endShiftStep.value=1; endShiftSaved.value={1:false,2:false,3:false}; endShiftSwipeStartX.value=null; endShiftSwipeTracking.value=false; endShiftSwipeOffset.value=0; endShiftOpen.value=true; error.value=''; message.value='' }
+const clearEndShiftFlow = () => { closingOdo.value=''; shiftRevenue.value=''; toll.value=''; parking.value=''; tollTreatment.value='INCLUDED'; reviewTrips.value=false; endShiftStep.value=1; endShiftSaved.value={1:false,2:false,3:false}; endShiftSwipeStartX.value=null; endShiftSwipeTracking.value=false; endShiftSwipeOffset.value=0; endShiftActiveField.value=null; endShiftKeypadVisible.value=false; endShiftOpen.value=false }
+const openEndShift = () => { fuelFormOpen.value=false; endShiftStep.value=1; endShiftSaved.value={1:false,2:false,3:false}; endShiftSwipeStartX.value=null; endShiftSwipeTracking.value=false; endShiftSwipeOffset.value=0; endShiftActiveField.value=null; endShiftKeypadVisible.value=false; endShiftOpen.value=true; error.value=''; message.value='' }
 const endShiftBack = () => { if(endShiftStep.value<=1) return cancelOffline(); endShiftStep.value -= 1; error.value=''; message.value='' }
 const endShiftContinue = () => { if(!closingOdo.value || !shiftRevenue.value) return fail('Closing odometer and total shift revenue are required.'); endShiftSaved.value={...endShiftSaved.value,1:true}; endShiftStep.value=2; error.value=''; message.value='' }
 const endShiftExpenseSave = () => { endShiftSaved.value={...endShiftSaved.value,2:true}; endShiftStep.value=3; error.value=''; message.value='' }
@@ -78,19 +79,17 @@ const endShiftReviewSave = async () => { for (const t of store.completedTrips) {
 const endShiftReviewSkip = () => { endShiftSaved.value={...endShiftSaved.value,3:true}; endShiftStep.value=4; error.value=''; message.value='' }
 const endShiftConfirm = async () => { reviewTrips.value=true; await goOffline() }
 const endShiftCanSwipeForward = computed(() => endShiftStep.value === 1 ? endShiftSaved.value[1] : endShiftStep.value < 4)
-const endShiftSwipeMode = computed(() => endShiftStep.value === 1 ? 'SAVE TO ENABLE SWIPE' : endShiftStep.value === 4 ? 'CONFIRM WITH BUTTON' : 'SWIPE → SKIP')
-const endShiftSwipeProgress = computed(() => { const width=endShiftSwipeTrack.value?.clientWidth||320; return Math.min(100,Math.round((Math.abs(endShiftSwipeOffset.value)/Math.max(1,width))*100)) })
-const endShiftSwipeStyle = computed(() => ({'--end-shift-swipe-progress':`${endShiftSwipeProgress.value}%`,'--end-shift-swipe-offset':`${endShiftSwipeOffset.value}px`}))
-const endShiftNavigateForward = () => {
-  if(endShiftStep.value>=4)return
-  if(endShiftStep.value===1 && !endShiftSaved.value[1])return fail('Save the odometer and revenue before continuing.')
-  if(endShiftStep.value===2) endShiftExpenseSkip()
-  else if(endShiftStep.value===3) endShiftReviewSkip()
-}
-const endShiftNavigateBack = () => { if(endShiftStep.value<=1)return; endShiftStep.value -= 1; error.value=''; message.value='' }
-const onEndShiftSwipeStart = event => { if(event.pointerType==='mouse'&&event.button!==0)return; endShiftSwipeStartX.value=event.clientX; endShiftSwipeTracking.value=true; endShiftSwipeOffset.value=0; event.currentTarget.setPointerCapture?.(event.pointerId) }
-const onEndShiftSwipeMove = event => { if(!endShiftSwipeTracking.value||endShiftSwipeStartX.value==null)return; const width=endShiftSwipeTrack.value?.clientWidth||320; const max=Math.max(70,width-40); endShiftSwipeOffset.value=Math.max(-max,Math.min(event.clientX-endShiftSwipeStartX.value,max)) }
-const onEndShiftSwipeEnd = event => { if(!endShiftSwipeTracking.value||endShiftSwipeStartX.value==null)return; const distance=event.clientX-endShiftSwipeStartX.value; const trigger=Math.max(70,(endShiftSwipeTrack.value?.clientWidth||320)*0.22); endShiftSwipeTracking.value=false; endShiftSwipeStartX.value=null; endShiftSwipeOffset.value=0; if(Math.abs(distance)<trigger)return; if(distance>0)endShiftNavigateForward(); else endShiftNavigateBack() }
+const endShiftSwipeStyle = computed(() => ({ '--end-shift-card-offset': `${endShiftSwipeOffset.value}px`, '--end-shift-card-rotate': `${Math.max(-4,Math.min(4,endShiftSwipeOffset.value / 70))}deg` }))
+const endShiftFieldValue = field => field === 'closingOdo' ? closingOdo.value : field === 'shiftRevenue' ? shiftRevenue.value : field === 'toll' ? toll.value : field === 'parking' ? parking.value : ''
+const setEndShiftFieldValue = (field, value) => { if(field === 'closingOdo') closingOdo.value=value; else if(field === 'shiftRevenue') shiftRevenue.value=value; else if(field === 'toll') toll.value=value; else if(field === 'parking') parking.value=value }
+const openEndShiftKeypad = field => { endShiftActiveField.value=field; endShiftKeypadVisible.value=true }
+const closeEndShiftKeypad = () => { endShiftActiveField.value=null; endShiftKeypadVisible.value=false }
+const endShiftKeypadPress = key => { const field=endShiftActiveField.value; if(!field)return; let value=String(endShiftFieldValue(field)??''); if(key==='backspace')value=value.slice(0,-1); else if(key==='clear')value=''; else if(/^\d$/.test(key)){ if(value==='0')value=key; else if(value.length<10)value+=key } setEndShiftFieldValue(field,value) }
+const endShiftNavigateForward = () => { if(endShiftStep.value>=4)return; if(endShiftStep.value===1&&!endShiftSaved.value[1])return fail('Save the odometer and revenue before continuing.'); closeEndShiftKeypad(); if(endShiftStep.value===2)endShiftExpenseSkip(); else if(endShiftStep.value===3)endShiftReviewSkip() }
+const endShiftNavigateBack = () => { if(endShiftStep.value<=1)return; closeEndShiftKeypad(); endShiftStep.value-=1; error.value=''; message.value='' }
+const onEndShiftSwipeStart = event => { if(event.pointerType==='mouse'&&event.button!==0)return; if(event.target.closest?.('button,input,select,label,a'))return; endShiftSwipeStartX.value=event.clientX; endShiftSwipeTracking.value=true; endShiftSwipeOffset.value=0; event.currentTarget.setPointerCapture?.(event.pointerId) }
+const onEndShiftSwipeMove = event => { if(!endShiftSwipeTracking.value||endShiftSwipeStartX.value==null)return; const distance=event.clientX-endShiftSwipeStartX.value; const max=Math.max(90,(event.currentTarget.clientWidth||320)*0.82); endShiftSwipeOffset.value=Math.max(-max,Math.min(distance,max)) }
+const onEndShiftSwipeEnd = event => { if(!endShiftSwipeTracking.value||endShiftSwipeStartX.value==null)return; const distance=event.clientX-endShiftSwipeStartX.value; const width=event.currentTarget.clientWidth||320; const trigger=Math.max(80,width*0.28); endShiftSwipeTracking.value=false; endShiftSwipeStartX.value=null; if(Math.abs(distance)<trigger){endShiftSwipeOffset.value=0;return} endShiftSwipeOffset.value=distance>0?width+80:-(width+80); window.setTimeout(()=>{endShiftSwipeOffset.value=0; if(distance>0)endShiftNavigateForward(); else endShiftNavigateBack()},180) }
 const onEndShiftSwipeCancel = () => { endShiftSwipeTracking.value=false; endShiftSwipeStartX.value=null; endShiftSwipeOffset.value=0 }
 const toggleOnline = async () => { if(store.isTripActive)return fail('End the active Trip before going Offline.'); if(store.isOnline){ openEndShift(); return } return goOnline() }
 const cancelOffline = () => { endShiftOpen.value = false; endShiftStep.value=1; error.value = ''; notify('Still Online — End Shift cancelled.') }
@@ -173,19 +172,19 @@ onUnmounted(()=>{window.clearInterval(interval);unsubscribeTarget?.()})
       <div class="next-event"><span>NEXT</span><strong>END TRIP</strong></div>
     </section>
 
-    <section v-if="endShiftOpen" class="cockpit-state cockpit-end-state">
+    <section v-if="endShiftOpen" class="cockpit-state cockpit-end-state" :style="endShiftSwipeStyle" :class="{'is-card-dragging':endShiftSwipeTracking}" @pointerdown="onEndShiftSwipeStart" @pointermove="onEndShiftSwipeMove" @pointerup="onEndShiftSwipeEnd" @pointercancel="onEndShiftSwipeCancel">
       <div class="form-topline"><div><div class="state-kicker">GOING OFFLINE</div><h2>{{endShiftStep===1?'CLOSE SHIFT':endShiftStep===2?'SHIFT EXPENSES':endShiftStep===3?'RIDE REVIEW':'CONFIRM END SHIFT'}}</h2></div><button class="form-back" type="button" @click="endShiftBack"><span aria-hidden="true">🔙</span><span>Back</span></button></div>
 
       <div v-if="endShiftStep===1" class="end-form-body end-entry-grid">
         <div class="start-odo-reference"><span>Shift started</span><strong>{{store.startOdometer ?? '—'}} km</strong></div>
         <div class="metric-field">
           <label for="closing-odometer">CLOSING ODOMETER</label>
-          <div class="metric-input"><input id="closing-odometer" v-model="closingOdo" type="number" min="0" inputmode="decimal" autofocus placeholder="0"><span>km</span></div>
+          <div class="metric-input"><input id="closing-odometer"  :value="closingOdo" type="text" inputmode="none" readonly placeholder="0" aria-label="Closing odometer" @click="openEndShiftKeypad('closingOdo')"><span>km</span></div>
           <small>Current vehicle reading</small>
         </div>
         <div class="metric-field">
           <label for="shift-revenue">TOTAL SHIFT REVENUE</label>
-          <div class="metric-input"><span>₹</span><input id="shift-revenue" v-model="shiftRevenue" type="number" min="0" step="0.01" placeholder="0" inputmode="decimal"></div>
+          <div class="metric-input"><span>₹</span><input id="shift-revenue"  :value="shiftRevenue" type="text" inputmode="none" readonly placeholder="0" aria-label="Total shift revenue" @click="openEndShiftKeypad('shiftRevenue')"></div>
           <small>Revenue recorded for this shift</small>
         </div>
       </div>
@@ -193,8 +192,8 @@ onUnmounted(()=>{window.clearInterval(interval);unsubscribeTarget?.()})
       <div v-else-if="endShiftStep===2" class="end-form-body optional-entry">
         <div class="optional-heading"><div><p class="form-question">SHIFT EXPENSES</p><p class="muted">Optional — add only what applies.</p></div><span>SKIPPABLE</span></div>
         <div class="expense-grid">
-          <div class="metric-field compact"><label for="shift-toll">TOLL</label><div class="metric-input"><span>₹</span><input id="shift-toll" v-model="toll" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></div></div>
-          <div class="metric-field compact"><label for="shift-parking">PARKING</label><div class="metric-input"><span>₹</span><input id="shift-parking" v-model="parking" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></div></div>
+          <div class="metric-field compact"><label for="shift-toll">TOLL</label><div class="metric-input"><span>₹</span><input id="shift-toll"  :value="toll" type="text" inputmode="none" readonly placeholder="0" aria-label="Toll" @click="openEndShiftKeypad('toll')"></div></div>
+          <div class="metric-field compact"><label for="shift-parking">PARKING</label><div class="metric-input"><span>₹</span><input id="shift-parking"  :value="parking" type="text" inputmode="none" readonly placeholder="0" aria-label="Parking" @click="openEndShiftKeypad('parking')"></div></div>
         </div>
         <label class="exclude-check"><input v-model="tollTreatment" true-value="EXCLUDED" false-value="INCLUDED" type="checkbox"><span>Exclude toll &amp; parking from trip fare</span></label>
       </div>
@@ -208,6 +207,11 @@ onUnmounted(()=>{window.clearInterval(interval);unsubscribeTarget?.()})
         <div class="end-confirm-summary"><span>Everything is ready.</span><strong>END SHIFT</strong><small>All saved steps are ready to close the shift.</small></div>
       </div>
 
+      <div v-if="endShiftKeypadVisible && endShiftStep<4" class="kfe-number-pad" aria-label="KFE number pad">
+        <div class="number-pad-display"><span>{{endShiftActiveField==='closingOdo'?'CLOSING ODOMETER':endShiftActiveField==='shiftRevenue'?'TOTAL SHIFT REVENUE':endShiftActiveField==='toll'?'TOLL':'PARKING'}}</span><strong>{{endShiftActiveField==='closingOdo'?'':'₹'}}{{endShiftFieldValue(endShiftActiveField)||'0'}}<small v-if="endShiftActiveField==='closingOdo'"> km</small></strong></div>
+        <div class="number-pad-grid"><button v-for="key in ['1','2','3','4','5','6','7','8','9','clear','0','backspace']" :key="key" type="button" @pointerdown.stop.prevent="endShiftKeypadPress(key)"><span v-if="key==='backspace'">⌫</span><span v-else-if="key==='clear'">C</span><span v-else>{{key}}</span></button></div>
+        <button class="number-pad-done" type="button" @click="closeEndShiftKeypad">DONE</button>
+      </div>
       <div v-if="endShiftStep<4" class="form-actions end-actions">
         <template v-if="endShiftStep===1"><button class="primary" type="button" @click="endShiftContinue">CONTINUE →</button></template>
         <template v-else-if="endShiftStep===2"><button class="secondary" type="button" @click="endShiftExpenseSave">SAVE</button><button class="primary skip-dominant" type="button" @click="endShiftExpenseSkip">SKIP →</button></template>
@@ -215,9 +219,6 @@ onUnmounted(()=>{window.clearInterval(interval);unsubscribeTarget?.()})
       </div>
       <div v-else class="end-confirm-actions">
         <button class="primary end-confirm-button" type="button" @click="endShiftConfirm">OK — END SHIFT</button>
-      </div>
-      <div ref="endShiftSwipeTrack" class="end-shift-swipe" :class="{'is-swiping':endShiftSwipeTracking,'is-blocked':!endShiftCanSwipeForward}" :style="endShiftSwipeStyle" role="group" aria-label="Optional swipe navigation for End Shift steps" @pointerdown="onEndShiftSwipeStart" @pointermove="onEndShiftSwipeMove" @pointerup="onEndShiftSwipeEnd" @pointercancel="onEndShiftSwipeCancel" @pointerleave="onEndShiftSwipeEnd">
-        <span class="end-shift-swipe-progress" aria-hidden="true"></span><span class="end-shift-swipe-label">{{endShiftSwipeMode}}</span><span class="end-shift-swipe-step">{{endShiftStep}} / 4</span>
       </div>
     </section>
 
