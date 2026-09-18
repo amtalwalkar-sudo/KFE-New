@@ -1,16 +1,17 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { PerformanceService } from '../application/performance/performanceService.js'
-import { istDayRange, reportingRangeFor, KFE_TIME_ZONE_LABEL } from '../domain/time/ist.js'
+import { istDayRange, getKfeReferenceNow, istMonthRange, istParts, reportingRangeFor, KFE_TIME_ZONE_LABEL } from '../domain/time/ist.js'
 
-const PERIODS = ['DAY', 'WEEK', 'MONTH', '3 MONTHS', '6 MONTHS', '1 YEAR', 'MULTI-YEAR', 'TILL DATE', 'CUSTOM RANGE']
+const PERIODS = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY', 'CUSTOM DURATION']
 const LAYERS = {
   target: ['Position', 'Pace', 'Target drivers', 'Comparison', 'Detailed period'],
   revenue: ['Revenue position', 'Revenue composition', 'Revenue efficiency', 'Detailed revenue'],
   cost: ['Break-even position', 'Cost drivers', 'Cost movement', 'Break-even analysis', 'Detailed costs'],
   profit: ['Operating profit', 'Available cash', 'Financing detail', 'Provision planning', 'Detailed financial records'],
 }
-const period = ref('MONTH')
+const period = ref('MONTHLY')
+const anchor = ref(getKfeReferenceNow())
 const navigatorOpen = ref(false)
 const activeCard = ref(null)
 const activeLayer = ref(0)
@@ -28,14 +29,45 @@ const hours = value => Number.isFinite(Number(value)) ? `${Number(value).toFixed
 const rate = value => Number.isFinite(Number(value)) ? `₹${Number(value).toFixed(1)}` : '—'
 const metric = (value, fallback = NaN) => Number.isFinite(Number(value)) ? Number(value) : fallback
 
+const dayAtNoon = value => { const p = istParts(value); return p ? new Date(Date.UTC(p.year, p.month - 1, p.day, 12)) : new Date(value) }
+const weekStart = value => { const day = dayAtNoon(value); return new Date(day.getTime() - ((day.getUTCDay() + 6) % 7) * 86400000) }
+const yearRange = value => {
+  const p = istParts(value)
+  if (!p) return reportingRangeFor('DAY')
+  const from = istDayRange(new Date(Date.UTC(p.year, 0, 1, 12))).from
+  const to = istMonthRange(new Date(Date.UTC(p.year, 11, 1, 12)), new Date(Date.UTC(p.year, 11, 31, 12))).to
+  return { from, to }
+}
 const range = computed(() => {
-  if (period.value === 'CUSTOM RANGE' && customFrom.value && customTo.value) {
+  if (period.value === 'CUSTOM DURATION' && customFrom.value && customTo.value) {
     const from = istDayRange(`${customFrom.value}T00:00:00+05:30`)
     const to = istDayRange(`${customTo.value}T00:00:00+05:30`)
     return { from: from.from, to: to.to }
   }
-  return reportingRangeFor(period.value) || reportingRangeFor('DAY')
+  if (period.value === 'DAILY') return istDayRange(anchor.value)
+  if (period.value === 'WEEKLY') { const start = weekStart(anchor.value); const end = new Date(start.getTime() + 6 * 86400000); return { from: istDayRange(start).from, to: istDayRange(end).to } }
+  if (period.value === 'MONTHLY') return istMonthRange(anchor.value, anchor.value)
+  if (period.value === 'YEARLY') return yearRange(anchor.value)
+  return reportingRangeFor('MONTH')
 })
+const periodLabel = computed(() => {
+  const formatter = options => new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', ...options })
+  if (period.value === 'DAILY') return formatter({ day:'numeric', month:'short', year:'numeric' }).format(anchor.value)
+  if (period.value === 'WEEKLY') { const start = weekStart(anchor.value); const end = new Date(start.getTime() + 6 * 86400000); return `${formatter({day:'numeric',month:'short'}).format(start)} – ${formatter({day:'numeric',month:'short',year:'numeric'}).format(end)}` }
+  if (period.value === 'MONTHLY') return formatter({ month:'long', year:'numeric' }).format(anchor.value)
+  if (period.value === 'YEARLY') return formatter({ year:'numeric' }).format(anchor.value)
+  if (period.value === 'CUSTOM DURATION') return customFrom.value && customTo.value ? `${customFrom.value} → ${customTo.value}` : 'Choose dates'
+  return ''
+})
+const movePeriod = amount => {
+  const d = dayAtNoon(anchor.value)
+  if (period.value === 'MONTHLY') d.setUTCMonth(d.getUTCMonth() + amount)
+  else if (period.value === 'YEARLY') d.setUTCFullYear(d.getUTCFullYear() + amount)
+  else if (period.value === 'WEEKLY') d.setUTCDate(d.getUTCDate() + amount * 7)
+  else d.setUTCDate(d.getUTCDate() + amount)
+  anchor.value = d
+}
+
 const metrics = computed(() => PerformanceService.getMetrics(snapshot.value, range.value))
 const counts = computed(() => metrics.value?.counts || {})
 const cards = {
@@ -91,8 +123,8 @@ const activeRows = computed(() => activeCard.value ? PerformanceService.getLayer
 const layerTitle = computed(() => activeCard.value ? `${cards[activeCard.value].title} — ${LAYERS[activeCard.value][activeLayer.value]}` : '')
 const completeness = computed(() => metrics.value?.completeness || {})
 
-function choosePeriod(value) { period.value = value; if (value !== 'CUSTOM RANGE') navigatorOpen.value = false }
-function applyCustom() { if (customFrom.value && customTo.value) { period.value = 'CUSTOM RANGE'; navigatorOpen.value = false } }
+function choosePeriod(value) { period.value = value; if (value !== 'CUSTOM DURATION') navigatorOpen.value = false }
+function applyCustom() { if (customFrom.value && customTo.value && customFrom.value <= customTo.value) { period.value = 'CUSTOM DURATION'; navigatorOpen.value = false } }
 function openCard(key) { activeCard.value = key; activeLayer.value = 0 }
 function back() { if (activeLayer.value) activeLayer.value -= 1; else activeCard.value = null }
 function next() { if (activeCard.value && activeLayer.value < LAYERS[activeCard.value].length - 1) activeLayer.value += 1 }
@@ -112,7 +144,7 @@ onBeforeUnmount(() => unsubscribeChanges())
     <template v-else-if="!activeCard">
       <header class="head">
         <div><small>PERFORMANCE</small><h1>Business position</h1></div>
-        <button class="period" @click="navigatorOpen = true">{{ period }} <b>⌄</b></button>
+        <button class="period" @click="navigatorOpen = true">{{ periodLabel }} <b>⌄</b></button>
       </header>
 
       <section class="financial-grid" aria-label="Business position">
@@ -155,21 +187,27 @@ onBeforeUnmount(() => unsubscribeChanges())
         <section class="fold" :class="{ open: expanded === 'finance' }"><button class="fold-head" @click="toggle('finance')"><span><small>FINANCING & PROVISIONS</small><b>Loan, prepayment and planning obligations</b></span><strong>{{ expanded === 'finance' ? '−' : '+' }}</strong></button><div v-if="expanded === 'finance'" class="fold-body"><div v-for="row in finance" :key="row[0]"><span>{{ row[0] }}</span><b>{{ row[1] }}</b></div><button class="detail-link" @click="openCard('profit')">Open financial detail →</button></div></section>
       </div>
 
-      <section class="info-strip"><span>Reporting period</span><strong>{{ period }}</strong><span>·</span><span>Calendar</span><strong>{{ KFE_TIME_ZONE_LABEL }}</strong></section>
+      <section class="info-strip"><span>Reporting period</span><strong>{{ periodLabel }}</strong><span>·</span><span>Calendar</span><strong>{{ KFE_TIME_ZONE_LABEL }}</strong></section>
     </template>
 
     <template v-else>
-      <header class="head detail-head"><button class="back" aria-label="Back" @click="back">‹</button><div><small>PERFORMANCE</small><h1>{{ layerTitle }}</h1><p>{{ period }} · {{ KFE_TIME_ZONE_LABEL }}</p></div><button v-if="activeLayer < LAYERS[activeCard].length - 1" class="next" @click="next">Next <b>›</b></button></header>
+      <header class="head detail-head"><button class="back" aria-label="Back" @click="back">‹</button><div><small>PERFORMANCE</small><h1>{{ layerTitle }}</h1><p>{{ periodLabel }} · {{ KFE_TIME_ZONE_LABEL }}</p></div><button v-if="activeLayer < LAYERS[activeCard].length - 1" class="next" @click="next">Next <b>›</b></button></header>
       <section class="detail">
         <div class="tabs"><button v-for="(layer, index) in LAYERS[activeCard]" :key="layer" :class="{ active: index === activeLayer }" @click="activeLayer = index"><span>{{ index + 1 }}</span>{{ layer }}</button></div>
-        <div class="detail-title"><div><small>{{ cards[activeCard].title }}</small><h2>{{ LAYERS[activeCard][activeLayer] }}</h2></div><span class="period-chip">{{ period }}</span></div>
+        <div class="detail-title"><div><small>{{ cards[activeCard].title }}</small><h2>{{ LAYERS[activeCard][activeLayer] }}</h2></div><span class="period-chip">{{ periodLabel }}</span></div>
         <div class="detail-grid"><div v-for="(row,index) in activeRows" :key="index"><span>{{ row[0] }}</span><b>{{ row.slice(1).join(' · ') }}</b></div><div v-if="!activeRows.length" class="no-data">No records are available for this view yet.</div></div>
         <div class="status-grid"><span :class="{ok: completeness.target}">Target {{ completeness.target ? 'configured' : 'not configured' }}</span><span :class="{ok: completeness.loan}">Loan {{ completeness.loan ? 'configured' : 'not configured' }}</span><span :class="{ok: completeness.hourlyData}">Hourly {{ completeness.hourlyData ? 'available' : 'unavailable' }}</span><span :class="{ok: completeness.breakEven}">Break-even {{ completeness.breakEven ? 'calculated' : 'unavailable' }}</span></div>
         <div class="note"><strong>Calculation note</strong><span>Actual performance uses authoritative actual records. Shift-end revenue is authoritative; trip revenue remains supporting detail. Available Cash uses actual operating costs and actual financing outflows.</span></div>
       </section>
     </template>
 
-    <div v-if="navigatorOpen" class="overlay" @click.self="navigatorOpen=false"><section class="navigator"><header><div><small>PERIOD</small><h2>Choose reporting range</h2></div><button class="close" aria-label="Close" @click="navigatorOpen=false">×</button></header><div class="periods"><button v-for="item in PERIODS" :key="item" :class="{selected: period === item}" @click="choosePeriod(item)"><span>{{ item }}</span><b>›</b></button></div><div v-if="period === 'CUSTOM RANGE'" class="custom"><label>From<input v-model="customFrom" type="date"></label><label>To<input v-model="customTo" type="date"></label><button @click="applyCustom">Apply range</button></div></section></div>
+    <div v-if="navigatorOpen" class="overlay performance-filter-overlay" @click.self="navigatorOpen=false"><section class="navigator performance-navigator"><header><div><small>PERIOD</small><h2>Choose reporting period</h2></div><button class="close" aria-label="Close" @click="navigatorOpen=false">×</button></header>
+<div class="periods"><button v-for="item in PERIODS" :key="item" :class="{selected: period === item}" @click="choosePeriod(item)"><span>{{ item }}</span><b>›</b></button></div>
+<div v-if="period === 'MONTHLY' || period === 'YEARLY' || period === 'WEEKLY' || period === 'DAILY'" class="period-picker">
+  <button @click="movePeriod(-1)" aria-label="Previous period">‹</button><strong>{{ periodLabel }}</strong><button @click="movePeriod(1)" aria-label="Next period">›</button>
+</div>
+<div v-if="period === 'CUSTOM DURATION'" class="custom"><label>From<input v-model="customFrom" type="date"></label><label>To<input v-model="customTo" type="date"></label><button :disabled="!customFrom || !customTo || customFrom > customTo" @click="applyCustom">Apply duration</button></div>
+</section></div>
   </section>
 </template>
 
