@@ -1,5 +1,43 @@
 <script setup>
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import DiagnosticBubble from '../DiagnosticBubble.vue'
+
+const gpsState = ref('checking')
+let gpsWatchId = null
+
+function connectGps() {
+  if (!('geolocation' in navigator)) {
+    gpsState.value = 'unsupported'
+    return
+  }
+
+  gpsState.value = 'checking'
+
+  if (gpsWatchId !== null) {
+    navigator.geolocation.clearWatch(gpsWatchId)
+  }
+
+  gpsWatchId = navigator.geolocation.watchPosition(
+    () => { gpsState.value = 'connected' },
+    (error) => {
+      gpsState.value = error.code === 1 ? 'permission' : 'unavailable'
+    },
+    { enableHighAccuracy: true, maximumAge: 15000, timeout: 10000 }
+  )
+}
+
+function gpsStateLabel() {
+  if (gpsState.value === 'connected') return 'GPS connected'
+  if (gpsState.value === 'permission') return 'GPS permission needed'
+  if (gpsState.value === 'unsupported') return 'GPS unavailable'
+  if (gpsState.value === 'unavailable') return 'GPS unavailable'
+  return 'Connecting GPS'
+}
+
+onMounted(connectGps)
+onBeforeUnmount(() => {
+  if (gpsWatchId !== null) navigator.geolocation.clearWatch(gpsWatchId)
+})
 </script>
 
 <template>
@@ -10,10 +48,32 @@ import DiagnosticBubble from '../DiagnosticBubble.vue'
         <div class="brand-mark" aria-hidden="true">K</div>
         <div class="brand-copy">
           <strong>Kanishka Enterprises</strong>
-          <span>Fleet ERP · KFE 2.0</span>
         </div>
       </div>
-      <div class="header-status"><span class="status-dot" aria-hidden="true"></span><span>Local-first</span></div>
+
+      <button
+        class="header-gps"
+        :class="`is-${gpsState}`"
+        type="button"
+        :title="gpsStateLabel()"
+        :aria-label="gpsStateLabel()"
+        @click="connectGps"
+      >
+        <svg class="gps-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <template v-if="gpsState === 'checking'">
+            <circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.8" />
+            <circle cx="12" cy="12" r="2.2" fill="currentColor" />
+          </template>
+          <template v-else-if="gpsState === 'connected'">
+            <path d="M12 3.2c-3.6 0-6.5 2.9-6.5 6.5 0 4.7 6.5 11.1 6.5 11.1s6.5-6.4 6.5-11.1c0-3.6-2.9-6.5-6.5-6.5Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/>
+            <circle cx="12" cy="9.7" r="2.2" fill="currentColor"/>
+          </template>
+          <template v-else>
+            <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8" />
+            <path d="M12 8v5M12 16.5v.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </template>
+        </svg>
+      </button>
     </header>
     <main id="main-content" class="content-scroll-area" tabindex="-1"><slot /></main>
     <DiagnosticBubble />
@@ -25,4 +85,3 @@ import DiagnosticBubble from '../DiagnosticBubble.vue'
     </nav>
   </div>
 </template>
-

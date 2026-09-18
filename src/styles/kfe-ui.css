@@ -625,3 +625,86 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
 .bottom-nav{position:fixed;bottom:0;left:0;right:0;min-height:76px;padding:7px 10px max(7px,env(safe-area-inset-bottom));display:flex;justify-content:center;gap:6px;background:color-mix(in srgb,var(--kfe-ui-surface) 98%,transparent);border-top:1px solid var(--kfe-ui-border);box-shadow:0 -5px 20px color-mix(in srgb,var(--kfe-ui-text) 6%,transparent);backdrop-filter:blur(14px);z-index:9999}.nav-item{display:flex;flex:1;max-width:150px;min-height:58px;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-radius:var(--kfe-radius-md,14px);text-decoration:none;color:var(--kfe-muted-text);font-size:.65rem;font-weight:750;transition:background .15s ease,color .15s ease,transform .08s ease}.nav-item:hover{background:var(--kfe-ui-surface-2)}.nav-item:active{transform:translateY(1px)}.nav-item-active{background:color-mix(in srgb,var(--kfe-ui-accent) 11%,var(--kfe-ui-surface));color:var(--kfe-ui-accent);font-weight:900}.nav-icon{font-size:1.15rem;line-height:1;font-weight:800}.nav-item-active .nav-icon{transform:translateY(-1px)}
 .error-container{max-width:560px;margin:48px auto;padding:28px 20px;text-align:center;color:var(--kfe-danger)}.error-container h3{margin:0 0 8px;font-size:1.1rem}.error-container p{color:var(--kfe-muted-text);font-size:.8rem;line-height:1.5}.retry-btn{min-height:46px;padding:10px 16px;background:var(--kfe-ui-accent);color:#fff;border:0;border-radius:var(--kfe-radius-md,12px);font-weight:850;cursor:pointer}.kfe-skip-link{position:fixed;top:8px;left:8px;z-index:20000;padding:10px 14px;border-radius:10px;background:var(--kfe-ui-text);color:var(--kfe-ui-bg);text-decoration:none;font-weight:800;transform:translateY(-150%);transition:transform .15s ease}.kfe-skip-link:focus{transform:translateY(0)}
 @media(max-width:600px){.top-bar{min-height:62px;height:62px}.content-scroll-area{top:62px;bottom:76px}.header-status{padding:6px 8px}.brand-mark{width:36px;height:36px;flex-basis:36px}.brand-copy strong{font-size:.84rem}.brand-copy span{font-size:.58rem}.bottom-nav{min-height:76px}}
+
+
+/* CANONICAL SHELL BRAND + GPS */
+.brand-copy strong{
+  font-size:clamp(1.08rem,4.4vw,1.42rem);
+  font-weight:950;
+  letter-spacing:-.035em;
+  line-height:1.05;
+}
+.header-gps{
+  width:46px;
+  height:46px;
+  min-width:46px;
+  min-height:46px;
+  display:grid;
+  place-items:center;
+  padding:0;
+  border:1px solid var(--kfe-ui-border);
+  border-radius:50%;
+  background:var(--kfe-ui-surface-2);
+  color:var(--kfe-muted-text);
+  cursor:pointer;
+}
+.gps-icon{width:22px;height:22px;display:block}
+.header-gps.is-checking{
+  color:var(--kfe-ui-accent);
+  border-color:color-mix(in srgb,var(--kfe-ui-accent) 30%,var(--kfe-ui-border));
+}
+.header-gps.is-checking .gps-icon{animation:kfe-gps-pulse 1.35s ease-in-out infinite}
+.header-gps.is-connected{
+  color:var(--kfe-success);
+  background:color-mix(in srgb,var(--kfe-success) 9%,var(--kfe-ui-surface));
+  border-color:color-mix(in srgb,var(--kfe-success) 35%,var(--kfe-ui-border));
+}
+.header-gps.is-permission,
+.header-gps.is-unavailable,
+.header-gps.is-unsupported{
+  color:var(--kfe-warning);
+  background:color-mix(in srgb,var(--kfe-warning) 9%,var(--kfe-ui-surface));
+  border-color:color-mix(in srgb,var(--kfe-warning) 32%,var(--kfe-ui-border));
+}
+.header-gps:focus-visible{
+  outline:3px solid color-mix(in srgb,var(--kfe-ui-accent) 55%,transparent);
+  outline-offset:2px;
+}
+@keyframes kfe-gps-pulse{
+  0%,100%{transform:scale(1);opacity:.72}
+  50%{transform:scale(1.12);opacity:1}
+}
+@media(prefers-reduced-motion:reduce){
+  .header-gps.is-checking .gps-icon{animation:none}
+}
+@media(max-width:600px){
+  .brand-copy strong{font-size:clamp(1rem,5vw,1.24rem)}
+  .header-gps{width:42px;height:42px;min-width:42px;min-height:42px}
+}
+
+
+/* WORK OFFLINE + REFUELLING ACTIONS */
+.hero-actions{display:flex;align-items:center;gap:8px}
+.fuel-icon{width:42px;height:42px;display:grid;place-items:center;padding:0;border:1px solid var(--kfe-ui-border);border-radius:50%;background:var(--kfe-ui-surface-2);color:var(--kfe-muted-text);cursor:pointer;font-size:1.08rem}
+.fuel-icon.active{color:var(--kfe-ui-accent);border-color:color-mix(in srgb,var(--kfe-ui-accent) 38%,var(--kfe-ui-border));background:color-mix(in srgb,var(--kfe-ui-accent) 9%,var(--kfe-ui-surface))}
+.fuel-icon:focus-visible{outline:3px solid color-mix(in srgb,var(--kfe-ui-accent) 55%,transparent);outline-offset:2px}
+.fuel-form-card,.end-shift-card{margin-top:10px}
+.back-button{min-width:72px}
+.start-odo-reference{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 13px;margin:2px 0 4px;border:1px solid var(--kfe-ui-border);border-radius:12px;background:var(--kfe-ui-surface-2)}
+.start-odo-reference span{color:var(--kfe-muted-text);font-size:.72rem;font-weight:750}
+.start-odo-reference strong{font-size:.88rem}
+.gap-confirm{width:100%;margin-top:10px}
+.confirmed-text{display:block;margin-top:10px;color:var(--kfe-success);font-weight:800}
+@media(max-width:600px){.hero-actions{gap:5px}.fuel-icon{width:40px;height:40px}.online-control{gap:5px}}
+
+
+/* WORK COMPACT BUSINESS EXPENSES + DELIBERATE SWIPE */
+.expense-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:4px 0 8px}
+.expense-pair label{margin:0}
+.expense-pair label>span{display:block;margin-bottom:5px;color:var(--kfe-muted-text);font-size:.72rem;font-weight:750}
+.expense-pair input{width:100%;min-width:0}
+.exclude-check{display:flex!important;align-items:center;gap:9px;padding:9px 0;margin:0!important;cursor:pointer}
+.exclude-check input{width:20px!important;height:20px!important;min-width:20px}
+.exclude-check span{font-size:.78rem;font-weight:750;color:var(--kfe-muted-text)}
+.trip-action{touch-action:pan-y;user-select:none}
+@media(max-width:600px){.expense-pair{gap:6px}.expense-pair input{font-size:.88rem}}

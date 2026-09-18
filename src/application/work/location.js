@@ -8,6 +8,14 @@ const getNativePlaceName = async ({ latitude, longitude }) => {
       return result?.placeName || null
     }
   } catch (_) {}
+  try {
+    const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${encodeURIComponent(latitude)}&longitude=${encodeURIComponent(longitude)}&localityLanguage=en`
+    const response = await fetch(url, { headers: { Accept: 'application/json' } })
+    if (!response.ok) return null
+    const data = await response.json()
+    const parts = [data.locality, data.city, data.principalSubdivision].filter(Boolean)
+    return parts.length ? [...new Set(parts)].join(', ') : (data.localityInfo?.administrative?.[1]?.name || null)
+  } catch (_) {}
   return null
 }
 
