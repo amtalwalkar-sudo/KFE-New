@@ -107,13 +107,12 @@ export const addIstMonths = (value, months) => {
   return utcForIst(year, month, day, p.hour, p.minute, p.second, value instanceof Date ? value.getUTCMilliseconds() : 0)
 }
 
-export const setSyntheticDateContext = ({ startDate, endDate } = {}) => {
+export const setSyntheticDateContext = ({ startDate, endDate, endAt } = {}) => {
   if (typeof sessionStorage === 'undefined') return
   if (!startDate || !endDate) {
     sessionStorage.removeItem(SYNTHETIC_CONTEXT_KEY)
     return
   }
-  const endAt = arguments[0]?.endAt || null
   sessionStorage.setItem(SYNTHETIC_CONTEXT_KEY, JSON.stringify({ startDate, endDate, ...(endAt ? { endAt } : {}) }))
 }
 
