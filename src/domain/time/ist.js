@@ -113,7 +113,8 @@ export const setSyntheticDateContext = ({ startDate, endDate } = {}) => {
     sessionStorage.removeItem(SYNTHETIC_CONTEXT_KEY)
     return
   }
-  sessionStorage.setItem(SYNTHETIC_CONTEXT_KEY, JSON.stringify({ startDate, endDate }))
+  const endAt = arguments[0]?.endAt || null
+  sessionStorage.setItem(SYNTHETIC_CONTEXT_KEY, JSON.stringify({ startDate, endDate, ...(endAt ? { endAt } : {}) }))
 }
 
 export const clearSyntheticDateContext = () => {
@@ -134,7 +135,7 @@ export const getSyntheticDateContext = () => {
 export const getKfeReferenceNow = (fallback = new Date()) => {
   const context = getSyntheticDateContext()
   if (!context?.endDate) return fallback
-  const date = new Date(`${context.endDate}T23:59:59+05:30`)
+  const date = context.endAt ? new Date(context.endAt) : new Date(`${context.endDate}T23:59:59+05:30`)
   return Number.isNaN(date.getTime()) ? fallback : date
 }
 
