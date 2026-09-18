@@ -1,4 +1,5 @@
 import { SyntheticDataRepository } from '../../repositories/syntheticDataRepository.js'
+import { setSyntheticDateContext, clearSyntheticDateContext } from '../../domain/time/ist.js'
 
 export const SYNTHETIC_STAGES = Object.freeze([
   { key: 'week', title: '1 week', days: 7 },
@@ -161,9 +162,14 @@ export const loadSyntheticStage = async key => {
   const snapshot = buildSyntheticSnapshot(stage.days)
   await SyntheticDataRepository.writeSnapshot(snapshot)
   SyntheticDataRepository.activate()
+  setSyntheticDateContext({ startDate: KFE_START, endDate: stageEndDate })
   return { stage: stage.title, counts: Object.fromEntries(Object.entries(snapshot).map(entry => [entry[0], entry[1].length])) }
 }
 
-export const clearSyntheticData = () => SyntheticDataRepository.clear()
+export const clearSyntheticData = async () => {
+  const result = await SyntheticDataRepository.clear()
+  clearSyntheticDateContext()
+  return result
+}
 
 export const SyntheticDataService = Object.freeze({ buildSyntheticSnapshot, loadSyntheticStage, getSyntheticDataStatus, getActiveDataSource, clearSyntheticData, SYNTHETIC_STAGES })
