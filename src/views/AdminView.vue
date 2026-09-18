@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, toRaw } from 'vue'
 import UniversalAdminForm from '../components/admin/UniversalAdminForm.vue'
 import BackupRestorePanel from '../components/admin/BackupRestorePanel.vue'
 import SyntheticDataPanel from '../components/admin/SyntheticDataPanel.vue'
@@ -28,7 +28,7 @@ const all=ref({vehicle:[],driver:[],loan:[]})
 const loanReadModel=ref({loans:[]})
 const currentGroup=computed(()=>groups.find(g=>g.forms.includes(selected.value))||groups[0])
 const baseDefinition=computed(()=>ADMIN_FORM_DEFINITIONS[selected.value])
-const activeDefinition=computed(()=>{const d=structuredClone(baseDefinition.value);for(const f of d.fields){if(f.key==='vehicleId')f.options=all.value.vehicle.map(x=>x.id);if(f.key==='driverId')f.options=all.value.driver.map(x=>x.id);if(f.key==='loanId')f.options=all.value.loan.map(x=>x.id)}return d})
+const activeDefinition=computed(()=>{const d=cloneForForm(baseDefinition.value);for(const f of d.fields){if(f.key==='vehicleId')f.options=all.value.vehicle.map(x=>x.id);if(f.key==='driverId')f.options=all.value.driver.map(x=>x.id);if(f.key==='loanId')f.options=all.value.loan.map(x=>x.id)}return d})
 function label(key,record){const v=record.values||record;if(key==='vehicle')return [v.registrationNumber,v.make,v.model].filter(Boolean).join(' · ')||record.id;if(key==='driver')return v.name||record.id;if(key==='loan')return [v.lender,v.accountReference].filter(Boolean).join(' · ')||record.id;return record.id}
 function display(value){for(const k of ['vehicle','driver','loan']){const found=all.value[k].find(x=>x.id===value);if(found)return label(k,found)}return value}
 async function load(){loading.value=true;error.value='';try{records.value=await AdminService.list(selected.value);for(const k of Object.keys(all.value))all.value[k]=await AdminService.list(k);loanReadModel.value=await LoanReadModelService.getLoanReadModel(getKfeReferenceNow())}catch(e){error.value=e.message||'Unable to load records.'}finally{loading.value=false}}
@@ -40,7 +40,7 @@ function openRecords(){adminSection.value='records';error.value='';notice.value=
 function openSettings(){adminSection.value='settings';formOpen.value=false;editing.value=null;draft.value={};error.value='';notice.value=''}
 function chooseSetting(key){settingsSelected.value=key;error.value='';notice.value=''}
 function add(){editing.value=null;draft.value={};formOpen.value=true}
-function edit(record){editing.value=record.id;draft.value=structuredClone(record.values||{});formOpen.value=true}
+function edit(record){editing.value=record.id;draft.value=cloneForForm(record.values||{});formOpen.value=true}
 async function save(values){loading.value=true;error.value='';notice.value='';try{const id=editing.value;await AdminService.save(selected.value,values,id);notice.value=id!==null?'Record updated successfully.':'Record created successfully.';editing.value=null;draft.value={};formOpen.value=false;await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Save failed.'}finally{loading.value=false}}
 async function remove(record){if(!confirm('Delete this source record? Related records may prevent deletion.'))return;loading.value=true;error.value='';try{await AdminService.remove(selected.value,record.id);notice.value='Record deleted.';await load()}catch(e){error.value=e.message||'Delete failed.'}finally{loading.value=false}}
 async function resetData(){if(!confirm('Reset all KFE data? Create a backup first if you may need the current data.'))return;if(!confirm('Final confirmation: permanently delete all current KFE records?'))return;loading.value=true;error.value='';notice.value='';try{await BackupService.resetData();notice.value='All canonical KFE data has been reset.'}catch(e){error.value=e.message||'Data reset failed.'}finally{loading.value=false}}
