@@ -190,4 +190,24 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
 .detail-title{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;padding:18px 2px 10px}.detail-title h2{margin:3px 0 0;font-size:1.15rem}.period-chip{padding:5px 9px;border-radius:999px;background:var(--kfe-ui-surface-2);color:var(--kfe-muted-text);font-size:.6rem;font-weight:850}.detail-grid{display:grid;border:1px solid var(--kfe-ui-border);border-radius:var(--kfe-radius-md,14px);overflow:hidden}.detail-grid>div{display:flex;justify-content:space-between;gap:16px;padding:12px 13px;border-bottom:1px solid var(--kfe-ui-border);font-size:.72rem}.detail-grid>div:last-child{border-bottom:0}.detail-grid span{color:var(--kfe-muted-text)}.detail-grid b{text-align:right;font-weight:900}.no-data{justify-content:center!important;color:var(--kfe-muted-text)!important}.status-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:10px}.status-grid span{padding:9px 10px;border-radius:10px;background:var(--kfe-ui-surface-2);color:var(--kfe-muted-text);font-size:.61rem;font-weight:750}.status-grid span.ok{color:var(--kfe-success)}.note{display:grid;gap:4px;margin-top:10px;padding:12px;border-radius:13px;background:color-mix(in srgb,var(--kfe-ui-accent) 8%,var(--kfe-ui-surface));color:var(--kfe-muted-text);font-size:.68rem;line-height:1.5}.note strong{color:var(--kfe-ui-text);font-size:.64rem}
 .overlay{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center;background:color-mix(in srgb,var(--kfe-ui-text) 35%,transparent);padding:12px}.navigator{width:min(100%,520px);max-height:88vh;overflow:auto;padding:16px;border-radius:var(--kfe-radius-lg,20px);background:var(--kfe-ui-surface);color:var(--kfe-ui-text);box-shadow:var(--kfe-ui-shadow-strong,0 20px 60px rgba(0,0,0,.25))}.navigator header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}.navigator h2{margin:4px 0;font-size:1.1rem}.close{width:40px}.periods{display:grid;gap:6px}.periods button{min-height:44px;display:flex;justify-content:space-between;align-items:center;padding:0 12px;border:1px solid var(--kfe-ui-border);border-radius:11px;background:var(--kfe-ui-surface-2);font-size:.68rem;font-weight:800;color:var(--kfe-ui-text)}.periods button.selected{border-color:var(--kfe-ui-accent);background:color-mix(in srgb,var(--kfe-ui-accent) 10%,var(--kfe-ui-surface));color:var(--kfe-ui-accent)}.custom{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.custom label{display:grid;gap:5px;font-size:.63rem;font-weight:800}.custom input,.custom button{min-height:42px;border:1px solid var(--kfe-ui-border);border-radius:10px;padding:0 9px;background:var(--kfe-ui-surface);color:var(--kfe-ui-text)}.custom button{grid-column:1/-1;background:var(--kfe-ui-accent);color:white;font-weight:850}
 @media(max-width:720px){.financial-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.metric-grid.five{grid-template-columns:repeat(3,minmax(0,1fr))}.target-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:460px){.performance-page{padding:18px 12px 28px}.financial-card{min-height:112px;padding:13px}.financial-card strong{font-size:1.35rem}.metric-grid.four,.metric-grid.five{grid-template-columns:repeat(2,minmax(0,1fr))}.head p{max-width:210px}.section-head h2{font-size:.92rem}}
+
+/* KFE Visual DNA — Performance / analytical experience */
+.performance-page{max-width:1100px;padding:24px 16px 36px}
+.performance-page>.head{margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--kfe-ui-border)}
+.performance-page .period{padding:8px 10px;border:1px solid var(--kfe-ui-border);border-radius:var(--kfe-radius-md);background:var(--kfe-ui-surface);box-shadow:var(--kfe-ui-shadow)}
+.financial-grid,.metric-grid,.secondary-grid{gap:10px}
+.financial-card,.panel,.target-panel,.requirement-panel,.state-card,.info-strip{border:1px solid var(--kfe-ui-border);border-radius:var(--kfe-radius-md);box-shadow:var(--kfe-ui-shadow)}
+.financial-card{padding:15px}
+.financial-card strong,.metric-grid strong{font-variant-numeric:tabular-nums}
+.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.metric-grid .metric{padding:14px;border-left:3px solid var(--kfe-ui-accent);background:var(--kfe-ui-surface)}
+.metric-grid .positive{border-left-color:var(--kfe-success)}
+.metric-grid .negative{border-left-color:var(--kfe-danger)}
+.detail-link{min-height:44px}
+.tabs{border-bottom:1px solid var(--kfe-ui-border)}
+.tabs button{min-height:44px}
+.status-grid .ok{border-left:3px solid var(--kfe-success)}
+@media(min-width:760px){.metric-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:560px){.performance-page{padding-left:12px;padding-right:12px}.metric-grid{grid-template-columns:1fr 1fr}}
+
 </style>
