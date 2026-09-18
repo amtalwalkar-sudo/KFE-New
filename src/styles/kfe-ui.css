@@ -1432,3 +1432,10 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
   .performance-custom-range button{grid-column:1/-1}
 }
 @media(prefers-reduced-motion:reduce){.performance-slider::before{transition:none}}
+
+/* APPLICATION SETTINGS — THEME MODE SELECTOR */
+.theme-selector{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px;padding:5px;border:1px solid var(--kfe-ui-border);border-radius:999px;background:var(--kfe-ui-surface-2)}
+.theme-selector button{min-height:48px;border:0;border-radius:999px;background:transparent;color:var(--kfe-muted-text);font-weight:900;font-size:.82rem;cursor:pointer}
+.theme-selector button.active{background:var(--kfe-ui-surface);color:var(--kfe-ui-text);box-shadow:0 2px 8px color-mix(in srgb,var(--kfe-ui-text) 12%,transparent)}
+.theme-selector button:focus-visible{outline:3px solid color-mix(in srgb,var(--kfe-ui-accent) 45%,transparent);outline-offset:1px}
+@media(max-width:520px){.theme-selector button{font-size:.75rem}}
