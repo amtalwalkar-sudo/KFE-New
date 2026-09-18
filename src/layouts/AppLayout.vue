@@ -143,4 +143,5 @@ async function handleFileSelect(event) {
   flex: 1;
   padding: 1rem;
 }
+.app-layout{background:var(--kfe-ui-bg)!important;color:var(--kfe-ui-text)!important}.app-header{padding:12px 16px!important;background:var(--kfe-ui-surface)!important;border-bottom:1px solid var(--kfe-ui-border)!important;box-shadow:var(--kfe-ui-shadow)!important}.brand-title{color:var(--kfe-ui-text)!important;font-weight:900!important}.status-badge.online{background:color-mix(in srgb,var(--kfe-success) 11%,var(--kfe-ui-surface))!important;color:var(--kfe-success)!important}.status-badge.offline{background:color-mix(in srgb,var(--kfe-danger) 11%,var(--kfe-ui-surface))!important;color:var(--kfe-danger)!important}.hdr-btn{min-height:44px!important;padding:0 11px!important;border-radius:9px!important;background:var(--kfe-ui-surface)!important;border-color:var(--kfe-ui-border)!important;color:var(--kfe-ui-text)!important;font-weight:800!important}.hdr-btn:hover{border-color:var(--kfe-ui-accent)!important}.app-main{padding:16px!important}
 </style>
