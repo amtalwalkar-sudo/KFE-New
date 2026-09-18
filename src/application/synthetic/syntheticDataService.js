@@ -32,10 +32,11 @@ const activeStageWindow = days => {
   const now = new Date()
   const todayKey = nowIstDate().date
   const today = dateFromKey(todayKey)
-  const requestedStart = addDays(today, -(days - 1))
+  const dataEnd = addDays(today, -1)
+  const requestedStart = addDays(dataEnd, -(days - 1))
   const start = requestedStart < BUSINESS_START ? BUSINESS_START : requestedStart
-  const generatedDays = Math.max(1, Math.floor((today.getTime() - start.getTime()) / 86400000) + 1)
-  return { start, today, todayKey, now, generatedDays }
+  const generatedDays = Math.max(1, Math.floor((dataEnd.getTime() - start.getTime()) / 86400000) + 1)
+  return { start, today, todayKey, dataEnd, now, generatedDays }
 }
 const capToNow = value => {
   const date = new Date(value)
@@ -61,7 +62,7 @@ const complianceRows = () => {
 
 export const buildSyntheticSnapshot = days => {
   const window = activeStageWindow(days)
-  const stageEnd = window.today
+  const stageEnd = window.dataEnd
   const stageEndDate = window.todayKey
   const stageStart = window.start
   const generatedDays = window.generatedDays
@@ -109,8 +110,8 @@ export const buildSyntheticSnapshot = days => {
       supportingFare += fare
       const startMinutes = 8 * 60 + t * Math.floor(9 * 60 / tripCount)
       const endMinutes = startMinutes + (isCity ? 35 + ((dayIndex + t) % 25) : 70 + ((dayIndex + t) % 35))
-      const tripStartAt = capToNow(at(date, Math.floor(startMinutes / 60), startMinutes % 60))
-      const tripEndAt = capToNow(at(date, Math.floor(endMinutes / 60), endMinutes % 60))
+      const tripStartAt = at(date, Math.floor(startMinutes / 60), startMinutes % 60)
+      const tripEndAt = at(date, Math.floor(endMinutes / 60), endMinutes % 60)
       trips.push({ id: id('trip', i + '-' + t), shiftId, dayId: id('day', isoDate(date)), operator: ['Uber', 'Ola', 'Rapido', 'Savaari'][t % 4],
         tripStartAt, tripEndAt, status: 'COMPLETED', tripStartLocation: { placeName: isCity ? 'Mumbai City' : 'Mumbai Intercity' },
         tripEndLocation: { placeName: isCity ? 'Mumbai City' : ['Nashik', 'Pune', 'Thane'][dayIndex % 3] }, tripKm,
@@ -121,8 +122,8 @@ export const buildSyntheticSnapshot = days => {
 
     const baseRevenue = round(175 * 12 * (0.9 + ((dayIndex * 13) % 21) / 100))
     const shiftRevenue = treatment === 'INCLUDED' ? round(baseRevenue + toll + parking) : baseRevenue
-    const shiftStartAt = capToNow(at(date, 7))
-    const shiftEndAt = capToNow(at(date, 19))
+    const shiftStartAt = at(date, 7)
+    const shiftEndAt = at(date, 19)
     shifts.push({ id: shiftId, startOdometer: startOdo, endOdometer: endOdo, openingPersonalKm: 0, openingDeadKm: gapKm,
       openingPersonalToll: 0, openingPersonalParking: 0, totalDistance: vehicleKm, revenue: shiftRevenue, toll, parking,
       tollParkingRevenueTreatment: treatment, shiftStartAt, shiftEndAt, status: 'COMPLETED', synthetic: true, createdAt: shiftStartAt, updatedAt: shiftEndAt })
