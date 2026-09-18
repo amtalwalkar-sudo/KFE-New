@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict'
-import { validateShiftStartOdometer, validateGapAllocation } from '../domain/work/shift.js'
+import { validateShiftStartOdometer, validateFirstDayShiftStartOdometer, validateGapAllocation } from '../domain/work/shift.js'
 import { validateEndShiftEntry } from '../domain/work/endShift.js'
 import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection, calculateShiftRevenue } from '../domain/work/trip.js'
 import { calculateFuelQuantity, validateFuelEntry } from '../domain/work/fuel.js'
 
 assert.deepEqual(validateShiftStartOdometer(100, 90), { valid: true, gapKm: 10 })
 assert.equal(validateShiftStartOdometer(89, 90).valid, false)
+assert.deepEqual(validateFirstDayShiftStartOdometer(68500, 65000), { valid: true, gapKm: 0, historicalKm: 3500, businessStartOdometer: 65000, historicalOdometerGap: true })
+assert.deepEqual(validateFirstDayShiftStartOdometer(65000, 65000), { valid: true, gapKm: 0, historicalKm: 0, businessStartOdometer: 65000, historicalOdometerGap: false })
+assert.equal(validateFirstDayShiftStartOdometer(64999, 65000).valid, false)
 assert.deepEqual(validateGapAllocation(180, 'PERSONAL'), { valid: true, category: 'PERSONAL', personalKm: 180, deadKm: 0 })
 assert.deepEqual(validateGapAllocation(180, 'DEAD'), { valid: true, category: 'DEAD', personalKm: 0, deadKm: 180 })
 assert.equal(validateGapAllocation(180).valid, false)
