@@ -153,6 +153,7 @@ export const buildSyntheticSnapshot = days => {
 }
 
 export const getSyntheticDataStatus = () => SyntheticDataRepository.getStatus()
+export const getActiveDataSource = () => SyntheticDataRepository.activeDataSource()
 
 export const loadSyntheticStage = async key => {
   const stage = SYNTHETIC_STAGES.find(item => item.key === key)
@@ -165,4 +166,4 @@ export const loadSyntheticStage = async key => {
 
 export const clearSyntheticData = () => SyntheticDataRepository.clear()
 
-export const SyntheticDataService = Object.freeze({ buildSyntheticSnapshot, loadSyntheticStage, getSyntheticDataStatus, clearSyntheticData, SYNTHETIC_STAGES })
+export const SyntheticDataService = Object.freeze({ buildSyntheticSnapshot, loadSyntheticStage, getSyntheticDataStatus, getActiveDataSource, clearSyntheticData, SYNTHETIC_STAGES })
