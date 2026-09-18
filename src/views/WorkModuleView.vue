@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useShiftTripStore } from '../stores/shiftTrip.js'
 import { useFuelStore } from '../stores/fuel.js'
 import { DriverTargetService } from '../application/performance/driverTargetService.js'
+import { getKfeReferenceNow } from '../domain/time/ist.js'
 
 const store = useShiftTripStore()
 const fuelStore = useFuelStore()
@@ -52,7 +53,7 @@ const locationPlace = location => location?.placeName || (Number.isFinite(Number
 const locationTime = location => location?.capturedAt ? new Date(location.capturedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}) : 'Time unavailable'
 const notify = text => { message.value = text; error.value = ''; window.setTimeout(() => { if (message.value === text) message.value = '' }, 2200) }
 const fail = text => { error.value = text; message.value = '' }
-const refreshTarget = async () => { try { target.value = await DriverTargetService.getTarget(new Date()) } catch (_) { target.value = null } }
+const refreshTarget = async () => { try { target.value = await DriverTargetService.getTarget(getKfeReferenceNow()) } catch (_) { target.value = null } }
 const selectGapCategory = category => { if (!gap.value.valid || gapKm.value <= 0) return; gapCategory.value = category; if (category !== 'PERSONAL') { personalToll.value = ''; personalParking.value = '' } }
 const goOnline = async () => { const needsGap = gap.value.valid && gapKm.value > 0; const result = await store.startShift(startOdo.value, needsGap ? { category: gapCategory.value, personalToll: personalToll.value, personalParking: personalParking.value } : null); if (result.requiresGapAllocation) return fail(`Choose Personal KM or Dead KM to allocate the full ${result.gapKm} km before going Online.`); if (!result.ok) return fail(result.reason); startOdo.value=''; gapCategory.value=null; personalToll.value=''; personalParking.value=''; await refreshTarget(); notify('Online.') }
 const goOffline = async (confirmLargeDistance = false) => { const trips = reviewTrips.value ? store.completedTrips.map(t => ({ id:t.id, operator:t.operator, tripKm:t.tripKm??'', revenue:t.revenue??'' })) : []; const result = await store.endShift({ closingOdometer:closingOdo.value, revenue:shiftRevenue.value, toll:toll.value, parking:parking.value, tollParkingRevenueTreatment:tollTreatment.value, trips, confirmLargeDistance }); if(result.requiresConfirmation){ const confirmed=window.confirm(`⚠️ Closing odometer shows ${result.distanceKm} km for this shift. This is above the 500 km/day safety threshold. If the odometer is correct, confirm to end the Shift.`); if(!confirmed)return; return goOffline(true) } if(!result.ok)return fail(result.reason); closingOdo.value=''; shiftRevenue.value=''; toll.value=''; parking.value=''; tollTreatment.value='NONE'; reviewTrips.value=false; await refreshTarget(); notify('Offline.') }
