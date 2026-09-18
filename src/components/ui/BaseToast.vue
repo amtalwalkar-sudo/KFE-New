@@ -72,4 +72,5 @@ const { toasts, removeToast } = useToast()
   opacity: 0;
   transform: translateX(2rem);
 }
+.toast-container{right:12px!important;bottom:calc(86px + env(safe-area-inset-bottom))!important;max-width:380px!important}.toast-item{min-height:48px!important;padding:10px 12px!important;border-radius:10px!important;border:1px solid var(--kfe-ui-border)!important;box-shadow:0 8px 24px color-mix(in srgb,var(--kfe-ui-text) 14%,transparent)!important;font-weight:800!important}.toast-info{background:var(--kfe-ui-surface)!important;color:var(--kfe-ui-text)!important;border-left:4px solid var(--kfe-info)!important}.toast-success{background:var(--kfe-ui-surface)!important;color:var(--kfe-ui-text)!important;border-left:4px solid var(--kfe-success)!important}.toast-error{background:var(--kfe-ui-surface)!important;color:var(--kfe-ui-text)!important;border-left:4px solid var(--kfe-danger)!important}.toast-warning{background:var(--kfe-ui-surface)!important;color:var(--kfe-ui-text)!important;border-left:4px solid var(--kfe-warning)!important}.toast-close{color:var(--kfe-muted-text)!important;min-height:40px!important;min-width:40px!important}
 </style>
