@@ -1322,3 +1322,19 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
 .kfe-work-cockpit .metric-field.compact .metric-input input{min-height:51px;font-size:1.35rem}
 .kfe-work-cockpit .exclude-check{margin-top:0!important;padding:10px 11px;border:1px solid var(--kfe-ui-border);border-radius:12px;background:var(--kfe-ui-surface-2)}
 @media(max-width:600px){.kfe-work-cockpit .expense-grid{grid-template-columns:1fr 1fr}.kfe-work-cockpit .metric-input input{font-size:1.7rem}}
+
+/* KFE END SHIFT — WHOLE SURFACE SWIPE + CUSTOM NUMERIC INPUT */
+.kfe-work-cockpit.cockpit--end-shift .cockpit-end-state{transform:translateX(var(--end-shift-card-offset,0px)) rotate(var(--end-shift-card-rotate,0deg));transition:transform .18s cubic-bezier(.22,.8,.24,1);touch-action:pan-y;will-change:transform;cursor:grab}
+.kfe-work-cockpit.cockpit--end-shift .cockpit-end-state.is-card-dragging{transition:none;cursor:grabbing}
+.kfe-work-cockpit .end-shift-swipe{display:none!important}
+.kfe-number-pad{flex:0 0 auto;margin-top:8px;padding:10px;border:1px solid var(--kfe-ui-border);border-radius:18px;background:var(--kfe-ui-surface-2);box-shadow:0 8px 24px color-mix(in srgb,var(--kfe-ui-text) 9%,transparent)}
+.number-pad-display{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:8px 8px 12px}
+.number-pad-display span{font-size:.58rem;font-weight:950;letter-spacing:.1em;color:var(--kfe-muted-text)}
+.number-pad-display strong{font-size:1.7rem;line-height:1;font-weight:950;letter-spacing:-.035em}
+.number-pad-display small{font-size:.75rem;letter-spacing:0;color:var(--kfe-muted-text)}
+.number-pad-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.number-pad-grid button{min-height:48px;border:1px solid var(--kfe-ui-border);border-radius:12px;background:var(--kfe-ui-surface);color:var(--kfe-ui-text);font-size:1.05rem;font-weight:900;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.number-pad-grid button:active{transform:scale(.97)}
+.number-pad-done{width:100%;min-height:46px;margin-top:8px;border:0;border-radius:12px;background:var(--kfe-ui-accent);color:#fff;font-weight:950;letter-spacing:.04em}
+@media(max-width:600px){.kfe-number-pad{margin-top:6px;padding:8px}.number-pad-grid{gap:6px}.number-pad-grid button{min-height:44px}}
+@media(prefers-reduced-motion:reduce){.kfe-work-cockpit.cockpit--end-shift .cockpit-end-state{transition:none}}
