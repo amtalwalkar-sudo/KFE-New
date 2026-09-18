@@ -1352,3 +1352,8 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
 .performance-navigator .custom{margin-top:10px}
 .performance-navigator .custom button:disabled{opacity:.45;cursor:not-allowed}
 @media(max-width:460px){.performance-navigator .periods{grid-template-columns:1fr}}
+
+/* Timeline quick-edit portal: independent of the shell scroll-area stacking context. */
+.timeline-quick-edit-overlay{z-index:20001!important;padding:12px 12px calc(var(--kfe-nav-height) + 16px + env(safe-area-inset-bottom,0px))!important}
+.timeline-quick-edit-overlay .editor{max-height:calc(100dvh - var(--kfe-nav-height) - 28px - env(safe-area-inset-bottom,0px));overflow-y:auto;padding-bottom:250px}
+.timeline-number-pad{position:fixed;left:12px;right:12px;bottom:calc(var(--kfe-nav-height) + 8px + env(safe-area-inset-bottom,0px));width:auto;max-width:520px;margin:0 auto;z-index:20002}
