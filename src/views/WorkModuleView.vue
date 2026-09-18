@@ -72,7 +72,14 @@ const saveFuel = async () => { const result=await fuelStore.save({odometer:fuelO
 const primaryTripAction = () => store.isTripActive ? endTrip() : startTrip()
 const tripActionLabel = computed(() => store.isTripActive ? 'SWIPE → END TRIP' : 'SWIPE → START TRIP')
 const tripActionHint = computed(() => store.isTripActive ? 'Swipe from left to right to end this trip' : 'Swipe from left to right to start this trip')
-const swipeStyle = computed(() => ({transform:`translateX(${swipeOffset.value}px)`}))
+const swipeProgress = computed(() => {
+  const width = swipeTrack.value?.clientWidth || 320
+  return Math.min(100, Math.round((swipeOffset.value / Math.max(1, width)) * 100))
+})
+const swipeStyle = computed(() => ({
+  '--swipe-progress': `${swipeProgress.value}%`,
+  '--swipe-offset': `${swipeOffset.value}px`
+}))
 const onSwipeStart = event => { if(event.pointerType==='mouse'&&event.button!==0)return; swipeStartX.value=event.clientX;swipeTracking.value=true;swipeOffset.value=0;event.currentTarget.setPointerCapture?.(event.pointerId) }
 const onSwipeMove = event => { if(!swipeTracking.value||swipeStartX.value==null)return; const width=swipeTrack.value?.clientWidth||320; const max=Math.max(80,width-56); swipeOffset.value=Math.max(0,Math.min(event.clientX-swipeStartX.value,max)) }
 const onSwipeEnd = async event => { if(!swipeTracking.value||swipeStartX.value==null)return; const distance=event.clientX-swipeStartX.value; const width=swipeTrack.value?.clientWidth||320; const trigger=width*0.8; swipeTracking.value=false;swipeStartX.value=null;swipeOffset.value=0;if(distance>=trigger)await primaryTripAction() }
@@ -94,7 +101,29 @@ onUnmounted(()=>{window.clearInterval(interval);unsubscribeTarget?.()})
     <section v-if="store.lifecycleLocations.length && !endShiftOpen" class="card locations"><div class="section-heading"><div><small>SHIFT GPS</small><h2>Location events</h2></div><span class="optional-badge">Optional</span></div><div v-for="location in store.lifecycleLocations.slice().reverse()" :key="location.id" class="location-row"><div class="pin">⌖</div><div class="location-detail"><strong>{{locationEventLabel(location.eventType)}}</strong><span>{{locationPlace(location)}}</span><small>{{locationTime(location)}}</small></div></div></section>
     <section v-if="store.tripLocations.length && !endShiftOpen" class="card locations"><div class="section-heading"><div><small>TRIP GPS</small><h2>Trip location events</h2></div><span class="optional-badge">Optional</span></div><div v-for="location in store.tripLocations.slice().reverse()" :key="location.id" class="location-row"><div class="pin">⌖</div><div class="location-detail"><strong>{{locationEventLabel(location.eventType)}}</strong><span>{{locationPlace(location)}}</span><small>{{locationTime(location)}}</small></div></div></section>
     <section v-if="store.isOnline&&!store.isTripActive&&endShiftOpen" class="card gate end-shift-card"><div class="section-heading"><div><small>GOING OFFLINE</small><h2>End Shift</h2></div><button class="secondary back-button" type="button" @click.stop.prevent="cancelOffline">Back</button></div><p class="muted">Closing odometer and total shift revenue are required. Trip fares are supporting detail only.</p><div class="start-odo-reference"><span>Shift start odometer</span><strong>{{store.startOdometer ?? '—'}} km</strong></div><label>Closing odometer (km)<input v-model="closingOdo" type="number" min="0" inputmode="decimal"></label><label>Total shift revenue (₹)<input v-model="shiftRevenue" type="number" min="0" step="0.01" placeholder="Enter total shift revenue" inputmode="decimal"></label><div class="expense-pair"><label><span>Business toll</span><input v-model="toll" type="number" min="0" step="0.01" inputmode="decimal" placeholder="₹ 0"></label><label><span>Business parking</span><input v-model="parking" type="number" min="0" step="0.01" inputmode="decimal" placeholder="₹ 0"></label></div><label class="exclude-check"><input v-model="tollTreatment" true-value="EXCLUDED" false-value="INCLUDED" type="checkbox"><span>Exclude toll &amp; parking from trip fare</span></label><button class="secondary" @click="reviewTrips=!reviewTrips">{{reviewTrips?'Hide optional trip review':'Optional trip review / correction'}}</button><div v-if="reviewTrips" class="reviews"><p v-if="!store.completedTrips.length" class="muted">No completed trips.</p><div v-for="t in store.completedTrips" :key="t.id" class="review"><select v-model="t.operator"><option v-for="operator in store.operators" :key="operator">{{operator}}</option></select><input v-model="t.tripKm" type="number" min="0" step="0.1" placeholder="KM optional"><input v-model="t.revenue" type="number" min="0" step="0.01" placeholder="₹ optional"></div></div><button class="primary" @click="goOffline()">OK — End Shift</button></section>
-    <div v-if="store.isOnline" class="action-reserve"></div><div v-if="store.isOnline" class="persistent-action"><div ref="swipeTrack" class="swipe-bar trip-action" :style="swipeStyle" role="button" tabindex="0" aria-label="Swipe from left to right to start or end the current trip" @pointerdown="onSwipeStart" @pointermove="onSwipeMove" @pointerup="onSwipeEnd" @pointercancel="onSwipeCancel" @pointerleave="onSwipeEnd" @keydown="onSwipeKey"><span>→</span><span>{{tripActionLabel}}</span></div><small class="swipe-hint">{{tripActionHint}}</small></div>
+    <div v-if="store.isOnline" class="action-reserve"></div><div v-if="store.isOnline" class="persistent-action">
+      <div
+        ref="swipeTrack"
+        class="swipe-bar trip-action"
+        :class="{ 'swipe-bar--start': !store.isTripActive, 'swipe-bar--end': store.isTripActive, 'is-swiping': swipeTracking, 'is-threshold': swipeProgress >= 80 }"
+        :style="swipeStyle"
+        role="button"
+        tabindex="0"
+        aria-label="Swipe from left to right to start or end the current trip"
+        @pointerdown="onSwipeStart"
+        @pointermove="onSwipeMove"
+        @pointerup="onSwipeEnd"
+        @pointercancel="onSwipeCancel"
+        @pointerleave="onSwipeEnd"
+        @keydown="onSwipeKey"
+      >
+        <span class="swipe-progress" aria-hidden="true"></span>
+        <span class="swipe-threshold" aria-hidden="true"><i></i><em>80%</em></span>
+        <span class="swipe-label">{{tripActionLabel}}</span>
+        <span class="swipe-thumb" aria-hidden="true"><b>→</b></span>
+      </div>
+      <small class="swipe-hint">{{swipeTracking ? (swipeProgress >= 80 ? 'RELEASE TO CONFIRM' : 'KEEP SWIPING →') : tripActionHint}}</small>
+    </div>
   </div>
 </template>
 
