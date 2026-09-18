@@ -2,7 +2,7 @@ import { PerformanceRepository } from '../../repositories/performanceRepository.
 import { subscribeCanonicalDataChanges } from '../../repositories/canonicalDataChangeRepository.js'
 import { deriveFinanceAwarePerformance } from '../../domain/performance/financePerformanceAdapter.js'
 import { deriveRollingDriverTarget } from '../../domain/performance/driverTargetStabilization.js'
-import { istMonthRange } from '../../domain/time/ist.js'
+import { istMonthRange, getKfeReferenceNow } from '../../domain/time/ist.js'
 import { normalizeCalculationSnapshot } from './normalizeCalculationSnapshot.js'
 import { previousRange } from '../../domain/performance/performanceEngineV2.js'
 
@@ -21,7 +21,7 @@ const monthlyBreakEvenCacheFor = snapshot => {
 }
 
 export const DriverTargetService = Object.freeze({
-  async getTarget(asOf = new Date()) {
+  async getTarget(asOf = getKfeReferenceNow()) {
     const snapshot = normalizeCalculationSnapshot(await PerformanceRepository.getSnapshot())
     const monthRange = istMonthRange(asOf, asOf)
     if (!monthRange) return { available: false, target: null, reason: 'INVALID_TARGET_DATE' }

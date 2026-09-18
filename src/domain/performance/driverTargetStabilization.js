@@ -109,8 +109,11 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
 
   const currentDay = dayFromKey(financialDayKeys[financialDayKeys.length - 1])
   const currentMonth = targetMonth
-  const targetMonths = live(driverTargets).map(x => monthKeyOf(x?.effectiveFrom || x?.validFrom || x?.startDate)).filter(Boolean)
-  const historicalMonths = [...new Set([...revenueByMonth.keys(), ...targetMonths])]
+  // Only months represented by authoritative financial records participate in
+  // rolling historical balance. An effective-dated target beginning in the
+  // business-start month must not create phantom historical obligations when a
+  // synthetic stage intentionally contains only a recent window.
+  const historicalMonths = [...new Set([...revenueByMonth.keys()])]
     .filter(month => month < currentMonth && monthBounds(month).from <= end)
     .sort()
 

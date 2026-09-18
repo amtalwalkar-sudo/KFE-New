@@ -126,4 +126,17 @@ assert.equal(incompleteHistoricalBalance.available, false)
 assert.equal(incompleteHistoricalBalance.reason, 'MISSING_HISTORICAL_DRIVER_TARGET_INPUT')
 assert.equal(incompleteHistoricalBalance.currentDailyTarget, null)
 
+
+const partialSyntheticWindow = deriveRollingDriverTarget({
+  from: '2026-09-12', to: '2026-09-18',
+  trips: [{ status: 'COMPLETED', tripEndAt: '2026-09-17T10:00:00Z', revenue: 0 }],
+  shifts: [{ shiftStartAt: '2026-09-17T08:00:00Z', shiftEndAt: '2026-09-17T20:00:00Z', revenue: 0 }],
+  driverTargets: [{ effectiveFrom: '2026-05-01', effectiveUntil: '2026-09-18', desiredDriverProfit: 200, workingDays: 6 }],
+  applicableBreakEven: 800,
+})
+assert.equal(partialSyntheticWindow.available, true)
+assert.equal(partialSyntheticWindow.balanceBefore, 0)
+assert.equal(partialSyntheticWindow.currentTargetMonth, '2026-09')
+assert.ok(partialSyntheticWindow.currentDailyTarget > 0)
+
 console.log('Driver target stabilization implementation contract passed.')
