@@ -10,9 +10,7 @@ import { createBackupConfigAdapter } from './infrastructure/backup/backupConfigA
 import { createCloudBackupScheduler } from './infrastructure/backup/cloudBackupScheduler.js'
 import { captureCurrentLocation } from './infrastructure/location/currentLocation.js'
 import { PlatformStartup } from './infrastructure/startup/platformStartup.js'
-import './styles/ui-tokens.css'
-import './styles/ui-system.css'
-import './styles/kfe-visual-application.css'
+import './styles/kfe-ui.css'
 import { startKfeThemeController } from './services/kfeThemeController.js'
 
 startKfeThemeController()
