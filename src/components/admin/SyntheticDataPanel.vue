@@ -1,17 +1,17 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { SyntheticDataService } from '../../application/synthetic/syntheticDataService.js'
-import { getActiveDataSource } from '../../utils/indexedDB.js'
+
 
 const status = ref(null)
-const active = ref(getActiveDataSource())
+const active = ref(SyntheticDataService.getActiveDataSource())
 const loading = ref(false)
 const message = ref('')
 const error = ref('')
 
 const refresh = async () => {
   status.value = await SyntheticDataService.getSyntheticDataStatus()
-  active.value = getActiveDataSource()
+  active.value = SyntheticDataService.getActiveDataSource()
 }
 const load = async key => {
   loading.value = true; message.value = ''; error.value = ''
