@@ -77,10 +77,16 @@ const endShiftExpenseSkip = () => { toll.value=''; parking.value=''; endShiftSav
 const endShiftReviewSave = async () => { for (const t of store.completedTrips) { const result=await store.updateTrip({id:t.id,operator:t.operator,tripKm:t.tripKm??'',revenue:t.revenue??''}); if(!result.ok)return fail(result.reason) } endShiftSaved.value={...endShiftSaved.value,3:true}; endShiftStep.value=4; error.value=''; message.value='' }
 const endShiftReviewSkip = () => { endShiftSaved.value={...endShiftSaved.value,3:true}; endShiftStep.value=4; error.value=''; message.value='' }
 const endShiftConfirm = async () => { reviewTrips.value=true; await goOffline() }
-const endShiftCanSwipeForward = computed(() => endShiftStep.value < 4 && endShiftSaved.value[endShiftStep.value])
+const endShiftCanSwipeForward = computed(() => endShiftStep.value === 1 ? endShiftSaved.value[1] : endShiftStep.value < 4)
+const endShiftSwipeMode = computed(() => endShiftStep.value === 1 ? 'SAVE TO ENABLE SWIPE' : endShiftStep.value === 4 ? 'CONFIRM WITH BUTTON' : 'SWIPE → SKIP')
 const endShiftSwipeProgress = computed(() => { const width=endShiftSwipeTrack.value?.clientWidth||320; return Math.min(100,Math.round((Math.abs(endShiftSwipeOffset.value)/Math.max(1,width))*100)) })
 const endShiftSwipeStyle = computed(() => ({'--end-shift-swipe-progress':`${endShiftSwipeProgress.value}%`,'--end-shift-swipe-offset':`${endShiftSwipeOffset.value}px`}))
-const endShiftNavigateForward = () => { if(endShiftStep.value>=4)return; if(!endShiftSaved.value[endShiftStep.value])return fail('Save this step before continuing.'); endShiftStep.value += 1; error.value=''; message.value='' }
+const endShiftNavigateForward = () => {
+  if(endShiftStep.value>=4)return
+  if(endShiftStep.value===1 && !endShiftSaved.value[1])return fail('Save the odometer and revenue before continuing.')
+  if(endShiftStep.value===2) endShiftExpenseSkip()
+  else if(endShiftStep.value===3) endShiftReviewSkip()
+}
 const endShiftNavigateBack = () => { if(endShiftStep.value<=1)return; endShiftStep.value -= 1; error.value=''; message.value='' }
 const onEndShiftSwipeStart = event => { if(event.pointerType==='mouse'&&event.button!==0)return; endShiftSwipeStartX.value=event.clientX; endShiftSwipeTracking.value=true; endShiftSwipeOffset.value=0; event.currentTarget.setPointerCapture?.(event.pointerId) }
 const onEndShiftSwipeMove = event => { if(!endShiftSwipeTracking.value||endShiftSwipeStartX.value==null)return; const width=endShiftSwipeTrack.value?.clientWidth||320; const max=Math.max(70,width-40); endShiftSwipeOffset.value=Math.max(-max,Math.min(event.clientX-endShiftSwipeStartX.value,max)) }
@@ -170,23 +176,31 @@ onUnmounted(()=>{window.clearInterval(interval);unsubscribeTarget?.()})
     <section v-if="endShiftOpen" class="cockpit-state cockpit-end-state">
       <div class="form-topline"><div><div class="state-kicker">GOING OFFLINE</div><h2>{{endShiftStep===1?'CLOSE SHIFT':endShiftStep===2?'SHIFT EXPENSES':endShiftStep===3?'RIDE REVIEW':'CONFIRM END SHIFT'}}</h2></div><button class="form-back" type="button" @click="endShiftBack"><span aria-hidden="true">🔙</span><span>Back</span></button></div>
 
-      <div v-if="endShiftStep===1" class="end-form-body">
+      <div v-if="endShiftStep===1" class="end-form-body end-entry-grid">
         <div class="start-odo-reference"><span>Shift started</span><strong>{{store.startOdometer ?? '—'}} km</strong></div>
-        <label>Closing odometer (km)<input v-model="closingOdo" type="number" min="0" inputmode="decimal" autofocus></label>
-        <label>Total shift revenue (₹)<input v-model="shiftRevenue" type="number" min="0" step="0.01" placeholder="Enter total shift revenue" inputmode="decimal"></label>
+        <div class="metric-field">
+          <label for="closing-odometer">CLOSING ODOMETER</label>
+          <div class="metric-input"><input id="closing-odometer" v-model="closingOdo" type="number" min="0" inputmode="decimal" autofocus placeholder="0"><span>km</span></div>
+          <small>Current vehicle reading</small>
+        </div>
+        <div class="metric-field">
+          <label for="shift-revenue">TOTAL SHIFT REVENUE</label>
+          <div class="metric-input"><span>₹</span><input id="shift-revenue" v-model="shiftRevenue" type="number" min="0" step="0.01" placeholder="0" inputmode="decimal"></div>
+          <small>Revenue recorded for this shift</small>
+        </div>
       </div>
 
-      <div v-else-if="endShiftStep===2" class="end-form-body">
-        <p class="form-question">SHIFT EXPENSES</p>
-        <p class="muted">Enter any toll or parking paid during this shift.</p>
-        <label>Toll<input v-model="toll" type="number" min="0" step="0.01" inputmode="decimal" placeholder="₹ 0"></label>
-        <label>Parking<input v-model="parking" type="number" min="0" step="0.01" inputmode="decimal" placeholder="₹ 0"></label>
+      <div v-else-if="endShiftStep===2" class="end-form-body optional-entry">
+        <div class="optional-heading"><div><p class="form-question">SHIFT EXPENSES</p><p class="muted">Optional — add only what applies.</p></div><span>SKIPPABLE</span></div>
+        <div class="expense-grid">
+          <div class="metric-field compact"><label for="shift-toll">TOLL</label><div class="metric-input"><span>₹</span><input id="shift-toll" v-model="toll" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></div></div>
+          <div class="metric-field compact"><label for="shift-parking">PARKING</label><div class="metric-input"><span>₹</span><input id="shift-parking" v-model="parking" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></div></div>
+        </div>
         <label class="exclude-check"><input v-model="tollTreatment" true-value="EXCLUDED" false-value="INCLUDED" type="checkbox"><span>Exclude toll &amp; parking from trip fare</span></label>
       </div>
 
-      <div v-else-if="endShiftStep===3" class="end-form-body">
-        <p class="form-question">REVIEW RIDES</p>
-        <p class="muted">Optional. Correct any ride details before ending the shift.</p>
+      <div v-else-if="endShiftStep===3" class="end-form-body optional-entry">
+        <div class="optional-heading"><div><p class="form-question">REVIEW RIDES</p><p class="muted">Optional — correct anything that needs attention.</p></div><span>SKIPPABLE</span></div>
         <div class="reviews compact-reviews"><p v-if="!store.completedTrips.length" class="muted">No completed trips.</p><div v-for="t in store.completedTrips" :key="t.id" class="review"><select v-model="t.operator" aria-label="Trip operator"><option v-for="operator in store.operators" :key="operator">{{operator}}</option></select><input v-model="t.tripKm" type="number" min="0" step="0.1" placeholder="KM"><input v-model="t.revenue" type="number" min="0" step="0.01" placeholder="₹"></div></div>
       </div>
 
@@ -203,7 +217,7 @@ onUnmounted(()=>{window.clearInterval(interval);unsubscribeTarget?.()})
         <button class="primary end-confirm-button" type="button" @click="endShiftConfirm">OK — END SHIFT</button>
       </div>
       <div ref="endShiftSwipeTrack" class="end-shift-swipe" :class="{'is-swiping':endShiftSwipeTracking,'is-blocked':!endShiftCanSwipeForward}" :style="endShiftSwipeStyle" role="group" aria-label="Optional swipe navigation for End Shift steps" @pointerdown="onEndShiftSwipeStart" @pointermove="onEndShiftSwipeMove" @pointerup="onEndShiftSwipeEnd" @pointercancel="onEndShiftSwipeCancel" @pointerleave="onEndShiftSwipeEnd">
-        <span class="end-shift-swipe-progress" aria-hidden="true"></span><span class="end-shift-swipe-label">{{endShiftStep===4?'CONFIRM WITH BUTTON':endShiftCanSwipeForward?'SWIPE → NEXT':'SAVE TO ENABLE SWIPE'}}</span><span class="end-shift-swipe-step">{{endShiftStep}} / 4</span>
+        <span class="end-shift-swipe-progress" aria-hidden="true"></span><span class="end-shift-swipe-label">{{endShiftSwipeMode}}</span><span class="end-shift-swipe-step">{{endShiftStep}} / 4</span>
       </div>
     </section>
 
