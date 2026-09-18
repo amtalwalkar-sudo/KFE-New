@@ -76,7 +76,10 @@ const initializeDatabase = async name => {
 }
 export const setActiveDataSource = source => {
   if (!['canonical','synthetic'].includes(source)) throw new Error('Invalid KFE data source.')
-  if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(DATA_SOURCE_KEY, source)
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.setItem(DATA_SOURCE_KEY, source)
+    if (source === 'canonical') sessionStorage.removeItem('kfe:synthetic-date-context')
+  }
   for (const db of dbInstances.values()) { try { db.close() } catch (_) {} }
   dbInstances.clear(); initializationPromises.clear()
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(DATA_SOURCE_CHANGE_EVENT, { detail: { dataSource: source } }))
