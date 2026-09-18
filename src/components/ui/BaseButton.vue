@@ -58,4 +58,5 @@ const emit = defineEmits(['click'])
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 .v-hidden { opacity: 0; }
+.base-button{min-height:48px!important;padding:10px 15px!important;border-radius:10px!important;border:1px solid var(--kfe-ui-border)!important;font-weight:850!important;letter-spacing:.005em}.base-button.primary{background:var(--kfe-ui-accent)!important;border-color:var(--kfe-ui-accent)!important;color:#fff!important}.base-button.secondary{background:var(--kfe-ui-surface)!important;color:var(--kfe-ui-text)!important}.base-button.danger{background:color-mix(in srgb,var(--kfe-danger) 10%,var(--kfe-ui-surface))!important;color:var(--kfe-danger)!important;border-color:color-mix(in srgb,var(--kfe-danger) 35%,var(--kfe-ui-border))!important}.base-button:focus-visible{outline:3px solid color-mix(in srgb,var(--kfe-ui-accent) 55%,transparent)!important;outline-offset:2px!important}
 </style>
