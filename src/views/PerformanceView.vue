@@ -12,7 +12,6 @@ const LAYERS = {
 }
 const period = ref('MONTHLY')
 const anchor = ref(getKfeReferenceNow())
-const navigatorOpen = ref(false)
 const activeCard = ref(null)
 const activeLayer = ref(0)
 const expanded = ref(null)
@@ -123,8 +122,8 @@ const activeRows = computed(() => activeCard.value ? PerformanceService.getLayer
 const layerTitle = computed(() => activeCard.value ? `${cards[activeCard.value].title} — ${LAYERS[activeCard.value][activeLayer.value]}` : '')
 const completeness = computed(() => metrics.value?.completeness || {})
 
-function choosePeriod(value) { period.value = value; if (value !== 'CUSTOM DURATION') navigatorOpen.value = false }
-function applyCustom() { if (customFrom.value && customTo.value && customFrom.value <= customTo.value) { period.value = 'CUSTOM DURATION'; navigatorOpen.value = false } }
+function choosePeriod(value) { period.value = value }
+function applyCustom() { if (customFrom.value && customTo.value && customFrom.value <= customTo.value) period.value = 'CUSTOM DURATION' }
 function openCard(key) { activeCard.value = key; activeLayer.value = 0 }
 function back() { if (activeLayer.value) activeLayer.value -= 1; else activeCard.value = null }
 function next() { if (activeCard.value && activeLayer.value < LAYERS[activeCard.value].length - 1) activeLayer.value += 1 }
@@ -144,8 +143,23 @@ onBeforeUnmount(() => unsubscribeChanges())
     <template v-else-if="!activeCard">
       <header class="head">
         <div><small>PERFORMANCE</small><h1>Business position</h1></div>
-        <button class="period" @click="navigatorOpen = true">{{ periodLabel }} <b>⌄</b></button>
+        <button class="today-period" @click="anchor = getKfeReferenceNow(); period = 'MONTHLY'">Current month</button>
       </header>
+      <div class="performance-period-controls" aria-label="Performance date filters">
+        <div class="slider performance-slider">
+          <button v-for="item in PERIODS" :key="item" :class="{active: period === item}" @click="choosePeriod(item)">{{ item }}</button>
+        </div>
+        <div v-if="period !== 'CUSTOM DURATION'" class="period performance-period">
+          <button @click="movePeriod(-1)" aria-label="Previous period">‹</button>
+          <strong>{{ periodLabel }}</strong>
+          <button @click="movePeriod(1)" aria-label="Next period">›</button>
+        </div>
+        <div v-else class="performance-custom-range">
+          <label>From<input v-model="customFrom" type="date"></label>
+          <label>To<input v-model="customTo" type="date"></label>
+          <button :disabled="!customFrom || !customTo || customFrom > customTo" @click="applyCustom">Apply</button>
+        </div>
+      </div>
 
       <section class="financial-grid" aria-label="Business position">
         <article v-for="item in summary" :key="item.key" class="financial-card" :class="`financial-${item.key}`">
@@ -201,13 +215,6 @@ onBeforeUnmount(() => unsubscribeChanges())
       </section>
     </template>
 
-    <div v-if="navigatorOpen" class="overlay performance-filter-overlay" @click.self="navigatorOpen=false"><section class="navigator performance-navigator"><header><div><small>PERIOD</small><h2>Choose reporting period</h2></div><button class="close" aria-label="Close" @click="navigatorOpen=false">×</button></header>
-<div class="periods"><button v-for="item in PERIODS" :key="item" :class="{selected: period === item}" @click="choosePeriod(item)"><span>{{ item }}</span><b>›</b></button></div>
-<div v-if="period === 'MONTHLY' || period === 'YEARLY' || period === 'WEEKLY' || period === 'DAILY'" class="period-picker">
-  <button @click="movePeriod(-1)" aria-label="Previous period">‹</button><strong>{{ periodLabel }}</strong><button @click="movePeriod(1)" aria-label="Next period">›</button>
-</div>
-<div v-if="period === 'CUSTOM DURATION'" class="custom"><label>From<input v-model="customFrom" type="date"></label><label>To<input v-model="customTo" type="date"></label><button :disabled="!customFrom || !customTo || customFrom > customTo" @click="applyCustom">Apply duration</button></div>
-</section></div>
-  </section>
+      </section>
 </template>
 
