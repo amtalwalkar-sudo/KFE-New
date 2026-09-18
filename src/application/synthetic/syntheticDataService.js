@@ -9,7 +9,7 @@ export const SYNTHETIC_STAGES = Object.freeze([
 ])
 
 const START = new Date('2026-04-09T00:00:00Z')
-const KFE_START = '2026-04-10'
+const KFE_START = '2026-04-09'
 const END = '2031-03-31'
 const OPENING_ODO = 65000
 const VEHICLE_ID = 'synthetic-vehicle-1'
@@ -55,9 +55,9 @@ export const buildSyntheticSnapshot = days => {
     vendor: 'Synthetic Workshop', validityType: 'None', notes: 'Pre-KFE synthetic history at ₹0.60/km.', synthetic: true })
   odometer += preKfeKm
 
-  for (let i = 1; i < days; i += 1) {
+  for (let i = 0; i < days; i += 1) {
     const date = dayAt(i)
-    const dayIndex = i - 1
+    const dayIndex = i
     const isCity = ((dayIndex * 37) % 100) < 30
     const vehicleKm = isCity ? 200 : 400
     const gapKm = dayIndex === 0 ? 0 : 12 + ((dayIndex * 7) % 19)
