@@ -9,20 +9,39 @@ export const SYNTHETIC_STAGES = Object.freeze([
   { key: 'fiveYears', title: '5 years', days: 1818 },
 ])
 
-const START = new Date('2026-04-09T00:00:00Z')
-const KFE_START = '2026-04-09'
-const END = '2031-03-31'
+const ACQUISITION_START = new Date('2026-04-09T00:00:00Z')
+const BUSINESS_START = new Date('2026-05-01T00:00:00Z')
+const KFE_START = '2026-05-01'
 const OPENING_ODO = 65000
 const VEHICLE_ID = 'synthetic-vehicle-1'
 const DRIVER_ID = 'synthetic-driver-1'
 const LOAN_ID = 'synthetic-loan-1'
 const CNG_PRICE = 82
 const round = value => Math.round(Number(value) * 100) / 100
-const dayAt = index => new Date(Date.UTC(START.getUTCFullYear(), START.getUTCMonth(), START.getUTCDate() + index))
+const dayAt = (index, start = BUSINESS_START) => new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + index))
 const isoDate = value => value.toISOString().slice(0, 10)
 const at = (date, hour, minute = 0) => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), hour - 5, minute - 30)).toISOString()
 const id = (kind, value) => 'synthetic-' + kind + '-' + value
 const addDays = (date, days) => new Date(date.getTime() + days * 86400000)
+const nowIstDate = () => {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).formatToParts(new Date()).reduce((out, part) => { if (part.type !== 'literal') out[part.type] = part.value; return out }, {})
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour), minute: Number(parts.minute), second: Number(parts.second) }
+}
+const dateFromKey = key => new Date(`${key}T00:00:00Z`)
+const activeStageWindow = days => {
+  const now = new Date()
+  const todayKey = nowIstDate().date
+  const today = dateFromKey(todayKey)
+  const requestedStart = addDays(today, -(days - 1))
+  const start = requestedStart < BUSINESS_START ? BUSINESS_START : requestedStart
+  const generatedDays = Math.max(1, Math.floor((today.getTime() - start.getTime()) / 86400000) + 1)
+  return { start, today, todayKey, now, generatedDays }
+}
+const capToNow = value => {
+  const date = new Date(value)
+  const now = new Date()
+  return date.getTime() > now.getTime() ? now.toISOString() : value
+}
 
 const complianceRows = () => {
   const rows = []
@@ -41,10 +60,13 @@ const complianceRows = () => {
 }
 
 export const buildSyntheticSnapshot = days => {
-  const stageEnd = dayAt(days - 1)
-  const stageEndDate = isoDate(stageEnd)
+  const window = activeStageWindow(days)
+  const stageEnd = window.today
+  const stageEndDate = window.todayKey
+  const stageStart = window.start
+  const generatedDays = window.generatedDays
   const vehicles = [{ id: VEHICLE_ID, registrationNumber: 'SYN-KFE-001', make: 'Synthetic', model: 'Test Vehicle', variant: 'CNG',
-    acquiredOn: '2026-04-09', acquisitionValue: 0, openingOdometerKm: OPENING_ODO, fuelType: 'CNG', tankCapacity: 14,
+    acquiredOn: isoDate(ACQUISITION_START), acquisitionValue: 0, openingOdometerKm: OPENING_ODO, fuelType: 'CNG', tankCapacity: 14,
     status: 'Active', active: true, synthetic: true }]
   const drivers = [{ id: DRIVER_ID, name: 'Synthetic Driver', phone: '0000000000', licenseNumber: 'SYN-LICENSE',
     licenseExpiry: '2031-04-08', joinedOn: '2026-04-09', status: 'Active', vehicleId: VEHICLE_ID, synthetic: true }]
@@ -58,8 +80,8 @@ export const buildSyntheticSnapshot = days => {
     vendor: 'Synthetic Workshop', validityType: 'None', notes: 'Pre-KFE synthetic history at ₹0.60/km.', synthetic: true })
   odometer += preKfeKm
 
-  for (let i = 0; i < days; i += 1) {
-    const date = dayAt(i)
+  for (let i = 0; i < generatedDays; i += 1) {
+    const date = dayAt(i, stageStart)
     const dayIndex = i
     const isCity = ((dayIndex * 37) % 100) < 30
     const vehicleKm = isCity ? 200 : 400
@@ -87,8 +109,8 @@ export const buildSyntheticSnapshot = days => {
       supportingFare += fare
       const startMinutes = 8 * 60 + t * Math.floor(9 * 60 / tripCount)
       const endMinutes = startMinutes + (isCity ? 35 + ((dayIndex + t) % 25) : 70 + ((dayIndex + t) % 35))
-      const tripStartAt = at(date, Math.floor(startMinutes / 60), startMinutes % 60)
-      const tripEndAt = at(date, Math.floor(endMinutes / 60), endMinutes % 60)
+      const tripStartAt = capToNow(at(date, Math.floor(startMinutes / 60), startMinutes % 60))
+      const tripEndAt = capToNow(at(date, Math.floor(endMinutes / 60), endMinutes % 60))
       trips.push({ id: id('trip', i + '-' + t), shiftId, dayId: id('day', isoDate(date)), operator: ['Uber', 'Ola', 'Rapido', 'Savaari'][t % 4],
         tripStartAt, tripEndAt, status: 'COMPLETED', tripStartLocation: { placeName: isCity ? 'Mumbai City' : 'Mumbai Intercity' },
         tripEndLocation: { placeName: isCity ? 'Mumbai City' : ['Nashik', 'Pune', 'Thane'][dayIndex % 3] }, tripKm,
@@ -99,8 +121,8 @@ export const buildSyntheticSnapshot = days => {
 
     const baseRevenue = round(175 * 12 * (0.9 + ((dayIndex * 13) % 21) / 100))
     const shiftRevenue = treatment === 'INCLUDED' ? round(baseRevenue + toll + parking) : baseRevenue
-    const shiftStartAt = at(date, 7)
-    const shiftEndAt = at(date, 19)
+    const shiftStartAt = capToNow(at(date, 7))
+    const shiftEndAt = capToNow(at(date, 19))
     shifts.push({ id: shiftId, startOdometer: startOdo, endOdometer: endOdo, openingPersonalKm: 0, openingDeadKm: gapKm,
       openingPersonalToll: 0, openingPersonalParking: 0, totalDistance: vehicleKm, revenue: shiftRevenue, toll, parking,
       tollParkingRevenueTreatment: treatment, shiftStartAt, shiftEndAt, status: 'COMPLETED', synthetic: true, createdAt: shiftStartAt, updatedAt: shiftEndAt })
@@ -120,30 +142,22 @@ export const buildSyntheticSnapshot = days => {
     odometer = endOdo
   }
 
+  // Synthetic baseline intentionally contains no EMI payments. The business/loan is
+  // treated as unpaid through the real current date so overdue/loan-position logic
+  // can be exercised interactively in Synthetic Mode.
   const loanPayments = []
-  const paymentDates = ['2026-06-25','2026-07-20','2026-08-18','2026-09-15','2026-10-12','2026-11-18','2026-12-16',
-    '2027-01-17','2027-02-15','2027-03-16','2027-04-15','2027-05-16','2027-06-15','2027-07-17','2027-08-15','2027-09-16',
-    '2027-10-15','2027-11-17','2027-12-15','2028-01-17','2028-02-15','2028-03-16','2028-04-15','2028-05-17','2028-06-15',
-    '2028-07-17','2028-08-15','2028-09-16','2028-10-15','2028-11-17','2028-12-15','2029-01-17','2029-02-15','2029-03-16',
-    '2029-04-15','2029-05-17','2029-06-15','2029-07-17','2029-08-15','2029-09-16','2029-10-15','2029-11-17','2029-12-15',
-    '2030-01-17','2030-02-15','2030-03-16','2030-04-15','2030-05-17','2030-06-15','2030-07-17','2030-08-15','2030-09-16',
-    '2030-10-15','2030-11-17','2030-12-15','2031-01-17','2031-02-15','2031-03-16']
-  paymentDates.forEach((paidOn, index) => {
-    if (paidOn <= END) loanPayments.push({ id: id('loan-payment', index + 1), loanId: LOAN_ID, paidOn, amount: 11685.87,
-      status: 'Paid', notes: index === 0 ? 'First EMI paid late; synthetic delayed-payment scenario.' : 'Synthetic delayed EMI payment.', synthetic: true })
-  })
 
-  const driverTargets = [{ id: id('target', 1), driverId: DRIVER_ID, effectiveFrom: KFE_START, effectiveUntil: END,
+  const driverTargets = [{ id: id('target', 1), driverId: DRIVER_ID, effectiveFrom: KFE_START, effectiveUntil: stageEndDate,
     desiredDriverProfit: 1000, targetHours: 12, targetKm: 300, active: true, synthetic: true }]
   const breakEvenInputs = [
     { id: id('break-even', 'pre-kfe'), effectiveFrom: '2026-04-01', effectiveUntil: '2026-04-08', maintenanceProvisionPerKm: 0.6, active: true, synthetic: true },
-    { id: id('break-even', 'kfe'), effectiveFrom: KFE_START, effectiveUntil: END, maintenanceProvisionPerKm: 1.6, active: true, synthetic: true },
+    { id: id('break-even', 'kfe'), effectiveFrom: KFE_START, effectiveUntil: stageEndDate, maintenanceProvisionPerKm: 1.6, active: true, synthetic: true },
   ]
   const settings = [{ id: 'synthetic-setting-manifest', settingKey: 'synthetic_dataset_manifest',
-    values: { synthetic: true, startDate: '2026-04-09', endDate: END, days, kfeStartDate: KFE_START, maintenancePreKfe: 0.6, maintenanceKfe: 1.6 },
+    values: { synthetic: true, startDate: KFE_START, endDate: stageEndDate, days: generatedDays, requestedStageDays: days, kfeStartDate: KFE_START, maintenancePreKfe: 0.6, maintenanceKfe: 1.6, currentDateTime: window.now.toISOString(), emiPaidThrough: null },
     updatedAt: new Date().toISOString() }]
   const loan = [{ id: LOAN_ID, lender: 'Synthetic Bank', accountReference: 'SYN-LOAN-001', principal: 550000,
-    tenureMonths: 60, startDate: '2026-04-09', annualInterestRatePercent: 10, status: 'Active', synthetic: true }]
+    tenureMonths: 60, startDate: KFE_START, annualInterestRatePercent: 10, status: 'Active', synthetic: true }]
 
   return {
     shifts, fuel_logs, odoGaps, days: daysStore, trips, gps_snapshots: [], movement_artifacts: [],
@@ -162,7 +176,8 @@ export const loadSyntheticStage = async key => {
   const snapshot = buildSyntheticSnapshot(stage.days)
   await SyntheticDataRepository.writeSnapshot(snapshot)
   SyntheticDataRepository.activate()
-  setSyntheticDateContext({ startDate: KFE_START, endDate: stageEndDate })
+  const manifest = snapshot.settings?.find(record => record.id === 'synthetic-setting-manifest')?.values
+  setSyntheticDateContext({ startDate: manifest?.startDate || KFE_START, endDate: manifest?.endDate || new Date().toISOString().slice(0, 10), endAt: manifest?.currentDateTime || new Date().toISOString() })
   return { stage: stage.title, counts: Object.fromEntries(Object.entries(snapshot).map(entry => [entry[0], entry[1].length])) }
 }
 
