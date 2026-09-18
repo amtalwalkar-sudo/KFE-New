@@ -47,7 +47,7 @@ const complianceRows = () => {
   const rows = []
   const allocations = [['Insurance', 14000], ['Road Tax', 4000], ['Permit', 3000], ['Authorization', 1500], ['Fitness', 2500]]
   for (let cycle = 0; cycle < 5; cycle += 1) {
-    const from = addDays(START, cycle * 365)
+    const from = addDays(BUSINESS_START, cycle * 365)
     const until = addDays(from, 364)
     for (const item of allocations) rows.push({
       id: id('compliance', cycle + '-' + item[0].toLowerCase().replace(/ /g, '-')),
