@@ -44,7 +44,7 @@ const createSimpleStore = (db, name, indexes = []) => {
 const getActiveSource = () => typeof sessionStorage === 'undefined' ? 'canonical' : (sessionStorage.getItem(DATA_SOURCE_KEY) === 'synthetic' ? 'synthetic' : 'canonical')
 const dbNameFor = source => source === 'synthetic' ? SYNTHETIC_DB_NAME : CANONICAL_DB_NAME
 const openDatabase = name => new Promise((resolve, reject) => {
-  const request = indexedDB.open(name, CANONICAL_DB_VERSION)
+  const request = name === CANONICAL_DB_NAME ? indexedDB.open(CANONICAL_DB_NAME, CANONICAL_DB_VERSION) : indexedDB.open(name, CANONICAL_DB_VERSION)
   request.onupgradeneeded = e => {
     const db = e.target.result
     if (!db.objectStoreNames.contains('shifts')) { const store = db.createObjectStore('shifts', { keyPath: 'id' }); store.createIndex('shiftEndAt', 'shiftEndAt', { unique: false }) }
@@ -70,9 +70,9 @@ const openDatabase = name => new Promise((resolve, reject) => {
 const initializeDatabase = async name => {
   if (dbInstances.has(name)) return dbInstances.get(name)
   if (initializationPromises.has(name)) return initializationPromises.get(name)
-  const promise = openDatabase(name).then(db => { dbInstances.set(name, db); return db }).finally(() => initializationPromises.delete(name))
-  initializationPromises.set(name, promise)
-  return promise
+  const initializationPromise = openDatabase(name).then(db => { dbInstances.set(name, dbInstance); return dbInstance }).finally(() => initializationPromises.delete(name))
+  initializationPromises.set(name, initializationPromise)
+  return initializationPromise
 }
 export const setActiveDataSource = source => {
   if (!['canonical','synthetic'].includes(source)) throw new Error('Invalid KFE data source.')
