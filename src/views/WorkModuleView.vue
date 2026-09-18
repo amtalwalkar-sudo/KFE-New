@@ -145,4 +145,26 @@ onUnmounted(()=>{window.clearInterval(interval);unsubscribeTarget?.()})
 .swipe-hint{font-size:.6rem}
 @media(max-width:600px){.cockpit{padding-left:12px;padding-right:12px}.hero{padding:12px}.target-card strong{font-size:1.7rem}}
 
+
+/* KFE Visual DNA — final Driver cockpit correction */
+.cockpit{max-width:760px!important;padding:26px 16px 158px!important}
+.hero{display:grid!important;grid-template-columns:1fr auto!important;align-items:center!important;padding:18px!important;margin-bottom:14px!important;border:0!important;border-left:5px solid var(--kfe-ui-accent)!important;border-radius:12px!important;background:var(--kfe-ui-surface)!important;box-shadow:0 4px 18px color-mix(in srgb,var(--kfe-ui-text) 7%,transparent)!important}
+.hero h1{font-size:clamp(1.65rem,6vw,2.05rem)!important;letter-spacing:-.045em!important}
+.hero small{font-size:.66rem!important}
+.online-control{padding:8px 10px!important;border-radius:10px!important}
+.target-card{padding:20px!important;margin-bottom:12px!important;border:1px solid var(--kfe-ui-border)!important;border-top:4px solid var(--kfe-ui-accent)!important;border-radius:12px!important;box-shadow:0 4px 18px color-mix(in srgb,var(--kfe-ui-text) 6%,transparent)!important}
+.target-card strong{font-size:clamp(1.9rem,8vw,2.5rem)!important;letter-spacing:-.04em!important}
+.card{padding:18px!important;margin-bottom:12px!important;border-radius:12px!important;box-shadow:0 3px 14px color-mix(in srgb,var(--kfe-ui-text) 5%,transparent)!important}
+.state{gap:10px!important}.state div{padding:12px!important;border-radius:10px!important}
+.state div:first-child{border-left:3px solid var(--kfe-success)!important}.state div:last-child{border-left:3px solid var(--kfe-ui-accent)!important}
+.gate h2,.trip h2{font-size:1.12rem!important}.gate label{font-size:.78rem!important}
+.gate input,.gate select,.review input,.review select{background:var(--kfe-ui-surface-2)!important;border:1px solid var(--kfe-ui-border)!important}
+.operators button,.allocation-actions button{min-height:48px!important;border-radius:10px!important}
+.operators button.selected,.allocation-actions button.selected{background:color-mix(in srgb,var(--kfe-ui-accent) 12%,var(--kfe-ui-surface))!important}
+.trip{text-align:left!important;border-top:4px solid var(--kfe-success)!important}.trip .timer{text-align:center!important;font-size:clamp(2.3rem,10vw,3rem)!important;font-weight:800!important}
+.cockpit-target{padding:12px;border-radius:10px;background:var(--kfe-ui-surface-2)}
+.persistent-action{height:82px!important;padding:9px 12px 6px!important;background:var(--kfe-ui-surface)!important;box-shadow:0 -5px 18px color-mix(in srgb,var(--kfe-ui-text) 7%,transparent)!important;backdrop-filter:none!important}
+.swipe-bar{height:54px!important;border-radius:12px!important;font-size:.78rem!important;box-shadow:none!important}
+@media(max-width:600px){.cockpit{padding:16px 12px 158px!important}.hero{grid-template-columns:1fr!important;gap:12px!important}.online-control{justify-self:stretch;justify-content:center}.target-card strong{font-size:2rem!important}}
+
 </style>
