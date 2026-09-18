@@ -1,4 +1,4 @@
-import { initializeSyntheticStorage, setActiveDataSource, SYNTHETIC_DB_NAME } from '../utils/indexedDB.js'
+import { initializeSyntheticStorage, setActiveDataSource, getActiveDataSource, SYNTHETIC_DB_NAME } from '../utils/indexedDB.js'
 
 const SYNTHETIC_STORES = Object.freeze(['shifts','fuel_logs','odoGaps','pending_mutations','days','trips','gps_snapshots','movement_artifacts','vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history'])
 
@@ -40,5 +40,6 @@ export const SyntheticDataRepository = Object.freeze({
     setActiveDataSource('canonical')
   },
   activate() { setActiveDataSource('synthetic') },
+  activeDataSource() { return getActiveDataSource() },
   databaseName: SYNTHETIC_DB_NAME,
 })
