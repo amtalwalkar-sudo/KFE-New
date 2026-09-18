@@ -41,7 +41,7 @@ const gapPersonal = computed(() => gapCategory.value === 'PERSONAL' ? gapKm.valu
 const gapDead = computed(() => gapCategory.value === 'DEAD' ? gapKm.value : 0)
 const allocatedGap = computed(() => gapCategory.value ? gapKm.value : 0)
 const fuelQuantity = computed(() => fuelStore.calculateQuantity(fuelPrice.value, fuelAmount.value))
-const targetValue = computed(() => Number.isFinite(Number(target.value?.target)) ? Number(target.value.target) : null)
+const targetValue = computed(() => target.value?.target !== null && target.value?.target !== undefined && Number.isFinite(Number(target.value.target)) ? Number(target.value.target) : null)
 const targetText = computed(() => targetValue.value == null ? '—' : `₹${targetValue.value.toLocaleString('en-IN',{maximumFractionDigits:0})}`)
 const tripTimer = computed(() => {
   if (!store.trip?.tripStartAt) return '00:00:00'
