@@ -147,6 +147,7 @@ onUnmounted(()=>{window.clearInterval(interval);unsubscribeTarget?.()})
       <div class="state-kicker online">ON TRIP</div>
       <div class="trip-operator-row"><span>Operator</span><button type="button" class="operator-select" @click="selectedOperator = selectedOperator === '__menu__' ? store.trip.operator : '__menu__'">{{store.trip.operator+' ▾'}}</button></div>
       <div v-if="selectedOperator==='__menu__'" class="operator-menu"><button v-for="operator in store.operators" :key="operator" type="button" :class="{selected:store.trip.operator===operator}" @click="changeTripOperator(operator)">{{operator}}</button></div>
+      <div class="trip-target"><span>TODAY'S TARGET</span><strong>{{targetText}}</strong></div>
       <div class="trip-core"><div class="timer">{{tripTimer}}</div><div class="trip-continuity">Trip in progress · operator can be corrected before trip ends</div></div>
       <div class="next-event"><span>NEXT</span><strong>END TRIP</strong></div>
     </section>
