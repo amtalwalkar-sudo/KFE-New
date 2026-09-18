@@ -1303,3 +1303,22 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
   .kfe-work-cockpit .cockpit-end-state .end-confirm-panel{animation:none}
   .kfe-work-cockpit .end-shift-swipe-progress{transition:none}
 }
+
+/* KFE END SHIFT ENTRY SURFACE REFINEMENT */
+.kfe-work-cockpit .end-entry-grid{display:flex;flex-direction:column;gap:10px}
+.kfe-work-cockpit .metric-field{display:flex;flex-direction:column;gap:6px;padding:13px;border:1px solid var(--kfe-ui-border);border-radius:15px;background:var(--kfe-ui-surface-2)}
+.kfe-work-cockpit .metric-field label{margin:0;font-size:.62rem;letter-spacing:.11em;font-weight:950;color:var(--kfe-muted-text)}
+.kfe-work-cockpit .metric-input{display:flex;align-items:center;min-height:64px;border-radius:12px;background:var(--kfe-ui-surface);border:1px solid var(--kfe-ui-border);padding:0 13px;gap:8px}
+.kfe-work-cockpit .metric-input input{flex:1;min-width:0;min-height:60px;padding:0;border:0;background:transparent;font-size:clamp(1.65rem,8vw,2.25rem);font-weight:950;letter-spacing:-.035em;outline:none}
+.kfe-work-cockpit .metric-input span{font-size:1rem;font-weight:950;color:var(--kfe-muted-text)}
+.kfe-work-cockpit .metric-field small{font-size:.64rem;color:var(--kfe-muted-text)}
+.kfe-work-cockpit .optional-entry{display:flex;flex-direction:column;gap:11px}
+.kfe-work-cockpit .optional-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.kfe-work-cockpit .optional-heading .form-question{margin:0}
+.kfe-work-cockpit .optional-heading>span{font-size:.56rem;font-weight:950;letter-spacing:.1em;padding:5px 8px;border-radius:999px;border:1px solid var(--kfe-ui-border);color:var(--kfe-muted-text)}
+.kfe-work-cockpit .expense-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.kfe-work-cockpit .metric-field.compact{padding:11px}
+.kfe-work-cockpit .metric-field.compact .metric-input{min-height:55px;padding:0 10px}
+.kfe-work-cockpit .metric-field.compact .metric-input input{min-height:51px;font-size:1.35rem}
+.kfe-work-cockpit .exclude-check{margin-top:0!important;padding:10px 11px;border:1px solid var(--kfe-ui-border);border-radius:12px;background:var(--kfe-ui-surface-2)}
+@media(max-width:600px){.kfe-work-cockpit .expense-grid{grid-template-columns:1fr 1fr}.kfe-work-cockpit .metric-input input{font-size:1.7rem}}
