@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { SYNTHETIC_STAGES, buildSyntheticSnapshot } from '../application/synthetic/syntheticDataService.js'
+import { clearSyntheticDateContext, getKfeReferenceNow, istDateKey, reportingRangeFor, setSyntheticDateContext } from '../domain/time/ist.js'
 
 assert.deepEqual(SYNTHETIC_STAGES.map(stage => stage.days), [7, 30, 182, 365, 1818])
 const week = buildSyntheticSnapshot(7)
@@ -41,3 +42,20 @@ assert.equal(full.pending_mutations.length, 0)
 assert.equal(full.audit_history.length, 0)
 
 console.log('Synthetic isolated data contract: PASS')
+
+
+globalThis.sessionStorage = {
+  _data: new Map(),
+  getItem(key) { return this._data.has(key) ? this._data.get(key) : null },
+  setItem(key, value) { this._data.set(key, String(value)) },
+  removeItem(key) { this._data.delete(key) },
+}
+setSyntheticDateContext({ startDate: '2026-04-09', endDate: '2026-04-15' })
+assert.equal(istDateKey(getKfeReferenceNow()), '2026-04-15')
+const syntheticMonth = reportingRangeFor('MONTH')
+assert.equal(istDateKey(syntheticMonth.from), '2026-04-09')
+assert.equal(istDateKey(syntheticMonth.to), '2026-04-15')
+clearSyntheticDateContext()
+assert.notEqual(istDateKey(getKfeReferenceNow()), '2026-04-15')
+
+console.log('Synthetic date context contract: PASS')
