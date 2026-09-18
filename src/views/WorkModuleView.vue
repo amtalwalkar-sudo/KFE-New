@@ -126,4 +126,23 @@ onUnmounted(()=>{window.clearInterval(interval);unsubscribeTarget?.()})
 .swipe-bar{width:100%;height:42px;border-radius:var(--kfe-radius-md,12px);background:var(--kfe-ui-accent);color:#fff;font-weight:900;display:flex;align-items:center;justify-content:center;gap:8px;user-select:none;touch-action:pan-y;transition:transform .16s;cursor:grab;box-shadow:0 4px 14px color-mix(in srgb,var(--kfe-ui-accent) 22%,transparent)}
 .swipe-hint{display:block;text-align:center;color:var(--kfe-muted-text);font-size:.62rem;margin-top:2px}
 @media(max-width:380px){.two,.review,.allocation-actions{grid-template-columns:1fr}}@media(min-width:900px){.cockpit{padding-top:24px}}
+
+/* KFE Visual DNA — Driver / instrument-cluster expression */
+.cockpit{max-width:720px;padding:24px 16px 150px}
+.hero{margin-bottom:18px;padding:14px 14px 13px;border:1px solid var(--kfe-ui-border);border-radius:var(--kfe-radius-lg);background:var(--kfe-ui-surface);box-shadow:var(--kfe-ui-shadow)}
+.hero h1{font-size:clamp(1.45rem,5vw,1.8rem)}
+.online-control{padding:6px 8px;border:1px solid var(--kfe-ui-border);border-radius:var(--kfe-radius-md);background:var(--kfe-ui-surface-2)}
+.target-card{position:relative;overflow:hidden;border-top:3px solid var(--kfe-ui-accent);padding:16px 18px 14px}
+.target-card strong{font-size:clamp(1.6rem,7vw,2rem)}
+.card{border-radius:var(--kfe-radius-md);padding:15px;margin-bottom:12px}
+.state{gap:12px}
+.state div{flex:1;padding:10px 12px;border:1px solid var(--kfe-ui-border);border-radius:var(--kfe-radius-sm);background:var(--kfe-ui-surface-2)}
+.gate h2{font-size:1.05rem}
+.gate input,.gate select,.review input,.review select{min-height:48px}
+.trip .timer{font-size:clamp(2rem,9vw,2.6rem);letter-spacing:.02em}
+.persistent-action{height:72px;padding:7px 12px 5px;background:color-mix(in srgb,var(--kfe-ui-surface) 98%,transparent);box-shadow:0 -6px 20px color-mix(in srgb,var(--kfe-ui-text) 6%,transparent)}
+.swipe-bar{height:48px;border-radius:var(--kfe-radius-md);box-shadow:var(--kfe-ui-shadow);letter-spacing:.01em}
+.swipe-hint{font-size:.6rem}
+@media(max-width:600px){.cockpit{padding-left:12px;padding-right:12px}.hero{padding:12px}.target-card strong{font-size:1.7rem}}
+
 </style>
