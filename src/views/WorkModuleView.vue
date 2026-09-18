@@ -148,6 +148,23 @@ onUnmounted(()=>{window.clearInterval(interval);unsubscribeTarget?.()})
     <section v-else-if="!store.isTripActive && !store.isOnline" class="cockpit-state cockpit-start-state">
       <div class="state-kicker">OFFLINE</div>
       <h2>START SHIFT</h2>
+      <div v-if="!startOdoOpen" class="offline-performance">
+        <button class="work-target-tab" type="button" aria-label="Today's target"><span>TARGET</span><strong>{{targetText}}</strong></button>
+        <article class="work-performance-hero work-performance-week">
+          <div class="work-performance-heading"><div><small>WEEKLY PERFORMANCE</small><h3>{{weeklyPerformance?.date || 'This week'}}</h3></div><span>WEEK</span></div>
+          <div class="work-performance-metrics">
+            <div><span>Revenue</span><strong>{{performanceMoney(weeklyPerformance?.revenue)}}</strong><small>Total fare · toll + parking</small></div>
+            <div><span>Profit</span><strong>{{performanceMoney(weeklyPerformance?.profit)}}</strong><small>Revenue − break-even</small></div>
+          </div>
+        </article>
+        <article class="work-performance-hero work-performance-yesterday">
+          <div class="work-performance-heading"><div><small>YESTERDAY'S PERFORMANCE</small><h3>{{yesterdayPerformance?.date || 'Yesterday'}}</h3></div><span>DAY</span></div>
+          <div class="work-performance-metrics">
+            <div><span>Revenue</span><strong>{{performanceMoney(yesterdayPerformance?.revenue)}}</strong><small>Total fare · toll + parking</small></div>
+            <div><span>Profit</span><strong>{{performanceMoney(yesterdayPerformance?.profit)}}</strong><small>Revenue − break-even</small></div>
+          </div>
+        </article>
+      </div>
       <div v-if="startOdoOpen" class="focus-card start-odo-confirm">
         <div class="form-topline"><div><small>SHIFT START</small><h3>START ODOMETER</h3></div><button class="form-back" type="button" @click="cancelStartOdo"><span aria-hidden="true">🔙</span><span>Back</span></button></div>
         <input v-model="startOdo" type="number" min="0" inputmode="decimal" aria-label="Start odometer" autocomplete="off">
