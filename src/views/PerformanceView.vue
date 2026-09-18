@@ -210,4 +210,21 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
 @media(min-width:760px){.metric-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:560px){.performance-page{padding-left:12px;padding-right:12px}.metric-grid{grid-template-columns:1fr 1fr}}
 
+
+/* KFE Visual DNA — final analytical experience correction */
+.performance-page{max-width:1120px!important;padding:26px 16px 40px!important}
+.performance-page>.head{padding:18px 0!important;margin-bottom:14px!important;border-bottom:1px solid var(--kfe-ui-border)!important}
+.performance-page>.head h1{font-size:clamp(1.6rem,5vw,2rem)!important;letter-spacing:-.045em!important}
+.financial-grid{gap:10px!important}.financial-card{min-height:132px!important;padding:17px!important;border-radius:12px!important;border-top:3px solid var(--kfe-ui-accent)!important;box-shadow:0 4px 16px color-mix(in srgb,var(--kfe-ui-text) 6%,transparent)!important}
+.financial-card strong{font-size:clamp(1.45rem,4vw,1.8rem)!important}
+.panel,.target-panel,.requirement-panel,.state-card,.info-strip{border-radius:12px!important;box-shadow:0 3px 14px color-mix(in srgb,var(--kfe-ui-text) 5%,transparent)!important}
+.metric-grid{gap:10px!important}.metric-grid .metric{min-height:86px!important;padding:14px!important;border-left:4px solid var(--kfe-ui-accent)!important;border-radius:10px!important}
+.metric-grid .metric strong{font-size:1.05rem!important}
+.target-grid>div{padding:14px!important;border-radius:10px!important}
+.tabs button{min-height:44px!important}.tabs button.active{background:var(--kfe-ui-accent)!important;color:#fff!important}
+.fold{border-radius:12px!important}
+.detail{border-radius:14px!important;box-shadow:0 4px 16px color-mix(in srgb,var(--kfe-ui-text) 6%,transparent)!important}
+@media(min-width:760px){.metric-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}}
+@media(max-width:560px){.performance-page{padding:16px 12px 30px!important}.financial-grid{grid-template-columns:1fr 1fr!important}}
+
 </style>
