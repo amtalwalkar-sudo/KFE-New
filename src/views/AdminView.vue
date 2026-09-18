@@ -86,4 +86,23 @@ onMounted(load)
 .settings-layout{display:grid;grid-template-columns:270px minmax(0,1fr);gap:11px}.settings-menu{padding:14px}.settings-menu button{width:100%;display:grid;grid-template-columns:29px 1fr 12px;gap:8px;align-items:center;text-align:left;margin-top:7px;padding:9px;border:1px solid transparent;border-radius:10px;background:transparent;color:inherit;cursor:pointer}.settings-menu button.active{background:color-mix(in srgb,var(--kfe-ui-accent) 10%,var(--kfe-ui-surface));border-color:color-mix(in srgb,var(--kfe-ui-accent) 20%,var(--kfe-ui-border))}.settings-icon{width:29px;height:29px;display:grid;place-items:center;border-radius:8px;background:var(--kfe-ui-surface-2)}.settings-menu strong{display:block;font-size:.62rem}.settings-menu small{display:block;margin-top:2px;color:var(--kfe-muted-text);font-size:.53rem;line-height:1.35}.settings-menu b{color:var(--kfe-muted-text)}.settings-workspace{padding:15px}.status{padding:6px 9px;border-radius:999px;background:color-mix(in srgb,var(--kfe-ui-accent) 10%,var(--kfe-ui-surface));color:var(--kfe-ui-accent);font-size:.55rem;font-weight:850;white-space:nowrap}.status.danger{background:color-mix(in srgb,var(--kfe-danger) 10%,var(--kfe-ui-surface));color:var(--kfe-danger)}
 .info-card,.reset-card{margin-top:15px;padding:15px;border:1px solid var(--kfe-ui-border);border-radius:var(--kfe-radius-md,13px);background:var(--kfe-ui-surface)}.info-card strong{font-size:.7rem}.info-card p,.reset-card p{margin:5px 0 0;color:var(--kfe-muted-text);font-size:.62rem;line-height:1.5}.reset-card{display:flex;justify-content:space-between;align-items:center;gap:15px}.reset-card h2{margin:0;font-size:.82rem}.reset-button{min-height:42px;padding:0 12px;border:1px solid color-mix(in srgb,var(--kfe-danger) 45%,var(--kfe-ui-border));border-radius:9px;background:color-mix(in srgb,var(--kfe-danger) 9%,var(--kfe-ui-surface));color:var(--kfe-danger);font-size:.61rem;font-weight:900;cursor:pointer;white-space:nowrap}
 @media(max-width:850px){.flow-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:700px){.settings-layout{grid-template-columns:1fr}.record{flex-direction:column}.actions{justify-content:flex-end}.workspace-head,.settings-heading,.flow-heading{flex-direction:column}.flow-rule{align-self:flex-start}.primary{align-self:flex-start}.reset-card{flex-direction:column;align-items:flex-start}.reset-button{width:100%}}
+
+/* KFE Visual DNA — Admin / structured control centre */
+.admin-page{max-width:1120px;padding:24px 16px 40px}
+.admin-head{padding-bottom:14px;border-bottom:1px solid var(--kfe-ui-border);margin-bottom:12px}
+.admin-head h1{font-size:clamp(1.4rem,5vw,1.8rem)}
+.settings-link{min-height:44px}
+.category-slider{box-shadow:var(--kfe-ui-shadow)}
+.category-tab{min-height:44px}
+.workspace,.settings-menu,.settings-workspace{border-radius:var(--kfe-radius-lg);box-shadow:var(--kfe-ui-shadow)}
+.workspace{padding:17px}
+.workspace-head h2,.settings-heading h2,.settings-menu h2{font-size:1.12rem}
+.record-list{gap:8px}
+.record{padding:14px;border-radius:var(--kfe-radius-md)}
+.actions button{min-height:40px}
+.record-tabs button{min-height:42px}
+.settings-menu button{min-height:54px}
+.info-card,.reset-card{border-radius:var(--kfe-radius-md)}
+@media(max-width:700px){.admin-page{padding-left:12px;padding-right:12px}.workspace{padding:13px}}
+
 </style>
