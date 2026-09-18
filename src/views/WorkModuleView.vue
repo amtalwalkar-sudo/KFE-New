@@ -61,7 +61,7 @@ const notify = text => { message.value = text; error.value = ''; window.setTimeo
 const fail = text => { error.value = text; message.value = '' }
 const refreshTarget = async () => { try { target.value = await DriverTargetService.getTarget(getKfeReferenceNow()) } catch (_) { target.value = null } }
 const selectGapCategory = category => { if (!gap.value.valid || gapKm.value <= 0) return; gapCategory.value = category; if (category !== 'PERSONAL') { personalToll.value = ''; personalParking.value = '' } }
-const goOnline = async () => { const needsGap = gap.value.valid && gapKm.value > 0; const allocation = needsGap ? (gapCategory.value ? { category: gapCategory.value, personalToll: personalToll.value, personalParking: personalParking.value } : null) : null; const result = await store.startShift(startOdo.value, allocation); if (result.requiresGapAllocation) return fail(`Choose Personal KM or Dead KM to allocate the full ${result.gapKm} km before going Online.`); if (!result.ok) return fail(result.reason); startOdo.value=''; gapCategory.value=null; personalToll.value=''; personalParking.value=''; await refreshTarget(); notify('Online.') }
+const goOnline = async () => { const needsGap = gap.value.valid && gapKm.value > 0; if (!startOdo.value) return fail('Enter the start odometer before going Online.'); if (needsGap && !gapCategory.value) return fail('Choose Personal KM or Dead KM before going Online.'); const allocation = needsGap ? { category: gapCategory.value, personalToll: personalToll.value, personalParking: personalParking.value } : null; const result = await store.startShift(startOdo.value, allocation); if (result.requiresGapAllocation) return fail(`Choose Personal KM or Dead KM to allocate the full ${result.gapKm} km before going Online.`); if (!result.ok) return fail(result.reason); startOdo.value=''; gapCategory.value=null; personalToll.value=''; personalParking.value=''; await refreshTarget(); notify('Online.') }
 const goOffline = async (confirmLargeDistance = false) => { const trips = reviewTrips.value ? store.completedTrips.map(t => ({ id:t.id, operator:t.operator, tripKm:t.tripKm??'', revenue:t.revenue??'' })) : []; const result = await store.endShift({ closingOdometer:closingOdo.value, revenue:shiftRevenue.value, toll:toll.value, parking:parking.value, tollParkingRevenueTreatment:tollTreatment.value, trips, confirmLargeDistance }); if(result.requiresConfirmation){ const confirmed=window.confirm(`⚠️ Closing odometer shows ${result.distanceKm} km for this shift. If the odometer is correct, confirm to end the Shift.`); if(!confirmed)return; return goOffline(true) } if(!result.ok)return fail(result.reason); clearEndShiftFlow(); await refreshTarget(); notify('Offline.') }
 const clearEndShiftFlow = () => { closingOdo.value=''; shiftRevenue.value=''; toll.value=''; parking.value=''; tollTreatment.value='INCLUDED'; reviewTrips.value=false; endShiftStep.value=1; endShiftOpen.value=false }
 const openEndShift = () => { fuelFormOpen.value=false; endShiftStep.value=1; endShiftOpen.value=true; error.value=''; message.value='' }
@@ -107,7 +107,7 @@ onUnmounted(()=>{window.clearInterval(interval);unsubscribeTarget?.()})
   <div class="cockpit kfe-work-cockpit" :class="{ 'cockpit--offline': !store.isOnline, 'cockpit--online': store.isOnline && !store.isTripActive && !endShiftOpen, 'cockpit--trip': store.isTripActive, 'cockpit--end-shift': endShiftOpen, 'cockpit--fuel': fuelFormOpen }">
     <header class="hero">
       <div><small>KFE WORK</small><h1>Driver Cockpit</h1></div>
-      <div class="hero-actions"><button class="fuel-icon" type="button" :class="{active:fuelFormOpen}" aria-label="CNG refuelling" title="CNG refuelling" @click="openFuelForm"><span aria-hidden="true">⛽</span></button><div class="online-control"><span>OFFLINE</span><button type="button" class="online-toggle" :class="{active:store.isOnline}" :disabled="store.isTripActive" role="switch" :aria-checked="store.isOnline" :aria-label="store.isOnline ? 'Go Offline' : 'Go Online'" @click.stop.prevent="toggleOnline"><span/></button><span>ONLINE</span></div></div>
+      <div class="hero-actions"><button class="fuel-icon" type="button" :class="{active:fuelFormOpen}" aria-label="CNG refuelling" title="CNG refuelling" @click="openFuelForm"><span aria-hidden="true">⛽</span></button><div class="online-control"><span>OFFLINE</span><button type="button" class="online-toggle" :class="{active:store.isOnline}" :disabled="store.isTripActive || !store.isOnline" role="switch" :aria-checked="store.isOnline" :aria-label="store.isOnline ? 'Go Offline' : 'Confirm odometer and go Online'" @click.stop.prevent="toggleOnline"><span/></button><span>ONLINE</span></div></div>
     </header>
     <div v-if="message" class="message">{{message}}</div><div v-if="error" class="error">{{error}}</div>
 
@@ -125,13 +125,14 @@ onUnmounted(()=>{window.clearInterval(interval);unsubscribeTarget?.()})
     <section v-else-if="!store.isTripActive && !store.isOnline" class="cockpit-state cockpit-start-state">
       <div class="state-kicker">OFFLINE</div>
       <h2>START SHIFT</h2>
-      <div class="focus-card">
-        <label>Start odometer</label><input v-model="startOdo" type="number" min="0" inputmode="decimal" aria-label="Start odometer">
-        <span class="field-note">Pre-filled from last valid entry</span>
+      <div class="focus-card start-odo-confirm">
+        <label>START ODOMETER</label>
+        <input v-model="startOdo" type="number" min="0" inputmode="decimal" aria-label="Start odometer" autocomplete="off">
+        <span class="field-note">Pre-filled from last valid entry · check and confirm</span>
+        <button class="primary start-online-action" type="button" @click="goOnline">CONFIRM ODOMETER &amp; GO ONLINE</button>
       </div>
       <div v-if="store.firstKfeDay && gap.valid" class="gap compact-gap"><div class="gap-head"><strong>Historical odometer gap</strong><span>Excluded from Personal / Dead KM</span></div><div class="allocation-summary"><div><span>Business start</span><strong>{{store.businessStartBaseline?.businessStartOdometer ?? '—'}} km</strong></div><div><span>Current</span><strong>{{startOdo || '—'}} km</strong></div></div></div>
       <div v-else-if="gap.valid&&gapKm>0" class="gap compact-gap"><div class="gap-head"><strong>Odometer gap · {{gapKm}} km</strong><span>Resolve before Online</span></div><div class="allocation-actions"><button type="button" :class="{selected:gapCategory==='PERSONAL'}" @click="selectGapCategory('PERSONAL')">Personal KM</button><button type="button" :class="{selected:gapCategory==='DEAD'}" @click="selectGapCategory('DEAD')">Dead KM</button></div><div class="gap-status"><span v-if="gapCategory">Allocated {{allocatedGap}} / {{gapKm}} km · Ready for Online</span><span v-else>Choose one category before Online.</span></div></div>
-      <div class="next-event"><span>NEXT</span><strong>GO ONLINE</strong></div>
     </section>
 
     <section v-else-if="!store.isTripActive && store.isOnline && !endShiftOpen" class="cockpit-state cockpit-ready-state">
