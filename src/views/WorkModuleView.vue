@@ -25,6 +25,11 @@ const cancelledRevenue = ref('')
 const fuelFormOpen = ref(false)
 const endShiftOpen = ref(false)
 const endShiftStep = ref(1)
+const endShiftSaved = ref({ 1: false, 2: false, 3: false })
+const endShiftSwipeStartX = ref(null)
+const endShiftSwipeTracking = ref(false)
+const endShiftSwipeOffset = ref(0)
+const endShiftSwipeTrack = ref(null)
 const fuelDraftKey = 'kfe.work.fuelDraft.v1'
 const fuelDraftTtlMs = 30 * 60 * 1000
 const fuelOdometer = ref('')
@@ -63,14 +68,24 @@ const refreshTarget = async () => { try { target.value = await DriverTargetServi
 const selectGapCategory = category => { if (!gap.value.valid || gapKm.value <= 0) return; gapCategory.value = category; if (category !== 'PERSONAL') { personalToll.value = ''; personalParking.value = '' } }
 const goOnline = async () => { const needsGap = gap.value.valid && gapKm.value > 0; if (!startOdo.value) return fail('Enter the start odometer before going Online.'); if (needsGap && !gapCategory.value) return fail('Choose Personal KM or Dead KM before going Online.'); const allocation = needsGap ? { category: gapCategory.value, personalToll: personalToll.value, personalParking: personalParking.value } : null; const result = await store.startShift(startOdo.value, allocation); if (result.requiresGapAllocation) return fail(`Choose Personal KM or Dead KM to allocate the full ${result.gapKm} km before going Online.`); if (!result.ok) return fail(result.reason); startOdo.value=''; gapCategory.value=null; personalToll.value=''; personalParking.value=''; await refreshTarget(); notify('Online.') }
 const goOffline = async (confirmLargeDistance = false) => { const trips = reviewTrips.value ? store.completedTrips.map(t => ({ id:t.id, operator:t.operator, tripKm:t.tripKm??'', revenue:t.revenue??'' })) : []; const result = await store.endShift({ closingOdometer:closingOdo.value, revenue:shiftRevenue.value, toll:toll.value, parking:parking.value, tollParkingRevenueTreatment:tollTreatment.value, trips, confirmLargeDistance }); if(result.requiresConfirmation){ const confirmed=window.confirm(`⚠️ Closing odometer shows ${result.distanceKm} km for this shift. If the odometer is correct, confirm to end the Shift.`); if(!confirmed)return; return goOffline(true) } if(!result.ok)return fail(result.reason); clearEndShiftFlow(); await refreshTarget(); notify('Offline.') }
-const clearEndShiftFlow = () => { closingOdo.value=''; shiftRevenue.value=''; toll.value=''; parking.value=''; tollTreatment.value='INCLUDED'; reviewTrips.value=false; endShiftStep.value=1; endShiftOpen.value=false }
-const openEndShift = () => { fuelFormOpen.value=false; endShiftStep.value=1; endShiftOpen.value=true; error.value=''; message.value='' }
+const clearEndShiftFlow = () => { closingOdo.value=''; shiftRevenue.value=''; toll.value=''; parking.value=''; tollTreatment.value='INCLUDED'; reviewTrips.value=false; endShiftStep.value=1; endShiftSaved.value={1:false,2:false,3:false}; endShiftSwipeStartX.value=null; endShiftSwipeTracking.value=false; endShiftSwipeOffset.value=0; endShiftOpen.value=false }
+const openEndShift = () => { fuelFormOpen.value=false; endShiftStep.value=1; endShiftSaved.value={1:false,2:false,3:false}; endShiftSwipeStartX.value=null; endShiftSwipeTracking.value=false; endShiftSwipeOffset.value=0; endShiftOpen.value=true; error.value=''; message.value='' }
 const endShiftBack = () => { if(endShiftStep.value<=1) return cancelOffline(); endShiftStep.value -= 1; error.value=''; message.value='' }
-const endShiftContinue = () => { if(!closingOdo.value || !shiftRevenue.value) return fail('Closing odometer and total shift revenue are required.'); endShiftStep.value=2; error.value=''; message.value='' }
-const endShiftExpenseSave = () => { endShiftStep.value=3; error.value=''; message.value='' }
-const endShiftExpenseSkip = () => { toll.value=''; parking.value=''; endShiftStep.value=3; error.value=''; message.value='' }
-const endShiftReviewSave = async () => { reviewTrips.value=true; await goOffline() }
-const endShiftReviewSkip = async () => { reviewTrips.value=false; await goOffline() }
+const endShiftContinue = () => { if(!closingOdo.value || !shiftRevenue.value) return fail('Closing odometer and total shift revenue are required.'); endShiftSaved.value={...endShiftSaved.value,1:true}; endShiftStep.value=2; error.value=''; message.value='' }
+const endShiftExpenseSave = () => { endShiftSaved.value={...endShiftSaved.value,2:true}; endShiftStep.value=3; error.value=''; message.value='' }
+const endShiftExpenseSkip = () => { toll.value=''; parking.value=''; endShiftSaved.value={...endShiftSaved.value,2:true}; endShiftStep.value=3; error.value=''; message.value='' }
+const endShiftReviewSave = async () => { for (const t of store.completedTrips) { const result=await store.updateTrip({id:t.id,operator:t.operator,tripKm:t.tripKm??'',revenue:t.revenue??''}); if(!result.ok)return fail(result.reason) } endShiftSaved.value={...endShiftSaved.value,3:true}; endShiftStep.value=4; error.value=''; message.value='' }
+const endShiftReviewSkip = () => { endShiftSaved.value={...endShiftSaved.value,3:true}; endShiftStep.value=4; error.value=''; message.value='' }
+const endShiftConfirm = async () => { reviewTrips.value=true; await goOffline() }
+const endShiftCanSwipeForward = computed(() => endShiftStep.value < 4 && endShiftSaved.value[endShiftStep.value])
+const endShiftSwipeProgress = computed(() => { const width=endShiftSwipeTrack.value?.clientWidth||320; return Math.min(100,Math.round((Math.abs(endShiftSwipeOffset.value)/Math.max(1,width))*100)) })
+const endShiftSwipeStyle = computed(() => ({'--end-shift-swipe-progress':`${endShiftSwipeProgress.value}%`,'--end-shift-swipe-offset':`${endShiftSwipeOffset.value}px`}))
+const endShiftNavigateForward = () => { if(endShiftStep.value>=4)return; if(!endShiftSaved.value[endShiftStep.value])return fail('Save this step before continuing.'); endShiftStep.value += 1; error.value=''; message.value='' }
+const endShiftNavigateBack = () => { if(endShiftStep.value<=1)return; endShiftStep.value -= 1; error.value=''; message.value='' }
+const onEndShiftSwipeStart = event => { if(event.pointerType==='mouse'&&event.button!==0)return; endShiftSwipeStartX.value=event.clientX; endShiftSwipeTracking.value=true; endShiftSwipeOffset.value=0; event.currentTarget.setPointerCapture?.(event.pointerId) }
+const onEndShiftSwipeMove = event => { if(!endShiftSwipeTracking.value||endShiftSwipeStartX.value==null)return; const width=endShiftSwipeTrack.value?.clientWidth||320; const max=Math.max(70,width-40); endShiftSwipeOffset.value=Math.max(-max,Math.min(event.clientX-endShiftSwipeStartX.value,max)) }
+const onEndShiftSwipeEnd = event => { if(!endShiftSwipeTracking.value||endShiftSwipeStartX.value==null)return; const distance=event.clientX-endShiftSwipeStartX.value; const trigger=Math.max(70,(endShiftSwipeTrack.value?.clientWidth||320)*0.22); endShiftSwipeTracking.value=false; endShiftSwipeStartX.value=null; endShiftSwipeOffset.value=0; if(Math.abs(distance)<trigger)return; if(distance>0)endShiftNavigateForward(); else endShiftNavigateBack() }
+const onEndShiftSwipeCancel = () => { endShiftSwipeTracking.value=false; endShiftSwipeStartX.value=null; endShiftSwipeOffset.value=0 }
 const toggleOnline = async () => { if(store.isTripActive)return fail('End the active Trip before going Offline.'); if(store.isOnline){ openEndShift(); return } return goOnline() }
 const cancelOffline = () => { endShiftOpen.value = false; endShiftStep.value=1; error.value = ''; notify('Still Online — End Shift cancelled.') }
 const saveFuelDraft = () => { const draft={savedAt:Date.now(),odometer:fuelOdometer.value,pricePerKg:fuelPrice.value,amount:fuelAmount.value}; if(draft.odometer||draft.pricePerKg||draft.amount) sessionStorage.setItem(fuelDraftKey,JSON.stringify(draft)); else sessionStorage.removeItem(fuelDraftKey) }
@@ -153,7 +168,7 @@ onUnmounted(()=>{window.clearInterval(interval);unsubscribeTarget?.()})
     </section>
 
     <section v-if="endShiftOpen" class="cockpit-state cockpit-end-state">
-      <div class="form-topline"><div><div class="state-kicker">GOING OFFLINE</div><h2>{{endShiftStep===1?'CLOSE SHIFT':endShiftStep===2?'SHIFT EXPENSES':'RIDE REVIEW'}}</h2></div><button class="form-back" type="button" @click="endShiftBack"><span aria-hidden="true">🔙</span><span>Back</span></button></div>
+      <div class="form-topline"><div><div class="state-kicker">GOING OFFLINE</div><h2>{{endShiftStep===1?'CLOSE SHIFT':endShiftStep===2?'SHIFT EXPENSES':endShiftStep===3?'RIDE REVIEW':'CONFIRM END SHIFT'}}</h2></div><button class="form-back" type="button" @click="endShiftBack"><span aria-hidden="true">🔙</span><span>Back</span></button></div>
 
       <div v-if="endShiftStep===1" class="end-form-body">
         <div class="start-odo-reference"><span>Shift started</span><strong>{{store.startOdometer ?? '—'}} km</strong></div>
@@ -169,16 +184,26 @@ onUnmounted(()=>{window.clearInterval(interval);unsubscribeTarget?.()})
         <label class="exclude-check"><input v-model="tollTreatment" true-value="EXCLUDED" false-value="INCLUDED" type="checkbox"><span>Exclude toll &amp; parking from trip fare</span></label>
       </div>
 
-      <div v-else class="end-form-body">
+      <div v-else-if="endShiftStep===3" class="end-form-body">
         <p class="form-question">REVIEW RIDES</p>
         <p class="muted">Optional. Correct any ride details before ending the shift.</p>
         <div class="reviews compact-reviews"><p v-if="!store.completedTrips.length" class="muted">No completed trips.</p><div v-for="t in store.completedTrips" :key="t.id" class="review"><select v-model="t.operator" aria-label="Trip operator"><option v-for="operator in store.operators" :key="operator">{{operator}}</option></select><input v-model="t.tripKm" type="number" min="0" step="0.1" placeholder="KM"><input v-model="t.revenue" type="number" min="0" step="0.01" placeholder="₹"></div></div>
       </div>
 
-      <div class="form-actions end-actions">
+      <div v-else class="end-form-body end-confirm-panel">
+        <div class="end-confirm-summary"><span>Everything is ready.</span><strong>END SHIFT</strong><small>All saved steps are ready to close the shift.</small></div>
+      </div>
+
+      <div v-if="endShiftStep<4" class="form-actions end-actions">
         <template v-if="endShiftStep===1"><button class="primary" type="button" @click="endShiftContinue">CONTINUE →</button></template>
         <template v-else-if="endShiftStep===2"><button class="secondary" type="button" @click="endShiftExpenseSave">SAVE</button><button class="primary skip-dominant" type="button" @click="endShiftExpenseSkip">SKIP →</button></template>
-        <template v-else><button class="secondary" type="button" @click="endShiftReviewSave">SAVE &amp; END SHIFT</button><button class="primary skip-dominant" type="button" @click="endShiftReviewSkip">SKIP &amp; END SHIFT →</button></template>
+        <template v-else><button class="secondary" type="button" @click="endShiftReviewSave">SAVE</button><button class="primary skip-dominant" type="button" @click="endShiftReviewSkip">SKIP →</button></template>
+      </div>
+      <div v-else class="end-confirm-actions">
+        <button class="primary end-confirm-button" type="button" @click="endShiftConfirm">OK — END SHIFT</button>
+      </div>
+      <div ref="endShiftSwipeTrack" class="end-shift-swipe" :class="{'is-swiping':endShiftSwipeTracking,'is-blocked':!endShiftCanSwipeForward}" :style="endShiftSwipeStyle" role="group" aria-label="Optional swipe navigation for End Shift steps" @pointerdown="onEndShiftSwipeStart" @pointermove="onEndShiftSwipeMove" @pointerup="onEndShiftSwipeEnd" @pointercancel="onEndShiftSwipeCancel" @pointerleave="onEndShiftSwipeEnd">
+        <span class="end-shift-swipe-progress" aria-hidden="true"></span><span class="end-shift-swipe-label">{{endShiftStep===4?'CONFIRM WITH BUTTON':endShiftCanSwipeForward?'SWIPE → NEXT':'SAVE TO ENABLE SWIPE'}}</span><span class="end-shift-swipe-step">{{endShiftStep}} / 4</span>
       </div>
     </section>
 
