@@ -3,16 +3,19 @@ import { readFile } from 'node:fs/promises'
 import { access } from 'node:fs/promises'
 
 const app = await readFile(new URL('../App.vue', import.meta.url), 'utf8')
+const shell = await readFile(new URL('../components/shell/KfeShell.vue', import.meta.url), 'utf8')
 const main = await readFile(new URL('../main.js', import.meta.url), 'utf8')
 const router = await readFile(new URL('../router/index.js', import.meta.url), 'utf8')
 
+assert.match(app, /<KfeShell/)
 assert.match(app, /<router-view/)
-assert.match(app, /bottom-nav/)
+assert.match(shell, /bottom-nav/)
+assert.match(shell, /<router-link/)
 assert.doesNotMatch(app, /ShellService|BackupService|CloudBackupLifecycle|initializeCanonicalStorage|serviceWorker|indexedDB/i)
 assert.match(main, /StartupService\.initializeApplication/)
 assert.match(main, /CloudBackupLifecycle\.configureCloudBackupScheduler/)
 assert.doesNotMatch(app, /useShiftTripStore/)
-assert.match(router, /path: '\/'/)
+assert.match(router, /path: '\//)
 assert.match(router, /path: '\/performance'/)
 assert.match(router, /path: '\/admin'/)
 assert.doesNotMatch(router, /ride-capture|RideCapture/i)
