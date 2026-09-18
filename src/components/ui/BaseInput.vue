@@ -67,4 +67,5 @@ const emit = defineEmits(['update:modelValue'])
   font-size: 0.65rem;
   color: #dc2626;
 }
+.base-input-group{gap:7px!important}.input-label{font-size:.74rem!important;font-weight:850!important;color:var(--kfe-ui-text)!important}.required-star{color:var(--kfe-danger)!important}.input-field{min-height:48px!important;padding:10px 12px!important;border-radius:10px!important;border:1px solid var(--kfe-ui-border)!important;background:var(--kfe-ui-surface-2)!important;color:var(--kfe-ui-text)!important;font-size:16px!important}.input-field:focus{border-color:var(--kfe-ui-accent)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--kfe-ui-accent) 14%,transparent)!important;background:var(--kfe-ui-surface)!important}.has-error .input-field{border-color:var(--kfe-danger)!important}.input-error-msg{color:var(--kfe-danger)!important}
 </style>
