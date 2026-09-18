@@ -696,3 +696,15 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
 .gap-confirm{width:100%;margin-top:10px}
 .confirmed-text{display:block;margin-top:10px;color:var(--kfe-success);font-weight:800}
 @media(max-width:600px){.hero-actions{gap:5px}.fuel-icon{width:40px;height:40px}.online-control{gap:5px}}
+
+
+/* WORK COMPACT BUSINESS EXPENSES + DELIBERATE SWIPE */
+.expense-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:4px 0 8px}
+.expense-pair label{margin:0}
+.expense-pair label>span{display:block;margin-bottom:5px;color:var(--kfe-muted-text);font-size:.72rem;font-weight:750}
+.expense-pair input{width:100%;min-width:0}
+.exclude-check{display:flex!important;align-items:center;gap:9px;padding:9px 0;margin:0!important;cursor:pointer}
+.exclude-check input{width:20px!important;height:20px!important;min-width:20px}
+.exclude-check span{font-size:.78rem;font-weight:750;color:var(--kfe-muted-text)}
+.trip-action{touch-action:pan-y;user-select:none}
+@media(max-width:600px){.expense-pair{gap:6px}.expense-pair input{font-size:.88rem}}
