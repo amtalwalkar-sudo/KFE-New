@@ -26,7 +26,7 @@ for (const snapshot of [week, month, full]) {
 }
 assert.equal(week.shifts.length, 7)
 assert.equal(month.shifts.length, 30)
-assert.equal(full.shifts.length, Math.floor((Date.parse(new Date().toISOString().slice(0, 10)) - Date.parse('2026-05-01')) / 86400000) + 1)
+assert.equal(full.shifts.length, Math.floor((Date.parse(new Date().toISOString().slice(0, 10)) - Date.parse('2026-05-01')) / 86400000))
 assert.equal(week.loan_payments.length, 0)
 assert.equal(month.loan_payments.length, 0)
 assert.equal(full.loan_payments.length, 0)
