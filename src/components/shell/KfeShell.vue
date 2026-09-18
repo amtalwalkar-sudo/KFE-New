@@ -3,7 +3,6 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import DiagnosticBubble from '../DiagnosticBubble.vue'
 
 const gpsState = ref('checking')
-const gpsLabel = ref('GPS')
 let gpsWatchId = null
 
 function connectGps() {
@@ -54,17 +53,26 @@ onBeforeUnmount(() => {
 
       <button
         class="header-gps"
-        :class="\`is-\${gpsState}\`"
+        :class="`is-${gpsState}`"
         type="button"
         :title="gpsStateLabel()"
         :aria-label="gpsStateLabel()"
         @click="connectGps"
       >
         <svg class="gps-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 2v3M12 19v3M2 12h3M19 12h3M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
-          <circle cx="12" cy="12" r="2.1" fill="currentColor"/>
+          <template v-if="gpsState === 'checking'">
+            <circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.8" />
+            <circle cx="12" cy="12" r="2.2" fill="currentColor" />
+          </template>
+          <template v-else-if="gpsState === 'connected'">
+            <path d="M12 3.2c-3.6 0-6.5 2.9-6.5 6.5 0 4.7 6.5 11.1 6.5 11.1s6.5-6.4 6.5-11.1c0-3.6-2.9-6.5-6.5-6.5Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/>
+            <circle cx="12" cy="9.7" r="2.2" fill="currentColor"/>
+          </template>
+          <template v-else>
+            <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8" />
+            <path d="M12 8v5M12 16.5v.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </template>
         </svg>
-        <span>{{ gpsLabel }}</span>
       </button>
     </header>
     <main id="main-content" class="content-scroll-area" tabindex="-1"><slot /></main>
