@@ -121,6 +121,11 @@ const locationTime = location => location?.capturedAt ? new Date(location.captur
 const notify = text => { message.value = text; error.value = ''; window.setTimeout(() => { if (message.value === text) message.value = '' }, 2200) }
 const fail = text => { error.value = text; message.value = '' }
 const refreshTarget = async () => { try { target.value = await DriverTargetService.getTarget(getKfeReferenceNow()) } catch (_) { target.value = null } }
+const processPendingEndRide = async () => {
+  if (!store.isTripActive) return
+  const pending = await KfeOverlayService.consumePendingEndRide()
+  if (pending?.fare) await endTrip(pending.fare, pending.toll || '0', pending.parking || '0')
+}
 const syncAndroidOverlay = async () => {
   if (!store.isOnline) return KfeOverlayService.hide()
   const state = {
@@ -223,8 +228,7 @@ const handleRideNotificationAction = async ({ stage, tripId, input }) => {
 }
 
 onMounted(async()=>{await store.initialize();await fuelStore.refresh();await refreshTarget();await refreshPerformance();
-const pendingEndRide = await KfeOverlayService.consumePendingEndRide();
-if (pendingEndRide?.fare && store.isTripActive) await endTrip(pendingEndRide.fare, pendingEndRide.toll || '0', pendingEndRide.parking || '0');
+await processPendingEndRide()
 removeRideNotificationListener = (await KfeRideNotificationService.addListener('rideNotificationAction', handleRideNotificationAction))?.remove;
 let restoredTrace = false;
 if (store.isTripActive) {
@@ -243,7 +247,7 @@ if (store.isTripActive) {
     await KfeRideNotificationService.goOnline();
   }
 }
-startOdo.value=store.lastKnownOdometer??'';selectedOperator.value=store.defaultOperator;loadFuelDraft();unsubscribeTarget=DriverTargetService.subscribeDataChanges(()=>{void refreshTarget();void refreshPerformance()});interval=window.setInterval(()=>{clock.value=Date.now();if(store.isOnline)void syncAndroidOverlay()},1000)})
+startOdo.value=store.lastKnownOdometer??'';selectedOperator.value=store.defaultOperator;loadFuelDraft();unsubscribeTarget=DriverTargetService.subscribeDataChanges(()=>{void refreshTarget();void refreshPerformance()});interval=window.setInterval(()=>{clock.value=Date.now();if(store.isOnline){void syncAndroidOverlay();void processPendingEndRide()}},1000)})
 onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListener();window.clearInterval(interval);unsubscribeTarget?.();MovementTraceService.reset()})
 </script>
 
