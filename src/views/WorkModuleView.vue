@@ -177,7 +177,7 @@ const handleRideNotificationAction = async ({ stage, tripId, input }) => {
 
 onMounted(async()=>{await store.initialize();await fuelStore.refresh();await refreshTarget();await refreshPerformance();
 removeRideNotificationListener = (await KfeRideNotificationService.addListener('rideNotificationAction', handleRideNotificationAction))?.remove;
-if (store.isOnline && !store.isTripActive) await KfeRideNotificationService.goOnline();
+if (store.isOnline && !store.isTripActive && !goingToPickup.value) await KfeRideNotificationService.goOnline();
 startOdo.value=store.lastKnownOdometer??'';selectedOperator.value=store.defaultOperator;loadFuelDraft();unsubscribeTarget=DriverTargetService.subscribeDataChanges(()=>{void refreshTarget();void refreshPerformance()});interval=window.setInterval(()=>{clock.value=Date.now()},1000)})
 onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListener(); KfeRideNotificationService.clear().catch(()=>{});window.clearInterval(interval);unsubscribeTarget?.();DeadKmPickupGpsService.reset()})
 </script>
