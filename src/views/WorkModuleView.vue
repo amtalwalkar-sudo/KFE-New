@@ -225,7 +225,9 @@ const endTrip = async (fare = '') => {
   notify(fare !== '' ? 'Ride completed with fare.' : 'Ride completed.')
 }
 const cancelAccidentalTrip = async () => { if(!confirm('Cancel this accidental trip? It will be recorded as a cancelled driver-mistake trip.'))return; await MovementTraceService.stop({captureFinal:true}); if(await store.cancelTrip({reason:'DRIVER_MISTAKE'})){await KfeRideNotificationService.completeRide();await refreshTarget();notify('Accidental trip cancelled.')} }
-const cancelTripWithRevenue = async () => { if(!confirm('Record this trip as cancelled? Optional revenue will be retained if entered.'))return; await MovementTraceService.stop({captureFinal:true}); if(await store.cancelTrip({reason:cancelReason.value,revenue:cancelledRevenue.value})){await KfeRideNotificationService.completeRide();cancelledRevenue.value='';cancelPanel.value=false;await refreshTarget();notify('Cancelled trip recorded.')} }
+const openCancelRide = () => { if (!store.isTripActive) return; cancelReason.value='DRIVER_MISTAKE'; cancelledRevenue.value=''; cancelPanel.value=true; error.value=''; message.value='' }
+const closeCancelRide = () => { cancelPanel.value=false; cancelledRevenue.value=''; error.value=''; message.value='' }
+const cancelTripWithRevenue = async () => { const value=cancelledRevenue.value; if(value!==''){const amount=Number(value);if(!Number.isFinite(amount)||amount<0)return fail('Enter a valid non-negative cancellation fee.')} if(!confirm('Record this ride as cancelled? The cancellation fee, if entered, will be retained.'))return; await MovementTraceService.stop({captureFinal:true}); const result=await store.cancelTrip({reason:cancelReason.value,revenue:value}); if(result?.ok){await KfeRideNotificationService.completeRide();cancelledRevenue.value='';cancelPanel.value=false;await refreshTarget();notify('Cancelled ride recorded.')} else if(result?.reason) fail(result.reason) }
 const saveFuel = async () => { if (fuelStore.saving) return; const result=await fuelStore.save({odometer:fuelOdometer.value,pricePerKg:fuelPrice.value,amount:fuelAmount.value,clientMutationId:fuelClientMutationId.value}); if(!result.ok)return fail(result.reason); fuelOdometer.value='';fuelPrice.value='';fuelAmount.value='';fuelClientMutationId.value=crypto.randomUUID();sessionStorage.removeItem(fuelDraftKey);fuelFormOpen.value=false;notify(`Refuelling recorded: ${result.record.quantityKg.toFixed(2)} kg.`) }
 const primaryTripAction = () => { if (store.isTripActive) return endTrip(); if (!goingToPickup.value) return startGoingToPickup(); return startTrip() }
 const tripActionLabel = computed(() => store.isTripActive ? 'SWIPE → END RIDE' : goingToPickup.value ? 'SWIPE → START RIDE' : 'SWIPE → GO TO PICKUP')
@@ -295,9 +297,19 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
         <div class="target-hud-heading"><div><small>TODAY'S TARGET</small><strong>{{targetText}}</strong></div><button type="button" aria-label="Close target details" @click="targetDetailsOpen=false">×</button></div>
         <div class="target-hud-progress"><span :style="{width: targetProgress + '%'}"></span></div>
         <div class="target-hud-stats"><div><span>PROGRESS</span><strong>{{targetProgress}}%</strong></div><div><span>RIDES</span><strong>{{targetRides}}</strong></div><div><span>LIVE KMS</span><strong>{{liveKms == null ? '—' : liveKms + ' km'}}</strong></div><div v-if="store.isTripActive"><span>CURRENT FARE</span><strong>{{activeFare}}</strong></div></div>
-        <div v-if="store.isTripActive" class="target-hud-current"><span>CURRENT RIDE</span><strong>{{tripTimer}}</strong></div>
+        <div v-if="store.isTripActive" class="target-hud-current"><span>CURRENT RIDE</span><strong>{{tripTimer}}</strong></div><button v-if="store.isTripActive" class="target-hud-cancel" type="button" @pointerdown.stop @click.stop="openCancelRide">Cancel ride</button>
       </div>
     </div>
+
+    <section v-if="cancelPanel && store.isTripActive && !endShiftOpen" class="cockpit-state cancel-ride-panel">
+      <div class="form-topline"><div><small>RIDE CONTROL</small><h2>CANCEL RIDE</h2></div><button class="form-back" type="button" @click="closeCancelRide"><span aria-hidden="true">🔙</span><span>Back</span></button></div>
+      <div class="cancel-ride-copy">This keeps the ride in Timeline as <strong>Cancelled</strong>. Add a fee only if one was actually collected.</div>
+      <div class="cancel-ride-form">
+        <label>Cancellation reason<select v-model="cancelReason"><option value="DRIVER_MISTAKE">Driver mistake</option><option value="PASSENGER_CANCELLED">Passenger cancelled</option><option value="VEHICLE_ISSUE">Vehicle issue</option><option value="OPERATOR_REQUEST">Operator request</option><option value="OTHER">Other</option></select></label>
+        <label>Cancellation fee (₹)<input v-model="cancelledRevenue" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Optional"></label>
+      </div>
+      <div class="cancel-ride-actions"><button class="secondary" type="button" @click="closeCancelRide">Back</button><button class="quiet-danger" type="button" @click="cancelTripWithRevenue">Confirm cancellation</button></div>
+    </section>
 
     <section v-if="fuelFormOpen" class="card gate cockpit-form-surface">
       <div class="form-topline"><div><small>CNG REFUELLING</small><h2>Refuelling</h2></div><button class="form-back" type="button" @click="closeFuelForm"><span aria-hidden="true">🔙</span><span>Back</span></button></div>
@@ -362,7 +374,7 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
       <div class="state-kicker online">ON TRIP</div>
       <div class="trip-operator-row"><span>Operator</span><button type="button" class="operator-select" @click="selectedOperator = selectedOperator === '__menu__' ? store.trip.operator : '__menu__'">{{store.trip.operator+' ▾'}}</button></div>
       <div v-if="selectedOperator==='__menu__'" class="operator-menu"><button v-for="operator in store.operators" :key="operator" type="button" :class="{selected:store.trip.operator===operator}" @click="changeTripOperator(operator)">{{operator}}</button></div>
-      <div class="next-event"><span>NEXT</span><strong>END TRIP</strong></div>
+      <div class="next-event"><span>NEXT</span><strong>END TRIP</strong></div><button class="cancel-ride-link" type="button" @click="openCancelRide">Cancel ride</button>
     </section>
 
     <section v-if="endShiftOpen" class="cockpit-state cockpit-end-state" :style="endShiftSwipeStyle" :class="{'is-card-dragging':endShiftSwipeTracking}" @pointerdown="onEndShiftSwipeStart" @pointermove="onEndShiftSwipeMove" @pointerup="onEndShiftSwipeEnd" @pointercancel="onEndShiftSwipeCancel">
@@ -415,7 +427,7 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
       </div>
     </section>
 
-    <div v-if="store.isOnline && !endShiftOpen && !fuelFormOpen" class="persistent-action">
+    <div v-if="store.isOnline && !endShiftOpen && !fuelFormOpen && !cancelPanel" class="persistent-action">
       <div ref="swipeTrack" class="swipe-bar trip-action" :class="{ 'swipe-bar--pickup': !store.isTripActive && !goingToPickup, 'swipe-bar--ride-start': !store.isTripActive && goingToPickup, 'swipe-bar--ride-end': store.isTripActive, 'is-swiping': swipeTracking, 'is-threshold': swipeProgress >= 80 }" :style="swipeStyle" role="button" tabindex="0" aria-label="Swipe from left to right to start or end the current trip" @pointerdown="onSwipeStart" @pointermove="onSwipeMove" @pointerup="onSwipeEnd" @pointercancel="onSwipeCancel" @pointerleave="onSwipeEnd" @keydown="onSwipeKey">
         <span class="swipe-progress" aria-hidden="true"></span><span class="swipe-threshold" aria-hidden="true"><i></i><em>80%</em></span><span class="swipe-label">{{tripActionLabel}}</span><span class="swipe-thumb" aria-hidden="true"><b>→</b></span>
       </div><small class="swipe-hint">{{swipeTracking ? (swipeProgress >= 80 ? 'RELEASE TO CONFIRM' : 'KEEP SWIPING →') : tripActionHint}}</small>
