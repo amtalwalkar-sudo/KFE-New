@@ -224,12 +224,14 @@ const endTrip = async (fare = '') => {
   }
   await MovementTraceService.stop({captureFinal:true})
   if (!await store.endTrip()) { restartPassengerTrace(); return fail('Ride could not be completed. GPS tracing has been resumed.') }
+  let fareSaveFailed = false
   if (fare !== '') {
     const fareResult = await store.updateTrip({id:tripId,revenue:fare})
-    if (!fareResult?.ok) return fail(fareResult.reason || 'Fare could not be saved.')
+    fareSaveFailed = !fareResult?.ok
   }
   await refreshTarget()
   await KfeRideNotificationService.completeRide()
+  if (fareSaveFailed) return fail('Ride completed, but the fare could not be saved. Please correct it in Timeline.')
   notify(fare !== '' ? 'Ride completed with fare.' : 'Ride completed.')
 }
 const cancelAccidentalTrip = async () => { if(!confirm('Cancel this accidental trip? It will be recorded as a cancelled driver-mistake trip.'))return; await MovementTraceService.stop({captureFinal:true}); if(await store.cancelTrip({reason:'DRIVER_MISTAKE'})){await KfeRideNotificationService.completeRide();await refreshTarget();notify('Accidental trip cancelled.')} }
