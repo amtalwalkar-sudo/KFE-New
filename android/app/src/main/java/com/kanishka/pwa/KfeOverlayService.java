@@ -46,6 +46,8 @@ public class KfeOverlayService extends Service {
   private float downY;
   private int originX;
   private int originY;
+  private boolean swipeGesture;
+  private static final int SWIPE_TRIGGER_DP = 90;
 
   @Override public void onCreate() {
     super.onCreate();
@@ -59,7 +61,10 @@ public class KfeOverlayService extends Service {
   }
 
   @Override public int onStartCommand(Intent intent, int flags, int startId) {
-    if (intent == null) return START_STICKY;
+    if (intent == null) {
+      removeOverlay();
+      return START_NOT_STICKY;
+    }
     if (ACTION_HIDE.equals(intent.getAction())) {
       removeOverlay();
       stopSelf();
@@ -80,6 +85,10 @@ public class KfeOverlayService extends Service {
 
   private void ensureOverlay() {
     if (overlayView != null) return;
+
+    LinearLayout shell = new LinearLayout(this);
+    shell.setOrientation(LinearLayout.HORIZONTAL);
+    shell.setGravity(Gravity.CENTER_VERTICAL);
 
     LinearLayout root = new LinearLayout(this);
     root.setOrientation(LinearLayout.VERTICAL);
@@ -114,20 +123,26 @@ public class KfeOverlayService extends Service {
     ridesValue = text("0 rides", 11, Color.LTGRAY);
     stats.addView(ridesValue);
 
-    TextView swipe = text("      SWIPE TO OPEN KFE  →", 11, Color.WHITE);
+    root.addView(header);
+    root.addView(values);
+    root.addView(stats);
+
+    TextView swipe = text("SWIPE\nUP\nKFE  ↑", 10, Color.WHITE);
+    swipe.setGravity(Gravity.CENTER);
     GradientDrawable swipeBg = new GradientDrawable();
     swipeBg.setColor(Color.argb(55, 255,255,255));
     swipeBg.setCornerRadius(dp(18));
     swipe.setBackground(swipeBg);
-    swipe.setPadding(dp(8), dp(8), dp(8), dp(8));
+    swipe.setPadding(dp(6), dp(10), dp(6), dp(10));
+    swipe.setContentDescription("Swipe up to open KFE");
     swipe.setOnTouchListener((v, event) -> handleSwipe(v, event));
 
-    root.addView(header);
-    root.addView(values);
-    root.addView(stats);
-    root.addView(swipe);
+    LinearLayout.LayoutParams swipeParams = new LinearLayout.LayoutParams(dp(46), dp(138));
+    swipeParams.setMargins(0, 0, dp(8), 0);
+    shell.addView(swipe, swipeParams);
+    shell.addView(root, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
 
-    overlayView = root;
+    overlayView = shell;
     params = new WindowManager.LayoutParams(
       dp(292),
       WindowManager.LayoutParams.WRAP_CONTENT,
@@ -156,10 +171,12 @@ public class KfeOverlayService extends Service {
         downY = event.getRawY();
         originX = params.x;
         originY = params.y;
+        swipeGesture = false;
         return true;
       case MotionEvent.ACTION_MOVE:
         float dx = event.getRawX() - downX;
         float dy = event.getRawY() - downY;
+        swipeGesture = Math.abs(dy) > dp(12) && Math.abs(dy) > Math.abs(dx);
         if (Math.abs(dx) > dp(12) || Math.abs(dy) > dp(12)) {
           params.x = Math.max(0, Math.round(originX - dx));
           params.y = Math.max(dp(48), Math.round(originY + dy));
@@ -167,13 +184,22 @@ public class KfeOverlayService extends Service {
         }
         return true;
       case MotionEvent.ACTION_UP:
-        if (Math.abs(event.getRawX() - downX) > dp(90)) {
+        float finalDx = event.getRawX() - downX;
+        float finalDy = event.getRawY() - downY;
+        boolean swipeUp = swipeGesture
+          && finalDy < -dp(SWIPE_TRIGGER_DP)
+          && Math.abs(finalDy) > Math.abs(finalDx) * 1.2f;
+        if (swipeUp) {
           Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
           if (launch != null) {
             launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
             startActivity(launch);
           }
         }
+        swipeGesture = false;
+        return true;
+      case MotionEvent.ACTION_CANCEL:
+        swipeGesture = false;
         return true;
       default:
         return false;
