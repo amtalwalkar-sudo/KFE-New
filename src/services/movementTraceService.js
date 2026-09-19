@@ -88,10 +88,13 @@ const clearWatch = () => {
 }
 
 const captureBoundary = () => new Promise(resolve => {
-  if (typeof navigator === 'undefined' || !navigator.geolocation) return resolve(null)
-  const options = active?.profile || PROFILES.DEAD_LEG
+  if (typeof navigator === 'undefined' || !navigator.geolocation || !active) return resolve(null)
+  const session = active
+  const generation = session.generation
+  const options = session.profile
   navigator.geolocation.getCurrentPosition(position => {
     const point = normalizePoint(position)
+    if (generation !== active?.generation) return resolve(null)
     if (point && (!point.accuracy || point.accuracy <= 100)) {
       const previous = points.at(-1)
       if (previous?.capturedAt !== point.capturedAt) {
