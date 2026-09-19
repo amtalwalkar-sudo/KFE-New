@@ -78,7 +78,8 @@ const onTargetOverlayPointerDown = event => {
   if (event.target.closest?.('button,a,input,select')) return
   targetOverlayLongPressTimer.value = window.setTimeout(() => {
     targetOverlayEdit.value = true
-    targetOverlayDrag.value = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, origin: { ...targetOverlayPos.value } }
+    const rect = event.currentTarget.getBoundingClientRect()
+    targetOverlayDrag.value = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, origin: { x: rect.left, y: rect.top } }
     event.currentTarget.setPointerCapture?.(event.pointerId)
     targetOverlayLongPressTimer.value = null
   }, 450)
