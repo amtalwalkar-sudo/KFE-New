@@ -79,11 +79,21 @@ export const MovementAccountingService = {
     }
     return { segments, deadMilesKm: sum(segments, 'DEAD'), businessMilesKm: sum(segments, 'BUSINESS'), unclassifiedKm: sum(segments, 'UNCLASSIFIED'), gpsTracePoints: snapshots.length, routingProvenance: segments.map(s => ({ segmentId: s.id, ...s.routingProvenance })), roadMatchedGeometry: segments.filter(s => s.roadMatchedGeometry).map(s => ({ segmentId: s.id, geometry: s.roadMatchedGeometry })), traceGeometry: segments.map(s => ({ segmentId: s.id, geometry: s.traceGeometry })) }
   },
-  async reconcileShiftMovement({ garageLocation, trips = [], startOdometer, endOdometer, router, manualBusinessKmByTripId = {}, gpsSnapshots = [] } = {}) {
+  async reconcileShiftMovement({ garageLocation, trips = [], startOdometer, endOdometer, router, manualBusinessKmByTripId = {}, businessKmByTripId = {}, gpsSnapshots = [] } = {}) {
     const start = Number(startOdometer); const end = Number(endOdometer)
     if (!finite(start) || !finite(end) || start < 0 || end < start) throw new Error('Valid Shift Start and End Odometer readings are required for movement reconciliation.')
     const base = await this.calculateSegments({ garageLocation, trips, router, gpsSnapshots }); const totalShiftVehicleKm = end - start; const manualByTrip = new Map(); const reconciledSegments = base.segments.map(s => ({ ...s }))
     for (const trip of trips.filter(item => item?.status === 'COMPLETED')) { const manualKm = normalizeManualKm(trip, manualBusinessKmByTripId); if (manualKm === null) continue; const segment = reconciledSegments.find(item => item.tripId === trip.id && item.classification === 'BUSINESS'); if (!segment) throw new Error(`Business segment not found for trip ${trip.id}.`); segment.distanceKm = manualKm; segment.method = 'UBER_MANUAL'; segment.confidence = 'AUTHORITATIVE'; segment.authority = 'MANUAL_UBER'; manualByTrip.set(trip.id, manualKm) }
+    for (const trip of trips.filter(item => item?.status === 'COMPLETED')) {
+      const businessKm = Number(businessKmByTripId[trip.id])
+      if (!Number.isFinite(businessKm) || businessKm < 0 || manualByTrip.has(trip.id)) continue
+      const segment = reconciledSegments.find(item => item.tripId === trip.id && item.classification === 'BUSINESS')
+      if (!segment) continue
+      segment.distanceKm = businessKm
+      segment.method = trip.tripKmAuthority === 'MANUAL' ? 'MANUAL_AUDIT' : 'GPS_RIDE_ESTIMATE'
+      segment.confidence = trip.tripKmAuthority === 'MANUAL' ? 'AUTHORITATIVE' : 'ESTIMATED_ROAD_TRACE'
+      segment.authority = trip.tripKmAuthority === 'MANUAL' ? 'MANUAL_AUDIT' : 'GPS_ESTIMATE'
+    }
     const classifiedKm = reconciledSegments.filter(s => (s.classification === 'DEAD' || s.classification === 'BUSINESS') && finite(s.distanceKm)).reduce((t, s) => t + Number(s.distanceKm), 0)
     const remainderKm = Math.max(0, totalShiftVehicleKm - classifiedKm)
     if (classifiedKm - totalShiftVehicleKm > EPSILON_KM) return { ...base, segments: reconciledSegments, totalShiftVehicleKm, manualBusinessKmByTripId: Object.fromEntries(manualByTrip), deadMilesKm: sum(reconciledSegments, 'DEAD'), businessMilesKm: sum(reconciledSegments, 'BUSINESS'), unclassifiedKm: 0, reconciliationDifferenceKm: totalShiftVehicleKm - classifiedKm, reconciliationStatus: 'OVER_ESTIMATE', personalKmInShift: 0, authoritativeOdometerKm: totalShiftVehicleKm }
