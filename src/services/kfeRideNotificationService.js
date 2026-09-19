@@ -79,6 +79,16 @@ export const KfeRideNotificationService = Object.freeze({
     persist()
     return call('show', { stage: 'END_RIDE', tripId: state.tripId })
   },
+  async resume() {
+    restore()
+    if (state.phase === 'GO_TO_PICKUP') return call('show', { stage: 'GO_TO_PICKUP', tripId: '' })
+    if (!state.tripId) return false
+    if (state.phase === 'ENTER_PICKUP_DURATION') return call('show', { stage: 'ENTER_PICKUP_DURATION', tripId: state.tripId })
+    if (state.phase === 'START_RIDE') return call('show', { stage: 'START_RIDE', tripId: state.tripId })
+    if (state.phase === 'ENTER_RIDE_DURATION') return call('show', { stage: 'ENTER_RIDE_DURATION', tripId: state.tripId })
+    if (state.phase === 'END_RIDE') return call('show', { stage: 'END_RIDE', tripId: state.tripId })
+    return false
+  },
   async completeRide() {
     const completedTripId = state.tripId
     if (completedTripId) {
