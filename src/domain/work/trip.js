@@ -24,6 +24,11 @@ export function validateTripCorrection(data = {}) {
     if (!Number.isFinite(revenue) || revenue < 0) return { valid: false, reason: 'Trip revenue must be a non-negative number.' }
     result.revenue = revenue
   }
+  if (data.cancelReason !== undefined) {
+    const cancelReason = String(data.cancelReason || '').trim()
+    if (!cancelReason) return { valid: false, reason: 'Cancellation reason is required.' }
+    result.cancelReason = cancelReason
+  }
   return { valid: true, ...result }
 }
 
