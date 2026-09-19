@@ -17,6 +17,7 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.content.pm.ServiceInfo;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -50,7 +51,11 @@ public class KfeOverlayService extends Service {
     super.onCreate();
     createChannel();
     windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
-    startForeground(NOTIFICATION_ID, buildNotification());
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      startForeground(NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+    } else {
+      startForeground(NOTIFICATION_ID, buildNotification());
+    }
   }
 
   @Override public int onStartCommand(Intent intent, int flags, int startId) {
