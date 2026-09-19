@@ -124,7 +124,10 @@ const refreshTarget = async () => { try { target.value = await DriverTargetServi
 const processPendingEndRide = async () => {
   if (!store.isTripActive) return
   const pending = await KfeOverlayService.consumePendingEndRide()
-  if (pending?.fare) await endTrip(pending.fare, pending.toll || '0', pending.parking || '0')
+  if (pending?.fare) {
+    const completed = await endTrip(pending.fare, pending.toll || '0', pending.parking || '0')
+    if (completed) await KfeOverlayService.acknowledgePendingEndRide()
+  }
 }
 const syncAndroidOverlay = async () => {
   if (!store.isOnline) return KfeOverlayService.hide()
@@ -185,10 +188,10 @@ const endTrip = async (fare = '', toll = '', parking = '') => {
   const tripId = store.trip?.id
   if (fare !== '') {
     const value = Number(fare)
-    if (!Number.isFinite(value) || value < 0) { await KfeRideNotificationService.retryEndRide(); return fail('Enter a valid fare before ending the ride.') }
+    if (!Number.isFinite(value) || value < 0) { await KfeRideNotificationService.retryEndRide(); return false }
   }
   try { await MovementTraceService.stop({captureFinal:true}) } catch (error) { restartPassengerTrace(); return fail(`GPS trace could not be saved. Ride was not completed: ${error?.message || 'persistence failed.'}`) }
-  if (!await store.endTrip()) { restartPassengerTrace(); return fail('Ride could not be completed. GPS tracing has been resumed.') }
+  if (!await store.endTrip()) { restartPassengerTrace(); fail('Ride could not be completed. GPS tracing has been resumed.'); return false }
   let fareSaveFailed = false
   if (fare !== '' || toll !== '' || parking !== '') {
     const fareResult = await store.updateTrip({id:tripId,revenue:fare,toll:toll === '' ? 0 : toll,parking:parking === '' ? 0 : parking})
@@ -196,8 +199,9 @@ const endTrip = async (fare = '', toll = '', parking = '') => {
   }
   await refreshTarget()
   await KfeRideNotificationService.completeRide()
-  if (fareSaveFailed) return fail('Ride completed, but the fare could not be saved. Please correct it in Timeline.')
+  if (fareSaveFailed) { fail('Ride completed, but the fare could not be saved. Please correct it in Timeline.'); return true }
   notify(fare !== '' ? 'Ride completed with fare.' : 'Ride completed.')
+  return true
 }
 const openCancelRide = () => { if (!store.isTripActive) return; cancelReason.value='DRIVER_MISTAKE'; cancelledRevenue.value=''; cancelPanel.value=true; error.value=''; message.value='' }
 const closeCancelRide = () => { cancelPanel.value=false; cancelledRevenue.value=''; error.value=''; message.value='' }
