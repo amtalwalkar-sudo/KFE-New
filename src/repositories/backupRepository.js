@@ -1,4 +1,4 @@
-import { initializeCanonicalStorage, notifyCanonicalDataChanged } from '../utils/indexedDB.js'
+import { openCanonicalDB, notifyCanonicalDataChanged } from '../utils/indexedDB.js'
 
 export const LOCAL_BACKUP_DB_NAME = 'kanishka_kfe_local_backup_db'
 export const LOCAL_BACKUP_DB_VERSION = 1
@@ -16,7 +16,7 @@ const openLocalBackupDB = () => new Promise((resolve, reject) => {
 
 export const createBackupRepository = stores => Object.freeze({
   async readCanonicalSnapshot() {
-    const db = await initializeCanonicalStorage({ dataSource: 'canonical' })
+    const db = await openCanonicalDB()
     return new Promise((resolve, reject) => {
       const tx = db.transaction(stores, 'readonly')
       const result = {}
@@ -38,7 +38,7 @@ export const createBackupRepository = stores => Object.freeze({
   },
 
   async restoreCanonicalSnapshot(snapshot) {
-    const db = await initializeCanonicalStorage()
+    const db = await openCanonicalDB()
     await new Promise((resolve, reject) => {
       const tx = db.transaction(stores, 'readwrite')
       try {
@@ -55,7 +55,7 @@ export const createBackupRepository = stores => Object.freeze({
   },
 
   async resetCanonicalData() {
-    const db = await initializeCanonicalStorage()
+    const db = await openCanonicalDB()
     await new Promise((resolve, reject) => {
       const tx = db.transaction(stores, 'readwrite')
       try {
