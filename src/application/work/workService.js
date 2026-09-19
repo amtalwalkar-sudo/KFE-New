@@ -27,7 +27,7 @@ export const WorkService = Object.freeze({
   async getLastCompletedTrip() { return ShiftTripRepository.getLastCompletedTrip() },
   async getFuelLogs() { return FuelRepository.getAll() },
   async getLocations(entityType, entityId) { return LocationRepository.forEntity(entityType, entityId) },
-  async getTripGpsDistanceKm(tripId) { const snapshots = await LocationRepository.forEntity('TRIP', tripId); return calculateTraceDistanceKm(snapshots) },
+  async getTripGpsDistanceKm(tripId) { const snapshots = await LocationRepository.forEntity('TRIP', tripId); return calculateTraceDistanceKm(snapshots.filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')) },
   async captureLocation(data) { const result = await captureLifecycleLocation(data); checkpoint(); return result },
   validateShiftStartOdometer(currentOdometer, previousOdometer) { return validateShiftStartOdometer(currentOdometer, previousOdometer) },
   validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer) { return validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer) },
@@ -50,7 +50,7 @@ export const WorkService = Object.freeze({
     const activeTrip = trip.find(item => item.id === data?.id) || (await ShiftTripRepository.getActive()).trip
     let completionData = { ...data }
     if (activeTrip?.id) {
-      const snapshots = await LocationRepository.forEntity('TRIP', activeTrip.id)
+      const snapshots = (await LocationRepository.forEntity('TRIP', activeTrip.id)).filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')
       if (snapshots.length >= 2) {
         const routed = await routeTrace(snapshots, new ValhallaRoutingAdapter())
         if (Number.isFinite(Number(routed.distanceKm))) {
