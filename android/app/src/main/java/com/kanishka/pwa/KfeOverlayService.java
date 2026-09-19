@@ -198,7 +198,11 @@ public class KfeOverlayService extends Service {
     tripValue.setText(tripActive ? (timer == null || timer.isEmpty() ? "ON TRIP" : timer) : "READY");
   }
 
-  private String money(double value) {\n    return String.format(Locale.US, "₹%.0f", value);\n  }\n\n  private Notification buildNotification() {
+  private String money(double value) {
+    return String.format(Locale.US, "₹%.0f", value);
+  }
+
+  private Notification buildNotification() {
     Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
     PendingIntent pending = launch == null ? null : PendingIntent.getActivity(
       this, 4202, launch, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
