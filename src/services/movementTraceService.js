@@ -30,6 +30,10 @@ let points = []
 let lastAcceptedAt = 0
 let active = null
 let pendingWrites = Promise.resolve()
+const SESSION_KEY = 'kfe.movement-trace-session.v1'
+const saveSession = () => { if (typeof localStorage === 'undefined' || !active) return; localStorage.setItem(SESSION_KEY, JSON.stringify({ entityType: active.entityType, entityId: active.entityId, eventType: active.eventType, profile: Object.entries(PROFILES).find(([, value]) => value === active.profile)?.[0] || 'DEAD_LEG' })) }
+const clearSession = () => { try { localStorage.removeItem(SESSION_KEY) } catch (_) {} }
+const readSession = () => { try { const value = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); return value?.entityType && value?.entityId ? value : null } catch (_) { return null } }
 
 const persist = point => {
   if (!active || !point) return
@@ -82,6 +86,7 @@ export const MovementTraceService = {
     this.reset()
     if (!entityType || !entityId || typeof navigator === 'undefined' || !navigator.geolocation?.watchPosition) return false
     active = { entityType, entityId, eventType, profile: PROFILES[profile] || PROFILES.DEAD_LEG, onPoint }
+    saveSession()
     watchId = navigator.geolocation.watchPosition(position => accept(normalizePoint(position)), () => {}, { ...active.profile })
     void captureBoundary()
     return true
@@ -96,9 +101,12 @@ export const MovementTraceService = {
     const result = [...points]
     await pendingWrites
     active = null
+    clearSession()
     return result
   },
   getPoints() { return [...points] },
+  getActiveSession() { return active ? { entityType: active.entityType, entityId: active.entityId, eventType: active.eventType, profile: Object.entries(PROFILES).find(([, value]) => value === active.profile)?.[0] || 'DEAD_LEG' } : readSession() },
+  hasActiveTrace() { return Boolean(active || readSession()) },
   getPointCount() { return points.length },
   getProfile(profile = 'DEAD_LEG') { return PROFILES[profile] || PROFILES.DEAD_LEG },
   reset() {
