@@ -1506,3 +1506,17 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
   .kfe-work-cockpit .pickup-gps-card{gap:5px;padding:9px}
   .kfe-work-cockpit .pickup-gps-card strong{font-size:.9rem}
 }
+
+/* Frozen ride swipe-bar color DNA: blue pickup, green start, red end. */
+.persistent-action .swipe-bar.trip-action.swipe-bar--pickup { --swipe-action-color: #2563eb; }
+.persistent-action .swipe-bar.trip-action.swipe-bar--ride-start { --swipe-action-color: #16a34a; }
+.persistent-action .swipe-bar.trip-action.swipe-bar--ride-end { --swipe-action-color: #dc2626; }
+.persistent-action .swipe-bar.trip-action.swipe-bar--pickup .swipe-progress,
+.persistent-action .swipe-bar.trip-action.swipe-bar--ride-start .swipe-progress,
+.persistent-action .swipe-bar.trip-action.swipe-bar--ride-end .swipe-progress { background: var(--swipe-action-color); }
+.persistent-action .swipe-bar.trip-action.swipe-bar--pickup .swipe-thumb,
+.persistent-action .swipe-bar.trip-action.swipe-bar--ride-start .swipe-thumb,
+.persistent-action .swipe-bar.trip-action.swipe-bar--ride-end .swipe-thumb { background: var(--swipe-action-color); }
+.persistent-action .swipe-bar.trip-action.swipe-bar--pickup .swipe-label,
+.persistent-action .swipe-bar.trip-action.swipe-bar--ride-start .swipe-label,
+.persistent-action .swipe-bar.trip-action.swipe-bar--ride-end .swipe-label { color: var(--swipe-action-color); }
