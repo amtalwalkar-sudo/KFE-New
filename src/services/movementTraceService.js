@@ -29,17 +29,14 @@ let watchId = null
 let points = []
 let lastAcceptedAt = 0
 let active = null
+let pendingWrites = Promise.resolve()
 
-const persist = async point => {
+const persist = point => {
   if (!active || !point) return
-  try {
-    await LocationRepository.recordTracePoint({
-      entityType: active.entityType,
-      entityId: active.entityId,
-      eventType: active.eventType,
-      ...point
-    })
-  } catch (_) {}
+  const session = { entityType: active.entityType, entityId: active.entityId, eventType: active.eventType }
+  pendingWrites = pendingWrites.then(() => LocationRepository.recordTracePoint({ ...session, ...point }))
+    .catch(() => {})
+  return pendingWrites
 }
 
 const accept = point => {
@@ -66,11 +63,14 @@ const captureBoundary = () => new Promise(resolve => {
   const options = active?.profile || PROFILES.DEAD_LEG
   navigator.geolocation.getCurrentPosition(position => {
     const point = normalizePoint(position)
-    if (point) {
-      points = [...points, point]
-      lastAcceptedAt = Date.now()
-      void persist(point)
-      active?.onPoint?.(point, points.length)
+    if (point && (!point.accuracy || point.accuracy <= 100)) {
+      const previous = points.at(-1)
+      if (previous?.capturedAt !== point.capturedAt) {
+        points = [...points, point]
+        lastAcceptedAt = Date.now()
+        void persist(point)
+        active?.onPoint?.(point, points.length)
+      }
     }
     resolve(point)
   }, () => resolve(null), { ...options, maximumAge: 0 })
@@ -87,10 +87,14 @@ export const MovementTraceService = {
     return true
   },
   async stop({ captureFinal = true } = {}) {
-    if (!active) return [...points]
+    if (!active) {
+      await pendingWrites
+      return [...points]
+    }
     if (captureFinal) await captureBoundary()
     clearWatch()
     const result = [...points]
+    await pendingWrites
     active = null
     return result
   },
@@ -102,5 +106,6 @@ export const MovementTraceService = {
     points = []
     lastAcceptedAt = 0
     active = null
+    pendingWrites = Promise.resolve()
   }
 }
