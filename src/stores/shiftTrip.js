@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { WorkService } from '../application/work/workService.js'
+import { MovementTraceService } from '../services/movementTraceService.js'
 
 export const useShiftTripStore = defineStore('shiftTrip', () => {
   const shift = ref(null)
@@ -85,26 +86,31 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     trip.value = record
     defaultOperator.value = selected
     registeredTrips.value = [...registeredTrips.value, record]
-    captureAndRefreshLocation({ entityType: 'TRIP', entityId: record.id, eventType: 'START' })
+    await loadEntityLocations('TRIP', record.id)
     return { ok: true, trip: record }
   }
 
   const endTrip = async () => {
     if (!isTripActive.value) return false
     const tripId = trip.value.id
-    await WorkService.completeTrip({ id: tripId })
+    const endLocation = await WorkService.captureLocation({ entityType: 'TRIP', entityId: tripId, eventType: 'END' })
+    await WorkService.completeTrip({ id: tripId, tripEndLocation: endLocation || null })
+    MovementTraceService.reset()
     await refresh()
-    captureAndRefreshLocation({ entityType: 'TRIP', entityId: tripId, eventType: 'END' })
+    await loadEntityLocations('TRIP', tripId)
     return true
   }
 
   const cancelTrip = async ({ reason = 'DRIVER_MISTAKE', revenue = '' } = {}) => {
     if (!isTripActive.value) return false
     const tripId = trip.value.id
-    await WorkService.cancelTrip({ id: tripId, reason, revenue })
+    const endLocation = await WorkService.captureLocation({ entityType: 'TRIP', entityId: tripId, eventType: 'CANCELLED' })
+    const result = await WorkService.cancelTrip({ id: tripId, reason, revenue, tripEndLocation: endLocation || null })
+    MovementTraceService.reset()
+    if (result?.ok === false) return result
     await refresh()
-    captureAndRefreshLocation({ entityType: 'TRIP', entityId: tripId, eventType: 'CANCELLED' })
-    return true
+    await loadEntityLocations('TRIP', tripId)
+    return { ok: true }
   }
 
   const updateTrip = async data => {
