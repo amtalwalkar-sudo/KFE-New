@@ -1,6 +1,6 @@
 /* KFE Work — compact target HUD and single top swipe action. */
 .kfe-work-cockpit{position:relative;}
-.kfe-work-cockpit .target-hud{position:fixed;top:calc(env(safe-area-inset-top,0px) + 72px);left:50%;transform:translateX(-50%);z-index:1200;width:min(92vw,520px);pointer-events:none;}
+.kfe-work-cockpit .target-hud{position:fixed !important;top:calc(env(safe-area-inset-top,0px) + 8px) !important;bottom:auto !important;left:50%;transform:translateX(-50%);z-index:2147483000;width:min(92vw,520px);pointer-events:none;}
 .kfe-work-cockpit .target-hud-trigger{pointer-events:auto;width:100%;min-height:36px;height:36px;padding:0 9px 0 12px;display:flex;align-items:center;gap:7px;border:1px solid color-mix(in srgb,var(--kfe-ui-border) 82%,transparent);border-radius:10px;background:color-mix(in srgb,var(--kfe-ui-surface) 92%,transparent);color:var(--kfe-ui-text);box-shadow:0 4px 14px color-mix(in srgb,var(--kfe-ui-text) 12%,transparent);backdrop-filter:blur(12px);font-size:.66rem;font-weight:900;letter-spacing:.04em;}
 .kfe-work-cockpit .target-hud-trigger span:first-child{color:var(--kfe-muted-text);font-size:.58rem;letter-spacing:.1em;}
 .kfe-work-cockpit .target-hud-trigger strong{font-size:.72rem;font-weight:950;white-space:nowrap;}
@@ -20,12 +20,12 @@
 .kfe-work-cockpit .target-hud-stats strong{display:block;margin-top:3px;font-size:.76rem;font-weight:950;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .kfe-work-cockpit .target-hud-current{display:flex;align-items:center;justify-content:space-between;margin-top:7px;padding:8px 10px;border-radius:11px;background:var(--kfe-ui-surface-2);}
 .kfe-work-cockpit .target-hud-current strong{font-size:.82rem;font-weight:950;}
-.kfe-work-cockpit .persistent-action{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 10px);top:auto;transform:translateX(-50%);z-index:1210;width:min(94vw,560px);padding:0 0 2px;pointer-events:none;}
+.kfe-work-cockpit .persistent-action{position:fixed !important;left:50% !important;right:auto !important;bottom:calc(env(safe-area-inset-bottom,0px) + 10px) !important;top:auto !important;transform:translateX(-50%) !important;z-index:2147482999;width:min(94vw,560px);padding:0 0 2px;pointer-events:none;}
 .kfe-work-cockpit .persistent-action .swipe-bar,.kfe-work-cockpit .persistent-action .swipe-hint{pointer-events:auto;}
 .kfe-work-cockpit .persistent-action .swipe-bar{min-height:56px;border-radius:18px;box-shadow:0 10px 28px color-mix(in srgb,var(--kfe-ui-text) 18%,transparent);}
 .kfe-work-cockpit .persistent-action .swipe-hint{display:block;margin-top:4px;text-align:center;font-size:.56rem;font-weight:850;letter-spacing:.04em;color:var(--kfe-muted-text);text-shadow:0 1px 8px color-mix(in srgb,var(--kfe-ui-bg) 80%,transparent);}
 .kfe-work-cockpit .cockpit-trip-state .trip-core{display:none;}
-@media(max-width:600px){.kfe-work-cockpit .target-hud{top:calc(env(safe-area-inset-top,0px) + 70px);width:calc(100vw - 20px)}.kfe-work-cockpit .target-hud-trigger{height:34px;min-height:34px}.kfe-work-cockpit .target-hud-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.kfe-work-cockpit .persistent-action{width:calc(100vw - 20px);top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 8px)}.kfe-work-cockpit .persistent-action .swipe-bar{min-height:58px}}
+@media(max-width:600px){.kfe-work-cockpit .target-hud{top:calc(env(safe-area-inset-top,0px) + 8px) !important;width:calc(100vw - 20px)}.kfe-work-cockpit .target-hud-trigger{height:34px;min-height:34px}.kfe-work-cockpit .target-hud-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.kfe-work-cockpit .persistent-action{width:calc(100vw - 20px);top:auto !important;bottom:calc(env(safe-area-inset-bottom,0px) + 8px) !important}.kfe-work-cockpit .persistent-action .swipe-bar{min-height:58px}}
 @media(prefers-reduced-motion:reduce){.kfe-work-cockpit .target-hud-progress span{transition:none}}
 /* Target HUD overlay controls: long-press to move, minimize to a compact restore chip. */
 .kfe-work-cockpit .target-hud--edit{cursor:grabbing;touch-action:none;}
