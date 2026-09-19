@@ -16,4 +16,5 @@ assert.match(plugin, /GO_TO_PICKUP/)
 assert.match(plugin, /START_RIDE/)
 assert.match(plugin, /END_RIDE/)
 assert.match(receiver, /RemoteInput\.getResultsFromIntent/)
-// CI verification marker for the native notification bridge.\nconsole.log('KFE ride notification contract tests passed')
+// CI verification marker for the native notification bridge.
+console.log('KFE ride notification contract tests passed')
