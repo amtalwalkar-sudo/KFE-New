@@ -20,6 +20,9 @@ import android.view.WindowManager;
 import android.content.pm.ServiceInfo;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.EditText;
+import android.text.InputType;
+import android.content.SharedPreferences;
 
 import androidx.core.app.NotificationCompat;
 
@@ -45,6 +48,10 @@ public class KfeOverlayService extends Service {
   private LinearLayout targetPanel;
   private LinearLayout targetStats;
   private TextView endRideLabel;
+  private LinearLayout endRideForm;
+  private EditText fareInput;
+  private EditText tollInput;
+  private EditText parkingInput;
   private boolean targetExpanded;
   private boolean tripActiveState;
   private float downX;
@@ -156,9 +163,32 @@ public class KfeOverlayService extends Service {
     endRideLabel.setBackground(endBg);
     endRideLabel.setPadding(dp(10), dp(8), dp(10), dp(8));
     endRideLabel.setContentDescription("End ride and enter fare, toll and parking in KFE");
-    endRideLabel.setOnClickListener(v -> launchKfe());
+    endRideLabel.setOnClickListener(v -> showEndRideForm());
     endRide.addView(endRideLabel, new LinearLayout.LayoutParams(-1, dp(40)));
-    root.addView(endRide);\n    targetPanel = root;\n    targetStats.setVisibility(View.GONE);\n    endRide.setVisibility(View.GONE);\n\n    shell.addView(root, new LinearLayout.LayoutParams(dp(292), LinearLayout.LayoutParams.WRAP_CONTENT));
+    root.addView(endRide);
+
+    endRideForm = new LinearLayout(this);
+    endRideForm.setOrientation(LinearLayout.VERTICAL);
+    endRideForm.setPadding(dp(2), dp(8), dp(2), 0);
+    fareInput = amountField("Fare", true);
+    tollInput = amountField("Toll", false);
+    parkingInput = amountField("Parking", false);
+    endRideForm.addView(fareInput);
+    endRideForm.addView(tollInput);
+    endRideForm.addView(parkingInput);
+    TextView saveRide = text("OK  •  END RIDE", 10, Color.WHITE);
+    saveRide.setGravity(Gravity.CENTER);
+    GradientDrawable saveBg = new GradientDrawable();
+    saveBg.setColor(Color.argb(160, 22, 120, 92));
+    saveBg.setCornerRadius(dp(14));
+    saveRide.setBackground(saveBg);
+    saveRide.setPadding(dp(10), dp(8), dp(10), dp(8));
+    saveRide.setContentDescription("Save fare, toll and parking and end ride");
+    saveRide.setOnClickListener(v -> saveEndRideForm());
+    endRideForm.addView(saveRide, new LinearLayout.LayoutParams(-1, dp(40)));
+    root.addView(endRideForm);
+
+    targetPanel = root;\n    targetStats.setVisibility(View.GONE);\n    endRide.setVisibility(View.GONE);\n    endRideForm.setVisibility(View.GONE);\n\n    shell.addView(root, new LinearLayout.LayoutParams(dp(292), LinearLayout.LayoutParams.WRAP_CONTENT));
 
     overlayView = shell;
     params = new WindowManager.LayoutParams(
@@ -220,7 +250,62 @@ public class KfeOverlayService extends Service {
     }
   }
 
-  private void toggleTarget() {\n    targetExpanded = !targetExpanded;\n    if (targetStats != null) targetStats.setVisibility(targetExpanded ? View.VISIBLE : View.GONE);\n    if (endRideLabel != null && endRideLabel.getParent() instanceof View) {\n      View endRide = (View) endRideLabel.getParent();\n      endRide.setVisibility(targetExpanded && tripActiveState ? View.VISIBLE : View.GONE);\n    }\n  }\n\n  private void toggleMinimized() {
+  private void toggleTarget() {\n    targetExpanded = !targetExpanded;\n    if (targetStats != null) targetStats.setVisibility(targetExpanded ? View.VISIBLE : View.GONE);\n    if (endRideLabel != null && endRideLabel.getParent() instanceof View) {\n      View endRide = (View) endRideLabel.getParent();\n      endRide.setVisibility(targetExpanded && tripActiveState ? View.VISIBLE : View.GONE);\n      endRideForm.setVisibility(View.GONE);\n    }\n  }\n\n  private EditText amountField(String label, boolean required) {
+    EditText input = new EditText(this);
+    input.setHint(label + (required ? " *" : " (optional)"));
+    input.setTextColor(Color.WHITE);
+    input.setHintTextColor(Color.LTGRAY);
+    input.setTextSize(11);
+    input.setSingleLine(true);
+    input.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+    input.setPadding(dp(10), dp(4), dp(10), dp(4));
+    GradientDrawable bg = new GradientDrawable();
+    bg.setColor(Color.argb(120, 255, 255, 255));
+    bg.setCornerRadius(dp(12));
+    input.setBackground(bg);
+    LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(40));
+    lp.setMargins(0, 0, 0, dp(6));
+    input.setLayoutParams(lp);
+    return input;
+  }
+
+  private void showEndRideForm() {
+    if (endRideForm == null || !tripActiveState) return;
+    targetExpanded = true;
+    if (targetStats != null) targetStats.setVisibility(View.VISIBLE);
+    if (endRideForm != null) endRideForm.setVisibility(View.VISIBLE);
+    if (endRideLabel != null) endRideLabel.setVisibility(View.GONE);
+  }
+
+  private void saveEndRideForm() {
+    String fare = fareInput == null ? "" : fareInput.getText().toString().trim();
+    String toll = tollInput == null ? "" : tollInput.getText().toString().trim();
+    String parking = parkingInput == null ? "" : parkingInput.getText().toString().trim();
+    if (fare.isEmpty()) {
+      if (fareInput != null) fareInput.setError("Fare is required");
+      return;
+    }
+    try {
+      double fareValue = Double.parseDouble(fare);
+      double tollValue = toll.isEmpty() ? 0 : Double.parseDouble(toll);
+      double parkingValue = parking.isEmpty() ? 0 : Double.parseDouble(parking);
+      if (fareValue < 0 || tollValue < 0 || parkingValue < 0) throw new NumberFormatException();
+      getSharedPreferences("kfe_overlay", MODE_PRIVATE).edit()
+        .putString("pending_fare", fare)
+        .putString("pending_toll", String.valueOf(tollValue))
+        .putString("pending_parking", String.valueOf(parkingValue))
+        .putBoolean("pending_end_ride", true)
+        .apply();
+      launchKfe();
+      targetExpanded = false;
+      endRideForm.setVisibility(View.GONE);
+      endRideLabel.setVisibility(View.VISIBLE);
+    } catch (NumberFormatException error) {
+      if (fareInput != null) fareInput.setError("Enter valid amounts");
+    }
+  }
+
+  private void toggleMinimized() {
     minimized = !minimized;
     updateMinimizedView();
   }
@@ -255,7 +340,7 @@ public class KfeOverlayService extends Service {
     liveKmsValue.setText(Double.isNaN(liveKms) ? "LIVE KMS —" : String.format(Locale.US, "LIVE KMS %.1f", liveKms));
     progressValue.setText(String.format(Locale.US, "%.0f%%", Math.max(0, Math.min(100, progress))));
     ridesValue.setText(rides + " rides");
-    tripValue.setText(tripActive ? (timer == null || timer.isEmpty() ? "ON TRIP" : timer) : "READY");\n    if (endRideLabel != null && endRideLabel.getParent() instanceof View) {\n      View endRide = (View) endRideLabel.getParent();\n      endRide.setVisibility(targetExpanded && tripActive ? View.VISIBLE : View.GONE);\n    }\n    TextView swipe = (TextView) ((LinearLayout) overlayView).getChildAt(0);\n    GradientDrawable bar = new GradientDrawable();\n    bar.setColor(tripActive ? Color.argb(242, 180, 70, 45) : Color.argb(242, 22, 120, 92));\n    bar.setCornerRadius(dp(20));\n    swipe.setBackground(bar);
+    tripValue.setText(tripActive ? (timer == null || timer.isEmpty() ? "ON TRIP" : timer) : "READY");\n    if (endRideLabel != null && endRideLabel.getParent() instanceof View) {\n      View endRide = (View) endRideLabel.getParent();\n      endRide.setVisibility(targetExpanded && tripActive ? View.VISIBLE : View.GONE);\n      endRideForm.setVisibility(View.GONE);\n    }\n    TextView swipe = (TextView) ((LinearLayout) overlayView).getChildAt(0);\n    GradientDrawable bar = new GradientDrawable();\n    bar.setColor(tripActive ? Color.argb(242, 180, 70, 45) : Color.argb(242, 22, 120, 92));\n    bar.setCornerRadius(dp(20));\n    swipe.setBackground(bar);
   }
 
   private String money(double value) {
