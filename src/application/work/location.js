@@ -1,21 +1,57 @@
 import { LocationRepository } from '../../repositories/locationRepository.js'
 
+const uniqueParts = parts => [...new Set(parts.filter(Boolean).map(value => String(value).trim()).filter(Boolean))]
+
+const formatReverseGeocodeResult = data => {
+  if (!data) return null
+
+  const directPlace = [
+    data.formattedAddress,
+    data.formatted_address,
+    data.displayName?.text,
+    data.display_name,
+    data.address
+  ].find(value => typeof value === 'string' && value.trim())
+
+  if (directPlace) return directPlace.trim()
+
+  // BigDataCloud exposes the more useful suburb/locality as "locality".
+  // Keep it ahead of city/state so KFE does not collapse a precise fix to
+  // the broad city name.
+  const locality = data.localityName || data.locality || data.suburb || data.neighbourhood || data.neighborhood
+  const street = data.road || data.street || data.route || data.streetName
+  const postcode = data.postcode || data.postalCode
+  const city = data.city || data.localityInfo?.administrative?.find(entry => entry?.adminLevel === 4)?.name
+  const state = data.principalSubdivision || data.state
+
+  const granular = uniqueParts([street, locality, postcode, city, state])
+  if (granular.length) return granular.join(', ')
+
+  const administrative = Array.isArray(data.localityInfo?.administrative)
+    ? data.localityInfo.administrative.map(entry => entry?.name)
+    : []
+
+  return uniqueParts(administrative).slice(0, 3).join(', ') || null
+}
+
 const getNativePlaceName = async ({ latitude, longitude }) => {
   try {
     const bridge = globalThis?.KFE_NATIVE_GEOCODER
     if (bridge?.reverseGeocode) {
       const result = await bridge.reverseGeocode({ latitude, longitude })
-      return result?.placeName || null
+      const placeName = formatReverseGeocodeResult(result)
+      if (placeName) return placeName
     }
   } catch (_) {}
+
   try {
     const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${encodeURIComponent(latitude)}&longitude=${encodeURIComponent(longitude)}&localityLanguage=en`
     const response = await fetch(url, { headers: { Accept: 'application/json' } })
     if (!response.ok) return null
     const data = await response.json()
-    const parts = [data.locality, data.city, data.principalSubdivision].filter(Boolean)
-    return parts.length ? [...new Set(parts)].join(', ') : (data.localityInfo?.administrative?.[1]?.name || null)
+    return formatReverseGeocodeResult(data)
   } catch (_) {}
+
   return null
 }
 
