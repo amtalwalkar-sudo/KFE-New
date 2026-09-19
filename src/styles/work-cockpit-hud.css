@@ -9,7 +9,6 @@
 /* Cancel Ride: intentionally secondary to the primary swipe action. */
 .kfe-work-cockpit .cancel-ride-link{margin-top:14px;padding:8px 12px;border:1px solid var(--kfe-ui-border);border-radius:999px;background:transparent;color:var(--kfe-muted-text);font-size:.68rem;font-weight:850;letter-spacing:.03em;}
  .kfe-work-cockpit .cancel-ride-link:active{transform:scale(.98);}
-.kfe-work-cockpit .target-hud-cancel{pointer-events:auto;margin-top:8px;width:100%;min-height:34px;border:1px solid var(--kfe-ui-border);border-radius:10px;background:transparent;color:var(--kfe-muted-text);font-size:.64rem;font-weight:850;letter-spacing:.04em;text-align:left;padding:0 10px;}
 .kfe-work-cockpit .cancel-ride-panel{margin:8px auto 72px;width:min(92vw,520px);padding:12px;border:1px solid var(--kfe-ui-border);border-radius:20px;background:var(--kfe-ui-surface);box-shadow:0 12px 34px color-mix(in srgb,var(--kfe-ui-text) 12%,transparent);}
 .kfe-work-cockpit .cancel-ride-copy{margin:2px 0 8px;color:var(--kfe-muted-text);font-size:.78rem;line-height:1.45;}
 .kfe-work-cockpit .cancel-ride-form{display:grid;gap:8px;}
