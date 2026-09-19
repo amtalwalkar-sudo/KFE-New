@@ -147,7 +147,18 @@ const closeFuelForm = () => { saveFuelDraft(); fuelFormOpen.value=false; error.v
 const changeTripOperator = async operator => { if(!store.isTripActive){selectedOperator.value=operator;operatorMenuOpen.value=false;return} if(operator===store.trip.operator){operatorMenuOpen.value=false;return} const result=await store.updateTrip({id:store.trip.id,operator}); if(!result.ok)return fail(result.reason); selectedOperator.value=operator; operatorMenuOpen.value=false; notify(`Operator changed to ${operator}.`) }
 const startGoingToPickup = async () => { if (store.isTripActive || goingToPickup.value) return; goingToPickup.value=true; pickupGpsPoints.value=0; pickupGpsSummary.value=DeadKmPickupGpsService.getTestSummary(); const started=DeadKmPickupGpsService.start((_point,count)=>{ pickupGpsPoints.value=count; pickupGpsSummary.value=DeadKmPickupGpsService.getTestSummary() }); if(!started){ goingToPickup.value=false; return fail('GPS permission is required to measure Dead KM on the way to pickup.') } await KfeRideNotificationService.beginPickup(`pickup-${Date.now()}`); notify('Going to pickup — Dead KM GPS measuring started.') }
 const startTrip = async () => { const result=await store.startTrip(selectedOperator.value||store.defaultOperator); if(!result.ok)return fail(result.reason); DeadKmPickupGpsService.stop(); goingToPickup.value=false; pickupGpsPoints.value=DeadKmPickupGpsService.getPointCount(); pickupGpsSummary.value=DeadKmPickupGpsService.getTestSummary(); selectedOperator.value=result.trip.operator; await KfeRideNotificationService.startRide(result.trip.id); notify('Trip started. Pickup GPS measuring stopped.') }
-const endTrip = async (fare = '') => { const tripId=store.trip?.id; if(!await store.endTrip())return; if(fare !== '') await store.updateTrip({id:tripId,revenue:fare}); await refreshTarget(); await KfeRideNotificationService.completeRide(); notify(fare !== '' ? 'Trip completed with fare.' : 'Trip completed.') }
+const endTrip = async (fare = '') => {
+  const tripId = store.trip?.id
+  if (fare !== '') {
+    const value = Number(fare)
+    if (!Number.isFinite(value) || value < 0) { await KfeRideNotificationService.retryEndRide(); return fail('Enter a valid fare before ending the ride.') }
+  }
+  if (!await store.endTrip()) return
+  if (fare !== '') await store.updateTrip({id:tripId,revenue:fare})
+  await refreshTarget()
+  await KfeRideNotificationService.completeRide()
+  notify(fare !== '' ? 'Ride completed with fare.' : 'Ride completed.')
+}
 const cancelAccidentalTrip = async () => { if(!confirm('Cancel this accidental trip? It will be recorded as a cancelled driver-mistake trip.'))return; if(await store.cancelTrip({reason:'DRIVER_MISTAKE'})){await refreshTarget();notify('Accidental trip cancelled.')} }
 const cancelTripWithRevenue = async () => { if(!confirm('Record this trip as cancelled? Optional revenue will be retained if entered.'))return; if(await store.cancelTrip({reason:cancelReason.value,revenue:cancelledRevenue.value})){cancelledRevenue.value='';cancelPanel.value=false;await refreshTarget();notify('Cancelled trip recorded.')} }
 const saveFuel = async () => { if (fuelStore.saving) return; const result=await fuelStore.save({odometer:fuelOdometer.value,pricePerKg:fuelPrice.value,amount:fuelAmount.value,clientMutationId:fuelClientMutationId.value}); if(!result.ok)return fail(result.reason); fuelOdometer.value='';fuelPrice.value='';fuelAmount.value='';fuelClientMutationId.value=crypto.randomUUID();sessionStorage.removeItem(fuelDraftKey);fuelFormOpen.value=false;notify(`Refuelling recorded: ${result.record.quantityKg.toFixed(2)} kg.`) }
@@ -179,7 +190,7 @@ onMounted(async()=>{await store.initialize();await fuelStore.refresh();await ref
 removeRideNotificationListener = (await KfeRideNotificationService.addListener('rideNotificationAction', handleRideNotificationAction))?.remove;
 if (store.isOnline && !store.isTripActive && !goingToPickup.value) await KfeRideNotificationService.goOnline();
 startOdo.value=store.lastKnownOdometer??'';selectedOperator.value=store.defaultOperator;loadFuelDraft();unsubscribeTarget=DriverTargetService.subscribeDataChanges(()=>{void refreshTarget();void refreshPerformance()});interval=window.setInterval(()=>{clock.value=Date.now()},1000)})
-onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListener(); KfeRideNotificationService.clear().catch(()=>{});window.clearInterval(interval);unsubscribeTarget?.();DeadKmPickupGpsService.reset()})
+onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListener();window.clearInterval(interval);unsubscribeTarget?.();DeadKmPickupGpsService.reset()})
 </script>
 
 <template>
