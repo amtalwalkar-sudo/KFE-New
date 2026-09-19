@@ -10,6 +10,8 @@ const db = read('utils/indexedDB.js')
 const main = read('main.js')
 const platform = read('infrastructure/startup/platformStartup.js')
 const mutation = read('repositories/mutationRepository.js')
+const backupRepository = read('repositories/backupRepository.js')
+const backupService = read('application/backup/backupService.js')
 
 assert.equal((main.match(/serviceWorker\.register\s*\(/g) || []).length, 0, 'main.js must not register the service worker')
 assert.equal((platform.match(/serviceWorker\.register\s*\(/g) || []).length, 1, 'PlatformStartup must own the single service-worker registration')
@@ -43,8 +45,14 @@ for (const relative of writers) {
   assert.match(source, /pending_mutations/)
   assert.match(source, /audit_history/)
 }
+assert.match(backupRepository, /import \{ openCanonicalDB \} from '..\/utils\/indexedDB\.js'/)
+assert.doesNotMatch(backupRepository, /initializeCanonicalStorage\(/)
+assert.match(backupRepository, /restoreCanonicalSnapshot\(snapshot\) \{[\\s\\S]*const db = await openCanonicalDB\(\)/)
+assert.match(backupRepository, /resetCanonicalData\(\) \{[\\s\\S]*const db = await openCanonicalDB\(\)/)
+assert.match(backupService, /source: \{ dbName: 'kanishka_kfe_canonical_db', dbVersion: 11 \}/)
 assert.match(mutation, /canonical synchronization queue/)
 assert.match(mutation, /these sync lifecycle methods intentionally operate on canonical storage only/)
+assert.doesNotMatch(mutation, /initializeCanonicalStorage\(/)
 for (const method of ['recoverStaleSyncing', 'getPending', 'updateStatus', 'remove']) {
   const start = mutation.indexOf('async ' + method)
   assert.ok(start >= 0, method + ' must exist')
