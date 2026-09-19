@@ -272,14 +272,12 @@ const traceSession = MovementTraceService.getActiveSession();
 let restoredTrace = false;
 if (store.isTripActive) {
   try { const savedPoints = await LocationRepository.forEntity('TRIP', store.trip.id); liveKmsBase.value = calculateTraceDistanceKm(savedPoints); liveKms.value = liveKmsBase.value } catch (_) { liveKmsBase.value = 0; liveKms.value = null }
-  if (!traceSession || traceSession.entityType !== 'TRIP' || traceSession.entityId !== store.trip.id) {
-    restoredTrace = MovementTraceService.start({entityType:'TRIP',entityId:store.trip.id,eventType:'PASSENGER_RIDE_TRACE',profile:'PASSENGER_RIDE',onPoint:()=>{ liveKms.value=liveKmsBase.value + MovementTraceService.getDistanceKm() }});
-  }
+  restoredTrace = MovementTraceService.start({entityType:'TRIP',entityId:store.trip.id,eventType:'PASSENGER_RIDE_TRACE',profile:'PASSENGER_RIDE',onPoint:()=>{ liveKms.value=liveKmsBase.value + MovementTraceService.getDistanceKm() }});
   await KfeRideNotificationService.resume();
 } else if (store.isOnline) {
   let pickupSession = null;
   try { pickupSession = JSON.parse(localStorage.getItem(pickupTraceSessionKey) || 'null') } catch (_) {}
-  if (pickupSession?.shiftId === store.shift?.id && traceSession?.entityType === 'SHIFT' && traceSession.entityId === store.shift.id) {
+  if (pickupSession?.shiftId === store.shift?.id) {
     goingToPickup.value = true;
     restoredTrace = MovementTraceService.start({entityType:'SHIFT',entityId:store.shift.id,eventType:'DEAD_MOVEMENT_TRACE',profile:'DEAD_LEG',onPoint:(_point,count)=>{pickupGpsPoints.value=count;pickupGpsSummary.value={...pickupGpsSummary.value,points:count,passed:count>=2}}});
     await KfeRideNotificationService.resume();
