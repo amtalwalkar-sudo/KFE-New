@@ -94,6 +94,7 @@ export const WorkService = Object.freeze({
           authoritativeOdometerKm: null,
           deadMilesKm: 0,
           businessMilesKm: 0,
+          cancelledMilesKm: 0,
           unclassifiedKm: null,
           gpsTracePoints: gpsSnapshots.length
         }
