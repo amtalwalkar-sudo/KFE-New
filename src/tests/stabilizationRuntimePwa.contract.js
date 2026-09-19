@@ -11,23 +11,23 @@ const main = read('main.js')
 const platform = read('infrastructure/startup/platformStartup.js')
 const mutation = read('repositories/mutationRepository.js')
 
-assert.equal((main.match(/serviceWorker\\.register\\s*\\(/g) || []).length, 0, 'main.js must not register the service worker')
-assert.equal((platform.match(/serviceWorker\\.register\\s*\\(/g) || []).length, 1, 'PlatformStartup must own the single service-worker registration')
-assert.match(platform, /registration\\.waiting\\.postMessage\\(\\{ type: 'kfe:activate-update' \\}\\)/)
-assert.match(platform, /registration\\.update\\(\\)\\.catch/)
+assert.equal((main.match(/serviceWorker\.register\s*\(/g) || []).length, 0, 'main.js must not register the service worker')
+assert.equal((platform.match(/serviceWorker\.register\s*\(/g) || []).length, 1, 'PlatformStartup must own the single service-worker registration')
+assert.match(platform, /registration\.waiting\.postMessage\(\{ type: 'kfe:activate-update' \}\)/)
+assert.match(platform, /registration\.update\(\)\.catch/)
 
-assert.match(db, /CANONICAL_DB_NAME\\s*=\\s*'kanishka_kfe_canonical_db'/)
-assert.match(db, /SYNTHETIC_DB_NAME\\s*=\\s*'kanishka_kfe_synthetic_db'/)
-assert.match(db, /const getActiveSource = \\(\\) =>/)
-assert.match(db, /const dbNameFor = source => source === 'synthetic' \\? SYNTHETIC_DB_NAME : CANONICAL_DB_NAME/)
-assert.match(db, /export const initializeActiveStorage = async \\(\\{ dataSource \\} = \\{\\}\\) => initializeDatabase\\(dbNameFor\\(dataSource \\|\\| getActiveSource\\(\\)\\)\\)/)
+assert.match(db, /CANONICAL_DB_NAME\s*=\s*'kanishka_kfe_canonical_db'/)
+assert.match(db, /SYNTHETIC_DB_NAME\s*=\s*'kanishka_kfe_synthetic_db'/)
+assert.match(db, /const getActiveSource = \(\) =>/)
+assert.match(db, /const dbNameFor = source => source === 'synthetic' \? SYNTHETIC_DB_NAME : CANONICAL_DB_NAME/)
+assert.match(db, /export const initializeActiveStorage = async \(\{ dataSource \} = \{\}\) => initializeDatabase\(dbNameFor\(dataSource \|\| getActiveSource\(\)\)\)/)
 assert.match(db, /export const initializeCanonicalStorage = initializeActiveStorage/)
-assert.match(db, /export const openCanonicalDB = \\(\\) => initializeCanonicalStorage\\(\\{ dataSource: 'canonical' \\}\\)/)
+assert.match(db, /export const openCanonicalDB = \(\) => initializeCanonicalStorage\(\{ dataSource: 'canonical' \}\)/)
 
 const odo = db.slice(db.indexOf('export const getLastOdometer'))
-assert.match(odo, /initializeCanonicalStorage\\(\\)/)
-assert.match(odo, /Number\\.isFinite\\(value\\) && value >= 0 \\? value : null/)
-assert.doesNotMatch(odo, /Number\\(completed\\[0\\]\\.endOdometer\\) \\|\\| 0/)
+assert.match(odo, /initializeCanonicalStorage\(\)/)
+assert.match(odo, /Number\.isFinite\(value\) && value >= 0 \? value : null/)
+assert.doesNotMatch(odo, /Number\(completed\[0\]\.endOdometer\) \|\| 0/)
 
 const writers = [
   'repositories/adminRepository.js',
@@ -39,7 +39,7 @@ const writers = [
 ]
 for (const relative of writers) {
   const source = read(relative)
-  assert.match(source, /initializeCanonicalStorage\\(\\)/, relative + ' must use active-source storage')
+  assert.match(source, /initializeCanonicalStorage\(\)/, relative + ' must use active-source storage')
   assert.match(source, /pending_mutations/)
   assert.match(source, /audit_history/)
 }
@@ -50,7 +50,7 @@ for (const method of ['recoverStaleSyncing', 'getPending', 'updateStatus', 'remo
   assert.ok(start >= 0, method + ' must exist')
   const next = mutation.indexOf('async ', start + 6)
   const body = mutation.slice(start, next > 0 ? next : mutation.length)
-  assert.match(body, /openCanonicalDB\\(\\)/, method + ' must remain canonical-only')
+  assert.match(body, /openCanonicalDB\(\)/, method + ' must remain canonical-only')
 }
 
 console.log('Stabilization runtime/PWA/data-boundary contract: PASS')
