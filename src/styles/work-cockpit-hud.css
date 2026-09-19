@@ -37,3 +37,16 @@
 .kfe-work-cockpit .target-hud--minimized{width:auto;}
 .kfe-work-cockpit .target-hud--minimized .target-hud-mini{margin:0;}
 @media(max-width:600px){.kfe-work-cockpit .target-hud-minimize{right:5px;top:4px}.kfe-work-cockpit .target-hud--edit{touch-action:none;}}
+
+/* Cancel Ride: intentionally secondary to the primary swipe action. */
+.kfe-work-cockpit .cancel-ride-link{margin-top:14px;padding:8px 12px;border:1px solid var(--kfe-ui-border);border-radius:999px;background:transparent;color:var(--kfe-muted-text);font-size:.68rem;font-weight:850;letter-spacing:.03em;}
+.kfe-work-cockpit .cancel-ride-link:active,.kfe-work-cockpit .target-hud-cancel:active{transform:scale(.98);}
+.kfe-work-cockpit .target-hud-cancel{pointer-events:auto;margin-top:8px;width:100%;min-height:34px;border:1px solid var(--kfe-ui-border);border-radius:10px;background:transparent;color:var(--kfe-muted-text);font-size:.64rem;font-weight:850;letter-spacing:.04em;text-align:left;padding:0 10px;}
+.kfe-work-cockpit .cancel-ride-panel{margin:12px auto 110px;width:min(92vw,520px);padding:16px;border:1px solid var(--kfe-ui-border);border-radius:20px;background:var(--kfe-ui-surface);box-shadow:0 12px 34px color-mix(in srgb,var(--kfe-ui-text) 12%,transparent);}
+.kfe-work-cockpit .cancel-ride-copy{margin:4px 0 14px;color:var(--kfe-muted-text);font-size:.78rem;line-height:1.45;}
+.kfe-work-cockpit .cancel-ride-form{display:grid;gap:12px;}
+.kfe-work-cockpit .cancel-ride-form label{display:grid;gap:6px;font-size:.68rem;font-weight:850;color:var(--kfe-muted-text);letter-spacing:.04em;}
+.kfe-work-cockpit .cancel-ride-form input,.kfe-work-cockpit .cancel-ride-form select{min-height:44px;border:1px solid var(--kfe-ui-border);border-radius:12px;background:var(--kfe-ui-surface-2);color:var(--kfe-ui-text);padding:0 11px;font:inherit;}
+.kfe-work-cockpit .cancel-ride-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
+.kfe-work-cockpit .quiet-danger{min-height:40px;padding:0 14px;border:1px solid color-mix(in srgb,var(--kfe-ui-border) 70%,transparent);border-radius:11px;background:transparent;color:var(--kfe-muted-text);font-size:.7rem;font-weight:900;}
+@media(max-width:600px){.kfe-work-cockpit .cancel-ride-panel{width:calc(100vw - 20px);margin-top:10px;margin-bottom:100px;}}
