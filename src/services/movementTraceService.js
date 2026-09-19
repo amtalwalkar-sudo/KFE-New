@@ -42,6 +42,7 @@ let lastAcceptedAt = 0
 let active = null
 let pendingWrites = Promise.resolve()
 let lastPersistenceError = null
+let persistenceFailureCount = 0
 const SESSION_KEY = 'kfe.movement-trace-session.v1'
 const saveSession = () => { if (typeof localStorage === 'undefined' || !active) return; localStorage.setItem(SESSION_KEY, JSON.stringify({ entityType: active.entityType, entityId: active.entityId, eventType: active.eventType, profile: Object.entries(PROFILES).find(([, value]) => value === active.profile)?.[0] || 'DEAD_LEG' })) }
 const clearSession = () => { try { localStorage.removeItem(SESSION_KEY) } catch (_) {} }
@@ -53,10 +54,11 @@ const persist = point => {
   const write = async () => {
     let lastError = null
     for (let attempt = 1; attempt <= 3; attempt += 1) {
-      try { await LocationRepository.recordTracePoint({ ...session, ...point }); lastPersistenceError = null; return }
+      try { await LocationRepository.recordTracePoint({ ...session, ...point }); return }
       catch (error) { lastError = error; if (attempt < 3) await new Promise(resolve => setTimeout(resolve, attempt * 250)) }
     }
     lastPersistenceError = lastError || new Error('GPS trace persistence failed.')
+    persistenceFailureCount += 1
   }
   pendingWrites = pendingWrites.catch(() => {}).then(write)
   return pendingWrites
@@ -120,10 +122,15 @@ export const MovementTraceService = {
     const result = [...points]
     await pendingWrites
     const persistenceError = lastPersistenceError
+    const persistenceFailures = persistenceFailureCount
     active = null
     clearSession()
     lastPersistenceError = null
-    if (persistenceError) throw persistenceError
+    persistenceFailureCount = 0
+    if (persistenceError) {
+      persistenceError.persistenceFailureCount = persistenceFailures
+      throw persistenceError
+    }
     return result
   },
   getPoints() { return [...points] },
@@ -132,6 +139,7 @@ export const MovementTraceService = {
   getPointCount() { return points.length },
   getDistanceKm() { return calculateTraceDistanceKm(points) },
   getLastPersistenceError() { return lastPersistenceError },
+  getPersistenceFailureCount() { return persistenceFailureCount },
   getProfile(profile = 'DEAD_LEG') { return PROFILES[profile] || PROFILES.DEAD_LEG },
   reset() {
     clearWatch()
@@ -139,6 +147,7 @@ export const MovementTraceService = {
     lastAcceptedAt = 0
     active = null
     lastPersistenceError = null
+    persistenceFailureCount = 0
     clearSession()
   }
 }
