@@ -46,8 +46,9 @@ public class KfeOverlayService extends Service {
   private float downY;
   private int originX;
   private int originY;
-  private boolean swipeGesture;
-  private static final int SWIPE_TRIGGER_DP = 90;
+  private boolean dragGesture;
+  private boolean minimized;
+  private static final int MINIMIZE_TRIGGER_DP = 90;
 
   @Override public void onCreate() {
     super.onCreate();
@@ -87,15 +88,26 @@ public class KfeOverlayService extends Service {
     if (overlayView != null) return;
 
     LinearLayout shell = new LinearLayout(this);
-    shell.setOrientation(LinearLayout.HORIZONTAL);
-    shell.setGravity(Gravity.CENTER_VERTICAL);
+    shell.setOrientation(LinearLayout.VERTICAL);
+    shell.setGravity(Gravity.CENTER_HORIZONTAL);
+
+    TextView swipe = text("KFE  •  SWIPE", 12, Color.WHITE);
+    swipe.setGravity(Gravity.CENTER);
+    GradientDrawable swipeBg = new GradientDrawable();
+    swipeBg.setColor(Color.argb(242, 22, 120, 92));
+    swipeBg.setCornerRadius(dp(20));
+    swipe.setBackground(swipeBg);
+    swipe.setPadding(dp(14), dp(9), dp(14), dp(9));
+    swipe.setContentDescription("KFE swipe bar. Drag to move. Drag upward to minimise. Tap to open KFE.");
+    swipe.setOnTouchListener((v, event) -> handleSwipe(v, event));
+    shell.addView(swipe, new LinearLayout.LayoutParams(dp(292), dp(48)));
 
     LinearLayout root = new LinearLayout(this);
     root.setOrientation(LinearLayout.VERTICAL);
     root.setPadding(dp(14), dp(10), dp(14), dp(10));
     GradientDrawable background = new GradientDrawable();
     background.setColor(Color.argb(238, 20, 24, 30));
-    background.setCornerRadius(dp(22));
+    background.setCornerRadius(dp(20));
     background.setStroke(dp(1), Color.argb(90, 255, 255, 255));
     root.setBackground(background);
     root.setElevation(dp(12));
@@ -106,6 +118,7 @@ public class KfeOverlayService extends Service {
     header.addView(label, weight(1));
     tripValue = text("READY", 11, Color.WHITE);
     header.addView(tripValue);
+    header.setOnClickListener(v -> toggleMinimized());
 
     LinearLayout values = new LinearLayout(this);
     values.setGravity(Gravity.CENTER_VERTICAL);
@@ -125,22 +138,24 @@ public class KfeOverlayService extends Service {
 
     root.addView(header);
     root.addView(values);
+    stats.addView(text("TRIP ", 10, Color.LTGRAY));
     root.addView(stats);
 
-    TextView swipe = text("SWIPE\nUP\nKFE  ↑", 10, Color.WHITE);
-    swipe.setGravity(Gravity.CENTER);
-    GradientDrawable swipeBg = new GradientDrawable();
-    swipeBg.setColor(Color.argb(55, 255,255,255));
-    swipeBg.setCornerRadius(dp(18));
-    swipe.setBackground(swipeBg);
-    swipe.setPadding(dp(6), dp(10), dp(6), dp(10));
-    swipe.setContentDescription("Swipe up to open KFE");
-    swipe.setOnTouchListener((v, event) -> handleSwipe(v, event));
+    LinearLayout endRide = new LinearLayout(this);
+    endRide.setGravity(Gravity.CENTER_VERTICAL);
+    TextView endLabel = text("END RIDE  •  FARE / TOLL / PARKING", 10, Color.WHITE);
+    endLabel.setGravity(Gravity.CENTER);
+    GradientDrawable endBg = new GradientDrawable();
+    endBg.setColor(Color.argb(120, 180, 70, 45));
+    endBg.setCornerRadius(dp(14));
+    endLabel.setBackground(endBg);
+    endLabel.setPadding(dp(10), dp(8), dp(10), dp(8));
+    endLabel.setContentDescription("End ride and enter fare, toll and parking in KFE");
+    endLabel.setOnClickListener(v -> launchKfe());
+    endRide.addView(endLabel, new LinearLayout.LayoutParams(-1, dp(40)));
+    root.addView(endRide);
 
-    LinearLayout.LayoutParams swipeParams = new LinearLayout.LayoutParams(dp(46), dp(138));
-    swipeParams.setMargins(0, 0, dp(8), 0);
-    shell.addView(swipe, swipeParams);
-    shell.addView(root, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+    shell.addView(root, new LinearLayout.LayoutParams(dp(292), LinearLayout.LayoutParams.WRAP_CONTENT));
 
     overlayView = shell;
     params = new WindowManager.LayoutParams(
@@ -171,38 +186,55 @@ public class KfeOverlayService extends Service {
         downY = event.getRawY();
         originX = params.x;
         originY = params.y;
-        swipeGesture = false;
+        dragGesture = false;
         return true;
       case MotionEvent.ACTION_MOVE:
         float dx = event.getRawX() - downX;
         float dy = event.getRawY() - downY;
-        swipeGesture = Math.abs(dy) > dp(12) && Math.abs(dy) > Math.abs(dx);
-        if (Math.abs(dx) > dp(12) || Math.abs(dy) > dp(12)) {
+        dragGesture = Math.abs(dx) > dp(10) || Math.abs(dy) > dp(10);
+        if (dragGesture) {
           params.x = Math.max(0, Math.round(originX - dx));
-          params.y = Math.max(dp(48), Math.round(originY + dy));
+          params.y = Math.max(dp(24), Math.round(originY + dy));
           try { windowManager.updateViewLayout(overlayView, params); } catch (Exception ignored) {}
         }
         return true;
       case MotionEvent.ACTION_UP:
         float finalDx = event.getRawX() - downX;
         float finalDy = event.getRawY() - downY;
-        boolean swipeUp = swipeGesture
-          && finalDy < -dp(SWIPE_TRIGGER_DP)
-          && Math.abs(finalDy) > Math.abs(finalDx) * 1.2f;
-        if (swipeUp) {
-          Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
-          if (launch != null) {
-            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            startActivity(launch);
-          }
+        if (finalDy < -dp(MINIMIZE_TRIGGER_DP)) {
+          minimized = true;
+          updateMinimizedView();
+        } else if (!dragGesture && Math.abs(finalDx) < dp(12) && Math.abs(finalDy) < dp(12)) {
+          launchKfe();
         }
-        swipeGesture = false;
+        dragGesture = false;
         return true;
       case MotionEvent.ACTION_CANCEL:
-        swipeGesture = false;
+        dragGesture = false;
         return true;
       default:
         return false;
+    }
+  }
+
+  private void toggleMinimized() {
+    minimized = !minimized;
+    updateMinimizedView();
+  }
+
+  private void updateMinimizedView() {
+    if (overlayView == null) return;
+    View targetPanel = ((LinearLayout) overlayView).getChildAt(1);
+    if (targetPanel != null) targetPanel.setVisibility(minimized ? View.GONE : View.VISIBLE);
+    params.height = minimized ? dp(48) : WindowManager.LayoutParams.WRAP_CONTENT;
+    try { windowManager.updateViewLayout(overlayView, params); } catch (Exception ignored) {}
+  }
+
+  private void launchKfe() {
+    Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
+    if (launch != null) {
+      launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+      startActivity(launch);
     }
   }
 
@@ -235,7 +267,7 @@ public class KfeOverlayService extends Service {
     return new NotificationCompat.Builder(this, CHANNEL_ID)
       .setSmallIcon(android.R.drawable.ic_dialog_info)
       .setContentTitle("KFE floating overlay")
-      .setContentText("Target and live KM stay available over other apps.")
+      .setContentText("KFE Target and live KM stay available over other apps.")
       .setOngoing(true)
       .setCategory(NotificationCompat.CATEGORY_SERVICE)
       .setContentIntent(pending)
