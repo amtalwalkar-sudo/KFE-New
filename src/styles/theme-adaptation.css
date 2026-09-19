@@ -1,21 +1,24 @@
-/* KFE 2.0 authoritative theme bridge.
-   Shells/components consume semantic KFE tokens instead of owning their palette.
-*/
-:root[data-kfe-theme="dark"]{
-  --kfe-ui-bg:#090d13;--kfe-ui-surface:#111821;--kfe-ui-text:#f7fafc;--kfe-muted-text:#aab5c4;--kfe-ui-muted:#aab5c4;--kfe-ui-border:#2b3543;--kfe-ui-accent:#7db5ff;--kfe-accent:#7db5ff;--kfe-accent-soft:#17283e;--kfe-success:#59d894;--kfe-warning:#ffca5c;--kfe-danger:#ff8178;--kfe-ui-overlay:rgba(9,13,19,.97);color-scheme:dark
-}
-:root[data-kfe-theme="light"]{
-  --kfe-ui-bg:#f5f7fb;--kfe-ui-surface:#fff;--kfe-ui-text:#101828;--kfe-muted-text:#667085;--kfe-ui-muted:#667085;--kfe-ui-border:#e4e7ec;--kfe-ui-accent:#2563eb;--kfe-accent:#2563eb;--kfe-accent-soft:#eff6ff;--kfe-success:#079455;--kfe-warning:#dc6803;--kfe-danger:#d92d20;--kfe-ui-overlay:rgba(245,247,251,.96);color-scheme:light
-}
-html,body,#app,#vue-runtime{background:var(--kfe-ui-bg)!important;color:var(--kfe-ui-text)}
-.driver-shell{--shell-bg:var(--kfe-ui-bg)!important;--shell-surface:var(--kfe-ui-surface)!important;--shell-surface-2:color-mix(in srgb,var(--kfe-ui-surface) 82%,var(--kfe-ui-bg))!important;--shell-border:color-mix(in srgb,var(--kfe-ui-border) 92%,transparent)!important;--shell-text:var(--kfe-ui-text)!important;--shell-muted:var(--kfe-muted-text)!important;--shell-accent:var(--kfe-ui-accent)!important;background:var(--kfe-ui-bg)!important;color:var(--kfe-ui-text)!important;color-scheme:inherit!important}
-.driver-header{background:color-mix(in srgb,var(--kfe-ui-bg) 94%,transparent)!important;border-color:var(--kfe-ui-border)!important}
-.header-button,.shell-menu,.quick-dock{background:color-mix(in srgb,var(--kfe-ui-surface) 96%,transparent)!important;border-color:var(--kfe-ui-border)!important;color:var(--kfe-ui-text)!important}
+/* KFE theme bridge — Visual DNA is the single palette authority.
+ * This file maps legacy shell selectors to the frozen token system.
+ * It must not define a competing light/dark palette.
+ */
+:root[data-kfe-theme="dark"],:root[data-kfe-theme="night"],:root[data-kfe-theme="dusk"]{color-scheme:dark}
+:root[data-kfe-theme="light"],:root[data-kfe-theme="day"]{color-scheme:light}
+html,body,#app,#vue-runtime{background:var(--kfe-ui-bg)!important;color:var(--kfe-ui-text)!important}
+.driver-shell{--shell-bg:var(--kfe-ui-bg)!important;--shell-surface:var(--kfe-ui-surface)!important;--shell-surface-2:var(--kfe-ui-surface-2)!important;--shell-border:var(--kfe-ui-border)!important;--shell-text:var(--kfe-ui-text)!important;--shell-muted:var(--kfe-muted-text)!important;--shell-accent:var(--kfe-ui-accent)!important;background:var(--kfe-ui-bg)!important;color:var(--kfe-ui-text)!important;color-scheme:inherit!important}
+.driver-header{background:var(--kfe-ui-surface)!important;border-color:var(--kfe-ui-border)!important}
+.header-button,.shell-menu,.quick-dock{background:var(--kfe-ui-surface)!important;border-color:var(--kfe-ui-border)!important;color:var(--kfe-ui-text)!important}
 .header-button:hover,.header-button:focus-visible{border-color:var(--kfe-ui-accent)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--kfe-ui-accent) 14%,transparent)!important}
 .fuel-button{color:var(--kfe-warning)!important;border-color:color-mix(in srgb,var(--kfe-warning) 42%,var(--kfe-ui-border))!important;background:color-mix(in srgb,var(--kfe-warning) 10%,var(--kfe-ui-surface))!important}
-.shell-menu button{color:var(--kfe-ui-text)!important}.shell-menu button:hover,.shell-menu button:focus-visible{background:color-mix(in srgb,var(--kfe-ui-accent) 10%,var(--kfe-ui-surface))!important}.shell-menu button em,.system-status span:last-child{color:var(--kfe-ui-accent)!important}.menu-divider{background:var(--kfe-ui-border)!important}.offline-note{color:var(--kfe-muted-text)!important}.quick-dock button{color:var(--kfe-muted-text)!important}.quick-dock button.active{color:var(--kfe-ui-accent)!important;background:color-mix(in srgb,var(--kfe-ui-accent) 14%,var(--kfe-ui-surface))!important}
+.shell-menu button{color:var(--kfe-ui-text)!important}
+.shell-menu button:hover,.shell-menu button:focus-visible{background:color-mix(in srgb,var(--kfe-ui-accent) 10%,var(--kfe-ui-surface))!important}
+.shell-menu button em,.system-status span:last-child{color:var(--kfe-ui-accent)!important}
+.menu-divider{background:var(--kfe-ui-border)!important}
+.offline-note{color:var(--kfe-muted-text)!important}
+.quick-dock button{color:var(--kfe-muted-text)!important}
+.quick-dock button.active{color:var(--kfe-ui-accent)!important;background:color-mix(in srgb,var(--kfe-ui-accent) 14%,var(--kfe-ui-surface))!important}
 .state-waiting{color:var(--kfe-warning)!important}.state-business{color:var(--kfe-success)!important}.state-personal{color:var(--kfe-ui-accent)!important}.state-offline{color:var(--kfe-muted-text)!important}
-.header-watermark{color:color-mix(in srgb,var(--kfe-ui-accent) 34%,var(--kfe-ui-text))!important;font-family:"Avenir Next","Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif!important;font-size:clamp(1.45rem,7vw,3.15rem)!important;font-style:normal!important;font-weight:950!important;letter-spacing:.055em!important;text-transform:uppercase!important;opacity:.72!important;text-shadow:0 1px 0 color-mix(in srgb,var(--kfe-ui-bg) 75%,transparent),0 0 18px color-mix(in srgb,var(--kfe-ui-accent) 18%,transparent)!important;transform:rotate(-4deg) scale(1.02)!important;mix-blend-mode:normal!important;z-index:0!important;transition:color .25s ease,opacity .25s ease,text-shadow .25s ease!important}
-.header-watermark::after{content:"KFE 2.0";margin-left:.45em;font-size:.38em;font-weight:900;letter-spacing:.12em;vertical-align:middle;opacity:.8;color:var(--kfe-ui-accent)}.header-left,.header-context,.header-state{z-index:1!important}
-.kfe-segmented button{border-color:var(--kfe-ui-border)!important;background:var(--kfe-ui-bg)!important;color:var(--kfe-ui-text)!important}.kfe-segmented button.is-active{background:var(--kfe-ui-accent)!important;border-color:var(--kfe-ui-accent)!important;color:#fff!important}
-@media(max-width:560px){.header-watermark{font-size:1.5rem!important;letter-spacing:.045em!important;opacity:.66!important}.header-watermark::after{font-size:.34em}}@media(prefers-reduced-motion:reduce){.header-watermark{transition:none!important}}
+/* Frozen DNA: KFE identity belongs to the functional shell brand, not decorative watermark text. */
+.header-watermark,.header-watermark::after{display:none!important;content:none!important}
+.kfe-segmented button{border-color:var(--kfe-ui-border)!important;background:var(--kfe-ui-bg)!important;color:var(--kfe-ui-text)!important}
+.kfe-segmented button.is-active{background:var(--kfe-ui-accent)!important;border-color:var(--kfe-ui-accent)!important;color:#fff!important}
