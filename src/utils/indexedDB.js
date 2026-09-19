@@ -42,6 +42,8 @@ const createSimpleStore = (db, name, indexes = []) => {
 }
 
 const getActiveSource = () => typeof sessionStorage === 'undefined' ? 'canonical' : (sessionStorage.getItem(DATA_SOURCE_KEY) === 'synthetic' ? 'synthetic' : 'canonical')
+// The default storage API follows the active data source. The explicitly named
+// openCanonicalDB API is reserved for canonical-only synchronization work.
 const dbNameFor = source => source === 'synthetic' ? SYNTHETIC_DB_NAME : CANONICAL_DB_NAME
 const openDatabase = name => new Promise((resolve, reject) => {
   const request = name === CANONICAL_DB_NAME ? indexedDB.open(CANONICAL_DB_NAME, CANONICAL_DB_VERSION) : indexedDB.open(name, CANONICAL_DB_VERSION)
@@ -86,7 +88,10 @@ export const setActiveDataSource = source => {
   return source
 }
 export const getActiveDataSource = () => getActiveSource()
-export const initializeCanonicalStorage = async ({ dataSource } = {}) => initializeDatabase(dbNameFor(dataSource || getActiveSource()))
+export const initializeActiveStorage = async ({ dataSource } = {}) => initializeDatabase(dbNameFor(dataSource || getActiveSource()))
+// Backward-compatible name retained because repository callers use this API; it is
+// intentionally active-source aware, despite the historical function name.
+export const initializeCanonicalStorage = initializeActiveStorage
 export const initializeSyntheticStorage = async () => initializeDatabase(SYNTHETIC_DB_NAME)
 export const openCanonicalDB = () => initializeCanonicalStorage({ dataSource: 'canonical' })
 
@@ -94,7 +99,9 @@ export const getLastOdometer = async () => {
   const db = await initializeCanonicalStorage()
   return new Promise((resolve, reject) => {
     const request = db.transaction('shifts', 'readonly').objectStore('shifts').getAll()
-    request.onsuccess = () => { const shifts = request.result || []; const completed = shifts.filter(s => s.status === 'COMPLETED').sort((a, b) => new Date(b.shiftEndAt || b.updatedAt) - new Date(a.shiftEndAt || a.updatedAt)); resolve(completed.length ? Number(completed[0].endOdometer) || 0 : 0) }
+    request.onsuccess = () => { const shifts = request.result || []; const completed = shifts.filter(s => s.status === 'COMPLETED').sort((a, b) => new Date(b.shiftEndAt || b.updatedAt) - new Date(a.shiftEndAt || a.updatedAt)); if (!completed.length) { resolve(0); return }
+      const value = Number(completed[0].endOdometer)
+      resolve(Number.isFinite(value) && value >= 0 ? value : null) }
     request.onerror = () => reject(request.error || new Error('Failed to read odometer history.'))
   })
 }
