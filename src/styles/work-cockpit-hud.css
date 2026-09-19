@@ -1,30 +1,120 @@
-/* KFE Work — compact target HUD and single top swipe action. */
+/* KFE Work — compact, glanceable cockpit expression.
+ * Business workflows remain owned by WorkModuleView.vue.
+ */
 .kfe-work-cockpit{position:relative;}
-.kfe-work-cockpit .persistent-action{position:fixed !important;left:50% !important;right:auto !important;bottom:calc(env(safe-area-inset-bottom,0px) + 10px) !important;top:auto !important;transform:translateX(-50%) !important;z-index:2147482999;width:min(94vw,560px);padding:0 0 2px;pointer-events:none;}
-.kfe-work-cockpit .persistent-action .swipe-bar,.kfe-work-cockpit .persistent-action .swipe-hint{pointer-events:auto;}
-.kfe-work-cockpit .persistent-action .swipe-bar{min-height:56px;border-radius:18px;box-shadow:0 10px 28px color-mix(in srgb,var(--kfe-ui-text) 18%,transparent);}
-.kfe-work-cockpit .persistent-action .swipe-hint{display:block;margin-top:4px;text-align:center;font-size:.56rem;font-weight:850;letter-spacing:.04em;color:var(--kfe-muted-text);text-shadow:0 1px 8px color-mix(in srgb,var(--kfe-ui-bg) 80%,transparent);}
+.kfe-work-cockpit .cockpit-state{
+  width:min(92vw,560px);
+  margin:8px auto 12px;
+  border-radius:var(--kfe-radius-lg);
+}
+.kfe-work-cockpit .cockpit-state .state-kicker{
+  letter-spacing:.1em;
+  font-size:.7rem;
+  font-weight:900;
+}
+.kfe-work-cockpit .cockpit--offline .cockpit-state{box-shadow:var(--kfe-ui-shadow);}
+.kfe-work-cockpit .cockpit-start-state{margin-top:8px;}
+.kfe-work-cockpit .cockpit-ready-state,
+.kfe-work-cockpit .cockpit-pickup-state,
+.kfe-work-cockpit .cockpit-trip-state{margin-top:8px;}
+.kfe-work-cockpit .cockpit-ready-state .primary,
+.kfe-work-cockpit .cockpit-pickup-state .primary{
+  min-height:52px;
+  font-weight:900;
+}
+.kfe-work-cockpit .pickup-gps-card{
+  border-color:var(--kfe-ui-border);
+  background:var(--kfe-ui-surface-2);
+  border-radius:var(--kfe-radius-md);
+}
 .kfe-work-cockpit .cockpit-trip-state .trip-core{display:none;}
-@media(max-width:600px){.kfe-work-cockpit .persistent-action{width:calc(100vw - 20px);top:auto !important;bottom:calc(env(safe-area-inset-bottom,0px) + 8px) !important}.kfe-work-cockpit .persistent-action .swipe-bar{min-height:58px}}
-/* Cancel Ride: intentionally secondary to the primary swipe action. */
-.kfe-work-cockpit .cancel-ride-link{margin-top:14px;padding:8px 12px;border:1px solid var(--kfe-ui-border);border-radius:999px;background:transparent;color:var(--kfe-muted-text);font-size:.68rem;font-weight:850;letter-spacing:.03em;}
- .kfe-work-cockpit .cancel-ride-link:active{transform:scale(.98);}
-.kfe-work-cockpit .cancel-ride-panel{margin:8px auto 72px;width:min(92vw,520px);padding:12px;border:1px solid var(--kfe-ui-border);border-radius:20px;background:var(--kfe-ui-surface);box-shadow:0 12px 34px color-mix(in srgb,var(--kfe-ui-text) 12%,transparent);}
+.kfe-work-cockpit .cockpit-trip-state .state-kicker{
+  color:var(--kfe-success);
+}
+.kfe-work-cockpit .cockpit-end-state{
+  border-radius:var(--kfe-radius-lg);
+}
+.kfe-work-cockpit .persistent-action{
+  position:fixed!important;
+  left:50%!important;
+  right:auto!important;
+  top:auto!important;
+  bottom:calc(env(safe-area-inset-bottom,0px) + 10px)!important;
+  transform:translateX(-50%)!important;
+  z-index:2147482999;
+  width:min(94vw,560px);
+  padding:0 0 2px;
+  pointer-events:none;
+}
+.kfe-work-cockpit .persistent-action .swipe-bar,
+.kfe-work-cockpit .persistent-action .swipe-hint{pointer-events:auto;}
+.kfe-work-cockpit .persistent-action .swipe-bar{
+  min-height:56px;
+  border-radius:var(--kfe-radius-lg);
+  box-shadow:0 10px 28px color-mix(in srgb,var(--kfe-ui-text) 18%,transparent);
+}
+.kfe-work-cockpit .persistent-action .swipe-hint{
+  display:block;
+  margin-top:4px;
+  text-align:center;
+  font-size:.56rem;
+  font-weight:850;
+  letter-spacing:.04em;
+  color:var(--kfe-muted-text);
+}
+.kfe-work-cockpit .cancel-ride-link{
+  margin-top:14px;
+  padding:8px 12px;
+  border:1px solid var(--kfe-ui-border);
+  border-radius:999px;
+  background:transparent;
+  color:var(--kfe-muted-text);
+  font-size:.68rem;
+  font-weight:850;
+  letter-spacing:.03em;
+}
+.kfe-work-cockpit .cancel-ride-link:active{transform:scale(.98);}
+.kfe-work-cockpit .cancel-ride-panel{
+  margin:8px auto 72px;
+  width:min(92vw,520px);
+  padding:12px;
+  border:1px solid var(--kfe-ui-border);
+  border-radius:var(--kfe-radius-lg);
+  background:var(--kfe-ui-surface);
+  box-shadow:0 12px 34px color-mix(in srgb,var(--kfe-ui-text) 12%,transparent);
+}
 .kfe-work-cockpit .cancel-ride-copy{margin:2px 0 8px;color:var(--kfe-muted-text);font-size:.78rem;line-height:1.45;}
 .kfe-work-cockpit .cancel-ride-form{display:grid;gap:8px;}
 .kfe-work-cockpit .cancel-ride-form label{display:grid;gap:4px;font-size:.68rem;font-weight:850;color:var(--kfe-muted-text);letter-spacing:.04em;}
-.kfe-work-cockpit .cancel-ride-form input,.kfe-work-cockpit .cancel-ride-form select{min-height:40px;border:1px solid var(--kfe-ui-border);border-radius:12px;background:var(--kfe-ui-surface-2);color:var(--kfe-ui-text);padding:0 11px;font:inherit;}
+.kfe-work-cockpit .cancel-ride-form input,.kfe-work-cockpit .cancel-ride-form select{min-height:40px;border:1px solid var(--kfe-ui-border);border-radius:var(--kfe-radius-md);background:var(--kfe-ui-surface-2);color:var(--kfe-ui-text);padding:0 11px;font:inherit;}
 .kfe-work-cockpit .cancel-ride-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:8px;}
 .kfe-work-cockpit .quiet-danger{min-height:40px;padding:0 14px;border:1px solid color-mix(in srgb,var(--kfe-ui-border) 70%,transparent);border-radius:11px;background:transparent;color:var(--kfe-muted-text);font-size:.7rem;font-weight:900;}
-@media(max-width:600px){.kfe-work-cockpit .cancel-ride-panel{width:calc(100vw - 20px);margin-top:8px;margin-bottom:72px;}}
-
-.kfe-work-cockpit .target-summary-card{width:min(92vw,560px);margin:8px auto 12px;padding:0;border-radius:20px;overflow:hidden}
-.kfe-work-cockpit .target-summary-trigger{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer}
-.kfe-work-cockpit .target-summary-trigger small{display:block;font-size:.68rem;letter-spacing:.12em;opacity:.7}
-.kfe-work-cockpit .target-summary-trigger strong{display:block;font-size:1.15rem;margin-top:2px}
-.kfe-work-cockpit .target-summary-achieved{font-weight:700;white-space:nowrap}
-.kfe-work-cockpit .target-summary-details{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 12px 12px}
-.kfe-work-cockpit .target-summary-details>div{display:grid;gap:3px;padding:8px;border-radius:12px;background:rgba(127,127,127,.08)}
-.kfe-work-cockpit .target-summary-details span{font-size:.62rem;letter-spacing:.08em;opacity:.65}
-.kfe-work-cockpit .target-summary-details strong{font-size:.92rem}
-@media(max-width:600px){.kfe-work-cockpit .target-summary-details{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kfe-work-cockpit .target-summary-card{
+  width:min(92vw,560px);
+  margin:8px auto 12px;
+  padding:0;
+  border-radius:var(--kfe-radius-lg);
+  overflow:hidden;
+  background:var(--kfe-ui-surface);
+  border:1px solid var(--kfe-ui-border);
+  box-shadow:var(--kfe-ui-shadow);
+}
+.kfe-work-cockpit .target-summary-trigger{
+  width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:12px 14px;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;
+}
+.kfe-work-cockpit .target-summary-trigger small{display:block;font-size:.68rem;letter-spacing:.12em;color:var(--kfe-muted-text);}
+.kfe-work-cockpit .target-summary-trigger strong{display:block;font-size:1.15rem;margin-top:2px;}
+.kfe-work-cockpit .target-summary-achieved{font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.kfe-work-cockpit .target-summary-details{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 12px 12px;}
+.kfe-work-cockpit .target-summary-details>div{display:grid;gap:3px;padding:8px;border-radius:var(--kfe-radius-md);background:var(--kfe-ui-surface-2);}
+.kfe-work-cockpit .target-summary-details span{font-size:.62rem;letter-spacing:.08em;color:var(--kfe-muted-text);}
+.kfe-work-cockpit .target-summary-details strong{font-size:.92rem;font-variant-numeric:tabular-nums;}
+@media(max-width:600px){
+  .kfe-work-cockpit .persistent-action{width:calc(100vw - 20px);bottom:calc(env(safe-area-inset-bottom,0px) + 8px)!important;}
+  .kfe-work-cockpit .persistent-action .swipe-bar{min-height:58px;}
+  .kfe-work-cockpit .target-summary-details{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .kfe-work-cockpit .cockpit-state{width:calc(100vw - 20px);}
+  .kfe-work-cockpit .cockpit-ready-state .primary,
+  .kfe-work-cockpit .cockpit-pickup-state .primary{min-height:52px;}
+}
