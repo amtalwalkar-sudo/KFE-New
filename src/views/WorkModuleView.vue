@@ -176,7 +176,7 @@ const restartPassengerTrace = () => {
   liveKmsBase.value = Number(liveKms.value || 0)
   return MovementTraceService.start({entityType:'TRIP',entityId:store.trip.id,eventType:'PASSENGER_RIDE_TRACE',profile:'PASSENGER_RIDE',onPoint:()=>{ liveKms.value=liveKmsBase.value + MovementTraceService.getDistanceKm() }})
 }
-const endTrip = async (fare = '') => {
+const endTrip = async (fare = '', toll = '', parking = '') => {
   const tripId = store.trip?.id
   if (fare !== '') {
     const value = Number(fare)
@@ -185,8 +185,8 @@ const endTrip = async (fare = '') => {
   try { await MovementTraceService.stop({captureFinal:true}) } catch (error) { restartPassengerTrace(); return fail(`GPS trace could not be saved. Ride was not completed: ${error?.message || 'persistence failed.'}`) }
   if (!await store.endTrip()) { restartPassengerTrace(); return fail('Ride could not be completed. GPS tracing has been resumed.') }
   let fareSaveFailed = false
-  if (fare !== '') {
-    const fareResult = await store.updateTrip({id:tripId,revenue:fare})
+  if (fare !== '' || toll !== '' || parking !== '') {
+    const fareResult = await store.updateTrip({id:tripId,revenue:fare,toll:toll === '' ? 0 : toll,parking:parking === '' ? 0 : parking})
     fareSaveFailed = !fareResult?.ok
   }
   await refreshTarget()
@@ -223,6 +223,8 @@ const handleRideNotificationAction = async ({ stage, tripId, input }) => {
 }
 
 onMounted(async()=>{await store.initialize();await fuelStore.refresh();await refreshTarget();await refreshPerformance();
+const pendingEndRide = await KfeOverlayService.consumePendingEndRide();
+if (pendingEndRide?.fare && store.isTripActive) await endTrip(pendingEndRide.fare, pendingEndRide.toll || '0', pendingEndRide.parking || '0');
 removeRideNotificationListener = (await KfeRideNotificationService.addListener('rideNotificationAction', handleRideNotificationAction))?.remove;
 let restoredTrace = false;
 if (store.isTripActive) {
