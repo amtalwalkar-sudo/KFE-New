@@ -73,12 +73,11 @@ export async function captureLifecycleLocation({ entityType, entityId, eventType
       // Coordinates are authoritative and are persisted immediately. Reverse geocoding
       // is enrichment only, so a slow/offline geocoder must never block a trip boundary.
       resolve(record)
-      void getNativePlaceName({ latitude, longitude }).then(placeName => {
+      void getNativePlaceName({ latitude, longitude }).then(async placeName => {
         if (placeName && record?.id) {
           await LocationRepository.updatePlaceName(record.id, placeName)
           if (entityType === 'TRIP' && (eventType === 'START' || eventType === 'END' || eventType === 'CANCELLED')) await ShiftTripRepository.updateTripLocationPlaceName(entityId, eventType, placeName)
         }
-        return null
         return null
       }).catch(() => {})
     }, () => resolve(null), {
