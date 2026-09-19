@@ -40,6 +40,7 @@ const suites = [
   'kfeOverlay.contract.js',
 ]
 
+// Keep every contract in the consolidated gate so native overlay interaction changes cannot bypass CI.
 const results = []
 for (const suite of suites) {
   const startedAt = Date.now()
