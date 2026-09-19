@@ -37,7 +37,7 @@ assert.doesNotMatch(work, /class="target-hud"/)
 assert.doesNotMatch(work, /targetOverlay/)
 assert.match(bridge, /registerPlugin\('KfeOverlay'\)/)\nassert.match(bridge, /consumePendingEndRide/)
 assert.match(work, /KfeOverlayService/)
-assert.match(work, /syncAndroidOverlay/)\nassert.match(work, /consumePendingEndRide/)\nassert.match(work, /endTrip\(pendingEndRide\.fare, pendingEndRide\.toll, pendingEndRide\.parking\)/)
+assert.match(work, /syncAndroidOverlay/)\nassert.match(work, /consumePendingEndRide/)\nassert.match(work, /endTrip\(pendingEndRide\.fare, pendingEndRide\.toll \|\| '0', pendingEndRide\.parking \|\| '0'\)/)
 assert.match(work, /TODAY'S TARGET/)\nassert.match(plugin, /consumePendingEndRide/)\nassert.match(work, /toll:toll === '' \? 0 : toll/)\nassert.match(work, /parking:parking === '' \? 0 : parking/)
 
 console.log('Native KFE floating overlay contract passed.')
