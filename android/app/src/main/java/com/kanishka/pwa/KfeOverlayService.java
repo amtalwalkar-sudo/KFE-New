@@ -42,6 +42,11 @@ public class KfeOverlayService extends Service {
   private TextView progressValue;
   private TextView ridesValue;
   private TextView tripValue;
+  private LinearLayout targetPanel;
+  private LinearLayout targetStats;
+  private TextView endRideLabel;
+  private boolean targetExpanded;
+  private boolean tripActiveState;
   private float downX;
   private float downY;
   private int originX;
@@ -114,11 +119,11 @@ public class KfeOverlayService extends Service {
 
     LinearLayout header = new LinearLayout(this);
     header.setGravity(Gravity.CENTER_VERTICAL);
-    TextView label = text("TARGET", 11, Color.LTGRAY);
+    TextView label = text("TARGET  ▾", 11, Color.LTGRAY);
     header.addView(label, weight(1));
     tripValue = text("READY", 11, Color.WHITE);
     header.addView(tripValue);
-    header.setOnClickListener(v -> toggleMinimized());
+    header.setOnClickListener(v -> toggleTarget());
 
     LinearLayout values = new LinearLayout(this);
     values.setGravity(Gravity.CENTER_VERTICAL);
@@ -127,7 +132,7 @@ public class KfeOverlayService extends Service {
     achievedValue = text("₹0", 14, Color.LTGRAY);
     values.addView(achievedValue);
 
-    LinearLayout stats = new LinearLayout(this);
+    targetStats = new LinearLayout(this);\n    LinearLayout stats = targetStats;
     stats.setGravity(Gravity.CENTER_VERTICAL);
     liveKmsValue = text("LIVE KMS —", 11, Color.WHITE);
     stats.addView(liveKmsValue, weight(1));
@@ -143,19 +148,17 @@ public class KfeOverlayService extends Service {
 
     LinearLayout endRide = new LinearLayout(this);
     endRide.setGravity(Gravity.CENTER_VERTICAL);
-    TextView endLabel = text("END RIDE  •  FARE / TOLL / PARKING", 10, Color.WHITE);
-    endLabel.setGravity(Gravity.CENTER);
+    endRideLabel = text("END RIDE  •  FARE / TOLL / PARKING", 10, Color.WHITE);
+    endRideLabel.setGravity(Gravity.CENTER);
     GradientDrawable endBg = new GradientDrawable();
     endBg.setColor(Color.argb(120, 180, 70, 45));
     endBg.setCornerRadius(dp(14));
-    endLabel.setBackground(endBg);
-    endLabel.setPadding(dp(10), dp(8), dp(10), dp(8));
-    endLabel.setContentDescription("End ride and enter fare, toll and parking in KFE");
-    endLabel.setOnClickListener(v -> launchKfe());
-    endRide.addView(endLabel, new LinearLayout.LayoutParams(-1, dp(40)));
-    root.addView(endRide);
-
-    shell.addView(root, new LinearLayout.LayoutParams(dp(292), LinearLayout.LayoutParams.WRAP_CONTENT));
+    endRideLabel.setBackground(endBg);
+    endRideLabel.setPadding(dp(10), dp(8), dp(10), dp(8));
+    endRideLabel.setContentDescription("End ride and enter fare, toll and parking in KFE");
+    endRideLabel.setOnClickListener(v -> launchKfe());
+    endRide.addView(endRideLabel, new LinearLayout.LayoutParams(-1, dp(40)));
+    root.addView(endRide);\n    targetPanel = root;\n    targetStats.setVisibility(View.GONE);\n    endRide.setVisibility(View.GONE);\n\n    shell.addView(root, new LinearLayout.LayoutParams(dp(292), LinearLayout.LayoutParams.WRAP_CONTENT));
 
     overlayView = shell;
     params = new WindowManager.LayoutParams(
@@ -217,14 +220,13 @@ public class KfeOverlayService extends Service {
     }
   }
 
-  private void toggleMinimized() {
+  private void toggleTarget() {\n    targetExpanded = !targetExpanded;\n    if (targetStats != null) targetStats.setVisibility(targetExpanded ? View.VISIBLE : View.GONE);\n    if (endRideLabel != null && endRideLabel.getParent() instanceof View) {\n      View endRide = (View) endRideLabel.getParent();\n      endRide.setVisibility(targetExpanded && tripActiveState ? View.VISIBLE : View.GONE);\n    }\n  }\n\n  private void toggleMinimized() {
     minimized = !minimized;
     updateMinimizedView();
   }
 
   private void updateMinimizedView() {
-    if (overlayView == null) return;
-    View targetPanel = ((LinearLayout) overlayView).getChildAt(1);
+    if (overlayView == null) return;\n    View targetPanel = ((LinearLayout) overlayView).getChildAt(1);
     if (targetPanel != null) targetPanel.setVisibility(minimized ? View.GONE : View.VISIBLE);
     params.height = minimized ? dp(48) : WindowManager.LayoutParams.WRAP_CONTENT;
     try { windowManager.updateViewLayout(overlayView, params); } catch (Exception ignored) {}
@@ -245,7 +247,7 @@ public class KfeOverlayService extends Service {
     double liveKms = intent.getDoubleExtra("liveKms", Double.NaN);
     double progress = intent.getDoubleExtra("progress", 0);
     int rides = intent.getIntExtra("rides", 0);
-    boolean tripActive = intent.getBooleanExtra("tripActive", false);
+    boolean tripActive = intent.getBooleanExtra("tripActive", false);\n    tripActiveState = tripActive;
     String timer = intent.getStringExtra("tripTimer");
 
     targetValue.setText(Double.isNaN(target) ? "—" : money(target));
@@ -253,7 +255,7 @@ public class KfeOverlayService extends Service {
     liveKmsValue.setText(Double.isNaN(liveKms) ? "LIVE KMS —" : String.format(Locale.US, "LIVE KMS %.1f", liveKms));
     progressValue.setText(String.format(Locale.US, "%.0f%%", Math.max(0, Math.min(100, progress))));
     ridesValue.setText(rides + " rides");
-    tripValue.setText(tripActive ? (timer == null || timer.isEmpty() ? "ON TRIP" : timer) : "READY");
+    tripValue.setText(tripActive ? (timer == null || timer.isEmpty() ? "ON TRIP" : timer) : "READY");\n    if (endRideLabel != null && endRideLabel.getParent() instanceof View) {\n      View endRide = (View) endRideLabel.getParent();\n      endRide.setVisibility(targetExpanded && tripActive ? View.VISIBLE : View.GONE);\n    }\n    TextView swipe = (TextView) ((LinearLayout) overlayView).getChildAt(0);\n    GradientDrawable bar = new GradientDrawable();\n    bar.setColor(tripActive ? Color.argb(242, 180, 70, 45) : Color.argb(242, 22, 120, 92));\n    bar.setCornerRadius(dp(20));\n    swipe.setBackground(bar);
   }
 
   private String money(double value) {
