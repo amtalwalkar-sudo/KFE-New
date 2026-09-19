@@ -252,6 +252,19 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
       <div class="hero-actions"><button class="fuel-icon" type="button" :class="{active:fuelFormOpen}" aria-label="CNG refuelling" title="CNG refuelling" @click="openFuelForm"><span aria-hidden="true">⛽</span></button><div class="online-control"><span>OFFLINE</span><button type="button" class="online-toggle" :class="{active:store.isOnline}" :disabled="store.isTripActive" role="switch" :aria-checked="store.isOnline" :aria-label="store.isOnline ? 'Go Offline' : 'Confirm odometer and go Online'" @click.stop.prevent="toggleOnline"><span/></button><span>ONLINE</span></div></div>
     </header>
     <div v-if="message" class="message">{{message}}</div><div v-if="error" class="error">{{error}}</div>
+    <section v-if="store.isOnline && !fuelFormOpen && !endShiftOpen" class="cockpit-state target-summary-card" aria-label="Today target">
+      <button class="target-summary-trigger" type="button" @click="targetDetailsOpen=!targetDetailsOpen" :aria-expanded="targetDetailsOpen">
+        <span><small>TODAY'S TARGET</small><strong>{{targetText}}</strong></span>
+        <span class="target-summary-achieved">{{performanceMoney(targetAchieved)}}</span>
+      </button>
+      <div v-if="targetDetailsOpen" class="target-summary-details">
+        <div><span>PROGRESS</span><strong>{{targetProgress}}%</strong></div>
+        <div><span>RIDES</span><strong>{{targetRides}}</strong></div>
+        <div><span>LIVE KMS</span><strong>{{liveKms == null ? '—' : liveKms + ' km'}}</strong></div>
+        <div v-if="store.isTripActive"><span>CURRENT FARE</span><strong>{{activeFare}}</strong></div>
+      </div>
+    </section>
+
     <section v-if="cancelPanel && store.isTripActive && !endShiftOpen" class="cockpit-state cancel-ride-panel">
       <div class="form-topline"><div><small>RIDE CONTROL</small><h2>CANCEL RIDE</h2></div><button class="form-back" type="button" @click="closeCancelRide"><span aria-hidden="true">🔙</span><span>Back</span></button></div>
       <div class="cancel-ride-copy">This keeps the ride in Timeline as <strong>Cancelled</strong>. Add a fee only if one was actually collected.</div>
