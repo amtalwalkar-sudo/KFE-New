@@ -11,6 +11,7 @@ import { createCloudBackupScheduler } from './infrastructure/backup/cloudBackupS
 import { captureCurrentLocation } from './infrastructure/location/currentLocation.js'
 import { PlatformStartup } from './infrastructure/startup/platformStartup.js'
 import './styles/kfe-ui.css'
+import './styles/work-cockpit-hud.css'
 import { startKfeThemeController } from './services/kfeThemeController.js'
 
 startKfeThemeController()
