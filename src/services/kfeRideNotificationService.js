@@ -73,6 +73,12 @@ export const KfeRideNotificationService = Object.freeze({
     await call('schedule', { stage: 'END_RIDE', tripId: state.tripId, delayMs: value * 60 * 1000 })
     return true
   },
+  async retryEndRide() {
+    restore()
+    state.phase = 'END_RIDE'
+    persist()
+    return call('show', { stage: 'END_RIDE', tripId: state.tripId })
+  },
   async completeRide() {
     const completedTripId = state.tripId
     if (completedTripId) {
