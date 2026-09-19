@@ -78,6 +78,7 @@ export const WorkService = Object.freeze({
           startOdometer: active.shift.startOdometer,
           endOdometer: data?.closingOdometer,
           router: new ValhallaRoutingAdapter(),
+          businessKmByTripId: Object.fromEntries(trips.filter(item => Number.isFinite(Number(item.tripKm)) && Number(item.tripKm) >= 0).map(item => [item.id, Number(item.tripKm)])),
           gpsSnapshots
         })
         completionData.movementReconciliation = reconciliation
