@@ -212,14 +212,22 @@ const closeFuelForm = () => { saveFuelDraft(); fuelFormOpen.value=false; error.v
 const changeTripOperator = async operator => { if(!store.isTripActive){selectedOperator.value=operator;operatorMenuOpen.value=false;return} if(operator===store.trip.operator){operatorMenuOpen.value=false;return} const result=await store.updateTrip({id:store.trip.id,operator}); if(!result.ok)return fail(result.reason); selectedOperator.value=operator; operatorMenuOpen.value=false; notify(`Operator changed to ${operator}.`) }
 const startGoingToPickup = async () => { if (store.isTripActive || goingToPickup.value) return; goingToPickup.value=true; pickupGpsPoints.value=0; pickupGpsSummary.value={points:0,nearTwoSecondIntervals:0,nearTwentySecondIntervals:0,maxGapMs:0,passed:false}; const started=MovementTraceService.start({ entityType:'SHIFT', entityId:store.shift?.id, eventType:'DEAD_MOVEMENT_TRACE', profile:'DEAD_LEG', onPoint:(_point,count)=>{ pickupGpsPoints.value=count; pickupGpsSummary.value={...pickupGpsSummary.value,points:count,passed:count>=2} } }); if(!started){ goingToPickup.value=false; return fail('GPS permission is required to measure Dead KM on the way to pickup.') } try { localStorage.setItem(pickupTraceSessionKey, JSON.stringify({shiftId:store.shift?.id})); } catch (_) {} await KfeRideNotificationService.beginPickup(`pickup-${Date.now()}`); notify('Going to pickup — Dead KM GPS measuring started.') }
 const startTrip = async () => { const deadLegPoints = await MovementTraceService.stop({captureFinal:true}); const deadLegPointCount = deadLegPoints.length; const result=await store.startTrip(selectedOperator.value||store.defaultOperator); if(!result.ok){ MovementTraceService.reset(); return fail(result.reason) } MovementTraceService.reset(); goingToPickup.value=false; pickupGpsPoints.value=deadLegPointCount; pickupGpsSummary.value={...pickupGpsSummary.value,points:deadLegPointCount,passed:deadLegPointCount>=2}; try { localStorage.removeItem(pickupTraceSessionKey) } catch (_) {} selectedOperator.value=result.trip.operator; const traceStarted=MovementTraceService.start({entityType:'TRIP',entityId:result.trip.id,eventType:'PASSENGER_RIDE_TRACE',profile:'PASSENGER_RIDE'}); if(!traceStarted) notify('Ride GPS trace unavailable; trip continues.'); await KfeRideNotificationService.startRide(result.trip.id); notify('Trip started. Pickup GPS measuring stopped.') }
+const restartPassengerTrace = () => {
+  if (!store.isTripActive) return false
+  return MovementTraceService.start({entityType:'TRIP',entityId:store.trip.id,eventType:'PASSENGER_RIDE_TRACE',profile:'PASSENGER_RIDE'})
+}
 const endTrip = async (fare = '') => {
   const tripId = store.trip?.id
   if (fare !== '') {
     const value = Number(fare)
     if (!Number.isFinite(value) || value < 0) { await KfeRideNotificationService.retryEndRide(); return fail('Enter a valid fare before ending the ride.') }
   }
-  await MovementTraceService.stop({captureFinal:true}); if (!await store.endTrip()) return
-  if (fare !== '') await store.updateTrip({id:tripId,revenue:fare})
+  await MovementTraceService.stop({captureFinal:true})
+  if (!await store.endTrip()) { restartPassengerTrace(); return fail('Ride could not be completed. GPS tracing has been resumed.') }
+  if (fare !== '') {
+    const fareResult = await store.updateTrip({id:tripId,revenue:fare})
+    if (!fareResult?.ok) return fail(fareResult.reason || 'Fare could not be saved.')
+  }
   await refreshTarget()
   await KfeRideNotificationService.completeRide()
   notify(fare !== '' ? 'Ride completed with fare.' : 'Ride completed.')
@@ -227,7 +235,7 @@ const endTrip = async (fare = '') => {
 const cancelAccidentalTrip = async () => { if(!confirm('Cancel this accidental trip? It will be recorded as a cancelled driver-mistake trip.'))return; await MovementTraceService.stop({captureFinal:true}); if(await store.cancelTrip({reason:'DRIVER_MISTAKE'})){await KfeRideNotificationService.completeRide();await refreshTarget();notify('Accidental trip cancelled.')} }
 const openCancelRide = () => { if (!store.isTripActive) return; cancelReason.value='DRIVER_MISTAKE'; cancelledRevenue.value=''; cancelPanel.value=true; error.value=''; message.value='' }
 const closeCancelRide = () => { cancelPanel.value=false; cancelledRevenue.value=''; error.value=''; message.value='' }
-const cancelTripWithRevenue = async () => { const value=cancelledRevenue.value; if(value!==''){const amount=Number(value);if(!Number.isFinite(amount)||amount<0)return fail('Enter a valid non-negative cancellation fee.')} if(!confirm('Record this ride as cancelled? The cancellation fee, if entered, will be retained.'))return; await MovementTraceService.stop({captureFinal:true}); const result=await store.cancelTrip({reason:cancelReason.value,revenue:value}); if(result?.ok){await KfeRideNotificationService.completeRide();cancelledRevenue.value='';cancelPanel.value=false;await refreshTarget();notify('Cancelled ride recorded.')} else if(result?.reason) fail(result.reason) }
+const cancelTripWithRevenue = async () => { const value=cancelledRevenue.value; if(value!==''){const amount=Number(value);if(!Number.isFinite(amount)||amount<0)return fail('Enter a valid non-negative cancellation fee.')} if(!confirm('Record this ride as cancelled? The cancellation fee, if entered, will be retained.'))return; await MovementTraceService.stop({captureFinal:true}); const result=await store.cancelTrip({reason:cancelReason.value,revenue:value}); if(result?.ok){await KfeRideNotificationService.completeRide();cancelledRevenue.value='';cancelPanel.value=false;await refreshTarget();notify('Cancelled ride recorded.')} else { restartPassengerTrace(); fail(result?.reason || 'Cancellation could not be recorded. GPS tracing has been resumed.') } }
 const saveFuel = async () => { if (fuelStore.saving) return; const result=await fuelStore.save({odometer:fuelOdometer.value,pricePerKg:fuelPrice.value,amount:fuelAmount.value,clientMutationId:fuelClientMutationId.value}); if(!result.ok)return fail(result.reason); fuelOdometer.value='';fuelPrice.value='';fuelAmount.value='';fuelClientMutationId.value=crypto.randomUUID();sessionStorage.removeItem(fuelDraftKey);fuelFormOpen.value=false;notify(`Refuelling recorded: ${result.record.quantityKg.toFixed(2)} kg.`) }
 const primaryTripAction = () => { if (store.isTripActive) return endTrip(); if (!goingToPickup.value) return startGoingToPickup(); return startTrip() }
 const tripActionLabel = computed(() => store.isTripActive ? 'SWIPE → END RIDE' : goingToPickup.value ? 'SWIPE → START RIDE' : 'SWIPE → GO TO PICKUP')
