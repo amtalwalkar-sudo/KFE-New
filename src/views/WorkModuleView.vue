@@ -268,7 +268,6 @@ const handleRideNotificationAction = async ({ stage, tripId, input }) => {
 
 onMounted(async()=>{await store.initialize();loadTargetOverlayState();await fuelStore.refresh();await refreshTarget();await refreshPerformance();
 removeRideNotificationListener = (await KfeRideNotificationService.addListener('rideNotificationAction', handleRideNotificationAction))?.remove;
-const traceSession = MovementTraceService.getActiveSession();
 let restoredTrace = false;
 if (store.isTripActive) {
   try { const savedPoints = await LocationRepository.forEntity('TRIP', store.trip.id); liveKmsBase.value = calculateTraceDistanceKm(savedPoints); liveKms.value = liveKmsBase.value } catch (_) { liveKmsBase.value = 0; liveKms.value = null }
