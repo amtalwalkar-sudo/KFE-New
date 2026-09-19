@@ -12,7 +12,7 @@ export const validateBackup = input => {
   if (backup.format !== BACKUP_FORMAT) throw new Error('Unsupported KFE backup format.')
   if (![1, 2, BACKUP_FORMAT_VERSION].includes(backup.formatVersion)) throw new Error(`Unsupported backup format version: ${backup.formatVersion}.`)
   const sourceVersion = backup.source?.dbVersion
-  const supportedSourceVersions = backup.formatVersion === BACKUP_FORMAT_VERSION ? [10] : [8, 9]
+  const supportedSourceVersions = backup.formatVersion === BACKUP_FORMAT_VERSION ? [11] : [8, 9]
   if (!backup.source || backup.source.dbName !== 'kanishka_kfe_canonical_db' || !supportedSourceVersions.includes(sourceVersion)) throw new Error('Backup source does not match a supported canonical KFE database version.')
   if (typeof backup.exportedAt !== 'string' || Number.isNaN(Date.parse(backup.exportedAt))) throw new Error('Backup exportedAt timestamp is invalid.')
   if (!backup.stores || typeof backup.stores !== 'object' || Array.isArray(backup.stores)) throw new Error('Backup stores section is missing.')
@@ -25,10 +25,10 @@ export const validateBackup = input => {
     const ids = new Set()
     for (const record of records) { if (!record || typeof record !== 'object' || Array.isArray(record) || typeof record.id !== 'string' || !record.id.trim()) throw new Error(`Backup store ${storeName} contains an invalid record.`); if (ids.has(record.id)) throw new Error(`Backup store ${storeName} contains duplicate id ${record.id}.`); ids.add(record.id) }
   }
-  if (backup.formatVersion === 1 || backup.formatVersion === 2) { const { driver_collected_data: _removed, ...storesWithoutRemovedStore } = backup.stores; if (backup.formatVersion === 1) storesWithoutRemovedStore.audit_history = []; backup = { ...backup, formatVersion: BACKUP_FORMAT_VERSION, source: { ...backup.source, dbVersion: 10 }, stores: storesWithoutRemovedStore } }
+  if (backup.formatVersion === 1 || backup.formatVersion === 2) { const { driver_collected_data: _removed, ...storesWithoutRemovedStore } = backup.stores; if (backup.formatVersion === 1) storesWithoutRemovedStore.audit_history = []; backup = { ...backup, formatVersion: BACKUP_FORMAT_VERSION, source: { ...backup.source, dbVersion: 11 }, stores: storesWithoutRemovedStore } }
   return backup
 }
-export const createBackup = async () => validateBackup({ format: BACKUP_FORMAT, formatVersion: BACKUP_FORMAT_VERSION, source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: 10 }, exportedAt: new Date().toISOString(), stores: await backupRepository.readCanonicalSnapshot() })
+export const createBackup = async () => validateBackup({ format: BACKUP_FORMAT, formatVersion: BACKUP_FORMAT_VERSION, source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: 11 }, exportedAt: new Date().toISOString(), stores: await backupRepository.readCanonicalSnapshot() })
 export const serializeBackup = backup => JSON.stringify(validateBackup(backup), null, 2)
 export const getBackupSummary = backup => { const valid = validateBackup(backup); const counts = Object.fromEntries(CANONICAL_BACKUP_STORES.map(store => [store, valid.stores[store].length])); return { exportedAt: valid.exportedAt, totalRecords: Object.values(counts).reduce((sum, count) => sum + count, 0), counts } }
 export const saveLocalBackup = async backup => { const valid = validateBackup(backup); await backupRepository.saveLocalBackup(valid); return true }
