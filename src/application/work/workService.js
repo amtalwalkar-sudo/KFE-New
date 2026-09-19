@@ -8,6 +8,9 @@ import { validateShiftStartOdometer, validateFirstDayShiftStartOdometer, validat
 import { calculateFuelQuantity, validateFuelEntry } from '../../domain/work/fuel.js'
 import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } from '../../domain/work/trip.js'
 import { BackupService } from '../backup/backupService.js'
+import { LocationRepository } from '../../repositories/locationRepository.js'
+import { MovementAccountingService, routeTrace } from '../../domain/movement/movementAccounting.js'
+import { ValhallaRoutingAdapter } from '../../services/valhallaRoutingAdapter.js'
 
 const checkpoint = () => BackupService.requestLocalBackupCheckpoint()
 
@@ -35,7 +38,26 @@ export const WorkService = Object.freeze({
     if (!validation.valid) return { ok: false, reason: validation.reason }
     const result = await ShiftTripRepository.createTrip({ ...data, operator: validation.operator }); checkpoint(); return result
   },
-  async completeTrip(data) { const result = await ShiftTripRepository.completeTrip(data); checkpoint(); return result },
+  async completeTrip(data) {
+    const trip = await ShiftTripRepository.getTripsForShift(data?.shiftId || (await ShiftTripRepository.getActive()).shift?.id || '')
+    const activeTrip = trip.find(item => item.id === data?.id) || (await ShiftTripRepository.getActive()).trip
+    let completionData = { ...data }
+    if (activeTrip?.id) {
+      const snapshots = await LocationRepository.forEntity('TRIP', activeTrip.id)
+      if (snapshots.length >= 2) {
+        const routed = await routeTrace(snapshots, new ValhallaRoutingAdapter())
+        if (Number.isFinite(Number(routed.distanceKm))) {
+          completionData = {
+            ...completionData,
+            tripKm: Number(routed.distanceKm),
+            tripKmAuthority: 'GPS_ESTIMATE',
+            tripKmProvenance: { ...routed.provenance, method: routed.method, confidence: routed.confidence, gpsTracePoints: routed.points.length }
+          }
+        }
+      }
+    }
+    const result = await ShiftTripRepository.completeTrip(completionData); checkpoint(); return result
+  },
   async cancelTrip(data) { const result = await ShiftTripRepository.cancelTrip(data); checkpoint(); return result },
   async updateTrip(data) {
     const validation = validateTripCorrection(data)
@@ -44,6 +66,24 @@ export const WorkService = Object.freeze({
   },
   async updateFuel(data) { const result = await FuelRepository.update(data.id, data); checkpoint(); return { ok: true, record: result } },
   async deleteFuel(id) { const result = await FuelRepository.remove(id); checkpoint(); return { ok: result } },
-  async endShift(data) { const result = await completeEndShift(data); checkpoint(); return result },
+  async endShift(data) {
+    let completionData = { ...data }
+    const active = await ShiftTripRepository.getActive()
+    if (active.shift?.id) {
+      const trips = await ShiftTripRepository.getTripsForShift(active.shift.id)
+      const gpsSnapshots = await LocationRepository.forEntity('SHIFT', active.shift.id)
+      try {
+        const reconciliation = await MovementAccountingService.reconcileShiftMovement({
+          trips,
+          startOdometer: active.shift.startOdometer,
+          endOdometer: data?.closingOdometer,
+          router: new ValhallaRoutingAdapter(),
+          gpsSnapshots
+        })
+        completionData.movementReconciliation = reconciliation
+      } catch (_) {}
+    }
+    const result = await completeEndShift(completionData); checkpoint(); return result
+  },
   async recordFuel(data) { const result = await recordFuelEntry(data); checkpoint(); return result },
 })
