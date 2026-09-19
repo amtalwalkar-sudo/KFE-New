@@ -318,7 +318,6 @@ public class KfeOverlayService extends Service {
       InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
       if (imm != null) imm.hideSoftInputFromWindow(fareInput.getWindowToken(), 0);
       params.flags |= WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
-      params.flags &= ~WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM;
       try { windowManager.updateViewLayout(overlayView, params); } catch (Exception ignored) {}
       targetExpanded = false;
       endRideForm.setVisibility(View.GONE);
