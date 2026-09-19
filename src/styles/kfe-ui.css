@@ -1439,3 +1439,70 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
 .theme-selector button.active{background:var(--kfe-ui-surface);color:var(--kfe-ui-text);box-shadow:0 2px 8px color-mix(in srgb,var(--kfe-ui-text) 12%,transparent)}
 .theme-selector button:focus-visible{outline:3px solid color-mix(in srgb,var(--kfe-ui-accent) 45%,transparent);outline-offset:1px}
 @media(max-width:520px){.theme-selector button{font-size:.75rem}}
+
+/* KFE TO PICKUP — high-frequency Dead KM measurement */
+.kfe-work-cockpit .cockpit-pickup-state{
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+  gap:12px;
+}
+.kfe-work-cockpit .state-kicker.pickup{
+  color:var(--kfe-ui-accent);
+}
+.kfe-work-cockpit .pickup-gps-card{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  padding:12px;
+  border:1px solid var(--kfe-ui-border);
+  border-radius:18px;
+  background:var(--kfe-ui-surface-2);
+}
+.kfe-work-cockpit .pickup-gps-card>div{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+}
+.kfe-work-cockpit .pickup-gps-card span,
+.kfe-work-cockpit .pickup-location-status span{
+  font-size:.57rem;
+  font-weight:950;
+  letter-spacing:.09em;
+  color:var(--kfe-muted-text);
+}
+.kfe-work-cockpit .pickup-gps-card strong{
+  font-size:1rem;
+  font-weight:950;
+}
+.kfe-work-cockpit .pickup-gps-card strong.pass{
+  color:var(--kfe-ui-success);
+}
+.kfe-work-cockpit .pickup-gps-note{
+  margin:0;
+  padding:11px 12px;
+  border-left:3px solid var(--kfe-ui-accent);
+  border-radius:10px;
+  background:var(--kfe-ui-surface-2);
+  color:var(--kfe-muted-text);
+  font-size:.68rem;
+  line-height:1.45;
+}
+.kfe-work-cockpit .pickup-location-status{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:11px 12px;
+  border:1px solid var(--kfe-ui-border);
+  border-radius:13px;
+  background:var(--kfe-ui-surface);
+}
+.kfe-work-cockpit .pickup-location-status strong{
+  font-size:.75rem;
+  font-weight:900;
+}
+@media(max-width:420px){
+  .kfe-work-cockpit .pickup-gps-card{gap:5px;padding:9px}
+  .kfe-work-cockpit .pickup-gps-card strong{font-size:.9rem}
+}
