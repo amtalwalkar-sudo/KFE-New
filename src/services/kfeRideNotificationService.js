@@ -31,6 +31,8 @@ export const KfeRideNotificationService = Object.freeze({
   getState: () => ({ ...state }),
   async goOnline() {
     restore()
+    if (state.phase && state.phase !== 'GO_TO_PICKUP') return true
+    await call('requestPermission')
     state.phase = 'GO_TO_PICKUP'
     state.tripId = null
     persist()
