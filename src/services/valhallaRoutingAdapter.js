@@ -1,5 +1,6 @@
 const DEFAULT_VALHALLA_ENDPOINT = 'https://valhalla1.openstreetmap.de'
 const KFE_CLIENT_ID = 'KANISHKA-ENTERPRISES-PWA'
+const DEFAULT_TIMEOUT_MS = 8000
 
 const toShape = (points) => points.map((point) => {
   const capturedAt = point.capturedAt || point.timestamp
@@ -67,33 +68,41 @@ const geometryFromTrip = (trip = {}) => {
 }
 
 export class ValhallaRoutingAdapter {
-  constructor({ endpoint = endpointFromRuntime(), fetchImpl = globalThis.fetch, clientId = KFE_CLIENT_ID } = {}) {
+  constructor({ endpoint = endpointFromRuntime(), fetchImpl = globalThis.fetch, clientId = KFE_CLIENT_ID, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
     this.endpoint = String(endpoint || DEFAULT_VALHALLA_ENDPOINT).replace(/\/$/, '')
     this.fetchImpl = fetchImpl
     this.clientId = clientId
+    this.timeoutMs = Number.isFinite(Number(timeoutMs)) && Number(timeoutMs) > 0 ? Number(timeoutMs) : DEFAULT_TIMEOUT_MS
   }
 
   async routeTrace(points) {
     if (typeof this.fetchImpl !== 'function') return null
     const shape = toShape(points)
     if (shape.length < 2) return null
-    const response = await this.fetchImpl(`${this.endpoint}/trace_route`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'X-Client-Id': this.clientId },
-      body: JSON.stringify({ shape, shape_match: 'map_snap', costing: 'auto', units: 'kilometers', shape_format: 'geojson' })
-    })
-    if (!response.ok) throw new Error(`Valhalla trace request failed: ${response.status}`)
-    const payload = await response.json()
-    const distance = Number(payload.trip?.summary?.length)
-    const geometry = geometryFromTrip(payload.trip)
-    return {
-      provider: 'valhalla',
-      method: 'VALHALLA_TRACE_ROUTE_MAP_MATCH',
-      confidence: geometry ? 'ESTIMATED_ROAD_TRACE' : 'ESTIMATED_ROAD_TRACE_NO_GEOMETRY',
-      distanceKm: Number.isFinite(distance) ? distance : null,
-      geometry: geometry || { type: 'LineString', coordinates: [] },
-      provenance: { provider: 'valhalla', endpoint: this.endpoint, operation: 'trace_route', shapeMatch: 'map_snap', costing: 'auto', units: 'kilometers', shapeFormat: 'geojson', sourcePointCount: shape.length },
-      raw: payload
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
+    const timeout = controller ? setTimeout(() => controller.abort(), this.timeoutMs) : null
+    try {
+      const response = await this.fetchImpl(`${this.endpoint}/trace_route`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'X-Client-Id': this.clientId },
+        body: JSON.stringify({ shape, shape_match: 'map_snap', costing: 'auto', units: 'kilometers', shape_format: 'geojson' }),
+        ...(controller ? { signal: controller.signal } : {})
+      })
+      if (!response.ok) throw new Error(`Valhalla trace request failed: ${response.status}`)
+      const payload = await response.json()
+      const distance = Number(payload.trip?.summary?.length)
+      const geometry = geometryFromTrip(payload.trip)
+      return {
+        provider: 'valhalla',
+        method: 'VALHALLA_TRACE_ROUTE_MAP_MATCH',
+        confidence: geometry ? 'ESTIMATED_ROAD_TRACE' : 'ESTIMATED_ROAD_TRACE_NO_GEOMETRY',
+        distanceKm: Number.isFinite(distance) ? distance : null,
+        geometry: geometry || { type: 'LineString', coordinates: [] },
+        provenance: { provider: 'valhalla', endpoint: this.endpoint, operation: 'trace_route', shapeMatch: 'map_snap', costing: 'auto', units: 'kilometers', shapeFormat: 'geojson', sourcePointCount: shape.length },
+        raw: payload
+      }
+    } finally {
+      if (timeout) clearTimeout(timeout)
     }
   }
 }
