@@ -87,7 +87,17 @@ export const WorkService = Object.freeze({
           gpsSnapshots
         })
         completionData.movementReconciliation = reconciliation
-      } catch (_) {}
+      } catch (error) {
+        completionData.movementReconciliation = {
+          reconciliationStatus: 'UNAVAILABLE',
+          reason: error?.message || 'MOVEMENT_RECONCILIATION_FAILED',
+          authoritativeOdometerKm: null,
+          deadMilesKm: 0,
+          businessMilesKm: 0,
+          unclassifiedKm: null,
+          gpsTracePoints: gpsSnapshots.length
+        }
+      }
     }
     const result = await completeEndShift(completionData); checkpoint(); return result
   },
