@@ -37,6 +37,14 @@ public class KfeRideNotificationsPlugin extends Plugin {
   }
 
   @com.getcapacitor.PluginMethod
+  public void requestPermission(PluginCall call) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && getContext().checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+      getActivity().requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 4102);
+    }
+    call.resolve();
+  }
+
+  @com.getcapacitor.PluginMethod
   public void show(PluginCall call) {
     showNotification(call.getString("stage", "GO_TO_PICKUP"), call.getString("tripId", ""));
     call.resolve();
@@ -59,8 +67,13 @@ public class KfeRideNotificationsPlugin extends Plugin {
     );
     AlarmManager alarm = (AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE);
     if (alarm != null) {
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending);
-      else alarm.set(AlarmManager.RTC_WAKEUP, triggerAt, pending);
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && alarm.canScheduleExactAlarms()) {
+        alarm.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending);
+      } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending);
+      } else {
+        alarm.set(AlarmManager.RTC_WAKEUP, triggerAt, pending);
+      }
     }
     call.resolve();
   }
