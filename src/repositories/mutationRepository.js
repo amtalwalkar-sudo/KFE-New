@@ -68,7 +68,6 @@ export const MutationRepository = {
   async updateStatus(id, status) {
     const validStatuses = new Set(['PENDING', 'SYNCING', 'FAILED'])
     if (!validStatuses.has(status)) throw new Error(`Invalid mutation status: ${status}`)
-    await initializeCanonicalStorage()
     const db = await openCanonicalDB()
     return new Promise((resolve, reject) => {
       const tx = db.transaction('pending_mutations', 'readwrite')
@@ -82,7 +81,6 @@ export const MutationRepository = {
     })
   },
   async remove(id) {
-    await initializeCanonicalStorage()
     const db = await openCanonicalDB()
     return new Promise((resolve, reject) => {
       const tx = db.transaction('pending_mutations', 'readwrite')
