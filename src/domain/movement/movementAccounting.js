@@ -67,8 +67,12 @@ export const MovementAccountingService = {
   async calculateSegments({ garageLocation, trips = [], router, gpsSnapshots = [] } = {}) {
     const garage = normalizeLocation(garageLocation)
     const completed = [...trips].filter(t => t?.status === 'COMPLETED' && t?.tripStartAt && t?.tripEndAt).sort((a, b) => new Date(a.tripStartAt) - new Date(b.tripStartAt))
+    const cancelled = [...trips].filter(t => t?.status === 'CANCELLED' && t?.tripStartAt && t?.tripEndAt && t?.tripStartLocation && t?.tripEndLocation).sort((a, b) => new Date(a.tripStartAt) - new Date(b.tripStartAt))
     const snapshots = orderedTrace(gpsSnapshots); const segments = []
-    if (!completed.length) return { segments, deadMilesKm: 0, businessMilesKm: 0, unclassifiedKm: 0, gpsTracePoints: snapshots.length, routingProvenance: [], roadMatchedGeometry: [] }
+    for (const trip of cancelled) {
+      segments.push(await makeSegment({ from: trip.tripStartLocation, to: trip.tripEndLocation, classification: 'CANCELLED', label: 'CANCELLED_TRIP_MOVEMENT', router, tripId: trip.id, trace: pointsBetween(snapshots, trip.tripStartAt, trip.tripEndAt, trip.tripStartLocation, trip.tripEndLocation) }))
+    }
+    if (!completed.length) return { segments, deadMilesKm: 0, businessMilesKm: 0, cancelledMilesKm: sum(segments, 'CANCELLED'), unclassifiedKm: 0, gpsTracePoints: snapshots.length, routingProvenance: segments.map(s => ({ segmentId: s.id, ...s.routingProvenance })), roadMatchedGeometry: segments.filter(s => s.roadMatchedGeometry).map(s => ({ segmentId: s.id, geometry: s.roadMatchedGeometry })) }
     const first = completed[0]
     if (garage) segments.push(await makeSegment({ from: garage, to: first.tripStartLocation, classification: 'DEAD', label: 'GARAGE_TO_FIRST_PICKUP', router, trace: pointsBetween(snapshots, null, first.tripStartAt, garage, first.tripStartLocation) }))
     for (let i = 0; i < completed.length; i += 1) {
@@ -77,7 +81,7 @@ export const MovementAccountingService = {
       const deadTo = next ? next.tripStartLocation : garage
       if (deadTo) segments.push(await makeSegment({ from: trip.tripEndLocation, to: deadTo, classification: 'DEAD', label: next ? `TRIP_${i + 1}_END_TO_TRIP_${i + 2}_START` : 'LAST_TRIP_TO_GARAGE', router, trace: pointsBetween(snapshots, trip.tripEndAt, next?.tripStartAt || null, trip.tripEndLocation, deadTo) }))
     }
-    return { segments, deadMilesKm: sum(segments, 'DEAD'), businessMilesKm: sum(segments, 'BUSINESS'), unclassifiedKm: sum(segments, 'UNCLASSIFIED'), gpsTracePoints: snapshots.length, routingProvenance: segments.map(s => ({ segmentId: s.id, ...s.routingProvenance })), roadMatchedGeometry: segments.filter(s => s.roadMatchedGeometry).map(s => ({ segmentId: s.id, geometry: s.roadMatchedGeometry })), traceGeometry: segments.map(s => ({ segmentId: s.id, geometry: s.traceGeometry })) }
+    return { segments, deadMilesKm: sum(segments, 'DEAD'), businessMilesKm: sum(segments, 'BUSINESS'), cancelledMilesKm: sum(segments, 'CANCELLED'), unclassifiedKm: sum(segments, 'UNCLASSIFIED'), gpsTracePoints: snapshots.length, routingProvenance: segments.map(s => ({ segmentId: s.id, ...s.routingProvenance })), roadMatchedGeometry: segments.filter(s => s.roadMatchedGeometry).map(s => ({ segmentId: s.id, geometry: s.roadMatchedGeometry })), traceGeometry: segments.map(s => ({ segmentId: s.id, geometry: s.traceGeometry })) }
   },
   async reconcileShiftMovement({ garageLocation, trips = [], startOdometer, endOdometer, router, manualBusinessKmByTripId = {}, businessKmByTripId = {}, gpsSnapshots = [] } = {}) {
     const start = Number(startOdometer); const end = Number(endOdometer)
@@ -94,9 +98,9 @@ export const MovementAccountingService = {
       segment.confidence = trip.tripKmAuthority === 'MANUAL' ? 'AUTHORITATIVE' : 'ESTIMATED_ROAD_TRACE'
       segment.authority = trip.tripKmAuthority === 'MANUAL' ? 'MANUAL_AUDIT' : 'GPS_ESTIMATE'
     }
-    const classifiedKm = reconciledSegments.filter(s => (s.classification === 'DEAD' || s.classification === 'BUSINESS') && finite(s.distanceKm)).reduce((t, s) => t + Number(s.distanceKm), 0)
+    const classifiedKm = reconciledSegments.filter(s => (s.classification === 'DEAD' || s.classification === 'BUSINESS' || s.classification === 'CANCELLED') && finite(s.distanceKm)).reduce((t, s) => t + Number(s.distanceKm), 0)
     const remainderKm = Math.max(0, totalShiftVehicleKm - classifiedKm)
-    if (classifiedKm - totalShiftVehicleKm > EPSILON_KM) return { ...base, segments: reconciledSegments, totalShiftVehicleKm, manualBusinessKmByTripId: Object.fromEntries(manualByTrip), deadMilesKm: sum(reconciledSegments, 'DEAD'), businessMilesKm: sum(reconciledSegments, 'BUSINESS'), unclassifiedKm: 0, reconciliationDifferenceKm: totalShiftVehicleKm - classifiedKm, reconciliationStatus: 'OVER_ESTIMATE', personalKmInShift: 0, authoritativeOdometerKm: totalShiftVehicleKm }
+    if (classifiedKm - totalShiftVehicleKm > EPSILON_KM) return { ...base, segments: reconciledSegments, totalShiftVehicleKm, manualBusinessKmByTripId: Object.fromEntries(manualByTrip), deadMilesKm: sum(reconciledSegments, 'DEAD'), businessMilesKm: sum(reconciledSegments, 'BUSINESS'), cancelledMilesKm: sum(reconciledSegments, 'CANCELLED'), unclassifiedKm: 0, reconciliationDifferenceKm: totalShiftVehicleKm - classifiedKm, reconciliationStatus: 'OVER_ESTIMATE', personalKmInShift: 0, authoritativeOdometerKm: totalShiftVehicleKm }
     if (remainderKm > EPSILON_KM) reconciledSegments.push({ id: 'SHIFT_RECONCILIATION_REMAINDER', tripId: null, label: 'SHIFT_RECONCILIATION_REMAINDER', classification: 'DEAD', authority: 'ODOMETER_REMAINDER', distanceKm: remainderKm, method: 'ODOMETER_RECONCILIATION', confidence: 'AUTHORITATIVE_REMAINDER', roadMatchedGeometry: null, traceGeometry: [] })
     return { ...base, segments: reconciledSegments, totalShiftVehicleKm, manualBusinessKmByTripId: Object.fromEntries(manualByTrip), deadMilesKm: sum(reconciledSegments, 'DEAD'), businessMilesKm: sum(reconciledSegments, 'BUSINESS'), unclassifiedKm: 0, reconciliationDifferenceKm: 0, reconciliationStatus: 'RECONCILED', personalKmInShift: 0, authoritativeOdometerKm: totalShiftVehicleKm }
   },
