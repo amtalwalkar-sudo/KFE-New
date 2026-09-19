@@ -106,6 +106,5 @@ export const MovementTraceService = {
     points = []
     lastAcceptedAt = 0
     active = null
-    pendingWrites = Promise.resolve()
   }
 }
