@@ -39,7 +39,7 @@ export const TimelineService = Object.freeze({
     if (!range) throw new Error('Invalid timeline day.')
     const records = await operationalForRange(range)
     const target = await DriverTargetService.getTarget(date)
-    const trips = records.flatMap(record => record.trips.filter(trip => trip.status === 'COMPLETED'))
+    const trips = records.flatMap(record => record.trips.filter(trip => trip.status === 'COMPLETED' || trip.status === 'CANCELLED'))
     const fuel = records.flatMap(record => record.fuelLogs)
     const events = [
       ...trips.map(trip => ({ type: 'TRIP', id: trip.id, at: trip.tripStartAt, record: trip })),
