@@ -50,17 +50,20 @@ const targetOverlayEdit = ref(false)
 const targetOverlayPos = ref({ x: null, y: null })
 const targetOverlayLongPressTimer = ref(null)
 const targetOverlayDrag = ref(null)
+const targetOverlaySuppressClick = ref(false)
 const targetOverlayStyle = computed(() => {
   const pos = targetOverlayPos.value
   if (pos.x == null || pos.y == null) return {}
   return { left: `${pos.x}px`, top: `${pos.y}px`, transform: 'none' }
 })
+const clampSavedTargetOverlayPosition = () => { if (targetOverlayPos.value.x == null || targetOverlayPos.value.y == null) return; targetOverlayPos.value = clampTargetOverlayPosition(targetOverlayPos.value.x, targetOverlayPos.value.y) }
 const loadTargetOverlayState = () => {
   try {
     const saved = JSON.parse(localStorage.getItem('kfe.work.targetOverlay.v1') || 'null')
     if (saved?.x != null && saved?.y != null) targetOverlayPos.value = { x: Number(saved.x), y: Number(saved.y) }
     targetOverlayMinimized.value = saved?.minimized === true
   } catch (_) {}
+  clampSavedTargetOverlayPosition()
 }
 const saveTargetOverlayState = () => {
   try { localStorage.setItem('kfe.work.targetOverlay.v1', JSON.stringify({ ...targetOverlayPos.value, minimized: targetOverlayMinimized.value })) } catch (_) {}
@@ -78,6 +81,7 @@ const onTargetOverlayPointerDown = event => {
   if (event.target.closest?.('button,a,input,select')) return
   targetOverlayLongPressTimer.value = window.setTimeout(() => {
     targetOverlayEdit.value = true
+    targetOverlaySuppressClick.value = true
     const rect = event.currentTarget.getBoundingClientRect()
     targetOverlayDrag.value = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, origin: { x: rect.left, y: rect.top } }
     event.currentTarget.setPointerCapture?.(event.pointerId)
@@ -92,11 +96,12 @@ const onTargetOverlayPointerMove = event => {
 }
 const onTargetOverlayPointerUp = event => {
   if (targetOverlayLongPressTimer.value) { window.clearTimeout(targetOverlayLongPressTimer.value); finishTargetOverlayLongPress(); return }
-  if (targetOverlayDrag.value?.pointerId === event.pointerId) { targetOverlayDrag.value = null; targetOverlayEdit.value = false; saveTargetOverlayState() }
+  if (targetOverlayDrag.value?.pointerId === event.pointerId) { targetOverlayDrag.value = null; targetOverlayEdit.value = false; targetOverlaySuppressClick.value = true; saveTargetOverlayState() }
 }
+const onTargetOverlayClick = event => { if (targetOverlaySuppressClick.value) { event.preventDefault(); event.stopPropagation(); targetOverlaySuppressClick.value = false } }
 const onTargetOverlayPointerCancel = event => {
   if (targetOverlayLongPressTimer.value) { window.clearTimeout(targetOverlayLongPressTimer.value); finishTargetOverlayLongPress() }
-  if (targetOverlayDrag.value?.pointerId === event.pointerId) { targetOverlayDrag.value = null; targetOverlayEdit.value = false; saveTargetOverlayState() }
+  if (targetOverlayDrag.value?.pointerId === event.pointerId) { targetOverlayDrag.value = null; targetOverlayEdit.value = false; targetOverlaySuppressClick.value = true; saveTargetOverlayState() }
 }
 const clock = ref(Date.now())
 const swipeStartX = ref(null)
@@ -223,7 +228,7 @@ const cancelTripWithRevenue = async () => { if(!confirm('Record this trip as can
 const saveFuel = async () => { if (fuelStore.saving) return; const result=await fuelStore.save({odometer:fuelOdometer.value,pricePerKg:fuelPrice.value,amount:fuelAmount.value,clientMutationId:fuelClientMutationId.value}); if(!result.ok)return fail(result.reason); fuelOdometer.value='';fuelPrice.value='';fuelAmount.value='';fuelClientMutationId.value=crypto.randomUUID();sessionStorage.removeItem(fuelDraftKey);fuelFormOpen.value=false;notify(`Refuelling recorded: ${result.record.quantityKg.toFixed(2)} kg.`) }
 const primaryTripAction = () => { if (store.isTripActive) return endTrip(); if (!goingToPickup.value) return startGoingToPickup(); return startTrip() }
 const tripActionLabel = computed(() => store.isTripActive ? 'SWIPE → END RIDE' : goingToPickup.value ? 'SWIPE → START RIDE' : 'SWIPE → GO TO PICKUP')
-const tripActionHint = computed(() => store.isTripActive ? 'Swipe from left to right to end this ride' : goingToPickup.value ? 'Swipe when you reach pickup — starts the ride and stops high-frequency GPS' : 'Swipe to confirm Going to Pickup and start Dead KM GPS measuring')
+const tripActionHint = computed(() => store.isTripActive ? 'Swipe from left to right to end this ride' : goingToPickup.value ? 'Swipe when you reach pickup — starts the ride and stops 20-sec GPS trace' : 'Swipe to confirm Going to Pickup and start Dead KM GPS measuring')
 const swipeProgress = computed(() => {
   const width = swipeTrack.value?.clientWidth || 320
   return Math.min(100, Math.round((swipeOffset.value / Math.max(1, width)) * 100))
@@ -259,7 +264,7 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
       <div class="hero-actions"><button class="fuel-icon" type="button" :class="{active:fuelFormOpen}" aria-label="CNG refuelling" title="CNG refuelling" @click="openFuelForm"><span aria-hidden="true">⛽</span></button><div class="online-control"><span>OFFLINE</span><button type="button" class="online-toggle" :class="{active:store.isOnline}" :disabled="store.isTripActive" role="switch" :aria-checked="store.isOnline" :aria-label="store.isOnline ? 'Go Offline' : 'Confirm odometer and go Online'" @click.stop.prevent="toggleOnline"><span/></button><span>ONLINE</span></div></div>
     </header>
     <div v-if="message" class="message">{{message}}</div><div v-if="error" class="error">{{error}}</div>
-    <div v-if="store.isOnline && !fuelFormOpen && !endShiftOpen" class="target-hud" :class="{ 'target-hud--edit': targetOverlayEdit, 'target-hud--minimized': targetOverlayMinimized }" :style="targetOverlayStyle" aria-label="Today target" @pointerdown="onTargetOverlayPointerDown" @pointermove="onTargetOverlayPointerMove" @pointerup="onTargetOverlayPointerUp" @pointercancel="onTargetOverlayPointerCancel">
+    <div v-if="store.isOnline && !fuelFormOpen && !endShiftOpen" class="target-hud" :class="{ 'target-hud--edit': targetOverlayEdit, 'target-hud--minimized': targetOverlayMinimized }" :style="targetOverlayStyle" aria-label="Today target" @click="onTargetOverlayClick" @pointerdown="onTargetOverlayPointerDown" @pointermove="onTargetOverlayPointerMove" @pointerup="onTargetOverlayPointerUp" @pointercancel="onTargetOverlayPointerCancel">
       <button v-if="targetOverlayMinimized" class="target-hud-mini" type="button" aria-label="Restore target overlay" title="Restore target" @click="toggleTargetOverlayMinimized"><span>T</span><strong>{{targetText}}</strong></button>
       <template v-else>
         <button class="target-hud-trigger" type="button" :aria-expanded="targetDetailsOpen" @click="targetDetailsOpen=!targetDetailsOpen">
@@ -326,11 +331,11 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
       <div class="state-kicker pickup">GOING TO PICKUP</div>
       <h2>DEAD KM MEASURING</h2>
       <div class="pickup-gps-card">
-        <div><span>GPS FREQUENCY</span><strong>~2 sec</strong></div>
+        <div><span>GPS FREQUENCY</span><strong>20 sec</strong></div>
         <div><span>POINTS CAPTURED</span><strong>{{pickupGpsPoints}}</strong></div>
         <div><span>POINT TEST</span><strong :class="{pass:pickupGpsSummary.passed}">{{pickupGpsSummary.passed ? 'PASS' : 'COLLECTING'}}</strong></div>
       </div>
-      <p class="pickup-gps-note">High-frequency GPS records the movement to pickup. Passenger trip KM remains operator-entered. GPS stops when you start the trip.</p>
+      <p class="pickup-gps-note">GPS records movement to pickup every ~20 sec. Passenger trip KM is calculated from the saved ride trace. GPS stops when you start the trip.</p>
       <div class="pickup-location-status"><span>GPS</span><strong>{{pickupGpsPoints > 0 ? 'Measuring' : 'Waiting for fix…'}}</strong></div>
     </section>
 
