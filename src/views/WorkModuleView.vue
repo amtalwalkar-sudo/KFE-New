@@ -37,6 +37,7 @@ const endShiftActiveField = ref(null)
 const endShiftKeypadVisible = ref(false)
 const fuelDraftKey = 'kfe.work.fuelDraft.v1'
 const fuelDraftTtlMs = 30 * 60 * 1000
+const pickupTraceSessionKey = 'kfe.work.pickup-trace.v1'
 const fuelOdometer = ref('')
 const fuelPrice = ref('')
 const fuelAmount = ref('')
@@ -209,8 +210,8 @@ const loadFuelDraft = () => { try { const draft=JSON.parse(sessionStorage.getIte
 const openFuelForm = () => { fuelFormOpen.value = !fuelFormOpen.value; if (fuelFormOpen.value) { endShiftOpen.value=false; if(!fuelClientMutationId.value) fuelClientMutationId.value=crypto.randomUUID(); loadFuelDraft() } else saveFuelDraft(); error.value=''; message.value='' }
 const closeFuelForm = () => { saveFuelDraft(); fuelFormOpen.value=false; error.value=''; message.value='' }
 const changeTripOperator = async operator => { if(!store.isTripActive){selectedOperator.value=operator;operatorMenuOpen.value=false;return} if(operator===store.trip.operator){operatorMenuOpen.value=false;return} const result=await store.updateTrip({id:store.trip.id,operator}); if(!result.ok)return fail(result.reason); selectedOperator.value=operator; operatorMenuOpen.value=false; notify(`Operator changed to ${operator}.`) }
-const startGoingToPickup = async () => { if (store.isTripActive || goingToPickup.value) return; goingToPickup.value=true; pickupGpsPoints.value=0; pickupGpsSummary.value={points:0,nearTwoSecondIntervals:0,nearTwentySecondIntervals:0,maxGapMs:0,passed:false}; const started=MovementTraceService.start({ entityType:'SHIFT', entityId:store.shift?.id, eventType:'DEAD_MOVEMENT_TRACE', profile:'DEAD_LEG', onPoint:(_point,count)=>{ pickupGpsPoints.value=count; pickupGpsSummary.value={...pickupGpsSummary.value,points:count,passed:count>=2} } }); if(!started){ goingToPickup.value=false; return fail('GPS permission is required to measure Dead KM on the way to pickup.') } await KfeRideNotificationService.beginPickup(`pickup-${Date.now()}`); notify('Going to pickup — Dead KM GPS measuring started.') }
-const startTrip = async () => { await MovementTraceService.stop({captureFinal:true}); const result=await store.startTrip(selectedOperator.value||store.defaultOperator); if(!result.ok){ MovementTraceService.reset(); return fail(result.reason) } MovementTraceService.reset(); goingToPickup.value=false; pickupGpsPoints.value=MovementTraceService.getPointCount(); pickupGpsSummary.value={...pickupGpsSummary.value,points:MovementTraceService.getPointCount(),passed:MovementTraceService.getPointCount()>=2}; selectedOperator.value=result.trip.operator; const traceStarted=MovementTraceService.start({entityType:'TRIP',entityId:result.trip.id,eventType:'PASSENGER_RIDE_TRACE',profile:'PASSENGER_RIDE'}); if(!traceStarted) notify('Ride GPS trace unavailable; trip continues.'); await KfeRideNotificationService.startRide(result.trip.id); notify('Trip started. Pickup GPS measuring stopped.') }
+const startGoingToPickup = async () => { if (store.isTripActive || goingToPickup.value) return; goingToPickup.value=true; pickupGpsPoints.value=0; pickupGpsSummary.value={points:0,nearTwoSecondIntervals:0,nearTwentySecondIntervals:0,maxGapMs:0,passed:false}; const started=MovementTraceService.start({ entityType:'SHIFT', entityId:store.shift?.id, eventType:'DEAD_MOVEMENT_TRACE', profile:'DEAD_LEG', onPoint:(_point,count)=>{ pickupGpsPoints.value=count; pickupGpsSummary.value={...pickupGpsSummary.value,points:count,passed:count>=2} } }); if(!started){ goingToPickup.value=false; return fail('GPS permission is required to measure Dead KM on the way to pickup.') } try { localStorage.setItem(pickupTraceSessionKey, JSON.stringify({shiftId:store.shift?.id})); } catch (_) {} await KfeRideNotificationService.beginPickup(`pickup-${Date.now()}`); notify('Going to pickup — Dead KM GPS measuring started.') }
+const startTrip = async () => { const deadLegPoints = await MovementTraceService.stop({captureFinal:true}); const deadLegPointCount = deadLegPoints.length; const result=await store.startTrip(selectedOperator.value||store.defaultOperator); if(!result.ok){ MovementTraceService.reset(); return fail(result.reason) } MovementTraceService.reset(); goingToPickup.value=false; pickupGpsPoints.value=deadLegPointCount; pickupGpsSummary.value={...pickupGpsSummary.value,points:deadLegPointCount,passed:deadLegPointCount>=2}; try { localStorage.removeItem(pickupTraceSessionKey) } catch (_) {} selectedOperator.value=result.trip.operator; const traceStarted=MovementTraceService.start({entityType:'TRIP',entityId:result.trip.id,eventType:'PASSENGER_RIDE_TRACE',profile:'PASSENGER_RIDE'}); if(!traceStarted) notify('Ride GPS trace unavailable; trip continues.'); await KfeRideNotificationService.startRide(result.trip.id); notify('Trip started. Pickup GPS measuring stopped.') }
 const endTrip = async (fare = '') => {
   const tripId = store.trip?.id
   if (fare !== '') {
@@ -223,8 +224,8 @@ const endTrip = async (fare = '') => {
   await KfeRideNotificationService.completeRide()
   notify(fare !== '' ? 'Ride completed with fare.' : 'Ride completed.')
 }
-const cancelAccidentalTrip = async () => { if(!confirm('Cancel this accidental trip? It will be recorded as a cancelled driver-mistake trip.'))return; if(await store.cancelTrip({reason:'DRIVER_MISTAKE'})){await refreshTarget();notify('Accidental trip cancelled.')} }
-const cancelTripWithRevenue = async () => { if(!confirm('Record this trip as cancelled? Optional revenue will be retained if entered.'))return; if(await store.cancelTrip({reason:cancelReason.value,revenue:cancelledRevenue.value})){cancelledRevenue.value='';cancelPanel.value=false;await refreshTarget();notify('Cancelled trip recorded.')} }
+const cancelAccidentalTrip = async () => { if(!confirm('Cancel this accidental trip? It will be recorded as a cancelled driver-mistake trip.'))return; await MovementTraceService.stop({captureFinal:true}); if(await store.cancelTrip({reason:'DRIVER_MISTAKE'})){await KfeRideNotificationService.completeRide();await refreshTarget();notify('Accidental trip cancelled.')} }
+const cancelTripWithRevenue = async () => { if(!confirm('Record this trip as cancelled? Optional revenue will be retained if entered.'))return; await MovementTraceService.stop({captureFinal:true}); if(await store.cancelTrip({reason:cancelReason.value,revenue:cancelledRevenue.value})){await KfeRideNotificationService.completeRide();cancelledRevenue.value='';cancelPanel.value=false;await refreshTarget();notify('Cancelled trip recorded.')} }
 const saveFuel = async () => { if (fuelStore.saving) return; const result=await fuelStore.save({odometer:fuelOdometer.value,pricePerKg:fuelPrice.value,amount:fuelAmount.value,clientMutationId:fuelClientMutationId.value}); if(!result.ok)return fail(result.reason); fuelOdometer.value='';fuelPrice.value='';fuelAmount.value='';fuelClientMutationId.value=crypto.randomUUID();sessionStorage.removeItem(fuelDraftKey);fuelFormOpen.value=false;notify(`Refuelling recorded: ${result.record.quantityKg.toFixed(2)} kg.`) }
 const primaryTripAction = () => { if (store.isTripActive) return endTrip(); if (!goingToPickup.value) return startGoingToPickup(); return startTrip() }
 const tripActionLabel = computed(() => store.isTripActive ? 'SWIPE → END RIDE' : goingToPickup.value ? 'SWIPE → START RIDE' : 'SWIPE → GO TO PICKUP')
@@ -252,7 +253,25 @@ const handleRideNotificationAction = async ({ stage, tripId, input }) => {
 
 onMounted(async()=>{await store.initialize();loadTargetOverlayState();await fuelStore.refresh();await refreshTarget();await refreshPerformance();
 removeRideNotificationListener = (await KfeRideNotificationService.addListener('rideNotificationAction', handleRideNotificationAction))?.remove;
-if (store.isOnline && !store.isTripActive && !goingToPickup.value) await KfeRideNotificationService.goOnline();
+const traceSession = MovementTraceService.getActiveSession();
+let restoredTrace = false;
+if (store.isTripActive) {
+  if (!traceSession || traceSession.entityType !== 'TRIP' || traceSession.entityId !== store.trip.id) {
+    restoredTrace = MovementTraceService.start({entityType:'TRIP',entityId:store.trip.id,eventType:'PASSENGER_RIDE_TRACE',profile:'PASSENGER_RIDE'});
+  }
+  await KfeRideNotificationService.resume();
+} else if (store.isOnline) {
+  let pickupSession = null;
+  try { pickupSession = JSON.parse(localStorage.getItem(pickupTraceSessionKey) || 'null') } catch (_) {}
+  if (pickupSession?.shiftId === store.shift?.id && traceSession?.entityType === 'SHIFT' && traceSession.entityId === store.shift.id) {
+    goingToPickup.value = true;
+    restoredTrace = MovementTraceService.start({entityType:'SHIFT',entityId:store.shift.id,eventType:'DEAD_MOVEMENT_TRACE',profile:'DEAD_LEG',onPoint:(_point,count)=>{pickupGpsPoints.value=count;pickupGpsSummary.value={...pickupGpsSummary.value,points:count,passed:count>=2}}});
+    await KfeRideNotificationService.resume();
+  } else {
+    if (pickupSession?.shiftId !== store.shift?.id) { try { localStorage.removeItem(pickupTraceSessionKey) } catch (_) {} }
+    await KfeRideNotificationService.goOnline();
+  }
+}
 startOdo.value=store.lastKnownOdometer??'';selectedOperator.value=store.defaultOperator;loadFuelDraft();unsubscribeTarget=DriverTargetService.subscribeDataChanges(()=>{void refreshTarget();void refreshPerformance()});interval=window.setInterval(()=>{clock.value=Date.now()},1000)})
 onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListener();window.clearInterval(interval);unsubscribeTarget?.();MovementTraceService.reset()})
 </script>
