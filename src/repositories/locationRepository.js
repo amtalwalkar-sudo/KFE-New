@@ -11,6 +11,27 @@ export const LocationRepository = {
       tx.oncomplete = () => resolve(record); tx.onerror = () => reject(tx.error || new Error('GPS snapshot persistence failed.')); tx.onabort = () => reject(tx.error || new Error('GPS snapshot persistence aborted.'))
     })
   },
+  async updatePlaceName(id, placeName) {
+    if (!id || !placeName) return false
+    const db = await initializeCanonicalStorage()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['gps_snapshots', 'pending_mutations', 'audit_history'], 'readwrite')
+      const snapshots = tx.objectStore('gps_snapshots'); const mutations = tx.objectStore('pending_mutations'); const audit = tx.objectStore('audit_history')
+      const request = snapshots.get(id)
+      request.onsuccess = () => {
+        const record = request.result
+        if (!record) { try { tx.abort() } catch (_) {}; resolve(false); return }
+        record.placeName = String(placeName).trim() || null
+        record.updatedAt = new Date().toISOString()
+        snapshots.put(record)
+        writeMutationAndAudit(mutations, audit, { entityId: record.id, entityType: 'GPS_SNAPSHOT', action: 'UPDATE', payload: record, createdAt: record.updatedAt })
+      }
+      request.onerror = () => reject(request.error || new Error('GPS snapshot lookup failed.'))
+      tx.oncomplete = () => resolve(true)
+      tx.onerror = () => reject(tx.error || new Error('GPS place-name update failed.'))
+      tx.onabort = () => { if (tx.error) reject(tx.error) }
+    })
+  },
   async recordTracePoint({ entityType, entityId, eventType = 'MOVEMENT_TRACE', latitude, longitude, accuracy = null, speed = null, bearing = null, capturedAt }) {
     const db = await initializeCanonicalStorage()
     const now = new Date().toISOString()
