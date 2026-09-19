@@ -36,9 +36,7 @@ assert.doesNotMatch(service, /SWIPE\
 UP\
 KFE  ↑/)
 assert.doesNotMatch(service, /SWIPE_TRIGGER_DP/)
-assert.doesNotMatch(service, /SWIPE\
-UP\
-KFE  ↑/)
+
 assert.match(service, /START_NOT_STICKY/)
 assert.doesNotMatch(service, /SWIPE TO OPEN KFE/)
 assert.doesNotMatch(work, /class="target-hud"/)
