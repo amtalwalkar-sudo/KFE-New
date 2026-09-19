@@ -1,4 +1,8 @@
 import { initializeCanonicalStorage, openCanonicalDB } from '../utils/indexedDB.js'
+
+// MutationRepository is the canonical synchronization queue. Business repositories
+// write pending_mutations/audit_history inside their active-source transaction, but
+// these sync lifecycle methods intentionally operate on canonical storage only.
 import { generateUUID } from '../utils/uuid.js'
 
 export const MUTATION_VERSION = 1
