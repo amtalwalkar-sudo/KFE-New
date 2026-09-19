@@ -139,7 +139,8 @@ public class KfeOverlayService extends Service {
     achievedValue = text("₹0", 14, Color.LTGRAY);
     values.addView(achievedValue);
 
-    targetStats = new LinearLayout(this);\n    LinearLayout stats = targetStats;
+    targetStats = new LinearLayout(this);
+    LinearLayout stats = targetStats;
     stats.setGravity(Gravity.CENTER_VERTICAL);
     liveKmsValue = text("LIVE KMS —", 11, Color.WHITE);
     stats.addView(liveKmsValue, weight(1));
@@ -188,7 +189,12 @@ public class KfeOverlayService extends Service {
     endRideForm.addView(saveRide, new LinearLayout.LayoutParams(-1, dp(40)));
     root.addView(endRideForm);
 
-    targetPanel = root;\n    targetStats.setVisibility(View.GONE);\n    endRide.setVisibility(View.GONE);\n    endRideForm.setVisibility(View.GONE);\n\n    shell.addView(root, new LinearLayout.LayoutParams(dp(292), LinearLayout.LayoutParams.WRAP_CONTENT));
+    targetPanel = root;
+    targetStats.setVisibility(View.GONE);
+    endRide.setVisibility(View.GONE);
+    endRideForm.setVisibility(View.GONE);
+
+    shell.addView(root, new LinearLayout.LayoutParams(dp(292), LinearLayout.LayoutParams.WRAP_CONTENT));
 
     overlayView = shell;
     params = new WindowManager.LayoutParams(
@@ -250,7 +256,17 @@ public class KfeOverlayService extends Service {
     }
   }
 
-  private void toggleTarget() {\n    targetExpanded = !targetExpanded;\n    if (targetStats != null) targetStats.setVisibility(targetExpanded ? View.VISIBLE : View.GONE);\n    if (endRideLabel != null && endRideLabel.getParent() instanceof View) {\n      View endRide = (View) endRideLabel.getParent();\n      endRide.setVisibility(targetExpanded && tripActiveState ? View.VISIBLE : View.GONE);\n      endRideForm.setVisibility(View.GONE);\n    }\n  }\n\n  private EditText amountField(String label, boolean required) {
+  private void toggleTarget() {
+    targetExpanded = !targetExpanded;
+    if (targetStats != null) targetStats.setVisibility(targetExpanded ? View.VISIBLE : View.GONE);
+    if (endRideLabel != null && endRideLabel.getParent() instanceof View) {
+      View endRide = (View) endRideLabel.getParent();
+      endRide.setVisibility(targetExpanded && tripActiveState ? View.VISIBLE : View.GONE);
+      endRideForm.setVisibility(View.GONE);
+    }
+  }
+
+  private EditText amountField(String label, boolean required) {
     EditText input = new EditText(this);
     input.setHint(label + (required ? " *" : " (optional)"));
     input.setTextColor(Color.WHITE);
@@ -311,7 +327,8 @@ public class KfeOverlayService extends Service {
   }
 
   private void updateMinimizedView() {
-    if (overlayView == null) return;\n    View targetPanel = ((LinearLayout) overlayView).getChildAt(1);
+    if (overlayView == null) return;
+    View targetPanel = ((LinearLayout) overlayView).getChildAt(1);
     if (targetPanel != null) targetPanel.setVisibility(minimized ? View.GONE : View.VISIBLE);
     params.height = minimized ? dp(48) : WindowManager.LayoutParams.WRAP_CONTENT;
     try { windowManager.updateViewLayout(overlayView, params); } catch (Exception ignored) {}
@@ -332,7 +349,8 @@ public class KfeOverlayService extends Service {
     double liveKms = intent.getDoubleExtra("liveKms", Double.NaN);
     double progress = intent.getDoubleExtra("progress", 0);
     int rides = intent.getIntExtra("rides", 0);
-    boolean tripActive = intent.getBooleanExtra("tripActive", false);\n    tripActiveState = tripActive;
+    boolean tripActive = intent.getBooleanExtra("tripActive", false);
+    tripActiveState = tripActive;
     String timer = intent.getStringExtra("tripTimer");
 
     targetValue.setText(Double.isNaN(target) ? "—" : money(target));
@@ -340,7 +358,17 @@ public class KfeOverlayService extends Service {
     liveKmsValue.setText(Double.isNaN(liveKms) ? "LIVE KMS —" : String.format(Locale.US, "LIVE KMS %.1f", liveKms));
     progressValue.setText(String.format(Locale.US, "%.0f%%", Math.max(0, Math.min(100, progress))));
     ridesValue.setText(rides + " rides");
-    tripValue.setText(tripActive ? (timer == null || timer.isEmpty() ? "ON TRIP" : timer) : "READY");\n    if (endRideLabel != null && endRideLabel.getParent() instanceof View) {\n      View endRide = (View) endRideLabel.getParent();\n      endRide.setVisibility(targetExpanded && tripActive ? View.VISIBLE : View.GONE);\n      endRideForm.setVisibility(View.GONE);\n    }\n    TextView swipe = (TextView) ((LinearLayout) overlayView).getChildAt(0);\n    GradientDrawable bar = new GradientDrawable();\n    bar.setColor(tripActive ? Color.argb(242, 180, 70, 45) : Color.argb(242, 22, 120, 92));\n    bar.setCornerRadius(dp(20));\n    swipe.setBackground(bar);
+    tripValue.setText(tripActive ? (timer == null || timer.isEmpty() ? "ON TRIP" : timer) : "READY");
+    if (endRideLabel != null && endRideLabel.getParent() instanceof View) {
+      View endRide = (View) endRideLabel.getParent();
+      endRide.setVisibility(targetExpanded && tripActive ? View.VISIBLE : View.GONE);
+      endRideForm.setVisibility(View.GONE);
+    }
+    TextView swipe = (TextView) ((LinearLayout) overlayView).getChildAt(0);
+    GradientDrawable bar = new GradientDrawable();
+    bar.setColor(tripActive ? Color.argb(242, 180, 70, 45) : Color.argb(242, 22, 120, 92));
+    bar.setCornerRadius(dp(20));
+    swipe.setBackground(bar);
   }
 
   private String money(double value) {
