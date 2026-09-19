@@ -56,7 +56,6 @@ export const MutationRepository = {
     })
   },
   async getPending() {
-    await initializeCanonicalStorage()
     const db = await openCanonicalDB()
     return new Promise((resolve, reject) => {
       const tx = db.transaction('pending_mutations', 'readonly')
