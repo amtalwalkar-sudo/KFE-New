@@ -17,3 +17,14 @@
 .kfe-work-cockpit .cancel-ride-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:8px;}
 .kfe-work-cockpit .quiet-danger{min-height:40px;padding:0 14px;border:1px solid color-mix(in srgb,var(--kfe-ui-border) 70%,transparent);border-radius:11px;background:transparent;color:var(--kfe-muted-text);font-size:.7rem;font-weight:900;}
 @media(max-width:600px){.kfe-work-cockpit .cancel-ride-panel{width:calc(100vw - 20px);margin-top:8px;margin-bottom:72px;}}
+
+.kfe-work-cockpit .target-summary-card{width:min(92vw,560px);margin:8px auto 12px;padding:0;border-radius:20px;overflow:hidden}
+.kfe-work-cockpit .target-summary-trigger{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer}
+.kfe-work-cockpit .target-summary-trigger small{display:block;font-size:.68rem;letter-spacing:.12em;opacity:.7}
+.kfe-work-cockpit .target-summary-trigger strong{display:block;font-size:1.15rem;margin-top:2px}
+.kfe-work-cockpit .target-summary-achieved{font-weight:700;white-space:nowrap}
+.kfe-work-cockpit .target-summary-details{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 12px 12px}
+.kfe-work-cockpit .target-summary-details>div{display:grid;gap:3px;padding:8px;border-radius:12px;background:rgba(127,127,127,.08)}
+.kfe-work-cockpit .target-summary-details span{font-size:.62rem;letter-spacing:.08em;opacity:.65}
+.kfe-work-cockpit .target-summary-details strong{font-size:.92rem}
+@media(max-width:600px){.kfe-work-cockpit .target-summary-details{grid-template-columns:repeat(2,minmax(0,1fr))}}
