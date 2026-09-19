@@ -101,6 +101,11 @@ export const KfeRideNotificationService = Object.freeze({
     return call('cancel')
   },
   addListener(event, handler) {
+    // The web/PWA build has no native notification bridge. Keep listener setup
+    // safe on web so opening the app never throws "plugin is not implemented".
+    if (!native()) {
+      return Promise.resolve({ remove: async () => {} })
+    }
     return KfeRideNotifications.addListener(event, handler)
   }
 })
