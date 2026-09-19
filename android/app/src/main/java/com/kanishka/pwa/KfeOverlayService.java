@@ -264,6 +264,8 @@ public class KfeOverlayService extends Service {
       View endRide = (View) endRideLabel.getParent();
       endRide.setVisibility(targetExpanded && tripActiveState ? View.VISIBLE : View.GONE);
       endRideForm.setVisibility(View.GONE);
+      params.flags |= WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+      try { windowManager.updateViewLayout(overlayView, params); } catch (Exception ignored) {}
     }
   }
 
@@ -369,6 +371,8 @@ public class KfeOverlayService extends Service {
       View endRide = (View) endRideLabel.getParent();
       endRide.setVisibility(targetExpanded && tripActive ? View.VISIBLE : View.GONE);
       endRideForm.setVisibility(View.GONE);
+      params.flags |= WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+      try { windowManager.updateViewLayout(overlayView, params); } catch (Exception ignored) {}
     }
     TextView swipe = (TextView) ((LinearLayout) overlayView).getChildAt(0);
     GradientDrawable bar = new GradientDrawable();
