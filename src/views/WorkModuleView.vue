@@ -45,6 +45,58 @@ const message = ref('')
 const error = ref('')
 const target = ref(null)
 const targetDetailsOpen = ref(false)
+const targetOverlayMinimized = ref(false)
+const targetOverlayEdit = ref(false)
+const targetOverlayPos = ref({ x: null, y: null })
+const targetOverlayLongPressTimer = ref(null)
+const targetOverlayDrag = ref(null)
+const targetOverlayStyle = computed(() => {
+  const pos = targetOverlayPos.value
+  if (pos.x == null || pos.y == null) return {}
+  return { left: `${pos.x}px`, top: `${pos.y}px`, transform: 'none' }
+})
+const loadTargetOverlayState = () => {
+  try {
+    const saved = JSON.parse(localStorage.getItem('kfe.work.targetOverlay.v1') || 'null')
+    if (saved?.x != null && saved?.y != null) targetOverlayPos.value = { x: Number(saved.x), y: Number(saved.y) }
+    targetOverlayMinimized.value = saved?.minimized === true
+  } catch (_) {}
+}
+const saveTargetOverlayState = () => {
+  try { localStorage.setItem('kfe.work.targetOverlay.v1', JSON.stringify({ ...targetOverlayPos.value, minimized: targetOverlayMinimized.value })) } catch (_) {}
+}
+const clampTargetOverlayPosition = (x, y) => {
+  const margin = 10
+  const width = Math.min(window.innerWidth - margin * 2, 520)
+  const height = targetOverlayMinimized.value ? 52 : 260
+  return { x: Math.max(margin, Math.min(window.innerWidth - width - margin, x)), y: Math.max(margin + (Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-top)')) || 0), Math.min(window.innerHeight - height - margin, y)) }
+}
+const toggleTargetOverlayMinimized = () => { targetOverlayMinimized.value = !targetOverlayMinimized.value; targetOverlayEdit.value = false; saveTargetOverlayState() }
+const finishTargetOverlayLongPress = () => { targetOverlayLongPressTimer.value = null }
+const onTargetOverlayPointerDown = event => {
+  if (event.pointerType === 'mouse' && event.button !== 0) return
+  if (event.target.closest?.('button,a,input,select')) return
+  targetOverlayLongPressTimer.value = window.setTimeout(() => {
+    targetOverlayEdit.value = true
+    targetOverlayDrag.value = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, origin: { ...targetOverlayPos.value } }
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+    targetOverlayLongPressTimer.value = null
+  }, 450)
+}
+const onTargetOverlayPointerMove = event => {
+  const drag = targetOverlayDrag.value
+  if (!drag || drag.pointerId !== event.pointerId) return
+  const next = clampTargetOverlayPosition(drag.origin.x + event.clientX - drag.startX, drag.origin.y + event.clientY - drag.startY)
+  targetOverlayPos.value = next
+}
+const onTargetOverlayPointerUp = event => {
+  if (targetOverlayLongPressTimer.value) { window.clearTimeout(targetOverlayLongPressTimer.value); finishTargetOverlayLongPress(); return }
+  if (targetOverlayDrag.value?.pointerId === event.pointerId) { targetOverlayDrag.value = null; targetOverlayEdit.value = false; saveTargetOverlayState() }
+}
+const onTargetOverlayPointerCancel = event => {
+  if (targetOverlayLongPressTimer.value) { window.clearTimeout(targetOverlayLongPressTimer.value); finishTargetOverlayLongPress() }
+  if (targetOverlayDrag.value?.pointerId === event.pointerId) { targetOverlayDrag.value = null; targetOverlayEdit.value = false; saveTargetOverlayState() }
+}
 const clock = ref(Date.now())
 const swipeStartX = ref(null)
 const swipeTracking = ref(false)
@@ -192,7 +244,7 @@ const handleRideNotificationAction = async ({ stage, tripId, input }) => {
   if (stage === 'END_RIDE') return endTrip(input || '')
 }
 
-onMounted(async()=>{await store.initialize();await fuelStore.refresh();await refreshTarget();await refreshPerformance();
+onMounted(async()=>{await store.initialize();loadTargetOverlayState();await fuelStore.refresh();await refreshTarget();await refreshPerformance();
 removeRideNotificationListener = (await KfeRideNotificationService.addListener('rideNotificationAction', handleRideNotificationAction))?.remove;
 if (store.isOnline && !store.isTripActive && !goingToPickup.value) await KfeRideNotificationService.goOnline();
 startOdo.value=store.lastKnownOdometer??'';selectedOperator.value=store.defaultOperator;loadFuelDraft();unsubscribeTarget=DriverTargetService.subscribeDataChanges(()=>{void refreshTarget();void refreshPerformance()});interval=window.setInterval(()=>{clock.value=Date.now()},1000)})
@@ -206,10 +258,14 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
       <div class="hero-actions"><button class="fuel-icon" type="button" :class="{active:fuelFormOpen}" aria-label="CNG refuelling" title="CNG refuelling" @click="openFuelForm"><span aria-hidden="true">⛽</span></button><div class="online-control"><span>OFFLINE</span><button type="button" class="online-toggle" :class="{active:store.isOnline}" :disabled="store.isTripActive" role="switch" :aria-checked="store.isOnline" :aria-label="store.isOnline ? 'Go Offline' : 'Confirm odometer and go Online'" @click.stop.prevent="toggleOnline"><span/></button><span>ONLINE</span></div></div>
     </header>
     <div v-if="message" class="message">{{message}}</div><div v-if="error" class="error">{{error}}</div>
-    <div v-if="store.isOnline && !fuelFormOpen && !endShiftOpen" class="target-hud" aria-label="Today target">
-      <button class="target-hud-trigger" type="button" :aria-expanded="targetDetailsOpen" @click="targetDetailsOpen=!targetDetailsOpen">
-        <span>TARGET</span><strong>{{targetText}}</strong><span class="target-hud-separator">/</span><strong>{{performanceMoney(targetAchieved)}}</strong><span class="target-hud-menu" aria-hidden="true">⋮</span>
-      </button>
+    <div v-if="store.isOnline && !fuelFormOpen && !endShiftOpen" class="target-hud" :class="{ 'target-hud--edit': targetOverlayEdit, 'target-hud--minimized': targetOverlayMinimized }" :style="targetOverlayStyle" aria-label="Today target" @pointerdown="onTargetOverlayPointerDown" @pointermove="onTargetOverlayPointerMove" @pointerup="onTargetOverlayPointerUp" @pointercancel="onTargetOverlayPointerCancel">
+      <button v-if="targetOverlayMinimized" class="target-hud-mini" type="button" aria-label="Restore target overlay" title="Restore target" @click="toggleTargetOverlayMinimized"><span>T</span><strong>{{targetText}}</strong></button>
+      <template v-else>
+        <button class="target-hud-trigger" type="button" :aria-expanded="targetDetailsOpen" @click="targetDetailsOpen=!targetDetailsOpen">
+          <span>TARGET</span><strong>{{targetText}}</strong><span class="target-hud-separator">/</span><strong>{{performanceMoney(targetAchieved)}}</strong><span class="target-hud-menu" aria-hidden="true">⋮</span>
+        </button>
+        <button class="target-hud-minimize" type="button" aria-label="Minimize target overlay" title="Minimize target" @pointerdown.stop @click.stop="toggleTargetOverlayMinimized">−</button>
+      </template>
       <div v-if="targetDetailsOpen" class="target-hud-details">
         <div class="target-hud-heading"><div><small>TODAY'S TARGET</small><strong>{{targetText}}</strong></div><button type="button" aria-label="Close target details" @click="targetDetailsOpen=false">×</button></div>
         <div class="target-hud-progress"><span :style="{width: targetProgress + '%'}"></span></div>
