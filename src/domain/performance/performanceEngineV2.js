@@ -47,7 +47,7 @@ export function derivePerformance(s, r, p = previousRange(r)) {
   const S = live(s.shifts), T = live(s.trips), F = live(s.fuelLogs), M = live(s.maintenance), C = live(s.compliance), L = live(s.loans), LP = live(s.loanPayments), PP = live(s.prepayments)
   const calc = x => {
     const sh = S.filter(a => inR(a.shiftEndAt || a.shiftStartAt, x)), tr = T.filter(a => a.status === 'COMPLETED' && inR(a.tripEndAt || a.tripStartAt, x)), fu = F.filter(a => inR(a.capturedAt, x)), ma = M.filter(a => inR(a.performedOn, x))
-    const revenue = authoritativeShiftRevenue(S, x), vehicleKm = sh.reduce((z, a) => z + n(a.endOdometer) - n(a.startOdometer), 0), businessKm = tr.reduce((z, a) => z + n(a.tripKm), 0), deadKm = vehicleKm - businessKm
+    const revenue = authoritativeShiftRevenue(S, x), vehicleKm = sh.reduce((z, a) => { const start = n(a.startOdometer); const end = n(a.endOdometer); return Number.isFinite(start) && Number.isFinite(end) && end >= start ? z + (end - start) : z }, 0), businessKm = tr.reduce((z, a) => z + Math.max(0, n(a.tripKm)), 0), deadKm = Math.max(0, vehicleKm - businessKm)
     const fuelCost = fu.reduce((z, a) => z + n(a.amount), 0), fuelQty = fu.reduce((z, a) => z + n(a.quantityKg), 0), toll = sh.reduce((z, a) => z + n(a.toll), 0), parking = sh.reduce((z, a) => z + n(a.parking), 0), maintenance = ma.reduce((z, a) => z + n(a.cost), 0), workingHours = sh.reduce((z, a) => z + hrs(a.shiftStartAt, a.shiftEndAt), 0)
     const operatingCost = fuelCost + toll + parking + maintenance
     return { sh, tr, fu, ma, revenue, vehicleKm, businessKm, deadKm, fuelCost, fuelQty, toll, parking, maintenance, workingHours, operatingCost, operatingProfit: revenue - operatingCost }
