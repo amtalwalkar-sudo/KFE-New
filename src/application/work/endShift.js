@@ -2,7 +2,7 @@ import { validateEndShiftEntry } from '../../domain/work/endShift.js'
 import { validateTripCorrection } from '../../domain/work/trip.js'
 import { ShiftTripRepository } from '../../repositories/shiftTripRepository.js'
 
-export async function completeEndShift({ shiftId, closingOdometer, revenue, toll, parking, tollParkingRevenueTreatment, trips = [], confirmLargeDistance = false }) {
+export async function completeEndShift({ shiftId, closingOdometer, revenue, toll, parking, tollParkingRevenueTreatment, trips = [], confirmLargeDistance = false, movementReconciliation = null }) {
   const active = await ShiftTripRepository.getActive()
   if (!active.shift || active.shift.id !== shiftId) return { ok: false, reason: 'Active shift not found.' }
 
@@ -28,7 +28,7 @@ export async function completeEndShift({ shiftId, closingOdometer, revenue, toll
       toll,
       parking,
       tollParkingRevenueTreatment,
-      movementReconciliation: data.movementReconciliation || null,
+      movementReconciliation,
       trips: [...correctionById.entries()].map(([id, correction]) => ({ id, ...correction }))
     })
     return { ok: true, revenue: shiftRevenue }
