@@ -1,6 +1,7 @@
 import { initializeCanonicalStorage } from '../utils/indexedDB.js'
 import { generateUUID } from '../utils/uuid.js'
 import { writeMutationAndAudit } from './mutationRepository.js'
+import { notifyCanonicalDataChanged } from '../utils/indexedDB.js'
 
 export const LocationRepository = {
   async record({ entityType, entityId, eventType, latitude, longitude, accuracy = null, capturedAt, placeName = null }) {
@@ -27,7 +28,10 @@ export const LocationRepository = {
         writeMutationAndAudit(mutations, audit, { entityId: record.id, entityType: 'GPS_SNAPSHOT', action: 'UPDATE', payload: record, createdAt: record.updatedAt })
       }
       request.onerror = () => reject(request.error || new Error('GPS snapshot lookup failed.'))
-      tx.oncomplete = () => resolve(true)
+      tx.oncomplete = () => {
+        notifyCanonicalDataChanged({ stores: ['gps_snapshots', 'trips'], reason: 'gps-place-name-enriched' })
+        resolve(true)
+      }
       tx.onerror = () => reject(tx.error || new Error('GPS place-name update failed.'))
       tx.onabort = () => { if (tx.error) reject(tx.error) }
     })
