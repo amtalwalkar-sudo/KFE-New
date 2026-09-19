@@ -43,6 +43,7 @@ export const KfeRideNotificationService = Object.freeze({
     state.tripId = tripId
     state.phase = 'ENTER_PICKUP_DURATION'
     persist()
+    await call('cancel')
     return call('schedule', { stage: 'ENTER_PICKUP_DURATION', tripId, delayMs: TWO_MINUTES })
   },
   async setPickupDuration(minutes) {
@@ -56,6 +57,8 @@ export const KfeRideNotificationService = Object.freeze({
   },
   async startRide(tripId) {
     restore()
+    const previousTripId = state.tripId
+    if (previousTripId) await call('clearScheduled', { stage: 'ENTER_PICKUP_DURATION', tripId: previousTripId })
     state.tripId = tripId || state.tripId
     state.phase = 'ENTER_RIDE_DURATION'
     persist()
@@ -71,6 +74,11 @@ export const KfeRideNotificationService = Object.freeze({
     return true
   },
   async completeRide() {
+    const completedTripId = state.tripId
+    if (completedTripId) {
+      await call('clearScheduled', { stage: 'ENTER_RIDE_DURATION', tripId: completedTripId })
+      await call('clearScheduled', { stage: 'END_RIDE', tripId: completedTripId })
+    }
     state.phase = 'GO_TO_PICKUP'
     state.tripId = null
     state.pickupDurationMinutes = null
