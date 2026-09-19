@@ -5,7 +5,7 @@ import { useFuelStore } from '../stores/fuel.js'
 import { DriverTargetService } from '../application/performance/driverTargetService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { getKfeReferenceNow, reportingRangeFor, istCalendarDaysInclusive, istParts } from '../domain/time/ist.js'
-import { DeadKmPickupGpsService } from '../services/deadKmPickupGpsService.js'
+import { MovementTraceService } from '../services/movementTraceService.js'
 import { KfeRideNotificationService } from '../services/kfeRideNotificationService.js'
 
 const store = useShiftTripStore()
@@ -37,6 +37,7 @@ const endShiftActiveField = ref(null)
 const endShiftKeypadVisible = ref(false)
 const fuelDraftKey = 'kfe.work.fuelDraft.v1'
 const fuelDraftTtlMs = 30 * 60 * 1000
+const pickupTraceSessionKey = 'kfe.work.pickup-trace.v1'
 const fuelOdometer = ref('')
 const fuelPrice = ref('')
 const fuelAmount = ref('')
@@ -44,6 +45,65 @@ const fuelClientMutationId = ref('')
 const message = ref('')
 const error = ref('')
 const target = ref(null)
+const targetDetailsOpen = ref(false)
+const targetOverlayMinimized = ref(false)
+const targetOverlayEdit = ref(false)
+const targetOverlayPos = ref({ x: null, y: null })
+const targetOverlayLongPressTimer = ref(null)
+const targetOverlayDrag = ref(null)
+const targetOverlaySuppressClick = ref(false)
+const targetOverlayStyle = computed(() => {
+  const pos = targetOverlayPos.value
+  if (pos.x == null || pos.y == null) return {}
+  return { left: `${pos.x}px`, top: `${pos.y}px`, transform: 'none' }
+})
+const clampSavedTargetOverlayPosition = () => { if (targetOverlayPos.value.x == null || targetOverlayPos.value.y == null) return; targetOverlayPos.value = clampTargetOverlayPosition(targetOverlayPos.value.x, targetOverlayPos.value.y) }
+const loadTargetOverlayState = () => {
+  try {
+    const saved = JSON.parse(localStorage.getItem('kfe.work.targetOverlay.v1') || 'null')
+    if (saved?.x != null && saved?.y != null) targetOverlayPos.value = { x: Number(saved.x), y: Number(saved.y) }
+    targetOverlayMinimized.value = saved?.minimized === true
+  } catch (_) {}
+  clampSavedTargetOverlayPosition()
+}
+const saveTargetOverlayState = () => {
+  try { localStorage.setItem('kfe.work.targetOverlay.v1', JSON.stringify({ ...targetOverlayPos.value, minimized: targetOverlayMinimized.value })) } catch (_) {}
+}
+const clampTargetOverlayPosition = (x, y) => {
+  const margin = 10
+  const width = Math.min(window.innerWidth - margin * 2, 520)
+  const height = targetOverlayMinimized.value ? 52 : 260
+  return { x: Math.max(margin, Math.min(window.innerWidth - width - margin, x)), y: Math.max(margin + (Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-top)')) || 0), Math.min(window.innerHeight - height - margin, y)) }
+}
+const toggleTargetOverlayMinimized = () => { targetOverlayMinimized.value = !targetOverlayMinimized.value; targetOverlayEdit.value = false; saveTargetOverlayState() }
+const finishTargetOverlayLongPress = () => { targetOverlayLongPressTimer.value = null }
+const onTargetOverlayPointerDown = event => {
+  if (event.pointerType === 'mouse' && event.button !== 0) return
+  if (event.target.closest?.('button,a,input,select')) return
+  targetOverlayLongPressTimer.value = window.setTimeout(() => {
+    targetOverlayEdit.value = true
+    targetOverlaySuppressClick.value = true
+    const rect = event.currentTarget.getBoundingClientRect()
+    targetOverlayDrag.value = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, origin: { x: rect.left, y: rect.top } }
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+    targetOverlayLongPressTimer.value = null
+  }, 450)
+}
+const onTargetOverlayPointerMove = event => {
+  const drag = targetOverlayDrag.value
+  if (!drag || drag.pointerId !== event.pointerId) return
+  const next = clampTargetOverlayPosition(drag.origin.x + event.clientX - drag.startX, drag.origin.y + event.clientY - drag.startY)
+  targetOverlayPos.value = next
+}
+const onTargetOverlayPointerUp = event => {
+  if (targetOverlayLongPressTimer.value) { window.clearTimeout(targetOverlayLongPressTimer.value); finishTargetOverlayLongPress(); return }
+  if (targetOverlayDrag.value?.pointerId === event.pointerId) { targetOverlayDrag.value = null; targetOverlayEdit.value = false; targetOverlaySuppressClick.value = true; saveTargetOverlayState() }
+}
+const onTargetOverlayClick = event => { if (targetOverlaySuppressClick.value) { event.preventDefault(); event.stopPropagation(); targetOverlaySuppressClick.value = false } }
+const onTargetOverlayPointerCancel = event => {
+  if (targetOverlayLongPressTimer.value) { window.clearTimeout(targetOverlayLongPressTimer.value); finishTargetOverlayLongPress() }
+  if (targetOverlayDrag.value?.pointerId === event.pointerId) { targetOverlayDrag.value = null; targetOverlayEdit.value = false; targetOverlaySuppressClick.value = true; saveTargetOverlayState() }
+}
 const clock = ref(Date.now())
 const swipeStartX = ref(null)
 const swipeTracking = ref(false)
@@ -64,6 +124,12 @@ const allocatedGap = computed(() => gapCategory.value ? gapKm.value : 0)
 const fuelQuantity = computed(() => fuelStore.calculateQuantity(fuelPrice.value, fuelAmount.value))
 const targetValue = computed(() => target.value?.target !== null && target.value?.target !== undefined && Number.isFinite(Number(target.value.target)) ? Number(target.value.target) : null)
 const targetText = computed(() => targetValue.value == null ? '—' : `₹${targetValue.value.toLocaleString('en-IN',{maximumFractionDigits:0})}`)
+const targetAchieved = computed(() => store.completedTrips.reduce((sum, trip) => sum + Number(trip.revenue || 0), 0) + (store.isTripActive ? Number(store.trip?.revenue || 0) : 0))
+const targetProgress = computed(() => targetValue.value && targetValue.value > 0 ? Math.min(100, Math.round((targetAchieved.value / targetValue.value) * 100)) : 0)
+const targetRides = computed(() => store.completedTrips.length + (store.isTripActive ? 1 : 0))
+const liveKms = ref(null)
+const liveKmsBase = ref(0)
+const activeFare = computed(() => { const value = store.trip?.revenue; return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) ? performanceMoney(value) : '—' })
 const performanceSnapshot = ref(null)
 const performanceMoney = value => Number.isFinite(Number(value)) ? `₹${Math.round(Number(value)).toLocaleString('en-IN')}` : '—'
 const performanceRevenue = metrics => Number(metrics?.revenue || 0) + Number(metrics?.toll || 0) + Number(metrics?.parking || 0)
@@ -145,26 +211,38 @@ const loadFuelDraft = () => { try { const draft=JSON.parse(sessionStorage.getIte
 const openFuelForm = () => { fuelFormOpen.value = !fuelFormOpen.value; if (fuelFormOpen.value) { endShiftOpen.value=false; if(!fuelClientMutationId.value) fuelClientMutationId.value=crypto.randomUUID(); loadFuelDraft() } else saveFuelDraft(); error.value=''; message.value='' }
 const closeFuelForm = () => { saveFuelDraft(); fuelFormOpen.value=false; error.value=''; message.value='' }
 const changeTripOperator = async operator => { if(!store.isTripActive){selectedOperator.value=operator;operatorMenuOpen.value=false;return} if(operator===store.trip.operator){operatorMenuOpen.value=false;return} const result=await store.updateTrip({id:store.trip.id,operator}); if(!result.ok)return fail(result.reason); selectedOperator.value=operator; operatorMenuOpen.value=false; notify(`Operator changed to ${operator}.`) }
-const startGoingToPickup = async () => { if (store.isTripActive || goingToPickup.value) return; goingToPickup.value=true; pickupGpsPoints.value=0; pickupGpsSummary.value=DeadKmPickupGpsService.getTestSummary(); const started=DeadKmPickupGpsService.start((_point,count)=>{ pickupGpsPoints.value=count; pickupGpsSummary.value=DeadKmPickupGpsService.getTestSummary() }); if(!started){ goingToPickup.value=false; return fail('GPS permission is required to measure Dead KM on the way to pickup.') } await KfeRideNotificationService.beginPickup(`pickup-${Date.now()}`); notify('Going to pickup — Dead KM GPS measuring started.') }
-const startTrip = async () => { const result=await store.startTrip(selectedOperator.value||store.defaultOperator); if(!result.ok)return fail(result.reason); DeadKmPickupGpsService.stop(); goingToPickup.value=false; pickupGpsPoints.value=DeadKmPickupGpsService.getPointCount(); pickupGpsSummary.value=DeadKmPickupGpsService.getTestSummary(); selectedOperator.value=result.trip.operator; await KfeRideNotificationService.startRide(result.trip.id); notify('Trip started. Pickup GPS measuring stopped.') }
+const startGoingToPickup = async () => { if (store.isTripActive || goingToPickup.value) return; goingToPickup.value=true; pickupGpsPoints.value=0; pickupGpsSummary.value={points:0,nearTwoSecondIntervals:0,nearTwentySecondIntervals:0,maxGapMs:0,passed:false}; const started=MovementTraceService.start({ entityType:'SHIFT', entityId:store.shift?.id, eventType:'DEAD_MOVEMENT_TRACE', profile:'DEAD_LEG', onPoint:(_point,count)=>{ pickupGpsPoints.value=count; pickupGpsSummary.value={...pickupGpsSummary.value,points:count,passed:count>=2} } }); if(!started){ goingToPickup.value=false; return fail('GPS permission is required to measure Dead KM on the way to pickup.') } try { localStorage.setItem(pickupTraceSessionKey, JSON.stringify({shiftId:store.shift?.id})); } catch (_) {} await KfeRideNotificationService.beginPickup(`pickup-${Date.now()}`); notify('Going to pickup — Dead KM GPS measuring started.') }
+const startTrip = async () => { let deadLegPoints; try { deadLegPoints = await MovementTraceService.stop({captureFinal:true}) } catch (error) { const resumed = MovementTraceService.start({entityType:'SHIFT',entityId:store.shift?.id,eventType:'DEAD_MOVEMENT_TRACE',profile:'DEAD_LEG',onPoint:(_point,count)=>{ pickupGpsPoints.value=count; pickupGpsSummary.value={...pickupGpsSummary.value,points:count,passed:count>=2} }}); if (!resumed) goingToPickup.value=false; return fail(`GPS trace could not be saved. Trip start paused: ${error?.message || 'persistence failed.'}`) } const deadLegPointCount = deadLegPoints.length; const result=await store.startTrip(selectedOperator.value||store.defaultOperator); if(!result.ok){ MovementTraceService.reset(); return fail(result.reason) } MovementTraceService.reset(); goingToPickup.value=false; pickupGpsPoints.value=deadLegPointCount; pickupGpsSummary.value={...pickupGpsSummary.value,points:deadLegPointCount,passed:deadLegPointCount>=2}; try { localStorage.removeItem(pickupTraceSessionKey) } catch (_) {} selectedOperator.value=result.trip.operator; liveKmsBase.value=0; liveKms.value=0; const traceStarted=MovementTraceService.start({entityType:'TRIP',entityId:result.trip.id,eventType:'PASSENGER_RIDE_TRACE',profile:'PASSENGER_RIDE',onPoint:(_point)=>{ liveKms.value=liveKmsBase.value + MovementTraceService.getDistanceKm() }}); if(!traceStarted) notify('Ride GPS trace unavailable; trip continues.'); await KfeRideNotificationService.startRide(result.trip.id); notify('Trip started. Pickup GPS measuring stopped.') }
+const restartPassengerTrace = () => {
+  if (!store.isTripActive) return false
+  liveKmsBase.value = Number(liveKms.value || 0)
+  return MovementTraceService.start({entityType:'TRIP',entityId:store.trip.id,eventType:'PASSENGER_RIDE_TRACE',profile:'PASSENGER_RIDE',onPoint:()=>{ liveKms.value=liveKmsBase.value + MovementTraceService.getDistanceKm() }})
+}
 const endTrip = async (fare = '') => {
   const tripId = store.trip?.id
   if (fare !== '') {
     const value = Number(fare)
     if (!Number.isFinite(value) || value < 0) { await KfeRideNotificationService.retryEndRide(); return fail('Enter a valid fare before ending the ride.') }
   }
-  if (!await store.endTrip()) return
-  if (fare !== '') await store.updateTrip({id:tripId,revenue:fare})
+  try { await MovementTraceService.stop({captureFinal:true}) } catch (error) { restartPassengerTrace(); return fail(`GPS trace could not be saved. Ride was not completed: ${error?.message || 'persistence failed.'}`) }
+  if (!await store.endTrip()) { restartPassengerTrace(); return fail('Ride could not be completed. GPS tracing has been resumed.') }
+  let fareSaveFailed = false
+  if (fare !== '') {
+    const fareResult = await store.updateTrip({id:tripId,revenue:fare})
+    fareSaveFailed = !fareResult?.ok
+  }
   await refreshTarget()
   await KfeRideNotificationService.completeRide()
+  if (fareSaveFailed) return fail('Ride completed, but the fare could not be saved. Please correct it in Timeline.')
   notify(fare !== '' ? 'Ride completed with fare.' : 'Ride completed.')
 }
-const cancelAccidentalTrip = async () => { if(!confirm('Cancel this accidental trip? It will be recorded as a cancelled driver-mistake trip.'))return; if(await store.cancelTrip({reason:'DRIVER_MISTAKE'})){await refreshTarget();notify('Accidental trip cancelled.')} }
-const cancelTripWithRevenue = async () => { if(!confirm('Record this trip as cancelled? Optional revenue will be retained if entered.'))return; if(await store.cancelTrip({reason:cancelReason.value,revenue:cancelledRevenue.value})){cancelledRevenue.value='';cancelPanel.value=false;await refreshTarget();notify('Cancelled trip recorded.')} }
+const openCancelRide = () => { if (!store.isTripActive) return; cancelReason.value='DRIVER_MISTAKE'; cancelledRevenue.value=''; cancelPanel.value=true; error.value=''; message.value='' }
+const closeCancelRide = () => { cancelPanel.value=false; cancelledRevenue.value=''; error.value=''; message.value='' }
+const cancelTripWithRevenue = async () => { const value=cancelledRevenue.value; if(value!==''){const amount=Number(value);if(!Number.isFinite(amount)||amount<0)return fail('Enter a valid non-negative cancellation fee.')} if(!confirm('Record this ride as cancelled? The cancellation fee, if entered, will be retained.'))return; try { await MovementTraceService.stop({captureFinal:true}) } catch (error) { restartPassengerTrace(); return fail(`GPS trace could not be saved. Cancellation was not recorded: ${error?.message || 'persistence failed.'}`) } const result=await store.cancelTrip({reason:cancelReason.value,revenue:value}); if(result?.ok){await KfeRideNotificationService.completeRide();cancelledRevenue.value='';cancelPanel.value=false;await refreshTarget();notify('Cancelled ride recorded.')} else { restartPassengerTrace(); fail(result?.reason || 'Cancellation could not be recorded. GPS tracing has been resumed.') } }
 const saveFuel = async () => { if (fuelStore.saving) return; const result=await fuelStore.save({odometer:fuelOdometer.value,pricePerKg:fuelPrice.value,amount:fuelAmount.value,clientMutationId:fuelClientMutationId.value}); if(!result.ok)return fail(result.reason); fuelOdometer.value='';fuelPrice.value='';fuelAmount.value='';fuelClientMutationId.value=crypto.randomUUID();sessionStorage.removeItem(fuelDraftKey);fuelFormOpen.value=false;notify(`Refuelling recorded: ${result.record.quantityKg.toFixed(2)} kg.`) }
 const primaryTripAction = () => { if (store.isTripActive) return endTrip(); if (!goingToPickup.value) return startGoingToPickup(); return startTrip() }
 const tripActionLabel = computed(() => store.isTripActive ? 'SWIPE → END RIDE' : goingToPickup.value ? 'SWIPE → START RIDE' : 'SWIPE → GO TO PICKUP')
-const tripActionHint = computed(() => store.isTripActive ? 'Swipe from left to right to end this ride' : goingToPickup.value ? 'Swipe when you reach pickup — starts the ride and stops high-frequency GPS' : 'Swipe to confirm Going to Pickup and start Dead KM GPS measuring')
+const tripActionHint = computed(() => store.isTripActive ? 'Swipe from left to right to end this ride' : goingToPickup.value ? 'Swipe when you reach pickup — starts the ride and stops 20-sec GPS trace' : 'Swipe to confirm Going to Pickup and start Dead KM GPS measuring')
 const swipeProgress = computed(() => {
   const width = swipeTrack.value?.clientWidth || 320
   return Math.min(100, Math.round((swipeOffset.value / Math.max(1, width)) * 100))
@@ -186,11 +264,27 @@ const handleRideNotificationAction = async ({ stage, tripId, input }) => {
   if (stage === 'END_RIDE') return endTrip(input || '')
 }
 
-onMounted(async()=>{await store.initialize();await fuelStore.refresh();await refreshTarget();await refreshPerformance();
+onMounted(async()=>{await store.initialize();loadTargetOverlayState();await fuelStore.refresh();await refreshTarget();await refreshPerformance();
 removeRideNotificationListener = (await KfeRideNotificationService.addListener('rideNotificationAction', handleRideNotificationAction))?.remove;
-if (store.isOnline && !store.isTripActive && !goingToPickup.value) await KfeRideNotificationService.goOnline();
+let restoredTrace = false;
+if (store.isTripActive) {
+  try { liveKmsBase.value = await WorkService.getTripGpsDistanceKm(store.trip.id); liveKms.value = liveKmsBase.value } catch (_) { liveKmsBase.value = 0; liveKms.value = null }
+  restoredTrace = MovementTraceService.start({entityType:'TRIP',entityId:store.trip.id,eventType:'PASSENGER_RIDE_TRACE',profile:'PASSENGER_RIDE',onPoint:()=>{ liveKms.value=liveKmsBase.value + MovementTraceService.getDistanceKm() }});
+  await KfeRideNotificationService.resume();
+} else if (store.isOnline) {
+  let pickupSession = null;
+  try { pickupSession = JSON.parse(localStorage.getItem(pickupTraceSessionKey) || 'null') } catch (_) {}
+  if (pickupSession?.shiftId === store.shift?.id) {
+    goingToPickup.value = true;
+    restoredTrace = MovementTraceService.start({entityType:'SHIFT',entityId:store.shift.id,eventType:'DEAD_MOVEMENT_TRACE',profile:'DEAD_LEG',onPoint:(_point,count)=>{pickupGpsPoints.value=count;pickupGpsSummary.value={...pickupGpsSummary.value,points:count,passed:count>=2}}});
+    await KfeRideNotificationService.resume();
+  } else {
+    if (pickupSession?.shiftId !== store.shift?.id) { try { localStorage.removeItem(pickupTraceSessionKey) } catch (_) {} }
+    await KfeRideNotificationService.goOnline();
+  }
+}
 startOdo.value=store.lastKnownOdometer??'';selectedOperator.value=store.defaultOperator;loadFuelDraft();unsubscribeTarget=DriverTargetService.subscribeDataChanges(()=>{void refreshTarget();void refreshPerformance()});interval=window.setInterval(()=>{clock.value=Date.now()},1000)})
-onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListener();window.clearInterval(interval);unsubscribeTarget?.();DeadKmPickupGpsService.reset()})
+onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListener();window.clearInterval(interval);unsubscribeTarget?.();MovementTraceService.reset()})
 </script>
 
 <template>
@@ -200,6 +294,31 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
       <div class="hero-actions"><button class="fuel-icon" type="button" :class="{active:fuelFormOpen}" aria-label="CNG refuelling" title="CNG refuelling" @click="openFuelForm"><span aria-hidden="true">⛽</span></button><div class="online-control"><span>OFFLINE</span><button type="button" class="online-toggle" :class="{active:store.isOnline}" :disabled="store.isTripActive" role="switch" :aria-checked="store.isOnline" :aria-label="store.isOnline ? 'Go Offline' : 'Confirm odometer and go Online'" @click.stop.prevent="toggleOnline"><span/></button><span>ONLINE</span></div></div>
     </header>
     <div v-if="message" class="message">{{message}}</div><div v-if="error" class="error">{{error}}</div>
+    <div v-if="store.isOnline && !fuelFormOpen && !endShiftOpen" class="target-hud" :class="{ 'target-hud--edit': targetOverlayEdit, 'target-hud--minimized': targetOverlayMinimized }" :style="targetOverlayStyle" aria-label="Today target" @click="onTargetOverlayClick" @pointerdown="onTargetOverlayPointerDown" @pointermove="onTargetOverlayPointerMove" @pointerup="onTargetOverlayPointerUp" @pointercancel="onTargetOverlayPointerCancel">
+      <button v-if="targetOverlayMinimized" class="target-hud-mini" type="button" aria-label="Restore target overlay" title="Restore target" @click="toggleTargetOverlayMinimized"><span>T</span><strong>{{targetText}}</strong></button>
+      <template v-else>
+        <button class="target-hud-trigger" type="button" :aria-expanded="targetDetailsOpen" @click="targetDetailsOpen=!targetDetailsOpen">
+          <span>TARGET</span><strong>{{targetText}}</strong><span class="target-hud-separator">/</span><strong>{{performanceMoney(targetAchieved)}}</strong><span class="target-hud-menu" aria-hidden="true">⋮</span>
+        </button>
+        <button class="target-hud-minimize" type="button" aria-label="Minimize target overlay" title="Minimize target" @pointerdown.stop @click.stop="toggleTargetOverlayMinimized">−</button>
+      </template>
+      <div v-if="targetDetailsOpen" class="target-hud-details">
+        <div class="target-hud-heading"><div><small>TODAY'S TARGET</small><strong>{{targetText}}</strong></div><button type="button" aria-label="Close target details" @click="targetDetailsOpen=false">×</button></div>
+        <div class="target-hud-progress"><span :style="{width: targetProgress + '%'}"></span></div>
+        <div class="target-hud-stats"><div><span>PROGRESS</span><strong>{{targetProgress}}%</strong></div><div><span>RIDES</span><strong>{{targetRides}}</strong></div><div><span>LIVE KMS</span><strong>{{liveKms == null ? '—' : liveKms + ' km'}}</strong></div><div v-if="store.isTripActive"><span>CURRENT FARE</span><strong>{{activeFare}}</strong></div></div>
+        <div v-if="store.isTripActive" class="target-hud-current"><span>CURRENT RIDE</span><strong>{{tripTimer}}</strong></div><button v-if="store.isTripActive" class="target-hud-cancel" type="button" @pointerdown.stop @click.stop="openCancelRide">Cancel ride</button>
+      </div>
+    </div>
+
+    <section v-if="cancelPanel && store.isTripActive && !endShiftOpen" class="cockpit-state cancel-ride-panel">
+      <div class="form-topline"><div><small>RIDE CONTROL</small><h2>CANCEL RIDE</h2></div><button class="form-back" type="button" @click="closeCancelRide"><span aria-hidden="true">🔙</span><span>Back</span></button></div>
+      <div class="cancel-ride-copy">This keeps the ride in Timeline as <strong>Cancelled</strong>. Add a fee only if one was actually collected.</div>
+      <div class="cancel-ride-form">
+        <label>Cancellation reason<select v-model="cancelReason"><option value="DRIVER_MISTAKE">Driver mistake</option><option value="PASSENGER_CANCELLED">Passenger cancelled</option><option value="VEHICLE_ISSUE">Vehicle issue</option><option value="OPERATOR_REQUEST">Operator request</option><option value="OTHER">Other</option></select></label>
+        <label>Cancellation fee (₹)<input v-model="cancelledRevenue" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Optional"></label>
+      </div>
+      <div class="cancel-ride-actions"><button class="secondary" type="button" @click="closeCancelRide">Back</button><button class="quiet-danger" type="button" @click="cancelTripWithRevenue">Confirm cancellation</button></div>
+    </section>
 
     <section v-if="fuelFormOpen" class="card gate cockpit-form-surface">
       <div class="form-topline"><div><small>CNG REFUELLING</small><h2>Refuelling</h2></div><button class="form-back" type="button" @click="closeFuelForm"><span aria-hidden="true">🔙</span><span>Back</span></button></div>
@@ -216,7 +335,6 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
       <div class="state-kicker">OFFLINE</div>
       <h2>START SHIFT</h2>
       <div v-if="!startOdoOpen" class="offline-performance">
-        <button class="work-target-tab" type="button" aria-label="Today's target"><span>TARGET</span><strong>{{targetText}}</strong></button>
         <article class="work-performance-hero work-performance-week">
           <div class="work-performance-heading"><div><small>WEEKLY PERFORMANCE</small><h3>{{weeklyPerformance?.date || 'This week'}}</h3></div><span>WEEK</span></div>
           <div class="work-performance-metrics">
@@ -246,7 +364,6 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
       <div class="state-kicker online">ONLINE</div>
       <h2>READY FOR NEXT TRIP</h2>
       <div class="ready-context"><div class="operator-inline"><span>Operator</span><button type="button" class="operator-select" @click="operatorMenuOpen=!operatorMenuOpen">{{(selectedOperator||store.defaultOperator)+' ▾'}}</button></div><div v-if="operatorMenuOpen" class="operator-menu"><button v-for="operator in store.operators" :key="operator" type="button" :class="{selected:(store.defaultOperator===operator&&selectedOperator!=='__menu__')}" @click="changeTripOperator(operator)">{{operator}}</button></div></div>
-      <div class="target-inline"><span>TODAY'S TARGET</span><strong>{{targetText}}</strong></div>
       <div class="next-event"><span>NEXT</span><strong>START TRIP</strong></div>
     </section>
 
@@ -254,11 +371,11 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
       <div class="state-kicker pickup">GOING TO PICKUP</div>
       <h2>DEAD KM MEASURING</h2>
       <div class="pickup-gps-card">
-        <div><span>GPS FREQUENCY</span><strong>~2 sec</strong></div>
+        <div><span>GPS FREQUENCY</span><strong>20 sec</strong></div>
         <div><span>POINTS CAPTURED</span><strong>{{pickupGpsPoints}}</strong></div>
         <div><span>POINT TEST</span><strong :class="{pass:pickupGpsSummary.passed}">{{pickupGpsSummary.passed ? 'PASS' : 'COLLECTING'}}</strong></div>
       </div>
-      <p class="pickup-gps-note">High-frequency GPS records the movement to pickup. Passenger trip KM remains operator-entered. GPS stops when you start the trip.</p>
+      <p class="pickup-gps-note">GPS records movement to pickup every ~20 sec. Passenger trip KM is calculated from the saved ride trace. GPS stops when you start the trip.</p>
       <div class="pickup-location-status"><span>GPS</span><strong>{{pickupGpsPoints > 0 ? 'Measuring' : 'Waiting for fix…'}}</strong></div>
     </section>
 
@@ -266,9 +383,7 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
       <div class="state-kicker online">ON TRIP</div>
       <div class="trip-operator-row"><span>Operator</span><button type="button" class="operator-select" @click="selectedOperator = selectedOperator === '__menu__' ? store.trip.operator : '__menu__'">{{store.trip.operator+' ▾'}}</button></div>
       <div v-if="selectedOperator==='__menu__'" class="operator-menu"><button v-for="operator in store.operators" :key="operator" type="button" :class="{selected:store.trip.operator===operator}" @click="changeTripOperator(operator)">{{operator}}</button></div>
-      <div class="trip-target"><span>TODAY'S TARGET</span><strong>{{targetText}}</strong></div>
-      <div class="trip-core"><div class="timer">{{tripTimer}}</div><div class="trip-continuity">Trip in progress · operator can be corrected before trip ends</div></div>
-      <div class="next-event"><span>NEXT</span><strong>END TRIP</strong></div>
+      <div class="next-event"><span>NEXT</span><strong>END TRIP</strong></div><button class="cancel-ride-link" type="button" @click="openCancelRide">Cancel ride</button>
     </section>
 
     <section v-if="endShiftOpen" class="cockpit-state cockpit-end-state" :style="endShiftSwipeStyle" :class="{'is-card-dragging':endShiftSwipeTracking}" @pointerdown="onEndShiftSwipeStart" @pointermove="onEndShiftSwipeMove" @pointerup="onEndShiftSwipeEnd" @pointercancel="onEndShiftSwipeCancel">
@@ -321,7 +436,7 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
       </div>
     </section>
 
-    <div v-if="store.isOnline && !endShiftOpen && !fuelFormOpen" class="persistent-action">
+    <div v-if="store.isOnline && !endShiftOpen && !fuelFormOpen && !cancelPanel" class="persistent-action">
       <div ref="swipeTrack" class="swipe-bar trip-action" :class="{ 'swipe-bar--pickup': !store.isTripActive && !goingToPickup, 'swipe-bar--ride-start': !store.isTripActive && goingToPickup, 'swipe-bar--ride-end': store.isTripActive, 'is-swiping': swipeTracking, 'is-threshold': swipeProgress >= 80 }" :style="swipeStyle" role="button" tabindex="0" aria-label="Swipe from left to right to start or end the current trip" @pointerdown="onSwipeStart" @pointermove="onSwipeMove" @pointerup="onSwipeEnd" @pointercancel="onSwipeCancel" @pointerleave="onSwipeEnd" @keydown="onSwipeKey">
         <span class="swipe-progress" aria-hidden="true"></span><span class="swipe-threshold" aria-hidden="true"><i></i><em>80%</em></span><span class="swipe-label">{{tripActionLabel}}</span><span class="swipe-thumb" aria-hidden="true"><b>→</b></span>
       </div><small class="swipe-hint">{{swipeTracking ? (swipeProgress >= 80 ? 'RELEASE TO CONFIRM' : 'KEEP SWIPING →') : tripActionHint}}</small>

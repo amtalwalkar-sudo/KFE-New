@@ -26,6 +26,8 @@ assert.deepEqual(WORK_TRIP_OPERATORS, ['Uber', 'One way', 'Rapido', 'Ola', 'Sava
 assert.equal(validateTripOperator('Uber').valid, true)
 assert.equal(validateTripOperator('Unknown').valid, false)
 assert.equal(validateTripCorrection({ operator: 'Ola', tripKm: '12.5', revenue: '300' }).valid, true)
+assert.deepEqual(validateTripCorrection({ operator: 'Ola', revenue: '150', cancelReason: 'PASSENGER_CANCELLED' }), { valid: true, operator: 'Ola', revenue: 150, cancelReason: 'PASSENGER_CANCELLED' })
+assert.equal(validateTripCorrection({ cancelReason: '' }).valid, false)
 assert.equal(calculateShiftRevenue([{ status: 'COMPLETED', revenue: 100 }, { status: 'CANCELLED', revenue: 500 }, { status: 'COMPLETED', revenue: null }]), 100)
 assert.equal(calculateFuelQuantity({ pricePerKg: 82, amount: 410 }).quantityKg, 5)
 assert.equal(validateFuelEntry({ odometer: 65000, pricePerKg: 82, amount: 1230 }).quantityKg, 15)
