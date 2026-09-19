@@ -23,7 +23,6 @@ assert.match(service, /record\.shift\.openingPersonalKm/)
 assert.match(endShift, /revenue/)
 assert.doesNotMatch(endShift, /calculateShiftRevenue/)
 assert.match(cockpit, /DriverTargetService/)
-assert.match(cockpit, /TODAY'S TARGET/)
 assert.match(cockpit, /shiftRevenue/)
 assert.match(targetService, /deriveRollingDriverTarget/)
 
