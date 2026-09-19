@@ -19,6 +19,8 @@ export function validateTripCorrection(data = {}) {
     if (!Number.isFinite(tripKm) || tripKm < 0) return { valid: false, reason: 'Trip KM must be a non-negative number.' }
     result.tripKm = tripKm
   }
+  if (data.toll !== undefined && data.toll !== '') { const toll = Number(data.toll); if (!Number.isFinite(toll) || toll < 0) return { valid: false, reason: 'Trip toll must be a non-negative number.' }; result.toll = toll }
+  if (data.parking !== undefined && data.parking !== '') { const parking = Number(data.parking); if (!Number.isFinite(parking) || parking < 0) return { valid: false, reason: 'Trip parking must be a non-negative number.' }; result.parking = parking }
   if (data.revenue !== undefined && data.revenue !== '') {
     const revenue = Number(data.revenue)
     if (!Number.isFinite(revenue) || revenue < 0) return { valid: false, reason: 'Trip revenue must be a non-negative number.' }

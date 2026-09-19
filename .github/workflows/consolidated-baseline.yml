@@ -2,7 +2,7 @@ name: KFE 2.0 single CI
 
 on:
   push:
-    branches: [ main, kfe-clean-build ]
+    branches: [ main, kfe-clean-build, fix/native-overlay-ci-contracts ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:

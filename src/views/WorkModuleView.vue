@@ -121,6 +121,14 @@ const locationTime = location => location?.capturedAt ? new Date(location.captur
 const notify = text => { message.value = text; error.value = ''; window.setTimeout(() => { if (message.value === text) message.value = '' }, 2200) }
 const fail = text => { error.value = text; message.value = '' }
 const refreshTarget = async () => { try { target.value = await DriverTargetService.getTarget(getKfeReferenceNow()) } catch (_) { target.value = null } }
+const processPendingEndRide = async () => {
+  if (!store.isTripActive) return
+  const pending = await KfeOverlayService.consumePendingEndRide()
+  if (pending?.fare) {
+    const completed = await endTrip(pending.fare, pending.toll || '0', pending.parking || '0')
+    if (completed) await KfeOverlayService.acknowledgePendingEndRide()
+  }
+}
 const syncAndroidOverlay = async () => {
   if (!store.isOnline) return KfeOverlayService.hide()
   const state = {
@@ -176,23 +184,24 @@ const restartPassengerTrace = () => {
   liveKmsBase.value = Number(liveKms.value || 0)
   return MovementTraceService.start({entityType:'TRIP',entityId:store.trip.id,eventType:'PASSENGER_RIDE_TRACE',profile:'PASSENGER_RIDE',onPoint:()=>{ liveKms.value=liveKmsBase.value + MovementTraceService.getDistanceKm() }})
 }
-const endTrip = async (fare = '') => {
+const endTrip = async (fare = '', toll = '', parking = '') => {
   const tripId = store.trip?.id
   if (fare !== '') {
     const value = Number(fare)
-    if (!Number.isFinite(value) || value < 0) { await KfeRideNotificationService.retryEndRide(); return fail('Enter a valid fare before ending the ride.') }
+    if (!Number.isFinite(value) || value < 0) { await KfeRideNotificationService.retryEndRide(); return false }
   }
   try { await MovementTraceService.stop({captureFinal:true}) } catch (error) { restartPassengerTrace(); return fail(`GPS trace could not be saved. Ride was not completed: ${error?.message || 'persistence failed.'}`) }
-  if (!await store.endTrip()) { restartPassengerTrace(); return fail('Ride could not be completed. GPS tracing has been resumed.') }
+  if (!await store.endTrip()) { restartPassengerTrace(); fail('Ride could not be completed. GPS tracing has been resumed.'); return false }
   let fareSaveFailed = false
-  if (fare !== '') {
-    const fareResult = await store.updateTrip({id:tripId,revenue:fare})
+  if (fare !== '' || toll !== '' || parking !== '') {
+    const fareResult = await store.updateTrip({id:tripId,revenue:fare,toll:toll === '' ? 0 : toll,parking:parking === '' ? 0 : parking})
     fareSaveFailed = !fareResult?.ok
   }
   await refreshTarget()
   await KfeRideNotificationService.completeRide()
-  if (fareSaveFailed) return fail('Ride completed, but the fare could not be saved. Please correct it in Timeline.')
+  if (fareSaveFailed) { fail('Ride completed, but the fare could not be saved. Please correct it in Timeline.'); return true }
   notify(fare !== '' ? 'Ride completed with fare.' : 'Ride completed.')
+  return true
 }
 const openCancelRide = () => { if (!store.isTripActive) return; cancelReason.value='DRIVER_MISTAKE'; cancelledRevenue.value=''; cancelPanel.value=true; error.value=''; message.value='' }
 const closeCancelRide = () => { cancelPanel.value=false; cancelledRevenue.value=''; error.value=''; message.value='' }
@@ -223,6 +232,7 @@ const handleRideNotificationAction = async ({ stage, tripId, input }) => {
 }
 
 onMounted(async()=>{await store.initialize();await fuelStore.refresh();await refreshTarget();await refreshPerformance();
+await processPendingEndRide()
 removeRideNotificationListener = (await KfeRideNotificationService.addListener('rideNotificationAction', handleRideNotificationAction))?.remove;
 let restoredTrace = false;
 if (store.isTripActive) {
@@ -241,7 +251,7 @@ if (store.isTripActive) {
     await KfeRideNotificationService.goOnline();
   }
 }
-startOdo.value=store.lastKnownOdometer??'';selectedOperator.value=store.defaultOperator;loadFuelDraft();unsubscribeTarget=DriverTargetService.subscribeDataChanges(()=>{void refreshTarget();void refreshPerformance()});interval=window.setInterval(()=>{clock.value=Date.now();if(store.isOnline)void syncAndroidOverlay()},1000)})
+startOdo.value=store.lastKnownOdometer??'';selectedOperator.value=store.defaultOperator;loadFuelDraft();unsubscribeTarget=DriverTargetService.subscribeDataChanges(()=>{void refreshTarget();void refreshPerformance()});interval=window.setInterval(()=>{clock.value=Date.now();if(store.isOnline){void syncAndroidOverlay();void processPendingEndRide()}},1000)})
 onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListener();window.clearInterval(interval);unsubscribeTarget?.();MovementTraceService.reset()})
 </script>
 
