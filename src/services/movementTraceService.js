@@ -25,11 +25,23 @@ const normalizePoint = position => {
   }
 }
 
+
+const toRadians = value => Number(value) * Math.PI / 180
+const segmentKm = (a, b) => {
+  if (!a || !b) return 0
+  const lat1 = toRadians(a.latitude); const lat2 = toRadians(b.latitude)
+  const dLat = lat2 - lat1; const dLon = toRadians(b.longitude) - toRadians(a.longitude)
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2
+  return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h)))
+}
+export const calculateTraceDistanceKm = tracePoints => (tracePoints || []).reduce((total, point, index, list) => total + (index ? segmentKm(list[index - 1], point) : 0), 0)
+
 let watchId = null
 let points = []
 let lastAcceptedAt = 0
 let active = null
 let pendingWrites = Promise.resolve()
+let lastPersistenceError = null
 const SESSION_KEY = 'kfe.movement-trace-session.v1'
 const saveSession = () => { if (typeof localStorage === 'undefined' || !active) return; localStorage.setItem(SESSION_KEY, JSON.stringify({ entityType: active.entityType, entityId: active.entityId, eventType: active.eventType, profile: Object.entries(PROFILES).find(([, value]) => value === active.profile)?.[0] || 'DEAD_LEG' })) }
 const clearSession = () => { try { localStorage.removeItem(SESSION_KEY) } catch (_) {} }
@@ -38,8 +50,15 @@ const readSession = () => { try { const value = JSON.parse(localStorage.getItem(
 const persist = point => {
   if (!active || !point) return
   const session = { entityType: active.entityType, entityId: active.entityId, eventType: active.eventType }
-  pendingWrites = pendingWrites.then(() => LocationRepository.recordTracePoint({ ...session, ...point }))
-    .catch(() => {})
+  const write = async () => {
+    let lastError = null
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try { await LocationRepository.recordTracePoint({ ...session, ...point }); lastPersistenceError = null; return }
+      catch (error) { lastError = error; if (attempt < 3) await new Promise(resolve => setTimeout(resolve, attempt * 250)) }
+    }
+    lastPersistenceError = lastError || new Error('GPS trace persistence failed.')
+  }
+  pendingWrites = pendingWrites.catch(() => {}).then(write)
   return pendingWrites
 }
 
@@ -73,7 +92,7 @@ const captureBoundary = () => new Promise(resolve => {
         points = [...points, point]
         lastAcceptedAt = Date.now()
         void persist(point)
-        active?.onPoint?.(point, points.length)
+        active?.onPoint?.(point, points.length, calculateTraceDistanceKm(points))
       }
     }
     resolve(point)
@@ -100,20 +119,26 @@ export const MovementTraceService = {
     clearWatch()
     const result = [...points]
     await pendingWrites
+    const persistenceError = lastPersistenceError
     active = null
     clearSession()
+    lastPersistenceError = null
+    if (persistenceError) throw persistenceError
     return result
   },
   getPoints() { return [...points] },
   getActiveSession() { return active ? { entityType: active.entityType, entityId: active.entityId, eventType: active.eventType, profile: Object.entries(PROFILES).find(([, value]) => value === active.profile)?.[0] || 'DEAD_LEG' } : readSession() },
   hasActiveTrace() { return Boolean(active || readSession()) },
   getPointCount() { return points.length },
+  getDistanceKm() { return calculateTraceDistanceKm(points) },
+  getLastPersistenceError() { return lastPersistenceError },
   getProfile(profile = 'DEAD_LEG') { return PROFILES[profile] || PROFILES.DEAD_LEG },
   reset() {
     clearWatch()
     points = []
     lastAcceptedAt = 0
     active = null
+    lastPersistenceError = null
     clearSession()
   }
 }
