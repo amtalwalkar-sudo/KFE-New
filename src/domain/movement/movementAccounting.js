@@ -43,7 +43,7 @@ const waitingAnchorForTrace = points => {
 const sum = (segments, classification) => segments.filter(s => s.classification === classification && finite(s.distanceKm)).reduce((t, s) => t + Number(s.distanceKm), 0)
 const normalizeManualKm = (trip, manualBusinessKmByTripId = {}) => { const value = manualBusinessKmByTripId[trip.id]; if (value === undefined || value === null || value === '') return null; const km = Number(value); if (!Number.isFinite(km) || km < 0) throw new Error(`Invalid Uber Business KM for trip ${trip.id}.`); return km }
 const pointsBetween = (snapshots, startAt, endAt, from, to) => { const points = []; const a = normalizeLocation(from); const b = normalizeLocation(to); if (a) points.push({ ...a, capturedAt: startAt || new Date(0).toISOString() }); for (const snapshot of orderedTrace(snapshots)) { const t = new Date(snapshot.capturedAt || 0).getTime(); if ((!startAt || t >= new Date(startAt).getTime()) && (!endAt || t <= new Date(endAt).getTime())) points.push(snapshot) } if (b) points.push({ ...b, capturedAt: endAt || new Date().toISOString() }); return filterGpsTrace(points) }
-const routeTrace = async (trace, router) => {
+export const routeTrace = async (trace, router) => {
   const points = filterGpsTrace(trace)
   if (points.length < 2) return { distanceKm: null, method: 'UNAVAILABLE', confidence: 'UNAVAILABLE', roadMatchedGeometry: null, traceGeometry: [], provenance: null, points }
   try {
