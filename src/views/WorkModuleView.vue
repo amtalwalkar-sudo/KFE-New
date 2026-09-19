@@ -44,6 +44,7 @@ const fuelClientMutationId = ref('')
 const message = ref('')
 const error = ref('')
 const target = ref(null)
+const targetDetailsOpen = ref(false)
 const clock = ref(Date.now())
 const swipeStartX = ref(null)
 const swipeTracking = ref(false)
@@ -64,6 +65,11 @@ const allocatedGap = computed(() => gapCategory.value ? gapKm.value : 0)
 const fuelQuantity = computed(() => fuelStore.calculateQuantity(fuelPrice.value, fuelAmount.value))
 const targetValue = computed(() => target.value?.target !== null && target.value?.target !== undefined && Number.isFinite(Number(target.value.target)) ? Number(target.value.target) : null)
 const targetText = computed(() => targetValue.value == null ? '—' : `₹${targetValue.value.toLocaleString('en-IN',{maximumFractionDigits:0})}`)
+const targetAchieved = computed(() => store.completedTrips.reduce((sum, trip) => sum + Number(trip.revenue || 0), 0) + (store.isTripActive ? Number(store.trip?.revenue || 0) : 0))
+const targetProgress = computed(() => targetValue.value && targetValue.value > 0 ? Math.min(100, Math.round((targetAchieved.value / targetValue.value) * 100)) : 0)
+const targetRides = computed(() => store.completedTrips.length + (store.isTripActive ? 1 : 0))
+const liveKms = computed(() => { const value = store.trip?.tripKm; return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) ? Number(value) : null })
+const activeFare = computed(() => { const value = store.trip?.revenue; return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) ? performanceMoney(value) : '—' })
 const performanceSnapshot = ref(null)
 const performanceMoney = value => Number.isFinite(Number(value)) ? `₹${Math.round(Number(value)).toLocaleString('en-IN')}` : '—'
 const performanceRevenue = metrics => Number(metrics?.revenue || 0) + Number(metrics?.toll || 0) + Number(metrics?.parking || 0)
@@ -200,6 +206,17 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
       <div class="hero-actions"><button class="fuel-icon" type="button" :class="{active:fuelFormOpen}" aria-label="CNG refuelling" title="CNG refuelling" @click="openFuelForm"><span aria-hidden="true">⛽</span></button><div class="online-control"><span>OFFLINE</span><button type="button" class="online-toggle" :class="{active:store.isOnline}" :disabled="store.isTripActive" role="switch" :aria-checked="store.isOnline" :aria-label="store.isOnline ? 'Go Offline' : 'Confirm odometer and go Online'" @click.stop.prevent="toggleOnline"><span/></button><span>ONLINE</span></div></div>
     </header>
     <div v-if="message" class="message">{{message}}</div><div v-if="error" class="error">{{error}}</div>
+    <div v-if="store.isOnline && !fuelFormOpen && !endShiftOpen" class="target-hud" aria-label="Today target">
+      <button class="target-hud-trigger" type="button" :aria-expanded="targetDetailsOpen" @click="targetDetailsOpen=!targetDetailsOpen">
+        <span>TARGET</span><strong>{{targetText}}</strong><span class="target-hud-separator">/</span><strong>{{performanceMoney(targetAchieved)}}</strong><span class="target-hud-menu" aria-hidden="true">⋮</span>
+      </button>
+      <div v-if="targetDetailsOpen" class="target-hud-details">
+        <div class="target-hud-heading"><div><small>TARGET</small><strong>{{targetText}}</strong></div><button type="button" aria-label="Close target details" @click="targetDetailsOpen=false">×</button></div>
+        <div class="target-hud-progress"><span :style="{width: targetProgress + '%'}"></span></div>
+        <div class="target-hud-stats"><div><span>PROGRESS</span><strong>{{targetProgress}}%</strong></div><div><span>RIDES</span><strong>{{targetRides}}</strong></div><div><span>LIVE KMS</span><strong>{{liveKms == null ? '—' : liveKms + ' km'}}</strong></div><div v-if="store.isTripActive"><span>CURRENT FARE</span><strong>{{activeFare}}</strong></div></div>
+        <div v-if="store.isTripActive" class="target-hud-current"><span>CURRENT RIDE</span><strong>{{tripTimer}}</strong></div>
+      </div>
+    </div>
 
     <section v-if="fuelFormOpen" class="card gate cockpit-form-surface">
       <div class="form-topline"><div><small>CNG REFUELLING</small><h2>Refuelling</h2></div><button class="form-back" type="button" @click="closeFuelForm"><span aria-hidden="true">🔙</span><span>Back</span></button></div>
@@ -216,7 +233,6 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
       <div class="state-kicker">OFFLINE</div>
       <h2>START SHIFT</h2>
       <div v-if="!startOdoOpen" class="offline-performance">
-        <button class="work-target-tab" type="button" aria-label="Today's target"><span>TARGET</span><strong>{{targetText}}</strong></button>
         <article class="work-performance-hero work-performance-week">
           <div class="work-performance-heading"><div><small>WEEKLY PERFORMANCE</small><h3>{{weeklyPerformance?.date || 'This week'}}</h3></div><span>WEEK</span></div>
           <div class="work-performance-metrics">
@@ -246,7 +262,6 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
       <div class="state-kicker online">ONLINE</div>
       <h2>READY FOR NEXT TRIP</h2>
       <div class="ready-context"><div class="operator-inline"><span>Operator</span><button type="button" class="operator-select" @click="operatorMenuOpen=!operatorMenuOpen">{{(selectedOperator||store.defaultOperator)+' ▾'}}</button></div><div v-if="operatorMenuOpen" class="operator-menu"><button v-for="operator in store.operators" :key="operator" type="button" :class="{selected:(store.defaultOperator===operator&&selectedOperator!=='__menu__')}" @click="changeTripOperator(operator)">{{operator}}</button></div></div>
-      <div class="target-inline"><span>TODAY'S TARGET</span><strong>{{targetText}}</strong></div>
       <div class="next-event"><span>NEXT</span><strong>START TRIP</strong></div>
     </section>
 
@@ -266,8 +281,6 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
       <div class="state-kicker online">ON TRIP</div>
       <div class="trip-operator-row"><span>Operator</span><button type="button" class="operator-select" @click="selectedOperator = selectedOperator === '__menu__' ? store.trip.operator : '__menu__'">{{store.trip.operator+' ▾'}}</button></div>
       <div v-if="selectedOperator==='__menu__'" class="operator-menu"><button v-for="operator in store.operators" :key="operator" type="button" :class="{selected:store.trip.operator===operator}" @click="changeTripOperator(operator)">{{operator}}</button></div>
-      <div class="trip-target"><span>TODAY'S TARGET</span><strong>{{targetText}}</strong></div>
-      <div class="trip-core"><div class="timer">{{tripTimer}}</div><div class="trip-continuity">Trip in progress · operator can be corrected before trip ends</div></div>
       <div class="next-event"><span>NEXT</span><strong>END TRIP</strong></div>
     </section>
 
