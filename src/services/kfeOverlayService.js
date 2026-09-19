@@ -27,7 +27,7 @@ export const KfeOverlayService = Object.freeze({
   async update(state = {}) {
     return call('update', state)
   },
-  async hide() {
+  async consumePendingEndRide() {\n    if (!native()) return null\n    try { return await KfeOverlay.consumePendingEndRide() } catch (_) { return null }\n  },\n  async hide() {
     return call('hide')
   }
 })
