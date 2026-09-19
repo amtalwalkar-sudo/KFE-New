@@ -32,9 +32,7 @@ assert.match(service, /targetStats.setVisibility\(View.GONE\)/)
 assert.match(service, /params.x = Math.max/)
 assert.match(service, /params.y = Math.max/)
 assert.match(service, /tripActiveState \? Color.argb\(242, 180, 70, 45\) : Color.argb\(242, 22, 120, 92\)/)
-assert.doesNotMatch(service, /SWIPE\
-UP\
-KFE  ↑/)
+assert.doesNotMatch(service, /SWIPE\s+UP\s+KFE\s+↑/)
 assert.doesNotMatch(service, /SWIPE_TRIGGER_DP/)
 
 assert.match(service, /START_NOT_STICKY/)
