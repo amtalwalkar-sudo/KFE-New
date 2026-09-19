@@ -80,9 +80,9 @@ public class KfeOverlayPlugin extends Plugin {
 
   private void putState(Intent intent, PluginCall call) {
     intent.putExtra("target", call.getDouble("target", Double.NaN));
-    intent.putExtra("achieved", call.getDouble("achieved", 0));
+    intent.putExtra("achieved", call.getDouble("achieved", 0.0));
     intent.putExtra("liveKms", call.getDouble("liveKms", Double.NaN));
-    intent.putExtra("progress", call.getDouble("progress", 0));
+    intent.putExtra("progress", call.getDouble("progress", 0.0));
     intent.putExtra("rides", call.getInt("rides", 0));
     intent.putExtra("tripActive", call.getBoolean("tripActive", false));
     intent.putExtra("tripTimer", call.getString("tripTimer", ""));
