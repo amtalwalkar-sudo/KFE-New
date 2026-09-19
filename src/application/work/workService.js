@@ -10,6 +10,7 @@ import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } fro
 import { BackupService } from '../backup/backupService.js'
 import { MovementAccountingService, routeTrace } from '../../domain/movement/movementAccounting.js'
 import { ValhallaRoutingAdapter } from '../../services/valhallaRoutingAdapter.js'
+import { calculateTraceDistanceKm } from '../../services/movementTraceService.js'
 
 const checkpoint = () => BackupService.requestLocalBackupCheckpoint()
 
@@ -26,6 +27,7 @@ export const WorkService = Object.freeze({
   async getLastCompletedTrip() { return ShiftTripRepository.getLastCompletedTrip() },
   async getFuelLogs() { return FuelRepository.getAll() },
   async getLocations(entityType, entityId) { return LocationRepository.forEntity(entityType, entityId) },
+  async getTripGpsDistanceKm(tripId) { const snapshots = await LocationRepository.forEntity('TRIP', tripId); return calculateTraceDistanceKm(snapshots) },
   async captureLocation(data) { const result = await captureLifecycleLocation(data); checkpoint(); return result },
   validateShiftStartOdometer(currentOdometer, previousOdometer) { return validateShiftStartOdometer(currentOdometer, previousOdometer) },
   validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer) { return validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer) },
