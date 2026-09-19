@@ -28,6 +28,7 @@ export async function completeEndShift({ shiftId, closingOdometer, revenue, toll
       toll,
       parking,
       tollParkingRevenueTreatment,
+      movementReconciliation: data.movementReconciliation || null,
       trips: [...correctionById.entries()].map(([id, correction]) => ({ id, ...correction }))
     })
     return { ok: true, revenue: shiftRevenue }
