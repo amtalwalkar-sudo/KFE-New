@@ -24,6 +24,7 @@ const parking = ref('')
 const tollTreatment = ref('INCLUDED')
 const reviewTrips = ref(false)
 const cancelPanel = ref(false)
+const cancelSubmitting = ref(false)
 const cancelReason = ref('DRIVER_MISTAKE')
 const cancelledRevenue = ref('')
 const fuelFormOpen = ref(false)
@@ -238,7 +239,7 @@ const endTrip = async (fare = '') => {
 }
 const openCancelRide = () => { if (!store.isTripActive) return; cancelReason.value='DRIVER_MISTAKE'; cancelledRevenue.value=''; cancelPanel.value=true; error.value=''; message.value='' }
 const closeCancelRide = () => { cancelPanel.value=false; cancelledRevenue.value=''; error.value=''; message.value='' }
-const cancelTripWithRevenue = async () => { const value=cancelledRevenue.value; if(value!==''){const amount=Number(value);if(!Number.isFinite(amount)||amount<0)return fail('Enter a valid non-negative cancellation fee.')} if(!confirm('Record this ride as cancelled? The cancellation fee, if entered, will be retained.'))return; try { await MovementTraceService.stop({captureFinal:true}) } catch (error) { restartPassengerTrace(); return fail(`GPS trace could not be saved. Cancellation was not recorded: ${error?.message || 'persistence failed.'}`) } const result=await store.cancelTrip({reason:cancelReason.value,revenue:value}); if(result?.ok){await KfeRideNotificationService.completeRide();cancelledRevenue.value='';cancelPanel.value=false;await refreshTarget();notify('Cancelled ride recorded.')} else { restartPassengerTrace(); fail(result?.reason || 'Cancellation could not be recorded. GPS tracing has been resumed.') } }
+const cancelTripWithRevenue = async () => { if (cancelSubmitting.value) return; if (!store.isTripActive) { cancelPanel.value=false; await store.refresh(); return fail('This ride is no longer active.'); } const value=cancelledRevenue.value; if(value!==''){const amount=Number(value);if(!Number.isFinite(amount)||amount<0)return fail('Enter a valid non-negative cancellation fee.')} if(!confirm('Record this ride as cancelled? The cancellation fee, if entered, will be retained.'))return; cancelSubmitting.value=true; try { try { await MovementTraceService.stop({captureFinal:true}) } catch (error) { restartPassengerTrace(); return fail(`GPS trace could not be saved. Cancellation was not recorded: ${error?.message || 'persistence failed.'}`) } let result; try { result=await store.cancelTrip({reason:cancelReason.value,revenue:value}) } catch (error) { await store.refresh(); restartPassengerTrace(); return fail(error?.message === 'Trip is not active.' ? 'This ride was already completed or cancelled.' : (error?.message || 'Cancellation could not be recorded.')) } if(result?.ok){await KfeRideNotificationService.completeRide();cancelledRevenue.value='';cancelPanel.value=false;await refreshTarget();notify('Cancelled ride recorded.')} else { await store.refresh(); restartPassengerTrace(); fail(result?.reason || 'Cancellation could not be recorded. GPS tracing has been resumed.') } } finally { cancelSubmitting.value=false } }
 const saveFuel = async () => { if (fuelStore.saving) return; const result=await fuelStore.save({odometer:fuelOdometer.value,pricePerKg:fuelPrice.value,amount:fuelAmount.value,clientMutationId:fuelClientMutationId.value}); if(!result.ok)return fail(result.reason); fuelOdometer.value='';fuelPrice.value='';fuelAmount.value='';fuelClientMutationId.value=crypto.randomUUID();sessionStorage.removeItem(fuelDraftKey);fuelFormOpen.value=false;notify(`Refuelling recorded: ${result.record.quantityKg.toFixed(2)} kg.`) }
 const primaryTripAction = () => { if (store.isTripActive) return endTrip(); if (!goingToPickup.value) return startGoingToPickup(); return startTrip() }
 const tripActionLabel = computed(() => store.isTripActive ? 'SWIPE → END RIDE' : goingToPickup.value ? 'SWIPE → START RIDE' : 'SWIPE → GO TO PICKUP')
@@ -317,7 +318,7 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
         <label>Cancellation reason<select v-model="cancelReason"><option value="DRIVER_MISTAKE">Driver mistake</option><option value="PASSENGER_CANCELLED">Passenger cancelled</option><option value="VEHICLE_ISSUE">Vehicle issue</option><option value="OPERATOR_REQUEST">Operator request</option><option value="OTHER">Other</option></select></label>
         <label>Cancellation fee (₹)<input v-model="cancelledRevenue" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Optional"></label>
       </div>
-      <div class="cancel-ride-actions"><button class="secondary" type="button" @click="closeCancelRide">Back</button><button class="quiet-danger" type="button" @click="cancelTripWithRevenue">Confirm cancellation</button></div>
+      <div class="cancel-ride-actions"><button class="secondary" type="button" @click="closeCancelRide">Back</button><button class="quiet-danger" type="button" :disabled="cancelSubmitting" @click="cancelTripWithRevenue">{{cancelSubmitting ? 'CANCELLING…' : 'Confirm cancellation'}}</button></div>
     </section>
 
     <section v-if="fuelFormOpen" class="card gate cockpit-form-surface">
