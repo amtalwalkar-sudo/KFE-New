@@ -5,6 +5,7 @@ import { useFuelStore } from '../stores/fuel.js'
 import { DriverTargetService } from '../application/performance/driverTargetService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { getKfeReferenceNow, reportingRangeFor, istCalendarDaysInclusive, istParts } from '../domain/time/ist.js'
+import { DeadKmPickupGpsService } from '../services/deadKmPickupGpsService.js'
 
 const store = useShiftTripStore()
 const fuelStore = useFuelStore()
@@ -47,6 +48,9 @@ const swipeStartX = ref(null)
 const swipeTracking = ref(false)
 const swipeOffset = ref(0)
 const swipeTrack = ref(null)
+const goingToPickup = ref(false)
+const pickupGpsPoints = ref(0)
+const pickupGpsSummary = ref({ points: 0, nearTwoSecondIntervals: 0, maxGapMs: 0, passed: false })
 let interval
 let unsubscribeTarget
 
@@ -139,14 +143,15 @@ const loadFuelDraft = () => { try { const draft=JSON.parse(sessionStorage.getIte
 const openFuelForm = () => { fuelFormOpen.value = !fuelFormOpen.value; if (fuelFormOpen.value) { endShiftOpen.value=false; if(!fuelClientMutationId.value) fuelClientMutationId.value=crypto.randomUUID(); loadFuelDraft() } else saveFuelDraft(); error.value=''; message.value='' }
 const closeFuelForm = () => { saveFuelDraft(); fuelFormOpen.value=false; error.value=''; message.value='' }
 const changeTripOperator = async operator => { if(!store.isTripActive){selectedOperator.value=operator;operatorMenuOpen.value=false;return} if(operator===store.trip.operator){operatorMenuOpen.value=false;return} const result=await store.updateTrip({id:store.trip.id,operator}); if(!result.ok)return fail(result.reason); selectedOperator.value=operator; operatorMenuOpen.value=false; notify(`Operator changed to ${operator}.`) }
-const startTrip = async () => { const result=await store.startTrip(selectedOperator.value||store.defaultOperator); if(!result.ok)return fail(result.reason); selectedOperator.value=result.trip.operator; notify('Trip started.') }
+const startGoingToPickup = () => { if (store.isTripActive || goingToPickup.value) return; goingToPickup.value=true; pickupGpsPoints.value=0; pickupGpsSummary.value=DeadKmPickupGpsService.getTestSummary(); const started=DeadKmPickupGpsService.start((_point,count)=>{ pickupGpsPoints.value=count; pickupGpsSummary.value=DeadKmPickupGpsService.getTestSummary() }); if(!started){ goingToPickup.value=false; return fail('GPS permission is required to measure Dead KM on the way to pickup.') } notify('Going to pickup — Dead KM GPS measuring started.') }
+const startTrip = async () => { if (goingToPickup.value) DeadKmPickupGpsService.stop(); const result=await store.startTrip(selectedOperator.value||store.defaultOperator); if(!result.ok){ if(goingToPickup.value) DeadKmPickupGpsService.start((_point,count)=>{ pickupGpsPoints.value=count; pickupGpsSummary.value=DeadKmPickupGpsService.getTestSummary() }); return fail(result.reason) } goingToPickup.value=false; pickupGpsPoints.value=DeadKmPickupGpsService.getPointCount(); pickupGpsSummary.value=DeadKmPickupGpsService.getTestSummary(); selectedOperator.value=result.trip.operator; notify('Trip started. Pickup GPS measuring stopped.') }
 const endTrip = async () => { if(await store.endTrip()){ await refreshTarget(); notify('Trip completed.') } }
 const cancelAccidentalTrip = async () => { if(!confirm('Cancel this accidental trip? It will be recorded as a cancelled driver-mistake trip.'))return; if(await store.cancelTrip({reason:'DRIVER_MISTAKE'})){await refreshTarget();notify('Accidental trip cancelled.')} }
 const cancelTripWithRevenue = async () => { if(!confirm('Record this trip as cancelled? Optional revenue will be retained if entered.'))return; if(await store.cancelTrip({reason:cancelReason.value,revenue:cancelledRevenue.value})){cancelledRevenue.value='';cancelPanel.value=false;await refreshTarget();notify('Cancelled trip recorded.')} }
 const saveFuel = async () => { if (fuelStore.saving) return; const result=await fuelStore.save({odometer:fuelOdometer.value,pricePerKg:fuelPrice.value,amount:fuelAmount.value,clientMutationId:fuelClientMutationId.value}); if(!result.ok)return fail(result.reason); fuelOdometer.value='';fuelPrice.value='';fuelAmount.value='';fuelClientMutationId.value=crypto.randomUUID();sessionStorage.removeItem(fuelDraftKey);fuelFormOpen.value=false;notify(`Refuelling recorded: ${result.record.quantityKg.toFixed(2)} kg.`) }
-const primaryTripAction = () => store.isTripActive ? endTrip() : startTrip()
-const tripActionLabel = computed(() => store.isTripActive ? 'SWIPE → END TRIP' : 'SWIPE → START TRIP')
-const tripActionHint = computed(() => store.isTripActive ? 'Swipe from left to right to end this trip' : 'Swipe from left to right to start this trip')
+const primaryTripAction = () => { if (store.isTripActive) return endTrip(); if (!goingToPickup.value) return startGoingToPickup(); return startTrip() }
+const tripActionLabel = computed(() => store.isTripActive ? 'SWIPE → END TRIP' : goingToPickup.value ? 'SWIPE → START TRIP' : 'SWIPE → GO TO PICKUP')
+const tripActionHint = computed(() => store.isTripActive ? 'Swipe from left to right to end this trip' : goingToPickup.value ? 'Swipe when you reach pickup — starts the trip and stops high-frequency GPS' : 'Swipe to confirm Going to Pickup and start Dead KM GPS measuring')
 const swipeProgress = computed(() => {
   const width = swipeTrack.value?.clientWidth || 320
   return Math.min(100, Math.round((swipeOffset.value / Math.max(1, width)) * 100))
@@ -161,7 +166,7 @@ const onSwipeEnd = async event => { if(!swipeTracking.value||swipeStartX.value==
 const onSwipeCancel = () => { swipeTracking.value=false;swipeStartX.value=null;swipeOffset.value=0 }
 const onSwipeKey = async event => { if(event.key==='Enter'||event.key===' '){event.preventDefault();await primaryTripAction()} }
 onMounted(async()=>{await store.initialize();await fuelStore.refresh();await refreshTarget();await refreshPerformance();startOdo.value=store.lastKnownOdometer??'';selectedOperator.value=store.defaultOperator;loadFuelDraft();unsubscribeTarget=DriverTargetService.subscribeDataChanges(()=>{void refreshTarget();void refreshPerformance()});interval=window.setInterval(()=>{clock.value=Date.now()},1000)})
-onUnmounted(()=>{window.clearInterval(interval);unsubscribeTarget?.()})
+onUnmounted(()=>{window.clearInterval(interval);unsubscribeTarget?.();DeadKmPickupGpsService.reset()})
 </script>
 
 <template>
@@ -219,6 +224,18 @@ onUnmounted(()=>{window.clearInterval(interval);unsubscribeTarget?.()})
       <div class="ready-context"><div class="operator-inline"><span>Operator</span><button type="button" class="operator-select" @click="operatorMenuOpen=!operatorMenuOpen">{{(selectedOperator||store.defaultOperator)+' ▾'}}</button></div><div v-if="operatorMenuOpen" class="operator-menu"><button v-for="operator in store.operators" :key="operator" type="button" :class="{selected:(store.defaultOperator===operator&&selectedOperator!=='__menu__')}" @click="changeTripOperator(operator)">{{operator}}</button></div></div>
       <div class="target-inline"><span>TODAY'S TARGET</span><strong>{{targetText}}</strong></div>
       <div class="next-event"><span>NEXT</span><strong>START TRIP</strong></div>
+    </section>
+
+    <section v-else-if="goingToPickup && !endShiftOpen" class="cockpit-state cockpit-pickup-state">
+      <div class="state-kicker pickup">GOING TO PICKUP</div>
+      <h2>DEAD KM MEASURING</h2>
+      <div class="pickup-gps-card">
+        <div><span>GPS FREQUENCY</span><strong>~2 sec</strong></div>
+        <div><span>POINTS CAPTURED</span><strong>{{pickupGpsPoints}}</strong></div>
+        <div><span>POINT TEST</span><strong :class="{pass:pickupGpsSummary.passed}">{{pickupGpsSummary.passed ? 'PASS' : 'COLLECTING'}}</strong></div>
+      </div>
+      <p class="pickup-gps-note">High-frequency GPS records the movement to pickup. Passenger trip KM remains operator-entered. GPS stops when you start the trip.</p>
+      <div class="pickup-location-status"><span>GPS</span><strong>{{pickupGpsPoints > 0 ? 'Measuring' : 'Waiting for fix…'}}</strong></div>
     </section>
 
     <section v-if="store.isTripActive && !endShiftOpen" class="cockpit-state cockpit-trip-state">
