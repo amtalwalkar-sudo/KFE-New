@@ -1,4 +1,4 @@
-import { initializeCanonicalStorage, openCanonicalDB } from '../utils/indexedDB.js'
+import { openCanonicalDB } from '../utils/indexedDB.js'
 
 // MutationRepository is the canonical synchronization queue. Business repositories
 // write pending_mutations/audit_history inside their active-source transaction, but
@@ -39,7 +39,6 @@ export const writeMutationAndAudit = (mutationStore, auditStore, args) => {
 
 export const MutationRepository = {
   async recoverStaleSyncing() {
-    await initializeCanonicalStorage()
     const db = await openCanonicalDB()
     return new Promise((resolve, reject) => {
       const tx = db.transaction('pending_mutations', 'readwrite')
