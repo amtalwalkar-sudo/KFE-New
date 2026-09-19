@@ -290,7 +290,6 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
     </section>
 
     <section v-else-if="!store.isTripActive && store.isOnline && !endShiftOpen" class="cockpit-state cockpit-ready-state">
-      <div class="state-kicker online">ONLINE</div>
       <h2>READY FOR NEXT TRIP</h2>
       <div class="ready-context"><div class="operator-inline"><span>Operator</span><button type="button" class="operator-select" @click="operatorMenuOpen=!operatorMenuOpen">{{(selectedOperator||store.defaultOperator)+' ▾'}}</button></div><div v-if="operatorMenuOpen" class="operator-menu"><button v-for="operator in store.operators" :key="operator" type="button" :class="{selected:(store.defaultOperator===operator&&selectedOperator!=='__menu__')}" @click="changeTripOperator(operator)">{{operator}}</button></div></div>
       <div class="next-event"><span>NEXT</span><strong>START TRIP</strong></div>
