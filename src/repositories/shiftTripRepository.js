@@ -29,6 +29,27 @@ export const ShiftTripRepository = {
   async setTripStartLocation(id, location) {
     return this._setTripLocation(id, location, 'tripStartLocation')
   },
+  async updateTripLocationPlaceName(id, eventType, placeName) {
+    if (!id || !placeName) return false
+    const db = await initializeCanonicalStorage(); const now = new Date().toISOString()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['trips', 'pending_mutations', 'audit_history'], 'readwrite')
+      const trips = tx.objectStore('trips'); const mutations = tx.objectStore('pending_mutations'); const audit = tx.objectStore('audit_history')
+      const request = trips.get(id)
+      request.onsuccess = () => {
+        const trip = request.result
+        if (!trip) { try { tx.abort() } catch (_) {}; resolve(false); return }
+        const key = eventType === 'START' ? 'tripStartLocation' : eventType === 'END' || eventType === 'CANCELLED' ? 'tripEndLocation' : null
+        if (!key || !trip[key]) { try { tx.abort() } catch (_) {}; resolve(false); return }
+        trip[key] = { ...trip[key], placeName: String(placeName).trim() }
+        trip.updatedAt = now
+        trips.put(trip)
+        writeMutationAndAudit(mutations, audit, { entityId: trip.id, entityType: 'TRIP', action: 'UPDATE', payload: trip, createdAt: now })
+      }
+      request.onerror = () => reject(request.error || new Error('Trip lookup failed.'))
+      tx.oncomplete = () => resolve(true); tx.onerror = () => reject(tx.error || new Error('Trip place-name update failed.')); tx.onabort = () => reject(tx.error || new Error('Trip place-name update aborted.'))
+    })
+  },
   async setTripEndLocation(id, location) {
     return this._setTripLocation(id, location, 'tripEndLocation')
   },
