@@ -5,8 +5,7 @@ import { useFuelStore } from '../stores/fuel.js'
 import { DriverTargetService } from '../application/performance/driverTargetService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { getKfeReferenceNow, reportingRangeFor, istCalendarDaysInclusive, istParts } from '../domain/time/ist.js'
-import { MovementTraceService, calculateTraceDistanceKm } from '../services/movementTraceService.js'
-import { LocationRepository } from '../repositories/locationRepository.js'
+import { MovementTraceService } from '../services/movementTraceService.js'
 import { KfeRideNotificationService } from '../services/kfeRideNotificationService.js'
 
 const store = useShiftTripStore()
@@ -270,7 +269,7 @@ onMounted(async()=>{await store.initialize();loadTargetOverlayState();await fuel
 removeRideNotificationListener = (await KfeRideNotificationService.addListener('rideNotificationAction', handleRideNotificationAction))?.remove;
 let restoredTrace = false;
 if (store.isTripActive) {
-  try { const savedPoints = await LocationRepository.forEntity('TRIP', store.trip.id); liveKmsBase.value = calculateTraceDistanceKm(savedPoints); liveKms.value = liveKmsBase.value } catch (_) { liveKmsBase.value = 0; liveKms.value = null }
+  try { liveKmsBase.value = await WorkService.getTripGpsDistanceKm(store.trip.id); liveKms.value = liveKmsBase.value } catch (_) { liveKmsBase.value = 0; liveKms.value = null }
   restoredTrace = MovementTraceService.start({entityType:'TRIP',entityId:store.trip.id,eventType:'PASSENGER_RIDE_TRACE',profile:'PASSENGER_RIDE',onPoint:()=>{ liveKms.value=liveKmsBase.value + MovementTraceService.getDistanceKm() }});
   await KfeRideNotificationService.resume();
 } else if (store.isOnline) {
