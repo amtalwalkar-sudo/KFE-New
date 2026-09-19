@@ -63,6 +63,21 @@ public class KfeOverlayPlugin extends Plugin {
   }
 
   @com.getcapacitor.PluginMethod
+  public void consumePendingEndRide(PluginCall call) {
+    android.content.SharedPreferences prefs = getContext().getSharedPreferences("kfe_overlay", android.content.Context.MODE_PRIVATE);
+    if (!prefs.getBoolean("pending_end_ride", false)) {
+      call.resolve(new JSObject());
+      return;
+    }
+    JSObject result = new JSObject();
+    result.put("fare", prefs.getString("pending_fare", ""));
+    result.put("toll", prefs.getString("pending_toll", "0"));
+    result.put("parking", prefs.getString("pending_parking", "0"));
+    prefs.edit().clear().apply();
+    call.resolve(result);
+  }
+
+  @com.getcapacitor.PluginMethod
   public void hide(PluginCall call) {
     Intent intent = new Intent(getContext(), KfeOverlayService.class);
     intent.setAction(KfeOverlayService.ACTION_HIDE);
