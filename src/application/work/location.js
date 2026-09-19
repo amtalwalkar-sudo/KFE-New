@@ -56,9 +56,9 @@ export async function captureLifecycleLocation({ entityType, entityId, eventType
       const latitude = position.coords.latitude
       const longitude = position.coords.longitude
       const capturedAt = new Date(position.timestamp || Date.now()).toISOString()
-      const placeName = await getNativePlaceName({ latitude, longitude })
+      let record = null
       try {
-        resolve(await LocationRepository.record({
+        record = await LocationRepository.record({
           entityType,
           entityId,
           eventType,
@@ -66,9 +66,16 @@ export async function captureLifecycleLocation({ entityType, entityId, eventType
           longitude,
           accuracy: position.coords.accuracy,
           capturedAt,
-          placeName
-        }))
-      } catch (_) { resolve(null) }
+          placeName: null
+        })
+      } catch (_) { resolve(null); return }
+      // Coordinates are authoritative and are persisted immediately. Reverse geocoding
+      // is enrichment only, so a slow/offline geocoder must never block a trip boundary.
+      resolve(record)
+      void getNativePlaceName({ latitude, longitude }).then(placeName => {
+        if (placeName && record?.id) return LocationRepository.updatePlaceName(record.id, placeName)
+        return null
+      }).catch(() => {})
     }, () => resolve(null), {
       enableHighAccuracy: true,
       maximumAge: 30000,
