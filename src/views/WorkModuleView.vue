@@ -237,17 +237,7 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
       <div class="hero-actions"><button class="fuel-icon" type="button" :class="{active:fuelFormOpen}" aria-label="CNG refuelling" title="CNG refuelling" @click="openFuelForm"><span aria-hidden="true">⛽</span></button><div class="online-control"><span>OFFLINE</span><button type="button" class="online-toggle" :class="{active:store.isOnline}" :disabled="store.isTripActive" role="switch" :aria-checked="store.isOnline" :aria-label="store.isOnline ? 'Go Offline' : 'Confirm odometer and go Online'" @click.stop.prevent="toggleOnline"><span/></button><span>ONLINE</span></div></div>
     </header>
     <div v-if="message" class="message">{{message}}</div><div v-if="error" class="error">{{error}}</div>
-    <section v-if="store.isOnline && !fuelFormOpen && !endShiftOpen" class="target-card" aria-label="Today target">
-      <button class="target-card-trigger" type="button" :aria-expanded="targetDetailsOpen" @click="targetDetailsOpen=!targetDetailsOpen">
-        <span>TARGET</span><strong>{{targetText}}</strong><span class="target-card-separator">/</span><strong>{{performanceMoney(targetAchieved)}}</strong>
-      </button>
-      <div v-if="targetDetailsOpen" class="target-card-details">
-        <div class="target-card-heading"><div><small>TODAY'S TARGET</small><strong>{{targetText}}</strong></div><button type="button" aria-label="Close target details" @click="targetDetailsOpen=false">×</button></div>
-        <div class="target-card-progress"><span :style="{width: targetProgress + '%'}"></span></div>
-        <div class="target-card-stats"><div><span>PROGRESS</span><strong>{{targetProgress}}%</strong></div><div><span>RIDES</span><strong>{{targetRides}}</strong></div><div><span>LIVE KMS</span><strong>{{liveKms == null ? '—' : liveKms + ' km'}}</strong></div><div v-if="store.isTripActive"><span>CURRENT FARE</span><strong>{{activeFare}}</strong></div></div>
-        <div v-if="store.isTripActive" class="target-card-current"><span>CURRENT RIDE</span><strong>{{tripTimer}}</strong></div><button v-if="store.isTripActive" class="target-card-cancel" type="button" @click="openCancelRide">Cancel ride</button>
-      </div>
-    </section>
+
 
     <section v-if="cancelPanel && store.isTripActive && !endShiftOpen" class="cockpit-state cancel-ride-panel">
       <div class="form-topline"><div><small>RIDE CONTROL</small><h2>CANCEL RIDE</h2></div><button class="form-back" type="button" @click="closeCancelRide"><span aria-hidden="true">🔙</span><span>Back</span></button></div>
