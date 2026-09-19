@@ -43,6 +43,7 @@ let active = null
 let pendingWrites = Promise.resolve()
 let lastPersistenceError = null
 let persistenceFailureCount = 0
+let traceGeneration = 0
 const SESSION_KEY = 'kfe.movement-trace-session.v1'
 const saveSession = () => { if (typeof localStorage === 'undefined' || !active) return; localStorage.setItem(SESSION_KEY, JSON.stringify({ entityType: active.entityType, entityId: active.entityId, eventType: active.eventType, profile: Object.entries(PROFILES).find(([, value]) => value === active.profile)?.[0] || 'DEAD_LEG' })) }
 const clearSession = () => { try { localStorage.removeItem(SESSION_KEY) } catch (_) {} }
@@ -50,6 +51,7 @@ const readSession = () => { try { const value = JSON.parse(localStorage.getItem(
 
 const persist = point => {
   if (!active || !point) return
+  const generation = active.generation
   const session = { entityType: active.entityType, entityId: active.entityId, eventType: active.eventType }
   const write = async () => {
     let lastError = null
@@ -57,8 +59,10 @@ const persist = point => {
       try { await LocationRepository.recordTracePoint({ ...session, ...point }); return }
       catch (error) { lastError = error; if (attempt < 3) await new Promise(resolve => setTimeout(resolve, attempt * 250)) }
     }
-    lastPersistenceError = lastError || new Error('GPS trace persistence failed.')
-    persistenceFailureCount += 1
+    if (active?.generation === generation) {
+      lastPersistenceError = lastError || new Error('GPS trace persistence failed.')
+      persistenceFailureCount += 1
+    }
   }
   pendingWrites = pendingWrites.catch(() => {}).then(write)
   return pendingWrites
@@ -106,7 +110,7 @@ export const MovementTraceService = {
   start({ entityType, entityId, eventType = 'MOVEMENT_TRACE', profile = 'DEAD_LEG', onPoint } = {}) {
     this.reset()
     if (!entityType || !entityId || typeof navigator === 'undefined' || !navigator.geolocation?.watchPosition) return false
-    active = { entityType, entityId, eventType, profile: PROFILES[profile] || PROFILES.DEAD_LEG, onPoint }
+    active = { entityType, entityId, eventType, profile: PROFILES[profile] || PROFILES.DEAD_LEG, onPoint, generation: ++traceGeneration }
     saveSession()
     watchId = navigator.geolocation.watchPosition(position => accept(normalizePoint(position)), () => {}, { ...active.profile })
     void captureBoundary()
@@ -142,6 +146,7 @@ export const MovementTraceService = {
   getPersistenceFailureCount() { return persistenceFailureCount },
   getProfile(profile = 'DEAD_LEG') { return PROFILES[profile] || PROFILES.DEAD_LEG },
   reset() {
+    traceGeneration += 1
     clearWatch()
     points = []
     lastAcceptedAt = 0
