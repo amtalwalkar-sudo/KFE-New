@@ -31,6 +31,9 @@ export const KfeOverlayService = Object.freeze({
     if (!native()) return null
     try { return await KfeOverlay.consumePendingEndRide() } catch (_) { return null }
   },
+  async acknowledgePendingEndRide() {
+    return call('acknowledgePendingEndRide')
+  },
   async hide() {
     return call('hide')
   }
