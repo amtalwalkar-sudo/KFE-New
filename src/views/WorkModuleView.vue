@@ -211,7 +211,7 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
         <span>TARGET</span><strong>{{targetText}}</strong><span class="target-hud-separator">/</span><strong>{{performanceMoney(targetAchieved)}}</strong><span class="target-hud-menu" aria-hidden="true">⋮</span>
       </button>
       <div v-if="targetDetailsOpen" class="target-hud-details">
-        <div class="target-hud-heading"><div><small>TARGET</small><strong>{{targetText}}</strong></div><button type="button" aria-label="Close target details" @click="targetDetailsOpen=false">×</button></div>
+        <div class="target-hud-heading"><div><small>TODAY'S TARGET</small><strong>{{targetText}}</strong></div><button type="button" aria-label="Close target details" @click="targetDetailsOpen=false">×</button></div>
         <div class="target-hud-progress"><span :style="{width: targetProgress + '%'}"></span></div>
         <div class="target-hud-stats"><div><span>PROGRESS</span><strong>{{targetProgress}}%</strong></div><div><span>RIDES</span><strong>{{targetRides}}</strong></div><div><span>LIVE KMS</span><strong>{{liveKms == null ? '—' : liveKms + ' km'}}</strong></div><div v-if="store.isTripActive"><span>CURRENT FARE</span><strong>{{activeFare}}</strong></div></div>
         <div v-if="store.isTripActive" class="target-hud-current"><span>CURRENT RIDE</span><strong>{{tripTimer}}</strong></div>
