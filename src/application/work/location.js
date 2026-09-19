@@ -5,33 +5,27 @@ const uniqueParts = parts => [...new Set(parts.filter(Boolean).map(value => Stri
 const formatReverseGeocodeResult = data => {
   if (!data) return null
 
-  const directPlace = [
-    data.formattedAddress,
-    data.formatted_address,
-    data.displayName?.text,
-    data.display_name,
-    data.address
+  // KFE wants locality-to-locality context (for example, "Andheri" or
+  // "Bandra Kurla Complex"), not street addresses, postcodes, or city/state
+  // detail. Prefer the provider's locality/suburb/neighbourhood fields.
+  const locality = [
+    data.localityName,
+    data.locality,
+    data.suburb,
+    data.neighbourhood,
+    data.neighborhood
   ].find(value => typeof value === 'string' && value.trim())
 
-  if (directPlace) return directPlace.trim()
+  if (locality) return locality.trim()
 
-  // BigDataCloud exposes the more useful suburb/locality as "locality".
-  // Keep it ahead of city/state so KFE does not collapse a precise fix to
-  // the broad city name.
-  const locality = data.localityName || data.locality || data.suburb || data.neighbourhood || data.neighborhood
-  const street = data.road || data.street || data.route || data.streetName
-  const postcode = data.postcode || data.postalCode
-  const city = data.city || data.localityInfo?.administrative?.find(entry => entry?.adminLevel === 4)?.name
-  const state = data.principalSubdivision || data.state
-
-  const granular = uniqueParts([street, locality, postcode, city, state])
-  if (granular.length) return granular.join(', ')
-
+  // Some providers expose locality hierarchy only through administrative
+  // entries. Use the first useful named locality, without falling back to
+  // street/postcode/city/state formatting.
   const administrative = Array.isArray(data.localityInfo?.administrative)
     ? data.localityInfo.administrative.map(entry => entry?.name)
     : []
 
-  return uniqueParts(administrative).slice(0, 3).join(', ') || null
+  return uniqueParts(administrative).find(value => value) || null
 }
 
 const getNativePlaceName = async ({ latitude, longitude }) => {
