@@ -53,3 +53,4 @@ assert.match(work, /toll:toll === '' \? 0 : toll/)
 assert.match(work, /parking:parking === '' \? 0 : parking/)
 
 console.log('Native KFE floating overlay contract passed.')
+
