@@ -47,64 +47,6 @@ const message = ref('')
 const error = ref('')
 const target = ref(null)
 const targetDetailsOpen = ref(false)
-const targetOverlayMinimized = ref(false)
-const targetOverlayEdit = ref(false)
-const targetOverlayPos = ref({ x: null, y: null })
-const targetOverlayLongPressTimer = ref(null)
-const targetOverlayDrag = ref(null)
-const targetOverlaySuppressClick = ref(false)
-const targetOverlayStyle = computed(() => {
-  const pos = targetOverlayPos.value
-  if (pos.x == null || pos.y == null) return {}
-  return { left: `${pos.x}px`, top: `${pos.y}px`, transform: 'none' }
-})
-const clampSavedTargetOverlayPosition = () => { if (targetOverlayPos.value.x == null || targetOverlayPos.value.y == null) return; targetOverlayPos.value = clampTargetOverlayPosition(targetOverlayPos.value.x, targetOverlayPos.value.y) }
-const loadTargetOverlayState = () => {
-  try {
-    const saved = JSON.parse(localStorage.getItem('kfe.work.targetOverlay.v1') || 'null')
-    if (saved?.x != null && saved?.y != null) targetOverlayPos.value = { x: Number(saved.x), y: Number(saved.y) }
-    targetOverlayMinimized.value = saved?.minimized === true
-  } catch (_) {}
-  clampSavedTargetOverlayPosition()
-}
-const saveTargetOverlayState = () => {
-  try { localStorage.setItem('kfe.work.targetOverlay.v1', JSON.stringify({ ...targetOverlayPos.value, minimized: targetOverlayMinimized.value })) } catch (_) {}
-}
-const clampTargetOverlayPosition = (x, y) => {
-  const margin = 10
-  const width = Math.min(window.innerWidth - margin * 2, 520)
-  const height = targetOverlayMinimized.value ? 52 : 260
-  return { x: Math.max(margin, Math.min(window.innerWidth - width - margin, x)), y: Math.max(margin + (Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-top)')) || 0), Math.min(window.innerHeight - height - margin, y)) }
-}
-const toggleTargetOverlayMinimized = () => { targetOverlayMinimized.value = !targetOverlayMinimized.value; targetOverlayEdit.value = false; saveTargetOverlayState() }
-const finishTargetOverlayLongPress = () => { targetOverlayLongPressTimer.value = null }
-const onTargetOverlayPointerDown = event => {
-  if (event.pointerType === 'mouse' && event.button !== 0) return
-  if (event.target.closest?.('button,a,input,select')) return
-  targetOverlayLongPressTimer.value = window.setTimeout(() => {
-    targetOverlayEdit.value = true
-    targetOverlaySuppressClick.value = true
-    const rect = event.currentTarget.getBoundingClientRect()
-    targetOverlayDrag.value = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, origin: { x: rect.left, y: rect.top } }
-    event.currentTarget.setPointerCapture?.(event.pointerId)
-    targetOverlayLongPressTimer.value = null
-  }, 450)
-}
-const onTargetOverlayPointerMove = event => {
-  const drag = targetOverlayDrag.value
-  if (!drag || drag.pointerId !== event.pointerId) return
-  const next = clampTargetOverlayPosition(drag.origin.x + event.clientX - drag.startX, drag.origin.y + event.clientY - drag.startY)
-  targetOverlayPos.value = next
-}
-const onTargetOverlayPointerUp = event => {
-  if (targetOverlayLongPressTimer.value) { window.clearTimeout(targetOverlayLongPressTimer.value); finishTargetOverlayLongPress(); return }
-  if (targetOverlayDrag.value?.pointerId === event.pointerId) { targetOverlayDrag.value = null; targetOverlayEdit.value = false; targetOverlaySuppressClick.value = true; saveTargetOverlayState() }
-}
-const onTargetOverlayClick = event => { if (targetOverlaySuppressClick.value) { event.preventDefault(); event.stopPropagation(); targetOverlaySuppressClick.value = false } }
-const onTargetOverlayPointerCancel = event => {
-  if (targetOverlayLongPressTimer.value) { window.clearTimeout(targetOverlayLongPressTimer.value); finishTargetOverlayLongPress() }
-  if (targetOverlayDrag.value?.pointerId === event.pointerId) { targetOverlayDrag.value = null; targetOverlayEdit.value = false; targetOverlaySuppressClick.value = true; saveTargetOverlayState() }
-}
 const clock = ref(Date.now())
 const swipeStartX = ref(null)
 const swipeTracking = ref(false)
@@ -265,7 +207,7 @@ const handleRideNotificationAction = async ({ stage, tripId, input }) => {
   if (stage === 'END_RIDE') return endTrip(input || '')
 }
 
-onMounted(async()=>{await store.initialize();loadTargetOverlayState();await fuelStore.refresh();await refreshTarget();await refreshPerformance();
+onMounted(async()=>{await store.initialize();await fuelStore.refresh();await refreshTarget();await refreshPerformance();
 removeRideNotificationListener = (await KfeRideNotificationService.addListener('rideNotificationAction', handleRideNotificationAction))?.remove;
 let restoredTrace = false;
 if (store.isTripActive) {
@@ -295,21 +237,17 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
       <div class="hero-actions"><button class="fuel-icon" type="button" :class="{active:fuelFormOpen}" aria-label="CNG refuelling" title="CNG refuelling" @click="openFuelForm"><span aria-hidden="true">⛽</span></button><div class="online-control"><span>OFFLINE</span><button type="button" class="online-toggle" :class="{active:store.isOnline}" :disabled="store.isTripActive" role="switch" :aria-checked="store.isOnline" :aria-label="store.isOnline ? 'Go Offline' : 'Confirm odometer and go Online'" @click.stop.prevent="toggleOnline"><span/></button><span>ONLINE</span></div></div>
     </header>
     <div v-if="message" class="message">{{message}}</div><div v-if="error" class="error">{{error}}</div>
-    <div v-if="store.isOnline && !fuelFormOpen && !endShiftOpen" class="target-hud" :class="{ 'target-hud--edit': targetOverlayEdit, 'target-hud--minimized': targetOverlayMinimized }" :style="targetOverlayStyle" aria-label="Today target" @click="onTargetOverlayClick" @pointerdown="onTargetOverlayPointerDown" @pointermove="onTargetOverlayPointerMove" @pointerup="onTargetOverlayPointerUp" @pointercancel="onTargetOverlayPointerCancel">
-      <button v-if="targetOverlayMinimized" class="target-hud-mini" type="button" aria-label="Restore target overlay" title="Restore target" @click="toggleTargetOverlayMinimized"><span>T</span><strong>{{targetText}}</strong></button>
-      <template v-else>
-        <button class="target-hud-trigger" type="button" :aria-expanded="targetDetailsOpen" @click="targetDetailsOpen=!targetDetailsOpen">
-          <span>TARGET</span><strong>{{targetText}}</strong><span class="target-hud-separator">/</span><strong>{{performanceMoney(targetAchieved)}}</strong><span class="target-hud-menu" aria-hidden="true">⋮</span>
-        </button>
-        <button class="target-hud-minimize" type="button" aria-label="Minimize target overlay" title="Minimize target" @pointerdown.stop @click.stop="toggleTargetOverlayMinimized">−</button>
-      </template>
-      <div v-if="targetDetailsOpen" class="target-hud-details">
-        <div class="target-hud-heading"><div><small>TODAY'S TARGET</small><strong>{{targetText}}</strong></div><button type="button" aria-label="Close target details" @click="targetDetailsOpen=false">×</button></div>
-        <div class="target-hud-progress"><span :style="{width: targetProgress + '%'}"></span></div>
-        <div class="target-hud-stats"><div><span>PROGRESS</span><strong>{{targetProgress}}%</strong></div><div><span>RIDES</span><strong>{{targetRides}}</strong></div><div><span>LIVE KMS</span><strong>{{liveKms == null ? '—' : liveKms + ' km'}}</strong></div><div v-if="store.isTripActive"><span>CURRENT FARE</span><strong>{{activeFare}}</strong></div></div>
-        <div v-if="store.isTripActive" class="target-hud-current"><span>CURRENT RIDE</span><strong>{{tripTimer}}</strong></div><button v-if="store.isTripActive" class="target-hud-cancel" type="button" @pointerdown.stop @click.stop="openCancelRide">Cancel ride</button>
+    <section v-if="store.isOnline && !fuelFormOpen && !endShiftOpen" class="target-card" aria-label="Today target">
+      <button class="target-card-trigger" type="button" :aria-expanded="targetDetailsOpen" @click="targetDetailsOpen=!targetDetailsOpen">
+        <span>TARGET</span><strong>{{targetText}}</strong><span class="target-card-separator">/</span><strong>{{performanceMoney(targetAchieved)}}</strong>
+      </button>
+      <div v-if="targetDetailsOpen" class="target-card-details">
+        <div class="target-card-heading"><div><small>TODAY'S TARGET</small><strong>{{targetText}}</strong></div><button type="button" aria-label="Close target details" @click="targetDetailsOpen=false">×</button></div>
+        <div class="target-card-progress"><span :style="{width: targetProgress + '%'}"></span></div>
+        <div class="target-card-stats"><div><span>PROGRESS</span><strong>{{targetProgress}}%</strong></div><div><span>RIDES</span><strong>{{targetRides}}</strong></div><div><span>LIVE KMS</span><strong>{{liveKms == null ? '—' : liveKms + ' km'}}</strong></div><div v-if="store.isTripActive"><span>CURRENT FARE</span><strong>{{activeFare}}</strong></div></div>
+        <div v-if="store.isTripActive" class="target-card-current"><span>CURRENT RIDE</span><strong>{{tripTimer}}</strong></div><button v-if="store.isTripActive" class="target-card-cancel" type="button" @click="openCancelRide">Cancel ride</button>
       </div>
-    </div>
+    </section>
 
     <section v-if="cancelPanel && store.isTripActive && !endShiftOpen" class="cockpit-state cancel-ride-panel">
       <div class="form-topline"><div><small>RIDE CONTROL</small><h2>CANCEL RIDE</h2></div><button class="form-back" type="button" @click="closeCancelRide"><span aria-hidden="true">🔙</span><span>Back</span></button></div>
