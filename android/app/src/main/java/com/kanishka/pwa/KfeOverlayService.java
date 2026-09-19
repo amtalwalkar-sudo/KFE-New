@@ -17,6 +17,7 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.view.inputmethod.InputMethodManager;
 import android.content.pm.ServiceInfo;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -305,7 +306,8 @@ public class KfeOverlayService extends Service {
       double fareValue = Double.parseDouble(fare);
       double tollValue = toll.isEmpty() ? 0 : Double.parseDouble(toll);
       double parkingValue = parking.isEmpty() ? 0 : Double.parseDouble(parking);
-      if (fareValue < 0 || tollValue < 0 || parkingValue < 0) throw new NumberFormatException();
+      if (!Double.isFinite(fareValue) || !Double.isFinite(tollValue) || !Double.isFinite(parkingValue)
+          || fareValue < 0 || tollValue < 0 || parkingValue < 0) throw new NumberFormatException();
       getSharedPreferences("kfe_overlay", MODE_PRIVATE).edit()
         .putString("pending_fare", fare)
         .putString("pending_toll", String.valueOf(tollValue))
@@ -313,6 +315,11 @@ public class KfeOverlayService extends Service {
         .putBoolean("pending_end_ride", true)
         .apply();
       launchKfe();
+      InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+      if (imm != null) imm.hideSoftInputFromWindow(fareInput.getWindowToken(), 0);
+      params.flags |= WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+      params.flags &= ~WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM;
+      try { windowManager.updateViewLayout(overlayView, params); } catch (Exception ignored) {}
       targetExpanded = false;
       endRideForm.setVisibility(View.GONE);
       endRideLabel.setVisibility(View.VISIBLE);
