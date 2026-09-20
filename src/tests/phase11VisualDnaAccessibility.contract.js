@@ -8,7 +8,7 @@ const dna = fs.readFileSync('KFE_VISUAL_DNA.md','utf8')
 for (const token of ['--kfe-ui-bg','--kfe-ui-surface','--kfe-ui-text','--kfe-ui-border','--kfe-ui-accent','--kfe-success','--kfe-warning','--kfe-danger','--kfe-touch','--kfe-space-1','--kfe-space-2','--kfe-space-3','--kfe-space-4','--kfe-space-5','--kfe-space-6','--kfe-space-7']) {
   assert.ok(css.includes(token), `Missing canonical Visual DNA token: ${token}`)
 }
-assert.match(dna,/Status:\s*FROZEN/)
+assert.match(dna,/\\*\\*Status:\\*\\*\\s*FROZEN/)
 assert.match(css,/:focus-visible/)
 assert.match(css,/prefers-reduced-motion:reduce/)
 assert.match(css,/safe-area-inset-bottom/)
