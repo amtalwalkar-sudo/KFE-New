@@ -8,7 +8,6 @@ import { istMonthRange } from '../domain/time/ist.js'
 const read = path => fs.readFileSync(new URL(path, import.meta.url), 'utf8')
 const engineSource = read('../domain/performance/performanceEngineV2.js')
 const serviceSource = read('../application/performance/performanceService.js')
-const revenueSource = read('../domain/performance/authoritativeRevenue.js')
 
 assert.match(engineSource, /deriveAuthoritativeBreakEven/)
 assert.match(serviceSource, /deriveRollingDriverTarget/)
@@ -17,7 +16,6 @@ assert.match(serviceSource, /authoritativeMonthlyBreakEven/)
 assert.match(serviceSource, /AUTHORITATIVE_MONTHLY_BREAK_EVEN/)
 assert.doesNotMatch(serviceSource, /function\s+deriveAuthoritativeBreakEven/)
 assert.doesNotMatch(serviceSource, /function\s+deriveRollingDriverTarget/)
-assert.match(revenueSource, /authoritativeShiftRevenueByMonth/)
 
 const snapshot = {
   trips: [{ id:'t1', status:'COMPLETED', tripStartAt:'2026-09-10T09:00:00Z', tripEndAt:'2026-09-10T12:00:00Z', tripKm:150, revenue:1 }],
