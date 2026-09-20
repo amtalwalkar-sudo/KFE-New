@@ -195,7 +195,7 @@ const swipeStyle = computed(() => ({
   '--swipe-offset': `${swipeOffset.value}px`
 }))
 const onSwipeStart = event => { if(event.pointerType==='mouse'&&event.button!==0)return; swipeStartX.value=event.clientX;swipeTracking.value=true;swipeOffset.value=0;event.currentTarget.setPointerCapture?.(event.pointerId) }
-const onSwipeMove = event => { if(!swipeTracking.value||swipeStartX.value==null)return; const width=swipeTrack.value?.clientWidth||320; const max=Math.max(80,width-56); swipeOffset.value=Math.max(0,Math.min(event.clientX-swipeStartX.value,max)) }
+const onSwipeMove = event => { if(!swipeTracking.value||swipeStartX.value==null)return; const width=swipeTrack.value?.clientWidth||320; const max=Math.max(80,width-56); const distance=event.clientX-swipeStartX.value; swipeOffset.value=Math.max(0,Math.min(distance,max)) }
 const onSwipeEnd = async event => { if(!swipeTracking.value||swipeStartX.value==null)return; const distance=event.clientX-swipeStartX.value; const width=swipeTrack.value?.clientWidth||320; const trigger=width*0.8; swipeTracking.value=false;swipeStartX.value=null;swipeOffset.value=0;if(distance>=trigger)await primaryTripAction() }
 const onSwipeCancel = () => { swipeTracking.value=false;swipeStartX.value=null;swipeOffset.value=0 }
 const onSwipeKey = async event => { if(event.key==='Enter'||event.key===' '){event.preventDefault();await primaryTripAction()} }
@@ -372,7 +372,7 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
     </section>
 
     <div v-if="store.isOnline && !endShiftOpen && !fuelFormOpen && !cancelPanel" class="persistent-action">
-      <div ref="swipeTrack" class="swipe-bar trip-action" :class="{ 'swipe-bar--pickup': !store.isTripActive && !goingToPickup, 'swipe-bar--ride-start': !store.isTripActive && goingToPickup, 'swipe-bar--ride-end': store.isTripActive, 'is-swiping': swipeTracking, 'is-threshold': swipeProgress >= 80 }" :style="swipeStyle" role="button" tabindex="0" aria-label="Swipe from left to right to start or end the current trip" @pointerdown="onSwipeStart" @pointermove="onSwipeMove" @pointerup="onSwipeEnd" @pointercancel="onSwipeCancel" @pointerleave="onSwipeEnd" @keydown="onSwipeKey">
+      <div ref="swipeTrack" class="swipe-bar trip-action" :class="{ 'swipe-bar--pickup': !store.isTripActive && !goingToPickup, 'swipe-bar--ride-start': !store.isTripActive && goingToPickup, 'swipe-bar--ride-end': store.isTripActive, 'is-swiping': swipeTracking, 'is-threshold': swipeProgress >= 80 }" :style="swipeStyle" role="button" tabindex="0" aria-label="Swipe from left to right to start or end the current trip" @pointerdown="onSwipeStart" @pointermove="onSwipeMove" @pointerup="onSwipeEnd" @pointercancel="onSwipeCancel" @keydown="onSwipeKey">
         <span class="swipe-progress" aria-hidden="true"></span><span class="swipe-threshold" aria-hidden="true"><i></i><em>80%</em></span><span class="swipe-label">{{tripActionLabel}}</span><span class="swipe-thumb" aria-hidden="true"><b>→</b></span>
       </div><small class="swipe-hint">{{swipeTracking ? (swipeProgress >= 80 ? 'RELEASE TO CONFIRM' : 'KEEP SWIPING →') : tripActionHint}}</small>
     </div>
