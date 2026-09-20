@@ -18,7 +18,7 @@ assert.deepEqual(validateGapAllocation(0), { valid: true, category: null, person
 assert.equal(validateEndShiftEntry({ closingOdometer: 100, startOdometer: 100, revenue: 0 }).valid, true)
 assert.equal(validateEndShiftEntry({ closingOdometer: 99, startOdometer: 100, revenue: 0 }).valid, false)
 assert.equal(validateEndShiftEntry({ closingOdometer: 601, startOdometer: 100, revenue: 0 }).requiresConfirmation, true)
-assert.equal(validateEndShiftEntry({ closingOdometer: 601, startOdometer: 100 }).valid, false)
+assert.equal(validateEndShiftEntry({ closingOdometer: 601, startOdometer: 100, revenue: 0 }).valid, false)
 assert.equal(validateEndShiftEntry({ closingOdometer: 600, startOdometer: 100, revenue: 0, confirmLargeDistance: true }).valid, true)
 assert.equal(validateEndShiftEntry({ closingOdometer: 600, startOdometer: 100 }).distanceKm, 500)
 assert.equal(validateEndShiftEntry({ closingOdometer: 601, startOdometer: 100 }).requiresConfirmation, true)
