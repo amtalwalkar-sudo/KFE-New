@@ -13,7 +13,7 @@ const targetResult = deriveRollingDriverTarget({
     { id: 'jul-trip', status: 'COMPLETED', tripEndAt: '2026-07-20T10:00:00+05:30', revenue: 500 },
     { id: 'aug-trip', status: 'COMPLETED', tripEndAt: '2026-08-01T10:00:00+05:30', revenue: 200 },
   ],
-  shifts: [],
+  shifts: [{ id: 'aug-shift', shiftStartAt: '2026-08-01T08:00:00+05:30', shiftEndAt: '2026-08-01T18:00:00+05:30', startOdometer: 1000, endOdometer: 1100 }],
   driverTargets: [
     { id: 'jul-target', effectiveFrom: '2026-07-01', desiredDriverProfit: 100 },
     { id: 'aug-target', effectiveFrom: '2026-08-01', desiredDriverProfit: 100 },
