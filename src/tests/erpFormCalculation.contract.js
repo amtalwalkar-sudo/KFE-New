@@ -73,4 +73,11 @@ const unknown=validateAdminForm(getAdminFormDefinition('driver'),{name:'A',statu
 assert.equal(unknown.valid,false)
 assert.equal(unknown.errors.unexpected,'Unknown field is not permitted.')
 
+const selectDefinition={key:'selectContract',fields:[{key:'reference',label:'Reference',type:'select',options:[{value:'v1',label:'Vehicle 1'}]},{key:'active',label:'Active',type:'checkbox'}]}
+const readableSelect=validateAdminForm(selectDefinition,{reference:'v1',active:'false'})
+assert.equal(readableSelect.valid,true)
+assert.equal(readableSelect.values.reference,'v1')
+assert.equal(readableSelect.values.active,false)
+assert.equal(validateAdminForm(selectDefinition,{reference:'missing',active:'false'}).valid,false)
+
 console.log('ERP form/calculation contract: PASS')
