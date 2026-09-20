@@ -78,9 +78,8 @@ export const PerformanceService = Object.freeze({
       from: new Date(selectedDay.getTime() - 86399999),
       to: selectedDay,
     }, previousRange({ from: new Date(selectedDay.getTime() - 86399999), to: selectedDay }))
-    const dailyLoan = Number.isFinite(dayMetrics.loanScheduledObligation)
-      ? dayMetrics.loanScheduledObligation
-      : null
+    const monthlyLoanEmi = Number.isFinite(dayMetrics.loan?.emi) ? dayMetrics.loan.emi : null
+    const dailyLoan = monthlyLoanEmi != null ? monthlyLoanEmi / daysInSelectedMonth : null
     const dailyRenewal = Number.isFinite(dayMetrics.renewalProvision)
       ? dayMetrics.renewalProvision
       : null
