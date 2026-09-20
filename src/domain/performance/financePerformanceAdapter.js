@@ -21,7 +21,10 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   const paymentRecords = live(snapshot?.loanPayments)
   const prepaymentRecords = live(snapshot?.prepayments)
   const candidateLoans = loanRecords
-    .filter(loan => String(loan.status || '').toUpperCase() === 'ACTIVE')
+    .filter(loan => {
+      const status = String(loan.status || '').toUpperCase()
+      return !status || status === 'ACTIVE'
+    })
     .filter(loan => !dateOf(loan.startDate) || dateOf(loan.startDate) <= currentAsOf)
   const activeLoan = candidateLoans
     .filter(loan => Number.isFinite(Number(loan.principal)) && Number(loan.principal) > 0)
