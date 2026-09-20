@@ -234,7 +234,14 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
   <div class="cockpit kfe-work-cockpit" :class="{ 'cockpit--offline': !store.isOnline, 'cockpit--online': store.isOnline && !store.isTripActive && !endShiftOpen, 'cockpit--trip': store.isTripActive, 'cockpit--end-shift': endShiftOpen, 'cockpit--fuel': fuelFormOpen }">
     <header class="hero">
       <div><small>KFE WORK</small><h1>Driver Cockpit</h1></div>
-      <div class="hero-actions"><button class="fuel-icon" type="button" :class="{active:fuelFormOpen}" aria-label="CNG refuelling" title="CNG refuelling" @click="openFuelForm"><span aria-hidden="true">⛽</span></button><div class="online-control"><span>OFFLINE</span><button type="button" class="online-toggle" :class="{active:store.isOnline}" :disabled="store.isTripActive" role="switch" :aria-checked="store.isOnline" :aria-label="store.isOnline ? 'Go Offline' : 'Confirm odometer and go Online'" @click.stop.prevent="toggleOnline"><span/></button><span>ONLINE</span></div></div>
+      <div class="hero-actions">
+        <button class="fuel-icon" type="button" :class="{active:fuelFormOpen}" aria-label="CNG refuelling" title="CNG refuelling" @click="openFuelForm"><span aria-hidden="true">⛽</span></button>
+        <div v-if="store.isTripActive" class="online-control cockpit-status" aria-label="Trip active"><span>ON TRIP</span></div>
+        <div v-else-if="endShiftOpen" class="online-control cockpit-status" aria-label="Ending shift"><span>ENDING SHIFT</span></div>
+        <div v-else class="online-control">
+          <span>OFFLINE</span><button type="button" class="online-toggle" :class="{active:store.isOnline}" role="switch" :aria-checked="store.isOnline" :aria-label="store.isOnline ? 'Go Offline' : 'Confirm odometer and go Online'" @click.stop.prevent="toggleOnline"><span/></button><span>ONLINE</span>
+        </div>
+      </div>
     </header>
     <div v-if="message" class="message">{{message}}</div><div v-if="error" class="error">{{error}}</div>
 
