@@ -1,5 +1,5 @@
 // KFE PWA infrastructure boundary. The service worker never imports application/domain/UI code.
-const CACHE_NAME = 'kfe-pwa-shell-v4'
+const CACHE_NAME = 'kfe-pwa-shell-v5'
 const SHELL_ASSETS = ['./', './index.html', './manifest.json']
 
 self.addEventListener('install', event => {
@@ -39,29 +39,39 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return
   const url = new URL(event.request.url)
   if (url.origin !== location.origin) return
-
   event.respondWith(handleRequest(event.request))
 })
+
+const isStaticAsset = request => {
+  const url = new URL(request.url)
+  return url.pathname.includes('/assets/') ||
+    url.pathname.endsWith('/manifest.json') ||
+    url.pathname.endsWith('/icon-192.png') ||
+    url.pathname.endsWith('/icon-512.png') ||
+    url.pathname.endsWith('/service-worker.js')
+}
 
 async function handleRequest(request) {
   try {
     const response = await fetch(request)
-    if (response.ok) {
+    if (response.ok && isStaticAsset(request)) {
       const cache = await caches.open(CACHE_NAME)
       await cache.put(request, response.clone())
     }
     return response
   } catch {
-    const cached = await caches.match(request)
-    if (cached) return cached
-
     if (request.mode === 'navigate') {
+      const cached = await caches.match(request)
+      if (cached) return cached
       return (await caches.match('./index.html')) || new Response('KFE is offline.', {
         status: 503,
         headers: { 'Content-Type': 'text/plain; charset=utf-8' },
       })
     }
-
+    if (isStaticAsset(request)) {
+      const cached = await caches.match(request)
+      if (cached) return cached
+    }
     return new Response('', { status: 504, statusText: 'Gateway Timeout' })
   }
 }
