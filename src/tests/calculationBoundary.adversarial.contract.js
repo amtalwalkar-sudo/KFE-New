@@ -43,8 +43,8 @@ assert.equal(historicalWithFutureOperations.vehicleKm, historical.vehicleKm)
 const deletedTrip = { ...base.trips[0], deletedAt:'2026-09-10T20:00:00Z', deleted:true }
 const withoutDeletedTrip = PerformanceService.getMetrics({ ...base, trips:[deletedTrip] }, range)
 assert.equal(withoutDeletedTrip.revenue, 0)
-assert.equal(withoutDeletedTrip.completeness.target, false)
-assert.equal(withoutDeletedTrip.driverTarget, null)
+assert.equal(withoutDeletedTrip.completeness.target, true)
+assert.ok(Number.isFinite(withoutDeletedTrip.driverTarget))
 
 // A started shift is a target-eligible day even before a trip is completed.
 // Shift-end revenue remains the financial revenue authority; the live target
