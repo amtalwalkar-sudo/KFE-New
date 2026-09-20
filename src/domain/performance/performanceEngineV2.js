@@ -77,7 +77,6 @@ export function derivePerformance(s, r, p = previousRange(r)) {
   const maintenanceProvision = NaN, provision = NaN, prevMaintenanceProvision = NaN, prevProvision = NaN
   const wd = days(r.from, r.to), elapsed = wd, activeDays = new Set(a.sh.map(x => istDateKey(d(x.shiftEndAt || x.shiftStartAt))).filter(Boolean)).size, prevActive = new Set(q.sh.map(x => istDateKey(d(x.shiftEndAt || x.shiftStartAt))).filter(Boolean)).size
   const perDay = activeDays ? a.revenue / activeDays : NaN
-  const monthlyBreakEvenRevenue = authoritativeBreakEven.available ? authoritativeBreakEven.monthlyBreakEvenRevenue : NaN
   const actualLoanPaid = ln.ok ? ln.paid : 0, actualPrepayment = ln.ok ? ln.prepaid : 0, actualFinancingOutflow = ln.ok ? ln.actualFinancingOutflow : 0
   const availableCash = a.operatingProfit - actualFinancingOutflow, provisionAdjustedProfit = a.operatingProfit - provision, prevActualFinancingOutflow = pln.ok ? pln.actualFinancingOutflow : 0, prevAvailableCash = q.operatingProfit - prevActualFinancingOutflow, prevProvisionAdjustedProfit = q.operatingProfit - prevProvision
   const costPerKm = a.vehicleKm ? a.operatingCost / a.vehicleKm : NaN
