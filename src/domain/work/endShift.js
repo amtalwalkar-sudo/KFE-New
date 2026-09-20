@@ -6,7 +6,7 @@ export function validateEndShiftEntry({ closingOdometer, startOdometer, revenue,
 
   if (!Number.isFinite(odometer) || odometer < 0) return { valid: false, reason: 'CLOSING_ODOMETER_REQUIRED' }
 
-  const revenueAmount = Number(revenue)
+  const revenueAmount = revenue === '' || revenue == null ? NaN : Number(revenue)
   if (!Number.isFinite(revenueAmount) || revenueAmount < 0) return { valid: false, reason: 'SHIFT_REVENUE_REQUIRED' }
 
   if (Number.isFinite(start) && odometer < start) {
