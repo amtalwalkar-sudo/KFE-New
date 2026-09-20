@@ -58,8 +58,8 @@ for (const key of ['revenue', 'vehicleKm', 'businessKm', 'deadKm', 'fuelCost', '
 assert.equal(variantMetrics.period.timeZone, 'Asia/Kolkata')
 const serviceMetrics = PerformanceService.getMetrics(canonical, range)
 assert.equal(serviceMetrics.breakEvenRevenue, serviceMetrics.monthlyBreakEvenRevenue)
-assert.equal(serviceMetrics.breakEvenRevenue, null)
-assert.ok(Number.isNaN(canonicalMetrics.monthlyBreakEvenRevenue))
+assert.ok(Number.isFinite(serviceMetrics.breakEvenRevenue), 'Observed fuel spend/KM fallback should keep break-even available with one usable fuel log')
+assert.ok(Number.isFinite(canonicalMetrics.monthlyBreakEvenRevenue))
 
 const metrics = serviceMetrics
 assert.equal('projectedRevenue' in metrics, false)
