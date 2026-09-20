@@ -106,6 +106,7 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
     maintenanceProvision: authoritativeMaintenanceProvision,
     provisionRequired,
     provisionSetAside: provisionRequired,
+    provisionAdjustedProfit: Number.isFinite(provisionRequired) ? base.operatingProfit - provisionRequired : NaN,
     monthlyBreakEvenRevenue,
     breakEvenRevenue: monthlyBreakEvenRevenue,
     breakEvenInputs: {
