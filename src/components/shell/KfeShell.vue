@@ -5,14 +5,29 @@ import DiagnosticBubble from '../DiagnosticBubble.vue'
 const gpsState = ref('checking')
 let gpsRefreshTimer = null
 
-function connectGps() {
+async function connectGps({ requestPermission = false } = {}) {
   if (!('geolocation' in navigator)) {
     gpsState.value = 'unsupported'
     return
   }
 
-  gpsState.value = 'checking'
+  if (!requestPermission && 'permissions' in navigator && typeof navigator.permissions.query === 'function') {
+    try {
+      const permission = await navigator.permissions.query({ name: 'geolocation' })
+      if (permission.state === 'denied') {
+        gpsState.value = 'permission'
+        return
+      }
+      if (permission.state === 'prompt') {
+        gpsState.value = 'ready'
+        return
+      }
+    } catch {
+      // Fall through to a non-blocking position check.
+    }
+  }
 
+  gpsState.value = 'checking'
   navigator.geolocation.getCurrentPosition(
     () => { gpsState.value = 'connected' },
     (error) => {
@@ -27,12 +42,13 @@ function gpsStateLabel() {
   if (gpsState.value === 'permission') return 'GPS permission needed'
   if (gpsState.value === 'unsupported') return 'GPS unavailable'
   if (gpsState.value === 'unavailable') return 'GPS unavailable'
+  if (gpsState.value === 'ready') return 'GPS ready — tap to check'
   return 'Connecting GPS'
 }
 
 onMounted(() => {
-  connectGps()
-  gpsRefreshTimer = window.setInterval(connectGps, 60000)
+  void connectGps()
+  gpsRefreshTimer = window.setInterval(() => { void connectGps() }, 60000)
 })
 onBeforeUnmount(() => {
   if (gpsRefreshTimer !== null) window.clearInterval(gpsRefreshTimer)
@@ -45,18 +61,15 @@ onBeforeUnmount(() => {
     <header class="top-bar" aria-label="KFE application header">
       <div class="brand-lockup">
         <div class="brand-mark" aria-hidden="true">K</div>
-        <div class="brand-copy">
-          <strong>Kanishka Enterprises</strong>
-        </div>
+        <div class="brand-copy"><strong>Kanishka Enterprises</strong></div>
       </div>
-
       <button
         class="header-gps"
         :class="`is-${gpsState}`"
         type="button"
         :title="gpsStateLabel()"
         :aria-label="gpsStateLabel()"
-        @click="connectGps"
+        @click="connectGps({ requestPermission: true })"
       >
         <svg class="gps-icon" viewBox="0 0 24 24" aria-hidden="true">
           <template v-if="gpsState === 'checking'">
