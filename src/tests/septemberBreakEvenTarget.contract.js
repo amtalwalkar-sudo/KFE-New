@@ -10,7 +10,7 @@ const snapshot = normalizeCalculationSnapshot({
   fuelLogs: [
     // One fuel log is enough to establish an observed period fuel cost/km;
     // a second full-tank odometer reading is not yet available.
-    { id: 'f1', capturedAt: '2026-09-10T13:30:00.000Z', odometer: 70300, amount: 2460, isFullTank: true, vehicleId: 'v1', quantityKg: 30, isFullTank: true },
+    { id: 'f1', capturedAt: '2026-09-10T13:30:00.000Z', odometer: 70300, amount: 2460, isFullTank: true, vehicleId: 'v1', quantityKg: 30, isFullTank: true, vehicleId: 'v1' },
   ],
   vehicles: [{ id: 'v1', acquiredOn: '2026-05-01' }], drivers: [{ id: 'd1' }],
   compliance: [{ id: 'c1', validFrom: '2026-05-01', validUntil: '2027-04-30', cost: 25000, active: true }], maintenance: [],
@@ -39,8 +39,8 @@ const qualifiedSnapshot = normalizeCalculationSnapshot({
   ...snapshot,
   trips: [{ id: 't1', status: 'COMPLETED', tripStartAt: '2026-09-10T02:00:00.000Z', tripEndAt: '2026-09-10T10:00:00.000Z', tripKm: 300, revenue: 5000 }],
   fuelLogs: [
-    { id: 'f0', capturedAt: '2026-09-09T13:30:00.000Z', odometer: 70000, amount: 2460, isFullTank: true, vehicleId: 'v1', quantityKg: 30, isFullTank: true },
-    { id: 'f1', capturedAt: '2026-09-10T13:30:00.000Z', odometer: 70300, amount: 2460, isFullTank: true, vehicleId: 'v1', quantityKg: 30, isFullTank: true },
+    { id: 'f0', capturedAt: '2026-09-09T13:30:00.000Z', odometer: 70000, amount: 2460, isFullTank: true, vehicleId: 'v1', quantityKg: 30, isFullTank: true, vehicleId: 'v1' },
+    { id: 'f1', capturedAt: '2026-09-10T13:30:00.000Z', odometer: 70300, amount: 2460, isFullTank: true, vehicleId: 'v1', quantityKg: 30, isFullTank: true, vehicleId: 'v1' },
   ],
 })
 const qualifiedMetrics = deriveFinanceAwarePerformance(qualifiedSnapshot, range, previousRange(range))
