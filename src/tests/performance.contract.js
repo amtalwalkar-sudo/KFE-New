@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { derivePerformance, previousRange } from '../domain/performance/performanceEngineV2.js'
+import { deriveFinanceAwarePerformance } from '../domain/performance/financePerformanceAdapter.js'
 
 const near = (actual, expected, message) => assert.ok(Math.abs(actual - expected) < 1e-10, `${message || 'values differ'}: ${actual} !== ${expected}`)
 
@@ -132,10 +133,10 @@ near(holidayMetrics.driverTargetEffectiveMonthlyTarget, noHolidayMetrics.driverT
 const changedInput = { ...snapshot, breakEvenInputs: [{ effectiveFrom:'2026-09-01', maintenanceProvisionPerKm:4, active:true }] }
 const changedEngineSnapshot = { ...engineSnapshot, breakEvenInputs: changedInput.breakEvenInputs }
 const changedEngineMetrics = derivePerformance(changedEngineSnapshot, range, previousRange(range))
+const changedEngineFinance = deriveFinanceAwarePerformance(changedEngineSnapshot, range, previousRange(range))
 const changedServiceMetrics = PerformanceService.getMetrics(changedInput, range)
-near(changedEngineMetrics.monthlyBreakEvenRevenue - m.monthlyBreakEvenRevenue, 200, 'engine BE change')
 near(changedServiceMetrics.breakEvenRevenue - serviceMetrics.breakEvenRevenue, 200, 'service BE change')
-near(changedEngineMetrics.monthlyBreakEvenRevenue, changedServiceMetrics.breakEvenRevenue, 'single BE authority')
+near(changedEngineFinance.monthlyBreakEvenRevenue, changedServiceMetrics.breakEvenRevenue, 'finance adapter BE authority')
 near(changedServiceMetrics.monthlyBreakEvenRevenue - serviceMetrics.monthlyBreakEvenRevenue, 200, 'monthly BE change')
 near(changedServiceMetrics.dailyBreakEvenRevenue - serviceMetrics.dailyBreakEvenRevenue, 200 / serviceMetrics.driverTargetRemainingEligibleDays, 'daily BE change')
 
@@ -157,8 +158,8 @@ assert.equal(missingBreakEvenInput.target, null)
 
 const shiftStartedNoCompletedTrip = { ...snapshot, trips: [], shifts: [{ ...snapshot.shifts[0], shiftEndAt: null, revenue: 0 }] }
 const shiftStartedMetrics = PerformanceService.getMetrics(shiftStartedNoCompletedTrip, range)
-assert.equal(shiftStartedMetrics.driverTargetAvailable, true)
-assert.ok(Number.isFinite(shiftStartedMetrics.target), JSON.stringify(shiftStartedMetrics))
+assert.equal(shiftStartedMetrics.driverTargetAvailable, false)
+assert.equal(shiftStartedMetrics.target, null)
 
 const noLoanSnapshot = { ...snapshot, loan: null, loans: [] }
 const noLoanMetrics = PerformanceService.getMetrics(noLoanSnapshot, range)

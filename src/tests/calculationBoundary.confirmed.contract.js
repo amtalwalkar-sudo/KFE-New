@@ -29,7 +29,8 @@ const historical = derivePerformance(base, range)
 const futureFuel = { ...base, fuelLogs: [...base.fuelLogs, { capturedAt:'2026-09-11T18:00:00Z', odometer:1400, quantityKg:10, amount:10000 }] }
 const historicalWithFutureFuel = derivePerformance(futureFuel, range)
 assert.equal(historicalWithFutureFuel.fuelCostPerKm, historical.fuelCostPerKm)
-assert.equal(historicalWithFutureFuel.monthlyBreakEvenRevenue, historical.monthlyBreakEvenRevenue)
+const historicalServiceWithFutureFuel = PerformanceService.getMetrics(futureFuel, range)
+assert.equal(historicalServiceWithFutureFuel.monthlyBreakEvenRevenue, PerformanceService.getMetrics(base, range).monthlyBreakEvenRevenue)
 
 const futureOperational = { ...base, trips: [...base.trips, { id:'future', status:'COMPLETED', tripStartAt:'2026-09-11T09:00:00Z', tripEndAt:'2026-09-11T10:00:00Z', tripKm:500, revenue:99999 }] }
 const historicalWithFutureOperations = derivePerformance(futureOperational, range)
@@ -42,12 +43,13 @@ assert.equal(withoutDeletedTrip.revenue, 0)
 assert.equal(withoutDeletedTrip.businessKm, 0)
 
 const holiday = PerformanceService.getMetrics({ ...base, trips:[] }, range)
-assert.equal(holiday.driverTargetAvailable, true)
-assert.ok(Number.isFinite(holiday.driverTarget))
-assert.equal(holiday.counts.activeFinancialDays, 1)
+assert.equal(holiday.driverTargetAvailable, false)
+assert.equal(holiday.driverTarget, null)
+assert.equal(holiday.counts.activeFinancialDays, 0)
 
 const twoDays = {
   ...base,
+  trips: [...base.trips, { id:'t2', status:'COMPLETED', tripStartAt:'2026-09-11T09:00:00Z', tripEndAt:'2026-09-11T10:00:00Z', tripKm:80, revenue:500 }],
   shifts: [
     base.shifts[0],
     { id:'s2', shiftStartAt:'2026-09-11T08:00:00Z', shiftEndAt:'2026-09-11T18:00:00Z', startOdometer:1200, endOdometer:1300, toll:0, parking:0 },

@@ -67,40 +67,15 @@ export const PerformanceService = Object.freeze({
     const financialDays = Number.isFinite(stabilization.financialDays) ? stabilization.financialDays : 0
     const revenuePerFinancialDay = financialDays > 0 ? metrics.revenue / financialDays : NaN
 
-    // Read-only daily break-even view. Fixed obligations are amortized to the
-    // selected calendar day; fuel and maintenance are dynamic per live vehicle KM.
-    const selectedDayRange = istMonthRange(range.to)
-    const selectedDay = range.to
-    const daysInSelectedMonth = selectedDayRange
-      ? Math.max(1, Math.round((selectedDayRange.to - selectedDayRange.from) / 86400000) + 1)
-      : 30
-    const dayMetrics = deriveFinanceAwarePerformance(calculationSnapshot, {
-      from: new Date(selectedDay.getTime() - 86399999),
-      to: selectedDay,
-    }, previousRange({ from: new Date(selectedDay.getTime() - 86399999), to: selectedDay }))
-    const monthlyLoanEmi = Number.isFinite(dayMetrics.loan?.emi) ? dayMetrics.loan.emi : null
-    const dailyLoan = monthlyLoanEmi != null ? monthlyLoanEmi / daysInSelectedMonth : null
-    const dailyRenewal = Number.isFinite(dayMetrics.renewalProvision)
-      ? dayMetrics.renewalProvision
-      : null
-    const dailyFuelRate = Number.isFinite(dayMetrics.fuelCostPerKm) ? dayMetrics.fuelCostPerKm : null
-    const dailyMaintenanceRate = Number.isFinite(metrics.breakEvenInputs?.maintenanceProvisionPerKm)
-      ? metrics.breakEvenInputs.maintenanceProvisionPerKm
-      : null
-    const todayVehicleKm = Number.isFinite(dayMetrics.vehicleKm) ? dayMetrics.vehicleKm : null
-    const dynamicFuelToday = dailyFuelRate != null && todayVehicleKm != null ? dailyFuelRate * todayVehicleKm : null
-    const dynamicMaintenanceToday = dailyMaintenanceRate != null && todayVehicleKm != null ? dailyMaintenanceRate * todayVehicleKm : null
-    const dailyBreakEvenTotal = [dailyLoan, dailyRenewal, dynamicFuelToday, dynamicMaintenanceToday].every(Number.isFinite)
-      ? dailyLoan + dailyRenewal + dynamicFuelToday + dynamicMaintenanceToday
+    // Daily break-even is a representation of the authoritative monthly
+    // requirement, not a second cost-build formula. It is allocated over the
+    // same remaining eligible financial days used by the target authority.
+    const dailyBreakEvenEvidence = metrics.calculationEvidence?.breakEven || null
+    const dailyBreakEvenTotal = dailyBreakEvenEvidence?.status === 'AUTHORITATIVE'
+      ? dailyBreakEvenRevenue
       : null
     const desiredDriverProfitMonthly = Number.isFinite(stabilization.desiredDriverProfitMonthly)
       ? stabilization.desiredDriverProfitMonthly
-      : null
-    const desiredDriverProfitDaily = desiredDriverProfitMonthly != null
-      ? desiredDriverProfitMonthly / daysInSelectedMonth
-      : null
-    const dailyTargetTotal = dailyBreakEvenTotal != null && desiredDriverProfitDaily != null
-      ? dailyBreakEvenTotal + desiredDriverProfitDaily
       : null
 
     return {
@@ -111,6 +86,7 @@ export const PerformanceService = Object.freeze({
       target: canonicalTarget,
       monthlyBreakEvenRevenue: authoritativeMonthlyBreakEven,
       dailyBreakEvenRevenue,
+      indicativeMonthlyBreakEvenRevenue: metrics.indicative?.monthlyBreakEvenRevenue ?? null,
       breakEvenInputs: metrics.breakEvenInputs,
       authority: {
         ...metrics.authority,
@@ -118,6 +94,11 @@ export const PerformanceService = Object.freeze({
         breakEven: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN',
       },
       completeness: { ...metrics.completeness, target: targetAvailable, breakEven: authoritativeMonthlyBreakEven != null },
+      calculationEvidence: {
+        ...(metrics.calculationEvidence || {}),
+        target: stabilization.evidence || null,
+        dailyBreakEven: dailyBreakEvenEvidence,
+      },
       driverTarget: canonicalTarget,
       driverTargetBase: stabilization.currentBaseDaily,
       driverTargetRecoveryAdjustment: stabilization.recoveryAdjustment,
@@ -132,20 +113,14 @@ export const PerformanceService = Object.freeze({
       driverTargetAllocatedBeforeCurrentDay: stabilization.targetAllocatedBeforeCurrentDay,
       driverTargetRemainingObligation: stabilization.remainingObligation,
       driverTargetDesiredProfitMonthly: desiredDriverProfitMonthly,
-      driverTargetDesiredProfitDaily: desiredDriverProfitDaily,
       dailyBreakEven: {
-        loanScheduledObligation: dailyLoan,
-        renewalProvision: dailyRenewal,
-        fuelCostPerKm: dailyFuelRate,
-        fuelCostPerKmSource: metrics.breakEvenInputs?.fuelCostPerKmSource || null,
-        vehicleKm: todayVehicleKm,
-        fuelCost: dynamicFuelToday,
-        maintenanceProvisionPerKm: dailyMaintenanceRate,
-        maintenanceProvision: dynamicMaintenanceToday,
+        status: dailyBreakEvenEvidence?.status || 'UNAVAILABLE',
+        source: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN_ALLOCATED_OVER_REMAINING_ELIGIBLE_DAYS',
+        reason: dailyBreakEvenEvidence?.reason || null,
+        monthlyBreakEvenRevenue: authoritativeMonthlyBreakEven,
+        remainingEligibleDays: stabilization.remainingEligibleDays,
         total: dailyBreakEvenTotal,
-        daysInMonth: daysInSelectedMonth,
       },
-      dailyTargetTotal,
       pace: {
         currentRevenuePerFinancialDay: revenuePerFinancialDay,
         requiredRevenuePerFinancialDay: canonicalTarget,

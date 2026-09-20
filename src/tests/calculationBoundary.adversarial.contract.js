@@ -32,7 +32,8 @@ const historicalService = PerformanceService.getMetrics(base, range)
 const futureFuel = { ...base, fuelLogs: [...base.fuelLogs, { capturedAt:'2026-09-11T18:00:00Z', odometer:1400, quantityKg:10, amount:10000 }] }
 const historicalWithFutureFuel = derivePerformance(futureFuel, range)
 assert.equal(historicalWithFutureFuel.fuelCostPerKm, historical.fuelCostPerKm)
-assert.equal(historicalWithFutureFuel.monthlyBreakEvenRevenue, historical.monthlyBreakEvenRevenue)
+const historicalServiceWithFutureFuel = PerformanceService.getMetrics(futureFuel, range)
+assert.equal(historicalServiceWithFutureFuel.monthlyBreakEvenRevenue, PerformanceService.getMetrics(base, range).monthlyBreakEvenRevenue)
 
 const futureOperational = { ...base, trips: [...base.trips, { id:'future', status:'COMPLETED', tripStartAt:'2026-09-11T09:00:00Z', tripEndAt:'2026-09-11T10:00:00Z', tripKm:500, revenue:99999 }] }
 const historicalWithFutureOperations = derivePerformance(futureOperational, range)
@@ -43,18 +44,15 @@ assert.equal(historicalWithFutureOperations.vehicleKm, historical.vehicleKm)
 const deletedTrip = { ...base.trips[0], deletedAt:'2026-09-10T20:00:00Z', deleted:true }
 const withoutDeletedTrip = PerformanceService.getMetrics({ ...base, trips:[deletedTrip] }, range)
 assert.equal(withoutDeletedTrip.revenue, 0)
-assert.equal(withoutDeletedTrip.completeness.target, true)
-assert.ok(Number.isFinite(withoutDeletedTrip.driverTarget))
+assert.equal(withoutDeletedTrip.completeness.target, false)
+assert.equal(withoutDeletedTrip.driverTarget, null)
 
-// A started shift is a target-eligible day even before a trip is completed.
-// Shift-end revenue remains the financial revenue authority; the live target
-// must be visible from shift start.
+// A started shift alone is not a target-bearing financial day.
 const holiday = PerformanceService.getMetrics({ ...base, trips:[] }, range)
-assert.equal(holiday.driverTargetAvailable, true)
-assert.ok(Number.isFinite(holiday.driverTarget))
-assert.equal(holiday.counts.activeFinancialDays, 1)
-assert.equal(holiday.completeness.breakEven, true)
-assert.equal(holiday.monthlyBreakEvenRevenue, historicalService.monthlyBreakEvenRevenue)
+assert.equal(holiday.driverTargetAvailable, false)
+assert.equal(holiday.driverTarget, null)
+assert.equal(holiday.counts.activeFinancialDays, 0)
+
 
 // Financial-day target calculation uses the same dynamic remaining-eligible-day
 // denominator for daily BE and Driver Target. Configured workingDays is ignored

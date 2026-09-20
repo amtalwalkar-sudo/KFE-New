@@ -147,6 +147,12 @@ const calculationNotices = computed(() => {
       action: 'Complete the applicable vehicle fuel-cost configuration or source data, then refresh Performance.',
       chain: 'Fuel cost / km → Variable cost → Break-even → Driver target',
     },
+    fuelCostPerKmEvidence: {
+      title: 'Fuel evidence is still indicative',
+      why: 'The current fuel rate comes from an observed-period spend/KM fallback. It is useful as an estimate, but it is not qualified for authoritative break-even.',
+      action: 'Record a second usable full-tank fuel event with odometer evidence so KFE can establish a qualified full-tank interval.',
+      chain: 'Fuel evidence → Authoritative fuel rate → Break-even → Driver target',
+    },
     vehicleKm: {
       title: 'Vehicle km is missing',
       why: 'Authoritative vehicle kilometres are not available for the selected period.',
@@ -168,7 +174,9 @@ const calculationNotices = computed(() => {
   }
 
   if (!m.completeness?.breakEven) {
-    const key = firstMissing || (m.breakEvenTrace ? 'input' : null)
+    const key = m.calculationEvidence?.breakEven?.status === 'INDICATIVE'
+      ? 'fuelCostPerKmEvidence'
+      : firstMissing || (m.breakEvenTrace ? 'input' : null)
     const detail = key ? breakEvenReasons[key] : null
     notices.push({
       key: `break-even-${key || 'unknown'}`,
@@ -196,9 +204,9 @@ const calculationNotices = computed(() => {
       },
       NO_FINANCIAL_DRIVER_TARGET_DAY: {
         title: 'No eligible driver target day',
-        why: 'There is no driver shift in the selected month from which the current target day can be anchored.',
-        action: 'Start or record the applicable driver shift, then refresh Performance.',
-        chain: 'Driver shift → Eligible target day → Current daily target',
+        why: 'There is no completed trip in the selected month to create a target-bearing financial day.',
+        action: 'Complete and record the applicable trip, then refresh Performance.',
+        chain: 'Completed trip → Eligible target day → Current daily target',
       },
     }
     const detail = targetReasons[m.driverTargetReason] || {
@@ -293,25 +301,23 @@ onBeforeUnmount(() => unsubscribeChanges())
         </div>
       </section>
 
-      <section class="calculation-table-panel" aria-label="Today's break-even calculation">
+      <section class="calculation-table-panel" aria-label="Daily break-even allocation">
         <div class="section-head">
-          <div><small>BREAK-EVEN CALCULATION</small><h2>Today’s read-only cost build-up</h2></div>
-          <span class="calculation-live-badge">{{ metrics.dailyBreakEven?.fuelCostPerKmSource === 'OBSERVED_PERIOD' ? 'Provisional fuel rate' : metrics.dailyBreakEven?.fuelCostPerKmSource === 'FULL_TANK_INTERVAL' ? 'Full-tank fuel rate' : metrics.dailyBreakEven?.vehicleKm != null ? 'Live KM basis' : 'Waiting for KM' }}</span>
+          <div><small>BREAK-EVEN CALCULATION</small><h2>Daily break-even allocation</h2></div>
+          <span class="calculation-live-badge">{{ metrics.dailyBreakEven?.status === 'AUTHORITATIVE' ? 'Authoritative' : metrics.dailyBreakEven?.status === 'INDICATIVE' ? 'Indicative' : 'Unavailable' }}</span>
         </div>
         <div class="calculation-table-wrap">
           <table class="calculation-table">
-            <thead><tr><th>Component</th><th>Basis</th><th>Today</th></tr></thead>
+            <thead><tr><th>Component</th><th>Basis</th><th>Amount</th></tr></thead>
             <tbody>
-              <tr><td>Loan EMI</td><td>{{ metrics.dailyBreakEven?.daysInMonth ? `${money(metrics.loan?.emi)} ÷ ${metrics.dailyBreakEven.daysInMonth} days` : 'Daily amortization' }}</td><td>{{ metrics.dailyBreakEven?.loanScheduledObligation != null ? money(metrics.dailyBreakEven.loanScheduledObligation) : 'Unavailable — loan input incomplete' }}</td></tr>
-              <tr><td>Compliance / renewal</td><td>Annual/validity cost amortized per day</td><td>{{ metrics.dailyBreakEven?.renewalProvision != null ? money(metrics.dailyBreakEven.renewalProvision) : 'Unavailable — compliance cost/validity missing' }}</td></tr>
-              <tr><td>Maintenance provision</td><td>{{ metrics.dailyBreakEven?.maintenanceProvisionPerKm != null ? `${rate(metrics.dailyBreakEven.maintenanceProvisionPerKm)} × ${number(metrics.dailyBreakEven.vehicleKm)} km` : 'Rate unavailable' }}</td><td>{{ metrics.dailyBreakEven?.maintenanceProvision != null ? money(metrics.dailyBreakEven.maintenanceProvision) : 'Unavailable — maintenance rate missing' }}</td></tr>
-              <tr><td>Fuel</td><td>{{ metrics.dailyBreakEven?.fuelCostPerKm != null ? `${rate(metrics.dailyBreakEven.fuelCostPerKm)} × ${number(metrics.dailyBreakEven.vehicleKm)} km` : 'Rate unavailable' }}</td><td>{{ metrics.dailyBreakEven?.fuelCost != null ? money(metrics.dailyBreakEven.fuelCost) : 'Unavailable — fuel rate/KM missing' }}</td></tr>
-              <tr class="total-row"><td colspan="2"><strong>Total break-even for today</strong></td><td><strong>{{ metrics.dailyBreakEven?.total != null ? money(metrics.dailyBreakEven.total) : 'Unavailable — calculation incomplete' }}</strong></td></tr>
+              <tr><td>Monthly break-even</td><td>Authoritative monthly calculation</td><td>{{ metrics.monthlyBreakEvenRevenue != null ? money(metrics.monthlyBreakEvenRevenue) : 'Unavailable — see Calculation Notices' }}</td></tr>
+              <tr><td>Remaining eligible days</td><td>Same financial-day basis used by Driver Target</td><td>{{ metrics.driverTargetRemainingEligibleDays != null ? number(metrics.driverTargetRemainingEligibleDays) : 'Unavailable' }}</td></tr>
+              <tr class="total-row"><td colspan="2"><strong>Daily break-even allocation</strong></td><td><strong>{{ metrics.dailyBreakEven?.total != null ? money(metrics.dailyBreakEven.total) : 'Unavailable — authoritative break-even incomplete' }}</strong></td></tr>
             </tbody>
           </table>
         </div>
         <div class="calculation-live-note">
-          Dynamic rows use the authoritative fuel rate and vehicle kilometres available at calculation time. As GPS/odometer data and rides update, the KM-based fuel and maintenance amounts can update during an open shift. Fixed obligations do not change during the day. The final shift-end value becomes authoritative once the shift closes. When a full-tank interval is not yet available, the fuel row is a provisional observed-period spend/KM rate and is replaced by the full-tank interval model once two usable full-tank odometer readings exist.
+          This is a daily representation of the authoritative monthly break-even requirement. It is not a second cost-build formula and it is not the Driver Target. An indicative fuel observation cannot produce an authoritative break-even or authoritative target.
         </div>
       </section>
 

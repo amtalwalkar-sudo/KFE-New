@@ -51,31 +51,30 @@ assert.equal('tenureYears' in normalized.loans[0], false)
 
 const canonicalMetrics = derivePerformance(canonical, range)
 const variantMetrics = derivePerformance(normalized, range)
-for (const key of ['revenue', 'vehicleKm', 'businessKm', 'deadKm', 'fuelCost', 'fuelQty', 'actualMaintenance', 'loanScheduledObligation', 'monthlyBreakEvenRevenue']) {
+for (const key of ['revenue', 'vehicleKm', 'businessKm', 'deadKm', 'fuelCost', 'fuelQty', 'actualMaintenance', 'loanScheduledObligation']) {
   assert.equal(variantMetrics[key], canonicalMetrics[key], `normalized variant changed ${key}`)
 }
 
 assert.equal(variantMetrics.period.timeZone, 'Asia/Kolkata')
 const serviceMetrics = PerformanceService.getMetrics(canonical, range)
 assert.equal(serviceMetrics.breakEvenRevenue, serviceMetrics.monthlyBreakEvenRevenue)
-assert.ok(Number.isFinite(serviceMetrics.breakEvenRevenue), 'Observed fuel spend/KM fallback should keep break-even available with one usable fuel log')
-assert.ok(Number.isFinite(canonicalMetrics.monthlyBreakEvenRevenue))
+assert.equal(serviceMetrics.breakEvenRevenue, null)
+assert.equal(serviceMetrics.calculationEvidence.breakEven.status, 'INDICATIVE')
+assert.ok(Number.isFinite(serviceMetrics.indicativeMonthlyBreakEvenRevenue), 'Indicative break-even candidate should remain visible')
+assert.ok(Number.isNaN(canonicalMetrics.monthlyBreakEvenRevenue))
 
 const metrics = serviceMetrics
 assert.equal('projectedRevenue' in metrics, false)
 assert.equal('targetGap' in metrics.pace, false)
 assert.equal(metrics.pace.currentRevenuePerFinancialDay, metrics.revenuePerActiveDay)
 assert.equal(metrics.pace.requiredRevenuePerFinancialDay, metrics.target)
-assert.equal(metrics.driverTargetAvailable, true)
-assert.ok(Number.isFinite(metrics.target))
-assert.equal(metrics.pace.paceVariance, metrics.revenuePerActiveDay - metrics.target)
+assert.equal(metrics.driverTargetAvailable, false)
+assert.equal(metrics.target, null)
+assert.equal(metrics.calculationEvidence.target.status, 'UNAVAILABLE')
+assert.ok(Number.isNaN(metrics.pace.paceVariance))
 
-assert.equal(
-  metrics.dailyBreakEvenRevenue,
-  metrics.monthlyBreakEvenRevenue == null || metrics.driverTargetRemainingEligibleDays == null
-    ? null
-    : metrics.monthlyBreakEvenRevenue / metrics.driverTargetRemainingEligibleDays,
-)
+assert.equal(metrics.dailyBreakEvenRevenue, null)
+assert.equal(metrics.dailyBreakEven.status, 'INDICATIVE')
 
 const futureTrip = { id: 'future', status: 'COMPLETED', tripStartAt: '2026-09-11T09:00:00+05:30', tripEndAt: '2026-09-11T10:00:00+05:30', tripKm: 500, revenue: 99999 }
 const boundedTarget = deriveRollingDriverTarget({
@@ -94,8 +93,9 @@ const baseTarget = deriveRollingDriverTarget({
   to: range.to,
   applicableBreakEven: canonicalMetrics.monthlyBreakEvenRevenue,
 })
-assert.equal(boundedTarget.currentDailyTarget, baseTarget.currentDailyTarget)
-assert.equal(boundedTarget.closingBalance, baseTarget.closingBalance)
+assert.equal(boundedTarget.available, false)
+assert.equal(baseTarget.available, false)
+assert.equal(boundedTarget.reason, 'MISSING_AUTHORITATIVE_TARGET_INPUT')
 
 assert.equal(istDateKey(new Date('2026-09-10T23:00:00Z')), '2026-09-11')
 assert.equal(istDateKey(new Date('2026-09-10T17:59:59Z')), '2026-09-10')

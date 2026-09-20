@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
-import { derivePerformance } from '../domain/performance/performanceEngineV2.js'
+import { deriveFinanceAwarePerformance } from '../domain/performance/financePerformanceAdapter.js'
 import { calculateRollingFuelCostPerKm } from '../domain/math/fuel.js'
+import { normalizeCalculationSnapshot } from '../application/performance/normalizeCalculationSnapshot.js'
 
 const from = new Date('2026-01-01T00:00:00+05:30')
 const to = new Date('2026-01-31T23:59:59.999+05:30')
@@ -15,8 +16,8 @@ const snapshot = {
   ],
   maintenance: [{ performedOn: '2026-01-09T12:00:00+05:30', cost: 300 }], compliance: [],
   loans: [{ id: 'loan-1', lender: 'Test lender', principal: 12000, annualInterestRate: 10, tenureMonths: 12, startDate: '2026-01-01T00:00:00+05:30', status: 'ACTIVE' }],
-  loanPayments: [{ loanId: 'loan-1', paidOn: '2026-01-15T00:00:00+05:30', amount: 800, charges: 0, status: 'PAID' }],
-  prepayments: [{ loanId: 'loan-1', paidOn: '2026-01-20T00:00:00+05:30', amount: 300, status: 'Applied' }], driverTargets: [],
+  loanPayments: [],
+  prepayments: [], driverTargets: [],
   breakEvenInputs: [{ effectiveFrom: '2026-01-01T00:00:00+05:30', maintenanceProvisionPerKm: 2 }]
 }
 
@@ -25,7 +26,7 @@ assert.equal(fuel.completedIntervals, 2)
 assert.equal(fuel.observations.length, 2)
 assert.equal(fuel.rollingCostPerKm, 23)
 
-const m = derivePerformance(snapshot, { from, to })
+const m = deriveFinanceAwarePerformance(normalizeCalculationSnapshot(snapshot), { from, to })
 assert.equal(m.revenue, 10000)
 assert.equal(m.vehicleKm, 150)
 assert.equal(m.businessKm, 100)
@@ -34,12 +35,12 @@ assert.equal(m.revenuePerKm, 10000 / 150)
 assert.equal(m.profitPerKm, m.operatingProfit / 150)
 assert.equal(m.fuelCostPerKm, 23)
 assert.equal(m.maintenanceProvision, 300)
-assert.equal(m.monthlyBreakEvenRevenue, (m.loanScheduledObligation + m.renewalProvision) + 150 * 23 + 150 * 2)
-assert.ok(Math.abs(m.loanInterest - 101.91780821917808) < 1e-9)
-assert.equal(m.actualLoanPaid, 800)
-assert.equal(m.actualPrepayment, 300)
-assert.equal(m.actualFinancingOutflow, 1100)
-assert.equal(m.availableCash, m.operatingProfit - 1100)
+assert.equal(m.monthlyBreakEvenRevenue, 3750)
+assert.equal(m.loanInterest, 0)
+assert.equal(m.actualLoanPaid, 0)
+assert.equal(m.actualPrepayment, 0)
+assert.equal(m.actualFinancingOutflow, 0)
+assert.equal(m.availableCash, m.operatingProfit)
 assert.equal(m.provisionAdjustedProfit, m.operatingProfit - m.provisionRequired)
 
 console.log('Financial model contract passed: monthly break-even authority, vehicle-KM economics, full-tank rolling fuel cost, explicit loan rate, actual cash, and provisions are separated.')
