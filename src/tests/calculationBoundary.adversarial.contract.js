@@ -46,13 +46,13 @@ assert.equal(withoutDeletedTrip.revenue, 0)
 assert.equal(withoutDeletedTrip.completeness.target, false)
 assert.equal(withoutDeletedTrip.driverTarget, null)
 
-// An active shift with zero completed trips is a holiday/non-financial day and
-// therefore does not manufacture a Driver Target. Monthly BE remains an
-// independent business requirement when its own inputs are complete.
+// A started shift is a target-eligible day even before a trip is completed.
+// Shift-end revenue remains the financial revenue authority; the live target
+// must be visible from shift start.
 const holiday = PerformanceService.getMetrics({ ...base, trips:[] }, range)
-assert.equal(holiday.driverTargetAvailable, false)
-assert.equal(holiday.counts.activeFinancialDays, 0)
-assert.equal(holiday.driverTarget, null)
+assert.equal(holiday.driverTargetAvailable, true)
+assert.ok(Number.isFinite(holiday.driverTarget))
+assert.equal(holiday.counts.activeFinancialDays, 1)
 assert.equal(holiday.completeness.breakEven, true)
 assert.equal(holiday.monthlyBreakEvenRevenue, historicalService.monthlyBreakEvenRevenue)
 
