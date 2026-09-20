@@ -35,4 +35,28 @@ const stabilization = deriveRollingDriverTarget({ shifts: snapshot.shifts, trips
 assert.equal(stabilization.available, false, 'Indicative break-even must not feed authoritative target')
 assert.equal(stabilization.reason, 'MISSING_AUTHORITATIVE_TARGET_INPUT')
 
+const qualifiedSnapshot = normalizeCalculationSnapshot({
+  ...snapshot,
+  trips: [{ id: 't1', status: 'COMPLETED', tripStartAt: '2026-09-10T02:00:00.000Z', tripEndAt: '2026-09-10T10:00:00.000Z', tripKm: 300, revenue: 5000 }],
+  fuelLogs: [
+    { id: 'f0', capturedAt: '2026-09-09T13:30:00.000Z', odometer: 70000, amount: 2460, quantityKg: 30, isFullTank: true },
+    { id: 'f1', capturedAt: '2026-09-10T13:30:00.000Z', odometer: 70300, amount: 2460, quantityKg: 30, isFullTank: true },
+  ],
+})
+const qualifiedMetrics = deriveFinanceAwarePerformance(qualifiedSnapshot, range, previousRange(range))
+assert.equal(qualifiedMetrics.completeness.breakEven, true)
+assert.equal(qualifiedMetrics.calculationEvidence.breakEven.status, 'AUTHORITATIVE')
+assert.ok(Number.isFinite(qualifiedMetrics.monthlyBreakEvenRevenue))
+const qualifiedTarget = deriveRollingDriverTarget({
+  shifts: qualifiedSnapshot.shifts,
+  trips: qualifiedSnapshot.trips,
+  driverTargets: qualifiedSnapshot.driverTargets,
+  from: range.from,
+  to: range.to,
+  applicableBreakEven: qualifiedMetrics.monthlyBreakEvenRevenue,
+})
+assert.equal(qualifiedTarget.available, true)
+assert.equal(qualifiedTarget.evidence.status, 'AUTHORITATIVE')
+assert.ok(Number.isFinite(qualifiedTarget.currentDailyTarget))
+
 console.log('September break-even → target dependency contract: PASS')
