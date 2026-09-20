@@ -11,6 +11,7 @@ import { BackupService } from '../backup/backupService.js'
 import { MovementAccountingService, routeTrace } from '../../domain/movement/movementAccounting.js'
 import { ValhallaRoutingAdapter } from '../../infrastructure/location/valhallaRoutingAdapter.js'
 import { calculateTraceDistanceKm } from '../../infrastructure/location/movementTraceService.js'
+import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
 
 const checkpoint = () => BackupService.requestLocalBackupCheckpoint()
 
@@ -102,6 +103,9 @@ export const WorkService = Object.freeze({
         }
       }
     }
+    completionData.revenueReconciliation = reconcileShiftRevenue({ shiftRevenue: completionData.revenue, trips: active.shift?.id ? await ShiftTripRepository.getTripsForShift(active.shift.id) : [], toll: completionData.toll, parking: completionData.parking, tollParkingRevenueTreatment: completionData.tollParkingRevenueTreatment })
+    if (completionData.revenueReconciliation.reconciliationStatus === 'MISMATCH') return { ok: false, reason: 'SHIFT_REVENUE_TRIP_RECONCILIATION_MISMATCH', reconciliation: completionData.revenueReconciliation }
+    if (completionData.revenueReconciliation.reconciliationStatus === 'UNAVAILABLE' && completionData.revenueReconciliation.reason !== 'NO_COMPLETED_TRIPS') return { ok: false, reason: completionData.revenueReconciliation.reason, reconciliation: completionData.revenueReconciliation }
     const result = await completeEndShift(completionData); checkpoint(); return result
   },
   async recordFuel(data) { const result = await recordFuelEntry(data); checkpoint(); return result },
