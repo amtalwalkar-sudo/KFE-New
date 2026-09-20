@@ -10,11 +10,17 @@ export const authoritativeShiftRevenue = (shifts, range) => live(shifts)
   .filter(shift => inRange(shift.shiftEndAt || shift.shiftStartAt, range))
   .reduce((total, shift) => total + amount(shift.revenue), 0)
 
-export const authoritativeShiftRevenueByMonth = shifts => {
+/**
+ * Returns authoritative shift-end revenue by IST month.
+ * When asOf is supplied, the current/historical view is bounded by that
+ * timestamp so future shifts cannot change a reconstructed target or report.
+ */
+export const authoritativeShiftRevenueByMonth = (shifts, asOf = null) => {
+  const boundary = dateOf(asOf)
   const result = new Map()
   for (const shift of live(shifts)) {
     const date = dateOf(shift.shiftEndAt || shift.shiftStartAt)
-    if (!date) continue
+    if (!date || (boundary && date > boundary)) continue
     const month = istMonthKey(date)
     result.set(month, (result.get(month) || 0) + amount(shift.revenue))
   }
