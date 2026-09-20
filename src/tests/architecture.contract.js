@@ -34,10 +34,14 @@ if (fs.existsSync(appPath)) {
 
 const legacyPaths = ['views/DashboardView.vue','stores/workCycle.js','stores/performanceStore.js','stores/records.js','stores/recordsStore.js','usecases']
 for (const relativePath of legacyPaths) if (fs.existsSync(path.join(root, relativePath))) violations.push(`Legacy duplicate path still exists: ${relativePath}`)
+
 const obsoleteAndroidPaths = ['android/app/src/main/java/com/kanishka/pwa/FloatingWidgetService.java','android/app/src/main/res/layout/layout_floating_widget.xml']
 for (const relativePath of obsoleteAndroidPaths) if (fs.existsSync(path.join(projectRoot, relativePath))) violations.push(`Obsolete floating widget artifact still exists: ${relativePath}`)
 const manifestPath = path.join(projectRoot, 'android/app/src/main/AndroidManifest.xml')
-if (fs.existsSync(manifestPath)) { const manifest = fs.readFileSync(manifestPath, 'utf8'); if (/SYSTEM_ALERT_WINDOW|FloatingWidgetService/.test(manifest)) violations.push('Android manifest still grants or registers the obsolete floating widget overlay.') }
+if (fs.existsSync(manifestPath)) {
+  const manifest = fs.readFileSync(manifestPath, 'utf8')
+  if (/FloatingWidgetService/.test(manifest)) violations.push('Android manifest still registers the obsolete floating widget overlay.')
+}
 
 const obsoleteFiles = [
   'application/shell/shellService.js',

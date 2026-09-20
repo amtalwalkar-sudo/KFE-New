@@ -10,6 +10,7 @@ import { createBackupConfigAdapter } from './infrastructure/backup/backupConfigA
 import { createCloudBackupScheduler } from './infrastructure/backup/cloudBackupScheduler.js'
 import { captureCurrentLocation } from './infrastructure/location/currentLocation.js'
 import { PlatformStartup } from './infrastructure/startup/platformStartup.js'
+import { configureAndroidOverlayLifecycle } from './infrastructure/android/androidOverlayLifecycle.js'
 import './styles/kfe-ui.css'
 import './styles/work-cockpit-hud.css'
 import { startKfeThemeController } from './services/kfeThemeController.js'
@@ -31,6 +32,7 @@ BackupConfig.configureBackupConfig(createBackupConfigAdapter())
 CloudBackupLifecycle.configureCloudBackupScheduler(createCloudBackupScheduler())
 configureLocationProvider(captureCurrentLocation)
 StartupService.configureStartupPlatform(PlatformStartup)
+configureAndroidOverlayLifecycle()
 
 let startupError = null
 try {
