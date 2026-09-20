@@ -75,7 +75,7 @@ const accept = point => {
   if (point.accuracy != null && point.accuracy > 100) return false
   const previous = points.at(-1)
   if (previous?.capturedAt === point.capturedAt) return false
-  points = [...points, point]
+  points.push(point)
   lastAcceptedAt = now
   void persist(point)
   active.onPoint?.(point, points.length)
@@ -98,7 +98,7 @@ const captureBoundary = () => new Promise(resolve => {
     if (point && (!point.accuracy || point.accuracy <= 100)) {
       const previous = points.at(-1)
       if (previous?.capturedAt !== point.capturedAt) {
-        points = [...points, point]
+        points.push(point)
         lastAcceptedAt = Date.now()
         void persist(point)
         active?.onPoint?.(point, points.length, calculateTraceDistanceKm(points))
@@ -151,7 +151,7 @@ export const MovementTraceService = {
   reset() {
     traceGeneration += 1
     clearWatch()
-    points = []
+    points.length = 0
     lastAcceptedAt = 0
     active = null
     lastPersistenceError = null
