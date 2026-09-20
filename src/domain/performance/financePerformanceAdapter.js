@@ -1,4 +1,5 @@
-import { derivePerformance as legacyDerivePerformance, previousRange as derivePreviousRange } from './performanceEngineV2.js'
+import { derivePerformance as deriveOperationalPerformance, previousRange as derivePreviousRange } from './performanceEngineV2.js'
+import { CALCULATION_STATUS } from './calculationAuthority.js'
 import { deriveAuthoritativeBreakEven } from './authoritativeBreakEven.js'
 import { deriveLoanPosition, calculatePreBusinessRecovery } from '../finance/loanEngine.js'
 import { istMonthRange } from '../time/ist.js'
@@ -14,7 +15,7 @@ const asOf = range => dateOf(range?.to) || new Date()
 const inRange = (value, range) => { const date = dateOf(value); return !!date && date >= range.from && date <= range.to }
 
 export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
-  const base = legacyDerivePerformance(snapshot, range, previousPeriod)
+  const base = deriveOperationalPerformance(snapshot, range, previousPeriod)
   const currentAsOf = asOf(range)
   const previousAsOf = asOf(previousPeriod)
   const loanRecords = live(snapshot?.loans)
@@ -52,7 +53,7 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
     : 0
 
   const breakEvenMonthRange = istMonthRange(range?.to) || range
-  const monthlyBase = legacyDerivePerformance(snapshot, breakEvenMonthRange, derivePreviousRange(breakEvenMonthRange))
+  const monthlyBase = deriveOperationalPerformance(snapshot, breakEvenMonthRange, derivePreviousRange(breakEvenMonthRange))
   const monthAsOf = asOf(breakEvenMonthRange)
   const monthFinance = activeLoan
     ? deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: monthAsOf })
@@ -71,6 +72,7 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
     loanScheduledObligation: monthScheduledEmi + monthPreBusinessRecovery,
     renewalProvision: monthlyBase.renewalProvision,
     fuelCostPerKm: monthlyBase.breakEvenInputs?.fuelCostPerKm ?? monthlyBase.fuelCostPerKm,
+    fuelCostPerKmStatus: monthlyBase.breakEvenInputs?.fuelEvidence?.status || CALCULATION_STATUS.UNAVAILABLE,
     vehicleKm: monthlyBase.vehicleKm,
   })
   const monthlyBreakEvenRevenue = breakEven.available ? breakEven.monthlyBreakEvenRevenue : NaN
@@ -98,7 +100,9 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
       ...(base.breakEvenInputs || {}),
       fixedCosts: breakEven.fixedCosts,
       preBusinessRecoveryMonthly: monthPreBusinessRecovery,
-      fuelCostPerKm: breakEven.fuelCostPerKm,
+      fuelCostPerKm: breakEven.fuelCostPerKm ?? base.breakEvenInputs?.fuelCostPerKm,
+      fuelCostPerKmSource: base.breakEvenInputs?.fuelCostPerKmSource || null,
+      fuelEvidence: base.breakEvenInputs?.fuelEvidence || null,
     },
     finance: {
       ...(finance || {}),
@@ -116,13 +120,20 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
     authority: {
       ...(base.authority || {}),
       loan: 'CANONICAL_FINANCE_LOAN_ENGINE',
-      breakEven: breakEven.available ? 'AUTHORITATIVE_MONTHLY_BREAK_EVEN' : base.authority?.breakEven,
+      breakEven: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN',
       breakEvenTrace: breakEven.trace || null,
     },
     completeness: {
       ...(base.completeness || {}),
       loan: !!finance?.available,
       breakEven: breakEven.available,
+    },
+    calculationEvidence: {
+      fuelCostPerKm: base.breakEvenInputs?.fuelEvidence || null,
+      breakEven: breakEven.evidence || null,
+    },
+    indicative: {
+      monthlyBreakEvenRevenue: breakEven.indicativeMonthlyBreakEvenRevenue ?? null,
     },
     breakEvenTrace: breakEven.trace || null,
   }
