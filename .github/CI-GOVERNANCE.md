@@ -4,9 +4,9 @@
 
 KFE uses one canonical CI workflow: **KFE 2.0 single CI**.
 
-- Pull requests run the targeted fast checks appropriate to the changed paths.
+- Pull requests run the complete canonical validation path without deployment.
 - Pushes to `main` run the complete validation and production-publish path.
-- A manual `full` dispatch can run the complete validation path when explicitly requested.
+- A manual dispatch can run the complete validation path without deployment.
 - There is no separate incremental workflow and no duplicate certification workflow. All required validation belongs to the canonical workflow.
 
 ## Non-negotiable rule
