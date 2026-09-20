@@ -19,7 +19,7 @@ export const ActivityDetectionService = {
     listener = (event) => {
       if (!movementDetectedFromDeviceMotion(event)) return
       const now = Date.now()
-      if (now - lastMotionAt < 1500) return
+      if (now - lastMotionAt < 4000) return
       lastMotionAt = now
       onMovement?.({ detectedAt: new Date(now).toISOString(), source: 'device-motion' })
     }
