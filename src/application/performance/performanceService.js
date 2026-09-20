@@ -113,7 +113,6 @@ export const PerformanceService = Object.freeze({
       driverTargetAllocatedBeforeCurrentDay: stabilization.targetAllocatedBeforeCurrentDay,
       driverTargetRemainingObligation: stabilization.remainingObligation,
       driverTargetDesiredProfitMonthly: desiredDriverProfitMonthly,
-      driverTargetDesiredProfitDaily: desiredDriverProfitDaily,
       dailyBreakEven: {
         status: dailyBreakEvenEvidence?.status || 'UNAVAILABLE',
         source: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN_ALLOCATED_OVER_REMAINING_ELIGIBLE_DAYS',
