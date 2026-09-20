@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { WorkService } from '../application/work/workService.js'
-import { MovementTraceService } from '../services/movementTraceService.js'
+import { MovementTraceService } from '../infrastructure/location/movementTraceService.js'
 
 export const useShiftTripStore = defineStore('shiftTrip', () => {
   const shift = ref(null)
