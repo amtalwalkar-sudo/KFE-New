@@ -31,7 +31,6 @@ const cloneForForm=value=>structuredClone(toRaw(value))
 const all=ref({vehicle:[],driver:[],loan:[]})
 const loanReadModel=ref({loans:[]})
 const performanceSnapshot=ref(null)
-const breakEvenPreview=ref(null)
 const currentGroup=computed(()=>groups.find(g=>g.forms.includes(selected.value))||groups[0])
 const baseDefinition=computed(()=>ADMIN_FORM_DEFINITIONS[selected.value])
 const activeDefinition=computed(()=>{const d=cloneForForm(baseDefinition.value);for(const f of d.fields){if(f.key==='vehicleId')f.options=all.value.vehicle.map(x=>x.id);if(f.key==='driverId')f.options=all.value.driver.map(x=>x.id);if(f.key==='loanId')f.options=all.value.loan.map(x=>x.id)}return d})
@@ -48,7 +47,7 @@ function chooseSetting(key){settingsSelected.value=key;error.value='';notice.val
 function chooseTheme(mode){themeSettings.value={...themeSettings.value,mode};setKfeThemeMode(mode);notice.value=`Theme set to ${mode==='light'?'Light':mode==='dark'?'Dark':'Auto'}.`}
 function add(){editing.value=null;draft.value={};formOpen.value=true}
 function edit(record){editing.value=record.id;draft.value=cloneForForm(record.values||{});formOpen.value=true}
-const breakEvenPreviewMetrics=computed(()=>{if(selected.value!=='breakEvenInputs'||!performanceSnapshot.value)return null;const now=getKfeReferenceNow();return PerformanceService.getMetrics(performanceSnapshot.value,{from:new Date(now.getFullYear(),now.getMonth(),1),to:now})})
+const breakEvenPreviewMetrics=computed(()=>{if(selected.value!=='breakEvenInputs'||!performanceSnapshot.value)return null;const now=getKfeReferenceNow();const monthRange=new Date(now);const start=new Date(monthRange.getTime());start.setUTCDate(1);return PerformanceService.getMetrics(performanceSnapshot.value,{from:start,to:now})})
 const previewRows=computed(()=>{const m=breakEvenPreviewMetrics.value;if(!m)return [];return [['Monthly break-even',money(m.monthlyBreakEvenRevenue)],['Fixed costs',money(m.breakEvenInputs?.fixedCosts)],['Fuel cost / km',Number.isFinite(Number(m.breakEvenInputs?.fuelCostPerKm))?`₹${Number(m.breakEvenInputs.fuelCostPerKm).toFixed(2)}`:'—'],['Vehicle km',Number.isFinite(Number(m.vehicleKm))?`${Number(m.vehicleKm).toLocaleString('en-IN',{maximumFractionDigits:1})} km`:'—'],['Maintenance provision / km',Number.isFinite(Number(m.breakEvenInputs?.maintenanceProvisionPerKm))?`₹${Number(m.breakEvenInputs.maintenanceProvisionPerKm).toFixed(2)}`:'—']]})
 async function save(values){loading.value=true;error.value='';notice.value='';try{const id=editing.value;await AdminService.save(selected.value,values,id);notice.value=id!==null?'Record updated successfully.':`${baseDefinition.value?.createLabel||baseDefinition.value?.title||'Record'} created successfully.`;editing.value=null;draft.value={};formOpen.value=false;await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Save failed.'}finally{loading.value=false}}
 async function remove(record){if(!confirm('Delete this source record? Related records may prevent deletion.'))return;loading.value=true;error.value='';try{await AdminService.remove(selected.value,record.id);notice.value='Record deleted.';await load()}catch(e){error.value=e.message||'Delete failed.'}finally{loading.value=false}}
