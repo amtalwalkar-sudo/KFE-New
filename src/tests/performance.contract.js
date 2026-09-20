@@ -9,10 +9,10 @@ const snapshot = {
   trips: [{ id:'t1', status:'COMPLETED', tripStartAt:'2026-09-10T09:00:00Z', tripEndAt:'2026-09-10T12:00:00Z', tripKm:150, revenue:9999 }],
   shifts: [{ id:'s1', shiftStartAt:'2026-09-10T08:00:00Z', shiftEndAt:'2026-09-10T18:00:00Z', startOdometer:1000, endOdometer:1200, toll:100, parking:50, revenue:1000 }],
   fuelLogs: [
-    { capturedAt:'2026-09-04T18:00:00Z', odometer:600, quantityKg:10, amount:2000 },
-    { capturedAt:'2026-09-05T18:00:00Z', odometer:800, quantityKg:10, amount:2000 },
-    { capturedAt:'2026-09-06T18:00:00Z', odometer:1000, quantityKg:10, amount:2000 },
-    { capturedAt:'2026-09-10T18:00:00Z', odometer:1200, quantityKg:10, amount:2200 },
+    { capturedAt:'2026-09-04T18:00:00Z', odometer:600, quantityKg:10, amount:2000, isFullTank: true, vehicleId: 'v1' },
+    { capturedAt:'2026-09-05T18:00:00Z', odometer:800, quantityKg:10, amount:2000, isFullTank: true, vehicleId: 'v1' },
+    { capturedAt:'2026-09-06T18:00:00Z', odometer:1000, quantityKg:10, amount:2000, isFullTank: true, vehicleId: 'v1' },
+    { capturedAt:'2026-09-10T18:00:00Z', odometer:1200, quantityKg:10, amount:2200, isFullTank: true, vehicleId: 'v1' },
   ],
   maintenance: [{ performedOn:'2026-09-10', cost:300 }],
   loan: { id:'loan1', principal:550000, annualInterestRate:10, tenureYears:5, startDate:'2026-09-01' },
@@ -74,9 +74,9 @@ const historicalBaseSnapshot = {
     ...snapshot.trips,
   ],
   fuelLogs: [
-    { capturedAt:'2026-08-01T18:00:00Z', odometer:400, quantityKg:10, amount:2000 },
-    { capturedAt:'2026-08-03T18:00:00Z', odometer:600, quantityKg:10, amount:2000 },
-    { capturedAt:'2026-08-05T18:00:00Z', odometer:800, quantityKg:10, amount:2000 },
+    { capturedAt:'2026-08-01T18:00:00Z', odometer:400, quantityKg:10, amount:2000, isFullTank: true, vehicleId: 'v1' },
+    { capturedAt:'2026-08-03T18:00:00Z', odometer:600, quantityKg:10, amount:2000, isFullTank: true, vehicleId: 'v1' },
+    { capturedAt:'2026-08-05T18:00:00Z', odometer:800, quantityKg:10, amount:2000, isFullTank: true, vehicleId: 'v1' },
     ...snapshot.fuelLogs,
   ],
   breakEvenInputs: [

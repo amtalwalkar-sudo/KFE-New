@@ -39,7 +39,7 @@ Every derived business calculation that can be provisional must expose an explic
 
 The critical rule is: **an authoritative result may consume only authoritative dependencies**. A provisional/indicative input can produce an indicative result, but it cannot silently promote that result to authoritative.
 
-For fuel, a qualified full-tank interval is authoritative. An observed-period spend/KM fallback is indicative. Therefore an observed-period fuel rate may produce an indicative break-even candidate, but it cannot produce an authoritative monthly break-even or authoritative Driver Target.
+For fuel, a qualified full-tank interval is authoritative only when the fuel record has explicit `isFullTank === true`, a valid timestamp, valid non-negative odometer, positive amount, and a stable `vehicleId` shared by both endpoints of the interval. An observed-period spend/KM fallback is indicative. Therefore an observed-period fuel rate may produce an indicative break-even candidate, but it cannot produce an authoritative monthly break-even or authoritative Driver Target. Missing full-tank confirmation or vehicle association never silently qualifies a record.
 
 
 ## Authority matrix
@@ -59,8 +59,8 @@ For fuel, a qualified full-tank interval is authoritative. An observed-period sp
 | Parking | `shifts.parking` | `parking` | `performanceEngineV2` | ₹ / selected reporting period | Display only |
 | Operating cost | actual cost components | `runningCost` | `performanceEngineV2` | ₹ / selected reporting period | Display only |
 | Operating profit | revenue − actual operating cost | `operatingProfit` | `performanceEngineV2` | ₹ / selected reporting period | Display only |
-| Financing obligation | `loans` + schedule | `loanScheduledObligation` | loan calculation inside performance domain | ₹ / selected period | Display only |
-| Actual financing outflow | `loan_payments` + applied `prepayments` | `actualFinancingOutflow` | loan calculation inside performance domain | ₹ / selected period | Display only |
+| Financing obligation | `loans` + schedule | `loanScheduledObligation` | canonical `loanEngine` via `financePerformanceAdapter` | ₹ / selected period | Display only |
+| Actual financing outflow | `loan_payments` + applied `prepayments` | `actualFinancingOutflow` | canonical `loanEngine` via `financePerformanceAdapter` | ₹ / selected period | Display only |
 | Renewal provision | `compliance_records` validity/cost | `renewalProvision` | renewal calculation inside performance domain | ₹ / selected period | Display only |
 | **Monthly break-even** | `break_even_inputs` + canonical monthly cost inputs | `monthlyBreakEvenRevenue` + evidence status | `deriveAuthoritativeBreakEven` | ₹ / calendar month | Never recalculate in UI |
 | Daily break-even allocation | authoritative monthly BE representation | `dailyBreakEvenRevenue` / `dailyBreakEven.total` + evidence status | performance service | ₹ / remaining eligible financial day | Representation only; never a second formula/authority |
@@ -127,7 +127,7 @@ This invalidation path is implemented for the current canonical admin, shift/tri
 
 ## Audit status
 
-This revision deliberately removes duplicate break-even orchestration from `performanceEngineV2`. `financePerformanceAdapter` is the sole application-facing orchestrator that combines canonical finance inputs with `deriveAuthoritativeBreakEven`. The base engine supplies operational observations and fuel evidence only; it does not create a second break-even authority.
+This revision deliberately removes duplicate break-even orchestration from `performanceEngineV2`. `financePerformanceAdapter` is the sole application-facing orchestrator that combines canonical finance inputs with `deriveAuthoritativeBreakEven`, and canonical `loanEngine` is the sole loan/financing calculation authority. The base engine supplies operational observations and fuel evidence only; it does not calculate loan schedules, financing outflow, or a second break-even authority. Fuel authority is evidence-qualified rather than inferred from missing flags.
 
 
 This artifact is the working source for the authority audit. It records repository-level CI verification as completed while explicitly leaving local Termux/device execution outside the GitHub-side claim. It must be updated whenever code/specification findings change the ownership, period, unit, or canonical field of a calculation.
