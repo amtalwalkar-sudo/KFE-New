@@ -1,6 +1,7 @@
 const CANONICAL_DB_NAME = 'kanishka_kfe_canonical_db'
 const SYNTHETIC_DB_NAME = 'kanishka_kfe_synthetic_db'
 const CANONICAL_DB_VERSION = 11
+const SYNTHETIC_DB_VERSION = 11
 const DATA_SOURCE_KEY = 'kfe:active-data-source'
 const DATA_SOURCE_CHANGE_EVENT = 'kfe:data-source-changed'
 const CANONICAL_DB_CHANGE_EVENT = 'kfe:canonical-data-changed'
@@ -45,8 +46,10 @@ const getActiveSource = () => typeof sessionStorage === 'undefined' ? 'canonical
 // The default storage API follows the active data source. The explicitly named
 // openCanonicalDB API is reserved for canonical-only synchronization work.
 const dbNameFor = source => source === 'synthetic' ? SYNTHETIC_DB_NAME : CANONICAL_DB_NAME
+const dbVersionFor = name => name === SYNTHETIC_DB_NAME ? SYNTHETIC_DB_VERSION : CANONICAL_DB_VERSION
+
 const openDatabase = name => new Promise((resolve, reject) => {
-  const request = name === CANONICAL_DB_NAME ? indexedDB.open(CANONICAL_DB_NAME, CANONICAL_DB_VERSION) : indexedDB.open(name, CANONICAL_DB_VERSION)
+  const request = indexedDB.open(name, dbVersionFor(name))
   request.onupgradeneeded = e => {
     const db = e.target.result
     if (!db.objectStoreNames.contains('shifts')) { const store = db.createObjectStore('shifts', { keyPath: 'id' }); store.createIndex('shiftEndAt', 'shiftEndAt', { unique: false }) }
@@ -66,8 +69,17 @@ const openDatabase = name => new Promise((resolve, reject) => {
     if (db.objectStoreNames.contains('admin_records')) db.deleteObjectStore('admin_records')
     if (db.objectStoreNames.contains('financial_inputs')) db.deleteObjectStore('financial_inputs')
   }
-  request.onsuccess = () => { const dbInstance = request.result; dbInstance.onversionchange = () => { dbInstance.close(); dbInstances.delete(name); initializationPromises.delete(name) }; resolve(dbInstance) }
+  request.onsuccess = () => {
+    const dbInstance = request.result
+    dbInstance.onversionchange = () => {
+      dbInstance.close()
+      dbInstances.delete(name)
+      initializationPromises.delete(name)
+    }
+    resolve(dbInstance)
+  }
   request.onerror = () => reject(request.error || new Error('KFE database could not be opened.'))
+  request.onblocked = () => reject(new Error(`KFE database upgrade is blocked for ${name}. Close other KFE tabs and retry.`))
 })
 const initializeDatabase = async name => {
   if (dbInstances.has(name)) return dbInstances.get(name)
@@ -106,4 +118,4 @@ export const getLastOdometer = async () => {
   })
 }
 
-export { CANONICAL_DB_NAME, SYNTHETIC_DB_NAME, CANONICAL_DB_VERSION, CANONICAL_DB_CHANGE_EVENT, CANONICAL_DB_CHANNEL, DATA_SOURCE_KEY, DATA_SOURCE_CHANGE_EVENT }
+export { CANONICAL_DB_NAME, SYNTHETIC_DB_NAME, CANONICAL_DB_VERSION, SYNTHETIC_DB_VERSION, CANONICAL_DB_CHANGE_EVENT, CANONICAL_DB_CHANNEL, DATA_SOURCE_KEY, DATA_SOURCE_CHANGE_EVENT }

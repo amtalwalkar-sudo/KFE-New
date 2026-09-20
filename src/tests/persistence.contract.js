@@ -17,7 +17,7 @@ console.log('--- Running KFE Phase 2 Local-First Persistence Contract Tests ---'
 
 assert(db.includes("const CANONICAL_DB_NAME = 'kanishka_kfe_canonical_db'"), 'Canonical local DB missing')
 assert(/CANONICAL_DB_VERSION\s*=\s*\d+/.test(db), 'Versioned schema missing')
-assert(db.includes('indexedDB.open(CANONICAL_DB_NAME, CANONICAL_DB_VERSION)'), 'Versioned IndexedDB open missing')
+assert(db.includes('indexedDB.open(name, dbVersionFor(name))'), 'Versioned IndexedDB open missing')
 assert(db.includes('onupgradeneeded'), 'Migration hook missing')
 assert(db.includes('initializationPromise'), 'Initialization guard missing')
 assert(db.includes('dbInstance.onversionchange'), 'Version-change lifecycle handling missing')
