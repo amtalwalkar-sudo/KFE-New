@@ -69,7 +69,7 @@ public class KfeOverlayService extends Service {
 
   @Override
   public int onStartCommand(Intent intent, int flags, int startId) {
-    if (intent == null) return START_STICKY;
+    if (intent == null) return START_NOT_STICKY;
     String action = intent.getAction();
     if (ACTION_HIDE.equals(action)) {
       removeOverlay();
@@ -88,7 +88,7 @@ public class KfeOverlayService extends Service {
       ensureOverlay();
       applyState(intent.getStringExtra(EXTRA_STATE));
     }
-    return START_STICKY;
+    return START_NOT_STICKY;
   }
 
   private void ensureOverlay() {

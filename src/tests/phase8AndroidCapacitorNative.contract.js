@@ -1,0 +1,56 @@
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+
+const manifest = fs.readFileSync('android/app/src/main/AndroidManifest.xml', 'utf8')
+const mainActivity = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/MainActivity.java', 'utf8')
+const overlay = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java', 'utf8')
+const overlayPlugin = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeOverlayPlugin.java', 'utf8')
+const notifications = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeRideNotificationsPlugin.java', 'utf8')
+const receiver = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeRideNotificationReceiver.java', 'utf8')
+const secureStorage = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeSecureStoragePlugin.java', 'utf8')
+const gradle = fs.readFileSync('android/app/build.gradle', 'utf8')
+
+assert.match(mainActivity, /extends BridgeActivity/)
+assert.match(mainActivity, /registerPlugin\(KfeSecureStoragePlugin\.class\)/)
+assert.match(mainActivity, /registerPlugin\(KfeRideNotificationsPlugin\.class\)/)
+assert.match(mainActivity, /registerPlugin\(KfeOverlayPlugin\.class\)/)
+
+assert.match(manifest, /android\.permission\.FOREGROUND_SERVICE/)
+assert.match(manifest, /android\.permission\.FOREGROUND_SERVICE_LOCATION/)
+assert.match(manifest, /android\.permission\.FOREGROUND_SERVICE_SPECIAL_USE/)
+assert.match(manifest, /android\.permission\.ACCESS_COARSE_LOCATION/)
+assert.match(manifest, /android\.permission\.ACCESS_FINE_LOCATION/)
+assert.match(manifest, /android\.permission\.ACCESS_BACKGROUND_LOCATION/)
+assert.match(manifest, /android\.permission\.SYSTEM_ALERT_WINDOW/)
+assert.match(manifest, /AndroidForegroundService/)
+assert.match(manifest, /\.KfeOverlayService/)
+assert.match(manifest, /foregroundServiceType="location"/)
+assert.match(manifest, /foregroundServiceType="specialUse"/)
+
+assert.match(gradle, /implementation project\(':capacitor-android'\)/)
+assert.match(gradle, /implementation project\(':capacitor-local-notifications'\)/)
+assert.match(gradle, /implementation project\(':capawesome-team-capacitor-android-foreground-service'\)/)
+
+assert.match(overlayPlugin, /Settings\.canDrawOverlays/)
+assert.match(overlayPlugin, /ACTION_MANAGE_OVERLAY_PERMISSION/)
+assert.match(overlay, /ContextCompat\.startForegroundService/)
+assert.match(overlay, /TYPE_APPLICATION_OVERLAY/)
+assert.match(overlay, /START_NOT_STICKY/)
+assert.doesNotMatch(overlay, /if \(intent == null\) return START_STICKY/)
+
+assert.match(notifications, /static void showNotification\(Context context/)
+assert.match(receiver, /KfeRideNotificationsPlugin\.showNotification\(context/)
+assert.match(receiver, /KfeRideNotificationsPlugin\.recordPendingAction\(context/)
+assert.match(notifications, /getPendingAction/)
+assert.match(notifications, /clearPendingAction/)
+assert.doesNotMatch(receiver, /KfeRideNotificationsPlugin\.instance\.showNotification/)
+assert.match(notifications, /FLAG_IMMUTABLE/)
+assert.match(notifications, /FLAG_MUTABLE/)
+assert.match(notifications, /setAndAllowWhileIdle/)
+assert.match(notifications, /setExactAndAllowWhileIdle/)
+
+assert.match(secureStorage, /AndroidKeyStore/)
+assert.match(secureStorage, /AES\/GCM\/NoPadding/)
+assert.match(secureStorage, /PURPOSE_ENCRYPT \| android\.security\.keystore\.KeyProperties\.PURPOSE_DECRYPT/)
+
+console.log('KFE Phase 8 Android/Capacitor native architecture contract: PASS')
