@@ -8,7 +8,6 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
-import android.os.Bundle;
 
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.RemoteInput;
@@ -23,6 +22,8 @@ public class KfeRideNotificationsPlugin extends Plugin {
   static KfeRideNotificationsPlugin instance;
   static final String CHANNEL_ID = "kfe_ride_actions";
   static final int NOTIFICATION_ID = 4101;
+  private static final String PREFS = "kfe_ride_notification_events";
+  private static final String PENDING_KEY = "pending";
 
   @Override
   public void load() {
@@ -46,7 +47,7 @@ public class KfeRideNotificationsPlugin extends Plugin {
 
   @com.getcapacitor.PluginMethod
   public void show(PluginCall call) {
-    showNotification(call.getString("stage", "GO_TO_PICKUP"), call.getString("tripId", ""));
+    showNotification(getContext(), call.getString("stage", "GO_TO_PICKUP"), call.getString("tripId", ""));
     call.resolve();
   }
 
@@ -80,7 +81,7 @@ public class KfeRideNotificationsPlugin extends Plugin {
 
   @com.getcapacitor.PluginMethod
   public void cancel(PluginCall call) {
-    cancelNotification();
+    cancelNotification(getContext());
     call.resolve();
   }
 
@@ -102,9 +103,7 @@ public class KfeRideNotificationsPlugin extends Plugin {
     call.resolve();
   }
 
-  static void showNotification(String stage, String tripId) {
-    if (instance == null) return;
-    Context context = instance.getContext();
+  static void showNotification(Context context, String stage, String tripId) {
     NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
     if (manager == null) return;
 
@@ -180,9 +179,8 @@ public class KfeRideNotificationsPlugin extends Plugin {
     manager.notify(NOTIFICATION_ID, notification);
   }
 
-  static void cancelNotification() {
-    if (instance == null) return;
-    NotificationManager manager = (NotificationManager) instance.getContext().getSystemService(Context.NOTIFICATION_SERVICE);
+  static void cancelNotification(Context context) {
+    NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
     if (manager != null) manager.cancel(NOTIFICATION_ID);
   }
 
@@ -193,6 +191,25 @@ public class KfeRideNotificationsPlugin extends Plugin {
     data.put("tripId", tripId);
     if (input != null) data.put("input", input);
     instance.notifyListeners("rideNotificationAction", data);
+  }
+
+  @com.getcapacitor.PluginMethod
+  public void getPendingAction(PluginCall call) {
+    String pending = getContext().getSharedPreferences(PREFS, 0).getString(PENDING_KEY, "");
+    JSObject result = new JSObject();
+    result.put("pending", pending);
+    call.resolve(result);
+  }
+
+  @com.getcapacitor.PluginMethod
+  public void clearPendingAction(PluginCall call) {
+    getContext().getSharedPreferences(PREFS, 0).edit().remove(PENDING_KEY).apply();
+    call.resolve();
+  }
+
+  static void recordPendingAction(Context context, String stage, String tripId, String input) {
+    String packed = stage + "|" + (tripId == null ? "" : tripId) + "|" + (input == null ? "" : input);
+    context.getSharedPreferences(PREFS, 0).edit().putString(PENDING_KEY, packed).apply();
   }
 
   private void createChannel() {
