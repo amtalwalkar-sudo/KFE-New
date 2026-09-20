@@ -76,10 +76,6 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
   const start = dateOf(from), end = dateOf(to)
   if (!start || !end || end < start) return failure('INVALID_PERIOD')
 
-  // The selected calculation end is the as-of boundary. Future operational
-  // records must never affect current or historical target reconstruction.
-  // Target participation is day-based, so the inclusive end date owns the full
-  // IST calendar day even when callers supply midnight timestamps.
   const endDayKey = keyOf(end)
   const completed = live(trips).filter(x => {
     if (x.status !== 'COMPLETED') return false
@@ -87,7 +83,7 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     const tripDayKey = tripDate ? keyOf(tripDate) : null
     return tripDayKey && tripDayKey <= endDayKey
   })
-  const revenueByMonth = authoritativeShiftRevenueByMonth(shifts)
+  const revenueByMonth = authoritativeShiftRevenueByMonth(shifts, end)
   const financialDaysByMonth = new Map()
   for (const trip of completed) {
     const day = keyOf(trip.tripEndAt || trip.tripStartAt)
@@ -97,9 +93,6 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     financialDaysByMonth.get(month).add(day)
   }
 
-  // Driver Target is a calendar-month obligation. The caller's `from` may be a
-  // partial reporting range, but that must not truncate the target month before
-  // the selected as-of boundary. The end timestamp determines the target month.
   const targetMonth = monthKeyOf(end)
   const targetMonthStartKey = keyOf(monthBounds(targetMonth).from)
   const financialDayKeys = [...(financialDaysByMonth.get(targetMonth) || new Set())]
@@ -109,10 +102,6 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
 
   const currentDay = dayFromKey(financialDayKeys[financialDayKeys.length - 1])
   const currentMonth = targetMonth
-  // Only months represented by authoritative financial records participate in
-  // rolling historical balance. An effective-dated target beginning in the
-  // business-start month must not create phantom historical obligations when a
-  // synthetic stage intentionally contains only a recent window.
   const historicalMonths = [...new Set([...revenueByMonth.keys()])]
     .filter(month => month < currentMonth && monthBounds(month).from <= end)
     .sort()
@@ -138,10 +127,6 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
 
   const currentRecord = latestForDay(driverTargets, currentDay)
   if (!currentRecord) return failure('MISSING_AUTHORITATIVE_TARGET_INPUT', balance, financialDayKeys.length)
-
-  // The current month's monthly break-even is supplied by the service from the
-  // same authoritative performance result used elsewhere. There is deliberately
-  // no second applicable-break-even resolver for the current month.
   const baseMonthly = baseMonthlyFor(currentRecord, applicableBreakEven)
   if (baseMonthly == null) return failure('MISSING_AUTHORITATIVE_TARGET_INPUT', balance, financialDayKeys.length)
 
