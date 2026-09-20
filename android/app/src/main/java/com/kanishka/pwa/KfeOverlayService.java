@@ -20,6 +20,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.core.app.NotificationCompat;
+import androidx.core.content.ContextCompat;
 
 import org.json.JSONObject;
 
@@ -43,20 +44,20 @@ public class KfeOverlayService extends Service {
     Intent intent = new Intent(context, KfeOverlayService.class);
     intent.setAction(ACTION_SHOW);
     intent.putExtra(EXTRA_STATE, state == null ? "{}" : state);
-    startService(context, intent);
+    ContextCompat.startForegroundService(context, intent);
   }
 
   public static void update(Context context, String state) {
     Intent intent = new Intent(context, KfeOverlayService.class);
     intent.setAction(ACTION_UPDATE);
     intent.putExtra(EXTRA_STATE, state == null ? "{}" : state);
-    startService(context, intent);
+    ContextCompat.startForegroundService(context, intent);
   }
 
   public static void hide(Context context) {
     Intent intent = new Intent(context, KfeOverlayService.class);
     intent.setAction(ACTION_HIDE);
-    startService(context, intent);
+    context.startService(intent);
   }
 
   @Override
