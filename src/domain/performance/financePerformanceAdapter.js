@@ -108,6 +108,7 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
     breakEvenInputs: {
       ...(base.breakEvenInputs || {}),
       fixedCosts: breakEven.fixedCosts,
+      maintenanceProvisionPerKm: breakEven.maintenanceProvisionPerKm ?? base.breakEvenInputs?.maintenanceProvisionPerKm,
       preBusinessRecoveryMonthly: monthPreBusinessRecovery,
       fuelCostPerKm: breakEven.fuelCostPerKm ?? base.breakEvenInputs?.fuelCostPerKm,
       fuelCostPerKmSource: base.breakEvenInputs?.fuelCostPerKmSource || null,
