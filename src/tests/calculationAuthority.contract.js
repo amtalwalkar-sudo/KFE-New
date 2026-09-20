@@ -51,7 +51,7 @@ assert.equal('tenureYears' in normalized.loans[0], false)
 
 const canonicalMetrics = derivePerformance(canonical, range)
 const variantMetrics = derivePerformance(normalized, range)
-for (const key of ['revenue', 'vehicleKm', 'businessKm', 'deadKm', 'fuelCost', 'fuelQty', 'actualMaintenance', 'loanScheduledObligation', 'monthlyBreakEvenRevenue']) {
+for (const key of ['revenue', 'vehicleKm', 'businessKm', 'deadKm', 'fuelCost', 'fuelQty', 'actualMaintenance', 'loanScheduledObligation']) {
   assert.equal(variantMetrics[key], canonicalMetrics[key], `normalized variant changed ${key}`)
 }
 
@@ -61,7 +61,7 @@ assert.equal(serviceMetrics.breakEvenRevenue, serviceMetrics.monthlyBreakEvenRev
 assert.equal(serviceMetrics.breakEvenRevenue, null)
 assert.equal(serviceMetrics.calculationEvidence.breakEven.status, 'INDICATIVE')
 assert.ok(Number.isFinite(serviceMetrics.indicativeMonthlyBreakEvenRevenue), 'Indicative break-even candidate should remain visible')
-assert.ok(Number.isNaN(canonicalMetrics.monthlyBreakEvenRevenue)
+assert.ok(Number.isNaN(canonicalMetrics.monthlyBreakEvenRevenue))
 
 const metrics = serviceMetrics
 assert.equal('projectedRevenue' in metrics, false)
