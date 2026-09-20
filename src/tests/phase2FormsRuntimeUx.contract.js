@@ -1,0 +1,18 @@
+import fs from 'node:fs'
+import assert from 'node:assert/strict'
+const root=new URL('../',import.meta.url)
+const read=p=>fs.readFileSync(new URL(p,root),'utf8')
+const form=read('components/admin/UniversalAdminForm.vue')
+const admin=read('views/AdminView.vue')
+const rules=read('application/admin/universalFormRules.js')
+assert.ok(form.includes('optionValue(option)'),'Universal form must support value/label select options')
+assert.ok(form.includes('optionLabel(option)'),'Universal form must render human-readable select labels')
+assert.ok(form.includes("busy:{type:Boolean,default:false}"),'Universal form must expose a busy state')
+assert.ok(form.includes("{{busy?'Saving…':submitLabel}}"),'Universal form must communicate save progress')
+assert.ok(admin.includes(':busy="loading"'),'Admin form must lock controls while save is in flight')
+assert.ok(admin.includes("label('vehicle',x)"),'Vehicle relationship options must be human-readable')
+assert.ok(admin.includes("label('driver',x)"),'Driver relationship options must be human-readable')
+assert.ok(admin.includes("label('loan',x)"),'Loan relationship options must be human-readable')
+assert.ok(rules.includes("optionValue=option=>"),'Validation must support object select options')
+assert.ok(rules.includes("['true','1','yes','on']"),'Checkbox normalization must not treat string false as true')
+console.log('Phase 2 Runtime/UX Forms Contract: PASS')
