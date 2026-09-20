@@ -49,6 +49,7 @@ assert.equal(holiday.counts.activeFinancialDays, 0)
 
 const twoDays = {
   ...base,
+  trips: [...base.trips, { id:'t2', status:'COMPLETED', tripStartAt:'2026-09-11T09:00:00Z', tripEndAt:'2026-09-11T10:00:00Z', tripKm:80, revenue:500 }],
   shifts: [
     base.shifts[0],
     { id:'s2', shiftStartAt:'2026-09-11T08:00:00Z', shiftEndAt:'2026-09-11T18:00:00Z', startOdometer:1200, endOdometer:1300, toll:0, parking:0 },
