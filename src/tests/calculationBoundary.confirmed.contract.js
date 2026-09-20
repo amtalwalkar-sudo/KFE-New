@@ -29,7 +29,8 @@ const historical = derivePerformance(base, range)
 const futureFuel = { ...base, fuelLogs: [...base.fuelLogs, { capturedAt:'2026-09-11T18:00:00Z', odometer:1400, quantityKg:10, amount:10000 }] }
 const historicalWithFutureFuel = derivePerformance(futureFuel, range)
 assert.equal(historicalWithFutureFuel.fuelCostPerKm, historical.fuelCostPerKm)
-assert.equal(historicalWithFutureFuel.monthlyBreakEvenRevenue, historical.monthlyBreakEvenRevenue)
+const historicalServiceWithFutureFuel = PerformanceService.getMetrics(futureFuel, range)
+assert.equal(historicalServiceWithFutureFuel.monthlyBreakEvenRevenue, PerformanceService.getMetrics(base, range).monthlyBreakEvenRevenue)
 
 const futureOperational = { ...base, trips: [...base.trips, { id:'future', status:'COMPLETED', tripStartAt:'2026-09-11T09:00:00Z', tripEndAt:'2026-09-11T10:00:00Z', tripKm:500, revenue:99999 }] }
 const historicalWithFutureOperations = derivePerformance(futureOperational, range)
