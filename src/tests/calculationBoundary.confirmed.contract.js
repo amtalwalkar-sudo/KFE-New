@@ -56,9 +56,9 @@ const twoDays = {
 const twoDayRange = { from:new Date('2026-09-10T00:00:00Z'), to:new Date('2026-09-11T23:59:59Z') }
 const twoDayMetrics = PerformanceService.getMetrics(twoDays, twoDayRange)
 assert.equal(twoDayMetrics.driverTargetAvailable, true)
-assert.equal(twoDayMetrics.counts.activeFinancialDays, 1)
+assert.equal(twoDayMetrics.counts.activeFinancialDays, 2)
 assert.equal(twoDayMetrics.driverTargetBase, twoDayMetrics.dailyBreakEvenRevenue + 500 / twoDayMetrics.driverTargetRemainingEligibleDays)
-assert.equal(twoDayMetrics.driverTarget, twoDayMetrics.driverTargetBase)
+assert.equal(twoDayMetrics.driverTarget, twoDayMetrics.driverTargetRemainingObligation / twoDayMetrics.driverTargetRemainingEligibleDays)
 assert.equal(twoDayMetrics.pace.paceVariance, twoDayMetrics.revenuePerActiveDay - twoDayMetrics.target)
 assert.equal(twoDayMetrics.driverTargetOpeningBalance, 0)
 

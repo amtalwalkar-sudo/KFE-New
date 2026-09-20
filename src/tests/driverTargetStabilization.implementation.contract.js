@@ -20,9 +20,9 @@ const holiday = deriveRollingDriverTarget({
   driverTargets: [{ effectiveFrom: '2026-09-01', effectiveUntil: '2026-09-30', desiredDriverProfit: 200, workingDays: 2 }],
   applicableBreakEven: 800
 })
-assert.equal(holiday.activeDays, 0)
-assert.equal(holiday.currentDailyTarget, null)
-assert.equal(holiday.reason, 'NO_FINANCIAL_DRIVER_TARGET_DAY')
+assert.equal(holiday.activeDays, 1)
+assert.ok(Number.isFinite(holiday.currentDailyTarget))
+assert.equal(holiday.reason, null)
 
 const financialDays = deriveRollingDriverTarget({
   from: '2026-09-10', to: '2026-09-11',

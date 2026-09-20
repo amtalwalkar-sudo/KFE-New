@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict'
 import { getAdminFormDefinition } from '../application/admin/adminFormDefinitions.js'
+import { validateAdminForm } from '../application/admin/universalFormRules.js'
 
 const fields = key => new Set(getAdminFormDefinition(key).fields.map(field => field.key))
+const field = (key,name) => getAdminFormDefinition(key).fields.find(item => item.key===name)
 const required = (key, names) => { const available = fields(key); for (const name of names) assert.ok(available.has(name), `${key} is missing ERP input ${name}`) }
-const requiredField = (key, name) => assert.equal(getAdminFormDefinition(key).fields.find(field => field.key === name)?.required, true, `${key}.${name} must be required`)
+const requiredField = (key, name) => assert.equal(field(key,name)?.required, true, `${key}.${name} must be required`)
 
 required('vehicle', ['openingOdometerKm','fuelType','acquiredOn'])
 required('compliance', ['validFrom','validUntil','cost'])
@@ -22,5 +24,53 @@ assert.equal(getAdminFormDefinition('loan').calculationRole, 'authoritative')
 assert.equal(getAdminFormDefinition('loanPayment').calculationRole, 'authoritative-payment-record')
 assert.equal(getAdminFormDefinition('prepayment').calculationRole, 'authoritative-prepayment-record')
 assert.equal(getAdminFormDefinition('breakEvenInputs').calculationRole, 'authoritative-inputs')
+assert.equal(getAdminFormDefinition('compliance').createLabel, 'Compliance Record')
+
+const validLoan = validateAdminForm(getAdminFormDefinition('loan'), {
+  lender:' Bank ', principal:'100000', tenureMonths:'12', startDate:'2026-09-01',
+  annualInterestRatePercent:'10', status:'Active', notes:''
+})
+assert.equal(validLoan.valid, true)
+assert.equal(validLoan.values.lender, 'Bank')
+assert.equal(validLoan.values.principal, 100000)
+
+const zeroLoan = validateAdminForm(getAdminFormDefinition('loan'), {
+  lender:'Bank', principal:'0', tenureMonths:'12', startDate:'2026-09-01',
+  annualInterestRatePercent:'10', status:'Active'
+})
+assert.equal(zeroLoan.valid, false)
+assert.match(zeroLoan.errors.principal, /greater than 0/)
+
+for (const key of ['loanPayment','prepayment']) {
+  const definition=getAdminFormDefinition(key)
+  const values={loanId:'loan-1',paidOn:'2026-09-01',amount:'0'}
+  const result=validateAdminForm(definition,values)
+  assert.equal(result.valid,false, `${key} must reject zero actual movement`)
+  assert.match(result.errors.amount,/greater than 0/)
+}
+
+const reversedTarget=validateAdminForm(getAdminFormDefinition('driverTarget'),{
+  driverId:'driver-1',effectiveFrom:'2026-09-20',effectiveUntil:'2026-09-19',desiredDriverProfit:'1000'
+})
+assert.equal(reversedTarget.valid,false)
+assert.equal(reversedTarget.errors.effectiveUntil,'Effective until cannot precede effective from.')
+
+const reversedBreakEven=validateAdminForm(getAdminFormDefinition('breakEvenInputs'),{
+  effectiveFrom:'2026-09-20',effectiveUntil:'2026-09-19',maintenanceProvisionPerKm:'2'
+})
+assert.equal(reversedBreakEven.valid,false)
+assert.equal(reversedBreakEven.errors.effectiveUntil,'Effective until cannot precede effective from.')
+
+const badMaintenance=validateAdminForm(getAdminFormDefinition('maintenance'),{
+  vehicleId:'vehicle-1',performedOn:'2026-09-20',maintenanceType:'Service',
+  validityType:'None',cost:'100',odometerKm:'5000',nextServiceDate:'2026-09-19',nextServiceKm:'4999'
+})
+assert.equal(badMaintenance.valid,false)
+assert.equal(badMaintenance.errors.nextServiceDate,'Next service date cannot precede maintenance date.')
+assert.equal(badMaintenance.errors.nextServiceKm,'Next service KM cannot be below the maintenance odometer.')
+
+const unknown=validateAdminForm(getAdminFormDefinition('driver'),{name:'A',status:'Active',unexpected:'x'})
+assert.equal(unknown.valid,false)
+assert.equal(unknown.errors.unexpected,'Unknown field is not permitted.')
 
 console.log('ERP form/calculation contract: PASS')
