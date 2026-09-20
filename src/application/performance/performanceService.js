@@ -67,6 +67,43 @@ export const PerformanceService = Object.freeze({
     const financialDays = Number.isFinite(stabilization.financialDays) ? stabilization.financialDays : 0
     const revenuePerFinancialDay = financialDays > 0 ? metrics.revenue / financialDays : NaN
 
+    // Read-only daily break-even view. Fixed obligations are amortized to the
+    // selected calendar day; fuel and maintenance are dynamic per live vehicle KM.
+    const selectedDayRange = istMonthRange(range.to)
+    const selectedDay = range.to
+    const daysInSelectedMonth = selectedDayRange
+      ? Math.max(1, Math.round((selectedDayRange.to - selectedDayRange.from) / 86400000) + 1)
+      : 30
+    const dayMetrics = deriveFinanceAwarePerformance(calculationSnapshot, {
+      from: new Date(selectedDay.getTime() - 86399999),
+      to: selectedDay,
+    }, previousRange({ from: new Date(selectedDay.getTime() - 86399999), to: selectedDay }))
+    const dailyLoan = Number.isFinite(dayMetrics.loanScheduledObligation)
+      ? dayMetrics.loanScheduledObligation
+      : null
+    const dailyRenewal = Number.isFinite(dayMetrics.renewalProvision)
+      ? dayMetrics.renewalProvision
+      : null
+    const dailyFuelRate = Number.isFinite(dayMetrics.fuelCostPerKm) ? dayMetrics.fuelCostPerKm : null
+    const dailyMaintenanceRate = Number.isFinite(metrics.breakEvenInputs?.maintenanceProvisionPerKm)
+      ? metrics.breakEvenInputs.maintenanceProvisionPerKm
+      : null
+    const todayVehicleKm = Number.isFinite(dayMetrics.vehicleKm) ? dayMetrics.vehicleKm : null
+    const dynamicFuelToday = dailyFuelRate != null && todayVehicleKm != null ? dailyFuelRate * todayVehicleKm : null
+    const dynamicMaintenanceToday = dailyMaintenanceRate != null && todayVehicleKm != null ? dailyMaintenanceRate * todayVehicleKm : null
+    const dailyBreakEvenTotal = [dailyLoan, dailyRenewal, dynamicFuelToday, dynamicMaintenanceToday].every(Number.isFinite)
+      ? dailyLoan + dailyRenewal + dynamicFuelToday + dynamicMaintenanceToday
+      : null
+    const desiredDriverProfitMonthly = Number.isFinite(stabilization.desiredDriverProfitMonthly)
+      ? stabilization.desiredDriverProfitMonthly
+      : null
+    const desiredDriverProfitDaily = desiredDriverProfitMonthly != null
+      ? desiredDriverProfitMonthly / daysInSelectedMonth
+      : null
+    const dailyTargetTotal = dailyBreakEvenTotal != null && desiredDriverProfitDaily != null
+      ? dailyBreakEvenTotal + desiredDriverProfitDaily
+      : null
+
     return {
       ...metrics,
       counts: { ...metrics.counts, activeFinancialDays: financialDays },
@@ -95,6 +132,20 @@ export const PerformanceService = Object.freeze({
       driverTargetRemainingEligibleDays: stabilization.remainingEligibleDays,
       driverTargetAllocatedBeforeCurrentDay: stabilization.targetAllocatedBeforeCurrentDay,
       driverTargetRemainingObligation: stabilization.remainingObligation,
+      driverTargetDesiredProfitMonthly: desiredDriverProfitMonthly,
+      driverTargetDesiredProfitDaily: desiredDriverProfitDaily,
+      dailyBreakEven: {
+        loanScheduledObligation: dailyLoan,
+        renewalProvision: dailyRenewal,
+        fuelCostPerKm: dailyFuelRate,
+        vehicleKm: todayVehicleKm,
+        fuelCost: dynamicFuelToday,
+        maintenanceProvisionPerKm: dailyMaintenanceRate,
+        maintenanceProvision: dynamicMaintenanceToday,
+        total: dailyBreakEvenTotal,
+        daysInMonth: daysInSelectedMonth,
+      },
+      dailyTargetTotal,
       pace: {
         currentRevenuePerFinancialDay: revenuePerFinancialDay,
         requiredRevenuePerFinancialDay: canonicalTarget,
