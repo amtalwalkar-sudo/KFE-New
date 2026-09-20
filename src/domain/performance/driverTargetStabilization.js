@@ -1,5 +1,6 @@
 import { istDateKey, istMonthKey } from '../time/ist.js'
 import { authoritativeShiftRevenueByMonth } from './authoritativeRevenue.js'
+import { CALCULATION_STATUS, calculationEvidence } from './calculationAuthority.js'
 
 const finite = v => {
   if (v == null || v === '') return null
@@ -57,7 +58,8 @@ const failure = (reason, balance = null, activeDays = 0) => ({
   currentPeriodBaseTarget: null, recoveryAdjustment: null, activeDays,
   financialDays: activeDays, remainingEligibleDays: null,
   targetAllocatedBeforeCurrentDay: null, remainingObligation: null,
-  authority: 'MONTHLY_BREAK_EVEN_PLUS_MONTHLY_DESIRED_PROFIT_WITH_MONTHLY_ROLLING_BALANCE_AND_DYNAMIC_REMAINING_ELIGIBLE_DAYS'
+  authority: 'MONTHLY_BREAK_EVEN_PLUS_MONTHLY_DESIRED_PROFIT_WITH_MONTHLY_ROLLING_BALANCE_AND_DYNAMIC_REMAINING_ELIGIBLE_DAYS',
+  evidence: calculationEvidence({ status: CALCULATION_STATUS.UNAVAILABLE, reason }),
 })
 
 export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTargets = [], from, to, applicableBreakEven = null, historicalBreakEvenForDay = null } = {}) {
@@ -73,14 +75,13 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     return tripDayKey && tripDayKey <= endDayKey
   })
   const revenueByMonth = authoritativeShiftRevenueByMonth(shifts, asOfBoundary)
-  // A target day is anchored to the driver's shift, not to whether a trip has
-  // already been completed. Shift-end revenue remains the financial revenue
-  // authority, but the target must be visible from shift start.
+  // A financial/target-bearing day requires at least one completed trip.
+  // Shift start alone does not consume or create a target allocation.
   const financialDaysByMonth = new Map()
-  for (const shift of live(shifts)) {
-    const shiftDate = dateOf(shift.shiftStartAt || shift.shiftEndAt)
-    const day = shiftDate ? keyOf(shiftDate) : null
-    const month = shiftDate ? monthKeyOf(shiftDate) : null
+  for (const trip of completed) {
+    const tripDate = dateOf(trip.tripEndAt || trip.tripStartAt)
+    const day = tripDate ? keyOf(tripDate) : null
+    const month = tripDate ? monthKeyOf(tripDate) : null
     if (!month || !day || day > endDayKey) continue
     if (!financialDaysByMonth.has(month)) financialDaysByMonth.set(month, new Set())
     financialDaysByMonth.get(month).add(day)
@@ -154,7 +155,8 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     recoveryAdjustment: Number.isFinite(recoveryAdjustment) ? recoveryAdjustment : null,
     activeDays: financialDayKeys.length, financialDays: financialDayKeys.length, remainingEligibleDays: remainingDays,
     targetAllocatedBeforeCurrentDay, remainingObligation, currentTargetMonth: currentMonth, historicalState,
-    authority: 'MONTHLY_BREAK_EVEN_PLUS_MONTHLY_DESIRED_PROFIT_WITH_MONTHLY_ROLLING_BALANCE_AND_DYNAMIC_REMAINING_ELIGIBLE_DAYS'
+    authority: 'MONTHLY_BREAK_EVEN_PLUS_MONTHLY_DESIRED_PROFIT_WITH_MONTHLY_ROLLING_BALANCE_AND_DYNAMIC_REMAINING_ELIGIBLE_DAYS',
+    evidence: calculationEvidence({ status: CALCULATION_STATUS.AUTHORITATIVE, source: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN' })
   }
 }
 
