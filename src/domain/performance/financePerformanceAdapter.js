@@ -117,11 +117,13 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
       ...(base.authority || {}),
       loan: 'CANONICAL_FINANCE_LOAN_ENGINE',
       breakEven: breakEven.available ? 'AUTHORITATIVE_MONTHLY_BREAK_EVEN' : base.authority?.breakEven,
+      breakEvenTrace: breakEven.trace || null,
     },
     completeness: {
       ...(base.completeness || {}),
       loan: !!finance?.available,
       breakEven: breakEven.available,
     },
+    breakEvenTrace: breakEven.trace || null,
   }
 }

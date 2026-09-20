@@ -122,6 +122,110 @@ const activeRows = computed(() => activeCard.value ? PerformanceService.getLayer
 const layerTitle = computed(() => activeCard.value ? `${cards[activeCard.value].title} — ${LAYERS[activeCard.value][activeLayer.value]}` : '')
 const completeness = computed(() => metrics.value?.completeness || {})
 
+const calculationNotices = computed(() => {
+  const m = metrics.value || {}
+  const notices = []
+  const trace = m.breakEvenTrace || {}
+  const firstMissing = trace.firstMissing
+
+  const breakEvenReasons = {
+    input: {
+      title: 'Break-even input record missing',
+      why: 'There is no applicable effective-dated break-even input for this period.',
+      action: 'Go to Admin → Planning & Controls → Break-even Inputs and create or activate the applicable record.',
+      chain: 'Break-even input → Break-even → Driver target',
+    },
+    maintenanceProvisionPerKm: {
+      title: 'Maintenance provision / km is missing',
+      why: 'The active break-even record does not contain a finite maintenance provision per km.',
+      action: 'Complete the maintenance provision per km in the applicable Break-even Inputs record.',
+      chain: 'Maintenance provision / km → Variable cost → Break-even → Driver target',
+    },
+    fuelCostPerKm: {
+      title: 'Fuel cost / km is missing',
+      why: 'Fuel cost per km could not be derived from the authoritative vehicle/fuel calculation.',
+      action: 'Complete the applicable vehicle fuel-cost configuration or source data, then refresh Performance.',
+      chain: 'Fuel cost / km → Variable cost → Break-even → Driver target',
+    },
+    vehicleKm: {
+      title: 'Vehicle km is missing',
+      why: 'Authoritative vehicle kilometres are not available for the selected period.',
+      action: 'Ensure the vehicle odometer/ride distance records cover this period, then refresh Performance.',
+      chain: 'Vehicle km → Variable cost → Break-even → Driver target',
+    },
+    loanScheduledObligation: {
+      title: 'Loan scheduled obligation is missing',
+      why: 'The active loan obligation could not be derived as a finite amount for the selected period.',
+      action: 'Complete the active loan inputs and schedule in Admin → Finance → Loans.',
+      chain: 'Loan obligation → Fixed cost → Break-even → Driver target',
+    },
+    renewalProvision: {
+      title: 'Renewal provision is missing',
+      why: 'The renewal provision required by the break-even calculation is not available as a finite amount.',
+      action: 'Complete the applicable renewal provision in Admin → Planning & Controls.',
+      chain: 'Renewal provision → Fixed cost → Break-even → Driver target',
+    },
+  }
+
+  if (!m.completeness?.breakEven) {
+    const key = firstMissing || (m.breakEvenTrace ? 'input' : null)
+    const detail = key ? breakEvenReasons[key] : null
+    notices.push({
+      key: `break-even-${key || 'unknown'}`,
+      kind: 'break-even',
+      title: detail?.title || 'Break-even calculation incomplete',
+      why: detail?.why || 'One or more authoritative break-even dependencies are incomplete.',
+      action: detail?.action || 'Open the applicable Admin configuration and complete the missing break-even dependency.',
+      chain: detail?.chain || 'Break-even inputs → Break-even → Driver target',
+    })
+  }
+
+  if (!m.driverTargetAvailable) {
+    const targetReasons = {
+      MISSING_AUTHORITATIVE_TARGET_INPUT: {
+        title: 'Driver target input is incomplete',
+        why: 'The effective driver target record is missing or does not contain a valid desired driver profit / take-home value, or the monthly break-even is unavailable.',
+        action: 'Complete the effective Driver Target record and resolve any Break-even notice above.',
+        chain: 'Break-even + desired driver profit → Monthly target base → Daily target',
+      },
+      MISSING_HISTORICAL_DRIVER_TARGET_INPUT: {
+        title: 'Historical driver target input is incomplete',
+        why: 'A prior month required for the rolling target balance has no valid effective driver target input.',
+        action: 'Complete the missing historical Driver Target record for the affected month, then refresh Performance.',
+        chain: 'Historical target → Rolling balance → Current daily target',
+      },
+      NO_FINANCIAL_DRIVER_TARGET_DAY: {
+        title: 'No eligible driver target day',
+        why: 'There is no driver shift in the selected month from which the current target day can be anchored.',
+        action: 'Start or record the applicable driver shift, then refresh Performance.',
+        chain: 'Driver shift → Eligible target day → Current daily target',
+      },
+    }
+    const detail = targetReasons[m.driverTargetReason] || {
+      title: 'Driver target calculation incomplete',
+      why: 'The authoritative driver-target pipeline could not produce a finite current daily target.',
+      action: 'Resolve the Break-even and Driver Target inputs, then refresh Performance.',
+      chain: 'Break-even + driver target → Rolling target → Current daily target',
+    }
+    notices.push({
+      key: 'driver-target',
+      kind: 'target',
+      ...detail,
+    })
+  }
+
+  return notices
+})
+
+const calculationHealth = computed(() => {
+  const m = metrics.value || {}
+  return {
+    breakEven: Number.isFinite(Number(m.monthlyBreakEvenRevenue)) ? money(m.monthlyBreakEvenRevenue) : 'Unavailable',
+    target: Number.isFinite(Number(m.driverTarget)) ? money(m.driverTarget) : 'Unavailable',
+    healthy: calculationNotices.value.length === 0,
+  }
+})
+
 function choosePeriod(value) { period.value = value }
 function applyCustom() { if (customFrom.value && customTo.value && customFrom.value <= customTo.value) period.value = 'CUSTOM DURATION' }
 function openCard(key) { activeCard.value = key; activeLayer.value = 0 }
@@ -165,6 +269,67 @@ onBeforeUnmount(() => unsubscribeChanges())
         <article v-for="item in summary" :key="item.key" class="financial-card" :class="`financial-${item.key}`">
           <small>{{ item.label }}</small><strong>{{ item.value }}</strong><span>{{ item.sub }}</span>
         </article>
+      </section>
+
+      <section class="calculation-health" :class="{ 'has-notices': calculationNotices.length }" aria-label="Calculation health">
+        <div class="calculation-health-head">
+          <div>
+            <small>CALCULATION HEALTH</small>
+            <h2>{{ calculationHealth.healthy ? 'Calculations healthy' : `${calculationNotices.length} calculation notice${calculationNotices.length === 1 ? '' : 's'}` }}</h2>
+          </div>
+          <span class="health-status" :class="{ healthy: calculationHealth.healthy }">{{ calculationHealth.healthy ? 'OK' : 'Needs attention' }}</span>
+        </div>
+        <div class="health-summary">
+          <div><span>Monthly break-even</span><strong>{{ calculationHealth.breakEven }}</strong></div>
+          <div><span>Current daily target</span><strong>{{ calculationHealth.target }}</strong></div>
+        </div>
+        <div v-if="calculationNotices.length" class="calculation-notices" role="status">
+          <article v-for="notice in calculationNotices" :key="notice.key" class="calculation-notice">
+            <div class="notice-title"><span aria-hidden="true">⚠</span><strong>{{ notice.title }}</strong></div>
+            <p><b>Why:</b> {{ notice.why }}</p>
+            <p><b>Corrective action:</b> {{ notice.action }}</p>
+            <p class="notice-chain"><b>Calculation chain:</b> {{ notice.chain }}</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="calculation-table-panel" aria-label="Today's break-even calculation">
+        <div class="section-head">
+          <div><small>BREAK-EVEN CALCULATION</small><h2>Today’s read-only cost build-up</h2></div>
+          <span class="calculation-live-badge">{{ metrics.dailyBreakEven?.vehicleKm != null ? 'Live KM basis' : 'Waiting for KM' }}</span>
+        </div>
+        <div class="calculation-table-wrap">
+          <table class="calculation-table">
+            <thead><tr><th>Component</th><th>Basis</th><th>Today</th></tr></thead>
+            <tbody>
+              <tr><td>Loan EMI</td><td>{{ metrics.dailyBreakEven?.daysInMonth ? `${money(metrics.loan?.emi)} ÷ ${metrics.dailyBreakEven.daysInMonth} days` : 'Daily amortization' }}</td><td>{{ metrics.dailyBreakEven?.loanScheduledObligation != null ? money(metrics.dailyBreakEven.loanScheduledObligation) : 'Unavailable — loan input incomplete' }}</td></tr>
+              <tr><td>Compliance / renewal</td><td>Annual/validity cost amortized per day</td><td>{{ metrics.dailyBreakEven?.renewalProvision != null ? money(metrics.dailyBreakEven.renewalProvision) : 'Unavailable — compliance cost/validity missing' }}</td></tr>
+              <tr><td>Maintenance provision</td><td>{{ metrics.dailyBreakEven?.maintenanceProvisionPerKm != null ? `${rate(metrics.dailyBreakEven.maintenanceProvisionPerKm)} × ${number(metrics.dailyBreakEven.vehicleKm)} km` : 'Rate unavailable' }}</td><td>{{ metrics.dailyBreakEven?.maintenanceProvision != null ? money(metrics.dailyBreakEven.maintenanceProvision) : 'Unavailable — maintenance rate missing' }}</td></tr>
+              <tr><td>Fuel</td><td>{{ metrics.dailyBreakEven?.fuelCostPerKm != null ? `${rate(metrics.dailyBreakEven.fuelCostPerKm)} × ${number(metrics.dailyBreakEven.vehicleKm)} km` : 'Rate unavailable' }}</td><td>{{ metrics.dailyBreakEven?.fuelCost != null ? money(metrics.dailyBreakEven.fuelCost) : 'Unavailable — fuel rate/KM missing' }}</td></tr>
+              <tr class="total-row"><td colspan="2"><strong>Total break-even for today</strong></td><td><strong>{{ metrics.dailyBreakEven?.total != null ? money(metrics.dailyBreakEven.total) : 'Unavailable — calculation incomplete' }}</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="calculation-live-note">
+          Dynamic rows use the authoritative fuel rate and vehicle kilometres available at calculation time. As GPS/odometer data and rides update, the KM-based fuel and maintenance amounts can update during an open shift. Fixed obligations do not change during the day. The final shift-end value becomes authoritative once the shift closes.
+        </div>
+      </section>
+
+      <section class="calculation-table-panel target-calculation-panel" aria-label="Today's driver target calculation">
+        <div class="section-head">
+          <div><small>DRIVER TARGET CALCULATION</small><h2>Today’s target build-up</h2></div>
+        </div>
+        <div class="calculation-table-wrap">
+          <table class="calculation-table">
+            <thead><tr><th>Component</th><th>Basis</th><th>Today</th></tr></thead>
+            <tbody>
+              <tr><td>Today’s break-even</td><td>Fixed + dynamic operating cost</td><td>{{ metrics.dailyTargetTotal != null ? money(metrics.dailyTargetTotal - (metrics.driverTargetDesiredProfitDaily || 0)) : 'Unavailable — break-even incomplete' }}</td></tr>
+              <tr><td>Desired driver profit / take-home</td><td>{{ metrics.dailyBreakEven?.daysInMonth ? `${money(metrics.driverTargetDesiredProfitMonthly)} ÷ ${metrics.dailyBreakEven.daysInMonth} days` : 'Daily amortization' }}</td><td>{{ metrics.driverTargetDesiredProfitDaily != null ? money(metrics.driverTargetDesiredProfitDaily) : 'Unavailable — target input missing' }}</td></tr>
+              <tr><td>Rolling balance adjustment</td><td>Authoritative rolling target balance</td><td>{{ metrics.driverTargetRecoveryAdjustment != null ? money(metrics.driverTargetRecoveryAdjustment) : 'Unavailable — rolling target incomplete' }}</td></tr>
+              <tr class="total-row"><td colspan="2"><strong>Current daily driver target</strong></td><td><strong>{{ metrics.driverTarget != null ? money(metrics.driverTarget) : 'Unavailable — see Calculation Notices' }}</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section class="target-panel">
@@ -211,9 +376,25 @@ onBeforeUnmount(() => unsubscribeChanges())
         <div class="detail-title"><div><small>{{ cards[activeCard].title }}</small><h2>{{ LAYERS[activeCard][activeLayer] }}</h2></div><span class="period-chip">{{ periodLabel }}</span></div>
         <div class="detail-grid"><div v-for="(row,index) in activeRows" :key="index"><span>{{ row[0] }}</span><b>{{ row.slice(1).join(' · ') }}</b></div><div v-if="!activeRows.length" class="no-data">No records are available for this view yet.</div></div>
         <div class="status-grid"><span :class="{ok: completeness.target}">Target {{ completeness.target ? 'configured' : 'not configured' }}</span><span :class="{ok: completeness.loan}">Loan {{ completeness.loan ? 'configured' : 'not configured' }}</span><span :class="{ok: completeness.hourlyData}">Hourly {{ completeness.hourlyData ? 'available' : 'unavailable' }}</span><span :class="{ok: completeness.breakEven}">Break-even {{ completeness.breakEven ? 'calculated' : 'unavailable' }}</span></div>
+        <div v-if="!completeness.breakEven && metrics.breakEvenTrace?.firstMissing" class="diagnostic-strip"><strong>Break-even dependency missing</strong><span>{{ metrics.breakEvenTrace.firstMissing }}</span></div>
         <div class="note"><strong>Calculation note</strong><span>Actual performance uses authoritative actual records. Shift-end revenue is authoritative; trip revenue remains supporting detail. Available Cash uses actual operating costs and actual financing outflows.</span></div>
       </section>
     </template>
   </section>
 </template>
 
+
+<style scoped>
+.calculation-health{margin:1rem 0;padding:1rem 1.1rem;border:1px solid var(--kfe-border,#d9dee7);border-radius:18px;background:var(--kfe-surface,#fff);box-shadow:0 4px 16px rgba(0,0,0,.04)}
+.calculation-health.has-notices{border-color:var(--kfe-warning-border,#e1b84b)}
+.calculation-health-head{display:flex;align-items:center;justify-content:space-between;gap:1rem}
+.calculation-health small{letter-spacing:.08em;font-weight:700;opacity:.7}.calculation-health h2{margin:.2rem 0 0;font-size:1rem}
+.health-status{font-size:.78rem;font-weight:700;padding:.35rem .6rem;border-radius:999px;background:rgba(190,130,0,.12)}.health-status.healthy{background:rgba(30,140,80,.12)}
+.health-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem;margin-top:.8rem}.health-summary div{display:flex;justify-content:space-between;gap:.75rem;padding:.7rem .8rem;border-radius:12px;background:var(--kfe-muted-surface,#f6f7f9)}.health-summary span{font-size:.82rem;opacity:.72}.health-summary strong{font-size:.9rem}
+.calculation-notices{display:grid;gap:.65rem;margin-top:.8rem}.calculation-notice{padding:.85rem;border-radius:14px;background:rgba(190,130,0,.07);border:1px solid rgba(190,130,0,.2)}.notice-title{display:flex;align-items:center;gap:.45rem}.calculation-notice p{margin:.5rem 0 0;font-size:.84rem;line-height:1.45}.notice-chain{opacity:.78}
+@media (max-width:600px){.health-summary{grid-template-columns:1fr}.calculation-health{padding:.9rem}}
+
+.calculation-table-panel{margin:1rem 0;padding:1rem 1.1rem;border:1px solid var(--kfe-border,#d9dee7);border-radius:18px;background:var(--kfe-surface,#fff)}
+.calculation-live-badge{font-size:.75rem;font-weight:700;padding:.35rem .6rem;border-radius:999px;background:rgba(30,140,80,.1)}
+.calculation-table-wrap{overflow-x:auto;margin-top:.8rem}.calculation-table{width:100%;border-collapse:collapse;min-width:560px}.calculation-table th,.calculation-table td{padding:.72rem .55rem;border-bottom:1px solid var(--kfe-border,#e6e9ee);text-align:left;vertical-align:top}.calculation-table th:last-child,.calculation-table td:last-child{text-align:right;white-space:nowrap}.calculation-table th{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;opacity:.65}.calculation-table td{font-size:.84rem}.calculation-table td:nth-child(2){opacity:.7}.calculation-table .total-row td{border-bottom:0;padding-top:.9rem}.calculation-live-note{margin-top:.75rem;font-size:.78rem;line-height:1.45;opacity:.68}.target-calculation-panel{margin-top:.8rem}
+</style>
