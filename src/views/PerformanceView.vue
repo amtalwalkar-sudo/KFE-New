@@ -214,7 +214,5 @@ onBeforeUnmount(() => unsubscribeChanges())
         <div class="note"><strong>Calculation note</strong><span>Actual performance uses authoritative actual records. Shift-end revenue is authoritative; trip revenue remains supporting detail. Available Cash uses actual operating costs and actual financing outflows.</span></div>
       </section>
     </template>
-
-      </section>
 </template>
 
