@@ -102,6 +102,19 @@ export const KfeRideNotificationService = Object.freeze({
     persist()
     return call('show', { stage: 'GO_TO_PICKUP', tripId: '' })
   },
+  async consumePendingAction() {
+    if (!native()) return null
+    try {
+      const result = await KfeRideNotifications.getPendingAction()
+      const packed = String(result?.pending || '')
+      if (!packed) return null
+      const [stage = '', tripId = '', input = ''] = packed.split('|')
+      await KfeRideNotifications.clearPendingAction()
+      return { stage, tripId, input }
+    } catch (_) {
+      return null
+    }
+  },
   async clear() {
     state.tripId = null
     state.phase = null
