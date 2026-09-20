@@ -147,6 +147,12 @@ const calculationNotices = computed(() => {
       action: 'Complete the applicable vehicle fuel-cost configuration or source data, then refresh Performance.',
       chain: 'Fuel cost / km → Variable cost → Break-even → Driver target',
     },
+    fuelCostPerKmEvidence: {
+      title: 'Fuel evidence is still indicative',
+      why: 'The current fuel rate comes from an observed-period spend/KM fallback. It is useful as an estimate, but it is not qualified for authoritative break-even.',
+      action: 'Record a second usable full-tank fuel event with odometer evidence so KFE can establish a qualified full-tank interval.',
+      chain: 'Fuel evidence → Authoritative fuel rate → Break-even → Driver target',
+    },
     vehicleKm: {
       title: 'Vehicle km is missing',
       why: 'Authoritative vehicle kilometres are not available for the selected period.',
@@ -168,7 +174,9 @@ const calculationNotices = computed(() => {
   }
 
   if (!m.completeness?.breakEven) {
-    const key = firstMissing || (m.breakEvenTrace ? 'input' : null)
+    const key = m.calculationEvidence?.breakEven?.status === 'INDICATIVE'
+      ? 'fuelCostPerKmEvidence'
+      : firstMissing || (m.breakEvenTrace ? 'input' : null)
     const detail = key ? breakEvenReasons[key] : null
     notices.push({
       key: `break-even-${key || 'unknown'}`,
@@ -196,9 +204,9 @@ const calculationNotices = computed(() => {
       },
       NO_FINANCIAL_DRIVER_TARGET_DAY: {
         title: 'No eligible driver target day',
-        why: 'There is no driver shift in the selected month from which the current target day can be anchored.',
-        action: 'Start or record the applicable driver shift, then refresh Performance.',
-        chain: 'Driver shift → Eligible target day → Current daily target',
+        why: 'There is no completed trip in the selected month to create a target-bearing financial day.',
+        action: 'Complete and record the applicable trip, then refresh Performance.',
+        chain: 'Completed trip → Eligible target day → Current daily target',
       },
     }
     const detail = targetReasons[m.driverTargetReason] || {
