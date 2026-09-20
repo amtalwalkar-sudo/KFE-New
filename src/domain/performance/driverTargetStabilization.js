@@ -162,10 +162,10 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
 
 export function stabilizeActiveDay({ baseTarget, balance = 0, actualRevenue = null } = {}) {
   const base = finite(baseTarget)
-  if (base == null) return { available: false, target: null, nextBalance: null }
+  if (base == null) return { available: false, target: null, nextBalance: null, evidence: calculationEvidence({ status: CALCULATION_STATUS.UNAVAILABLE, reason: 'MISSING_AUTHORITATIVE_TARGET_INPUT' }) }
   const currentBalance = finite(balance) || 0
   const target = base + currentBalance
-  if (actualRevenue == null) return { available: true, target, nextBalance: null }
+  if (actualRevenue == null) return { available: true, target, nextBalance: null, evidence: calculationEvidence({ status: CALCULATION_STATUS.AUTHORITATIVE, source: 'MONTHLY_TARGET_BASE_PLUS_ROLLING_BALANCE' }) }
   const actual = finite(actualRevenue) || 0
-  return { available: true, target, nextBalance: currentBalance + base - actual }
+  return { available: true, target, nextBalance: currentBalance + base - actual, evidence: calculationEvidence({ status: CALCULATION_STATUS.AUTHORITATIVE, source: 'MONTHLY_TARGET_BASE_PLUS_ROLLING_BALANCE' }) }
 }
