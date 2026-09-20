@@ -61,7 +61,7 @@ assert.equal(serviceMetrics.breakEvenRevenue, serviceMetrics.monthlyBreakEvenRev
 assert.equal(serviceMetrics.breakEvenRevenue, null)
 assert.equal(serviceMetrics.calculationEvidence.breakEven.status, 'INDICATIVE')
 assert.ok(Number.isFinite(serviceMetrics.indicativeMonthlyBreakEvenRevenue), 'Indicative break-even candidate should remain visible')
-assert.equal(canonicalMetrics.monthlyBreakEvenRevenue, NaN)
+assert.ok(Number.isNaN(canonicalMetrics.monthlyBreakEvenRevenue)
 
 const metrics = serviceMetrics
 assert.equal('projectedRevenue' in metrics, false)
