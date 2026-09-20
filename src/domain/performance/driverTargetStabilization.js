@@ -52,6 +52,7 @@ const remainingEligibleDays = ({ month, currentDay, priorHolidayKeys = [] }) => 
 const failure = (reason, balance = null, activeDays = 0) => ({
   available: false, reason, balanceBefore: balance, balance, openingBalance: balance,
   monthlyBreakEvenRevenue: null, monthlyVariance: null, closingBalance: balance,
+  desiredDriverProfitMonthly: null,
   effectiveMonthlyTarget: null, currentDailyTarget: null, currentBaseDaily: null,
   currentPeriodBaseTarget: null, recoveryAdjustment: null, activeDays,
   financialDays: activeDays, remainingEligibleDays: null,
@@ -144,6 +145,8 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
   return {
     available: Number.isFinite(currentDailyTarget), reason: Number.isFinite(currentDailyTarget) ? null : 'MISSING_AUTHORITATIVE_TARGET_INPUT',
     balanceBefore: balance, balance, openingBalance: balance, monthlyBreakEvenRevenue: baseMonthly - readDriverProfit(currentRecord),
+    desiredDriverProfitMonthly: readDriverProfit(currentRecord),
+    monthlyTargetBase: baseMonthly,
     monthlyVariance, closingBalance, effectiveMonthlyTarget,
     currentDailyTarget: Number.isFinite(currentDailyTarget) ? currentDailyTarget : null,
     currentBaseDaily: Number.isFinite(currentBaseDaily) ? currentBaseDaily : null,
