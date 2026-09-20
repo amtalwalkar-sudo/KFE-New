@@ -296,7 +296,7 @@ onBeforeUnmount(() => unsubscribeChanges())
       <section class="calculation-table-panel" aria-label="Today's break-even calculation">
         <div class="section-head">
           <div><small>BREAK-EVEN CALCULATION</small><h2>Today’s read-only cost build-up</h2></div>
-          <span class="calculation-live-badge">{{ metrics.dailyBreakEven?.vehicleKm != null ? 'Live KM basis' : 'Waiting for KM' }}</span>
+          <span class="calculation-live-badge">{{ metrics.dailyBreakEven?.fuelCostPerKmSource === 'OBSERVED_PERIOD' ? 'Provisional fuel rate' : metrics.dailyBreakEven?.fuelCostPerKmSource === 'FULL_TANK_INTERVAL' ? 'Full-tank fuel rate' : metrics.dailyBreakEven?.vehicleKm != null ? 'Live KM basis' : 'Waiting for KM' }}</span>
         </div>
         <div class="calculation-table-wrap">
           <table class="calculation-table">
@@ -311,24 +311,31 @@ onBeforeUnmount(() => unsubscribeChanges())
           </table>
         </div>
         <div class="calculation-live-note">
-          Dynamic rows use the authoritative fuel rate and vehicle kilometres available at calculation time. As GPS/odometer data and rides update, the KM-based fuel and maintenance amounts can update during an open shift. Fixed obligations do not change during the day. The final shift-end value becomes authoritative once the shift closes.
+          Dynamic rows use the authoritative fuel rate and vehicle kilometres available at calculation time. As GPS/odometer data and rides update, the KM-based fuel and maintenance amounts can update during an open shift. Fixed obligations do not change during the day. The final shift-end value becomes authoritative once the shift closes. When a full-tank interval is not yet available, the fuel row is a provisional observed-period spend/KM rate and is replaced by the full-tank interval model once two usable full-tank odometer readings exist.
         </div>
       </section>
 
-      <section class="calculation-table-panel target-calculation-panel" aria-label="Today's driver target calculation">
+      <section class="calculation-table-panel target-calculation-panel" aria-label="Rolling driver target calculation">
         <div class="section-head">
-          <div><small>DRIVER TARGET CALCULATION</small><h2>Today’s target build-up</h2></div>
+          <div><small>DRIVER TARGET CALCULATION</small><h2>Rolling target allocation</h2></div>
+          <span class="calculation-live-badge">Remaining eligible days: {{ metrics.driverTargetRemainingEligibleDays != null ? number(metrics.driverTargetRemainingEligibleDays) : '—' }}</span>
         </div>
         <div class="calculation-table-wrap">
           <table class="calculation-table">
-            <thead><tr><th>Component</th><th>Basis</th><th>Today</th></tr></thead>
+            <thead><tr><th>Component</th><th>Basis</th><th>Amount</th></tr></thead>
             <tbody>
-              <tr><td>Today’s break-even</td><td>Fixed + dynamic operating cost</td><td>{{ metrics.dailyTargetTotal != null ? money(metrics.dailyTargetTotal - (metrics.driverTargetDesiredProfitDaily || 0)) : 'Unavailable — break-even incomplete' }}</td></tr>
-              <tr><td>Desired driver profit / take-home</td><td>{{ metrics.dailyBreakEven?.daysInMonth ? `${money(metrics.driverTargetDesiredProfitMonthly)} ÷ ${metrics.dailyBreakEven.daysInMonth} days` : 'Daily amortization' }}</td><td>{{ metrics.driverTargetDesiredProfitDaily != null ? money(metrics.driverTargetDesiredProfitDaily) : 'Unavailable — target input missing' }}</td></tr>
-              <tr><td>Rolling balance adjustment</td><td>Authoritative rolling target balance</td><td>{{ metrics.driverTargetRecoveryAdjustment != null ? money(metrics.driverTargetRecoveryAdjustment) : 'Unavailable — rolling target incomplete' }}</td></tr>
+              <tr><td>Monthly break-even</td><td>Authoritative monthly operating requirement</td><td>{{ metrics.monthlyBreakEvenRevenue != null ? money(metrics.monthlyBreakEvenRevenue) : 'Unavailable — see Calculation Notices' }}</td></tr>
+              <tr><td>Desired driver profit / take-home</td><td>Effective monthly Driver Target input</td><td>{{ metrics.driverTargetDesiredProfitMonthly != null ? money(metrics.driverTargetDesiredProfitMonthly) : 'Unavailable — target input missing' }}</td></tr>
+              <tr><td>Monthly target base</td><td>Break-even + desired driver profit</td><td>{{ metrics.driverTargetEffectiveMonthlyTarget != null && metrics.driverTargetOpeningBalance != null ? money(metrics.driverTargetEffectiveMonthlyTarget - metrics.driverTargetOpeningBalance) : 'Unavailable' }}</td></tr>
+              <tr><td>Opening rolling balance</td><td>Prior-month / prior-period stabilization balance</td><td>{{ metrics.driverTargetOpeningBalance != null ? money(metrics.driverTargetOpeningBalance) : 'Unavailable' }}</td></tr>
+              <tr><td>Target allocated before current day</td><td>Rolling allocation already assigned to earlier eligible days</td><td>{{ metrics.driverTargetAllocatedBeforeCurrentDay != null ? money(metrics.driverTargetAllocatedBeforeCurrentDay) : 'Unavailable' }}</td></tr>
+              <tr><td>Remaining target obligation</td><td>Effective monthly target less prior allocations</td><td>{{ metrics.driverTargetRemainingObligation != null ? money(metrics.driverTargetRemainingObligation) : 'Unavailable' }}</td></tr>
               <tr class="total-row"><td colspan="2"><strong>Current daily driver target</strong></td><td><strong>{{ metrics.driverTarget != null ? money(metrics.driverTarget) : 'Unavailable — see Calculation Notices' }}</strong></td></tr>
             </tbody>
           </table>
+        </div>
+        <div class="calculation-live-note">
+          This is a rolling revenue allocation, not a sum of today’s break-even and today’s desired-profit provision. The current daily target is the remaining target obligation divided by the remaining eligible days. Today’s operating break-even is shown separately in the Break-even Calculation panel above.
         </div>
       </section>
 

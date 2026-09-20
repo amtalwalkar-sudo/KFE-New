@@ -8,8 +8,9 @@ const snapshot = normalizeCalculationSnapshot({
   shifts: [{ id: 's1', shiftStartAt: '2026-09-10T01:30:00.000Z', shiftEndAt: '2026-09-10T13:30:00.000Z', startOdometer: 70000, endOdometer: 70300, revenue: 5000, toll: 0, parking: 0 }],
   trips: [],
   fuelLogs: [
-    { id: 'f1', capturedAt: '2026-09-09T13:30:00.000Z', odometer: 69700, amount: 2460, quantityKg: 30, isFullTank: true },
-    { id: 'f2', capturedAt: '2026-09-10T13:30:00.000Z', odometer: 70300, amount: 2460, quantityKg: 30, isFullTank: true },
+    // One fuel log is enough to establish an observed period fuel cost/km;
+    // a second full-tank odometer reading is not yet available.
+    { id: 'f1', capturedAt: '2026-09-10T13:30:00.000Z', odometer: 70300, amount: 2460, quantityKg: 30, isFullTank: true },
   ],
   vehicles: [{ id: 'v1', acquiredOn: '2026-05-01' }], drivers: [{ id: 'd1' }],
   compliance: [{ id: 'c1', validFrom: '2026-05-01', validUntil: '2027-04-30', cost: 25000, active: true }], maintenance: [],
@@ -24,9 +25,14 @@ const metrics = deriveFinanceAwarePerformance(snapshot, range, previousRange(ran
 assert.equal(metrics.completeness.breakEven, true, 'Break-even dependency trace: ' + JSON.stringify(metrics.breakEvenTrace))
 assert.ok(Number.isFinite(metrics.monthlyBreakEvenRevenue), 'Expected monthly break-even, got ' + metrics.monthlyBreakEvenRevenue)
 assert.equal(metrics.completeness.loan, true)
+assert.ok(Number.isFinite(metrics.breakEvenInputs.fuelCostPerKm), 'Expected observed fuel cost/km fallback')
+assert.equal(metrics.breakEvenInputs.fuelCostPerKmSource, 'OBSERVED_PERIOD')
+assert.ok(Number.isFinite(metrics.breakEvenInputs.maintenanceProvisionPerKm), 'Expected configured maintenance provision/km')
 
 const stabilization = deriveRollingDriverTarget({ shifts: snapshot.shifts, trips: snapshot.trips, driverTargets: snapshot.driverTargets, from: range.from, to: range.to, applicableBreakEven: metrics.monthlyBreakEvenRevenue })
 assert.equal(stabilization.available, true, 'Target reason: ' + stabilization.reason)
 assert.ok(Number.isFinite(stabilization.currentDailyTarget))
+assert.ok(Number.isFinite(stabilization.remainingEligibleDays))
+assert.ok(Number.isFinite(stabilization.remainingObligation))
 
 console.log('September break-even → target dependency contract: PASS')

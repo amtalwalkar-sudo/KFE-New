@@ -137,6 +137,7 @@ export const PerformanceService = Object.freeze({
         loanScheduledObligation: dailyLoan,
         renewalProvision: dailyRenewal,
         fuelCostPerKm: dailyFuelRate,
+        fuelCostPerKmSource: metrics.breakEvenInputs?.fuelCostPerKmSource || null,
         vehicleKm: todayVehicleKm,
         fuelCost: dynamicFuelToday,
         maintenanceProvisionPerKm: dailyMaintenanceRate,
