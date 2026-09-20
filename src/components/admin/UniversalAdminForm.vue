@@ -21,10 +21,10 @@ function submit(){const result=AdminService.validate(props.definition.key,values
     <div class="form-grid">
       <label v-for="field in fields" :key="field.key" class="form-field" :class="{ invalid: !!errors[field.key] }">
         <span class="field-label">{{field.label}}<strong v-if="field.required" aria-hidden="true"> *</strong></span>
-        <select v-if="field.type==='select'" :id="`field-${field.key}`" :value="values[field.key]??''" :aria-invalid="!!errors[field.key]" :aria-describedby="errors[field.key]?`error-${field.key}`:undefined" @change="setValue(field.key,$event.target.value)">
+        <select v-if="field.type==='select'" :id="`field-${field.key}`" :value="values[field.key]??''" :aria-invalid="!!errors[field.key]" :aria-describedby="errors[field.key]?`error-${field.key}`:undefined" :disabled="busy" @change="setValue(field.key,$event.target.value)">
           <option value="">Select…</option><option v-for="option in field.options||[]" :key="optionValue(option)" :value="optionValue(option)">{{optionLabel(option)}}</option>
         </select>
-        <textarea v-else-if="field.type==='textarea'" :id="`field-${field.key}`" :value="values[field.key]??''" :aria-invalid="!!errors[field.key]" :aria-describedby="errors[field.key]?`error-${field.key}`:undefined" @input="setValue(field.key,$event.target.value)"/>
+        <textarea v-else-if="field.type==='textarea'" :id="`field-${field.key}`" :value="values[field.key]??''" :aria-invalid="!!errors[field.key]" :aria-describedby="errors[field.key]?`error-${field.key}`:undefined" :disabled="busy" @input="setValue(field.key,$event.target.value)"/>
         <input v-else :id="`field-${field.key}`" :type="field.type==='checkbox'?'checkbox':field.type" :min="field.min" :max="field.max" :step="field.step" :checked="field.type==='checkbox'?Boolean(values[field.key]):undefined" :value="field.type==='checkbox'?undefined:values[field.key]??''" :aria-invalid="!!errors[field.key]" :aria-describedby="errors[field.key]?`error-${field.key}`:undefined" :disabled="busy" @change="field.type==='checkbox'?setValue(field.key,$event.target.checked):setValue(field.key,$event.target.value)" @input="field.type==='checkbox'?undefined:setValue(field.key,$event.target.value)"/>
         <small v-if="errors[field.key]" :id="`error-${field.key}`" class="form-error" role="alert">{{errors[field.key]}}</small>
       </label>
