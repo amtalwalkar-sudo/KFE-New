@@ -293,6 +293,45 @@ onBeforeUnmount(() => unsubscribeChanges())
         </div>
       </section>
 
+      <section class="calculation-table-panel" aria-label="Today's break-even calculation">
+        <div class="section-head">
+          <div><small>BREAK-EVEN CALCULATION</small><h2>Today’s read-only cost build-up</h2></div>
+          <span class="calculation-live-badge">{{ metrics.dailyBreakEven?.vehicleKm != null ? 'Live KM basis' : 'Waiting for KM' }}</span>
+        </div>
+        <div class="calculation-table-wrap">
+          <table class="calculation-table">
+            <thead><tr><th>Component</th><th>Basis</th><th>Today</th></tr></thead>
+            <tbody>
+              <tr><td>Loan EMI</td><td>{{ metrics.dailyBreakEven?.daysInMonth ? `${money(metrics.loan?.emi)} ÷ ${metrics.dailyBreakEven.daysInMonth} days` : 'Daily amortization' }}</td><td>{{ metrics.dailyBreakEven?.loanScheduledObligation != null ? money(metrics.dailyBreakEven.loanScheduledObligation) : 'Unavailable — loan input incomplete' }}</td></tr>
+              <tr><td>Compliance / renewal</td><td>Annual/validity cost amortized per day</td><td>{{ metrics.dailyBreakEven?.renewalProvision != null ? money(metrics.dailyBreakEven.renewalProvision) : 'Unavailable — compliance cost/validity missing' }}</td></tr>
+              <tr><td>Maintenance provision</td><td>{{ metrics.dailyBreakEven?.maintenanceProvisionPerKm != null ? `${rate(metrics.dailyBreakEven.maintenanceProvisionPerKm)} × ${number(metrics.dailyBreakEven.vehicleKm)} km` : 'Rate unavailable' }}</td><td>{{ metrics.dailyBreakEven?.maintenanceProvision != null ? money(metrics.dailyBreakEven.maintenanceProvision) : 'Unavailable — maintenance rate missing' }}</td></tr>
+              <tr><td>Fuel</td><td>{{ metrics.dailyBreakEven?.fuelCostPerKm != null ? `${rate(metrics.dailyBreakEven.fuelCostPerKm)} × ${number(metrics.dailyBreakEven.vehicleKm)} km` : 'Rate unavailable' }}</td><td>{{ metrics.dailyBreakEven?.fuelCost != null ? money(metrics.dailyBreakEven.fuelCost) : 'Unavailable — fuel rate/KM missing' }}</td></tr>
+              <tr class="total-row"><td colspan="2"><strong>Total break-even for today</strong></td><td><strong>{{ metrics.dailyBreakEven?.total != null ? money(metrics.dailyBreakEven.total) : 'Unavailable — calculation incomplete' }}</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="calculation-live-note">
+          Dynamic rows use the authoritative fuel rate and vehicle kilometres available at calculation time. As GPS/odometer data and rides update, the KM-based fuel and maintenance amounts can update during an open shift. Fixed obligations do not change during the day. The final shift-end value becomes authoritative once the shift closes.
+        </div>
+      </section>
+
+      <section class="calculation-table-panel target-calculation-panel" aria-label="Today's driver target calculation">
+        <div class="section-head">
+          <div><small>DRIVER TARGET CALCULATION</small><h2>Today’s target build-up</h2></div>
+        </div>
+        <div class="calculation-table-wrap">
+          <table class="calculation-table">
+            <thead><tr><th>Component</th><th>Basis</th><th>Today</th></tr></thead>
+            <tbody>
+              <tr><td>Today’s break-even</td><td>Fixed + dynamic operating cost</td><td>{{ metrics.dailyTargetTotal != null ? money(metrics.dailyTargetTotal - (metrics.driverTargetDesiredProfitDaily || 0)) : 'Unavailable — break-even incomplete' }}</td></tr>
+              <tr><td>Desired driver profit / take-home</td><td>{{ metrics.dailyBreakEven?.daysInMonth ? `${money(metrics.driverTargetDesiredProfitMonthly)} ÷ ${metrics.dailyBreakEven.daysInMonth} days` : 'Daily amortization' }}</td><td>{{ metrics.driverTargetDesiredProfitDaily != null ? money(metrics.driverTargetDesiredProfitDaily) : 'Unavailable — target input missing' }}</td></tr>
+              <tr><td>Rolling balance adjustment</td><td>Authoritative rolling target balance</td><td>{{ metrics.driverTargetRecoveryAdjustment != null ? money(metrics.driverTargetRecoveryAdjustment) : 'Unavailable — rolling target incomplete' }}</td></tr>
+              <tr class="total-row"><td colspan="2"><strong>Current daily driver target</strong></td><td><strong>{{ metrics.driverTarget != null ? money(metrics.driverTarget) : 'Unavailable — see Calculation Notices' }}</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <section class="target-panel">
         <div class="section-head"><div><small>TARGET / PACE</small><h2>Are we on pace?</h2></div><button @click="openCard('target')">Details →</button></div>
         <div class="target-grid">
@@ -354,4 +393,8 @@ onBeforeUnmount(() => unsubscribeChanges())
 .health-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem;margin-top:.8rem}.health-summary div{display:flex;justify-content:space-between;gap:.75rem;padding:.7rem .8rem;border-radius:12px;background:var(--kfe-muted-surface,#f6f7f9)}.health-summary span{font-size:.82rem;opacity:.72}.health-summary strong{font-size:.9rem}
 .calculation-notices{display:grid;gap:.65rem;margin-top:.8rem}.calculation-notice{padding:.85rem;border-radius:14px;background:rgba(190,130,0,.07);border:1px solid rgba(190,130,0,.2)}.notice-title{display:flex;align-items:center;gap:.45rem}.calculation-notice p{margin:.5rem 0 0;font-size:.84rem;line-height:1.45}.notice-chain{opacity:.78}
 @media (max-width:600px){.health-summary{grid-template-columns:1fr}.calculation-health{padding:.9rem}}
+
+.calculation-table-panel{margin:1rem 0;padding:1rem 1.1rem;border:1px solid var(--kfe-border,#d9dee7);border-radius:18px;background:var(--kfe-surface,#fff)}
+.calculation-live-badge{font-size:.75rem;font-weight:700;padding:.35rem .6rem;border-radius:999px;background:rgba(30,140,80,.1)}
+.calculation-table-wrap{overflow-x:auto;margin-top:.8rem}.calculation-table{width:100%;border-collapse:collapse;min-width:560px}.calculation-table th,.calculation-table td{padding:.72rem .55rem;border-bottom:1px solid var(--kfe-border,#e6e9ee);text-align:left;vertical-align:top}.calculation-table th:last-child,.calculation-table td:last-child{text-align:right;white-space:nowrap}.calculation-table th{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;opacity:.65}.calculation-table td{font-size:.84rem}.calculation-table td:nth-child(2){opacity:.7}.calculation-table .total-row td{border-bottom:0;padding-top:.9rem}.calculation-live-note{margin-top:.75rem;font-size:.78rem;line-height:1.45;opacity:.68}.target-calculation-panel{margin-top:.8rem}
 </style>
