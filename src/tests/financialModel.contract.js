@@ -9,10 +9,10 @@ const snapshot = {
   shifts: [{ shiftStartAt: '2026-01-10T08:00:00+05:30', shiftEndAt: '2026-01-10T18:00:00+05:30', startOdometer: 1000, endOdometer: 1150, toll: 100, parking: 50, revenue: 10000 }],
   trips: [{ status: 'COMPLETED', tripStartAt: '2026-01-10T09:00:00+05:30', tripEndAt: '2026-01-10T11:00:00+05:30', revenue: 1, tripKm: 100 }],
   fuelLogs: [
-    { capturedAt: '2026-01-01T07:30:00+05:30', odometer: 1000, amount: 2000, quantityKg: 20 },
-    { capturedAt: '2026-01-05T07:30:00+05:30', odometer: 1100, amount: 2200, quantityKg: 22 },
-    { capturedAt: '2026-01-07T07:30:00+05:30', odometer: 1125, amount: 999, quantityKg: 10, isFullTank: false },
-    { capturedAt: '2026-01-10T07:30:00+05:30', odometer: 1200, amount: 2400, quantityKg: 24 }
+    { capturedAt: '2026-01-01T07:30:00+05:30', odometer: 1000, amount: 2000, isFullTank: true, vehicleId: 'v1', quantityKg: 20 },
+    { capturedAt: '2026-01-05T07:30:00+05:30', odometer: 1100, amount: 2200, isFullTank: true, vehicleId: 'v1', quantityKg: 22 },
+    { capturedAt: '2026-01-07T07:30:00+05:30', odometer: 1125, amount: 999, isFullTank: true, vehicleId: 'v1', quantityKg: 10, isFullTank: false },
+    { capturedAt: '2026-01-10T07:30:00+05:30', odometer: 1200, amount: 2400, isFullTank: true, vehicleId: 'v1', quantityKg: 24 }
   ],
   maintenance: [{ performedOn: '2026-01-09T12:00:00+05:30', cost: 300 }], compliance: [],
   loans: [{ id: 'loan-1', lender: 'Test lender', principal: 12000, annualInterestRate: 10, tenureMonths: 12, startDate: '2026-01-01T00:00:00+05:30', status: 'ACTIVE' }],
@@ -44,3 +44,22 @@ assert.equal(m.availableCash, m.operatingProfit)
 assert.equal(m.provisionAdjustedProfit, m.operatingProfit - m.provisionRequired)
 
 console.log('Financial model contract passed: monthly break-even authority, vehicle-KM economics, full-tank rolling fuel cost, explicit loan rate, actual cash, and provisions are separated.')
+
+const missingQualification = calculateRollingFuelCostPerKm([
+  { capturedAt: '2026-01-01T07:30:00+05:30', odometer: 1000, amount: 2000, vehicleId: 'v1' },
+  { capturedAt: '2026-01-05T07:30:00+05:30', odometer: 1100, amount: 2200, vehicleId: 'v1' },
+])
+assert.equal(missingQualification.completedIntervals, 0)
+assert.ok(Number.isNaN(missingQualification.rollingCostPerKm))
+const mismatchedVehicle = calculateRollingFuelCostPerKm([
+  { capturedAt: '2026-01-01T07:30:00+05:30', odometer: 1000, amount: 2000, isFullTank: true, vehicleId: 'v1' },
+  { capturedAt: '2026-01-05T07:30:00+05:30', odometer: 1100, amount: 2200, isFullTank: true, vehicleId: 'v2' },
+])
+assert.equal(mismatchedVehicle.completedIntervals, 0)
+assert.ok(Number.isNaN(mismatchedVehicle.rollingCostPerKm))
+const missingTimestamp = calculateRollingFuelCostPerKm([
+  { odometer: 1000, amount: 2000, isFullTank: true, vehicleId: 'v1' },
+  { capturedAt: '2026-01-05T07:30:00+05:30', odometer: 1100, amount: 2200, isFullTank: true, vehicleId: 'v1' },
+])
+assert.equal(missingTimestamp.completedIntervals, 0)
+assert.ok(Number.isNaN(missingTimestamp.rollingCostPerKm))
