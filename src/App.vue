@@ -10,12 +10,12 @@ const recoverApp = () => { renderError.value = null; window.location.reload() }
 
 <template>
   <KfeShell>
-    <div v-if="renderError" class="error-container" role="alert">
+    <div v-if="renderError" class="error-container kfe-runtime-error" role="alert">
       <h3>Something went wrong</h3>
       <p>{{ renderError }}</p>
       <button @click="recoverApp" class="retry-btn">Reload Application</button>
     </div>
-    <div v-else-if="props.startupError" class="error-container" role="alert">
+    <div v-else-if="props.startupError" class="error-container kfe-runtime-error" role="alert">
       <h3>Application initialization failed</h3>
       <p>{{ props.startupError }}</p>
       <button @click="recoverApp" class="retry-btn">Retry Initialization</button>
