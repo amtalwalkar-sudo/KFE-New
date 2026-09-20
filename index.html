@@ -5,16 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#2563eb" />
     <meta name="description" content="Driver-centric CNG Fleet Management PWA" />
+    <meta name="referrer" content="no-referrer" />
     <title>CNG Fleet Manager</title>
     <link rel="manifest" href="./manifest.json" />
   </head>
   <body>
     <div id="app">
       <div id="kfe-boot" style="min-height:100vh;display:grid;place-items:center;padding:24px;box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif;color:#0f172a;background:#f8fafc;text-align:center">
-        <div>
-          <strong style="display:block;font-size:1.05rem">Kanishka Enterprises</strong>
-          <span style="display:block;margin-top:6px;color:#64748b">Starting KFE…</span>
-        </div>
+        <div><strong style="display:block;font-size:1.05rem">Kanishka Enterprises</strong><span style="display:block;margin-top:6px;color:#64748b">Starting KFE…</span></div>
       </div>
     </div>
     <script>
@@ -23,7 +21,21 @@
           const root = document.getElementById('kfe-boot')
           if (!root) return
           const message = error?.message || String(error || 'Unknown startup error')
-          root.innerHTML = `<div><strong style="display:block;font-size:1.05rem;color:#991b1b">KFE could not start</strong><pre style="margin-top:10px;max-width:680px;white-space:pre-wrap;text-align:left;background:#fff1f2;padding:12px;border-radius:8px;overflow:auto;font:12px/1.5 ui-monospace,monospace">${message.replace(/[&<>\"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[character]))}</pre><button onclick="location.reload()" style="min-height:44px;padding:10px 16px;border:0;border-radius:8px;background:#2563eb;color:white;font-weight:700">Reload</button></div>`
+          root.replaceChildren()
+          const box = document.createElement('div')
+          const heading = document.createElement('strong')
+          heading.textContent = 'KFE could not start'
+          heading.style.cssText = 'display:block;font-size:1.05rem;color:#991b1b'
+          const details = document.createElement('pre')
+          details.textContent = message
+          details.style.cssText = 'margin-top:10px;max-width:680px;white-space:pre-wrap;text-align:left;background:#fff1f2;padding:12px;border-radius:8px;overflow:auto;font:12px/1.5 ui-monospace,monospace'
+          const reload = document.createElement('button')
+          reload.type = 'button'
+          reload.textContent = 'Reload'
+          reload.style.cssText = 'min-height:44px;padding:10px 16px;border:0;border-radius:8px;background:#2563eb;color:white;font-weight:700'
+          reload.addEventListener('click', () => location.reload())
+          box.append(heading, details, reload)
+          root.append(box)
         }
         window.addEventListener('error', event => showBootError(event.error || event.message))
         window.addEventListener('unhandledrejection', event => showBootError(event.reason))

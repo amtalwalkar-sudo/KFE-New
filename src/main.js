@@ -17,8 +17,6 @@ import { startKfeThemeController } from './presentation/theme/kfeThemeController
 
 startKfeThemeController()
 
-// Service-worker registration is owned by PlatformStartup; keep only the
-// controller lifecycle listener here so application bootstrap has one registration path.
 if ('serviceWorker' in navigator) {
   let reloadedForController = false
   navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -51,9 +49,20 @@ if ('serviceWorker' in navigator) {
 }
 
 const app = createApp(App, { startupError })
-app.config.errorHandler = (err, instance, info) => {
-  console.error('Vue Runtime Error:', err, info)
-  document.body.innerHTML = `<div style="padding:20px;color:red;font-family:sans-serif;"><h2>Runtime Error Captured:</h2><pre style="background:#fee2e2;padding:12px;border-radius:6px;overflow:auto;">${err.stack || err}</pre></div>`
+app.config.errorHandler = (err) => {
+  console.error('Vue Runtime Error:', err)
+  const root = document.getElementById('app')
+  if (!root) return
+  root.replaceChildren()
+  const box = document.createElement('div')
+  box.style.cssText = 'padding:20px;font-family:sans-serif'
+  const heading = document.createElement('h2')
+  heading.textContent = 'KFE could not render this screen'
+  const details = document.createElement('pre')
+  details.textContent = err?.message || String(err)
+  details.style.cssText = 'background:#fee2e2;padding:12px;border-radius:6px;overflow:auto;white-space:pre-wrap'
+  box.append(heading, details)
+  root.append(box)
 }
 
 const pinia = createPinia()
