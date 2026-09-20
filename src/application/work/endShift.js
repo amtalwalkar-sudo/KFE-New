@@ -1,12 +1,13 @@
 import { validateEndShiftEntry } from '../../domain/work/endShift.js'
 import { validateTripCorrection } from '../../domain/work/trip.js'
 import { ShiftTripRepository } from '../../repositories/shiftTripRepository.js'
+import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
 
 export async function completeEndShift({ shiftId, closingOdometer, revenue, toll, parking, tollParkingRevenueTreatment, trips = [], confirmLargeDistance = false, movementReconciliation = null }) {
   const active = await ShiftTripRepository.getActive()
   if (!active.shift || active.shift.id !== shiftId) return { ok: false, reason: 'Active shift not found.' }
 
-  const validation = validateEndShiftEntry({ closingOdometer, startOdometer: active.shift.startOdometer, confirmLargeDistance })
+  const validation = validateEndShiftEntry({ closingOdometer, startOdometer: active.shift.startOdometer, revenue, confirmLargeDistance })
   if (!validation.valid) return { ok: false, reason: validation.reason, requiresConfirmation: validation.requiresConfirmation, distanceKm: validation.distanceKm }
 
   const shiftRevenue = revenue === '' || revenue == null ? NaN : Number(revenue)
@@ -20,6 +21,11 @@ export async function completeEndShift({ shiftId, closingOdometer, revenue, toll
     correctionById.set(correction.id, tripValidation)
   }
 
+  const correctedTrips = existingTrips.map(trip => correctionById.has(trip.id) ? { ...trip, ...correctionById.get(trip.id) } : trip)
+  const revenueReconciliation = reconcileShiftRevenue({ shiftRevenue, trips: correctedTrips, toll, parking, tollParkingRevenueTreatment })
+  if (revenueReconciliation.reconciliationStatus === 'MISMATCH') return { ok: false, reason: 'SHIFT_REVENUE_TRIP_RECONCILIATION_MISMATCH', reconciliation: revenueReconciliation }
+  if (revenueReconciliation.reconciliationStatus === 'UNAVAILABLE' && revenueReconciliation.reason !== 'NO_COMPLETED_TRIPS') return { ok: false, reason: revenueReconciliation.reason, reconciliation: revenueReconciliation }
+
   try {
     await ShiftTripRepository.completeShift({
       id: shiftId,
@@ -29,6 +35,7 @@ export async function completeEndShift({ shiftId, closingOdometer, revenue, toll
       parking,
       tollParkingRevenueTreatment,
       movementReconciliation,
+      revenueReconciliation,
       trips: [...correctionById.entries()].map(([id, correction]) => ({ id, ...correction }))
     })
     return { ok: true, revenue: shiftRevenue }
