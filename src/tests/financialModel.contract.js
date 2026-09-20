@@ -16,8 +16,8 @@ const snapshot = {
   ],
   maintenance: [{ performedOn: '2026-01-09T12:00:00+05:30', cost: 300 }], compliance: [],
   loans: [{ id: 'loan-1', lender: 'Test lender', principal: 12000, annualInterestRate: 10, tenureMonths: 12, startDate: '2026-01-01T00:00:00+05:30', status: 'ACTIVE' }],
-  loanPayments: [{ loanId: 'loan-1', paidOn: '2026-01-15T00:00:00+05:30', amount: 800, charges: 0, status: 'PAID' }],
-  prepayments: [{ loanId: 'loan-1', paidOn: '2026-01-20T00:00:00+05:30', amount: 300, status: 'Applied' }], driverTargets: [],
+  loanPayments: [],
+  prepayments: [], driverTargets: [],
   breakEvenInputs: [{ effectiveFrom: '2026-01-01T00:00:00+05:30', maintenanceProvisionPerKm: 2 }]
 }
 
