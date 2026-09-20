@@ -39,6 +39,8 @@ PHASE 10 Hardening / Release
 - **Phase 8:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-8-FREEZE.md`; managed local backup/restore is complete and contract-covered.
 - **Phase 9:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-9-FREEZE.md`; provider-independent cloud backup/sync orchestration is complete and contract-covered.
 - **Phase 10:** FROZEN — explicit freeze recorded in `docs/KFE-PHASE-10-FREEZE.md`; hardening/release gate, full contract suite, production PWA build, Capacitor Android synchronization, and Android debug APK build passed in final CI #357, establishing the **RELEASE CANDIDATE** baseline.
+- **Phase 11:** FROZEN — Visual DNA, accessibility, responsive behavior, shell semantics, and presentation-boundary checks are contract-covered.
+- **Phase 12:** IN PROGRESS — final end-to-end source audit and release-candidate integrity gate.
 
 ## Phase 0 — Baseline & Governance
 Establish the clean repository, CI, architecture, dependency, calculation-authority, and development-governance baseline. Exit: **MAIN BASELINE GREEN**.
@@ -95,3 +97,14 @@ PHASE START → ① Phase Contract → ② Comprehensive Gap Audit → ③ Batch
 ```
 
 CI failures follow `docs/KFE-HOLISTIC-CI-FAILURE-PROTOCOL.md`; no single-failure correction loop. Frozen decisions require explicit drift review before amendment. Do not silently skip or reorder phases.
+
+
+## Phase 11 — Visual DNA / Accessibility / Responsive Implementation
+Validate the frozen Visual DNA against the actual CSS, shell, accessibility semantics, responsive/safe-area behavior, reduced-motion behavior, and presentation boundaries.
+
+**Exit condition:** frozen DNA tokens and shell semantics are implemented, accessibility/responsive contracts pass, and presentation changes remain guarded by the impact boundary.
+
+## Phase 12 — Final End-to-End Source Audit / Release
+Perform the final source-level audit across startup, persistence, domain authority, application flows, GPS/trace economics, Android/Capacitor integration, performance/concurrency, security/hardening, Visual DNA, CI/CD, and deployment artifacts. Correct any remaining cross-layer authority or release-integrity defect in one coordinated pass.
+
+**Exit condition:** the complete contract runner includes the Phase 12 final end-to-end audit, all release gates remain wired, no known cross-layer authority defect remains in audited source, production PWA/Android build gates pass, and the repository is ready for the separate physical-device validation pass.
