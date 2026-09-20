@@ -27,12 +27,12 @@ function gpsStateLabel() {
   if (gpsState.value === 'permission') return 'GPS permission needed'
   if (gpsState.value === 'unsupported') return 'GPS unavailable'
   if (gpsState.value === 'unavailable') return 'GPS unavailable'
-  return 'Connecting GPS'
+  if (gpsState.value === 'ready') return 'GPS ready — tap to check'\n  return 'Connecting GPS'
 }
 
 onMounted(() => {
-  connectGps()
-  gpsRefreshTimer = window.setInterval(connectGps, 60000)
+  void connectGps()
+  gpsRefreshTimer = window.setInterval(() => { void connectGps() }, 60000)
 })
 onBeforeUnmount(() => {
   if (gpsRefreshTimer !== null) window.clearInterval(gpsRefreshTimer)
@@ -56,7 +56,7 @@ onBeforeUnmount(() => {
         type="button"
         :title="gpsStateLabel()"
         :aria-label="gpsStateLabel()"
-        @click="connectGps"
+        @click="connectGps({ requestPermission: true })
       >
         <svg class="gps-icon" viewBox="0 0 24 24" aria-hidden="true">
           <template v-if="gpsState === 'checking'">
