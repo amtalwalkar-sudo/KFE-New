@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { derivePerformance } from '../domain/performance/performanceEngineV2.js'
+import { deriveFinanceAwarePerformance } from '../domain/performance/financePerformanceAdapter.js'
 import { calculateRollingFuelCostPerKm } from '../domain/math/fuel.js'
 
 const from = new Date('2026-01-01T00:00:00+05:30')
@@ -25,7 +25,7 @@ assert.equal(fuel.completedIntervals, 2)
 assert.equal(fuel.observations.length, 2)
 assert.equal(fuel.rollingCostPerKm, 23)
 
-const m = derivePerformance(snapshot, { from, to })
+const m = deriveFinanceAwarePerformance(snapshot, { from, to })
 assert.equal(m.revenue, 10000)
 assert.equal(m.vehicleKm, 150)
 assert.equal(m.businessKm, 100)
