@@ -52,7 +52,10 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
     ? finance.schedule.filter(row => inRange(row.dueDate, range)).reduce((sum, row) => sum + money(row.originalInterestComponent), 0)
     : 0
 
-  const breakEvenMonthRange = istMonthRange(range?.to) || range
+  const fullMonthRange = istMonthRange(range?.to) || range
+  const breakEvenMonthRange = fullMonthRange && fullMonthRange.to > currentAsOf
+    ? { ...fullMonthRange, to: currentAsOf }
+    : fullMonthRange
   const monthlyBase = deriveOperationalPerformance(snapshot, breakEvenMonthRange, derivePreviousRange(breakEvenMonthRange))
   const monthAsOf = asOf(breakEvenMonthRange)
   const monthFinance = activeLoan
