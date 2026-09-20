@@ -16,7 +16,7 @@ assert.match(startup, /void platform\.registerServiceWorker\(\)/, 'service-worke
 assert.match(platform, /serviceWorker\.register\('\.\/service-worker\.js', \{ scope: '\.\/' \}\)/)
 assert.match(platform, /registration\.update\(\)\.catch/)
 
-assert.match(sw, /const CACHE_NAME = 'kfe-pwa-shell-v4'/, 'service-worker cache version must advance with lifecycle behavior')
+assert.match(sw, /const CACHE_NAME = 'kfe-pwa-shell-v5'/, 'service-worker cache version must advance with lifecycle behavior')
 assert.match(sw, /cache\.addAll\(SHELL_ASSETS\)/, 'install must cache only guaranteed shell assets')
 assert.match(sw, /request\.mode === 'navigate'/, 'offline index fallback must be navigation-only')
 assert.doesNotMatch(sw, /caches\.match\('\.\/index\.html'\)\)\s*\/\/ fallback for every GET/, 'index must not be a universal asset fallback')
