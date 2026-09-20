@@ -13,16 +13,12 @@ function connectGps() {
 
   gpsState.value = 'checking'
 
-  if (gpsWatchId !== null) {
-    navigator.geolocation.clearWatch(gpsWatchId)
-  }
-
-  gpsWatchId = navigator.geolocation.watchPosition(
+  navigator.geolocation.getCurrentPosition(
     () => { gpsState.value = 'connected' },
     (error) => {
       gpsState.value = error.code === 1 ? 'permission' : 'unavailable'
     },
-    { enableHighAccuracy: true, maximumAge: 15000, timeout: 10000 }
+    { enableHighAccuracy: false, maximumAge: 30000, timeout: 10000 }
   )
 }
 
