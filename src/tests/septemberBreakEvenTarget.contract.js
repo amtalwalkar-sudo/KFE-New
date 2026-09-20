@@ -33,7 +33,7 @@ assert.ok(Number.isFinite(metrics.breakEvenInputs.maintenanceProvisionPerKm), 'E
 
 const stabilization = deriveRollingDriverTarget({ shifts: snapshot.shifts, trips: snapshot.trips, driverTargets: snapshot.driverTargets, from: range.from, to: range.to, applicableBreakEven: metrics.monthlyBreakEvenRevenue })
 assert.equal(stabilization.available, false, 'Indicative break-even must not feed authoritative target')
-assert.equal(stabilization.reason, 'MISSING_AUTHORITATIVE_TARGET_INPUT')
+assert.equal(stabilization.reason, 'NO_FINANCIAL_DRIVER_TARGET_DAY')
 
 const qualifiedSnapshot = normalizeCalculationSnapshot({
   ...snapshot,
