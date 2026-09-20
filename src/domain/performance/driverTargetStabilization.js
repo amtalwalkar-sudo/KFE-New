@@ -72,11 +72,15 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     return tripDayKey && tripDayKey <= endDayKey
   })
   const revenueByMonth = authoritativeShiftRevenueByMonth(shifts, asOfBoundary)
+  // A target day is anchored to the driver's shift, not to whether a trip has
+  // already been completed. Shift-end revenue remains the financial revenue
+  // authority, but the target must be visible from shift start.
   const financialDaysByMonth = new Map()
-  for (const trip of completed) {
-    const day = keyOf(trip.tripEndAt || trip.tripStartAt)
-    const month = monthKeyOf(trip.tripEndAt || trip.tripStartAt)
-    if (!month || !day) continue
+  for (const shift of live(shifts)) {
+    const shiftDate = dateOf(shift.shiftStartAt || shift.shiftEndAt)
+    const day = shiftDate ? keyOf(shiftDate) : null
+    const month = shiftDate ? monthKeyOf(shiftDate) : null
+    if (!month || !day || day > endDayKey) continue
     if (!financialDaysByMonth.has(month)) financialDaysByMonth.set(month, new Set())
     financialDaysByMonth.get(month).add(day)
   }
