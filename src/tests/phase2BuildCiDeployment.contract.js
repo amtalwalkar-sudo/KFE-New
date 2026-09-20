@@ -23,7 +23,7 @@ assert.match(workflow, /npx cap sync android/, 'CI must verify Capacitor synchro
 assert.match(workflow, /\.\/gradlew assembleDebug/, 'CI must verify Android debug compilation')
 assert.match(workflow, /actions\/upload-pages-artifact@v4/, 'canonical CI must package Pages artifact')
 assert.match(workflow, /actions\/deploy-pages@v4/, 'canonical CI must deploy Pages')
-assert.match(workflow, /github\.event_name === 'push' && github\.ref === 'refs\/heads\/main'/, 'Pages deployment must be restricted to main pushes')
+assert.match(workflow, /github\.event_name == 'push' && github\.ref == 'refs\/heads\/main'/, 'Pages deployment must be restricted to main pushes')
 assert.match(workflow, /needs: build-and-test/, 'deployment must depend on successful validation')
 assert.ok(!existsSync('.github/workflows/deploy-pages.yml'), 'duplicate Pages deployment workflow must remain removed')
 
