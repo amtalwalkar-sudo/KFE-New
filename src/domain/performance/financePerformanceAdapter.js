@@ -76,6 +76,12 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
     vehicleKm: monthlyBase.vehicleKm,
   })
   const monthlyBreakEvenRevenue = breakEven.available ? breakEven.monthlyBreakEvenRevenue : NaN
+  const authoritativeMaintenanceProvision = breakEven.available && Number.isFinite(Number(breakEven.maintenanceProvisionPerKm))
+    ? base.vehicleKm * Number(breakEven.maintenanceProvisionPerKm)
+    : NaN
+  const provisionRequired = Number.isFinite(authoritativeMaintenanceProvision) && Number.isFinite(Number(base.renewalProvision))
+    ? authoritativeMaintenanceProvision + Number(base.renewalProvision)
+    : NaN
 
   const loanUnavailableReason = hasIncompleteActiveLoan ? 'INCOMPLETE_LOAN_INPUTS' : 'NO_ACTIVE_LOAN'
   const loanScheduledObligation = hasIncompleteActiveLoan ? NaN : currentScheduledEmi
@@ -94,6 +100,9 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
     actualFinancingOutflow,
     availableCash,
     cashSurplusAfterFinancing: availableCash,
+    maintenanceProvision: authoritativeMaintenanceProvision,
+    provisionRequired,
+    provisionSetAside: provisionRequired,
     monthlyBreakEvenRevenue,
     breakEvenRevenue: monthlyBreakEvenRevenue,
     breakEvenInputs: {
