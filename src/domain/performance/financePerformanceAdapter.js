@@ -20,13 +20,16 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   const loanRecords = live(snapshot?.loans)
   const paymentRecords = live(snapshot?.loanPayments)
   const prepaymentRecords = live(snapshot?.prepayments)
-  const activeLoan = loanRecords
+  const candidateLoans = loanRecords
     .filter(loan => String(loan.status || '').toUpperCase() === 'ACTIVE')
-    .filter(loan => dateOf(loan.startDate) && dateOf(loan.startDate) <= currentAsOf)
+    .filter(loan => !dateOf(loan.startDate) || dateOf(loan.startDate) <= currentAsOf)
+  const activeLoan = candidateLoans
     .filter(loan => Number.isFinite(Number(loan.principal)) && Number(loan.principal) > 0)
     .filter(loan => Number.isFinite(Number(loan.tenureMonths)) && Number(loan.tenureMonths) > 0)
     .filter(loan => Number.isFinite(Number(loan.annualInterestRatePercent)) && Number(loan.annualInterestRatePercent) >= 0)
+    .filter(loan => dateOf(loan.startDate))
     .sort((a, b) => (dateOf(b.startDate)?.getTime() || 0) - (dateOf(a.startDate)?.getTime() || 0))[0]
+  const hasIncompleteActiveLoan = candidateLoans.length > 0 && !activeLoan
 
   const finance = activeLoan
     ? deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: currentAsOf })
@@ -69,6 +72,8 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   })
   const monthlyBreakEvenRevenue = breakEven.available ? breakEven.monthlyBreakEvenRevenue : NaN
 
+  const loanUnavailableReason = hasIncompleteActiveLoan ? 'INCOMPLETE_LOAN_INPUTS' : 'NO_ACTIVE_LOAN'
+  const loanScheduledObligation = hasIncompleteActiveLoan ? NaN : currentScheduledEmi
   const actualLoanPaid = money(finance?.actualPaid)
   const actualPrepayment = money(finance?.actualPrepayment)
   const actualFinancingOutflow = money(finance?.actualFinancingOutflow)
@@ -76,7 +81,7 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
 
   return {
     ...base,
-    loanScheduledObligation: currentScheduledEmi,
+    loanScheduledObligation,
     loanPrincipal: money(finance?.outstandingPrincipal),
     loanInterest: currentScheduledInterest,
     actualLoanPaid,
@@ -94,6 +99,8 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
     },
     finance: {
       ...(finance || {}),
+      available: !!finance?.available,
+      reason: finance?.available ? null : loanUnavailableReason,
       annualInterestRatePercent: finance?.annualInterestRatePercent ?? null,
       preBusinessRecoveryMonthly,
       businessStartDate: businessStart?.toISOString() || null,
