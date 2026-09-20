@@ -67,27 +67,7 @@
   color-scheme:dark;
 }
 
-:root{
-  --kfe-bg:#f8fafc;
-  --kfe-surface:#ffffff;
-  --kfe-surface-muted:#f1f5f9;
-  --kfe-text:#0f172a;
-  --kfe-text-muted:#64748b;
-  --kfe-border:#e2e8f0;
-  --kfe-border-strong:#cbd5e1;
-  --kfe-primary:#2563eb;
-  --kfe-primary-strong:#1d4ed8;
-  --kfe-danger:#b91c1c;
-  --kfe-success:#166534;
-  --kfe-radius-sm:8px;
-  --kfe-radius-md:12px;
-  --kfe-radius-lg:16px;
-  --kfe-touch:44px;
-  --kfe-shadow-sm:0 2px 8px rgba(15,23,42,.06);
-  --kfe-shadow-md:0 8px 24px rgba(15,23,42,.10);
-  --kfe-nav-height:64px;
-  --kfe-top-height:52px;
-}
+
 *,*::before,*::after{box-sizing:border-box}
 html{background:var(--kfe-bg);-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{margin:0;min-width:320px;min-height:100%;background:var(--kfe-bg);color:var(--kfe-text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.4;-webkit-font-smoothing:antialiased}
@@ -99,7 +79,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 a{color:inherit}
 [disabled]{cursor:not-allowed}
 .kfe-visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
-.kfe-skip-link{position:fixed;top:8px;left:8px;z-index:20000;padding:10px 14px;border-radius:var(--kfe-radius-sm);background:var(--kfe-text);color:#fff;text-decoration:none;font-weight:800;transform:translateY(-150%);transition:transform .15s ease}
+.kfe-skip-link{position:fixed;top:8px;left:8px;z-index:20000;padding:10px 14px;border-radius:var(--kfe-radius-sm);background:var(--kfe-text);color:#fff;text-decoration:none;font-weight:800;transform:translateY(-150%);transition:transform var(--kfe-motion-fast) ease}
 .kfe-skip-link:focus{transform:translateY(0)}
 .kfe-shell{padding-bottom:calc(var(--kfe-nav-height) + env(safe-area-inset-bottom, 0px))}
 .kfe-bottom-nav{padding-bottom:env(safe-area-inset-bottom, 0px)}
@@ -223,7 +203,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   gap: 0.4rem;
   font-family: inherit;
   font-weight: 600;
-  border-radius: 6px;
+  border-radius: var(--kfe-radius-sm);
   cursor: pointer;
   transition: background-color 0.15s ease, opacity 0.15s ease;
   border: 1px solid transparent;
@@ -234,7 +214,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 }
 .btn-primary { background: var(--color-primary, #2563eb); color: #fff; }
 .btn-secondary { background: var(--bg-surface, #fff); border-color: var(--border-color, #cbd5e1); color: var(--text-main, #0f172a); }
-.btn-danger { background: #dc2626; color: #fff; }
+.btn-danger { background: var(--kfe-danger); color: #fff; }
 .btn-ghost { background: transparent; color: var(--text-muted, #64748b); }
 
 .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.7rem; }
@@ -1520,3 +1500,13 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
 .persistent-action .swipe-bar.trip-action.swipe-bar--pickup .swipe-label,
 .persistent-action .swipe-bar.trip-action.swipe-bar--ride-start .swipe-label,
 .persistent-action .swipe-bar.trip-action.swipe-bar--ride-end .swipe-label { color: var(--swipe-action-color); }
+
+/* PHASE 11 — final visual-DNA normalization guardrails. */
+
+:root{--kfe-nav-height:76px;--kfe-top-height:64px}
+html{scroll-behavior:smooth}
+button,input,select,textarea{min-height:var(--kfe-touch)}
+.base-btn,.base-button{border-radius:var(--kfe-radius-sm)!important}
+.modal-card,.kfe-surface,.surface,.workspace,.settings-workspace,.settings-menu,.financial-card,.record,.info-card,.reset-card{border-radius:var(--kfe-radius-md)}
+@media(max-width:700px){.kfe-page,.work-page,.timeline-page,.performance-page,.admin-page{padding-left:var(--kfe-space-3)!important;padding-right:var(--kfe-space-3)!important}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto!important}}
