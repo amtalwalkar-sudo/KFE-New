@@ -1510,3 +1510,7 @@ button,input,select,textarea{min-height:var(--kfe-touch)}
 .modal-card,.kfe-surface,.surface,.workspace,.settings-workspace,.settings-menu,.financial-card,.record,.info-card,.reset-card{border-radius:var(--kfe-radius-md)}
 @media(max-width:700px){.kfe-page,.work-page,.timeline-page,.performance-page,.admin-page{padding-left:var(--kfe-space-3)!important;padding-right:var(--kfe-space-3)!important}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto!important}}
+
+/* Cross-layer runtime failure presentation uses the same Visual DNA as the application shell. */
+.kfe-runtime-error{padding:var(--kfe-space-5);font-family:inherit;color:var(--kfe-ui-text)}
+.kfe-runtime-error pre{background:var(--kfe-ui-surface-2);color:var(--kfe-ui-text);padding:var(--kfe-space-3);border:1px solid var(--kfe-ui-border);border-radius:var(--kfe-radius-sm);overflow:auto;white-space:pre-wrap}
