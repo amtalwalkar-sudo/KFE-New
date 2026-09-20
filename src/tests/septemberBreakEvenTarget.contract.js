@@ -22,17 +22,17 @@ const snapshot = normalizeCalculationSnapshot({
 
 const range = { from: new Date('2026-09-01T00:00:00+05:30'), to: new Date('2026-09-18T23:59:59.999+05:30') }
 const metrics = deriveFinanceAwarePerformance(snapshot, range, previousRange(range))
-assert.equal(metrics.completeness.breakEven, true, 'Break-even dependency trace: ' + JSON.stringify(metrics.breakEvenTrace))
-assert.ok(Number.isFinite(metrics.monthlyBreakEvenRevenue), 'Expected monthly break-even, got ' + metrics.monthlyBreakEvenRevenue)
+assert.equal(metrics.completeness.breakEven, false, 'Provisional fuel evidence must not produce authoritative break-even: ' + JSON.stringify(metrics.breakEvenTrace))
+assert.equal(metrics.calculationEvidence.breakEven.status, 'INDICATIVE')
+assert.ok(Number.isFinite(metrics.indicative?.monthlyBreakEvenRevenue), 'Expected indicative monthly break-even candidate')
 assert.equal(metrics.completeness.loan, true)
 assert.ok(Number.isFinite(metrics.breakEvenInputs.fuelCostPerKm), 'Expected observed fuel cost/km fallback')
 assert.equal(metrics.breakEvenInputs.fuelCostPerKmSource, 'OBSERVED_PERIOD')
+assert.equal(metrics.breakEvenInputs.fuelEvidence.status, 'INDICATIVE')
 assert.ok(Number.isFinite(metrics.breakEvenInputs.maintenanceProvisionPerKm), 'Expected configured maintenance provision/km')
 
 const stabilization = deriveRollingDriverTarget({ shifts: snapshot.shifts, trips: snapshot.trips, driverTargets: snapshot.driverTargets, from: range.from, to: range.to, applicableBreakEven: metrics.monthlyBreakEvenRevenue })
-assert.equal(stabilization.available, true, 'Target reason: ' + stabilization.reason)
-assert.ok(Number.isFinite(stabilization.currentDailyTarget))
-assert.ok(Number.isFinite(stabilization.remainingEligibleDays))
-assert.ok(Number.isFinite(stabilization.remainingObligation))
+assert.equal(stabilization.available, false, 'Indicative break-even must not feed authoritative target')
+assert.equal(stabilization.reason, 'MISSING_AUTHORITATIVE_TARGET_INPUT')
 
 console.log('September break-even → target dependency contract: PASS')
