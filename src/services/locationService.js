@@ -2,6 +2,8 @@ import { ActivityDetectionService } from './activityDetectionService.js'
 
 const GPS_INTERVALS_MS = Object.freeze({ WAITING: 7 * 60 * 1000, TRIP_ACTIVE: 9 * 60 * 1000, BETWEEN_TRIPS_MOVING: 2 * 60 * 1000, BETWEEN_TRIPS_STATIONARY: 6 * 60 * 1000 })
 const MOVEMENT_SPEED_KMH = 2
+// Watch callbacks are movement signals only; persisted snapshots remain state-cadenced.
+const GPS_WATCH_OPTIONS = Object.freeze({ enableHighAccuracy: false, maximumAge: 30000, timeout: 15000 })
 let lastSnapshotAt = 0
 let timer = null
 let watchId = null
@@ -16,7 +18,7 @@ const startAndroidForegroundService = async () => { try { const { Capacitor } = 
 const stopAndroidForegroundService = async () => { try { if (foregroundService) await foregroundService.stopForegroundService() } catch (error) { console.warn('Unable to stop Android foreground location service.', error) } finally { foregroundService = null } }
 const applyMovementState = location => { if (!location || currentState === 'WAITING' || currentState === 'TRIP_ACTIVE') return; const next = deriveBetweenTripGpsState(location); if (next !== currentState) { currentState = next; schedule() } }
 const handleWatchedLocation = async location => { if (!activeHandler || !location) return; applyMovementState(location); const now = Date.now(); if (now - lastSnapshotAt < GPS_INTERVALS_MS[currentState]) return; lastSnapshotAt = now; await activeHandler(location) }
-const startNativeWatch = () => { if (typeof navigator === 'undefined' || !navigator.geolocation || typeof navigator.geolocation.watchPosition !== 'function') return; watchId = navigator.geolocation.watchPosition(position => { void handleWatchedLocation(normalizePosition(position)) }, () => {}, { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }) }
+const startNativeWatch = () => { if (typeof navigator === 'undefined' || !navigator.geolocation || typeof navigator.geolocation.watchPosition !== 'function') return; watchId = navigator.geolocation.watchPosition(position => { void handleWatchedLocation(normalizePosition(position)) }, () => {}, GPS_WATCH_OPTIONS) }
 const stopNativeWatch = () => { if (watchId !== null && typeof navigator !== 'undefined' && navigator.geolocation?.clearWatch) navigator.geolocation.clearWatch(watchId); watchId = null }
 const capture = async (handler, force = false) => { const now = Date.now(); if (!force && now - lastSnapshotAt < GPS_INTERVALS_MS[currentState]) return null; const location = await readPosition(); if (location) { lastSnapshotAt = now; applyMovementState(location); await handler(location) } return location }
 const schedule = () => { if (timer !== null && typeof window !== 'undefined') window.clearTimeout(timer); if (!activeHandler || typeof window === 'undefined') return; timer = window.setTimeout(async () => { if (activeHandler) await capture(activeHandler); if (activeHandler) schedule() }, GPS_INTERVALS_MS[currentState]) }
@@ -37,3 +39,4 @@ export const LocationService = {
 export const LOCATION_SNAPSHOT_INTERVAL_MS = GPS_INTERVALS_MS.WAITING
 export const LOCATION_SNAPSHOT_INTERVALS_MS = GPS_INTERVALS_MS
 export const GPS_MOVEMENT_SPEED_THRESHOLD_KMH = MOVEMENT_SPEED_KMH
+export const GPS_WATCH_OPTIONS_CONFIG = GPS_WATCH_OPTIONS
