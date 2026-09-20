@@ -26,10 +26,13 @@ assert.equal(metrics.completeness.breakEven, true, 'Break-even dependency trace:
 assert.ok(Number.isFinite(metrics.monthlyBreakEvenRevenue), 'Expected monthly break-even, got ' + metrics.monthlyBreakEvenRevenue)
 assert.equal(metrics.completeness.loan, true)
 assert.ok(Number.isFinite(metrics.breakEvenInputs.fuelCostPerKm), 'Expected observed fuel cost/km fallback')
+assert.equal(metrics.breakEvenInputs.fuelCostPerKmSource, 'OBSERVED_PERIOD')
 assert.ok(Number.isFinite(metrics.breakEvenInputs.maintenanceProvisionPerKm), 'Expected configured maintenance provision/km')
 
 const stabilization = deriveRollingDriverTarget({ shifts: snapshot.shifts, trips: snapshot.trips, driverTargets: snapshot.driverTargets, from: range.from, to: range.to, applicableBreakEven: metrics.monthlyBreakEvenRevenue })
 assert.equal(stabilization.available, true, 'Target reason: ' + stabilization.reason)
 assert.ok(Number.isFinite(stabilization.currentDailyTarget))
+assert.ok(Number.isFinite(stabilization.remainingEligibleDays))
+assert.ok(Number.isFinite(stabilization.remainingObligation))
 
 console.log('September break-even → target dependency contract: PASS')
