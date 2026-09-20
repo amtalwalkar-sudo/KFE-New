@@ -131,3 +131,8 @@ This revision deliberately removes duplicate break-even orchestration from `perf
 
 
 This artifact is the working source for the authority audit. It records repository-level CI verification as completed while explicitly leaving local Termux/device execution outside the GitHub-side claim. It must be updated whenever code/specification findings change the ownership, period, unit, or canonical field of a calculation.
+
+
+## FAH-2 operational reconciliation
+
+Shift-end revenue is the single operational revenue fact. When completed trips contain fare values, the End Shift authority compares their sum with the entered shift-end revenue. A mismatch or incomplete trip-fare detail blocks shift closure; no trip-level fare is promoted to revenue authority. Toll and parking are retained as operating-cost facts and are never added to revenue by the reconciliation. Post-close trip corrections re-evaluate the completed shift's reconciliation status so administrative changes cannot silently leave the supporting detail inconsistent with the authoritative shift revenue.
