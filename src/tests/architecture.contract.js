@@ -45,6 +45,14 @@ if (fs.existsSync(manifestPath)) {
 }
 
 const obsoleteFiles = [
+  'stores/offlineQueueStore.js',
+  'stores/index.js',
+  'services/syncEngine.js',
+  'services/api.js',
+  'services/movementTraceService.js',
+  'services/valhallaRoutingAdapter.js',
+  'services/kfeRideNotificationService.js',
+  'services/kfeThemeController.js',
   'application/shell/shellService.js',
   'presentation/application/presentation-api.js',
   'services/movementAccountingService.js',
