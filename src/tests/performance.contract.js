@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { derivePerformance, previousRange } from '../domain/performance/performanceEngineV2.js'
+import { deriveFinanceAwarePerformance } from '../domain/performance/financePerformanceAdapter.js'
 
 const near = (actual, expected, message) => assert.ok(Math.abs(actual - expected) < 1e-10, `${message || 'values differ'}: ${actual} !== ${expected}`)
 
