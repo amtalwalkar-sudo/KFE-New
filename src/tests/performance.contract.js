@@ -132,10 +132,10 @@ near(holidayMetrics.driverTargetEffectiveMonthlyTarget, noHolidayMetrics.driverT
 const changedInput = { ...snapshot, breakEvenInputs: [{ effectiveFrom:'2026-09-01', maintenanceProvisionPerKm:4, active:true }] }
 const changedEngineSnapshot = { ...engineSnapshot, breakEvenInputs: changedInput.breakEvenInputs }
 const changedEngineMetrics = derivePerformance(changedEngineSnapshot, range, previousRange(range))
+const changedEngineFinance = deriveFinanceAwarePerformance(changedEngineSnapshot, range, previousRange(range))
 const changedServiceMetrics = PerformanceService.getMetrics(changedInput, range)
-near(changedEngineMetrics.monthlyBreakEvenRevenue - m.monthlyBreakEvenRevenue, 200, 'engine BE change')
 near(changedServiceMetrics.breakEvenRevenue - serviceMetrics.breakEvenRevenue, 200, 'service BE change')
-near(changedEngineMetrics.monthlyBreakEvenRevenue, changedServiceMetrics.breakEvenRevenue, 'single BE authority')
+near(changedEngineFinance.monthlyBreakEvenRevenue, changedServiceMetrics.breakEvenRevenue, 'finance adapter BE authority')
 near(changedServiceMetrics.monthlyBreakEvenRevenue - serviceMetrics.monthlyBreakEvenRevenue, 200, 'monthly BE change')
 near(changedServiceMetrics.dailyBreakEvenRevenue - serviceMetrics.dailyBreakEvenRevenue, 200 / serviceMetrics.driverTargetRemainingEligibleDays, 'daily BE change')
 
