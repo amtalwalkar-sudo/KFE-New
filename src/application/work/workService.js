@@ -9,8 +9,8 @@ import { calculateFuelQuantity, validateFuelEntry } from '../../domain/work/fuel
 import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } from '../../domain/work/trip.js'
 import { BackupService } from '../backup/backupService.js'
 import { MovementAccountingService, routeTrace } from '../../domain/movement/movementAccounting.js'
-import { ValhallaRoutingAdapter } from '../../services/valhallaRoutingAdapter.js'
-import { calculateTraceDistanceKm } from '../../services/movementTraceService.js'
+import { ValhallaRoutingAdapter } from '../../infrastructure/location/valhallaRoutingAdapter.js'
+import { calculateTraceDistanceKm } from '../../infrastructure/location/movementTraceService.js'
 
 const checkpoint = () => BackupService.requestLocalBackupCheckpoint()
 

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { acceptPickupGpsPoint, isPickupGpsPoint, pickupGpsTestSummary, PICKUP_GPS_INTERVAL_MS } from '../services/deadKmPickupGpsService.js'
+import { acceptPickupGpsPoint, isPickupGpsPoint, pickupGpsTestSummary, PICKUP_GPS_INTERVAL_MS } from '../infrastructure/location/deadKmPickupGpsService.js'
 
 const point = (milliseconds, accuracy = 8) => ({
   coords: { latitude: 19.119, longitude: 72.847 + milliseconds * 0.00000001, accuracy },

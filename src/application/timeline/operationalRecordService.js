@@ -1,5 +1,5 @@
-import { ShiftTripRepository } from '../repositories/shiftTripRepository.js'
-import { FuelRepository } from '../repositories/fuelRepository.js'
+import { ShiftTripRepository } from '../../repositories/shiftTripRepository.js'
+import { FuelRepository } from '../../repositories/fuelRepository.js'
 
 const completedTrips = trips => trips.filter(trip => trip.status === 'COMPLETED')
 const finiteNonNegative = (value, field) => {

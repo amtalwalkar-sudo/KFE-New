@@ -5,8 +5,8 @@ import { useFuelStore } from '../stores/fuel.js'
 import { DriverTargetService } from '../application/performance/driverTargetService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { getKfeReferenceNow, reportingRangeFor, istCalendarDaysInclusive, istParts } from '../domain/time/ist.js'
-import { MovementTraceService } from '../services/movementTraceService.js'
-import { KfeRideNotificationService } from '../services/kfeRideNotificationService.js'
+import { MovementTraceService } from '../infrastructure/location/movementTraceService.js'
+import { KfeRideNotificationService } from '../infrastructure/android/kfeRideNotificationService.js'
 
 const store = useShiftTripStore()
 const fuelStore = useFuelStore()

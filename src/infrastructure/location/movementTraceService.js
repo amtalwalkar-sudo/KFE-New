@@ -1,4 +1,4 @@
-import { LocationRepository } from '../repositories/locationRepository.js'
+import { LocationRepository } from '../../repositories/locationRepository.js'
 
 export const MOVEMENT_TRACE_INTERVALS_MS = Object.freeze({
   DEAD_LEG: 20 * 1000,

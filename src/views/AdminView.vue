@@ -8,7 +8,7 @@ import { AdminService } from '../application/admin/adminService.js'
 import { BackupService } from '../application/backup/backupService.js'
 import { LoanReadModelService } from '../application/admin/loanReadModelService.js'
 import { getKfeReferenceNow } from '../domain/time/ist.js'
-import { getKfeThemeSettings, setKfeThemeMode } from '../services/kfeThemeController.js'
+import { getKfeThemeSettings, setKfeThemeMode } from '../presentation/theme/kfeThemeController.js'
 
 const groups=[
  {key:'businessSetup',title:'Business Setup',icon:'◉',forms:['vehicle','driver'],description:'Core vehicle and driver master data.'},

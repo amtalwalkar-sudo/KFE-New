@@ -1,4 +1,4 @@
-import { OperationalRecordService } from '../../services/operationalRecordService.js'
+import { OperationalRecordService } from './operationalRecordService.js'
 import { ShiftTripRepository } from '../../repositories/shiftTripRepository.js'
 import { DriverTargetService } from '../performance/driverTargetService.js'
 import { istDateKey, istDayRange } from '../../domain/time/ist.js'
