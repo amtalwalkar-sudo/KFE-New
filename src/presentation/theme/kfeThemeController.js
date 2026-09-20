@@ -39,10 +39,15 @@ export function getKfeThemeSettings(){
 }
 export function startKfeThemeController(){
   applyKfeTheme()
-  let last=location.href
-  const tick=()=>{applyKfeTheme();last=location.href}
-  window.setInterval(tick,60_000)
-  window.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')tick()})
-  window.addEventListener('storage',event=>{if(event.key===STORAGE_KEY||event.key===SCHEDULE_KEY)tick()})
-  return ()=>{window.removeEventListener('visibilitychange',tick)}
+  const tick=()=>applyKfeTheme()
+  const onVisibility=()=>{if(document.visibilityState==='visible')tick()}
+  const onStorage=event=>{if(event.key===STORAGE_KEY||event.key===SCHEDULE_KEY)tick()}
+  const intervalId=window.setInterval(tick,60_000)
+  document.addEventListener('visibilitychange',onVisibility)
+  window.addEventListener('storage',onStorage)
+  return ()=>{
+    window.clearInterval(intervalId)
+    document.removeEventListener('visibilitychange',onVisibility)
+    window.removeEventListener('storage',onStorage)
+  }
 }
