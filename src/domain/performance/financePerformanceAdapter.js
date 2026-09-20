@@ -28,23 +28,37 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
     .filter(loan => Number.isFinite(Number(loan.annualInterestRatePercent)) && Number(loan.annualInterestRatePercent) >= 0)
     .sort((a, b) => (dateOf(b.startDate)?.getTime() || 0) - (dateOf(a.startDate)?.getTime() || 0))[0]
 
-  if (!activeLoan) return { ...base, finance: { available: false, reason: 'NO_ACTIVE_LOAN' } }
-
-  const finance = deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: currentAsOf })
-  const previousFinance = deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: previousAsOf })
+  const finance = activeLoan
+    ? deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: currentAsOf })
+    : null
+  const previousFinance = activeLoan
+    ? deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: previousAsOf })
+    : null
   const businessStart = businessStartDate(snapshot)
-  const preBusinessRecoveryMonthly = calculatePreBusinessRecovery({ position: finance, businessStartDate: businessStart, asOf: currentAsOf })
-  const currentScheduledEmi = finance.schedule.filter(row => inRange(row.dueDate, range)).reduce((sum, row) => sum + money(row.originalEmiAmount), 0)
-  const currentScheduledInterest = finance.schedule.filter(row => inRange(row.dueDate, range)).reduce((sum, row) => sum + money(row.originalInterestComponent), 0)
+  const preBusinessRecoveryMonthly = finance
+    ? calculatePreBusinessRecovery({ position: finance, businessStartDate: businessStart, asOf: currentAsOf })
+    : 0
+  const currentScheduledEmi = finance?.schedule
+    ? finance.schedule.filter(row => inRange(row.dueDate, range)).reduce((sum, row) => sum + money(row.originalEmiAmount), 0)
+    : 0
+  const currentScheduledInterest = finance?.schedule
+    ? finance.schedule.filter(row => inRange(row.dueDate, range)).reduce((sum, row) => sum + money(row.originalInterestComponent), 0)
+    : 0
 
   const breakEvenMonthRange = istMonthRange(range?.to) || range
   const monthlyBase = legacyDerivePerformance(snapshot, breakEvenMonthRange, derivePreviousRange(breakEvenMonthRange))
   const monthAsOf = asOf(breakEvenMonthRange)
-  const monthFinance = deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: monthAsOf })
-  const monthScheduledEmi = monthFinance.schedule
-    .filter(row => inRange(row.dueDate, breakEvenMonthRange))
-    .reduce((sum, row) => sum + money(row.originalEmiAmount), 0)
-  const monthPreBusinessRecovery = calculatePreBusinessRecovery({ position: monthFinance, businessStartDate: businessStart, asOf: monthAsOf })
+  const monthFinance = activeLoan
+    ? deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: monthAsOf })
+    : null
+  const monthScheduledEmi = monthFinance?.schedule
+    ? monthFinance.schedule
+      .filter(row => inRange(row.dueDate, breakEvenMonthRange))
+      .reduce((sum, row) => sum + money(row.originalEmiAmount), 0)
+    : 0
+  const monthPreBusinessRecovery = monthFinance
+    ? calculatePreBusinessRecovery({ position: monthFinance, businessStartDate: businessStart, asOf: monthAsOf })
+    : 0
   const breakEven = deriveAuthoritativeBreakEven({
     breakEvenInputs: snapshot?.breakEvenInputs || [],
     range: breakEvenMonthRange,
@@ -55,15 +69,15 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   })
   const monthlyBreakEvenRevenue = breakEven.available ? breakEven.monthlyBreakEvenRevenue : NaN
 
-  const actualLoanPaid = money(finance.actualPaid)
-  const actualPrepayment = money(finance.actualPrepayment)
-  const actualFinancingOutflow = money(finance.actualFinancingOutflow)
+  const actualLoanPaid = money(finance?.actualPaid)
+  const actualPrepayment = money(finance?.actualPrepayment)
+  const actualFinancingOutflow = money(finance?.actualFinancingOutflow)
   const availableCash = money(base.operatingProfit) - actualFinancingOutflow
 
   return {
     ...base,
     loanScheduledObligation: currentScheduledEmi,
-    loanPrincipal: finance.outstandingPrincipal,
+    loanPrincipal: money(finance?.outstandingPrincipal),
     loanInterest: currentScheduledInterest,
     actualLoanPaid,
     actualPrepayment,
@@ -79,11 +93,11 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
       fuelCostPerKm: breakEven.fuelCostPerKm,
     },
     finance: {
-      ...finance,
+      ...(finance || {}),
       annualInterestRatePercent: finance.annualInterestRatePercent,
       preBusinessRecoveryMonthly,
       businessStartDate: businessStart?.toISOString() || null,
-      previousOutstandingPrincipal: previousFinance.available ? previousFinance.outstandingPrincipal : null,
+      previousOutstandingPrincipal: previousFinance?.available ? previousFinance.outstandingPrincipal : null,
       overdueAmount: finance.totalOverdue,
       remainingInterest: finance.remainingInterest,
       scheduledFinalDate: finance.scheduledFinalDate,
@@ -96,7 +110,7 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
     },
     completeness: {
       ...(base.completeness || {}),
-      loan: finance.available,
+      loan: !!finance?.available,
       breakEven: breakEven.available,
     },
   }
