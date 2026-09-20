@@ -74,7 +74,7 @@ assert.equal(metrics.calculationEvidence.target.status, 'UNAVAILABLE')
 assert.ok(Number.isNaN(metrics.pace.paceVariance))
 
 assert.equal(metrics.dailyBreakEvenRevenue, null)
-assert.equal(metrics.dailyBreakEven.status, 'UNAVAILABLE')
+assert.equal(metrics.dailyBreakEven.status, 'INDICATIVE')
 
 const futureTrip = { id: 'future', status: 'COMPLETED', tripStartAt: '2026-09-11T09:00:00+05:30', tripEndAt: '2026-09-11T10:00:00+05:30', tripKm: 500, revenue: 99999 }
 const boundedTarget = deriveRollingDriverTarget({
