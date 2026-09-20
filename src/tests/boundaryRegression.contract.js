@@ -37,7 +37,7 @@ assert.equal(istDateKey(addIstMonths(ist('2026-01-31T00:00:00+05:30'), 1)), '202
 
 const loanSnapshot = {
   shifts: [], trips: [], fuelLogs: [], maintenance: [], compliance: [], driverTargets: [], breakEvenInputs: [],
-  loans: [{ id: 'loan-boundary', principal: 12000, annualInterestRate: 12, tenureMonths: 12, startDate: '2026-01-01T00:00:00+05:30', status: 'ACTIVE' }],
+  loans: [{ id: 'loan-boundary', principal: 12000, annualInterestRatePercent: 12, tenureMonths: 12, startDate: '2026-01-01T00:00:00+05:30', status: 'ACTIVE' }],
   loanPayments: [], prepayments: [],
 }
 
