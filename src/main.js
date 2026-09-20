@@ -13,7 +13,7 @@ import { PlatformStartup } from './infrastructure/startup/platformStartup.js'
 import { configureAndroidOverlayLifecycle } from './infrastructure/android/androidOverlayLifecycle.js'
 import './styles/kfe-ui.css'
 import './styles/work-cockpit-hud.css'
-import { startKfeThemeController } from './services/kfeThemeController.js'
+import { startKfeThemeController } from './presentation/theme/kfeThemeController.js'
 
 startKfeThemeController()
 
