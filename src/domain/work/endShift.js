@@ -4,9 +4,10 @@ export function validateEndShiftEntry({ closingOdometer, startOdometer, confirmL
   const odometer = Number(closingOdometer)
   const start = Number(startOdometer)
 
-  if (!Number.isFinite(odometer) || odometer < 0) {
-    return { valid: false, reason: 'CLOSING_ODOMETER_REQUIRED' }
-  }
+  if (!Number.isFinite(odometer) || odometer < 0) return { valid: false, reason: 'CLOSING_ODOMETER_REQUIRED' }
+
+  const revenue = Number(arguments[0]?.revenue)
+  if (!Number.isFinite(revenue) || revenue < 0) return { valid: false, reason: 'SHIFT_REVENUE_REQUIRED' }
 
   if (Number.isFinite(start) && odometer < start) {
     return { valid: false, reason: 'Closing odometer cannot be lower than the shift opening odometer.' }
