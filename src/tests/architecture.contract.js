@@ -34,7 +34,7 @@ if (fs.existsSync(appPath)) {
   if (/ShellService|BackupService|CloudBackupLifecycle|initializeCanonicalStorage|indexedDB|serviceWorker/i.test(app)) violations.push('App.vue still owns application/infrastructure startup concerns.')
 }
 
-const legacyPaths = ['views/DashboardView.vue','stores/workCycle.js','stores/performanceStore.js','stores/records.js','stores/recordsStore.js','usecases']
+const legacyPaths = ['views/DashboardView.vue','stores/workCycle.js','stores/performanceStore.js','stores/records.js','stores/recordsStore.js','stores/offlineQueue.js','stores/offlineQueueStore.js','stores/index.js','services/syncEngine.js','usecases']
 for (const relativePath of legacyPaths) if (fs.existsSync(path.join(root, relativePath))) violations.push(`Legacy duplicate path still exists: ${relativePath}`)
 
 const obsoleteAndroidPaths = ['android/app/src/main/java/com/kanishka/pwa/FloatingWidgetService.java','android/app/src/main/res/layout/layout_floating_widget.xml']
@@ -45,6 +45,11 @@ if (fs.existsSync(manifestPath)) {
   if (/FloatingWidgetService/.test(manifest)) violations.push('Android manifest still registers the obsolete floating widget overlay.')
 }
 
+const legacyServiceAllowlist = ['activityDetectionService.js','interShiftOdometerGapService.js','locationNameService.js','locationService.js','odometerAuditService.js','rideCaptureService.js','shiftValidator.js','syncService.js','tripNotificationService.js','adapters/apiAdapter.js','adapters/rideCaptureAdapter.js']
+for (const relativePath of legacyServiceAllowlist) if (fs.existsSync(path.join(root, 'services', relativePath))) {
+  const source = fs.readFileSync(path.join(root, 'services', relativePath), 'utf8')
+  if (/from\\s+['\"][^'\"]*\\/usecases\\//.test(source)) violations.push(`Legacy service still references removed usecases: ${relativePath}`)
+}
 const obsoleteFiles = [
   'stores/offlineQueueStore.js',
   'stores/index.js',
