@@ -8,9 +8,9 @@ const base = {
   shifts: [{ id:'s1', shiftStartAt:'2026-09-10T08:00:00Z', shiftEndAt:'2026-09-10T18:00:00Z', startOdometer:1000, endOdometer:1200, toll:100, parking:50 }],
   trips: [{ id:'t1', status:'COMPLETED', tripStartAt:'2026-09-10T09:00:00Z', tripEndAt:'2026-09-10T10:00:00Z', tripKm:150, revenue:2000 }],
   fuelLogs: [
-    { capturedAt:'2026-09-01T18:00:00Z', odometer:800, quantityKg:10, amount:2000 },
-    { capturedAt:'2026-09-05T18:00:00Z', odometer:1000, quantityKg:10, amount:2000 },
-    { capturedAt:'2026-09-10T18:00:00Z', odometer:1200, quantityKg:10, amount:2200 },
+    { capturedAt:'2026-09-01T18:00:00Z', odometer:800, quantityKg:10, amount:2000, isFullTank: true, vehicleId: 'v1' },
+    { capturedAt:'2026-09-05T18:00:00Z', odometer:1000, quantityKg:10, amount:2000, isFullTank: true, vehicleId: 'v1' },
+    { capturedAt:'2026-09-10T18:00:00Z', odometer:1200, quantityKg:10, amount:2200, isFullTank: true, vehicleId: 'v1' },
   ],
   maintenance: [], compliance: [], loans: [
     { id:'loan1', principal:550000, annualInterestRate:10, tenureMonths:60, startDate:'2026-04-09', status:'Active' },
@@ -29,7 +29,7 @@ assert.equal(empty.completeness.breakEven, false)
 // monthly break-even as-of boundary.
 const historical = derivePerformance(base, range)
 const historicalService = PerformanceService.getMetrics(base, range)
-const futureFuel = { ...base, fuelLogs: [...base.fuelLogs, { capturedAt:'2026-09-11T18:00:00Z', odometer:1400, quantityKg:10, amount:10000 }] }
+const futureFuel = { ...base, fuelLogs: [...base.fuelLogs, { capturedAt:'2026-09-11T18:00:00Z', odometer:1400, quantityKg:10, amount:10000, isFullTank: true, vehicleId: 'v1' }] }
 const historicalWithFutureFuel = derivePerformance(futureFuel, range)
 assert.equal(historicalWithFutureFuel.fuelCostPerKm, historical.fuelCostPerKm)
 const historicalServiceWithFutureFuel = PerformanceService.getMetrics(futureFuel, range)
