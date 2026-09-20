@@ -3,7 +3,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import DiagnosticBubble from '../DiagnosticBubble.vue'
 
 const gpsState = ref('checking')
-let gpsWatchId = null
+let gpsRefreshTimer = null
 
 function connectGps() {
   if (!('geolocation' in navigator)) {
@@ -34,9 +34,12 @@ function gpsStateLabel() {
   return 'Connecting GPS'
 }
 
-onMounted(connectGps)
+onMounted(() => {
+  connectGps()
+  gpsRefreshTimer = window.setInterval(connectGps, 60000)
+})
 onBeforeUnmount(() => {
-  if (gpsWatchId !== null) navigator.geolocation.clearWatch(gpsWatchId)
+  if (gpsRefreshTimer !== null) window.clearInterval(gpsRefreshTimer)
 })
 </script>
 
