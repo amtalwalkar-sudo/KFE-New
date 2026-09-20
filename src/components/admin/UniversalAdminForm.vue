@@ -2,11 +2,13 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { AdminService } from '../../application/admin/adminService.js'
 
-const props = defineProps({ definition:{type:Object,required:true}, modelValue:{type:Object,default:()=>({})}, context:{type:Object,default:()=>({})}, submitLabel:{type:String,default:'Save'} })
+const props = defineProps({ definition:{type:Object,required:true}, modelValue:{type:Object,default:()=>({})}, context:{type:Object,default:()=>({})}, submitLabel:{type:String,default:'Save'}, busy:{type:Boolean,default:false} })
 const emit=defineEmits(['update:modelValue','submit','cancel'])
 const values=reactive({})
 const errors=ref({})
 const fields=computed(()=>props.definition.fields??[])
+const optionValue=option=>option&&typeof option==='object'&&'value' in option?option.value:option
+const optionLabel=option=>option&&typeof option==='object'&&'label' in option?option.label:option
 function syncValues(source={}){for(const key of Object.keys(values))delete values[key];for(const field of fields.value)values[field.key]=source[field.key]!==undefined?source[field.key]:field.defaultValue;errors.value={}}
 syncValues(props.modelValue)
 watch(()=>[props.definition,props.modelValue],()=>syncValues(props.modelValue),{deep:true})
@@ -20,14 +22,14 @@ function submit(){const result=AdminService.validate(props.definition.key,values
       <label v-for="field in fields" :key="field.key" class="form-field" :class="{ invalid: !!errors[field.key] }">
         <span class="field-label">{{field.label}}<strong v-if="field.required" aria-hidden="true"> *</strong></span>
         <select v-if="field.type==='select'" :id="`field-${field.key}`" :value="values[field.key]??''" :aria-invalid="!!errors[field.key]" :aria-describedby="errors[field.key]?`error-${field.key}`:undefined" @change="setValue(field.key,$event.target.value)">
-          <option value="">Select…</option><option v-for="option in field.options||[]" :key="option" :value="option">{{option}}</option>
+          <option value="">Select…</option><option v-for="option in field.options||[]" :key="optionValue(option)" :value="optionValue(option)">{{optionLabel(option)}}</option>
         </select>
         <textarea v-else-if="field.type==='textarea'" :id="`field-${field.key}`" :value="values[field.key]??''" :aria-invalid="!!errors[field.key]" :aria-describedby="errors[field.key]?`error-${field.key}`:undefined" @input="setValue(field.key,$event.target.value)"/>
-        <input v-else :id="`field-${field.key}`" :type="field.type==='checkbox'?'checkbox':field.type" :min="field.min" :max="field.max" :step="field.step" :checked="field.type==='checkbox'?Boolean(values[field.key]):undefined" :value="field.type==='checkbox'?undefined:values[field.key]??''" :aria-invalid="!!errors[field.key]" :aria-describedby="errors[field.key]?`error-${field.key}`:undefined" @change="field.type==='checkbox'?setValue(field.key,$event.target.checked):setValue(field.key,$event.target.value)" @input="field.type==='checkbox'?undefined:setValue(field.key,$event.target.value)"/>
+        <input v-else :id="`field-${field.key}`" :type="field.type==='checkbox'?'checkbox':field.type" :min="field.min" :max="field.max" :step="field.step" :checked="field.type==='checkbox'?Boolean(values[field.key]):undefined" :value="field.type==='checkbox'?undefined:values[field.key]??''" :aria-invalid="!!errors[field.key]" :aria-describedby="errors[field.key]?`error-${field.key}`:undefined" :disabled="busy" @change="field.type==='checkbox'?setValue(field.key,$event.target.checked):setValue(field.key,$event.target.value)" @input="field.type==='checkbox'?undefined:setValue(field.key,$event.target.value)"/>
         <small v-if="errors[field.key]" :id="`error-${field.key}`" class="form-error" role="alert">{{errors[field.key]}}</small>
       </label>
     </div>
-    <div class="form-actions"><button type="button" class="secondary" @click="emit('cancel')">Cancel</button><button type="submit" class="primary">{{submitLabel}}</button></div>
+    <div class="form-actions"><button type="button" class="secondary" :disabled="busy" @click="emit('cancel')">Cancel</button><button type="submit" class="primary" :disabled="busy">{{busy?'Saving…':submitLabel}}</button></div>
   </form>
 </template>
 <style scoped>
