@@ -299,7 +299,7 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
     <section v-else-if="!store.isTripActive && store.isOnline && !endShiftOpen" class="cockpit-state cockpit-ready-state">
       <h2>READY FOR NEXT TRIP</h2>
       <div class="ready-context"><div class="operator-inline"><span>Operator</span><button type="button" class="operator-select" @click="operatorMenuOpen=!operatorMenuOpen">{{(selectedOperator||store.defaultOperator)+' ▾'}}</button></div><div v-if="operatorMenuOpen" class="operator-menu"><button v-for="operator in store.operators" :key="operator" type="button" :class="{selected:(store.defaultOperator===operator&&selectedOperator!=='__menu__')}" @click="changeTripOperator(operator)">{{operator}}</button></div></div>
-      <div class="next-event"><span>NEXT</span><strong>START TRIP</strong></div>
+      
     </section>
 
     <section v-else-if="goingToPickup && !endShiftOpen" class="cockpit-state cockpit-pickup-state">
@@ -318,7 +318,7 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
       <div class="state-kicker online">ON TRIP</div>
       <div class="trip-operator-row"><span>Operator</span><button type="button" class="operator-select" @click="selectedOperator = selectedOperator === '__menu__' ? store.trip.operator : '__menu__'">{{store.trip.operator+' ▾'}}</button></div>
       <div v-if="selectedOperator==='__menu__'" class="operator-menu"><button v-for="operator in store.operators" :key="operator" type="button" :class="{selected:store.trip.operator===operator}" @click="changeTripOperator(operator)">{{operator}}</button></div>
-      <div class="next-event"><span>NEXT</span><strong>END TRIP</strong></div><button class="cancel-ride-link" type="button" @click="openCancelRide">Cancel ride</button>
+      <button class="cancel-ride-link" type="button" @click="openCancelRide">Cancel ride</button>
     </section>
 
     <section v-if="endShiftOpen" class="cockpit-state cockpit-end-state" :style="endShiftSwipeStyle" :class="{'is-card-dragging':endShiftSwipeTracking}" @pointerdown="onEndShiftSwipeStart" @pointermove="onEndShiftSwipeMove" @pointerup="onEndShiftSwipeEnd" @pointercancel="onEndShiftSwipeCancel">
