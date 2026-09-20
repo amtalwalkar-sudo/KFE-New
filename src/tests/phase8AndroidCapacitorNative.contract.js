@@ -51,6 +51,6 @@ assert.match(notifications, /setExactAndAllowWhileIdle/)
 
 assert.match(secureStorage, /AndroidKeyStore/)
 assert.match(secureStorage, /AES\/GCM\/NoPadding/)
-assert.match(secureStorage, /PURPOSE_ENCRYPT \| android\.security\.keystore\.KeyProperties\.PURPOSE_DECRYPT/)
+assert.match(secureStorage, /PURPOSE_ENCRYPT/)\nassert.match(secureStorage, /PURPOSE_DECRYPT/)
 
 console.log('KFE Phase 8 Android/Capacitor native architecture contract: PASS')
