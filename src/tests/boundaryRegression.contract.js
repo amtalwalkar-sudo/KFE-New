@@ -42,11 +42,11 @@ const loanSnapshot = {
 }
 
 const january = deriveLoanPosition({ loan: loanSnapshot.loans[0], asOf: ist('2026-01-31T23:59:59.999+05:30') })
-assert.ok(Math.abs(january.scheduledInterest - (12000 * 0.12 * 31 / 365)) < 1e-10)
+assert.equal(january.scheduledInterest, Math.round((12000 * 0.12 * 31 / 365) * 100) / 100)
 
 const leapLoan = { ...loanSnapshot.loans[0], id: 'leap-loan', startDate: '2028-02-01T00:00:00+05:30' }
 const leapFebruary = deriveLoanPosition({ loan: leapLoan, asOf: ist('2028-02-29T23:59:59.999+05:30') })
-assert.ok(Math.abs(leapFebruary.scheduledInterest - (12000 * 0.12 * 29 / 365)) < 1e-10)
+assert.equal(leapFebruary.scheduledInterest, Math.round((12000 * 0.12 * 29 / 365) * 100) / 100)
 
 const paymentBoundary = { ...loanSnapshot, prepayments: [{ loanId: 'loan-boundary', paidOn: '2026-02-01T00:00:00+05:30', amount: 1000, status: 'Applied' }] }
 const february = deriveLoanPosition({ loan: paymentBoundary.loans[0], prepayments: paymentBoundary.prepayments, asOf: ist('2026-02-28T23:59:59.999+05:30') })
