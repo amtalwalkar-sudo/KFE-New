@@ -3,6 +3,7 @@ import { PeriodSnapshotRepository } from '../../repositories/periodSnapshotRepos
 import { deriveFinancialFactModel } from '../../domain/finance/financialFactModel.js'
 import { buildPeriodSnapshot, completeIstMonthRange, periodKeyFor } from '../../domain/finance/periodSnapshot.js'
 import { PerformanceService } from '../performance/performanceService.js'
+import { normalizeCalculationSnapshot } from '../performance/normalizeCalculationSnapshot.js'
 
 const clone = value => structuredClone(value)
 
@@ -18,7 +19,7 @@ export const HistoricalIntegrityService = Object.freeze({
       throw new Error(`Financial period ${periodKey} is already closed and immutable.`)
     }
 
-    const calculationSnapshot = await PerformanceRepository.getSnapshot()
+    const calculationSnapshot = normalizeCalculationSnapshot(await PerformanceRepository.getSnapshot())
     const metrics = PerformanceService.getMetrics(calculationSnapshot, range)
     const financialFacts = metrics.financialFacts || deriveFinancialFactModel({ snapshot: calculationSnapshot, metrics, range })
     const snapshot = await buildPeriodSnapshot({
