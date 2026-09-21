@@ -1,24 +1,63 @@
 const DAYS_IN_YEAR = 365
+const KFE_TIME_ZONE = 'Asia/Kolkata'
 
 const finite = value => Number.isFinite(Number(value)) ? Number(value) : 0
 const live = records => (records || []).filter(record => !record?.deletedAt && record?.deleted !== true)
 const dateOf = value => { const date = value ? new Date(value) : null; return date && !Number.isNaN(date.getTime()) ? date : null }
-const roundMoney = value => Math.round(finite(value) * 100) / 100
-const dayCount = (from, to) => Math.max(0, Math.ceil((to - from) / 86400000))
-const overdueDayCount = (from, to) => Math.max(0, Math.ceil((to - from) / 86400000))
-const addMonths = (date, months) => { const result = new Date(date); const day = result.getDate(); result.setDate(1); result.setMonth(result.getMonth() + months); const last = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate(); result.setDate(Math.min(day, last)); return result }
+
+const rupeesToPaise = value => Math.round(finite(value) * 100)
+const paiseToRupees = value => finite(value) / 100
+const roundPaise = value => Math.round(finite(value))
+
+const istCalendarParts = value => {
+  const date = dateOf(value)
+  if (!date) return null
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: KFE_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+  const get = type => Number(parts.find(part => part.type === type)?.value)
+  return { year: get('year'), month: get('month'), day: get('day') }
+}
+
+// KFE interest accrues by calendar-day count in IST, not elapsed 24-hour
+// periods. The end calendar date is counted only when it differs from the
+// start date. JavaScript's proleptic Gregorian calendar handles leap years.
+const calendarDaySerial = value => {
+  const parts = istCalendarParts(value)
+  return parts ? Date.UTC(parts.year, parts.month - 1, parts.day) / 86400000 : null
+}
+const calendarDayCount = (from, to) => {
+  const start = calendarDaySerial(from)
+  const end = calendarDaySerial(to)
+  return start == null || end == null ? 0 : Math.max(0, Math.round(end - start))
+}
+const dayCount = calendarDayCount
+const overdueDayCount = calendarDayCount
+
+const addMonths = (date, months) => {
+  const result = new Date(date)
+  const day = result.getDate()
+  result.setDate(1)
+  result.setMonth(result.getMonth() + months)
+  const last = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate()
+  result.setDate(Math.min(day, last))
+  return result
+}
 const annualRateForLoan = loan => Math.max(0, finite(loan?.annualInterestRatePercent)) / 100
 
 export function calculateEmi(principal, tenureMonths, annualInterestRatePercent) {
-  const P = Math.max(0, finite(principal))
+  const principalPaise = Math.max(0, rupeesToPaise(principal))
   const T = Math.max(1, Math.floor(finite(tenureMonths)))
   const annualRate = Math.max(0, finite(annualInterestRatePercent)) / 100
-  if (!P) return 0
+  if (!principalPaise) return 0
   if (!Number.isFinite(Number(annualInterestRatePercent))) throw new Error('Loan annual interest rate is required to calculate EMI.')
   const monthlyRate = annualRate / 12
-  if (!monthlyRate) return roundMoney(P / T)
-  const emi = P * monthlyRate * Math.pow(1 + monthlyRate, T) / (Math.pow(1 + monthlyRate, T) - 1)
-  return roundMoney(emi)
+  if (!monthlyRate) return paiseToRupees(roundPaise(principalPaise / T))
+  const emiPaise = principalPaise * monthlyRate * Math.pow(1 + monthlyRate, T) / (Math.pow(1 + monthlyRate, T) - 1)
+  return paiseToRupees(roundPaise(emiPaise))
 }
 
 function prepaymentsBeforeOrOn(prepayments, loanId, date) {
@@ -30,19 +69,19 @@ function prepaymentsBeforeOrOn(prepayments, loanId, date) {
 }
 
 function scheduleWithPrepayments(loan, prepayments = [], asOf = null) {
-  const principal = Math.max(0, finite(loan.principal))
+  const principalPaise = Math.max(0, rupeesToPaise(loan.principal))
   const tenure = Math.max(1, Math.floor(finite(loan.tenureMonths)))
   const annualRate = annualRateForLoan(loan)
   const start = dateOf(loan.startDate)
-  if (!principal || !start) return []
-  const emi = calculateEmi(principal, tenure, loan.annualInterestRatePercent)
+  if (!principalPaise || !start) return []
+  const emiPaise = rupeesToPaise(calculateEmi(loan.principal, tenure, loan.annualInterestRatePercent))
   const rows = []
-  let openingPrincipal = principal
+  let openingPrincipalPaise = principalPaise
   let previousDate = start
   let sequence = 1
   const loanPrepayments = prepaymentsBeforeOrOn(prepayments, loan.id, asOf || new Date('9999-12-31T23:59:59Z'))
 
-  while (sequence <= tenure + 120 && openingPrincipal > 0.005) {
+  while (sequence <= tenure + 120 && openingPrincipalPaise > 0) {
     const dueDate = addMonths(previousDate, 1)
     const periodEnd = dueDate
     const applicablePrepayments = loanPrepayments.filter(record => {
@@ -50,37 +89,37 @@ function scheduleWithPrepayments(loan, prepayments = [], asOf = null) {
       return paidOn && paidOn > previousDate && paidOn <= periodEnd
     })
 
-    let interest = 0
+    let interestPaise = 0
     let segmentStart = previousDate
-    let segmentPrincipal = openingPrincipal
+    let segmentPrincipalPaise = openingPrincipalPaise
     for (const prepayment of applicablePrepayments) {
       const paidOn = dateOf(prepayment.paidOn)
-      interest += segmentPrincipal * annualRate * dayCount(segmentStart, paidOn) / DAYS_IN_YEAR
-      segmentPrincipal = Math.max(0, segmentPrincipal - finite(prepayment.amount))
+      interestPaise += roundPaise(segmentPrincipalPaise * annualRate * dayCount(segmentStart, paidOn) / DAYS_IN_YEAR)
+      segmentPrincipalPaise = Math.max(0, segmentPrincipalPaise - rupeesToPaise(prepayment.amount))
       segmentStart = paidOn
     }
-    interest += segmentPrincipal * annualRate * dayCount(segmentStart, periodEnd) / DAYS_IN_YEAR
+    interestPaise += roundPaise(segmentPrincipalPaise * annualRate * dayCount(segmentStart, periodEnd) / DAYS_IN_YEAR)
 
-    const scheduledInterest = roundMoney(interest)
-    const scheduledPrincipal = roundMoney(Math.min(segmentPrincipal, Math.max(0, emi - scheduledInterest)))
-    const scheduledAmount = roundMoney(Math.min(segmentPrincipal + scheduledInterest, emi))
-    const prepaymentAmount = roundMoney(applicablePrepayments.reduce((sum, record) => sum + finite(record.amount), 0))
-    const closingPrincipal = roundMoney(Math.max(0, segmentPrincipal - scheduledPrincipal))
+    const scheduledInterestPaise = interestPaise
+    const scheduledPrincipalPaise = Math.min(segmentPrincipalPaise, Math.max(0, emiPaise - scheduledInterestPaise))
+    const scheduledAmountPaise = Math.min(segmentPrincipalPaise + scheduledInterestPaise, emiPaise)
+    const prepaymentAmountPaise = applicablePrepayments.reduce((sum, record) => sum + rupeesToPaise(record.amount), 0)
+    const closingPrincipalPaise = Math.max(0, segmentPrincipalPaise - scheduledPrincipalPaise)
 
     rows.push({
       id: `${loan.id}:emi:${sequence}`,
       loanId: loan.id,
       emiNumber: sequence,
       dueDate: dueDate.toISOString(),
-      originalEmiAmount: scheduledAmount,
-      originalPrincipalComponent: scheduledPrincipal,
-      originalInterestComponent: scheduledInterest,
-      openingPrincipal: roundMoney(openingPrincipal),
-      closingPrincipal,
-      prepaymentApplied: prepaymentAmount,
+      originalEmiAmount: paiseToRupees(scheduledAmountPaise),
+      originalPrincipalComponent: paiseToRupees(scheduledPrincipalPaise),
+      originalInterestComponent: paiseToRupees(scheduledInterestPaise),
+      openingPrincipal: paiseToRupees(openingPrincipalPaise),
+      closingPrincipal: paiseToRupees(closingPrincipalPaise),
+      prepaymentApplied: paiseToRupees(prepaymentAmountPaise),
     })
 
-    openingPrincipal = closingPrincipal
+    openingPrincipalPaise = closingPrincipalPaise
     previousDate = dueDate
     sequence += 1
   }
@@ -102,32 +141,32 @@ function allocationState(schedule, payments, asOf, annualRate) {
     .sort((a, b) => (dateOf(a.paidOn)?.getTime() ?? 0) - (dateOf(b.paidOn)?.getTime() ?? 0) || String(a.id).localeCompare(String(b.id)))
 
   for (const payment of orderedPayments) {
-    let remaining = finite(payment.amount)
+    let remainingPaise = rupeesToPaise(payment.amount)
     const paymentDate = dateOf(payment.paidOn)
-    if (!paymentDate || remaining <= 0) continue
+    if (!paymentDate || remainingPaise <= 0) continue
     for (const row of rows) {
-      if (remaining <= 0 || dateOf(row.dueDate) > paymentDate) continue
-      const unpaidInterest = Math.max(0, row.originalInterestComponent - row.scheduledInterestPaid)
-      const unpaidPrincipal = Math.max(0, row.originalPrincipalComponent - row.scheduledPrincipalPaid)
+      if (remainingPaise <= 0 || dateOf(row.dueDate) > paymentDate) continue
+      const unpaidInterestPaise = Math.max(0, rupeesToPaise(row.originalInterestComponent) - rupeesToPaise(row.scheduledInterestPaid))
+      const unpaidPrincipalPaise = Math.max(0, rupeesToPaise(row.originalPrincipalComponent) - rupeesToPaise(row.scheduledPrincipalPaid))
       const overdueDays = overdueDayCount(dateOf(row.dueDate), paymentDate)
-      const additionalOverdueInterest = roundMoney(unpaidInterest * annualRate * overdueDays / DAYS_IN_YEAR)
-      const alreadyOverduePaid = row.overdueInterestPaid
-      const overdueDue = Math.max(0, additionalOverdueInterest - alreadyOverduePaid)
-      const overdueInterest = Math.min(remaining, overdueDue)
-      remaining = roundMoney(remaining - overdueInterest)
-      row.overdueInterestPaid = roundMoney(row.overdueInterestPaid + overdueInterest)
+      const additionalOverdueInterestPaise = roundPaise(unpaidInterestPaise * annualRate * overdueDays / DAYS_IN_YEAR)
+      const alreadyOverduePaidPaise = rupeesToPaise(row.overdueInterestPaid)
+      const overdueDuePaise = Math.max(0, additionalOverdueInterestPaise - alreadyOverduePaidPaise)
+      const overdueInterestPaise = Math.min(remainingPaise, overdueDuePaise)
+      remainingPaise -= overdueInterestPaise
+      row.overdueInterestPaid = paiseToRupees(alreadyOverduePaidPaise + overdueInterestPaise)
 
-      const interest = Math.min(remaining, unpaidInterest)
-      remaining = roundMoney(remaining - interest)
-      row.scheduledInterestPaid = roundMoney(row.scheduledInterestPaid + interest)
+      const interestPaise = Math.min(remainingPaise, unpaidInterestPaise)
+      remainingPaise -= interestPaise
+      row.scheduledInterestPaid = paiseToRupees(rupeesToPaise(row.scheduledInterestPaid) + interestPaise)
 
-      const principal = Math.min(remaining, unpaidPrincipal)
-      remaining = roundMoney(remaining - principal)
-      row.scheduledPrincipalPaid = roundMoney(row.scheduledPrincipalPaid + principal)
-      row.paidAmount = roundMoney(row.paidAmount + overdueInterest + interest + principal)
-      row.allocations.push({ paymentId: payment.id, paidOn: payment.paidOn, overdueInterest, scheduledInterest: interest, scheduledPrincipal: principal })
+      const principalPaise = Math.min(remainingPaise, unpaidPrincipalPaise)
+      remainingPaise -= principalPaise
+      row.scheduledPrincipalPaid = paiseToRupees(rupeesToPaise(row.scheduledPrincipalPaid) + principalPaise)
+      row.paidAmount = paiseToRupees(rupeesToPaise(row.paidAmount) + overdueInterestPaise + interestPaise + principalPaise)
+      row.allocations.push({ paymentId: payment.id, paidOn: payment.paidOn, overdueInterest: paiseToRupees(overdueInterestPaise), scheduledInterest: paiseToRupees(interestPaise), scheduledPrincipal: paiseToRupees(principalPaise) })
     }
-    if (remaining > 0.005) {
+    if (remainingPaise > 0) {
       const error = new Error(`Loan payment ${payment.id} exceeds all currently payable EMI obligations. Record the excess as a separate prepayment after overdue obligations are settled.`)
       error.code = 'PAYMENT_EXCEEDS_EMI_OBLIGATIONS'
       throw error
@@ -147,51 +186,54 @@ export function deriveLoanPosition({ loan, payments = [], prepayments = [], asOf
   const overdue = obligations
     .filter(row => dateOf(row.dueDate) <= effectiveAsOf)
     .map(row => {
-      const unpaidInterest = Math.max(0, row.originalInterestComponent - row.scheduledInterestPaid)
-      const unpaidPrincipal = Math.max(0, row.originalPrincipalComponent - row.scheduledPrincipalPaid)
+      const unpaidInterestPaise = Math.max(0, rupeesToPaise(row.originalInterestComponent) - rupeesToPaise(row.scheduledInterestPaid))
+      const unpaidPrincipalPaise = Math.max(0, rupeesToPaise(row.originalPrincipalComponent) - rupeesToPaise(row.scheduledPrincipalPaid))
       const overdueDays = overdueDayCount(dateOf(row.dueDate), effectiveAsOf)
-      const additionalOverdueInterest = roundMoney(unpaidInterest * annualRate * overdueDays / DAYS_IN_YEAR)
-      const unpaidOverdueInterest = Math.max(0, additionalOverdueInterest - row.overdueInterestPaid)
-      return { ...row, overdueDays, additionalOverdueInterest, unpaidPrincipal, unpaidScheduledInterest: unpaidInterest, overdueAmount: roundMoney(unpaidPrincipal + unpaidInterest + unpaidOverdueInterest) }
+      const additionalOverdueInterestPaise = roundPaise(unpaidInterestPaise * annualRate * overdueDays / DAYS_IN_YEAR)
+      const unpaidOverdueInterestPaise = Math.max(0, additionalOverdueInterestPaise - rupeesToPaise(row.overdueInterestPaid))
+      const overdueAmountPaise = unpaidPrincipalPaise + unpaidInterestPaise + unpaidOverdueInterestPaise
+      return { ...row, overdueDays, additionalOverdueInterest: paiseToRupees(additionalOverdueInterestPaise), unpaidPrincipal: paiseToRupees(unpaidPrincipalPaise), unpaidScheduledInterest: paiseToRupees(unpaidInterestPaise), overdueAmount: paiseToRupees(overdueAmountPaise) }
     })
-    .filter(row => row.overdueAmount > 0.005)
+    .filter(row => rupeesToPaise(row.overdueAmount) > 0)
 
-  const scheduledDue = obligations.filter(row => dateOf(row.dueDate) <= effectiveAsOf).reduce((sum, row) => sum + row.originalEmiAmount, 0)
-  const actualPaid = live(payments).filter(payment => payment.loanId === loan.id && String(payment.status || '').toLowerCase() !== 'reversed' && dateOf(payment.paidOn) <= effectiveAsOf).reduce((sum, payment) => sum + finite(payment.amount), 0)
-  const actualPrepayment = live(prepayments).filter(payment => payment.loanId === loan.id && String(payment.status || '').toLowerCase() === 'applied' && dateOf(payment.paidOn) <= effectiveAsOf).reduce((sum, payment) => sum + finite(payment.amount), 0)
-  const scheduledInterest = obligations.filter(row => dateOf(row.dueDate) <= effectiveAsOf).reduce((sum, row) => sum + row.originalInterestComponent, 0)
-  const scheduledPrincipal = obligations.filter(row => dateOf(row.dueDate) <= effectiveAsOf).reduce((sum, row) => sum + row.originalPrincipalComponent, 0)
-  const paidPrincipal = obligations.reduce((sum, row) => sum + row.scheduledPrincipalPaid, 0)
-  const outstandingPrincipal = Math.max(0, roundMoney((schedule[0]?.openingPrincipal || finite(loan.principal)) - paidPrincipal - actualPrepayment))
-  const totalOverdue = roundMoney(overdue.reduce((sum, row) => sum + row.overdueAmount, 0))
-  const totalRemainingInterest = roundMoney(obligations.reduce((sum, row) => sum + Math.max(0, row.originalInterestComponent - row.scheduledInterestPaid), 0))
+  const scheduledDuePaise = obligations.filter(row => dateOf(row.dueDate) <= effectiveAsOf).reduce((sum, row) => sum + rupeesToPaise(row.originalEmiAmount), 0)
+  const actualPaidPaise = live(payments).filter(payment => payment.loanId === loan.id && String(payment.status || '').toLowerCase() !== 'reversed' && dateOf(payment.paidOn) <= effectiveAsOf).reduce((sum, payment) => sum + rupeesToPaise(payment.amount), 0)
+  const actualPrepaymentPaise = live(prepayments).filter(payment => payment.loanId === loan.id && String(payment.status || '').toLowerCase() === 'applied' && dateOf(payment.paidOn) <= effectiveAsOf).reduce((sum, payment) => sum + rupeesToPaise(payment.amount), 0)
+  const scheduledInterestPaise = obligations.filter(row => dateOf(row.dueDate) <= effectiveAsOf).reduce((sum, row) => sum + rupeesToPaise(row.originalInterestComponent), 0)
+  const scheduledPrincipalPaise = obligations.filter(row => dateOf(row.dueDate) <= effectiveAsOf).reduce((sum, row) => sum + rupeesToPaise(row.originalPrincipalComponent), 0)
+  const paidPrincipalPaise = obligations.reduce((sum, row) => sum + rupeesToPaise(row.scheduledPrincipalPaid), 0)
+  const outstandingPrincipalPaise = Math.max(0, rupeesToPaise(schedule[0]?.openingPrincipal || loan.principal) - paidPrincipalPaise - actualPrepaymentPaise)
+  const totalOverduePaise = overdue.reduce((sum, row) => sum + rupeesToPaise(row.overdueAmount), 0)
+  const totalRemainingInterestPaise = obligations.reduce((sum, row) => sum + Math.max(0, rupeesToPaise(row.originalInterestComponent) - rupeesToPaise(row.scheduledInterestPaid)), 0)
+
   return {
     available: true,
     annualInterestRatePercent,
     emi: calculateEmi(loan.principal, loan.tenureMonths, loan.annualInterestRatePercent),
     schedule: obligations,
     overdue,
-    totalOverdue,
-    scheduledDue,
-    scheduledInterest,
-    scheduledPrincipal,
-    actualPaid,
-    actualPrepayment,
-    actualFinancingOutflow: roundMoney(actualPaid + actualPrepayment),
-    outstandingPrincipal: roundMoney(outstandingPrincipal),
-    remainingInterest: totalRemainingInterest,
+    totalOverdue: paiseToRupees(totalOverduePaise),
+    scheduledDue: paiseToRupees(scheduledDuePaise),
+    scheduledInterest: paiseToRupees(scheduledInterestPaise),
+    scheduledPrincipal: paiseToRupees(scheduledPrincipalPaise),
+    actualPaid: paiseToRupees(actualPaidPaise),
+    actualPrepayment: paiseToRupees(actualPrepaymentPaise),
+    actualFinancingOutflow: paiseToRupees(actualPaidPaise + actualPrepaymentPaise),
+    outstandingPrincipal: paiseToRupees(outstandingPrincipalPaise),
+    remainingInterest: paiseToRupees(totalRemainingInterestPaise),
     scheduledFinalDate: schedule.at(-1)?.dueDate || null,
-    totalInterest: roundMoney(schedule.reduce((sum, row) => sum + row.originalInterestComponent, 0)),
+    totalInterest: paiseToRupees(schedule.reduce((sum, row) => sum + rupeesToPaise(row.originalInterestComponent), 0)),
   }
 }
 
 export function calculatePrepaymentEstimate({ loan, payments = [], prepayments = [], amount = 0, paidOn = new Date() } = {}) {
   const position = deriveLoanPosition({ loan, payments, prepayments, asOf: paidOn })
   if (!position.available) return { available: false, reason: position.reason }
-  if (position.totalOverdue > 0.005) return { available: false, reason: 'OVERDUE_EMI_MUST_BE_SETTLED_FIRST', overdueAmount: position.totalOverdue }
-  const requested = Math.max(0, finite(amount))
-  const applied = Math.min(requested, position.outstandingPrincipal)
-  return { available: true, requestedAmount: roundMoney(requested), appliedAmount: roundMoney(applied), outstandingBefore: position.outstandingPrincipal, outstandingAfter: roundMoney(position.outstandingPrincipal - applied), closesLoan: applied >= position.outstandingPrincipal - 0.005, effect: applied >= position.outstandingPrincipal - 0.005 ? 'CLOSE_LOAN' : 'REDUCE_TENURE_KEEP_EMI', prepaymentCharge: 0 }
+  if (rupeesToPaise(position.totalOverdue) > 0) return { available: false, reason: 'OVERDUE_EMI_MUST_BE_SETTLED_FIRST', overdueAmount: position.totalOverdue }
+  const requestedPaise = Math.max(0, rupeesToPaise(amount))
+  const outstandingPaise = rupeesToPaise(position.outstandingPrincipal)
+  const appliedPaise = Math.min(requestedPaise, outstandingPaise)
+  return { available: true, requestedAmount: paiseToRupees(requestedPaise), appliedAmount: paiseToRupees(appliedPaise), outstandingBefore: position.outstandingPrincipal, outstandingAfter: paiseToRupees(outstandingPaise - appliedPaise), closesLoan: appliedPaise >= outstandingPaise, effect: appliedPaise >= outstandingPaise ? 'CLOSE_LOAN' : 'REDUCE_TENURE_KEEP_EMI', prepaymentCharge: 0 }
 }
 
 export function calculatePreBusinessRecovery({ position, businessStartDate, asOf = new Date() } = {}) {
@@ -199,26 +241,26 @@ export function calculatePreBusinessRecovery({ position, businessStartDate, asOf
   if (!position?.available || !start) return 0
   const asOfDate = dateOf(asOf) || new Date()
   const preBusinessOverdue = (position.overdue || []).filter(row => dateOf(row.dueDate) < start && dateOf(row.dueDate) <= asOfDate)
-  const burden = preBusinessOverdue.reduce((sum, row) => sum + row.overdueAmount, 0)
-  return roundMoney(burden / 12)
+  const burdenPaise = preBusinessOverdue.reduce((sum, row) => sum + rupeesToPaise(row.overdueAmount), 0)
+  return paiseToRupees(Math.round(burdenPaise / 12))
 }
 
 export function paymentAllocationPreview({ loan, payments = [], prepayments = [], amount, paidOn } = {}) {
   const position = deriveLoanPosition({ loan, payments, prepayments, asOf: paidOn })
   if (!position.available) return { available: false, reason: position.reason }
-  const target = Math.max(0, finite(amount))
-  let remaining = target
+  const targetPaise = Math.max(0, rupeesToPaise(amount))
+  let remainingPaise = targetPaise
   const allocations = []
   for (const row of position.overdue) {
-    if (remaining <= 0) break
-    const overdue = Math.min(remaining, Math.max(0, row.overdueAmount - row.unpaidPrincipal - row.unpaidScheduledInterest))
-    remaining = roundMoney(remaining - overdue)
-    const interest = Math.min(remaining, row.unpaidScheduledInterest)
-    remaining = roundMoney(remaining - interest)
-    const principal = Math.min(remaining, row.unpaidPrincipal)
-    remaining = roundMoney(remaining - principal)
-    allocations.push({ obligationId: row.id, overdueInterest: overdue, scheduledInterest: interest, scheduledPrincipal: principal })
+    if (remainingPaise <= 0) break
+    const overduePaise = Math.min(remainingPaise, Math.max(0, rupeesToPaise(row.overdueAmount) - rupeesToPaise(row.unpaidPrincipal) - rupeesToPaise(row.unpaidScheduledInterest)))
+    remainingPaise -= overduePaise
+    const interestPaise = Math.min(remainingPaise, rupeesToPaise(row.unpaidScheduledInterest))
+    remainingPaise -= interestPaise
+    const principalPaise = Math.min(remainingPaise, rupeesToPaise(row.unpaidPrincipal))
+    remainingPaise -= principalPaise
+    allocations.push({ obligationId: row.id, overdueInterest: paiseToRupees(overduePaise), scheduledInterest: paiseToRupees(interestPaise), scheduledPrincipal: paiseToRupees(principalPaise) })
   }
-  if (remaining > 0.005) return { available: false, reason: 'PAYMENT_EXCEEDS_EMI_OBLIGATIONS' }
-  return { available: true, allocations, allocatedAmount: roundMoney(target - remaining) }
+  if (remainingPaise > 0) return { available: false, reason: 'PAYMENT_EXCEEDS_EMI_OBLIGATIONS' }
+  return { available: true, allocations, allocatedAmount: paiseToRupees(targetPaise - remainingPaise) }
 }
