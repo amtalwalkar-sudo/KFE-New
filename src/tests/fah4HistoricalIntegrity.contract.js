@@ -56,6 +56,11 @@ futureBoundary.evidenceBoundary.asOf = '2026-08-31T18:00:00+05:30'
 assert.equal((await verifyPeriodSnapshot(futureBoundary)).reason, 'INVALID_EVIDENCE_BOUNDARY')
 
 await assert.rejects(
+  () => buildPeriodSnapshot({ periodKey: '2026-08', calculationSnapshot: baseSnapshot, metrics, financialFacts: facts, sourceDataAsOf: new Date('2026-09-01T00:00:00+05:30') }),
+  /evidence boundary for a closed period must equal/
+)
+
+await assert.rejects(
   () => buildPeriodSnapshot({ periodKey: '2026-08', calculationSnapshot: baseSnapshot, metrics, financialFacts: facts, closedAt: new Date('2026-08-31T23:00:00+05:30') }),
   /cannot be closed before/
 )
