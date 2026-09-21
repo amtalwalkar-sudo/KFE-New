@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { buildPeriodSnapshot, completeIstMonthRange, verifyPeriodSnapshot } from '../domain/finance/periodSnapshot.js'
 
 const baseSnapshot = {
@@ -26,6 +29,19 @@ assert.equal(first.evidenceBoundary.sourceRecordIds.trips[0], 't1')
 
 const verified = await verifyPeriodSnapshot(first)
 assert.equal(verified.valid, true)
+
+baseSnapshot.trips.push({ id: 't-later', tripEndAt: '2026-09-01T10:00:00+05:30', revenue: 500 })
+assert.equal((await verifyPeriodSnapshot(first)).valid, true, 'Later source mutation must not mutate the closed snapshot')
+
+const repositorySource = fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../repositories/periodSnapshotRepository.js'), 'utf8')
+assert.match(repositorySource, /store\.add\(structuredClone\(snapshot\)\)/)
+assert.doesNotMatch(repositorySource, /store\.put\(/)
+assert.doesNotMatch(repositorySource, /store\.delete\(/)
+
+const serviceSource = fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../application/finance/historicalIntegrityService.js'), 'utf8')
+assert.match(serviceSource, /CLOSED_SNAPSHOT/)
+assert.match(serviceSource, /CLOSED_WITHOUT_SNAPSHOT/)
+assert.match(serviceSource, /PerformanceService\.getMetrics/)
 
 const laterMutation = structuredClone(first)
 laterMutation.calculationSnapshot.trips.push({ id: 't2', tripEndAt: '2026-09-01T10:00:00+05:30', revenue: 500 })
