@@ -104,4 +104,10 @@ export const normalizeCalculationSnapshot = snapshot => ({
   prepayments: (snapshot?.prepayments || []).map(normalizePrepayment).filter(Boolean),
   driverTargets: (snapshot?.driverTargets || []).map(normalizeDriverTarget).filter(Boolean),
   breakEvenInputs: (snapshot?.breakEvenInputs || []).map(normalizeBreakEvenInput).filter(Boolean),
+  // FAH-3 settlement/position records are optional until their canonical Admin
+  // forms/stores exist; preserve them when supplied by imports or future sources.
+  receivables: snapshot?.receivables || [],
+  payables: snapshot?.payables || [],
+  cashTransactions: snapshot?.cashTransactions || [],
+  compliancePayments: snapshot?.compliancePayments || [],
 })
