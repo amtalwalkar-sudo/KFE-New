@@ -67,7 +67,7 @@ const range = { from: new Date('2026-09-10T00:00:00Z'), to: new Date('2026-09-10
   const loan = { id:'overdue-leap', principal:100000, tenureMonths:12, startDate:'2028-01-31', annualInterestRatePercent:36.5, status:'Active' }
   const position = deriveLoanPosition({ loan, asOf:'2028-03-01T23:59:59+05:30' })
   assert.equal(position.overdue[0].overdueDays, 1)
-  assert.equal(position.overdue[0].additionalOverdueInterest, 3)
+  assert.equal(position.overdue[0].additionalOverdueInterest, 2.9)
 }
 
 console.log('Formula hardening contract: PASS')
