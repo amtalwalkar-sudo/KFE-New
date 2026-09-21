@@ -44,7 +44,8 @@ const range = { from: new Date('2026-09-10T00:00:00Z'), to: new Date('2026-09-10
   const leap = deriveLoanPosition({ loan: leapLoan, asOf:'2028-02-29T23:59:59+05:30' })
   assert.equal(leap.schedule[0].dueDate.slice(0,10), '2028-02-29')
   assert.equal(leap.schedule[0].originalInterestComponent, 2900)
-  assert.equal(leap.overdue.length, 0)
+  assert.equal(leap.overdue[0].overdueDays, 0)
+  assert.equal(leap.overdue[0].additionalOverdueInterest, 0)
 
   const nonLeapLoan = { ...leapLoan, id:'non-leap-loan', startDate:'2027-01-31' }
   const nonLeap = deriveLoanPosition({ loan: nonLeapLoan, asOf:'2027-02-28T23:59:59+05:30' })
