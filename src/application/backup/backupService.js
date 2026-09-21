@@ -2,8 +2,9 @@ import { createBackupRepository } from '../../repositories/backupRepository.js'
 export const BACKUP_FORMAT = 'KFE_BACKUP'
 export const BACKUP_FORMAT_VERSION = 3
 export const CANONICAL_BACKUP_STORES = Object.freeze(['financial_period_snapshots','shifts','fuel_logs','odoGaps','pending_mutations','days','trips','gps_snapshots','movement_artifacts','vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history'])
-const LEGACY_BACKUP_STORES_V1 = Object.freeze([...CANONICAL_BACKUP_STORES.filter(name => name !== 'audit_history').slice(0, 11), 'driver_collected_data', ...CANONICAL_BACKUP_STORES.filter(name => name !== 'audit_history').slice(11)])
-const LEGACY_BACKUP_STORES_V2 = Object.freeze([...CANONICAL_BACKUP_STORES.slice(0, 11), 'driver_collected_data', ...CANONICAL_BACKUP_STORES.slice(11)])
+const PRE_FA4_BACKUP_STORES = Object.freeze(['shifts','fuel_logs','odoGaps','pending_mutations','days','trips','gps_snapshots','movement_artifacts','vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history'])
+const LEGACY_BACKUP_STORES_V1 = Object.freeze([...PRE_FA4_BACKUP_STORES.filter(name => name !== 'audit_history').slice(0, 11), 'driver_collected_data', ...PRE_FA4_BACKUP_STORES.filter(name => name !== 'audit_history').slice(11)])
+const LEGACY_BACKUP_STORES_V2 = Object.freeze([...PRE_FA4_BACKUP_STORES.slice(0, 11), 'driver_collected_data', ...PRE_FA4_BACKUP_STORES.slice(11)])
 const backupRepository = createBackupRepository(CANONICAL_BACKUP_STORES)
 export const validateBackup = input => {
   let backup = input
@@ -29,7 +30,12 @@ export const validateBackup = input => {
     const ids = new Set()
     for (const record of records) { const validKey = storeName === 'financial_period_snapshots' ? typeof record?.periodKey === 'string' && /^\\d{4}-\\d{2}$/.test(record.periodKey) : typeof record?.id === 'string' && record.id.trim(); if (!record || typeof record !== 'object' || Array.isArray(record) || !validKey) throw new Error(`Backup store ${storeName} contains an invalid record.`); const key = storeName === 'financial_period_snapshots' ? record.periodKey : record.id; if (ids.has(key)) throw new Error(`Backup store ${storeName} contains duplicate key ${key}.`); ids.add(key) }
   }
-  if (backup.formatVersion === 1 || backup.formatVersion === 2) { const { driver_collected_data: _removed, ...storesWithoutRemovedStore } = backup.stores; if (backup.formatVersion === 1) storesWithoutRemovedStore.audit_history = []; backup = { ...backup, formatVersion: BACKUP_FORMAT_VERSION, source: { ...backup.source, dbVersion: 11 }, stores: storesWithoutRemovedStore } }
+  if (backup.formatVersion === 1 || backup.formatVersion === 2 || (backup.formatVersion === BACKUP_FORMAT_VERSION && sourceVersion === 11)) {
+    const { driver_collected_data: _removed, ...storesWithoutRemovedStore } = backup.stores
+    if (backup.formatVersion === 1) storesWithoutRemovedStore.audit_history = []
+    if (!storesWithoutRemovedStore.financial_period_snapshots) storesWithoutRemovedStore.financial_period_snapshots = []
+    backup = { ...backup, formatVersion: BACKUP_FORMAT_VERSION, source: { ...backup.source, dbVersion: 12 }, stores: storesWithoutRemovedStore }
+  }
   return backup
 }
 export const createBackup = async () => validateBackup({ format: BACKUP_FORMAT, formatVersion: BACKUP_FORMAT_VERSION, source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: 12 }, exportedAt: new Date().toISOString(), stores: await backupRepository.readCanonicalSnapshot() })
