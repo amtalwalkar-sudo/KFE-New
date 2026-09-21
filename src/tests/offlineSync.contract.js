@@ -24,7 +24,7 @@ async function runContractTests() {
     assert(source.includes('tx.oncomplete'), `${file}: commit completion handling missing`)
   }
   const dbSource = fs.readFileSync(path.join(srcRoot, 'utils', 'indexedDB.js'), 'utf8')
-  assert(dbSource.includes('CANONICAL_DB_VERSION = 11'), 'Canonical DB version is not v11')
+  assert(dbSource.includes('CANONICAL_DB_VERSION = 12'), 'Canonical DB version is not v12')
   for (const store of ['shifts', 'fuel_logs', 'odoGaps', 'pending_mutations', 'audit_history', 'days', 'trips', 'vehicles', 'drivers', 'settings']) assert(dbSource.includes(`'${store}'`), `Canonical store missing: ${store}`)
   assert(!dbSource.includes("createSimpleStore(db, 'driver_collected_data'"), 'Removed driver-collected store must not be recreated')
   assert(dbSource.includes("deleteObjectStore('driver_collected_data')"), 'Removed driver-collected store migration missing')

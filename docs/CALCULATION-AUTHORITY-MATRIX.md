@@ -166,3 +166,33 @@ Non-promotion rules are explicit:
 - Target and break-even remain management representations and do not become accounting facts.
 
 The model is intentionally usable before a full financial journal exists. It prevents the current application from silently treating incomplete settlement evidence as cash/accounting truth. A future journal/period-close implementation can consume these facts without changing the upstream calculation authorities.
+
+
+## FAH-4 historical integrity
+
+FAH-4 adds an immutable financial period snapshot boundary without creating a second calculation authority. `HistoricalIntegrityService.closePeriod()` reads the existing canonical performance snapshot, runs the existing `PerformanceService.getMetrics()` authority for the complete IST calendar month, and persists the resulting calculation snapshot, metrics, and financial facts as one closed-period record.
+
+A closed period snapshot contains:
+- complete IST month boundaries and schema version;
+- a closed-at timestamp and explicit calculation evidence `asOf` boundary;
+- source record IDs and per-store SHA-256 fingerprints for the captured calculation inputs;
+- the exact normalized calculation snapshot consumed by the authority;
+- the resulting metrics and FAH-3 financial facts;
+- an integrity hash over the immutable snapshot payload.
+
+The repository creates snapshots with an IndexedDB `add()` operation rather than `put()`, so an already-closed period cannot be overwritten through the repository. There is intentionally no delete/update API for closed snapshots. Reads verify the integrity hash before returning data; tampered snapshots are rejected rather than silently used.
+
+Historical reads use the closed snapshot when one exists. An incomplete/current period remains dynamically calculated from the live canonical data. A completed period without a snapshot is explicitly reported as `CLOSED_WITHOUT_SNAPSHOT` rather than being presented as historically frozen. `HistoricalIntegrityService.reproduce()` recalculates the stored calculation inputs through the existing PerformanceService and returns the reproduced metrics/facts for regression comparison.
+
+The snapshot is an evidence boundary, not an accounting journal, statutory period lock, or new business formula. Later canonical transactions cannot mutate the stored snapshot; later source changes therefore do not silently rewrite a closed historical result. The integrity hash detects tampering of the stored snapshot itself. SHA-256 is used as an integrity fingerprint, not as authentication or a substitute for a signed financial ledger.
+
+FAH-4 contract coverage includes:
+- exact complete-IST-month boundaries;
+- refusal to close before month end;
+- immutable duplicate-close behavior at repository level;
+- later source mutations not changing the stored snapshot;
+- tamper detection through integrity-hash mismatch;
+- evidence-boundary validation;
+- reproducibility from the captured calculation snapshot;
+- open-period dynamic behavior versus closed-period snapshot behavior.
+

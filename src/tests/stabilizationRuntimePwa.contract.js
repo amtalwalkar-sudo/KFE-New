@@ -49,7 +49,7 @@ assert.match(backupRepository, /import \{ openCanonicalDB, notifyCanonicalDataCh
 assert.doesNotMatch(backupRepository, /initializeCanonicalStorage\(/)
 assert.match(backupRepository, /restoreCanonicalSnapshot\(snapshot\) \{[\s\S]*const db = await openCanonicalDB\(\)/)
 assert.match(backupRepository, /resetCanonicalData\(\) \{[\s\S]*const db = await openCanonicalDB\(\)/)
-assert.match(backupService, /source: \{ dbName: 'kanishka_kfe_canonical_db', dbVersion: 11 \}/)
+assert.match(backupService, /source: \{ dbName: 'kanishka_kfe_canonical_db', dbVersion: 12 \}/)
 assert.match(mutation, /canonical synchronization queue/)
 assert.match(mutation, /these sync lifecycle methods intentionally operate on canonical storage only/)
 assert.doesNotMatch(mutation, /initializeCanonicalStorage\(/)

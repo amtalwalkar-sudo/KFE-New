@@ -1,6 +1,6 @@
 const CANONICAL_DB_NAME = 'kanishka_kfe_canonical_db'
 const SYNTHETIC_DB_NAME = 'kanishka_kfe_synthetic_db'
-const CANONICAL_DB_VERSION = 11
+const CANONICAL_DB_VERSION = 12
 const SYNTHETIC_DB_VERSION = 11
 const DATA_SOURCE_KEY = 'kfe:active-data-source'
 const DATA_SOURCE_CHANGE_EVENT = 'kfe:data-source-changed'
@@ -65,6 +65,7 @@ const openDatabase = name => new Promise((resolve, reject) => {
     createSimpleStore(db, 'loans', ['status', 'startDate']); createSimpleStore(db, 'loan_payments', ['loanId', 'paidOn', 'status']); createSimpleStore(db, 'prepayments', ['loanId', 'paidOn'])
     createSimpleStore(db, 'driver_targets', ['driverId', 'effectiveFrom', 'active']); createSimpleStore(db, 'break_even_inputs', ['effectiveFrom'])
     createSimpleStore(db, 'settings', ['settingKey', 'updatedAt']); createSimpleStore(db, 'audit_history', ['entityId', 'entityType', 'action', 'createdAt'])
+    if (name === CANONICAL_DB_NAME && !db.objectStoreNames.contains('financial_period_snapshots')) { const store = db.createObjectStore('financial_period_snapshots', { keyPath: 'periodKey' }); store.createIndex('closedAt', 'closedAt', { unique: false }) }
     if (db.objectStoreNames.contains('driver_collected_data')) db.deleteObjectStore('driver_collected_data')
     if (db.objectStoreNames.contains('admin_records')) db.deleteObjectStore('admin_records')
     if (db.objectStoreNames.contains('financial_inputs')) db.deleteObjectStore('financial_inputs')
