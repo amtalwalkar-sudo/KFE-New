@@ -53,16 +53,20 @@ export const HistoricalIntegrityService = Object.freeze({
   async reproduce(periodKey) {
     const snapshot = await PeriodSnapshotRepository.get(periodKey)
     if (!snapshot) throw new Error(`No closed financial period snapshot exists for ${periodKey}.`)
-    const metrics = PerformanceService.getMetrics(clone(snapshot.calculationSnapshot), {
-      from: new Date(snapshot.periodRange.from),
-      to: new Date(snapshot.periodRange.to),
-    })
-    const financialFacts = metrics.financialFacts || deriveFinancialFactModel({
-      snapshot: snapshot.calculationSnapshot,
-      metrics,
-      range: { from: new Date(snapshot.periodRange.from), to: new Date(snapshot.periodRange.to) },
-    })
-    return { snapshot, metrics, financialFacts }
+    // Reproduction is intentionally frozen: return the verified stored result.
+    // Re-running live calculation code would make historical results dependent on
+    // future code changes and would defeat the period snapshot boundary.
+    return {
+      snapshot,
+      metrics: clone(snapshot.metrics),
+      financialFacts: clone(snapshot.financialFacts || deriveFinancialFactModel({
+        snapshot: snapshot.calculationSnapshot,
+        metrics: snapshot.metrics,
+        range: { from: new Date(snapshot.periodRange.from), to: new Date(snapshot.periodRange.to) },
+      })),
+      evidenceBoundary: clone(snapshot.evidenceBoundary),
+      mode: 'FROZEN_SNAPSHOT_REPRODUCTION',
+    }
   },
 
   periodKeyFor,
