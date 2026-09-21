@@ -21,7 +21,7 @@ const range = { from: new Date('2026-09-10T00:00:00Z'), to: new Date('2026-09-10
 {
   const shifts = [{ id:'s1', shiftStartAt:'2026-09-10T08:00:00Z', shiftEndAt:'2026-09-10T18:00:00Z', revenue:1250.55 }]
   const trips = [{ status:'COMPLETED', tripStartAt:'2026-09-10T09:00:00Z', tripEndAt:'2026-09-10T10:00:00Z', revenue:999999 }]
-  assert.equal(authoritativeShiftRevenue(shifts, range), 1250.55)
+  assert.equal(authoritativeShiftRevenue(shifts, range), 1250.55)\n  assert.equal(authoritativeShiftRevenue([{ id:'open', shiftStartAt:'2026-09-10T08:00:00Z', shiftEndAt:null, revenue:999999 }], range), 0)
   const metrics = derivePerformance({ shifts, trips, fuelLogs:[], maintenance:[], compliance:[] }, range)
   assert.equal(metrics.revenue, 1250.55)
 }
