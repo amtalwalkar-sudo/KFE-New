@@ -138,6 +138,7 @@ function allocationState(schedule, payments, asOf, annualRate) {
   const orderedPayments = live(payments)
     .filter(payment => payment.loanId === schedule[0]?.loanId && String(payment.status || '').toLowerCase() !== 'reversed')
     .filter(payment => dateOf(payment.paidOn))
+    .filter(payment => dateOf(payment.paidOn).getTime() <= (dateOf(asOf)?.getTime() ?? Infinity))
     .sort((a, b) => (dateOf(a.paidOn)?.getTime() ?? 0) - (dateOf(b.paidOn)?.getTime() ?? 0) || String(a.id).localeCompare(String(b.id)))
 
   for (const payment of orderedPayments) {
