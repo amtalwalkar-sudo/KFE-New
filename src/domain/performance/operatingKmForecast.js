@@ -21,10 +21,13 @@ const calendarDaysInclusive = (from, to) => {
   const end = dateOf(to)
   if (!start || !end || end < start) return []
   const keys = []
-  const cursor = new Date(start)
-  cursor.setUTCHours(0, 0, 0, 0)
-  while (cursor <= end) {
-    keys.push(dayKey(cursor))
+  const startKey = dayKey(start)
+  const endKey = dayKey(end)
+  if (!startKey || !endKey) return keys
+  const cursor = new Date(startKey + 'T00:00:00.000Z')
+  const last = new Date(endKey + 'T00:00:00.000Z')
+  while (cursor <= last) {
+    keys.push(cursor.toISOString().slice(0, 10))
     cursor.setUTCDate(cursor.getUTCDate() + 1)
   }
   return [...new Set(keys)].filter(Boolean)
