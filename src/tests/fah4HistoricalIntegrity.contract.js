@@ -22,7 +22,7 @@ assert.equal(first.status, 'CLOSED')
 assert.equal(first.periodRange.from, completeIstMonthRange('2026-08').from.toISOString())
 assert.equal(first.periodRange.to, completeIstMonthRange('2026-08').to.toISOString())
 assert.equal(first.evidenceBoundary.asOf, first.periodRange.to)
-assert.equal(first.sourceRecordIds.trips[0], 't1')
+assert.equal(first.evidenceBoundary.sourceRecordIds.trips[0], 't1')
 
 const verified = await verifyPeriodSnapshot(first)
 assert.equal(verified.valid, true)
