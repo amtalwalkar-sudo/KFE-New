@@ -7,7 +7,7 @@ const amount = value => Number.isFinite(Number(value)) ? Number(value) : 0
 
 /** Shift-end revenue is the authoritative operational revenue record. Trip revenue is optional detail only. */
 export const authoritativeShiftRevenue = (shifts, range) => live(shifts)
-  .filter(shift => inRange(shift.shiftEndAt || shift.shiftStartAt, range))
+  .filter(shift => !!dateOf(shift.shiftEndAt) && inRange(shift.shiftEndAt, range))
   .reduce((total, shift) => total + amount(shift.revenue), 0)
 
 /**
@@ -19,7 +19,7 @@ export const authoritativeShiftRevenueByMonth = (shifts, asOf = null) => {
   const boundary = dateOf(asOf)
   const result = new Map()
   for (const shift of live(shifts)) {
-    const date = dateOf(shift.shiftEndAt || shift.shiftStartAt)
+    const date = dateOf(shift.shiftEndAt)
     if (!date || (boundary && date > boundary)) continue
     const month = istMonthKey(date)
     result.set(month, (result.get(month) || 0) + amount(shift.revenue))
