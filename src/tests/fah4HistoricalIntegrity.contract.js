@@ -42,6 +42,8 @@ const serviceSource = fs.readFileSync(path.resolve(path.dirname(fileURLToPath(im
 assert.match(serviceSource, /CLOSED_SNAPSHOT/)
 assert.match(serviceSource, /CLOSED_WITHOUT_SNAPSHOT/)
 assert.match(serviceSource, /PerformanceService\.getMetrics/)
+assert.match(serviceSource, /dynamicRange = \{ from: range\.from, to: new Date\(Math\.min\(range\.to\.getTime\(\), reference\.getTime\(\)\)\) \}/)
+assert.match(serviceSource, /FUTURE_UNAVAILABLE/)
 
 const laterMutation = structuredClone(first)
 laterMutation.calculationSnapshot.trips.push({ id: 't2', tripEndAt: '2026-09-01T10:00:00+05:30', revenue: 500 })
