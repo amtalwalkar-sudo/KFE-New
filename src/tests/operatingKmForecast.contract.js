@@ -51,8 +51,8 @@ for (let i = 0; i < 12; i += 1) reversal = updateOperatingKmForecast(reversal, 2
 const highPoint = reversal.dailyForecastKm
 for (let i = 0; i < 12; i += 1) reversal = updateOperatingKmForecast(reversal, 100)
 assert.ok(reversal.dailyForecastKm < highPoint)
-for (let i = 0; i < 12; i += 1) reversal = updateOperatingKmForecast(reversal, 280)
-assert.ok(reversal.dailyForecastKm > highPoint - 5)
+for (let i = 0; i < 20; i += 1) reversal = updateOperatingKmForecast(reversal, 280)
+assert.ok(reversal.dailyForecastKm > highPoint)
 
 // Full-period forecast starts with the prior and then learns from completed shifts.
 const period = deriveOperatingKmForecast({
