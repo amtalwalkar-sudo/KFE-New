@@ -6,6 +6,7 @@ import { deriveRollingDriverTarget } from '../../domain/performance/driverTarget
 import { DriverTargetService } from './driverTargetService.js'
 import { normalizeCalculationSnapshot } from './normalizeCalculationSnapshot.js'
 import { istMonthRange } from '../../domain/time/ist.js'
+import { deriveFinancialFactModel } from '../../domain/finance/financialFactModel.js'
 
 export const PerformanceService = Object.freeze({
   async getSnapshot() {
@@ -20,6 +21,7 @@ export const PerformanceService = Object.freeze({
   getMetrics(snapshot, range) {
     const calculationSnapshot = normalizeCalculationSnapshot(snapshot)
     const metrics = deriveFinanceAwarePerformance(calculationSnapshot, range, previousRange(range))
+    const financialFacts = deriveFinancialFactModel({ snapshot: calculationSnapshot, metrics, range })
     const monthlyBreakEvenCache = new Map()
 
     const authoritativeMonthlyBreakEvenForDay = ({ day }) => {
@@ -80,6 +82,7 @@ export const PerformanceService = Object.freeze({
 
     return {
       ...metrics,
+      financialFacts,
       counts: { ...metrics.counts, activeFinancialDays: financialDays },
       revenuePerActiveDay: revenuePerFinancialDay,
       breakEvenRevenue: authoritativeMonthlyBreakEven,
