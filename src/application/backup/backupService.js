@@ -28,7 +28,7 @@ export const validateBackup = input => {
     const records = backup.stores[storeName]
     if (!Array.isArray(records)) throw new Error(`Backup store ${storeName} must be an array.`)
     const ids = new Set()
-    for (const record of records) { const validKey = storeName === 'financial_period_snapshots' ? typeof record?.periodKey === 'string' && /^\d{4}-\d{2}$/.test(record.periodKey) : typeof record?.id === 'string' && record.id.trim(); if (!record || typeof record !== 'object' || Array.isArray(record) || !validKey) throw new Error(`Backup store ${storeName} contains an invalid record.`); const key = storeName === 'financial_period_snapshots' ? record.periodKey : record.id; if (ids.has(key)) throw new Error(`Backup store ${storeName} contains duplicate key ${key}.`); ids.add(key) }
+    for (const record of records) { const validKey = storeName === 'financial_period_snapshots' ? typeof record?.periodKey === 'string' && /^\d{4}-\d{2}$/.test(record.periodKey) : typeof record?.id === 'string' && record.id.trim(); if (!record || typeof record !== 'object' || Array.isArray(record) || !validKey) throw new Error(`Backup store ${storeName} contains an invalid record.`); const key = storeName === 'financial_period_snapshots' ? record.periodKey : record.id; if (ids.has(key)) throw new Error(`Backup store ${storeName} contains duplicate id/key ${key}.`); ids.add(key) }
   }
   if (backup.formatVersion === 1 || backup.formatVersion === 2 || (backup.formatVersion === BACKUP_FORMAT_VERSION && sourceVersion === 11)) {
     const { driver_collected_data: _removed, ...storesWithoutRemovedStore } = backup.stores
