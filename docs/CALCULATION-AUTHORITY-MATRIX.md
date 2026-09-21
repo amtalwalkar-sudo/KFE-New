@@ -117,6 +117,14 @@ Examples:
 ₹ / selected period ↔ ₹ / month             NOT directly comparable
 ```
 
+## Formula precision and calendar-day rules
+
+- Monetary calculations use integer paise internally. External persisted/display values may remain rupees, but calculation accumulators and comparison thresholds are paise integers; floating-point rupee accumulation is not an authority.
+- EMI, loan schedule components, payment allocations, prepayments, overdue interest, outstanding principal, financing outflow, and recovery provisions round to whole paise at each monetary boundary.
+- Loan interest day counting uses **IST calendar-day counting** (`Asia/Kolkata`), not elapsed 24-hour periods. The difference between the start and end calendar dates is counted; leap years are handled by the Gregorian calendar, so dates such as 2028-02-28 → 2028-03-01 count as 2 calendar days.
+- Dead KM is exactly `vehicleKm - businessKm`. It is not clamped to zero; a negative result is preserved so an upstream data-integrity problem cannot be silently hidden.
+- Operational revenue authority is exclusively `shifts.revenue` at shift completion. `trips.revenue` is supporting detail for reconciliation only and never contributes to authoritative ERP revenue totals.
+
 ## UI boundary
 
 Presentation code must consume service/domain outputs. It may format, label, navigate, and present values, but must not reproduce business formulas or introduce alternative authorities.
