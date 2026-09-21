@@ -42,10 +42,12 @@ export const HistoricalIntegrityService = Object.freeze({
     const closed = await PeriodSnapshotRepository.get(periodKey)
     if (closed) return { mode: 'CLOSED_SNAPSHOT', periodKey, range, snapshot: closed, metrics: clone(closed.metrics), financialFacts: clone(closed.financialFacts) }
 
+    if (reference.getTime() < range.from.getTime()) return { mode: 'FUTURE_UNAVAILABLE', periodKey, range, metrics: null, financialFacts: null }
     const isComplete = reference.getTime() >= range.to.getTime()
     if (!isComplete) {
-      const calculationSnapshot = await PerformanceRepository.getSnapshot()
-      const metrics = PerformanceService.getMetrics(calculationSnapshot, range)
+      const calculationSnapshot = normalizeCalculationSnapshot(await PerformanceRepository.getSnapshot())
+      const dynamicRange = { from: range.from, to: new Date(Math.min(range.to.getTime(), reference.getTime())) }
+      const metrics = PerformanceService.getMetrics(calculationSnapshot, dynamicRange)
       return { mode: 'OPEN_DYNAMIC', periodKey, range, metrics: clone(metrics), financialFacts: clone(metrics.financialFacts || {}) }
     }
     return { mode: 'CLOSED_WITHOUT_SNAPSHOT', periodKey, range, metrics: null, financialFacts: null }
