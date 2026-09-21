@@ -12,6 +12,7 @@ const backupRepo = read('repositories/backupRepository.js')
 const mutation = read('repositories/mutationRepository.js')
 
 assert(db.includes("const CANONICAL_DB_NAME = 'kanishka_kfe_canonical_db'"), 'Canonical DB name missing')
+assert(db.includes("createObjectStore('financial_period_snapshots', { keyPath: 'periodKey' })"), 'Historical snapshot store missing')
 assert(db.includes("const SYNTHETIC_DB_NAME = 'kanishka_kfe_synthetic_db'"), 'Synthetic DB name missing')
 assert(db.includes('const CANONICAL_DB_VERSION = 12'), 'Canonical schema version must be v12 after historical snapshots')
 assert(db.includes('const SYNTHETIC_DB_VERSION = 11'), 'Synthetic schema version must be explicit')
