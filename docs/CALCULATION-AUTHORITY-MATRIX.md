@@ -75,6 +75,18 @@ For fuel, a qualified full-tank interval is authoritative only when the fuel rec
 | Current pace | actual revenue ÷ completed-trip financial days | `revenuePerActiveDay` / service pace | performance domain | ₹ / financial day | Display only |
 | Pace variance | actual pace − current Driver Target | `paceVariance` | performance service | ₹ / financial day | Display only |
 | Projection | **Not an authority and not required for Driver Target** | removed from target/pace contract | none | n/a | Do not display as target logic |
+| Actual revenue fact | `shifts.revenue` at completed shift | `REVENUE / ACTUAL` | `financialFactModel` | ₹ / selected period | Never reinterpret as cash without settlement evidence |
+| Actual operating expense facts | fuel logs, shift toll/parking, maintenance records | `ACTUAL EXPENSE` | `financialFactModel` | ₹ / selected period | Expense is not automatically cash |
+| Financing obligation fact | canonical loan schedule | `FINANCING_OBLIGATION / OBLIGATION` | `loanEngine` mapped by `financialFactModel` | ₹ / selected period | Never treat obligation as payment |
+| Financing payment fact | loan payments + applied prepayments | `FINANCING_PAYMENT / ACTUAL` | `loanEngine` mapped by `financialFactModel` | ₹ / selected period | Cash settlement evidence |
+| Maintenance provision | authoritative break-even maintenance provision | `MAINTENANCE_PROVISION / PROVISION` | `authoritativeBreakEven` mapped by `financialFactModel` | ₹ / selected period | Never treat provision as actual expense |
+| Renewal provision | compliance validity/cost | `RENEWAL_PROVISION / PROVISION` | `performanceEngineV2` mapped by `financialFactModel` | ₹ / selected period | Reserve/provision only until settlement |
+| Actual-vs-provision variance | actual maintenance / explicit renewal settlement vs provision | `ACTUAL_VS_PROVISION_VARIANCE` | `financialFactModel` | ₹ / selected period | Signed variance is explanatory, not a new expense |
+| Capex fact | vehicle acquisition value | `CAPEX / ACTUAL` | `financialFactModel` | ₹ / acquisition period | Acquisition record does not prove cash settlement |
+| Receivable position | explicit receivable settlement/position records | `RECEIVABLE` | `financialFactModel` | ₹ / selected period | Unavailable until explicit records exist |
+| Payable position | explicit payable settlement/position records | `PAYABLE` | `financialFactModel` | ₹ / selected period | Unavailable until explicit records exist |
+| Cash movement | explicit cash settlements plus known financing payments | `CASH_MOVEMENT` | `financialFactModel` | ₹ / selected period | No inferred cash balance from revenue/expense |
+
 
 **Authority identifier:** `SHIFT_END_REVENUE` is the canonical ownership marker for operational revenue. `AUTHORITATIVE_MONTHLY_BREAK_EVEN` remains the ownership marker for monthly break-even.
 
@@ -136,3 +148,21 @@ This artifact is the working source for the authority audit. It records reposito
 ## FAH-2 operational reconciliation
 
 Shift-end revenue is the single operational revenue fact. When completed trips contain fare values, the End Shift authority compares their sum with the entered shift-end revenue. A mismatch or incomplete trip-fare detail blocks shift closure; no trip-level fare is promoted to revenue authority. Toll and parking are retained as operating-cost facts and are never added to revenue by the reconciliation. Post-close trip corrections re-evaluate the completed shift's reconciliation status so administrative changes cannot silently leave the supporting detail inconsistent with the authoritative shift revenue.
+
+
+## FAH-3 financial fact model
+
+FAH-3 establishes a single financial fact representation layer in `src/domain/finance/financialFactModel.js`. It maps authoritative upstream results into explicit facts with a distinct **basis**: `ACTUAL`, `OBLIGATION`, `PROVISION`, or `VARIANCE`. It does not recalculate revenue, operating cost, loan schedules, or break-even.
+
+Non-promotion rules are explicit:
+
+- Actual revenue is not cash unless an explicit settlement record exists.
+- Actual operating expense is not cash by default.
+- A financing obligation is not a financing payment.
+- A provision is not an actual expense.
+- Vehicle acquisition value is a capex fact, but does not prove cash settlement.
+- Receivable/payable and cash positions remain unavailable until explicit canonical settlement/position records exist.
+- Renewal actual-vs-provision variance requires an explicit compliance payment record; a compliance record's `cost` remains a provision/validity input.
+- Target and break-even remain management representations and do not become accounting facts.
+
+The model is intentionally usable before a full financial journal exists. It prevents the current application from silently treating incomplete settlement evidence as cash/accounting truth. A future journal/period-close implementation can consume these facts without changing the upstream calculation authorities.
