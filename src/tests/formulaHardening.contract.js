@@ -21,7 +21,8 @@ const range = { from: new Date('2026-09-10T00:00:00Z'), to: new Date('2026-09-10
 {
   const shifts = [{ id:'s1', shiftStartAt:'2026-09-10T08:00:00Z', shiftEndAt:'2026-09-10T18:00:00Z', revenue:1250.55 }]
   const trips = [{ status:'COMPLETED', tripStartAt:'2026-09-10T09:00:00Z', tripEndAt:'2026-09-10T10:00:00Z', revenue:999999 }]
-  assert.equal(authoritativeShiftRevenue(shifts, range), 1250.55)\n  assert.equal(authoritativeShiftRevenue([{ id:'open', shiftStartAt:'2026-09-10T08:00:00Z', shiftEndAt:null, revenue:999999 }], range), 0)
+  assert.equal(authoritativeShiftRevenue(shifts, range), 1250.55)
+  assert.equal(authoritativeShiftRevenue([{ id:'open', shiftStartAt:'2026-09-10T08:00:00Z', shiftEndAt:null, revenue:999999 }], range), 0)
   const metrics = derivePerformance({ shifts, trips, fuelLogs:[], maintenance:[], compliance:[] }, range)
   assert.equal(metrics.revenue, 1250.55)
 }
@@ -51,7 +52,16 @@ const range = { from: new Date('2026-09-10T00:00:00Z'), to: new Date('2026-09-10
   assert.equal(nonLeap.schedule[0].originalInterestComponent, 2800)
 }
 
-// As-of boundary: future loan payments must not change a historical loan position.\n{\n  const loan = { id:'as-of-loan', principal:12000, tenureMonths:12, startDate:'2026-01-01', annualInterestRatePercent:12, status:'Active' }\n  const historical = deriveLoanPosition({ loan, payments:[{ id:'future-payment', loanId:loan.id, amount:1000, paidOn:'2026-03-01', status:'PAID' }], asOf:'2026-02-01' })\n  const clean = deriveLoanPosition({ loan, payments:[], asOf:'2026-02-01' })\n  assert.equal(historical.actualPaid, clean.actualPaid)\n  assert.equal(historical.outstandingPrincipal, clean.outstandingPrincipal)\n}\n\n// Boundary vector: one IST calendar day of overdue interest is counted from the due date to next calendar date.
+// As-of boundary: future loan payments must not change a historical loan position.
+{
+  const loan = { id:'as-of-loan', principal:12000, tenureMonths:12, startDate:'2026-01-01', annualInterestRatePercent:12, status:'Active' }
+  const historical = deriveLoanPosition({ loan, payments:[{ id:'future-payment', loanId:loan.id, amount:1000, paidOn:'2026-03-01', status:'PAID' }], asOf:'2026-02-01' })
+  const clean = deriveLoanPosition({ loan, payments:[], asOf:'2026-02-01' })
+  assert.equal(historical.actualPaid, clean.actualPaid)
+  assert.equal(historical.outstandingPrincipal, clean.outstandingPrincipal)
+}
+
+// Boundary vector: one IST calendar day of overdue interest is counted from the due date to next calendar date.
 {
   const loan = { id:'overdue-leap', principal:100000, tenureMonths:12, startDate:'2028-01-31', annualInterestRatePercent:36.5, status:'Active' }
   const position = deriveLoanPosition({ loan, asOf:'2028-03-01T23:59:59+05:30' })
