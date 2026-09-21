@@ -93,6 +93,7 @@ export async function buildPeriodSnapshot({
   if (closeTime.getTime() < range.to.getTime()) throw new Error('A financial period cannot be closed before its complete IST month has ended.')
   const sourceAsOf = validDate(sourceDataAsOf || range.to) || range.to
   if (sourceAsOf.getTime() < range.to.getTime()) throw new Error('The evidence boundary cannot precede the closed period end.')
+  if (sourceAsOf.getTime() > closeTime.getTime()) throw new Error('The evidence boundary cannot be later than the period close timestamp.')
 
   const sources = sourceArrays(calculationSnapshot)
   const sourceRecordIds = {}
