@@ -62,7 +62,8 @@ const complianceProvisionFor=computed(()=>record=>{
   const to=Number.isNaN(until.getTime())?now:new Date(Math.min(until.getTime(),now.getTime()))
   if(to<from)return 0
   const metrics=PerformanceService.getMetrics(performanceSnapshot.value,{from,to})
-  return Number.isFinite(Number(metrics?.renewalProvision))?Number(metrics.renewalProvision):0
+  const provision = metrics?.complianceProvisionById?.[record.id]
+  return Number.isFinite(Number(provision)) ? Number(provision) : 0
 })
 const complianceProvisionTotal=computed(()=>live(records.value).reduce((sum,r)=>sum+complianceProvisionFor.value(r),0))
 const maintenanceProvisionTotal=computed(()=>performanceProvisionMetrics.value?Number(performanceProvisionMetrics.value.maintenanceProvision)||0:0)
