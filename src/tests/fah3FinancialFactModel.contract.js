@@ -28,8 +28,8 @@ const model = deriveFinancialFactModel({
     vehicles: [
       { id: 'v1', acquiredOn: '2026-09-10T10:00:00+05:30', acquisitionValue: 50000 },
     ],
-    compliancePayments: [
-      { id: 'cp1', paidOn: '2026-09-20T10:00:00+05:30', amount: 450 },
+    settlements: [
+      { id: 'cp1', sourceType: 'Compliance', sourceId: 'c1', settlementType: 'Payment', direction: 'OUT', settledOn: '2026-09-20T10:00:00+05:30', amount: 450 },
     ],
     receivables: [],
     payables: [],
@@ -72,7 +72,7 @@ assert.equal(explicitCash.availability.cash, 'AVAILABLE')
 const missingSettlement = deriveFinancialFactModel({
   range,
   metrics: { renewalProvision: 400 },
-  snapshot: { compliance: [{ id: 'c1', cost: 400, validFrom: '2026-09-01', validUntil: '2027-08-31' }] },
+  snapshot: { settlements: [], compliance: [{ id: 'c1', cost: 400, validFrom: '2026-09-01', validUntil: '2027-08-31' }] },
 })
 assert.equal(missingSettlement.model.renewalActual, null)
 assert.equal(missingSettlement.model.renewalVariance, null)
