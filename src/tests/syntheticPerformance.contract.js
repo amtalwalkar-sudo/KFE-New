@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { buildSyntheticSnapshot } from '../application/synthetic/syntheticDataService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { istDayRange } from '../domain/time/ist.js'
+import { normalizeCalculationSnapshot } from '../application/performance/normalizeCalculationSnapshot.js'
 
 const snapshot = buildSyntheticSnapshot(1826, { fullTimeline: true })
 const range = {
@@ -18,6 +19,9 @@ const calculationSnapshot = {
   breakEvenInputs: snapshot.break_even_inputs,
   settlements: [],
 }
+const normalized = normalizeCalculationSnapshot(calculationSnapshot)
+assert.equal(normalized.driverTargets.length, 1)
+console.log('TARGET_ROW', JSON.stringify(normalized.driverTargets[0]))
 const metrics = PerformanceService.getMetrics(calculationSnapshot, range)
 
 assert.equal(snapshot.shifts.length, 1826)
