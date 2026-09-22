@@ -27,10 +27,16 @@ const complianceProvisionForRecord = (record, shifts, r) => {
   const validityFrom = istDateKey(start), validityTo = istDateKey(end), reportFrom = istDateKey(r?.from) || validityFrom, reportTo = istDateKey(r?.to) || validityTo
   const overlapFrom = validityFrom > reportFrom ? validityFrom : reportFrom, overlapTo = validityTo < reportTo ? validityTo : reportTo
   if (!validityFrom || !validityTo || overlapTo < overlapFrom) return 0
-  const dailyRevenue = revenueByDay(shifts), totalValidityRevenue = (() => { let total = 0; const a = dateKeyDate(validityFrom), b = dateKeyDate(validityTo); if (!a || !b) return 0; for (let cursor = a; cursor <= b; cursor = new Date(cursor.getTime() + 86400000)) total += dailyRevenue.get(cursor.toISOString().slice(0, 10)) || 0; return total })()
-  const dailyProvision = cost / days(start, end); let provision = 0
-  const a = dateKeyDate(overlapFrom), b = dateKeyDate(overlapTo); if (!a || !b) return 0
-  for (let cursor = a; cursor <= b; cursor = new Date(cursor.getTime() + 86400000)) { const key = cursor.toISOString().slice(0, 10); const dayRevenue = dailyRevenue.get(key) || 0; provision += totalValidityRevenue > 0 ? cost * (dayRevenue / totalValidityRevenue) : dailyProvision }
+  const dailyRevenue = revenueByDay(shifts)
+  const dailyProvision = cost / days(start, end)
+  let provision = 0
+  const a = dateKeyDate(overlapFrom), b = dateKeyDate(overlapTo)
+  if (!a || !b) return 0
+  for (let cursor = a; cursor <= b; cursor = new Date(cursor.getTime() + 86400000)) {
+    const key = cursor.toISOString().slice(0, 10)
+    const dayRevenue = dailyRevenue.get(key) || 0
+    if (dayRevenue > 0) provision += dailyProvision
+  }
   return provision
 }
 const renewal = (xs, shifts, r) => live(xs).reduce((sum, record) => sum + complianceProvisionForRecord(record, shifts, r), 0)
