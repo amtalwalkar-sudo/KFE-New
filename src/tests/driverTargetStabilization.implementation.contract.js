@@ -140,3 +140,30 @@ assert.equal(partialSyntheticWindow.currentTargetMonth, '2026-09')
 assert.ok(partialSyntheticWindow.currentDailyTarget > 0)
 
 console.log('Driver target stabilization implementation contract passed.')
+
+
+const targetWithForecast = forecastDailyKm => deriveRollingDriverTarget({
+  from: '2026-09-10', to: '2026-09-10',
+  trips: [{ status: 'COMPLETED', tripEndAt: '2026-09-10T10:00:00Z' }],
+  shifts: [{ shiftStartAt: '2026-09-10T08:00:00Z', shiftEndAt: '2026-09-10T12:00:00Z', revenue: 0, startOdometer: 70000, endOdometer: 70200 }],
+  driverTargets: [{ effectiveFrom: '2026-09-01', effectiveUntil: '2026-09-30', desiredDriverProfit: 200, active: true }],
+  applicableBreakEven: 800,
+  operatingKmForecast: {
+    dailyForecastKm: forecastDailyKm,
+    config: { normalPriorKmPerCalendarDay: 200 },
+  },
+})
+const km200 = targetWithForecast(200)
+const km280 = targetWithForecast(280)
+const km100 = targetWithForecast(100)
+assert.equal(km200.currentDailyTarget, 1000 / 21)
+assert.equal(km280.currentDailyTarget, (1000 / 21) * 1.4)
+assert.equal(km100.currentDailyTarget, (1000 / 21) * 0.5)
+assert.equal(km280.operatingKmMultiplier, 1.4)
+assert.equal(km100.operatingKmMultiplier, 0.5)
+
+// The forecast changes volume allocation, not the financial authority itself.
+assert.equal(km280.effectiveMonthlyTarget, km200.effectiveMonthlyTarget)
+assert.equal(km100.effectiveMonthlyTarget, km200.effectiveMonthlyTarget)
+
+console.log('Operating KM -> Driver Target wiring contract passed: 200 neutral, higher/lower learned volume scales daily target, financial authority preserved.')
