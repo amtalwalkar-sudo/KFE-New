@@ -144,9 +144,34 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
   const forecastDailyKm = finite(operatingKmForecast?.dailyForecastKm)
   const normalPriorKm = Math.max(1, finite(operatingKmForecast?.config?.normalPriorKmPerCalendarDay) || 200)
   const operatingKmMultiplier = forecastDailyKm == null ? 1 : Math.max(0, forecastDailyKm / normalPriorKm)
-  const baseRemainingDaily = Math.max(0, baseMonthly - targetAllocatedBeforeCurrentDay) / remainingDays
-  const recoveryDaily = Math.max(0, balance) / remainingDays
-  const currentDailyTarget = baseRemainingDaily * operatingKmMultiplier + recoveryDaily
+  const baseRemainingDaily = Math.max(0, baseMonthly - (() => {
+    let allocated = 0
+    let remaining = baseMonthly
+    for (const financialDay of priorFinancialDays) {
+      const day = dayFromKey(financialDay)
+      const holidaysKnownBeforeDay = calendarDayKeys(currentMonth).filter(candidate => candidate < financialDay && !currentMonthFinancialDays.includes(candidate))
+      const denominator = remainingEligibleDays({ month: currentMonth, currentDay: day, priorHolidayKeys: holidaysKnownBeforeDay })
+      const allocation = remaining / denominator
+      allocated += allocation
+      remaining -= allocation
+    }
+    return allocated
+  })()) / remainingDays
+  const recoveryAllocatedBeforeCurrentDay = (() => {
+    let allocated = 0
+    let remaining = Math.max(0, balance)
+    for (const financialDay of priorFinancialDays) {
+      const day = dayFromKey(financialDay)
+      const holidaysKnownBeforeDay = calendarDayKeys(currentMonth).filter(candidate => candidate < financialDay && !currentMonthFinancialDays.includes(candidate))
+      const denominator = remainingEligibleDays({ month: currentMonth, currentDay: day, priorHolidayKeys: holidaysKnownBeforeDay })
+      const allocation = remaining / denominator
+      allocated += allocation
+      remaining -= allocation
+    }
+    return allocated
+  })()
+  const recoveryRemainingDaily = Math.max(0, Math.max(0, balance) - recoveryAllocatedBeforeCurrentDay) / remainingDays
+  const currentDailyTarget = baseRemainingDaily * operatingKmMultiplier + recoveryRemainingDaily
   const recoveryAdjustment = currentDailyTarget - currentBaseDaily
   const monthlyActualRevenue = revenueByMonth.get(currentMonth) || 0
   const monthlyVariance = baseMonthly - monthlyActualRevenue
