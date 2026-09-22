@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { ADMIN_FORM_KEYS, getAdminFormDefinition } from '../application/admin/adminFormDefinitions.js'
 import { validateAdminForm } from '../application/admin/universalFormRules.js'
 
-assert.deepEqual(ADMIN_FORM_KEYS,['vehicle','driver','compliance','maintenance','loan','loanPayment','prepayment','driverTarget','breakEvenInputs'])
+assert.deepEqual(ADMIN_FORM_KEYS,['vehicle','driver','compliance','maintenance','loan','loanPayment','prepayment','settlement','driverTarget','breakEvenInputs'])
 assert.equal(ADMIN_FORM_KEYS.includes('driverCollectedData'),false)
 assert.equal(ADMIN_FORM_KEYS.includes('ride'),false)
 assert.equal(ADMIN_FORM_KEYS.includes('shift'),false)
