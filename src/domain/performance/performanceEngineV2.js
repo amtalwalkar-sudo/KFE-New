@@ -71,7 +71,7 @@ export function derivePerformance(s, r, p = previousRange(r)) {
   const maintenanceProvisionBalance = maintenanceProvision - maintenancePayments
   const previousMaintenanceProvisionBalance = prevMaintenanceProvision - previousMaintenancePayments
   const complianceProvisionById = Object.fromEntries(live(C).map(record => [record.id, complianceProvisionForRecord(record, S, r)]))
-  const compliancePaymentsById = Object.fromEntries(live(s?.settlements).filter(x => String(x.sourceType || '') === 'Compliance' && String(x.direction || 'OUT').toUpperCase() === 'OUT' && inR(x.settledOn || x.paidOn || x.createdAt, r)).reduce((map, payment) => { map[payment.sourceId] = (map[payment.sourceId] || 0) + n(payment.amount); return map }, {}))
+  const compliancePaymentsById = live(s?.settlements).filter(x => String(x.sourceType || '') === 'Compliance' && String(x.direction || 'OUT').toUpperCase() === 'OUT' && inR(x.settledOn || x.paidOn || x.createdAt, r)).reduce((map, payment) => { map[payment.sourceId] = (map[payment.sourceId] || 0) + n(payment.amount); return map }, {})
   const complianceProvisionBalancesById = Object.fromEntries(Object.entries(complianceProvisionById).map(([id, value]) => [id, value - (compliancePaymentsById[id] || 0)]))
   const provision = maintenanceProvision + ren
   const prevProvision = prevMaintenanceProvision + pren
