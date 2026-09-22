@@ -21,7 +21,6 @@ const calculationSnapshot = {
 }
 const normalized = normalizeCalculationSnapshot(calculationSnapshot)
 assert.equal(normalized.driverTargets.length, 1)
-console.log('TARGET_ROW', JSON.stringify(normalized.driverTargets[0]))
 const metrics = PerformanceService.getMetrics(calculationSnapshot, range)
 
 assert.equal(snapshot.shifts.length, 1826)
