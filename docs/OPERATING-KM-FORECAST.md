@@ -52,3 +52,20 @@ They are currently identical. Future authorized override logic can replace only 
 ## Calibration policy
 
 These coefficients are provisional rather than permanently immutable. They should only be reconsidered after meaningful real-world operating history demonstrates a systematic calibration problem. Synthetic edge-case exploration alone is not a reason to reopen them.
+
+
+## Driver Target volume boundary
+
+The Operating KM Forecast is now the authoritative **volume input** to the daily Driver Target.
+
+The boundary is intentionally explicit:
+
+- `normalPriorKmPerCalendarDay = 200` is the neutral volume baseline.
+- `operatingKmMultiplier = learnedDailyForecastKm / 200`.
+- The remaining financial base obligation for the current day is multiplied by that volume factor.
+- Finalized/opening recovery remains a separate rupee obligation and is not erased by KM learning.
+- At exactly 200 forecast KM/day, the Driver Target follows the existing financial calculation unchanged.
+- Sustained higher/lower KM regimes therefore raise/lower the daily target proportionally.
+- Break-even, desired driver profit, and recovery remain financial authorities; KM forecasting controls only the volume allocation.
+
+This keeps the original KFE chain intact: **200 km/day prior → historical KM learning → projected daily KM → daily Driver Target volume allocation**.

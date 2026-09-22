@@ -5,6 +5,7 @@ import { deriveRollingDriverTarget } from '../../domain/performance/driverTarget
 import { istMonthRange, getKfeReferenceNow } from '../../domain/time/ist.js'
 import { normalizeCalculationSnapshot } from './normalizeCalculationSnapshot.js'
 import { previousRange } from '../../domain/performance/performanceEngineV2.js'
+import { deriveOperatingKmForecast } from '../../domain/performance/operatingKmForecast.js'
 
 const monthlyBreakEvenCacheFor = snapshot => {
   const cache = new Map()
@@ -29,6 +30,12 @@ export const DriverTargetService = Object.freeze({
     const targetTo = new Date(Math.min(monthRange.to.getTime(), asOfDate.getTime()))
     const metrics = deriveFinanceAwarePerformance(snapshot, monthRange, previousRange(monthRange))
     const monthlyBreakEvenRevenue = Number.isFinite(metrics.monthlyBreakEvenRevenue) ? metrics.monthlyBreakEvenRevenue : null
+    const operatingKmForecast = deriveOperatingKmForecast({
+      shifts: snapshot?.shifts,
+      from: monthRange.from,
+      to: targetTo,
+      asOf: targetTo,
+    })
     const stabilization = deriveRollingDriverTarget({
       trips: snapshot?.trips,
       shifts: snapshot?.shifts,
@@ -37,6 +44,7 @@ export const DriverTargetService = Object.freeze({
       to: targetTo,
       applicableBreakEven: monthlyBreakEvenRevenue,
       historicalBreakEvenForDay: monthlyBreakEvenCacheFor(snapshot),
+      operatingKmForecast,
     })
     return {
       ...stabilization,
