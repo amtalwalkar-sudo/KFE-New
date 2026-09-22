@@ -173,4 +173,32 @@ assert.equal(noLoanMetrics.actualFinancingOutflow, 0)
 assert.ok(Number.isFinite(noLoanMetrics.monthlyBreakEvenRevenue), JSON.stringify(noLoanMetrics))
 assert.equal(noLoanMetrics.breakEvenRevenue, noLoanMetrics.monthlyBreakEvenRevenue)
 
+const provisionSnapshot = {
+  ...engineSnapshot,
+  settlements: [
+    { id:'maintenance-pay', sourceType:'Maintenance', sourceId:'m1', settlementType:'Payment', direction:'OUT', settledOn:'2026-09-10T10:00:00Z', amount:700 },
+    { id:'compliance-pay', sourceType:'Compliance', sourceId:'c1', settlementType:'Payment', direction:'OUT', settledOn:'2026-09-10T10:00:00Z', amount:25000 },
+  ],
+}
+const provisionMetrics = derivePerformance(provisionSnapshot, range, previousRange(range))
+near(provisionMetrics.maintenanceProvision, 600, 'maintenance provision must use applicable KM x rate')
+near(provisionMetrics.maintenanceProvisionBalance, -100, 'maintenance provision pool must allow negative balances')
+near(provisionMetrics.complianceProvisionById.c1, 24000, 'revenue-weighted compliance provision')
+near(provisionMetrics.complianceProvisionBalancesById.c1, -1000, 'compliance provision bucket must allow negative balances')
+
+const historicalRateSnapshot = {
+  ...engineSnapshot,
+  shifts: [
+    { id:'aug-shift', shiftStartAt:'2026-08-05T08:00:00Z', shiftEndAt:'2026-08-05T18:00:00Z', startOdometer:600, endOdometer:800, toll:0, parking:0, revenue:1000 },
+    ...engineSnapshot.shifts,
+  ],
+  breakEvenInputs: [
+    { effectiveFrom:'2026-08-01', maintenanceProvisionPerKm:2, active:true },
+    { effectiveFrom:'2026-09-01', maintenanceProvisionPerKm:4, active:true },
+  ],
+}
+const historicalRateRange = { from:new Date('2026-08-01T00:00:00Z'), to:new Date('2026-09-10T23:59:59Z') }
+const historicalRateMetrics = derivePerformance(historicalRateSnapshot, historicalRateRange, previousRange(historicalRateRange))
+near(historicalRateMetrics.maintenanceProvision, 1200, 'maintenance provision must respect historical rate changes')
+
 console.log('KFE Performance contract tests: PASS')
