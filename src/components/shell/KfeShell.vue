@@ -1,8 +1,8 @@
 <script setup>
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'\nimport { useRoute } from 'vue-router'
 import DiagnosticBubble from '../DiagnosticBubble.vue'
 
-const gpsState = ref('checking')
+const route = useRoute()\nconst gpsState = ref('checking')\nconst performanceNavOpen = ref(false)\nconst isPerformance = computed(() => route.name === 'Performance')
 let gpsRefreshTimer = null
 
 async function connectGps({ requestPermission = false } = {}) {
@@ -46,11 +46,11 @@ function gpsStateLabel() {
   return 'Connecting GPS'
 }
 
-onMounted(() => {
+function openPerformanceNav() { performanceNavOpen.value = true }\nfunction closePerformanceNav() { performanceNavOpen.value = false }\n\nonMounted(() => {\n  window.addEventListener('kfe:performance-nav', openPerformanceNav)
   void connectGps()
   gpsRefreshTimer = window.setInterval(() => { void connectGps() }, 60000)
 })
-onBeforeUnmount(() => {
+onBeforeUnmount(() => {\n  window.removeEventListener('kfe:performance-nav', openPerformanceNav)
   if (gpsRefreshTimer !== null) window.clearInterval(gpsRefreshTimer)
 })
 </script>
@@ -58,7 +58,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="viewport-wrapper">
     <a class="kfe-skip-link" href="#main-content">Skip to main content</a>
-    <header class="top-bar" aria-label="KFE application header">
+    <header v-if="!isPerformance" class="top-bar" aria-label="KFE application header">
       <div class="brand-lockup">
         <div class="brand-mark" aria-hidden="true">K</div>
         <div class="brand-copy"><strong>Kanishka Enterprises</strong></div>
@@ -89,11 +89,28 @@ onBeforeUnmount(() => {
     </header>
     <main id="main-content" class="content-scroll-area" tabindex="-1"><slot /></main>
     <DiagnosticBubble />
-    <nav class="bottom-nav" aria-label="Primary navigation">
-      <router-link to="/" class="nav-item" exact-active-class="nav-item-active" aria-label="Work"><span class="nav-icon" aria-hidden="true">⌂</span><span>Work</span></router-link>
+    <div v-if="isPerformance && performanceNavOpen" class="performance-nav-tray">
+      <button class="performance-nav-backdrop" aria-label="Close navigation" @click="closePerformanceNav"></button>
+      <nav class="bottom-nav performance-nav-visible" aria-label="Primary navigation">
+        <router-link to="/" class="nav-item" exact-active-class="nav-item-active" aria-label="Work"><span class="nav-icon" aria-hidden="true">⌂</span><span>Work</span></router-link>
+        <router-link to="/timeline" class="nav-item" exact-active-class="nav-item-active" aria-label="Timeline"><span class="nav-icon" aria-hidden="true">▤</span><span>Timeline</span></router-link>
+        <router-link to="/performance" class="nav-item" exact-active-class="nav-item-active" aria-label="Performance"><span class="nav-icon" aria-hidden="true">↗</span><span>Performance</span></router-link>
+        <router-link to="/admin" class="nav-item" exact-active-class="nav-item-active" aria-label="Admin"><span class="nav-icon" aria-hidden="true">☷</span><span>Admin</span></router-link>
+      </nav>
+    </div>
+    <nav v-else-if="!isPerformance" class="bottom-nav" aria-label="Primary navigation">
+      <router-link to="/" class="nav-item" exact-active-class="nav-item-active" aria-label="Work"><span class="nav-icon" aria-hidden="true">⌂</span><span class="nav-icon-label">Work</span></router-link>
       <router-link to="/timeline" class="nav-item" exact-active-class="nav-item-active" aria-label="Timeline"><span class="nav-icon" aria-hidden="true">▤</span><span>Timeline</span></router-link>
       <router-link to="/performance" class="nav-item" exact-active-class="nav-item-active" aria-label="Performance"><span class="nav-icon" aria-hidden="true">↗</span><span>Performance</span></router-link>
       <router-link to="/admin" class="nav-item" exact-active-class="nav-item-active" aria-label="Admin"><span class="nav-icon" aria-hidden="true">☷</span><span>Admin</span></router-link>
     </nav>
   </div>
 </template>
+
+
+<style scoped>
+.performance-nav-tray{position:fixed;inset:0;z-index:1500;pointer-events:none}
+.performance-nav-backdrop{position:absolute;inset:0;width:100%;height:100%;border:0;background:color-mix(in srgb,var(--kfe-ui-text) 16%,transparent);pointer-events:auto}
+.performance-nav-visible{position:absolute!important;left:50%!important;bottom:0!important;transform:translateX(-50%);width:min(620px,calc(100% - 20px));z-index:1;pointer-events:auto}
+@media(min-width:681px){.performance-nav-visible{bottom:8px!important;border-radius:20px!important;border:1px solid var(--kfe-ui-border)!important}}
+</style>
