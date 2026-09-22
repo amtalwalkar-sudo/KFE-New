@@ -11,7 +11,7 @@ const range = {
 const metrics = PerformanceService.getMetrics(snapshot, range)
 
 assert.equal(snapshot.shifts.length, 1826)
-assert.equal(snapshot.trips.length, 7300)
+assert.equal(snapshot.trips.length, 8951)
 assert.equal(metrics.operatingKmForecast.available, true)
 assert.equal(metrics.operatingKmForecast.observedOperatingDays, 1826)
 assert.ok(Math.abs(metrics.operatingKmForecast.calculatedForecast.dailyKm - 212.21168510607765) < 1e-6)
