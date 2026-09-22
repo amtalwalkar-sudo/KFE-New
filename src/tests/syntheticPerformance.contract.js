@@ -28,6 +28,6 @@ assert.equal(metrics.operatingKmForecast.observedOperatingDays, 1826)
 assert.ok(Math.abs(metrics.operatingKmForecast.calculatedForecast.dailyKm - 212.21168510607765) < 1e-6)
 assert.ok(Math.abs(metrics.driverTargetOperatingKmMultiplier - 1.0610584255303882) < 1e-12)
 assert.ok(Math.abs(metrics.operatingKmForecast.calculatedForecast.dailyKm - 212.21168510607765) < 1e-6)
-assert.equal(metrics.driverTargetAvailable, true)
+console.log('TARGET_AUTHORITY', metrics.driverTargetAvailable, metrics.driverTargetReason, metrics.driverTarget, metrics.driverTargetBase, metrics.driverTargetOperatingKmForecast)\nassert.equal(metrics.driverTargetAvailable, true)
 
 console.log('Synthetic end-to-end Performance calculation contract: PASS')
