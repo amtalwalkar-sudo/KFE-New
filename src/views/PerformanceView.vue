@@ -47,95 +47,95 @@ const periodLabel = computed(() => {
 
 const metrics = computed(() => PerformanceService.getMetrics(snapshot.value, range.value))
 const m = computed(() => metrics.value || {})
-const performanceDiagnostics = computed(() => PerformanceService.getDiagnostics(m.value))
+const performanceDiagnostics = computed(() => PerformanceService.getDiagnostics(m.value.value))
 const detailDiagnostics = computed(() => detailGroup.value ? (performanceDiagnostics.value[detailGroup.value.key] ? [performanceDiagnostics.value[detailGroup.value.key]] : []) : [])
-const authoritativeProfit = computed(() => finite(m.operatingProfit))
-const targetDaily = computed(() => finite(m.driverTarget))
+const authoritativeProfit = computed(() => finite(m.value.operatingProfit))
+const targetDaily = computed(() => finite(m.value.driverTarget))
 const targetPeriod = computed(() => {
-  const x = finite(m.driverTargetRemainingObligation)
+  const x = finite(m.value.driverTargetRemainingObligation)
   if (period.value === 'DAY') return targetDaily.value
   if (x != null) return x
-  const days = finite(m.driverTargetRemainingEligibleDays)
+  const days = finite(m.value.driverTargetRemainingEligibleDays)
   return targetDaily.value != null && days ? targetDaily.value * days : null
 })
-const targetAchieved = computed(() => finite(m.revenue))
-const targetLeft = computed(() => targetPeriod == null || targetAchieved.value == null ? null : Math.max(0, targetPeriod - targetAchieved.value))
-const breakEven = computed(() => finite(m.monthlyBreakEvenRevenue))
-const breakEvenLeft = computed(() => breakEven == null || targetAchieved.value == null ? null : Math.max(0, breakEven - targetAchieved.value))
-const targetProgress = computed(() => targetPeriod > 0 && targetAchieved.value != null ? Math.min(1, Math.max(0, targetAchieved.value / targetPeriod)) : 0)
-const breakEvenProgress = computed(() => breakEven > 0 && targetAchieved.value != null ? Math.min(1, Math.max(0, targetAchieved.value / breakEven)) : 0)
+const targetAchieved = computed(() => finite(m.value.revenue))
+const targetLeft = computed(() => targetPeriod.value == null || targetAchieved.value == null ? null : Math.max(0, targetPeriod.value - targetAchieved.value))
+const breakEven = computed(() => finite(m.value.monthlyBreakEvenRevenue))
+const breakEvenLeft = computed(() => breakEven.value == null || targetAchieved.value == null ? null : Math.max(0, breakEven.value - targetAchieved.value))
+const targetProgress = computed(() => targetPeriod.value > 0 && targetAchieved.value != null ? Math.min(1, Math.max(0, targetAchieved.value / targetPeriod.value)) : 0)
+const breakEvenProgress = computed(() => breakEven.value > 0 && targetAchieved.value != null ? Math.min(1, Math.max(0, targetAchieved.value / breakEven.value)) : 0)
 
 const indicativeGroups = computed(() => [
   { key:'target', title:'Target', rows:[
     ['Target for selected period', money(targetPeriod)],
     ['Revenue achieved', money(targetAchieved.value)],
     ['Target left', money(targetLeft.value)],
-    ['Current daily target', money(m.driverTarget)],
-    ['Remaining eligible days', num(m.driverTargetRemainingEligibleDays)],
-    ['Opening rolling balance', money(m.driverTargetOpeningBalance)],
-    ['Target allocated before current day', money(m.driverTargetAllocatedBeforeCurrentDay)],
-    ['Remaining target obligation', money(m.driverTargetRemainingObligation)],
-    ['Desired driver profit / take-home', money(m.driverTargetDesiredProfitMonthly)],
+    ['Current daily target', money(m.value.driverTarget)],
+    ['Remaining eligible days', num(m.value.driverTargetRemainingEligibleDays)],
+    ['Opening rolling balance', money(m.value.driverTargetOpeningBalance)],
+    ['Target allocated before current day', money(m.value.driverTargetAllocatedBeforeCurrentDay)],
+    ['Remaining target obligation', money(m.value.driverTargetRemainingObligation)],
+    ['Desired driver profit / take-home', money(m.value.driverTargetDesiredProfitMonthly)],
   ], formula:'Current daily target = remaining target obligation ÷ remaining eligible days.' },
   { key:'breakEven', title:'Break-even', rows:[
     ['Revenue achieved', money(targetAchieved.value)],
-    ['Break-even revenue', money(breakEven)],
+    ['Break-even revenue', money(breakEven.value)],
     ['Revenue left to break even', money(breakEvenLeft.value)],
-    ['Vehicle KM', num(m.vehicleKm)],
-    ['Fuel cost / KM', money2(m.breakEvenInputs?.fuelCostPerKm)],
-    ['Maintenance provision / KM', money2(m.breakEvenInputs?.maintenanceProvisionPerKm)],
-    ['Fixed costs', money(m.breakEvenInputs?.fixedCosts)],
-    ['Loan scheduled obligation', money(m.loanScheduledObligation)],
-    ['Renewal provision', money(m.renewalProvision)],
+    ['Vehicle KM', num(m.value.vehicleKm)],
+    ['Fuel cost / KM', money2(m.value.breakEvenInputs?.fuelCostPerKm)],
+    ['Maintenance provision / KM', money2(m.value.breakEvenInputs?.maintenanceProvisionPerKm)],
+    ['Fixed costs', money(m.value.breakEvenInputs?.fixedCosts)],
+    ['Loan scheduled obligation', money(m.value.loanScheduledObligation)],
+    ['Renewal provision', money(m.value.renewalProvision)],
   ], formula:'Variable costs = vehicle KM × fuel cost/KM + vehicle KM × maintenance provision/KM. Break-even = fixed costs + variable costs.' },
 ])
 
 const authoritativeGroups = computed(() => [
   { key:'revenue', title:'Revenue', rows:[
-    ['Authoritative shift-end revenue', money(m.revenue)],
-    ['Completed rides', num(m.counts?.trips)],
-    ['Revenue / trip', money(m.revenuePerTrip)],
-    ['Revenue / KM', money(m.revenuePerKm)],
-    ['Revenue / hour', money(m.revenuePerHour)],
+    ['Authoritative shift-end revenue', money(m.value.revenue)],
+    ['Completed rides', num(m.value.counts?.trips)],
+    ['Revenue / trip', money(m.value.revenuePerTrip)],
+    ['Revenue / KM', money(m.value.revenuePerKm)],
+    ['Revenue / hour', money(m.value.revenuePerHour)],
   ], formula:'Revenue = sum of completed shift-end revenue records in the selected period. Trip fare is supporting detail, not the authoritative total.' },
   { key:'cost', title:'Operating cost', rows:[
-    ['Operating Cost', money(m.actualOperatingCost)],
-    ['Fuel', money(m.fuelCost)],
-    ['Toll', money(m.toll)],
-    ['Parking', money(m.parking)],
-    ['Actual maintenance', money(m.actualMaintenance)],
-    ['Vehicle KM', num(m.vehicleKm)],
-    ['Cost / vehicle KM', money(m.costPerKm)],
+    ['Operating Cost', money(m.value.actualOperatingCost)],
+    ['Fuel', money(m.value.fuelCost)],
+    ['Toll', money(m.value.toll)],
+    ['Parking', money(m.value.parking)],
+    ['Actual maintenance', money(m.value.actualMaintenance)],
+    ['Vehicle KM', num(m.value.vehicleKm)],
+    ['Cost / vehicle KM', money(m.value.costPerKm)],
   ], formula:'Operating Cost = fuel + toll + parking + actual maintenance.' },
   { key:'profit', title:'Profit / Loss', rows:[
-    ['Revenue', money(m.revenue)],
-    ['Operating Cost', money(m.actualOperatingCost)],
+    ['Revenue', money(m.value.revenue)],
+    ['Operating Cost', money(m.value.actualOperatingCost)],
     ['Profit / Loss', money(authoritativeProfit.value)],
-    ['Previous period Profit / Loss', money(m.previous?.operatingProfit)],
+    ['Previous period Profit / Loss', money(m.value.previous?.operatingProfit)],
   ], formula:'Profit / Loss = Revenue − Operating Cost.' },
 ])
 
 const provisionGroups = computed(() => [
   { key:'provision', title:'Provision', rows:[
-    ['Maintenance provision', money(m.maintenanceProvision)],
-    ['Renewal provision', money(m.renewalProvision)],
-    ['Provision required', money(m.provisionRequired)],
-    ['Actual maintenance', money(m.actualMaintenance)],
-    ['Maintenance variance', money(finite(m.actualMaintenance) != null && finite(m.maintenanceProvision) != null ? m.actualMaintenance - m.maintenanceProvision : null)],
+    ['Maintenance provision', money(m.value.maintenanceProvision)],
+    ['Renewal provision', money(m.value.renewalProvision)],
+    ['Provision required', money(m.value.provisionRequired)],
+    ['Actual maintenance', money(m.value.actualMaintenance)],
+    ['Maintenance variance', money(finite(m.value.actualMaintenance) != null && finite(m.value.maintenanceProvision) != null ? m.value.actualMaintenance - m.value.maintenanceProvision : null)],
   ], formula:'Maintenance provision = vehicle KM × configured maintenance provision/KM. Renewal provision is derived from the applicable compliance validity/cost records. Provision required = maintenance provision + renewal provision.' },
 ])
 
 const loanGroups = computed(() => {
-  const f = m.finance || {}
+  const f = m.value.finance || {}
   const overdue = Array.isArray(f.overdue) ? f.overdue : []
   const schedule = Array.isArray(f.schedule) ? f.schedule : []
   return [{ key:'loan', title:'Loan', rows:[
     ['Outstanding principal', money(f.outstandingPrincipal)],
     ['Original loan amount', money(f.originalPrincipal)],
-    ['Scheduled EMI in period', money(m.loanScheduledObligation)],
-    ['Actual loan payments', money(m.actualLoanPaid)],
-    ['Prepayments', money(m.actualPrepayment)],
-    ['Actual financing outflow', money(m.actualFinancingOutflow)],
+    ['Scheduled EMI in period', money(m.value.loanScheduledObligation)],
+    ['Actual loan payments', money(m.value.actualLoanPaid)],
+    ['Prepayments', money(m.value.actualPrepayment)],
+    ['Actual financing outflow', money(m.value.actualFinancingOutflow)],
     ['Pending / overdue amount', money(f.totalOverdue)],
     ['Delayed interest', money(f.totalUnpaidOverdueInterest)],
     ['Remaining interest', money(f.remainingInterest)],
@@ -149,21 +149,21 @@ const calculationLines = computed(() => {
   if (!detailGroup.value) return []
   const g=detailGroup.value
   if (g.key==='target') return [
-    [money(m.driverTargetRemainingObligation), '÷', num(m.driverTargetRemainingEligibleDays), '=', money(m.driverTarget)],
+    [money(m.value.driverTargetRemainingObligation), '÷', num(m.value.driverTargetRemainingEligibleDays), '=', money(m.value.driverTarget)],
     ['Break-even', '+', 'desired driver profit / take-home', '=', 'monthly target base'],
-    ['Monthly target base', '+', money(m.driverTargetOpeningBalance), '=', 'effective monthly target'],
+    ['Monthly target base', '+', money(m.value.driverTargetOpeningBalance), '=', 'effective monthly target'],
   ]
   if (g.key==='breakEven') return [
-    [num(m.vehicleKm), '×', money2(m.breakEvenInputs?.fuelCostPerKm), '=', money(finite(m.vehicleKm) != null && finite(m.breakEvenInputs?.fuelCostPerKm) != null ? m.vehicleKm*m.breakEvenInputs.fuelCostPerKm : null)],
-    [num(m.vehicleKm), '×', money2(m.breakEvenInputs?.maintenanceProvisionPerKm), '=', money(finite(m.vehicleKm) != null && finite(m.breakEvenInputs?.maintenanceProvisionPerKm) != null ? m.vehicleKm*m.breakEvenInputs.maintenanceProvisionPerKm : null)],
-    ['Fixed costs', '+', 'variable fuel cost + variable maintenance cost', '=', money(breakEven)],
+    [num(m.value.vehicleKm), '×', money2(m.value.breakEvenInputs?.fuelCostPerKm), '=', money(finite(m.value.vehicleKm) != null && finite(m.value.breakEvenInputs?.fuelCostPerKm) != null ? m.value.vehicleKm*m.value.breakEvenInputs.fuelCostPerKm : null)],
+    [num(m.value.vehicleKm), '×', money2(m.value.breakEvenInputs?.maintenanceProvisionPerKm), '=', money(finite(m.value.vehicleKm) != null && finite(m.value.breakEvenInputs?.maintenanceProvisionPerKm) != null ? m.value.vehicleKm*m.value.breakEvenInputs.maintenanceProvisionPerKm : null)],
+    ['Fixed costs', '+', 'variable fuel cost + variable maintenance cost', '=', money(breakEven.value)],
   ]
-  if (g.key==='revenue') return [['Shift-end revenue records', 'Σ', 'selected period', '=', money(m.revenue)]]
-  if (g.key==='cost') return [['Fuel', '+', 'Toll', '+', 'Parking', '+', 'Actual maintenance', '=', money(m.actualOperatingCost)]]
-  if (g.key==='profit') return [[money(m.revenue), '−', money(m.actualOperatingCost), '=', money(authoritativeProfit.value)]]
+  if (g.key==='revenue') return [['Shift-end revenue records', 'Σ', 'selected period', '=', money(m.value.revenue)]]
+  if (g.key==='cost') return [['Fuel', '+', 'Toll', '+', 'Parking', '+', 'Actual maintenance', '=', money(m.value.actualOperatingCost)]]
+  if (g.key==='profit') return [[money(m.value.revenue), '−', money(m.value.actualOperatingCost), '=', money(authoritativeProfit.value)]]
   if (g.key==='provision') return [
-    [num(m.vehicleKm), '×', money2(m.breakEvenInputs?.maintenanceProvisionPerKm), '=', money(m.maintenanceProvision)],
-    ['Maintenance provision', '+', 'Renewal provision', '=', money(m.provisionRequired)],
+    [num(m.value.vehicleKm), '×', money2(m.value.breakEvenInputs?.maintenanceProvisionPerKm), '=', money(m.value.maintenanceProvision)],
+    ['Maintenance provision', '+', 'Renewal provision', '=', money(m.value.provisionRequired)],
   ]
   return []
 })
