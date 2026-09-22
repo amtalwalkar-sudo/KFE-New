@@ -1,8 +1,12 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'\nimport { useRoute } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import DiagnosticBubble from '../DiagnosticBubble.vue'
 
-const route = useRoute()\nconst gpsState = ref('checking')\nconst performanceNavOpen = ref(false)\nconst isPerformance = computed(() => route.name === 'Performance')
+const route = useRoute()
+const gpsState = ref('checking')
+const performanceNavOpen = ref(false)
+const isPerformance = computed(() => route.name === 'Performance')
 let gpsRefreshTimer = null
 
 async function connectGps({ requestPermission = false } = {}) {
@@ -46,11 +50,16 @@ function gpsStateLabel() {
   return 'Connecting GPS'
 }
 
-function openPerformanceNav() { performanceNavOpen.value = true }\nfunction closePerformanceNav() { performanceNavOpen.value = false }\n\nonMounted(() => {\n  window.addEventListener('kfe:performance-nav', openPerformanceNav)
+function openPerformanceNav() { performanceNavOpen.value = true }
+function closePerformanceNav() { performanceNavOpen.value = false }
+
+onMounted(() => {
+  window.addEventListener('kfe:performance-nav', openPerformanceNav)
   void connectGps()
   gpsRefreshTimer = window.setInterval(() => { void connectGps() }, 60000)
 })
-onBeforeUnmount(() => {\n  window.removeEventListener('kfe:performance-nav', openPerformanceNav)
+onBeforeUnmount(() => {
+  window.removeEventListener('kfe:performance-nav', openPerformanceNav)
   if (gpsRefreshTimer !== null) window.clearInterval(gpsRefreshTimer)
 })
 </script>
