@@ -5,17 +5,19 @@ const finite = v => Number.isFinite(Number(v)) ? Number(v) : null
 const live = xs => (xs || []).filter(x => !x?.deletedAt && x?.deleted !== true)
 const businessDate = v => istDateKey(v)
 const latest = (xs, range) => {
-  const rangeFrom = businessDate(range?.from)
   const rangeTo = businessDate(range?.to)
-  if (!rangeFrom || !rangeTo) return null
+  if (!rangeTo) return null
   return live(xs)
     .filter(x => x.active !== false && x.status !== 'INACTIVE')
     .filter(x => {
       const from = businessDate(x.effectiveFrom || x.validFrom || x.startDate) || '0000-01-01'
-      const until = businessDate(x.effectiveUntil || x.validUntil || x.endDate) || '9999-12-31'
-      return from <= rangeTo && until >= rangeFrom
+      return from <= rangeTo
     })
-    .sort((a, b) => String(b.effectiveFrom || b.validFrom || b.startDate || '').localeCompare(String(a.effectiveFrom || a.validFrom || a.startDate || '')))[0] || null
+    .sort((a, b) => {
+      const dateCompare = String(b.effectiveFrom || b.validFrom || b.startDate || '').localeCompare(String(a.effectiveFrom || a.validFrom || a.startDate || ''))
+      if (dateCompare !== 0) return dateCompare
+      return String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || ''))
+    })[0] || null
 }
 
 export function deriveAuthoritativeBreakEven({ breakEvenInputs = [], range, loanScheduledObligation = NaN, renewalProvision = NaN, fuelCostPerKm = NaN, fuelCostPerKmStatus = CALCULATION_STATUS.UNAVAILABLE, vehicleKm = NaN } = {}) {
