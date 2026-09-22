@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref, toRaw } from 'vue'
+import { computed, onMounted, ref, toRaw, watch } from 'vue'
 import UniversalAdminForm from '../components/admin/UniversalAdminForm.vue'
 import BackupRestorePanel from '../components/admin/BackupRestorePanel.vue'
 import SyntheticDataPanel from '../components/admin/SyntheticDataPanel.vue'
@@ -25,6 +25,9 @@ const settingsMenu=[
  {key:'synthetic',title:'Synthetic Data',subtitle:'Isolated test dataset only',icon:'🧪'}
 ]
 const adminSection=ref('records'),selected=ref('vehicle'),settingsSelected=ref('backup'),categoryTouchStartX=ref(null)
+const adminNavigationStorageKey='kfe-admin-navigation-v1'
+function restoreAdminNavigation(){try{const saved=JSON.parse(localStorage.getItem(adminNavigationStorageKey)||'null');if(!saved)return;if(saved.adminSection==='records')adminSection.value='records';else if(saved.adminSection==='settings')adminSection.value='settings';if(groups.some(g=>g.forms.includes(saved.selected)))selected.value=saved.selected;if(settingsMenu.some(item=>item.key===saved.settingsSelected))settingsSelected.value=saved.settingsSelected}catch(_e){}}
+function persistAdminNavigation(){try{localStorage.setItem(adminNavigationStorageKey,JSON.stringify({adminSection:adminSection.value,selected:selected.value,settingsSelected:settingsSelected.value}))}catch(_e){}}
 const themeSettings=ref(getKfeThemeSettings())
 const records=ref([]),editing=ref(null),draft=ref({}),formOpen=ref(false),loading=ref(false),error=ref(''),notice=ref('')
 const actionKey=ref(null),actionRecord=ref(null),actionDraft=ref({}),paymentCalculated=ref(false),paymentConfirmed=ref(false)
@@ -100,7 +103,8 @@ async function save(values){loading.value=true;error.value='';notice.value='';tr
 async function saveAction(values){loading.value=true;error.value='';notice.value='';try{const payload=actionKey.value==='settlement'?{...values,settlementType:'Payment',sourceType:selected.value==='maintenance'?'Maintenance':'Compliance',sourceId:actionRecord.value?.id}:values;await AdminService.save(actionKey.value,payload);notice.value=actionKey.value==='loanPayment'?'Loan payment recorded.':actionKey.value==='prepayment'?'Prepayment recorded.':'Payment recorded.';closeAction();await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Payment failed.'}finally{loading.value=false}}
 async function remove(record){if(!confirm('Delete this source record? Related records may prevent deletion.'))return;loading.value=true;error.value='';try{await AdminService.remove(selected.value,record.id);notice.value='Record deleted.';await load()}catch(e){error.value=e.message||'Delete failed.'}finally{loading.value=false}}
 async function resetData(){if(!confirm('Reset all KFE data? Create a backup first if you may need the current data.'))return;if(!confirm('Final confirmation: permanently delete all current KFE records?'))return;loading.value=true;error.value='';notice.value='';try{await BackupService.resetData();notice.value='All canonical KFE data has been reset.'}catch(e){error.value=e.message||'Data reset failed.'}finally{loading.value=false}}
-onMounted(load)
+watch([adminSection,selected,settingsSelected],persistAdminNavigation)
+onMounted(()=>{restoreAdminNavigation();load()})
 </script>
 
 <template>
