@@ -27,7 +27,7 @@ assert.equal(metrics.operatingKmForecast.available, true)
 assert.equal(metrics.operatingKmForecast.observedOperatingDays, 1826)
 assert.ok(Math.abs(metrics.operatingKmForecast.calculatedForecast.dailyKm - 212.21168510607765) < 1e-6)
 console.log('TARGET_DIAG', JSON.stringify({multiplier:metrics.driverTargetOperatingKmMultiplier, available:metrics.driverTargetAvailable, reason:metrics.driverTargetReason, stabilization:metrics.calculationEvidence?.target, target:metrics.driverTarget, base:metrics.driverTargetBase, forecast:metrics.driverTargetOperatingKmForecast}))
-assert.ok(metrics.driverTargetOperatingKmMultiplier != null)
+assert.ok(Math.abs(metrics.driverTargetOperatingKmMultiplier - 1.0610584255303882) < 1e-12)
 assert.equal(metrics.driverTargetOperatingKmForecast, metrics.operatingKmForecast.calculatedForecast.dailyKm)
 assert.equal(metrics.driverTargetAvailable, true)
 
