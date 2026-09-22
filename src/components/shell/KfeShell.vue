@@ -104,8 +104,4 @@ onBeforeUnmount(() => {
 
 
 <style scoped>
-.performance-nav-tray{position:fixed;inset:0;z-index:1500;pointer-events:none}
-.performance-nav-backdrop{position:absolute;inset:0;width:100%;height:100%;border:0;background:color-mix(in srgb,var(--kfe-ui-text) 16%,transparent);pointer-events:auto}
-.performance-nav-visible{position:absolute!important;left:50%!important;bottom:0!important;transform:translateX(-50%);width:min(620px,calc(100% - 20px));z-index:1;pointer-events:auto}
-@media(min-width:681px){.performance-nav-visible{bottom:8px!important;border-radius:20px!important;border:1px solid var(--kfe-ui-border)!important}}
 </style>
