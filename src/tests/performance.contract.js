@@ -183,7 +183,7 @@ const provisionSnapshot = {
 const provisionMetrics = derivePerformance(provisionSnapshot, range, previousRange(range))
 near(provisionMetrics.maintenanceProvision, 600, 'maintenance provision must use applicable KM x rate')
 near(provisionMetrics.maintenanceProvisionBalance, -100, 'maintenance provision pool must allow negative balances')
-near(provisionMetrics.complianceProvisionById.c1, 24000, 'revenue-weighted compliance provision')
+near(provisionMetrics.complianceProvisionById.c1, 24000 / 365, 'compliance provision must accrue per revenue day')
 near(provisionMetrics.complianceProvisionBalancesById.c1, -1000, 'compliance provision bucket must allow negative balances')
 
 const historicalRateSnapshot = {
