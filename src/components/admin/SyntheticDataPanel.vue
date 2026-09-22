@@ -1,6 +1,8 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { SyntheticDataService } from '../../application/synthetic/syntheticDataService.js'
+import { PerformanceService } from '../../application/performance/performanceService.js'
+import { istDayRange } from '../../domain/time/ist.js'
 
 
 const status = ref(null)
@@ -8,10 +10,22 @@ const active = ref(SyntheticDataService.getActiveDataSource())
 const loading = ref(false)
 const message = ref('')
 const error = ref('')
+const calculation = ref(null)
 
 const refresh = async () => {
   status.value = await SyntheticDataService.getSyntheticDataStatus()
   active.value = SyntheticDataService.getActiveDataSource()
+  calculation.value = null
+  if (active.value !== 'synthetic' || !status.value?.fullTimeline) return
+  const snapshot = await PerformanceService.getSnapshot()
+  const range = { from: istDayRange(`${status.value.startDate}T00:00:00+05:30`).from, to: istDayRange(`${status.value.endDate}T00:00:00+05:30`).to }
+  const metrics = PerformanceService.getMetrics(snapshot, range)
+  calculation.value = {
+    shifts: snapshot.shifts?.length || 0,
+    trips: snapshot.trips?.length || 0,
+    dailyForecast: Number(metrics.operatingKmForecast?.calculatedForecast?.dailyKm),
+    multiplier: Number(metrics.driverTargetOperatingKmMultiplier),
+  }
 }
 const load = async key => {
   loading.value = true; message.value = ''; error.value = ''
@@ -41,12 +55,17 @@ onMounted(refresh)
   <div class="stages">
     <button v-for="stage in SyntheticDataService.SYNTHETIC_STAGES" :key="stage.key" :disabled="loading" @click="load(stage.key)">{{stage.title}}</button>
   </div>
-  <div v-if="status" class="status">Loaded through {{status.endDate}} · {{status.days}} days</div>
+  <div v-if="status" class="status">Loaded {{status.startDate}} → {{status.endDate}} · {{status.days}} days · {{active==='synthetic'?'isolated synthetic DB':'real DB'}}</div>
+  <div v-if="calculation" class="calculation">
+    <div><span>Calculated history</span><strong>{{calculation.shifts.toLocaleString('en-IN')}} shifts · {{calculation.trips.toLocaleString('en-IN')}} trips</strong></div>
+    <div><span>Operating KM forecast</span><strong>{{calculation.dailyForecast.toFixed(4)}} KM/day</strong></div>
+    <div><span>KM → Driver Target multiplier</span><strong>{{calculation.multiplier.toFixed(6)}}×</strong></div>
+  </div>
   <div class="actions"><button class="danger" :disabled="loading || !status" @click="clear">Test Data Reset</button></div>
   <p v-if="message" class="notice">{{message}}</p><p v-if="error" class="error">{{error}}</p>
 </section>
 </template>
 
 <style scoped>
-.synthetic-panel{margin-top:10px;padding:12px;border:1px solid var(--kfe-ui-border,#e4e7ec);border-radius:12px;background:#fff}.head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.label{font-size:.58rem;font-weight:900;letter-spacing:.12em;color:#667085}.head h2{margin:3px 0;font-size:.9rem}.head p{margin:3px 0 0;color:#667085;font-size:.62rem;line-height:1.4}.mode{padding:5px 7px;border-radius:999px;background:#f2f4f7;color:#667085;font-size:.55rem;font-weight:900;white-space:nowrap}.mode.on{background:#ecfdf3;color:#027a48}.stages{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-top:10px}.stages button,.actions button{min-height:34px;border:1px solid #d0d5dd;border-radius:8px;background:#fff;font-size:.58rem;font-weight:800;cursor:pointer}.stages button:disabled,.actions button:disabled{opacity:.5;cursor:wait}.actions{margin-top:7px}.danger{color:#b42318;border-color:#fda29b!important}.status{margin-top:8px;padding:7px;border-radius:7px;background:#f8fafc;color:#667085;font-size:.58rem}.notice,.error{margin:8px 0 0;padding:7px;border-radius:7px;font-size:.6rem}.notice{background:#ecfdf3;color:#027a48}.error{background:#fef3f2;color:#b42318}@media(max-width:600px){.stages{grid-template-columns:repeat(3,1fr)}}
+.synthetic-panel{margin-top:10px;padding:12px;border:1px solid var(--kfe-ui-border,#e4e7ec);border-radius:12px;background:#fff}.head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.label{font-size:.58rem;font-weight:900;letter-spacing:.12em;color:#667085}.head h2{margin:3px 0;font-size:.9rem}.head p{margin:3px 0 0;color:#667085;font-size:.62rem;line-height:1.4}.mode{padding:5px 7px;border-radius:999px;background:#f2f4f7;color:#667085;font-size:.55rem;font-weight:900;white-space:nowrap}.mode.on{background:#ecfdf3;color:#027a48}.stages{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-top:10px}.stages button,.actions button{min-height:34px;border:1px solid #d0d5dd;border-radius:8px;background:#fff;font-size:.58rem;font-weight:800;cursor:pointer}.stages button:disabled,.actions button:disabled{opacity:.5;cursor:wait}.actions{margin-top:7px}.danger{color:#b42318;border-color:#fda29b!important}.calculation{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}.calculation>div{display:grid;gap:2px;padding:7px;border:1px solid #d0d5dd;border-radius:7px;background:#f8fafc}.calculation span{font-size:.52rem;color:#667085}.calculation strong{font-size:.62rem}.status{margin-top:8px;padding:7px;border-radius:7px;background:#f8fafc;color:#667085;font-size:.58rem}.notice,.error{margin:8px 0 0;padding:7px;border-radius:7px;font-size:.6rem}.notice{background:#ecfdf3;color:#027a48}.error{background:#fef3f2;color:#b42318}@media(max-width:600px){.calculation{grid-template-columns:1fr}.stages{grid-template-columns:repeat(3,1fr)}}
 </style>
