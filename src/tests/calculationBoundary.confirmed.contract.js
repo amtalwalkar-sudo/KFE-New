@@ -61,6 +61,7 @@ assert.equal(twoDayMetrics.driverTargetAvailable, true)
 assert.equal(twoDayMetrics.counts.activeFinancialDays, 2)
 assert.equal(twoDayMetrics.driverTargetBase, twoDayMetrics.dailyBreakEvenRevenue + 500 / twoDayMetrics.driverTargetRemainingEligibleDays)
 assert.equal(twoDayMetrics.driverTarget, twoDayMetrics.driverTargetRemainingObligation / twoDayMetrics.driverTargetRemainingEligibleDays)
+assert.equal(twoDayMetrics.driverTargetRecoveryAdjustment, twoDayMetrics.driverTargetDailyRecovery)
 assert.equal(twoDayMetrics.pace.paceVariance, twoDayMetrics.revenuePerActiveDay - twoDayMetrics.target)
 assert.equal(twoDayMetrics.driverTargetOpeningBalance, 0)
 
@@ -91,6 +92,8 @@ assert.equal(
     holidaySmoothing.driverTargetOpeningBalance,
 )
 assert.ok(holidaySmoothing.driverTarget > 0)
+assert.equal(holidaySmoothing.driverTargetNewRecovery, 0)
+assert.equal(holidaySmoothing.driverTargetClosingRecovery, 0)
 
 const normalTarget = PerformanceService.getMetrics(base, range)
 const higherTarget = PerformanceService.getMetrics({
