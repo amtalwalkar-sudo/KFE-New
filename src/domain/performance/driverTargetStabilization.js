@@ -20,7 +20,7 @@ const applies = (x, day) => {
   const untilKey = effectiveUntilKey(x) || '9999-12-31'
   return !!dayKey && x?.active !== false && x?.status !== 'INACTIVE' && fromKey <= dayKey && dayKey <= untilKey
 }
-const latestForDay = (xs, day) => live(xs).filter(x => applies(x, day)).sort((a, b) => String(effectiveDateKey(b) || '').localeCompare(String(effectiveDateKey(a) || '')))[0] || null
+const latestForDay = (xs, day) => live(xs).filter(x => applies(x, day)).sort((a, b) => { const dateCompare=String(effectiveDateKey(b)||'').localeCompare(String(effectiveDateKey(a)||'')); if(dateCompare!==0)return dateCompare; return String(b.updatedAt||b.createdAt||'').localeCompare(String(a.updatedAt||a.createdAt||'')) })[0] || null
 const readDriverProfit = record => finite(record?.desiredDriverProfit)
 const baseMonthlyFor = (record, monthlyBreakEven = null) => {
   const driverProfit = readDriverProfit(record)
