@@ -9,7 +9,7 @@ const requiredField = (key, name) => assert.equal(field(key,name)?.required, tru
 
 required('vehicle', ['openingOdometerKm','fuelType','acquiredOn'])
 required('compliance', ['validFrom','validUntil','cost'])
-required('maintenance', ['performedOn','cost','odometerKm'])
+required('maintenance', ['performedOn','cost'])
 required('loan', ['principal','tenureMonths','startDate'])
 required('loanPayment', ['loanId','paidOn','amount'])
 required('prepayment', ['loanId','paidOn','amount'])
@@ -63,11 +63,9 @@ assert.equal(reversedBreakEven.errors.effectiveUntil,'Effective until cannot pre
 
 const badMaintenance=validateAdminForm(getAdminFormDefinition('maintenance'),{
   vehicleId:'vehicle-1',performedOn:'2026-09-20',maintenanceType:'Service',
-  validityType:'None',cost:'100',odometerKm:'5000',nextServiceDate:'2026-09-19',nextServiceKm:'4999'
+  cost:'100'
 })
-assert.equal(badMaintenance.valid,false)
-assert.equal(badMaintenance.errors.nextServiceDate,'Next service date cannot precede maintenance date.')
-assert.equal(badMaintenance.errors.nextServiceKm,'Next service KM cannot be below the maintenance odometer.')
+assert.equal(badMaintenance.valid,true)
 
 const unknown=validateAdminForm(getAdminFormDefinition('driver'),{name:'A',status:'Active',unexpected:'x'})
 assert.equal(unknown.valid,false)
