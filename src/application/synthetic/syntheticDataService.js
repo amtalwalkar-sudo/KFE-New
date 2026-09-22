@@ -91,8 +91,8 @@ export const buildSyntheticSnapshot = (days, options = {}) => {
   const shifts = [], trips = [], fuel_logs = [], odoGaps = [], maintenance_records = [], daysStore = []
   let odometer = OPENING_ODO
   let maintenanceBase = OPENING_ODO
-  fuel_logs.push({ id: id('fuel', 'baseline'), odometer: OPENING_ODO, pricePerKg: CNG_PRICE, amount: 0,
-    quantityKg: 0, isFullTank: true, latitude: null, longitude: null, accuracy: null,
+  fuel_logs.push({ id: id('fuel', 'baseline'), odometer: OPENING_ODO, pricePerKg: CNG_PRICE, amount: CNG_PRICE * 10,
+    quantityKg: 10, isFullTank: true, latitude: null, longitude: null, accuracy: null,
     provenance: 'SYNTHETIC_BASELINE_TANK_FULL', capturedAt: at(addDays(BUSINESS_START, -1), 23, 59), createdAt: at(addDays(BUSINESS_START, -1), 23, 59),
     updatedAt: at(addDays(BUSINESS_START, -1), 23, 59), synthetic: true })
 
