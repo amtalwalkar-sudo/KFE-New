@@ -5,7 +5,7 @@ import { getAdminFormDefinition } from '../application/admin/adminFormDefinition
 import { validateAdminForm } from '../application/admin/universalFormRules.js'
 import { deriveLoanPosition, paymentAllocationPreview, calculatePrepaymentEstimate, calculateEmi } from '../domain/finance/loanEngine.js'
 
-const FORM_STORE = Object.freeze({ vehicle: 'vehicles', driver: 'drivers', compliance: 'compliance_records', maintenance: 'maintenance_records', ride: 'trips', shift: 'shifts', loan: 'loans', loanPayment: 'loan_payments', prepayment: 'prepayments', driverTarget: 'driver_targets', breakEvenInputs: 'break_even_inputs', backupRestore: 'settings', themes: 'settings', dataReset: 'settings' })
+const FORM_STORE = Object.freeze({ vehicle: 'vehicles', driver: 'drivers', compliance: 'compliance_records', maintenance: 'maintenance_records', ride: 'trips', shift: 'shifts', loan: 'loans', loanPayment: 'loan_payments', prepayment: 'prepayments', driverTarget: 'driver_targets', breakEvenInputs: 'break_even_inputs', settlement: 'settlements', backupRestore: 'settings', themes: 'settings', dataReset: 'settings' })
 const isSettingsForm = key => key === 'backupRestore' || key === 'themes' || key === 'dataReset'
 const isFinanceForm = key => key === 'loan' || key === 'loanPayment' || key === 'prepayment'
 const isDeleted = record => record?.deletedAt || record?.deleted === true
@@ -32,8 +32,22 @@ function toFormRecord(formKey, record) {
   }
   return { id, values: structuredClone(values), createdAt, updatedAt, ...(deletedAt ? { deletedAt } : {}), ...(deleted ? { deleted } : {}) }
 }
-const relationshipStore = Object.freeze({ compliance: [['vehicleId', 'vehicles']], maintenance: [['vehicleId', 'vehicles']], ride: [['shiftId', 'shifts']], loanPayment: [['loanId', 'loans']], prepayment: [['loanId', 'loans']], driverTarget: [['driverId', 'drivers']] })
+const settlementSourceStore = Object.freeze({ Maintenance: 'maintenance_records', Compliance: 'compliance_records', 'Vehicle acquisition': 'vehicles', 'Shift revenue': 'shifts' })
+const settlementDirection = type => type === 'Receipt' ? 'IN' : 'OUT'
+const relationshipStore = Object.freeze({ settlement: [['sourceId', null]], compliance: [['vehicleId', 'vehicles']], maintenance: [['vehicleId', 'vehicles']], ride: [['shiftId', 'shifts']], loanPayment: [['loanId', 'loans']], prepayment: [['loanId', 'loans']], driverTarget: [['driverId', 'drivers']] })
 async function validateRelationships(db, formKey, values) {
+  if (formKey === 'settlement') {
+    const storeName = settlementSourceStore[values.sourceType]
+    if (!storeName) throw new Error('Settlement source type is invalid.')
+    const source = await new Promise((resolve, reject) => { const request = db.transaction(storeName, 'readonly').objectStore(storeName).get(values.sourceId); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error) })
+    if (!source || isDeleted(source)) throw new Error('Settlement source record does not exist or has been deleted.')
+    const sourceAmount = Number(source.cost ?? source.acquisitionValue ?? (storeName === 'shifts' ? source.revenue : NaN))
+    if (!Number.isFinite(sourceAmount) || sourceAmount <= 0) throw new Error('Settlement source record does not contain an authoritative positive amount.')
+    if (Number(values.amount) > sourceAmount + 0.005) throw new Error('Settlement amount cannot exceed the linked source amount.')
+    const expected = settlementDirection(values.settlementType)
+    if ((values.sourceType === 'Shift revenue' && expected !== 'IN') || (values.sourceType !== 'Shift revenue' && expected !== 'OUT')) throw new Error('Settlement direction does not match the source type.')
+    return
+  }
   for (const [field, storeName] of relationshipStore[formKey] || []) {
     const id = values[field]
     if (!id) continue
@@ -82,7 +96,7 @@ export const AdminRepository = {
       if (changed.length) throw new Error(`Active/contractual loan terms are immutable through normal edit. Use AdminRepository.correctLoan() for an audited correction: ${changed.join(', ')}.`)
     }
     await validateRelationships(db, formKey, values)
-    const financeValues = isFinanceForm(formKey) ? await prepareFinanceValues(formKey, values, existingId) : values
+    const financeValues = isFinanceForm(formKey) ? await prepareFinanceValues(formKey, values, existingId) : formKey === 'settlement' ? { ...values, direction: settlementDirection(values.settlementType) } : values
     const record = formKey === 'shift' ? { ...existingRaw, ...structuredClone(financeValues), id: existingRaw.id, createdAt: existingRaw.createdAt, updatedAt: new Date().toISOString() } : toStoredRecord(formKey, financeValues, existingRaw)
     const now = record.updatedAt; const action = existing ? 'UPDATE' : 'CREATE'
     return new Promise((resolve, reject) => {
