@@ -20,7 +20,11 @@ const applies = (x, day) => {
   const untilKey = effectiveUntilKey(x) || '9999-12-31'
   return !!dayKey && x?.active !== false && x?.status !== 'INACTIVE' && fromKey <= dayKey && dayKey <= untilKey
 }
-const latestForDay = (xs, day) => live(xs).filter(x => applies(x, day)).sort((a, b) => { const dateCompare=String(effectiveDateKey(b)||'').localeCompare(String(effectiveDateKey(a)||'')); if(dateCompare!==0)return dateCompare; return String(b.updatedAt||b.createdAt||'').localeCompare(String(a.updatedAt||a.createdAt||'')) })[0] || null
+const latestForDay = (xs, day) => live(xs).filter(x => applies(x, day)).sort((a, b) => {
+  const dateCompare = String(effectiveDateKey(b) || '').localeCompare(String(effectiveDateKey(a) || ''))
+  if (dateCompare !== 0) return dateCompare
+  return String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || ''))
+})[0] || null
 const readDriverProfit = record => finite(record?.desiredDriverProfit)
 const baseMonthlyFor = (record, monthlyBreakEven = null) => {
   const driverProfit = readDriverProfit(record)
@@ -50,19 +54,36 @@ const remainingEligibleDays = ({ month, currentDay, priorHolidayKeys = [] }) => 
   const eligible = calendarDayKeys(month).filter(day => day >= currentKey && !holidays.has(day))
   return Math.max(1, eligible.length)
 }
-const failure = (reason, balance = null, activeDays = 0) => ({
-  available: false, reason, balanceBefore: balance, balance, openingBalance: balance,
-  monthlyBreakEvenRevenue: null, monthlyVariance: null, closingBalance: balance,
-  desiredDriverProfitMonthly: null,
-  effectiveMonthlyTarget: null, currentDailyTarget: null, currentBaseDaily: null,
-  currentPeriodBaseTarget: null, recoveryAdjustment: null, activeDays,
+const failure = (reason, recovery = null, activeDays = 0) => ({
+  available: false, reason,
+  balanceBefore: recovery, balance: recovery, openingBalance: recovery,
+  openingRecovery: recovery, newRecovery: null, recoveryAllocated: null, recoveryAchieved: null, closingRecovery: recovery,
+  indicativeProfit: null, indicativeLoss: null,
+  monthlyBreakEvenRevenue: null, monthlyVariance: null, closingBalance: recovery,
+  desiredDriverProfitMonthly: null, effectiveMonthlyTarget: null, currentDailyTarget: null, currentBaseDaily: null,
+  currentPeriodBaseTarget: null, recoveryAdjustment: null, dailyRecovery: null, activeDays,
   financialDays: activeDays, remainingEligibleDays: null,
   targetAllocatedBeforeCurrentDay: null, remainingObligation: null,
-  authority: 'MONTHLY_BREAK_EVEN_PLUS_MONTHLY_DESIRED_PROFIT_WITH_MONTHLY_ROLLING_BALANCE_AND_DYNAMIC_REMAINING_ELIGIBLE_DAYS',
+  recoveryAllocatedBeforeCurrentDay: null, recoveryRemaining: null,
+  authority: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN_PLUS_DESIRED_DRIVER_PROFIT_PLUS_FINALIZED_PRIOR_LOSS_RECOVERY',
   evidence: calculationEvidence({ status: CALCULATION_STATUS.UNAVAILABLE, reason }),
 })
 
-export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTargets = [], from, to, applicableBreakEven = null, historicalBreakEvenForDay = null, operatingKmForecast = null } = {}) {
+const recoveryFromIndicativeProfit = ({ openingRecovery, indicativeProfit }) => {
+  const opening = Math.max(0, finite(openingRecovery) || 0)
+  const profit = finite(indicativeProfit)
+  if (profit == null) return { newRecovery: null, recoveryAchieved: null, closingRecovery: null, indicativeLoss: null }
+  const newRecovery = Math.max(0, -profit)
+  const recoveryAchieved = Math.min(opening + newRecovery, Math.max(0, profit))
+  const closingRecovery = Math.max(0, opening + newRecovery - recoveryAchieved)
+  return { newRecovery, recoveryAchieved, closingRecovery, indicativeLoss: newRecovery }
+}
+
+export function deriveRollingDriverTarget({
+  trips = [], shifts = [], driverTargets = [], from, to,
+  applicableBreakEven = null, historicalBreakEvenForDay = null,
+  historicalIndicativeProfitForMonth = null, indicativeProfitForCurrentMonth = null,
+} = {}) {
   const start = dateOf(from), end = dateOf(to)
   if (!start || !end || end < start) return failure('INVALID_PERIOD')
 
@@ -75,8 +96,6 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     return tripDayKey && tripDayKey <= endDayKey
   })
   const revenueByMonth = authoritativeShiftRevenueByMonth(shifts, asOfBoundary)
-  // A financial/target-bearing day requires at least one completed trip.
-  // Shift start alone does not consume or create a target allocation.
   const financialDaysByMonth = new Map()
   for (const trip of completed) {
     const tripDate = dateOf(trip.tripEndAt || trip.tripStartAt)
@@ -89,119 +108,127 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
 
   const targetMonth = monthKeyOf(end)
   const targetMonthStartKey = keyOf(monthBounds(targetMonth).from)
-  const financialDayKeys = [...(financialDaysByMonth.get(targetMonth) || new Set())].filter(k => k >= targetMonthStartKey && k <= endDayKey).sort()
+  const financialDayKeys = [...(financialDaysByMonth.get(targetMonth) || new Set())]
+    .filter(k => k >= targetMonthStartKey && k <= endDayKey).sort()
   if (!financialDayKeys.length) return failure('NO_FINANCIAL_DRIVER_TARGET_DAY', null, 0)
 
   const currentDay = dayFromKey(financialDayKeys[financialDayKeys.length - 1])
   const currentMonth = targetMonth
-  const historicalMonths = [...new Set([...revenueByMonth.keys()])].filter(month => month < currentMonth && monthBounds(month).from <= asOfBoundary).sort()
+  const historicalMonths = [...new Set([...revenueByMonth.keys()])]
+    .filter(month => month < currentMonth && monthBounds(month).from <= asOfBoundary).sort()
 
-  let balance = 0
+  let recovery = 0
   const historicalState = []
   for (const month of historicalMonths) {
     const { from: monthStart } = monthBounds(month)
     const record = latestForDay(driverTargets, monthStart)
-    if (!record) return failure('MISSING_HISTORICAL_DRIVER_TARGET_INPUT', null, financialDayKeys.length)
-    const historicalBreakEven = typeof historicalBreakEvenForDay === 'function' ? historicalBreakEvenForDay({ record, day: monthStart }) : null
+    if (!record) return failure('MISSING_HISTORICAL_DRIVER_TARGET_INPUT', recovery, financialDayKeys.length)
+    const historicalBreakEven = typeof historicalBreakEvenForDay === 'function'
+      ? historicalBreakEvenForDay({ record, day: monthStart })
+      : null
     const baseMonthly = baseMonthlyFor(record, historicalBreakEven)
-    if (baseMonthly == null) return failure('MISSING_HISTORICAL_DRIVER_TARGET_INPUT', null, financialDayKeys.length)
-    const openingBalance = balance
-    const monthlyActualRevenue = revenueByMonth.get(month) || 0
-    const monthlyVariance = baseMonthly - monthlyActualRevenue
-    const closingBalance = openingBalance + monthlyVariance
-    historicalState.push({ month, openingBalance, monthlyVariance, closingBalance, effectiveMonthlyTarget: baseMonthly + openingBalance })
-    balance = closingBalance
+    if (baseMonthly == null) return failure('MISSING_HISTORICAL_DRIVER_TARGET_INPUT', recovery, financialDayKeys.length)
+    const indicativeProfit = typeof historicalIndicativeProfitForMonth === 'function'
+      ? finite(historicalIndicativeProfitForMonth({ month, record, day: monthStart }))
+      : null
+    if (indicativeProfit == null) return failure('MISSING_HISTORICAL_INDICATIVE_PROFIT_INPUT', recovery, financialDayKeys.length)
+
+    const openingRecovery = recovery
+    const state = recoveryFromIndicativeProfit({ openingRecovery, indicativeProfit })
+    const recoveryAllocated = openingRecovery + state.newRecovery
+    historicalState.push({
+      month, openingRecovery, newRecovery: state.newRecovery, recoveryAllocated,
+      recoveryAchieved: state.recoveryAchieved, closingRecovery: state.closingRecovery,
+      indicativeProfit, indicativeLoss: state.indicativeLoss,
+      monthlyBreakEvenRevenue: historicalBreakEven,
+      monthlyTargetBase: baseMonthly,
+    })
+    recovery = state.closingRecovery
   }
 
   const currentRecord = latestForDay(driverTargets, currentDay)
-  if (!currentRecord) return failure('MISSING_AUTHORITATIVE_TARGET_INPUT', balance, financialDayKeys.length)
+  if (!currentRecord) return failure('MISSING_AUTHORITATIVE_TARGET_INPUT', recovery, financialDayKeys.length)
   const baseMonthly = baseMonthlyFor(currentRecord, applicableBreakEven)
-  if (baseMonthly == null) return failure('MISSING_AUTHORITATIVE_TARGET_INPUT', balance, financialDayKeys.length)
+  if (baseMonthly == null) return failure('MISSING_AUTHORITATIVE_TARGET_INPUT', recovery, financialDayKeys.length)
 
-  const effectiveMonthlyTarget = baseMonthly + balance
+  const openingRecovery = Math.max(0, recovery)
+  const calendarDays = calendarDaysInMonth(currentMonth)
+  const dailyRecovery = openingRecovery / calendarDays
   const currentMonthFinancialDays = [...(financialDaysByMonth.get(currentMonth) || new Set())].sort()
   const priorFinancialDays = currentMonthFinancialDays.filter(day => day < keyOf(currentDay))
   const priorHolidayKeys = calendarDayKeys(currentMonth).filter(day => day < keyOf(currentDay) && !currentMonthFinancialDays.includes(day))
 
   let targetAllocatedBeforeCurrentDay = 0
-  let priorRemainingObligation = effectiveMonthlyTarget
+  let priorRemainingBaseObligation = baseMonthly
   for (const financialDay of priorFinancialDays) {
     const day = dayFromKey(financialDay)
-    const holidaysKnownBeforeDay = calendarDayKeys(currentMonth).filter(candidate => candidate < financialDay && !currentMonthFinancialDays.includes(candidate))
+    const holidaysKnownBeforeDay = calendarDayKeys(currentMonth)
+      .filter(candidate => candidate < financialDay && !currentMonthFinancialDays.includes(candidate))
     const denominator = remainingEligibleDays({ month: currentMonth, currentDay: day, priorHolidayKeys: holidaysKnownBeforeDay })
-    const allocation = priorRemainingObligation / denominator
+    const allocation = priorRemainingBaseObligation / denominator
     targetAllocatedBeforeCurrentDay += allocation
-    priorRemainingObligation -= allocation
+    priorRemainingBaseObligation -= allocation
   }
 
+  const elapsedCalendarDaysBeforeCurrent = Math.max(0, calendarDayKeys(currentMonth).filter(day => day < keyOf(currentDay)).length)
+  const recoveryAllocatedBeforeCurrentDay = Math.min(openingRecovery, elapsedCalendarDaysBeforeCurrent * dailyRecovery)
+  const recoveryRemaining = Math.max(0, openingRecovery - recoveryAllocatedBeforeCurrentDay)
   const remainingDays = remainingEligibleDays({ month: currentMonth, currentDay, priorHolidayKeys })
-  const remainingObligation = Math.max(0, effectiveMonthlyTarget - targetAllocatedBeforeCurrentDay)
+  const remainingObligation = Math.max(0, priorRemainingBaseObligation)
   const currentBaseDaily = baseMonthly / remainingDays
-  // Frozen operating-KM volume is the authoritative daily volume input.
-  // 200 km/day is the neutral baseline; learned forecast changes the remaining
-  // base-obligation share proportionally. Opening rolling recovery remains a
-  // separate financial obligation, so KM learning cannot erase recovery.
-  const forecastDailyKm = finite(operatingKmForecast?.dailyForecastKm)
-  const normalPriorKm = Math.max(1, finite(operatingKmForecast?.config?.normalPriorKmPerCalendarDay) || 200)
-  const operatingKmMultiplier = forecastDailyKm == null ? 1 : Math.max(0, forecastDailyKm / normalPriorKm)
-  const baseRemainingDaily = Math.max(0, baseMonthly - (() => {
-    let allocated = 0
-    let remaining = baseMonthly
-    for (const financialDay of priorFinancialDays) {
-      const day = dayFromKey(financialDay)
-      const holidaysKnownBeforeDay = calendarDayKeys(currentMonth).filter(candidate => candidate < financialDay && !currentMonthFinancialDays.includes(candidate))
-      const denominator = remainingEligibleDays({ month: currentMonth, currentDay: day, priorHolidayKeys: holidaysKnownBeforeDay })
-      const allocation = remaining / denominator
-      allocated += allocation
-      remaining -= allocation
-    }
-    return allocated
-  })()) / remainingDays
-  const recoveryAllocatedBeforeCurrentDay = (() => {
-    let allocated = 0
-    let remaining = Math.max(0, balance)
-    for (const financialDay of priorFinancialDays) {
-      const day = dayFromKey(financialDay)
-      const holidaysKnownBeforeDay = calendarDayKeys(currentMonth).filter(candidate => candidate < financialDay && !currentMonthFinancialDays.includes(candidate))
-      const denominator = remainingEligibleDays({ month: currentMonth, currentDay: day, priorHolidayKeys: holidaysKnownBeforeDay })
-      const allocation = remaining / denominator
-      allocated += allocation
-      remaining -= allocation
-    }
-    return allocated
-  })()
-  const recoveryRemainingDaily = Math.max(0, Math.max(0, balance) - recoveryAllocatedBeforeCurrentDay) / remainingDays
-  const currentDailyTarget = baseRemainingDaily * operatingKmMultiplier + recoveryRemainingDaily
-  const recoveryAdjustment = currentDailyTarget - currentBaseDaily
-  const monthlyActualRevenue = revenueByMonth.get(currentMonth) || 0
-  const monthlyVariance = baseMonthly - monthlyActualRevenue
-  const closingBalance = balance + monthlyVariance
+  const currentDailyTarget = currentBaseDaily + dailyRecovery
+  const recoveryAdjustment = dailyRecovery
+  const currentIndicativeProfit = typeof indicativeProfitForCurrentMonth === 'function'
+    ? finite(indicativeProfitForCurrentMonth({ month: currentMonth, record: currentRecord, day: currentDay }))
+    : null
+  const monthClosed = endDayKey >= calendarDayKeys(currentMonth).at(-1)
+  const currentRecoveryState = currentIndicativeProfit == null
+    ? { newRecovery: null, recoveryAchieved: null, closingRecovery: null, indicativeLoss: null }
+    : (() => {
+        const indicativeLoss = Math.max(0, -currentIndicativeProfit)
+        const recoveryAchieved = Math.min(openingRecovery, Math.max(0, currentIndicativeProfit))
+        const newRecovery = monthClosed ? indicativeLoss : null
+        const closingRecovery = monthClosed
+          ? Math.max(0, openingRecovery + newRecovery - recoveryAchieved)
+          : Math.max(0, openingRecovery - recoveryAchieved)
+        return { newRecovery, recoveryAchieved, closingRecovery, indicativeLoss }
+      })()
 
   return {
     available: Number.isFinite(currentDailyTarget), reason: Number.isFinite(currentDailyTarget) ? null : 'MISSING_AUTHORITATIVE_TARGET_INPUT',
-    balanceBefore: balance, balance, openingBalance: balance, monthlyBreakEvenRevenue: baseMonthly - readDriverProfit(currentRecord),
+    balanceBefore: openingRecovery, balance: openingRecovery, openingBalance: openingRecovery,
+    openingRecovery, newRecovery: currentRecoveryState.newRecovery,
+    recoveryAllocated: openingRecovery, recoveryAchieved: currentRecoveryState.recoveryAchieved,
+    closingRecovery: currentRecoveryState.closingRecovery,
+    indicativeProfit: currentIndicativeProfit, indicativeLoss: currentRecoveryState.indicativeLoss,
+    monthlyBreakEvenRevenue: finite(applicableBreakEven),
     desiredDriverProfitMonthly: readDriverProfit(currentRecord),
     monthlyTargetBase: baseMonthly,
-    monthlyVariance, closingBalance, effectiveMonthlyTarget,
+    monthlyVariance: currentIndicativeProfit == null ? null : -currentIndicativeProfit,
+    closingBalance: currentRecoveryState.closingRecovery,
+    effectiveMonthlyTarget: baseMonthly + openingRecovery,
     currentDailyTarget: Number.isFinite(currentDailyTarget) ? currentDailyTarget : null,
     currentBaseDaily: Number.isFinite(currentBaseDaily) ? currentBaseDaily : null,
-    operatingKmForecastDaily: forecastDailyKm,
-    operatingKmMultiplier,
-    currentPeriodBaseTarget: Number.isFinite(effectiveMonthlyTarget) ? effectiveMonthlyTarget : null,
+    currentPeriodBaseTarget: Number.isFinite(baseMonthly + openingRecovery) ? baseMonthly + openingRecovery : null,
     recoveryAdjustment: Number.isFinite(recoveryAdjustment) ? recoveryAdjustment : null,
+    dailyRecovery: Number.isFinite(dailyRecovery) ? dailyRecovery : null,
     activeDays: financialDayKeys.length, financialDays: financialDayKeys.length, remainingEligibleDays: remainingDays,
-    targetAllocatedBeforeCurrentDay, remainingObligation, currentTargetMonth: currentMonth, historicalState,
-    authority: 'MONTHLY_BREAK_EVEN_PLUS_MONTHLY_DESIRED_PROFIT_WITH_MONTHLY_ROLLING_BALANCE_AND_DYNAMIC_REMAINING_ELIGIBLE_DAYS',
-    evidence: calculationEvidence({ status: CALCULATION_STATUS.AUTHORITATIVE, source: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN' })
+    targetAllocatedBeforeCurrentDay, remainingObligation,
+    recoveryAllocatedBeforeCurrentDay, recoveryRemaining,
+    currentTargetMonth: currentMonth, historicalState,
+    authority: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN_PLUS_DESIRED_DRIVER_PROFIT_PLUS_FINALIZED_PRIOR_LOSS_RECOVERY',
+    evidence: calculationEvidence({ status: CALCULATION_STATUS.AUTHORITATIVE, source: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN_AND_FINALIZED_PRIOR_LOSS_RECOVERY' })
   }
 }
 
 export function stabilizeActiveDay({ baseTarget, balance = 0, actualRevenue = null } = {}) {
   const base = finite(baseTarget)
   if (base == null) return { available: false, target: null, nextBalance: null, evidence: calculationEvidence({ status: CALCULATION_STATUS.UNAVAILABLE, reason: 'MISSING_AUTHORITATIVE_TARGET_INPUT' }) }
-  const currentBalance = finite(balance) || 0
-  const target = base + currentBalance
-  if (actualRevenue == null) return { available: true, target, nextBalance: null, evidence: calculationEvidence({ status: CALCULATION_STATUS.AUTHORITATIVE, source: 'MONTHLY_TARGET_BASE_PLUS_ROLLING_BALANCE' }) }
+  const openingRecovery = Math.max(0, finite(balance) || 0)
+  const target = base + openingRecovery
+  if (actualRevenue == null) return { available: true, target, nextBalance: null, evidence: calculationEvidence({ status: CALCULATION_STATUS.AUTHORITATIVE, source: 'MONTHLY_TARGET_BASE_PLUS_OPENING_RECOVERY' }) }
   const actual = finite(actualRevenue) || 0
-  return { available: true, target, nextBalance: currentBalance + base - actual, evidence: calculationEvidence({ status: CALCULATION_STATUS.AUTHORITATIVE, source: 'MONTHLY_TARGET_BASE_PLUS_ROLLING_BALANCE' }) }
+  const indicativeProfit = actual - base
+  const state = recoveryFromIndicativeProfit({ openingRecovery, indicativeProfit })
+  return { available: true, target, nextBalance: state.closingRecovery, newRecovery: state.newRecovery, recoveryAchieved: state.recoveryAchieved, indicativeProfit, evidence: calculationEvidence({ status: CALCULATION_STATUS.AUTHORITATIVE, source: 'MONTHLY_TARGET_PLUS_LOSS_RECOVERY' }) }
 }
