@@ -98,6 +98,8 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
     loanScheduledObligation,
     loanPrincipal: money(finance?.outstandingPrincipal),
     loanInterest: currentScheduledInterest,
+    loanProvisionAccumulated: money(finance?.provisionAccumulated),
+    loanProvisionBalance: money(finance?.provisionBalance),
     actualLoanPaid,
     actualPrepayment,
     actualFinancingOutflow,
