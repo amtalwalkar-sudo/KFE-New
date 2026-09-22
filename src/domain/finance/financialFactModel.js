@@ -127,13 +127,15 @@ export function deriveFinancialFactModel({ snapshot = {}, metrics = {}, range = 
     metadata: { component: 'MAINTENANCE', signedVariance: maintenanceVariance },
   }))
 
-  const compliancePayments = LIVE(snapshot?.compliancePayments)
+  const compliancePayments = LIVE(snapshot?.settlements)
+    .filter(payment => String(payment.sourceType || '') === 'Compliance')
+    .filter(payment => String(payment.direction || (payment.settlementType === 'Receipt' ? 'IN' : 'OUT')).toUpperCase() === 'OUT')
   const renewalActual = compliancePayments
-    .filter(payment => inRange(payment.paidOn || payment.paymentDate, range))
+    .filter(payment => inRange(payment.settledOn || payment.paidOn || payment.createdAt, range))
     .map(payment => amountOf(payment.amount))
     .filter(value => value != null)
     .reduce((sum, value) => sum + value, 0)
-  const hasCompliancePayments = compliancePayments.some(payment => inRange(payment.paidOn || payment.paymentDate, range))
+  const hasCompliancePayments = compliancePayments.some(payment => inRange(payment.settledOn || payment.paidOn || payment.createdAt, range))
   const renewalVariance = renewalProvision != null && hasCompliancePayments
     ? renewalActual - renewalProvision
     : null
@@ -144,7 +146,7 @@ export function deriveFinancialFactModel({ snapshot = {}, metrics = {}, range = 
     direction: 'OUT',
     amount: renewalActual,
     occurredOn: range?.to?.toISOString?.() || null,
-    sourceType: 'COMPLIANCE_PAYMENT_RECORDS',
+    sourceType: 'COMPLIANCE_SETTLEMENTS',
     evidenceStatus: 'AUTHORITATIVE',
   }))
   if (renewalVariance != null) add(fact({
