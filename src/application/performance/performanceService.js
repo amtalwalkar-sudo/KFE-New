@@ -51,7 +51,14 @@ export const PerformanceService = Object.freeze({
       const monthRange = istMonthRange(day)
       if (!monthRange) return null
       const monthMetrics = deriveFinanceAwarePerformance(calculationSnapshot, monthRange, previousRange(monthRange))
-      const provision = Number(monthMetrics.maintenanceProvision) + Number(monthMetrics.renewalProvision)
+      const monthStart = monthRange.from
+      const priorEnd = new Date(monthStart.getTime() - 1)
+      const priorRange = { from: priorEnd, to: priorEnd }
+      const priorMetrics = deriveFinanceAwarePerformance(calculationSnapshot, priorRange, previousRange(priorRange))
+      const loanProvision = Number(monthMetrics.loanProvisionAccumulated) - Number(priorMetrics.loanProvisionAccumulated)
+      const maintenanceProvision = Number(monthMetrics.maintenanceProvision)
+      const renewalProvision = Number(monthMetrics.renewalProvision)
+      const provision = loanProvision + maintenanceProvision + renewalProvision
       const value = Number.isFinite(monthMetrics.revenue) && Number.isFinite(provision)
         ? monthMetrics.revenue - provision
         : null
@@ -84,7 +91,12 @@ export const PerformanceService = Object.freeze({
         if (!monthRange) return null
         const asOfMonthRange = { ...monthRange, to: stabilizationTo }
         const monthMetrics = deriveFinanceAwarePerformance(calculationSnapshot, asOfMonthRange, previousRange(asOfMonthRange))
-        const provision = Number(monthMetrics.maintenanceProvision) + Number(monthMetrics.renewalProvision)
+        const monthStart = asOfMonthRange.from
+        const priorEnd = new Date(monthStart.getTime() - 1)
+        const priorRange = { from: priorEnd, to: priorEnd }
+        const priorMetrics = deriveFinanceAwarePerformance(calculationSnapshot, priorRange, previousRange(priorRange))
+        const loanProvision = Number(monthMetrics.loanProvisionAccumulated) - Number(priorMetrics.loanProvisionAccumulated)
+        const provision = loanProvision + Number(monthMetrics.maintenanceProvision) + Number(monthMetrics.renewalProvision)
         const value = Number.isFinite(monthMetrics.revenue) && Number.isFinite(provision)
           ? monthMetrics.revenue - provision
           : null
