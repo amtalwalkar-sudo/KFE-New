@@ -19,7 +19,20 @@ const latest = (xs, r) => active(xs, r).sort((a, b) => String(b.effectiveFrom ||
 const dateKeyDate = key => { const [year, month, day] = String(key || '').split('-').map(Number); return [year, month, day].every(Number.isFinite) ? new Date(Date.UTC(year, month - 1, day)) : null }
 const shiftKm = shift => { const start = odometer(shift?.startOdometer); const end = odometer(shift?.endOdometer); return Number.isFinite(start) && Number.isFinite(end) && end >= start ? end - start : 0 }
 const revenueByDay = shifts => { const result = new Map(); for (const shift of live(shifts)) { const date = d(shift.shiftEndAt); if (!date) continue; const key = istDateKey(date); if (key) result.set(key, (result.get(key) || 0) + n(shift.revenue)) } return result }
-const applicableMaintenanceRate = (inputs, date) => { const key = istDateKey(date); if (!key) return NaN; const row = live(inputs).filter(x => x.active !== false && x.status !== 'INACTIVE' && String(x.effectiveFrom || '') <= key).sort((a, b) => String(b.effectiveFrom || '').localeCompare(String(a.effectiveFrom || '')))[0]; return row && Number.isFinite(Number(row.maintenanceProvisionPerKm)) ? Number(row.maintenanceProvisionPerKm) : NaN }
+const applicableMaintenanceRate = (inputs, date) => {
+  const key = istDateKey(date)
+  if (!key) return NaN
+  // Maintenance provision is a KM-based bucket: every vehicle KM in the
+  // period must be allocated at the rate effective on that KM's date.
+  // Normalize the configured effective date to an IST calendar key so both
+  // YYYY-MM-DD and full ISO timestamps resolve consistently.
+  const row = live(inputs)
+    .filter(x => x.active !== false && x.status !== 'INACTIVE')
+    .map(x => ({ ...x, effectiveKey: istDateKey(x.effectiveFrom) || String(x.effectiveFrom || '').slice(0, 10) }))
+    .filter(x => x.effectiveKey && x.effectiveKey <= key && Number.isFinite(Number(x.maintenanceProvisionPerKm)))
+    .sort((a, b) => String(b.effectiveKey).localeCompare(String(a.effectiveKey)))[0]
+  return row ? Number(row.maintenanceProvisionPerKm) : NaN
+}
 const maintenanceProvisionForShifts = (shifts, inputs, r) => live(shifts).filter(x => inR(x.shiftEndAt || x.shiftStartAt, r)).reduce((sum, shift) => { const rate = applicableMaintenanceRate(inputs, shift.shiftEndAt || shift.shiftStartAt); return sum + (Number.isFinite(rate) ? shiftKm(shift) * rate : 0) }, 0)
 const complianceProvisionForRecord = (record, shifts, r) => {
   const start = d(record?.validFrom), end = d(record?.validUntil), cost = n(record?.cost)
