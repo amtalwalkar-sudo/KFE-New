@@ -130,7 +130,7 @@ const noHolidayEquivalent = { ...holidaySnapshot, trips: [
 ] }
 const holidayMetrics = PerformanceService.getMetrics(holidaySnapshot, range)
 const noHolidayMetrics = PerformanceService.getMetrics(noHolidayEquivalent, range)
-assert.ok(holidayMetrics.driverTarget > noHolidayMetrics.driverTarget)
+assert.equal(holidayMetrics.driverTarget, noHolidayMetrics.driverTarget)
 near(holidayMetrics.driverTargetEffectiveMonthlyTarget, noHolidayMetrics.driverTargetEffectiveMonthlyTarget, 'holiday must not reduce monthly obligation')
 
 const changedInput = { ...snapshot, breakEvenInputs: [{ effectiveFrom:'2026-09-01', maintenanceProvisionPerKm:4, active:true }] }
