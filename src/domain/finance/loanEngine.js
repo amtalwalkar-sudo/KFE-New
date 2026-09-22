@@ -193,7 +193,7 @@ export function deriveLoanPosition({ loan, payments = [], prepayments = [], asOf
       const additionalOverdueInterestPaise = roundPaise(unpaidInterestPaise * annualRate * overdueDays / DAYS_IN_YEAR)
       const unpaidOverdueInterestPaise = Math.max(0, additionalOverdueInterestPaise - rupeesToPaise(row.overdueInterestPaid))
       const overdueAmountPaise = unpaidPrincipalPaise + unpaidInterestPaise + unpaidOverdueInterestPaise
-      return { ...row, overdueDays, additionalOverdueInterest: paiseToRupees(additionalOverdueInterestPaise), unpaidPrincipal: paiseToRupees(unpaidPrincipalPaise), unpaidScheduledInterest: paiseToRupees(unpaidInterestPaise), overdueAmount: paiseToRupees(overdueAmountPaise) }
+      return { ...row, overdueDays, additionalOverdueInterest: paiseToRupees(additionalOverdueInterestPaise), unpaidOverdueInterest: paiseToRupees(unpaidOverdueInterestPaise), unpaidPrincipal: paiseToRupees(unpaidPrincipalPaise), unpaidScheduledInterest: paiseToRupees(unpaidInterestPaise), overdueAmount: paiseToRupees(overdueAmountPaise) }
     })
     .filter(row => rupeesToPaise(row.overdueAmount) > 0)
 
