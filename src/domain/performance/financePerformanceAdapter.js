@@ -79,8 +79,8 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
     vehicleKm: monthlyBase.vehicleKm,
   })
   const monthlyBreakEvenRevenue = breakEven.available ? breakEven.monthlyBreakEvenRevenue : NaN
-  const authoritativeMaintenanceProvision = breakEven.available && Number.isFinite(Number(breakEven.maintenanceProvisionPerKm))
-    ? base.vehicleKm * Number(breakEven.maintenanceProvisionPerKm)
+  const authoritativeMaintenanceProvision = Number.isFinite(Number(base.maintenanceProvision))
+    ? Number(base.maintenanceProvision)
     : NaN
   const provisionRequired = Number.isFinite(authoritativeMaintenanceProvision) && Number.isFinite(Number(base.renewalProvision))
     ? authoritativeMaintenanceProvision + Number(base.renewalProvision)
