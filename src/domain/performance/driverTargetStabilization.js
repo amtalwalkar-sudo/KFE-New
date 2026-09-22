@@ -138,12 +138,15 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
   const remainingObligation = Math.max(0, effectiveMonthlyTarget - targetAllocatedBeforeCurrentDay)
   const currentBaseDaily = baseMonthly / remainingDays
   // Frozen operating-KM volume is the authoritative daily volume input.
-  // 200 km/day is the neutral baseline; learned forecast changes the daily
-  // target proportionally while the financial monthly obligation remains authoritative.
+  // 200 km/day is the neutral baseline; learned forecast changes the remaining
+  // base-obligation share proportionally. Opening rolling recovery remains a
+  // separate financial obligation, so KM learning cannot erase recovery.
   const forecastDailyKm = finite(operatingKmForecast?.dailyForecastKm)
   const normalPriorKm = Math.max(1, finite(operatingKmForecast?.config?.normalPriorKmPerCalendarDay) || 200)
   const operatingKmMultiplier = forecastDailyKm == null ? 1 : Math.max(0, forecastDailyKm / normalPriorKm)
-  const currentDailyTarget = currentBaseDaily * operatingKmMultiplier + (effectiveMonthlyTarget - baseMonthly) / remainingDays
+  const baseRemainingDaily = Math.max(0, baseMonthly - targetAllocatedBeforeCurrentDay) / remainingDays
+  const recoveryDaily = Math.max(0, balance) / remainingDays
+  const currentDailyTarget = baseRemainingDaily * operatingKmMultiplier + recoveryDaily
   const recoveryAdjustment = currentDailyTarget - currentBaseDaily
   const monthlyActualRevenue = revenueByMonth.get(currentMonth) || 0
   const monthlyVariance = baseMonthly - monthlyActualRevenue
