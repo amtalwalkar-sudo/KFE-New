@@ -97,7 +97,7 @@ const detailGroups = computed(() => {
     { key:'provision', title:'Provision position', kicker:'FINANCIAL POSITION', value:money(m.value.provisionRequired), formula:'Provision is calculated from the authoritative configured provision rates and applicable business activity. It is kept separate from actual operating cost and payments.', rows:[['Maintenance provision',money(m.value.maintenanceProvision)],['Renewal provision',money(m.value.renewalProvision)],['Provision required',money(m.value.provisionRequired)],['Actual maintenance',money(m.value.actualMaintenance)]] },
     { key:'target', title:'Target', kicker:'INDICATIVE', value:money(target.value), formula:'Current target is supplied by the rolling driver-target authority. It remains separate from authoritative actual revenue.', rows:[['Current target',money(target.value)],['Revenue achieved',money(targetRevenue.value)],['Target remaining',money(targetLeft.value)],['Remaining eligible days',num(m.value.driverTargetRemainingEligibleDays)],['Desired driver profit / take-home',money(m.value.driverTargetDesiredProfitMonthly)]] },
     { key:'breakEven', title:'Break-even', kicker:'INDICATIVE', value:money(breakEven.value), formula:'Break-even is supplied by the authoritative break-even engine and presented here as an outlook requirement, separate from actual operating result.', rows:[['Break-even revenue',money(breakEven.value)],['Revenue achieved',money(targetRevenue.value)],['Revenue remaining',money(breakEvenLeft.value)],['Fuel cost / KM',money2(m.value.breakEvenInputs?.fuelCostPerKm)],['Maintenance provision / KM',money2(m.value.breakEvenInputs?.maintenanceProvisionPerKm)]] },
-    { key:'loan', title:'Loan position', kicker:'FINANCIAL POSITION', value:money(m.value.finance?.outstandingPrincipal), formula:'Loan position is supplied by the canonical loan engine. Performance does not recalculate loan balances.', rows:[['Outstanding principal',money(m.value.finance?.outstandingPrincipal)],['Pending / overdue',money(m.value.finance?.totalOverdue)],['Delayed interest',money(m.value.finance?.totalUnpaidOverdueInterest)],['Actual loan paid',money(m.value.actualLoanPaid)],['Prepayments',money(m.value.actualPrepayment)]] },
+    { key:'loan', title:'Loan position', kicker:'FINANCIAL POSITION', value:money(m.value.finance?.provisionBalance), formula:'Loan provision accrues as the daily share of each fixed EMI across every calendar day in its EMI validity period. The rolling balance is provision accumulated minus loan payments.', rows:[['Provision accumulated',money(m.value.finance?.provisionAccumulated)],['Rolling provision balance',money(m.value.finance?.provisionBalance)],['Outstanding principal',money(m.value.finance?.outstandingPrincipal)],['Pending / overdue',money(m.value.finance?.totalOverdue)],['Delayed interest',money(m.value.finance?.totalUnpaidOverdueInterest)],['Actual loan paid',money(m.value.actualLoanPaid)],['Prepayments',money(m.value.actualPrepayment)]] },
   ]
 })
 
@@ -238,10 +238,10 @@ onBeforeUnmount(()=>unsubscribeChanges())
           <div v-if="openSection==='position'" class="section-body">
             <div class="position-grid">
               <button @click="openDetail('provision')"><span>Provision required</span><strong>{{ money(m.provisionRequired) }}</strong></button>
-              <button @click="openDetail('loan')"><span>Loan outstanding</span><strong>{{ money(m.finance?.outstandingPrincipal) }}</strong></button>
+              <button @click="openDetail('loan')"><span>Loan provision balance</span><strong>{{ money(m.finance?.provisionBalance) }}</strong></button>
               <button @click="openDetail('loan')"><span>Delayed interest</span><strong>{{ money(m.finance?.totalUnpaidOverdueInterest) }}</strong></button>
             </div>
-            <p class="separation-note">Provisions, obligations and settlements are shown separately from operating cost and operating profit.</p>
+            <p class="separation-note">Loan, maintenance and compliance provisions each have a rolling balance. Fixed-validity provisions accrue by calendar day; maintenance accrues only from actual KM. Payments/settlements reduce the relevant balance.</p>
           </div>
         </div>
       </section>
