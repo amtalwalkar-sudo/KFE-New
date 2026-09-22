@@ -66,12 +66,24 @@ const complianceProvisionFor=computed(()=>record=>{
 })
 const complianceProvisionTotal=computed(()=>live(records.value).reduce((sum,r)=>sum+complianceProvisionFor.value(r),0))
 const maintenanceProvisionTotal=computed(()=>performanceProvisionMetrics.value?Number(performanceProvisionMetrics.value.maintenanceProvision)||0:0)
+const maintenanceProvisionBalance=computed(()=>performanceProvisionMetrics.value?Number(performanceProvisionMetrics.value.maintenanceProvisionBalance)||0:0)
+const complianceProvisionBalanceFor=computed(()=>record=>{
+  if(!record||!performanceSnapshot.value)return 0
+  const v=record.values||record
+  const from=new Date(v.validFrom), now=getKfeReferenceNow()
+  if(Number.isNaN(from.getTime())||from>now)return 0
+  const until=new Date(v.validUntil)
+  const to=Number.isNaN(until.getTime())?now:new Date(Math.min(until.getTime(),now.getTime()))
+  if(to<from)return 0
+  const metrics=PerformanceService.getMetrics(performanceSnapshot.value,{from,to})
+  return Number.isFinite(Number(metrics?.complianceProvisionBalancesById?.[record.id]))?Number(metrics.complianceProvisionBalancesById[record.id]):0
+})
 const provisionPct=(provision,cost)=>cost>0?Math.min(100,Math.max(0,(provision/cost)*100)):0
 const currentDefinition=computed(()=>currentItem.value?ADMIN_FORM_DEFINITIONS[currentItem.value.key]:null)
 const activeDefinition=computed(()=>{if(!currentDefinition.value)return null;const d=clone(currentDefinition.value);for(const f of d.fields||[]){if(f.key==='vehicleId')f.options=all.value.vehicle.map(x=>({value:x.id,label:label('vehicle',x)}));if(f.key==='driverId')f.options=all.value.driver.map(x=>({value:x.id,label:label('driver',x)}));if(f.key==='loanId')f.options=all.value.loan.map(x=>({value:x.id,label:label('loan',x)}))}return d})
 const sourcePayments=id=>live(performanceSnapshot.value?.settlements).filter(x=>x.sourceId===id&&String(x.direction||(x.settlementType==='Receipt'?'IN':'OUT')).toUpperCase()==='OUT')
 const sumPayments=id=>sourcePayments(id).reduce((s,x)=>s+(Number(x.amount)||0),0)
-const entityFinancial=record=>{if(!record)return null;if(selected.value==='loan'){const loan=live(performanceSnapshot.value?.loans).find(x=>x.id===record.id)||record;const p=deriveLoanPosition({loan,payments:live(performanceSnapshot.value?.loanPayments),prepayments:live(performanceSnapshot.value?.prepayments),asOf:getKfeReferenceNow()});return {principal:Number(loan.principal)||0,paid:p.actualPaid||0,prepaid:p.actualPrepayment||0,remaining:p.outstandingPrincipal||0,emi:p.emi||0,pending:Math.max(0,(p.scheduledDue||0)-(p.actualPaid||0)),overdue:p.totalOverdue||0}}if(selected.value==='maintenance'||selected.value==='compliance'){const v=record.values||record,paid=sumPayments(record.id);return {cost:Number(v.cost)||0,paid,remaining:Math.max(0,(Number(v.cost)||0)-paid)}}return null}
+const entityFinancial=record=>{if(!record)return null;if(selected.value==='loan'){const loan=live(performanceSnapshot.value?.loans).find(x=>x.id===record.id)||record;const p=deriveLoanPosition({loan,payments:live(performanceSnapshot.value?.loanPayments),prepayments:live(performanceSnapshot.value?.prepayments),asOf:getKfeReferenceNow()});return {principal:Number(loan.principal)||0,paid:p.actualPaid||0,prepaid:p.actualPrepayment||0,remaining:p.outstandingPrincipal||0,emi:p.emi||0,pending:Math.max(0,(p.scheduledDue||0)-(p.actualPaid||0)),overdue:p.totalOverdue||0}}if(selected.value==='maintenance'||selected.value==='compliance'){const v=record.values||record,paid=sumPayments(record.id);return {cost:Number(v.cost)||0,paid,remaining:(Number(v.cost)||0)-paid,provisionAccumulated:selected.value==='compliance'?Number(complianceProvisionFor.value(record)):Number(performanceProvisionMetrics.value?.maintenanceProvision)||0,provisionBalance:selected.value==='compliance'?Number(complianceProvisionBalanceFor.value(record)):Number(performanceProvisionBalance.value)||0}}return null}
 const loanHistory=record=>{const s=performanceSnapshot.value||{};return [...live(s.loanPayments).filter(x=>x.loanId===record.id).map(x=>({kind:'EMI payment',date:x.paidOn,amount:Number(x.amount)||0})),...live(s.prepayments).filter(x=>x.loanId===record.id).map(x=>({kind:'Prepayment',date:x.paidOn,amount:Number(x.amount)||0}))].sort((a,b)=>String(b.date).localeCompare(String(a.date)))}
 const sourceHistory=record=>sourcePayments(record.id).sort((a,b)=>String(b.settledOn||'').localeCompare(String(a.settledOn||'')))
 const loanSchedule=record=>{const loan=live(performanceSnapshot.value?.loans).find(x=>x.id===record.id)||record;const p=deriveLoanPosition({loan,payments:live(performanceSnapshot.value?.loanPayments),prepayments:live(performanceSnapshot.value?.prepayments),asOf:getKfeReferenceNow()});return p.overdue||[]}
@@ -149,6 +161,7 @@ onMounted(load)
   <div class="detail-actions"><button class="primary" @click="add">＋ Create {{currentDefinition?.createLabel||currentItem.title}}</button></div>
   <section v-if="selected==='compliance'||selected==='maintenance'" class="clean-card provision-total">
   <div><span>{{selected==='compliance'?'Cumulative compliance provision':'Cumulative maintenance provision'}}</span><strong>{{money(selected==='compliance'?complianceProvisionTotal:maintenanceProvisionTotal)}}</strong></div>
+  <div v-if="selected==='maintenance'" class="metric-grid"><div><span>Maintenance pool balance</span><strong>{{money(maintenanceProvisionBalance)}}</strong></div></div>
   <div class="provision-bar" aria-hidden="true"><span :style="{width:(selected==='compliance'?(live(records).reduce((s,r)=>s+(Number(r.values?.cost)||0),0)>0?Math.min(100,complianceProvisionTotal/live(records).reduce((s,r)=>s+(Number(r.values?.cost)||0),0)*100):0):100)+'%'}"></span></div>
 </section>
   <div v-if="formOpen"><UniversalAdminForm :definition="activeDefinition" :model-value="draft" :busy="loading" @update:model-value="updateDraft" @submit="save" @cancel="formOpen=false;editing=null" :submit-label="editing!==null?'Update record':'Save record'"/></div>
@@ -156,7 +169,7 @@ onMounted(load)
   <div v-else-if="records.length" class="record-list">
     <button v-for="record in records" :key="record.id" class="clean-card master-list-row" @click="openMasterRecord(record)">
       <span><strong>{{label(selected,record)}}</strong><small>{{selected==='vehicle'?[record.values?.registrationNumber,record.values?.make,record.values?.model].filter(Boolean).join(' · '):selected==='driver'?[record.values?.phone,record.values?.licenseNumber].filter(Boolean).join(' · '):[record.values?.validFrom,record.values?.validUntil].filter(Boolean).join(' → ')}}</small>
-      <small v-if="selected==='compliance'">Cost {{money(record.values?.cost)}} · Provision {{money(complianceProvisionFor(record))}}</small></span><span>›</span>
+      <small v-if="selected==='compliance'">Cost {{money(record.values?.cost)}} · Provision {{money(complianceProvisionFor(record))}} · Balance {{money(complianceProvisionBalanceFor(record))}}</small></span><span>›</span>
     </button>
   </div>
   <div v-else-if="!loading" class="empty">No records yet.</div>
@@ -168,7 +181,7 @@ onMounted(load)
     <div class="master-fields"><div v-for="field in currentDefinition.fields" :key="field.key" class="master-field"><span>{{field.label}}</span><strong>{{masterFieldValue(field,masterRecord)}}</strong></div></div>
   </section>
   <section v-if="selected==='compliance'" class="clean-card">
-    <div class="metric-grid"><div><span>Cost</span><strong>{{money(masterRecord?.values?.cost)}}</strong></div><div><span>Provision accumulated</span><strong>{{money(complianceProvisionFor(masterRecord))}}</strong></div><div><span>Paid</span><strong>{{money(entityFinancial(masterRecord)?.paid)}}</strong></div></div>
+    <div class="metric-grid"><div><span>Cost</span><strong>{{money(masterRecord?.values?.cost)}}</strong></div><div><span>Provision accumulated</span><strong>{{money(complianceProvisionFor(masterRecord))}}</strong></div><div><span>Paid</span><strong>{{money(entityFinancial(masterRecord)?.paid)}}</strong></div><div><span>Provision balance</span><strong>{{money(complianceProvisionBalanceFor(masterRecord))}}</strong></div></div>
     <div class="provision-bar" aria-hidden="true"><span :style="{width:provisionPct(complianceProvisionFor(masterRecord),Number(masterRecord?.values?.cost)||0)+'%'}"></span></div>
     <button class="secondary wide" @click="openAction('settlement',masterRecord)">Record payment</button>
     <div v-if="sourceHistory(masterRecord).length" class="history-inline"><span>Payment history</span><small v-for="x in sourceHistory(masterRecord).slice(0,5)" :key="x.id">{{x.settledOn?.slice(0,10)}} · {{money(x.amount)}}</small></div>
