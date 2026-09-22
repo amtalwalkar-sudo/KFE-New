@@ -32,7 +32,6 @@ assert.equal(metrics.operatingKmForecast.observedOperatingDays, 1826)
 assert.ok(Math.abs(metrics.operatingKmForecast.calculatedForecast.dailyKm - 212.21168510607765) < 1e-6)
 assert.ok(Math.abs(metrics.driverTargetOperatingKmMultiplier - 1.0610584255303882) < 1e-12)
 assert.ok(Math.abs(metrics.operatingKmForecast.calculatedForecast.dailyKm - 212.21168510607765) < 1e-6)
-console.log('BE_DIAG', JSON.stringify({breakEven:metrics.breakEvenTrace,fuel:metrics.breakEvenInputs?.fuelEvidence,fuelSource:metrics.breakEvenInputs?.fuelCostPerKmSource,monthlyBE:metrics.monthlyBreakEvenRevenue}))
 assert.equal(metrics.driverTargetAvailable, true)
 
 console.log('Synthetic end-to-end Performance calculation contract: PASS')
