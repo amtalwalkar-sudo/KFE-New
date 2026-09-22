@@ -79,7 +79,27 @@ const complianceProvisionBalanceFor=computed(()=>record=>{
   const metrics=PerformanceService.getMetrics(performanceSnapshot.value,{from,to})
   return Number.isFinite(Number(metrics?.complianceProvisionBalancesById?.[record.id]))?Number(metrics.complianceProvisionBalancesById[record.id]):0
 })
-const complianceRevenueSummary=record=>{  if(!record||!performanceSnapshot.value)return {total:0,days:0,average:0}  const v=record.values||record, from=new Date(v.validFrom), until=new Date(v.validUntil), now=getKfeReferenceNow()  if(Number.isNaN(from.getTime())||Number.isNaN(until.getTime())||from>until)return {total:0,days:0,average:0}  const to=new Date(Math.min(until.getTime(),now.getTime())), shifts=live(performanceSnapshot.value.shifts)  if(to<from)return {total:0,days:0,average:0}  const byDay={}  for(const shift of shifts){const d=new Date(shift.shiftEndAt||shift.shiftStartAt);if(Number.isNaN(d.getTime())||d<from||d>to)continue;const key=d.toISOString().slice(0,10);byDay[key]=(byDay[key]||0)+(Number(shift.revenue)||0)}  const total=Object.values(byDay).reduce((sum,value)=>sum+value,0), days=Object.keys(byDay).length  return {total,days,average:days?total/days:0}}const provisionPct=(provision,cost)=>cost>0?Math.min(100,Math.max(0,(provision/cost)*100)):0
+const complianceRevenueSummary = record => {
+  if (!record || !performanceSnapshot.value) return { total: 0, days: 0, average: 0 }
+  const v = record.values || record
+  const from = new Date(v.validFrom)
+  const until = new Date(v.validUntil)
+  const now = getKfeReferenceNow()
+  if (Number.isNaN(from.getTime()) || Number.isNaN(until.getTime()) || from > until) return { total: 0, days: 0, average: 0 }
+  const to = new Date(Math.min(until.getTime(), now.getTime()))
+  if (to < from) return { total: 0, days: 0, average: 0 }
+  const byDay = {}
+  for (const shift of live(performanceSnapshot.value.shifts)) {
+    const date = new Date(shift.shiftEndAt || shift.shiftStartAt)
+    if (Number.isNaN(date.getTime()) || date < from || date > to) continue
+    const key = date.toISOString().slice(0, 10)
+    byDay[key] = (byDay[key] || 0) + (Number(shift.revenue) || 0)
+  }
+  const total = Object.values(byDay).reduce((sum, value) => sum + value, 0)
+  const days = Object.keys(byDay).length
+  return { total, days, average: days ? total / days : 0 }
+}
+const provisionPct = (provision, cost) => cost > 0 ? Math.min(100, Math.max(0, (provision / cost) * 100)) : 0
 const currentDefinition=computed(()=>currentItem.value?ADMIN_FORM_DEFINITIONS[currentItem.value.key]:null)
 const activeDefinition=computed(()=>{if(!currentDefinition.value)return null;const d=clone(currentDefinition.value);for(const f of d.fields||[]){if(f.key==='vehicleId')f.options=all.value.vehicle.map(x=>({value:x.id,label:label('vehicle',x)}));if(f.key==='driverId')f.options=all.value.driver.map(x=>({value:x.id,label:label('driver',x)}));if(f.key==='loanId')f.options=all.value.loan.map(x=>({value:x.id,label:label('loan',x)}))}return d})
 const sourcePayments=id=>live(performanceSnapshot.value?.settlements).filter(x=>x.sourceId===id&&String(x.direction||(x.settlementType==='Receipt'?'IN':'OUT')).toUpperCase()==='OUT')
