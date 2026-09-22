@@ -171,17 +171,17 @@ onBeforeUnmount(()=>unsubscribeChanges())
       <section class="business-result">
         <div class="result-copy"><small>BUSINESS RESULT</small><h2>{{ money(profit) }}</h2><b :class="isProfit()?'profit':'loss'">{{ isProfit() ? 'OPERATING PROFIT' : 'OPERATING LOSS' }}</b></div>
         <div class="money-flow">
-          <button @click="openDetail('revenue')"><span>Revenue</span><strong>{{ money(m.value.revenue) }}</strong></button>
+          <button @click="openDetail('revenue')"><span>Revenue</span><strong>{{ money(m.revenue) }}</strong></button>
           <i>−</i>
-          <button @click="openDetail('cost')"><span>Operating cost</span><strong>{{ money(m.value.actualOperatingCost) }}</strong></button>
+          <button @click="openDetail('cost')"><span>Operating cost</span><strong>{{ money(m.actualOperatingCost) }}</strong></button>
           <i>=</i>
           <button @click="openDetail('profit')"><span>Operating result</span><strong>{{ money(profit) }}</strong></button>
         </div>
       </section>
 
       <section class="efficiency-strip">
-        <button @click="openDetail('revenueKm')"><small>REVENUE / KM</small><strong>{{ money2(m.value.revenuePerKm) }}</strong></button>
-        <button @click="openDetail('revenueHour')"><small>REVENUE / HOUR</small><strong>{{ money2(m.value.revenuePerHour) }}</strong></button>
+        <button @click="openDetail('revenueKm')"><small>REVENUE / KM</small><strong>{{ money2(m.revenuePerKm) }}</strong></button>
+        <button @click="openDetail('revenueHour')"><small>REVENUE / HOUR</small><strong>{{ money2(m.revenuePerHour) }}</strong></button>
         <button @click="openDetail('fuelEconomy')"><small>FUEL ECONOMY</small><strong>{{ fuelEconomy == null ? '—' : num(fuelEconomy) + ' KM/KG' }}</strong></button>
       </section>
 
@@ -203,32 +203,32 @@ onBeforeUnmount(()=>unsubscribeChanges())
       <section class="business-section">
         <div class="section-head"><div><small>BUSINESS ENGINE</small><h2>How the operation creates the result</h2></div></div>
         <div class="flow-card">
-          <button @click="toggleSection('activity')"><span><small>OPERATING ACTIVITY</small><b>How did we operate?</b></span><strong>{{ num(m.value.vehicleKm) }} KM</strong><i>⌄</i></button>
+          <button @click="toggleSection('activity')"><span><small>OPERATING ACTIVITY</small><b>How did we operate?</b></span><strong>{{ num(m.vehicleKm) }} KM</strong><i>⌄</i></button>
           <div v-if="openSection==='activity'" class="section-body">
-            <div class="activity-metrics"><button @click="openDetail('activity')"><span>Operating KM</span><strong>{{ num(m.value.vehicleKm) }}</strong></button><button @click="openDetail('activity')"><span>Working hours</span><strong>{{ num(m.value.workingHours) }}</strong></button><button @click="openDetail('activity')"><span>Trips</span><strong>{{ num(m.value.counts?.trips) }}</strong></button></div>
+            <div class="activity-metrics"><button @click="openDetail('activity')"><span>Operating KM</span><strong>{{ num(m.vehicleKm) }}</strong></button><button @click="openDetail('activity')"><span>Working hours</span><strong>{{ num(m.workingHours) }}</strong></button><button @click="openDetail('activity')"><span>Trips</span><strong>{{ num(m.counts?.trips) }}</strong></button></div>
             <div class="utilisation"><div class="bar-label"><span>Revenue-generating KM</span><b>{{ num(businessKm) }} KM</b></div><div class="bar"><span :style="{width:revenueKmPct+'%'}"></span></div><div class="bar-label"><span>Dead KM</span><b>{{ num(deadKm) }} KM</b></div><p>{{ deadKmPct.toFixed(1) }}% of operating KM is non-business KM.</p></div>
           </div>
         </div>
 
         <div class="flow-card">
-          <button @click="toggleSection('money')"><span><small>MONEY FLOW</small><b>Where did the money go?</b></span><strong>{{ money(m.value.actualOperatingCost) }}</strong><i>⌄</i></button>
+          <button @click="toggleSection('money')"><span><small>MONEY FLOW</small><b>Where did the money go?</b></span><strong>{{ money(m.actualOperatingCost) }}</strong><i>⌄</i></button>
           <div v-if="openSection==='money'" class="section-body">
             <div class="cost-bars">
-              <button v-for="item in [{key:'fuel',label:'Fuel',value:m.value.fuelCost},{key:'toll',label:'Toll',value:m.value.toll},{key:'parking',label:'Parking',value:m.value.parking},{key:'maintenance',label:'Actual maintenance',value:m.value.actualMaintenance}]" :key="item.key" @click="openDetail('cost')">
-                <span><b>{{ item.label }}</b><small>{{ money(item.value) }}</small></span><div class="cost-track"><i :style="{width:(m.value.actualOperatingCost>0 ? Math.max(0,Math.min(100,Number(item.value||0)/m.value.actualOperatingCost*100)) : 0)+'%'}"></i></div>
+              <button v-for="item in [{key:'fuel',label:'Fuel',value:m.fuelCost},{key:'toll',label:'Toll',value:m.toll},{key:'parking',label:'Parking',value:m.parking},{key:'maintenance',label:'Actual maintenance',value:m.actualMaintenance}]" :key="item.key" @click="openDetail('cost')">
+                <span><b>{{ item.label }}</b><small>{{ money(item.value) }}</small></span><div class="cost-track"><i :style="{width:(m.actualOperatingCost>0 ? Math.max(0,Math.min(100,Number(item.value||0)/m.actualOperatingCost*100)) : 0)+'%'}"></i></div>
               </button>
             </div>
           </div>
         </div>
 
         <div class="flow-card">
-          <button @click="toggleSection('economics')"><span><small>BUSINESS EFFICIENCY</small><b>Unit economics</b></span><strong>{{ money2(m.value.revenuePerKm) }}/KM</strong><i>⌄</i></button>
+          <button @click="toggleSection('economics')"><span><small>BUSINESS EFFICIENCY</small><b>Unit economics</b></span><strong>{{ money2(m.revenuePerKm) }}/KM</strong><i>⌄</i></button>
           <div v-if="openSection==='economics'" class="section-body">
             <div class="unit-grid">
-              <button @click="openDetail('revenueKm')"><small>Revenue / KM</small><strong>{{ money2(m.value.revenuePerKm) }}</strong></button>
-              <button @click="openDetail('revenueHour')"><small>Revenue / Hour</small><strong>{{ money2(m.value.revenuePerHour) }}</strong></button>
+              <button @click="openDetail('revenueKm')"><small>Revenue / KM</small><strong>{{ money2(m.revenuePerKm) }}</strong></button>
+              <button @click="openDetail('revenueHour')"><small>Revenue / Hour</small><strong>{{ money2(m.revenuePerHour) }}</strong></button>
               <button @click="openDetail('fuelEconomy')"><small>CNG Economy</small><strong>{{ fuelEconomy == null ? '—' : num(fuelEconomy)+' KM/KG' }}</strong></button>
-              <button @click="openDetail('fuelEconomy')"><small>Fuel / KM</small><strong>{{ money2(m.value.fuelCostPerKm) }}</strong></button>
+              <button @click="openDetail('fuelEconomy')"><small>Fuel / KM</small><strong>{{ money2(m.fuelCostPerKm) }}</strong></button>
             </div>
           </div>
         </div>
@@ -237,9 +237,9 @@ onBeforeUnmount(()=>unsubscribeChanges())
           <button @click="toggleSection('position')"><span><small>FINANCIAL POSITION</small><b>What is provided for / committed?</b></span><strong>View</strong><i>⌄</i></button>
           <div v-if="openSection==='position'" class="section-body">
             <div class="position-grid">
-              <button @click="openDetail('provision')"><span>Provision required</span><strong>{{ money(m.value.provisionRequired) }}</strong></button>
-              <button @click="openDetail('loan')"><span>Loan outstanding</span><strong>{{ money(m.value.finance?.outstandingPrincipal) }}</strong></button>
-              <button @click="openDetail('loan')"><span>Delayed interest</span><strong>{{ money(m.value.finance?.totalUnpaidOverdueInterest) }}</strong></button>
+              <button @click="openDetail('provision')"><span>Provision required</span><strong>{{ money(m.provisionRequired) }}</strong></button>
+              <button @click="openDetail('loan')"><span>Loan outstanding</span><strong>{{ money(m.finance?.outstandingPrincipal) }}</strong></button>
+              <button @click="openDetail('loan')"><span>Delayed interest</span><strong>{{ money(m.finance?.totalUnpaidOverdueInterest) }}</strong></button>
             </div>
             <p class="separation-note">Provisions, obligations and settlements are shown separately from operating cost and operating profit.</p>
           </div>
@@ -284,7 +284,7 @@ onBeforeUnmount(()=>unsubscribeChanges())
       <section v-if="detailGroup.key==='loan'" class="detail-card">
         <div class="section-head"><div><small>EMI-WISE</small><h2>Delayed / unpaid EMIs</h2></div></div>
         <div class="emi-list">
-          <div v-for="row in (m.value.finance?.overdue || [])" :key="row.dueDate">
+          <div v-for="row in (m.finance?.overdue || [])" :key="row.dueDate">
             <span>Due date <b>{{ row.dueDate }}</b></span>
             <span>EMI amount <b>{{ money2(row.originalEmiAmount) }}</b></span>
             <span>Delayed interest <b>{{ money2(row.unpaidOverdueInterest) }}</b></span>
