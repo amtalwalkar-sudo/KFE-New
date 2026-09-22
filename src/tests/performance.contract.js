@@ -201,4 +201,11 @@ const historicalRateRange = { from:new Date('2026-08-01T00:00:00Z'), to:new Date
 const historicalRateMetrics = derivePerformance(historicalRateSnapshot, historicalRateRange, previousRange(historicalRateRange))
 near(historicalRateMetrics.maintenanceProvision, 1200, 'maintenance provision must respect historical rate changes')
 
+const timestampRateSnapshot = {
+  ...snapshot,
+  breakEvenInputs: [{ effectiveFrom:'2026-09-01T00:00:00.000Z', maintenanceProvisionPerKm:3, active:true }],
+}
+const timestampRateMetrics = derivePerformance(timestampRateSnapshot, range, previousRange(range))
+near(timestampRateMetrics.maintenanceProvision, 600, 'maintenance provision must apply an ISO timestamp rate to every vehicle KM')
+
 console.log('KFE Performance contract tests: PASS')
