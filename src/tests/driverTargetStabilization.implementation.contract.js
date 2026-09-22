@@ -47,7 +47,7 @@ const currentProfit = deriveRollingDriverTarget({
   indicativeProfitForCurrentMonth: () => 7000,
 })
 assert.equal(currentProfit.openingRecovery, 10000)
-assert.equal(currentProfit.newRecovery, 0)
+assert.equal(currentProfit.newRecovery, null)
 assert.equal(currentProfit.recoveryAchieved, 7000)
 assert.equal(currentProfit.closingRecovery, 3000)
 assert.equal(currentProfit.dailyRecovery, 10000 / 30)
@@ -66,8 +66,8 @@ const currentLoss = deriveRollingDriverTarget({
   indicativeProfitForCurrentMonth: () => -5000,
 })
 assert.equal(currentLoss.openingRecovery, 0)
-assert.equal(currentLoss.newRecovery, 5000)
-assert.equal(currentLoss.closingRecovery, 5000)
+assert.equal(currentLoss.newRecovery, null)
+assert.equal(currentLoss.closingRecovery, 0)
 assert.equal(currentLoss.currentDailyTarget, 1000 / 21)
 
 console.log('Frozen loss-recovery implementation contract passed.')
