@@ -57,7 +57,7 @@ const frozenFullHistoryForecastKm = 199.3793562314966
 assert.ok(Math.abs(fullTimelineForecast.dailyForecastKm - frozenFullHistoryForecastKm) < 1e-6)
 assert.ok(Math.abs(fullTimelineForecast.dailyForecastKm / 200 - 0.996896781157483) < 1e-12)
 const istToday = istDateKey(new Date())
-const istYesterday = istDateKey(new Date(Date.parse(`2026-09-23T00:00:00Z`) - 86400000))
+const istYesterday = istDateKey(new Date(Date.parse(istToday + 'T00:00:00Z') - 86400000))
 assert.equal(istCalendarDaysInclusive('2026-05-01', '2031-04-30'), 1826)
 assert.equal(week.loan_payments.length, 0)
 assert.equal(month.loan_payments.length, 0)
