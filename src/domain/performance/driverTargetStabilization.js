@@ -181,9 +181,18 @@ export function deriveRollingDriverTarget({
   const currentIndicativeProfit = typeof indicativeProfitForCurrentMonth === 'function'
     ? finite(indicativeProfitForCurrentMonth({ month: currentMonth, record: currentRecord, day: currentDay }))
     : null
+  const monthClosed = endDayKey >= calendarDayKeys(currentMonth).at(-1)
   const currentRecoveryState = currentIndicativeProfit == null
     ? { newRecovery: null, recoveryAchieved: null, closingRecovery: null, indicativeLoss: null }
-    : recoveryFromIndicativeProfit({ openingRecovery, indicativeProfit: currentIndicativeProfit })
+    : (() => {
+        const indicativeLoss = Math.max(0, -currentIndicativeProfit)
+        const recoveryAchieved = Math.min(openingRecovery, Math.max(0, currentIndicativeProfit))
+        const newRecovery = monthClosed ? indicativeLoss : null
+        const closingRecovery = monthClosed
+          ? Math.max(0, openingRecovery + newRecovery - recoveryAchieved)
+          : Math.max(0, openingRecovery - recoveryAchieved)
+        return { newRecovery, recoveryAchieved, closingRecovery, indicativeLoss }
+      })()
 
   return {
     available: Number.isFinite(currentDailyTarget), reason: Number.isFinite(currentDailyTarget) ? null : 'MISSING_AUTHORITATIVE_TARGET_INPUT',
