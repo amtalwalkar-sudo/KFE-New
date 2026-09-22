@@ -22,7 +22,7 @@ assert(db.includes('onupgradeneeded'), 'Migration hook missing')
 assert(db.includes('initializationPromise'), 'Initialization guard missing')
 assert(db.includes('dbInstance.onversionchange'), 'Version-change lifecycle handling missing')
 const version = Number(db.match(/CANONICAL_DB_VERSION\s*=\s*(\d+)/)?.[1])
-assert(version === 12, 'Canonical DB must be version 12 after historical period snapshot migration')
+assert(version === 13, 'Canonical DB must be version 13 after historical period snapshot migration')
 assert(contract.includes('cloud service must not be required'), 'Local-first boundary missing')
 
 const stores = ['financial_period_snapshots','shifts','trips','fuel_logs','vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','pending_mutations','audit_history']
