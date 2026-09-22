@@ -31,6 +31,7 @@ export const PerformanceService = Object.freeze({
       asOf: range.to,
     })
     const monthlyBreakEvenCache = new Map()
+    const monthlyIndicativeProfitCache = new Map()
 
     const authoritativeMonthlyBreakEvenForDay = ({ day }) => {
       const monthRange = istMonthRange(day)
@@ -43,6 +44,19 @@ export const PerformanceService = Object.freeze({
         : null
       monthlyBreakEvenCache.set(key, monthlyBreakEven)
       return monthlyBreakEven
+    }
+
+    const authoritativeIndicativeProfitForMonth = ({ month, day }) => {
+      if (monthlyIndicativeProfitCache.has(month)) return monthlyIndicativeProfitCache.get(month)
+      const monthRange = istMonthRange(day)
+      if (!monthRange) return null
+      const monthMetrics = deriveFinanceAwarePerformance(calculationSnapshot, monthRange, previousRange(monthRange))
+      const provision = Number(monthMetrics.maintenanceProvision) + Number(monthMetrics.renewalProvision)
+      const value = Number.isFinite(monthMetrics.revenue) && Number.isFinite(provision)
+        ? monthMetrics.revenue - provision
+        : null
+      monthlyIndicativeProfitCache.set(month, value)
+      return value
     }
 
     const targetMonthRange = istMonthRange(range.to)
@@ -63,6 +77,13 @@ export const PerformanceService = Object.freeze({
       to: stabilizationTo,
       applicableBreakEven: monthlyBreakEvenRevenue,
       historicalBreakEvenForDay: authoritativeMonthlyBreakEvenForDay,
+      historicalIndicativeProfitForMonth: authoritativeIndicativeProfitForMonth,
+      indicativeProfitForCurrentMonth: () => {
+        const provision = Number(metrics.maintenanceProvision) + Number(metrics.renewalProvision)
+        return Number.isFinite(metrics.revenue) && Number.isFinite(provision)
+          ? metrics.revenue - provision
+          : null
+      },
     })
     const canonicalTarget = stabilization.available && Number.isFinite(stabilization.currentDailyTarget)
       ? stabilization.currentDailyTarget
@@ -102,7 +123,7 @@ export const PerformanceService = Object.freeze({
       breakEvenInputs: metrics.breakEvenInputs,
       authority: {
         ...metrics.authority,
-        target: 'MONTHLY_BREAK_EVEN_PLUS_MONTHLY_DESIRED_DRIVER_PROFIT_PLUS_OPENING_ROLLING_BALANCE_AMORTIZED_OVER_REMAINING_ELIGIBLE_DAYS',
+        target: 'MONTHLY_BREAK_EVEN_PLUS_MONTHLY_DESIRED_DRIVER_PROFIT_PLUS_FINALIZED_PRIOR_LOSS_RECOVERY_WITH_CALENDAR_DAY_RECOVERY',
         breakEven: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN',
       },
       completeness: { ...metrics.completeness, target: targetAvailable, breakEven: authoritativeMonthlyBreakEven != null },
@@ -115,6 +136,14 @@ export const PerformanceService = Object.freeze({
       driverTargetBase: stabilization.currentBaseDaily,
       driverTargetRecoveryAdjustment: stabilization.recoveryAdjustment,
       driverTargetRollingBalance: stabilization.balance,
+      driverTargetOpeningRecovery: stabilization.openingRecovery,
+      driverTargetNewRecovery: stabilization.newRecovery,
+      driverTargetRecoveryAllocated: stabilization.recoveryAllocated,
+      driverTargetRecoveryAchieved: stabilization.recoveryAchieved,
+      driverTargetClosingRecovery: stabilization.closingRecovery,
+      driverTargetIndicativeProfit: stabilization.indicativeProfit,
+      driverTargetIndicativeLoss: stabilization.indicativeLoss,
+      driverTargetDailyRecovery: stabilization.dailyRecovery,
       driverTargetAvailable: targetAvailable,
       driverTargetReason: stabilization.reason,
       driverTargetOpeningBalance: stabilization.openingBalance,
