@@ -6,7 +6,7 @@ export const SYNTHETIC_STAGES = Object.freeze([
   { key: 'month', title: '1 month', days: 30 },
   { key: 'sixMonths', title: '6 months', days: 182 },
   { key: 'year', title: '1 year', days: 365 },
-  { key: 'fiveYears', title: '5 years', days: 1818 },
+  { key: 'fiveYears', title: '5 years', days: 1826, fullTimeline: true },
 ])
 
 const ACQUISITION_START = new Date('2026-04-09T00:00:00Z')
@@ -28,15 +28,18 @@ const nowIstDate = () => {
   return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour), minute: Number(parts.minute), second: Number(parts.second) }
 }
 const dateFromKey = key => new Date(`${key}T00:00:00Z`)
-const activeStageWindow = days => {
+const activeStageWindow = (days, options = {}) => {
   const now = new Date()
   const todayKey = nowIstDate().date
   const today = dateFromKey(todayKey)
-  const dataEnd = addDays(today, -1)
-  const requestedStart = addDays(dataEnd, -(days - 1))
+  const fullTimeline = options.fullTimeline === true
+  const dataEnd = fullTimeline
+    ? addDays(BUSINESS_START, days - 1)
+    : addDays(today, -1)
+  const requestedStart = fullTimeline ? BUSINESS_START : addDays(dataEnd, -(days - 1))
   const start = requestedStart < BUSINESS_START ? BUSINESS_START : requestedStart
   const generatedDays = Math.max(1, Math.floor((dataEnd.getTime() - start.getTime()) / 86400000) + 1)
-  return { start, today, todayKey, dataEnd, now, generatedDays }
+  return { start, today, todayKey, dataEnd, now, generatedDays, fullTimeline }
 }
 const capToNow = value => {
   const date = new Date(value)
@@ -74,8 +77,8 @@ const forecastScenarioKm = (dayIndex, generatedDays) => {
   return dayIndex >= scenarioStart ? FORECAST_SCENARIO_KM[dayIndex - scenarioStart] : 200
 }
 
-export const buildSyntheticSnapshot = days => {
-  const window = activeStageWindow(days)
+export const buildSyntheticSnapshot = (days, options = {}) => {
+  const window = activeStageWindow(days, options)
   const stageEnd = window.dataEnd
   const stageEndDate = window.todayKey
   const stageStart = window.start
@@ -170,7 +173,7 @@ export const buildSyntheticSnapshot = days => {
     { id: id('break-even', 'kfe'), effectiveFrom: KFE_START, effectiveUntil: stageEndDate, maintenanceProvisionPerKm: 1.6, active: true, synthetic: true },
   ]
   const settings = [{ id: 'synthetic-setting-manifest', settingKey: 'synthetic_dataset_manifest',
-    values: { synthetic: true, startDate: KFE_START, endDate: stageEndDate, days: generatedDays, requestedStageDays: days, kfeStartDate: KFE_START, maintenancePreKfe: 0.6, maintenanceKfe: 1.6, currentDateTime: window.now.toISOString(), emiPaidThrough: null,
+    values: { synthetic: true, startDate: KFE_START, endDate: stageEndDate, days: generatedDays, requestedStageDays: days, fullTimeline: window.fullTimeline, kfeStartDate: KFE_START, maintenancePreKfe: 0.6, maintenanceKfe: 1.6, currentDateTime: window.now.toISOString(), emiPaidThrough: null,
       forecastScenarios: generatedDays >= FORECAST_SCENARIO_KM.length ? { name: 'Operating KM forecast scenarios embedded in normal synthetic history', priorKm: 200, scenarioWindowDays: FORECAST_SCENARIO_KM.length, scenarios: ['280 sustained high', '300 sustained high', '100 sustained low', '500 isolated high', 'alternating 100/300', '100→300 transition', '300→100 transition'] } : null },
     updatedAt: new Date().toISOString() }]
   const loan = [{ id: LOAN_ID, lender: 'Synthetic Bank', accountReference: 'SYN-LOAN-001', principal: 550000,
@@ -190,7 +193,7 @@ export const getActiveDataSource = () => SyntheticDataRepository.activeDataSourc
 export const loadSyntheticStage = async key => {
   const stage = SYNTHETIC_STAGES.find(item => item.key === key)
   if (!stage) throw new Error('Unknown synthetic data stage.')
-  const snapshot = buildSyntheticSnapshot(stage.days, { profile: stage.profile })
+  const snapshot = buildSyntheticSnapshot(stage.days, { fullTimeline: stage.fullTimeline === true })
   await SyntheticDataRepository.writeSnapshot(snapshot)
   SyntheticDataRepository.activate()
   const manifest = snapshot.settings?.find(record => record.id === 'synthetic-setting-manifest')?.values
