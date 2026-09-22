@@ -33,9 +33,11 @@ const complianceProvisionForRecord = (record, shifts, r) => {
   const a = dateKeyDate(overlapFrom), b = dateKeyDate(overlapTo)
   if (!a || !b) return 0
   for (let cursor = a; cursor <= b; cursor = new Date(cursor.getTime() + 86400000)) {
-    const key = cursor.toISOString().slice(0, 10)
-    const dayRevenue = dailyRevenue.get(key) || 0
-    if (dayRevenue > 0) provision += dailyProvision
+    // Compliance is a fixed-validity obligation. It accrues for every
+    // calendar day in its validity period, regardless of whether a shift
+    // or revenue occurred on that day. Holidays therefore do not remove a
+    // day's provision or defer it to a later working day.
+    provision += dailyProvision
   }
   return provision
 }
