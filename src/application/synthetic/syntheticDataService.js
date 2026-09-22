@@ -166,8 +166,27 @@ export const buildSyntheticSnapshot = (days, options = {}) => {
   // can be exercised interactively in Synthetic Mode.
   const loanPayments = []
 
-  const driverTargets = [{ id: id('target', 1), driverId: DRIVER_ID, effectiveFrom: KFE_START, effectiveUntil: stageEndDate,
-    desiredDriverProfit: 1000, targetHours: 12, targetKm: 300, active: true, synthetic: true }]
+  const driverTargets = []
+  let targetCursor = new Date(Date.UTC(BUSINESS_START.getUTCFullYear(), BUSINESS_START.getUTCMonth(), 1))
+  const targetEnd = dateFromKey(stageEndDate)
+  let targetIndex = 0
+  while (targetCursor <= targetEnd) {
+    const nextMonth = new Date(Date.UTC(targetCursor.getUTCFullYear(), targetCursor.getUTCMonth() + 1, 1))
+    const monthEnd = addDays(nextMonth, -1)
+    const effectiveUntil = monthEnd < targetEnd ? monthEnd : targetEnd
+    driverTargets.push({
+      id: id('target', targetIndex++),
+      driverId: DRIVER_ID,
+      effectiveFrom: isoDate(targetCursor),
+      effectiveUntil: isoDate(effectiveUntil),
+      desiredDriverProfit: 1000,
+      targetHours: 12,
+      targetKm: 300,
+      active: true,
+      synthetic: true,
+    })
+    targetCursor = nextMonth
+  }
   const breakEvenInputs = [
     { id: id('break-even', 'pre-kfe'), effectiveFrom: '2026-04-01', effectiveUntil: '2026-04-08', maintenanceProvisionPerKm: 0.6, active: true, synthetic: true },
     { id: id('break-even', 'kfe'), effectiveFrom: KFE_START, effectiveUntil: stageEndDate, maintenanceProvisionPerKm: 1.6, active: true, synthetic: true },
