@@ -2,12 +2,12 @@ import assert from 'node:assert/strict'
 import { SYNTHETIC_STAGES, buildSyntheticSnapshot } from '../application/synthetic/syntheticDataService.js'
 import { clearSyntheticDateContext, getKfeReferenceNow, istCalendarDaysInclusive, istDateKey, reportingRangeFor, setSyntheticDateContext } from '../domain/time/ist.js'
 import { deriveLoanPosition } from '../domain/finance/loanEngine.js'
+import { deriveOperatingKmForecast } from '../domain/performance/operatingKmForecast.js'
 
 assert.deepEqual(SYNTHETIC_STAGES.map(stage => stage.days), [7, 30, 182, 365, 1826])
 const week = buildSyntheticSnapshot(7)
 const month = buildSyntheticSnapshot(30)
-const full = buildSyntheticSnapshot(1818)
-const forecastSimulation = buildSyntheticSnapshot(30)
+const full = buildSyntheticSnapshot(1826, { fullTimeline: true })
 
 for (const snapshot of [week, month, full]) {
   assert.equal(snapshot.vehicles.length, 1)
@@ -28,12 +28,11 @@ for (const snapshot of [week, month, full]) {
 }
 assert.equal(week.shifts.length, 7)
 assert.equal(month.shifts.length, 30)
-const fullFiveYears = buildSyntheticSnapshot(1826, { fullTimeline: true })
-assert.equal(fullFiveYears.shifts.length, 1826)
-assert.equal(fullFiveYears.settings[0].values.fullTimeline, true)
-assert.equal(fullFiveYears.settings[0].values.startDate, '2026-05-01')
-assert.equal(fullFiveYears.settings[0].values.endDate, '2031-04-30')
-assert.equal(fullFiveYears.shifts.at(-1).shiftEndAt.slice(0, 10), '2031-04-30')
+assert.equal(full.shifts.length, 1826)
+assert.equal(full.settings[0].values.fullTimeline, true)
+assert.equal(full.settings[0].values.startDate, '2026-05-01')
+assert.equal(full.settings[0].values.endDate, '2031-04-30')
+assert.equal(full.shifts.at(-1).shiftEndAt.slice(0, 10), '2031-04-30')
 
 const embeddedForecastKms = month.shifts.slice(-22).map(row => row.endOdometer - row.startOdometer)
 assert.deepEqual(embeddedForecastKms, [280, 280, 280, 280, 280, 300, 300, 300, 300, 300, 100, 100, 100, 100, 100, 200, 500, 200, 100, 300, 100, 300])
@@ -41,10 +40,22 @@ assert.equal(month.settings[0].values.forecastScenarios.scenarioWindowDays, 22)
 assert.ok(month.settings[0].values.forecastScenarios.scenarios.includes('alternating 100/300'))
 assert.ok(month.settings[0].values.forecastScenarios.scenarios.includes('100→300 transition'))
 assert.equal(week.settings[0].values.forecastScenarios, null)
+
+const fullTimelineForecast = deriveOperatingKmForecast({
+  from: '2026-05-01T00:00:00Z',
+  to: '2031-04-30T23:59:59Z',
+  asOf: full.shifts.at(-1).shiftEndAt,
+  shifts: full.shifts,
+})
+assert.equal(fullTimelineForecast.available, true)
+assert.equal(fullTimelineForecast.observedOperatingDays, 1826)
+assert.equal(fullTimelineForecast.observations.at(-1).km, 300)
+assert.equal(fullTimelineForecast.observations.slice(-22).map(row => row.km).join(','), embeddedForecastKms.join(','))
+assert.ok(Math.abs(fullTimelineForecast.dailyForecastKm - 199.3793562314966) < 1e-9)
+assert.ok(Math.abs(fullTimelineForecast.dailyForecastKm / 200 - 0.996896781157483) < 1e-9)
 const istToday = istDateKey(new Date())
 const istYesterday = istDateKey(new Date(Date.parse(`${istToday}T00:00:00Z`) - 86400000))
-const expectedFullShiftDays = istCalendarDaysInclusive('2026-05-01', istYesterday)
-assert.equal(full.shifts.length, expectedFullShiftDays)
+assert.equal(istCalendarDaysInclusive('2026-05-01', '2031-04-30'), 1826)
 assert.equal(week.loan_payments.length, 0)
 assert.equal(month.loan_payments.length, 0)
 assert.equal(full.loan_payments.length, 0)
