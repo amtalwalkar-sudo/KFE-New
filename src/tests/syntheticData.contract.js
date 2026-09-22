@@ -53,8 +53,7 @@ assert.equal(fullTimelineForecast.observations.at(-1).km, 300)
 assert.equal(fullTimelineForecast.observations.slice(-22).map(row => row.km).join(','), embeddedForecastKms.join(','))
 // The full-history contract freezes the deterministic 1,826-day forecast result,
 // but allows harmless IEEE-754 drift across Node/runtime builds.
-const frozenFullHistoryForecastKm = fullTimelineForecast.dailyForecastKm
-console.log('FULL_HISTORY_FORECAST_ACTUAL', fullTimelineForecast.dailyForecastKm, 'OBSERVED_DAYS', fullTimelineForecast.observedOperatingDays, 'LAST_30', fullTimelineForecast.observations.slice(-30).map(row => row.km).join(','))
+const frozenFullHistoryForecastKm = 212.21168510607765
 assert.ok(Math.abs(fullTimelineForecast.dailyForecastKm - frozenFullHistoryForecastKm) < 1e-6)
 assert.ok(Math.abs(fullTimelineForecast.dailyForecastKm / 200 - 0.996896781157483) < 1e-12)
 const istToday = istDateKey(new Date())
