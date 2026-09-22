@@ -3,14 +3,13 @@ import { SYNTHETIC_STAGES, buildSyntheticSnapshot } from '../application/synthet
 import { clearSyntheticDateContext, getKfeReferenceNow, istCalendarDaysInclusive, istDateKey, reportingRangeFor, setSyntheticDateContext } from '../domain/time/ist.js'
 import { deriveLoanPosition } from '../domain/finance/loanEngine.js'
 
-assert.deepEqual(SYNTHETIC_STAGES.map(stage => stage.days), [7, 30, 182, 365, 1818, 42])
-assert.equal(SYNTHETIC_STAGES.find(stage => stage.key === 'forecastSimulation')?.profile, 'forecastSimulation')
+assert.deepEqual(SYNTHETIC_STAGES.map(stage => stage.days), [7, 30, 182, 365, 1818])
 const week = buildSyntheticSnapshot(7)
 const month = buildSyntheticSnapshot(30)
 const full = buildSyntheticSnapshot(1818)
-const forecastSimulation = buildSyntheticSnapshot(42, { profile: 'forecastSimulation' })
+const forecastSimulation = buildSyntheticSnapshot(30)
 
-for (const snapshot of [week, month, full, forecastSimulation]) {
+for (const snapshot of [week, month, full]) {
   assert.equal(snapshot.vehicles.length, 1)
   assert.equal(snapshot.drivers.length, 1)
   assert.equal(snapshot.loans.length, 1)
@@ -29,15 +28,12 @@ for (const snapshot of [week, month, full, forecastSimulation]) {
 }
 assert.equal(week.shifts.length, 7)
 assert.equal(month.shifts.length, 30)
-assert.equal(forecastSimulation.shifts.length, 42)
-const simulationKms = forecastSimulation.shifts.slice(-22).map(row => row.endOdometer - row.startOdometer)
-assert.deepEqual(simulationKms.slice(0, 5), [200, 200, 200, 200, 200])
-assert.deepEqual(simulationKms.slice(5, 10), [280, 280, 280, 280, 280])
-assert.deepEqual(simulationKms.slice(10, 15), [300, 300, 300, 300, 300])
-assert.deepEqual(simulationKms.slice(15, 20), [100, 100, 100, 100, 100])
-assert.deepEqual(simulationKms.slice(20), [500, 50])
-assert.equal(forecastSimulation.settings[0].values.forecastSimulation.scenarioWindowDays, 22)
-assert.ok(forecastSimulation.settings[0].values.forecastSimulation.scenarios.includes('100→300 reversal'))
+const embeddedForecastKms = month.shifts.slice(-22).map(row => row.endOdometer - row.startOdometer)
+assert.deepEqual(embeddedForecastKms, [280, 280, 280, 280, 280, 300, 300, 300, 300, 300, 100, 100, 100, 100, 100, 200, 500, 200, 100, 300, 100, 300])
+assert.equal(month.settings[0].values.forecastScenarios.scenarioWindowDays, 22)
+assert.ok(month.settings[0].values.forecastScenarios.scenarios.includes('alternating 100/300'))
+assert.ok(month.settings[0].values.forecastScenarios.scenarios.includes('100→300 transition'))
+assert.equal(week.settings[0].values.forecastScenarios, null)
 const istToday = istDateKey(new Date())
 const istYesterday = istDateKey(new Date(Date.parse(`${istToday}T00:00:00Z`) - 86400000))
 const expectedFullShiftDays = istCalendarDaysInclusive('2026-05-01', istYesterday)
