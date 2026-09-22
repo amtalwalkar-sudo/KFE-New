@@ -80,7 +80,7 @@ const forecastScenarioKm = (dayIndex, generatedDays) => {
 export const buildSyntheticSnapshot = (days, options = {}) => {
   const window = activeStageWindow(days, options)
   const stageEnd = window.dataEnd
-  const stageEndDate = window.todayKey
+  const stageEndDate = window.fullTimeline ? isoDate(stageEnd) : window.todayKey
   const stageStart = window.start
   const generatedDays = window.generatedDays
   const vehicles = [{ id: VEHICLE_ID, registrationNumber: 'SYN-KFE-001', make: 'Synthetic', model: 'Test Vehicle', variant: 'CNG',
