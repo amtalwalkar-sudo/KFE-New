@@ -8,6 +8,7 @@ import { normalizeCalculationSnapshot } from './normalizeCalculationSnapshot.js'
 import { istMonthRange } from '../../domain/time/ist.js'
 import { deriveFinancialFactModel } from '../../domain/finance/financialFactModel.js'
 import { deriveOperatingKmForecast } from '../../domain/performance/operatingKmForecast.js'
+import { getPerformanceDiagnostics } from '../../domain/performance/performanceDiagnostics.js'
 
 export const PerformanceService = Object.freeze({
   async getSnapshot() {
@@ -143,5 +144,8 @@ export const PerformanceService = Object.freeze({
   },
   getLayerRows(card, layer, metrics) {
     return layerRows(card, layer, metrics)
+  },
+  getDiagnostics(metrics) {
+    return getPerformanceDiagnostics(metrics)
   },
 })
