@@ -74,6 +74,7 @@ export function derivePerformance(s, r, p = previousRange(r)) {
   const compliancePaymentsById = Object.fromEntries(live(s?.settlements).filter(x => String(x.sourceType || '') === 'Compliance' && String(x.direction || 'OUT').toUpperCase() === 'OUT' && inR(x.settledOn || x.paidOn || x.createdAt, r)).reduce((map, payment) => { map[payment.sourceId] = (map[payment.sourceId] || 0) + n(payment.amount); return map }, {}))
   const complianceProvisionBalancesById = Object.fromEntries(Object.entries(complianceProvisionById).map(([id, value]) => [id, value - (compliancePaymentsById[id] || 0)]))
   const provision = maintenanceProvision + ren
+  const prevProvision = prevMaintenanceProvision + pren
   const wd = days(r.from, r.to), elapsed = wd, activeDays = new Set(a.sh.map(x => istDateKey(d(x.shiftEndAt || x.shiftStartAt))).filter(Boolean)).size, prevActive = new Set(q.sh.map(x => istDateKey(d(x.shiftEndAt || x.shiftStartAt))).filter(Boolean)).size
   const perDay = activeDays ? a.revenue / activeDays : NaN
   const provisionAdjustedProfit = a.operatingProfit - provision, prevProvisionAdjustedProfit = q.operatingProfit - prevProvision
