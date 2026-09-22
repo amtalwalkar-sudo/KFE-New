@@ -63,6 +63,7 @@ export const PerformanceService = Object.freeze({
       to: stabilizationTo,
       applicableBreakEven: monthlyBreakEvenRevenue,
       historicalBreakEvenForDay: authoritativeMonthlyBreakEvenForDay,
+      operatingKmForecast,
     })
     const canonicalTarget = stabilization.available && Number.isFinite(stabilization.currentDailyTarget)
       ? stabilization.currentDailyTarget
@@ -113,6 +114,8 @@ export const PerformanceService = Object.freeze({
       },
       driverTarget: canonicalTarget,
       driverTargetBase: stabilization.currentBaseDaily,
+      driverTargetOperatingKmForecast: stabilization.operatingKmForecastDaily,
+      driverTargetOperatingKmMultiplier: stabilization.operatingKmMultiplier,
       driverTargetRecoveryAdjustment: stabilization.recoveryAdjustment,
       driverTargetRollingBalance: stabilization.balance,
       driverTargetAvailable: targetAvailable,
