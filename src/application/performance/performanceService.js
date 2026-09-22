@@ -78,11 +78,18 @@ export const PerformanceService = Object.freeze({
       applicableBreakEven: monthlyBreakEvenRevenue,
       historicalBreakEvenForDay: authoritativeMonthlyBreakEvenForDay,
       historicalIndicativeProfitForMonth: authoritativeIndicativeProfitForMonth,
-      indicativeProfitForCurrentMonth: () => {
-        const provision = Number(metrics.maintenanceProvision) + Number(metrics.renewalProvision)
-        return Number.isFinite(metrics.revenue) && Number.isFinite(provision)
-          ? metrics.revenue - provision
+      indicativeProfitForCurrentMonth: ({ month }) => {
+        if (monthlyIndicativeProfitCache.has(month)) return monthlyIndicativeProfitCache.get(month)
+        const monthRange = istMonthRange(stabilizationTo)
+        if (!monthRange) return null
+        const asOfMonthRange = { ...monthRange, to: stabilizationTo }
+        const monthMetrics = deriveFinanceAwarePerformance(calculationSnapshot, asOfMonthRange, previousRange(asOfMonthRange))
+        const provision = Number(monthMetrics.maintenanceProvision) + Number(monthMetrics.renewalProvision)
+        const value = Number.isFinite(monthMetrics.revenue) && Number.isFinite(provision)
+          ? monthMetrics.revenue - provision
           : null
+        monthlyIndicativeProfitCache.set(month, value)
+        return value
       },
     })
     const canonicalTarget = stabilization.available && Number.isFinite(stabilization.currentDailyTarget)
