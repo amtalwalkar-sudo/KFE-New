@@ -177,6 +177,26 @@ export function deriveFinancialFactModel({ snapshot = {}, metrics = {}, range = 
     }))
   }
 
+  const settlements = LIVE(snapshot?.settlements).filter(record => inRange(record.settledOn || record.paidOn || record.createdAt, range))
+  const settlementCashMovement = settlements.reduce((sum, record) => {
+    const amount = amountOf(record.amount) || 0
+    const direction = String(record.direction || (record.settlementType === 'Receipt' ? 'IN' : 'OUT')).toUpperCase()
+    return sum + (direction === 'IN' ? amount : -amount)
+  }, 0)
+  const settlementPaid = settlements.filter(record => String(record.direction || (record.settlementType === 'Receipt' ? 'IN' : 'OUT')).toUpperCase() === 'OUT').reduce((sum, record) => sum + (amountOf(record.amount) || 0), 0)
+  const settlementReceived = settlements.filter(record => String(record.direction || (record.settlementType === 'Receipt' ? 'IN' : 'OUT')).toUpperCase() === 'IN').reduce((sum, record) => sum + (amountOf(record.amount) || 0), 0)
+  for (const settlement of settlements) {
+    const direction = String(settlement.direction || (settlement.settlementType === 'Receipt' ? 'IN' : 'OUT')).toUpperCase() === 'IN' ? 'IN' : 'OUT'
+    const amount = amountOf(settlement.amount)
+    if (amount != null) add(fact({
+      id: `settlement:${settlement.id}`, factType: 'SETTLEMENT', basis: 'ACTUAL', direction, amount,
+      occurredOn: dateOf(settlement.settledOn || settlement.paidOn || settlement.createdAt)?.toISOString() || null,
+      sourceType: settlement.sourceType || 'EXPLICIT_SETTLEMENT', sourceId: settlement.sourceId || settlement.id,
+      evidenceStatus: 'AUTHORITATIVE',
+      metadata: { settlementType: settlement.settlementType || (direction === 'IN' ? 'Receipt' : 'Payment'), paymentMethod: settlement.paymentMethod || null, referenceNumber: settlement.referenceNumber || null },
+    }))
+  }
+
   const explicitReceivables = LIVE(snapshot?.receivables).filter(record => inRange(record.occurredOn || record.dueOn || record.createdAt, range))
   const explicitPayables = LIVE(snapshot?.payables).filter(record => inRange(record.occurredOn || record.dueOn || record.createdAt, range))
   const explicitCash = LIVE(snapshot?.cashTransactions).filter(record => inRange(record.occurredOn || record.paidOn || record.createdAt, range))
