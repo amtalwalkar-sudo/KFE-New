@@ -174,8 +174,8 @@ export function deriveRollingDriverTarget({
   const recoveryAllocatedBeforeCurrentDay = Math.min(openingRecovery, elapsedCalendarDaysBeforeCurrent * dailyRecovery)
   const recoveryRemaining = Math.max(0, openingRecovery - recoveryAllocatedBeforeCurrentDay)
   const remainingDays = remainingEligibleDays({ month: currentMonth, currentDay, priorHolidayKeys })
-  const remainingObligation = Math.max(0, baseMonthly - targetAllocatedBeforeCurrentDay)
-  const currentBaseDaily = baseMonthly / remainingDays
+  const remainingObligation = Math.max(0, priorRemainingBaseObligation)
+  const currentBaseDaily = remainingObligation / remainingDays
   const currentDailyTarget = currentBaseDaily + dailyRecovery
   const recoveryAdjustment = dailyRecovery
   const currentIndicativeProfit = typeof indicativeProfitForCurrentMonth === 'function'
