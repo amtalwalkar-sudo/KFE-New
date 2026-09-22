@@ -8,7 +8,17 @@ const range = {
   from: istDayRange('2026-05-01T00:00:00+05:30').from,
   to: istDayRange('2031-04-30T00:00:00+05:30').to,
 }
-const metrics = PerformanceService.getMetrics(snapshot, range)
+const calculationSnapshot = {
+  ...snapshot,
+  fuelLogs: snapshot.fuel_logs,
+  compliance: snapshot.compliance_records,
+  maintenance: snapshot.maintenance_records,
+  loanPayments: snapshot.loan_payments,
+  driverTargets: snapshot.driver_targets,
+  breakEvenInputs: snapshot.break_even_inputs,
+  settlements: [],
+}
+const metrics = PerformanceService.getMetrics(calculationSnapshot, range)
 
 assert.equal(snapshot.shifts.length, 1826)
 assert.equal(snapshot.trips.length, 8951)
@@ -16,7 +26,6 @@ assert.equal(snapshot.driver_targets.length, 60)
 assert.equal(metrics.operatingKmForecast.available, true)
 assert.equal(metrics.operatingKmForecast.observedOperatingDays, 1826)
 assert.ok(Math.abs(metrics.operatingKmForecast.calculatedForecast.dailyKm - 212.21168510607765) < 1e-6)
-console.log('Synthetic target multiplier:', metrics.driverTargetOperatingKmMultiplier, 'forecast:', metrics.operatingKmForecast?.calculatedForecast?.dailyKm, 'available:', metrics.driverTargetAvailable, 'reason:', metrics.driverTargetReason)
 assert.ok(Math.abs(metrics.driverTargetOperatingKmMultiplier - 1.0610584255303882) < 1e-12)
 assert.equal(metrics.driverTargetOperatingKmForecast, metrics.operatingKmForecast.calculatedForecast.dailyKm)
 assert.equal(metrics.driverTargetAvailable, true)
