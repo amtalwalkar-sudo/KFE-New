@@ -14,7 +14,7 @@ import { getKfeThemeSettings, setKfeThemeMode } from '../presentation/theme/kfeT
 const groups=[
  {key:'businessSetup',title:'Business Setup',icon:'◉',forms:['vehicle','driver'],description:'Core vehicle and driver master data.'},
  {key:'vehicleRecords',title:'Vehicle Records',icon:'▣',forms:['compliance','maintenance'],description:'Vehicle compliance and maintenance records.'},
- {key:'finance',title:'Finance',icon:'₹',forms:['loan','loanPayment','prepayment'],description:'Loans and actual financing movements.'},
+ {key:'finance',title:'Finance',icon:'₹',forms:['loan','loanPayment','prepayment','settlement'],description:'Loans, financing movements and explicit cash settlements.'},
  {key:'planningControls',title:'Planning & Controls',icon:'⌁',forms:['driverTarget','breakEvenInputs'],description:'Effective-dated targets and break-even inputs.'}
 ]
 const settingsMenu=[
@@ -61,6 +61,7 @@ onMounted(load)
 <template v-if="adminSection==='records'">
 <nav class="category-slider" aria-label="Business control categories" @touchstart="onCategoryTouchStart" @touchend="onCategoryTouchEnd"><button v-for="group in groups" :key="group.key" class="category-tab" :class="{active:currentGroup.key===group.key}" @click="chooseGroup(group)"><span class="category-icon">{{group.icon}}</span><span>{{group.title}}</span></button></nav>
 <section class="workspace"><div class="workspace-head"><div><div class="section-label">{{currentGroup.title}}</div><h2>{{baseDefinition.title}}</h2><p>{{currentGroup.description}}</p></div><button class="primary" @click="add">＋ Create {{baseDefinition.createLabel||baseDefinition.title}}</button></div>
+<p v-if="selected==='settlement'" class="form-note">Record only an actual payment or receipt. Paid, received and outstanding amounts are derived; do not enter them here.</p>
 <nav class="record-tabs" :aria-label="currentGroup.title"><button v-for="key in currentGroup.forms" :key="key" :class="{active:selected===key}" @click="choose(key)">{{ADMIN_FORM_DEFINITIONS[key].collectionTitle||ADMIN_FORM_DEFINITIONS[key].title}}</button></nav>
 <p v-if="error" class="message error">{{error}}</p><p v-if="notice" class="message notice">✓ {{notice}}</p>
 <UniversalAdminForm v-if="formOpen" :definition="activeDefinition" :model-value="draft" :busy="loading" @update:model-value="draft=$event" @submit="save" @cancel="formOpen=false;editing=null;draft={}" :submit-label="editing!==null?'Update record':'Save record'" />
