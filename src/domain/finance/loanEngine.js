@@ -107,6 +107,7 @@ function scheduleWithPrepayments(loan, prepayments = [], asOf = null) {
     const closingPrincipalPaise = Math.max(0, segmentPrincipalPaise - scheduledPrincipalPaise)
 
     rows.push({
+      periodStart: previousDate.toISOString(),
       id: `${loan.id}:emi:${sequence}`,
       loanId: loan.id,
       emiNumber: sequence,
@@ -198,8 +199,20 @@ export function deriveLoanPosition({ loan, payments = [], prepayments = [], asOf
     .filter(row => rupeesToPaise(row.overdueAmount) > 0)
 
   const scheduledDuePaise = obligations.filter(row => dateOf(row.dueDate) <= effectiveAsOf).reduce((sum, row) => sum + rupeesToPaise(row.originalEmiAmount), 0)
+  // EMI is a fixed-validity obligation. Accrue its daily share across every
+  // calendar day in each EMI period, including holidays/non-working days.
+  const provisionAccumulatedPaise = obligations.reduce((sum, row) => {
+    const start = dateOf(row.periodStart)
+    const due = dateOf(row.dueDate)
+    if (!start || !due || effectiveAsOf < start) return sum
+    const end = effectiveAsOf < due ? effectiveAsOf : due
+    const totalDays = Math.max(1, calendarDayCount(start, due) + 1)
+    const elapsedDays = Math.max(0, Math.min(totalDays, calendarDayCount(start, end) + 1))
+    return sum + Math.round(rupeesToPaise(row.originalEmiAmount) * elapsedDays / totalDays)
+  }, 0)
   const actualPaidPaise = live(payments).filter(payment => payment.loanId === loan.id && String(payment.status || '').toLowerCase() !== 'reversed' && dateOf(payment.paidOn) <= effectiveAsOf).reduce((sum, payment) => sum + rupeesToPaise(payment.amount), 0)
   const actualPrepaymentPaise = live(prepayments).filter(payment => payment.loanId === loan.id && String(payment.status || '').toLowerCase() === 'applied' && dateOf(payment.paidOn) <= effectiveAsOf).reduce((sum, payment) => sum + rupeesToPaise(payment.amount), 0)
+  const loanProvisionBalancePaise = provisionAccumulatedPaise - actualPaidPaise
   const scheduledInterestPaise = obligations.filter(row => dateOf(row.dueDate) <= effectiveAsOf).reduce((sum, row) => sum + rupeesToPaise(row.originalInterestComponent), 0)
   const scheduledPrincipalPaise = obligations.filter(row => dateOf(row.dueDate) <= effectiveAsOf).reduce((sum, row) => sum + rupeesToPaise(row.originalPrincipalComponent), 0)
   const paidPrincipalPaise = obligations.reduce((sum, row) => sum + rupeesToPaise(row.scheduledPrincipalPaid), 0)
@@ -220,6 +233,8 @@ export function deriveLoanPosition({ loan, payments = [], prepayments = [], asOf
     actualPaid: paiseToRupees(actualPaidPaise),
     actualPrepayment: paiseToRupees(actualPrepaymentPaise),
     actualFinancingOutflow: paiseToRupees(actualPaidPaise + actualPrepaymentPaise),
+    provisionAccumulated: paiseToRupees(provisionAccumulatedPaise),
+    provisionBalance: paiseToRupees(loanProvisionBalancePaise),
     outstandingPrincipal: paiseToRupees(outstandingPrincipalPaise),
     remainingInterest: paiseToRupees(totalRemainingInterestPaise),
     scheduledFinalDate: schedule.at(-1)?.dueDate || null,
