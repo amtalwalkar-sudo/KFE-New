@@ -2,11 +2,13 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { getKfeReferenceNow, istDayRange, istMonthRange, istParts } from '../domain/time/ist.js'
+import { SyntheticDataService } from '../application/synthetic/syntheticDataService.js'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const PERIODS = ['DAY', 'WEEK', 'MONTH', 'YEAR', 'CUSTOM']
-const period = ref('MONTH')
+const syntheticSource = SyntheticDataService.getActiveDataSource() === 'synthetic'
+const period = ref(syntheticSource ? 'SYNTHETIC' : 'MONTH')
 const anchor = ref(getKfeReferenceNow())
 const customFrom = ref('')
 const customTo = ref('')
@@ -25,7 +27,20 @@ const dayAtNoon = value => { const p = istParts(value); return p ? new Date(Date
 const weekStart = value => { const day = dayAtNoon(value); return new Date(day.getTime() - ((day.getUTCDay() + 6) % 7) * 86400000) }
 const yearRange = value => { const p = istParts(value); if (!p) return istDayRange(value); const from = new Date(Date.UTC(p.year, 0, 1, 12)); const to = new Date(Date.UTC(p.year, 11, 31, 12)); return { from: istDayRange(from).from, to: istDayRange(to).to } }
 
+const syntheticHistoryRange = computed(() => {
+  if (SyntheticDataService.getActiveDataSource() !== 'synthetic') return null
+  const shifts = snapshot.value?.shifts || []
+  const dates = shifts.map(row => row.shiftStartAt || row.shiftEndAt).map(value => new Date(value)).filter(date => !Number.isNaN(date.getTime()))
+  if (!dates.length) return null
+  const from = new Date(Math.min(...dates.map(date => date.getTime())))
+  const to = new Date(Math.max(...dates.map(date => date.getTime())))
+  return { from: istDayRange(from).from, to: istDayRange(to).to }
+})
+const syntheticFullHistoryAvailable = computed(() => SyntheticDataService.getActiveDataSource() === 'synthetic' && Number(snapshot.value?.shifts?.length) === 1826 && Boolean(syntheticHistoryRange.value))
+const periodOptions = computed(() => syntheticFullHistoryAvailable.value ? ['SYNTHETIC', ...PERIODS] : PERIODS)
+
 const range = computed(() => {
+  if (period.value === 'SYNTHETIC') return syntheticHistoryRange.value || istMonthRange(anchor.value, anchor.value)
   if (period.value === 'CUSTOM' && customFrom.value && customTo.value) return { from: istDayRange(`${customFrom.value}T00:00:00+05:30`).from, to: istDayRange(`${customTo.value}T00:00:00+05:30`).to }
   if (period.value === 'DAY') return istDayRange(anchor.value)
   if (period.value === 'WEEK') { const from = weekStart(anchor.value); const to = new Date(from.getTime() + 6 * 86400000); return { from: istDayRange(from).from, to: istDayRange(to).to } }
@@ -35,6 +50,7 @@ const range = computed(() => {
 
 const periodLabel = computed(() => {
   const f = options => new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', ...options })
+  if (period.value === 'SYNTHETIC') return syntheticHistoryRange.value ? `${f({day:'numeric',month:'short',year:'numeric'}).format(syntheticHistoryRange.value.from)} – ${f({day:'numeric',month:'short',year:'numeric'}).format(syntheticHistoryRange.value.to)}` : '5-year synthetic history'
   if (period.value === 'CUSTOM') return customFrom.value && customTo.value ? `${f({day:'numeric',month:'short',year:'numeric'}).format(new Date(`${customFrom.value}T12:00:00Z`))} – ${f({day:'numeric',month:'short',year:'numeric'}).format(new Date(`${customTo.value}T12:00:00Z`))}` : 'Choose dates'
   if (period.value === 'DAY') return f({ weekday:'short', day:'numeric', month:'short', year:'numeric' }).format(anchor.value)
   if (period.value === 'WEEK') { const s=weekStart(anchor.value), e=new Date(s.getTime()+6*86400000); return `${f({day:'numeric',month:'short'}).format(s)} – ${f({day:'numeric',month:'short',year:'numeric'}).format(e)}` }
@@ -69,6 +85,17 @@ const targetLeft = computed(() => target.value != null && targetRevenue.value !=
 const breakEven = computed(() => finite(m.value.monthlyBreakEvenRevenue))
 const breakEvenLeft = computed(() => breakEven.value != null && targetRevenue.value != null ? Math.max(0, breakEven.value - targetRevenue.value) : null)
 const forecast = computed(() => m.value.operatingKmForecast || null)
+const syntheticSummary = computed(() => {
+  if (!syntheticFullHistoryAvailable.value || period.value !== 'SYNTHETIC') return null
+  const dailyForecast = finite(forecast.value?.calculatedForecast?.dailyKm)
+  const multiplier = finite(m.value.driverTargetOperatingKmMultiplier)
+  return {
+    shifts: snapshot.value.shifts.length,
+    dailyForecast,
+    multiplier,
+    observedDays: finite(forecast.value?.observedOperatingDays),
+  }
+})
 const forecastKm = computed(() => finite(forecast.value?.effectiveForecast?.fullPeriodKm))
 const actualKm = computed(() => finite(m.value.vehicleKm))
 const outlookItems = computed(() => [
@@ -162,10 +189,10 @@ onBeforeUnmount(()=>unsubscribeChanges())
 
       <section class="period-bar" aria-label="Performance period">
         <div class="period-segment">
-          <button v-for="item in PERIODS" :key="item" :class="{active:period===item}" @click="choosePeriod(item)">{{ item }}</button>
+          <button v-for="item in periodOptions" :key="item" :class="{active:period===item}" @click="choosePeriod(item)">{{ item==='SYNTHETIC' ? '5 YEARS' : item }}</button>
         </div>
-        <div v-if="period!=='CUSTOM'" class="period-nav"><button @click="movePeriod(-1)" aria-label="Previous period">‹</button><strong>{{ periodLabel }}</strong><button @click="movePeriod(1)" aria-label="Next period">›</button></div>
-        <div v-else class="custom-dates"><label>From<input v-model="customFrom" type="date"></label><label>To<input v-model="customTo" type="date"></label><button :disabled="!customFrom||!customTo||customFrom>customTo" @click="applyCustom">Apply</button></div>
+        <div v-if="period!=='CUSTOM'&&period!=='SYNTHETIC'" class="period-nav"><button @click="movePeriod(-1)" aria-label="Previous period">‹</button><strong>{{ periodLabel }}</strong><button @click="movePeriod(1)" aria-label="Next period">›</button></div>
+        <div v-else-if="period==='CUSTOM'" class="custom-dates"><label>From<input v-model="customFrom" type="date"></label><label>To<input v-model="customTo" type="date"></label><button :disabled="!customFrom||!customTo||customFrom>customTo" @click="applyCustom">Apply</button></div>
       </section>
 
       <section class="business-result">
@@ -183,6 +210,16 @@ onBeforeUnmount(()=>unsubscribeChanges())
         <button @click="openDetail('revenueKm')"><small>REVENUE / KM</small><strong>{{ money2(m.revenuePerKm) }}</strong></button>
         <button @click="openDetail('revenueHour')"><small>REVENUE / HOUR</small><strong>{{ money2(m.revenuePerHour) }}</strong></button>
         <button @click="openDetail('fuelEconomy')"><small>FUEL ECONOMY</small><strong>{{ fuelEconomy == null ? '—' : num(fuelEconomy) + ' KM/KG' }}</strong></button>
+      </section>
+
+      <section v-if="syntheticSummary" class="synthetic-result-card">
+        <div class="section-head"><div><small>SYNTHETIC · FULL HISTORY</small><h2>5-year calculation result</h2></div><span>Engine output</span></div>
+        <div class="synthetic-result-grid">
+          <div><span>History</span><strong>{{ syntheticSummary.shifts.toLocaleString('en-IN') }} shifts</strong><small>{{ syntheticSummary.observedDays?.toLocaleString('en-IN') }} observed operating days</small></div>
+          <div><span>Operating KM forecast</span><strong>{{ syntheticSummary.dailyForecast == null ? '—' : syntheticSummary.dailyForecast.toFixed(4) }} KM/day</strong><small>Full-history frozen forecast</small></div>
+          <div><span>KM → Driver Target multiplier</span><strong>{{ syntheticSummary.multiplier == null ? '—' : syntheticSummary.multiplier.toFixed(6) }}×</strong><small>Authoritative target volume multiplier</small></div>
+        </div>
+        <p>These values are calculated from the loaded synthetic IndexedDB history through the same Performance → Forecast → Driver Target path used by the contract tests.</p>
       </section>
 
       <section class="outlook-card">

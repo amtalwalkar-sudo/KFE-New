@@ -91,6 +91,10 @@ export const buildSyntheticSnapshot = (days, options = {}) => {
   const shifts = [], trips = [], fuel_logs = [], odoGaps = [], maintenance_records = [], daysStore = []
   let odometer = OPENING_ODO
   let maintenanceBase = OPENING_ODO
+  fuel_logs.push({ id: id('fuel', 'baseline'), vehicleId: VEHICLE_ID, odometer: OPENING_ODO, pricePerKg: CNG_PRICE, amount: CNG_PRICE * 10,
+    quantityKg: 10, isFullTank: true, latitude: null, longitude: null, accuracy: null,
+    provenance: 'SYNTHETIC_BASELINE_TANK_FULL', capturedAt: at(addDays(BUSINESS_START, -1), 23, 59), createdAt: at(addDays(BUSINESS_START, -1), 23, 59),
+    updatedAt: at(addDays(BUSINESS_START, -1), 23, 59), synthetic: true })
 
   const preKfeKm = 200
   maintenance_records.push({ id: id('maintenance', 'pre-kfe'), vehicleId: VEHICLE_ID, performedOn: '2026-04-09',
@@ -147,7 +151,7 @@ export const buildSyntheticSnapshot = (days, options = {}) => {
       tollParkingRevenueTreatment: treatment, shiftStartAt, shiftEndAt, status: 'COMPLETED', synthetic: true, createdAt: shiftStartAt, updatedAt: shiftEndAt })
 
     const quantity = round(vehicleKm / (isCity ? 20 : 30))
-    fuel_logs.push({ id: id('fuel', i), odometer: endOdo, pricePerKg: CNG_PRICE, amount: round(quantity * CNG_PRICE),
+    fuel_logs.push({ id: id('fuel', i), vehicleId: VEHICLE_ID, odometer: endOdo, pricePerKg: CNG_PRICE, amount: round(quantity * CNG_PRICE),
       quantityKg: quantity, isFullTank: true, latitude: null, longitude: null, accuracy: null,
       provenance: 'SYNTHETIC_TANK_FULL_TO_FULL', capturedAt: shiftEndAt, createdAt: shiftEndAt, updatedAt: shiftEndAt, synthetic: true })
     if (endOdo - maintenanceBase >= 10000) {
@@ -166,8 +170,10 @@ export const buildSyntheticSnapshot = (days, options = {}) => {
   // can be exercised interactively in Synthetic Mode.
   const loanPayments = []
 
-  const driverTargets = [{ id: id('target', 1), driverId: DRIVER_ID, effectiveFrom: KFE_START, effectiveUntil: stageEndDate,
-    desiredDriverProfit: 1000, targetHours: 12, targetKm: 300, active: true, synthetic: true }]
+  const driverTargets = [{
+    id: id('target', 1), driverId: DRIVER_ID, effectiveFrom: KFE_START, effectiveUntil: stageEndDate,
+    desiredDriverProfit: 1000, desiredTakeHome: 1000, targetHours: 12, targetKm: 300, active: true, synthetic: true,
+  }]
   const breakEvenInputs = [
     { id: id('break-even', 'pre-kfe'), effectiveFrom: '2026-04-01', effectiveUntil: '2026-04-08', maintenanceProvisionPerKm: 0.6, active: true, synthetic: true },
     { id: id('break-even', 'kfe'), effectiveFrom: KFE_START, effectiveUntil: stageEndDate, maintenanceProvisionPerKm: 1.6, active: true, synthetic: true },
