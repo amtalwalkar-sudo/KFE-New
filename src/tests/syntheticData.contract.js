@@ -3,7 +3,7 @@ import { SYNTHETIC_STAGES, buildSyntheticSnapshot } from '../application/synthet
 import { clearSyntheticDateContext, getKfeReferenceNow, istCalendarDaysInclusive, istDateKey, reportingRangeFor, setSyntheticDateContext } from '../domain/time/ist.js'
 import { deriveLoanPosition } from '../domain/finance/loanEngine.js'
 
-assert.deepEqual(SYNTHETIC_STAGES.map(stage => stage.days), [7, 30, 182, 365, 1818])
+assert.deepEqual(SYNTHETIC_STAGES.map(stage => stage.days), [7, 30, 182, 365, 1826])
 const week = buildSyntheticSnapshot(7)
 const month = buildSyntheticSnapshot(30)
 const full = buildSyntheticSnapshot(1818)
@@ -28,6 +28,13 @@ for (const snapshot of [week, month, full]) {
 }
 assert.equal(week.shifts.length, 7)
 assert.equal(month.shifts.length, 30)
+const fullFiveYears = buildSyntheticSnapshot(1826, { fullTimeline: true })
+assert.equal(fullFiveYears.shifts.length, 1826)
+assert.equal(fullFiveYears.settings[0].values.fullTimeline, true)
+assert.equal(fullFiveYears.settings[0].values.startDate, '2026-05-01')
+assert.equal(fullFiveYears.settings[0].values.endDate, '2031-04-30')
+assert.equal(fullFiveYears.shifts.at(-1).shiftEndAt.slice(0, 10), '2031-04-30')
+
 const embeddedForecastKms = month.shifts.slice(-22).map(row => row.endOdometer - row.startOdometer)
 assert.deepEqual(embeddedForecastKms, [280, 280, 280, 280, 280, 300, 300, 300, 300, 300, 100, 100, 100, 100, 100, 200, 500, 200, 100, 300, 100, 300])
 assert.equal(month.settings[0].values.forecastScenarios.scenarioWindowDays, 22)
