@@ -32,7 +32,7 @@ function toFormRecord(formKey, record) {
   }
   return { id, values: structuredClone(values), createdAt, updatedAt, ...(deletedAt ? { deletedAt } : {}), ...(deleted ? { deleted } : {}) }
 }
-const settlementSourceStore = Object.freeze({ Maintenance: 'maintenance_records', Compliance: 'compliance_records', 'Vehicle acquisition': 'vehicles', 'Shift revenue': 'shifts' })
+const settlementSourceStore = Object.freeze({ Maintenance: 'maintenance_records', Compliance: 'compliance_records' })
 const settlementDirection = type => type === 'Receipt' ? 'IN' : 'OUT'
 const relationshipStore = Object.freeze({ settlement: [['sourceId', null]], compliance: [['vehicleId', 'vehicles']], maintenance: [['vehicleId', 'vehicles']], ride: [['shiftId', 'shifts']], loanPayment: [['loanId', 'loans']], prepayment: [['loanId', 'loans']], driverTarget: [['driverId', 'drivers']] })
 async function validateRelationships(db, formKey, values) {
@@ -43,9 +43,9 @@ async function validateRelationships(db, formKey, values) {
     if (!source || isDeleted(source)) throw new Error('Settlement source record does not exist or has been deleted.')
     const sourceAmount = Number(source.cost ?? source.acquisitionValue ?? (storeName === 'shifts' ? source.revenue : NaN))
     if (!Number.isFinite(sourceAmount) || sourceAmount <= 0) throw new Error('Settlement source record does not contain an authoritative positive amount.')
-    if (Number(values.amount) > sourceAmount + 0.005) throw new Error('Settlement amount cannot exceed the linked source amount.')
+    const existingPayments = await new Promise((resolve, reject) => { const request = db.transaction('settlements', 'readonly').objectStore('settlements').getAll(); request.onsuccess = () => resolve(request.result || []); request.onerror = () => reject(request.error) }); const alreadyPaid = existingPayments.filter(item => !isDeleted(item) && item.sourceId === values.sourceId && String(item.direction || 'OUT').toUpperCase() === 'OUT' && item.id !== (values.id || '')).reduce((sum,item)=>sum+(Number(item.amount)||0),0); if (alreadyPaid + Number(values.amount) > sourceAmount + 0.005) throw new Error(`Payment would exceed the linked source amount. Already paid: ₹${alreadyPaid.toFixed(2)}.`)
     const expected = settlementDirection(values.settlementType)
-    if ((values.sourceType === 'Shift revenue' && expected !== 'IN') || (values.sourceType !== 'Shift revenue' && expected !== 'OUT')) throw new Error('Settlement direction does not match the source type.')
+    if (expected !== 'OUT') throw new Error('Only payment settlements are allowed for maintenance and compliance records.')
     return
   }
   for (const [field, storeName] of relationshipStore[formKey] || []) {
