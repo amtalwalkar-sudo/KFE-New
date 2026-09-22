@@ -7,6 +7,7 @@ export const SYNTHETIC_STAGES = Object.freeze([
   { key: 'sixMonths', title: '6 months', days: 182 },
   { key: 'year', title: '1 year', days: 365 },
   { key: 'fiveYears', title: '5 years', days: 1818 },
+  { key: 'forecastSimulation', title: 'Forecast simulation', days: 42, profile: 'forecastSimulation' },
 ])
 
 const ACQUISITION_START = new Date('2026-04-09T00:00:00Z')
@@ -60,8 +61,9 @@ const complianceRows = () => {
   return rows
 }
 
-export const buildSyntheticSnapshot = days => {
+export const buildSyntheticSnapshot = (days, options = {}) => {
   const window = activeStageWindow(days)
+  const forecastSimulation = options.profile === 'forecastSimulation'
   const stageEnd = window.dataEnd
   const stageEndDate = window.todayKey
   const stageStart = window.start
@@ -85,7 +87,10 @@ export const buildSyntheticSnapshot = days => {
     const date = dayAt(i, stageStart)
     const dayIndex = i
     const isCity = ((dayIndex * 37) % 100) < 30
-    const vehicleKm = isCity ? 200 : 400
+    const simulationOffset = Math.max(0, generatedDays - 22)
+    const simulationDay = dayIndex - simulationOffset
+    const simulationKm = simulationDay < 0 ? 200 : [200, 200, 200, 200, 200, 280, 280, 280, 280, 280, 300, 300, 300, 300, 300, 100, 100, 100, 100, 100, 500, 50][simulationDay] ?? ([100, 300, 100, 300, 100, 300][simulationDay - 22] ?? ([100, 100, 100, 300, 300, 300][simulationDay - 28] ?? ([300, 300, 300, 100, 100, 100][simulationDay - 34] ?? 200)))
+    const vehicleKm = forecastSimulation ? simulationKm : (isCity ? 200 : 400)
     const gapKm = dayIndex === 0 ? 0 : 12 + ((dayIndex * 7) % 19)
     const startOdo = odometer + gapKm
     if (gapKm > 0) odoGaps.push({ id: id('gap', i), previousOdometer: odometer, newOdometer: startOdo, gapDistance: gapKm,
@@ -155,7 +160,8 @@ export const buildSyntheticSnapshot = days => {
     { id: id('break-even', 'kfe'), effectiveFrom: KFE_START, effectiveUntil: stageEndDate, maintenanceProvisionPerKm: 1.6, active: true, synthetic: true },
   ]
   const settings = [{ id: 'synthetic-setting-manifest', settingKey: 'synthetic_dataset_manifest',
-    values: { synthetic: true, startDate: KFE_START, endDate: stageEndDate, days: generatedDays, requestedStageDays: days, kfeStartDate: KFE_START, maintenancePreKfe: 0.6, maintenanceKfe: 1.6, currentDateTime: window.now.toISOString(), emiPaidThrough: null },
+    values: { synthetic: true, startDate: KFE_START, endDate: stageEndDate, days: generatedDays, requestedStageDays: days, kfeStartDate: KFE_START, maintenancePreKfe: 0.6, maintenanceKfe: 1.6, currentDateTime: window.now.toISOString(), emiPaidThrough: null,
+      forecastSimulation: forecastSimulation ? { name: 'Operating KM forecast scenarios', priorKm: 200, scenarioWindowDays: 22, scenarios: ['200 baseline', '280 sustained high', '300 sustained high', '100 sustained low', '500 isolated high', '50 isolated low', 'alternating 100/300', '100→300 reversal', '300→100 reversal'] } : null },
     updatedAt: new Date().toISOString() }]
   const loan = [{ id: LOAN_ID, lender: 'Synthetic Bank', accountReference: 'SYN-LOAN-001', principal: 550000,
     tenureMonths: 60, startDate: KFE_START, annualInterestRatePercent: 10, status: 'Active', synthetic: true }]
@@ -174,7 +180,7 @@ export const getActiveDataSource = () => SyntheticDataRepository.activeDataSourc
 export const loadSyntheticStage = async key => {
   const stage = SYNTHETIC_STAGES.find(item => item.key === key)
   if (!stage) throw new Error('Unknown synthetic data stage.')
-  const snapshot = buildSyntheticSnapshot(stage.days)
+  const snapshot = buildSyntheticSnapshot(stage.days, { profile: stage.profile })
   await SyntheticDataRepository.writeSnapshot(snapshot)
   SyntheticDataRepository.activate()
   const manifest = snapshot.settings?.find(record => record.id === 'synthetic-setting-manifest')?.values
