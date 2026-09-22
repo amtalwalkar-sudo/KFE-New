@@ -5,7 +5,6 @@ import DiagnosticBubble from '../DiagnosticBubble.vue'
 
 const route = useRoute()
 const gpsState = ref('checking')
-const performanceNavOpen = ref(false)
 const isPerformance = computed(() => route.name === 'Performance')
 let gpsRefreshTimer = null
 
@@ -50,16 +49,12 @@ function gpsStateLabel() {
   return 'Connecting GPS'
 }
 
-function openPerformanceNav() { performanceNavOpen.value = true }
-function closePerformanceNav() { performanceNavOpen.value = false }
 
 onMounted(() => {
-  window.addEventListener('kfe:performance-nav', openPerformanceNav)
   void connectGps()
   gpsRefreshTimer = window.setInterval(() => { void connectGps() }, 60000)
 })
 onBeforeUnmount(() => {
-  window.removeEventListener('kfe:performance-nav', openPerformanceNav)
   if (gpsRefreshTimer !== null) window.clearInterval(gpsRefreshTimer)
 })
 </script>
@@ -98,16 +93,7 @@ onBeforeUnmount(() => {
     </header>
     <main id="main-content" class="content-scroll-area" tabindex="-1"><slot /></main>
     <DiagnosticBubble />
-    <div v-if="isPerformance && performanceNavOpen" class="performance-nav-tray">
-      <button class="performance-nav-backdrop" aria-label="Close navigation" @click="closePerformanceNav"></button>
-      <nav class="bottom-nav performance-nav-visible" aria-label="Primary navigation">
-        <router-link to="/" class="nav-item" exact-active-class="nav-item-active" aria-label="Work"><span class="nav-icon" aria-hidden="true">⌂</span><span>Work</span></router-link>
-        <router-link to="/timeline" class="nav-item" exact-active-class="nav-item-active" aria-label="Timeline"><span class="nav-icon" aria-hidden="true">▤</span><span>Timeline</span></router-link>
-        <router-link to="/performance" class="nav-item" exact-active-class="nav-item-active" aria-label="Performance"><span class="nav-icon" aria-hidden="true">↗</span><span>Performance</span></router-link>
-        <router-link to="/admin" class="nav-item" exact-active-class="nav-item-active" aria-label="Admin"><span class="nav-icon" aria-hidden="true">☷</span><span>Admin</span></router-link>
-      </nav>
-    </div>
-    <nav v-else-if="!isPerformance" class="bottom-nav" aria-label="Primary navigation">
+    <nav class="bottom-nav" aria-label="Primary navigation">
       <router-link to="/" class="nav-item" exact-active-class="nav-item-active" aria-label="Work"><span class="nav-icon" aria-hidden="true">⌂</span><span class="nav-icon-label">Work</span></router-link>
       <router-link to="/timeline" class="nav-item" exact-active-class="nav-item-active" aria-label="Timeline"><span class="nav-icon" aria-hidden="true">▤</span><span>Timeline</span></router-link>
       <router-link to="/performance" class="nav-item" exact-active-class="nav-item-active" aria-label="Performance"><span class="nav-icon" aria-hidden="true">↗</span><span>Performance</span></router-link>
