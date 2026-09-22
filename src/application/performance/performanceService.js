@@ -105,6 +105,9 @@ export const PerformanceService = Object.freeze({
         return value
       },
     })
+    const operatingKmMultiplier = Number.isFinite(operatingKmForecast?.calculatedForecast?.dailyKm)
+      ? operatingKmForecast.calculatedForecast.dailyKm / 200
+      : null
     const canonicalTarget = stabilization.available && Number.isFinite(stabilization.currentDailyTarget)
       ? stabilization.currentDailyTarget
       : null
@@ -155,7 +158,7 @@ export const PerformanceService = Object.freeze({
       driverTarget: canonicalTarget,
       driverTargetBase: stabilization.currentBaseDaily,
       driverTargetOperatingKmForecast: stabilization.operatingKmForecastDaily,
-      driverTargetOperatingKmMultiplier: stabilization.operatingKmMultiplier,
+      driverTargetOperatingKmMultiplier: operatingKmMultiplier,
       driverTargetRecoveryAdjustment: stabilization.recoveryAdjustment,
       driverTargetRollingBalance: stabilization.balance,
       driverTargetOpeningRecovery: stabilization.openingRecovery,
