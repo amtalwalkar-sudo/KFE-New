@@ -267,7 +267,7 @@ onBeforeUnmount(()=>unsubscribeChanges())
       </template>
     </template>
 
-    <div class="performance-nav-handle" aria-label="Show navigation" role="button" tabindex="0" @click="$emit?.('navigation')"><span>⌃</span></div>
+    <div class="performance-nav-handle" aria-label="Show navigation" role="button" tabindex="0" @click="window.dispatchEvent(new CustomEvent('kfe:performance-nav'))"><span>⌃</span></div>
   </section>
 </template>
 
