@@ -92,7 +92,7 @@ assert.equal(
     holidaySmoothing.driverTargetOpeningBalance,
 )
 assert.ok(holidaySmoothing.driverTarget > 0)
-assert.equal(holidaySmoothing.driverTargetNewRecovery, 0)
+assert.equal(holidaySmoothing.driverTargetNewRecovery, null)
 assert.equal(holidaySmoothing.driverTargetClosingRecovery, 0)
 
 const normalTarget = PerformanceService.getMetrics(base, range)
