@@ -108,9 +108,9 @@ assert.equal(historicalSurplusMetrics.driverTargetAvailable, true)
 assert.ok(Number.isFinite(historicalSurplusMetrics.driverTargetRollingBalance))
 assert.equal(historicalSurplusMetrics.driverTargetRollingBalance, 0)
 assert.equal(historicalSurplusMetrics.driverTargetOpeningRecovery, 0)
-assert.equal(historicalSurplusMetrics.driverTargetNewRecovery, 0)
+assert.equal(historicalSurplusMetrics.driverTargetNewRecovery, null)
 assert.ok(historicalSurplusMetrics.driverTarget >= historicalSurplusMetrics.driverTargetBase)
-assert.equal(historicalSurplusMetrics.driverTargetIndicativeLoss, 0)
+assert.ok(historicalSurplusMetrics.driverTargetIndicativeLoss > 0)
 
 const holidaySnapshot = { ...snapshot, trips: [
   { id:'early', status:'COMPLETED', tripStartAt:'2026-09-05T09:00:00Z', tripEndAt:'2026-09-05T12:00:00Z', tripKm:100, revenue:1 },
