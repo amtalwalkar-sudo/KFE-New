@@ -2,12 +2,12 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { getKfeReferenceNow, istDayRange, istMonthRange, istParts } from '../domain/time/ist.js'
-import { getActiveDataSource } from '../utils/indexedDB.js'
+import { SyntheticDataService } from '../application/synthetic/syntheticDataService.js'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const PERIODS = ['DAY', 'WEEK', 'MONTH', 'YEAR', 'CUSTOM']
-const syntheticSource = getActiveDataSource() === 'synthetic'
+const syntheticSource = SyntheticDataService.getActiveDataSource() === 'synthetic'
 const period = ref(syntheticSource ? 'SYNTHETIC' : 'MONTH')
 const anchor = ref(getKfeReferenceNow())
 const customFrom = ref('')
@@ -28,7 +28,7 @@ const weekStart = value => { const day = dayAtNoon(value); return new Date(day.g
 const yearRange = value => { const p = istParts(value); if (!p) return istDayRange(value); const from = new Date(Date.UTC(p.year, 0, 1, 12)); const to = new Date(Date.UTC(p.year, 11, 31, 12)); return { from: istDayRange(from).from, to: istDayRange(to).to } }
 
 const syntheticHistoryRange = computed(() => {
-  if (getActiveDataSource() !== 'synthetic') return null
+  if (SyntheticDataService.getActiveDataSource() !== 'synthetic') return null
   const shifts = snapshot.value?.shifts || []
   const dates = shifts.map(row => row.shiftStartAt || row.shiftEndAt).map(value => new Date(value)).filter(date => !Number.isNaN(date.getTime()))
   if (!dates.length) return null
@@ -36,7 +36,7 @@ const syntheticHistoryRange = computed(() => {
   const to = new Date(Math.max(...dates.map(date => date.getTime())))
   return { from: istDayRange(from).from, to: istDayRange(to).to }
 })
-const syntheticFullHistoryAvailable = computed(() => getActiveDataSource() === 'synthetic' && Number(snapshot.value?.shifts?.length) === 1826 && Boolean(syntheticHistoryRange.value))
+const syntheticFullHistoryAvailable = computed(() => SyntheticDataService.getActiveDataSource() === 'synthetic' && Number(snapshot.value?.shifts?.length) === 1826 && Boolean(syntheticHistoryRange.value))
 const periodOptions = computed(() => syntheticFullHistoryAvailable.value ? ['SYNTHETIC', ...PERIODS] : PERIODS)
 
 const range = computed(() => {
