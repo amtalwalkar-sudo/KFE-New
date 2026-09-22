@@ -90,6 +90,8 @@ const normalizeBreakEvenInput = record => normalizeRecord(record, {
   maintenanceProvisionPerKm: ['maintenance_provision_per_km'],
 }, ['maintenanceProvisionPerKm'])
 
+const normalizeSettlement = record => normalizeRecord(record, { settledOn: ['paidOn','paymentDate','payment_date'] }, ['amount'])
+
 export const normalizeCalculationSnapshot = snapshot => ({
   shifts: (snapshot?.shifts || []).map(normalizeShift).filter(Boolean),
   trips: (snapshot?.trips || []).map(normalizeTrip).filter(Boolean),
@@ -104,6 +106,7 @@ export const normalizeCalculationSnapshot = snapshot => ({
   prepayments: (snapshot?.prepayments || []).map(normalizePrepayment).filter(Boolean),
   driverTargets: (snapshot?.driverTargets || []).map(normalizeDriverTarget).filter(Boolean),
   breakEvenInputs: (snapshot?.breakEvenInputs || []).map(normalizeBreakEvenInput).filter(Boolean),
+  settlements: (snapshot?.settlements || []).map(normalizeSettlement).filter(Boolean),
   // FAH-3 settlement/position records are optional until their canonical Admin
   // forms/stores exist; preserve them when supplied by imports or future sources.
   receivables: snapshot?.receivables || [],
