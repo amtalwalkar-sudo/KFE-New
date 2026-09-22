@@ -55,7 +55,7 @@ assert.equal(fullTimelineForecast.observations.slice(-22).map(row => row.km).joi
 // but allows harmless IEEE-754 drift across Node/runtime builds.
 const frozenFullHistoryForecastKm = 212.21168510607765
 assert.ok(Math.abs(fullTimelineForecast.dailyForecastKm - frozenFullHistoryForecastKm) < 1e-6)
-assert.ok(Math.abs(fullTimelineForecast.dailyForecastKm / 200 - 0.996896781157483) < 1e-12)
+assert.ok(Math.abs(fullTimelineForecast.dailyForecastKm / 200 - 1.0610584255303882) < 1e-12)
 const istToday = istDateKey(new Date())
 const istYesterday = istDateKey(new Date(Date.parse(istToday + 'T00:00:00Z') - 86400000))
 assert.equal(istCalendarDaysInclusive('2026-05-01', '2031-04-30'), 1826)
