@@ -82,7 +82,7 @@ const recoveryFromIndicativeProfit = ({ openingRecovery, indicativeProfit }) => 
 export function deriveRollingDriverTarget({
   trips = [], shifts = [], driverTargets = [], from, to,
   applicableBreakEven = null, historicalBreakEvenForDay = null,
-  historicalIndicativeProfitForMonth = null, indicativeProfitForCurrentMonth = null,
+  historicalIndicativeProfitForMonth = null, indicativeProfitForCurrentMonth = null, operatingKmForecast = null,
 } = {}) {
   const start = dateOf(from), end = dateOf(to)
   if (!start || !end || end < start) return failure('INVALID_PERIOD')
@@ -176,8 +176,11 @@ export function deriveRollingDriverTarget({
   const remainingDays = remainingEligibleDays({ month: currentMonth, currentDay, priorHolidayKeys })
   const remainingObligation = Math.max(0, priorRemainingBaseObligation)
   const currentBaseDaily = baseMonthly / remainingDays
-  const currentDailyTarget = currentBaseDaily + dailyRecovery
   const recoveryAdjustment = dailyRecovery
+  const forecastDailyKm = finite(operatingKmForecast?.dailyForecastKm)
+  const normalPriorKm = Math.max(1, finite(operatingKmForecast?.config?.normalPriorKmPerCalendarDay) || 200)
+  const operatingKmMultiplier = forecastDailyKm == null ? 1 : Math.max(0, forecastDailyKm / normalPriorKm)
+  const currentDailyTarget = currentBaseDaily * operatingKmMultiplier + recoveryAdjustment
   const currentIndicativeProfit = typeof indicativeProfitForCurrentMonth === 'function'
     ? finite(indicativeProfitForCurrentMonth({ month: currentMonth, record: currentRecord, day: currentDay }))
     : null
@@ -211,6 +214,8 @@ export function deriveRollingDriverTarget({
     currentBaseDaily: Number.isFinite(currentBaseDaily) ? currentBaseDaily : null,
     currentPeriodBaseTarget: Number.isFinite(baseMonthly + openingRecovery) ? baseMonthly + openingRecovery : null,
     recoveryAdjustment: Number.isFinite(recoveryAdjustment) ? recoveryAdjustment : null,
+    operatingKmForecastDaily: forecastDailyKm,
+    operatingKmMultiplier,
     dailyRecovery: Number.isFinite(dailyRecovery) ? dailyRecovery : null,
     activeDays: financialDayKeys.length, financialDays: financialDayKeys.length, remainingEligibleDays: remainingDays,
     targetAllocatedBeforeCurrentDay, remainingObligation,
