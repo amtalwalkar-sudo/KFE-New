@@ -10,6 +10,7 @@ const base = {
 }
 
 const targetFor = forecast => deriveRollingDriverTarget({
+  from:'2026-09-10', to:'2026-09-10',
   ...base,
   operatingKmForecast: {
     dailyForecastKm: forecast,
