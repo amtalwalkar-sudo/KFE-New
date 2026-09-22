@@ -16,7 +16,7 @@ const snapshot = {
   ],
   maintenance: [{ performedOn:'2026-09-10', cost:300 }],
   loan: { id:'loan1', principal:550000, annualInterestRate:10, tenureYears:5, startDate:'2026-09-01' },
-  renewals: [{ type:'insurance', validFrom:'2026-01-01', validUntil:'2026-12-31', cost:24000 }],
+  renewals: [{ id:'c1', type:'insurance', validFrom:'2026-01-01', validUntil:'2026-12-31', cost:24000 }],
   breakEvenInputs: [{ effectiveFrom:'2026-09-01', maintenanceProvisionPerKm:3, active:true }],
   driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:1000, active:true }],
 }
