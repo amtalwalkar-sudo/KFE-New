@@ -111,6 +111,15 @@ const loanSchedule=record=>{const loan=live(performanceSnapshot.value?.loans).fi
 const currentMonth=computed(()=>istDateKey(getKfeReferenceNow()).slice(0,7))
 const currentMaintenanceRate=computed(()=>{const now=istDateKey(getKfeReferenceNow());return live(all.value.breakEvenInputs).filter(x=>String(x.values?.effectiveFrom||'')<=now).sort((a,b)=>String(b.values?.effectiveFrom||'').localeCompare(String(a.values?.effectiveFrom||'')))[0]||null})
 const targetHistory=computed(()=>live(all.value.driverTarget).sort((a,b)=>String(b.values?.effectiveFrom||'').localeCompare(String(a.values?.effectiveFrom||''))))
+const currentTarget=computed(()=>{
+  const driverId=targetDraft.value.driverId
+  const month=targetDraft.value.month||currentMonth.value
+  const effectiveMonth=monthStart(month)
+  const matches=live(all.value.driverTarget).filter(x=>x.values?.driverId===driverId&&String(x.values?.effectiveFrom||'')<=effectiveMonth)
+  return matches.sort((a,b)=>String(b.values?.effectiveFrom||'').localeCompare(String(a.values?.effectiveFrom||'')))[0]||null
+})
+const currentTargetHistory=computed(()=>targetHistory.value.filter(x=>x.id!==currentTarget.value?.id))
+
 const maintenanceHistory=computed(()=>live(all.value.breakEvenInputs).filter(x=>x.values?.maintenanceProvisionPerKm!=null).sort((a,b)=>String(b.values?.effectiveFrom||'').localeCompare(String(a.values?.effectiveFrom||''))))
 const driverNames=computed(()=>Object.fromEntries(all.value.driver.map(x=>[x.id,label('driver',x)])))
 const groupedItems=computed(()=>categories.map(category=>({category,items:items.filter(x=>x.category===category)})))
@@ -134,7 +143,15 @@ function selectPrepaymentLoan(id){const loan=all.value.loan.find(x=>x.id===id);c
 const selectedPrepaymentLoan=computed(()=>all.value.loan.find(x=>x.id===prepaymentDraft.value.loanId)||null)
 const selectedPrepaymentPosition=computed(()=>selectedPrepaymentLoan.value?deriveLoanPosition({loan:selectedPrepaymentLoan.value,payments:live(performanceSnapshot.value?.loanPayments),prepayments:live(performanceSnapshot.value?.prepayments),asOf:getKfeReferenceNow()}):null)
 const prepaymentEstimate=computed(()=>{const loan=selectedPrepaymentLoan.value;if(!loan||!prepaymentCalculated.value)return null;const estimate=calculatePrepaymentEstimate({loan,payments:live(performanceSnapshot.value?.loanPayments),prepayments:live(performanceSnapshot.value?.prepayments),amount:Number(prepaymentDraft.value.amount)||0,paidOn:prepaymentDraft.value.paidOn});if(!estimate.available)return estimate;const h={id:'preview',loanId:loan.id,paidOn:prepaymentDraft.value.paidOn,amount:estimate.appliedAmount,status:'Applied'};const before=deriveLoanPosition({loan,payments:live(performanceSnapshot.value?.loanPayments),prepayments:live(performanceSnapshot.value?.prepayments),asOf:prepaymentDraft.value.paidOn});const after=deriveLoanPosition({loan,payments:live(performanceSnapshot.value?.loanPayments),prepayments:[...live(performanceSnapshot.value?.prepayments),h],asOf:prepaymentDraft.value.paidOn});const bd=before.scheduledFinalDate?new Date(before.scheduledFinalDate):null,ad=after.scheduledFinalDate?new Date(after.scheduledFinalDate):null;return {...estimate,reducedMonths:bd&&ad?Math.max(0,Math.round((bd.getFullYear()-ad.getFullYear())*12+(bd.getMonth()-ad.getMonth()))):0,remainingAfter:after.outstandingPrincipal,interestRemainingAfter:after.remainingInterest}})
-function resetTarget(){targetDraft.value={driverId:'',month:currentMonth.value,desiredDriverProfit:0}}
+function resetTarget(){
+  const month=currentMonth.value
+  const current=live(all.value.driverTarget).filter(x=>String(x.values?.effectiveFrom||'')===monthStart(month)).sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')))[0]||null
+  targetDraft.value={driverId:current?.values?.driverId||'',month,desiredDriverProfit:current?.values?.desiredDriverProfit??0}
+}
+function syncTargetFromSelection(){
+  const current=currentTarget.value
+  targetDraft.value={...targetDraft.value,desiredDriverProfit:current?.values?.desiredDriverProfit??0}
+}
 function resetMaintenanceRate(){maintenanceRateDraft.value={rate:currentMaintenanceRate.value?.values?.maintenanceProvisionPerKm??'',changeDate:istDateKey(getKfeReferenceNow())}}
 function monthStart(m){return (m||currentMonth.value)+'-01'}
 async function saveTarget(){clearMessages();loading.value=true;try{if(!targetDraft.value.driverId||Number(targetDraft.value.desiredDriverProfit)<0)throw new Error('Driver and monthly target are required.');await AdminService.save('driverTarget',{driverId:targetDraft.value.driverId,effectiveFrom:monthStart(targetDraft.value.month),desiredDriverProfit:Number(targetDraft.value.desiredDriverProfit),active:true});notice.value='Monthly driver target saved.';await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Unable to save target.'}finally{loading.value=false}}
@@ -166,7 +183,27 @@ onMounted(load)
 <section class="detail-screen"><div class="detail-title"><span class="item-icon">{{currentItem.icon}}</span><div><div class="category-label">{{currentItem.category}}</div><h1>{{currentItem.title}}</h1></div></div><p v-if="error" class="message error">{{error}}</p><p v-if="notice" class="message notice">✓ {{notice}}</p>
 
 <template v-if="selected==='driverTarget'">
-<section class="clean-card"><div class="card-heading"><strong>Monthly driver target</strong><span>{{targetDraft.month}}</span></div><div class="form-grid"><label><span>Driver</span><select v-model="targetDraft.driverId"><option value="">Select driver</option><option v-for="d in all.driver" :key="d.id" :value="d.id">{{label('driver',d)}}</option></select></label><label><span>Month</span><input v-model="targetDraft.month" type="month"></label><label><span>Monthly target</span><input v-model.number="targetDraft.desiredDriverProfit" type="number" min="0" step="0.01"></label></div><p class="rule-note">The saved target applies to the selected month as a whole. Changing it on the 1st or 15th does not split the month.</p><button class="primary wide" :disabled="loading" @click="saveTarget">Save monthly target</button></section><section class="history-card"><div class="category-label">TARGET HISTORY</div><article v-for="row in targetHistory" :key="row.id" class="history-row"><div><strong>{{driverNames[row.values?.driverId]||row.values?.driverId}}</strong><span>{{String(row.values?.effectiveFrom||'').slice(0,7)}}</span></div><strong>{{money(row.values?.desiredDriverProfit)}}</strong></article><div v-if="!targetHistory.length" class="empty">No target history yet.</div></section>
+<section class="clean-card">
+  <div class="card-heading">
+    <div><strong>Current driver target</strong><span v-if="currentTarget">Active for {{targetDraft.month}}</span><span v-else>No target is currently set for {{targetDraft.month}}</span></div>
+    <strong class="big-value">{{currentTarget?money(currentTarget.values?.desiredDriverProfit):'—'}} / month</strong>
+  </div>
+  <div class="form-grid">
+    <label><span>Driver</span><select v-model="targetDraft.driverId" @change="syncTargetFromSelection"><option value="">Select driver</option><option v-for="d in all.driver" :key="d.id" :value="d.id">{{label('driver',d)}}</option></select></label>
+    <label><span>Month</span><input v-model="targetDraft.month" type="month" @change="syncTargetFromSelection"></label>
+    <label><span>New target</span><input v-model.number="targetDraft.desiredDriverProfit" type="number" min="0" step="0.01"></label>
+  </div>
+  <p class="rule-note">The current target applies to the selected month as a whole. Saving a new target replaces the current target; the previous target remains in history.</p>
+  <button class="primary wide" :disabled="loading||!targetDraft.driverId" @click="saveTarget">Save new target</button>
+</section>
+<section class="history-card">
+  <div class="category-label">TARGET HISTORY</div>
+  <article v-for="row in currentTargetHistory" :key="row.id" class="history-row">
+    <div><strong>{{driverNames[row.values?.driverId]||row.values?.driverId}}</strong><span>{{String(row.values?.effectiveFrom||'').slice(0,7)}}</span></div>
+    <strong>{{money(row.values?.desiredDriverProfit)}} / month</strong>
+  </article>
+  <div v-if="!currentTargetHistory.length" class="empty">No previous targets yet.</div>
+</section>
 </template>
 
 <template v-else-if="selected==='maintenanceRate'">
