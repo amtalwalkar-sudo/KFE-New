@@ -151,7 +151,7 @@ export const buildSyntheticSnapshot = (days, options = {}) => {
       tollParkingRevenueTreatment: treatment, shiftStartAt, shiftEndAt, status: 'COMPLETED', synthetic: true, createdAt: shiftStartAt, updatedAt: shiftEndAt })
 
     const quantity = round(vehicleKm / (isCity ? 20 : 30))
-    fuel_logs.push({ id: id('fuel', i), odometer: endOdo, pricePerKg: CNG_PRICE, amount: round(quantity * CNG_PRICE),
+    fuel_logs.push({ id: id('fuel', i), vehicleId: VEHICLE_ID, odometer: endOdo, pricePerKg: CNG_PRICE, amount: round(quantity * CNG_PRICE),
       quantityKg: quantity, isFullTank: true, latitude: null, longitude: null, accuracy: null,
       provenance: 'SYNTHETIC_TANK_FULL_TO_FULL', capturedAt: shiftEndAt, createdAt: shiftEndAt, updatedAt: shiftEndAt, synthetic: true })
     if (endOdo - maintenanceBase >= 10000) {
