@@ -62,7 +62,7 @@ const failure = (reason, balance = null, activeDays = 0) => ({
   evidence: calculationEvidence({ status: CALCULATION_STATUS.UNAVAILABLE, reason }),
 })
 
-export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTargets = [], from, to, applicableBreakEven = null, historicalBreakEvenForDay = null } = {}) {
+export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTargets = [], from, to, applicableBreakEven = null, historicalBreakEvenForDay = null, operatingKmForecast = null } = {}) {
   const start = dateOf(from), end = dateOf(to)
   if (!start || !end || end < start) return failure('INVALID_PERIOD')
 
@@ -136,8 +136,14 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
 
   const remainingDays = remainingEligibleDays({ month: currentMonth, currentDay, priorHolidayKeys })
   const remainingObligation = Math.max(0, effectiveMonthlyTarget - targetAllocatedBeforeCurrentDay)
-  const currentDailyTarget = remainingObligation / remainingDays
   const currentBaseDaily = baseMonthly / remainingDays
+  // Frozen operating-KM volume is the authoritative daily volume input.
+  // 200 km/day is the neutral baseline; learned forecast changes the daily
+  // target proportionally while the financial monthly obligation remains authoritative.
+  const forecastDailyKm = finite(operatingKmForecast?.dailyForecastKm)
+  const normalPriorKm = Math.max(1, finite(operatingKmForecast?.config?.normalPriorKmPerCalendarDay) || 200)
+  const operatingKmMultiplier = forecastDailyKm == null ? 1 : Math.max(0, forecastDailyKm / normalPriorKm)
+  const currentDailyTarget = currentBaseDaily * operatingKmMultiplier + (effectiveMonthlyTarget - baseMonthly) / remainingDays
   const recoveryAdjustment = currentDailyTarget - currentBaseDaily
   const monthlyActualRevenue = revenueByMonth.get(currentMonth) || 0
   const monthlyVariance = baseMonthly - monthlyActualRevenue
@@ -151,6 +157,8 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     monthlyVariance, closingBalance, effectiveMonthlyTarget,
     currentDailyTarget: Number.isFinite(currentDailyTarget) ? currentDailyTarget : null,
     currentBaseDaily: Number.isFinite(currentBaseDaily) ? currentBaseDaily : null,
+    operatingKmForecastDaily: forecastDailyKm,
+    operatingKmMultiplier,
     currentPeriodBaseTarget: Number.isFinite(effectiveMonthlyTarget) ? effectiveMonthlyTarget : null,
     recoveryAdjustment: Number.isFinite(recoveryAdjustment) ? recoveryAdjustment : null,
     activeDays: financialDayKeys.length, financialDays: financialDayKeys.length, remainingEligibleDays: remainingDays,
