@@ -14,7 +14,9 @@ required('loan', ['principal','tenureMonths','startDate'])
 required('loanPayment', ['loanId','paidOn','amount'])
 required('prepayment', ['loanId','paidOn','amount'])
 required('driverTarget', ['driverId','effectiveFrom','desiredDriverProfit'])
+assert.equal(fields('driverTarget').has('effectiveUntil'), false)
 required('breakEvenInputs', ['effectiveFrom','maintenanceProvisionPerKm'])
+assert.equal(fields('breakEvenInputs').has('effectiveUntil'), false)
 requiredField('driverTarget', 'desiredDriverProfit')
 
 assert.equal(getAdminFormDefinition('driverCollectedData'), null)
@@ -49,17 +51,15 @@ for (const key of ['loanPayment','prepayment']) {
   assert.match(result.errors.amount,/greater than 0/)
 }
 
-const reversedTarget=validateAdminForm(getAdminFormDefinition('driverTarget'),{
-  driverId:'driver-1',effectiveFrom:'2026-09-20',effectiveUntil:'2026-09-19',desiredDriverProfit:'1000'
+const targetMonth=validateAdminForm(getAdminFormDefinition('driverTarget'),{
+  driverId:'driver-1',effectiveFrom:'2026-09-01',desiredDriverProfit:'1000'
 })
-assert.equal(reversedTarget.valid,false)
-assert.equal(reversedTarget.errors.effectiveUntil,'Effective until cannot precede effective from.')
+assert.equal(targetMonth.valid,true)
 
-const reversedBreakEven=validateAdminForm(getAdminFormDefinition('breakEvenInputs'),{
-  effectiveFrom:'2026-09-20',effectiveUntil:'2026-09-19',maintenanceProvisionPerKm:'2'
+const maintenanceRate=validateAdminForm(getAdminFormDefinition('breakEvenInputs'),{
+  effectiveFrom:'2026-09-20',maintenanceProvisionPerKm:'2'
 })
-assert.equal(reversedBreakEven.valid,false)
-assert.equal(reversedBreakEven.errors.effectiveUntil,'Effective until cannot precede effective from.')
+assert.equal(maintenanceRate.valid,true)
 
 const badMaintenance=validateAdminForm(getAdminFormDefinition('maintenance'),{
   vehicleId:'vehicle-1',performedOn:'2026-09-20',maintenanceType:'Service',
