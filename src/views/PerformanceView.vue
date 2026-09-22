@@ -81,7 +81,7 @@ const sections = computed(() => [
   { key:'activity', title:'How did we operate?', kicker:'OPERATING ACTIVITY', summary:`${num(m.value.vehicleKm)} KM · ${num(m.value.workingHours)} HRS · ${num(m.value.counts?.trips)} TRIPS` },
   { key:'money', title:'Where did the money go?', kicker:'MONEY FLOW', summary:`${money(m.value.actualOperatingCost)} operating cost` },
   { key:'economics', title:'Unit economics', kicker:'BUSINESS EFFICIENCY', summary:`${money(m.value.revenuePerKm)} / KM · ${money(m.value.revenuePerHour)} / HOUR · ${fuelEconomy.value != null ? num(fuelEconomy.value) + ' KM/KG' : '—'}` },
-  { key:'position', title:'Financial position', kicker:'COMMITMENTS & PROVISIONS', summary:'What has been provided for or remains committed' },
+  { key:'position', title:'Provisions', kicker:'PROVISIONS', summary:'Loan · Maintenance · Compliance' },
 ])
 
 const detailGroups = computed(() => {
@@ -94,7 +94,7 @@ const detailGroups = computed(() => {
     { key:'revenueHour', title:'Revenue / hour', kicker:'ACTUAL', value:money2(m.value.revenuePerHour), formula:'Revenue / hour = authoritative revenue ÷ qualifying working hours from completed shifts.', rows:[['Revenue',money(m.value.revenue)],['Working hours',num(m.value.workingHours)],['Revenue / hour',money2(m.value.revenuePerHour)]] },
     { key:'fuelEconomy', title:'Fuel economy', kicker:'ACTUAL', value:fuelEconomy.value == null ? '—' : `${num(fuelEconomy.value)} KM/KG`, formula:'Fuel economy = authoritative vehicle KM ÷ recorded CNG quantity in KG.', rows:[['Vehicle KM',num(m.value.vehicleKm)],['CNG consumed',m.value.fuelQty == null ? '—' : `${num(m.value.fuelQty)} KG`],['Fuel economy',fuelEconomy.value == null ? '—' : `${num(fuelEconomy.value)} KM/KG`],['Fuel cost / KG',money2(fuelCostPerKg.value)]] },
     { key:'activity', title:'Operating activity', kicker:'ACTUAL', value:num(m.value.vehicleKm) + ' KM', formula:'Operating KM comes from qualifying shift closing odometer minus start odometer. Business KM comes from validated completed-trip KM.', rows:[['Vehicle KM',num(m.value.vehicleKm)],['Revenue-generating KM',num(businessKm.value)],['Dead KM',num(deadKm.value)],['Working hours',num(m.value.workingHours)],['Completed trips',num(m.value.counts?.trips)]] },
-    { key:'provision', title:'Provision position', kicker:'FINANCIAL POSITION', value:money(m.value.provisionRequired), formula:'Provision is calculated from the authoritative configured provision rates and applicable business activity. It is kept separate from actual operating cost and payments.', rows:[['Maintenance provision',money(m.value.maintenanceProvision)],['Renewal provision',money(m.value.renewalProvision)],['Provision required',money(m.value.provisionRequired)],['Actual maintenance',money(m.value.actualMaintenance)]] },
+    { key:'provision', title:'Provisions', kicker:'PROVISIONS', value:money(m.value.provisionRequired), formula:'Provisions are shown separately by obligation type. Loan and compliance are fixed-validity provisions; maintenance is usage-based from actual vehicle KM.', rows:[['Loan provision',money(m.value.finance?.provisionAccumulated)],['Maintenance provision',money(m.value.maintenanceProvision)],['Compliance provision',money(m.value.renewalProvision)],['Total provisions',money((Number(m.value.finance?.provisionAccumulated)||0)+(Number(m.value.maintenanceProvision)||0)+(Number(m.value.renewalProvision)||0))]] },
     { key:'target', title:'Target', kicker:'INDICATIVE', value:money(target.value), formula:'Current target is supplied by the rolling driver-target authority. It remains separate from authoritative actual revenue.', rows:[['Current target',money(target.value)],['Revenue achieved',money(targetRevenue.value)],['Target remaining',money(targetLeft.value)],['Remaining eligible days',num(m.value.driverTargetRemainingEligibleDays)],['Desired driver profit / take-home',money(m.value.driverTargetDesiredProfitMonthly)]] },
     { key:'breakEven', title:'Break-even', kicker:'INDICATIVE', value:money(breakEven.value), formula:'Break-even is supplied by the authoritative break-even engine and presented here as an outlook requirement, separate from actual operating result.', rows:[['Break-even revenue',money(breakEven.value)],['Revenue achieved',money(targetRevenue.value)],['Revenue remaining',money(breakEvenLeft.value)],['Fuel cost / KM',money2(m.value.breakEvenInputs?.fuelCostPerKm)],['Maintenance provision / KM',money2(m.value.breakEvenInputs?.maintenanceProvisionPerKm)]] },
     { key:'loan', title:'Loan position', kicker:'FINANCIAL POSITION', value:money(m.value.finance?.provisionBalance), formula:'Loan provision accrues as the daily share of each fixed EMI across every calendar day in its EMI validity period. The rolling balance is provision accumulated minus loan payments.', rows:[['Provision accumulated',money(m.value.finance?.provisionAccumulated)],['Rolling provision balance',money(m.value.finance?.provisionBalance)],['Outstanding principal',money(m.value.finance?.outstandingPrincipal)],['Pending / overdue',money(m.value.finance?.totalOverdue)],['Delayed interest',money(m.value.finance?.totalUnpaidOverdueInterest)],['Actual loan paid',money(m.value.actualLoanPaid)],['Prepayments',money(m.value.actualPrepayment)]] },
@@ -136,7 +136,7 @@ function detailCalculation(group) {
   if (group.key === 'revenueHour') return [[money(m.value.revenue),'÷',num(m.value.workingHours),'=',money2(m.value.revenuePerHour)]]
   if (group.key === 'fuelEconomy') return [[num(m.value.vehicleKm),'KM','÷',num(m.value.fuelQty),'KG','=',fuelEconomy.value == null ? '—' : num(fuelEconomy.value)+' KM/KG']]
   if (group.key === 'activity') return [['Shift closing odometer','−','shift start odometer','=','vehicle KM']]
-  if (group.key === 'provision') return [[num(m.value.vehicleKm),'×','configured provision / KM','=','maintenance provision'],['maintenance provision','+','renewal provision','=','provision required']]
+  if (group.key === 'provision') return [['Loan provision','+','Maintenance provision','+','Compliance provision','=','Total provisions']]
   return []
 }
 
@@ -234,14 +234,14 @@ onBeforeUnmount(()=>unsubscribeChanges())
         </div>
 
         <div class="flow-card">
-          <button @click="toggleSection('position')"><span><small>FINANCIAL POSITION</small><b>What is provided for / committed?</b></span><strong>View</strong><i>⌄</i></button>
+          <button @click="toggleSection('position')"><span><small>PROVISIONS</small><b>Loan · Maintenance · Compliance</b></span><strong>View</strong><i>⌄</i></button>
           <div v-if="openSection==='position'" class="section-body">
             <div class="position-grid">
-              <button @click="openDetail('provision')"><span>Provision required</span><strong>{{ money(m.provisionRequired) }}</strong></button>
-              <button @click="openDetail('loan')"><span>Loan provision balance</span><strong>{{ money(m.finance?.provisionBalance) }}</strong></button>
-              <button @click="openDetail('loan')"><span>Delayed interest</span><strong>{{ money(m.finance?.totalUnpaidOverdueInterest) }}</strong></button>
+              <button @click="openDetail('provision')"><span>Loan provision</span><strong>{{ money(m.finance?.provisionAccumulated) }}</strong></button>
+              <button @click="openDetail('provision')"><span>Maintenance provision</span><strong>{{ money(m.maintenanceProvision) }}</strong></button>
+              <button @click="openDetail('provision')"><span>Compliance provision</span><strong>{{ money(m.renewalProvision) }}</strong></button>
             </div>
-            <p class="separation-note">Loan, maintenance and compliance provisions each have a rolling balance. Fixed-validity provisions accrue by calendar day; maintenance accrues only from actual KM. Payments/settlements reduce the relevant balance.</p>
+            <p class="separation-note">Each amount is the provision allocated for the selected period. Loan and compliance accrue by calendar-day validity; maintenance accrues from actual KM.</p>
           </div>
         </div>
       </section>
