@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { validateShiftStartOdometer, validateFirstDayShiftStartOdometer, validateGapAllocation } from '../domain/work/shift.js'
 import { validateEndShiftEntry } from '../domain/work/endShift.js'
-import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection, calculateShiftRevenue } from '../domain/work/trip.js'
+import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection, calculateTripRevenueDetail } from '../domain/work/trip.js'
 import { calculateFuelQuantity, validateFuelEntry } from '../domain/work/fuel.js'
 
 assert.deepEqual(validateShiftStartOdometer(100, 90), { valid: true, gapKm: 10 })
