@@ -104,7 +104,7 @@ public class KfeOverlayService extends Service {
 
   private class SwipeOverlayView extends View{
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG); private final RectF rect=new RectF();
-    private float downX,downY,lastY; private boolean tracking,moving; private float progress;
+    private float downX,downY,lastY,lastX; private boolean tracking,moving; private float progress;
     SwipeOverlayView(Context c){super(c);setLayerType(View.LAYER_TYPE_SOFTWARE,null);}
     private boolean dark(){return "dark".equals(theme)||"night".equals(theme)||"dusk".equals(theme);}
     private int surface(){return dark()?Color.rgb(23,30,38):Color.WHITE;}
@@ -167,25 +167,38 @@ public class KfeOverlayService extends Service {
     @Override public boolean onTouchEvent(MotionEvent e){
       switch(e.getActionMasked()){
         case MotionEvent.ACTION_DOWN:
-          downX=e.getRawX();downY=e.getRawY();lastY=downY;tracking=true;moving=false;progress=0;return true;
+          downX=e.getRawX();downY=e.getRawY();lastX=downX;lastY=downY;tracking=true;moving=false;progress=0;return true;
         case MotionEvent.ACTION_MOVE:
           float dx=e.getRawX()-downX,dy=e.getRawY()-downY;
-          if(!moving&&Math.abs(dy)>dp(10)&&Math.abs(dy)>Math.abs(dx))moving=true;
+          if(!minimized && !moving && Math.abs(dy)>dp(10) && Math.abs(dy)>Math.abs(dx))moving=true;
+          if(minimized && !moving && Math.hypot(dx,dy)>dp(10))moving=true;
           if(moving){
             if(!minimized && dy < -dp(MINIMIZE_SWIPE_DP)){
               minimized=true; targetExpanded=false; params.width=dp(BUBBLE_DP); params.height=dp(BUBBLE_DP);
-              params.x=Math.max(0,(getResources().getDisplayMetrics().widthPixels-dp(BUBBLE_DP))/2);
+              // Dock the minimized bubble to the nearest screen edge. It may still be moved vertically.
+              int screenWidth=getResources().getDisplayMetrics().widthPixels;
+              params.x=(e.getRawX()<screenWidth/2f)?0:Math.max(0,screenWidth-dp(BUBBLE_DP));
               params.y=Math.max(0,(int)e.getRawY()-dp(BUBBLE_DP)/2);
               if(windowManager!=null)windowManager.updateViewLayout(this,params);
               invalidate(); return true;
             }
-            int maxY=Math.max(0,windowManager.getDefaultDisplay().getHeight()-getHeight());params.y=Math.max(0,Math.min(maxY,(int)(params.y+e.getRawY()-lastY)));lastY=e.getRawY();if(windowManager!=null)windowManager.updateViewLayout(this,params);getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putInt("y",params.y).apply();
+            int maxY=Math.max(0,windowManager.getDefaultDisplay().getHeight()-getHeight());
+            params.y=Math.max(0,Math.min(maxY,(int)(params.y+e.getRawY()-lastY)));
+            if(minimized){
+              int screenWidth=getResources().getDisplayMetrics().widthPixels;
+              params.x=Math.max(0,Math.min(screenWidth-getWidth(),(int)(params.x+e.getRawX()-lastX)));
+            }
+            lastY=e.getRawY(); lastX=e.getRawX();
+            if(windowManager!=null)windowManager.updateViewLayout(this,params);
+            getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putInt("y",params.y).apply();
           }
           else{progress=Math.min(1f,Math.max(0f,dx)/(Math.max(1,getWidth())));invalidate();}return true;
         case MotionEvent.ACTION_UP:
           float fx=e.getRawX()-downX, fy=e.getRawY()-downY; tracking=false;
           if(minimized && !moving && Math.abs(fx)<dp(16) && Math.abs(fy)<dp(16)){
-            minimized=false; params.width=WindowManager.LayoutParams.MATCH_PARENT; params.height=dp(COLLAPSED_TOTAL_DP);
+            minimized=false; targetExpanded=false;
+            // A reopened overlay is always a full-width, centered KFE bar. Never retain the bubble x-position.
+            params.width=WindowManager.LayoutParams.MATCH_PARENT; params.height=dp(COLLAPSED_TOTAL_DP); params.x=0;
             if(windowManager!=null)windowManager.updateViewLayout(this,params);
             invalidate(); return true;
           }
