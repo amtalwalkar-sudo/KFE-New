@@ -182,6 +182,7 @@ const endTrip = async (fare = '') => {
   await KfeRideNotificationService.completeRide()
   if (fareSaveFailed) return fail('Ride completed, but the fare could not be saved. Please correct it in Timeline.')
   notify(fare !== '' ? 'Ride completed with fare.' : 'Ride completed.')
+  return true
 }
 const openCancelRide = () => { if (!store.isTripActive) return; cancelReason.value='DRIVER_MISTAKE'; cancelledRevenue.value=''; cancelPanel.value=true; error.value=''; message.value='' }
 const closeCancelRide = () => { cancelPanel.value=false; cancelledRevenue.value=''; error.value=''; message.value='' }
@@ -221,17 +222,43 @@ const onSwipeEnd = async event => {
 const onSwipeCancel = () => { swipeTracking.value=false; swipeStartX.value=null; swipeStartY.value=null; swipeGestureMode.value=null; swipeOffset.value=0 }
 const onSwipeKey = async event => { if(event.key==='Enter'||event.key===' '){event.preventDefault();await primaryTripAction()} }
 const handleRideNotificationAction = async ({ stage, tripId, input }) => {
-  if (stage === 'GO_TO_PICKUP') return startGoingToPickup()
-  if (stage === 'ENTER_PICKUP_DURATION') { if (!input) return; await KfeRideNotificationService.setPickupDuration(input); return }
-  if (stage === 'START_RIDE') return startTrip()
-  if (stage === 'ENTER_RIDE_DURATION') { if (!input) return; await KfeRideNotificationService.setRideDuration(input); return }
-  if (stage === 'END_RIDE') return endTrip(input || '')
+  if (stage === 'GO_TO_PICKUP') {
+    await startGoingToPickup()
+    await KfeRideNotificationService.clearPendingAction()
+    return
+  }
+  if (stage === 'ENTER_PICKUP_DURATION') {
+    if (!input) return
+    const ok = await KfeRideNotificationService.setPickupDuration(input)
+    if (ok) await KfeRideNotificationService.clearPendingAction()
+    return ok
+  }
+  if (stage === 'START_RIDE') {
+    const result = await startTrip()
+    if (result?.ok) await KfeRideNotificationService.clearPendingAction()
+    return result
+  }
+  if (stage === 'ENTER_RIDE_DURATION') {
+    if (!input) return
+    const ok = await KfeRideNotificationService.setRideDuration(input)
+    if (ok) await KfeRideNotificationService.clearPendingAction()
+    return ok
+  }
+  if (stage === 'END_RIDE') {
+    const ok = await endTrip(input || '')
+    if (ok) await KfeRideNotificationService.clearPendingAction()
+    return ok
+  }
   if (stage === 'ENTER_FARE') {
     if (!tripId || input === '') return
     const value = Number(input)
     if (!Number.isFinite(value) || value < 0) return
     const result = await store.updateTrip({ id: tripId, revenue: value })
-    if (result?.ok) { await refreshTarget(); notify('Fare recorded for completed ride.') }
+    if (result?.ok) {
+      await KfeRideNotificationService.clearPendingAction()
+      await refreshTarget()
+      notify('Fare recorded for completed ride.')
+    }
     return result
   }
 }
