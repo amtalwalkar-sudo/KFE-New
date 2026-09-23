@@ -67,7 +67,7 @@ try{
 
   // 7D — repeat with five-year synthetic dataset and verify calculations remain isolated.
   await loadStage('5 years')
-  const fiveYearStatus=await page.getByText(/Loaded 2026-05-01 → 2031-04-30 · 1826 days/).count()
+  await openSynthetic();const fiveYearStatus=await page.getByText(/Loaded 2026-05-01 → 2031-04-30 · 1826 days/).count()
   assert(fiveYearStatus>0,'five-year synthetic manifest not loaded')
   assert(await page.getByText('CANONICAL-ISOLATION-001',{exact:true}).count()===0,'canonical data leaked into five-year synthetic mode')
   await page.goto(base+'performance',{waitUntil:'domcontentloaded',timeout:30000});await page.locator('.performance-page').waitFor({state:'visible',timeout:30000})
