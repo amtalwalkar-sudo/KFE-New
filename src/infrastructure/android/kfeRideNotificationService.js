@@ -40,12 +40,11 @@ export const KfeRideNotificationService = Object.freeze({
   async goOnline() {
     restore()
     if (state.phase && state.phase !== 'GO_TO_PICKUP') return true
-    if (!notificationsEnabled()) return true
-    await call('requestPermission')
     state.phase = 'GO_TO_PICKUP'
     state.tripId = null
     persist()
     if (!notificationsEnabled()) return true
+    await call('requestPermission')
     return call('show', { stage: 'GO_TO_PICKUP', tripId: '' })
   },
   async beginPickup(tripId) {
@@ -83,6 +82,7 @@ export const KfeRideNotificationService = Object.freeze({
     state.rideDurationMinutes = value
     state.phase = 'END_RIDE'
     persist()
+    if (!notificationsEnabled()) return true
     await call('schedule', { stage: 'END_RIDE', tripId: state.tripId, delayMs: value * 60 * 1000 })
     return true
   },
@@ -115,6 +115,7 @@ export const KfeRideNotificationService = Object.freeze({
     state.pickupDurationMinutes = null
     state.rideDurationMinutes = null
     persist()
+    if (!notificationsEnabled()) return true
     return call('show', { stage: 'GO_TO_PICKUP', tripId: '' })
   },
   async clearPendingAction() {
