@@ -3,6 +3,7 @@ import { registerPlugin, Capacitor } from '@capacitor/core'
 const KfeRideNotifications = registerPlugin('KfeRideNotifications')
 const KEY = 'kfe.ride.notification.workflow.v1'
 const TWO_MINUTES = 2 * 60 * 1000
+const NOTIFICATIONS_KEY = 'kfe.settings.notifications.v1'
 
 const native = () => Capacitor?.isNativePlatform?.() === true
 
@@ -13,6 +14,7 @@ const state = {
   rideDurationMinutes: null
 }
 
+const notificationsEnabled = () => localStorage.getItem(NOTIFICATIONS_KEY) !== 'off'
 const persist = () => localStorage.setItem(KEY, JSON.stringify(state))
 const restore = () => {
   try {
@@ -29,13 +31,21 @@ const call = async (method, options) => {
 export const KfeRideNotificationService = Object.freeze({
   restore,
   getState: () => ({ ...state }),
+  notificationsEnabled,
+  setNotificationsEnabled(enabled) {
+    localStorage.setItem(NOTIFICATIONS_KEY, enabled ? 'on' : 'off')
+    if (!enabled) void call('cancel')
+    return enabled
+  },
   async goOnline() {
     restore()
     if (state.phase && state.phase !== 'GO_TO_PICKUP') return true
+    if (!notificationsEnabled()) return true
     await call('requestPermission')
     state.phase = 'GO_TO_PICKUP'
     state.tripId = null
     persist()
+    if (!notificationsEnabled()) return true
     return call('show', { stage: 'GO_TO_PICKUP', tripId: '' })
   },
   async beginPickup(tripId) {
@@ -44,6 +54,7 @@ export const KfeRideNotificationService = Object.freeze({
     state.phase = 'ENTER_PICKUP_DURATION'
     persist()
     await call('cancel')
+    if (!notificationsEnabled()) return true
     return call('schedule', { stage: 'ENTER_PICKUP_DURATION', tripId, delayMs: TWO_MINUTES })
   },
   async setPickupDuration(minutes) {
@@ -52,6 +63,7 @@ export const KfeRideNotificationService = Object.freeze({
     state.pickupDurationMinutes = value
     state.phase = 'START_RIDE'
     persist()
+    if (!notificationsEnabled()) return true
     await call('show', { stage: 'START_RIDE', tripId: state.tripId })
     return true
   },
@@ -62,6 +74,7 @@ export const KfeRideNotificationService = Object.freeze({
     state.tripId = tripId || state.tripId
     state.phase = 'ENTER_RIDE_DURATION'
     persist()
+    if (!notificationsEnabled()) return true
     return call('schedule', { stage: 'ENTER_RIDE_DURATION', tripId: state.tripId, delayMs: TWO_MINUTES })
   },
   async setRideDuration(minutes) {
@@ -77,10 +90,12 @@ export const KfeRideNotificationService = Object.freeze({
     restore()
     state.phase = 'END_RIDE'
     persist()
+    if (!notificationsEnabled()) return true
     return call('show', { stage: 'END_RIDE', tripId: state.tripId })
   },
   async resume() {
     restore()
+    if (!notificationsEnabled()) return true
     if (state.phase === 'GO_TO_PICKUP') return call('show', { stage: 'GO_TO_PICKUP', tripId: '' })
     if (!state.tripId) return false
     if (state.phase === 'ENTER_PICKUP_DURATION') return call('show', { stage: 'ENTER_PICKUP_DURATION', tripId: state.tripId })
