@@ -1,5 +1,6 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
+import { Capacitor } from '@capacitor/core'
 import App from './App.vue'
 import router from './router'
 import { BackupConfig } from './application/backup/backupConfig.js'
@@ -16,15 +17,15 @@ import './styles/kfe-ui.css'
 import './styles/work-cockpit-hud.css'
 import { startKfeThemeController } from './presentation/theme/kfeThemeController.js'
 
-startKfeThemeController()
-
-if ('serviceWorker' in navigator) {
-  let reloadedForController = false
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloadedForController) return
-    reloadedForController = true
-    window.location.reload()
-  })
+if (!Capacitor.isNativePlatform()) {
+  if ('serviceWorker' in navigator) {
+    let reloadedForController = false
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloadedForController) return
+      reloadedForController = true
+      window.location.reload()
+    })
+  }
 }
 
 BackupConfig.configureBackupConfig(createBackupConfigAdapter())
@@ -33,7 +34,7 @@ configureLocationProvider(captureCurrentLocation)
 StartupService.configureStartupPlatform(PlatformStartup)
 configureAndroidOverlayLifecycle()
 
-if ('serviceWorker' in navigator) {
+if (!Capacitor.isNativePlatform() && 'serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', event => {
     if (event.data?.type === 'kfe:daily-cloud-backup') {
       void CloudBackupLifecycle.maybeDailyCloudBackup().catch(error => console.warn('KFE scheduled cloud backup failed:', error))
@@ -62,6 +63,7 @@ const pinia = createPinia()
 app.use(pinia)
 app.use(router)
 app.mount('#app')
+startKfeThemeController()
 
 // StartupService.initializeApplication() is invoked by startApplication() after the UI mounts.
 void startApplication().catch(error => console.error('KFE application startup failed:', error))
