@@ -35,6 +35,16 @@ public class KfeOverlayPlugin extends Plugin {
   }
 
   @com.getcapacitor.PluginMethod
+  public void prepare(PluginCall call) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(getContext())) {
+      call.reject("Overlay permission is not granted.");
+      return;
+    }
+    KfeOverlayService.prepare(getContext());
+    call.resolve();
+  }
+
+  @com.getcapacitor.PluginMethod
   public void show(PluginCall call) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(getContext())) {
       call.reject("Overlay permission is not granted.");
