@@ -28,6 +28,7 @@ import androidx.core.content.ContextCompat;
 import org.json.JSONObject;
 
 public class KfeOverlayService extends Service {
+  static volatile KfeOverlayService instance;
   static final String ACTION_PREPARE="com.kanishka.pwa.KFE_OVERLAY_PREPARE";
   static final String ACTION_SHOW="com.kanishka.pwa.KFE_OVERLAY_SHOW";
   static final String ACTION_UPDATE="com.kanishka.pwa.KFE_OVERLAY_UPDATE";
@@ -59,7 +60,7 @@ public class KfeOverlayService extends Service {
   public static void update(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_UPDATE);i.putExtra(EXTRA_STATE,state==null?"{}":state);context.startService(i);}
   public static void hide(Context context){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_HIDE);context.startService(i);}
 
-  @Override public void onCreate(){super.onCreate();createChannel();startForeground(NOTIFICATION_ID,buildNotification());}
+  @Override public void onCreate(){super.onCreate();instance=this;createChannel();startForeground(NOTIFICATION_ID,buildNotification());}
   @Override public int onStartCommand(Intent intent,int flags,int startId){
     if(intent==null)return START_NOT_STICKY;
     String action=intent.getAction();
@@ -176,7 +177,7 @@ public class KfeOverlayService extends Service {
   private int targetColor(){if(targetProgress>=100)return dark()?Color.rgb(80,220,130):Color.rgb(20,145,75);if(targetProgress>=70)return dark()?Color.rgb(255,205,90):Color.rgb(190,125,0);return actionColor();}
   private boolean dark(){return "dark".equals(theme)||"night".equals(theme)||"dusk".equals(theme);}
   private void removeOverlay(){closeForm();if(windowManager!=null&&overlayRoot!=null){try{windowManager.removeView(overlayRoot);}catch(Exception ignored){}}overlayRoot=null;overlay=null;}
-  @Override public void onDestroy(){removeOverlay();super.onDestroy();}
+  @Override public void onDestroy(){removeOverlay();if(instance==this)instance=null;super.onDestroy();}
   @Override public IBinder onBind(Intent intent){return null;}
   private Notification buildNotification(){return new NotificationCompat.Builder(this,CHANNEL_ID).setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle("KFE overlay ready").setContentText("Driver overlay is ready for use above other apps.").setOngoing(true).setCategory(NotificationCompat.CATEGORY_SERVICE).build();}
   private void createChannel(){if(android.os.Build.VERSION.SDK_INT>=android.os.Build.VERSION_CODES.O){NotificationManager m=(NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);if(m!=null)m.createNotificationChannel(new NotificationChannel(CHANNEL_ID,"KFE Overlay",NotificationManager.IMPORTANCE_LOW));}}
