@@ -640,133 +640,7 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
   font-weight:950;
 }
 .cockpit .persistent-action{
-  padding-top:6px;
-  height:70px;
-}
-.cockpit .swipe-bar{
-  height:46px;
-  min-height:46px;
-  font-size:.78rem;
-  letter-spacing:.02em;
-}
-.cockpit .swipe-bar > span:first-child{
-  font-size:1.2rem;
-}
-.cockpit .swipe-hint{
-  font-size:.61rem;
-}
-.cockpit--offline .persistent-action{
-  display:none;
-}
-.cockpit--end-shift .persistent-action,
-.cockpit--fuel .persistent-action{
-  display:none;
-}
-.cockpit .action-reserve{
-  height:70px;
-}
-.cockpit .operators button,
-.cockpit .allocation-actions button{
-  min-height:48px;
-}
-.cockpit .fuel-form-card .primary{
-  min-height:48px;
-  font-weight:900;
-}
-.cockpit .message,.cockpit .error{
-  margin-bottom:10px;
-}
-.cockpit .muted{
-  line-height:1.38;
-}
-@media(max-width:600px){
-  .cockpit{
-    padding-left:12px;
-    padding-right:12px;
-    padding-top:16px;
-  }
-  .cockpit .hero{
-    gap:8px;
-    margin-bottom:10px;
-  }
-  .cockpit .hero h1{
-    font-size:1.4rem;
-  }
-  .cockpit .online-control{
-    gap:4px;
-  }
-  .cockpit .target-card strong{
-    font-size:1.55rem;
-  }
-  .cockpit--trip .timer{
-    font-size:2.15rem;
-  }
-}
-@media(prefers-reduced-motion:reduce){
-  .cockpit .card,.cockpit .target-card{
-    transition:none;
-  }
-}
-
-
-/* KFE FROSTED GLASS SHELL — FROZEN VISUAL DNA */
-/* Shell glass only: operational content remains solid. */
-:root{
-  --kfe-glass-top:color-mix(in srgb,var(--kfe-ui-surface) 78%,transparent);
-  --kfe-glass-bottom:color-mix(in srgb,var(--kfe-ui-surface) 84%,transparent);
-  --kfe-glass-border:color-mix(in srgb,var(--kfe-ui-text) 11%,transparent);
-  --kfe-glass-shadow:0 8px 28px color-mix(in srgb,var(--kfe-ui-text) 10%,transparent);
-  --kfe-glass-blur:18px;
-  --kfe-glass-saturate:135%;
-}
-.top-bar{
-  background:var(--kfe-glass-top);
-  border-bottom:1px solid var(--kfe-glass-border);
-  box-shadow:var(--kfe-glass-shadow);
-  -webkit-backdrop-filter:blur(var(--kfe-glass-blur)) saturate(var(--kfe-glass-saturate));
-  backdrop-filter:blur(var(--kfe-glass-blur)) saturate(var(--kfe-glass-saturate));
-}
-.bottom-nav{
-  background:var(--kfe-glass-bottom);
-  border-top:1px solid var(--kfe-glass-border);
-  box-shadow:0 -8px 28px color-mix(in srgb,var(--kfe-ui-text) 9%,transparent);
-  -webkit-backdrop-filter:blur(var(--kfe-glass-blur)) saturate(var(--kfe-glass-saturate));
-  backdrop-filter:blur(var(--kfe-glass-blur)) saturate(var(--kfe-glass-saturate));
-}
-.header-gps,.fuel-icon,.online-control{
-  -webkit-backdrop-filter:blur(10px) saturate(125%);
-  backdrop-filter:blur(10px) saturate(125%);
-}
-.header-gps,.fuel-icon{
-  background:color-mix(in srgb,var(--kfe-ui-surface) 70%,transparent);
-  border-color:var(--kfe-glass-border);
-}
-.online-control{background:color-mix(in srgb,var(--kfe-ui-surface) 72%,transparent)!important}
-@media(prefers-reduced-transparency:reduce){
-  .top-bar,.bottom-nav,.header-gps,.fuel-icon,.online-control{
-    -webkit-backdrop-filter:none;
-    backdrop-filter:none;
-    background:var(--kfe-ui-surface);
-  }
-}
-
-/* FROZEN SWIPE ACTION — BLUE START / RED END */
-.cockpit .persistent-action{
-  display:flex;
-  flex-direction:column;
-  align-items:stretch;
-  gap:5px;
-  position:fixed;
-  left:0;
-  right:0;
-  bottom:76px;
-  height:100px;
-  padding:8px 12px 6px;
-  box-sizing:border-box;
-  z-index:9998;
-  background:color-mix(in srgb,var(--kfe-ui-surface) 97%,transparent);
-  border-top:1px solid var(--kfe-ui-border);
-  backdrop-filter:blur(10px);
+  display:flex;flex-direction:column;align-items:stretch;gap:5px;position:fixed;left:0;right:0;bottom:76px;height:100px;padding:8px 0 6px;box-sizing:border-box;z-index:9998;background:transparent;border:0;backdrop-filter:none;transform:translateY(var(--swipe-dock-y,0px));
 }
 .cockpit .swipe-bar{
   position:relative;
@@ -799,34 +673,8 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
   background:color-mix(in srgb,var(--kfe-ui-text) 22%,transparent);
   z-index:2;
 }
-.cockpit .swipe-progress{
-  position:absolute;
-  left:0;
-  top:0;
-  bottom:0;
-  width:var(--swipe-progress,0%);
-  background:color-mix(in srgb,var(--swipe-action-color) 14%,var(--kfe-ui-surface-2));
-  border-radius:inherit;
-  transition:background .12s ease;
-  z-index:0;
-}
-.cockpit .swipe-thumb{
-  position:absolute;
-  left:7px;
-  top:7px;
-  bottom:7px;
-  width:50px;
-  display:grid;
-  place-items:center;
-  border-radius:11px;
-  background:var(--swipe-action-color);
-  color:#fff;
-  box-shadow:0 3px 10px color-mix(in srgb,var(--swipe-action-color) 35%,transparent);
-  transform:translateX(var(--swipe-offset,0));
-  transition:box-shadow .12s ease,background .12s ease;
-  z-index:3;
-  pointer-events:none;
-}
+.cockpit .swipe-progress{position:absolute;right:0;left:auto;top:0;bottom:0;width:var(--swipe-progress,0%);background:color-mix(in srgb,var(--swipe-action-color) 14%,transparent);border-radius:inherit;transition:background .12s ease;z-index:0;}
+.cockpit .swipe-thumb{position:absolute;right:7px;left:auto;top:7px;bottom:7px;width:50px;display:grid;place-items:center;border-radius:11px;background:var(--swipe-action-color);color:#fff;box-shadow:0 3px 10px color-mix(in srgb,var(--swipe-action-color) 35%,transparent);transform:translateX(var(--swipe-offset,0));transition:box-shadow .12s ease,background .12s ease;z-index:3;pointer-events:none;}
 .cockpit .swipe-thumb b{font-size:1.18rem;font-weight:950;line-height:1}
 .cockpit .swipe-label{
   position:relative;
@@ -841,17 +689,7 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
   pointer-events:none;
   transition:opacity .12s ease;
 }
-.cockpit .swipe-threshold{
-  position:absolute;
-  left:calc(80% - 18px);
-  top:13px;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:2px;
-  z-index:4;
-  pointer-events:none;
-}
+.cockpit .swipe-threshold{position:absolute;right:calc(20% - 18px);left:auto;top:13px;display:flex;flex-direction:column;align-items:center;gap:2px;z-index:4;pointer-events:none;}
 .cockpit .swipe-threshold i{
   width:3px;
   height:43px;
@@ -873,7 +711,8 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
   letter-spacing:.03em;
   color:var(--kfe-muted-text);
 }
-.cockpit .swipe-bar--start{--swipe-action-color:var(--kfe-ui-accent)}
+.cockpit .swipe-bar--pickup{--swipe-action-color:var(--kfe-ui-accent)}
+.cockpit .swipe-bar--start{--swipe-action-color:var(--kfe-success)}
 .cockpit .swipe-bar--end{--swipe-action-color:var(--kfe-danger)}
 .cockpit .swipe-bar.is-swiping .swipe-label{opacity:.72}
 .cockpit .swipe-bar.is-threshold .swipe-progress{
@@ -1251,12 +1090,16 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
 }
 
 /* Frozen ride swipe-bar color DNA: blue pickup, green start, red end. */
-.persistent-action .swipe-bar.trip-action.swipe-bar--start { --swipe-action-color: var(--kfe-ui-accent); }
+.persistent-action .swipe-bar.trip-action.swipe-bar--pickup { --swipe-action-color: var(--kfe-ui-accent); }
+.persistent-action .swipe-bar.trip-action.swipe-bar--start { --swipe-action-color: var(--kfe-success); }
 .persistent-action .swipe-bar.trip-action.swipe-bar--end { --swipe-action-color: var(--kfe-danger); }
+.persistent-action .swipe-bar.trip-action.swipe-bar--pickup .swipe-progress,
 .persistent-action .swipe-bar.trip-action.swipe-bar--start .swipe-progress,
 .persistent-action .swipe-bar.trip-action.swipe-bar--end .swipe-progress { background: color-mix(in srgb,var(--swipe-action-color) 16%,var(--kfe-ui-surface-2)); }
+.persistent-action .swipe-bar.trip-action.swipe-bar--pickup .swipe-thumb,
 .persistent-action .swipe-bar.trip-action.swipe-bar--start .swipe-thumb,
 .persistent-action .swipe-bar.trip-action.swipe-bar--end .swipe-thumb { background: var(--swipe-action-color); }
+.persistent-action .swipe-bar.trip-action.swipe-bar--pickup .swipe-label,
 .persistent-action .swipe-bar.trip-action.swipe-bar--start .swipe-label,
 .persistent-action .swipe-bar.trip-action.swipe-bar--end .swipe-label { color: var(--swipe-action-color); }
 .persistent-action .swipe-bar.trip-action { display:flex !important; visibility:visible !important; opacity:1 !important; }
