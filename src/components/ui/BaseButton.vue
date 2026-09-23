@@ -14,11 +14,10 @@ const emit = defineEmits(['click'])
   <button
     :type="type"
     :disabled="disabled || loading"
-    :class="['base-btn', `btn-${variant}`, `btn-${size}`, { 'is-loading': loading }]"
+    :class="['kfe-ui-button', `is-${variant}`, `is-${size}`, { 'is-loading': loading }]"
     @click="emit('click', $event)"
   >
-    <span v-if="loading" class="spinner"></span>
-    <span :class="{ 'v-hidden': loading }"><slot /></span>
+    <span v-if="loading" class="kfe-ui-button-spinner" aria-hidden="true"></span>
+    <span :class="{ 'kfe-visually-hidden': loading }"><slot /></span>
   </button>
 </template>
-
