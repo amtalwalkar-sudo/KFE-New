@@ -13,6 +13,7 @@ let showing = false
 let updateTimer = null
 
 const activeOverlayState = async () => {
+  KfeRideNotificationService.restore()
   const active = await WorkService.getActiveState()
   if (!active?.shift?.id) return null
 
