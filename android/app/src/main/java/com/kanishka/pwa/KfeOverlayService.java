@@ -17,6 +17,12 @@ import android.os.IBinder;
 import android.provider.Settings;
 import android.view.Gravity;
 import android.view.MotionEvent;
+import android.view.inputmethod.InputMethodManager;
+import android.view.KeyEvent;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.text.InputType;
 import android.view.View;
 import android.view.WindowManager;
 
@@ -43,6 +49,9 @@ public class KfeOverlayService extends Service {
 
   private WindowManager windowManager;
   private SwipeOverlayView overlay;
+  private FrameLayout overlayRoot;
+  private EditText fareInput;
+  private Button fareOk;
   private WindowManager.LayoutParams params;
   private String actionStage = "GO_TO_PICKUP";
   private String theme = "light";
@@ -50,6 +59,7 @@ public class KfeOverlayService extends Service {
   private String rides = "0";
   private String liveKm = "0.0 km";
   private String revenue = "₹0";
+  private String pendingTripId = "";
   private boolean targetExpanded = false;
   private boolean minimized = false;
 
@@ -73,8 +83,10 @@ public class KfeOverlayService extends Service {
     params=new WindowManager.LayoutParams(WindowManager.LayoutParams.MATCH_PARENT,dp(COLLAPSED_TOTAL_DP),WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,PixelFormat.TRANSLUCENT);
     params.gravity=Gravity.TOP|Gravity.START;
     params.y=getSharedPreferences("kfe_overlay",MODE_PRIVATE).getInt("y",dp(120));
+    overlayRoot=new FrameLayout(this);
     overlay=new SwipeOverlayView(this);
-    windowManager.addView(overlay,params);
+    overlayRoot.addView(overlay,new FrameLayout.LayoutParams(-1,-1));
+    windowManager.addView(overlayRoot,params);
   }
   private void applyState(String raw){
     if(overlay==null)return;
@@ -88,12 +100,36 @@ public class KfeOverlayService extends Service {
       liveKm=root.optString("liveKm","0.0 km");
       revenue=root.optString("revenue","₹0");
       String requested=root.optString("overlayAction","");
-      actionStage=trip!=null&&!trip.optString("id","").isEmpty()?"END_RIDE":("START_RIDE".equals(requested)?"START_RIDE":"GO_TO_PICKUP");
+      pendingTripId=root.optString("overlayTripId","");
+      actionStage=requested.isEmpty()?(trip!=null&&!trip.optString("id","").isEmpty()?"END_RIDE":"GO_TO_PICKUP"):requested;
+      if ("ENTER_FARE".equals(actionStage)) showFareEntry(); else hideFareEntry();
       overlay.invalidate();
     }catch(Exception ignored){ actionStage="GO_TO_PICKUP"; overlay.invalidate(); }
   }
-  private void triggerAction(){ KfeRideNotificationsPlugin.recordPendingAction(this,actionStage,"",""); }
-  private void removeOverlay(){ if(windowManager!=null&&overlay!=null){try{windowManager.removeView(overlay);}catch(Exception ignored){}} overlay=null; }
+  private void triggerAction(){ KfeRideNotificationsPlugin.recordPendingAction(this,actionStage,pendingTripId,""); }
+  private void showFareEntry(){
+    if(overlayRoot==null)return;
+    if(fareInput!=null)return;
+    params.height=dp(158);
+    fareInput=new EditText(this); fareInput.setSingleLine(true); fareInput.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL); fareInput.setHint("Fare"); fareInput.setTextSize(18); fareInput.setPadding(dp(12),0,dp(12),0); fareInput.setSelectAllOnFocus(false);
+    FrameLayout.LayoutParams ip=new FrameLayout.LayoutParams(dp(150),dp(52),Gravity.CENTER_VERTICAL|Gravity.CENTER_HORIZONTAL); ip.leftMargin=-dp(45); overlayRoot.addView(fareInput,ip);
+    fareOk=new Button(this); fareOk.setText("OK"); fareOk.setTextSize(12); fareOk.setAllCaps(false);
+    FrameLayout.LayoutParams bp=new FrameLayout.LayoutParams(dp(72),dp(48),Gravity.CENTER_VERTICAL|Gravity.CENTER_HORIZONTAL); bp.leftMargin=dp(118); overlayRoot.addView(fareOk,bp);
+    fareOk.setOnClickListener(v->submitFare());
+    fareInput.setOnEditorActionListener((v,id,event)->{ if(id!=0 || (event!=null&&event.getKeyCode()==KeyEvent.KEYCODE_ENTER)){submitFare();return true;} return false; });
+  }
+  private void hideFareEntry(){
+    if(fareInput!=null){ ((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(fareInput.getWindowToken(),0); overlayRoot.removeView(fareInput); fareInput=null; }
+    if(fareOk!=null){ overlayRoot.removeView(fareOk); fareOk=null; }
+  }
+  private void submitFare(){
+    if(fareInput==null || pendingTripId.isEmpty())return;
+    String fare=fareInput.getText().toString().trim(); if(fare.isEmpty())return;
+    try{ if(Double.parseDouble(fare)<0)return; }catch(Exception ex){return;}
+    KfeRideNotificationsPlugin.recordPendingAction(this,"ENTER_FARE",pendingTripId,fare);
+    hideFareEntry();
+  }
+  private void removeOverlay(){ hideFareEntry(); if(windowManager!=null&&overlayRoot!=null){try{windowManager.removeView(overlayRoot);}catch(Exception ignored){}} overlayRoot=null; overlay=null; }
   @Override public void onDestroy(){removeOverlay();super.onDestroy();}
   @Override public IBinder onBind(Intent intent){return null;}
 
@@ -202,7 +238,7 @@ public class KfeOverlayService extends Service {
           if(minimized && !moving && Math.abs(fx)<dp(16) && Math.abs(fy)<dp(16)){
             minimized=false; targetExpanded=false;
             // A reopened overlay is always a full-width, centered KFE bar. Never retain the bubble x-position.
-            params.width=WindowManager.LayoutParams.MATCH_PARENT; params.height=dp(COLLAPSED_TOTAL_DP); params.x=0;
+            params.width=WindowManager.LayoutParams.MATCH_PARENT; params.height=dp("ENTER_FARE".equals(actionStage)?COLLAPSED_TOTAL_DP:COLLAPSED_TOTAL_DP); params.x=0;
             if(windowManager!=null)windowManager.updateViewLayout(this,params);
             invalidate(); return true;
           }
