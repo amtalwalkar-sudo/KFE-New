@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, " />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#2563eb" />
     <meta name="description" content="Driver-centric CNG Fleet Management PWA" />
     <meta name="referrer" content="no-referrer" />
@@ -12,12 +12,18 @@
   <body>
     <div id="app">
       <div id="kfe-boot" style="min-height:100vh;display:grid;place-items:center;padding:24px;box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif;color:#0f172a;background:#f8fafc;text-align:center">
-        <div><strong style="display:block;font-size:1.05rem">Kanishka Enterprises</strong><span style="display:block;margin-top:6px;color:#64748b">Starting KFE…</span></div>
+        <div>
+          <strong style="display:block;font-size:1.05rem">Kanishka Enterprises</strong>
+          <span style="display:block;margin-top:6px;color:#64748b">Starting KFE…</span>
+        </div>
       </div>
     </div>
     <script>
       (() => {
+        const BOOT_TIMEOUT_MS = 10000
+        let bootCompleted = false
         const showBootError = (error) => {
+          if (bootCompleted) return
           const root = document.getElementById('kfe-boot')
           if (!root) return
           const message = error?.message || String(error || 'Unknown startup error')
@@ -39,6 +45,13 @@
         }
         window.addEventListener('error', event => showBootError(event.error || event.message))
         window.addEventListener('unhandledrejection', event => showBootError(event.reason))
+        window.setTimeout(() => {
+          if (!document.getElementById('kfe-boot')) {
+            bootCompleted = true
+            return
+          }
+          showBootError(new Error('KFE interface did not finish loading within 10 seconds. The JavaScript bundle or WebView may be blocked.'))
+        }, BOOT_TIMEOUT_MS)
       })()
     </script>
     <script type="module" src="./src/main.js"></script>
