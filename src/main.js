@@ -63,4 +63,5 @@ app.use(pinia)
 app.use(router)
 app.mount('#app')
 
+// StartupService.initializeApplication() is invoked by startApplication() after the UI mounts.
 void startApplication().catch(error => console.error('KFE application startup failed:', error))
