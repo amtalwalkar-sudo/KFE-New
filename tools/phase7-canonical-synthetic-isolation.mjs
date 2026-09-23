@@ -20,7 +20,7 @@ try{
   const page=await context.newPage()
   page.on('dialog',async d=>await d.accept())
 
-  async function admin(){await page.goto(base+'admin',{waitUntil:'domcontentloaded',timeout:30000});await page.locator('.admin-page').waitFor({state:'visible',timeout:30000})}
+  async function admin(){await page.goto(base+'admin',{waitUntil:'domcontentloaded',timeout:30000});await page.locator('.admin-page').waitFor({state:'visible',timeout:30000});await page.locator('.admin-list').waitFor({state:'visible',timeout:30000})}
   async function openSynthetic(){await page.getByRole('button',{name:'Settings'}).click();await page.getByRole('button',{name:'Synthetic Data',exact:true}).click()}
   async function loadStage(name){await openSynthetic();await page.getByRole('button',{name,exact:true}).click();await page.waitForTimeout(1200);await page.reload({waitUntil:'domcontentloaded'});await page.locator('.admin-page').waitFor({state:'visible',timeout:30000})}
   async function createVehicle(registration){
