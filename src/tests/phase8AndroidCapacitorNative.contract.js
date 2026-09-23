@@ -14,6 +14,11 @@ assert.match(mainActivity, /extends BridgeActivity/)
 assert.match(mainActivity, /registerPlugin\(KfeSecureStoragePlugin\.class\)/)
 assert.match(mainActivity, /registerPlugin\(KfeRideNotificationsPlugin\.class\)/)
 assert.match(mainActivity, /registerPlugin\(KfeOverlayPlugin\.class\)/)
+const superIndex = mainActivity.indexOf('super.onCreate(savedInstanceState)')
+assert.ok(superIndex >= 0, 'BridgeActivity must be initialized')
+for (const plugin of ['KfeSecureStoragePlugin', 'KfeRideNotificationsPlugin', 'KfeOverlayPlugin']) {
+  assert.ok(mainActivity.indexOf(\`registerPlugin(\${plugin}.class)\`) < superIndex, \`\${plugin} must register before BridgeActivity.onCreate\`)
+}
 
 assert.match(manifest, /android\.permission\.FOREGROUND_SERVICE/)
 assert.match(manifest, /android\.permission\.FOREGROUND_SERVICE_LOCATION/)
