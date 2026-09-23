@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useShiftTripStore } from '../stores/shiftTrip.js'
 import { useFuelStore } from '../stores/fuel.js'
 import { DriverTargetService } from '../application/performance/driverTargetService.js'
+import { WorkService } from '../application/work/workService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { getKfeReferenceNow, reportingRangeFor, istCalendarDaysInclusive, istParts } from '../domain/time/ist.js'
 import { MovementTraceService } from '../infrastructure/location/movementTraceService.js'
@@ -271,8 +272,8 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
         <article class="work-performance-hero work-performance-week">
           <div class="work-performance-heading"><div><small>WEEKLY PERFORMANCE</small><h3>{{weeklyPerformance?.date || 'This week'}}</h3></div><span>WEEK</span></div>
           <div class="work-performance-metrics">
-            <div><span>Revenue</span><strong>{{performanceMoney(weeklyPerformance?.revenue)}}</strong><small>Total fare · toll + parking</small></div>
-            <div><span>Profit</span><strong>{{performanceMoney(weeklyPerformance?.profit)}}</strong><small>Revenue − break-even</small></div>
+            <div><span>Revenue</span><strong>{{performanceMoney(weeklyPerformance?.revenue)}}</strong><small>Authoritative shift revenue</small></div>
+            <div><span>Profit</span><strong>{{performanceMoney(weeklyPerformance?.profit)}}</strong><small>Revenue − actual operating expenses</small></div>
           </div>
         </article>
         <article class="work-performance-hero work-performance-yesterday">
