@@ -48,7 +48,7 @@ assert.equal(metrics.calculationEvidence.target.status, 'AUTHORITATIVE')
 const factsByType = new Map((metrics.financialFacts?.facts || []).map(fact => [fact.factType, fact]))
 assert.equal(factsByType.get('REVENUE')?.sourceType, 'SHIFT_END_REVENUE')
 assert.equal(factsByType.get('REVENUE')?.evidenceStatus, 'AUTHORITATIVE')
-assert.equal(factsByType.get('FINANCING_PAYMENT')?.sourceType, 'LOAN_PAYMENTS_PLUS_APPLIED_PREPAYMENTS')
+assert.equal(factsByType.get('FINANCING_OBLIGATION')?.sourceType, 'CANONICAL_LOAN_ENGINE')
 
 const future = { ...snapshot, shifts: [...snapshot.shifts, { id: 'phase5-future-shift', shiftStartAt: '2031-05-15T08:00:00+05:30', shiftEndAt: '2031-05-15T18:00:00+05:30', startOdometer: 999999, endOdometer: 1000999, revenue: 999999, toll: 0, parking: 0 }] }
 const bounded = PerformanceService.getMetrics(future, range)
