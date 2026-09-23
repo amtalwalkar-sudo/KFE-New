@@ -160,7 +160,7 @@ public class KfeOverlayService extends Service {
       paint.setColor(a); rect.set(tx,barTop+pad,tx+tw,barTop+barH-pad); c.drawRoundRect(rect,dp(11),dp(11),paint);
       text(19,Color.WHITE,true); center(c,"→",tx+tw/2f,barTop+barH/2f+dp(7));
       text(11,text(),true); center(c,"LIVE KM  "+liveKm+"   •   "+revenue,w/2f,barTop+barH/2f+dp(5));
-      paint.setColor(Color.argb(80,Color.red(a),Color.green(a),Color.blue(a))); float marker=w*.80f; c.drawRoundRect(marker-dpf(1.5f),barTop+dp(13),marker+dp(1.5f),barTop+dp(56),dp(2),dp(2),paint);
+      paint.setColor(Color.argb(80,Color.red(a),Color.green(a),Color.blue(a))); float marker=w*.80f; c.drawRoundRect(marker-dpf(1.5f),barTop+dp(13),marker+dpf(1.5f),barTop+dp(56),dp(2),dp(2),paint);
       text(7,muted(),true); center(c,"80%",marker,barTop+barH-dp(9));
       text(9,muted(),true); String hint=tracking&&progress>=.8f?"RELEASE TO CONFIRM":tracking?"KEEP SWIPING →":"SWIPE LEFT TO RIGHT"; center(c,hint,w/2f,barTop+barH+dp(15));
     }
