@@ -1,4 +1,4 @@
-import { initializeCanonicalStorage, notifyCanonicalDataChanged } from '../utils/indexedDB.js'
+import { initializeActiveStorage, notifyCanonicalDataChanged } from '../utils/indexedDB.js'
 import { generateUUID } from '../utils/uuid.js'
 import { writeMutationAndAudit } from './mutationRepository.js'
 import { normalizeFuelInput } from '../domain/canonicalNormalization.js'
@@ -19,7 +19,7 @@ const isDeleted = record => record?.deletedAt || record?.deleted === true
 
 export const FuelRepository = {
   async create(fuelData) {
-    const db = await initializeCanonicalStorage()
+    const db = await initializeActiveStorage()
     const normalized = normalizeFuelInput(fuelData)
     validateNormalizedFuel(normalized)
     const now = new Date().toISOString()
@@ -34,7 +34,7 @@ export const FuelRepository = {
     })
   },
   async update(id, fuelData) {
-    const db = await initializeCanonicalStorage()
+    const db = await initializeActiveStorage()
     const existing = await new Promise((resolve, reject) => {
       const request = db.transaction('fuel_logs', 'readonly').objectStore('fuel_logs').get(id)
       request.onsuccess = () => resolve(request.result || null)
@@ -56,7 +56,7 @@ export const FuelRepository = {
     })
   },
   async remove(id) {
-    const db = await initializeCanonicalStorage()
+    const db = await initializeActiveStorage()
     const now = new Date().toISOString()
     return new Promise((resolve, reject) => {
       const tx = db.transaction(stores, 'readwrite'); const fuelStore = tx.objectStore('fuel_logs'); const mutationStore = tx.objectStore('pending_mutations'); const auditStore = tx.objectStore('audit_history'); const request = fuelStore.get(id)
@@ -71,7 +71,7 @@ export const FuelRepository = {
     })
   },
   async getAll() {
-    const db = await initializeCanonicalStorage()
+    const db = await initializeActiveStorage()
     return new Promise((resolve, reject) => {
       const tx = db.transaction('fuel_logs', 'readonly'); const req = tx.objectStore('fuel_logs').getAll()
       req.onsuccess = () => resolve((req.result || []).filter(record => !isDeleted(record)).sort((a, b) => String(b.capturedAt || b.createdAt || '').localeCompare(String(a.capturedAt || a.createdAt || ''))))
