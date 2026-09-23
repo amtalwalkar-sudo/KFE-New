@@ -102,6 +102,15 @@ export const KfeRideNotificationService = Object.freeze({
     persist()
     return call('show', { stage: 'GO_TO_PICKUP', tripId: '' })
   },
+  async clearPendingAction() {
+    if (!native()) return false
+    try {
+      await KfeRideNotifications.clearPendingAction()
+      return true
+    } catch (_) {
+      return false
+    }
+  },
   async consumePendingAction() {
     if (!native()) return null
     try {
