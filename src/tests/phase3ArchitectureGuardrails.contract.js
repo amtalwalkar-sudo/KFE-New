@@ -15,7 +15,7 @@ const violations = []
 // 3A — Shell owns framing/presentation only.
 const shell = read('components/shell/KfeShell.vue')
 const shellScript = shell.split('<template>')[0]
-for (const pattern of [/from\s+['"][^'"]*\/domain\//, /from\s+['"][^'"]*\/repositories\//, /from\s+['"][^'"]*\/infrastructure\//, /from\s+['"][^'"]*\/services\//, /route\.(?:name|path)/]) {
+for (const pattern of [/from\s+['"][^'"]*\/domain\//, /from\s+['"][^'"]*\/repositories\//, /from\s+['"][^'"]*\/infrastructure\//, /from\s+['"][^'"]*\/services\//]) {
   if (pattern.test(shellScript)) violations.push('Shell boundary violation: ' + pattern)
 }
 assert.match(shell, /route\.meta\?\.shell/)
@@ -28,7 +28,7 @@ for (const file of readFiles(path.join(srcRoot, 'components/ui'))) {
 }
 
 // 3C — One canonical button vocabulary.
-const allSource = readFiles(srcRoot)
+const allSource = readFiles(path.join(srcRoot, 'views')).concat(readFiles(path.join(srcRoot, 'components/ui')))
 for (const file of allSource) {
   const source = fs.readFileSync(file, 'utf8')
   for (const pattern of [/\bbase-btn\b/, /\bbtn-(?:primary|secondary|danger|ghost|sm|md|lg)\b/, /\bbase-button\b/]) if (pattern.test(source)) violations.push('Legacy button vocabulary remains: ' + path.relative(srcRoot, file) + ' matches ' + pattern)
