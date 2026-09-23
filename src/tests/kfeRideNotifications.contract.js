@@ -10,6 +10,7 @@ const overlay = fs.readFileSync(path.join(root, 'android/app/src/main/java/com/k
 assert.match(service, /ENTER_PICKUP_DURATION/)
 assert.match(service, /ENTER_RIDE_DURATION/)
 assert.match(service, /END_RIDE/)
+assert.match(service, /clearPendingAction/)
 assert.match(service, /TWO_MINUTES/)
 assert.match(plugin, /setOngoing\(true\)/)
 assert.match(plugin, /RemoteInput/)
@@ -24,6 +25,8 @@ assert.match(overlay, /MINIMIZE_SWIPE_DP = 48/)
 assert.match(overlay, /minimized=true/)
 assert.match(overlay, /params\.width=dp\(BUBBLE_DP\)/)
 assert.match(overlay, /params\.height=dp\(BUBBLE_DP\)/)
+assert.match(overlay, /emitAction\(actionStage,pendingTripId/)
+assert.match(overlay, /emitAction\("ENTER_FARE",pendingTripId,fare/)
 
 // CI verification marker for the native notification bridge.
 console.log('KFE ride notification contract tests passed')
