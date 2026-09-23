@@ -46,3 +46,6 @@ Phase 6 is complete only when:
 
 
 CI gate activation: Phase 6 runtime verification is executed by consolidated-baseline CI.
+
+
+CI gate: Phase 6 is complete only after the workflow reports success on the branch head.
