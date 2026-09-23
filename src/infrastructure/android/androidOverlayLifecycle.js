@@ -67,7 +67,7 @@ const showOverlayIfNeeded = async () => {
   showing = true
   try {
     const permission = await AndroidOverlay.canDrawOverlays()
-    if (!permission.granted) return
+    if (!permission.granted) { await AndroidOverlay.hide(); return }
     const state = await activeOverlayState()
     if (state) await AndroidOverlay.show(state)
     else await AndroidOverlay.hide()
@@ -82,7 +82,7 @@ const updateOverlayIfNeeded = async () => {
   if (document.visibilityState === 'visible') return
   try {
     const permission = await AndroidOverlay.canDrawOverlays()
-    if (!permission.granted) return
+    if (!permission.granted) { await AndroidOverlay.hide(); return }
     const state = await activeOverlayState()
     if (state) await AndroidOverlay.update(state)
     else await AndroidOverlay.hide()
