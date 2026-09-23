@@ -69,7 +69,7 @@ jobs:
           JOB_STATUS: ${{ job.status }}
         run: |
           if [ "$JOB_STATUS" = "success" ]; then
-            BODY="APK build completed successfully. Download the `kfe-android-debug-apk` artifact from this run: $RUN_URL"
+            BODY="APK build completed successfully. Download the kfe-android-debug-apk artifact from this run: $RUN_URL"
           else
             BODY="APK build failed. See the workflow run for details: $RUN_URL"
           fi
