@@ -32,7 +32,8 @@ export function validateTripCorrection(data = {}) {
   return { valid: true, ...result }
 }
 
-export function calculateShiftRevenue(trips = []) {
+export function calculateTripRevenueDetail(trips = []) {
+  // Supporting ride-detail total only. ERP revenue authority remains Shift.revenue.
   return trips
     .filter(trip => trip?.status === 'COMPLETED')
     .reduce((total, trip) => {
