@@ -11,7 +11,8 @@ const state = {
   tripId: null,
   phase: null,
   pickupDurationMinutes: null,
-  rideDurationMinutes: null
+  rideDurationMinutes: null,
+  lastCancellation: null
 }
 
 const notificationsEnabled = () => localStorage.getItem(NOTIFICATIONS_KEY) !== 'off'
@@ -103,6 +104,15 @@ export const KfeRideNotificationService = Object.freeze({
     if (state.phase === 'ENTER_RIDE_DURATION') return call('show', { stage: 'ENTER_RIDE_DURATION', tripId: state.tripId })
     if (state.phase === 'END_RIDE') return call('show', { stage: 'END_RIDE', tripId: state.tripId })
     return false
+  },
+  recordCancellation(tripId, revenue = 0) {
+    state.lastCancellation = { tripId: tripId || null, revenue: Number.isFinite(Number(revenue)) ? Number(revenue) : 0, recordedAt: Date.now() }
+    persist()
+    return state.lastCancellation
+  },
+  getLastCancellation() {
+    restore()
+    return state.lastCancellation ? { ...state.lastCancellation } : null
   },
   async completeRide() {
     const completedTripId = state.tripId
