@@ -78,6 +78,8 @@ const targetRides = computed(() => store.completedTrips.length + (store.isTripAc
 const liveKms = ref(null)
 const liveKmsBase = ref(0)
 const activeFare = computed(() => { const value = store.trip?.revenue; return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) ? performanceMoney(value) : '—' })
+const liveKmsText = computed(() => { const value = liveKms.value ?? store.trip?.tripKm; return Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)} km` : '0.0 km' })
+const ridesText = computed(() => String(Math.max(0, Number(targetRides.value) || 0)))
 const performanceSnapshot = ref(null)
 const performanceMoney = value => Number.isFinite(Number(value)) ? `₹${Math.round(Number(value)).toLocaleString('en-IN')}` : '—'
 const performanceRevenue = metrics => Number.isFinite(Number(metrics?.revenue)) ? Number(metrics.revenue) : 0
@@ -195,7 +197,7 @@ const swipeStyle = computed(() => ({
 }))
 const onSwipeStart = event => { if(event.pointerType==='mouse'&&event.button!==0)return; swipeStartX.value=event.clientX;swipeTracking.value=true;swipeOffset.value=0;event.currentTarget.setPointerCapture?.(event.pointerId) }
 const onSwipeMove = event => { if(!swipeTracking.value||swipeStartX.value==null)return; const width=swipeTrack.value?.clientWidth||320; const max=Math.max(80,width-56); const distance=event.clientX-swipeStartX.value; swipeOffset.value=Math.max(0,Math.min(distance,max)) }
-const onSwipeEnd = async event => { if(!swipeTracking.value||swipeStartX.value==null)return; const distance=event.clientX-swipeStartX.value; const width=swipeTrack.value?.clientWidth||320; const trigger=width*0.8; swipeTracking.value=false;swipeStartX.value=null;swipeOffset.value=0;if(distance>=trigger)await primaryTripAction() }
+const onSwipeEnd = async event => { if(!swipeTracking.value||swipeStartX.value==null)return; const distance=event.clientX-swipeStartX.value; const width=swipeTrack.value?.clientWidth||320; const trigger=Math.max(80,width*0.55); swipeTracking.value=false;swipeStartX.value=null;swipeOffset.value=0;if(distance>=trigger)await primaryTripAction() }
 const onSwipeCancel = () => { swipeTracking.value=false;swipeStartX.value=null;swipeOffset.value=0 }
 const onSwipeKey = async event => { if(event.key==='Enter'||event.key===' '){event.preventDefault();await primaryTripAction()} }
 const handleRideNotificationAction = async ({ stage, tripId, input }) => {
@@ -295,7 +297,8 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
       </div>
     </section>
 
-    <section v-else-if="!store.isTripActive && store.isOnline && !endShiftOpen" class="cockpit-state cockpit-ready-state">
+    <div v-if="store.isOnline && !endShiftOpen && !fuelFormOpen && !cancelPanel" class="work-live-summary" aria-label="Live work summary"><article><span>TODAY’S TARGET</span><strong>{{targetText}}</strong><small>{{targetValue == null ? (target?.reason === "NO_FINANCIAL_DRIVER_TARGET_DAY" ? "Target starts after the first financial ride" : "Target unavailable") : `${targetProgress}% achieved`}}</small></article><article><span>RIDES</span><strong>{{ridesText}}</strong><small>{{store.isTripActive ? "Including active ride" : "Completed today"}}</small></article><article><span>LIVE KM</span><strong>{{liveKmsText}}</strong><small>{{store.isTripActive ? "Passenger GPS trace" : "Current ride distance"}}</small></article></div>
+    <section v-else-if="!store.isTripActive && store.isOnline && !endShiftOpen && !goingToPickup" class="cockpit-state cockpit-ready-state">
       <h2>READY FOR NEXT TRIP</h2>
       <div class="ready-context"><div class="operator-inline"><span>Operator</span><button type="button" class="operator-select" @click="operatorMenuOpen=!operatorMenuOpen">{{(selectedOperator||store.defaultOperator)+' ▾'}}</button></div><div v-if="operatorMenuOpen" class="operator-menu"><button v-for="operator in store.operators" :key="operator" type="button" :class="{selected:(store.defaultOperator===operator&&selectedOperator!=='__menu__')}" @click="changeTripOperator(operator)">{{operator}}</button></div></div>
       
