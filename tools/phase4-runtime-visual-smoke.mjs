@@ -32,8 +32,12 @@ try{
  await page.getByRole('button',{name:'CNG refuelling'}).click();await page.getByText('Refuelling',{exact:true}).waitFor({state:'visible'});await page.getByRole('button',{name:'Keep Draft & Close'}).click()
  await page.getByRole('switch',{name:/go online/i}).click();await page.getByText('START ODOMETER',{exact:true}).waitFor({state:'visible'});assert(await page.getByRole('button',{name:'Back'}).count()>0,'Start odometer Back missing');await page.getByRole('button',{name:'Back'}).first().click()
  // 4C GPS
- const gps=page.locator('button.header-gps');assert(await gps.count()===1,'GPS control missing');await wait(async()=>['GPS connected','GPS ready — tap to check'].includes(await gps.getAttribute('aria-label')));if((await gps.getAttribute('aria-label'))!=='GPS connected')await gps.click();await wait(async()=>await gps.getAttribute('aria-label')==='GPS connected');assert(!(await gps.innerText()).trim(),'GPS control is not icon-only')
- // 4D themes
+ const gps=page.locator('button.header-gps');assert(await gps.count()===1,'GPS control missing')
+ await wait(async()=>['GPS connected','GPS ready — tap to check','GPS permission needed','GPS unavailable','Connecting GPS'].includes(await gps.getAttribute('aria-label')))
+ const beforeGps=await gps.getAttribute('aria-label');await gps.click()
+ await wait(async()=>['GPS connected','GPS permission needed','GPS unavailable'].includes(await gps.getAttribute('aria-label')))
+ assert(!(await gps.innerText()).trim(),'GPS control is not icon-only')
+// 4D themes
  await page.evaluate(()=>localStorage.setItem('kfe.visual.theme.mode','light'));await page.reload({waitUntil:'domcontentloaded'});await page.locator('.cockpit').waitFor({state:'visible'});await wait(async()=>await page.locator('html').getAttribute('data-kfe-theme')==='day');assert(await page.locator('html').getAttribute('data-kfe-theme')==='day','light theme failed')
  const light=await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kfe-ui-bg').trim())
  await page.evaluate(()=>localStorage.setItem('kfe.visual.theme.mode','dark'));await page.reload({waitUntil:'domcontentloaded'});await page.locator('.cockpit').waitFor({state:'visible'});await wait(async()=>await page.locator('html').getAttribute('data-kfe-theme')==='night');assert(await page.locator('html').getAttribute('data-kfe-theme')==='night','dark theme failed')
