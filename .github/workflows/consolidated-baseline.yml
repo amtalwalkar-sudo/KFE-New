@@ -90,6 +90,17 @@ jobs:
           path: artifacts/phase4-runtime/
           if-no-files-found: error
 
+      - name: Run Phase 7 Canonical Synthetic Isolation Verification
+        run: node tools/phase7-canonical-synthetic-isolation.mjs
+
+      - name: Upload Phase 7 Isolation Screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kfe-phase7-canonical-synthetic-isolation
+          path: artifacts/phase7-isolation/
+          if-no-files-found: error
+
       - name: Preserve SPA Routes for GitHub Pages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: cp dist/index.html dist/404.html
