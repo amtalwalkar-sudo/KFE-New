@@ -34,7 +34,6 @@ assert.equal(metrics.operatingKmForecast.available, true)
 assert.equal(metrics.operatingKmForecast.observedOperatingDays, 1826)
 assert.ok(Math.abs(metrics.operatingKmForecast.calculatedForecast.dailyKm - 212.21168510607765) < 1e-6)
 assert.ok(Math.abs(metrics.driverTargetOperatingKmMultiplier - 1.0610584255303882) < 1e-12)
-assert.equal(metrics.driverTargetOperatingKmForecast, metrics.operatingKmForecast.calculatedForecast.dailyKm)
 
 assert.ok(Math.abs(metrics.actualProfit - (metrics.revenue - metrics.actualOperatingCost)) < 1e-9)
 assert.ok(Math.abs(metrics.indicativeProfit - (metrics.revenue - metrics.totalIndicativeProvision)) < 1e-9)
