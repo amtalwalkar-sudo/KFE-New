@@ -118,7 +118,7 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
     totalIndicativeProvision,
     actualProfit,
     indicativeProfit,
-    provisionAdjustedProfit: indicativeProfit,
+    provisionAdjustedProfit: Number.isFinite(provisionRequired) ? base.operatingProfit - provisionRequired : NaN,
     monthlyBreakEvenRevenue,
     breakEvenRevenue: monthlyBreakEvenRevenue,
     breakEvenInputs: {
