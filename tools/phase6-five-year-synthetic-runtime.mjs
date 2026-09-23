@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 
 const base='http://127.0.0.1:4173/KFE-New/'
+const hardStop=setTimeout(()=>{console.error('Phase 6 runtime gate exceeded 8 minutes');process.exit(1)},8*60*1000);hardStop.unref?.()
 const preview=spawn('npm',['run','preview','--','--host','127.0.0.1'],{stdio:['ignore','pipe','pipe'],env:{...process.env,BROWSER:'none'},detached:true})
 let output=''
 preview.stdout.on('data',c=>{output+=c.toString()}); preview.stderr.on('data',c=>{output+=c.toString()})
@@ -69,4 +70,4 @@ try{
   if(errors.length)throw new Error('Browser runtime errors:\n'+errors.join('\n'))
   if(failed.length)throw new Error('Failed requests:\n'+failed.join('\n'))
   console.log('Phase 6 five-year synthetic runtime verification PASS — UI load, physical DB, full calculation path, visible frozen results, route safety, and DB isolation.')
-}catch(e){throw new Error(e.message+'\n'+output)}finally{await browser?.close();await stop()}
+}catch(e){throw new Error(e.message+'\n'+output)}finally{clearTimeout(hardStop);await browser?.close();await stop()}
