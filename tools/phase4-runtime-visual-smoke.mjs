@@ -14,7 +14,7 @@ try{
  const end=Date.now()+30000;while(Date.now()<end){try{if((await fetch(base)).ok)break}catch(_){}await new Promise(r=>setTimeout(r,250))}
  mkdirSync('artifacts/phase4-runtime',{recursive:true})
  browser=await chromium.launch({headless:true})
- const context=await browser.newContext({viewport:{width:390,height:844},geolocation:{latitude:19.076,longitude:72.8777,accuracy:30},permissions:['geolocation'],reducedMotion:'reduce'})
+ const context=await browser.newContext({serviceWorkers:'block',viewport:{width:390,height:844},geolocation:{latitude:19.076,longitude:72.8777,accuracy:30},permissions:['geolocation'],reducedMotion:'reduce'})
  await context.addInitScript(()=>{if(!sessionStorage.getItem('__kfe_phase4_initialized')){localStorage.clear();sessionStorage.clear();sessionStorage.setItem('__kfe_phase4_initialized','1')}navigator.geolocation.getCurrentPosition=success=>success({coords:{latitude:19.076,longitude:72.8777,accuracy:30},timestamp:Date.now()})})
  const page=await context.newPage(),errors=[],failed=[]
  page.on('pageerror',e=>errors.push(e.stack||e.message));page.on('requestfailed',r=>failed.push(r.url()))
