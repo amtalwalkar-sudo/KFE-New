@@ -92,6 +92,12 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   const actualPrepayment = money(finance?.actualPrepayment)
   const actualFinancingOutflow = money(finance?.actualFinancingOutflow)
   const availableCash = money(base.operatingProfit) - actualFinancingOutflow
+  const loanProvisionForPeriod = finance && previousFinance
+    ? Math.max(0, money(finance.provisionAccumulated) - money(previousFinance.provisionAccumulated))
+    : 0
+  const totalIndicativeProvision = loanProvisionForPeriod + (Number.isFinite(authoritativeMaintenanceProvision) ? authoritativeMaintenanceProvision : 0) + (Number.isFinite(Number(base.renewalProvision)) ? Number(base.renewalProvision) : 0)
+  const actualProfit = base.operatingProfit
+  const indicativeProfit = Number.isFinite(Number(base.revenue)) ? Number(base.revenue) - totalIndicativeProvision : NaN
 
   return {
     ...base,
@@ -108,6 +114,10 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
     maintenanceProvision: authoritativeMaintenanceProvision,
     provisionRequired,
     provisionSetAside: provisionRequired,
+    loanProvisionForPeriod,
+    totalIndicativeProvision,
+    actualProfit,
+    indicativeProfit,
     provisionAdjustedProfit: Number.isFinite(provisionRequired) ? base.operatingProfit - provisionRequired : NaN,
     monthlyBreakEvenRevenue,
     breakEvenRevenue: monthlyBreakEvenRevenue,
@@ -138,6 +148,8 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
       loan: 'CANONICAL_FINANCE_LOAN_ENGINE',
       breakEven: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN',
       breakEvenTrace: breakEven.trace || null,
+      actualProfit: 'AUTHORITATIVE_REVENUE_MINUS_ACTUAL_OPERATING_EXPENSES',
+      indicativeProfit: 'AUTHORITATIVE_REVENUE_MINUS_PERIOD_PROVISIONS',
     },
     completeness: {
       ...(base.completeness || {}),
