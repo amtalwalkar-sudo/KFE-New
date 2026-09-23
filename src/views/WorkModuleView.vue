@@ -189,10 +189,10 @@ const cancelTripWithRevenue = async () => { if (cancelSubmitting.value) return; 
 const saveFuel = async () => { if (fuelStore.saving) return; const result=await fuelStore.save({odometer:fuelOdometer.value,pricePerKg:fuelPrice.value,amount:fuelAmount.value,clientMutationId:fuelClientMutationId.value}); if(!result.ok)return fail(result.reason); fuelOdometer.value='';fuelPrice.value='';fuelAmount.value='';fuelClientMutationId.value=crypto.randomUUID();sessionStorage.removeItem(fuelDraftKey);fuelFormOpen.value=false;notify(`Refuelling recorded: ${result.record.quantityKg.toFixed(2)} kg.`) }
 const primaryTripAction = () => { if (store.isTripActive) return endTrip(); if (!goingToPickup.value) return startGoingToPickup(); return startTrip() }
 const tripActionLabel = computed(() => store.isTripActive ? 'Swipe to end trip' : goingToPickup.value ? 'Swipe to start trip' : 'Swipe to go to pickup')
-const tripActionHint = computed(() => store.isTripActive ? 'Swipe from left to right to end this trip' : goingToPickup.value ? 'Swipe when you reach pickup to start the trip and stop Dead KM GPS' : 'Swipe from left to right to go to pickup and start Dead KM GPS')
+const tripActionHint = computed(() => store.isTripActive ? 'Swipe from left to right to end this trip' : goingToPickup.value ? 'Swipe when you reach pickup to start the trip and stop Dead KM GPS' : 'Swipe from right to left to go to pickup and start Dead KM GPS')
 const swipeProgress = computed(() => {
   const width = swipeTrack.value?.clientWidth || 320
-  return Math.min(100, Math.round((swipeOffset.value / Math.max(1, width)) * 100))
+  return Math.min(100, Math.round((Math.abs(swipeOffset.value) / Math.max(1, width)) * 100))
 })
 const swipeStyle = computed(() => ({ '--swipe-progress': swipeProgress.value + '%', '--swipe-offset': swipeOffset.value + 'px', '--swipe-dock-y': swipeDockY.value + 'px' }))
 const onSwipeStart = event => {
@@ -205,8 +205,8 @@ const onSwipeMove = event => {
   const dx=event.clientX-swipeStartX.value, dy=event.clientY-swipeStartY.value
   if(!swipeGestureMode.value && (Math.abs(dy)>10||Math.abs(dx)>10)) swipeGestureMode.value=Math.abs(dy)>Math.abs(dx)?'MOVE':'SWIPE'
   if(swipeGestureMode.value==='MOVE'){
-    const minY=-Math.max(0,window.innerHeight-170)
-    swipeDockY.value=Math.max(minY,Math.min(0,swipeDockY.value+dy)); swipeStartY.value=event.clientY; return
+    const limit=Math.max(0,window.innerHeight-170)
+    swipeDockY.value=Math.max(-limit,Math.min(limit,swipeDockY.value+dy)); swipeStartY.value=event.clientY; return
   }
   if(swipeGestureMode.value!=='SWIPE')return
   const width=swipeTrack.value?.clientWidth||320, max=Math.max(80,width-56)
