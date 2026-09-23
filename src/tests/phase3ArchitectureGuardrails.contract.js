@@ -28,7 +28,7 @@ for (const file of readFiles(path.join(srcRoot, 'components/ui'))) {
 }
 
 // 3C — One canonical button vocabulary.
-const allSource = readFiles(path.join(srcRoot, 'views')).concat(readFiles(path.join(srcRoot, 'components/ui')))
+const allSource = readFiles(path.join(srcRoot, 'views')).concat(readFiles(path.join(srcRoot, 'components/ui'))).concat([path.join(srcRoot,'styles/kfe-ui.css')])
 for (const file of allSource) {
   const source = fs.readFileSync(file, 'utf8')
   for (const pattern of [/\bbase-btn\b/, /\bbtn-(?:primary|secondary|danger|ghost|sm|md|lg)\b/, /\bbase-button\b/]) if (pattern.test(source)) violations.push('Legacy button vocabulary remains: ' + path.relative(srcRoot, file) + ' matches ' + pattern)
