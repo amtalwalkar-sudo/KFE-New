@@ -134,7 +134,6 @@ export const KfeRideNotificationService = Object.freeze({
       const packed = String(result?.pending || '')
       if (!packed) return null
       const [stage = '', tripId = '', input = ''] = packed.split('|')
-      await KfeRideNotifications.clearPendingAction()
       return { stage, tripId, input }
     } catch (_) {
       return null
