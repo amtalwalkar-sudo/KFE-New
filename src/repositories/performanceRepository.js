@@ -1,4 +1,4 @@
-import { initializeCanonicalStorage } from '../utils/indexedDB.js'
+import { initializeActiveStorage } from '../utils/indexedDB.js'
 
 const PERFORMANCE_STORES = Object.freeze([
   'shifts', 'trips', 'fuel_logs', 'vehicles', 'drivers',
@@ -7,7 +7,7 @@ const PERFORMANCE_STORES = Object.freeze([
 ])
 
 const readSnapshot = async () => {
-  const db = await initializeCanonicalStorage()
+  const db = await initializeActiveStorage()
   return new Promise((resolve, reject) => {
     const tx = db.transaction([...PERFORMANCE_STORES], 'readonly')
     const result = {}
