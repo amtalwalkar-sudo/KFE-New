@@ -9,6 +9,8 @@ const notifications = fs.readFileSync('android/app/src/main/java/com/kanishka/pw
 const receiver = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeRideNotificationReceiver.java', 'utf8')
 const secureStorage = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeSecureStoragePlugin.java', 'utf8')
 const gradle = fs.readFileSync('android/app/build.gradle', 'utf8')
+const overlayLifecycle = fs.readFileSync('src/infrastructure/android/androidOverlayLifecycle.js', 'utf8')
+
 
 assert.match(mainActivity, /extends BridgeActivity/)
 assert.match(mainActivity, /registerPlugin\(KfeSecureStoragePlugin\.class\)/)
@@ -42,7 +44,7 @@ assert.match(overlayPlugin, /Settings\.canDrawOverlays/)
 assert.match(overlayPlugin, /ACTION_MANAGE_OVERLAY_PERMISSION/)
 assert.match(overlay, /ContextCompat\.startForegroundService/)
 assert.match(overlay, /TYPE_APPLICATION_OVERLAY/)
-assert.match(overlay, /START_NOT_STICKY/)
+assert.match(overlay, /START_NOT_STICKY/)\nassert.match(overlayLifecycle, /window\.addEventListener\('blur', blurHandler\)/)\nassert.match(overlayLifecycle, /window\.addEventListener\('focus', focusHandler\)/)\nassert.match(overlayLifecycle, /showOverlayIfNeeded/)
 assert.doesNotMatch(overlay, /if \(intent == null\) return START_STICKY/)
 
 assert.match(notifications, /static void showNotification\(Context context, String stage, String tripId\)/)
