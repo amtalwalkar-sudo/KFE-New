@@ -9,7 +9,7 @@
     "financialModel": {
       "version": 3,
       "layers": {
-        "revenue": {"definition":"Revenue from validated completed trip records only.","formula":"sum(completedTrip.revenue)","authority":"COMPLETED_TRIP_RECORDS"},
+        "revenue": {"definition":"Confirmed revenue on completed Shift records.","formula":"sum(completedShift.revenue)","authority":"SHIFT_END_REVENUE"},
         "operatingCost": {"definition":"Actual operating costs recorded for the reporting period.","formula":"fuel + toll + parking + actualMaintenance","authority":"FUEL_LOGS_PLUS_SHIFT_TOLL_PARKING_PLUS_ACTUAL_MAINTENANCE"},
         "operatingProfit": {"definition":"Revenue remaining after actual operating costs.","formula":"revenue - operatingCost"},
         "availableCash": {"definition":"Actual cash remaining after actual financing outflows recorded for the reporting period. Provisions are not deducted from this actual result.","formula":"operatingProfit - actualLoanPayments - actualAppliedPrepayments","authority":"LOAN_PAYMENT_RECORDS_PLUS_APPLIED_PREPAYMENT_RECORDS"},
