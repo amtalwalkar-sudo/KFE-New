@@ -1,68 +1,35 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import DiagnosticBubble from '../DiagnosticBubble.vue'
+import {
+  checkGps,
+  getGpsState,
+  getGpsStateLabel,
+  startGpsStatusMonitoring,
+  subscribeGpsStatus
+} from '../../application/location/gpsStatusService.js'
 
 const route = useRoute()
-const gpsState = ref('checking')
-const isPerformance = computed(() => route.name === 'Performance')
-let gpsRefreshTimer = null
-
-async function connectGps({ requestPermission = false } = {}) {
-  if (!('geolocation' in navigator)) {
-    gpsState.value = 'unsupported'
-    return
-  }
-
-  if (!requestPermission && 'permissions' in navigator && typeof navigator.permissions.query === 'function') {
-    try {
-      const permission = await navigator.permissions.query({ name: 'geolocation' })
-      if (permission.state === 'denied') {
-        gpsState.value = 'permission'
-        return
-      }
-      if (permission.state === 'prompt') {
-        gpsState.value = 'ready'
-        return
-      }
-    } catch {
-      // Fall through to a non-blocking position check.
-    }
-  }
-
-  gpsState.value = 'checking'
-  navigator.geolocation.getCurrentPosition(
-    () => { gpsState.value = 'connected' },
-    (error) => {
-      gpsState.value = error.code === 1 ? 'permission' : 'unavailable'
-    },
-    { enableHighAccuracy: false, maximumAge: 30000, timeout: 10000 }
-  )
-}
-
-function gpsStateLabel() {
-  if (gpsState.value === 'connected') return 'GPS connected'
-  if (gpsState.value === 'permission') return 'GPS permission needed'
-  if (gpsState.value === 'unsupported') return 'GPS unavailable'
-  if (gpsState.value === 'unavailable') return 'GPS unavailable'
-  if (gpsState.value === 'ready') return 'GPS ready — tap to check'
-  return 'Connecting GPS'
-}
-
+const gpsState = ref(getGpsState())
+let unsubscribeGps = null
 
 onMounted(() => {
-  void connectGps()
-  gpsRefreshTimer = window.setInterval(() => { void connectGps() }, 60000)
+  unsubscribeGps = subscribeGpsStatus(next => { gpsState.value = next })
+  startGpsStatusMonitoring()
 })
+
 onBeforeUnmount(() => {
-  if (gpsRefreshTimer !== null) window.clearInterval(gpsRefreshTimer)
+  unsubscribeGps?.()
 })
+
+const refreshGps = () => checkGps({ requestPermission: true })
 </script>
 
 <template>
   <div class="viewport-wrapper">
     <a class="kfe-skip-link" href="#main-content">Skip to main content</a>
-    <header v-if="!isPerformance" class="top-bar" aria-label="KFE application header">
+    <header v-if="route.meta?.shell?.header !== false" class="top-bar" aria-label="KFE application header">
       <div class="brand-lockup">
         <div class="brand-mark" aria-hidden="true">K</div>
         <div class="brand-copy"><strong>Kanishka Enterprises</strong></div>
@@ -71,9 +38,9 @@ onBeforeUnmount(() => {
         class="header-gps"
         :class="`is-${gpsState}`"
         type="button"
-        :title="gpsStateLabel()"
-        :aria-label="gpsStateLabel()"
-        @click="connectGps({ requestPermission: true })"
+        :title="getGpsStateLabel()"
+        :aria-label="getGpsStateLabel()"
+        @click="refreshGps"
       >
         <svg class="gps-icon" viewBox="0 0 24 24" aria-hidden="true">
           <template v-if="gpsState === 'checking'">
@@ -101,7 +68,3 @@ onBeforeUnmount(() => {
     </nav>
   </div>
 </template>
-
-
-<style scoped>
-</style>
