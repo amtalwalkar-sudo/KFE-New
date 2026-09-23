@@ -195,7 +195,18 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   --radius-sm:var(--kfe-radius-sm);
 }
 
-/* SOURCE: src/components/ui/BaseButton.vue — canonical primitive styles live below. Legacy button aliases were removed in Phase 3 after consumer reconciliation. */
+/* SOURCE: src/components/ui/BaseButton.vue — canonical primitive styles. */
+.kfe-ui-button{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;min-height:var(--kfe-touch);font:inherit;font-weight:700;border:1px solid transparent;border-radius:var(--kfe-radius-sm);cursor:pointer;transition:background-color var(--kfe-motion-fast) ease,border-color var(--kfe-motion-fast) ease,color var(--kfe-motion-fast) ease,box-shadow var(--kfe-motion-fast) ease,opacity var(--kfe-motion-fast) ease}
+.kfe-ui-button:disabled{opacity:.62;cursor:not-allowed}
+.kfe-ui-button.is-primary{background:var(--kfe-ui-accent);color:#fff;border-color:var(--kfe-ui-accent)}
+.kfe-ui-button.is-secondary{background:var(--kfe-ui-surface);color:var(--kfe-ui-text);border-color:var(--kfe-ui-border)}
+.kfe-ui-button.is-danger{background:var(--kfe-danger);color:#fff;border-color:var(--kfe-danger)}
+.kfe-ui-button.is-sm{padding:var(--kfe-space-2) var(--kfe-space-3);font-size:.78rem}
+.kfe-ui-button.is-md{padding:var(--kfe-space-2) var(--kfe-space-4);font-size:.9rem}
+.kfe-ui-button.is-lg{padding:var(--kfe-space-3) var(--kfe-space-5);font-size:1rem}
+.kfe-ui-button.is-loading{cursor:wait}
+.kfe-ui-button-spinner{width:1rem;height:1rem;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:kfe-ui-spin .6s linear infinite}
+@keyframes kfe-ui-spin{to{transform:rotate(360deg)}}
 /* SOURCE: src/components/ui/BaseInput.vue */
 .base-input-group {
   display: flex;
