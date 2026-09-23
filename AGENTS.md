@@ -46,6 +46,17 @@ A task is complete only after the relevant implementation has been validated. Fo
 
 If validation exposes a problem caused by the implementation, fixing it is part of the same task.
 
+### Android overlay / APK work
+For any change touching the Android overlay, Android bridge, ride lifecycle, fare/revenue, trip persistence, pending actions, notification actions, bubble/minimize behavior, foreground/background lifecycle, or APK workflow, the permanent release gate is **KFE_ANDROID_RELEASE_GATE.md**.
+
+That file is mandatory reading before implementation and before declaring the work complete.
+
+For Android overlay work, **green CI, successful compilation, or existence of an APK artifact is NOT sufficient**. The exact APK from the exact tested commit must pass the Golden Ride Gate, including real end-to-end overlay behavior, main-app/overlay parity, duplicate/replay protection, and bubble behavior.
+
+If the device/emulator gate is unavailable, explicitly report **NOT DEVICE-VERIFIED**. Never represent static CI/build success as equivalent to device verification.
+
+The APK delivered to the user must be the same APK that passed the applicable gate, identified by commit SHA, CI run, artifact, and APK SHA-256.
+
 ## 5. When to ask the user
 Ask for clarification or confirmation only when one of these is true:
 
