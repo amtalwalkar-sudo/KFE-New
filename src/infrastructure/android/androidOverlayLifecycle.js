@@ -47,7 +47,7 @@ const activeOverlayState = async () => {
   } catch (_) {}
   if (active.trip?.id) overlayAction = 'END_RIDE'
 
-  return { ...active, target, rides, liveKm, overlayAction }
+  return { ...active, target, rides, liveKm, overlayAction, theme: document.documentElement?.dataset?.kfeTheme || 'light' }
 }
 
 const showOverlayIfNeeded = async () => {
