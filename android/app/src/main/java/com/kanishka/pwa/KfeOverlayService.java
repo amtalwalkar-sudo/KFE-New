@@ -34,8 +34,10 @@ public class KfeOverlayService extends Service {
   private static final String CHANNEL_ID = "kfe_overlay";
   private static final int NOTIFICATION_ID = 4201;
   private static final int BAR_DP = 81;
-  private static final int TOTAL_DP = 174;
-  private static final int METRICS_DP = 56;
+  private static final int COLLAPSED_TOTAL_DP = 158;
+  private static final int EXPANDED_TOTAL_DP = 208;
+  private static final int COLLAPSED_METRICS_DP = 50;
+  private static final int EXPANDED_METRICS_DP = 100;
 
   private WindowManager windowManager;
   private SwipeOverlayView overlay;
@@ -45,6 +47,8 @@ public class KfeOverlayService extends Service {
   private String target = "—";
   private String rides = "0";
   private String liveKm = "0.0 km";
+  private String revenue = "₹0";
+  private boolean targetExpanded = false;
 
   public static void prepare(Context context){ Intent i=new Intent(context,KfeOverlayService.class); i.setAction(ACTION_PREPARE); ContextCompat.startForegroundService(context,i); }
   public static void show(Context context,String state){ Intent i=new Intent(context,KfeOverlayService.class); i.setAction(ACTION_SHOW); i.putExtra(EXTRA_STATE,state==null?"{}":state); context.startService(i); }
@@ -63,7 +67,7 @@ public class KfeOverlayService extends Service {
   private void ensureOverlay(){
     if(overlay!=null)return;
     windowManager=(WindowManager)getSystemService(WINDOW_SERVICE);
-    params=new WindowManager.LayoutParams(WindowManager.LayoutParams.MATCH_PARENT,dp(TOTAL_DP),WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,PixelFormat.TRANSLUCENT);
+    params=new WindowManager.LayoutParams(WindowManager.LayoutParams.MATCH_PARENT,dp(COLLAPSED_TOTAL_DP),WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,PixelFormat.TRANSLUCENT);
     params.gravity=Gravity.TOP|Gravity.START;
     params.y=getSharedPreferences("kfe_overlay",MODE_PRIVATE).getInt("y",dp(120));
     overlay=new SwipeOverlayView(this);
@@ -79,6 +83,7 @@ public class KfeOverlayService extends Service {
       target=root.optString("target","—");
       rides=root.optString("rides","0");
       liveKm=root.optString("liveKm","0.0 km");
+      revenue=root.optString("revenue","₹0");
       String requested=root.optString("overlayAction","");
       actionStage=trip!=null&&!trip.optString("id","").isEmpty()?"END_RIDE":("START_RIDE".equals(requested)?"START_RIDE":"GO_TO_PICKUP");
       overlay.invalidate();
@@ -106,19 +111,29 @@ public class KfeOverlayService extends Service {
     private void center(Canvas c,String s,float x,float y){c.drawText(s,x-paint.measureText(s)/2f,y,paint);}
     @Override protected void onDraw(Canvas c){
       super.onDraw(c); int w=getWidth(),h=getHeight(),a=actionColor();
-      int metricsH=dp(METRICS_DP), gap=dp(6), barTop=metricsH+gap, barH=dp(BAR_DP);
+      int metricsH=dp(targetExpanded?EXPANDED_METRICS_DP:COLLAPSED_METRICS_DP), gap=dp(6), barTop=metricsH+gap, barH=dp(BAR_DP);
       paint.setStyle(Paint.Style.FILL);
       paint.setColor(Color.argb(dark()?158:150,Color.red(surface()),Color.green(surface()),Color.blue(surface())));
       rect.set(0,0,w,metricsH); c.drawRoundRect(rect,dp(16),dp(16),paint);
       paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(dp(1));
       paint.setColor(Color.argb(45,Color.red(text()),Color.green(text()),Color.blue(text())));
       c.drawRoundRect(rect,dp(16),dp(16),paint);
-      text(9,muted(),true); center(c,"TODAY'S TARGET",w*.20f,dp(19));
-      text(16,text(),true); center(c,target,w*.20f,dp(40));
-      text(9,muted(),true); center(c,"RIDES",w*.50f,dp(19));
-      text(16,text(),true); center(c,rides,w*.50f,dp(40));
-      text(9,muted(),true); center(c,"LIVE KM",w*.80f,dp(19));
-      text(16,text(),true); center(c,liveKm,w*.80f,dp(40));
+      if(!targetExpanded){
+        text(9,muted(),true); center(c,"TODAY'S TARGET",w*.42f,dp(18));
+        text(17,text(),true); center(c,target,w*.42f,dp(39));
+        text(11,muted(),true); center(c,"⌄",w*.88f,dp(31));
+      }else{
+        text(9,muted(),true); center(c,"TODAY'S TARGET",w*.50f,dp(17));
+        text(17,text(),true); center(c,target,w*.50f,dp(38));
+        float col1=w*.20f,col2=w*.50f,col3=w*.80f;
+        text(9,muted(),true); center(c,"RIDES",col1,dp(62));
+        text(15,text(),true); center(c,rides,col1,dp(84));
+        text(9,muted(),true); center(c,"REVENUE",col2,dp(62));
+        text(15,text(),true); center(c,revenue,col2,dp(84));
+        text(9,muted(),true); center(c,"LIVE KM",col3,dp(62));
+        text(15,text(),true); center(c,liveKm,col3,dp(84));
+        text(11,muted(),true); center(c,"⌃",w*.92f,dp(22));
+      }
       paint.setStyle(Paint.Style.FILL);
       paint.setColor(Color.argb(150,Color.red(surface()),Color.green(surface()),Color.blue(surface())));
       rect.set(0,barTop,w,barTop+barH); c.drawRoundRect(rect,dp(15),dp(15),paint);
@@ -138,14 +153,22 @@ public class KfeOverlayService extends Service {
     }
     @Override public boolean onTouchEvent(MotionEvent e){
       switch(e.getActionMasked()){
-        case MotionEvent.ACTION_DOWN:downX=e.getRawX();downY=e.getRawY();lastY=downY;tracking=true;moving=false;progress=0;return true;
+        case MotionEvent.ACTION_DOWN:
+          downX=e.getRawX();downY=e.getRawY();lastY=downY;tracking=true;moving=false;progress=0;return true;
         case MotionEvent.ACTION_MOVE:
           float dx=e.getRawX()-downX,dy=e.getRawY()-downY;
           if(!moving&&Math.abs(dy)>dp(10)&&Math.abs(dy)>Math.abs(dx))moving=true;
           if(moving){int maxY=Math.max(0,windowManager.getDefaultDisplay().getHeight()-getHeight());params.y=Math.max(0,Math.min(maxY,(int)(params.y+e.getRawY()-lastY)));lastY=e.getRawY();if(windowManager!=null)windowManager.updateViewLayout(this,params);getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putInt("y",params.y).apply();}
           else{progress=Math.min(1f,Math.max(0f,dx)/(Math.max(1,getWidth())));invalidate();}return true;
         case MotionEvent.ACTION_UP:
-          float fx=e.getRawX()-downX;tracking=false;if(!moving&&fx>=(getWidth()*.55f)){progress=1;invalidate();triggerAction();}else{progress=0;invalidate();}return true;
+          float fx=e.getRawX()-downX, fy=e.getRawY()-downY; tracking=false;
+          if(!moving && Math.abs(fx)<dp(12) && Math.abs(fy)<dp(12) && downY < dp(targetExpanded?EXPANDED_METRICS_DP:COLLAPSED_METRICS_DP)){
+            targetExpanded=!targetExpanded;
+            params.height=dp(targetExpanded?EXPANDED_TOTAL_DP:COLLAPSED_TOTAL_DP);
+            if(windowManager!=null) windowManager.updateViewLayout(this,params);
+            invalidate();
+          }else if(!moving&&fx>=(getWidth()*.55f)){progress=1;invalidate();triggerAction();}
+          else{progress=0;invalidate();}return true;
         case MotionEvent.ACTION_CANCEL:tracking=false;moving=false;progress=0;invalidate();return true;
       }return true;
     }
