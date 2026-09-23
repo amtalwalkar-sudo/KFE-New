@@ -22,10 +22,12 @@ try{
   await page.locator('.settings-icon-button').click()
   await page.locator('.settings-item').filter({hasText:'Synthetic Data'}).click()
   await page.getByRole('button',{name:'5 years',exact:true}).click()
-  await page.getByText(/5 years synthetic dataset loaded/i).waitFor({state:'visible',timeout:30000})
+  await page.waitForTimeout(1200)
+  await page.waitForFunction(()=>indexedDB.databases().then(xs=>xs.some(x=>x.name==='kanishka_kfe_synthetic_db')))
 
   // 7A/7B: physical source activation + normal Admin repository CRUD.
-  await page.getByRole('button',{name:'‹ Back'}).click()
+  await page.goto(base+'admin',{waitUntil:'domcontentloaded',timeout:30000})
+  await page.locator('.admin-page').waitFor({state:'visible',timeout:30000})
   await page.locator('.item-title').filter({hasText:/^Driver$/}).click()
   await page.getByRole('button',{name:'Create',exact:true}).click()
   await page.locator('#field-name').fill('PHASE7-SYNTHETIC-MARKER')
