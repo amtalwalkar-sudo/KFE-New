@@ -25,6 +25,7 @@ import androidx.core.content.ContextCompat;
 import org.json.JSONObject;
 
 public class KfeOverlayService extends Service {
+  static final String ACTION_PREPARE = "com.kanishka.pwa.KFE_OVERLAY_PREPARE";
   static final String ACTION_SHOW = "com.kanishka.pwa.KFE_OVERLAY_SHOW";
   static final String ACTION_UPDATE = "com.kanishka.pwa.KFE_OVERLAY_UPDATE";
   static final String ACTION_HIDE = "com.kanishka.pwa.KFE_OVERLAY_HIDE";
@@ -40,18 +41,24 @@ public class KfeOverlayService extends Service {
   private TextView status;
   private TextView metrics;
 
+  public static void prepare(Context context) {
+    Intent intent = new Intent(context, KfeOverlayService.class);
+    intent.setAction(ACTION_PREPARE);
+    ContextCompat.startForegroundService(context, intent);
+  }
+
   public static void show(Context context, String state) {
     Intent intent = new Intent(context, KfeOverlayService.class);
     intent.setAction(ACTION_SHOW);
     intent.putExtra(EXTRA_STATE, state == null ? "{}" : state);
-    ContextCompat.startForegroundService(context, intent);
+    context.startService(intent);
   }
 
   public static void update(Context context, String state) {
     Intent intent = new Intent(context, KfeOverlayService.class);
     intent.setAction(ACTION_UPDATE);
     intent.putExtra(EXTRA_STATE, state == null ? "{}" : state);
-    ContextCompat.startForegroundService(context, intent);
+    context.startService(intent);
   }
 
   public static void hide(Context context) {
@@ -78,13 +85,9 @@ public class KfeOverlayService extends Service {
       return START_NOT_STICKY;
     }
     if (!Settings.canDrawOverlays(this)) {
-      stopSelf();
       return START_NOT_STICKY;
     }
-    if (ACTION_SHOW.equals(action)) {
-      ensureOverlay();
-      applyState(intent.getStringExtra(EXTRA_STATE));
-    } else if (ACTION_UPDATE.equals(action)) {
+    if (ACTION_SHOW.equals(action) || ACTION_UPDATE.equals(action)) {
       ensureOverlay();
       applyState(intent.getStringExtra(EXTRA_STATE));
     }
@@ -92,7 +95,7 @@ public class KfeOverlayService extends Service {
   }
 
   private void ensureOverlay() {
-    if (overlay != null || windowManager == null) return;
+    if (overlay != null || windowManager == null && getSystemService(WINDOW_SERVICE) == null) return;
 
     windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
     params = new WindowManager.LayoutParams(
@@ -216,8 +219,8 @@ public class KfeOverlayService extends Service {
   private Notification buildNotification() {
     return new NotificationCompat.Builder(this, CHANNEL_ID)
       .setSmallIcon(android.R.drawable.ic_dialog_info)
-      .setContentTitle("KFE overlay active")
-      .setContentText("Driver overlay is available above other apps.")
+      .setContentTitle("KFE overlay ready")
+      .setContentText("Driver overlay is ready for use above other apps.")
       .setOngoing(true)
       .setCategory(NotificationCompat.CATEGORY_SERVICE)
       .build();
