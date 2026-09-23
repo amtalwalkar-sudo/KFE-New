@@ -55,6 +55,7 @@ const activeOverlayState = async () => {
 
   let overlayAction = 'GO_TO_PICKUP'
   let overlayTripId = ''
+  let cancellationRevenue = '₹0'
   try {
     const notificationState = KfeRideNotificationService.getState()
     if (notificationState?.phase === 'START_RIDE') overlayAction = 'START_RIDE'
@@ -62,13 +63,22 @@ const activeOverlayState = async () => {
   } catch (_) {}
   if (active.trip?.id) { overlayAction = 'END_RIDE'; overlayTripId = active.trip.id }
   else {
-    // A completed trip with no fare is a pending supporting-detail entry. The main app
-    // owns persistence; the overlay only mirrors this state and sends the user's fare back.
-    const unpriced = trips.filter(item => item?.status === 'COMPLETED' && (item?.revenue === null || item?.revenue === undefined || item?.revenue === '')).sort((a,b) => new Date(b.tripEndAt || b.updatedAt) - new Date(a.tripEndAt || a.updatedAt))
-    if (unpriced[0]?.id) { overlayAction = 'ENTER_FARE'; overlayTripId = unpriced[0].id }
+    const cancellation = KfeRideNotificationService.getLastCancellation?.()
+    const cancelledTrip = cancellation?.tripId ? trips.find(item => item?.id === cancellation.tripId && item?.status === 'CANCELLED') : null
+    const cancellationAge = cancellation?.recordedAt ? Date.now() - Number(cancellation.recordedAt) : Infinity
+    if (cancelledTrip && cancellationAge >= 0 && cancellationAge <= 30000) {
+      overlayAction = 'CANCELLED'
+      overlayTripId = cancelledTrip.id
+      cancellationRevenue = `₹${Number(cancellation.revenue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
+    } else {
+      // A completed trip with no fare is a pending supporting-detail entry. The main app
+      // owns persistence; the overlay only mirrors this state and sends the user's fare back.
+      const unpriced = trips.filter(item => item?.status === 'COMPLETED' && (item?.revenue === null || item?.revenue === undefined || item?.revenue === '')).sort((a,b) => new Date(b.tripEndAt || b.updatedAt) - new Date(a.tripEndAt || a.updatedAt))
+      if (unpriced[0]?.id) { overlayAction = 'ENTER_FARE'; overlayTripId = unpriced[0].id }
+    }
   }
 
-  return { ...active, target, targetProgress, rides, revenue, liveKm, overlayAction, overlayTripId, theme: document.documentElement?.dataset?.kfeTheme || 'light' }
+  return { ...active, target, targetProgress, rides, revenue, liveKm, overlayAction, overlayTripId, cancellationRevenue, theme: document.documentElement?.dataset?.kfeTheme || 'light' }
 }
 
 const showOverlayIfNeeded = async () => {
