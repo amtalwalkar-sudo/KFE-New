@@ -84,8 +84,7 @@ public class KfeOverlayService extends Service {
       overlay.invalidate();
     }catch(Exception ignored){ actionStage="GO_TO_PICKUP"; overlay.invalidate(); }
   }
-  private void triggerAction(){ KfeRideNotificationsPlugin.recordPendingAction(this,actionStage,"",""); openKfe(); }
-  private void openKfe(){ Intent i=getPackageManager().getLaunchIntentForPackage(getPackageName()); if(i!=null){i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_SINGLE_TOP);startActivity(i);} }
+  private void triggerAction(){ KfeRideNotificationsPlugin.recordPendingAction(this,actionStage,"",""); }
   private void removeOverlay(){ if(windowManager!=null&&overlay!=null){try{windowManager.removeView(overlay);}catch(Exception ignored){}} overlay=null; }
   @Override public void onDestroy(){removeOverlay();super.onDestroy();}
   @Override public IBinder onBind(Intent intent){return null;}
