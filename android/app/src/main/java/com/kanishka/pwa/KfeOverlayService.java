@@ -47,6 +47,7 @@ public class KfeOverlayService extends Service {
   private String actionStage="GO_TO_PICKUP";
   private String theme="light";
   private String target="—", rides="0", liveKm="0.0 km", revenue="₹0", pendingTripId="";
+  private int targetProgress=0;
   private boolean minimized=false;
   private String formMode=null;
   private String formValue="";
@@ -88,6 +89,7 @@ public class KfeOverlayService extends Service {
       if(shift==null||shift.optString("id","").isEmpty()){removeOverlay();return;}
       theme=root.optString("theme","light");
       target=root.optString("target","—");
+      targetProgress=Math.max(0,Math.min(100,root.optInt("targetProgress",0)));
       rides=root.optString("rides","0");
       liveKm=root.optString("liveKm","0.0 km");
       revenue=root.optString("revenue","₹0");
@@ -186,18 +188,19 @@ public class KfeOverlayService extends Service {
       int metricsH=dp(54),gap=dp(6),barTop=metricsH+gap,barH=dp(BAR_DP);
       paint.setStyle(Paint.Style.FILL);paint.setColor(Color.argb(dark()?180:165,Color.red(surface()),Color.green(surface()),Color.blue(surface())));rect.set(8,0,w-8,metricsH);c.drawRoundRect(rect,dp(18),dp(18),paint);
       paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(dp(1));paint.setColor(Color.argb(55,Color.red(textColor()),Color.green(textColor()),Color.blue(textColor())));c.drawRoundRect(rect,dp(18),dp(18),paint);
-      text(9,mutedColor(),true);center(c,"TARGET",w*.20f,dp(18));text(18,textColor(),true);center(c,target,w*.20f,dp(43));
+      text(9,mutedColor(),true);center(c,"TARGET",w*.20f,dp(18));text(18,targetColor(),true);center(c,target,w*.20f,dp(43));
       text(9,mutedColor(),true);center(c,"LIVE KM",w*.50f,dp(18));text(18,actionColor(),true);center(c,liveKm,w*.50f,dp(43));
       text(9,mutedColor(),true);center(c,"REVENUE",w*.80f,dp(18));text(18,textColor(),true);center(c,revenue,w*.80f,dp(43));
       paint.setStyle(Paint.Style.FILL);paint.setShadowLayer(dp(7),0,dp(3),Color.argb(60,0,0,0));setLayerType(View.LAYER_TYPE_SOFTWARE,null);paint.setColor(Color.argb(dark()?225:235,Color.red(surface()),Color.green(surface()),Color.blue(surface())));rect.set(8,barTop,w-8,barTop+barH);c.drawRoundRect(rect,dp(20),dp(20),paint);paint.clearShadowLayer();
       paint.setColor(Color.argb(55,Color.red(a),Color.green(a),Color.blue(a)));rect.set(8,barTop,(w-8)*progress+8,barTop+barH);c.drawRoundRect(rect,dp(20),dp(20),paint);
       int thumbW=dp(58),pad=dp(8);float tx=pad+(w-pad*2-thumbW)*progress;paint.setColor(a);rect.set(tx,barTop+pad,tx+thumbW,barTop+barH-pad);c.drawRoundRect(rect,dp(15),dp(15),paint);
-      text(11,textColor(),true);String label="GO TO PICKUP";if("START_RIDE".equals(actionStage))label="START RIDE";if("END_RIDE".equals(actionStage))label="END RIDE";center(c,"SWIPE TO "+label,w/2f,barTop+barH/2f+dp(5));
+      String stateLabel="GO TO PICKUP";if("START_RIDE".equals(actionStage))stateLabel="START RIDE";if("END_RIDE".equals(actionStage))stateLabel="END RIDE";float baseX=w/2f;String prefix="SWIPE TO ";text(11,mutedColor(),true);float total=paint.measureText(prefix)+dp(4)+measureAction(stateLabel,11);float start=baseX-total/2f;c.drawText(prefix,start,barTop+barH/2f+dp(5),paint);text(11,a,true);c.drawText(stateLabel,start+paint.measureText(prefix)+dp(4),barTop+barH/2f+dp(5),paint);
       text(9,a,true);center(c,"DRAG →",tx+thumbW/2f,barTop+barH-dp(10));
       if("END_RIDE".equals(actionStage)){paint.setStyle(Paint.Style.FILL);paint.setColor(Color.argb(235,dark()?90:245,dark()?35:245,dark()?35:245));c.drawCircle(w-dp(22),barTop+barH/2f,dp(17),paint);text(12,Color.WHITE,true);center(c,"×",w-dp(22),barTop+barH/2f+dp(5));}
     }
     private void text(float size,int color,boolean bold){paint.setStyle(Paint.Style.FILL);paint.setColor(color);paint.setTextSize(dp((int)size));paint.setTypeface(android.graphics.Typeface.create("sans-serif",bold?android.graphics.Typeface.BOLD:android.graphics.Typeface.NORMAL));}
     private void center(Canvas c,String s,float x,float y){c.drawText(s,x-paint.measureText(s)/2f,y,paint);}
+    private float measureAction(String s,float size){paint.setTextSize(dp((int)size));return paint.measureText(s);}
     @Override public boolean onTouchEvent(MotionEvent e){
       switch(e.getActionMasked()){
         case MotionEvent.ACTION_DOWN:downX=e.getRawX();downY=e.getRawY();lastX=downX;lastY=downY;tracking=true;moving=false;swipeLocked=false;progress=0;return true;
