@@ -225,7 +225,7 @@ public class KfeOverlayService extends Service {
               int screenWidth=getResources().getDisplayMetrics().widthPixels;
               params.x=(e.getRawX()<screenWidth/2f)?0:Math.max(0,screenWidth-dp(BUBBLE_DP));
               params.y=Math.max(0,(int)e.getRawY()-dp(BUBBLE_DP)/2);
-              if(windowManager!=null)windowManager.updateViewLayout(this,params);
+              if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);
               invalidate(); return true;
             }
             int maxY=Math.max(0,windowManager.getDefaultDisplay().getHeight()-getHeight());
@@ -235,7 +235,7 @@ public class KfeOverlayService extends Service {
               params.x=Math.max(0,Math.min(screenWidth-getWidth(),(int)(params.x+e.getRawX()-lastX)));
             }
             lastY=e.getRawY(); lastX=e.getRawX();
-            if(windowManager!=null)windowManager.updateViewLayout(this,params);
+            if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);
             getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putInt("y",params.y).apply();
           }
           else{progress=Math.min(1f,Math.max(0f,dx)/(Math.max(1,getWidth())));invalidate();}return true;
@@ -245,13 +245,13 @@ public class KfeOverlayService extends Service {
             minimized=false; targetExpanded=false;
             // A reopened overlay is always a full-width, centered KFE bar. Never retain the bubble x-position.
             params.width=WindowManager.LayoutParams.MATCH_PARENT; params.height=dp("ENTER_FARE".equals(actionStage)?COLLAPSED_TOTAL_DP:COLLAPSED_TOTAL_DP); params.x=0;
-            if(windowManager!=null)windowManager.updateViewLayout(this,params);
+            if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);
             invalidate(); return true;
           }
           if(!minimized && !moving && Math.abs(fx)<dp(12) && Math.abs(fy)<dp(12) && downY < dp(targetExpanded?EXPANDED_METRICS_DP:COLLAPSED_METRICS_DP)){
             targetExpanded=!targetExpanded;
             params.height=dp(targetExpanded?EXPANDED_TOTAL_DP:COLLAPSED_TOTAL_DP);
-            if(windowManager!=null) windowManager.updateViewLayout(this,params);
+            if(windowManager!=null) windowManager.updateViewLayout(overlayRoot,params);
             invalidate();
           }else if(!minimized&&!moving&&swipeLocked&&Math.abs(fx)>=Math.abs(fy)&&fx>=(getWidth()*.55f)){progress=1;invalidate();triggerAction();}
           else{progress=0;invalidate();}return true;
