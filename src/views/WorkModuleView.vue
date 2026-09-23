@@ -189,7 +189,7 @@ const cancelTripWithRevenue = async () => { if (cancelSubmitting.value) return; 
 const saveFuel = async () => { if (fuelStore.saving) return; const result=await fuelStore.save({odometer:fuelOdometer.value,pricePerKg:fuelPrice.value,amount:fuelAmount.value,clientMutationId:fuelClientMutationId.value}); if(!result.ok)return fail(result.reason); fuelOdometer.value='';fuelPrice.value='';fuelAmount.value='';fuelClientMutationId.value=crypto.randomUUID();sessionStorage.removeItem(fuelDraftKey);fuelFormOpen.value=false;notify(`Refuelling recorded: ${result.record.quantityKg.toFixed(2)} kg.`) }
 const primaryTripAction = () => { if (store.isTripActive) return endTrip(); if (!goingToPickup.value) return startGoingToPickup(); return startTrip() }
 const tripActionLabel = computed(() => store.isTripActive ? 'Swipe to end trip' : goingToPickup.value ? 'Swipe to start trip' : 'Swipe to go to pickup')
-const tripActionHint = computed(() => store.isTripActive ? 'Swipe from left to right to end this trip' : goingToPickup.value ? 'Swipe when you reach pickup to start the trip and stop Dead KM GPS' : 'Swipe from right to left to go to pickup and start Dead KM GPS')
+const tripActionHint = computed(() => store.isTripActive ? 'Swipe from right to left to end this trip' : goingToPickup.value ? 'Swipe from right to left when you reach pickup to start the trip and stop Dead KM GPS' : 'Swipe from right to left to go to pickup and start Dead KM GPS')
 const swipeProgress = computed(() => {
   const width = swipeTrack.value?.clientWidth || 320
   return Math.min(100, Math.round((Math.abs(swipeOffset.value) / Math.max(1, width)) * 100))
@@ -400,7 +400,7 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
     <div v-if="store.isOnline && !endShiftOpen && !fuelFormOpen && !cancelPanel" class="persistent-action">
       <div ref="swipeTrack" class="swipe-bar trip-action" :class="{ 'swipe-bar--pickup': !store.isTripActive && !goingToPickup, 'swipe-bar--start': !store.isTripActive && goingToPickup, 'swipe-bar--end': store.isTripActive, 'is-swiping': swipeTracking, 'is-threshold': swipeProgress >= 80 }" :style="swipeStyle" role="button" tabindex="0" aria-label="Swipe from right to left to continue the current trip action; drag vertically to move the bar" @pointerdown="onSwipeStart" @pointermove="onSwipeMove" @pointerup="onSwipeEnd" @pointercancel="onSwipeCancel" @keydown="onSwipeKey">
         <span class="swipe-progress" aria-hidden="true"></span><span class="swipe-threshold" aria-hidden="true"><i></i><em>80%</em></span><span class="swipe-label">{{tripActionLabel}}</span><span class="swipe-thumb" aria-hidden="true"><b>←</b></span>
-      </div><small class="swipe-hint">{{swipeTracking ? (swipeProgress >= 80 ? 'RELEASE TO CONFIRM' : 'KEEP SWIPING →') : tripActionHint}}</small>
+      </div><small class="swipe-hint">{{swipeTracking ? (swipeProgress >= 80 ? 'RELEASE TO CONFIRM' : 'KEEP SWIPING ←') : tripActionHint}}</small>
     </div>
   </div>
 </template>
