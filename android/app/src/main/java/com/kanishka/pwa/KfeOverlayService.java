@@ -104,7 +104,7 @@ public class KfeOverlayService extends Service {
 
   private class SwipeOverlayView extends View{
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG); private final RectF rect=new RectF();
-    private float downX,downY,lastY,lastX; private boolean tracking,moving; private float progress;
+    private float downX,downY,lastY,lastX; private boolean tracking,moving,swipeLocked; private float progress;
     SwipeOverlayView(Context c){super(c);setLayerType(View.LAYER_TYPE_SOFTWARE,null);}
     private boolean dark(){return "dark".equals(theme)||"night".equals(theme)||"dusk".equals(theme);}
     private int surface(){return dark()?Color.rgb(23,30,38):Color.WHITE;}
@@ -167,11 +167,15 @@ public class KfeOverlayService extends Service {
     @Override public boolean onTouchEvent(MotionEvent e){
       switch(e.getActionMasked()){
         case MotionEvent.ACTION_DOWN:
-          downX=e.getRawX();downY=e.getRawY();lastX=downX;lastY=downY;tracking=true;moving=false;progress=0;return true;
+          downX=e.getRawX();downY=e.getRawY();lastX=downX;lastY=downY;tracking=true;moving=false;swipeLocked=false;progress=0;return true;
         case MotionEvent.ACTION_MOVE:
           float dx=e.getRawX()-downX,dy=e.getRawY()-downY;
-          if(!minimized && !moving && Math.abs(dy)>dp(10) && Math.abs(dy)>Math.abs(dx))moving=true;
-          if(minimized && !moving && Math.hypot(dx,dy)>dp(10))moving=true;
+          if(!swipeLocked && !moving && Math.hypot(dx,dy)>dp(10)){
+            // Lock the gesture to its initial direction. Horizontal movement operates the action swipe;
+            // an upward gesture operates minimisation. Do not let a small vertical wobble cancel the swipe.
+            if(!minimized && Math.abs(dx)>Math.abs(dy)){ swipeLocked=true; }
+            else { moving=true; }
+          }
           if(moving){
             if(!minimized && dy < -dp(MINIMIZE_SWIPE_DP)){
               minimized=true; targetExpanded=false; params.width=dp(BUBBLE_DP); params.height=dp(BUBBLE_DP);
@@ -207,9 +211,9 @@ public class KfeOverlayService extends Service {
             params.height=dp(targetExpanded?EXPANDED_TOTAL_DP:COLLAPSED_TOTAL_DP);
             if(windowManager!=null) windowManager.updateViewLayout(this,params);
             invalidate();
-          }else if(!minimized&&!moving&&fx>=(getWidth()*.55f)){progress=1;invalidate();triggerAction();}
+          }else if(!minimized&&!moving&&swipeLocked&&Math.abs(fx)>=Math.abs(fy)&&fx>=(getWidth()*.55f)){progress=1;invalidate();triggerAction();}
           else{progress=0;invalidate();}return true;
-        case MotionEvent.ACTION_CANCEL:tracking=false;moving=false;progress=0;invalidate();return true;
+        case MotionEvent.ACTION_CANCEL:tracking=false;moving=false;swipeLocked=false;progress=0;invalidate();return true;
       }return true;
     }
   }
