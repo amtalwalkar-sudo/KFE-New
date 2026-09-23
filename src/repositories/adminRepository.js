@@ -1,4 +1,4 @@
-import { initializeCanonicalStorage, notifyCanonicalDataChanged } from '../utils/indexedDB.js'
+import { initializeActiveStorage, notifyCanonicalDataChanged } from '../utils/indexedDB.js'
 import { generateUUID } from '../utils/uuid.js'
 import { writeMutationAndAudit } from './mutationRepository.js'
 import { getAdminFormDefinition } from '../application/admin/adminFormDefinitions.js'
@@ -12,8 +12,8 @@ const isDeleted = record => record?.deletedAt || record?.deleted === true
 const LOAN_CONTRACT_FIELDS = Object.freeze(['lender','accountReference','principal','tenureMonths','startDate','annualInterestRatePercent'])
 function storeFor(formKey) { const store = FORM_STORE[formKey]; if (!store) throw new Error(`No canonical store is defined for Admin form: ${formKey}`); return store }
 function toStoredRecord(formKey, values, existing = null) { const now = new Date().toISOString(); const id = existing?.id || generateUUID(); const base = { id, createdAt: existing?.createdAt || now, updatedAt: now }; if (isSettingsForm(formKey)) return { ...base, settingKey: formKey, values: structuredClone(values) }; return { ...base, ...structuredClone(values) } }
-const readAll = async storeName => { const db = await initializeCanonicalStorage(); return new Promise((resolve, reject) => { const request = db.transaction(storeName, 'readonly').objectStore(storeName).getAll(); request.onsuccess = () => resolve(request.result || []); request.onerror = () => reject(request.error || new Error(`Failed to read ${storeName}.`)) }) }
-const readOne = async (storeName, id) => { const db = await initializeCanonicalStorage(); return new Promise((resolve, reject) => { const request = db.transaction(storeName, 'readonly').objectStore(storeName).get(id); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error || new Error(`Failed to read ${storeName}.`)) }) }
+const readAll = async storeName => { const db = await initializeActiveStorage(); return new Promise((resolve, reject) => { const request = db.transaction(storeName, 'readonly').objectStore(storeName).getAll(); request.onsuccess = () => resolve(request.result || []); request.onerror = () => reject(request.error || new Error(`Failed to read ${storeName}.`)) }) }
+const readOne = async (storeName, id) => { const db = await initializeActiveStorage(); return new Promise((resolve, reject) => { const request = db.transaction(storeName, 'readonly').objectStore(storeName).get(id); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error || new Error(`Failed to read ${storeName}.`)) }) }
 function toFormRecord(formKey, record) {
   if (!record) return null
   if (isSettingsForm(formKey)) return { id: record.id, values: structuredClone(record.values || {}), createdAt: record.createdAt, updatedAt: record.updatedAt }
@@ -88,7 +88,7 @@ export const AdminRepository = {
   async save(formKey, values, existingId = null) {
     const definition = getAdminFormDefinition(formKey)
     if (definition) { const validation = validateAdminForm(definition, values); if (!validation.valid) throw new Error(`Invalid ${formKey}: ${Object.values(validation.errors).join(' ')}`); values = validation.values }
-    const db = await initializeCanonicalStorage(); const storeName = storeFor(formKey); const existing = existingId ? await this.get(formKey, existingId) : null
+    const db = await initializeActiveStorage(); const storeName = storeFor(formKey); const existing = existingId ? await this.get(formKey, existingId) : null
     if (formKey === 'shift' && !existing) throw new Error('Shift corrections require an existing Work-created shift.')
     const existingRaw = existing ? { id: existing.id, createdAt: existing.createdAt, updatedAt: existing.updatedAt, deletedAt: existing.deletedAt, deleted: existing.deleted, ...existing.values } : null
     if (formKey === 'loan' && existingRaw) {
@@ -112,7 +112,7 @@ export const AdminRepository = {
     const definition = getAdminFormDefinition('loan')
     const validation = validateAdminForm(definition, values)
     if (!validation.valid) throw new Error(`Invalid loan correction: ${Object.values(validation.errors).join(' ')}`)
-    const db = await initializeCanonicalStorage(); const storeName = storeFor('loan'); const current = await readOne(storeName, existingId)
+    const db = await initializeActiveStorage(); const storeName = storeFor('loan'); const current = await readOne(storeName, existingId)
     if (!current || isDeleted(current)) throw new Error('Cannot correct a missing or deleted loan.')
     const nextValues = validation.values
     const currentForm = toFormRecord('loan', current)?.values || {}
@@ -129,7 +129,7 @@ export const AdminRepository = {
   },
   async remove(formKey, id) {
     if (formKey === 'shift') throw new Error('Shift records are not deletable; correct the Work-created source record instead.')
-    const db = await initializeCanonicalStorage(); const storeName = storeFor(formKey); const now = new Date().toISOString()
+    const db = await initializeActiveStorage(); const storeName = storeFor(formKey); const now = new Date().toISOString()
     return new Promise((resolve, reject) => {
       const tx = db.transaction([storeName, 'pending_mutations', 'audit_history'], 'readwrite'); const store = tx.objectStore(storeName); const request = store.get(id)
       request.onsuccess = () => { const record = request.result; if (!record) { try { tx.abort() } catch (_) {}; reject(new Error(`Cannot delete missing ${formKey} record.`)); return }; record.deletedAt = now; record.updatedAt = now; record.deleted = true; store.put(record); writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: id, entityType: formKey, action: 'DELETE', payload: { id, formKey, deletedAt: now }, createdAt: now }) }
