@@ -106,7 +106,7 @@ public class KfeOverlayService extends Service {
       int tw=dp(52),pad=dp(7);float tx=w-pad-tw-(w-pad-tw-pad)*progress;paint.setColor(a);rect.set(tx,pad,tx+tw,h-pad);c.drawRoundRect(rect,dp(11),dp(11),paint);
       text(19,Color.WHITE,true);center(c,"←",tx+tw/2f,h/2f+dp(7));
       text(12,text(),true);String label="Swipe to go to pickup";if("START_RIDE".equals(actionStage))label="Swipe to start trip";if("END_RIDE".equals(actionStage))label="Swipe to end trip";center(c,label,w/2f,h/2f+dp(5));
-      paint.setColor(Color.argb(80,Color.red(a),Color.green(a),Color.blue(a)));float marker=w*.20f;c.drawRoundRect(marker-dp(1.5f),dp(13),marker+dp(1.5f),dp(56),dp(2),dp(2),paint);
+      paint.setColor(Color.argb(80,Color.red(a),Color.green(a),Color.blue(a)));float marker=w*.20f;c.drawRoundRect(marker-(1.5f*getResources().getDisplayMetrics().density),dp(13),marker+(1.5f*getResources().getDisplayMetrics().density),dp(56),dp(2),dp(2),paint);
       text(7,muted(),true);center(c,"80%",marker,h-dp(9));
       text(9,muted(),true);String hint=tracking&&progress>=.8f?"RELEASE TO CONFIRM":tracking?"KEEP SWIPING ←":"SWIPE RIGHT TO LEFT";center(c,hint,w/2f,dp(97));
     }
