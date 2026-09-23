@@ -35,11 +35,7 @@ const recoverApp = () => { renderError.value = null; window.location.reload() }
       <span>Local storage is initializing in the background.</span>
     </div>
 
-    <router-view v-else v-slot="{ Component }">
-      <keep-alive><component :is="Component" /></keep-alive>
-    </router-view>
-
-    <router-view v-if="startupState.status !== 'ready'" v-slot="{ Component }">
+    <router-view v-slot="{ Component }">
       <keep-alive><component :is="Component" /></keep-alive>
     </router-view>
   </KfeShell>
