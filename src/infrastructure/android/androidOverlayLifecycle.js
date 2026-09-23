@@ -21,6 +21,7 @@ const activeOverlayState = async () => {
   let rides = '0'
   let liveKm = '0.0 km'
   let revenue = '₹0'
+  let trips = []
   try {
     const targetResult = await DriverTargetService.getTarget(getKfeReferenceNow())
     if (Number.isFinite(Number(targetResult?.target))) {
@@ -29,12 +30,12 @@ const activeOverlayState = async () => {
   } catch (_) {}
 
   try {
-    const trips = await WorkService.getTripsForShift(active.shift.id)
+    trips = await WorkService.getTripsForShift(active.shift.id)
     const rideTrips = trips.filter(item => item?.status === 'COMPLETED' || item?.status === 'ACTIVE')
     rides = String(rideTrips.length)
-    const authoritativeRevenue = Number(active.shift?.revenue)
-    revenue = `₹${Number.isFinite(authoritativeRevenue) && authoritativeRevenue >= 0 ? authoritativeRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 }) : '0'}`
   } catch (_) {}
+  const authoritativeRevenue = Number(active.shift?.revenue)
+  revenue = `₹${Number.isFinite(authoritativeRevenue) && authoritativeRevenue >= 0 ? authoritativeRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 }) : '0'}`
 
   if (active.trip?.id) {
     try {
@@ -54,7 +55,7 @@ const activeOverlayState = async () => {
   else {
     // A completed trip with no fare is a pending supporting-detail entry. The main app
     // owns persistence; the overlay only mirrors this state and sends the user's fare back.
-    const unpriced = (await WorkService.getTripsForShift(active.shift.id)).filter(item => item?.status === 'COMPLETED' && (item?.revenue === null || item?.revenue === undefined || item?.revenue === '')).sort((a,b) => new Date(b.tripEndAt || b.updatedAt) - new Date(a.tripEndAt || a.updatedAt))
+    const unpriced = trips.filter(item => item?.status === 'COMPLETED' && (item?.revenue === null || item?.revenue === undefined || item?.revenue === '')).sort((a,b) => new Date(b.tripEndAt || b.updatedAt) - new Date(a.tripEndAt || a.updatedAt))
     if (unpriced[0]?.id) { overlayAction = 'ENTER_FARE'; overlayTripId = unpriced[0].id }
   }
 
