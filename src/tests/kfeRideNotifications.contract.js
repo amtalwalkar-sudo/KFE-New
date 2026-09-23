@@ -25,6 +25,7 @@ assert.match(overlay, /MINIMIZE_SWIPE_DP = 48/)
 assert.match(overlay, /minimized=true/)
 assert.match(overlay, /params\.width=dp\(BUBBLE_DP\)/)
 assert.match(overlay, /params\.height=dp\(BUBBLE_DP\)/)
+assert.match(overlay, /SOFT_INPUT_ADJUST_RESIZE\|WindowManager\.LayoutParams\.SOFT_INPUT_STATE_ALWAYS_VISIBLE/)
 assert.match(overlay, /emitAction\(actionStage,pendingTripId/)
 assert.match(overlay, /emitAction\("ENTER_FARE",pendingTripId,fare/)
 
