@@ -14,17 +14,33 @@ const recoverApp = () => { renderError.value = null; window.location.reload() }
       <p>{{ renderError }}</p>
       <button @click="recoverApp" class="retry-btn">Reload Application</button>
     </div>
-    <div v-else-if="startupState.status === 'error'" class="error-container kfe-runtime-error" role="alert">
-      <h3>KFE could not start</h3>
-      <p>{{ startupState.error }}</p>
-      <p>Startup is protected by a bounded recovery path. Your stored data is not cleared.</p>
+
+    <div
+      v-else-if="startupState.status === 'error'"
+      class="error-container kfe-runtime-error"
+      role="status"
+      aria-live="polite"
+    >
+      <strong>KFE startup is still recovering</strong>
+      <span>{{ startupState.error }}</span>
       <button @click="recoverApp" class="retry-btn">Retry Initialization</button>
     </div>
-    <div v-else-if="startupState.status !== 'ready'" class="error-container kfe-runtime-error" role="status" aria-live="polite">
-      <h3>Starting KFE…</h3>
-      <p>Preparing local storage. The KFE interface is already mounted.</p>
-      <p v-if="startupState.elapsedMs > 4000">Still working…</p>
+
+    <div
+      v-else-if="startupState.status === 'starting'"
+      class="kfe-startup-status"
+      role="status"
+      aria-live="polite"
+    >
+      <span>Local storage is initializing in the background.</span>
     </div>
-    <router-view v-else v-slot="{ Component }"><keep-alive><component :is="Component" /></keep-alive></router-view>
+
+    <router-view v-else v-slot="{ Component }">
+      <keep-alive><component :is="Component" /></keep-alive>
+    </router-view>
+
+    <router-view v-if="startupState.status !== 'ready'" v-slot="{ Component }">
+      <keep-alive><component :is="Component" /></keep-alive>
+    </router-view>
   </KfeShell>
 </template>
