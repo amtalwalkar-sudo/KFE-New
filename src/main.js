@@ -10,6 +10,7 @@ import { createCloudBackupScheduler } from './infrastructure/backup/cloudBackupS
 import { captureCurrentLocation } from './infrastructure/location/currentLocation.js'
 import { PlatformStartup } from './infrastructure/startup/platformStartup.js'
 import { configureAndroidOverlayLifecycle } from './infrastructure/android/androidOverlayLifecycle.js'
+import { StartupService } from './application/startup/startupService.js'
 import { startApplication } from './application/startup/startupRuntime.js'
 import './styles/kfe-ui.css'
 import './styles/work-cockpit-hud.css'
@@ -29,7 +30,7 @@ if ('serviceWorker' in navigator) {
 BackupConfig.configureBackupConfig(createBackupConfigAdapter())
 CloudBackupLifecycle.configureCloudBackupScheduler(createCloudBackupScheduler())
 configureLocationProvider(captureCurrentLocation)
-PlatformStartup.configureStartupPlatform
+StartupService.configureStartupPlatform(PlatformStartup)
 configureAndroidOverlayLifecycle()
 
 if ('serviceWorker' in navigator) {
