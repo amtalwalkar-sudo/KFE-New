@@ -226,6 +226,14 @@ const handleRideNotificationAction = async ({ stage, tripId, input }) => {
   if (stage === 'START_RIDE') return startTrip()
   if (stage === 'ENTER_RIDE_DURATION') { if (!input) return; await KfeRideNotificationService.setRideDuration(input); return }
   if (stage === 'END_RIDE') return endTrip(input || '')
+  if (stage === 'ENTER_FARE') {
+    if (!tripId || input === '') return
+    const value = Number(input)
+    if (!Number.isFinite(value) || value < 0) return
+    const result = await store.updateTrip({ id: tripId, revenue: value })
+    if (result?.ok) { await refreshTarget(); notify('Fare recorded for completed ride.') }
+    return result
+  }
 }
 
 onMounted(async()=>{await store.initialize();await fuelStore.refresh();await refreshTarget();await refreshPerformance();
