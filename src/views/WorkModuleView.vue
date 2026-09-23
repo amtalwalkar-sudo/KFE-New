@@ -464,8 +464,3 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
     </div>
   </div>
 </template>
-<style scoped>
-.fare-entry-overlay{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px;background:rgba(0,0,0,.42);backdrop-filter:blur(4px)}
-.fare-entry-card{width:min(100%,420px);padding:24px;border-radius:24px;background:var(--surface,#fff);box-shadow:0 24px 70px rgba(0,0,0,.28)}
-.fare-entry-kicker{font-size:.72rem;font-weight:800;letter-spacing:.12em;opacity:.65}.fare-entry-card h2{margin:6px 0 4px}.fare-entry-card p{margin:0 0 18px;opacity:.72}.fare-entry-card label{display:block;margin-bottom:7px;font-size:.82rem;font-weight:700}.fare-entry-input{display:flex;align-items:center;gap:8px;border:1px solid currentColor;border-radius:14px;padding:0 14px;min-height:54px}.fare-entry-input input{width:100%;border:0;outline:0;background:transparent;font:inherit;font-size:1.25rem}.fare-entry-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}.fare-entry-actions button{min-height:46px}
-</style>
