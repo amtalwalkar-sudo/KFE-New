@@ -50,8 +50,7 @@ public class KfeOverlayService extends Service {
   private WindowManager.LayoutParams params;
   private String actionStage = "GO_TO_PICKUP";
   private String theme = "light";
-  private String target = "—";
-  private String rides = "0";
+    private String rides = "0";
   private String liveKm = "0.0 km";
   private String revenue = "₹0";
   private String tripId = "";
@@ -88,7 +87,6 @@ public class KfeOverlayService extends Service {
       JSONObject shift=root.optJSONObject("shift"), trip=root.optJSONObject("trip");
       if(shift==null||shift.optString("id","").isEmpty()){ removeOverlay(); return; }
       theme=root.optString("theme","light");
-      target=root.optString("target","—");
       rides=root.optString("rides","0");
       liveKm=root.optString("liveKm","0.0 km");
       revenue=root.optString("revenue","₹0");
