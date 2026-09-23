@@ -11,6 +11,17 @@ const activeOverlayState = async () => {
   return active
 }
 
+const prepareOverlay = async () => {
+  try {
+    const permission = await AndroidOverlay.canDrawOverlays()
+    if (!permission.granted) return
+    const state = await activeOverlayState()
+    if (state) await AndroidOverlay.prepare()
+  } catch (error) {
+    console.warn('KFE Android overlay prepare unavailable:', error)
+  }
+}
+
 export const configureAndroidOverlayLifecycle = () => {
   if (configured || typeof document === 'undefined') return
   configured = true
@@ -30,8 +41,10 @@ export const configureAndroidOverlayLifecycle = () => {
   visibleHandler = () => {
     if (document.visibilityState !== 'visible') return
     void AndroidOverlay.hide().catch(() => {})
+    void prepareOverlay()
   }
 
   document.addEventListener('visibilitychange', hiddenHandler)
   document.addEventListener('visibilitychange', visibleHandler)
+  void prepareOverlay()
 }
