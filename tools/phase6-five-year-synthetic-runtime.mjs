@@ -53,6 +53,8 @@ try{
   assert(manifest?.fullTimeline===true,'synthetic fullTimeline flag missing')
 
   await route('performance','.performance-page','Performance synthetic')
+  await page.getByRole('button',{name:'5 YEARS',exact:true}).click()
+  await page.getByText(/1 May 2026 – 30 Apr 2031|1 May 2026 – 30 April 2031/i).waitFor({state:'visible',timeout:30000})
   await page.goto(base+'admin',{waitUntil:'domcontentloaded',timeout:30000})
   await page.getByRole('button',{name:'Settings'}).click(); await page.getByRole('button',{name:/Synthetic Data/}).click()
   await page.getByText(/212\.2117 KM\/day/).waitFor({state:'visible',timeout:30000})
