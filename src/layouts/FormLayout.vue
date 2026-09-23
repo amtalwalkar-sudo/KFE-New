@@ -1,4 +1,5 @@
 <script setup>
+import BaseButton from '@/components/ui/BaseButton.vue'
 defineProps({
   title: { type: String, required: true },
   subtitle: { type: String, default: '' },
@@ -24,10 +25,10 @@ const emit = defineEmits(['submit', 'cancel'])
 
     <div v-if="$slots.actions || $attrs.onSubmit" class="form-actions">
       <slot name="actions">
-        <button type="button" class="btn-secondary" @click="emit('cancel')">Cancel</button>
-        <button type="submit" class="btn-primary" :disabled="loading">
+        <BaseButton type="button" variant="secondary" @click="emit('cancel')">Cancel</BaseButton>
+        <BaseButton type="submit" variant="primary" :loading="loading">
           {{ loading ? 'Saving...' : 'Save Record' }}
-        </button>
+        </BaseButton>
       </slot>
     </div>
   </form>
