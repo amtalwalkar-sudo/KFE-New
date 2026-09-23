@@ -26,7 +26,7 @@ try{
 
   // 7A/7B: physical source activation + normal Admin repository CRUD.
   await page.getByRole('button',{name:'‹ Back'}).click()
-  await page.locator('.admin-item').filter({hasText:'Driver'}).click()
+  await page.locator('.item-title').filter({hasText:/^Driver$/}).click()
   await page.getByRole('button',{name:'Create',exact:true}).click()
   await page.locator('#field-name').fill('PHASE7-SYNTHETIC-MARKER')
   await page.locator('#field-phone').fill('0000000000')
