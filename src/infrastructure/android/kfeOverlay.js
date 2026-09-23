@@ -13,6 +13,10 @@ export const AndroidOverlay = Object.freeze({
     if (!isAndroid()) return
     return KfeOverlay.openPermissionSettings()
   },
+  async prepare() {
+    if (!isAndroid()) return
+    return KfeOverlay.prepare()
+  },
   async show(state = {}) {
     if (!isAndroid()) return
     return KfeOverlay.show({ state: JSON.stringify(state) })
