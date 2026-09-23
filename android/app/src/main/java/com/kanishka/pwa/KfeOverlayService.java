@@ -12,6 +12,10 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.PixelFormat;
+import android.text.InputType;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.EditText;
+import android.app.AlertDialog;
 import android.os.Build;
 import android.os.IBinder;
 import android.provider.Settings;
@@ -50,6 +54,7 @@ public class KfeOverlayService extends Service {
   private String rides = "0";
   private String liveKm = "0.0 km";
   private String revenue = "₹0";
+  private String tripId = "";
   private boolean targetExpanded = false;
   private boolean minimized = false;
 
@@ -87,12 +92,55 @@ public class KfeOverlayService extends Service {
       rides=root.optString("rides","0");
       liveKm=root.optString("liveKm","0.0 km");
       revenue=root.optString("revenue","₹0");
+      tripId=trip==null?"":trip.optString("id","");
       String requested=root.optString("overlayAction","");
       actionStage=trip!=null&&!trip.optString("id","").isEmpty()?"END_RIDE":("START_RIDE".equals(requested)?"START_RIDE":"GO_TO_PICKUP");
       overlay.invalidate();
     }catch(Exception ignored){ actionStage="GO_TO_PICKUP"; overlay.invalidate(); }
   }
-  private void triggerAction(){ KfeRideNotificationsPlugin.recordPendingAction(this,actionStage,"",""); }
+  private void triggerAction(){
+    if("END_RIDE".equals(actionStage)){ showFareEntry(); return; }
+    KfeRideNotificationsPlugin.recordPendingAction(this,actionStage,tripId,"");
+    KfeRideNotificationsPlugin.emitAction(actionStage,tripId,"");
+  }
+  private void showFareEntry(){
+    if(tripId.isEmpty()) return;
+    final EditText input=new EditText(this);
+    input.setHint("Fare amount");
+    input.setSingleLine(true);
+    input.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);
+    input.setPadding(dp(12),0,dp(12),0);
+    final AlertDialog dialog=new AlertDialog.Builder(this)
+      .setTitle("ENTER FARE")
+      .setMessage("Enter the fare for this ride.")
+      .setView(input)
+      .setNegativeButton("CANCEL",null)
+      .setPositiveButton("SAVE FARE",null)
+      .create();
+    dialog.setOnShowListener(d -> {
+      if(dialog.getWindow()!=null){
+        dialog.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
+        dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+      }
+      dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+        String fare=input.getText()==null?"":input.getText().toString().trim();
+        try{
+          double value=Double.parseDouble(fare);
+          if(!Double.isFinite(value)||value<0) throw new NumberFormatException();
+          KfeRideNotificationsPlugin.recordPendingAction(this,"END_RIDE",tripId,fare);
+          KfeRideNotificationsPlugin.emitAction("END_RIDE",tripId,fare);
+          dialog.dismiss();
+        }catch(Exception ignored){ input.setError("Enter a valid fare"); }
+      });
+      input.requestFocus();
+      InputMethodManager imm=(InputMethodManager)getSystemService(INPUT_METHOD_SERVICE);
+      if(imm!=null) imm.showSoftInput(input,InputMethodManager.SHOW_IMPLICIT);
+    });
+    try{
+      if(dialog.getWindow()!=null) dialog.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
+      dialog.show();
+    }catch(Exception ignored){}
+  }
   private void removeOverlay(){ if(windowManager!=null&&overlay!=null){try{windowManager.removeView(overlay);}catch(Exception ignored){}} overlay=null; }
   @Override public void onDestroy(){removeOverlay();super.onDestroy();}
   @Override public IBinder onBind(Intent intent){return null;}
