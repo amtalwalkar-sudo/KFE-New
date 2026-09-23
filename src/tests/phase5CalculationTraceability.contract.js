@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { buildSyntheticSnapshot } from '../application/synthetic/syntheticDataService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
+import { normalizeCalculationSnapshot } from '../application/performance/normalizeCalculationSnapshot.js'
 import { istDayRange } from '../domain/time/ist.js'
 
 const read = path => fs.readFileSync(new URL(path, import.meta.url), 'utf8')
@@ -52,7 +53,7 @@ assert.equal(factsByType.get('REVENUE')?.evidenceStatus, 'AUTHORITATIVE')
 assert.equal(factsByType.get('FINANCING_OBLIGATION')?.sourceType, 'CANONICAL_LOAN_ENGINE')
 
 const future = { ...calculationSnapshot, shifts: [...snapshot.shifts, { id: 'phase5-future-shift', shiftStartAt: '2031-05-15T08:00:00+05:30', shiftEndAt: '2031-05-15T18:00:00+05:30', startOdometer: 999999, endOdometer: 1000999, revenue: 999999, toll: 0, parking: 0 }] }
-const bounded = PerformanceService.getMetrics(future, range)
+const bounded = PerformanceService.getMetrics({ ...future, fuelLogs: future.fuel_logs, compliance: future.compliance_records, maintenance: future.maintenance_records, loanPayments: future.loan_payments, driverTargets: future.driver_targets, breakEvenInputs: future.break_even_inputs, settlements: [] }, range)
 for (const key of ['revenue','vehicleKm','businessKm','deadKm','fuelCost','actualMaintenance','actualProfit','indicativeProfit','monthlyBreakEvenRevenue','driverTarget']) assert.equal(bounded[key], metrics[key], 'as-of leakage changed ' + key)
 
 const noBreakEven = PerformanceService.getMetrics({ ...calculationSnapshot, breakEvenInputs: [] }, range)
