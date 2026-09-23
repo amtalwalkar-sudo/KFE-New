@@ -32,11 +32,8 @@ const activeOverlayState = async () => {
     const trips = await WorkService.getTripsForShift(active.shift.id)
     const rideTrips = trips.filter(item => item?.status === 'COMPLETED' || item?.status === 'ACTIVE')
     rides = String(rideTrips.length)
-    const totalRevenue = rideTrips.reduce((sum, item) => {
-      const value = Number(item?.revenue)
-      return Number.isFinite(value) && value >= 0 ? sum + value : sum
-    }, 0)
-    revenue = `₹${totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
+    const authoritativeRevenue = Number(active.shift?.revenue)
+    revenue = `₹${Number.isFinite(authoritativeRevenue) && authoritativeRevenue >= 0 ? authoritativeRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 }) : '0'}`
   } catch (_) {}
 
   if (active.trip?.id) {
@@ -72,6 +69,7 @@ const showOverlayIfNeeded = async () => {
     if (!permission.granted) return
     const state = await activeOverlayState()
     if (state) await AndroidOverlay.show(state)
+    else await AndroidOverlay.hide()
   } catch (error) {
     console.warn('KFE Android overlay unavailable:', error)
   } finally {
@@ -86,6 +84,7 @@ const updateOverlayIfNeeded = async () => {
     if (!permission.granted) return
     const state = await activeOverlayState()
     if (state) await AndroidOverlay.update(state)
+    else await AndroidOverlay.hide()
   } catch (_) {}
 }
 
