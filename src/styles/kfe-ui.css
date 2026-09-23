@@ -220,59 +220,12 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .modal-card{width:min(100%,640px);max-height:min(90vh,800px);overflow:auto;background:var(--kfe-ui-surface);color:var(--kfe-ui-text);border:1px solid var(--kfe-ui-border);border-radius:var(--kfe-radius-lg);box-shadow:var(--kfe-ui-shadow)}
 .modal-header{display:flex;align-items:center;justify-content:space-between;gap:var(--kfe-space-3);padding:var(--kfe-space-4);border-bottom:1px solid var(--kfe-ui-border)}
 .modal-title{margin:0;font-size:1rem}.modal-close-btn{min-width:var(--kfe-touch);min-height:var(--kfe-touch);border:0;border-radius:var(--kfe-radius-sm);background:transparent;color:var(--kfe-ui-text);cursor:pointer}.modal-body{padding:var(--kfe-space-4)}.modal-footer{display:flex;justify-content:flex-end;gap:var(--kfe-space-2);padding:var(--kfe-space-3) var(--kfe-space-4);border-top:1px solid var(--kfe-ui-border)}
-/* SOURCE: src/components/ui/BaseToast.vue */
-.toast-container {
-  position: fixed;
-  bottom: 1.5rem;
-  right: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  z-index: 200;
-  max-width: 320px;
-  width: 100%;
-}
-.toast-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.6rem 0.9rem;
-  border-radius: 8px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-.toast-info { background:var(--kfe-ui-accent); }
-.toast-success { background:var(--kfe-success); }
-.toast-error { background:var(--kfe-danger); }
-.toast-warning { background:var(--kfe-warning); }
-
-.toast-close {
-  background: transparent;
-  border: none;
-  color: #ffffff;
-  font-size: 0.8rem;
-  cursor: pointer;
-  margin-left: 0.5rem;
-  opacity: 0.8;
-}
-.toast-close:hover { opacity: 1; }
-
-.toast-enter-active,
-.toast-leave-active {
-  transition: all 0.25s ease;
-}
-.toast-enter-from {
-  opacity: 0;
-  transform: translateY(1rem);
-}
-.toast-leave-to {
-  opacity: 0;
-  transform: translateX(2rem);
-}
-.toast-container{right:12px!important;bottom:calc(86px + env(safe-area-inset-bottom))!important;max-width:380px!important}.toast-item{min-height:48px!important;padding:10px 12px!important;border-radius:10px!important;border:1px solid var(--kfe-ui-border)!important;box-shadow:0 8px 24px color-mix(in srgb,var(--kfe-ui-text) 14%,transparent)!important;font-weight:800!important}.toast-info{background:var(--kfe-ui-surface)!important;color:var(--kfe-ui-text)!important;border-left:4px solid var(--kfe-info)!important}.toast-success{background:var(--kfe-ui-surface)!important;color:var(--kfe-ui-text)!important;border-left:4px solid var(--kfe-success)!important}.toast-error{background:var(--kfe-ui-surface)!important;color:var(--kfe-ui-text)!important;border-left:4px solid var(--kfe-danger)!important}.toast-warning{background:var(--kfe-ui-surface)!important;color:var(--kfe-ui-text)!important;border-left:4px solid var(--kfe-warning)!important}.toast-close{color:var(--kfe-muted-text)!important;min-height:40px!important;min-width:40px!important}
-
+/* SOURCE: src/components/ui/BaseToast.vue — shared feedback presentation. */
+.toast-container{position:fixed;right:var(--kfe-space-3);bottom:calc(var(--kfe-nav-height) + var(--kfe-space-3) + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:var(--kfe-space-2);z-index:200;max-width:380px;width:calc(100% - var(--kfe-space-6))}
+.toast-item{display:flex;align-items:center;justify-content:space-between;gap:var(--kfe-space-2);min-height:var(--kfe-touch);padding:var(--kfe-space-2) var(--kfe-space-3);border:1px solid var(--kfe-ui-border);border-radius:var(--kfe-radius-sm);background:var(--kfe-ui-surface);color:var(--kfe-ui-text);box-shadow:var(--kfe-ui-shadow);font-size:.8rem;font-weight:700}
+.toast-info{border-left:4px solid var(--kfe-info)}.toast-success{border-left:4px solid var(--kfe-success)}.toast-error{border-left:4px solid var(--kfe-danger)}.toast-warning{border-left:4px solid var(--kfe-warning)}
+.toast-close{min-width:40px;min-height:40px;border:0;background:transparent;color:var(--kfe-muted-text);cursor:pointer}
+.toast-enter-active,.toast-leave-active{transition:opacity var(--kfe-motion-standard) ease,transform var(--kfe-motion-standard) ease}.toast-enter-from{opacity:0;transform:translateY(var(--kfe-space-2))}.toast-leave-to{opacity:0;transform:translateX(var(--kfe-space-4))}
 /* SOURCE: src/layouts/FormLayout.vue */
 .form-layout {
   display: flex;
