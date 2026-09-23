@@ -90,6 +90,17 @@ jobs:
           path: artifacts/phase4-runtime/
           if-no-files-found: error
 
+      - name: Run Phase 6 Five-Year Synthetic Runtime Verification
+        run: node tools/phase6-five-year-synthetic-runtime.mjs
+
+      - name: Upload Phase 6 Synthetic Runtime Screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kfe-phase6-five-year-synthetic-runtime
+          path: artifacts/phase6-runtime/
+          if-no-files-found: error
+
       - name: Preserve SPA Routes for GitHub Pages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: cp dist/index.html dist/404.html
