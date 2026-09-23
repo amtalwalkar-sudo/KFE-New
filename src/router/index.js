@@ -7,7 +7,7 @@ import TimelineView from '../views/TimelineView.vue'
 const routes = [
   { path: '/', name: 'Work', component: WorkModuleView },
   { path: '/timeline', name: 'Timeline', component: TimelineView },
-  { path: '/performance', name: 'Performance', component: PerformanceView },
+  { path: '/performance', name: 'Performance', component: PerformanceView, meta: { shell: { header: false } } },
   { path: '/admin', name: 'Admin', component: AdminView },
 ]
 

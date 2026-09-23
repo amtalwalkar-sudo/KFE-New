@@ -79,6 +79,17 @@ jobs:
       - name: Run GitHub Pages Runtime Smoke Test
         run: node tools/pages-runtime-smoke.mjs
 
+      - name: Run Phase 4 Runtime Visual Verification
+        run: node tools/phase4-runtime-visual-smoke.mjs
+
+      - name: Upload Phase 4 Runtime Screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kfe-phase4-runtime-visual-verification
+          path: artifacts/phase4-runtime/
+          if-no-files-found: error
+
       - name: Preserve SPA Routes for GitHub Pages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: cp dist/index.html dist/404.html
