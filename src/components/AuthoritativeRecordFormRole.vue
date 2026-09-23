@@ -86,35 +86,3 @@ function handleCancel() {
   </FormLayout>
 </template>
 
-<style scoped>
-.form-error-alert {
-  padding: 0.5rem 0.75rem;
-  background-color: #fef2f2;
-  border: 1px solid #fca5a5;
-  color: #dc2626;
-  border-radius: var(--radius-md, 6px);
-  font-size: var(--font-size-sm, 0.75rem);
-}
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-.form-label {
-  font-size: var(--font-size-sm, 0.72rem);
-  font-weight: 600;
-  color: var(--text-main, #334155);
-}
-.type-select {
-  padding: 0.45rem 0.6rem;
-  border-radius: var(--radius-md, 6px);
-  border: 1px solid var(--border-color, #cbd5e1);
-  font-size: var(--font-size-sm, 0.78rem);
-  background: var(--bg-surface, #fff);
-  color: var(--text-main, #0f172a);
-  outline: none;
-}
-.type-select:focus {
-  border-color: var(--color-primary, #2563eb);
-}
-</style>
