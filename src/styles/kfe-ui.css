@@ -673,8 +673,8 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
   background:color-mix(in srgb,var(--kfe-ui-text) 22%,transparent);
   z-index:2;
 }
-.cockpit .swipe-progress{position:absolute;right:0;left:auto;top:0;bottom:0;width:var(--swipe-progress,0%);background:color-mix(in srgb,var(--swipe-action-color) 14%,transparent);border-radius:inherit;transition:background .12s ease;z-index:0;}
-.cockpit .swipe-thumb{position:absolute;right:7px;left:auto;top:7px;bottom:7px;width:50px;display:grid;place-items:center;border-radius:11px;background:var(--swipe-action-color);color:#fff;box-shadow:0 3px 10px color-mix(in srgb,var(--swipe-action-color) 35%,transparent);transform:translateX(var(--swipe-offset,0));transition:box-shadow .12s ease,background .12s ease;z-index:3;pointer-events:none;}
+.cockpit .swipe-progress{position:absolute;left:0;right:auto;top:0;bottom:0;width:var(--swipe-progress,0%);background:color-mix(in srgb,var(--swipe-action-color) 14%,transparent);border-radius:inherit;transition:background .12s ease;z-index:0;}
+.cockpit .swipe-thumb{position:absolute;left:7px;right:auto;top:7px;bottom:7px;width:50px;display:grid;place-items:center;border-radius:11px;background:var(--swipe-action-color);color:#fff;box-shadow:0 3px 10px color-mix(in srgb,var(--swipe-action-color) 35%,transparent);transform:translateX(var(--swipe-offset,0));transition:box-shadow .12s ease,background .12s ease;z-index:3;pointer-events:none;}
 .cockpit .swipe-thumb b{font-size:1.18rem;font-weight:950;line-height:1}
 .cockpit .swipe-label{
   position:relative;
@@ -689,7 +689,7 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
   pointer-events:none;
   transition:opacity .12s ease;
 }
-.cockpit .swipe-threshold{position:absolute;right:calc(20% - 18px);left:auto;top:13px;display:flex;flex-direction:column;align-items:center;gap:2px;z-index:4;pointer-events:none;}
+.cockpit .swipe-threshold{position:absolute;left:calc(80% - 18px);right:auto;top:13px;display:flex;flex-direction:column;align-items:center;gap:2px;z-index:4;pointer-events:none;}
 .cockpit .swipe-threshold i{
   width:3px;
   height:43px;
