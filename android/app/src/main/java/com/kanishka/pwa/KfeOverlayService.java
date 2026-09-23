@@ -169,6 +169,7 @@ public class KfeOverlayService extends Service {
   private int textColor(){return dark()?Color.rgb(235,240,245):Color.rgb(23,32,42);}
   private int mutedColor(){return dark()?Color.rgb(170,180,191):Color.rgb(91,102,115);}
   private int actionColor(){if("END_RIDE".equals(actionStage))return dark()?Color.rgb(255,110,110):Color.rgb(198,40,40);if("START_RIDE".equals(actionStage))return dark()?Color.rgb(70,205,120):Color.rgb(22,128,60);return dark()?Color.rgb(95,150,245):Color.rgb(37,99,235);}
+  private int targetColor(){if(targetProgress>=100)return dark()?Color.rgb(80,220,130):Color.rgb(20,145,75);if(targetProgress>=70)return dark()?Color.rgb(255,205,90):Color.rgb(190,125,0);return actionColor();}
   private boolean dark(){return "dark".equals(theme)||"night".equals(theme)||"dusk".equals(theme);}
   private void removeOverlay(){closeForm();if(windowManager!=null&&overlayRoot!=null){try{windowManager.removeView(overlayRoot);}catch(Exception ignored){}}overlayRoot=null;overlay=null;}
   @Override public void onDestroy(){removeOverlay();super.onDestroy();}
