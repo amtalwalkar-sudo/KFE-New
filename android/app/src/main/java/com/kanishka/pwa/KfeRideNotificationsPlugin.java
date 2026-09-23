@@ -184,7 +184,7 @@ public class KfeRideNotificationsPlugin extends Plugin {
     if (manager != null) manager.cancel(NOTIFICATION_ID);
   }
 
-  static void emitAction(String stage, String tripId, String input) {
+  public static void emitAction(String stage, String tripId, String input) {
     if (instance == null) return;
     JSObject data = new JSObject();
     data.put("stage", stage);
