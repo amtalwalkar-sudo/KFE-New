@@ -100,6 +100,7 @@ public class KfeOverlayService extends Service {
   private Notification buildNotification(){return new NotificationCompat.Builder(this,CHANNEL_ID).setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle("KFE overlay ready").setContentText("Driver overlay is ready for use above other apps.").setOngoing(true).setCategory(NotificationCompat.CATEGORY_SERVICE).build();}
   private void createChannel(){if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.O){NotificationManager m=(NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);if(m!=null)m.createNotificationChannel(new NotificationChannel(CHANNEL_ID,"KFE Overlay",NotificationManager.IMPORTANCE_LOW));}}
   private int dp(int v){return (int)(v*getResources().getDisplayMetrics().density+0.5f);}
+  private float dpf(float v){return v*getResources().getDisplayMetrics().density;}
 
   private class SwipeOverlayView extends View{
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG); private final RectF rect=new RectF();
@@ -120,7 +121,7 @@ public class KfeOverlayService extends Service {
         c.drawCircle(dp(BUBBLE_DP)/2f,dp(BUBBLE_DP)/2f,dp(29),paint);
         paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(dp(1));
         paint.setColor(Color.argb(55,Color.red(text()),Color.green(text()),Color.blue(text())));
-        c.drawCircle(dp(BUBBLE_DP)/2f,dp(BUBBLE_DP)/2f,dp(28.5f),paint);
+        c.drawCircle(dp(BUBBLE_DP)/2f,dp(BUBBLE_DP)/2f,dpf(28.5f),paint);
         text(17,a,true); center(c,"K",dp(BUBBLE_DP)/2f,dp(39));
         text(8,muted(),true); center(c,"KFE",dp(BUBBLE_DP)/2f,dp(51));
         return;
@@ -159,7 +160,7 @@ public class KfeOverlayService extends Service {
       paint.setColor(a); rect.set(tx,barTop+pad,tx+tw,barTop+barH-pad); c.drawRoundRect(rect,dp(11),dp(11),paint);
       text(19,Color.WHITE,true); center(c,"→",tx+tw/2f,barTop+barH/2f+dp(7));
       text(11,text(),true); center(c,"LIVE KM  "+liveKm+"   •   "+revenue,w/2f,barTop+barH/2f+dp(5));
-      paint.setColor(Color.argb(80,Color.red(a),Color.green(a),Color.blue(a))); float marker=w*.80f; c.drawRoundRect(marker-dp(1.5f),barTop+dp(13),marker+dp(1.5f),barTop+dp(56),dp(2),dp(2),paint);
+      paint.setColor(Color.argb(80,Color.red(a),Color.green(a),Color.blue(a))); float marker=w*.80f; c.drawRoundRect(marker-dpf(1.5f),barTop+dp(13),marker+dp(1.5f),barTop+dp(56),dp(2),dp(2),paint);
       text(7,muted(),true); center(c,"80%",marker,barTop+barH-dp(9));
       text(9,muted(),true); String hint=tracking&&progress>=.8f?"RELEASE TO CONFIRM":tracking?"KEEP SWIPING →":"SWIPE LEFT TO RIGHT"; center(c,hint,w/2f,barTop+barH+dp(15));
     }
