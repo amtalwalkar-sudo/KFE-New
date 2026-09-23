@@ -49,50 +49,54 @@ const clearDiagnostics = () => {
 </script>
 
 <template>
-  <div style="position:fixed;right:14px;bottom:78px;z-index:20000;font-family:system-ui,-apple-system,sans-serif">
+  <div class="kfe-diagnostic">
     <button
+      class="kfe-diagnostic-trigger"
+      :class="{ 'is-error': hasError }"
+      type="button"
       @click="open=!open"
       :title="hasError ? 'Diagnostics — error captured' : 'Diagnostics'"
-      :style="{width:'46px',height:'46px',borderRadius:'50%',border:'2px solid white',background:hasError?'#dc2626':'#0f172a',color:'white',boxShadow:'0 4px 14px rgba(0,0,0,.28)',fontSize:'20px',cursor:'pointer'}"
+      :aria-label="hasError ? 'Diagnostics — error captured' : 'Diagnostics'"
+      :aria-expanded="open"
     >
       {{ hasError ? '⚠️' : '🐞' }}
     </button>
 
-    <div v-if="open" style="position:absolute;right:0;bottom:56px;width:min(360px,calc(100vw - 28px));max-height:70vh;background:white;border:1px solid #cbd5e1;border-radius:14px;box-shadow:0 10px 30px rgba(15,23,42,.28);overflow:hidden;color:#0f172a">
-      <div style="padding:12px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between">
+    <section v-if="open" class="kfe-diagnostic-panel" aria-label="Diagnostics panel">
+      <header class="kfe-diagnostic-header">
         <div>
           <strong>Diagnostics</strong>
-          <div style="font-size:.7rem;color:#64748b">{{ snapshot.operation || 'No operation recorded' }}</div>
+          <div class="kfe-diagnostic-subtitle">{{ snapshot.operation || 'No operation recorded' }}</div>
         </div>
-        <button @click="open=false" style="border:0;background:none;font-size:18px;cursor:pointer">×</button>
-      </div>
+        <button class="kfe-diagnostic-close" type="button" aria-label="Close diagnostics" @click="open=false">×</button>
+      </header>
 
-      <div v-if="current" style="padding:10px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0">
-        <div style="font-size:.7rem;color:#64748b">Current</div>
-        <div style="font-weight:800;font-size:.86rem">
+      <div v-if="current" class="kfe-diagnostic-current">
+        <div class="kfe-diagnostic-label">Current</div>
+        <div class="kfe-diagnostic-current-step">
           {{ statusSymbol(current.status) }} {{ current.step }}
         </div>
-        <div v-if="current.detail" style="font-size:.72rem;color:#64748b;margin-top:2px">{{ current.detail }}</div>
+        <div v-if="current.detail" class="kfe-diagnostic-detail">{{ current.detail }}</div>
       </div>
 
-      <div style="max-height:42vh;overflow:auto;padding:8px 12px">
-        <div v-for="(entry,index) in snapshot.entries" :key="`${entry.at}-${index}`" style="padding:7px 0;border-bottom:1px solid #f1f5f9">
-          <div style="display:flex;gap:6px;align-items:center;font-size:.76rem">
+      <div class="kfe-diagnostic-list">
+        <div v-for="(entry,index) in snapshot.entries" :key="`${entry.at}-${index}`" class="kfe-diagnostic-entry">
+          <div class="kfe-diagnostic-entry-head">
             <strong>{{ statusSymbol(entry.status) }}</strong>
-            <span style="font-weight:700">{{ entry.step }}</span>
-            <span style="margin-left:auto;color:#94a3b8;font-size:.65rem">{{ formatTime(entry.at) }}</span>
+            <span>{{ entry.step }}</span>
+            <time>{{ formatTime(entry.at) }}</time>
           </div>
-          <div v-if="entry.detail" style="font-size:.68rem;color:#64748b;margin-left:18px">{{ entry.detail }}</div>
-          <div v-if="entry.error" style="margin:4px 0 0 18px;padding:6px;background:#fef2f2;color:#991b1b;border-radius:6px;font-size:.68rem;white-space:pre-wrap;word-break:break-word">
+          <div v-if="entry.detail" class="kfe-diagnostic-entry-detail">{{ entry.detail }}</div>
+          <div v-if="entry.error" class="kfe-diagnostic-error">
             {{ entry.error.name }}: {{ entry.error.message }}
           </div>
         </div>
       </div>
 
-      <div style="padding:9px 12px;border-top:1px solid #e2e8f0;display:flex;gap:7px">
-        <button @click="copyDiagnostics" style="flex:1;padding:8px;border:1px solid #cbd5e1;background:white;border-radius:7px;font-size:.72rem">{{ copied ? 'Copied' : 'Copy' }}</button>
-        <button @click="clearDiagnostics" style="padding:8px 10px;border:1px solid #fecaca;background:#fff1f2;color:#991b1b;border-radius:7px;font-size:.72rem">Clear</button>
-      </div>
-    </div>
+      <footer class="kfe-diagnostic-actions">
+        <button type="button" class="kfe-secondary-action" @click="copyDiagnostics">{{ copied ? 'Copied' : 'Copy' }}</button>
+        <button type="button" class="kfe-diagnostic-clear" @click="clearDiagnostics">Clear</button>
+      </footer>
+    </section>
   </div>
 </template>
