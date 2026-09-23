@@ -26,7 +26,7 @@ assert.match(forecast, /effectiveForecast/)
 
 const snapshot = buildSyntheticSnapshot(1826, { fullTimeline: true })
 const range = { from: istDayRange('2026-05-01T00:00:00+05:30').from, to: istDayRange('2031-04-30T00:00:00+05:30').to }
-const metrics = PerformanceService.getMetrics(snapshot, range)
+const calculationSnapshot = { ...snapshot, fuelLogs: snapshot.fuel_logs, compliance: snapshot.compliance_records, maintenance: snapshot.maintenance_records, loanPayments: snapshot.loan_payments, driverTargets: snapshot.driver_targets, breakEvenInputs: snapshot.break_even_inputs, settlements: [] }\nconst metrics = PerformanceService.getMetrics(calculationSnapshot, range)
 
 assert.equal(snapshot.shifts.length, 1826)
 assert.equal(snapshot.trips.length, 8951)
