@@ -1514,3 +1514,27 @@ button,input,select,textarea{min-height:var(--kfe-touch)}
 /* Cross-layer runtime failure presentation uses the same Visual DNA as the application shell. */
 .kfe-runtime-error{padding:var(--kfe-space-5);font-family:inherit;color:var(--kfe-ui-text)}
 .kfe-runtime-error pre{background:var(--kfe-ui-surface-2);color:var(--kfe-ui-text);padding:var(--kfe-space-3);border:1px solid var(--kfe-ui-border);border-radius:var(--kfe-radius-sm);overflow:auto;white-space:pre-wrap}
+
+
+/* CANONICAL DIAGNOSTICS UI — diagnostic behavior stays in DiagnosticService. */
+.kfe-diagnostic{position:fixed;right:14px;bottom:calc(var(--kfe-nav-height) + 2px);z-index:20000;font-family:inherit}
+.kfe-diagnostic-trigger{width:46px;height:46px;min-width:46px;min-height:46px;padding:0;border:2px solid var(--kfe-ui-surface);border-radius:50%;background:var(--kfe-ui-text);color:var(--kfe-ui-surface);box-shadow:var(--kfe-ui-shadow);font-size:20px;cursor:pointer}
+.kfe-diagnostic-trigger.is-error{background:var(--kfe-danger)}
+.kfe-diagnostic-trigger:focus-visible{outline:3px solid color-mix(in srgb,var(--kfe-ui-accent) 55%,transparent);outline-offset:2px}
+.kfe-diagnostic-panel{position:absolute;right:0;bottom:56px;width:min(360px,calc(100vw - 28px));max-height:70vh;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--kfe-ui-border);border-radius:var(--kfe-radius-lg);background:var(--kfe-ui-surface);box-shadow:0 10px 30px color-mix(in srgb,var(--kfe-ui-text) 28%,transparent);color:var(--kfe-ui-text)}
+.kfe-diagnostic-header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px;border-bottom:1px solid var(--kfe-ui-border)}
+.kfe-diagnostic-subtitle,.kfe-diagnostic-label,.kfe-diagnostic-detail,.kfe-diagnostic-entry-detail{font-size:.7rem;color:var(--kfe-muted-text)}
+.kfe-diagnostic-close{min-width:40px;border:0;background:transparent;color:var(--kfe-ui-text);font-size:18px;cursor:pointer}
+.kfe-diagnostic-current{padding:10px 12px;background:var(--kfe-ui-surface-2);border-bottom:1px solid var(--kfe-ui-border)}
+.kfe-diagnostic-current-step{font-weight:800;font-size:.86rem}
+.kfe-diagnostic-detail{margin-top:2px}
+.kfe-diagnostic-list{max-height:42vh;overflow:auto;padding:8px 12px}
+.kfe-diagnostic-entry{padding:7px 0;border-bottom:1px solid var(--kfe-ui-border)}
+.kfe-diagnostic-entry-head{display:flex;align-items:center;gap:6px;font-size:.76rem}
+.kfe-diagnostic-entry-head time{margin-left:auto;color:var(--kfe-ui-muted);font-size:.65rem}
+.kfe-diagnostic-entry-detail{margin-left:18px}
+.kfe-diagnostic-error{margin:4px 0 0 18px;padding:6px;border-radius:var(--kfe-radius-sm);background:color-mix(in srgb,var(--kfe-danger) 10%,var(--kfe-ui-surface));color:var(--kfe-danger);font-size:.68rem;white-space:pre-wrap;word-break:break-word}
+.kfe-diagnostic-actions{display:flex;gap:7px;padding:9px 12px;border-top:1px solid var(--kfe-ui-border)}
+.kfe-diagnostic-actions .kfe-secondary-action{flex:1;margin:0;min-height:40px}
+.kfe-diagnostic-clear{min-height:40px;padding:8px 10px;border:1px solid color-mix(in srgb,var(--kfe-danger) 45%,var(--kfe-ui-border));border-radius:var(--kfe-radius-sm);background:color-mix(in srgb,var(--kfe-danger) 7%,var(--kfe-ui-surface));color:var(--kfe-danger);font-size:.72rem;font-weight:800;cursor:pointer}
+@media(max-width:600px){.kfe-diagnostic{right:10px}.kfe-diagnostic-panel{bottom:54px}}
