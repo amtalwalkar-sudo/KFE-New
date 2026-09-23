@@ -182,9 +182,13 @@ public class KfeOverlayService extends Service {
       paint.setColor(Color.argb(45,Color.red(text()),Color.green(text()),Color.blue(text())));
       c.drawRoundRect(rect,dp(16),dp(16),paint);
       if(!targetExpanded){
-        text(9,muted(),true); center(c,"TODAY'S TARGET",w*.42f,dp(18));
-        text(17,text(),true); center(c,target,w*.42f,dp(39));
-        text(11,muted(),true); center(c,"⌄",w*.88f,dp(31));
+        float col1=w*.20f,col2=w*.50f,col3=w*.80f;
+        text(9,muted(),true); center(c,"RIDES",col1,dp(30));
+        text(15,text(),true); center(c,rides,col1,dp(54));
+        text(9,muted(),true); center(c,"REVENUE",col2,dp(30));
+        text(15,text(),true); center(c,revenue,col2,dp(54));
+        text(9,muted(),true); center(c,"LIVE KM",col3,dp(30));
+        text(15,text(),true); center(c,liveKm,col3,dp(54));
       }else{
         float col1=w*.20f,col2=w*.50f,col3=w*.80f;
         text(9,muted(),true); center(c,"RIDES",col1,dp(30));
