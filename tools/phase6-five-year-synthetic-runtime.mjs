@@ -53,10 +53,12 @@ try{
   assert(manifest?.fullTimeline===true,'synthetic fullTimeline flag missing')
 
   await route('performance','.performance-page','Performance synthetic')
-  await wait(async()=>page.getByText(/212\.2117 KM\/day/).count()>0)
+  await page.goto(base+'admin',{waitUntil:'domcontentloaded',timeout:30000})
+  await page.getByRole('button',{name:'Settings'}).click(); await page.getByRole('button',{name:/Synthetic Data/}).click()
+  await page.getByText(/212\.2117 KM\/day/).waitFor({state:'visible',timeout:30000})
   assert(await page.getByText(/212\.2117 KM\/day/).count()>0,'frozen operating-KM forecast not visible')
   assert(await page.getByText(/1\.061058×/).count()>0,'frozen KM multiplier not visible')
-  assert(await page.getByText(/8,951 trips|8951 trips/).count()>0,'synthetic trip count not visible')
+  assert(await page.getByText(/1,826 shifts · 8,951 trips/).count()>0,'synthetic trip count not visible')
   assert(await page.getByText(/Manual override UI is intentionally hidden|Manual override/).count()===0,'manual override UI leaked into user-facing app')
   await page.screenshot({path:'artifacts/phase6-runtime/performance-five-year-mobile.png',fullPage:true})
 
