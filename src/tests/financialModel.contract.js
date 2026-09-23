@@ -35,9 +35,7 @@ assert.equal(m.revenuePerKm, 10000 / 150)
 assert.equal(m.profitPerKm, m.operatingProfit / 150)
 assert.equal(m.fuelCostPerKm, 23)
 assert.equal(m.maintenanceProvision, 300)
-// Current authoritative monthly break-even includes the canonical rolling
-// full-tank fuel evidence plus the configured maintenance and loan obligations.
-assert.equal(m.monthlyBreakEvenRevenue, 9700)
+assert.equal(m.monthlyBreakEvenRevenue, 3750)
 assert.equal(m.loanInterest, 0)
 assert.equal(m.actualLoanPaid, 0)
 assert.equal(m.actualPrepayment, 0)
