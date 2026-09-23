@@ -15,7 +15,7 @@ const waitForPreview = async () => {
   const deadline = Date.now() + 30000
   while (Date.now() < deadline) {
     try {
-      const response = await fetch('http://127.0.0.1:4173/KFE-New/')
+      const response = await fetch('http://127.0.0.1:4173/')
       if (response.ok) return
     } catch (_) {}
     await new Promise(resolve => setTimeout(resolve, 250))
@@ -47,7 +47,10 @@ try {
   page.on('pageerror', error => errors.push(error.stack || error.message))
   page.on('requestfailed', request => failedRequests.push(`${request.method()} ${request.url()} — ${request.failure()?.errorText || 'request failed'}`))
 
-  const response = await page.goto('http://127.0.0.1:4173/KFE-New/', { waitUntil: 'domcontentloaded', timeout: 30000 })
+  // Vite preview serves the built site at its local root. The production
+  // bundle uses relative assets, so the same artifact remains compatible
+  // with the GitHub Pages /KFE-New/ subpath and Capacitor's local origin.
+  const response = await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded', timeout: 30000 })
   if (!response?.ok()) throw new Error(`Pages entry response was not successful: ${response?.status()}`)
 
   await page.locator('header.top-bar').waitFor({ state: 'visible', timeout: 45000 })
@@ -57,7 +60,7 @@ try {
   if (errors.length) throw new Error(`Browser runtime errors:\n${errors.join('\n\n')}`)
   if (failedRequests.length) throw new Error(`Failed browser requests:\n${failedRequests.join('\n')}`)
 
-  console.log('GitHub Pages runtime smoke passed: built PWA loads, Vue mounts, startup completes, and the Work shell renders.')
+  console.log('GitHub Pages runtime smoke passed: built PWA loads, Vue mounts, startup completes, and the Work shell renders with relative assets.')
 } finally {
   await browser?.close()
   await stopPreview()
