@@ -255,11 +255,17 @@ const onSwipeEnd = async event => {
 const onSwipeCancel = () => { swipeTracking.value=false; swipeStartX.value=null; swipeStartY.value=null; swipeGestureMode.value=null; swipeOffset.value=0 }
 const onSwipeKey = async event => { if(event.key==='Enter'||event.key===' '){event.preventDefault();await primaryTripAction()} }
 const handleRideNotificationAction = async ({ stage, tripId, input }) => {
-  if (stage === 'GO_TO_PICKUP') return startGoingToPickup()
-  if (stage === 'ENTER_PICKUP_DURATION') { if (!input) return; await KfeRideNotificationService.setPickupDuration(input); return }
-  if (stage === 'START_RIDE') return startTrip()
-  if (stage === 'ENTER_RIDE_DURATION') { if (!input) return; await KfeRideNotificationService.setRideDuration(input); return }
-  if (stage === 'END_RIDE') return endTrip(input || '')
+  let handled = false
+  if (stage === 'GO_TO_PICKUP') { await startGoingToPickup(); handled = true }
+  else if (stage === 'ENTER_PICKUP_DURATION') { if (!input) return; handled = await KfeRideNotificationService.setPickupDuration(input) }
+  else if (stage === 'START_RIDE') { const result = await startTrip(); handled = result !== false }
+  else if (stage === 'ENTER_RIDE_DURATION') { if (!input) return; handled = await KfeRideNotificationService.setRideDuration(input) }
+  else if (stage === 'END_RIDE') {
+    if (tripId && tripId !== store.trip?.id) return fail('This ride is no longer active.')
+    await endTrip(input || '')
+    handled = true
+  }
+  if (handled) await KfeRideNotificationService.clearPendingAction()
 }
 
 onMounted(async()=>{await store.initialize();await fuelStore.refresh();await refreshTarget();await refreshPerformance();
