@@ -54,16 +54,57 @@ jobs:
         working-directory: android
         run: ./gradlew assembleDebug
 
-      - name: Upload Android Debug APK
+      - name: Run Phase 10 Hardening / Release Gate
+        run: node src/tests/phase10HardeningRelease.contract.js
+
+      - name: Capture exact APK identity for Golden Ride Gate
+        run: |
+          mkdir -p artifacts/android-golden
+          cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/android-golden/app-debug.apk
+          sha256sum artifacts/android-golden/app-debug.apk | tee artifacts/android-golden/apk.sha256
+
+      - name: Golden Android Ride Gate
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: Pixel_2
+          cores: 2
+          ram-size: 2048M
+          heap-size: 512M
+          disk-size: 6000M
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          enable-hw-keyboard: false
+          script: |
+            set -euo pipefail
+            cd android
+            ./gradlew :app:assembleDebugAndroidTest
+            adb install -r "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
+            adb install -r "$GITHUB_WORKSPACE/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
+            adb shell appops set com.kanishka.pwa android:system_alert_window allow
+            adb shell appops set com.kanishka.pwa android:camera allow || true
+            adb shell am force-stop com.kanishka.pwa
+            adb shell am instrument -w -r -e class com.kanishka.pwa.KfeOverlayGoldenRideTest com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner
+            sha256sum "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
+
+      - name: Upload tested Android Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: kfe-android-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: artifacts/android-golden/app-debug.apk
           if-no-files-found: error
           retention-days: 7
 
-      - name: Run Phase 10 Hardening / Release Gate
-        run: node src/tests/phase10HardeningRelease.contract.js
+      - name: Upload Android Golden Gate identity
+        uses: actions/upload-artifact@v4
+        with:
+          name: kfe-android-golden-gate-identity
+          path: artifacts/android-golden/apk.sha256
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Complete PWA Static Assets
         run: |
