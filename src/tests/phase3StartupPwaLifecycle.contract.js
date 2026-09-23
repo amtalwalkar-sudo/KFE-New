@@ -7,7 +7,6 @@ const platform = fs.readFileSync('src/infrastructure/startup/platformStartup.js'
 const sw = fs.readFileSync('public/service-worker.js', 'utf8')
 const manifest = JSON.parse(fs.readFileSync('public/manifest.json', 'utf8'))
 const index = fs.readFileSync('index.html', 'utf8')
-const main = fs.readFileSync('src/main.js', 'utf8')
 
 assert.equal((main.match(/serviceWorker\.register\s*\(/g) || []).length, 0, 'main.js must not own service-worker registration')
 assert.equal((platform.match(/serviceWorker\.register\s*\(/g) || []).length, 1, 'PlatformStartup must own the single registration path')
