@@ -24,13 +24,13 @@ try{
 
   await route('admin','.admin-page','Admin')
   await page.getByRole('button',{name:'Settings'}).click()
-  await page.getByRole('button',{name:'Synthetic Data',exact:true}).click()
+  await page.getByRole('button',{name:/Synthetic Data/}).click()
   await page.getByRole('button',{name:'5 years',exact:true}).click()
   await page.getByText(/5 years synthetic dataset loaded/i).waitFor({state:'visible',timeout:30000})
   await page.waitForTimeout(1800)
   await page.locator('.admin-page').waitFor({state:'visible',timeout:30000})
   await page.getByRole('button',{name:'Settings'}).click()
-  await page.getByRole('button',{name:'Synthetic Data',exact:true}).click()
+  await page.getByRole('button',{name:/Synthetic Data/}).click()
   await page.getByText(/Loaded 2026-05-01 → 2031-04-30 · 1826 days/i).waitFor({state:'visible',timeout:30000})
   await wait(async()=>page.evaluate(()=>indexedDB.databases().then(d=>d.some(x=>x.name==='kanishka_kfe_synthetic_db'))))
 
