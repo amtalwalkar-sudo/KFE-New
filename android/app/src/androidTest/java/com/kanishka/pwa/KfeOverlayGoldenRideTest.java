@@ -217,10 +217,6 @@ public class KfeOverlayGoldenRideTest {
     e.recycle();
   }
 
-  private void dispatch(View v, float x1, float y1, float x2, float y2, int action) {
-    dispatch(v,x1,y1,x2,y2,action);
-  }
-
   private void waitFor(Check check, long timeoutMs) throws Exception {
     long deadline=SystemClock.uptimeMillis()+timeoutMs;
     while(SystemClock.uptimeMillis()<deadline){
