@@ -106,27 +106,33 @@ public class KfeOverlayService extends Service {
       overlay.invalidate();
     }catch(Exception ignored){ actionStage="GO_TO_PICKUP"; overlay.invalidate(); }
   }
-  private void triggerAction(){ KfeRideNotificationsPlugin.recordPendingAction(this,actionStage,pendingTripId,""); }
+  private void triggerAction(){ KfeRideNotificationsPlugin.recordPendingAction(this,actionStage,pendingTripId,""); KfeRideNotificationsPlugin.emitAction(actionStage,pendingTripId,""); }
   private void showFareEntry(){
     if(overlayRoot==null)return;
     if(fareInput!=null)return;
+    params.flags=WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
     params.height=dp(158);
+    if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);
     fareInput=new EditText(this); fareInput.setSingleLine(true); fareInput.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL); fareInput.setHint("Fare"); fareInput.setTextSize(18); fareInput.setPadding(dp(12),0,dp(12),0); fareInput.setSelectAllOnFocus(false);
     FrameLayout.LayoutParams ip=new FrameLayout.LayoutParams(dp(150),dp(52),Gravity.CENTER_VERTICAL|Gravity.CENTER_HORIZONTAL); ip.leftMargin=-dp(45); overlayRoot.addView(fareInput,ip);
     fareOk=new Button(this); fareOk.setText("OK"); fareOk.setTextSize(12); fareOk.setAllCaps(false);
     FrameLayout.LayoutParams bp=new FrameLayout.LayoutParams(dp(72),dp(48),Gravity.CENTER_VERTICAL|Gravity.CENTER_HORIZONTAL); bp.leftMargin=dp(118); overlayRoot.addView(fareOk,bp);
     fareOk.setOnClickListener(v->submitFare());
     fareInput.setOnEditorActionListener((v,id,event)->{ if(id!=0 || (event!=null&&event.getKeyCode()==KeyEvent.KEYCODE_ENTER)){submitFare();return true;} return false; });
+    fareInput.requestFocus();
+    fareInput.postDelayed(() -> { InputMethodManager imm=(InputMethodManager)getSystemService(INPUT_METHOD_SERVICE); if(imm!=null) imm.showSoftInput(fareInput,InputMethodManager.SHOW_IMPLICIT); },120);
   }
   private void hideFareEntry(){
     if(fareInput!=null){ ((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(fareInput.getWindowToken(),0); overlayRoot.removeView(fareInput); fareInput=null; }
     if(fareOk!=null){ overlayRoot.removeView(fareOk); fareOk=null; }
+    if(params!=null){ params.flags=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS; if(windowManager!=null&&overlayRoot!=null) windowManager.updateViewLayout(overlayRoot,params); }
   }
   private void submitFare(){
     if(fareInput==null || pendingTripId.isEmpty())return;
     String fare=fareInput.getText().toString().trim(); if(fare.isEmpty())return;
     try{ if(Double.parseDouble(fare)<0)return; }catch(Exception ex){return;}
     KfeRideNotificationsPlugin.recordPendingAction(this,"ENTER_FARE",pendingTripId,fare);
+    KfeRideNotificationsPlugin.emitAction("ENTER_FARE",pendingTripId,fare);
     hideFareEntry();
   }
   private void removeOverlay(){ hideFareEntry(); if(windowManager!=null&&overlayRoot!=null){try{windowManager.removeView(overlayRoot);}catch(Exception ignored){}} overlayRoot=null; overlay=null; }
