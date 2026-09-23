@@ -7,6 +7,7 @@ const platform = fs.readFileSync('src/infrastructure/startup/platformStartup.js'
 const sw = fs.readFileSync('public/service-worker.js', 'utf8')
 const manifest = JSON.parse(fs.readFileSync('public/manifest.json', 'utf8'))
 const index = fs.readFileSync('index.html', 'utf8')
+const main = fs.readFileSync('src/main.js', 'utf8')
 
 assert.equal((main.match(/serviceWorker\.register\s*\(/g) || []).length, 0, 'main.js must not own service-worker registration')
 assert.equal((platform.match(/serviceWorker\.register\s*\(/g) || []).length, 1, 'PlatformStartup must own the single registration path')
@@ -29,5 +30,8 @@ assert.equal(manifest.scope, './')
 assert.equal(manifest.display, 'standalone')
 assert.equal(manifest.orientation, 'portrait')
 assert.match(index, /<link rel="manifest" href="\.\/manifest\.json"/)
+assert.match(index, /BOOT_TIMEOUT_MS = 10000/, 'pre-Vue boot screen must have a finite watchdog')
+assert.match(index, /KFE interface did not finish loading within 10 seconds/, 'boot watchdog must expose an actionable failure')
+assert.match(main, /if \(!Capacitor\.isNativePlatform\(\)\)/, 'native startup must not install the PWA service-worker reload lifecycle')
 
 console.log('Phase 3 startup/PWA lifecycle contract passed')
