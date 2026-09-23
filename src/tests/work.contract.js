@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { validateShiftStartOdometer, validateFirstDayShiftStartOdometer, validateGapAllocation } from '../domain/work/shift.js'
 import { validateEndShiftEntry } from '../domain/work/endShift.js'
-import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection, calculateShiftRevenue } from '../domain/work/trip.js'
+import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection, calculateTripRevenueDetail } from '../domain/work/trip.js'
 import { calculateFuelQuantity, validateFuelEntry } from '../domain/work/fuel.js'
 
 assert.deepEqual(validateShiftStartOdometer(100, 90), { valid: true, gapKm: 10 })
@@ -28,7 +28,7 @@ assert.equal(validateTripOperator('Unknown').valid, false)
 assert.equal(validateTripCorrection({ operator: 'Ola', tripKm: '12.5', revenue: '300' }).valid, true)
 assert.deepEqual(validateTripCorrection({ operator: 'Ola', revenue: '150', cancelReason: 'PASSENGER_CANCELLED' }), { valid: true, operator: 'Ola', revenue: 150, cancelReason: 'PASSENGER_CANCELLED' })
 assert.equal(validateTripCorrection({ cancelReason: '' }).valid, false)
-assert.equal(calculateShiftRevenue([{ status: 'COMPLETED', revenue: 100 }, { status: 'CANCELLED', revenue: 500 }, { status: 'COMPLETED', revenue: null }]), 100)
+assert.equal(calculateTripRevenueDetail([{ status: 'COMPLETED', revenue: 100 }, { status: 'CANCELLED', revenue: 500 }, { status: 'COMPLETED', revenue: null }]), 100)
 assert.equal(calculateFuelQuantity({ pricePerKg: 82, amount: 410 }).quantityKg, 5)
 assert.equal(validateFuelEntry({ odometer: 65000, pricePerKg: 82, amount: 1230 }).quantityKg, 15)
 assert.equal(validateFuelEntry({ odometer: 65000, pricePerKg: 82, amount: 1230.01 }).valid, false)

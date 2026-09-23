@@ -42,8 +42,9 @@ This document consolidates the accepted/frozen KFE business rules from the froze
 
 ## 5. Revenue
 
-- Revenue comes only from validated completed trip records.
-- Cancelled/unvalidated records do not become completed revenue.
+- ERP revenue is the confirmed revenue on the completed Shift at shift completion.
+- Completed-trip fares are supporting detail and must reconcile to Shift revenue when present; they do not override the Shift revenue authority.
+- Cancelled/unvalidated trips do not become completed ride revenue or override Shift revenue.
 - Revenue is actual recorded business revenue, not a target or provision.
 
 ## 6. Expenses

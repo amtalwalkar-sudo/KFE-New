@@ -78,19 +78,12 @@ const liveKmsBase = ref(0)
 const activeFare = computed(() => { const value = store.trip?.revenue; return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) ? performanceMoney(value) : '—' })
 const performanceSnapshot = ref(null)
 const performanceMoney = value => Number.isFinite(Number(value)) ? `₹${Math.round(Number(value)).toLocaleString('en-IN')}` : '—'
-const performanceRevenue = metrics => Number(metrics?.revenue || 0) + Number(metrics?.toll || 0) + Number(metrics?.parking || 0)
-const performanceBreakEven = (metrics, range) => {
-  const monthly = Number(metrics?.monthlyBreakEvenRevenue)
-  if (!Number.isFinite(monthly) || !range?.from || !range?.to) return 0
-  const monthDays = new Date(Date.UTC(istParts(range.to).year, istParts(range.to).month, 0)).getUTCDate()
-  const periodDays = istCalendarDaysInclusive(range.from, range.to)
-  return monthly * Math.max(0, Math.min(monthDays, periodDays)) / monthDays
-}
-const buildPerformanceCard = (metrics, range, label) => {
-  const revenue = performanceRevenue(metrics)
-  const breakEven = performanceBreakEven(metrics, range)
-  return { date: label, revenue, profit: revenue - breakEven }
-}
+const performanceRevenue = metrics => Number.isFinite(Number(metrics?.revenue)) ? Number(metrics.revenue) : 0
+const buildPerformanceCard = (metrics, label) => ({
+  date: label,
+  revenue: performanceRevenue(metrics),
+  profit: Number.isFinite(Number(metrics?.actualProfit)) ? Number(metrics.actualProfit) : Number.isFinite(Number(metrics?.operatingProfit)) ? Number(metrics.operatingProfit) : null,
+})
 const weeklyPerformance = ref(null)
 const yesterdayPerformance = ref(null)
 const refreshPerformance = async () => {
@@ -106,8 +99,8 @@ const refreshPerformance = async () => {
     const weekParts = istParts(weekRange.to)
     const yesterdayParts = istParts(yesterdayRange.from)
     const weekStart = istParts(weekRange.from)
-    weeklyPerformance.value = buildPerformanceCard(weekMetrics, weekRange, `${weekStart.day}/${weekStart.month} – ${weekParts.day}/${weekParts.month}/${weekParts.year}`)
-    yesterdayPerformance.value = buildPerformanceCard(yesterdayMetrics, yesterdayRange, `${yesterdayParts.day}/${yesterdayParts.month}/${yesterdayParts.year}`)
+    weeklyPerformance.value = buildPerformanceCard(weekMetrics, `${weekStart.day}/${weekStart.month} – ${weekParts.day}/${weekParts.month}/${weekParts.year}`)
+    yesterdayPerformance.value = buildPerformanceCard(yesterdayMetrics, `${yesterdayParts.day}/${yesterdayParts.month}/${yesterdayParts.year}`)
   } catch (_) {
     weeklyPerformance.value = null
     yesterdayPerformance.value = null
