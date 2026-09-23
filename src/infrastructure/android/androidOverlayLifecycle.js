@@ -20,6 +20,7 @@ const activeOverlayState = async () => {
   let target = '—'
   let rides = '0'
   let liveKm = '0.0 km'
+  let revenue = '₹0'
   try {
     const targetResult = await DriverTargetService.getTarget(getKfeReferenceNow())
     if (Number.isFinite(Number(targetResult?.target))) {
@@ -29,7 +30,13 @@ const activeOverlayState = async () => {
 
   try {
     const trips = await WorkService.getTripsForShift(active.shift.id)
-    rides = String(trips.filter(item => item?.status === 'COMPLETED' || item?.status === 'ACTIVE').length)
+    const rideTrips = trips.filter(item => item?.status === 'COMPLETED' || item?.status === 'ACTIVE')
+    rides = String(rideTrips.length)
+    const totalRevenue = rideTrips.reduce((sum, item) => {
+      const value = Number(item?.revenue)
+      return Number.isFinite(value) && value >= 0 ? sum + value : sum
+    }, 0)
+    revenue = `₹${totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
   } catch (_) {}
 
   if (active.trip?.id) {
@@ -47,7 +54,7 @@ const activeOverlayState = async () => {
   } catch (_) {}
   if (active.trip?.id) overlayAction = 'END_RIDE'
 
-  return { ...active, target, rides, liveKm, overlayAction, theme: document.documentElement?.dataset?.kfeTheme || 'light' }
+  return { ...active, target, rides, revenue, liveKm, overlayAction, theme: document.documentElement?.dataset?.kfeTheme || 'light' }
 }
 
 const showOverlayIfNeeded = async () => {
