@@ -2,7 +2,6 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
-import { StartupService } from './application/startup/startupService.js'
 import { BackupConfig } from './application/backup/backupConfig.js'
 import { CloudBackupLifecycle } from './application/backup/cloudBackupLifecycle.js'
 import { configureLocationProvider } from './application/work/locationProvider.js'
@@ -11,6 +10,7 @@ import { createCloudBackupScheduler } from './infrastructure/backup/cloudBackupS
 import { captureCurrentLocation } from './infrastructure/location/currentLocation.js'
 import { PlatformStartup } from './infrastructure/startup/platformStartup.js'
 import { configureAndroidOverlayLifecycle } from './infrastructure/android/androidOverlayLifecycle.js'
+import { startApplication } from './application/startup/startupRuntime.js'
 import './styles/kfe-ui.css'
 import './styles/work-cockpit-hud.css'
 import { startKfeThemeController } from './presentation/theme/kfeThemeController.js'
@@ -29,16 +29,8 @@ if ('serviceWorker' in navigator) {
 BackupConfig.configureBackupConfig(createBackupConfigAdapter())
 CloudBackupLifecycle.configureCloudBackupScheduler(createCloudBackupScheduler())
 configureLocationProvider(captureCurrentLocation)
-StartupService.configureStartupPlatform(PlatformStartup)
+PlatformStartup.configureStartupPlatform
 configureAndroidOverlayLifecycle()
-
-let startupError = null
-try {
-  await StartupService.initializeApplication()
-} catch (error) {
-  console.error('KFE application startup failed:', error)
-  startupError = error?.message || 'Application initialization failed.'
-}
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', event => {
@@ -48,7 +40,7 @@ if ('serviceWorker' in navigator) {
   })
 }
 
-const app = createApp(App, { startupError })
+const app = createApp(App)
 app.config.errorHandler = (err) => {
   console.error('Vue Runtime Error:', err)
   const root = document.getElementById('app')
@@ -69,3 +61,5 @@ const pinia = createPinia()
 app.use(pinia)
 app.use(router)
 app.mount('#app')
+
+void startApplication().catch(error => console.error('KFE application startup failed:', error))
