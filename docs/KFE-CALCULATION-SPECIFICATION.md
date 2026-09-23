@@ -37,15 +37,14 @@ The result must reconcile with authoritative vehicle movement. A negative result
 
 ### Reporting-period revenue
 
-`revenue = sum(completedTrip.revenue)`
+`revenue = sum(completedShift.revenue)`
+
+The completed Shift's confirmed end-of-shift revenue is the single ERP revenue authority. Completed-trip fares are supporting detail only and are used for reconciliation/display; they do not override Shift revenue.
 
 Included records:
-- validated completed trips only.
+- completed shifts with a valid shift-end revenue value.
 
-Excluded:
-- cancelled trips
-- incomplete/unvalidated trips
-- non-business records.
+Trip records remain important for ride history, business KM and reconciliation, but `Trip.revenue` is not an ERP revenue authority.
 
 ## 4. Actual operating cost
 
