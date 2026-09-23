@@ -62,3 +62,4 @@ for (const method of ['recoverStaleSyncing', 'getPending', 'updateStatus', 'remo
 }
 
 console.log('Stabilization runtime/PWA/data-boundary contract: PASS')
+// Phase 7 active-source routing is intentional; canonical sync/backup remain explicit.
