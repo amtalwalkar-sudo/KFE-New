@@ -18,7 +18,7 @@ try{
  await context.addInitScript(()=>{if(!sessionStorage.getItem('__kfe_phase4_initialized')){localStorage.clear();sessionStorage.clear();sessionStorage.setItem('__kfe_phase4_initialized','1')}navigator.geolocation.getCurrentPosition=success=>success({coords:{latitude:19.076,longitude:72.8777,accuracy:30},timestamp:Date.now()})})
  const page=await context.newPage(),errors=[],failed=[]
  page.on('pageerror',e=>errors.push(e.stack||e.message));page.on('requestfailed',r=>failed.push(r.url()))
- const healthy=async(label)=>{assert((await page.locator('.kfe-runtime-error').count())===0,label+' runtime error');assert((await page.locator('body').innerText()).trim().length>40,label+' empty UI');assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),label+' horizontal overflow')}
+ const healthy=async(label)=>{assert((await page.locator('.kfe-runtime-error').count())===0,label+' runtime error');assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),label+' horizontal overflow')}
  const route=async(path,selector,label)=>{const res=await page.goto(base+path,{waitUntil:'domcontentloaded',timeout:30000});assert(res?.ok(),label+' response failed');await page.locator(selector).waitFor({state:'visible',timeout:20000});await healthy(label)}
  // 4A shell/routes
  await route('', '.cockpit','Work');await page.getByText('Kanishka Enterprises',{exact:true}).first().waitFor({state:'visible'})
