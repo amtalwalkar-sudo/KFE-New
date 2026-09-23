@@ -249,6 +249,26 @@ const handleRideNotificationAction = async ({ stage, tripId, input }) => {
     if (ok) await KfeRideNotificationService.clearPendingAction()
     return ok
   }
+  if (stage === 'CANCEL_RIDE') {
+    if (!tripId) return
+    let payload = { reason: 'DRIVER_MISTAKE', revenue: 0 }
+    try { if (input) payload = { ...payload, ...JSON.parse(input) } } catch (_) {}
+    const value = payload.revenue === '' || payload.revenue === null || payload.revenue === undefined ? 0 : Number(payload.revenue)
+    if (!Number.isFinite(value) || value < 0) return
+    if (!store.isTripActive || store.trip?.id !== tripId) {
+      await store.refresh()
+      if (!store.isTripActive || store.trip?.id !== tripId) { await KfeRideNotificationService.clearPendingAction(); return false }
+    }
+    try { await MovementTraceService.stop({ captureFinal: true }) } catch (_) {}
+    const result = await store.cancelTrip({ reason: String(payload.reason || 'DRIVER_MISTAKE'), revenue: value })
+    if (result?.ok) {
+      await KfeRideNotificationService.clearPendingAction()
+      await KfeRideNotificationService.completeRide()
+      await refreshTarget()
+      notify(value > 0 ? `Ride cancelled · ₹${value.toLocaleString('en-IN')}` : 'Ride cancelled · ₹0 revenue.')
+    }
+    return result
+  }
   if (stage === 'ENTER_FARE') {
     if (!tripId || input === '') return
     const value = Number(input)
