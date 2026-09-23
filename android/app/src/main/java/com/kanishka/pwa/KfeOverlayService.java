@@ -33,6 +33,7 @@ public class KfeOverlayService extends Service {
 
   private static final String CHANNEL_ID = "kfe_overlay";
   private static final int NOTIFICATION_ID = 4201;
+  private static final int SWIPE_TRIGGER_DP = 88;
 
   private WindowManager windowManager;
   private View overlay;
@@ -40,6 +41,8 @@ public class KfeOverlayService extends Service {
   private TextView title;
   private TextView status;
   private TextView metrics;
+  private TextView actionBar;
+  private String actionStage = "GO_TO_PICKUP";
 
   public static void prepare(Context context) {
     Intent intent = new Intent(context, KfeOverlayService.class);
@@ -84,9 +87,7 @@ public class KfeOverlayService extends Service {
       stopSelf();
       return START_NOT_STICKY;
     }
-    if (!Settings.canDrawOverlays(this)) {
-      return START_NOT_STICKY;
-    }
+    if (!Settings.canDrawOverlays(this)) return START_NOT_STICKY;
     if (ACTION_SHOW.equals(action) || ACTION_UPDATE.equals(action)) {
       ensureOverlay();
       applyState(intent.getStringExtra(EXTRA_STATE));
@@ -99,7 +100,7 @@ public class KfeOverlayService extends Service {
 
     windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
     params = new WindowManager.LayoutParams(
-      dp(188), WindowManager.LayoutParams.WRAP_CONTENT,
+      dp(220), WindowManager.LayoutParams.WRAP_CONTENT,
       WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
       WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
       PixelFormat.TRANSLUCENT
@@ -110,9 +111,9 @@ public class KfeOverlayService extends Service {
 
     LinearLayout card = new LinearLayout(this);
     card.setOrientation(LinearLayout.VERTICAL);
-    card.setPadding(dp(12), dp(8), dp(10), dp(9));
+    card.setPadding(dp(12), dp(8), dp(10), dp(10));
     GradientDrawable background = new GradientDrawable();
-    background.setColor(Color.argb(235, 24, 24, 27));
+    background.setColor(Color.argb(238, 24, 24, 27));
     background.setCornerRadius(dp(18));
     card.setBackground(background);
     card.setElevation(dp(8));
@@ -127,15 +128,58 @@ public class KfeOverlayService extends Service {
     minimize.setGravity(Gravity.CENTER);
     header.addView(minimize, new LinearLayout.LayoutParams(dp(34), dp(34)));
     minimize.setOnClickListener(v -> removeOverlay());
-
     card.addView(header);
 
     status = text("Ready", 12, Color.LTGRAY);
     card.addView(status);
 
-    metrics = text("Target —  •  Live KM —", 12, Color.WHITE);
-    metrics.setPadding(0, dp(3), 0, 0);
+    metrics = text("Target —  •  Live KM —\nRides —", 12, Color.WHITE);
+    metrics.setPadding(0, dp(3), 0, dp(6));
     card.addView(metrics);
+
+    actionBar = text("Swipe to go to pickup  →", 11, Color.WHITE);
+    actionBar.setGravity(Gravity.CENTER_VERTICAL);
+    actionBar.setPadding(dp(12), 0, dp(12), 0);
+    actionBar.setSingleLine(true);
+    actionBar.setEllipsize(android.text.TextUtils.TruncateAt.END);
+    card.addView(actionBar, new LinearLayout.LayoutParams(-1, dp(40)));
+
+    View.OnTouchListener swipe = new View.OnTouchListener() {
+      float startX;
+      boolean tracking;
+
+      @Override public boolean onTouch(View v, MotionEvent event) {
+        switch (event.getActionMasked()) {
+          case MotionEvent.ACTION_DOWN:
+            startX = event.getRawX();
+            tracking = true;
+            v.setAlpha(0.78f);
+            return true;
+          case MotionEvent.ACTION_MOVE:
+            if (!tracking) return true;
+            float distance = Math.max(0f, event.getRawX() - startX);
+            float progress = Math.min(1f, distance / Math.max(dp(120), v.getWidth() * 0.55f));
+            v.setAlpha(0.55f + (0.45f * progress));
+            return true;
+          case MotionEvent.ACTION_UP:
+            if (!tracking) return true;
+            float completed = event.getRawX() - startX;
+            tracking = false;
+            v.setAlpha(1f);
+            if (completed >= Math.max(dp(SWIPE_TRIGGER_DP), v.getWidth() * 0.55f)) {
+              triggerAction();
+            }
+            return true;
+          case MotionEvent.ACTION_CANCEL:
+            tracking = false;
+            v.setAlpha(1f);
+            return true;
+          default:
+            return true;
+        }
+      }
+    };
+    actionBar.setOnTouchListener(swipe);
 
     View.OnTouchListener drag = new View.OnTouchListener() {
       int initialX, initialY;
@@ -173,7 +217,7 @@ public class KfeOverlayService extends Service {
   }
 
   private void applyState(String raw) {
-    if (status == null || metrics == null) return;
+    if (status == null || metrics == null || actionBar == null) return;
     try {
       JSONObject root = new JSONObject(raw == null ? "{}" : raw);
       JSONObject shift = root.optJSONObject("shift");
@@ -181,14 +225,53 @@ public class KfeOverlayService extends Service {
       boolean activeShift = shift != null && shift.optString("id", "").length() > 0;
       boolean activeTrip = trip != null && trip.optString("id", "").length() > 0;
       status.setText(activeTrip ? "Trip active" : activeShift ? "Shift active" : "KFE");
+
       String target = root.optString("target", "—");
-      String liveKm = root.optString("liveKm", "—");
-      String rides = root.optString("rides", "—");
+      String liveKm = root.optString("liveKm", "0.0 km");
+      String rides = root.optString("rides", "0");
       metrics.setText("Target " + target + "  •  Live KM " + liveKm + "\nRides " + rides);
+
+      String requestedStage = root.optString("overlayAction", "");
+      if (activeTrip) {
+        actionStage = "END_RIDE";
+      } else if ("START_RIDE".equals(requestedStage)) {
+        actionStage = "START_RIDE";
+      } else {
+        actionStage = "GO_TO_PICKUP";
+      }
+      updateActionBar();
     } catch (Exception ignored) {
       status.setText("KFE");
-      metrics.setText("Target —  •  Live KM —");
+      metrics.setText("Target —  •  Live KM 0.0 km\nRides 0");
+      actionStage = "GO_TO_PICKUP";
+      updateActionBar();
     }
+  }
+
+  private void updateActionBar() {
+    if (actionBar == null) return;
+    String label;
+    int backgroundColor;
+    if ("END_RIDE".equals(actionStage)) {
+      label = "Swipe to end trip  →";
+      backgroundColor = Color.rgb(190, 54, 54);
+    } else if ("START_RIDE".equals(actionStage)) {
+      label = "Swipe to start trip  →";
+      backgroundColor = Color.rgb(32, 112, 196);
+    } else {
+      label = "Swipe to go to pickup  →";
+      backgroundColor = Color.rgb(32, 112, 196);
+    }
+    GradientDrawable bar = new GradientDrawable();
+    bar.setColor(backgroundColor);
+    bar.setCornerRadius(dp(20));
+    actionBar.setBackground(bar);
+    actionBar.setText(label);
+  }
+
+  private void triggerAction() {
+    KfeRideNotificationsPlugin.recordPendingAction(this, actionStage, "", "");
+    openKfe();
   }
 
   private void openKfe() {
@@ -207,6 +290,7 @@ public class KfeOverlayService extends Service {
     title = null;
     status = null;
     metrics = null;
+    actionBar = null;
   }
 
   @Override public void onDestroy() {
