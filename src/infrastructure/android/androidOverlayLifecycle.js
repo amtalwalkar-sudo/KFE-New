@@ -47,14 +47,21 @@ const activeOverlayState = async () => {
   }
 
   let overlayAction = 'GO_TO_PICKUP'
+  let overlayTripId = ''
   try {
     const notificationState = KfeRideNotificationService.getState()
     if (notificationState?.phase === 'START_RIDE') overlayAction = 'START_RIDE'
     if (notificationState?.phase === 'ENTER_PICKUP_DURATION') overlayAction = 'START_RIDE'
   } catch (_) {}
-  if (active.trip?.id) overlayAction = 'END_RIDE'
+  if (active.trip?.id) { overlayAction = 'END_RIDE'; overlayTripId = active.trip.id }
+  else {
+    // A completed trip with no fare is a pending supporting-detail entry. The main app
+    // owns persistence; the overlay only mirrors this state and sends the user's fare back.
+    const unpriced = (await WorkService.getTripsForShift(active.shift.id)).filter(item => item?.status === 'COMPLETED' && (item?.revenue === null || item?.revenue === undefined || item?.revenue === '')).sort((a,b) => new Date(b.tripEndAt || b.updatedAt) - new Date(a.tripEndAt || a.updatedAt))
+    if (unpriced[0]?.id) { overlayAction = 'ENTER_FARE'; overlayTripId = unpriced[0].id }
+  }
 
-  return { ...active, target, rides, revenue, liveKm, overlayAction, theme: document.documentElement?.dataset?.kfeTheme || 'light' }
+  return { ...active, target, rides, revenue, liveKm, overlayAction, overlayTripId, theme: document.documentElement?.dataset?.kfeTheme || 'light' }
 }
 
 const showOverlayIfNeeded = async () => {
