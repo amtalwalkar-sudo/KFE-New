@@ -193,6 +193,7 @@ const endTrip = async (fare = '') => {
     return notify('Ride completed. Enter fare.')
   }
   notify('Ride completed with fare.')
+  return true
 }
 const saveFareEntry = async () => {
   if (fareEntrySaving.value || !fareEntryTripId.value) return
@@ -256,14 +257,13 @@ const onSwipeCancel = () => { swipeTracking.value=false; swipeStartX.value=null;
 const onSwipeKey = async event => { if(event.key==='Enter'||event.key===' '){event.preventDefault();await primaryTripAction()} }
 const handleRideNotificationAction = async ({ stage, tripId, input }) => {
   let handled = false
-  if (stage === 'GO_TO_PICKUP') { await startGoingToPickup(); handled = true }
+  if (stage === 'GO_TO_PICKUP') { handled = (await startGoingToPickup()) === true }
   else if (stage === 'ENTER_PICKUP_DURATION') { if (!input) return; handled = await KfeRideNotificationService.setPickupDuration(input) }
   else if (stage === 'START_RIDE') { const result = await startTrip(); handled = result !== false }
   else if (stage === 'ENTER_RIDE_DURATION') { if (!input) return; handled = await KfeRideNotificationService.setRideDuration(input) }
   else if (stage === 'END_RIDE') {
     if (tripId && tripId !== store.trip?.id) return fail('This ride is no longer active.')
-    await endTrip(input || '')
-    handled = true
+    handled = (await endTrip(input || '')) === true
   }
   if (handled) await KfeRideNotificationService.clearPendingAction()
 }
