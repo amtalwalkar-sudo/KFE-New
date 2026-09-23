@@ -27,6 +27,10 @@ const tollTreatment = ref('INCLUDED')
 const reviewTrips = ref(false)
 const cancelPanel = ref(false)
 const cancelSubmitting = ref(false)
+const fareEntryOpen = ref(false)
+const fareEntryValue = ref('')
+const fareEntryTripId = ref('')
+const fareEntrySaving = ref(false)
 const cancelReason = ref('DRIVER_MISTAKE')
 const cancelledRevenue = ref('')
 const fuelFormOpen = ref(false)
@@ -181,7 +185,37 @@ const endTrip = async (fare = '') => {
   stopClock()
   await KfeRideNotificationService.completeRide()
   if (fareSaveFailed) return fail('Ride completed, but the fare could not be saved. Please correct it in Timeline.')
-  notify(fare !== '' ? 'Ride completed with fare.' : 'Ride completed.')
+  if (fare === '') {
+    fareEntryTripId.value = tripId || ''
+    fareEntryValue.value = ''
+    fareEntryOpen.value = Boolean(tripId)
+    try { localStorage.setItem('kfe.pendingFareTripId', tripId || '') } catch (_) {}
+    return notify('Ride completed. Enter fare.')
+  }
+  notify('Ride completed with fare.')
+}
+const saveFareEntry = async () => {
+  if (fareEntrySaving.value || !fareEntryTripId.value) return
+  const raw = String(fareEntryValue.value ?? '').trim()
+  if (!raw) return fail('Enter the fare for this completed ride.')
+  const value = Number(raw)
+  if (!Number.isFinite(value) || value < 0) return fail('Enter a valid non-negative fare.')
+  fareEntrySaving.value = true
+  try {
+    const result = await store.updateTrip({ id: fareEntryTripId.value, revenue: raw })
+    if (!result?.ok) return fail(result.reason || 'Fare could not be saved.')
+    fareEntryOpen.value = false
+    fareEntryValue.value = ''
+    try { localStorage.removeItem('kfe.pendingFareTripId') } catch (_) {}
+    await refreshTarget()
+    notify('Fare saved.')
+  } finally { fareEntrySaving.value = false }
+}
+const cancelFareEntry = () => {
+  fareEntryOpen.value = false
+  fareEntryValue.value = ''
+  try { localStorage.removeItem('kfe.pendingFareTripId') } catch (_) {}
+  notify('Fare entry cancelled. You can correct the ride in Timeline.')
 }
 const openCancelRide = () => { if (!store.isTripActive) return; cancelReason.value='DRIVER_MISTAKE'; cancelledRevenue.value=''; cancelPanel.value=true; error.value=''; message.value='' }
 const closeCancelRide = () => { cancelPanel.value=false; cancelledRevenue.value=''; error.value=''; message.value='' }
@@ -251,7 +285,17 @@ if (store.isTripActive) {
     await KfeRideNotificationService.goOnline();
   }
 }
-startOdo.value=store.lastKnownOdometer??'';selectedOperator.value=store.defaultOperator;loadFuelDraft();unsubscribeTarget=DriverTargetService.subscribeDataChanges(()=>{void refreshTarget();void refreshPerformance()});if(store.isTripActive)startClock()})
+startOdo.value=store.lastKnownOdometer??'';selectedOperator.value=store.defaultOperator;loadFuelDraft();
+try {
+  const pendingFareId = localStorage.getItem('kfe.pendingFareTripId') || ''
+  const pendingFareTrip = pendingFareId ? store.completedTrips.find(t => t.id === pendingFareId) : null
+  if (pendingFareTrip && (pendingFareTrip.revenue === '' || pendingFareTrip.revenue === null || pendingFareTrip.revenue === undefined)) {
+    fareEntryTripId.value = pendingFareId
+    fareEntryOpen.value = true
+  } else if (pendingFareId) {
+    localStorage.removeItem('kfe.pendingFareTripId')
+  }
+} catch (_) {}unsubscribeTarget=DriverTargetService.subscribeDataChanges(()=>{void refreshTarget();void refreshPerformance()});if(store.isTripActive)startClock()})
 onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListener();stopClock();window.clearInterval(interval);unsubscribeTarget?.();MovementTraceService.reset()})
 </script>
 
@@ -270,6 +314,16 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
     </header>
     <div v-if="message" class="message">{{message}}</div><div v-if="error" class="error">{{error}}</div>
 
+    <section v-if="fareEntryOpen" class="fare-entry-overlay" role="dialog" aria-modal="true" aria-labelledby="fare-entry-title">
+      <div class="fare-entry-card">
+        <div class="fare-entry-kicker">COMPLETED RIDE</div>
+        <h2 id="fare-entry-title">ENTER FARE</h2>
+        <p>Enter the fare for this ride.</p>
+        <label for="completed-ride-fare">Fare amount</label>
+        <div class="fare-entry-input"><span>₹</span><input id="completed-ride-fare" v-model="fareEntryValue" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" placeholder="0"></div>
+        <div class="fare-entry-actions"><button class="secondary" type="button" @click="cancelFareEntry">CANCEL</button><button class="primary" type="button" :disabled="fareEntrySaving" @click="saveFareEntry">{{fareEntrySaving ? 'SAVING…' : 'SAVE FARE'}}</button></div>
+      </div>
+    </section>
 
     <section v-if="cancelPanel && store.isTripActive && !endShiftOpen" class="cockpit-state cancel-ride-panel">
       <div class="form-topline"><div><small>RIDE CONTROL</small><h2>CANCEL RIDE</h2></div><button class="form-back" type="button" @click="closeCancelRide"><span aria-hidden="true">🔙</span><span>Back</span></button></div>
@@ -404,3 +458,8 @@ onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListe
     </div>
   </div>
 </template>
+<style scoped>
+.fare-entry-overlay{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px;background:rgba(0,0,0,.42);backdrop-filter:blur(4px)}
+.fare-entry-card{width:min(100%,420px);padding:24px;border-radius:24px;background:var(--surface,#fff);box-shadow:0 24px 70px rgba(0,0,0,.28)}
+.fare-entry-kicker{font-size:.72rem;font-weight:800;letter-spacing:.12em;opacity:.65}.fare-entry-card h2{margin:6px 0 4px}.fare-entry-card p{margin:0 0 18px;opacity:.72}.fare-entry-card label{display:block;margin-bottom:7px;font-size:.82rem;font-weight:700}.fare-entry-input{display:flex;align-items:center;gap:8px;border:1px solid currentColor;border-radius:14px;padding:0 14px;min-height:54px}.fare-entry-input input{width:100%;border:0;outline:0;background:transparent;font:inherit;font-size:1.25rem}.fare-entry-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}.fare-entry-actions button{min-height:46px}
+</style>
