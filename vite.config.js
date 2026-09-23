@@ -3,7 +3,9 @@ import vue from '@vitejs/plugin-vue'
 import path from 'path'
 
 export default defineConfig({
-  base: '/KFE-New/',
+  // Relative asset URLs are required for both GitHub Pages (/KFE-New/)
+  // and Capacitor's local WebView origin (where /KFE-New/ does not exist).
+  base: './',
   plugins: [vue()],
   server: {
     host: true,
