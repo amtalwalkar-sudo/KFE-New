@@ -195,153 +195,37 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   --radius-sm:var(--kfe-radius-sm);
 }
 
-/* SOURCE: src/components/ui/BaseButton.vue — canonical primitive styles live below. Legacy button aliases were removed in Phase 3 after consumer reconciliation. */
-/* SOURCE: src/components/ui/BaseInput.vue */
-.base-input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  width: 100%;
-}
-.input-label {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--text-main, #334155);
-}
-.required-star {
-  color:var(--kfe-danger);
-}
-.input-field {
-  padding: 0.45rem 0.6rem;
-  border-radius: 6px;
-  border: 1px solid var(--border-color, #cbd5e1);
-  font-size: 0.78rem;
-  background: var(--bg-surface, #fff);
-  color: var(--text-main, #0f172a);
-  outline: none;
-}
-.input-field:focus {
-  border-color: var(--color-primary, #2563eb);
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
-}
-.has-error .input-field {
-  border-color: #dc2626;
-}
-.input-error-msg {
-  font-size: 0.65rem;
-  color: #dc2626;
-}
-.base-input-group{gap:7px!important}.input-label{font-size:.74rem!important;font-weight:850!important;color:var(--kfe-ui-text)!important}.required-star{color:var(--kfe-danger)!important}.input-field{min-height:48px!important;padding:10px 12px!important;border-radius:10px!important;border:1px solid var(--kfe-ui-border)!important;background:var(--kfe-ui-surface-2)!important;color:var(--kfe-ui-text)!important;font-size:16px!important}.input-field:focus{border-color:var(--kfe-ui-accent)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--kfe-ui-accent) 14%,transparent)!important;background:var(--kfe-ui-surface)!important}.has-error .input-field{border-color:var(--kfe-danger)!important}.input-error-msg{color:var(--kfe-danger)!important}
-
-/* SOURCE: src/components/ui/BaseModal.vue */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  z-index: 100;
-  backdrop-filter: blur(2px);
-}
-.modal-card {
-  background: var(--bg-surface, #ffffff);
-  border-radius: 12px;
-  border: 1px solid var(--border-color, #e2e8f0);
-  width: 100%;
-  max-width: 480px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.8rem 1rem;
-  border-bottom: 1px solid var(--border-color, #f1f5f9);
-}
-.modal-title {
-  margin: 0;
-  font-size: 0.9rem;
-  font-weight: 700;
-}
-.modal-close-btn {
-  background: transparent;
-  border: none;
-  font-size: 0.85rem;
-  cursor: pointer;
-  color: var(--text-muted, #64748b);
-}
-.modal-body {
-  padding: 1rem;
-  overflow-y: auto;
-  max-height: 70vh;
-}
-.modal-footer {
-  padding: 0.8rem 1rem;
-  border-top: 1px solid var(--border-color, #f1f5f9);
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-.modal-backdrop{background:color-mix(in srgb,var(--kfe-ui-text) 48%,transparent)!important;backdrop-filter:blur(4px)!important}.modal-card{background:var(--kfe-ui-surface)!important;border:1px solid var(--kfe-ui-border)!important;border-radius:16px!important;box-shadow:0 20px 50px color-mix(in srgb,var(--kfe-ui-text) 18%,transparent)!important;max-width:520px!important}.modal-header{padding:15px 16px!important;border-color:var(--kfe-ui-border)!important}.modal-title{font-size:1rem!important;font-weight:900!important;color:var(--kfe-ui-text)!important}.modal-close-btn{min-width:42px!important;min-height:42px!important;border-radius:10px!important;color:var(--kfe-muted-text)!important}.modal-body{padding:16px!important}.modal-footer{padding:12px 16px!important;border-color:var(--kfe-ui-border)!important}.modal-footer button{min-height:46px!important;border-radius:10px!important}
-
-/* SOURCE: src/components/ui/BaseToast.vue */
-.toast-container {
-  position: fixed;
-  bottom: 1.5rem;
-  right: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  z-index: 200;
-  max-width: 320px;
-  width: 100%;
-}
-.toast-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.6rem 0.9rem;
-  border-radius: 8px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-.toast-info { background:var(--kfe-ui-accent); }
-.toast-success { background:var(--kfe-success); }
-.toast-error { background:var(--kfe-danger); }
-.toast-warning { background:var(--kfe-warning); }
-
-.toast-close {
-  background: transparent;
-  border: none;
-  color: #ffffff;
-  font-size: 0.8rem;
-  cursor: pointer;
-  margin-left: 0.5rem;
-  opacity: 0.8;
-}
-.toast-close:hover { opacity: 1; }
-
-.toast-enter-active,
-.toast-leave-active {
-  transition: all 0.25s ease;
-}
-.toast-enter-from {
-  opacity: 0;
-  transform: translateY(1rem);
-}
-.toast-leave-to {
-  opacity: 0;
-  transform: translateX(2rem);
-}
-.toast-container{right:12px!important;bottom:calc(86px + env(safe-area-inset-bottom))!important;max-width:380px!important}.toast-item{min-height:48px!important;padding:10px 12px!important;border-radius:10px!important;border:1px solid var(--kfe-ui-border)!important;box-shadow:0 8px 24px color-mix(in srgb,var(--kfe-ui-text) 14%,transparent)!important;font-weight:800!important}.toast-info{background:var(--kfe-ui-surface)!important;color:var(--kfe-ui-text)!important;border-left:4px solid var(--kfe-info)!important}.toast-success{background:var(--kfe-ui-surface)!important;color:var(--kfe-ui-text)!important;border-left:4px solid var(--kfe-success)!important}.toast-error{background:var(--kfe-ui-surface)!important;color:var(--kfe-ui-text)!important;border-left:4px solid var(--kfe-danger)!important}.toast-warning{background:var(--kfe-ui-surface)!important;color:var(--kfe-ui-text)!important;border-left:4px solid var(--kfe-warning)!important}.toast-close{color:var(--kfe-muted-text)!important;min-height:40px!important;min-width:40px!important}
-
+/* SOURCE: src/components/ui/BaseButton.vue — canonical primitive styles. */
+.kfe-ui-button{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;min-height:var(--kfe-touch);font:inherit;font-weight:700;border:1px solid transparent;border-radius:var(--kfe-radius-sm);cursor:pointer;transition:background-color var(--kfe-motion-fast) ease,border-color var(--kfe-motion-fast) ease,color var(--kfe-motion-fast) ease,box-shadow var(--kfe-motion-fast) ease,opacity var(--kfe-motion-fast) ease}
+.kfe-ui-button:disabled{opacity:.62;cursor:not-allowed}
+.kfe-ui-button.is-primary{background:var(--kfe-ui-accent);color:#fff;border-color:var(--kfe-ui-accent)}
+.kfe-ui-button.is-secondary{background:var(--kfe-ui-surface);color:var(--kfe-ui-text);border-color:var(--kfe-ui-border)}
+.kfe-ui-button.is-danger{background:var(--kfe-danger);color:#fff;border-color:var(--kfe-danger)}
+.kfe-ui-button.is-sm{padding:var(--kfe-space-2) var(--kfe-space-3);font-size:.78rem}
+.kfe-ui-button.is-md{padding:var(--kfe-space-2) var(--kfe-space-4);font-size:.9rem}
+.kfe-ui-button.is-lg{padding:var(--kfe-space-3) var(--kfe-space-5);font-size:1rem}
+.kfe-ui-button.is-loading{cursor:wait}
+.kfe-ui-button-spinner{width:1rem;height:1rem;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:kfe-ui-spin .6s linear infinite}
+@keyframes kfe-ui-spin{to{transform:rotate(360deg)}}
+/* SOURCE: src/components/ui/BaseInput.vue — canonical primitive styles. */
+.base-input-group{display:flex;flex-direction:column;gap:var(--kfe-space-2);width:100%}
+.input-label{font-size:.78rem;font-weight:700;color:var(--kfe-ui-text)}
+.required-star{color:var(--kfe-danger)}
+.input-field{width:100%;min-height:var(--kfe-field);padding:var(--kfe-space-2) var(--kfe-space-3);border-radius:var(--kfe-radius-sm);border:1px solid var(--kfe-ui-border);font-size:16px;background:var(--kfe-ui-surface-2);color:var(--kfe-ui-text);outline:none}
+.input-field:focus{border-color:var(--kfe-ui-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--kfe-ui-accent) 14%,transparent);background:var(--kfe-ui-surface)}
+.has-error .input-field{border-color:var(--kfe-danger)}
+.input-error-msg{font-size:.72rem;color:var(--kfe-danger)}
+/* SOURCE: src/components/ui/BaseModal.vue — shared modal presentation. */
+.modal-backdrop{position:fixed;inset:0;background:color-mix(in srgb,var(--kfe-ui-text) 50%,transparent);display:flex;align-items:center;justify-content:center;padding:var(--kfe-space-4);z-index:100;backdrop-filter:blur(2px)}
+.modal-card{width:min(100%,640px);max-height:min(90vh,800px);overflow:auto;background:var(--kfe-ui-surface);color:var(--kfe-ui-text);border:1px solid var(--kfe-ui-border);border-radius:var(--kfe-radius-lg);box-shadow:var(--kfe-ui-shadow)}
+.modal-header{display:flex;align-items:center;justify-content:space-between;gap:var(--kfe-space-3);padding:var(--kfe-space-4);border-bottom:1px solid var(--kfe-ui-border)}
+.modal-title{margin:0;font-size:1rem}.modal-close-btn{min-width:var(--kfe-touch);min-height:var(--kfe-touch);border:0;border-radius:var(--kfe-radius-sm);background:transparent;color:var(--kfe-ui-text);cursor:pointer}.modal-body{padding:var(--kfe-space-4)}.modal-footer{display:flex;justify-content:flex-end;gap:var(--kfe-space-2);padding:var(--kfe-space-3) var(--kfe-space-4);border-top:1px solid var(--kfe-ui-border)}
+/* SOURCE: src/components/ui/BaseToast.vue — shared feedback presentation. */
+.toast-container{position:fixed;right:var(--kfe-space-3);bottom:calc(var(--kfe-nav-height) + var(--kfe-space-3) + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:var(--kfe-space-2);z-index:200;max-width:380px;width:calc(100% - var(--kfe-space-6))}
+.toast-item{display:flex;align-items:center;justify-content:space-between;gap:var(--kfe-space-2);min-height:var(--kfe-touch);padding:var(--kfe-space-2) var(--kfe-space-3);border:1px solid var(--kfe-ui-border);border-radius:var(--kfe-radius-sm);background:var(--kfe-ui-surface);color:var(--kfe-ui-text);box-shadow:var(--kfe-ui-shadow);font-size:.8rem;font-weight:700}
+.toast-info{border-left:4px solid var(--kfe-info)}.toast-success{border-left:4px solid var(--kfe-success)}.toast-error{border-left:4px solid var(--kfe-danger)}.toast-warning{border-left:4px solid var(--kfe-warning)}
+.toast-close{min-width:40px;min-height:40px;border:0;background:transparent;color:var(--kfe-muted-text);cursor:pointer}
+.toast-enter-active,.toast-leave-active{transition:opacity var(--kfe-motion-standard) ease,transform var(--kfe-motion-standard) ease}.toast-enter-from{opacity:0;transform:translateY(var(--kfe-space-2))}.toast-leave-to{opacity:0;transform:translateX(var(--kfe-space-4))}
 /* SOURCE: src/layouts/FormLayout.vue */
 .form-layout {
   display: flex;
