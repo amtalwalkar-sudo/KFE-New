@@ -54,6 +54,14 @@ jobs:
         working-directory: android
         run: ./gradlew assembleDebug
 
+      - name: Upload Android Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: kfe-android-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Run Phase 10 Hardening / Release Gate
         run: node src/tests/phase10HardeningRelease.contract.js
 
