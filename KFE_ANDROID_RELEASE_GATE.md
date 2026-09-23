@@ -34,6 +34,12 @@ The tested APK MUST exercise the real Android flow end-to-end:
 11. Press OK
 12. Foreground/reopen the main app
 13. Timeline shows the same completed ride and fare
+14. On an active ride, the right-edge ❌ opens cancellation fee entry
+15. Confirming cancellation records the same trip as CANCELLED and ₹0 revenue when no fee is entered
+16. Cancelling the cancellation form leaves the ride active
+17. Revenue/fare entry uses the in-overlay numeric keypad; the Android system keyboard must not take over the overlay
+18. Swipe bar text changes with state: GO TO PICKUP / START RIDE / END RIDE
+19. Live KM and Target visibly update while the overlay is active
 
 The reverse path MUST also be tested:
 
@@ -75,7 +81,11 @@ At minimum:
 
 A pending action is a recovery mechanism, never a second execution path.
 
-## 5. Bubble gate
+## 5. Cancellation and notification gate
+
+Cancellation is a canonical trip lifecycle operation, never a second trip or a separate revenue record. The overlay cancellation action MUST reach the same WorkService/ShiftTripRepository path as the main app. A blank cancellation fee is treated as ₹0 revenue. The KFE Settings > Application Settings notification switch controls KFE ride/system action notifications without disabling the overlay itself.
+
+## 6. Bubble gate
 
 The actual Android overlay window MUST be exercised, not merely source-inspected.
 
@@ -90,7 +100,7 @@ Verify:
 - restored overlay can perform the expected action;
 - overlay disappears when there is no valid active state or overlay permission is unavailable.
 
-## 6. APK identity rule
+## 7. APK identity rule
 
 Every release candidate MUST identify:
 
@@ -104,7 +114,7 @@ The APK tested by the Android gate MUST be the same APK delivered as the release
 
 Never rely on a generic "latest APK" label.
 
-## 7. CI requirements
+## 8. CI requirements
 
 Android CI SHOULD contain both:
 
@@ -122,7 +132,7 @@ An Android emulator/device test MUST execute the Golden Ride Gate and assert per
 
 If the environment cannot run the device gate, CI MUST explicitly report the device gate as unavailable rather than silently treating compilation/contracts as equivalent to device verification.
 
-## 8. Failure policy
+## 9. Failure policy
 
 When any Golden Ride Gate assertion fails:
 
@@ -136,7 +146,7 @@ When any Golden Ride Gate assertion fails:
 
 Do not patch only the visible symptom while leaving the end-to-end path unverified.
 
-## 9. Regression rule
+## 10. Regression rule
 
 Any future change touching:
 - KFE overlay;
@@ -154,7 +164,7 @@ MUST rerun the complete Golden Ride Gate.
 
 No exception because the code change "looks small."
 
-## 10. Permanent instruction to future agents
+## 11. Permanent instruction to future agents
 
 Before making or declaring an Android overlay change complete:
 
