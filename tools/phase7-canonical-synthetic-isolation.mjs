@@ -20,7 +20,7 @@ try{
   await page.goto(base+'admin',{waitUntil:'domcontentloaded',timeout:30000})
   await page.locator('.admin-page').waitFor({state:'visible',timeout:30000})
   await page.locator('.settings-icon-button').click()
-  await page.getByRole('button',{name:'Synthetic Data',exact:true}).click()
+  await page.locator('.settings-item').filter({hasText:'Synthetic Data'}).click()
   await page.getByRole('button',{name:'5 years',exact:true}).click()
   await page.getByText(/5 years synthetic dataset loaded/i).waitFor({state:'visible',timeout:30000})
 
