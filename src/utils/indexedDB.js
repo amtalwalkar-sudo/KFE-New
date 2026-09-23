@@ -109,7 +109,7 @@ export const initializeSyntheticStorage = async () => initializeDatabase(SYNTHET
 export const openCanonicalDB = () => initializeCanonicalStorage({ dataSource: 'canonical' })
 
 export const getLastOdometer = async () => {
-  const db = await initializeCanonicalStorage()
+  const db = await initializeActiveStorage()
   return new Promise((resolve, reject) => {
     const request = db.transaction('shifts', 'readonly').objectStore('shifts').getAll()
     request.onsuccess = () => { const shifts = request.result || []; const completed = shifts.filter(s => s.status === 'COMPLETED').sort((a, b) => new Date(b.shiftEndAt || b.updatedAt) - new Date(a.shiftEndAt || a.updatedAt)); if (!completed.length) { resolve(0); return }
