@@ -43,3 +43,6 @@ Phase 6 is complete only when:
 4. the visible Performance UI exposes those values;
 5. canonical and synthetic DBs remain separate;
 6. runtime safety checks pass in CI.
+
+
+CI gate activation: Phase 6 runtime verification is executed by consolidated-baseline CI.
