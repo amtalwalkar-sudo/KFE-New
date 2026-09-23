@@ -25,7 +25,7 @@ try{
   await route('admin','.admin-page','Admin')
   await page.getByRole('button',{name:'Settings'}).click()
   await page.getByRole('button',{name:/Synthetic Data/}).click()
-  await page.getByRole('button',{name:'5 years',exact:true}).click()
+  await page.locator('.stages button').filter({hasText:'5 years'}).click()
   await wait(async()=>page.evaluate(()=>indexedDB.databases().then(d=>d.some(x=>x.name==='kanishka_kfe_synthetic_db'))))
 
   const dbEvidence=await page.evaluate(async()=>{
