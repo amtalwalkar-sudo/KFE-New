@@ -1,7 +1,8 @@
 import { AndroidOverlay } from './kfeOverlay.js'
 import { WorkService } from '../../application/work/workService.js'
 import { DriverTargetService } from '../../application/performance/driverTargetService.js'
-import { getKfeReferenceNow } from '../../domain/time/ist.js'
+import { getKfeReferenceNow, reportingRangeFor } from '../../domain/time/ist.js'
+import { PerformanceService } from '../../application/performance/performanceService.js'
 import { KfeRideNotificationService } from './kfeRideNotificationService.js'
 
 let configured = false
@@ -21,6 +22,7 @@ const activeOverlayState = async () => {
   let rides = '0'
   let liveKm = '0.0 km'
   let revenue = '₹0'
+  let targetProgress = 0
   let trips = []
   try {
     const targetResult = await DriverTargetService.getTarget(getKfeReferenceNow())
@@ -36,6 +38,13 @@ const activeOverlayState = async () => {
   } catch (_) {}
   const authoritativeRevenue = Number(active.shift?.revenue)
   revenue = `₹${Number.isFinite(authoritativeRevenue) && authoritativeRevenue >= 0 ? authoritativeRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 }) : '0'}`
+  try {
+    const targetNumber = Number(String(target).replace(/[^0-9.]/g, ''))
+    const snapshot = await PerformanceService.getSnapshot()
+    const metrics = PerformanceService.getMetrics(snapshot, reportingRangeFor('DAY', getKfeReferenceNow()))
+    const achieved = Number(metrics?.revenue || 0)
+    if (Number.isFinite(targetNumber) && targetNumber > 0) targetProgress = Math.min(100, Math.round((achieved / targetNumber) * 100))
+  } catch (_) {}
 
   if (active.trip?.id) {
     try {
@@ -59,7 +68,7 @@ const activeOverlayState = async () => {
     if (unpriced[0]?.id) { overlayAction = 'ENTER_FARE'; overlayTripId = unpriced[0].id }
   }
 
-  return { ...active, target, rides, revenue, liveKm, overlayAction, overlayTripId, theme: document.documentElement?.dataset?.kfeTheme || 'light' }
+  return { ...active, target, targetProgress, rides, revenue, liveKm, overlayAction, overlayTripId, theme: document.documentElement?.dataset?.kfeTheme || 'light' }
 }
 
 const showOverlayIfNeeded = async () => {
