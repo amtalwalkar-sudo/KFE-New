@@ -16,7 +16,7 @@ try{
   mkdirSync('artifacts/phase6-runtime',{recursive:true})
   browser=await chromium.launch({headless:true})
   const context=await browser.newContext({viewport:{width:390,height:844},geolocation:{latitude:19.076,longitude:72.8777,accuracy:30},permissions:['geolocation'],reducedMotion:'reduce'})
-  await context.addInitScript(()=>{localStorage.clear();sessionStorage.clear();navigator.geolocation.getCurrentPosition=success=>success({coords:{latitude:19.076,longitude:72.8777,accuracy:30},timestamp:Date.now()})})
+  await context.addInitScript(()=>{localStorage.clear();navigator.geolocation.getCurrentPosition=success=>success({coords:{latitude:19.076,longitude:72.8777,accuracy:30},timestamp:Date.now()})})
   const page=await context.newPage(), errors=[], failed=[]
   page.on('pageerror',e=>errors.push(e.stack||e.message));page.on('requestfailed',r=>failed.push(r.url()))
   const healthy=async label=>{assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),label+' horizontal overflow');assert((await page.locator('.kfe-runtime-error').count())===0,label+' runtime error')}
