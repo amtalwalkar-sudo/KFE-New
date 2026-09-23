@@ -5,7 +5,7 @@ const SYNTHETIC_STORES = Object.freeze(['settlements','shifts','fuel_logs','odoG
 export const SyntheticDataRepository = Object.freeze({
   async writeSnapshot(snapshot) {
     const db = await initializeSyntheticStorage()
-    const stores = Object.keys(snapshot)
+    const stores = [...new Set([...SYNTHETIC_STORES, ...Object.keys(snapshot)])]
     await new Promise((resolve, reject) => {
       const tx = db.transaction(stores, 'readwrite')
       try {
