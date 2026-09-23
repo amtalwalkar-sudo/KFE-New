@@ -34,13 +34,17 @@ public class KfeOverlayService extends Service {
   private static final String CHANNEL_ID = "kfe_overlay";
   private static final int NOTIFICATION_ID = 4201;
   private static final int BAR_DP = 81;
-  private static final int TOTAL_DP = 100;
+  private static final int TOTAL_DP = 174;
+  private static final int METRICS_DP = 56;
 
   private WindowManager windowManager;
   private SwipeOverlayView overlay;
   private WindowManager.LayoutParams params;
   private String actionStage = "GO_TO_PICKUP";
   private String theme = "light";
+  private String target = "—";
+  private String rides = "0";
+  private String liveKm = "0.0 km";
 
   public static void prepare(Context context){ Intent i=new Intent(context,KfeOverlayService.class); i.setAction(ACTION_PREPARE); ContextCompat.startForegroundService(context,i); }
   public static void show(Context context,String state){ Intent i=new Intent(context,KfeOverlayService.class); i.setAction(ACTION_SHOW); i.putExtra(EXTRA_STATE,state==null?"{}":state); context.startService(i); }
@@ -72,6 +76,9 @@ public class KfeOverlayService extends Service {
       JSONObject shift=root.optJSONObject("shift"), trip=root.optJSONObject("trip");
       if(shift==null||shift.optString("id","").isEmpty()){ removeOverlay(); return; }
       theme=root.optString("theme","light");
+      target=root.optString("target","—");
+      rides=root.optString("rides","0");
+      liveKm=root.optString("liveKm","0.0 km");
       String requested=root.optString("overlayAction","");
       actionStage=trip!=null&&!trip.optString("id","").isEmpty()?"END_RIDE":("START_RIDE".equals(requested)?"START_RIDE":"GO_TO_PICKUP");
       overlay.invalidate();
@@ -99,16 +106,36 @@ public class KfeOverlayService extends Service {
     private void text(float size,int color,boolean bold){paint.setStyle(Paint.Style.FILL);paint.setColor(color);paint.setTextSize(dp((int)size));paint.setTypeface(android.graphics.Typeface.create("sans-serif",bold?android.graphics.Typeface.BOLD:android.graphics.Typeface.NORMAL));}
     private void center(Canvas c,String s,float x,float y){c.drawText(s,x-paint.measureText(s)/2f,y,paint);}
     @Override protected void onDraw(Canvas c){
-      super.onDraw(c); int w=getWidth(),h=dp(BAR_DP),a=actionColor();
-      paint.setStyle(Paint.Style.FILL);paint.setColor(Color.argb(dark()?158:150,Color.red(surface()),Color.green(surface()),Color.blue(surface())));c.drawRect(0,0,w,h,paint);
-      paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(dp(1));paint.setColor(Color.argb(45,Color.red(text()),Color.green(text()),Color.blue(text())));c.drawRect(0,0,w,h,paint);
-      paint.setStyle(Paint.Style.FILL);paint.setColor(Color.argb(progress>=.8f?72:36,Color.red(a),Color.green(a),Color.blue(a)));c.drawRect(w-(w*progress),0,w,h,paint);
-      int tw=dp(52),pad=dp(7);float tx=w-pad-tw-(w-pad-tw-pad)*progress;paint.setColor(a);rect.set(tx,pad,tx+tw,h-pad);c.drawRoundRect(rect,dp(11),dp(11),paint);
-      text(19,Color.WHITE,true);center(c,"←",tx+tw/2f,h/2f+dp(7));
-      text(12,text(),true);String label="Swipe to go to pickup";if("START_RIDE".equals(actionStage))label="Swipe to start trip";if("END_RIDE".equals(actionStage))label="Swipe to end trip";center(c,label,w/2f,h/2f+dp(5));
-      paint.setColor(Color.argb(80,Color.red(a),Color.green(a),Color.blue(a)));float marker=w*.80f;c.drawRoundRect(marker-(1.5f*getResources().getDisplayMetrics().density),dp(13),marker+(1.5f*getResources().getDisplayMetrics().density),dp(56),dp(2),dp(2),paint);
-      text(7,muted(),true);center(c,"80%",marker,h-dp(9));
-      text(9,muted(),true);String hint=tracking&&progress>=.8f?"RELEASE TO CONFIRM":tracking?"KEEP SWIPING ←":"SWIPE RIGHT TO LEFT";center(c,hint,w/2f,dp(97));
+      super.onDraw(c); int w=getWidth(),h=getHeight(),a=actionColor();
+      int metricsH=dp(METRICS_DP), gap=dp(6), barTop=metricsH+gap, barH=dp(BAR_DP);
+      paint.setStyle(Paint.Style.FILL);
+      paint.setColor(Color.argb(dark()?158:150,Color.red(surface()),Color.green(surface()),Color.blue(surface())));
+      rect.set(0,0,w,metricsH); c.drawRoundRect(rect,dp(16),dp(16),paint);
+      paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(dp(1));
+      paint.setColor(Color.argb(45,Color.red(text()),Color.green(text()),Color.blue(text())));
+      c.drawRoundRect(rect,dp(16),dp(16),paint);
+      text(9,muted(),true); center(c,"TODAY'S TARGET",w*.20f,dp(19));
+      text(16,text(),true); center(c,target,w*.20f,dp(40));
+      text(9,muted(),true); center(c,"RIDES",w*.50f,dp(19));
+      text(16,text(),true); center(c,rides,w*.50f,dp(40));
+      text(9,muted(),true); center(c,"LIVE KM",w*.80f,dp(19));
+      text(16,text(),true); center(c,liveKm,w*.80f,dp(40));
+      paint.setStyle(Paint.Style.FILL);
+      paint.setColor(Color.argb(150,Color.red(surface()),Color.green(surface()),Color.blue(surface())));
+      rect.set(0,barTop,w,barTop+barH); c.drawRoundRect(rect,dp(15),dp(15),paint);
+      paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(dp(1));
+      paint.setColor(Color.argb(45,Color.red(text()),Color.green(text()),Color.blue(text())));
+      c.drawRoundRect(rect,dp(15),dp(15),paint);
+      paint.setStyle(Paint.Style.FILL);
+      paint.setColor(Color.argb(progress>=.8f?72:36,Color.red(a),Color.green(a),Color.blue(a)));
+      rect.set(0,barTop,w*progress,barTop+barH); c.drawRoundRect(rect,dp(15),dp(15),paint);
+      int tw=dp(52),pad=dp(7); float tx=pad+(w-pad-tw-pad)*progress;
+      paint.setColor(a); rect.set(tx,barTop+pad,tx+tw,barTop+barH-pad); c.drawRoundRect(rect,dp(11),dp(11),paint);
+      text(19,Color.WHITE,true); center(c,"→",tx+tw/2f,barTop+barH/2f+dp(7));
+      text(12,text(),true); String label="Swipe to go to pickup"; if("START_RIDE".equals(actionStage))label="Swipe to start trip"; if("END_RIDE".equals(actionStage))label="Swipe to end trip"; center(c,label,w/2f,barTop+barH/2f+dp(5));
+      paint.setColor(Color.argb(80,Color.red(a),Color.green(a),Color.blue(a))); float marker=w*.80f; c.drawRoundRect(marker-dp(1.5f),barTop+dp(13),marker+dp(1.5f),barTop+dp(56),dp(2),dp(2),paint);
+      text(7,muted(),true); center(c,"80%",marker,barTop+barH-dp(9));
+      text(9,muted(),true); String hint=tracking&&progress>=.8f?"RELEASE TO CONFIRM":tracking?"KEEP SWIPING →":"SWIPE LEFT TO RIGHT"; center(c,hint,w/2f,barTop+barH+dp(15));
     }
     @Override public boolean onTouchEvent(MotionEvent e){
       switch(e.getActionMasked()){
@@ -117,9 +144,9 @@ public class KfeOverlayService extends Service {
           float dx=e.getRawX()-downX,dy=e.getRawY()-downY;
           if(!moving&&Math.abs(dy)>dp(10)&&Math.abs(dy)>Math.abs(dx))moving=true;
           if(moving){int maxY=Math.max(0,windowManager.getDefaultDisplay().getHeight()-getHeight());params.y=Math.max(0,Math.min(maxY,(int)(params.y+e.getRawY()-lastY)));lastY=e.getRawY();if(windowManager!=null)windowManager.updateViewLayout(this,params);getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putInt("y",params.y).apply();}
-          else{progress=Math.min(1f,Math.max(0f,-dx)/(Math.max(1,getWidth())));invalidate();}return true;
+          else{progress=Math.min(1f,Math.max(0f,dx)/(Math.max(1,getWidth())));invalidate();}return true;
         case MotionEvent.ACTION_UP:
-          float fx=e.getRawX()-downX;tracking=false;if(!moving&&fx<=-(getWidth()*.55f)){progress=1;invalidate();triggerAction();}else{progress=0;invalidate();}return true;
+          float fx=e.getRawX()-downX;tracking=false;if(!moving&&fx>=(getWidth()*.55f)){progress=1;invalidate();triggerAction();}else{progress=0;invalidate();}return true;
         case MotionEvent.ACTION_CANCEL:tracking=false;moving=false;progress=0;invalidate();return true;
       }return true;
     }
