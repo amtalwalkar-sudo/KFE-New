@@ -2,7 +2,7 @@ import { chromium } from '@playwright/test'
 import { spawn } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 
-const base='http://127.0.0.1:4173/KFE-New/'
+const base='http://127.0.0.1:5173/KFE-New/'
 const dev=spawn('npm',['run','dev','--','--host','127.0.0.1'],{stdio:['ignore','pipe','pipe'],detached:true})
 let output=''
 dev.stdout.on('data',c=>output+=c.toString());dev.stderr.on('data',c=>output+=c.toString())
