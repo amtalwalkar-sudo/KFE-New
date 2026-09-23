@@ -195,44 +195,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   --radius-sm:var(--kfe-radius-sm);
 }
 
-/* SOURCE: src/components/ui/BaseButton.vue */
-.base-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  font-family: inherit;
-  font-weight: 600;
-  border-radius: var(--kfe-radius-sm);
-  cursor: pointer;
-  transition: background-color 0.15s ease, opacity 0.15s ease;
-  border: 1px solid transparent;
-}
-.base-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-.btn-primary { background: var(--color-primary, #2563eb); color: #fff; }
-.btn-secondary { background: var(--bg-surface, #fff); border-color: var(--border-color, #cbd5e1); color: var(--text-main, #0f172a); }
-.btn-danger { background: var(--kfe-danger); color: #fff; }
-.btn-ghost { background: transparent; color: var(--text-muted, #64748b); }
-
-.btn-sm { padding: 0.25rem 0.5rem; font-size: 0.7rem; }
-.btn-md { padding: 0.4rem 0.8rem; font-size: 0.75rem; }
-.btn-lg { padding: 0.6rem 1.2rem; font-size: 0.85rem; }
-
-.spinner {
-  width: 0.8rem;
-  height: 0.8rem;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-.v-hidden { opacity: 0; }
-.base-button{min-height:48px!important;padding:10px 15px!important;border-radius:10px!important;border:1px solid var(--kfe-ui-border)!important;font-weight:850!important;letter-spacing:.005em}.base-button.primary{background:var(--kfe-ui-accent)!important;border-color:var(--kfe-ui-accent)!important;color:#fff!important}.base-button.secondary{background:var(--kfe-ui-surface)!important;color:var(--kfe-ui-text)!important}.base-button.danger{background:color-mix(in srgb,var(--kfe-danger) 10%,var(--kfe-ui-surface))!important;color:var(--kfe-danger)!important;border-color:color-mix(in srgb,var(--kfe-danger) 35%,var(--kfe-ui-border))!important}.base-button:focus-visible{outline:3px solid color-mix(in srgb,var(--kfe-ui-accent) 55%,transparent)!important;outline-offset:2px!important}
-
+/* SOURCE: src/components/ui/BaseButton.vue — canonical primitive styles live below. Legacy button aliases were removed in Phase 3 after consumer reconciliation. */
 /* SOURCE: src/components/ui/BaseInput.vue */
 .base-input-group {
   display: flex;
@@ -426,24 +389,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   padding-top: 0.5rem;
   border-top: 1px solid var(--border-color, #f1f5f9);
 }
-.btn-primary, .btn-secondary {
-  padding: 0.4rem 0.8rem;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-.btn-primary {
-  background: var(--color-primary, #2563eb);
-  color: #fff;
-  border: none;
-}
-.btn-secondary {
-  background: transparent;
-  border: 1px solid var(--border-color, #cbd5e1);
-  color: var(--text-main, #0f172a);
-}
-.form-layout{gap:14px!important;background:var(--kfe-ui-surface)!important;padding:16px!important;border-radius:14px!important;border:1px solid var(--kfe-ui-border)!important;box-shadow:var(--kfe-ui-shadow)!important}.form-title{font-size:1.05rem!important;font-weight:900!important;color:var(--kfe-ui-text)!important}.form-subtitle{font-size:.7rem!important;color:var(--kfe-muted-text)!important}.form-actions{gap:8px!important;border-color:var(--kfe-ui-border)!important;padding-top:12px!important}.btn-primary,.btn-secondary{min-height:46px!important;padding:10px 14px!important;border-radius:10px!important;font-weight:850!important}.btn-primary{background:var(--kfe-ui-accent)!important}.btn-secondary{background:var(--kfe-ui-surface)!important;border-color:var(--kfe-ui-border)!important;color:var(--kfe-ui-text)!important}
+
+.form-layout{gap:14px!important;background:var(--kfe-ui-surface)!important;padding:16px!important;border-radius:14px!important;border:1px solid var(--kfe-ui-border)!important;box-shadow:var(--kfe-ui-shadow)!important}.form-title{font-size:1.05rem!important;font-weight:900!important;color:var(--kfe-ui-text)!important}.form-subtitle{font-size:.7rem!important;color:var(--kfe-muted-text)!important}.form-actions{gap:8px!important;border-color:var(--kfe-ui-border)!important;padding-top:12px!important}
 
 /* SOURCE: src/views/WorkModuleView.vue */
 .cockpit{max-width:600px;margin:auto;padding:20px 16px 142px;color:var(--kfe-ui-text);background:transparent}
@@ -1438,7 +1385,7 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
 :root{--kfe-nav-height:76px;--kfe-top-height:64px}
 html{scroll-behavior:smooth}
 button,input,select,textarea{min-height:var(--kfe-touch)}
-.base-btn,.base-button{border-radius:var(--kfe-radius-sm)!important}
+
 .modal-card,.kfe-surface,.surface,.workspace,.settings-workspace,.settings-menu,.financial-card,.record,.info-card,.reset-card{border-radius:var(--kfe-radius-md)}
 @media(max-width:700px){.kfe-page,.work-page,.timeline-page,.performance-page,.admin-page{padding-left:var(--kfe-space-3)!important;padding-right:var(--kfe-space-3)!important}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto!important}}
