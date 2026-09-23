@@ -17,5 +17,13 @@ assert.match(plugin, /GO_TO_PICKUP/)
 assert.match(plugin, /START_RIDE/)
 assert.match(plugin, /END_RIDE/)
 assert.match(receiver, /RemoteInput\.getResultsFromIntent/)
+assert.match(overlay, /windowManager\.updateViewLayout\(overlayRoot,params\)/)
+assert.doesNotMatch(overlay, /windowManager\.updateViewLayout\(this,params\)/)
+assert.match(overlay, /BUBBLE_DP = 58/)
+assert.match(overlay, /MINIMIZE_SWIPE_DP = 48/)
+assert.match(overlay, /minimized=true/)
+assert.match(overlay, /params\.width=dp\(BUBBLE_DP\)/)
+assert.match(overlay, /params\.height=dp\(BUBBLE_DP\)/)
+
 // CI verification marker for the native notification bridge.
 console.log('KFE ride notification contract tests passed')
