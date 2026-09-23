@@ -27,7 +27,7 @@ assert.match(db, /export const initializeCanonicalStorage = initializeActiveStor
 assert.match(db, /export const openCanonicalDB = \(\) => initializeCanonicalStorage\(\{ dataSource: 'canonical' \}\)/)
 
 const odo = db.slice(db.indexOf('export const getLastOdometer'))
-assert.match(odo, /initializeCanonicalStorage\(\)/)
+assert.match(odo, /initializeActiveStorage\(\)/)
 assert.match(odo, /Number\.isFinite\(value\) && value >= 0 \? value : null/)
 assert.doesNotMatch(odo, /Number\(completed\[0\]\.endOdometer\) \|\| 0/)
 
@@ -41,7 +41,7 @@ const writers = [
 ]
 for (const relative of writers) {
   const source = read(relative)
-  assert.match(source, /initializeCanonicalStorage\(\)/, relative + ' must use active-source storage')
+  assert.match(source, /initializeActiveStorage\(\)/, relative + ' must use active-source storage')
   assert.match(source, /pending_mutations/)
   assert.match(source, /audit_history/)
 }
