@@ -3,7 +3,9 @@ import { validateShiftStartOdometer, validateFirstDayShiftStartOdometer, validat
 import { validateEndShiftEntry } from '../domain/work/endShift.js'
 import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection, calculateTripRevenueDetail } from '../domain/work/trip.js'
 import { calculateFuelQuantity, validateFuelEntry } from '../domain/work/fuel.js'
+import { WorkService } from '../application/work/workService.js'
 
+assert.equal(typeof WorkService.getTripGpsDistanceKm, 'function')
 assert.deepEqual(validateShiftStartOdometer(100, 90), { valid: true, gapKm: 10 })
 assert.equal(validateShiftStartOdometer(89, 90).valid, false)
 assert.deepEqual(validateFirstDayShiftStartOdometer(68500, 65000), { valid: true, gapKm: 0, historicalKm: 3500, businessStartOdometer: 65000, historicalOdometerGap: true })
