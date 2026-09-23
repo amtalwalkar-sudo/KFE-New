@@ -1,4 +1,5 @@
 import { initializeCanonicalStorage, getActiveDataSource, notifyCanonicalDataChanged } from '../utils/indexedDB.js'
+// initializeCanonicalStorage is the compatibility name for initializeActiveStorage; it follows the active source.
 import { generateUUID } from '../utils/uuid.js'
 import { writeMutationAndAudit } from './mutationRepository.js'
 import { getAdminFormDefinition } from '../application/admin/adminFormDefinitions.js'
