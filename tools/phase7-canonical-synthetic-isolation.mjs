@@ -24,6 +24,7 @@ try{
   async function openSynthetic(){await page.getByRole('button',{name:'Settings'}).click();await page.getByRole('button',{name:'Synthetic Data',exact:true}).click()}
   async function loadStage(name){await openSynthetic();await page.getByRole('button',{name,exact:true}).click();await page.waitForTimeout(1200);await page.reload({waitUntil:'domcontentloaded'});await page.locator('.admin-page').waitFor({state:'visible',timeout:30000})}
   async function createVehicle(registration){
+    if(await page.getByRole('button',{name:/Create Vehicle/}).count()===0) await page.getByRole('button',{name:'Vehicle',exact:true}).click()
     await page.getByRole('button',{name:/Create Vehicle/}).click()
     await page.locator('#field-registrationNumber').fill(registration)
     await page.locator('#field-make').fill('Isolation')
