@@ -389,24 +389,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   padding-top: 0.5rem;
   border-top: 1px solid var(--border-color, #f1f5f9);
 }
-.btn-primary, .btn-secondary {
-  padding: 0.4rem 0.8rem;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-.btn-primary {
-  background: var(--color-primary, #2563eb);
-  color: #fff;
-  border: none;
-}
-.btn-secondary {
-  background: transparent;
-  border: 1px solid var(--border-color, #cbd5e1);
-  color: var(--text-main, #0f172a);
-}
-.form-layout{gap:14px!important;background:var(--kfe-ui-surface)!important;padding:16px!important;border-radius:14px!important;border:1px solid var(--kfe-ui-border)!important;box-shadow:var(--kfe-ui-shadow)!important}.form-title{font-size:1.05rem!important;font-weight:900!important;color:var(--kfe-ui-text)!important}.form-subtitle{font-size:.7rem!important;color:var(--kfe-muted-text)!important}.form-actions{gap:8px!important;border-color:var(--kfe-ui-border)!important;padding-top:12px!important}.btn-primary,.btn-secondary{min-height:46px!important;padding:10px 14px!important;border-radius:10px!important;font-weight:850!important}.btn-primary{background:var(--kfe-ui-accent)!important}.btn-secondary{background:var(--kfe-ui-surface)!important;border-color:var(--kfe-ui-border)!important;color:var(--kfe-ui-text)!important}
+
+.form-layout{gap:14px!important;background:var(--kfe-ui-surface)!important;padding:16px!important;border-radius:14px!important;border:1px solid var(--kfe-ui-border)!important;box-shadow:var(--kfe-ui-shadow)!important}.form-title{font-size:1.05rem!important;font-weight:900!important;color:var(--kfe-ui-text)!important}.form-subtitle{font-size:.7rem!important;color:var(--kfe-muted-text)!important}.form-actions{gap:8px!important;border-color:var(--kfe-ui-border)!important;padding-top:12px!important}
 
 /* SOURCE: src/views/WorkModuleView.vue */
 .cockpit{max-width:600px;margin:auto;padding:20px 16px 142px;color:var(--kfe-ui-text);background:transparent}
@@ -1401,7 +1385,7 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
 :root{--kfe-nav-height:76px;--kfe-top-height:64px}
 html{scroll-behavior:smooth}
 button,input,select,textarea{min-height:var(--kfe-touch)}
-.base-btn,.base-button{border-radius:var(--kfe-radius-sm)!important}
+
 .modal-card,.kfe-surface,.surface,.workspace,.settings-workspace,.settings-menu,.financial-card,.record,.info-card,.reset-card{border-radius:var(--kfe-radius-md)}
 @media(max-width:700px){.kfe-page,.work-page,.timeline-page,.performance-page,.admin-page{padding-left:var(--kfe-space-3)!important;padding-right:var(--kfe-space-3)!important}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto!important}}
