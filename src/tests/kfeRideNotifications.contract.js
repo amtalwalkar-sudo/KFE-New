@@ -27,7 +27,14 @@ assert.match(overlay, /params\.width=dp\(BUBBLE_DP\)/)
 assert.match(overlay, /params\.height=dp\(BUBBLE_DP\)/)
 assert.match(overlay, /SOFT_INPUT_ADJUST_RESIZE\|WindowManager\.LayoutParams\.SOFT_INPUT_STATE_ALWAYS_VISIBLE/)
 assert.match(overlay, /emitAction\(actionStage,pendingTripId/)
-assert.match(overlay, /emitAction\("ENTER_FARE",pendingTripId,fare/)
+assert.match(overlay, /emitAction\("ENTER_FARE",pendingTripId,String\.valueOf\(amount\)/)
+assert.match(overlay, /CANCEL_RIDE/)
+assert.match(overlay, /CANCELLATION FEE/)
+assert.match(overlay, /SWIPE TO/)
+assert.doesNotMatch(overlay, /SOFT_INPUT_ADJUST_RESIZE/)
+assert.match(service, /NOTIFICATIONS_KEY/)
+assert.match(service, /setNotificationsEnabled/)
+assert.match(service, /notificationsEnabled/
 
 // CI verification marker for the native notification bridge.
 console.log('KFE ride notification contract tests passed')
