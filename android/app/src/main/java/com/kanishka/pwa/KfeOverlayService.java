@@ -111,6 +111,7 @@ public class KfeOverlayService extends Service {
     if(overlayRoot==null)return;
     if(fareInput!=null)return;
     params.flags=WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
+    params.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE|WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE;
     params.height=dp(158);
     if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);
     fareInput=new EditText(this); fareInput.setSingleLine(true); fareInput.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL); fareInput.setHint("Fare"); fareInput.setTextSize(18); fareInput.setPadding(dp(12),0,dp(12),0); fareInput.setSelectAllOnFocus(false);
@@ -125,7 +126,7 @@ public class KfeOverlayService extends Service {
   private void hideFareEntry(){
     if(fareInput!=null){ ((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(fareInput.getWindowToken(),0); overlayRoot.removeView(fareInput); fareInput=null; }
     if(fareOk!=null){ overlayRoot.removeView(fareOk); fareOk=null; }
-    if(params!=null){ params.flags=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS; if(windowManager!=null&&overlayRoot!=null) windowManager.updateViewLayout(overlayRoot,params); }
+    if(params!=null){ params.flags=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS; params.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN; if(windowManager!=null&&overlayRoot!=null) windowManager.updateViewLayout(overlayRoot,params); }
   }
   private void submitFare(){
     if(fareInput==null || pendingTripId.isEmpty())return;
