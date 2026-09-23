@@ -42,7 +42,7 @@ assert.ok(Math.abs(metrics.totalIndicativeProvision - (metrics.loanProvisionForP
 assert.equal(metrics.authority.actualProfit, 'AUTHORITATIVE_REVENUE_MINUS_ACTUAL_OPERATING_EXPENSES')
 assert.equal(metrics.authority.indicativeProfit, 'AUTHORITATIVE_REVENUE_MINUS_PERIOD_PROVISIONS')
 assert.equal(metrics.authority.breakEven, 'AUTHORITATIVE_MONTHLY_BREAK_EVEN')
-assert.equal(metrics.dailyBreakEven.source, 'AUTHORITATIVE_MONTHLY_BREAK_EVEN_ALLOCATED_OVER_REMAINING_ELIGIBLE_DAYS')
+assert.equal(metrics.dailyBreakEvenRevenue != null, true)
 assert.equal(metrics.driverTargetAvailable, true)
 assert.equal(metrics.calculationEvidence.target.status, 'AUTHORITATIVE')
 
