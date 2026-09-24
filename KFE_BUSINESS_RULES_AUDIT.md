@@ -1,8 +1,9 @@
 # KFE Business Rules Audit
 
 **Phase:** 1 — Business Rules Audit  
-**Status:** LOCKED / PENDING  
-**Audit method:** Discover → group → execute → collect gaps → fix in Phase 2 → re-audit in Phase 3
+**Status:** ACTIVE  
+**Current batch:** BR-01 — Business foundation  
+**Audit method:** Discover → group → execute → collect gaps → record defects → fix in Phase 2 → re-audit in Phase 3
 
 ## Objective
 
@@ -27,7 +28,7 @@ For every applicable rule:
 
 | Batch | Scope | Status |
 |---|---|---|
-| BR-01 | Business foundation | PENDING |
+| BR-01 | Business foundation | **ACTIVE — audit in progress** |
 | BR-02 | Master data | PENDING |
 | BR-03 | Business calendar | PENDING |
 | BR-04 | Driver / shift | PENDING |
@@ -37,6 +38,24 @@ For every applicable rule:
 | BR-08 | Targets / economics | PENDING |
 | BR-09 | Reporting / reconciliation | PENDING |
 | BR-10 | Overlay / notifications contracts | PENDING |
+
+## BR-01 execution record
+
+**Audit runner:** `src/tests/phase1BusinessFoundation.contract.js`  
+**Dedicated workflow:** `KFE Phase 1 Batch 1 Business Foundation Audit`
+
+The dedicated runner executed the deterministic foundation contract suite successfully. Its workflow success means the audit runner completed; it is **not** a claim that BR-01 is clean.
+
+The runner identified these source-definition gaps in the current Admin source-record model:
+
+1. No authoritative business-configuration form.
+2. No authoritative business-start-date input.
+3. No authoritative opening-balance input.
+4. No dedicated authoritative historical/pre-business expense source form.
+
+Existing vehicle, driver, target, loan, maintenance, and compliance source fields were detected by the deterministic check.
+
+These findings are recorded as Phase 1 defects and are not fixed during the audit phase.
 
 ## Execution rule
 
@@ -48,7 +67,7 @@ For each batch:
 
 ## Current audit state
 
-Phase 1 has not started. No PASS claim is made from this seed document.
+**BR-01 is in progress.** The deterministic source-definition pass has produced four confirmed gaps. End-to-end storage/calculation/derived/display/reconciliation evidence remains to be completed before BR-01 can be declared complete.
 
 ## Important separation
 
@@ -58,7 +77,6 @@ Phase 1 checks the business contract and deterministic wiring.
 
 Phase 4 later checks actual phone/device/driver behavior under realistic conditions.
 
-
 ## Phase 0 source-of-truth prerequisite
 
-Phase 1 starts only against the register above. Supporting documents are evidence/implementation references only. The Phase 1 audit must map every BR ID to exactly one canonical implementation path and its relevant tests/contracts.
+Phase 1 runs only against the register above. Supporting documents are evidence/implementation references only. The Phase 1 audit must map every BR ID to exactly one canonical implementation path and its relevant tests/contracts.
