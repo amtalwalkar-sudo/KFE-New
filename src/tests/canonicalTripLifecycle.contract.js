@@ -7,6 +7,8 @@ const assert = (condition, message) => { if (!condition) throw new Error(message
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const repository = fs.readFileSync(path.join(root, 'repositories', 'shiftTripRepository.js'), 'utf8')
 const workService = fs.readFileSync(path.join(root, 'application', 'work', 'workService.js'), 'utf8')
+const workView = fs.readFileSync(path.join(root, 'views', 'WorkModuleView.vue'), 'utf8')
+const overlay = fs.readFileSync(path.join(root, '..', 'android', 'app', 'src', 'main', 'java', 'com', 'kanishka', 'pwa', 'KfeOverlayService.java'), 'utf8')
 
 console.log('--- Running KFE Canonical Trip Lifecycle Gate ---')
 
@@ -35,9 +37,16 @@ assert(repository.includes("import { transitionTrip, TRIP_STATES } from '../doma
 assert(repository.includes('transitionTrip(record, status, data)'), 'Trip completion/cancellation must use the shared transition function')
 assert(workService.includes('ShiftTripRepository.completeTrip'), 'Main app completion must use canonical Trip repository')
 assert(workService.includes('ShiftTripRepository.cancelTrip'), 'Main app cancellation must use canonical Trip repository')
+assert(repository.includes('async setTripStage'), 'Canonical repository must persist pickup/ride stage')
+assert(workService.includes('async startRide'), 'Work service must expose canonical START_RIDE stage transition')
+assert(workView.includes('SWIPE TO GO TO PICKUP') && workView.includes('SWIPE TO START RIDE') && workView.includes('SWIPE TO END RIDE'), 'Work cockpit must expose the three canonical swipe states')
+assert(workView.includes('class="swipe-cancel-button"') && workView.includes('@click.stop.prevent="openCancelRide"'), 'Work cancellation must be a single tap control inside the swipe bar')
+assert(workView.includes('RIDE COMPLETED') && workView.includes('work-keypad'), 'Work cockpit must expose canonical completed-ride fare entry')
+assert(overlay.includes('"START_RIDE".equals(actionStage)') && overlay.includes('openCancelForm()'), 'Overlay cancellation must be available only on the pre-ride START_RIDE state')
 
 console.log('✓ END_RIDE → COMPLETED → fare preserves one Trip ID')
 console.log('✓ CANCEL_RIDE → CANCELLED ₹0 preserves one Trip ID')
 console.log('✓ Terminal replay is idempotent; cross-terminal mutation is blocked')
 console.log('✓ Main app and overlay command paths converge on the canonical Trip repository')
+console.log('✓ Work cockpit and overlay share pickup/start/end/fare/cancel state semantics')
 console.log('✅ Canonical Trip Lifecycle Gate Passed Successfully!')
