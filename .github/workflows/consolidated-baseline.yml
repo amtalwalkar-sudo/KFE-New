@@ -66,21 +66,42 @@ jobs:
       - name: Android Exact APK Smoke Gate
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 29
+          api-level: 35
           target: google_apis
           arch: x86_64
-          profile: Nexus 6
+          profile: Pixel_2
           cores: 2
-          ram-size: 1536M
-          heap-size: 384M
-          disk-size: 4000M
+          ram-size: 2048M
+          heap-size: 512M
+          disk-size: 6000M
           emulator-boot-timeout: 600
-          disable-linux-hw-accel: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -wipe-data
           disable-animations: true
           enable-hw-keyboard: false
           script: |
-            cd "$GITHUB_WORKSPACE/android" && ./gradlew :app:assembleDebugAndroidTest && for i in $(seq 1 90); do if adb shell service check package 2>/dev/null | grep -q "found"; then break; fi; sleep 2; done && adb shell service check package 2>/dev/null | grep -q "found" && adb install -r "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk" && adb install -r "$GITHUB_WORKSPACE/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk" && adb shell appops set com.kanishka.pwa android:system_alert_window allow && (adb shell appops set com.kanishka.pwa android:camera allow || true) && adb shell am force-stop com.kanishka.pwa && adb shell am instrument -w -r -e class com.kanishka.pwa.KfeOverlaySmokeTest com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner && sha256sum "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
+            set -euo pipefail
+            adb wait-for-device
+            for i in $(seq 1 180); do
+              boot="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+              package_state="$(adb shell service check package 2>/dev/null || true)"
+              if [ "$boot" = "1" ] && echo "$package_state" | grep -q "found"; then
+                break
+              fi
+              sleep 2
+            done
+            boot="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+            package_state="$(adb shell service check package 2>/dev/null || true)"
+            test "$boot" = "1"
+            echo "$package_state" | grep -q "found"
+            cd "$GITHUB_WORKSPACE/android"
+            ./gradlew :app:assembleDebugAndroidTest
+            adb install -r "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
+            adb install -r "$GITHUB_WORKSPACE/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
+            adb shell appops set com.kanishka.pwa android:system_alert_window allow
+            adb shell appops set com.kanishka.pwa android:camera allow || true
+            adb shell am force-stop com.kanishka.pwa
+            adb shell am instrument -w -r -e class com.kanishka.pwa.KfeOverlaySmokeTest com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner
+            sha256sum "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
 
       - name: Upload tested Android Debug APK
         uses: actions/upload-artifact@v4
