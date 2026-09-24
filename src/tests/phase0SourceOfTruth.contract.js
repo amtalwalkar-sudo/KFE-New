@@ -69,7 +69,7 @@ for (const file of sourceFiles) {
   if (activeDocs.includes(file)) continue
   const header = text.slice(0, 1200)
   const historical = /HISTORICAL|historical record|not active roadmap/i.test(header)
-  if (!historical && /KFE_BUSINESS_RULES_REGISTER\.md is the sole authoritative source|sole authoritative source for KFE business|only document that defines phase sequence/i.test(text)) {
+  if (!historical && file !== 'src/tests/phase0SourceOfTruth.contract.js' && /KFE_BUSINESS_RULES_REGISTER\.md is the sole authoritative source|sole authoritative source for KFE business|only document that defines phase sequence/i.test(text)) {
     failures.push('competing business-rule or roadmap authority claim in: ' + file)
   }
   if (!historical && file !== 'src/tests/phase0SourceOfTruth.contract.js' && /docs\/KFE-DEVELOPMENT-PHASES\.md|docs\/KFE-BUSINESS-RULES\.md/.test(text)) {
