@@ -1,0 +1,42 @@
+name: KFE Phase 1 Batch 1 Business Foundation Audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'KFE_BUSINESS_RULES_REGISTER.md'
+      - 'KFE_BUSINESS_RULES_AUDIT.md'
+      - 'KFE_BUSINESS_RULE_DEFECTS.md'
+      - 'src/application/admin/**'
+      - 'src/domain/finance/**'
+      - 'src/domain/performance/**'
+      - 'src/tests/**'
+      - '.github/workflows/phase-1-batch-1-business-foundation.yml'
+  push:
+    branches:
+      - 'audit/phase-1-batch-1-business-foundation'
+    paths:
+      - 'KFE_BUSINESS_RULES_REGISTER.md'
+      - 'KFE_BUSINESS_RULES_AUDIT.md'
+      - 'KFE_BUSINESS_RULE_DEFECTS.md'
+      - 'src/application/admin/**'
+      - 'src/domain/finance/**'
+      - 'src/domain/performance/**'
+      - 'src/tests/**'
+      - '.github/workflows/phase-1-batch-1-business-foundation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  batch-1:
+    name: Batch 1 — Business Foundation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node src/tests/phase1BusinessFoundation.contract.js
