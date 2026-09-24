@@ -6,7 +6,7 @@
 
 ## Objective
 
-Prove that every authoritative KFE business rule is correctly implemented end-to-end.
+Prove that every business rule defined in KFE_BUSINESS_RULES_REGISTER.md is correctly implemented end-to-end. No other document may define a competing business rule.
 
 ## Required evidence chain
 
@@ -57,3 +57,8 @@ Business-rule correctness and real-world operational correctness are separate.
 Phase 1 checks the business contract and deterministic wiring.
 
 Phase 4 later checks actual phone/device/driver behavior under realistic conditions.
+
+
+## Phase 0 source-of-truth prerequisite
+
+Phase 1 starts only against the register above. Supporting documents are evidence/implementation references only. The Phase 1 audit must map every BR ID to exactly one canonical implementation path and its relevant tests/contracts.
