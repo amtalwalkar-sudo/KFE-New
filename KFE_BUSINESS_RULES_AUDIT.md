@@ -80,3 +80,28 @@ Phase 4 later checks actual phone/device/driver behavior under realistic conditi
 ## Phase 0 source-of-truth prerequisite
 
 Phase 1 runs only against the register above. Supporting documents are evidence/implementation references only. The Phase 1 audit must map every BR ID to exactly one canonical implementation path and its relevant tests/contracts.
+
+
+## BR-01 downstream/reconciliation completion
+
+The remaining Batch 1 downstream review was completed against the authoritative register and canonical implementation matrix.
+
+### Reconciliation outcome
+
+- **Business configuration:** cannot reconcile because no authoritative source record exists.
+- **Business start boundary:** cannot reconcile to an Admin-defined business boundary; current finance logic uses earliest vehicle acquisition as a surrogate.
+- **Opening balances:** cannot reconcile because no canonical opening-balance fact exists.
+- **Pre-business expenses:** cannot fully reconcile because only the loan recovery path is represented; the accepted historical maintenance/setup/pre-activation categories lack an equivalent authoritative input/recovery path.
+- **Existing setup inputs:** vehicle opening odometer, driver, driver target, loan, maintenance, and compliance each have an Admin source definition and map through the canonical Admin service/repository path. No new BR-01 defect was confirmed for their source-definition/persistence chain in this pass.
+
+### Complete confirmed BR-01 defect set
+
+**BRD-001 through BRD-004** — source-definition gaps.
+
+**BRD-005** — business-start surrogate is used by finance recovery.
+
+**BRD-006** — opening-balance fact is absent from the canonical financial chain.
+
+**BRD-007** — pre-business recovery is incomplete for non-loan historical categories.
+
+**Disposition:** BR-01 is **NOT CLEAN**. These defects remain OPEN for Phase 2. No Phase 2 fixes have been applied. BR-02 is not started.
