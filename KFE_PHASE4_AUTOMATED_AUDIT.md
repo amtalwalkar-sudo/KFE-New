@@ -24,7 +24,7 @@ The test emits an exact India-time execution stamp in **DD MM YYYY / HH MM SS** 
 | G GPS | simulated/degraded GPS state contracts, null/unavailable handling, handler resilience; hardware/permission prompts deferred |
 | H Finance | shift revenue authority, trip-detail reconciliation, BR-11 INCLUDED/EXCLUDED treatment |
 | I Multi-day | odometer carry, IST day ownership, historical/persistence boundaries |
-| J Boundary | zero values, negative/invalid inputs, large-distance confirmation, midnight boundary, missing GPS, repeated terminal action |
+| J Boundary | zero values, negative/invalid inputs, large-distance confirmation, midnight boundary, missing GPS, repeated terminal action |\n| K Driver UX / surface integrity | Work start/end gates, active-trip Offline block, Back/cancel recovery, compact fuel-form toggle/draft, place-name preference, GPS shell indicator, retired shell labels absent, native overlay canonical action wiring |
 
 ## Explicitly not marked PASS here
 
