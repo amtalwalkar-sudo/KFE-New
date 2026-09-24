@@ -382,9 +382,19 @@ The number is primary; unit is supporting information.
 
 Formatting must be consistent for ₹, km, km/kg, kg, duration, time, percentages, odometer, and counts.
 
-Display formatting never changes underlying meaning.
+**Authoritative display format:**
 
-Use contextual dates/times where appropriate while retaining full precision where auditability requires it.
+- **Date:** `dd mm yyyy` (two-digit day, two-digit month, four-digit year)
+- **Time:** `hh mm ss` (two-digit 24-hour hour, two-digit minute, two-digit second)
+- **Date + time:** `dd mm yyyy hh mm ss`
+- Use spaces exactly as shown; do not use slash-, hyphen-, comma-, or month-name-based display formats for KFE operational dates/times.
+- This is a **display/presentation rule only**. Stored timestamps remain machine-readable and retain their full precision/time-zone meaning.
+- Date/time formatting must be centralized and reused across PWA, Android overlay, notifications, Timeline, Performance, Admin, exports, audit/history, GPS events, and future features.
+- Business-calendar calculations and persistence must continue to use canonical machine-readable timestamps/date values; display formatting must never alter calculation semantics.
+- Where a context needs a date or time alone, use the corresponding format above rather than introducing a new local format.
+- Seconds are always displayed for KFE operational timestamps; do not omit seconds from a full time display.
+
+Display formatting never changes underlying meaning.
 
 ## 31. Status Vocabulary
 

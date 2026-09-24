@@ -3,7 +3,7 @@ import { initializeCanonicalStorage } from '../utils/indexedDB.js'
 const PERFORMANCE_STORES = Object.freeze([
   'shifts', 'trips', 'fuel_logs', 'vehicles', 'drivers',
   'compliance_records', 'maintenance_records', 'loans', 'loan_payments',
-  'prepayments', 'driver_targets', 'break_even_inputs', 'settlements',
+  'prepayments', 'driver_targets', 'break_even_inputs', 'settlements', 'settings',
 ])
 
 const readSnapshot = async () => {
@@ -42,6 +42,7 @@ export const PerformanceRepository = {
       driverTargets: data.driver_targets,
       breakEvenInputs: data.break_even_inputs,
       settlements: data.settlements,
+      businessSetup: data.settings.find(record => record?.settingKey === 'businessSetup')?.values || null,
     }
   }
 }

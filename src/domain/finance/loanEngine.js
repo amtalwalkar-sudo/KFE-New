@@ -252,13 +252,42 @@ export function calculatePrepaymentEstimate({ loan, payments = [], prepayments =
   return { available: true, requestedAmount: paiseToRupees(requestedPaise), appliedAmount: paiseToRupees(appliedPaise), outstandingBefore: position.outstandingPrincipal, outstandingAfter: paiseToRupees(outstandingPaise - appliedPaise), closesLoan: appliedPaise >= outstandingPaise, effect: appliedPaise >= outstandingPaise ? 'CLOSE_LOAN' : 'REDUCE_TENURE_KEEP_EMI', prepaymentCharge: 0 }
 }
 
-export function calculatePreBusinessRecovery({ position, businessStartDate, asOf = new Date() } = {}) {
+const calendarRecoverySerial = value => {
+  const parts = istCalendarParts(value)
+  return parts ? Date.UTC(parts.year, parts.month - 1, parts.day) / 86400000 : null
+}
+const addRecoveryMonths = (value, months) => {
+  const parts = istCalendarParts(value)
+  if (!parts) return null
+  const index = parts.year * 12 + (parts.month - 1) + months
+  const year = Math.floor(index / 12)
+  const month = index % 12
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
+  return Date.UTC(year, month, Math.min(parts.day, lastDay)) / 86400000
+}
+const recoveryMonthlyAmount = (burdenPaise, businessStartDate, asOf, months = 12) => {
+  const start = calendarRecoverySerial(businessStartDate)
+  const current = calendarRecoverySerial(asOf)
+  const end = addRecoveryMonths(businessStartDate, months)
+  if (start == null || current == null || end == null || current < start || current >= end) return 0
+  return paiseToRupees(Math.round(burdenPaise / months))
+}
+export function calculatePreBusinessLoanRecovery({ loan, payments = [], prepayments = [], businessStartDate, asOf = new Date(), recoveryMonths = 12 } = {}) {
   const start = dateOf(businessStartDate)
-  if (!position?.available || !start) return 0
-  const asOfDate = dateOf(asOf) || new Date()
-  const preBusinessOverdue = (position.overdue || []).filter(row => dateOf(row.dueDate) < start && dateOf(row.dueDate) <= asOfDate)
+  const origin = dateOf(loan?.startDate)
+  if (!loan || !start || !origin || origin >= start) return 0
+  const positionAtStart = deriveLoanPosition({ loan, payments, prepayments, asOf: start })
+  if (!positionAtStart.available) return 0
+  const overdueInterestPaise = (positionAtStart.overdue || []).reduce((sum, row) => sum + rupeesToPaise(row.unpaidScheduledInterest) + rupeesToPaise(row.unpaidOverdueInterest), 0)
+  const burdenPaise = rupeesToPaise(positionAtStart.outstandingPrincipal) + overdueInterestPaise
+  return recoveryMonthlyAmount(burdenPaise, businessStartDate, asOf, recoveryMonths)
+}
+export function calculatePreBusinessRecovery({ position, businessStartDate, asOf = new Date() } = {}) {
+  if (!position?.available || !businessStartDate) return 0
+  const start = dateOf(businessStartDate)
+  const preBusinessOverdue = (position.overdue || []).filter(row => dateOf(row.dueDate) < start)
   const burdenPaise = preBusinessOverdue.reduce((sum, row) => sum + rupeesToPaise(row.overdueAmount), 0)
-  return paiseToRupees(Math.round(burdenPaise / 12))
+  return recoveryMonthlyAmount(burdenPaise, businessStartDate, asOf, 12)
 }
 
 export function paymentAllocationPreview({ loan, payments = [], prepayments = [], amount, paidOn } = {}) {

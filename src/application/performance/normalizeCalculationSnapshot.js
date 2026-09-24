@@ -107,6 +107,7 @@ export const normalizeCalculationSnapshot = snapshot => ({
   driverTargets: (snapshot?.driverTargets || []).map(normalizeDriverTarget).filter(Boolean),
   breakEvenInputs: (snapshot?.breakEvenInputs || []).map(normalizeBreakEvenInput).filter(Boolean),
   settlements: (snapshot?.settlements || []).map(normalizeSettlement).filter(Boolean),
+  businessSetup: snapshot?.businessSetup ? { ...snapshot.businessSetup } : null,
   // FAH-3 settlement/position records are optional until their canonical Admin
   // forms/stores exist; preserve them when supplied by imports or future sources.
   receivables: snapshot?.receivables || [],

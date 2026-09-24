@@ -5,8 +5,8 @@ import { getAdminFormDefinition } from '../application/admin/adminFormDefinition
 import { validateAdminForm } from '../application/admin/universalFormRules.js'
 import { deriveLoanPosition, paymentAllocationPreview, calculatePrepaymentEstimate, calculateEmi } from '../domain/finance/loanEngine.js'
 
-const FORM_STORE = Object.freeze({ vehicle: 'vehicles', driver: 'drivers', compliance: 'compliance_records', maintenance: 'maintenance_records', ride: 'trips', shift: 'shifts', loan: 'loans', loanPayment: 'loan_payments', prepayment: 'prepayments', driverTarget: 'driver_targets', breakEvenInputs: 'break_even_inputs', settlement: 'settlements', backupRestore: 'settings', themes: 'settings', dataReset: 'settings' })
-const isSettingsForm = key => key === 'backupRestore' || key === 'themes' || key === 'dataReset'
+const FORM_STORE = Object.freeze({ businessSetup: 'settings', vehicle: 'vehicles', driver: 'drivers', compliance: 'compliance_records', maintenance: 'maintenance_records', ride: 'trips', shift: 'shifts', loan: 'loans', loanPayment: 'loan_payments', prepayment: 'prepayments', driverTarget: 'driver_targets', breakEvenInputs: 'break_even_inputs', settlement: 'settlements', backupRestore: 'settings', themes: 'settings', dataReset: 'settings' })
+const isSettingsForm = key => key === 'backupRestore' || key === 'themes' || key === 'dataReset' || key === 'businessSetup'
 const isFinanceForm = key => key === 'loan' || key === 'loanPayment' || key === 'prepayment'
 const isDeleted = record => record?.deletedAt || record?.deleted === true
 const LOAN_CONTRACT_FIELDS = Object.freeze(['lender','accountReference','principal','tenureMonths','startDate','annualInterestRatePercent'])
