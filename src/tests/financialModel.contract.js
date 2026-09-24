@@ -26,7 +26,7 @@ assert.equal(fuel.completedIntervals, 2)
 assert.equal(fuel.observations.length, 2)
 assert.equal(fuel.rollingCostPerKm, 23)
 
-const m = deriveFinanceAwarePerformance(normalizeCalculationSnapshot(snapshot), { from, to })
+const m = deriveFinanceAwarePerformance(normalizeCalculationSnapshot(snapshot), { from, to, tollParkingRevenueTreatment: 'EXCLUDED' })
 assert.equal(m.revenue, 10000)
 assert.equal(m.vehicleKm, 150)
 assert.equal(m.businessKm, 100)
