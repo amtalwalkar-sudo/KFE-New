@@ -20,9 +20,31 @@ This is the consolidated defect ledger for business-rule audit findings.
 - VERIFIED
 - ACCEPTED / DISPOSITIONED
 
+## Confirmed Phase 1 Batch 1 findings
+
+| ID | Rule area | Confirmed finding | Status |
+|---|---|---|---|
+| BRD-001 | BR-01 Business configuration | No authoritative Admin business-configuration source form is defined in `ADMIN_FORM_DEFINITIONS`. | OPEN |
+| BRD-002 | BR-01 Business start boundary | No authoritative `businessStartDate` input exists in the Admin source-record definitions. | OPEN |
+| BRD-003 | BR-01 Opening balances | No authoritative opening-balance input exists in the Admin source-record definitions. | OPEN |
+| BRD-004 | BR-01 Pre-business expenses | No dedicated authoritative historical/pre-business expense source form exists in the Admin form definitions; historical integrity/recovery logic is not itself a human input channel. | OPEN |
+
+### Evidence boundary
+
+These are **source-definition defects confirmed by the deterministic Batch 1 audit**. They do not yet prove every downstream storage/calculation/display consequence is broken. That downstream evidence remains part of BR-01 before the batch can close.
+
+The following existing source definitions were detected and therefore are not currently source-definition gaps:
+
+- Vehicle: including opening odometer.
+- Driver.
+- Driver target.
+- Loan.
+- Maintenance.
+- Compliance.
+
 ## Current known audit candidates
 
-These are **pre-audit leads**, not yet confirmed defects. They must be validated during Phase 1.
+These are pre-audit leads retained for later validation.
 
 | ID | Rule area | Candidate finding | Status |
 |---|---|---|---|
@@ -35,10 +57,9 @@ These are **pre-audit leads**, not yet confirmed defects. They must be validated
 
 These entries must be validated against the current repository before being treated as confirmed defects.
 
-
 ## Phase 0 source-of-truth findings
 
-These are governance/architecture findings discovered while establishing the single-source-of-truth control. They do not replace the Phase 1 business-rule audit.
+These are governance findings discovered while establishing the single-source-of-truth control. They do not replace the Phase 1 business-rule audit.
 
 | ID | Finding | Disposition |
 |---|---|---|
@@ -49,4 +70,3 @@ These are governance/architecture findings discovered while establishing the sin
 | SOT-005 | runAllContracts.js registered the synthetic-isolation contract twice | RESOLVED — duplicate registration removed |
 | SOT-006 | Canonical implementation ownership was implicit rather than centrally mapped | RESOLVED — authority matrix added to working rules and business-rule register |
 | SOT-007 | Phase 0 acceptance was coupled to the broad Android/PWA CI path, causing unrelated emulator failures to appear as Phase 0 failures | RESOLVED — added dedicated docs-only Phase 0 Governance Gate; broad CI remains supporting repository CI and is not the Phase 0 acceptance gate |
-
