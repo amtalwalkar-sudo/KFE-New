@@ -300,9 +300,13 @@ if (pendingOverlayAction?.stage) {
   await handleRideNotificationAction(pendingOverlayAction);
 }
 let restoredTrace = false;
-if (store.isTripActive) {
+if (store.isTripActive && store.trip?.tripStage === 'RIDE_STARTED') {
   try { liveKmsBase.value = await WorkService.getTripGpsDistanceKm(store.trip.id); liveKms.value = liveKmsBase.value } catch (_) { liveKmsBase.value = 0; liveKms.value = null }
   restoredTrace = MovementTraceService.start({entityType:'TRIP',entityId:store.trip.id,eventType:'PASSENGER_RIDE_TRACE',profile:'PASSENGER_RIDE',onPoint:()=>{ liveKms.value=liveKmsBase.value + MovementTraceService.getDistanceKm() }});
+  await KfeRideNotificationService.resume();
+} else if (store.isTripActive && store.trip?.tripStage === 'PICKUP') {
+  goingToPickup.value = true;
+  restoredTrace = MovementTraceService.start({entityType:'SHIFT',entityId:store.shift.id,eventType:'DEAD_MOVEMENT_TRACE',profile:'DEAD_LEG',onPoint:(_point,count)=>{pickupGpsPoints.value=count;pickupGpsSummary.value={...pickupGpsSummary.value,points:count,passed:count>=2}}});
   await KfeRideNotificationService.resume();
 } else if (store.isOnline) {
   let pickupSession = null;
