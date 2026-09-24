@@ -3,7 +3,7 @@
 **Status:** AUTHORITATIVE
 **Purpose:** Single human-readable authority for KFE ownership, boundaries, data authority, replaceability and implementation constraints.
 
-This document consolidates the accepted architectural principles from the Master Blueprint and architecture/data/ownership/field-level boundary work. It does not define business formulas; those belong to `docs/KFE-BUSINESS-RULES.md` and `docs/KFE-CALCULATION-SPECIFICATION.md`.
+This document consolidates the accepted architectural principles from the Master Blueprint and architecture/data/ownership/field-level boundary work. It does not define business meaning or formulas. Business meaning belongs to `KFE_BUSINESS_RULES_REGISTER.md`; arithmetic/formula mechanics belong to `docs/KFE-CALCULATION-SPECIFICATION.md`.
 
 ## 1. Governing architecture rule
 
