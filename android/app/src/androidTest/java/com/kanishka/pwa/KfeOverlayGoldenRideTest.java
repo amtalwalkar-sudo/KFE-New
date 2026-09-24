@@ -210,7 +210,11 @@ public class KfeOverlayGoldenRideTest {
     try { return getOverlay(); } catch(Exception e) { throw new AssertionError(e); }
   }
 
-  private void dispatch(View v, float x, float y, int action) {\n    dispatch(v, x, y, x, y, action);\n  }\n\n  private void dispatch(View v, float x1, float y1, float actionX, float actionY, int action) {
+  private void dispatch(View v, float x, float y, int action) {
+    dispatch(v, x, y, x, y, action);
+  }
+
+  private void dispatch(View v, float x1, float y1, float actionX, float actionY, int action) {
     long now=SystemClock.uptimeMillis();
     MotionEvent e=MotionEvent.obtain(now,now,action,actionX,actionY,0);
     InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> v.dispatchTouchEvent(e));
