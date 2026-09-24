@@ -163,6 +163,48 @@ scenario('J1/J2/J3/J5/J6/J7', () => {
   assert.equal(validateFuelEntry({ odometer: 65000, pricePerKg: 82, amount: 0 }).valid, false)
 })
 
+
+// K — latest driver-cockpit, shell and cross-surface UX requirements that are statically verifiable.
+scenario('K1/K2/K3/K4/K5/K6', () => {
+  const work = read('views/WorkModuleView.vue')
+  const shell = read('components/shell/KfeShell.vue')
+  const timeline = read('views/TimelineView.vue')
+  const overlay = read('../android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java')
+
+  // Start/end shift gates are explicit in the Work state machine.
+  assert.match(work, /const toggleOnline = async \(\) =>/)
+  assert.match(work, /if\(store\.isTripActive\)return fail\('End the active Trip before going Offline\./)
+  assert.match(work, /const openEndShift = \(\) =>/)
+  assert.match(work, /const endShiftBack = \(\) =>/)
+  assert.match(work, /const endShiftConfirm = async \(\) =>/)
+  assert.match(work, /closingOdo\.value/)
+  assert.match(work, /shiftRevenue\.value/)
+  assert.match(work, /Closing odometer and total shift revenue are required\./)
+
+  // Fuel remains available as a compact toggle rather than a permanent large block.
+  assert.match(work, /const openFuelForm = \(\) =>/)
+  assert.match(work, /fuelFormOpen\.value = !fuelFormOpen\.value/)
+  assert.match(work, /fuelDraftKey/)
+
+  // Driver-facing location presentation prefers resolved place names and keeps Timeline coverage.
+  assert.match(work, /locationPlace = location => location\?\.placeName \|\| 'Resolving place…'/)
+  assert.match(timeline, /trip\.tripStartLocation\?\.address \|\| trip\.tripStartLocation\?\.name \|\| 'Pickup'/)
+
+  // Shell is GPS-status driven and does not carry the retired Local-first/Fleet ERP labels.
+  assert.match(shell, /Kanishka Enterprises/)
+  assert.match(shell, /header-gps/)
+  assert.match(shell, /gpsState/)
+  assert.doesNotMatch(shell, /Fleet ERP · KFE 2\.0/)
+  assert.doesNotMatch(shell, /Local-first/)
+
+  // Native overlay exposes the same canonical ride actions and terminal fare/cancel path.
+  assert.match(overlay, /ACTION_UPDATE/)
+  assert.match(overlay, /START_RIDE/)
+  assert.match(overlay, /END_RIDE/)
+  assert.match(overlay, /ENTER_FARE/)
+  assert.match(overlay, /CANCEL_RIDE/)
+})
+
 // Explicitly document the device-only remainder: these are not simulated as PASS.
 const deviceOnly = [
   'C4/C5 real Android overlay/background/bubble/minimize/reopen',
