@@ -17,6 +17,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.lang.reflect.Field;
+
 @RunWith(AndroidJUnit4.class)
 public class KfeOverlaySmokeTest {
   private Context context;
@@ -49,6 +51,8 @@ public class KfeOverlaySmokeTest {
     context.startService(update);
     SystemClock.sleep(250);
     assertNotNull("Native overlay service instance must exist", KfeOverlayService.instance);
-    assertTrue("Native overlay view must be created", KfeOverlayService.instance.overlay != null);
+    Field field = KfeOverlayService.class.getDeclaredField("overlay");
+    field.setAccessible(true);
+    assertNotNull("Native overlay view must be created", field.get(KfeOverlayService.instance));
   }
 }
