@@ -1,7 +1,8 @@
 import { AndroidOverlay } from './kfeOverlay.js'
 import { WorkService } from '../../application/work/workService.js'
 import { DriverTargetService } from '../../application/performance/driverTargetService.js'
-import { getKfeReferenceNow } from '../../domain/time/ist.js'
+import { getKfeReferenceNow, reportingRangeFor } from '../../domain/time/ist.js'
+import { PerformanceService } from '../../application/performance/performanceService.js'
 import { KfeRideNotificationService } from './kfeRideNotificationService.js'
 
 let configured = false
@@ -21,6 +22,8 @@ const activeOverlayState = async () => {
   let rides = '0'
   let liveKm = '0.0 km'
   let revenue = '₹0'
+  let targetProgress = 0
+  let trips = []
   try {
     const targetResult = await DriverTargetService.getTarget(getKfeReferenceNow())
     if (Number.isFinite(Number(targetResult?.target))) {
@@ -29,14 +32,18 @@ const activeOverlayState = async () => {
   } catch (_) {}
 
   try {
-    const trips = await WorkService.getTripsForShift(active.shift.id)
+    trips = await WorkService.getTripsForShift(active.shift.id)
     const rideTrips = trips.filter(item => item?.status === 'COMPLETED' || item?.status === 'ACTIVE')
     rides = String(rideTrips.length)
-    const totalRevenue = rideTrips.reduce((sum, item) => {
-      const value = Number(item?.revenue)
-      return Number.isFinite(value) && value >= 0 ? sum + value : sum
-    }, 0)
-    revenue = `₹${totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
+  } catch (_) {}
+  const authoritativeRevenue = Number(active.shift?.revenue)
+  revenue = `₹${Number.isFinite(authoritativeRevenue) && authoritativeRevenue >= 0 ? authoritativeRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 }) : '0'}`
+  try {
+    const targetNumber = Number(String(target).replace(/[^0-9.]/g, ''))
+    const snapshot = await PerformanceService.getSnapshot()
+    const metrics = PerformanceService.getMetrics(snapshot, reportingRangeFor('DAY', getKfeReferenceNow()))
+    const achieved = Number(metrics?.revenue || 0)
+    if (Number.isFinite(targetNumber) && targetNumber > 0) targetProgress = Math.min(100, Math.round((achieved / targetNumber) * 100))
   } catch (_) {}
 
   if (active.trip?.id) {
@@ -48,6 +55,7 @@ const activeOverlayState = async () => {
 
   let overlayAction = 'GO_TO_PICKUP'
   let overlayTripId = ''
+  let cancellationRevenue = '₹0'
   try {
     const notificationState = KfeRideNotificationService.getState()
     if (notificationState?.phase === 'START_RIDE') overlayAction = 'START_RIDE'
@@ -55,13 +63,22 @@ const activeOverlayState = async () => {
   } catch (_) {}
   if (active.trip?.id) { overlayAction = 'END_RIDE'; overlayTripId = active.trip.id }
   else {
-    // A completed trip with no fare is a pending supporting-detail entry. The main app
-    // owns persistence; the overlay only mirrors this state and sends the user's fare back.
-    const unpriced = (await WorkService.getTripsForShift(active.shift.id)).filter(item => item?.status === 'COMPLETED' && (item?.revenue === null || item?.revenue === undefined || item?.revenue === '')).sort((a,b) => new Date(b.tripEndAt || b.updatedAt) - new Date(a.tripEndAt || a.updatedAt))
-    if (unpriced[0]?.id) { overlayAction = 'ENTER_FARE'; overlayTripId = unpriced[0].id }
+    const cancellation = KfeRideNotificationService.getLastCancellation?.()
+    const cancelledTrip = cancellation?.tripId ? trips.find(item => item?.id === cancellation.tripId && item?.status === 'CANCELLED') : null
+    const cancellationAge = cancellation?.recordedAt ? Date.now() - Number(cancellation.recordedAt) : Infinity
+    if (cancelledTrip && cancellationAge >= 0 && cancellationAge <= 30000) {
+      overlayAction = 'CANCELLED'
+      overlayTripId = cancelledTrip.id
+      cancellationRevenue = `₹${Number(cancellation.revenue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
+    } else {
+      // A completed trip with no fare is a pending supporting-detail entry. The main app
+      // owns persistence; the overlay only mirrors this state and sends the user's fare back.
+      const unpriced = trips.filter(item => item?.status === 'COMPLETED' && (item?.revenue === null || item?.revenue === undefined || item?.revenue === '')).sort((a,b) => new Date(b.tripEndAt || b.updatedAt) - new Date(a.tripEndAt || a.updatedAt))
+      if (unpriced[0]?.id) { overlayAction = 'ENTER_FARE'; overlayTripId = unpriced[0].id }
+    }
   }
 
-  return { ...active, target, rides, revenue, liveKm, overlayAction, overlayTripId, theme: document.documentElement?.dataset?.kfeTheme || 'light' }
+  return { ...active, target, targetProgress, rides, revenue, liveKm, overlayAction, overlayTripId, cancellationRevenue, theme: document.documentElement?.dataset?.kfeTheme || 'light' }
 }
 
 const showOverlayIfNeeded = async () => {
@@ -69,9 +86,10 @@ const showOverlayIfNeeded = async () => {
   showing = true
   try {
     const permission = await AndroidOverlay.canDrawOverlays()
-    if (!permission.granted) return
+    if (!permission.granted) { await AndroidOverlay.hide(); return }
     const state = await activeOverlayState()
     if (state) await AndroidOverlay.show(state)
+    else await AndroidOverlay.hide()
   } catch (error) {
     console.warn('KFE Android overlay unavailable:', error)
   } finally {
@@ -83,9 +101,10 @@ const updateOverlayIfNeeded = async () => {
   if (document.visibilityState === 'visible') return
   try {
     const permission = await AndroidOverlay.canDrawOverlays()
-    if (!permission.granted) return
+    if (!permission.granted) { await AndroidOverlay.hide(); return }
     const state = await activeOverlayState()
     if (state) await AndroidOverlay.update(state)
+    else await AndroidOverlay.hide()
   } catch (_) {}
 }
 

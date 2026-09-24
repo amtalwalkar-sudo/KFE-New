@@ -37,7 +37,7 @@ export const WorkService = Object.freeze({
   async startTrip(data) {
     const validation = validateTripOperator(data?.operator)
     if (!validation.valid) return { ok: false, reason: validation.reason }
-    const result = await ShiftTripRepository.createTrip({ ...data, operator: validation.operator }); checkpoint()
+    const result = await ShiftTripRepository.createTrip({ ...data, operator: validation.operator, tripStage: data?.tripStage || 'PICKUP' }); checkpoint()
     const startLocation = await captureLifecycleLocation({ entityType: 'TRIP', entityId: result.id, eventType: 'START' })
     if (startLocation) {
       await ShiftTripRepository.setTripStartLocation(result.id, startLocation)
@@ -45,6 +45,7 @@ export const WorkService = Object.freeze({
     }
     return result
   },
+  async startRide(data) { const result = await ShiftTripRepository.setTripStage(data?.id, 'RIDE_STARTED'); checkpoint(); return result },
   async completeTrip(data) {
     const trip = await ShiftTripRepository.getTripsForShift(data?.shiftId || (await ShiftTripRepository.getActive()).shift?.id || '')
     const activeTrip = trip.find(item => item.id === data?.id) || (await ShiftTripRepository.getActive()).trip

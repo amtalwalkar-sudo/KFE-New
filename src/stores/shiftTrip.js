@@ -76,11 +76,11 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     return { ok: true }
   }
 
-  const startTrip = async operator => {
+  const beginPickup = async operator => {
     if (!isShiftActive.value) return { ok: false, reason: 'Go Online before starting a Trip.' }
     if (isTripActive.value) return { ok: false, reason: 'A Trip is already active.' }
     const selected = operators.includes(operator) ? operator : defaultOperator.value
-    const result = await WorkService.startTrip({ shiftId: shift.value.id, operator: selected })
+    const result = await WorkService.startTrip({ shiftId: shift.value.id, operator: selected, tripStage: 'PICKUP' })
     if (result?.ok === false) return result
     const record = result
     trip.value = record
@@ -89,6 +89,18 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     await loadEntityLocations('TRIP', record.id)
     return { ok: true, trip: record }
   }
+
+  const startRide = async () => {
+    if (!isTripActive.value) return { ok: false, reason: 'Go to pickup before starting the ride.' }
+    const tripId = trip.value.id
+    const ok = await WorkService.startRide({ id: tripId })
+    if (!ok) return { ok: false, reason: 'Ride could not be started.' }
+    await refresh()
+    await loadEntityLocations('TRIP', tripId)
+    return { ok: true, trip: trip.value }
+  }
+
+  const startTrip = beginPickup
 
   const endTrip = async () => {
     if (!isTripActive.value) return false
@@ -131,5 +143,5 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     return result
   }
 
-  return { shift, trip, registeredTrips, completedTrips, lifecycleLocations, tripLocations, operators, defaultOperator, lastKnownOdometer, businessStartBaseline, firstKfeDay, startOdometer, isShiftActive, isTripActive, isOnline, isFinancialDayActive, headerShiftStatus, headerTripStatus, initialize, refresh, calculateGap, startShift, startTrip, endTrip, cancelTrip, updateTrip, endShift }
+  return { shift, trip, registeredTrips, completedTrips, lifecycleLocations, tripLocations, operators, defaultOperator, lastKnownOdometer, businessStartBaseline, firstKfeDay, startOdometer, isShiftActive, isTripActive, isOnline, isFinancialDayActive, headerShiftStatus, headerTripStatus, initialize, refresh, calculateGap, startShift, beginPickup, startRide, startTrip, endTrip, cancelTrip, updateTrip, endShift }
 })

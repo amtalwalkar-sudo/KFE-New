@@ -7,6 +7,7 @@ on:
 permissions:
   contents: read
   issues: write
+  pull-requests: read
 
 concurrency:
   group: kfe-apk-on-request
@@ -15,16 +16,29 @@ concurrency:
 jobs:
   build-apk:
     if: >-
-      github.event.issue.pull_request == null &&
       github.event.comment.body == '/build-apk' &&
       github.event.comment.user.login == 'amtalwalkar-sudo'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout main
+      - name: Resolve build revision
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          if [ "${{ github.event.issue.pull_request != null }}" = "true" ]; then
+            REF="$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)"
+          else
+            REF="main"
+          fi
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+          echo "Resolved APK build revision: $REF"
+
+      - name: Checkout requested revision
         uses: actions/checkout@v5
         with:
-          ref: main
+          ref: ${{ steps.resolve.outputs.ref }}
 
       - name: Setup Java 21
         uses: actions/setup-java@v5

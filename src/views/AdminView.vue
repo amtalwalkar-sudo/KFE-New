@@ -10,6 +10,7 @@ import { PerformanceService } from '../application/performance/performanceServic
 import { getKfeReferenceNow, istDateKey } from '../domain/time/ist.js'
 import { deriveLoanPosition, calculatePrepaymentEstimate, paymentAllocationPreview } from '../domain/finance/loanEngine.js'
 import { getKfeThemeSettings, setKfeThemeMode } from '../presentation/theme/kfeThemeController.js'
+import { KfeRideNotificationService } from '../infrastructure/android/kfeRideNotificationService.js'
 
 const items=[
  {key:'vehicle',category:'BUSINESS SETUP',title:'Vehicle',icon:'🚗'},
@@ -32,6 +33,7 @@ const prepaymentDraft=ref({loanId:'',paidOn:istDateKey(getKfeReferenceNow()),amo
 const targetDraft=ref({driverId:'',month:istDateKey(getKfeReferenceNow()).slice(0,7),desiredDriverProfit:0,targetHours:'',targetKm:''})
 const maintenanceRateDraft=ref({rate:'',changeDate:istDateKey(getKfeReferenceNow())})
 const themeSettings=ref(getKfeThemeSettings())
+const notificationsEnabled=ref(KfeRideNotificationService.notificationsEnabled())
 const money=v=>Number.isFinite(Number(v))?'₹'+Number(v).toLocaleString('en-IN',{maximumFractionDigits:2}):'—'
 const clone=v=>structuredClone(toRaw(v))
 const live=xs=>(xs||[]).filter(x=>!x?.deletedAt&&!x?.deleted)
@@ -133,6 +135,7 @@ function back(){selected.value=null;settingsOpen.value=false;formOpen.value=fals
 function openSettings(){clearMessages();selected.value=null;settingsOpen.value=true}
 function chooseSetting(key){settingsSelected.value=key;clearMessages()}
 function chooseTheme(mode){themeSettings.value={...themeSettings.value,mode};setKfeThemeMode(mode);notice.value='Theme set to '+(mode==='light'?'Light':mode==='dark'?'Dark':'Auto')+'.'}
+function chooseNotifications(enabled){notificationsEnabled.value=KfeRideNotificationService.setNotificationsEnabled(enabled);notice.value='Notifications '+(enabled?'enabled':'disabled')+'.'}
 function add(){editing.value=null;draft.value={};formOpen.value=true}
 function edit(record){editing.value=record.id;draft.value=clone(record.values||{});formOpen.value=true}
 function updateDraft(v){draft.value={...v}}
@@ -209,7 +212,7 @@ onMounted(load)
 </template>
 
 <template v-else-if="settingsOpen">
-<section class="settings-screen"><div class="settings-menu"><button v-for="item in settingsMenu" :key="item.key" class="settings-item" :class="{active:settingsSelected===item.key}" @click="chooseSetting(item.key)"><span>{{item.icon}}</span><strong>{{item.title}}</strong><span>›</span></button></div><section v-if="settingsSelected==='backup'" class="settings-panel"><h2>Backup &amp; Restore</h2><BackupRestorePanel/></section><section v-else-if="settingsSelected==='application'" class="settings-panel"><h2>Application Settings</h2><div class="theme-selector"><button :class="{active:themeSettings.mode==='light'}" @click="chooseTheme('light')">☀ Light</button><button :class="{active:themeSettings.mode==='dark'}" @click="chooseTheme('dark')">☾ Dark</button><button :class="{active:themeSettings.mode==='auto'}" @click="chooseTheme('auto')">◐ Auto</button></div></section><section v-else-if="settingsSelected==='synthetic'" class="settings-panel"><h2>Synthetic Data</h2><SyntheticDataPanel/></section><section v-else class="settings-panel"><h2>Data Reset</h2><p>This permanently clears canonical KFE business records.</p><button class="danger-button" :disabled="loading" @click="resetData">Reset all data</button></section></section>
+<section class="settings-screen"><div class="settings-menu"><button v-for="item in settingsMenu" :key="item.key" class="settings-item" :class="{active:settingsSelected===item.key}" @click="chooseSetting(item.key)"><span>{{item.icon}}</span><strong>{{item.title}}</strong><span>›</span></button></div><section v-if="settingsSelected==='backup'" class="settings-panel"><h2>Backup &amp; Restore</h2><BackupRestorePanel/></section><section v-else-if="settingsSelected==='application'" class="settings-panel"><h2>Application Settings</h2><div class="theme-selector"><button :class="{active:themeSettings.mode==='light'}" @click="chooseTheme('light')">☀ Light</button><button :class="{active:themeSettings.mode==='dark'}" @click="chooseTheme('dark')">☾ Dark</button><button :class="{active:themeSettings.mode==='auto'}" @click="chooseTheme('auto')">◐ Auto</button></div><div class="settings-option-row"><div><strong>Notifications</strong><small>Control KFE ride and system action notifications.</small></div><button class="settings-toggle" :class="{active:notificationsEnabled}" type="button" role="switch" :aria-checked="notificationsEnabled" @click="chooseNotifications(!notificationsEnabled)">{{notificationsEnabled?'ON':'OFF'}}</button></div></section><section v-else-if="settingsSelected==='synthetic'" class="settings-panel"><h2>Synthetic Data</h2><SyntheticDataPanel/></section><section v-else class="settings-panel"><h2>Data Reset</h2><p>This permanently clears canonical KFE business records.</p><button class="danger-button" :disabled="loading" @click="resetData">Reset all data</button></section></section>
 </template>
 
 <template v-else>
