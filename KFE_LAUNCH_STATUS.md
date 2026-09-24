@@ -4,7 +4,7 @@
 
 ## Active phase
 
-**PHASE 3 — BUSINESS RULES RE-AUDIT**
+**PHASE 4 — REAL-WORLD OPERATIONAL AUDIT**
 
 Status: **ACTIVE**
 
@@ -15,8 +15,8 @@ Status: **ACTIVE**
 | 0 — Roadmap Control | **COMPLETE / CLOSED** |
 | 1 — Business Rules Audit | **COMPLETE / CLOSED** |
 | 2 — Fix Business-Rule Defects | **COMPLETE / CLOSED** |
-| 3 — Business Rules Re-Audit | **ACTIVE** |
-| 4 — Real-World Operational Audit | LOCKED / PENDING |
+| 3 — Business Rules Re-Audit | **COMPLETE / CLOSED** |
+| 4 — Real-World Operational Audit | **ACTIVE** |
 | 5 — Fix Operational Defects | LOCKED / PENDING |
 | 6 — Operational Re-Audit | LOCKED / PENDING |
 | 7 — Data / Recovery Gate | LOCKED / PENDING |
@@ -114,9 +114,9 @@ After implementation:
 
 ## Current gate
 
-**Business Rules Re-Audit Gate**
+**Real-World Operational Audit Gate**
 
-Phase 3 is **ACTIVE**. Phase 2 is closed after the dedicated implementation/test gate passed.
+Phase 4 is **ACTIVE**. Phase 3 is closed after the BR-01 re-audit passed.
 
 ## Current repository baseline
 
@@ -173,3 +173,15 @@ Phase 2 five-defect implementation was merged to main as **PR #96**, merge commi
 - Phase 2: **COMPLETE / CLOSED**.
 - Phase 3 — Business Rules Re-Audit: **ACTIVE**.
 - Re-audit evidence is recorded in `KFE_BUSINESS_RULES_REAUDIT_PHASE3.md`.
+
+
+## Phase 3 exit / Phase 4 entry — 2026-09-24
+
+Phase 3 Business Rules Re-Audit is **COMPLETE / CLOSED** for the audited BR-01 Batch 1 defect set.
+
+- Re-audit record: `KFE_BUSINESS_RULES_REAUDIT_PHASE3.md`
+- BR-01 result: **CLEAN**
+- Phase 3 confirms BRD-002, BRD-005, BRD-007, BRD-008 and BRD-009 as corrected against the authoritative register.
+- Phase 4 — Real-World Operational Audit is now **ACTIVE**.
+
+Phase 4 must test actual driver/device operation across the master-plan scenario groups before any operational defect-fix phase is opened.
