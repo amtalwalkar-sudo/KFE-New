@@ -39,7 +39,7 @@ This is the consolidated defect ledger for business-rule audit findings.
 
 ### Evidence boundary
 
-These are **source-definition defects confirmed by the deterministic Batch 1 audit**. They do not yet prove every downstream storage/calculation/display consequence is broken. That downstream evidence remains part of BR-01 before the batch can close.
+These are **source-definition defects confirmed by the deterministic Batch 1 audit**. The downstream storage/calculation/derived/display/reconciliation review is now complete; BRD-005 through BRD-007 record the confirmed downstream consequences. The complete BR-01 defect set is BRD-001 through BRD-007.
 
 The following existing source definitions were detected and therefore are not currently source-definition gaps:
 
@@ -60,7 +60,7 @@ These are pre-audit leads retained for later validation.
 | BRD-CAND-002 | Android overlay | END → fare uses a pending-action path that may lose the END command if process interruption occurs between completion and fare entry | OPEN — candidate |
 | BRD-CAND-003 | Android release gate | Current Android CI smoke gate may not exercise the full Golden Ride Gate required for release verification | OPEN — candidate / gate evidence |
 | BRD-CAND-004 | Release documentation | Android release-gate wording may contain stale cancellation semantics relative to the canonical rule that cancellation is available only during pickup | OPEN — candidate |
-| BRD-CAND-005 | Test infrastructure | Contract runner may register the synthetic isolation contract twice | OPEN — candidate / cleanliness |
+| BRD-CAND-005 | Test infrastructure | Contract runner may register the synthetic isolation contract twice | RESOLVED during Phase 0 |
 | BRD-CAND-006 | Deployment evidence | Latest-main CI/deployed runtime evidence requires explicit re-verification before any release-readiness claim | OPEN — evidence gap |
 
 These entries must be validated against the current repository before being treated as confirmed defects.
