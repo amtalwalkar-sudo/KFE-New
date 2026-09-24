@@ -37,6 +37,10 @@ Status: **ACTIVE**
 - [x] Business-rule register control established
 - [x] Business-rule audit control established
 - [x] Business-rule defect control established
+- [x] Legacy roadmap contradiction audit completed on Phase 0 branch
+- [x] Legacy development-phase roadmap removed from active repository path
+- [x] Legacy phase freeze records explicitly marked historical/non-authoritative
+- [x] Android release gate reconciled with current launch roadmap and cancellation rule
 - [ ] Phase 0 merged to main
 - [ ] Phase 0 exit verification completed
 
