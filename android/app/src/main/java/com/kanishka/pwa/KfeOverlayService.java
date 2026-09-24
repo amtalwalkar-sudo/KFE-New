@@ -102,6 +102,7 @@ public class KfeOverlayService extends Service {
       if(formMode!=null){
         if(("ENTER_FARE".equals(actionStage)&&!"FARE".equals(formMode))||("CANCEL_RIDE".equals(actionStage)&&!"CANCEL".equals(formMode)))closeForm();
       }
+      if(formMode==null && "ENTER_FARE".equals(actionStage)) openFareForm();
       overlay.invalidate();
     }catch(Exception ignored){actionStage="GO_TO_PICKUP";overlay.invalidate();}
   }
