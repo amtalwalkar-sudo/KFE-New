@@ -63,7 +63,7 @@ jobs:
           cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/android-golden/app-debug.apk
           sha256sum artifacts/android-golden/app-debug.apk | tee artifacts/android-golden/apk.sha256
 
-      - name: Golden Android Ride Gate
+      - name: Android Exact APK Smoke Gate
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
@@ -80,7 +80,7 @@ jobs:
           disable-animations: true
           enable-hw-keyboard: false
           script: |
-            cd "$GITHUB_WORKSPACE/android" && ./gradlew :app:assembleDebugAndroidTest && for i in $(seq 1 90); do if adb shell service check package 2>/dev/null | grep -q "found"; then break; fi; sleep 2; done && adb shell service check package 2>/dev/null | grep -q "found" && adb install -r "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk" && adb install -r "$GITHUB_WORKSPACE/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk" && adb shell appops set com.kanishka.pwa android:system_alert_window allow && (adb shell appops set com.kanishka.pwa android:camera allow || true) && adb shell am force-stop com.kanishka.pwa && adb shell am instrument -w -r -e class com.kanishka.pwa.KfeOverlayGoldenRideTest com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner && sha256sum "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
+            cd "$GITHUB_WORKSPACE/android" && ./gradlew :app:assembleDebugAndroidTest && for i in $(seq 1 90); do if adb shell service check package 2>/dev/null | grep -q "found"; then break; fi; sleep 2; done && adb shell service check package 2>/dev/null | grep -q "found" && adb install -r "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk" && adb install -r "$GITHUB_WORKSPACE/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk" && adb shell appops set com.kanishka.pwa android:system_alert_window allow && (adb shell appops set com.kanishka.pwa android:camera allow || true) && adb shell am force-stop com.kanishka.pwa && adb shell am instrument -w -r -e class com.kanishka.pwa.KfeOverlaySmokeTest com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner && sha256sum "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
 
       - name: Upload tested Android Debug APK
         uses: actions/upload-artifact@v4
