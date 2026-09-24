@@ -615,3 +615,82 @@ Providers are replaceable infrastructure adapters.
 > **One business fact → one authoritative source.**
 
 > **Actuals drive actual performance; provisions drive planning.**
+
+
+## BR-11 — Toll / Parking Revenue Treatment and Monthly Toll Ledger — FROZEN AUTHORITATIVE RULE
+
+**Status: FROZEN / AUTHORITATIVE — approved 25 09 2026.**
+
+This rule is the sole authoritative definition of how toll and parking interact with customer-paid fare, financial revenue, operating profit, and the monthly toll ledger.
+
+### BR-11.1 — Customer-paid total and treatment
+
+- Shift-end revenue remains the authoritative **customer-paid total** for the shift.
+- Completed-trip fare entries are optional supporting detail. A trip does not require a fare entry to continue to the next trip or to end the shift.
+- When toll/parking treatment is **INCLUDED**, the entered fare/revenue amount is the total paid by the customer, including the entered toll/parking amount.
+- When toll/parking treatment is **EXCLUDED**, the entered fare/revenue amount excludes the toll/parking amount that the driver/business paid separately.
+- Toll and parking remain actual expense records in either treatment.
+
+### BR-11.2 — Financial revenue formula
+
+For financial reporting, the customer-paid total is converted to revenue attributable to the business as follows:
+
+**INCLUDED:** Financial Revenue = Customer-paid Total − Included Toll − Included Parking.
+
+**EXCLUDED:** Financial Revenue = Customer-paid Total.
+
+Included toll/parking are pass-through amounts already removed from financial revenue and therefore MUST NOT be deducted a second time as operating expenses in the profit calculation.
+
+Excluded toll/parking remain actual operating expenses and MUST be deducted from financial revenue in operating-profit calculation.
+
+Therefore, for a shift:
+
+**Operating Profit = Financial Revenue − non-pass-through actual operating costs − EXCLUDED Toll − EXCLUDED Parking.**
+
+The same treatment must be preserved across daily, monthly, historical, Timeline, Performance, and cross-surface calculations.
+
+### BR-11.3 — Toll / parking actual-expense record
+
+Whenever toll or parking is entered:
+
+- retain an individual actual expense record;
+- retain its amount;
+- retain its date/time;
+- retain shift/trip association where applicable;
+- retain the Included/Excluded treatment needed to calculate financial revenue and profit without double counting.
+
+No entered actual toll/parking amount may disappear merely because it is Included in fare.
+
+### BR-11.4 — Monthly toll ledger
+
+KFE MUST provide a separate monthly toll ledger containing only the required toll-ledger facts:
+
+- individual toll record;
+- date/time;
+- shift/trip association where applicable;
+- amount;
+- actual expense amount;
+- monthly aggregation;
+- historical/month-boundary behavior;
+- no double counting.
+
+The monthly ledger is an expense ledger, not a second revenue authority.
+
+### BR-11.5 — Authority and reconciliation
+
+- `shifts.revenue` remains the authoritative customer-paid shift total.
+- The canonical financial calculation derives Financial Revenue from the authoritative shift total and the shift's toll/parking treatment.
+- Trip fare detail may reconcile to the customer-paid shift total when complete, but it does not replace shift-end revenue authority.
+- Missing optional trip fare detail produces an unavailable reconciliation result; it MUST NOT become a shift-end gate.
+- Cancellation remains a separate lifecycle; cancelled-trip revenue is supporting-only and is not completed-trip revenue.
+- Included toll/parking MUST NOT be double-counted.
+- Excluded toll/parking MUST remain actual expenses and MUST be counted once.
+
+### BR-11.6 — Frozen examples
+
+- Customer-paid total ₹500, Included toll ₹50, no parking → Financial Revenue ₹450.
+- Customer-paid total ₹500, Excluded toll ₹50, no parking → Financial Revenue ₹500 and ₹50 actual toll expense.
+- Included toll ₹50 must not be subtracted again from operating costs after it has already been removed from Financial Revenue.
+- Excluded toll ₹50 is subtracted once as an actual expense.
+
+This rule is frozen. Any change to its meaning requires an explicit governed amendment to this register before implementation.
