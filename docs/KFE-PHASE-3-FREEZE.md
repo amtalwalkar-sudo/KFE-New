@@ -1,3 +1,7 @@
+> **HISTORICAL FREEZE RECORD — NOT ACTIVE ROADMAP STATUS**
+>
+> The authoritative current launch roadmap is `KFE_LAUNCH_MASTER_PLAN.md`. The current active phase is controlled by `KFE_LAUNCH_STATUS.md`. This file preserves historical phase evidence only; its phase status and sequencing statements must not override the current launch plan.
+
 # KFE Phase 3 Freeze
 
 **Phase:** 3 — Ride Capture & Ingestion  
