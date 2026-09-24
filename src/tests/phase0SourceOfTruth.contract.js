@@ -39,7 +39,7 @@ if (!failures.length) {
   const status = read('KFE_LAUNCH_STATUS.md')
   const phase0Open = /\*\*PHASE 0 — ROADMAP CONTROL\*\*/.test(status)
   const phase0Closed = /Phase 0 is \*\*CLOSED\*\*/i.test(status)
-  const phase1Active = /\*\*PHASE 1 — BUSINESS RULES AUDIT\*\*/.test(status) && /Phase 1 is \*\*UNLOCKED\*\* and active/i.test(status)
+  const phase1Active = /\*\*PHASE 1 — BUSINESS RULES AUDIT\*\*/.test(status) && (\n    /Phase 1 is \*\*UNLOCKED\*\* and active/i.test(status) ||\n    /\| 1 — Business Rules Audit \| \*\*ACTIVE\*\*/i.test(status)\n  )
   if (!phase0Open && !(phase0Closed && phase1Active)) failures.push('status does not show either the active Phase 0 state or the verified Phase 0-closed / Phase 1-active state')
   requireMatch('KFE_BUSINESS_RULES_REGISTER.md', /AUTHORITATIVE — SOLE BUSINESS-RULE AUTHORITY/, 'business-rule register is not marked sole authority')
   requireMatch('KFE_BUSINESS_RULES_AUDIT.md', /KFE_BUSINESS_RULES_REGISTER\.md/, 'business-rule audit is not bound to the register')
