@@ -4,7 +4,7 @@
 
 ## Active phase
 
-**PHASE 2 — FIX BUSINESS-RULE DEFECTS**
+**PHASE 3 — BUSINESS RULES RE-AUDIT**
 
 Status: **ACTIVE**
 
@@ -14,8 +14,8 @@ Status: **ACTIVE**
 |---|---|
 | 0 — Roadmap Control | **COMPLETE / CLOSED** |
 | 1 — Business Rules Audit | **COMPLETE / CLOSED** |
-| 2 — Fix Business-Rule Defects | **ACTIVE** |
-| 3 — Business Rules Re-Audit | LOCKED / PENDING |
+| 2 — Fix Business-Rule Defects | **COMPLETE / CLOSED** |
+| 3 — Business Rules Re-Audit | **ACTIVE** |
 | 4 — Real-World Operational Audit | LOCKED / PENDING |
 | 5 — Fix Operational Defects | LOCKED / PENDING |
 | 6 — Operational Re-Audit | LOCKED / PENDING |
@@ -114,9 +114,9 @@ After implementation:
 
 ## Current gate
 
-**Business Rule Defect Implementation Gate**
+**Business Rules Re-Audit Gate**
 
-Phase 2 is **UNLOCKED** and active.
+Phase 3 is **ACTIVE**. Phase 2 is closed after the dedicated implementation/test gate passed.
 
 ## Current repository baseline
 
@@ -161,3 +161,15 @@ The Business Foundation audit was completed, the confirmed defect set was record
 **Phase 2 is now UNLOCKED and ACTIVE.**
 
 Phase 3 remains locked until Phase 2 implementation and its test gate are clean.
+
+
+## Phase 2 exit / Phase 3 entry — 2026-09-24
+
+Phase 2 five-defect implementation was merged to main as **PR #96**, merge commit **749cf8d1d9ffddac32bc68f439a8a8eb36b67b17**.
+
+- KFE 2.0 CI #1590: **SUCCESS** on the Phase 2 implementation head.
+- The IST calendar-date correction for Business Start Date was included in the merged branch.
+- The dedicated Phase 2 contract suite passed in CI #1590.
+- Phase 2: **COMPLETE / CLOSED**.
+- Phase 3 — Business Rules Re-Audit: **ACTIVE**.
+- Re-audit evidence is recorded in `KFE_BUSINESS_RULES_REAUDIT_PHASE3.md`.
