@@ -1,4 +1,4 @@
-import { initializeCanonicalStorage, notifyCanonicalDataChanged } from '../utils/indexedDB.js'
+import { initializeCanonicalStorage, getActiveDataSource, notifyCanonicalDataChanged } from '../utils/indexedDB.js'
 import { generateUUID } from '../utils/uuid.js'
 import { writeMutationAndAudit } from './mutationRepository.js'
 import { getAdminFormDefinition } from '../application/admin/adminFormDefinitions.js'
@@ -103,7 +103,7 @@ export const AdminRepository = {
       const stores = [storeName, 'pending_mutations', 'audit_history']
       const tx = db.transaction(stores, 'readwrite')
       try { tx.objectStore(storeName).put(record); writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: record.id, entityType: formKey, action, payload: record, createdAt: now }) } catch (error) { try { tx.abort() } catch (_) {}; reject(error); return }
-      tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: [storeName], reason: `admin:${action}` }); resolve(toFormRecord(formKey, record)) }; tx.onerror = () => reject(tx.error || new Error(`Failed to save ${formKey}.`)); tx.onabort = () => reject(tx.error || new Error(`Save ${formKey} aborted.`))
+      tx.oncomplete = () => { if (getActiveDataSource() === 'canonical') notifyCanonicalDataChanged({ stores: [storeName], reason: `admin:${action}` }); resolve(toFormRecord(formKey, record)) }; tx.onerror = () => reject(tx.error || new Error(`Failed to save ${formKey}.`)); tx.onabort = () => reject(tx.error || new Error(`Save ${formKey} aborted.`))
     })
   },
   async correctLoan(values, correctionReason, existingId) {
@@ -124,7 +124,7 @@ export const AdminRepository = {
     return new Promise((resolve, reject) => {
       const tx = db.transaction([storeName, 'pending_mutations', 'audit_history'], 'readwrite')
       try { tx.objectStore(storeName).put(record); writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: record.id, entityType: 'loan', action: 'CORRECTION', payload: { ...record, correctionReason: String(correctionReason).trim(), correctedFields: changed }, createdAt: now }) } catch (error) { try { tx.abort() } catch (_) {}; reject(error); return }
-      tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: [storeName], reason: 'admin:CORRECTION' }); resolve(toFormRecord('loan', record)) }; tx.onerror = () => reject(tx.error || new Error('Failed to correct loan.')); tx.onabort = () => reject(tx.error || new Error('Loan correction aborted.'))
+      tx.oncomplete = () => { if (getActiveDataSource() === 'canonical') notifyCanonicalDataChanged({ stores: [storeName], reason: 'admin:CORRECTION' }); resolve(toFormRecord('loan', record)) }; tx.onerror = () => reject(tx.error || new Error('Failed to correct loan.')); tx.onabort = () => reject(tx.error || new Error('Loan correction aborted.'))
     })
   },
   async remove(formKey, id) {
@@ -134,7 +134,7 @@ export const AdminRepository = {
       const tx = db.transaction([storeName, 'pending_mutations', 'audit_history'], 'readwrite'); const store = tx.objectStore(storeName); const request = store.get(id)
       request.onsuccess = () => { const record = request.result; if (!record) { try { tx.abort() } catch (_) {}; reject(new Error(`Cannot delete missing ${formKey} record.`)); return }; record.deletedAt = now; record.updatedAt = now; record.deleted = true; store.put(record); writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: id, entityType: formKey, action: 'DELETE', payload: { id, formKey, deletedAt: now }, createdAt: now }) }
       request.onerror = () => { try { tx.abort() } catch (_) {}; reject(request.error || new Error(`Failed to read ${formKey} for deletion.`)) }
-      tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: [storeName], reason: 'admin:DELETE' }); resolve(true) }; tx.onerror = () => reject(tx.error || new Error(`Failed to delete ${formKey}.`)); tx.onabort = () => reject(tx.error || new Error(`Delete ${formKey} aborted.`))
+      tx.oncomplete = () => { if (getActiveDataSource() === 'canonical') notifyCanonicalDataChanged({ stores: [storeName], reason: 'admin:DELETE' }); resolve(true) }; tx.onerror = () => reject(tx.error || new Error(`Failed to delete ${formKey}.`)); tx.onabort = () => reject(tx.error || new Error(`Delete ${formKey} aborted.`))
     })
   },
 }
