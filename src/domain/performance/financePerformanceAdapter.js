@@ -1,16 +1,14 @@
 import { derivePerformance as deriveOperationalPerformance, previousRange as derivePreviousRange } from './performanceEngineV2.js'
 import { CALCULATION_STATUS } from './calculationAuthority.js'
 import { deriveAuthoritativeBreakEven } from './authoritativeBreakEven.js'
-import { deriveLoanPosition, calculatePreBusinessRecovery } from '../finance/loanEngine.js'
+import { deriveLoanPosition, calculatePreBusinessLoanRecovery } from '../finance/loanEngine.js'
+import { calculateHistoricalMaintenanceRecovery } from './performanceEngineV2.js'
 import { istMonthRange } from '../time/ist.js'
 
 const live = records => (records || []).filter(record => !record?.deletedAt && record?.deleted !== true)
 const dateOf = value => { const date = value ? new Date(value) : null; return date && !Number.isNaN(date.getTime()) ? date : null }
 const money = value => Number.isFinite(Number(value)) ? Number(value) : 0
-const businessStartDate = snapshot => {
-  const vehicles = live(snapshot?.vehicles).map(vehicle => dateOf(vehicle.acquiredOn)).filter(Boolean).sort((a, b) => a - b)
-  return vehicles[0] || null
-}
+const businessStartDate = snapshot => dateOf(snapshot?.businessSetup?.businessStartDate)
 const asOf = range => dateOf(range?.to) || new Date()
 const inRange = (value, range) => { const date = dateOf(value); return !!date && date >= range.from && date <= range.to }
 
@@ -42,8 +40,9 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
     ? deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: previousAsOf })
     : null
   const businessStart = businessStartDate(snapshot)
+  const historicalMaintenanceRecovery = calculateHistoricalMaintenanceRecovery({ vehicles: snapshot?.vehicles || [], businessStartDate: businessStart, asOf: currentAsOf })
   const preBusinessRecoveryMonthly = finance
-    ? calculatePreBusinessRecovery({ position: finance, businessStartDate: businessStart, asOf: currentAsOf })
+    ? calculatePreBusinessLoanRecovery({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, businessStartDate: businessStart, asOf: currentAsOf })
     : 0
   const currentScheduledEmi = finance?.schedule
     ? finance.schedule.filter(row => inRange(row.dueDate, range)).reduce((sum, row) => sum + money(row.originalEmiAmount), 0)
@@ -67,12 +66,13 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
       .reduce((sum, row) => sum + money(row.originalEmiAmount), 0)
     : 0
   const monthPreBusinessRecovery = monthFinance
-    ? calculatePreBusinessRecovery({ position: monthFinance, businessStartDate: businessStart, asOf: monthAsOf })
+    ? calculatePreBusinessLoanRecovery({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, businessStartDate: businessStart, asOf: monthAsOf })
     : 0
+  const monthHistoricalMaintenanceRecovery = calculateHistoricalMaintenanceRecovery({ vehicles: snapshot?.vehicles || [], businessStartDate: businessStart, asOf: monthAsOf })
   const breakEven = deriveAuthoritativeBreakEven({
     breakEvenInputs: snapshot?.breakEvenInputs || [],
     range: breakEvenMonthRange,
-    loanScheduledObligation: monthScheduledEmi + monthPreBusinessRecovery,
+    loanScheduledObligation: monthScheduledEmi + monthPreBusinessRecovery + monthHistoricalMaintenanceRecovery,
     renewalProvision: monthlyBase.renewalProvision,
     fuelCostPerKm: monthlyBase.breakEvenInputs?.fuelCostPerKm ?? monthlyBase.fuelCostPerKm,
     fuelCostPerKmStatus: monthlyBase.breakEvenInputs?.fuelEvidence?.status || CALCULATION_STATUS.UNAVAILABLE,
@@ -112,6 +112,7 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
     availableCash,
     cashSurplusAfterFinancing: availableCash,
     maintenanceProvision: authoritativeMaintenanceProvision,
+    historicalMaintenanceRecoveryMonthly: historicalMaintenanceRecovery,
     provisionRequired,
     provisionSetAside: provisionRequired,
     loanProvisionForPeriod,
@@ -136,6 +137,7 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
       reason: finance?.available ? null : loanUnavailableReason,
       annualInterestRatePercent: finance?.annualInterestRatePercent ?? null,
       preBusinessRecoveryMonthly,
+      historicalMaintenanceRecoveryMonthly: historicalMaintenanceRecovery,
       businessStartDate: businessStart?.toISOString() || null,
       previousOutstandingPrincipal: previousFinance?.available ? previousFinance.outstandingPrincipal : null,
       overdueAmount: finance?.totalOverdue ?? 0,
