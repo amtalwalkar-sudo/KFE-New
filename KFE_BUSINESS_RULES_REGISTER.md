@@ -242,6 +242,149 @@ The substantive rules formerly held in the competing docs/KFE-BUSINESS-RULES.md 
 - A proposed change that conflicts with an accepted/frozen rule requires `🔴 DESIGN DRIFT / CONFLICT WARNING` before implementation.
 - Nothing becomes frozen merely because it is documented; explicit approval is required for new major decisions.
 
+## BR-01 — Business Foundation — Complete Authoritative Specification
+
+**Status: AUTHORITATIVE — approved business meaning for BR-01.**
+
+This section is the complete operational definition of the Business Foundation rules. Where an older/general statement in this register is less specific, this BR-01 specification controls.
+
+### BR-01.1 — Source of business facts
+
+- Admin enters authoritative business/master facts through the defined Admin input paths.
+- Driver enters authoritative operational facts through the defined Driver input paths.
+- KFE calculates derived values from those authoritative facts.
+- A derived value must not become a second user-entered source of truth.
+- One business fact has one authoritative source and one canonical calculation path.
+
+### BR-01.2 — Business Start Date
+
+- **Business Start Date is an independent authoritative Admin-entered date.**
+- It is **not derived from vehicle acquisition date**.
+- Vehicle acquisition date remains the vehicle's own historical fact.
+- Historical records retain their own actual/effective/origin dates.
+- A record or obligation whose relevant origin/effective date is before Business Start Date receives the applicable pre-business treatment.
+- Payment date does not change the original obligation's pre-business classification.
+
+**Classification:**
+
+- origin/effective date before Business Start Date → pre-business treatment where applicable.
+- origin/effective date on/after Business Start Date → normal business-period treatment.
+
+**Example:** A loan obligation originating before 1 May remains a pre-business recovery obligation even if its payment is made on 10 May. The 10 May payment remains an actual cash-flow event.
+
+### BR-01.3 — Opening vehicle state
+
+- Admin-entered **Opening Odometer (km)** is authoritative.
+- The opening odometer represents the vehicle's opening business state.
+- Vehicle acquisition date must not substitute for Business Start Date or opening odometer.
+- Historical maintenance burden is derived from the opening business-day odometer; no separate historical-maintenance-amount input is required.
+
+### BR-01.4 — Historical maintenance / repairs
+
+Historical maintenance and repairs are one pre-business maintenance category.
+
+**Authoritative inputs:**
+- Opening business-day vehicle odometer.
+- Historical maintenance rate configured by Admin.
+
+**Frozen historical maintenance rate:** **₹0.40/km**.
+
+**Formula:**
+
+Historical maintenance burden = Opening business-day odometer (km) × ₹0.40/km
+
+**Recovery period:** **12 months**.
+
+**Recovery start:** **Business Start Date**.
+
+**Recovery timing:** date-to-date, **mid-month to mid-month**. No calendar-month proration is introduced merely because Business Start Date falls during a calendar month.
+
+**Example:** If Business Start Date is 15 May 2026, the 12 recovery periods run from 15 May→14 June, 15 June→14 July, and so on, with the final period ending 14 May 2027.
+
+**Recovery-period amount:**
+
+Historical maintenance burden ÷ 12
+
+Example for 65,000 km:
+
+65,000 × ₹0.40 = ₹26,000 total historical burden
+
+₹26,000 ÷ 12 = ₹2,166.67 per recovery period
+
+**Explicit exclusions:**
+- Vehicle purchase/acquisition value is excluded from historical maintenance recovery.
+- No separate manual historical-maintenance amount is entered.
+
+### BR-01.5 — Current/predictive maintenance provision
+
+Historical maintenance recovery and current/predictive maintenance provision are separate concepts.
+
+**Frozen predictive maintenance provision rate:** **₹1.60/km**.
+
+**Formula:**
+
+Maintenance provision = applicable vehicle KM × ₹1.60/km
+
+Actual maintenance invoices remain actual costs and are not replaced by the provision.
+
+### BR-01.6 — Pre-business loan obligation
+
+- Loan balance and unpaid/pre-activation EMI belong to the same **pre-business loan obligation category**.
+- Classification is based on the obligation's origin, not the date of payment.
+- A qualifying pre-business loan burden is recovered over **12 months from Business Start Date**.
+- Recovery is date-to-date, mid-month to mid-month, using the same 12-month boundary rule defined in BR-01.4.
+- Actual payments remain actual cash-flow events and must not be double-counted as a second current-period cost merely because the underlying obligation is being recovered.
+
+**Recovery formula:**
+
+Qualifying pre-business loan burden ÷ 12
+
+The qualifying amount must come from the authoritative loan facts; KFE must not invent unsupported amounts.
+
+### BR-01.7 — Opening balances / starting values
+
+- Opening financial/business values are based on the authoritative Admin-entered facts and records already defined for the relevant business concept.
+- KFE must not create a parallel generic opening-balance source where an authoritative underlying record already represents the fact.
+- Each opening value/record retains its own effective/origin date.
+- Where that date is before Business Start Date, the applicable pre-business recovery rule applies.
+- Vehicle purchase/acquisition value is not included in historical maintenance recovery.
+
+### BR-01.8 — Pre-business cost scope
+
+For the current authoritative rule, the supported pre-business recovery categories are:
+
+1. **Historical maintenance / repairs** — derived using the opening business-day odometer × ₹0.40/km.
+2. **Loan balance / unpaid EMI** — based on the authoritative pre-business loan obligation.
+
+No additional setup-cost category is currently assumed or calculated.
+
+The architecture may support a future category only after an explicit business rule and authoritative input are approved.
+
+### BR-01.9 — Recovery accounting treatment
+
+- Pre-business recovery is a derived recovery burden; it is not an invented historical cash transaction.
+- Recovery starts on Business Start Date and runs for exactly **12 months date-to-date**.
+- A qualifying recovery amount is divided into **12 equal recovery periods**.
+- Actual payments remain actual payments and retain their actual payment dates.
+- A pre-business recovery must not be double-counted as an ordinary current-period actual operating expense.
+
+### BR-01.10 — Actuals versus provisions/recovery
+
+- **Actuals** drive actual performance: actual revenue, fuel, toll, parking, maintenance and actual financing cash payments.
+- **Provisions/recovery** drive planning/recovery: predictive maintenance provision and pre-business recovery.
+- A calculated provision or recovery amount is not an actual expense/payment unless an actual transaction is separately recorded.
+
+### BR-01.11 — Unsupported categories
+
+- KFE must not invent an amount for an unsupported business-cost category.
+- A new category becomes authoritative only after its input, calculation, timing and treatment are explicitly approved and added to this register.
+
+### BR-01.12 — Business-foundation calculation authority
+
+**Admin/Driver enter facts → KFE calculates derived values → canonical persistence/read models expose the result → all PWA/overlay/reporting surfaces consume the same result.**
+
+No parallel business calculation may contradict this rule set.
+
 ## 2. Product boundary
 
 - KFE is a single-vehicle ERP.
@@ -300,8 +443,10 @@ A provision is not an actual expense merely because KFE calculates it.
 
 - Actual maintenance is recorded separately from maintenance provision.
 - Each maintenance item has exactly one planning dimension: KM or TIME.
-- Historical/pre-KFE maintenance burden is supported.
-- Frozen maintenance baseline: historical/pre-KFE allowance ₹0.40/km; KFE predictive maintenance ₹1.60/km; actual maintenance remains separate.
+- Historical/pre-KFE maintenance burden is supported as a derived pre-business recovery burden.
+- Frozen historical/pre-KFE allowance: **₹0.40/km**.
+- Frozen KFE predictive maintenance provision: **₹1.60/km**.
+- Historical maintenance/repairs and predictive maintenance provision remain separate; actual maintenance remains separate.
 - Maintenance provision can include the applicable personal-KM maintenance burden.
 - Actual invoices reduce the relevant maintenance provision bucket.
 
@@ -360,15 +505,20 @@ Supported categories include:
 
 - Historical maintenance burden.
 - Unpaid/pre-activation EMI or loan burden.
-- Pre-activation repairs/maintenance.
-- Initial used-vehicle/setup/business costs where accepted as applicable.
+- Historical maintenance / repairs.
+- Loan balance / unpaid EMI.
 
 Recovery rules:
 
-- Ordinary applicable pre-activation costs use the frozen 12-month recovery rule.
+- Historical maintenance recovery is derived from opening business-day odometer × **₹0.40/km**.
+- Qualifying pre-business loan burden is derived from authoritative loan facts.
+- Both use the frozen **12-month** recovery period beginning on the **Business Start Date**.
+- Recovery is **date-to-date (mid-month to mid-month)**, not calendar-month based.
+- Vehicle purchase/acquisition value is explicitly excluded from historical maintenance recovery.
+- No additional setup-cost category is assumed unless separately approved and added as an authoritative rule.
 - Compliance follows its actual calendar/validity period.
 - Recovery contributes to the lifetime rolling profit/loss/recovery mechanism and therefore can affect future driver targets.
-- Pre-activation recovery must not be double-counted as an ordinary current-period actual cost.
+- Pre-business recovery must not be double-counted as an ordinary current-period actual cost.
 
 ## 13. Profitability model
 
