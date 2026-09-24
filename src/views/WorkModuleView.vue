@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useShiftTripStore } from '../stores/shiftTrip.js'
 import { useFuelStore } from '../stores/fuel.js'
 import { DriverTargetService } from '../application/performance/driverTargetService.js'
@@ -127,6 +127,23 @@ const locationEventLabel = eventType => ({ ONLINE: 'Online', OFFLINE: 'Offline',
 const locationPlace = location => location?.placeName || 'Resolving place…'
 const locationTime = location => location?.capturedAt ? new Date(location.capturedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}) : 'Time unavailable'
 const notify = text => { message.value = text; error.value = ''; window.setTimeout(() => { if (message.value === text) message.value = '' }, 2200) }
+const syncOverlay = async () => {
+  if (!store.isOnline) { await AndroidOverlay.hide().catch(() => {}); return }
+  const overlayAction = farePanel.value ? 'ENTER_FARE' : cancelPanel.value ? 'CANCEL_RIDE' : !store.isTripActive ? 'GO_TO_PICKUP' : store.trip?.tripStage === 'PICKUP' ? 'START_RIDE' : 'END_RIDE'
+  await AndroidOverlay.update({
+    shift: store.shift ? { id: store.shift.id } : null,
+    trip: store.trip ? { id: store.trip.id, status: store.trip.status, tripStage: store.trip.tripStage || 'RIDE_STARTED' } : null,
+    theme: document.documentElement.dataset.theme || 'light',
+    target: targetText.value,
+    targetProgress: targetProgress.value,
+    rides: ridesText.value,
+    liveKm: liveKmsText.value,
+    revenue: liveShiftRevenueText.value,
+    cancellationRevenue: cancelledRevenue.value || '₹0',
+    overlayAction,
+    overlayTripId: store.trip?.id || ''
+  }).catch(() => {})
+}
 const fail = text => { error.value = text; message.value = '' }
 const refreshTarget = async () => { const now = getKfeReferenceNow(); try { target.value = await DriverTargetService.getTarget(now); const snapshot = await PerformanceService.getSnapshot(); const metrics = PerformanceService.getMetrics(snapshot, reportingRangeFor('DAY', now)); targetAchieved.value = Number(metrics?.revenue || 0) } catch (_) { target.value = null; targetAchieved.value = 0 } }
 const selectGapCategory = category => { if (!gap.value.valid || gapKm.value <= 0) return; gapCategory.value = category; if (category !== 'PERSONAL') { personalToll.value = ''; personalParking.value = '' } }
@@ -321,6 +338,8 @@ if (store.isTripActive && store.trip?.tripStage === 'RIDE_STARTED') {
   }
 }
 startOdo.value=store.lastKnownOdometer??'';selectedOperator.value=store.defaultOperator;loadFuelDraft();unsubscribeTarget=DriverTargetService.subscribeDataChanges(()=>{void refreshTarget();void refreshPerformance()});if(store.isTripActive)startClock()})
+watch([() => store.isOnline, () => store.trip?.id, () => store.trip?.tripStage, targetText, targetProgress, ridesText, liveKmsText, liveShiftRevenueText, farePanel, cancelPanel], () => { void syncOverlay() }, { immediate: true })
+
 onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListener();stopClock();window.clearInterval(interval);unsubscribeTarget?.();MovementTraceService.reset()})
 </script>
 
