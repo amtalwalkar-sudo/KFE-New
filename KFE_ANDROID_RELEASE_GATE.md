@@ -1,6 +1,8 @@
 # KFE Android Release Gate
 
-**Status: FROZEN — mandatory rule**
+**Status: FROZEN — supporting Android gate under the KFE Launch Master Plan**
+
+This document does not define the KFE launch sequence. The authoritative launch sequence is `KFE_LAUNCH_MASTER_PLAN.md`; this file defines the Android-specific evidence gate used by the relevant phases.
 
 This document is the permanent release rule for KFE Android overlay work. Any future agent, developer, or CI workflow working on the Android overlay MUST read and follow this document before declaring an APK or overlay fix complete.
 
@@ -34,12 +36,13 @@ The tested APK MUST exercise the real Android flow end-to-end:
 11. Press OK
 12. Foreground/reopen the main app
 13. Timeline shows the same completed ride and fare
-14. On an active ride, the right-edge ❌ opens cancellation fee entry
-15. Confirming cancellation records the same trip as CANCELLED and ₹0 revenue when no fee is entered
-16. Cancelling the cancellation form leaves the ride active
-17. Revenue/fare entry uses the in-overlay numeric keypad; the Android system keyboard must not take over the overlay
-18. Swipe bar text changes with state: GO TO PICKUP / START RIDE / END RIDE
-19. Live KM and Target visibly update while the overlay is active
+14. While the canonical trip is in PICKUP, the right-edge ❌ opens cancellation fee entry
+15. Confirming cancellation records the same canonical trip as CANCELLED and ₹0 revenue when no fee is entered
+16. Cancelling the cancellation form leaves the pickup trip active
+17. Once the ride has started, cancellation is not available
+18. Revenue/fare entry uses the in-overlay numeric keypad; the Android system keyboard must not take over the overlay
+19. Swipe bar text changes with state: GO TO PICKUP / START RIDE / END RIDE
+20. Live KM and Target visibly update while the overlay is active
 
 The reverse path MUST also be tested:
 
@@ -83,7 +86,7 @@ A pending action is a recovery mechanism, never a second execution path.
 
 ## 5. Cancellation and notification gate
 
-Cancellation is a canonical trip lifecycle operation, never a second trip or a separate revenue record. The overlay cancellation action MUST reach the same WorkService/ShiftTripRepository path as the main app. A blank cancellation fee is treated as ₹0 revenue. The KFE Settings > Application Settings notification switch controls KFE ride/system action notifications without disabling the overlay itself.
+Cancellation is a canonical trip lifecycle operation, never a second trip or a separate revenue record. Cancellation is available only while the canonical trip is in PICKUP; once the ride has started, cancellation is unavailable. The overlay cancellation action MUST reach the same WorkService/ShiftTripRepository path as the main app. A blank cancellation fee is treated as ₹0 revenue. The KFE Settings > Application Settings notification switch controls KFE ride/system action notifications without disabling the overlay itself.
 
 ## 6. Bubble gate
 

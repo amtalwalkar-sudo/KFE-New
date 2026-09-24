@@ -3,7 +3,7 @@
 **Status:** AUTHORITATIVE
 **Purpose:** Single human-readable authority for KFE formulas, calculation inputs, units, time basis, and calculation dependencies.
 
-The business meaning of each calculation is governed by `docs/KFE-BUSINESS-RULES.md`. This document defines the arithmetic and data authority. The machine-readable registry in `spec/calculations/index.json` remains a code-facing index and must not contain conflicting formulas.
+The business meaning of each calculation is governed by `KFE_BUSINESS_RULES_REGISTER.md`. This document defines the arithmetic and data authority. The machine-readable registry in `spec/calculations/index.json` remains a code-facing index and must not contain conflicting formulas.
 
 ## 1. Calculation authority
 

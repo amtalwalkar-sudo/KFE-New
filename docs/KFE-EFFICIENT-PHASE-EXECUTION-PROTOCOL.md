@@ -123,4 +123,8 @@ CI RED
 
 ## Phase ordering
 
-This protocol does not permit skipping or reordering the KFE development phases. It changes the efficiency of work performed within each phase while preserving the chronological roadmap in `docs/KFE-DEVELOPMENT-PHASES.md`.
+This protocol does not define or own the KFE roadmap. It must not be used to infer phase sequence.
+
+The authoritative chronological roadmap is KFE_LAUNCH_MASTER_PLAN.md. The active phase is KFE_LAUNCH_STATUS.md. This protocol only defines an efficient execution cycle inside whichever phase is active.
+
+Any conflict between this protocol and the master plan is resolved in favor of the master plan.

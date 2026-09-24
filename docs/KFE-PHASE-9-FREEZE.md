@@ -1,3 +1,7 @@
+> **HISTORICAL FREEZE RECORD — NOT ACTIVE ROADMAP STATUS**
+>
+> The authoritative current launch roadmap is `KFE_LAUNCH_MASTER_PLAN.md`. Current phase state is controlled by `KFE_LAUNCH_STATUS.md`.
+
 # KFE Phase 9 Freeze
 
 ## Status

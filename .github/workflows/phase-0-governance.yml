@@ -1,0 +1,30 @@
+name: KFE Phase 0 Governance Gate
+
+on:
+  push:
+    branches:
+      - docs/phase-0-roadmap-control
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  phase-0-governance:
+    name: Source-of-Truth / Roadmap Control
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Run Phase 0 Governance Contract
+        run: node src/tests/phase0SourceOfTruth.contract.js
