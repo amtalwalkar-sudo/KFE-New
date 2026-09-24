@@ -11,7 +11,7 @@ const snapshot = {
   fuelLogs: [
     { capturedAt: '2026-01-01T07:30:00+05:30', odometer: 1000, amount: 2000, isFullTank: true, vehicleId: 'v1', quantityKg: 20 },
     { capturedAt: '2026-01-05T07:30:00+05:30', odometer: 1100, amount: 2200, isFullTank: true, vehicleId: 'v1', quantityKg: 22 },
-    { capturedAt: '2026-01-07T07:30:00+05:30', odometer: 1125, amount: 999, isFullTank: false, vehicleId: 'v1', quantityKg: 10 },
+    { capturedAt: '2026-01-07T07:30:00+05:30', odometer: 1125, amount: 999, isFullTank: true, vehicleId: 'v1', quantityKg: 10, isFullTank: false },
     { capturedAt: '2026-01-10T07:30:00+05:30', odometer: 1200, amount: 2400, isFullTank: true, vehicleId: 'v1', quantityKg: 24 }
   ],
   maintenance: [{ performedOn: '2026-01-09T12:00:00+05:30', cost: 300 }], compliance: [],
@@ -63,3 +63,5 @@ const missingTimestamp = calculateRollingFuelCostPerKm([
 ])
 assert.equal(missingTimestamp.completedIntervals, 0)
 assert.ok(Number.isNaN(missingTimestamp.rollingCostPerKm))
+
+// BR-11: this fixture intentionally remains EXCLUDED so toll/parking are counted once as actual operating expense.
