@@ -1,6 +1,6 @@
 # KFE Launch Status
 
-**Last updated:** 2026-09-24
+**Last updated:** 2026-09-25
 
 ## Active phase
 
@@ -87,7 +87,7 @@ Its confirmed defects are now transferred to Phase 2 as one coordinated implemen
 
 ## Phase 2 — Fix Business-Rule Defects
 
-**Status: ACTIVE**
+**Status: COMPLETE / CLOSED**
 
 ### Phase 2 scope
 
@@ -158,7 +158,7 @@ Verified before merge:
 
 The Business Foundation audit was completed, the confirmed defect set was recorded, PR #94 was merged after CI #1580 passed, and the five confirmed defects are now transferred together into Phase 2.
 
-**Phase 2 is now UNLOCKED and ACTIVE.**
+**Phase 2 was UNLOCKED and ACTIVE; it is now COMPLETE / CLOSED.**
 
 Phase 3 remains locked until Phase 2 implementation and its test gate are clean.
 
@@ -171,7 +171,7 @@ Phase 2 five-defect implementation was merged to main as **PR #96**, merge commi
 - The IST calendar-date correction for Business Start Date was included in the merged branch.
 - The dedicated Phase 2 contract suite passed in CI #1590.
 - Phase 2: **COMPLETE / CLOSED**.
-- Phase 3 — Business Rules Re-Audit: **ACTIVE**.
+- Phase 3 — Business Rules Re-Audit: **COMPLETE / CLOSED**.
 - Re-audit evidence is recorded in `KFE_BUSINESS_RULES_REAUDIT_PHASE3.md`.
 
 

@@ -36,7 +36,7 @@ assert.equal(metrics.driverTargetAvailable, true)
 // Profit contract: actual profit is based only on authoritative revenue and
 // actual operating expenses; indicative profit independently subtracts the
 // provisions allocated to the selected period, including the loan provision.
-const expectedActualProfit = metrics.revenue - metrics.actualOperatingCost
+const expectedActualProfit = metrics.financialRevenue - metrics.actualOperatingCost
 const expectedIndicativeProfit = metrics.revenue - metrics.totalIndicativeProvision
 assert.ok(Number.isFinite(metrics.actualProfit))
 assert.ok(Number.isFinite(metrics.indicativeProfit))
