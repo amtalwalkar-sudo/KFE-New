@@ -39,69 +39,71 @@ For every applicable rule:
 | BR-09 | Reporting / reconciliation | PENDING |
 | BR-10 | Overlay / notifications contracts | PENDING |
 
-## BR-01 execution record
+## BR-01 repository conformance findings
 
-**Audit runner:** `src/tests/phase1BusinessFoundation.contract.js`  
-**Dedicated workflow:** `KFE Phase 1 Batch 1 Business Foundation Audit`
+The deterministic source-definition runner completed successfully. This only proves the audit runner completed.
 
-The dedicated runner executed the deterministic foundation contract suite successfully. Its workflow success means the audit runner completed; it is **not** a claim that BR-01 is clean.
+### Business Start Date
+**CONFIRMED DEFECT.** No authoritative Admin `businessStartDate` field exists. `financePerformanceAdapter.js` instead derives the boundary from earliest live vehicle `acquiredOn`.
 
-The runner identified these source-definition gaps in the current Admin source-record model:
+### Opening vehicle state
+**CONFORMS.** Vehicle Admin input contains required `openingOdometerKm`. The frozen rule intentionally derives historical maintenance burden from it; no manual historical-maintenance amount field is required.
 
-1. No authoritative business-configuration form.
-2. No authoritative business-start-date input.
-3. No authoritative opening-balance input.
-4. No dedicated authoritative historical/pre-business expense source form.
+### Historical maintenance / repairs
+**CONFIRMED DEFECT.** The canonical path has current/predictive maintenance provision logic, but no implementation of:
+- opening business-day odometer × **₹0.40/km**;
+- **12-month** recovery;
+- Business Start Date start boundary;
+- date-to-date/mid-month-to-mid-month recovery periods.
 
-Existing vehicle, driver, target, loan, maintenance, and compliance source fields were detected by the deterministic check.
+This is a derived calculation/recovery defect, **not a missing manual input field**.
 
-These findings are recorded as Phase 1 defects and are not fixed during the audit phase.
+### Predictive maintenance
+**PARTIAL / DEFECT.** The canonical performance engine calculates KM × configured maintenance provision rate, but the Admin form defaults `maintenanceProvisionPerKm` to **₹2/km**, while frozen BR-01 requires **₹1.60/km**.
 
-## Execution rule
+### Pre-business loan obligation
+**PARTIAL / INCORRECT.** The canonical loan engine exists, but `calculatePreBusinessRecovery` currently uses the surrogate vehicle-acquisition boundary, considers only overdue EMI rows before that boundary, then divides by 12. Frozen BR-01 requires origin-based classification against the authoritative Business Start Date and 12-month recovery from that date.
 
-Group rules that can be exercised by the same deterministic test/setup into a single run. Do not create artificial one-test-per-rule overhead where a coherent scenario can prove multiple rules.
+### Opening balances
+**NOT A DEFECT AS PREVIOUSLY WORDED.** BR-01 explicitly requires use of authoritative underlying Admin facts/records and forbids a parallel generic opening-balance source. Absence of a generic `openingBalance` entity is therefore not a defect.
 
-For each batch:
+### Pre-business cost scope
+**PARTIAL.** Supported authoritative categories are historical maintenance/repairs and loan balance/unpaid EMI. The loan path exists; historical-maintenance recovery does not. No generic setup-cost input should be invented.
 
-**setup → execute grouped tests → collect only missing/broken evidence → record defects → do not opportunistically fix unrelated items.**
+## Original provisional defect disposition
 
-## Current audit state
+| ID | Final disposition |
+|---|---|
+| BRD-001 | **DISPOSITIONED** — no generic business-configuration entity is independently required; authoritative inputs are defined by concept |
+| BRD-002 | **CONFIRMED — OPEN** — missing authoritative Business Start Date input |
+| BRD-003 | **DISPOSITIONED — NOT A DEFECT** — no generic opening-balance source is required |
+| BRD-004 | **DISPOSITIONED — NOT A DEFECT** — no separate historical-maintenance amount input is permitted/required |
+| BRD-005 | **CONFIRMED — OPEN** — vehicle acquisition is incorrectly used as business-start boundary |
+| BRD-006 | **DISPOSITIONED — NOT A DEFECT** — frozen underlying-record rule governs opening values |
+| BRD-007 | **CONFIRMED — OPEN** — narrowed to missing historical-maintenance recovery; unsupported setup categories remain out of scope |
 
-**BR-01 audit is complete.** The deterministic source-definition pass produced four confirmed gaps, and the downstream storage/calculation/derived/display/reconciliation review has now been completed.
+## Additional confirmed defect
 
-## Important separation
+**BRD-008 — Predictive maintenance rate mismatch.** Admin maintenance-rate default is ₹2/km; frozen authoritative predictive rate is ₹1.60/km.
 
-Business-rule correctness and real-world operational correctness are separate.
+## Additional confirmed defect
 
-Phase 1 checks the business contract and deterministic wiring.
+**BRD-009 — Pre-business loan recovery implementation mismatch.** The loan recovery function does not implement the frozen origin-based Business Start Date rule.
 
-Phase 4 later checks actual phone/device/driver behavior under realistic conditions.
+## Audit rule
 
-## Phase 0 source-of-truth prerequisite
+No implementation/UI fixes are made while BR-01 conformance classification is being established. Phase 2 receives the frozen defect set after audit completion.
 
-Phase 1 runs only against the register above. Supporting documents are evidence/implementation references only. The Phase 1 audit must map every BR ID to exactly one canonical implementation path and its relevant tests/contracts.
+## Current state
 
+**BR-01 repository conformance classification is complete for the inspected foundation paths.**
 
-## BR-01 downstream/reconciliation completion
+Confirmed defects:
+- BRD-002 / BRD-005 — Business Start Date source and surrogate usage.
+- BRD-007 — historical maintenance recovery missing.
+- BRD-008 — predictive maintenance rate mismatch.
+- BRD-009 — pre-business loan recovery mismatch.
 
-The remaining Batch 1 downstream review was completed against the authoritative register and canonical implementation matrix.
+**BR-01 is NOT CLEAN. Phase 2 remains locked.**
 
-### Reconciliation outcome
-
-- **Business configuration:** cannot reconcile because no authoritative source record exists.
-- **Business start boundary:** cannot reconcile to an Admin-defined business boundary; current finance logic uses earliest vehicle acquisition as a surrogate.
-- **Opening balances:** cannot reconcile because no canonical opening-balance fact exists.
-- **Pre-business expenses:** cannot fully reconcile because only the loan recovery path is represented; the accepted historical maintenance/setup/pre-activation categories lack an equivalent authoritative input/recovery path.
-- **Existing setup inputs:** vehicle opening odometer, driver, driver target, loan, maintenance, and compliance each have an Admin source definition and map through the canonical Admin service/repository path. No new BR-01 defect was confirmed for their source-definition/persistence chain in this pass.
-
-### Complete confirmed BR-01 defect set
-
-**BRD-001 through BRD-004** — source-definition gaps.
-
-**BRD-005** — business-start surrogate is used by finance recovery.
-
-**BRD-006** — opening-balance fact is absent from the canonical financial chain.
-
-**BRD-007** — pre-business recovery is incomplete for non-loan historical categories.
-
-**Disposition:** BR-01 is **NOT CLEAN**. These defects remain OPEN for Phase 2. No Phase 2 fixes have been applied. BR-02 is not started.
+Business-rule correctness and real-world operational correctness remain separate; Phase 4 handles real-world operational audit.
