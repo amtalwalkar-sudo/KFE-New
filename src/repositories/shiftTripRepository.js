@@ -32,6 +32,16 @@ export const ShiftTripRepository = {
   async setTripStartLocation(id, location) {
     return this._setTripLocation(id, location, 'tripStartLocation')
   },
+  async setTripStage(id, stage) {
+    if (!id || !stage) return false
+    const db = await initializeCanonicalStorage(); const now = new Date().toISOString()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['trips', 'pending_mutations', 'audit_history'], 'readwrite'); const trips = tx.objectStore('trips'); const mutations = tx.objectStore('pending_mutations'); const audit = tx.objectStore('audit_history'); const request = trips.get(id)
+      request.onsuccess = () => { const trip = request.result; if (!trip || trip.status !== 'ACTIVE') { try { tx.abort() } catch (_) {}; resolve(false); return }; trip.tripStage = String(stage); trip.updatedAt = now; trips.put(trip); saveMutation(mutations, audit, trip.id, 'TRIP', 'UPDATE', trip, now) }
+      request.onerror = () => reject(request.error || new Error('Trip stage lookup failed.'))
+      tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: ['trips'], reason: 'trip:stage' }); resolve(true) }; tx.onerror = () => reject(tx.error || new Error('Trip stage update failed.')); tx.onabort = () => reject(tx.error || new Error('Trip stage update aborted.'))
+    })
+  },
   async updateTripLocationPlaceName(id, eventType, placeName) {
     if (!id || !placeName) return false
     const db = await initializeCanonicalStorage(); const now = new Date().toISOString()
