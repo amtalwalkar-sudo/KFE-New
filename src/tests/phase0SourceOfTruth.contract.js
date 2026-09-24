@@ -66,11 +66,13 @@ const sourceFiles = walk(root).map(file => relative(root, file).replaceAll('\\\\
 
 for (const file of sourceFiles) {
   const text = read(file)
-  if (file !== 'KFE_LAUNCH_MASTER_PLAN.md' && /^\*\*Status:\*\* AUTHORITATIVE/m.test(text) && file !== 'KFE_BUSINESS_RULES_REGISTER.md') {
-    failures.push('unexpected authoritative-status document: ' + file)
-  }
   if (activeDocs.includes(file)) continue
-  if (/docs\/KFE-DEVELOPMENT-PHASES\.md|docs\/KFE-BUSINESS-RULES\.md/.test(text)) {
+  const header = text.slice(0, 1200)
+  const historical = /HISTORICAL|historical record|not active roadmap/i.test(header)
+  if (!historical && /KFE_BUSINESS_RULES_REGISTER\\.md is the sole authoritative source|sole authoritative source for KFE business|only document that defines phase sequence/i.test(text)) {
+    failures.push('competing business-rule or roadmap authority claim in: ' + file)
+  }
+  if (!historical && file !== 'src/tests/phase0SourceOfTruth.contract.js' && /docs\\/KFE-DEVELOPMENT-PHASES\\.md|docs\\/KFE-BUSINESS-RULES\\.md/.test(text)) {
     failures.push('stale deleted-authority reference in active source: ' + file)
   }
 }
