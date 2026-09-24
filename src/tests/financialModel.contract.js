@@ -63,3 +63,5 @@ const missingTimestamp = calculateRollingFuelCostPerKm([
 ])
 assert.equal(missingTimestamp.completedIntervals, 0)
 assert.ok(Number.isNaN(missingTimestamp.rollingCostPerKm))
+
+// BR-11: this fixture intentionally remains EXCLUDED so toll/parking are counted once as actual operating expense.
