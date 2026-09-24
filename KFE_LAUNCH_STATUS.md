@@ -48,7 +48,7 @@ Status: **ACTIVE**
 - [x] Supporting phase/execution documents reconciled to the launch master plan
 - [x] Duplicate contract-suite registration identified and removed
 - [ ] Phase 0 merged to main
-- [ ] Phase 0 exit verification completed
+- [x] Dedicated Phase 0 docs-only governance gate implemented and passed (run #20)\n- [ ] Phase 0 exit verification completed
 
 ## Current gate
 
