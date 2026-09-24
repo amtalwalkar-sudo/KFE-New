@@ -80,46 +80,7 @@ jobs:
           disable-animations: true
           enable-hw-keyboard: false
           script: |
-            cd "$GITHUB_WORKSPACE/android"
-            ./gradlew :app:assembleDebugAndroidTest
-
-            # Emulator boot completion does not guarantee that PackageManager is ready.
-            # Require several consecutive healthy package-service checks before installing,
-            # then retry the install to absorb the final system-server startup race.
-            adb wait-for-device
-            package_ready=0
-            for i in $(seq 1 120); do
-              if adb shell cmd package list packages >/dev/null 2>&1; then
-                package_ready=$((package_ready + 1))
-                if [ "$package_ready" -ge 3 ]; then
-                  break
-                fi
-              else
-                package_ready=0
-              fi
-              sleep 2
-            done
-            test "$package_ready" -ge 3
-
-            apk="$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
-            test_apk="$GITHUB_WORKSPACE/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
-
-            installed=0
-            for i in $(seq 1 6); do
-              if adb install -r "$apk"; then
-                installed=1
-                break
-              fi
-              sleep 5
-            done
-            test "$installed" -eq 1
-
-            adb install -r "$test_apk"
-            adb shell appops set com.kanishka.pwa android:system_alert_window allow
-            (adb shell appops set com.kanishka.pwa android:camera allow || true)
-            adb shell am force-stop com.kanishka.pwa
-            adb shell am instrument -w -r -e class com.kanishka.pwa.KfeOverlaySmokeTest com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner
-            sha256sum "$apk"
+            cd "$GITHUB_WORKSPACE/android" && ./gradlew :app:assembleDebugAndroidTest && for i in $(seq 1 90); do if adb shell service check package 2>/dev/null | grep -q "found"; then break; fi; sleep 2; done && adb shell service check package 2>/dev/null | grep -q "found" && adb install -r "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk" && adb install -r "$GITHUB_WORKSPACE/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk" && adb shell appops set com.kanishka.pwa android:system_alert_window allow && (adb shell appops set com.kanishka.pwa android:camera allow || true) && adb shell am force-stop com.kanishka.pwa && adb shell am instrument -w -r -e class com.kanishka.pwa.KfeOverlaySmokeTest com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner && sha256sum "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
 
       - name: Upload tested Android Debug APK
         uses: actions/upload-artifact@v4
