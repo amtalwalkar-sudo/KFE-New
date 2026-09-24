@@ -4,7 +4,7 @@
 
 ## Active phase
 
-**PHASE 1 — BUSINESS RULES AUDIT**
+**PHASE 2 — FIX BUSINESS-RULE DEFECTS**
 
 Status: **ACTIVE**
 
@@ -13,8 +13,8 @@ Status: **ACTIVE**
 | Phase | State |
 |---|---|
 | 0 — Roadmap Control | **COMPLETE / CLOSED** |
-| 1 — Business Rules Audit | **ACTIVE** |
-| 2 — Fix Business-Rule Defects | LOCKED / PENDING |
+| 1 — Business Rules Audit | **COMPLETE / CLOSED** |
+| 2 — Fix Business-Rule Defects | **ACTIVE** |
 | 3 — Business Rules Re-Audit | LOCKED / PENDING |
 | 4 — Real-World Operational Audit | LOCKED / PENDING |
 | 5 — Fix Operational Defects | LOCKED / PENDING |
@@ -51,34 +51,79 @@ Status: **ACTIVE**
 - [x] Dedicated Phase 0 docs-only governance gate implemented and passed
 - [x] Phase 0 exit verification completed
 
+## Phase 1 — Business Rules Audit
+
+### Batch 1 — Business Foundation
+
+**Status: COMPLETE / CLOSED**
+
+Batch 1 audit was completed on the dedicated audit branch and merged to main as PR #94 after the required CI gates passed.
+
+- PR #94: audit: Phase 1 Batch 1 business foundation
+- Merge commit: b4d99803c8042c75cddf8f1092820aecfafbb01a
+- KFE 2.0 CI #1580: **SUCCESS**
+- Phase 1 Batch 1 audit workflow: **SUCCESS**
+- Governance Gate: **SUCCESS**
+
+### Confirmed defect set carried into Phase 2
+
+The following five confirmed defects are the complete Batch 1 implementation set:
+
+1. **BRD-002 — Missing Business Start Date input**
+2. **BRD-005 — Acquisition date incorrectly used as Business Start Date**
+3. **BRD-007 — Missing historical maintenance recovery**
+4. **BRD-008 — Predictive maintenance rate mismatch**
+5. **BRD-009 — Pre-business loan recovery mismatch**
+
+Dispositioned findings (BRD-001, BRD-003, BRD-004, BRD-006) are not Phase 2 implementation work.
+
+Phase 1 audit leads that remain unconfirmed (including BRD-CAND-001 and BRD-CAND-002) are not part of this confirmed five-defect implementation set.
+
+### Batch 1 closure decision
+
+**Batch 1 is CLOSED.**
+
+Its confirmed defects are now transferred to Phase 2 as one coordinated implementation set. No piecemeal Phase 2 implementation is authorized.
+
+## Phase 2 — Fix Business-Rule Defects
+
+**Status: ACTIVE**
+
+### Phase 2 scope
+
+Implement all five confirmed Batch 1 defects together against the authoritative BR-01 specification:
+
+- authoritative Business Start Date input and storage
+- Business Start Date used independently from vehicle acquisition date
+- historical maintenance burden derived from opening business-day odometer at **₹0.40/km**
+- historical maintenance recovery over exactly **12 months**, date-to-date
+- predictive maintenance provision at **₹1.60/km**
+- pre-business loan obligation/recovery based on obligation origin relative to Business Start Date, with the frozen **12-month** recovery treatment
+- preserve actual payment dates as actual cash-flow events
+- prevent double-counting between actuals, provisions, and recovery
+
+### Phase 2 control rule
+
+No new business rules are created during implementation. Implementation must conform to the authoritative BR-01 specification and canonical implementation paths.
+
+After implementation:
+1. Run the dedicated Phase 2 test suite.
+2. Resolve any Phase 2 implementation/test defects.
+3. Re-run until the Phase 2 gate is clean.
+4. Only then unlock Phase 3 — Business Rules Re-Audit.
+
 ## Current gate
 
-**Business Rules Audit Gate**
+**Business Rule Defect Implementation Gate**
 
-Phase 1 is **UNLOCKED** and active.
-
-### Current audit batch
-
-**Batch 1 — Business Foundation**
-
-Scope:
-- raw inputs / system capture
-- canonical storage
-- formulas
-- derived values
-- display
-- PWA ↔ canonical DB ↔ overlay
-- notification business-rule contract
-- duplicate logic / duplicate authority detection
-- reconciliation
-
-The audit must follow the authoritative business-rule register and canonical implementation-path matrix. Findings become defects or audit evidence; new business rules are not created in the audit.
+Phase 2 is **UNLOCKED** and active.
 
 ## Current repository baseline
 
-- Default branch: `main`
-- Phase 0 merge commit: `099628238ced75e4988c87faa02e42ee5c91bf9f`
-- Baseline commit at Phase 0 start: `62374c1999106ff2dff752f5f8706373d4c60524`
+- Default branch: main
+- Phase 0 merge commit: 099628238ced75e4988c87faa02e42ee5c91bf9f
+- Phase 1 Batch 1 merge commit: b4d99803c8042c75cddf8f1092820aecfafbb01a
+- Phase 1 Batch 1 head before merge: f1f1a4ecce0380c1adfa7857f9026c1988af5047
 - No claim of current production readiness is made by this document.
 
 ## Change-control rule
@@ -105,20 +150,14 @@ Verified before merge:
 8. The old Phase 10 release record is explicitly historical and cannot redefine launch sequencing.
 9. The Visual Phase 3 freeze is explicitly historical and cannot redefine roadmap sequencing.
 10. Duplicate registration of phase7CanonicalSyntheticIsolation.contract.js was removed from the grouped contract runner.
-11. Canonical implementation paths are explicitly mapped. Phase 1 will validate each path and collect actual duplicate logic as defects rather than creating a second authority.
+11. Canonical implementation paths are explicitly mapped.
 
-### Known implementation audit leads retained for Phase 1
+## Phase 1 exit decision
 
-- BRD-CAND-001: setTripStage() can write arbitrary stage values instead of enforcing the canonical lifecycle transition authority.
-- BRD-CAND-002: Android END→fare pending-action durability/replay path requires interruption verification.
+**Phase 1 Batch 1 is CLOSED.**
 
-These remain Phase 1 findings/leads and are not silently fixed during Phase 0.
+The Business Foundation audit was completed, the confirmed defect set was recorded, PR #94 was merged after CI #1580 passed, and the five confirmed defects are now transferred together into Phase 2.
 
-### Phase 0 exit decision
+**Phase 2 is now UNLOCKED and ACTIVE.**
 
-**Phase 0 is CLOSED.**
-
-The source-of-truth / roadmap-control portion was completed, the dedicated governance gate passed, and PR #93 was merged to main.
-
-**Phase 1 is now UNLOCKED and ACTIVE.**
-
+Phase 3 remains locked until Phase 2 implementation and its test gate are clean.
