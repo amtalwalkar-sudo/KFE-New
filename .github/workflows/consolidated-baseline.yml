@@ -66,7 +66,7 @@ jobs:
       - name: Golden Android Ride Gate
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 30
+          api-level: 29
           target: google_apis
           arch: x86_64
           profile: Nexus 6
@@ -76,7 +76,7 @@ jobs:
           disk-size: 4000M
           emulator-boot-timeout: 600
           disable-linux-hw-accel: true
-          emulator-options: -no-window -gpu off -no-snapshot -noaudio -no-boot-anim -camera-back none -no-boot-anim
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           enable-hw-keyboard: false
           script: |
