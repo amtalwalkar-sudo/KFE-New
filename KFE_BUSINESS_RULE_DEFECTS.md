@@ -24,31 +24,24 @@ This is the consolidated defect ledger for business-rule audit findings.
 
 | ID | Rule area | Confirmed finding | Status |
 |---|---|---|---|
-| BRD-001 | BR-01 Business configuration | No authoritative Admin business-configuration source form is defined in `ADMIN_FORM_DEFINITIONS`. | OPEN |
-| BRD-002 | BR-01 Business start boundary | No authoritative `businessStartDate` input exists in the Admin source-record definitions. | OPEN |
-| BRD-003 | BR-01 Opening balances | No authoritative opening-balance input exists in the Admin source-record definitions. | OPEN |
-| BRD-004 | BR-01 Pre-business expenses | No dedicated authoritative historical/pre-business expense source form exists in the Admin form definitions; historical integrity/recovery logic is not itself a human input channel. | OPEN |
+| BRD-002 | BR-01 Business start boundary | No authoritative `businessStartDate` input exists in Admin source definitions. | OPEN |
+| BRD-005 | BR-01 Business start boundary | `financePerformanceAdapter.js` derives business start from earliest vehicle `acquiredOn`, contrary to frozen BR-01. | OPEN |
+| BRD-007 | BR-01 Historical maintenance recovery | No canonical opening-odometer × ₹0.40/km historical burden and 12-month date-to-date recovery path exists. | OPEN |
+| BRD-008 | BR-01 Predictive maintenance provision | Admin maintenance-rate definition defaults to ₹2/km, while frozen BR-01 requires ₹1.60/km. | OPEN |
+| BRD-009 | BR-01 Pre-business loan recovery | `calculatePreBusinessRecovery` uses the surrogate boundary and overdue-row logic rather than frozen origin-based classification from authoritative Business Start Date. | OPEN |
 
-### Confirmed downstream evidence findings
+## Dispositioned provisional findings
 
-| ID | Rule area | Downstream finding | Status |
-|---|---|---|---|
-| BRD-005 | BR-01 Business start boundary | financePerformanceAdapter.js derives the business-start boundary from the earliest vehicle acquiredOn date because no authoritative businessStartDate exists; that surrogate is fed into pre-business loan recovery. | OPEN |
-| BRD-006 | BR-01 Opening balances | No authoritative opening-balance entity/field exists in canonical storage or the audited finance/performance calculation chain, so opening financial position cannot be calculated or reconciled from a source fact. | OPEN |
-| BRD-007 | BR-01 Pre-business expenses | The canonical pre-business recovery calculation covers loan overdue burden, but no equivalent authoritative recovery/input path exists for accepted historical maintenance/setup/pre-activation expense categories. | OPEN |
+| ID | Previous finding | Disposition |
+|---|---|---|
+| BRD-001 | No generic Admin business-configuration form | **ACCEPTED / DISPOSITIONED** — authoritative inputs are defined by business concept; no generic configuration entity is required by frozen BR-01. |
+| BRD-003 | No generic opening-balance input | **ACCEPTED / DISPOSITIONED** — opening values use existing authoritative underlying facts/records. |
+| BRD-004 | No dedicated historical/pre-business expense source form | **ACCEPTED / DISPOSITIONED** — historical maintenance is derived from opening odometer; loan burden comes from authoritative loan records. |
+| BRD-006 | No generic opening-balance entity/fact in finance chain | **ACCEPTED / DISPOSITIONED** — no parallel generic opening-balance source is allowed by BR-01. |
 
-### Evidence boundary
+## Evidence boundary
 
-These are **source-definition defects confirmed by the deterministic Batch 1 audit**. The downstream storage/calculation/derived/display/reconciliation review is now complete; BRD-005 through BRD-007 record the confirmed downstream consequences. The complete BR-01 defect set is BRD-001 through BRD-007.
-
-The following existing source definitions were detected and therefore are not currently source-definition gaps:
-
-- Vehicle: including opening odometer.
-- Driver.
-- Driver target.
-- Loan.
-- Maintenance.
-- Compliance.
+These classifications are based on the frozen BR-01 specification and the inspected canonical Admin, performance, finance-adapter and loan-engine paths. No Phase 2 implementation fixes have been applied.
 
 ## Current known audit candidates
 
