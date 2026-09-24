@@ -29,6 +29,14 @@ This is the consolidated defect ledger for business-rule audit findings.
 | BRD-003 | BR-01 Opening balances | No authoritative opening-balance input exists in the Admin source-record definitions. | OPEN |
 | BRD-004 | BR-01 Pre-business expenses | No dedicated authoritative historical/pre-business expense source form exists in the Admin form definitions; historical integrity/recovery logic is not itself a human input channel. | OPEN |
 
+### Confirmed downstream evidence findings
+
+| ID | Rule area | Downstream finding | Status |
+|---|---|---|---|
+| BRD-005 | BR-01 Business start boundary | financePerformanceAdapter.js derives the business-start boundary from the earliest vehicle acquiredOn date because no authoritative businessStartDate exists; that surrogate is fed into pre-business loan recovery. | OPEN |
+| BRD-006 | BR-01 Opening balances | No authoritative opening-balance entity/field exists in canonical storage or the audited finance/performance calculation chain, so opening financial position cannot be calculated or reconciled from a source fact. | OPEN |
+| BRD-007 | BR-01 Pre-business expenses | The canonical pre-business recovery calculation covers loan overdue burden, but no equivalent authoritative recovery/input path exists for accepted historical maintenance/setup/pre-activation expense categories. | OPEN |
+
 ### Evidence boundary
 
 These are **source-definition defects confirmed by the deterministic Batch 1 audit**. They do not yet prove every downstream storage/calculation/display consequence is broken. That downstream evidence remains part of BR-01 before the batch can close.
