@@ -47,7 +47,15 @@ if (!failures.length) {
       /Phase 1 is \*\*UNLOCKED\*\* and active/i.test(status) ||
       /\|\s*1\s*—\s*Business Rules Audit\s*\|\s*\*\*ACTIVE\*\*/i.test(status)
     )
-  if (!phase0Open && !(phase0Closed && phase1Active)) failures.push('status does not show either the active Phase 0 state or the verified Phase 0-closed / Phase 1-active state')
+  const phase2Active =
+    /\*\*PHASE 2 — FIX BUSINESS-RULE DEFECTS\*\*/.test(status) &&
+    (
+      /Phase 2 is \*\*UNLOCKED\*\* and active/i.test(status) ||
+      /\|\s*2\s*—\s*Fix Business-Rule Defects\s*\|\s*\*\*ACTIVE\*\*/i.test(status)
+    )
+  if (!phase0Open && !(phase0Closed && (phase1Active || phase2Active))) {
+    failures.push('status does not show a valid post-Phase-0 active state')
+  }
   requireMatch('KFE_BUSINESS_RULES_REGISTER.md', /AUTHORITATIVE — SOLE BUSINESS-RULE AUTHORITY/, 'business-rule register is not marked sole authority')
   requireMatch('KFE_BUSINESS_RULES_AUDIT.md', /KFE_BUSINESS_RULES_REGISTER\.md/, 'business-rule audit is not bound to the register')
 }
