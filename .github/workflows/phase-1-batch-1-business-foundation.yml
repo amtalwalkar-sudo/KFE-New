@@ -30,6 +30,7 @@ permissions:
 
 jobs:
   batch-1:
+    if: github.event_name == 'push' || github.head_ref == 'audit/phase-1-batch-1-business-foundation'
     name: Batch 1 — Business Foundation
     runs-on: ubuntu-latest
     steps:
