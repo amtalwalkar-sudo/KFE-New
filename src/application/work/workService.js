@@ -45,6 +45,7 @@ export const WorkService = Object.freeze({
     }
     return result
   },
+  async startRide(data) { const result = await ShiftTripRepository.setTripStage(data?.id, 'RIDE_STARTED'); checkpoint(); return result },
   async completeTrip(data) {
     const trip = await ShiftTripRepository.getTripsForShift(data?.shiftId || (await ShiftTripRepository.getActive()).shift?.id || '')
     const activeTrip = trip.find(item => item.id === data?.id) || (await ShiftTripRepository.getActive()).trip
