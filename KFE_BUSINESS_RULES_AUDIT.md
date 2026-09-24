@@ -67,7 +67,7 @@ For each batch:
 
 ## Current audit state
 
-**BR-01 is in progress.** The deterministic source-definition pass has produced four confirmed gaps. End-to-end storage/calculation/derived/display/reconciliation evidence remains to be completed before BR-01 can be declared complete.
+**BR-01 audit is complete.** The deterministic source-definition pass produced four confirmed gaps, and the downstream storage/calculation/derived/display/reconciliation review has now been completed.
 
 ## Important separation
 
