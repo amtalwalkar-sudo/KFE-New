@@ -144,7 +144,7 @@ scenario('C1/C2/C3/C4/C5/D1/D2/E1/E2/E3/F1/F2/F4/F5', () => {
   assertSource('utils/indexedDB.js', 'const CANONICAL_DB_NAME', 'Canonical persistence DB must be explicit')
   assertSource('utils/indexedDB.js', 'const SYNTHETIC_DB_NAME', 'Synthetic persistence DB must be physically isolated')
   assertSource('views/WorkModuleView.vue', 'SWIPE TO END RIDE', 'PWA exposes canonical end-ride state')
-  assertSource('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java', 'START_RIDE', 'Overlay exposes canonical ride state')
+  assertSource('../android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java', 'START_RIDE', 'Overlay exposes canonical ride state')
 })
 
 // G5 — location-event UI contract: place-name layer must remain preferred where resolved.
