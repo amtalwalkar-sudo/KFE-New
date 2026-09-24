@@ -33,6 +33,37 @@ const applicableMaintenanceRate = (inputs, date) => {
     .sort((a, b) => String(b.effectiveKey).localeCompare(String(a.effectiveKey)))[0]
   return row ? Number(row.maintenanceProvisionPerKm) : NaN
 }
+const calendarParts = value => {
+  const date = d(value)
+  if (!date) return null
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date)
+  const get = type => Number(parts.find(part => part.type === type)?.value)
+  return { year: get('year'), month: get('month'), day: get('day') }
+}
+const calendarSerial = value => {
+  const parts = calendarParts(value)
+  return parts && [parts.year, parts.month, parts.day].every(Number.isFinite) ? Date.UTC(parts.year, parts.month - 1, parts.day) / 86400000 : null
+}
+const addRecoveryMonths = (value, months) => {
+  const parts = calendarParts(value)
+  if (!parts) return null
+  const index = parts.year * 12 + (parts.month - 1) + months
+  const year = Math.floor(index / 12)
+  const month = index % 12
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
+  return Date.UTC(year, month, Math.min(parts.day, lastDay)) / 86400000
+}
+export function calculateHistoricalMaintenanceRecovery({ vehicles = [], businessStartDate, asOf = new Date(), ratePerKm = 0.40, recoveryMonths = 12 } = {}) {
+  const start = calendarSerial(businessStartDate)
+  const current = calendarSerial(asOf)
+  if (start == null || current == null || current < start) return 0
+  const end = addRecoveryMonths(businessStartDate, recoveryMonths)
+  if (end == null || current >= end) return 0
+  const vehicle = live(vehicles).filter(item => item.active !== false && String(item.status || '').toUpperCase() !== 'INACTIVE').sort((a, b) => String(a.id || '').localeCompare(String(b.id || '')))[0]
+  const openingKm = Number(vehicle?.openingOdometerKm)
+  if (!Number.isFinite(openingKm) || openingKm < 0) return 0
+  return Math.round(((openingKm * ratePerKm) / recoveryMonths) * 100) / 100
+}
 const maintenanceProvisionForShifts = (shifts, inputs, r) => live(shifts).filter(x => inR(x.shiftEndAt || x.shiftStartAt, r)).reduce((sum, shift) => { const rate = applicableMaintenanceRate(inputs, shift.shiftEndAt || shift.shiftStartAt); return sum + (Number.isFinite(rate) ? shiftKm(shift) * rate : 0) }, 0)
 const complianceProvisionForRecord = (record, shifts, r) => {
   const start = d(record?.validFrom), end = d(record?.validUntil), cost = n(record?.cost)
@@ -86,6 +117,7 @@ export function derivePerformance(s, r, p = previousRange(r)) {
     reason: fuelCostPerKmSource === 'OBSERVED_PERIOD' ? 'FULL_TANK_INTERVAL_NOT_YET_QUALIFIED' : fuelCostPerKmSource === 'UNAVAILABLE' ? 'NO_QUALIFIED_FUEL_RATE' : null,
   })
   const maintenanceProvision = maintenanceProvisionForShifts(S, s?.breakEvenInputs || [], r)
+  const historicalMaintenanceRecoveryMonthly = calculateHistoricalMaintenanceRecovery({ vehicles: s?.vehicles || [], businessStartDate: s?.businessSetup?.businessStartDate, asOf: r?.to })
   const prevMaintenanceProvision = maintenanceProvisionForShifts(S, s?.breakEvenInputs || [], p)
   const maintenancePayments = live(s?.settlements).filter(x => String(x.sourceType || '') === 'Maintenance' && String(x.direction || 'OUT').toUpperCase() === 'OUT' && inR(x.settledOn || x.paidOn || x.createdAt, r)).reduce((sum, x) => sum + n(x.amount), 0)
   const previousMaintenancePayments = live(s?.settlements).filter(x => String(x.sourceType || '') === 'Maintenance' && String(x.direction || 'OUT').toUpperCase() === 'OUT' && inR(x.settledOn || x.paidOn || x.createdAt, p)).reduce((sum, x) => sum + n(x.amount), 0)
@@ -106,7 +138,7 @@ export function derivePerformance(s, r, p = previousRange(r)) {
     completeness: { target: false, renewal: ren > 0, hourlyData: a.workingHours > 0, breakEven: false, fuelCostPerKm: Number.isFinite(fuelCostPerKm) },
     counts: { trips: a.tr.length, activeFinancialDays: activeDays, workingDays: wd, elapsedDays: elapsed, daysRemaining: Math.max(0, wd - elapsed) }, previousCounts: { trips: q.tr.length, activeFinancialDays: prevActive },
     revenue: a.revenue, previousRevenue: q.revenue, vehicleKm: a.vehicleKm, previousVehicleKm: q.vehicleKm, businessKm: a.businessKm, previousBusinessKm: q.businessKm, deadKm: a.deadKm, previousDeadKm: q.deadKm, fuelCost: a.fuelCost, fuelQty: a.fuelQty, fuelCostPerKm, fuelCostPerKmObservations: fuelModel.observations.length, toll: a.toll, parking: a.parking, actualMaintenance: a.maintenance, workingHours: a.workingHours, previousWorkingHours: q.workingHours, runningCost: a.operatingCost, previousRunningCost: q.operatingCost, actualOperatingCost: a.operatingCost, previousActualOperatingCost: q.operatingCost,
-    costPerKm, maintenanceProvision, previousMaintenanceProvision: prevMaintenanceProvision, maintenancePayments, previousMaintenancePayments, maintenanceProvisionBalance, previousMaintenanceProvisionBalance, renewalProvision: ren, complianceProvisionById, compliancePaymentsById, complianceProvisionBalancesById, otherProvision: 0, provisionRequired: provision, provisionSetAside: provision, operatingProfit: a.operatingProfit, previousOperatingProfit: q.operatingProfit, provisionAdjustedProfit, previousProvisionAdjustedProfit: prevProvisionAdjustedProfit,
+    costPerKm, maintenanceProvision, previousMaintenanceProvision: prevMaintenanceProvision, historicalMaintenanceRecoveryMonthly, maintenancePayments, previousMaintenancePayments, maintenanceProvisionBalance, previousMaintenanceProvisionBalance, renewalProvision: ren, complianceProvisionById, compliancePaymentsById, complianceProvisionBalancesById, otherProvision: 0, provisionRequired: provision, provisionSetAside: provision, operatingProfit: a.operatingProfit, previousOperatingProfit: q.operatingProfit, provisionAdjustedProfit, previousProvisionAdjustedProfit: prevProvisionAdjustedProfit,
     monthlyBreakEvenRevenue: NaN, revenuePerKm: a.vehicleKm ? a.revenue / a.vehicleKm : NaN, revenuePerTrip: a.tr.length ? a.revenue / a.tr.length : NaN, revenuePerHour: a.workingHours ? a.revenue / a.workingHours : NaN, profitPerKm: a.vehicleKm ? a.operatingProfit / a.vehicleKm : NaN, profitPerHour: a.workingHours ? a.operatingProfit / a.workingHours : NaN, revenueGrowth: q.revenue ? (a.revenue - q.revenue) / Math.abs(q.revenue) * 100 : NaN, profitGrowth: q.operatingProfit ? (a.operatingProfit - q.operatingProfit) / Math.abs(q.operatingProfit) * 100 : NaN, revenuePerActiveDay: perDay, target: null,
     breakEvenInputs: { maintenanceProvisionPerKm: NaN, fixedCosts: NaN, fuelCostPerKm, fuelCostPerKmSource, fuelEvidence }, pace: { currentRevenuePerFinancialDay: perDay, requiredRevenuePerFinancialDay: NaN, paceVariance: NaN }, trips: a.tr, shifts: a.sh, fuelLogs: a.fu, maintenance: a.ma,
 previous: { revenue: q.revenue, cost: q.operatingCost, operatingProfit: q.operatingProfit, provisionAdjustedProfit: prevProvisionAdjustedProfit, businessKm: q.businessKm, vehicleKm: q.vehicleKm, deadKm: q.deadKm, workingHours: q.workingHours }
