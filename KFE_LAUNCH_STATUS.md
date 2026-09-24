@@ -4,7 +4,7 @@
 
 ## Active phase
 
-**PHASE 0 — ROADMAP CONTROL**
+**PHASE 1 — BUSINESS RULES AUDIT**
 
 Status: **ACTIVE**
 
@@ -12,8 +12,8 @@ Status: **ACTIVE**
 
 | Phase | State |
 |---|---|
-| 0 — Roadmap Control | **ACTIVE** |
-| 1 — Business Rules Audit | LOCKED / PENDING |
+| 0 — Roadmap Control | **COMPLETE / CLOSED** |
+| 1 — Business Rules Audit | **ACTIVE** |
 | 2 — Fix Business-Rule Defects | LOCKED / PENDING |
 | 3 — Business Rules Re-Audit | LOCKED / PENDING |
 | 4 — Real-World Operational Audit | LOCKED / PENDING |
@@ -37,7 +37,7 @@ Status: **ACTIVE**
 - [x] Business-rule register control established
 - [x] Business-rule audit control established
 - [x] Business-rule defect control established
-- [x] Legacy roadmap contradiction audit completed on Phase 0 branch
+- [x] Legacy roadmap contradiction audit completed
 - [x] Legacy development-phase roadmap removed from active repository path
 - [x] Legacy phase freeze records explicitly marked historical/non-authoritative
 - [x] Android release gate reconciled with current launch roadmap and cancellation rule
@@ -47,25 +47,43 @@ Status: **ACTIVE**
 - [x] Roadmap authority hierarchy established
 - [x] Supporting phase/execution documents reconciled to the launch master plan
 - [x] Duplicate contract-suite registration identified and removed
-- [ ] Phase 0 merged to main
-- [x] Dedicated Phase 0 docs-only governance gate implemented and passed (run #20)\n- [ ] Phase 0 exit verification completed
+- [x] Phase 0 merged to main — PR #93
+- [x] Dedicated Phase 0 docs-only governance gate implemented and passed
+- [x] Phase 0 exit verification completed
 
 ## Current gate
 
-**Roadmap Control Gate**
+**Business Rules Audit Gate**
 
-Phase 1 remains locked until the Phase 0 exit gate is verified.
+Phase 1 is **UNLOCKED** and active.
+
+### Current audit batch
+
+**Batch 1 — Business Foundation**
+
+Scope:
+- raw inputs / system capture
+- canonical storage
+- formulas
+- derived values
+- display
+- PWA ↔ canonical DB ↔ overlay
+- notification business-rule contract
+- duplicate logic / duplicate authority detection
+- reconciliation
+
+The audit must follow the authoritative business-rule register and canonical implementation-path matrix. Findings become defects or audit evidence; new business rules are not created in the audit.
 
 ## Current repository baseline
 
 - Default branch: `main`
+- Phase 0 merge commit: `099628238ced75e4988c87faa02e42ee5c91bf9f`
 - Baseline commit at Phase 0 start: `62374c1999106ff2dff752f5f8706373d4c60524`
 - No claim of current production readiness is made by this document.
 
 ## Change-control rule
 
 If the active phase changes, this file must be updated in the same controlled change as the roadmap decision.
-
 
 ## Phase 0 final source-of-truth audit
 
@@ -75,7 +93,7 @@ If the active phase changes, this file must be updated in the same controlled ch
 
 **Phase 0 source-of-truth control: CLEAN AFTER RECONCILIATION**
 
-Verified on the Phase 0 branch:
+Verified before merge:
 
 1. Exactly one business-rule authority: KFE_BUSINESS_RULES_REGISTER.md.
 2. Exactly one roadmap authority: KFE_LAUNCH_MASTER_PLAN.md.
@@ -98,6 +116,9 @@ These remain Phase 1 findings/leads and are not silently fixed during Phase 0.
 
 ### Phase 0 exit decision
 
-The source-of-truth / roadmap-control portion of Phase 0 is complete on this branch.
+**Phase 0 is CLOSED.**
 
-Phase 1 remains locked until this branch is merged and the normal Phase 0 merge/verification gate is satisfied.
+The source-of-truth / roadmap-control portion was completed, the dedicated governance gate passed, and PR #93 was merged to main.
+
+**Phase 1 is now UNLOCKED and ACTIVE.**
+
