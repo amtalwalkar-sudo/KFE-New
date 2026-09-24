@@ -80,15 +80,7 @@ jobs:
           disable-animations: true
           enable-hw-keyboard: false
           script: |
-            cd android
-            ./gradlew :app:assembleDebugAndroidTest
-            adb install -r "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
-            adb install -r "$GITHUB_WORKSPACE/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
-            adb shell appops set com.kanishka.pwa android:system_alert_window allow
-            adb shell appops set com.kanishka.pwa android:camera allow || true
-            adb shell am force-stop com.kanishka.pwa
-            adb shell am instrument -w -r -e class com.kanishka.pwa.KfeOverlayGoldenRideTest com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner
-            sha256sum "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
+            cd "$GITHUB_WORKSPACE/android" && ./gradlew :app:assembleDebugAndroidTest && adb install -r "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk" && adb install -r "$GITHUB_WORKSPACE/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk" && adb shell appops set com.kanishka.pwa android:system_alert_window allow && (adb shell appops set com.kanishka.pwa android:camera allow || true) && adb shell am force-stop com.kanishka.pwa && adb shell am instrument -w -r -e class com.kanishka.pwa.KfeOverlayGoldenRideTest com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner && sha256sum "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
 
       - name: Upload tested Android Debug APK
         uses: actions/upload-artifact@v4
