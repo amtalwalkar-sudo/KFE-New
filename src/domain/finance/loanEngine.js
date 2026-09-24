@@ -278,7 +278,8 @@ export function calculatePreBusinessLoanRecovery({ loan, payments = [], prepayme
   if (!loan || !start || !origin || origin >= start) return 0
   const positionAtStart = deriveLoanPosition({ loan, payments, prepayments, asOf: start })
   if (!positionAtStart.available) return 0
-  const burdenPaise = rupeesToPaise(positionAtStart.outstandingPrincipal) + rupeesToPaise(positionAtStart.totalOverdue)
+  const overdueInterestPaise = (positionAtStart.overdue || []).reduce((sum, row) => sum + rupeesToPaise(row.unpaidScheduledInterest) + rupeesToPaise(row.unpaidOverdueInterest), 0)
+  const burdenPaise = rupeesToPaise(positionAtStart.outstandingPrincipal) + overdueInterestPaise
   return recoveryMonthlyAmount(burdenPaise, businessStartDate, asOf, recoveryMonths)
 }
 export function calculatePreBusinessRecovery({ position, businessStartDate, asOf = new Date() } = {}) {
