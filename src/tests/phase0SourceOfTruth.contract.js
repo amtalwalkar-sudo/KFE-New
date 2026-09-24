@@ -54,10 +54,10 @@ if (!failures.length) {
       /\|\s*2\s*—\s*Fix Business-Rule Defects\s*\|\s*\*\*ACTIVE\*\*/i.test(status)
     )
   const phase4Active =
-    /\\*\\*PHASE 4 — REAL-WORLD OPERATIONAL AUDIT\\*\\*/.test(status) &&
+    /\*\*PHASE 4 — REAL-WORLD OPERATIONAL AUDIT\*\*/.test(status) &&
     (
-      /Phase 4 is \\*\\*ACTIVE\\*\\*/i.test(status) ||
-      /\\|\\s*4\\s*—\\s*Real-World Operational Audit\\s*\\|\\s*\\*\\*ACTIVE\\*\\*/i.test(status)
+      /Phase 4 is \*\*ACTIVE\*/i.test(status) ||
+      /\|\s*4\s*—\s*Real-World Operational Audit\s*\|\s*\*\*ACTIVE\*\*/i.test(status)
     )
   if (!phase0Open && !(phase0Closed && (phase1Active || phase2Active || phase4Active))) {
     failures.push('status does not show a valid post-Phase-0 active state')
