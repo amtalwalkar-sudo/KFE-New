@@ -4,7 +4,7 @@
 
 ## Active phase
 
-**PHASE 8 — SECURITY / PERMISSIONS GATE**
+**PHASE 9 — PRODUCTION CONFIGURATION GATE**
 
 Status: **ACTIVE**
 
@@ -30,8 +30,9 @@ Status: **ACTIVE**
 | 5 — Fix Operational Defects | **COMPLETE / CLOSED — NO NON-DEVICE DEFECTS** |
 | 6 — Operational Re-Audit | **COMPLETE / CLOSED — NON-DEVICE PASS** |
 | 7 — Data / Recovery Gate | **COMPLETE / CLOSED — NON-DEVICE PASS** |
-| 8 — Security / Permissions Gate | **ACTIVE** |
-| 9 — Production Configuration Gate | LOCKED / PENDING |
+| 8 — Security / Permissions Gate | **COMPLETE / CLOSED — NON-DEVICE PASS** |
+| 9 — Production Configuration Gate | **ACTIVE** |
+
 | 10 — Release Candidate Freeze | LOCKED / PENDING |
 | 11 — Controlled Real-World Pilot | LOCKED / PENDING |
 | 12 — Pilot Reconciliation | LOCKED / PENDING |
@@ -53,9 +54,17 @@ Automated evidence covers:
 
 No physical-device scenario was used or converted to PASS.
 
+## Phase 8 exit decision — 2026-09-26
+
+The Phase 8 security/permissions gate is **COMPLETE / CLOSED — NON-DEVICE PASS**.
+
+Automated evidence covers required permission declarations, denial-safe overlay behavior, runtime notification permission handling, least-privilege Android component exposure, disabled Android backup, Android Keystore AES-GCM secure storage, notification opt-out behavior, and accidental-secret pattern checks.
+
+No physical-device scenario was used or converted to PASS.
+
 ## Current gate
 
-**Phase 8 — Security / Permissions Gate — ACTIVE**
+**Phase 9 — Production Configuration Gate — ACTIVE**
 
 Required evidence:
 - required permissions;
