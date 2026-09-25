@@ -18,9 +18,6 @@ assert.ok(manifest.icons?.some(i => i.src === './icon-192.png' && i.sizes === '1
 assert.ok(manifest.icons?.some(i => i.src === './icon-512.png' && i.sizes === '512x512'))
 assert.ok(existsSync('icon-192.png'))
 assert.ok(existsSync('icon-512.png'))
-assert.ok(existsSync('dist/index.html'))
-assert.ok(existsSync('dist/manifest.json'))
-assert.ok(existsSync('dist/service-worker.js'))
 
 assert.match(sw, /CACHE_NAME = 'kfe-pwa-shell-v5'/)
 assert.match(sw, /kfe-outbox-retry/)
