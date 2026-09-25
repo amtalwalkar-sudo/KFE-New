@@ -208,36 +208,18 @@ try {
   const startOdo = page.getByRole('spinbutton', { name: 'Start odometer' })
   await startOdo.fill('1200')
   await page.getByRole('button', { name: 'CONFIRM ODOMETER & GO ONLINE' }).click()
-  // The switch label is presentation state; canonical persistence is the authority.
-  // Wait for the shift record itself instead of coupling D2 to a transient UI label.
+  // The switch label is presentation state; canonical repository persistence is the authority.
+  // Confirm the shift through the same application/repository path used by Work.
   await page.waitForFunction(async () => {
-    const db = await new Promise((resolve, reject) => {
-      const request = indexedDB.open('kanishka_kfe_canonical_db', 13)
-      request.onsuccess = () => resolve(request.result)
-      request.onerror = () => reject(request.error)
-    })
-    const record = await new Promise((resolve, reject) => {
-      const request = db.transaction('shifts', 'readonly').objectStore('shifts').getAll()
-      request.onsuccess = () => resolve((request.result || []).find(item => item.status === 'ACTIVE'))
-      request.onerror = () => reject(request.error)
-    })
-    db.close()
-    return Boolean(record && Number(record.startOdometer) === 1200)
+    const { ShiftTripRepository } = await import(location.origin + '/src/repositories/shiftTripRepository.js')
+    const active = await ShiftTripRepository.getActive()
+    return Boolean(active?.shift && active.shift.status === 'ACTIVE' && Number(active.shift.startOdometer) === 1200)
   }, null, { timeout: 10000 })
   await context.setOffline(true)
   const offlineShiftState = await page.evaluate(async () => {
-    const db = await new Promise((resolve, reject) => {
-      const request = indexedDB.open('kanishka_kfe_canonical_db', 13)
-      request.onsuccess = () => resolve(request.result)
-      request.onerror = () => reject(request.error)
-    })
-    const record = await new Promise((resolve, reject) => {
-      const request = db.transaction('shifts', 'readonly').objectStore('shifts').getAll()
-      request.onsuccess = () => resolve((request.result || []).find(item => item.status === 'ACTIVE'))
-      request.onerror = () => reject(request.error)
-    })
-    db.close()
-    return record ? { id: record.id, status: record.status, startOdometer: record.startOdometer } : null
+    const { ShiftTripRepository } = await import(location.origin + '/src/repositories/shiftTripRepository.js')
+    const active = await ShiftTripRepository.getActive()
+    return active?.shift ? { id: active.shift.id, status: active.shift.status, startOdometer: active.shift.startOdometer } : null
   })
   assert(offlineShiftState?.status === 'ACTIVE' && Number(offlineShiftState.startOdometer) === 1200, 'D2 offline shift mutation was not persisted canonically')
   await page.getByRole('link', { name: 'Timeline', exact: true }).click()
