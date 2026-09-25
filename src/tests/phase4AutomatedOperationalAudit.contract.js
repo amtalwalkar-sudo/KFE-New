@@ -293,4 +293,5 @@ const deviceOnly = [
   'real touch/gesture behavior and device-specific rendering',
 ]
 console.log(`DEFERRED_DEVICE_GATE: ${deviceOnly.join(' | ')}`)
-console.log('PHASE4 AUTOMATED OPERATIONAL AUDIT: PASS (automatable coverage only; physical-device gate remains open)')\nconsole.log('PHASE4 AUTOMATED EVIDENCE: L scenarios executed with deterministic fixtures; no defects identified in this automated pass.')\n
+console.log('PHASE4 AUTOMATED OPERATIONAL AUDIT: PASS (automatable coverage only; physical-device gate remains open)')
+console.log('PHASE4 AUTOMATED EVIDENCE: L scenarios executed with deterministic fixtures; no defects identified in this automated pass.')
