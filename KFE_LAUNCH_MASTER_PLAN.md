@@ -10,6 +10,12 @@
 
 > **The current phase always has priority over attractive but non-essential work.**
 
+## Critical device-testing sequencing rule
+
+**Physical Android/phone testing is deferred until after Phase 13 — Final Release Gate.** It is the final validation activity of the entire launch plan, not a prerequisite for Phases 5–13.
+
+Device-only scenarios must remain explicitly deferred and must never be marked PASS from CI, browser automation, simulation, emulator evidence, or documentation alone. The final device audit requires real-device/build evidence.
+
 ## Phase sequence
 
 | Phase | Name | Entry | Exit |
@@ -18,9 +24,9 @@
 | 1 | Business Rules Audit | Phase 0 complete | Complete authoritative rule inventory and evidence-based audit with defects/gaps recorded |
 | 2 | Fix Business-Rule Defects | Phase 1 defect set complete | All accepted business-rule defects fixed or explicitly dispositioned |
 | 3 | Business Rules Re-Audit | Phase 2 complete | Business rules clean and regression evidence recorded |
-| 4 | Real-World Operational Audit | Phase 3 clean | Real-device/scenario audit complete with operational defects recorded |
-| 5 | Fix Operational Defects | Phase 4 defect set complete | All accepted operational defects fixed or explicitly dispositioned |
-| 6 | Operational Re-Audit | Phase 5 complete | Operational scenarios clean and regression evidence recorded |
+| 4 | Real-World Operational Audit | Phase 3 clean | Non-device operational audit complete; device-only scenarios explicitly deferred to the final post-Phase-13 audit |
+| 5 | Fix Operational Defects | Phase 4 non-device defect set complete | All accepted non-device operational defects fixed or explicitly dispositioned |
+| 6 | Operational Re-Audit | Phase 5 complete | Non-device operational scenarios clean and regression evidence recorded |
 | 7 | Data / Recovery Gate | Phase 6 clean | Backup/export/restore, isolation, reset/recovery evidence complete |
 | 8 | Security / Permissions Gate | Phase 7 complete | Practical permissions/security checks complete |
 | 9 | Production Configuration Gate | Phase 8 complete | Production configuration verified with no test/synthetic leakage |
@@ -30,84 +36,32 @@
 | 13 | Final Release Gate | Phase 12 clean | Exact release candidate satisfies all launch evidence requirements |
 | Launch | Real-world operation | Phase 13 pass | KFE released for intended real-world operation |
 
-## Phase 0 — Roadmap Control
-
-Establish and maintain:
-
-- `KFE_WORKING_RULES.md`
-- `KFE_LAUNCH_MASTER_PLAN.md`
-- `KFE_LAUNCH_STATUS.md`
-- `KFE_LAUNCH_BACKLOG.md`
-- `KFE_BUSINESS_RULES_REGISTER.md`
-- `KFE_BUSINESS_RULES_AUDIT.md`
-- `KFE_BUSINESS_RULE_DEFECTS.md`
-
-Phase 0 is a control phase, not a product redesign phase.
-
-## Phase 1 — Business Rules Audit
-
-Objective:
-
-> Prove that KFE correctly implements the intended business.
-
-Audit the complete rule chain:
-
-**raw input → input channel/system capture → canonical storage → calculation → derived value → display → cross-surface consistency.**
-
-Group the audit into:
-
-1. Business foundation
-2. Master data
-3. Business calendar
-4. Driver/shift
-5. Trip lifecycle
-6. Operating expenses
-7. Finance
-8. Targets/economics
-9. Reporting/reconciliation
-10. Overlay/notifications business-rule contracts
-
-Overlay and notifications are first-class business-rule surfaces in this phase.
-
-## Phase 2 — Fix Business-Rule Defects
-
-Fix the consolidated Phase 1 defect set systematically. Each fix must reference the relevant rule/defect ID. Do not introduce unrelated redesign.
-
-## Phase 3 — Business Rules Re-Audit
-
-Rerun failed rules and affected regression. Exit only when the business-rule system is clean.
-
 ## Phase 4 — Real-World Operational Audit
 
 Question:
 
-> Does KFE actually work when a real driver uses a real phone under realistic conditions?
+> Does KFE work under the applicable operational conditions that can be verified without the physical device at this checkpoint?
 
-Scenario groups:
+Scenario groups remain A–J. Automated/browser evidence is supporting evidence only.
 
-- A — Normal working day
-- B — Human mistakes
-- C — Overlay-heavy operation
-- D — PWA-heavy operation
-- E — Mixed PWA ↔ overlay operation
-- F — Interruption/recovery
-- G — GPS/permission problems
-- H — Financial reconciliation
-- I — Multi-day continuity
-- J — Boundary conditions
+Device-only scenarios deferred to after Phase 13:
+- C1–C5 — overlay-heavy operation
+- E1–E2 — PWA ↔ overlay operation
+- F2–F3 — force-stop and screen-lock/unlock recovery
 
 ## Phase 5 — Fix Operational Defects
 
-Consolidate and fix Phase 4 operational defects. No unrelated redesign.
+Consolidate the applicable Phase 4 non-device operational defects. Fix only accepted defects from that set; do not introduce unrelated redesign.
+
+For the 2026-09-26 checkpoint, the non-device defect set is empty. Therefore Phase 5 closes with **NO DEFECTS / NO IMPLEMENTATION REQUIRED**.
 
 ## Phase 6 — Operational Re-Audit
 
-Rerun failed scenarios and relevant regression. Exit only when operationally clean.
+Rerun the applicable non-device operational scenarios and relevant regression against the Phase 5 exit baseline. Device-only scenarios remain deferred and cannot be converted to PASS.
 
 ## Phase 7 — Data / Recovery Gate
 
 Practical evidence for:
-
 - backup/export;
 - restore;
 - canonical/synthetic isolation;
@@ -120,7 +74,6 @@ No enterprise DR programme is required.
 ## Phase 8 — Security / Permissions Gate
 
 Practical checks for:
-
 - required permissions;
 - GPS denial;
 - notification denial;
@@ -132,7 +85,6 @@ Practical checks for:
 ## Phase 9 — Production Configuration Gate
 
 Verify:
-
 - production URL;
 - timezone;
 - business configuration;
@@ -147,7 +99,6 @@ Verify:
 ## Phase 10 — Release Candidate Freeze
 
 Freeze the exact:
-
 - Git commit;
 - PWA build;
 - Android APK;
@@ -162,7 +113,6 @@ Use KFE for actual business activity in a controlled manner. Capture enough evid
 ## Phase 12 — Pilot Reconciliation
 
 Reconcile real activity against KFE for:
-
 - trips;
 - fares;
 - cancellations;
@@ -187,9 +137,10 @@ Question:
 
 Evidence must cover the preceding audits and gates. Only a passing gate permits launch.
 
+After Phase 13, execute the deferred physical-device audit as the final validation activity of the entire launch plan.
+
 ## Scope control
 
 All new requests pass the Deviation Gate in `KFE_WORKING_RULES.md`.
 
 No request can bypass the active phase merely because it is desirable.
-
