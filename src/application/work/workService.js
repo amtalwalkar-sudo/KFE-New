@@ -8,9 +8,9 @@ import { validateShiftStartOdometer, validateFirstDayShiftStartOdometer, validat
 import { calculateFuelQuantity, validateFuelEntry } from '../../domain/work/fuel.js'
 import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } from '../../domain/work/trip.js'
 import { BackupService } from '../backup/backupService.js'
-import { MovementAccountingService, routeTrace } from '../../domain/movement/movementAccounting.js'
-import { ValhallaRoutingAdapter } from '../../infrastructure/location/valhallaRoutingAdapter.js'
+import { MovementAccountingService } from '../../domain/movement/movementAccounting.js'
 import { calculateTraceDistanceKm } from '../../infrastructure/location/movementTraceService.js'
+import { NativeGpsService } from '../../infrastructure/android/nativeGpsService.js'
 
 const checkpoint = () => BackupService.requestLocalBackupCheckpoint()
 
@@ -45,28 +45,30 @@ export const WorkService = Object.freeze({
     }
     return result
   },
-  async startRide(data) { const result = await ShiftTripRepository.setTripStage(data?.id, 'RIDE_STARTED'); checkpoint(); return result },
+  async startRide(data) { const result = await ShiftTripRepository.setTripStage(data?.id, 'RIDE_STARTED'); checkpoint(); await NativeGpsService.start(data?.id); return result },
   async completeTrip(data) {
     const trip = await ShiftTripRepository.getTripsForShift(data?.shiftId || (await ShiftTripRepository.getActive()).shift?.id || '')
     const activeTrip = trip.find(item => item.id === data?.id) || (await ShiftTripRepository.getActive()).trip
     let completionData = { ...data }
     if (activeTrip?.id) {
+      await NativeGpsService.syncTrace(activeTrip.id)
+      await NativeGpsService.stop(activeTrip.id)
       const snapshots = (await LocationRepository.forEntity('TRIP', activeTrip.id)).filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')
       if (snapshots.length >= 2) {
-        const routed = await routeTrace(snapshots, new ValhallaRoutingAdapter())
-        if (Number.isFinite(Number(routed.distanceKm))) {
+        const lineKm = calculateTraceDistanceKm(snapshots)
+        if (Number.isFinite(Number(lineKm))) {
           completionData = {
             ...completionData,
-            tripKm: Number(routed.distanceKm),
-            tripKmAuthority: 'GPS_ESTIMATE',
-            tripKmProvenance: { ...routed.provenance, method: routed.method, confidence: routed.confidence, gpsTracePoints: routed.points.length }
+            tripKm: Number(lineKm),
+            tripKmAuthority: 'GPS_LINE_TRACE',
+            tripKmProvenance: { method: 'HAVERSINE_TRACE_SUM', gpsTracePoints: snapshots.length, source: 'WEB_AND_ANDROID_NATIVE' }
           }
         }
       }
     }
     const result = await ShiftTripRepository.completeTrip(completionData); checkpoint(); return result
   },
-  async cancelTrip(data) { const result = await ShiftTripRepository.cancelTrip(data); checkpoint(); return result },
+  async cancelTrip(data) { if (data?.id) { await NativeGpsService.syncTrace(data.id); await NativeGpsService.stop(data.id) } const result = await ShiftTripRepository.cancelTrip(data); checkpoint(); return result },
   async updateTrip(data) {
     const validation = validateTripCorrection(data)
     if (!validation.valid) return { ok: false, reason: validation.reason }

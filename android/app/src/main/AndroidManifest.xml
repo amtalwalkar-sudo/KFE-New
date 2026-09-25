@@ -23,6 +23,7 @@
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
         <service android:name="io.capawesome.capacitorjs.plugins.foregroundservice.AndroidForegroundService" android:enabled="true" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="location" />
+        <service android:name=".KfeNativeGpsService" android:enabled="true" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="location" />
         <service android:name=".KfeOverlayService" android:enabled="true" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="driver_overlay_for_active_fleet_workflow" />
         </service>

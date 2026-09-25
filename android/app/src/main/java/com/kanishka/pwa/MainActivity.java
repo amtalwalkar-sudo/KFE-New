@@ -8,6 +8,7 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(KfeSecureStoragePlugin.class);
     registerPlugin(KfeRideNotificationsPlugin.class);
     registerPlugin(KfeOverlayPlugin.class);
+    registerPlugin(KfeNativeGpsPlugin.class);
     super.onCreate(savedInstanceState);
   }
 }
