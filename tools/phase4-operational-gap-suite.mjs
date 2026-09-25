@@ -357,8 +357,10 @@ try {
     db.close()
     return records
   })
-  const snapshotKeys = afterSnapshots.map(record => [record.entityType, record.entityId, record.eventType, record.capturedAt, record.latitude, record.longitude].join('|'))
-  assert(new Set(snapshotKeys).size === snapshotKeys.length, 'G4 GPS status restoration created duplicate GPS snapshots')
+  const snapshotKey = record => [record.entityType, record.entityId, record.eventType, record.capturedAt, record.latitude, record.longitude].join('|')
+  const beforeKeys = new Set(beforeSnapshots.map(snapshotKey))
+  const newSnapshots = afterSnapshots.filter(record => !beforeKeys.has(snapshotKey(record)))
+  assert(newSnapshots.length === 0, 'G4 GPS status restoration created new GPS snapshots')
 
   if (errors.length) throw new Error('Browser runtime errors:\\n' + errors.join('\\n'))
 
