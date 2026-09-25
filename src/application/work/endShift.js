@@ -6,6 +6,7 @@ import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.j
 export async function completeEndShift({ shiftId, closingOdometer, revenue, toll, parking, tollParkingRevenueTreatment, trips = [], confirmLargeDistance = false, movementReconciliation = null }) {
   const active = await ShiftTripRepository.getActive()
   if (!active.shift || active.shift.id !== shiftId) return { ok: false, reason: 'Active shift not found.' }
+  if (active.trip) return { ok: false, reason: 'ACTIVE_TRIP_IN_PROGRESS' }
 
   const validation = validateEndShiftEntry({ closingOdometer, startOdometer: active.shift.startOdometer, revenue, confirmLargeDistance })
   if (!validation.valid) return { ok: false, reason: validation.reason, requiresConfirmation: validation.requiresConfirmation, distanceKm: validation.distanceKm }
