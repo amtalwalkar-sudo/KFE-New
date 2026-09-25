@@ -1,4 +1,4 @@
-import { LocationRepository } from '../repositories/locationRepository.js'
+import { LocationRepository } from '../../repositories/locationRepository.js'
 
 const getNativeGps = async () => { const { registerPlugin } = await import('@capacitor/core'); return registerPlugin('KfeNativeGps') }
 
