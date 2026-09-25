@@ -256,6 +256,10 @@ try {
   await page.locator('.timeline').waitFor({ state: 'attached', timeout: 10000 })
   assert(await page.getByText('TIMELINE', { exact: false }).count() > 0, 'D2 offline navigation did not remain available')
 
+  // Restore connectivity before the next lifecycle scenario; D2 intentionally leaves
+  // the browser offline to prove canonical mutation persistence.
+  await context.setOffline(false)
+
   // F1-support: exercise browser foreground/background lifecycle semantics without
   // claiming equivalence to Android screen-off/background execution.
   await page.goto(base, { waitUntil: 'domcontentloaded' })
