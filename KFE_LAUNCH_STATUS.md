@@ -1,18 +1,18 @@
 # KFE Launch Status
 
-**Last updated:** 2026-09-25
+**Last updated:** 2026-09-26
 
 ## Active phase
 
-**PHASE 4 — REAL-WORLD OPERATIONAL AUDIT**
+**PHASE 5 — FIX OPERATIONAL DEFECTS**
 
 Status: **ACTIVE**
 
-**Automated non-device checkpoint:** COMPLETE — supporting evidence verified
+**Phase 4:** COMPLETE / CLOSED for all non-device operational work; no unresolved non-device operational defect remains at this checkpoint
 
-**Physical-device audit:** DEFERRED — final activity of Phase 4
+**Physical-device audit:** DEFERRED — final activity of the entire launch plan, after Phase 13
 
-**Phase 5:** LOCKED / PENDING until Phase 4 exits
+**Phase 5:** ACTIVE — consolidated Phase 4 non-device defect set is empty; proceed through the operational-defect gate without unrelated redesign
 
 ## Phase state
 
@@ -22,8 +22,8 @@ Status: **ACTIVE**
 | 1 — Business Rules Audit | **COMPLETE / CLOSED** |
 | 2 — Fix Business-Rule Defects | **COMPLETE / CLOSED** |
 | 3 — Business Rules Re-Audit | **COMPLETE / CLOSED** |
-| 4 — Real-World Operational Audit | **ACTIVE** |
-| 5 — Fix Operational Defects | LOCKED / PENDING |
+| 4 — Real-World Operational Audit | **COMPLETE / CLOSED** |
+| 5 — Fix Operational Defects | **ACTIVE** |
 | 6 — Operational Re-Audit | LOCKED / PENDING |
 | 7 — Data / Recovery Gate | LOCKED / PENDING |
 | 8 — Security / Permissions Gate | LOCKED / PENDING |
@@ -136,7 +136,7 @@ Phase 4 is **ACTIVE**. Phase 3 is closed after the BR-01 re-audit passed.
 
 The non-device Phase 4 automated matrix checkpoint is complete and green. Supporting coverage includes A5, D2, D5, F1, F5, G2, G3, G4, H4 and I5/J5 boundary/recovery checks.
 
-This does **not** close Phase 4. Physical Android testing remains the final Phase 4 activity for C1–C5, E1–E2 and F2–F3, with real device/build evidence required. Phase 5 remains locked.
+This closes the non-device portion of Phase 4. Physical Android testing for C1–C5, E1–E2 and F2–F3 is intentionally deferred until after Phase 13 and will be the final validation activity of the entire launch plan, with real device/build evidence required. Phase 5 is now active.
 
 ## Operational defect disposition at automated checkpoint
 
