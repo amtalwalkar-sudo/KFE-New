@@ -131,7 +131,11 @@ try {
     return { directIds, repositoryIds }
   })
   await context2.close()
-  if (!afterRestart.includes('phase4-recovery-fuel')) throw new Error('Repository state did not survive browser restart/reload boundary.')
+  const directSurvived = afterRestart.directIds.includes('phase4-recovery-fuel')
+  const repositorySurvived = afterRestart.repositoryIds.includes('phase4-recovery-fuel')
+  if (!directSurvived || !repositorySurvived) {
+    throw new Error('Repository state did not survive browser restart/reload boundary: ' + JSON.stringify(afterRestart))
+  }
   console.log('PASS Phase 4 Persistence & Recovery:', JSON.stringify({ ...firstRun, survivesBrowserRestart: true, afterRestartIds: afterRestart }))
 } catch (error) {
   throw new Error(error.message + '\n' + output)
