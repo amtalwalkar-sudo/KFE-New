@@ -71,6 +71,9 @@ jobs:
       - name: Run Phase 4 Persistence & Recovery
         run: node tools/phase4-persistence-recovery.mjs
 
+      - name: Run Phase 4 Cross-surface Lifecycle
+        run: node tools/phase4-cross-surface-lifecycle.mjs
+
       - name: Run Phase 4 Runtime Visual Verification
         run: node tools/phase4-runtime-visual-smoke.mjs
 
