@@ -54,11 +54,15 @@ No physical-device scenario was used or converted to PASS.
 
 ## Phase 9 — Production Configuration Gate
 
-**ACTIVE.**
+2026-09-26 exit: PASS — non-device automated gate.
 
-Verify production URL, timezone, business configuration, databases, PWA manifest/service worker, Android package/version, notifications, GPS configuration, and no test/synthetic leakage.
+Evidence covers package/app configuration, PWA manifest and production assets, service-worker production boundary, Android production manifest settings, backup/debug restrictions, and accidental credential pattern checks.
+
+No physical-device scenario was used or converted to PASS.
 
 ## Phase 10 — Release Candidate Freeze
+
+**ACTIVE.**
 
 Freeze exact Git commit, PWA build, Android APK, and version.
 
