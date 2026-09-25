@@ -208,7 +208,22 @@ try {
   const startOdo = page.getByRole('spinbutton', { name: 'Start odometer' })
   await startOdo.fill('1200')
   await page.getByRole('button', { name: 'CONFIRM ODOMETER & GO ONLINE' }).click()
-  await page.getByRole('switch', { name: 'Go Offline' }).waitFor({ state: 'attached' })
+  // The switch label is presentation state; canonical persistence is the authority.
+  // Wait for the shift record itself instead of coupling D2 to a transient UI label.
+  await page.waitForFunction(async () => {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('kanishka_kfe_canonical_db', 13)
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    const record = await new Promise((resolve, reject) => {
+      const request = db.transaction('shifts', 'readonly').objectStore('shifts').getAll()
+      request.onsuccess = () => resolve((request.result || []).find(item => item.status === 'ACTIVE'))
+      request.onerror = () => reject(request.error)
+    })
+    db.close()
+    return Boolean(record && Number(record.startOdometer) === 1200)
+  }, null, { timeout: 10000 })
   await context.setOffline(true)
   const offlineShiftState = await page.evaluate(async () => {
     const db = await new Promise((resolve, reject) => {
