@@ -134,6 +134,26 @@ Do not convert a CI result into a real-device PASS.
 | J6 | Missing optional GPS | No invented coordinates/place | NOT EXECUTED |
 | J7 | Repeated reload / reopen | No duplicate records | NOT EXECUTED |
 
+## Automated supporting evidence — non-device completion checkpoint
+
+The consolidated Phase 4 automated matrix has now been exercised successfully for the non-device scenarios implemented in CI, including A5, D2, D5, F1, F5, G2, G3, G4, H4 and I5/J5 boundary coverage. These results are **supporting evidence only**; they are not real-device PASS records.
+
+### Device-only scenarios intentionally deferred
+
+The following remain **DEFERRED — FINAL PHASE 4 DEVICE AUDIT** and must be executed on the physical Android device before Phase 4 can close:
+
+- C1–C5 — overlay-heavy operation
+- E1–E2 — PWA ↔ overlay operation
+- F2–F3 — force-stop and screen-lock/unlock recovery
+
+No simulated CI result may be converted into PASS for these scenarios.
+
+### Non-device checkpoint disposition
+
+**Disposition: COMPLETE FOR AUTOMATED SUPPORTING EVIDENCE; PHASE 4 REMAINS ACTIVE.**
+
+The automated non-device work is complete for the current audit checkpoint. The remaining Phase 4 exit evidence is the physical-device audit above, plus any defects discovered there.
+
 ## Automated supporting evidence already present
 
 The current main CI includes the Phase 4 runtime visual verification. It exercises shell/routes, Work interactions, GPS control behavior, themes, accessibility, responsive layout, and canonical/synthetic IndexedDB startup isolation.
