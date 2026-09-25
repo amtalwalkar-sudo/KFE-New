@@ -37,7 +37,7 @@ try {
   await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 30000 })
 
   const result = await page.evaluate(async () => {
-    const { setActiveDataSource, getActiveDataSource, initializeActiveStorage, initializeSyntheticStorage, openCanonicalDB } =
+    const { setActiveDataSource, getActiveDataSource, initializeSyntheticStorage, openCanonicalDB } =
       await import('/src/utils/indexedDB.js')
     const { FuelRepository } = await import('/src/repositories/fuelRepository.js')
     const { MutationRepository } = await import('/src/repositories/mutationRepository.js')
@@ -56,7 +56,7 @@ try {
         request.onsuccess = () => resolve(request.result)
         request.onerror = () => reject(request.error)
       })
-    })
+    }
     const ids = async (dbPromise, storeName) => {
       const db = await dbPromise
       return new Promise((resolve, reject) => {
@@ -64,12 +64,10 @@ try {
         request.onsuccess = () => resolve((request.result || []).map(row => row.id))
         request.onerror = () => reject(request.error)
       })
-    })
+    }
 
     for (const name of dbNames) await deleteDb(name)
 
-    // Canonical mode: repository write lands in canonical business data and creates
-    // the canonical pending mutation/audit trail.
     setActiveDataSource('canonical')
     const canonicalId = 'phase4-canonical-fuel'
     await FuelRepository.create({
@@ -84,9 +82,6 @@ try {
     const canonicalPendingBefore = await count(openCanonicalDB(), 'pending_mutations')
     if (canonicalPendingBefore !== 1) throw new Error('Canonical repository write did not create exactly one pending mutation.')
 
-    // Synthetic mode: the same repository must write only to the synthetic business
-    // database. The synthetic pending queue must stay empty and the canonical queue
-    // must remain unchanged.
     setActiveDataSource('synthetic')
     if (getActiveDataSource() !== 'synthetic') throw new Error('Synthetic mode did not activate.')
     await FuelRepository.create({
@@ -110,11 +105,9 @@ try {
     if (syntheticPending !== 0 || syntheticAudit !== 0) throw new Error('Synthetic write created mutation/audit records in synthetic DB.')
     if (canonicalPendingAfter !== canonicalPendingBefore) throw new Error('Synthetic write changed canonical pending mutations.')
 
-    // Sync lifecycle remains canonical-only even while synthetic mode is active.
     const pendingFromSyntheticMode = await MutationRepository.getPending()
     if (pendingFromSyntheticMode.length !== canonicalPendingBefore) throw new Error('MutationRepository did not read the canonical queue in synthetic mode.')
 
-    // Switch back and prove the repository read surface follows the selected DB.
     setActiveDataSource('canonical')
     const canonicalReads = await FuelRepository.getAll()
     if (!canonicalReads.some(row => row.id === canonicalId)) throw new Error('Canonical mode cannot read canonical fuel record.')
