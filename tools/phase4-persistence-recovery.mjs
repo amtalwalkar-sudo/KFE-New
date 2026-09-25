@@ -118,10 +118,17 @@ try {
   const page2 = await context2.newPage()
   await page2.goto(base, { waitUntil: 'domcontentloaded', timeout: 30000 })
   const afterRestart = await page2.evaluate(async () => {
-    const { setActiveDataSource } = await import('/src/utils/indexedDB.js')
+    const { setActiveDataSource, openCanonicalDB } = await import('/src/utils/indexedDB.js')
     const { FuelRepository } = await import('/src/repositories/fuelRepository.js')
     setActiveDataSource('canonical')
-    return (await FuelRepository.getAll()).map(row => row.id)
+    const db = await openCanonicalDB()
+    const directIds = await new Promise((resolve, reject) => {
+      const request = db.transaction('fuel_logs', 'readonly').objectStore('fuel_logs').getAll()
+      request.onsuccess = () => resolve((request.result || []).map(row => row.id))
+      request.onerror = () => reject(request.error || new Error('Restart direct repository DB read failed.'))
+    })
+    const repositoryIds = (await FuelRepository.getAll()).map(row => row.id)
+    return { directIds, repositoryIds }
   })
   await context2.close()
   if (!afterRestart.includes('phase4-recovery-fuel')) throw new Error('Repository state did not survive browser restart/reload boundary.')
