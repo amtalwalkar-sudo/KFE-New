@@ -184,6 +184,9 @@ scenario('K1/K2/K3/K4/K5/K6', () => {
   assert.match(work, /Closing odometer and total shift revenue are required\./)
 
   // Fuel remains available as a compact toggle rather than a permanent large block.
+  const persistentActionCount = (work.match(/class="persistent-action"/g) || []).length
+  assert.equal(persistentActionCount, 1, 'Work must render exactly one canonical trip action surface')
+
   assert.match(work, /const openFuelForm = \(\) =>/)
   assert.match(work, /fuelFormOpen\.value = !fuelFormOpen\.value/)
   assert.match(work, /fuelDraftKey/)
