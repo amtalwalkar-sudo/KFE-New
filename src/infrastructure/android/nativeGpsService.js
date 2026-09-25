@@ -1,7 +1,6 @@
-import { registerPlugin } from '@capacitor/core'
 import { LocationRepository } from '../repositories/locationRepository.js'
 
-const NativeGps = registerPlugin('KfeNativeGps')
+const getNativeGps = async () => { const { registerPlugin } = await import('@capacitor/core'); return registerPlugin('KfeNativeGps') }
 
 const isAndroid = async () => {
   try {
@@ -16,6 +15,7 @@ export const NativeGpsService = {
   async start(tripId) {
     if (!(await isAndroid()) || !tripId) return false
     try {
+      const NativeGps = await getNativeGps()
       await NativeGps.start({ tripId })
       return true
     } catch (error) {
@@ -25,11 +25,12 @@ export const NativeGpsService = {
   },
   async stop(tripId) {
     if (!(await isAndroid()) || !tripId) return
-    try { await NativeGps.stop({ tripId }) } catch (error) { console.warn('Native Android GPS stop failed.', error) }
+    try { const NativeGps = await getNativeGps(); await NativeGps.stop({ tripId }) } catch (error) { console.warn('Native Android GPS stop failed.', error) }
   },
   async readTrace(tripId) {
     if (!(await isAndroid()) || !tripId) return []
     try {
+      const NativeGps = await getNativeGps()
       const result = await NativeGps.getTrace({ tripId })
       return Array.isArray(result?.points) ? result.points : []
     } catch (error) {
@@ -67,7 +68,7 @@ export const NativeGpsService = {
       imported += 1
     }
 
-    try { await NativeGps.clearTrace({ tripId }) } catch (_) {}
+    try { const NativeGps = await getNativeGps(); await NativeGps.clearTrace({ tripId }) } catch (_) {}
     return { imported, points: ordered }
   }
 }
