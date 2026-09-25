@@ -203,16 +203,18 @@ try {
   assert(await page.getByText('Refuelling', { exact: true }).count() === 1, 'A5 offline fuel form did not open')
   await page.getByRole('button', { name: 'Keep Draft & Close' }).click()
 
-  // D2: perform a real canonical Work mutation while the browser is offline.
-  await page.getByRole('switch', { name: /go online/i }).click()
-  const startOdo = page.getByRole('spinbutton', { name: 'Start odometer' })
-  await startOdo.fill('1200')
-  await page.getByRole('button', { name: 'CONFIRM ODOMETER & GO ONLINE' }).click()
-  await page.waitForFunction(async () => {
-    const { ShiftTripRepository } = await import(location.origin + '/src/repositories/shiftTripRepository.js')
-    const active = await ShiftTripRepository.getActive()
-    return Boolean(active?.shift && active.shift.status === 'ACTIVE' && Number(active.shift.startOdometer) === 1200)
-  }, null, { timeout: 10000 })
+  // D2: create a deterministic canonical Work fixture while online, then perform a
+  // real canonical trip mutation while the browser is offline. The shift fixture is
+  // created through the application service so this test does not depend on transient
+  // cockpit UI state from earlier scenarios.
+  const offlineShiftState = await page.evaluate(async () => {
+    const { WorkService } = await import(location.origin + '/src/application/work/workService.js')
+    const shift = await WorkService.startShift({ id: 'phase4-d2-offline-shift', startOdometer: 1200 })
+    if (!shift?.id || shift.status !== 'ACTIVE' || Number(shift.startOdometer) !== 1200) {
+      throw new Error('D2 could not create the canonical active shift fixture')
+    }
+    return { id: shift.id, status: shift.status, startOdometer: shift.startOdometer }
+  })
 
   // Preload the repository module while online. The actual mutation below runs
   // after network access is disabled, so the test exercises true offline persistence.
@@ -223,7 +225,9 @@ try {
   const offlineTripState = await page.evaluate(async () => {
     const repo = window.__phase4ShiftTripRepository.ShiftTripRepository
     const active = await repo.getActive()
-    if (!active?.shift?.id) throw new Error('D2 active shift missing before offline mutation')
+    if (!active?.shift?.id || active.shift.id !== 'phase4-d2-offline-shift') {
+      throw new Error('D2 canonical active shift fixture missing before offline mutation')
+    }
     const trip = await repo.createTrip({ id: 'phase4-d2-offline-trip', shiftId: active.shift.id, operator: 'Uber', tripStage: 'PICKUP' })
     if (!trip?.id) throw new Error('D2 could not create offline fixture trip')
     const updated = await repo.setTripStage(trip.id, 'RIDE_STARTED')
@@ -243,7 +247,8 @@ try {
   })
   assert(
     offlineTripState?.status === 'ACTIVE' &&
-      offlineTripState.tripStage === 'RIDE_STARTED',
+      offlineTripState.tripStage === 'RIDE_STARTED' &&
+      offlineTripState.shiftId === offlineShiftState.id,
     'D2 offline canonical trip mutation was not persisted'
   )
 
