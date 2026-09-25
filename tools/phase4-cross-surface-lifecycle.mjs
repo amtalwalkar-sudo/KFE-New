@@ -49,8 +49,13 @@ try {
       request.onblocked = () => reject(new Error('Delete blocked for ' + name))
     })
     const today = new Date()
-    const start = new Date(today.getTime() - 6 * 60 * 60 * 1000)
-    const end = new Date(today.getTime() - 2 * 60 * 60 * 1000)
+    const dayRange = istDayRange(today)
+    assert(dayRange, 'Unable to construct the current IST day range.')
+    // Keep the fixture safely inside the requested IST day. Using "now - 6h" can
+    // cross the IST day boundary on CI, causing TimelineService.getDay(today)
+    // to exclude an otherwise correctly persisted completed shift.
+    const start = new Date(dayRange.from.getTime() + 2 * 60 * 60 * 1000)
+    const end = new Date(dayRange.from.getTime() + 6 * 60 * 60 * 1000)
     const shiftId = 'phase4-lifecycle-shift'
     const completedTripId = 'phase4-lifecycle-completed'
     const cancelledTripId = 'phase4-lifecycle-cancelled'
