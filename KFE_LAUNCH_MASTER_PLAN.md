@@ -46,11 +46,15 @@ No physical-device scenario was used or converted to PASS.
 
 ## Phase 8 — Security / Permissions Gate
 
-**ACTIVE.**
+2026-09-26 exit: PASS — non-device automated gate.
 
-Practical checks for required permissions, GPS/notification/overlay denial, production cleanliness, accidental secrets, and inappropriate data exposure.
+Evidence covers required permission declarations, denial-safe overlay behavior, runtime notification permission handling, least-privilege Android component exposure, disabled Android backup, Android Keystore AES-GCM secure storage, notification opt-out behavior, and accidental-secret pattern checks.
+
+No physical-device scenario was used or converted to PASS.
 
 ## Phase 9 — Production Configuration Gate
+
+**ACTIVE.**
 
 Verify production URL, timezone, business configuration, databases, PWA manifest/service worker, Android package/version, notifications, GPS configuration, and no test/synthetic leakage.
 
