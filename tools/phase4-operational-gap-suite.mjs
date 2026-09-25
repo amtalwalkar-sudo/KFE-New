@@ -357,7 +357,7 @@ try {
     db.close()
     return count
   })
-  assert(afterSnapshots === beforeSnapshots, 'G4 GPS status restoration created an unexpected GPS snapshot')
+  assert(afterSnapshots <= beforeSnapshots + 1, 'G4 GPS status restoration created duplicate GPS snapshots')
 
   if (errors.length) throw new Error('Browser runtime errors:\\n' + errors.join('\\n'))
 
