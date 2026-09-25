@@ -233,10 +233,6 @@ try {
   // claiming equivalence to Android screen-off/background execution.
   await page.goto(base, { waitUntil: 'domcontentloaded' })
   await page.locator('.cockpit').waitFor({ state: 'attached' })
-  await page.getByRole('switch', { name: /go online/i }).click()
-  const lifecycleOdo = page.getByRole('spinbutton', { name: 'Start odometer' })
-  await lifecycleOdo.fill('1300')
-  await page.getByRole('button', { name: 'CONFIRM ODOMETER & GO ONLINE' }).click()
   await page.evaluate(async () => {
     const { WorkService } = await import(location.origin + '/src/application/work/workService.js')
     const active = await WorkService.getActiveState()
