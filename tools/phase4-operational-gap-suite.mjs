@@ -288,8 +288,7 @@ try {
 
   // F5: restore connectivity and verify the same canonical shift survives recovery/reload.
   await context.setOffline(false)
-  await page.reload({ waitUntil: 'domcontentloaded' })
-  await page.locator('.timeline').waitFor({ state: 'attached', timeout: 30000 })
+  await route('timeline', '.timeline', 'Timeline')
   const recoveredShiftState = await page.evaluate(async () => {
     const db = await new Promise((resolve, reject) => {
       const request = indexedDB.open('kanishka_kfe_canonical_db', 13)
