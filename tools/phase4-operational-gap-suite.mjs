@@ -217,33 +217,29 @@ try {
   }, null, { timeout: 10000 })
   await context.setOffline(true)
   // Offline verification must not dynamically import application modules; that import can require the network.
-  await page.waitForFunction(async () => {
-    const db = await new Promise((resolve, reject) => {
-      const request = indexedDB.open('kanishka_kfe_canonical_db', 13)
-      request.onsuccess = () => resolve(request.result)
-      request.onerror = () => reject(request.error)
-    })
-    const record = await new Promise((resolve, reject) => {
-      const request = db.transaction('shifts', 'readonly').objectStore('shifts').getAll()
-      request.onsuccess = () => resolve((request.result || []).find(item => item.status === 'ACTIVE'))
-      request.onerror = () => reject(request.error)
-    })
-    db.close()
-    return Boolean(record && Number(record.startOdometer) === 1200)
-  }, null, { timeout: 10000 })
   const offlineShiftState = await page.evaluate(async () => {
-    const db = await new Promise((resolve, reject) => {
+    const readActiveShift = () => new Promise((resolve, reject) => {
       const request = indexedDB.open('kanishka_kfe_canonical_db', 13)
-      request.onsuccess = () => resolve(request.result)
+      request.onsuccess = () => {
+        const db = request.result
+        const tx = db.transaction('shifts', 'readonly')
+        const read = tx.objectStore('shifts').getAll()
+        read.onsuccess = () => {
+          const record = (read.result || []).find(item => item.status === 'ACTIVE' && Number(item.startOdometer) === 1200)
+          db.close()
+          resolve(record || null)
+        }
+        read.onerror = () => { db.close(); reject(read.error) }
+      }
       request.onerror = () => reject(request.error)
     })
-    const record = await new Promise((resolve, reject) => {
-      const request = db.transaction('shifts', 'readonly').objectStore('shifts').getAll()
-      request.onsuccess = () => resolve((request.result || []).find(item => item.status === 'ACTIVE'))
-      request.onerror = () => reject(request.error)
-    })
-    db.close()
-    return record ? { id: record.id, status: record.status, startOdometer: record.startOdometer } : null
+    const end = Date.now() + 10000
+    while (Date.now() < end) {
+      const record = await readActiveShift()
+      if (record) return { id: record.id, status: record.status, startOdometer: record.startOdometer }
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    return null
   })
   assert(offlineShiftState?.status === 'ACTIVE' && Number(offlineShiftState.startOdometer) === 1200, 'D2 offline shift mutation was not persisted canonically')
   await page.getByRole('link', { name: 'Timeline', exact: true }).click()
