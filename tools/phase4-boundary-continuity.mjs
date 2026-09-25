@@ -59,9 +59,12 @@ try {
     setActiveDataSource('canonical')
 
     // B2: gap allocation must fully classify the odometer gap.
-    assert(WorkService.validateGapAllocation(100, 40, 60).valid === true, 'B2 valid Personal KM + Dead KM allocation was rejected.')
-    assert(WorkService.validateGapAllocation(100, 40, 50).valid === false, 'B2 invalid gap allocation was accepted.')
-    assert(WorkService.validateGapAllocation(100, -1, 101).valid === false, 'B2 negative Personal KM was accepted.')
+    const personal = WorkService.validateGapAllocation(100, 'PERSONAL')
+    const dead = WorkService.validateGapAllocation(100, 'DEAD')
+    const invalidCategory = WorkService.validateGapAllocation(100, 'INVALID')
+    assert(personal.valid === true && personal.personalKm === 100 && personal.deadKm === 0, 'B2 Personal KM classification was rejected or misclassified.')
+    assert(dead.valid === true && dead.personalKm === 0 && dead.deadKm === 100, 'B2 Dead KM classification was rejected or misclassified.')
+    assert(invalidCategory.valid === false && invalidCategory.requiresGapAllocation === true, 'B2 invalid gap category was accepted.')
 
     // B3: an active ride must block the Offline/end-shift transition.
     const b3Shift = await WorkService.startShift({ id: 'phase4-b3-shift', startOdometer: 1000, shiftStartAt: iso('2026-09-23', '08') })
