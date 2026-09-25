@@ -90,7 +90,7 @@ try {
     const mutationsAfterFirst = (await readAll('pending_mutations')).filter(row => row.entityId === 'phase4-b3-trip').length
     const duplicate = await WorkService.completeTrip({ id: 'phase4-b3-trip', shiftId: b3Shift.id, tripEndAt: iso('2026-09-23', '09:30'), tripEndLocation: { latitude: 19.07, longitude: 72.87, placeName: 'Drop', capturedAt: iso('2026-09-23', '09:30') }, tripKm: 10 })
     const mutationsAfterDuplicate = (await readAll('pending_mutations')).filter(row => row.entityId === 'phase4-b3-trip').length
-    assert(duplicate?.status === 'COMPLETED', 'B6 duplicate completion did not return the terminal trip.')
+    assert(duplicate === true, 'B6 duplicate completion did not return the terminal-trip idempotency result.')
     assert(mutationsAfterDuplicate === mutationsAfterFirst, 'B6 duplicate completion created another mutation.')
     await ShiftTripRepository.completeShift({ id: b3Shift.id, endOdometer: 1010, revenue: 100, trips: [{ id: 'phase4-b3-trip', revenue: 100, tripKm: 10 }] })
 
