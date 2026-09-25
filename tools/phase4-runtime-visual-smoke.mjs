@@ -30,8 +30,12 @@ try{
  // 4B canonical persistence + cross-surface runtime fixture
  const seedCanonicalFixture=async()=>page.evaluate(async()=>{
    const db=await new Promise((resolve,reject)=>{const req=indexedDB.open('kanishka_kfe_canonical_db',13);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});
-   const now=new Date(); const y=now.getUTCFullYear(),m=now.getUTCMonth(),d=now.getUTCDate();
-   const start=new Date(Date.UTC(y,m,d,4,0,0,0)).toISOString(); const end=new Date(Date.UTC(y,m,d,12,0,0,0)).toISOString();
+   const now=new Date();
+   const istDayStartUtc=()=>{ const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(now); const y=Number(parts.find(p=>p.type==='year').value),m=Number(parts.find(p=>p.type==='month').value)-1,d=Number(parts.find(p=>p.type==='day').value); return Date.UTC(y,m,d)-19800000 }
+   // Timeline is keyed to the IST business day. Build the fixture from that
+   // same day boundary rather than UTC midnight, which crosses the day at
+   // 18:30 UTC and can otherwise make the fixture invisible on CI.
+   const dayStart=istDayStartUtc(); const start=new Date(dayStart+2*60*60*1000).toISOString(); const end=new Date(dayStart+6*60*60*1000).toISOString();
    await new Promise((resolve,reject)=>{const tx=db.transaction(['shifts','trips'],'readwrite'); tx.objectStore('shifts').put({id:'phase4-runtime-shift',status:'COMPLETED',shiftStartAt:start,shiftEndAt:end,startOdometer:1000,endOdometer:1100,totalDistance:100,revenue:1000,toll:50,parking:0,tollParkingRevenueTreatment:'EXCLUDED',openingPersonalKm:0,openingDeadKm:0}); tx.objectStore('trips').put({id:'phase4-runtime-trip',shiftId:'phase4-runtime-shift',status:'COMPLETED',operator:'Uber',tripStartAt:new Date(Date.parse(start)+3600000).toISOString(),tripEndAt:new Date(Date.parse(start)+5400000).toISOString(),tripStartLocation:{latitude:19.076,longitude:72.8777,placeName:'Mumbai Pickup',capturedAt:start},tripEndLocation:{latitude:19.08,longitude:72.88,placeName:'Mumbai Drop',capturedAt:end},tripKm:80,revenue:1000,revenueAuthority:'SUPPORTING_ONLY',tripStage:'RIDE_STARTED'}); tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)}); db.close();
  });
  await seedCanonicalFixture();
