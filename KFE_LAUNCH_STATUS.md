@@ -4,7 +4,7 @@
 
 ## Active phase
 
-**PHASE 9 — PRODUCTION CONFIGURATION GATE**
+**PHASE 10 — RELEASE CANDIDATE FREEZE**
 
 Status: **ACTIVE**
 
@@ -31,7 +31,8 @@ Status: **ACTIVE**
 | 6 — Operational Re-Audit | **COMPLETE / CLOSED — NON-DEVICE PASS** |
 | 7 — Data / Recovery Gate | **COMPLETE / CLOSED — NON-DEVICE PASS** |
 | 8 — Security / Permissions Gate | **COMPLETE / CLOSED — NON-DEVICE PASS** |
-| 9 — Production Configuration Gate | **ACTIVE** |
+| 9 — Production Configuration Gate | **COMPLETE / CLOSED — NON-DEVICE PASS** |
+| 10 — Release Candidate Freeze | **ACTIVE** |
 
 | 10 — Release Candidate Freeze | LOCKED / PENDING |
 | 11 — Controlled Real-World Pilot | LOCKED / PENDING |
@@ -62,9 +63,17 @@ Automated evidence covers required permission declarations, denial-safe overlay 
 
 No physical-device scenario was used or converted to PASS.
 
+## Phase 9 exit decision — 2026-09-26
+
+The Phase 9 production configuration gate is **COMPLETE / CLOSED — NON-DEVICE PASS**.
+
+Automated evidence covers package/app configuration, PWA manifest and production assets, service-worker production boundary, Android production manifest settings, backup/debug restrictions, and accidental credential pattern checks.
+
+No physical-device scenario was used or converted to PASS.
+
 ## Current gate
 
-**Phase 9 — Production Configuration Gate — ACTIVE**
+**Phase 10 — Release Candidate Freeze — ACTIVE**
 
 Required evidence:
 - required permissions;
