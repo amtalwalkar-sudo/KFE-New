@@ -26,9 +26,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.issue.number }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           if [ "${{ github.event.issue.pull_request != null }}" = "true" ]; then
-            REF="$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)"
+            REF="$(gh pr view "$PR_NUMBER" --repo "$REPOSITORY" --json headRefOid -q .headRefOid)"
           else
             REF="main"
           fi
@@ -79,6 +80,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REPOSITORY: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           JOB_STATUS: ${{ job.status }}
         run: |
@@ -87,4 +89,4 @@ jobs:
           else
             BODY="APK build failed. See the workflow run for details: $RUN_URL"
           fi
-          gh issue comment "$ISSUE_NUMBER" --body "$BODY"
+          gh issue comment "$ISSUE_NUMBER" --repo "$REPOSITORY" --body "$BODY"
