@@ -34,6 +34,7 @@ try {
   await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 30000 })
 
   const evidence = await page.evaluate(async () => {
+    const assert = (value, message) => { if (!value) throw new Error(message) }
     const { setActiveDataSource, openCanonicalDB } = await import('/src/utils/indexedDB.js')
     const { ShiftTripRepository } = await import('/src/repositories/shiftTripRepository.js')
     const { WorkService } = await import('/src/application/work/workService.js')
