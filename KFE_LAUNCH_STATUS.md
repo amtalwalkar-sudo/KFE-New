@@ -4,13 +4,15 @@
 
 ## Active phase
 
-**PHASE 6 — OPERATIONAL RE-AUDIT**
+**PHASE 7 — DATA / RECOVERY GATE**
 
 Status: **ACTIVE**
 
-**Phase 4:** COMPLETE / CLOSED for all non-device operational work at the current pre-device checkpoint.
+**Phase 4:** COMPLETE / CLOSED for all non-device operational work.
 
-**Phase 5:** COMPLETE / CLOSED — the consolidated Phase 4 non-device defect set was empty, so there were no accepted non-device operational defects requiring implementation.
+**Phase 5:** COMPLETE / CLOSED — no accepted non-device operational defects required implementation.
+
+**Phase 6:** COMPLETE / CLOSED — applicable non-device operational re-audit passed on CI #1738.
 
 **Physical-device audit:** DEFERRED — final validation activity of the entire launch plan, after Phase 13.
 
@@ -24,8 +26,8 @@ Status: **ACTIVE**
 | 3 — Business Rules Re-Audit | **COMPLETE / CLOSED** |
 | 4 — Real-World Operational Audit | **COMPLETE / CLOSED — NON-DEVICE CHECKPOINT** |
 | 5 — Fix Operational Defects | **COMPLETE / CLOSED — NO NON-DEVICE DEFECTS** |
-| 6 — Operational Re-Audit | **ACTIVE** |
-| 7 — Data / Recovery Gate | LOCKED / PENDING |
+| 6 — Operational Re-Audit | **COMPLETE / CLOSED — NON-DEVICE PASS** |
+| 7 — Data / Recovery Gate | **ACTIVE** |
 | 8 — Security / Permissions Gate | LOCKED / PENDING |
 | 9 — Production Configuration Gate | LOCKED / PENDING |
 | 10 — Release Candidate Freeze | LOCKED / PENDING |
@@ -34,30 +36,27 @@ Status: **ACTIVE**
 | 13 — Final Release Gate | LOCKED / PENDING |
 | Launch | LOCKED / PENDING |
 
-## Phase 4 / Phase 5 checkpoint — 2026-09-26
+## Phase 6 exit decision — 2026-09-26
 
-The non-device Phase 4 automated checkpoint completed successfully. Supporting coverage includes A5, D2, D5, F1, F5, G2, G3, G4, H4 and I5/J5 boundary/recovery checks.
+CI #1738 completed successfully on commit 4b38fecbdd165a63b2c2e97d8f5cf528039c4349.
 
-No unresolved non-device operational defect was identified at that checkpoint. Therefore Phase 5 required no code defect fixes and is closed with a **NO DEFECTS / NO IMPLEMENTATION REQUIRED** disposition.
+The applicable non-device operational regression evidence passed. No new non-device operational defect was identified.
 
-The remaining physical Android scenarios C1–C5, E1–E2 and F2–F3 are intentionally deferred until **after Phase 13**. They are the final validation activity of the entire launch plan and require real-device/build evidence. No CI or simulated result may be converted into a physical-device PASS.
+Phase 6 is therefore **COMPLETE / CLOSED**.
 
-## Phase 5 exit decision
-
-**Phase 5: COMPLETE / CLOSED.**
-
-Evidence:
-1. Phase 4 non-device supporting matrix completed successfully.
-2. Consolidated non-device operational defect set is empty.
-3. No accepted operational defect requires implementation.
-4. No unrelated redesign was introduced.
-5. Physical-device findings remain outside this checkpoint and are deferred until after Phase 13.
+The remaining physical Android scenarios C1–C5, E1–E2 and F2–F3 remain **DEFERRED — FINAL POST-PHASE-13 DEVICE AUDIT**. No CI or simulated result may be converted into a physical-device PASS.
 
 ## Current gate
 
-**Operational Re-Audit Gate — Phase 6 ACTIVE**
+**Phase 7 — Data / Recovery Gate — ACTIVE**
 
-Phase 6 may proceed using the completed non-device operational evidence. Physical-device-only scenarios remain deferred and must not be represented as passed.
+Required evidence:
+- backup/export;
+- restore;
+- canonical/synthetic isolation;
+- reinstall/reset behavior;
+- no silent corruption;
+- recovery procedure.
 
 ## Change-control rule
 
