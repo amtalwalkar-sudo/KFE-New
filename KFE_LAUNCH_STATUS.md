@@ -4,7 +4,7 @@
 
 ## Active phase
 
-**PHASE 7 — DATA / RECOVERY GATE**
+**PHASE 8 — SECURITY / PERMISSIONS GATE**
 
 Status: **ACTIVE**
 
@@ -13,6 +13,8 @@ Status: **ACTIVE**
 **Phase 5:** COMPLETE / CLOSED — no accepted non-device operational defects required implementation.
 
 **Phase 6:** COMPLETE / CLOSED — applicable non-device operational re-audit passed on CI #1738.
+
+**Phase 7:** COMPLETE / CLOSED — automated data/recovery gate passed.
 
 **Physical-device audit:** DEFERRED — final validation activity of the entire launch plan, after Phase 13.
 
@@ -27,8 +29,8 @@ Status: **ACTIVE**
 | 4 — Real-World Operational Audit | **COMPLETE / CLOSED — NON-DEVICE CHECKPOINT** |
 | 5 — Fix Operational Defects | **COMPLETE / CLOSED — NO NON-DEVICE DEFECTS** |
 | 6 — Operational Re-Audit | **COMPLETE / CLOSED — NON-DEVICE PASS** |
-| 7 — Data / Recovery Gate | **ACTIVE** |
-| 8 — Security / Permissions Gate | LOCKED / PENDING |
+| 7 — Data / Recovery Gate | **COMPLETE / CLOSED — NON-DEVICE PASS** |
+| 8 — Security / Permissions Gate | **ACTIVE** |
 | 9 — Production Configuration Gate | LOCKED / PENDING |
 | 10 — Release Candidate Freeze | LOCKED / PENDING |
 | 11 — Controlled Real-World Pilot | LOCKED / PENDING |
@@ -36,27 +38,31 @@ Status: **ACTIVE**
 | 13 — Final Release Gate | LOCKED / PENDING |
 | Launch | LOCKED / PENDING |
 
-## Phase 6 exit decision — 2026-09-26
+## Phase 7 exit decision — 2026-09-26
 
-CI #1738 completed successfully on commit 4b38fecbdd165a63b2c2e97d8f5cf528039c4349.
+The Phase 7 data/recovery gate is **COMPLETE / CLOSED**.
 
-The applicable non-device operational regression evidence passed. No new non-device operational defect was identified.
+Automated evidence covers:
+- canonical backup/export format, allowlist, validation, duplicate-key rejection and legacy migration;
+- canonical-only restore source enforcement;
+- restore through an atomic IndexedDB read/write transaction with cloned records and abort handling;
+- local backup checkpoint storage and daily-checkpoint logic;
+- canonical reset behavior;
+- explicit separation of canonical and synthetic physical databases and cache invalidation on source switching;
+- the Phase 7 data/recovery gate contract is included in the consolidated contract runner.
 
-Phase 6 is therefore **COMPLETE / CLOSED**.
-
-The remaining physical Android scenarios C1–C5, E1–E2 and F2–F3 remain **DEFERRED — FINAL POST-PHASE-13 DEVICE AUDIT**. No CI or simulated result may be converted into a physical-device PASS.
+No physical-device scenario was used or converted to PASS.
 
 ## Current gate
 
-**Phase 7 — Data / Recovery Gate — ACTIVE**
+**Phase 8 — Security / Permissions Gate — ACTIVE**
 
 Required evidence:
-- backup/export;
-- restore;
-- canonical/synthetic isolation;
-- reinstall/reset behavior;
-- no silent corruption;
-- recovery procedure.
+- required permissions;
+- GPS / notification / overlay denial behavior;
+- production cleanliness;
+- accidental-secret checks;
+- inappropriate data exposure checks.
 
 ## Change-control rule
 
