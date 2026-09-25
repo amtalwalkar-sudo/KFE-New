@@ -8,6 +8,12 @@
 
 Status: **ACTIVE**
 
+**Automated non-device checkpoint:** COMPLETE — supporting evidence verified
+
+**Physical-device audit:** DEFERRED — final activity of Phase 4
+
+**Phase 5:** LOCKED / PENDING until Phase 4 exits
+
 ## Phase state
 
 | Phase | State |
@@ -125,6 +131,16 @@ Phase 4 is **ACTIVE**. Phase 3 is closed after the BR-01 re-audit passed.
 - Phase 1 Batch 1 merge commit: b4d99803c8042c75cddf8f1092820aecfafbb01a
 - Phase 1 Batch 1 head before merge: f1f1a4ecce0380c1adfa7857f9026c1988af5047
 - No claim of current production readiness is made by this document.
+
+## Phase 4 automated checkpoint — 2026-09-26
+
+The non-device Phase 4 automated matrix checkpoint is complete and green. Supporting coverage includes A5, D2, D5, F1, F5, G2, G3, G4, H4 and I5/J5 boundary/recovery checks.
+
+This does **not** close Phase 4. Physical Android testing remains the final Phase 4 activity for C1–C5, E1–E2 and F2–F3, with real device/build evidence required. Phase 5 remains locked.
+
+## Operational defect disposition at automated checkpoint
+
+No unresolved non-device operational defect is being opened from the current green automated checkpoint. Any physical-device failure discovered in the final audit must be recorded as a Phase 4 operational defect before Phase 5 is considered.
 
 ## Change-control rule
 
