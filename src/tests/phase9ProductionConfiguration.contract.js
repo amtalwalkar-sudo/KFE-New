@@ -32,7 +32,7 @@ const sourceFiles = [
   'src/application/synthetic/syntheticDataService.js',
   'src/application/startup/startupService.js',
   'src/infrastructure/backup/backupConfigAdapter.js',
-  'src/infrastructure/sync/cloudSyncService.js'
+  'src/application/sync/cloudSyncService.js'
 ]
 for (const file of sourceFiles) {
   assert.ok(existsSync(file), file + ' must exist')
