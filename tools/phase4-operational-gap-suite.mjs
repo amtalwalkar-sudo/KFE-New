@@ -253,7 +253,11 @@ try {
   await page.bringToFront()
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.locator('.cockpit').waitFor({ state: 'attached' })
-  assert(await page.getByRole('switch', { name: 'Go Offline' }).count() === 1, 'F1 browser lifecycle lost the active shift after foreground return.')
+  const f1State = await page.evaluate(async () => {
+    const { WorkService } = await import(location.origin + '/src/application/work/workService.js')
+    return WorkService.getActiveState()
+  })
+  assert(f1State?.shift?.status === 'ACTIVE' && f1State?.trip?.status === 'ACTIVE', 'F1 browser lifecycle lost the active ride after foreground return.')
   await backgroundPage.close()
 
   // F5: restore connectivity and verify the same canonical shift survives recovery/reload.
