@@ -10,7 +10,7 @@ import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } fro
 import { BackupService } from '../backup/backupService.js'
 import { MovementAccountingService } from '../../domain/movement/movementAccounting.js'
 import { calculateTraceDistanceKm } from '../../infrastructure/location/movementTraceService.js'
-import { NativeGpsService } from '../../services/nativeGpsService.js'
+import { NativeGpsService } from '../../infrastructure/android/nativeGpsService.js'
 
 const checkpoint = () => BackupService.requestLocalBackupCheckpoint()
 
