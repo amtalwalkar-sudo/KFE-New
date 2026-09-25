@@ -86,6 +86,7 @@ try {
 
   // Start this consolidated gap suite from a clean canonical dataset so first-day
   // master-data and business-start boundary assertions are deterministic.
+  await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 30000 })
   await page.evaluate(async () => {
     const { setActiveDataSource } = await import(location.origin + '/src/utils/indexedDB.js')
     const { AdminService } = await import(location.origin + '/src/application/admin/adminService.js')
