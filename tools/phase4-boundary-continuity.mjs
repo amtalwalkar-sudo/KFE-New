@@ -28,7 +28,9 @@ try {
   await waitForServer()
   browser = await chromium.launch({ headless: true })
   const page = await browser.newPage()
+  page.on('framenavigated', frame => { if (frame === page.mainFrame()) output += `\n[boundary navigation] ${frame.url()}\n` })
   await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 30000 })
+  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {})
 
   const evidence = await page.evaluate(async () => {
     const assert = (value, message) => { if (!value) throw new Error(message) }
