@@ -2,7 +2,7 @@ import { chromium } from '@playwright/test'
 import { spawn } from 'node:child_process'
 
 const base = 'http://127.0.0.1:4173/'
-const preview = spawn('npm', ['run', 'preview', '--', '--host', '127.0.0.1'], {
+const preview = spawn('npm', ['run', 'dev', '--', '--host', '127.0.0.1', '--port', '4173'], {
   stdio: ['ignore', 'pipe', 'pipe'],
   env: { ...process.env, BROWSER: 'none' },
   detached: true,
