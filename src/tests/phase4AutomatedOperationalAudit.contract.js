@@ -280,7 +280,7 @@ scenario('D4 — synthetic/canonical mutation boundary', () => {
   const mutation = read('repositories/mutationRepository.js')
   assert.match(db, /openCanonicalDB = \(\) => initializeCanonicalStorage\(\{ dataSource: 'canonical' \}\)/)
   assert.match(mutation, /openCanonicalDB\(\)/)
-  assert.match(mutation, /canonical-only synchronization work/)
+  assert.match(mutation, /canonical storage only/)
   assert.match(db, /if \(source === 'canonical'\) sessionStorage\.removeItem\('kfe:synthetic-date-context'\)/)
 })
 
