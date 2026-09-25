@@ -1,5 +1,8 @@
 import { chromium } from '@playwright/test'
 import { spawn } from 'node:child_process'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 const base = 'http://127.0.0.1:4174/'
 const dev = spawn('npm', ['run', 'dev', '--', '--host', '127.0.0.1', '--port', '4174'], {
@@ -108,13 +111,15 @@ const run = async page => page.evaluate(async () => {
 let browser
 try {
   await waitForServer()
-  browser = await chromium.launch({ headless: true })
-  const context1 = await browser.newContext({ serviceWorkers: 'block' })
+  const profileDir = await mkdtemp(join(tmpdir(), 'kfe-phase4-persistence-'))
+  browser = await chromium.launchPersistentContext(profileDir, { headless: true, serviceWorkers: 'block' })
+  const context1 = browser
   const page1 = await context1.newPage()
   await page1.goto(base, { waitUntil: 'domcontentloaded', timeout: 30000 })
   const firstRun = await run(page1)
   await context1.close()
-  const context2 = await browser.newContext({ serviceWorkers: 'block' })
+  browser = await chromium.launchPersistentContext(profileDir, { headless: true, serviceWorkers: 'block' })
+  const context2 = browser
   const page2 = await context2.newPage()
   await page2.goto(base, { waitUntil: 'domcontentloaded', timeout: 30000 })
   const afterRestart = await page2.evaluate(async () => {
@@ -131,6 +136,7 @@ try {
     return { directIds, repositoryIds }
   })
   await context2.close()
+  await rm(profileDir, { recursive: true, force: true })
   const directSurvived = afterRestart.directIds.includes('phase4-recovery-fuel')
   const repositorySurvived = afterRestart.repositoryIds.includes('phase4-recovery-fuel')
   if (!directSurvived || !repositorySurvived) {
