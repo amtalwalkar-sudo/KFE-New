@@ -57,8 +57,10 @@ try {
     }
     const iso = (day, hour) => {
       const [year, month, date] = String(day).split('-').map(Number)
-      const h = Number(hour)
-      const value = Date.UTC(year, month - 1, date, h, 0, 0) - (5.5 * 60 * 60 * 1000)
+      const [hourPart, minutePart = '0'] = String(hour).split(':')
+      const h = Number(hourPart)
+      const m = Number(minutePart)
+      const value = Date.UTC(year, month - 1, date, h, m, 0) - (5.5 * 60 * 60 * 1000)
       const result = new Date(value)
       if (!Number.isFinite(result.getTime())) throw new Error(`Invalid test timestamp: ${day} ${hour}`)
       return result.toISOString()
