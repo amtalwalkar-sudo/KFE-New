@@ -75,6 +75,9 @@ jobs:
         run: node tools/phase4-cross-surface-lifecycle.mjs
       - name: Run Phase 4 A-J Automated Matrix
         run: node tools/phase4-a-j-automated-matrix.mjs
+      - name: Run Phase 4 Operational Gap Suite
+        run: node tools/phase4-operational-gap-suite.mjs
+
 
       - name: Run Phase 4 Runtime Visual Verification
         run: node tools/phase4-runtime-visual-smoke.mjs
