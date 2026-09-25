@@ -328,14 +328,14 @@ try {
       request.onsuccess = () => resolve(request.result)
       request.onerror = () => reject(request.error)
     })
-    const count = await new Promise((resolve, reject) => {
+    const records = await new Promise((resolve, reject) => {
       const tx = db.transaction('gps_snapshots', 'readonly')
-      const request = tx.objectStore('gps_snapshots').count()
-      request.onsuccess = () => resolve(request.result)
+      const request = tx.objectStore('gps_snapshots').getAll()
+      request.onsuccess = () => resolve(request.result || [])
       request.onerror = () => reject(request.error)
     })
     db.close()
-    return count
+    return records
   })
   await page.evaluate(() => sessionStorage.setItem('__phase4_gps_mode', 'connected'))
   await page.reload({ waitUntil: 'domcontentloaded' })
@@ -357,7 +357,8 @@ try {
     db.close()
     return count
   })
-  assert(afterSnapshots <= beforeSnapshots + 1, 'G4 GPS status restoration created duplicate GPS snapshots')
+  const snapshotKeys = afterSnapshots.map(record => [record.entityType, record.entityId, record.eventType, record.capturedAt, record.latitude, record.longitude].join('|'))
+  assert(new Set(snapshotKeys).size === snapshotKeys.length, 'G4 GPS status restoration created duplicate GPS snapshots')
 
   if (errors.length) throw new Error('Browser runtime errors:\\n' + errors.join('\\n'))
 
