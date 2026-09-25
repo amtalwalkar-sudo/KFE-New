@@ -67,11 +67,7 @@ try{
  // 4F physical DB separation
  const dbs=await page.evaluate(async()=>indexedDB.databases? (await indexedDB.databases()).map(x=>x.name).filter(Boolean):[])
  assert(dbs.includes('kanishka_kfe_canonical_db'),'canonical DB missing at runtime');assert(!dbs.includes('kanishka_kfe_synthetic_db'),'synthetic DB created during canonical startup')
- if(errors.length)throw new Error('Browser runtime errors:
-'+errors.join('
-'));if(failed.length)throw new Error('Failed requests:
-'+failed.join('
-'))
+ if(errors.length)throw new Error('Browser runtime errors:\n'+errors.join('\n'));if(failed.length)throw new Error('Failed requests:\n'+failed.join('\n'))
  console.log('Phase 4 runtime visual verification PASS — shell/routes, Work interactions, GPS, themes, accessibility, responsive layout, and DB isolation.')
 }catch(e){throw new Error(e.message+'
 '+output)}finally{await browser?.close();await stop()}
