@@ -101,8 +101,8 @@ try {
       const shift = await WorkService.startShift({ id, startOdometer, shiftStartAt: iso(day, '08') })
       await ShiftTripRepository.createTrip({ id: tripId, shiftId: id, operator: 'Uber', tripStartAt: iso(day, '09'), tripKm: endOdometer - startOdometer, revenue })
       await WorkService.completeTrip({ id: tripId, shiftId: id, tripEndAt: iso(day, '10'), tripEndLocation: { latitude: 19.08, longitude: 72.88, placeName: 'Drop', capturedAt: iso(day, '10') }, tripKm: endOdometer - startOdometer })
-      const result = await WorkService.endShift({ shiftId: id, closingOdometer: endOdometer, revenue, toll: 0, parking: 0, tollParkingRevenueTreatment: 'INCLUDED' })
-      assert(result.ok === true, id + ' did not close cleanly.')
+      const result = await ShiftTripRepository.completeShift({ id, endOdometer: endOdometer, revenue, toll: 0, parking: 0, tollParkingRevenueTreatment: 'INCLUDED', shiftEndAt: iso(day, '11'), trips: [{ id: tripId, revenue, tripKm: endOdometer - startOdometer }] })
+      assert(result === true, id + ' did not close cleanly.')
       return shift
     }
 
