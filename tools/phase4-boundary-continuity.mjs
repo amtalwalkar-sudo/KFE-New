@@ -55,7 +55,7 @@ try {
         request.onerror = () => reject(request.error || new Error('Read failed: ' + storeName))
       })
     }
-    const iso = (day, hour) => new Date(day + 'T' + hour + ':00:00+05:30').toISOString()
+    const iso = (day, hour) => {\n      const [year, month, date] = String(day).split('-').map(Number)\n      const h = Number(hour)\n      const value = Date.UTC(year, month - 1, date, h, 0, 0) - (5.5 * 60 * 60 * 1000)\n      const result = new Date(value)\n      if (!Number.isFinite(result.getTime())) throw new Error(`Invalid test timestamp: ${day} ${hour}`)\n      return result.toISOString()\n    }
 
     await deleteDb('kanishka_kfe_canonical_db')
     setActiveDataSource('canonical')
