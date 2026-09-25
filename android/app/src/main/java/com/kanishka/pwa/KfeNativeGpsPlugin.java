@@ -3,14 +3,12 @@ package com.kanishka.pwa;
 import android.Manifest;
 import android.content.pm.PackageManager;
 
-import com.getcapacitor.Bridge;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.JSObject;
 
-import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 @CapacitorPlugin(
@@ -56,7 +54,4 @@ public class KfeNativeGpsPlugin extends Plugin {
     KfeNativeGpsService.clearTrace(getContext(), call.getString("tripId", ""));
     call.resolve();
   }
-
-  @com.capacitorjs.plugins.core.PermissionsPlugin
-  private void unused() {}
 }
