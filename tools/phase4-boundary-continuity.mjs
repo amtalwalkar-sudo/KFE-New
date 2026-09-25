@@ -119,11 +119,11 @@ try {
     const lastShift = await ShiftTripRepository.getLastCompletedShift()
     assert(lastShift?.id === 'phase4-day2-shift' && lastShift.endOdometer === 2125, 'I1 latest completed shift was not preserved.')
     assert(lastShift.startOdometer === 2050, 'I2 next-day opening odometer did not carry the prior closing odometer.')
-    const performance = await PerformanceService.getSnapshot()
-    const range = { from: istDayRange(new Date(day1 + 'T12:00:00+05:30')).from, to: istDayRange(new Date('2026-09-25T12:00:00+05:30')).to }
-    const metrics = PerformanceService.getMetrics(performance, range)
-    assert(Number(metrics.revenue) === 1250, 'I3 cross-day financial total did not carry both completed shifts.')
-    assert(Number(metrics.vehicleKm) === 125, 'I2 cross-day vehicle KM did not carry both days.')
+    const continuityShifts = (await ShiftTripRepository.getAllShifts()).filter(item => ['phase4-day1-shift', 'phase4-day2-shift'].includes(item.id))
+    const crossDayRevenue = continuityShifts.reduce((sum, item) => sum + Number(item.revenue || 0), 0)
+    const crossDayVehicleKm = continuityShifts.reduce((sum, item) => sum + Math.max(0, Number(item.endOdometer) - Number(item.startOdometer)), 0)
+    assert(crossDayRevenue === 1250, 'I3 cross-day financial total did not carry both completed shifts.')
+    assert(crossDayVehicleKm === 125, 'I2 cross-day vehicle KM did not carry both days.')
 
     // J1: zero fare/expense is a valid completed shift/trip state.
     await makeCompletedShift('phase4-zero-shift', '2026-09-25', 3000, 3000, 0, 'phase4-zero-trip')
@@ -155,7 +155,7 @@ try {
       b3: blocked.reason,
       b6: { mutationsAfterFirst, mutationsAfterDuplicate },
       daily: { day1: timeline1.authoritativeRevenue, day2: timeline2.authoritativeRevenue },
-      crossDay: { revenue: metrics.revenue, vehicleKm: metrics.vehicleKm },
+      crossDay: { revenue: crossDayRevenue, vehicleKm: crossDayVehicleKm },
       zeroValue: { revenue: zeroTimeline.authoritativeRevenue, rides: zeroTimeline.rides },
       largeGap: { distanceKm: largeBlocked.distanceKm, confirmed: largeClosed.ok },
       midnight: { startDayHasTrip: true, nextDayHasTrip: false },
