@@ -78,17 +78,17 @@ try {
     assert(invalidCategory.valid === false && invalidCategory.requiresGapAllocation === true, 'B2 invalid gap category was accepted.')
 
     // B3: an active ride must block the Offline/end-shift transition.
-    const b3Shift = await WorkService.startShift({ id: 'phase4-b3-shift', startOdometer: 1000, shiftStartAt: iso('2026-09-23', '08') })
-    await ShiftTripRepository.createTrip({ id: 'phase4-b3-trip', shiftId: b3Shift.id, operator: 'Uber', tripStartAt: iso('2026-09-23', '09'), tripKm: 10, revenue: 100 })
+    const b3Shift = await WorkService.startShift({ id: 'phase4-b3-shift', startOdometer: 1000, shiftStartAt: iso('2026-09-22', '08') })
+    await ShiftTripRepository.createTrip({ id: 'phase4-b3-trip', shiftId: b3Shift.id, operator: 'Uber', tripStartAt: iso('2026-09-22', '09'), tripKm: 10, revenue: 100 })
     const blocked = await WorkService.endShift({ shiftId: b3Shift.id, closingOdometer: 1010, revenue: 0 })
     assert(blocked.ok === false && blocked.reason === 'ACTIVE_TRIP_IN_PROGRESS', 'B3 did not block Offline/end-shift while a ride was active.')
     const stillActive = await WorkService.getActiveState()
     assert(stillActive.shift?.id === b3Shift.id && stillActive.trip?.id === 'phase4-b3-trip', 'B3 blocking changed active state.')
 
     // B6: terminal duplicate taps must be idempotent.
-    await WorkService.completeTrip({ id: 'phase4-b3-trip', shiftId: b3Shift.id, tripEndAt: iso('2026-09-23', '09:30'), tripEndLocation: { latitude: 19.07, longitude: 72.87, placeName: 'Drop', capturedAt: iso('2026-09-23', '09:30') }, tripKm: 10 })
+    await WorkService.completeTrip({ id: 'phase4-b3-trip', shiftId: b3Shift.id, tripEndAt: iso('2026-09-22', '09:30'), tripEndLocation: { latitude: 19.07, longitude: 72.87, placeName: 'Drop', capturedAt: iso('2026-09-22', '09:30') }, tripKm: 10 })
     const mutationsAfterFirst = (await readAll('pending_mutations')).filter(row => row.entityId === 'phase4-b3-trip').length
-    const duplicate = await WorkService.completeTrip({ id: 'phase4-b3-trip', shiftId: b3Shift.id, tripEndAt: iso('2026-09-23', '09:30'), tripEndLocation: { latitude: 19.07, longitude: 72.87, placeName: 'Drop', capturedAt: iso('2026-09-23', '09:30') }, tripKm: 10 })
+    const duplicate = await WorkService.completeTrip({ id: 'phase4-b3-trip', shiftId: b3Shift.id, tripEndAt: iso('2026-09-22', '09:30'), tripEndLocation: { latitude: 19.07, longitude: 72.87, placeName: 'Drop', capturedAt: iso('2026-09-22', '09:30') }, tripKm: 10 })
     const mutationsAfterDuplicate = (await readAll('pending_mutations')).filter(row => row.entityId === 'phase4-b3-trip').length
     assert(duplicate === true, 'B6 duplicate completion did not return the terminal-trip idempotency result.')
     assert(mutationsAfterDuplicate === mutationsAfterFirst, 'B6 duplicate completion created another mutation.')
