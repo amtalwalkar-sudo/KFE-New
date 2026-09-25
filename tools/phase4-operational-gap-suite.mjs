@@ -129,7 +129,7 @@ try {
     await AdminService.save('driverTarget', { driverId: driverCreated.id, effectiveFrom: '2026-09-01', desiredDriverProfit: 3000, active: true }, targetId)
     await AdminService.save('breakEvenInputs', { effectiveFrom: '2026-09-01', maintenanceProvisionPerKm: 2 })
     const snapshot = await PerformanceService.getSnapshot()
-    const range = { from: new Date('2026-09-01T00:00:00+05:30').toISOString(), to: new Date('2026-09-30T23:59:59+05:30').toISOString() }
+    const range = { from: new Date('2026-09-01T00:00:00+05:30'), to: new Date('2026-09-30T23:59:59+05:30') }
     const metrics = PerformanceService.getMetrics(snapshot, range)
     const maintenanceCount = snapshot.maintenance.filter(x => x.id === maintenanceId && !x.deletedAt && !x.deleted).length
     const loanCount = snapshot.loans.filter(x => x.id === loanId && !x.deletedAt && !x.deleted).length
