@@ -6,7 +6,7 @@ const base='http://127.0.0.1:4173/'
 const preview=spawn('npm',['run','preview','--','--host','127.0.0.1'],{stdio:['ignore','pipe','pipe'],env:{...process.env,BROWSER:'none'},detached:true})
 let output=''
 preview.stdout.on('data',c=>{output+=c.toString()}); preview.stderr.on('data',c=>{output+=c.toString()})
-const wait=async predicate=>{const end=Date.now()+10000;while(Date.now()<end){if(await predicate())return;await new Promise(r=>setTimeout(r,100))}throw new Error('Timed out')}
+const wait=async(predicate,label='condition')=>{const end=Date.now()+10000;while(Date.now()<end){if(await predicate())return;await new Promise(r=>setTimeout(r,100))}throw new Error('Timed out waiting for '+label)}
 const stop=async()=>{if(!preview.pid)return;try{process.kill(-preview.pid,'SIGTERM')}catch(_){}await new Promise(r=>setTimeout(r,400))}
 const assert=(x,m)=>{if(!x)throw new Error(m)}
 let browser
@@ -37,10 +37,10 @@ try{
  await seedCanonicalFixture();
  await page.reload({waitUntil:'domcontentloaded'}); await page.locator('#main-content').waitFor({state:'attached'});
  await page.getByRole('link',{name:'Timeline',exact:true}).click(); await page.locator('.timeline').waitFor({state:'attached'}); await page.getByRole('button',{name:'Today',exact:true}).click();
- await wait(async()=> (await page.locator('.timeline').innerText()).includes('Mumbai Pickup') );
+ await wait(async()=> (await page.locator('.timeline').innerText()).includes('Mumbai Pickup'),'persisted Timeline trip');
  assert((await page.locator('.timeline').innerText()).includes('Mumbai Pickup → Mumbai Drop'),'Timeline did not render persisted canonical trip');
  await page.getByRole('link',{name:'Performance',exact:true}).click(); await page.locator('.performance-page').waitFor({state:'attached'});
- await wait(async()=> (await page.locator('.performance-page').innerText()).includes('₹1,000'));
+ await wait(async()=> (await page.locator('.performance-page').innerText()).includes('₹1,000'),'persisted Performance revenue');
  const perfText=await page.locator('.performance-page').innerText(); assert(perfText.includes('₹1,000'),'Performance did not consume the same canonical shift revenue');
  assert(perfText.includes('₹950'),'BR-11 excluded toll was not reflected in actual profit');
  console.log('Phase 4 runtime canonical fixture PASS — persisted shift/trip survived reload and reconciled Timeline revenue with Performance under BR-11 EXCLUDED toll treatment.');
@@ -50,14 +50,14 @@ try{
  await page.getByRole('switch',{name:/go online/i}).click();await page.getByText('START ODOMETER',{exact:true}).waitFor({state:'visible'});assert(await page.getByRole('button',{name:'Back'}).count()>0,'Start odometer Back missing');await page.getByRole('button',{name:'Back'}).first().click()
  // 4C GPS
  const gps=page.locator('button.header-gps');assert(await gps.count()===1,'GPS control missing')
- await wait(async()=>['GPS connected','GPS ready — tap to check','GPS permission needed','GPS unavailable','Connecting GPS'].includes(await gps.getAttribute('aria-label')))
+ await wait(async()=>['GPS connected','GPS ready — tap to check','GPS permission needed','GPS unavailable','Connecting GPS'].includes(await gps.getAttribute('aria-label')),'GPS initial state')
  const beforeGps=await gps.getAttribute('aria-label');await gps.click()
- await wait(async()=>['GPS connected','GPS permission needed','GPS unavailable'].includes(await gps.getAttribute('aria-label')))
+ await wait(async()=>['GPS connected','GPS permission needed','GPS unavailable'].includes(await gps.getAttribute('aria-label')),'GPS post-check state')
  assert(!(await gps.innerText()).trim(),'GPS control is not icon-only')
 // 4D themes
- await page.evaluate(()=>localStorage.setItem('kfe.visual.theme.mode','light'));await page.reload({waitUntil:'domcontentloaded'});await wait(async()=>await page.locator('html').getAttribute('data-kfe-theme')==='day');assert(await page.locator('html').getAttribute('data-kfe-theme')==='day','light theme failed')
+ await page.evaluate(()=>localStorage.setItem('kfe.visual.theme.mode','light'));await page.reload({waitUntil:'domcontentloaded'});await wait(async()=>await page.locator('html').getAttribute('data-kfe-theme')==='day','light theme');assert(await page.locator('html').getAttribute('data-kfe-theme')==='day','light theme failed')
  const light=await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kfe-ui-bg').trim())
- await page.evaluate(()=>localStorage.setItem('kfe.visual.theme.mode','dark'));await page.reload({waitUntil:'domcontentloaded'});await wait(async()=>await page.locator('html').getAttribute('data-kfe-theme')==='night');assert(await page.locator('html').getAttribute('data-kfe-theme')==='night','dark theme failed')
+ await page.evaluate(()=>localStorage.setItem('kfe.visual.theme.mode','dark'));await page.reload({waitUntil:'domcontentloaded'});await wait(async()=>await page.locator('html').getAttribute('data-kfe-theme')==='night','dark theme');assert(await page.locator('html').getAttribute('data-kfe-theme')==='night','dark theme failed')
  const dark=await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kfe-ui-bg').trim());assert(light!==dark,'light/dark palettes are identical')
  await page.evaluate(()=>{localStorage.setItem('kfe.visual.theme.mode','auto');localStorage.setItem('kfe.visual.theme.schedule',JSON.stringify({dayStart:'00:00',nightStart:'23:59'}))});await page.reload({waitUntil:'domcontentloaded'});assert(['day','night'].includes(await page.locator('html').getAttribute('data-kfe-theme')),'auto theme invalid')
  // 4E accessibility/responsive
