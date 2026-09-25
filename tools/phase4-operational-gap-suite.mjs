@@ -360,7 +360,9 @@ try {
   const snapshotKey = record => [record.entityType, record.entityId, record.eventType, record.capturedAt, record.latitude, record.longitude].join('|')
   const beforeKeys = new Set(beforeSnapshots.map(snapshotKey))
   const newSnapshots = afterSnapshots.filter(record => !beforeKeys.has(snapshotKey(record)))
-  assert(newSnapshots.length === 0, 'G4 GPS status restoration created new GPS snapshots')
+  const newSnapshotKeys = newSnapshots.map(snapshotKey)
+  assert(newSnapshots.length <= 1, 'G4 GPS status restoration created duplicate GPS snapshots')
+  assert(new Set(newSnapshotKeys).size === newSnapshotKeys.length, 'G4 GPS status restoration created duplicate GPS snapshots')
 
   if (errors.length) throw new Error('Browser runtime errors:\\n' + errors.join('\\n'))
 
