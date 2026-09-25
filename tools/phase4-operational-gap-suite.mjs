@@ -115,8 +115,8 @@ try {
     const { calculateHistoricalMaintenanceRecovery } = await import(location.origin + '/src/domain/performance/performanceEngineV2.js')
     const { istDayRange } = await import(location.origin + '/src/domain/time/ist.js')
     const iso = (day, hour) => { const [y,m,d] = String(day).split('-').map(Number); const [h,min='0'] = String(hour).split(':'); return new Date(Date.UTC(y,m-1,d,Number(h),Number(min),0)-19800000).toISOString() }
-    const vehicleId = 'phase4-d5-vehicle'
-    await AdminService.save('vehicle', { id: vehicleId, registrationNumber: 'D5-TEST', make: 'KFE', model: 'Test', acquiredOn: '2026-09-01', acquisitionValue: 0, openingOdometerKm: 1000, fuelType: 'CNG', tankCapacity: 0, status: 'Active', statusDate: '2026-09-01', active: true })
+    const createdVehicle = await AdminService.save('vehicle', { registrationNumber: 'D5-TEST', make: 'KFE', model: 'Test', acquiredOn: '2026-09-01', acquisitionValue: 0, openingOdometerKm: 1000, fuelType: 'CNG', tankCapacity: 0, status: 'Active', statusDate: '2026-09-01', active: true })
+    const vehicleId = createdVehicle.id
     await AdminService.save('vehicle', { registrationNumber: 'D5-TEST', make: 'KFE', model: 'Test', acquiredOn: '2026-09-01', acquisitionValue: 0, openingOdometerKm: 1200, fuelType: 'CNG', tankCapacity: 0, status: 'Active', statusDate: '2026-09-01', active: true }, vehicleId)
     const baseline = await WorkService.getBusinessStartBaseline()
     if (baseline?.businessStartOdometer !== 1200) throw new Error('D5 Admin vehicle edit was not consumed by Work baseline.')
@@ -143,13 +143,16 @@ try {
     const maintenanceId = 'phase4-h4-maintenance'
     const loanId = 'phase4-h4-loan'
     const targetId = 'phase4-h4-target'
-    await AdminService.save('maintenance', { id: maintenanceId, vehicleId: 'phase4-d5-vehicle', maintenanceType: 'H4 test service', performedOn: '2026-09-25', cost: 100 })
+    const maintenanceCreated = await AdminService.save('maintenance', { vehicleId: 'phase4-d5-vehicle', maintenanceType: 'H4 test service', performedOn: '2026-09-25', cost: 100 })
+    const maintenanceId = maintenanceCreated.id
     await AdminService.save('maintenance', { vehicleId: 'phase4-d5-vehicle', maintenanceType: 'H4 test service', performedOn: '2026-09-25', cost: 150 }, maintenanceId)
-    await AdminService.save('loan', { id: loanId, lender: 'H4 Test Bank', accountReference: 'H4-1', principal: 12000, tenureMonths: 12, startDate: '2026-09-01', annualInterestRatePercent: 12, status: 'Active' })
+    const loanCreated = await AdminService.save('loan', { lender: 'H4 Test Bank', accountReference: 'H4-1', principal: 12000, tenureMonths: 12, startDate: '2026-09-01', annualInterestRatePercent: 12, status: 'Active' })
+    const loanId = loanCreated.id
     await AdminService.save('loan', { lender: 'H4 Test Bank', accountReference: 'H4-1', principal: 10000, tenureMonths: 12, startDate: '2026-09-01', annualInterestRatePercent: 12, status: 'Active' }, loanId)
-    await AdminService.save('driverTarget', { id: targetId, driverId: 'phase4-d5-driver', effectiveFrom: '2026-09-01', desiredDriverProfit: 3000, active: true })
+    const targetCreated = await AdminService.save('driverTarget', { driverId: 'phase4-d5-driver', effectiveFrom: '2026-09-01', desiredDriverProfit: 3000, active: true })
+    const targetId = targetCreated.id
     await AdminService.save('driverTarget', { driverId: 'phase4-d5-driver', effectiveFrom: '2026-09-01', desiredDriverProfit: 3000, active: true }, targetId)
-    await AdminService.save('breakEvenInputs', { id: 'phase4-h4-rate', effectiveFrom: '2026-09-01', maintenanceProvisionPerKm: 2 })
+    await AdminService.save('breakEvenInputs', { effectiveFrom: '2026-09-01', maintenanceProvisionPerKm: 2 })
     const snapshot = await PerformanceService.getSnapshot()
     const range = { from: istDayRange('2026-09-01').from, to: istDayRange('2026-09-30').to }
     const metrics = PerformanceService.getMetrics(snapshot, range)
