@@ -93,16 +93,51 @@ try {
   assert(await page.getByText('Refuelling', { exact: true }).count() === 1, 'A5 offline fuel form did not open')
   await page.getByRole('button', { name: 'Keep Draft & Close' }).click()
 
-  // D2/F5-support: browser network loss does not destroy the already-loaded PWA shell,
-  // and the app recovers once network connectivity is restored.
+  // D2: perform a real canonical Work mutation while the browser is offline.
+  await page.getByRole('switch', { name: /go online/i }).click()
+  const startOdo = page.getByRole('spinbutton', { name: 'Start odometer' })
+  await startOdo.fill('1000')
+  await page.getByRole('button', { name: 'CONFIRM ODOMETER & GO ONLINE' }).click()
+  await page.getByRole('switch', { name: 'Go Offline' }).waitFor({ state: 'attached' })
   await context.setOffline(true)
+  const offlineShiftState = await page.evaluate(async () => {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('kanishka_kfe_canonical_db', 13)
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    const record = await new Promise((resolve, reject) => {
+      const request = db.transaction('shifts', 'readonly').objectStore('shifts').getAll()
+      request.onsuccess = () => resolve((request.result || []).find(item => item.status === 'ACTIVE'))
+      request.onerror = () => reject(request.error)
+    })
+    db.close()
+    return record ? { id: record.id, status: record.status, startOdometer: record.startOdometer } : null
+  })
+  assert(offlineShiftState?.status === 'ACTIVE' && Number(offlineShiftState.startOdometer) === 1000, 'D2 offline shift mutation was not persisted canonically')
   await page.getByRole('link', { name: 'Timeline', exact: true }).click()
   await page.locator('.timeline').waitFor({ state: 'attached', timeout: 10000 })
   assert(await page.getByText('TIMELINE', { exact: false }).count() > 0, 'D2 offline navigation did not remain available')
+
+  // F5: restore connectivity and verify the same canonical shift survives recovery/reload.
   await context.setOffline(false)
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.locator('.timeline').waitFor({ state: 'attached', timeout: 30000 })
-  assert(await page.locator('.kfe-runtime-error').count() === 0, 'F5 recovery produced a runtime error')
+  const recoveredShiftState = await page.evaluate(async () => {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('kanishka_kfe_canonical_db', 13)
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    const record = await new Promise((resolve, reject) => {
+      const request = db.transaction('shifts', 'readonly').objectStore('shifts').getAll()
+      request.onsuccess = () => resolve((request.result || []).find(item => item.status === 'ACTIVE'))
+      request.onerror = () => reject(request.error)
+    })
+    db.close()
+    return record ? { id: record.id, status: record.status, startOdometer: record.startOdometer } : null
+  })
+  assert(recoveredShiftState?.id === offlineShiftState.id && recoveredShiftState.status === 'ACTIVE', 'F5 network recovery did not preserve the canonical shift')
 
   // G2: explicit permission denial is surfaced as the GPS permission state.
   await page.goto(base, { waitUntil: 'domcontentloaded' })
