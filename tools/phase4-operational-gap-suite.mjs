@@ -206,7 +206,7 @@ try {
   // D2: perform a real canonical Work mutation while the browser is offline.
   await page.getByRole('switch', { name: /go online/i }).click()
   const startOdo = page.getByRole('spinbutton', { name: 'Start odometer' })
-  await startOdo.fill('1000')
+  await startOdo.fill('1200')
   await page.getByRole('button', { name: 'CONFIRM ODOMETER & GO ONLINE' }).click()
   await page.getByRole('switch', { name: 'Go Offline' }).waitFor({ state: 'attached' })
   await context.setOffline(true)
