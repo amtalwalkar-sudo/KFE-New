@@ -4,7 +4,7 @@ import { openCanonicalDB, getActiveDataSource } from '../utils/indexedDB.js'
 // Business repositories may persist business records in either physical data source,
 // but mutation/audit records are canonical-only. Synthetic-mode business writes must
 // never become sync candidates or cross into the canonical database.
-// These sync lifecycle methods intentionally operate on canonical storage only; the active
+// these sync lifecycle methods intentionally operate on canonical storage only; the active
 // synthetic data source is consulted only at the business-write boundary above.
 import { generateUUID } from '../utils/uuid.js'
 
