@@ -38,17 +38,15 @@ Physical-device-only scenarios remain deferred and cannot be converted to PASS.
 
 ## Phase 7 — Data / Recovery Gate
 
-**ACTIVE.**
+2026-09-26 exit: PASS — non-device automated gate.
 
-Complete and evidence:
-- backup/export;
-- restore;
-- canonical/synthetic isolation;
-- reinstall/reset behavior;
-- no silent corruption;
-- recovery procedure.
+Evidence includes backup/export validation and migration, canonical-only restore enforcement, atomic restore/reset transaction contracts, local backup checkpoint logic, and canonical/synthetic physical-database isolation. The new Phase 7 data/recovery contract is included in the consolidated contract runner.
+
+No physical-device scenario was used or converted to PASS.
 
 ## Phase 8 — Security / Permissions Gate
+
+**ACTIVE.**
 
 Practical checks for required permissions, GPS/notification/overlay denial, production cleanliness, accidental secrets, and inappropriate data exposure.
 
