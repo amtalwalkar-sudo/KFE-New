@@ -87,14 +87,14 @@ try {
   // Start this consolidated gap suite from a clean canonical dataset so first-day
   // master-data and business-start boundary assertions are deterministic.
   await page.evaluate(async () => {
-    const { setActiveDataSource } = await import('/src/utils/indexedDB.js')
-    const { AdminService } = await import('/src/application/admin/adminService.js')
-    const { WorkService } = await import('/src/application/work/workService.js')
-    const { ShiftTripRepository } = await import('/src/repositories/shiftTripRepository.js')
-    const { PerformanceService } = await import('/src/application/performance/performanceService.js')
-    const { DriverTargetService } = await import('/src/application/performance/driverTargetService.js')
-    const { calculateHistoricalMaintenanceRecovery } = await import('/src/domain/performance/performanceEngineV2.js')
-    const { istDayRange } = await import('/src/domain/time/ist.js')
+    const { setActiveDataSource } = await import(location.origin + '/src/utils/indexedDB.js')
+    const { AdminService } = await import(location.origin + '/src/application/admin/adminService.js')
+    const { WorkService } = await import(location.origin + '/src/application/work/workService.js')
+    const { ShiftTripRepository } = await import(location.origin + '/src/repositories/shiftTripRepository.js')
+    const { PerformanceService } = await import(location.origin + '/src/application/performance/performanceService.js')
+    const { DriverTargetService } = await import(location.origin + '/src/application/performance/driverTargetService.js')
+    const { calculateHistoricalMaintenanceRecovery } = await import(location.origin + '/src/domain/performance/performanceEngineV2.js')
+    const { istDayRange } = await import(location.origin + '/src/domain/time/ist.js')
     const iso = (day, hour) => { const [y,m,d] = String(day).split('-').map(Number); const [h,min='0'] = String(hour).split(':'); return new Date(Date.UTC(y,m-1,d,Number(h),Number(min),0)-19800000).toISOString() }
     const request = indexedDB.deleteDatabase('kanishka_kfe_canonical_db')
     await new Promise((resolve, reject) => { request.onsuccess = resolve; request.onerror = () => reject(request.error); request.onblocked = () => reject(new Error('Canonical DB delete was blocked.')) })
@@ -105,14 +105,14 @@ try {
 
   // D5: an Admin master-data edit must be consumed by the Work baseline.
   const d5 = await page.evaluate(async () => {
-    const { setActiveDataSource } = await import('/src/utils/indexedDB.js')
-    const { AdminService } = await import('/src/application/admin/adminService.js')
-    const { WorkService } = await import('/src/application/work/workService.js')
-    const { ShiftTripRepository } = await import('/src/repositories/shiftTripRepository.js')
-    const { PerformanceService } = await import('/src/application/performance/performanceService.js')
-    const { DriverTargetService } = await import('/src/application/performance/driverTargetService.js')
-    const { calculateHistoricalMaintenanceRecovery } = await import('/src/domain/performance/performanceEngineV2.js')
-    const { istDayRange } = await import('/src/domain/time/ist.js')
+    const { setActiveDataSource } = await import(location.origin + '/src/utils/indexedDB.js')
+    const { AdminService } = await import(location.origin + '/src/application/admin/adminService.js')
+    const { WorkService } = await import(location.origin + '/src/application/work/workService.js')
+    const { ShiftTripRepository } = await import(location.origin + '/src/repositories/shiftTripRepository.js')
+    const { PerformanceService } = await import(location.origin + '/src/application/performance/performanceService.js')
+    const { DriverTargetService } = await import(location.origin + '/src/application/performance/driverTargetService.js')
+    const { calculateHistoricalMaintenanceRecovery } = await import(location.origin + '/src/domain/performance/performanceEngineV2.js')
+    const { istDayRange } = await import(location.origin + '/src/domain/time/ist.js')
     const iso = (day, hour) => { const [y,m,d] = String(day).split('-').map(Number); const [h,min='0'] = String(hour).split(':'); return new Date(Date.UTC(y,m-1,d,Number(h),Number(min),0)-19800000).toISOString() }
     const vehicleId = 'phase4-d5-vehicle'
     await AdminService.save('vehicle', { id: vehicleId, registrationNumber: 'D5-TEST', make: 'KFE', model: 'Test', acquiredOn: '2026-09-01', acquisitionValue: 0, openingOdometerKm: 1000, fuelType: 'CNG', tankCapacity: 0, status: 'Active', statusDate: '2026-09-01', active: true })
@@ -130,14 +130,14 @@ try {
   // H4: maintenance, loan and target inputs must each contribute once to the
   // canonical Performance outputs; updating the same source record must not double-count it.
   const h4 = await page.evaluate(async () => {
-    const { setActiveDataSource } = await import('/src/utils/indexedDB.js')
-    const { AdminService } = await import('/src/application/admin/adminService.js')
-    const { WorkService } = await import('/src/application/work/workService.js')
-    const { ShiftTripRepository } = await import('/src/repositories/shiftTripRepository.js')
-    const { PerformanceService } = await import('/src/application/performance/performanceService.js')
-    const { DriverTargetService } = await import('/src/application/performance/driverTargetService.js')
-    const { calculateHistoricalMaintenanceRecovery } = await import('/src/domain/performance/performanceEngineV2.js')
-    const { istDayRange } = await import('/src/domain/time/ist.js')
+    const { setActiveDataSource } = await import(location.origin + '/src/utils/indexedDB.js')
+    const { AdminService } = await import(location.origin + '/src/application/admin/adminService.js')
+    const { WorkService } = await import(location.origin + '/src/application/work/workService.js')
+    const { ShiftTripRepository } = await import(location.origin + '/src/repositories/shiftTripRepository.js')
+    const { PerformanceService } = await import(location.origin + '/src/application/performance/performanceService.js')
+    const { DriverTargetService } = await import(location.origin + '/src/application/performance/driverTargetService.js')
+    const { calculateHistoricalMaintenanceRecovery } = await import(location.origin + '/src/domain/performance/performanceEngineV2.js')
+    const { istDayRange } = await import(location.origin + '/src/domain/time/ist.js')
     const iso = (day, hour) => { const [y,m,d] = String(day).split('-').map(Number); const [h,min='0'] = String(hour).split(':'); return new Date(Date.UTC(y,m-1,d,Number(h),Number(min),0)-19800000).toISOString() }
     const maintenanceId = 'phase4-h4-maintenance'
     const loanId = 'phase4-h4-loan'
@@ -169,14 +169,14 @@ try {
   // before the boundary, begins on the boundary, continues after it, and stops
   // at the documented recovery horizon.
   const i5j5 = await page.evaluate(async () => {
-    const { setActiveDataSource } = await import('/src/utils/indexedDB.js')
-    const { AdminService } = await import('/src/application/admin/adminService.js')
-    const { WorkService } = await import('/src/application/work/workService.js')
-    const { ShiftTripRepository } = await import('/src/repositories/shiftTripRepository.js')
-    const { PerformanceService } = await import('/src/application/performance/performanceService.js')
-    const { DriverTargetService } = await import('/src/application/performance/driverTargetService.js')
-    const { calculateHistoricalMaintenanceRecovery } = await import('/src/domain/performance/performanceEngineV2.js')
-    const { istDayRange } = await import('/src/domain/time/ist.js')
+    const { setActiveDataSource } = await import(location.origin + '/src/utils/indexedDB.js')
+    const { AdminService } = await import(location.origin + '/src/application/admin/adminService.js')
+    const { WorkService } = await import(location.origin + '/src/application/work/workService.js')
+    const { ShiftTripRepository } = await import(location.origin + '/src/repositories/shiftTripRepository.js')
+    const { PerformanceService } = await import(location.origin + '/src/application/performance/performanceService.js')
+    const { DriverTargetService } = await import(location.origin + '/src/application/performance/driverTargetService.js')
+    const { calculateHistoricalMaintenanceRecovery } = await import(location.origin + '/src/domain/performance/performanceEngineV2.js')
+    const { istDayRange } = await import(location.origin + '/src/domain/time/ist.js')
     const iso = (day, hour) => { const [y,m,d] = String(day).split('-').map(Number); const [h,min='0'] = String(hour).split(':'); return new Date(Date.UTC(y,m-1,d,Number(h),Number(min),0)-19800000).toISOString() }
     const vehicle = { id: 'phase4-d5-vehicle', openingOdometerKm: 1200, active: true, status: 'Active' }
     const before = calculateHistoricalMaintenanceRecovery({ vehicles: [vehicle], businessStartDate: '2026-05-01', asOf: new Date('2026-04-30T23:59:00+05:30') })
@@ -235,7 +235,7 @@ try {
   await page.getByRole('button', { name: 'CONFIRM ODOMETER & GO ONLINE' }).click()
   await page.getByRole('switch', { name: 'Go Offline' }).waitFor({ state: 'attached' })
   await page.evaluate(async () => {
-    const { WorkService } = await import('/src/application/work/workService.js')
+    const { WorkService } = await import(location.origin + '/src/application/work/workService.js')
     const active = await WorkService.getActiveState()
     const trip = await WorkService.startTrip({ shiftId: active.shift.id, operator: 'Uber' })
     if (!trip?.id) throw new Error('F1 browser lifecycle fixture could not create an active trip.')
