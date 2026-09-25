@@ -148,7 +148,7 @@ try {
     await AdminService.save('maintenance', { vehicleId, maintenanceType: 'H4 test service', performedOn: '2026-09-25', cost: 150 }, maintenanceId)
     const loanCreated = await AdminService.save('loan', { lender: 'H4 Test Bank', accountReference: 'H4-1', principal: 12000, tenureMonths: 12, startDate: '2026-09-01', annualInterestRatePercent: 12, status: 'Active' })
     const loanId = loanCreated.id
-    const driverCreated = await AdminService.save('driver', { name: 'D5 Test Driver', phone: '', licenseNumber: '', licenseExpiry: '', joinedOn: '2026-09-01', status: 'Active', vehicleId, active: true })
+    const driverCreated = await AdminService.save('driver', { name: 'D5 Test Driver', phone: '', licenseNumber: '', licenseExpiry: '', joinedOn: '2026-09-01', status: 'Active', vehicleId })
     const targetCreated = await AdminService.save('driverTarget', { driverId: driverCreated.id, effectiveFrom: '2026-09-01', desiredDriverProfit: 3000, active: true })
     const targetId = targetCreated.id
     await AdminService.save('driverTarget', { driverId: driverCreated.id, effectiveFrom: '2026-09-01', desiredDriverProfit: 3000, active: true }, targetId)
