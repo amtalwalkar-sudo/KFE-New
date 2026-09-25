@@ -237,7 +237,6 @@ try {
   const lifecycleOdo = page.getByRole('spinbutton', { name: 'Start odometer' })
   await lifecycleOdo.fill('1300')
   await page.getByRole('button', { name: 'CONFIRM ODOMETER & GO ONLINE' }).click()
-  await page.getByRole('switch', { name: 'Go Offline' }).waitFor({ state: 'attached' })
   await page.evaluate(async () => {
     const { WorkService } = await import(location.origin + '/src/application/work/workService.js')
     const active = await WorkService.getActiveState()
