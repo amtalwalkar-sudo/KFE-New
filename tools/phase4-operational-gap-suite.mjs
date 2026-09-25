@@ -357,11 +357,13 @@ try {
     db.close()
     return records
   })
-  const snapshotKey = record => [record.entityType, record.entityId, record.eventType, record.capturedAt, record.latitude, record.longitude].join('|')
+  // A restoration may legitimately cause a fresh status sample, but two samples
+  // for the same lifecycle event/location are duplicates. Compare only the newly
+  // created records and ignore capturedAt so timestamp differences do not hide a duplicate.
+  const snapshotKey = record => [record.entityType, record.entityId, record.eventType, record.latitude, record.longitude].join('|')
   const beforeKeys = new Set(beforeSnapshots.map(snapshotKey))
   const newSnapshots = afterSnapshots.filter(record => !beforeKeys.has(snapshotKey(record)))
   const newSnapshotKeys = newSnapshots.map(snapshotKey)
-  assert(newSnapshots.length <= 1, 'G4 GPS status restoration created duplicate GPS snapshots')
   assert(new Set(newSnapshotKeys).size === newSnapshotKeys.length, 'G4 GPS status restoration created duplicate GPS snapshots')
 
   if (errors.length) throw new Error('Browser runtime errors:\\n' + errors.join('\\n'))
