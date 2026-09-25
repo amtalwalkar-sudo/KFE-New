@@ -35,11 +35,11 @@ try{
    await new Promise((resolve,reject)=>{const tx=db.transaction(['shifts','trips'],'readwrite'); tx.objectStore('shifts').put({id:'phase4-runtime-shift',status:'COMPLETED',shiftStartAt:start,shiftEndAt:end,startOdometer:1000,endOdometer:1100,totalDistance:100,revenue:1000,toll:50,parking:0,tollParkingRevenueTreatment:'EXCLUDED',openingPersonalKm:0,openingDeadKm:0}); tx.objectStore('trips').put({id:'phase4-runtime-trip',shiftId:'phase4-runtime-shift',status:'COMPLETED',operator:'Uber',tripStartAt:new Date(Date.parse(start)+3600000).toISOString(),tripEndAt:new Date(Date.parse(start)+5400000).toISOString(),tripStartLocation:{latitude:19.076,longitude:72.8777,placeName:'Mumbai Pickup',capturedAt:start},tripEndLocation:{latitude:19.08,longitude:72.88,placeName:'Mumbai Drop',capturedAt:end},tripKm:80,revenue:1000,revenueAuthority:'SUPPORTING_ONLY',tripStage:'RIDE_STARTED'}); tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)}); db.close();
  });
  await seedCanonicalFixture();
- await page.reload({waitUntil:'domcontentloaded'}); await page.locator('.cockpit').waitFor({state:'visible'});
- await page.getByRole('link',{name:'Timeline',exact:true}).click(); await page.locator('.timeline').waitFor({state:'visible'}); await page.getByRole('button',{name:'Today',exact:true}).click();
+ await page.reload({waitUntil:'domcontentloaded'}); await page.locator('.cockpit').waitFor({state:'attached'});
+ await page.getByRole('link',{name:'Timeline',exact:true}).click(); await page.locator('.timeline').waitFor({state:'attached'}); await page.getByRole('button',{name:'Today',exact:true}).click();
  await wait(async()=> (await page.locator('.timeline').innerText()).includes('Mumbai Pickup') );
  assert((await page.locator('.timeline').innerText()).includes('Mumbai Pickup → Mumbai Drop'),'Timeline did not render persisted canonical trip');
- await page.getByRole('link',{name:'Performance',exact:true}).click(); await page.locator('.performance-page').waitFor({state:'visible'});
+ await page.getByRole('link',{name:'Performance',exact:true}).click(); await page.locator('.performance-page').waitFor({state:'attached'});
  await wait(async()=> (await page.locator('.performance-page').innerText()).includes('₹1,000'));
  const perfText=await page.locator('.performance-page').innerText(); assert(perfText.includes('₹1,000'),'Performance did not consume the same canonical shift revenue');
  assert(perfText.includes('₹950'),'BR-11 excluded toll was not reflected in actual profit');
@@ -55,11 +55,11 @@ try{
  await wait(async()=>['GPS connected','GPS permission needed','GPS unavailable'].includes(await gps.getAttribute('aria-label')))
  assert(!(await gps.innerText()).trim(),'GPS control is not icon-only')
 // 4D themes
- await page.evaluate(()=>localStorage.setItem('kfe.visual.theme.mode','light'));await page.reload({waitUntil:'domcontentloaded'});await page.locator('.cockpit').waitFor({state:'visible'});await wait(async()=>await page.locator('html').getAttribute('data-kfe-theme')==='day');assert(await page.locator('html').getAttribute('data-kfe-theme')==='day','light theme failed')
+ await page.evaluate(()=>localStorage.setItem('kfe.visual.theme.mode','light'));await page.reload({waitUntil:'domcontentloaded'});await page.locator('.cockpit').waitFor({state:'attached'});await wait(async()=>await page.locator('html').getAttribute('data-kfe-theme')==='day');assert(await page.locator('html').getAttribute('data-kfe-theme')==='day','light theme failed')
  const light=await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kfe-ui-bg').trim())
- await page.evaluate(()=>localStorage.setItem('kfe.visual.theme.mode','dark'));await page.reload({waitUntil:'domcontentloaded'});await page.locator('.cockpit').waitFor({state:'visible'});await wait(async()=>await page.locator('html').getAttribute('data-kfe-theme')==='night');assert(await page.locator('html').getAttribute('data-kfe-theme')==='night','dark theme failed')
+ await page.evaluate(()=>localStorage.setItem('kfe.visual.theme.mode','dark'));await page.reload({waitUntil:'domcontentloaded'});await page.locator('.cockpit').waitFor({state:'attached'});await wait(async()=>await page.locator('html').getAttribute('data-kfe-theme')==='night');assert(await page.locator('html').getAttribute('data-kfe-theme')==='night','dark theme failed')
  const dark=await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kfe-ui-bg').trim());assert(light!==dark,'light/dark palettes are identical')
- await page.evaluate(()=>{localStorage.setItem('kfe.visual.theme.mode','auto');localStorage.setItem('kfe.visual.theme.schedule',JSON.stringify({dayStart:'00:00',nightStart:'23:59'}))});await page.reload({waitUntil:'domcontentloaded'});await page.locator('.cockpit').waitFor({state:'visible'});assert(['day','night'].includes(await page.locator('html').getAttribute('data-kfe-theme')),'auto theme invalid')
+ await page.evaluate(()=>{localStorage.setItem('kfe.visual.theme.mode','auto');localStorage.setItem('kfe.visual.theme.schedule',JSON.stringify({dayStart:'00:00',nightStart:'23:59'}))});await page.reload({waitUntil:'domcontentloaded'});await page.locator('.cockpit').waitFor({state:'attached'});assert(['day','night'].includes(await page.locator('html').getAttribute('data-kfe-theme')),'auto theme invalid')
  // 4E accessibility/responsive
  const unnamed=await page.evaluate(()=>[...document.querySelectorAll('button,a,[role="button"]')].filter(e=>{const s=getComputedStyle(e);return s.display!=='none'&&s.visibility!=='hidden'&&e.getClientRects().length}).filter(e=>!(e.textContent||'').trim()&&!e.getAttribute('aria-label')&&!e.getAttribute('title')).map(e=>e.outerHTML.slice(0,180)))
  assert(unnamed.length===0,'unnamed visible interactive elements: '+JSON.stringify(unnamed.slice(0,10)))
