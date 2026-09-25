@@ -41,6 +41,8 @@ assert(backupRepo.includes('tx.onabort'), 'Restore must reject aborted transacti
 
 assert(mutation.includes('openCanonicalDB'), 'Sync lifecycle must use canonical storage')
 assert(mutation.includes("const tx = db.transaction('pending_mutations'"), 'Mutation lifecycle must be isolated to canonical sync queue')
-assert(!mutation.includes('getActiveDataSource'), 'Sync lifecycle must not follow synthetic mode')
+assert(mutation.includes('getActiveDataSource'), 'Mutation writer must know the active physical data source')
+assert(mutation.includes("if (getActiveDataSource() !== 'canonical') return null"), 'Synthetic business writes must not enqueue canonical mutations or audit records')
+assert(mutation.includes('never become sync candidates'), 'Synthetic mutation boundary must be explicit')
 
 console.log('Phase 4 persistence, migration, backup and data-isolation contract: PASS')
