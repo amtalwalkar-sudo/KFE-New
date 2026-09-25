@@ -84,6 +84,112 @@ try {
     assert(await page.locator('.kfe-runtime-error').count() === 0, label + ' runtime error')
   }
 
+  // Start this consolidated gap suite from a clean canonical dataset so first-day
+  // master-data and business-start boundary assertions are deterministic.
+  await page.evaluate(async () => {
+    const { setActiveDataSource } = await import('/src/utils/indexedDB.js')
+    const { AdminService } = await import('/src/application/admin/adminService.js')
+    const { WorkService } = await import('/src/application/work/workService.js')
+    const { ShiftTripRepository } = await import('/src/repositories/shiftTripRepository.js')
+    const { PerformanceService } = await import('/src/application/performance/performanceService.js')
+    const { DriverTargetService } = await import('/src/application/performance/driverTargetService.js')
+    const { calculateHistoricalMaintenanceRecovery } = await import('/src/domain/performance/performanceEngineV2.js')
+    const { istDayRange } = await import('/src/domain/time/ist.js')
+    const iso = (day, hour) => { const [y,m,d] = String(day).split('-').map(Number); const [h,min='0'] = String(hour).split(':'); return new Date(Date.UTC(y,m-1,d,Number(h),Number(min),0)-19800000).toISOString() }
+    const request = indexedDB.deleteDatabase('kanishka_kfe_canonical_db')
+    await new Promise((resolve, reject) => { request.onsuccess = resolve; request.onerror = () => reject(request.error); request.onblocked = () => reject(new Error('Canonical DB delete was blocked.')) })
+    setActiveDataSource('canonical')
+  })
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.locator('.cockpit').waitFor({ state: 'attached', timeout: 30000 })
+
+  // D5: an Admin master-data edit must be consumed by the Work baseline.
+  const d5 = await page.evaluate(async () => {
+    const { setActiveDataSource } = await import('/src/utils/indexedDB.js')
+    const { AdminService } = await import('/src/application/admin/adminService.js')
+    const { WorkService } = await import('/src/application/work/workService.js')
+    const { ShiftTripRepository } = await import('/src/repositories/shiftTripRepository.js')
+    const { PerformanceService } = await import('/src/application/performance/performanceService.js')
+    const { DriverTargetService } = await import('/src/application/performance/driverTargetService.js')
+    const { calculateHistoricalMaintenanceRecovery } = await import('/src/domain/performance/performanceEngineV2.js')
+    const { istDayRange } = await import('/src/domain/time/ist.js')
+    const iso = (day, hour) => { const [y,m,d] = String(day).split('-').map(Number); const [h,min='0'] = String(hour).split(':'); return new Date(Date.UTC(y,m-1,d,Number(h),Number(min),0)-19800000).toISOString() }
+    const vehicleId = 'phase4-d5-vehicle'
+    await AdminService.save('vehicle', { id: vehicleId, registrationNumber: 'D5-TEST', make: 'KFE', model: 'Test', acquiredOn: '2026-09-01', acquisitionValue: 0, openingOdometerKm: 1000, fuelType: 'CNG', tankCapacity: 0, status: 'Active', statusDate: '2026-09-01', active: true })
+    await AdminService.save('vehicle', { registrationNumber: 'D5-TEST', make: 'KFE', model: 'Test', acquiredOn: '2026-09-01', acquisitionValue: 0, openingOdometerKm: 1200, fuelType: 'CNG', tankCapacity: 0, status: 'Active', statusDate: '2026-09-01', active: true }, vehicleId)
+    const baseline = await WorkService.getBusinessStartBaseline()
+    if (baseline?.businessStartOdometer !== 1200) throw new Error('D5 Admin vehicle edit was not consumed by Work baseline.')
+    const started = await WorkService.startShift({ id: 'phase4-d5-shift', startOdometer: 1200, shiftStartAt: iso('2026-09-25', '08') })
+    if (started?.startOdometer !== 1200) throw new Error('D5 Work did not use the edited opening odometer.')
+    const ended = await WorkService.endShift({ shiftId: started.id, closingOdometer: 1210, revenue: 0 })
+    if (ended?.ok !== true) throw new Error('D5 fixture shift did not close.')
+    return { vehicleId, editedOpeningOdometer: baseline.businessStartOdometer, workStartOdometer: started.startOdometer }
+  })
+  assert(d5.editedOpeningOdometer === 1200 && d5.workStartOdometer === 1200, 'D5 Admin edit did not flow into Work.')
+
+  // H4: maintenance, loan and target inputs must each contribute once to the
+  // canonical Performance outputs; updating the same source record must not double-count it.
+  const h4 = await page.evaluate(async () => {
+    const { setActiveDataSource } = await import('/src/utils/indexedDB.js')
+    const { AdminService } = await import('/src/application/admin/adminService.js')
+    const { WorkService } = await import('/src/application/work/workService.js')
+    const { ShiftTripRepository } = await import('/src/repositories/shiftTripRepository.js')
+    const { PerformanceService } = await import('/src/application/performance/performanceService.js')
+    const { DriverTargetService } = await import('/src/application/performance/driverTargetService.js')
+    const { calculateHistoricalMaintenanceRecovery } = await import('/src/domain/performance/performanceEngineV2.js')
+    const { istDayRange } = await import('/src/domain/time/ist.js')
+    const iso = (day, hour) => { const [y,m,d] = String(day).split('-').map(Number); const [h,min='0'] = String(hour).split(':'); return new Date(Date.UTC(y,m-1,d,Number(h),Number(min),0)-19800000).toISOString() }
+    const maintenanceId = 'phase4-h4-maintenance'
+    const loanId = 'phase4-h4-loan'
+    const targetId = 'phase4-h4-target'
+    await AdminService.save('maintenance', { id: maintenanceId, vehicleId: 'phase4-d5-vehicle', maintenanceType: 'H4 test service', performedOn: '2026-09-25', cost: 100 })
+    await AdminService.save('maintenance', { vehicleId: 'phase4-d5-vehicle', maintenanceType: 'H4 test service', performedOn: '2026-09-25', cost: 150 }, maintenanceId)
+    await AdminService.save('loan', { id: loanId, lender: 'H4 Test Bank', accountReference: 'H4-1', principal: 12000, tenureMonths: 12, startDate: '2026-09-01', annualInterestRatePercent: 12, status: 'Active' })
+    await AdminService.save('loan', { lender: 'H4 Test Bank', accountReference: 'H4-1', principal: 10000, tenureMonths: 12, startDate: '2026-09-01', annualInterestRatePercent: 12, status: 'Active' }, loanId)
+    await AdminService.save('driverTarget', { id: targetId, driverId: 'phase4-d5-driver', effectiveFrom: '2026-09-01', desiredDriverProfit: 3000, active: true })
+    await AdminService.save('driverTarget', { driverId: 'phase4-d5-driver', effectiveFrom: '2026-09-01', desiredDriverProfit: 3000, active: true }, targetId)
+    await AdminService.save('breakEvenInputs', { id: 'phase4-h4-rate', effectiveFrom: '2026-09-01', maintenanceProvisionPerKm: 2 })
+    const snapshot = await PerformanceService.getSnapshot()
+    const range = { from: istDayRange('2026-09-01').from, to: istDayRange('2026-09-30').to }
+    const metrics = PerformanceService.getMetrics(snapshot, range)
+    const maintenanceCount = snapshot.maintenance.filter(x => x.id === maintenanceId && !x.deletedAt && !x.deleted).length
+    const loanCount = snapshot.loans.filter(x => x.id === loanId && !x.deletedAt && !x.deleted).length
+    const targetCount = snapshot.driverTargets.filter(x => x.id === targetId && !x.deletedAt && !x.deleted).length
+    if (maintenanceCount !== 1 || loanCount !== 1 || targetCount !== 1) throw new Error('H4 source updates created duplicate canonical records.')
+    if (Number(metrics.actualMaintenance) !== 150) throw new Error('H4 actual maintenance was double-counted or not updated.')
+    if (Number(metrics.maintenanceProvision) !== 20) throw new Error('H4 maintenance provision did not calculate once for the 10 KM shift.')
+    if (!(Number(metrics.finance?.provisionAccumulated) > 0)) throw new Error('H4 loan provision was not calculated.')
+    const target = await DriverTargetService.getTarget(new Date('2026-09-26T12:00:00+05:30'))
+    if (!target?.available || !(Number(target.target) > 0)) throw new Error('H4 driver target output was not available.')
+    return { maintenanceCount, loanCount, targetCount, actualMaintenance: metrics.actualMaintenance, maintenanceProvision: metrics.maintenanceProvision, loanProvision: metrics.finance?.provisionAccumulated, target: target.target }
+  })
+  assert(h4.maintenanceCount === 1 && h4.loanCount === 1 && h4.targetCount === 1 && Number(h4.actualMaintenance) === 150, 'H4 canonical calculations did not reconcile.')
+
+  // I5/J5: Business Start Date is a calendar boundary in IST. Recovery is zero
+  // before the boundary, begins on the boundary, continues after it, and stops
+  // at the documented recovery horizon.
+  const i5j5 = await page.evaluate(async () => {
+    const { setActiveDataSource } = await import('/src/utils/indexedDB.js')
+    const { AdminService } = await import('/src/application/admin/adminService.js')
+    const { WorkService } = await import('/src/application/work/workService.js')
+    const { ShiftTripRepository } = await import('/src/repositories/shiftTripRepository.js')
+    const { PerformanceService } = await import('/src/application/performance/performanceService.js')
+    const { DriverTargetService } = await import('/src/application/performance/driverTargetService.js')
+    const { calculateHistoricalMaintenanceRecovery } = await import('/src/domain/performance/performanceEngineV2.js')
+    const { istDayRange } = await import('/src/domain/time/ist.js')
+    const iso = (day, hour) => { const [y,m,d] = String(day).split('-').map(Number); const [h,min='0'] = String(hour).split(':'); return new Date(Date.UTC(y,m-1,d,Number(h),Number(min),0)-19800000).toISOString() }
+    const vehicle = { id: 'phase4-d5-vehicle', openingOdometerKm: 1200, active: true, status: 'Active' }
+    const before = calculateHistoricalMaintenanceRecovery({ vehicles: [vehicle], businessStartDate: '2026-05-01', asOf: new Date('2026-04-30T23:59:00+05:30') })
+    const on = calculateHistoricalMaintenanceRecovery({ vehicles: [vehicle], businessStartDate: '2026-05-01', asOf: new Date('2026-05-01T12:00:00+05:30') })
+    const after = calculateHistoricalMaintenanceRecovery({ vehicles: [vehicle], businessStartDate: '2026-05-01', asOf: new Date('2026-05-02T12:00:00+05:30') })
+    const horizon = calculateHistoricalMaintenanceRecovery({ vehicles: [vehicle], businessStartDate: '2026-05-01', asOf: new Date('2027-05-01T12:00:00+05:30') })
+    if (before !== 0) throw new Error('I5/J5 recovery leaked before Business Start Date.')
+    if (on !== 40 || after !== 40) throw new Error('I5/J5 recovery did not start on and persist after Business Start Date.')
+    if (horizon !== 0) throw new Error('I5/J5 recovery did not stop at the 12-month boundary.')
+    return { before, on, after, horizon }
+  })
+  assert(i5j5.before === 0 && i5j5.on === 40 && i5j5.after === 40 && i5j5.horizon === 0, 'I5/J5 Business Start Date boundary failed.')
+
   // A5-support: the fuel control is available while the driver remains OFFLINE.
   await route('', '.cockpit', 'Work')
   const fuelButton = page.getByRole('button', { name: 'CNG refuelling' })
@@ -118,6 +224,26 @@ try {
   await page.getByRole('link', { name: 'Timeline', exact: true }).click()
   await page.locator('.timeline').waitFor({ state: 'attached', timeout: 10000 })
   assert(await page.getByText('TIMELINE', { exact: false }).count() > 0, 'D2 offline navigation did not remain available')
+
+  // F1-support: exercise browser foreground/background lifecycle semantics without
+  // claiming equivalence to Android screen-off/background execution.
+  await page.goto(base, { waitUntil: 'domcontentloaded' })
+  await page.locator('.cockpit').waitFor({ state: 'attached' })
+  await page.getByRole('switch', { name: /go online/i }).click()
+  const lifecycleOdo = page.getByRole('spinbutton', { name: 'Start odometer' })
+  await lifecycleOdo.fill('1300')
+  await page.getByRole('button', { name: 'CONFIRM ODOMETER & GO ONLINE' }).click()
+  await page.getByRole('switch', { name: 'Go Offline' }).waitFor({ state: 'attached' })
+  await page.getByRole('button', { name: /start a trip/i }).click().catch(() => {})
+  const backgroundPage = await context.newPage()
+  await backgroundPage.goto(base, { waitUntil: 'domcontentloaded' })
+  await backgroundPage.bringToFront()
+  await new Promise(resolve => setTimeout(resolve, 250))
+  await page.bringToFront()
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.locator('.cockpit').waitFor({ state: 'attached' })
+  assert(await page.getByRole('switch', { name: 'Go Offline' }).count() === 1, 'F1 browser lifecycle lost the active shift after foreground return.')
+  await backgroundPage.close()
 
   // F5: restore connectivity and verify the same canonical shift survives recovery/reload.
   await context.setOffline(false)
@@ -195,7 +321,7 @@ try {
 
   if (errors.length) throw new Error('Browser runtime errors:\\n' + errors.join('\\n'))
 
-  console.log('PASS Phase 4 operational gap suite: A5 offline fuel access, D2 offline PWA continuity, F5 network recovery, G2 permission denial, G3 GPS unavailable, and G4 permission restoration without duplicate GPS snapshots.')
+  console.log('PASS Phase 4 operational gap suite: D5 Admin→Work master-data consumption, H4 maintenance/loan/target reconciliation, I5/J5 Business Start Date boundaries, F1 browser lifecycle continuity, A5 offline fuel access, D2 offline PWA continuity, F5 network recovery, G2 permission denial, G3 GPS unavailable, and G4 permission restoration without duplicate GPS snapshots.')
 } catch (error) {
   throw new Error(error.message + '\\n' + output)
 } finally {
