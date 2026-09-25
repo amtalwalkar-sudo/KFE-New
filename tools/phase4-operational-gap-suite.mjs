@@ -140,12 +140,12 @@ try {
     const { calculateHistoricalMaintenanceRecovery } = await import(location.origin + '/src/domain/performance/performanceEngineV2.js')
     const { istDayRange } = await import(location.origin + '/src/domain/time/ist.js')
     const iso = (day, hour) => { const [y,m,d] = String(day).split('-').map(Number); const [h,min='0'] = String(hour).split(':'); return new Date(Date.UTC(y,m-1,d,Number(h),Number(min),0)-19800000).toISOString() }
-    const maintenanceId = 'phase4-h4-maintenance'
-    const loanId = 'phase4-h4-loan'
-    const targetId = 'phase4-h4-target'
-    const maintenanceCreated = await AdminService.save('maintenance', { vehicleId: 'phase4-d5-vehicle', maintenanceType: 'H4 test service', performedOn: '2026-09-25', cost: 100 })
+    const vehicle = (await AdminService.list('vehicle')).find(row => row.values?.registrationNumber === 'D5-TEST')
+    if (!vehicle) throw new Error('H4 fixture vehicle missing.')
+    const vehicleId = vehicle.id
+    const maintenanceCreated = await AdminService.save('maintenance', { vehicleId, maintenanceType: 'H4 test service', performedOn: '2026-09-25', cost: 100 })
     const maintenanceId = maintenanceCreated.id
-    await AdminService.save('maintenance', { vehicleId: 'phase4-d5-vehicle', maintenanceType: 'H4 test service', performedOn: '2026-09-25', cost: 150 }, maintenanceId)
+    await AdminService.save('maintenance', { vehicleId, maintenanceType: 'H4 test service', performedOn: '2026-09-25', cost: 150 }, maintenanceId)
     const loanCreated = await AdminService.save('loan', { lender: 'H4 Test Bank', accountReference: 'H4-1', principal: 12000, tenureMonths: 12, startDate: '2026-09-01', annualInterestRatePercent: 12, status: 'Active' })
     const loanId = loanCreated.id
     await AdminService.save('loan', { lender: 'H4 Test Bank', accountReference: 'H4-1', principal: 10000, tenureMonths: 12, startDate: '2026-09-01', annualInterestRatePercent: 12, status: 'Active' }, loanId)
