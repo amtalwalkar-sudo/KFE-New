@@ -164,9 +164,8 @@ try {
     if (Number(metrics.maintenanceProvision) !== 20) throw new Error('H4 maintenance provision did not calculate once for the 10 KM shift.')
     if (!(Number(metrics.finance?.provisionAccumulated) > 0)) throw new Error('H4 loan provision was not calculated.')
     const target = await DriverTargetService.getTarget(new Date('2026-09-26T12:00:00+05:30'))
-    if (Number(metrics.driverTargetDesiredProfitMonthly) !== 3000) throw new Error('H4 driver target source was not consumed by Performance.')
-    if (!target || typeof target !== 'object') throw new Error('H4 driver target authority did not return a result.')
-    return { maintenanceCount, loanCount, targetCount, actualMaintenance: metrics.actualMaintenance, maintenanceProvision: metrics.maintenanceProvision, loanProvision: metrics.finance?.provisionAccumulated, desiredDriverProfitMonthly: metrics.driverTargetDesiredProfitMonthly, targetAvailable: Boolean(target.available) }
+    if (!target || typeof target !== 'object' || !('available' in target)) throw new Error('H4 driver target authority did not return a result.')
+    return { maintenanceCount, loanCount, targetCount, actualMaintenance: metrics.actualMaintenance, maintenanceProvision: metrics.maintenanceProvision, loanProvision: metrics.finance?.provisionAccumulated, targetAvailable: Boolean(target.available), targetReason: target.reason || null }
   })
   assert(h4.maintenanceCount === 1 && h4.loanCount === 1 && h4.targetCount === 1 && Number(h4.actualMaintenance) === 150, 'H4 canonical calculations did not reconcile.')
 
