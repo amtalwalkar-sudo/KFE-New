@@ -88,7 +88,7 @@ public class KfeNativeGpsService extends Service {
   private void startTracking(String id) {
     if (id == null || id.isEmpty()) return;
     if (id.equals(tripId) && callback != null) return;
-    stopTracking();
+    releaseLocationUpdates();
     tripId = id;
     traceFile = new File(getFilesDir(), "kfe_gps_trace_" + safeName(id) + ".jsonl");
     loadSeenKeys();
@@ -132,6 +132,7 @@ public class KfeNativeGpsService extends Service {
       point.put("speed", location.hasSpeed() ? location.getSpeed() : JSONObject.NULL);
       point.put("bearing", location.hasBearing() ? location.getBearing() : JSONObject.NULL);
       point.put("capturedAt", new java.util.Date(timestamp).toInstant().toString());
+      point.put("capturedAtEpoch", timestamp);
       point.put("source", "ANDROID_NATIVE_FGS");
 
       try (FileWriter writer = new FileWriter(traceFile, true)) {
@@ -152,17 +153,21 @@ public class KfeNativeGpsService extends Service {
       while ((line = reader.readLine()) != null) {
         try {
           JSONObject point = new JSONObject(line);
-          seenKeys.add(point.optString("capturedAt") + "|" + point.optDouble("latitude") + "|" + point.optDouble("longitude"));
+          seenKeys.add(point.optLong("capturedAtEpoch", -1) + "|" + point.optDouble("latitude") + "|" + point.optDouble("longitude"));
         } catch (Exception ignored) {}
       }
     } catch (Exception ignored) {}
   }
 
-  private void stopTracking() {
+  private void releaseLocationUpdates() {
     if (fused != null && callback != null) {
       try { fused.removeLocationUpdates(callback); } catch (Exception ignored) {}
     }
     callback = null;
+  }
+
+  private void stopTracking() {
+    releaseLocationUpdates();
     tripId = null;
     traceFile = null;
     seenKeys.clear();
@@ -216,7 +221,9 @@ public class KfeNativeGpsService extends Service {
   }
 
   @Override public void onDestroy() {
-    stopTracking();
+    // Do not clear ACTIVE_TRIP here. START_STICKY may recreate this service after
+    // an OS/process interruption, and the persisted trip id is required to resume.
+    releaseLocationUpdates();
     super.onDestroy();
   }
 
