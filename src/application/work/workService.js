@@ -8,8 +8,7 @@ import { validateShiftStartOdometer, validateFirstDayShiftStartOdometer, validat
 import { calculateFuelQuantity, validateFuelEntry } from '../../domain/work/fuel.js'
 import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } from '../../domain/work/trip.js'
 import { BackupService } from '../backup/backupService.js'
-import { MovementAccountingService, routeTrace } from '../../domain/movement/movementAccounting.js'
-import { ValhallaRoutingAdapter } from '../../infrastructure/location/valhallaRoutingAdapter.js'
+import { MovementAccountingService } from '../../domain/movement/movementAccounting.js'
 import { calculateTraceDistanceKm } from '../../infrastructure/location/movementTraceService.js'
 import { NativeGpsService } from '../../services/nativeGpsService.js'
 
