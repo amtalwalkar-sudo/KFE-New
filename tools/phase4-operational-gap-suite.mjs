@@ -206,7 +206,7 @@ try {
   // D2: perform a real canonical Work mutation while the browser is offline.
   await page.getByRole('switch', { name: /go online/i }).click()
   const startOdo = page.getByRole('spinbutton', { name: 'Start odometer' })
-  await startOdo.fill('1000')
+  await startOdo.fill('1200')
   await page.getByRole('button', { name: 'CONFIRM ODOMETER & GO ONLINE' }).click()
   await page.getByRole('switch', { name: 'Go Offline' }).waitFor({ state: 'attached' })
   await context.setOffline(true)
@@ -224,7 +224,7 @@ try {
     db.close()
     return record ? { id: record.id, status: record.status, startOdometer: record.startOdometer } : null
   })
-  assert(offlineShiftState?.status === 'ACTIVE' && Number(offlineShiftState.startOdometer) === 1000, 'D2 offline shift mutation was not persisted canonically')
+  assert(offlineShiftState?.status === 'ACTIVE' && Number(offlineShiftState.startOdometer) === 1200, 'D2 offline shift mutation was not persisted canonically')
   await page.getByRole('link', { name: 'Timeline', exact: true }).click()
   await page.locator('.timeline').waitFor({ state: 'attached', timeout: 10000 })
   assert(await page.getByText('TIMELINE', { exact: false }).count() > 0, 'D2 offline navigation did not remain available')
