@@ -208,40 +208,45 @@ try {
   const startOdo = page.getByRole('spinbutton', { name: 'Start odometer' })
   await startOdo.fill('1200')
   await page.getByRole('button', { name: 'CONFIRM ODOMETER & GO ONLINE' }).click()
-  // The switch label is presentation state; canonical repository persistence is the authority.
-  // Confirm the shift through the same application/repository path used by Work.
   await page.waitForFunction(async () => {
     const { ShiftTripRepository } = await import(location.origin + '/src/repositories/shiftTripRepository.js')
     const active = await ShiftTripRepository.getActive()
     return Boolean(active?.shift && active.shift.status === 'ACTIVE' && Number(active.shift.startOdometer) === 1200)
   }, null, { timeout: 10000 })
+
+  // Preload the repository module while online. The actual mutation below runs
+  // after network access is disabled, so the test exercises true offline persistence.
+  await page.evaluate(async () => {
+    window.__phase4ShiftTripRepository = await import(location.origin + '/src/repositories/shiftTripRepository.js')
+  })
   await context.setOffline(true)
-  // Offline verification must not dynamically import application modules; that import can require the network.
-  const offlineShiftState = await page.evaluate(async () => {
-    const readActiveShift = () => new Promise((resolve, reject) => {
+  const offlineTripState = await page.evaluate(async () => {
+    const repo = window.__phase4ShiftTripRepository.ShiftTripRepository
+    const active = await repo.getActive()
+    if (!active?.shift?.id) throw new Error('D2 active shift missing before offline mutation')
+    const trip = await repo.createTrip({ id: 'phase4-d2-offline-trip', shiftId: active.shift.id, operator: 'Uber', tripStage: 'PICKUP' })
+    if (!trip?.id) throw new Error('D2 could not create offline fixture trip')
+    const updated = await repo.setTripStage(trip.id, 'RIDE_STARTED')
+    if (updated !== true) throw new Error('D2 offline canonical trip mutation was rejected')
+    const db = await new Promise((resolve, reject) => {
       const request = indexedDB.open('kanishka_kfe_canonical_db', 13)
-      request.onsuccess = () => {
-        const db = request.result
-        const tx = db.transaction('shifts', 'readonly')
-        const read = tx.objectStore('shifts').getAll()
-        read.onsuccess = () => {
-          const record = (read.result || []).find(item => item.status === 'ACTIVE' && Number(item.startOdometer) === 1200)
-          db.close()
-          resolve(record || null)
-        }
-        read.onerror = () => { db.close(); reject(read.error) }
-      }
+      request.onsuccess = () => resolve(request.result)
       request.onerror = () => reject(request.error)
     })
-    const end = Date.now() + 10000
-    while (Date.now() < end) {
-      const record = await readActiveShift()
-      if (record) return { id: record.id, status: record.status, startOdometer: record.startOdometer }
-      await new Promise(resolve => setTimeout(resolve, 100))
-    }
-    return null
+    const record = await new Promise((resolve, reject) => {
+      const request = db.transaction('trips', 'readonly').objectStore('trips').get(trip.id)
+      request.onsuccess = () => resolve(request.result || null)
+      request.onerror = () => reject(request.error)
+    })
+    db.close()
+    return record ? { id: record.id, status: record.status, tripStage: record.tripStage, shiftId: record.shiftId } : null
   })
-  assert(offlineShiftState?.status === 'ACTIVE' && Number(offlineShiftState.startOdometer) === 1200, 'D2 offline shift mutation was not persisted canonically')
+  assert(
+    offlineTripState?.status === 'ACTIVE' &&
+      offlineTripState.tripStage === 'RIDE_STARTED',
+    'D2 offline canonical trip mutation was not persisted'
+  )
+
   await page.getByRole('link', { name: 'Timeline', exact: true }).click()
   await page.locator('.timeline').waitFor({ state: 'attached', timeout: 10000 })
   assert(await page.getByText('TIMELINE', { exact: false }).count() > 0, 'D2 offline navigation did not remain available')
