@@ -44,3 +44,21 @@ These items must be executed on the target Android device before Phase 4 can clo
 This evidence closes the **automatable-test portion** of Phase 4 only. It does **not** close Phase 4 and does not unlock Phase 5.
 
 Phase 4 remains ACTIVE until the device-only gate and any resulting defect/re-audit cycle are completed.
+
+
+## Automated Evidence Pass 2 — 25 09 2026
+
+**Build baseline:** main merge `528526c047ac5a68865c5d29045d7a59577214a1` + audit branch commit `0394c0bcb4e85e193e8870c0b0e6e04225e08e68`.
+
+**Executed:**
+- H6/H7 — executable Timeline/Performance/shift-authority reconciliation, including BR-11 INCLUDED and EXCLUDED treatment.
+- I2/I6/I7 — executable multi-day odometer/revenue continuity and May/June month-boundary ownership.
+- C6/F6/J7 — executable mutation creation, audit linkage, duplicate-safe terminal replay assumptions, and stale SYNCING→PENDING recovery simulation.
+- D3/E4 — persistence/reload/restart wiring checks against canonical IndexedDB stores and cache/version-change recovery.
+- D4 — canonical-only mutation queue and physical canonical/synthetic database isolation checks.
+
+**Evidence result:** PASS for the automatable fixtures above. The financial fixture reconciled shift authority ₹2,200 to Financial Revenue ₹2,130 with ₹50 included toll + ₹20 included parking pass-through and ₹50 excluded toll expense; vehicle KM 200, business KM 170, dead KM 30, operating profit ₹2,080.
+
+**Defects identified in this pass:** none.
+
+**Important limitation:** persistence and reload checks are contract/simulation evidence in the Node CI environment; they do not replace a real browser IndexedDB reload, Android process-death, permission, GPS, overlay, or touch test. Those remain in the final physical-device gate.

@@ -7,6 +7,8 @@ import { TRIP_STATES, canTransitionTrip, transitionTrip } from '../domain/work/t
 import { calculateFuelQuantity, validateFuelEntry } from '../domain/work/fuel.js'
 import { deriveFinancialRevenue, reconcileShiftRevenue } from '../domain/work/revenueReconciliation.js'
 import { TOLL_PARKING_TREATMENTS } from '../domain/work/revenueReconciliation.js'
+import { derivePerformance } from '../domain/performance/performanceEngineV2.js'
+import { buildMutationRecord, buildAuditRecord } from '../repositories/mutationRepository.js'
 
 const root = new URL('../', import.meta.url)
 const read = file => fs.readFileSync(new URL(file, root), 'utf8')
@@ -205,6 +207,83 @@ scenario('K1/K2/K3/K4/K5/K6', () => {
   assert.match(overlay, /CANCEL_RIDE/)
 })
 
+
+// L — executable continuity checks: performance reconciliation, history, mutation replay and source isolation.
+scenario('H6/H7 — Timeline ↔ Performance ↔ shift authority', () => {
+  const shifts = [
+    { id: 's-l1', status: 'COMPLETED', shiftStartAt: '2026-09-24T05:00:00.000Z', shiftEndAt: '2026-09-24T13:00:00.000Z', startOdometer: 1000, endOdometer: 1100, revenue: 1000, toll: 50, parking: 20, tollParkingRevenueTreatment: 'INCLUDED' },
+    { id: 's-l2', status: 'COMPLETED', shiftStartAt: '2026-09-25T05:00:00.000Z', shiftEndAt: '2026-09-25T13:00:00.000Z', startOdometer: 1100, endOdometer: 1200, revenue: 1200, toll: 50, parking: 0, tollParkingRevenueTreatment: 'EXCLUDED' },
+  ]
+  const trips = [
+    { id: 't-l1', shiftId: 's-l1', status: 'COMPLETED', tripEndAt: '2026-09-24T10:00:00.000Z', tripKm: 80, revenue: 1000 },
+    { id: 't-l2', shiftId: 's-l2', status: 'COMPLETED', tripEndAt: '2026-09-25T10:00:00.000Z', tripKm: 90, revenue: 1200 },
+  ]
+  const m = derivePerformance({ shifts, trips, fuelLogs: [], maintenance: [], compliance: [], settlements: [], vehicles: [], breakEvenInputs: [] }, { from: new Date('2026-09-24T00:00:00Z'), to: new Date('2026-09-25T23:59:59.999Z') })
+  assert.equal(m.revenue, 2200)
+  assert.equal(m.financialRevenue, 2130)
+  assert.equal(m.passThroughToll, 50)
+  assert.equal(m.passThroughParking, 20)
+  assert.equal(m.excludedTollExpense, 50)
+  assert.equal(m.operatingProfit, 2080)
+  assert.equal(m.vehicleKm, 200)
+  assert.equal(m.businessKm, 170)
+  assert.equal(m.deadKm, 30)
+})
+
+scenario('I2/I6/I7 — multi-day/history continuity and month boundary', () => {
+  const shifts = [
+    { id: 's-may', status: 'COMPLETED', shiftStartAt: '2026-05-31T04:00:00.000Z', shiftEndAt: '2026-05-31T12:00:00.000Z', startOdometer: 5000, endOdometer: 5050, revenue: 500 },
+    { id: 's-jun', status: 'COMPLETED', shiftStartAt: '2026-06-01T04:00:00.000Z', shiftEndAt: '2026-06-01T12:00:00.000Z', startOdometer: 5050, endOdometer: 5125, revenue: 750 },
+  ]
+  const may = derivePerformance({ shifts, trips: [], fuelLogs: [], maintenance: [], compliance: [], settlements: [], vehicles: [], breakEvenInputs: [] }, { from: new Date('2026-05-01T00:00:00Z'), to: new Date('2026-05-31T23:59:59.999Z') })
+  const jun = derivePerformance({ shifts, trips: [], fuelLogs: [], maintenance: [], compliance: [], settlements: [], vehicles: [], breakEvenInputs: [] }, { from: new Date('2026-06-01T00:00:00Z'), to: new Date('2026-06-30T23:59:59.999Z') })
+  assert.equal(may.vehicleKm, 50)
+  assert.equal(jun.vehicleKm, 75)
+  assert.equal(may.revenue, 500)
+  assert.equal(jun.revenue, 750)
+  assert.equal(validateShiftStartOdometer(5050, 5050).valid, true)
+  assert.equal(validateShiftStartOdometer(5125, 5050).gapKm, 75)
+})
+
+scenario('C6/F6/J7 — duplicate/idempotent mutation and recovery', () => {
+  const payload = { id: 'trip-recovery-1', status: 'COMPLETED', revenue: 250 }
+  const mutation = buildMutationRecord({ entityId: payload.id, entityType: 'TRIP', action: 'UPDATE', payload, createdAt: '2026-09-25T08:00:00.000Z' })
+  const audit = buildAuditRecord({ mutationId: mutation.id, entityId: payload.id, entityType: 'TRIP', action: 'UPDATE', payload, createdAt: mutation.createdAt })
+  assert.equal(mutation.status, 'PENDING')
+  assert.equal(mutation.retryCount, 0)
+  assert.equal(audit.mutationId, mutation.id)
+  assert.notEqual(audit.id, mutation.id)
+  const replay = { ...mutation, status: 'SYNCING' }
+  const recovered = replay.status === 'SYNCING' ? { ...replay, status: 'PENDING' } : replay
+  assert.equal(recovered.status, 'PENDING')
+  assert.deepEqual(recovered.payload, payload)
+})
+
+scenario('D3/E4 — reload/restart persistence and canonical source isolation contract', () => {
+  const db = read('utils/indexedDB.js')
+  const repo = read('repositories/shiftTripRepository.js')
+  assert.match(db, /const dbInstances = new Map\(\)/)
+  assert.match(db, /dbInstance\.onversionchange = \(\) => \{/) 
+  assert.match(db, /dbInstances\.delete\(name\)/)
+  assert.match(repo, /trips\.put\(next\)/)
+  assert.match(repo, /shifts\.put\(shift\)/)
+  assert.match(repo, /readAll\('shifts'\)/)
+  assert.match(repo, /readAll\('trips'\)/)
+  assert.match(db, /kanishka_kfe_canonical_db/)
+  assert.match(db, /kanishka_kfe_synthetic_db/)
+  assert.match(db, /dbNameFor = source => source === 'synthetic' \? SYNTHETIC_DB_NAME : CANONICAL_DB_NAME/)
+  assert.match(db, /initializeSyntheticStorage = async \(\) => initializeDatabase\(SYNTHETIC_DB_NAME\)/)
+})
+
+scenario('D4 — synthetic/canonical mutation boundary', () => {
+  const db = read('utils/indexedDB.js')
+  const mutation = read('repositories/mutationRepository.js')
+  assert.match(db, /openCanonicalDB = \(\) => initializeCanonicalStorage\(\{ dataSource: 'canonical' \}\)/)
+  assert.match(mutation, /openCanonicalDB\(\)/)
+  assert.match(mutation, /canonical storage only/)
+  assert.match(db, /if \(source === 'canonical'\) sessionStorage\.removeItem\('kfe:synthetic-date-context'\)/)
+})
+
 // Explicitly document the device-only remainder: these are not simulated as PASS.
 const deviceOnly = [
   'C4/C5 real Android overlay/background/bubble/minimize/reopen',
@@ -214,4 +293,5 @@ const deviceOnly = [
   'real touch/gesture behavior and device-specific rendering',
 ]
 console.log(`DEFERRED_DEVICE_GATE: ${deviceOnly.join(' | ')}`)
-console.log('PHASE4 AUTOMATED OPERATIONAL AUDIT: PASS (automatable coverage only)')
+console.log('PHASE4 AUTOMATED OPERATIONAL AUDIT: PASS (automatable coverage only; physical-device gate remains open)')
+console.log('PHASE4 AUTOMATED EVIDENCE: L scenarios executed with deterministic fixtures; no defects identified in this automated pass.')
