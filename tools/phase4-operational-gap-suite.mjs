@@ -216,10 +216,34 @@ try {
     return Boolean(active?.shift && active.shift.status === 'ACTIVE' && Number(active.shift.startOdometer) === 1200)
   }, null, { timeout: 10000 })
   await context.setOffline(true)
+  // Offline verification must not dynamically import application modules; that import can require the network.
+  await page.waitForFunction(async () => {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('kanishka_kfe_canonical_db', 13)
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    const record = await new Promise((resolve, reject) => {
+      const request = db.transaction('shifts', 'readonly').objectStore('shifts').getAll()
+      request.onsuccess = () => resolve((request.result || []).find(item => item.status === 'ACTIVE'))
+      request.onerror = () => reject(request.error)
+    })
+    db.close()
+    return Boolean(record && Number(record.startOdometer) === 1200)
+  }, null, { timeout: 10000 })
   const offlineShiftState = await page.evaluate(async () => {
-    const { ShiftTripRepository } = await import(location.origin + '/src/repositories/shiftTripRepository.js')
-    const active = await ShiftTripRepository.getActive()
-    return active?.shift ? { id: active.shift.id, status: active.shift.status, startOdometer: active.shift.startOdometer } : null
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('kanishka_kfe_canonical_db', 13)
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    const record = await new Promise((resolve, reject) => {
+      const request = db.transaction('shifts', 'readonly').objectStore('shifts').getAll()
+      request.onsuccess = () => resolve((request.result || []).find(item => item.status === 'ACTIVE'))
+      request.onerror = () => reject(request.error)
+    })
+    db.close()
+    return record ? { id: record.id, status: record.status, startOdometer: record.startOdometer } : null
   })
   assert(offlineShiftState?.status === 'ACTIVE' && Number(offlineShiftState.startOdometer) === 1200, 'D2 offline shift mutation was not persisted canonically')
   await page.getByRole('link', { name: 'Timeline', exact: true }).click()
