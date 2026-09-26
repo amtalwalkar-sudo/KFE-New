@@ -178,169 +178,279 @@ async function refreshSnapshot() {
 
 onMounted(async()=>{ try { await refreshSnapshot() } finally { loading.value=false }; unsubscribeChanges=PerformanceService.subscribeDataChanges(()=>void refreshSnapshot()) })
 onBeforeUnmount(()=>unsubscribeChanges())
-</script>
+
+const formatDateShort = value => {
+  const date = value ? new Date(value) : null
+  return date && !Number.isNaN(date.getTime())
+    ? new Intl.DateTimeFormat('en-IN', { timeZone:'Asia/Kolkata', day:'numeric', month:'short' }).format(date)
+    : '—'
+}
+const formatDateLong = value => {
+  const date = value ? new Date(value) : null
+  return date && !Number.isNaN(date.getTime())
+    ? new Intl.DateTimeFormat('en-IN', { timeZone:'Asia/Kolkata', day:'numeric', month:'short', year:'numeric' }).format(date)
+    : '—'
+}
+const formatDay = value => {
+  const date = value ? new Date(value) : null
+  return date && !Number.isNaN(date.getTime())
+    ? new Intl.DateTimeFormat('en-IN', { timeZone:'Asia/Kolkata', weekday:'short', day:'numeric', month:'short' }).format(date)
+    : '—'
+}
+const businessTimeline = computed(() => {
+  const shifts = (m.value.shifts || []).filter(row => row?.shiftEndAt || row?.shiftStartAt)
+  const byDay = new Map()
+  for (const shift of shifts) {
+    const stamp = shift.shiftEndAt || shift.shiftStartAt
+    const key = istParts(stamp)
+    if (!key) continue
+    const id = `${key.year}-${String(key.month).padStart(2,'0')}-${String(key.day).padStart(2,'0')}`
+    const existing = byDay.get(id) || { id, date: stamp, revenue:0 }
+    existing.revenue += Number(shift.revenue) || 0
+    byDay.set(id, existing)
+  }
+  return [...byDay.values()].sort((a,b)=>new Date(a.date)-new Date(b.date))
+})
+const timelineVisible = computed(() => {
+  const rows = businessTimeline.value
+  if (!rows.length) return []
+  if (period.value === 'DAY') return rows.slice(-1)
+  if (rows.length <= 12) return rows
+  const step = Math.ceil(rows.length / 12)
+  return rows.filter((_, index) => index % step === 0 || index === rows.length - 1)
+})
+const currentTimelineId = computed(() => {
+  const p = istParts(anchor.value)
+  return p ? `${p.year}-${String(p.month).padStart(2,'0')}-${String(p.day).padStart(2,'0')}` : ''
+})
+const loanJourney = computed(() => {
+  const finance = m.value.finance || {}
+  const schedule = Array.isArray(finance.schedule) ? finance.schedule.filter(row => row?.dueDate).sort((a,b)=>new Date(a.dueDate)-new Date(b.dueDate)) : []
+  const milestones = []
+  if (schedule.length) {
+    const picks = [0, Math.floor((schedule.length-1)*0.33), Math.floor((schedule.length-1)*0.66), schedule.length-1]
+    for (const index of [...new Set(picks)]) {
+      const row = schedule[index]
+      milestones.push({ key:`emi-${index}`, label:`EMI ${index+1}`, date:row.dueDate, amount:money(row.originalEmiAmount) })
+    }
+  }
+  const outstanding = finite(finance.outstandingPrincipal)
+  return { schedule, milestones, outstanding, paid: schedule.filter(row => new Date(row.dueDate) <= anchor.value).length, total: schedule.length, start: schedule[0]?.dueDate || null, end: schedule.at(-1)?.dueDate || null }
+})
+const refuelTrail = computed(() => (m.value.fuelLogs || [])
+  .filter(row => row?.capturedAt)
+  .slice()
+  .sort((a,b)=>new Date(a.capturedAt)-new Date(b.capturedAt))
+  .slice(-6))
+const expenseItems = computed(() => [
+  { label:'Fuel', value:finite(m.value.fuelCost) || 0 },
+  { label:'Maintenance', value:finite(m.value.actualMaintenance) || 0 },
+  { label:'Toll', value:finite(m.value.toll) || 0 },
+  { label:'Parking', value:finite(m.value.parking) || 0 },
+])
+const periodContext = computed(() => periodLabel.value)
+\n</script>
 
 <template>
-  <section class="performance-page">
+  <section class="performance-premium">
     <div v-if="loading" class="performance-state"><span class="spinner"></span><span>Loading performance…</span></div>
     <div v-else-if="error" class="performance-state performance-error"><strong>Performance unavailable</strong><span>{{ error }}</span></div>
 
-    <template v-else-if="!detailGroup">
-      <header class="performance-head">
-        <div><small>PERFORMANCE</small><h1>Business position</h1><span>{{ periodLabel }}</span></div>
-        <button class="today-button" @click="anchor=getKfeReferenceNow();period='MONTH'">Current</button>
+    <template v-else>
+      <header class="pp-header">
+        <div class="pp-title">
+          <span class="pp-eyebrow">PERFORMANCE</span>
+          <h1>Business Position</h1>
+          <p>{{ periodContext }}</p>
+        </div>
+        <button class="pp-current" @click="anchor=getKfeReferenceNow();period='DAY'">Today</button>
       </header>
 
-      <section class="period-bar" aria-label="Performance period">
-        <div class="period-segment">
-          <button v-for="item in periodOptions" :key="item" :class="{active:period===item}" @click="choosePeriod(item)">{{ item==='SYNTHETIC' ? '5 YEARS' : item }}</button>
-        </div>
-        <div v-if="period!=='CUSTOM'&&period!=='SYNTHETIC'" class="period-nav"><button @click="movePeriod(-1)" aria-label="Previous period">‹</button><strong>{{ periodLabel }}</strong><button @click="movePeriod(1)" aria-label="Next period">›</button></div>
-        <div v-else-if="period==='CUSTOM'" class="custom-dates"><label>From<input v-model="customFrom" type="date"></label><label>To<input v-model="customTo" type="date"></label><button :disabled="!customFrom||!customTo||customFrom>customTo" @click="applyCustom">Apply</button></div>
-      </section>
-
-      <section class="profit-result">
-        <div class="profit-result-head"><div><small>BUSINESS PROFIT</small><h2>Indicative vs actual</h2><span>Two independent views of the same selected period</span></div></div>
-        <div class="profit-grid">
-          <button class="profit-card indicative" @click="openDetail('indicativeProfit')">
-            <small>INDICATIVE PROFIT</small><strong>{{ money(indicativeProfit) }}</strong><b :class="isProfit(indicativeProfit)?'profit':'loss'">{{ isProfit(indicativeProfit) ? 'PROFIT' : 'LOSS' }}</b>
-            <span>Revenue − provisions</span>
-          </button>
-          <button class="profit-card actual" @click="openDetail('actualProfit')">
-            <small>ACTUAL PROFIT</small><strong>{{ money(actualProfit) }}</strong><b :class="isProfit(actualProfit)?'profit':'loss'">{{ isProfit(actualProfit) ? 'PROFIT' : 'LOSS' }}</b>
-            <span>Revenue − actual operating expenses</span>
-          </button>
-        </div>
-        <div class="profit-bridge">
-          <button @click="openDetail('revenue')"><span>Revenue</span><strong>{{ money(m.revenue) }}</strong></button>
-          <i>−</i><button @click="openDetail('provision')"><span>Period provisions</span><strong>{{ money(indicativeProvision) }}</strong></button>
-          <i>=</i><button @click="openDetail('indicativeProfit')"><span>Indicative profit</span><strong>{{ money(indicativeProfit) }}</strong></button>
-        </div>
-        <div class="profit-actual-line"><span>Actual operating expenses</span><strong>{{ money(m.actualOperatingCost) }}</strong><button @click="openDetail('actualProfit')">View actual calculation ›</button></div>
-      </section>
-
-      <section class="efficiency-strip">
-        <button @click="openDetail('revenueKm')"><small>REVENUE / KM</small><strong>{{ money2(m.revenuePerKm) }}</strong></button>
-        <button @click="openDetail('revenueHour')"><small>REVENUE / HOUR</small><strong>{{ money2(m.revenuePerHour) }}</strong></button>
-        <button @click="openDetail('fuelEconomy')"><small>FUEL ECONOMY</small><strong>{{ fuelEconomy == null ? '—' : num(fuelEconomy) + ' KM/KG' }}</strong></button>
-      </section>
-
-      <section v-if="syntheticSummary" class="synthetic-result-card">
-        <div class="section-head"><div><small>SYNTHETIC · FULL HISTORY</small><h2>5-year calculation result</h2></div><span>Engine output</span></div>
-        <div class="synthetic-result-grid">
-          <div><span>History</span><strong>{{ syntheticSummary.shifts.toLocaleString('en-IN') }} shifts</strong><small>{{ syntheticSummary.observedDays?.toLocaleString('en-IN') }} observed operating days</small></div>
-          <div><span>Operating KM forecast</span><strong>{{ syntheticSummary.dailyForecast == null ? '—' : syntheticSummary.dailyForecast.toFixed(4) }} KM/day</strong><small>Full-history frozen forecast</small></div>
-          <div><span>KM → Driver Target multiplier</span><strong>{{ syntheticSummary.multiplier == null ? '—' : syntheticSummary.multiplier.toFixed(6) }}×</strong><small>Authoritative target volume multiplier</small></div>
-        </div>
-        <p>These values are calculated from the loaded synthetic IndexedDB history through the same Performance → Forecast → Driver Target path used by the contract tests.</p>
-      </section>
-
-      <section class="outlook-card">
-        <div class="section-head"><div><small>BUSINESS OUTLOOK</small><h2>What is required / expected?</h2></div><span>Indicative underneath</span></div>
-        <div class="outlook-grid">
-          <button v-for="item in outlookItems" :key="item.key" :class="['outlook-item',item.state]" @click="item.key==='target'||item.key==='breakEven' ? openDetail(item.key==='target'?'target':'breakEven') : openSection='outlook'">
-            <span>{{ item.label }}</span><strong>{{ item.value }}</strong><small>{{ item.sub }}</small>
-          </button>
-        </div>
-        <div v-if="openSection==='outlook'" class="outlook-detail">
-          <div><span>Observed operating KM</span><strong>{{ num(forecast?.observedKm) }}</strong></div>
-          <div><span>Calculated daily KM forecast</span><strong>{{ num(forecast?.calculatedForecast?.dailyKm) }}</strong></div>
-          <div><span>Period KM outlook</span><strong>{{ num(forecastKm) }}</strong></div>
-          <p>Forecast remains calculated from operational evidence. Manual override UI is intentionally hidden.</p>
-        </div>
-      </section>
-
-      <section class="business-section">
-        <div class="section-head"><div><small>BUSINESS ENGINE</small><h2>How the operation creates the result</h2></div></div>
-        <div class="flow-card">
-          <button @click="toggleSection('activity')"><span><small>OPERATING ACTIVITY</small><b>How did we operate?</b></span><strong>{{ num(m.vehicleKm) }} KM</strong><i>⌄</i></button>
-          <div v-if="openSection==='activity'" class="section-body">
-            <div class="activity-metrics"><button @click="openDetail('activity')"><span>Operating KM</span><strong>{{ num(m.vehicleKm) }}</strong></button><button @click="openDetail('activity')"><span>Working hours</span><strong>{{ num(m.workingHours) }}</strong></button><button @click="openDetail('activity')"><span>Trips</span><strong>{{ num(m.counts?.trips) }}</strong></button></div>
-            <div class="utilisation"><div class="bar-label"><span>Revenue-generating KM</span><b>{{ num(businessKm) }} KM</b></div><div class="bar"><span :style="{width:revenueKmPct+'%'}"></span></div><div class="bar-label"><span>Dead KM</span><b>{{ num(deadKm) }} KM</b></div><p>{{ deadKmPct.toFixed(1) }}% of operating KM is non-business KM.</p></div>
-          </div>
-        </div>
-
-        <div class="flow-card">
-          <button @click="toggleSection('money')"><span><small>MONEY FLOW</small><b>Where did the money go?</b></span><strong>{{ money(m.actualOperatingCost) }}</strong><i>⌄</i></button>
-          <div v-if="openSection==='money'" class="section-body">
-            <div class="cost-bars">
-              <button v-for="item in [{key:'fuel',label:'Fuel',value:m.fuelCost},{key:'toll',label:'Toll',value:m.toll},{key:'parking',label:'Parking',value:m.parking},{key:'maintenance',label:'Actual maintenance',value:m.actualMaintenance}]" :key="item.key" @click="openDetail('cost')">
-                <span><b>{{ item.label }}</b><small>{{ money(item.value) }}</small></span><div class="cost-track"><i :style="{width:(m.actualOperatingCost>0 ? Math.max(0,Math.min(100,Number(item.value||0)/m.actualOperatingCost*100)) : 0)+'%'}"></i></div>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="flow-card">
-          <button @click="toggleSection('economics')"><span><small>BUSINESS EFFICIENCY</small><b>Unit economics</b></span><strong>{{ money2(m.revenuePerKm) }}/KM</strong><i>⌄</i></button>
-          <div v-if="openSection==='economics'" class="section-body">
-            <div class="unit-grid">
-              <button @click="openDetail('revenueKm')"><small>Revenue / KM</small><strong>{{ money2(m.revenuePerKm) }}</strong></button>
-              <button @click="openDetail('revenueHour')"><small>Revenue / Hour</small><strong>{{ money2(m.revenuePerHour) }}</strong></button>
-              <button @click="openDetail('fuelEconomy')"><small>CNG Economy</small><strong>{{ fuelEconomy == null ? '—' : num(fuelEconomy)+' KM/KG' }}</strong></button>
-              <button @click="openDetail('fuelEconomy')"><small>Fuel / KM</small><strong>{{ money2(m.fuelCostPerKm) }}</strong></button>
-            </div>
-          </div>
-        </div>
-
-        <div class="flow-card">
-          <button @click="toggleSection('position')"><span><small>PROVISIONS</small><b>Loan · Maintenance · Compliance</b></span><strong>View</strong><i>⌄</i></button>
-          <div v-if="openSection==='position'" class="section-body">
-            <div class="position-grid">
-              <button @click="openDetail('provision')"><span>Loan provision</span><strong>{{ money(m.loanProvisionForPeriod) }}</strong></button>
-              <button @click="openDetail('provision')"><span>Maintenance provision</span><strong>{{ money(m.maintenanceProvision) }}</strong></button>
-              <button @click="openDetail('provision')"><span>Compliance provision</span><strong>{{ money(m.renewalProvision) }}</strong></button>
-            </div>
-            <p class="separation-note">Each amount is the provision allocated for the selected period. Loan and compliance accrue by calendar-day validity; maintenance accrues from actual KM.</p>
-          </div>
-        </div>
-      </section>
-
-      <section v-if="Object.keys(diagnostics).length" class="diagnostics-preview">
-        <div class="section-head"><div><small>DIAGNOSTICS</small><h2>Something needs attention</h2></div><span>{{ Object.keys(diagnostics).length }}</span></div>
-        <button v-for="item in Object.values(diagnostics)" :key="item.id" @click="openDetail(item.calculation==='Monthly Break-even'?'breakEven':item.calculation==='Driver Target'?'target':'provision')">
-          <span><b>{{ item.rootCause }}</b><small>{{ item.why }}</small></span><i>›</i>
+      <nav class="pp-period" aria-label="Performance period">
+        <button v-for="item in ['DAY','WEEK','MONTH']" :key="item" :class="{active:period===item}" @click="choosePeriod(item)">
+          <span>{{ item }}</span><i></i>
         </button>
+      </nav>
+
+      <div class="pp-period-nav">
+        <button @click="movePeriod(-1)" aria-label="Previous period">‹</button>
+        <span>{{ periodLabel }}</span>
+        <button @click="movePeriod(1)" aria-label="Next period">›</button>
+      </div>
+
+      <section class="pp-position">
+        <div class="pp-section-index">01</div>
+        <div class="pp-section-heading">
+          <span>BUSINESS POSITION</span>
+          <h2>Where the business stands</h2>
+        </div>
+
+        <div class="pp-profit-pair">
+          <article class="pp-profit actual">
+            <span>ACTUAL PROFIT / LOSS</span>
+            <strong>{{ money(actualProfit) }}</strong>
+            <small>Actual operating result</small>
+          </article>
+          <div class="pp-bridge-line"><i></i><span></span><i></i></div>
+          <article class="pp-profit provisional">
+            <span>PROVISIONAL PROFIT / LOSS</span>
+            <strong>{{ money(indicativeProfit) }}</strong>
+            <small>Period provisions included</small>
+          </article>
+        </div>
+
+        <div class="pp-context-strip">
+          <div><strong>{{ money(m.revenue) }}</strong><span>Revenue</span></div>
+          <div><strong>{{ num(m.vehicleKm) }}</strong><span>Vehicle KM</span></div>
+          <div><strong>{{ num(refuelTrail.length) }}</strong><span>Refuelling events</span></div>
+        </div>
       </section>
 
-      <section class="calculation-hint"><small>CALCULATIONS &amp; EVIDENCE</small><p>Tap any business number to see its exact inputs, formula and source evidence. Diagnostics appear with the affected calculation.</p></section>
-    </template>
-
-    <template v-else>
-      <header class="detail-head"><button @click="detailGroup=null" aria-label="Back">‹</button><div><small>PERFORMANCE · {{ detailGroup.kicker }}</small><h1>{{ detailGroup.title }}</h1><span>{{ periodLabel }}</span></div></header>
-
-      <section class="detail-hero"><small>{{ detailGroup.kicker }}</small><strong>{{ detailGroup.value }}</strong></section>
-
-      <section class="calculation-card">
-        <div><small>EXACT CALCULATION</small><p>{{ detailGroup.formula }}</p></div>
-        <div class="equations"><div v-for="(line,index) in detailCalculation(detailGroup)" :key="index"><span v-for="(part,i) in line" :key="i" :class="{operator:['+','−','÷','×','=','Σ'].includes(part)}">{{ part }}</span></div></div>
+      <section class="pp-section pp-timeline-section">
+        <div class="pp-section-index">02</div>
+        <div class="pp-section-heading">
+          <span>BUSINESS TIMELINE</span>
+          <h2>Activity through the period</h2>
+        </div>
+        <div class="pp-timeline" :class="{empty:!timelineVisible.length}">
+          <div class="pp-timeline-line"></div>
+          <div v-for="point in timelineVisible" :key="point.id" class="pp-time-point" :class="{today:point.id===currentTimelineId}">
+            <div class="pp-node"></div>
+            <div class="pp-point-copy">
+              <span>{{ formatDay(point.date) }}</span>
+              <strong>{{ money(point.revenue) }}</strong>
+            </div>
+          </div>
+          <div v-if="!timelineVisible.length" class="pp-empty">— No activity in this period</div>
+        </div>
       </section>
 
-      <section class="detail-card">
-        <div class="section-head"><div><small>SUPPORTING FACTS</small><h2>What makes this number?</h2></div></div>
-        <div class="fact-list"><div v-for="row in detailGroup.rows" :key="row[0]"><span>{{ row[0] }}</span><strong>{{ row[1] }}</strong></div></div>
+      <section class="pp-section pp-loan">
+        <div class="pp-section-index">03</div>
+        <div class="pp-section-heading">
+          <span>LOAN POSITION</span>
+          <h2>Loan journey</h2>
+        </div>
+        <div v-if="loanJourney.total" class="pp-loan-journey">
+          <div class="pp-loan-track"></div>
+          <div class="pp-loan-start">
+            <span>START</span><strong>{{ money(m.finance?.originalPrincipal) }}</strong>
+          </div>
+          <div v-for="item in loanJourney.milestones" :key="item.key" class="pp-loan-milestone">
+            <i></i><span>{{ item.label }}</span><small>{{ formatDateShort(item.date) }}</small>
+          </div>
+          <div class="pp-loan-now">
+            <i></i><span>TODAY</span><strong>{{ money(loanJourney.outstanding) }}</strong>
+          </div>
+          <div class="pp-loan-end">
+            <span>END</span><small>{{ formatDateShort(loanJourney.end) }}</small>
+          </div>
+        </div>
+        <div v-else class="pp-empty">— No active loan position</div>
+        <div v-if="loanJourney.total" class="pp-loan-meta">
+          <span>{{ loanJourney.paid }} EMIs passed</span>
+          <span>{{ Math.max(0, loanJourney.total-loanJourney.paid) }} remaining</span>
+          <span>Outstanding {{ money(loanJourney.outstanding) }}</span>
+        </div>
       </section>
 
-      <section v-if="detailDiagnostics(detailGroup).length" class="diagnostic-detail">
-        <div class="section-head"><div><small>DIAGNOSTIC</small><h2>Why / dependency / fix</h2></div></div>
-        <article v-for="item in detailDiagnostics(detailGroup)" :key="item.id">
-          <div class="diag-title"><b>{{ item.rootCause }}</b><span>{{ item.status }}</span></div>
-          <div class="diag-grid"><div><small>WHY</small><p>{{ item.why }}</p></div><div><small>FIX</small><p>{{ item.fix }}</p></div></div>
-          <div class="chain"><small>DEPENDENCY PATH</small><div><template v-for="(step,index) in item.chain" :key="step"><b>{{ step }}</b><i v-if="index<item.chain.length-1">→</i></template></div></div>
-          <button v-if="item.target" @click="openDiagnosticFix(item)">Fix this <span>→</span></button>
-        </article>
+      <section class="pp-section pp-fuel">
+        <div class="pp-section-index">04</div>
+        <div class="pp-section-heading">
+          <span>REFUELLING</span>
+          <h2>Fuel trail</h2>
+        </div>
+        <div class="pp-fuel-summary">
+          <div><strong>{{ money(m.fuelCost) }}</strong><span>Total spend</span></div>
+          <div><strong>{{ num(m.fuelQty) }} kg</strong><span>Quantity</span></div>
+          <div><strong>{{ refuelTrail.length }}</strong><span>Stops shown</span></div>
+        </div>
+        <div class="pp-fuel-trail" :class="{empty:!refuelTrail.length}">
+          <div class="pp-fuel-line"></div>
+          <article v-for="row in refuelTrail" :key="row.id || row.capturedAt" class="pp-fuel-stop">
+            <i></i>
+            <div><span>{{ formatDateShort(row.capturedAt) }}</span><strong>{{ num(row.quantityKg) }} kg</strong></div>
+            <small>{{ money(row.amount) }} · {{ money2(row.pricePerKg) }}/kg</small>
+          </article>
+          <div v-if="!refuelTrail.length" class="pp-empty">— No refuelling activity</div>
+        </div>
       </section>
 
-      <section v-if="detailGroup.key==='loan'" class="detail-card">
-        <div class="section-head"><div><small>EMI-WISE</small><h2>Delayed / unpaid EMIs</h2></div></div>
-        <div class="emi-list">
-          <div v-for="row in (m.finance?.overdue || [])" :key="row.dueDate">
-            <span>Due date <b>{{ row.dueDate }}</b></span>
-            <span>EMI amount <b>{{ money2(row.originalEmiAmount) }}</b></span>
-            <span>Delayed interest <b>{{ money2(row.unpaidOverdueInterest) }}</b></span>
+      <section class="pp-section pp-expenses">
+        <div class="pp-section-index">05</div>
+        <div class="pp-section-heading">
+          <span>EXPENSE BREAKDOWN</span>
+          <h2>Operating expenses</h2>
+        </div>
+        <div class="pp-expense-strip">
+          <div v-for="item in expenseItems" :key="item.label" class="pp-expense">
+            <span>{{ item.label }}</span>
+            <strong>{{ money(item.value) }}</strong>
+            <i><b :style="{width:(m.actualOperatingCost>0 ? Math.min(100,item.value/m.actualOperatingCost*100) : 0)+'%'}"></b></i>
           </div>
         </div>
       </section>
+
+      <section class="pp-section pp-break-even">
+        <div class="pp-section-index">06</div>
+        <div class="pp-section-heading">
+          <span>BREAK-EVEN</span>
+          <h2>Required position</h2>
+        </div>
+        <div class="pp-focus">
+          <div class="pp-focus-ring"><span>BREAK-EVEN</span><strong>{{ money(breakEven) }}</strong></div>
+          <div class="pp-focus-line"><i></i></div>
+        </div>
+      </section>
+
+      <section class="pp-section pp-target">
+        <div class="pp-section-index">07</div>
+        <div class="pp-section-heading">
+          <span>TARGET / PACE</span>
+          <h2>Driver target</h2>
+        </div>
+        <div class="pp-target-line">
+          <div><span>TARGET</span><strong>{{ money(target) }}</strong></div>
+          <div class="pp-target-track"><i></i><b></b></div>
+          <div><span>REVENUE</span><strong>{{ money(targetRevenue) }}</strong></div>
+        </div>
+      </section>
+
+      <section class="pp-section pp-fleet">
+        <div class="pp-section-index">08</div>
+        <div class="pp-section-heading">
+          <span>FLEET EFFICIENCY</span>
+          <h2>Operating profile</h2>
+        </div>
+        <div class="pp-metric-strip">
+          <div><strong>{{ num(m.vehicleKm) }}</strong><span>Vehicle KM</span></div>
+          <div><strong>{{ num(businessKm) }}</strong><span>Business KM</span></div>
+          <div><strong>{{ num(deadKm) }}</strong><span>Dead KM</span></div>
+          <div><strong>{{ fuelEconomy==null ? '—' : num(fuelEconomy) }}</strong><span>KM / KG</span></div>
+        </div>
+      </section>
+
+      <section class="pp-section pp-recovery">
+        <div class="pp-section-index">09</div>
+        <div class="pp-section-heading">
+          <span>RECOVERY &amp; PROVISIONS</span>
+          <h2>Provision journey</h2>
+        </div>
+        <div class="pp-recovery-line">
+          <div><i></i><span>Loan</span><strong>{{ money(m.loanProvisionForPeriod) }}</strong></div>
+          <div><i></i><span>Maintenance</span><strong>{{ money(m.maintenanceProvision) }}</strong></div>
+          <div><i></i><span>Compliance</span><strong>{{ money(m.renewalProvision) }}</strong></div>
+        </div>
+      </section>
+
+      <div class="pp-footer-space"></div>
     </template>
   </section>
 </template>
+
+<style scoped>
+.performance-premium{--pp-bg:var(--surface, #0b0d0f);--pp-panel:var(--surface-raised,#111519);--pp-ink:var(--text-primary,#f5f7f8);--pp-muted:var(--text-secondary,#9aa3aa);--pp-faint:color-mix(in srgb,var(--pp-muted) 45%,transparent);--pp-line:color-mix(in srgb,var(--pp-ink) 12%,transparent);--pp-accent:var(--accent,#d8a94f);max-width:980px;margin:0 auto;padding:28px 22px 64px;color:var(--pp-ink)}
+.performance-premium button{font:inherit;color:inherit}.pp-header{display:flex;align-items:flex-start;justify-content:space-between;padding:10px 0 22px}.pp-eyebrow,.pp-section-heading>span,.pp-profit span,.pp-context-strip span,.pp-loan-meta,.pp-fuel-summary span,.pp-expense span,.pp-target span,.pp-metric-strip span{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--pp-muted)}.pp-title h1{font-size:clamp(28px,5vw,42px);letter-spacing:-.045em;margin:4px 0 5px;font-weight:650}.pp-title p{margin:0;color:var(--pp-muted);font-size:14px}.pp-current{border:1px solid var(--pp-line);background:transparent;border-radius:999px;padding:9px 14px;font-size:12px;cursor:pointer}.pp-period{display:flex;gap:28px;border-bottom:1px solid var(--pp-line);margin-bottom:8px}.pp-period button{position:relative;background:none;border:0;padding:12px 0 13px;color:var(--pp-muted);font-size:11px;letter-spacing:.14em;cursor:pointer}.pp-period button.active{color:var(--pp-ink)}.pp-period button.active i{position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--pp-accent);border-radius:99px}.pp-period-nav{display:flex;align-items:center;justify-content:space-between;color:var(--pp-muted);font-size:12px;padding:9px 0 34px}.pp-period-nav button{width:30px;height:30px;border:0;background:transparent;color:var(--pp-ink);font-size:24px;cursor:pointer}.pp-section{position:relative;padding:48px 0;border-top:1px solid var(--pp-line)}.pp-section-index{position:absolute;left:-2px;top:49px;font-size:11px;letter-spacing:.1em;color:var(--pp-faint)}.pp-section-heading{padding-left:34px;margin-bottom:27px}.pp-section-heading h2{font-size:20px;letter-spacing:-.025em;margin:5px 0 0;font-weight:620}.pp-position{padding:18px 0 54px}.pp-position .pp-section-index{top:20px}.pp-position .pp-section-heading{margin-bottom:36px}.pp-profit-pair{display:grid;grid-template-columns:1fr 76px 1fr;align-items:center}.pp-profit{min-width:0}.pp-profit span{display:block}.pp-profit strong{display:block;font-size:clamp(34px,8vw,62px);letter-spacing:-.06em;line-height:1;margin:11px 0 7px;font-variant-numeric:tabular-nums}.pp-profit small{color:var(--pp-muted);font-size:12px}.pp-bridge-line{display:flex;align-items:center;gap:5px}.pp-bridge-line i{width:4px;height:4px;border-radius:50%;background:var(--pp-accent)}.pp-bridge-line span{height:1px;flex:1;background:var(--pp-line)}.pp-context-strip{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--pp-line);margin-top:42px;padding-top:17px;gap:16px}.pp-context-strip div{display:flex;flex-direction:column;gap:5px}.pp-context-strip strong{font-size:16px;font-variant-numeric:tabular-nums}.pp-timeline{position:relative;display:flex;justify-content:space-between;gap:10px;min-height:92px;padding:20px 2px}.pp-timeline-line{position:absolute;left:3px;right:3px;top:27px;height:1px;background:var(--pp-line)}.pp-time-point{position:relative;flex:1;min-width:0}.pp-node{position:relative;width:9px;height:9px;border:1px solid var(--pp-muted);border-radius:50%;background:var(--pp-bg);z-index:1}.pp-time-point.today .pp-node{width:13px;height:13px;margin-top:-2px;border:2px solid var(--pp-accent);box-shadow:0 0 0 5px color-mix(in srgb,var(--pp-accent) 12%,transparent)}.pp-point-copy{padding-top:15px;display:flex;flex-direction:column;gap:4px}.pp-point-copy span{font-size:10px;color:var(--pp-muted)}.pp-point-copy strong{font-size:13px;font-variant-numeric:tabular-nums}.pp-time-point.today .pp-point-copy strong{color:var(--pp-ink)}.pp-empty{color:var(--pp-muted);font-size:12px;padding:20px 0}.pp-loan-journey{position:relative;display:flex;align-items:flex-start;justify-content:space-between;min-height:112px;padding:10px 0}.pp-loan-track{position:absolute;left:4px;right:4px;top:25px;height:1px;background:var(--pp-line)}.pp-loan-start,.pp-loan-end,.pp-loan-milestone,.pp-loan-now{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0}.pp-loan-start span,.pp-loan-end span,.pp-loan-milestone span,.pp-loan-now span{font-size:9px;letter-spacing:.12em;color:var(--pp-muted)}.pp-loan-start strong,.pp-loan-now strong{font-size:14px}.pp-loan-milestone i,.pp-loan-now i{width:10px;height:10px;border:1px solid var(--pp-muted);background:var(--pp-bg);transform:rotate(45deg);margin-bottom:1px}.pp-loan-now i{border-color:var(--pp-accent);background:var(--pp-accent);box-shadow:0 0 0 5px color-mix(in srgb,var(--pp-accent) 12%,transparent)}.pp-loan-milestone small,.pp-loan-end small{font-size:9px;color:var(--pp-muted)}.pp-loan-meta{display:flex;gap:22px;border-top:1px solid var(--pp-line);padding-top:15px}.pp-fuel-summary{display:flex;gap:38px;margin-bottom:28px}.pp-fuel-summary div{display:flex;flex-direction:column;gap:4px}.pp-fuel-summary strong{font-size:18px;font-variant-numeric:tabular-nums}.pp-fuel-trail{position:relative;padding:7px 0}.pp-fuel-line{position:absolute;left:5px;top:12px;bottom:12px;width:1px;background:var(--pp-line)}.pp-fuel-stop{position:relative;display:grid;grid-template-columns:18px 1fr auto;align-items:center;gap:13px;padding:8px 0}.pp-fuel-stop>i{width:9px;height:9px;border-radius:50%;border:1px solid var(--pp-accent);background:var(--pp-bg);z-index:1}.pp-fuel-stop div{display:flex;flex-direction:column;gap:2px}.pp-fuel-stop span{font-size:10px;color:var(--pp-muted)}.pp-fuel-stop strong{font-size:14px}.pp-fuel-stop small{font-size:11px;color:var(--pp-muted)}.pp-expense-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}.pp-expense{display:flex;flex-direction:column;gap:8px}.pp-expense strong{font-size:15px;font-variant-numeric:tabular-nums}.pp-expense i{display:block;height:3px;background:var(--pp-line);border-radius:99px;overflow:hidden}.pp-expense i b{display:block;height:100%;background:var(--pp-accent);border-radius:99px}.pp-focus{display:flex;align-items:center;gap:28px;min-height:110px}.pp-focus-ring{width:132px;height:132px;border:1px solid var(--pp-line);border-radius:50%;display:flex;flex-direction:column;justify-content:center;align-items:center;position:relative}.pp-focus-ring:before{content:'';position:absolute;inset:8px;border:1px solid color-mix(in srgb,var(--pp-accent) 45%,transparent);border-radius:50%}.pp-focus-ring span{font-size:9px;letter-spacing:.12em;color:var(--pp-muted)}.pp-focus-ring strong{font-size:20px;margin-top:7px}.pp-focus-line{flex:1;height:1px;background:var(--pp-line);position:relative}.pp-focus-line i{position:absolute;left:50%;top:50%;width:7px;height:7px;border-radius:50%;background:var(--pp-accent);transform:translate(-50%,-50%)}.pp-target-line{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:18px}.pp-target-line>div{display:flex;flex-direction:column;gap:6px}.pp-target-line strong{font-size:18px}.pp-target-track{height:2px;background:var(--pp-line);position:relative}.pp-target-track i{display:block;width:58%;height:100%;background:var(--pp-accent)}.pp-target-track b{position:absolute;left:58%;top:50%;width:8px;height:8px;border-radius:50%;background:var(--pp-accent);transform:translate(-50%,-50%)}.pp-metric-strip{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--pp-line);border-bottom:1px solid var(--pp-line)}.pp-metric-strip div{padding:16px 12px;border-right:1px solid var(--pp-line)}.pp-metric-strip div:last-child{border-right:0}.pp-metric-strip strong{display:block;font-size:18px;margin-bottom:5px}.pp-recovery-line{display:grid;grid-template-columns:repeat(3,1fr);gap:0;position:relative}.pp-recovery-line:before{content:'';position:absolute;left:10%;right:10%;top:8px;height:1px;background:var(--pp-line)}.pp-recovery-line div{position:relative;display:flex;flex-direction:column;align-items:center;gap:7px}.pp-recovery-line i{width:11px;height:11px;border:1px solid var(--pp-accent);border-radius:50%;background:var(--pp-bg);z-index:1}.pp-recovery-line span{font-size:10px;color:var(--pp-muted);text-transform:uppercase;letter-spacing:.12em}.pp-recovery-line strong{font-size:14px}.pp-footer-space{height:20px}
+@media (max-width:700px){.performance-premium{padding:20px 16px 48px}.pp-header{padding-top:5px}.pp-profit-pair{grid-template-columns:1fr;gap:24px}.pp-bridge-line{width:70%;transform:rotate(90deg);height:26px;margin:-2px auto}.pp-context-strip{margin-top:30px}.pp-expense-strip{grid-template-columns:repeat(2,1fr);row-gap:24px}.pp-loan-journey{overflow-x:auto;justify-content:flex-start;gap:34px;padding-bottom:16px}.pp-loan-track{right:auto;width:700px}.pp-loan-start,.pp-loan-end,.pp-loan-milestone,.pp-loan-now{min-width:62px}.pp-fuel-stop{grid-template-columns:18px 1fr}.pp-fuel-stop small{grid-column:2}.pp-target-line{grid-template-columns:1fr;gap:12px}.pp-target-track{order:2}.pp-target-line>div:last-child{order:3}.pp-metric-strip{grid-template-columns:repeat(2,1fr)}.pp-metric-strip div:nth-child(2){border-right:0}.pp-metric-strip div:nth-child(-n+2){border-bottom:1px solid var(--pp-line)}.pp-recovery-line{grid-template-columns:1fr;gap:26px}.pp-recovery-line:before{left:5px;right:auto;top:10px;bottom:10px;width:1px;height:auto}.pp-recovery-line div{align-items:flex-start;padding-left:28px}.pp-recovery-line i{position:absolute;left:0;top:0}.pp-timeline{overflow:hidden}.pp-point-copy{white-space:nowrap}.pp-section{padding:38px 0}.pp-section-index{top:39px}}
+@media (prefers-reduced-motion:no-preference){.pp-period button,.pp-node,.pp-loan-now i,.pp-fuel-stop>i,.pp-current{transition:transform .18s ease,box-shadow .18s ease,color .18s ease}.pp-period button:hover .pp-node,.pp-current:hover{transform:translateY(-1px)}.pp-time-point.today .pp-node{animation:pp-pulse 2.8s ease-in-out infinite}@keyframes pp-pulse{0%,100%{box-shadow:0 0 0 4px color-mix(in srgb,var(--pp-accent) 9%,transparent)}50%{box-shadow:0 0 0 7px color-mix(in srgb,var(--pp-accent) 0%,transparent)}}}
+</style>
