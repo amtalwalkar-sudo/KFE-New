@@ -121,6 +121,20 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
+      - name: Verify deployed SPA fallback on every history route
+        env:
+          PAGES_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          set -euo pipefail
+          base="${PAGES_URL%/}"
+          for route in / /timeline /performance /admin; do
+            url="${base}${route}"
+            body="/tmp/kfe-pages-route.html"
+            status="$(curl -sS -L -o "$body" -w '%{http_code}' "$url")"
+            grep -q "Kanishka Enterprises" "$body"
+            echo "Verified GitHub Pages fallback body for ${route} (HTTP ${status})."
+          done
+
   android-release-gate:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
