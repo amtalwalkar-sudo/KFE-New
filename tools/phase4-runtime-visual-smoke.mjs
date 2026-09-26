@@ -53,7 +53,7 @@ try{
  await page.getByRole('button',{name:'CNG refuelling'}).click();await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'visible'});await page.getByRole('button',{name:'CNG refuelling'}).click();await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'hidden'})
  await page.getByRole('button',{name:'OFFLINE',exact:true}).click();await page.getByText('ODOMETER CHECK',{exact:true}).waitFor({state:'visible'});assert(await page.getByRole('button',{name:'Back'}).count()>0,'Start odometer Back missing');await page.getByRole('button',{name:'Back'}).first().click()
  await page.getByRole('button',{name:'GO ONLINE',exact:true}).click();await page.getByText('ODOMETER CHECK',{exact:true}).waitFor({state:'visible'})
- const odo=page.locator('input[type="number"]').first();await odo.fill('1000');await page.getByRole('checkbox').first().check()
+ const odo=page.locator('input[type="number"]').first();await odo.fill('1200');await page.getByRole('checkbox').first().check()
  await page.getByRole('button',{name:'CONFIRM & GO ONLINE',exact:true}).click()
  await wait(async()=>await page.getByRole('button',{name:'ONLINE',exact:true}).count()===1,'shift goes ONLINE')
  assert(await page.getByText("TODAY'S TARGET",{exact:true}).count()>0,'Online target surface missing after shift start')
