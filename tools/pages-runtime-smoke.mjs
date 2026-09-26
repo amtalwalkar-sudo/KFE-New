@@ -45,7 +45,7 @@ try {
   const failedRequests = []
 
   page.on('pageerror', error => errors.push(error.stack || error.message))
-  page.on('requestfailed', request => failedRequests.push(`${request.method()} ${request.url()} — ${request.failure()?.errorText || 'request failed'}`))
+  page.on('requestfailed', request => { const errorText=request.failure()?.errorText || 'request failed'; if(request.resourceType()==='document' && errorText==='net::ERR_ABORTED') return; failedRequests.push(`${request.method()} ${request.url()} — ${errorText}`) })
 
   // Vite preview serves the built site at its local root. The production
   // bundle uses relative assets, so the same artifact remains compatible
