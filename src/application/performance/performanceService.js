@@ -22,13 +22,22 @@ export const PerformanceService = Object.freeze({
   },
   getMetrics(snapshot, range) {
     const calculationSnapshot = normalizeCalculationSnapshot(snapshot)
-    const metrics = deriveFinanceAwarePerformance(calculationSnapshot, range, previousRange(range))
+    const businessStartRaw = calculationSnapshot?.businessSetup?.businessStartDate
+    const businessStart = businessStartRaw
+      ? (String(businessStartRaw).match(/^\d{4}-\d{2}-\d{2}$/)
+          ? new Date(String(businessStartRaw) + 'T00:00:00+05:30')
+          : new Date(businessStartRaw))
+      : null
+    const boundedRange = businessStart && !Number.isNaN(businessStart.getTime()) && range?.from
+      ? { ...range, from: new Date(Math.max(new Date(range.from).getTime(), businessStart.getTime())) }
+      : range
+    const metrics = deriveFinanceAwarePerformance(calculationSnapshot, boundedRange, previousRange(boundedRange))
     const financialFacts = deriveFinancialFactModel({ snapshot: calculationSnapshot, metrics, range })
     const operatingKmForecast = deriveOperatingKmForecast({
       shifts: calculationSnapshot?.shifts,
-      from: range.from,
-      to: range.to,
-      asOf: range.to,
+      from: boundedRange.from,
+      to: boundedRange.to,
+      asOf: boundedRange.to,
     })
     const monthlyBreakEvenCache = new Map()
     const monthlyIndicativeProfitCache = new Map()
@@ -66,11 +75,11 @@ export const PerformanceService = Object.freeze({
       return value
     }
 
-    const targetMonthRange = istMonthRange(range.to)
-    const stabilizationFrom = targetMonthRange?.from || range.from
+    const targetMonthRange = istMonthRange(boundedRange.to)
+    const stabilizationFrom = targetMonthRange?.from || boundedRange.from
     const stabilizationTo = targetMonthRange
-      ? new Date(Math.min(targetMonthRange.to.getTime(), range.to.getTime()))
-      : range.to
+      ? new Date(Math.min(targetMonthRange.to.getTime(), boundedRange.to.getTime()))
+      : boundedRange.to
 
     const monthlyBreakEvenRevenue = Number.isFinite(metrics.monthlyBreakEvenRevenue)
       ? metrics.monthlyBreakEvenRevenue
