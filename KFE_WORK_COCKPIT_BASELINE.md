@@ -574,19 +574,6 @@ Existing KFE-wide rules for persistence, lifecycle handling, offline/local-first
 
 This swipe-bar contract **adds only the swipe-specific requirements above**; it does not replace or duplicate universal KFE behavior.
 
-## 21. Baseline / Further Refinement
-
-This document is the **frozen baseline**, including the authoritative swipe-bar contract.
-
-Further design refinement may add detail and new agreed behaviour.
-
-Existing baseline rules must not be silently removed, weakened, or contradicted. If a future refinement conflicts with this baseline or KFE_VISUAL_DNA.md, explicitly raise:
-
-**DESIGN DRIFT / CONFLICT WARNING**
-
-No implementation is implied by this document. It records the agreed design foundation only.
-
-
 ## 20.25 Work Viewport Functional Foundation
 
 The Work screen functional foundation is frozen before visual styling.
@@ -732,3 +719,43 @@ Supporting forms remain event-based and appear only when their information becom
 - Shift Review: review/confirmation, not unnecessary data entry.
 
 This functional foundation is frozen independently of visual styling.
+
+## 20.28 Work Native Keyboard + Keyboard-Safe Input Rule
+
+**FROZEN**
+
+The Work cockpit inherits the global KFE native-keyboard rule from KFE Visual DNA.
+
+All Work text/numeric input uses the device-native keyboard and appropriate native input types. Custom numeric keypads are not permitted unless explicitly approved as a future design change.
+
+When the native keyboard opens, the Work layout must adapt to the reduced visible viewport.
+
+The active input and all controls required to complete the current interaction must remain accessible. Nothing required may be hidden underneath the keyboard.
+
+Short Work driver forms are **viewport-fit and non-scrolling** while the keyboard is open, including:
+
+- trip fare entry;
+- trip cancellation entry and confirmation;
+- CNG refuelling;
+- odometer entry;
+- shift revenue;
+- closing odometer;
+- other short numeric/text driver inputs.
+
+The implementation may reflow, resize, reposition, or otherwise adapt the form to the keyboard-open viewport, but must not introduce form scrolling merely to work around keyboard occlusion.
+
+Scrolling remains allowed for genuinely long dynamic content, such as a long reconciliation exception list, where scrolling is required by the amount of content rather than by keyboard handling.
+
+This rule is part of the frozen Work foundation and must be verified on real device/PWA keyboard-open states during implementation.
+
+## 21. Baseline / Further Refinement
+
+This document is the **frozen baseline**, including the authoritative swipe-bar contract.
+
+Further design refinement may add detail and new agreed behaviour.
+
+Existing baseline rules must not be silently removed, weakened, or contradicted. If a future refinement conflicts with this baseline or KFE_VISUAL_DNA.md, explicitly raise:
+
+**DESIGN DRIFT / CONFLICT WARNING**
+
+No implementation is implied by this document. It records the agreed design foundation only.
