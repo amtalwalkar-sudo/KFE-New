@@ -1393,3 +1393,266 @@ Any later proposal that changes these rules must explicitly identify the affecte
 **DESIGN DRIFT / CONFLICT WARNING**
 
 before implementation.
+
+
+## 20.38 Work Visual System Completeness & Editability Freeze
+
+**FROZEN**
+
+This section completes the visual-system specification for the new Work replacement. It does not change the frozen Work workflow, business rules, calculations, authoritative state model, or swipe contract.
+
+The new Work implementation must be built as a **new replacement presentation layer**, using the frozen workflow and business/data capabilities as its foundation. The old Work screen is reference material for understanding existing business meaning only; its presentation, layout, custom interaction patterns, and implementation are not governing requirements for the replacement.
+
+### 20.38.1 Token and component architecture
+
+Visual styling must be driven by shared KFE design tokens and reusable Work components.
+
+Tokens govern, as applicable:
+- typography;
+- spacing;
+- radii;
+- borders;
+- semantic colours;
+- surfaces;
+- elevation;
+- control heights;
+- focus treatment;
+- motion;
+- responsive sizing.
+
+Reusable components must own their presentation rules locally.
+
+A visual change to one component should not require unrelated component changes and must not alter business/state logic.
+
+Business calculations, persistence, state transitions, and workflow decisions must remain outside purely visual components.
+
+### 20.38.2 Responsive and viewport behaviour
+
+Work is mobile-first and must adapt to the actual available viewport.
+
+The implementation must support:
+- smaller Android phones;
+- normal phone widths;
+- larger phone displays;
+- browser/PWA viewport changes;
+- keyboard-open reduced viewport;
+- orientation/viewport changes where supported.
+
+Target and Timer remain visually important at every supported size. The dynamic operational area absorbs available space.
+
+No essential content, required field, confirmation action, swipe zone, or bottom navigation may be hidden behind another permanent region or the native keyboard.
+
+Normal driver operations should remain scroll-minimized. Genuine dynamic exception content may use contained/internal scrolling.
+
+### 20.38.3 Header anatomy
+
+The Work header has a stable visual structure:
+- Kanishka Enterprises as the primary brand;
+- GPS status as an icon-first status indicator;
+- Work context;
+- stable relationship to the primary navigation.
+
+Header elements must have independent component boundaries so their spacing, sizing, or visual treatment can be adjusted locally.
+
+The header must remain visually quiet compared with the Target, Timer, and current operational action.
+
+The removed legacy labels remain removed:
+- Fleet ERP · KFE 2.0
+- Local-first
+
+### 20.38.4 Complete control-state system
+
+Every interactive control must have deliberate visual treatment for the states applicable to it:
+- default;
+- pressed/active;
+- focused;
+- disabled/unavailable;
+- committing/loading;
+- success;
+- error/attention;
+- offline where relevant.
+
+State meaning must not depend on colour alone.
+
+Focused controls must remain clearly visible with the native keyboard open.
+
+A committing control prevents duplicate submission without unnecessarily freezing unrelated parts of the cockpit.
+
+### 20.38.5 Motion principles
+
+Motion is purposeful, brief, and operationally quiet.
+
+Use motion to communicate:
+- state transition;
+- focus;
+- progress;
+- commit;
+- success;
+- safe return/recovery.
+
+Do not use decorative animation that competes with driving attention.
+
+Motion must never be required to understand operational state.
+
+If animation is interrupted, persisted operational state remains authoritative.
+
+The authoritative swipe retains its already-frozen interaction timing and semantics; visual motion may support it but cannot change its commit contract.
+
+### 20.38.6 Iconography
+
+KFE Work uses one coherent icon family and consistent visual weight.
+
+Icons are used primarily for:
+- recognisable actions;
+- status;
+- navigation;
+- compact secondary controls.
+
+Icons must not replace necessary text for unfamiliar or safety-relevant actions.
+
+Icon-only controls are permitted where the meaning is established by the KFE visual language, such as the GPS status indicator and fuel secondary action, and must retain an adequate touch target and accessible name.
+
+### 20.38.7 Surface and elevation system
+
+Premium Instrument Work avoids card-heavy presentation.
+
+Use:
+- spacing;
+- typography;
+- restrained borders;
+- tonal surface separation;
+- limited elevation
+
+to establish hierarchy.
+
+Surfaces are introduced when they improve grouping, focus, touch safety, or state clarity—not merely to place every element inside a card.
+
+Shadows remain subtle and functional. Gradients and decorative depth are not required as default styling.
+
+### 20.38.8 Form visual grammar
+
+All short driver forms use one consistent visual grammar.
+
+Each field clearly separates:
+- field label;
+- editable value;
+- unit;
+- calculated/system-derived value where applicable.
+
+Inputs are:
+- large and touch-safe;
+- native;
+- visually simple;
+- easy to correct;
+- clearly focused;
+- compatible with the frozen Next/Done keyboard behaviour.
+
+Required and optional information are visually distinguishable without excessive explanatory text.
+
+Forms show only information necessary for the current event. Automatic values remain subordinate and are not presented as driver-entry tasks.
+
+Confirmation actions are visually distinct from field entry and cannot be confused with keyboard navigation.
+
+### 20.38.9 Loading, empty, error, success, and exception states
+
+Every new Work state that can encounter these conditions must have a deliberate presentation.
+
+**Loading/committing**
+- local to the affected operation;
+- clear that the action is being processed;
+- duplicate-safe;
+- does not unnecessarily blank the cockpit.
+
+**Empty**
+- concise;
+- explains the relevant absence only when needed;
+- presents the next useful action when one exists.
+
+**Error**
+- identifies the actual problem;
+- preserves useful input;
+- points to the corrective action;
+- does not expose implementation details to the driver.
+
+**Success**
+- concise;
+- confirms what completed;
+- transitions to the next appropriate context without unnecessary acknowledgement.
+
+**Exception/attention**
+- visually noticeable;
+- explicit about what needs attention;
+- provides one obvious next action.
+
+### 20.38.10 Accessibility and touch safety
+
+The Work replacement must support accessible operation across its visual system.
+
+Requirements include:
+- sufficient contrast in Light and Dark themes;
+- visible focus treatment;
+- effective touch targets for operational controls;
+- accessible names for icon-only controls;
+- state communication through text/structure/iconography in addition to colour;
+- readable numerical values;
+- no essential action dependent solely on a precise small target;
+- accessible equivalent for authoritative swipe actions using the same business command path.
+
+Accessibility improvements must preserve the frozen workflow and business logic.
+
+### 20.38.11 Visual/business boundary and editability contract
+
+The new Work must maintain a strict boundary between:
+1. business/state logic;
+2. data/calculation logic;
+3. operational command handling;
+4. visual presentation.
+
+The visual layer may change:
+- placement;
+- size;
+- spacing;
+- typography;
+- colour tokens;
+- radius;
+- surface treatment;
+- helper-text presentation;
+- responsive arrangement;
+- motion treatment
+
+without changing business calculations or operational rules.
+
+Examples of valid local future changes:
+- increase Timer size;
+- move the GPS icon;
+- adjust Target spacing;
+- change input radius;
+- reduce helper text;
+- tune swipe-bar geometry.
+
+Such changes must not silently modify:
+- state transitions;
+- calculations;
+- persistence;
+- mandatory gates;
+- authoritative commands;
+- reconciliation rules;
+- offline behaviour.
+
+### 20.38.12 New Work replacement boundary
+
+**FROZEN**
+
+Implementation of the new Work must treat this document, KFE_VISUAL_DNA.md, and the already-frozen Work workflow as the governing specification.
+
+The old Work implementation is not a template to incrementally repair. It is reference material only for business understanding where needed.
+
+No old-screen UI defect is a requirement to reproduce or fix in the new replacement unless the underlying business rule is explicitly part of the frozen specification.
+
+No implementation is performed by this freeze.
+
+Any future proposal that conflicts with this section must raise:
+
+**DESIGN DRIFT / CONFLICT WARNING**
+
+before implementation.
