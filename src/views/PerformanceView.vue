@@ -253,7 +253,7 @@ const periodContext = computed(() => periodLabel.value)
 </script>
 
 <template>
-  <section class="performance-premium">
+  <section class="performance-page performance-premium">
     <div v-if="loading" class="performance-state"><span class="spinner"></span><span>Loading performance…</span></div>
     <div v-else-if="error" class="performance-state performance-error"><strong>Performance unavailable</strong><span>{{ error }}</span></div>
 
