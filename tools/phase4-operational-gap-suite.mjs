@@ -143,9 +143,9 @@ try {
     const vehicle = (await AdminService.list('vehicle')).find(row => row.values?.registrationNumber === 'D5-TEST')
     if (!vehicle) throw new Error('H4 fixture vehicle missing.')
     const vehicleId = vehicle.id
-    const maintenanceCreated = await AdminService.save('maintenance', { vehicleId, maintenanceType: 'H4 test service', performedOn: '2026-09-25', cost: 100 })
+    const maintenanceCreated = await AdminService.save('maintenance', { maintenanceType: 'H4 test service', performedOn: '2026-09-25', odometerKm: 1205, cost: 100 })
     const maintenanceId = maintenanceCreated.id
-    await AdminService.save('maintenance', { vehicleId, maintenanceType: 'H4 test service', performedOn: '2026-09-25', cost: 150 }, maintenanceId)
+    await AdminService.save('maintenance', { maintenanceType: 'H4 test service', performedOn: '2026-09-25', odometerKm: 1205, cost: 150 }, maintenanceId)
     const loanCreated = await AdminService.save('loan', { lender: 'H4 Test Bank', accountReference: 'H4-1', principal: 12000, tenureMonths: 12, startDate: '2026-09-01', annualInterestRatePercent: 12, status: 'Active' })
     const loanId = loanCreated.id
     const driverCreated = await AdminService.save('driver', { name: 'D5 Test Driver', phone: '', licenseNumber: '', licenseExpiry: '', joinedOn: '2026-09-01', status: 'Active', vehicleId })
