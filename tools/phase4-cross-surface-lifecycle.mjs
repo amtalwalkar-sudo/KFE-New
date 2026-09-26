@@ -180,7 +180,7 @@ try {
   })
 
   const timelineText = await (async () => {
-    await page.goto(base + 'timeline', { waitUntil: 'domcontentloaded', timeout: 30000 })
+    await page.goto(base + '#/timeline', { waitUntil: 'domcontentloaded', timeout: 30000 })
     await page.locator('.timeline').waitFor({ state: 'attached', timeout: 30000 })
     await page.getByRole('button', { name: 'Today', exact: true }).click()
     await page.getByText('Mumbai Pickup → Mumbai Drop', { exact: true }).waitFor({ state: 'visible', timeout: 30000 })
@@ -190,7 +190,7 @@ try {
   assert(timelineText.includes('Cancelled'), 'Timeline UI did not render the cancelled lifecycle state.')
   assert(timelineText.includes('Mumbai Pickup → Mumbai Drop'), 'Timeline UI lost the canonical completed trip identity.')
 
-  await page.goto(base + 'performance', { waitUntil: 'domcontentloaded', timeout: 30000 })
+  await page.goto(base + '#/performance', { waitUntil: 'domcontentloaded', timeout: 30000 })
   await page.locator('.performance-page').waitFor({ state: 'attached', timeout: 30000 })
   const performanceText = await page.locator('.performance-page').innerText()
   assert(performanceText.includes('₹800'), 'Performance UI did not render the authoritative shift revenue.')
