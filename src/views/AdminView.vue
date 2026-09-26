@@ -3,6 +3,7 @@ import { computed, onMounted, ref, toRaw } from 'vue'
 import UniversalAdminForm from '../components/admin/UniversalAdminForm.vue'
 import BackupRestorePanel from '../components/admin/BackupRestorePanel.vue'
 import SyntheticDataPanel from '../components/admin/SyntheticDataPanel.vue'
+import FinanceLedgerPanel from '../components/admin/FinanceLedgerPanel.vue'
 import { ADMIN_FORM_DEFINITIONS } from '../application/admin/adminFormDefinitions.js'
 import { AdminService } from '../application/admin/adminService.js'
 import { BackupService } from '../application/backup/backupService.js'
@@ -19,6 +20,7 @@ const items=[
  {key:'maintenance',category:'VEHICLE RECORDS',title:'Maintenance',icon:'🔧'},
  {key:'loan',category:'FINANCE',title:'Loan',icon:'₹'},
  {key:'prepayment',category:'FINANCE',title:'Prepayments',icon:'↘'},
+ {key:'ledger',category:'FINANCE',title:'Ledger',icon:'▤'},
  {key:'driverTarget',category:'TARGET',title:'Driver Monthly Target',icon:'🎯'},
  {key:'maintenanceRate',category:'TARGET',title:'Maintenance per KM',icon:'KM'}
 ]
@@ -198,7 +200,7 @@ async function saveSourcePayment(){clearMessages();loading.value=true;try{await 
 async function recordPrepayment(){if(!prepaymentEstimate.value?.available||!prepaymentConfirmed.value)return;clearMessages();loading.value=true;try{await AdminService.save('prepayment',{loanId:prepaymentDraft.value.loanId,paidOn:prepaymentDraft.value.paidOn,amount:prepaymentEstimate.value.appliedAmount,reason:prepaymentDraft.value.reason});notice.value='Prepayment recorded.';resetPrepayment();await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Prepayment failed.'}finally{loading.value=false}}
 async function remove(record){if(!confirm('Delete this source record? Related records may prevent deletion.'))return;clearMessages();loading.value=true;try{await AdminService.remove(selected.value,record.id);notice.value='Record deleted.';await load()}catch(e){error.value=e.message||'Delete failed.'}finally{loading.value=false}}
 async function resetData(){if(!confirm('Reset all KFE data? Create a backup first if needed.'))return;if(!confirm('Final confirmation: permanently delete all current KFE records?'))return;loading.value=true;clearMessages();try{await BackupService.resetData();notice.value='All canonical KFE data has been reset.'}catch(e){error.value=e.message||'Data reset failed.'}finally{loading.value=false}}
-async function load(){loading.value=true;error.value='';try{for(const k of Object.keys(all.value))all.value[k]=await AdminService.list(k);records.value=selected.value&&!['prepayment','driverTarget','maintenanceRate'].includes(selected.value)?await AdminService.list(selected.value):[];performanceSnapshot.value=await PerformanceService.getSnapshot()}catch(e){error.value=e.message||'Unable to load Admin data.'}finally{loading.value=false}}
+async function load(){loading.value=true;error.value='';try{for(const k of Object.keys(all.value))all.value[k]=await AdminService.list(k);records.value=selected.value&&!['prepayment','driverTarget','maintenanceRate','ledger'].includes(selected.value)?await AdminService.list(selected.value):[];performanceSnapshot.value=await PerformanceService.getSnapshot()}catch(e){error.value=e.message||'Unable to load Admin data.'}finally{loading.value=false}}
 onMounted(load)
 </script>
 
@@ -244,6 +246,13 @@ onMounted(load)
 
 <template v-else-if="selected==='maintenanceRate'">
 <section class="clean-card"><div class="card-heading"><div><strong>Current maintenance per KM</strong><span>Effective from {{currentMaintenanceRate?.values?.effectiveFrom||'—'}}</span></div><strong class="big-value">{{currentMaintenanceRate?.values?.maintenanceProvisionPerKm!=null?'₹'+Number(currentMaintenanceRate.values.maintenanceProvisionPerKm).toFixed(2):'—'}} / km</strong></div><div class="form-grid"><label><span>New rate per KM</span><input v-model.number="maintenanceRateDraft.rate" type="number" min="0" step="0.01"></label><label><span>Change date</span><input v-model="maintenanceRateDraft.changeDate" type="date"></label></div><p class="rule-note">The new rate applies from the change date until another change is made. Historical calculations use the rate applicable on their original date.</p><button class="primary wide" :disabled="loading" @click="saveMaintenanceRate">Save new rate</button></section><section class="history-card"><div class="category-label">RATE HISTORY</div><article v-for="row in maintenanceHistory" :key="row.id" class="history-row"><div><strong>{{row.values?.effectiveFrom}}</strong></div><strong>₹{{Number(row.values?.maintenanceProvisionPerKm||0).toFixed(2)}} / km</strong></article><div v-if="!maintenanceHistory.length" class="empty">No rate history yet.</div></section>
+</template>
+
+<template v-else-if="selected==='ledger'">
+<section class="clean-card ledger-card">
+  <div class="card-heading"><div><strong>Finance Ledger</strong><span>Read-only historical source records</span></div></div>
+  <FinanceLedgerPanel :snapshot="performanceSnapshot||{}"/>
+</section>
 </template>
 
 <template v-else-if="selected==='prepayment'">
