@@ -199,10 +199,11 @@ try {
   await route('', '.cockpit', 'Work')
   const fuelButton = page.getByRole('button', { name: 'CNG refuelling' })
   assert(await fuelButton.count() === 1, 'A5 fuel control is missing')
-  assert(await page.getByRole('switch', { name: /go online/i }).count() === 1, 'A5 online/offline control is missing')
+  assert(await page.getByRole('button', { name: 'OFFLINE', exact: true }).count() === 1, 'A5 online/offline control is missing')
   await fuelButton.click()
-  assert(await page.getByText('Refuelling', { exact: true }).count() === 1, 'A5 offline fuel form did not open')
-  await page.getByRole('button', { name: 'Keep Draft & Close' }).click()
+  assert(await page.getByText('CNG REFUEL', { exact: true }).count() === 1, 'A5 offline fuel form did not open')
+  await fuelButton.click()
+  assert(await page.getByText('CNG REFUEL', { exact: true }).count() === 0, 'A5 fuel icon did not close the offline fuel form')
 
   // D2: create a deterministic canonical Work fixture while online, then perform a
   // real canonical trip mutation while the browser is offline. The shift fixture is
