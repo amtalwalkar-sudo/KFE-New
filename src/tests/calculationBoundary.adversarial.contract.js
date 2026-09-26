@@ -40,7 +40,7 @@ const historicalWithFutureOperations = derivePerformance(futureOperational, rang
 assert.equal(historicalWithFutureOperations.revenue, historical.revenue)
 assert.equal(historicalWithFutureOperations.vehicleKm, historical.vehicleKm)
 
-// Soft-deleted source records are excluded from actual calculations and financial-day classification.
+// Soft-deleted source records are excluded from actual calculations and financial-day classification; Daily Target remains available from the calendar day.
 const deletedTrip = { ...base.trips[0], deletedAt:'2026-09-10T20:00:00Z', deleted:true }
 const withoutDeletedTrip = PerformanceService.getMetrics({ ...base, trips:[deletedTrip] }, range)
 assert.equal(withoutDeletedTrip.revenue, 0)
