@@ -57,17 +57,16 @@ try {
   await page.getByText('Kanishka Enterprises', { exact: true }).first().waitFor({ state: 'visible', timeout: 5000 })
   await page.getByRole('link', { name: 'Work' }).waitFor({ state: 'visible', timeout: 5000 })
 
-  // Exercise every history-mode route directly. Vite preview should serve the
-  // SPA entry for each route, which proves the built router can mount from a
-  // deep URL rather than only after client-side navigation.
+  // Exercise every hash route directly. Hash routing keeps GitHub Pages refreshes
+  // client-side, so the server never receives /timeline, /performance, or /admin.
   const routes = [
-    { path: '/timeline', text: 'Timeline' },
-    { path: '/performance', text: 'Performance' },
-    { path: '/admin', text: 'Admin' },
+    { path: '#/timeline', text: 'Timeline' },
+    { path: '#/performance', text: 'Performance' },
+    { path: '#/admin', text: 'Admin' },
   ]
 
   for (const route of routes) {
-    const routeResponse = await page.goto(`http://127.0.0.1:4173${route.path}`, {
+    const routeResponse = await page.goto(`http://127.0.0.1:4173/${route.path}`, {
       waitUntil: 'domcontentloaded',
       timeout: 30000,
     })
