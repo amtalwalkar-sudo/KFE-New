@@ -1037,3 +1037,359 @@ Existing baseline rules must not be silently removed, weakened, or contradicted.
 **DESIGN DRIFT / CONFLICT WARNING**
 
 No implementation is implied by this document. It records the agreed design foundation only.
+
+
+## 20.35 Driver-Centric Interaction Refinement Layer
+
+**FROZEN**
+
+This refinement layer extends the frozen Work interaction system with small, high-impact behaviours intended to make routine driver operation smooth, predictable, mistake-resistant, and low-friction.
+
+These refinements do not redesign the Work cockpit or change business rules. They refine how the existing workflow is entered, confirmed, completed, interrupted, and recovered.
+
+### Universal short-form input lifecycle
+
+Short driver forms follow a consistent interaction grammar:
+
+**Focus → Enter → Validate → Next → Confirm → Commit → Success → Next State**
+
+The exact sequence may shorten where a field or form does not require every stage, but the driver must always understand what has been entered, what remains required, what has been confirmed, and what happened after commit.
+
+Native keyboard actions may accelerate movement between fields but must never bypass explicit KFE confirmation or business-rule gates.
+
+### Native input selection
+
+Use the most appropriate native input type for each field:
+
+- numeric values use the appropriate native numeric/decimal input;
+- text values use the native text keyboard;
+- selection/reason fields use the appropriate native selector where applicable.
+
+KFE must not force drivers to type units, currency symbols, or other formatting that the interface can provide itself.
+
+### Keyboard action semantics
+
+For sequential short forms:
+
+- **Next** moves to the next meaningful editable field;
+- the keyboard remains open;
+- the next field remains visible;
+- **Done** is used on the final editable field when appropriate;
+- keyboard actions never become an implicit substitute for mandatory explicit confirmation.
+
+The field order must be deliberate and match the natural information-entry sequence.
+
+### Focus and auto-focus
+
+Direct field tapping remains supported at all times.
+
+Auto-focus is used only where it clearly reduces driver effort and does not unexpectedly open the keyboard during a state transition.
+
+A state transition must never surprise the driver by moving focus or opening the keyboard without a clear interaction reason.
+
+### Prefill and acknowledgement
+
+KFE may prefill values that it knows reliably, but:
+
+**Prefilled value ≠ acknowledged value.**
+
+Where explicit acknowledgement is required, the driver must still acknowledge the value even when it is already present.
+
+### Units and numeric editing
+
+Units are displayed as part of the interface rather than requiring driver entry.
+
+Numeric fields should make correction easy and should not require unnecessary deletion/re-entry of an entire value.
+
+The visual treatment must make the editable value, unit, and any calculated value clearly distinguishable.
+
+### Validation and error recovery
+
+Validation should occur at the natural point for the operation.
+
+When an error occurs:
+
+- preserve useful values already entered;
+- clearly identify the actual problem;
+- move focus to the relevant field where appropriate;
+- do not force the driver to re-enter unrelated correct values.
+
+### Post-action destination
+
+Every completed operational action has an explicit post-action destination.
+
+The driver should never be left wondering:
+
+> **Did that work, and what do I do now?**
+
+Examples:
+
+- Fuel → successful save → fuel form closes → cockpit remains in the applicable state.
+- Cancellation → successful confirmation → cancellation surface closes → next applicable operational state.
+- End Shift → closure → reconciliation → review → confirmation → OFFLINE.
+
+A successful action should automatically return the driver to the next useful operational context unless a deliberate review/confirmation stage is required.
+
+### Success feedback
+
+Success feedback is short, local, and reassuring.
+
+It should confirm completion without creating an unnecessary extra tap.
+
+Where the workflow already requires a review or explicit OK, success feedback must not replace that required step.
+
+### Back behaviour
+
+Back has predictable semantics.
+
+Where safe, Back cancels/closes the current temporary form or draft without changing the authoritative operational state.
+
+Back must never silently discard meaningful entered information when that would create an unexpected loss.
+
+Back must never bypass a mandatory business gate or manufacture an operational transition.
+
+### Draft preservation
+
+If a form can safely be left temporarily, useful draft values may be preserved.
+
+Draft preservation must never be confused with an authoritative business commit.
+
+Stale or unsafe operational commands must not be restored merely because a draft existed.
+
+### Swipe/action recovery
+
+An incomplete authoritative swipe:
+
+- does not create a business event;
+- returns safely to its idle state;
+- does not create an ambiguous intermediate workflow.
+
+After commit begins, duplicate protection applies at both UI and mutation layers as already frozen.
+
+### Double-action protection
+
+Rapid repeated taps, repeated keyboard actions, or repeated swipes must not create duplicate operational mutations.
+
+The committing surface should provide a small local committing state while the underlying mutation layer remains authoritative.
+
+The whole cockpit should not freeze merely because one local action is committing.
+
+### Local loading and commit feedback
+
+During an operation that requires persistence:
+
+- indicate the local action is committing;
+- prevent duplicate submission;
+- keep unrelated cockpit context stable where possible;
+- update the authoritative state as soon as the commit succeeds.
+
+Loading feedback should be local to the action rather than an unnecessary full-screen loading state.
+
+### Offline confidence
+
+Where an operation is permitted offline, the driver should be able to tell that the operation has been accepted locally without waiting for network connectivity.
+
+Network state must not create uncertainty about whether a locally permitted operational action was committed.
+
+Offline is a capability, not an error state.
+
+### GPS independence
+
+GPS availability remains separate from operational command availability.
+
+If an otherwise valid action does not require GPS to commit, weak/unavailable GPS must not block or delay it.
+
+Where GPS/place data is unavailable, KFE records or displays that limitation appropriately rather than making the driver wait.
+
+### State-transition continuity
+
+After every completed action, the cockpit should immediately present:
+
+**Current state → relevant context → next useful action**
+
+The driver should not need to search through cards, menus, or secondary information to discover what happens next.
+
+### Zero-hunting principle
+
+**FROZEN**
+
+At every operational state, the driver should not have to hunt for the next action.
+
+The interface should make the normal next step visually obvious while keeping secondary/supporting information subordinate.
+
+This is an extension of the core KFE rule:
+
+**Current state → relevant information → one obvious next action**
+
+### Driver attention budget
+
+**FROZEN**
+
+The Work cockpit should distinguish between information that requires attention now and information that is merely useful.
+
+**Must notice now**
+- current operational state;
+- target/progress;
+- operational timer;
+- primary action;
+- mandatory input;
+- active exception/error.
+
+**Useful when needed**
+- GPS status;
+- fuel access;
+- secondary operational context;
+- supporting figures.
+
+**Should not interrupt routine operation**
+- historical information;
+- detailed reconciliation information before it is needed;
+- administrative metadata;
+- information that does not affect the current decision.
+
+Normal operation remains visually calm. Attention is deliberately amplified only when the driver needs to decide or act.
+
+### Mistake-proofing review
+
+Each Work state must be reviewed against the question:
+
+> **What is the most likely driver mistake here, and can the interface prevent it instead of merely warning about it afterwards?**
+
+Examples include:
+
+- preventing Start Shift from bypassing odometer acknowledgement or gap classification;
+- preventing active-trip End Shift;
+- removing cancellation once a trip has started;
+- keeping optional end-shift fields visually subordinate to mandatory closure fields;
+- limiting each state to valid/meaningful actions.
+
+The preferred solution is to constrain invalid actions rather than depend on warning dialogs after the mistake has already occurred.
+
+### Interruption and recovery continuity
+
+The driver may leave the PWA temporarily because of:
+
+- phone lock;
+- incoming call;
+- app switch;
+- network loss;
+- GPS loss;
+- PWA reload;
+- browser refresh;
+- viewport/orientation change;
+- background/process suspension.
+
+On return, KFE must restore the authoritative persisted operational state and the appropriate current context.
+
+The driver should return to the operational truth, not merely to the last visible screen.
+
+Transient UI animation, focus, or partially entered visual state must never be treated as evidence that an operational transition committed.
+
+### Routine-operation scroll discipline
+
+Routine Work operations should remain scroll-minimized.
+
+The normal path through a short driver operation should fit the active viewport, including the keyboard-open state where applicable.
+
+Internal scrolling is reserved for genuinely dynamic content whose size requires it, such as a long reconciliation exception list.
+
+Scrolling must not become a substitute for poor viewport or keyboard handling.
+
+### Touch safety
+
+Operational touch targets must remain comfortably usable with one hand and imperfect touch precision.
+
+Primary actions, choice rows, fields, and the swipe handle must have sufficient effective touch area.
+
+Small decorative controls must not become the only way to perform a required operational action.
+
+### Choice safety
+
+Where the driver chooses between alternatives:
+
+- the meaningful choice row remains tappable as a whole;
+- selected/unselected states are immediately understandable;
+- the control does not depend on precise tapping of a tiny radio/checkbox;
+- the selected choice remains visible through confirmation where confirmation is required.
+
+### Helper-text discipline
+
+Helper text exists only when it helps the driver understand the current decision or avoid a mistake.
+
+Once the interaction is self-explanatory, redundant instructional text should not consume cockpit space.
+
+Removing helper text is a visual refinement only and must not remove required business information.
+
+### Form simplicity rule
+
+Every driver form should ask:
+
+1. What does KFE already know?
+2. What must the driver provide?
+3. What can be calculated automatically?
+4. What must be explicitly confirmed?
+5. What should happen immediately after success?
+
+The form should contain only what is necessary for that event.
+
+### Universal refinement principle
+
+These refinements are part of the frozen Work interaction language.
+
+They apply to existing and future short driver forms and operational states unless a specific state has a documented reason to behave differently.
+
+Any exception must be deliberate, documented, and consistent with KFE Visual DNA and the Work baseline.
+
+## 20.36 Work State-by-State Interaction Audit Gate
+
+**FROZEN**
+
+Before implementation of the refined Work cockpit is considered complete, each operational state must be checked against the same interaction audit:
+
+**Entry → State identity → Relevant information → Inputs → Keyboard behaviour → Validation → Confirmation → Commit → Success → Post-action destination → Next action → Interruption/recovery → Mistake prevention**
+
+The audit applies to:
+
+**OFFLINE → Start Shift → Odometer/Gap Gate → Online/Ready → Go to Pickup → Going to Pickup → Ready for Trip → Trip Active → Trip Completion → Next Pickup → End Shift → Reconciliation → Shift Review → Shift Ended**
+
+A state is not considered interaction-complete merely because its normal path works.
+
+The review must also verify:
+
+- direct field tapping;
+- native keyboard navigation where applicable;
+- keyboard-safe viewport;
+- back/cancel behaviour;
+- duplicate-action protection;
+- offline behaviour;
+- GPS independence where applicable;
+- success feedback;
+- correct post-action destination;
+- reload/background/process recovery;
+- clear next action;
+- prevention of likely driver mistakes.
+
+This audit is a refinement/verification gate, not permission to change frozen business rules.
+
+## 20.37 Refinement Freeze Boundary
+
+**FROZEN**
+
+The interaction refinements in sections 20.35–20.36 are now part of the Work baseline.
+
+They refine the experience without changing:
+
+- the frozen operational state machine;
+- the authoritative swipe-bar contract;
+- the shift-level OFFLINE | ONLINE toggle;
+- the native keyboard/keyboard-safe viewport rule;
+- the Premium Instrument visual direction;
+- the KFE Visual DNA.
+
+Implementation must treat these refinements as governing requirements.
+
+Any later proposal that changes these rules must explicitly identify the affected frozen rule and raise:
+
+**DESIGN DRIFT / CONFLICT WARNING**
+
+before implementation.
