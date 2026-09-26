@@ -1,5 +1,5 @@
 // KFE PWA infrastructure boundary. The service worker never imports application/domain/UI code.
-const CACHE_NAME = 'kfe-pwa-shell-v5'
+const CACHE_NAME = 'kfe-pwa-shell-v6'
 const SHELL_ASSETS = ['./', './index.html', './manifest.json']
 
 self.addEventListener('install', event => {
@@ -51,9 +51,21 @@ const isStaticAsset = request => {
     url.pathname.endsWith('/service-worker.js')
 }
 
+const shellResponse = () => caches.match('./index.html')
+
 async function handleRequest(request) {
   try {
     const response = await fetch(request)
+
+    // GitHub Pages is static hosting: a Vue history-mode route such as
+    // /KFE-New/performance can return HTTP 404 on a hard refresh. Once the
+    // PWA service worker controls the page, turn that server miss into the
+    // cached application shell so Vue Router can resolve the route client-side.
+    if (request.mode === 'navigate' && !response.ok) {
+      const shell = await shellResponse()
+      if (shell) return shell
+    }
+
     if (response.ok && isStaticAsset(request)) {
       const cache = await caches.open(CACHE_NAME)
       await cache.put(request, response.clone())
@@ -61,9 +73,9 @@ async function handleRequest(request) {
     return response
   } catch {
     if (request.mode === 'navigate') {
-      const cached = await caches.match(request)
-      if (cached) return cached
-      return (await caches.match('./index.html')) || new Response('KFE is offline.', {
+      const shell = await shellResponse()
+      if (shell) return shell
+      return new Response('KFE is offline.', {
         status: 503,
         headers: { 'Content-Type': 'text/plain; charset=utf-8' },
       })
