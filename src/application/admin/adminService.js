@@ -4,7 +4,7 @@ import { AdminRepository } from '../../repositories/adminRepository.js'
 import { BackupService } from '../backup/backupService.js'
 
 function definitionFor(formKey){const definition=getAdminFormDefinition(formKey);if(!definition)throw new Error(`Unknown Admin form: ${formKey}`);return definition}
-const refs={vehicle:[['compliance','vehicleId'],['maintenance','vehicleId'],['driver','vehicleId']],driver:[['driverTarget','driverId']],loan:[['loanPayment','loanId'],['prepayment','loanId']],settlement:[['settlement','sourceId']]}
+const refs={vehicle:[['compliance','vehicleId'],['driver','vehicleId']],driver:[['driverTarget','driverId']],loan:[['loanPayment','loanId'],['prepayment','loanId']],settlement:[['settlement','sourceId']]}
 const checkpoint=()=>BackupService.requestLocalBackupCheckpoint()
 export const AdminService={
  getDefinition(formKey){return definitionFor(formKey)},
