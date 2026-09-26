@@ -1,517 +1,126 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useShiftTripStore } from '../stores/shiftTrip.js'
 import { useFuelStore } from '../stores/fuel.js'
-import { DriverTargetService } from '../application/performance/driverTargetService.js'
 import { WorkService } from '../application/work/workService.js'
+import { DriverTargetService } from '../application/performance/driverTargetService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
-import { getKfeReferenceNow, reportingRangeFor, istCalendarDaysInclusive, istParts, istDayRange } from '../domain/time/ist.js'
+import { reconcileShiftRevenue } from '../domain/work/revenueReconciliation.js'
 import { MovementTraceService } from '../infrastructure/location/movementTraceService.js'
 import { KfeRideNotificationService } from '../infrastructure/android/kfeRideNotificationService.js'
 import { AndroidOverlay } from '../infrastructure/android/kfeOverlay.js'
+import { getKfeReferenceNow, reportingRangeFor } from '../domain/time/ist.js'
 
-const store = useShiftTripStore()
-const fuelStore = useFuelStore()
-const startOdo = ref('')
-const startOdoOpen = ref(false)
-const gapCategory = ref(null)
-const personalToll = ref('')
-const personalParking = ref('')
-const selectedOperator = ref('')
-const operatorMenuOpen = ref(false)
-const closingOdo = ref('')
-const shiftRevenue = ref('')
-const toll = ref('')
-const parking = ref('')
-const tollTreatment = ref('INCLUDED')
-const reviewTrips = ref(false)
-const cancelPanel = ref(false)
-const cancelSubmitting = ref(false)
-const cancelReason = ref('DRIVER_MISTAKE')
-const cancelledRevenue = ref('')
-const farePanel = ref(false)
-const fareValue = ref('')
-const fareSubmitting = ref(false)
-const fuelFormOpen = ref(false)
-const endShiftOpen = ref(false)
-const endShiftStep = ref(1)
-const endShiftSaved = ref({ 1: false, 2: false, 3: false })
-const endShiftSwipeStartX = ref(null)
-const endShiftSwipeTracking = ref(false)
-const endShiftSwipeOffset = ref(0)
-const endShiftActiveField = ref(null)
-const endShiftKeypadVisible = ref(false)
-const fuelDraftKey = 'kfe.work.fuelDraft.v1'
-const fuelDraftTtlMs = 30 * 60 * 1000
-const pickupTraceSessionKey = 'kfe.work.pickup-trace.v1'
-const fuelOdometer = ref('')
-const fuelPrice = ref('')
-const fuelAmount = ref('')
-const fuelClientMutationId = ref('')
-const message = ref('')
-const error = ref('')
-const target = ref(null)
-const targetDetailsOpen = ref(false)
-const clock = ref(Date.now())
-const swipeStartX = ref(null)
-const swipeTracking = ref(false)
-const swipeOffset = ref(0)
-const swipeTrack = ref(null)
-const swipeDockY = ref(0)
-const swipeGestureMode = ref(null)
-const swipeStartY = ref(null)
-const goingToPickup = ref(false)
-const pickupGpsPoints = ref(0)
-const pickupGpsSummary = ref({ points: 0, nearTwoSecondIntervals: 0, maxGapMs: 0, passed: false })
-let removeRideNotificationListener
-let interval
-let unsubscribeTarget
-let clockTimer = null
-const stopClock = () => { if (clockTimer !== null) window.clearInterval(clockTimer); clockTimer = null }
-const startClock = () => { stopClock(); clock.value = Date.now(); clockTimer = window.setInterval(() => { if (store.isTripActive) clock.value = Date.now(); else stopClock() }, 1000) }
+const store=useShiftTripStore(), fuel=useFuelStore()
+const startOdo=ref(''), startAck=ref(false), gapChoice=ref(''), startBusy=ref(false)
+const operator=ref(''), busy=ref(false), message=ref(''), error=ref('')
+const fareTripId=ref(null), fare=ref(''), fareBusy=ref(false)
+const cancelOpen=ref(false), cancelReason=ref(''), cancelFare=ref(''), cancelBusy=ref(false)
+const fuelOpen=ref(false), fuelOdo=ref(''), fuelPrice=ref(''), fuelAmount=ref(''), fuelFull=ref(true), fuelBusy=ref(false)
+const endOpen=ref(false), endStage=ref('CLOSE'), closingOdo=ref(''), shiftRevenue=ref(''), toll=ref(''), parking=ref(''), tollTreatment=ref('INCLUDED'), endBusy=ref(false)
+const reviewRevenue=ref({}), reviewKm=ref({}), reviewOperator=ref({}), clock=ref(Date.now()), target=ref(null), targetAchieved=ref(0)
+const swipe=ref({down:false,start:0,offset:0}), track=ref(null)
+let timer=null, traceRunning=false
 
-const gap = computed(() => store.calculateGap(startOdo.value))
-const gapKm = computed(() => Number(gap.value?.gapKm || 0))
-const gapPersonal = computed(() => gapCategory.value === 'PERSONAL' ? gapKm.value : 0)
-const gapDead = computed(() => gapCategory.value === 'DEAD' ? gapKm.value : 0)
-const allocatedGap = computed(() => gapCategory.value ? gapKm.value : 0)
-const fuelQuantity = computed(() => fuelStore.calculateQuantity(fuelPrice.value, fuelAmount.value))
-const targetValue = computed(() => target.value?.target !== null && target.value?.target !== undefined && Number.isFinite(Number(target.value.target)) ? Number(target.value.target) : null)
-const targetText = computed(() => targetValue.value == null ? '—' : `₹${targetValue.value.toLocaleString('en-IN',{maximumFractionDigits:0})}`)
-const targetAchieved = ref(0)
-const targetProgress = computed(() => targetValue.value && targetValue.value > 0 ? Math.min(100, Math.round((targetAchieved.value / targetValue.value) * 100)) : 0)
-const targetRides = computed(() => store.completedTrips.length + (store.isTripActive ? 1 : 0))
-const liveKms = ref(null)
-const liveKmsBase = ref(0)
-const liveShiftRevenue = computed(() => store.completedTrips.reduce((sum, trip) => sum + (Number.isFinite(Number(trip.revenue)) ? Number(trip.revenue) : 0), 0) + (Number.isFinite(Number(store.trip?.revenue)) ? Number(store.trip.revenue) : 0))
-const liveShiftRevenueText = computed(() => performanceMoney(liveShiftRevenue.value))
-const activeFare = computed(() => { const value = store.trip?.revenue; return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) ? performanceMoney(value) : '—' })
-const liveKmsText = computed(() => { const value = liveKms.value ?? store.trip?.tripKm; return Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)} km` : '0.0 km' })
-const ridesText = computed(() => String(Math.max(0, Number(targetRides.value) || 0)))
-const performanceSnapshot = ref(null)
-const performanceMoney = value => Number.isFinite(Number(value)) ? `₹${Math.round(Number(value)).toLocaleString('en-IN')}` : '—'
-const performanceRevenue = metrics => Number.isFinite(Number(metrics?.revenue)) ? Number(metrics.revenue) : 0
-const buildPerformanceCard = (metrics, label) => ({
-  date: label,
-  revenue: performanceRevenue(metrics),
-  profit: Number.isFinite(Number(metrics?.actualProfit)) ? Number(metrics.actualProfit) : Number.isFinite(Number(metrics?.operatingProfit)) ? Number(metrics.operatingProfit) : null,
-})
-const weeklyPerformance = ref(null)
-const yesterdayPerformance = ref(null)
-const refreshPerformance = async () => {
-  try {
-    const now = getKfeReferenceNow()
-    const snapshot = await PerformanceService.getSnapshot()
-    performanceSnapshot.value = snapshot
-    const weekRange = reportingRangeFor('WEEK', now)
-    const yesterdayDate = new Date(istDayRange(now).from.getTime() - 86400000)
-    const yesterdayRange = reportingRangeFor('DAY', yesterdayDate)
-    const weekMetrics = PerformanceService.getMetrics(snapshot, weekRange)
-    const yesterdayMetrics = PerformanceService.getMetrics(snapshot, yesterdayRange)
-    const weekParts = istParts(weekRange.to)
-    const yesterdayParts = istParts(yesterdayRange.from)
-    const weekStart = istParts(weekRange.from)
-    weeklyPerformance.value = buildPerformanceCard(weekMetrics, `${weekStart.day}/${weekStart.month} – ${weekParts.day}/${weekParts.month}/${weekParts.year}`)
-    yesterdayPerformance.value = buildPerformanceCard(yesterdayMetrics, `${yesterdayParts.day}/${yesterdayParts.month}/${yesterdayParts.year}`)
-  } catch (_) {
-    weeklyPerformance.value = null
-    yesterdayPerformance.value = null
-  }
-}
-const tripTimer = computed(() => {
-  if (!store.trip?.tripStartAt) return '00:00:00'
-  const seconds = Math.max(0, Math.floor((clock.value - Date.parse(store.trip.tripStartAt)) / 1000))
-  return `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor((seconds % 3600) / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
-})
-const locationEventLabel = eventType => ({ ONLINE: 'Online', OFFLINE: 'Offline', START: 'Trip start', END: 'Trip end', CANCELLED: 'Trip cancelled' }[eventType] || eventType || 'Location')
-const locationPlace = location => location?.placeName || 'Resolving place…'
-const locationTime = location => location?.capturedAt ? new Date(location.capturedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}) : 'Time unavailable'
-const notify = text => { message.value = text; error.value = ''; window.setTimeout(() => { if (message.value === text) message.value = '' }, 2200) }
-const syncOverlay = async () => {
-  if (!store.isOnline) { await AndroidOverlay.hide().catch(() => {}); return }
-  const overlayAction = farePanel.value ? 'ENTER_FARE' : cancelPanel.value ? 'CANCEL_RIDE' : !store.isTripActive ? 'GO_TO_PICKUP' : store.trip?.tripStage === 'PICKUP' ? 'START_RIDE' : 'END_RIDE'
-  await AndroidOverlay.update({
-    shift: store.shift ? { id: store.shift.id } : null,
-    trip: store.trip ? { id: store.trip.id, status: store.trip.status, tripStage: store.trip.tripStage || 'RIDE_STARTED' } : null,
-    theme: document.documentElement.dataset.theme || 'light',
-    target: targetText.value,
-    targetProgress: targetProgress.value,
-    rides: ridesText.value,
-    liveKm: liveKmsText.value,
-    revenue: liveShiftRevenueText.value,
-    cancellationRevenue: cancelledRevenue.value || '₹0',
-    overlayAction,
-    overlayTripId: store.trip?.id || ''
-  }).catch(() => {})
-}
-const fail = text => { error.value = text; message.value = '' }
-const refreshTarget = async () => { const now = getKfeReferenceNow(); try { target.value = await DriverTargetService.getTarget(now); const snapshot = await PerformanceService.getSnapshot(); const metrics = PerformanceService.getMetrics(snapshot, reportingRangeFor('DAY', now)); targetAchieved.value = Number(metrics?.revenue || 0) } catch (_) { target.value = null; targetAchieved.value = 0 } }
-const selectGapCategory = category => { if (!gap.value.valid || gapKm.value <= 0) return; gapCategory.value = category; if (category !== 'PERSONAL') { personalToll.value = ''; personalParking.value = '' } }
-const goOnline = async () => { const needsGap = gap.value.valid && gapKm.value > 0; if (!startOdo.value) return fail('Enter the start odometer before going Online.'); if (needsGap && !gapCategory.value) return fail('Choose Personal KM or Dead KM before going Online.'); const allocation = needsGap ? { category: gapCategory.value, personalToll: personalToll.value, personalParking: personalParking.value } : null; const result = await store.startShift(startOdo.value, allocation); if (result.requiresGapAllocation) return fail(`Choose Personal KM or Dead KM to allocate the full ${result.gapKm} km before going Online.`); if (!result.ok) return fail(result.reason); startOdo.value=''; gapCategory.value=null; personalToll.value=''; personalParking.value=''; startOdoOpen.value=false; await refreshTarget(); await KfeRideNotificationService.goOnline(); await AndroidOverlay.prepare().catch(() => {}); notify('Online.') }
-const goOffline = async (confirmLargeDistance = false) => { const trips = reviewTrips.value ? store.completedTrips.map(t => ({ id:t.id, operator:t.operator, tripKm:t.tripKm??'', revenue:t.revenue??'' })) : []; const result = await store.endShift({ closingOdometer:closingOdo.value, revenue:shiftRevenue.value, toll:toll.value, parking:parking.value, tollParkingRevenueTreatment:tollTreatment.value, trips, confirmLargeDistance }); if(result.requiresConfirmation){ const confirmed=window.confirm(`⚠️ Closing odometer shows ${result.distanceKm} km for this shift. If the odometer is correct, confirm to end the Shift.`); if(!confirmed)return; return goOffline(true) } if(!result.ok)return fail(result.reason); clearEndShiftFlow(); await refreshTarget(); await KfeRideNotificationService.clear(); notify('Offline.') }
-const clearEndShiftFlow = () => { closingOdo.value=''; shiftRevenue.value=''; toll.value=''; parking.value=''; tollTreatment.value='INCLUDED'; reviewTrips.value=false; endShiftStep.value=1; endShiftSaved.value={1:false,2:false,3:false}; endShiftSwipeStartX.value=null; endShiftSwipeTracking.value=false; endShiftSwipeOffset.value=0; endShiftActiveField.value=null; endShiftKeypadVisible.value=false; endShiftOpen.value=false }
-const openEndShift = () => { fuelFormOpen.value=false; endShiftStep.value=1; endShiftSaved.value={1:false,2:false,3:false}; endShiftSwipeStartX.value=null; endShiftSwipeTracking.value=false; endShiftSwipeOffset.value=0; endShiftActiveField.value=null; endShiftKeypadVisible.value=false; endShiftOpen.value=true; error.value=''; message.value='' }
-const endShiftBack = () => { if(endShiftStep.value<=1) return cancelOffline(); endShiftStep.value -= 1; error.value=''; message.value='' }
-const endShiftContinue = () => { if(!closingOdo.value || !shiftRevenue.value) return fail('Closing odometer and total shift revenue are required.'); endShiftSaved.value={...endShiftSaved.value,1:true}; endShiftStep.value=2; error.value=''; message.value='' }
-const endShiftExpenseSave = () => { endShiftSaved.value={...endShiftSaved.value,2:true}; endShiftStep.value=3; error.value=''; message.value='' }
-const endShiftExpenseSkip = () => { toll.value=''; parking.value=''; endShiftSaved.value={...endShiftSaved.value,2:true}; endShiftStep.value=3; error.value=''; message.value='' }
-const endShiftReviewSave = async () => { for (const t of store.completedTrips) { const result=await store.updateTrip({id:t.id,operator:t.operator,tripKm:t.tripKm??'',revenue:t.revenue??''}); if(!result.ok)return fail(result.reason) } endShiftSaved.value={...endShiftSaved.value,3:true}; endShiftStep.value=4; error.value=''; message.value='' }
-const endShiftReviewSkip = () => { endShiftSaved.value={...endShiftSaved.value,3:true}; endShiftStep.value=4; error.value=''; message.value='' }
-const endShiftConfirm = async () => { reviewTrips.value=true; await goOffline() }
-const endShiftCanSwipeForward = computed(() => endShiftStep.value === 1 ? endShiftSaved.value[1] : endShiftStep.value < 4)
-const endShiftSwipeStyle = computed(() => ({ '--end-shift-card-offset': `${endShiftSwipeOffset.value}px`, '--end-shift-card-rotate': `${Math.max(-4,Math.min(4,endShiftSwipeOffset.value / 70))}deg` }))
-const endShiftFieldValue = field => field === 'closingOdo' ? closingOdo.value : field === 'shiftRevenue' ? shiftRevenue.value : field === 'toll' ? toll.value : field === 'parking' ? parking.value : ''
-const setEndShiftFieldValue = (field, value) => { if(field === 'closingOdo') closingOdo.value=value; else if(field === 'shiftRevenue') shiftRevenue.value=value; else if(field === 'toll') toll.value=value; else if(field === 'parking') parking.value=value }
-const openEndShiftKeypad = field => { endShiftActiveField.value=field; endShiftKeypadVisible.value=true }
-const closeEndShiftKeypad = () => { endShiftActiveField.value=null; endShiftKeypadVisible.value=false }
-const endShiftKeypadPress = key => { const field=endShiftActiveField.value; if(!field)return; let value=String(endShiftFieldValue(field)??''); if(key==='backspace')value=value.slice(0,-1); else if(key==='clear')value=''; else if(/^\d$/.test(key)){ if(value==='0')value=key; else if(value.length<10)value+=key } setEndShiftFieldValue(field,value) }
-const endShiftNavigateForward = () => { if(endShiftStep.value>=4)return; if(endShiftStep.value===1&&!endShiftSaved.value[1])return fail('Save the odometer and revenue before continuing.'); closeEndShiftKeypad(); if(endShiftStep.value===2)endShiftExpenseSkip(); else if(endShiftStep.value===3)endShiftReviewSkip() }
-const endShiftNavigateBack = () => { if(endShiftStep.value<=1)return; closeEndShiftKeypad(); endShiftStep.value-=1; error.value=''; message.value='' }
-const onEndShiftSwipeStart = event => { if(event.pointerType==='mouse'&&event.button!==0)return; if(event.target.closest?.('button,input,select,label,a'))return; endShiftSwipeStartX.value=event.clientX; endShiftSwipeTracking.value=true; endShiftSwipeOffset.value=0; event.currentTarget.setPointerCapture?.(event.pointerId) }
-const onEndShiftSwipeMove = event => { if(!endShiftSwipeTracking.value||endShiftSwipeStartX.value==null)return; const distance=event.clientX-endShiftSwipeStartX.value; const max=Math.max(90,(event.currentTarget.clientWidth||320)*0.82); endShiftSwipeOffset.value=Math.max(-max,Math.min(distance,max)) }
-const onEndShiftSwipeEnd = event => { if(!endShiftSwipeTracking.value||endShiftSwipeStartX.value==null)return; const distance=event.clientX-endShiftSwipeStartX.value; const width=event.currentTarget.clientWidth||320; const trigger=Math.max(80,width*0.28); endShiftSwipeTracking.value=false; endShiftSwipeStartX.value=null; if(Math.abs(distance)<trigger){endShiftSwipeOffset.value=0;return} endShiftSwipeOffset.value=distance>0?width+80:-(width+80); window.setTimeout(()=>{endShiftSwipeOffset.value=0; if(distance>0)endShiftNavigateForward(); else endShiftNavigateBack()},180) }
-const onEndShiftSwipeCancel = () => { endShiftSwipeTracking.value=false; endShiftSwipeStartX.value=null; endShiftSwipeOffset.value=0 }
-const toggleOnline = async () => { if(store.isTripActive)return fail('End the active Trip before going Offline.'); if(store.isOnline){ openEndShift(); return } startOdoOpen.value=true; startOdo.value=store.lastKnownOdometer??''; gapCategory.value=null; error.value=''; message.value='' }
-const cancelStartOdo = () => { startOdoOpen.value=false; startOdo.value=''; gapCategory.value=null; error.value=''; message.value='' }
-const cancelOffline = () => { endShiftOpen.value = false; endShiftStep.value=1; error.value = ''; notify('Still Online — End Shift cancelled.') }
-const saveFuelDraft = () => { const draft={savedAt:Date.now(),clientMutationId:fuelClientMutationId.value,odometer:fuelOdometer.value,pricePerKg:fuelPrice.value,amount:fuelAmount.value}; if(draft.odometer||draft.pricePerKg||draft.amount) sessionStorage.setItem(fuelDraftKey,JSON.stringify(draft)); else sessionStorage.removeItem(fuelDraftKey) }
-const loadFuelDraft = () => { try { const draft=JSON.parse(sessionStorage.getItem(fuelDraftKey)||'null'); if(!draft || Date.now()-Number(draft.savedAt||0)>fuelDraftTtlMs){sessionStorage.removeItem(fuelDraftKey); fuelClientMutationId.value=crypto.randomUUID(); return} fuelClientMutationId.value=draft.clientMutationId||crypto.randomUUID(); fuelOdometer.value=draft.odometer||''; fuelPrice.value=draft.pricePerKg||''; fuelAmount.value=draft.amount||'' } catch(_) {} }
-const openFuelForm = () => { fuelFormOpen.value = !fuelFormOpen.value; if (fuelFormOpen.value) { endShiftOpen.value=false; if(!fuelClientMutationId.value) fuelClientMutationId.value=crypto.randomUUID(); loadFuelDraft() } else saveFuelDraft(); error.value=''; message.value='' }
-const closeFuelForm = () => { saveFuelDraft(); fuelFormOpen.value=false; error.value=''; message.value='' }
-const changeTripOperator = async operator => { if(!store.isTripActive){selectedOperator.value=operator;operatorMenuOpen.value=false;return} if(operator===store.trip.operator){operatorMenuOpen.value=false;return} const result=await store.updateTrip({id:store.trip.id,operator}); if(!result.ok)return fail(result.reason); selectedOperator.value=operator; operatorMenuOpen.value=false; notify(`Operator changed to ${operator}.`) }
-const startGoingToPickup = async () => { if (store.isTripActive || goingToPickup.value) return; pickupGpsPoints.value=0; pickupGpsSummary.value={points:0,nearTwoSecondIntervals:0,nearTwentySecondIntervals:0,maxGapMs:0,passed:false}; const started=MovementTraceService.start({ entityType:'SHIFT', entityId:store.shift?.id, eventType:'DEAD_MOVEMENT_TRACE', profile:'DEAD_LEG', onPoint:(_point,count)=>{ pickupGpsPoints.value=count; pickupGpsSummary.value={...pickupGpsSummary.value,points:count,passed:count>=2} } }); if(!started){ fail('GPS permission is required to measure Dead KM on the way to pickup.'); return false }
-const pickupResult=await store.beginPickup(selectedOperator.value||store.defaultOperator); if(!pickupResult?.ok){ MovementTraceService.reset(); fail(pickupResult?.reason || 'Trip could not be created.'); return false }
-goingToPickup.value=true; try { localStorage.setItem(pickupTraceSessionKey, JSON.stringify({shiftId:store.shift?.id})); } catch (_) {} await KfeRideNotificationService.beginPickup(`pickup-${Date.now()}`); notify('Going to pickup — Dead KM GPS measuring started.'); return true }
-const startTrip = async () => { let deadLegPoints; try { deadLegPoints = await MovementTraceService.stop({captureFinal:true}) } catch (error) { const resumed = MovementTraceService.start({entityType:'SHIFT',entityId:store.shift?.id,eventType:'DEAD_MOVEMENT_TRACE',profile:'DEAD_LEG',onPoint:(_point,count)=>{ pickupGpsPoints.value=count; pickupGpsSummary.value={...pickupGpsSummary.value,points:count,passed:count>=2} }}); if (!resumed) goingToPickup.value=false; return fail(`GPS trace could not be saved. Trip start paused: ${error?.message || 'persistence failed.'}`) } const deadLegPointCount = deadLegPoints.length; const result=await store.startRide(); if(!result.ok){ MovementTraceService.reset(); return fail(result.reason) } MovementTraceService.reset(); goingToPickup.value=false; pickupGpsPoints.value=deadLegPointCount; pickupGpsSummary.value={...pickupGpsSummary.value,points:deadLegPointCount,passed:deadLegPointCount>=2}; try { localStorage.removeItem(pickupTraceSessionKey) } catch (_) {} selectedOperator.value=result.trip.operator; liveKmsBase.value=0; liveKms.value=0; const traceStarted=MovementTraceService.start({entityType:'TRIP',entityId:result.trip.id,eventType:'PASSENGER_RIDE_TRACE',profile:'PASSENGER_RIDE',onPoint:(_point)=>{ liveKms.value=liveKmsBase.value + MovementTraceService.getDistanceKm() }}); if(!traceStarted) notify('Ride GPS trace unavailable; trip continues.'); startClock(); await KfeRideNotificationService.startRide(result.trip.id); notify('Trip started. Pickup GPS measuring stopped.'); return result }
-const restartPassengerTrace = () => {
-  if (!store.isTripActive) return false
-  liveKmsBase.value = Number(liveKms.value || 0)
-  return MovementTraceService.start({entityType:'TRIP',entityId:store.trip.id,eventType:'PASSENGER_RIDE_TRACE',profile:'PASSENGER_RIDE',onPoint:()=>{ liveKms.value=liveKmsBase.value + MovementTraceService.getDistanceKm() }})
-}
-const endTrip = async (fare = '') => {
-  const tripId = store.trip?.id
-  if (fare !== '') {
-    const value = Number(fare)
-    if (!Number.isFinite(value) || value < 0) { await KfeRideNotificationService.retryEndRide(); return fail('Enter a valid fare before ending the ride.') }
-  }
-  try { await MovementTraceService.stop({captureFinal:true}) } catch (error) { restartPassengerTrace(); return fail(`GPS trace could not be saved. Ride was not completed: ${error?.message || 'persistence failed.'}`) }
-  if (!await store.endTrip()) { restartPassengerTrace(); return fail('Ride could not be completed. GPS tracing has been resumed.') }
-  let fareSaveFailed = false
-  if (fare !== '') {
-    const fareResult = await store.updateTrip({id:tripId,revenue:fare})
-    fareSaveFailed = !fareResult?.ok
-  }
-  await refreshTarget()
-  stopClock()
-  await KfeRideNotificationService.completeRide()
-  if (fareSaveFailed) return fail('Ride completed, but the fare could not be saved. Please correct it in Timeline.')
-  if (fare === '') { fareValue.value=''; farePanel.value=true; return true }
-  notify('Ride completed with fare.')
-  return true
-}
-const submitFare = async () => { if(fareSubmitting.value || fareValue.value==='') return fail('Enter the fare before confirming.'); const value=Number(fareValue.value); if(!Number.isFinite(value)||value<0)return fail('Enter a valid non-negative fare.'); const tripId=store.completedTrips.at(-1)?.id; if(!tripId)return fail('Completed ride could not be found.'); fareSubmitting.value=true; try { const result=await store.updateTrip({id:tripId,revenue:value}); if(!result.ok)return fail(result.reason || 'Fare could not be saved.'); farePanel.value=false; fareValue.value=''; await refreshTarget(); notify('Fare recorded for completed ride.'); } finally { fareSubmitting.value=false } }
-const openCancelRide = () => { if (!store.isTripActive) return; cancelReason.value='DRIVER_MISTAKE'; cancelledRevenue.value=''; cancelPanel.value=true; error.value=''; message.value='' }
-const closeCancelRide = () => { cancelPanel.value=false; cancelledRevenue.value=''; error.value=''; message.value='' }
-const cancelTripWithRevenue = async () => { if (cancelSubmitting.value) return; if (!store.isTripActive) { cancelPanel.value=false; await store.refresh(); return fail('This ride is no longer active.'); } const value=cancelledRevenue.value; if(value!==''){const amount=Number(value);if(!Number.isFinite(amount)||amount<0)return fail('Enter a valid non-negative cancellation fee.')} if(!confirm('Record this ride as cancelled? The cancellation fee, if entered, will be retained.'))return; cancelSubmitting.value=true; try { try { await MovementTraceService.stop({captureFinal:true}) } catch (error) { restartPassengerTrace(); return fail(`GPS trace could not be saved. Cancellation was not recorded: ${error?.message || 'persistence failed.'}`) } let result; try { result=await store.cancelTrip({reason:cancelReason.value,revenue:value}) } catch (error) { await store.refresh(); restartPassengerTrace(); return fail(error?.message === 'Trip is not active.' ? 'This ride was already completed or cancelled.' : (error?.message || 'Cancellation could not be recorded.')) } if(result?.ok){KfeRideNotificationService.recordCancellation(tripId,value);await KfeRideNotificationService.completeRide();cancelledRevenue.value='';cancelPanel.value=false;await refreshTarget();notify('Cancelled ride recorded.')} else { await store.refresh(); restartPassengerTrace(); fail(result?.reason || 'Cancellation could not be recorded. GPS tracing has been resumed.') } } finally { cancelSubmitting.value=false } }
-const saveFuel = async () => { if (fuelStore.saving) return; const result=await fuelStore.save({odometer:fuelOdometer.value,pricePerKg:fuelPrice.value,amount:fuelAmount.value,clientMutationId:fuelClientMutationId.value}); if(!result.ok)return fail(result.reason); fuelOdometer.value='';fuelPrice.value='';fuelAmount.value='';fuelClientMutationId.value=crypto.randomUUID();sessionStorage.removeItem(fuelDraftKey);fuelFormOpen.value=false;notify(`Refuelling recorded: ${result.record.quantityKg.toFixed(2)} kg.`) }
-const primaryTripAction = () => { if (store.isTripActive && store.trip?.tripStage === 'PICKUP') return startTrip(); if (store.isTripActive) return endTrip(); return startGoingToPickup() }
-const tripActionLabel = computed(() => store.isTripActive && store.trip?.tripStage === 'PICKUP' ? 'SWIPE TO START RIDE' : store.isTripActive ? 'SWIPE TO END RIDE' : 'SWIPE TO GO TO PICKUP')
-const tripActionHint = computed(() => store.isTripActive && store.trip?.tripStage === 'PICKUP' ? 'Swipe from left to right to start the ride' : store.isTripActive ? 'Swipe from left to right to end the ride' : 'Swipe from left to right to go to pickup')
-const swipeProgress = computed(() => {
-  const width = swipeTrack.value?.clientWidth || 320
-  return Math.min(100, Math.round((Math.abs(swipeOffset.value) / Math.max(1, width)) * 100))
-})
-const swipeStyle = computed(() => ({ '--swipe-progress': swipeProgress.value + '%', '--swipe-offset': swipeOffset.value + 'px', '--swipe-dock-y': swipeDockY.value + 'px' }))
-const onSwipeStart = event => {
-  if(event.pointerType==='mouse'&&event.button!==0)return
-  swipeStartX.value=event.clientX; swipeStartY.value=event.clientY; swipeGestureMode.value=null; swipeTracking.value=true; swipeOffset.value=0
-  event.currentTarget.setPointerCapture?.(event.pointerId)
-}
-const onSwipeMove = event => {
-  if(!swipeTracking.value||swipeStartX.value==null||swipeStartY.value==null)return
-  const dx=event.clientX-swipeStartX.value, dy=event.clientY-swipeStartY.value
-  if(!swipeGestureMode.value && (Math.abs(dy)>10||Math.abs(dx)>10)) swipeGestureMode.value=Math.abs(dy)>Math.abs(dx)?'MOVE':'SWIPE'
-  if(swipeGestureMode.value==='MOVE'){
-    const limit=Math.max(0,window.innerHeight-170)
-    swipeDockY.value=Math.max(-limit,Math.min(limit,swipeDockY.value+dy)); swipeStartY.value=event.clientY; return
-  }
-  if(swipeGestureMode.value!=='SWIPE')return
-  const width=swipeTrack.value?.clientWidth||320, max=Math.max(80,width-56)
-  swipeOffset.value=Math.max(0,Math.min(max,dx))
-}
-const onSwipeEnd = async event => {
-  if(!swipeTracking.value||swipeStartX.value==null)return
-  const distance=event.clientX-swipeStartX.value, mode=swipeGestureMode.value, width=swipeTrack.value?.clientWidth||320, trigger=Math.max(80,width*0.55)
-  swipeTracking.value=false; swipeStartX.value=null; swipeStartY.value=null; swipeGestureMode.value=null
-  if(mode==='SWIPE'&&distance>=trigger){ swipeOffset.value=width+80; window.setTimeout(async()=>{swipeOffset.value=0;await primaryTripAction()},120) } else swipeOffset.value=0
-}
-const onSwipeCancel = () => { swipeTracking.value=false; swipeStartX.value=null; swipeStartY.value=null; swipeGestureMode.value=null; swipeOffset.value=0 }
-const onSwipeKey = async event => { if(event.key==='Enter'||event.key===' '){event.preventDefault();await primaryTripAction()} }
-const handleRideNotificationAction = async ({ stage, tripId, input }) => {
-  if (stage === 'GO_TO_PICKUP') {
-    const ok = await startGoingToPickup()
-    if (ok) await KfeRideNotificationService.clearPendingAction()
-    return
-  }
-  if (stage === 'ENTER_PICKUP_DURATION') {
-    if (!input) return
-    const ok = await KfeRideNotificationService.setPickupDuration(input)
-    if (ok) await KfeRideNotificationService.clearPendingAction()
-    return ok
-  }
-  if (stage === 'START_RIDE') {
-    const result = await store.startRide()
-    if (result?.ok) await KfeRideNotificationService.clearPendingAction()
-    return result
-  }
-  if (stage === 'ENTER_RIDE_DURATION') {
-    if (!input) return
-    const ok = await KfeRideNotificationService.setRideDuration(input)
-    if (ok) await KfeRideNotificationService.clearPendingAction()
-    return ok
-  }
-  if (stage === 'END_RIDE') {
-    const ok = await endTrip(input || '')
-    if (ok) await KfeRideNotificationService.clearPendingAction()
-    return ok
-  }
-  if (stage === 'CANCEL_RIDE') {
-    if (!tripId) return
-    let payload = { reason: 'DRIVER_MISTAKE', revenue: 0 }
-    try { if (input) payload = { ...payload, ...JSON.parse(input) } } catch (_) {}
-    const value = payload.revenue === '' || payload.revenue === null || payload.revenue === undefined ? 0 : Number(payload.revenue)
-    if (!Number.isFinite(value) || value < 0) return
-    if (!store.isTripActive || store.trip?.id !== tripId) {
-      await store.refresh()
-      if (!store.isTripActive || store.trip?.id !== tripId) { await KfeRideNotificationService.clearPendingAction(); return false }
-    }
-    try { await MovementTraceService.stop({ captureFinal: true }) } catch (_) {}
-    const result = await store.cancelTrip({ reason: String(payload.reason || 'DRIVER_MISTAKE'), revenue: value })
-    if (result?.ok) {
-      await KfeRideNotificationService.clearPendingAction()
-      KfeRideNotificationService.recordCancellation(tripId, value)
-      await KfeRideNotificationService.completeRide()
-      await refreshTarget()
-      notify(value > 0 ? `Ride cancelled · ₹${value.toLocaleString('en-IN')}` : 'Ride cancelled · ₹0 revenue.')
-    }
-    return result
-  }
-  if (stage === 'ENTER_FARE') {
-    if (!tripId || input === '') return
-    const value = Number(input)
-    if (!Number.isFinite(value) || value < 0) return
-    const result = await store.updateTrip({ id: tripId, revenue: value })
-    if (result?.ok) {
-      await KfeRideNotificationService.clearPendingAction()
-      await refreshTarget()
-      notify('Fare recorded for completed ride.')
-    }
-    return result
-  }
-}
+const money=v=>Number.isFinite(Number(v))?'₹'+Math.round(Number(v)).toLocaleString('en-IN'):'—'
+const notify=t=>{message.value=t;error.value='';clearTimeout(notify.t);notify.t=setTimeout(()=>{if(message.value===t)message.value=''},2400)}
+const fail=t=>{error.value=t;message.value=''}
+const gap= computed(()=>store.calculateGap(startOdo.value)), gapKm=computed(()=>Number(gap.value?.gapKm||0))
+const targetValue=computed(()=>target.value?.target==null?null:Number(target.value.target))
+const targetProgress=computed(()=>targetValue.value>0?Math.min(100,Math.round(targetAchieved.value/targetValue.value*100)):0)
+const targetRemaining=computed(()=>targetValue.value==null?null:Math.max(0,targetValue.value-targetAchieved.value))
+const ready=computed(()=>store.isTripActive&&store.trip?.tripStage==='PICKUP')
+const active=computed(()=>store.isTripActive&&store.trip?.tripStage==='RIDE_STARTED')
+const pendingFare=computed(()=>fareTripId.value?store.completedTrips.find(t=>t.id===fareTripId.value):store.completedTrips.find(t=>t.status==='COMPLETED'&&(t.revenue===''||t.revenue==null)))
+const missing=computed(()=>store.completedTrips.filter(t=>t.status==='COMPLETED'&&(t.revenue===''||t.revenue==null)))
+const completed=computed(()=>store.completedTrips.filter(t=>t.status==='COMPLETED'))
+const preview=computed(()=>endOpen.value?reconcileShiftRevenue({shiftRevenue:shiftRevenue.value,trips:completed.value.map(t=>({...t,revenue:reviewRevenue.value[t.id]??t.revenue,tripKm:reviewKm.value[t.id]??t.tripKm,operator:reviewOperator.value[t.id]??t.operator})),toll:toll.value,parking:parking.value,tollParkingRevenueTreatment:tollTreatment.value}):null)
+const endReady=computed(()=>Boolean(closingOdo.value)&&shiftRevenue.value!==''&&preview.value?.reconciliationStatus!=='UNAVAILABLE'&&preview.value?.reconciliationStatus!=='MISMATCH')
+const tripTimer=computed(()=>{if(!store.trip?.tripStartAt)return'00:00:00';const s=Math.max(0,Math.floor((clock.value-Date.parse(store.trip.tripStartAt))/1000));return`${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor(s%3600/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`})
+const fuelQty=computed(()=>fuel.calculateQuantity(fuelPrice.value,fuelAmount.value))
+const shiftKm=computed(()=>Math.max(0,Number(closingOdo.value||store.lastKnownOdometer||store.startOdometer||0)-Number(store.startOdometer||0)))
 
-onMounted(async()=>{await store.initialize();await fuelStore.refresh();await refreshTarget();await refreshPerformance();
-removeRideNotificationListener = (await KfeRideNotificationService.addListener('rideNotificationAction', handleRideNotificationAction))?.remove;
-const pendingOverlayAction = await KfeRideNotificationService.consumePendingAction();
-if (pendingOverlayAction?.stage) {
-  await handleRideNotificationAction(pendingOverlayAction);
-}
-let restoredTrace = false;
-if (store.isTripActive && store.trip?.tripStage === 'RIDE_STARTED') {
-  try { liveKmsBase.value = await WorkService.getTripGpsDistanceKm(store.trip.id); liveKms.value = liveKmsBase.value } catch (_) { liveKmsBase.value = 0; liveKms.value = null }
-  restoredTrace = MovementTraceService.start({entityType:'TRIP',entityId:store.trip.id,eventType:'PASSENGER_RIDE_TRACE',profile:'PASSENGER_RIDE',onPoint:()=>{ liveKms.value=liveKmsBase.value + MovementTraceService.getDistanceKm() }});
-  await KfeRideNotificationService.resume();
-} else if (store.isTripActive && store.trip?.tripStage === 'PICKUP') {
-  goingToPickup.value = true;
-  restoredTrace = MovementTraceService.start({entityType:'SHIFT',entityId:store.shift.id,eventType:'DEAD_MOVEMENT_TRACE',profile:'DEAD_LEG',onPoint:(_point,count)=>{pickupGpsPoints.value=count;pickupGpsSummary.value={...pickupGpsSummary.value,points:count,passed:count>=2}}});
-  await KfeRideNotificationService.resume();
-} else if (store.isOnline) {
-  let pickupSession = null;
-  try { pickupSession = JSON.parse(localStorage.getItem(pickupTraceSessionKey) || 'null') } catch (_) {}
-  if (pickupSession?.shiftId === store.shift?.id) {
-    goingToPickup.value = true;
-    restoredTrace = MovementTraceService.start({entityType:'SHIFT',entityId:store.shift.id,eventType:'DEAD_MOVEMENT_TRACE',profile:'DEAD_LEG',onPoint:(_point,count)=>{pickupGpsPoints.value=count;pickupGpsSummary.value={...pickupGpsSummary.value,points:count,passed:count>=2}}});
-    await KfeRideNotificationService.resume();
-  } else {
-    if (pickupSession?.shiftId !== store.shift?.id) { try { localStorage.removeItem(pickupTraceSessionKey) } catch (_) {} }
-    await KfeRideNotificationService.goOnline();
-  }
-}
-startOdo.value=store.lastKnownOdometer??'';selectedOperator.value=store.defaultOperator;loadFuelDraft();unsubscribeTarget=DriverTargetService.subscribeDataChanges(()=>{void refreshTarget();void refreshPerformance()});if(store.isTripActive)startClock()})
-watch([() => store.isOnline, () => store.trip?.id, () => store.trip?.tripStage, targetText, targetProgress, ridesText, liveKmsText, liveShiftRevenueText, farePanel, cancelPanel], () => { void syncOverlay() }, { immediate: true })
+async function targetRefresh(){try{const n=getKfeReferenceNow();target.value=await DriverTargetService.getTarget(n);const s=await PerformanceService.getSnapshot();targetAchieved.value=Number(PerformanceService.getMetrics(s,reportingRangeFor('DAY',n))?.revenue||0)}catch(_){target.value=null;targetAchieved.value=0}}
+async function syncSurfaces(){if(!store.isOnline){await AndroidOverlay.hide().catch(()=>{});return}await AndroidOverlay.update({shift:store.shift?{id:store.shift.id}:null,trip:store.trip?{id:store.trip.id,status:store.trip.status,tripStage:store.trip.tripStage}:null,target:targetValue.value==null?'—':money(targetValue.value),targetProgress:targetProgress.value,rides:String(store.completedTrips.length),overlayAction:active.value?'END_RIDE':ready.value?'START_RIDE':'GO_TO_PICKUP',overlayTripId:store.trip?.id||''}).catch(()=>{})}
 
-onUnmounted(()=>{ if(removeRideNotificationListener) removeRideNotificationListener();stopClock();window.clearInterval(interval);unsubscribeTarget?.();MovementTraceService.reset()})
+function openStart(){fuelOpen.value=false;endOpen.value=false;startOdo.value=store.lastKnownOdometer==null?'':String(store.lastKnownOdometer);startAck.value=false;gapChoice.value='';error.value='';message.value=''}
+async function submitStart(){if(startBusy.value)return;if(!startOdo.value)return fail('Current odometer is required.');if(!startAck.value)return fail('Confirm the current odometer reading before continuing.');if(!gap.value.valid)return fail(gap.value.reason||'Enter a valid odometer.');if(gapKm.value&&!gapChoice.value)return fail('Choose Personal KM or Dead KM for the full odometer gap.');startBusy.value=true;const r=await store.startShift(startOdo.value,gapKm.value?{category:gapChoice.value}:null);startBusy.value=false;if(!r.ok)return fail(r.reason);startOdo.value='';startAck.value=false;gapChoice.value='';await targetRefresh();await KfeRideNotificationService.goOnline().catch(()=>{});await AndroidOverlay.prepare().catch(()=>{});await syncSurfaces();notify('Online — shift started.')}
+
+async function goPickup(){if(busy.value||!store.isOnline||store.isTripActive)return;busy.value=true;try{try{traceRunning=MovementTraceService.start({entityType:'SHIFT',entityId:store.shift?.id,eventType:'DEAD_MOVEMENT_TRACE',profile:'DEAD_LEG'})}catch(_){traceRunning=false}const r=await store.beginPickup(operator.value||store.defaultOperator);if(!r?.ok){if(traceRunning)MovementTraceService.reset();traceRunning=false;return fail(r?.reason||'Could not start pickup.')}await KfeRideNotificationService.beginPickup(`pickup-${Date.now()}`).catch(()=>{});await syncSurfaces();notify('Going to pickup.')}finally{busy.value=false}}
+async function startTrip(){if(busy.value||!ready.value)return;busy.value=true;try{if(traceRunning){await MovementTraceService.stop({captureFinal:true}).catch(()=>{});traceRunning=false}const r=await store.startRide();if(!r.ok)return fail(r.reason);await KfeRideNotificationService.startRide().catch(()=>{});await syncSurfaces();notify('Trip active.')}finally{busy.value=false}}
+async function endTrip(){if(busy.value||!active.value)return;busy.value=true;try{const id=store.trip.id;if(!await store.endTrip())return fail('Trip could not be completed.');await KfeRideNotificationService.endRide().catch(()=>{});fareTripId.value=id;fare.value='';await syncSurfaces();notify('Trip completed — enter fare.')}finally{busy.value=false}}
+async function saveFare(){if(fareBusy.value)return;if(!pendingFare.value)return;if(fare.value==='')return fail('Trip fare is required.');if(!Number.isFinite(Number(fare.value))||Number(fare.value)<0)return fail('Trip fare must be a non-negative number.');fareBusy.value=true;const r=await store.updateTrip({id:pendingFare.value.id,revenue:Number(fare.value)});fareBusy.value=false;if(!r.ok)return fail(r.reason);fareTripId.value=null;fare.value='';await targetRefresh();await syncSurfaces();notify('Fare saved.')}
+function openCancel(){cancelOpen.value=true;cancelReason.value='';cancelFare.value='';error.value='';message.value=''}
+async function saveCancel(){if(cancelBusy.value)return;if(!cancelReason.value.trim())return fail('Cancellation reason is required.');if(cancelFare.value!==''&&(!Number.isFinite(Number(cancelFare.value))||Number(cancelFare.value)<0))return fail('Cancellation fare must be a non-negative number.');cancelBusy.value=true;const r=await store.cancelTrip({reason:cancelReason.value.trim(),revenue:cancelFare.value});cancelBusy.value=false;if(!r?.ok)return fail(r?.reason||'Cancellation could not be saved.');cancelOpen.value=false;await syncSurfaces();notify('Trip cancelled.')}
+function toggleFuel(){fuelOpen.value=!fuelOpen.value;if(fuelOpen.value){endOpen.value=false;fuelOdo.value='';fuelPrice.value='';fuelAmount.value='';fuelFull.value=true;error.value='';message.value=''}}
+async function saveFuel(){if(fuelBusy.value)return;fuelBusy.value=true;const r=await WorkService.recordFuel({odometer:fuelOdo.value,pricePerKg:fuelPrice.value,amount:fuelAmount.value,isFullTank:fuelFull.value});fuelBusy.value=false;if(!r.ok)return fail(r.reason);fuelOpen.value=false;notify('Fuel saved.')}
+function seedReview(){const rev={},km={},op={};completed.value.forEach(t=>{rev[t.id]=t.revenue??'';km[t.id]=t.tripKm??'';op[t.id]=t.operator??store.defaultOperator});reviewRevenue.value=rev;reviewKm.value=km;reviewOperator.value=op}
+function openEnd(){if(store.isTripActive)return fail('End the active Trip before going Offline.');fuelOpen.value=false;endOpen.value=true;endStage.value='CLOSE';closingOdo.value='';shiftRevenue.value='';toll.value='';parking.value='';tollTreatment.value='INCLUDED';seedReview();error.value='';message.value=''}
+function cancelEnd(){endOpen.value=false;notify('Still Online — End Shift cancelled.')}
+function closeShift(){if(!closingOdo.value)return fail('Closing odometer is required.');if(shiftRevenue.value==='')return fail('Total shift revenue is required.');const c=Number(closingOdo.value),s=Number(store.startOdometer);if(!Number.isFinite(c)||c<s)return fail(`Closing odometer must be at least ${s} km.`);if(!Number.isFinite(Number(shiftRevenue.value))||Number(shiftRevenue.value)<0)return fail('Total shift revenue must be non-negative.');seedReview();endStage.value='RECONCILE';error.value='';message.value=''}
+function continueReconcile(){if(missing.value.length)return fail('Enter revenue for every listed completed trip.');if(preview.value?.reconciliationStatus==='MISMATCH'){endStage.value='MISMATCH';return}endStage.value='REVIEW'}
+function checkMismatch(){if(preview.value?.reconciliationStatus==='MISMATCH')return fail(`Trip fares differ from shift revenue by ${money(Math.abs(preview.value.difference))}.`);endStage.value='REVIEW'}
+function reviewDone(){if(preview.value?.reconciliationStatus==='MISMATCH')return fail(`Trip fares differ from shift revenue by ${money(Math.abs(preview.value.difference))}.`);endStage.value='CONFIRM'}
+async function finishEnd(){if(endBusy.value)return;if(!endReady.value)return fail('Complete the required reconciliation before ending the shift.');endBusy.value=true;const trips=completed.value.map(t=>({id:t.id,operator:reviewOperator.value[t.id]??t.operator,tripKm:reviewKm.value[t.id]??t.tripKm??'',revenue:reviewRevenue.value[t.id]??t.revenue??''}));const r=await store.endShift({closingOdometer:closingOdo.value,revenue:shiftRevenue.value,toll:toll.value,parking:parking.value,tollParkingRevenueTreatment:tollTreatment.value,trips});endBusy.value=false;if(!r.ok)return fail(r.reason);endStage.value='ENDED';await targetRefresh();await KfeRideNotificationService.clear().catch(()=>{});notify('Shift ended.')}
+function finishEnded(){endOpen.value=false;closingOdo.value='';shiftRevenue.value='';toll.value='';parking.value='';notify('Offline.')}
+const actionLabel=computed(()=>active.value?'END TRIP':ready.value?'START TRIP':'GO TO PICKUP')
+function doAction(){if(active.value)return endTrip();if(ready.value)return startTrip();return goPickup()}
+const progress=computed(()=>{const w=track.value?.clientWidth||320;return Math.max(0,Math.min(100,(swipe.value.offset/Math.max(1,w-76))*100))})
+function down(e){if(busy.value||!store.isOnline||endOpen.value||fuelOpen.value||cancelOpen.value||pendingFare.value)return;if(e.pointerType==='mouse'&&e.button!==0)return;if(!e.target.closest('.swipe-handle'))return;swipe.value={down:true,start:e.clientX,offset:0};e.currentTarget.setPointerCapture?.(e.pointerId)}
+function move(e){if(!swipe.value.down)return;swipe.value.offset=Math.max(0,Math.min((track.value?.clientWidth||320)-76,e.clientX-swipe.value.start))}
+async function up(){if(!swipe.value.down)return;const commit=progress.value>=70;swipe.value={down:false,start:0,offset:0};if(commit)await doAction()}
+function keyAction(){if(!busy.value)doAction()}
+function displayTime(v){const d=new Date(v);return`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`}
+watch(()=>store.completedTrips.map(t=>t.id+':'+(t.revenue??'')).join('|'),()=>{if(!fareTripId.value&&pendingFare.value)fareTripId.value=pendingFare.value.id})
+watch(()=>store.isOnline,()=>syncSurfaces())
+onMounted(async()=>{await store.initialize();await targetRefresh();operator.value=store.defaultOperator;if(pendingFare.value)fareTripId.value=pendingFare.value.id;clock.value=Date.now();timer=setInterval(()=>clock.value=Date.now(),1000);await syncSurfaces()})
+onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTraceService.reset();AndroidOverlay.hide().catch(()=>{})})
 </script>
 
 <template>
-  <div class="cockpit kfe-work-cockpit" :class="{ 'cockpit--offline': !store.isOnline, 'cockpit--online': store.isOnline && !store.isTripActive && !endShiftOpen, 'cockpit--trip': store.isTripActive, 'cockpit--end-shift': endShiftOpen, 'cockpit--fuel': fuelFormOpen }">
-    <header class="hero">
-      <div><small>KFE WORK</small><h1>Driver Cockpit</h1></div>
-      <div class="hero-actions">
-        <button class="fuel-icon" type="button" :class="{active:fuelFormOpen}" aria-label="CNG refuelling" title="CNG refuelling" @click="openFuelForm"><span aria-hidden="true">⛽</span></button>
-        <div v-if="store.isTripActive" class="online-control cockpit-status" aria-label="Trip active"><span>ON TRIP</span></div>
-        <div v-else-if="endShiftOpen" class="online-control cockpit-status" aria-label="Ending shift"><span>ENDING SHIFT</span></div>
-        <div v-else class="online-control">
-          <span>OFFLINE</span><button type="button" class="online-toggle" :class="{active:store.isOnline}" role="switch" :aria-checked="store.isOnline" :aria-label="store.isOnline ? 'Go Offline' : 'Confirm odometer and go Online'" @click.stop.prevent="toggleOnline"><span/></button><span>ONLINE</span>
-        </div>
-      </div>
-    </header>
-    <div v-if="message" class="message">{{message}}</div><div v-if="error" class="error">{{error}}</div>
+<div class="work-cockpit">
+<header class="work-head"><div><span>WORK</span><h1>Driver Cockpit</h1></div><div class="head-actions"><button class="icon" type="button" aria-label="CNG refuelling" title="CNG refuelling" @click="toggleFuel">⛽</button><button class="toggle" :class="{on:store.isOnline}" type="button" :aria-pressed="store.isOnline" @click="store.isOnline?openEnd():openStart()">{{store.isOnline?'ONLINE':'OFFLINE'}}<i/></button></div></header>
+<main class="cockpit">
+<section v-if="!store.isOnline&&!startOdo&&!fuelOpen&&!endOpen" class="state offline"><div><small>CURRENT STATE</small><strong>OFFLINE</strong><p>Vehicle ready? Start the shift when you are ready.</p></div><button class="primary" @click="openStart">GO ONLINE</button></section>
 
+<section v-if="!store.isOnline&&startOdo!==''&&!fuelOpen&&!endOpen" class="surface">
+<div class="surface-head"><div><small>START SHIFT</small><h2>ODOMETER CHECK</h2></div><button class="quiet" @click="startOdo='';startAck=false;gapChoice=''">Back</button></div>
+<label>Current odometer<div class="unit"><input v-model="startOdo" type="number" inputmode="numeric" enterkeyhint="done" min="0"><b>km</b></div></label>
+<label class="check"><input v-model="startAck" type="checkbox"> I confirm this is the current vehicle odometer.</label>
+<div v-if="gapKm>0" class="gap"><small>ODOMETER GAP</small><strong>{{gapKm}} km</strong><p>Classify the full gap. Partial allocation is not allowed.</p><div><button :class="{selected:gapChoice==='PERSONAL'}" @click="gapChoice='PERSONAL'">Personal KM</button><button :class="{selected:gapChoice==='DEAD'}" @click="gapChoice='DEAD'">Dead KM</button></div></div>
+<button class="primary" :disabled="startBusy" @click="submitStart">{{startBusy?'STARTING…':'CONFIRM & GO ONLINE'}}</button>
+</section>
 
-    <section v-if="cancelPanel && store.isTripActive && !endShiftOpen" class="cockpit-state cancel-ride-panel">
-      <div class="form-topline"><div><small>RIDE CONTROL</small><h2>CANCEL RIDE</h2></div><button class="form-back" type="button" @click="closeCancelRide"><span aria-hidden="true">🔙</span><span>Back</span></button></div>
-      <div class="cancel-ride-copy">This keeps the ride in Timeline as <strong>Cancelled</strong>. Add a fee only if one was actually collected.</div>
-      <div class="cancel-ride-form">
-        <label>Cancellation reason<select v-model="cancelReason"><option value="DRIVER_MISTAKE">Driver mistake</option><option value="PASSENGER_CANCELLED">Passenger cancelled</option><option value="VEHICLE_ISSUE">Vehicle issue</option><option value="OPERATOR_REQUEST">Operator request</option><option value="OTHER">Other</option></select></label>
-        <label>Cancellation fee (₹)<input v-model="cancelledRevenue" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Optional"></label>
-      </div>
-      <div class="cancel-ride-actions"><button class="secondary" type="button" @click="closeCancelRide">Back</button><button class="quiet-danger" type="button" :disabled="cancelSubmitting" @click="cancelTripWithRevenue">{{cancelSubmitting ? 'CANCELLING…' : 'Confirm cancellation'}}</button></div>
-    </section>
-
-    <section v-if="fuelFormOpen" class="card gate cockpit-form-surface">
-      <div class="form-topline"><div><small>CNG REFUELLING</small><h2>Refuelling</h2></div><button class="form-back" type="button" @click="closeFuelForm"><span aria-hidden="true">🔙</span><span>Back</span></button></div>
-      <div class="form-body">
-        <label>Odometer (km)<input v-model="fuelOdometer" type="number" min="0" inputmode="decimal"></label>
-        <label>Price per kg (₹)<input v-model="fuelPrice" type="number" min="0" step="0.01" inputmode="decimal"></label>
-        <label>Amount (₹)<input v-model="fuelAmount" type="number" min="0" step="0.01" inputmode="decimal"></label>
-        <div class="calculated"><span>ERP-calculated quantity</span><strong>{{fuelQuantity.toFixed(2)}} kg</strong></div>
-      </div>
-      <div class="form-actions"><button class="secondary" type="button" @click="closeFuelForm">Keep Draft &amp; Close</button><button class="primary" :disabled="fuelStore.saving" @click="saveFuel">{{fuelStore.saving?'Saving…':'SAVE FUEL'}}</button></div>
-    </section>
-
-    <section v-else-if="!store.isTripActive && !store.isOnline" class="cockpit-state cockpit-start-state">
-      <div class="state-kicker">OFFLINE</div>
-      <h2>START SHIFT</h2>
-      <div v-if="!startOdoOpen" class="offline-performance">
-        <article class="work-performance-hero work-performance-week">
-          <div class="work-performance-heading"><div><small>WEEKLY PERFORMANCE</small><h3>{{weeklyPerformance?.date || 'This week'}}</h3></div><span>WEEK</span></div>
-          <div class="work-performance-metrics">
-            <div><span>Revenue</span><strong>{{performanceMoney(weeklyPerformance?.revenue)}}</strong><small>Authoritative shift revenue</small></div>
-            <div><span>Profit</span><strong>{{performanceMoney(weeklyPerformance?.profit)}}</strong><small>Revenue − actual operating expenses</small></div>
-          </div>
-        </article>
-        <article class="work-performance-hero work-performance-yesterday">
-          <div class="work-performance-heading"><div><small>YESTERDAY'S PERFORMANCE</small><h3>{{yesterdayPerformance?.date || 'Yesterday'}}</h3></div><span>DAY</span></div>
-          <div class="work-performance-metrics">
-            <div><span>Revenue</span><strong>{{performanceMoney(yesterdayPerformance?.revenue)}}</strong><small>Total fare · toll + parking</small></div>
-            <div><span>Profit</span><strong>{{performanceMoney(yesterdayPerformance?.profit)}}</strong><small>Revenue − break-even</small></div>
-          </div>
-        </article>
-      </div>
-      <div v-if="startOdoOpen" class="focus-card start-odo-confirm">
-        <div class="form-topline"><div><small>SHIFT START</small><h3>START ODOMETER</h3></div><button class="form-back" type="button" @click="cancelStartOdo"><span aria-hidden="true">🔙</span><span>Back</span></button></div>
-        <input v-model="startOdo" type="number" min="0" inputmode="decimal" aria-label="Start odometer" autocomplete="off">
-        <span class="field-note">Pre-filled from last valid entry · check and confirm</span>
-        <button class="primary start-online-action" type="button" @click="goOnline">CONFIRM ODOMETER &amp; GO ONLINE</button>
-        <div v-if="store.firstKfeDay && gap.valid" class="gap compact-gap"><div class="gap-head"><strong>Historical odometer gap</strong><span>Excluded from Personal / Dead KM</span></div><div class="allocation-summary"><div><span>Business start</span><strong>{{store.businessStartBaseline?.businessStartOdometer ?? '—'}} km</strong></div><div><span>Current</span><strong>{{startOdo || '—'}} km</strong></div></div></div>
-        <div v-else-if="gap.valid&&gapKm>0" class="gap compact-gap"><div class="gap-head"><strong>Odometer gap · {{gapKm}} km</strong><span>Resolve before Online</span></div><div class="allocation-actions"><button type="button" :class="{selected:gapCategory==='PERSONAL'}" @click="selectGapCategory('PERSONAL')">Personal KM</button><button type="button" :class="{selected:gapCategory==='DEAD'}" @click="selectGapCategory('DEAD')">Dead KM</button></div><div class="gap-status"><span v-if="gapCategory">Allocated {{allocatedGap}} / {{gapKm}} km · Ready for Online</span><span v-else>Choose one category before Online.</span></div></div>
-      </div>
-    </section>
-
-    <section v-if="store.isOnline && !endShiftOpen && !fuelFormOpen && !cancelPanel && !farePanel" class="work-canonical-summary">
-      <div class="work-target-block">
-        <span class="work-section-label">TODAY'S TARGET</span>
-        <strong>{{targetText}}</strong>
-        <div class="target-progress" aria-label="Target progress"><span :style="{width: targetProgress+'%'}"></span></div>
-        <small>{{targetProgress}}%</small>
-      </div>
-      <div class="work-shift-block">
-        <span class="work-section-label">CURRENT SHIFT</span>
-        <div><strong>{{liveShiftRevenueText}}</strong><strong>{{ridesText}} rides</strong><strong>{{liveKmsText}}</strong></div>
-      </div>
-    </section>
-
-    <section v-if="farePanel && !endShiftOpen" class="work-fare-panel" aria-label="Ride completed fare entry">
-      <div class="work-fare-heading"><span>RIDE COMPLETED</span><strong>Fare</strong><b>₹{{fareValue || '0'}}</b></div>
-      <div class="work-keypad">
-        <button v-for="key in ['1','2','3','4','5','6','7','8','9','back','0','ok']" :key="key" type="button" @click="key==='back' ? fareValue=fareValue.slice(0,-1) : key==='ok' ? submitFare() : fareValue=(fareValue==='0' ? key : fareValue+key)">
-          <span v-if="key==='back'">←</span><span v-else-if="key==='ok'">✓</span><span v-else>{{key}}</span>
-        </button>
-      </div>
-      <button class="work-fare-ok" type="button" :disabled="fareSubmitting" @click="submitFare">OK</button>
-    </section>
-
-    <section v-else-if="!store.isTripActive && store.isOnline && !endShiftOpen && !goingToPickup && !farePanel" class="cockpit-state cockpit-ready-state">
-      <h2>READY</h2>
-      <div class="ready-context"><div class="operator-inline"><span>Operator</span><button type="button" class="operator-select" @click="operatorMenuOpen=!operatorMenuOpen">{{(selectedOperator||store.defaultOperator)+' ▾'}}</button></div><div v-if="operatorMenuOpen" class="operator-menu"><button v-for="operator in store.operators" :key="operator" type="button" :class="{selected:(store.defaultOperator===operator&&selectedOperator!=='__menu__')}" @click="changeTripOperator(operator)">{{operator}}</button></div></div>
-    </section>
-
-    <section v-else-if="goingToPickup && !endShiftOpen && !farePanel" class="cockpit-state cockpit-pickup-state">
-      <div class="state-kicker pickup">GOING TO PICKUP</div>
-      <h2>READY TO START RIDE</h2>
-      <div class="pickup-gps-card">
-        <div><span>GPS</span><strong>{{pickupGpsPoints > 0 ? 'Measuring' : 'Waiting'}}</strong></div>
-        <div><span>POINTS</span><strong>{{pickupGpsPoints}}</strong></div>
-        <div><span>DEAD KM</span><strong>ACTIVE</strong></div>
-      </div>
-    </section>
-
-    <section v-if="store.isTripActive && !endShiftOpen && !farePanel && store.trip?.tripStage === 'RIDE_STARTED'" class="cockpit-state cockpit-trip-state">
-      <div class="state-kicker online">ON RIDE</div>
-      <div class="trip-operator-row"><span>Operator</span><button type="button" class="operator-select" @click="selectedOperator = selectedOperator === '__menu__' ? store.trip.operator : '__menu__'">{{store.trip.operator+' ▾'}}</button></div>
-      <div v-if="selectedOperator==='__menu__'" class="operator-menu"><button v-for="operator in store.operators" :key="operator" type="button" :class="{selected:store.trip.operator===operator}" @click="changeTripOperator(operator)">{{operator}}</button></div>
-    </section>
-
-    <div v-if="store.isOnline && !endShiftOpen && !fuelFormOpen && !cancelPanel && !farePanel" class="persistent-action">
-      <div ref="swipeTrack" class="swipe-bar trip-action" :class="{ 'swipe-bar--pickup': !store.isTripActive, 'swipe-bar--start': store.isTripActive && store.trip?.tripStage === 'PICKUP', 'swipe-bar--end': store.isTripActive && store.trip?.tripStage === 'RIDE_STARTED', 'is-swiping': swipeTracking, 'is-threshold': swipeProgress >= 80 }" :style="swipeStyle" role="group">
-        <div class="swipe-action-hit" role="button" tabindex="0" aria-label="Swipe left to right" @pointerdown="onSwipeStart" @pointermove="onSwipeMove" @pointerup="onSwipeEnd" @pointercancel="onSwipeCancel" @keydown="onSwipeKey">
-          <span class="swipe-progress" aria-hidden="true"></span><span class="swipe-threshold" aria-hidden="true"><i></i><em>80%</em></span><span class="swipe-label">{{tripActionLabel}}</span><span class="swipe-thumb" aria-hidden="true"><b>←</b></span>
-        </div>
-        <button v-if="store.isTripActive && store.trip?.tripStage === 'PICKUP'" class="swipe-cancel-button" type="button" aria-label="Cancel trip" @pointerdown.stop @pointerup.stop @click.stop.prevent="openCancelRide">×</button>
-      </div>
-      <small class="swipe-hint">{{swipeTracking ? (swipeProgress >= 80 ? 'RELEASE TO CONFIRM' : 'KEEP SWIPING →') : tripActionHint}}</small>
-    </div>
-
-    <section v-if="endShiftOpen" class="cockpit-state cockpit-end-state" :style="endShiftSwipeStyle" :class="{'is-card-dragging':endShiftSwipeTracking}" @pointerdown="onEndShiftSwipeStart" @pointermove="onEndShiftSwipeMove" @pointerup="onEndShiftSwipeEnd" @pointercancel="onEndShiftSwipeCancel">
-      <div class="form-topline"><div><div class="state-kicker">GOING OFFLINE</div><h2>{{endShiftStep===1?'CLOSE SHIFT':endShiftStep===2?'SHIFT EXPENSES':endShiftStep===3?'RIDE REVIEW':'CONFIRM END SHIFT'}}</h2></div><button class="form-back" type="button" @click="endShiftBack"><span aria-hidden="true">🔙</span><span>Back</span></button></div>
-
-      <div v-if="endShiftStep===1" class="end-form-body end-entry-grid">
-        <div class="start-odo-reference"><span>Shift started</span><strong>{{store.startOdometer ?? '—'}} km</strong></div>
-        <div class="metric-field">
-          <label for="closing-odometer">CLOSING ODOMETER</label>
-          <div class="metric-input"><input id="closing-odometer"  :value="closingOdo" type="text" inputmode="none" readonly placeholder="0" aria-label="Closing odometer" @click="openEndShiftKeypad('closingOdo')"><span>km</span></div>
-          <small>Current vehicle reading</small>
-        </div>
-        <div class="metric-field">
-          <label for="shift-revenue">TOTAL SHIFT REVENUE</label>
-          <div class="metric-input"><span>₹</span><input id="shift-revenue"  :value="shiftRevenue" type="text" inputmode="none" readonly placeholder="0" aria-label="Total shift revenue" @click="openEndShiftKeypad('shiftRevenue')"></div>
-          <small>Revenue recorded for this shift</small>
-        </div>
-      </div>
-
-      <div v-else-if="endShiftStep===2" class="end-form-body optional-entry">
-        <div class="optional-heading"><div><p class="form-question">SHIFT EXPENSES</p><p class="muted">Optional — add only what applies.</p></div><span>SKIPPABLE</span></div>
-        <div class="expense-grid">
-          <div class="metric-field compact"><label for="shift-toll">TOLL</label><div class="metric-input"><span>₹</span><input id="shift-toll"  :value="toll" type="text" inputmode="none" readonly placeholder="0" aria-label="Toll" @click="openEndShiftKeypad('toll')"></div></div>
-          <div class="metric-field compact"><label for="shift-parking">PARKING</label><div class="metric-input"><span>₹</span><input id="shift-parking"  :value="parking" type="text" inputmode="none" readonly placeholder="0" aria-label="Parking" @click="openEndShiftKeypad('parking')"></div></div>
-        </div>
-        <label class="exclude-check"><input v-model="tollTreatment" true-value="EXCLUDED" false-value="INCLUDED" type="checkbox"><span>Exclude toll &amp; parking from trip fare</span></label>
-      </div>
-
-      <div v-else-if="endShiftStep===3" class="end-form-body optional-entry">
-        <div class="optional-heading"><div><p class="form-question">REVIEW RIDES</p><p class="muted">Optional — correct anything that needs attention.</p></div><span>SKIPPABLE</span></div>
-        <div class="reviews compact-reviews"><p v-if="!store.completedTrips.length" class="muted">No completed trips.</p><div v-for="t in store.completedTrips" :key="t.id" class="review"><select v-model="t.operator" aria-label="Trip operator"><option v-for="operator in store.operators" :key="operator">{{operator}}</option></select><input v-model="t.tripKm" type="number" min="0" step="0.1" placeholder="KM"><input v-model="t.revenue" type="number" min="0" step="0.01" placeholder="₹"></div></div>
-      </div>
-
-      <div v-else class="end-form-body end-confirm-panel">
-        <div class="end-confirm-summary"><span>Everything is ready.</span><strong>END SHIFT</strong><small>All saved steps are ready to close the shift.</small></div>
-      </div>
-
-      <div v-if="endShiftKeypadVisible && endShiftStep<4" class="kfe-number-pad" aria-label="KFE number pad">
-        <div class="number-pad-display"><span>{{endShiftActiveField==='closingOdo'?'CLOSING ODOMETER':endShiftActiveField==='shiftRevenue'?'TOTAL SHIFT REVENUE':endShiftActiveField==='toll'?'TOLL':'PARKING'}}</span><strong>{{endShiftActiveField==='closingOdo'?'':'₹'}}{{endShiftFieldValue(endShiftActiveField)||'0'}}<small v-if="endShiftActiveField==='closingOdo'"> km</small></strong></div>
-        <div class="number-pad-grid"><button v-for="key in ['1','2','3','4','5','6','7','8','9','clear','0','backspace']" :key="key" type="button" @pointerdown.stop.prevent="endShiftKeypadPress(key)"><span v-if="key==='backspace'">⌫</span><span v-else-if="key==='clear'">C</span><span v-else>{{key}}</span></button></div>
-        <button class="number-pad-done" type="button" @click="closeEndShiftKeypad">DONE</button>
-      </div>
-      <div v-if="endShiftStep<4" class="form-actions end-actions">
-        <template v-if="endShiftStep===1"><button class="primary" type="button" @click="endShiftContinue">CONTINUE →</button></template>
-        <template v-else-if="endShiftStep===2"><button class="secondary" type="button" @click="endShiftExpenseSave">SAVE</button><button class="primary skip-dominant" type="button" @click="endShiftExpenseSkip">SKIP →</button></template>
-        <template v-else><button class="secondary" type="button" @click="endShiftReviewSave">SAVE</button><button class="primary skip-dominant" type="button" @click="endShiftReviewSkip">SKIP →</button></template>
-      </div>
-      <div v-else class="end-confirm-actions">
-        <button class="primary end-confirm-button" type="button" @click="endShiftConfirm">OK — END SHIFT</button>
-      </div>
-    </section>
-
-  </div>
+<template v-if="store.isOnline&&!fuelOpen&&!endOpen">
+<section class="instrument target"><small>TODAY'S TARGET</small><strong>{{targetValue==null?'—':money(targetValue)}}</strong><div><span>of {{targetValue==null?'—':money(targetValue)}}</span><span>{{targetProgress}}%</span></div><b><i :style="{width:targetProgress+'%'}"/></b><em>{{targetRemaining==null?'—':money(targetRemaining)}} remaining</em></section>
+<section class="instrument timer"><small>{{active?'TRIP TIME':'SHIFT TIME'}}</small><strong>{{active?tripTimer:displayTime(store.shift?.startAt||Date.now())}}</strong></section>
+<section v-if="!store.isTripActive" class="state"><small>CURRENT STATE</small><strong>READY</strong><p>Select the operator, then start the next pickup.</p><label>Operator<select v-model="operator"><option v-for="o in store.operators" :key="o">{{o}}</option></select></label></section>
+<section v-else-if="ready" class="state"><small>CURRENT STATE</small><strong>READY FOR TRIP</strong><p>Pickup reached. Start the trip or cancel it.</p><button class="secondary" @click="openCancel">CANCEL TRIP</button></section>
+<section v-else class="state"><small>CURRENT STATE</small><strong>TRIP ACTIVE</strong><p>{{store.trip?.operator}} · {{tripTimer}}</p><div class="metrics"><div><small>TRIP KM</small><strong>{{Number(store.trip?.tripKm||0).toFixed(1)}} km</strong></div><div><small>GPS</small><strong>{{store.trip?.tripStartLocation?.placeName||'ACTIVE'}}</strong></div></div></section>
+<div class="next"><small>NEXT ACTION</small><strong>{{actionLabel}}</strong><span>{{active?'Routine tracking is automatic.':ready?'Cancellation is available only before the trip starts.':'GPS and timestamp are supporting background context when available.'}}</span></div>
+<div ref="track" class="swipe" :class="{threshold:progress>=70,committing:busy}" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up"><div class="swipe-copy"><small>{{progress>=70?'RELEASE TO':''}}</small><strong>{{actionLabel}}</strong></div><button class="swipe-handle" type="button" :aria-label="actionLabel" @click.stop="keyAction">→</button></div>
+<small class="swipe-hint">{{progress>=70?'RELEASE TO '+actionLabel:'Grab the handle, drag right, release at the threshold.'}}</small>
 </template>
+
+<section v-if="pendingFare&&!endOpen" class="surface overlay"><div class="surface-head"><div><small>TRIP COMPLETED</small><h2>ENTER FARE</h2></div></div><div class="summary"><span>Operator</span><strong>{{pendingFare.operator}}</strong><span>Trip KM</span><strong>{{Number(pendingFare.tripKm||0).toFixed(1)}} km</strong></div><label>Trip fare<div class="unit"><b>₹</b><input v-model="fare" type="number" inputmode="numeric" enterkeyhint="done" min="0"></div></label><button class="primary" :disabled="fareBusy" @click="saveFare">{{fareBusy?'SAVING…':'OK — SAVE FARE'}}</button></section>
+
+<section v-if="cancelOpen" class="surface overlay"><div class="surface-head"><div><small>CANCEL TRIP</small><h2>CAPTURE REASON</h2></div><button class="quiet" @click="cancelOpen=false">Back</button></div><label>Cancellation reason<input v-model="cancelReason" type="text" enterkeyhint="next"></label><label>Cancellation fare <em>optional where applicable</em><div class="unit"><b>₹</b><input v-model="cancelFare" type="number" inputmode="numeric" enterkeyhint="done" min="0"></div></label><button class="primary" :disabled="cancelBusy" @click="saveCancel">{{cancelBusy?'SAVING…':'OK — CONFIRM CANCELLATION'}}</button></section>
+
+<section v-if="fuelOpen" class="surface overlay"><div class="surface-head"><div><small>FUEL</small><h2>CNG REFUEL</h2></div><button class="quiet" @click="toggleFuel">Close</button></div><label>Odometer<div class="unit"><input v-model="fuelOdo" type="number" inputmode="numeric" enterkeyhint="next" min="0"><b>km</b></div></label><label>Price / kg<div class="unit"><b>₹</b><input v-model="fuelPrice" type="number" inputmode="decimal" enterkeyhint="next" min="0" step=".01"></div></label><label>Amount<div class="unit"><b>₹</b><input v-model="fuelAmount" type="number" inputmode="numeric" enterkeyhint="done" min="0"></div></label><div class="calculated"><small>QUANTITY</small><strong>{{fuelQty.valid?fuelQty.quantityKg.toFixed(2)+' kg':'—'}}</strong></div><label class="check"><input v-model="fuelFull" type="checkbox"> Full tank</label><button class="primary" :disabled="fuelBusy" @click="saveFuel">{{fuelBusy?'SAVING…':'OK — SAVE FUEL'}}</button></section>
+
+<section v-if="endOpen" class="surface overlay end">
+<div class="surface-head"><div><small>GOING OFFLINE</small><h2>{{endStage==='CLOSE'?'CLOSE SHIFT':endStage==='RECONCILE'?'RECONCILIATION':endStage==='MISMATCH'?'REVENUE EXCEPTION':endStage==='REVIEW'?'SHIFT REVIEW':endStage==='CONFIRM'?'READY TO END':'SHIFT ENDED'}}</h2></div><button v-if="endStage==='CLOSE'" class="quiet" @click="cancelEnd">Back</button></div>
+<template v-if="endStage==='CLOSE'"><div class="summary"><span>Shift started</span><strong>{{store.startOdometer}} km</strong></div><label>Closing odometer<div class="unit"><input v-model="closingOdo" type="number" inputmode="numeric" enterkeyhint="next" min="0"><b>km</b></div></label><label>Total shift revenue<div class="unit"><b>₹</b><input v-model="shiftRevenue" type="number" inputmode="numeric" enterkeyhint="done" min="0"></div></label><div class="optional"><small>OPTIONAL</small><label>Business toll<div class="unit"><b>₹</b><input v-model="toll" type="number" inputmode="numeric" min="0"></div></label><label>Business parking<div class="unit"><b>₹</b><input v-model="parking" type="number" inputmode="numeric" min="0"></div></label><label class="check"><input v-model="tollTreatment" true-value="EXCLUDED" false-value="INCLUDED" type="checkbox"> Exclude toll & parking from trip fare</label></div><button class="primary" @click="closeShift">CONTINUE</button></template>
+<template v-else-if="endStage==='RECONCILE'"><div v-if="missing.length" class="exception"><small>ACTION REQUIRED</small><h3>Missing trip revenue</h3><p>Only trips without recorded revenue are shown.</p><div v-for="t in missing" :key="t.id" class="row"><div><strong>{{t.operator}}</strong><small>{{Number(t.tripKm||0).toFixed(1)}} km</small></div><div class="unit"><b>₹</b><input :value="reviewRevenue[t.id]" type="number" inputmode="numeric" min="0" @input="reviewRevenue={...reviewRevenue,[t.id]:$event.target.value}"></div></div></div><div v-else class="allclear">✓ <strong>ALL REVENUE CAPTURED</strong><p>No missing trip revenue exceptions.</p></div><div class="summary"><span>Shift revenue</span><strong>{{money(shiftRevenue)}}</strong><span>Trip revenue</span><strong>{{money(preview?.tripRevenue)}}</strong></div><button class="primary" @click="continueReconcile">CONTINUE</button></template>
+<template v-else-if="endStage==='MISMATCH'"><div class="exception"><small>REVENUE EXCEPTION</small><h3>Shift total and trip fares differ</h3><p>Correct the entries before continuing.</p><div class="summary"><span>Shift revenue</span><strong>{{money(shiftRevenue)}}</strong><span>Trip fares</span><strong>{{money(preview?.tripRevenue)}}</strong><span>Difference</span><strong>{{money(Math.abs(preview?.difference||0))}}</strong></div></div><div class="rows"><div v-for="t in completed" :key="t.id" class="row"><div><strong>{{t.operator}}</strong><small>{{Number(t.tripKm||0).toFixed(1)}} km</small></div><div class="unit"><b>₹</b><input :value="reviewRevenue[t.id]" type="number" inputmode="numeric" min="0" @input="reviewRevenue={...reviewRevenue,[t.id]:$event.target.value}"></div></div></div><button class="primary" @click="checkMismatch">CHECK AGAIN</button></template>
+<template v-else-if="endStage==='REVIEW'"><div class="review-grid"><div><small>TRIPS</small><strong>{{completed.length}}</strong></div><div><small>TOTAL SHIFT KM</small><strong>{{shiftKm.toFixed(1)}} km</strong></div><div><small>TRIP KM</small><strong>{{completed.reduce((s,t)=>s+Number(reviewKm[t.id]??t.tripKm??0),0).toFixed(1)}} km</strong></div><div><small>DEAD KM</small><strong>{{Math.max(0,shiftKm-completed.reduce((s,t)=>s+Number(reviewKm[t.id]??t.tripKm??0),0)).toFixed(1)}} km</strong></div><div><small>REVENUE</small><strong>{{money(shiftRevenue)}}</strong></div><div><small>TOLL / PARKING</small><strong>{{money(toll||0)}} / {{money(parking||0)}}</strong></div></div><p class="muted">Trip KM corrections are optional. Review and confirm the shift summary.</p><button class="primary" @click="reviewDone">REVIEW COMPLETE</button></template>
+<template v-else-if="endStage==='CONFIRM'"><div class="confirm"><small>SHIFT REVIEW</small><strong>READY TO END</strong><p>{{completed.length}} completed trips · {{shiftKm.toFixed(1)}} km · {{money(shiftRevenue)}} revenue.</p></div><button class="primary" :disabled="endBusy" @click="finishEnd">{{endBusy?'ENDING SHIFT…':'OK — END SHIFT'}}</button></template>
+<template v-else><div class="allclear"><span>✓</span><strong>SHIFT ENDED</strong><p>Your shift has been saved. You are now offline.</p></div><button class="primary" @click="finishEnded">OK</button></template>
+</section>
+<p v-if="error" class="feedback error" role="alert">{{error}}</p><p v-if="message" class="feedback success" role="status">{{message}}</p>
+</main></div>
+</template>
+
+<style scoped>
+.work-cockpit{--ink:var(--kfe-ui-text,#17202a);--muted:var(--kfe-muted-text,#5b6673);--bg:var(--kfe-ui-bg,#eef2f6);--surface:var(--kfe-ui-surface,#fff);--line:var(--kfe-ui-border,#dce2e8);--accent:var(--kfe-ui-accent,#2563eb);--success:var(--kfe-ui-success,#16803c);min-height:100%;background:var(--bg);color:var(--ink);font:inherit}.work-head{display:flex;justify-content:space-between;align-items:center;padding:14px 16px 10px;background:var(--surface);border-bottom:1px solid var(--line)}.work-head>div:first-child>span,.surface small,.state>small,.instrument small,.next small,.optional>small,.exception>small,.review-grid small{font-size:11px;letter-spacing:.09em;font-weight:800;color:var(--muted)}.work-head h1{margin:2px 0 0;font-size:24px}.head-actions{display:flex;gap:8px}.icon,.toggle,.quiet,.secondary{min-width:44px;min-height:44px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit}.icon{font-size:20px}.toggle{padding:0 12px;font-weight:800}.toggle i{display:inline-block;width:8px;height:8px;margin-left:6px;border-radius:50%;background:var(--muted)}.toggle.on i{background:var(--success)}.cockpit{max-width:720px;margin:auto;padding:12px 14px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px;box-sizing:border-box}.state,.surface,.instrument,.next{background:var(--surface);border:1px solid var(--line);border-radius:18px}.state,.surface{padding:16px}.state{display:flex;flex-direction:column;gap:10px}.state strong{font-size:22px;line-height:1.05}.state p,.surface p,.next span,.confirm p,.allclear p{margin:0;color:var(--muted);font-size:13px}.state label,.surface label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}input,select{min-height:48px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);font:inherit;font-size:18px;padding:10px 12px;box-sizing:border-box;outline:none}input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}.unit{display:flex;align-items:center;gap:7px;min-height:48px;border:1px solid var(--line);border-radius:14px;padding:0 12px;background:var(--surface)}.unit:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}.unit input{flex:1;border:0!important;box-shadow:none!important;padding-left:0;padding-right:0}.unit b{font-size:16px}.primary{width:100%;min-height:52px;border:0;border-radius:14px;background:var(--accent);color:#fff;font:inherit;font-weight:800;padding:12px 16px}.primary:disabled{opacity:.55}.quiet,.secondary{padding:0 12px;font-weight:700}.check{flex-direction:row!important;align-items:center;min-height:44px}.check input{width:20px;height:20px;accent-color:var(--accent)}.surface-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.surface h2{margin:2px 0 0;font-size:19px}.gap{padding:12px;border-radius:16px;background:var(--bg)}.gap strong{display:block;font-size:28px}.gap p{margin:3px 0}.gap>div{display:grid;grid-template-columns:1fr 1fr;gap:8px}.gap button{min-height:48px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font:inherit;font-weight:700}.gap button.selected{border-color:var(--accent);color:var(--accent)}.instrument{padding:14px 16px}.target strong{display:block;font-size:38px;line-height:1;margin:5px 0;font-variant-numeric:tabular-nums}.target>div{display:flex;justify-content:space-between;color:var(--muted);font-size:12px}.target>b{display:block;height:7px;margin-top:8px;background:var(--bg);border-radius:99px;overflow:hidden}.target>b i{display:block;height:100%;background:var(--accent);border-radius:inherit}.target em{display:block;margin-top:7px;color:var(--muted);font-style:normal;font-size:12px}.timer strong{display:block;font-size:30px;margin-top:3px;font-variant-numeric:tabular-nums}.next{padding:11px 14px;display:flex;flex-direction:column;gap:2px}.next strong{font-size:15px}.swipe{height:68px;border:1px solid var(--line);border-radius:34px;background:var(--surface);position:relative;overflow:hidden;touch-action:pan-y}.swipe-copy{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;pointer-events:none}.swipe-copy small{font-size:10px;font-weight:800;letter-spacing:.08em}.swipe-copy strong{font-size:14px;letter-spacing:.04em}.swipe-handle{position:absolute;left:5px;top:5px;width:58px;height:58px;border:0;border-radius:50%;background:var(--ink);color:var(--surface);font-size:25px;font-weight:800;touch-action:none}.swipe.threshold{box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent)}.swipe-hint{display:block;text-align:center;color:var(--muted);font-size:11px}.overlay{gap:12px}.summary{display:grid;grid-template-columns:1fr auto;gap:5px 10px;padding:11px 12px;background:var(--bg);border-radius:12px;font-size:13px}.summary span{color:var(--muted)}.summary strong{text-align:right}.calculated{display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:12px;background:var(--bg)}.calculated strong{font-size:20px}.optional{display:flex;flex-direction:column;gap:10px;padding-top:4px;border-top:1px solid var(--line)}.exception{padding:13px;border-radius:14px;background:color-mix(in srgb,#b76e00 7%,var(--surface));border:1px solid color-mix(in srgb,#b76e00 40%,var(--line))}.exception h3{margin:3px 0;font-size:17px}.row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}.row strong{display:block;font-size:14px}.row small{display:block;color:var(--muted);font-size:12px}.row .unit{width:130px}.allclear{text-align:center;padding:16px;background:var(--bg);border-radius:14px}.allclear:first-letter{color:var(--success)}.review-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.review-grid>div{padding:11px;background:var(--bg);border-radius:12px}.review-grid strong{display:block;font-size:18px;margin-top:3px}.muted{color:var(--muted);font-size:13px}.confirm{text-align:center;padding:18px 4px}.confirm strong{display:block;font-size:24px;margin-top:4px}.feedback{margin:0;padding:10px 12px;border-radius:12px;font-size:13px}.feedback.error{color:#c62828;background:color-mix(in srgb,#c62828 9%,var(--surface));border:1px solid color-mix(in srgb,#c62828 30%,var(--line))}.feedback.success{color:var(--success);background:color-mix(in srgb,var(--success) 9%,var(--surface));border:1px solid color-mix(in srgb,var(--success) 30%,var(--line))}@media(max-width:430px){.cockpit{padding-left:10px;padding-right:10px}.work-head h1{font-size:21px}.target strong{font-size:34px}.timer strong{font-size:28px}.swipe{height:66px}.swipe-handle{width:56px;height:56px}}@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
