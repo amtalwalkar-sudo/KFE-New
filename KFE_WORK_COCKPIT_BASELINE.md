@@ -585,3 +585,150 @@ Existing baseline rules must not be silently removed, weakened, or contradicted.
 **DESIGN DRIFT / CONFLICT WARNING**
 
 No implementation is implied by this document. It records the agreed design foundation only.
+
+
+## 20.25 Work Viewport Functional Foundation
+
+The Work screen functional foundation is frozen before visual styling.
+
+The viewport must support these functional areas:
+
+1. **Current operational state** — the driver can always see where they are in the workflow.
+2. **Driver Target** — today's target, current progress, and progress toward target.
+3. **Operational timer** — displayed in frozen KFE `hh mm ss` format and derived from authoritative persisted timestamps/state.
+4. **State-specific context/forms** — only information relevant to the current operational state is presented.
+5. **Permanent swipe-bar zone** — reserved immediately above the bottom navigation/menu.
+6. **Bottom navigation/menu** — remains structurally separate from the swipe-bar zone.
+
+The Work content must never be hidden behind the permanent swipe-bar zone. The layout must reserve the required space so content, forms, controls, lists, and messages can reach their usable bottom without being obscured.
+
+The swipe bar is not a floating overlay that covers content; its place in the viewport is structurally reserved.
+
+### Driver Target and progress
+
+The Driver Target is a Work-level operational indicator.
+
+It must:
+- show the applicable daily target;
+- show current achieved/progress value;
+- show progress toward the target;
+- update from persisted authoritative operational data;
+- remain usable in offline/local-first operation where the underlying data is locally available;
+- survive reload/background/process restart by deriving its display from persisted state rather than a transient UI counter.
+
+Target progress is not an additional operational workflow and must not interfere with the authoritative swipe action.
+
+### Operational timer
+
+The Work timer uses the frozen KFE display format:
+
+**`hh mm ss`**
+
+The displayed timer must be derived from authoritative persisted timestamps/state rather than from the lifetime of the currently visible UI.
+
+It must recover correctly after:
+- backgrounding,
+- screen-off,
+- PWA reload,
+- Android process recreation,
+- phone restart.
+
+Timer recovery must never invent an operational transition.
+
+## 20.26 Driver Cockpit Shift Toggle
+
+The Work cockpit has a persistent **Driver Cockpit shift-level toggle**:
+
+**OFFLINE | ONLINE**
+
+A fuel icon is a separate secondary action associated with the cockpit.
+
+The toggle is distinct from the authoritative swipe bar.
+
+### OFFLINE → ONLINE
+
+Choosing ONLINE opens the Start Shift gate when required.
+
+The toggle must not bypass:
+- current odometer acknowledgement;
+- pre-shift odometer-gap classification;
+- mandatory validation;
+- explicit confirmation;
+- persisted shift-start state.
+
+Only after the required Start Shift gate successfully validates and commits does the shift become ONLINE.
+
+### ONLINE → OFFLINE
+
+Choosing OFFLINE initiates End Shift only when there is no active trip.
+
+The toggle must not bypass:
+- active-trip protection;
+- closing odometer;
+- required shift revenue;
+- applicable validation;
+- reconciliation;
+- shift review;
+- persisted shift-end state.
+
+After successful End Shift confirmation, KFE returns directly to OFFLINE. The driver must not have to press OFFLINE a second time.
+
+### Toggle authority
+
+The toggle is a shift-level control, not a replacement for the three authoritative operational swipe actions:
+
+1. GO TO PICKUP
+2. START TRIP
+3. END TRIP
+
+The toggle and swipe bar represent different levels of the same persisted KFE operational state and must remain synchronized with that state.
+
+The toggle must follow the existing KFE rules for:
+- offline/local-first operation;
+- persisted state authority;
+- duplicate protection;
+- validation before commit;
+- interruption/recovery;
+- lifecycle and restart recovery.
+
+It must not create a parallel workflow or infer state from transient UI appearance.
+
+## 20.27 Functional Work-Cycle Foundation
+
+The frozen functional Work cycle is:
+
+**OFFLINE**
+→ **START SHIFT**
+→ **ODOMETER CONFIRMATION**
+→ **PRE-SHIFT GAP: PERSONAL KM or DEAD KM**
+→ **ONLINE / SHIFT READY**
+→ **GO TO PICKUP**
+→ **GOING TO PICKUP**
+→ **READY FOR TRIP**
+→ **OPERATOR, when required**
+→ **START TRIP** or **CANCEL TRIP**
+→ **TRIP ACTIVE**
+→ **END TRIP**
+→ **TRIP COMPLETED / FARE**
+→ **NEXT PICKUP**
+→ repeat operational cycle
+→ **END SHIFT**
+→ **CLOSING ODOMETER + SHIFT REVENUE**
+→ **EXCEPTION-BASED RECONCILIATION**
+→ **OPTIONAL END-SHIFT EXPENSES**
+→ **SHIFT REVIEW**
+→ **SHIFT ENDED**
+→ **OK**
+→ **OFFLINE**
+
+Supporting forms remain event-based and appear only when their information becomes necessary:
+- Start Shift: current odometer acknowledgement and pre-shift gap classification.
+- Trip setup: operator when required.
+- Cancellation: required cancellation details.
+- Trip completion: required fare and optional trip KM.
+- Refuelling: odometer, price/kg, amount, automatic quantity calculation, OK.
+- End Shift: closing odometer, required shift revenue, optional business toll/parking.
+- Reconciliation: only missing revenue.
+- Shift Review: review/confirmation, not unnecessary data entry.
+
+This functional foundation is frozen independently of visual styling.
