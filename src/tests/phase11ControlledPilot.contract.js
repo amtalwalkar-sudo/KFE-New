@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
+// Keep the pilot gate wording test tied to the frozen gate document.
 
 assert.ok(existsSync('KFE_CONTROLLED_PILOT_GATE_PHASE11.md'))
 const gate = readFileSync('KFE_CONTROLLED_PILOT_GATE_PHASE11.md', 'utf8')
