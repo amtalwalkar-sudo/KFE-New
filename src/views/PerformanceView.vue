@@ -61,8 +61,8 @@ const periodLabel = computed(() => {
 const metrics = computed(() => PerformanceService.getMetrics(snapshot.value, range.value))
 const m = computed(() => metrics.value || {})
 const diagnostics = computed(() => PerformanceService.getDiagnostics(m.value))
-const actualProfit = computed(() => finite(m.value.actualProfit ?? m.value.operatingProfit))
-const indicativeProfit = computed(() => finite(m.value.indicativeProfit))
+const actualProfit = computed(() => finite(m.value.performanceHeadlineActualProfit ?? m.value.actualProfit ?? m.value.operatingProfit))
+const indicativeProfit = computed(() => finite(m.value.performanceHeadlineProvisionalProfit ?? m.value.indicativeProfit))
 const indicativeProvision = computed(() => finite(m.value.totalIndicativeProvision))
 const fuelEconomy = computed(() => {
   const km = finite(m.value.vehicleKm)
@@ -289,13 +289,13 @@ const periodContext = computed(() => periodLabel.value)
           <article class="pp-profit actual">
             <span>ACTUAL PROFIT / LOSS</span>
             <strong>{{ money(actualProfit) }}</strong>
-            <small>Actual operating result</small>
+            <small>Full EMI included</small>
           </article>
           <div class="pp-bridge-line"><i></i><span></span><i></i></div>
           <article class="pp-profit provisional">
             <span>PROVISIONAL PROFIT / LOSS</span>
             <strong>{{ money(indicativeProfit) }}</strong>
-            <small>Period provisions included</small>
+            <small>Full EMI + provisions included</small>
           </article>
         </div>
 
