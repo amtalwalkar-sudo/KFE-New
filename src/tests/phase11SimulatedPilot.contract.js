@@ -4,6 +4,7 @@ import { MovementAccountingService } from '../domain/movement/movementAccounting
 import { calculateFuelQuantity, validateFuelEntry } from '../domain/work/fuel.js'
 import { transitionTrip, TRIP_STATES } from '../domain/work/tripLifecycle.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
+import { deriveRollingDriverTarget } from '../domain/performance/driverTargetStabilization.js'
 
 const sourceSha = '4521a6c3b05d84aff6dc2e0afa95db6159c88695'
 const shiftId = 'SIM-PILOT-SHIFT-001'
@@ -46,6 +47,19 @@ const cancelledTrip = transitionTrip(cancelled, TRIP_STATES.CANCELLED, {
 })
 
 const trips = [completed1, completed2, cancelledTrip]
+
+// Daily Target must be visible at the start of the day, before the first completed trip.
+const preTripTarget = deriveRollingDriverTarget({
+  trips: [],
+  shifts: [],
+  driverTargets: [{ effectiveFrom: '2026-09-01', effectiveUntil: '2026-09-30', desiredDriverProfit: 1000, active: true }],
+  from: new Date('2026-09-26T00:00:00Z'),
+  to: new Date('2026-09-26T10:00:00Z'),
+  applicableBreakEven: 30000,
+})
+assert.equal(preTripTarget.available, true)
+assert.ok(Number.isFinite(preTripTarget.currentDailyTarget))
+assert.ok(preTripTarget.currentDailyTarget > 0)
 
 const gpsSnapshots = [
   { latitude: 19.0760, longitude: 72.8777, accuracy: 8, speed: 0, capturedAt: '2026-09-26T08:10:00Z' },
