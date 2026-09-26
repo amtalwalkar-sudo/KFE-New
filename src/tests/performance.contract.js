@@ -186,8 +186,34 @@ const provisionSnapshot = {
 const provisionMetrics = derivePerformance(provisionSnapshot, range, previousRange(range))
 near(provisionMetrics.maintenanceProvision, 600, 'maintenance provision must use applicable KM x rate')
 near(provisionMetrics.maintenanceProvisionBalance, -100, 'maintenance provision pool must allow negative balances')
-near(provisionMetrics.complianceProvisionById.c1, (24000 / 365) * 2, 'compliance provision must accrue across every calendar day in the validity/report overlap')
-near(provisionMetrics.complianceProvisionBalancesById.c1, ((24000 / 365) * 2) - 25000, 'compliance provision bucket must allow negative balances')
+near(provisionMetrics.complianceProvisionById.c1, 24000 / 365, 'compliance provision must accrue across every calendar day in the validity/report overlap')
+near(provisionMetrics.complianceProvisionBalancesById.c1, (24000 / 365) - 25000, 'compliance provision bucket must allow negative balances')
+
+// Provision buckets are rolling balances, not month-local buckets.
+// A prior month's provision/payment changes the opening balance of the next month.
+const rolloverSnapshot = {
+  ...engineSnapshot,
+  shifts: [
+    { id:'aug', shiftStartAt:'2026-08-15T08:00:00Z', shiftEndAt:'2026-08-15T18:00:00Z', startOdometer:1000, endOdometer:1100, toll:0, parking:0, revenue:1000 },
+    { id:'sep', shiftStartAt:'2026-09-10T08:00:00Z', shiftEndAt:'2026-09-10T18:00:00Z', startOdometer:1100, endOdometer:1300, toll:0, parking:0, revenue:1000 },
+  ],
+  settlements: [
+    { id:'aug-maint-pay', sourceType:'Maintenance', sourceId:'m1', settlementType:'Payment', direction:'OUT', settledOn:'2026-08-31T10:00:00Z', amount:300 },
+    { id:'sep-maint-pay', sourceType:'Maintenance', sourceId:'m2', settlementType:'Payment', direction:'OUT', settledOn:'2026-09-10T10:00:00Z', amount:600 },
+  ],
+  compliance: [{ id:'c-roll', validFrom:'2026-08-01', validUntil:'2026-09-30', cost:6100 }],
+  breakEvenInputs: [{ effectiveFrom:'2026-08-01', maintenanceProvisionPerKm:3, active:true }],
+}
+const augRange = { from:new Date('2026-08-01T00:00:00Z'), to:new Date('2026-08-31T23:59:59Z') }
+const sepRange = { from:new Date('2026-09-01T00:00:00Z'), to:new Date('2026-09-30T23:59:59Z') }
+const augProvision = derivePerformance(rolloverSnapshot, augRange, previousRange(augRange))
+const sepProvision = derivePerformance(rolloverSnapshot, sepRange, previousRange(sepRange))
+near(augProvision.maintenanceProvisionAccumulated, 300, 'August maintenance provision must accumulate')
+near(augProvision.maintenanceProvisionBalance, 0, 'August maintenance payment must empty the maintenance bucket')
+near(sepProvision.maintenanceProvisionAccumulated, 900, 'September maintenance bucket must include the prior month')
+near(sepProvision.maintenanceProvisionBalance, 0, 'September maintenance payment must empty the rolled maintenance bucket')
+near(sepProvision.complianceProvisionAccumulatedById['c-roll'], 6100, 'September compliance bucket must roll from August through validity end')
+near(sepProvision.complianceProvisionBalancesById['c-roll'], 6100, 'compliance bucket must carry unpaid provision forward across months')
 
 const historicalRateSnapshot = {
   ...engineSnapshot,
