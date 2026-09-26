@@ -99,10 +99,12 @@ const complianceProvisionForRecord = (record, shifts, r) => {
 const renewal = (xs, shifts, r) => live(xs).reduce((sum, record) => sum + complianceProvisionForRecord(record, shifts, r), 0)
 const complianceProvisionThrough = (record, asOf) => {
   const start = d(record?.validFrom), end = d(record?.validUntil), boundary = d(asOf), cost = n(record?.cost)
-  if (!start || !end || !boundary || end < start || cost <= 0 || boundary < start) return 0
-  const accruedEnd = boundary < end ? boundary : end
-  const totalDays = days(start, end)
-  const accruedDays = days(start, accruedEnd)
+  if (!start || !end || !boundary || end < start || cost <= 0) return 0
+  const validityFrom = istDateKey(start), validityTo = istDateKey(end), asOfKey = istDateKey(boundary)
+  if (!validityFrom || !validityTo || !asOfKey || asOfKey < validityFrom) return 0
+  const accruedTo = asOfKey < validityTo ? asOfKey : validityTo
+  const totalDays = days(dateKeyDate(validityFrom), dateKeyDate(validityTo))
+  const accruedDays = days(dateKeyDate(validityFrom), dateKeyDate(accruedTo))
   return cost * accruedDays / totalDays
 }
 
