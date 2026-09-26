@@ -50,7 +50,7 @@ try{
  console.log('Phase 4 runtime canonical fixture PASS — persisted shift/trip survived reload and reconciled Timeline revenue with Performance under BR-11 EXCLUDED toll treatment.');
  // 4B Work interactions
  await route('','.cockpit','Work interactions')
- await page.getByRole('button',{name:'CNG refuelling'}).click();await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'visible'});const fuelClose=page.getByRole('button',{name:'Close',exact:true});await fuelClose.scrollIntoViewIfNeeded();await fuelClose.click()
+ await page.getByRole('button',{name:'CNG refuelling'}).click();await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'visible'});await page.getByRole('button',{name:'CNG refuelling'}).click();await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'hidden'})
  await page.getByRole('switch',{name:/go online/i}).click();await page.getByText('ODOMETER CHECK',{exact:true}).waitFor({state:'visible'});assert(await page.getByRole('button',{name:'Back'}).count()>0,'Start odometer Back missing');await page.getByRole('button',{name:'Back'}).first().click()
  // 4C GPS
  const gps=page.locator('button.header-gps');assert(await gps.count()===1,'GPS control missing')
