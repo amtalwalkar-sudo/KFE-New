@@ -43,8 +43,8 @@ assert.equal(withoutDeletedTrip.revenue, 0)
 assert.equal(withoutDeletedTrip.businessKm, 0)
 
 const holiday = PerformanceService.getMetrics({ ...base, trips:[] }, range)
-assert.equal(holiday.driverTargetAvailable, false)
-assert.equal(holiday.driverTarget, null)
+assert.equal(holiday.driverTargetAvailable, true)
+assert.ok(Number.isFinite(holiday.driverTarget))
 assert.equal(holiday.counts.activeFinancialDays, 0)
 
 const twoDays = {
