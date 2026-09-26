@@ -57,6 +57,29 @@ try {
   await page.getByText('Kanishka Enterprises', { exact: true }).first().waitFor({ state: 'visible', timeout: 5000 })
   await page.getByRole('link', { name: 'Work' }).waitFor({ state: 'visible', timeout: 5000 })
 
+  // Exercise every history-mode route directly. Vite preview should serve the
+  // SPA entry for each route, which proves the built router can mount from a
+  // deep URL rather than only after client-side navigation.
+  const routes = [
+    { path: '/timeline', text: 'Timeline' },
+    { path: '/performance', text: 'Performance' },
+    { path: '/admin', text: 'Admin' },
+  ]
+
+  for (const route of routes) {
+    const routeResponse = await page.goto(`http://127.0.0.1:4173${route.path}`, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000,
+    })
+    if (!routeResponse?.ok()) {
+      throw new Error(`Deep route response was not successful for ${route.path}: ${routeResponse?.status()}`)
+    }
+    await page.getByText(route.text, { exact: true }).first().waitFor({
+      state: 'visible',
+      timeout: 15000,
+    })
+  }
+
   if (errors.length) throw new Error(`Browser runtime errors:\n${errors.join('\n\n')}`)
   if (failedRequests.length) throw new Error(`Failed browser requests:\n${failedRequests.join('\n')}`)
 
