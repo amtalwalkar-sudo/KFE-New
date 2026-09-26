@@ -110,7 +110,11 @@ export function deriveRollingDriverTarget({
   const targetMonthStartKey = keyOf(monthBounds(targetMonth).from)
   const financialDayKeys = [...(financialDaysByMonth.get(targetMonth) || new Set())]
     .filter(k => k >= targetMonthStartKey && k <= endDayKey).sort()
-  // The Work cockpit must have a Daily Target before the first completed trip of the day.\n  // Use the as-of calendar day when there is no completed financial activity yet;\n  // once activity exists, retain the latest financial day as the authoritative day.\n  const currentDayKey = financialDayKeys.length ? financialDayKeys[financialDayKeys.length - 1] : endDayKey\n  const currentDay = dayFromKey(currentDayKey)
+  // The Work cockpit must have a Daily Target before the first completed trip of the day.
+  // Use the as-of calendar day when there is no completed financial activity yet;
+  // once activity exists, retain the latest financial day as the authoritative day.
+  const currentDayKey = financialDayKeys.length ? financialDayKeys[financialDayKeys.length - 1] : endDayKey
+  const currentDay = dayFromKey(currentDayKey)
   const currentMonth = targetMonth
   const historicalMonths = [...new Set([...revenueByMonth.keys()])]
     .filter(month => month < currentMonth && monthBounds(month).from <= asOfBoundary).sort()
