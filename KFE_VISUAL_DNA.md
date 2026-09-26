@@ -346,6 +346,46 @@ Controls respect safe areas.
 
 Avoid unnecessary orientation changes.
 
+### 25.1 Frozen Native Keyboard + Keyboard-Safe Viewport Rule
+
+KFE uses the **device-native keyboard** for text and numeric input throughout the PWA.
+
+For numeric entry, KFE uses the appropriate native numeric input type so the platform presents its native numeric keyboard. KFE must not replace the native numeric keyboard with a custom keypad unless a future explicitly approved design decision changes this rule.
+
+When the native keyboard opens, KFE treats the reduced visible area as the active viewport and adapts the relevant UI to it.
+
+The focused input and the controls required to complete the active interaction must remain accessible.
+
+**Nothing required for the active interaction may be hidden underneath the keyboard.**
+
+For short KFE driver forms:
+
+- the form itself must not become scrollable merely because the keyboard opened;
+- the focused field must remain visible;
+- labels/context required to understand the field remain visible;
+- required fields remain accessible;
+- the primary confirmation/action remains accessible;
+- the layout may reflow, resize, reposition, or otherwise adapt to the keyboard-open viewport;
+- keyboard-safe behaviour must work across supported PWA screen sizes and device safe areas.
+
+This applies globally to KFE PWA numeric/text entry, including but not limited to:
+
+- fare;
+- odometer;
+- shift revenue;
+- cancellation fee;
+- fuel odometer;
+- fuel price/kg;
+- fuel amount;
+- trip KM;
+- future numeric entry fields.
+
+Short driver input surfaces such as trip fare, trip cancellation, cancellation confirmation, and CNG refuelling are **viewport-fit and non-scrolling**.
+
+Scrolling remains permitted only where the content is genuinely long and independently requires it, such as a long exception-based reconciliation list. Such scrolling must not be introduced merely as a workaround for keyboard visibility.
+
+This rule governs responsive layout implementation, focus handling, keyboard behaviour, safe-area handling, and future form components across the PWA.
+
 ## 26. Accessibility
 
 Accessibility is core.
@@ -543,3 +583,13 @@ KFE maintains consistency in design language, interaction behaviour, terminology
 This specification is the governing visual/interaction reference for applying the DNA screen-by-screen and for evaluating future feature additions.
 
 A future feature may extend this document when a genuinely new pattern is accepted. Such an extension must preserve existing KFE principles and must not silently alter frozen rules.
+
+### Freeze Addendum — Native Keyboard + Keyboard-Safe Viewport
+
+**FROZEN**
+
+The native-keyboard and keyboard-safe viewport rule in section 25.1 is now part of the governing KFE Visual DNA.
+
+It applies globally across the PWA and must be inherited by future forms and numeric-entry components.
+
+This is a design rule only. It does not imply implementation in this commit.
