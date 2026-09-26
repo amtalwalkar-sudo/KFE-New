@@ -19,7 +19,7 @@ assert.ok(manifest.icons?.some(i => i.src === './icon-512.png' && i.sizes === '5
 assert.ok(existsSync('icon-192.png'))
 assert.ok(existsSync('icon-512.png'))
 
-assert.match(sw, /CACHE_NAME = 'kfe-pwa-shell-v5'/)
+assert.match(sw, /CACHE_NAME = 'kfe-pwa-shell-v6'/)
 assert.match(sw, /kfe-outbox-retry/)
 assert.match(sw, /kfe-daily-cloud-backup/)
 assert.doesNotMatch(sw, /localhost|127\.0\.0\.1|192\.168\.|10\.0\.2\.2/)
