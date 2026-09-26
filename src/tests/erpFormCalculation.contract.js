@@ -61,11 +61,11 @@ const maintenanceRate=validateAdminForm(getAdminFormDefinition('breakEvenInputs'
 })
 assert.equal(maintenanceRate.valid,true)
 
-const badMaintenance=validateAdminForm(getAdminFormDefinition('maintenance'),{
-  vehicleId:'vehicle-1',performedOn:'2026-09-20',maintenanceType:'Service',
+const validMaintenance=validateAdminForm(getAdminFormDefinition('maintenance'),{
+  performedOn:'2026-09-20',odometerKm:'65000',maintenanceType:'Service',
   cost:'100'
 })
-assert.equal(badMaintenance.valid,true)
+assert.equal(validMaintenance.valid,true)
 
 const unknown=validateAdminForm(getAdminFormDefinition('driver'),{name:'A',status:'Active',unexpected:'x'})
 assert.equal(unknown.valid,false)
