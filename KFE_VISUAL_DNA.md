@@ -593,3 +593,49 @@ The native-keyboard and keyboard-safe viewport rule in section 25.1 is now part 
 It applies globally across the PWA and must be inherited by future forms and numeric-entry components.
 
 This is a design rule only. It does not imply implementation in this commit.
+
+
+### Freeze Addendum — Work Premium Instrument Direction
+
+**FROZEN**
+
+KFE Work uses the **Premium Instrument** visual direction: a driver-centric, calm, sophisticated, professional cockpit/instrument-system experience rather than a generic ERP dashboard.
+
+The Work visual language emphasizes:
+
+- glance-first comprehension;
+- clear visual hierarchy;
+- restrained semantic colour;
+- modern but precise shapes;
+- strong numerical/instrument typography;
+- intentional spacing;
+- minimal visual noise;
+- one obvious primary action per operational state;
+- mistake-resistant presentation;
+- local visual changes with local effects.
+
+Target and Timer receive greater visual importance than Current State. Work surfaces are not automatically cards; surfaces exist when they communicate meaningful grouping, relationship, state, or action.
+
+### Freeze Addendum — Work Dual Input Navigation
+
+**FROZEN**
+
+Short multi-entry Work forms support both direct field tapping and native keyboard navigation.
+
+The driver may tap any editable field directly. The native keyboard also provides an appropriate sequential action such as **Next** to move focus to the next meaningful editable field while keeping the native keyboard open and keeping the newly focused field visible.
+
+The final editable field uses an appropriate final keyboard action such as **Done**, subject to KFE's mandatory explicit-confirmation and business-rule gates.
+
+This extends the global native-keyboard and keyboard-safe viewport rule; it does not replace it.
+
+### Freeze Addendum — Work Local Visual Change Principle
+
+**FROZEN**
+
+KFE Work visual implementation should preserve **local change → local effect**.
+
+Component boundaries and styling architecture should allow controlled future adjustments such as moving a header or toggle, increasing timer size, or adding/removing helper text without unnecessarily changing unrelated components or operational behaviour.
+
+Structural changes that genuinely require broader layout changes remain possible, but visual changes must not silently change business/state logic.
+
+These Work-specific additions are governed by the Work Cockpit Baseline and inherit the global KFE Visual DNA.
