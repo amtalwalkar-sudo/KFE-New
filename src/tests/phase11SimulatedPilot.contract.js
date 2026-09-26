@@ -102,7 +102,7 @@ const snapshot = {
   }],
   fuelLogs: [{ capturedAt: '2026-09-26T10:30:00Z', odometer: 65042, quantityKg: 15, amount: 1500, isFullTank: true, vehicleId: 'v1' }],
   maintenance: [{ performedOn: '2026-09-26', cost: 250 }],
-  loans: [], loanPayments: [], prepayments: [],
+  loans: [{ id: 'loan1', principal: 550000, annualInterestRate: 10, tenureMonths: 60, startDate: '2026-09-01' }], loanPayments: [], prepayments: [],
   compliance: [{ type: 'insurance', validFrom: '2026-01-01', validUntil: '2026-12-31', cost: 24000 }],
   breakEvenInputs: [{ effectiveFrom: '2026-09-01', maintenanceProvisionPerKm: 3, active: true }],
   driverTargets: [{ effectiveFrom: '2026-09-01', effectiveUntil: '2026-09-30', desiredDriverProfit: 1000, active: true }]
