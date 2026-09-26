@@ -62,11 +62,15 @@ No physical-device scenario was used or converted to PASS.
 
 ## Phase 10 — Release Candidate Freeze
 
-**ACTIVE.**
+2026-09-26 exit: PASS — non-device release freeze.
 
-Freeze exact Git commit, PWA build, Android APK, and version.
+The release candidate is version 2.0.0 with app ID com.kanishka.pwa. The final Phase 10 PR revision is the frozen source revision for production PWA and Android APK generation. Consolidated CI remains the production PWA gate, while the repository's exact-revision APK workflow produces the Android artifact.
+
+No physical-device result was used or converted to PASS.
 
 ## Phase 11 — Controlled Real-World Pilot
+
+**ACTIVE.**
 
 Use KFE for actual business activity in a controlled manner and capture reconciliation evidence.
 
