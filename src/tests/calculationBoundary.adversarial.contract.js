@@ -47,7 +47,8 @@ assert.equal(withoutDeletedTrip.revenue, 0)
 assert.equal(withoutDeletedTrip.completeness.target, false)
 assert.equal(withoutDeletedTrip.driverTarget, null)
 
-// A started shift alone is not a target-bearing financial day.
+// A started shift alone does not create a financial day, but an authoritative
+// driver target remains available for the current calendar day before the first trip.
 const holiday = PerformanceService.getMetrics({ ...base, trips:[] }, range)
 assert.equal(holiday.driverTargetAvailable, true)
 assert.ok(Number.isFinite(holiday.driverTarget))
