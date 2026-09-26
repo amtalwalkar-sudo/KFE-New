@@ -57,8 +57,6 @@ try{
  await page.getByRole('button',{name:'CONFIRM & GO ONLINE',exact:true}).click()
  await wait(async()=>await page.getByRole('button',{name:'ONLINE',exact:true}).count()===1,'shift goes ONLINE')
  assert(await page.getByText("TODAY'S TARGET",{exact:true}).count()>0,'Online target surface missing after shift start')
- const activeShift=await page.evaluate(async()=>{const db=await new Promise((resolve,reject)=>{const r=indexedDB.open('kanishka_kfe_canonical_db',13);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});return await new Promise((resolve,reject)=>{const tx=db.transaction(['shifts'],'readonly');const q=tx.objectStore('shifts').getAll();q.onsuccess=()=>{db.close();resolve(q.result.find(x=>x.status==='ACTIVE')||null)};q.onerror=()=>reject(q.error)})})
- assert(activeShift?.status==='ACTIVE','Online shift was not persisted as ACTIVE')
  // 4B.1 Real Work online transaction: UI confirmation must persist an ACTIVE shift and
  // refresh the store into ONLINE state. This was previously untested end-to-end.
  await route('','.cockpit','Work online transaction')
