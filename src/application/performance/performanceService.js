@@ -9,7 +9,6 @@ import { istMonthRange } from '../../domain/time/ist.js'
 import { deriveFinancialFactModel } from '../../domain/finance/financialFactModel.js'
 import { deriveOperatingKmForecast } from '../../domain/performance/operatingKmForecast.js'
 import { getPerformanceDiagnostics } from '../../domain/performance/performanceDiagnostics.js'
-import { getKfeReferenceNow, reportingRangeFor } from '../../domain/time/ist.js'
 
 export const PerformanceService = Object.freeze({
   async getSnapshot() {
@@ -20,12 +19,6 @@ export const PerformanceService = Object.freeze({
   },
   async getDriverTarget(asOf = new Date()) {
     return DriverTargetService.getTarget(asOf)
-  },
-  async getDailyTargetSnapshot(asOf = getKfeReferenceNow()) {
-    const target = await DriverTargetService.getTarget(asOf)
-    const snapshot = await PerformanceRepository.getSnapshot()
-    const metrics = this.getMetrics(snapshot, reportingRangeFor('DAY', asOf))
-    return { target, achieved: Number(metrics?.revenue || 0) }
   },
   getMetrics(snapshot, range) {
     const calculationSnapshot = normalizeCalculationSnapshot(snapshot)
