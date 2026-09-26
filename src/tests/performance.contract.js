@@ -187,7 +187,8 @@ const provisionMetrics = derivePerformance(provisionSnapshot, range, previousRan
 near(provisionMetrics.maintenanceProvision, 600, 'maintenance provision must use applicable KM x rate')
 near(provisionMetrics.maintenanceProvisionBalance, -100, 'maintenance provision pool must allow negative balances')
 near(provisionMetrics.complianceProvisionById.c1, 24000 / 365, 'compliance provision must accrue across every calendar day in the validity/report overlap')
-near(provisionMetrics.complianceProvisionBalancesById.c1, (24000 / 365) - 25000, 'compliance provision bucket must allow negative balances')
+near(provisionMetrics.complianceProvisionAccumulatedById.c1, (24000 / 365) * 253, 'compliance provision bucket must accumulate through the selected as-of date')
+near(provisionMetrics.complianceProvisionBalancesById.c1, ((24000 / 365) * 253) - 25000, 'compliance provision bucket must reduce by actual payment')
 
 // Provision buckets are rolling balances, not month-local buckets.
 // A prior month's provision/payment changes the opening balance of the next month.
