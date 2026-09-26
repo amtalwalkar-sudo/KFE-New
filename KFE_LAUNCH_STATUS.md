@@ -4,7 +4,7 @@
 
 ## Active phase
 
-**PHASE 10 — RELEASE CANDIDATE FREEZE**
+**PHASE 11 — CONTROLLED REAL-WORLD PILOT**
 
 Status: **ACTIVE**
 
@@ -15,6 +15,12 @@ Status: **ACTIVE**
 **Phase 6:** COMPLETE / CLOSED — applicable non-device operational re-audit passed on CI #1738.
 
 **Phase 7:** COMPLETE / CLOSED — automated data/recovery gate passed.
+
+**Phase 8:** COMPLETE / CLOSED — non-device security/permissions gate passed.
+
+**Phase 9:** COMPLETE / CLOSED — non-device production configuration gate passed.
+
+**Phase 10:** COMPLETE / CLOSED — release candidate frozen at the final Phase 10 PR revision; PWA/APK generation is tied to that exact revision.
 
 **Physical-device audit:** DEFERRED — final validation activity of the entire launch plan, after Phase 13.
 
@@ -32,55 +38,32 @@ Status: **ACTIVE**
 | 7 — Data / Recovery Gate | **COMPLETE / CLOSED — NON-DEVICE PASS** |
 | 8 — Security / Permissions Gate | **COMPLETE / CLOSED — NON-DEVICE PASS** |
 | 9 — Production Configuration Gate | **COMPLETE / CLOSED — NON-DEVICE PASS** |
-| 10 — Release Candidate Freeze | **ACTIVE** |
-
-| 10 — Release Candidate Freeze | LOCKED / PENDING |
-| 11 — Controlled Real-World Pilot | LOCKED / PENDING |
+| 10 — Release Candidate Freeze | **COMPLETE / CLOSED — NON-DEVICE PASS** |
+| 11 — Controlled Real-World Pilot | **ACTIVE** |
 | 12 — Pilot Reconciliation | LOCKED / PENDING |
 | 13 — Final Release Gate | LOCKED / PENDING |
 | Launch | LOCKED / PENDING |
 
-## Phase 7 exit decision — 2026-09-26
+## Phase 10 exit decision — 2026-09-26
 
-The Phase 7 data/recovery gate is **COMPLETE / CLOSED**.
+The Phase 10 release-candidate freeze is **COMPLETE / CLOSED — NON-DEVICE PASS**.
 
-Automated evidence covers:
-- canonical backup/export format, allowlist, validation, duplicate-key rejection and legacy migration;
-- canonical-only restore source enforcement;
-- restore through an atomic IndexedDB read/write transaction with cloned records and abort handling;
-- local backup checkpoint storage and daily-checkpoint logic;
-- canonical reset behavior;
-- explicit separation of canonical and synthetic physical databases and cache invalidation on source switching;
-- the Phase 7 data/recovery gate contract is included in the consolidated contract runner.
+Evidence:
+- application version remains 2.0.0;
+- canonical Capacitor app ID remains com.kanishka.pwa;
+- production PWA build and artifact validation remain CI-gated;
+- the Phase 10 hardening/release contract is included in the consolidated CI;
+- the exact PR revision is the frozen source revision for the release-candidate PWA and Android APK;
+- Android APK generation is performed by the repository's exact-revision APK workflow;
+- no physical-device result is represented as PASS.
 
-No physical-device scenario was used or converted to PASS.
-
-## Phase 8 exit decision — 2026-09-26
-
-The Phase 8 security/permissions gate is **COMPLETE / CLOSED — NON-DEVICE PASS**.
-
-Automated evidence covers required permission declarations, denial-safe overlay behavior, runtime notification permission handling, least-privilege Android component exposure, disabled Android backup, Android Keystore AES-GCM secure storage, notification opt-out behavior, and accidental-secret pattern checks.
-
-No physical-device scenario was used or converted to PASS.
-
-## Phase 9 exit decision — 2026-09-26
-
-The Phase 9 production configuration gate is **COMPLETE / CLOSED — NON-DEVICE PASS**.
-
-Automated evidence covers package/app configuration, PWA manifest and production assets, service-worker production boundary, Android production manifest settings, backup/debug restrictions, and accidental credential pattern checks.
-
-No physical-device scenario was used or converted to PASS.
+The exact source SHA, CI run, APK workflow run, artifact identity, and APK SHA-256 are recorded in the Phase 10 PR/CI evidence.
 
 ## Current gate
 
-**Phase 10 — Release Candidate Freeze — ACTIVE**
+**Phase 11 — Controlled Real-World Pilot — ACTIVE**
 
-Required evidence:
-- required permissions;
-- GPS / notification / overlay denial behavior;
-- production cleanliness;
-- accidental-secret checks;
-- inappropriate data exposure checks.
+Use KFE for controlled real business activity and capture reconciliation evidence.
 
 ## Change-control rule
 
