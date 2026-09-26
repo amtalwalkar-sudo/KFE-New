@@ -65,6 +65,17 @@ export function calculateHistoricalMaintenanceRecovery({ vehicles = [], business
   return Math.round(((openingKm * ratePerKm) / recoveryMonths) * 100) / 100
 }
 const maintenanceProvisionForShifts = (shifts, inputs, r) => live(shifts).filter(x => inR(x.shiftEndAt || x.shiftStartAt, r)).reduce((sum, shift) => { const rate = applicableMaintenanceRate(inputs, shift.shiftEndAt || shift.shiftStartAt); return sum + (Number.isFinite(rate) ? shiftKm(shift) * rate : 0) }, 0)
+const maintenanceProvisionThrough = (shifts, inputs, asOf) => {
+  const boundary = d(asOf)
+  if (!boundary) return 0
+  return live(shifts).filter(x => {
+    const date = d(x.shiftEndAt || x.shiftStartAt)
+    return date && date <= boundary
+  }).reduce((sum, shift) => {
+    const rate = applicableMaintenanceRate(inputs, shift.shiftEndAt || shift.shiftStartAt)
+    return sum + (Number.isFinite(rate) ? shiftKm(shift) * rate : 0)
+  }, 0)
+}
 const complianceProvisionForRecord = (record, shifts, r) => {
   const start = d(record?.validFrom), end = d(record?.validUntil), cost = n(record?.cost)
   if (!start || !end || end < start || cost <= 0) return 0
@@ -86,6 +97,14 @@ const complianceProvisionForRecord = (record, shifts, r) => {
   return provision
 }
 const renewal = (xs, shifts, r) => live(xs).reduce((sum, record) => sum + complianceProvisionForRecord(record, shifts, r), 0)
+const complianceProvisionThrough = (record, asOf) => {
+  const start = d(record?.validFrom), end = d(record?.validUntil), boundary = d(asOf), cost = n(record?.cost)
+  if (!start || !end || !boundary || end < start || cost <= 0 || boundary < start) return 0
+  const accruedEnd = boundary < end ? boundary : end
+  const totalDays = days(start, end)
+  const accruedDays = days(start, accruedEnd)
+  return cost * accruedDays / totalDays
+}
 
 export function derivePerformance(s, r, p = previousRange(r)) {
   const S = live(s.shifts), T = live(s.trips), F = live(s.fuelLogs), M = live(s.maintenance), C = live(s.compliance)
@@ -131,15 +150,21 @@ export function derivePerformance(s, r, p = previousRange(r)) {
     reason: fuelCostPerKmSource === 'OBSERVED_PERIOD' ? 'FULL_TANK_INTERVAL_NOT_YET_QUALIFIED' : fuelCostPerKmSource === 'UNAVAILABLE' ? 'NO_QUALIFIED_FUEL_RATE' : null,
   })
   const maintenanceProvision = maintenanceProvisionForShifts(S, s?.breakEvenInputs || [], r)
+  const maintenanceProvisionAccumulated = maintenanceProvisionThrough(S, s?.breakEvenInputs || [], r?.to)
+  const maintenancePayments = live(s?.settlements).filter(x => String(x.sourceType || '') === 'Maintenance' && String(x.direction || 'OUT').toUpperCase() === 'OUT' && inR(x.settledOn || x.paidOn || x.createdAt, r)).reduce((sum, x) => sum + n(x.amount), 0)
+  const maintenancePaymentsAccumulated = live(s?.settlements).filter(x => String(x.sourceType || '') === 'Maintenance' && String(x.direction || 'OUT').toUpperCase() === 'OUT' && d(x.settledOn || x.paidOn || x.createdAt) && d(x.settledOn || x.paidOn || x.createdAt) <= r.to).reduce((sum, x) => sum + n(x.amount), 0)
+  const maintenanceProvisionBalance = maintenanceProvisionAccumulated - maintenancePaymentsAccumulated
   const historicalMaintenanceRecoveryMonthly = calculateHistoricalMaintenanceRecovery({ vehicles: s?.vehicles || [], businessStartDate: s?.businessSetup?.businessStartDate, asOf: r?.to })
   const prevMaintenanceProvision = maintenanceProvisionForShifts(S, s?.breakEvenInputs || [], p)
-  const maintenancePayments = live(s?.settlements).filter(x => String(x.sourceType || '') === 'Maintenance' && String(x.direction || 'OUT').toUpperCase() === 'OUT' && inR(x.settledOn || x.paidOn || x.createdAt, r)).reduce((sum, x) => sum + n(x.amount), 0)
   const previousMaintenancePayments = live(s?.settlements).filter(x => String(x.sourceType || '') === 'Maintenance' && String(x.direction || 'OUT').toUpperCase() === 'OUT' && inR(x.settledOn || x.paidOn || x.createdAt, p)).reduce((sum, x) => sum + n(x.amount), 0)
-  const maintenanceProvisionBalance = maintenanceProvision - maintenancePayments
-  const previousMaintenanceProvisionBalance = prevMaintenanceProvision - previousMaintenancePayments
+  const previousMaintenanceProvisionAccumulated = maintenanceProvisionThrough(S, s?.breakEvenInputs || [], p?.to)
+  const previousMaintenancePaymentsAccumulated = live(s?.settlements).filter(x => String(x.sourceType || '') === 'Maintenance' && String(x.direction || 'OUT').toUpperCase() === 'OUT' && d(x.settledOn || x.paidOn || x.createdAt) && d(x.settledOn || x.paidOn || x.createdAt) <= p.to).reduce((sum, x) => sum + n(x.amount), 0)
+  const previousMaintenanceProvisionBalance = previousMaintenanceProvisionAccumulated - previousMaintenancePaymentsAccumulated
   const complianceProvisionById = Object.fromEntries(live(C).map(record => [record.id, complianceProvisionForRecord(record, S, r)]))
+  const complianceProvisionAccumulatedById = Object.fromEntries(live(C).map(record => [record.id, complianceProvisionThrough(record, r?.to)]))
   const compliancePaymentsById = live(s?.settlements).filter(x => String(x.sourceType || '') === 'Compliance' && String(x.direction || 'OUT').toUpperCase() === 'OUT' && inR(x.settledOn || x.paidOn || x.createdAt, r)).reduce((map, payment) => { map[payment.sourceId] = (map[payment.sourceId] || 0) + n(payment.amount); return map }, {})
-  const complianceProvisionBalancesById = Object.fromEntries(Object.entries(complianceProvisionById).map(([id, value]) => [id, value - (compliancePaymentsById[id] || 0)]))
+  const compliancePaymentsAccumulatedById = live(s?.settlements).filter(x => String(x.sourceType || '') === 'Compliance' && String(x.direction || 'OUT').toUpperCase() === 'OUT' && d(x.settledOn || x.paidOn || x.createdAt) && d(x.settledOn || x.paidOn || x.createdAt) <= r.to).reduce((map, payment) => { map[payment.sourceId] = (map[payment.sourceId] || 0) + n(payment.amount); return map }, {})
+  const complianceProvisionBalancesById = Object.fromEntries(Object.entries(complianceProvisionAccumulatedById).map(([id, value]) => [id, value - (compliancePaymentsAccumulatedById[id] || 0)]))
   const provision = maintenanceProvision + ren
   const prevProvision = prevMaintenanceProvision + pren
   const wd = days(r.from, r.to), elapsed = wd, activeDays = new Set(a.sh.map(x => istDateKey(d(x.shiftEndAt || x.shiftStartAt))).filter(Boolean)).size, prevActive = new Set(q.sh.map(x => istDateKey(d(x.shiftEndAt || x.shiftStartAt))).filter(Boolean)).size
@@ -152,7 +177,7 @@ export function derivePerformance(s, r, p = previousRange(r)) {
     completeness: { target: false, renewal: ren > 0, hourlyData: a.workingHours > 0, breakEven: false, fuelCostPerKm: Number.isFinite(fuelCostPerKm) },
     counts: { trips: a.tr.length, activeFinancialDays: activeDays, workingDays: wd, elapsedDays: elapsed, daysRemaining: Math.max(0, wd - elapsed) }, previousCounts: { trips: q.tr.length, activeFinancialDays: prevActive },
     revenue: a.revenue, financialRevenue: a.financialRevenue, previousFinancialRevenue: q.financialRevenue, passThroughToll: a.passThroughToll, passThroughParking: a.passThroughParking, excludedTollExpense: a.excludedTollExpense, excludedParkingExpense: a.excludedParkingExpense, previousRevenue: q.revenue, vehicleKm: a.vehicleKm, previousVehicleKm: q.vehicleKm, businessKm: a.businessKm, previousBusinessKm: q.businessKm, deadKm: a.deadKm, previousDeadKm: q.deadKm, fuelCost: a.fuelCost, fuelQty: a.fuelQty, fuelCostPerKm, fuelCostPerKmObservations: fuelModel.observations.length, toll: a.toll, parking: a.parking, actualMaintenance: a.maintenance, workingHours: a.workingHours, previousWorkingHours: q.workingHours, runningCost: a.operatingCost, previousRunningCost: q.operatingCost, actualOperatingCost: a.operatingCost, previousActualOperatingCost: q.operatingCost,
-    costPerKm, maintenanceProvision, previousMaintenanceProvision: prevMaintenanceProvision, historicalMaintenanceRecoveryMonthly, maintenancePayments, previousMaintenancePayments, maintenanceProvisionBalance, previousMaintenanceProvisionBalance, renewalProvision: ren, complianceProvisionById, compliancePaymentsById, complianceProvisionBalancesById, otherProvision: 0, provisionRequired: provision, provisionSetAside: provision, operatingProfit: a.operatingProfit, previousOperatingProfit: q.operatingProfit, provisionAdjustedProfit, previousProvisionAdjustedProfit: prevProvisionAdjustedProfit,
+    costPerKm, maintenanceProvision, previousMaintenanceProvision: prevMaintenanceProvision, maintenanceProvisionAccumulated, previousMaintenanceProvisionAccumulated, historicalMaintenanceRecoveryMonthly, maintenancePayments, maintenancePaymentsAccumulated, previousMaintenancePayments, previousMaintenancePaymentsAccumulated, maintenanceProvisionBalance, previousMaintenanceProvisionBalance, renewalProvision: ren, complianceProvisionById, complianceProvisionAccumulatedById, compliancePaymentsById, compliancePaymentsAccumulatedById, complianceProvisionBalancesById, otherProvision: 0, provisionRequired: provision, provisionSetAside: provision, operatingProfit: a.operatingProfit, previousOperatingProfit: q.operatingProfit, provisionAdjustedProfit, previousProvisionAdjustedProfit: prevProvisionAdjustedProfit,
     monthlyBreakEvenRevenue: NaN, revenuePerKm: a.vehicleKm ? a.financialRevenue / a.vehicleKm : NaN, revenuePerTrip: a.tr.length ? a.financialRevenue / a.tr.length : NaN, revenuePerHour: a.workingHours ? a.financialRevenue / a.workingHours : NaN, profitPerKm: a.vehicleKm ? a.operatingProfit / a.vehicleKm : NaN, profitPerHour: a.workingHours ? a.operatingProfit / a.workingHours : NaN, revenueGrowth: q.revenue ? (a.revenue - q.revenue) / Math.abs(q.revenue) * 100 : NaN, profitGrowth: q.operatingProfit ? (a.operatingProfit - q.operatingProfit) / Math.abs(q.operatingProfit) * 100 : NaN, revenuePerActiveDay: perDay, target: null,
     breakEvenInputs: { maintenanceProvisionPerKm: NaN, fixedCosts: NaN, fuelCostPerKm, fuelCostPerKmSource, fuelEvidence }, pace: { currentRevenuePerFinancialDay: perDay, requiredRevenuePerFinancialDay: NaN, paceVariance: NaN }, trips: a.tr, shifts: a.sh, fuelLogs: a.fu, maintenance: a.ma,
 previous: { revenue: q.revenue, cost: q.operatingCost, operatingProfit: q.operatingProfit, provisionAdjustedProfit: prevProvisionAdjustedProfit, businessKm: q.businessKm, vehicleKm: q.vehicleKm, deadKm: q.deadKm, workingHours: q.workingHours }
