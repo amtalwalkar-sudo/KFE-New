@@ -748,6 +748,284 @@ Scrolling remains allowed for genuinely long dynamic content, such as a long rec
 
 This rule is part of the frozen Work foundation and must be verified on real device/PWA keyboard-open states during implementation.
 
+
+## 20.29 Work Visual Direction — Premium Instrument
+
+**FROZEN**
+
+The Work cockpit uses the **Premium Instrument** visual direction.
+
+KFE Work should feel like a professional driver's digital cockpit / vehicle instrument system rather than a generic ERP dashboard.
+
+The visual character is:
+
+- driver-centric;
+- easy to understand at a glance;
+- mistake-resistant;
+- modern;
+- sophisticated;
+- professional;
+- calm when normal;
+- visually assertive only when driver action or attention is required.
+
+The core attention sequence is:
+
+**Glance → Understand → Decide → Act → Confirm → Continue**
+
+The cockpit is a coherent instrument surface rather than a collection of unrelated cards.
+
+### Visual hierarchy
+
+The Work screen prioritizes:
+
+1. **Target / progress**
+2. **Operational timer**
+3. **Current state**
+4. **State-specific operational content**
+5. **Supporting information**
+
+The Target and Timer receive greater visual importance and space than Current State. Current State remains prominent but compact.
+
+The screen must always make the current operational situation and the next meaningful action obvious without requiring the driver to hunt through the interface.
+
+### One obvious primary action
+
+Every Work state must have one visually obvious primary action.
+
+Two actions must not receive equal visual weight when only one is the normal next action.
+
+The interface should constrain invalid or unnecessary actions rather than relying primarily on warnings after mistakes.
+
+### Visual restraint
+
+Premium Instrument does not mean decorative.
+
+Avoid:
+
+- excessive cards;
+- card soup;
+- excessive pills;
+- heavy shadows;
+- unnecessary gradients;
+- decorative animation;
+- oversized labels;
+- visual noise.
+
+Hierarchy should come primarily from typography, spacing, contrast, surfaces, restrained borders, and purposeful controls.
+
+### Typography
+
+Work uses the shared KFE typography system with a strong numerical/instrument hierarchy.
+
+Important operational numbers may be visually stronger than their labels.
+
+Major numeric instruments such as target and timer use deliberate display sizing and stable/tabular numeral behaviour where supported.
+
+Typography weight is restrained:
+
+- regular for normal information;
+- medium for labels/secondary emphasis;
+- semibold for states/actions;
+- bold for major instruments and critical information.
+
+Uppercase is used selectively for compact section labels and operational identities, not for long instructions.
+
+### Shape language
+
+Work uses a soft but precise shape language:
+
+- small controls: approximately 10–12px radius;
+- inputs: approximately 12–16px;
+- cards/major surfaces: approximately 16–20px;
+- major containers: approximately 20–24px where appropriate;
+- authoritative swipe interaction: strongly rounded/pill-shaped.
+
+The swipe bar remains visually distinct as the special tactile operational control. Ordinary buttons should not become full pills merely for decoration.
+
+Not every piece of information becomes a card. Surfaces exist when they communicate meaningful grouping, relationship, state, or action.
+
+### Local-change architecture
+
+The Work visual implementation must preserve **local change → local effect**.
+
+Visual components should have clear boundaries so that a future adjustment to one component does not unnecessarily alter unrelated components or operational behaviour.
+
+Examples:
+
+- changing timer size affects timer presentation only;
+- changing header placement affects header layout only;
+- moving the shift toggle affects toggle placement only;
+- removing/adding helper text affects that supporting content only;
+- changing an input's visual size does not change its data logic.
+
+Structural changes that genuinely require broader layout changes may affect more than one component, but must remain isolated from business/state logic wherever possible.
+
+Visual changes must never silently change operational behaviour.
+
+## 20.30 Work Semantic Colour Direction
+
+**FROZEN**
+
+Work uses semantic, restrained colour coding.
+
+Colour communicates meaning rather than decoration.
+
+The shared KFE semantic system is used for:
+
+- neutral/offline;
+- active/in-progress;
+- ready/healthy;
+- attention;
+- error/destructive;
+- completed/success;
+- disabled/unavailable.
+
+Colour must never be the sole carrier of meaning. Text, iconography, shape, structure, or state labels must reinforce important meanings.
+
+The Work cockpit should remain predominantly neutral when everything is normal. Semantic colour becomes more visually assertive when the driver needs attention or action.
+
+Light, Dark, Auto, and future themes must derive these meanings from semantic theme tokens rather than hard-coded component-specific colours.
+
+## 20.31 Work Spacing and Viewport Direction
+
+**FROZEN**
+
+Work uses the shared KFE spacing scale and intentional hierarchy.
+
+Related information uses tighter spacing. Major instruments and state transitions use deliberate larger separation.
+
+The viewport is structured as:
+
+**Shell → cockpit instruments → current state → flexible dynamic operational area → reserved swipe zone → bottom navigation**
+
+The permanent swipe zone and bottom navigation remain structurally reserved. Dynamic content must not be hidden underneath them.
+
+The dynamic operational area absorbs available space and may adapt its layout to the current viewport.
+
+Keyboard-open layouts must continue to follow the frozen native-keyboard and keyboard-safe viewport rules.
+
+## 20.32 Work Component Anatomy
+
+**FROZEN**
+
+The Work visual system uses a small reusable component vocabulary rather than isolated screen-specific styling.
+
+Core visual components include:
+
+- Shell / Header;
+- Driver Cockpit title;
+- Shift-level OFFLINE | ONLINE control;
+- Fuel secondary action;
+- Target Instrument;
+- Timer Instrument;
+- Current State;
+- State-specific operational content;
+- Driver Input;
+- Choice Input;
+- Primary action;
+- Secondary action;
+- Automatic Context;
+- Success state;
+- Exception/Attention state;
+- Authoritative Swipe Action;
+- Bottom Navigation.
+
+### Target Instrument
+
+The Target Instrument is a major operational readout.
+
+Its hierarchy is:
+
+**current achieved value → target value → percentage/progress → remaining value**
+
+The achieved value is visually dominant. Progress is immediately understandable without requiring detailed reading.
+
+### Timer Instrument
+
+The timer is a major operational readout with stable, highly legible numerals.
+
+It follows the frozen KFE operational time display rules and derives from authoritative persisted state/timestamps.
+
+### Current State
+
+Current State is visually prominent but compact relative to Target and Timer.
+
+It communicates the driver's present workflow position and should not consume unnecessary vertical space.
+
+### Driver Input
+
+Driver inputs are large, touch-safe, modern, simple, and visually focused.
+
+Labels remain visible. Numeric values are dominant. Units are subordinate.
+
+Focused inputs have a clear, accessible focus treatment.
+
+### Choice Input
+
+Where a driver chooses between alternatives, the meaningful selection row is tappable as a whole rather than requiring precision on a small radio/control.
+
+### Primary and secondary actions
+
+Primary actions have clearly greater visual weight than secondary actions.
+
+Button labels use meaningful operational verbs rather than generic form language where possible.
+
+### Automatic Context
+
+Automatically captured information such as GPS, place, timestamp, and system-derived values is visible enough to establish confidence but visually subordinate to driver-entered operational information.
+
+### Success and exception states
+
+Success feedback is concise and reassuring.
+
+Exception states clearly identify what requires attention and provide the obvious next action.
+
+## 20.33 Dual Input Navigation
+
+**FROZEN**
+
+Short multi-entry Work forms support both:
+
+1. **Direct field tapping** — the driver may tap any editable field and continue using the native keyboard.
+2. **Native keyboard action navigation** — the keyboard provides an appropriate action such as **Next** to move focus directly to the next editable field without requiring the driver to tap it.
+
+When Next is used:
+
+- the current field is handled according to normal input/validation rules;
+- focus moves to the next meaningful editable field;
+- the native keyboard remains open;
+- the newly focused field is brought into the active visible viewport;
+- no unnecessary keyboard dismissal/reopening occurs.
+
+For the final editable field, the native keyboard action should use an appropriate final action such as **Done** (or an explicitly appropriate final action where approved).
+
+Keyboard actions must not bypass KFE's mandatory explicit-confirmation or business-rule gates.
+
+Example:
+
+**Fuel: Odometer → Next → Price/kg → Next → Amount → Done → OK**
+
+The driver may alternatively tap fields in any supported order.
+
+This rule applies to short Work forms including fuel, fare, cancellation, odometer, shift revenue, closing odometer, and future multi-entry driver forms where sequential navigation is meaningful.
+
+## 20.34 Refinement / Implementation Boundary
+
+**FROZEN**
+
+The above Work visual direction is a design specification, not an implementation instruction.
+
+The complete Work visual system is to be implemented **universally across the Work experience when implementation is approved**, rather than being implemented as isolated visual experiments for only selected states.
+
+Future visual refinement may adjust component placement, size, spacing, helper text, or other presentation details without reopening the entire design system when the requested change remains within the frozen visual language.
+
+A future refinement that conflicts with a frozen rule must raise:
+
+**DESIGN DRIFT / CONFLICT WARNING**
+
+before implementation.
+
+
 ## 21. Baseline / Further Refinement
 
 This document is the **frozen baseline**, including the authoritative swipe-bar contract.
