@@ -112,3 +112,29 @@ function setToday(){ anchor.value = istDateKey(getKfeReferenceNow()) }
   <p class="ledger-note">Read-only history. Toll and Parking dates come from the authoritative shift date. Fuel date comes from the authoritative recorded timestamp.</p>
 </section>
 </template>
+
+
+<style scoped>
+.ledger-panel{display:flex;flex-direction:column;gap:14px}
+.ledger-toolbar,.ledger-navigation,.ledger-categories,.ledger-summary{display:flex;gap:8px;align-items:center}
+.ledger-toolbar{justify-content:space-between}
+.ledger-periods{display:flex;gap:4px;padding:4px;border-radius:14px;background:var(--surface-muted,#f1f3f5)}
+.ledger-period,.ledger-categories button{border:0;background:transparent;border-radius:10px;padding:9px 12px;font:inherit;color:inherit}
+.ledger-period.active,.ledger-categories button.active{background:var(--surface,#fff);box-shadow:0 1px 4px rgba(0,0,0,.12);font-weight:700}
+.ledger-navigation{justify-content:space-between}
+.ledger-navigation strong{flex:1;text-align:center}
+.ledger-categories{overflow:auto;padding-bottom:2px}
+.ledger-categories button{white-space:nowrap;border:1px solid var(--border,#ddd)}
+.ledger-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.ledger-summary>div{padding:12px;border:1px solid var(--border,#ddd);border-radius:14px;display:flex;flex-direction:column;gap:3px}
+.ledger-summary span,.ledger-row small{opacity:.68;font-size:.78rem}
+.ledger-list{border:1px solid var(--border,#ddd);border-radius:16px;overflow:hidden}
+.ledger-row{display:grid;grid-template-columns:96px 1.1fr 1fr 110px;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border,#ddd);align-items:center}
+.ledger-row:last-child{border-bottom:0}
+.ledger-row>span{min-width:0}
+.ledger-row span:nth-child(2),.ledger-row span:nth-child(3){display:flex;flex-direction:column;gap:2px}
+.ledger-header{background:var(--surface-muted,#f7f7f7);font-size:.76rem;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.ledger-row>strong{text-align:right}
+.ledger-note{margin:0;opacity:.68;font-size:.8rem}
+@media(max-width:620px){.ledger-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.ledger-row{grid-template-columns:78px 1fr 84px}.ledger-row>strong{grid-column:3}.ledger-row span:nth-child(3){grid-column:2}.ledger-header span:nth-child(3),.ledger-header strong{display:none}}
+</style>
