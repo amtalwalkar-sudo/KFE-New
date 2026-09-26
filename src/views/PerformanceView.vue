@@ -249,7 +249,8 @@ const expenseItems = computed(() => [
   { label:'Parking', value:finite(m.value.parking) || 0 },
 ])
 const periodContext = computed(() => periodLabel.value)
-\n</script>
+
+</script>
 
 <template>
   <section class="performance-premium">
