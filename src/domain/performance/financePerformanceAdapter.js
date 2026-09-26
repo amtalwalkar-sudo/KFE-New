@@ -54,10 +54,23 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   const availableCash = money(base.operatingProfit) - actualFinancingOutflow
   const loanProvisionForPeriod = finance && previousFinance ? Math.max(0, money(finance.provisionAccumulated) - money(previousFinance.provisionAccumulated)) : 0
   const totalIndicativeProvision = loanProvisionForPeriod + (Number.isFinite(authoritativeMaintenanceProvision) ? authoritativeMaintenanceProvision : 0) + (Number.isFinite(Number(base.renewalProvision)) ? Number(base.renewalProvision) : 0)
+  // Existing operating/indicative metrics remain authoritative for their original uses.
+  // Performance headlines are separate presentation-level business-position metrics:
+  // both explicitly include the full scheduled EMI for the selected period.
+  const performanceActualProfit = Number.isFinite(Number(base.operatingProfit))
+    ? Number(base.operatingProfit) - currentScheduledEmi
+    : NaN
+  const performanceProvisionalProfit = Number.isFinite(performanceActualProfit)
+    ? performanceActualProfit
+      - (Number.isFinite(authoritativeMaintenanceProvision) ? authoritativeMaintenanceProvision : 0)
+      - (Number.isFinite(Number(base.renewalProvision)) ? Number(base.renewalProvision) : 0)
+      - preBusinessRecoveryMonthly
+      - historicalMaintenanceRecovery
+    : NaN
   const actualProfit = base.operatingProfit
   const indicativeProfit = Number.isFinite(Number(base.revenue)) ? Number(base.revenue) - totalIndicativeProvision : NaN
   return {
-    ...base, loanScheduledObligation, loanPrincipal: money(finance?.outstandingPrincipal), loanInterest: currentScheduledInterest, loanProvisionAccumulated: money(finance?.provisionAccumulated), loanProvisionBalance: money(finance?.provisionBalance), actualLoanPaid, actualPrepayment, actualFinancingOutflow, availableCash, cashSurplusAfterFinancing: availableCash, maintenanceProvision: authoritativeMaintenanceProvision, historicalMaintenanceRecoveryMonthly: historicalMaintenanceRecovery, provisionRequired, provisionSetAside: provisionRequired, loanProvisionForPeriod, totalIndicativeProvision, actualProfit, indicativeProfit, provisionAdjustedProfit: Number.isFinite(provisionRequired) ? base.operatingProfit - provisionRequired : NaN, monthlyBreakEvenRevenue, breakEvenRevenue: monthlyBreakEvenRevenue,
+    ...base, performanceHeadlineActualProfit: performanceActualProfit, performanceHeadlineProvisionalProfit: performanceProvisionalProfit, performanceHeadlineScheduledEmi: currentScheduledEmi, loanScheduledObligation, loanPrincipal: money(finance?.outstandingPrincipal), loanInterest: currentScheduledInterest, loanProvisionAccumulated: money(finance?.provisionAccumulated), loanProvisionBalance: money(finance?.provisionBalance), actualLoanPaid, actualPrepayment, actualFinancingOutflow, availableCash, cashSurplusAfterFinancing: availableCash, maintenanceProvision: authoritativeMaintenanceProvision, historicalMaintenanceRecoveryMonthly: historicalMaintenanceRecovery, provisionRequired, provisionSetAside: provisionRequired, loanProvisionForPeriod, totalIndicativeProvision, actualProfit, indicativeProfit, provisionAdjustedProfit: Number.isFinite(provisionRequired) ? base.operatingProfit - provisionRequired : NaN, monthlyBreakEvenRevenue, breakEvenRevenue: monthlyBreakEvenRevenue,
     breakEvenInputs: { ...(base.breakEvenInputs || {}), fixedCosts: breakEven.fixedCosts, maintenanceProvisionPerKm: breakEven.maintenanceProvisionPerKm ?? base.breakEvenInputs?.maintenanceProvisionPerKm, preBusinessRecoveryMonthly: monthPreBusinessRecovery, fuelCostPerKm: breakEven.fuelCostPerKm ?? base.breakEvenInputs?.fuelCostPerKm, fuelCostPerKmSource: base.breakEvenInputs?.fuelCostPerKmSource || null, fuelEvidence: base.breakEvenInputs?.fuelEvidence || null },
     finance: { ...(finance || {}), available: !!finance?.available, reason: finance?.available ? null : loanUnavailableReason, annualInterestRatePercent: finance?.annualInterestRatePercent ?? null, preBusinessRecoveryMonthly, historicalMaintenanceRecoveryMonthly: historicalMaintenanceRecovery, businessStartDate: businessStart?.toISOString() || null, previousOutstandingPrincipal: previousFinance?.available ? previousFinance.outstandingPrincipal : null, overdueAmount: finance?.totalOverdue ?? 0, remainingInterest: finance?.remainingInterest ?? 0, scheduledFinalDate: finance?.scheduledFinalDate ?? null, totalInterest: finance?.totalInterest ?? 0 },
     authority: { ...(base.authority || {}), loan: 'CANONICAL_FINANCE_LOAN_ENGINE', breakEven: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN', breakEvenTrace: breakEven.trace || null, actualProfit: 'AUTHORITATIVE_REVENUE_MINUS_ACTUAL_OPERATING_EXPENSES', indicativeProfit: 'AUTHORITATIVE_REVENUE_MINUS_PERIOD_PROVISIONS' },
