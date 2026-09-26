@@ -52,6 +52,28 @@ try{
  await route('','.cockpit','Work interactions')
  await page.getByRole('button',{name:'CNG refuelling'}).click();await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'visible'});await page.getByRole('button',{name:'CNG refuelling'}).click();await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'hidden'})
  await page.getByRole('button',{name:'OFFLINE',exact:true}).click();await page.getByText('ODOMETER CHECK',{exact:true}).waitFor({state:'visible'});assert(await page.getByRole('button',{name:'Back'}).count()>0,'Start odometer Back missing');await page.getByRole('button',{name:'Back'}).first().click()
+ // 4B.1 Real Work online transaction: UI confirmation must persist an ACTIVE shift and
+ // refresh the store into ONLINE state. This was previously untested end-to-end.
+ await route('','.cockpit','Work online transaction')
+ await page.getByRole('button',{name:'OFFLINE',exact:true}).click()
+ await page.getByText('ODOMETER CHECK',{exact:true}).waitFor({state:'visible'})
+ const odoInput=page.locator('input[type="number"]').first()
+ const currentOdo=await odoInput.inputValue()
+ assert(currentOdo && Number(currentOdo)>0,'Start odometer was not wired from persisted last odometer')
+ await page.getByText('I confirm this is the current vehicle odometer.',{exact:false}).click()
+ await page.getByRole('button',{name:'CONFIRM & GO ONLINE',exact:true}).click()
+ await wait(async()=>await page.getByRole('button',{name:'ONLINE',exact:true}).count()===1,'shift ONLINE state')
+ assert(await page.getByRole('button',{name:'ONLINE',exact:true}).getAttribute('aria-pressed')==='true','Online control did not enter pressed state')
+ assert(await page.getByText("TODAY'S TARGET",{exact:true}).count()===1,'Online Work surface did not render after shift start')
+ const onlineState=await page.locator('.cockpit').innerText()
+ assert(onlineState.includes('READY'),'Active shift did not expose READY Work state')
+ const activeShift=await page.evaluate(async()=>{const db=await new Promise((resolve,reject)=>{const req=indexedDB.open('kanishka_kfe_canonical_db',13);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});const rows=await new Promise((resolve,reject)=>{const tx=db.transaction(['shifts'],'readonly');const q=tx.objectStore('shifts').getAll();q.onsuccess=()=>resolve(q.result||[]);q.onerror=()=>reject(q.error)});db.close();return rows.find(s=>s.status==='ACTIVE')||null})
+ assert(activeShift && Number(activeShift.startOdometer)===Number(currentOdo),'ONLINE shift was not persisted in canonical DB')
+ // Leave the smoke fixture clean for subsequent phases.
+ await page.evaluate(async(id)=>{const db=await new Promise((resolve,reject)=>{const req=indexedDB.open('kanishka_kfe_canonical_db',13);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});await new Promise((resolve,reject)=>{const tx=db.transaction(['shifts'],'readwrite');tx.objectStore('shifts').delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)});db.close()},activeShift.id)
+ await page.reload({waitUntil:'domcontentloaded'});await page.locator('.cockpit').waitFor({state:'attached'})
+ await wait(async()=>await page.getByRole('button',{name:'OFFLINE',exact:true}).count()===1,'clean OFFLINE state')
+ 
  // 4C GPS
  const gps=page.locator('button.header-gps');assert(await gps.count()===1,'GPS control missing')
  await wait(async()=>['GPS connected','GPS ready — tap to check','GPS permission needed','GPS unavailable','Connecting GPS'].includes(await gps.getAttribute('aria-label')),'GPS initial state')
