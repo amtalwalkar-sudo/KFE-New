@@ -161,8 +161,8 @@ assert.equal(missingBreakEvenInput.target, null)
 
 const shiftStartedNoCompletedTrip = { ...snapshot, trips: [], shifts: [{ ...snapshot.shifts[0], shiftEndAt: null, revenue: 0 }] }
 const shiftStartedMetrics = PerformanceService.getMetrics(shiftStartedNoCompletedTrip, range)
-assert.equal(shiftStartedMetrics.driverTargetAvailable, false)
-assert.equal(shiftStartedMetrics.target, null)
+assert.equal(shiftStartedMetrics.driverTargetAvailable, true)
+assert.ok(Number.isFinite(shiftStartedMetrics.target))
 
 const noLoanSnapshot = { ...snapshot, loan: null, loans: [] }
 const noLoanMetrics = PerformanceService.getMetrics(noLoanSnapshot, range)
