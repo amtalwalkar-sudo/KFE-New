@@ -50,8 +50,8 @@ try{
  console.log('Phase 4 runtime canonical fixture PASS — persisted shift/trip survived reload and reconciled Timeline revenue with Performance under BR-11 EXCLUDED toll treatment.');
  // 4B Work interactions
  await route('','.cockpit','Work interactions')
- await page.getByRole('button',{name:'CNG refuelling'}).click();await page.getByText('Refuelling',{exact:true}).waitFor({state:'visible'});await page.getByRole('button',{name:'Keep Draft & Close'}).click()
- await page.getByRole('switch',{name:/go online/i}).click();await page.getByText('ODOMETER CHECK',{exact:true}).waitFor({state:'visible'});assert(await page.getByRole('button',{name:'Back'}).count()>0,'Start odometer Back missing');await page.getByRole('button',{name:'Back'}).first().click()
+ await page.getByRole('button',{name:'CNG refuelling'}).click();await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'visible'});await page.getByRole('button',{name:'Close',exact:true}).evaluate(el=>el.click())
+ await page.getByRole('button',{name:/OFFLINE/i}).click();await page.getByText('ODOMETER CHECK',{exact:true}).waitFor({state:'visible'});assert(await page.getByRole('button',{name:'Back'}).count()>0,'Start odometer Back missing');await page.getByRole('button',{name:'Back'}).first().click()
  // 4C GPS
  const gps=page.locator('button.header-gps');assert(await gps.count()===1,'GPS control missing')
  await wait(async()=>['GPS connected','GPS ready — tap to check','GPS permission needed','GPS unavailable','Connecting GPS'].includes(await gps.getAttribute('aria-label')),'GPS initial state')
