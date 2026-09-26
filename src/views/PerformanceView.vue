@@ -287,7 +287,7 @@ onBeforeUnmount(()=>unsubscribeChanges())
           <button @click="toggleSection('position')"><span><small>PROVISIONS</small><b>Loan · Maintenance · Compliance</b></span><strong>View</strong><i>⌄</i></button>
           <div v-if="openSection==='position'" class="section-body">
             <div class="position-grid">
-              <button @click="openDetail('provision')"><span>Loan provision</span><strong>{{ money(m.finance?.provisionAccumulated) }}</strong></button>
+              <button @click="openDetail('provision')"><span>Loan provision</span><strong>{{ money(m.loanProvisionForPeriod) }}</strong></button>
               <button @click="openDetail('provision')"><span>Maintenance provision</span><strong>{{ money(m.maintenanceProvision) }}</strong></button>
               <button @click="openDetail('provision')"><span>Compliance provision</span><strong>{{ money(m.renewalProvision) }}</strong></button>
             </div>
