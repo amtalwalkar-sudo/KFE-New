@@ -488,6 +488,92 @@ The swipe bar and overlay/notification:
 - must not create duplicate workflows,
 - and must remain synchronized with the authoritative persisted state.
 
+### 20.18 GPS/network independence
+
+**The swipe action must never be blocked, delayed, or made dependent on GPS.**
+
+GPS, location resolution, place-name resolution, network connectivity, and other background telemetry are supporting/background services.
+
+For an otherwise valid operational transition:
+- GPS unavailable must not prevent the swipe from committing.
+- Internet unavailable must not prevent an operation that is permitted offline.
+- Slow GPS/network response must not hold the swipe in a waiting state.
+- Missing GPS data is recorded as unavailable where applicable; it is not a reason to make the driver wait for the swipe action.
+
+The authoritative operational command and background telemetry are separate concerns.
+
+### 20.19 Identical PWA and Android overlay swipe experience
+
+The **PWA swipe bar and Android overlay swipe bar must have exactly the same interaction feel**.
+
+This includes the same:
+- handle behavior,
+- touch target/hit area,
+- rightward gesture,
+- finger tracking,
+- threshold behavior,
+- release-to-commit behavior,
+- early-release behavior,
+- backward movement behavior,
+- gesture locking,
+- feedback timing,
+- disabled/committing behavior,
+- and completion semantics.
+
+They are two surfaces for the same authoritative command, not two differently designed swipe controls.
+
+Visual language and hierarchy for the swipe bar are deliberately **not frozen here**. Those will be designed as part of the complete Work screen experience.
+
+### 20.20 Background, screen-off, and lifecycle resilience
+
+The authoritative operational state must not depend on the PWA page remaining visibly open.
+
+Where the platform permits the relevant surface/operation to remain active:
+- the operational state must continue to be driven by the persisted KFE state;
+- background execution must not silently create a different workflow;
+- screen-off must not corrupt or reset the current operational state;
+- returning to the app must restore the last authoritative state rather than reconstructing state from UI animation.
+
+The swipe command must complete/persist before being considered authoritative. If interrupted before persistence, it must not be treated as committed.
+
+### 20.21 Restart and crash recovery
+
+After:
+- app restart,
+- PWA reload,
+- Android process recreation,
+- phone restart,
+
+KFE must restore and show the **last persisted authoritative operational state**.
+
+It must not default back to OFFLINE merely because the UI/process restarted.
+
+If an operation was successfully persisted before interruption, the corresponding state must be restored.
+
+If it was not persisted, KFE must not invent a transition.
+
+### 20.22 Pending-command safety
+
+A swipe command must have a clear transactional outcome:
+
+**not committed** or **committed**.
+
+A partially animated or interrupted gesture is never itself a business event.
+
+If the implementation uses an intermediate/pending command state, recovery must resolve it deterministically without creating duplicate operational events.
+
+### 20.23 State synchronization
+
+PWA Work, Android overlay, Android notification, and any other operational representation must derive their displayed state from the same persisted operational state.
+
+One surface must not independently assume a transition succeeded while another says it did not.
+
+### 20.24 Universal platform behavior
+
+Existing KFE-wide rules for persistence, lifecycle handling, offline/local-first operation, notifications, accessibility, and platform recovery continue to apply.
+
+This swipe-bar contract **adds only the swipe-specific requirements above**; it does not replace or duplicate universal KFE behavior.
+
 ## 21. Baseline / Further Refinement
 
 This document is the **frozen baseline**, including the authoritative swipe-bar contract.
