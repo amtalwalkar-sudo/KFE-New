@@ -34,7 +34,7 @@ function toFormRecord(formKey, record) {
 }
 const settlementSourceStore = Object.freeze({ Maintenance: 'maintenance_records', Compliance: 'compliance_records' })
 const settlementDirection = type => type === 'Receipt' ? 'IN' : 'OUT'
-const relationshipStore = Object.freeze({ settlement: [['sourceId', null]], compliance: [['vehicleId', 'vehicles']], maintenance: [['vehicleId', 'vehicles']], ride: [['shiftId', 'shifts']], loanPayment: [['loanId', 'loans']], prepayment: [['loanId', 'loans']], driverTarget: [['driverId', 'drivers']] })
+const relationshipStore = Object.freeze({ settlement: [['sourceId', null]], compliance: [['vehicleId', 'vehicles']], ride: [['shiftId', 'shifts']], loanPayment: [['loanId', 'loans']], prepayment: [['loanId', 'loans']], driverTarget: [['driverId', 'drivers']] })
 async function validateRelationships(db, formKey, values) {
   if (formKey === 'settlement') {
     const storeName = settlementSourceStore[values.sourceType]
