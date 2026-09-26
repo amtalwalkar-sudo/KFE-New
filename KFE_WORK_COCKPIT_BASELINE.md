@@ -1,6 +1,6 @@
 # KFE Work Driver Cockpit — Baseline
 
-**Status:** FROZEN BASELINE  
+**Status:** FROZEN BASELINE — including authoritative swipe-bar contract  
 **Purpose:** Baseline UX/interaction architecture for the complete replacement of the KFE Work driver cockpit. This document records the agreed foundation before further refinement.
 
 This baseline is governed by KFE_VISUAL_DNA.md.
@@ -138,7 +138,7 @@ Example information:
 
 GPS, timestamp, and movement information are captured automatically where available.
 
-The KFE swipe bar is a separate action surface corresponding to the current state.
+The KFE swipe bar is the authoritative primary action surface corresponding to the current state.
 
 ## 9. Ready for Trip
 
@@ -174,7 +174,7 @@ During an active trip, the Android overlay and existing notification carry opera
 - trip KM
 - GPS/status where appropriate
 
-The independent KFE swipe bar provides END TRIP.
+The independent KFE swipe bar provides the authoritative END TRIP action.
 
 The driver should not need to type routine tracking information during the active trip.
 
@@ -295,9 +295,202 @@ The cockpit follows:
 
 Forms appear only when necessary, mandatory information is gated, and completed information is not unnecessarily requested again.
 
-## 20. Baseline / Further Refinement
+## 20. Authoritative Swipe Bar
 
-This document is the **frozen baseline**, not the final implementation specification.
+The KFE swipe bar is a **critical, authoritative touch surface** for the driver's primary operational transitions.
+
+### 20.1 Authoritative actions
+
+There are exactly three operational swipe actions:
+
+1. **GO TO PICKUP**
+2. **START TRIP**
+3. **END TRIP**
+
+The swipe bar represents the single primary action available in the applicable operational state.
+
+It is not a generic Continue button.
+
+### 20.2 Shared physical interaction
+
+All three actions use the same physical interaction and the same rightward direction:
+
+**Grab handle → drag right → cross threshold → RELEASE → authoritative commit → state transition**
+
+The motor pattern must remain consistent across states.
+
+### 20.3 Geometry
+
+The bar is a large rounded/pill-shaped track with a large movable handle.
+
+Target geometry:
+
+- Bar height: approximately **64–72 px**.
+- Handle: approximately **56–60 px**, with a minimum effective touch target of **64 × 64 px**.
+- Comfortable horizontal margins.
+- Large, high-contrast handle and directional cue.
+- The handle nearly fills the bar vertically.
+- The control is visually prominent without becoming decorative.
+
+The exact final pixel geometry may be tuned during implementation/testing without changing the interaction contract.
+
+### 20.4 Handle and hit area
+
+The handle is the primary gesture-start area.
+
+A generous invisible touch halo around the handle may start the gesture to make it fat-finger safe.
+
+Touching the distant track/text area must not accidentally initiate an authoritative swipe.
+
+A simple tap or very small movement does nothing.
+
+### 20.5 Finger tracking
+
+Once initiated:
+
+- Handle movement follows the driver's finger approximately 1:1.
+- Small vertical movement is ignored.
+- The gesture is horizontally locked.
+- The handle cannot visually leave its permitted travel area.
+- Movement outside the permitted horizontal range is clamped safely.
+
+### 20.6 Scroll interaction
+
+If touch begins on the swipe handle/hit halo, the swipe gesture has priority over page scrolling.
+
+If touch begins outside the swipe handle/hit halo, normal page scrolling remains available.
+
+The entire Work screen must not become scroll-locked merely because the swipe bar exists.
+
+### 20.7 Threshold
+
+The initial interaction target is approximately **70% of usable handle travel**.
+
+The threshold must be deliberate but comfortable:
+
+- Too early risks accidental activation.
+- Too late creates excessive thumb travel.
+
+The exact implementation value may be tuned through real-device testing while preserving the deliberate-threshold principle.
+
+### 20.8 Threshold feedback
+
+The bar progresses through clear interaction states:
+
+**Idle**
+→ action label
+
+**Swiping**
+→ visual progress
+
+**Threshold reached**
+→ **RELEASE TO [ACTION]**
+
+The threshold state is reached before release.
+
+Simply reaching the threshold while the finger remains down does **not** commit the action.
+
+### 20.9 Commit point
+
+The authoritative commit point is:
+
+**Threshold reached + driver releases**
+
+Only then does KFE execute the operational command.
+
+Example:
+
+**START TRIP → RELEASE TO START → release → STARTING TRIP… → TRIP ACTIVE**
+
+Equivalent sequences apply to GO TO PICKUP and END TRIP.
+
+There is no second confirmation dialog/button after a successful authoritative swipe.
+
+### 20.10 Early release
+
+If the driver releases before the threshold:
+
+- No operational action occurs.
+- No state transition occurs.
+- No mutation is created.
+- The handle smoothly returns to its starting position.
+- No unnecessary error/confirmation message is required.
+
+### 20.11 Backward movement
+
+The driver may move backwards during the gesture.
+
+If the handle falls below the threshold:
+
+- The release-to-commit state disappears.
+- Releasing below the threshold does nothing.
+- The gesture remains safe and reversible until the actual commit point.
+
+### 20.12 Validation and authority
+
+The swipe is authoritative **only for an allowed transition**.
+
+The underlying command must validate the current KFE state and all mandatory business requirements before committing.
+
+The swipe must never bypass:
+- missing mandatory information,
+- invalid state,
+- required operator selection,
+- required trip/fare data,
+- or any other applicable business gate.
+
+The command path is:
+
+**Gesture → validation → commit → persisted operational state → UI/overlay/notification update**
+
+### 20.13 Duplicate protection
+
+Once the commit begins:
+
+- The swipe surface becomes temporarily locked.
+- A second swipe cannot submit the same operation.
+- Duplicate operational mutations/events/notifications must be prevented at the underlying mutation layer as well as the UI layer.
+
+### 20.14 Interruption and recovery
+
+The persisted operational state is authoritative, not the animation.
+
+If the app is interrupted after a swipe:
+
+- If the command committed, reopening KFE must show the resulting state.
+- If the command did not commit, reopening KFE must show the previous state.
+- KFE must never infer that an operation happened merely because a swipe animation started or progressed.
+
+### 20.15 Offline behavior
+
+The swipe does not inherently require network connectivity.
+
+Where the underlying business operation is permitted offline, the authoritative command is committed locally and the operational state changes locally.
+
+GPS/network availability remains a separate status concern.
+
+### 20.16 Accessibility
+
+An accessible equivalent action must be available for drivers who cannot perform the gesture.
+
+The alternative action must invoke the **same authoritative command path**, with the same validation, business rules, persistence, and state transition as the swipe.
+
+It must not create a separate operational workflow.
+
+### 20.17 Relationship to Android overlay and notification
+
+The Android overlay and existing notification remain independent operational surfaces.
+
+The swipe bar and overlay/notification:
+- represent the same underlying KFE operational state,
+- may be moved/minimised independently,
+- must never move/minimise one another,
+- must not create duplicate workflows,
+- and must remain synchronized with the authoritative persisted state.
+
+## 21. Baseline / Further Refinement
+
+This document is the **frozen baseline**, including the authoritative swipe-bar contract.
 
 Further design refinement may add detail and new agreed behaviour.
 
