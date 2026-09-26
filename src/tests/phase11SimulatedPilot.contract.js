@@ -100,7 +100,7 @@ const snapshot = {
     startOdometer: 65000, endOdometer: 65055, toll: 120, parking: 30,
     tollParkingRevenueTreatment: 'INCLUDED', revenue: 2000
   }],
-  fuelLogs: [{ capturedAt: '2026-09-26T10:30:00Z', odometer: 65042, quantityKg: 15, amount: 1500, isFullTank: true, vehicleId: 'v1' }],
+  fuelLogs: [\n    { capturedAt: '2026-09-24T18:00:00Z', odometer: 64600, quantityKg: 10, amount: 1000, isFullTank: true, vehicleId: 'v1' },\n    { capturedAt: '2026-09-25T18:00:00Z', odometer: 64800, quantityKg: 10, amount: 1000, isFullTank: true, vehicleId: 'v1' },\n    { capturedAt: '2026-09-26T07:30:00Z', odometer: 65000, quantityKg: 10, amount: 1000, isFullTank: true, vehicleId: 'v1' },\n    { capturedAt: '2026-09-26T10:30:00Z', odometer: 65042, quantityKg: 15, amount: 1500, isFullTank: true, vehicleId: 'v1' }\n  ],
   maintenance: [{ performedOn: '2026-09-26', cost: 250 }],
   loans: [{ id: 'loan1', principal: 550000, annualInterestRate: 10, tenureMonths: 60, startDate: '2026-09-01' }], loanPayments: [], prepayments: [],
   compliance: [{ type: 'insurance', validFrom: '2026-01-01', validUntil: '2026-12-31', cost: 24000 }],
