@@ -45,7 +45,8 @@ const deletedTrip = { ...base.trips[0], deletedAt:'2026-09-10T20:00:00Z', delete
 const withoutDeletedTrip = PerformanceService.getMetrics({ ...base, trips:[deletedTrip] }, range)
 assert.equal(withoutDeletedTrip.revenue, 0)
 assert.equal(withoutDeletedTrip.completeness.target, false)
-assert.equal(withoutDeletedTrip.driverTarget, null)
+assert.equal(withoutDeletedTrip.driverTargetAvailable, true)
+assert.ok(Number.isFinite(withoutDeletedTrip.driverTarget))
 
 // A started shift alone does not create a financial day, but an authoritative
 // driver target remains available for the current calendar day before the first trip.
@@ -53,7 +54,6 @@ const holiday = PerformanceService.getMetrics({ ...base, trips:[] }, range)
 assert.equal(holiday.driverTargetAvailable, true)
 assert.ok(Number.isFinite(holiday.driverTarget))
 assert.equal(holiday.counts.activeFinancialDays, 0)
-
 
 // Financial-day target calculation uses the same dynamic remaining-eligible-day
 // denominator for daily BE and Driver Target. Configured workingDays is ignored
