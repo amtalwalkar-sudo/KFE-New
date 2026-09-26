@@ -11,6 +11,7 @@ import { BackupService } from '../backup/backupService.js'
 import { MovementAccountingService } from '../../domain/movement/movementAccounting.js'
 import { calculateTraceDistanceKm } from '../../infrastructure/location/movementTraceService.js'
 import { NativeGpsService } from '../../infrastructure/android/nativeGpsService.js'
+import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
 
 const checkpoint = () => BackupService.requestLocalBackupCheckpoint()
 
@@ -33,6 +34,7 @@ export const WorkService = Object.freeze({
   validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer) { return validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer) },
   validateGapAllocation(gapKm, personalKm, deadKm) { return validateGapAllocation(gapKm, personalKm, deadKm) },
   calculateFuelQuantity(pricePerKg, amount) { return calculateFuelQuantity({ pricePerKg, amount }) },
+  reconcileShiftRevenue(data) { return reconcileShiftRevenue(data) },
   async startShift(data) { const result = await ShiftTripRepository.createShift(data); checkpoint(); return result },
   async startTrip(data) {
     const validation = validateTripOperator(data?.operator)

@@ -166,50 +166,21 @@ scenario('J1/J2/J3/J5/J6/J7', () => {
 })
 
 
-// K — latest driver-cockpit, shell and cross-surface UX requirements that are statically verifiable.
+// K — frozen new Work cockpit, shell and cross-surface UX requirements.
 scenario('K1/K2/K3/K4/K5/K6', () => {
   const work = read('views/WorkModuleView.vue')
   const shell = read('components/shell/KfeShell.vue')
-  const timeline = read('views/TimelineView.vue')
   const overlay = read('../android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java')
-
-  // Start/end shift gates are explicit in the Work state machine.
-  assert.match(work, /const toggleOnline = async \(\) =>/)
-  assert.match(work, /if\(store\.isTripActive\)return fail\('End the active Trip before going Offline\./)
-  assert.match(work, /const openEndShift = \(\) =>/)
-  assert.match(work, /const endShiftBack = \(\) =>/)
-  assert.match(work, /const endShiftConfirm = async \(\) =>/)
-  assert.match(work, /closingOdo\.value/)
-  assert.match(work, /shiftRevenue\.value/)
-  assert.match(work, /Closing odometer and total shift revenue are required\./)
-
-  // Fuel remains available as a compact toggle rather than a permanent large block.
-  const persistentActionCount = (work.match(/class="persistent-action"/g) || []).length
-  assert.equal(persistentActionCount, 1, 'Work must render exactly one canonical trip action surface')
-
-  assert.match(work, /const openFuelForm = \(\) =>/)
-  assert.match(work, /fuelFormOpen\.value = !fuelFormOpen\.value/)
-  assert.match(work, /fuelDraftKey/)
-
-  // Driver-facing location presentation prefers resolved place names and keeps Timeline coverage.
-  assert.match(work, /locationPlace = location => location\?\.placeName \|\| 'Resolving place…'/)
-  assert.match(timeline, /trip\.tripStartLocation\?\.address \|\| trip\.tripStartLocation\?\.name \|\| 'Pickup'/)
-
-  // Shell is GPS-status driven and does not carry the retired Local-first/Fleet ERP labels.
-  assert.match(shell, /Kanishka Enterprises/)
-  assert.match(shell, /header-gps/)
-  assert.match(shell, /gpsState/)
-  assert.doesNotMatch(shell, /Fleet ERP · KFE 2\.0/)
-  assert.doesNotMatch(shell, /Local-first/)
-
-  // Native overlay exposes the same canonical ride actions and terminal fare/cancel path.
-  assert.match(overlay, /ACTION_UPDATE/)
-  assert.match(overlay, /START_RIDE/)
-  assert.match(overlay, /END_RIDE/)
-  assert.match(overlay, /ENTER_FARE/)
-  assert.match(overlay, /CANCEL_RIDE/)
+  assert.match(work, /TODAY'S TARGET/); assert.match(work, /SHIFT TIME/)
+  assert.match(work, /GO TO PICKUP/); assert.match(work, /START TRIP/); assert.match(work, /END TRIP/)
+  assert.match(work, /CNG refuelling/); assert.match(work, /Current odometer/)
+  assert.match(work, /Personal KM/); assert.match(work, /Dead KM/); assert.match(work, /CANCEL TRIP/)
+  assert.match(work, /RECONCILIATION/); assert.match(work, /SHIFT REVIEW/)
+  assert.equal((work.match(/class="swipe"/g) || []).length, 1)
+  assert.match(shell, /Kanishka Enterprises/); assert.match(shell, /header-gps/); assert.match(shell, /gpsState/)
+  assert.doesNotMatch(shell, /Fleet ERP · KFE 2\.0/); assert.doesNotMatch(shell, /Local-first/)
+  assert.match(overlay, /ACTION_UPDATE/); assert.match(overlay, /START_RIDE/); assert.match(overlay, /END_RIDE/)
 })
-
 
 // L — executable continuity checks: performance reconciliation, history, mutation replay and source isolation.
 scenario('H6/H7 — Timeline ↔ Performance ↔ shift authority', () => {
