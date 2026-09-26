@@ -53,14 +53,14 @@ try{
  await page.getByRole('button',{name:'CNG refuelling'}).click();await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'visible'});await page.getByRole('button',{name:'CNG refuelling'}).click();await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'hidden'})
  await page.getByRole('button',{name:'OFFLINE',exact:true}).click();await page.getByText('ODOMETER CHECK',{exact:true}).waitFor({state:'visible'});assert(await page.getByRole('button',{name:'Back'}).count()>0,'Start odometer Back missing');await page.getByRole('button',{name:'Back'}).first().click()
  await page.getByRole('button',{name:'GO ONLINE',exact:true}).click();await page.getByText('ODOMETER CHECK',{exact:true}).waitFor({state:'visible'})
- const odo=page.locator('input[type="number"]').first();await odo.fill('1000');await page.getByRole('checkbox').first().check();
+ const odo=page.locator('input[type="number"]').first();await odo.fill('1200');await page.getByRole('checkbox').first().check();
  const personalGap=page.getByRole('button',{name:'Personal KM',exact:true});if(await personalGap.count())await personalGap.click()
  await page.getByRole('button',{name:'CONFIRM & GO ONLINE',exact:true}).click()
  await wait(async()=>await page.getByRole('button',{name:'ONLINE',exact:true}).count()===1,'shift goes ONLINE')
  assert(await page.getByText("TODAY'S TARGET",{exact:true}).count()>0,'Online target surface missing after shift start')
  const activeShift=await page.evaluate(async()=>{const db=await new Promise((resolve,reject)=>{const r=indexedDB.open('kanishka_kfe_canonical_db',13);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});return await new Promise((resolve,reject)=>{const tx=db.transaction(['shifts'],'readonly');const q=tx.objectStore('shifts').getAll();q.onsuccess=()=>{db.close();resolve(q.result.find(x=>x.status==='ACTIVE')||null)};q.onerror=()=>reject(q.error)})})
  assert(activeShift?.status==='ACTIVE','Online shift was not persisted as ACTIVE')
- assert(Number(activeShift.startOdometer)===1000,'ONLINE shift persisted with wrong start odometer')
+ assert(Number(activeShift.startOdometer)===1200,'ONLINE shift persisted with wrong start odometer')
  await page.evaluate(async(id)=>{const db=await new Promise((resolve,reject)=>{const req=indexedDB.open('kanishka_kfe_canonical_db',13);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});await new Promise((resolve,reject)=>{const tx=db.transaction(['shifts'],'readwrite');tx.objectStore('shifts').delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)});db.close()},activeShift.id)
  await page.reload({waitUntil:'domcontentloaded'});await page.locator('.cockpit').waitFor({state:'attached'});await wait(async()=>await page.getByRole('button',{name:'OFFLINE',exact:true}).count()===1,'clean OFFLINE state')
   // 4C GPS
