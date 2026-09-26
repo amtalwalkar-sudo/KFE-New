@@ -78,8 +78,9 @@ try {
   page.on('pageerror', error => errors.push(error.stack || error.message))
 
   const route = async (path, selector, label) => {
-    const response = await page.goto(base + path, { waitUntil: 'domcontentloaded', timeout: 30000 })
-    assert(response?.ok(), label + ' response failed')
+    const target = path ? base + '#/' + path.replace(/^\//, '') : base
+    const response = await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 30000 })
+    if (response) assert(response.ok(), label + ' response failed')
     await page.locator(selector).waitFor({ state: 'attached', timeout: 30000 })
     assert(await page.locator('.kfe-runtime-error').count() === 0, label + ' runtime error')
   }
