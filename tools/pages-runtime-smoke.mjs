@@ -70,8 +70,11 @@ try {
       waitUntil: 'domcontentloaded',
       timeout: 30000,
     })
-    if (!routeResponse?.ok()) {
-      throw new Error(`Deep route response was not successful for ${route.path}: ${routeResponse?.status()}`)
+    // Hash navigation stays within the already-loaded Pages document, so
+    // page.goto may return null when only the fragment changes. Verify the
+    // application route itself instead of requiring a second HTTP response.
+    if (routeResponse && !routeResponse.ok()) {
+      throw new Error(`Route document response was not successful for ${route.path}: ${routeResponse.status()}`)
     }
     await page.getByText(route.text, { exact: true }).first().waitFor({
       state: 'visible',
