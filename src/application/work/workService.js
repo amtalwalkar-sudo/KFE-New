@@ -29,6 +29,23 @@ export const WorkService = Object.freeze({
   async getLastCompletedTrip() { return ShiftTripRepository.getLastCompletedTrip() },
   async getFuelLogs() { return FuelRepository.getAll() },
   async getLocations(entityType, entityId) { return LocationRepository.forEntity(entityType, entityId) },
+  async previewMovementReconciliation({ shiftId, closingOdometer, trips = [] }) {
+    const shift = await ShiftTripRepository.getActive()
+    if (!shift?.shift?.id || shift.shift.id !== shiftId) return { reconciliationStatus: 'UNAVAILABLE', reason: 'ACTIVE_SHIFT_NOT_FOUND' }
+    const gpsSnapshots = await LocationRepository.forEntity('SHIFT', shiftId)
+    try {
+      return await MovementAccountingService.reconcileShiftMovement({
+        trips,
+        startOdometer: shift.shift.startOdometer,
+        endOdometer: closingOdometer,
+        router: new ValhallaRoutingAdapter(),
+        businessKmByTripId: Object.fromEntries(trips.filter(item => Number.isFinite(Number(item.tripKm)) && Number(item.tripKm) >= 0).map(item => [item.id, Number(item.tripKm)])),
+        gpsSnapshots
+      })
+    } catch (error) {
+      return { reconciliationStatus: 'UNAVAILABLE', reason: error?.message || 'MOVEMENT_RECONCILIATION_FAILED', gpsTracePoints: gpsSnapshots.length }
+    }
+  },
   async getTripGpsDistanceKm(tripId) { const snapshots = await LocationRepository.forEntity('TRIP', tripId); return calculateTraceDistanceKm(snapshots.filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')) },
   async captureLocation(data) { const result = await captureLifecycleLocation(data); checkpoint(); return result },
   validateShiftStartOdometer(currentOdometer, previousOdometer) { return validateShiftStartOdometer(currentOdometer, previousOdometer) },
