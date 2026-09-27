@@ -78,7 +78,7 @@ try {
   page.on('pageerror', error => errors.push(error.stack || error.message))
 
   const route = async (path, selector, label) => {
-    const target = path ? base + '#/' + path.replace(/^\//, '') : base
+    const target = path ? new URL(path.replace(/^\//, ''), base).href : base
     const response = await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 30000 })
     if (response) assert(response.ok(), label + ' response failed')
     await page.locator(selector).waitFor({ state: 'attached', timeout: 30000 })
