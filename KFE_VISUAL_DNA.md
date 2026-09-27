@@ -595,47 +595,639 @@ It applies globally across the PWA and must be inherited by future forms and num
 This is a design rule only. It does not imply implementation in this commit.
 
 
-### Freeze Addendum — Work Premium Instrument Direction
+### Freeze Addendum — Canonical Work State Specification
 
 **FROZEN**
 
-KFE Work uses the **Premium Instrument** visual direction: a driver-centric, calm, sophisticated, professional cockpit/instrument-system experience rather than a generic ERP dashboard.
+The following specification is the sole design authority for the KFE Work screen.
 
-The Work visual language emphasizes:
+It is intentionally defined from the KFE Visual DNA and approved current product requirements. Historical Work screen implementations, historical CSS compositions, historical screenshots, and historical commits are **not** design authority and must not be restored or used to reconstruct the canonical Work UI.
 
-- glance-first comprehension;
-- clear visual hierarchy;
-- restrained semantic colour;
-- modern but precise shapes;
-- strong numerical/instrument typography;
-- intentional spacing;
-- minimal visual noise;
-- one obvious primary action per operational state;
-- mistake-resistant presentation;
-- local visual changes with local effects.
+The Work screen has **one canonical composition**. The 13 states below are states of that composition, not separate Work screens.
 
-Target and Timer receive greater visual importance than Current State. Work surfaces are not automatically cards; surfaces exist when they communicate meaningful grouping, relationship, state, or action.
+#### Authority split
 
-### Freeze Addendum — Work Dual Input Navigation
+**Product/business authority — product owner**
 
-**FROZEN**
+The product owner defines and approves:
 
-Short multi-entry Work forms support both direct field tapping and native keyboard navigation.
+- business calculations and formulas;
+- what constitutes a valid business outcome;
+- business eligibility and gating rules;
+- exact operational workflow;
+- driver-facing task sequence;
+- required versus optional business information;
+- target, revenue, odometer, fare, cancellation, fuel, reconciliation, and other domain rules;
+- driver experience decisions and final acceptance of the user experience.
 
-The driver may tap any editable field directly. The native keyboard also provides an appropriate sequential action such as **Next** to move focus to the next meaningful editable field while keeping the native keyboard open and keeping the newly focused field visible.
+**Technical authority — implementation**
 
-The final editable field uses an appropriate final keyboard action such as **Done**, subject to KFE's mandatory explicit-confirmation and business-rule gates.
+The implementation defines and enforces:
 
-This extends the global native-keyboard and keyboard-safe viewport rule; it does not replace it.
+- component architecture;
+- state representation and transition mechanics;
+- data flow and persistence boundaries;
+- validation plumbing;
+- GPS integration and lifecycle;
+- offline/local persistence and synchronization mechanics;
+- notification lifecycle;
+- overlay synchronization;
+- accessibility mechanics;
+- keyboard and viewport behavior;
+- responsive layout mechanics;
+- design-token application;
+- build, asset, deployment, and runtime verification.
 
-### Freeze Addendum — Work Local Visual Change Principle
+Where a requirement crosses both areas, the business/product decision is authoritative and the implementation translates it into a technically safe mechanism.
 
-**FROZEN**
+The UI must consume authoritative business/domain results. It must not silently invent, duplicate, or reinterpret business calculations.
 
-KFE Work visual implementation should preserve **local change → local effect**.
+---
 
-Component boundaries and styling architecture should allow controlled future adjustments such as moving a header or toggle, increasing timer size, or adding/removing helper text without unnecessarily changing unrelated components or operational behaviour.
+## Work State Specification
 
-Structural changes that genuinely require broader layout changes remain possible, but visual changes must not silently change business/state logic.
+### A — 13 canonical states
 
-These Work-specific additions are governed by the Work Cockpit Baseline and inherit the global KFE Visual DNA.
+The canonical Work state set is:
+
+1. **OFFLINE**
+2. **Start Shift**
+3. **ONLINE idle**
+4. **Going to pickup**
+5. **Ready for trip**
+6. **Trip active**
+7. **Fare entry**
+8. **Cancellation**
+9. **Fuel**
+10. **End Shift**
+11. **End-shift reconciliation**
+12. **Success / completed**
+13. **Error / validation**
+
+A state may use an inline state surface, focused form, confirmation surface, or transient feedback surface, but it remains part of the same Work composition.
+
+#### State contracts
+
+**1. OFFLINE**
+
+Purpose: represent the no-active-shift state.
+
+Must expose the Online/Offline control and the persistent Work context required by the approved product experience. The Fuel action remains technically reachable while offline. No active-trip controls are presented.
+
+Entering this state clears transient operational UI while preserving durable business records and appropriate feedback.
+
+**2. Start Shift**
+
+Purpose: establish the shift before operational work begins.
+
+The Start Shift gate appears directly below the Online/Offline control and above Today's Target.
+
+The implementation must support:
+
+- current/start odometer capture;
+- authoritative odometer validation;
+- authoritative gap calculation;
+- Personal KM / Dead KM selection where required by the approved workflow;
+- explicit confirmation;
+- recoverable validation errors without losing entered data.
+
+Business calculation and acceptance rules remain product authority.
+
+**3. ONLINE idle**
+
+Purpose: represent an active shift with no active trip.
+
+The screen remains glanceable and action-led. Today's Target remains part of the operational context. No trip is shown as active.
+
+Available operational actions are determined by the approved workflow. Fuel remains accessible through its compact action.
+
+**4. Going to pickup**
+
+Purpose: represent an accepted trip/pickup journey before trip start.
+
+The UI must present the authoritative trip/pickup context, current operational status, relevant GPS/movement status, and the actions permitted by the approved workflow.
+
+The implementation must not fabricate movement or arrival state.
+
+**5. Ready for trip**
+
+Purpose: represent the point at which the driver may start the trip.
+
+The primary trip-start interaction is the KFE swipe interaction defined by the Visual DNA, with an accessible non-swipe alternative.
+
+The implementation must enforce the approved trip-start gates and must provide clear progress feedback during the transition.
+
+**6. Trip active**
+
+Purpose: represent an active trip.
+
+The UI must prioritize current trip state and the primary trip-end interaction while retaining required trip context and operational status.
+
+The implementation must preserve GPS/movement tracing and required notification synchronization without making those technical mechanisms visually dominant.
+
+**7. Fare entry**
+
+Purpose: capture required post-trip financial information immediately after trip completion when the approved business flow requires it.
+
+Fare entry must appear without an unnecessary intermediate screen.
+
+The implementation must support pending-fare enforcement, native numeric input, keyboard-safe layout, validation, preservation of entered data on failure, explicit confirmation, and authoritative persistence.
+
+Business fare rules remain product authority.
+
+**8. Cancellation**
+
+Purpose: capture and confirm a cancellation according to the approved business workflow.
+
+The implementation must support the authoritative cancellation reason and fare/financial fields where applicable, validation, preservation of entered data, confirmation, persistence, and resulting-state transition.
+
+The implementation must not invent cancellation consequences.
+
+**9. Fuel**
+
+Purpose: record CNG/fuel activity through a compact, low-distraction interaction.
+
+The permanent full-screen fuel block is not part of the canonical Work composition. Fuel is opened through the compact Fuel action and must be accessible while OFFLINE.
+
+The implementation must capture authoritative fuel fields, automatic timestamp/GPS where available, validate input, persist safely offline, provide confirmation, and close without requiring unnecessary navigation.
+
+Business fuel calculations remain product authority.
+
+**10. End Shift**
+
+Purpose: begin shift closure when there is no active ride.
+
+The End Shift gate appears directly below the Online/Offline control and above Today's Target.
+
+The implementation must support:
+
+- driver start-of-shift odometer visibility;
+- closing odometer;
+- total shift revenue;
+- approved optional business toll/parking information;
+- authoritative validation;
+- Back cancellation that returns to the ONLINE state without ending the shift;
+- explicit submission.
+
+The driver must not need to press Offline a second time after successful end-shift submission.
+
+**11. End-shift reconciliation**
+
+Purpose: review and finalize the authoritative shift-close result.
+
+The implementation presents authoritative calculated values, required exceptions/discrepancies, and the actions required to resolve or confirm them.
+
+Reconciliation calculations and acceptable outcomes are product authority. The UI must not recalculate business totals independently.
+
+**12. Success / completed**
+
+Purpose: provide explicit confirmation that the requested operation has completed.
+
+Success feedback is concise, state-specific, accessible, and non-ambiguous. After confirmation, the Work state transitions to the next approved stable state without requiring redundant actions.
+
+Success feedback must never imply persistence/synchronization that has not actually occurred.
+
+**13. Error / validation**
+
+Purpose: explain and recover from a blocked or failed operation.
+
+Errors are local, specific, calm, actionable, and recoverable. Entered data is preserved whenever technically safe.
+
+Validation must distinguish:
+
+- field/input validation;
+- business-rule rejection;
+- persistence failure;
+- offline/sync state;
+- permission/device capability failure.
+
+An error must not silently discard operational input or create a false success state.
+
+---
+
+### B — State transition model
+
+The canonical Work state machine is one composition with state transitions, not multiple screen implementations.
+
+The core operational path is:
+
+**OFFLINE → Start Shift → ONLINE idle → Going to pickup → Ready for trip → Trip active → Fare entry → ONLINE idle**
+
+Shift closure is:
+
+**ONLINE idle → End Shift → End-shift reconciliation → Success / completed → OFFLINE**
+
+Fuel is an interruptible focused state reachable from permitted Work states, including OFFLINE, and returns to the previously valid stable Work state after successful completion or cancellation.
+
+Cancellation is a workflow branch from the operational states where cancellation is permitted by business rules.
+
+Error / validation is a recoverable state associated with the operation that failed; it returns to the owning state after correction/retry.
+
+Technical implementation must model transitions explicitly rather than infer them from CSS, route changes, or incidental component visibility.
+
+Business eligibility for each transition is product authority.
+
+---
+
+### C — Component hierarchy
+
+The Work composition follows:
+
+**Work page → persistent shell/status → state gate/context → operational content → primary action → supporting information → feedback**
+
+The canonical component boundaries should be small enough that local visual changes have local effects.
+
+Recommended technical boundaries:
+
+- Work shell/status;
+- Online/Offline control;
+- state gate;
+- Today's Target;
+- operational context;
+- trip state/action;
+- fare form;
+- cancellation form;
+- fuel action/form;
+- end-shift/reconciliation surfaces;
+- feedback/notification surface.
+
+These are implementation boundaries, not permission to create alternate visual compositions.
+
+---
+
+### D — Placement rules
+
+The following placements are frozen:
+
+- Online/Offline control is the primary shift-state control.
+- Start Shift appears directly below Online/Offline and above Today's Target.
+- End Shift appears in the same state-gate location: directly below Online/Offline and above Today's Target.
+- Today's Target occupies the consistent target position in the canonical Work hierarchy when not temporarily displaced by an active state gate.
+- Fuel is represented by a compact action rather than a permanently expanded fuel form.
+- Primary trip actions occupy the primary-action position.
+- Supporting information remains visually subordinate to the current state and primary action.
+- Feedback appears close to the operation it describes unless system-level feedback requires a higher-level surface.
+
+No state may introduce a second competing Work layout.
+
+---
+
+### E — Persistent versus state-specific elements
+
+Persistent elements are part of the single composition unless a state-specific rule explicitly replaces their content.
+
+Persistent by default:
+
+- KFE Work shell;
+- GPS/status indication;
+- shift-state control;
+- Today's Target context;
+- compact Fuel action where permitted;
+- feedback infrastructure.
+
+State-specific:
+
+- Start Shift gate;
+- trip/pickup context;
+- trip swipe action;
+- Fare entry;
+- Cancellation;
+- Fuel form;
+- End Shift;
+- Reconciliation;
+- Success;
+- Error.
+
+State-specific surfaces may change visibility and content but must not create a different Work visual language.
+
+---
+
+### F — Business/UI boundary
+
+The Work UI is a renderer and interaction surface over authoritative business/domain services.
+
+Business/domain services own:
+
+- calculations;
+- eligibility;
+- authoritative state;
+- persistence semantics;
+- record relationships;
+- business validation;
+- reconciliation;
+- target calculation;
+- revenue calculation;
+- odometer business rules;
+- fare/cancellation/fuel business rules.
+
+The Work UI owns:
+
+- presentation;
+- user input collection;
+- interaction state;
+- focus;
+- accessibility;
+- local visual feedback;
+- invocation of domain operations.
+
+The UI must never maintain a second competing business calculation merely to display a result.
+
+---
+
+### G — Input and validation
+
+All editable Work fields use explicit metadata from the business/domain layer for:
+
+- required/optional;
+- data type;
+- allowed range;
+- allowed values;
+- unit;
+- validation rule;
+- persistence requirement.
+
+Technical rules:
+
+- use native input types;
+- use numeric input for numeric values;
+- preserve entered values after validation failure;
+- identify the offending field;
+- prevent duplicate submissions;
+- disable/relabel the primary action while an operation is in flight;
+- distinguish validation failure from persistence/sync failure;
+- never clear a complete form merely because one field failed;
+- make final confirmation explicit where the business workflow requires it.
+
+The implementation must not invent business ranges or formulas.
+
+---
+
+### H — GPS
+
+GPS is a technical capability and status source.
+
+Technical GPS states must be distinguishable:
+
+- unavailable;
+- acquiring;
+- available;
+- degraded/error.
+
+The UI must communicate GPS status without relying on colour alone.
+
+Technical rules:
+
+- capture GPS only when the relevant business event requires it;
+- preserve timestamp and coordinate precision in storage;
+- enrich driver-facing location events with place names where available;
+- never replace authoritative coordinates with an approximate place name in storage;
+- do not block unrelated offline work merely because GPS is temporarily unavailable unless the approved business rule explicitly requires GPS;
+- record the actual availability/error condition for later inspection.
+
+Business rules determine when GPS is mandatory.
+
+---
+
+### I — Offline and synchronization
+
+Offline operation is a supported capability.
+
+The technical lifecycle is:
+
+**OFFLINE → SAVING ON DEVICE → ONLINE → SYNCING → SYNCED**
+
+A synchronization failure is distinct from local persistence failure.
+
+Technical requirements:
+
+- write operational data locally before relying on remote synchronization where the business operation is designed to be offline-capable;
+- make local persistence idempotent;
+- prevent duplicate records/submissions during retry;
+- queue eligible synchronization work;
+- reconcile server/local state explicitly;
+- expose sync status without obstructing normal driver work;
+- never claim SYNCED before synchronization is confirmed.
+
+Business rules determine which operations are offline-capable.
+
+---
+
+### J — Notifications
+
+Native Android ride notifications are a technical projection of authoritative Work/trip state.
+
+Technical requirements:
+
+- notification lifecycle follows authoritative trip state;
+- creation, update, and dismissal are idempotent;
+- notification state cannot become an independent source of trip truth;
+- notification updates must not mutate business records;
+- cancellation and completion must terminate obsolete notifications;
+- permission denial is handled gracefully;
+- notification content must use the same authoritative trip data as the Work screen.
+
+Driver interruption must follow the approved experience.
+
+---
+
+### K — Overlay synchronization
+
+Overlays are temporary presentation surfaces, not independent sources of truth.
+
+Technical rules:
+
+- the underlying Work/domain state remains authoritative;
+- opening an overlay reads current authoritative state;
+- saving through an overlay updates the authoritative state;
+- the Work composition reacts to the updated state;
+- closing an overlay cannot silently discard a committed change;
+- stale overlay data must be rejected or refreshed;
+- duplicate listeners/subscriptions must be avoided;
+- overlay cleanup occurs when the owning operation completes or is cancelled.
+
+---
+
+### L — Accessibility
+
+All Work interactions must provide:
+
+- visible focus;
+- logical focus order;
+- semantic labels;
+- appropriate roles;
+- accessible state announcements;
+- sufficient contrast;
+- comfortable touch targets;
+- keyboard accessibility where applicable;
+- non-colour-only status communication;
+- reduced-motion support;
+- an accessible alternative to swipe-only trip actions;
+- meaningful error and success announcements.
+
+Dynamic state changes must be communicated to assistive technology without excessive interruption.
+
+---
+
+### M — Keyboard and viewport
+
+The global native-keyboard rule in section 25.1 applies directly to Work.
+
+Additionally:
+
+- short Work forms are viewport-fit and non-scrolling;
+- the focused field remains visible;
+- the final confirmation remains reachable;
+- native keyboard navigation may move between meaningful fields;
+- the final field uses an appropriate completion action;
+- no custom numeric keypad is introduced;
+- safe-area and keyboard insets are handled by the layout;
+- scrolling is permitted only when content genuinely requires it.
+
+This applies to fare, odometer, revenue, cancellation, fuel, trip KM, and future Work numeric/text inputs.
+
+---
+
+### N — Responsive behaviour
+
+Work remains one composition across supported viewport sizes.
+
+Responsive implementation may:
+
+- reflow;
+- resize;
+- change spacing within the frozen token scale;
+- reposition supporting information;
+- collapse secondary detail;
+- adapt control dimensions within accessibility requirements.
+
+Responsive implementation must not:
+
+- create a separate Work design;
+- change business workflow;
+- hide a required action;
+- make a short driver form scroll merely because the viewport is small;
+- introduce competing visual hierarchies.
+
+Small-height and keyboard-open viewports are first-class supported conditions.
+
+---
+
+### O — Design-token mapping
+
+Work inherits the global KFE tokens.
+
+Use:
+
+- global background/surface tokens;
+- global text hierarchy;
+- semantic success/warning/error/info tokens;
+- global spacing scale;
+- global radii;
+- global typography hierarchy;
+- global interaction-state treatment;
+- global accessibility requirements.
+
+Work may emphasize operational metrics and primary actions through typography, spacing, scale, and restrained semantic colour, but it must not create an independent token system.
+
+---
+
+### P — Explicit prohibitions
+
+The following are frozen prohibitions for canonical Work implementation:
+
+1. Do not restore an historical Work screen as the implementation.
+2. Do not use historical screenshots or commits as visual authority.
+3. Do not create a second/alternate Work composition.
+4. Do not retain compatibility/duplicate Work UI paths.
+5. Do not introduce a generic ERP dashboard composition.
+6. Do not create card soup.
+7. Do not duplicate business calculations in the UI.
+8. Do not make notification/overlay state authoritative.
+9. Do not make offline capability dependent on a network round trip where the approved business operation is offline-capable.
+10. Do not hide required controls behind the native keyboard.
+11. Do not use a custom numeric keypad.
+12. Do not make a swipe interaction the only accessible way to perform a critical action.
+13. Do not claim synchronization or success before the authoritative operation has completed.
+14. Do not treat green CI as proof of visual correctness.
+15. Do not treat a successful build artifact as proof that the deployed runtime is correct.
+16. Do not change business calculations to make a UI implementation easier.
+17. Do not silently change workflow because of component/layout convenience.
+18. Do not introduce visual patterns that conflict with the frozen Visual DNA without an explicit design decision.
+
+---
+
+### Q — Pixel-perfect acceptance criteria
+
+**Pixel-perfect certainty is a rendered-runtime verification standard, not a source-code assumption.**
+
+For KFE Work, pixel-perfect acceptance means that the production-rendered Work screen conforms to the frozen specification in:
+
+- composition;
+- state hierarchy;
+- placement;
+- spacing;
+- typography;
+- controls;
+- semantic states;
+- interaction states;
+- responsive behaviour;
+- keyboard-safe behaviour;
+- accessibility;
+- approved transitions;
+- absence of prohibited/duplicate UI.
+
+The acceptance evidence chain is frozen as:
+
+**A–Q specification → source implementation → production build → generated assets → deployment → actual deployed runtime → 13-state visual and functional verification → pixel-perfect acceptance**
+
+Verification must inspect the actual deployed Work screen rather than relying only on source, tests, or CI.
+
+The 13 states must be exercised against their approved workflows. Evidence must include the rendered result and the observed transition/feedback for each applicable state.
+
+A build is not visually accepted merely because:
+
+- CI is green;
+- TypeScript compiles;
+- tests pass;
+- an artifact exists;
+- the source resembles the specification.
+
+The final acceptance decision remains product owner approval for business workflow and driver experience, plus technical verification that the implementation matches the frozen specification.
+
+---
+
+## Work implementation rule
+
+The implementation sequence is frozen:
+
+**A–Q frozen**
+↓
+**One canonical Work implementation**
+↓
+**Wire current approved business behaviour**
+↓
+**Production build**
+↓
+**Generated asset verification**
+↓
+**Deployment**
+↓
+**Actual deployed runtime**
+↓
+**13-state visual + functional verification**
+↓
+**Pixel-perfect acceptance**
+
+No historical Work composition may be substituted at any step.
+
+The implementation may reuse existing domain/business services where they are current and authoritative. Reuse of a service is not reuse of historical UI.
+
+### Work Freeze Record
+
+**KFE Work State Specification — FROZEN**
+
+This specification is the governing contract for the canonical Work composition.
+
+The Work UI is not to be reconstructed from historical screen implementations. Current business behaviour is preserved through authoritative domain/service logic and wired into this single composition.
+
+Any future change to the Work state set, hierarchy, workflow, business calculation, or driver-facing experience requires an explicit product decision. Technical implementation changes that preserve the frozen contract may proceed without creating a new visual composition.
