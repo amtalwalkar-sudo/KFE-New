@@ -68,7 +68,7 @@ try{
  await shiftToggle.click();
  await page.getByText('ODOMETER CHECK',{exact:true}).waitFor({state:'visible'});assert(await page.getByRole('button',{name:'Back'}).count()>0,'Start odometer Back missing');await page.getByRole('button',{name:'Back'}).first().click()
  await shiftToggle.click();await page.getByText('ODOMETER CHECK',{exact:true}).waitFor({state:'visible'})
- const odo=page.locator('input[type="number"]').first();await odo.fill('1200');await page.getByRole('checkbox').first().check()
+ const odo=page.locator('input[type="number"]').first();await odo.fill('1100');await page.getByRole('checkbox').first().check()
  // The seeded completed shift leaves a historical odometer gap. The UI requires
  // the driver to classify that full gap before the shift can be started.
  const personalKm=page.getByRole('button',{name:'Personal KM',exact:true})
@@ -85,7 +85,7 @@ try{
  assert(await persistedToggle.getAttribute('aria-pressed')==='true','Persisted ACTIVE shift did not restore ONLINE state')
  assert(await page.getByText("TODAY'S TARGET",{exact:true}).count()===1,'Persisted ONLINE Work surface did not render')
  const activeShift=await page.evaluate(async()=>{const db=await new Promise((resolve,reject)=>{const req=indexedDB.open('kanishka_kfe_canonical_db',13);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});const rows=await new Promise((resolve,reject)=>{const tx=db.transaction(['shifts'],'readonly');const q=tx.objectStore('shifts').getAll();q.onsuccess=()=>resolve(q.result||[]);q.onerror=()=>reject(q.error)});db.close();return rows.find(s=>s.status==='ACTIVE')||null})
- assert(activeShift && Number(activeShift.startOdometer)===1200,'ONLINE shift was not persisted in canonical DB') // Leave the smoke fixture clean for subsequent phases.
+ assert(activeShift && Number(activeShift.startOdometer)===1100,'ONLINE shift was not persisted in canonical DB') // Leave the smoke fixture clean for subsequent phases.
  await page.evaluate(async(id)=>{const db=await new Promise((resolve,reject)=>{const req=indexedDB.open('kanishka_kfe_canonical_db',13);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});await new Promise((resolve,reject)=>{const tx=db.transaction(['shifts'],'readwrite');tx.objectStore('shifts').delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)});db.close()},activeShift.id)
  await page.reload({waitUntil:'domcontentloaded'});await page.locator('.cockpit').waitFor({state:'attached'})
  await wait(async()=>await page.getByRole('button',{name:'OFFLINE',exact:true}).count()===1,'clean OFFLINE state')
