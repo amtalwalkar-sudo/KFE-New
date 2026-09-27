@@ -129,16 +129,6 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
         <label>Total shift revenue
           <div class="input-unit"><b>₹</b><input v-model="shiftRevenue" type="number" inputmode="numeric" enterkeyhint="done" min="0"></div>
         </label>
-        <details class="optional-details">
-          <summary>Optional business costs</summary>
-          <label>Business toll
-            <div class="input-unit"><b>₹</b><input v-model="toll" type="number" inputmode="numeric" min="0"></div>
-          </label>
-          <label>Business parking
-            <div class="input-unit"><b>₹</b><input v-model="parking" type="number" inputmode="numeric" min="0"></div>
-          </label>
-          <label class="check-row"><input v-model="tollTreatment" true-value="EXCLUDED" false-value="INCLUDED" type="checkbox"><span>Exclude toll & parking from trip fare</span></label>
-        </details>
         <button class="primary-action" @click="closeShift">CONTINUE</button>
       </template>
 
@@ -174,14 +164,27 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
           <div><span>Trip KM</span><strong>{{completed.reduce((s,t)=>s+Number(reviewKm[t.id]??t.tripKm??0),0).toFixed(1)}}</strong></div>
           <div><span>Dead KM</span><strong>{{Math.max(0,shiftKm-completed.reduce((s,t)=>s+Number(reviewKm[t.id]??t.tripKm??0),0)).toFixed(1)}}</strong></div>
           <div><span>Revenue</span><strong>{{money(shiftRevenue)}}</strong></div>
-          <div><span>Toll / parking</span><strong>{{money(toll||0)}} / {{money(parking||0)}}</strong></div>
         </div>
-        <p class="supporting">Trip KM corrections are optional. Review and confirm the shift summary.</p>
+        <div class="review-costs">
+          <span class="eyebrow">BUSINESS COSTS</span>
+          <label>Business toll
+            <div class="input-unit"><b>₹</b><input v-model="toll" type="number" inputmode="numeric" min="0"></div>
+          </label>
+          <label>Business parking
+            <div class="input-unit"><b>₹</b><input v-model="parking" type="number" inputmode="numeric" min="0"></div>
+          </label>
+          <label class="check-row"><input v-model="tollTreatment" true-value="EXCLUDED" false-value="INCLUDED" type="checkbox"><span>Exclude toll & parking from trip fare</span></label>
+        </div>
+        <p class="supporting">Trip KM corrections are optional. Enter business toll or parking here, then review and confirm the shift summary.</p>
         <button class="primary-action" @click="reviewDone">REVIEW COMPLETE</button>
       </template>
 
       <template v-else-if="endStage==='CONFIRM'">
         <div class="completion-panel"><span class="eyebrow">SHIFT REVIEW</span><strong>READY TO END</strong><p>{{completed.length}} completed trips · {{shiftKm.toFixed(1)}} km · {{money(shiftRevenue)}} revenue.</p></div>
+        <div class="fact-grid two">
+          <div><span>Business toll</span><strong>{{money(toll||0)}}</strong></div>
+          <div><span>Business parking</span><strong>{{money(parking||0)}}</strong></div>
+        </div>
         <button class="primary-action" :disabled="endBusy" @click="finishEnd">{{endBusy?'ENDING SHIFT…':'OK — END SHIFT'}}</button>
       </template>
 
