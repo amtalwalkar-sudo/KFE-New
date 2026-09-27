@@ -165,9 +165,9 @@ try {
   await page.getByLabel('Price / kg').fill('90')
   await page.getByLabel('Amount').fill('900')
   await page.getByRole('button', { name: 'OK — SAVE FUEL', exact: true }).click()
-  state = await db(page, ['fuel'])
-  assert(state.fuel.length === 1 && Number(state.fuel[0].odometer) === 1000, 'CNG refuel contract failed')
-  evidence.push({ id: 'WORK.CNG_REFUEL_OFFLINE', result: 'PASS', expected: 'one fuel record at 1000 km', persisted: { fuel: state.fuel.length, odometer: state.fuel[0]?.odometer } })
+  state = await db(page, ['fuel_logs'])
+  assert(state.fuel_logs.length === 1 && Number(state.fuel_logs[0].odometer) === 1000, 'CNG refuel contract failed')
+  evidence.push({ id: 'WORK.CNG_REFUEL_OFFLINE', result: 'PASS', expected: 'one fuel record at 1000 km', persisted: { fuel: state.fuel_logs.length, odometer: state.fuel_logs[0]?.odometer } })
 
   // Contract 9: cancellation control must persist CANCELLED and must not become a completed ride.
   await reset(page)
