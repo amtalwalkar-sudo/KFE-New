@@ -318,21 +318,10 @@ try {
   await page.getByRole('button', { name: 'Settings', exact: true }).click()
   const adminItems = ['Vehicle','Driver','Compliance','Maintenance','Loan','Prepayments','Ledger','Driver Monthly Target','Maintenance per KM']
   for (const item of adminItems) {
-    await page.getByRole('button', { name: new RegExp('^'+item+'
-  const result = { audit: 'semantic-control', rule: 'Each tested control must perform its documented business operation, persist the authoritative mutation, and propagate it where applicable.', total: evidence.length, pass: evidence.length, fail: 0, controls: evidence }
-  const fs = await import('node:fs/promises')
-  await fs.writeFile('artifacts/semantic-control-audit/semantic-control-audit.json', JSON.stringify(result, null, 2))
-  console.log('SEMANTIC CONTROL AUDIT PASS ' + JSON.stringify({ total: result.total, pass: result.pass, fail: result.fail }))
-  console.log(JSON.stringify(result.controls))
-} catch (e) {
-  throw new Error(e.message + '\n' + output)
-} finally {
-  await browser?.close()
-  await stop()
-}
-) }).click()
-    assert((await page.locator('.admin-page').innerText()).includes(item), 'ADMIN navigation did not open '+item)
-    await page.getByRole('button', { name: '‹ Back' }).click().catch(()=>{})
+    await page.getByRole('button', { name: item, exact: true }).click()
+    assert((await page.locator('.admin-page').innerText()).includes(item), 'ADMIN navigation did not open ' + item)
+    const back = page.getByRole('button', { name: '‹ Back', exact: true })
+    if (await back.count()) await back.click()
   }
   evidence.push({ id: 'ADMIN.SETTINGS_NAVIGATION', result: 'PASS', expected: 'theme modes persist and all Admin master targets open' })
 
