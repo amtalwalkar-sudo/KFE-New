@@ -196,6 +196,150 @@ try {
     evidence.push({ id: label, result: 'PASS', expected: 'route renders requested module', persisted: { route: path } })
   }
 
+
+  // Contract 14: Timeline period controls must change the authoritative viewing range
+  // without mutating business records.
+  await reset(page)
+  await page.goto(new URL('timeline', base).href, { waitUntil: 'domcontentloaded' })
+  await page.locator('.timeline').waitFor()
+  const timelineDbBefore = await db(page, ['shifts','trips','fuel_logs'])
+  for (const [label, expected] of [['Day','day'],['Personal','personal'],['Week','week'],['Month','month']]) {
+    await page.getByRole('button', { name: label, exact: true }).click()
+    await page.locator('.slider button.active').filter({ hasText: label }).waitFor()
+    const periodState = await page.locator('.slider button.active').innerText()
+    assert(periodState === label, `TIMELINE.${label} period control did not activate`)
+  }
+  await page.getByRole('button', { name: 'Today', exact: true }).click()
+  assert((await page.locator('.slider button.active').innerText()) === 'Day', 'TIMELINE.TODAY did not return to Day view')
+  const timelineDbAfter = await db(page, ['shifts','trips','fuel_logs'])
+  assert(JSON.stringify(timelineDbBefore) === JSON.stringify(timelineDbAfter), 'Timeline view controls mutated business records')
+  evidence.push({ id: 'TIMELINE.PERIOD_CONTROLS', result: 'PASS', expected: 'Day/Personal/Week/Month/Today change view only; no business mutation' })
+
+  // Contract 15: Timeline previous/next controls must move the displayed period.
+  const beforeMove = await page.locator('.period strong').innerText()
+  await page.getByRole('button', { name: 'Next', exact: true }).click()
+  await page.locator('.period strong').waitFor()
+  const afterMove = await page.locator('.period strong').innerText()
+  assert(afterMove !== beforeMove, 'TIMELINE.NEXT did not move the period')
+  await page.getByRole('button', { name: 'Previous', exact: true }).click()
+  const restoredMove = await page.locator('.period strong').innerText()
+  assert(restoredMove === beforeMove, 'TIMELINE.PREVIOUS did not restore the prior period')
+  evidence.push({ id: 'TIMELINE.PERIOD_NAVIGATION', result: 'PASS', expected: 'Next advances and Previous reverses the displayed period' })
+
+  // Contract 16: Timeline trip quick-edit must persist the authoritative trip edit.
+  await reset(page)
+  await page.getByRole('button', { name: 'START SHIFT', exact: true }).click()
+  await page.getByLabel('Current odometer').fill('1000')
+  await page.getByRole('checkbox', { name: /current vehicle odometer/i }).check()
+  await page.getByRole('button', { name: 'CONFIRM & GO ONLINE', exact: true }).click()
+  await swipeAction(); await page.getByRole('button', { name: 'START TRIP', exact: true }).waitFor()
+  await swipeAction(); await page.getByRole('button', { name: 'END TRIP', exact: true }).waitFor()
+  await swipeAction(); await page.getByText('FARE ENTRY', { exact: true }).waitFor()
+  await page.getByLabel('Trip fare').fill('800')
+  await page.getByRole('button', { name: 'OK — SAVE FARE', exact: true }).click()
+  await page.getByText('Fare saved.', { exact: true }).waitFor()
+  await page.goto(new URL('timeline', base).href, { waitUntil: 'domcontentloaded' })
+  await page.locator('.timeline').waitFor()
+  await page.getByRole('button', { name: 'Edit trip', exact: true }).click()
+  const fareField = page.locator('input').filter({ has: undefined })
+  const editorFare = page.locator('.editor').getByText(/Fare/).locator('..').locator('input')
+  await editorFare.click()
+  await page.getByRole('button', { name: '9', exact: true }).click()
+  await page.getByRole('button', { name: '0', exact: true }).click()
+  await page.getByRole('button', { name: '0', exact: true }).click()
+  await page.getByRole('button', { name: 'DONE', exact: true }).click()
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  state = await db(page, ['trips'])
+  assert(state.trips.length === 1 && Number(state.trips[0].revenue) === 900, 'TIMELINE.EDIT_TRIP did not persist fare 900')
+  evidence.push({ id: 'TIMELINE.EDIT_TRIP', result: 'PASS', expected: 'edited completed trip revenue persists as 900' })
+
+  // Contract 17: Timeline fuel edit and delete must persist the exact requested mutations.
+  await reset(page)
+  await page.getByRole('button', { name: 'CNG refuelling', exact: true }).click()
+  await page.getByLabel('Odometer').fill('1000')
+  await page.getByLabel('Price / kg').fill('90')
+  await page.getByLabel('Amount').fill('900')
+  await page.getByRole('button', { name: 'OK — SAVE FUEL', exact: true }).click()
+  await page.goto(new URL('timeline', base).href, { waitUntil: 'domcontentloaded' })
+  await page.locator('.timeline').waitFor()
+  await page.getByRole('button', { name: 'Edit fuel entry', exact: true }).click()
+  const amountField = page.locator('.editor').getByText('Amount (₹)', { exact: true }).locator('..').locator('input')
+  await amountField.click()
+  await page.getByRole('button', { name: '1', exact: true }).click()
+  await page.getByRole('button', { name: '0', exact: true }).click()
+  await page.getByRole('button', { name: '0', exact: true }).click()
+  await page.getByRole('button', { name: '0', exact: true }).click()
+  await page.getByRole('button', { name: 'DONE', exact: true }).click()
+  await page.getByRole('button', { name: 'Save fuel changes', exact: true }).click()
+  state = await db(page, ['fuel_logs'])
+  assert(state.fuel_logs.length === 1 && Number(state.fuel_logs[0].amount) === 1000, 'TIMELINE.EDIT_FUEL did not persist amount 1000')
+  await page.getByRole('button', { name: 'Delete fuel entry', exact: true }).click()
+  page.once('dialog', dialog => dialog.accept())
+  // Retry if the click raced the native dialog.
+  if (await page.locator('.event.fuel').count()) {
+    await page.getByRole('button', { name: 'Delete fuel entry', exact: true }).click()
+  }
+  await page.waitForTimeout(200)
+  state = await db(page, ['fuel_logs'])
+  assert(state.fuel_logs.length === 0, 'TIMELINE.DELETE_FUEL did not remove the fuel record')
+  evidence.push({ id: 'TIMELINE.FUEL_EDIT_DELETE', result: 'PASS', expected: 'fuel edit persists and delete removes the exact fuel record' })
+
+  // Contract 18: Performance period controls must update the selected period without
+  // mutating business data.
+  await reset(page)
+  await page.goto(new URL('performance', base).href, { waitUntil: 'domcontentloaded' })
+  await page.locator('.performance-page').waitFor()
+  const performanceDbBefore = await db(page, ['shifts','trips','fuel_logs'])
+  for (const label of ['DAY','WEEK','MONTH']) {
+    await page.getByRole('button', { name: label, exact: true }).click()
+    await page.locator('.pp-period button.active').filter({ hasText: label }).waitFor()
+  }
+  const performanceBeforeNav = await page.locator('.pp-period-nav span').innerText()
+  await page.getByRole('button', { name: 'Previous period', exact: true }).click()
+  const performanceAfterNav = await page.locator('.pp-period-nav span').innerText()
+  assert(performanceAfterNav !== performanceBeforeNav, 'PERFORMANCE.PREVIOUS did not move period')
+  await page.getByRole('button', { name: 'Next period', exact: true }).click()
+  assert((await page.locator('.pp-period-nav span').innerText()) === performanceBeforeNav, 'PERFORMANCE.NEXT did not restore period')
+  await page.getByRole('button', { name: 'Today', exact: true }).click()
+  await page.locator('.pp-period button.active').filter({ hasText: 'DAY' }).waitFor()
+  const performanceDbAfter = await db(page, ['shifts','trips','fuel_logs'])
+  assert(JSON.stringify(performanceDbBefore) === JSON.stringify(performanceDbAfter), 'Performance view controls mutated business records')
+  evidence.push({ id: 'PERFORMANCE.PERIOD_CONTROLS', result: 'PASS', expected: 'Day/Week/Month/Today/previous/next change view only' })
+
+  // Contract 19: Admin settings controls must persist the selected theme mode and
+  // expose every master/settings navigation target.
+  await reset(page)
+  await page.goto(new URL('admin', base).href, { waitUntil: 'domcontentloaded' })
+  await page.locator('.admin-page').waitFor()
+  await page.getByRole('button', { name: 'Settings', exact: true }).click()
+  await page.getByRole('button', { name: 'Application Settings', exact: true }).click()
+  await page.getByRole('button', { name: /Dark/, exact: true }).click()
+  assert(await page.evaluate(() => localStorage.getItem('kfe.visual.theme.mode')) === 'dark', 'ADMIN.THEME_DARK did not persist')
+  await page.getByRole('button', { name: /Light/, exact: true }).click()
+  assert(await page.evaluate(() => localStorage.getItem('kfe.visual.theme.mode')) === 'light', 'ADMIN.THEME_LIGHT did not persist')
+  await page.getByRole('button', { name: /Auto/, exact: true }).click()
+  assert(await page.evaluate(() => localStorage.getItem('kfe.visual.theme.mode')) === 'auto', 'ADMIN.THEME_AUTO did not persist')
+  await page.getByRole('button', { name: 'Settings', exact: true }).click()
+  const adminItems = ['Vehicle','Driver','Compliance','Maintenance','Loan','Prepayments','Ledger','Driver Monthly Target','Maintenance per KM']
+  for (const item of adminItems) {
+    await page.getByRole('button', { name: new RegExp('^'+item+'
+  const result = { audit: 'semantic-control', rule: 'Each tested control must perform its documented business operation, persist the authoritative mutation, and propagate it where applicable.', total: evidence.length, pass: evidence.length, fail: 0, controls: evidence }
+  const fs = await import('node:fs/promises')
+  await fs.writeFile('artifacts/semantic-control-audit/semantic-control-audit.json', JSON.stringify(result, null, 2))
+  console.log('SEMANTIC CONTROL AUDIT PASS ' + JSON.stringify({ total: result.total, pass: result.pass, fail: result.fail }))
+  console.log(JSON.stringify(result.controls))
+} catch (e) {
+  throw new Error(e.message + '\n' + output)
+} finally {
+  await browser?.close()
+  await stop()
+}
+) }).click()
+    assert((await page.locator('.admin-page').innerText()).includes(item), 'ADMIN navigation did not open '+item)
+    await page.getByRole('button', { name: '‹ Back' }).click().catch(()=>{})
+  }
+  evidence.push({ id: 'ADMIN.SETTINGS_NAVIGATION', result: 'PASS', expected: 'theme modes persist and all Admin master targets open' })
+
   assert(errors.length === 0, 'Semantic audit browser errors:\n' + errors.join('\n'))
   const result = { audit: 'semantic-control', rule: 'Each tested control must perform its documented business operation, persist the authoritative mutation, and propagate it where applicable.', total: evidence.length, pass: evidence.length, fail: 0, controls: evidence }
   const fs = await import('node:fs/promises')
