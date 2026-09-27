@@ -176,6 +176,7 @@ try {
   await page.getByRole('checkbox', { name: /current vehicle odometer/i }).check()
   await page.getByRole('button', { name: 'CONFIRM & GO ONLINE', exact: true }).click()
   await page.getByRole('button', { name: 'GO TO PICKUP', exact: true }).click()
+  await page.getByRole('button', { name: 'CANCEL TRIP', exact: true }).waitFor()
   await page.getByRole('button', { name: 'CANCEL TRIP', exact: true }).click()
   await page.getByLabel('Cancellation reason').fill('Driver mistake')
   await page.getByRole('button', { name: 'OK — CONFIRM CANCELLATION', exact: true }).click()
