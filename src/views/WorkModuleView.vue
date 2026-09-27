@@ -72,7 +72,7 @@ function move(e){if(!swipe.value.down)return;swipe.value.offset=Math.max(0,Math.
 async function up(){if(!swipe.value.down)return;const commit=progress.value>=70;swipe.value={down:false,start:0,offset:0};if(commit){try{await doAction()}finally{swipe.value={down:false,start:0,offset:0}}}}
 function keyAction(){if(!busy.value)doAction()}
 function displayTime(v){const d=new Date(v);return`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`}
-watch(()=>store.isOnline,()=>syncSurfaces()); watch(()=>store.pendingFareTrip?.id, id=>{if(id){fareTripId.value=id;fareTrip.value=null}})
+watch(()=>store.isOnline,()=>syncSurfaces()); watch(()=>store.pendingFareTrip?.id, id=>{if(id){fareTripId.value=id;fareTrip.value=null}}); watch(()=>fareTripId.value, id=>{if(id&&!fareTrip.value){fareTrip.value=store.completedTrips.find(t=>t.id===id)||null}})
 onMounted(async()=>{await store.initialize();await targetRefresh();operator.value=store.defaultOperator;if(pendingFare.value)fareTripId.value=pendingFare.value.id;fareTrip.value=null;clock.value=Date.now();timer=setInterval(()=>clock.value=Date.now(),1000);await syncSurfaces()})
 onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTraceService.reset();AndroidOverlay.hide().catch(()=>{})})
 </script>
