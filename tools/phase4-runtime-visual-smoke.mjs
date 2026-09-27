@@ -79,7 +79,7 @@ try{
  // 4B.1 Real Work online transaction: UI confirmation must persist an ACTIVE shift and
  // refresh the store into ONLINE state. This was previously untested end-to-end.
  await route('','.cockpit','Work online transaction')
- await page.getByRole('button',{name:'OFFLINE',exact:true}).click()
+ const onlineTransactionToggle=page.locator('button.toggle').first();await onlineTransactionToggle.waitFor({state:'visible',timeout:30000});assert((await onlineTransactionToggle.innerText()).trim()==='OFFLINE','Work did not return to OFFLINE after the persisted fixture reload');await onlineTransactionToggle.click()
  await page.getByText('ODOMETER CHECK',{exact:true}).waitFor({state:'visible'})
  const odoInput=page.locator('input[type="number"]').first()
  const currentOdo=await odoInput.inputValue()
