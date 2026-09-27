@@ -29,7 +29,7 @@ const targetProgress=computed(()=>targetValue.value>0?Math.min(100,Math.round(ta
 const targetRemaining=computed(()=>targetValue.value==null?null:Math.max(0,targetValue.value-targetAchieved.value))
 const ready=computed(()=>store.isTripActive&&store.trip?.tripStage==='PICKUP')
 const active=computed(()=>store.isTripActive&&store.trip?.tripStage==='RIDE_STARTED')
-const pendingFare=computed(()=>fareTripId.value?store.completedTrips.find(t=>t.id===fareTripId.value):store.completedTrips.find(t=>t.status==='COMPLETED'&&(t.revenue===''||t.revenue==null)))
+const pendingFare=computed(()=>fareTripId.value?store.completedTrips.find(t=>t.id===fareTripId.value):null)
 const missing=computed(()=>store.completedTrips.filter(t=>t.status==='COMPLETED'&&(t.revenue===''||t.revenue==null)))
 const completed=computed(()=>store.completedTrips.filter(t=>t.status==='COMPLETED'))
 const preview=computed(()=>endOpen.value?WorkService.reconcileShiftRevenue({shiftRevenue:shiftRevenue.value,trips:completed.value.map(t=>({...t,revenue:reviewRevenue.value[t.id]??t.revenue,tripKm:reviewKm.value[t.id]??t.tripKm,operator:reviewOperator.value[t.id]??t.operator})),toll:toll.value,parking:parking.value,tollParkingRevenueTreatment:tollTreatment.value}):null)
@@ -71,7 +71,6 @@ function move(e){if(!swipe.value.down)return;swipe.value.offset=Math.max(0,Math.
 async function up(){if(!swipe.value.down)return;const commit=progress.value>=70;swipe.value={down:false,start:0,offset:0};if(commit){try{await doAction()}finally{swipe.value={down:false,start:0,offset:0}}}}
 function keyAction(){if(!busy.value)doAction()}
 function displayTime(v){const d=new Date(v);return`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`}
-watch(()=>store.completedTrips.map(t=>t.id+':'+(t.revenue??'')).join('|'),()=>{if(!fareTripId.value&&pendingFare.value)fareTripId.value=pendingFare.value.id})
 watch(()=>store.isOnline,()=>syncSurfaces())
 onMounted(async()=>{await store.initialize();await targetRefresh();operator.value=store.defaultOperator;if(pendingFare.value)fareTripId.value=pendingFare.value.id;clock.value=Date.now();timer=setInterval(()=>clock.value=Date.now(),1000);await syncSurfaces()})
 onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTraceService.reset();AndroidOverlay.hide().catch(()=>{})})
@@ -131,21 +130,13 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
         <span class="live-mark" aria-hidden="true"/>
       </section>
 
-      <section class="state-context">
-        <div class="state-main">
-          <small>CURRENT STATE</small>
-          <strong>{{active?'TRIP ACTIVE':ready?'READY FOR TRIP':'ONLINE · READY'}}</strong>
-        </div>
-        <div v-if="active" class="context-value"><span>OPERATOR</span><strong>{{store.trip?.operator||'—'}}</strong></div>
-        <div v-else-if="ready" class="trip-setup">
-          <label>Operator
-            <select v-model="operator">
-              <option v-for="o in store.operators" :key="o">{{o}}</option>
-            </select>
-          </label>
-          <button class="secondary cancel-action" type="button" @click="openCancel">CANCEL TRIP</button>
-        </div>
-        <p v-else>Start the next pickup when you are ready.</p>
+      <section v-if="ready" class="trip-setup">
+        <label>Operator
+          <select v-model="operator">
+            <option v-for="o in store.operators" :key="o">{{o}}</option>
+          </select>
+        </label>
+        <button class="secondary cancel-action" type="button" @click="openCancel">CANCEL TRIP</button>
       </section>
 
       <div ref="track" class="swipe" :class="[swipeToneClass,{threshold:progress>=70,committing:busy}]" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up" @lostpointercapture="swipe={down:false,start:0,offset:0}">
