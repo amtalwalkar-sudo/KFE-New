@@ -3,12 +3,10 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useShiftTripStore } from '../stores/shiftTrip.js'
 import { useFuelStore } from '../stores/fuel.js'
 import { WorkService } from '../application/work/workService.js'
-import { DriverTargetService } from '../application/performance/driverTargetService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { MovementTraceService } from '../infrastructure/location/movementTraceService.js'
 import { KfeRideNotificationService } from '../infrastructure/android/kfeRideNotificationService.js'
 import { AndroidOverlay } from '../infrastructure/android/kfeOverlay.js'
-import { getKfeReferenceNow, reportingRangeFor } from '../domain/time/ist.js'
 
 const store=useShiftTripStore(), fuel=useFuelStore()
 const startOdo=ref(''), startAck=ref(false), gapChoice=ref(''), startBusy=ref(false)
@@ -24,6 +22,7 @@ let timer=null, traceRunning=false
 const money=v=>Number.isFinite(Number(v))?'₹'+Math.round(Number(v)).toLocaleString('en-IN'):'—'
 const notify=t=>{message.value=t;error.value='';clearTimeout(notify.t);notify.t=setTimeout(()=>{if(message.value===t)message.value=''},2400)}
 const fail=t=>{error.value=t;message.value=''}
+// ODOMETER CHECK is the canonical Start Shift gate.
 const gap= computed(()=>store.calculateGap(startOdo.value)), gapKm=computed(()=>Number(gap.value?.gapKm||0))
 const targetValue=computed(()=>target.value?.target==null?null:Number(target.value.target))
 const targetProgress=computed(()=>targetValue.value>0?Math.min(100,Math.round(targetAchieved.value/targetValue.value*100)):0)
@@ -32,15 +31,18 @@ const ready=computed(()=>store.isTripActive&&store.trip?.tripStage==='PICKUP')
 const goingPickup=computed(()=>store.isTripActive&&!ready.value&&!active.value)
 const active=computed(()=>store.isTripActive&&store.trip?.tripStage==='RIDE_STARTED')
 const pendingFare=computed(()=>fareTripId.value?store.completedTrips.find(t=>t.id===fareTripId.value):store.completedTrips.find(t=>t.status==='COMPLETED'&&(t.revenue===''||t.revenue==null)))
+// ENTER FARE is the mandatory post-trip fare capture stage.
 const missing=computed(()=>store.completedTrips.filter(t=>t.status==='COMPLETED'&&(t.revenue===''||t.revenue==null)))
 const completed=computed(()=>store.completedTrips.filter(t=>t.status==='COMPLETED'))
+// RECONCILIATION is the canonical End Shift verification stage.
 const preview=computed(()=>endOpen.value?WorkService.reconcileShiftRevenue({shiftRevenue:shiftRevenue.value,trips:completed.value.map(t=>({...t,revenue:reviewRevenue.value[t.id]??t.revenue,tripKm:reviewKm.value[t.id]??t.tripKm,operator:reviewOperator.value[t.id]??t.operator})),toll:toll.value,parking:parking.value,tollParkingRevenueTreatment:tollTreatment.value}):null)
 const endReady=computed(()=>Boolean(closingOdo.value)&&shiftRevenue.value!==''&&preview.value?.reconciliationStatus!=='UNAVAILABLE'&&preview.value?.reconciliationStatus!=='MISMATCH')
+// SHIFT TIME remains a persistent operational instrument.
 const tripTimer=computed(()=>{if(!store.trip?.tripStartAt)return'00:00:00';const s=Math.max(0,Math.floor((clock.value-Date.parse(store.trip.tripStartAt))/1000));return`${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor(s%3600/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`})
 const fuelQty=computed(()=>fuel.calculateQuantity(fuelPrice.value,fuelAmount.value))
 const shiftKm=computed(()=>Math.max(0,Number(closingOdo.value||store.lastKnownOdometer||store.startOdometer||0)-Number(store.startOdometer||0)))
 
-async function targetRefresh(){try{const n=getKfeReferenceNow();const snapshot=await PerformanceService.getDailyTargetSnapshot(n);target.value=snapshot.target;targetAchieved.value=Number(snapshot.achieved||0)}catch(_){target.value=null;targetAchieved.value=0}}
+async function targetRefresh(){try{const snapshot=await PerformanceService.getDailyTargetSnapshot();target.value=snapshot.target;targetAchieved.value=Number(snapshot.achieved||0)}catch(_){target.value=null;targetAchieved.value=0}}
 async function syncSurfaces(){if(!store.isOnline){await AndroidOverlay.hide().catch(()=>{});return}await AndroidOverlay.update({shift:store.shift?{id:store.shift.id}:null,trip:store.trip?{id:store.trip.id,status:store.trip.status,tripStage:store.trip.tripStage}:null,target:targetValue.value==null?'—':money(targetValue.value),targetProgress:targetProgress.value,rides:String(store.completedTrips.length),overlayAction:active.value?'END_RIDE':ready.value?'START_RIDE':'GO_TO_PICKUP',overlayTripId:store.trip?.id||''}).catch(()=>{})}
 
 function openStart(){fuelOpen.value=false;endOpen.value=false;startOdo.value=store.lastKnownOdometer==null?'':String(store.lastKnownOdometer);startAck.value=false;gapChoice.value='';error.value='';message.value=''}
