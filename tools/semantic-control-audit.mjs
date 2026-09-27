@@ -294,7 +294,8 @@ try {
   assert(['dark','light','auto'].includes(themeAfterFirst), 'ADMIN theme selection did not persist')
   if (await light.count()) { await light.click(); assert(await page.evaluate(() => localStorage.getItem('kfe.visual.theme.mode')) === 'light', 'ADMIN.THEME_LIGHT did not persist') }
   if (await auto.count()) { await auto.click(); assert(await page.evaluate(() => localStorage.getItem('kfe.visual.theme.mode')) === 'auto', 'ADMIN.THEME_AUTO did not persist') }
-  await page.getByRole('button', { name: 'Settings', exact: true }).click()
+  await page.goto(new URL('admin', base).href, { waitUntil: 'domcontentloaded' })
+  await page.locator('.admin-page').waitFor()
   const adminItems = ['Vehicle','Driver','Compliance','Maintenance','Loan','Prepayments','Ledger','Driver Monthly Target','Maintenance per KM']
   for (const item of adminItems) {
     await page.getByRole('button', { name: item, exact: true }).click()
