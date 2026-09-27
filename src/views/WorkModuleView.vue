@@ -148,12 +148,12 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
         <p v-else>Start the next pickup when you are ready.</p>
       </section>
 
-      <div ref="track" class="swipe" :class="[swipeToneClass,{threshold:progress>=70,committing:busy}]" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up" @lostpointercapture="swipe.value={down:false,start:0,offset:0}">
+      <div ref="track" class="swipe" :class="[swipeToneClass,{threshold:progress>=70,committing:busy}]" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up" @lostpointercapture="swipe={down:false,start:0,offset:0}">
         <div class="swipe-copy">
           <small>{{progress>=70?'RELEASE TO':''}}</small>
           <strong>{{actionLabel}}</strong>
         </div>
-        <button class="swipe-handle" type="button" :aria-label="actionLabel" @click.stop="keyAction" :style="{transform:`translateX(${swipe.value.offset}px)`}">→</button>
+        <button class="swipe-handle" type="button" :aria-label="actionLabel" @click.stop="keyAction" :style="{transform:`translateX(${swipe.offset}px)`}">→</button>
       </div>
       <small class="swipe-hint">{{progress>=70?'RELEASE TO '+actionLabel:'GRAB HANDLE  ·  DRAG RIGHT  ·  RELEASE'}}</small>
     </template>
