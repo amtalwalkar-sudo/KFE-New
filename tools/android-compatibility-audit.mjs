@@ -109,7 +109,7 @@ try {
       innerWidth: window.innerWidth,
       innerHeight: window.innerHeight,
       touchPoints: navigator.maxTouchPoints,
-      swipe: document.querySelector('.swipe-handle')?.getBoundingClientRect().toJSON(),
+      swipe: [...document.querySelectorAll('.swipe-handle')].map(el => ({ rect: el.getBoundingClientRect().toJSON(), display: getComputedStyle(el).display, visibility: getComputedStyle(el).visibility })).filter(x => x.rect.width > 0 && x.rect.height > 0 && x.display !== 'none' && x.visibility !== 'hidden').sort((a,b) => b.rect.width*b.rect.height - a.rect.width*a.rect.height)[0]?.rect ?? null,
       bottomNav: document.querySelector('.bottom-nav')?.getBoundingClientRect().toJSON(),
       horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth + 1,
     }))
