@@ -54,6 +54,10 @@ try{
  await page.getByRole('button',{name:'OFFLINE',exact:true}).click();await page.getByText('ODOMETER CHECK',{exact:true}).waitFor({state:'visible'});assert(await page.getByRole('button',{name:'Back'}).count()>0,'Start odometer Back missing');await page.getByRole('button',{name:'Back'}).first().click()
  await page.getByRole('button',{name:'GO ONLINE',exact:true}).click();await page.getByText('ODOMETER CHECK',{exact:true}).waitFor({state:'visible'})
  const odo=page.locator('input[type="number"]').first();await odo.fill('1200');await page.getByRole('checkbox').first().check()
+ // The seeded completed shift leaves a historical odometer gap. The UI requires
+ // the driver to classify that full gap before the shift can be started.
+ const personalKm=page.getByRole('button',{name:'Personal KM',exact:true})
+ if(await personalKm.count()) await personalKm.click()
  await page.getByRole('button',{name:'CONFIRM & GO ONLINE',exact:true}).click()
  await wait(async()=>await page.getByRole('button',{name:'ONLINE',exact:true}).count()===1,'shift goes ONLINE')
  assert(await page.getByText("TODAY'S TARGET",{exact:true}).count()>0,'Online target surface missing after shift start')
