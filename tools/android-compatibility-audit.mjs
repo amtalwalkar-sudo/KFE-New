@@ -103,8 +103,12 @@ try {
       if (!u.startsWith('http://127.0.0.1:4177/') && !u.includes('bigdatacloud.net')) errors.push('request failed: ' + u)
     })
 
+    // Initialize the canonical Work state first so geometry measures the actual active swipe control.
+    await deleteDb(page)
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await startShift(page)
+
     // 1/2/4/11/12: phone geometry, touch capability, layout overflow and orientation.
-    await bootWork(page)
     const geometry = await page.evaluate(() => ({
       innerWidth: window.innerWidth,
       innerHeight: window.innerHeight,
@@ -120,10 +124,7 @@ try {
     evidence.push({ id: 'LAYOUT.' + profile.name, result: 'PASS', checks: ['touch', 'no-horizontal-overflow', 'swipe-target>=44px', 'bottom-nav-in-viewport'], viewport: [profile.width, profile.height] })
 
     // 2: real pointer/touch sequence against the authoritative swipe control.
-    await deleteDb(page)
-    await page.reload({ waitUntil: 'domcontentloaded' })
-    await startShift(page)
-    const swipe = page.locator('.swipe-handle')
+    const swipe = page.locator('.work-canonical .swipe-handle')
     await swipe.dispatchEvent('pointerdown', { bubbles: true, pointerType: 'touch', clientX: 180, clientY: 700, pointerId: 1, isPrimary: true })
     await swipe.dispatchEvent('pointerup', { bubbles: true, pointerType: 'touch', clientX: 250, clientY: 700, pointerId: 1, isPrimary: true })
     await page.getByRole('button', { name: 'START TRIP', exact: true }).waitFor()
