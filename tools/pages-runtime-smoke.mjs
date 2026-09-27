@@ -57,23 +57,20 @@ try {
   await page.getByText('Kanishka Enterprises', { exact: true }).first().waitFor({ state: 'visible', timeout: 5000 })
   await page.getByRole('link', { name: 'Work' }).waitFor({ state: 'visible', timeout: 5000 })
 
-  // Exercise every hash route directly. Hash routing keeps GitHub Pages refreshes
-  // client-side, so the server never receives /timeline, /performance, or /admin.
+  // Exercise every production history route directly, including hard navigation.
+  // GitHub Pages serves 404.html as the SPA shell so these URLs must resolve
+  // to the correct Vue route rather than silently falling back to Work.
   const routes = [
-    { path: '#/timeline', text: 'Timeline' },
-    { path: '#/performance', text: 'Performance' },
-    { path: '#/admin', text: 'Admin' },
+    { path: '/timeline', text: 'Timeline' },
+    { path: '/performance', text: 'Performance' },
+    { path: '/admin', text: 'Admin' },
   ]
 
   for (const route of routes) {
-    // Use the rendered router-link so Vue Router owns the hash navigation.
-    // Directly mutating window.location.hash can destroy the evaluate context
-    // before Playwright receives its result on fast CI runners.
-    await page.getByRole('link', { name: route.text, exact: true }).click()
-    await page.getByText(route.text, { exact: true }).first().waitFor({
-      state: 'visible',
-      timeout: 15000,
-    })
+    const directResponse = await page.goto(`http://127.0.0.1:4173${route.path}`, { waitUntil: 'domcontentloaded', timeout: 30000 })
+    if (!directResponse?.ok()) throw new Error(`History route response failed for ${route.path}: ${directResponse?.status()}`)
+    await page.getByText(route.text, { exact: true }).first().waitFor({ state: 'visible', timeout: 15000 })
+    if (!page.url().endsWith(route.path)) throw new Error(`Router did not preserve history URL for ${route.path}: ${page.url()}`)
   }
 
   if (errors.length) throw new Error(`Browser runtime errors:\n${errors.join('\n\n')}`)
