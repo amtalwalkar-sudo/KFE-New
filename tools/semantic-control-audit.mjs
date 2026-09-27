@@ -101,14 +101,14 @@ try {
 
   // Contract 2: primary pickup control must create one ACTIVE trip in PICKUP stage.
   await swipeAction()
-  await page.getByText('GOING TO PICKUP', { exact: true }).waitFor()
+  await page.getByRole('button', { name: 'START TRIP', exact: true }).waitFor()
   state = await db(page, ['trips'])
   assert(state.trips.length === 1 && state.trips[0].status === 'ACTIVE' && state.trips[0].tripStage === 'PICKUP', 'GO TO PICKUP contract failed')
   evidence.push({ id: 'WORK.GO_TO_PICKUP', result: 'PASS', expected: 'one ACTIVE PICKUP trip', persisted: { trips: state.trips.length, status: state.trips[0]?.status, tripStage: state.trips[0]?.tripStage } })
 
   // Contract 3: START TRIP must transition the same trip to RIDE_STARTED, not create another.
   await swipeAction()
-  await page.getByText('TRIP ACTIVE', { exact: true }).waitFor()
+  await page.getByRole('button', { name: 'END TRIP', exact: true }).waitFor()
   state = await db(page, ['trips'])
   assert(state.trips.length === 1 && state.trips[0].tripStage === 'RIDE_STARTED', 'START TRIP contract failed')
   evidence.push({ id: 'WORK.START_TRIP', result: 'PASS', expected: 'same trip transitions to RIDE_STARTED', persisted: { trips: state.trips.length, tripStage: state.trips[0]?.tripStage } })
