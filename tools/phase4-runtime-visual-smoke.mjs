@@ -62,7 +62,7 @@ try{
  // 4B Work interactions — includes end-to-end ONLINE persistence verification
  await route('','.work-canonical','Work interactions')
  await page.getByRole('button',{name:'CNG refuelling'}).click();await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'visible'});await page.getByRole('button',{name:'CNG refuelling'}).click();await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'hidden'})
- const shiftToggle=page.locator('button.toggle').first();
+ const shiftToggle=page.locator('button.shift-toggle').first();
  await shiftToggle.waitFor({state:'visible',timeout:30000});
  assert((await shiftToggle.innerText()).trim()==='OFFLINE','Work did not initialize in the expected OFFLINE state');
  await shiftToggle.click();
