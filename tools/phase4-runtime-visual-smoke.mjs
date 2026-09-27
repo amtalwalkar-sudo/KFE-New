@@ -6,7 +6,10 @@ const externalBase=process.env.KFE_RUNTIME_BASE_URL?.trim()
 const base=externalBase ? (externalBase.endsWith('/') ? externalBase : externalBase+'/') : 'http://127.0.0.1:4173/'
 const preview=externalBase ? null : spawn('npm',['run','preview','--','--host','127.0.0.1'],{stdio:['ignore','pipe','pipe'],env:{...process.env,BROWSER:'none'},detached:true})
 let output=''
-preview.stdout.on('data',c=>{output+=c.toString()}); preview.stderr.on('data',c=>{output+=c.toString()})
+if(preview){
+  preview.stdout.on('data',c=>{output+=c.toString()})
+  preview.stderr.on('data',c=>{output+=c.toString()})
+}
 const wait=async(predicate,label='condition')=>{const end=Date.now()+10000;while(Date.now()<end){if(await predicate())return;await new Promise(r=>setTimeout(r,100))}throw new Error('Timed out waiting for '+label)}
 const stop=async()=>{if(!preview?.pid)return;try{process.kill(-preview.pid,'SIGTERM')}catch(_){}await new Promise(r=>setTimeout(r,400))}
 const assert=(x,m)=>{if(!x)throw new Error(m)}
