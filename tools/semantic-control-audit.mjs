@@ -96,7 +96,7 @@ try {
   evidence.push({ id: 'WORK.START_SHIFT', result: 'PASS', expected: 'one ACTIVE shift at 1000 km', persisted: { shifts: state.shifts.length, status: state.shifts[0]?.status, startOdometer: state.shifts[0]?.startOdometer } })
 
   // Contract 2: primary pickup control must create one ACTIVE trip in PICKUP stage.
-  await page.locator('.swipe-handle').click({force:true})
+  await page.locator('.swipe-handle').focus(); await page.keyboard.press('Enter')
   await page.getByText('GOING TO PICKUP', { exact: true }).waitFor()
   state = await db(page, ['trips'])
   assert(state.trips.length === 1 && state.trips[0].status === 'ACTIVE' && state.trips[0].tripStage === 'PICKUP', 'GO TO PICKUP contract failed')
