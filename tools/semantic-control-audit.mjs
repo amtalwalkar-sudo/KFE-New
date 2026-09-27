@@ -273,12 +273,8 @@ try {
   await page.getByRole('button', { name: 'Save fuel changes', exact: true }).click()
   state = await db(page, ['fuel_logs'])
   assert(state.fuel_logs.length === 1 && Number(state.fuel_logs[0].amount) === 1000, 'TIMELINE.EDIT_FUEL did not persist amount 1000')
-  await page.getByRole('button', { name: 'Delete fuel entry', exact: true }).click()
   page.once('dialog', dialog => dialog.accept())
-  // Retry if the click raced the native dialog.
-  if (await page.locator('.event.fuel').count()) {
-    await page.getByRole('button', { name: 'Delete fuel entry', exact: true }).click()
-  }
+  await page.getByRole('button', { name: 'Delete fuel entry', exact: true }).click()
   await page.waitForTimeout(200)
   state = await db(page, ['fuel_logs'])
   assert(state.fuel_logs.length === 0, 'TIMELINE.DELETE_FUEL did not remove the fuel record')
