@@ -119,7 +119,7 @@ try {
     assert(geometry.touchPoints > 0, profile.name + ': touch capability missing')
     assert(!geometry.horizontalOverflow, profile.name + ': horizontal overflow')
     assert(geometry.swipe && geometry.swipe.rect.width >= 40 && geometry.swipe.rect.height >= 40, profile.name + ': rendered swipe hit area below 40px')
-    assert(geometry.bottomNav && geometry.bottomNav.bottom <= window.innerHeight + 2, profile.name + ': bottom navigation escapes viewport')
+    assert(geometry.bottomNav && geometry.bottomNav.bottom <= geometry.innerHeight + 2, profile.name + ': bottom navigation escapes viewport')
     evidence.push({ id: 'LAYOUT.' + profile.name, result: 'PASS', checks: ['touch', 'no-horizontal-overflow', 'swipe-target>=44px', 'bottom-nav-in-viewport'], viewport: [profile.width, profile.height] })
 
     // 2: real pointer/touch sequence against the authoritative swipe control.
