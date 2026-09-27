@@ -16,6 +16,8 @@ import { startApplication } from './application/startup/startupRuntime.js'
 import './styles/kfe-ui.css'
 import './styles/work-cockpit-hud.css'
 import { startKfeThemeController } from './presentation/theme/kfeThemeController.js'
+import { useShiftTripStore } from './stores/shiftTrip.js'
+import { KfeRideNotificationService } from './infrastructure/android/kfeRideNotificationService.js'
 
 if (!Capacitor.isNativePlatform()) {
   if ('serviceWorker' in navigator) {
@@ -64,6 +66,7 @@ app.use(pinia)
 app.use(router)
 app.mount('#app')
 startKfeThemeController()
+void installNativeOperationalBridge().catch(error => console.warn('KFE native operational bridge failed:', error))
 
 // StartupService.initializeApplication() is invoked by startApplication() after the UI mounts.
 void startApplication().catch(error => console.error('KFE application startup failed:', error))
