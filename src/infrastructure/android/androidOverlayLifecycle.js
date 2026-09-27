@@ -1,7 +1,7 @@
 import { AndroidOverlay } from './kfeOverlay.js'
 import { WorkService } from '../../application/work/workService.js'
 import { DriverTargetService } from '../../application/performance/driverTargetService.js'
-import { getKfeReferenceNow, reportingRangeFor } from '../../domain/time/ist.js'
+import { getKfeReferenceNow } from '../../domain/time/ist.js'
 import { PerformanceService } from '../../application/performance/performanceService.js'
 import { KfeRideNotificationService } from './kfeRideNotificationService.js'
 
