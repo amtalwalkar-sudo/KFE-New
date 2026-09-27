@@ -24,6 +24,7 @@ const activeOverlayState = async () => {
   let revenue = '₹0'
   let targetProgress = 0
   let trips = []
+  let pendingFareTrip = null
   try {
     const targetResult = await DriverTargetService.getTarget(getKfeReferenceNow())
     if (Number.isFinite(Number(targetResult?.target))) {
@@ -33,6 +34,7 @@ const activeOverlayState = async () => {
 
   try {
     trips = await WorkService.getTripsForShift(active.shift.id)
+    pendingFareTrip = trips.filter(item => item?.status === 'COMPLETED' && (item?.revenue === null || item?.revenue === undefined || item?.revenue === '')).sort((x,y)=>new Date(y.tripEndAt||y.updatedAt)-new Date(x.tripEndAt||x.updatedAt))[0] || null
     const rideTrips = trips.filter(item => item?.status === 'COMPLETED' || item?.status === 'ACTIVE')
     rides = String(rideTrips.length)
   } catch (_) {}
@@ -53,7 +55,7 @@ const activeOverlayState = async () => {
     } catch (_) {}
   }
 
-  let overlayAction = 'GO_TO_PICKUP'
+  let overlayAction = pendingFareTrip?.id ? 'ENTER_FARE' : 'GO_TO_PICKUP'
   let overlayTripId = ''
   let cancellationRevenue = '₹0'
   try {
@@ -70,11 +72,6 @@ const activeOverlayState = async () => {
       overlayAction = 'CANCELLED'
       overlayTripId = cancelledTrip.id
       cancellationRevenue = `₹${Number(cancellation.revenue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
-    } else {
-      // A completed trip with no fare is a pending supporting-detail entry. The main app
-      // owns persistence; the overlay only mirrors this state and sends the user's fare back.
-      const unpriced = trips.filter(item => item?.status === 'COMPLETED' && (item?.revenue === null || item?.revenue === undefined || item?.revenue === '')).sort((a,b) => new Date(b.tripEndAt || b.updatedAt) - new Date(a.tripEndAt || a.updatedAt))
-      if (unpriced[0]?.id) { overlayAction = 'ENTER_FARE'; overlayTripId = unpriced[0].id }
     }
   }
 

@@ -40,37 +40,42 @@ export const WorkService = Object.freeze({
     const validation = validateTripOperator(data?.operator)
     if (!validation.valid) return { ok: false, reason: validation.reason }
     const result = await ShiftTripRepository.createTrip({ ...data, operator: validation.operator, tripStage: data?.tripStage || 'PICKUP' }); checkpoint()
-    const startLocation = await captureLifecycleLocation({ entityType: 'TRIP', entityId: result.id, eventType: 'START' })
-    if (startLocation) {
-      await ShiftTripRepository.setTripStartLocation(result.id, startLocation)
-      result.tripStartLocation = { latitude: startLocation.latitude, longitude: startLocation.longitude, accuracy: startLocation.accuracy, placeName: startLocation.placeName, capturedAt: startLocation.capturedAt }
+    // GPS is telemetry/enrichment. Never block the authoritative trip transition on it.
+    void captureLifecycleLocation({ entityType: 'TRIP', entityId: result.id, eventType: 'START' }).then(location => {
+      if (location) return ShiftTripRepository.setTripStartLocation(result.id, location)
+      return null
+    }).catch(() => {})
+    return result
+  },
+  async startRide(data) { const result = await ShiftTripRepository.setTripStage(data?.id, 'RIDE_STARTED'); checkpoint(); void NativeGpsService.start(data?.id).catch(() => {}); return result },
+  async completeTrip(data) {
+    // Persist the terminal trip state first. GPS/native trace enrichment is deliberately
+    // detached so END TRIP can hand control to the mandatory fare form immediately.
+    const result = await ShiftTripRepository.completeTrip({ ...data }); checkpoint()
+    const tripId = data?.id
+    if (tripId) {
+      void (async () => {
+        try {
+          await NativeGpsService.syncTrace(tripId)
+          await NativeGpsService.stop(tripId)
+          const snapshots = (await LocationRepository.forEntity('TRIP', tripId)).filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')
+          if (snapshots.length >= 2) {
+            const lineKm = calculateTraceDistanceKm(snapshots)
+            if (Number.isFinite(Number(lineKm))) {
+              await ShiftTripRepository.updateTrip({
+                id: tripId,
+                tripKm: Number(lineKm),
+                tripKmAuthority: 'GPS_LINE_TRACE',
+                tripKmProvenance: { method: 'HAVERSINE_TRACE_SUM', gpsTracePoints: snapshots.length, source: 'WEB_AND_ANDROID_NATIVE' }
+              })
+            }
+          }
+        } catch (_) {}
+      })()
     }
     return result
   },
-  async startRide(data) { const result = await ShiftTripRepository.setTripStage(data?.id, 'RIDE_STARTED'); checkpoint(); await NativeGpsService.start(data?.id); return result },
-  async completeTrip(data) {
-    const trip = await ShiftTripRepository.getTripsForShift(data?.shiftId || (await ShiftTripRepository.getActive()).shift?.id || '')
-    const activeTrip = trip.find(item => item.id === data?.id) || (await ShiftTripRepository.getActive()).trip
-    let completionData = { ...data }
-    if (activeTrip?.id) {
-      await NativeGpsService.syncTrace(activeTrip.id)
-      await NativeGpsService.stop(activeTrip.id)
-      const snapshots = (await LocationRepository.forEntity('TRIP', activeTrip.id)).filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')
-      if (snapshots.length >= 2) {
-        const lineKm = calculateTraceDistanceKm(snapshots)
-        if (Number.isFinite(Number(lineKm))) {
-          completionData = {
-            ...completionData,
-            tripKm: Number(lineKm),
-            tripKmAuthority: 'GPS_LINE_TRACE',
-            tripKmProvenance: { method: 'HAVERSINE_TRACE_SUM', gpsTracePoints: snapshots.length, source: 'WEB_AND_ANDROID_NATIVE' }
-          }
-        }
-      }
-    }
-    const result = await ShiftTripRepository.completeTrip(completionData); checkpoint(); return result
-  },
-  async cancelTrip(data) { if (data?.id) { await NativeGpsService.syncTrace(data.id); await NativeGpsService.stop(data.id) } const result = await ShiftTripRepository.cancelTrip(data); checkpoint(); return result },
+  async cancelTrip(data) { const result = await ShiftTripRepository.cancelTrip(data); checkpoint(); if (data?.id) { void (async () => { try { await NativeGpsService.syncTrace(data.id); await NativeGpsService.stop(data.id) } catch (_) {} })() } return result },
   async updateTrip(data) {
     const validation = validateTripCorrection(data)
     if (!validation.valid) return { ok: false, reason: validation.reason }
