@@ -32,7 +32,7 @@ const goingPickup=computed(()=>store.isTripActive&&!ready.value&&!active.value)
 const active=computed(()=>store.isTripActive&&store.trip?.tripStage==='RIDE_STARTED')
 const pendingFare=computed(()=>fareTripId.value?store.completedTrips.find(t=>t.id===fareTripId.value):store.completedTrips.find(t=>t.status==='COMPLETED'&&(t.revenue===''||t.revenue==null)))
 // ENTER FARE is the mandatory post-trip fare capture stage.
-const missing=computed(()=>store.completedTrips.filter(t=>t.status==='COMPLETED'&&(t.revenue===''||t.revenue==null)))
+const missing=computed(()=>completed.value.filter(t=>reviewRevenue.value[t.id]===''||reviewRevenue.value[t.id]==null))
 const completed=computed(()=>store.completedTrips.filter(t=>t.status==='COMPLETED'))
 // RECONCILIATION is the canonical End Shift verification stage.
 const preview=computed(()=>endOpen.value?WorkService.reconcileShiftRevenue({shiftRevenue:shiftRevenue.value,trips:completed.value.map(t=>({...t,revenue:reviewRevenue.value[t.id]??t.revenue,tripKm:reviewKm.value[t.id]??t.tripKm,operator:reviewOperator.value[t.id]??t.operator})),toll:toll.value,parking:parking.value,tollParkingRevenueTreatment:tollTreatment.value}):null)
@@ -158,8 +158,11 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
       <template v-else-if="endStage==='MISMATCH'">
         <div class="exception-panel">
           <span class="eyebrow">REVENUE EXCEPTION</span><h3>Shift total and trip fares differ</h3><p>Correct the entries before continuing.</p>
-          <div class="fact-grid"><div><span>Shift revenue</span><strong>{{money(shiftRevenue)}}</strong></div><div><span>Trip fares</span><strong>{{money(preview?.tripRevenue)}}</strong></div><div><span>Difference</span><strong>{{money(Math.abs(preview?.difference||0))}}</strong></div></div>
+          <div class="fact-grid"><div><span>Trip fares</span><strong>{{money(preview?.tripRevenue)}}</strong></div><div><span>Difference</span><strong>{{money(Math.abs(preview?.difference||0))}}</strong></div></div>
         </div>
+        <label>Correct total shift revenue
+          <div class="input-unit"><b>₹</b><input v-model="shiftRevenue" type="number" inputmode="numeric" min="0"></div>
+        </label>
         <div class="reconcile-list"><div v-for="t in completed" :key="t.id" class="reconcile-row"><div><strong>{{t.operator}}</strong><span>{{Number(t.tripKm||0).toFixed(1)}} km</span></div><div class="input-unit compact"><b>₹</b><input :value="reviewRevenue[t.id]" type="number" inputmode="numeric" min="0" @input="reviewRevenue={...reviewRevenue,[t.id]:$event.target.value}"></div></div></div>
         <button class="primary-action" @click="checkMismatch">CHECK AGAIN</button>
       </template>
