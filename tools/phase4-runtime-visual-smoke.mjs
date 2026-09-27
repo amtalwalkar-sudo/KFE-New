@@ -21,7 +21,7 @@ try{
  const healthy=async(label)=>{assert((await page.locator('.kfe-runtime-error').count())===0,label+' runtime error');assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),label+' horizontal overflow')}
  const route=async(path,selector,label)=>{const target=path?new URL(path,base).href:base;const res=await page.goto(target,{waitUntil:'domcontentloaded',timeout:30000});if(res)assert(res.ok(),label+' response failed');await Promise.race([page.locator(selector).waitFor({state:'attached',timeout:30000}),page.locator('.kfe-runtime-error').waitFor({state:'attached',timeout:30000}).then(async()=>{throw new Error(label+' startup/runtime error: '+(await page.locator('body').innerText()).slice(0,1000))})]);assert(await page.locator(selector).count()>0,label+' selector missing');await healthy(label)}
  // 4A shell/routes
- await route('', '.cockpit','Work');await page.getByText('Kanishka Enterprises',{exact:true}).first().waitFor({state:'visible'})
+ await route('', '.work-canonical','Work');await page.getByText('Kanishka Enterprises',{exact:true}).first().waitFor({state:'visible'})
  for(const n of ['Work','Timeline','Performance','Admin'])assert(await page.getByRole('link',{name:n,exact:true}).count()>0,'missing nav '+n)
  await page.screenshot({path:'artifacts/phase4-runtime/work-mobile.png',fullPage:true})
  await route('timeline','.timeline','Timeline');await page.screenshot({path:'artifacts/phase4-runtime/timeline-mobile.png',fullPage:true})
@@ -60,14 +60,14 @@ try{
  assert(perfText.includes('₹950'),'BR-11 excluded toll was not reflected in actual profit');
  console.log('Phase 4 runtime canonical fixture PASS — persisted shift/trip survived reload and reconciled Timeline revenue with Performance under BR-11 EXCLUDED toll treatment.');
  // 4B Work interactions — includes end-to-end ONLINE persistence verification
- await route('','.cockpit','Work interactions')
+ await route('','.work-canonical','Work interactions')
  await page.getByRole('button',{name:'CNG refuelling'}).click();await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'visible'});await page.getByRole('button',{name:'CNG refuelling'}).click();await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'hidden'})
- const shiftToggle=page.locator('button.toggle').first();
+ const shiftToggle=page.locator('button.shift-toggle').first();
  await shiftToggle.waitFor({state:'visible',timeout:30000});
  assert((await shiftToggle.innerText()).trim()==='OFFLINE','Work did not initialize in the expected OFFLINE state');
  await shiftToggle.click();
- await page.getByText('ODOMETER CHECK',{exact:true}).waitFor({state:'visible'});assert(await page.getByRole('button',{name:'Back'}).count()>0,'Start odometer Back missing');await page.getByRole('button',{name:'Back'}).first().click()
- await shiftToggle.click();await page.getByText('ODOMETER CHECK',{exact:true}).waitFor({state:'visible'})
+ await page.getByText('Odometer check',{exact:true}).waitFor({state:'visible'});assert(await page.getByRole('button',{name:'Back'}).count()>0,'Start odometer Back missing');await page.getByRole('button',{name:'Back'}).first().click()
+ await shiftToggle.click();await page.getByText('Odometer check',{exact:true}).waitFor({state:'visible'})
  const odo=page.locator('input[type="number"]').first();await odo.fill('1100');await page.getByRole('checkbox').first().check()
  // The seeded completed shift leaves a historical odometer gap. The UI requires
  // the driver to classify that full gap before the shift can be started.
@@ -79,8 +79,8 @@ try{
  assert(await page.getByText("TODAY'S TARGET",{exact:true}).count()>0,'Online target surface missing after shift start')
  // 4B.1 Real Work online transaction: UI confirmation must persist an ACTIVE shift and
  // Verify the just-created ACTIVE shift survives a real browser reload.
- await route('','.cockpit','Work online persistence')
- await page.reload({waitUntil:'domcontentloaded'});await page.locator('.cockpit').waitFor({state:'attached'})
+ await route('','.work-canonical','Work online persistence')
+ await page.reload({waitUntil:'domcontentloaded'});await page.locator('.work-canonical').waitFor({state:'attached'})
  await wait(async()=>await page.getByRole('button',{name:'ONLINE',exact:true}).count()===1,'persisted ONLINE state')
  const persistedToggle=page.getByRole('button',{name:'ONLINE',exact:true})
  assert(await persistedToggle.getAttribute('aria-pressed')==='true','Persisted ACTIVE shift did not restore ONLINE state')
@@ -88,7 +88,7 @@ try{
  const activeShift=await page.evaluate(async()=>{const db=await new Promise((resolve,reject)=>{const req=indexedDB.open('kanishka_kfe_canonical_db',13);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});const rows=await new Promise((resolve,reject)=>{const tx=db.transaction(['shifts'],'readonly');const q=tx.objectStore('shifts').getAll();q.onsuccess=()=>resolve(q.result||[]);q.onerror=()=>reject(q.error)});db.close();return rows.find(s=>s.status==='ACTIVE')||null})
  assert(activeShift && Number(activeShift.startOdometer)===1100,'ONLINE shift was not persisted in canonical DB') // Leave the smoke fixture clean for subsequent phases.
  await page.evaluate(async(id)=>{const db=await new Promise((resolve,reject)=>{const req=indexedDB.open('kanishka_kfe_canonical_db',13);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});await new Promise((resolve,reject)=>{const tx=db.transaction(['shifts'],'readwrite');tx.objectStore('shifts').delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)});db.close()},activeShift.id)
- await page.reload({waitUntil:'domcontentloaded'});await page.locator('.cockpit').waitFor({state:'attached'})
+ await page.reload({waitUntil:'domcontentloaded'});await page.locator('.work-canonical').waitFor({state:'attached'})
  await wait(async()=>await page.getByRole('button',{name:'OFFLINE',exact:true}).count()===1,'clean OFFLINE state')
  
  // 4C GPS
@@ -106,7 +106,7 @@ try{
  // 4E accessibility/responsive
  const unnamed=await page.evaluate(()=>[...document.querySelectorAll('button,a,[role="button"]')].filter(e=>{const s=getComputedStyle(e);return s.display!=='none'&&s.visibility!=='hidden'&&e.getClientRects().length}).filter(e=>!(e.textContent||'').trim()&&!e.getAttribute('aria-label')&&!e.getAttribute('title')).map(e=>e.outerHTML.slice(0,180)))
  assert(unnamed.length===0,'unnamed visible interactive elements: '+JSON.stringify(unnamed.slice(0,10)))
- await page.setViewportSize({width:1280,height:800});await route('','.cockpit','Work desktop');await page.screenshot({path:'artifacts/phase4-runtime/work-desktop.png',fullPage:true})
+ await page.setViewportSize({width:1280,height:800});await route('','.work-canonical','Work desktop');await page.screenshot({path:'artifacts/phase4-runtime/work-desktop.png',fullPage:true})
  // 4F physical DB separation
  const dbs=await page.evaluate(async()=>indexedDB.databases? (await indexedDB.databases()).map(x=>x.name).filter(Boolean):[])
  assert(dbs.includes('kanishka_kfe_canonical_db'),'canonical DB missing at runtime');assert(!dbs.includes('kanishka_kfe_synthetic_db'),'synthetic DB created during canonical startup')

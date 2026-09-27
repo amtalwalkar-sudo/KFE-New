@@ -32,7 +32,7 @@ jobs:
         run: npm ci
 
       - name: Audit production dependency risk
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=high --package-lock-only
 
       - name: Run KFE Foundation Contract Tests
         run: npm test

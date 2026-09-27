@@ -78,7 +78,7 @@ try {
   page.on('pageerror', error => errors.push(error.stack || error.message))
 
   const route = async (path, selector, label) => {
-    const target = path ? base + '#/' + path.replace(/^\//, '') : base
+    const target = path ? new URL(path.replace(/^\//, ''), base).href : base
     const response = await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 30000 })
     if (response) assert(response.ok(), label + ' response failed')
     await page.locator(selector).waitFor({ state: 'attached', timeout: 30000 })
@@ -103,7 +103,7 @@ try {
     setActiveDataSource('canonical')
   })
   await page.reload({ waitUntil: 'domcontentloaded' })
-  await page.locator('.cockpit').waitFor({ state: 'attached', timeout: 30000 })
+  await page.locator('.work-canonical').waitFor({ state: 'attached', timeout: 30000 })
 
   // D5: an Admin master-data edit must be consumed by the Work baseline.
   const d5 = await page.evaluate(async () => {
@@ -196,7 +196,7 @@ try {
   assert(i5j5.before === 0 && i5j5.on === 40 && i5j5.after === 40 && i5j5.horizon === 0, 'I5/J5 Business Start Date boundary failed.')
 
   // A5-support: the fuel control is available while the driver remains OFFLINE.
-  await route('', '.cockpit', 'Work')
+  await route('', '.work-canonical', 'Work')
   const fuelButton = page.getByRole('button', { name: 'CNG refuelling' })
   assert(await fuelButton.count() === 1, 'A5 fuel control is missing')
   assert(await page.getByRole('button', { name: 'OFFLINE', exact: true }).count() === 1, 'A5 online/offline control is missing')
@@ -265,7 +265,7 @@ try {
   // F1-support: exercise browser foreground/background lifecycle semantics without
   // claiming equivalence to Android screen-off/background execution.
   await page.goto(base, { waitUntil: 'domcontentloaded' })
-  await page.locator('.cockpit').waitFor({ state: 'attached' })
+  await page.locator('.work-canonical').waitFor({ state: 'attached' })
   await page.evaluate(async () => {
     const { WorkService } = await import(location.origin + '/src/application/work/workService.js')
     const active = await WorkService.getActiveState()
@@ -280,7 +280,7 @@ try {
   await new Promise(resolve => setTimeout(resolve, 250))
   await page.bringToFront()
   await page.reload({ waitUntil: 'domcontentloaded' })
-  await page.locator('.cockpit').waitFor({ state: 'attached' })
+  await page.locator('.work-canonical').waitFor({ state: 'attached' })
   const f1State = await page.evaluate(async () => {
     const { WorkService } = await import(location.origin + '/src/application/work/workService.js')
     return WorkService.getActiveState()
@@ -309,17 +309,17 @@ try {
 
   // G2: explicit permission denial is surfaced as the GPS permission state.
   await page.goto(base, { waitUntil: 'domcontentloaded' })
-  await page.locator('.cockpit').waitFor({ state: 'attached' })
+  await page.locator('.work-canonical').waitFor({ state: 'attached' })
   await page.evaluate(() => sessionStorage.setItem('__phase4_gps_mode', 'denied'))
   await page.reload({ waitUntil: 'domcontentloaded' })
-  await page.locator('.cockpit').waitFor({ state: 'attached' })
+  await page.locator('.work-canonical').waitFor({ state: 'attached' })
   const gps = page.locator('button.header-gps')
   assert(await gps.getAttribute('aria-label') === 'GPS permission needed', 'G2 permission denial was not surfaced')
 
   // G3: a position provider failure is surfaced as degraded/unavailable GPS.
   await page.evaluate(() => sessionStorage.setItem('__phase4_gps_mode', 'unavailable'))
   await page.reload({ waitUntil: 'domcontentloaded' })
-  await page.locator('.cockpit').waitFor({ state: 'attached' })
+  await page.locator('.work-canonical').waitFor({ state: 'attached' })
   await gps.waitFor({ state: 'attached' })
   assert(await gps.getAttribute('aria-label') === 'GPS unavailable', 'G3 unavailable GPS state was not surfaced')
 
@@ -341,7 +341,7 @@ try {
   })
   await page.evaluate(() => sessionStorage.setItem('__phase4_gps_mode', 'connected'))
   await page.reload({ waitUntil: 'domcontentloaded' })
-  await page.locator('.cockpit').waitFor({ state: 'attached' })
+  await page.locator('.work-canonical').waitFor({ state: 'attached' })
   await gps.waitFor({ state: 'attached' })
   assert(await gps.getAttribute('aria-label') === 'GPS connected', 'G4 GPS permission restoration did not recover')
   const afterSnapshots = await page.evaluate(async () => {
