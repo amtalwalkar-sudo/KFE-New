@@ -176,7 +176,7 @@ scenario('K1/K2/K3/K4/K5/K6', () => {
   assert.match(work, /CNG refuelling/); assert.match(work, /Current odometer/)
   assert.match(work, /Personal KM/); assert.match(work, /Dead KM/); assert.match(work, /CANCEL TRIP/)
   assert.match(work, /RECONCILIATION/); assert.match(work, /SHIFT REVIEW/)
-  assert.equal((work.match(/class="swipe"/g) || []).length, 1)
+  assert.equal((work.match(/class="[^"]*\bswipe\b[^"]*"/g) || []).length, 1)
   assert.match(shell, /Kanishka Enterprises/); assert.match(shell, /header-gps/); assert.match(shell, /gpsState/)
   assert.doesNotMatch(shell, /Fleet ERP · KFE 2\.0/); assert.doesNotMatch(shell, /Local-first/)
   assert.match(overlay, /ACTION_UPDATE/); assert.match(overlay, /START_RIDE/); assert.match(overlay, /END_RIDE/)
