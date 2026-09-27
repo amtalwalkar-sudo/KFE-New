@@ -243,6 +243,7 @@ try {
   await page.getByRole('button', { name: 'Edit trip', exact: true }).click()
   const editorFare = page.getByRole('textbox', { name: 'Fare (₹)' })
   await editorFare.click()
+  await page.getByRole('button', { name: 'C', exact: true }).click()
   await page.getByRole('button', { name: '9', exact: true }).click()
   await page.getByRole('button', { name: '0', exact: true }).click()
   await page.getByRole('button', { name: '0', exact: true }).click()
