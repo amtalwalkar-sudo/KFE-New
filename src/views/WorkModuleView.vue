@@ -30,6 +30,7 @@ const targetValue=computed(()=>target.value?.target==null?null:Number(target.val
 const targetProgress=computed(()=>targetValue.value>0?Math.min(100,Math.round(targetAchieved.value/targetValue.value*100)):0)
 const targetRemaining=computed(()=>targetValue.value==null?null:Math.max(0,targetValue.value-targetAchieved.value))
 const ready=computed(()=>store.isTripActive&&store.trip?.tripStage==='PICKUP')
+const goingPickup=computed(()=>store.isTripActive&&!ready.value&&!active.value)
 const active=computed(()=>store.isTripActive&&store.trip?.tripStage==='RIDE_STARTED')
 const pendingFare=computed(()=>fareTripId.value?store.completedTrips.find(t=>t.id===fareTripId.value):store.completedTrips.find(t=>t.status==='COMPLETED'&&(t.revenue===''||t.revenue==null)))
 const missing=computed(()=>store.completedTrips.filter(t=>t.status==='COMPLETED'&&(t.revenue===''||t.revenue==null)))
@@ -78,49 +79,225 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
 </script>
 
 <template>
-<div class="work-cockpit">
-<header class="work-head"><div><span>WORK</span><h1>Driver Cockpit</h1></div><div class="head-actions"><button class="icon" type="button" aria-label="CNG refuelling" title="CNG refuelling" @click="toggleFuel">⛽</button><button class="toggle" :class="{on:store.isOnline}" type="button" :aria-pressed="store.isOnline" @click="store.isOnline?openEnd():openStart()">{{store.isOnline?'ONLINE':'OFFLINE'}}<i/></button></div></header>
-<main class="cockpit">
-<section v-if="!store.isOnline&&!startOdo&&!fuelOpen&&!endOpen" class="state offline"><div><small>CURRENT STATE</small><strong>OFFLINE</strong><p>Vehicle ready? Start the shift when you are ready.</p></div><button class="primary" @click="openStart">GO ONLINE</button></section>
+<div class="work-canonical">
+  <header class="work-header">
+    <div class="identity">
+      <span class="eyebrow">KFE WORK</span>
+      <h1>Driver Cockpit</h1>
+    </div>
+    <div class="header-controls">
+      <button class="icon-action" type="button" aria-label="CNG refuelling" title="CNG refuelling" @click="toggleFuel">⛽</button>
+      <button class="shift-toggle" :class="{online:store.isOnline}" type="button" :aria-pressed="store.isOnline" @click="store.isOnline?openEnd():openStart()">
+        <span>{{store.isOnline?'ONLINE':'OFFLINE'}}</span><i aria-hidden="true"/>
+      </button>
+    </div>
+  </header>
 
-<section v-if="!store.isOnline&&startOdo!==''&&!fuelOpen&&!endOpen" class="surface">
-<div class="surface-head"><div><small>START SHIFT</small><h2>ODOMETER CHECK</h2></div><button class="quiet" @click="startOdo='';startAck=false;gapChoice=''">Back</button></div>
-<label>Current odometer<div class="unit"><input v-model="startOdo" type="number" inputmode="numeric" enterkeyhint="done" min="0"><b>km</b></div></label>
-<label class="check"><input v-model="startAck" type="checkbox"> I confirm this is the current vehicle odometer.</label>
-<div v-if="gapKm>0" class="gap"><small>ODOMETER GAP</small><strong>{{gapKm}} km</strong><p>Classify the full gap. Partial allocation is not allowed.</p><div><button :class="{selected:gapChoice==='PERSONAL'}" @click="gapChoice='PERSONAL'">Personal KM</button><button :class="{selected:gapChoice==='DEAD'}" @click="gapChoice='DEAD'">Dead KM</button></div></div>
-<button class="primary" :disabled="startBusy" @click="submitStart">{{startBusy?'STARTING…':'CONFIRM & GO ONLINE'}}</button>
-</section>
+  <main class="work-main">
+    <!-- State gate: always occupies the same position below the shift control. -->
+    <section v-if="!store.isOnline&&startOdo!==''&&!fuelOpen&&!endOpen" class="state-gate">
+      <div class="gate-head">
+        <div><span class="eyebrow">START SHIFT</span><h2>Odometer check</h2></div>
+        <button class="text-action" type="button" @click="startOdo='';startAck=false;gapChoice=''">Back</button>
+      </div>
+      <label>Current odometer
+        <div class="input-unit"><input v-model="startOdo" type="number" inputmode="numeric" enterkeyhint="done" min="0" autocomplete="off"><b>km</b></div>
+      </label>
+      <label class="check-row"><input v-model="startAck" type="checkbox"> <span>I confirm this is the current vehicle odometer.</span></label>
+      <div v-if="gapKm>0" class="gap-panel">
+        <div><span class="eyebrow">ODOMETER GAP</span><strong>{{gapKm}} km</strong><p>Classify the full gap.</p></div>
+        <div class="choice-row">
+          <button type="button" :class="{selected:gapChoice==='PERSONAL'}" @click="gapChoice='PERSONAL'">Personal KM</button>
+          <button type="button" :class="{selected:gapChoice==='DEAD'}" @click="gapChoice='DEAD'">Dead KM</button>
+        </div>
+      </div>
+      <button class="primary-action" :disabled="startBusy" @click="submitStart">{{startBusy?'STARTING…':'CONFIRM & GO ONLINE'}}</button>
+    </section>
 
-<template v-if="store.isOnline&&!fuelOpen&&!endOpen">
-<section class="instrument target"><small>TODAY'S TARGET</small><strong>{{targetValue==null?'—':money(targetValue)}}</strong><div><span>of {{targetValue==null?'—':money(targetValue)}}</span><span>{{targetProgress}}%</span></div><b><i :style="{width:targetProgress+'%'}"/></b><em>{{targetRemaining==null?'—':money(targetRemaining)}} remaining</em></section>
-<section class="instrument timer"><small>{{active?'TRIP TIME':'SHIFT TIME'}}</small><strong>{{active?tripTimer:displayTime(store.shift?.startAt||Date.now())}}</strong></section>
-<section v-if="!store.isTripActive" class="state"><small>CURRENT STATE</small><strong>READY</strong><p>Select the operator, then start the next pickup.</p><label>Operator<select v-model="operator"><option v-for="o in store.operators" :key="o">{{o}}</option></select></label></section>
-<section v-else-if="ready" class="state"><small>CURRENT STATE</small><strong>READY FOR TRIP</strong><p>Pickup reached. Start the trip or cancel it.</p><button class="secondary" @click="openCancel">CANCEL TRIP</button></section>
-<section v-else class="state"><small>CURRENT STATE</small><strong>TRIP ACTIVE</strong><p>{{store.trip?.operator}} · {{tripTimer}}</p><div class="metrics"><div><small>TRIP KM</small><strong>{{Number(store.trip?.tripKm||0).toFixed(1)}} km</strong></div><div><small>GPS</small><strong>{{store.trip?.tripStartLocation?.placeName||'ACTIVE'}}</strong></div></div></section>
-<div class="next"><small>NEXT ACTION</small><strong>{{actionLabel}}</strong><span>{{active?'Routine tracking is automatic.':ready?'Cancellation is available only before the trip starts.':'GPS and timestamp are supporting background context when available.'}}</span></div>
-<div ref="track" class="swipe" :class="{threshold:progress>=70,committing:busy}" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up"><div class="swipe-copy"><small>{{progress>=70?'RELEASE TO':''}}</small><strong>{{actionLabel}}</strong></div><button class="swipe-handle" type="button" :aria-label="actionLabel" @click.stop="keyAction">→</button></div>
-<small class="swipe-hint">{{progress>=70?'RELEASE TO '+actionLabel:'Grab the handle, drag right, release at the threshold.'}}</small>
-</template>
+    <section v-if="endOpen" class="state-gate end-gate">
+      <div class="gate-head">
+        <div><span class="eyebrow">GOING OFFLINE</span><h2>{{endStage==='CLOSE'?'Close shift':endStage==='RECONCILE'?'Reconciliation':endStage==='MISMATCH'?'Revenue exception':endStage==='REVIEW'?'Shift review':endStage==='CONFIRM'?'Ready to end':'Shift ended'}}</h2></div>
+        <button v-if="endStage==='CLOSE'" class="text-action" type="button" @click="cancelEnd">Back</button>
+      </div>
 
-<section v-if="pendingFare&&!endOpen" class="surface overlay"><div class="surface-head"><div><small>TRIP COMPLETED</small><h2>ENTER FARE</h2></div></div><div class="summary"><span>Operator</span><strong>{{pendingFare.operator}}</strong><span>Trip KM</span><strong>{{Number(pendingFare.tripKm||0).toFixed(1)}} km</strong></div><label>Trip fare<div class="unit"><b>₹</b><input v-model="fare" type="number" inputmode="numeric" enterkeyhint="done" min="0"></div></label><button class="primary" :disabled="fareBusy" @click="saveFare">{{fareBusy?'SAVING…':'OK — SAVE FARE'}}</button></section>
+      <template v-if="endStage==='CLOSE'">
+        <div class="fact-line"><span>Shift started</span><strong>{{store.startOdometer}} km</strong></div>
+        <label>Closing odometer
+          <div class="input-unit"><input v-model="closingOdo" type="number" inputmode="numeric" enterkeyhint="next" min="0"><b>km</b></div>
+        </label>
+        <label>Total shift revenue
+          <div class="input-unit"><b>₹</b><input v-model="shiftRevenue" type="number" inputmode="numeric" enterkeyhint="done" min="0"></div>
+        </label>
+        <details class="optional-details">
+          <summary>Optional business costs</summary>
+          <label>Business toll
+            <div class="input-unit"><b>₹</b><input v-model="toll" type="number" inputmode="numeric" min="0"></div>
+          </label>
+          <label>Business parking
+            <div class="input-unit"><b>₹</b><input v-model="parking" type="number" inputmode="numeric" min="0"></div>
+          </label>
+          <label class="check-row"><input v-model="tollTreatment" true-value="EXCLUDED" false-value="INCLUDED" type="checkbox"><span>Exclude toll & parking from trip fare</span></label>
+        </details>
+        <button class="primary-action" @click="closeShift">CONTINUE</button>
+      </template>
 
-<section v-if="cancelOpen" class="surface overlay"><div class="surface-head"><div><small>CANCEL TRIP</small><h2>CAPTURE REASON</h2></div><button class="quiet" @click="cancelOpen=false">Back</button></div><label>Cancellation reason<input v-model="cancelReason" type="text" enterkeyhint="next"></label><label>Cancellation fare <em>optional where applicable</em><div class="unit"><b>₹</b><input v-model="cancelFare" type="number" inputmode="numeric" enterkeyhint="done" min="0"></div></label><button class="primary" :disabled="cancelBusy" @click="saveCancel">{{cancelBusy?'SAVING…':'OK — CONFIRM CANCELLATION'}}</button></section>
+      <template v-else-if="endStage==='RECONCILE'">
+        <div v-if="missing.length" class="exception-panel">
+          <span class="eyebrow">ACTION REQUIRED</span><h3>Missing trip revenue</h3><p>Complete the listed fares before continuing.</p>
+          <div v-for="t in missing" :key="t.id" class="reconcile-row">
+            <div><strong>{{t.operator}}</strong><span>{{Number(t.tripKm||0).toFixed(1)}} km</span></div>
+            <div class="input-unit compact"><b>₹</b><input :value="reviewRevenue[t.id]" type="number" inputmode="numeric" min="0" @input="reviewRevenue={...reviewRevenue,[t.id]:$event.target.value}"></div>
+          </div>
+        </div>
+        <div v-else class="success-panel"><strong>ALL REVENUE CAPTURED</strong><span>No missing trip revenue exceptions.</span></div>
+        <div class="fact-grid"><div><span>Shift revenue</span><strong>{{money(shiftRevenue)}}</strong></div><div><span>Trip revenue</span><strong>{{money(preview?.tripRevenue)}}</strong></div></div>
+        <button class="primary-action" @click="continueReconcile">CONTINUE</button>
+      </template>
 
-<section v-if="fuelOpen" class="surface overlay"><div class="surface-head"><div><small>FUEL</small><h2>CNG REFUEL</h2></div><button class="quiet" @click="toggleFuel">Close</button></div><label>Odometer<div class="unit"><input v-model="fuelOdo" type="number" inputmode="numeric" enterkeyhint="next" min="0"><b>km</b></div></label><label>Price / kg<div class="unit"><b>₹</b><input v-model="fuelPrice" type="number" inputmode="decimal" enterkeyhint="next" min="0" step=".01"></div></label><label>Amount<div class="unit"><b>₹</b><input v-model="fuelAmount" type="number" inputmode="numeric" enterkeyhint="done" min="0"></div></label><div class="calculated"><small>QUANTITY</small><strong>{{fuelQty.valid?fuelQty.quantityKg.toFixed(2)+' kg':'—'}}</strong></div><label class="check"><input v-model="fuelFull" type="checkbox"> Full tank</label><button class="primary" :disabled="fuelBusy" @click="saveFuel">{{fuelBusy?'SAVING…':'OK — SAVE FUEL'}}</button></section>
+      <template v-else-if="endStage==='MISMATCH'">
+        <div class="exception-panel">
+          <span class="eyebrow">REVENUE EXCEPTION</span><h3>Shift total and trip fares differ</h3><p>Correct the entries before continuing.</p>
+          <div class="fact-grid"><div><span>Shift revenue</span><strong>{{money(shiftRevenue)}}</strong></div><div><span>Trip fares</span><strong>{{money(preview?.tripRevenue)}}</strong></div><div><span>Difference</span><strong>{{money(Math.abs(preview?.difference||0))}}</strong></div></div>
+        </div>
+        <div class="reconcile-list"><div v-for="t in completed" :key="t.id" class="reconcile-row"><div><strong>{{t.operator}}</strong><span>{{Number(t.tripKm||0).toFixed(1)}} km</span></div><div class="input-unit compact"><b>₹</b><input :value="reviewRevenue[t.id]" type="number" inputmode="numeric" min="0" @input="reviewRevenue={...reviewRevenue,[t.id]:$event.target.value}"></div></div></div>
+        <button class="primary-action" @click="checkMismatch">CHECK AGAIN</button>
+      </template>
 
-<section v-if="endOpen" class="surface overlay end">
-<div class="surface-head"><div><small>GOING OFFLINE</small><h2>{{endStage==='CLOSE'?'CLOSE SHIFT':endStage==='RECONCILE'?'RECONCILIATION':endStage==='MISMATCH'?'REVENUE EXCEPTION':endStage==='REVIEW'?'SHIFT REVIEW':endStage==='CONFIRM'?'READY TO END':'SHIFT ENDED'}}</h2></div><button v-if="endStage==='CLOSE'" class="quiet" @click="cancelEnd">Back</button></div>
-<template v-if="endStage==='CLOSE'"><div class="summary"><span>Shift started</span><strong>{{store.startOdometer}} km</strong></div><label>Closing odometer<div class="unit"><input v-model="closingOdo" type="number" inputmode="numeric" enterkeyhint="next" min="0"><b>km</b></div></label><label>Total shift revenue<div class="unit"><b>₹</b><input v-model="shiftRevenue" type="number" inputmode="numeric" enterkeyhint="done" min="0"></div></label><div class="optional"><small>OPTIONAL</small><label>Business toll<div class="unit"><b>₹</b><input v-model="toll" type="number" inputmode="numeric" min="0"></div></label><label>Business parking<div class="unit"><b>₹</b><input v-model="parking" type="number" inputmode="numeric" min="0"></div></label><label class="check"><input v-model="tollTreatment" true-value="EXCLUDED" false-value="INCLUDED" type="checkbox"> Exclude toll & parking from trip fare</label></div><button class="primary" @click="closeShift">CONTINUE</button></template>
-<template v-else-if="endStage==='RECONCILE'"><div v-if="missing.length" class="exception"><small>ACTION REQUIRED</small><h3>Missing trip revenue</h3><p>Only trips without recorded revenue are shown.</p><div v-for="t in missing" :key="t.id" class="row"><div><strong>{{t.operator}}</strong><small>{{Number(t.tripKm||0).toFixed(1)}} km</small></div><div class="unit"><b>₹</b><input :value="reviewRevenue[t.id]" type="number" inputmode="numeric" min="0" @input="reviewRevenue={...reviewRevenue,[t.id]:$event.target.value}"></div></div></div><div v-else class="allclear">✓ <strong>ALL REVENUE CAPTURED</strong><p>No missing trip revenue exceptions.</p></div><div class="summary"><span>Shift revenue</span><strong>{{money(shiftRevenue)}}</strong><span>Trip revenue</span><strong>{{money(preview?.tripRevenue)}}</strong></div><button class="primary" @click="continueReconcile">CONTINUE</button></template>
-<template v-else-if="endStage==='MISMATCH'"><div class="exception"><small>REVENUE EXCEPTION</small><h3>Shift total and trip fares differ</h3><p>Correct the entries before continuing.</p><div class="summary"><span>Shift revenue</span><strong>{{money(shiftRevenue)}}</strong><span>Trip fares</span><strong>{{money(preview?.tripRevenue)}}</strong><span>Difference</span><strong>{{money(Math.abs(preview?.difference||0))}}</strong></div></div><div class="rows"><div v-for="t in completed" :key="t.id" class="row"><div><strong>{{t.operator}}</strong><small>{{Number(t.tripKm||0).toFixed(1)}} km</small></div><div class="unit"><b>₹</b><input :value="reviewRevenue[t.id]" type="number" inputmode="numeric" min="0" @input="reviewRevenue={...reviewRevenue,[t.id]:$event.target.value}"></div></div></div><button class="primary" @click="checkMismatch">CHECK AGAIN</button></template>
-<template v-else-if="endStage==='REVIEW'"><div class="review-grid"><div><small>TRIPS</small><strong>{{completed.length}}</strong></div><div><small>TOTAL SHIFT KM</small><strong>{{shiftKm.toFixed(1)}} km</strong></div><div><small>TRIP KM</small><strong>{{completed.reduce((s,t)=>s+Number(reviewKm[t.id]??t.tripKm??0),0).toFixed(1)}} km</strong></div><div><small>DEAD KM</small><strong>{{Math.max(0,shiftKm-completed.reduce((s,t)=>s+Number(reviewKm[t.id]??t.tripKm??0),0)).toFixed(1)}} km</strong></div><div><small>REVENUE</small><strong>{{money(shiftRevenue)}}</strong></div><div><small>TOLL / PARKING</small><strong>{{money(toll||0)}} / {{money(parking||0)}}</strong></div></div><p class="muted">Trip KM corrections are optional. Review and confirm the shift summary.</p><button class="primary" @click="reviewDone">REVIEW COMPLETE</button></template>
-<template v-else-if="endStage==='CONFIRM'"><div class="confirm"><small>SHIFT REVIEW</small><strong>READY TO END</strong><p>{{completed.length}} completed trips · {{shiftKm.toFixed(1)}} km · {{money(shiftRevenue)}} revenue.</p></div><button class="primary" :disabled="endBusy" @click="finishEnd">{{endBusy?'ENDING SHIFT…':'OK — END SHIFT'}}</button></template>
-<template v-else><div class="allclear"><span>✓</span><strong>SHIFT ENDED</strong><p>Your shift has been saved. You are now offline.</p></div><button class="primary" @click="finishEnded">OK</button></template>
-</section>
-<p v-if="error" class="feedback error" role="alert">{{error}}</p><p v-if="message" class="feedback success" role="status">{{message}}</p>
-</main></div>
+      <template v-else-if="endStage==='REVIEW'">
+        <div class="fact-grid review">
+          <div><span>Trips</span><strong>{{completed.length}}</strong></div>
+          <div><span>Total shift KM</span><strong>{{shiftKm.toFixed(1)}}</strong></div>
+          <div><span>Trip KM</span><strong>{{completed.reduce((s,t)=>s+Number(reviewKm[t.id]??t.tripKm??0),0).toFixed(1)}}</strong></div>
+          <div><span>Dead KM</span><strong>{{Math.max(0,shiftKm-completed.reduce((s,t)=>s+Number(reviewKm[t.id]??t.tripKm??0),0)).toFixed(1)}}</strong></div>
+          <div><span>Revenue</span><strong>{{money(shiftRevenue)}}</strong></div>
+          <div><span>Toll / parking</span><strong>{{money(toll||0)}} / {{money(parking||0)}}</strong></div>
+        </div>
+        <p class="supporting">Trip KM corrections are optional. Review and confirm the shift summary.</p>
+        <button class="primary-action" @click="reviewDone">REVIEW COMPLETE</button>
+      </template>
+
+      <template v-else-if="endStage==='CONFIRM'">
+        <div class="completion-panel"><span class="eyebrow">SHIFT REVIEW</span><strong>READY TO END</strong><p>{{completed.length}} completed trips · {{shiftKm.toFixed(1)}} km · {{money(shiftRevenue)}} revenue.</p></div>
+        <button class="primary-action" :disabled="endBusy" @click="finishEnd">{{endBusy?'ENDING SHIFT…':'OK — END SHIFT'}}</button>
+      </template>
+
+      <template v-else>
+        <div class="completion-panel success"><span class="completion-mark" aria-hidden="true">✓</span><strong>SHIFT ENDED</strong><p>Your shift has been saved. You are now offline.</p></div>
+        <button class="primary-action" @click="finishEnded">OK</button>
+      </template>
+    </section>
+
+    <section v-if="!store.isOnline&&!startOdo&&!fuelOpen&&!endOpen" class="offline-state">
+      <div class="state-mark" aria-hidden="true">○</div>
+      <span class="eyebrow">CURRENT STATE</span>
+      <strong>OFFLINE</strong>
+      <p>Shift is not active.</p>
+      <button class="primary-action" @click="openStart">START SHIFT</button>
+    </section>
+
+    <template v-if="store.isOnline&&!fuelOpen&&!endOpen">
+      <section class="instrument target-instrument">
+        <div><span class="eyebrow">TODAY'S TARGET</span><strong>{{targetValue==null?'—':money(targetValue)}}</strong></div>
+        <div class="target-meta"><span>{{targetValue==null?'—':money(targetAchieved)}} achieved</span><span>{{targetProgress}}%</span></div>
+        <div class="progress-track"><i :style="{width:targetProgress+'%'}"/></div>
+        <span class="target-remaining">{{targetRemaining==null?'—':money(targetRemaining)}} remaining</span>
+      </section>
+
+      <section class="instrument time-instrument">
+        <span class="eyebrow">{{active?'TRIP ACTIVE · TIME':'SHIFT · TIME'}}</span>
+        <strong>{{active?tripTimer:displayTime(store.shift?.startAt||Date.now())}}</strong>
+      </section>
+
+      <section v-if="!store.isTripActive" class="operational-state">
+        <span class="eyebrow">ONLINE · IDLE</span>
+        <strong>READY FOR NEXT PICKUP</strong>
+        <p>Select the operator, then begin the next pickup.</p>
+        <label>Operator<select v-model="operator"><option v-for="o in store.operators" :key="o">{{o}}</option></select></label>
+      </section>
+
+      <section v-else-if="goingPickup" class="operational-state">
+        <span class="eyebrow">GOING TO PICKUP</span>
+        <strong>{{store.trip?.operator||'TRIP'}}</strong>
+        <p>Pickup movement is active. GPS and movement tracing continue in the background.</p>
+        <div class="context-line"><span>GPS</span><strong>{{store.trip?.tripStartLocation?.placeName||'ACTIVE'}}</strong></div>
+      </section>
+
+      <section v-else-if="ready" class="operational-state">
+        <span class="eyebrow">READY FOR TRIP</span>
+        <strong>PICKUP REACHED</strong>
+        <p>Start the trip or cancel it.</p>
+        <button class="secondary-action" type="button" @click="openCancel">CANCEL TRIP</button>
+      </section>
+
+      <section v-else class="operational-state active-state">
+        <span class="eyebrow">TRIP ACTIVE</span>
+        <strong>{{store.trip?.operator||'TRIP'}}</strong>
+        <div class="active-metrics">
+          <div><span>TIME</span><strong>{{tripTimer}}</strong></div>
+          <div><span>TRIP KM</span><strong>{{Number(store.trip?.tripKm||0).toFixed(1)}} km</strong></div>
+          <div><span>GPS</span><strong>{{store.trip?.tripStartLocation?.placeName||'ACTIVE'}}</strong></div>
+        </div>
+      </section>
+
+      <section class="action-instrument">
+        <div><span class="eyebrow">PRIMARY ACTION</span><strong>{{actionLabel}}</strong><p>{{active?'End the active trip when the ride is complete.':ready?'Release at the threshold to start the trip.':'Begin the next pickup.'}}</p></div>
+        <div ref="track" class="trip-swipe" :class="{threshold:progress>=70,committing:busy}" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up">
+          <div class="swipe-copy"><span>{{progress>=70?'RELEASE TO':'SWIPE TO'}}</span><strong>{{actionLabel}}</strong></div>
+          <button class="swipe-handle" type="button" :aria-label="actionLabel" @click.stop="keyAction">→</button>
+        </div>
+        <span class="swipe-hint">{{progress>=70?'Release to continue':'Drag the handle right. Tap the handle for the accessible alternative.'}}</span>
+      </section>
+    </template>
+
+    <section v-if="pendingFare&&!endOpen" class="focus-surface">
+      <div class="focus-head"><div><span class="eyebrow">FARE ENTRY</span><strong>TRIP COMPLETED</strong></div></div>
+      <div class="fact-grid two"><div><span>Operator</span><strong>{{pendingFare.operator}}</strong></div><div><span>Trip KM</span><strong>{{Number(pendingFare.tripKm||0).toFixed(1)}} km</strong></div></div>
+      <label>Trip fare
+        <div class="input-unit"><b>₹</b><input v-model="fare" type="number" inputmode="numeric" enterkeyhint="done" min="0" autofocus></div>
+      </label>
+      <button class="primary-action" :disabled="fareBusy" @click="saveFare">{{fareBusy?'SAVING…':'OK — SAVE FARE'}}</button>
+    </section>
+
+    <section v-if="cancelOpen" class="focus-surface">
+      <div class="gate-head"><div><span class="eyebrow">CANCELLATION</span><strong>CAPTURE CANCELLATION</strong></div><button class="text-action" type="button" @click="cancelOpen=false">Back</button></div>
+      <label>Cancellation reason<input v-model="cancelReason" type="text" enterkeyhint="next"></label>
+      <label>Cancellation fare <span class="optional-label">optional where applicable</span>
+        <div class="input-unit"><b>₹</b><input v-model="cancelFare" type="number" inputmode="numeric" enterkeyhint="done" min="0"></div>
+      </label>
+      <button class="primary-action" :disabled="cancelBusy" @click="saveCancel">{{cancelBusy?'SAVING…':'OK — CONFIRM CANCELLATION'}}</button>
+    </section>
+
+    <section v-if="fuelOpen" class="focus-surface">
+      <div class="gate-head"><div><span class="eyebrow">FUEL</span><strong>CNG REFUEL</strong></div><button class="text-action" type="button" @click="toggleFuel">Close</button></div>
+      <label>Odometer<div class="input-unit"><input v-model="fuelOdo" type="number" inputmode="numeric" enterkeyhint="next" min="0"><b>km</b></div></label>
+      <label>Price / kg<div class="input-unit"><b>₹</b><input v-model="fuelPrice" type="number" inputmode="decimal" enterkeyhint="next" min="0" step=".01"></div></label>
+      <label>Amount<div class="input-unit"><b>₹</b><input v-model="fuelAmount" type="number" inputmode="numeric" enterkeyhint="done" min="0"></div></label>
+      <div class="calculated-value"><span>Quantity</span><strong>{{fuelQty.valid?fuelQty.quantityKg.toFixed(2)+' kg':'—'}}</strong></div>
+      <label class="check-row"><input v-model="fuelFull" type="checkbox"><span>Full tank</span></label>
+      <button class="primary-action" :disabled="fuelBusy" @click="saveFuel">{{fuelBusy?'SAVING…':'OK — SAVE FUEL'}}</button>
+    </section>
+
+    <p v-if="error" class="feedback error" role="alert">{{error}}</p>
+    <p v-if="message" class="feedback success" role="status">{{message}}</p>
+  </main>
+</div>
 </template>
 
 <style scoped>
-.work-cockpit{--ink:var(--kfe-ui-text,#17202a);--muted:var(--kfe-muted-text,#5b6673);--bg:var(--kfe-ui-bg,#eef2f6);--surface:var(--kfe-ui-surface,#fff);--line:var(--kfe-ui-border,#dce2e8);--accent:var(--kfe-ui-accent,#2563eb);--success:var(--kfe-ui-success,#16803c);min-height:100%;background:var(--bg);color:var(--ink);font:inherit}.work-head{display:flex;justify-content:space-between;align-items:center;padding:14px 16px 10px;background:var(--surface);border-bottom:1px solid var(--line)}.work-head>div:first-child>span,.surface small,.state>small,.instrument small,.next small,.optional>small,.exception>small,.review-grid small{font-size:11px;letter-spacing:.09em;font-weight:800;color:var(--muted)}.work-head h1{margin:2px 0 0;font-size:24px}.head-actions{display:flex;gap:8px}.icon,.toggle,.quiet,.secondary{min-width:44px;min-height:44px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit}.icon{font-size:20px}.toggle{padding:0 12px;font-weight:800}.toggle i{display:inline-block;width:8px;height:8px;margin-left:6px;border-radius:50%;background:var(--muted)}.toggle.on i{background:var(--success)}.cockpit{max-width:720px;margin:auto;padding:12px 14px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px;box-sizing:border-box}.state,.surface,.instrument,.next{background:var(--surface);border:1px solid var(--line);border-radius:18px}.state,.surface{padding:16px}.state{display:flex;flex-direction:column;gap:10px}.state strong{font-size:22px;line-height:1.05}.state p,.surface p,.next span,.confirm p,.allclear p{margin:0;color:var(--muted);font-size:13px}.state label,.surface label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}input,select{min-height:48px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);font:inherit;font-size:18px;padding:10px 12px;box-sizing:border-box;outline:none}input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}.unit{display:flex;align-items:center;gap:7px;min-height:48px;border:1px solid var(--line);border-radius:14px;padding:0 12px;background:var(--surface)}.unit:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}.unit input{flex:1;border:0!important;box-shadow:none!important;padding-left:0;padding-right:0}.unit b{font-size:16px}.primary{width:100%;min-height:52px;border:0;border-radius:14px;background:var(--accent);color:#fff;font:inherit;font-weight:800;padding:12px 16px}.primary:disabled{opacity:.55}.quiet,.secondary{padding:0 12px;font-weight:700}.check{flex-direction:row!important;align-items:center;min-height:44px}.check input{width:20px;height:20px;accent-color:var(--accent)}.surface-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.surface h2{margin:2px 0 0;font-size:19px}.gap{padding:12px;border-radius:16px;background:var(--bg)}.gap strong{display:block;font-size:28px}.gap p{margin:3px 0}.gap>div{display:grid;grid-template-columns:1fr 1fr;gap:8px}.gap button{min-height:48px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font:inherit;font-weight:700}.gap button.selected{border-color:var(--accent);color:var(--accent)}.instrument{padding:14px 16px}.target strong{display:block;font-size:38px;line-height:1;margin:5px 0;font-variant-numeric:tabular-nums}.target>div{display:flex;justify-content:space-between;color:var(--muted);font-size:12px}.target>b{display:block;height:7px;margin-top:8px;background:var(--bg);border-radius:99px;overflow:hidden}.target>b i{display:block;height:100%;background:var(--accent);border-radius:inherit}.target em{display:block;margin-top:7px;color:var(--muted);font-style:normal;font-size:12px}.timer strong{display:block;font-size:30px;margin-top:3px;font-variant-numeric:tabular-nums}.next{padding:11px 14px;display:flex;flex-direction:column;gap:2px}.next strong{font-size:15px}.swipe{height:68px;border:1px solid var(--line);border-radius:34px;background:var(--surface);position:relative;overflow:hidden;touch-action:pan-y}.swipe-copy{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;pointer-events:none}.swipe-copy small{font-size:10px;font-weight:800;letter-spacing:.08em}.swipe-copy strong{font-size:14px;letter-spacing:.04em}.swipe-handle{position:absolute;left:5px;top:5px;width:58px;height:58px;border:0;border-radius:50%;background:var(--ink);color:var(--surface);font-size:25px;font-weight:800;touch-action:none}.swipe.threshold{box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent)}.swipe-hint{display:block;text-align:center;color:var(--muted);font-size:11px}.overlay{gap:12px}.summary{display:grid;grid-template-columns:1fr auto;gap:5px 10px;padding:11px 12px;background:var(--bg);border-radius:12px;font-size:13px}.summary span{color:var(--muted)}.summary strong{text-align:right}.calculated{display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:12px;background:var(--bg)}.calculated strong{font-size:20px}.optional{display:flex;flex-direction:column;gap:10px;padding-top:4px;border-top:1px solid var(--line)}.exception{padding:13px;border-radius:14px;background:color-mix(in srgb,#b76e00 7%,var(--surface));border:1px solid color-mix(in srgb,#b76e00 40%,var(--line))}.exception h3{margin:3px 0;font-size:17px}.row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}.row strong{display:block;font-size:14px}.row small{display:block;color:var(--muted);font-size:12px}.row .unit{width:130px}.allclear{text-align:center;padding:16px;background:var(--bg);border-radius:14px}.allclear:first-letter{color:var(--success)}.review-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.review-grid>div{padding:11px;background:var(--bg);border-radius:12px}.review-grid strong{display:block;font-size:18px;margin-top:3px}.muted{color:var(--muted);font-size:13px}.confirm{text-align:center;padding:18px 4px}.confirm strong{display:block;font-size:24px;margin-top:4px}.feedback{margin:0;padding:10px 12px;border-radius:12px;font-size:13px}.feedback.error{color:#c62828;background:color-mix(in srgb,#c62828 9%,var(--surface));border:1px solid color-mix(in srgb,#c62828 30%,var(--line))}.feedback.success{color:var(--success);background:color-mix(in srgb,var(--success) 9%,var(--surface));border:1px solid color-mix(in srgb,var(--success) 30%,var(--line))}@media(max-width:430px){.cockpit{padding-left:10px;padding-right:10px}.work-head h1{font-size:21px}.target strong{font-size:34px}.timer strong{font-size:28px}.swipe{height:66px}.swipe-handle{width:56px;height:56px}}@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.work-canonical{--ink:var(--kfe-ui-text,#17202a);--muted:var(--kfe-muted-text,#5b6673);--bg:var(--kfe-ui-bg,#f5f7fa);--surface:var(--kfe-ui-surface,#fff);--surface2:var(--kfe-ui-secondary-surface,#eef2f6);--line:var(--kfe-ui-border,#dce2e8);--accent:var(--kfe-ui-accent,#2563eb);--success:var(--kfe-ui-success,#16803c);--warning:var(--kfe-ui-warning,#b76e00);--error:var(--kfe-ui-error,#c62828);min-height:100%;background:var(--bg);color:var(--ink);font:inherit}
+.work-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px max(14px,env(safe-area-inset-left)) 12px;position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--surface) 94%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.identity{min-width:0}.eyebrow{display:block;font-size:10px;line-height:1.2;letter-spacing:.11em;font-weight:800;color:var(--muted);text-transform:uppercase}.identity h1{margin:3px 0 0;font-size:23px;line-height:1.05;letter-spacing:-.02em}.header-controls{display:flex;align-items:center;gap:8px}.icon-action,.shift-toggle,.text-action,.secondary-action{min-height:44px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit}.icon-action{width:44px;font-size:20px}.shift-toggle{padding:0 12px;display:flex;align-items:center;gap:7px;font-weight:850;letter-spacing:.02em}.shift-toggle i{width:8px;height:8px;border-radius:50%;background:var(--muted)}.shift-toggle.online i{background:var(--success)}
+.work-main{width:min(100%,720px);margin:0 auto;padding:12px 14px calc(20px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px;box-sizing:border-box}
+.offline-state,.state-gate,.instrument,.operational-state,.action-instrument,.focus-surface{border:1px solid var(--line);background:var(--surface);border-radius:16px}.offline-state,.state-gate,.operational-state,.action-instrument,.focus-surface{padding:16px}
+.offline-state{min-height:240px;display:flex;flex-direction:column;justify-content:center;gap:8px}.state-mark{width:42px;height:42px;border:2px solid var(--line);border-radius:50%;display:grid;place-items:center;font-size:25px;color:var(--muted);margin-bottom:6px}.offline-state>strong,.operational-state>strong,.action-instrument>div>strong,.focus-head strong{font-size:22px;line-height:1.08}.offline-state p,.operational-state p,.action-instrument p,.supporting,.completion-panel p,.exception-panel p{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
+.primary-action{width:100%;min-height:52px;border:0;border-radius:12px;background:var(--accent);color:#fff;font:inherit;font-weight:850;padding:12px 16px}.primary-action:disabled{opacity:.55}.secondary-action,.text-action{padding:0 12px;font-weight:750}.text-action{border:0;background:transparent}
+.gate-head,.focus-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.gate-head h2{margin:3px 0 0;font-size:20px}.state-gate{display:flex;flex-direction:column;gap:12px}
+.state-gate label,.focus-surface label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}input,select{width:100%;min-height:48px;box-sizing:border-box;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);padding:10px 12px;font:inherit;font-size:18px;outline:none}input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}.input-unit{display:flex;align-items:center;gap:7px;min-height:48px;box-sizing:border-box;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:0 12px}.input-unit:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}.input-unit input{flex:1;border:0;box-shadow:none;padding-left:0;padding-right:0}.input-unit b{font-size:15px}.check-row{display:flex!important;flex-direction:row!important;align-items:center;gap:8px!important;min-height:44px}.check-row input{width:20px;height:20px;min-height:20px;accent-color:var(--accent)}
+.gap-panel{padding:12px;background:var(--surface2);border-radius:14px}.gap-panel strong{display:block;font-size:27px;margin:4px 0}.gap-panel p{margin:0 0 10px;color:var(--muted);font-size:12px}.choice-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.choice-row button{min-height:48px;border:1px solid var(--line);border-radius:11px;background:var(--surface);color:var(--ink);font:inherit;font-weight:750}.choice-row button.selected{border-color:var(--accent);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.instrument{padding:14px 16px}.target-instrument>div:first-child{display:flex;align-items:end;justify-content:space-between;gap:10px}.target-instrument>div:first-child>strong{font-size:38px;line-height:.95;letter-spacing:-.03em;font-variant-numeric:tabular-nums}.target-meta{display:flex;justify-content:space-between;margin-top:8px;color:var(--muted);font-size:12px}.progress-track{height:7px;margin-top:8px;border-radius:99px;background:var(--surface2);overflow:hidden}.progress-track i{display:block;height:100%;background:var(--accent);border-radius:inherit}.target-remaining{display:block;margin-top:7px;color:var(--muted);font-size:12px}.time-instrument strong{display:block;margin-top:4px;font-size:32px;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.operational-state{display:flex;flex-direction:column;gap:8px}.context-line{display:flex;justify-content:space-between;gap:12px;padding-top:5px;border-top:1px solid var(--line);font-size:12px}.context-line span{color:var(--muted)}.active-metrics{display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:8px;margin-top:4px}.active-metrics>div{padding:10px;background:var(--surface2);border-radius:11px}.active-metrics span,.fact-grid span{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:800}.active-metrics strong{display:block;margin-top:3px;font-size:14px}
+.action-instrument{display:flex;flex-direction:column;gap:9px}.trip-swipe{height:68px;border:1px solid var(--line);border-radius:34px;background:var(--surface2);position:relative;overflow:hidden;touch-action:pan-y}.swipe-copy{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;pointer-events:none}.swipe-copy span{font-size:10px;font-weight:850;letter-spacing:.11em;color:var(--muted)}.swipe-copy strong{font-size:14px;letter-spacing:.03em}.swipe-handle{position:absolute;left:5px;top:5px;width:58px;height:58px;border:0;border-radius:50%;background:var(--ink);color:var(--surface);font-size:25px;font-weight:850;touch-action:none}.trip-swipe.threshold{box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent)}.swipe-hint{text-align:center;color:var(--muted);font-size:11px}.focus-surface{display:flex;flex-direction:column;gap:12px}.focus-head{align-items:center}.focus-head>div{display:flex;flex-direction:column;gap:3px}.fact-line{display:flex;justify-content:space-between;padding:10px 12px;border-radius:11px;background:var(--surface2);font-size:13px}.fact-line span{color:var(--muted)}.fact-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.fact-grid>div{padding:10px 11px;border-radius:11px;background:var(--surface2)}.fact-grid strong{display:block;margin-top:3px;font-size:15px}.fact-grid.two>div{min-height:48px}.optional-details{border-top:1px solid var(--line);padding-top:9px}.optional-details summary{cursor:pointer;min-height:42px;display:flex;align-items:center;font-weight:750;font-size:13px}.optional-details label{margin-top:10px}.calculated-value{display:flex;justify-content:space-between;align-items:center;padding:11px 12px;border-radius:11px;background:var(--surface2)}.calculated-value span{color:var(--muted);font-size:12px}.calculated-value strong{font-size:20px}.optional-label{font-size:11px;color:var(--muted)}.exception-panel{padding:12px;border:1px solid color-mix(in srgb,var(--warning) 40%,var(--line));background:color-mix(in srgb,var(--warning) 7%,var(--surface));border-radius:13px}.exception-panel h3{margin:4px 0;font-size:17px}.reconcile-list{display:flex;flex-direction:column;gap:4px}.reconcile-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}.reconcile-row>div:first-child strong,.reconcile-row>div:first-child span{display:block}.reconcile-row>div:first-child strong{font-size:14px}.reconcile-row>div:first-child span{font-size:11px;color:var(--muted)}.input-unit.compact{width:132px}.success-panel{padding:13px;text-align:center;border-radius:13px;background:color-mix(in srgb,var(--success) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--success) 30%,var(--line));color:var(--success)}.success-panel span{display:block;margin-top:3px;color:var(--muted);font-size:12px}.completion-panel{text-align:center;padding:14px 4px}.completion-panel>strong{display:block;font-size:24px;margin:4px 0}.completion-panel.success{color:var(--success)}.completion-mark{display:grid;place-items:center;width:48px;height:48px;margin:0 auto;border-radius:50%;background:color-mix(in srgb,var(--success) 10%,var(--surface));font-size:25px;font-weight:900}.feedback{margin:0;padding:10px 12px;border-radius:11px;font-size:13px}.feedback.error{color:var(--error);background:color-mix(in srgb,var(--error) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--error) 28%,var(--line))}.feedback.success{color:var(--success);background:color-mix(in srgb,var(--success) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--success) 28%,var(--line))}
+@media(max-width:430px){.work-main{padding-left:10px;padding-right:10px}.identity h1{font-size:21px}.target-instrument>div:first-child>strong{font-size:34px}.time-instrument strong{font-size:28px}.active-metrics{grid-template-columns:1fr 1fr}.active-metrics>div:last-child{grid-column:1/-1}.trip-swipe{height:66px}.swipe-handle{width:56px;height:56px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+@media(max-height:620px){.work-header{position:relative}.work-main{gap:8px;padding-top:8px}.offline-state{min-height:180px}.target-instrument>div:first-child>strong{font-size:31px}.time-instrument strong{font-size:26px}}
 </style>
