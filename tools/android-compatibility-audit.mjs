@@ -131,6 +131,11 @@ try {
     assert(shifts.length === 1 && shifts[0].status === 'ACTIVE', profile.name + ': touch swipe corrupted shift state')
     evidence.push({ id: 'TOUCH.' + profile.name, result: 'PASS', expected: 'touch pointer sequence remains usable and shift remains ACTIVE' })
 
+    // Reset to a clean active shift before keyboard/end-shift testing; End Shift is correctly blocked during an active trip.
+    await deleteDb(page)
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await startShift(page)
+
     // 3: keyboard/viewport resize compatibility. Verify inputs remain reachable after a large visual viewport change.
     const before = await page.evaluate(() => ({ h: window.innerHeight, vv: window.visualViewport?.height ?? null }))
     await page.getByRole('button', { name: 'ONLINE', exact: true }).click()
