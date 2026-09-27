@@ -35,6 +35,7 @@ const completed=computed(()=>store.completedTrips.filter(t=>t.status==='COMPLETE
 const preview=computed(()=>endOpen.value?WorkService.reconcileShiftRevenue({shiftRevenue:shiftRevenue.value,trips:completed.value.map(t=>({...t,revenue:reviewRevenue.value[t.id]??t.revenue,tripKm:reviewKm.value[t.id]??t.tripKm,operator:reviewOperator.value[t.id]??t.operator})),toll:toll.value,parking:parking.value,tollParkingRevenueTreatment:tollTreatment.value}):null)
 const endReady=computed(()=>Boolean(closingOdo.value)&&shiftRevenue.value!==''&&preview.value?.reconciliationStatus!=='UNAVAILABLE'&&preview.value?.reconciliationStatus!=='MISMATCH')
 const tripTimer=computed(()=>{if(!store.trip?.tripStartAt)return'00:00:00';const s=Math.max(0,Math.floor((clock.value-Date.parse(store.trip.tripStartAt))/1000));return`${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor(s%3600/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`})
+const shiftTimer=computed(()=>{if(!store.shift?.startAt)return'00:00:00';const s=Math.max(0,Math.floor((clock.value-Date.parse(store.shift.startAt))/1000));return`${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor(s%3600/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`})
 const fuelQty=computed(()=>fuel.calculateQuantity(fuelPrice.value,fuelAmount.value))
 const shiftKm=computed(()=>Math.max(0,Number(closingOdo.value||store.lastKnownOdometer||store.startOdometer||0)-Number(store.startOdometer||0)))
 
@@ -76,42 +77,130 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
 </script>
 
 <template>
-<div class="work-cockpit">
-<header class="work-head"><div><span>WORK</span><h1>Driver Cockpit</h1></div><div class="head-actions"><button class="icon" type="button" aria-label="CNG refuelling" title="CNG refuelling" @click="toggleFuel">⛽</button><button class="toggle" :class="{on:store.isOnline}" type="button" :aria-pressed="store.isOnline" @click="store.isOnline?openEnd():openStart()">{{store.isOnline?'ONLINE':'OFFLINE'}}<i/></button></div></header>
-<main class="cockpit">
-<section v-if="!store.isOnline&&!startOpen&&!fuelOpen&&!endOpen" class="state offline"><div><small>CURRENT STATE</small><strong>OFFLINE</strong><p>Vehicle ready? Start the shift when you are ready.</p></div><button class="primary" @click="openStart">GO ONLINE</button></section>
+<div class="work-cockpit premium-work">
+  <header class="work-head">
+    <div class="brand-lockup">
+      <span>KANISHKA ENTERPRISES</span>
+      <h1>Work</h1>
+    </div>
+    <div class="head-actions">
+      <button class="icon fuel-trigger" type="button" aria-label="Open CNG refuelling" title="CNG refuelling" @click="toggleFuel">⛽</button>
+      <button class="toggle" :class="{on:store.isOnline}" type="button" :aria-pressed="store.isOnline" @click="store.isOnline?openEnd():openStart()">
+        <span>{{store.isOnline?'ONLINE':'OFFLINE'}}</span><i/>
+      </button>
+    </div>
+  </header>
 
-<section v-if="!store.isOnline&&startOpen&&!fuelOpen&&!endOpen" class="surface">
-<div class="surface-head"><div><small>START SHIFT</small><h2>ODOMETER CHECK</h2></div><button class="quiet" @click="startOpen=false;startOdo='';startAck=false;gapChoice=''">Back</button></div>
-<label>Current odometer<div class="unit"><input v-model="startOdo" type="number" inputmode="numeric" enterkeyhint="done" min="0"><b>km</b></div></label>
-<label class="check"><input v-model="startAck" type="checkbox"> I confirm this is the current vehicle odometer.</label>
-<div v-if="gapKm>0" class="gap"><small>ODOMETER GAP</small><strong>{{gapKm}} km</strong><p>Classify the full gap. Partial allocation is not allowed.</p><div><button :class="{selected:gapChoice==='PERSONAL'}" @click="gapChoice='PERSONAL'">Personal KM</button><button :class="{selected:gapChoice==='DEAD'}" @click="gapChoice='DEAD'">Dead KM</button></div></div>
-<button class="primary" :disabled="startBusy" @click="submitStart">{{startBusy?'STARTING…':'CONFIRM & GO ONLINE'}}</button>
-</section>
+  <main class="cockpit">
+    <section v-if="!store.isOnline&&!startOpen&&!fuelOpen&&!endOpen" class="offline-stage">
+      <div class="state-line">
+        <div><small>CURRENT STATE</small><strong>OFFLINE</strong></div>
+        <span class="status-dot" aria-hidden="true"/>
+      </div>
+      <button class="primary hero-action" @click="openStart">GO ONLINE</button>
+    </section>
 
-<template v-if="store.isOnline&&!fuelOpen&&!endOpen">
-<section class="instrument target"><small>TODAY'S TARGET</small><strong>{{targetValue==null?'—':money(targetValue)}}</strong><div><span>of {{targetValue==null?'—':money(targetValue)}}</span><span>{{targetProgress}}%</span></div><b><i :style="{width:targetProgress+'%'}"/></b><em>{{targetRemaining==null?'—':money(targetRemaining)}} remaining</em></section>
-<section class="instrument timer"><small>{{active?'TRIP TIME':'SHIFT TIME'}}</small><strong>{{active?tripTimer:displayTime(store.shift?.startAt||Date.now())}}</strong></section>
-<section v-if="ready" class="state"><small>CURRENT STATE</small><strong>READY FOR TRIP</strong><p>Pickup reached. Start the trip or cancel it.</p><button class="secondary" @click="openCancel">CANCEL TRIP</button></section>
-<div ref="track" class="swipe" :class="{threshold:progress>=70,committing:busy}" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up" @lostpointercapture="swipe.value={down:false,start:0,offset:0}"><div class="swipe-copy"><small>{{progress>=70?'RELEASE TO':''}}</small><strong>{{actionLabel}}</strong></div><button class="swipe-handle" type="button" :aria-label="actionLabel" @click.stop="keyAction">→</button></div>
-<small class="swipe-hint">{{progress>=70?'RELEASE TO '+actionLabel:'Grab the handle, drag right, release at the threshold.'}}</small>
-</template>
+    <section v-if="!store.isOnline&&startOpen&&!fuelOpen&&!endOpen" class="surface gate-surface">
+      <div class="surface-head">
+        <div><small>START SHIFT</small><h2>ODOMETER CHECK</h2></div>
+        <button class="quiet" type="button" @click="startOpen=false;startOdo='';startAck=false;gapChoice=''">Back</button>
+      </div>
+      <label>Current odometer<div class="unit"><input v-model="startOdo" type="number" inputmode="numeric" enterkeyhint="done" min="0"><b>km</b></div></label>
+      <label class="check"><input v-model="startAck" type="checkbox"> Confirm current vehicle odometer</label>
+      <div v-if="gapKm>0" class="gap">
+        <div class="gap-head"><small>ODOMETER GAP</small><strong>{{gapKm}} km</strong></div>
+        <p>Classify the full gap.</p>
+        <div class="choice-grid">
+          <button type="button" :class="{selected:gapChoice==='PERSONAL'}" @click="gapChoice='PERSONAL'"><span>Personal KM</span><i>Whole gap</i></button>
+          <button type="button" :class="{selected:gapChoice==='DEAD'}" @click="gapChoice='DEAD'"><span>Dead KM</span><i>Whole gap</i></button>
+        </div>
+      </div>
+      <button class="primary" :disabled="startBusy" @click="submitStart">{{startBusy?'STARTING…':'CONFIRM & GO ONLINE'}}</button>
+    </section>
 
-<section v-if="pendingFare&&!endOpen" class="surface overlay"><div class="surface-head"><div><small>TRIP COMPLETED</small><h2>ENTER FARE</h2></div></div><div class="summary"><span>Operator</span><strong>{{pendingFare.operator}}</strong><span>Trip KM</span><strong>{{Number(pendingFare.tripKm||0).toFixed(1)}} km</strong></div><label>Trip fare<div class="unit"><b>₹</b><input v-model="fare" type="number" inputmode="numeric" enterkeyhint="done" min="0"></div></label><button class="primary" :disabled="fareBusy" @click="saveFare">{{fareBusy?'SAVING…':'OK — SAVE FARE'}}</button></section>
+    <template v-if="store.isOnline&&!fuelOpen&&!endOpen">
+      <section class="instrument target-instrument">
+        <div class="instrument-top"><small>TODAY'S TARGET</small><strong>{{targetValue==null?'—':money(targetValue)}}</strong></div>
+        <div class="target-track"><i :style="{width:targetProgress+'%'}"/></div>
+        <div class="target-meta"><span>{{targetAchieved?money(targetAchieved)+' achieved':'No revenue recorded yet'}}</span><b>{{targetProgress}}%</b><span>{{targetRemaining==null?'—':money(targetRemaining)+' remaining'}}</span></div>
+      </section>
 
-<section v-if="cancelOpen" class="surface overlay"><div class="surface-head"><div><small>CANCEL TRIP</small><h2>CAPTURE REASON</h2></div><button class="quiet" @click="cancelOpen=false">Back</button></div><label>Cancellation reason<input v-model="cancelReason" type="text" enterkeyhint="next"></label><label>Cancellation fare <em>optional where applicable</em><div class="unit"><b>₹</b><input v-model="cancelFare" type="number" inputmode="numeric" enterkeyhint="done" min="0"></div></label><button class="primary" :disabled="cancelBusy" @click="saveCancel">{{cancelBusy?'SAVING…':'OK — CONFIRM CANCELLATION'}}</button></section>
+      <section class="instrument timer-instrument">
+        <div><small>{{active?'TRIP TIME':'SHIFT TIME'}}</small><strong>{{active?tripTimer:shiftTimer}}</strong></div>
+        <span class="live-mark" aria-hidden="true"/>
+      </section>
 
-<section v-if="fuelOpen" class="surface overlay"><div class="surface-head"><div><small>FUEL</small><h2>CNG REFUEL</h2></div><button class="quiet" @click="toggleFuel">Close</button></div><label>Odometer<div class="unit"><input v-model="fuelOdo" type="number" inputmode="numeric" enterkeyhint="next" min="0"><b>km</b></div></label><label>Price / kg<div class="unit"><b>₹</b><input v-model="fuelPrice" type="number" inputmode="decimal" enterkeyhint="next" min="0" step=".01"></div></label><label>Amount<div class="unit"><b>₹</b><input v-model="fuelAmount" type="number" inputmode="numeric" enterkeyhint="done" min="0"></div></label><div class="calculated"><small>QUANTITY</small><strong>{{fuelQty.valid?fuelQty.quantityKg.toFixed(2)+' kg':'—'}}</strong></div><label class="check"><input v-model="fuelFull" type="checkbox"> Full tank</label><button class="primary" :disabled="fuelBusy" @click="saveFuel">{{fuelBusy?'SAVING…':'OK — SAVE FUEL'}}</button></section>
+      <section class="state-context">
+        <div class="state-main">
+          <small>CURRENT STATE</small>
+          <strong>{{active?'TRIP ACTIVE':ready?'READY FOR TRIP':'ONLINE · READY'}}</strong>
+        </div>
+        <div v-if="active" class="context-value"><span>OPERATOR</span><strong>{{store.trip?.operator||'—'}}</strong></div>
+        <div v-else-if="ready" class="trip-setup">
+          <label>Operator
+            <select v-model="operator">
+              <option v-for="o in store.operators" :key="o">{{o}}</option>
+            </select>
+          </label>
+          <button class="secondary cancel-action" type="button" @click="openCancel">CANCEL TRIP</button>
+        </div>
+        <p v-else>Start the next pickup when you are ready.</p>
+      </section>
 
-<section v-if="endOpen" class="surface overlay end">
-<div class="surface-head"><div><small>GOING OFFLINE</small><h2>{{endStage==='CLOSE'?'CLOSE SHIFT':endStage==='RECONCILE'?'RECONCILIATION':endStage==='MISMATCH'?'REVENUE EXCEPTION':endStage==='REVIEW'?'SHIFT REVIEW':endStage==='CONFIRM'?'READY TO END':'SHIFT ENDED'}}</h2></div><button v-if="endStage==='CLOSE'" class="quiet" @click="cancelEnd">Back</button></div>
-<template v-if="endStage==='CLOSE'"><div class="summary"><span>Shift started</span><strong>{{store.startOdometer}} km</strong></div><label>Closing odometer<div class="unit"><input v-model="closingOdo" type="number" inputmode="numeric" enterkeyhint="next" min="0"><b>km</b></div></label><label>Total shift revenue<div class="unit"><b>₹</b><input v-model="shiftRevenue" type="number" inputmode="numeric" enterkeyhint="done" min="0"></div></label><div class="optional"><small>OPTIONAL</small><label>Business toll<div class="unit"><b>₹</b><input v-model="toll" type="number" inputmode="numeric" min="0"></div></label><label>Business parking<div class="unit"><b>₹</b><input v-model="parking" type="number" inputmode="numeric" min="0"></div></label><label class="check"><input v-model="tollTreatment" true-value="EXCLUDED" false-value="INCLUDED" type="checkbox"> Exclude toll & parking from trip fare</label></div><button class="primary" @click="closeShift">CONTINUE</button></template>
-<template v-else-if="endStage==='RECONCILE'"><div v-if="missing.length" class="exception"><small>ACTION REQUIRED</small><h3>Missing trip revenue</h3><p>Only trips without recorded revenue are shown.</p><div v-for="t in missing" :key="t.id" class="row"><div><strong>{{t.operator}}</strong><small>{{Number(t.tripKm||0).toFixed(1)}} km</small></div><div class="unit"><b>₹</b><input :value="reviewRevenue[t.id]" type="number" inputmode="numeric" min="0" @input="reviewRevenue={...reviewRevenue,[t.id]:$event.target.value}"></div></div></div><div v-else class="allclear">✓ <strong>ALL REVENUE CAPTURED</strong><p>No missing trip revenue exceptions.</p></div><div class="summary"><span>Shift revenue</span><strong>{{money(shiftRevenue)}}</strong><span>Trip revenue</span><strong>{{money(preview?.tripRevenue)}}</strong></div><button class="primary" @click="continueReconcile">CONTINUE</button></template>
-<template v-else-if="endStage==='MISMATCH'"><div class="exception"><small>REVENUE EXCEPTION</small><h3>Shift total and trip fares differ</h3><p>Correct the entries before continuing.</p><div class="summary"><span>Shift revenue</span><strong>{{money(shiftRevenue)}}</strong><span>Trip fares</span><strong>{{money(preview?.tripRevenue)}}</strong><span>Difference</span><strong>{{money(Math.abs(preview?.difference||0))}}</strong></div></div><div class="rows"><div v-for="t in completed" :key="t.id" class="row"><div><strong>{{t.operator}}</strong><small>{{Number(t.tripKm||0).toFixed(1)}} km</small></div><div class="unit"><b>₹</b><input :value="reviewRevenue[t.id]" type="number" inputmode="numeric" min="0" @input="reviewRevenue={...reviewRevenue,[t.id]:$event.target.value}"></div></div></div><button class="primary" @click="checkMismatch">CHECK AGAIN</button></template>
-<template v-else-if="endStage==='REVIEW'"><div class="review-grid"><div><small>TRIPS</small><strong>{{completed.length}}</strong></div><div><small>TOTAL SHIFT KM</small><strong>{{shiftKm.toFixed(1)}} km</strong></div><div><small>TRIP KM</small><strong>{{completed.reduce((s,t)=>s+Number(reviewKm[t.id]??t.tripKm??0),0).toFixed(1)}} km</strong></div><div><small>DEAD KM</small><strong>{{Math.max(0,shiftKm-completed.reduce((s,t)=>s+Number(reviewKm[t.id]??t.tripKm??0),0)).toFixed(1)}} km</strong></div><div><small>REVENUE</small><strong>{{money(shiftRevenue)}}</strong></div><div><small>TOLL / PARKING</small><strong>{{money(toll||0)}} / {{money(parking||0)}}</strong></div></div><p class="muted">Trip KM corrections are optional. Review and confirm the shift summary.</p><button class="primary" @click="reviewDone">REVIEW COMPLETE</button></template>
-<template v-else-if="endStage==='CONFIRM'"><div class="confirm"><small>SHIFT REVIEW</small><strong>READY TO END</strong><p>{{completed.length}} completed trips · {{shiftKm.toFixed(1)}} km · {{money(shiftRevenue)}} revenue.</p></div><button class="primary" :disabled="endBusy" @click="finishEnd">{{endBusy?'ENDING SHIFT…':'OK — END SHIFT'}}</button></template>
-<template v-else><div class="allclear"><span>✓</span><strong>SHIFT ENDED</strong><p>Your shift has been saved. You are now offline.</p></div><button class="primary" @click="finishEnded">OK</button></template>
-</section>
-<p v-if="error" class="feedback error" role="alert">{{error}}</p><p v-if="message" class="feedback success" role="status">{{message}}</p>
-</main></div>
+      <div ref="track" class="swipe" :class="{threshold:progress>=70,committing:busy}" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up" @lostpointercapture="swipe.value={down:false,start:0,offset:0}">
+        <div class="swipe-copy">
+          <small>{{progress>=70?'RELEASE TO':''}}</small>
+          <strong>{{actionLabel}}</strong>
+        </div>
+        <button class="swipe-handle" type="button" :aria-label="actionLabel" @click.stop="keyAction">→</button>
+      </div>
+      <small class="swipe-hint">{{progress>=70?'RELEASE TO '+actionLabel:'GRAB HANDLE  ·  DRAG RIGHT  ·  RELEASE'}}</small>
+    </template>
+
+    <section v-if="pendingFare&&!endOpen" class="surface overlay">
+      <div class="surface-head"><div><small>TRIP COMPLETED</small><h2>ENTER FARE</h2></div></div>
+      <div class="summary"><span>Operator</span><strong>{{pendingFare.operator}}</strong><span>Trip KM</span><strong>{{Number(pendingFare.tripKm||0).toFixed(1)}} km</strong></div>
+      <label>Trip fare<div class="unit"><b>₹</b><input v-model="fare" type="number" inputmode="numeric" enterkeyhint="done" min="0"></div></label>
+      <button class="primary" :disabled="fareBusy" @click="saveFare">{{fareBusy?'SAVING…':'OK — SAVE FARE'}}</button>
+    </section>
+
+    <section v-if="cancelOpen" class="surface overlay">
+      <div class="surface-head"><div><small>CANCEL TRIP</small><h2>CAPTURE REASON</h2></div><button class="quiet" type="button" @click="cancelOpen=false">Back</button></div>
+      <label>Cancellation reason<input v-model="cancelReason" type="text" enterkeyhint="next"></label>
+      <label>Cancellation fare <em>optional where applicable</em><div class="unit"><b>₹</b><input v-model="cancelFare" type="number" inputmode="numeric" enterkeyhint="done" min="0"></div></label>
+      <button class="primary" :disabled="cancelBusy" @click="saveCancel">{{cancelBusy?'SAVING…':'OK — CONFIRM CANCELLATION'}}</button>
+    </section>
+
+    <section v-if="fuelOpen" class="surface overlay">
+      <div class="surface-head"><div><small>FUEL</small><h2>CNG REFUEL</h2></div><button class="quiet" type="button" @click="toggleFuel">Close</button></div>
+      <label>Odometer<div class="unit"><input v-model="fuelOdo" type="number" inputmode="numeric" enterkeyhint="next" min="0"><b>km</b></div></label>
+      <label>Price / kg<div class="unit"><b>₹</b><input v-model="fuelPrice" type="number" inputmode="decimal" enterkeyhint="next" min="0" step=".01"></div></label>
+      <label>Amount<div class="unit"><b>₹</b><input v-model="fuelAmount" type="number" inputmode="numeric" enterkeyhint="done" min="0"></div></label>
+      <div class="calculated"><small>QUANTITY</small><strong>{{fuelQty.valid?fuelQty.quantityKg.toFixed(2)+' kg':'—'}}</strong></div>
+      <label class="check"><input v-model="fuelFull" type="checkbox"> Full tank</label>
+      <button class="primary" :disabled="fuelBusy" @click="saveFuel">{{fuelBusy?'SAVING…':'OK — SAVE FUEL'}}</button>
+    </section>
+
+    <section v-if="endOpen" class="surface overlay end">
+      <div class="surface-head"><div><small>GOING OFFLINE</small><h2>{{endStage==='CLOSE'?'CLOSE SHIFT':endStage==='RECONCILE'?'RECONCILIATION':endStage==='MISMATCH'?'REVENUE EXCEPTION':endStage==='REVIEW'?'SHIFT REVIEW':endStage==='CONFIRM'?'READY TO END':'SHIFT ENDED'}}</h2></div><button v-if="endStage==='CLOSE'" class="quiet" type="button" @click="cancelEnd">Back</button></div>
+      <template v-if="endStage==='CLOSE'">
+        <div class="summary"><span>Shift started</span><strong>{{store.startOdometer}} km</strong></div>
+        <label>Closing odometer<div class="unit"><input v-model="closingOdo" type="number" inputmode="numeric" enterkeyhint="next" min="0"><b>km</b></div></label>
+        <label>Total shift revenue<div class="unit"><b>₹</b><input v-model="shiftRevenue" type="number" inputmode="numeric" enterkeyhint="done" min="0"></div></label>
+        <div class="optional"><small>OPTIONAL</small><label>Business toll<div class="unit"><b>₹</b><input v-model="toll" type="number" inputmode="numeric" min="0"></div></label><label>Business parking<div class="unit"><b>₹</b><input v-model="parking" type="number" inputmode="numeric" min="0"></div></label><label class="check"><input v-model="tollTreatment" true-value="EXCLUDED" false-value="INCLUDED" type="checkbox"> Exclude toll & parking from trip fare</label></div>
+        <button class="primary" @click="closeShift">CONTINUE</button>
+      </template>
+      <template v-else-if="endStage==='RECONCILE'">
+        <div v-if="missing.length" class="exception"><small>ACTION REQUIRED</small><h3>Missing trip revenue</h3><p>Only trips without recorded revenue are shown.</p><div v-for="t in missing" :key="t.id" class="row"><div><strong>{{t.operator}}</strong><small>{{Number(t.tripKm||0).toFixed(1)}} km</small></div><div class="unit"><b>₹</b><input :value="reviewRevenue[t.id]" type="number" inputmode="numeric" min="0" @input="reviewRevenue={...reviewRevenue,[t.id]:$event.target.value}"></div></div></div><div v-else class="allclear">✓ <strong>ALL REVENUE CAPTURED</strong><p>No missing trip revenue exceptions.</p></div><div class="summary"><span>Shift revenue</span><strong>{{money(shiftRevenue)}}</strong><span>Trip revenue</span><strong>{{money(preview?.tripRevenue)}}</strong></div><button class="primary" @click="continueReconcile">CONTINUE</button>
+      </template>
+      <template v-else-if="endStage==='MISMATCH'"><div class="exception"><small>REVENUE EXCEPTION</small><h3>Shift total and trip fares differ</h3><p>Correct the entries before continuing.</p><div class="summary"><span>Shift revenue</span><strong>{{money(shiftRevenue)}}</strong><span>Trip fares</span><strong>{{money(preview?.tripRevenue)}}</strong><span>Difference</span><strong>{{money(Math.abs(preview?.difference||0))}}</strong></div></div><div class="rows"><div v-for="t in completed" :key="t.id" class="row"><div><strong>{{t.operator}}</strong><small>{{Number(t.tripKm||0).toFixed(1)}} km</small></div><div class="unit"><b>₹</b><input :value="reviewRevenue[t.id]" type="number" inputmode="numeric" min="0" @input="reviewRevenue={...reviewRevenue,[t.id]:$event.target.value}"></div></div></div><button class="primary" @click="checkMismatch">CHECK AGAIN</button></template>
+      <template v-else-if="endStage==='REVIEW'"><div class="review-grid"><div><small>TRIPS</small><strong>{{completed.length}}</strong></div><div><small>TOTAL SHIFT KM</small><strong>{{shiftKm.toFixed(1)}} km</strong></div><div><small>TRIP KM</small><strong>{{completed.reduce((s,t)=>s+Number(reviewKm[t.id]??t.tripKm??0),0).toFixed(1)}} km</strong></div><div><small>DEAD KM</small><strong>{{Math.max(0,shiftKm-completed.reduce((s,t)=>s+Number(reviewKm[t.id]??t.tripKm??0),0)).toFixed(1)}} km</strong></div><div><small>REVENUE</small><strong>{{money(shiftRevenue)}}</strong></div><div><small>TOLL / PARKING</small><strong>{{money(toll||0)}} / {{money(parking||0)}}</strong></div></div><p class="muted">Trip KM corrections are optional. Review and confirm the shift summary.</p><button class="primary" @click="reviewDone">REVIEW COMPLETE</button></template>
+      <template v-else-if="endStage==='CONFIRM'"><div class="confirm"><small>SHIFT REVIEW</small><strong>READY TO END</strong><p>{{completed.length}} completed trips · {{shiftKm.toFixed(1)}} km · {{money(shiftRevenue)}} revenue.</p></div><button class="primary" :disabled="endBusy" @click="finishEnd">{{endBusy?'ENDING SHIFT…':'OK — END SHIFT'}}</button></template>
+      <template v-else><div class="allclear"><span>✓</span><strong>SHIFT ENDED</strong><p>Your shift has been saved. You are now offline.</p></div><button class="primary" @click="finishEnded">OK</button></template>
+    </section>
+
+    <p v-if="error" class="feedback error" role="alert">{{error}}</p>
+    <p v-if="message" class="feedback success" role="status">{{message}}</p>
+  </main>
+</div>
 </template>
