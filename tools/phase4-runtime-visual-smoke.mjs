@@ -30,7 +30,8 @@ try{
  await route('admin','.admin-page','Admin');await page.screenshot({path:'artifacts/phase4-runtime/admin-mobile.png',fullPage:true})
  // 4B canonical persistence + cross-surface runtime fixture
  const seedCanonicalFixture=async()=>page.evaluate(async()=>{
-   const db=await new Promise((resolve,reject)=>{const req=indexedDB.open('kanishka_kfe_canonical_db',13);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});
+   const openCanonicalDb=async()=>{const list=await indexedDB.databases();const entry=list.find(x=>x.name==='kanishka_kfe_canonical_db');return await new Promise((resolve,reject)=>{const req=entry?.version?indexedDB.open('kanishka_kfe_canonical_db',entry.version):indexedDB.open('kanishka_kfe_canonical_db');req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})};
+   const db=await openCanonicalDb();
    const now=new Date();
    const istDayStartUtc=()=>{ const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(now); const y=Number(parts.find(p=>p.type==='year').value),m=Number(parts.find(p=>p.type==='month').value)-1,d=Number(parts.find(p=>p.type==='day').value); return Date.UTC(y,m,d)-19800000 }
    // Timeline is keyed to the IST business day. Build the fixture from that
@@ -43,7 +44,7 @@ try{
  // The runtime matrix must start from a deterministic OFFLINE state. Remove
  // only stale ACTIVE fixture shifts; the completed persistence fixture remains.
  await page.evaluate(async()=>{
-   const db=await new Promise((resolve,reject)=>{const req=indexedDB.open('kanishka_kfe_canonical_db',13);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});
+   const db=await (async()=>{const list=await indexedDB.databases();const entry=list.find(x=>x.name==='kanishka_kfe_canonical_db');return await new Promise((resolve,reject)=>{const req=entry?.version?indexedDB.open('kanishka_kfe_canonical_db',entry.version):indexedDB.open('kanishka_kfe_canonical_db');req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})})();
    await new Promise((resolve,reject)=>{
      const tx=db.transaction(['shifts'],'readwrite');
      const q=tx.objectStore('shifts').getAll();
@@ -86,9 +87,9 @@ try{
  const persistedToggle=page.getByRole('button',{name:'ONLINE',exact:true})
  assert(await persistedToggle.getAttribute('aria-pressed')==='true','Persisted ACTIVE shift did not restore ONLINE state')
  assert(await page.getByText("TODAY'S TARGET",{exact:true}).count()===1,'Persisted ONLINE Work surface did not render')
- const activeShift=await page.evaluate(async()=>{const db=await new Promise((resolve,reject)=>{const req=indexedDB.open('kanishka_kfe_canonical_db',13);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});const rows=await new Promise((resolve,reject)=>{const tx=db.transaction(['shifts'],'readonly');const q=tx.objectStore('shifts').getAll();q.onsuccess=()=>resolve(q.result||[]);q.onerror=()=>reject(q.error)});db.close();return rows.find(s=>s.status==='ACTIVE')||null})
+ const activeShift=await page.evaluate(async()=>{const db=await (async()=>{const list=await indexedDB.databases();const entry=list.find(x=>x.name==='kanishka_kfe_canonical_db');return await new Promise((resolve,reject)=>{const req=entry?.version?indexedDB.open('kanishka_kfe_canonical_db',entry.version):indexedDB.open('kanishka_kfe_canonical_db');req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})})();const rows=await new Promise((resolve,reject)=>{const tx=db.transaction(['shifts'],'readonly');const q=tx.objectStore('shifts').getAll();q.onsuccess=()=>resolve(q.result||[]);q.onerror=()=>reject(q.error)});db.close();return rows.find(s=>s.status==='ACTIVE')||null})
  assert(activeShift && Number(activeShift.startOdometer)===1100,'ONLINE shift was not persisted in canonical DB') // Leave the smoke fixture clean for subsequent phases.
- await page.evaluate(async(id)=>{const db=await new Promise((resolve,reject)=>{const req=indexedDB.open('kanishka_kfe_canonical_db',13);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});await new Promise((resolve,reject)=>{const tx=db.transaction(['shifts'],'readwrite');tx.objectStore('shifts').delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)});db.close()},activeShift.id)
+ await page.evaluate(async(id)=>{const db=await (async()=>{const list=await indexedDB.databases();const entry=list.find(x=>x.name==='kanishka_kfe_canonical_db');return await new Promise((resolve,reject)=>{const req=entry?.version?indexedDB.open('kanishka_kfe_canonical_db',entry.version):indexedDB.open('kanishka_kfe_canonical_db');req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})})();await new Promise((resolve,reject)=>{const tx=db.transaction(['shifts'],'readwrite');tx.objectStore('shifts').delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)});db.close()},activeShift.id)
  await page.reload({waitUntil:'domcontentloaded'});await page.locator('.work-canonical').waitFor({state:'attached'})
  await wait(async()=>await page.getByRole('button',{name:'OFFLINE',exact:true}).count()===1,'clean OFFLINE state')
  
