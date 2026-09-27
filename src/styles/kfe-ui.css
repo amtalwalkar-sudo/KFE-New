@@ -1288,3 +1288,8 @@ button,input,select,textarea{min-height:var(--kfe-touch)}
   .premium-work .target-instrument strong{font-size:35px}
   .premium-work .timer-instrument strong{font-size:30px}
 }
+
+/* Frozen Work swipe contract: reserved in-flow action zone, 64px effective handle target. */
+.premium-work .swipe{position:sticky;left:auto;right:auto;bottom:calc(var(--kfe-nav-height) + env(safe-area-inset-bottom,0px));width:100%;margin:0;z-index:20;}
+.premium-work .swipe-handle{width:64px;height:64px;left:3px;top:3px;}
+.premium-work .swipe-hint{position:static;left:auto;right:auto;bottom:auto;z-index:auto;margin:2px 0 0;}

@@ -114,6 +114,16 @@ public class KfeRideNotificationsPlugin extends Plugin {
     String inputLabel = null;
 
     switch (stage) {
+      case "INFO":
+        title = "KFE";
+        body = "KFE Work is ready. Continue in the KFE app.";
+        actionLabel = null;
+        break;
+      case "ENTER_FARE":
+        title = "Trip completed";
+        body = "Fare required. Open KFE Work to enter the trip fare.";
+        actionLabel = "OPEN FARE";
+        break;
       case "ENTER_PICKUP_DURATION":
         title = "Pickup duration";
         body = "Enter expected time to reach pickup.";
@@ -156,8 +166,8 @@ public class KfeRideNotificationsPlugin extends Plugin {
       actionIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE
     );
 
-    NotificationCompat.Action.Builder action = new NotificationCompat.Action.Builder(0, actionLabel, actionPending);
-    if (directInput) {
+    NotificationCompat.Action.Builder action = actionLabel == null ? null : new NotificationCompat.Action.Builder(0, actionLabel, actionPending);
+    if (directInput && action != null) {
       RemoteInput remoteInput = new RemoteInput.Builder(KfeRideNotificationReceiver.REMOTE_INPUT_KEY)
         .setLabel(inputLabel)
         .build();
@@ -165,6 +175,16 @@ public class KfeRideNotificationsPlugin extends Plugin {
     }
 
     Notification notification = new NotificationCompat.Builder(context, CHANNEL_ID)
+      .setSmallIcon(android.R.drawable.ic_dialog_info)
+      .setContentTitle(title)
+      .setContentText(body)
+      .setCategory(NotificationCompat.CATEGORY_REMINDER)
+      .setPriority(NotificationCompat.PRIORITY_HIGH)
+      .setOngoing(true)
+      .setAutoCancel(false)
+      .setOnlyAlertOnce(true)
+      .build();
+    if (action != null) notification = new NotificationCompat.Builder(context, CHANNEL_ID)
       .setSmallIcon(android.R.drawable.ic_dialog_info)
       .setContentTitle(title)
       .setContentText(body)

@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
 import { validateShiftStartOdometer, validateFirstDayShiftStartOdometer, validateGapAllocation } from '../domain/work/shift.js'
 import { validateEndShiftEntry } from '../domain/work/endShift.js'
 import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection, calculateTripRevenueDetail } from '../domain/work/trip.js'
@@ -6,6 +8,22 @@ import { calculateFuelQuantity, validateFuelEntry } from '../domain/work/fuel.js
 import { WorkService } from '../application/work/workService.js'
 
 assert.equal(typeof WorkService.getTripGpsDistanceKm, 'function')
+const root = process.cwd()
+const workView = fs.readFileSync(path.join(root, 'src/views/WorkModuleView.vue'), 'utf8')
+const workStore = fs.readFileSync(path.join(root, 'src/stores/shiftTrip.js'), 'utf8')
+const workService = fs.readFileSync(path.join(root, 'src/application/work/workService.js'), 'utf8')
+assert.match(workStore, /pendingFareTrip/)
+assert.match(workStore, /Enter the fare for the completed Trip before going Offline/)
+assert.match(workService, /GPS is telemetry\/enrichment/)
+assert.match(workService, /ShiftTripRepository\.completeTrip\(\{ \.\.\.data \}\)/)
+assert.doesNotMatch(workView, /stop\(\{captureFinal:true\}\)/)
+assert.doesNotMatch(workService, /await NativeGpsService\.start/)
+assert.match(workService, /void \(async \(\) => \{/)
+assert.match(workView, /pendingFare/)
+assert.match(workView, /TRIP COMPLETED/)
+assert.match(workView, /ENTER FARE/)
+assert.match(workView, /progress\.value>=70/)
+assert.doesNotMatch(workView, /fareTripId\.value=null;fareTrip\.value=null;fare\.value=''\;onMounted/)
 assert.deepEqual(validateShiftStartOdometer(100, 90), { valid: true, gapKm: 10 })
 assert.equal(validateShiftStartOdometer(89, 90).valid, false)
 assert.deepEqual(validateFirstDayShiftStartOdometer(68500, 65000), { valid: true, gapKm: 0, historicalKm: 3500, businessStartOdometer: 65000, historicalOdometerGap: true })

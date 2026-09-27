@@ -8,6 +8,7 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
   const trip = ref(null)
   const registeredTrips = ref([])
   const completedTrips = ref([])
+  const pendingFareTrip = computed(() => completedTrips.value.find(item => item.status === 'COMPLETED' && (item.revenue === null || item.revenue === undefined || item.revenue === '')) || null)
   const lifecycleLocations = ref([])
   const tripLocations = ref([])
   const lastKnownOdometer = ref(null)
@@ -105,23 +106,23 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
   const endTrip = async () => {
     if (!isTripActive.value) return false
     const tripId = trip.value.id
-    const endLocation = await WorkService.captureLocation({ entityType: 'TRIP', entityId: tripId, eventType: 'END' })
-    await WorkService.completeTrip({ id: tripId, tripEndLocation: endLocation || null })
+    await WorkService.completeTrip({ id: tripId })
     MovementTraceService.reset()
     await refresh()
-    await loadEntityLocations('TRIP', tripId)
+    // Location/place-name enrichment is explicitly background work.
+    void WorkService.captureLocation({ entityType: 'TRIP', entityId: tripId, eventType: 'END' }).then(() => loadEntityLocations('TRIP', tripId)).catch(() => {})
     return true
   }
 
   const cancelTrip = async ({ reason = 'DRIVER_MISTAKE', revenue = '' } = {}) => {
     if (!isTripActive.value) return false
+    if (!String(reason || '').trim()) return { ok: false, reason: 'Cancellation reason is required.' }
     const tripId = trip.value.id
-    const endLocation = await WorkService.captureLocation({ entityType: 'TRIP', entityId: tripId, eventType: 'CANCELLED' })
-    const result = await WorkService.cancelTrip({ id: tripId, reason, revenue, tripEndLocation: endLocation || null })
+    const result = await WorkService.cancelTrip({ id: tripId, reason, revenue })
     MovementTraceService.reset()
     if (result?.ok === false) return result
     await refresh()
-    await loadEntityLocations('TRIP', tripId)
+    void WorkService.captureLocation({ entityType: 'TRIP', entityId: tripId, eventType: 'CANCELLED' }).then(() => loadEntityLocations('TRIP', tripId)).catch(() => {})
     return { ok: true }
   }
 
@@ -134,6 +135,7 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
 
   const endShift = async data => {
     if (!isShiftActive.value) return { ok: false, reason: 'No active Shift.' }
+    if (pendingFareTrip.value) return { ok: false, reason: 'Enter the fare for the completed Trip before going Offline.' }
     if (isTripActive.value) return { ok: false, reason: 'Cannot go Offline while a Trip is active. End the active Trip first.' }
     const shiftId = shift.value.id
     const result = await WorkService.endShift({ shiftId, ...data })
@@ -143,5 +145,5 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     return result
   }
 
-  return { shift, trip, registeredTrips, completedTrips, lifecycleLocations, tripLocations, operators, defaultOperator, lastKnownOdometer, businessStartBaseline, firstKfeDay, startOdometer, isShiftActive, isTripActive, isOnline, isFinancialDayActive, headerShiftStatus, headerTripStatus, initialize, refresh, calculateGap, startShift, beginPickup, startRide, startTrip, endTrip, cancelTrip, updateTrip, endShift }
+  return { shift, trip, registeredTrips, completedTrips, pendingFareTrip, lifecycleLocations, tripLocations, operators, defaultOperator, lastKnownOdometer, businessStartBaseline, firstKfeDay, startOdometer, isShiftActive, isTripActive, isOnline, isFinancialDayActive, headerShiftStatus, headerTripStatus, initialize, refresh, calculateGap, startShift, beginPickup, startRide, startTrip, endTrip, cancelTrip, updateTrip, endShift }
 })
