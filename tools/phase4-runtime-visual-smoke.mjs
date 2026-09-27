@@ -21,7 +21,7 @@ try{
  const context=await browser.newContext({serviceWorkers:'block',viewport:{width:390,height:844},geolocation:{latitude:19.076,longitude:72.8777,accuracy:30},permissions:['geolocation'],reducedMotion:'reduce'})
  await context.addInitScript(()=>{sessionStorage.setItem('__kfe_phase4_initialized','1');navigator.geolocation.getCurrentPosition=success=>success({coords:{latitude:19.076,longitude:72.8777,accuracy:30},timestamp:Date.now()})})
  const page=await context.newPage(),errors=[],failed=[]
- page.on('pageerror',e=>errors.push(e.stack||e.message));page.on('requestfailed',r=>failed.push(r.url()))
+ page.on('pageerror',e=>errors.push(e.stack||e.message));page.on('requestfailed',r=>{const url=r.url();if(!url.startsWith('https://api.bigdatacloud.net/data/reverse-geocode-client?'))failed.push(url)})
  const healthy=async(label)=>{assert((await page.locator('.kfe-runtime-error').count())===0,label+' runtime error');assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),label+' horizontal overflow')}
  const route=async(path,selector,label)=>{const target=path?new URL(path,base).href:base;const res=await page.goto(target,{waitUntil:'domcontentloaded',timeout:30000});if(res){const acceptable=res.ok()||(externalBase&&res.status()===404);assert(acceptable,label+' response failed with HTTP '+res.status())};await Promise.race([page.locator(selector).waitFor({state:'attached',timeout:30000}),page.locator('.kfe-runtime-error').waitFor({state:'attached',timeout:30000}).then(async()=>{throw new Error(label+' startup/runtime error: '+(await page.locator('body').innerText()).slice(0,1000))})]);assert(await page.locator(selector).count()>0,label+' selector missing');await healthy(label)}
  // 4A shell/routes
