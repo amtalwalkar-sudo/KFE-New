@@ -118,7 +118,7 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
       <button class="primary" :disabled="startBusy" @click="submitStart">{{startBusy?'STARTING…':'CONFIRM & GO ONLINE'}}</button>
     </section>
 
-    <template v-if="store.isOnline&&!fuelOpen&&!endOpen">
+    <template v-if="store.isOnline&&!fuelOpen&&!endOpen&&!pendingFare">
       <section class="instrument target-instrument">
         <div class="instrument-top"><small>TODAY'S TARGET</small><strong>{{targetValue==null?'—':money(targetValue)}}</strong></div>
         <div class="target-track"><i :style="{width:targetProgress+'%'}"/></div>
