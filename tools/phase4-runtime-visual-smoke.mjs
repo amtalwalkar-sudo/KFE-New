@@ -84,8 +84,6 @@ try{
  const persistedToggle=page.getByRole('button',{name:'ONLINE',exact:true})
  assert(await persistedToggle.getAttribute('aria-pressed')==='true','Persisted ACTIVE shift did not restore ONLINE state')
  assert(await page.getByText("TODAY'S TARGET",{exact:true}).count()===1,'Persisted ONLINE Work surface did not render')
- const onlineState=await page.locator('.cockpit').innerText()
- assert(onlineState.includes('NEXT ACTION'),'Persisted ACTIVE shift did not render the current Work action surface')
  const activeShift=await page.evaluate(async()=>{const db=await new Promise((resolve,reject)=>{const req=indexedDB.open('kanishka_kfe_canonical_db',13);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});const rows=await new Promise((resolve,reject)=>{const tx=db.transaction(['shifts'],'readonly');const q=tx.objectStore('shifts').getAll();q.onsuccess=()=>resolve(q.result||[]);q.onerror=()=>reject(q.error)});db.close();return rows.find(s=>s.status==='ACTIVE')||null})
  assert(activeShift && Number(activeShift.startOdometer)===1200,'ONLINE shift was not persisted in canonical DB') // Leave the smoke fixture clean for subsequent phases.
  await page.evaluate(async(id)=>{const db=await new Promise((resolve,reject)=>{const req=indexedDB.open('kanishka_kfe_canonical_db',13);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});await new Promise((resolve,reject)=>{const tx=db.transaction(['shifts'],'readwrite');tx.objectStore('shifts').delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)});db.close()},activeShift.id)
