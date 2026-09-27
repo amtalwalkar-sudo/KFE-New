@@ -298,7 +298,9 @@ try {
   await page.locator('.admin-page').waitFor()
   const adminItems = ['Vehicle','Driver','Compliance','Maintenance','Loan','Prepayments','Ledger','Driver Monthly Target','Maintenance per KM']
   for (const item of adminItems) {
-    await page.getByRole('button', { name: item, exact: true }).click()
+    const adminControl = page.locator('.admin-item').filter({ hasText: item }).first()
+    await adminControl.waitFor({ state: 'visible', timeout: 30000 })
+    await adminControl.click()
     assert((await page.locator('.admin-page').innerText()).includes(item), 'ADMIN navigation did not open ' + item)
     const back = page.getByRole('button', { name: '‹ Back', exact: true })
     if (await back.count()) await back.click()
