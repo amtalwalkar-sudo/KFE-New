@@ -1656,3 +1656,22 @@ Any future proposal that conflicts with this section must raise:
 **DESIGN DRIFT / CONFLICT WARNING**
 
 before implementation.
+
+
+## 20.25A Action-Semantic Swipe-Bar Colour Contract
+
+The swipe bar uses **action-semantic colour coding** so the driver can identify the authoritative next action at a glance. Colour is applied to the swipe instrument as a whole, including the track/handle treatment and threshold/commit feedback, while preserving sufficient contrast in both Light and Dark themes.
+
+The authoritative operational actions use these semantic colours:
+
+| Action | Colour | Semantic meaning |
+|---|---|---|
+| **GO TO PICKUP** | **Blue / Info** | Movement / proceed to pickup |
+| **START TRIP** | **Green / Success** | Start the passenger trip |
+| **END TRIP** | **Red / Error** | End the passenger trip |
+| **END SHIFT** | **Red / Error** | End the active shift |
+| **CANCEL** | **Amber / Warning** | Cancellation / exception action, where cancellation is presented as an action surface |
+
+The colour mapping is semantic and consistent; it must not change merely because of theme, viewport, or implementation surface. The exact rendered shades must use the corresponding KFE Visual DNA semantic tokens rather than scattered one-off colours.
+
+Colour must never be the only carrier of meaning. The action label, state, iconography, and accessible name remain explicit. Threshold and committing states preserve the action's semantic colour while adding clear progress/commit feedback.
