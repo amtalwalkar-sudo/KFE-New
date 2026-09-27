@@ -121,19 +121,43 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-      - name: Verify deployed SPA fallback on every history route
+      - name: Setup Node.js for deployed runtime verification
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Checkout Repository for deployed runtime verification
+        uses: actions/checkout@v5
+
+      - name: Install deployed runtime verification dependencies
+        run: npm ci
+
+      - name: Install Chromium for deployed runtime verification
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify deployed SPA fallback and visible runtime on every route
         env:
-          PAGES_URL: ${{ steps.deployment.outputs.page_url }}
+          KFE_RUNTIME_BASE_URL: ${{ steps.deployment.outputs.page_url }}
         run: |
           set -euo pipefail
-          base="${PAGES_URL%/}"
+          base="${KFE_RUNTIME_BASE_URL%/}"
           for route in / /timeline /performance /admin; do
             url="${base}${route}"
             body="/tmp/kfe-pages-route.html"
             status="$(curl -sS -L -o "$body" -w '%{http_code}' "$url")"
             grep -q "Kanishka Enterprises" "$body"
-            echo "Verified GitHub Pages fallback body for ${route} (HTTP ${status})."
+            echo "Verified deployed fallback body for ${route} (HTTP ${status})."
           done
+          node tools/phase4-runtime-visual-smoke.mjs
+
+      - name: Upload deployed runtime screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kfe-deployed-runtime-visual-verification
+          path: artifacts/phase4-runtime/
+          if-no-files-found: warn
 
   android-release-gate:
     if: github.event_name == 'workflow_dispatch'
