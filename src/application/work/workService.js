@@ -93,7 +93,7 @@ export const WorkService = Object.freeze({
     }
     return result
   },
-  async cancelTrip(data) { const result = await ShiftTripRepository.cancelTrip(data); checkpoint(); if (data?.id) { void (async () => { try { await NativeGpsService.syncTrace(data.id); await NativeGpsService.stop(data.id) } catch (_) {} })() } return result },
+  async cancelTrip(data) { const result = await ShiftTripRepository.cancelTrip(data); checkpoint(); if (data?.id) { void (async () => { try { void (async () => { try { await NativeGpsService.syncTrace(data.id); await NativeGpsService.stop(data.id) } catch (_) {} })() } catch (_) {} })() } return result },
   async updateTrip(data) {
     const validation = validateTripCorrection(data)
     if (!validation.valid) return { ok: false, reason: validation.reason }
