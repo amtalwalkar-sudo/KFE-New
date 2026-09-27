@@ -20,7 +20,7 @@
     </div>
     <script>
       (() => {
-        const BOOT_TIMEOUT_MS = 10000
+        const BOOT_TIMEOUT_MS = 30000
         let bootCompleted = false
         const showBootError = (error) => {
           if (bootCompleted) return
@@ -50,7 +50,7 @@
             bootCompleted = true
             return
           }
-          showBootError(new Error('KFE interface did not finish loading within 10 seconds. The JavaScript bundle or WebView may be blocked.'))
+          showBootError(new Error('KFE is still loading. Please wait while the Android WebView finishes loading the application.'))
         }, BOOT_TIMEOUT_MS)
       })()
     </script>
