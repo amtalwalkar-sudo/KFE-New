@@ -1202,7 +1202,7 @@ button,input,select,textarea{min-height:var(--kfe-touch)}
 /* WORK SWIPE FIX — fixed directly above the persistent bottom navigation. */
 .work-cockpit .cockpit{padding-bottom:calc(110px + var(--kfe-nav-height) + env(safe-area-inset-bottom,0px));}
 .work-cockpit .swipe{position:fixed;left:max(10px,env(safe-area-inset-left,0px));right:max(10px,env(safe-area-inset-right,0px));bottom:calc(var(--kfe-nav-height) + env(safe-area-inset-bottom,0px) + 8px);width:min(720px,calc(100vw - 20px));margin:0 auto;z-index:9000;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;box-shadow:0 8px 28px color-mix(in srgb,var(--kfe-ui-text) 16%,transparent);}
-.work-cockpit .swipe-handle{touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab;}
+.work-cockpit .swipe-handle{touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab;}.work-cockpit .swipe-handle{min-width:56px;min-height:56px;}
 .work-cockpit .swipe-handle:active{cursor:grabbing;}
 .work-cockpit .swipe-hint{position:fixed;left:0;right:0;bottom:calc(var(--kfe-nav-height) + env(safe-area-inset-bottom,0px) + 82px);z-index:8999;margin:0 auto;pointer-events:none;}
 @media(max-width:430px){.work-cockpit .swipe{width:calc(100vw - 20px);}.work-cockpit .cockpit{padding-bottom:calc(106px + var(--kfe-nav-height) + env(safe-area-inset-bottom,0px));}}
