@@ -80,6 +80,16 @@ try {
   })
   const page = await context.newPage()
   const errors = []
+  const swipeAction = async () => {
+    const swipe = page.locator('.swipe-handle')
+    const track = page.locator('.trip-swipe')
+    const hb = await swipe.boundingBox(), tb = await track.boundingBox()
+    assert(hb && tb, 'Swipe control geometry missing')
+    await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(tb.x + tb.width - 10, hb.y + hb.height / 2, { steps: 8 })
+    await page.mouse.up()
+  }
   page.on('pageerror', e => errors.push(e.stack || e.message))
   page.on('requestfailed', r => { if (!r.url().startsWith('http://127.0.0.1:4176/')) errors.push('request failed: ' + r.url()) })
 
@@ -96,42 +106,21 @@ try {
   evidence.push({ id: 'WORK.START_SHIFT', result: 'PASS', expected: 'one ACTIVE shift at 1000 km', persisted: { shifts: state.shifts.length, status: state.shifts[0]?.status, startOdometer: state.shifts[0]?.startOdometer } })
 
   // Contract 2: primary pickup control must create one ACTIVE trip in PICKUP stage.
-  const swipe=page.locator('.swipe-handle')
-  const track=page.locator('.trip-swipe')
-  const hb=await swipe.boundingBox(), tb=await track.boundingBox()
-  assert(hb&&tb,'Swipe control geometry missing')
-  await page.mouse.move(hb.x+hb.width/2,hb.y+hb.height/2)
-  await page.mouse.down()
-  await page.mouse.move(tb.x+tb.width-10,hb.y+hb.height/2,{steps:8})
-  await page.mouse.up()
+  await swipeAction()
   await page.getByText('GOING TO PICKUP', { exact: true }).waitFor()
   state = await db(page, ['trips'])
   assert(state.trips.length === 1 && state.trips[0].status === 'ACTIVE' && state.trips[0].tripStage === 'PICKUP', 'GO TO PICKUP contract failed')
   evidence.push({ id: 'WORK.GO_TO_PICKUP', result: 'PASS', expected: 'one ACTIVE PICKUP trip', persisted: { trips: state.trips.length, status: state.trips[0]?.status, tripStage: state.trips[0]?.tripStage } })
 
   // Contract 3: START TRIP must transition the same trip to RIDE_STARTED, not create another.
-  const swipe=page.locator('.swipe-handle')
-  const track=page.locator('.trip-swipe')
-  const hb=await swipe.boundingBox(), tb=await track.boundingBox()
-  assert(hb&&tb,'Swipe control geometry missing')
-  await page.mouse.move(hb.x+hb.width/2,hb.y+hb.height/2)
-  await page.mouse.down()
-  await page.mouse.move(tb.x+tb.width-10,hb.y+hb.height/2,{steps:8})
-  await page.mouse.up()
+  await swipeAction()
   await page.getByText('TRIP ACTIVE', { exact: true }).waitFor()
   state = await db(page, ['trips'])
   assert(state.trips.length === 1 && state.trips[0].tripStage === 'RIDE_STARTED', 'START TRIP contract failed')
   evidence.push({ id: 'WORK.START_TRIP', result: 'PASS', expected: 'same trip transitions to RIDE_STARTED', persisted: { trips: state.trips.length, tripStage: state.trips[0]?.tripStage } })
 
   // Contract 4: END TRIP must terminalize the trip and open mandatory fare capture.
-  const swipe=page.locator('.swipe-handle')
-  const track=page.locator('.trip-swipe')
-  const hb=await swipe.boundingBox(), tb=await track.boundingBox()
-  assert(hb&&tb,'Swipe control geometry missing')
-  await page.mouse.move(hb.x+hb.width/2,hb.y+hb.height/2)
-  await page.mouse.down()
-  await page.mouse.move(tb.x+tb.width-10,hb.y+hb.height/2,{steps:8})
-  await page.mouse.up()
+  await swipeAction()
   await page.getByText('FARE ENTRY', { exact: true }).waitFor()
   state = await db(page, ['trips'])
   assert(state.trips.length === 1 && state.trips[0].status === 'COMPLETED' && (state.trips[0].revenue === null || state.trips[0].revenue === '' || state.trips[0].revenue === undefined), 'END TRIP contract failed')
