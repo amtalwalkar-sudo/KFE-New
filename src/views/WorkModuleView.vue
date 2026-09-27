@@ -66,7 +66,7 @@ function doAction(){if(active.value)return endTrip();if(ready.value)return start
 const progress=computed(()=>{const w=track.value?.clientWidth||320;return Math.max(0,Math.min(100,(swipe.value.offset/Math.max(1,w-76))*100))})
 function down(e){if(busy.value||!store.isOnline||endOpen.value||fuelOpen.value||cancelOpen.value||pendingFare.value)return;if(e.pointerType==='mouse'&&e.button!==0)return;if(!e.target.closest('.swipe-handle'))return;swipe.value={down:true,start:e.clientX,offset:0};e.currentTarget.setPointerCapture?.(e.pointerId)}
 function move(e){if(!swipe.value.down)return;swipe.value.offset=Math.max(0,Math.min((track.value?.clientWidth||320)-76,e.clientX-swipe.value.start))}
-async function up(){if(!swipe.value.down)return;const commit=progress.value>=70;swipe.value={down:false,start:0,offset:0};if(commit)await doAction()}
+async function up(){if(!swipe.value.down)return;const commit=progress.value>=70;swipe.value={down:false,start:0,offset:0};if(commit){try{await doAction()}finally{swipe.value={down:false,start:0,offset:0}}}}
 function keyAction(){if(!busy.value)doAction()}
 function displayTime(v){const d=new Date(v);return`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`}
 watch(()=>store.completedTrips.map(t=>t.id+':'+(t.revenue??'')).join('|'),()=>{if(!fareTripId.value&&pendingFare.value)fareTripId.value=pendingFare.value.id})
@@ -96,7 +96,7 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
 <section v-else-if="ready" class="state"><small>CURRENT STATE</small><strong>READY FOR TRIP</strong><p>Pickup reached. Start the trip or cancel it.</p><button class="secondary" @click="openCancel">CANCEL TRIP</button></section>
 <section v-else class="state"><small>CURRENT STATE</small><strong>TRIP ACTIVE</strong><p>{{store.trip?.operator}} · {{tripTimer}}</p><div class="metrics"><div><small>TRIP KM</small><strong>{{Number(store.trip?.tripKm||0).toFixed(1)}} km</strong></div><div><small>GPS</small><strong>{{store.trip?.tripStartLocation?.placeName||'ACTIVE'}}</strong></div></div></section>
 <div class="next"><small>NEXT ACTION</small><strong>{{actionLabel}}</strong><span>{{active?'Routine tracking is automatic.':ready?'Cancellation is available only before the trip starts.':'GPS and timestamp are supporting background context when available.'}}</span></div>
-<div ref="track" class="swipe" :class="{threshold:progress>=70,committing:busy}" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up"><div class="swipe-copy"><small>{{progress>=70?'RELEASE TO':''}}</small><strong>{{actionLabel}}</strong></div><button class="swipe-handle" type="button" :aria-label="actionLabel" @click.stop="keyAction">→</button></div>
+<div ref="track" class="swipe" :class="{threshold:progress>=70,committing:busy}" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up" @lostpointercapture="swipe.value={down:false,start:0,offset:0}"><div class="swipe-copy"><small>{{progress>=70?'RELEASE TO':''}}</small><strong>{{actionLabel}}</strong></div><button class="swipe-handle" type="button" :aria-label="actionLabel" @click.stop="keyAction">→</button></div>
 <small class="swipe-hint">{{progress>=70?'RELEASE TO '+actionLabel:'Grab the handle, drag right, release at the threshold.'}}</small>
 </template>
 
