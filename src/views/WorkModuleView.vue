@@ -47,7 +47,7 @@ async function submitStart(){if(startBusy.value)return;if(!startOdo.value)return
 
 async function goPickup(){if(busy.value||!store.isOnline||store.isTripActive)return;busy.value=true;try{try{traceRunning=MovementTraceService.start({entityType:'SHIFT',entityId:store.shift?.id,eventType:'DEAD_MOVEMENT_TRACE',profile:'DEAD_LEG'})}catch(_){traceRunning=false}const r=await store.beginPickup(operator.value||store.defaultOperator);if(!r?.ok){if(traceRunning)MovementTraceService.reset();traceRunning=false;return fail(r?.reason||'Could not start pickup.')}await KfeRideNotificationService.beginPickup(`pickup-${Date.now()}`).catch(()=>{});await syncSurfaces();notify('Going to pickup.')}finally{busy.value=false}}
 async function startTrip(){if(busy.value||!ready.value)return;busy.value=true;try{if(traceRunning){await MovementTraceService.stop({captureFinal:true}).catch(()=>{});traceRunning=false}const r=await store.startRide();if(!r.ok)return fail(r.reason);await KfeRideNotificationService.startRide().catch(()=>{});await syncSurfaces();notify('Trip active.')}finally{busy.value=false}}
-async function endTrip(){if(busy.value||!active.value)return;busy.value=true;try{const id=store.trip.id;if(!await store.endTrip())return fail('Trip could not be completed.');await KfeRideNotificationService.endRide().catch(()=>{});fareTripId.value=id;fare.value='';await syncSurfaces();notify('Trip completed — enter fare.')}finally{busy.value=false}}
+async function endTrip(){if(busy.value||!active.value)return;busy.value=true;try{const id=store.trip.id;if(!await store.endTrip())return fail('Trip could not be completed.');await KfeRideNotificationService.completeRide().catch(()=>{});fareTripId.value=id;fare.value='';await syncSurfaces();notify('Trip completed — enter fare.')}finally{busy.value=false}}
 async function saveFare(){if(fareBusy.value)return;if(!pendingFare.value)return;if(fare.value==='')return fail('Trip fare is required.');if(!Number.isFinite(Number(fare.value))||Number(fare.value)<0)return fail('Trip fare must be a non-negative number.');fareBusy.value=true;const r=await store.updateTrip({id:pendingFare.value.id,revenue:Number(fare.value)});fareBusy.value=false;if(!r.ok)return fail(r.reason);fareTripId.value=null;fare.value='';await targetRefresh();await syncSurfaces();notify('Fare saved.')}
 function openCancel(){cancelOpen.value=true;cancelReason.value='';cancelFare.value='';error.value='';message.value=''}
 async function saveCancel(){if(cancelBusy.value)return;if(!cancelReason.value.trim())return fail('Cancellation reason is required.');if(cancelFare.value!==''&&(!Number.isFinite(Number(cancelFare.value))||Number(cancelFare.value)<0))return fail('Cancellation fare must be a non-negative number.');cancelBusy.value=true;const r=await store.cancelTrip({reason:cancelReason.value.trim(),revenue:cancelFare.value});cancelBusy.value=false;if(!r?.ok)return fail(r?.reason||'Cancellation could not be saved.');cancelOpen.value=false;await syncSurfaces();notify('Trip cancelled.')}
@@ -63,6 +63,7 @@ function reviewDone(){if(preview.value?.reconciliationStatus==='MISMATCH')return
 async function finishEnd(){if(endBusy.value)return;if(!endReady.value)return fail('Complete the required reconciliation before ending the shift.');endBusy.value=true;const trips=completed.value.map(t=>({id:t.id,operator:reviewOperator.value[t.id]??t.operator,tripKm:reviewKm.value[t.id]??t.tripKm??'',revenue:reviewRevenue.value[t.id]??t.revenue??''}));const r=await store.endShift({closingOdometer:closingOdo.value,revenue:shiftRevenue.value,toll:toll.value,parking:parking.value,tollParkingRevenueTreatment:tollTreatment.value,trips});endBusy.value=false;if(!r.ok)return fail(r.reason);endStage.value='ENDED';await targetRefresh();await KfeRideNotificationService.clear().catch(()=>{});notify('Shift ended.')}
 function finishEnded(){endOpen.value=false;closingOdo.value='';shiftRevenue.value='';toll.value='';parking.value='';notify('Offline.')}
 const actionLabel=computed(()=>active.value?'END TRIP':ready.value?'START TRIP':'GO TO PICKUP')
+const swipeToneClass=computed(()=>active.value?'swipe-danger':ready.value?'swipe-success':'swipe-info')
 function doAction(){if(active.value)return endTrip();if(ready.value)return startTrip();return goPickup()}
 const progress=computed(()=>{const w=track.value?.clientWidth||320;return Math.max(0,Math.min(100,(swipe.value.offset/Math.max(1,w-76))*100))})
 function down(e){if(busy.value||!store.isOnline||endOpen.value||fuelOpen.value||cancelOpen.value||pendingFare.value)return;if(e.pointerType==='mouse'&&e.button!==0)return;if(!e.target.closest('.swipe-handle'))return;swipe.value={down:true,start:e.clientX,offset:0};e.currentTarget.setPointerCapture?.(e.pointerId)}
@@ -147,12 +148,12 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
         <p v-else>Start the next pickup when you are ready.</p>
       </section>
 
-      <div ref="track" class="swipe" :class="{threshold:progress>=70,committing:busy}" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up" @lostpointercapture="swipe.value={down:false,start:0,offset:0}">
+      <div ref="track" class="swipe" :class="[swipeToneClass,{threshold:progress>=70,committing:busy}]" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up" @lostpointercapture="swipe.value={down:false,start:0,offset:0}">
         <div class="swipe-copy">
           <small>{{progress>=70?'RELEASE TO':''}}</small>
           <strong>{{actionLabel}}</strong>
         </div>
-        <button class="swipe-handle" type="button" :aria-label="actionLabel" @click.stop="keyAction">→</button>
+        <button class="swipe-handle" type="button" :aria-label="actionLabel" @click.stop="keyAction" :style="{transform:`translateX(${swipe.value.offset}px)`}">→</button>
       </div>
       <small class="swipe-hint">{{progress>=70?'RELEASE TO '+actionLabel:'GRAB HANDLE  ·  DRAG RIGHT  ·  RELEASE'}}</small>
     </template>
