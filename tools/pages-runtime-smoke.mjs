@@ -66,16 +66,12 @@ try {
   ]
 
   for (const route of routes) {
-    const routeResponse = await page.goto(`http://127.0.0.1:4173/${route.path}`, {
-      waitUntil: 'domcontentloaded',
-      timeout: 30000,
-    })
-    // Hash navigation stays within the already-loaded Pages document, so
-    // page.goto may return null when only the fragment changes. Verify the
-    // application route itself instead of requiring a second HTTP response.
-    if (routeResponse && !routeResponse.ok()) {
-      throw new Error(`Route document response was not successful for ${route.path}: ${routeResponse.status()}`)
-    }
+    // Navigate the fragment in the already-loaded SPA document. Using
+    // page.goto() for hash URLs races the Vue router's own hash navigation
+    // and can produce ERR_ABORTED when the router immediately changes it.
+    await page.evaluate(path => {
+      window.location.hash = path
+    }, route.path)
     await page.getByText(route.text, { exact: true }).first().waitFor({
       state: 'visible',
       timeout: 15000,
