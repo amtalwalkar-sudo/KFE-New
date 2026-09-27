@@ -255,6 +255,10 @@ try {
 
   // Contract 17: Timeline fuel edit and delete must persist the exact requested mutations.
   await reset(page)
+  await page.getByRole('button', { name: 'START SHIFT', exact: true }).click()
+  await page.getByLabel('Current odometer').fill('1000')
+  await page.getByRole('checkbox', { name: /current vehicle odometer/i }).check()
+  await page.getByRole('button', { name: 'CONFIRM & GO ONLINE', exact: true }).click()
   await page.getByRole('button', { name: 'CNG refuelling', exact: true }).click()
   await page.getByLabel('Odometer').fill('1000')
   await page.getByLabel('Price / kg').fill('90')
