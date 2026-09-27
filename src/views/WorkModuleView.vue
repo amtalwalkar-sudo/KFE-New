@@ -84,7 +84,7 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
       <h1>Work</h1>
     </div>
     <div class="head-actions">
-      <button class="icon fuel-trigger" type="button" aria-label="Open CNG refuelling" title="CNG refuelling" @click="toggleFuel">⛽</button>
+      <button class="icon fuel-trigger" type="button" aria-label="CNG refuelling" title="CNG refuelling" @click="toggleFuel">⛽</button>
       <button class="toggle" :class="{on:store.isOnline}" type="button" :aria-pressed="store.isOnline" @click="store.isOnline?openEnd():openStart()">
         <span>{{store.isOnline?'ONLINE':'OFFLINE'}}</span><i/>
       </button>
