@@ -1248,7 +1248,16 @@ button,input,select,textarea{min-height:var(--kfe-touch)}
 .premium-work .trip-setup label{font-size:11px;font-weight:800;color:var(--kfe-muted-text)}
 .premium-work .trip-setup select{margin-top:5px;width:100%;min-height:50px;border-radius:12px;background:var(--kfe-ui-surface);border:1px solid var(--kfe-ui-border);font-size:16px}
 .premium-work .cancel-action{margin-top:0}
-.premium-work .swipe{height:70px;border:1px solid var(--kfe-ui-border);border-radius:35px;background:var(--kfe-ui-surface);box-shadow:0 8px 24px color-mix(in srgb,var(--kfe-ui-text) 9%,transparent)}
+.premium-work .swipe{height:70px;border:2px solid var(--swipe-semantic);border-radius:35px;background:color-mix(in srgb,var(--swipe-semantic) 12%,var(--kfe-ui-surface));box-shadow:0 8px 24px color-mix(in srgb,var(--swipe-semantic) 24%,transparent);transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease}
+.premium-work .swipe.swipe-info{--swipe-semantic:#1677ff}
+.premium-work .swipe.swipe-success{--swipe-semantic:#168a45}
+.premium-work .swipe.swipe-danger{--swipe-semantic:#d92d20}
+.premium-work .swipe.swipe-warning{--swipe-semantic:#b77900}
+.premium-work .swipe-copy strong{color:var(--swipe-semantic)}
+.premium-work .swipe-copy small{color:var(--swipe-semantic)}
+.premium-work .swipe-handle{background:var(--swipe-semantic);color:#fff;box-shadow:0 3px 12px color-mix(in srgb,var(--swipe-semantic) 35%,transparent);transition:transform .06s linear,background-color .16s ease,box-shadow .16s ease}
+.premium-work .swipe.threshold{box-shadow:0 0 0 3px color-mix(in srgb,var(--swipe-semantic) 22%,transparent),0 8px 24px color-mix(in srgb,var(--swipe-semantic) 30%,transparent)}
+.premium-work .swipe.committing{filter:saturate(1.08)}
 .premium-work .swipe-copy strong{font-size:15px;letter-spacing:.055em}
 .premium-work .swipe-copy small{font-size:9px;letter-spacing:.14em;color:var(--kfe-ui-accent)}
 .premium-work .swipe-handle{left:6px;top:6px;width:58px;height:58px;background:var(--kfe-ui-text);color:var(--kfe-ui-surface);box-shadow:0 3px 10px color-mix(in srgb,var(--kfe-ui-text) 18%,transparent)}
