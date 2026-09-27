@@ -35,8 +35,6 @@ const deleteDb = async page => page.evaluate(async () => {
       r.onblocked = () => reject(new Error('DB delete blocked: ' + name))
     })
   }
-  const { setActiveDataSource } = await import(location.origin + '/src/utils/indexedDB.js')
-  setActiveDataSource('canonical')
 })
 const readShifts = page => page.evaluate(async () => {
   const request = indexedDB.open('kanishka_kfe_canonical_db', 13)
