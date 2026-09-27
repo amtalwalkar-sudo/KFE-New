@@ -39,6 +39,17 @@ try{
    await new Promise((resolve,reject)=>{const tx=db.transaction(['shifts','trips'],'readwrite'); tx.objectStore('shifts').put({id:'phase4-runtime-shift',status:'COMPLETED',shiftStartAt:start,shiftEndAt:end,startOdometer:1000,endOdometer:1100,totalDistance:100,revenue:1000,toll:50,parking:0,tollParkingRevenueTreatment:'EXCLUDED',openingPersonalKm:0,openingDeadKm:0}); tx.objectStore('trips').put({id:'phase4-runtime-trip',shiftId:'phase4-runtime-shift',status:'COMPLETED',operator:'Uber',tripStartAt:new Date(Date.parse(start)+3600000).toISOString(),tripEndAt:new Date(Date.parse(start)+5400000).toISOString(),tripStartLocation:{latitude:19.076,longitude:72.8777,placeName:'Mumbai Pickup',capturedAt:start},tripEndLocation:{latitude:19.08,longitude:72.88,placeName:'Mumbai Drop',capturedAt:end},tripKm:80,revenue:1000,revenueAuthority:'SUPPORTING_ONLY',tripStage:'RIDE_STARTED'}); tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)}); db.close();
  });
  await seedCanonicalFixture();
+ // The runtime matrix must start from a deterministic OFFLINE state. Remove
+ // only stale ACTIVE fixture shifts; the completed persistence fixture remains.
+ await page.evaluate(async()=>{
+   const db=await new Promise((resolve,reject)=>{const req=indexedDB.open('kanishka_kfe_canonical_db',13);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});
+   await new Promise((resolve,reject)=>{
+     const tx=db.transaction(['shifts'],'readwrite');
+     const q=tx.objectStore('shifts').getAll();
+     q.onsuccess=()=>{for(const s of q.result||[])if(s.status==='ACTIVE')tx.objectStore('shifts').delete(s.id)};
+     q.onerror=()=>reject(q.error);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)
+   }); db.close()
+ });
  await page.reload({waitUntil:'domcontentloaded'}); await page.locator('#main-content').waitFor({state:'attached'});
  await page.getByRole('link',{name:'Timeline',exact:true}).click(); await page.locator('.timeline').waitFor({state:'attached'}); await page.getByRole('button',{name:'Today',exact:true}).click();
  await wait(async()=> (await page.locator('.timeline').innerText()).includes('Mumbai Pickup'),'persisted Timeline trip');
@@ -51,7 +62,11 @@ try{
  // 4B Work interactions — includes end-to-end ONLINE persistence verification
  await route('','.cockpit','Work interactions')
  await page.getByRole('button',{name:'CNG refuelling'}).click();await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'visible'});await page.getByRole('button',{name:'CNG refuelling'}).click();await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'hidden'})
- await page.getByRole('button',{name:'OFFLINE',exact:true}).click();await page.getByText('ODOMETER CHECK',{exact:true}).waitFor({state:'visible'});assert(await page.getByRole('button',{name:'Back'}).count()>0,'Start odometer Back missing');await page.getByRole('button',{name:'Back'}).first().click()
+ const shiftToggle=page.locator('button.toggle').first();
+ await shiftToggle.waitFor({state:'visible',timeout:30000});
+ assert((await shiftToggle.innerText()).trim()==='OFFLINE','Work did not initialize in the expected OFFLINE state');
+ await shiftToggle.click();
+ await page.getByText('ODOMETER CHECK',{exact:true}).waitFor({state:'visible'});assert(await page.getByRole('button',{name:'Back'}).count()>0,'Start odometer Back missing');await page.getByRole('button',{name:'Back'}).first().click()
  await page.getByRole('button',{name:'GO ONLINE',exact:true}).click();await page.getByText('ODOMETER CHECK',{exact:true}).waitFor({state:'visible'})
  const odo=page.locator('input[type="number"]').first();await odo.fill('1200');await page.getByRole('checkbox').first().check()
  // The seeded completed shift leaves a historical odometer gap. The UI requires
