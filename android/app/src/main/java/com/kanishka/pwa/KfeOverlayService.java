@@ -52,6 +52,7 @@ public class KfeOverlayService extends Service {
   private boolean minimized=false;
   private String formMode=null;
   private String formValue="";
+  private String cancelReason="";
   private boolean formSubmitting=false;
   private LinearLayout formPanel;
 
