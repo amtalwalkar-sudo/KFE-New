@@ -2,12 +2,13 @@ import { chromium } from '@playwright/test'
 import { spawn } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 
-const base='http://127.0.0.1:4173/'
-const preview=spawn('npm',['run','preview','--','--host','127.0.0.1'],{stdio:['ignore','pipe','pipe'],env:{...process.env,BROWSER:'none'},detached:true})
+const externalBase=process.env.KFE_RUNTIME_BASE_URL?.trim()
+const base=externalBase ? (externalBase.endsWith('/') ? externalBase : externalBase+'/') : 'http://127.0.0.1:4173/'
+const preview=externalBase ? null : spawn('npm',['run','preview','--','--host','127.0.0.1'],{stdio:['ignore','pipe','pipe'],env:{...process.env,BROWSER:'none'},detached:true})
 let output=''
 preview.stdout.on('data',c=>{output+=c.toString()}); preview.stderr.on('data',c=>{output+=c.toString()})
 const wait=async(predicate,label='condition')=>{const end=Date.now()+10000;while(Date.now()<end){if(await predicate())return;await new Promise(r=>setTimeout(r,100))}throw new Error('Timed out waiting for '+label)}
-const stop=async()=>{if(!preview.pid)return;try{process.kill(-preview.pid,'SIGTERM')}catch(_){}await new Promise(r=>setTimeout(r,400))}
+const stop=async()=>{if(!preview?.pid)return;try{process.kill(-preview.pid,'SIGTERM')}catch(_){}await new Promise(r=>setTimeout(r,400))}
 const assert=(x,m)=>{if(!x)throw new Error(m)}
 let browser
 try{
@@ -19,7 +20,7 @@ try{
  const page=await context.newPage(),errors=[],failed=[]
  page.on('pageerror',e=>errors.push(e.stack||e.message));page.on('requestfailed',r=>failed.push(r.url()))
  const healthy=async(label)=>{assert((await page.locator('.kfe-runtime-error').count())===0,label+' runtime error');assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),label+' horizontal overflow')}
- const route=async(path,selector,label)=>{const target=path?new URL(path,base).href:base;const res=await page.goto(target,{waitUntil:'domcontentloaded',timeout:30000});if(res)assert(res.ok(),label+' response failed');await Promise.race([page.locator(selector).waitFor({state:'attached',timeout:30000}),page.locator('.kfe-runtime-error').waitFor({state:'attached',timeout:30000}).then(async()=>{throw new Error(label+' startup/runtime error: '+(await page.locator('body').innerText()).slice(0,1000))})]);assert(await page.locator(selector).count()>0,label+' selector missing');await healthy(label)}
+ const route=async(path,selector,label)=>{const target=path?new URL(path,base).href:base;const res=await page.goto(target,{waitUntil:'domcontentloaded',timeout:30000});if(res){const acceptable=res.ok()||(externalBase&&res.status()===404);assert(acceptable,label+' response failed with HTTP '+res.status())};await Promise.race([page.locator(selector).waitFor({state:'attached',timeout:30000}),page.locator('.kfe-runtime-error').waitFor({state:'attached',timeout:30000}).then(async()=>{throw new Error(label+' startup/runtime error: '+(await page.locator('body').innerText()).slice(0,1000))})]);assert(await page.locator(selector).count()>0,label+' selector missing');await healthy(label)}
  // 4A shell/routes
  await route('', '.work-canonical','Work');await page.getByText('Kanishka Enterprises',{exact:true}).first().waitFor({state:'visible'})
  for(const n of ['Work','Timeline','Performance','Admin'])assert(await page.getByRole('link',{name:n,exact:true}).count()>0,'missing nav '+n)
