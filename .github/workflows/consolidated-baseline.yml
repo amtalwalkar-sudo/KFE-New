@@ -86,6 +86,9 @@ jobs:
       - name: Run Semantic Control Audit
         run: node tools/semantic-control-audit.mjs
 
+      - name: Run Android Compatibility Simulation Audit
+        run: node tools/android-compatibility-audit.mjs
+
       - name: Upload Phase 4 Runtime Screenshots
         if: always()
         uses: actions/upload-artifact@v4
