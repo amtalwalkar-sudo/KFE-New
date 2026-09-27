@@ -18,7 +18,7 @@ assert.match(workService, /GPS is telemetry\/enrichment/)
 assert.match(workService, /ShiftTripRepository\.completeTrip\(\{ \.\.\.data \}\)/)
 assert.doesNotMatch(workView, /stop\(\{captureFinal:true\}\)/)
 assert.doesNotMatch(workService, /await NativeGpsService\.start/)
-assert.doesNotMatch(workService, /await NativeGpsService\.syncTrace\(tripId\)/
+assert.doesNotMatch(workService, /await NativeGpsService\.syncTrace\(tripId\)/)
 assert.match(workView, /pendingFare/)
 assert.match(workView, /TRIP COMPLETED/)
 assert.match(workView, /ENTER FARE/)
