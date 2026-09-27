@@ -145,7 +145,8 @@ try {
       window.dispatchEvent(new Event('resize'))
     })
     const after = await input.boundingBox()
-    assert(after && after.y >= -2 && after.y < window.innerHeight, profile.name + ': focused input is inaccessible after keyboard-like resize')
+    const resizedHeight = await page.evaluate(() => window.innerHeight)
+    assert(after && after.y >= -2 && after.y < resizedHeight, profile.name + ': focused input is inaccessible after keyboard-like resize')
     evidence.push({ id: 'KEYBOARD.' + profile.name, result: 'PASS', before, after: { inputY: after.y, inputHeight: after.height } })
 
     // 5/7/9: permission and GPS/network state transitions must not crash the app.
