@@ -74,7 +74,7 @@ try{
  const personalKm=page.getByRole('button',{name:'Personal KM',exact:true})
  if(await personalKm.count()) await personalKm.click()
  await page.getByRole('button',{name:'CONFIRM & GO ONLINE',exact:true}).click()
- await wait(async()=>await page.getByRole('button',{name:'ONLINE',exact:true}).count()===1 || await page.locator('.feedback.error').count()>0,'shift goes ONLINE').catch(async e=>{throw new Error(e.message+'\nWork start UI: '+(await page.locator('.cockpit').innerText()))})
+ await wait(async()=>await page.getByRole('button',{name:'ONLINE',exact:true}).count()===1 || await page.locator('.feedback.error').count()>0,'shift goes ONLINE').catch(async e=>{throw new Error(e.message+'\nWork start UI: '+(await page.locator('body').innerText().catch(()=>'')))})
  assert(await page.getByRole('button',{name:'ONLINE',exact:true}).count()===1,'Shift start did not reach ONLINE: '+(await page.locator('.feedback.error').allTextContents()).join(' | '))
  assert(await page.getByText("TODAY'S TARGET",{exact:true}).count()>0,'Online target surface missing after shift start')
  // 4B.1 Real Work online transaction: UI confirmation must persist an ACTIVE shift and
