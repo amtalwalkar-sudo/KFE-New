@@ -103,7 +103,8 @@ try {
       if (!u.startsWith('http://127.0.0.1:4177/') && !u.includes('bigdatacloud.net')) errors.push('request failed: ' + u)
     })
 
-    // Initialize the canonical Work state first so geometry measures the actual active swipe control.
+    // Establish the KFE origin first, then reset and initialize the canonical Work state.
+    await bootWork(page)
     await deleteDb(page)
     await page.reload({ waitUntil: 'domcontentloaded' })
     await startShift(page)
