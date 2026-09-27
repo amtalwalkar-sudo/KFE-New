@@ -247,7 +247,7 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
         <div><span class="eyebrow">PRIMARY ACTION</span><strong>{{actionLabel}}</strong><p>{{active?'End the active trip when the ride is complete.':ready?'Release at the threshold to start the trip.':'Begin the next pickup.'}}</p></div>
         <div ref="track" class="swipe trip-swipe" :class="{threshold:progress>=70,committing:busy}" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up">
           <div class="swipe-copy"><span>{{progress>=70?'RELEASE TO':'SWIPE TO'}}</span><strong>{{actionLabel}}</strong></div>
-          <button class="swipe-handle" type="button" :aria-label="actionLabel" @click.stop="keyAction">→</button>
+          <button class="swipe-handle" type="button" :aria-label="actionLabel" @pointerup.stop="keyAction" @click.stop="keyAction">→</button>
         </div>
         <span class="swipe-hint">{{progress>=70?'Release to continue':'Drag the handle right. Tap the handle for the accessible alternative.'}}</span>
       </section>
