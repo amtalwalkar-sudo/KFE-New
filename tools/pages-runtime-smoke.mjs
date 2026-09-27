@@ -66,12 +66,10 @@ try {
   ]
 
   for (const route of routes) {
-    // Navigate the fragment in the already-loaded SPA document. Using
-    // page.goto() for hash URLs races the Vue router's own hash navigation
-    // and can produce ERR_ABORTED when the router immediately changes it.
-    await page.evaluate(path => {
-      window.location.hash = path
-    }, route.path)
+    // Use the rendered router-link so Vue Router owns the hash navigation.
+    // Directly mutating window.location.hash can destroy the evaluate context
+    // before Playwright receives its result on fast CI runners.
+    await page.getByRole('link', { name: route.text, exact: true }).click()
     await page.getByText(route.text, { exact: true }).first().waitFor({
       state: 'visible',
       timeout: 15000,
