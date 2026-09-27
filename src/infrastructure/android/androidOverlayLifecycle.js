@@ -42,9 +42,7 @@ const activeOverlayState = async () => {
   revenue = `₹${Number.isFinite(authoritativeRevenue) && authoritativeRevenue >= 0 ? authoritativeRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 }) : '0'}`
   try {
     const targetNumber = Number(String(target).replace(/[^0-9.]/g, ''))
-    const snapshot = await PerformanceService.getSnapshot()
-    const metrics = PerformanceService.getMetrics(snapshot, reportingRangeFor('DAY', getKfeReferenceNow()))
-    const achieved = Number(metrics?.revenue || 0)
+    const achieved = trips.filter(item => item?.status === 'COMPLETED' && Number.isFinite(Number(item?.revenue))).reduce((sum,item)=>sum+Number(item.revenue),0)
     if (Number.isFinite(targetNumber) && targetNumber > 0) targetProgress = Math.min(100, Math.round((achieved / targetNumber) * 100))
   } catch (_) {}
 
