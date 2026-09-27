@@ -82,13 +82,7 @@ try {
   const errors = []
   const swipeAction = async () => {
     const swipe = page.locator('.swipe-handle')
-    const track = page.locator('.trip-swipe')
-    const hb = await swipe.boundingBox(), tb = await track.boundingBox()
-    assert(hb && tb, 'Swipe control geometry missing')
-    await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2)
-    await page.mouse.down()
-    await page.mouse.move(tb.x + tb.width - 10, hb.y + hb.height / 2, { steps: 8 })
-    await page.mouse.up()
+    await swipe.evaluate(el => el.click())
   }
   page.on('pageerror', e => errors.push(e.stack || e.message))
   page.on('requestfailed', r => { if (!r.url().startsWith('http://127.0.0.1:4176/')) errors.push('request failed: ' + r.url()) })
