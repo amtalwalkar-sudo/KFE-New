@@ -106,10 +106,12 @@ export const WorkService = Object.freeze({
     const active = await ShiftTripRepository.getActive()
     if (active.shift?.id) {
       const trips = await ShiftTripRepository.getTripsForShift(active.shift.id)
+      const corrections = new Map((data.trips || []).filter(item => item?.id).map(item => [item.id, item]))
+      const movementTrips = trips.map(trip => corrections.has(trip.id) ? { ...trip, ...corrections.get(trip.id), tripKm: corrections.get(trip.id).tripKm === '' ? trip.tripKm : corrections.get(trip.id).tripKm } : trip)
       const gpsSnapshots = await LocationRepository.forEntity('SHIFT', active.shift.id)
       try {
         const reconciliation = await MovementAccountingService.reconcileShiftMovement({
-          trips,
+          trips: movementTrips,
           startOdometer: active.shift.startOdometer,
           endOdometer: data?.closingOdometer,
           router: new ValhallaRoutingAdapter(),
