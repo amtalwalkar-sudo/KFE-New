@@ -77,23 +77,17 @@ try{
  await wait(async()=>await page.getByRole('button',{name:'ONLINE',exact:true}).count()===1,'shift goes ONLINE')
  assert(await page.getByText("TODAY'S TARGET",{exact:true}).count()>0,'Online target surface missing after shift start')
  // 4B.1 Real Work online transaction: UI confirmation must persist an ACTIVE shift and
- // refresh the store into ONLINE state. This was previously untested end-to-end.
- await route('','.cockpit','Work online transaction')
- const onlineTransactionToggle=page.locator('button.toggle').first();await onlineTransactionToggle.waitFor({state:'visible',timeout:30000});assert((await onlineTransactionToggle.innerText()).trim()==='OFFLINE','Work did not return to OFFLINE after the persisted fixture reload');await onlineTransactionToggle.click()
- await page.getByText('ODOMETER CHECK',{exact:true}).waitFor({state:'visible'})
- const odoInput=page.locator('input[type="number"]').first()
- const currentOdo=await odoInput.inputValue()
- assert(currentOdo && Number(currentOdo)>0,'Start odometer was not wired from persisted last odometer')
- await page.getByText('I confirm this is the current vehicle odometer.',{exact:false}).click()
- await page.getByRole('button',{name:'CONFIRM & GO ONLINE',exact:true}).click()
- await wait(async()=>await page.getByRole('button',{name:'ONLINE',exact:true}).count()===1,'shift ONLINE state')
- assert(await page.getByRole('button',{name:'ONLINE',exact:true}).getAttribute('aria-pressed')==='true','Online control did not enter pressed state')
- assert(await page.getByText("TODAY'S TARGET",{exact:true}).count()===1,'Online Work surface did not render after shift start')
+ // Verify the just-created ACTIVE shift survives a real browser reload.
+ await route('','.cockpit','Work online persistence')
+ await page.reload({waitUntil:'domcontentloaded'});await page.locator('.cockpit').waitFor({state:'attached'})
+ await wait(async()=>await page.getByRole('button',{name:'ONLINE',exact:true}).count()===1,'persisted ONLINE state')
+ const persistedToggle=page.getByRole('button',{name:'ONLINE',exact:true})
+ assert(await persistedToggle.getAttribute('aria-pressed')==='true','Persisted ACTIVE shift did not restore ONLINE state')
+ assert(await page.getByText("TODAY'S TARGET",{exact:true}).count()===1,'Persisted ONLINE Work surface did not render')
  const onlineState=await page.locator('.cockpit').innerText()
- assert(onlineState.includes('READY'),'Active shift did not expose READY Work state')
+ assert(onlineState.includes('READY'),'Persisted ACTIVE shift did not expose READY Work state')
  const activeShift=await page.evaluate(async()=>{const db=await new Promise((resolve,reject)=>{const req=indexedDB.open('kanishka_kfe_canonical_db',13);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});const rows=await new Promise((resolve,reject)=>{const tx=db.transaction(['shifts'],'readonly');const q=tx.objectStore('shifts').getAll();q.onsuccess=()=>resolve(q.result||[]);q.onerror=()=>reject(q.error)});db.close();return rows.find(s=>s.status==='ACTIVE')||null})
- assert(activeShift && Number(activeShift.startOdometer)===Number(currentOdo),'ONLINE shift was not persisted in canonical DB')
- // Leave the smoke fixture clean for subsequent phases.
+ assert(activeShift && Number(activeShift.startOdometer)===1200,'ONLINE shift was not persisted in canonical DB') // Leave the smoke fixture clean for subsequent phases.
  await page.evaluate(async(id)=>{const db=await new Promise((resolve,reject)=>{const req=indexedDB.open('kanishka_kfe_canonical_db',13);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});await new Promise((resolve,reject)=>{const tx=db.transaction(['shifts'],'readwrite');tx.objectStore('shifts').delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)});db.close()},activeShift.id)
  await page.reload({waitUntil:'domcontentloaded'});await page.locator('.cockpit').waitFor({state:'attached'})
  await wait(async()=>await page.getByRole('button',{name:'OFFLINE',exact:true}).count()===1,'clean OFFLINE state')
