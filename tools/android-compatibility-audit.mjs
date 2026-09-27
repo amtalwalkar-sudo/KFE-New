@@ -176,6 +176,7 @@ try {
     const afterVisibility = await readShifts(page)
     assert(afterVisibility.length === 1 && afterVisibility[0].status === 'ACTIVE', profile.name + ': visibility transition mutated shift state')
     evidence.push({ id: 'BACKGROUND.' + profile.name, result: 'PASS', expected: 'one ACTIVE shift after visibility/blur/focus cycle' })
+    assert(errors.length === 0, profile.name + ': browser/runtime errors across compatibility checks: ' + errors.join(' | '))
 
     await context.close()
   }
@@ -189,6 +190,8 @@ try {
     deviceScaleFactor: 2,
   })
   const page = await context.newPage()
+  const orientationErrors = []
+  page.on('pageerror', e => orientationErrors.push(e.stack || e.message))
   await bootWork(page)
   const portrait = await page.evaluate(() => matchMedia('(orientation: portrait)').matches)
   await page.evaluate(() => window.dispatchEvent(new Event('resize')))
@@ -203,8 +206,7 @@ try {
   assert(!landscape.overflow, 'landscape layout has horizontal overflow')
   evidence.push({ id: 'ORIENTATION', result: 'PASS', checks: ['portrait', 'landscape', 'no-landscape-overflow'] })
   evidence.push({ id: 'PWA_DISPLAY_MODE', result: 'PASS', checks: ['display-mode query evaluated', 'PWA manifest/build already gated elsewhere'], observedStandalone: landscape.standaloneQuery })
-
-  assert(errors.length === 0, 'Android compatibility audit browser errors: ' + errors.join(' | '))
+  assert(orientationErrors.length === 0, 'Android compatibility orientation errors: ' + orientationErrors.join(' | '))
   const result = {
     audit: 'android-compatibility-simulation',
     rule: 'Exercise Android-relevant browser conditions and verify no runtime error, inaccessible controls, layout overflow, or business-state corruption.',
