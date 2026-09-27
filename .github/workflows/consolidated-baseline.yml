@@ -121,14 +121,14 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
+      - name: Checkout Repository for deployed runtime verification
+        uses: actions/checkout@v5
+
       - name: Setup Node.js for deployed runtime verification
         uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
-
-      - name: Checkout Repository for deployed runtime verification
-        uses: actions/checkout@v5
 
       - name: Install deployed runtime verification dependencies
         run: npm ci
