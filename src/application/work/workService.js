@@ -11,6 +11,7 @@ import { BackupService } from '../backup/backupService.js'
 import { MovementAccountingService } from '../../domain/movement/movementAccounting.js'
 import { calculateTraceDistanceKm } from '../../infrastructure/location/movementTraceService.js'
 import { NativeGpsService } from '../../infrastructure/android/nativeGpsService.js'
+import { ValhallaRoutingAdapter } from '../../infrastructure/location/valhallaRoutingAdapter.js'
 import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
 
 const checkpoint = () => BackupService.requestLocalBackupCheckpoint()
