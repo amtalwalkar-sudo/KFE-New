@@ -510,3 +510,35 @@
 .work-canonical .trip-swipe{
   touch-action:none;
 }
+
+/* FROZEN KFE UI/UX SHELL v1 — shared chrome and responsive screen surfaces. */
+.kfe-frozen-shell{--shell-bg:var(--kfe-ui-bg,var(--surface));--shell-surface:var(--kfe-ui-surface,var(--surface));--shell-surface-2:var(--kfe-ui-surface-2,var(--surface2));--shell-line:var(--kfe-ui-border,var(--line));--shell-ink:var(--kfe-ui-text,var(--ink));--shell-muted:var(--kfe-muted-text,var(--muted));--shell-accent:var(--kfe-ui-accent,var(--accent));background:var(--shell-bg);color:var(--shell-ink)}
+.kfe-frozen-shell .content-scroll-area{background:var(--shell-bg);scrollbar-width:thin}
+.kfe-frozen-shell .top-bar{min-height:58px;padding:8px 12px;border-bottom:1px solid var(--shell-line)}
+.kfe-frozen-shell .brand-lockup{background:transparent!important;box-shadow:none!important;border:0!important;padding:4px 2px}
+.kfe-frozen-shell .brand-mark{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-weight:950}
+.kfe-frozen-shell .brand-copy strong{font-size:14px;letter-spacing:.03em}
+.kfe-frozen-shell .header-gps{width:42px;height:42px;border-radius:12px}
+.kfe-frozen-shell .bottom-nav{min-height:var(--kfe-nav-height);padding-bottom:env(safe-area-inset-bottom,0px)}
+.kfe-frozen-shell .nav-item{min-height:52px;border-radius:13px;gap:3px;font-size:10px;font-weight:800}
+.kfe-frozen-shell :where(button){-webkit-tap-highlight-color:transparent}
+.kfe-frozen-shell :where(button:not(:disabled)):active{transform:translateY(1px)}
+.kfe-frozen-shell :where(.timeline,.performance-page,.admin-page){width:min(100%,960px);margin:0 auto;padding:16px 14px calc(96px + env(safe-area-inset-bottom,0px));box-sizing:border-box}
+.kfe-frozen-shell :where(.timeline,.performance-page,.admin-page) :where(button,.today,.edit,.delete){min-height:44px;border-radius:12px;font-weight:800}
+.kfe-frozen-shell :where(.timeline,.performance-page,.admin-page) :where(input,select,textarea){min-height:46px;border-radius:12px}
+.kfe-frozen-shell .timeline .slider,.kfe-frozen-shell .timeline .period,.kfe-frozen-shell .performance-page .pp-period{background:var(--shell-surface);border:1px solid var(--shell-line);border-radius:14px;padding:5px}
+.kfe-frozen-shell .timeline .slider button.active,.kfe-frozen-shell .performance-page .pp-period button.active{background:var(--shell-accent);color:#fff}
+.kfe-frozen-shell .timeline :where(.day-snapshot,.summary-card,.event,.personal-event,.groups,.state),.kfe-frozen-shell .performance-page .pp-section,.kfe-frozen-shell .admin-page :where(.kfe-admin-card,.settings-workspace,.record,.financial-card,.info-card,.form-layout,.reset-card){background:var(--shell-surface);border:1px solid var(--shell-line);border-radius:16px;box-shadow:0 6px 20px color-mix(in srgb,var(--shell-ink) 6%,transparent)}
+.kfe-frozen-shell .timeline .day-snapshot,.kfe-frozen-shell .timeline .summary-card{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;padding:1px;overflow:hidden}
+.kfe-frozen-shell .timeline .day-snapshot>div,.kfe-frozen-shell .timeline .summary-card>div{padding:12px;background:var(--shell-surface)}
+.kfe-frozen-shell .timeline .day-snapshot span,.kfe-frozen-shell .timeline .summary-card span{display:block;color:var(--shell-muted);font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.08em}
+.kfe-frozen-shell .timeline .day-snapshot strong,.kfe-frozen-shell .timeline .summary-card strong{display:block;margin-top:4px;font-size:16px}
+.kfe-frozen-shell .performance-page .pp-section{margin-top:10px;padding:16px}
+.kfe-frozen-shell .performance-page .pp-profit-pair{display:grid;gap:8px}
+.kfe-frozen-shell .performance-page .pp-profit{border-radius:14px;padding:14px;border:1px solid var(--shell-line);background:var(--shell-surface-2)}
+.kfe-frozen-shell .performance-page .pp-profit strong{display:block;font-size:30px;line-height:1.05;margin:6px 0}
+.kfe-frozen-shell .performance-page .pp-context-strip,.kfe-frozen-shell .performance-page .pp-fuel-summary,.kfe-frozen-shell .performance-page .pp-metric-strip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.kfe-frozen-shell .performance-page :where(.pp-context-strip>div,.pp-fuel-summary>div,.pp-metric-strip>div){padding:11px 12px;border-radius:12px;background:var(--shell-surface-2)}
+.kfe-frozen-shell .admin-page :where(.kfe-admin-card,.settings-workspace,.record,.financial-card,.info-card){overflow:hidden}
+@media(min-width:700px){.kfe-frozen-shell .timeline .day-snapshot,.kfe-frozen-shell .timeline .summary-card{grid-template-columns:repeat(4,minmax(0,1fr))}.kfe-frozen-shell .performance-page .pp-profit-pair{grid-template-columns:1fr 1fr}.kfe-frozen-shell .performance-page .pp-context-strip,.kfe-frozen-shell .performance-page .pp-fuel-summary,.kfe-frozen-shell .performance-page .pp-metric-strip{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:430px){.kfe-frozen-shell :where(.timeline,.performance-page,.admin-page){padding-left:10px;padding-right:10px}.kfe-frozen-shell .performance-page .pp-title h1{font-size:26px}}

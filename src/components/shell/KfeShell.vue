@@ -27,7 +27,7 @@ const refreshGps = () => checkGps({ requestPermission: true })
 </script>
 
 <template>
-  <div class="viewport-wrapper">
+  <div class="viewport-wrapper kfe-frozen-shell" data-kfe-ui="frozen-v1">
     <a class="kfe-skip-link" href="#main-content">Skip to main content</a>
     <header v-if="route.meta?.shell?.header !== false" class="top-bar" aria-label="KFE application header">
       <div class="brand-lockup">

@@ -7,6 +7,7 @@ import { PerformanceService } from '../application/performance/performanceServic
 import { MovementTraceService } from '../infrastructure/location/movementTraceService.js'
 import { KfeRideNotificationService } from '../infrastructure/android/kfeRideNotificationService.js'
 import { AndroidOverlay } from '../infrastructure/android/kfeOverlay.js'
+import { NativeGpsService } from '../infrastructure/android/nativeGpsService.js'
 
 const store=useShiftTripStore(), fuel=useFuelStore()
 const startOdo=ref(''), startOpen=ref(false), startAck=ref(false), gapChoice=ref(''), startBusy=ref(false)
@@ -17,7 +18,7 @@ const fuelOpen=ref(false), fuelOdo=ref(''), fuelPrice=ref(''), fuelAmount=ref(''
 const endOpen=ref(false), endStage=ref('CLOSE'), closingOdo=ref(''), shiftRevenue=ref(''), toll=ref(''), parking=ref(''), tollTreatment=ref('INCLUDED'), endBusy=ref(false)
 const reviewRevenue=ref({}), reviewKm=ref({}), reviewOperator=ref({}), clock=ref(Date.now()), target=ref(null), targetAchieved=ref(0)
 const swipe=ref({down:false,start:0,offset:0}), track=ref(null)
-let timer=null, traceRunning=false
+let timer=null, traceRunning=false, notificationListener=null
 
 const money=v=>Number.isFinite(Number(v))?'₹'+Math.round(Number(v)).toLocaleString('en-IN'):'—'
 const notify=t=>{message.value=t;error.value='';clearTimeout(notify.t);notify.t=setTimeout(()=>{if(message.value===t)message.value=''},2400)}
@@ -47,7 +48,7 @@ async function syncSurfaces(){if(!store.isOnline){await AndroidOverlay.hide().ca
 function openStart(){fuelOpen.value=false;endOpen.value=false;startOpen.value=true;startOdo.value=store.lastKnownOdometer==null?'':String(store.lastKnownOdometer);startAck.value=false;gapChoice.value='';error.value='';message.value=''}
 async function submitStart(){if(startBusy.value)return;if(!startOdo.value)return fail('Current odometer is required.');if(!startAck.value)return fail('Confirm the current odometer reading before continuing.');if(!gap.value.valid)return fail(gap.value.reason||'Enter a valid odometer.');if(gapKm.value&&!gapChoice.value)return fail('Choose Personal KM or Dead KM for the full odometer gap.');startBusy.value=true;try{const r=await store.startShift(startOdo.value,gapKm.value?{category:gapChoice.value}:null);if(!r?.ok)return fail(r?.reason||'Could not start the shift.');startOdo.value='';startOpen.value=false;startAck.value=false;gapChoice.value='';await targetRefresh().catch(()=>{});await KfeRideNotificationService.goOnline().catch(()=>{});await AndroidOverlay.prepare().catch(()=>{});await syncSurfaces();notify('Online — shift started.')}catch(error){fail(error?.message||'Could not start the shift.')}finally{startBusy.value=false}}
 
-async function goPickup(){if(busy.value||!store.isOnline||store.isTripActive)return;busy.value=true;try{try{traceRunning=MovementTraceService.start({entityType:'SHIFT',entityId:store.shift?.id,eventType:'DEAD_MOVEMENT_TRACE',profile:'DEAD_LEG'})}catch(_){traceRunning=false}const r=await store.beginPickup(operator.value||store.defaultOperator);if(!r?.ok){if(traceRunning)MovementTraceService.reset();traceRunning=false;return fail(r?.reason||'Could not start pickup.')}await KfeRideNotificationService.beginPickup(`pickup-${Date.now()}`).catch(()=>{});await syncSurfaces();notify('Going to pickup.')}finally{busy.value=false}}
+async function goPickup(){if(busy.value||!store.isOnline||store.isTripActive)return;busy.value=true;try{try{traceRunning=MovementTraceService.start({entityType:'SHIFT',entityId:store.shift?.id,eventType:'DEAD_MOVEMENT_TRACE',profile:'DEAD_LEG'})}catch(_){traceRunning=false}const r=await store.beginPickup(operator.value||store.defaultOperator);if(!r?.ok){if(traceRunning)MovementTraceService.reset();traceRunning=false;return fail(r?.reason||'Could not start pickup.')}await KfeRideNotificationService.beginPickup(store.trip?.id||`pickup-${Date.now()}`).catch(()=>{});await syncSurfaces();notify('Going to pickup.')}finally{busy.value=false}}
 async function startTrip(){if(busy.value||!ready.value)return;busy.value=true;try{if(traceRunning){MovementTraceService.reset();traceRunning=false}const r=await store.startRide();if(!r.ok)return fail(r.reason);await KfeRideNotificationService.startRide().catch(()=>{});await syncSurfaces();notify('Trip active.')}finally{busy.value=false}}
 async function endTrip(){if(busy.value||!active.value)return;busy.value=true;try{const id=store.trip.id;if(!await store.endTrip())return fail('Trip could not be completed.');await KfeRideNotificationService.completeRide().catch(()=>{});fareTripId.value=id;fare.value='';await syncSurfaces();notify('Trip completed — enter fare.')}finally{busy.value=false}}
 async function saveFare(){if(fareBusy.value)return;if(!pendingFare.value)return;if(fare.value==='')return fail('Trip fare is required.');if(!Number.isFinite(Number(fare.value))||Number(fare.value)<0)return fail('Trip fare must be a non-negative number.');fareBusy.value=true;const r=await store.updateTrip({id:pendingFare.value.id,revenue:Number(fare.value)});fareBusy.value=false;if(!r.ok)return fail(r.reason);fareTripId.value=null;fare.value='';await targetRefresh();await syncSurfaces();notify('Fare saved.')}
@@ -73,8 +74,9 @@ async function up(){if(!swipe.value.down)return;const commit=progress.value>=70;
 function keyAction(){if(!busy.value)doAction()}
 watch(()=>store.completedTrips.map(t=>t.id+':'+(t.revenue??'')).join('|'),()=>{if(!fareTripId.value&&pendingFare.value)fareTripId.value=pendingFare.value.id})
 watch(()=>store.isOnline,()=>syncSurfaces())
-onMounted(async()=>{await store.initialize();await targetRefresh();operator.value=store.defaultOperator;if(pendingFare.value)fareTripId.value=pendingFare.value.id;clock.value=Date.now();timer=setInterval(()=>clock.value=Date.now(),1000);await syncSurfaces()})
-onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTraceService.reset();AndroidOverlay.hide().catch(()=>{})})
+const handleNativeAction=async event=>{const stage=String(event?.stage||'');if(stage==='GO_TO_PICKUP')return goPickup();if(stage==='START_RIDE')return startTrip();if(stage==='END_RIDE')return endTrip();if(stage==='ENTER_FARE'&&event?.input!=null){fareTripId.value=event.tripId||fareTripId.value||pendingFare.value?.id||null;fare.value=String(event.input);if(pendingFare.value)await saveFare()}}
+onMounted(async()=>{await store.initialize();await targetRefresh();operator.value=store.defaultOperator;if(pendingFare.value)fareTripId.value=pendingFare.value.id;clock.value=Date.now();timer=setInterval(()=>clock.value=Date.now(),1000);notificationListener=await KfeRideNotificationService.addListener('rideNotificationAction',event=>{void handleNativeAction(event)});const pending=await KfeRideNotificationService.consumePendingAction();if(pending){await handleNativeAction(pending);await KfeRideNotificationService.clearPendingAction()}await KfeRideNotificationService.resume().catch(()=>{});await syncSurfaces()})
+onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTraceService.reset();notificationListener?.remove?.();AndroidOverlay.hide().catch(()=>{})})
 </script>
 
 <template>
