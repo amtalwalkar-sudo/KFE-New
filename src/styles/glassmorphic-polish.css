@@ -744,3 +744,129 @@ body:has(.work-canonical){
     height:44px!important;
   }
 }
+
+/* WORK COCKPIT v3 — driving-first visual system */
+.work-canonical{
+  --work-info:#1677ff;
+  --work-success:#16a05d;
+  --work-danger:#e5484d;
+  --work-warning:#e08a00;
+}
+.work-canonical .work-header{
+  min-height:58px;
+  padding:8px 12px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  border-bottom:1px solid color-mix(in srgb,var(--kfe-ui-border) 75%,transparent);
+  background:color-mix(in srgb,var(--kfe-ui-surface) 88%,transparent);
+  backdrop-filter:blur(14px) saturate(130%);
+  -webkit-backdrop-filter:blur(14px) saturate(130%);
+}
+.work-canonical .identity strong{font-size:15px;letter-spacing:.05em}
+.work-canonical .header-controls{display:flex;align-items:center;gap:8px}
+.work-canonical .icon-action,.work-canonical .shift-toggle{
+  min-height:42px;height:42px;border-radius:13px;
+  border:1px solid var(--kfe-ui-border);
+  background:var(--kfe-ui-surface);
+  box-shadow:0 4px 14px color-mix(in srgb,var(--kfe-ui-text) 7%,transparent);
+}
+.work-canonical .icon-action{width:42px;padding:0;font-size:19px}
+.work-canonical .shift-toggle{padding:0 12px;font-weight:900;letter-spacing:.04em}
+.work-canonical .shift-toggle.online{border-color:color-mix(in srgb,var(--work-success) 55%,var(--kfe-ui-border));color:var(--work-success)}
+.work-canonical .work-main{
+  background:
+    radial-gradient(circle at 50% 8%,color-mix(in srgb,var(--kfe-ui-accent) 9%,transparent),transparent 34%),
+    var(--kfe-ui-bg);
+}
+.work-canonical .operational-state{
+  width:min(720px,calc(100% - 20px));
+  margin:12px auto 0;
+  padding:18px;
+  border:1px solid var(--kfe-ui-border);
+  border-radius:20px;
+  background:color-mix(in srgb,var(--kfe-ui-surface) 94%,transparent);
+  box-shadow:0 8px 28px color-mix(in srgb,var(--kfe-ui-text) 8%,transparent);
+}
+.work-canonical .operational-state .eyebrow{color:var(--kfe-muted-text)!important}
+.work-canonical .operational-state>strong{display:block;font-size:25px;line-height:1.05;margin-top:5px}
+.work-canonical .active-metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.work-canonical .active-metrics>div,.work-canonical .context-line{
+  border-radius:13px;background:var(--kfe-ui-surface-2);padding:10px 12px;
+}
+.work-canonical .active-metrics span,.work-canonical .context-line span{font-size:10px;color:var(--kfe-muted-text)!important;font-weight:850}
+.work-canonical .active-metrics strong,.work-canonical .context-line strong{display:block;margin-top:3px}
+.work-canonical .action-instrument{
+  width:min(720px,calc(100% - 20px));margin:12px auto 0;
+}
+.work-canonical .trip-swipe{
+  --swipe-color:var(--work-info);
+  height:64px!important;min-height:64px!important;
+  border:1px solid color-mix(in srgb,var(--swipe-color) 48%,var(--kfe-ui-border))!important;
+  background:color-mix(in srgb,var(--swipe-color) 9%,var(--kfe-ui-surface))!important;
+  border-radius:18px!important;
+  overflow:hidden!important;
+  padding:7px!important;
+}
+.work-canonical .trip-swipe.semantic-start{--swipe-color:var(--work-success)}
+.work-canonical .trip-swipe.semantic-end{--swipe-color:var(--work-danger)}
+.work-canonical .trip-swipe .swipe-copy{color:var(--swipe-color)!important;font-weight:900;letter-spacing:.04em}
+.work-canonical .trip-swipe .swipe-copy span{color:var(--kfe-muted-text)!important}
+.work-canonical .trip-swipe .swipe-handle{
+  position:absolute!important;left:7px!important;top:7px!important;
+  width:50px!important;height:50px!important;min-width:50px!important;
+  border:0!important;border-radius:14px!important;
+  background:var(--swipe-color)!important;color:#fff!important;
+  box-shadow:0 5px 15px color-mix(in srgb,var(--swipe-color) 32%,transparent);
+  transition:none!important;will-change:transform;z-index:2;
+}
+.work-canonical .trip-swipe.threshold .swipe-handle{box-shadow:0 0 0 4px color-mix(in srgb,var(--swipe-color) 18%,transparent),0 7px 18px color-mix(in srgb,var(--swipe-color) 38%,transparent)}
+.work-canonical .trip-swipe.committing .swipe-handle{filter:brightness(.94)}
+.work-canonical .trip-swipe .swipe-copy{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;gap:7px}
+.work-canonical .trip-swipe .swipe-copy strong{color:var(--swipe-color)!important}
+.work-canonical .focus-surface,
+.work-canonical .state-gate{
+  background:color-mix(in srgb,var(--kfe-ui-bg) 92%,transparent)!important;
+}
+.work-canonical .focus-surface::after,
+.work-canonical .state-gate::after{
+  content:"";position:absolute;inset:10px;border:1px solid var(--kfe-ui-border);
+  border-radius:24px;background:var(--kfe-ui-surface);
+  box-shadow:0 18px 60px color-mix(in srgb,var(--kfe-ui-text) 18%,transparent);
+  z-index:-1;pointer-events:none;
+}
+.work-canonical .focus-surface label,
+.work-canonical .state-gate label{font-size:12px;font-weight:850;letter-spacing:.01em}
+.work-canonical .focus-surface input,
+.work-canonical .state-gate input,
+.work-canonical .focus-surface select,
+.work-canonical .state-gate select{
+  margin-top:5px;border-radius:14px!important;border:1px solid var(--kfe-ui-border)!important;
+  background:var(--kfe-ui-surface-2)!important;font-size:18px!important;font-weight:750;
+  padding-left:13px;padding-right:13px;
+  outline:none;
+}
+.work-canonical .focus-surface input:focus,
+.work-canonical .state-gate input:focus,
+.work-canonical .focus-surface select:focus,
+.work-canonical .state-gate select:focus{
+  border-color:var(--kfe-ui-accent)!important;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--kfe-ui-accent) 15%,transparent);
+}
+.work-canonical .primary-action{
+  border-radius:15px!important;font-weight:950!important;letter-spacing:.025em;
+  box-shadow:0 8px 20px color-mix(in srgb,var(--kfe-ui-accent) 18%,transparent);
+}
+.work-canonical .text-action{min-height:40px;padding:0 10px;border-radius:11px}
+.work-canonical .gap-panel,.work-canonical .exception-panel,.work-canonical .success-panel{
+  border-radius:15px!important;border:1px solid var(--kfe-ui-border)!important;
+  background:var(--kfe-ui-surface-2)!important;
+}
+@media(max-width:430px){
+  .work-canonical .operational-state{padding:14px;border-radius:17px}
+  .work-canonical .operational-state>strong{font-size:22px}
+  .work-canonical .trip-swipe{height:60px!important;min-height:60px!important}
+  .work-canonical .trip-swipe .swipe-handle{width:46px!important;height:46px!important}
+  .work-canonical .focus-surface::after,.work-canonical .state-gate::after{inset:6px;border-radius:20px}
+}
