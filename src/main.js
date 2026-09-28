@@ -15,6 +15,7 @@ import { StartupService } from './application/startup/startupService.js'
 import { startApplication } from './application/startup/startupRuntime.js'
 import './styles/kfe-ui.css'
 import './styles/work-cockpit-hud.css'
+import './styles/glassmorphic-polish.css'
 import { startKfeThemeController } from './presentation/theme/kfeThemeController.js'
 
 if (!Capacitor.isNativePlatform()) {
