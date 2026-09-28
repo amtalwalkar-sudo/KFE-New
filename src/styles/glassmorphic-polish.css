@@ -369,3 +369,107 @@
     padding-bottom:calc(118px + var(--kfe-nav-height) + env(safe-area-inset-bottom,0px));
   }
 }
+
+/* SEMANTIC CONTRAST BRIDGE
+ * Glass surfaces must never own a fixed text palette. All foregrounds,
+ * borders, inputs and status colours resolve through the active theme tokens.
+ */
+:root{
+  --ink:var(--kfe-ui-text);
+  --muted:var(--kfe-muted-text);
+  --surface:var(--kfe-ui-surface);
+  --surface2:var(--kfe-ui-surface-2);
+  --line:var(--kfe-ui-border);
+  --accent:var(--kfe-ui-accent);
+  --info:var(--kfe-info);
+  --success:var(--kfe-success);
+  --warning:var(--kfe-warning);
+  --danger:var(--kfe-danger);
+  --kfe-on-accent:#fff;
+  --kfe-glass-text:var(--kfe-ui-text);
+  --kfe-glass-muted:var(--kfe-muted-text);
+  --kfe-glass-border:var(--kfe-ui-border);
+}
+
+.viewport-wrapper,
+.kfe-workspace,
+.work-page,
+.timeline-page,
+.performance-page,
+.admin-page,
+.work-canonical{
+  color:var(--kfe-ui-text);
+}
+
+.kfe-workspace :where(h1,h2,h3,h4,h5,h6,strong,b,legend),
+.work-page :where(h1,h2,h3,h4,h5,h6,strong,b,legend),
+.timeline-page :where(h1,h2,h3,h4,h5,h6,strong,b,legend),
+.performance-page :where(h1,h2,h3,h4,h5,h6,strong,b,legend),
+.admin-page :where(h1,h2,h3,h4,h5,h6,strong,b,legend),
+.work-canonical :where(h1,h2,h3,h4,h5,h6,strong,b,legend){
+  color:var(--kfe-ui-text);
+}
+
+.kfe-workspace :where(p,span,small,label,dt,dd,li,figcaption),
+.work-page :where(p,span,small,label,dt,dd,li,figcaption),
+.timeline-page :where(p,span,small,label,dt,dd,li,figcaption),
+.performance-page :where(p,span,small,label,dt,dd,li,figcaption),
+.admin-page :where(p,span,small,label,dt,dd,li,figcaption),
+.work-canonical :where(p,span,small,label,dt,dd,li,figcaption){
+  color:inherit;
+}
+
+.kfe-workspace :where(.muted,.kfe-loading,.kfe-empty,.eyebrow,.section-label,.section-kicker,.kfe-eyebrow,.kfe-unit,.metric-unit,.kfe-source),
+.work-page :where(.muted,.kfe-loading,.kfe-empty,.eyebrow,.section-label,.section-kicker,.kfe-eyebrow,.kfe-unit,.metric-unit,.kfe-source),
+.timeline-page :where(.muted,.kfe-loading,.kfe-empty,.eyebrow,.section-label,.section-kicker,.kfe-eyebrow,.kfe-unit,.metric-unit,.kfe-source),
+.performance-page :where(.muted,.kfe-loading,.kfe-empty,.eyebrow,.section-label,.section-kicker,.kfe-eyebrow,.kfe-unit,.metric-unit,.kfe-source),
+.admin-page :where(.muted,.kfe-loading,.kfe-empty,.eyebrow,.section-label,.section-kicker,.kfe-eyebrow,.kfe-unit,.metric-unit,.kfe-source){
+  color:var(--kfe-muted-text)!important;
+}
+
+.kfe-workspace :where(input,select,textarea),
+.work-page :where(input,select,textarea),
+.timeline-page :where(input,select,textarea),
+.performance-page :where(input,select,textarea),
+.admin-page :where(input,select,textarea),
+.work-canonical :where(input,select,textarea){
+  color:var(--kfe-ui-text)!important;
+  background:color-mix(in srgb,var(--kfe-ui-surface) 92%,var(--kfe-ui-bg))!important;
+  border-color:var(--kfe-ui-border)!important;
+  caret-color:var(--kfe-ui-accent);
+}
+:where(input,textarea)::placeholder{
+  color:var(--kfe-muted-text)!important;
+  opacity:1;
+}
+:where(select) option{
+  color:var(--kfe-ui-text);
+  background:var(--kfe-ui-surface);
+}
+
+.kfe-workspace :where(button,a),
+.work-page :where(button,a),
+.timeline-page :where(button,a),
+.performance-page :where(button,a),
+.admin-page :where(button,a),
+.work-canonical :where(button,a){
+  color:var(--kfe-ui-text);
+}
+.kfe-workspace :where(button.kfe-ui-button.is-primary,.primary,.kfe-primary-action),
+.work-page :where(button.kfe-ui-button.is-primary,.primary,.kfe-primary-action),
+.timeline-page :where(button.kfe-ui-button.is-primary,.primary,.kfe-primary-action),
+.performance-page :where(button.kfe-ui-button.is-primary,.primary,.kfe-primary-action),
+.admin-page :where(button.kfe-ui-button.is-primary,.primary,.kfe-primary-action){
+  color:var(--kfe-on-accent)!important;
+}
+:where(.kfe-status-success,.status-success,.is-ok){color:var(--kfe-success)!important}
+:where(.kfe-status-warning,.status-warning){color:var(--kfe-warning)!important}
+:where(.kfe-status-error,.status-error,.is-error,.error-text){color:var(--kfe-danger)!important}
+:where(.kfe-status-info,.status-info){color:var(--kfe-info)!important}
+
+@media(forced-colors:active){
+  :root{--kfe-on-accent:ButtonText}
+  .kfe-workspace :where(*),.work-page :where(*),.timeline-page :where(*),.performance-page :where(*),.admin-page :where(*),.work-canonical :where(*){
+    forced-color-adjust:auto;
+  }
+}
