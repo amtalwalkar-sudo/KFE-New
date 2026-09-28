@@ -66,16 +66,6 @@ try{
  console.log('Phase 4 runtime canonical fixture PASS — persisted shift/trip survived reload and reconciled Timeline revenue with Performance under BR-11 EXCLUDED toll treatment.');
  // 4B Work interactions — includes end-to-end ONLINE persistence verification
  await route('','.work-canonical','Work interactions')
- // The frozen Work forms are full-viewport overlays. If the persisted Work shell
- // restores any Start Shift gate, close that active overlay before exercising the
- // underlying CNG control; Playwright must not click through an intentional modal surface.
- const activeOverlay=page.locator('.state-gate:visible, .focus-surface:visible');
- if(await activeOverlay.count()){
-   const back=activeOverlay.first().getByRole('button',{name:'Back'});
-   if(await back.count()) await back.first().click();
-   await wait(async()=>await page.locator('.state-gate:visible, .focus-surface:visible').count()===0,'active Work overlay closes');
- }
- await page.getByRole('button',{name:'CNG refuelling'}).click();await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'visible'});await page.getByRole('button',{name:'CNG refuelling'}).click();await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'hidden'})
  const shiftToggle=page.locator('button.shift-toggle').first();
  await shiftToggle.waitFor({state:'visible',timeout:30000});
  assert((await shiftToggle.innerText()).trim()==='OFFLINE','Work did not initialize in the expected OFFLINE state');
@@ -91,6 +81,13 @@ try{
  await wait(async()=>await page.getByRole('button',{name:'ONLINE',exact:true}).count()===1 || await page.locator('.feedback.error').count()>0,'shift goes ONLINE').catch(async e=>{throw new Error(e.message+'\nWork start UI: '+(await page.locator('body').innerText().catch(()=>'')))})
  assert(await page.getByRole('button',{name:'ONLINE',exact:true}).count()===1,'Shift start did not reach ONLINE: '+(await page.locator('.feedback.error').allTextContents()).join(' | '))
  assert(await page.getByText("TODAY'S TARGET",{exact:true}).count()>0,'Online target surface missing after shift start')
+ // CNG is exercised from the live ONLINE cockpit. Active entry forms intentionally
+ // own the full viewport, so the smoke test must not click an underlying control
+ // through a Start Shift overlay.
+ await page.getByRole('button',{name:'CNG refuelling'}).click()
+ await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'visible'})
+ await page.getByRole('button',{name:'CNG refuelling'}).click()
+ await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'hidden'})
  // 4B.1 Real Work online transaction: UI confirmation must persist an ACTIVE shift and
  // Verify the just-created ACTIVE shift survives a real browser reload.
  await route('','.work-canonical','Work online persistence')
