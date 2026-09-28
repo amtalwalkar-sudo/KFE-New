@@ -71,8 +71,17 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     const allocationCheck = WorkService.validateGapAllocation(check.gapKm, allocation?.category)
     if (!allocationCheck.valid) return allocationCheck
     const record = await WorkService.startShift({ startOdometer: Number(odo), openingPersonalKm: allocationCheck.personalKm, openingDeadKm: allocationCheck.deadKm, openingPersonalToll: Number(allocation?.personalToll || 0), openingPersonalParking: Number(allocation?.personalParking || 0), openingBaselineType: firstKfeDay.value ? 'BUSINESS_START_FIRST_DAY' : 'POST_KFE_GAP', historicalOdometerGapKm: firstKfeDay.value ? Number(check.historicalKm || 0) : 0, businessStartDate: businessStartBaseline.value?.businessStartDate || null, businessStartOdometer: businessStartBaseline.value?.businessStartOdometer ?? null })
+    // The shift write is authoritative. Do not turn a successful persisted
+    // start into a false failure because a post-write refresh/enrichment read fails.
     shift.value = record
-    await refresh()
+    try {
+      await refresh()
+    } catch (_) {
+      shift.value = record
+      registeredTrips.value = []
+      completedTrips.value = []
+      initialized.value = true
+    }
     captureAndRefreshLocation({ entityType: 'SHIFT', entityId: record.id, eventType: 'ONLINE' })
     return { ok: true }
   }
