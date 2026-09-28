@@ -74,14 +74,12 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     // The shift write is authoritative. Do not turn a successful persisted
     // start into a false failure because a post-write refresh/enrichment read fails.
     shift.value = record
-    try {
-      await refresh()
-    } catch (_) {
+    // Do not block the authoritative transition on a second IndexedDB read.
+    // The just-written record is already the source of truth for the cockpit.
+    initialized.value = true
+    void refresh().catch(() => {
       shift.value = record
-      registeredTrips.value = []
-      completedTrips.value = []
-      initialized.value = true
-    }
+    })
     captureAndRefreshLocation({ entityType: 'SHIFT', entityId: record.id, eventType: 'ONLINE' })
     return { ok: true }
   }
