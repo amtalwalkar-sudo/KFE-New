@@ -235,6 +235,7 @@ jobs:
             adb shell appops set com.kanishka.pwa android:system_alert_window allow
             adb shell appops set com.kanishka.pwa android:camera allow || true
             adb shell am force-stop com.kanishka.pwa
+            adb shell am instrument -w -r -e class com.kanishka.pwa.KfeWebViewStartupTest com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner
             adb shell am instrument -w -r -e class com.kanishka.pwa.KfeOverlaySmokeTest com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner
             sha256sum "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
 
