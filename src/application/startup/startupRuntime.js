@@ -10,8 +10,6 @@ export const startupState = reactive({
 let activeAttempt = null
 let timer = null
 
-const STARTUP_TIMEOUT_MS = 8000
-
 const clearTimer = () => {
   if (timer) {
     clearInterval(timer)
@@ -47,17 +45,9 @@ export const startApplication = () => {
       throw error
     })
 
-  void Promise.race([
-    operation,
-    new Promise((_, reject) => setTimeout(() => reject(new Error('KFE startup exceeded 8 seconds. Storage initialization may be blocked.')), STARTUP_TIMEOUT_MS)),
-  ]).catch(error => {
-    if (startupState.status === 'starting') {
-      startupState.elapsedMs = Date.now() - startedAt
-      startupState.error = error?.message || 'KFE startup timed out.'
-      startupState.status = 'error'
-    }
-  })
-
+  // Do not convert a slow Android WebView/IndexedDB startup into a fatal UI gate.
+  // The real startup promise below is authoritative; the mounted app remains usable
+  // while storage finishes initializing.
   return activeAttempt
 }
 
