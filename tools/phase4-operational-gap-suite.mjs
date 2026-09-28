@@ -202,8 +202,8 @@ try {
   assert(await page.getByRole('button', { name: 'OFFLINE', exact: true }).count() === 1, 'A5 online/offline control is missing')
   await fuelButton.click()
   assert(await page.getByText('CNG REFUEL', { exact: true }).count() === 1, 'A5 offline fuel form did not open')
-  await fuelButton.click()
-  assert(await page.getByText('CNG REFUEL', { exact: true }).count() === 0, 'A5 fuel icon did not close the offline fuel form')
+  await page.getByRole('button', { name: 'Close', exact: true }).click()
+  assert(await page.getByText('CNG REFUEL', { exact: true }).count() === 0, 'A5 fuel form Close control did not close the overlay')
 
   // D2: create a deterministic canonical Work fixture while online, then perform a
   // real canonical trip mutation while the browser is offline. The shift fixture is
