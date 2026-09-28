@@ -229,8 +229,7 @@ jobs:
           script: |
             set -eu
             adb wait-for-device
-            cd "$GITHUB_WORKSPACE/android"
-            ./gradlew :app:assembleDebugAndroidTest
+            "$GITHUB_WORKSPACE/android/gradlew" -p "$GITHUB_WORKSPACE/android" :app:assembleDebugAndroidTest
             adb install -r "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
             adb install -r "$GITHUB_WORKSPACE/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
             adb shell appops set com.kanishka.pwa android:system_alert_window allow
