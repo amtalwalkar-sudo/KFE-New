@@ -66,6 +66,13 @@ try{
  console.log('Phase 4 runtime canonical fixture PASS — persisted shift/trip survived reload and reconciled Timeline revenue with Performance under BR-11 EXCLUDED toll treatment.');
  // 4B Work interactions — includes end-to-end ONLINE persistence verification
  await route('','.work-canonical','Work interactions')
+ // The frozen Work forms are full-viewport overlays. If the persisted Work shell
+ // restores the Start Shift gate, close that active overlay before exercising the
+ // underlying CNG control; Playwright must not click through an intentional modal surface.
+ if(await page.getByText('Odometer check',{exact:true}).count()){
+   await page.getByRole('button',{name:'Back'}).first().click()
+   await wait(async()=>await page.getByText('Odometer check',{exact:true}).count()===0,'start-shift overlay closes')
+ }
  await page.getByRole('button',{name:'CNG refuelling'}).click();await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'visible'});await page.getByRole('button',{name:'CNG refuelling'}).click();await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'hidden'})
  const shiftToggle=page.locator('button.shift-toggle').first();
  await shiftToggle.waitFor({state:'visible',timeout:30000});
