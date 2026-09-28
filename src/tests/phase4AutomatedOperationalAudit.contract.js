@@ -171,7 +171,7 @@ scenario('K1/K2/K3/K4/K5/K6', () => {
   const work = read('views/WorkModuleView.vue')
   const shell = read('components/shell/KfeShell.vue')
   const overlay = read('../android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java')
-  assert.match(work, /TODAY'S TARGET/); assert.match(work, /SHIFT TIME/)
+  assert.match(work, /TODAY'S TARGET/); assert.doesNotMatch(work, /SHIFT TIME/)
   assert.match(work, /GO TO PICKUP/); assert.match(work, /START TRIP/); assert.match(work, /END TRIP/)
   assert.match(work, /CNG refuelling/); assert.match(work, /Current odometer/)
   assert.match(work, /Personal KM/); assert.match(work, /Dead KM/); assert.match(work, /CANCEL TRIP/)
