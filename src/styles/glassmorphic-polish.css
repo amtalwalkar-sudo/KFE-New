@@ -473,3 +473,40 @@
     forced-color-adjust:auto;
   }
 }
+
+
+/* FROZEN WORK SCROLL MODEL
+ * Normal Work is a fixed cockpit: the route/page must not scroll.
+ * Only the currently active dynamic state surface may scroll when its
+ * contents genuinely exceed the available viewport.
+ */
+.content-scroll-area:has(.work-canonical){
+  overflow:hidden!important;
+  overscroll-behavior:none;
+}
+.work-canonical{
+  height:100%;
+  min-height:0;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+}
+.work-canonical .work-main{
+  flex:1 1 auto;
+  min-height:0;
+  overflow:hidden;
+  overscroll-behavior:none;
+  padding-bottom:calc(118px + var(--kfe-nav-height) + env(safe-area-inset-bottom,0px));
+}
+.work-canonical .state-gate,
+.work-canonical .focus-surface{
+  min-height:0;
+  max-height:100%;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-gutter:stable;
+}
+.work-canonical .trip-swipe{
+  touch-action:none;
+}
