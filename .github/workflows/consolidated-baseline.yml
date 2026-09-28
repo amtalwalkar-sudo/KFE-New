@@ -229,8 +229,6 @@ jobs:
           script: |
             set -eu
             adb wait-for-device
-            package_state="$(adb shell service check package 2>/dev/null || true)"
-            echo "$package_state" | grep -q "found"
             cd "$GITHUB_WORKSPACE/android"
             ./gradlew :app:assembleDebugAndroidTest
             adb install -r "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
