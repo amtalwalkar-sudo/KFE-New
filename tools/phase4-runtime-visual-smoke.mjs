@@ -81,9 +81,16 @@ try{
  await wait(async()=>await page.getByRole('button',{name:'ONLINE',exact:true}).count()===1 || await page.locator('.feedback.error').count()>0,'shift goes ONLINE').catch(async e=>{throw new Error(e.message+'\nWork start UI: '+(await page.locator('body').innerText().catch(()=>'')))})
  assert(await page.getByRole('button',{name:'ONLINE',exact:true}).count()===1,'Shift start did not reach ONLINE: '+(await page.locator('.feedback.error').allTextContents()).join(' | '))
  assert(await page.getByText("TODAY'S TARGET",{exact:true}).count()>0,'Online target surface missing after shift start')
+ // A seeded completed trip intentionally opens the mandatory FARE ENTRY overlay.
+ // Complete that foreground form before testing another cockpit control.
+ const fareOverlay=page.locator('.focus-surface').filter({hasText:'TRIP COMPLETED'}).first()
+ if(await fareOverlay.count() && await fareOverlay.isVisible()){
+   await fareOverlay.locator('input[type="number"]').fill('1000')
+   await fareOverlay.getByRole('button',{name:'OK — SAVE FARE',exact:true}).click()
+   await wait(async()=>!(await fareOverlay.isVisible()),'fare overlay closes')
+ }
  // CNG is exercised from the live ONLINE cockpit. Active entry forms intentionally
- // own the full viewport, so the smoke test must not click an underlying control
- // through a Start Shift overlay.
+ // own the full viewport, so the smoke test must not click an underlying control.
  await page.getByRole('button',{name:'CNG refuelling'}).click()
  await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'visible'})
  await page.getByRole('button',{name:'CNG refuelling'}).click()
