@@ -542,3 +542,144 @@
 .kfe-frozen-shell .admin-page :where(.kfe-admin-card,.settings-workspace,.record,.financial-card,.info-card){overflow:hidden}
 @media(min-width:700px){.kfe-frozen-shell .timeline .day-snapshot,.kfe-frozen-shell .timeline .summary-card{grid-template-columns:repeat(4,minmax(0,1fr))}.kfe-frozen-shell .performance-page .pp-profit-pair{grid-template-columns:1fr 1fr}.kfe-frozen-shell .performance-page .pp-context-strip,.kfe-frozen-shell .performance-page .pp-fuel-summary,.kfe-frozen-shell .performance-page .pp-metric-strip{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:430px){.kfe-frozen-shell :where(.timeline,.performance-page,.admin-page){padding-left:10px;padding-right:10px}.kfe-frozen-shell .performance-page .pp-title h1{font-size:26px}}
+
+
+/* DRIVING-FIRST WORK INPUTS — frozen: no scrolling in any action form.
+ * Every normal Work action is contained in the viewport. When the IME opens,
+ * the browser may resize the viewport, but the Work page/form never becomes a
+ * scrolling document. Keep controls compact enough for a one-handed entry.
+ */
+html:has(.work-canonical),
+body:has(.work-canonical){
+  overflow:hidden!important;
+  overscroll-behavior:none!important;
+}
+.work-canonical{
+  height:100dvh!important;
+  max-height:100dvh!important;
+  min-height:0!important;
+  overflow:hidden!important;
+  overscroll-behavior:none!important;
+  touch-action:pan-x!important;
+}
+.work-canonical .work-main{
+  height:calc(100dvh - 58px)!important;
+  max-height:calc(100dvh - 58px)!important;
+  min-height:0!important;
+  overflow:hidden!important;
+  overscroll-behavior:none!important;
+  box-sizing:border-box!important;
+}
+.work-canonical .state-gate,
+.work-canonical .focus-surface{
+  height:auto!important;
+  max-height:none!important;
+  overflow:hidden!important;
+  overscroll-behavior:none!important;
+  box-sizing:border-box!important;
+}
+.work-canonical .state-gate{
+  padding:10px 12px!important;
+  gap:8px!important;
+}
+.work-canonical .focus-surface{
+  padding:10px 12px!important;
+}
+.work-canonical .state-gate .gate-head,
+.work-canonical .focus-surface .focus-head{
+  margin-bottom:2px!important;
+}
+.work-canonical .state-gate label,
+.work-canonical .focus-surface label{
+  margin:0!important;
+}
+.work-canonical .state-gate input,
+.work-canonical .focus-surface input,
+.work-canonical .state-gate select{
+  min-height:46px!important;
+  height:46px!important;
+  box-sizing:border-box!important;
+}
+.work-canonical .state-gate .check-row,
+.work-canonical .focus-surface .check-row{
+  min-height:38px!important;
+  margin:0!important;
+}
+.work-canonical .state-gate .primary-action,
+.work-canonical .focus-surface .primary-action{
+  min-height:50px!important;
+  height:50px!important;
+  margin-top:2px!important;
+}
+.work-canonical .gap-panel{
+  padding:8px 10px!important;
+  margin:0!important;
+}
+.work-canonical .gap-panel p{
+  margin:2px 0!important;
+}
+.work-canonical .choice-row{
+  gap:8px!important;
+}
+.work-canonical .choice-row button{
+  min-height:44px!important;
+  height:44px!important;
+}
+.work-canonical .reconcile-list,
+.work-canonical .reconcile-row{
+  overflow:hidden!important;
+}
+.work-canonical .reconcile-row{
+  min-height:44px!important;
+  padding:5px 0!important;
+}
+.work-canonical .end-gate{
+  font-size:13px!important;
+}
+.work-canonical .end-gate .fact-grid{
+  gap:6px!important;
+}
+.work-canonical .end-gate .review-costs{
+  display:grid!important;
+  grid-template-columns:1fr 1fr!important;
+  gap:6px!important;
+}
+.work-canonical .end-gate .review-costs .eyebrow,
+.work-canonical .end-gate .review-costs .supporting{
+  grid-column:1/-1!important;
+}
+@media(max-width:430px){
+  .work-canonical .state-gate,
+  .work-canonical .focus-surface{
+    padding:8px 10px!important;
+  }
+  .work-canonical .state-gate h2,
+  .work-canonical .focus-surface h2{
+    font-size:20px!important;
+    margin:0!important;
+  }
+  .work-canonical .state-gate input,
+  .work-canonical .focus-surface input,
+  .work-canonical .state-gate select{
+    min-height:44px!important;
+    height:44px!important;
+  }
+  .work-canonical .state-gate .primary-action,
+  .work-canonical .focus-surface .primary-action{
+    min-height:48px!important;
+    height:48px!important;
+  }
+}
+@media(max-height:700px){
+  .work-canonical .state-gate,
+  .work-canonical .focus-surface{
+    padding-top:6px!important;
+    padding-bottom:6px!important;
+    gap:5px!important;
+  }
+  .work-canonical .state-gate .primary-action,
+  .work-canonical .focus-surface .primary-action{
+    min-height:46px!important;
+    height:46px!important;
+  }
+}
