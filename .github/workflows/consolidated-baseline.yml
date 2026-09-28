@@ -229,17 +229,7 @@ jobs:
           script: |
             set -eu
             adb wait-for-device
-            for i in $(seq 1 180); do
-              boot="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
-              package_state="$(adb shell service check package 2>/dev/null || true)"
-              if [ "$boot" = "1" ] && echo "$package_state" | grep -q "found"; then
-                break
-              fi
-              sleep 2
-            done
-            boot="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
             package_state="$(adb shell service check package 2>/dev/null || true)"
-            test "$boot" = "1"
             echo "$package_state" | grep -q "found"
             cd "$GITHUB_WORKSPACE/android"
             ./gradlew :app:assembleDebugAndroidTest
@@ -250,6 +240,7 @@ jobs:
             adb shell am force-stop com.kanishka.pwa
             adb shell am instrument -w -r -e class com.kanishka.pwa.KfeOverlaySmokeTest com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner
             sha256sum "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
+
 
       - name: Upload tested Android Debug APK
         uses: actions/upload-artifact@v4
