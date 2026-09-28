@@ -82,10 +82,7 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
 <template>
 <div class="work-canonical">
   <header class="work-header">
-    <div class="identity">
-      <span class="eyebrow">KFE WORK</span>
-      <h1>Driver Cockpit</h1>
-    </div>
+    <div class="identity"><strong>KFE WORK</strong></div>
     <div class="header-controls">
       <button class="icon-action" type="button" aria-label="CNG refuelling" title="CNG refuelling" @click="toggleFuel">⛽</button>
       <button class="shift-toggle" :class="{online:store.isOnline}" type="button" :aria-pressed="store.isOnline" @click="store.isOnline?openEnd():openStart()">
@@ -205,9 +202,9 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
     <template v-if="store.isOnline&&!fuelOpen&&!endOpen">
       <section class="instrument target-instrument">
         <div><span class="eyebrow">TODAY'S TARGET</span><strong>{{targetValue==null?'—':money(targetValue)}}</strong></div>
-        <div class="target-meta"><span>{{targetValue==null?'—':money(targetAchieved)}} achieved</span><span>{{targetProgress}}%</span></div>
+        <div class="target-meta"><span>PROGRESS</span><strong>{{targetProgress}}%</strong></div>
         <div class="progress-track"><i :style="{width:targetProgress+'%'}"/></div>
-        <span class="target-remaining">{{targetRemaining==null?'—':money(targetRemaining)}} remaining</span>
+        
       </section>
 
       <section class="instrument time-instrument">
@@ -216,10 +213,8 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
       </section>
 
       <section v-if="!store.isTripActive" class="operational-state">
-        <span class="eyebrow">ONLINE · IDLE</span>
         <strong>READY FOR NEXT PICKUP</strong>
-        <p>Select the operator, then begin the next pickup.</p>
-        <label>Operator<select v-model="operator"><option v-for="o in store.operators" :key="o">{{o}}</option></select></label>
+        <label class="operator-compact"><span>Operator</span><select v-model="operator"><option v-for="o in store.operators" :key="o">{{o}}</option></select></label>
       </section>
 
       <section v-else-if="goingPickup" class="operational-state">
@@ -247,12 +242,11 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
       </section>
 
       <section class="action-instrument">
-        <div><span class="eyebrow">PRIMARY ACTION</span><strong>{{actionLabel}}</strong><p>{{active?'End the active trip when the ride is complete.':ready?'Release at the threshold to start the trip.':'Begin the next pickup.'}}</p></div>
+        <div class="action-heading"><strong>{{actionLabel}}</strong><details class="swipe-help"><summary aria-label="Swipe help">?</summary><span>Swipe the handle right to {{actionLabel.toLowerCase()}}. Tap the handle for the accessible alternative.</span></details></div>
         <div ref="track" class="swipe trip-swipe" :class="{threshold:progress>=70,committing:busy}" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up">
-          <div class="swipe-copy"><span>{{progress>=70?'RELEASE TO':'SWIPE TO'}}</span><strong>{{actionLabel}}</strong></div>
+          <div class="swipe-copy"><span>{{progress>=70?'RELEASE':'SWIPE'}}</span><strong>{{actionLabel}}</strong></div>
           <button class="swipe-handle" type="button" :aria-label="actionLabel" @pointerup.stop="keyAction" @click.stop="keyAction">→</button>
         </div>
-        <span class="swipe-hint">{{progress>=70?'Release to continue':'Drag the handle right. Tap the handle for the accessible alternative.'}}</span>
       </section>
     </template>
 
