@@ -94,7 +94,7 @@ try {
   await page.getByLabel('Current odometer').fill('1000')
   await page.getByRole('checkbox', { name: /current vehicle odometer/i }).check()
   await page.getByRole('button', { name: 'CONFIRM & GO ONLINE', exact: true }).click()
-  await page.getByText('ONLINE · IDLE', { exact: true }).waitFor()
+  await page.getByText('READY FOR NEXT PICKUP', { exact: true }).waitFor()
   let state = await db(page, ['shifts'])
   assert(state.shifts.length === 1 && state.shifts[0].status === 'ACTIVE' && Number(state.shifts[0].startOdometer) === 1000, 'START SHIFT contract failed')
   evidence.push({ id: 'WORK.START_SHIFT', result: 'PASS', expected: 'one ACTIVE shift at 1000 km', persisted: { shifts: state.shifts.length, status: state.shifts[0]?.status, startOdometer: state.shifts[0]?.startOdometer } })
