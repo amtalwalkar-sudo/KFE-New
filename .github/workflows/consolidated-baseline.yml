@@ -219,7 +219,7 @@ jobs:
           disable-animations: true
           enable-hw-keyboard: false
           script: |
-            set -euo pipefail
+            set -eu
             adb wait-for-device
             for i in $(seq 1 180); do
               boot="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
