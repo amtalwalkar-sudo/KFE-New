@@ -81,6 +81,7 @@ try{
  await wait(async()=>await page.getByRole('button',{name:'ONLINE',exact:true}).count()===1 || await page.locator('.feedback.error').count()>0,'shift goes ONLINE').catch(async e=>{throw new Error(e.message+'\nWork start UI: '+(await page.locator('body').innerText().catch(()=>'')))})
  assert(await page.getByRole('button',{name:'ONLINE',exact:true}).count()===1,'Shift start did not reach ONLINE: '+(await page.locator('.feedback.error').allTextContents()).join(' | '))
  assert(await page.getByText("TODAY'S TARGET",{exact:true}).count()>0,'Online target surface missing after shift start')
+ // CNG refuelling is covered by the dedicated Work lifecycle/runtime gate; the persistence matrix intentionally does not reopen the full-viewport CNG refuelling overlay.
  // Mandatory fare capture is tested by the dedicated Work lifecycle/runtime
  // verification. Keep the persistence matrix focused on shift persistence here;
  // attempting to open a second full-viewport form from a seeded fixture can race
