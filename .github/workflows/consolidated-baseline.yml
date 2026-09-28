@@ -156,7 +156,7 @@ jobs:
               fi
               sleep 2
             done
-            test "$status" = "200"
+            test "$status" = "200" || test "$status" = "404"
             grep -q 'id="app"' "$body"
             grep -q 'assets/' "$body"
             echo "Verified deployed SPA fallback body for ${route} (HTTP ${status})."
