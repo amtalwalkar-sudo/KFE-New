@@ -69,11 +69,11 @@ try{
  // The frozen Work forms are full-viewport overlays. If the persisted Work shell
  // restores any Start Shift gate, close that active overlay before exercising the
  // underlying CNG control; Playwright must not click through an intentional modal surface.
- const stateGate=page.locator('.state-gate');
- if(await stateGate.count() && await stateGate.first().isVisible()){
-   const back=stateGate.first().getByRole('button',{name:'Back'});
+ const activeOverlay=page.locator('.state-gate:visible, .focus-surface:visible');
+ if(await activeOverlay.count()){
+   const back=activeOverlay.first().getByRole('button',{name:'Back'});
    if(await back.count()) await back.first().click();
-   await wait(async()=>!(await stateGate.count()) || !(await stateGate.first().isVisible()),'start-shift overlay closes');
+   await wait(async()=>await page.locator('.state-gate:visible, .focus-surface:visible').count()===0,'active Work overlay closes');
  }
  await page.getByRole('button',{name:'CNG refuelling'}).click();await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'visible'});await page.getByRole('button',{name:'CNG refuelling'}).click();await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'hidden'})
  const shiftToggle=page.locator('button.shift-toggle').first();
