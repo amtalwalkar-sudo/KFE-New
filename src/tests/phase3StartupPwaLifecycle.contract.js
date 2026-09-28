@@ -31,7 +31,7 @@ assert.equal(manifest.display, 'standalone')
 assert.equal(manifest.orientation, 'portrait')
 assert.match(index, /<link rel="manifest" href="\.\/manifest\.json"/)
 assert.match(index, /BOOT_TIMEOUT_MS = 30000/, 'pre-Vue boot screen must have a finite watchdog')
-assert.match(index, /KFE interface did not finish loading within 10 seconds/, 'boot watchdog must expose an actionable failure')
+assert.match(index, /KFE is still loading. Please wait while the Android WebView finishes loading the application./, 'boot watchdog must expose an actionable failure')
 assert.match(main, /if \(!Capacitor\.isNativePlatform\(\)\)/, 'native startup must not install the PWA service-worker reload lifecycle')
 assert.match(vite, /base:\s*['"]\.\/['"]/, 'Vite must emit relative assets so Capacitor local WebView can load the bundle')
 
