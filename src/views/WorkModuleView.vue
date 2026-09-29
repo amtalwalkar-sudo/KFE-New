@@ -13,7 +13,7 @@ const store=useShiftTripStore(), fuel=useFuelStore()
 const startOdo=ref(''), startOpen=ref(false), startAck=ref(false), gapChoice=ref(''), startBusy=ref(false)
 const operator=ref(''), busy=ref(false), message=ref(''), error=ref('')
 const fareTripId=ref(null), fare=ref(''), fareBusy=ref(false)
-const cancelOpen=ref(false), cancelReason=ref(''), cancelFare=ref(''), cancelBusy=ref(false)
+const cancelOpen=ref(false), cancelReason=ref(''), cancelFare=ref(''), cancelBusy=ref(false), fareInput=ref(null)
 const fuelOpen=ref(false), fuelOdo=ref(''), fuelPrice=ref(''), fuelAmount=ref(''), fuelFull=ref(true), fuelBusy=ref(false)
 const endOpen=ref(false), endStage=ref('CLOSE'), closingOdo=ref(''), shiftRevenue=ref(''), toll=ref(''), parking=ref(''), tollTreatment=ref('INCLUDED'), endBusy=ref(false)
 const reviewRevenue=ref({}), reviewKm=ref({}), reviewOperator=ref({}), clock=ref(Date.now()), target=ref(null), targetAchieved=ref(0)
@@ -52,7 +52,7 @@ async function goPickup(){if(busy.value||!store.isOnline||store.isTripActive)ret
 async function startTrip(){if(busy.value||!ready.value)return;busy.value=true;try{if(traceRunning){MovementTraceService.reset();traceRunning=false}const r=await store.startRide();if(!r.ok)return fail(r.reason);await KfeRideNotificationService.startRide().catch(()=>{});await syncSurfaces();notify('Trip active.')}finally{busy.value=false}}
 async function endTrip(){if(busy.value||!active.value)return;busy.value=true;try{const id=store.trip.id;if(!await store.endTrip())return fail('Trip could not be completed.');await KfeRideNotificationService.completeRide().catch(()=>{});fareTripId.value=id;fare.value='';await syncSurfaces();notify('Trip completed — enter fare.')}finally{busy.value=false}}
 async function saveFare(){if(fareBusy.value)return;if(!pendingFare.value)return;if(fare.value==='')return fail('Trip fare is required.');if(!Number.isFinite(Number(fare.value))||Number(fare.value)<0)return fail('Trip fare must be a non-negative number.');fareBusy.value=true;const r=await store.updateTrip({id:pendingFare.value.id,revenue:Number(fare.value)});fareBusy.value=false;if(!r.ok)return fail(r.reason);fareTripId.value=null;fare.value='';await targetRefresh();await syncSurfaces();notify('Fare saved.')}
-async function openCancel(){cancelOpen.value=true;cancelReason.value='';cancelFare.value='';error.value='';message.value='';await nextTick();document.querySelector('.focus-surface input[type="text"]')?.focus()}
+async function openCancel(){cancelOpen.value=true;cancelReason.value='';cancelFare.value='';error.value='';message.value=''}
 async function saveCancel(){if(cancelBusy.value)return;if(!cancelReason.value.trim())return fail('Cancellation reason is required.');if(cancelFare.value!==''&&(!Number.isFinite(Number(cancelFare.value))||Number(cancelFare.value)<0))return fail('Cancellation fare must be a non-negative number.');cancelBusy.value=true;const r=await store.cancelTrip({reason:cancelReason.value.trim(),revenue:cancelFare.value});cancelBusy.value=false;if(!r?.ok)return fail(r?.reason||'Cancellation could not be saved.');cancelOpen.value=false;await syncSurfaces();notify('Trip cancelled.')}
 async function toggleFuel(){fuelOpen.value=!fuelOpen.value;if(fuelOpen.value){endOpen.value=false;fuelOdo.value='';fuelPrice.value='';fuelAmount.value='';fuelFull.value=true;error.value='';message.value='';await nextTick();document.querySelector('.focus-surface input[type="number"]')?.focus()}}
 async function saveFuel(){if(fuelBusy.value)return;fuelBusy.value=true;const r=await WorkService.recordFuel({odometer:fuelOdo.value,pricePerKg:fuelPrice.value,amount:fuelAmount.value,isFullTank:fuelFull.value});fuelBusy.value=false;if(!r.ok)return fail(r.reason);fuelOpen.value=false;notify('Fuel saved.')}
@@ -73,7 +73,8 @@ function down(e){if(busy.value||!store.isOnline||endOpen.value||fuelOpen.value||
 function move(e){if(!swipe.value.down||swipePointerId.value!==e.pointerId)return;const max=Math.max(0,(track.value?.clientWidth||320)-76);swipe.value.offset=Math.max(0,Math.min(max,e.clientX-swipe.value.start))}
 async function up(e){if(!swipe.value.down)return;if(e?.pointerId!=null&&swipePointerId.value!==e.pointerId)return;const commit=progress.value>=70;swipe.value={down:false,start:0,offset:0};swipePointerId.value=null;if(commit)await doAction()}
 function keyAction(){if(!busy.value)doAction()}
-watch(()=>store.completedTrips.map(t=>t.id+':'+(t.revenue??'')).join('|'),()=>{if(!fareTripId.value&&pendingFare.value)fareTripId.value=pendingFare.value.id})
+watch(()=>store.completedTrips.map(t=>t.id+':'+(t.revenue??'')).join('|'),async()=>{if(!fareTripId.value&&pendingFare.value)fareTripId.value=pendingFare.value.id})
+watch(pendingFare,async v=>{if(v&&!endOpen.value){await nextTick();fareInput.value?.focus();fareInput.value?.select?.()}})
 watch(()=>store.isOnline,()=>syncSurfaces())
 const handleNativeAction=async event=>{const stage=String(event?.stage||'');if(stage==='GO_TO_PICKUP')return goPickup();if(stage==='START_RIDE')return startTrip();if(stage==='END_RIDE')return endTrip();if(stage==='ENTER_FARE'&&event?.input!=null){fareTripId.value=event.tripId||fareTripId.value||pendingFare.value?.id||null;fare.value=String(event.input);if(pendingFare.value)await saveFare()}}
 onMounted(async()=>{await store.initialize();await targetRefresh();operator.value=store.defaultOperator;if(pendingFare.value)fareTripId.value=pendingFare.value.id;clock.value=Date.now();timer=setInterval(()=>clock.value=Date.now(),1000);notificationListener=await KfeRideNotificationService.addListener('rideNotificationAction',event=>{void handleNativeAction(event)});const pending=await KfeRideNotificationService.consumePendingAction();if(pending){await handleNativeAction(pending);await KfeRideNotificationService.clearPendingAction()}await KfeRideNotificationService.resume().catch(()=>{});await syncSurfaces()})
@@ -249,14 +250,14 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
       <div class="focus-head"><div><span class="eyebrow">FARE ENTRY</span><strong>TRIP COMPLETED</strong></div></div>
       <div class="fact-grid two"><div><span>Operator</span><strong>{{pendingFare.operator}}</strong></div><div><span>Trip KM</span><strong>{{Number(pendingFare.tripKm||0).toFixed(1)}} km</strong></div></div>
       <label>Trip fare
-        <div class="input-unit"><b>₹</b><input v-model="fare" type="number" inputmode="numeric" enterkeyhint="done" min="0" autofocus></div>
+        <div class="input-unit"><b>₹</b><input ref="fareInput" v-model="fare" type="number" inputmode="numeric" enterkeyhint="done" min="0" autocomplete="off"></div>
       </label>
       <button class="primary-action" :disabled="fareBusy" @click="saveFare">{{fareBusy?'SAVING…':'OK — SAVE FARE'}}</button>
     </section>
 
     <section v-if="cancelOpen" class="focus-surface state-tone-warning">
       <div class="gate-head"><div><span class="eyebrow">CANCELLATION</span><strong>CAPTURE CANCELLATION</strong></div><button class="text-action" type="button" @click="cancelOpen=false">Back</button></div>
-      <label>Cancellation reason<input v-model="cancelReason" type="text" enterkeyhint="next"></label>
+      <div class="choice-field"><span class="field-label">Cancellation reason</span><div class="choice-row cancellation-reasons" role="group" aria-label="Cancellation reason"><button type="button" :class="{selected:cancelReason==='PASSENGER'}" @click="cancelReason='PASSENGER'">Passenger cancellation</button><button type="button" :class="{selected:cancelReason==='DRIVER'}" @click="cancelReason='DRIVER'">Driver cancellation</button></div></div>
       <label>Cancellation fare <span class="optional-label">optional where applicable</span>
         <div class="input-unit"><b>₹</b><input v-model="cancelFare" type="number" inputmode="numeric" enterkeyhint="done" min="0"></div>
       </label>
