@@ -221,20 +221,15 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
         <div class="context-line"><span>GPS</span><strong>{{store.trip?.tripStartLocation?.placeName||'ACTIVE'}}</strong></div>
       </section>
 
-      <section v-else-if="ready" class="operational-state state-tone-info">
-        <span class="eyebrow">READY FOR TRIP</span>
-        <strong>PICKUP REACHED</strong>
-        <p>Start the trip or cancel it.</p>
-        <button class="secondary-action" type="button" @click="openCancel">CANCEL TRIP</button>
+      <section v-else-if="ready" class="operational-state trip-timer-state state-tone-info">
+        <span class="eyebrow">TRIP TIMER</span>
+        <strong class="trip-timer" aria-live="polite">{{tripTimer}}</strong>
+        <button class="secondary-action cancel-trip-tab" type="button" @click="openCancel">CANCEL TRIP</button>
       </section>
 
-      <section v-else class="operational-state active-state state-tone-success">
-        <span class="eyebrow">TRIP ACTIVE</span>
-        <strong>{{store.trip?.operator||'TRIP'}}</strong>
-        <div class="active-metrics">
-          <div><span>TRIP KM</span><strong>{{Number(store.trip?.tripKm||0).toFixed(1)}} km</strong></div>
-          <div><span>GPS</span><strong>{{store.trip?.tripStartLocation?.placeName||'ACTIVE'}}</strong></div>
-        </div>
+      <section v-else class="operational-state active-state trip-timer-state state-tone-success">
+        <span class="eyebrow">TRIP TIMER</span>
+        <strong class="trip-timer" aria-live="polite">{{tripTimer}}</strong>
       </section>
 
       <section class="action-instrument">
