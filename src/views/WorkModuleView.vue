@@ -228,8 +228,12 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
       </section>
 
       <section v-else class="operational-state active-state trip-timer-state state-tone-success">
-        <span class="eyebrow">TRIP TIMER</span>
-        <strong class="trip-timer" aria-live="polite">{{tripTimer}}</strong>
+        <span class="eyebrow">TRIP ACTIVE</span>
+        <strong>{{store.trip?.operator||'TRIP'}}</strong>
+        <div class="trip-timer-block">
+          <span class="timer-label">TRIP TIME</span>
+          <strong class="trip-timer" aria-live="polite">{{tripTimer}}</strong>
+        </div>
       </section>
 
       <section class="action-instrument">
