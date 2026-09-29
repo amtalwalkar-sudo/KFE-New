@@ -125,6 +125,8 @@ export const configureAndroidOverlayLifecycle = () => {
 
   hiddenHandler = () => {
     if (document.visibilityState !== 'hidden') return
+    const activeElement = document.activeElement
+    if (activeElement && typeof activeElement.blur === 'function') activeElement.blur()
     void showOverlayIfNeeded()
     startUpdates()
   }
@@ -135,6 +137,8 @@ export const configureAndroidOverlayLifecycle = () => {
   }
 
   blurHandler = () => {
+    const activeElement = document.activeElement
+    if (activeElement && typeof activeElement.blur === 'function') activeElement.blur()
     void showOverlayIfNeeded()
     startUpdates()
   }

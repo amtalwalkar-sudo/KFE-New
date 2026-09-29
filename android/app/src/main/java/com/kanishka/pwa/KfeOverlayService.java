@@ -11,10 +11,12 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.PixelFormat;
 import android.os.IBinder;
 import android.provider.Settings;
 import android.view.Gravity;
+import android.view.inputmethod.InputMethodManager;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
@@ -138,12 +140,15 @@ public class KfeOverlayService extends Service {
   private void openCancelForm(){cancelReason="";openNumericForm("CANCEL","CANCEL RIDE","Select reason and optional fee");}
   private void openNumericForm(String mode,String title,String hint){
     if(formMode!=null)return;
+    hideUnderlyingKeyboard();
     formMode=mode;formValue="";formSubmitting=false;
     params.flags=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
-    params.height=dp(310);
+    params.height=dp("FARE".equals(mode)?360:310);
     if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);
 
     formPanel=new LinearLayout(this);formPanel.setOrientation(LinearLayout.VERTICAL);formPanel.setPadding(dp(14),dp(8),dp(14),dp(8));
+    formPanel.setBackground(new ColorDrawable(dark()?Color.rgb(22,29,37):Color.WHITE));
+    formPanel.setElevation(dp(8));
     TextView titleView=new TextView(this);titleView.setText(title);titleView.setTextSize(15);titleView.setTextColor(textColor());titleView.setGravity(Gravity.CENTER);
     formPanel.addView(titleView,new LinearLayout.LayoutParams(-1,dp(30)));
     TextView valueView=new TextView(this);valueView.setTag("value");valueView.setText("₹0");valueView.setTextSize(25);valueView.setTypeface(android.graphics.Typeface.DEFAULT,android.graphics.Typeface.BOLD);valueView.setTextColor(actionColor());valueView.setGravity(Gravity.CENTER);
@@ -159,8 +164,8 @@ public class KfeOverlayService extends Service {
     if("FARE".equals(mode)){
       LinearLayout grid=new LinearLayout(this);grid.setOrientation(LinearLayout.VERTICAL);
       String[][] keys={{"1","2","3"},{"4","5","6"},{"7","8","9"},{"C","0","⌫"}};
-      for(String[] row:keys){LinearLayout line=new LinearLayout(this);line.setGravity(Gravity.CENTER);for(String key:row){Button b=keyButton(key);line.addView(b,new LinearLayout.LayoutParams(0,dp(38),1));}grid.addView(line,new LinearLayout.LayoutParams(-1,dp(40)));}
-      formPanel.addView(grid,new LinearLayout.LayoutParams(-1,dp(160)));
+      for(String[] row:keys){LinearLayout line=new LinearLayout(this);line.setGravity(Gravity.CENTER);for(String key:row){Button b=keyButton(key);line.addView(b,new LinearLayout.LayoutParams(0,dp(48),1));}grid.addView(line,new LinearLayout.LayoutParams(-1,dp(50)));}
+      formPanel.addView(grid,new LinearLayout.LayoutParams(-1,dp(200)));
     }else{
       TextView feeLabel=new TextView(this);feeLabel.setText("Cancellation fare (optional)");feeLabel.setTextSize(9);feeLabel.setTextColor(mutedColor());feeLabel.setGravity(Gravity.CENTER);
       formPanel.addView(feeLabel,new LinearLayout.LayoutParams(-1,dp(18)));
@@ -174,7 +179,7 @@ public class KfeOverlayService extends Service {
     Button ok=keyButton("OK");ok.setTextSize(11);ok.setOnClickListener(v->submitNumericForm());
     actions.addView(cancel,new LinearLayout.LayoutParams(dp(105),dp(42)));actions.addView(ok,new LinearLayout.LayoutParams(dp(105),dp(42)));
     formPanel.addView(actions,new LinearLayout.LayoutParams(-1,dp(44)));
-    overlayRoot.addView(formPanel,new FrameLayout.LayoutParams(-1,dp("CANCEL".equals(mode)?300:310),Gravity.TOP));
+    overlayRoot.addView(formPanel,new FrameLayout.LayoutParams(-1,dp("CANCEL".equals(mode)?300:360),Gravity.TOP));
   }
 
   private Button keyButton(String label){
@@ -182,9 +187,12 @@ public class KfeOverlayService extends Service {
     b.setOnClickListener(v->{
       if("C".contentEquals(b.getText())){formValue="";updateFormValue();return;}
       if("⌫".contentEquals(b.getText())){if(formValue.length()>0)formValue=formValue.substring(0,formValue.length()-1);updateFormValue();return;}
-      if("CANCEL".contentEquals(b.getText())||"OK".contentEquals(b.getText()))return;
+      if("CANCEL".contentEquals(b.getText())||"OK".contentEquals(b.getText())||"OK — SAVE FARE".contentEquals(b.getText())||"BACK".contentEquals(b.getText()))return;
       if(formValue.length()<9)formValue+=b.getText().toString();updateFormValue();
     });return b;
+  }
+  private void hideUnderlyingKeyboard(){
+    try{ InputMethodManager imm=(InputMethodManager)getSystemService(INPUT_METHOD_SERVICE); if(imm!=null) imm.hideSoftInputFromWindow(overlayRoot!=null?overlayRoot.getWindowToken():null,0); }catch(Exception ignored){}
   }
   private void updateFormValue(){if(formPanel==null)return;TextView v=formPanel.findViewWithTag("value");if(v!=null)v.setText("₹"+(formValue.isEmpty()?"0":formValue));}
   private void submitNumericForm(){
@@ -192,13 +200,10 @@ public class KfeOverlayService extends Service {
     double amount=0;try{amount=formValue.isEmpty()?0:Double.parseDouble(formValue);}catch(Exception e){return;}
     if(amount<0)return;formSubmitting=true;
     if("FARE".equals(formMode)){
+      // Keep the fare form authoritative until the WebView confirms persistence.
+      // The pending action makes the save recoverable across background/restart.
       KfeRideNotificationsPlugin.recordPendingAction(this,"ENTER_FARE",pendingTripId,String.valueOf(amount));
       KfeRideNotificationsPlugin.emitAction("ENTER_FARE",pendingTripId,String.valueOf(amount));
-      // Advance the native surface immediately; the recorded pending action keeps
-      // the authoritative WebView save recoverable if the app is backgrounded.
-      actionStage="GO_TO_PICKUP";
-      pendingTripId="";
-      tripStartAt=0L;
     }else if("CANCEL".equals(formMode)){
       if(cancelReason.isEmpty()){formSubmitting=false;return;}
       try{JSONObject input=new JSONObject();input.put("revenue",amount);input.put("reason",cancelReason);KfeRideNotificationsPlugin.recordPendingAction(this,"CANCEL_RIDE",pendingTripId,input.toString());KfeRideNotificationsPlugin.emitAction("CANCEL_RIDE",pendingTripId,input.toString());}catch(Exception ignored){}

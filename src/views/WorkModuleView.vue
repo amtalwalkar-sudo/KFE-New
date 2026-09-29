@@ -8,8 +8,10 @@ import { MovementTraceService } from '../infrastructure/location/movementTraceSe
 import { KfeRideNotificationService } from '../infrastructure/android/kfeRideNotificationService.js'
 import { AndroidOverlay } from '../infrastructure/android/kfeOverlay.js'
 import { NativeGpsService } from '../infrastructure/android/nativeGpsService.js'
+import { Capacitor } from '@capacitor/core'
 
 const store=useShiftTripStore(), fuel=useFuelStore()
+const nativeAndroid=Capacitor.getPlatform()==='android'
 const startOdo=ref(''), startOpen=ref(false), startAck=ref(false), gapChoice=ref(''), startBusy=ref(false)
 const operator=ref(''), busy=ref(false), message=ref(''), error=ref('')
 const fareTripId=ref(null), fare=ref(''), fareBusy=ref(false)
@@ -51,7 +53,7 @@ async function submitStart(){if(startBusy.value)return;if(!startOdo.value)return
 async function goPickup(){if(busy.value||!store.isOnline||store.isTripActive)return;busy.value=true;try{try{traceRunning=MovementTraceService.start({entityType:'SHIFT',entityId:store.shift?.id,eventType:'DEAD_MOVEMENT_TRACE',profile:'DEAD_LEG'})}catch(_){traceRunning=false}const r=await store.beginPickup(operator.value||store.defaultOperator);if(!r?.ok){if(traceRunning)MovementTraceService.reset();traceRunning=false;return fail(r?.reason||'Could not start pickup.')}await KfeRideNotificationService.beginPickup(store.trip?.id||`pickup-${Date.now()}`).catch(()=>{});await syncSurfaces();notify('Going to pickup.')}finally{busy.value=false}}
 async function startTrip(){if(busy.value||!ready.value)return;busy.value=true;try{if(traceRunning){MovementTraceService.reset();traceRunning=false}const r=await store.startRide();if(!r.ok)return fail(r.reason);await KfeRideNotificationService.startRide().catch(()=>{});await syncSurfaces();notify('Trip active.')}finally{busy.value=false}}
 async function endTrip(){if(busy.value||!active.value)return;busy.value=true;try{const id=store.trip.id;if(!await store.endTrip())return fail('Trip could not be completed.');await KfeRideNotificationService.completeRide().catch(()=>{});fareTripId.value=id;fare.value='';await syncSurfaces();notify('Trip completed — enter fare.')}finally{busy.value=false}}
-async function saveFare(){if(fareBusy.value)return;if(!pendingFare.value)return;if(fare.value==='')return fail('Trip fare is required.');if(!Number.isFinite(Number(fare.value))||Number(fare.value)<0)return fail('Trip fare must be a non-negative number.');fareBusy.value=true;const r=await store.updateTrip({id:pendingFare.value.id,revenue:Number(fare.value)});fareBusy.value=false;if(!r.ok)return fail(r.reason);fareTripId.value=null;fare.value='';await targetRefresh();await syncSurfaces();notify('Fare saved.')}
+async function saveFare(){if(fareBusy.value)return;if(!pendingFare.value)return;if(fare.value==='')return fail('Trip fare is required.');if(!Number.isFinite(Number(fare.value))||Number(fare.value)<0)return fail('Trip fare must be a non-negative number.');fareBusy.value=true;const r=await store.updateTrip({id:pendingFare.value.id,revenue:Number(fare.value)});fareBusy.value=false;if(!r.ok)return fail(r.reason);fareTripId.value=null;fare.value='';await AndroidOverlay.fareSaved().catch(()=>{});await KfeRideNotificationService.clearPendingAction().catch(()=>{});await targetRefresh();await syncSurfaces();notify('Fare saved.')}
 async function openCancel(){cancelOpen.value=true;cancelReason.value='';cancelFare.value='';error.value='';message.value=''}
 async function saveCancel(){if(cancelBusy.value)return;if(!cancelReason.value.trim())return fail('Cancellation reason is required.');if(cancelFare.value!==''&&(!Number.isFinite(Number(cancelFare.value))||Number(cancelFare.value)<0))return fail('Cancellation fare must be a non-negative number.');cancelBusy.value=true;const r=await store.cancelTrip({reason:cancelReason.value.trim(),revenue:cancelFare.value});cancelBusy.value=false;if(!r?.ok)return fail(r?.reason||'Cancellation could not be saved.');cancelOpen.value=false;await syncSurfaces();notify('Trip cancelled.')}
 async function toggleFuel(){fuelOpen.value=!fuelOpen.value;if(fuelOpen.value){endOpen.value=false;fuelOdo.value='';fuelPrice.value='';fuelAmount.value='';fuelFull.value=true;error.value='';message.value='';await nextTick();document.querySelector('.focus-surface input[type="number"]')?.focus()}}
@@ -74,7 +76,7 @@ function move(e){if(!swipe.value.down||swipePointerId.value!==e.pointerId)return
 async function up(e){if(!swipe.value.down)return;if(e?.pointerId!=null&&swipePointerId.value!==e.pointerId)return;const commit=progress.value>=70;swipe.value={down:false,start:0,offset:0};swipePointerId.value=null;if(commit)await doAction()}
 function keyAction(){if(!busy.value)doAction()}
 watch(()=>store.completedTrips.map(t=>t.id+':'+(t.revenue??'')).join('|'),async()=>{if(!fareTripId.value&&pendingFare.value)fareTripId.value=pendingFare.value.id})
-watch(pendingFare,async v=>{if(v&&!endOpen.value){await nextTick();fareInput.value?.focus();fareInput.value?.select?.()}})
+watch(pendingFare,async v=>{if(v&&!endOpen.value&&!nativeAndroid){await nextTick();fareInput.value?.focus();fareInput.value?.select?.()}})
 watch(()=>store.isOnline,()=>syncSurfaces())
 const handleNativeAction=async event=>{const stage=String(event?.stage||'');if(stage==='GO_TO_PICKUP')return goPickup();if(stage==='START_RIDE')return startTrip();if(stage==='END_RIDE')return endTrip();if(stage==='CANCEL_RIDE'){try{const payload=event?.input?JSON.parse(String(event.input)):{};const reason=payload.reason==='PASSENGER'?'PASSENGER':'DRIVER';const revenue=payload.revenue===''||payload.revenue==null?0:Number(payload.revenue);await store.cancelTrip({reason,revenue});KfeRideNotificationService.recordCancellation(event?.tripId||'',revenue);await syncSurfaces()}catch(error){message.value='Unable to cancel ride';error.value=error?.message||'Cancellation failed'}return}if(stage==='ENTER_FARE'&&event?.input!=null){fareTripId.value=event.tripId||fareTripId.value||pendingFare.value?.id||null;fare.value=String(event.input);if(pendingFare.value)await saveFare()}}
 onMounted(async()=>{await store.initialize();await targetRefresh();operator.value=store.defaultOperator;if(pendingFare.value)fareTripId.value=pendingFare.value.id;clock.value=Date.now();timer=setInterval(()=>clock.value=Date.now(),1000);notificationListener=await KfeRideNotificationService.addListener('rideNotificationAction',event=>{void handleNativeAction(event)});const pending=await KfeRideNotificationService.consumePendingAction();if(pending){await handleNativeAction(pending);await KfeRideNotificationService.clearPendingAction()}await KfeRideNotificationService.resume().catch(()=>{});await syncSurfaces()})
@@ -201,7 +203,7 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
       <button class="primary-action" @click="openStart">START SHIFT</button>
     </section>
 
-    <template v-if="store.isOnline&&!fuelOpen&&!endOpen">
+    <template v-if="store.isOnline&&!fuelOpen&&!endOpen&&!pendingFare">
       <section class="instrument target-instrument">
         <div><span class="eyebrow">TODAY'S TARGET</span><strong>{{targetValue==null?'—':money(targetValue)}}</strong></div>
         <div class="target-meta"><span>PROGRESS</span><strong>{{targetProgress}}%</strong></div>
