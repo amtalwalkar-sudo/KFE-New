@@ -54,6 +54,7 @@ const activeOverlayState = async () => {
   }
 
   let overlayAction = pendingFareTrip?.id ? 'ENTER_FARE' : 'GO_TO_PICKUP'
+  const tripStartAt = active.trip?.tripStartAt ? new Date(active.trip.tripStartAt).getTime() : 0
   let overlayTripId = ''
   let cancellationRevenue = '₹0'
   try {
@@ -73,7 +74,7 @@ const activeOverlayState = async () => {
     }
   }
 
-  return { ...active, target, targetProgress, rides, revenue, liveKm, overlayAction, overlayTripId, cancellationRevenue, theme: document.documentElement?.dataset?.kfeTheme || 'light' }
+  return { ...active, target, targetProgress, rides, revenue, liveKm, tripStartAt, overlayAction, overlayTripId, cancellationRevenue, theme: document.documentElement?.dataset?.kfeTheme || 'light' }
 }
 
 const showOverlayIfNeeded = async () => {
