@@ -870,3 +870,125 @@ body:has(.work-canonical){
   .work-canonical .trip-swipe .swipe-handle{width:46px!important;height:46px!important}
   .work-canonical .focus-surface::after,.work-canonical .state-gate::after{inset:6px;border-radius:20px}
 }
+
+/* WORK STATE SEMANTIC COLOUR SYSTEM
+ * Colour communicates the current operational meaning, not decoration.
+ * Blue=operational/navigation, green=active/confirmed, amber=attention/input,
+ * red=error/destructive, neutral=inactive/completed. Text and labels remain
+ * explicit so colour is never the sole state indicator.
+ */
+.work-canonical{
+  --work-info:#1677ff;
+  --work-success:#16a05d;
+  --work-warning:#e08a00;
+  --work-danger:#e5484d;
+  --work-neutral:var(--kfe-muted-text);
+  --work-state-color:var(--work-info);
+}
+.work-canonical .state-tone-info{--work-state-color:var(--work-info)}
+.work-canonical .state-tone-success{--work-state-color:var(--work-success)}
+.work-canonical .state-tone-warning{--work-state-color:var(--work-warning)}
+.work-canonical .state-tone-danger{--work-state-color:var(--work-danger)}
+.work-canonical .state-tone-neutral{--work-state-color:var(--work-neutral)}
+
+.work-canonical .operational-state,
+.work-canonical .offline-state{
+  border-color:color-mix(in srgb,var(--work-state-color) 48%,var(--kfe-ui-border))!important;
+  box-shadow:0 8px 28px color-mix(in srgb,var(--work-state-color) 10%,transparent)!important;
+}
+.work-canonical .operational-state .eyebrow,
+.work-canonical .offline-state .eyebrow{
+  color:var(--work-state-color)!important;
+}
+.work-canonical .operational-state>strong,
+.work-canonical .offline-state>strong{
+  color:var(--kfe-ui-text);
+}
+.work-canonical .state-tone-success .active-metrics{
+  border-color:color-mix(in srgb,var(--work-success) 22%,transparent);
+}
+.work-canonical .state-tone-warning .gap-panel,
+.work-canonical .state-tone-warning .exception-panel,
+.work-canonical .state-tone-warning .success-panel{
+  border-color:color-mix(in srgb,var(--work-warning) 38%,var(--kfe-ui-border))!important;
+}
+.work-canonical .state-tone-warning .focus-head .eyebrow,
+.work-canonical .state-tone-warning .gate-head .eyebrow{
+  color:var(--work-warning)!important;
+}
+.work-canonical .state-tone-info .focus-head .eyebrow{
+  color:var(--work-info)!important;
+}
+
+.work-canonical .state-tone-info .primary-action{
+  background:var(--work-info)!important;
+  border-color:var(--work-info)!important;
+  color:#fff!important;
+  box-shadow:0 8px 20px color-mix(in srgb,var(--work-info) 24%,transparent)!important;
+}
+.work-canonical .state-tone-success .primary-action{
+  background:var(--work-success)!important;
+  border-color:var(--work-success)!important;
+  color:#fff!important;
+  box-shadow:0 8px 20px color-mix(in srgb,var(--work-success) 24%,transparent)!important;
+}
+.work-canonical .state-tone-warning .primary-action{
+  background:var(--work-warning)!important;
+  border-color:var(--work-warning)!important;
+  color:#fff!important;
+  box-shadow:0 8px 20px color-mix(in srgb,var(--work-warning) 24%,transparent)!important;
+}
+.work-canonical .state-tone-danger .primary-action{
+  background:var(--work-danger)!important;
+  border-color:var(--work-danger)!important;
+  color:#fff!important;
+  box-shadow:0 8px 20px color-mix(in srgb,var(--work-danger) 24%,transparent)!important;
+}
+.work-canonical .state-tone-neutral .primary-action{
+  background:var(--kfe-ui-surface-2)!important;
+  border-color:var(--kfe-ui-border)!important;
+  color:var(--kfe-ui-text)!important;
+  box-shadow:none!important;
+}
+.work-canonical .state-tone-warning input:focus,
+.work-canonical .state-tone-warning select:focus{
+  border-color:var(--work-warning)!important;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--work-warning) 17%,transparent)!important;
+}
+.work-canonical .state-tone-info input:focus,
+.work-canonical .state-tone-info select:focus{
+  border-color:var(--work-info)!important;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--work-info) 17%,transparent)!important;
+}
+.work-canonical .state-tone-success input:focus,
+.work-canonical .state-tone-success select:focus{
+  border-color:var(--work-success)!important;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--work-success) 17%,transparent)!important;
+}
+.work-canonical .state-tone-neutral .state-mark{
+  color:var(--work-neutral);
+}
+.work-canonical .focus-surface.state-tone-warning::after,
+.work-canonical .state-gate.state-tone-warning::after{
+  border-color:color-mix(in srgb,var(--work-warning) 34%,var(--kfe-ui-border));
+}
+.work-canonical .focus-surface.state-tone-info::after{
+  border-color:color-mix(in srgb,var(--work-info) 30%,var(--kfe-ui-border));
+}
+
+/* Error feedback is always red regardless of the current operational state. */
+.work-canonical .feedback.error{
+  color:var(--work-danger)!important;
+  border-color:color-mix(in srgb,var(--work-danger) 42%,var(--kfe-ui-border))!important;
+}
+
+/* Accessible forced-colour mode keeps explicit text/state labels intact. */
+@media(forced-colors:active){
+  .work-canonical .state-tone-info,
+  .work-canonical .state-tone-success,
+  .work-canonical .state-tone-warning,
+  .work-canonical .state-tone-danger,
+  .work-canonical .state-tone-neutral{
+    forced-color-adjust:auto;
+  }
+}
