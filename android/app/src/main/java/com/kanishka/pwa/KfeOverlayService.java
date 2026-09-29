@@ -48,6 +48,7 @@ public class KfeOverlayService extends Service {
   private String actionStage="GO_TO_PICKUP";
   private String theme="light";
   private String target="—", rides="0", liveKm="0.0 km", revenue="₹0", pendingTripId="", cancellationRevenue="₹0";
+  private long tripStartAt=0L;
   private int targetProgress=0;
   private boolean minimized=false;
   private String formMode=null;
@@ -97,6 +98,7 @@ public class KfeOverlayService extends Service {
       liveKm=root.optString("liveKm","0.0 km");
       revenue=root.optString("revenue","₹0");
       cancellationRevenue=root.optString("cancellationRevenue","₹0");
+      tripStartAt=root.optLong("tripStartAt",0L);
       actionStage=root.optString("overlayAction","GO_TO_PICKUP");
       pendingTripId=root.optString("overlayTripId","");
       if(pendingTripId.isEmpty()&&trip!=null)pendingTripId=trip.optString("id","");
@@ -115,7 +117,7 @@ public class KfeOverlayService extends Service {
   }
 
   private void openFareForm(){openNumericForm("FARE","TRIP FARE","Enter fare");}
-  private void openCancelForm(){cancelReason="";openNumericForm("CANCEL","CANCELLATION FEE","Choose reason and enter fee");}
+  private void openCancelForm(){cancelReason="";openNumericForm("CANCEL","CANCEL RIDE","Select reason and optional fee");}
   private void openNumericForm(String mode,String title,String hint){
     if(formMode!=null)return;
     formMode=mode;formValue="";formSubmitting=false;
@@ -129,23 +131,33 @@ public class KfeOverlayService extends Service {
     TextView valueView=new TextView(this);valueView.setTag("value");valueView.setText("₹0");valueView.setTextSize(25);valueView.setTypeface(android.graphics.Typeface.DEFAULT,android.graphics.Typeface.BOLD);valueView.setTextColor(actionColor());valueView.setGravity(Gravity.CENTER);
     formPanel.addView(valueView,new LinearLayout.LayoutParams(-1,dp(42)));
     TextView hintView=new TextView(this);hintView.setText(hint);hintView.setTextSize(10);hintView.setTextColor(mutedColor());hintView.setGravity(Gravity.CENTER);
-    formPanel.addView(hintView,new LinearLayout.LayoutParams(-1,dp(20)));
-    LinearLayout grid=new LinearLayout(this);grid.setOrientation(LinearLayout.VERTICAL);
-    String[][] keys={{"1","2","3"},{"4","5","6"},{"7","8","9"},{"C","0","⌫"}};
-    for(String[] row:keys){LinearLayout line=new LinearLayout(this);line.setGravity(Gravity.CENTER);for(String key:row){Button b=keyButton(key);line.addView(b,new LinearLayout.LayoutParams(0,dp(40),1));}grid.addView(line,new LinearLayout.LayoutParams(-1,dp(42)));} 
+    formPanel.addView(hintView,new LinearLayout.LayoutParams(-1,dp(18)));
+    LinearLayout reasons=null;
     if("CANCEL".equals(mode)){
-      LinearLayout reasons=new LinearLayout(this); reasons.setOrientation(LinearLayout.HORIZONTAL); reasons.setGravity(Gravity.CENTER);
-      String[] choices={"DRIVER_MISTAKE","PASSENGER_CANCELLED","OTHER"};
-      for(String choice:choices){ Button reason=keyButton(choice.replace("_"," ")); reason.setTextSize(9); reason.setOnClickListener(v->{ cancelReason=choice; for(int i=0;i<reasons.getChildCount();i++) reasons.getChildAt(i).setAlpha(0.55f); reason.setAlpha(1f); }); reasons.addView(reason,new LinearLayout.LayoutParams(0,dp(38),1)); }
-      formPanel.addView(reasons,new LinearLayout.LayoutParams(-1,dp(42)));
+      reasons=new LinearLayout(this); reasons.setOrientation(LinearLayout.HORIZONTAL); reasons.setGravity(Gravity.CENTER);
+      String[] choices={"PASSENGER","DRIVER"};
+      for(String choice:choices){ Button reason=keyButton(choice.equals("PASSENGER")?"Passenger cancellation":"Driver cancellation"); reason.setTextSize(9); reason.setOnClickListener(v->{ cancelReason=choice; for(int i=0;i<reasons.getChildCount();i++) reasons.getChildAt(i).setAlpha(0.55f); reason.setAlpha(1f); }); reasons.addView(reason,new LinearLayout.LayoutParams(0,dp(40),1)); }
+      formPanel.addView(reasons,new LinearLayout.LayoutParams(-1,dp(44)));
     }
-    formPanel.addView(grid,new LinearLayout.LayoutParams(-1,dp(168)));
+    if("FARE".equals(mode)){
+      LinearLayout grid=new LinearLayout(this);grid.setOrientation(LinearLayout.VERTICAL);
+      String[][] keys={{"1","2","3"},{"4","5","6"},{"7","8","9"},{"C","0","⌫"}};
+      for(String[] row:keys){LinearLayout line=new LinearLayout(this);line.setGravity(Gravity.CENTER);for(String key:row){Button b=keyButton(key);line.addView(b,new LinearLayout.LayoutParams(0,dp(34),1));}grid.addView(line,new LinearLayout.LayoutParams(-1,dp(36)));}
+      formPanel.addView(grid,new LinearLayout.LayoutParams(-1,dp(144)));
+    }else{
+      TextView feeLabel=new TextView(this);feeLabel.setText("Cancellation fare (optional)");feeLabel.setTextSize(9);feeLabel.setTextColor(mutedColor());feeLabel.setGravity(Gravity.CENTER);
+      formPanel.addView(feeLabel,new LinearLayout.LayoutParams(-1,dp(18)));
+      LinearLayout grid=new LinearLayout(this);grid.setOrientation(LinearLayout.VERTICAL);
+      String[][] keys={{"1","2","3"},{"4","5","6"},{"7","8","9"},{"C","0","⌫"}};
+      for(String[] row:keys){LinearLayout line=new LinearLayout(this);line.setGravity(Gravity.CENTER);for(String key:row){Button b=keyButton(key);line.addView(b,new LinearLayout.LayoutParams(0,dp(28),1));}grid.addView(line,new LinearLayout.LayoutParams(-1,dp(30)));}
+      formPanel.addView(grid,new LinearLayout.LayoutParams(-1,dp(120)));
+    }
     LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.CENTER);
-    Button cancel=keyButton("CANCEL");cancel.setTextSize(11);cancel.setOnClickListener(v->closeForm());
+    Button cancel=keyButton("BACK");cancel.setTextSize(11);cancel.setOnClickListener(v->closeForm());
     Button ok=keyButton("OK");ok.setTextSize(11);ok.setOnClickListener(v->submitNumericForm());
-    actions.addView(cancel,new LinearLayout.LayoutParams(dp(105),dp(44)));actions.addView(ok,new LinearLayout.LayoutParams(dp(105),dp(44)));
-    formPanel.addView(actions,new LinearLayout.LayoutParams(-1,dp(48)));
-    overlayRoot.addView(formPanel,new FrameLayout.LayoutParams(-1,dp(300),Gravity.TOP));
+    actions.addView(cancel,new LinearLayout.LayoutParams(dp(105),dp(42)));actions.addView(ok,new LinearLayout.LayoutParams(dp(105),dp(42)));
+    formPanel.addView(actions,new LinearLayout.LayoutParams(-1,dp(44)));
+    overlayRoot.addView(formPanel,new FrameLayout.LayoutParams(-1,dp("CANCEL".equals(mode)?300:286),Gravity.TOP));
   }
 
   private Button keyButton(String label){
@@ -196,6 +208,12 @@ public class KfeOverlayService extends Service {
   private class SwipeOverlayView extends View{
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);private final RectF rect=new RectF();
     private float downX,downY,lastX,lastY;private boolean tracking,moving,swipeLocked,swipeEligible;private float progress;
+    private String formatTripTime(){
+      if(tripStartAt<=0) return "00:00:00";
+      long elapsed=Math.max(0L,System.currentTimeMillis()-tripStartAt)/1000L;
+      long h=elapsed/3600L,m=(elapsed%3600L)/60L,s=elapsed%60L;
+      return String.format(java.util.Locale.US,"%02d:%02d:%02d",h,m,s);
+    }
     SwipeOverlayView(Context c){super(c);setLayerType(View.LAYER_TYPE_SOFTWARE,null);}
     private int surface(){return dark()?Color.rgb(22,29,37):Color.WHITE;}
     @Override protected void onDraw(Canvas c){
@@ -217,11 +235,12 @@ public class KfeOverlayService extends Service {
       rect.set(8,barTop,w-8,barTop+barH);c.drawRoundRect(rect,dp(22),dp(22),paint);paint.clearShadowLayer();
       paint.setColor(Color.argb(55,Color.red(a),Color.green(a),Color.blue(a)));
       rect.set(8,barTop,(w-8)*progress+8,barTop+barH);c.drawRoundRect(rect,dp(22),dp(22),paint);
-      // Target, Live KM and Revenue are intentionally part of the swipe bar itself.
-      float[] cols={.18f,.50f,.76f};
-      String[] labels={"TARGET","LIVE KM","REVENUE"};
-      String[] values={target,liveKm,revenue};
+      // Target, Live KM, Trip Time and Revenue are the persistent live overlay metrics.
+      float[] cols={.14f,.38f,.62f,.86f};
+      String[] labels={"TARGET","LIVE KM","TRIP TIME","REVENUE"};
+      String[] values={target,liveKm,formatTripTime(),revenue};
       for(int i=0;i<3;i++){text(9,mutedColor(),true);center(c,labels[i],w*cols[i],barTop+dp(23));text(15,i==0?targetColor():(i==1?a:textColor()),true);center(c,values[i],w*cols[i],barTop+dp(44));}
+      if("END_RIDE".equals(actionStage)||"START_RIDE".equals(actionStage)) postInvalidateDelayed(1000);
       if("CANCELLED".equals(actionStage)){
         text(11,a,true);center(c,"CANCELLED · "+cancellationRevenue,w*.50f,barTop+dp(77));
         text(10,mutedColor(),false);center(c,"Same trip · cancellation recorded",w*.50f,barTop+dp(95));
@@ -233,8 +252,9 @@ public class KfeOverlayService extends Service {
       int thumbW=dp(58),pad=dp(8);float tx=pad+(w-pad*2-thumbW)*progress;
       paint.setColor(a);rect.set(tx,barTop+dp(100),tx+thumbW,barTop+dp(124));c.drawRoundRect(rect,dp(12),dp(12),paint);
       if("START_RIDE".equals(actionStage)){
-        paint.setStyle(Paint.Style.FILL);paint.setColor(Color.argb(235,dark()?90:245,dark()?35:245,dark()?35:245));
-        c.drawCircle(w-dp(22),barTop+dp(77),dp(17),paint);text(12,Color.WHITE,true);center(c,"×",w-dp(22),barTop+dp(82));
+        paint.setStyle(Paint.Style.FILL);paint.setColor(Color.argb(235,dark()?95:245,dark()?45:245,dark()?45:245));
+        rect.set(w-dp(112),barTop+dp(61),w-dp(12),barTop+dp(94));c.drawRoundRect(rect,dp(12),dp(12),paint);
+        text(9,Color.WHITE,true);center(c,"CANCEL RIDE",w-dp(62),barTop+dp(83));
       }
     }
     private void text(float size,int color,boolean bold){paint.setStyle(Paint.Style.FILL);paint.setColor(color);paint.setTextSize(dp((int)size));paint.setTypeface(android.graphics.Typeface.create("sans-serif",bold?android.graphics.Typeface.BOLD:android.graphics.Typeface.NORMAL));}
@@ -242,11 +262,34 @@ public class KfeOverlayService extends Service {
     private float measureAction(String s,float size){paint.setTextSize(dp((int)size));return paint.measureText(s);}
     @Override public boolean onTouchEvent(MotionEvent e){
       switch(e.getActionMasked()){
-        case MotionEvent.ACTION_DOWN:downX=e.getRawX();downY=e.getRawY();lastX=downX;lastY=downY;tracking=true;moving=false;swipeEligible=!minimized&&e.getY()>=dp(88)&&e.getY()<=dp(152)&&e.getX()<=dp(86);swipeLocked=swipeEligible;progress=0;return true;
-        case MotionEvent.ACTION_MOVE:{float dx=e.getRawX()-downX,dy=e.getRawY()-downY;if(swipeEligible&&!swipeLocked&&!moving&&Math.hypot(dx,dy)>dp(10)){if(Math.abs(dx)>Math.abs(dy))swipeLocked=true;else moving=true;}else if(!swipeEligible&&!moving&&Math.hypot(dx,dy)>dp(10)){moving=true;}if(moving){if(!minimized&&dy<-dp(MINIMIZE_SWIPE_DP)){minimized=true;params.width=dp(BUBBLE_DP);params.height=dp(BUBBLE_DP);int sw=getResources().getDisplayMetrics().widthPixels;params.x=e.getRawX()<sw/2f?0:Math.max(0,sw-dp(BUBBLE_DP));params.y=Math.max(0,(int)e.getRawY()-dp(BUBBLE_DP)/2);
-            getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putInt("x",params.x).putInt("y",params.y).apply();
-            if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);invalidate();return true;}int maxY=Math.max(0,windowManager.getDefaultDisplay().getHeight()-getHeight());params.y=Math.max(0,Math.min(maxY,(int)(params.y+e.getRawY()-lastY)));if(minimized){int sw=getResources().getDisplayMetrics().widthPixels;params.x=Math.max(0,Math.min(sw-getWidth(),(int)(params.x+e.getRawX()-lastX)));}lastY=e.getRawY();lastX=e.getRawX();if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putInt("x",params.x).putInt("y",params.y).apply();}else if(swipeEligible){progress=Math.min(1f,Math.max(0f,dx)/Math.max(1,getWidth()));invalidate();}return true;}
-        case MotionEvent.ACTION_UP:{float fx=e.getRawX()-downX,fy=e.getRawY()-downY;tracking=false;if(minimized&&!moving&&Math.abs(fx)<dp(16)&&Math.abs(fy)<dp(16)){minimized=false;params.width=WindowManager.LayoutParams.MATCH_PARENT;params.height=dp(COLLAPSED_TOTAL_DP);params.x=0;if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);invalidate();return true;}if(!minimized&&!moving&&Math.abs(fx)<dp(12)&&Math.abs(fy)<dp(12)&&"START_RIDE".equals(actionStage)&&downX>getWidth()-dp(52)){openCancelForm();return true;}if(!minimized&&!moving&&swipeEligible&&swipeLocked&&fx>=getWidth()*.70f){progress=1;invalidate();if("END_RIDE".equals(actionStage)){openFareForm();KfeRideNotificationsPlugin.recordPendingAction(KfeOverlayService.this,"END_RIDE",pendingTripId,"");KfeRideNotificationsPlugin.emitAction("END_RIDE",pendingTripId,"");}else triggerAction();return true;}progress=0;invalidate();return true;}
+        case MotionEvent.ACTION_DOWN:{
+          downX=e.getRawX();downY=e.getRawY();lastX=downX;lastY=downY;tracking=true;moving=false;
+          float localX=e.getX(),localY=e.getY();
+          swipeEligible=!minimized&&localY>=dp(100)&&localY<=dp(132)&&localX<=dp(74);
+          swipeLocked=swipeEligible;progress=0;return true;}
+        case MotionEvent.ACTION_MOVE:{
+          float dx=e.getRawX()-downX,dy=e.getRawY()-downY;
+          if(swipeEligible){
+            float maxTravel=Math.max(1,getWidth()-dp(16)-dp(58));
+            progress=Math.min(1f,Math.max(0f,dx)/maxTravel);
+            invalidate();return true;
+          }
+          if(!moving&&Math.hypot(dx,dy)>dp(10)) moving=true;
+          if(moving){
+            if(!minimized&&dy<-dp(MINIMIZE_SWIPE_DP)){minimized=true;params.width=dp(BUBBLE_DP);params.height=dp(BUBBLE_DP);int sw=getResources().getDisplayMetrics().widthPixels;params.x=e.getRawX()<sw/2f?0:Math.max(0,sw-dp(BUBBLE_DP));params.y=Math.max(0,(int)e.getRawY()-dp(BUBBLE_DP)/2);
+              getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putInt("x",params.x).putInt("y",params.y).apply();
+              if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);invalidate();return true;}
+            int maxY=Math.max(0,windowManager.getDefaultDisplay().getHeight()-getHeight());params.y=Math.max(0,Math.min(maxY,(int)(params.y+e.getRawY()-lastY)));
+            lastY=e.getRawY();lastX=e.getRawX();if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putInt("x",params.x).putInt("y",params.y).apply();
+          }
+          return true;}
+        case MotionEvent.ACTION_UP:{
+          float fx=e.getRawX()-downX,fy=e.getRawY()-downY;tracking=false;
+          if(minimized&&!moving&&Math.abs(fx)<dp(16)&&Math.abs(fy)<dp(16)){minimized=false;params.width=WindowManager.LayoutParams.MATCH_PARENT;params.height=dp(COLLAPSED_TOTAL_DP);params.x=0;if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);invalidate();return true;}
+          if(!minimized&&!moving&&"START_RIDE".equals(actionStage)&&downX>getWidth()-dp(120)&&downY>=dp(60)&&downY<=dp(110)){openCancelForm();return true;}
+          float maxTravel=Math.max(1,getWidth()-dp(16)-dp(58));
+          if(!minimized&&!moving&&swipeEligible&&swipeLocked&&fx>=maxTravel*.70f){progress=1;invalidate();if("END_RIDE".equals(actionStage)){openFareForm();KfeRideNotificationsPlugin.recordPendingAction(KfeOverlayService.this,"END_RIDE",pendingTripId,"");KfeRideNotificationsPlugin.emitAction("END_RIDE",pendingTripId,"");}else triggerAction();return true;}
+          progress=0;invalidate();return true;}
         case MotionEvent.ACTION_CANCEL:tracking=false;moving=false;swipeLocked=false;swipeEligible=false;progress=0;invalidate();return true;
       }return true;
     }
