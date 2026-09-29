@@ -66,6 +66,7 @@ function reviewDone(){if(preview.value?.reconciliationStatus==='MISMATCH')return
 async function finishEnd(){if(endBusy.value)return;if(!endReady.value)return fail('Complete the required reconciliation before ending the shift.');endBusy.value=true;const trips=completed.value.map(t=>({id:t.id,operator:reviewOperator.value[t.id]??t.operator,tripKm:reviewKm.value[t.id]??t.tripKm??'',revenue:reviewRevenue.value[t.id]??t.revenue??''}));const r=await store.endShift({closingOdometer:closingOdo.value,revenue:shiftRevenue.value,toll:toll.value,parking:parking.value,tollParkingRevenueTreatment:tollTreatment.value,trips});endBusy.value=false;if(!r.ok)return fail(r.reason);endStage.value='ENDED';await targetRefresh();await KfeRideNotificationService.clear().catch(()=>{});notify('Shift ended.')}
 function finishEnded(){endOpen.value=false;closingOdo.value='';shiftRevenue.value='';toll.value='';parking.value='';notify('Offline.')}
 const actionLabel=computed(()=>active.value?'END TRIP':ready.value?'START TRIP':'GO TO PICKUP')
+const workStateTone=computed(()=>{if(!store.isOnline)return startOpen.value?'warning':'neutral';if(pendingFare.value)return 'warning';if(cancelOpen.value)return 'warning';if(active.value)return 'success';if(ready.value)return 'info';if(goingPickup.value)return 'info';if(endOpen.value)return 'warning';return 'info'})
 function doAction(){if(active.value)return endTrip();if(ready.value)return startTrip();return goPickup()}
 const progress=computed(()=>{const w=track.value?.clientWidth||320;return Math.max(0,Math.min(100,(swipe.value.offset/Math.max(1,w-76))*100))})
 function down(e){if(busy.value||!store.isOnline||endOpen.value||fuelOpen.value||cancelOpen.value||pendingFare.value)return;if(e.pointerType==='mouse'&&e.button!==0)return;if(!e.target.closest('.swipe-handle'))return;swipePointerId.value=e.pointerId;swipe.value={down:true,start:e.clientX,offset:0};e.currentTarget.setPointerCapture?.(e.pointerId)}
@@ -93,7 +94,7 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
 
   <main class="work-main">
     <!-- State gate: always occupies the same position below the shift control. -->
-    <section v-if="!store.isOnline&&startOpen&&!fuelOpen&&!endOpen" class="state-gate">
+    <section v-if="!store.isOnline&&startOpen&&!fuelOpen&&!endOpen" class="state-gate state-tone-warning">
       <div class="gate-head">
         <div><span class="eyebrow">START SHIFT</span><h2>Odometer check</h2></div>
         <button class="text-action" type="button" @click="startOdo='';startOpen=false;startAck=false;gapChoice=''">Back</button>
@@ -112,7 +113,7 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
       <button class="primary-action" :disabled="startBusy" @click="submitStart">{{startBusy?'STARTING…':'CONFIRM & GO ONLINE'}}</button>
     </section>
 
-    <section v-if="endOpen" class="state-gate end-gate">
+    <section v-if="endOpen" class="state-gate end-gate state-tone-warning">
       <div class="gate-head">
         <div><span class="eyebrow">GOING OFFLINE</span><h2>{{endStage==='CLOSE'?'Close shift':endStage==='RECONCILE'?'Reconciliation':endStage==='MISMATCH'?'Revenue exception':endStage==='REVIEW'?'Shift review':endStage==='CONFIRM'?'Ready to end':'Shift ended'}}</h2></div>
         <button v-if="endStage==='CLOSE'" class="text-action" type="button" @click="cancelEnd">Back</button>
@@ -191,7 +192,7 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
       </template>
     </section>
 
-    <section v-if="!store.isOnline&&!startOdo&&!fuelOpen&&!endOpen" class="offline-state">
+    <section v-if="!store.isOnline&&!startOdo&&!fuelOpen&&!endOpen" class="offline-state state-tone-neutral">
       <div class="state-mark" aria-hidden="true">○</div>
       <span class="eyebrow">CURRENT STATE</span>
       <strong>OFFLINE</strong>
@@ -207,26 +208,26 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
         
       </section>
 
-      <section v-if="!store.isTripActive" class="operational-state">
+      <section v-if="!store.isTripActive" class="operational-state state-tone-info">
         <strong>READY FOR NEXT PICKUP</strong>
         <label class="operator-compact"><span>Operator</span><select v-model="operator"><option v-for="o in store.operators" :key="o">{{o}}</option></select></label>
       </section>
 
-      <section v-else-if="goingPickup" class="operational-state">
+      <section v-else-if="goingPickup" class="operational-state state-tone-info">
         <span class="eyebrow">GOING TO PICKUP</span>
         <strong>{{store.trip?.operator||'TRIP'}}</strong>
         <p>Pickup movement is active. GPS and movement tracing continue in the background.</p>
         <div class="context-line"><span>GPS</span><strong>{{store.trip?.tripStartLocation?.placeName||'ACTIVE'}}</strong></div>
       </section>
 
-      <section v-else-if="ready" class="operational-state">
+      <section v-else-if="ready" class="operational-state state-tone-info">
         <span class="eyebrow">READY FOR TRIP</span>
         <strong>PICKUP REACHED</strong>
         <p>Start the trip or cancel it.</p>
         <button class="secondary-action" type="button" @click="openCancel">CANCEL TRIP</button>
       </section>
 
-      <section v-else class="operational-state active-state">
+      <section v-else class="operational-state active-state state-tone-success">
         <span class="eyebrow">TRIP ACTIVE</span>
         <strong>{{store.trip?.operator||'TRIP'}}</strong>
         <div class="active-metrics">
@@ -244,7 +245,7 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
       </section>
     </template>
 
-    <section v-if="pendingFare&&!endOpen" class="focus-surface">
+    <section v-if="pendingFare&&!endOpen" class="focus-surface state-tone-warning">
       <div class="focus-head"><div><span class="eyebrow">FARE ENTRY</span><strong>TRIP COMPLETED</strong></div></div>
       <div class="fact-grid two"><div><span>Operator</span><strong>{{pendingFare.operator}}</strong></div><div><span>Trip KM</span><strong>{{Number(pendingFare.tripKm||0).toFixed(1)}} km</strong></div></div>
       <label>Trip fare
@@ -253,7 +254,7 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
       <button class="primary-action" :disabled="fareBusy" @click="saveFare">{{fareBusy?'SAVING…':'OK — SAVE FARE'}}</button>
     </section>
 
-    <section v-if="cancelOpen" class="focus-surface">
+    <section v-if="cancelOpen" class="focus-surface state-tone-warning">
       <div class="gate-head"><div><span class="eyebrow">CANCELLATION</span><strong>CAPTURE CANCELLATION</strong></div><button class="text-action" type="button" @click="cancelOpen=false">Back</button></div>
       <label>Cancellation reason<input v-model="cancelReason" type="text" enterkeyhint="next"></label>
       <label>Cancellation fare <span class="optional-label">optional where applicable</span>
@@ -262,7 +263,7 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
       <button class="primary-action" :disabled="cancelBusy" @click="saveCancel">{{cancelBusy?'SAVING…':'OK — CONFIRM CANCELLATION'}}</button>
     </section>
 
-    <section v-if="fuelOpen" class="focus-surface">
+    <section v-if="fuelOpen" class="focus-surface state-tone-info">
       <div class="gate-head"><div><span class="eyebrow">FUEL</span><strong>CNG REFUEL</strong></div><button class="text-action" type="button" @click="toggleFuel">Close</button></div>
       <label>Odometer<div class="input-unit"><input v-model="fuelOdo" type="number" inputmode="numeric" enterkeyhint="next" min="0"><b>km</b></div></label>
       <label>Price / kg<div class="input-unit"><b>₹</b><input v-model="fuelPrice" type="number" inputmode="decimal" enterkeyhint="next" min="0" step=".01"></div></label>
