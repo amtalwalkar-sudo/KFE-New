@@ -200,10 +200,12 @@ public class KfeOverlayService extends Service {
     double amount=0;try{amount=formValue.isEmpty()?0:Double.parseDouble(formValue);}catch(Exception e){return;}
     if(amount<0)return;formSubmitting=true;
     if("FARE".equals(formMode)){
-      // Keep the fare form authoritative until the WebView confirms persistence.
-      // The pending action makes the save recoverable across background/restart.
+      // Do not close the native fare form until the WebView confirms that the
+      // authoritative trip record was updated. This prevents a lost fare from
+      // looking like a completed ride.
       KfeRideNotificationsPlugin.recordPendingAction(this,"ENTER_FARE",pendingTripId,String.valueOf(amount));
       KfeRideNotificationsPlugin.emitAction("ENTER_FARE",pendingTripId,String.valueOf(amount));
+      return;
     }else if("CANCEL".equals(formMode)){
       if(cancelReason.isEmpty()){formSubmitting=false;return;}
       try{JSONObject input=new JSONObject();input.put("revenue",amount);input.put("reason",cancelReason);KfeRideNotificationsPlugin.recordPendingAction(this,"CANCEL_RIDE",pendingTripId,input.toString());KfeRideNotificationsPlugin.emitAction("CANCEL_RIDE",pendingTripId,input.toString());}catch(Exception ignored){}

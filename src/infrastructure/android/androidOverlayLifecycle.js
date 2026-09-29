@@ -137,10 +137,11 @@ export const configureAndroidOverlayLifecycle = () => {
   }
 
   blurHandler = () => {
+    // Window blur is not the same as the app going to the background. In
+    // particular, an application overlay can blur the WebView while the KFE
+    // screen is still visible. Never show the native overlay from blur alone.
     const activeElement = document.activeElement
     if (activeElement && typeof activeElement.blur === 'function') activeElement.blur()
-    void showOverlayIfNeeded()
-    startUpdates()
   }
 
   focusHandler = () => {
