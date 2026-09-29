@@ -194,6 +194,11 @@ public class KfeOverlayService extends Service {
     if("FARE".equals(formMode)){
       KfeRideNotificationsPlugin.recordPendingAction(this,"ENTER_FARE",pendingTripId,String.valueOf(amount));
       KfeRideNotificationsPlugin.emitAction("ENTER_FARE",pendingTripId,String.valueOf(amount));
+      // Advance the native surface immediately; the recorded pending action keeps
+      // the authoritative WebView save recoverable if the app is backgrounded.
+      actionStage="GO_TO_PICKUP";
+      pendingTripId="";
+      tripStartAt=0L;
     }else if("CANCEL".equals(formMode)){
       if(cancelReason.isEmpty()){formSubmitting=false;return;}
       try{JSONObject input=new JSONObject();input.put("revenue",amount);input.put("reason",cancelReason);KfeRideNotificationsPlugin.recordPendingAction(this,"CANCEL_RIDE",pendingTripId,input.toString());KfeRideNotificationsPlugin.emitAction("CANCEL_RIDE",pendingTripId,input.toString());}catch(Exception ignored){}
