@@ -132,11 +132,10 @@ public class KfeOverlayService extends Service {
     formPanel.addView(valueView,new LinearLayout.LayoutParams(-1,dp(42)));
     TextView hintView=new TextView(this);hintView.setText(hint);hintView.setTextSize(10);hintView.setTextColor(mutedColor());hintView.setGravity(Gravity.CENTER);
     formPanel.addView(hintView,new LinearLayout.LayoutParams(-1,dp(18)));
-    LinearLayout reasons=null;
     if("CANCEL".equals(mode)){
-      reasons=new LinearLayout(this); reasons.setOrientation(LinearLayout.HORIZONTAL); reasons.setGravity(Gravity.CENTER);
+      final LinearLayout reasons=new LinearLayout(this); reasons.setOrientation(LinearLayout.HORIZONTAL); reasons.setGravity(Gravity.CENTER);
       String[] choices={"PASSENGER","DRIVER"};
-      for(String choice:choices){ Button reason=keyButton(choice.equals("PASSENGER")?"Passenger cancellation":"Driver cancellation"); reason.setTextSize(9); reason.setOnClickListener(v->{ cancelReason=choice; for(int i=0;i<reasons.getChildCount();i++) reasons.getChildAt(i).setAlpha(0.55f); reason.setAlpha(1f); }); reasons.addView(reason,new LinearLayout.LayoutParams(0,dp(40),1)); }
+      for(String choice:choices){ final String selectedChoice=choice; final Button reason=keyButton(choice.equals("PASSENGER")?"Passenger cancellation":"Driver cancellation"); reason.setTextSize(9); reason.setOnClickListener(v->{ cancelReason=selectedChoice; for(int i=0;i<reasons.getChildCount();i++) reasons.getChildAt(i).setAlpha(0.55f); reason.setAlpha(1f); }); reasons.addView(reason,new LinearLayout.LayoutParams(0,dp(40),1)); }
       formPanel.addView(reasons,new LinearLayout.LayoutParams(-1,dp(44)));
     }
     if("FARE".equals(mode)){
