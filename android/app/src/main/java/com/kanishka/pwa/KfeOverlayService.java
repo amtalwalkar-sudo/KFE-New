@@ -1,5 +1,6 @@
 package com.kanishka.pwa;
 
+import android.animation.ValueAnimator;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -33,6 +34,7 @@ public class KfeOverlayService extends Service {
   static final String ACTION_SHOW="com.kanishka.pwa.KFE_OVERLAY_SHOW";
   static final String ACTION_UPDATE="com.kanishka.pwa.KFE_OVERLAY_UPDATE";
   static final String ACTION_HIDE="com.kanishka.pwa.KFE_OVERLAY_HIDE";
+  static final String ACTION_FARE_SAVED="com.kanishka.pwa.KFE_OVERLAY_FARE_SAVED";
   static final String EXTRA_STATE="state";
   private static final String CHANNEL_ID="kfe_overlay";
   private static final int NOTIFICATION_ID=4201;
@@ -67,6 +69,7 @@ public class KfeOverlayService extends Service {
     if(intent==null)return START_NOT_STICKY;
     String action=intent.getAction();
     if(ACTION_HIDE.equals(action)){removeOverlay();stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return START_NOT_STICKY;}
+    if(ACTION_FARE_SAVED.equals(action)){onFareSaved();return START_NOT_STICKY;}
     if(!Settings.canDrawOverlays(this))return START_NOT_STICKY;
     if(ACTION_SHOW.equals(action)||ACTION_UPDATE.equals(action)){ensureOverlay();applyState(intent.getStringExtra(EXTRA_STATE));}
     return START_NOT_STICKY;
@@ -110,6 +113,21 @@ public class KfeOverlayService extends Service {
     }catch(Exception ignored){actionStage="GO_TO_PICKUP";overlay.invalidate();}
   }
 
+  private void onFareSaved(){
+    formSubmitting=false;
+    closeForm();
+    actionStage="GO_TO_PICKUP";
+    pendingTripId="";
+    tripStartAt=0L;
+    KfeRideNotificationsPlugin.cancelNotification(this);
+    animateRetract();
+    if(overlay!=null) overlay.invalidate();
+  }
+
+  private void animateRetract(){
+    if(overlay!=null) overlay.animateProgressToZero();
+  }
+
   private void triggerAction(){
     if("END_RIDE".equals(actionStage)){KfeRideNotificationsPlugin.recordPendingAction(this,actionStage,pendingTripId,"");KfeRideNotificationsPlugin.emitAction(actionStage,pendingTripId,"");return;}
     if("START_RIDE".equals(actionStage)){KfeRideNotificationsPlugin.recordPendingAction(this,actionStage,pendingTripId,"");KfeRideNotificationsPlugin.emitAction(actionStage,pendingTripId,"");return;}
@@ -141,8 +159,8 @@ public class KfeOverlayService extends Service {
     if("FARE".equals(mode)){
       LinearLayout grid=new LinearLayout(this);grid.setOrientation(LinearLayout.VERTICAL);
       String[][] keys={{"1","2","3"},{"4","5","6"},{"7","8","9"},{"C","0","⌫"}};
-      for(String[] row:keys){LinearLayout line=new LinearLayout(this);line.setGravity(Gravity.CENTER);for(String key:row){Button b=keyButton(key);line.addView(b,new LinearLayout.LayoutParams(0,dp(34),1));}grid.addView(line,new LinearLayout.LayoutParams(-1,dp(36)));}
-      formPanel.addView(grid,new LinearLayout.LayoutParams(-1,dp(144)));
+      for(String[] row:keys){LinearLayout line=new LinearLayout(this);line.setGravity(Gravity.CENTER);for(String key:row){Button b=keyButton(key);line.addView(b,new LinearLayout.LayoutParams(0,dp(38),1));}grid.addView(line,new LinearLayout.LayoutParams(-1,dp(40)));}
+      formPanel.addView(grid,new LinearLayout.LayoutParams(-1,dp(160)));
     }else{
       TextView feeLabel=new TextView(this);feeLabel.setText("Cancellation fare (optional)");feeLabel.setTextSize(9);feeLabel.setTextColor(mutedColor());feeLabel.setGravity(Gravity.CENTER);
       formPanel.addView(feeLabel,new LinearLayout.LayoutParams(-1,dp(18)));
@@ -156,11 +174,11 @@ public class KfeOverlayService extends Service {
     Button ok=keyButton("OK");ok.setTextSize(11);ok.setOnClickListener(v->submitNumericForm());
     actions.addView(cancel,new LinearLayout.LayoutParams(dp(105),dp(42)));actions.addView(ok,new LinearLayout.LayoutParams(dp(105),dp(42)));
     formPanel.addView(actions,new LinearLayout.LayoutParams(-1,dp(44)));
-    overlayRoot.addView(formPanel,new FrameLayout.LayoutParams(-1,dp("CANCEL".equals(mode)?300:286),Gravity.TOP));
+    overlayRoot.addView(formPanel,new FrameLayout.LayoutParams(-1,dp("CANCEL".equals(mode)?300:310),Gravity.TOP));
   }
 
   private Button keyButton(String label){
-    Button b=new Button(this);b.setText(label);b.setTextSize(15);b.setAllCaps(false);
+    Button b=new Button(this);b.setText(label);b.setTextSize(20);b.setAllCaps(false);
     b.setOnClickListener(v->{
       if("C".contentEquals(b.getText())){formValue="";updateFormValue();return;}
       if("⌫".contentEquals(b.getText())){if(formValue.length()>0)formValue=formValue.substring(0,formValue.length()-1);updateFormValue();return;}
@@ -259,6 +277,15 @@ public class KfeOverlayService extends Service {
     private void text(float size,int color,boolean bold){paint.setStyle(Paint.Style.FILL);paint.setColor(color);paint.setTextSize(dp((int)size));paint.setTypeface(android.graphics.Typeface.create("sans-serif",bold?android.graphics.Typeface.BOLD:android.graphics.Typeface.NORMAL));}
     private void center(Canvas c,String s,float x,float y){c.drawText(s,x-paint.measureText(s)/2f,y,paint);}
     private float measureAction(String s,float size){paint.setTextSize(dp((int)size));return paint.measureText(s);}
+    void animateProgressToZero(){
+      float from=progress;
+      if(from<=0.001f){progress=0f;invalidate();return;}
+      ValueAnimator animator=ValueAnimator.ofFloat(from,0f);
+      animator.setDuration(220L);
+      animator.addUpdateListener(v->{progress=(Float)v.getAnimatedValue();invalidate();});
+      animator.start();
+    }
+
     @Override public boolean onTouchEvent(MotionEvent e){
       switch(e.getActionMasked()){
         case MotionEvent.ACTION_DOWN:{
@@ -287,9 +314,9 @@ public class KfeOverlayService extends Service {
           if(minimized&&!moving&&Math.abs(fx)<dp(16)&&Math.abs(fy)<dp(16)){minimized=false;params.width=WindowManager.LayoutParams.MATCH_PARENT;params.height=dp(COLLAPSED_TOTAL_DP);params.x=0;if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);invalidate();return true;}
           if(!minimized&&!moving&&"START_RIDE".equals(actionStage)&&downX>getWidth()-dp(120)&&downY>=dp(60)&&downY<=dp(110)){openCancelForm();return true;}
           float maxTravel=Math.max(1,getWidth()-dp(16)-dp(58));
-          if(!minimized&&!moving&&swipeEligible&&swipeLocked&&fx>=maxTravel*.70f){progress=1;invalidate();if("END_RIDE".equals(actionStage)){openFareForm();KfeRideNotificationsPlugin.recordPendingAction(KfeOverlayService.this,"END_RIDE",pendingTripId,"");KfeRideNotificationsPlugin.emitAction("END_RIDE",pendingTripId,"");}else triggerAction();return true;}
+          if(!minimized&&!moving&&swipeEligible&&swipeLocked&&fx>=maxTravel*.70f){progress=1;invalidate();if("END_RIDE".equals(actionStage)){openFareForm();KfeRideNotificationsPlugin.recordPendingAction(KfeOverlayService.this,"END_RIDE",pendingTripId,"");KfeRideNotificationsPlugin.emitAction("END_RIDE",pendingTripId,"");}else triggerAction();animateRetract();swipeLocked=false;swipeEligible=false;return true;}
           progress=0;invalidate();return true;}
-        case MotionEvent.ACTION_CANCEL:tracking=false;moving=false;swipeLocked=false;swipeEligible=false;progress=0;invalidate();return true;
+        case MotionEvent.ACTION_CANCEL:tracking=false;moving=false;swipeLocked=false;swipeEligible=false;animateRetract();return true;
       }return true;
     }
   }
