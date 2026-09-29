@@ -192,7 +192,7 @@ public class KfeOverlayService extends Service {
     });return b;
   }
   private void hideUnderlyingKeyboard(){
-    try{ InputMethodManager imm=(InputMethodManager)getSystemService(INPUT_METHOD_SERVICE); if(imm!=null) imm.hideSoftInputFromWindow(getWindowToken(),0); }catch(Exception ignored){}
+    try{ InputMethodManager imm=(InputMethodManager)getSystemService(INPUT_METHOD_SERVICE); if(imm!=null) imm.hideSoftInputFromWindow(overlayRoot!=null?overlayRoot.getWindowToken():null,0); }catch(Exception ignored){}
   }
   private void updateFormValue(){if(formPanel==null)return;TextView v=formPanel.findViewWithTag("value");if(v!=null)v.setText("₹"+(formValue.isEmpty()?"0":formValue));}
   private void submitNumericForm(){
