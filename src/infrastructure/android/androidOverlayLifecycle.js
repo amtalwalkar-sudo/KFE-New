@@ -66,7 +66,7 @@ const activeOverlayState = async () => {
     trip: active.trip,
     trips,
     pendingFareId,
-    notificationPhase: KfeRideNotificationService.getState()?.phase || '',
+    notificationPhase: '',
     target,
     targetProgress,
     liveKm,
