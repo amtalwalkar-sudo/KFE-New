@@ -113,20 +113,20 @@ try {
   assert(state.trips.length === 1 && state.trips[0].tripStage === 'RIDE_STARTED', 'START TRIP contract failed')
   evidence.push({ id: 'WORK.START_TRIP', result: 'PASS', expected: 'same trip transitions to RIDE_STARTED', persisted: { trips: state.trips.length, tripStage: state.trips[0]?.tripStage } })
 
-  // Contract 4: END TRIP must terminalize the trip and open mandatory fare capture.
+  // Contract 4: END TRIP must open mandatory fare capture without terminalizing before fare persistence.
   await swipeAction()
   await page.getByText('FARE ENTRY', { exact: true }).waitFor()
   state = await db(page, ['trips'])
-  assert(state.trips.length === 1 && state.trips[0].status === 'COMPLETED' && (state.trips[0].revenue === null || state.trips[0].revenue === '' || state.trips[0].revenue === undefined), 'END TRIP contract failed')
-  evidence.push({ id: 'WORK.END_TRIP', result: 'PASS', expected: 'same trip COMPLETED with fare pending', persisted: { trips: state.trips.length, status: state.trips[0]?.status, revenue: state.trips[0]?.revenue } })
+  assert(state.trips.length === 1 && state.trips[0].status === 'ACTIVE' && state.trips[0].tripStage === 'RIDE_STARTED', 'END TRIP contract failed')
+  evidence.push({ id: 'WORK.END_TRIP', result: 'PASS', expected: 'same trip remains ACTIVE while fare capture is pending', persisted: { trips: state.trips.length, status: state.trips[0]?.status, tripStage: state.trips[0]?.tripStage } })
 
-  // Contract 5: SAVE FARE must update exactly that completed trip.
+  // Contract 5: SAVE FARE must persist fare first, then terminalize exactly that trip.
   await page.getByLabel('Trip fare').fill('800')
   await page.getByRole('button', { name: 'OK — SAVE FARE', exact: true }).click()
   await page.getByText('Fare saved.', { exact: true }).waitFor()
   state = await db(page, ['trips'])
-  assert(state.trips.length === 1 && Number(state.trips[0].revenue) === 800, 'SAVE FARE contract failed')
-  evidence.push({ id: 'WORK.SAVE_FARE', result: 'PASS', expected: 'completed trip revenue = 800', persisted: { trips: state.trips.length, revenue: state.trips[0]?.revenue } })
+  assert(state.trips.length === 1 && state.trips[0].status === 'COMPLETED' && Number(state.trips[0].revenue) === 800, 'SAVE FARE contract failed')
+  evidence.push({ id: 'WORK.SAVE_FARE', result: 'PASS', expected: 'fare = 800 is persisted before the trip becomes COMPLETED', persisted: { trips: state.trips.length, status: state.trips[0]?.status, revenue: state.trips[0]?.revenue } })
 
   // Contract 6: OFFLINE -> End Shift must persist closing odometer and authoritative revenue,
   // then Timeline and Performance must consume the same values.
