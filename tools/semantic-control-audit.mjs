@@ -115,7 +115,7 @@ try {
 
   // Contract 4: END TRIP must open mandatory fare capture without terminalizing before fare persistence.
   await swipeAction()
-  await page.getByText('FARE ENTRY', { exact: true }).waitFor()
+  await page.getByText('ENTER FARE', { exact: true }).waitFor()
   state = await db(page, ['trips'])
   assert(state.trips.length === 1 && state.trips[0].status === 'ACTIVE' && state.trips[0].tripStage === 'RIDE_STARTED', 'END TRIP contract failed')
   evidence.push({ id: 'WORK.END_TRIP', result: 'PASS', expected: 'same trip remains ACTIVE while fare capture is pending', persisted: { trips: state.trips.length, status: state.trips[0]?.status, tripStage: state.trips[0]?.tripStage } })
@@ -234,7 +234,7 @@ try {
   await page.getByRole('button', { name: 'CONFIRM & GO ONLINE', exact: true }).click()
   await swipeAction(); await page.getByRole('button', { name: 'START TRIP', exact: true }).waitFor()
   await swipeAction(); await page.getByRole('button', { name: 'END TRIP', exact: true }).waitFor()
-  await swipeAction(); await page.getByText('FARE ENTRY', { exact: true }).waitFor()
+  await swipeAction(); await page.getByText('ENTER FARE', { exact: true }).waitFor()
   await page.getByLabel('Trip fare').fill('800')
   await page.getByRole('button', { name: 'OK — SAVE FARE', exact: true }).click()
   await page.getByText('Fare saved.', { exact: true }).waitFor()

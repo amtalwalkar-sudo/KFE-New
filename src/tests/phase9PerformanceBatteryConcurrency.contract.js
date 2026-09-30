@@ -8,9 +8,9 @@ const backup = fs.readFileSync('src/application/backup/backupService.js', 'utf8'
 
 // Performance/battery contract: the 1 Hz UI clock must exist only for the
 // passenger-trip timer, never as an always-on Work-screen heartbeat.
-assert.match(work, /clock=ref\(Date\.now\(\)/)
-assert.match(work, /setInterval\(\(\)=>clock\.value=Date\.now\(\),1000\)/)
-assert.match(work, /tripTimer=computed/)
+assert.match(work, /clock = ref\(Date\.now\(\)/)
+assert.match(work, /setInterval\(\(\) => \{ clock\.value = Date\.now\(\) \}, 1000\)/)
+assert.match(work, /const tripTimer = computed/)
 
 // GPS trace persistence is intentionally serialized so concurrent watch
 // callbacks cannot create overlapping IndexedDB write transactions.
