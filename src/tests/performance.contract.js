@@ -265,8 +265,5 @@ const recoveryMetrics = deriveFinanceAwarePerformance(recoverySnapshot, oneDayRe
 assert.ok(recoveryMetrics.historicalMaintenanceRecoveryForPeriod > 0 && recoveryMetrics.historicalMaintenanceRecoveryForPeriod < recoveryMetrics.historicalMaintenanceRecoveryMonthly, 'historical maintenance recovery must be period-allocated')
 assert.ok(recoveryMetrics.preBusinessRecoveryForPeriod > 0 && recoveryMetrics.preBusinessRecoveryForPeriod < recoveryMetrics.preBusinessRecoveryMonthly, 'pre-business loan recovery must be period-allocated')
 
-const emiExplanation = await import('../views/PerformanceView.vue').catch(() => null)
-assert.equal(typeof emiExplanation, 'object', 'PerformanceView remains loadable by the test environment')
-
 
 console.log('KFE Performance contract tests: PASS')
