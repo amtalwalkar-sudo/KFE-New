@@ -77,6 +77,14 @@ export const WorkService = Object.freeze({
       return { ok: false, reason: error?.message || 'Trip fare could not be saved.' }
     }
   },
+  async prepareTripFare(tripId) {
+    if (!tripId) return { ok: false, reason: 'Trip is required.' }
+    try {
+      await NativeGpsService.syncTrace(tripId)
+      await NativeGpsService.stop(tripId)
+    } catch (_) {}
+    return { ok: true }
+  },
   async completeTrip(data) {
     // Persist the terminal trip state first. GPS/native trace enrichment is deliberately
     // detached so END TRIP can hand control to the mandatory fare form immediately.
