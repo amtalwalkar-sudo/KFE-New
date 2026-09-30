@@ -66,6 +66,17 @@ export const WorkService = Object.freeze({
     return result
   },
   async startRide(data) { const result = await ShiftTripRepository.setTripStage(data?.id, 'RIDE_STARTED'); checkpoint(); void NativeGpsService.start(data?.id).catch(() => {}); return result },
+  async recordFareForActiveTrip(data) {
+    const validation = validateTripCorrection({ revenue: data?.revenue })
+    if (!validation.valid) return { ok: false, reason: validation.reason }
+    try {
+      const result = await ShiftTripRepository.recordFareForActiveTrip({ id: data?.id, revenue: validation.revenue })
+      checkpoint()
+      return { ok: true, record: result }
+    } catch (error) {
+      return { ok: false, reason: error?.message || 'Trip fare could not be saved.' }
+    }
+  },
   async completeTrip(data) {
     // Persist the terminal trip state first. GPS/native trace enrichment is deliberately
     // detached so END TRIP can hand control to the mandatory fare form immediately.
