@@ -108,7 +108,7 @@ const cockpit = computed(() => deriveWorkCockpitState({
 }))
 
 const ready = computed(() => cockpit.value.state === WORK_COCKPIT_STATES.READY_FOR_TRIP)
-const active = computed(() => cockpit.value.state === WORK_COCKPIT_STATES.RIDE_STARTED)
+const active = computed(() => cockpit.value.state === WORK_COCKPIT_STATES.TRIP_ACTIVE)
 const actionLabel = computed(() => {
   if (cockpit.value.action === 'END_RIDE') return 'END TRIP'
   if (cockpit.value.action === 'START_RIDE') return 'START TRIP'
