@@ -278,7 +278,16 @@ const preBusinessLoanBurdenPaise = ({ loan, payments = [], prepayments = [], bus
   if (!loan || !start || !origin || origin >= start) return 0
   const positionAtStart = deriveLoanPosition({ loan, payments, prepayments, asOf: start })
   if (!positionAtStart.available) return 0
-  const overdueInterestPaise = (positionAtStart.overdue || []).reduce((sum, row) => sum + rupeesToPaise(row.unpaidScheduledInterest) + rupeesToPaise(row.unpaidOverdueInterest), 0)
+  // At the business-start boundary the pre-business burden is the remaining
+  // principal plus any unpaid interest already due before business start.
+  // Use the canonical position's outstanding principal, but only count overdue
+  // interest whose due date is strictly before the business-start date.
+  const overdueInterestPaise = (positionAtStart.overdue || [])
+    .filter(row => {
+      const due = dateOf(row.dueDate)
+      return !!due && calendarRecoverySerial(due) < calendarRecoverySerial(start)
+    })
+    .reduce((sum, row) => sum + rupeesToPaise(row.unpaidScheduledInterest) + rupeesToPaise(row.unpaidOverdueInterest), 0)
   return rupeesToPaise(positionAtStart.outstandingPrincipal) + overdueInterestPaise
 }
 
