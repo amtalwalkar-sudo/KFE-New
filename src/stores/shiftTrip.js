@@ -113,8 +113,7 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
   const endTrip = async () => {
     if (!isTripActive.value) return false
     const tripId = trip.value.id
-    const prepared = await WorkService.prepareTripFare(tripId)
-    if (!prepared?.ok) return false
+    void WorkService.prepareTripFare(tripId)
     MovementTraceService.reset()
     return true
   }
