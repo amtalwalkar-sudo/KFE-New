@@ -73,7 +73,8 @@ assert.ok(!/bringKfeToFront\(\)/.test(overlay), 'Native overlay must not foregro
 assert.match(overlayLifecycle, /window\.addEventListener\('blur', blurHandler\)/)
 assert.match(overlayLifecycle, /window\.addEventListener\('focus', focusHandler\)/)
 assert.match(overlayLifecycle, /showOverlayIfNeeded/)
-assert.doesNotMatch(overlay, /if \(intent == null\) return START_STICKY/)\nassert.doesNotMatch(overlay, /startActivity\(launch\)/, 'Native fare/cancel submission must not launch the PWA.')
+assert.doesNotMatch(overlay, /if \(intent == null\) return START_STICKY/)
+assert.doesNotMatch(overlay, /startActivity\(launch\)/, 'Native fare/cancel submission must not launch the PWA.')
 
 assert.match(notifications, /static void showNotification\(Context context, String stage, String tripId\)/)
 assert.match(receiver, /KfeRideNotificationsPlugin\.showNotification\(context/)
