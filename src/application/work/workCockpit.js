@@ -1,7 +1,8 @@
 export const WORK_COCKPIT_STATES = Object.freeze({
   OFFLINE: 'OFFLINE',
   READY: 'READY',
-  PICKUP: 'PICKUP',
+  GOING_TO_PICKUP: 'GOING_TO_PICKUP',
+  READY_FOR_TRIP: 'READY_FOR_TRIP',
   RIDE_STARTED: 'RIDE_STARTED',
   ENTER_FARE: 'ENTER_FARE',
   END_SHIFT: 'END_SHIFT'
@@ -79,7 +80,7 @@ export const deriveWorkCockpitState = ({
   }
 
   return {
-    state: WORK_COCKPIT_STATES.PICKUP,
+    state: WORK_COCKPIT_STATES.READY_FOR_TRIP,
     action: 'START_RIDE',
     tripId: trip.id,
     tripStartAt: 0,
