@@ -4,6 +4,7 @@ import { DriverTargetService } from '../../application/performance/driverTargetS
 import { getKfeReferenceNow } from '../../domain/time/ist.js'
 import { PerformanceService } from '../../application/performance/performanceService.js'
 import { KfeRideNotificationService } from './kfeRideNotificationService.js'
+import { deriveWorkCockpitState } from '../../application/work/workCockpit.js'
 
 let configured = false
 let hiddenHandler = null
@@ -19,12 +20,11 @@ const activeOverlayState = async () => {
   if (!active?.shift?.id) return null
 
   let target = '—'
-  let rides = '0'
+  let targetProgress = 0
   let liveKm = '0.0 km'
   let revenue = '₹0'
-  let targetProgress = 0
   let trips = []
-  let pendingFareTrip = null
+
   try {
     const targetResult = await DriverTargetService.getTarget(getKfeReferenceNow())
     if (Number.isFinite(Number(targetResult?.target))) {
@@ -34,56 +34,58 @@ const activeOverlayState = async () => {
 
   try {
     trips = await WorkService.getTripsForShift(active.shift.id)
-    pendingFareTrip = trips.filter(item => item?.status === 'COMPLETED' && (item?.revenue === null || item?.revenue === undefined || item?.revenue === '')).sort((x,y)=>new Date(y.tripEndAt||y.updatedAt)-new Date(x.tripEndAt||x.updatedAt))[0] || null
-    const rideTrips = trips.filter(item => item?.status === 'COMPLETED' || item?.status === 'ACTIVE')
-    rides = String(rideTrips.length)
-  } catch (_) {}
-  const totalRevenue = trips.filter(item => item?.status === 'COMPLETED' || item?.status === 'ACTIVE').reduce((sum, item) => {
-    const value = Number(item?.revenue)
-    return Number.isFinite(value) && value >= 0 ? sum + value : sum
-  }, 0)
-  revenue = `₹${totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
-  try {
     const targetNumber = Number(String(target).replace(/[^0-9.]/g, ''))
-    const achieved = trips.filter(item => item?.status === 'COMPLETED' && Number.isFinite(Number(item?.revenue))).reduce((sum,item)=>sum+Number(item.revenue),0)
-    if (Number.isFinite(targetNumber) && targetNumber > 0) targetProgress = Math.min(100, Math.round((achieved / targetNumber) * 100))
+    const achieved = trips
+      .filter(item => item?.status === 'COMPLETED' && Number.isFinite(Number(item?.revenue)))
+      .reduce((sum, item) => sum + Number(item.revenue), 0)
+    if (Number.isFinite(targetNumber) && targetNumber > 0) {
+      targetProgress = Math.min(100, Math.round((achieved / targetNumber) * 100))
+    }
+
+    const totalRevenue = trips.reduce((sum, item) => {
+      const value = Number(item?.revenue)
+      return Number.isFinite(value) && value >= 0 ? sum + value : sum
+    }, 0)
+    revenue = `₹${totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
   } catch (_) {}
 
   if (active.trip?.id) {
     try {
       const distance = await WorkService.getTripGpsDistanceKm(active.trip.id)
-      liveKm = `${Number.isFinite(Number(distance)) ? Number(distance).toFixed(1) : '0.0'} km`
+      if (Number.isFinite(Number(distance))) liveKm = `${Number(distance).toFixed(1)} km`
     } catch (_) {}
   }
 
-  let overlayAction = pendingFareTrip?.id ? 'ENTER_FARE' : 'GO_TO_PICKUP'
-  const tripIsActive = active.trip?.tripStage === 'RIDE_STARTED'
-  const tripIsReady = active.trip?.tripStage === 'PICKUP'
-  const tripStartAt = tripIsActive && active.trip?.tripStartAt ? new Date(active.trip.tripStartAt).getTime() : 0
-  let overlayTripId = ''
-  let cancellationRevenue = '₹0'
-  try {
-    const notificationState = KfeRideNotificationService.getState()
-    if (notificationState?.phase === 'ENTER_FARE' && notificationState?.tripId === active.trip?.id) overlayAction = 'ENTER_FARE'
-    else if (tripIsActive) overlayAction = 'END_RIDE'
-    else if (tripIsReady || notificationState?.phase === 'START_RIDE' || notificationState?.phase === 'ENTER_PICKUP_DURATION') overlayAction = 'START_RIDE'
-  } catch (_) {
-    if (tripIsActive) overlayAction = 'END_RIDE'
-    else if (tripIsReady) overlayAction = 'START_RIDE'
-  }
-  if (active.trip?.id) overlayTripId = active.trip.id
-  else {
-    const cancellation = KfeRideNotificationService.getLastCancellation?.()
-    const cancelledTrip = cancellation?.tripId ? trips.find(item => item?.id === cancellation.tripId && item?.status === 'CANCELLED') : null
-    const cancellationAge = cancellation?.recordedAt ? Date.now() - Number(cancellation.recordedAt) : Infinity
-    if (cancelledTrip && cancellationAge >= 0 && cancellationAge <= 30000) {
-      overlayAction = 'CANCELLED'
-      overlayTripId = cancelledTrip.id
-      cancellationRevenue = `₹${Number(cancellation.revenue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
-    }
-  }
+  const pendingFareId = trips.find(item =>
+    item?.status === 'COMPLETED' &&
+    (item?.revenue === null || item?.revenue === undefined || item?.revenue === '')
+  )?.id || ''
 
-  return { ...active, target, targetProgress, rides, revenue, liveKm, tripStartAt, overlayAction, overlayTripId, cancellationRevenue, theme: document.documentElement?.dataset?.kfeTheme || 'light' }
+  const state = deriveWorkCockpitState({
+    shift: active.shift,
+    trip: active.trip,
+    trips,
+    pendingFareId,
+    notificationPhase: KfeRideNotificationService.getState()?.phase || '',
+    target,
+    targetProgress,
+    liveKm,
+    revenue
+  })
+
+  return {
+    ...active,
+    target: state.target,
+    targetProgress: state.targetProgress,
+    rides: String(trips.length),
+    liveKm: state.liveKm,
+    revenue: state.revenue,
+    tripStartAt: state.tripStartAt,
+    overlayAction: state.action,
+    overlayTripId: state.tripId,
+    cancellationRevenue: '₹0',
+    theme: document.documentElement?.dataset?.kfeTheme || 'light'
+  }
 }
 
 const showOverlayIfNeeded = async () => {
