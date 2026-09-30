@@ -40,6 +40,7 @@ const fuelOdo = ref('')
 const fuelPrice = ref('')
 const fuelAmount = ref('')
 const fuelFull = ref(true)
+const fuelPartial = computed({ get: () => !fuelFull.value, set: value => { fuelFull.value = !value } })
 const fuelBusy = ref(false)
 
 const endOpen = ref(false)
@@ -104,7 +105,8 @@ const cockpit = computed(() => deriveWorkCockpitState({
   target: targetValue.value == null ? '—' : money(targetValue.value),
   targetProgress: targetProgress.value,
   liveKm: '0.0 km',
-  revenue: '₹0'
+  revenue: '₹0',
+  asOf: clock.value
 }))
 
 const ready = computed(() => cockpit.value.state === WORK_COCKPIT_STATES.READY_FOR_TRIP)
@@ -743,7 +745,7 @@ onBeforeUnmount(() => {
       <label>Price / kg<div class="input-unit"><b>₹</b><input v-model="fuelPrice" type="number" inputmode="decimal" enterkeyhint="next" min="0" step=".01"></div></label>
       <label>Amount<div class="input-unit"><b>₹</b><input v-model="fuelAmount" type="number" inputmode="numeric" enterkeyhint="done" min="0"></div></label>
       <div class="calculated-value"><span>Quantity</span><strong>{{ fuelQty.valid ? fuelQty.quantityKg.toFixed(2)+' kg' : '—' }}</strong></div>
-      <label class="check-row"><input v-model="fuelFull" type="checkbox"><span>Full tank</span></label>
+      <label class="check-row"><input v-model="fuelPartial" type="checkbox"><span>Partial fill</span></label>
       <button class="primary-action" :disabled="fuelBusy" @click="saveFuel">{{ fuelBusy ? 'SAVING…' : 'OK — SAVE FUEL' }}</button>
     </section>
 
