@@ -89,6 +89,32 @@ export const ShiftTripRepository = {
       tx.onabort = () => { if (tx.error) reject(tx.error) }
     })
   },
+  async recordFareForActiveTrip({ id, revenue }) {
+    const value = Number(revenue)
+    if (!id || !Number.isFinite(value) || value < 0) throw new Error('Trip fare must be a non-negative number.')
+    const db = await initializeCanonicalStorage()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['trips', 'pending_mutations', 'audit_history'], 'readwrite')
+      const trips = tx.objectStore('trips'); const mutations = tx.objectStore('pending_mutations'); const audit = tx.objectStore('audit_history')
+      const request = trips.get(id)
+      request.onsuccess = () => {
+        const record = request.result
+        if (!record) { try { tx.abort() } catch (_) {}; reject(new Error('Trip not found.')); return }
+        if (record.status !== 'ACTIVE') { try { tx.abort() } catch (_) {}; reject(new Error('Trip is no longer active.')); return }
+        const now = new Date().toISOString()
+        record.revenue = value
+        record.revenueAuthority = 'SUPPORTING_ONLY'
+        record.revenueProvenance = { source: 'DRIVER_FARE_CAPTURE', capturedAt: now }
+        record.updatedAt = now
+        trips.put(record)
+        saveMutation(mutations, audit, record.id, 'TRIP', 'UPDATE', record, now)
+      }
+      request.onerror = () => reject(request.error || new Error('Trip fare lookup failed.'))
+      tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: ['trips'], reason: 'trip:fare' }); resolve(true) }
+      tx.onerror = () => reject(tx.error || new Error('Trip fare save failed.'))
+      tx.onabort = () => reject(tx.error || new Error('Trip fare save aborted.'))
+    })
+  },
   async completeTrip(data) { return this._finishTrip(data, 'COMPLETED') },
   async cancelTrip(data) { return this._finishTrip(data, 'CANCELLED') },
   async _finishTrip(data, status) {
