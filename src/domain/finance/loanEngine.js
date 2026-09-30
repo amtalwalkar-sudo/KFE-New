@@ -288,7 +288,13 @@ const preBusinessLoanBurdenPaise = ({ loan, payments = [], prepayments = [], bus
       return !!due && calendarRecoverySerial(due) < calendarRecoverySerial(start)
     })
     .reduce((sum, row) => sum + rupeesToPaise(row.unpaidScheduledInterest) + rupeesToPaise(row.unpaidOverdueInterest), 0)
-  return rupeesToPaise(positionAtStart.outstandingPrincipal) + overdueInterestPaise
+  const scheduledRemainingPrincipalPaise = (positionAtStart.schedule || []).reduce(
+    (sum, row) => sum + Math.max(0, rupeesToPaise(row.originalPrincipalComponent) - rupeesToPaise(row.scheduledPrincipalPaid)),
+    0,
+  )
+  const canonicalRemainingPrincipalPaise = rupeesToPaise(positionAtStart.outstandingPrincipal)
+  const remainingPrincipalPaise = Math.max(canonicalRemainingPrincipalPaise, scheduledRemainingPrincipalPaise)
+  return remainingPrincipalPaise + overdueInterestPaise
 }
 
 export function calculatePreBusinessLoanRecoveryForRange({ loan, payments = [], prepayments = [], businessStartDate, range, recoveryMonths = 12 } = {}) {
