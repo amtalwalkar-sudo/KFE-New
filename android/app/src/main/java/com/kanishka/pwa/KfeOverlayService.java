@@ -113,7 +113,8 @@ public class KfeOverlayService extends Service {
       revenue=root.optString("revenue","₹0");
       cancellationRevenue=root.optString("cancellationRevenue","₹0");
       tripStartAt=root.optLong("tripStartAt",0L);
-      actionStage=root.optString("overlayAction","GO_TO_PICKUP");
+      actionStage=nextActionStage;
+      if(!actionStage.equals(previousActionStage) && !"ENTER_FARE".equals(actionStage)) animateRetract();
       pendingTripId=root.optString("overlayTripId","");
       if(pendingTripId.isEmpty()&&trip!=null)pendingTripId=trip.optString("id","");
       if(formMode!=null){
@@ -121,7 +122,7 @@ public class KfeOverlayService extends Service {
       }
       if(formMode==null && "ENTER_FARE".equals(actionStage)) openFareForm();
       overlay.invalidate();
-    }catch(Exception ignored){actionStage="GO_TO_PICKUP";overlay.invalidate();}
+    }catch(Exception ignored){ overlay.invalidate(); }
   }
 
   private void onCancelSaved(){formSubmitting=false;closeForm();actionStage="GO_TO_PICKUP";pendingTripId="";tripStartAt=0L;KfeRideNotificationsPlugin.cancelNotification(this);if(overlay!=null)overlay.invalidate();}
@@ -355,7 +356,7 @@ public class KfeOverlayService extends Service {
           if(minimized&&!moving&&Math.abs(fx)<dp(16)&&Math.abs(fy)<dp(16)){minimized=false;params.width=WindowManager.LayoutParams.MATCH_PARENT;params.height=dp(COLLAPSED_TOTAL_DP);params.x=0;if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);invalidate();return true;}
           if(!minimized&&!moving&&"START_RIDE".equals(actionStage)&&downX>getWidth()-dp(120)&&downY>=dp(60)&&downY<=dp(110)){openCancelForm();return true;}
           float maxTravel=Math.max(1,getWidth()-dp(16)-dp(58));
-          if(!minimized&&!moving&&swipeEligible&&swipeLocked&&fx>=maxTravel*.70f){progress=1;invalidate();if("END_RIDE".equals(actionStage)){openFareForm();KfeRideNotificationsPlugin.recordPendingAction(KfeOverlayService.this,"END_RIDE",pendingTripId,"");KfeRideNotificationsPlugin.emitAction("END_RIDE",pendingTripId,"");}else triggerAction();animateRetract();swipeLocked=false;swipeEligible=false;return true;}
+          if(!minimized&&!moving&&swipeEligible&&swipeLocked&&fx>=maxTravel*.70f){progress=1;invalidate();if("END_RIDE".equals(actionStage)){openFareForm();KfeRideNotificationsPlugin.recordPendingAction(KfeOverlayService.this,"END_RIDE",pendingTripId,"");KfeRideNotificationsPlugin.emitAction("END_RIDE",pendingTripId,"");}else triggerAction();swipeLocked=false;swipeEligible=false;return true;}
           progress=0;invalidate();return true;}
         case MotionEvent.ACTION_CANCEL:tracking=false;moving=false;swipeLocked=false;swipeEligible=false;animateRetract();return true;
       }return true;
