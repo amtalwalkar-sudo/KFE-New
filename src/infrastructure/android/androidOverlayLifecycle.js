@@ -57,16 +57,21 @@ const activeOverlayState = async () => {
   }
 
   let overlayAction = pendingFareTrip?.id ? 'ENTER_FARE' : 'GO_TO_PICKUP'
-  const tripStartAt = active.trip?.tripStartAt ? new Date(active.trip.tripStartAt).getTime() : 0
+  const tripIsActive = active.trip?.tripStage === 'RIDE_STARTED'
+  const tripIsReady = active.trip?.tripStage === 'PICKUP'
+  const tripStartAt = tripIsActive && active.trip?.tripStartAt ? new Date(active.trip.tripStartAt).getTime() : 0
   let overlayTripId = ''
   let cancellationRevenue = '₹0'
   try {
     const notificationState = KfeRideNotificationService.getState()
     if (notificationState?.phase === 'ENTER_FARE' && notificationState?.tripId === active.trip?.id) overlayAction = 'ENTER_FARE'
-    if (notificationState?.phase === 'START_RIDE') overlayAction = 'START_RIDE'
-    if (notificationState?.phase === 'ENTER_PICKUP_DURATION') overlayAction = 'START_RIDE'
-  } catch (_) {}
-  if (active.trip?.id) { overlayTripId = active.trip.id; if (overlayAction !== 'ENTER_FARE') overlayAction = 'END_RIDE' }
+    else if (tripIsActive) overlayAction = 'END_RIDE'
+    else if (tripIsReady || notificationState?.phase === 'START_RIDE' || notificationState?.phase === 'ENTER_PICKUP_DURATION') overlayAction = 'START_RIDE'
+  } catch (_) {
+    if (tripIsActive) overlayAction = 'END_RIDE'
+    else if (tripIsReady) overlayAction = 'START_RIDE'
+  }
+  if (active.trip?.id) overlayTripId = active.trip.id
   else {
     const cancellation = KfeRideNotificationService.getLastCancellation?.()
     const cancelledTrip = cancellation?.tripId ? trips.find(item => item?.id === cancellation.tripId && item?.status === 'CANCELLED') : null
