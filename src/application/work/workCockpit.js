@@ -10,12 +10,12 @@ export const WORK_COCKPIT_STATES = Object.freeze({
 
 export const deriveWorkCockpitState = ({
   shift, trip, trips = [], pendingFareId = '', notificationPhase = '',
-  target = '—', targetProgress = 0, liveKm = '0.0 km', revenue = '₹0'
+  target = '—', targetProgress = 0, liveKm = '0.0 km', revenue = '₹0', asOf = Date.now()
 } = {}) => {
   const base = { target, targetProgress: Number(targetProgress) || 0, liveKm, revenue }
   const shiftStartAt = Date.parse(shift?.shiftStartAt || '') || 0
   const shiftEndAt = Date.parse(shift?.shiftEndAt || '') || 0
-  const shiftDurationMs = shiftStartAt ? Math.max(0, (shiftEndAt || Date.now()) - shiftStartAt) : 0
+  const shiftDurationMs = shiftStartAt ? Math.max(0, (shiftEndAt || Number(asOf) || Date.now()) - shiftStartAt) : 0
   if (!shift?.id || shift.status !== 'ACTIVE') return { ...base, state: WORK_COCKPIT_STATES.OFFLINE, action: 'GO_TO_PICKUP', tripId: '', tripStartAt: 0, shiftStartAt, shiftDurationMs, pendingFare: false, shiftDurationMs }
   const pendingFareTrip = pendingFareId ? trips.find(item => item?.id === pendingFareId) : trips.find(item => item?.status === 'COMPLETED' && (item?.revenue === '' || item?.revenue == null))
   if (pendingFareTrip?.id || notificationPhase === 'ENTER_FARE') return { ...base, state: WORK_COCKPIT_STATES.ENTER_FARE, action: 'ENTER_FARE', tripId: pendingFareTrip?.id || trip?.id || '', tripStartAt: 0, shiftStartAt, shiftDurationMs, pendingFare: true }
