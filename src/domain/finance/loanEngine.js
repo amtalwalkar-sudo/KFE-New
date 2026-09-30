@@ -294,7 +294,20 @@ const preBusinessLoanBurdenPaise = ({ loan, payments = [], prepayments = [], bus
   )
   const canonicalRemainingPrincipalPaise = rupeesToPaise(positionAtStart.outstandingPrincipal)
   const remainingPrincipalPaise = Math.max(canonicalRemainingPrincipalPaise, scheduledRemainingPrincipalPaise)
-  return remainingPrincipalPaise + overdueInterestPaise
+  // With no pre-business payments/prepayments, an originated loan cannot
+  // have zero pre-business principal merely because an as-of boundary falls
+  // before its first scheduled due row is treated as payable.
+  const hasPreBusinessSettlement = live(payments).some(payment => {
+    const paidOn = dateOf(payment.paidOn)
+    return payment.loanId === loan.id && paidOn && paidOn <= start
+  }) || live(prepayments).some(payment => {
+    const paidOn = dateOf(payment.paidOn)
+    return payment.loanId === loan.id && paidOn && String(payment.status || '').toLowerCase() === 'applied' && paidOn <= start
+  })
+  const boundaryPrincipalPaise = remainingPrincipalPaise > 0 || hasPreBusinessSettlement
+    ? remainingPrincipalPaise
+    : rupeesToPaise(loan.principal)
+  return boundaryPrincipalPaise + overdueInterestPaise
 }
 
 export function calculatePreBusinessLoanRecoveryForRange({ loan, payments = [], prepayments = [], businessStartDate, range, recoveryMonths = 12 } = {}) {
