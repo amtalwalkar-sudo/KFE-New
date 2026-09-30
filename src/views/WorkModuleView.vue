@@ -702,7 +702,7 @@ onBeforeUnmount(() => {
       </section>
 
       <section v-else-if="cockpit.state===WORK_COCKPIT_STATES.PICKUP" class="operational-state state-tone-info">
-        <span class="eyebrow">GOING TO PICKUP</span><strong>{{ store.trip?.operator || 'TRIP' }}</strong><p>Pickup movement is active. GPS remains background telemetry.</p>
+        <span class="eyebrow">GOING TO PICKUP</span><strong>{{ store.trip?.operator || 'TRIP' }}</strong><p>Pickup movement is active. GPS remains background telemetry.</p><button class="secondary-action cancel-trip-tab" type="button" @click="openCancel">CANCEL TRIP</button>
       </section>
 
       <section v-else class="operational-state trip-timer-state state-tone-success">
@@ -720,7 +720,7 @@ onBeforeUnmount(() => {
     </template>
 
     <section v-if="pendingFare && !endOpen" class="focus-surface state-tone-warning">
-      <div class="focus-head"><div><span class="eyebrow">FARE ENTRY</span><strong>TRIP COMPLETED</strong></div></div>
+      <div class="focus-head"><div><span class="eyebrow">ENTER FARE</span><strong>TRIP COMPLETED</strong></div></div>
       <div class="fact-grid two"><div><span>Operator</span><strong>{{ pendingFare.operator }}</strong></div><div><span>Trip KM</span><strong>{{ Number(pendingFare.tripKm||0).toFixed(1) }} km</strong></div></div>
       <label>Trip fare<div class="input-unit"><b>₹</b><input ref="fareInput" v-model="fare" type="number" inputmode="numeric" enterkeyhint="done" min="0" autocomplete="off"></div></label>
       <button class="primary-action" :disabled="fareBusy" @click="saveFare">{{ fareBusy ? 'SAVING…' : 'OK — SAVE FARE' }}</button>
