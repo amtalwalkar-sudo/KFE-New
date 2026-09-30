@@ -107,9 +107,8 @@ const cockpit = computed(() => deriveWorkCockpitState({
   revenue: '₹0'
 }))
 
-const ready = computed(() => cockpit.value.state === WORK_COCKPIT_STATES.PICKUP)
+const ready = computed(() => cockpit.value.state === WORK_COCKPIT_STATES.READY_FOR_TRIP)
 const active = computed(() => cockpit.value.state === WORK_COCKPIT_STATES.RIDE_STARTED)
-const goingPickup = computed(() => cockpit.value.state === WORK_COCKPIT_STATES.PICKUP && !ready.value)
 const actionLabel = computed(() => {
   if (cockpit.value.action === 'END_RIDE') return 'END TRIP'
   if (cockpit.value.action === 'START_RIDE') return 'START TRIP'
@@ -701,7 +700,7 @@ onBeforeUnmount(() => {
         <label class="operator-compact"><span>Operator</span><select v-model="operator"><option v-for="item in store.operators" :key="item">{{ item }}</option></select></label>
       </section>
 
-      <section v-else-if="cockpit.state===WORK_COCKPIT_STATES.PICKUP" class="operational-state state-tone-info">
+      <section v-else-if="cockpit.state===WORK_COCKPIT_STATES.READY_FOR_TRIP" class="operational-state state-tone-info">
         <span class="eyebrow">GOING TO PICKUP</span><strong>{{ store.trip?.operator || 'TRIP' }}</strong><p>Pickup movement is active. GPS remains background telemetry.</p><button class="secondary-action cancel-trip-tab" type="button" @click="openCancel">CANCEL TRIP</button>
       </section>
 
