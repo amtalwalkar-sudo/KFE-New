@@ -1,0 +1,2 @@
+<template><section class="kfe-admin-section"><h2>ATTENTION</h2><article v-for="item in attention" :key="item.id||item.message" class="kfe-admin-card"><strong>{{item.title||'Action required'}}</strong><p>{{item.message}}</p></article><p v-if="!attention.length" class="kfe-boundary-note">No action required right now.</p></section></template>
+<script setup>defineProps({attention:{type:Array,default:()=>[]}})</script>

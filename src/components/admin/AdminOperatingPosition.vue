@@ -1,0 +1,2 @@
+<template><section class="kfe-admin-section"><h2>OPERATING POSITION</h2><div class="kfe-finance-tiles"><article><strong>{{money(month?.revenuePaise)}}</strong><span>Revenue</span></article><article><strong>{{money(month?.costsPaise)}}</strong><span>Business Cost</span></article><article><strong>{{money(month?.profitPaise)}}</strong><span>Profit</span></article></div></section></template>
+<script setup>defineProps({month:{type:Object,default:()=>({})},money:{type:Function,required:true}})</script>

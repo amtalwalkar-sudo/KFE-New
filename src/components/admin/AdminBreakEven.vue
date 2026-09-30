@@ -1,0 +1,2 @@
+<template><section class="kfe-admin-section"><h2>BREAK-EVEN</h2><article class="kfe-admin-card"><strong>{{statusText(breakEven?.status)}}</strong><dl><div><dt>Break-even</dt><dd>{{money(breakEven?.breakEvenPaise)}}</dd></div><div><dt>Current</dt><dd>{{money(breakEven?.currentPaise)}}</dd></div><div><dt>Remaining</dt><dd>{{money(breakEven?.remainingPaise)}}</dd></div></dl></article></section></template>
+<script setup>defineProps({breakEven:{type:Object,default:()=>({})},money:{type:Function,required:true},statusText:{type:Function,required:true}})</script>

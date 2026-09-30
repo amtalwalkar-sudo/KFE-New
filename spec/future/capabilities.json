@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "capabilities": {
+    "gps": "future",
+    "cloudSync": "future",
+    "googleDriveBackup": "future",
+    "multipleVehicles": "future",
+    "multipleDrivers": "future",
+    "fleetManagement": "future",
+    "advancedReporting": "future",
+    "predictiveAnalytics": "future",
+    "machineLearning": "future",
+    "kfeAdvisor": "future"
+  },
+  "policy": "Future capabilities may receive explicit contracts/adapters, but no current business behavior is implemented for them."
+}

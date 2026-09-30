@@ -1,0 +1,55 @@
+/* KFE Work — compact target HUD and single top swipe action. */
+.kfe-work-cockpit{position:relative;}
+/* Cancel Ride: intentionally secondary to the primary swipe action. */
+.kfe-work-cockpit .cancel-ride-link{margin-top:14px;padding:8px 12px;border:1px solid var(--kfe-ui-border);border-radius:999px;background:transparent;color:var(--kfe-muted-text);font-size:.68rem;font-weight:850;letter-spacing:.03em;}
+.kfe-work-cockpit .cancel-ride-link:active,.kfe-work-cockpit .target-hud-cancel:active{transform:scale(.98);}
+.kfe-work-cockpit .target-hud-cancel{pointer-events:auto;margin-top:8px;width:100%;min-height:34px;border:1px solid var(--kfe-ui-border);border-radius:10px;background:transparent;color:var(--kfe-muted-text);font-size:.64rem;font-weight:850;letter-spacing:.04em;text-align:left;padding:0 10px;}
+.kfe-work-cockpit .cancel-ride-panel{margin:8px auto 72px;width:min(92vw,520px);padding:12px;border:1px solid var(--kfe-ui-border);border-radius:20px;background:var(--kfe-ui-surface);box-shadow:0 12px 34px color-mix(in srgb,var(--kfe-ui-text) 12%,transparent);}
+.kfe-work-cockpit .cancel-ride-copy{margin:2px 0 8px;color:var(--kfe-muted-text);font-size:.78rem;line-height:1.45;}
+.kfe-work-cockpit .cancel-ride-form{display:grid;gap:8px;}
+.kfe-work-cockpit .cancel-ride-form label{display:grid;gap:4px;font-size:.68rem;font-weight:850;color:var(--kfe-muted-text);letter-spacing:.04em;}
+.kfe-work-cockpit .cancel-ride-form input,.kfe-work-cockpit .cancel-ride-form select{min-height:40px;border:1px solid var(--kfe-ui-border);border-radius:12px;background:var(--kfe-ui-surface-2);color:var(--kfe-ui-text);padding:0 11px;font:inherit;}
+.kfe-work-cockpit .cancel-ride-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:8px;}
+.kfe-work-cockpit .quiet-danger{min-height:40px;padding:0 14px;border:1px solid color-mix(in srgb,var(--kfe-ui-border) 70%,transparent);border-radius:11px;background:transparent;color:var(--kfe-muted-text);font-size:.7rem;font-weight:900;}
+@media(max-width:600px){.kfe-work-cockpit .cancel-ride-panel{width:calc(100vw - 20px);margin-top:8px;margin-bottom:72px;}}
+
+
+/* Canonical Work cockpit: target + shift context above one curved primary action. */
+.kfe-work-cockpit .work-canonical-summary{display:grid;gap:18px;margin:8px auto 18px;width:min(92vw,520px);}
+.kfe-work-cockpit .work-target-block,.kfe-work-cockpit .work-shift-block{display:grid;gap:5px;}
+.kfe-work-cockpit .work-section-label{font-size:.68rem;font-weight:900;letter-spacing:.08em;color:var(--kfe-muted-text);}
+.kfe-work-cockpit .work-target-block>strong{font-size:1.8rem;line-height:1.05;color:var(--kfe-ui-text);}
+.kfe-work-cockpit .target-progress{height:10px;border-radius:999px;overflow:hidden;background:color-mix(in srgb,var(--kfe-ui-border) 55%,transparent);}
+.kfe-work-cockpit .target-progress span{display:block;height:100%;border-radius:inherit;background:var(--kfe-ui-accent,#2563eb);}
+.kfe-work-cockpit .work-target-block>small{font-weight:850;color:var(--kfe-muted-text);}
+.kfe-work-cockpit .work-shift-block>div{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:end;}
+.kfe-work-cockpit .work-shift-block>div strong{font-size:1rem;color:var(--kfe-ui-text);}
+.kfe-work-cockpit .work-fare-panel{width:min(92vw,520px);margin:10px auto 72px;padding:18px;border-radius:24px;background:var(--kfe-ui-surface);border:1px solid var(--kfe-ui-border);box-shadow:0 14px 40px color-mix(in srgb,var(--kfe-ui-text) 12%,transparent);}
+.kfe-work-cockpit .work-fare-heading{display:grid;gap:3px;text-align:center;margin-bottom:12px;}
+.kfe-work-cockpit .work-fare-heading span{font-size:.72rem;font-weight:900;letter-spacing:.08em;color:var(--kfe-muted-text);}
+.kfe-work-cockpit .work-fare-heading strong{font-size:1rem;color:var(--kfe-ui-text);}
+.kfe-work-cockpit .work-fare-heading b{font-size:1.65rem;color:var(--kfe-ui-text);}
+.kfe-work-cockpit .work-keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.kfe-work-cockpit .work-keypad button{min-height:52px;border:1px solid var(--kfe-ui-border);border-radius:14px;background:var(--kfe-ui-surface-2);color:var(--kfe-ui-text);font-size:1.05rem;font-weight:850;}
+.kfe-work-cockpit .work-fare-ok{display:block;margin:12px 0 0 auto;min-width:96px;min-height:44px;border:0;border-radius:12px;background:var(--kfe-ui-accent,#2563eb);color:#fff;font-weight:900;}
+.kfe-work-cockpit .persistent-action{width:min(92vw,520px);margin:10px auto 72px;}
+.kfe-work-cockpit .swipe-bar{position:relative;display:flex;align-items:stretch;overflow:hidden;min-height:82px;border-radius:24px;}
+.kfe-work-cockpit .swipe-action-hit{position:relative;display:flex;align-items:center;justify-content:center;flex:1;min-width:0;overflow:hidden;touch-action:pan-y;border-radius:24px;}
+.kfe-work-cockpit .swipe-label{font-size:.82rem;font-weight:950;letter-spacing:.04em;z-index:2;}
+.kfe-work-cockpit .swipe-cancel-button{position:absolute;z-index:5;right:9px;top:50%;transform:translateY(-50%);width:42px;height:42px;border:0;border-radius:50%;background:color-mix(in srgb,var(--kfe-ui-text) 9%,transparent);color:var(--kfe-ui-text);font-size:1.8rem;line-height:1;font-weight:500;touch-action:manipulation;}
+.kfe-work-cockpit .swipe-cancel-button:active{transform:translateY(-50%) scale(.95);}
+.kfe-work-cockpit .swipe-hint{text-align:center;display:block;margin-top:7px;color:var(--kfe-muted-text);}
+@media(max-width:600px){.kfe-work-cockpit .work-canonical-summary,.kfe-work-cockpit .persistent-action,.kfe-work-cockpit .work-fare-panel{width:calc(100vw - 20px);}.kfe-work-cockpit .work-shift-block>div{gap:5px;}.kfe-work-cockpit .work-shift-block>div strong{font-size:.88rem;}}
+
+
+/* Compact Start Shift gate: keep the essential odometer confirmation and gap choice visible without excess vertical space. */
+.work-canonical .start-shift-gate{gap:8px;padding:12px 14px;}
+.work-canonical .start-shift-gate .gate-head{margin-bottom:0;}
+.work-canonical .start-shift-gate h2{font-size:1.05rem;margin:2px 0 0;}
+.work-canonical .start-shift-gate label{gap:4px;font-size:.72rem;}
+.work-canonical .start-shift-gate .input-unit{min-height:42px;}
+.work-canonical .start-shift-gate .check-row{font-size:.7rem;}
+.work-canonical .start-shift-gate .gap-panel{padding:8px 10px;}
+.work-canonical .start-shift-gate .gap-panel p{margin:2px 0;font-size:.68rem;}
+.work-canonical .start-shift-gate .choice-row button{min-height:38px;padding:0 8px;font-size:.7rem;}
+.work-canonical .start-shift-gate .primary-action{min-height:44px;}

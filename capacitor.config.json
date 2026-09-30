@@ -1,0 +1,8 @@
+{
+  "appId": "com.kanishka.pwa",
+  "appName": "KanishkaApp",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

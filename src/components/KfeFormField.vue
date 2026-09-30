@@ -1,0 +1,11 @@
+<script setup>
+import { computed } from 'vue';
+const props=defineProps({id:{type:String,required:true},label:{type:String,required:true},modelValue:{type:[String,Number],default:''},type:{type:String,default:'text'},required:{type:Boolean,default:false},optional:{type:Boolean,default:false},placeholder:{type:String,default:''},help:{type:String,default:''},error:{type:String,default:''},disabled:{type:Boolean,default:false},autocomplete:{type:String,default:'off'},inputmode:{type:String,default:''},icon:{type:String,default:''},valid:{type:Boolean,default:false},autofilled:{type:Boolean,default:false}});
+const emit=defineEmits(['update:modelValue','blur']);
+const describedBy=computed(()=>[props.help?`${props.id}-help`:'',props.error?`${props.id}-error`: ''].filter(Boolean).join(' ')||undefined);
+const hasValue=computed(()=>String(props.modelValue??'').trim()!=='');
+const complete=computed(()=>!props.error&&hasValue.value&&(props.valid||!props.required));
+const glyph=computed(()=>props.icon||({number:'⌁',date:'◷',email:'@',tel:'☎'}[props.type]||'•'));
+function update(event){emit('update:modelValue',event.target.value)}
+</script>
+<template><div class="kfe-form-field" data-kfe-field="true" :class="{'has-error':error,'is-disabled':disabled,'is-complete':complete,'is-autofilled':autofilled}"><label class="kfe-form-label" :for="id"><span class="kfe-field-icon" aria-hidden="true">{{glyph}}</span><span>{{label}}</span><span v-if="required" class="kfe-required">Required</span><span v-else-if="optional" class="kfe-optional">Optional</span><span v-if="complete" class="kfe-completion-badge" aria-label="Complete">✓</span></label><div class="kfe-input-wrap"><span class="kfe-input-prefix" aria-hidden="true">{{glyph}}</span><input :id="id" class="kfe-form-input" :type="type" :value="modelValue" :placeholder="placeholder" :required="required" :disabled="disabled" :autocomplete="autocomplete" :inputmode="inputmode||undefined" :aria-invalid="error?'true':'false'" :aria-describedby="describedBy" @input="update" @blur="emit('blur')" /></div><p v-if="help" :id="`${id}-help`" class="kfe-form-help">{{help}}</p><p v-if="error" :id="`${id}-error`" class="kfe-form-error" role="alert">{{error}}</p></div></template>
