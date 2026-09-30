@@ -113,6 +113,8 @@ public class KfeOverlayService extends Service {
       revenue=root.optString("revenue","₹0");
       cancellationRevenue=root.optString("cancellationRevenue","₹0");
       tripStartAt=root.optLong("tripStartAt",0L);
+      String previousActionStage=actionStage;
+      String nextActionStage=root.optString("overlayAction",actionStage);
       actionStage=nextActionStage;
       if(!actionStage.equals(previousActionStage) && !"ENTER_FARE".equals(actionStage)) animateRetract();
       pendingTripId=root.optString("overlayTripId","");
