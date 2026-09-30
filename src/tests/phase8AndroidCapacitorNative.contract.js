@@ -10,6 +10,7 @@ const receiver = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/Kfe
 const secureStorage = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeSecureStoragePlugin.java', 'utf8')
 const gradle = fs.readFileSync('android/app/build.gradle', 'utf8')
 const overlayLifecycle = fs.readFileSync('src/infrastructure/android/androidOverlayLifecycle.js', 'utf8')
+// Launch-readiness regression coverage: native and PWA must share persisted workflow authority.
 const cockpit = fs.readFileSync('src/application/work/workCockpit.js', 'utf8')
 
 
