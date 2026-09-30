@@ -96,7 +96,7 @@ onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTrace
 
   <main class="work-main">
     <!-- State gate: always occupies the same position below the shift control. -->
-    <section v-if="!store.isOnline&&startOpen&&!fuelOpen&&!endOpen" class="state-gate state-tone-warning">
+    <section v-if="!store.isOnline&&startOpen&&!fuelOpen&&!endOpen" class="state-gate start-shift-gate state-tone-warning">
       <div class="gate-head">
         <div><span class="eyebrow">START SHIFT</span><h2>Odometer check</h2></div>
         <button class="text-action" type="button" @click="startOdo='';startOpen=false;startAck=false;gapChoice=''">Back</button>
