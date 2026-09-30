@@ -263,7 +263,10 @@ const recoverySnapshot = {
 const oneDayRecoveryRange = { from:new Date('2026-05-15T00:00:00+05:30'), to:new Date('2026-05-15T23:59:59+05:30') }
 const recoveryMetrics = deriveFinanceAwarePerformance(recoverySnapshot, oneDayRecoveryRange, previousRange(oneDayRecoveryRange))
 assert.ok(recoveryMetrics.historicalMaintenanceRecoveryForPeriod > 0 && recoveryMetrics.historicalMaintenanceRecoveryForPeriod < recoveryMetrics.historicalMaintenanceRecoveryMonthly, 'historical maintenance recovery must be period-allocated')
-assert.ok(recoveryMetrics.preBusinessRecoveryForPeriod > 0 && recoveryMetrics.preBusinessRecoveryForPeriod < recoveryMetrics.preBusinessRecoveryMonthly, 'pre-business loan recovery must be period-allocated')
+assert.ok(
+  recoveryMetrics.preBusinessRecoveryForPeriod > 0 && recoveryMetrics.preBusinessRecoveryForPeriod < recoveryMetrics.preBusinessRecoveryMonthly,
+  `pre-business loan recovery must be period-allocated: period=${recoveryMetrics.preBusinessRecoveryForPeriod}, monthly=${recoveryMetrics.preBusinessRecoveryMonthly}, finance=${JSON.stringify(recoveryMetrics.finance)}`,
+)
 
 
 console.log('KFE Performance contract tests: PASS')
