@@ -37,6 +37,7 @@ public class KfeOverlayService extends Service {
   static final String ACTION_UPDATE="com.kanishka.pwa.KFE_OVERLAY_UPDATE";
   static final String ACTION_HIDE="com.kanishka.pwa.KFE_OVERLAY_HIDE";
   static final String ACTION_FARE_SAVED="com.kanishka.pwa.KFE_OVERLAY_FARE_SAVED";
+  static final String ACTION_CANCEL_SAVED="com.kanishka.pwa.KFE_OVERLAY_CANCEL_SAVED";
   static final String EXTRA_STATE="state";
   private static final String CHANNEL_ID="kfe_overlay";
   private static final int NOTIFICATION_ID=4201;
@@ -74,6 +75,7 @@ public class KfeOverlayService extends Service {
     String action=intent.getAction();
     if(ACTION_HIDE.equals(action)){removeOverlay();stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return START_NOT_STICKY;}
     if(ACTION_FARE_SAVED.equals(action)){onFareSaved();return START_NOT_STICKY;}
+    if(ACTION_CANCEL_SAVED.equals(action)){onCancelSaved();return START_NOT_STICKY;}
     if(!Settings.canDrawOverlays(this))return START_NOT_STICKY;
     if(ACTION_SHOW.equals(action)||ACTION_UPDATE.equals(action)){ensureOverlay();applyState(intent.getStringExtra(EXTRA_STATE));}
     return START_NOT_STICKY;
@@ -116,6 +118,8 @@ public class KfeOverlayService extends Service {
       overlay.invalidate();
     }catch(Exception ignored){actionStage="GO_TO_PICKUP";overlay.invalidate();}
   }
+
+  private void onCancelSaved(){formSubmitting=false;closeForm();actionStage="GO_TO_PICKUP";pendingTripId="";tripStartAt=0L;KfeRideNotificationsPlugin.cancelNotification(this);if(overlay!=null)overlay.invalidate();}
 
   private void onFareSaved(){
     formSubmitting=false;
@@ -236,7 +240,8 @@ public class KfeOverlayService extends Service {
         return;
       }catch(Exception ignored){formSubmitting=false;return;}
     }
-    closeForm();
+    // Keep cancellation open until the WebView confirms the authoritative save.
+    if(!"CANCEL".equals(formMode)) closeForm();
   }
   private void closeForm(){
     if(formPanel!=null&&overlayRoot!=null)overlayRoot.removeView(formPanel);
