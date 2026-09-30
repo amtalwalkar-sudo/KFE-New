@@ -36,7 +36,7 @@ const recoverApp = () => { renderError.value = null; window.location.reload() }
     </div>
 
     <router-view v-slot="{ Component }">
-      <keep-alive><component :is="Component" /></keep-alive>
+      <component :is="Component" />
     </router-view>
   </KfeShell>
 </template>
