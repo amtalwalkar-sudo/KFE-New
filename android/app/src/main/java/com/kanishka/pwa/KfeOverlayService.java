@@ -117,7 +117,7 @@ public class KfeOverlayService extends Service {
       pendingTripId=root.optString("overlayTripId","");
       if(pendingTripId.isEmpty()&&trip!=null)pendingTripId=trip.optString("id","");
       if(formMode!=null){
-        if(("ENTER_FARE".equals(actionStage)&&!"FARE".equals(formMode))||("CANCEL_RIDE".equals(actionStage)&&!"CANCEL".equals(formMode)))closeForm();
+        if((("ENTER_FARE".equals(actionStage)||"END_RIDE".equals(actionStage))&&!"FARE".equals(formMode))||("CANCEL_RIDE".equals(actionStage)&&!"CANCEL".equals(formMode)))closeForm();
       }
       if(formMode==null && "ENTER_FARE".equals(actionStage)) openFareForm();
       overlay.invalidate();
@@ -304,7 +304,7 @@ public class KfeOverlayService extends Service {
       float[] cols={.14f,.38f,.62f,.86f};
       String[] labels={"TARGET","LIVE KM","TRIP TIME","REVENUE"};
       String[] values={target,liveKm,formatTripTime(),revenue};
-      for(int i=0;i<3;i++){text(9,mutedColor(),true);center(c,labels[i],w*cols[i],barTop+dp(23));text(15,i==0?targetColor():(i==1?a:textColor()),true);center(c,values[i],w*cols[i],barTop+dp(44));}
+      for(int i=0;i<4;i++){text(9,mutedColor(),true);center(c,labels[i],w*cols[i],barTop+dp(23));text(15,i==0?targetColor():(i==1?a:textColor()),true);center(c,values[i],w*cols[i],barTop+dp(44));}
       if("END_RIDE".equals(actionStage)||"START_RIDE".equals(actionStage)) postInvalidateDelayed(1000);
       if("CANCELLED".equals(actionStage)){
         text(11,a,true);center(c,"CANCELLED · "+cancellationRevenue,w*.50f,barTop+dp(77));
