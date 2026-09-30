@@ -103,7 +103,7 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     const tripId = trip.value.id
     const ok = await WorkService.startRide({ id: tripId })
     if (!ok) return { ok: false, reason: 'Ride could not be started.' }
-    await refresh()
+    if (ok && typeof ok === 'object') { trip.value = ok; registeredTrips.value = registeredTrips.value.map(item => item.id === tripId ? ok : item) } else { trip.value = { ...trip.value, tripStage: 'RIDE_STARTED', tripStartAt: trip.value?.tripStartAt || new Date().toISOString() } }
     void loadEntityLocations('TRIP', tripId).catch(() => {})
     return { ok: true, trip: trip.value }
   }
