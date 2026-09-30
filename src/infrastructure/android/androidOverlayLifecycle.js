@@ -38,8 +38,11 @@ const activeOverlayState = async () => {
     const rideTrips = trips.filter(item => item?.status === 'COMPLETED' || item?.status === 'ACTIVE')
     rides = String(rideTrips.length)
   } catch (_) {}
-  const authoritativeRevenue = Number(active.shift?.revenue)
-  revenue = `₹${Number.isFinite(authoritativeRevenue) && authoritativeRevenue >= 0 ? authoritativeRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 }) : '0'}`
+  const totalRevenue = trips.filter(item => item?.status === 'COMPLETED' || item?.status === 'ACTIVE').reduce((sum, item) => {
+    const value = Number(item?.revenue)
+    return Number.isFinite(value) && value >= 0 ? sum + value : sum
+  }, 0)
+  revenue = `₹${totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
   try {
     const targetNumber = Number(String(target).replace(/[^0-9.]/g, ''))
     const achieved = trips.filter(item => item?.status === 'COMPLETED' && Number.isFinite(Number(item?.revenue))).reduce((sum,item)=>sum+Number(item.revenue),0)
@@ -59,10 +62,11 @@ const activeOverlayState = async () => {
   let cancellationRevenue = '₹0'
   try {
     const notificationState = KfeRideNotificationService.getState()
+    if (notificationState?.phase === 'ENTER_FARE' && notificationState?.tripId === active.trip?.id) overlayAction = 'ENTER_FARE'
     if (notificationState?.phase === 'START_RIDE') overlayAction = 'START_RIDE'
     if (notificationState?.phase === 'ENTER_PICKUP_DURATION') overlayAction = 'START_RIDE'
   } catch (_) {}
-  if (active.trip?.id) { overlayAction = 'END_RIDE'; overlayTripId = active.trip.id }
+  if (active.trip?.id) { overlayTripId = active.trip.id; if (overlayAction !== 'ENTER_FARE') overlayAction = 'END_RIDE' }
   else {
     const cancellation = KfeRideNotificationService.getLastCancellation?.()
     const cancelledTrip = cancellation?.tripId ? trips.find(item => item?.id === cancellation.tripId && item?.status === 'CANCELLED') : null
