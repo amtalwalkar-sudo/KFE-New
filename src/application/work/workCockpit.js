@@ -19,6 +19,6 @@ export const deriveWorkCockpitState = ({
   if (pendingFareTrip?.id || notificationPhase === 'ENTER_FARE') return { ...base, state: WORK_COCKPIT_STATES.ENTER_FARE, action: 'ENTER_FARE', tripId: pendingFareTrip?.id || trip?.id || '', tripStartAt: 0, shiftStartAt, pendingFare: true }
   if (!trip?.id || trip.status !== 'ACTIVE') return { ...base, state: WORK_COCKPIT_STATES.READY, action: 'GO_TO_PICKUP', tripId: '', tripStartAt: 0, shiftStartAt, pendingFare: false }
   if (trip.tripStage === 'RIDE_STARTED') return { ...base, state: WORK_COCKPIT_STATES.TRIP_ACTIVE, action: 'END_RIDE', tripId: trip.id, tripStartAt: Date.parse(trip.tripStartAt || '') || 0, shiftStartAt, pendingFare: false }
-  if (notificationPhase === 'START_RIDE') return { ...base, state: WORK_COCKPIT_STATES.READY_FOR_TRIP, action: 'START_RIDE', tripId: trip.id, tripStartAt: 0, shiftStartAt, pendingFare: false }
-  return { ...base, state: WORK_COCKPIT_STATES.GOING_TO_PICKUP, action: 'START_RIDE', tripId: trip.id, tripStartAt: 0, shiftStartAt, pendingFare: false }
+  if (trip.tripStage === 'GOING_TO_PICKUP') return { ...base, state: WORK_COCKPIT_STATES.GOING_TO_PICKUP, action: 'START_RIDE', tripId: trip.id, tripStartAt: 0, shiftStartAt, pendingFare: false }
+  return { ...base, state: WORK_COCKPIT_STATES.READY_FOR_TRIP, action: 'START_RIDE', tripId: trip.id, tripStartAt: 0, shiftStartAt, pendingFare: false }
 }
