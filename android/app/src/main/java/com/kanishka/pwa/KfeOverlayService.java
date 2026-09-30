@@ -160,13 +160,6 @@ public class KfeOverlayService extends Service {
     }catch(Exception ignored){}
   }
 
-  private void bringKfeToFront(){
-    try{
-      Intent launch=getPackageManager().getLaunchIntentForPackage(getPackageName());
-      if(launch!=null){launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);startActivity(launch);}
-    }catch(Exception ignored){}
-  }
-
   private void openFareForm(){openNumericForm("FARE","TRIP FARE","Enter fare");}
   private void openCancelForm(){cancelReason="";openNumericForm("CANCEL","CANCEL RIDE","Select reason and optional fee");}
   private void openNumericForm(String mode,String title,String hint){
