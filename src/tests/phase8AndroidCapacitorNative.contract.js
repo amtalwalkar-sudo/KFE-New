@@ -10,6 +10,7 @@ const receiver = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/Kfe
 const secureStorage = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeSecureStoragePlugin.java', 'utf8')
 const gradle = fs.readFileSync('android/app/build.gradle', 'utf8')
 const overlayLifecycle = fs.readFileSync('src/infrastructure/android/androidOverlayLifecycle.js', 'utf8')
+const cockpit = fs.readFileSync('src/application/work/workCockpit.js', 'utf8')
 
 
 assert.match(mainActivity, /extends BridgeActivity/)
@@ -55,6 +56,7 @@ const workView = fs.readFileSync('src/views/WorkModuleView.vue', 'utf8')
 const workService = fs.readFileSync('src/application/work/workService.js', 'utf8')
 assert.match(workView, /liveKm/)
 assert.match(workView, /revenue/)
+assert.match(workView, /deriveWorkCockpitState/)
 assert.match(workView, /recordFareForActiveTrip/)
 assert.match(workService, /async recordFareForActiveTrip/)
 assert.match(workService, /async prepareTripFare/)
