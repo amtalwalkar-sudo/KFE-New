@@ -114,6 +114,11 @@ const actionLabel = computed(() => {
   if (cockpit.value.action === 'START_RIDE') return 'START TRIP'
   return 'GO TO PICKUP'
 })
+const shiftTimer = computed(() => {
+  const elapsed = Math.max(0, Number(cockpit.value.shiftDurationMs || 0))
+  const seconds = Math.floor(elapsed / 1000)
+  return `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds % 3600 / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
+})
 const tripTimer = computed(() => {
   const started = cockpit.value.tripStartAt
   if (!started) return '00:00:00'
@@ -691,7 +696,7 @@ onBeforeUnmount(() => {
     <template v-if="store.isOnline && !fuelOpen && !endOpen && !pendingFare && !cancelOpen">
       <section class="instrument target-instrument">
         <div><span class="eyebrow">TODAY'S TARGET</span><strong>{{ targetValue==null ? '—' : money(targetValue) }}</strong></div>
-        <div class="target-meta"><span>PROGRESS</span><strong>{{ targetProgress }}%</strong></div>
+        <div class="target-meta"><span>PROGRESS</span><strong>{{ targetProgress }}%</strong><span>SHIFT {{ shiftTimer }}</span></div>
         <div class="progress-track"><i :style="{width:targetProgress+'%'}"/></div>
       </section>
 
