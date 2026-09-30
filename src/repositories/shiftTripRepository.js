@@ -37,9 +37,9 @@ export const ShiftTripRepository = {
     const db = await initializeCanonicalStorage(); const now = new Date().toISOString()
     return new Promise((resolve, reject) => {
       const tx = db.transaction(['trips', 'pending_mutations', 'audit_history'], 'readwrite'); const trips = tx.objectStore('trips'); const mutations = tx.objectStore('pending_mutations'); const audit = tx.objectStore('audit_history'); const request = trips.get(id)
-      request.onsuccess = () => { const trip = request.result; if (!trip || trip.status !== 'ACTIVE') { try { tx.abort() } catch (_) {}; resolve(false); return }; trip.tripStage = String(stage); if (stage === 'RIDE_STARTED' && !trip.tripStartAt) trip.tripStartAt = now; trip.updatedAt = now; trips.put(trip); saveMutation(mutations, audit, trip.id, 'TRIP', 'UPDATE', trip, now) }
+      request.onsuccess = () => { const trip = request.result; if (!trip || trip.status !== 'ACTIVE') { try { tx.abort() } catch (_) {}; resolve(false); return }; trip.tripStage = String(stage); if (stage === 'RIDE_STARTED' && !trip.tripStartAt) trip.tripStartAt = now; trip.updatedAt = now; trips.put(trip); saveMutation(mutations, audit, trip.id, 'TRIP', 'UPDATE', trip, now); tx.__updatedTrip = trip }
       request.onerror = () => reject(request.error || new Error('Trip stage lookup failed.'))
-      tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: ['trips'], reason: 'trip:stage' }); resolve(true) }; tx.onerror = () => reject(tx.error || new Error('Trip stage update failed.')); tx.onabort = () => reject(tx.error || new Error('Trip stage update aborted.'))
+      tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: ['trips'], reason: 'trip:stage' }); resolve(tx.__updatedTrip || true) }; tx.onerror = () => reject(tx.error || new Error('Trip stage update failed.')); tx.onabort = () => reject(tx.error || new Error('Trip stage update aborted.'))
     })
   },
   async updateTripLocationPlaceName(id, eventType, placeName) {
