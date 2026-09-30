@@ -14,6 +14,7 @@ import { getKfeThemeSettings, setKfeThemeMode } from '../presentation/theme/kfeT
 import { KfeRideNotificationService } from '../infrastructure/android/kfeRideNotificationService.js'
 
 const items=[
+ {key:'businessSetup',category:'BUSINESS SETUP',title:'Business Setup',icon:'⌂'},
  {key:'vehicle',category:'BUSINESS SETUP',title:'Vehicle',icon:'🚗'},
  {key:'driver',category:'BUSINESS SETUP',title:'Driver',icon:'👤'},
  {key:'compliance',category:'VEHICLE RECORDS',title:'Compliance',icon:'✓'},
@@ -39,7 +40,7 @@ const notificationsEnabled=ref(KfeRideNotificationService.notificationsEnabled()
 const money=v=>Number.isFinite(Number(v))?'₹'+Number(v).toLocaleString('en-IN',{maximumFractionDigits:2}):'—'
 const clone=v=>structuredClone(toRaw(v))
 const live=xs=>(xs||[]).filter(x=>!x?.deletedAt&&!x?.deleted)
-function label(key,record){const v=record?.values||record||{};if(key==='vehicle')return [v.registrationNumber,v.make,v.model].filter(Boolean).join(' · ')||record?.id;if(key==='driver')return v.name||record?.id;if(key==='loan')return [v.lender,v.accountReference].filter(Boolean).join(' · ')||record?.id;if(key==='compliance')return v.complianceType||record?.id;if(key==='maintenance')return v.maintenanceType||record?.id;return record?.id||'—'}
+function label(key,record){const v=record?.values||record||{};if(key==='businessSetup')return v.businessStartDate ? `Business start · ${v.businessStartDate}` : 'Business Setup';if(key==='vehicle')return [v.registrationNumber,v.make,v.model].filter(Boolean).join(' · ')||record?.id;if(key==='driver')return v.name||record?.id;if(key==='loan')return [v.lender,v.accountReference].filter(Boolean).join(' · ')||record?.id;if(key==='compliance')return v.complianceType||record?.id;if(key==='maintenance')return v.maintenanceType||record?.id;return record?.id||'—'}
 const currentItem=computed(()=>items.find(x=>x.key===selected.value)||null)
 const masterMode=computed(()=>['vehicle','driver','compliance'].includes(selected.value))
 const masterRecord=computed(()=>masterSelected.value?records.value.find(x=>x.id===masterSelected.value)||null:null)
