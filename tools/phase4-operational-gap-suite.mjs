@@ -205,6 +205,7 @@ try {
   await page.getByRole('button', { name: 'Close', exact: true }).click()
   assert(await page.getByText('CNG REFUEL', { exact: true }).count() === 0, 'A5 fuel form Close control did not close the overlay')
 
+  await page.evaluate(async () => { const { setActiveDataSource } = await import(location.origin + '/src/utils/indexedDB.js'); setActiveDataSource('canonical') })
   // D2: create a deterministic canonical Work fixture while online, then perform a
   // real canonical trip mutation while the browser is offline. The shift fixture is
   // created through the application service so this test does not depend on transient
