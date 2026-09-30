@@ -62,7 +62,7 @@ public class KfeOverlayService extends Service {
   private boolean formSubmitting=false;
   private LinearLayout formPanel;
   private android.os.Handler foregroundHandler;
-  private final Runnable foregroundCheck=()->{ hideIfKfeActivityForeground(); if(foregroundHandler!=null) foregroundHandler.postDelayed(foregroundCheck,500L); };
+  private final Runnable foregroundCheck=new Runnable(){\n    @Override public void run(){\n      hideIfKfeActivityForeground();\n      if(foregroundHandler!=null) foregroundHandler.postDelayed(this,500L);\n    }\n  };
 
   public static void prepare(Context context){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_PREPARE);ContextCompat.startForegroundService(context,i);}
   public static void show(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_SHOW);i.putExtra(EXTRA_STATE,state==null?"{}":state);context.startService(i);}
