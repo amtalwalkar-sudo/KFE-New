@@ -233,7 +233,7 @@ try {
     const trip = await repo.createTrip({ id: 'phase4-d2-offline-trip', shiftId: active.shift.id, operator: 'Uber', tripStage: 'PICKUP' })
     if (!trip?.id) throw new Error('D2 could not create offline fixture trip')
     const updated = await repo.setTripStage(trip.id, 'RIDE_STARTED')
-    if (updated !== true) throw new Error('D2 offline canonical trip mutation was rejected')
+    if (!updated?.id || updated.tripStage !== 'RIDE_STARTED') throw new Error('D2 offline canonical trip mutation was rejected')
     const db = await new Promise((resolve, reject) => {
       const request = indexedDB.open('kanishka_kfe_canonical_db', 13)
       request.onsuccess = () => resolve(request.result)
