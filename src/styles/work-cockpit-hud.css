@@ -40,3 +40,16 @@
 .kfe-work-cockpit .swipe-cancel-button:active{transform:translateY(-50%) scale(.95);}
 .kfe-work-cockpit .swipe-hint{text-align:center;display:block;margin-top:7px;color:var(--kfe-muted-text);}
 @media(max-width:600px){.kfe-work-cockpit .work-canonical-summary,.kfe-work-cockpit .persistent-action,.kfe-work-cockpit .work-fare-panel{width:calc(100vw - 20px);}.kfe-work-cockpit .work-shift-block>div{gap:5px;}.kfe-work-cockpit .work-shift-block>div strong{font-size:.88rem;}}
+
+
+/* Compact Start Shift gate: keep the essential odometer confirmation and gap choice visible without excess vertical space. */
+.work-canonical .start-shift-gate{gap:8px;padding:12px 14px;}
+.work-canonical .start-shift-gate .gate-head{margin-bottom:0;}
+.work-canonical .start-shift-gate h2{font-size:1.05rem;margin:2px 0 0;}
+.work-canonical .start-shift-gate label{gap:4px;font-size:.72rem;}
+.work-canonical .start-shift-gate .input-unit{min-height:42px;}
+.work-canonical .start-shift-gate .check-row{font-size:.7rem;}
+.work-canonical .start-shift-gate .gap-panel{padding:8px 10px;}
+.work-canonical .start-shift-gate .gap-panel p{margin:2px 0;font-size:.68rem;}
+.work-canonical .start-shift-gate .choice-row button{min-height:38px;padding:0 8px;font-size:.7rem;}
+.work-canonical .start-shift-gate .primary-action{min-height:44px;}

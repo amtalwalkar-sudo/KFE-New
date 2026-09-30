@@ -65,6 +65,14 @@ public class KfeOverlayPlugin extends Plugin {
   }
 
   @com.getcapacitor.PluginMethod
+  public void cancelSaved(PluginCall call) {
+    Intent intent = new Intent(getContext(), KfeOverlayService.class);
+    intent.setAction(KfeOverlayService.ACTION_CANCEL_SAVED);
+    getContext().startService(intent);
+    call.resolve();
+  }
+
+  @com.getcapacitor.PluginMethod
   public void fareSaved(PluginCall call) {
     Intent intent = new Intent(getContext(), KfeOverlayService.class);
     intent.setAction(KfeOverlayService.ACTION_FARE_SAVED);

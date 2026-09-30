@@ -25,6 +25,10 @@ export const AndroidOverlay = Object.freeze({
     if (!isAndroid()) return
     return KfeOverlay.update({ state: JSON.stringify(state) })
   },
+  async cancelSaved() {
+    if (!isAndroid()) return
+    return KfeOverlay.cancelSaved()
+  },
   async fareSaved() {
     if (!isAndroid()) return
     return KfeOverlay.fareSaved()

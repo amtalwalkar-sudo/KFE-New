@@ -37,6 +37,7 @@ public class KfeOverlayService extends Service {
   static final String ACTION_UPDATE="com.kanishka.pwa.KFE_OVERLAY_UPDATE";
   static final String ACTION_HIDE="com.kanishka.pwa.KFE_OVERLAY_HIDE";
   static final String ACTION_FARE_SAVED="com.kanishka.pwa.KFE_OVERLAY_FARE_SAVED";
+  static final String ACTION_CANCEL_SAVED="com.kanishka.pwa.KFE_OVERLAY_CANCEL_SAVED";
   static final String EXTRA_STATE="state";
   private static final String CHANNEL_ID="kfe_overlay";
   private static final int NOTIFICATION_ID=4201;
@@ -60,18 +61,21 @@ public class KfeOverlayService extends Service {
   private String cancelReason="";
   private boolean formSubmitting=false;
   private LinearLayout formPanel;
+  private android.os.Handler foregroundHandler;
+  private final Runnable foregroundCheck=()->{ hideIfKfeActivityForeground(); if(foregroundHandler!=null) foregroundHandler.postDelayed(foregroundCheck,500L); };
 
   public static void prepare(Context context){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_PREPARE);ContextCompat.startForegroundService(context,i);}
   public static void show(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_SHOW);i.putExtra(EXTRA_STATE,state==null?"{}":state);context.startService(i);}
   public static void update(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_UPDATE);i.putExtra(EXTRA_STATE,state==null?"{}":state);context.startService(i);}
   public static void hide(Context context){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_HIDE);context.startService(i);}
 
-  @Override public void onCreate(){super.onCreate();instance=this;createChannel();startForeground(NOTIFICATION_ID,buildNotification());}
+  @Override public void onCreate(){super.onCreate();instance=this;createChannel();startForeground(NOTIFICATION_ID,buildNotification());foregroundHandler=new android.os.Handler(getMainLooper());foregroundHandler.post(foregroundCheck);}
   @Override public int onStartCommand(Intent intent,int flags,int startId){
     if(intent==null)return START_NOT_STICKY;
     String action=intent.getAction();
     if(ACTION_HIDE.equals(action)){removeOverlay();stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return START_NOT_STICKY;}
     if(ACTION_FARE_SAVED.equals(action)){onFareSaved();return START_NOT_STICKY;}
+    if(ACTION_CANCEL_SAVED.equals(action)){onCancelSaved();return START_NOT_STICKY;}
     if(!Settings.canDrawOverlays(this))return START_NOT_STICKY;
     if(ACTION_SHOW.equals(action)||ACTION_UPDATE.equals(action)){ensureOverlay();applyState(intent.getStringExtra(EXTRA_STATE));}
     return START_NOT_STICKY;
@@ -115,6 +119,8 @@ public class KfeOverlayService extends Service {
     }catch(Exception ignored){actionStage="GO_TO_PICKUP";overlay.invalidate();}
   }
 
+  private void onCancelSaved(){formSubmitting=false;closeForm();actionStage="GO_TO_PICKUP";pendingTripId="";tripStartAt=0L;KfeRideNotificationsPlugin.cancelNotification(this);if(overlay!=null)overlay.invalidate();}
+
   private void onFareSaved(){
     formSubmitting=false;
     closeForm();
@@ -134,6 +140,26 @@ public class KfeOverlayService extends Service {
     if("END_RIDE".equals(actionStage)){KfeRideNotificationsPlugin.recordPendingAction(this,actionStage,pendingTripId,"");KfeRideNotificationsPlugin.emitAction(actionStage,pendingTripId,"");return;}
     if("START_RIDE".equals(actionStage)){KfeRideNotificationsPlugin.recordPendingAction(this,actionStage,pendingTripId,"");KfeRideNotificationsPlugin.emitAction(actionStage,pendingTripId,"");return;}
     if("GO_TO_PICKUP".equals(actionStage)){KfeRideNotificationsPlugin.recordPendingAction(this,actionStage,pendingTripId,"");KfeRideNotificationsPlugin.emitAction(actionStage,pendingTripId,"");}
+  }
+
+  private void hideIfKfeActivityForeground(){
+    try{
+      android.app.ActivityManager am=(android.app.ActivityManager)getSystemService(ACTIVITY_SERVICE);
+      if(am==null)return;
+      for(android.app.ActivityManager.RunningAppProcessInfo p:am.getRunningAppProcesses()){
+        if(getPackageName().equals(p.processName)&&p.importance==android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND){
+          removeOverlay();
+          return;
+        }
+      }
+    }catch(Exception ignored){}
+  }
+
+  private void bringKfeToFront(){
+    try{
+      Intent launch=getPackageManager().getLaunchIntentForPackage(getPackageName());
+      if(launch!=null){launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);startActivity(launch);}
+    }catch(Exception ignored){}
   }
 
   private void openFareForm(){openNumericForm("FARE","TRIP FARE","Enter fare");}
@@ -205,12 +231,17 @@ public class KfeOverlayService extends Service {
       // looking like a completed ride.
       KfeRideNotificationsPlugin.recordPendingAction(this,"ENTER_FARE",pendingTripId,String.valueOf(amount));
       KfeRideNotificationsPlugin.emitAction("ENTER_FARE",pendingTripId,String.valueOf(amount));
+      bringKfeToFront();
       return;
     }else if("CANCEL".equals(formMode)){
       if(cancelReason.isEmpty()){formSubmitting=false;return;}
-      try{JSONObject input=new JSONObject();input.put("revenue",amount);input.put("reason",cancelReason);KfeRideNotificationsPlugin.recordPendingAction(this,"CANCEL_RIDE",pendingTripId,input.toString());KfeRideNotificationsPlugin.emitAction("CANCEL_RIDE",pendingTripId,input.toString());}catch(Exception ignored){}
+      try{JSONObject input=new JSONObject();input.put("revenue",amount);input.put("reason",cancelReason);KfeRideNotificationsPlugin.recordPendingAction(this,"CANCEL_RIDE",pendingTripId,input.toString());KfeRideNotificationsPlugin.emitAction("CANCEL_RIDE",pendingTripId,input.toString());
+        bringKfeToFront();
+        return;
+      }catch(Exception ignored){formSubmitting=false;return;}
     }
-    closeForm();
+    // Keep cancellation open until the WebView confirms the authoritative save.
+    if(!"CANCEL".equals(formMode)) closeForm();
   }
   private void closeForm(){
     if(formPanel!=null&&overlayRoot!=null)overlayRoot.removeView(formPanel);
@@ -274,9 +305,11 @@ public class KfeOverlayService extends Service {
         text(11,a,true);center(c,"CANCELLED · "+cancellationRevenue,w*.50f,barTop+dp(77));
         text(10,mutedColor(),false);center(c,"Same trip · cancellation recorded",w*.50f,barTop+dp(95));
       }else{
-        String stateLabel="GO TO PICKUP";if("START_RIDE".equals(actionStage))stateLabel="START RIDE";if("END_RIDE".equals(actionStage))stateLabel="END RIDE";if("ENTER_FARE".equals(actionStage))stateLabel="ENTER FARE";
-        text(11,mutedColor(),true);String prefix="SWIPE TO ";float total=measureAction(prefix,11)+dp(4)+measureAction(stateLabel,11);float startX=w/2f-total/2f;
-        c.drawText(prefix,startX,barTop+dp(79),paint);text(11,a,true);c.drawText(stateLabel,startX+measureAction(prefix,11)+dp(4),barTop+dp(79),paint);
+        String stateLabel="";if("START_RIDE".equals(actionStage))stateLabel="START RIDE";if("END_RIDE".equals(actionStage))stateLabel="END RIDE";if("ENTER_FARE".equals(actionStage))stateLabel="ENTER FARE";
+        if(!stateLabel.isEmpty()){
+          text(11,mutedColor(),true);String prefix="SWIPE TO ";float total=measureAction(prefix,11)+dp(4)+measureAction(stateLabel,11);float startX=w/2f-total/2f;
+          c.drawText(prefix,startX,barTop+dp(79),paint);text(11,a,true);c.drawText(stateLabel,startX+measureAction(prefix,11)+dp(4),barTop+dp(79),paint);
+        }
       }
       int thumbW=dp(58),pad=dp(8);float tx=pad+(w-pad*2-thumbW)*progress;
       paint.setColor(a);rect.set(tx,barTop+dp(100),tx+thumbW,barTop+dp(124));c.drawRoundRect(rect,dp(12),dp(12),paint);
