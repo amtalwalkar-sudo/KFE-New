@@ -113,11 +113,9 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
   const endTrip = async () => {
     if (!isTripActive.value) return false
     const tripId = trip.value.id
-    await WorkService.completeTrip({ id: tripId })
+    const prepared = await WorkService.prepareTripFare(tripId)
+    if (!prepared?.ok) return false
     MovementTraceService.reset()
-    await refresh()
-    // Location/place-name enrichment is explicitly background work.
-    void WorkService.captureLocation({ entityType: 'TRIP', entityId: tripId, eventType: 'END' }).then(() => loadEntityLocations('TRIP', tripId)).catch(() => {})
     return true
   }
 
