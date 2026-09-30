@@ -23,22 +23,22 @@ export const KfeRideNotificationService = Object.freeze({
     await call('requestPermission'); return call('show', { stage: 'GO_TO_PICKUP', tripId: '' })
   },
   async beginPickup(tripId) {
-    restore(); state.tripId = tripId; state.phase = 'ENTER_PICKUP_DURATION'; persist(); await call('cancel')
+    restore(); state.tripId = tripId; state.phase = 'READY_FOR_TRIP'; persist(); await call('cancel')
     if (!notificationsEnabled()) return true
-    return call('schedule', { stage: 'ENTER_PICKUP_DURATION', tripId, delayMs: TWO_MINUTES })
+    return call('show', { stage: 'READY_FOR_TRIP', tripId })
   },
   async setPickupDuration(minutes) {
     const value = Number(minutes); if (!Number.isFinite(value) || value <= 0) return false
-    state.pickupDurationMinutes = value; state.phase = 'START_RIDE'; persist()
+    state.pickupDurationMinutes = value; state.phase = 'READY_FOR_TRIP'; persist()
     if (!notificationsEnabled()) return true
     await call('show', { stage: 'START_RIDE', tripId: state.tripId }); return true
   },
   async startRide(tripId) {
     restore(); const previousTripId = state.tripId
     if (previousTripId) await call('clearScheduled', { stage: 'ENTER_PICKUP_DURATION', tripId: previousTripId })
-    state.tripId = tripId || state.tripId; state.phase = 'ENTER_RIDE_DURATION'; persist()
+    state.tripId = tripId || state.tripId; state.phase = 'RIDE_STARTED'; persist()
     if (!notificationsEnabled()) return true
-    return call('schedule', { stage: 'ENTER_RIDE_DURATION', tripId: state.tripId, delayMs: TWO_MINUTES })
+    return call('show', { stage: 'RIDE_STARTED', tripId: state.tripId })
   },
   async setRideDuration(minutes) {
     const value = Number(minutes); if (!Number.isFinite(value) || value <= 0) return false
