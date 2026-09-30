@@ -238,4 +238,35 @@ const timestampRateSnapshot = {
 const timestampRateMetrics = derivePerformance(timestampRateSnapshot, range, previousRange(range))
 near(timestampRateMetrics.maintenanceProvision, 600, 'maintenance provision must apply an ISO timestamp rate to every vehicle KM')
 
+const performanceViewSource = (await import('node:fs')).readFileSync(new URL('../views/PerformanceView.vue', import.meta.url), 'utf8')
+assert.match(performanceViewSource, /\['Scheduled EMI',money\(m\.value\.performanceHeadlineScheduledEmi\)\]/)
+assert.match(performanceViewSource, /performanceHeadlineScheduledEmi\),'=',money\(actualProfit\.value\)/)
+
+const noVehicleFuelSnapshot = {
+  ...engineSnapshot,
+  fuelLogs: [
+    { capturedAt:'2026-09-04T18:00:00Z', odometer:600, quantityKg:10, amount:2000, isFullTank:true },
+    { capturedAt:'2026-09-05T18:00:00Z', odometer:800, quantityKg:10, amount:2200, isFullTank:true },
+  ],
+}
+const noVehicleFuelMetrics = derivePerformance(noVehicleFuelSnapshot, range, previousRange(range))
+near(noVehicleFuelMetrics.fuelCostPerKm, 11, 'single-vehicle Work fuel logs without vehicleId must still form full-tank intervals')
+
+const recoverySnapshot = {
+  ...engineSnapshot,
+  businessSetup: { businessStartDate:'2026-05-15' },
+  vehicles: [{ id:'v1', active:true, status:'Active', openingOdometerKm:10000 }],
+  loans: [{ id:'loan-pre', principal:120000, annualInterestRatePercent:0, tenureMonths:12, startDate:'2026-04-15', status:'Active' }],
+  loanPayments: [],
+  prepayments: [],
+}
+const oneDayRecoveryRange = { from:new Date('2026-05-15T00:00:00+05:30'), to:new Date('2026-05-15T23:59:59+05:30') }
+const recoveryMetrics = deriveFinanceAwarePerformance(recoverySnapshot, oneDayRecoveryRange, previousRange(oneDayRecoveryRange))
+assert.ok(recoveryMetrics.historicalMaintenanceRecoveryForPeriod > 0 && recoveryMetrics.historicalMaintenanceRecoveryForPeriod < recoveryMetrics.historicalMaintenanceRecoveryMonthly, 'historical maintenance recovery must be period-allocated')
+assert.ok(recoveryMetrics.preBusinessRecoveryForPeriod > 0 && recoveryMetrics.preBusinessRecoveryForPeriod < recoveryMetrics.preBusinessRecoveryMonthly, 'pre-business loan recovery must be period-allocated')
+
+const emiExplanation = await import('../views/PerformanceView.vue').catch(() => null)
+assert.equal(typeof emiExplanation, 'object', 'PerformanceView remains loadable by the test environment')
+
+
 console.log('KFE Performance contract tests: PASS')

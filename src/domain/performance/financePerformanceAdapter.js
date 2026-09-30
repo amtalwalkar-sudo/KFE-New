@@ -1,8 +1,8 @@
 import { derivePerformance as deriveOperationalPerformance, previousRange as derivePreviousRange } from './performanceEngineV2.js'
 import { CALCULATION_STATUS } from './calculationAuthority.js'
 import { deriveAuthoritativeBreakEven } from './authoritativeBreakEven.js'
-import { deriveLoanPosition, calculatePreBusinessLoanRecovery } from '../finance/loanEngine.js'
-import { calculateHistoricalMaintenanceRecovery } from './performanceEngineV2.js'
+import { deriveLoanPosition, calculatePreBusinessLoanRecovery, calculatePreBusinessLoanRecoveryForRange } from '../finance/loanEngine.js'
+import { calculateHistoricalMaintenanceRecovery, calculateHistoricalMaintenanceRecoveryForRange } from './performanceEngineV2.js'
 import { istMonthRange } from '../time/ist.js'
 
 const live = records => (records || []).filter(record => !record?.deletedAt && record?.deleted !== true)
@@ -34,6 +34,8 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   const preBusinessRecoveryMonthly = finance ? calculatePreBusinessLoanRecovery({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, businessStartDate: businessStart, asOf: currentAsOf }) : 0
   const currentScheduledEmi = finance?.schedule ? finance.schedule.filter(row => inRange(row.dueDate, range)).reduce((sum, row) => sum + money(row.originalEmiAmount), 0) : 0
   const currentScheduledInterest = finance?.schedule ? finance.schedule.filter(row => inRange(row.dueDate, range)).reduce((sum, row) => sum + money(row.originalInterestComponent), 0) : 0
+  const preBusinessRecoveryForPeriod = finance ? calculatePreBusinessLoanRecoveryForRange({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, businessStartDate: businessStart, range }) : 0
+  const historicalMaintenanceRecoveryForPeriod = calculateHistoricalMaintenanceRecoveryForRange({ vehicles: snapshot?.vehicles || [], businessStartDate: businessStart, range: range })
   const fullMonthRange = istMonthRange(range?.to) || range
   const breakEvenMonthRange = fullMonthRange && fullMonthRange.to > currentAsOf ? { ...fullMonthRange, to: currentAsOf } : fullMonthRange
   const monthlyBase = deriveOperationalPerformance(snapshot, breakEvenMonthRange, derivePreviousRange(breakEvenMonthRange))
@@ -64,15 +66,15 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
     ? performanceActualProfit
       - (Number.isFinite(authoritativeMaintenanceProvision) ? authoritativeMaintenanceProvision : 0)
       - (Number.isFinite(Number(base.renewalProvision)) ? Number(base.renewalProvision) : 0)
-      - preBusinessRecoveryMonthly
-      - historicalMaintenanceRecovery
+      - preBusinessRecoveryForPeriod
+      - historicalMaintenanceRecoveryForPeriod
     : NaN
   const actualProfit = base.operatingProfit
   const indicativeProfit = Number.isFinite(Number(base.revenue)) ? Number(base.revenue) - totalIndicativeProvision : NaN
   return {
     ...base, performanceHeadlineActualProfit: performanceActualProfit, performanceHeadlineProvisionalProfit: performanceProvisionalProfit, performanceHeadlineScheduledEmi: currentScheduledEmi, loanScheduledObligation, loanPrincipal: money(finance?.outstandingPrincipal), loanInterest: currentScheduledInterest, loanProvisionAccumulated: money(finance?.provisionAccumulated), loanProvisionBalance: money(finance?.provisionBalance), actualLoanPaid, actualPrepayment, actualFinancingOutflow, availableCash, cashSurplusAfterFinancing: availableCash, maintenanceProvision: authoritativeMaintenanceProvision, historicalMaintenanceRecoveryMonthly: historicalMaintenanceRecovery, provisionRequired, provisionSetAside: provisionRequired, loanProvisionForPeriod, totalIndicativeProvision, actualProfit, indicativeProfit, provisionAdjustedProfit: Number.isFinite(provisionRequired) ? base.operatingProfit - provisionRequired : NaN, monthlyBreakEvenRevenue, breakEvenRevenue: monthlyBreakEvenRevenue,
     breakEvenInputs: { ...(base.breakEvenInputs || {}), fixedCosts: breakEven.fixedCosts, maintenanceProvisionPerKm: breakEven.maintenanceProvisionPerKm ?? base.breakEvenInputs?.maintenanceProvisionPerKm, preBusinessRecoveryMonthly: monthPreBusinessRecovery, fuelCostPerKm: breakEven.fuelCostPerKm ?? base.breakEvenInputs?.fuelCostPerKm, fuelCostPerKmSource: base.breakEvenInputs?.fuelCostPerKmSource || null, fuelEvidence: base.breakEvenInputs?.fuelEvidence || null },
-    finance: { ...(finance || {}), available: !!finance?.available, reason: finance?.available ? null : loanUnavailableReason, annualInterestRatePercent: finance?.annualInterestRatePercent ?? null, preBusinessRecoveryMonthly, historicalMaintenanceRecoveryMonthly: historicalMaintenanceRecovery, businessStartDate: businessStart?.toISOString() || null, previousOutstandingPrincipal: previousFinance?.available ? previousFinance.outstandingPrincipal : null, overdueAmount: finance?.totalOverdue ?? 0, remainingInterest: finance?.remainingInterest ?? 0, scheduledFinalDate: finance?.scheduledFinalDate ?? null, totalInterest: finance?.totalInterest ?? 0 },
+    finance: { ...(finance || {}), available: !!finance?.available, reason: finance?.available ? null : loanUnavailableReason, annualInterestRatePercent: finance?.annualInterestRatePercent ?? null, preBusinessRecoveryMonthly, historicalMaintenanceRecoveryMonthly: historicalMaintenanceRecovery, historicalMaintenanceRecoveryForPeriod, businessStartDate: businessStart?.toISOString() || null, previousOutstandingPrincipal: previousFinance?.available ? previousFinance.outstandingPrincipal : null, overdueAmount: finance?.totalOverdue ?? 0, remainingInterest: finance?.remainingInterest ?? 0, scheduledFinalDate: finance?.scheduledFinalDate ?? null, totalInterest: finance?.totalInterest ?? 0 },
     authority: { ...(base.authority || {}), loan: 'CANONICAL_FINANCE_LOAN_ENGINE', breakEven: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN', breakEvenTrace: breakEven.trace || null, actualProfit: 'AUTHORITATIVE_REVENUE_MINUS_ACTUAL_OPERATING_EXPENSES', indicativeProfit: 'AUTHORITATIVE_REVENUE_MINUS_PERIOD_PROVISIONS' },
     completeness: { ...(base.completeness || {}), loan: !!finance?.available, breakEven: breakEven.available },
     calculationEvidence: { fuelCostPerKm: base.breakEvenInputs?.fuelEvidence || null, breakEven: breakEven.evidence || null },

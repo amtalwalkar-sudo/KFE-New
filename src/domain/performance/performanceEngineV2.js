@@ -53,6 +53,32 @@ const addRecoveryMonths = (value, months) => {
   const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
   return Date.UTC(year, month, Math.min(parts.day, lastDay)) / 86400000
 }
+export function calculateHistoricalMaintenanceRecoveryForRange({ vehicles = [], businessStartDate, range, ratePerKm = 0.40, recoveryMonths = 12 } = {}) {
+  const start = calendarSerial(businessStartDate)
+  const rangeFrom = calendarSerial(range?.from)
+  const rangeTo = calendarSerial(range?.to)
+  const end = addRecoveryMonths(businessStartDate, recoveryMonths)
+  if (start == null || rangeFrom == null || rangeTo == null || end == null || rangeTo < start || rangeFrom >= end) return 0
+  const vehicle = live(vehicles).filter(item => item.active !== false && String(item.status || '').toUpperCase() !== 'INACTIVE').sort((a, b) => String(a.id || '').localeCompare(String(b.id || '')))[0]
+  const openingKm = Number(vehicle?.openingOdometerKm)
+  if (!Number.isFinite(openingKm) || openingKm < 0) return 0
+  const monthlyBurden = (openingKm * ratePerKm) / recoveryMonths
+  const from = Math.max(start, rangeFrom)
+  const to = Math.min(end - 1, rangeTo)
+  if (to < from) return 0
+  let allocated = 0
+  for (let index = 0; index < recoveryMonths; index += 1) {
+    const periodStart = addRecoveryMonths(businessStartDate, index)
+    const periodEnd = addRecoveryMonths(businessStartDate, index + 1)
+    if (periodStart == null || periodEnd == null || periodEnd <= periodStart) continue
+    const overlapFrom = Math.max(from, periodStart)
+    const overlapToExclusive = Math.min(to + 1, periodEnd)
+    if (overlapToExclusive <= overlapFrom) continue
+    allocated += monthlyBurden * ((overlapToExclusive - overlapFrom) / (periodEnd - periodStart))
+  }
+  return Math.round(allocated * 100) / 100
+}
+
 export function calculateHistoricalMaintenanceRecovery({ vehicles = [], businessStartDate, asOf = new Date(), ratePerKm = 0.40, recoveryMonths = 12 } = {}) {
   const start = calendarSerial(businessStartDate)
   const current = calendarSerial(asOf)

@@ -272,6 +272,42 @@ const recoveryMonthlyAmount = (burdenPaise, businessStartDate, asOf, months = 12
   if (start == null || current == null || end == null || current < start || current >= end) return 0
   return paiseToRupees(Math.round(burdenPaise / months))
 }
+const preBusinessLoanBurdenPaise = ({ loan, payments = [], prepayments = [], businessStartDate } = {}) => {
+  const start = dateOf(businessStartDate)
+  const origin = dateOf(loan?.startDate)
+  if (!loan || !start || !origin || origin >= start) return 0
+  const positionAtStart = deriveLoanPosition({ loan, payments, prepayments, asOf: start })
+  if (!positionAtStart.available) return 0
+  const overdueInterestPaise = (positionAtStart.overdue || []).reduce((sum, row) => sum + rupeesToPaise(row.unpaidScheduledInterest) + rupeesToPaise(row.unpaidOverdueInterest), 0)
+  return rupeesToPaise(positionAtStart.outstandingPrincipal) + overdueInterestPaise
+}
+
+export function calculatePreBusinessLoanRecoveryForRange({ loan, payments = [], prepayments = [], businessStartDate, range, recoveryMonths = 12 } = {}) {
+  const start = calendarRecoverySerial(businessStartDate)
+  const rangeFromDate = dateOf(range?.from)
+  const rangeToDate = dateOf(range?.to)
+  const rangeFrom = calendarRecoverySerial(rangeFromDate)
+  const rangeTo = calendarRecoverySerial(rangeToDate)
+  const end = addRecoveryMonths(businessStartDate, recoveryMonths)
+  const burdenPaise = preBusinessLoanBurdenPaise({ loan, payments, prepayments, businessStartDate })
+  if (!burdenPaise || start == null || rangeFrom == null || rangeTo == null || end == null || rangeTo < start || rangeFrom >= end) return 0
+  const from = Math.max(start, rangeFrom)
+  const to = Math.min(end - 1, rangeTo)
+  if (to < from) return 0
+  const monthlyBurdenPaise = burdenPaise / recoveryMonths
+  let allocatedPaise = 0
+  for (let index = 0; index < recoveryMonths; index += 1) {
+    const periodStart = addRecoveryMonths(businessStartDate, index)
+    const periodEnd = addRecoveryMonths(businessStartDate, index + 1)
+    if (periodStart == null || periodEnd == null || periodEnd <= periodStart) continue
+    const overlapFrom = Math.max(from, periodStart)
+    const overlapToExclusive = Math.min(to + 1, periodEnd)
+    if (overlapToExclusive <= overlapFrom) continue
+    allocatedPaise += monthlyBurdenPaise * ((overlapToExclusive - overlapFrom) / (periodEnd - periodStart))
+  }
+  return paiseToRupees(Math.round(allocatedPaise))
+}
+
 export function calculatePreBusinessLoanRecovery({ loan, payments = [], prepayments = [], businessStartDate, asOf = new Date(), recoveryMonths = 12 } = {}) {
   const start = dateOf(businessStartDate)
   const origin = dateOf(loan?.startDate)

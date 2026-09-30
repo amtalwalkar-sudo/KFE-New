@@ -7,7 +7,13 @@ export function calculateFuelQuantityKg(amountRupees, pricePerKg) {
 
 const validFuel = x => { const capturedAtValue = x?.capturedAt || x?.createdAt; const capturedAt = capturedAtValue ? new Date(capturedAtValue) : null; return x && capturedAt && Number.isFinite(capturedAt.getTime()) && Number.isFinite(Number(x.odometer)) && Number(x.odometer) >= 0 && Number.isFinite(Number(x.amount ?? x.totalCost)) && Number(x.amount ?? x.totalCost) > 0 }
 const fullTank = x => x?.isFullTank === true
-const sameVehicle = (a, b) => a?.vehicleId != null && b?.vehicleId != null && String(a.vehicleId) === String(b.vehicleId)
+const sameVehicle = (a, b) => {
+  const aVehicle = a?.vehicleId
+  const bVehicle = b?.vehicleId
+  if (aVehicle == null && bVehicle == null) return true
+  if (aVehicle == null || bVehicle == null) return false
+  return String(aVehicle) === String(bVehicle)
+}
 
 /**
  * Authoritative full-tank-to-full-tank fuel cost/km requires explicit full-tank

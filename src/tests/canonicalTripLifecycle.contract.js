@@ -38,6 +38,8 @@ assert(repository.includes('transitionTrip(record, status, data)'), 'Trip comple
 assert(workService.includes('ShiftTripRepository.completeTrip'), 'Main app completion must use canonical Trip repository')
 assert(workService.includes('ShiftTripRepository.cancelTrip'), 'Main app cancellation must use canonical Trip repository')
 assert(repository.includes('async setTripStage'), 'Canonical repository must persist pickup/ride stage')
+assert(repository.includes("tripStage: normalized.tripStage || 'PICKUP'"), 'Repository must retain explicit persisted pickup stage authority')
+
 assert(workService.includes('async startRide'), 'Work service must expose canonical START_RIDE stage transition')
 assert(workView.includes('GO TO PICKUP') && workView.includes('START TRIP') && workView.includes('END TRIP'), 'Work cockpit must expose the three frozen swipe states')
 assert(workView.includes('CANCEL TRIP'), 'Work cancellation must be available only at READY FOR TRIP')
