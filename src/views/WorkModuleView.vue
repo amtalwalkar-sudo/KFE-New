@@ -88,7 +88,7 @@ async function saveFare(){if(fareBusy.value)return;if(!pendingFare.value)return;
   const recorded=await WorkService.recordFareForActiveTrip({id:tripId,revenue:Number(fare.value)})
   if(!recorded?.ok)return fail(recorded?.reason||'Trip fare could not be saved.')
   const completed=await WorkService.completeTrip({id:tripId})
-  if(!completed?.ok)return fail(completed?.reason||'Trip could not be completed after fare save.')
+  if(!completed)return fail('Trip could not be completed after fare save.')
   await store.refresh()
   fareTripId.value=null;fare.value=''
   notify('Fare saved.')
@@ -121,7 +121,7 @@ watch(()=>store.completedTrips.map(t=>t.id+':'+(t.revenue??'')).join('|'),async(
 watch(pendingFare,async v=>{if(v&&!endOpen.value&&!nativeAndroid){await nextTick();fareInput.value?.focus();fareInput.value?.select?.()}})
 watch(()=>store.isOnline,()=>syncSurfaces())
 const handleNativeAction=async event=>{const stage=String(event?.stage||'');if(stage==='GO_TO_PICKUP')return goPickup();if(stage==='START_RIDE')return startTrip();if(stage==='END_RIDE')return endTrip();if(stage==='CANCEL_RIDE'){try{const payload=event?.input?JSON.parse(String(event.input)):{};cancelReason.value=payload.reason==='PASSENGER'?'PASSENGER':'DRIVER';cancelFare.value=payload.revenue===''||payload.revenue==null?'':String(payload.revenue);await saveCancel();KfeRideNotificationService.recordCancellation(event?.tripId||'',Number(payload.revenue||0));}catch(error){message.value='Unable to cancel ride';error.value=error?.message||'Cancellation failed'}return}if(stage==='ENTER_FARE'&&event?.input!=null){const tripId=String(event.tripId||fareTripId.value||pendingFare.value?.id||'');if(!tripId)return;fareTripId.value=tripId;fare.value=String(event.input);await saveFare(tripId)}}
-onMounted(async()=>{await store.initialize();await targetRefresh();operator.value=store.defaultOperator;if(pendingFare.value)fareTripId.value=pendingFare.value.id;clock.value=Date.now();timer=setInterval(()=>clock.value=Date.now(),1000);notificationListener=await KfeRideNotificationService.addListener('rideNotificationAction',event=>{void handleNativeAction(event)});const pending=await KfeRideNotificationService.consumePendingAction();if(pending){await handleNativeAction(pending);await KfeRideNotificationService.clearPendingAction()}await KfeRideNotificationService.resume().catch(()=>{});await syncSurfaces()})
+onMounted(async()=>{await store.initialize();await targetRefresh();operator.value=store.defaultOperator;const notificationState=KfeRideNotificationService.getState();if(notificationState?.phase==='ENTER_FARE'&&notificationState?.tripId===store.trip?.id)fareTripId.value=store.trip.id;if(pendingFare.value)fareTripId.value=pendingFare.value.id;clock.value=Date.now();timer=setInterval(()=>clock.value=Date.now(),1000);notificationListener=await KfeRideNotificationService.addListener('rideNotificationAction',event=>{void handleNativeAction(event)});const pending=await KfeRideNotificationService.consumePendingAction();if(pending){await handleNativeAction(pending);await KfeRideNotificationService.clearPendingAction()}await KfeRideNotificationService.resume().catch(()=>{});await syncSurfaces()})
 onBeforeUnmount(()=>{if(timer)clearInterval(timer);if(traceRunning)MovementTraceService.reset();notificationListener?.remove?.();AndroidOverlay.hide().catch(()=>{})})
 </script>
 
