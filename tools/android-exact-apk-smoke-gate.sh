@@ -26,10 +26,10 @@ run_instrumentation() {
   local test_class="$1"
   local label="$2"
   local log_file="artifacts/android-golden/${label}-instrumentation.log"
-  if ! adb shell am instrument -w -r -e class "$test_class" com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner > "$log_file" 2>&1; then
+  if ! timeout 180s adb shell am instrument -w -r -e class "$test_class" com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner > "$log_file" 2>&1; then
     cat "$log_file"
     capture_failure "$label"
-    echo "ANDROID INSTRUMENTATION FAILED: $label" >&2
+    echo "ANDROID INSTRUMENTATION FAILED OR TIMED OUT (180s): $label" >&2
     return 1
   fi
   cat "$log_file"
