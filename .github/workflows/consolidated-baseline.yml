@@ -229,20 +229,41 @@ jobs:
           script: |
             set -eu
             adb wait-for-device
+            mkdir -p artifacts/android-golden
+            # Emulator package verification can time out on hosted runners. Disable only
+            # the emulator's install-time verifier, then retry installs with adb recovery.
+            adb shell settings put global package_verifier_enable 0 || true
+            adb shell settings put global verifier_verify_adb_installs 0 || true
+            install_with_retry() {
+              apk_path="$1"
+              attempt=1
+              while [ "$attempt" -le 3 ]; do
+                if adb install -r "$apk_path"; then return 0; fi
+                echo "APK install attempt $attempt failed; reconnecting to emulator."
+                adb kill-server || true
+                adb start-server || true
+                adb wait-for-device
+                adb shell settings put global package_verifier_enable 0 || true
+                adb shell settings put global verifier_verify_adb_installs 0 || true
+                attempt=$((attempt + 1))
+              done
+              adb logcat -d -t 5000 > artifacts/android-golden/install-failure-logcat.log || true
+              echo "APK install failed after 3 attempts: $apk_path"
+              return 1
+            }
             "$GITHUB_WORKSPACE/android/gradlew" -p "$GITHUB_WORKSPACE/android" :app:assembleDebugAndroidTest
-            adb install -r "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
-            adb install -r "$GITHUB_WORKSPACE/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
+            install_with_retry "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
+            install_with_retry "$GITHUB_WORKSPACE/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
             adb shell appops set com.kanishka.pwa android:system_alert_window allow
             adb shell appops set com.kanishka.pwa android:camera allow || true
-            mkdir -p artifacts/android-golden
             adb shell am force-stop com.kanishka.pwa
             adb shell am instrument -w -r -e class com.kanishka.pwa.KfeWebViewStartupTest com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner > artifacts/android-golden/webview-startup-instrumentation.log 2>&1 || { cat artifacts/android-golden/webview-startup-instrumentation.log; adb logcat -d -t 5000 > artifacts/android-golden/webview-startup-logcat.log || true; echo "ANDROID INSTRUMENTATION FAILED: webview-startup"; exit 1; }
             cat artifacts/android-golden/webview-startup-instrumentation.log
             grep -q 'INSTRUMENTATION_CODE: 0' artifacts/android-golden/webview-startup-instrumentation.log || { adb logcat -d -t 5000 > artifacts/android-golden/webview-startup-logcat.log || true; echo "ANDROID INSTRUMENTATION FAILED: webview-startup"; exit 1; }
             ! grep -Eq 'INSTRUMENTATION_CODE: -1|FAILURES!!!|Tests run: [0-9]+, Failures: [1-9]' artifacts/android-golden/webview-startup-instrumentation.log || { echo "ANDROID INSTRUMENTATION FAILED: webview-startup"; exit 1; }
-            adb shell am instrument -w -r -e class com.kanishka.pwa.KfeOverlaySmokeTest com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner > artifacts/android-golden/native-overlay-instrumentation.log 2>&1 || { cat artifacts/android-golden/native-overlay-instrumentation.log; echo "ANDROID INSTRUMENTATION FAILED: native-overlay"; exit 1; }
+            adb shell am instrument -w -r -e class com.kanishka.pwa.KfeOverlaySmokeTest com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner > artifacts/android-golden/native-overlay-instrumentation.log 2>&1 || { cat artifacts/android-golden/native-overlay-instrumentation.log; adb logcat -d -t 5000 > artifacts/android-golden/native-overlay-logcat.log || true; echo "ANDROID INSTRUMENTATION FAILED: native-overlay"; exit 1; }
             cat artifacts/android-golden/native-overlay-instrumentation.log
-            grep -q 'INSTRUMENTATION_CODE: 0' artifacts/android-golden/native-overlay-instrumentation.log || { echo "ANDROID INSTRUMENTATION FAILED: native-overlay"; exit 1; }
+            grep -q 'INSTRUMENTATION_CODE: 0' artifacts/android-golden/native-overlay-instrumentation.log || { adb logcat -d -t 5000 > artifacts/android-golden/native-overlay-logcat.log || true; echo "ANDROID INSTRUMENTATION FAILED: native-overlay"; exit 1; }
             ! grep -Eq 'INSTRUMENTATION_CODE: -1|FAILURES!!!|Tests run: [0-9]+, Failures: [1-9]' artifacts/android-golden/native-overlay-instrumentation.log || { echo "ANDROID INSTRUMENTATION FAILED: native-overlay"; exit 1; }
             sha256sum "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
 
