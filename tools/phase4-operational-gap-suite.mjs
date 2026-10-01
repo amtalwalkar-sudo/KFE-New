@@ -170,6 +170,83 @@ try {
   })
   assert(h4.maintenanceCount === 1 && h4.loanCount === 1 && h4.targetCount === 1 && Number(h4.actualMaintenance) === 150, 'H4 canonical calculations did not reconcile.')
 
+  // ADMIN FIELD ROUND-TRIP: create, edit, list/reload and verify canonical values for
+  // every Admin form. This exercises the real browser IndexedDB repositories, not a
+  // mocked store. The matrix asserts source fields only; derived values remain derived.
+  const adminRoundTrip = await page.evaluate(async () => {
+    const { AdminService } = await import(location.origin + '/src/application/admin/adminService.js')
+    const cases = [
+      ['businessSetup', { businessStartDate: '2026-09-01', notes: 'Admin matrix initial' }, { notes: 'Admin matrix edited' }, { notes: 'Admin matrix edited' }],
+      ['vehicle', { registrationNumber: 'ADM-MATRIX-1', make: 'KFE', model: 'Matrix', variant: 'V1', acquiredOn: '2026-09-01', acquisitionValue: 500000, openingOdometerKm: 1200, fuelType: 'CNG', tankCapacity: 12, status: 'Active', statusDate: '2026-09-01', expiryDate: '2027-09-01', sellPrice: '', saleDate: '', active: true, notes: 'Vehicle initial' }, { openingOdometerKm: 1201, notes: 'Vehicle edited' }, { openingOdometerKm: 1201, notes: 'Vehicle edited' }],
+      ['driver', { name: 'Admin Matrix Driver', phone: '9000000001', licenseNumber: 'ADM-LIC-1', licenseExpiry: '2027-09-01', joinedOn: '2026-09-01', status: 'Active', vehicleId: '', notes: 'Driver initial' }, { phone: '9000000002', notes: 'Driver edited' }, { phone: '9000000002', notes: 'Driver edited' }],
+      ['compliance', { vehicleId: '', complianceType: 'Admin Matrix PUC', validFrom: '2026-09-01', validUntil: '2027-09-01', cost: 250 }, { cost: 275 }, { cost: 275 }],
+      ['maintenance', { performedOn: '2026-09-02', odometerKm: 1205, maintenanceType: 'Admin Matrix Service', cost: 150, notes: 'Maintenance initial' }, { cost: 175, notes: 'Maintenance edited' }, { cost: 175, notes: 'Maintenance edited' }],
+      ['loan', { lender: 'Admin Matrix Bank', accountReference: 'ADM-LOAN-1', principal: 12000, tenureMonths: 12, startDate: '2026-09-01', annualInterestRatePercent: 12, status: 'Active', notes: 'Loan initial' }, { notes: 'Loan edited' }, { notes: 'Loan edited' }],
+      ['loanPayment', { loanId: '', paidOn: '2026-10-02', amount: 100, notes: 'Loan payment initial' }, { notes: 'Loan payment edited' }, { notes: 'Loan payment edited' }],
+      ['prepayment', { loanId: '', paidOn: '2026-09-15', amount: 100, reason: 'Admin matrix', notes: 'Prepayment initial' }, { notes: 'Prepayment edited' }, { notes: 'Prepayment edited' }],
+      ['settlement', { settlementType: 'Payment', sourceType: 'Maintenance', sourceId: '', settledOn: '2026-09-03', amount: 50, paymentMethod: 'UPI', referenceNumber: 'ADM-SET-1', notes: 'Settlement initial' }, { amount: 60, notes: 'Settlement edited' }, { amount: 60, notes: 'Settlement edited' }],
+      ['driverTarget', { driverId: '', effectiveFrom: '2026-09-01', desiredDriverProfit: 3000, active: true, notes: 'Target initial' }, { desiredDriverProfit: 3100, notes: 'Target edited' }, { desiredDriverProfit: 3100, notes: 'Target edited' }],
+      ['breakEvenInputs', { effectiveFrom: '2026-09-01', maintenanceProvisionPerKm: 2.25, notes: 'Rate initial' }, { maintenanceProvisionPerKm: 2.5, notes: 'Rate edited' }, { maintenanceProvisionPerKm: 2.5, notes: 'Rate edited' }],
+    ]
+    const saved = {}
+    for (const [key, initial, edits, expected] of cases) {
+      const definition = AdminService.getDefinition(key)
+      const values = { ...initial }
+      if (key === 'driver') {
+        const vehicle = (await AdminService.list('vehicle')).find(row => row.values?.registrationNumber === 'ADM-MATRIX-1')
+        values.vehicleId = vehicle.id
+      }
+      if (key === 'compliance') {
+        const vehicle = (await AdminService.list('vehicle')).find(row => row.values?.registrationNumber === 'ADM-MATRIX-1')
+        values.vehicleId = vehicle.id
+      }
+      if (key === 'loanPayment' || key === 'prepayment') {
+        const loan = saved.loan
+        values.loanId = loan.id
+      }
+      if (key === 'driverTarget') {
+        const driver = saved.driver
+        values.driverId = driver.id
+      }
+      if (key === 'settlement') {
+        const maintenance = saved.maintenance
+        values.sourceId = maintenance.id
+      }
+      // Assert that each submitted key is part of the frozen form contract; this
+      // prevents the round-trip test from silently adding undocumented inputs.
+      const allowed = new Set(definition.fields.map(field => field.key))
+      for (const field of Object.keys(values)) if (!allowed.has(field)) throw new Error(key + ': unregistered source field ' + field)
+      const created = await AdminService.save(key, values)
+      const updated = await AdminService.save(key, { ...values, ...edits }, created.id)
+      const reread = (await AdminService.list(key)).find(row => row.id === created.id)
+      if (!reread) throw new Error(key + ': edited record missing from repository list/reload')
+      for (const [field, expectedValue] of Object.entries(expected)) {
+        if (reread.values?.[field] !== expectedValue) throw new Error(key + '.' + field + ': round-trip mismatch; expected ' + expectedValue + ', got ' + reread.values?.[field])
+      }
+      saved[key] = updated
+    }
+    // Soft-delete is part of the Admin contract: deletion must be auditable and
+    // remove the record from normal list/read models without physically erasing it.
+    const settlementId = saved.settlement.id
+    await AdminService.remove('settlement', settlementId)
+    if ((await AdminService.list('settlement')).some(row => row.id === settlementId)) throw new Error('settlement soft-delete still appears in active list')
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('kanishka_kfe_canonical_db', 13)
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    const deletedRecord = await new Promise((resolve, reject) => {
+      const request = db.transaction('settlements', 'readonly').objectStore('settlements').get(settlementId)
+      request.onsuccess = () => resolve(request.result || null)
+      request.onerror = () => reject(request.error)
+    })
+    db.close()
+    if (!deletedRecord?.deletedAt || deletedRecord.deleted !== true) throw new Error('settlement delete did not persist soft-delete metadata')
+    return { forms: cases.length, createdEditedReloaded: cases.map(([key]) => key), softDeleteVerified: true, deletedSettlementId: settlementId }
+  })
+  assert(adminRoundTrip.forms === 11 && adminRoundTrip.softDeleteVerified, 'Admin field round-trip matrix failed.')
+  console.log('PASS Admin field round-trip audit: ' + adminRoundTrip.forms + ' forms saved, edited, reread; settlement soft-delete persisted.')
+
   // I5/J5: Business Start Date is a calendar boundary in IST. Recovery is zero
   // before the boundary, begins on the boundary, continues after it, and stops
   // at the documented recovery horizon.
