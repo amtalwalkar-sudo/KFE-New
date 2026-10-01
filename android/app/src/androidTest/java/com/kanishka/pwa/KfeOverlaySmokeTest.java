@@ -1,6 +1,7 @@
 package com.kanishka.pwa;
 
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
@@ -37,6 +38,12 @@ public class KfeOverlaySmokeTest {
     assertTrue(KfeNativeGpsService.shouldStopForTrip("trip-a", "trip-a"));
     assertTrue(!KfeNativeGpsService.shouldStopForTrip("trip-b", "trip-a"));
     assertTrue(!KfeNativeGpsService.shouldStopForTrip("trip-b", ""));
+  }
+
+  @Test public void fareSubmissionKeepsCompletedTripIdentityAcrossNextPickup() {
+    assertEquals("completed-trip", KfeOverlayService.resolveFareActionTripId("completed-trip", "next-active-trip"));
+    assertEquals("current-trip", KfeOverlayService.resolveFareActionTripId("", "current-trip"));
+    assertEquals("", KfeOverlayService.resolveFareActionTripId("", null));
   }
 
   @Test public void exactApkCanStartNativeOverlaySmoke() throws Exception {

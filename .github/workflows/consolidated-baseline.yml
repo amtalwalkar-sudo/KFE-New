@@ -142,25 +142,7 @@ jobs:
       - name: Verify deployed SPA fallback and visible runtime on every route
         env:
           KFE_RUNTIME_BASE_URL: ${{ steps.deployment.outputs.page_url }}
-        run: |
-          set -euo pipefail
-          base="${KFE_RUNTIME_BASE_URL%/}"
-          for route in / /timeline /performance /admin; do
-            url="${base}${route}"
-            body="/tmp/kfe-pages-route.html"
-            status="0"
-            for attempt in $(seq 1 60); do
-              status="$(curl -sS -L -o "$body" -w '%{http_code}' "$url" || true)"
-              if [ "$status" = "200" ] && grep -q 'id="app"' "$body" && grep -q 'assets/' "$body"; then
-                break
-              fi
-              sleep 2
-            done
-            test "$status" = "200" || test "$status" = "404"
-            grep -q 'id="app"' "$body"
-            grep -q 'assets/' "$body"
-            echo "Verified deployed SPA fallback body for ${route} (HTTP ${status})."
-          done
+        run: node tools/deployed-pages-runtime-smoke.mjs
 
       - name: Upload deployed runtime screenshots
         if: always()

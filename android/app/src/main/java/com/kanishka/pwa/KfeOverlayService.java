@@ -76,6 +76,11 @@ public class KfeOverlayService extends Service {
     if(current.overlay!=null)current.overlay.postInvalidate();
   }
 
+  static String resolveFareActionTripId(String pendingFareTripId, String currentTripId){
+    if(pendingFareTripId!=null&&!pendingFareTripId.isEmpty())return pendingFareTripId;
+    return currentTripId==null?"":currentTripId;
+  }
+
   public static void prepare(Context context){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_PREPARE);ContextCompat.startForegroundService(context,i);}
   public static void show(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_SHOW);i.putExtra(EXTRA_STATE,state==null?"{}":state);context.startService(i);}
   public static void update(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_UPDATE);i.putExtra(EXTRA_STATE,state==null?"{}":state);context.startService(i);}
@@ -226,7 +231,7 @@ public class KfeOverlayService extends Service {
   }
   private void updateFormValue(){if(formPanel==null)return;TextView v=formPanel.findViewWithTag("value");if(v!=null)v.setText("₹"+(formValue.isEmpty()?"0":formValue));}
   private void submitNumericForm(){
-    String actionTripId="FARE".equals(formMode)?pendingFareTripId:pendingTripId;
+    String actionTripId="FARE".equals(formMode)?resolveFareActionTripId(pendingFareTripId,pendingTripId):pendingTripId;
     if(formSubmitting||actionTripId.isEmpty())return;
     double amount=0;try{amount=formValue.isEmpty()?0:Double.parseDouble(formValue);}catch(Exception e){return;}
     if(amount<0)return;formSubmitting=true;
