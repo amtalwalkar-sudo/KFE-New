@@ -45,6 +45,8 @@ public class KfeNativeGpsService extends Service {
   private String tripId;
   private String eventType = "PASSENGER_RIDE_TRACE";
   private File traceFile;
+  private Location lastPassengerLocation;
+  private double passengerDistanceMeters = 0d;
   private final Set<String> seenKeys = new HashSet<>();
 
   public static void start(Context context, String tripId, String eventType) {
@@ -152,6 +154,11 @@ public class KfeNativeGpsService extends Service {
         writer.write("\n");
       }
       seenKeys.add(key);
+      if ("PASSENGER_RIDE_TRACE".equals(eventType)) {
+        if (lastPassengerLocation != null) passengerDistanceMeters += lastPassengerLocation.distanceTo(location);
+        lastPassengerLocation = new Location(location);
+        KfeOverlayService.updateLiveKm(String.format(java.util.Locale.US, "%.1f km", passengerDistanceMeters / 1000d));
+      }
     } catch (Exception ignored) {
       // A transient local write failure must not kill the foreground location service.
     }
@@ -159,6 +166,8 @@ public class KfeNativeGpsService extends Service {
 
   private void loadSeenKeys() {
     seenKeys.clear();
+    lastPassengerLocation = null;
+    passengerDistanceMeters = 0d;
     if (traceFile == null || !traceFile.exists()) return;
     try (BufferedReader reader = new BufferedReader(new FileReader(traceFile))) {
       String line;
@@ -166,6 +175,13 @@ public class KfeNativeGpsService extends Service {
         try {
           JSONObject point = new JSONObject(line);
           seenKeys.add(point.optLong("capturedAtEpoch", -1) + "|" + point.optDouble("latitude") + "|" + point.optDouble("longitude"));
+          if ("PASSENGER_RIDE_TRACE".equals(point.optString("eventType", ""))) {
+            Location passengerPoint = new Location("KFE");
+            passengerPoint.setLatitude(point.optDouble("latitude"));
+            passengerPoint.setLongitude(point.optDouble("longitude"));
+            if (lastPassengerLocation != null) passengerDistanceMeters += lastPassengerLocation.distanceTo(passengerPoint);
+            lastPassengerLocation = passengerPoint;
+          }
         } catch (Exception ignored) {}
       }
     } catch (Exception ignored) {}
@@ -183,6 +199,8 @@ public class KfeNativeGpsService extends Service {
     tripId = null;
     eventType = "PASSENGER_RIDE_TRACE";
     traceFile = null;
+    lastPassengerLocation = null;
+    passengerDistanceMeters = 0d;
     seenKeys.clear();
     getSharedPreferences(PREFS, MODE_PRIVATE).edit().remove(ACTIVE_TRIP).remove(ACTIVE_EVENT).apply();
   }
