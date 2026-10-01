@@ -27,7 +27,7 @@ public class KfeNativeGpsPlugin extends Plugin {
       call.reject("LOCATION_PERMISSION_REQUIRED");
       return;
     }
-    KfeNativeGpsService.start(getContext(), tripId);
+    KfeNativeGpsService.start(getContext(), tripId, call.getString("eventType", "PASSENGER_RIDE_TRACE"));
     call.resolve();
   }
 
