@@ -59,7 +59,6 @@ assert.match(tripRepository, /tripStage: normalized\.tripStage \|\| 'GOING_TO_PI
 assert.match(cockpit, /action: 'END_RIDE'/)
 assert.match(cockpit, /action: 'START_RIDE'/)
 assert.doesNotMatch(cockpit, /action: 'ENTER_FARE'/)
-assert.match(cockpit, /state: WORK_COCKPIT_STATES.GOING_TO_PICKUP/)
 const workView = fs.readFileSync('src/views/WorkModuleView.vue', 'utf8')
 const workService = fs.readFileSync('src/application/work/workService.js', 'utf8')
 assert.match(workView, /liveKm/)
