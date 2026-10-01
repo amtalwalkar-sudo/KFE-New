@@ -27,6 +27,9 @@ public class KfeOverlaySmokeTest {
   @Before public void setUp() {
     MainActivity.isResumed = false;
     context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    context.stopService(new Intent(context, KfeOverlayService.class));
+    SystemClock.sleep(300L);
+    KfeOverlayService.instance = null;
     context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE).edit().clear().apply();
     context.startService(new Intent(context, KfeOverlayService.class));
   }
