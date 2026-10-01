@@ -16,3 +16,11 @@ assert.match(location, /location snapshot handler failed; cadence will continue/
 assert.match(location, /await runHandlerSafely\(activeHandler, location\)/)
 assert.match(location, /await runHandlerSafely\(handler, location\)/)
 console.log('KFE Phase 9 performance/cadence resilience checks: PASS')
+
+const nativeGps = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeNativeGpsService.java', 'utf8')
+const workService = fs.readFileSync('src/application/work/workService.js', 'utf8')
+assert.match(workService, /NativeGpsService\.start\(result\.id, 'DEAD_MOVEMENT_TRACE'\)/)
+assert.match(workService, /NativeGpsService\.start\(data\?\.id\)/)
+assert.match(nativeGps, /requestedType\.equals\(eventType\)/)
+assert.match(nativeGps, /eventType = requestedType/)
+console.log('Native GPS phase transition contract passed: pickup trace changes to passenger-ride trace on Start Trip.')
