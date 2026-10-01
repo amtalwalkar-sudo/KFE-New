@@ -446,7 +446,7 @@ function seedReview() {
 
 function openEnd() {
   if (store.isTripActive) return fail('End the active Trip before going Offline.')
-  if (pendingFare.value) return fail('Save or skip the optional trip details first.')
+  
   fuelOpen.value = false
   endOpen.value = true
   endStage.value = 'CLOSE'
@@ -526,7 +526,7 @@ const swipeProgress = computed(() => {
 })
 
 function down(event) {
-  if (busy.value || !store.isOnline || endOpen.value || fuelOpen.value || cancelOpen.value || pendingFare.value) return
+  if (busy.value || !store.isOnline || endOpen.value || fuelOpen.value || cancelOpen.value) return
   if (event.pointerType === 'mouse' && event.button !== 0) return
   if (!event.target.closest('.swipe-handle')) return
   swipePointerId.value = event.pointerId
