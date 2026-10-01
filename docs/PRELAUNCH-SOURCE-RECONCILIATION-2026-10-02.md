@@ -2,7 +2,7 @@
 
 **Purpose:** Reconcile frozen repository rules, current `main` source, automated test evidence, and old audit/defect records before launch.
 **Authority:** `KFE_BUSINESS_RULES_REGISTER.md` defines business meaning; `docs/KFE-CALCULATION-SPECIFICATION.md` defines arithmetic/data authority; `docs/KFE-ARCHITECTURE-CONTRACT.md` defines ownership and boundaries; `docs/KFE-SCREEN-CONTRACT.md` and `docs/KFE-UNIVERSAL-FORM-ACTION-RECOVERY-RULES-FROZEN.md` define screen/form/recovery acceptance.
-**Latest verified main baseline:** CI #2227, commit `32db1fec882d4a06aa12a72e458dc4f5fbd76b33`, [workflow run](https://github.com/amtalwalkar-sudo/KFE-New/actions/runs/36930272579), completed SUCCESS on 2026-10-01. **Latest verified PR candidate:** CI #2230, commit `e09518bc10cd20b364ecdedac1e51e0b1ee3bb78`, [workflow run](https://github.com/amtalwalkar-sudo/KFE-New/actions/runs/36935731016), completed SUCCESS on 2026-10-01. PR #141's main contract/build/runtime job passed, including the new target-achievement contract. Its Android release gate and deploy job were skipped for this pull-request event; do not treat those as having passed. This is an automated/non-phone pass, not launch acceptance.
+**Latest verified main:** CI #2246, commit `90a48b970f7d1cea223f78db1339f5c73f279f86`, [workflow run](https://github.com/amtalwalkar-sudo/KFE-New/actions/runs/36942297973), completed SUCCESS on 2026-10-01. This run passed the full contract/build/runtime matrix, Android exact-APK release gate with 5 native overlay tests, and GitHub Pages deployment/runtime verification. The active-shift target rule from PR #141 is now merged into `main`. This is an automated/non-phone pass; physical-device acceptance remains separate.
 **Scope boundary:** Automated/repository audit only. Physical-phone acceptance, including screen-off GPS, force-stop/restart, overlay interaction under interruption, remains pending by explicit instruction. This document does not certify launch readiness.
 
 ## 1. Evidence actually verified on the green baseline
@@ -13,8 +13,8 @@ The successful run's logs establish:
 - Browser semantic Work audit: **18/18 passed**. It covered shift start/back, pickup, start ride, end ride, optional trip detail save, end shift, offline fuel, cancellation, routes, Timeline period controls/edit, Performance period controls, and Admin settings/master navigation.
 - Phase 4 runtime verification: passed, including Work interactions, GPS/browser paths, theme/responsive/accessibility checks and canonical/synthetic DB isolation. The browser semantic Work audit passed **18/18** scenarios.
 - Runtime fixture: persisted shift/trip survived reload; Timeline and Performance agreed on authoritative shift revenue under BR-11 toll treatment.
-- Android build: exact debug APK was built and installed on the CI emulator; WebView startup test passed (1 test), and native overlay smoke suite passed (3 tests, including fare-trip identity fallback and stale GPS-stop identity guards). The Android gate now requires the exact terminal result `INSTRUMENTATION_CODE: -1` and the expected per-class test counts (1 and 3), rather than accepting a broad status-code substring. The tested APK SHA-256 is recorded in the `kfe-android-golden-gate-identity` artifact. This is not the full Golden Ride/replay test.
-- Pages deployment/runtime smoke: passed. Work route returned HTTP 200; `/timeline`, `/performance`, and `/admin` returned HTTP 404 from GitHub Pages but the SPA fallback mounted each corresponding visible route successfully. This verifies the current fallback UI, not an HTTP-200 deep-route response.
+- Android build: exact debug APK was built and installed on the CI emulator; WebView startup passed (1 test), and native overlay smoke passed **5/5 tests**, including Golden Ride pickup→start→end→fare identity, service-recreation pending-action replay, fare-trip identity fallback, native overlay creation, and stale GPS-stop identity protection. The gate requires the exact terminal result `INSTRUMENTATION_CODE: -1` and expected per-class counts (1 and 5). Tested APK SHA-256: `f79b1d1601a09d393fd42e28460c241a0533834d2527bd3892e883e2c02d4349`, recorded in the golden-gate identity artifact.
+- Pages deployment/runtime smoke: passed on the same `main` commit. Work returned HTTP 200; `/timeline`, `/performance`, and `/admin` returned GitHub Pages 404 responses but the deployed SPA fallback mounted the correct visible route on each hard navigation. This is the expected GitHub Pages fallback behavior; it does not claim HTTP 200 for history-mode deep links.
 - CI artifacts included the Android debug APK, Android instrumentation logs, runtime verification bundle and Pages bundle.
 
 These results prove the listed automated checks on that commit. They do **not** prove every Admin field has a full UI→validation→persistence→calculation→report test, every overlay gesture reaches canonical state, or background GPS works on a physical device.
@@ -68,14 +68,14 @@ The green tests exercise deterministic vectors and selected cross-surface fixtur
 
 ## 5. Current confirmed gaps from source/test comparison
 
-### P0 — Native overlay fare identity source fix present; Golden Ride acceptance remains open
+### P0 — Native overlay fare identity + Golden Ride/replay gate verified
 
 - `src/infrastructure/android/androidOverlayLifecycle.js` finds a completed trip with missing optional fare and passes `pendingFareId` to `deriveWorkCockpitState`.
 - The defect was that the cockpit discarded `pendingFareId` and the native overlay reused one trip ID for both the current swipe action and optional fare submission.
 - Current `main` carries `pendingFareId` through canonical cockpit state and overlay payload, uses a separate native `pendingFareTripId`, and persists `fareDetailsSkipped` so a skipped optional form does not remain pending forever. The native fare submission now resolves the completed trip ID first and falls back to the current trip ID only when no pending-fare ID is available; an emulator regression assertion covers both paths.
 - Android instrumentation has deterministic guard assertions, but it still does not execute the complete END → save/skip → next pickup flow or process interruption/replay.
 
-**Disposition:** source-level identity fix and deterministic ID fallback test are present on `main` and passed CI #2227. Full exact-APK Golden Ride/interruption-replay acceptance remains open. Optional fare detail must remain non-blocking for next pickup and shift closure.
+**Disposition:** source-level identity fix plus exact-APK Golden Ride/interruption-replay coverage passed CI #2246. Optional fare detail remains non-blocking for next pickup and shift closure.
 
 ### P1 — Active-shift target progress is not supported by the authoritative revenue snapshot
 
@@ -86,21 +86,21 @@ The green tests exercise deterministic vectors and selected cross-surface fixtur
 
 **Business rule decided by the user (2026-10-02):** a fare entered and saved immediately after a completed ride counts toward the driver's target during an active shift. A skipped or missing fare does not count at that point. It counts only after the driver enters it during end-of-shift reconciliation, either per trip or as a single shift total, and the shift-end record is saved. For a completed shift, target progress uses `Shift.revenue` only; it must not add optional trip fares on top and double-count revenue.
 
-**Implementation and CI on PR branch `audit/finish-prelaunch-target-and-acceptance`:** `deriveDailyTargetAchievement` adds explicitly saved fares from completed trips in active shifts to finalized shift revenue for the target day. It excludes skipped/missing fares, unfinished/future trips, deleted records, and trip-level detail belonging to completed shifts. `PerformanceService.getDailyTargetSnapshot` uses this helper. Regression cases are included in the canonical runner for entered fare, skipped fare, zero fare, overnight active shift, completed-shift no-double-counting, deleted data and future timestamp boundaries. CI #2230 passed for this PR candidate. The change is verified on the PR branch, **not yet on `main`**; Android release and deployment jobs were skipped in this PR run.
+**Implementation and CI on PR branch `audit/finish-prelaunch-target-and-acceptance`:** `deriveDailyTargetAchievement` adds explicitly saved fares from completed trips in active shifts to finalized shift revenue for the target day. It excludes skipped/missing fares, unfinished/future trips, deleted records, and trip-level detail belonging to completed shifts. `PerformanceService.getDailyTargetSnapshot` uses this helper. Regression cases are included in the canonical runner for entered fare, skipped fare, zero fare, overnight active shift, completed-shift no-double-counting, deleted data and future timestamp boundaries. CI #2230 passed for this PR candidate. The change was subsequently merged to `main` as commit `1967b72c8e021ff65e6f55155a6511e4cf5f272c` and is covered by the latest main CI #2246.
 
-### P1 — Native GPS stop identity guard present; regression gate pending
+### P1 — Native GPS stop identity guard present; emulator regression verified
 
 - `WorkService.completeTrip()` still asynchronously syncs the completed trip trace and calls `NativeGpsService.stop(oldTripId)`.
 - `KfeNativeGpsService` compares requested and current/persisted active trip IDs before stopping; a stale mismatched stop leaves the newer collector untouched.
 - An Android instrumentation assertion covers matching, stale and empty IDs. It is a deterministic guard test, not a physical-device interleaving test.
 
-**Disposition:** source guard and deterministic emulator assertion are on `main` and passed CI #2227. Real background GPS acceptance remains pending phone testing.
+**Disposition:** source guard and deterministic emulator assertion passed the latest exact-APK Android gate. Real background/screen-off GPS acceptance remains pending phone testing.
 
-### P1 — Android Golden Ride and replay coverage is incomplete
+### P1 — Android Golden Ride and replay coverage verified
 
 The Android smoke tests cover bundled WebView mount and native overlay creation. They do not execute the full action loop, verify persisted PWA/overlay parity, or simulate duplicate/replayed actions and interruption between END and optional fare entry. The CI green result must not be interpreted as coverage of those cases.
 
-**Disposition:** confirmed test-coverage gap; build automated emulator tests for overlay pickup/start/end/cancel/fare actions, canonical record counts, duplicate delivery, process recreation, pending-action consumption/clear, and return to next pickup.
+**Disposition:** exact-APK emulator coverage now executes the Golden Ride action loop and pending-action replay/clear behavior. Physical phone interruption, screen-off, OEM overlay and real GPS acceptance remain device-only.
 
 ### P2 — Presentation modernization is guarded, not automated
 
@@ -119,7 +119,7 @@ Native foreground GPS service and live-KM overlay update paths exist in source; 
 - **Semantic theme colours:** global CSS defines light/dark semantic tokens for info/success/warning/danger, and Work semantic colours consume those tokens. The native overlay separately maps the same semantic states to Java colour constants by theme. Theme adaptation exists, but cross-platform palette parity is duplicated rather than driven from one generated token source; emulator smoke does not verify the complete light/dark overlay palette. Treat this as a consistency/test gap, not evidence that all theme colours are broken.
 - **Timer and GPS:** the native foreground location service persists trip-keyed points locally; the overlay timer derives elapsed time from the persisted trip-start timestamp and schedules redraws while a ride is active. The CI emulator verifies interface startup and overlay creation, not location capture through a real screen-off/background interval. Physical acceptance remains deferred by the launch plan.
 - **Presentation-only redesign:** `npm run ui:impact -- <src/path>` reports dependents and protected-layer impact. It is not an automatic one-command screen modernization tool. A true one-command redesign workflow is not implemented.
-- **Release sequencing:** CI is green, but Phase 11 remains ACTIVE until real controlled-pilot evidence is recorded. CI or synthetic data cannot close that gate. Phase 12 reconciliation and Phase 13 final release remain locked/pending under the master plan.
+- **Release sequencing:** automated CI/deployment gates are green on `main`. Phase 11 controlled-pilot and physical-device acceptance remain separate from CI; Phase 12/13 status must follow the master plan and phone evidence.
 
 ## 6. Re-audit disposition for old defect candidates
 
@@ -150,4 +150,4 @@ Native foreground GPS service and live-KM overlay update paths exist in source; 
 6. Run one coordinated regression → exact APK emulator gate → Pages artifact/runtime gate → deploy → refresh-route check. Only then report automated release status.
 7. Keep real-phone screen-off/background GPS and overlay interruption scenarios **PENDING DEVICE ACCEPTANCE**.
 
-**Current conclusion:** CI #2227 passed on `32db1fec882d4a06aa12a72e458dc4f5fbd76b33` for the main baseline: 72 contract suites, Android exact-APK smoke, and deployment/runtime checks succeeded on that commit. PR CI #2230 passed on `e09518bc10cd20b364ecdedac1e51e0b1ee3bb78`; the target-achievement change and full main CI job passed, but Android release and deployment jobs were skipped on the PR event. The Admin field validation matrix checks 11 forms and 69 fields, but full per-field UI persistence/edit/recovery/downstream calculation remains open. The source-level overlay fare identity and GPS stop-identity guards and their deterministic emulator assertions passed on the baseline; full Golden Ride/replay remains open. The active-shift target rule is implemented and CI-verified on PR #141, not yet on `main`. Deep routes render through GitHub Pages fallback but still return HTTP 404. Physical-phone GPS/overlay acceptance remains explicitly pending. KFE is **not yet launch-ready** on the evidence currently available; full Android Golden Ride/replay, complete Admin persistence/downstream traces, release-commit deployment verification, and physical-phone acceptance remain open.
+**Current conclusion:** CI #2246 on `main` commit `90a48b970f7d1cea223f78db1339f5c73f279f86` is green. The run passed 72 contract suites, Phase 10, all Phase 4 repository/persistence/lifecycle/A-J/operational-gap/visual/semantic gates, the exact Android release gate (1 WebView test + 5 native overlay tests, exact terminal result `INSTRUMENTATION_CODE: -1`), and GitHub Pages deployment plus hard-navigation route verification. The tested exact APK is `kfe-android-debug-apk`, SHA-256 `f79b1d1601a09d393fd42e28460c241a0533834d2527bd3892e883e2c02d4349`. The Admin/finance operational suite now verifies Admin→Work consumption, maintenance/loan/target reconciliation, Business Start Date boundaries, and the 11-form persistence matrix. Deep history routes intentionally use GitHub Pages 404 fallback while mounting the correct Vue route. Remaining acceptance is physical-device testing: real GPS/background/screen-off behavior, overlay behavior through actual interruptions/OEM restrictions, and the controlled phone ride sequence. CI evidence is complete; device acceptance is the remaining gate.
