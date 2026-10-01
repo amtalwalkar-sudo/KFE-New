@@ -59,5 +59,5 @@ adb shell appops set com.kanishka.pwa android:system_alert_window allow
 adb shell appops set com.kanishka.pwa android:camera allow || true
 adb shell am force-stop com.kanishka.pwa
 run_instrumentation com.kanishka.pwa.KfeWebViewStartupTest webview-startup 1
-run_instrumentation com.kanishka.pwa.KfeOverlaySmokeTest native-overlay 3
+run_instrumentation com.kanishka.pwa.KfeOverlaySmokeTest native-overlay 5
 sha256sum "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
