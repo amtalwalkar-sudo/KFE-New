@@ -25,6 +25,8 @@ const cancelled = transitionTrip(active, TRIP_STATES.CANCELLED, { revenue: 0, re
 assert(cancelled.status === 'CANCELLED', 'Cancellation must produce one CANCELLED canonical Trip')
 assert(cancelled.id === active.id, 'Cancellation must retain the canonical Trip ID')
 assert(cancelled.cancelledRevenue === 0 && cancelled.revenue === 0, 'Cancellation default revenue must be ₹0')
+const cancelledBlank = transitionTrip(active, TRIP_STATES.CANCELLED, { revenue: '', reason: 'DRIVER_MISTAKE' })
+assert(cancelledBlank.cancelledRevenue === 0 && cancelledBlank.revenue === 0, 'Blank cancellation fare must normalize to ₹0 per Android release contract')
 
 assert(canTransitionTrip(TRIP_STATES.ACTIVE, TRIP_STATES.COMPLETED), 'ACTIVE → COMPLETED transition missing')
 assert(canTransitionTripStage('PICKUP', 'RIDE_STARTED'), 'PICKUP → RIDE_STARTED transition missing')
