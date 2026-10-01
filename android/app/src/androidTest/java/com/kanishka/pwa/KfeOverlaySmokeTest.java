@@ -139,13 +139,16 @@ public class KfeOverlaySmokeTest {
     field.setAccessible(true);
     android.view.View view = (android.view.View) field.get(service);
     int width = view.getWidth();
-    long now = SystemClock.uptimeMillis();
-    float density = view.getResources().getDisplayMetrics().density;
-    float y = Math.max(105f * density, Math.min(view.getHeight() - 5f, 115f * density));
-    view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now, android.view.MotionEvent.ACTION_DOWN, 20f, y, 0));
-    view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now + 80, android.view.MotionEvent.ACTION_MOVE, width * 0.55f, y, 0));
-    view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now + 160, android.view.MotionEvent.ACTION_MOVE, width * 0.92f, y, 0));
-    view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now + 220, android.view.MotionEvent.ACTION_UP, width * 0.92f, y, 0));
+    final float density = view.getResources().getDisplayMetrics().density;
+    final float y = Math.max(105f * density, Math.min(view.getHeight() - 5f, 115f * density));
+    final int overlayWidth = width;
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+      long now = SystemClock.uptimeMillis();
+      view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now, android.view.MotionEvent.ACTION_DOWN, 20f, y, 0));
+      view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now + 80, android.view.MotionEvent.ACTION_MOVE, overlayWidth * 0.55f, y, 0));
+      view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now + 160, android.view.MotionEvent.ACTION_MOVE, overlayWidth * 0.92f, y, 0));
+      view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now + 220, android.view.MotionEvent.ACTION_UP, overlayWidth * 0.92f, y, 0));
+    });
     SystemClock.sleep(250);
   }
 
