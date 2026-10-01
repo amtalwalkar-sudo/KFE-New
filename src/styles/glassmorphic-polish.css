@@ -747,10 +747,10 @@ body:has(.work-canonical){
 
 /* WORK COCKPIT v3 — driving-first visual system */
 .work-canonical{
-  --work-info:#1677ff;
-  --work-success:#16a05d;
-  --work-danger:#e5484d;
-  --work-warning:#e08a00;
+  --work-info:var(--kfe-info);
+  --work-success:var(--kfe-success);
+  --work-danger:var(--kfe-danger);
+  --work-warning:var(--kfe-warning);
 }
 .work-canonical .work-header{
   min-height:58px;
@@ -884,10 +884,10 @@ body:has(.work-canonical){
  * explicit so colour is never the sole state indicator.
  */
 .work-canonical{
-  --work-info:#1677ff;
-  --work-success:#16a05d;
-  --work-warning:#e08a00;
-  --work-danger:#e5484d;
+  --work-info:var(--kfe-info);
+  --work-success:var(--kfe-success);
+  --work-warning:var(--kfe-warning);
+  --work-danger:var(--kfe-danger);
   --work-neutral:var(--kfe-muted-text);
   --work-state-color:var(--work-info);
 }
