@@ -213,17 +213,18 @@ jobs:
       - name: Android Exact APK Smoke Gate
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
+          api-level: 30
           target: google_apis
           arch: x86_64
-          profile: pixel_2
+          profile: pixel
           cores: 2
           ram-size: 2048M
-          heap-size: 512M
+          heap-size: 256M
           force-avd-creation: false
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none
-          disk-size: 6000M
+          disk-size: 4000M
           emulator-boot-timeout: 600
+          disable-linux-hw-accel: true
           disable-animations: true
           enable-hw-keyboard: false
           script: bash "$GITHUB_WORKSPACE/tools/android-exact-apk-smoke-gate.sh"
