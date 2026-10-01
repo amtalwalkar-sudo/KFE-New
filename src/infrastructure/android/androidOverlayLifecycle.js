@@ -1,7 +1,5 @@
 import { AndroidOverlay } from './kfeOverlay.js'
 import { WorkService } from '../../application/work/workService.js'
-import { DriverTargetService } from '../../application/performance/driverTargetService.js'
-import { getKfeReferenceNow } from '../../domain/time/ist.js'
 import { PerformanceService } from '../../application/performance/performanceService.js'
 import { KfeRideNotificationService } from './kfeRideNotificationService.js'
 import { deriveWorkCockpitState } from '../../application/work/workCockpit.js'
@@ -26,28 +24,27 @@ const activeOverlayState = async () => {
   let trips = []
 
   try {
-    const targetResult = await DriverTargetService.getTarget(getKfeReferenceNow())
-    if (Number.isFinite(Number(targetResult?.target))) {
-      target = `₹${Number(targetResult.target).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
+    const daily = await PerformanceService.getDailyTargetSnapshot()
+    const targetAmount = Number(daily?.target)
+    const achieved = Number(daily?.achieved)
+    if (Number.isFinite(targetAmount) && targetAmount >= 0) {
+      target = `₹${targetAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
+      targetProgress = targetAmount > 0 && Number.isFinite(achieved)
+        ? Math.min(100, Math.round((achieved / targetAmount) * 100))
+        : 0
     }
   } catch (_) {}
 
   try {
     trips = await WorkService.getTripsForShift(active.shift.id)
-    const targetNumber = Number(String(target).replace(/[^0-9.]/g, ''))
-    const achieved = trips
-      .filter(item => item?.status === 'COMPLETED' && Number.isFinite(Number(item?.revenue)))
-      .reduce((sum, item) => sum + Number(item.revenue), 0)
-    if (Number.isFinite(targetNumber) && targetNumber > 0) {
-      targetProgress = Math.min(100, Math.round((achieved / targetNumber) * 100))
-    }
-
-    const totalRevenue = trips.reduce((sum, item) => {
-      const value = Number(item?.revenue)
-      return Number.isFinite(value) && value >= 0 ? sum + value : sum
-    }, 0)
-    revenue = `₹${totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
   } catch (_) {}
+
+  // Trip fares are optional detail. Overlay revenue must mirror the
+  // authoritative shift-end revenue, never a sum of trip-level fares.
+  const authoritativeRevenue = Number(active.shift?.revenue)
+  if (Number.isFinite(authoritativeRevenue) && authoritativeRevenue >= 0) {
+    revenue = `₹${authoritativeRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
+  }
 
   if (active.trip?.id) {
     try {
