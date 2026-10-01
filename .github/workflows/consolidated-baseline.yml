@@ -234,11 +234,33 @@ jobs:
             adb install -r "$GITHUB_WORKSPACE/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
             adb shell appops set com.kanishka.pwa android:system_alert_window allow
             adb shell appops set com.kanishka.pwa android:camera allow || true
+            mkdir -p artifacts/android-golden
             adb shell am force-stop com.kanishka.pwa
-            adb shell am instrument -w -r -e class com.kanishka.pwa.KfeWebViewStartupTest com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner
-            adb shell am instrument -w -r -e class com.kanishka.pwa.KfeOverlaySmokeTest com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner
+            run_instrumentation() {
+              test_name="$1"
+              test_class="$2"
+              log_file="artifacts/android-golden/${test_name}-instrumentation.log"
+              set +e
+              adb shell am instrument -w -r -e class "$test_class" com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner 2>&1 | tee "$log_file"
+              command_status=${PIPESTATUS[0]}
+              set -e
+              if [ "$command_status" -ne 0 ] || ! grep -q 'INSTRUMENTATION_CODE: 0' "$log_file" || grep -Eq 'INSTRUMENTATION_CODE: -1|FAILURES!!!|Tests run: [0-9]+, Failures: [1-9]' "$log_file"; then
+                echo "ANDROID INSTRUMENTATION FAILED: $test_name ($test_class)"
+                exit 1
+              fi
+            }
+            run_instrumentation webview-startup com.kanishka.pwa.KfeWebViewStartupTest
+            run_instrumentation native-overlay com.kanishka.pwa.KfeOverlaySmokeTest
             sha256sum "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
 
+      - name: Upload Android instrumentation logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kfe-android-instrumentation-logs
+          path: artifacts/android-golden/*-instrumentation.log
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Upload tested Android Debug APK
         uses: actions/upload-artifact@v4
