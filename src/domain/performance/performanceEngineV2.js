@@ -141,19 +141,27 @@ export function derivePerformance(s, r, p = previousRange(r)) {
     const revenue = authoritativeShiftRevenue(S, x)
     const financial = sh.reduce((result, shift) => {
       const treatment = String(shift.tollParkingRevenueTreatment || 'INCLUDED').toUpperCase()
-      const toll = n(shift.toll), parking = n(shift.parking)
+      // New Work records keep toll/parking with the completed Trip that incurred
+      // the cost. Legacy shifts may still carry shift-level aggregate amounts.
+      const shiftTrips = T.filter(trip => trip.shiftId === shift.id && trip.status === 'COMPLETED')
+      const tripToll = shiftTrips.reduce((sum, trip) => sum + n(trip.toll), 0)
+      const tripParking = shiftTrips.reduce((sum, trip) => sum + n(trip.parking), 0)
+      const toll = n(shift.toll) + tripToll
+      const parking = n(shift.parking) + tripParking
       const included = treatment === 'INCLUDED'
       result.financialRevenue += n(shift.revenue) - (included ? toll + parking : 0)
+      result.toll += toll
+      result.parking += parking
       result.passThroughToll += included ? toll : 0
       result.passThroughParking += included ? parking : 0
       result.excludedTollExpense += included ? 0 : toll
       result.excludedParkingExpense += included ? 0 : parking
       return result
-    }, { financialRevenue: 0, passThroughToll: 0, passThroughParking: 0, excludedTollExpense: 0, excludedParkingExpense: 0 })
+    }, { financialRevenue: 0, toll: 0, parking: 0, passThroughToll: 0, passThroughParking: 0, excludedTollExpense: 0, excludedParkingExpense: 0 })
     const vehicleKm = sh.reduce((z, a) => { const start = odometer(a.startOdometer); const end = odometer(a.endOdometer); return Number.isFinite(start) && Number.isFinite(end) && end >= start ? z + (end - start) : z }, 0)
     const businessKm = tr.reduce((z, a) => { const km = Number(a.tripKm); return Number.isFinite(km) && km >= 0 ? z + km : z }, 0)
     const deadKm = vehicleKm - businessKm
-    const fuelCost = fu.reduce((z, a) => z + n(a.amount), 0), fuelQty = fu.reduce((z, a) => z + n(a.quantityKg), 0), toll = sh.reduce((z, a) => z + n(a.toll), 0), parking = sh.reduce((z, a) => z + n(a.parking), 0), maintenance = ma.reduce((z, a) => z + n(a.cost), 0), workingHours = sh.reduce((z, a) => z + hrs(a.shiftStartAt, a.shiftEndAt), 0)
+    const fuelCost = fu.reduce((z, a) => z + n(a.amount), 0), fuelQty = fu.reduce((z, a) => z + n(a.quantityKg), 0), toll = financial.toll, parking = financial.parking, maintenance = ma.reduce((z, a) => z + n(a.cost), 0), workingHours = sh.reduce((z, a) => z + hrs(a.shiftStartAt, a.shiftEndAt), 0)
     const operatingCost = fuelCost + financial.excludedTollExpense + financial.excludedParkingExpense + maintenance
     return { sh, tr, fu, ma, revenue, financialRevenue: financial.financialRevenue, passThroughToll: financial.passThroughToll, passThroughParking: financial.passThroughParking, excludedTollExpense: financial.excludedTollExpense, excludedParkingExpense: financial.excludedParkingExpense, vehicleKm, businessKm, deadKm, fuelCost, fuelQty, toll, parking, maintenance, workingHours, operatingCost, operatingProfit: financial.financialRevenue - operatingCost }
   }

@@ -27,6 +27,8 @@ const error = ref('')
 
 const fareTripId = ref(null)
 const fare = ref('')
+const tripToll = ref('')
+const tripParking = ref('')
 const fareBusy = ref(false)
 const fareInput = ref(null)
 
@@ -88,20 +90,13 @@ const targetProgress = computed(() => targetValue.value > 0
   : 0)
 
 const completed = computed(() => store.completedTrips.filter(t => t.status === 'COMPLETED'))
-const pendingFare = computed(() => {
-  if (fareTripId.value) {
-    if (store.trip?.id === fareTripId.value) return store.trip
-    return completed.value.find(t => t.id === fareTripId.value) || null
-  }
-  return completed.value.find(t => t.revenue === '' || t.revenue === null || t.revenue === undefined) || null
-})
+const pendingFare = computed(() => fareTripId.value
+  ? completed.value.find(t => t.id === fareTripId.value) || null
+  : null)
 
 const cockpit = computed(() => deriveWorkCockpitState({
   shift: store.shift,
   trip: store.trip,
-  trips: store.registeredTrips,
-  pendingFareId: pendingFare.value?.id || '',
-  notificationPhase: KfeRideNotificationService.getState()?.phase || '',
   target: targetValue.value == null ? '—' : money(targetValue.value),
   targetProgress: targetProgress.value,
   liveKm: '0.0 km',
@@ -109,7 +104,7 @@ const cockpit = computed(() => deriveWorkCockpitState({
   asOf: clock.value
 }))
 
-const ready = computed(() => cockpit.value.state === WORK_COCKPIT_STATES.READY_FOR_TRIP)
+const ready = computed(() => cockpit.value.state === WORK_COCKPIT_STATES.READY_FOR_TRIP || cockpit.value.state === WORK_COCKPIT_STATES.GOING_TO_PICKUP)
 const active = computed(() => cockpit.value.state === WORK_COCKPIT_STATES.TRIP_ACTIVE)
 const actionLabel = computed(() => {
   if (cockpit.value.action === 'END_RIDE') return 'END TRIP'
@@ -145,13 +140,20 @@ const missing = computed(() => completed.value.filter(t => reviewRevenue.value[t
 const endReady = computed(() =>
   Boolean(closingOdo.value) &&
   shiftRevenue.value !== '' &&
-  preview.value?.reconciliationStatus !== 'UNAVAILABLE' &&
-  preview.value?.reconciliationStatus !== 'MISMATCH'
+  reviewedDeadKm.value >= -0.000001
 )
 const shiftKm = computed(() => Math.max(
   0,
   Number(closingOdo.value || store.lastKnownOdometer || store.startOdometer || 0) - Number(store.startOdometer || 0)
 ))
+const tripKmForReview = trip => {
+  const edited = reviewKm.value[trip.id]
+  const raw = edited === '' || edited == null ? trip.tripKm : edited
+  const value = Number(raw)
+  return Number.isFinite(value) && value >= 0 ? value : 0
+}
+const reviewedTripKm = computed(() => completed.value.reduce((sum, trip) => sum + tripKmForReview(trip), 0))
+const reviewedDeadKm = computed(() => shiftKm.value - reviewedTripKm.value)
 const fuelQty = computed(() => fuel.calculateQuantity(fuelPrice.value, fuelAmount.value))
 
 async function targetRefresh() {
@@ -310,12 +312,14 @@ async function endTrip() {
   busy.value = true
   try {
     const tripId = store.trip.id
-    if (!await store.endTrip()) return fail('Trip could not be prepared for fare.')
+    if (!await store.endTrip()) return fail('Trip could not be completed.')
     fareTripId.value = tripId
     fare.value = ''
+    tripToll.value = ''
+    tripParking.value = ''
     await KfeRideNotificationService.completeRide().catch(() => {})
     await syncOverlay()
-    notify('Trip ended — enter fare.')
+    notify('Trip ended. Add optional details or skip.')
   } finally {
     busy.value = false
   }
@@ -323,29 +327,45 @@ async function endTrip() {
 
 async function saveFare() {
   if (fareBusy.value || !pendingFare.value) return
-  if (fare.value === '') return fail('Trip fare is required.')
-  if (!Number.isFinite(Number(fare.value)) || Number(fare.value) < 0) return fail('Trip fare must be a non-negative number.')
+  for (const [label, value] of [['Trip fare', fare.value], ['Toll', tripToll.value], ['Parking', tripParking.value]]) {
+    if (value !== '' && (!Number.isFinite(Number(value)) || Number(value) < 0)) return fail(`${label} must be a non-negative number.`)
+  }
 
   fareBusy.value = true
   try {
-    const tripId = pendingFare.value.id
-    const recorded = await WorkService.recordFareForActiveTrip({ id: tripId, revenue: Number(fare.value) })
-    if (!recorded?.ok) return fail(recorded?.reason || 'Trip fare could not be saved.')
+    const details = {
+      id: pendingFare.value.id,
+      ...(fare.value === '' ? {} : { revenue: Number(fare.value) }),
+      toll: tripToll.value === '' ? 0 : Number(tripToll.value),
+      parking: tripParking.value === '' ? 0 : Number(tripParking.value)
+    }
+    const result = await store.updateTrip(details)
+    if (!result?.ok) return fail(result?.reason || 'Trip details could not be saved.')
 
-    const completedTrip = await WorkService.completeTrip({ id: tripId })
-    if (!completedTrip) return fail('Trip could not be completed after fare save.')
-
-    await store.refresh()
     fareTripId.value = null
     fare.value = ''
+    tripToll.value = ''
+    tripParking.value = ''
     await AndroidOverlay.fareSaved().catch(() => {})
     await KfeRideNotificationService.clearPendingAction().catch(() => {})
     await targetRefresh()
     await syncOverlay()
-    notify('Fare saved.')
+    notify('Trip details saved.')
   } finally {
     fareBusy.value = false
   }
+}
+
+function skipTripDetails() {
+  if (!pendingFare.value) return
+  fareTripId.value = null
+  fare.value = ''
+  tripToll.value = ''
+  tripParking.value = ''
+  void AndroidOverlay.fareSaved().catch(() => {})
+  void KfeRideNotificationService.clearPendingAction().catch(() => {})
+  void syncOverlay()
+  notify('Trip details skipped.')
 }
 
 async function openCancel() {
@@ -426,6 +446,7 @@ function seedReview() {
 
 function openEnd() {
   if (store.isTripActive) return fail('End the active Trip before going Offline.')
+  if (pendingFare.value) return fail('Save or skip the optional trip details first.')
   fuelOpen.value = false
   endOpen.value = true
   endStage.value = 'CLOSE'
@@ -456,21 +477,11 @@ function closeShift() {
 }
 
 function continueReconcile() {
-  if (missing.value.length) return fail('Enter revenue for every listed completed trip.')
-  if (preview.value?.reconciliationStatus === 'MISMATCH') {
-    endStage.value = 'MISMATCH'
-    return
-  }
-  endStage.value = 'REVIEW'
-}
-
-function checkMismatch() {
-  if (preview.value?.reconciliationStatus === 'MISMATCH') return fail(`Trip fares differ from shift revenue by ${money(Math.abs(preview.value.difference))}.`)
+  // Trip fares are optional supporting detail. Shift-end revenue remains authoritative.
   endStage.value = 'REVIEW'
 }
 
 function reviewDone() {
-  if (preview.value?.reconciliationStatus === 'MISMATCH') return fail(`Trip fares differ from shift revenue by ${money(Math.abs(preview.value.difference))}.`)
   endStage.value = 'CONFIRM'
 }
 
@@ -478,10 +489,11 @@ async function finishEnd() {
   if (endBusy.value || !endReady.value) return
   endBusy.value = true
   try {
+    if (reviewedDeadKm.value < -0.000001) return fail('Completed trip KM exceeds total shift KM. Correct the trip KM before ending the shift.')
     const trips = completed.value.map(t => ({
       id: t.id,
       operator: reviewOperator.value[t.id] ?? t.operator,
-      tripKm: reviewKm.value[t.id] ?? t.tripKm ?? '',
+      tripKm: reviewKm.value[t.id] === '' || reviewKm.value[t.id] == null ? (t.tripKm ?? '') : reviewKm.value[t.id],
       revenue: reviewRevenue.value[t.id] ?? t.revenue ?? ''
     }))
     const result = await store.endShift({
@@ -547,10 +559,6 @@ function keyAction() {
   if (!busy.value) void doAction()
 }
 
-function watchPendingFare() {
-  if (!fareTripId.value && pendingFare.value) fareTripId.value = pendingFare.value.id
-}
-
 const handleNativeAction = async event => {
   const stage = String(event?.stage || '')
   if (stage === 'GO_TO_PICKUP') return goPickup()
@@ -583,12 +591,6 @@ onMounted(async () => {
   await targetRefresh()
   operator.value = store.defaultOperator
 
-  const notificationState = KfeRideNotificationService.getState()
-  if (notificationState?.phase === 'ENTER_FARE' && notificationState?.tripId === store.trip?.id) {
-    fareTripId.value = store.trip.id
-  }
-  if (pendingFare.value) fareTripId.value = pendingFare.value.id
-
   clock.value = Date.now()
   timer = setInterval(() => { clock.value = Date.now() }, 1000)
 
@@ -607,7 +609,6 @@ onMounted(async () => {
   await syncOverlay()
 })
 
-watch(() => store.completedTrips.map(t => t.id + ':' + (t.revenue ?? '')).join('|'), watchPendingFare)
 watch(() => store.isOnline, () => { void syncOverlay() })
 watch(() => store.trip?.tripStage, () => { void syncOverlay() })
 watch(pendingFare, async value => {
@@ -651,7 +652,7 @@ onBeforeUnmount(() => {
     </section>
 
     <section v-if="endOpen" class="state-gate end-gate state-tone-warning">
-      <div class="gate-head"><div><span class="eyebrow">GOING OFFLINE</span><h2>{{ endStage==='CLOSE'?'Close shift':endStage==='RECONCILE'?'Reconciliation':endStage==='MISMATCH'?'Revenue exception':endStage==='REVIEW'?'Shift review':endStage==='CONFIRM'?'Ready to end':'Shift ended' }}</h2></div><button v-if="endStage==='CLOSE'" class="text-action" type="button" @click="cancelEnd">Back</button></div>
+      <div class="gate-head"><div><span class="eyebrow">GOING OFFLINE</span><h2>{{ endStage==='CLOSE'?'Close shift':endStage==='RECONCILE'?'Reconciliation':endStage==='REVIEW'?'Shift review':endStage==='CONFIRM'?'Ready to end':'Shift ended' }}</h2></div><button v-if="endStage==='CLOSE'" class="text-action" type="button" @click="cancelEnd">Back</button></div>
 
       <template v-if="endStage==='CLOSE'">
         <div class="fact-line"><span>Shift started</span><strong>{{ store.startOdometer }} km</strong></div>
@@ -661,27 +662,21 @@ onBeforeUnmount(() => {
       </template>
 
       <template v-else-if="endStage==='RECONCILE'">
-        <div v-if="missing.length" class="exception-panel"><span class="eyebrow">ACTION REQUIRED</span><h3>Missing trip revenue</h3><p>Complete the listed fares before continuing.</p><div v-for="trip in missing" :key="trip.id" class="reconcile-row"><div><strong>{{ trip.operator }}</strong><span>{{ Number(trip.tripKm||0).toFixed(1) }} km</span></div><div class="input-unit compact"><b>₹</b><input :value="reviewRevenue[trip.id]" type="number" inputmode="numeric" min="0" @input="reviewRevenue={...reviewRevenue,[trip.id]:$event.target.value}"></div></div></div>
+        <div v-if="missing.length" class="exception-panel"><span class="eyebrow">OPTIONAL DETAIL</span><h3>Trip fares not entered</h3><p>You can continue. End Shift revenue remains the authoritative total.</p><div v-for="trip in missing" :key="trip.id" class="reconcile-row"><div><strong>{{ trip.operator }}</strong><span>{{ Number(trip.tripKm||0).toFixed(1) }} km</span></div><div class="input-unit compact"><b>₹</b><input :value="reviewRevenue[trip.id]" type="number" inputmode="numeric" min="0" @input="reviewRevenue={...reviewRevenue,[trip.id]:$event.target.value}"></div></div></div>
         <div v-else class="success-panel"><strong>ALL REVENUE CAPTURED</strong><span>No missing trip revenue exceptions.</span></div>
         <div class="fact-grid"><div><span>Shift revenue</span><strong>{{ money(shiftRevenue) }}</strong></div><div><span>Trip revenue</span><strong>{{ money(preview?.tripRevenue) }}</strong></div></div>
         <button class="primary-action" @click="continueReconcile">CONTINUE</button>
       </template>
 
-      <template v-else-if="endStage==='MISMATCH'">
-        <div class="exception-panel"><span class="eyebrow">REVENUE EXCEPTION</span><h3>Shift total and trip fares differ</h3><p>Correct the entries before continuing.</p><div class="fact-grid"><div><span>Trip fares</span><strong>{{ money(preview?.tripRevenue) }}</strong></div><div><span>Difference</span><strong>{{ money(Math.abs(preview?.difference||0)) }}</strong></div></div></div>
-        <label>Correct total shift revenue<div class="input-unit"><b>₹</b><input v-model="shiftRevenue" type="number" inputmode="numeric" min="0"></div></label>
-        <button class="primary-action" @click="checkMismatch">CHECK AGAIN</button>
-      </template>
-
       <template v-else-if="endStage==='REVIEW'">
-        <div class="fact-grid review"><div><span>Trips</span><strong>{{ completed.length }}</strong></div><div><span>Total shift KM</span><strong>{{ shiftKm.toFixed(1) }}</strong></div><div><span>Trip KM</span><strong>{{ completed.reduce((s,t)=>s+Number(reviewKm[t.id]??t.tripKm??0),0).toFixed(1) }}</strong></div><div><span>Dead KM</span><strong>{{ Math.max(0,shiftKm-completed.reduce((s,t)=>s+Number(reviewKm[t.id]??t.tripKm??0),0)).toFixed(1) }}</strong></div><div><span>Revenue</span><strong>{{ money(shiftRevenue) }}</strong></div></div>
-        <div class="review-costs"><span class="eyebrow">BUSINESS COSTS</span><label>Business toll<div class="input-unit"><b>₹</b><input v-model="toll" type="number" inputmode="numeric" min="0"></div></label><label>Business parking<div class="input-unit"><b>₹</b><input v-model="parking" type="number" inputmode="numeric" min="0"></div></label><label class="check-row"><input v-model="tollTreatment" true-value="EXCLUDED" false-value="INCLUDED" type="checkbox"><span>Exclude toll & parking from trip fare</span></label></div>
+        <div class="fact-grid review"><div><span>Trips</span><strong>{{ completed.length }}</strong></div><div><span>Total shift KM</span><strong>{{ shiftKm.toFixed(1) }}</strong></div><div><span>Trip KM</span><strong>{{ reviewedTripKm.toFixed(1) }}</strong></div><div><span>Dead KM</span><strong>{{ reviewedDeadKm.toFixed(1) }}</strong></div><div><span>Revenue</span><strong>{{ money(shiftRevenue) }}</strong></div></div>
+        <div v-if="reviewedDeadKm < -0.000001" class="exception-panel"><strong>KM RECONCILIATION REQUIRED</strong><p>Trip KM exceeds total shift KM by {{ Math.abs(reviewedDeadKm).toFixed(1) }} km. Correct the trip entries before ending the shift.</p></div><div class="review-costs"><span class="eyebrow">FARE TREATMENT</span><label class="check-row"><input v-model="tollTreatment" true-value="EXCLUDED" false-value="INCLUDED" type="checkbox"><span>Toll & parking were paid separately (exclude from customer-paid total)</span></label></div>
         <button class="primary-action" @click="reviewDone">REVIEW COMPLETE</button>
       </template>
 
       <template v-else-if="endStage==='CONFIRM'">
         <div class="completion-panel"><span class="eyebrow">SHIFT REVIEW</span><strong>READY TO END</strong><p>{{ completed.length }} completed trips · {{ shiftKm.toFixed(1) }} km · {{ money(shiftRevenue) }} revenue.</p></div>
-        <div class="fact-grid two"><div><span>Business toll</span><strong>{{ money(toll||0) }}</strong></div><div><span>Business parking</span><strong>{{ money(parking||0) }}</strong></div></div>
+        
         <button class="primary-action" :disabled="endBusy" @click="finishEnd">{{ endBusy ? 'ENDING SHIFT…' : 'OK — END SHIFT' }}</button>
       </template>
 
@@ -707,7 +702,7 @@ onBeforeUnmount(() => {
         <label class="operator-compact"><span>Operator</span><select v-model="operator"><option v-for="item in store.operators" :key="item">{{ item }}</option></select></label>
       </section>
 
-      <section v-else-if="cockpit.state===WORK_COCKPIT_STATES.READY_FOR_TRIP" class="operational-state state-tone-info">
+      <section v-else-if="cockpit.state===WORK_COCKPIT_STATES.READY_FOR_TRIP || cockpit.state===WORK_COCKPIT_STATES.GOING_TO_PICKUP" class="operational-state state-tone-info">
         <span class="eyebrow">GOING TO PICKUP</span><strong>{{ store.trip?.operator || 'TRIP' }}</strong><p>Pickup movement is active. GPS remains background telemetry.</p><button class="secondary-action cancel-trip-tab" type="button" @click="openCancel">CANCEL TRIP</button>
       </section>
 
@@ -726,10 +721,13 @@ onBeforeUnmount(() => {
     </template>
 
     <section v-if="pendingFare && !endOpen" class="focus-surface state-tone-warning">
-      <div class="focus-head"><div><span class="eyebrow">ENTER FARE</span><strong>TRIP COMPLETED</strong></div></div>
+      <div class="gate-head"><div><span class="eyebrow">OPTIONAL DETAILS</span><strong>TRIP COMPLETED</strong></div><button class="text-action" type="button" @click="skipTripDetails">Skip</button></div>
       <div class="fact-grid two"><div><span>Operator</span><strong>{{ pendingFare.operator }}</strong></div><div><span>Trip KM</span><strong>{{ Number(pendingFare.tripKm||0).toFixed(1) }} km</strong></div></div>
-      <label>Trip fare<div class="input-unit"><b>₹</b><input ref="fareInput" v-model="fare" type="number" inputmode="numeric" enterkeyhint="done" min="0" autocomplete="off"></div></label>
-      <button class="primary-action" :disabled="fareBusy" @click="saveFare">{{ fareBusy ? 'SAVING…' : 'OK — SAVE FARE' }}</button>
+      <label>Trip fare <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input ref="fareInput" v-model="fare" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off"></div></label>
+      <label>Toll <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input v-model="tripToll" type="number" inputmode="numeric" enterkeyhint="next" min="0"></div></label>
+      <label>Parking <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input v-model="tripParking" type="number" inputmode="numeric" enterkeyhint="done" min="0"></div></label>
+      <button class="primary-action" :disabled="fareBusy" @click="saveFare">{{ fareBusy ? 'SAVING…' : 'SAVE DETAILS & CONTINUE' }}</button>
+      <button class="secondary-action" type="button" @click="skipTripDetails">SKIP DETAILS</button>
     </section>
 
     <section v-if="cancelOpen" class="focus-surface state-tone-warning">

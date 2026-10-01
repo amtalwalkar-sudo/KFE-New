@@ -17,8 +17,8 @@ export const normalizeShiftInput = input => {
 
 export const normalizeTripInput = input => {
   const value = { ...input }
-  const aliases = { tripStartAt: ['trip_start_at', 'startAt', 'start_at'], tripEndAt: ['trip_end_at', 'endAt', 'end_at'], tripKm: ['trip_km', 'distanceKm', 'distance_km'], revenue: ['fare', 'amount', 'totalFare', 'total_fare'] }
-  for (const [canonical, candidates] of Object.entries(aliases)) { const source = first(input[canonical], ...candidates.map(key => input[key])); if (source !== undefined && source !== null && source !== '') value[canonical] = ['tripKm', 'revenue'].includes(canonical) ? number(source, canonical) : source; for (const alias of candidates) delete value[alias] }
+  const aliases = { tripStartAt: ['trip_start_at', 'startAt', 'start_at'], tripEndAt: ['trip_end_at', 'endAt', 'end_at'], tripKm: ['trip_km', 'distanceKm', 'distance_km'], revenue: ['fare', 'amount', 'totalFare', 'total_fare'], toll: ['tollCost', 'toll_cost'], parking: ['parkingCost', 'parking_cost'] }
+  for (const [canonical, candidates] of Object.entries(aliases)) { const source = first(input[canonical], ...candidates.map(key => input[key])); if (source !== undefined && source !== null && source !== '') value[canonical] = ['tripKm', 'revenue', 'toll', 'parking'].includes(canonical) ? number(source, canonical) : source; for (const alias of candidates) delete value[alias] }
   if (input.tripKmProvenance !== undefined) value.tripKmProvenance = input.tripKmProvenance
   if (input.revenueProvenance !== undefined) value.revenueProvenance = input.revenueProvenance
   if (input.cancelReason !== undefined) value.cancelReason = String(input.cancelReason)

@@ -26,7 +26,7 @@ presentation consumers
 
 ## Required authority boundaries
 
-- Completed Trip revenue is the revenue authority.
+- Completed Shift end revenue (`shifts.revenue`) is the authoritative customer-paid total; Trip fare is optional supporting detail only.
 - Shift start/end odometer is the vehicle-KM authority.
 - Completed validated Trip KM is the business-KM authority.
 - Dead KM is derived as vehicle KM minus business KM.
@@ -52,7 +52,7 @@ presentation consumers
 - Units and periods must be compatible before arithmetic.
 - Missing/unsupported authoritative inputs remain unavailable; they are not silently invented.
 - Negative dead KM is an integrity exception.
-- Actual operating profit is revenue minus actual operating cost and does not subtract planning provisions.
+- Operating profit is financial revenue minus actual operating cost; included toll/parking are removed from financial revenue and not deducted again as operating cost. Planning provisions remain separate from operating profit.
 - Available Cash subtracts actual financing outflow, not merely scheduled unpaid obligation.
 - Maintenance provision remains separate from actual maintenance.
 - Full-tank fuel efficiency/cost observations use the existing fuel calculation authority.

@@ -57,7 +57,7 @@ export const WorkService = Object.freeze({
   async startTrip(data) {
     const validation = validateTripOperator(data?.operator)
     if (!validation.valid) return { ok: false, reason: validation.reason }
-    const result = await ShiftTripRepository.createTrip({ ...data, operator: validation.operator, tripStage: data?.tripStage || 'PICKUP' }); checkpoint()
+    const result = await ShiftTripRepository.createTrip({ ...data, operator: validation.operator, tripStage: data?.tripStage || 'GOING_TO_PICKUP' }); checkpoint()
     // GPS is telemetry/enrichment. Never block the authoritative trip transition on it.
     void captureLifecycleLocation({ entityType: 'TRIP', entityId: result.id, eventType: 'START' }).then(location => {
       if (location) return ShiftTripRepository.setTripStartLocation(result.id, location)
@@ -66,25 +66,6 @@ export const WorkService = Object.freeze({
     return result
   },
   async startRide(data) { const result = await ShiftTripRepository.setTripStage(data?.id, 'RIDE_STARTED'); checkpoint(); void NativeGpsService.start(data?.id).catch(() => {}); return result },
-  async recordFareForActiveTrip(data) {
-    const validation = validateTripCorrection({ revenue: data?.revenue })
-    if (!validation.valid) return { ok: false, reason: validation.reason }
-    try {
-      const result = await ShiftTripRepository.recordFareForActiveTrip({ id: data?.id, revenue: validation.revenue })
-      checkpoint()
-      return { ok: true, record: result }
-    } catch (error) {
-      return { ok: false, reason: error?.message || 'Trip fare could not be saved.' }
-    }
-  },
-  async prepareTripFare(tripId) {
-    if (!tripId) return { ok: false, reason: 'Trip is required.' }
-    try {
-      await NativeGpsService.syncTrace(tripId)
-      await NativeGpsService.stop(tripId)
-    } catch (_) {}
-    return { ok: true }
-  },
   async completeTrip(data) {
     // Persist the terminal trip state first. GPS/native trace enrichment is deliberately
     // detached so END TRIP can hand control to the mandatory fare form immediately.

@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { canTransitionTrip, TRIP_STATES, transitionTrip } from '../domain/work/tripLifecycle.js'
+import { canTransitionTrip, canTransitionTripStage, TRIP_STATES, transitionTrip, transitionTripStage } from '../domain/work/tripLifecycle.js'
 
 const assert = (condition, message) => { if (!condition) throw new Error(message) }
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -27,6 +27,9 @@ assert(cancelled.id === active.id, 'Cancellation must retain the canonical Trip 
 assert(cancelled.cancelledRevenue === 0 && cancelled.revenue === 0, 'Cancellation default revenue must be ₹0')
 
 assert(canTransitionTrip(TRIP_STATES.ACTIVE, TRIP_STATES.COMPLETED), 'ACTIVE → COMPLETED transition missing')
+assert(canTransitionTripStage('PICKUP', 'RIDE_STARTED'), 'PICKUP → RIDE_STARTED transition missing')
+assert(!canTransitionTripStage('RIDE_STARTED', 'GOING_TO_PICKUP'), 'RIDE_STARTED must not transition back to pickup')
+assert.throws(() => transitionTripStage({ ...active, tripStage: 'RIDE_STARTED' }, 'GOING_TO_PICKUP', { at: '2026-10-01T08:00:00+05:30' }))
 assert(canTransitionTrip(TRIP_STATES.ACTIVE, TRIP_STATES.CANCELLED), 'ACTIVE → CANCELLED transition missing')
 assert(canTransitionTrip(TRIP_STATES.COMPLETED, TRIP_STATES.COMPLETED), 'Completed replay must be idempotent')
 assert(canTransitionTrip(TRIP_STATES.CANCELLED, TRIP_STATES.CANCELLED), 'Cancelled replay must be idempotent')
@@ -38,7 +41,9 @@ assert(repository.includes('transitionTrip(record, status, data)'), 'Trip comple
 assert(workService.includes('ShiftTripRepository.completeTrip'), 'Main app completion must use canonical Trip repository')
 assert(workService.includes('ShiftTripRepository.cancelTrip'), 'Main app cancellation must use canonical Trip repository')
 assert(repository.includes('async setTripStage'), 'Canonical repository must persist pickup/ride stage')
-assert(repository.includes("tripStage: normalized.tripStage || 'PICKUP'"), 'Repository must retain explicit persisted pickup stage authority')
+assert(repository.includes('transitionTripStage(trip, stage, { at: now })'), 'Repository must enforce the canonical trip-stage transition')
+assert(!repository.includes('trip.tripStage = String(stage)'), 'Repository must not persist arbitrary trip-stage values')
+assert(repository.includes("tripStage: normalized.tripStage || 'GOING_TO_PICKUP'"), 'Repository must retain explicit persisted pickup stage authority')
 
 assert(workService.includes('async startRide'), 'Work service must expose canonical START_RIDE stage transition')
 assert(workView.includes('GO TO PICKUP') && workView.includes('START TRIP') && workView.includes('END TRIP'), 'Work cockpit must expose the three frozen swipe states')

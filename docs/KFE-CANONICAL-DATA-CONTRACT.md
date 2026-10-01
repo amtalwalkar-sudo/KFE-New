@@ -69,7 +69,9 @@ A Shift cannot be administratively deleted through the normal Admin repository. 
 
 Ride-level operational detail linked to a Shift through `shiftId`. Completed `tripKm` is the authoritative business-KM input.
 
-`Trip.revenue` is **optional supporting/detail data only**. It must never override or replace shift-end revenue in ERP revenue calculations. Its provenance may be retained for audit and ride-level display.
+`Trip.revenue` is **optional supporting/detail data only**. It must never override or replace shift-end revenue in ERP revenue calculations. Missing trip fare detail never blocks the next pickup or shift closure. Its provenance may be retained for audit and ride-level display.
+
+`Trip.toll` and `Trip.parking` are optional trip-associated actual expense details captured after a completed trip. They retain the Trip identity and completion timestamp for reconciliation and monthly expense-ledger display. Legacy `Shift.toll` and `Shift.parking` values remain readable for historical records; current Work capture must not duplicate the same expense in both places.
 
 Ride cancellation is an operational status/outcome, not deletion. Trip history is retained.
 
@@ -120,7 +122,8 @@ Canonical writes that support mutation/audit coupling write the canonical record
 | Concept | Authority | Derived result |
 |---|---|---|
 | Shift revenue | completed Shift `revenue` | reporting-period revenue |
-| Trip revenue | supporting-only `Trip.revenue` | ride detail/display only |
+| Trip revenue | supporting-only `Trip.revenue` | ride detail/display only; never blocks shift closure |
+| Trip toll/parking | `Trip.toll` / `Trip.parking` plus legacy shift-level values | actual expense ledger and BR-11 treatment |
 | Vehicle KM | Shift start/end odometer | `vehicleKm` |
 | Business KM | completed Trip `tripKm` | `businessKm` |
 | Dead KM | vehicle KM − business KM | `deadKm` |

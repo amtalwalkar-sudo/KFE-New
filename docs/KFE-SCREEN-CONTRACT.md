@@ -21,21 +21,18 @@ Every production screen must prove the following before it is considered complet
 
 ## Current product areas
 
-KFE currently has exactly three active product areas:
+KFE currently has four active production surfaces:
 
-1. **Work** — operational work, sessions, trips, ride capture and related workflows.
-2. **Performance** — current business position, running cost and driver-facing operating interpretation.
-3. **Admin** — back-office command center for Vehicle, Driver, Finance, Renewals, Maintenance, Loans and Settings.
+1. **Work** — operational shifts, trips, ride capture and driver workflows.
+2. **Timeline** — chronological day/week/month and personal-use reporting from canonical records.
+3. **Performance** — current business position, financial calculations and driver-facing operating interpretation.
+4. **Admin** — back-office command center for Vehicle, Driver, Finance, Renewals, Maintenance, Loans and Settings.
 
-There is no Timeline product area in KFE.
+Timeline is a read/reporting surface, not a separate business-data authority.
 
 ## Current presentation state
 
-Performance and Admin are current production presentation surfaces.
-
-Work is an active product area and its domain/application capabilities remain authoritative. The previous Work UI is not a current presentation contract and must not be resurrected from historical implementation. A new Work presentation must be built from the current Work contracts and Master Blueprint when implementation begins.
-
-This distinction means **Work is active**, while its old UI is not authoritative.
+Work, Timeline, Performance and Admin are current production presentation surfaces. Work's active UI must be audited against the authoritative business-rule register, current Work domain/application contracts, and recovery/state-persistence requirements. Historical Work implementations are reference evidence only and must not introduce parallel state or business logic.
 
 ## Presentation boundary
 

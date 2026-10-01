@@ -23,7 +23,9 @@ Reverse chain: UI metric → service field → calculation owner → authoritati
 | Maintenance provision | vehicle KM × effective maintenance rate | performance engine | `maintenanceProvision` |
 | Compliance provision | validity-day allocation of compliance cost | performance engine | `renewalProvision` |
 | Indicative Profit | authoritative revenue − period provisions | finance adapter | `indicativeProfit` |
-| Actual Profit | authoritative revenue − actual operating expenses | finance adapter | `actualProfit` |
+| Operating Profit | financial revenue − actual operating expenses (after BR-11 toll/parking treatment) | performance engine | `operatingProfit` / `actualProfit` |
+| Performance Actual P/L | Operating Profit − full scheduled EMI for selected period | finance adapter | `performanceHeadlineActualProfit` |
+| Performance Provisional P/L | Performance Actual P/L − maintenance provision − compliance provision − pre-business loan recovery − historical maintenance recovery | finance adapter | `performanceHeadlineProvisionalProfit` |
 | Recovery | prior finalized recovery + current indicative result | driver-target domain | recovery fields |
 | Financial facts | authoritative metrics mapped to explicit facts | financial fact model | `financialFacts` |
 
@@ -34,7 +36,7 @@ Reverse chain: UI metric → service field → calculation owner → authoritati
 4. Daily break-even allocates authoritative monthly break-even; it is not a second cost-build formula.
 5. Driver Target remains separate from actual revenue and actual profit.
 6. Trip fare is supporting detail; completed shift end revenue is the ERP revenue authority.
-7. Actual Profit uses actual operating expenses; Indicative Profit uses period provisions.
+7. Operating Profit uses financial revenue and actual operating expenses; the separate Performance Actual P/L includes the full scheduled EMI, and Provisional P/L additionally subtracts the applicable provisions/recovery.
 8. Provision balances and settlements remain distinct.
 9. Forecast exposes calculated and effective values separately for future override readiness.
 10. Open-period calculations respect the selected as-of boundary.

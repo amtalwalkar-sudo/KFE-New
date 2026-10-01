@@ -74,9 +74,9 @@ Actual maintenance remains separate from maintenance provision.
 
 `operatingProfit = revenue - operatingCost`
 
-This is an actual-performance result.
+This is the actual operating-performance result before scheduled financing and planning provisions.
 
-Provisions are not deducted here.
+Provisions are not deducted here. Performance's separate frozen headline Actual P/L may subtract the full scheduled EMI for the selected period; that management view must remain explicitly distinguished from Operating Profit and Available Cash.
 
 ## 6. Financing and Available Cash
 

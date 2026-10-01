@@ -8,7 +8,6 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
   const trip = ref(null)
   const registeredTrips = ref([])
   const completedTrips = ref([])
-  const pendingFareTrip = computed(() => completedTrips.value.find(item => item.status === 'COMPLETED' && (item.revenue === null || item.revenue === undefined || item.revenue === '')) || null)
   const lifecycleLocations = ref([])
   const tripLocations = ref([])
   const lastKnownOdometer = ref(null)
@@ -88,7 +87,7 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     if (!isShiftActive.value) return { ok: false, reason: 'Go Online before starting a Trip.' }
     if (isTripActive.value) return { ok: false, reason: 'A Trip is already active.' }
     const selected = operators.includes(operator) ? operator : defaultOperator.value
-    const result = await WorkService.startTrip({ shiftId: shift.value.id, operator: selected, tripStage: 'PICKUP' })
+    const result = await WorkService.startTrip({ shiftId: shift.value.id, operator: selected, tripStage: 'GOING_TO_PICKUP' })
     if (result?.ok === false) return result
     const record = result
     trip.value = record
@@ -113,8 +112,10 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
   const endTrip = async () => {
     if (!isTripActive.value) return false
     const tripId = trip.value.id
-    void WorkService.prepareTripFare(tripId)
+    const result = await WorkService.completeTrip({ id: tripId })
+    if (result?.ok === false || result === false) return false
     MovementTraceService.reset()
+    await refresh()
     return true
   }
 
@@ -139,7 +140,6 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
 
   const endShift = async data => {
     if (!isShiftActive.value) return { ok: false, reason: 'No active Shift.' }
-    if (pendingFareTrip.value) return { ok: false, reason: 'Enter the fare for the completed Trip before going Offline.' }
     if (isTripActive.value) return { ok: false, reason: 'Cannot go Offline while a Trip is active. End the active Trip first.' }
     const shiftId = shift.value.id
     const result = await WorkService.endShift({ shiftId, ...data })
@@ -149,5 +149,5 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     return result
   }
 
-  return { shift, trip, registeredTrips, completedTrips, pendingFareTrip, lifecycleLocations, tripLocations, operators, defaultOperator, lastKnownOdometer, businessStartBaseline, firstKfeDay, startOdometer, isShiftActive, isTripActive, isOnline, isFinancialDayActive, headerShiftStatus, headerTripStatus, initialize, refresh, calculateGap, startShift, beginPickup, startRide, startTrip, endTrip, cancelTrip, updateTrip, endShift }
+  return { shift, trip, registeredTrips, completedTrips, lifecycleLocations, tripLocations, operators, defaultOperator, lastKnownOdometer, businessStartBaseline, firstKfeDay, startOdometer, isShiftActive, isTripActive, isOnline, isFinancialDayActive, headerShiftStatus, headerTripStatus, initialize, refresh, calculateGap, startShift, beginPickup, startRide, startTrip, endTrip, cancelTrip, updateTrip, endShift }
 })

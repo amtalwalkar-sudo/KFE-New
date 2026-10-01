@@ -11,6 +11,7 @@ const service = read('../application/performance/performanceService.js')
 const target = read('../domain/performance/driverTargetStabilization.js')
 const facts = read('../domain/finance/financialFactModel.js')
 const forecast = read('../domain/performance/operatingKmForecast.js')
+const performanceView = read('../views/PerformanceView.vue')
 
 assert.doesNotMatch(engine, /deriveAuthoritativeBreakEven|deriveLoanPosition|calculateEmi|scheduleWithPrepayments/)
 assert.match(adapter, /deriveAuthoritativeBreakEven/)
@@ -23,6 +24,9 @@ assert.match(target, /AUTHORITATIVE_MONTHLY_BREAK_EVEN_PLUS_DESIRED_DRIVER_PROFI
 assert.match(facts, /SHIFT_END_REVENUE/)
 assert.match(forecast, /calculatedForecast/)
 assert.match(forecast, /effectiveForecast/)
+assert.match(performanceView, /Actual P\/L = Financial Revenue − Actual Operating Expenses − Scheduled EMI/)
+assert.match(performanceView, /Provisional P\/L = Actual P\/L − Maintenance Provision − Compliance Provision − Pre-business Loan Recovery − Historical Maintenance Recovery/)
+assert.doesNotMatch(performanceView, /Provisional Profit \/ Loss = Authoritative Revenue/)
 
 const snapshot = buildSyntheticSnapshot(1826, { fullTimeline: true })
 const range = { from: istDayRange('2026-05-01T00:00:00+05:30').from, to: istDayRange('2031-04-30T00:00:00+05:30').to }
@@ -37,6 +41,8 @@ assert.ok(Math.abs(metrics.operatingKmForecast.calculatedForecast.dailyKm - 212.
 assert.ok(Math.abs(metrics.driverTargetOperatingKmMultiplier - 1.0610584255303882) < 1e-12)
 
 assert.ok(Math.abs(metrics.actualProfit - (metrics.financialRevenue - metrics.actualOperatingCost)) < 1e-9)
+assert.ok(Math.abs(metrics.performanceHeadlineActualProfit - (metrics.financialRevenue - metrics.actualOperatingCost - metrics.performanceHeadlineScheduledEmi)) < 1e-9)
+assert.ok(Math.abs(metrics.performanceHeadlineProvisionalProfit - (metrics.performanceHeadlineActualProfit - metrics.maintenanceProvision - metrics.renewalProvision - metrics.preBusinessRecoveryForPeriod - metrics.historicalMaintenanceRecoveryForPeriod)) < 1e-9)
 assert.ok(Math.abs(metrics.indicativeProfit - (metrics.revenue - metrics.totalIndicativeProvision)) < 1e-9)
 assert.ok(Math.abs(metrics.totalIndicativeProvision - (metrics.loanProvisionForPeriod + metrics.maintenanceProvision + metrics.renewalProvision)) < 1e-9)
 assert.equal(metrics.authority.actualProfit, 'AUTHORITATIVE_REVENUE_MINUS_ACTUAL_OPERATING_EXPENSES')

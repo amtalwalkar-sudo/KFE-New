@@ -6,13 +6,14 @@ This document defines the KFE 2.0 presentation-layer boundary so active UI surfa
 
 ## Current product areas
 
-KFE currently has exactly three active product areas:
+KFE currently exposes four active product areas/surfaces:
 
-- **Work** — operational work, sessions, trips, ride capture and related real-world data collection/workflows.
+- **Work** — operational work, shifts, trips, ride capture and real-world data collection/workflows.
+- **Timeline** — chronological, day/week/month and personal-use reporting over authoritative Work and ERP records; read-only for source authority, with corrections routed through canonical application services.
 - **Performance** — business position, operating interpretation and performance reporting.
 - **Admin** — configuration and back-office management.
 
-There is no Timeline product area in the current KFE scope.
+Timeline is a reporting surface, not an independent business-data or calculation authority.
 
 ## Frozen below Presentation
 
@@ -127,9 +128,9 @@ This is a presentation reset, not retirement of Work.
 
 Performance and Admin remain active production presentation surfaces. Their calculations, data loading, actions, and application boundaries remain intact. Presentation cleanup may change only their layout, styling, responsiveness, and navigation presentation unless a real contract defect is demonstrated.
 
-## Scope exclusion
+## Timeline boundary
 
-KFE has no Timeline product area, screen, module, navigation entry, or presentation contract. Historical references to Timeline are source material only and must not be recreated as architecture or functionality.
+Timeline is an active production route and reporting surface. It consumes authoritative Work/ERP records through application services, must preserve IST period boundaries, and must never create a competing revenue/cost authority. Corrections use the canonical application/repository path and retain audit history.
 
 ## Test rule
 

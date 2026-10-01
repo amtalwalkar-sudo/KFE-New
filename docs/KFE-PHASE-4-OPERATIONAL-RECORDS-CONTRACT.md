@@ -1,7 +1,7 @@
 # KFE Phase 4 — Operational Records Contract
 
 **Phase:** 4 — Operational Records  
-**Status:** Working contract — freeze pending focused and full CI verification  
+**Status:** Supporting implementation contract — subordinate to `KFE_BUSINESS_RULES_REGISTER.md` and `docs/KFE-CANONICAL-DATA-CONTRACT.md`  
 **Calendar timezone:** `Asia/Kolkata` (IST)
 
 ## 1. Purpose
@@ -11,11 +11,13 @@ Phase 4 makes the canonical operational records usable as one reconstructable wo
 ```text
 Shift / odometer boundary
         +
-Canonical Trips / revenue + business KM
+Shift end revenue / authoritative customer-paid total
+        +
+Canonical Trips / optional fare detail + business KM + trip toll/parking
         +
 Fuel logs / fuel cost + quantity
         +
-Shift toll / parking
+Legacy shift-level toll / parking
         ↓
 Operational reconstruction
 ```
@@ -28,7 +30,7 @@ Phase 4 covers:
 - trip records already established by Phase 3;
 - refuelling records and full-tank state;
 - operational cost inputs represented by their canonical component stores;
-- revenue represented by authoritative Trip revenue;
+- revenue represented by authoritative completed Shift end revenue; Trip fare remains optional supporting detail;
 - reconstruction of one working shift/day from canonical records.
 
 Maintenance, compliance/renewal, financing, and other component costs remain their existing domain-specific canonical records. Phase 4 must not introduce a generic Expense authority merely to aggregate them.
@@ -36,10 +38,10 @@ Maintenance, compliance/renewal, financing, and other component costs remain the
 ## 3. Authority boundaries
 
 - `Shift.startOdometer` and `Shift.endOdometer` remain authoritative for vehicle KM.
-- Completed eligible `Trip.revenue` remains the authoritative revenue input.
+- `Shift.revenue` remains the authoritative customer-paid total; `Trip.revenue` is optional supporting detail and never gates shift closure.
 - Completed eligible `Trip.tripKm` remains the authoritative business-KM input.
 - Fuel logs remain authoritative fuel cost/quantity inputs.
-- Shift toll/parking fields remain the canonical shift-level toll/parking inputs.
+- Current Work captures toll/parking on the Trip where incurred; legacy shift-level toll/parking remain readable for historical records. BR-11 governs included/excluded treatment and prevents double counting.
 - Dead KM is derived only as vehicle KM minus business KM; Phase 4 does not create a second calculation authority.
 - Aggregates returned by operational reconstruction are read/service representations, not persisted authorities.
 
@@ -59,13 +61,13 @@ Given a `shiftId`, the operational reconstruction service must be able to return
 
 - the canonical Shift;
 - all Trips belonging to that Shift in chronological order;
-- completed-trip revenue total from Trip records;
+- optional completed-trip fare detail for reconciliation/display, without treating it as authoritative revenue;
 - completed-trip business KM total from Trip records;
 - vehicle KM when the Shift has a valid end odometer;
 - derived dead KM when vehicle KM is available;
 - relevant fuel records within the Shift's odometer boundary;
 - fuel cost/quantity representation from those fuel records;
-- canonical shift toll and parking inputs;
+- per-trip toll/parking expense detail plus any legacy shift-level amounts;
 - explicit indication when an operational value is unavailable rather than fabricating it.
 
 These returned totals are reconstruction outputs only. They do not become persisted aggregate authorities.

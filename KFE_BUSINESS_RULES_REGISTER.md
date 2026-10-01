@@ -49,7 +49,7 @@ A concept may have multiple technical layers (domain, application, persistence, 
 
 Important: a repository is not a second business authority merely because it persists data. A domain/application calculation is not a second authority merely because it produces a read-model representation. The authority is the canonical business path identified above.
 
-Known Phase-1 validation items remain explicitly tracked: setTripStage() currently writes arbitrary stage values instead of enforcing tripLifecycle.js, and the Android END→fare pending-action path requires interruption/replay verification. These are audit findings, not alternate authorities, and must be handled through the Phase 1→3 defect process rather than silently changing Phase 0 scope.
+Audit status: `setTripStage()` was confirmed to accept arbitrary values and has been corrected to use the domain-owned `transitionTripStage()` guard. The Android END→fare pending-action path still requires interruption/replay verification on a real device. This register remains the business-rule authority; tests and implementation changes are evidence only.
 
 ### 3. Roadmap authority — exactly one
 

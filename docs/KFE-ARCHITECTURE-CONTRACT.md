@@ -295,7 +295,7 @@ A calculation regression must be caught by deterministic calculation vectors rat
 
 Only these three documents are authoritative for this context:
 
-1. `docs/KFE-BUSINESS-RULES.md` — what KFE means.
+1. `KFE_BUSINESS_RULES_REGISTER.md` — what KFE means; sole business-rule authority.
 2. `docs/KFE-CALCULATION-SPECIFICATION.md` — how KFE calculates.
 3. `docs/KFE-ARCHITECTURE-CONTRACT.md` — where/how KFE owns and implements it.
 
