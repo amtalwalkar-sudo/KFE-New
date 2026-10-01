@@ -92,10 +92,15 @@ public class KfeNativeGpsService extends Service {
 
   private void startTracking(String id, String requestedEventType) {
     if (id == null || id.isEmpty()) return;
-    if (id.equals(tripId) && callback != null) return;
+    String requestedType = "DEAD_MOVEMENT_TRACE".equals(requestedEventType) ? "DEAD_MOVEMENT_TRACE" : "PASSENGER_RIDE_TRACE";
+    if (id.equals(tripId) && callback != null && requestedType.equals(eventType)) return;
+    // A trip starts with pickup/dead-movement telemetry and must switch to
+    // passenger-ride telemetry when Start Trip is pressed. Restart the callback
+    // for the same trip when its event type changes; otherwise all ride points
+    // would remain mislabeled as dead movement and be excluded from trip distance.
     releaseLocationUpdates();
     tripId = id;
-    eventType = "DEAD_MOVEMENT_TRACE".equals(requestedEventType) ? "DEAD_MOVEMENT_TRACE" : "PASSENGER_RIDE_TRACE";
+    eventType = requestedType;
     traceFile = new File(getFilesDir(), "kfe_gps_trace_" + safeName(id) + ".jsonl");
     loadSeenKeys();
     getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(ACTIVE_TRIP, id).putString(ACTIVE_EVENT, eventType).apply();
