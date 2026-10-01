@@ -202,6 +202,7 @@ async function syncOverlay() {
   })
 
   await AndroidOverlay.update({
+    theme: document.documentElement.getAttribute('data-kfe-theme') === 'night' ? 'dark' : 'light',
     shift: store.shift ? { id: store.shift.id } : null,
     trip: store.trip ? {
       id: store.trip.id,
