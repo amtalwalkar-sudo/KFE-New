@@ -36,19 +36,22 @@ public class KfeNativeGpsService extends Service {
   public static final String EXTRA_TRIP_ID = "tripId";
   private static final String PREFS = "kfe_native_gps";
   private static final String ACTIVE_TRIP = "activeTripId";
+  private static final String ACTIVE_EVENT = "activeEventType";
   private static final String CHANNEL_ID = "kfe_native_gps";
   private static final int NOTIFICATION_ID = 7110;
 
   private FusedLocationProviderClient fused;
   private LocationCallback callback;
   private String tripId;
+  private String eventType = "PASSENGER_RIDE_TRACE";
   private File traceFile;
   private final Set<String> seenKeys = new HashSet<>();
 
-  public static void start(Context context, String tripId) {
+  public static void start(Context context, String tripId, String eventType) {
     Intent intent = new Intent(context, KfeNativeGpsService.class);
     intent.setAction(ACTION_START);
     intent.putExtra(EXTRA_TRIP_ID, tripId);
+    intent.putExtra("eventType", eventType == null ? "PASSENGER_RIDE_TRACE" : eventType);
     androidx.core.content.ContextCompat.startForegroundService(context, intent);
   }
 
@@ -76,23 +79,26 @@ public class KfeNativeGpsService extends Service {
     }
     if (ACTION_START.equals(action)) {
       String requested = intent.getStringExtra(EXTRA_TRIP_ID);
-      if (requested != null && !requested.isEmpty()) startTracking(requested);
+      String requestedEvent = intent.getStringExtra("eventType");
+      if (requested != null && !requested.isEmpty()) startTracking(requested, requestedEvent);
       return START_STICKY;
     }
 
     String persisted = getSharedPreferences(PREFS, MODE_PRIVATE).getString(ACTIVE_TRIP, "");
-    if (persisted != null && !persisted.isEmpty()) startTracking(persisted);
+    String persistedEvent = getSharedPreferences(PREFS, MODE_PRIVATE).getString(ACTIVE_EVENT, "PASSENGER_RIDE_TRACE");
+    if (persisted != null && !persisted.isEmpty()) startTracking(persisted, persistedEvent);
     return START_STICKY;
   }
 
-  private void startTracking(String id) {
+  private void startTracking(String id, String requestedEventType) {
     if (id == null || id.isEmpty()) return;
     if (id.equals(tripId) && callback != null) return;
     releaseLocationUpdates();
     tripId = id;
+    eventType = "DEAD_MOVEMENT_TRACE".equals(requestedEventType) ? "DEAD_MOVEMENT_TRACE" : "PASSENGER_RIDE_TRACE";
     traceFile = new File(getFilesDir(), "kfe_gps_trace_" + safeName(id) + ".jsonl");
     loadSeenKeys();
-    getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(ACTIVE_TRIP, id).apply();
+    getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(ACTIVE_TRIP, id).putString(ACTIVE_EVENT, eventType).apply();
 
     if (androidx.core.app.ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED
         && androidx.core.app.ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -134,6 +140,7 @@ public class KfeNativeGpsService extends Service {
       point.put("capturedAt", new java.util.Date(timestamp).toInstant().toString());
       point.put("capturedAtEpoch", timestamp);
       point.put("source", "ANDROID_NATIVE_FGS");
+      point.put("eventType", eventType);
 
       try (FileWriter writer = new FileWriter(traceFile, true)) {
         writer.write(point.toString());
@@ -169,9 +176,10 @@ public class KfeNativeGpsService extends Service {
   private void stopTracking() {
     releaseLocationUpdates();
     tripId = null;
+    eventType = "PASSENGER_RIDE_TRACE";
     traceFile = null;
     seenKeys.clear();
-    getSharedPreferences(PREFS, MODE_PRIVATE).edit().remove(ACTIVE_TRIP).apply();
+    getSharedPreferences(PREFS, MODE_PRIVATE).edit().remove(ACTIVE_TRIP).remove(ACTIVE_EVENT).apply();
   }
 
   public static String readTrace(Context context, String tripId) {
