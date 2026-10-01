@@ -60,6 +60,9 @@ These are pre-audit leads retained for later validation.
 | BRD-CAND-009 | Overlay revenue authority | Native overlay payload summed optional trip fares rather than reading authoritative shift revenue | FIXED — overlay payload now mirrors `store.shift.revenue`; awaiting CI re-run |
 | BRD-CAND-010 | Overlay theme | Work payload omitted theme, causing native overlay to default to light palette regardless of app theme | FIXED — payload now maps global day/night theme to native light/dark; awaiting CI re-run |
 | BRD-CAND-011 | Cancellation revenue | Blank cancellation fare persisted as null instead of ₹0 required by Android release contract | FIXED — canonical lifecycle normalizes blank to zero and has regression coverage; awaiting CI re-run |
+| BRD-CAND-012 | Driver target progress | Current target achieved/progress is sourced from completed-shift revenue; active shift revenue remains zero until End Shift, so target progress does not reflect activity during the active shift | OPEN — frozen Work cockpit requires current achieved/progress; business authority forbids promoting optional trip fares to authoritative revenue, so the interim progress rule needs an explicit business decision |
+| BRD-CAND-013 | Background overlay GPS display | Native GPS recording continued independently, but overlay live KM refresh depended on WebView-driven overlay updates while backgrounded | FIXED — native GPS now updates the native overlay live distance directly; awaiting CI re-run |
+| BRD-CAND-014 | Presentation modernization command | `npm run ui:impact -- <src/path>` is an impact/dependency guard, not a command that modernizes/replaces a screen by itself | OPEN — presentation isolation exists, but a one-command modernization workflow is not implemented; keep this separate from business-logic changes |
 
 These entries must be validated against the current repository before being treated as confirmed defects.
 
