@@ -213,6 +213,7 @@ jobs:
           heap-size: 512M
           force-avd-creation: false
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none
+          disable-spellchecker: true
           disk-size: 4000M
           emulator-boot-timeout: 600
           disable-linux-hw-accel: false
