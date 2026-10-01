@@ -54,17 +54,15 @@ public class KfeWebViewStartupTest {
       AtomicReference<String> dom = new AtomicReference<>("");
       CountDownLatch evaluated = new CountDownLatch(1);
       scenario.onActivity(activity -> activity.getBridge().getWebView().evaluateJavascript(
-        "({ready:document.readyState,root:!!document.getElementById('app'),children:document.getElementById('app')?document.getElementById('app').children.length:-1,body:document.body?document.body.innerText.slice(0,800):'NO_BODY',url:location.href})",
+        "!!(document.getElementById('app') && document.body && document.body.innerText.includes('KFE WORK') && document.body.innerText.includes('START SHIFT'))",
         value -> {
           dom.set(value == null ? "null JS result" : value);
           evaluated.countDown();
         }
       ));
       assertTrue("WebView JavaScript evaluation timed out", evaluated.await(10, TimeUnit.SECONDS));
-      String state = dom.get();
-      assertTrue("KFE DOM did not mount in APK WebView: " + state,
-        state.contains("\"children\":") && !state.contains("\"children\":0")
-          && !state.contains("\"body\":\"\""));
+      assertTrue("KFE Work and Start Shift controls did not mount in APK WebView: " + dom.get(),
+        "true".equals(dom.get()));
     } finally {
       scenario.close();
     }
