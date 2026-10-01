@@ -93,3 +93,11 @@ assert.match(secureStorage, /PURPOSE_ENCRYPT/)
 assert.match(secureStorage, /PURPOSE_DECRYPT/)
 
 console.log('KFE Phase 8 Android/Capacitor native architecture contract: PASS')
+
+const nativeGps = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeNativeGpsService.java', 'utf8')
+assert.match(mainActivity, /static volatile boolean isResumed/)
+assert.match(overlay, /if\(MainActivity\.isResumed\) removeOverlay\(\)/)
+assert.match(nativeGps, /requestedType\.equals\(eventType\)/)
+assert.match(nativeGps, /eventType = requestedType/)
+assert.match(workView, /const revenue = money\(store\.shift\?\.revenue \?\? 0\)/)
+console.log('Native overlay/GPS authority contract passed: visible-activity lifecycle, GPS phase switch, and shift-revenue authority are explicit.')
