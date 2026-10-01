@@ -56,7 +56,7 @@ const includedMetrics = derivePerformance(performanceSnapshot, range)
 assert.equal(includedMetrics.financialRevenue, 435)
 assert.equal(includedMetrics.toll, 60)
 assert.equal(includedMetrics.parking, 5)
-assert.equal(includedMetrics.operatingCost, 0)
+assert.equal(includedMetrics.runningCost, 0)
 assert.equal(includedMetrics.operatingProfit, 435)
 const excludedMetrics = derivePerformance({
   ...performanceSnapshot,
@@ -65,7 +65,7 @@ const excludedMetrics = derivePerformance({
 assert.equal(excludedMetrics.financialRevenue, 500)
 assert.equal(excludedMetrics.toll, 60)
 assert.equal(excludedMetrics.parking, 5)
-assert.equal(excludedMetrics.operatingCost, 65)
+assert.equal(excludedMetrics.runningCost, 65)
 assert.equal(excludedMetrics.operatingProfit, 435)
 
 console.log('FAH-2 revenue reconciliation contract passed: shift-end revenue authority, optional trip detail, toll/parking inclusion without double counting, and end-shift revenue validation.')

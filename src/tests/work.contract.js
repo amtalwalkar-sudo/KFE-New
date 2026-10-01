@@ -36,7 +36,7 @@ assert.match(workView, /tripToll/)
 assert.match(workView, /tripParking/)
 assert.match(workStore, /WorkService\.completeTrip\(\{ id: tripId \}\)/)
 assert.match(workView, /TRIP COMPLETED/)
-assert.match(workView, /ENTER FARE/)
+assert.match(workView, /stage === 'ENTER_FARE'/
 assert.match(workView, /swipeProgress>=70/)
 assert.doesNotMatch(workView, /fareTripId\.value=null;fareTrip\.value=null;fare\.value=''\;onMounted/)
 assert.deepEqual(validateShiftStartOdometer(100, 90), { valid: true, gapKm: 10 })

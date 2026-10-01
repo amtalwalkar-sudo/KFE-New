@@ -29,14 +29,16 @@ assert(cancelled.cancelledRevenue === 0 && cancelled.revenue === 0, 'Cancellatio
 assert(canTransitionTrip(TRIP_STATES.ACTIVE, TRIP_STATES.COMPLETED), 'ACTIVE → COMPLETED transition missing')
 assert(canTransitionTripStage('PICKUP', 'RIDE_STARTED'), 'PICKUP → RIDE_STARTED transition missing')
 assert(!canTransitionTripStage('RIDE_STARTED', 'GOING_TO_PICKUP'), 'RIDE_STARTED must not transition back to pickup')
-assert.throws(() => transitionTripStage({ ...active, tripStage: 'RIDE_STARTED' }, 'GOING_TO_PICKUP', { at: '2026-10-01T08:00:00+05:30' }))
+let invalidStageRejected = false
+try { transitionTripStage({ ...active, tripStage: 'RIDE_STARTED' }, 'GOING_TO_PICKUP', { at: '2026-10-01T08:00:00+05:30' }) } catch (_) { invalidStageRejected = true }
+assert(invalidStageRejected, 'RIDE_STARTED must reject a transition back to pickup')
 assert(canTransitionTrip(TRIP_STATES.ACTIVE, TRIP_STATES.CANCELLED), 'ACTIVE → CANCELLED transition missing')
 assert(canTransitionTrip(TRIP_STATES.COMPLETED, TRIP_STATES.COMPLETED), 'Completed replay must be idempotent')
 assert(canTransitionTrip(TRIP_STATES.CANCELLED, TRIP_STATES.CANCELLED), 'Cancelled replay must be idempotent')
 assert(!canTransitionTrip(TRIP_STATES.COMPLETED, TRIP_STATES.CANCELLED), 'A completed Trip must not be cancelled into a second terminal record')
 assert(!canTransitionTrip(TRIP_STATES.CANCELLED, TRIP_STATES.COMPLETED), 'A cancelled Trip must not be completed into a second terminal record')
 
-assert(repository.includes("import { transitionTrip, TRIP_STATES } from '../domain/work/tripLifecycle.js'"), 'Canonical repository must use the shared Trip lifecycle')
+assert(repository.includes("import { transitionTrip, transitionTripStage, TRIP_STATES } from '../domain/work/tripLifecycle.js'"), 'Canonical repository must use the shared Trip lifecycle')
 assert(repository.includes('transitionTrip(record, status, data)'), 'Trip completion/cancellation must use the shared transition function')
 assert(workService.includes('ShiftTripRepository.completeTrip'), 'Main app completion must use canonical Trip repository')
 assert(workService.includes('ShiftTripRepository.cancelTrip'), 'Main app cancellation must use canonical Trip repository')
