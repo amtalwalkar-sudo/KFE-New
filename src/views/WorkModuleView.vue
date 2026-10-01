@@ -173,16 +173,13 @@ async function syncOverlay() {
     return
   }
 
-  let revenue = '₹0'
+  // Shift-end revenue is the ERP authority. Trip fares are optional supporting
+  // detail and must never become a competing overlay revenue total.
+  const revenue = money(store.shift?.revenue ?? 0)
   let liveKm = '0.0 km'
   let trips = []
   try {
     trips = await WorkService.getTripsForShift(store.shift.id)
-    const total = trips.reduce((sum, item) => {
-      const value = Number(item?.revenue)
-      return Number.isFinite(value) && value >= 0 ? sum + value : sum
-    }, 0)
-    revenue = money(total)
   } catch (_) {}
 
   if (store.trip?.id) {
