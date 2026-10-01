@@ -226,59 +226,7 @@ jobs:
           emulator-boot-timeout: 600
           disable-animations: true
           enable-hw-keyboard: false
-          script: |
-            set -eu
-            adb wait-for-device
-            mkdir -p artifacts/android-golden
-            adb shell settings put global package_verifier_enable 0 || true
-            adb shell settings put global verifier_verify_adb_installs 0 || true
-            "$GITHUB_WORKSPACE/android/gradlew" -p "$GITHUB_WORKSPACE/android" :app:assembleDebugAndroidTest
-            if ! adb install -r "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"; then
-              adb logcat -d -t 5000 > artifacts/android-golden/install-failure-logcat.log || true
-              echo "APK install failed: production APK"
-              exit 1
-            fi
-            if ! adb install -r "$GITHUB_WORKSPACE/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"; then
-              adb logcat -d -t 5000 > artifacts/android-golden/install-failure-logcat.log || true
-              echo "APK install failed: instrumentation APK"
-              exit 1
-            fi
-            adb shell appops set com.kanishka.pwa android:system_alert_window allow
-            adb shell appops set com.kanishka.pwa android:camera allow || true
-            adb shell am force-stop com.kanishka.pwa
-            if ! adb shell am instrument -w -r -e class com.kanishka.pwa.KfeWebViewStartupTest com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner > artifacts/android-golden/webview-startup-instrumentation.log 2>&1; then
-              cat artifacts/android-golden/webview-startup-instrumentation.log
-              adb logcat -d -t 5000 > artifacts/android-golden/webview-startup-logcat.log || true
-              echo "ANDROID INSTRUMENTATION FAILED: webview-startup"
-              exit 1
-            fi
-            cat artifacts/android-golden/webview-startup-instrumentation.log
-            if ! grep -q 'INSTRUMENTATION_CODE: 0' artifacts/android-golden/webview-startup-instrumentation.log; then
-              adb logcat -d -t 5000 > artifacts/android-golden/webview-startup-logcat.log || true
-              echo "ANDROID INSTRUMENTATION FAILED: webview-startup"
-              exit 1
-            fi
-            if grep -Eq 'INSTRUMENTATION_CODE: -1|FAILURES!!!|Tests run: [0-9]+, Failures: [1-9]' artifacts/android-golden/webview-startup-instrumentation.log; then
-              echo "ANDROID INSTRUMENTATION FAILED: webview-startup"
-              exit 1
-            fi
-            if ! adb shell am instrument -w -r -e class com.kanishka.pwa.KfeOverlaySmokeTest com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner > artifacts/android-golden/native-overlay-instrumentation.log 2>&1; then
-              cat artifacts/android-golden/native-overlay-instrumentation.log
-              adb logcat -d -t 5000 > artifacts/android-golden/native-overlay-logcat.log || true
-              echo "ANDROID INSTRUMENTATION FAILED: native-overlay"
-              exit 1
-            fi
-            cat artifacts/android-golden/native-overlay-instrumentation.log
-            if ! grep -q 'INSTRUMENTATION_CODE: 0' artifacts/android-golden/native-overlay-instrumentation.log; then
-              adb logcat -d -t 5000 > artifacts/android-golden/native-overlay-logcat.log || true
-              echo "ANDROID INSTRUMENTATION FAILED: native-overlay"
-              exit 1
-            fi
-            if grep -Eq 'INSTRUMENTATION_CODE: -1|FAILURES!!!|Tests run: [0-9]+, Failures: [1-9]' artifacts/android-golden/native-overlay-instrumentation.log; then
-              echo "ANDROID INSTRUMENTATION FAILED: native-overlay"
-              exit 1
-            fi
-            sha256sum "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
+          script: bash "$GITHUB_WORKSPACE/tools/android-exact-apk-smoke-gate.sh"
 
       - name: Upload Android instrumentation logs
         if: always()
