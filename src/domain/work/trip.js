@@ -35,6 +35,10 @@ export function validateTripCorrection(data = {}) {
     if (!cancelReason) return { valid: false, reason: 'Cancellation reason is required.' }
     result.cancelReason = cancelReason
   }
+  if (data.fareDetailsSkipped !== undefined) {
+    if (typeof data.fareDetailsSkipped !== 'boolean') return { valid: false, reason: 'Fare detail skip state must be boolean.' }
+    result.fareDetailsSkipped = data.fareDetailsSkipped
+  }
   return { valid: true, ...result }
 }
 
