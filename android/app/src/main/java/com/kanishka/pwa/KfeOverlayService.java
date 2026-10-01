@@ -151,16 +151,10 @@ public class KfeOverlayService extends Service {
   }
 
   private void hideIfKfeActivityForeground(){
-    try{
-      android.app.ActivityManager am=(android.app.ActivityManager)getSystemService(ACTIVITY_SERVICE);
-      if(am==null)return;
-      for(android.app.ActivityManager.RunningAppProcessInfo p:am.getRunningAppProcesses()){
-        if(getPackageName().equals(p.processName)&&p.importance==android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND){
-          removeOverlay();
-          return;
-        }
-      }
-    }catch(Exception ignored){}
+    // Process importance also reports foreground instrumentation/other process
+    // work and is not proof that the user can see MainActivity. Hide the overlay
+    // only while the actual KFE activity is resumed.
+    if(MainActivity.isResumed) removeOverlay();
   }
 
   private void openFareForm(){openNumericForm("FARE","TRIP FARE","Enter fare");}
