@@ -12,11 +12,11 @@ const isAndroid = async () => {
 const dedupeKey = point => [point?.capturedAt, point?.latitude, point?.longitude].join('|')
 
 export const NativeGpsService = {
-  async start(tripId) {
+  async start(tripId, eventType = "PASSENGER_RIDE_TRACE") {
     if (!(await isAndroid()) || !tripId) return false
     try {
       const NativeGps = await getNativeGps()
-      await NativeGps.start({ tripId })
+      await NativeGps.start({ tripId, eventType })
       return true
     } catch (error) {
       console.warn('Native Android ride GPS unavailable; browser GPS remains active.', error)
@@ -61,7 +61,7 @@ export const NativeGpsService = {
       await LocationRepository.recordTracePoint({
         entityType: 'TRIP',
         entityId: tripId,
-        eventType: 'PASSENGER_RIDE_TRACE',
+        eventType: point?.eventType || 'PASSENGER_RIDE_TRACE',
         ...normalized
       })
       existingKeys.add(key)
