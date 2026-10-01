@@ -103,8 +103,8 @@ try {
   await swipeAction()
   await page.getByRole('button', { name: 'START TRIP', exact: true }).waitFor()
   state = await db(page, ['trips'])
-  assert(state.trips.length === 1 && state.trips[0].status === 'ACTIVE' && state.trips[0].tripStage === 'PICKUP', 'GO TO PICKUP contract failed')
-  evidence.push({ id: 'WORK.GO_TO_PICKUP', result: 'PASS', expected: 'one ACTIVE PICKUP trip', persisted: { trips: state.trips.length, status: state.trips[0]?.status, tripStage: state.trips[0]?.tripStage } })
+  assert(state.trips.length === 1 && state.trips[0].status === 'ACTIVE' && state.trips[0].tripStage === 'GOING_TO_PICKUP', 'GO TO PICKUP contract failed')
+  evidence.push({ id: 'WORK.GO_TO_PICKUP', result: 'PASS', expected: 'one ACTIVE GOING_TO_PICKUP trip', persisted: { trips: state.trips.length, status: state.trips[0]?.status, tripStage: state.trips[0]?.tripStage } })
 
   // Contract 3: START TRIP must transition the same trip to RIDE_STARTED, not create another.
   await swipeAction()
@@ -113,20 +113,23 @@ try {
   assert(state.trips.length === 1 && state.trips[0].tripStage === 'RIDE_STARTED', 'START TRIP contract failed')
   evidence.push({ id: 'WORK.START_TRIP', result: 'PASS', expected: 'same trip transitions to RIDE_STARTED', persisted: { trips: state.trips.length, tripStage: state.trips[0]?.tripStage } })
 
-  // Contract 4: END TRIP must open mandatory fare capture without terminalizing before fare persistence.
+  // Contract 4: END TRIP terminalizes immediately; optional details remain non-blocking.
   await swipeAction()
-  await page.getByText('ENTER FARE', { exact: true }).waitFor()
+  await page.getByText('TRIP COMPLETED', { exact: true }).waitFor()
   state = await db(page, ['trips'])
-  assert(state.trips.length === 1 && state.trips[0].status === 'ACTIVE' && state.trips[0].tripStage === 'RIDE_STARTED', 'END TRIP contract failed')
-  evidence.push({ id: 'WORK.END_TRIP', result: 'PASS', expected: 'same trip remains ACTIVE while fare capture is pending', persisted: { trips: state.trips.length, status: state.trips[0]?.status, tripStage: state.trips[0]?.tripStage } })
+  assert(state.trips.length === 1 && state.trips[0].status === 'COMPLETED', 'END TRIP contract failed')
+  assert(await page.getByRole('button', { name: 'GO TO PICKUP', exact: true }).count() === 1, 'Optional trip details incorrectly block next pickup')
+  evidence.push({ id: 'WORK.END_TRIP', result: 'PASS', expected: 'trip completes immediately and optional details do not block next pickup', persisted: { trips: state.trips.length, status: state.trips[0].status, tripStage: state.trips[0].tripStage } })
 
-  // Contract 5: SAVE FARE must persist fare first, then terminalize exactly that trip.
+  // Contract 5: optional fare/toll/parking details persist without changing trip lifecycle authority.
   await page.getByLabel('Trip fare').fill('800')
-  await page.getByRole('button', { name: 'OK — SAVE FARE', exact: true }).click()
-  await page.getByText('Fare saved.', { exact: true }).waitFor()
+  await page.getByLabel('Toll').fill('50')
+  await page.getByLabel('Parking').fill('20')
+  await page.getByRole('button', { name: 'SAVE DETAILS & CONTINUE', exact: true }).click()
+  await page.getByText('Trip details saved.', { exact: true }).waitFor()
   state = await db(page, ['trips'])
-  assert(state.trips.length === 1 && state.trips[0].status === 'COMPLETED' && Number(state.trips[0].revenue) === 800, 'SAVE FARE contract failed')
-  evidence.push({ id: 'WORK.SAVE_FARE', result: 'PASS', expected: 'fare = 800 is persisted before the trip becomes COMPLETED', persisted: { trips: state.trips.length, status: state.trips[0]?.status, revenue: state.trips[0]?.revenue } })
+  assert(state.trips.length === 1 && state.trips[0].status === 'COMPLETED' && Number(state.trips[0].revenue) === 800 && Number(state.trips[0].toll) === 50 && Number(state.trips[0].parking) === 20, 'SAVE TRIP DETAILS contract failed')
+  evidence.push({ id: 'WORK.SAVE_TRIP_DETAILS', result: 'PASS', expected: 'optional fare/toll/parking persist on completed trip', persisted: { trips: state.trips.length, status: state.trips[0].status, revenue: state.trips[0].revenue, toll: state.trips[0].toll, parking: state.trips[0].parking } })
 
   // Contract 6: OFFLINE -> End Shift must persist closing odometer and authoritative revenue,
   // then Timeline and Performance must consume the same values.
@@ -236,10 +239,10 @@ try {
   await page.getByRole('button', { name: 'CONFIRM & GO ONLINE', exact: true }).click()
   await swipeAction(); await page.getByRole('button', { name: 'START TRIP', exact: true }).waitFor()
   await swipeAction(); await page.getByRole('button', { name: 'END TRIP', exact: true }).waitFor()
-  await swipeAction(); await page.getByText('ENTER FARE', { exact: true }).waitFor()
+  await swipeAction(); await page.getByText('TRIP COMPLETED', { exact: true }).waitFor()
   await page.getByLabel('Trip fare').fill('800')
-  await page.getByRole('button', { name: 'OK — SAVE FARE', exact: true }).click()
-  await page.getByText('Fare saved.', { exact: true }).waitFor()
+  await page.getByRole('button', { name: 'SAVE DETAILS & CONTINUE', exact: true }).click()
+  await page.getByText('Trip details saved.', { exact: true }).waitFor()
   await page.goto(new URL('timeline', base).href, { waitUntil: 'domcontentloaded' })
   await page.locator('.timeline').waitFor()
   await page.getByRole('button', { name: 'Edit trip', exact: true }).click()
