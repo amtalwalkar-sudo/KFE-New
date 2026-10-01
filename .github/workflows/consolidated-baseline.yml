@@ -214,14 +214,14 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
-          target: default
+          target: google_apis
           arch: x86_64
-          profile: pixel_2
-          cores: 4
-          ram-size: 4096M
+          profile: pixel_6
+          cores: 2
+          ram-size: 3072M
           heap-size: 512M
           force-avd-creation: true
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader -no-snapshot -camera-back none
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -camera-back none
           disk-size: 6000M
           emulator-boot-timeout: 600
           disable-animations: true
