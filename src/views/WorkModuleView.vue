@@ -690,7 +690,7 @@ onBeforeUnmount(() => {
       <div class="state-mark" aria-hidden="true">○</div><span class="eyebrow">CURRENT STATE</span><strong>OFFLINE</strong><p>Shift is not active.</p><button class="primary-action" @click="openStart">START SHIFT</button>
     </section>
 
-    <template v-if="store.isOnline && !fuelOpen && !endOpen && !pendingFare && !cancelOpen">
+    <template v-if="store.isOnline && !fuelOpen && !endOpen && !cancelOpen">
       <section class="instrument target-instrument">
         <div><span class="eyebrow">TODAY'S TARGET</span><strong>{{ targetValue==null ? '—' : money(targetValue) }}</strong></div>
         <div class="target-meta"><span>PROGRESS</span><strong>{{ targetProgress }}%</strong><span>SHIFT {{ shiftTimer }}</span></div>
