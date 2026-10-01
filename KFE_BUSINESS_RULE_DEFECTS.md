@@ -56,6 +56,10 @@ These are pre-audit leads retained for later validation.
 | BRD-CAND-005 | Test infrastructure | Contract runner may register the synthetic isolation contract twice | RESOLVED during Phase 0 |
 | BRD-CAND-006 | Deployment evidence | Latest-main CI/deployed runtime evidence requires explicit re-verification before any release-readiness claim | OPEN — evidence gap |
 | BRD-CAND-007 | Native background GPS | Starting the same trip's passenger-ride GPS phase returned early while the pickup trace callback was active, leaving ride points classified as dead movement | FIXED — AWAITING RE-AUDIT; native GPS phase-transition contract added |
+| BRD-CAND-008 | Android CI gate | Android instrumentation reported assertion failures while the workflow step still returned success | FIXED — workflow now checks instrumentation result codes and preserves logs; awaiting CI re-run |
+| BRD-CAND-009 | Overlay revenue authority | Native overlay payload summed optional trip fares rather than reading authoritative shift revenue | FIXED — overlay payload now mirrors `store.shift.revenue`; awaiting CI re-run |
+| BRD-CAND-010 | Overlay theme | Work payload omitted theme, causing native overlay to default to light palette regardless of app theme | FIXED — payload now maps global day/night theme to native light/dark; awaiting CI re-run |
+| BRD-CAND-011 | Cancellation revenue | Blank cancellation fare persisted as null instead of ₹0 required by Android release contract | FIXED — canonical lifecycle normalizes blank to zero and has regression coverage; awaiting CI re-run |
 
 These entries must be validated against the current repository before being treated as confirmed defects.
 
