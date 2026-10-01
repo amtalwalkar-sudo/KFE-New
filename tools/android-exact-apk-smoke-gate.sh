@@ -13,6 +13,7 @@ capture_failure() {
   local label="$1"
   adb logcat -d -t 5000 > "artifacts/android-golden/${label}-logcat.log" || true
 }
+
 install_apk() {
   local apk="$1"
   local label="$2"
@@ -22,6 +23,7 @@ install_apk() {
     return 1
   fi
 }
+
 run_instrumentation() {
   local test_class="$1"
   local label="$2"
@@ -33,22 +35,7 @@ run_instrumentation() {
     return 1
   fi
   cat "$log_file"
-  if ! grep -Eq '^OK \([0-9]+ tests?\)
-    capture_failure "$label"
-    echo "ANDROID INSTRUMENTATION FAILED: $label" >&2
-    return 1
-  fi
-}
-
-install_apk "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk" "production-apk"
-install_apk "$GITHUB_WORKSPACE/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk" "instrumentation-apk"
-adb shell appops set com.kanishka.pwa android:system_alert_window allow
-adb shell appops set com.kanishka.pwa android:camera allow || true
-adb shell am force-stop com.kanishka.pwa
-run_instrumentation com.kanishka.pwa.KfeWebViewStartupTest webview-startup
-run_instrumentation com.kanishka.pwa.KfeOverlaySmokeTest native-overlay
-sha256sum "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
- "$log_file" || grep -Eq 'FAILURES!!!|Tests run: [0-9]+, Failures: [1-9]|shortMsg=Process crashed|INSTRUMENTATION_RESULT: shortMsg=' "$log_file"; then
+  if ! grep -Eq '^OK \([0-9]+ tests?\)$' "$log_file" || grep -Eq 'FAILURES!!!|Tests run: [0-9]+, Failures: [1-9]|shortMsg=Process crashed|INSTRUMENTATION_RESULT: shortMsg=' "$log_file"; then
     capture_failure "$label"
     echo "ANDROID INSTRUMENTATION FAILED: $label" >&2
     return 1
