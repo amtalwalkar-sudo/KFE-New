@@ -1,0 +1,102 @@
+import assert from 'node:assert/strict'
+import { ADMIN_FORM_KEYS, getAdminFormDefinition } from '../application/admin/adminFormDefinitions.js'
+import { normalizeFormValues, validateAdminForm } from '../application/admin/universalFormRules.js'
+
+const date = '2026-09-01'
+const validValue = field => {
+  if (field.defaultValue !== undefined) return field.defaultValue
+  if (field.type === 'checkbox') return false
+  if (field.type === 'text' || field.type === 'textarea') return ' Test value '
+  if (field.type === 'date' || field.type === 'datetime-local') return date
+  if (field.type === 'number') return field.exclusiveMin && field.min !== undefined ? field.min + 1 : (field.min ?? 1)
+  if (field.type === 'select') {
+    const option = field.options?.[0]
+    if (option !== undefined) return option && typeof option === 'object' && 'value' in option ? option.value : option
+    return 'reference-id'
+  }
+  throw new Error('Unhandled field type: ' + field.type)
+}
+const fixture = definition => Object.fromEntries(definition.fields.map(field => [
+  field.key,
+  field.required ? validValue(field) : (field.defaultValue !== undefined ? field.defaultValue : '')
+]))
+
+assert.deepEqual(ADMIN_FORM_KEYS, [
+  'businessSetup','vehicle','driver','compliance','maintenance','loan',
+  'loanPayment','prepayment','settlement','driverTarget','breakEvenInputs'
+])
+let fieldCount = 0
+for (const key of ADMIN_FORM_KEYS) {
+  const definition = getAdminFormDefinition(key)
+  assert.ok(definition && definition.fields.length > 0, key + ': form definition must exist')
+  const keys = definition.fields.map(field => field.key)
+  assert.equal(new Set(keys).size, keys.length, key + ': field keys must be unique')
+  const values = fixture(definition)
+  const baseline = validateAdminForm(definition, values)
+  assert.equal(baseline.valid, true, key + ': minimally valid fixture rejected: ' + JSON.stringify(baseline.errors))
+
+  const unknown = validateAdminForm(definition, { ...values, __unregisteredField: 'not allowed' })
+  assert.equal(unknown.valid, false, key + ': unknown field must be rejected')
+  assert.ok(unknown.errors.__unregisteredField, key + ': unknown field error must be attached to field')
+
+  for (const field of definition.fields) {
+    fieldCount += 1
+    if (field.required) {
+      const missing = validateAdminForm(definition, { ...values, [field.key]: '' })
+      assert.equal(missing.valid, false, key + '.' + field.key + ': required field must reject blank')
+      assert.ok(missing.errors[field.key], key + '.' + field.key + ': required error must name field')
+    }
+    if (['date','datetime-local'].includes(field.type)) {
+      const invalidDate = validateAdminForm(definition, { ...values, [field.key]: 'not-a-date' })
+      assert.equal(invalidDate.valid, false, key + '.' + field.key + ': invalid date must be rejected')
+    }
+    if (field.type === 'number') {
+      const invalidNumber = validateAdminForm(definition, { ...values, [field.key]: 'not-a-number' })
+      assert.equal(invalidNumber.valid, false, key + '.' + field.key + ': nonnumeric input must be rejected')
+      if (field.min !== undefined) {
+        const belowMin = field.exclusiveMin ? field.min : field.min - 1
+        const invalidBound = validateAdminForm(definition, { ...values, [field.key]: belowMin })
+        assert.equal(invalidBound.valid, false, key + '.' + field.key + ': lower bound must be enforced')
+        if (!field.exclusiveMin) {
+          const atMin = validateAdminForm(definition, { ...values, [field.key]: field.min })
+          assert.equal(atMin.valid, true, key + '.' + field.key + ': inclusive minimum should be accepted')
+        }
+      }
+      if (field.max !== undefined) {
+        const aboveMax = validateAdminForm(definition, { ...values, [field.key]: field.max + 1 })
+        assert.equal(aboveMax.valid, false, key + '.' + field.key + ': upper bound must be enforced')
+      }
+    }
+    if (field.type === 'select' && field.options?.length) {
+      const invalidSelect = validateAdminForm(definition, { ...values, [field.key]: '__invalid_option__' })
+      assert.equal(invalidSelect.valid, false, key + '.' + field.key + ': unsupported selection must be rejected')
+    }
+  }
+  const normalized = normalizeFormValues(definition, values)
+  for (const field of definition.fields) {
+    if (field.type === 'text' || field.type === 'textarea') {
+      if (typeof values[field.key] === 'string' && values[field.key].trim()) {
+        assert.equal(normalized[field.key], values[field.key].trim(), key + '.' + field.key + ': text should be trimmed')
+      }
+    }
+  }
+}
+const vehicle = getAdminFormDefinition('vehicle')
+const soldWithoutSale = validateAdminForm(vehicle, {
+  ...fixture(vehicle), status: 'Sold', saleDate: '', sellPrice: ''
+})
+assert.equal(soldWithoutSale.valid, false, 'Sold vehicle must require sale date and sell price')
+const compliance = getAdminFormDefinition('compliance')
+assert.equal(validateAdminForm(compliance, {
+  ...fixture(compliance), validFrom: '2026-09-10', validUntil: '2026-09-09'
+}).valid, false, 'Compliance validity end must not precede start')
+const driver = getAdminFormDefinition('driver')
+assert.equal(validateAdminForm(driver, {
+  ...fixture(driver), joinedOn: '2026-09-10', licenseExpiry: '2026-09-09'
+}).valid, false, 'Licence expiry must not precede driver joining date')
+const maintenance = getAdminFormDefinition('maintenance')
+assert.deepEqual(maintenance.fields.map(field => field.key), ['performedOn','odometerKm','maintenanceType','cost','notes'],
+  'Maintenance must retain exactly the frozen authoritative five fields')
+assert.equal(getAdminFormDefinition('breakEvenInputs').fields.find(field => field.key === 'maintenanceProvisionPerKm').defaultValue, 1.6,
+  'Indicative maintenance provision default must remain ₹1.60/km')
+console.log('Admin field matrix: PASS — ' + ADMIN_FORM_KEYS.length + ' forms, ' + fieldCount + ' defined fields; required/invalid/boundary/select/normalization and selected cross-field rules checked.')
