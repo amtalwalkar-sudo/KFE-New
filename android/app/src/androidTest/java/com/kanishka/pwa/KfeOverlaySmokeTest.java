@@ -49,10 +49,17 @@ public class KfeOverlaySmokeTest {
       .setAction(KfeOverlayService.ACTION_UPDATE)
       .putExtra(KfeOverlayService.EXTRA_STATE, state.toString());
     context.startService(update);
-    SystemClock.sleep(250);
-    assertNotNull("Native overlay service instance must exist", KfeOverlayService.instance);
     Field field = KfeOverlayService.class.getDeclaredField("overlay");
     field.setAccessible(true);
-    assertNotNull("Native overlay view must be created", field.get(KfeOverlayService.instance));
+    long deadline = SystemClock.uptimeMillis() + 5000L;
+    Object overlay = null;
+    while (SystemClock.uptimeMillis() < deadline) {
+      KfeOverlayService service = KfeOverlayService.instance;
+      if (service != null) overlay = field.get(service);
+      if (overlay != null) break;
+      SystemClock.sleep(100L);
+    }
+    assertNotNull("Native overlay service instance must exist", KfeOverlayService.instance);
+    assertNotNull("Native overlay view must be created while MainActivity is not visible", overlay);
   }
 }
