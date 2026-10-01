@@ -54,7 +54,7 @@ public class KfeWebViewStartupTest {
       AtomicReference<String> dom = new AtomicReference<>("");
       CountDownLatch evaluated = new CountDownLatch(1);
       scenario.onActivity(activity -> activity.getBridge().getWebView().evaluateJavascript(
-        "JSON.stringify({ready:document.readyState,root:!!document.getElementById('app'),children:document.getElementById('app')?document.getElementById('app').children.length:-1,body:document.body?document.body.innerText.slice(0,800):'NO_BODY',url:location.href})",
+        "({ready:document.readyState,root:!!document.getElementById('app'),children:document.getElementById('app')?document.getElementById('app').children.length:-1,body:document.body?document.body.innerText.slice(0,800):'NO_BODY',url:location.href})",
         value -> {
           dom.set(value == null ? "null JS result" : value);
           evaluated.countDown();
