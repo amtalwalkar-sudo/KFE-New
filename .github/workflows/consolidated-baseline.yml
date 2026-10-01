@@ -210,6 +210,15 @@ jobs:
           cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/android-golden/app-debug.apk
           sha256sum artifacts/android-golden/app-debug.apk | tee artifacts/android-golden/apk.sha256
 
+      - name: Enable KVM access for Android emulator
+        run: |
+          if [ -e /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm
+            ls -l /dev/kvm
+          else
+            echo "KVM device is not available on this runner; emulator will use software acceleration."
+          fi
+
       - name: Android Exact APK Smoke Gate
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -224,7 +233,7 @@ jobs:
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none
           disk-size: 4000M
           emulator-boot-timeout: 600
-          disable-linux-hw-accel: true
+          disable-linux-hw-accel: false
           disable-animations: true
           enable-hw-keyboard: false
           script: bash "$GITHUB_WORKSPACE/tools/android-exact-apk-smoke-gate.sh"
