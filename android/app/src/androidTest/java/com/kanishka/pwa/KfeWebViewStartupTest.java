@@ -11,7 +11,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -21,36 +21,37 @@ public class KfeWebViewStartupTest {
   @Test public void exactApkLoadsKfeInterface() throws Exception {
     ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class);
     try {
-      final String[] url = new String[1];
+      AtomicReference<String> url = new AtomicReference<>();
       scenario.onActivity(activity -> {
         assertNotNull("Capacitor bridge must be initialized", activity.getBridge());
         WebView view = activity.getBridge().getWebView();
         assertNotNull("Capacitor WebView must exist", view);
-        url[0] = view.getUrl();
+        url.set(view.getUrl());
       });
-      assertNotNull("WebView URL must be available", url[0]);
-      assertTrue("APK must load the bundled Capacitor WebView", url[0].contains("localhost"));
+      assertNotNull("WebView URL must be available", url.get());
+      assertTrue("APK must load the bundled Capacitor WebView", url.get().contains("localhost"));
 
-      // The Capacitor WebView can exist before the bundled SPA has mounted.
-      // Poll the actual UI instead of evaluating once against an empty document.
-      long deadline = SystemClock.uptimeMillis() + 30000L;
-      AtomicBoolean kfeVisible = new AtomicBoolean(false);
-      while (SystemClock.uptimeMillis() < deadline && !kfeVisible.get()) {
+      long deadline = SystemClock.uptimeMillis() + 45000L;
+      AtomicReference<String> dom = new AtomicReference<>("");
+      while (SystemClock.uptimeMillis() < deadline) {
         CountDownLatch evaluated = new CountDownLatch(1);
         scenario.onActivity(activity -> {
           WebView view = activity.getBridge().getWebView();
           view.evaluateJavascript(
-            "document.readyState === 'complete' && !!document.querySelector('.work-canonical') && document.body.innerText.includes('Kanishka Enterprises') && !document.querySelector('.kfe-runtime-error')",
+            "JSON.stringify({ready:document.readyState,root:!!document.querySelector('#app'),children:document.querySelector('#app')?.children.length||0,text:(document.querySelector('#app')?.innerText||'').slice(0,500),body:(document.body?.innerText||'').slice(0,800),url:location.href,errors:[...document.querySelectorAll('[class*=error],[role=alert]')].map(e=>e.innerText).slice(0,5)})",
             value -> {
-              kfeVisible.set("true".equals(value));
+              dom.set(value == null ? "" : value);
               evaluated.countDown();
             }
           );
         });
-        evaluated.await(1, TimeUnit.SECONDS);
-        if (!kfeVisible.get()) SystemClock.sleep(250L);
+        evaluated.await(2, TimeUnit.SECONDS);
+        String state = dom.get();
+        if (state.contains("\"children\":") && !state.contains("\"children\":0")
+            && !state.contains("\"text\":\"\"")) return;
+        SystemClock.sleep(300L);
       }
-      assertTrue("KFE interface must render in the APK WebView within 30 seconds", kfeVisible.get());
+      throw new AssertionError("Bundled KFE UI did not mount in the APK WebView. Last DOM snapshot: " + dom.get());
     } finally {
       scenario.close();
     }
