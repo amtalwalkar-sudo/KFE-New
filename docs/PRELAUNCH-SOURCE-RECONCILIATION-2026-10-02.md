@@ -68,14 +68,14 @@ The green tests exercise deterministic vectors and selected cross-surface fixtur
 
 ## 5. Current confirmed gaps from source/test comparison
 
-### P0 — Native overlay fare action is not wired to the post-END canonical state
+### P0 — Native overlay fare identity fix proposed; Golden Ride acceptance remains open
 
 - `src/infrastructure/android/androidOverlayLifecycle.js` finds a completed trip with missing optional fare and passes `pendingFareId` to `deriveWorkCockpitState`.
-- `src/application/work/workCockpit.js` does not consume `pendingFareId`; with no active trip it returns `GO_TO_PICKUP` and an empty trip ID.
-- `android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java` opens/closes its fare form based on `overlayAction`; a state update to `GO_TO_PICKUP` closes a FARE form.
-- The current Android instrumentation smoke test checks WebView mount and overlay view creation only. It does not assert END → canonical completed trip → fare input/save/skip → next pickup, including interruption/replay.
+- The defect was that the cockpit discarded `pendingFareId` and the native overlay reused one trip ID for both the current swipe action and optional fare submission.
+- The proposed branch carries `pendingFareId` through canonical cockpit state and overlay payload, uses a separate native `pendingFareTripId`, and persists `fareDetailsSkipped` so a skipped optional form does not remain pending forever.
+- Android instrumentation has deterministic guard assertions, but it still does not execute the complete END → save/skip → next pickup flow or process interruption/replay.
 
-**Disposition:** confirmed wiring defect + missing acceptance coverage; Android overlay fare path is a release blocker until corrected and tested against the exact APK. Optional fare detail must remain non-blocking for next pickup and shift closure.
+**Disposition:** source fix is proposed on `audit/fix-overlay-fare-gps-race`; CI and full exact-APK Golden Ride/interruption-replay acceptance must pass before closure. Optional fare detail must remain non-blocking for next pickup and shift closure.
 
 ### P1 — Active-shift target progress is not supported by the authoritative revenue snapshot
 
@@ -86,13 +86,13 @@ The green tests exercise deterministic vectors and selected cross-surface fixtur
 
 **Disposition:** confirmed product/business-rule gap, but the interim progress definition requires a deliberate rule decision. Do not silently make optional trip fares authoritative. The UI needs a frozen rule for what “achieved” means during an active shift.
 
-### P1 — Native GPS stop can stop a newer trip's collector
+### P1 — Native GPS stop identity guard proposed; regression gate pending
 
-- `WorkService.completeTrip()` asynchronously syncs the just-completed trip trace and then calls `NativeGpsService.stop(oldTripId)`.
-- `KfeNativeGpsService.onStartCommand(ACTION_STOP)` unconditionally calls `stopTracking()` and does not compare the requested trip ID with the currently active ID.
-- A quick next pickup can start a new trip's collector before the older asynchronous stop is delivered; the old stop can then stop the new collector.
+- `WorkService.completeTrip()` still asynchronously syncs the completed trip trace and calls `NativeGpsService.stop(oldTripId)`.
+- The proposed `KfeNativeGpsService` compares requested and current/persisted active trip IDs before stopping; a stale mismatched stop leaves the newer collector untouched.
+- An Android instrumentation assertion covers matching, stale and empty IDs. It is a deterministic guard test, not a physical-device interleaving test.
 
-**Disposition:** confirmed lifecycle race by source trace; no regression test currently proves overlapping start/stop ordering. Add an identity-checked stop and deterministic race test before release.
+**Disposition:** source fix is proposed on the branch; CI must pass the guard test. Real background GPS acceptance remains pending phone testing.
 
 ### P1 — Android Golden Ride and replay coverage is incomplete
 
@@ -140,4 +140,4 @@ Native foreground GPS service and live-KM overlay update paths exist in source; 
 6. Run one coordinated regression → exact APK emulator gate → Pages artifact/runtime gate → deploy → refresh-route check. Only then report automated release status.
 7. Keep real-phone screen-off/background GPS and overlay interruption scenarios **PENDING DEVICE ACCEPTANCE**.
 
-**Current conclusion:** CI #2214 is green, and the automated evidence listed in section 1 passed. KFE is **not yet launch-ready** because the native overlay fare action wiring and GPS stop race are confirmed gaps, and Golden Ride/replay plus full per-field downstream verification are not yet covered. Physical-phone GPS acceptance remains explicitly pending.
+**Current conclusion:** CI #2214 is the green baseline. The overlay fare identity and GPS stop identity fixes are proposed on branch `audit/fix-overlay-fare-gps-race` and are not yet verified by CI. KFE is **not yet launch-ready** until that branch passes CI, Golden Ride/replay coverage is expanded, and the per-field downstream matrix is exercised. Physical-phone GPS acceptance remains explicitly pending.
