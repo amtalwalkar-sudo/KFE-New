@@ -33,7 +33,7 @@ run_instrumentation() {
     return 1
   fi
   cat "$log_file"
-  if ! grep -q 'INSTRUMENTATION_CODE: 0' "$log_file" || grep -Eq 'INSTRUMENTATION_CODE: -1|FAILURES!!!|Tests run: [0-9]+, Failures: [1-9]' "$log_file"; then
+  if ! grep -q 'INSTRUMENTATION_CODE: 0' "$log_file" || grep -Eq 'INSTRUMENTATION_CODE: -1|FAILURES!!!|Tests run: [0-9]+, Failures: [1-9]|shortMsg=Process crashed' "$log_file"; then
     capture_failure "$label"
     echo "ANDROID INSTRUMENTATION FAILED: $label" >&2
     return 1
