@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
+import { validateTripCorrection } from '../domain/work/trip.js'
 
 const manifest = fs.readFileSync('android/app/src/main/AndroidManifest.xml', 'utf8')
 const mainActivity = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/MainActivity.java', 'utf8')
@@ -49,6 +50,14 @@ assert.match(overlay, /String\[\] labels=\{\"TARGET\",\"LIVE KM\",\"TRIP TIME\",
 assert.match(overlay, /for\(int i=0;i<4;i\+\+\)/)
 assert.match(overlayLifecycle, /notificationPhase: ''/)
 assert.match(overlayLifecycle, /deriveWorkCockpitState/)
+assert.equal(validateTripCorrection({ fareDetailsSkipped: true }).fareDetailsSkipped, true)
+assert.equal(validateTripCorrection({ fareDetailsSkipped: 'true' }).valid, false)
+assert.match(cockpit, /pendingFareId = ''/)
+assert.ok(overlayLifecycle.includes('pendingFareId: state.pendingFareId'))
+assert.ok(overlay.includes('pendingFareTripId=root.optString("pendingFareId","")'))
+assert.ok(overlay.includes('"FARE".equals(formMode)?pendingFareTripId:pendingTripId'))
+assert.ok(nativeGps.includes('shouldStopForTrip(active, requested)'))
+assert.ok(nativeGps.includes('activeTripId.equals(requestedTripId)'))
 assert.match(cockpit, /trip\.tripStage === 'RIDE_STARTED'/)
 assert.match(cockpit, /state: WORK_COCKPIT_STATES.READY_FOR_TRIP/)
 assert.match(cockpit, /state: WORK_COCKPIT_STATES.GOING_TO_PICKUP/)
