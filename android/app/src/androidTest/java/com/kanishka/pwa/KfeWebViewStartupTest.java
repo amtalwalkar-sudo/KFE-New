@@ -38,7 +38,7 @@ public class KfeWebViewStartupTest {
         scenario.onActivity(activity -> {
           WebView view = activity.getBridge().getWebView();
           view.evaluateJavascript(
-            "JSON.stringify({ready:document.readyState,root:!!document.querySelector('#app'),children:document.querySelector('#app')?.children.length||0,text:(document.querySelector('#app')?.innerText||'').slice(0,500),body:(document.body?.innerText||'').slice(0,800),url:location.href,errors:[...document.querySelectorAll('[class*=error],[role=alert]')].map(e=>e.innerText).slice(0,5)})",
+            "({ready:document.readyState,root:!!document.querySelector('#app'),children:document.querySelector('#app')?.children.length||0,text:(document.querySelector('#app')?.innerText||'').slice(0,500),body:(document.body?.innerText||'').slice(0,800),url:location.href,errors:[...document.querySelectorAll('[class*=error],[role=alert]')].map(e=>e.innerText).slice(0,5)}),
             value -> {
               dom.set(value == null ? "" : value);
               evaluated.countDown();
