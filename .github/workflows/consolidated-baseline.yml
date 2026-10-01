@@ -233,40 +233,14 @@ jobs:
             adb shell settings put global package_verifier_enable 0 || true
             adb shell settings put global verifier_verify_adb_installs 0 || true
             "$GITHUB_WORKSPACE/android/gradlew" -p "$GITHUB_WORKSPACE/android" :app:assembleDebugAndroidTest
-            install_ok=0
-            for attempt in 1 2 3; do
-              if adb install -r "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"; then
-                install_ok=1
-                break
-              fi
-              echo "APK install attempt $attempt failed; reconnecting to emulator."
-              adb kill-server || true
-              adb start-server || true
-              adb wait-for-device
-              adb shell settings put global package_verifier_enable 0 || true
-              adb shell settings put global verifier_verify_adb_installs 0 || true
-            done
-            if [ "$install_ok" -ne 1 ]; then
+            if ! adb install -r "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"; then
               adb logcat -d -t 5000 > artifacts/android-golden/install-failure-logcat.log || true
-              echo "APK install failed after 3 attempts: production APK"
+              echo "APK install failed: production APK"
               exit 1
             fi
-            install_ok=0
-            for attempt in 1 2 3; do
-              if adb install -r "$GITHUB_WORKSPACE/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"; then
-                install_ok=1
-                break
-              fi
-              echo "Instrumentation APK install attempt $attempt failed; reconnecting to emulator."
-              adb kill-server || true
-              adb start-server || true
-              adb wait-for-device
-              adb shell settings put global package_verifier_enable 0 || true
-              adb shell settings put global verifier_verify_adb_installs 0 || true
-            done
-            if [ "$install_ok" -ne 1 ]; then
+            if ! adb install -r "$GITHUB_WORKSPACE/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"; then
               adb logcat -d -t 5000 > artifacts/android-golden/install-failure-logcat.log || true
-              echo "APK install failed after 3 attempts: instrumentation APK"
+              echo "APK install failed: instrumentation APK"
               exit 1
             fi
             adb shell appops set com.kanishka.pwa android:system_alert_window allow
