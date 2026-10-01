@@ -53,10 +53,10 @@ const activeOverlayState = async () => {
     } catch (_) {}
   }
 
-  const pendingFareId = trips.find(item =>
-    item?.status === 'COMPLETED' &&
-    (item?.revenue === null || item?.revenue === undefined || item?.revenue === '')
-  )?.id || ''
+  const pendingFareId = trips
+    .filter(item => item?.status === 'COMPLETED' && item?.fareDetailsSkipped !== true &&
+      (item?.revenue === null || item?.revenue === undefined || item?.revenue === ''))
+    .sort((a, b) => Date.parse(b.tripEndAt || b.updatedAt || '') - Date.parse(a.tripEndAt || a.updatedAt || ''))[0]?.id || ''
 
   const state = deriveWorkCockpitState({
     shift: active.shift,
@@ -80,6 +80,7 @@ const activeOverlayState = async () => {
     tripStartAt: state.tripStartAt,
     overlayAction: state.action,
     overlayTripId: state.tripId,
+    pendingFareId: state.pendingFareId,
     cancellationRevenue: '₹0',
     theme: document.documentElement?.dataset?.kfeTheme || 'light'
   }

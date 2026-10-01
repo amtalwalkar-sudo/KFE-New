@@ -1,9 +1,11 @@
 # KFE Business Rules Audit
 
 **Phase:** 1 — Business Rules Audit  
-**Status:** ACTIVE  
-**Current batch:** BR-01 — Business foundation  
+**Status:** HISTORICAL SNAPSHOT — SUPERSEDED FOR CURRENT STATUS  
+**Historical batch:** BR-01 — Business foundation  
 **Audit method:** Discover → group → execute → collect gaps → record defects → fix in Phase 2 → re-audit in Phase 3
+
+> **Current-status notice (2026-10-02):** This file preserves original Phase 1 findings and is not the current defect list. Statements below about a missing Business Start Date, ₹2/km maintenance default, and absent recovery paths are stale against current source and passing contracts. Use `docs/PRELAUNCH-SOURCE-RECONCILIATION-2026-10-02.md` and the re-audited defect ledger for current status. Do not copy historical “OPEN” labels forward without re-audit.
 
 ## Objective
 

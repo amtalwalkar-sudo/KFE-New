@@ -33,6 +33,12 @@ public class KfeOverlaySmokeTest {
     context.stopService(new Intent(context, KfeOverlayService.class));
   }
 
+  @Test public void staleGpsStopCannotStopNewerTripCollector() {
+    assertTrue(KfeNativeGpsService.shouldStopForTrip("trip-a", "trip-a"));
+    assertTrue(!KfeNativeGpsService.shouldStopForTrip("trip-b", "trip-a"));
+    assertTrue(!KfeNativeGpsService.shouldStopForTrip("trip-b", ""));
+  }
+
   @Test public void exactApkCanStartNativeOverlaySmoke() throws Exception {
     if (android.os.Build.VERSION.SDK_INT >= 23) assertTrue("SYSTEM_ALERT_WINDOW must be granted by CI", Settings.canDrawOverlays(context));
     JSONObject state = new JSONObject()

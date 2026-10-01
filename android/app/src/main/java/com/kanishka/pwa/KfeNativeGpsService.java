@@ -74,6 +74,15 @@ public class KfeNativeGpsService extends Service {
   @Override public int onStartCommand(Intent intent, int flags, int startId) {
     String action = intent == null ? null : intent.getAction();
     if (ACTION_STOP.equals(action)) {
+      String requested = intent == null ? null : intent.getStringExtra(EXTRA_TRIP_ID);
+      String active = tripId;
+      if (active == null || active.isEmpty()) active = getSharedPreferences(PREFS, MODE_PRIVATE).getString(ACTIVE_TRIP, "");
+      if (active == null || active.isEmpty()) {
+        stopForeground(STOP_FOREGROUND_REMOVE);
+        stopSelf();
+        return START_NOT_STICKY;
+      }
+      if (!shouldStopForTrip(active, requested)) return START_STICKY;
       stopTracking();
       stopForeground(STOP_FOREGROUND_REMOVE);
       stopSelf();
@@ -192,6 +201,12 @@ public class KfeNativeGpsService extends Service {
       try { fused.removeLocationUpdates(callback); } catch (Exception ignored) {}
     }
     callback = null;
+  }
+
+  static boolean shouldStopForTrip(String activeTripId, String requestedTripId) {
+    return activeTripId != null && !activeTripId.isEmpty()
+      && requestedTripId != null && !requestedTripId.isEmpty()
+      && activeTripId.equals(requestedTripId);
   }
 
   private void stopTracking() {

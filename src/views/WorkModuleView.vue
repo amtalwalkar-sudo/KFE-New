@@ -216,7 +216,8 @@ async function syncOverlay() {
     revenue: state.revenue,
     tripStartAt: state.tripStartAt,
     overlayAction: state.action,
-    overlayTripId: state.tripId
+    overlayTripId: state.tripId,
+    pendingFareId: state.pendingFareId
   }).catch(() => {})
 }
 
@@ -334,6 +335,7 @@ async function saveFare() {
     const details = {
       id: pendingFare.value.id,
       ...(fare.value === '' ? {} : { revenue: Number(fare.value) }),
+      fareDetailsSkipped: fare.value === '',
       toll: tripToll.value === '' ? 0 : Number(tripToll.value),
       parking: tripParking.value === '' ? 0 : Number(tripParking.value)
     }
@@ -354,16 +356,23 @@ async function saveFare() {
   }
 }
 
-function skipTripDetails() {
-  if (!pendingFare.value) return
-  fareTripId.value = null
-  fare.value = ''
-  tripToll.value = ''
-  tripParking.value = ''
-  void AndroidOverlay.fareSaved().catch(() => {})
-  void KfeRideNotificationService.clearPendingAction().catch(() => {})
-  void syncOverlay()
-  notify('Trip details skipped.')
+async function skipTripDetails() {
+  if (!pendingFare.value || fareBusy.value) return
+  fareBusy.value = true
+  try {
+    const result = await store.updateTrip({ id: pendingFare.value.id, fareDetailsSkipped: true })
+    if (!result?.ok) return fail(result?.reason || 'Trip detail skip could not be saved.')
+    fareTripId.value = null
+    fare.value = ''
+    tripToll.value = ''
+    tripParking.value = ''
+    await AndroidOverlay.fareSaved().catch(() => {})
+    await KfeRideNotificationService.clearPendingAction().catch(() => {})
+    await syncOverlay()
+    notify('Trip details skipped.')
+  } finally {
+    fareBusy.value = false
+  }
 }
 
 async function openCancel() {

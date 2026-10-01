@@ -52,7 +52,7 @@ public class KfeOverlayService extends Service {
   private WindowManager.LayoutParams params;
   private String actionStage="GO_TO_PICKUP";
   private String theme="light";
-  private String target="—", rides="0", liveKm="0.0 km", revenue="₹0", pendingTripId="", cancellationRevenue="₹0";
+  private String target="—", rides="0", liveKm="0.0 km", revenue="₹0", pendingTripId="", pendingFareTripId="", cancellationRevenue="₹0";
   private long tripStartAt=0L;
   private int targetProgress=0;
   private boolean minimized=false;
@@ -126,6 +126,7 @@ public class KfeOverlayService extends Service {
       if(!actionStage.equals(previousActionStage) && !"ENTER_FARE".equals(actionStage)) animateRetract();
       pendingTripId=root.optString("overlayTripId","");
       if(pendingTripId.isEmpty()&&trip!=null)pendingTripId=trip.optString("id","");
+      pendingFareTripId=root.optString("pendingFareId","");
       if(formMode!=null){
         if((("ENTER_FARE".equals(actionStage)||"END_RIDE".equals(actionStage))&&!"FARE".equals(formMode))||("CANCEL_RIDE".equals(actionStage)&&!"CANCEL".equals(formMode)))closeForm();
       }
@@ -141,6 +142,7 @@ public class KfeOverlayService extends Service {
     closeForm();
     actionStage="GO_TO_PICKUP";
     pendingTripId="";
+    pendingFareTripId="";
     tripStartAt=0L;
     KfeRideNotificationsPlugin.cancelNotification(this);
     animateRetract();
@@ -224,15 +226,16 @@ public class KfeOverlayService extends Service {
   }
   private void updateFormValue(){if(formPanel==null)return;TextView v=formPanel.findViewWithTag("value");if(v!=null)v.setText("₹"+(formValue.isEmpty()?"0":formValue));}
   private void submitNumericForm(){
-    if(formSubmitting||pendingTripId.isEmpty())return;
+    String actionTripId="FARE".equals(formMode)?pendingFareTripId:pendingTripId;
+    if(formSubmitting||actionTripId.isEmpty())return;
     double amount=0;try{amount=formValue.isEmpty()?0:Double.parseDouble(formValue);}catch(Exception e){return;}
     if(amount<0)return;formSubmitting=true;
     if("FARE".equals(formMode)){
       // Do not close the native fare form until the WebView confirms that the
       // authoritative trip record was updated. This prevents a lost fare from
       // looking like a completed ride.
-      KfeRideNotificationsPlugin.recordPendingAction(this,"ENTER_FARE",pendingTripId,String.valueOf(amount));
-      KfeRideNotificationsPlugin.emitAction("ENTER_FARE",pendingTripId,String.valueOf(amount));
+      KfeRideNotificationsPlugin.recordPendingAction(this,"ENTER_FARE",actionTripId,String.valueOf(amount));
+      KfeRideNotificationsPlugin.emitAction("ENTER_FARE",actionTripId,String.valueOf(amount));
       return;
     }else if("CANCEL".equals(formMode)){
       if(cancelReason.isEmpty()){formSubmitting=false;return;}

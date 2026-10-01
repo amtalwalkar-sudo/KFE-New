@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
+import { validateTripCorrection } from '../domain/work/trip.js'
 
 const manifest = fs.readFileSync('android/app/src/main/AndroidManifest.xml', 'utf8')
 const mainActivity = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/MainActivity.java', 'utf8')
@@ -100,7 +101,17 @@ assert.match(nativeGps, /requestedType\.equals\(eventType\)/)
 assert.match(nativeGps, /eventType = requestedType/)
 assert.match(nativeGps, /KfeOverlayService\.updateLiveKm/)
 assert.match(nativeGps, /passengerDistanceMeters/)
+assert.equal(validateTripCorrection({ fareDetailsSkipped: true }).fareDetailsSkipped, true)
+assert.equal(validateTripCorrection({ fareDetailsSkipped: 'true' }).valid, false)
+assert.match(cockpit, /pendingFareId = ''/)
+assert.ok(overlayLifecycle.includes('pendingFareId: state.pendingFareId'))
+assert.ok(overlay.includes('pendingFareTripId=root.optString("pendingFareId","")'))
+assert.ok(overlay.includes('"FARE".equals(formMode)?pendingFareTripId:pendingTripId'))
+assert.ok(nativeGps.includes('shouldStopForTrip(active, requested)'))
+assert.ok(nativeGps.includes('activeTripId.equals(requestedTripId)'))
 assert.match(overlay, /static void updateLiveKm/)
+assert.match(workView, /fareDetailsSkipped: fare\.value === ''/)
+assert.match(workView, /fareDetailsSkipped: true/)
 assert.match(workView, /const revenue = money\(store\.shift\?\.revenue \?\? 0\)/)
 assert.match(workView, /theme: document\.documentElement\.getAttribute\('data-kfe-theme'\) === 'night' \? 'dark' : 'light'/)
 assert.match(overlayLifecycle, /PerformanceService\.getDailyTargetSnapshot\(\)/)
