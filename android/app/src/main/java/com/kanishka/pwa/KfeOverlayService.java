@@ -69,6 +69,13 @@ public class KfeOverlayService extends Service {
     }
   };
 
+  static void updateLiveKm(String value){
+    KfeOverlayService current=instance;
+    if(current==null)return;
+    current.liveKm=value==null?"0.0 km":value;
+    if(current.overlay!=null)current.overlay.postInvalidate();
+  }
+
   public static void prepare(Context context){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_PREPARE);ContextCompat.startForegroundService(context,i);}
   public static void show(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_SHOW);i.putExtra(EXTRA_STATE,state==null?"{}":state);context.startService(i);}
   public static void update(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_UPDATE);i.putExtra(EXTRA_STATE,state==null?"{}":state);context.startService(i);}
