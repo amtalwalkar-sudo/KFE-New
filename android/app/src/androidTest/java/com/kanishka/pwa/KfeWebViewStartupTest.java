@@ -39,7 +39,7 @@ public class KfeWebViewStartupTest {
           WebView view = activity.getBridge().getWebView();
           dom.set("JS callback pending; url=" + view.getUrl() + "; originalUrl=" + view.getOriginalUrl() + "; progress=" + view.getProgress() + "; title=" + view.getTitle());
           view.evaluateJavascript(
-            "({ready:document.readyState,root:!!document.querySelector('#app'),children:document.querySelector('#app')?.children.length||0,text:(document.querySelector('#app')?.innerText||'').slice(0,500),body:(document.body?.innerText||'').slice(0,800),url:location.href,errors:[...document.querySelectorAll('[class*=error],[role=alert]')].map(e=>e.innerText).slice(0,5)})",
+            "JSON.stringify({ready:document.readyState,root:!!document.getElementById('app'),children:document.getElementById('app')?document.getElementById('app').children.length:-1,body:document.body?document.body.innerText.slice(0,800):'NO_BODY',url:location.href})",
             value -> {
               dom.set(value == null ? "" : value);
               evaluated.countDown();
