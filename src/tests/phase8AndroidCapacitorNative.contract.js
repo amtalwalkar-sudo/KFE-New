@@ -110,7 +110,7 @@ assert.ok(overlay.includes('"FARE".equals(formMode)?pendingFareTripId:pendingTri
 assert.ok(nativeGps.includes('shouldStopForTrip(active, requested)'))
 assert.ok(nativeGps.includes('activeTripId.equals(requestedTripId)'))
 assert.match(overlay, /static void updateLiveKm/)
-assert.match(workView, /fareDetailsSkipped: false/)
+assert.match(workView, /fareDetailsSkipped: fare\.value === ''/)
 assert.match(workView, /fareDetailsSkipped: true/)
 assert.match(workView, /const revenue = money\(store\.shift\?\.revenue \?\? 0\)/)
 assert.match(workView, /theme: document\.documentElement\.getAttribute\('data-kfe-theme'\) === 'night' \? 'dark' : 'light'/)
