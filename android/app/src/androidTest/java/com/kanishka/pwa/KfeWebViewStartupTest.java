@@ -4,10 +4,10 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import android.webkit.WebView;
+import android.os.SystemClock;
 
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.platform.app.InstrumentationRegistry;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -31,14 +31,26 @@ public class KfeWebViewStartupTest {
       assertNotNull("WebView URL must be available", url[0]);
       assertTrue("APK must load the bundled Capacitor WebView", url[0].contains("localhost"));
 
-      final CountDownLatch ready = new CountDownLatch(1);
-      final AtomicBoolean kfeVisible = new AtomicBoolean(false);
-      scenario.onActivity(activity -> activity.getBridge().getWebView().evaluateJavascript(
-        "document.body.innerText.includes('Kanishka Enterprises') && !document.body.innerText.includes('KFE could not start')",
-        value -> { kfeVisible.set("true".equals(value)); ready.countDown(); }
-      ));
-      assertTrue("KFE interface must render in the APK WebView", ready.await(8, TimeUnit.SECONDS));
-      assertTrue("KFE interface must render without the startup error screen", kfeVisible.get());
+      // The Capacitor WebView can exist before the bundled SPA has mounted.
+      // Poll the actual UI instead of evaluating once against an empty document.
+      long deadline = SystemClock.uptimeMillis() + 30000L;
+      AtomicBoolean kfeVisible = new AtomicBoolean(false);
+      while (SystemClock.uptimeMillis() < deadline && !kfeVisible.get()) {
+        CountDownLatch evaluated = new CountDownLatch(1);
+        scenario.onActivity(activity -> {
+          WebView view = activity.getBridge().getWebView();
+          view.evaluateJavascript(
+            "document.readyState === 'complete' && !!document.querySelector('.work-canonical') && document.body.innerText.includes('Kanishka Enterprises') && !document.querySelector('.kfe-runtime-error')",
+            value -> {
+              kfeVisible.set("true".equals(value));
+              evaluated.countDown();
+            }
+          );
+        });
+        evaluated.await(1, TimeUnit.SECONDS);
+        if (!kfeVisible.get()) SystemClock.sleep(250L);
+      }
+      assertTrue("KFE interface must render in the APK WebView within 30 seconds", kfeVisible.get());
     } finally {
       scenario.close();
     }
