@@ -335,7 +335,7 @@ async function saveFare() {
     const details = {
       id: pendingFare.value.id,
       ...(fare.value === '' ? {} : { revenue: Number(fare.value) }),
-      fareDetailsSkipped: false,
+      fareDetailsSkipped: fare.value === '',
       toll: tripToll.value === '' ? 0 : Number(tripToll.value),
       parking: tripParking.value === '' ? 0 : Number(tripParking.value)
     }
