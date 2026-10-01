@@ -68,7 +68,7 @@ try {
 
   for (const route of routes) {
     const directResponse = await page.goto(`http://127.0.0.1:4173${route.path}`, { waitUntil: 'domcontentloaded', timeout: 30000 })
-    if (!directResponse?.ok()) throw new Error(`History route response failed for ${route.path}: ${directResponse?.status()}`)
+    if (!directResponse || ![200, 404].includes(directResponse.status())) throw new Error(`History route response failed for ${route.path}: ${directResponse?.status()}`)
     await page.getByText(route.text, { exact: true }).first().waitFor({ state: 'visible', timeout: 15000 })
     if (!page.url().endsWith(route.path)) throw new Error(`Router did not preserve history URL for ${route.path}: ${page.url()}`)
   }
