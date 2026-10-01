@@ -257,14 +257,38 @@ jobs:
             adb shell appops set com.kanishka.pwa android:system_alert_window allow
             adb shell appops set com.kanishka.pwa android:camera allow || true
             adb shell am force-stop com.kanishka.pwa
-            adb shell am instrument -w -r -e class com.kanishka.pwa.KfeWebViewStartupTest com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner > artifacts/android-golden/webview-startup-instrumentation.log 2>&1 || { cat artifacts/android-golden/webview-startup-instrumentation.log; adb logcat -d -t 5000 > artifacts/android-golden/webview-startup-logcat.log || true; echo "ANDROID INSTRUMENTATION FAILED: webview-startup"; exit 1; }
+            if ! adb shell am instrument -w -r -e class com.kanishka.pwa.KfeWebViewStartupTest com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner > artifacts/android-golden/webview-startup-instrumentation.log 2>&1; then
+              cat artifacts/android-golden/webview-startup-instrumentation.log
+              adb logcat -d -t 5000 > artifacts/android-golden/webview-startup-logcat.log || true
+              echo "ANDROID INSTRUMENTATION FAILED: webview-startup"
+              exit 1
+            fi
             cat artifacts/android-golden/webview-startup-instrumentation.log
-            grep -q 'INSTRUMENTATION_CODE: 0' artifacts/android-golden/webview-startup-instrumentation.log || { adb logcat -d -t 5000 > artifacts/android-golden/webview-startup-logcat.log || true; echo "ANDROID INSTRUMENTATION FAILED: webview-startup"; exit 1; }
-            ! grep -Eq 'INSTRUMENTATION_CODE: -1|FAILURES!!!|Tests run: [0-9]+, Failures: [1-9]' artifacts/android-golden/webview-startup-instrumentation.log || { echo "ANDROID INSTRUMENTATION FAILED: webview-startup"; exit 1; }
-            adb shell am instrument -w -r -e class com.kanishka.pwa.KfeOverlaySmokeTest com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner > artifacts/android-golden/native-overlay-instrumentation.log 2>&1 || { cat artifacts/android-golden/native-overlay-instrumentation.log; adb logcat -d -t 5000 > artifacts/android-golden/native-overlay-logcat.log || true; echo "ANDROID INSTRUMENTATION FAILED: native-overlay"; exit 1; }
+            if ! grep -q 'INSTRUMENTATION_CODE: 0' artifacts/android-golden/webview-startup-instrumentation.log; then
+              adb logcat -d -t 5000 > artifacts/android-golden/webview-startup-logcat.log || true
+              echo "ANDROID INSTRUMENTATION FAILED: webview-startup"
+              exit 1
+            fi
+            if grep -Eq 'INSTRUMENTATION_CODE: -1|FAILURES!!!|Tests run: [0-9]+, Failures: [1-9]' artifacts/android-golden/webview-startup-instrumentation.log; then
+              echo "ANDROID INSTRUMENTATION FAILED: webview-startup"
+              exit 1
+            fi
+            if ! adb shell am instrument -w -r -e class com.kanishka.pwa.KfeOverlaySmokeTest com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner > artifacts/android-golden/native-overlay-instrumentation.log 2>&1; then
+              cat artifacts/android-golden/native-overlay-instrumentation.log
+              adb logcat -d -t 5000 > artifacts/android-golden/native-overlay-logcat.log || true
+              echo "ANDROID INSTRUMENTATION FAILED: native-overlay"
+              exit 1
+            fi
             cat artifacts/android-golden/native-overlay-instrumentation.log
-            grep -q 'INSTRUMENTATION_CODE: 0' artifacts/android-golden/native-overlay-instrumentation.log || { adb logcat -d -t 5000 > artifacts/android-golden/native-overlay-logcat.log || true; echo "ANDROID INSTRUMENTATION FAILED: native-overlay"; exit 1; }
-            ! grep -Eq 'INSTRUMENTATION_CODE: -1|FAILURES!!!|Tests run: [0-9]+, Failures: [1-9]' artifacts/android-golden/native-overlay-instrumentation.log || { echo "ANDROID INSTRUMENTATION FAILED: native-overlay"; exit 1; }
+            if ! grep -q 'INSTRUMENTATION_CODE: 0' artifacts/android-golden/native-overlay-instrumentation.log; then
+              adb logcat -d -t 5000 > artifacts/android-golden/native-overlay-logcat.log || true
+              echo "ANDROID INSTRUMENTATION FAILED: native-overlay"
+              exit 1
+            fi
+            if grep -Eq 'INSTRUMENTATION_CODE: -1|FAILURES!!!|Tests run: [0-9]+, Failures: [1-9]' artifacts/android-golden/native-overlay-instrumentation.log; then
+              echo "ANDROID INSTRUMENTATION FAILED: native-overlay"
+              exit 1
+            fi
             sha256sum "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
 
       - name: Upload Android instrumentation logs
