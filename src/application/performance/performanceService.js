@@ -10,6 +10,7 @@ import { deriveFinancialFactModel } from '../../domain/finance/financialFactMode
 import { deriveOperatingKmForecast } from '../../domain/performance/operatingKmForecast.js'
 import { getPerformanceDiagnostics } from '../../domain/performance/performanceDiagnostics.js'
 import { getKfeReferenceNow, reportingRangeFor } from '../../domain/time/ist.js'
+import { deriveDailyTargetAchievement } from '../../domain/performance/dailyTargetAchievement.js'
 
 export const PerformanceService = Object.freeze({
   async getSnapshot() {
@@ -24,8 +25,16 @@ export const PerformanceService = Object.freeze({
   async getDailyTargetSnapshot(asOf = getKfeReferenceNow()) {
     const target = await DriverTargetService.getTarget(asOf)
     const snapshot = await PerformanceRepository.getSnapshot()
-    const metrics = this.getMetrics(snapshot, reportingRangeFor('DAY', asOf))
-    return { target, achieved: Number(metrics?.revenue || 0) }
+    const range = reportingRangeFor('DAY', asOf)
+    const metrics = this.getMetrics(snapshot, range)
+    const achieved = deriveDailyTargetAchievement({
+      shifts: snapshot?.shifts,
+      trips: snapshot?.trips,
+      range,
+      asOf,
+      completedShiftRevenue: Number(metrics?.revenue || 0),
+    })
+    return { target, achieved }
   },
   getMetrics(snapshot, range) {
     const calculationSnapshot = normalizeCalculationSnapshot(snapshot)
