@@ -244,7 +244,7 @@ try {
     if (!deletedRecord?.deletedAt || deletedRecord.deleted !== true) throw new Error('settlement delete did not persist soft-delete metadata')
     return { forms: cases.length, createdEditedReloaded: cases.map(([key]) => key), softDeleteVerified: true, deletedSettlementId: settlementId }
   })
-  assert(adminRoundTrip.forms === 10 && adminRoundTrip.softDeleteVerified, 'Admin field round-trip matrix failed.')
+  assert(adminRoundTrip.forms === 11 && adminRoundTrip.softDeleteVerified, 'Admin field round-trip matrix failed.')
   console.log('PASS Admin field round-trip audit: ' + adminRoundTrip.forms + ' forms saved, edited, reread; settlement soft-delete persisted.')
 
   // I5/J5: Business Start Date is a calendar boundary in IST. Recovery is zero
