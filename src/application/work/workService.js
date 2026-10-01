@@ -59,6 +59,7 @@ export const WorkService = Object.freeze({
     if (!validation.valid) return { ok: false, reason: validation.reason }
     const result = await ShiftTripRepository.createTrip({ ...data, operator: validation.operator, tripStage: data?.tripStage || 'GOING_TO_PICKUP' }); checkpoint()
     // GPS is telemetry/enrichment. Never block the authoritative trip transition on it.
+    void NativeGpsService.start(result.id, 'DEAD_MOVEMENT_TRACE').catch(() => {})
     void captureLifecycleLocation({ entityType: 'TRIP', entityId: result.id, eventType: 'START' }).then(location => {
       if (location) return ShiftTripRepository.setTripStartLocation(result.id, location)
       return null
