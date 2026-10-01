@@ -74,6 +74,7 @@ public class KfeOverlaySmokeTest {
     state.put("overlayAction", "GO_TO_PICKUP");
     KfeOverlayService.update(context, state.toString());
     waitForOverlay();
+    service = waitForService();
     actionStage.set(service, "GO_TO_PICKUP");
     pendingTripId.set(service, "trip-a");
     swipeOverlay(service);
@@ -83,6 +84,7 @@ public class KfeOverlaySmokeTest {
     state.put("overlayAction", "START_RIDE");
     KfeOverlayService.update(context, state.toString());
     waitForOverlay();
+    service = waitForService();
     actionStage.set(service, "START_RIDE");
     pendingTripId.set(service, "trip-a");
     swipeOverlay(service);
@@ -92,6 +94,7 @@ public class KfeOverlaySmokeTest {
     state.put("overlayAction", "END_RIDE");
     KfeOverlayService.update(context, state.toString());
     waitForOverlay();
+    service = waitForService();
     actionStage.set(service, "END_RIDE");
     pendingTripId.set(service, "trip-a");
     swipeOverlay(service);
@@ -140,6 +143,7 @@ public class KfeOverlaySmokeTest {
   }
 
   private void swipeOverlay(KfeOverlayService service) throws Exception {
+    service = waitForService();
     Field field = KfeOverlayService.class.getDeclaredField("overlay");
     field.setAccessible(true);
     android.view.View view = (android.view.View) field.get(service);
