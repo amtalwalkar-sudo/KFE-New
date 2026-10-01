@@ -140,7 +140,7 @@ public class KfeOverlaySmokeTest {
     android.view.View view = (android.view.View) field.get(service);
     int width = view.getWidth();
     long now = SystemClock.uptimeMillis();
-    float y = Math.max(105f, Math.min(view.getHeight() - 5f, 115f));
+    float density = view.getResources().getDisplayMetrics().density;\n    float y = Math.max(105f * density, Math.min(view.getHeight() - 5f, 115f * density));
     view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now, android.view.MotionEvent.ACTION_DOWN, 20f, y, 0));
     view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now + 80, android.view.MotionEvent.ACTION_MOVE, width * 0.55f, y, 0));
     view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now + 160, android.view.MotionEvent.ACTION_MOVE, width * 0.92f, y, 0));
