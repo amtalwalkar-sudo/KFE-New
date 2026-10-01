@@ -35,9 +35,14 @@ run_instrumentation() {
     return 1
   fi
   cat "$log_file"
-  if ! grep -Eq '^OK \([0-9]+ tests?\)$' "$log_file" || grep -Eq 'FAILURES!!!|Tests run: [0-9]+, Failures: [1-9]|shortMsg=Process crashed|INSTRUMENTATION_RESULT: shortMsg=' "$log_file"; then
+  if ! grep -Fq "OK (" "$log_file"; then
     capture_failure "$label"
-    echo "ANDROID INSTRUMENTATION FAILED: $label" >&2
+    echo "ANDROID INSTRUMENTATION DID NOT REPORT SUCCESS: $label" >&2
+    return 1
+  fi
+  if grep -Eq "FAILURES!!!|Tests run: [0-9]+, Failures: [1-9]|shortMsg=Process crashed|INSTRUMENTATION_RESULT: shortMsg=" "$log_file"; then
+    capture_failure "$label"
+    echo "ANDROID INSTRUMENTATION REPORTED A FAILURE: $label" >&2
     return 1
   fi
 }
