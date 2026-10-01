@@ -25,6 +25,7 @@ public class KfeOverlaySmokeTest {
   private Context context;
 
   @Before public void setUp() {
+    MainActivity.isResumed = false;
     context = InstrumentationRegistry.getInstrumentation().getTargetContext();
     context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE).edit().clear().apply();
     context.startService(new Intent(context, KfeOverlayService.class));
@@ -32,6 +33,7 @@ public class KfeOverlaySmokeTest {
 
   @After public void tearDown() {
     context.stopService(new Intent(context, KfeOverlayService.class));
+    MainActivity.isResumed = true;
   }
 
   @Test public void staleGpsStopCannotStopNewerTripCollector() {
