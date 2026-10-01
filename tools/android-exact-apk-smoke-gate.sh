@@ -27,6 +27,7 @@ install_apk() {
 run_instrumentation() {
   local test_class="$1"
   local label="$2"
+  local expected_count="$3"
   local log_file="artifacts/android-golden/${label}-instrumentation.log"
   if ! timeout 180s adb shell am instrument -w -r -e class "$test_class" com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner > "$log_file" 2>&1; then
     cat "$log_file"
@@ -35,9 +36,14 @@ run_instrumentation() {
     return 1
   fi
   cat "$log_file"
-  if ! grep -Fq "OK (" "$log_file"; then
+  if ! grep -Eq "^INSTRUMENTATION_CODE: -1$" "$log_file"; then
     capture_failure "$label"
-    echo "ANDROID INSTRUMENTATION DID NOT REPORT SUCCESS: $label" >&2
+    echo "ANDROID INSTRUMENTATION TERMINAL RESULT CODE WAS NOT SUCCESS (-1): $label" >&2
+    return 1
+  fi
+  if ! grep -Eq "^OK \\(${expected_count} tests?\\)$" "$log_file"; then
+    capture_failure "$label"
+    echo "ANDROID INSTRUMENTATION DID NOT REPORT THE EXPECTED TEST COUNT (${expected_count}): $label" >&2
     return 1
   fi
   if grep -Eq "FAILURES!!!|Tests run: [0-9]+, Failures: [1-9]|shortMsg=Process crashed|INSTRUMENTATION_RESULT: shortMsg=" "$log_file"; then
@@ -52,6 +58,6 @@ install_apk "$GITHUB_WORKSPACE/android/app/build/outputs/apk/androidTest/debug/a
 adb shell appops set com.kanishka.pwa android:system_alert_window allow
 adb shell appops set com.kanishka.pwa android:camera allow || true
 adb shell am force-stop com.kanishka.pwa
-run_instrumentation com.kanishka.pwa.KfeWebViewStartupTest webview-startup
-run_instrumentation com.kanishka.pwa.KfeOverlaySmokeTest native-overlay
+run_instrumentation com.kanishka.pwa.KfeWebViewStartupTest webview-startup 1
+run_instrumentation com.kanishka.pwa.KfeOverlaySmokeTest native-overlay 3
 sha256sum "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
