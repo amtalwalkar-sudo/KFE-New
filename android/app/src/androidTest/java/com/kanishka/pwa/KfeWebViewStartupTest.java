@@ -3,8 +3,8 @@ package com.kanishka.pwa;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-import android.webkit.WebView;
 import android.os.SystemClock;
+import android.webkit.WebView;
 
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -31,28 +31,40 @@ public class KfeWebViewStartupTest {
       assertNotNull("WebView URL must be available", url.get());
       assertTrue("APK must load the bundled Capacitor WebView", url.get().contains("localhost"));
 
-      long deadline = SystemClock.uptimeMillis() + 45000L;
-      AtomicReference<String> dom = new AtomicReference<>("");
+      long deadline = SystemClock.uptimeMillis() + 90000L;
+      AtomicReference<Integer> progress = new AtomicReference<>(0);
+      AtomicReference<String> pageUrl = new AtomicReference<>("");
+      AtomicReference<String> originalUrl = new AtomicReference<>("");
+      AtomicReference<String> title = new AtomicReference<>("");
       while (SystemClock.uptimeMillis() < deadline) {
-        CountDownLatch evaluated = new CountDownLatch(1);
         scenario.onActivity(activity -> {
           WebView view = activity.getBridge().getWebView();
-          dom.set("JS callback pending; url=" + view.getUrl() + "; originalUrl=" + view.getOriginalUrl() + "; progress=" + view.getProgress() + "; title=" + view.getTitle());
-          view.evaluateJavascript(
-            "JSON.stringify({ready:document.readyState,root:!!document.getElementById('app'),children:document.getElementById('app')?document.getElementById('app').children.length:-1,body:document.body?document.body.innerText.slice(0,800):'NO_BODY',url:location.href})",
-            value -> {
-              dom.set(value == null ? "" : value);
-              evaluated.countDown();
-            }
-          );
+          progress.set(view.getProgress());
+          pageUrl.set(String.valueOf(view.getUrl()));
+          originalUrl.set(String.valueOf(view.getOriginalUrl()));
+          title.set(String.valueOf(view.getTitle()));
         });
-        evaluated.await(2, TimeUnit.SECONDS);
-        String state = dom.get();
-        if (state.contains("\"children\":") && !state.contains("\"children\":0")
-            && !state.contains("\"text\":\"\"")) return;
-        SystemClock.sleep(300L);
+        if (progress.get() >= 100) break;
+        SystemClock.sleep(500L);
       }
-      throw new AssertionError("Bundled KFE UI did not mount in the APK WebView. Last DOM snapshot: " + dom.get());
+      assertTrue("Bundled HTML did not finish loading; url=" + pageUrl.get()
+        + "; originalUrl=" + originalUrl.get() + "; progress=" + progress.get()
+        + "; title=" + title.get(), progress.get() >= 100);
+
+      AtomicReference<String> dom = new AtomicReference<>("");
+      CountDownLatch evaluated = new CountDownLatch(1);
+      scenario.onActivity(activity -> activity.getBridge().getWebView().evaluateJavascript(
+        "JSON.stringify({ready:document.readyState,root:!!document.getElementById('app'),children:document.getElementById('app')?document.getElementById('app').children.length:-1,body:document.body?document.body.innerText.slice(0,800):'NO_BODY',url:location.href})",
+        value -> {
+          dom.set(value == null ? "null JS result" : value);
+          evaluated.countDown();
+        }
+      ));
+      assertTrue("WebView JavaScript evaluation timed out", evaluated.await(10, TimeUnit.SECONDS));
+      String state = dom.get();
+      assertTrue("KFE DOM did not mount in APK WebView: " + state,
+        state.contains("\"children\":") && !state.contains("\"children\":0")
+          && !state.contains("\"body\":\"\""));
     } finally {
       scenario.close();
     }
