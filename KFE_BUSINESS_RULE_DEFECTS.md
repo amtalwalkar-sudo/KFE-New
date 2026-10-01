@@ -24,11 +24,11 @@ This is the consolidated defect ledger for business-rule audit findings.
 
 | ID | Rule area | Confirmed finding | Status |
 |---|---|---|---|
-| BRD-002 | BR-01 Business start boundary | No authoritative `businessStartDate` input exists in Admin source definitions. | OPEN |
-| BRD-005 | BR-01 Business start boundary | `financePerformanceAdapter.js` derives business start from earliest vehicle `acquiredOn`, contrary to frozen BR-01. | OPEN |
-| BRD-007 | BR-01 Historical maintenance recovery | No canonical opening-odometer × ₹0.40/km historical burden and 12-month date-to-date recovery path exists. | OPEN |
-| BRD-008 | BR-01 Predictive maintenance provision | Admin maintenance-rate definition defaults to ₹2/km, while frozen BR-01 requires ₹1.60/km. | OPEN |
-| BRD-009 | BR-01 Pre-business loan recovery | `calculatePreBusinessRecovery` uses the surrogate boundary and overdue-row logic rather than frozen origin-based classification from authoritative Business Start Date. | OPEN |
+| BRD-002 | BR-01 Business start boundary | No authoritative `businessStartDate` input exists in Admin source definitions. | VERIFIED — Admin source definition + `phase2BusinessRuleDefects.contract.js` |
+| BRD-005 | BR-01 Business start boundary | `financePerformanceAdapter.js` derives business start from earliest vehicle `acquiredOn`, contrary to frozen BR-01. | VERIFIED — adapter reads `snapshot.businessSetup.businessStartDate`; contract separates it from vehicle acquisition date |
+| BRD-007 | BR-01 Historical maintenance recovery | No canonical opening-odometer × ₹0.40/km historical burden and 12-month date-to-date recovery path exists. | VERIFIED — `performanceEngineV2.js` and `phase2BusinessRuleDefects.contract.js` |
+| BRD-008 | BR-01 Predictive maintenance provision | Admin maintenance-rate definition defaults to ₹2/km, while frozen BR-01 requires ₹1.60/km. | VERIFIED — Admin form default ₹1.60/km and calculation contract |
+| BRD-009 | BR-01 Pre-business loan recovery | `calculatePreBusinessRecovery` uses the surrogate boundary and overdue-row logic rather than frozen origin-based classification from authoritative Business Start Date. | VERIFIED for active finance adapter path — `calculatePreBusinessLoanRecovery` uses loan origin and authoritative Business Start Date; legacy helper remains unused by that adapter and should be reviewed for removal separately |
 
 ## Dispositioned provisional findings
 
@@ -41,7 +41,7 @@ This is the consolidated defect ledger for business-rule audit findings.
 
 ## Evidence boundary
 
-These classifications are based on the frozen BR-01 specification and the inspected canonical Admin, performance, finance-adapter and loan-engine paths. No Phase 2 implementation fixes have been applied.
+The rows above originated as Phase 1 findings. Their current implementation status has been re-audited against the authoritative Admin definitions, finance adapter, loan engine, historical maintenance calculation, and passing Phase 2 business-rule contract. BRD-009's old helper remains in the module as a legacy duplicate; the active finance adapter uses the origin-based canonical helper.
 
 ## Current known audit candidates
 
@@ -50,11 +50,12 @@ These are pre-audit leads retained for later validation.
 | ID | Rule area | Candidate finding | Status |
 |---|---|---|---|
 | BRD-CAND-001 | Trip lifecycle | Repository `setTripStage(id, stage)` may accept arbitrary stage values without enforcing the canonical transition graph | OPEN — candidate |
-| BRD-CAND-002 | Android overlay | END → fare uses a pending-action path that may lose the END command if process interruption occurs between completion and fare entry | OPEN — candidate |
-| BRD-CAND-003 | Android release gate | Current Android CI smoke gate may not exercise the full Golden Ride Gate required for release verification | OPEN — candidate / gate evidence |
-| BRD-CAND-004 | Release documentation | Android release-gate wording may contain stale cancellation semantics relative to the canonical rule that cancellation is available only during pickup | OPEN — candidate |
+| BRD-CAND-002 | Android overlay | END → fare uses a pending-action path that may lose the END command if process interruption occurs between completion and fare entry | OPEN — not covered by full Golden Ride interruption/replay test |
+| BRD-CAND-003 | Android release gate | Android CI smoke tests cover WebView startup and overlay creation only; they do not exercise the full Golden Ride Gate, persisted parity, or interruption/replay | OPEN — release blocker until Golden Ride emulator gate exists and passes |
+| BRD-CAND-004 | Release documentation | Android release-gate cancellation semantics may be stale | VERIFIED — gate correctly restricts cancellation to pickup and specifies blank fee = ₹0; blank fee normalization now has a regression assertion |
 | BRD-CAND-005 | Test infrastructure | Contract runner may register the synthetic isolation contract twice | RESOLVED during Phase 0 |
 | BRD-CAND-006 | Deployment evidence | Latest-main CI/deployed runtime evidence requires explicit re-verification before any release-readiness claim | OPEN — evidence gap |
+| BRD-CAND-007 | Native background GPS | Starting the same trip's passenger-ride GPS phase returned early while the pickup trace callback was active, leaving ride points classified as dead movement | FIXED — AWAITING RE-AUDIT; native GPS phase-transition contract added |
 
 These entries must be validated against the current repository before being treated as confirmed defects.
 
