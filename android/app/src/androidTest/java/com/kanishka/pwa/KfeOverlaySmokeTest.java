@@ -46,6 +46,117 @@ public class KfeOverlaySmokeTest {
     assertEquals("", KfeOverlayService.resolveFareActionTripId("", null));
   }
 
+  @Test public void goldenRideSwipeLoopPersistsPickupStartEndAndFareIdentity() throws Exception {
+    clearPending();
+    KfeOverlayService service = waitForService();
+    Field actionStage = KfeOverlayService.class.getDeclaredField("actionStage");
+    Field pendingTripId = KfeOverlayService.class.getDeclaredField("pendingTripId");
+    Field pendingFareTripId = KfeOverlayService.class.getDeclaredField("pendingFareTripId");
+    actionStage.setAccessible(true);
+    pendingTripId.setAccessible(true);
+    pendingFareTripId.setAccessible(true);
+
+    JSONObject state = new JSONObject()
+      .put("shift", new JSONObject().put("id", "golden-shift"))
+      .put("trip", new JSONObject().put("id", "trip-a"))
+      .put("target", "₹500")
+      .put("targetProgress", 0)
+      .put("rides", "0")
+      .put("liveKm", "0.0 km")
+      .put("revenue", "₹0")
+      .put("overlayTripId", "trip-a");
+
+    state.put("overlayAction", "GO_TO_PICKUP");
+    KfeOverlayService.update(context, state.toString());
+    waitForOverlay();
+    actionStage.set(service, "GO_TO_PICKUP");
+    pendingTripId.set(service, "trip-a");
+    swipeOverlay(service);
+    assertEquals("GO_TO_PICKUP|trip-a|", pendingValue());
+
+    clearPending();
+    state.put("overlayAction", "START_RIDE");
+    KfeOverlayService.update(context, state.toString());
+    waitForOverlay();
+    actionStage.set(service, "START_RIDE");
+    pendingTripId.set(service, "trip-a");
+    swipeOverlay(service);
+    assertEquals("START_RIDE|trip-a|", pendingValue());
+
+    clearPending();
+    state.put("overlayAction", "END_RIDE");
+    KfeOverlayService.update(context, state.toString());
+    waitForOverlay();
+    actionStage.set(service, "END_RIDE");
+    pendingTripId.set(service, "trip-a");
+    swipeOverlay(service);
+    assertEquals("END_RIDE|trip-a|", pendingValue());
+
+    pendingFareTripId.set(service, "trip-a");
+    pendingTripId.set(service, "trip-b");
+    assertEquals("trip-a", KfeOverlayService.resolveFareActionTripId("trip-a", "trip-b"));
+    KfeRideNotificationsPlugin.recordPendingAction(context, "ENTER_FARE", "trip-a", "450");
+    assertEquals("ENTER_FARE|trip-a|450", pendingValue());
+    clearPending();
+  }
+
+  @Test public void pendingActionSurvivesOverlayServiceRecreationUntilExplicitClear() throws Exception {
+    clearPending();
+    KfeRideNotificationsPlugin.recordPendingAction(context, "END_RIDE", "trip-replay", "");
+    assertEquals("END_RIDE|trip-replay|", pendingValue());
+    context.stopService(new Intent(context, KfeOverlayService.class));
+    SystemClock.sleep(300);
+    context.startService(new Intent(context, KfeOverlayService.class));
+    waitForService();
+    assertEquals("END_RIDE|trip-replay|", pendingValue());
+    clearPending();
+    assertEquals("", pendingValue());
+  }
+
+  private KfeOverlayService waitForService() {
+    long deadline = SystemClock.uptimeMillis() + 5000L;
+    while (SystemClock.uptimeMillis() < deadline) {
+      if (KfeOverlayService.instance != null) return KfeOverlayService.instance;
+      SystemClock.sleep(100L);
+    }
+    throw new AssertionError("KFE overlay service did not start");
+  }
+
+  private void waitForOverlay() throws Exception {
+    Field field = KfeOverlayService.class.getDeclaredField("overlay");
+    field.setAccessible(true);
+    long deadline = SystemClock.uptimeMillis() + 5000L;
+    while (SystemClock.uptimeMillis() < deadline) {
+      Object overlay = field.get(KfeOverlayService.instance);
+      if (overlay != null && ((android.view.View) overlay).getWidth() > 100) return;
+      SystemClock.sleep(100L);
+    }
+    throw new AssertionError("KFE overlay view did not become interactive");
+  }
+
+  private void swipeOverlay(KfeOverlayService service) throws Exception {
+    Field field = KfeOverlayService.class.getDeclaredField("overlay");
+    field.setAccessible(true);
+    android.view.View view = (android.view.View) field.get(service);
+    int width = view.getWidth();
+    long now = SystemClock.uptimeMillis();
+    float y = Math.max(105f, Math.min(view.getHeight() - 5f, 115f));
+    view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now, android.view.MotionEvent.ACTION_DOWN, 20f, y, 0));
+    view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now + 80, android.view.MotionEvent.ACTION_MOVE, width * 0.55f, y, 0));
+    view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now + 160, android.view.MotionEvent.ACTION_MOVE, width * 0.92f, y, 0));
+    view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now + 220, android.view.MotionEvent.ACTION_UP, width * 0.92f, y, 0));
+    SystemClock.sleep(250);
+  }
+
+  private String pendingValue() {
+    return context.getSharedPreferences("kfe_ride_notification_events", Context.MODE_PRIVATE)
+      .getString("pending", "");
+  }
+
+  private void clearPending() {
+    context.getSharedPreferences("kfe_ride_notification_events", Context.MODE_PRIVATE).edit().remove("pending").commit();
+  }
+
   @Test public void exactApkCanStartNativeOverlaySmoke() throws Exception {
     if (android.os.Build.VERSION.SDK_INT >= 23) assertTrue("SYSTEM_ALERT_WINDOW must be granted by CI", Settings.canDrawOverlays(context));
     JSONObject state = new JSONObject()
