@@ -34,3 +34,11 @@ assert.match(cockpit, /shiftRevenue/)
 assert.match(performanceService, /getDailyTargetSnapshot/)
 
 console.log('KFE Timeline contract tests: PASS')
+
+
+// Timeline quick-edit must round-trip trip-level financial fields.
+assert.match(timeline, /toll:trip\.toll\?\?0/)
+assert.match(timeline, /parking:trip\.parking\?\?0/)
+assert.match(timeline, /toll:form\.toll,parking:form\.parking/)
+assert.match(timeline, /openTimelineKeypad\('toll'\)/)
+assert.match(timeline, /openTimelineKeypad\('parking'\)/)
