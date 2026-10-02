@@ -36,6 +36,28 @@ export const DriverTargetService = Object.freeze({
       to: targetTo,
       asOf: targetTo,
     })
+    const monthlyIndicativeProfitCache = new Map()
+    const historicalIndicativeProfitForMonth = ({ month, day }) => {
+      if (monthlyIndicativeProfitCache.has(month)) return monthlyIndicativeProfitCache.get(month)
+      const fullMonthRange = istMonthRange(day)
+      if (!fullMonthRange) return null
+      const monthMetrics = deriveFinanceAwarePerformance(snapshot, fullMonthRange, previousRange(fullMonthRange))
+      const value = Number.isFinite(monthMetrics.performanceHeadlineProvisionalProfit)
+        ? monthMetrics.performanceHeadlineProvisionalProfit
+        : null
+      monthlyIndicativeProfitCache.set(month, value)
+      return value
+    }
+    const indicativeProfitForCurrentMonth = ({ month } = {}) => {
+      if (monthlyIndicativeProfitCache.has(month)) return monthlyIndicativeProfitCache.get(month)
+      const asOfRange = { ...monthRange, to: targetTo }
+      const monthMetrics = deriveFinanceAwarePerformance(snapshot, asOfRange, previousRange(asOfRange))
+      const value = Number.isFinite(monthMetrics.performanceHeadlineProvisionalProfit)
+        ? monthMetrics.performanceHeadlineProvisionalProfit
+        : null
+      monthlyIndicativeProfitCache.set(month, value)
+      return value
+    }
     const stabilization = deriveRollingDriverTarget({
       trips: snapshot?.trips,
       shifts: snapshot?.shifts,
@@ -45,6 +67,8 @@ export const DriverTargetService = Object.freeze({
       applicableBreakEven: monthlyBreakEvenRevenue,
       historicalBreakEvenForDay: monthlyBreakEvenCacheFor(snapshot),
       operatingKmForecast,
+      historicalIndicativeProfitForMonth,
+      indicativeProfitForCurrentMonth,
     })
     return {
       ...stabilization,
