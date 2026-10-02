@@ -201,15 +201,15 @@ onMounted(load)
 <template v-if="selected==='driverTarget'">
 <section class="clean-card">
   <div class="card-heading">
-    <div><strong>Current driver target</strong><span v-if="currentTarget">Active for {{targetDraft.month}}</span><span v-else>No target is currently set for {{targetDraft.month}}</span></div>
+    <div><strong>Current monthly driver profit target</strong><span v-if="currentTarget">Active for {{targetDraft.month}}</span><span v-else>No monthly driver profit is currently set for {{targetDraft.month}}</span></div>
     <strong class="big-value">{{currentTarget?money(currentTarget.values?.desiredDriverProfit):'—'}} / month</strong>
   </div>
   <div class="form-grid">
     <label><span>Driver</span><select v-model="targetDraft.driverId" @change="syncTargetFromSelection"><option value="">Select driver</option><option v-for="d in all.driver" :key="d.id" :value="d.id">{{label('driver',d)}}</option></select></label>
     <label><span>Month</span><input v-model="targetDraft.month" type="month" @change="syncTargetFromSelection"></label>
-    <label><span>New target</span><input v-model.number="targetDraft.desiredDriverProfit" type="number" min="0" step="0.01"></label>
+    <label><span>Desired driver profit / take-home</span><input v-model.number="targetDraft.desiredDriverProfit" type="number" min="0" step="0.01"></label>
   </div>
-  <p class="rule-note">The current target applies to the selected month as a whole. Saving a new target replaces the current target; the previous target remains in history.</p>
+  <p class="rule-note">This is the driver-entered monthly profit / take-home amount. Break-even and maintenance-per-KM are calculated separately and added by the target engine. Saving a new amount replaces the current amount for the selected month; the previous value remains in history.</p>
   <button class="primary wide" :disabled="loading||!targetDraft.driverId" @click="saveTarget">Save new target</button>
 </section>
 <section class="history-card">
