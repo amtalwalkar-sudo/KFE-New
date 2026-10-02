@@ -78,10 +78,20 @@ jobs:
       - name: Configure persistent Android signing key
         env:
           KFE_ANDROID_KEYSTORE_BASE64: ${{ secrets.KFE_ANDROID_KEYSTORE_BASE64 }}
+          KFE_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.KFE_ANDROID_KEYSTORE_PASSWORD }}
+          KFE_ANDROID_KEY_ALIAS: ${{ secrets.KFE_ANDROID_KEY_ALIAS }}
         run: |
+          set -euo pipefail
           mkdir -p android/keystore
-          printf '%s' "$KFE_ANDROID_KEYSTORE_BASE64" | base64 --decode > android/keystore/kfe-release.jks
+          # Termux/GitHub copy paths may introduce harmless whitespace/newlines.
+          # Remove whitespace only; base64 alphabet/padding remain strictly validated by decoder.
+          printf '%s' "$KFE_ANDROID_KEYSTORE_BASE64" |
+            tr -d '[:space:]' |
+            base64 --decode > android/keystore/kfe-release.jks
           test -s android/keystore/kfe-release.jks
+          keytool -list -keystore android/keystore/kfe-release.jks \
+            -storepass "$KFE_ANDROID_KEYSTORE_PASSWORD" \
+            -alias "$KFE_ANDROID_KEY_ALIAS" >/dev/null
 
       - name: Build Android APK with persistent signing identity
         working-directory: android
