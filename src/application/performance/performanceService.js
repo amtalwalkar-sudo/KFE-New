@@ -116,11 +116,13 @@ export const PerformanceService = Object.freeze({
         return value
       },
     })
-    // Target authority is deliberately simple: the authoritative monthly
-    // break-even plus the Admin-entered monthly driver profit, allocated
-    // evenly across every calendar day in the target month. Do not let the
-    // stabilization helper substitute an as-of/eligible-day break-even here.
-    const authoritativeMonthlyBreakEven = monthlyBreakEvenRevenue
+    // Target authority is deliberately simple: use the authoritative
+    // target-month break-even supplied by the stabilization authority, add
+    // the Admin-entered monthly driver profit, then divide by calendar days.
+    // There is no historical-recovery or eligible-day adjustment.
+    const authoritativeMonthlyBreakEven = Number.isFinite(stabilization.monthlyBreakEvenRevenue)
+      ? stabilization.monthlyBreakEvenRevenue
+      : monthlyBreakEvenRevenue
     const targetMonthDays = targetMonthRange
       ? Math.round((targetMonthRange.to.getTime() - targetMonthRange.from.getTime()) / 86400000) + 1
       : null
@@ -130,8 +132,8 @@ export const PerformanceService = Object.freeze({
     const desiredDriverProfitForTarget = Number.isFinite(stabilization.desiredDriverProfitMonthly)
       ? stabilization.desiredDriverProfitMonthly
       : null
-    const targetMonthlyRequirement = dailyBreakEvenRevenue != null && desiredDriverProfitForTarget != null
-      ? (authoritativeMonthlyBreakEven + desiredDriverProfitForTarget)
+    const targetMonthlyRequirement = authoritativeMonthlyBreakEven != null && desiredDriverProfitForTarget != null
+      ? authoritativeMonthlyBreakEven + desiredDriverProfitForTarget
       : null
     const canonicalTarget = targetMonthlyRequirement != null && Number.isFinite(targetMonthDays) && targetMonthDays > 0
       ? targetMonthlyRequirement / targetMonthDays
