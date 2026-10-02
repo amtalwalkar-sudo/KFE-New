@@ -172,7 +172,7 @@ const changedServiceMetrics = PerformanceService.getMetrics(changedInput, range)
 near(changedServiceMetrics.breakEvenRevenue - serviceMetrics.breakEvenRevenue, 200, 'service BE change')
 near(changedEngineFinance.monthlyBreakEvenRevenue, changedServiceMetrics.breakEvenRevenue, 'finance adapter BE authority')
 near(changedServiceMetrics.monthlyBreakEvenRevenue - serviceMetrics.monthlyBreakEvenRevenue, 200, 'monthly BE change')
-near(changedServiceMetrics.dailyBreakEvenRevenue - serviceMetrics.dailyBreakEvenRevenue, 200 / serviceMetrics.driverTargetRemainingEligibleDays, 'daily BE change')
+near(changedServiceMetrics.dailyBreakEvenRevenue - serviceMetrics.dailyBreakEvenRevenue, 200 / 30, 'daily BE change')
 
 const missingMaintenanceInput = { ...snapshot, breakEvenInputs: [{ effectiveFrom:'2026-09-01', active:true }] }
 const missingEngineSnapshot = { ...engineSnapshot, breakEvenInputs: missingMaintenanceInput.breakEvenInputs }
