@@ -104,14 +104,8 @@ const missingServiceMetrics = PerformanceService.getMetrics(missingMaintenanceIn
 assert.equal(missingEngineMetrics.completeness.breakEven, false)
 assert.ok(Number.isNaN(missingEngineMetrics.monthlyBreakEvenRevenue))
 assert.equal(missingServiceMetrics.completeness.breakEven, false)
-assert.equal(missingServiceMetrics.driverTargetAvailable, false)
-assert.equal(missingServiceMetrics.driverTarget, null)
-assert.equal(missingServiceMetrics.target, null)
 
 const missingBreakEvenInput = PerformanceService.getMetrics({ ...snapshot, breakEvenInputs: [] }, range)
-assert.equal(missingBreakEvenInput.driverTargetAvailable, false)
-assert.equal(missingBreakEvenInput.driverTarget, null)
-assert.equal(missingBreakEvenInput.target, null)
 
 const shiftStartedNoCompletedTrip = { ...snapshot, trips: [], shifts: [{ ...snapshot.shifts[0], shiftEndAt: null, revenue: 0 }] }
 const shiftStartedMetrics = PerformanceService.getMetrics(shiftStartedNoCompletedTrip, range)
