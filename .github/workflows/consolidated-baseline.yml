@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: kfe-ci-${{ github.ref }}-${{ github.sha }}
+  group: kfe-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
