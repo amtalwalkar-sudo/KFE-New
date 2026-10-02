@@ -76,7 +76,7 @@ export const KfeRideNotificationService = Object.freeze({
   },
   async clearPendingAction() { if (!native()) return false; try { await KfeRideNotifications.clearPendingAction(); return true } catch (_) { return false } },
   async consumePendingActions() { if (!native()) return []; try { const result = await KfeRideNotifications.getPendingActions(); return Array.isArray(result?.events) ? result.events : [] } catch (_) { return [] } },
-  async acknowledgeAction(eventId) { if (!native() || !eventId) return false; try { const result = await KfeRideNotifications.acknowledgeAction({ eventId }); return result?.acknowledged === true } catch (_) { return false } },
+  async acknowledgeAction(eventId, stage = '', tripId = '') { if (!native() || !eventId) return false; try { const result = await KfeRideNotifications.acknowledgeAction({ eventId, stage, tripId }); return result?.acknowledged === true } catch (_) { return false } },
   async recordActionFailure(eventId, error) { if (!native() || !eventId) return false; try { await KfeRideNotifications.recordActionFailure({ eventId, error: String(error || "Processing failed") }); return true } catch (_) { return false } },
   async consumePendingAction() {
     if (!native()) return null
