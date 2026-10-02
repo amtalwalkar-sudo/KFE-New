@@ -1,6 +1,6 @@
 import { istDateKey, istMonthRange } from '../time/ist.js'
 
-// One authoritative target formula; no recovery, smoothing, KM multiplier, or alternate target authority lives here.\n// This module is the sole driver-target calculation boundary.\n// Target availability requires authoritative break-even evidence upstream. Final calculation boundary.
+// One authoritative target formula; no recovery, smoothing, KM multiplier, or alternate target authority lives here.\n// This module is the sole driver-target calculation boundary.\n// Target availability requires authoritative break-even evidence upstream. Final calculation boundary. No legacy recovery inputs.
 const finite = value => Number.isFinite(Number(value)) ? Number(value) : null
 
 const live = records => (records || []).filter(record => !record?.deletedAt && record?.deleted !== true)
