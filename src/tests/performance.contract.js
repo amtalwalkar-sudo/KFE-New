@@ -61,7 +61,6 @@ assert.equal(openingGapMetrics.openingDeadKm, 0)
 
 assert.equal(serviceMetrics.driverTargetAvailable, true)
 assert.equal(serviceMetrics.driverTarget, serviceMetrics.target)
-near(serviceMetrics.driverTarget, serviceMetrics.driverTargetBase + serviceMetrics.driverTargetRecoveryAdjustment, 'target decomposition')
 assert.equal(serviceMetrics.completeness.target, true)
 assert.ok(Number.isFinite(serviceMetrics.breakEvenRevenue))
 assert.equal(serviceMetrics.breakEvenRevenue, serviceMetrics.monthlyBreakEvenRevenue)
@@ -69,7 +68,6 @@ assert.ok(Number.isFinite(serviceMetrics.monthlyBreakEvenRevenue))
 assert.ok(Number.isFinite(serviceMetrics.driverTargetRemainingEligibleDays))
 near(serviceMetrics.dailyBreakEvenRevenue, serviceMetrics.monthlyBreakEvenRevenue / serviceMetrics.driverTargetRemainingEligibleDays, 'daily BE derivation')
 near(serviceMetrics.driverTargetBase, serviceMetrics.dailyBreakEvenRevenue + 1000 / serviceMetrics.driverTargetRemainingEligibleDays, 'base target derivation')
-near(serviceMetrics.driverTargetEffectiveMonthlyTarget, serviceMetrics.driverTargetBase * serviceMetrics.driverTargetRemainingEligibleDays + serviceMetrics.driverTargetAllocatedBeforeCurrentDay, 'effective monthly target reconstruction')
 
 const manualDailyTargetInput = { ...snapshot, driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:1000, dailyTarget:1, targetPerActiveDay:2, active:true }] }
 const manualDailyTargetMetrics = PerformanceService.getMetrics(manualDailyTargetInput, range)
@@ -119,6 +117,7 @@ const historicalDeficitMetrics = PerformanceService.getMetrics(historicalBaseSna
 assert.ok(historicalDeficitMetrics.driverTargetAvailable, JSON.stringify(historicalDeficitMetrics))
 assert.ok(Number.isFinite(historicalDeficitMetrics.driverTargetRollingBalance), JSON.stringify(historicalDeficitMetrics))
 assert.equal(historicalDeficitMetrics.driverTarget, historicalDeficitMetrics.driverTargetBase, 'Historical loss does not add a separate target adjustment')
+assert.equal(historicalDeficitMetrics.driverTargetRollingBalance, undefined)
 
 const historicalSurplusSnapshot = { ...historicalBaseSnapshot,
   shifts: [
@@ -132,12 +131,7 @@ const historicalSurplusSnapshot = { ...historicalBaseSnapshot,
 }
 const historicalSurplusMetrics = PerformanceService.getMetrics(historicalSurplusSnapshot, range)
 assert.equal(historicalSurplusMetrics.driverTargetAvailable, true)
-assert.ok(Number.isFinite(historicalSurplusMetrics.driverTargetRollingBalance))
-assert.equal(historicalSurplusMetrics.driverTargetRollingBalance, 0)
-assert.equal(historicalSurplusMetrics.driverTargetOpeningRecovery, 0)
-assert.equal(historicalSurplusMetrics.driverTargetNewRecovery, 0)
-assert.ok(historicalSurplusMetrics.driverTarget >= historicalSurplusMetrics.driverTargetBase)
-assert.equal(historicalSurplusMetrics.driverTargetIndicativeLoss, 0)
+assert.equal(historicalSurplusMetrics.driverTarget, historicalSurplusMetrics.driverTargetBase)
 
 const holidaySnapshot = { ...snapshot, trips: [
   { id:'early', status:'COMPLETED', tripStartAt:'2026-09-05T09:00:00Z', tripEndAt:'2026-09-05T12:00:00Z', tripKm:100, revenue:1 },
@@ -158,7 +152,7 @@ const noHolidayEquivalent = { ...holidaySnapshot, trips: [
 const holidayMetrics = PerformanceService.getMetrics(holidaySnapshot, range)
 const noHolidayMetrics = PerformanceService.getMetrics(noHolidayEquivalent, range)
 assert.equal(holidayMetrics.driverTarget, noHolidayMetrics.driverTarget)
-near(holidayMetrics.driverTargetEffectiveMonthlyTarget, noHolidayMetrics.driverTargetEffectiveMonthlyTarget, 'holiday must not reduce monthly obligation')
+near(holidayMetrics.driverTarget, noHolidayMetrics.driverTarget, 'holiday must not change the calendar-day target')
 
 const changedInput = { ...snapshot, breakEvenInputs: [{ effectiveFrom:'2026-09-01', maintenanceProvisionPerKm:4, active:true }] }
 const changedEngineSnapshot = { ...engineSnapshot, breakEvenInputs: changedInput.breakEvenInputs }
