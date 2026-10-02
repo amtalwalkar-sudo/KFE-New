@@ -34,10 +34,10 @@ assert.ok(Math.abs(metrics.operatingKmForecast.calculatedForecast.dailyKm - 212.
 assert.equal(metrics.driverTargetAvailable, true)
 
 // Profit contract: actual profit is based only on authoritative revenue and
-// actual operating expenses; indicative profit independently subtracts the
-// provisions allocated to the selected period, including the loan provision.
+// actual operating expenses and scheduled EMI; provisional profit then subtracts
+// maintenance/compliance provisions and normalized historical recoveries.
 const expectedActualProfit = metrics.financialRevenue - metrics.actualOperatingCost
-const expectedIndicativeProfit = metrics.revenue - metrics.totalIndicativeProvision
+const expectedIndicativeProfit = metrics.performanceHeadlineProvisionalProfit
 assert.ok(Number.isFinite(metrics.actualProfit))
 assert.ok(Number.isFinite(metrics.indicativeProfit))
 assert.ok(Math.abs(metrics.actualProfit - expectedActualProfit) < 1e-9)
@@ -46,6 +46,6 @@ assert.ok(Math.abs(metrics.totalIndicativeProvision - (
   metrics.loanProvisionForPeriod + metrics.maintenanceProvision + metrics.renewalProvision
 )) < 1e-9)
 assert.equal(metrics.authority.actualProfit, 'AUTHORITATIVE_REVENUE_MINUS_ACTUAL_OPERATING_EXPENSES')
-assert.equal(metrics.authority.indicativeProfit, 'AUTHORITATIVE_REVENUE_MINUS_PERIOD_PROVISIONS')
+assert.equal(metrics.authority.indicativeProfit, 'PROVISIONAL_PROFIT_AFTER_SCHEDULED_EMI_AND_NORMALIZED_HISTORICAL_RECOVERY')
 
 console.log('Synthetic end-to-end Performance calculation contract: PASS')
