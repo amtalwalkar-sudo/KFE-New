@@ -18,7 +18,7 @@ const normalizeNonWorkingDates=value=>new Set((Array.isArray(value)?value:String
 const eligibleKeys=(month,nonWorking)=>dateKeysForMonth(month).filter(k=>!nonWorking.has(k))
 const failure=(reason,month=null)=>({available:false,reason,balanceBefore:0,balance:0,openingBalance:0,openingRecovery:0,newRecovery:0,recoveryAllocated:0,recoveryAchieved:0,closingRecovery:0,indicativeProfit:null,indicativeLoss:0,monthlyBreakEvenRevenue:null,monthlyVariance:null,closingBalance:0,desiredDriverProfitMonthly:null,effectiveMonthlyTarget:null,currentDailyTarget:null,currentBaseDaily:null,currentPeriodBaseTarget:null,recoveryAdjustment:0,dailyRecovery:0,activeDays:0,financialDays:0,remainingEligibleDays:month?daysInMonth(month):null,targetAllocatedBeforeCurrentDay:0,remainingObligation:null,recoveryAllocatedBeforeCurrentDay:0,recoveryRemaining:0,currentTargetMonth:month,authority:'MONTHLY_BREAK_EVEN_PLUS_ADMIN_MONTHLY_DRIVER_PROFIT_PLUS_PERFORMANCE_RECOVERY',nonWorkingDates:[],eligibleDaysInMonth:month?daysInMonth(month):0,openingCarryBalance:0,projectedClosingBalance:null,evidence:calculationEvidence({status:CALCULATION_STATUS.UNAVAILABLE,reason})})
 
-const revenueByDay=trips=>{const map=new Map();for(const t of live(trips).filter(t=>t?.status==='COMPLETED')){const d=dateOf(t.tripEndAt||t.tripStartAt),k=d&&keyOf(d);if(!k)continue;const value=finite(t.revenue);if(value!=null)map.set(k,(map.get(k)||0)+value)}return map}
+const revenueByDay=shifts=>{const map=new Map();for(const s of live(shifts)){const d=dateOf(s.shiftEndAt||s.shiftStartAt),k=d&&keyOf(d);if(!k)continue;const value=finite(s.revenue);if(value!=null)map.set(k,(map.get(k)||0)+value)}return map}
 const monthRevenue=(map,month)=>dateKeysForMonth(month).reduce((s,k)=>s+(map.get(k)||0),0)
 const dateRevenueBefore=(map,dateKey)=>{let s=0;for(const[k,v]of map){if(k<dateKey)s+=v}return s}
 const dateRevenueThrough=(map,dateKey)=>{let s=0;for(const[k,v]of map){if(k<=dateKey)s+=v}return s}
@@ -56,7 +56,7 @@ export function deriveRollingDriverTarget({
   const monthObligation=buildMonthObligation({month,driverTargets,authoritativeBreakEvenForMonth:authoritativeBreakEvenForMonth||historicalBreakEvenForDay||(()=>be)})
   if(!monthObligation)return failure('MISSING_AUTHORITATIVE_TARGET_INPUT',month)
   const days=daysInMonth(month);if(!days)return failure('INVALID_TARGET_MONTH',month)
-  const revenueMap=revenueByDay(trips)
+  const revenueMap=revenueByDay(arguments[0]?.shifts||[])
   const targetDayKey=keyOf(end)
   const nonWorking=monthObligation.nonWorkingDates
   const eligible=monthObligation.eligible
