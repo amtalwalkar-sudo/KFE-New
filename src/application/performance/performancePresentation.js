@@ -1,4 +1,4 @@
-const finite = value => Number.isFinite(Number(value)) ? Number(value) : null
+const finite = value => value == null || value === '' ? null : (Number.isFinite(Number(value)) ? Number(value) : null)
 
 export function getPerformanceOutlookDisplay(metrics = {}) {
   const authoritativeBreakEven = finite(metrics.monthlyBreakEvenRevenue)
