@@ -5,7 +5,7 @@ const finite=v=>v==null||v===''||!Number.isFinite(Number(v))?null:Number(v)
 const dateOf=v=>{const d=v?new Date(v):null;return d&&!Number.isNaN(d.getTime())?d:null}
 const keyOf=v=>istDateKey(v), monthKeyOf=v=>istMonthKey(v)
 const live=xs=>(xs||[]).filter(x=>!x?.deletedAt&&x?.deleted!==true)
-const effectiveDateKey=x=>keyOf(x?.effectiveFrom||x?.validFrom||x?.startDate)
+const effectiveDateKey = x => keyOf(x?.effectiveFrom || x?.validFrom || x?.startDate)
 const effectiveUntilKey=x=>keyOf(x?.effectiveUntil||x?.validUntil||x?.endDate)
 const applies=(x,day)=>!!keyOf(day)&&x?.active!==false&&x?.status!=='INACTIVE'&&(effectiveDateKey(x)||'1970-01-01')<=keyOf(day)&&keyOf(day)<=(effectiveUntilKey(x)||'9999-12-31')
 const latestForDay=(xs,day)=>live(xs).filter(x=>applies(x,day)).sort((a,b)=>String(effectiveDateKey(b)||'').localeCompare(String(effectiveDateKey(a)||''))||String(b.updatedAt||b.createdAt||'').localeCompare(String(a.updatedAt||a.createdAt||'')))[0]||null
@@ -27,10 +27,10 @@ function targetRecordForMonth(driverTargets,month){
   return latestForDay(driverTargets,monthStartDate(month))
 }
 
-function buildMonthObligation({month,driverTargets,authoritativeBreakEvenForMonth}){
+function buildMonthObligation({month,driverTargets,authoritativeBreakEvenForMonth,currentMonth,currentBreakEven}){
   const record=targetRecordForMonth(driverTargets,month)
   if(!record)return null
-  const be=finite(authoritativeBreakEvenForMonth?.({month,day:monthStartDate(month)}))
+  const be=month===currentMonth ? finite(currentBreakEven) : finite(authoritativeBreakEvenForMonth?.({month,day:monthStartDate(month)}))
   const profit=finite(record.desiredDriverProfit)
   if(be==null||profit==null||profit<0)return null
   const nonWorkingDates=normalizeNonWorkingDates(record.nonWorkingDates||record.unavailableDates)
@@ -53,7 +53,8 @@ export function deriveRollingDriverTarget({
   const start=dateOf(from),end=dateOf(to);if(!start||!end||end<start)return failure('INVALID_PERIOD')
   const month=monthKeyOf(end),record=latestForDay(driverTargets,end);if(!record)return failure('MISSING_AUTHORITATIVE_TARGET_INPUT',month)
   const be=finite(applicableBreakEven),profit=finite(record.desiredDriverProfit);if(be==null||profit==null||profit<0)return failure('MISSING_AUTHORITATIVE_TARGET_INPUT',month)
-  const monthObligation=buildMonthObligation({month,driverTargets,authoritativeBreakEvenForMonth:authoritativeBreakEvenForMonth||historicalBreakEvenForDay||(()=>be)})
+  const breakEvenForHistoricalMonth=authoritativeBreakEvenForMonth||historicalBreakEvenForDay||(()=>be)
+  const monthObligation=buildMonthObligation({month,driverTargets,authoritativeBreakEvenForMonth:breakEvenForHistoricalMonth,currentMonth:month,currentBreakEven:be})
   if(!monthObligation)return failure('MISSING_AUTHORITATIVE_TARGET_INPUT',month)
   const days=daysInMonth(month);if(!days)return failure('INVALID_TARGET_MONTH',month)
   const revenueMap=revenueByDay(shifts)
@@ -71,7 +72,7 @@ export function deriveRollingDriverTarget({
   let openingCarry=0
   let previousMonth=null
   while(cursor<month){
-    const obligation=buildMonthObligation({month:cursor,driverTargets,authoritativeBreakEvenForMonth:authoritativeBreakEvenForMonth||historicalBreakEvenForDay})
+    const obligation=buildMonthObligation({month:cursor,driverTargets,authoritativeBreakEvenForMonth:breakEvenForHistoricalMonth,currentMonth:month,currentBreakEven:be})
     if(!obligation) return failure('MISSING_HISTORICAL_TARGET_INPUT',month)
     openingCarry=openingCarry+obligation.monthly-monthRevenue(revenueMap,cursor)
     previousMonth=cursor
