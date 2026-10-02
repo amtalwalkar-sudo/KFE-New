@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
 import { PerformanceService } from '../application/performance/performanceService.js'
-import { derivePerformance } from '../domain/performance/performanceEngineV2.js'
 import { generateUUID } from '../utils/uuid.js'
+import { deriveDailyRevenueAllocation } from '../domain/performance/dailyRevenueAllocation.js'
+import { derivePerformance } from '../domain/performance/performanceEngineV2.js'
+import { calculatePreBusinessLoanRecovery } from '../domain/finance/loanEngine.js'
 
 const range = { from: new Date('2026-09-10T00:00:00Z'), to: new Date('2026-09-10T23:59:59Z') }
 const base = {
@@ -92,3 +94,115 @@ const id1 = generateUUID(); const id2 = generateUUID()
 assert.equal(typeof id1, 'string'); assert.equal(typeof id2, 'string'); assert.notEqual(id1, id2)
 
 console.log('Calculation-boundary adversarial contract: PASS')
+
+// Revenue allocation contract: the daily reservation percentages are derived
+// from the modeled monthly obligations and normalized break-even, rather than
+// from an arbitrary fixed percentage.
+const allocation = deriveDailyRevenueAllocation({
+  revenue: 5000,
+  monthlyBreakEvenRevenue: 10000,
+  scheduledEmi: 3000,
+  preBusinessRecovery: 500,
+  maintenanceProvision: 1000,
+  complianceProvision: 500,
+  historicalMaintenanceRecovery: 0,
+})
+assert.equal(allocation.available, true)
+assert.equal(allocation.allocations.financialObligation, 1750)
+assert.equal(allocation.allocations.maintenanceProvision, 500)
+assert.equal(allocation.allocations.complianceProvision, 250)
+assert.equal(allocation.totalAllocation, 2500)
+assert.equal(allocation.availableAfterAllocations, 2500)
+assert.equal(allocation.allocationCoverage, 0.5)
+
+// Actual payment clears the corresponding accumulated provision bucket.
+const provisionSnapshot = {
+  shifts: [{ id:'p1', shiftStartAt:'2026-09-10T08:00:00Z', shiftEndAt:'2026-09-10T18:00:00Z', startOdometer:1000, endOdometer:1100, revenue:5000 }],
+  trips: [], fuelLogs: [], maintenance: [],
+  compliance: [{ id:'c1', validFrom:'2026-09-01', validUntil:'2026-09-30', cost:3000, active:true }],
+  settlements: [
+    { id:'m-pay', sourceType:'Maintenance', direction:'OUT', amount:200, paidOn:'2026-09-10T20:00:00Z' },
+    { id:'c-pay', sourceType:'Compliance', sourceId:'c1', direction:'OUT', amount:1000, paidOn:'2026-09-10T21:00:00Z' },
+  ],
+  breakEvenInputs: [{ effectiveFrom:'2026-09-01', maintenanceProvisionPerKm:2, active:true }],
+}
+const beforePayments = derivePerformance({ ...provisionSnapshot, settlements: [] }, range)
+assert.equal(beforePayments.maintenanceProvisionAccumulated, 200)
+assert.equal(beforePayments.maintenanceProvisionBalance, 200)
+assert.equal(beforePayments.complianceProvisionAccumulatedById.c1, 1000)
+assert.equal(beforePayments.complianceProvisionBalancesById.c1, 1000)
+const afterPayments = derivePerformance(provisionSnapshot, range)
+assert.equal(afterPayments.maintenanceProvisionBalance, 0)
+assert.equal(afterPayments.complianceProvisionBalancesById.c1, 0)
+assert.equal(afterPayments.complianceProvisionBalance, 0)
+
+// Pre-business loan burden is outside the business period and is recovered
+// only from the business-start boundary onward.
+const preBusinessLoan = {
+  id:'pre-business-loan',
+  principal:12000,
+  tenureMonths:12,
+  startDate:'2026-04-01T00:00:00+05:30',
+  annualInterestRatePercent:10,
+  status:'ACTIVE',
+}
+const preBusinessRecoveryBeforeStart = calculatePreBusinessLoanRecovery({
+  loan: preBusinessLoan,
+  payments: [],
+  prepayments: [],
+  businessStartDate:'2026-09-15T00:00:00+05:30',
+  asOf:'2026-09-14T23:59:59+05:30',
+})
+const preBusinessRecoveryAfterStart = calculatePreBusinessLoanRecovery({
+  loan: preBusinessLoan,
+  payments: [],
+  prepayments: [],
+  businessStartDate:'2026-09-15T00:00:00+05:30',
+  asOf:'2026-09-16T23:59:59+05:30',
+})
+assert.equal(preBusinessRecoveryBeforeStart, 0)
+assert.ok(preBusinessRecoveryAfterStart > 0)
+
+// Actual vs provisional P/L remain distinct: actual subtracts actual operating
+// expenses plus scheduled EMI; provisional additionally reserves the modeled
+// maintenance/compliance and historical recovery obligations.
+const profitSnapshot = {
+  businessSetup:{ businessStartDate:'2026-09-01' },
+  shifts:[{ id:'profit-shift', shiftStartAt:'2026-09-10T08:00:00+05:30', shiftEndAt:'2026-09-10T18:00:00+05:30', startOdometer:1000, endOdometer:1100, revenue:5000 }],
+  trips:[], fuelLogs:[
+    { id:'pf0', capturedAt:'2026-09-09T18:00:00+05:30', odometer:900, amount:2000, quantityKg:10, isFullTank:true, vehicleId:'v1' },
+    { id:'pf1', capturedAt:'2026-09-10T18:00:00+05:30', odometer:1000, amount:2000, quantityKg:10, isFullTank:true, vehicleId:'v1' },
+  ],
+  maintenance:[], compliance:[],
+  loans:[preBusinessLoan], loanPayments:[], prepayments:[],
+  breakEvenInputs:[{ effectiveFrom:'2026-09-01', maintenanceProvisionPerKm:2, active:true }],
+  vehicles:[{ id:'v1', acquiredOn:'2026-05-01', openingOdometerKm:0 }],
+}
+const profitMetrics = PerformanceService.getMetrics(profitSnapshot, range)
+assert.ok(Number.isFinite(profitMetrics.performanceHeadlineActualProfit))
+assert.ok(Number.isFinite(profitMetrics.performanceHeadlineProvisionalProfit))
+assert.equal(profitMetrics.performanceHeadlineActualProfit, profitMetrics.operatingProfit - profitMetrics.performanceHeadlineScheduledEmi)
+assert.ok(profitMetrics.performanceHeadlineProvisionalProfit <= profitMetrics.performanceHeadlineActualProfit)
+
+// Period-boundary inclusion is explicit for day/week/month-style ranges: the
+// record at the boundary is included while a record immediately outside is not.
+const boundarySnapshot = {
+  ...base,
+  shifts: [
+    { id:'start', shiftStartAt:'2026-09-10T00:00:00Z', shiftEndAt:'2026-09-10T01:00:00Z', startOdometer:1000, endOdometer:1010, revenue:100 },
+    { id:'end', shiftStartAt:'2026-09-10T22:00:00Z', shiftEndAt:'2026-09-10T23:59:59Z', startOdometer:1010, endOdometer:1020, revenue:200 },
+    { id:'outside', shiftStartAt:'2026-09-11T00:00:00Z', shiftEndAt:'2026-09-11T01:00:00Z', startOdometer:1020, endOdometer:1030, revenue:999 },
+  ],
+}
+const boundaryMetrics = derivePerformance(boundarySnapshot, range)
+assert.equal(boundaryMetrics.revenue, 300)
+assert.equal(boundaryMetrics.vehicleKm, 20)
+
+// Invalid/zero data must not fabricate a positive operating-KM forecast input.
+const invalidForecast = PerformanceService.getMetrics({
+  ...base,
+  shifts:[{ id:'bad-km', shiftStartAt:'2026-09-10T08:00:00Z', shiftEndAt:'2026-09-10T18:00:00Z', startOdometer:1000, endOdometer:900, revenue:1000 }],
+}, range)
+assert.ok(Number.isFinite(invalidForecast.operatingKmForecast.dailyForecastKm))
+assert.equal(invalidForecast.operatingKmForecast.observedKm, 0)
+
