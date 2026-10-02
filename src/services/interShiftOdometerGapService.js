@@ -12,14 +12,19 @@ export const InterShiftOdometerGapService = {
     return current - previous
   },
 
-  validateAllocation({ gapKm, personalKm, deadKm, unclassifiedKm }) {
+  validateAllocation({ gapKm, category }) {
     const gap = toFiniteKm(gapKm)
-    const personal = toFiniteKm(personalKm)
-    const dead = toFiniteKm(deadKm)
-    const unclassified = toFiniteKm(unclassifiedKm)
-    if ([gap, personal, dead, unclassified].some((value) => value === null)) return { valid: false, error: 'Enter valid non-negative KM values.' }
-    const total = personal + dead + unclassified
-    if (Math.abs(total - gap) > 0.000001) return { valid: false, error: `Allocation must total exactly ${gap} km.` }
-    return { valid: true, values: { gapKm: gap, personalKm: personal, deadKm: dead, unclassifiedKm: unclassified } }
+    if (gap === null) return { valid: false, error: 'Enter a valid non-negative KM gap.' }
+    if (gap === 0) return { valid: true, values: { gapKm: 0, personalKm: 0, deadKm: 0, category: null } }
+    if (category !== 'PERSONAL' && category !== 'DEAD') return { valid: false, error: 'The full odometer gap must be allocated to either Personal KM or Dead KM.' }
+    return {
+      valid: true,
+      values: {
+        gapKm: gap,
+        personalKm: category === 'PERSONAL' ? gap : 0,
+        deadKm: category === 'DEAD' ? gap : 0,
+        category,
+      },
+    }
   }
 }
