@@ -34,7 +34,7 @@ export function deriveAuthoritativeDriverTarget({
       available: false,
       reason: 'MISSING_AUTHORITATIVE_TARGET_INPUT',
       monthlyTarget: null,
-      dailyTarget: null,
+      target: null,
     }
   }
 
@@ -43,7 +43,7 @@ export function deriveAuthoritativeDriverTarget({
     available: true,
     reason: null,
     monthlyTarget,
-    dailyTarget: monthlyTarget / days,
+    target: monthlyTarget / days,
     authority: 'MONTHLY_BREAK_EVEN_PLUS_ADMIN_MONTHLY_DRIVER_PROFIT',
   }
 }
