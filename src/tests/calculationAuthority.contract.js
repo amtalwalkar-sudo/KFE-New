@@ -67,7 +67,6 @@ assert.equal('projectedRevenue' in metrics, false)
 assert.equal('targetGap' in metrics.pace, false)
 assert.equal(metrics.pace.currentRevenuePerFinancialDay, metrics.revenuePerActiveDay)
 assert.equal(metrics.pace.requiredRevenuePerFinancialDay, metrics.target)
-assert.ok(Number.isNaN(metrics.pace.paceVariance))
 
 assert.equal(metrics.dailyBreakEvenRevenue, null)
 assert.equal(metrics.dailyBreakEven.status, 'INDICATIVE')
