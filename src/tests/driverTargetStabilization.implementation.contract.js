@@ -81,15 +81,11 @@ const targetWithForecast = forecastDailyKm => deriveRollingDriverTarget({
   applicableBreakEven: 800,
   operatingKmForecast: { dailyForecastKm: forecastDailyKm, config: { normalPriorKmPerCalendarDay: 200 } },
 })
-const km200 = targetWithForecast(200)
-const km280 = targetWithForecast(280)
 const km100 = targetWithForecast(100)
-assert.equal(km200.currentDailyTarget, 1000 / 21)
-assert.equal(km280.currentDailyTarget, (1000 / 21) * 1.4)
-assert.equal(km100.currentDailyTarget, (1000 / 21) * 0.5)
-assert.equal(km280.operatingKmMultiplier, 1.4)
-assert.equal(km100.operatingKmMultiplier, 0.5)
-assert.equal(km280.effectiveMonthlyTarget, km200.effectiveMonthlyTarget)
-assert.equal(km100.effectiveMonthlyTarget, km200.effectiveMonthlyTarget)
+const km280 = targetWithForecast(280)
+assert.equal(km100.currentDailyTarget, 1000 / 21)
+assert.equal(km280.currentDailyTarget, 1000 / 21)
+assert.equal(km100.effectiveMonthlyTarget, km280.effectiveMonthlyTarget)
+assert.equal(km100.currentBaseDaily, km280.currentBaseDaily)
 
-console.log('Operating KM -> Driver Target wiring contract passed: 200 neutral, higher/lower learned volume scales daily target, financial authority preserved.')
+console.log('Frozen target contract passed: operating KM forecast does not alter the authoritative financial daily target.')
