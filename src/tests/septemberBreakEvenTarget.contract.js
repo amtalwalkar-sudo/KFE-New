@@ -60,3 +60,22 @@ assert.equal(qualifiedTarget.evidence.status, 'AUTHORITATIVE')
 assert.ok(Number.isFinite(qualifiedTarget.currentDailyTarget))
 
 console.log('September break-even → target dependency contract: PASS')
+const midMonthStartSnapshot = normalizeCalculationSnapshot({
+  businessSetup: { businessStartDate: '2026-09-15' },
+  shifts: [
+    { id: 'pre-business-shift', shiftStartAt: '2026-09-10T01:30:00.000Z', shiftEndAt: '2026-09-10T13:30:00.000Z', startOdometer: 70000, endOdometer: 70300, revenue: 1000 },
+    { id: 'business-shift', shiftStartAt: '2026-09-16T01:30:00.000Z', shiftEndAt: '2026-09-16T13:30:00.000Z', startOdometer: 70300, endOdometer: 70400, revenue: 1000 },
+  ],
+  trips: [],
+  fuelLogs: [{ id: 'mid-month-fuel', capturedAt: '2026-09-16T13:30:00.000Z', odometer: 70400, amount: 200, quantityKg: 10, isFullTank: false, vehicleId: 'v1' }],
+  vehicles: [{ id: 'v1', acquiredOn: '2026-05-01' }], compliance: [], maintenance: [],
+  loans: [], loanPayments: [], prepayments: [],
+  driverTargets: [{ id: 'mid-month-target', effectiveFrom: '2026-05-01', effectiveUntil: '2026-12-31', desiredDriverProfit: 1000, active: true }],
+  breakEvenInputs: [{ id: 'mid-month-be', effectiveFrom: '2026-05-01', effectiveUntil: '2026-12-31', maintenanceProvisionPerKm: 1.5, active: true }],
+})
+const midMonthRange = { from: new Date('2026-09-15T00:00:00+05:30'), to: new Date('2026-09-18T23:59:59.999+05:30') }
+const midMonthMetrics = deriveFinanceAwarePerformance(midMonthStartSnapshot, midMonthRange, previousRange(midMonthRange))
+assert.equal(midMonthMetrics.vehicleKm, 100, 'Reporting period vehicle KM starts at the configured business start date')
+assert.equal(midMonthMetrics.indicative.monthlyBreakEvenRevenue,
+  midMonthMetrics.breakEvenInputs.fixedCosts + midMonthMetrics.vehicleKm * (midMonthMetrics.breakEvenInputs.fuelCostPerKm + midMonthMetrics.breakEvenInputs.maintenanceProvisionPerKm),
+  'Monthly break-even must not reintroduce vehicle KM from before business start')
