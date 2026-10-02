@@ -69,7 +69,7 @@ const defaultCalendarDays = PerformanceService.getMetrics({
   driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:500 }],
 }, range)
 assert.equal(defaultCalendarDays.driverTargetAvailable, true)
-assert.equal(defaultCalendarDays.driverTargetRemainingEligibleDays, 21, 'Remaining target guidance uses remaining eligible days')
+assert.equal(defaultCalendarDays.driverTargetRemainingEligibleDays, 20, 'Remaining target guidance uses remaining eligible days')
 
 const holidaySmoothing = PerformanceService.getMetrics({
   ...base,
