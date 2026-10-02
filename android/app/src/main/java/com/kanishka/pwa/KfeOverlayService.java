@@ -58,6 +58,8 @@ public class KfeOverlayService extends Service {
   private boolean minimized=false;
   private String formMode=null;
   private String formValue="";
+  private String tollValue="";
+  private String parkingValue="";
   private String cancelReason="";
   private boolean formSubmitting=false;
   private LinearLayout formPanel;
@@ -171,12 +173,12 @@ public class KfeOverlayService extends Service {
     if(MainActivity.isResumed) removeOverlay();
   }
 
-  private void openFareForm(){openNumericForm("FARE","TRIP FARE","Enter fare");}
+  private void openFareForm(){openNumericForm("FARE","TRIP DETAILS","Enter trip fare, toll and parking");}
   private void openCancelForm(){cancelReason="";openNumericForm("CANCEL","CANCEL RIDE","Select reason and optional fee");}
   private void openNumericForm(String mode,String title,String hint){
     if(formMode!=null)return;
     hideUnderlyingKeyboard();
-    formMode=mode;formValue="";formSubmitting=false;
+    formMode=mode;formValue="";tollValue="";parkingValue="";formSubmitting=false;
     params.flags=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
     params.height=dp("FARE".equals(mode)?360:310);
     if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);
@@ -199,8 +201,13 @@ public class KfeOverlayService extends Service {
     if("FARE".equals(mode)){
       LinearLayout grid=new LinearLayout(this);grid.setOrientation(LinearLayout.VERTICAL);
       String[][] keys={{"1","2","3"},{"4","5","6"},{"7","8","9"},{"C","0","⌫"}};
-      for(String[] row:keys){LinearLayout line=new LinearLayout(this);line.setGravity(Gravity.CENTER);for(String key:row){Button b=keyButton(key);line.addView(b,new LinearLayout.LayoutParams(0,dp(48),1));}grid.addView(line,new LinearLayout.LayoutParams(-1,dp(50)));}
-      formPanel.addView(grid,new LinearLayout.LayoutParams(-1,dp(200)));
+      for(String[] row:keys){LinearLayout line=new LinearLayout(this);line.setGravity(Gravity.CENTER);for(String key:row){Button b=keyButton(key);line.addView(b,new LinearLayout.LayoutParams(0,dp(36),1));}grid.addView(line,new LinearLayout.LayoutParams(-1,dp(38)));}
+      formPanel.addView(grid,new LinearLayout.LayoutParams(-1,dp(152)));
+      formPanel.addView(overlayAmountField("TOLL","toll"),new LinearLayout.LayoutParams(-1,dp(42)));
+      formPanel.addView(overlayAmountField("PARKING","parking"),new LinearLayout.LayoutParams(-1,dp(42)));
+      Button next=keyButton("USE FARE FIELD");
+      next.setTextSize(10);
+      next.setOnClickListener(v->{});
     }else{
       TextView feeLabel=new TextView(this);feeLabel.setText("Cancellation fare (optional)");feeLabel.setTextSize(9);feeLabel.setTextColor(mutedColor());feeLabel.setGravity(Gravity.CENTER);
       formPanel.addView(feeLabel,new LinearLayout.LayoutParams(-1,dp(18)));
@@ -215,6 +222,20 @@ public class KfeOverlayService extends Service {
     actions.addView(cancel,new LinearLayout.LayoutParams(dp(105),dp(42)));actions.addView(ok,new LinearLayout.LayoutParams(dp(105),dp(42)));
     formPanel.addView(actions,new LinearLayout.LayoutParams(-1,dp(44)));
     overlayRoot.addView(formPanel,new FrameLayout.LayoutParams(-1,dp("CANCEL".equals(mode)?300:360),Gravity.TOP));
+  }
+
+  private LinearLayout overlayAmountField(String label,String field){
+    LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(dp(6),0,dp(6),0);
+    TextView l=new TextView(this);l.setText(label);l.setTextSize(10);l.setTextColor(mutedColor());
+    Button value=keyButton(field.equals("toll")?tollValue:parkingValue);value.setTextSize(13);
+    value.setOnClickListener(v->{
+      String current=field.equals("toll")?tollValue:parkingValue;
+      if(current.length()<9) current += "0";
+      if(field.equals("toll")) tollValue=current; else parkingValue=current;
+      value.setText("₹"+current);
+    });
+    row.addView(l,new LinearLayout.LayoutParams(0,dp(32),1));row.addView(value,new LinearLayout.LayoutParams(dp(120),dp(36)));
+    return row;
   }
 
   private Button keyButton(String label){
@@ -239,8 +260,15 @@ public class KfeOverlayService extends Service {
       // Do not close the native fare form until the WebView confirms that the
       // authoritative trip record was updated. This prevents a lost fare from
       // looking like a completed ride.
-      KfeRideNotificationsPlugin.recordPendingAction(this,"ENTER_FARE",actionTripId,String.valueOf(amount));
-      KfeRideNotificationsPlugin.emitAction("ENTER_FARE",actionTripId,String.valueOf(amount));
+      try {
+        JSONObject payload=new JSONObject();
+        payload.put("fare",amount);
+        payload.put("toll",tollValue.isEmpty()?0:Double.parseDouble(tollValue));
+        payload.put("parking",parkingValue.isEmpty()?0:Double.parseDouble(parkingValue));
+        KfeRideNotificationsPlugin.recordPendingAction(this,"ENTER_FARE",actionTripId,payload.toString());
+        KfeRideNotificationsPlugin.emitAction("ENTER_FARE",actionTripId,payload.toString());
+      } catch(Exception ignored){ formSubmitting=false; }
+      return;
       return;
     }else if("CANCEL".equals(formMode)){
       if(cancelReason.isEmpty()){formSubmitting=false;return;}
@@ -253,7 +281,7 @@ public class KfeOverlayService extends Service {
   }
   private void closeForm(){
     if(formPanel!=null&&overlayRoot!=null)overlayRoot.removeView(formPanel);
-    formPanel=null;formMode=null;formValue="";formSubmitting=false;
+    formPanel=null;formMode=null;formValue="";tollValue="";parkingValue="";formSubmitting=false;
     if(params!=null){params.height=dp(COLLAPSED_TOTAL_DP);params.flags=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;if(windowManager!=null&&overlayRoot!=null)windowManager.updateViewLayout(overlayRoot,params);}
     if(overlay!=null)overlay.invalidate();
   }
