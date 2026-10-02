@@ -8,7 +8,7 @@ const target = deriveAuthoritativeDriverTarget({
 })
 assert.equal(target.available, true)
 assert.equal(target.monthlyTarget, 14000)
-assert.equal(target.dailyTarget, 14000 / 30)
+assert.equal(target.target, 14000 / 30)
 assert.equal(target.authority, 'MONTHLY_BREAK_EVEN_PLUS_ADMIN_MONTHLY_DRIVER_PROFIT')
 
 const missing = deriveAuthoritativeDriverTarget({
@@ -17,7 +17,7 @@ const missing = deriveAuthoritativeDriverTarget({
   calendarDays: 0,
 })
 assert.equal(missing.available, false)
-assert.equal(missing.dailyTarget, null)
+assert.equal(missing.target, null)
 
 const record = getApplicableDriverTarget([
   { effectiveFrom: '2026-09-01', effectiveUntil: '2026-09-30', desiredDriverProfit: 4000, active: true },
