@@ -33,7 +33,7 @@ const futureFuel = { ...base, fuelLogs: [...base.fuelLogs, { capturedAt:'2026-09
 const historicalWithFutureFuel = derivePerformance(futureFuel, range)
 assert.equal(historicalWithFutureFuel.fuelCostPerKm, historical.fuelCostPerKm)
 const historicalServiceWithFutureFuel = PerformanceService.getMetrics(futureFuel, range)
-assert.equal(historicalServiceWithFutureFuel.monthlyBreakEvenRevenue, PerformanceService.getMetrics(base, range).monthlyBreakEvenRevenue)
+assert.equal(historicalServiceWithFutureFuel.monthlyBreakEvenRevenue, historicalService.monthlyBreakEvenRevenue, 'Future fuel must not change the normalized monthly BE as-of boundary')
 
 const futureOperational = { ...base, trips: [...base.trips, { id:'future', status:'COMPLETED', tripStartAt:'2026-09-11T09:00:00Z', tripEndAt:'2026-09-11T10:00:00Z', tripKm:500, revenue:99999 }] }
 const historicalWithFutureOperations = derivePerformance(futureOperational, range)
