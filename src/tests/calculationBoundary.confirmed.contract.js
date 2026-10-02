@@ -59,11 +59,10 @@ const twoDayRange = { from:new Date('2026-09-10T00:00:00Z'), to:new Date('2026-0
 const twoDayMetrics = PerformanceService.getMetrics(twoDays, twoDayRange)
 assert.equal(twoDayMetrics.driverTargetAvailable, true)
 assert.equal(twoDayMetrics.counts.activeFinancialDays, 2)
-assert.equal(twoDayMetrics.driverTargetBase, twoDayMetrics.dailyBreakEvenRevenue + 500 / twoDayMetrics.driverTargetRemainingEligibleDays)
-assert.equal(twoDayMetrics.driverTarget, twoDayMetrics.driverTargetBase + twoDayMetrics.driverTargetRecoveryAdjustment)
-assert.equal(twoDayMetrics.driverTargetRecoveryAdjustment, twoDayMetrics.driverTargetDailyRecovery)
-assert.equal(twoDayMetrics.pace.paceVariance, twoDayMetrics.revenuePerActiveDay - twoDayMetrics.target)
-assert.equal(twoDayMetrics.driverTargetOpeningBalance, 0)
+assert.equal(twoDayMetrics.driverTargetBase, twoDayMetrics.dailyBreakEvenRevenue + 500 / 30)
+assert.equal(twoDayMetrics.driverTarget, twoDayMetrics.driverTargetBase)
+assert.equal(twoDayMetrics.driverTargetRecoveryAdjustment, undefined)
+assert.equal(twoDayMetrics.pace.paceVariance, twoDayMetrics.revenuePerFinancialDay - twoDayMetrics.target)
 
 const defaultCalendarDays = PerformanceService.getMetrics({
   ...base,
@@ -85,15 +84,8 @@ const holidaySmoothing = PerformanceService.getMetrics({
   ],
 }, { from:new Date('2026-09-10T00:00:00Z'), to:new Date('2026-09-12T23:59:59Z') })
 assert.equal(holidaySmoothing.driverTargetAvailable, true)
-assert.equal(
-  holidaySmoothing.driverTargetEffectiveMonthlyTarget,
-  holidaySmoothing.monthlyBreakEvenRevenue +
-    500 +
-    holidaySmoothing.driverTargetOpeningBalance,
-)
+assert.equal(holidaySmoothing.driverTargetEffectiveMonthlyTarget, holidaySmoothing.monthlyBreakEvenRevenue + 500)
 assert.ok(holidaySmoothing.driverTarget > 0)
-assert.equal(holidaySmoothing.driverTargetNewRecovery, 0)
-assert.equal(holidaySmoothing.driverTargetClosingRecovery, 0)
 
 const normalTarget = PerformanceService.getMetrics(base, range)
 const higherTarget = PerformanceService.getMetrics({
