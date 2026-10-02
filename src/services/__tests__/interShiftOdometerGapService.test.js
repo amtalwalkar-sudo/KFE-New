@@ -24,6 +24,11 @@ describe('InterShiftOdometerGapService', () => {
     })
   })
 
+  it('rejects a missing or blank gap instead of treating it as zero', () => {
+    expect(InterShiftOdometerGapService.validateAllocation({ gapKm: null }).valid).toBe(false)
+    expect(InterShiftOdometerGapService.validateAllocation({ gapKm: '' }).valid).toBe(false)
+  })
+
   it('rejects missing or partial allocation', () => {
     expect(InterShiftOdometerGapService.validateAllocation({ gapKm: 3 }).valid).toBe(false)
     expect(InterShiftOdometerGapService.validateAllocation({ gapKm: 3, category: 'OTHER' }).valid).toBe(false)
