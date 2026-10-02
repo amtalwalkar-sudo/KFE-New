@@ -39,7 +39,7 @@ export const WorkService = Object.freeze({
         startOdometer: shift.shift.startOdometer,
         endOdometer: closingOdometer,
         router: new ValhallaRoutingAdapter(),
-        businessKmByTripId: Object.fromEntries(trips.filter(item => Number.isFinite(Number(item.tripKm)) && Number(item.tripKm) >= 0).map(item => [item.id, Number(item.tripKm)])),
+        businessKmByTripId: Object.fromEntries(movementTrips.filter(item => Number.isFinite(Number(item.tripKm)) && Number(item.tripKm) >= 0).map(item => [item.id, Number(item.tripKm)])),
         gpsSnapshots
       })
     } catch (error) {
