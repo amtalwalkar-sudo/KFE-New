@@ -273,7 +273,6 @@ public class KfeOverlayService extends Service {
         KfeRideNotificationsPlugin.emitAction("ENTER_FARE",actionTripId,payload.toString());
       } catch(Exception ignored){ formSubmitting=false; }
       return;
-      return;
     }else if("CANCEL".equals(formMode)){
       if(cancelReason.isEmpty()){formSubmitting=false;return;}
       try{JSONObject input=new JSONObject();input.put("revenue",amount);input.put("reason",cancelReason);KfeRideNotificationsPlugin.recordPendingAction(this,"CANCEL_RIDE",pendingTripId,input.toString());KfeRideNotificationsPlugin.emitAction("CANCEL_RIDE",pendingTripId,input.toString());
