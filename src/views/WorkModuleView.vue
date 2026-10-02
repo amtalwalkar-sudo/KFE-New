@@ -588,7 +588,16 @@ const handleNativeAction = async event => {
     const tripId = String(event.tripId || fareTripId.value || pendingFare.value?.id || '')
     if (!tripId) return
     fareTripId.value = tripId
-    fare.value = String(event.input)
+    try {
+      const payload = JSON.parse(String(event.input))
+      fare.value = payload.fare == null ? '' : String(payload.fare)
+      tripToll.value = payload.toll == null ? '' : String(payload.toll)
+      tripParking.value = payload.parking == null ? '' : String(payload.parking)
+    } catch (_) {
+      fare.value = String(event.input)
+      tripToll.value = ''
+      tripParking.value = ''
+    }
     await saveFare()
   }
 }
