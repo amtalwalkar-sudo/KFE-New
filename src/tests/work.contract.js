@@ -36,6 +36,17 @@ assert.match(workView, /OPTIONAL DETAILS/)
 assert.match(workView, /Trip fare.*optional/)
 assert.match(workView, /tripToll/)
 assert.match(workView, /tripParking/)
+
+const pendingFareCockpit = deriveWorkCockpitState({
+  shift: { id: 'shift-1', status: 'ACTIVE', shiftStartAt: '2026-10-03T00:00:00.000Z' },
+  trip: null,
+  pendingFareId: 'trip-completed-1',
+  asOf: Date.parse('2026-10-03T01:00:00.000Z')
+})
+assert.equal(pendingFareCockpit.state, WORK_COCKPIT_STATES.ENTER_FARE, 'Pending fare must override READY when no active trip exists')
+assert.equal(pendingFareCockpit.action, 'ENTER_FARE', 'Overlay action must keep the pending fare form active')
+assert.equal(pendingFareCockpit.tripId, 'trip-completed-1', 'Pending fare must target the completed trip ID')
+assert.equal(pendingFareCockpit.pendingFare, true, 'Cockpit must expose the pending-fare state')
 assert.match(workStore, /WorkService\.completeTrip\(\{ id: tripId \}\)/)
 assert.match(workView, /TRIP COMPLETED/)
 assert.match(workView, /stage === 'ENTER_FARE'/)
