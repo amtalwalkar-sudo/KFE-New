@@ -169,10 +169,10 @@ const changedEngineSnapshot = { ...engineSnapshot, breakEvenInputs: changedInput
 const changedEngineMetrics = derivePerformance(changedEngineSnapshot, range, previousRange(range))
 const changedEngineFinance = deriveFinanceAwarePerformance(changedEngineSnapshot, range, previousRange(range))
 const changedServiceMetrics = PerformanceService.getMetrics(changedInput, range)
-near(changedServiceMetrics.breakEvenRevenue - serviceMetrics.breakEvenRevenue, 200, 'service BE change')
+near(changedServiceMetrics.breakEvenRevenue - serviceMetrics.breakEvenRevenue, 4200, 'service BE change uses normalized monthly KM basis')
 near(changedEngineFinance.monthlyBreakEvenRevenue, changedServiceMetrics.breakEvenRevenue, 'finance adapter BE authority')
-near(changedServiceMetrics.monthlyBreakEvenRevenue - serviceMetrics.monthlyBreakEvenRevenue, 200, 'monthly BE change')
-near(changedServiceMetrics.dailyBreakEvenRevenue - serviceMetrics.dailyBreakEvenRevenue, 200 / 30, 'daily BE change')
+near(changedServiceMetrics.monthlyBreakEvenRevenue - serviceMetrics.monthlyBreakEvenRevenue, 4200, 'monthly BE change uses normalized monthly KM basis')
+near(changedServiceMetrics.dailyBreakEvenRevenue - serviceMetrics.dailyBreakEvenRevenue, 4200 / 30, 'daily BE change uses normalized monthly KM basis')
 
 const missingMaintenanceInput = { ...snapshot, breakEvenInputs: [{ effectiveFrom:'2026-09-01', active:true }] }
 const missingEngineSnapshot = { ...engineSnapshot, breakEvenInputs: missingMaintenanceInput.breakEvenInputs }
