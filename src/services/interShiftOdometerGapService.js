@@ -1,6 +1,7 @@
 import { validateGapAllocation } from '../domain/work/shift.js'
 
 const toFiniteKm = (value) => {
+  if (value == null || value === '') return null
   const n = Number(value)
   return Number.isFinite(n) && n >= 0 ? n : null
 }
