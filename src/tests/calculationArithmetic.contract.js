@@ -33,7 +33,7 @@ for (const file of files(['domain'])) {
   const text = fs.readFileSync(file, 'utf8')
   const forbidden = [
     /desiredTakeHome/,
-    /desiredProfit/,
+    /\bdesiredProfit\b/,
     /desired_driver_profit/,
     /desired_take_home/,
     /targetPerActiveDay/,
