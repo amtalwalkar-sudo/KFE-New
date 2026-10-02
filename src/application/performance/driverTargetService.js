@@ -28,7 +28,8 @@ export const DriverTargetService = Object.freeze({
     if (!monthRange) return { available: false, target: null, reason: 'INVALID_TARGET_DATE' }
     const asOfDate = new Date(asOf)
     const targetTo = new Date(Math.min(monthRange.to.getTime(), asOfDate.getTime()))
-    const metrics = deriveFinanceAwarePerformance(snapshot, monthRange, previousRange(monthRange))
+    const asOfRange = { ...monthRange, to: targetTo }
+    const metrics = deriveFinanceAwarePerformance(snapshot, asOfRange, previousRange(asOfRange))
     const monthlyBreakEvenRevenue = Number.isFinite(metrics.monthlyBreakEvenRevenue) ? metrics.monthlyBreakEvenRevenue : null
     const operatingKmForecast = deriveOperatingKmForecast({
       shifts: snapshot?.shifts,
@@ -50,8 +51,8 @@ export const DriverTargetService = Object.freeze({
     }
     const indicativeProfitForCurrentMonth = ({ month } = {}) => {
       if (monthlyIndicativeProfitCache.has(month)) return monthlyIndicativeProfitCache.get(month)
-      const asOfRange = { ...monthRange, to: targetTo }
-      const monthMetrics = deriveFinanceAwarePerformance(snapshot, asOfRange, previousRange(asOfRange))
+      const currentMonthAsOfRange = { ...monthRange, to: targetTo }
+      const monthMetrics = deriveFinanceAwarePerformance(snapshot, currentMonthAsOfRange, previousRange(currentMonthAsOfRange))
       const value = Number.isFinite(monthMetrics.performanceHeadlineProvisionalProfit)
         ? monthMetrics.performanceHeadlineProvisionalProfit
         : null
