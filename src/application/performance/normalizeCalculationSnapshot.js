@@ -84,12 +84,15 @@ const normalizeDriverTarget = record => normalizeRecord(record, {
   desiredDriverProfit: ['desiredTakeHome', 'desiredProfit', 'desired_driver_profit', 'desired_take_home', 'desired_profit'],
 }, ['desiredDriverProfit'])
 
-const normalizeBreakEvenInput = record => normalizeRecord(record, {
-  effectiveFrom: ['effective_from'],
-  effectiveUntil: ['effective_until'],
-  maintenanceProvisionPerKm: ['maintenance_provision_per_km'],
-}, ['maintenanceProvisionPerKm'])
-
+const normalizeBreakEvenInput = record => {
+  const normalized = normalizeRecord(record, {
+    effectiveFrom: ['effective_from'],
+    effectiveUntil: ['effective_until'],
+    maintenanceProvisionPerKm: ['maintenance_provision_per_km'],
+  }, ['maintenanceProvisionPerKm'])
+  if (normalized) delete normalized.expectedMonthlyVehicleKm
+  return normalized
+}
 const normalizeSettlement = record => normalizeRecord(record, { settledOn: ['paidOn','paymentDate','payment_date'] }, ['amount'])
 
 export const normalizeCalculationSnapshot = snapshot => ({
