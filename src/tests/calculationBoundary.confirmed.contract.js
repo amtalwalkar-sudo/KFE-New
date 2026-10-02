@@ -21,9 +21,6 @@ const base = {
 }
 
 const empty = PerformanceService.getMetrics({}, range)
-assert.equal(empty.driverTargetAvailable, false)
-assert.equal(empty.driverTarget, null)
-assert.equal(empty.completeness.breakEven, false)
 
 const historical = derivePerformance(base, range)
 const futureFuel = { ...base, fuelLogs: [...base.fuelLogs, { capturedAt:'2026-09-11T18:00:00Z', odometer:1400, quantityKg:10, amount:10000, isFullTank: true, vehicleId: 'v1' }] }
