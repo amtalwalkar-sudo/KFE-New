@@ -10,8 +10,28 @@ describe('InterShiftOdometerGapService', () => {
     expect(() => InterShiftOdometerGapService.calculate(5, 2)).toThrow('Current Shift Start Odometer cannot be lower')
   })
 
-  it('requires personal + dead + unclassified to equal the gap', () => {
-    expect(InterShiftOdometerGapService.validateAllocation({ gapKm: 3, personalKm: 1, deadKm: 1, unclassifiedKm: 1 }).valid).toBe(true)
-    expect(InterShiftOdometerGapService.validateAllocation({ gapKm: 3, personalKm: 1, deadKm: 1, unclassifiedKm: 0 }).valid).toBe(false)
+  it('allocates the entire gap to Personal KM when Personal is selected', () => {
+    expect(InterShiftOdometerGapService.validateAllocation({ gapKm: 3, category: 'PERSONAL' })).toEqual({
+      valid: true,
+      values: { gapKm: 3, personalKm: 3, deadKm: 0, category: 'PERSONAL' },
+    })
+  })
+
+  it('allocates the entire gap to Dead KM when Dead is selected', () => {
+    expect(InterShiftOdometerGapService.validateAllocation({ gapKm: 3, category: 'DEAD' })).toEqual({
+      valid: true,
+      values: { gapKm: 3, personalKm: 0, deadKm: 3, category: 'DEAD' },
+    })
+  })
+
+  it('rejects missing or partial allocation', () => {
+    expect(InterShiftOdometerGapService.validateAllocation({ gapKm: 3 }).valid).toBe(false)
+    expect(InterShiftOdometerGapService.validateAllocation({ gapKm: 3, category: 'OTHER' }).valid).toBe(false)
+  })
+
+  it('allows a zero gap without an allocation category', () => {
+    expect(InterShiftOdometerGapService.validateAllocation({ gapKm: 0 }).values).toEqual({
+      gapKm: 0, personalKm: 0, deadKm: 0, category: null,
+    })
   })
 })
