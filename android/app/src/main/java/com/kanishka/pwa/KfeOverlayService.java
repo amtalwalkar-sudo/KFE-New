@@ -60,6 +60,7 @@ public class KfeOverlayService extends Service {
   private String formValue="";
   private String tollValue="";
   private String parkingValue="";
+  private String activeAmountField="fare";
   private String cancelReason="";
   private boolean formSubmitting=false;
   private LinearLayout formPanel;
@@ -178,7 +179,7 @@ public class KfeOverlayService extends Service {
   private void openNumericForm(String mode,String title,String hint){
     if(formMode!=null)return;
     hideUnderlyingKeyboard();
-    formMode=mode;formValue="";tollValue="";parkingValue="";formSubmitting=false;
+    formMode=mode;formValue="";tollValue="";parkingValue="";activeAmountField="fare";formSubmitting=false;
     params.flags=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
     params.height=dp("FARE".equals(mode)?360:310);
     if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);
@@ -227,13 +228,8 @@ public class KfeOverlayService extends Service {
   private LinearLayout overlayAmountField(String label,String field){
     LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(dp(6),0,dp(6),0);
     TextView l=new TextView(this);l.setText(label);l.setTextSize(10);l.setTextColor(mutedColor());
-    Button value=keyButton(field.equals("toll")?tollValue:parkingValue);value.setTextSize(13);
-    value.setOnClickListener(v->{
-      String current=field.equals("toll")?tollValue:parkingValue;
-      if(current.length()<9) current += "0";
-      if(field.equals("toll")) tollValue=current; else parkingValue=current;
-      value.setText("₹"+current);
-    });
+    TextView value=new TextView(this);value.setTag("amount_"+field);value.setText("₹0");value.setTextSize(16);value.setTypeface(android.graphics.Typeface.DEFAULT,android.graphics.Typeface.BOLD);value.setTextColor(actionColor());value.setGravity(Gravity.CENTER);
+    value.setOnClickListener(v->{activeAmountField=field;updateFormValue();});
     row.addView(l,new LinearLayout.LayoutParams(0,dp(32),1));row.addView(value,new LinearLayout.LayoutParams(dp(120),dp(36)));
     return row;
   }
@@ -241,16 +237,24 @@ public class KfeOverlayService extends Service {
   private Button keyButton(String label){
     Button b=new Button(this);b.setText(label);b.setTextSize(20);b.setAllCaps(false);
     b.setOnClickListener(v->{
-      if("C".contentEquals(b.getText())){formValue="";updateFormValue();return;}
-      if("⌫".contentEquals(b.getText())){if(formValue.length()>0)formValue=formValue.substring(0,formValue.length()-1);updateFormValue();return;}
-      if("CANCEL".contentEquals(b.getText())||"OK".contentEquals(b.getText())||"OK — SAVE FARE".contentEquals(b.getText())||"BACK".contentEquals(b.getText()))return;
-      if(formValue.length()<9)formValue+=b.getText().toString();updateFormValue();
+      String current;
+      if("fare".equals(activeAmountField)) current=formValue; else if("toll".equals(activeAmountField)) current=tollValue; else current=parkingValue;
+      if("C".contentEquals(b.getText())) current="";
+      else if("⌫".contentEquals(b.getText())) { if(current.length()>0) current=current.substring(0,current.length()-1); }
+      else if(!"CANCEL".contentEquals(b.getText())&&! "OK".contentEquals(b.getText())&&! "OK — SAVE FARE".contentEquals(b.getText())&&! "BACK".contentEquals(b.getText())&&current.length()<9) current+=b.getText().toString();
+      if("fare".equals(activeAmountField)) formValue=current; else if("toll".equals(activeAmountField)) tollValue=current; else parkingValue=current;
+      updateFormValue();
     });return b;
   }
   private void hideUnderlyingKeyboard(){
     try{ InputMethodManager imm=(InputMethodManager)getSystemService(INPUT_METHOD_SERVICE); if(imm!=null) imm.hideSoftInputFromWindow(overlayRoot!=null?overlayRoot.getWindowToken():null,0); }catch(Exception ignored){}
   }
-  private void updateFormValue(){if(formPanel==null)return;TextView v=formPanel.findViewWithTag("value");if(v!=null)v.setText("₹"+(formValue.isEmpty()?"0":formValue));}
+  private void updateFormValue(){
+    if(formPanel==null)return;
+    TextView v=formPanel.findViewWithTag("value");if(v!=null)v.setText("₹"+(formValue.isEmpty()?"0":formValue));
+    TextView t=formPanel.findViewWithTag("amount_toll");if(t!=null)t.setText("₹"+(tollValue.isEmpty()?"0":tollValue));
+    TextView p=formPanel.findViewWithTag("amount_parking");if(p!=null)p.setText("₹"+(parkingValue.isEmpty()?"0":parkingValue));
+  }
   private void submitNumericForm(){
     String actionTripId="FARE".equals(formMode)?resolveFareActionTripId(pendingFareTripId,pendingTripId):pendingTripId;
     if(formSubmitting||actionTripId.isEmpty())return;
