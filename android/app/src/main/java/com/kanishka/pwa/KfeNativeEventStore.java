@@ -60,6 +60,13 @@ final class KfeNativeEventStore extends SQLiteOpenHelper {
     return events;
   }
 
+  synchronized boolean isAcknowledged(String id) {
+    if (id == null || id.trim().isEmpty()) return false;
+    try (Cursor cursor = getReadableDatabase().query("native_events", new String[]{"status"}, "id=?", new String[]{id}, null, null, null, "1")) {
+      return cursor.moveToFirst() && "ACKNOWLEDGED".equals(cursor.getString(0));
+    }
+  }
+
   synchronized boolean acknowledge(String id) {
     if (id == null || id.trim().isEmpty()) return false;
     ContentValues values = new ContentValues();

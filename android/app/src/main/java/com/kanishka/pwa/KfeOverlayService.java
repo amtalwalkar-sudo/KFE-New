@@ -64,6 +64,9 @@ public class KfeOverlayService extends Service {
   private String activeAmountField="fare";
   private String cancelReason="";
   private boolean formSubmitting=false;
+  private String awaitingEventId="";
+  private String awaitingStage="";
+  private String awaitingTripId="";
   private LinearLayout formPanel;
   private android.os.Handler foregroundHandler;
   private final Runnable foregroundCheck=new Runnable(){
@@ -95,6 +98,12 @@ public class KfeOverlayService extends Service {
     actionStage=saved.getString("actionStage","GO_TO_PICKUP");
     pendingTripId=saved.getString("pendingTripId","");
     pendingFareTripId=saved.getString("pendingFareTripId","");
+    awaitingEventId=saved.getString("awaitingEventId","");
+    awaitingStage=saved.getString("awaitingStage","");
+    awaitingTripId=saved.getString("awaitingTripId","");
+    if(!awaitingEventId.isEmpty() && KfeNativeEventStore.get(this).isAcknowledged(awaitingEventId)){
+      onEventAcknowledged(awaitingEventId,awaitingStage,awaitingTripId);
+    }
     createChannel();startForeground(NOTIFICATION_ID,buildNotification());foregroundHandler=new android.os.Handler(getMainLooper());foregroundHandler.post(foregroundCheck);
   }
   @Override public int onStartCommand(Intent intent,int flags,int startId){
@@ -144,11 +153,13 @@ public class KfeOverlayService extends Service {
       tripStartAt=root.optLong("tripStartAt",0L);
       String previousActionStage=actionStage;
       String nextActionStage=root.optString("overlayAction",actionStage);
-      actionStage=nextActionStage;
+      if(awaitingEventId.isEmpty()) actionStage=nextActionStage;
       if(!actionStage.equals(previousActionStage) && !"ENTER_FARE".equals(actionStage)) animateRetract();
-      pendingTripId=root.optString("overlayTripId","");
-      if(pendingTripId.isEmpty()&&trip!=null)pendingTripId=trip.optString("id","");
-      pendingFareTripId=root.optString("pendingFareId","");
+      if(awaitingEventId.isEmpty()){
+        pendingTripId=root.optString("overlayTripId","");
+        if(pendingTripId.isEmpty()&&trip!=null)pendingTripId=trip.optString("id","");
+      }
+      if(awaitingEventId.isEmpty()) pendingFareTripId=root.optString("pendingFareId","");
       if(formMode!=null){
         if((("ENTER_FARE".equals(actionStage)||"END_RIDE".equals(actionStage))&&!"FARE".equals(formMode))||("CANCEL_RIDE".equals(actionStage)&&!"CANCEL".equals(formMode)))closeForm();
       }
@@ -157,7 +168,7 @@ public class KfeOverlayService extends Service {
     }catch(Exception ignored){ overlay.invalidate(); }
   }
 
-  private void onCancelSaved(){formSubmitting=false;closeForm();actionStage="GO_TO_PICKUP";pendingTripId="";tripStartAt=0L;KfeRideNotificationsPlugin.cancelNotification(this);if(overlay!=null)overlay.invalidate();}
+  private void onCancelSaved(){formSubmitting=false;closeForm();actionStage="GO_TO_PICKUP";pendingTripId="";pendingFareTripId="";tripStartAt=0L;awaitingEventId="";awaitingStage="";awaitingTripId="";persistNativeWorkflow();KfeRideNotificationsPlugin.cancelNotification(this);if(overlay!=null)overlay.invalidate();}
 
   private void onFareSaved(){
     formSubmitting=false;
@@ -177,27 +188,45 @@ public class KfeOverlayService extends Service {
   }
 
   private void triggerAction(){
-    // Advance the native shadow workflow immediately so actions remain usable
-    // while the WebView is absent. The durable event ledger reconciles each
-    // transition into the canonical Work repository on the next app launch.
+    // Keep the visible native action on the current canonical stage until the
+    // PWA acknowledges the durable event. This prevents native/PWA divergence
+    // when the WebView is slow, unavailable, or rejects the action.
     if("GO_TO_PICKUP".equals(actionStage)){
+      if(!awaitingEventId.isEmpty()) return;
       if(pendingTripId.isEmpty()) pendingTripId=java.util.UUID.randomUUID().toString();
       String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"GO_TO_PICKUP",pendingTripId,"");
-      actionStage="START_RIDE"; pendingFareTripId="";
-      persistNativeWorkflow(); animateRetract(); overlay.invalidate();
+      beginAwaiting(eventId,"GO_TO_PICKUP",pendingTripId); persistNativeWorkflow(); animateRetract(); overlay.invalidate();
       KfeRideNotificationsPlugin.emitAction("GO_TO_PICKUP",pendingTripId,"",eventId); return;
     }
     if("START_RIDE".equals(actionStage)){
+      if(!awaitingEventId.isEmpty() || pendingTripId.isEmpty()) return;
       String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"START_RIDE",pendingTripId,"");
-      actionStage="END_RIDE"; persistNativeWorkflow(); animateRetract(); overlay.invalidate();
+      beginAwaiting(eventId,"START_RIDE",pendingTripId); persistNativeWorkflow(); animateRetract(); overlay.invalidate();
       KfeRideNotificationsPlugin.emitAction("START_RIDE",pendingTripId,"",eventId); return;
     }
     if("END_RIDE".equals(actionStage)){
+      if(!awaitingEventId.isEmpty() || pendingTripId.isEmpty()) return;
       String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"END_RIDE",pendingTripId,"");
-      pendingFareTripId=pendingTripId; actionStage="ENTER_FARE"; persistNativeWorkflow();
-      openFareForm();
+      beginAwaiting(eventId,"END_RIDE",pendingTripId); persistNativeWorkflow(); animateRetract(); overlay.invalidate();
       KfeRideNotificationsPlugin.emitAction("END_RIDE",pendingTripId,"",eventId);
     }
+  }
+
+  private void beginAwaiting(String eventId,String stage,String tripId){ awaitingEventId=eventId==null?"":eventId; awaitingStage=stage==null?"":stage; awaitingTripId=tripId==null?"":tripId; }
+
+  static void acknowledgeFromPwa(Context context,String eventId,String stage,String tripId){
+    KfeOverlayService current=instance;
+    if(current==null)return;
+    current.onEventAcknowledged(eventId,stage,tripId);
+  }
+
+  private void onEventAcknowledged(String eventId,String stage,String tripId){
+    if(eventId==null || !eventId.equals(awaitingEventId)) return;
+    awaitingEventId=""; awaitingStage=""; awaitingTripId="";
+    if("GO_TO_PICKUP".equals(stage)){ actionStage="START_RIDE"; pendingFareTripId=""; persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); return; }
+    if("START_RIDE".equals(stage)){ actionStage="END_RIDE"; persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); return; }
+    if("END_RIDE".equals(stage)){ pendingFareTripId=tripId; pendingTripId=tripId; actionStage="ENTER_FARE"; persistNativeWorkflow(); KfeNativeGpsService.stop(this,tripId); if(overlay!=null)openFareForm(); if(overlay!=null)overlay.invalidate(); return; }
+    if("ENTER_FARE".equals(stage) || "CANCEL_RIDE".equals(stage)){ closeForm(); actionStage="GO_TO_PICKUP"; pendingTripId=""; pendingFareTripId=""; tripStartAt=0L; persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); }
   }
 
   private void persistNativeWorkflow(){
@@ -205,7 +234,10 @@ public class KfeOverlayService extends Service {
     android.content.SharedPreferences.Editor editor=prefs.edit()
       .putString("actionStage",actionStage)
       .putString("pendingTripId",pendingTripId)
-      .putString("pendingFareTripId",pendingFareTripId);
+      .putString("pendingFareTripId",pendingFareTripId)
+      .putString("awaitingEventId",awaitingEventId)
+      .putString("awaitingStage",awaitingStage)
+      .putString("awaitingTripId",awaitingTripId);
     String raw=prefs.getString(LAST_STATE_KEY,"");
     if(!raw.isEmpty()){
       try{
@@ -475,9 +507,9 @@ public class KfeOverlayService extends Service {
             if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);return true;
           }
           if(minimized&&!moving&&Math.abs(fx)<dp(16)&&Math.abs(fy)<dp(16)){minimized=false;params.width=WindowManager.LayoutParams.MATCH_PARENT;params.height=dp(COLLAPSED_TOTAL_DP);params.x=0;if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);invalidate();return true;}
-          if(!minimized&&!moving&&"START_RIDE".equals(actionStage)&&downX>getWidth()-dp(120)&&downY>=dp(60)&&downY<=dp(110)){openCancelForm();return true;}
+          if(!minimized&&!moving&&awaitingEventId.isEmpty()&&"START_RIDE".equals(actionStage)&&downX>getWidth()-dp(120)&&downY>=dp(60)&&downY<=dp(110)){openCancelForm();return true;}
           float maxTravel=Math.max(1,getWidth()-dp(16)-dp(58));
-          if(!minimized&&!moving&&swipeEligible&&swipeLocked&&fx>=maxTravel*.70f){progress=1;invalidate();if("END_RIDE".equals(actionStage)){openFareForm();KfeRideNotificationsPlugin.recordPendingAction(KfeOverlayService.this,"END_RIDE",pendingTripId,"");KfeRideNotificationsPlugin.emitAction("END_RIDE",pendingTripId,"");}else triggerAction();swipeLocked=false;swipeEligible=false;return true;}
+          if(!minimized&&!moving&&swipeEligible&&swipeLocked&&fx>=maxTravel*.70f){progress=1;invalidate();triggerAction();swipeLocked=false;swipeEligible=false;return true;}
           progress=0;invalidate();return true;}
         case MotionEvent.ACTION_CANCEL:tracking=false;moving=false;swipeLocked=false;swipeEligible=false;animateRetract();return true;
       }return true;

@@ -250,6 +250,9 @@ public class KfeRideNotificationsPlugin extends Plugin {
   public void acknowledgeAction(PluginCall call) {
     String eventId = call.getString("eventId", "");
     boolean acknowledged = KfeNativeEventStore.get(getContext()).acknowledge(eventId);
+    String stage = call.getString("stage", "");
+    String tripId = call.getString("tripId", "");
+    if (acknowledged) KfeOverlayService.acknowledgeFromPwa(getContext(), eventId, stage, tripId);
     String legacyId = getContext().getSharedPreferences(PREFS, 0).getString("pendingEventId", "");
     if (acknowledged && eventId.equals(legacyId)) {
       getContext().getSharedPreferences(PREFS, 0).edit().remove(PENDING_KEY).remove("pendingEventId").apply();
