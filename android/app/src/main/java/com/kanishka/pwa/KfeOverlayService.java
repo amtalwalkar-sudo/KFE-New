@@ -89,7 +89,13 @@ public class KfeOverlayService extends Service {
   public static void update(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_UPDATE);i.putExtra(EXTRA_STATE,state==null?"{}":state);context.startService(i);}
   public static void hide(Context context){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_HIDE);context.startService(i);}
 
-  @Override public void onCreate(){super.onCreate();instance=this;createChannel();startForeground(NOTIFICATION_ID,buildNotification());foregroundHandler=new android.os.Handler(getMainLooper());foregroundHandler.post(foregroundCheck);}
+  @Override public void onCreate(){super.onCreate();instance=this;
+    android.content.SharedPreferences saved=getSharedPreferences("kfe_overlay",MODE_PRIVATE);
+    actionStage=saved.getString("actionStage","GO_TO_PICKUP");
+    pendingTripId=saved.getString("pendingTripId","");
+    pendingFareTripId=saved.getString("pendingFareTripId","");
+    createChannel();startForeground(NOTIFICATION_ID,buildNotification());foregroundHandler=new android.os.Handler(getMainLooper());foregroundHandler.post(foregroundCheck);
+  }
   @Override public int onStartCommand(Intent intent,int flags,int startId){
     if(intent==null)return START_NOT_STICKY;
     String action=intent.getAction();
@@ -152,6 +158,7 @@ public class KfeOverlayService extends Service {
     pendingTripId="";
     pendingFareTripId="";
     tripStartAt=0L;
+    persistNativeWorkflow();
     KfeRideNotificationsPlugin.cancelNotification(this);
     animateRetract();
     if(overlay!=null) overlay.invalidate();
@@ -162,9 +169,35 @@ public class KfeOverlayService extends Service {
   }
 
   private void triggerAction(){
-    if("END_RIDE".equals(actionStage)){String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,actionStage,pendingTripId,"");KfeRideNotificationsPlugin.emitAction(actionStage,pendingTripId,"",eventId);return;}
-    if("START_RIDE".equals(actionStage)){String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,actionStage,pendingTripId,"");KfeRideNotificationsPlugin.emitAction(actionStage,pendingTripId,"",eventId);return;}
-    if("GO_TO_PICKUP".equals(actionStage)){String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,actionStage,pendingTripId,"");KfeRideNotificationsPlugin.emitAction(actionStage,pendingTripId,"",eventId);}
+    // Advance the native shadow workflow immediately so actions remain usable
+    // while the WebView is absent. The durable event ledger reconciles each
+    // transition into the canonical Work repository on the next app launch.
+    if("GO_TO_PICKUP".equals(actionStage)){
+      if(pendingTripId.isEmpty()) pendingTripId=java.util.UUID.randomUUID().toString();
+      String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"GO_TO_PICKUP",pendingTripId,"");
+      actionStage="START_RIDE"; pendingFareTripId="";
+      persistNativeWorkflow(); animateRetract(); overlay.invalidate();
+      KfeRideNotificationsPlugin.emitAction("GO_TO_PICKUP",pendingTripId,"",eventId); return;
+    }
+    if("START_RIDE".equals(actionStage)){
+      String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"START_RIDE",pendingTripId,"");
+      actionStage="END_RIDE"; persistNativeWorkflow(); animateRetract(); overlay.invalidate();
+      KfeRideNotificationsPlugin.emitAction("START_RIDE",pendingTripId,"",eventId); return;
+    }
+    if("END_RIDE".equals(actionStage)){
+      String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"END_RIDE",pendingTripId,"");
+      pendingFareTripId=pendingTripId; actionStage="ENTER_FARE"; persistNativeWorkflow();
+      openFareForm();
+      KfeRideNotificationsPlugin.emitAction("END_RIDE",pendingTripId,"",eventId);
+    }
+  }
+
+  private void persistNativeWorkflow(){
+    getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit()
+      .putString("actionStage",actionStage)
+      .putString("pendingTripId",pendingTripId)
+      .putString("pendingFareTripId",pendingFareTripId)
+      .apply();
   }
 
   private void hideIfKfeActivityForeground(){
@@ -276,6 +309,7 @@ public class KfeOverlayService extends Service {
     }else if("CANCEL".equals(formMode)){
       if(cancelReason.isEmpty()){formSubmitting=false;return;}
       try{JSONObject input=new JSONObject();input.put("revenue",amount);input.put("reason",cancelReason);String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"CANCEL_RIDE",pendingTripId,input.toString());KfeRideNotificationsPlugin.emitAction("CANCEL_RIDE",pendingTripId,input.toString(),eventId);
+        actionStage="GO_TO_PICKUP";pendingTripId="";pendingFareTripId="";persistNativeWorkflow();
         return;
       }catch(Exception ignored){formSubmitting=false;return;}
     }
