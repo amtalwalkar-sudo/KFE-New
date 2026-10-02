@@ -37,7 +37,13 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   const preBusinessRecoveryForPeriod = finance ? calculatePreBusinessLoanRecoveryForRange({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, businessStartDate: businessStart, range }) : 0
   const historicalMaintenanceRecoveryForPeriod = calculateHistoricalMaintenanceRecoveryForRange({ vehicles: snapshot?.vehicles || [], businessStartDate: businessStart, range: range })
   const fullMonthRange = istMonthRange(range?.to) || range
-  const breakEvenMonthRange = fullMonthRange && fullMonthRange.to > currentAsOf ? { ...fullMonthRange, to: currentAsOf } : fullMonthRange
+  const breakEvenMonthRange = fullMonthRange
+    ? {
+        ...fullMonthRange,
+        from: businessStart && businessStart > fullMonthRange.from ? businessStart : fullMonthRange.from,
+        to: fullMonthRange.to > currentAsOf ? currentAsOf : fullMonthRange.to,
+      }
+    : range
   const monthlyBase = deriveOperationalPerformance(snapshot, breakEvenMonthRange, derivePreviousRange(breakEvenMonthRange))
   const monthAsOf = asOf(breakEvenMonthRange)
   const monthFinance = activeLoan ? deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: monthAsOf }) : null
