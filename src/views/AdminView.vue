@@ -33,7 +33,7 @@ const performanceSnapshot=ref(null),loading=ref(false),error=ref(''),notice=ref(
 const formOpen=ref(false),editing=ref(null),draft=ref({})
 const actionKey=ref(null),actionRecord=ref(null),actionDraft=ref({}),paymentCalculated=ref(false),paymentConfirmed=ref(false)
 const prepaymentDraft=ref({loanId:'',paidOn:istDateKey(getKfeReferenceNow()),amount:0,reason:'',notes:''}),prepaymentCalculated=ref(false),prepaymentConfirmed=ref(false)
-const targetDraft=ref({driverId:'',month:istDateKey(getKfeReferenceNow()).slice(0,7),desiredDriverProfit:0,targetHours:'',targetKm:''})
+const targetDraft=ref({driverId:'',month:istDateKey(getKfeReferenceNow()).slice(0,7),desiredDriverProfit:0,nonWorkingDates:'',targetHours:'',targetKm:''})
 const maintenanceRateDraft=ref({rate:'',changeDate:istDateKey(getKfeReferenceNow())})
 const themeSettings=ref(getKfeThemeSettings())
 const notificationsEnabled=ref(KfeRideNotificationService.notificationsEnabled())
@@ -160,7 +160,7 @@ function syncTargetFromSelection(){
 }
 function resetMaintenanceRate(){maintenanceRateDraft.value={rate:currentMaintenanceRate.value?.values?.maintenanceProvisionPerKm??'',changeDate:istDateKey(getKfeReferenceNow())}}
 function monthStart(m){return (m||currentMonth.value)+'-01'}
-async function saveTarget(){clearMessages();loading.value=true;try{if(!targetDraft.value.driverId||Number(targetDraft.value.desiredDriverProfit)<0)throw new Error('Driver and monthly target are required.');await AdminService.save('driverTarget',{driverId:targetDraft.value.driverId,effectiveFrom:monthStart(targetDraft.value.month),desiredDriverProfit:Number(targetDraft.value.desiredDriverProfit),active:true});notice.value='Monthly driver target saved.';await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Unable to save target.'}finally{loading.value=false}}
+async function saveTarget(){clearMessages();loading.value=true;try{if(!targetDraft.value.driverId||Number(targetDraft.value.desiredDriverProfit)<0)throw new Error('Driver and monthly target are required.');await AdminService.save('driverTarget',{driverId:targetDraft.value.driverId,effectiveFrom:monthStart(targetDraft.value.month),desiredDriverProfit:Number(targetDraft.value.desiredDriverProfit),nonWorkingDates:String(targetDraft.value.nonWorkingDates||''),active:true});notice.value='Monthly driver target saved.';await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Unable to save target.'}finally{loading.value=false}}
 async function saveMaintenanceRate(){clearMessages();loading.value=true;try{const rate=Number(maintenanceRateDraft.value.rate);if(!Number.isFinite(rate)||rate<0)throw new Error('Maintenance per KM must be zero or greater.');await AdminService.save('breakEvenInputs',{effectiveFrom:maintenanceRateDraft.value.changeDate,maintenanceProvisionPerKm:rate});notice.value='Maintenance per KM rate saved.';await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Unable to save rate.'}finally{loading.value=false}}
 async function save(values){clearMessages();loading.value=true;try{
   const id=editing.value
@@ -207,7 +207,7 @@ onMounted(load)
   <div class="form-grid">
     <label><span>Driver</span><select v-model="targetDraft.driverId" @change="syncTargetFromSelection"><option value="">Select driver</option><option v-for="d in all.driver" :key="d.id" :value="d.id">{{label('driver',d)}}</option></select></label>
     <label><span>Month</span><input v-model="targetDraft.month" type="month" @change="syncTargetFromSelection"></label>
-    <label><span>Desired driver profit / take-home</span><input v-model.number="targetDraft.desiredDriverProfit" type="number" min="0" step="0.01"></label>
+    <label><span>Desired driver profit / take-home</span><input v-model.number="targetDraft.desiredDriverProfit" type="number" min="0" step="0.01"></label>\n    <label class="wide-field"><span>Planned non-working / holiday dates</span><textarea v-model="targetDraft.nonWorkingDates" placeholder="YYYY-MM-DD, one per line or comma separated"></textarea></label>
   </div>
   <p class="rule-note">This is the driver-entered monthly profit / take-home amount. Break-even and maintenance-per-KM are calculated separately and added by the target engine. Saving a new amount replaces the current amount for the selected month; the previous value remains in history.</p>
   <button class="primary wide" :disabled="loading||!targetDraft.driverId" @click="saveTarget">Save new target</button>
