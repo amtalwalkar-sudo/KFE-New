@@ -3,7 +3,7 @@ import { CALCULATION_STATUS } from './calculationAuthority.js'
 import { deriveAuthoritativeBreakEven } from './authoritativeBreakEven.js'
 import { deriveLoanPosition, calculatePreBusinessLoanRecovery, calculatePreBusinessLoanRecoveryForRange } from '../finance/loanEngine.js'
 import { calculateHistoricalMaintenanceRecovery, calculateHistoricalMaintenanceRecoveryForRange } from './performanceEngineV2.js'
-import { istMonthRange } from '../time/ist.js'
+import { istMonthRange, istDateKey } from '../time/ist.js'
 
 const live = records => (records || []).filter(record => !record?.deletedAt && record?.deleted !== true)
 const dateOf = value => { const date = value ? new Date(value) : null; return date && !Number.isNaN(date.getTime()) ? date : null }
@@ -16,6 +16,21 @@ const businessStartDate = snapshot => {
 }
 const asOf = range => dateOf(range?.to) || new Date()
 const inRange = (value, range) => { const date = dateOf(value); return !!date && date >= range.from && date <= range.to }
+const calendarSerial = value => { const key=istDateKey(value); if(!key)return null; const [y,m,d]=key.split('-').map(Number); return Date.UTC(y,m-1,d)/86400000 }
+const scheduledEmiAccruedForRange = (schedule, range) => {
+  if (!Array.isArray(schedule)) return null
+  const from=calendarSerial(range?.from),to=calendarSerial(range?.to)
+  if(from==null||to==null||to<from)return null
+  let total=0
+  for(const row of schedule){
+    const amount=Number(row.originalEmiAmount),start=calendarSerial(row.periodStart),due=calendarSerial(row.dueDate)
+    if(!Number.isFinite(amount)||amount<0||start==null||due==null||due<start)return null
+    const overlapFrom=Math.max(from,start),overlapTo=Math.min(to,due)
+    if(overlapTo<overlapFrom)continue
+    total+=amount*((overlapTo-overlapFrom+1)/(due-start+1))
+  }
+  return Math.round(total*100)/100
+}
 
 export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   const base = deriveOperationalPerformance(snapshot, range, previousPeriod)
@@ -47,10 +62,8 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   const monthlyBase = deriveOperationalPerformance(snapshot, breakEvenMonthRange, derivePreviousRange(breakEvenMonthRange))
   const monthAsOf = asOf(breakEvenMonthRange)
   const monthFinance = activeLoan ? deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: monthAsOf }) : null
-  const monthFinanceBeforeRange = activeLoan ? deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: new Date(breakEvenMonthRange.from.getTime() - 1) }) : null
-  // Use the canonical loan engine's calendar-day EMI accrual across each EMI validity interval.
-  // This avoids treating the due date as the only day on which the fixed obligation exists.
-  const monthScheduledEmi = hasIncompleteActiveLoan ? NaN : activeLoan && monthFinance && monthFinanceBeforeRange ? Math.max(0, money(monthFinance.provisionAccumulated) - money(monthFinanceBeforeRange.provisionAccumulated)) : activeLoan ? NaN : 0
+  // Accrue each EMI over its canonical periodStart→dueDate validity interval, not only on the due date.
+  const monthScheduledEmi = hasIncompleteActiveLoan ? NaN : activeLoan && monthFinance ? scheduledEmiAccruedForRange(monthFinance.schedule, breakEvenMonthRange) : activeLoan ? NaN : 0
   const monthPreBusinessRecovery = monthFinance ? calculatePreBusinessLoanRecoveryForRange({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, businessStartDate: businessStart, range: breakEvenMonthRange }) : 0
   const monthHistoricalMaintenanceRecovery = calculateHistoricalMaintenanceRecoveryForRange({ vehicles: snapshot?.vehicles || [], businessStartDate: businessStart, range: breakEvenMonthRange })
   const breakEven = deriveAuthoritativeBreakEven({ breakEvenInputs: snapshot?.breakEvenInputs || [], range: breakEvenMonthRange, loanScheduledObligation: monthScheduledEmi, preBusinessRecovery: monthPreBusinessRecovery, historicalMaintenanceRecovery: monthHistoricalMaintenanceRecovery, renewalProvision: monthlyBase.renewalProvision, fuelCostPerKm: monthlyBase.breakEvenInputs?.fuelCostPerKm ?? monthlyBase.fuelCostPerKm, fuelCostPerKmStatus: monthlyBase.breakEvenInputs?.fuelEvidence?.status || CALCULATION_STATUS.UNAVAILABLE, vehicleKm: monthlyBase.vehicleKm })
