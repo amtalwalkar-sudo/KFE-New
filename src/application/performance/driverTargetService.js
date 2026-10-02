@@ -67,6 +67,7 @@ export const DriverTargetService = Object.freeze({
       to: targetTo,
       applicableBreakEven: monthlyBreakEvenRevenue,
       historicalBreakEvenForDay: monthlyBreakEvenCacheFor(snapshot),
+      authoritativeBreakEvenForMonth: monthlyBreakEvenCacheFor(snapshot),
       operatingKmForecast,
       historicalIndicativeProfitForMonth,
       indicativeProfitForCurrentMonth,
