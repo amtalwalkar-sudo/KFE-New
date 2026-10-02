@@ -72,7 +72,7 @@ export const PerformanceService = Object.freeze({
       desiredDriverProfitMonthly,
       calendarDays: targetMonthDays,
     })
-    const canonicalTarget = targetFormula.available ? targetFormula.dailyTarget : null
+    const canonicalTarget = targetFormula.available ? targetFormula.target : null
     const targetAvailable = canonicalTarget != null
     const financialDays = Number(metrics.counts?.activeFinancialDays) || 0
     const revenuePerFinancialDay = financialDays > 0 ? metrics.revenue / financialDays : NaN
