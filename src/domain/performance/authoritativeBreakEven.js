@@ -20,7 +20,7 @@ const latest = (xs, range) => {
     })[0] || null
 }
 
-export function deriveAuthoritativeBreakEven({ breakEvenInputs = [], range, loanScheduledObligation = NaN, renewalProvision = NaN, fuelCostPerKm = NaN, fuelCostPerKmStatus = CALCULATION_STATUS.UNAVAILABLE, vehicleKm = NaN } = {}) {
+export function deriveAuthoritativeBreakEven({ breakEvenInputs = [], range, loanScheduledObligation = NaN, preBusinessRecovery = 0, renewalProvision = NaN, fuelCostPerKm = NaN, fuelCostPerKmStatus = CALCULATION_STATUS.UNAVAILABLE, vehicleKm = NaN } = {}) {
   const input = latest(breakEvenInputs, range)
   if (!input) {
     return {
@@ -39,10 +39,11 @@ export function deriveAuthoritativeBreakEven({ breakEvenInputs = [], range, loan
     fuelCostPerKmEvidence: fuelCostPerKmStatus === CALCULATION_STATUS.AUTHORITATIVE,
     vehicleKm: Number.isFinite(Number(vehicleKm)),
     loanScheduledObligation: Number.isFinite(Number(loanScheduledObligation)),
+    preBusinessRecovery: Number.isFinite(Number(preBusinessRecovery)),
     renewalProvision: Number.isFinite(Number(renewalProvision)),
   }
-  const firstMissing = ['input', 'maintenanceProvisionPerKm', 'fuelCostPerKm', 'fuelCostPerKmEvidence', 'vehicleKm', 'loanScheduledObligation', 'renewalProvision'].find(key => !availability[key])
-  const numericComplete = ['input', 'maintenanceProvisionPerKm', 'fuelCostPerKm', 'vehicleKm', 'loanScheduledObligation', 'renewalProvision'].every(key => availability[key])
+  const firstMissing = ['input', 'maintenanceProvisionPerKm', 'fuelCostPerKm', 'fuelCostPerKmEvidence', 'vehicleKm', 'loanScheduledObligation', 'preBusinessRecovery', 'renewalProvision'].find(key => !availability[key])
+  const numericComplete = ['input', 'maintenanceProvisionPerKm', 'fuelCostPerKm', 'vehicleKm', 'loanScheduledObligation', 'preBusinessRecovery', 'renewalProvision'].every(key => availability[key])
   if (!numericComplete) {
     return {
       available: false,
@@ -52,7 +53,7 @@ export function deriveAuthoritativeBreakEven({ breakEvenInputs = [], range, loan
       trace: { ...availability, firstMissing },
     }
   }
-  const fixedCosts = Number(loanScheduledObligation) + Number(renewalProvision)
+  const fixedCosts = Number(loanScheduledObligation) + Number(preBusinessRecovery) + Number(renewalProvision)
   const dynamicCosts = Number(vehicleKm) * Number(fuelCostPerKm) + Number(vehicleKm) * maintenanceProvisionPerKm
   const monthlyBreakEvenRevenue = fixedCosts + dynamicCosts
   if (fuelCostPerKmStatus !== CALCULATION_STATUS.AUTHORITATIVE) {
