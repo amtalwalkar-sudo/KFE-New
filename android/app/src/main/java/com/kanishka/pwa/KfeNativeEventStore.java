@@ -45,7 +45,7 @@ final class KfeNativeEventStore extends SQLiteOpenHelper {
     JSONArray events = new JSONArray();
     try (Cursor cursor = getReadableDatabase().query("native_events",
         new String[]{"id", "stage", "trip_id", "input", "created_at", "attempts"},
-        "status=?", new String[]{"PENDING"}, null, null, "created_at ASC", Integer.toString(Math.max(1, Math.min(limit, 500))))) {
+        "status=?", new String[]{"PENDING"}, null, null, "created_at ASC, rowid ASC", Integer.toString(Math.max(1, Math.min(limit, 500))))) {
       while (cursor.moveToNext()) {
         JSONObject event = new JSONObject();
         event.put("eventId", cursor.getString(0));
