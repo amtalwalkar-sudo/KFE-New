@@ -69,8 +69,7 @@ assert.equal(serviceMetrics.driverTargetCalendarDaysInMonth, 30)
 assert.equal(serviceMetrics.driverTargetEligibleDaysInMonth, 30)
 assert.equal(serviceMetrics.driverTargetRemainingEligibleDays, 21)
 near(serviceMetrics.dailyBreakEvenRevenue, serviceMetrics.monthlyBreakEvenRevenue / 30, 'financial daily BE uses calendar days in target month')
-near(serviceMetrics.driverTargetBase, serviceMetrics.driverTargetEffectiveMonthlyTarget / 30, 'base operational target uses eligible days')
-assert.ok(serviceMetrics.driverTarget >= serviceMetrics.driverTargetBase, 'current target includes the accumulated performance shortfall')
+near(serviceMetrics.driverTarget, serviceMetrics.driverTargetEffectiveMonthlyTarget / 30, 'driver target uses calendar days')
 
 const manualDailyTargetInput = { ...snapshot, driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:1000, dailyTarget:1, targetPerActiveDay:2, active:true }] }
 const manualDailyTargetMetrics = PerformanceService.getMetrics(manualDailyTargetInput, range)
