@@ -2,7 +2,6 @@ import { PerformanceRepository } from '../../repositories/performanceRepository.
 import { subscribeCanonicalDataChanges } from '../../repositories/canonicalDataChangeRepository.js'
 import { layerRows, previousRange } from '../../domain/performance/performanceEngineV2.js'
 import { deriveFinanceAwarePerformance } from '../../domain/performance/financePerformanceAdapter.js'
-import { deriveRollingDriverTarget } from '../../domain/performance/driverTargetStabilization.js'
 import { DriverTargetService } from './driverTargetService.js'
 import { normalizeCalculationSnapshot } from './normalizeCalculationSnapshot.js'
 import { istMonthRange, istCalendarDaysInclusive } from '../../domain/time/ist.js'
@@ -12,6 +11,7 @@ import { getPerformanceDiagnostics } from '../../domain/performance/performanceD
 import { getKfeReferenceNow, reportingRangeFor } from '../../domain/time/ist.js'
 import { deriveDailyTargetAchievement } from '../../domain/performance/dailyTargetAchievement.js'
 import { deriveDailyRevenueAllocation } from '../../domain/performance/dailyRevenueAllocation.js'
+import { deriveAuthoritativeDriverTarget, getApplicableDriverTarget } from '../../domain/performance/driverTarget.js'
 
 export const PerformanceService = Object.freeze({
   async getSnapshot() {
@@ -56,65 +56,29 @@ export const PerformanceService = Object.freeze({
       to: boundedRange.to,
       asOf: boundedRange.to,
     })
-    const monthlyBreakEvenCache = new Map()
-    const authoritativeMonthlyBreakEvenForDay = ({ day }) => {
-      const monthRange = istMonthRange(day)
-      if (!monthRange) return null
-      const key = monthRange.from.toISOString().slice(0, 7)
-      if (monthlyBreakEvenCache.has(key)) return monthlyBreakEvenCache.get(key)
-      const monthMetrics = deriveFinanceAwarePerformance(calculationSnapshot, monthRange, previousRange(monthRange))
-      const monthlyBreakEven = Number.isFinite(monthMetrics.monthlyBreakEvenRevenue)
-        ? monthMetrics.monthlyBreakEvenRevenue
-        : null
-      monthlyBreakEvenCache.set(key, monthlyBreakEven)
-      return monthlyBreakEven
-    }
-
     const targetMonthRange = istMonthRange(boundedRange.to)
-    const stabilizationFrom = targetMonthRange?.from || boundedRange.from
-    const stabilizationTo = targetMonthRange
-      ? new Date(Math.min(targetMonthRange.to.getTime(), boundedRange.to.getTime()))
-      : boundedRange.to
-
-    const monthlyBreakEvenRevenue = Number.isFinite(metrics.monthlyBreakEvenRevenue)
-      ? metrics.monthlyBreakEvenRevenue
-      : null
-
-    const stabilization = deriveRollingDriverTarget({
-      trips: calculationSnapshot?.trips,
-      shifts: calculationSnapshot?.shifts,
-      driverTargets: calculationSnapshot?.driverTargets,
-      from: stabilizationFrom,
-      to: stabilizationTo,
-      applicableBreakEven: monthlyBreakEvenRevenue ?? authoritativeMonthlyBreakEvenForDay({ day: stabilizationTo }),
-      historicalBreakEvenForDay: authoritativeMonthlyBreakEvenForDay,
-      authoritativeBreakEvenForMonth: authoritativeMonthlyBreakEvenForDay,
-    })
-    // Target authority is deliberately simple: use the authoritative
-    // target-month break-even supplied by the stabilization authority, add
-    // the Admin-entered monthly driver profit, then divide by calendar days.
-    // There is no historical-recovery or eligible-day adjustment.
-    const authoritativeMonthlyBreakEven = Number.isFinite(stabilization.monthlyBreakEvenRevenue)
-      ? stabilization.monthlyBreakEvenRevenue
-      : monthlyBreakEvenRevenue
     const targetMonthDays = targetMonthRange
       ? istCalendarDaysInclusive(targetMonthRange.from, targetMonthRange.to)
       : null
+    const authoritativeMonthlyBreakEven = Number.isFinite(metrics.monthlyBreakEvenRevenue)
+      ? metrics.monthlyBreakEvenRevenue
+      : null
+    const targetRecord = getApplicableDriverTarget(calculationSnapshot?.driverTargets, boundedRange.to)
+    const desiredDriverProfitMonthly = Number.isFinite(Number(targetRecord?.desiredDriverProfit))
+      ? Number(targetRecord.desiredDriverProfit)
+      : null
+    const targetFormula = deriveAuthoritativeDriverTarget({
+      monthlyBreakEvenRevenue: authoritativeMonthlyBreakEven,
+      desiredDriverProfitMonthly,
+      calendarDays: targetMonthDays,
+    })
+    const canonicalTarget = targetFormula.available ? targetFormula.dailyTarget : null
+    const targetAvailable = canonicalTarget != null
+    const financialDays = Number(metrics.counts?.activeFinancialDays) || 0
+    const revenuePerFinancialDay = financialDays > 0 ? metrics.revenue / financialDays : NaN
     const dailyBreakEvenRevenue = authoritativeMonthlyBreakEven != null && Number.isFinite(targetMonthDays) && targetMonthDays > 0
       ? authoritativeMonthlyBreakEven / targetMonthDays
       : null
-    const desiredDriverProfitForTarget = Number.isFinite(stabilization.desiredDriverProfitMonthly)
-      ? stabilization.desiredDriverProfitMonthly
-      : null
-    const targetMonthlyRequirement = authoritativeMonthlyBreakEven != null && desiredDriverProfitForTarget != null
-      ? authoritativeMonthlyBreakEven + desiredDriverProfitForTarget
-      : null
-    const baseOperationalTarget = Number.isFinite(stabilization.currentBaseDaily) ? stabilization.currentBaseDaily : null
-    const smoothedTarget = Number.isFinite(stabilization.currentDailyTarget) ? stabilization.currentDailyTarget : null
-    const canonicalTarget = smoothedTarget
-    const targetAvailable = canonicalTarget != null
-    const financialDays = Number.isFinite(stabilization.financialDays) ? stabilization.financialDays : 0
-    const revenuePerFinancialDay = financialDays > 0 ? metrics.revenue / financialDays : NaN
 
     // Daily break-even is only the authoritative monthly requirement divided
     // by calendar days in the target month. It is not an eligible-day or
@@ -140,9 +104,6 @@ export const PerformanceService = Object.freeze({
     const dailyBreakEvenTotal = dailyBreakEvenEvidence?.status === 'AUTHORITATIVE'
       ? dailyBreakEvenRevenue
       : null
-    const desiredDriverProfitMonthly = Number.isFinite(stabilization.desiredDriverProfitMonthly)
-      ? stabilization.desiredDriverProfitMonthly
-      : null
 
     return {
       ...metrics,
@@ -159,32 +120,23 @@ export const PerformanceService = Object.freeze({
       breakEvenInputs: metrics.breakEvenInputs,
       authority: {
         ...metrics.authority,
-        target: 'MONTHLY_BREAK_EVEN_PLUS_ADMIN_MONTHLY_DRIVER_PROFIT_PLUS_PERFORMANCE_RECOVERY',
+        target: targetFormula.authority || 'MONTHLY_BREAK_EVEN_PLUS_ADMIN_MONTHLY_DRIVER_PROFIT',
         breakEven: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN',
       },
       completeness: { ...metrics.completeness, target: targetAvailable, breakEven: authoritativeMonthlyBreakEven != null },
       calculationEvidence: {
         ...(metrics.calculationEvidence || {}),
-        target: stabilization.evidence || null,
+        target: targetFormula.available ? { status: 'AUTHORITATIVE', source: targetFormula.authority } : { status: 'UNAVAILABLE', reason: targetFormula.reason },
         dailyBreakEven: dailyBreakEvenEvidence,
       },
       driverTarget: canonicalTarget,
-      driverTargetBase: baseOperationalTarget,
+      driverTargetBase: canonicalTarget,
       driverTargetAvailable: targetAvailable,
-      driverTargetReason: stabilization.reason,
-      driverTargetEffectiveMonthlyTarget: targetMonthlyRequirement,
-      driverTargetRemainingEligibleDays: stabilization.remainingEligibleDays,
-      driverTargetEligibleDaysInMonth: stabilization.eligibleDaysInMonth,
+      driverTargetReason: targetFormula.reason,
+      driverTargetEffectiveMonthlyTarget: targetFormula.monthlyTarget,
       driverTargetCalendarDaysInMonth: targetMonthDays,
       driverTargetDesiredProfitMonthly: desiredDriverProfitMonthly,
-      driverTargetOpeningCarryBalance: stabilization.openingCarryBalance,
-      driverTargetBalanceBefore: stabilization.balanceBefore,
-      driverTargetRecoveryAdjustment: stabilization.recoveryAdjustment,
-      driverTargetRemainingObligation: stabilization.remainingObligation,
-      driverTargetProjectedClosingBalance: stabilization.projectedClosingBalance,
-      driverTargetNonWorkingDates: stabilization.nonWorkingDates,
-      driverTargetDayIsNonWorking: stabilization.targetDayIsNonWorking === true,
-      driverTargetAuthority: stabilization.authority,
+      driverTargetAuthority: targetFormula.authority || null,
       dailyRevenueAllocation,
       dailyRevenueAllocationDate: today,
       dailyRevenueAllocationAuthority: 'MONTHLY_BREAK_EVEN_COMPONENTS_ALLOCATED_AS_DAILY_REVENUE_RESERVATION',
