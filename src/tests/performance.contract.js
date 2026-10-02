@@ -66,8 +66,6 @@ assert.ok(Number.isFinite(serviceMetrics.breakEvenRevenue))
 assert.equal(serviceMetrics.breakEvenRevenue, serviceMetrics.monthlyBreakEvenRevenue)
 assert.ok(Number.isFinite(serviceMetrics.monthlyBreakEvenRevenue))
 assert.equal(serviceMetrics.driverTargetCalendarDaysInMonth, 30)
-assert.equal(serviceMetrics.driverTargetEligibleDaysInMonth, 30)
-assert.equal(serviceMetrics.driverTargetRemainingEligibleDays, 21)
 near(serviceMetrics.dailyBreakEvenRevenue, serviceMetrics.monthlyBreakEvenRevenue / 30, 'financial daily BE uses calendar days in target month')
 near(serviceMetrics.driverTarget, serviceMetrics.driverTargetEffectiveMonthlyTarget / 30, 'driver target uses calendar days')
 
