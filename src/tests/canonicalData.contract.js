@@ -19,7 +19,7 @@ const mutationSource = read('src/repositories/mutationRepository.js')
 const normalizationSource = read('src/domain/canonicalNormalization.js')
 const formRulesSource = read('src/application/admin/universalFormRules.js')
 const breakEvenSource = read('src/domain/performance/authoritativeBreakEven.js')
-const targetSource = read('src/domain/performance/driverTargetStabilization.js')
+const targetSource = read('src/domain/performance/driverTarget.js')
 const financeAdapterSource = read('src/domain/performance/financePerformanceAdapter.js')
 const backupSource = read('src/application/backup/backupService.js')
 const canonicalDoc = read('docs/KFE-CANONICAL-DATA-CONTRACT.md')
@@ -33,7 +33,7 @@ assert.equal(istDateKey('2026-09-10'), '2026-09-10')
 assert.match(canonicalDoc, /Business calendar dates.*IST dates/)
 assert.match(canonicalDoc, /must not be compared by passing UTC-midnight conversions/)
 assert.match(breakEvenSource, /istDateKey/)
-assert.match(targetSource, /effectiveDateKey = x => keyOf\(x\?\.effectiveFrom/)
+assert.match(targetSource, /applicableDriverTarget/)
 const normalized = normalizeCalculationSnapshot({
   shifts: [{ id: 's1', start_odometer: '1000', end_odometer: '1200', shift_start_at: '2026-09-10T08:00:00+05:30', shift_end_at: '2026-09-10T18:00:00+05:30' }],
   trips: [{ id: 't1', trip_start_at: '2026-09-10T09:00:00+05:30', trip_end_at: '2026-09-10T10:00:00+05:30', trip_km: '18.4', fare: '327', status: 'COMPLETED', tripKmAuthority: 'OCR', revenueAuthority: 'OCR', tripKmProvenance: 'OCR', revenueProvenance: 'OCR' }],
