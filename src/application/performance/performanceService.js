@@ -116,25 +116,33 @@ export const PerformanceService = Object.freeze({
         return value
       },
     })
-    const canonicalTarget = stabilization.available && Number.isFinite(stabilization.currentDailyTarget)
-      ? stabilization.currentDailyTarget
-      : null
-    const targetAvailable = canonicalTarget != null
-    const authoritativeMonthlyBreakEven = Number.isFinite(stabilization.monthlyBreakEvenRevenue)
-      ? stabilization.monthlyBreakEvenRevenue
-      : monthlyBreakEvenRevenue
+    // Target authority is deliberately simple: the authoritative monthly
+    // break-even plus the Admin-entered monthly driver profit, allocated
+    // evenly across every calendar day in the target month. Do not let the
+    // stabilization helper substitute an as-of/eligible-day break-even here.
+    const authoritativeMonthlyBreakEven = monthlyBreakEvenRevenue
     const targetMonthDays = targetMonthRange
       ? Math.round((targetMonthRange.to.getTime() - targetMonthRange.from.getTime()) / 86400000) + 1
       : null
     const dailyBreakEvenRevenue = authoritativeMonthlyBreakEven != null && Number.isFinite(targetMonthDays) && targetMonthDays > 0
       ? authoritativeMonthlyBreakEven / targetMonthDays
       : null
+    const desiredDriverProfitForTarget = Number.isFinite(stabilization.desiredDriverProfitMonthly)
+      ? stabilization.desiredDriverProfitMonthly
+      : null
+    const targetMonthlyRequirement = dailyBreakEvenRevenue != null && desiredDriverProfitForTarget != null
+      ? (authoritativeMonthlyBreakEven + desiredDriverProfitForTarget)
+      : null
+    const canonicalTarget = targetMonthlyRequirement != null && Number.isFinite(targetMonthDays) && targetMonthDays > 0
+      ? targetMonthlyRequirement / targetMonthDays
+      : null
+    const targetAvailable = canonicalTarget != null
     const financialDays = Number.isFinite(stabilization.financialDays) ? stabilization.financialDays : 0
     const revenuePerFinancialDay = financialDays > 0 ? metrics.revenue / financialDays : NaN
 
-    // Daily break-even is a representation of the authoritative monthly
-    // requirement, not a second cost-build formula. It is allocated over the
-    // same remaining eligible financial days used by the target authority.
+    // Daily break-even is only the authoritative monthly requirement divided
+    // by calendar days in the target month. It is not an eligible-day or
+    // as-of allocation.
     const dailyBreakEvenEvidence = metrics.calculationEvidence?.breakEven || null
     const dailyBreakEvenTotal = dailyBreakEvenEvidence?.status === 'AUTHORITATIVE'
       ? dailyBreakEvenRevenue
@@ -167,11 +175,11 @@ export const PerformanceService = Object.freeze({
         dailyBreakEven: dailyBreakEvenEvidence,
       },
       driverTarget: canonicalTarget,
-      driverTargetBase: stabilization.currentBaseDaily,
+      driverTargetBase: dailyBreakEvenRevenue,
       driverTargetAvailable: targetAvailable,
       driverTargetReason: stabilization.reason,
-      driverTargetEffectiveMonthlyTarget: stabilization.effectiveMonthlyTarget,
-      driverTargetRemainingEligibleDays: stabilization.remainingEligibleDays,
+      driverTargetEffectiveMonthlyTarget: targetMonthlyRequirement,
+      driverTargetRemainingEligibleDays: targetMonthDays,
       driverTargetDesiredProfitMonthly: desiredDriverProfitMonthly,
       dailyBreakEven: {
         status: dailyBreakEvenEvidence?.status || 'UNAVAILABLE',
