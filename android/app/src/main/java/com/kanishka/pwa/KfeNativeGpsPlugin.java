@@ -5,8 +5,10 @@ import android.content.pm.PackageManager;
 
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 import com.getcapacitor.JSObject;
 
 import androidx.core.content.ContextCompat;
@@ -22,6 +24,25 @@ public class KfeNativeGpsPlugin extends Plugin {
   public void start(PluginCall call) {
     String tripId = call.getString("tripId", "");
     if (tripId.isEmpty()) { call.reject("tripId is required"); return; }
+    if (getPermissionState("location") != PermissionState.GRANTED) {
+      requestPermissionForAlias("location", call, "locationPermissionCallback");
+      return;
+    }
+    startTracking(call, tripId);
+  }
+
+  @PermissionCallback
+  private void locationPermissionCallback(PluginCall call) {
+    if (getPermissionState("location") != PermissionState.GRANTED) {
+      call.reject("LOCATION_PERMISSION_REQUIRED");
+      return;
+    }
+    String tripId = call.getString("tripId", "");
+    if (tripId.isEmpty()) { call.reject("tripId is required"); return; }
+    startTracking(call, tripId);
+  }
+
+  private void startTracking(PluginCall call, String tripId) {
     if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
         && ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
       call.reject("LOCATION_PERMISSION_REQUIRED");
