@@ -160,6 +160,7 @@ export function derivePerformance(s, r, p = previousRange(r)) {
     }, { financialRevenue: 0, toll: 0, parking: 0, passThroughToll: 0, passThroughParking: 0, excludedTollExpense: 0, excludedParkingExpense: 0 })
     const vehicleKm = sh.reduce((z, a) => { const start = odometer(a.startOdometer); const end = odometer(a.endOdometer); return Number.isFinite(start) && Number.isFinite(end) && end >= start ? z + (end - start) : z }, 0)
     const tripKmIncomplete = tr.some(trip => {
+      if (trip.tripKm == null || trip.tripKm === '') return true
       const km = Number(trip.tripKm)
       return !Number.isFinite(km) || km < 0
     })
