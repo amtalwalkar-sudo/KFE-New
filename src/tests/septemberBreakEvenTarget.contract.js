@@ -71,11 +71,14 @@ const midMonthStartSnapshot = normalizeCalculationSnapshot({
   vehicles: [{ id: 'v1', acquiredOn: '2026-05-01' }], compliance: [], maintenance: [],
   loans: [], loanPayments: [], prepayments: [],
   driverTargets: [{ id: 'mid-month-target', effectiveFrom: '2026-05-01', effectiveUntil: '2026-12-31', desiredDriverProfit: 1000, active: true }],
-  breakEvenInputs: [{ id: 'mid-month-be', effectiveFrom: '2026-05-01', effectiveUntil: '2026-12-31', maintenanceProvisionPerKm: 1.5, active: true }],
+  breakEvenInputs: [{ id: 'mid-month-be', effectiveFrom: '2026-05-01', effectiveUntil: '2026-12-31', maintenanceProvisionPerKm: 1.5, expectedMonthlyVehicleKm: 9999, active: true }],
 })
 const midMonthRange = { from: new Date('2026-09-15T00:00:00+05:30'), to: new Date('2026-09-18T23:59:59.999+05:30') }
 const midMonthMetrics = deriveFinanceAwarePerformance(midMonthStartSnapshot, midMonthRange, previousRange(midMonthRange))
 assert.equal(midMonthMetrics.vehicleKm, 100, 'Reporting period vehicle KM starts at the configured business start date')
+assert.equal(midMonthMetrics.breakEvenInputs.vehicleKmBasisSource, 'CALCULATED_OPERATING_KM_FORECAST')
+assert.equal(midMonthMetrics.breakEvenInputs.expectedMonthlyVehicleKm, 9999, 'Legacy configured KM remains visible as metadata')
+assert.notEqual(midMonthMetrics.breakEvenInputs.vehicleKmBasis, 9999, 'Admin expected monthly KM must not bypass the frozen operating-KM forecast')
 assert.equal(midMonthMetrics.indicative.monthlyBreakEvenRevenue,
   midMonthMetrics.breakEvenInputs.fixedCosts + midMonthMetrics.breakEvenInputs.vehicleKmBasis * (midMonthMetrics.breakEvenInputs.fuelCostPerKm + midMonthMetrics.breakEvenInputs.maintenanceProvisionPerKm),
-  'Monthly break-even uses the normalized monthly KM basis rather than selected-period vehicle KM')
+  'Monthly break-even uses the frozen operating-KM forecast rather than selected-period vehicle KM')

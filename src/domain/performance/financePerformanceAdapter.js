@@ -87,20 +87,17 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   const calendarDays = value => value
     ? Math.max(1, Math.round((new Date(value.to).getTime() - new Date(value.from).getTime()) / 86400000) + 1)
     : null
-  const fullMonthDays = calendarDays(fullMonthRange)
-  const businessMonthDays = calendarDays(breakEvenMonthRange)
   const configuredMonthlyKm = Number.isFinite(Number(breakEvenInput?.expectedMonthlyVehicleKm))
     ? Number(breakEvenInput.expectedMonthlyVehicleKm)
     : NaN
   const forecastMonthlyKm = Number(operatingKmForecastForBreakEven?.fullMonthForecastKm)
-  const normalizedMonthlyKm = Number.isFinite(configuredMonthlyKm)
-    ? configuredMonthlyKm * (fullMonthDays && businessMonthDays && businessMonthDays < fullMonthDays ? businessMonthDays / fullMonthDays : 1)
-    : forecastMonthlyKm
-  const normalizedMonthlyKmSource = Number.isFinite(configuredMonthlyKm)
-    ? 'ADMIN_EXPECTED_MONTHLY_KM'
-    : Number.isFinite(forecastMonthlyKm)
-      ? 'CALCULATED_OPERATING_KM_FORECAST'
-      : 'UNAVAILABLE'
+  // The frozen operating-KM forecast is the sole KM basis for indicative break-even.
+  // Admin expectedMonthlyVehicleKm remains exposed as legacy configuration metadata,
+  // but it must never bypass the authoritative 200-km/day convergence model.
+  const normalizedMonthlyKm = forecastMonthlyKm
+  const normalizedMonthlyKmSource = Number.isFinite(forecastMonthlyKm)
+    ? 'CALCULATED_OPERATING_KM_FORECAST'
+    : 'UNAVAILABLE'
   const monthlyBase = deriveOperationalPerformance(snapshot, breakEvenMonthRange, derivePreviousRange(breakEvenMonthRange))
   const monthAsOf = asOf(breakEvenMonthRange)
   const monthFinance = activeLoan ? deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: monthAsOf }) : null
