@@ -97,6 +97,7 @@ const pendingFare = computed(() => fareTripId.value
 const cockpit = computed(() => deriveWorkCockpitState({
   shift: store.shift,
   trip: store.trip,
+  pendingFareId: pendingFare.value?.id || '',
   target: targetValue.value == null ? '—' : money(targetValue.value),
   targetProgress: targetProgress.value,
   liveKm: '0.0 km',
@@ -722,12 +723,12 @@ onBeforeUnmount(() => {
         <span class="eyebrow">GOING TO PICKUP</span><strong>{{ store.trip?.operator || 'TRIP' }}</strong><p>Pickup movement is active. GPS remains background telemetry.</p><button class="secondary-action cancel-trip-tab" type="button" @click="openCancel">CANCEL TRIP</button>
       </section>
 
-      <section v-else class="operational-state trip-timer-state state-tone-success">
+      <section v-else-if="cockpit.state===WORK_COCKPIT_STATES.TRIP_ACTIVE" class="operational-state trip-timer-state state-tone-success">
         <span class="eyebrow">TRIP ACTIVE</span><strong>{{ store.trip?.operator || 'TRIP' }}</strong>
         <div class="trip-timer-block"><span class="timer-label">TRIP TIME</span><strong class="trip-timer" aria-live="polite">{{ tripTimer }}</strong></div>
       </section>
 
-      <section class="action-instrument">
+      <section v-if="!pendingFare" class="action-instrument">
         <div class="action-heading"><strong>{{ actionLabel }}</strong><details class="swipe-help"><summary aria-label="Swipe help">?</summary><span>Swipe the handle right to {{ actionLabel.toLowerCase() }}.</span></details></div>
         <div ref="track" class="swipe trip-swipe" :class="{threshold:swipeProgress>=70,committing:busy,'semantic-go':cockpit.action==='GO_TO_PICKUP','semantic-start':cockpit.action==='START_RIDE','semantic-end':cockpit.action==='END_RIDE'}" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up">
           <div class="swipe-copy"><span>{{ swipeProgress>=70 ? 'RELEASE' : 'SWIPE' }}</span><strong>{{ actionLabel }}</strong></div>
