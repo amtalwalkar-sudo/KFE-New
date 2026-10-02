@@ -73,24 +73,27 @@ export const WorkService = Object.freeze({
     const result = await ShiftTripRepository.completeTrip({ ...data }); checkpoint()
     const tripId = data?.id
     if (tripId) {
-      void (async () => {
-        try {
-          await NativeGpsService.syncTrace(tripId)
-          await NativeGpsService.stop(tripId)
-          const snapshots = (await LocationRepository.forEntity('TRIP', tripId)).filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')
-          if (snapshots.length >= 2) {
-            const lineKm = calculateTraceDistanceKm(snapshots)
-            if (Number.isFinite(Number(lineKm))) {
-              await ShiftTripRepository.updateTrip({
-                id: tripId,
-                tripKm: Number(lineKm),
-                tripKmAuthority: 'GPS_LINE_TRACE',
-                tripKmProvenance: { method: 'HAVERSINE_TRACE_SUM', gpsTracePoints: snapshots.length, source: 'WEB_AND_ANDROID_NATIVE' }
-              })
-            }
+      // The native trace is local and must be merged before the Work store refreshes.
+      // Otherwise reconciliation can render the just-completed trip with its pre-GPS
+      // value (typically null/0) and never receive the later enrichment update.
+      try {
+        await NativeGpsService.syncTrace(tripId)
+        await NativeGpsService.stop(tripId)
+        const snapshots = (await LocationRepository.forEntity('TRIP', tripId)).filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')
+        if (snapshots.length >= 2) {
+          const lineKm = calculateTraceDistanceKm(snapshots)
+          if (Number.isFinite(Number(lineKm)) && lineKm >= 0) {
+            await ShiftTripRepository.updateTrip({
+              id: tripId,
+              tripKm: Number(lineKm),
+              tripKmAuthority: 'GPS_LINE_TRACE',
+              tripKmProvenance: { method: 'HAVERSINE_TRACE_SUM', gpsTracePoints: snapshots.length, source: 'WEB_AND_ANDROID_NATIVE' }
+            })
           }
-        } catch (_) {}
-      })()
+        }
+      } catch (_) {
+        // GPS is enrichment only; the authoritative trip completion remains committed.
+      }
     }
     return result
   },
