@@ -201,11 +201,22 @@ public class KfeOverlayService extends Service {
   }
 
   private void persistNativeWorkflow(){
-    getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit()
+    android.content.SharedPreferences prefs=getSharedPreferences("kfe_overlay",MODE_PRIVATE);
+    android.content.SharedPreferences.Editor editor=prefs.edit()
       .putString("actionStage",actionStage)
       .putString("pendingTripId",pendingTripId)
-      .putString("pendingFareTripId",pendingFareTripId)
-      .apply();
+      .putString("pendingFareTripId",pendingFareTripId);
+    String raw=prefs.getString(LAST_STATE_KEY,"");
+    if(!raw.isEmpty()){
+      try{
+        JSONObject state=new JSONObject(raw);
+        state.put("overlayAction",actionStage);
+        state.put("overlayTripId",pendingTripId);
+        state.put("pendingFareId",pendingFareTripId);
+        editor.putString(LAST_STATE_KEY,state.toString());
+      }catch(Exception ignored){}
+    }
+    editor.apply();
   }
 
   private void hideIfKfeActivityForeground(){
