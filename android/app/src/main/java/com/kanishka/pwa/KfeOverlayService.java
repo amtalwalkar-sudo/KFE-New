@@ -162,9 +162,9 @@ public class KfeOverlayService extends Service {
   }
 
   private void triggerAction(){
-    if("END_RIDE".equals(actionStage)){KfeRideNotificationsPlugin.recordPendingAction(this,actionStage,pendingTripId,"");KfeRideNotificationsPlugin.emitAction(actionStage,pendingTripId,"");return;}
-    if("START_RIDE".equals(actionStage)){KfeRideNotificationsPlugin.recordPendingAction(this,actionStage,pendingTripId,"");KfeRideNotificationsPlugin.emitAction(actionStage,pendingTripId,"");return;}
-    if("GO_TO_PICKUP".equals(actionStage)){KfeRideNotificationsPlugin.recordPendingAction(this,actionStage,pendingTripId,"");KfeRideNotificationsPlugin.emitAction(actionStage,pendingTripId,"");}
+    if("END_RIDE".equals(actionStage)){String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,actionStage,pendingTripId,"");KfeRideNotificationsPlugin.emitAction(actionStage,pendingTripId,"",eventId);return;}
+    if("START_RIDE".equals(actionStage)){String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,actionStage,pendingTripId,"");KfeRideNotificationsPlugin.emitAction(actionStage,pendingTripId,"",eventId);return;}
+    if("GO_TO_PICKUP".equals(actionStage)){String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,actionStage,pendingTripId,"");KfeRideNotificationsPlugin.emitAction(actionStage,pendingTripId,"",eventId);}
   }
 
   private void hideIfKfeActivityForeground(){
@@ -269,13 +269,13 @@ public class KfeOverlayService extends Service {
         payload.put("fare",amount);
         payload.put("toll",tollValue.isEmpty()?0:Double.parseDouble(tollValue));
         payload.put("parking",parkingValue.isEmpty()?0:Double.parseDouble(parkingValue));
-        KfeRideNotificationsPlugin.recordPendingAction(this,"ENTER_FARE",actionTripId,payload.toString());
-        KfeRideNotificationsPlugin.emitAction("ENTER_FARE",actionTripId,payload.toString());
+        String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"ENTER_FARE",actionTripId,payload.toString());
+        KfeRideNotificationsPlugin.emitAction("ENTER_FARE",actionTripId,payload.toString(),eventId);
       } catch(Exception ignored){ formSubmitting=false; }
       return;
     }else if("CANCEL".equals(formMode)){
       if(cancelReason.isEmpty()){formSubmitting=false;return;}
-      try{JSONObject input=new JSONObject();input.put("revenue",amount);input.put("reason",cancelReason);KfeRideNotificationsPlugin.recordPendingAction(this,"CANCEL_RIDE",pendingTripId,input.toString());KfeRideNotificationsPlugin.emitAction("CANCEL_RIDE",pendingTripId,input.toString());
+      try{JSONObject input=new JSONObject();input.put("revenue",amount);input.put("reason",cancelReason);String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"CANCEL_RIDE",pendingTripId,input.toString());KfeRideNotificationsPlugin.emitAction("CANCEL_RIDE",pendingTripId,input.toString(),eventId);
         return;
       }catch(Exception ignored){formSubmitting=false;return;}
     }
