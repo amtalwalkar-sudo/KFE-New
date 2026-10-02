@@ -204,12 +204,15 @@ public class KfeRideNotificationsPlugin extends Plugin {
     if (manager != null) manager.cancel(NOTIFICATION_ID);
   }
 
-  public static void emitAction(String stage, String tripId, String input) {
+  public static void emitAction(String stage, String tripId, String input) { emitAction(stage, tripId, input, ""); }
+
+  public static void emitAction(String stage, String tripId, String input, String eventId) {
     if (instance == null) return;
     JSObject data = new JSObject();
     data.put("stage", stage);
     data.put("tripId", tripId);
     if (input != null) data.put("input", input);
+    if (eventId != null && !eventId.isEmpty()) data.put("eventId", eventId);
     instance.notifyListeners("rideNotificationAction", data);
   }
 
