@@ -1,6 +1,6 @@
 import { derivePerformance as deriveOperationalPerformance, previousRange as derivePreviousRange } from './performanceEngineV2.js'
 import { CALCULATION_STATUS } from './calculationAuthority.js'
-import { deriveAuthoritativeBreakEven, getApplicableBreakEvenInput } from './authoritativeBreakEven.js'
+import { deriveAuthoritativeBreakEven } from './authoritativeBreakEven.js'
 import { deriveOperatingKmForecast } from './operatingKmForecast.js'
 import { deriveLoanPosition, calculatePreBusinessLoanRecovery, calculatePreBusinessLoanRecoveryForRange } from '../finance/loanEngine.js'
 import { calculateHistoricalMaintenanceRecovery, calculateHistoricalMaintenanceRecoveryForRange } from './performanceEngineV2.js'
@@ -67,10 +67,6 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
     ...breakEvenMonthRange,
     to: breakEvenMonthRange?.to && breakEvenMonthRange.to > currentAsOf ? currentAsOf : breakEvenMonthRange?.to,
   }
-  const breakEvenInput = getApplicableBreakEvenInput({
-    breakEvenInputs: snapshot?.breakEvenInputs || [],
-    range: breakEvenEvidenceRange,
-  })
   const operatingKmForecastForBreakEven = deriveOperatingKmForecast({
     shifts: snapshot?.shifts || [],
     from: breakEvenEvidenceRange?.from,
@@ -84,16 +80,8 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
     breakEvenEvidenceRange,
     derivePreviousRange(breakEvenEvidenceRange),
   )
-  const calendarDays = value => value
-    ? Math.max(1, Math.round((new Date(value.to).getTime() - new Date(value.from).getTime()) / 86400000) + 1)
-    : null
-  const configuredMonthlyKm = Number.isFinite(Number(breakEvenInput?.expectedMonthlyVehicleKm))
-    ? Number(breakEvenInput.expectedMonthlyVehicleKm)
-    : NaN
   const forecastMonthlyKm = Number(operatingKmForecastForBreakEven?.fullMonthForecastKm)
-  // The frozen operating-KM forecast is the sole KM basis for indicative break-even.
-  // Admin expectedMonthlyVehicleKm remains exposed as legacy configuration metadata,
-  // but it must never bypass the authoritative 200-km/day convergence model.
+  // The operating-KM forecast is the sole KM basis for indicative break-even.
   const normalizedMonthlyKm = forecastMonthlyKm
   const normalizedMonthlyKmSource = Number.isFinite(forecastMonthlyKm)
     ? 'CALCULATED_OPERATING_KM_FORECAST'
@@ -141,7 +129,7 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   const indicativeProfit = performanceProvisionalProfit
   return {
     ...base, performanceHeadlineActualProfit: performanceActualProfit, performanceHeadlineProvisionalProfit: performanceProvisionalProfit, performanceHeadlineScheduledEmi: currentScheduledEmi, preBusinessRecoveryMonthly, loanScheduledObligation, loanPrincipal: money(finance?.outstandingPrincipal), loanInterest: currentScheduledInterest, loanProvisionAccumulated: money(finance?.provisionAccumulated), loanProvisionBalance: money(finance?.provisionBalance), actualLoanPaid, actualPrepayment, actualFinancingOutflow, availableCash, cashSurplusAfterFinancing: availableCash, maintenanceProvision: authoritativeMaintenanceProvision, historicalMaintenanceRecoveryMonthly: historicalMaintenanceRecovery, historicalMaintenanceRecoveryForPeriod, preBusinessRecoveryForPeriod, provisionRequired, provisionSetAside: provisionRequired, loanProvisionForPeriod, totalIndicativeProvision, actualProfit, indicativeProfit, provisionAdjustedProfit: Number.isFinite(provisionRequired) ? base.operatingProfit - provisionRequired : NaN, monthlyBreakEvenRevenue, breakEvenRevenue: monthlyBreakEvenRevenue,
-    breakEvenInputs: { ...(base.breakEvenInputs || {}), scheduledEmiMonthly: monthScheduledEmi, fixedCosts: breakEven.fixedCosts, maintenanceProvisionPerKm: breakEven.maintenanceProvisionPerKm ?? base.breakEvenInputs?.maintenanceProvisionPerKm, expectedMonthlyVehicleKm: Number.isFinite(configuredMonthlyKm) ? configuredMonthlyKm : null, vehicleKmBasis: breakEven.vehicleKm ?? null, vehicleKmBasisSource: breakEven.vehicleKmSource || normalizedMonthlyKmSource, normalizedMonthlyKmSource, preBusinessRecoveryMonthly: monthPreBusinessRecovery, historicalMaintenanceRecoveryMonthly: monthHistoricalMaintenanceRecovery, fuelCostPerKm: breakEven.fuelCostPerKm ?? base.breakEvenInputs?.fuelCostPerKm, fuelCostPerKmSource: base.breakEvenInputs?.fuelCostPerKmSource || null, fuelEvidence: base.breakEvenInputs?.fuelEvidence || null, fuelCostMonthly: breakEvenFuelCost, maintenanceProvisionMonthly: breakEvenMaintenanceProvision, financialObligationMonthly: breakEvenFinancialObligation, complianceProvisionMonthly: breakEvenComplianceProvision, otherRequiredMonthly: breakEvenOtherRequired },
+    breakEvenInputs: { ...(base.breakEvenInputs || {}), scheduledEmiMonthly: monthScheduledEmi, fixedCosts: breakEven.fixedCosts, maintenanceProvisionPerKm: breakEven.maintenanceProvisionPerKm ?? base.breakEvenInputs?.maintenanceProvisionPerKm, vehicleKmBasis: breakEven.vehicleKm ?? null, vehicleKmBasisSource: breakEven.vehicleKmSource || normalizedMonthlyKmSource, normalizedMonthlyKmSource, preBusinessRecoveryMonthly: monthPreBusinessRecovery, historicalMaintenanceRecoveryMonthly: monthHistoricalMaintenanceRecovery, fuelCostPerKm: breakEven.fuelCostPerKm ?? base.breakEvenInputs?.fuelCostPerKm, fuelCostPerKmSource: base.breakEvenInputs?.fuelCostPerKmSource || null, fuelEvidence: base.breakEvenInputs?.fuelEvidence || null, fuelCostMonthly: breakEvenFuelCost, maintenanceProvisionMonthly: breakEvenMaintenanceProvision, financialObligationMonthly: breakEvenFinancialObligation, complianceProvisionMonthly: breakEvenComplianceProvision, otherRequiredMonthly: breakEvenOtherRequired },
     finance: { ...(finance || {}), available: !!finance?.available, reason: finance?.available ? null : loanUnavailableReason, annualInterestRatePercent: finance?.annualInterestRatePercent ?? null, preBusinessRecoveryMonthly, historicalMaintenanceRecoveryMonthly: historicalMaintenanceRecovery, historicalMaintenanceRecoveryForPeriod, businessStartDate: businessStart?.toISOString() || null, previousOutstandingPrincipal: previousFinance?.available ? previousFinance.outstandingPrincipal : null, overdueAmount: finance?.totalOverdue ?? 0, remainingInterest: finance?.remainingInterest ?? 0, scheduledFinalDate: finance?.scheduledFinalDate ?? null, totalInterest: finance?.totalInterest ?? 0 },
     authority: { ...(base.authority || {}), loan: 'CANONICAL_FINANCE_LOAN_ENGINE', breakEven: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN', breakEvenTrace: breakEven.trace || null, actualProfit: 'AUTHORITATIVE_REVENUE_MINUS_ACTUAL_OPERATING_EXPENSES', indicativeProfit: 'PROVISIONAL_PROFIT_AFTER_SCHEDULED_EMI_AND_NORMALIZED_HISTORICAL_RECOVERY' },
     completeness: { ...(base.completeness || {}), loan: !!finance?.available, breakEven: breakEven.available },
