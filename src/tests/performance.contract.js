@@ -50,6 +50,13 @@ assert.ok(Number.isNaN(missingTripKmMetrics.deadKm))
 near(serviceMetrics.indicativeProfit, serviceMetrics.performanceHeadlineProvisionalProfit, 'loss recovery uses full provisional profit economics')
 assert.equal(serviceMetrics.openingPersonalKm, 0, 'Opening personal allocation is a separate mileage bucket')
 assert.equal(serviceMetrics.openingDeadKm, 0, 'Opening dead allocation is a separate mileage bucket')
+const openingGapMetrics = derivePerformance({
+  shifts: [{ id: 'gap-shift', shiftStartAt: '2026-09-10T08:00:00Z', shiftEndAt: '2026-09-10T18:00:00Z', startOdometer: 65000, endOdometer: 65200, openingPersonalKm: 1000, openingDeadKm: 0, revenue: 1000 }],
+  trips: [], fuelLogs: [], maintenance: [], compliance: [], breakEvenInputs: [],
+}, range)
+assert.equal(openingGapMetrics.vehicleKm, 200, 'Opening gap must not inflate current-shift vehicle movement')
+assert.equal(openingGapMetrics.openingPersonalKm, 1000, 'Opening gap allocation remains separately visible')
+assert.equal(openingGapMetrics.openingDeadKm, 0)
 
 
 assert.equal(serviceMetrics.driverTargetAvailable, true)
