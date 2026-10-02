@@ -90,9 +90,17 @@ const targetProgress = computed(() => targetValue.value > 0
   : 0)
 
 const completed = computed(() => store.completedTrips.filter(t => t.status === 'COMPLETED'))
-const pendingFare = computed(() => fareTripId.value
-  ? completed.value.find(t => t.id === fareTripId.value) || null
-  : null)
+const pendingFare = computed(() => {
+  if (fareTripId.value) {
+    const selected = completed.value.find(t => t.id === fareTripId.value)
+    if (selected) return selected
+  }
+  // Recover the latest unpriced completed trip after a WebView/PWA restart.
+  // Explicitly skipped details are terminal and must not reopen.
+  return [...completed.value]
+    .filter(t => t.revenue == null && t.fareDetailsSkipped !== true)
+    .sort((a, b) => Date.parse(b.tripEndAt || b.updatedAt || '') - Date.parse(a.tripEndAt || a.updatedAt || ''))[0] || null
+})
 
 const cockpit = computed(() => deriveWorkCockpitState({
   shift: store.shift,
@@ -190,11 +198,15 @@ async function syncOverlay() {
     } catch (_) {}
   }
 
+  const recoveredPendingFareId = pendingFare.value?.id || [...trips]
+    .filter(t => t.status === 'COMPLETED' && t.revenue == null && t.fareDetailsSkipped !== true)
+    .sort((a, b) => Date.parse(b.tripEndAt || b.updatedAt || '') - Date.parse(a.tripEndAt || a.updatedAt || ''))[0]?.id || ''
+
   const state = deriveWorkCockpitState({
     shift: store.shift,
     trip: store.trip,
     trips,
-    pendingFareId: pendingFare.value?.id || '',
+    pendingFareId: recoveredPendingFareId,
     notificationPhase: KfeRideNotificationService.getState()?.phase || '',
     target: targetValue.value == null ? '—' : money(targetValue.value),
     targetProgress: targetProgress.value,
