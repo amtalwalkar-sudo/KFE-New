@@ -122,15 +122,15 @@ const provisionSnapshot = {
   compliance: [{ id:'c1', validFrom:'2026-09-01', validUntil:'2026-09-30', cost:3000, active:true }],
   settlements: [
     { id:'m-pay', sourceType:'Maintenance', direction:'OUT', amount:200, paidOn:'2026-09-10T20:00:00Z' },
-    { id:'c-pay', sourceType:'Compliance', sourceId:'c1', direction:'OUT', amount:1000, paidOn:'2026-09-10T21:00:00Z' },
+    { id:'c-pay', sourceType:'Compliance', sourceId:'c1', direction:'OUT', amount:1100, paidOn:'2026-09-10T21:00:00Z' },
   ],
   breakEvenInputs: [{ effectiveFrom:'2026-09-01', maintenanceProvisionPerKm:2, active:true }],
 }
 const beforePayments = derivePerformance({ ...provisionSnapshot, settlements: [] }, range)
 assert.equal(beforePayments.maintenanceProvisionAccumulated, 200)
 assert.equal(beforePayments.maintenanceProvisionBalance, 200)
-assert.equal(beforePayments.complianceProvisionAccumulatedById.c1, 1000)
-assert.equal(beforePayments.complianceProvisionBalancesById.c1, 1000)
+assert.equal(beforePayments.complianceProvisionAccumulatedById.c1, 1100)
+assert.equal(beforePayments.complianceProvisionBalancesById.c1, 1100)
 const afterPayments = derivePerformance(provisionSnapshot, range)
 assert.equal(afterPayments.maintenanceProvisionBalance, 0)
 assert.equal(afterPayments.complianceProvisionBalancesById.c1, 0)
