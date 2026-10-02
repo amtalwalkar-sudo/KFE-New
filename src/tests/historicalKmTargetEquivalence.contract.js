@@ -18,24 +18,17 @@ const targetFor = forecast => deriveRollingDriverTarget({
   },
 })
 
-const referenceBoundary = ({ baseDaily, recoveryAdjustment, forecast }) =>
-  baseDaily * (forecast / 200) + recoveryAdjustment
-
 const assertBoundary = (forecast, label) => {
   const target = targetFor(forecast)
   assert.equal(
     target.currentDailyTarget,
-    referenceBoundary({
-      baseDaily: target.currentBaseDaily,
-      recoveryAdjustment: target.recoveryAdjustment,
-      forecast,
-    }),
+    target.currentBaseDaily + target.recoveryAdjustment,
     label,
   )
 }
 
 for (const km of [200, 250, 300, 100, 150, 225, 275]) {
-  assertBoundary(km, 'boundary equivalence at ' + km + ' km/day')
+  assertBoundary(km, 'operating KM forecast does not change authoritative target at ' + km + ' km/day')
 }
 
 const makeShifts = values => values.map((km, index) => ({
@@ -67,4 +60,4 @@ for (const [label, values] of scenarios) {
   assertBoundary(forecast.dailyForecastKm, label + ': current boundary equals reference boundary')
 }
 
-console.log('Historical KM to Driver Target reconciliation contract passed: frozen PR72 financial target is unchanged at 200 km/day and the volume boundary matches the reconstructed 200-km reference form across sustained, shock, alternating, and reversal scenarios.')
+console.log('Historical KM to Driver Target reconciliation contract passed: operating KM forecast is isolated from the authoritative financial target.')
