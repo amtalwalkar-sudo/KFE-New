@@ -159,6 +159,7 @@ export const PerformanceService = Object.freeze({
       operatingKmForecast,
       counts: { ...metrics.counts, activeFinancialDays: financialDays },
       revenuePerActiveDay: revenuePerFinancialDay,
+      revenuePerFinancialDay,
       breakEvenRevenue: authoritativeMonthlyBreakEven,
       target: canonicalTarget,
       monthlyBreakEvenRevenue: authoritativeMonthlyBreakEven,
