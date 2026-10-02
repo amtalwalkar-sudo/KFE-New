@@ -31,8 +31,13 @@ assert.equal(serviceMetrics.revenue, 1000)
 assert.equal(serviceMetrics.revenue, snapshot.shifts[0].revenue)
 assert.notEqual(serviceMetrics.revenue, snapshot.trips[0].revenue)
 assert.equal(serviceMetrics.authority.revenue, 'SHIFT_END_REVENUE')
-assert.equal(serviceMetrics.deadKmIntegrityStatus, 'OVER_ESTIMATE', 'Business KM above odometer KM is an integrity exception, not negative dead KM')
-assert.equal(serviceMetrics.deadKm, null, 'Invalid negative dead KM must display unavailable rather than a negative value')
+const overEstimateMetrics = derivePerformance({
+  shifts: [{ id: 'over-shift', shiftStartAt: '2026-09-10T08:00:00Z', shiftEndAt: '2026-09-10T18:00:00Z', startOdometer: 1000, endOdometer: 1200, revenue: 1000 }],
+  trips: [{ id: 'over-trip', status: 'COMPLETED', tripStartAt: '2026-09-10T09:00:00Z', tripEndAt: '2026-09-10T12:00:00Z', tripKm: 250 }],
+  fuelLogs: [], maintenance: [], compliance: [], breakEvenInputs: [],
+}, range)
+assert.equal(overEstimateMetrics.deadKmIntegrityStatus, 'OVER_ESTIMATE', 'Business KM above odometer KM is an integrity exception, not negative dead KM')
+assert.ok(Number.isNaN(overEstimateMetrics.deadKm), 'Invalid negative dead KM must remain unavailable rather than a negative value')
 near(serviceMetrics.indicativeProfit, serviceMetrics.performanceHeadlineProvisionalProfit, 'loss recovery uses full provisional profit economics')
 assert.equal(serviceMetrics.openingPersonalKm, 0, 'Opening personal allocation is a separate mileage bucket')
 assert.equal(serviceMetrics.openingDeadKm, 0, 'Opening dead allocation is a separate mileage bucket')
