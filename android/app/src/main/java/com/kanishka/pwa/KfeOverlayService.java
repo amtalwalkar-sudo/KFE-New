@@ -41,6 +41,7 @@ public class KfeOverlayService extends Service {
   static final String EXTRA_STATE="state";
   private static final String CHANNEL_ID="kfe_overlay";
   private static final int NOTIFICATION_ID=4201;
+  private static final String LAST_STATE_KEY="lastOverlayState";
   private static final int BAR_DP=82;
   private static final int COLLAPSED_TOTAL_DP=158;
   private static final int BUBBLE_DP=58;
@@ -97,14 +98,20 @@ public class KfeOverlayService extends Service {
     createChannel();startForeground(NOTIFICATION_ID,buildNotification());foregroundHandler=new android.os.Handler(getMainLooper());foregroundHandler.post(foregroundCheck);
   }
   @Override public int onStartCommand(Intent intent,int flags,int startId){
-    if(intent==null)return START_NOT_STICKY;
+    if(intent==null){
+      if(Settings.canDrawOverlays(this)){
+        String saved=getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(LAST_STATE_KEY,"");
+        if(!saved.isEmpty()){ensureOverlay();applyState(saved);}
+      }
+      return START_STICKY;
+    }
     String action=intent.getAction();
     if(ACTION_HIDE.equals(action)){removeOverlay();stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return START_NOT_STICKY;}
     if(ACTION_FARE_SAVED.equals(action)){onFareSaved();return START_NOT_STICKY;}
     if(ACTION_CANCEL_SAVED.equals(action)){onCancelSaved();return START_NOT_STICKY;}
     if(!Settings.canDrawOverlays(this))return START_NOT_STICKY;
     if(ACTION_SHOW.equals(action)||ACTION_UPDATE.equals(action)){ensureOverlay();applyState(intent.getStringExtra(EXTRA_STATE));}
-    return START_NOT_STICKY;
+    return START_STICKY;
   }
 
   private void ensureOverlay(){
@@ -122,6 +129,7 @@ public class KfeOverlayService extends Service {
 
   private void applyState(String raw){
     if(overlay==null)return;
+    if(raw!=null&&!raw.isEmpty())getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putString(LAST_STATE_KEY,raw).apply();
     try{
       JSONObject root=new JSONObject(raw==null?"{}":raw);
       JSONObject shift=root.optJSONObject("shift"),trip=root.optJSONObject("trip");
