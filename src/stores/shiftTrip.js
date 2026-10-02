@@ -83,11 +83,11 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     return { ok: true }
   }
 
-  const beginPickup = async operator => {
+  const beginPickup = async (operator, nativeTripId = null) => {
     if (!isShiftActive.value) return { ok: false, reason: 'Go Online before starting a Trip.' }
     if (isTripActive.value) return { ok: false, reason: 'A Trip is already active.' }
     const selected = operators.includes(operator) ? operator : defaultOperator.value
-    const result = await WorkService.startTrip({ shiftId: shift.value.id, operator: selected, tripStage: 'GOING_TO_PICKUP' })
+    const result = await WorkService.startTrip({ id: nativeTripId || undefined, shiftId: shift.value.id, operator: selected, tripStage: 'GOING_TO_PICKUP' })
     if (result?.ok === false) return result
     const record = result
     trip.value = record

@@ -36,6 +36,20 @@ assert.match(workView, /OPTIONAL DETAILS/)
 assert.match(workView, /Trip fare.*optional/)
 assert.match(workView, /tripToll/)
 assert.match(workView, /tripParking/)
+
+const pendingFareCockpit = deriveWorkCockpitState({
+  shift: { id: 'shift-1', status: 'ACTIVE', shiftStartAt: '2026-10-03T00:00:00.000Z' },
+  trip: null,
+  pendingFareId: 'trip-completed-1',
+  asOf: Date.parse('2026-10-03T01:00:00.000Z')
+})
+assert.equal(pendingFareCockpit.state, WORK_COCKPIT_STATES.READY, 'Optional fare details must not block the next pickup')
+assert.equal(pendingFareCockpit.action, 'GO_TO_PICKUP', 'Operational action remains pickup while fare is pending')
+assert.equal(pendingFareCockpit.pendingFareId, 'trip-completed-1', 'Pending fare identity must remain available to the overlay')
+assert.match(workView, /state\.pendingFareId && \(!store\.trip\?\.id \|\| store\.trip\.status !== 'ACTIVE'\) \? 'ENTER_FARE' : state\.action/)
+assert.match(workView, /Recover the latest unpriced completed trip after a WebView\/PWA restart/)
+assert.match(workView, /fareDetailsSkipped !== true/)
+assert.match(workView, /recoveredPendingFareId/)
 assert.match(workStore, /WorkService\.completeTrip\(\{ id: tripId \}\)/)
 assert.match(workView, /TRIP COMPLETED/)
 assert.match(workView, /stage === 'ENTER_FARE'/)

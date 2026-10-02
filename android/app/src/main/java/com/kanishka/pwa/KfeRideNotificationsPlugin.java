@@ -204,12 +204,15 @@ public class KfeRideNotificationsPlugin extends Plugin {
     if (manager != null) manager.cancel(NOTIFICATION_ID);
   }
 
-  public static void emitAction(String stage, String tripId, String input) {
+  public static void emitAction(String stage, String tripId, String input) { emitAction(stage, tripId, input, ""); }
+
+  public static void emitAction(String stage, String tripId, String input, String eventId) {
     if (instance == null) return;
     JSObject data = new JSObject();
     data.put("stage", stage);
     data.put("tripId", tripId);
     if (input != null) data.put("input", input);
+    if (eventId != null && !eventId.isEmpty()) data.put("eventId", eventId);
     instance.notifyListeners("rideNotificationAction", data);
   }
 
@@ -227,9 +230,39 @@ public class KfeRideNotificationsPlugin extends Plugin {
     call.resolve();
   }
 
-  static void recordPendingAction(Context context, String stage, String tripId, String input) {
+  static String recordPendingAction(Context context, String stage, String tripId, String input) {
+    // SQLite is the durable ordered event log. SharedPreferences remains a
+    // compatibility wake-up slot for older app builds only.
+    String eventId = KfeNativeEventStore.get(context).append(stage, tripId, input);
     String packed = stage + "|" + (tripId == null ? "" : tripId) + "|" + (input == null ? "" : input);
-    context.getSharedPreferences(PREFS, 0).edit().putString(PENDING_KEY, packed).apply();
+    context.getSharedPreferences(PREFS, 0).edit().putString(PENDING_KEY, packed).putString("pendingEventId", eventId).apply();
+    return eventId;
+  }
+
+  @com.getcapacitor.PluginMethod
+  public void getPendingActions(PluginCall call) {
+    JSObject result = new JSObject();
+    result.put("events", KfeNativeEventStore.get(getContext()).pending(100));
+    call.resolve(result);
+  }
+
+  @com.getcapacitor.PluginMethod
+  public void acknowledgeAction(PluginCall call) {
+    String eventId = call.getString("eventId", "");
+    boolean acknowledged = KfeNativeEventStore.get(getContext()).acknowledge(eventId);
+    String legacyId = getContext().getSharedPreferences(PREFS, 0).getString("pendingEventId", "");
+    if (acknowledged && eventId.equals(legacyId)) {
+      getContext().getSharedPreferences(PREFS, 0).edit().remove(PENDING_KEY).remove("pendingEventId").apply();
+    }
+    JSObject result = new JSObject();
+    result.put("acknowledged", acknowledged);
+    call.resolve(result);
+  }
+
+  @com.getcapacitor.PluginMethod
+  public void recordActionFailure(PluginCall call) {
+    KfeNativeEventStore.get(getContext()).recordFailure(call.getString("eventId", ""), call.getString("error", "Processing failed"));
+    call.resolve();
   }
 
   private void createChannel() {

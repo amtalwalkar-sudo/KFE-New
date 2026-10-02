@@ -28,8 +28,8 @@ public class KfeRideNotificationReceiver extends BroadcastReceiver {
       Bundle results = RemoteInput.getResultsFromIntent(intent);
       if (results != null) input = results.getString(REMOTE_INPUT_KEY);
       KfeRideNotificationsPlugin.cancelNotification(context);
-      KfeRideNotificationsPlugin.recordPendingAction(context, stage, tripId, input);
-      KfeRideNotificationsPlugin.emitAction(stage, tripId == null ? "" : tripId, input);
+      String eventId = KfeRideNotificationsPlugin.recordPendingAction(context, stage, tripId, input);
+      KfeRideNotificationsPlugin.emitAction(stage, tripId == null ? "" : tripId, input, eventId);
     }
   }
 }

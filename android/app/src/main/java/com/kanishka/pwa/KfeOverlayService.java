@@ -41,6 +41,7 @@ public class KfeOverlayService extends Service {
   static final String EXTRA_STATE="state";
   private static final String CHANNEL_ID="kfe_overlay";
   private static final int NOTIFICATION_ID=4201;
+  private static final String LAST_STATE_KEY="lastOverlayState";
   private static final int BAR_DP=82;
   private static final int COLLAPSED_TOTAL_DP=158;
   private static final int BUBBLE_DP=58;
@@ -89,16 +90,28 @@ public class KfeOverlayService extends Service {
   public static void update(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_UPDATE);i.putExtra(EXTRA_STATE,state==null?"{}":state);context.startService(i);}
   public static void hide(Context context){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_HIDE);context.startService(i);}
 
-  @Override public void onCreate(){super.onCreate();instance=this;createChannel();startForeground(NOTIFICATION_ID,buildNotification());foregroundHandler=new android.os.Handler(getMainLooper());foregroundHandler.post(foregroundCheck);}
+  @Override public void onCreate(){super.onCreate();instance=this;
+    android.content.SharedPreferences saved=getSharedPreferences("kfe_overlay",MODE_PRIVATE);
+    actionStage=saved.getString("actionStage","GO_TO_PICKUP");
+    pendingTripId=saved.getString("pendingTripId","");
+    pendingFareTripId=saved.getString("pendingFareTripId","");
+    createChannel();startForeground(NOTIFICATION_ID,buildNotification());foregroundHandler=new android.os.Handler(getMainLooper());foregroundHandler.post(foregroundCheck);
+  }
   @Override public int onStartCommand(Intent intent,int flags,int startId){
-    if(intent==null)return START_NOT_STICKY;
+    if(intent==null){
+      if(Settings.canDrawOverlays(this)){
+        String saved=getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(LAST_STATE_KEY,"");
+        if(!saved.isEmpty()){ensureOverlay();applyState(saved);}
+      }
+      return START_STICKY;
+    }
     String action=intent.getAction();
     if(ACTION_HIDE.equals(action)){removeOverlay();stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return START_NOT_STICKY;}
     if(ACTION_FARE_SAVED.equals(action)){onFareSaved();return START_NOT_STICKY;}
     if(ACTION_CANCEL_SAVED.equals(action)){onCancelSaved();return START_NOT_STICKY;}
     if(!Settings.canDrawOverlays(this))return START_NOT_STICKY;
     if(ACTION_SHOW.equals(action)||ACTION_UPDATE.equals(action)){ensureOverlay();applyState(intent.getStringExtra(EXTRA_STATE));}
-    return START_NOT_STICKY;
+    return START_STICKY;
   }
 
   private void ensureOverlay(){
@@ -116,6 +129,7 @@ public class KfeOverlayService extends Service {
 
   private void applyState(String raw){
     if(overlay==null)return;
+    if(raw!=null&&!raw.isEmpty())getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putString(LAST_STATE_KEY,raw).apply();
     try{
       JSONObject root=new JSONObject(raw==null?"{}":raw);
       JSONObject shift=root.optJSONObject("shift"),trip=root.optJSONObject("trip");
@@ -152,6 +166,7 @@ public class KfeOverlayService extends Service {
     pendingTripId="";
     pendingFareTripId="";
     tripStartAt=0L;
+    persistNativeWorkflow();
     KfeRideNotificationsPlugin.cancelNotification(this);
     animateRetract();
     if(overlay!=null) overlay.invalidate();
@@ -162,9 +177,46 @@ public class KfeOverlayService extends Service {
   }
 
   private void triggerAction(){
-    if("END_RIDE".equals(actionStage)){KfeRideNotificationsPlugin.recordPendingAction(this,actionStage,pendingTripId,"");KfeRideNotificationsPlugin.emitAction(actionStage,pendingTripId,"");return;}
-    if("START_RIDE".equals(actionStage)){KfeRideNotificationsPlugin.recordPendingAction(this,actionStage,pendingTripId,"");KfeRideNotificationsPlugin.emitAction(actionStage,pendingTripId,"");return;}
-    if("GO_TO_PICKUP".equals(actionStage)){KfeRideNotificationsPlugin.recordPendingAction(this,actionStage,pendingTripId,"");KfeRideNotificationsPlugin.emitAction(actionStage,pendingTripId,"");}
+    // Advance the native shadow workflow immediately so actions remain usable
+    // while the WebView is absent. The durable event ledger reconciles each
+    // transition into the canonical Work repository on the next app launch.
+    if("GO_TO_PICKUP".equals(actionStage)){
+      if(pendingTripId.isEmpty()) pendingTripId=java.util.UUID.randomUUID().toString();
+      String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"GO_TO_PICKUP",pendingTripId,"");
+      actionStage="START_RIDE"; pendingFareTripId="";
+      persistNativeWorkflow(); animateRetract(); overlay.invalidate();
+      KfeRideNotificationsPlugin.emitAction("GO_TO_PICKUP",pendingTripId,"",eventId); return;
+    }
+    if("START_RIDE".equals(actionStage)){
+      String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"START_RIDE",pendingTripId,"");
+      actionStage="END_RIDE"; persistNativeWorkflow(); animateRetract(); overlay.invalidate();
+      KfeRideNotificationsPlugin.emitAction("START_RIDE",pendingTripId,"",eventId); return;
+    }
+    if("END_RIDE".equals(actionStage)){
+      String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"END_RIDE",pendingTripId,"");
+      pendingFareTripId=pendingTripId; actionStage="ENTER_FARE"; persistNativeWorkflow();
+      openFareForm();
+      KfeRideNotificationsPlugin.emitAction("END_RIDE",pendingTripId,"",eventId);
+    }
+  }
+
+  private void persistNativeWorkflow(){
+    android.content.SharedPreferences prefs=getSharedPreferences("kfe_overlay",MODE_PRIVATE);
+    android.content.SharedPreferences.Editor editor=prefs.edit()
+      .putString("actionStage",actionStage)
+      .putString("pendingTripId",pendingTripId)
+      .putString("pendingFareTripId",pendingFareTripId);
+    String raw=prefs.getString(LAST_STATE_KEY,"");
+    if(!raw.isEmpty()){
+      try{
+        JSONObject state=new JSONObject(raw);
+        state.put("overlayAction",actionStage);
+        state.put("overlayTripId",pendingTripId);
+        state.put("pendingFareId",pendingFareTripId);
+        editor.putString(LAST_STATE_KEY,state.toString());
+      }catch(Exception ignored){}
+    }
+    editor.apply();
   }
 
   private void hideIfKfeActivityForeground(){
@@ -269,13 +321,19 @@ public class KfeOverlayService extends Service {
         payload.put("fare",amount);
         payload.put("toll",tollValue.isEmpty()?0:Double.parseDouble(tollValue));
         payload.put("parking",parkingValue.isEmpty()?0:Double.parseDouble(parkingValue));
-        KfeRideNotificationsPlugin.recordPendingAction(this,"ENTER_FARE",actionTripId,payload.toString());
-        KfeRideNotificationsPlugin.emitAction("ENTER_FARE",actionTripId,payload.toString());
+        String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"ENTER_FARE",actionTripId,payload.toString());
+        KfeRideNotificationsPlugin.emitAction("ENTER_FARE",actionTripId,payload.toString(),eventId);
+        // The native ledger has durably accepted the fare; don't require a
+        // live WebView acknowledgement before the driver can continue working.
+        closeForm(); formSubmitting=false; actionStage="GO_TO_PICKUP";
+        pendingTripId=""; pendingFareTripId=""; tripStartAt=0L;
+        persistNativeWorkflow(); animateRetract(); overlay.invalidate();
       } catch(Exception ignored){ formSubmitting=false; }
       return;
     }else if("CANCEL".equals(formMode)){
       if(cancelReason.isEmpty()){formSubmitting=false;return;}
-      try{JSONObject input=new JSONObject();input.put("revenue",amount);input.put("reason",cancelReason);KfeRideNotificationsPlugin.recordPendingAction(this,"CANCEL_RIDE",pendingTripId,input.toString());KfeRideNotificationsPlugin.emitAction("CANCEL_RIDE",pendingTripId,input.toString());
+      try{JSONObject input=new JSONObject();input.put("revenue",amount);input.put("reason",cancelReason);String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"CANCEL_RIDE",pendingTripId,input.toString());KfeRideNotificationsPlugin.emitAction("CANCEL_RIDE",pendingTripId,input.toString(),eventId);
+        closeForm();formSubmitting=false;actionStage="GO_TO_PICKUP";pendingTripId="";pendingFareTripId="";persistNativeWorkflow();animateRetract();overlay.invalidate();
         return;
       }catch(Exception ignored){formSubmitting=false;return;}
     }
@@ -386,15 +444,36 @@ public class KfeOverlayService extends Service {
           }
           if(!moving&&Math.hypot(dx,dy)>dp(10)) moving=true;
           if(moving){
-            if(!minimized&&dy<-dp(MINIMIZE_SWIPE_DP)){minimized=true;params.width=dp(BUBBLE_DP);params.height=dp(BUBBLE_DP);int sw=getResources().getDisplayMetrics().widthPixels;params.x=e.getRawX()<sw/2f?0:Math.max(0,sw-dp(BUBBLE_DP));params.y=Math.max(0,(int)e.getRawY()-dp(BUBBLE_DP)/2);
+            int screenWidth=getResources().getDisplayMetrics().widthPixels;
+            if(minimized){
+              params.x=Math.max(0,Math.min(Math.max(0,screenWidth-dp(BUBBLE_DP)),(int)e.getRawX()-dp(BUBBLE_DP)/2));
+              int screenHeight=windowManager.getDefaultDisplay().getHeight();
+              params.y=Math.max(0,Math.min(Math.max(0,screenHeight-dp(BUBBLE_DP)),(int)e.getRawY()-dp(BUBBLE_DP)/2));
+              lastY=e.getRawY();lastX=e.getRawX();
+              if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);
               getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putInt("x",params.x).putInt("y",params.y).apply();
-              if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);invalidate();return true;}
-            int maxY=Math.max(0,windowManager.getDefaultDisplay().getHeight()-getHeight());params.y=Math.max(0,Math.min(maxY,(int)(params.y+e.getRawY()-lastY)));
+              invalidate();return true;
+            }
+            int proposedY=(int)(params.y+e.getRawY()-lastY);
+            if(proposedY<=0||e.getRawY()<=dp(2)){
+              minimized=true;params.width=dp(BUBBLE_DP);params.height=dp(BUBBLE_DP);
+              params.x=e.getRawX()<screenWidth/2f?0:Math.max(0,screenWidth-dp(BUBBLE_DP));
+              params.y=Math.max(0,(int)e.getRawY()-dp(BUBBLE_DP)/2);
+              getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putInt("x",params.x).putInt("y",params.y).apply();
+              if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);invalidate();return true;
+            }
+            int maxY=Math.max(0,windowManager.getDefaultDisplay().getHeight()-getHeight());params.y=Math.max(0,Math.min(maxY,proposedY));
             lastY=e.getRawY();lastX=e.getRawX();if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putInt("x",params.x).putInt("y",params.y).apply();
           }
           return true;}
         case MotionEvent.ACTION_UP:{
           float fx=e.getRawX()-downX,fy=e.getRawY()-downY;tracking=false;
+          if(minimized&&moving){
+            int screenWidth=getResources().getDisplayMetrics().widthPixels;
+            params.x=downX<screenWidth/2f?0:Math.max(0,screenWidth-dp(BUBBLE_DP));
+            getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putInt("x",params.x).putInt("y",params.y).apply();
+            if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);return true;
+          }
           if(minimized&&!moving&&Math.abs(fx)<dp(16)&&Math.abs(fy)<dp(16)){minimized=false;params.width=WindowManager.LayoutParams.MATCH_PARENT;params.height=dp(COLLAPSED_TOTAL_DP);params.x=0;if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);invalidate();return true;}
           if(!minimized&&!moving&&"START_RIDE".equals(actionStage)&&downX>getWidth()-dp(120)&&downY>=dp(60)&&downY<=dp(110)){openCancelForm();return true;}
           float maxTravel=Math.max(1,getWidth()-dp(16)-dp(58));
