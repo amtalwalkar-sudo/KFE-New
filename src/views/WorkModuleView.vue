@@ -274,7 +274,7 @@ async function submitStart() {
   }
 }
 
-async function goPickup() {
+async function goPickup(nativeTripId = '') {
   if (busy.value || !store.isOnline || store.isTripActive) return false
   busy.value = true
   try {
@@ -287,7 +287,7 @@ async function goPickup() {
       })
     } catch (_) { traceRunning = false }
 
-    const result = await store.beginPickup(operator.value || store.defaultOperator)
+    const result = await store.beginPickup(operator.value || store.defaultOperator, nativeTripId || null)
     if (!result?.ok) {
       if (traceRunning) MovementTraceService.reset()
       traceRunning = false
@@ -587,7 +587,7 @@ function keyAction() {
 
 const handleNativeAction = async event => {
   const stage = String(event?.stage || '')
-  if (stage === 'GO_TO_PICKUP') return Boolean(await goPickup())
+  if (stage === 'GO_TO_PICKUP') return Boolean(await goPickup(String(event?.tripId || '')))
   if (stage === 'START_RIDE') return Boolean(await startTrip())
   if (stage === 'END_RIDE') return Boolean(await endTrip())
 
