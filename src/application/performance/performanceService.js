@@ -101,6 +101,7 @@ export const PerformanceService = Object.freeze({
       to: stabilizationTo,
       applicableBreakEven: monthlyBreakEvenRevenue ?? authoritativeMonthlyBreakEvenForDay({ day: stabilizationTo }),
       historicalBreakEvenForDay: authoritativeMonthlyBreakEvenForDay,
+      authoritativeBreakEvenForMonth: authoritativeMonthlyBreakEvenForDay,
       operatingKmForecast,
       historicalIndicativeProfitForMonth: authoritativeIndicativeProfitForMonth,
       indicativeProfitForCurrentMonth: ({ month }) => {
@@ -135,9 +136,9 @@ export const PerformanceService = Object.freeze({
     const targetMonthlyRequirement = authoritativeMonthlyBreakEven != null && desiredDriverProfitForTarget != null
       ? authoritativeMonthlyBreakEven + desiredDriverProfitForTarget
       : null
-    const canonicalTarget = targetMonthlyRequirement != null && Number.isFinite(targetMonthDays) && targetMonthDays > 0
-      ? targetMonthlyRequirement / targetMonthDays
-      : null
+    const baseOperationalTarget = Number.isFinite(stabilization.currentBaseDaily) ? stabilization.currentBaseDaily : null
+    const smoothedTarget = Number.isFinite(stabilization.currentDailyTarget) ? stabilization.currentDailyTarget : null
+    const canonicalTarget = smoothedTarget
     const targetAvailable = canonicalTarget != null
     const financialDays = Number.isFinite(stabilization.financialDays) ? stabilization.financialDays : 0
     const revenuePerFinancialDay = financialDays > 0 ? metrics.revenue / financialDays : NaN
@@ -168,7 +169,7 @@ export const PerformanceService = Object.freeze({
       breakEvenInputs: metrics.breakEvenInputs,
       authority: {
         ...metrics.authority,
-        target: 'MONTHLY_BREAK_EVEN_PLUS_ADMIN_MONTHLY_DRIVER_PROFIT',
+        target: 'MONTHLY_BREAK_EVEN_PLUS_ADMIN_MONTHLY_DRIVER_PROFIT_PLUS_PERFORMANCE_RECOVERY',
         breakEven: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN',
       },
       completeness: { ...metrics.completeness, target: targetAvailable, breakEven: authoritativeMonthlyBreakEven != null },
@@ -178,12 +179,22 @@ export const PerformanceService = Object.freeze({
         dailyBreakEven: dailyBreakEvenEvidence,
       },
       driverTarget: canonicalTarget,
-      driverTargetBase: canonicalTarget,
+      driverTargetBase: baseOperationalTarget,
       driverTargetAvailable: targetAvailable,
       driverTargetReason: stabilization.reason,
       driverTargetEffectiveMonthlyTarget: targetMonthlyRequirement,
-      driverTargetRemainingEligibleDays: targetMonthDays,
+      driverTargetRemainingEligibleDays: stabilization.remainingEligibleDays,
+      driverTargetEligibleDaysInMonth: stabilization.eligibleDaysInMonth,
+      driverTargetCalendarDaysInMonth: targetMonthDays,
       driverTargetDesiredProfitMonthly: desiredDriverProfitMonthly,
+      driverTargetOpeningCarryBalance: stabilization.openingCarryBalance,
+      driverTargetBalanceBefore: stabilization.balanceBefore,
+      driverTargetRecoveryAdjustment: stabilization.recoveryAdjustment,
+      driverTargetRemainingObligation: stabilization.remainingObligation,
+      driverTargetProjectedClosingBalance: stabilization.projectedClosingBalance,
+      driverTargetNonWorkingDates: stabilization.nonWorkingDates,
+      driverTargetDayIsNonWorking: stabilization.targetDayIsNonWorking === true,
+      driverTargetAuthority: stabilization.authority,
       dailyBreakEven: {
         status: dailyBreakEvenEvidence?.status || 'UNAVAILABLE',
         source: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN_ALLOCATED_OVER_CALENDAR_DAYS',
