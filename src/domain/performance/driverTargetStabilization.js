@@ -177,10 +177,7 @@ export function deriveRollingDriverTarget({
   const remainingObligation = Math.max(0, priorRemainingBaseObligation)
   const currentBaseDaily = baseMonthly / remainingDays
   const recoveryAdjustment = dailyRecovery
-  const forecastDailyKm = finite(operatingKmForecast?.dailyForecastKm)
-  const normalPriorKm = Math.max(1, finite(operatingKmForecast?.config?.normalPriorKmPerCalendarDay) || 200)
-  const operatingKmMultiplier = forecastDailyKm == null ? 1 : Math.max(0, forecastDailyKm / normalPriorKm)
-  const currentDailyTarget = currentBaseDaily * operatingKmMultiplier + recoveryAdjustment
+  const currentDailyTarget = currentBaseDaily + recoveryAdjustment
   const currentIndicativeProfit = typeof indicativeProfitForCurrentMonth === 'function'
     ? finite(indicativeProfitForCurrentMonth({ month: currentMonth, record: currentRecord, day: currentDay }))
     : null
