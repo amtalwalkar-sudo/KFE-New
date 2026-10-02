@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { deriveFinanceAwarePerformance } from '../domain/performance/financePerformanceAdapter.js'
 import { previousRange } from '../domain/performance/performanceEngineV2.js'
-import { deriveRollingDriverTarget } from '../domain/performance/driverTargetStabilization.js'
+import { deriveAuthoritativeDriverTarget, getApplicableDriverTarget } from '../domain/performance/driverTarget.js'
 import { normalizeCalculationSnapshot } from '../application/performance/normalizeCalculationSnapshot.js'
 
 const snapshot = normalizeCalculationSnapshot({
@@ -31,9 +31,13 @@ assert.equal(metrics.breakEvenInputs.fuelCostPerKmSource, 'OBSERVED_PERIOD')
 assert.equal(metrics.breakEvenInputs.fuelEvidence.status, 'INDICATIVE')
 assert.ok(Number.isFinite(metrics.breakEvenInputs.maintenanceProvisionPerKm), 'Expected configured maintenance provision/km')
 
-const stabilization = deriveRollingDriverTarget({ shifts: snapshot.shifts, trips: snapshot.trips, driverTargets: snapshot.driverTargets, from: range.from, to: range.to, applicableBreakEven: metrics.monthlyBreakEvenRevenue })
-assert.equal(stabilization.available, false, 'Indicative break-even must not feed authoritative target')
-assert.equal(stabilization.reason, 'MISSING_AUTHORITATIVE_TARGET_INPUT')
+const targetRecord = getApplicableDriverTarget(snapshot.driverTargets, range.to)
+const targetFromIndicativeBreakEven = deriveAuthoritativeDriverTarget({
+  monthlyBreakEvenRevenue: metrics.monthlyBreakEvenRevenue,
+  desiredDriverProfitMonthly: targetRecord?.desiredDriverProfit,
+  calendarDays: 30,
+})
+assert.equal(targetFromIndicativeBreakEven.available, false, 'Indicative break-even must not feed authoritative target')
 
 const qualifiedSnapshot = normalizeCalculationSnapshot({
   ...snapshot,
@@ -47,17 +51,15 @@ const qualifiedMetrics = deriveFinanceAwarePerformance(qualifiedSnapshot, range,
 assert.equal(qualifiedMetrics.completeness.breakEven, true)
 assert.equal(qualifiedMetrics.calculationEvidence.breakEven.status, 'AUTHORITATIVE')
 assert.ok(Number.isFinite(qualifiedMetrics.monthlyBreakEvenRevenue))
-const qualifiedTarget = deriveRollingDriverTarget({
-  shifts: qualifiedSnapshot.shifts,
-  trips: qualifiedSnapshot.trips,
-  driverTargets: qualifiedSnapshot.driverTargets,
-  from: range.from,
-  to: range.to,
-  applicableBreakEven: qualifiedMetrics.monthlyBreakEvenRevenue,
+const qualifiedRecord = getApplicableDriverTarget(qualifiedSnapshot.driverTargets, range.to)
+const qualifiedTarget = deriveAuthoritativeDriverTarget({
+  monthlyBreakEvenRevenue: qualifiedMetrics.monthlyBreakEvenRevenue,
+  desiredDriverProfitMonthly: qualifiedRecord?.desiredDriverProfit,
+  calendarDays: 30,
 })
 assert.equal(qualifiedTarget.available, true)
-assert.equal(qualifiedTarget.evidence.status, 'AUTHORITATIVE')
-assert.ok(Number.isFinite(qualifiedTarget.currentDailyTarget))
+assert.equal(qualifiedTarget.authority, 'MONTHLY_BREAK_EVEN_PLUS_ADMIN_MONTHLY_DRIVER_PROFIT')
+assert.ok(Number.isFinite(qualifiedTarget.target))
 
 console.log('September break-even → target dependency contract: PASS')
 const midMonthStartSnapshot = normalizeCalculationSnapshot({
