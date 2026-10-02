@@ -130,7 +130,6 @@ export const PerformanceService = Object.freeze({
         dailyBreakEven: dailyBreakEvenEvidence,
       },
       driverTarget: canonicalTarget,
-      driverTargetBase: canonicalTarget,
       driverTargetAvailable: targetAvailable,
       driverTargetReason: targetFormula.reason,
       driverTargetEffectiveMonthlyTarget: targetFormula.monthlyTarget,
