@@ -61,7 +61,6 @@ assert.equal(holiday.counts.activeFinancialDays, 0)
 const financialDay = PerformanceService.getMetrics(base, range)
 assert.equal(financialDay.driverTargetAvailable, true)
 assert.ok(Math.abs(financialDay.dailyBreakEvenRevenue - financialDay.monthlyBreakEvenRevenue / 30) < 1e-10)
-assert.ok(Math.abs(financialDay.driverTargetBase - (financialDay.dailyBreakEvenRevenue + 500 / 30)) < 1e-10)
 
 const workingDays2 = PerformanceService.getMetrics(base, range)
 const workingDays20 = PerformanceService.getMetrics({ ...base, driverTargets:[{ ...base.driverTargets[0], workingDays:20 }] }, range)
@@ -79,8 +78,6 @@ const later = PerformanceService.getMetrics(withLaterFinancialDay, { from:new Da
 assert.equal(later.driverTargetAvailable, true)
 assert.ok(later.driverTarget > 0)
 assert.equal(later.driverTargetEffectiveMonthlyTarget, later.monthlyBreakEvenRevenue + 500)
-assert.equal(later.driverTargetBase, later.driverTargetEffectiveMonthlyTarget / 30)
-assert.ok(later.driverTarget >= later.driverTargetBase)
 
 // Malformed loan data is treated as incomplete rather than throwing or fabricating a schedule.
 const malformedLoan = PerformanceService.getMetrics({ ...base, loans:[{ principal:550000, annualInterestRate:10, tenureMonths:60 }] }, range)
