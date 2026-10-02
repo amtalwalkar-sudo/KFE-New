@@ -54,20 +54,18 @@ assert.ok(Number.isFinite(holiday.driverTarget))
 assert.equal(holiday.counts.activeFinancialDays, 0)
 
 
-// Financial-day target calculation uses the same dynamic remaining-eligible-day
-// denominator for daily BE and Driver Target. Configured workingDays is ignored
-// as a competing divisor.
+// Monthly target guidance uses the calendar-day divisor for the target month.
+// Configured workingDays is not a competing divisor.
 const financialDay = PerformanceService.getMetrics(base, range)
 assert.equal(financialDay.driverTargetAvailable, true)
-assert.equal(financialDay.dailyBreakEvenRevenue, financialDay.monthlyBreakEvenRevenue / financialDay.driverTargetRemainingEligibleDays)
-assert.equal(financialDay.driverTargetBase, financialDay.dailyBreakEvenRevenue + 500 / financialDay.driverTargetRemainingEligibleDays)
+assert.equal(financialDay.dailyBreakEvenRevenue, financialDay.monthlyBreakEvenRevenue / 30)
+assert.equal(financialDay.driverTargetBase, financialDay.dailyBreakEvenRevenue + 500 / 30)
 
 const workingDays2 = PerformanceService.getMetrics(base, range)
 const workingDays20 = PerformanceService.getMetrics({ ...base, driverTargets:[{ ...base.driverTargets[0], workingDays:20 }] }, range)
 assert.equal(workingDays2.driverTarget, workingDays20.driverTarget)
 
-// A known holiday between financial days consumes no target allocation; the
-// untouched monthly obligation is carried to the later eligible day.
+// A holiday does not alter the calendar-day target.
 const withLaterFinancialDay = {
   ...base,
   trips: [
@@ -79,6 +77,7 @@ const later = PerformanceService.getMetrics(withLaterFinancialDay, { from:new Da
 assert.equal(later.driverTargetAvailable, true)
 assert.ok(later.driverTarget > 0)
 assert.equal(later.driverTargetEffectiveMonthlyTarget, later.monthlyBreakEvenRevenue + 500)
+assert.equal(later.driverTarget, later.driverTargetEffectiveMonthlyTarget / 30)
 
 // Malformed loan data is treated as incomplete rather than throwing or fabricating a schedule.
 const malformedLoan = PerformanceService.getMetrics({ ...base, loans:[{ principal:550000, annualInterestRate:10, tenureMonths:60 }] }, range)
