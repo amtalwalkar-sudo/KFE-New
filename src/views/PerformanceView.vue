@@ -88,12 +88,6 @@ const targetStatus = computed(() => outlookDisplay.value.targetStatus)
 const targetRevenue = computed(() => outlookDisplay.value.revenue)
 const targetLeft = computed(() => target.value != null && targetRevenue.value != null ? Math.max(0, target.value - targetRevenue.value) : null)
 const targetBase = computed(() => finite(m.value.driverTargetBase))
-const targetRecovery = computed(() => finite(m.value.driverTargetRecoveryAdjustment))
-const targetOpeningCarry = computed(() => finite(m.value.driverTargetOpeningCarryBalance))
-const targetRemainingObligation = computed(() => finite(m.value.driverTargetRemainingObligation))
-const targetEligibleDays = computed(() => finite(m.value.driverTargetEligibleDaysInMonth))
-const targetRemainingEligibleDays = computed(() => finite(m.value.driverTargetRemainingEligibleDays))
-const targetNonWorkingDates = computed(() => Array.isArray(m.value.driverTargetNonWorkingDates) ? m.value.driverTargetNonWorkingDates : [])
 const breakEven = computed(() => outlookDisplay.value.breakEven)
 const breakEvenStatus = computed(() => outlookDisplay.value.breakEvenStatus)
 const breakEvenLeft = computed(() => breakEven.value != null && targetRevenue.value != null ? Math.max(0, breakEven.value - targetRevenue.value) : null)
@@ -103,11 +97,9 @@ const forecast = computed(() => m.value.operatingKmForecast || null)
 const syntheticSummary = computed(() => {
   if (!syntheticFullHistoryAvailable.value || period.value !== 'SYNTHETIC') return null
   const dailyForecast = finite(forecast.value?.calculatedForecast?.dailyKm)
-  const multiplier = finite(m.value.driverTargetOperatingKmMultiplier)
   return {
     shifts: snapshot.value.shifts.length,
     dailyForecast,
-    multiplier,
     observedDays: finite(forecast.value?.observedOperatingDays),
   }
 })
@@ -138,7 +130,7 @@ const detailGroups = computed(() => {
     { key:'fuelEconomy', title:'Fuel economy', kicker:'ACTUAL', value:fuelEconomy.value == null ? '—' : `${num(fuelEconomy.value)} KM/KG`, formula:'Fuel economy = authoritative vehicle KM ÷ recorded CNG quantity in KG.', rows:[['Vehicle KM',num(m.value.vehicleKm)],['CNG consumed',m.value.fuelQty == null ? '—' : `${num(m.value.fuelQty)} KG`],['Fuel economy',fuelEconomy.value == null ? '—' : `${num(fuelEconomy.value)} KM/KG`],['Fuel cost / KG',money2(fuelCostPerKg.value)]] },
     { key:'activity', title:'Operating activity', kicker:'ACTUAL', value:num(m.value.vehicleKm) + ' KM', formula:'Vehicle KM = qualifying shift closing odometer minus start odometer. Business KM = validated completed-trip KM. Dead KM = vehicle KM minus business KM; opening odometer gap is separate.', rows:[['Vehicle KM · selected period',num(m.value.vehicleKm) + ' KM'],['Business KM · completed trips',businessKm.value == null ? '—' : num(businessKm.value) + ' KM'],['Business KM integrity status',m.value.businessKmIntegrityStatus || 'UNAVAILABLE'],['Dead KM · current shift movement',deadKm.value == null ? '—' : num(deadKm.value) + ' KM'],['Dead KM reconciliation status',m.value.deadKmIntegrityStatus || 'UNAVAILABLE'],['Opening gap · Personal KM',num(m.value.openingPersonalKm) + ' KM'],['Opening gap · Dead KM',num(m.value.openingDeadKm) + ' KM'],['Working hours',num(m.value.workingHours)],['Completed trips',num(m.value.counts?.trips)]] },
     { key:'provision', title:'Provisions', kicker:'TRACKED', value:money(m.value.totalIndicativeProvision), formula:'Provision tracking shows loan, maintenance and compliance accruals separately from cash settlement. The P/L already deducts the full scheduled EMI, so loan provision is not deducted a second time; maintenance and compliance provisions are additional provisional costs.', rows:[['Loan provision · selected period',money(m.value.loanProvisionForPeriod)],['Maintenance provision · selected period',money(m.value.maintenanceProvision)],['Maintenance provision evidence',m.value.maintenanceProvisionEvidenceStatus || 'UNAVAILABLE'],['Compliance provision · selected period',money(m.value.renewalProvision)],['Total provisions · selected period',money(m.value.totalIndicativeProvision)],['Loan rolling balance',money(m.value.finance?.provisionBalance)],['Maintenance provision evidence',m.value.maintenanceProvisionEvidenceStatus || 'UNAVAILABLE'],['Maintenance rolling balance',money(m.value.maintenanceProvisionBalance)],['Compliance rolling balance',money(m.value.complianceProvisionBalance)]] },
-    { key:'target', title:'Target', kicker:targetStatus.value === 'AUTHORITATIVE' ? 'AUTHORITATIVE' : 'UNAVAILABLE', value:money(target.value), formula:'Base target comes from authoritative monthly break-even + Admin desired monthly driver profit. Operational guidance then reallocates planned non-working days and carries prior performance shortfall/surplus into the remaining eligible days.', rows:[['Today / selected-day target',money(target.value)],['Base daily target',money(targetBase.value)],['Recovery / surplus adjustment',money(targetRecovery.value)],['Monthly base requirement',money(m.value.driverTargetEffectiveMonthlyTarget)],['Opening carry from prior months',money(targetOpeningCarry.value)],['Remaining obligation',money(targetRemainingObligation.value)],['Eligible days in target month',num(targetEligibleDays.value)],['Remaining eligible days',num(targetRemainingEligibleDays.value)],['Planned non-working days',num(targetNonWorkingDates.value.length)],['Desired driver profit / take-home',money(m.value.driverTargetDesiredProfitMonthly)]] },
+    { key:'target', title:'Target', kicker:targetStatus.value === 'AUTHORITATIVE' ? 'AUTHORITATIVE' : 'UNAVAILABLE', value:money(target.value), formula:'Daily driver target = (authoritative monthly break-even + Admin desired monthly driver profit) ÷ calendar days in the target month.', rows:[['Daily target',money(target.value)],['Monthly target requirement',money(m.value.driverTargetEffectiveMonthlyTarget)],['Monthly break-even',money(m.value.monthlyBreakEvenRevenue)],['Desired driver profit / take-home',money(m.value.driverTargetDesiredProfitMonthly)],['Calendar days in target month',num(m.value.driverTargetCalendarDaysInMonth)]] },
     { key:'breakEven', title:'Break-even', kicker:breakEvenStatus.value, value:money(breakEven.value), formula:'Break-even is supplied by the authoritative break-even engine and presented here as an outlook requirement, separate from actual operating result.', rows:[['Break-even revenue',money(breakEven.value)],['Revenue achieved',money(targetRevenue.value)],['Revenue remaining',money(breakEvenLeft.value)],['Scheduled EMI obligation',money(m.value.breakEvenInputs?.scheduledEmiMonthly)],['Pre-business loan recovery · period allocation',money(m.value.breakEvenInputs?.preBusinessRecoveryMonthly)],['Historical maintenance recovery · period allocation',money(m.value.breakEvenInputs?.historicalMaintenanceRecoveryMonthly)],['Compliance provision',money(m.value.renewalProvision)],['Expected monthly vehicle KM',num(m.value.breakEvenInputs?.expectedMonthlyVehicleKm)],['Normalized KM basis',num(m.value.breakEvenInputs?.vehicleKmBasis)],['KM basis source',m.value.breakEvenInputs?.vehicleKmBasisSource || '—'],['Fuel cost / KM',money2(m.value.breakEvenInputs?.fuelCostPerKm)],['Maintenance provision / KM',money2(m.value.breakEvenInputs?.maintenanceProvisionPerKm)]] },
     { key:'loan', title:'Loan position', kicker:'FINANCIAL POSITION', value:money(m.value.finance?.provisionBalance), formula:'Loan provision accrues as the daily share of each fixed EMI across every calendar day in its EMI validity period. The rolling balance is provision accumulated minus loan payments.', rows:[['Provision accumulated',money(m.value.finance?.provisionAccumulated)],['Rolling provision balance',money(m.value.finance?.provisionBalance)],['Outstanding principal',money(m.value.finance?.outstandingPrincipal)],['Pending / overdue',money(m.value.finance?.totalOverdue)],['Delayed interest',money(m.value.finance?.totalUnpaidOverdueInterest)],['Actual loan paid',money(m.value.actualLoanPaid)],['Prepayments',money(m.value.actualPrepayment)]] },
   ]
@@ -424,20 +416,16 @@ const periodContext = computed(() => periodLabel.value)
           <h2>Driver target</h2>
         </div>
         <div class="pp-target-line">
-          <div><span>TODAY'S TARGET</span><strong>{{ money(target) }}</strong><small v-if="targetStatus === 'AUTHORITATIVE'">AUTHORITATIVE + SMOOTHED</small><small v-else>NOT ESTABLISHED</small></div>
+          <div><span>TODAY'S TARGET</span><strong>{{ money(target) }}</strong><small v-if="targetStatus === 'AUTHORITATIVE'">AUTHORITATIVE</small><small v-else>NOT ESTABLISHED</small></div>
           <div class="pp-target-track"><i></i><b></b></div>
           <div><span>REVENUE</span><strong>{{ money(targetRevenue) }}</strong></div>
         </div>
         <div class="metric-grid pp-target-recovery">
-          <div><span>Base daily target</span><strong>{{ money(targetBase) }}</strong></div>
-          <div><span>Recovery / surplus adjustment</span><strong>{{ money(targetRecovery) }}</strong></div>
-          <div><span>Carry from prior months</span><strong>{{ money(targetOpeningCarry) }}</strong></div>
-          <div><span>Remaining obligation</span><strong>{{ money(targetRemainingObligation) }}</strong></div>
-          <div><span>Eligible days this month</span><strong>{{ num(targetEligibleDays) }}</strong></div>
-          <div><span>Eligible days remaining</span><strong>{{ num(targetRemainingEligibleDays) }}</strong></div>
+          <div><span>Monthly target requirement</span><strong>{{ money(m.driverTargetEffectiveMonthlyTarget) }}</strong></div>
+          <div><span>Monthly break-even</span><strong>{{ money(m.monthlyBreakEvenRevenue) }}</strong></div>
+          <div><span>Desired driver profit / take-home</span><strong>{{ money(m.driverTargetDesiredProfitMonthly) }}</strong></div>
+          <div><span>Calendar days in target month</span><strong>{{ num(m.driverTargetCalendarDaysInMonth) }}</strong></div>
         </div>
-        <p v-if="m.driverTargetDayIsNonWorking" class="pp-boundary-note">Planned non-working day: today's target is ₹0. Its share is redistributed across the remaining eligible days; prior surplus/shortfall still carries forward.</p>
-        <p v-else class="pp-boundary-note">A shortfall raises the remaining daily target; a surplus lowers it. The underlying monthly break-even and actual P/L are never changed by target recovery.</p>
       </section>
 
       <section class="pp-section pp-fleet">
