@@ -433,6 +433,8 @@ const periodContext = computed(() => periodLabel.value)
           <div><strong>{{ num(deadKm) }}</strong><span>Dead KM</span></div>
           <div><strong>{{ fuelEconomy==null ? '—' : num(fuelEconomy) }}</strong><span>KM / KG</span></div>
         </div>
+        <p v-if="m.businessKmIntegrityStatus === 'MISSING_TRIP_KM'" class="pp-boundary-note">Mileage needs attention: at least one completed trip has no valid KM. Business KM and Dead KM are withheld until corrected.</p>
+        <p v-else-if="m.deadKmIntegrityStatus === 'OVER_ESTIMATE'" class="pp-boundary-note">Mileage needs attention: recorded business KM exceeds odometer movement. Dead KM is withheld until the readings are reconciled.</p>
       </section>
 
       <section class="pp-section pp-recovery">
