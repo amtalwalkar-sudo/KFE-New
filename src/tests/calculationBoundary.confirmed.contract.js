@@ -60,8 +60,8 @@ const twoDayMetrics = PerformanceService.getMetrics(twoDays, twoDayRange)
 assert.equal(twoDayMetrics.driverTargetAvailable, true)
 assert.equal(twoDayMetrics.counts.activeFinancialDays, 2)
 assert.equal(twoDayMetrics.driverTargetBase, twoDayMetrics.dailyBreakEvenRevenue + 500 / 30)
-assert.equal(twoDayMetrics.driverTarget, twoDayMetrics.driverTargetBase)
-assert.equal(twoDayMetrics.driverTargetRecoveryAdjustment, undefined)
+assert.ok(twoDayMetrics.driverTarget > twoDayMetrics.driverTargetBase)
+assert.ok(twoDayMetrics.driverTargetRecoveryAdjustment > 0)
 assert.equal(twoDayMetrics.pace.paceVariance, twoDayMetrics.revenuePerFinancialDay - twoDayMetrics.target)
 
 const defaultCalendarDays = PerformanceService.getMetrics({
@@ -69,7 +69,7 @@ const defaultCalendarDays = PerformanceService.getMetrics({
   driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:500 }],
 }, range)
 assert.equal(defaultCalendarDays.driverTargetAvailable, true)
-assert.equal(defaultCalendarDays.driverTargetRemainingEligibleDays, 30, 'Daily target uses the calendar-day divisor for the full target month')
+assert.equal(defaultCalendarDays.driverTargetRemainingEligibleDays, 21, 'Remaining target guidance uses remaining eligible days')
 
 const holidaySmoothing = PerformanceService.getMetrics({
   ...base,
