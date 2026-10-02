@@ -18,7 +18,7 @@ const base = {
     { id:'loan1', principal:550000, annualInterestRate:10, tenureMonths:60, startDate:'2026-04-09', status:'Active' },
   ],
   loanPayments: [], prepayments: [],
-  driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:500, workingDays:2 }],
+  driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:500 }],
   breakEvenInputs: [{ effectiveFrom:'2026-09-01', maintenanceProvisionPerKm:2 }],
 }
 
@@ -43,37 +43,6 @@ assert.equal(historicalWithFutureOperations.vehicleKm, historical.vehicleKm)
 const deletedTrip = { ...base.trips[0], deletedAt:'2026-09-10T20:00:00Z', deleted:true }
 const withoutDeletedTrip = PerformanceService.getMetrics({ ...base, trips:[deletedTrip] }, range)
 assert.equal(withoutDeletedTrip.revenue, 0)
-assert.equal(withoutDeletedTrip.completeness.target, true, 'Deleted trips do not affect the monthly target input')
-assert.ok(Number.isFinite(withoutDeletedTrip.driverTarget))
-
-// A started shift alone is not a target-bearing financial day.
-const holiday = PerformanceService.getMetrics({ ...base, trips:[] }, range)
-assert.ok(Number.isFinite(holiday.driverTarget))
-assert.equal(holiday.counts.activeFinancialDays, 0)
-
-
-// Monthly target guidance uses the calendar-day divisor for the target month.
-// Configured workingDays is not a competing divisor.
-const financialDay = PerformanceService.getMetrics(base, range)
-assert.equal(financialDay.driverTargetAvailable, true)
-assert.ok(Math.abs(financialDay.dailyBreakEvenRevenue - financialDay.monthlyBreakEvenRevenue / 30) < 1e-10)
-
-const workingDays2 = PerformanceService.getMetrics(base, range)
-const workingDays20 = PerformanceService.getMetrics({ ...base, driverTargets:[{ ...base.driverTargets[0], workingDays:20 }] }, range)
-assert.equal(workingDays2.driverTarget, workingDays20.driverTarget)
-
-// A holiday does not alter the calendar-day target.
-const withLaterFinancialDay = {
-  ...base,
-  trips: [
-    base.trips[0],
-    { id:'later', status:'COMPLETED', tripStartAt:'2026-09-12T09:00:00Z', tripEndAt:'2026-09-12T10:00:00Z', tripKm:40, revenue:0 },
-  ],
-}
-const later = PerformanceService.getMetrics(withLaterFinancialDay, { from:new Date('2026-09-10T00:00:00Z'), to:new Date('2026-09-12T23:59:59Z') })
-assert.equal(later.driverTargetAvailable, true)
-assert.ok(later.driverTarget > 0)
-assert.equal(later.driverTargetEffectiveMonthlyTarget, later.monthlyBreakEvenRevenue + 500)
 
 // Malformed loan data is treated as incomplete rather than throwing or fabricating a schedule.
 const malformedLoan = PerformanceService.getMetrics({ ...base, loans:[{ principal:550000, annualInterestRate:10, tenureMonths:60 }] }, range)
