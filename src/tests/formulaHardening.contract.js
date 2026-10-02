@@ -5,7 +5,7 @@ import { authoritativeShiftRevenue } from '../domain/performance/authoritativeRe
 
 const range = { from: new Date('2026-09-10T00:00:00Z'), to: new Date('2026-09-10T23:59:59Z') }
 
-// Golden vector: dead KM is exactly vehicle KM minus business KM; it is not clamped.
+// Integrity vector: business KM above odometer KM must not produce a valid negative Dead KM.
 {
   const metrics = derivePerformance({
     shifts: [{ shiftStartAt:'2026-09-10T08:00:00Z', shiftEndAt:'2026-09-10T18:00:00Z', startOdometer:1000, endOdometer:1100, revenue:1000 }],
@@ -14,7 +14,8 @@ const range = { from: new Date('2026-09-10T00:00:00Z'), to: new Date('2026-09-10
   }, range)
   assert.equal(metrics.vehicleKm, 100)
   assert.equal(metrics.businessKm, 130)
-  assert.equal(metrics.deadKm, -30)
+  assert.equal(metrics.deadKmIntegrityStatus, 'OVER_ESTIMATE')
+  assert.ok(Number.isNaN(metrics.deadKm))
 }
 
 // Golden vector: shift-end revenue is authoritative; trip revenue is supporting detail only.
