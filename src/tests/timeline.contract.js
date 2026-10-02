@@ -9,7 +9,7 @@ const cockpit = fs.readFileSync('src/views/WorkModuleView.vue', 'utf8')
 const performanceService = fs.readFileSync('src/application/performance/performanceService.js', 'utf8')
 
 for (const text of ['TimelineService', 'Day', 'Personal', 'Week', 'Month', 'Authoritative Revenue', 'Target', 'Fare —', 'const timestamp = value =>', 'numeric < 1e12 ? numeric * 1000 : numeric', 'const duration = trip =>']) {
-  assert.ok(timeline.includes(text), \`Timeline view must contain: \${text}\`)
+  assert.ok(timeline.includes(text), `Timeline view must contain: ${text}`)
 }
 assert.doesNotMatch(timeline, /Operator.*filter|showOperators|chooseOperator/)
 assert.doesNotMatch(timeline, /totalRevenue\s*=|reduce\(\(n,t\).*revenue/)
@@ -39,5 +39,5 @@ for (const text of [
   "openTimelineKeypad('toll')",
   "openTimelineKeypad('parking')"
 ]) {
-  assert.ok(timeline.includes(text), \`Timeline quick-edit must include: \${text}\`)
+  assert.ok(timeline.includes(text), `Timeline quick-edit must include: ${text}`)
 }
