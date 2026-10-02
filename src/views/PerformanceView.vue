@@ -82,11 +82,11 @@ const deadKmPct = computed(() => {
   return km > 0 && deadKm.value != null ? Math.max(0, Math.min(100, deadKm.value / km * 100)) : 0
 })
 const revenueKmPct = computed(() => Math.max(0, 100 - deadKmPct.value))
+const outlookDisplay = computed(() => getPerformanceOutlookDisplay(m.value))
 const target = computed(() => outlookDisplay.value.target)
 const targetStatus = computed(() => outlookDisplay.value.targetStatus)
-const targetRevenue = computed(() => finite(m.value.revenue))
+const targetRevenue = computed(() => outlookDisplay.value.revenue)
 const targetLeft = computed(() => target.value != null && targetRevenue.value != null ? Math.max(0, target.value - targetRevenue.value) : null)
-const outlookDisplay = computed(() => getPerformanceOutlookDisplay(m.value))
 const breakEven = computed(() => outlookDisplay.value.breakEven)
 const breakEvenStatus = computed(() => outlookDisplay.value.breakEvenStatus)
 const breakEvenLeft = computed(() => breakEven.value != null && targetRevenue.value != null ? Math.max(0, breakEven.value - targetRevenue.value) : null)
