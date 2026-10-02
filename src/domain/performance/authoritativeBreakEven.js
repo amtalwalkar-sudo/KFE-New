@@ -23,7 +23,7 @@ const latest = (xs, range) => {
 const serialForKey=key=>{if(!key||!/^\d{4}-\d{2}-\d{2}$/.test(key))return null;const[y,m,d]=key.split('-').map(Number);return Date.UTC(y,m-1,d)/86400000}
 export function calendarDayProratedMonthlyAmount(monthlyAmount,range){const amount=finite(monthlyAmount),from=serialForKey(businessDate(range?.from)),to=serialForKey(businessDate(range?.to));if(amount==null||amount<0||from==null||to==null||to<from)return null;let total=0;for(let day=from;day<=to;day++){const d=new Date(day*86400000),n=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).getUTCDate();total+=amount/n}return Math.round(total*100)/100}
 
-export function deriveAuthoritativeBreakEven({ breakEvenInputs = [], range, loanScheduledObligation = NaN, preBusinessRecovery = 0, historicalMaintenanceRecovery = 0, renewalProvision = NaN, fuelCostPerKm = NaN, fuelCostPerKmStatus = CALCULATION_STATUS.UNAVAILABLE, vehicleKm = NaN } = {}) {
+export function deriveAuthoritativeBreakEven({ breakEvenInputs = [], range, loanScheduledObligation = NaN, preBusinessRecovery = 0, historicalMaintenanceRecovery = 0, renewalProvision = NaN, fuelCostPerKm = NaN, fuelCostPerKmStatus = CALCULATION_STATUS.UNAVAILABLE, vehicleKm = NaN, vehicleKmSource = 'UNAVAILABLE' } = {}) {
   const input = latest(breakEvenInputs, range)
   if (!input) {
     return {
@@ -41,6 +41,7 @@ export function deriveAuthoritativeBreakEven({ breakEvenInputs = [], range, loan
     fuelCostPerKm: Number.isFinite(Number(fuelCostPerKm)),
     fuelCostPerKmEvidence: fuelCostPerKmStatus === CALCULATION_STATUS.AUTHORITATIVE,
     vehicleKm: Number.isFinite(Number(vehicleKm)),
+    vehicleKmSource: String(vehicleKmSource || 'UNAVAILABLE'),
     loanScheduledObligation: Number.isFinite(Number(loanScheduledObligation)),
     preBusinessRecovery: Number.isFinite(Number(preBusinessRecovery)),
     historicalMaintenanceRecovery: Number.isFinite(Number(historicalMaintenanceRecovery)),
@@ -70,6 +71,7 @@ export function deriveAuthoritativeBreakEven({ breakEvenInputs = [], range, loan
       fixedCosts,
       fuelCostPerKm: Number(fuelCostPerKm),
       vehicleKm: Number(vehicleKm),
+      vehicleKmSource: String(vehicleKmSource || 'UNAVAILABLE'),
       authority: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN',
       evidence: calculationEvidence({ status: CALCULATION_STATUS.INDICATIVE, source: fuelCostPerKmStatus === CALCULATION_STATUS.INDICATIVE ? 'OBSERVED_PERIOD' : null, reason: 'PROVISIONAL_FUEL_EVIDENCE', dependencies: availability }),
       trace: { ...availability, firstMissing: 'fuelCostPerKmEvidence' },
@@ -83,6 +85,7 @@ export function deriveAuthoritativeBreakEven({ breakEvenInputs = [], range, loan
     fixedCosts,
     fuelCostPerKm: Number(fuelCostPerKm),
     vehicleKm: Number(vehicleKm),
+    vehicleKmSource: String(vehicleKmSource || 'UNAVAILABLE'),
     authority: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN',
     evidence: calculationEvidence({ status: CALCULATION_STATUS.AUTHORITATIVE, source: 'FULL_TANK_INTERVAL', dependencies: availability }),
     trace: { ...availability, firstMissing: null },
