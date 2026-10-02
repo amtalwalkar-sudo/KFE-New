@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { PerformanceService } from '../application/performance/performanceService.js'
+import { getPerformanceOutlookDisplay } from '../application/performance/performancePresentation.js'
 import { getKfeReferenceNow, istDayRange, istMonthRange, istParts } from '../domain/time/ist.js'
 import { SyntheticDataService } from '../application/synthetic/syntheticDataService.js'
 import { useRouter } from 'vue-router'
@@ -81,10 +82,13 @@ const deadKmPct = computed(() => {
   return km > 0 && deadKm.value != null ? Math.max(0, Math.min(100, deadKm.value / km * 100)) : 0
 })
 const revenueKmPct = computed(() => Math.max(0, 100 - deadKmPct.value))
-const target = computed(() => finite(m.value.driverTarget))
+const target = computed(() => outlookDisplay.value.target)
+const targetStatus = computed(() => outlookDisplay.value.targetStatus)
 const targetRevenue = computed(() => finite(m.value.revenue))
 const targetLeft = computed(() => target.value != null && targetRevenue.value != null ? Math.max(0, target.value - targetRevenue.value) : null)
-const breakEven = computed(() => finite(m.value.monthlyBreakEvenRevenue))
+const outlookDisplay = computed(() => getPerformanceOutlookDisplay(m.value))
+const breakEven = computed(() => outlookDisplay.value.breakEven)
+const breakEvenStatus = computed(() => outlookDisplay.value.breakEvenStatus)
 const breakEvenLeft = computed(() => breakEven.value != null && targetRevenue.value != null ? Math.max(0, breakEven.value - targetRevenue.value) : null)
 const forecast = computed(() => m.value.operatingKmForecast || null)
 const syntheticSummary = computed(() => {
@@ -399,7 +403,7 @@ const periodContext = computed(() => periodLabel.value)
           <h2>Required position</h2>
         </div>
         <div class="pp-focus">
-          <div class="pp-focus-ring"><span>BREAK-EVEN</span><strong>{{ money(breakEven) }}</strong></div>
+          <div class="pp-focus-ring"><span>BREAK-EVEN</span><strong>{{ money(breakEven) }}</strong><small v-if="breakEvenStatus === 'INDICATIVE'">INDICATIVE</small><small v-else-if="breakEvenStatus === 'UNAVAILABLE'">NOT ESTABLISHED</small></div>
           <div class="pp-focus-line"><i></i></div>
         </div>
       </section>
@@ -411,7 +415,7 @@ const periodContext = computed(() => periodLabel.value)
           <h2>Driver target</h2>
         </div>
         <div class="pp-target-line">
-          <div><span>TARGET</span><strong>{{ money(target) }}</strong></div>
+          <div><span>TARGET</span><strong>{{ money(target) }}</strong><small v-if="targetStatus === 'UNAVAILABLE'">NOT ESTABLISHED</small></div>
           <div class="pp-target-track"><i></i><b></b></div>
           <div><span>REVENUE</span><strong>{{ money(targetRevenue) }}</strong></div>
         </div>
