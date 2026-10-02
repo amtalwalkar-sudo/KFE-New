@@ -70,7 +70,7 @@ const defaultCalendarDays = PerformanceService.getMetrics({
   driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:500 }],
 }, range)
 assert.equal(defaultCalendarDays.driverTargetAvailable, true)
-assert.equal(defaultCalendarDays.driverTargetRemainingEligibleDays, 21)
+assert.equal(defaultCalendarDays.driverTargetRemainingEligibleDays, 30, 'Daily target uses the calendar-day divisor for the full target month')
 
 const holidaySmoothing = PerformanceService.getMetrics({
   ...base,
@@ -92,7 +92,7 @@ assert.equal(
     holidaySmoothing.driverTargetOpeningBalance,
 )
 assert.ok(holidaySmoothing.driverTarget > 0)
-assert.equal(holidaySmoothing.driverTargetNewRecovery, null)
+assert.equal(holidaySmoothing.driverTargetNewRecovery, 0)
 assert.equal(holidaySmoothing.driverTargetClosingRecovery, 0)
 
 const normalTarget = PerformanceService.getMetrics(base, range)

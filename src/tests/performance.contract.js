@@ -21,7 +21,7 @@ const snapshot = {
   driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:1000, active:true }],
 }
 
-const engineSnapshot = { ...snapshot, loans: [{ ...snapshot.loan, tenureMonths: snapshot.loan.tenureYears * 12 }], compliance: snapshot.renewals }
+const engineSnapshot = { ...snapshot, loans: [{ ...snapshot.loan, annualInterestRatePercent: snapshot.loan.annualInterestRate, tenureMonths: snapshot.loan.tenureYears * 12 }], compliance: snapshot.renewals }
 const range = { from: new Date('2026-09-10T00:00:00+05:30'), to: new Date('2026-09-10T23:59:59+05:30') }
 const m = derivePerformance(engineSnapshot, range, previousRange(range))
 const serviceMetrics = PerformanceService.getMetrics(snapshot, range)
