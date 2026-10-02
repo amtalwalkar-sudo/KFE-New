@@ -341,7 +341,7 @@ async function endTrip() {
   }
 }
 
-async function saveFare() {
+async function saveFare(fromNative = false) {
   if (fareBusy.value || !pendingFare.value) return false
   for (const [label, value] of [['Trip fare', fare.value], ['Toll', tripToll.value], ['Parking', tripParking.value]]) {
     if (value !== '' && (!Number.isFinite(Number(value)) || Number(value) < 0)) return fail(`${label} must be a non-negative number.`)
@@ -363,8 +363,8 @@ async function saveFare() {
     fare.value = ''
     tripToll.value = ''
     tripParking.value = ''
-    await AndroidOverlay.fareSaved().catch(() => {})
-    await KfeRideNotificationService.clearPendingAction().catch(() => {})
+    if (!fromNative) await AndroidOverlay.fareSaved().catch(() => {})
+    if (!fromNative) await KfeRideNotificationService.clearPendingAction().catch(() => {})
     await targetRefresh()
     await syncOverlay()
     notify('Trip details saved.')
@@ -401,7 +401,7 @@ async function openCancel() {
   message.value = ''
 }
 
-async function saveCancel() {
+async function saveCancel(fromNative = false) {
   if (cancelBusy.value) return false
   if (!cancelReason.value.trim()) { fail('Cancellation reason is required.'); return false }
   if (cancelFare.value !== '' && (!Number.isFinite(Number(cancelFare.value)) || Number(cancelFare.value) < 0)) { fail('Cancellation fare must be a non-negative number.'); return false }
@@ -414,8 +414,8 @@ async function saveCancel() {
     })
     if (!result?.ok) { fail(result?.reason || 'Cancellation could not be saved.'); return false }
     cancelOpen.value = false
-    await AndroidOverlay.cancelSaved().catch(() => {})
-    await KfeRideNotificationService.clearPendingAction().catch(() => {})
+    if (!fromNative) await AndroidOverlay.cancelSaved().catch(() => {})
+    if (!fromNative) await KfeRideNotificationService.clearPendingAction().catch(() => {})
     await syncOverlay()
     notify('Trip cancelled.')
     return true
@@ -596,7 +596,7 @@ const handleNativeAction = async event => {
       const payload = event?.input ? JSON.parse(String(event.input)) : {}
       cancelReason.value = payload.reason === 'PASSENGER' ? 'PASSENGER' : 'DRIVER'
       cancelFare.value = payload.revenue === '' || payload.revenue == null ? '' : String(payload.revenue)
-      return Boolean(await saveCancel())
+      return Boolean(await saveCancel(true))
     } catch (e) {
       fail(e?.message || 'Cancellation failed.')
       return false
@@ -617,7 +617,7 @@ const handleNativeAction = async event => {
       tripToll.value = ''
       tripParking.value = ''
     }
-    return Boolean(await saveFare())
+    return Boolean(await saveFare(true))
   }
   return false
 }
@@ -625,7 +625,7 @@ const handleNativeAction = async event => {
 async function processNativeEvent(event) {
   try {
     const saved = await handleNativeAction(event)
-    if (saved && event?.eventId) await KfeRideNotificationService.acknowledgeAction(event.eventId)
+    if (saved && event?.eventId) await KfeRideNotificationService.acknowledgeAction(event.eventId, String(event?.stage || ''), String(event?.tripId || ''))
     else if (!saved && event?.eventId) await KfeRideNotificationService.recordActionFailure(event.eventId, 'Work did not confirm the action was saved')
     return saved
   } catch (error) {
