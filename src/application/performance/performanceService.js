@@ -11,6 +11,7 @@ import { deriveOperatingKmForecast } from '../../domain/performance/operatingKmF
 import { getPerformanceDiagnostics } from '../../domain/performance/performanceDiagnostics.js'
 import { getKfeReferenceNow, reportingRangeFor } from '../../domain/time/ist.js'
 import { deriveDailyTargetAchievement } from '../../domain/performance/dailyTargetAchievement.js'
+import { deriveDailyRevenueAllocation } from '../../domain/performance/dailyRevenueAllocation.js'
 
 export const PerformanceService = Object.freeze({
   async getSnapshot() {
@@ -146,6 +147,23 @@ export const PerformanceService = Object.freeze({
     // Daily break-even is only the authoritative monthly requirement divided
     // by calendar days in the target month. It is not an eligible-day or
     // as-of allocation.
+    const today = getKfeReferenceNow()
+    const todayRange = reportingRangeFor('DAY', today)
+    const todayMetrics = deriveFinanceAwarePerformance(
+      calculationSnapshot,
+      todayRange,
+      previousRange(todayRange),
+    )
+    const todayBreakEvenInputs = todayMetrics.breakEvenInputs || {}
+    const dailyRevenueAllocation = deriveDailyRevenueAllocation({
+      revenue: todayMetrics.revenue,
+      monthlyBreakEvenRevenue: todayMetrics.monthlyBreakEvenRevenue,
+      scheduledEmi: todayBreakEvenInputs.scheduledEmiMonthly,
+      preBusinessRecovery: todayBreakEvenInputs.preBusinessRecoveryMonthly,
+      maintenanceProvision: todayBreakEvenInputs.maintenanceProvisionMonthly,
+      complianceProvision: todayBreakEvenInputs.complianceProvisionMonthly,
+      historicalMaintenanceRecovery: todayBreakEvenInputs.historicalMaintenanceRecoveryMonthly,
+    })
     const dailyBreakEvenEvidence = metrics.calculationEvidence?.breakEven || null
     const dailyBreakEvenTotal = dailyBreakEvenEvidence?.status === 'AUTHORITATIVE'
       ? dailyBreakEvenRevenue
@@ -195,6 +213,9 @@ export const PerformanceService = Object.freeze({
       driverTargetNonWorkingDates: stabilization.nonWorkingDates,
       driverTargetDayIsNonWorking: stabilization.targetDayIsNonWorking === true,
       driverTargetAuthority: stabilization.authority,
+      dailyRevenueAllocation,
+      dailyRevenueAllocationDate: today,
+      dailyRevenueAllocationAuthority: 'MONTHLY_BREAK_EVEN_COMPONENTS_ALLOCATED_AS_DAILY_REVENUE_RESERVATION',
       dailyBreakEven: {
         status: dailyBreakEvenEvidence?.status || 'UNAVAILABLE',
         source: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN_ALLOCATED_OVER_CALENDAR_DAYS',
