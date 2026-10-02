@@ -1,3 +1,5 @@
+import { validateGapAllocation } from '../domain/work/shift.js'
+
 const toFiniteKm = (value) => {
   const n = Number(value)
   return Number.isFinite(n) && n >= 0 ? n : null
@@ -13,17 +15,20 @@ export const InterShiftOdometerGapService = {
   },
 
   validateAllocation({ gapKm, category }) {
-    const gap = toFiniteKm(gapKm)
-    if (gap === null) return { valid: false, error: 'Enter a valid non-negative KM gap.' }
-    if (gap === 0) return { valid: true, values: { gapKm: 0, personalKm: 0, deadKm: 0, category: null } }
-    if (category !== 'PERSONAL' && category !== 'DEAD') return { valid: false, error: 'The full odometer gap must be allocated to either Personal KM or Dead KM.' }
+    const allocation = validateGapAllocation(gapKm, category)
+    if (!allocation.valid) {
+      return {
+        valid: false,
+        error: allocation.reason || 'The full odometer gap must be allocated to either Personal KM or Dead KM.',
+      }
+    }
     return {
       valid: true,
       values: {
-        gapKm: gap,
-        personalKm: category === 'PERSONAL' ? gap : 0,
-        deadKm: category === 'DEAD' ? gap : 0,
-        category,
+        gapKm: toFiniteKm(gapKm),
+        personalKm: allocation.personalKm,
+        deadKm: allocation.deadKm,
+        category: allocation.category ?? null,
       },
     }
   }
