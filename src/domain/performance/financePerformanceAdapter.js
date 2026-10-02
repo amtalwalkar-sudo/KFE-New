@@ -53,13 +53,43 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   const preBusinessRecoveryForPeriod = finance ? calculatePreBusinessLoanRecoveryForRange({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, businessStartDate: businessStart, range }) : 0
   const historicalMaintenanceRecoveryForPeriod = calculateHistoricalMaintenanceRecoveryForRange({ vehicles: snapshot?.vehicles || [], businessStartDate: businessStart, range: range })
   const fullMonthRange = istMonthRange(range?.to) || range
+  // Break-even is a normalized monthly requirement, not month-to-date spend.
+  // Use the complete target month for fixed/calendar obligations and a
+  // normalized monthly vehicle-KM basis. The first business month is
+  // prorated from Business Start Date.
   const breakEvenMonthRange = fullMonthRange
     ? {
         ...fullMonthRange,
         from: businessStart && businessStart > fullMonthRange.from ? businessStart : fullMonthRange.from,
-        to: fullMonthRange.to > currentAsOf ? currentAsOf : fullMonthRange.to,
       }
     : range
+  const breakEvenInput = getApplicableBreakEvenInput({
+    breakEvenInputs: snapshot?.breakEvenInputs || [],
+    range: breakEvenMonthRange,
+  })
+  const operatingKmForecastForBreakEven = deriveOperatingKmForecast({
+    shifts: snapshot?.shifts || [],
+    from: breakEvenMonthRange?.from,
+    to: breakEvenMonthRange?.to,
+    asOf: currentAsOf,
+  })
+  const calendarDays = value => value
+    ? Math.max(1, Math.round((new Date(value.to).getTime() - new Date(value.from).getTime()) / 86400000) + 1)
+    : null
+  const fullMonthDays = calendarDays(fullMonthRange)
+  const businessMonthDays = calendarDays(breakEvenMonthRange)
+  const configuredMonthlyKm = Number.isFinite(Number(breakEvenInput?.expectedMonthlyVehicleKm))
+    ? Number(breakEvenInput.expectedMonthlyVehicleKm)
+    : NaN
+  const forecastMonthlyKm = Number(operatingKmForecastForBreakEven?.fullMonthForecastKm)
+  const normalizedMonthlyKm = Number.isFinite(configuredMonthlyKm)
+    ? configuredMonthlyKm * (fullMonthDays && businessMonthDays && businessMonthDays < fullMonthDays ? businessMonthDays / fullMonthDays : 1)
+    : forecastMonthlyKm
+  const normalizedMonthlyKmSource = Number.isFinite(configuredMonthlyKm)
+    ? 'ADMIN_EXPECTED_MONTHLY_KM'
+    : Number.isFinite(forecastMonthlyKm)
+      ? 'CALCULATED_OPERATING_KM_FORECAST'
+      : 'UNAVAILABLE'
   const monthlyBase = deriveOperationalPerformance(snapshot, breakEvenMonthRange, derivePreviousRange(breakEvenMonthRange))
   const monthAsOf = asOf(breakEvenMonthRange)
   const monthFinance = activeLoan ? deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: monthAsOf }) : null
