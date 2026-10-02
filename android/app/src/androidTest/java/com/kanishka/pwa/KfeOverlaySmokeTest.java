@@ -135,8 +135,11 @@ public class KfeOverlaySmokeTest {
     field.setAccessible(true);
     long deadline = SystemClock.uptimeMillis() + 5000L;
     while (SystemClock.uptimeMillis() < deadline) {
-      Object overlay = field.get(KfeOverlayService.instance);
-      if (overlay != null && ((android.view.View) overlay).getWidth() > 100) return;
+      KfeOverlayService service = KfeOverlayService.instance;
+      if (service != null) {
+        Object overlay = field.get(service);
+        if (overlay != null && ((android.view.View) overlay).getWidth() > 100) return;
+      }
       SystemClock.sleep(100L);
     }
     throw new AssertionError("KFE overlay view did not become interactive");
