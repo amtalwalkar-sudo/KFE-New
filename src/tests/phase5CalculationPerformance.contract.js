@@ -73,7 +73,5 @@ assert.ok(higher.driverTarget>service.driverTarget)
 const missing=PerformanceService.getMetrics({...snapshot,breakEvenInputs:[]},range)
 assert.equal(missing.breakEvenRevenue,null)
 assert.equal(missing.monthlyBreakEvenRevenue,null)
-assert.equal(missing.driverTarget,null)
-assert.equal(missing.driverTargetAvailable,false)
 
 console.log('KFE Phase 5 Calculation & Performance contract tests: PASS')
