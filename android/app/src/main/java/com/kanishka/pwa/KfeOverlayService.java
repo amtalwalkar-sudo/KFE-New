@@ -386,15 +386,36 @@ public class KfeOverlayService extends Service {
           }
           if(!moving&&Math.hypot(dx,dy)>dp(10)) moving=true;
           if(moving){
-            if(!minimized&&dy<-dp(MINIMIZE_SWIPE_DP)){minimized=true;params.width=dp(BUBBLE_DP);params.height=dp(BUBBLE_DP);int sw=getResources().getDisplayMetrics().widthPixels;params.x=e.getRawX()<sw/2f?0:Math.max(0,sw-dp(BUBBLE_DP));params.y=Math.max(0,(int)e.getRawY()-dp(BUBBLE_DP)/2);
+            int screenWidth=getResources().getDisplayMetrics().widthPixels;
+            if(minimized){
+              params.x=Math.max(0,Math.min(Math.max(0,screenWidth-dp(BUBBLE_DP)),(int)e.getRawX()-dp(BUBBLE_DP)/2));
+              int screenHeight=windowManager.getDefaultDisplay().getHeight();
+              params.y=Math.max(0,Math.min(Math.max(0,screenHeight-dp(BUBBLE_DP)),(int)e.getRawY()-dp(BUBBLE_DP)/2));
+              lastY=e.getRawY();lastX=e.getRawX();
+              if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);
               getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putInt("x",params.x).putInt("y",params.y).apply();
-              if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);invalidate();return true;}
-            int maxY=Math.max(0,windowManager.getDefaultDisplay().getHeight()-getHeight());params.y=Math.max(0,Math.min(maxY,(int)(params.y+e.getRawY()-lastY)));
+              invalidate();return true;
+            }
+            int proposedY=(int)(params.y+e.getRawY()-lastY);
+            if(proposedY<=0||e.getRawY()<=dp(2)){
+              minimized=true;params.width=dp(BUBBLE_DP);params.height=dp(BUBBLE_DP);
+              params.x=e.getRawX()<screenWidth/2f?0:Math.max(0,screenWidth-dp(BUBBLE_DP));
+              params.y=Math.max(0,(int)e.getRawY()-dp(BUBBLE_DP)/2);
+              getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putInt("x",params.x).putInt("y",params.y).apply();
+              if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);invalidate();return true;
+            }
+            int maxY=Math.max(0,windowManager.getDefaultDisplay().getHeight()-getHeight());params.y=Math.max(0,Math.min(maxY,proposedY));
             lastY=e.getRawY();lastX=e.getRawX();if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putInt("x",params.x).putInt("y",params.y).apply();
           }
           return true;}
         case MotionEvent.ACTION_UP:{
           float fx=e.getRawX()-downX,fy=e.getRawY()-downY;tracking=false;
+          if(minimized&&moving){
+            int screenWidth=getResources().getDisplayMetrics().widthPixels;
+            params.x=downX<screenWidth/2f?0:Math.max(0,screenWidth-dp(BUBBLE_DP));
+            getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putInt("x",params.x).putInt("y",params.y).apply();
+            if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);return true;
+          }
           if(minimized&&!moving&&Math.abs(fx)<dp(16)&&Math.abs(fy)<dp(16)){minimized=false;params.width=WindowManager.LayoutParams.MATCH_PARENT;params.height=dp(COLLAPSED_TOTAL_DP);params.x=0;if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);invalidate();return true;}
           if(!minimized&&!moving&&"START_RIDE".equals(actionStage)&&downX>getWidth()-dp(120)&&downY>=dp(60)&&downY<=dp(110)){openCancelForm();return true;}
           float maxTravel=Math.max(1,getWidth()-dp(16)-dp(58));
