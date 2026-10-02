@@ -7,21 +7,42 @@ android {
         applicationId "com.kanishka.pwa"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 4
-        versionName "1.0.3"
+        versionCode 3
+        versionName "1.0.2"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            def signingStore = System.getenv("KFE_ANDROID_KEYSTORE_PATH")
+            def signingStorePassword = System.getenv("KFE_ANDROID_KEYSTORE_PASSWORD")
+            def signingAlias = System.getenv("KFE_ANDROID_KEY_ALIAS")
+            def signingKeyPassword = System.getenv("KFE_ANDROID_KEY_PASSWORD")
+            if (signingStore && signingStorePassword && signingAlias && signingKeyPassword) {
+                storeFile file(signingStore)
+                storePassword signingStorePassword
+                keyAlias signingAlias
+                keyPassword signingKeyPassword
+            }
+        }
+    }
+
     // Keep the installable APK identity stable across CI updates. Debug builds must not
-    // silently switch application IDs; they are the APK users receive from the on-request build.
+    // silently switch application IDs; the on-request APK is signed with the persistent release key.
     buildTypes {
         debug {
             applicationIdSuffix ""
             versionNameSuffix ""
+            if (System.getenv("KFE_ANDROID_KEYSTORE_PATH")) {
+                signingConfig signingConfigs.release
+            }
         }
         release {
+            if (System.getenv("KFE_ANDROID_KEYSTORE_PATH")) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
