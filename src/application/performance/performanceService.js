@@ -57,8 +57,6 @@ export const PerformanceService = Object.freeze({
       asOf: boundedRange.to,
     })
     const monthlyBreakEvenCache = new Map()
-    const monthlyIndicativeProfitCache = new Map()
-
     const authoritativeMonthlyBreakEvenForDay = ({ day }) => {
       const monthRange = istMonthRange(day)
       if (!monthRange) return null
@@ -70,18 +68,6 @@ export const PerformanceService = Object.freeze({
         : null
       monthlyBreakEvenCache.set(key, monthlyBreakEven)
       return monthlyBreakEven
-    }
-
-    const authoritativeIndicativeProfitForMonth = ({ month, day }) => {
-      if (monthlyIndicativeProfitCache.has(month)) return monthlyIndicativeProfitCache.get(month)
-      const monthRange = istMonthRange(day)
-      if (!monthRange) return null
-      const monthMetrics = deriveFinanceAwarePerformance(calculationSnapshot, monthRange, previousRange(monthRange))
-      const value = Number.isFinite(monthMetrics.performanceHeadlineProvisionalProfit)
-        ? monthMetrics.performanceHeadlineProvisionalProfit
-        : null
-      monthlyIndicativeProfitCache.set(month, value)
-      return value
     }
 
     const targetMonthRange = istMonthRange(boundedRange.to)
@@ -103,20 +89,6 @@ export const PerformanceService = Object.freeze({
       applicableBreakEven: monthlyBreakEvenRevenue ?? authoritativeMonthlyBreakEvenForDay({ day: stabilizationTo }),
       historicalBreakEvenForDay: authoritativeMonthlyBreakEvenForDay,
       authoritativeBreakEvenForMonth: authoritativeMonthlyBreakEvenForDay,
-      operatingKmForecast,
-      historicalIndicativeProfitForMonth: authoritativeIndicativeProfitForMonth,
-      indicativeProfitForCurrentMonth: ({ month }) => {
-        if (monthlyIndicativeProfitCache.has(month)) return monthlyIndicativeProfitCache.get(month)
-        const monthRange = istMonthRange(stabilizationTo)
-        if (!monthRange) return null
-        const asOfMonthRange = { ...monthRange, to: stabilizationTo }
-        const monthMetrics = deriveFinanceAwarePerformance(calculationSnapshot, asOfMonthRange, previousRange(asOfMonthRange))
-        const value = Number.isFinite(monthMetrics.performanceHeadlineProvisionalProfit)
-          ? monthMetrics.performanceHeadlineProvisionalProfit
-          : null
-        monthlyIndicativeProfitCache.set(month, value)
-        return value
-      },
     })
     // Target authority is deliberately simple: use the authoritative
     // target-month break-even supplied by the stabilization authority, add
