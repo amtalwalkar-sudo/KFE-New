@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { deriveRollingDriverTarget } from '../domain/performance/driverTargetStabilization.js'
 
 const rollover = deriveRollingDriverTarget({
@@ -89,3 +90,7 @@ assert.equal(km100.effectiveMonthlyTarget, km280.effectiveMonthlyTarget)
 assert.equal(km100.currentBaseDaily, km280.currentBaseDaily)
 
 console.log('Frozen target contract passed: operating KM forecast does not alter the authoritative financial daily target.')
+
+const liveTargetServiceSource = readFileSync('src/application/performance/driverTargetService.js', 'utf8')
+assert.match(liveTargetServiceSource, /const asOfRange = \{ \.\.\.monthRange, to: targetTo \}/, 'Live target inputs must be capped at the requested as-of boundary')
+assert.match(liveTargetServiceSource, /historicalIndicativeProfitForMonth,\s*indicativeProfitForCurrentMonth/, 'Live target must use the same historical loss-recovery inputs as Performance')
