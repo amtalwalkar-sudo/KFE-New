@@ -304,12 +304,17 @@ public class KfeOverlayService extends Service {
         payload.put("parking",parkingValue.isEmpty()?0:Double.parseDouble(parkingValue));
         String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"ENTER_FARE",actionTripId,payload.toString());
         KfeRideNotificationsPlugin.emitAction("ENTER_FARE",actionTripId,payload.toString(),eventId);
+        // The native ledger has durably accepted the fare; don't require a
+        // live WebView acknowledgement before the driver can continue working.
+        closeForm(); formSubmitting=false; actionStage="GO_TO_PICKUP";
+        pendingTripId=""; pendingFareTripId=""; tripStartAt=0L;
+        persistNativeWorkflow(); animateRetract(); overlay.invalidate();
       } catch(Exception ignored){ formSubmitting=false; }
       return;
     }else if("CANCEL".equals(formMode)){
       if(cancelReason.isEmpty()){formSubmitting=false;return;}
       try{JSONObject input=new JSONObject();input.put("revenue",amount);input.put("reason",cancelReason);String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"CANCEL_RIDE",pendingTripId,input.toString());KfeRideNotificationsPlugin.emitAction("CANCEL_RIDE",pendingTripId,input.toString(),eventId);
-        actionStage="GO_TO_PICKUP";pendingTripId="";pendingFareTripId="";persistNativeWorkflow();
+        closeForm();formSubmitting=false;actionStage="GO_TO_PICKUP";pendingTripId="";pendingFareTripId="";persistNativeWorkflow();animateRetract();overlay.invalidate();
         return;
       }catch(Exception ignored){formSubmitting=false;return;}
     }
