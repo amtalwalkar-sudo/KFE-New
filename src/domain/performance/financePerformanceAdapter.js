@@ -1,6 +1,6 @@
 import { derivePerformance as deriveOperationalPerformance, previousRange as derivePreviousRange } from './performanceEngineV2.js'
 import { CALCULATION_STATUS } from './calculationAuthority.js'
-import { deriveAuthoritativeBreakEven, calendarDayProratedMonthlyAmount } from './authoritativeBreakEven.js'
+import { deriveAuthoritativeBreakEven } from './authoritativeBreakEven.js'
 import { deriveLoanPosition, calculatePreBusinessLoanRecovery, calculatePreBusinessLoanRecoveryForRange } from '../finance/loanEngine.js'
 import { calculateHistoricalMaintenanceRecovery, calculateHistoricalMaintenanceRecoveryForRange } from './performanceEngineV2.js'
 import { istMonthRange } from '../time/ist.js'
@@ -47,8 +47,10 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   const monthlyBase = deriveOperationalPerformance(snapshot, breakEvenMonthRange, derivePreviousRange(breakEvenMonthRange))
   const monthAsOf = asOf(breakEvenMonthRange)
   const monthFinance = activeLoan ? deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: monthAsOf }) : null
-  const scheduledMonthlyEmi = monthFinance?.schedule?.map(row => Number(row.originalEmiAmount)).find(value => Number.isFinite(value) && value > 0)
-  const monthScheduledEmi = hasIncompleteActiveLoan ? NaN : activeLoan ? calendarDayProratedMonthlyAmount(scheduledMonthlyEmi, breakEvenMonthRange) : 0
+  const monthFinanceBeforeRange = activeLoan ? deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: new Date(breakEvenMonthRange.from.getTime() - 1) }) : null
+  // Use the canonical loan engine's calendar-day EMI accrual across each EMI validity interval.
+  // This avoids treating the due date as the only day on which the fixed obligation exists.
+  const monthScheduledEmi = hasIncompleteActiveLoan ? NaN : activeLoan && monthFinance && monthFinanceBeforeRange ? Math.max(0, money(monthFinance.provisionAccumulated) - money(monthFinanceBeforeRange.provisionAccumulated)) : activeLoan ? NaN : 0
   const monthPreBusinessRecovery = monthFinance ? calculatePreBusinessLoanRecoveryForRange({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, businessStartDate: businessStart, range: breakEvenMonthRange }) : 0
   const monthHistoricalMaintenanceRecovery = calculateHistoricalMaintenanceRecoveryForRange({ vehicles: snapshot?.vehicles || [], businessStartDate: businessStart, range: breakEvenMonthRange })
   const breakEven = deriveAuthoritativeBreakEven({ breakEvenInputs: snapshot?.breakEvenInputs || [], range: breakEvenMonthRange, loanScheduledObligation: monthScheduledEmi, preBusinessRecovery: monthPreBusinessRecovery, historicalMaintenanceRecovery: monthHistoricalMaintenanceRecovery, renewalProvision: monthlyBase.renewalProvision, fuelCostPerKm: monthlyBase.breakEvenInputs?.fuelCostPerKm ?? monthlyBase.fuelCostPerKm, fuelCostPerKmStatus: monthlyBase.breakEvenInputs?.fuelEvidence?.status || CALCULATION_STATUS.UNAVAILABLE, vehicleKm: monthlyBase.vehicleKm })
