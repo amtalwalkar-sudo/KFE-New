@@ -116,9 +116,6 @@ export const PerformanceService = Object.freeze({
         return value
       },
     })
-    const operatingKmMultiplier = Number.isFinite(operatingKmForecast?.calculatedForecast?.dailyKm)
-      ? operatingKmForecast.calculatedForecast.dailyKm / 200
-      : null
     const canonicalTarget = stabilization.available && Number.isFinite(stabilization.currentDailyTarget)
       ? stabilization.currentDailyTarget
       : null
@@ -126,8 +123,11 @@ export const PerformanceService = Object.freeze({
     const authoritativeMonthlyBreakEven = Number.isFinite(stabilization.monthlyBreakEvenRevenue)
       ? stabilization.monthlyBreakEvenRevenue
       : monthlyBreakEvenRevenue
-    const dailyBreakEvenRevenue = authoritativeMonthlyBreakEven != null && Number.isFinite(stabilization.remainingEligibleDays)
-      ? authoritativeMonthlyBreakEven / stabilization.remainingEligibleDays
+    const targetMonthDays = targetMonthRange
+      ? Math.round((targetMonthRange.to.getTime() - targetMonthRange.from.getTime()) / 86400000) + 1
+      : null
+    const dailyBreakEvenRevenue = authoritativeMonthlyBreakEven != null && Number.isFinite(targetMonthDays) && targetMonthDays > 0
+      ? authoritativeMonthlyBreakEven / targetMonthDays
       : null
     const financialDays = Number.isFinite(stabilization.financialDays) ? stabilization.financialDays : 0
     const revenuePerFinancialDay = financialDays > 0 ? metrics.revenue / financialDays : NaN
@@ -157,7 +157,7 @@ export const PerformanceService = Object.freeze({
       breakEvenInputs: metrics.breakEvenInputs,
       authority: {
         ...metrics.authority,
-        target: 'MONTHLY_BREAK_EVEN_PLUS_MONTHLY_DESIRED_DRIVER_PROFIT_PLUS_FINALIZED_PRIOR_LOSS_RECOVERY_WITH_CALENDAR_DAY_RECOVERY',
+        target: 'MONTHLY_BREAK_EVEN_PLUS_ADMIN_MONTHLY_DRIVER_PROFIT',
         breakEven: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN',
       },
       completeness: { ...metrics.completeness, target: targetAvailable, breakEven: authoritativeMonthlyBreakEven != null },
@@ -168,34 +168,17 @@ export const PerformanceService = Object.freeze({
       },
       driverTarget: canonicalTarget,
       driverTargetBase: stabilization.currentBaseDaily,
-      driverTargetOperatingKmForecast: stabilization.operatingKmForecastDaily,
-      driverTargetOperatingKmMultiplier: operatingKmMultiplier,
-      driverTargetRecoveryAdjustment: stabilization.recoveryAdjustment,
-      driverTargetRollingBalance: stabilization.balance,
-      driverTargetOpeningRecovery: stabilization.openingRecovery,
-      driverTargetNewRecovery: stabilization.newRecovery,
-      driverTargetRecoveryAllocated: stabilization.recoveryAllocated,
-      driverTargetRecoveryAchieved: stabilization.recoveryAchieved,
-      driverTargetClosingRecovery: stabilization.closingRecovery,
-      driverTargetIndicativeProfit: stabilization.indicativeProfit,
-      driverTargetIndicativeLoss: stabilization.indicativeLoss,
-      driverTargetDailyRecovery: stabilization.dailyRecovery,
       driverTargetAvailable: targetAvailable,
       driverTargetReason: stabilization.reason,
-      driverTargetOpeningBalance: stabilization.openingBalance,
-      driverTargetMonthlyVariance: stabilization.monthlyVariance,
-      driverTargetClosingBalance: stabilization.closingBalance,
       driverTargetEffectiveMonthlyTarget: stabilization.effectiveMonthlyTarget,
       driverTargetRemainingEligibleDays: stabilization.remainingEligibleDays,
-      driverTargetAllocatedBeforeCurrentDay: stabilization.targetAllocatedBeforeCurrentDay,
-      driverTargetRemainingObligation: stabilization.remainingObligation,
       driverTargetDesiredProfitMonthly: desiredDriverProfitMonthly,
       dailyBreakEven: {
         status: dailyBreakEvenEvidence?.status || 'UNAVAILABLE',
-        source: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN_ALLOCATED_OVER_REMAINING_ELIGIBLE_DAYS',
+        source: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN_ALLOCATED_OVER_CALENDAR_DAYS',
         reason: dailyBreakEvenEvidence?.reason || null,
         monthlyBreakEvenRevenue: authoritativeMonthlyBreakEven,
-        remainingEligibleDays: stabilization.remainingEligibleDays,
+        calendarDaysInMonth: targetMonthDays,
         total: dailyBreakEvenTotal,
       },
       pace: {
