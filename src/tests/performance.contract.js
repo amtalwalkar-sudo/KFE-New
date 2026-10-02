@@ -31,6 +31,7 @@ assert.equal(serviceMetrics.revenue, 1000)
 assert.equal(serviceMetrics.revenue, snapshot.shifts[0].revenue)
 assert.notEqual(serviceMetrics.revenue, snapshot.trips[0].revenue)
 assert.equal(serviceMetrics.authority.revenue, 'SHIFT_END_REVENUE')
+near(serviceMetrics.indicativeProfit, serviceMetrics.performanceHeadlineProvisionalProfit, 'loss recovery uses full provisional profit economics')
 assert.equal(serviceMetrics.openingPersonalKm, 0, 'Opening personal allocation is a separate mileage bucket')
 assert.equal(serviceMetrics.openingDeadKm, 0, 'Opening dead allocation is a separate mileage bucket')
 
