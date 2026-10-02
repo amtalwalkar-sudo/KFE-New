@@ -77,5 +77,5 @@ const midMonthRange = { from: new Date('2026-09-15T00:00:00+05:30'), to: new Dat
 const midMonthMetrics = deriveFinanceAwarePerformance(midMonthStartSnapshot, midMonthRange, previousRange(midMonthRange))
 assert.equal(midMonthMetrics.vehicleKm, 100, 'Reporting period vehicle KM starts at the configured business start date')
 assert.equal(midMonthMetrics.indicative.monthlyBreakEvenRevenue,
-  midMonthMetrics.breakEvenInputs.fixedCosts + midMonthMetrics.vehicleKm * (midMonthMetrics.breakEvenInputs.fuelCostPerKm + midMonthMetrics.breakEvenInputs.maintenanceProvisionPerKm),
-  'Monthly break-even must not reintroduce vehicle KM from before business start')
+  midMonthMetrics.breakEvenInputs.fixedCosts + midMonthMetrics.breakEvenInputs.vehicleKmBasis * (midMonthMetrics.breakEvenInputs.fuelCostPerKm + midMonthMetrics.breakEvenInputs.maintenanceProvisionPerKm),
+  'Monthly break-even uses the normalized monthly KM basis rather than selected-period vehicle KM')
