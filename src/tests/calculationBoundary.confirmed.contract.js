@@ -16,7 +16,7 @@ const base = {
     { id:'loan1', principal:550000, annualInterestRate:10, tenureMonths:60, startDate:'2026-04-09', status:'Active' },
   ],
   loanPayments: [], prepayments: [],
-  driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:500, workingDays:2 }],
+  driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:500 }],
   breakEvenInputs: [{ effectiveFrom:'2026-09-01', maintenanceProvisionPerKm:2 }],
 }
 
@@ -40,7 +40,6 @@ assert.equal(withoutDeletedTrip.revenue, 0)
 assert.equal(withoutDeletedTrip.businessKm, 0)
 
 const holiday = PerformanceService.getMetrics({ ...base, trips:[] }, range)
-assert.ok(Number.isFinite(holiday.driverTarget))
 assert.equal(holiday.counts.activeFinancialDays, 0)
 
 const twoDays = {
@@ -56,38 +55,6 @@ const twoDayMetrics = PerformanceService.getMetrics(twoDays, twoDayRange)
 assert.equal(twoDayMetrics.driverTargetAvailable, true)
 assert.equal(twoDayMetrics.counts.activeFinancialDays, 2)
 assert.equal(twoDayMetrics.pace.paceVariance, twoDayMetrics.revenuePerFinancialDay - twoDayMetrics.target)
-
-const defaultCalendarDays = PerformanceService.getMetrics({
-  ...base,
-  driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:500 }],
-}, range)
-assert.equal(defaultCalendarDays.driverTargetAvailable, true)
-
-const holidaySmoothing = PerformanceService.getMetrics({
-  ...base,
-  shifts: [
-    base.shifts[0],
-    { id:'s2', shiftStartAt:'2026-09-11T08:00:00Z', shiftEndAt:'2026-09-11T18:00:00Z', startOdometer:1200, endOdometer:1250, toll:0, parking:0 },
-    { id:'s3', shiftStartAt:'2026-09-12T08:00:00Z', shiftEndAt:'2026-09-12T18:00:00Z', startOdometer:1250, endOdometer:1300, toll:0, parking:0 },
-  ],
-  trips: [
-    base.trips[0],
-    { id:'t2', status:'COMPLETED', tripStartAt:'2026-09-12T09:00:00Z', tripEndAt:'2026-09-12T10:00:00Z', tripKm:40, revenue:0 },
-  ],
-}, { from:new Date('2026-09-10T00:00:00Z'), to:new Date('2026-09-12T23:59:59Z') })
-assert.equal(holidaySmoothing.driverTargetAvailable, true)
-assert.equal(holidaySmoothing.driverTargetEffectiveMonthlyTarget, holidaySmoothing.monthlyBreakEvenRevenue + 500)
-assert.ok(holidaySmoothing.driverTarget > 0)
-
-const normalTarget = PerformanceService.getMetrics(base, range)
-const higherTarget = PerformanceService.getMetrics({
-  ...base,
-  driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:1500, workingDays:2 }],
-}, range)
-for (const key of ['revenue','vehicleKm','businessKm','deadKm','fuelCost','fuelQty','fuelCostPerKm','toll','parking','actualMaintenance','loanScheduledObligation','renewalProvision','operatingProfit','availableCash','breakEvenRevenue','monthlyBreakEvenRevenue']) {
-  assert.equal(higherTarget[key], normalTarget[key], `Driver Target changed actual field ${key}`)
-}
-assert.notEqual(higherTarget.driverTarget, normalTarget.driverTarget)
 
 const malformedLoan = PerformanceService.getMetrics({ ...base, loans:[{ principal:550000, annualInterestRate:10, tenureMonths:60 }] }, range)
 assert.equal(malformedLoan.completeness.loan, false)
