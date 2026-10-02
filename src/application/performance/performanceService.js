@@ -99,7 +99,7 @@ export const PerformanceService = Object.freeze({
       driverTargets: calculationSnapshot?.driverTargets,
       from: stabilizationFrom,
       to: stabilizationTo,
-      applicableBreakEven: monthlyBreakEvenRevenue,
+      applicableBreakEven: monthlyBreakEvenRevenue ?? authoritativeMonthlyBreakEvenForDay({ day: stabilizationTo }),
       historicalBreakEvenForDay: authoritativeMonthlyBreakEvenForDay,
       operatingKmForecast,
       historicalIndicativeProfitForMonth: authoritativeIndicativeProfitForMonth,
