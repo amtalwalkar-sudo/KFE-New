@@ -1,7 +1,26 @@
 import assert from 'node:assert/strict'
 import { calculateEmi, deriveLoanPosition, paymentAllocationPreview, calculatePrepaymentEstimate, calculatePreBusinessRecovery } from '../domain/finance/loanEngine.js'
+import { deriveAuthoritativeBreakEven } from '../domain/performance/authoritativeBreakEven.js'
+import { CALCULATION_STATUS } from '../domain/performance/calculationAuthority.js'
 
 const loan = { id: 'loan-1', principal: 12000, tenureMonths: 12, startDate: '2026-01-01T00:00:00+05:30', annualInterestRatePercent: 10, status: 'Active' }
+
+// Frozen finance rule: normalized pre-business loan burden is added to monthly
+// break-even economics without mutating the canonical scheduled EMI.
+const breakEvenWithPreBusinessRecovery = deriveAuthoritativeBreakEven({
+  breakEvenInputs: [{ id: 'be', effectiveFrom: '2026-01-01', maintenanceProvisionPerKm: 1.5, active: true }],
+  range: { from: new Date('2026-01-01T00:00:00+05:30'), to: new Date('2026-01-31T23:59:59+05:30') },
+  loanScheduledObligation: 1000,
+  preBusinessRecovery: 500,
+  renewalProvision: 200,
+  fuelCostPerKm: 2,
+  fuelCostPerKmStatus: CALCULATION_STATUS.AUTHORITATIVE,
+  vehicleKm: 100,
+})
+assert.equal(breakEvenWithPreBusinessRecovery.available, true)
+assert.equal(breakEvenWithPreBusinessRecovery.fixedCosts, 1700)
+assert.equal(breakEvenWithPreBusinessRecovery.monthlyBreakEvenRevenue, 2050)
+
 const emi = calculateEmi(loan.principal, loan.tenureMonths, loan.annualInterestRatePercent)
 assert.ok(emi > 1000 && emi < 1100)
 
