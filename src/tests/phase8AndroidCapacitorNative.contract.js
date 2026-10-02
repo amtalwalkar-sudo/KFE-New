@@ -58,7 +58,7 @@ const tripRepository = fs.readFileSync('src/repositories/shiftTripRepository.js'
 assert.match(tripRepository, /tripStage: normalized\.tripStage \|\| 'GOING_TO_PICKUP'/)
 assert.match(cockpit, /action: 'END_RIDE'/)
 assert.match(cockpit, /action: 'START_RIDE'/)
-assert.doesNotMatch(cockpit, /action: 'ENTER_FARE'/)
+assert.match(fs.readFileSync('src/views/WorkModuleView.vue', 'utf8'), /overlayAction: state\.pendingFareId/)
 const workView = fs.readFileSync('src/views/WorkModuleView.vue', 'utf8')
 const workService = fs.readFileSync('src/application/work/workService.js', 'utf8')
 assert.match(workView, /liveKm/)
