@@ -44,10 +44,23 @@ const breadcrumb = computed(() => {
 const money = value => value == null || value === '' || !Number.isFinite(Number(value)) ? '—' : `₹${Number(value).toLocaleString('en-IN',{maximumFractionDigits:0})}`
 const km = value => value == null || value === '' || !Number.isFinite(Number(value)) ? '—' : `${Number(value).toFixed(1)} km`
 const kg = value => value == null || value === '' || !Number.isFinite(Number(value)) ? '—' : `${Number(value).toFixed(2)} kg`
-const time = value => value ? new Date(value).toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit',timeZone:'Asia/Kolkata'}) : '—'
-const dateTime = value => value ? new Date(value).toLocaleString('en-IN',{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit',timeZone:'Asia/Kolkata'}) : '—'
+const timestamp = value => {
+  if (value == null || value === '') return null
+  if (typeof value === 'number' || (typeof value === 'string' && /^\\d+(?:\\.\\d+)?$/.test(value.trim()))) {
+    const numeric = Number(value)
+    if (!Number.isFinite(numeric)) return null
+    // Canonical timestamps are milliseconds. Accept legacy Unix seconds at
+    // this read boundary so a mixed-unit record can never produce decades of
+    // bogus duration.
+    return new Date(numeric < 1e12 ? numeric * 1000 : numeric)
+  }
+  const date = new Date(value)
+  return Number.isFinite(date.getTime()) ? date : null
+}
+const time = value => { const date = timestamp(value); return date ? date.toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit',timeZone:'Asia/Kolkata'}) : '—' }
+const dateTime = value => { const date = timestamp(value); return date ? date.toLocaleString('en-IN',{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit',timeZone:'Asia/Kolkata'}) : '—' }
 const route = trip => `${trip.tripStartLocation?.placeName || trip.tripStartLocation?.address || trip.tripStartLocation?.name || 'Pickup'} → ${trip.tripEndLocation?.placeName || trip.tripEndLocation?.address || trip.tripEndLocation?.name || 'Drop'}`
-const duration = trip => { const n = new Date(trip.tripEndAt) - new Date(trip.tripStartAt); return Number.isFinite(n) && n >= 0 ? `${Math.round(n/60000)} min` : '—' }
+const duration = trip => { const start = timestamp(trip?.tripStartAt); const end = timestamp(trip?.tripEndAt); if (!start || !end) return '—'; const n = end.getTime() - start.getTime(); return Number.isFinite(n) && n >= 0 ? `${Math.round(n/60000)} min` : '—' }
 const shiftLabel = summary => { const starts=(summary?.shifts||[]).map(x=>x.shift.shiftStartAt).filter(Boolean).sort(); const ends=(summary?.shifts||[]).map(x=>x.shift.shiftEndAt).filter(Boolean).sort(); return starts.length ? `${time(starts[0])} → ${ends.length===starts.length ? time(ends[ends.length-1]) : 'Active'}` : '—' }
 const load = async () => { loading.value=true; error.value=''; try { if(period.value==='day') data.value=await TimelineService.getDay(anchor.value); else if(period.value==='personal') data.value=await TimelineService.getPersonal(range.value); else if(period.value==='week') data.value=await TimelineService.getWeek(range.value); else data.value=await TimelineService.getMonth(range.value) } catch(e) { error.value=e?.message||'Unable to load timeline.'; data.value=null } finally { loading.value=false } }
 const move = amount => { const d=dayAtNoon(anchor.value); if(period.value==='month') d.setUTCMonth(d.getUTCMonth()+amount); else if(period.value==='week') d.setUTCDate(d.getUTCDate()+amount*7); else d.setUTCDate(d.getUTCDate()+amount); anchor.value=d; void load() }
