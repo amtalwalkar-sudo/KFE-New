@@ -40,7 +40,7 @@ assert.equal(overEstimateMetrics.deadKmIntegrityStatus, 'OVER_ESTIMATE', 'Busine
 assert.ok(Number.isNaN(overEstimateMetrics.deadKm), 'Invalid negative dead KM must remain unavailable rather than a negative value')
 const missingTripKmMetrics = derivePerformance({
   shifts: [{ id: 'missing-km-shift', shiftStartAt: '2026-09-10T08:00:00Z', shiftEndAt: '2026-09-10T18:00:00Z', startOdometer: 1000, endOdometer: 1200, revenue: 1000 }],
-  trips: [{ id: 'missing-km-trip', status: 'COMPLETED', tripStartAt: '2026-09-10T09:00:00Z', tripEndAt: '2026-09-10T12:00:00Z' }],
+  trips: [{ id: 'missing-km-trip', status: 'COMPLETED', tripStartAt: '2026-09-10T09:00:00Z', tripEndAt: '2026-09-10T12:00:00Z', tripKm: null }],
   fuelLogs: [], maintenance: [], compliance: [], breakEvenInputs: [],
 }, range)
 assert.equal(missingTripKmMetrics.businessKmIntegrityStatus, 'MISSING_TRIP_KM')
