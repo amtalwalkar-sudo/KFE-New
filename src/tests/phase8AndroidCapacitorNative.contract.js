@@ -7,6 +7,7 @@ const mainActivity = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa
 const overlay = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java', 'utf8')
 const overlayPlugin = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeOverlayPlugin.java', 'utf8')
 const notifications = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeRideNotificationsPlugin.java', 'utf8')
+const nativeEventStore = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeNativeEventStore.java', 'utf8')
 const receiver = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeRideNotificationReceiver.java', 'utf8')
 const secureStorage = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeSecureStoragePlugin.java', 'utf8')
 const gradle = fs.readFileSync('android/app/build.gradle', 'utf8')
@@ -91,6 +92,15 @@ assert.match(secureStorage, /AndroidKeyStore/)
 assert.match(secureStorage, /AES\/GCM\/NoPadding/)
 assert.match(secureStorage, /PURPOSE_ENCRYPT/)
 assert.match(secureStorage, /PURPOSE_DECRYPT/)
+
+assert.ok(notifications.includes('getPendingActions'))
+assert.ok(notifications.includes('acknowledgeAction'))
+assert.ok(notifications.includes('recordActionFailure'))
+assert.ok(nativeEventStore.includes('SQLiteOpenHelper'))
+assert.ok(nativeEventStore.includes('ORDER BY created_at ASC'))
+assert.ok(nativeEventStore.includes('status=\'PENDING\''))
+assert.ok(fs.readFileSync('src/infrastructure/android/kfeRideNotificationService.js', 'utf8').includes('consumePendingActions'))
+assert.ok(fs.readFileSync('src/views/WorkModuleView.vue', 'utf8').includes('Replay every native event in durable creation order'))
 
 console.log('KFE Phase 8 Android/Capacitor native architecture contract: PASS')
 
