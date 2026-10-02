@@ -28,9 +28,9 @@ export function deriveAuthoritativeDriverTarget({
   calendarDays = NaN,
 } = {}) {
   const breakEven = finite(monthlyBreakEvenRevenue)
-  const desiredProfit = finite(desiredDriverProfitMonthly)
+  const desiredProfitAmount = finite(desiredDriverProfitMonthly)
   const days = finite(calendarDays)
-  if (breakEven == null || desiredProfit == null || desiredProfit < 0 || days == null || days <= 0) {
+  if (breakEven == null || desiredProfitAmount == null || desiredProfitAmount < 0 || days == null || days <= 0) {
     return {
       available: false,
       reason: 'MISSING_AUTHORITATIVE_TARGET_INPUT',
@@ -39,7 +39,7 @@ export function deriveAuthoritativeDriverTarget({
     }
   }
 
-  const monthlyTarget = breakEven + desiredProfit
+  const monthlyTarget = breakEven + desiredProfitAmount
   return {
     available: true,
     reason: null,
