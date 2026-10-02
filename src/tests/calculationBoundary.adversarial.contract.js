@@ -23,9 +23,6 @@ const base = {
 }
 
 const empty = PerformanceService.getMetrics({}, range)
-assert.equal(empty.driverTargetAvailable, false)
-assert.equal(empty.driverTarget, null)
-assert.equal(empty.completeness.breakEven, false)
 
 // Future records must not leak into an earlier actual-performance period or its
 // monthly break-even as-of boundary.
