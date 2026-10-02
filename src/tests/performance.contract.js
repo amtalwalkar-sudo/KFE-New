@@ -65,9 +65,9 @@ assert.equal(serviceMetrics.completeness.target, true)
 assert.ok(Number.isFinite(serviceMetrics.breakEvenRevenue))
 assert.equal(serviceMetrics.breakEvenRevenue, serviceMetrics.monthlyBreakEvenRevenue)
 assert.ok(Number.isFinite(serviceMetrics.monthlyBreakEvenRevenue))
-assert.ok(Number.isFinite(serviceMetrics.driverTargetRemainingEligibleDays))
-near(serviceMetrics.dailyBreakEvenRevenue, serviceMetrics.monthlyBreakEvenRevenue / serviceMetrics.driverTargetRemainingEligibleDays, 'daily BE derivation')
-near(serviceMetrics.driverTargetBase, serviceMetrics.dailyBreakEvenRevenue + 1000 / serviceMetrics.driverTargetRemainingEligibleDays, 'base target derivation')
+assert.equal(serviceMetrics.driverTargetRemainingEligibleDays, 30)
+near(serviceMetrics.dailyBreakEvenRevenue, serviceMetrics.monthlyBreakEvenRevenue / 30, 'daily BE uses calendar days in target month')
+near(serviceMetrics.driverTargetBase, serviceMetrics.dailyBreakEvenRevenue + 1000 / 30, 'base target uses calendar days in target month')
 
 const manualDailyTargetInput = { ...snapshot, driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:1000, dailyTarget:1, targetPerActiveDay:2, active:true }] }
 const manualDailyTargetMetrics = PerformanceService.getMetrics(manualDailyTargetInput, range)
@@ -85,7 +85,7 @@ for (const key of [
   'provisionAdjustedProfit', 'availableCash', 'breakEvenRevenue', 'monthlyBreakEvenRevenue',
   'dailyBreakEvenRevenue',
 ]) assert.equal(higherProfitTargetMetrics[key], serviceMetrics[key], `target input changed actual metric: ${key}`)
-near(higherProfitTargetMetrics.driverTarget - serviceMetrics.driverTarget, 4000 / serviceMetrics.driverTargetRemainingEligibleDays, 'desired profit delta')
+near(higherProfitTargetMetrics.driverTarget - serviceMetrics.driverTarget, 4000 / 30, 'desired profit delta')
 
 const historicalBaseSnapshot = {
   ...snapshot,
