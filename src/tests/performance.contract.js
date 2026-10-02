@@ -38,6 +38,15 @@ const overEstimateMetrics = derivePerformance({
 }, range)
 assert.equal(overEstimateMetrics.deadKmIntegrityStatus, 'OVER_ESTIMATE', 'Business KM above odometer KM is an integrity exception, not negative dead KM')
 assert.ok(Number.isNaN(overEstimateMetrics.deadKm), 'Invalid negative dead KM must remain unavailable rather than a negative value')
+const missingTripKmMetrics = derivePerformance({
+  shifts: [{ id: 'missing-km-shift', shiftStartAt: '2026-09-10T08:00:00Z', shiftEndAt: '2026-09-10T18:00:00Z', startOdometer: 1000, endOdometer: 1200, revenue: 1000 }],
+  trips: [{ id: 'missing-km-trip', status: 'COMPLETED', tripStartAt: '2026-09-10T09:00:00Z', tripEndAt: '2026-09-10T12:00:00Z' }],
+  fuelLogs: [], maintenance: [], compliance: [], breakEvenInputs: [],
+}, range)
+assert.equal(missingTripKmMetrics.businessKmIntegrityStatus, 'MISSING_TRIP_KM')
+assert.ok(Number.isNaN(missingTripKmMetrics.businessKm))
+assert.equal(missingTripKmMetrics.deadKmIntegrityStatus, 'MISSING_BUSINESS_KM')
+assert.ok(Number.isNaN(missingTripKmMetrics.deadKm))
 near(serviceMetrics.indicativeProfit, serviceMetrics.performanceHeadlineProvisionalProfit, 'loss recovery uses full provisional profit economics')
 assert.equal(serviceMetrics.openingPersonalKm, 0, 'Opening personal allocation is a separate mileage bucket')
 assert.equal(serviceMetrics.openingDeadKm, 0, 'Opening dead allocation is a separate mileage bucket')
