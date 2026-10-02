@@ -32,7 +32,7 @@ export const DriverTargetService = Object.freeze({
 
     return {
       ...formula,
-      target: formula.available ? formula.dailyTarget : null,
+      target: formula.available ? formula.target : null,
       monthlyBreakEvenRevenue,
       desiredDriverProfitMonthly,
       calendarDays,
