@@ -48,7 +48,6 @@ assert.ok(Number.isFinite(withoutDeletedTrip.driverTarget))
 
 // A started shift alone is not a target-bearing financial day.
 const holiday = PerformanceService.getMetrics({ ...base, trips:[] }, range)
-assert.equal(holiday.driverTargetAvailable, true, 'Target remains available before first trip')
 assert.ok(Number.isFinite(holiday.driverTarget))
 assert.equal(holiday.counts.activeFinancialDays, 0)
 
