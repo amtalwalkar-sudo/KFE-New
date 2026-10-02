@@ -47,7 +47,7 @@ function buildMonthObligation({month,driverTargets,authoritativeBreakEvenForMont
  * across the remaining eligible days. No historical balance changes actual P/L.
  */
 export function deriveRollingDriverTarget({
-  driverTargets=[],trips=[],from,to,applicableBreakEven=null,
+  driverTargets=[],trips=[],shifts=[],from,to,applicableBreakEven=null,
   historicalBreakEvenForDay=null,authoritativeBreakEvenForMonth=null
 }={}){
   const start=dateOf(from),end=dateOf(to);if(!start||!end||end<start)return failure('INVALID_PERIOD')
@@ -56,7 +56,7 @@ export function deriveRollingDriverTarget({
   const monthObligation=buildMonthObligation({month,driverTargets,authoritativeBreakEvenForMonth:authoritativeBreakEvenForMonth||historicalBreakEvenForDay||(()=>be)})
   if(!monthObligation)return failure('MISSING_AUTHORITATIVE_TARGET_INPUT',month)
   const days=daysInMonth(month);if(!days)return failure('INVALID_TARGET_MONTH',month)
-  const revenueMap=revenueByDay(arguments[0]?.shifts||[])
+  const revenueMap=revenueByDay(shifts)
   const targetDayKey=keyOf(end)
   const nonWorking=monthObligation.nonWorkingDates
   const eligible=monthObligation.eligible
