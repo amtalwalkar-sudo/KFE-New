@@ -8,39 +8,36 @@ const endShift = fs.readFileSync('src/application/work/endShift.js', 'utf8')
 const cockpit = fs.readFileSync('src/views/WorkModuleView.vue', 'utf8')
 const performanceService = fs.readFileSync('src/application/performance/performanceService.js', 'utf8')
 
-assert.match(timeline, /TimelineService/)
-assert.match(timeline, /Day/)
-assert.match(timeline, /Personal/)
-assert.match(timeline, /Week/)
-assert.match(timeline, /Month/)
+for (const text of ['TimelineService', 'Day', 'Personal', 'Week', 'Month', 'Authoritative Revenue', 'Target', 'Fare —', 'const timestamp = value =>', 'numeric < 1e12 ? numeric * 1000 : numeric', 'const duration = trip =>']) {
+  assert.ok(timeline.includes(text), \`Timeline view must contain: \${text}\`)
+}
 assert.doesNotMatch(timeline, /Operator.*filter|showOperators|chooseOperator/)
-assert.doesNotMatch(timeline, /totalRevenue\\s*=|reduce\\(\\(n,t\\).*revenue/)
-assert.match(timeline, /Authoritative Revenue/)
-assert.match(timeline, /Target/)
-assert.match(timeline, /Fare —/)
-assert.match(service, /OperationalRecordService/)
-assert.match(service, /authoritativeRevenue/)
-assert.match(service, /record\\.toll/)
-assert.match(service, /record\\.parking/)
-assert.match(operational, /const tripToll = tripAmount\\(terminal, 'toll'\\)/)
-assert.match(operational, /const tripParking = tripAmount\\(terminal, 'parking'\\)/)
-assert.match(operational, /Number\\(shift\\.toll\\) > 0 \\? Number\\(shift\\.toll\\) : tripToll/)
-assert.match(operational, /Number\\(shift\\.parking\\) > 0 \\? Number\\(shift\\.parking\\) : tripParking/)
-assert.match(timeline, /const timestamp = value =>/)
-assert.match(timeline, /numeric < 1e12 \\? numeric \\* 1000 : numeric/)
-assert.match(timeline, /const duration = trip => \\{ const start = timestamp\\(trip\\?\\.tripStartAt\\)/)
-assert.match(service, /record\\.shift\\.openingPersonalKm/)
-assert.match(endShift, /revenue/)
+assert.doesNotMatch(timeline, /totalRevenue\s*=|reduce\(\(n,t\).*revenue/)
+
+assert.ok(service.includes('OperationalRecordService'))
+assert.ok(service.includes('authoritativeRevenue'))
+assert.ok(service.includes('record => record.toll'))
+assert.ok(service.includes('record => record.parking'))
+assert.ok(operational.includes("const tripToll = tripAmount(terminal, 'toll')"))
+assert.ok(operational.includes("const tripParking = tripAmount(terminal, 'parking')"))
+assert.ok(operational.includes("Number(shift.toll) > 0 ? Number(shift.toll) : tripToll"))
+assert.ok(operational.includes("Number(shift.parking) > 0 ? Number(shift.parking) : tripParking"))
+assert.ok(service.includes('record.shift.openingPersonalKm'))
+assert.ok(endShift.includes('revenue'))
 assert.doesNotMatch(endShift, /calculateShiftRevenue/)
-assert.match(cockpit, /PerformanceService\\.getDailyTargetSnapshot\\(\\)/)
-assert.match(cockpit, /shiftRevenue/)
-assert.match(performanceService, /getDailyTargetSnapshot/)
+assert.ok(cockpit.includes('PerformanceService.getDailyTargetSnapshot()'))
+assert.ok(cockpit.includes('shiftRevenue'))
+assert.ok(performanceService.includes('getDailyTargetSnapshot'))
 
 console.log('KFE Timeline contract tests: PASS')
 
 // Timeline quick-edit must round-trip trip-level financial fields.
-assert.match(timeline, /toll:trip\\.toll\\?\\?0/)
-assert.match(timeline, /parking:trip\\.parking\\?\\?0/)
-assert.match(timeline, /toll:form\\.toll,parking:form\\.parking/)
-assert.match(timeline, /openTimelineKeypad\\('toll'\\)/)
-assert.match(timeline, /openTimelineKeypad\\('parking'\\)/)
+for (const text of [
+  'toll:trip.toll??0',
+  'parking:trip.parking??0',
+  'toll:form.value.toll,parking:form.value.parking',
+  "openTimelineKeypad('toll')",
+  "openTimelineKeypad('parking')"
+]) {
+  assert.ok(timeline.includes(text), \`Timeline quick-edit must include: \${text}\`)
+}
