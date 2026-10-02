@@ -1,6 +1,6 @@
 export function validateShiftStartOdometer(currentOdometer, previousOdometer = null) {
   const current = Number(currentOdometer)
-  const previous = Number(previousOdometer)
+  const previous = previousOdometer == null || previousOdometer === '' ? NaN : Number(previousOdometer)
 
   if (!Number.isFinite(current) || current <= 0) {
     return { valid: false, reason: 'Enter a valid current odometer.' }
@@ -16,7 +16,7 @@ export function validateShiftStartOdometer(currentOdometer, previousOdometer = n
 
 export function validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer = null) {
   const current = Number(currentOdometer)
-  const businessStart = Number(businessStartOdometer)
+  const businessStart = businessStartOdometer == null || businessStartOdometer === '' ? NaN : Number(businessStartOdometer)
 
   if (!Number.isFinite(current) || current <= 0) {
     return { valid: false, reason: 'Enter a valid current odometer.' }
