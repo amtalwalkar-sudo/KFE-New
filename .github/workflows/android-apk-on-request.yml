@@ -83,10 +83,19 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p android/keystore
-          # Termux/GitHub copy paths may introduce harmless whitespace/newlines.
-          # Remove whitespace only; base64 alphabet/padding remain strictly validated by decoder.
-          printf '%s' "$KFE_ANDROID_KEYSTORE_BASE64" |
-            tr -d '[:space:]' |
+          # Normalize copied Base64 defensively. GitHub secrets may contain wrapped
+          # lines or copied formatting; keytool below remains the authoritative integrity check.
+          B64="$(printf '%s' "$KFE_ANDROID_KEYSTORE_BASE64" |
+            tr -cd 'A-Za-z0-9+/=_-' |
+            tr '_-' '/+')"
+          B64="${B64//=/}"
+          case $((${#B64} % 4)) in
+            0) ;;
+            2) B64="${B64}==" ;;
+            3) B64="${B64}=" ;;
+            *) echo "::error::Invalid Base64 length"; exit 1 ;;
+          esac
+          printf '%s' "$B64" |
             base64 --decode > android/keystore/kfe-release.jks
           test -s android/keystore/kfe-release.jks
           keytool -list -keystore android/keystore/kfe-release.jks \
