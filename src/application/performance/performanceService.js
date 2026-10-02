@@ -60,7 +60,8 @@ export const PerformanceService = Object.freeze({
     const targetMonthDays = targetMonthRange
       ? istCalendarDaysInclusive(targetMonthRange.from, targetMonthRange.to)
       : null
-    const authoritativeMonthlyBreakEven = metrics.completeness?.breakEven && metrics.calculationEvidence?.breakEven?.status === 'AUTHORITATIVE' && Number.isFinite(metrics.monthlyBreakEvenRevenue)
+    const hasBreakEvenInput = Array.isArray(calculationSnapshot?.breakEvenInputs) && calculationSnapshot.breakEvenInputs.length > 0
+    const authoritativeMonthlyBreakEven = hasBreakEvenInput && metrics.completeness?.breakEven && metrics.calculationEvidence?.breakEven?.status === 'AUTHORITATIVE' && Number.isFinite(metrics.monthlyBreakEvenRevenue)
       ? metrics.monthlyBreakEvenRevenue
       : null
     const targetRecord = getApplicableDriverTarget(calculationSnapshot?.driverTargets, boundedRange.to)
