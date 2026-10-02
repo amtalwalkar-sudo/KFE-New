@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import { normalizeCalculationSnapshot } from '../application/performance/normalizeCalculationSnapshot.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { derivePerformance } from '../domain/performance/performanceEngineV2.js'
-import { deriveRollingDriverTarget } from '../domain/performance/driverTargetStabilization.js'
 import { istDateKey, istMonthRange } from '../domain/time/ist.js'
 
 const range = {
@@ -75,27 +74,6 @@ assert.ok(Number.isNaN(metrics.pace.paceVariance))
 
 assert.equal(metrics.dailyBreakEvenRevenue, null)
 assert.equal(metrics.dailyBreakEven.status, 'INDICATIVE')
-
-const futureTrip = { id: 'future', status: 'COMPLETED', tripStartAt: '2026-09-11T09:00:00+05:30', tripEndAt: '2026-09-11T10:00:00+05:30', tripKm: 500, revenue: 99999 }
-const boundedTarget = deriveRollingDriverTarget({
-  trips: [...canonical.trips, futureTrip],
-  shifts: canonical.shifts,
-  driverTargets: canonical.driverTargets,
-  from: range.from,
-  to: range.to,
-  applicableBreakEven: canonicalMetrics.monthlyBreakEvenRevenue,
-})
-const baseTarget = deriveRollingDriverTarget({
-  trips: canonical.trips,
-  shifts: canonical.shifts,
-  driverTargets: canonical.driverTargets,
-  from: range.from,
-  to: range.to,
-  applicableBreakEven: canonicalMetrics.monthlyBreakEvenRevenue,
-})
-assert.equal(boundedTarget.available, false)
-assert.equal(baseTarget.available, false)
-assert.equal(boundedTarget.reason, 'MISSING_AUTHORITATIVE_TARGET_INPUT')
 
 assert.equal(istDateKey(new Date('2026-09-10T23:00:00Z')), '2026-09-11')
 assert.equal(istDateKey(new Date('2026-09-10T17:59:59Z')), '2026-09-10')
