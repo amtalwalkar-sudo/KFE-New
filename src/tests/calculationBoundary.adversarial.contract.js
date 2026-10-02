@@ -58,8 +58,8 @@ assert.equal(holiday.counts.activeFinancialDays, 0)
 // Configured workingDays is not a competing divisor.
 const financialDay = PerformanceService.getMetrics(base, range)
 assert.equal(financialDay.driverTargetAvailable, true)
-assert.equal(financialDay.dailyBreakEvenRevenue, financialDay.monthlyBreakEvenRevenue / 30)
-assert.equal(financialDay.driverTargetBase, financialDay.dailyBreakEvenRevenue + 500 / 30)
+assert.ok(Math.abs(financialDay.dailyBreakEvenRevenue - financialDay.monthlyBreakEvenRevenue / 30) < 1e-10)
+assert.ok(Math.abs(financialDay.driverTargetBase - (financialDay.dailyBreakEvenRevenue + 500 / 30)) < 1e-10)
 
 const workingDays2 = PerformanceService.getMetrics(base, range)
 const workingDays20 = PerformanceService.getMetrics({ ...base, driverTargets:[{ ...base.driverTargets[0], workingDays:20 }] }, range)
