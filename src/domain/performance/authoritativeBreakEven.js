@@ -20,8 +20,6 @@ const latest = (xs, range) => {
     })[0] || null
 }
 
-export function getApplicableBreakEvenInput({ breakEvenInputs = [], range } = {}) { return latest(breakEvenInputs, range) }
-
 export function deriveAuthoritativeBreakEven({ breakEvenInputs = [], range, loanScheduledObligation = NaN, preBusinessRecovery = 0, historicalMaintenanceRecovery = 0, renewalProvision = NaN, fuelCostPerKm = NaN, fuelCostPerKmStatus = CALCULATION_STATUS.UNAVAILABLE, vehicleKm = NaN, vehicleKmSource = 'UNAVAILABLE' } = {}) {
   const input = latest(breakEvenInputs, range)
   if (!input) {
