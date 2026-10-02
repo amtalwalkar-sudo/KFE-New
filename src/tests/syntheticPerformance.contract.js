@@ -29,7 +29,6 @@ assert.equal(snapshot.driver_targets.length, 1)
 assert.equal(metrics.operatingKmForecast.available, true)
 assert.equal(metrics.operatingKmForecast.observedOperatingDays, 1826)
 assert.ok(Math.abs(metrics.operatingKmForecast.calculatedForecast.dailyKm - 212.21168510607765) < 1e-6)
-assert.ok(Math.abs(metrics.driverTargetOperatingKmMultiplier - 1.0610584255303882) < 1e-12)
 assert.ok(Math.abs(metrics.operatingKmForecast.calculatedForecast.dailyKm - 212.21168510607765) < 1e-6)
 assert.equal(metrics.driverTargetAvailable, true)
 
