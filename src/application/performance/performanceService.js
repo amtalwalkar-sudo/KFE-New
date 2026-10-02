@@ -5,7 +5,7 @@ import { deriveFinanceAwarePerformance } from '../../domain/performance/financeP
 import { deriveRollingDriverTarget } from '../../domain/performance/driverTargetStabilization.js'
 import { DriverTargetService } from './driverTargetService.js'
 import { normalizeCalculationSnapshot } from './normalizeCalculationSnapshot.js'
-import { istMonthRange } from '../../domain/time/ist.js'
+import { istMonthRange, istCalendarDaysInclusive } from '../../domain/time/ist.js'
 import { deriveFinancialFactModel } from '../../domain/finance/financialFactModel.js'
 import { deriveOperatingKmForecast } from '../../domain/performance/operatingKmForecast.js'
 import { getPerformanceDiagnostics } from '../../domain/performance/performanceDiagnostics.js'
@@ -124,7 +124,7 @@ export const PerformanceService = Object.freeze({
       ? stabilization.monthlyBreakEvenRevenue
       : monthlyBreakEvenRevenue
     const targetMonthDays = targetMonthRange
-      ? Math.round((targetMonthRange.to.getTime() - targetMonthRange.from.getTime()) / 86400000) + 1
+      ? istCalendarDaysInclusive(targetMonthRange.from, targetMonthRange.to)
       : null
     const dailyBreakEvenRevenue = authoritativeMonthlyBreakEven != null && Number.isFinite(targetMonthDays) && targetMonthDays > 0
       ? authoritativeMonthlyBreakEven / targetMonthDays
