@@ -63,16 +63,27 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
         from: businessStart && businessStart > fullMonthRange.from ? businessStart : fullMonthRange.from,
       }
     : range
+  const breakEvenEvidenceRange = {
+    ...breakEvenMonthRange,
+    to: breakEvenMonthRange?.to && breakEvenMonthRange.to > currentAsOf ? currentAsOf : breakEvenMonthRange?.to,
+  }
   const breakEvenInput = getApplicableBreakEvenInput({
     breakEvenInputs: snapshot?.breakEvenInputs || [],
-    range: breakEvenMonthRange,
+    range: breakEvenEvidenceRange,
   })
   const operatingKmForecastForBreakEven = deriveOperatingKmForecast({
     shifts: snapshot?.shifts || [],
-    from: breakEvenMonthRange?.from,
+    from: breakEvenEvidenceRange?.from,
     to: breakEvenMonthRange?.to,
     asOf: currentAsOf,
   })
+  // Fuel evidence must respect the reporting as-of boundary even though the
+  // monthly BE itself is normalized over the complete month.
+  const monthlyEvidenceBase = deriveOperationalPerformance(
+    snapshot,
+    breakEvenEvidenceRange,
+    derivePreviousRange(breakEvenEvidenceRange),
+  )
   const calendarDays = value => value
     ? Math.max(1, Math.round((new Date(value.to).getTime() - new Date(value.from).getTime()) / 86400000) + 1)
     : null
@@ -97,7 +108,7 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   const monthScheduledEmi = hasIncompleteActiveLoan ? NaN : activeLoan && monthFinance ? scheduledEmiAccruedForRange(monthFinance.schedule, breakEvenMonthRange) : activeLoan ? NaN : 0
   const monthPreBusinessRecovery = monthFinance ? calculatePreBusinessLoanRecoveryForRange({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, businessStartDate: businessStart, range: breakEvenMonthRange }) : 0
   const monthHistoricalMaintenanceRecovery = calculateHistoricalMaintenanceRecoveryForRange({ vehicles: snapshot?.vehicles || [], businessStartDate: businessStart, range: breakEvenMonthRange })
-  const breakEven = deriveAuthoritativeBreakEven({ breakEvenInputs: snapshot?.breakEvenInputs || [], range: breakEvenMonthRange, loanScheduledObligation: monthScheduledEmi, preBusinessRecovery: monthPreBusinessRecovery, historicalMaintenanceRecovery: monthHistoricalMaintenanceRecovery, renewalProvision: monthlyBase.renewalProvision, fuelCostPerKm: monthlyBase.breakEvenInputs?.fuelCostPerKm ?? monthlyBase.fuelCostPerKm, fuelCostPerKmStatus: monthlyBase.breakEvenInputs?.fuelEvidence?.status || CALCULATION_STATUS.UNAVAILABLE, vehicleKm: normalizedMonthlyKm, vehicleKmSource: normalizedMonthlyKmSource })
+  const breakEven = deriveAuthoritativeBreakEven({ breakEvenInputs: snapshot?.breakEvenInputs || [], range: breakEvenMonthRange, loanScheduledObligation: monthScheduledEmi, preBusinessRecovery: monthPreBusinessRecovery, historicalMaintenanceRecovery: monthHistoricalMaintenanceRecovery, renewalProvision: monthlyBase.renewalProvision, fuelCostPerKm: monthlyEvidenceBase.breakEvenInputs?.fuelCostPerKm ?? monthlyEvidenceBase.fuelCostPerKm, fuelCostPerKmStatus: monthlyEvidenceBase.breakEvenInputs?.fuelEvidence?.status || CALCULATION_STATUS.UNAVAILABLE, vehicleKm: normalizedMonthlyKm, vehicleKmSource: normalizedMonthlyKmSource })
   const monthlyBreakEvenRevenue = breakEven.available ? breakEven.monthlyBreakEvenRevenue : NaN
   const breakEvenFuelCost = breakEven.available || breakEven.status === CALCULATION_STATUS.INDICATIVE
     ? Number(breakEven.fuelCostPerKm) * Number(breakEven.vehicleKm)
