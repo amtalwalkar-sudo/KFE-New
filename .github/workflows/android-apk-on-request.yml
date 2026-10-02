@@ -86,6 +86,7 @@ jobs:
       - name: Build Android APK with persistent signing identity
         working-directory: android
         env:
+          KFE_ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android/keystore/kfe-release.jks
           KFE_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.KFE_ANDROID_KEYSTORE_PASSWORD }}
           KFE_ANDROID_KEY_ALIAS: ${{ secrets.KFE_ANDROID_KEY_ALIAS }}
           KFE_ANDROID_KEY_PASSWORD: ${{ secrets.KFE_ANDROID_KEY_PASSWORD }}
