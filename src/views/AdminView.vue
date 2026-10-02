@@ -156,7 +156,7 @@ function resetTarget(){
 }
 function syncTargetFromSelection(){
   const current=currentTarget.value
-  targetDraft.value={...targetDraft.value,desiredDriverProfit:current?.values?.desiredDriverProfit??0}
+  targetDraft.value={...targetDraft.value,desiredDriverProfit:current?.values?.desiredDriverProfit??0,nonWorkingDates:Array.isArray(current?.values?.nonWorkingDates)?current.values.nonWorkingDates.join('\n'):String(current?.values?.nonWorkingDates||'')}
 }
 function resetMaintenanceRate(){maintenanceRateDraft.value={rate:currentMaintenanceRate.value?.values?.maintenanceProvisionPerKm??'',changeDate:istDateKey(getKfeReferenceNow())}}
 function monthStart(m){return (m||currentMonth.value)+'-01'}
