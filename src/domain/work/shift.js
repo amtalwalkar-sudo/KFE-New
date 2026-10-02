@@ -36,7 +36,7 @@ export function validateFirstDayShiftStartOdometer(currentOdometer, businessStar
 }
 
 export function validateGapAllocation(gapKm, category = null) {
-  const gap = Number(gapKm)
+  const gap = gapKm == null || gapKm === '' ? NaN : Number(gapKm)
   if (!Number.isFinite(gap) || gap < 0) {
     return { valid: false, requiresGapAllocation: true, gapKm: gap }
   }
