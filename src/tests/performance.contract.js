@@ -115,7 +115,6 @@ const historicalBaseSnapshot = {
 }
 const historicalDeficitMetrics = PerformanceService.getMetrics(historicalBaseSnapshot, range)
 assert.ok(historicalDeficitMetrics.driverTargetAvailable, JSON.stringify(historicalDeficitMetrics))
-assert.ok(Number.isFinite(historicalDeficitMetrics.driverTargetRollingBalance), JSON.stringify(historicalDeficitMetrics))
 assert.equal(historicalDeficitMetrics.driverTarget, historicalDeficitMetrics.driverTargetBase, 'Historical loss does not add a separate target adjustment')
 assert.equal(historicalDeficitMetrics.driverTargetRollingBalance, undefined)
 
