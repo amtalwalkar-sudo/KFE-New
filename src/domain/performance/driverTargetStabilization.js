@@ -24,7 +24,8 @@ const dateRevenueBefore=(map,dateKey)=>{let s=0;for(const[k,v]of map){if(k<dateK
 const dateRevenueThrough=(map,dateKey)=>{let s=0;for(const[k,v]of map){if(k<=dateKey)s+=v}return s}
 
 function targetRecordForMonth(driverTargets,month){
-  return latestForDay(driverTargets,monthStartDate(month))
+  const end=monthStartDate(month); end.setUTCDate(daysInMonth(month));
+  return latestForDay(driverTargets,end)
 }
 
 function buildMonthObligation({month,driverTargets,authoritativeBreakEvenForMonth,currentMonth,currentBreakEven}){
