@@ -211,8 +211,6 @@ export function deriveRollingDriverTarget({
     currentBaseDaily: Number.isFinite(currentBaseDaily) ? currentBaseDaily : null,
     currentPeriodBaseTarget: Number.isFinite(baseMonthly + openingRecovery) ? baseMonthly + openingRecovery : null,
     recoveryAdjustment: Number.isFinite(recoveryAdjustment) ? recoveryAdjustment : null,
-    operatingKmForecastDaily: forecastDailyKm,
-    operatingKmMultiplier,
     dailyRecovery: Number.isFinite(dailyRecovery) ? dailyRecovery : null,
     activeDays: financialDayKeys.length, financialDays: financialDayKeys.length, remainingEligibleDays: remainingDays,
     targetAllocatedBeforeCurrentDay, remainingObligation,
