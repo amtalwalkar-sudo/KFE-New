@@ -1,7 +1,7 @@
 import { istDateKey } from '../time/ist.js'
 import { CALCULATION_STATUS, calculationEvidence } from './calculationAuthority.js'
 
-const finite = v => Number.isFinite(Number(v)) ? Number(v) : null
+const finite = v => v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v)
 const live = xs => (xs || []).filter(x => !x?.deletedAt && x?.deleted !== true)
 const businessDate = v => istDateKey(v)
 const latest = (xs, range) => {
@@ -20,7 +20,10 @@ const latest = (xs, range) => {
     })[0] || null
 }
 
-export function deriveAuthoritativeBreakEven({ breakEvenInputs = [], range, loanScheduledObligation = NaN, preBusinessRecovery = 0, renewalProvision = NaN, fuelCostPerKm = NaN, fuelCostPerKmStatus = CALCULATION_STATUS.UNAVAILABLE, vehicleKm = NaN } = {}) {
+const serialForKey=key=>{if(!key||!/^\d{4}-\d{2}-\d{2}$/.test(key))return null;const[y,m,d]=key.split('-').map(Number);return Date.UTC(y,m-1,d)/86400000}
+export function calendarDayProratedMonthlyAmount(monthlyAmount,range){const amount=finite(monthlyAmount),from=serialForKey(businessDate(range?.from)),to=serialForKey(businessDate(range?.to));if(amount==null||amount<0||from==null||to==null||to<from)return null;let total=0;for(let day=from;day<=to;day++){const d=new Date(day*86400000),n=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).getUTCDate();total+=amount/n}return Math.round(total*100)/100}
+
+export function deriveAuthoritativeBreakEven({ breakEvenInputs = [], range, loanScheduledObligation = NaN, preBusinessRecovery = 0, historicalMaintenanceRecovery = 0, renewalProvision = NaN, fuelCostPerKm = NaN, fuelCostPerKmStatus = CALCULATION_STATUS.UNAVAILABLE, vehicleKm = NaN } = {}) {
   const input = latest(breakEvenInputs, range)
   if (!input) {
     return {
@@ -40,9 +43,10 @@ export function deriveAuthoritativeBreakEven({ breakEvenInputs = [], range, loan
     vehicleKm: Number.isFinite(Number(vehicleKm)),
     loanScheduledObligation: Number.isFinite(Number(loanScheduledObligation)),
     preBusinessRecovery: Number.isFinite(Number(preBusinessRecovery)),
+    historicalMaintenanceRecovery: Number.isFinite(Number(historicalMaintenanceRecovery)),
     renewalProvision: Number.isFinite(Number(renewalProvision)),
   }
-  const firstMissing = ['input', 'maintenanceProvisionPerKm', 'fuelCostPerKm', 'fuelCostPerKmEvidence', 'vehicleKm', 'loanScheduledObligation', 'preBusinessRecovery', 'renewalProvision'].find(key => !availability[key])
+  const firstMissing = ['input', 'maintenanceProvisionPerKm', 'fuelCostPerKm', 'fuelCostPerKmEvidence', 'vehicleKm', 'loanScheduledObligation', 'preBusinessRecovery', 'historicalMaintenanceRecovery', 'renewalProvision'].find(key => !availability[key])
   const numericComplete = ['input', 'maintenanceProvisionPerKm', 'fuelCostPerKm', 'vehicleKm', 'loanScheduledObligation', 'preBusinessRecovery', 'renewalProvision'].every(key => availability[key])
   if (!numericComplete) {
     return {
@@ -53,7 +57,7 @@ export function deriveAuthoritativeBreakEven({ breakEvenInputs = [], range, loan
       trace: { ...availability, firstMissing },
     }
   }
-  const fixedCosts = Number(loanScheduledObligation) + Number(preBusinessRecovery) + Number(renewalProvision)
+  const fixedCosts = Number(loanScheduledObligation) + Number(preBusinessRecovery) + Number(historicalMaintenanceRecovery) + Number(renewalProvision)
   const dynamicCosts = Number(vehicleKm) * Number(fuelCostPerKm) + Number(vehicleKm) * maintenanceProvisionPerKm
   const monthlyBreakEvenRevenue = fixedCosts + dynamicCosts
   if (fuelCostPerKmStatus !== CALCULATION_STATUS.AUTHORITATIVE) {

@@ -562,19 +562,14 @@ The break-even model is therefore based on vehicle movement, not business-trip K
 
 ## 15. Driver target
 
-- Admin enters desired driver take-home/profit target.
-- The desired amount is above the applicable break-even requirement.
-- The daily driver target is dynamically derived from the applicable break-even requirement, the Admin-defined desired take-home/profit amount, and the driver's existing lifetime/rolling recovery/surplus balance.
-- Driver Target = current required target after applying the existing lifetime/rolling recovery balance.
-- Active working days participate in the rolling balance.
-- Inactive/off days do not create a driver target and do not increase the recovery requirement.
-- A below-target active day creates/reinforces recovery.
-- An above-target active day reduces outstanding recovery or creates surplus.
-- Future active-day targets adjust progressively from the existing carried balance rather than resetting independently each day.
-- The rolling balance is carried forward so target changes are smooth rather than resetting each day.
-- Lifetime rolling profit/loss and recovery contribution remain visible to the target system.
-- No separate smoothing window, arbitrary averaging period, or new target-smoothing formula is introduced.
-- The frozen rolling recovery/surplus mechanism remains the source of truth for the target adjustment; an implementation must not replace it with an N-day average or an independently invented recovery ledger.
+- Admin enters the desired driver take-home/profit amount for a specific month.
+- The value remains effective for that month until a newer effective target record replaces it.
+- The authoritative monthly target is **monthly break-even + the Admin-entered desired monthly driver profit**.
+- Break-even includes applicable fuel-per-KM and maintenance-per-KM costs, EMI, compliance and normalized historical pre-business obligations. Do not add maintenance-per-KM or historical recovery a second time to the target.
+- Daily guidance is the monthly target divided evenly across the calendar days in that target month.
+- The target is available before the first trip when authoritative break-even and the effective Admin target are available.
+- Historical actual/provisional profit and historical recovery remain visible in financial reporting but do not create an additional rolling target adjustment.
+- Operating-KM forecasts are diagnostic only and must not multiply or otherwise alter the financial target.
 
 ## 16. Calculation confidence and history
 

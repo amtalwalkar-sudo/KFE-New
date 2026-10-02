@@ -1,6 +1,6 @@
 import { derivePerformance as deriveOperationalPerformance, previousRange as derivePreviousRange } from './performanceEngineV2.js'
 import { CALCULATION_STATUS } from './calculationAuthority.js'
-import { deriveAuthoritativeBreakEven } from './authoritativeBreakEven.js'
+import { deriveAuthoritativeBreakEven, calendarDayProratedMonthlyAmount } from './authoritativeBreakEven.js'
 import { deriveLoanPosition, calculatePreBusinessLoanRecovery, calculatePreBusinessLoanRecoveryForRange } from '../finance/loanEngine.js'
 import { calculateHistoricalMaintenanceRecovery, calculateHistoricalMaintenanceRecoveryForRange } from './performanceEngineV2.js'
 import { istMonthRange } from '../time/ist.js'
@@ -47,10 +47,11 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   const monthlyBase = deriveOperationalPerformance(snapshot, breakEvenMonthRange, derivePreviousRange(breakEvenMonthRange))
   const monthAsOf = asOf(breakEvenMonthRange)
   const monthFinance = activeLoan ? deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: monthAsOf }) : null
-  const monthScheduledEmi = monthFinance?.schedule ? monthFinance.schedule.filter(row => inRange(row.dueDate, breakEvenMonthRange)).reduce((sum, row) => sum + money(row.originalEmiAmount), 0) : 0
-  const monthPreBusinessRecovery = monthFinance ? calculatePreBusinessLoanRecovery({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, businessStartDate: businessStart, asOf: monthAsOf }) : 0
-  const monthHistoricalMaintenanceRecovery = calculateHistoricalMaintenanceRecovery({ vehicles: snapshot?.vehicles || [], businessStartDate: businessStart, asOf: monthAsOf })
-  const breakEven = deriveAuthoritativeBreakEven({ breakEvenInputs: snapshot?.breakEvenInputs || [], range: breakEvenMonthRange, loanScheduledObligation: monthScheduledEmi, preBusinessRecovery: monthPreBusinessRecovery, renewalProvision: monthlyBase.renewalProvision, fuelCostPerKm: monthlyBase.breakEvenInputs?.fuelCostPerKm ?? monthlyBase.fuelCostPerKm, fuelCostPerKmStatus: monthlyBase.breakEvenInputs?.fuelEvidence?.status || CALCULATION_STATUS.UNAVAILABLE, vehicleKm: monthlyBase.vehicleKm })
+  const scheduledMonthlyEmi = monthFinance?.schedule?.map(row => Number(row.originalEmiAmount)).find(value => Number.isFinite(value) && value > 0)
+  const monthScheduledEmi = hasIncompleteActiveLoan ? NaN : activeLoan ? calendarDayProratedMonthlyAmount(scheduledMonthlyEmi, breakEvenMonthRange) : 0
+  const monthPreBusinessRecovery = monthFinance ? calculatePreBusinessLoanRecoveryForRange({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, businessStartDate: businessStart, range: breakEvenMonthRange }) : 0
+  const monthHistoricalMaintenanceRecovery = calculateHistoricalMaintenanceRecoveryForRange({ vehicles: snapshot?.vehicles || [], businessStartDate: businessStart, range: breakEvenMonthRange })
+  const breakEven = deriveAuthoritativeBreakEven({ breakEvenInputs: snapshot?.breakEvenInputs || [], range: breakEvenMonthRange, loanScheduledObligation: monthScheduledEmi, preBusinessRecovery: monthPreBusinessRecovery, historicalMaintenanceRecovery: monthHistoricalMaintenanceRecovery, renewalProvision: monthlyBase.renewalProvision, fuelCostPerKm: monthlyBase.breakEvenInputs?.fuelCostPerKm ?? monthlyBase.fuelCostPerKm, fuelCostPerKmStatus: monthlyBase.breakEvenInputs?.fuelEvidence?.status || CALCULATION_STATUS.UNAVAILABLE, vehicleKm: monthlyBase.vehicleKm })
   const monthlyBreakEvenRevenue = breakEven.available ? breakEven.monthlyBreakEvenRevenue : NaN
   const authoritativeMaintenanceProvision = Number.isFinite(Number(base.maintenanceProvision)) ? Number(base.maintenanceProvision) : NaN
   const provisionRequired = Number.isFinite(authoritativeMaintenanceProvision) && Number.isFinite(Number(base.renewalProvision)) ? authoritativeMaintenanceProvision + Number(base.renewalProvision) : NaN
@@ -61,19 +62,15 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   const actualFinancingOutflow = money(finance?.actualFinancingOutflow)
   const availableCash = money(base.operatingProfit) - actualFinancingOutflow
   const loanProvisionForPeriod = finance && previousFinance ? Math.max(0, money(finance.provisionAccumulated) - money(previousFinance.provisionAccumulated)) : 0
-  const totalIndicativeProvision = loanProvisionForPeriod + (Number.isFinite(authoritativeMaintenanceProvision) ? authoritativeMaintenanceProvision : 0) + (Number.isFinite(Number(base.renewalProvision)) ? Number(base.renewalProvision) : 0)
+  const totalIndicativeProvision = Number.isFinite(authoritativeMaintenanceProvision) && Number.isFinite(Number(base.renewalProvision)) ? loanProvisionForPeriod + authoritativeMaintenanceProvision + Number(base.renewalProvision) : NaN
   // Existing operating/indicative metrics remain authoritative for their original uses.
   // Performance headlines are separate presentation-level business-position metrics:
   // both explicitly include the full scheduled EMI for the selected period.
   const performanceActualProfit = Number.isFinite(Number(base.operatingProfit))
     ? Number(base.operatingProfit) - currentScheduledEmi
     : NaN
-  const performanceProvisionalProfit = Number.isFinite(performanceActualProfit)
-    ? performanceActualProfit
-      - (Number.isFinite(authoritativeMaintenanceProvision) ? authoritativeMaintenanceProvision : 0)
-      - (Number.isFinite(Number(base.renewalProvision)) ? Number(base.renewalProvision) : 0)
-      - preBusinessRecoveryForPeriod
-      - historicalMaintenanceRecoveryForPeriod
+  const performanceProvisionalProfit = Number.isFinite(performanceActualProfit) && Number.isFinite(authoritativeMaintenanceProvision) && Number.isFinite(Number(base.renewalProvision))
+    ? performanceActualProfit - authoritativeMaintenanceProvision - Number(base.renewalProvision) - preBusinessRecoveryForPeriod - historicalMaintenanceRecoveryForPeriod
     : NaN
   const actualProfit = base.operatingProfit
   const indicativeProfit = performanceProvisionalProfit

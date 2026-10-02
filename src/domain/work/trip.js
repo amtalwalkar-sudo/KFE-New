@@ -18,6 +18,8 @@ export function validateTripCorrection(data = {}) {
     const tripKm = Number(data.tripKm)
     if (!Number.isFinite(tripKm) || tripKm < 0) return { valid: false, reason: 'Trip KM must be a non-negative number.' }
     result.tripKm = tripKm
+    result.tripKmAuthority = 'MANUAL'
+    result.tripKmProvenance = { method: 'MANUAL_CORRECTION', source: 'WORK_TRIP_CORRECTION' }
   }
   if (data.revenue !== undefined && data.revenue !== '') {
     const revenue = Number(data.revenue)

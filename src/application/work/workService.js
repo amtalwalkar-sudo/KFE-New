@@ -39,7 +39,7 @@ export const WorkService = Object.freeze({
         startOdometer: shift.shift.startOdometer,
         endOdometer: closingOdometer,
         router: new ValhallaRoutingAdapter(),
-        businessKmByTripId: Object.fromEntries(trips.filter(item => Number.isFinite(Number(item.tripKm)) && Number(item.tripKm) >= 0).map(item => [item.id, Number(item.tripKm)])),
+        businessKmByTripId: Object.fromEntries(trips.filter(item => item.tripKm != null && item.tripKm !== '' && Number.isFinite(Number(item.tripKm)) && Number(item.tripKm) >= 0).map(item => [item.id, Number(item.tripKm)])),
         gpsSnapshots
       })
     } catch (error) {
@@ -50,7 +50,7 @@ export const WorkService = Object.freeze({
   async captureLocation(data) { const result = await captureLifecycleLocation(data); checkpoint(); return result },
   validateShiftStartOdometer(currentOdometer, previousOdometer) { return validateShiftStartOdometer(currentOdometer, previousOdometer) },
   validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer) { return validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer) },
-  validateGapAllocation(gapKm, personalKm, deadKm) { return validateGapAllocation(gapKm, personalKm, deadKm) },
+  validateGapAllocation(gapKm, category) { return validateGapAllocation(gapKm, category) },
   calculateFuelQuantity(pricePerKg, amount) { return calculateFuelQuantity({ pricePerKg, amount }) },
   reconcileShiftRevenue(data) { return reconcileShiftRevenue(data) },
   async startShift(data) { const result = await ShiftTripRepository.createShift(data); checkpoint(); return result },
@@ -119,7 +119,7 @@ export const WorkService = Object.freeze({
           startOdometer: active.shift.startOdometer,
           endOdometer: data?.closingOdometer,
           router: new ValhallaRoutingAdapter(),
-          businessKmByTripId: Object.fromEntries(movementTrips.filter(item => Number.isFinite(Number(item.tripKm)) && Number(item.tripKm) >= 0).map(item => [item.id, Number(item.tripKm)])),
+          businessKmByTripId: Object.fromEntries(movementTrips.filter(item => item.tripKm != null && item.tripKm !== '' && Number.isFinite(Number(item.tripKm)) && Number(item.tripKm) >= 0).map(item => [item.id, Number(item.tripKm)])),
           gpsSnapshots
         })
         completionData.movementReconciliation = reconciliation

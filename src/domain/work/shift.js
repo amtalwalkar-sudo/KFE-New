@@ -28,7 +28,7 @@ export function validateFirstDayShiftStartOdometer(currentOdometer, businessStar
   const historicalKm = Number.isFinite(businessStart) ? current - businessStart : 0
   return {
     valid: true,
-    gapKm: 0,
+    gapKm: historicalKm,
     historicalKm,
     businessStartOdometer: Number.isFinite(businessStart) ? businessStart : null,
     historicalOdometerGap: historicalKm > 0
