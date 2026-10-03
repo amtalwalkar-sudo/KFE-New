@@ -57,7 +57,7 @@ const principal = 550000
 const monthlyRate = 0.10 / 12
 const months = 60
 const emi = principal * monthlyRate * ((1 + monthlyRate) ** months) / (((1 + monthlyRate) ** months) - 1)
-near(emi, 11670.45, 'CV-15 independent EMI oracle')
+near(emi, 11685.874591197584, 'CV-15 independent EMI oracle')
 assert.equal(120000 / 12, 10000, 'CV-16 zero-interest amortization control')
 
 const day = istDayRange('2026-10-03T12:00:00+05:30')
