@@ -42,6 +42,23 @@ The overlay must provide the following current-work information as applicable to
 
 During Trip Complete / Fare Entry, the overlay must provide a fare-entry prompt.
 
+### 3.1 Frozen State 1 — ONLINE / READY
+
+When the current Work state is **ONLINE / READY**:
+
+- The overlay displays **only the current Target progress**.
+- No additional information is displayed.
+- The primary overlay action is **GO TO PICKUP**.
+- **GO TO PICKUP** uses the frozen **Blue semantic** action colour.
+- No previous-trip or next-trip information is displayed.
+- **GO TO PICKUP** is available directly from both the Android overlay and the PWA.
+- Both surfaces must remain synchronized representations of the same canonical state and command.
+- GPS is **background context only** in this state. GPS availability must not block the overlay action.
+- The overlay can be minimized by holding it and dragging it upward beyond the phone's upper edge.
+- When minimized, it becomes a **bubble** fixed to either the left or right edge of the screen.
+- The minimized bubble remains movable by holding and dragging it.
+- No other information or control is introduced into ONLINE / READY beyond these frozen rules.
+
 ## 4. Fare Entry
 
 After a ride ends, fare entry must be available through the overlay.
@@ -157,3 +174,19 @@ Frozen from the agreed Overlay rules:
 - Starting/ending a ride from either surface transitions the same canonical trip and exposes the same next phase.
 - Future additions are made to this same document.
 - Contradictions must produce a caution warning with implications before implementation.
+
+### State 1 Freeze — ONLINE / READY — 2026-10-03
+
+Frozen from the agreed state-by-state definition:
+
+- Only current Target progress is displayed.
+- Primary action is GO TO PICKUP.
+- GO TO PICKUP uses the Blue semantic action colour.
+- No previous-trip or next-trip information is displayed.
+- GO TO PICKUP is available directly from both the overlay and PWA.
+- Overlay and PWA remain synchronized on the same canonical state and command.
+- GPS remains background context only and does not block the action.
+- Overlay can be minimized by holding and dragging it beyond the phone's upper edge.
+- Minimized overlay becomes a bubble fixed to either the left or right screen edge.
+- The bubble can be moved by holding and dragging it.
+- No additional information or controls are added to ONLINE / READY.
