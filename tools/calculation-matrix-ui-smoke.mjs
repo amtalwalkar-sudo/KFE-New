@@ -17,7 +17,7 @@ const checks=[
  ['CV-09','performance','.performance-page','Fuel trail'],
  ['CV-10','performance','.performance-page','Total spend'],
  ['CV-11','performance','.performance-page','Maintenance'],
- ['CV-12','performance','.performance-page','Maintenance provision'],
+ ['CV-12','performance','.performance-page','Maintenance'],
  ['CV-13','performance','.performance-page','RECOVERY & PROVISIONS'],
  ['CV-14','performance','.performance-page','Compliance'],
  ['CV-15','admin','.admin-page','Loan'],
