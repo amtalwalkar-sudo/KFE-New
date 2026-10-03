@@ -34,9 +34,7 @@ When two documents appear to define the same responsibility, the authority liste
 ## 3. Supporting documents — not competing authorities
 
 ### Business / calculation evidence
-- KFE_BUSINESS_RULES_AUDIT.md — business-rule audit/evidence.
-- KFE_BUSINESS_RULES_REAUDIT_PHASE3.md — re-audit/evidence.
-- KFE_BUSINESS_RULE_DEFECTS.md — defect ledger/disposition.
+- docs/KFE-BUSINESS-RULES-AUDIT-EVIDENCE.md — consolidated business-rule audit, re-audit, and defect evidence.
 - docs/CALCULATION-AUTHORITY-MATRIX.md — calculation traceability/evidence.
 - docs/DRIVER-TARGET-AUTHORITATIVE-AUDIT-2026-09-16.md — Driver Target audit/evidence.
 - docs/DRIVER-TARGET-IMPLEMENTATION-BOUNDARY.md — Driver Target implementation boundary.
@@ -44,8 +42,7 @@ When two documents appear to define the same responsibility, the authority liste
 - docs/OPERATING-KM-FORECAST.md — operating-KM forecast implementation/reference.
 - docs/PROFIT_TARGET_RECOVERY_AUDIT.md — profit/target/recovery audit.
 - docs/KFE-FINANCE-FREEZE-2026-09-17.md — frozen finance implementation supplement.
-- docs/KFE-PHASE-5-CALCULATION-PERFORMANCE-CONTRACT.md — performance integration/evidence.
-- docs/KFE-PHASE-5-CALCULATION-TRACEABILITY.md — calculation traceability/evidence.
+- docs/KFE-PHASE-5-CALCULATION-EVIDENCE.md — consolidated calculation integration and traceability evidence.
 
 ### Data / persistence / operational evidence
 - docs/KFE-PHASE-2-PERSISTENCE-CONTRACT.md — persistence implementation/evidence under canonical data contract.
@@ -62,7 +59,6 @@ When two documents appear to define the same responsibility, the authority liste
 - docs/KFE-PWA-VISUAL-APPLICATION.md — presentation implementation/reference.
 - docs/PERFORMANCE-FOUNDATION.md — Performance presentation foundation.
 - docs/TIMELINE-FOUNDATION.md — Timeline presentation foundation.
-- docs/KFE-VISUAL-PHASE-3-FREEZE.md — visual phase evidence/freeze.
 - docs/KFE-PHASE-4-RUNTIME-VISUAL-VERIFICATION.md — runtime visual evidence.
 - docs/KFE-UNIVERSAL-FORM-STANDARD.md and docs/KFE-UNIVERSAL-FORM-ACTION-RECOVERY-RULES-FROZEN.md remain canonical within their distinct boundaries; they do not compete with the shell contract.
 
@@ -104,9 +100,6 @@ The following are historical/frozen phase evidence and are not independent autho
 
 If a phase freeze contains a substantive rule that is still active, that rule must be represented in the appropriate canonical authority. The freeze remains as evidence/history.
 
-## 5. Frozen requirements disposition
-
-KFE_FROZEN_REQUIREMENTS.md is retained only as a historical implementation freeze during this consolidation. Its active fuel/data requirements are governed by docs/KFE-CANONICAL-DATA-CONTRACT.md; its GPS lifecycle requirements are governed by docs/KFE-OPERATIONAL-LIFECYCLE-CONTRACT.md. It is not an independent authority.
 
 ## 6. Conflict rule
 

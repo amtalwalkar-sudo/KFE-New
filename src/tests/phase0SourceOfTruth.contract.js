@@ -8,8 +8,7 @@ const required = [
   'KFE_LAUNCH_STATUS.md',
   'KFE_LAUNCH_BACKLOG.md',
   'KFE_BUSINESS_RULES_REGISTER.md',
-  'KFE_BUSINESS_RULES_AUDIT.md',
-  'KFE_BUSINESS_RULE_DEFECTS.md'
+  'docs/KFE-BUSINESS-RULES-AUDIT-EVIDENCE.md'
 ]
 
 const forbidden = [
@@ -58,7 +57,7 @@ if (!failures.length) {
     failures.push('status does not show a valid post-Phase-0 active state')
   }
   requireMatch('KFE_BUSINESS_RULES_REGISTER.md', /AUTHORITATIVE — SOLE BUSINESS-RULE AUTHORITY/, 'business-rule register is not marked sole authority')
-  requireMatch('KFE_BUSINESS_RULES_AUDIT.md', /KFE_BUSINESS_RULES_REGISTER\.md/, 'business-rule audit is not bound to the register')
+  requireMatch('docs/KFE-BUSINESS-RULES-AUDIT-EVIDENCE.md', /KFE_BUSINESS_RULES_REGISTER\.md/, 'consolidated business-rule evidence is not bound to the register')
 }
 
 const walk = dir => {
@@ -79,8 +78,7 @@ const activeDocs = [
   'KFE_LAUNCH_STATUS.md',
   'KFE_LAUNCH_BACKLOG.md',
   'KFE_BUSINESS_RULES_REGISTER.md',
-  'KFE_BUSINESS_RULES_AUDIT.md',
-  'KFE_BUSINESS_RULE_DEFECTS.md'
+  'docs/KFE-BUSINESS-RULES-AUDIT-EVIDENCE.md'
 ]
 const sourceFiles = walk(root).map(file => relative(root, file).replaceAll('\\\\', '/'))
 
