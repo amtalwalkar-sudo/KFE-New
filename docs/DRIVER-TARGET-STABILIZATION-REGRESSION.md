@@ -1,6 +1,6 @@
 # Driver Target Stabilization Regression Contract
 
-**Status:** AUTHORITATIVE IMPLEMENTATION CONTRACT
+**Status:** SUPPORTING REGRESSION / EVIDENCE — subordinate to KFE_BUSINESS_RULES_REGISTER.md and docs/KFE-CALCULATION-SPECIFICATION.md IMPLEMENTATION CONTRACT
 
 This contract protects the frozen driver-target interpretation without introducing a new smoothing formula.
 
