@@ -111,11 +111,28 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
 
   const endTrip = async () => {
     if (!isTripActive.value) return false
-    const tripId = trip.value.id
+    const current = trip.value
+    const tripId = current.id
     const result = await WorkService.completeTrip({ id: tripId })
     if (result?.ok === false || result === false) return false
+
+    // The persisted completion is authoritative. Move the trip into the local
+    // completed list immediately so the fare form never depends on a second read.
+    const completed = {
+      ...current,
+      status: 'COMPLETED',
+      tripStage: 'COMPLETED',
+      tripEndAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+    trip.value = null
+    registeredTrips.value = registeredTrips.value.map(item => item.id === tripId ? completed : item)
+    if (!registeredTrips.value.some(item => item.id === tripId)) registeredTrips.value = [...registeredTrips.value, completed]
+    completedTrips.value = [...completedTrips.value.filter(item => item.id !== tripId), completed]
     MovementTraceService.reset()
-    await refresh()
+
+    // Refresh for canonical enrichment in the background; do not block END TRIP.
+    void refresh().catch(() => {})
     return true
   }
 
