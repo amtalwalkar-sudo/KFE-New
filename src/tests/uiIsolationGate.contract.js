@@ -32,7 +32,7 @@ assert.match(local.stdout, /LOCAL CANDIDATE/)
 // Negative control: business/persistence/native authority can never be labelled presentation-only.
 const protectedResult = runGate('src/domain/trip.js')
 assert.notEqual(protectedResult.status, 0)
-assert.match(protectedResult.stderr, /protected business, persistence, or native authority/)
+assert.match(protectedResult.stderr, /protected business or persistence authority/)
 
 // Native implementation is protected by default but may proceed only with an
 // explicit cross-surface native-impact acknowledgement.
