@@ -120,6 +120,8 @@ Required before declaring native GPS/background behavior device-validated:
 
 A passing repository or emulator gate does **not** substitute for Level C evidence.
 
+Native fare/cancellation forms are also treated as uncommitted until the canonical PWA mutation is acknowledged; enqueueing a durable event is not itself a business commit.
+
 ## Failure rule
 
 Any uncovered frozen requirement, competing authority, private mutation path, stale identity path, unverified restart boundary, or missing proof-level evidence keeps conformance open. The suite must fail rather than silently downgrade the requirement to documentation-only status.
