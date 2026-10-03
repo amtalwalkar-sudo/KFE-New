@@ -36,6 +36,8 @@ jobs:
 
       - name: Run KFE Foundation Contract Tests
         run: npm test
+      - name: Run 11-Step End-to-End Conformance Gate
+        run: node src/tests/endToEndConformance.contract.js
 
       - name: Build Production PWA Assets
         run: npm run build

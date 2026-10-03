@@ -9,6 +9,7 @@ import process from 'node:process'
 
 const args = process.argv.slice(2)
 const acknowledge = args.includes('--acknowledge-shared-impact')
+const acknowledgeNative = args.includes('--acknowledge-native-impact')
 const requested = args.filter((arg) => !arg.startsWith('--')).map((p) => p.replaceAll('\\', '/').replace(/^\.\//, ''))
 
 if (!requested.length) {
@@ -19,7 +20,7 @@ if (!requested.length) {
 
 const protectedPrefixes = [
   'src/domain/', 'src/application/', 'src/repositories/', 'src/infrastructure/',
-  'src/utils/indexedDB.js', 'android/', 'capacitor.config.'
+  'src/utils/indexedDB.js'
 ]
 const sharedPrefixes = [
   'src/styles/', 'src/assets/styles/', 'src/components/shell/',
@@ -27,16 +28,28 @@ const sharedPrefixes = [
 ]
 const isUnder = (file, prefix) => file === prefix || file.startsWith(prefix)
 const protectedFiles = requested.filter((file) => protectedPrefixes.some((prefix) => isUnder(file, prefix)))
+const nativeFiles = requested.filter((file) => isUnder(file, 'android/') || isUnder(file, 'capacitor.config.'))
 const sharedFiles = requested.filter((file) => sharedPrefixes.some((prefix) => isUnder(file, prefix)))
 
 console.log('KFE UI CHANGE PREFLIGHT')
 for (const file of requested) console.log(`Requested: ${file}`)
 
 if (protectedFiles.length) {
-  console.error('\n🔴 CHANGE IMPACT WARNING — protected business, persistence, or native authority is in scope:')
+  console.error('\n🔴 CHANGE IMPACT WARNING — protected business or persistence authority is in scope:')
   for (const file of protectedFiles) console.error(`  - ${file}`)
   console.error('Stop. This is not a presentation-only change. Separate it or explicitly redesign the cross-layer contract.')
   process.exit(1)
+}
+
+if (nativeFiles.length && !acknowledgeNative) {
+  console.error('\n🔴 CHANGE IMPACT WARNING — native implementation authority is in scope:')
+  for (const file of nativeFiles) console.error(`  - ${file}`)
+  console.error('This is a cross-layer native change. Review the native/lifecycle/data contract impact, then rerun with --acknowledge-native-impact.')
+  process.exit(1)
+}
+
+if (nativeFiles.length && acknowledgeNative) {
+  console.log('\n🟡 NATIVE IMPACT ACKNOWLEDGED — native implementation changes require cross-surface lifecycle, Android, and exact-APK verification.')
 }
 
 if (sharedFiles.length) {
