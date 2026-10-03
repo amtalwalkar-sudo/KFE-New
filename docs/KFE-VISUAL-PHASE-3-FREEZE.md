@@ -32,10 +32,10 @@ Phase 3 does not flatten Work, Timeline, Performance, or Admin into one identica
 
 ## Governing result
 
-**Shell = frame. UI = shared visual primitives. UX = workflow. Visual DNA = shared visual authority.**
+**Shell = frame. UI = shared visual primitives. UX = workflow. Visual design vocabulary from this historical freeze is evidence only; current presentation authority is `docs/UI-UX-SHELL-CONTRACT.md`.**
 
 No business calculation, canonical data authority, or operational workflow was changed by this phase.
 
 ## Historical-record rule
 
-This freeze records a completed visual-architecture workstream. It does not create a separate roadmap or phase sequence and cannot override the current launch master plan.
+This freeze records a completed visual-architecture workstream. It does not create a separate roadmap, phase sequence, presentation authority, or current UI contract. It cannot override the current launch master plan or `docs/UI-UX-SHELL-CONTRACT.md`.
