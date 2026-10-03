@@ -36,6 +36,7 @@ public class KfeOverlayService extends Service {
   static final String ACTION_SHOW="com.kanishka.pwa.KFE_OVERLAY_SHOW";
   static final String ACTION_UPDATE="com.kanishka.pwa.KFE_OVERLAY_UPDATE";
   static final String ACTION_HIDE="com.kanishka.pwa.KFE_OVERLAY_HIDE";
+  static final String ACTION_MINIMIZE="com.kanishka.pwa.KFE_OVERLAY_MINIMIZE";
   static final String ACTION_FARE_SAVED="com.kanishka.pwa.KFE_OVERLAY_FARE_SAVED";
   static final String ACTION_CANCEL_SAVED="com.kanishka.pwa.KFE_OVERLAY_CANCEL_SAVED";
   static final String EXTRA_STATE="state";
@@ -96,6 +97,7 @@ public class KfeOverlayService extends Service {
   @Override public void onCreate(){super.onCreate();instance=this;
     android.content.SharedPreferences saved=getSharedPreferences("kfe_overlay",MODE_PRIVATE);
     actionStage=saved.getString("actionStage","GO_TO_PICKUP");
+    minimized=saved.getBoolean("minimized",false);
     pendingTripId=saved.getString("pendingTripId","");
     pendingFareTripId=saved.getString("pendingFareTripId","");
     awaitingEventId=saved.getString("awaitingEventId","");
@@ -116,6 +118,7 @@ public class KfeOverlayService extends Service {
     }
     String action=intent.getAction();
     if(ACTION_HIDE.equals(action)){removeOverlay();stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return START_NOT_STICKY;}
+    if(ACTION_MINIMIZE.equals(action)){minimizeToBubble();return START_STICKY;}
     if(ACTION_FARE_SAVED.equals(action)){onFareSaved();return START_NOT_STICKY;}
     if(ACTION_CANCEL_SAVED.equals(action)){onCancelSaved();return START_NOT_STICKY;}
     if(!Settings.canDrawOverlays(this))return START_NOT_STICKY;
@@ -128,8 +131,15 @@ public class KfeOverlayService extends Service {
     windowManager=(WindowManager)getSystemService(WINDOW_SERVICE);
     params=new WindowManager.LayoutParams(WindowManager.LayoutParams.MATCH_PARENT,dp(COLLAPSED_TOTAL_DP),WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,PixelFormat.TRANSLUCENT);
     params.gravity=Gravity.TOP|Gravity.START;
-    params.x=getSharedPreferences("kfe_overlay",MODE_PRIVATE).getInt("x",0);
-    params.y=getSharedPreferences("kfe_overlay",MODE_PRIVATE).getInt("y",dp(120));
+    android.content.SharedPreferences saved=getSharedPreferences("kfe_overlay",MODE_PRIVATE);
+    minimized=saved.getBoolean("minimized",false);
+    int screenWidth=getResources().getDisplayMetrics().widthPixels;
+    params.width=minimized?dp(BUBBLE_DP):WindowManager.LayoutParams.MATCH_PARENT;
+    params.height=minimized?dp(BUBBLE_DP):dp(COLLAPSED_TOTAL_DP);
+    int savedX=saved.getInt("x",0);
+    params.x=minimized?Math.max(0,Math.min(Math.max(0,screenWidth-dp(BUBBLE_DP)),savedX)):0;
+    params.y=saved.getInt("y",dp(120));
+    if(minimized) params.y=Math.max(0,Math.min(Math.max(0,windowManager.getDefaultDisplay().getHeight()-dp(BUBBLE_DP)),params.y));
     overlayRoot=new FrameLayout(this);
     overlay=new SwipeOverlayView(this);
     overlayRoot.addView(overlay,new FrameLayout.LayoutParams(-1,-1));
@@ -261,10 +271,37 @@ public class KfeOverlayService extends Service {
   }
 
   private void hideIfKfeActivityForeground(){
-    // Process importance also reports foreground instrumentation/other process
-    // work and is not proof that the user can see MainActivity. Hide the overlay
-    // only while the actual KFE activity is resumed.
-    if(MainActivity.isResumed) removeOverlay();
+    // When the PWA is foreground, keep the native surface alive as a bubble.
+    // This preserves the active native workflow and avoids recreating an
+    // expanded MATCH_PARENT window at a stale horizontal offset.
+    if(MainActivity.isResumed && overlay!=null && !formModeIsOpen()) minimizeToBubble();
+  }
+
+  private boolean formModeIsOpen(){ return formMode!=null; }
+
+  private void minimizeToBubble(){
+    if(overlayRoot==null || params==null) return;
+    if(minimized && params.width==dp(BUBBLE_DP) && params.height==dp(BUBBLE_DP)) return;
+    minimized=true;
+    int screenWidth=getResources().getDisplayMetrics().widthPixels;
+    params.width=dp(BUBBLE_DP);
+    params.height=dp(BUBBLE_DP);
+    params.x=Math.max(0,Math.min(Math.max(0,screenWidth-dp(BUBBLE_DP)),params.x));
+    params.y=Math.max(0,Math.min(Math.max(0,windowManager.getDefaultDisplay().getHeight()-dp(BUBBLE_DP)),params.y));
+    getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putBoolean("minimized",true).putInt("x",params.x).putInt("y",params.y).apply();
+    if(windowManager!=null) windowManager.updateViewLayout(overlayRoot,params);
+    if(overlay!=null) overlay.invalidate();
+  }
+
+  private void expandFromBubble(){
+    if(overlayRoot==null || params==null) return;
+    minimized=false;
+    params.width=WindowManager.LayoutParams.MATCH_PARENT;
+    params.height=dp(COLLAPSED_TOTAL_DP);
+    params.x=0;
+    getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putBoolean("minimized",false).putInt("x",0).apply();
+    if(windowManager!=null) windowManager.updateViewLayout(overlayRoot,params);
+    if(overlay!=null) overlay.invalidate();
   }
 
   private void openFareForm(){openNumericForm("FARE","TRIP DETAILS","Enter trip fare, toll and parking");}
@@ -460,13 +497,20 @@ public class KfeOverlayService extends Service {
     private void text(float size,int color,boolean bold){paint.setStyle(Paint.Style.FILL);paint.setColor(color);paint.setTextSize(dp((int)size));paint.setTypeface(android.graphics.Typeface.create("sans-serif",bold?android.graphics.Typeface.BOLD:android.graphics.Typeface.NORMAL));}
     private void center(Canvas c,String s,float x,float y){c.drawText(s,x-paint.measureText(s)/2f,y,paint);}
     private float measureAction(String s,float size){paint.setTextSize(dp((int)size));return paint.measureText(s);}
+    private ValueAnimator retractAnimator;
+
     void animateProgressToZero(){
+      if(retractAnimator!=null) retractAnimator.cancel();
       float from=progress;
       if(from<=0.001f){progress=0f;invalidate();return;}
-      ValueAnimator animator=ValueAnimator.ofFloat(from,0f);
-      animator.setDuration(220L);
-      animator.addUpdateListener(v->{progress=(Float)v.getAnimatedValue();invalidate();});
-      animator.start();
+      retractAnimator=ValueAnimator.ofFloat(from,0f);
+      retractAnimator.setDuration(220L);
+      retractAnimator.addUpdateListener(v->{progress=(Float)v.getAnimatedValue();invalidate();});
+      retractAnimator.addListener(new android.animation.AnimatorListenerAdapter(){
+        @Override public void onAnimationEnd(android.animation.Animator animation){progress=0f;invalidate();}
+        @Override public void onAnimationCancel(android.animation.Animator animation){progress=0f;invalidate();}
+      });
+      retractAnimator.start();
     }
 
     @Override public boolean onTouchEvent(MotionEvent e){
@@ -500,7 +544,7 @@ public class KfeOverlayService extends Service {
               minimized=true;params.width=dp(BUBBLE_DP);params.height=dp(BUBBLE_DP);
               params.x=e.getRawX()<screenWidth/2f?0:Math.max(0,screenWidth-dp(BUBBLE_DP));
               params.y=Math.max(0,(int)e.getRawY()-dp(BUBBLE_DP)/2);
-              getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putInt("x",params.x).putInt("y",params.y).apply();
+              getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putBoolean("minimized",true).putInt("x",params.x).putInt("y",params.y).apply();
               if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);invalidate();return true;
             }
             int maxY=Math.max(0,windowManager.getDefaultDisplay().getHeight()-getHeight());params.y=Math.max(0,Math.min(maxY,proposedY));
@@ -515,7 +559,7 @@ public class KfeOverlayService extends Service {
             getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putInt("x",params.x).putInt("y",params.y).apply();
             if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);return true;
           }
-          if(minimized&&!moving&&Math.abs(fx)<dp(16)&&Math.abs(fy)<dp(16)){minimized=false;params.width=WindowManager.LayoutParams.MATCH_PARENT;params.height=dp(COLLAPSED_TOTAL_DP);params.x=0;if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);invalidate();return true;}
+          if(minimized&&!moving&&Math.abs(fx)<dp(16)&&Math.abs(fy)<dp(16)){expandFromBubble();return true;}
           if(!minimized&&!moving&&awaitingEventId.isEmpty()&&"START_RIDE".equals(actionStage)&&downX>getWidth()-dp(120)&&downY>=dp(60)&&downY<=dp(110)){openCancelForm();return true;}
           float maxTravel=Math.max(1,getWidth()-dp(16)-dp(58));
           if(!minimized&&!moving&&swipeEligible&&swipeLocked&&fx>=maxTravel*.70f){progress=1;invalidate();triggerAction();swipeLocked=false;swipeEligible=false;return true;}
