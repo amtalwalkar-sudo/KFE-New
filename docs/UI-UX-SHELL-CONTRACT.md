@@ -364,3 +364,17 @@ The warning must precede a potentially cross-boundary edit, not appear only in t
 ## Known implementation gap
 
 This contract establishes the source of truth and required guardrails. The current repository has an import-based `ui:impact` command, but it does **not yet prove** that every card/region can be relocated through a declarative layout manifest or that CSS/runtime/native dependencies are exhaustively detected. Do not claim “one-command layout editing with guaranteed zero collateral impact” until a layout-configuration layer and corresponding isolation/visual regression tests are implemented and passing. Until then, the safe workflow is one clear change request + impact preflight + scoped implementation + UI/E2E verification.
+
+
+### Automated preflight command
+
+Run before editing any UI-owned file:
+
+```bash
+npm run ui:preflight -- src/views/Work.vue
+npm run ui:impact -- src/views/Work.vue
+```
+
+The preflight blocks protected business/persistence/native paths and blocks shared shell, primitive, or global-style changes until the caller explicitly acknowledges the cross-surface review with `--acknowledge-shared-impact`. Pull requests changing UI-owned paths are also checked by `.github/workflows/ui-isolation-gate.yml`; shared-impact acknowledgement in the PR description uses `[ui-impact-reviewed]`. Acknowledgement records a decision; it does not prove isolation or replace visual/E2E evidence.
+
+This is a guardrail, not a mathematical proof that arbitrary CSS or runtime behavior cannot affect other surfaces. The safe guarantee is bounded: changes through a scoped component boundary can be treated as local candidates; shared CSS, shell, theme primitives and native surfaces are explicitly escalated and must pass cross-surface verification. Declarative card-position configuration and screenshot-diff automation remain future work.
