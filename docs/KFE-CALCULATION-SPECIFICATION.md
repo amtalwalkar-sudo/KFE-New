@@ -419,3 +419,12 @@ The following must not return:
 - treating the Admin-entered desired driver profit/take-home as the complete active-day target without the existing rolling recovery/surplus balance;
 - inventing a replacement recovery balance when the authoritative existing balance representation is unavailable;
 - invented “other business costs”.
+
+
+## 26. Calculation-document authority and supersession
+
+This document is the **sole human-readable arithmetic/calculation authority** for KFE. The business meaning and rule definitions remain solely governed by `KFE_BUSINESS_RULES_REGISTER.md`.
+
+The former `docs/CURRENT-BUSINESS-CALCULATION-AUTHORITY.md` is **superseded and must not be used as a parallel calculation authority**. Its valid calculation-map content is represented here or in the business-rule register. Its conflicting/older formulas are intentionally not carried forward.
+
+Supporting calculation documents may explain, audit, freeze, or evidence a specific area, but they must not define a competing formula or authority. Where a supporting document needs a permanent formula change, amend this specification and the relevant BR rule through the governed change path rather than creating a second authority.
