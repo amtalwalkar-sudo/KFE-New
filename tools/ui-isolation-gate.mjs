@@ -9,7 +9,7 @@ import process from 'node:process'
 
 const args = process.argv.slice(2)
 const acknowledge = args.includes('--acknowledge-shared-impact')
-const requested = args.filter((arg) => !arg.startsWith('--')).map((p) => p.replaceAll('\\\\', '/').replace(/^\.\//, ''))
+const requested = args.filter((arg) => !arg.startsWith('--')).map((p) => p.replaceAll('\\', '/').replace(/^\.\//, ''))
 
 if (!requested.length) {
   console.error('Usage: npm run ui:preflight -- <path> [path ...] [--acknowledge-shared-impact]')
