@@ -87,7 +87,6 @@ When the current Work state is **GO TO PICKUP**:
 - If the action is performed on either surface, the other surface must reflect the same canonical resulting state.
 - Cancellation performed from either surface must use the same canonical cancellation workflow and return both surfaces to the same resulting pickup state.
 
-
 ### 3.3 Frozen State 3 — READY FOR TRIP
 
 When the current Work state is **READY FOR TRIP**:
@@ -125,14 +124,33 @@ When the current Work state is **TRIP ACTIVE**:
   - hold and drag upward beyond the phone's upper edge;
   - overlay becomes a bubble;
   - bubble fixes to either the left or right screen edge;
-  - bubble remains movable by holding and dragging.
+  - bubble remains movable by holding and dragging it.
 - PWA and Android overlay remain synchronized representations of the same canonical workflow.
-- END TRIP can be initiated directly from either the PWA or Android overlay.
+- END TRIP can be initiated directly from either PWA or Android overlay.
 - When END TRIP / END RIDE is triggered, the same canonical **Fare + Toll + Parking** form is presented.
 - The ride does **not** end merely because END TRIP was triggered; the ride ends when the Fare + Toll + Parking form is completed and **OKAY** is confirmed through the canonical mutation path.
 - After successful confirmation, both PWA and Android reflect the completed ride and return to the next **GO TO PICKUP** workflow state.
 - The form and completion behavior must use the same fields, validation, business rules, canonical wiring, calculations, persistence/database, trip identity, and recovery/commit behavior as the PWA.
 - The swipe bar remains a touch surface only; it triggers the canonical END TRIP command and contains no independent business logic.
+
+### 3.5 Frozen State 5 — TRIP COMPLETE / FARE ENTRY
+
+When the current Work state is **TRIP COMPLETE / FARE ENTRY**:
+
+- The overlay presents the same canonical **Fare + Toll + Parking** entry form as the PWA.
+- If the form is incomplete or has not yet been confirmed with **OKAY**, the form **stays on screen**.
+- The form does not dismiss merely because the driver has entered partial values or because the screen is otherwise inactive.
+- GPS remains **background context only**.
+- The overlay uses the **same minimize / bubble behavior as the previous states**:
+  - hold and drag upward beyond the phone's upper edge;
+  - overlay becomes a bubble;
+  - bubble fixes to either the left or right screen edge;
+  - bubble remains movable by holding and dragging.
+- PWA and Android remain synchronized representations of the same canonical Fare Entry state and trip.
+- Fare completion is synchronized through the same canonical form, validation, business rules, wiring, calculations, persistence/database, trip identity, and recovery/commit behavior as the PWA.
+- When the driver completes the form and presses **OKAY**, the ride is committed/ended through the canonical mutation path.
+- After successful confirmation, both PWA and Android reflect the completed ride and return to **GO TO PICKUP** for the next pickup.
+- **Nothing else is added to State 5 beyond these frozen rules.**
 
 ## 4. Fare Entry
 
@@ -210,7 +228,6 @@ The intended architecture is:
 **PWA Work / Android Overlay → same canonical KFE state, commands, data, and calculations**
 
 The Android overlay is a presentation/action surface for the canonical workflow, not a parallel workflow.
-
 
 ## 11. Frozen Cross-Surface Driver Workflow
 
@@ -305,7 +322,6 @@ No Android-only swipe-bar interpretation may be introduced without an explicit r
 
 The displayed wording may follow the canonical PWA terminology for the same command; the command meaning must remain identical.
 
-
 ## 9. Rule Evolution and Contradiction Warning
 
 This document will be expanded as the Android Overlay + Notification rules are defined.
@@ -363,7 +379,7 @@ Frozen from the agreed state-by-state definition:
 - GO TO PICKUP is available directly from both the overlay and PWA.
 - Overlay and PWA remain synchronized on the same canonical state and command.
 - GPS remains background context only and does not block the action.
-- Overlay can be minimized by holding and dragging it beyond the phone's upper edge.
+- Overlay can be minimized by holding and dragging it beyond the upper edge.
 - Minimized overlay becomes a bubble fixed to either the left or right screen edge.
 - The bubble can be moved by holding and dragging it.
 - No additional information or controls are added to ONLINE / READY.
@@ -383,7 +399,6 @@ Frozen from the agreed state-by-state definition:
 - Minimize behavior is identical to State 1: hold and drag beyond the upper edge, then use the movable edge-docked bubble.
 - START TRIP and cancellation can be initiated from either PWA or overlay and both surfaces must reflect the same canonical resulting state.
 
-
 ### State 3 Freeze — READY FOR TRIP — 2026-10-03
 
 Frozen from the agreed state-by-state definition:
@@ -397,7 +412,6 @@ Frozen from the agreed state-by-state definition:
 - START TRIP is available from both PWA and Android overlay.
 - Both surfaces must reflect the same canonical TRIP ACTIVE transition.
 - The swipe bar is only a touch surface for triggering the canonical START TRIP command; it has no independent business logic.
-
 
 ### Cross-Surface Workflow + Swipe Bar Freeze — 2026-10-04
 
@@ -427,3 +441,16 @@ Frozen from the agreed state-by-state definition:
 - END TRIP opens the Fare + Toll + Parking form.
 - The ride ends only after the form is completed and OKAY is confirmed through the canonical mutation path.
 - Successful completion returns the workflow to GO TO PICKUP.
+
+### State 5 Freeze — TRIP COMPLETE / FARE ENTRY — 2026-10-04
+
+Frozen from the agreed state-by-state definition:
+
+- Present the same canonical Fare + Toll + Parking form as the PWA.
+- An incomplete or unconfirmed form stays on screen until OKAY is pressed.
+- GPS remains background context only.
+- Minimize/bubble behavior remains the same as previous states.
+- PWA and Android remain synchronized on the same canonical Fare Entry state and trip.
+- OKAY commits/ends the ride through the canonical mutation path.
+- After successful confirmation, both surfaces return to GO TO PICKUP.
+- Nothing else is added to State 5.
