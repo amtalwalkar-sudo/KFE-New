@@ -109,6 +109,31 @@ When the current Work state is **READY FOR TRIP**:
 - Starting the trip from either surface must commit the same canonical trip transition and cause both surfaces to reflect the same resulting **TRIP ACTIVE** state.
 - The swipe bar remains a touch surface only; it triggers the canonical START TRIP command and contains no independent business logic.
 
+### 3.4 Frozen State 4 — TRIP ACTIVE
+
+When the current Work state is **TRIP ACTIVE**:
+
+- The overlay displays:
+  - Live KM
+  - Target progress
+  - Timer
+- The primary action is **SWIPE TO END TRIP**.
+- **END TRIP** uses the frozen **Red semantic** action colour.
+- Cancellation is absent in this state.
+- GPS remains **background context only** and must not block the operational action.
+- The overlay uses the same minimize interaction frozen for the earlier states:
+  - hold and drag upward beyond the phone's upper edge;
+  - overlay becomes a bubble;
+  - bubble fixes to either the left or right screen edge;
+  - bubble remains movable by holding and dragging.
+- PWA and Android overlay remain synchronized representations of the same canonical workflow.
+- END TRIP can be initiated directly from either the PWA or Android overlay.
+- When END TRIP / END RIDE is triggered, the same canonical **Fare + Toll + Parking** form is presented.
+- The ride does **not** end merely because END TRIP was triggered; the ride ends when the Fare + Toll + Parking form is completed and **OKAY** is confirmed through the canonical mutation path.
+- After successful confirmation, both PWA and Android reflect the completed ride and return to the next **GO TO PICKUP** workflow state.
+- The form and completion behavior must use the same fields, validation, business rules, canonical wiring, calculations, persistence/database, trip identity, and recovery/commit behavior as the PWA.
+- The swipe bar remains a touch surface only; it triggers the canonical END TRIP command and contains no independent business logic.
+
 ## 4. Fare Entry
 
 After a ride ends, fare entry must be available through the overlay.
@@ -387,3 +412,18 @@ Frozen from the complete driver-workflow clarification:
 - PWA and Android swipe bars are two presentations of one shared interaction contract.
 - Swipe bar is a touch surface only and triggers the canonical command; it does not own business logic, calculations, persistence, or an independent workflow.
 - Swipe-bar design, mechanics, semantics, thresholds, gestures, animation, and semantic action colours are shared across PWA and Android; changes must apply to both.
+
+### State 4 Freeze — TRIP ACTIVE — 2026-10-04
+
+Frozen from the agreed state-by-state definition:
+
+- Display Live KM, Target progress, and Timer.
+- Primary action is SWIPE TO END TRIP.
+- END TRIP uses the Red semantic action colour.
+- Cancellation is absent.
+- GPS remains background context only.
+- Minimize behavior is identical to the earlier states: hold and drag beyond the upper edge, then use the movable edge-docked bubble.
+- PWA and Android remain synchronized representations of the same canonical workflow.
+- END TRIP opens the Fare + Toll + Parking form.
+- The ride ends only after the form is completed and OKAY is confirmed through the canonical mutation path.
+- Successful completion returns the workflow to GO TO PICKUP.
