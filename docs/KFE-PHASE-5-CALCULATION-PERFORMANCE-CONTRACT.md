@@ -1,7 +1,7 @@
 # KFE Phase 5 Calculation & Performance Contract
 
 **Phase:** 5 — Calculation & Performance Integration  
-**Status:** Working contract  
+**Status:** SUPPORTING IMPLEMENTATION CONTRACT — subordinate to KFE_BUSINESS_RULES_REGISTER.md and docs/KFE-CALCULATION-SPECIFICATION.md  
 **Calendar timezone:** `Asia/Kolkata`
 
 ## Purpose

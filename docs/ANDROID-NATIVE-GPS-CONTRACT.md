@@ -1,6 +1,8 @@
 # Android Native Ride GPS Contract
 
-**Status:** Implemented in the Android project; physical-device acceptance remains required before the Android background-GPS audit gate can be marked complete.
+**Status:** SUPPORTING NATIVE IMPLEMENTATION CONTRACT — subordinate to docs/KFE-OPERATIONAL-LIFECYCLE-CONTRACT.md and docs/KFE-CANONICAL-DATA-CONTRACT.md.
+
+Physical-device acceptance remains required before the Android background-GPS audit gate can be marked complete.
 
 ## Authority
 

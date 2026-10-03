@@ -1,7 +1,7 @@
 # KFE Phase 4 — Operational Records Contract
 
 **Phase:** 4 — Operational Records  
-**Status:** Supporting implementation contract — subordinate to `KFE_BUSINESS_RULES_REGISTER.md` and `docs/KFE-CANONICAL-DATA-CONTRACT.md`  
+**Status:** SUPPORTING IMPLEMENTATION CONTRACT — subordinate to KFE_BUSINESS_RULES_REGISTER.md, docs/KFE-CANONICAL-DATA-CONTRACT.md, and docs/KFE-OPERATIONAL-LIFECYCLE-CONTRACT.md  
 **Calendar timezone:** `Asia/Kolkata` (IST)
 
 ## 1. Purpose

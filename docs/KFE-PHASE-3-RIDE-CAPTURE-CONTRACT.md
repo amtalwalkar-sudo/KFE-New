@@ -1,7 +1,7 @@
 # KFE Phase 3 — Ride Capture & Ingestion Contract
 
 **Phase:** 3 — Ride Capture & Ingestion  
-**Status:** Working contract  
+**Status:** SUPPORTING IMPLEMENTATION CONTRACT — subordinate to docs/KFE-CANONICAL-DATA-CONTRACT.md and KFE_BUSINESS_RULES_REGISTER.md  
 **Calendar timezone:** `Asia/Kolkata` (IST)
 
 ## Frozen inputs
