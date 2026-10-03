@@ -62,7 +62,6 @@ When two documents appear to define the same responsibility, the authority liste
 - docs/KFE-PWA-VISUAL-APPLICATION.md — presentation implementation/reference.
 - docs/PERFORMANCE-FOUNDATION.md — Performance presentation foundation.
 - docs/TIMELINE-FOUNDATION.md — Timeline presentation foundation.
-- docs/KFE-VISUAL-PHASE-3-FREEZE.md — visual phase evidence/freeze.
 - docs/KFE-PHASE-4-RUNTIME-VISUAL-VERIFICATION.md — runtime visual evidence.
 - docs/KFE-UNIVERSAL-FORM-STANDARD.md and docs/KFE-UNIVERSAL-FORM-ACTION-RECOVERY-RULES-FROZEN.md remain canonical within their distinct boundaries; they do not compete with the shell contract.
 
@@ -104,9 +103,6 @@ The following are historical/frozen phase evidence and are not independent autho
 
 If a phase freeze contains a substantive rule that is still active, that rule must be represented in the appropriate canonical authority. The freeze remains as evidence/history.
 
-## 5. Frozen requirements disposition
-
-KFE_FROZEN_REQUIREMENTS.md is retained only as a historical implementation freeze during this consolidation. Its active fuel/data requirements are governed by docs/KFE-CANONICAL-DATA-CONTRACT.md; its GPS lifecycle requirements are governed by docs/KFE-OPERATIONAL-LIFECYCLE-CONTRACT.md. It is not an independent authority.
 
 ## 6. Conflict rule
 
