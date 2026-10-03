@@ -21,6 +21,10 @@ export const AndroidOverlay = Object.freeze({
     if (!isAndroid()) return
     return KfeOverlay.show({ state: JSON.stringify(state) })
   },
+  async minimize() {
+    if (!isAndroid()) return
+    return KfeOverlay.minimize()
+  },
   async update(state = {}) {
     if (!isAndroid()) return
     return KfeOverlay.update({ state: JSON.stringify(state) })
