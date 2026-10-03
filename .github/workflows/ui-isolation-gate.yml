@@ -1,0 +1,49 @@
+name: UI Isolation Gate
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ui-isolation-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out pull request
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run canonical contract suite
+        run: npm test
+      - name: Require impact preflight for changed UI files
+        shell: bash
+        env:
+          UI_IMPACT_ACK: ${{ contains(github.event.pull_request.body || '', '[ui-impact-reviewed]') }}
+        run: |
+          set -euo pipefail
+          git fetch origin "${{ github.base_ref || 'main' }}"
+          mapfile -t changed_files < <(git diff --name-only "origin/${{ github.base_ref || 'main' }}...HEAD")
+          mapfile -t ui_files < <(printf '%s\n' "${changed_files[@]}" | grep -E '^(src/components/|src/layouts/|src/presentation/|src/views/|src/styles/|src/assets/styles/|android/|capacitor.config\.)' || true)
+          if (( ${#ui_files[@]} == 0 )); then
+            echo "No UI/native presentation-owned paths changed."
+            exit 0
+          fi
+          echo "Changed UI/native presentation files:"
+          printf ' - %s\n' "${ui_files[@]}"
+          # Include all changed paths so mixed business/persistence edits are blocked.
+          args=("${changed_files[@]}")
+          if [[ "${UI_IMPACT_ACK}" == "true" ]]; then
+            args+=(--acknowledge-shared-impact)
+          fi
+          node tools/ui-isolation-gate.mjs "${args[@]}"
+          npm run ui:impact -- "${ui_files[@]}"

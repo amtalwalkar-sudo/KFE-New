@@ -9,7 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "node src/tests/runAllContracts.js",
-    "ui:impact": "node tools/presentation-impact.mjs"
+    "ui:impact": "node tools/presentation-impact.mjs",
+    "ui:preflight": "node tools/ui-isolation-gate.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.1",
