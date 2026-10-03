@@ -1,6 +1,8 @@
 # KFE Work Driver Cockpit — Baseline
 
-**Status:** FROZEN BASELINE — including authoritative swipe-bar contract  
+**Status:** FROZEN PRESENTATION BASELINE — subordinate to docs/KFE-OPERATIONAL-LIFECYCLE-CONTRACT.md
+
+**Authority boundary:** This document owns Work cockpit presentation and interaction only. The canonical operational state machine and transition semantics are owned by docs/KFE-OPERATIONAL-LIFECYCLE-CONTRACT.md; business meaning by KFE_BUSINESS_RULES_REGISTER.md; canonical data by docs/KFE-CANONICAL-DATA-CONTRACT.md.  
 **Purpose:** Baseline UX/interaction architecture for the complete replacement of the KFE Work driver cockpit. This document records the agreed foundation before further refinement.
 
 Presentation, layout, theme, accessibility and shell rules are governed by `docs/UI-UX-SHELL-CONTRACT.md`. This file remains the Work workflow/state baseline; business semantics and authoritative transitions are unchanged.
