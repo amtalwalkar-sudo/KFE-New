@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 import { access, readFile } from 'node:fs/promises'
 
-const root = new URL('../../', import.meta.url)
 const contractUrl = new URL('../../docs/UI-UX-SHELL-CONTRACT.md', import.meta.url)
 const shellUrl = new URL('../components/shell/KfeShell.vue', import.meta.url)
 const baselineUrl = new URL('../../KFE_WORK_COCKPIT_BASELINE.md', import.meta.url)
@@ -36,8 +35,9 @@ const requiredHeadings = [
   'UI verification matrix',
   'E2E verification matrix'
 ]
+const headings = contract.split('\n').filter(line => line.startsWith('## '))
 for (const heading of requiredHeadings) {
-  assert.ok(new RegExp('^## \\d+\\. ' + heading.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\assert.ok(contract.includes('## ' + heading), `Missing source-of-truth section: ${heading}`)'), 'm').test(contract), `Missing source-of-truth section: ${heading}`)
+  assert.ok(headings.some(line => line.includes(heading)), `Missing source-of-truth section: ${heading}`)
 }
 
 for (const obsolete of [
