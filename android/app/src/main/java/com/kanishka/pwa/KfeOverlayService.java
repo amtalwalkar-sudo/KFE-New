@@ -217,7 +217,16 @@ public class KfeOverlayService extends Service {
   static void acknowledgeFromPwa(Context context,String eventId,String stage,String tripId){
     KfeOverlayService current=instance;
     if(current==null)return;
-    current.onEventAcknowledged(eventId,stage,tripId);
+    if(android.os.Looper.myLooper()==current.getMainLooper()){
+      current.onEventAcknowledged(eventId,stage,tripId);
+      return;
+    }
+    current.getMainHandler().post(()->current.onEventAcknowledged(eventId,stage,tripId));
+  }
+
+  private android.os.Handler getMainHandler(){
+    if(foregroundHandler==null) foregroundHandler=new android.os.Handler(getMainLooper());
+    return foregroundHandler;
   }
 
   private void onEventAcknowledged(String eventId,String stage,String tripId){
