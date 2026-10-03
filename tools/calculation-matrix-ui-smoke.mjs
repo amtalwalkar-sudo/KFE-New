@@ -33,7 +33,7 @@ const checks=[
  ['CV-25','performance','.performance-page',"TODAY'S TARGET"],
  ['CV-26','performance','.performance-page','DAILY REVENUE ALLOCATION'],
  ['CV-27','performance','.performance-page','FLEET EFFICIENCY'],
- ['CV-28','performance','.performance-page','Performance period'],
+ ['CV-28','performance','.performance-page','Business Position'],
  ['CV-29','performance','.performance-page','PROVISIONS'],
  ['CV-30','finance','.admin-page','Ledger'],
 ]
