@@ -1,7 +1,7 @@
 # KFE Pre-launch Source / Evidence Reconciliation — 2026-10-02
 
 **Purpose:** Reconcile frozen repository rules, current `main` source, automated test evidence, and old audit/defect records before launch.
-**Authority:** `KFE_BUSINESS_RULES_REGISTER.md` defines business meaning; `docs/KFE-CALCULATION-SPECIFICATION.md` defines arithmetic/data authority; `docs/KFE-ARCHITECTURE-CONTRACT.md` defines ownership and boundaries; `docs/KFE-SCREEN-CONTRACT.md` and `docs/KFE-UNIVERSAL-FORM-ACTION-RECOVERY-RULES-FROZEN.md` define screen/form/recovery acceptance.
+**Authority:** `KFE_BUSINESS_RULES_REGISTER.md` defines business meaning; `docs/KFE-CALCULATION-SPECIFICATION.md` defines arithmetic/data authority; `docs/KFE-ARCHITECTURE-CONTRACT.md` defines ownership and boundaries; `docs/UI-UX-SHELL-CONTRACT.md`, `KFE_WORK_COCKPIT_BASELINE.md`, and `docs/KFE-UNIVERSAL-FORM-ACTION-RECOVERY-RULES-FROZEN.md` define UI/form/recovery acceptance.
 **Latest verified main:** CI #2246, commit `90a48b970f7d1cea223f78db1339f5c73f279f86`, [workflow run](https://github.com/amtalwalkar-sudo/KFE-New/actions/runs/36942297973), completed SUCCESS on 2026-10-01. This run passed the full contract/build/runtime matrix, Android exact-APK release gate with 5 native overlay tests, and GitHub Pages deployment/runtime verification. The active-shift target rule from PR #141 is now merged into `main`. This is an automated/non-phone pass; physical-device acceptance remains separate.
 **Scope boundary:** Automated/repository audit only. Physical-phone acceptance, including screen-off GPS, force-stop/restart, overlay interaction under interruption, remains pending by explicit instruction. This document does not certify launch readiness.
 
