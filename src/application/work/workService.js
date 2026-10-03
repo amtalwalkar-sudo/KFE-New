@@ -68,32 +68,31 @@ export const WorkService = Object.freeze({
   },
   async startRide(data) { const result = await ShiftTripRepository.setTripStage(data?.id, 'RIDE_STARTED'); checkpoint(); void NativeGpsService.start(data?.id).catch(() => {}); return result },
   async completeTrip(data) {
-    // Persist the terminal trip state first. GPS/native trace enrichment is deliberately
-    // detached so END TRIP can hand control to the mandatory fare form immediately.
+    // Commit the terminal state first. GPS is enrichment only: never hold the swipe
+    // transition or the pending-fare form open while native trace synchronization runs.
     const result = await ShiftTripRepository.completeTrip({ ...data }); checkpoint()
     const tripId = data?.id
     if (tripId) {
-      // The native trace is local and must be merged before the Work store refreshes.
-      // Otherwise reconciliation can render the just-completed trip with its pre-GPS
-      // value (typically null/0) and never receive the later enrichment update.
-      try {
-        await NativeGpsService.syncTrace(tripId)
-        await NativeGpsService.stop(tripId)
-        const snapshots = (await LocationRepository.forEntity('TRIP', tripId)).filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')
-        if (snapshots.length >= 2) {
-          const lineKm = calculateTraceDistanceKm(snapshots)
-          if (Number.isFinite(Number(lineKm)) && lineKm >= 0) {
-            await ShiftTripRepository.updateTrip({
-              id: tripId,
-              tripKm: Number(lineKm),
-              tripKmAuthority: 'GPS_LINE_TRACE',
-              tripKmProvenance: { method: 'HAVERSINE_TRACE_SUM', gpsTracePoints: snapshots.length, source: 'WEB_AND_ANDROID_NATIVE' }
-            })
+      void (async () => {
+        try {
+          await NativeGpsService.syncTrace(tripId)
+          await NativeGpsService.stop(tripId)
+          const snapshots = (await LocationRepository.forEntity('TRIP', tripId)).filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')
+          if (snapshots.length >= 2) {
+            const lineKm = calculateTraceDistanceKm(snapshots)
+            if (Number.isFinite(Number(lineKm)) && lineKm >= 0) {
+              await ShiftTripRepository.updateTrip({
+                id: tripId,
+                tripKm: Number(lineKm),
+                tripKmAuthority: 'GPS_LINE_TRACE',
+                tripKmProvenance: { method: 'HAVERSINE_TRACE_SUM', gpsTracePoints: snapshots.length, source: 'WEB_AND_ANDROID_NATIVE' }
+              })
+            }
           }
+        } catch (_) {
+          // Completion is already persisted; telemetry must never block or undo it.
         }
-      } catch (_) {
-        // GPS is enrichment only; the authoritative trip completion remains committed.
-      }
+      })()
     }
     return result
   },
