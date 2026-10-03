@@ -83,6 +83,9 @@ jobs:
       - name: Run Phase 4 Runtime Visual Verification
         run: node tools/phase4-runtime-visual-smoke.mjs
 
+      - name: Run Calculation Matrix Rendered UI Smoke
+        run: node tools/calculation-matrix-ui-smoke.mjs
+
       - name: Run Semantic Control Audit
         run: node tools/semantic-control-audit.mjs
 
