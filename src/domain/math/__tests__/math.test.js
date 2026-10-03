@@ -23,10 +23,10 @@ describe('CNG Fuel Calculation', () => {
 
 describe('Odometer Differential', () => {
   it('calculates total distance correctly', () => { expect(calculateDistanceKm(12000, 12250)).toBe(250) })
-  it('returns null if start is higher than end or invalid', () => { expect(calculateDistanceKm(12250, 12000)).toBeNull(); expect(calculateDistanceKm('abc', 12000)).toBeNull() })
+  it('returns null if start is higher than end or invalid', () => { expect(calculateDistanceKm(12250, 12000)).toBeNull(); expect(calculateDistanceKm('abc', 12000)).toBeNull(); expect(calculateDistanceKm(-1, 10)).toBeNull(); expect(calculateDistanceKm(10, -1)).toBeNull() })
 })
 
 describe('Financial Aggregations', () => {
   it('sums record arrays safely', () => { const rows = [{ amount_paise: 1000 }, { amount_paise: 2500 }, { amount_paise: '500' }]; expect(calculateTotalAmount(rows, 'amount_paise')).toBe(4000) })
-  it('handles empty or malformed inputs gracefully', () => { expect(calculateTotalAmount([], 'amount_paise')).toBe(0); expect(calculateTotalAmount(null, 'amount_paise')).toBe(0) })
+  it('handles empty inputs and rejects malformed amounts instead of converting them to zero', () => { expect(calculateTotalAmount([], 'amount_paise')).toBe(0); expect(calculateTotalAmount(null, 'amount_paise')).toBe(0); expect(calculateTotalAmount([{ amount_paise: 'bad' }], 'amount_paise')).toBeNull(); expect(calculateTotalAmount([{ amount_paise: '' }], 'amount_paise')).toBeNull() })
 })
