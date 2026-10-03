@@ -55,6 +55,14 @@ public class KfeOverlayPlugin extends Plugin {
   }
 
   @com.getcapacitor.PluginMethod
+  public void minimize(PluginCall call) {
+    Intent intent = new Intent(getContext(), KfeOverlayService.class);
+    intent.setAction(KfeOverlayService.ACTION_MINIMIZE);
+    getContext().startService(intent);
+    call.resolve();
+  }
+
+  @com.getcapacitor.PluginMethod
   public void update(PluginCall call) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(getContext())) {
       call.reject("Overlay permission is not granted.");
