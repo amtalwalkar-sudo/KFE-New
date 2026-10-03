@@ -40,7 +40,7 @@ assert.match(overlay, /if\(pendingFareTripId!=null&&!pendingFareTripId\.isEmpty\
 assert.match(overlay, /CANCEL_RIDE/)
 assert.match(overlay, /CANCEL RIDE/)
 assert.match(overlay, /SWIPE TO/)
-assert.match(overlay, /PASSENGER/) 
+assert.match(overlay, /CUSTOMER cancellation/) 
 assert.match(overlay, /DRIVER/) 
 assert.match(overlay, /formatTripTime/)
 assert.doesNotMatch(overlay, /SOFT_INPUT_ADJUST_RESIZE/)
