@@ -63,7 +63,7 @@ assert.equal(120000 / 12, 10000, 'CV-16 zero-interest amortization control')
 const day = istDayRange('2026-10-03T12:00:00+05:30')
 assert.equal(day.from.toISOString(), '2026-10-02T18:30:00.000Z')
 assert.equal(day.to.toISOString(), '2026-10-03T18:29:59.999Z')
-const month = istMonthRange('2026-10-03T12:00:00+05:30')
+const month = istMonthRange('2026-10-03T12:00:00+05:30', '2026-11-01T00:00:00+05:30')
 assert.equal(month.from.toISOString(), '2026-09-30T18:30:00.000Z')
 assert.equal(month.to.toISOString(), '2026-10-31T18:29:59.999Z')
 
