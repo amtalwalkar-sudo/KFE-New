@@ -325,8 +325,8 @@ public class KfeOverlayService extends Service {
     formPanel.addView(hintView,new LinearLayout.LayoutParams(-1,dp(18)));
     if("CANCEL".equals(mode)){
       final LinearLayout reasons=new LinearLayout(this); reasons.setOrientation(LinearLayout.HORIZONTAL); reasons.setGravity(Gravity.CENTER);
-      String[] choices={"PASSENGER","DRIVER"};
-      for(String choice:choices){ final String selectedChoice=choice; final Button reason=keyButton(choice.equals("PASSENGER")?"Passenger cancellation":"Driver cancellation"); reason.setTextSize(9); reason.setOnClickListener(v->{ cancelReason=selectedChoice; for(int i=0;i<reasons.getChildCount();i++) reasons.getChildAt(i).setAlpha(0.55f); reason.setAlpha(1f); }); reasons.addView(reason,new LinearLayout.LayoutParams(0,dp(40),1)); }
+      String[] choices={"CUSTOMER","DRIVER"};
+      for(String choice:choices){ final String selectedChoice=choice; final Button reason=keyButton(choice.equals("CUSTOMER")?"Customer cancellation":"Driver cancellation"); reason.setTextSize(9); reason.setOnClickListener(v->{ cancelReason=selectedChoice; for(int i=0;i<reasons.getChildCount();i++) reasons.getChildAt(i).setAlpha(0.55f); reason.setAlpha(1f); }); reasons.addView(reason,new LinearLayout.LayoutParams(0,dp(40),1)); }
       formPanel.addView(reasons,new LinearLayout.LayoutParams(-1,dp(44)));
     }
     if("FARE".equals(mode)){
@@ -349,7 +349,7 @@ public class KfeOverlayService extends Service {
     }
     LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.CENTER);
     Button cancel=keyButton("BACK");cancel.setTextSize(11);cancel.setOnClickListener(v->closeForm());
-    Button ok=keyButton("OK");ok.setTextSize(11);ok.setOnClickListener(v->submitNumericForm());
+    Button ok=keyButton("OKAY");ok.setTextSize(11);ok.setOnClickListener(v->submitNumericForm());
     actions.addView(cancel,new LinearLayout.LayoutParams(dp(105),dp(42)));actions.addView(ok,new LinearLayout.LayoutParams(dp(105),dp(42)));
     formPanel.addView(actions,new LinearLayout.LayoutParams(-1,dp(44)));
     overlayRoot.addView(formPanel,new FrameLayout.LayoutParams(-1,dp("CANCEL".equals(mode)?300:420),Gravity.TOP));
