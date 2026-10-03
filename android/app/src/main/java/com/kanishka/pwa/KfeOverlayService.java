@@ -492,7 +492,7 @@ public class KfeOverlayService extends Service {
       if("START_RIDE".equals(actionStage)){
         paint.setStyle(Paint.Style.FILL);paint.setColor(Color.argb(235,dark()?95:245,dark()?45:245,dark()?45:245));
         rect.set(w-dp(112),barTop+dp(61),w-dp(12),barTop+dp(94));c.drawRoundRect(rect,dp(12),dp(12),paint);
-        text(9,Color.WHITE,true);center(c,"CANCEL RIDE",w-dp(62),barTop+dp(83));
+        text(9,Color.WHITE,true);center(c,"RIDE CANCELLATION",w-dp(62),barTop+dp(83));
       }
     }
     private void text(float size,int color,boolean bold){paint.setStyle(Paint.Style.FILL);paint.setColor(color);paint.setTextSize(dp((int)size));paint.setTypeface(android.graphics.Typeface.create("sans-serif",bold?android.graphics.Typeface.BOLD:android.graphics.Typeface.NORMAL));}
