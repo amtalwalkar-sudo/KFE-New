@@ -88,7 +88,7 @@ export const WorkService = Object.freeze({
           const routed = await routeTrace(snapshots, router)
 
           if (Number.isFinite(Number(routed.distanceKm)) && Number(routed.distanceKm) >= 0) {
-            await ShiftTripRepository.updateTrip({
+            await ShiftTripRepository.enrichTripMovement({
               id: tripId,
               tripKm: Number(routed.distanceKm),
               tripKmAuthority: routed.roadMatchedGeometry ? 'VALHALLA_ROAD_TRACE' : 'GPS_LINE_TRACE',
