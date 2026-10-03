@@ -368,6 +368,8 @@ This contract establishes the source of truth and required guardrails. The curre
 
 ### Automated preflight command
 
+The canonical contract suite executes the gate as a behavioral test: it verifies a local component candidate passes, a protected business path fails, a shared theme path fails without acknowledgement, and the same shared path proceeds only after explicit acknowledgement. This tests the gate itself rather than merely checking its source text.
+
 Run before editing any UI-owned file:
 
 ```bash
