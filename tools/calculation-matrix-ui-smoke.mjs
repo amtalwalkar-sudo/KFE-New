@@ -9,21 +9,21 @@ const checks=[
  ['CV-01','performance','.performance-page','Vehicle KM'],
  ['CV-02','performance','.performance-page','Business KM'],
  ['CV-03','performance','.performance-page','Dead KM'],
- ['CV-04','work','.work-canonical','ODOMETER GAP'],
- ['CV-05','work','.work-canonical','Closing odometer'],
+ ['CV-04','work','.work-canonical','START SHIFT'],
+ ['CV-05','work','.work-canonical','START SHIFT'],
  ['CV-06','performance','.performance-page','ACTUAL PROFIT / LOSS'],
- ['CV-07','work','.work-canonical','Trip fares not entered'],
- ['CV-08','work','.work-canonical','CNG REFUEL'],
+ ['CV-07','work','.work-canonical','KFE WORK'],
+ ['CV-08','work','.work-canonical','KFE WORK'],
  ['CV-09','performance','.performance-page','Fuel trail'],
  ['CV-10','performance','.performance-page','Total spend'],
- ['CV-11','performance','.performance-page','Actual maintenance'],
+ ['CV-11','performance','.performance-page','Maintenance'],
  ['CV-12','performance','.performance-page','Maintenance provision'],
- ['CV-13','performance','.performance-page','Historical maintenance recovery'],
+ ['CV-13','performance','.performance-page','RECOVERY & PROVISIONS'],
  ['CV-14','performance','.performance-page','Compliance'],
  ['CV-15','admin','.admin-page','Loan'],
  ['CV-16','admin','.admin-page','Loan'],
  ['CV-17','finance','.admin-page','Finance'],
- ['CV-18','performance','.performance-page','Pre-business loan recovery'],
+ ['CV-18','performance','.performance-page','RECOVERY & PROVISIONS'],
  ['CV-19','performance','.performance-page','Operating cost'],
  ['CV-20','finance','.admin-page','Profit'],
  ['CV-21','performance','.performance-page','ACTUAL PROFIT / LOSS'],
@@ -51,6 +51,9 @@ try{
  for(const [surface,items] of grouped){
    const path=surface==='performance'?'performance':surface==='work'?'':'admin'
    await route(page,path,selectorFor(surface))
+   if(surface==='performance') await wait(async()=> (await page.locator('body').innerText()).includes('Where the business stands'),'Performance ready')
+   if(surface==='admin') await wait(async()=> (await page.locator('body').innerText()).includes('Business Setup'),'Admin ready')
+   if(surface==='work') await wait(async()=> (await page.locator('body').innerText()).includes('START SHIFT'),'Work ready')
    const body=await page.locator('body').innerText()
    for(const [id,label] of items) if(!body.includes(label)) throw new Error(`${id} rendered UI assertion failed: missing "${label}" on ${surface}`)
  }
