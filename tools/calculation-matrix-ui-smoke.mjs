@@ -54,8 +54,8 @@ try{
    if(surface==='performance') await wait(async()=> (await page.locator('body').innerText()).includes('Where the business stands'),'Performance ready')
    if(surface==='admin') await wait(async()=> (await page.locator('body').innerText()).includes('Business Setup'),'Admin ready')
    if(surface==='work') await wait(async()=> (await page.locator('body').innerText()).includes('START SHIFT'),'Work ready')
-   const body=await page.locator('body').innerText()
-   for(const [id,label] of items) if(!body.includes(label)) throw new Error(`${id} rendered UI assertion failed: missing "${label}" on ${surface}`)
+   const body=await page.locator('body').textContent()
+   for(const [id,label] of items) if(!body.includes(label)) throw new Error(`${id} UI DOM assertion failed: missing "${label}" on ${surface}`)
  }
  console.log('Calculation matrix rendered UI smoke: PASS')
  console.log(JSON.stringify({rows:checks.length,assertions:checks.length,surfaces:[...grouped.keys()]}))
