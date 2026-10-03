@@ -305,7 +305,7 @@ public class KfeOverlayService extends Service {
   }
 
   private void openFareForm(){openNumericForm("FARE","TRIP DETAILS","Enter trip fare, toll and parking");}
-  private void openCancelForm(){cancelReason="";openNumericForm("CANCEL","CANCEL RIDE","Select reason and optional fee");}
+  private void openCancelForm(){cancelReason="";openNumericForm("CANCEL","CANCEL RIDE","Select reason and enter cancellation fee");}
   private void openNumericForm(String mode,String title,String hint){
     if(formMode!=null)return;
     hideUnderlyingKeyboard();
@@ -340,7 +340,7 @@ public class KfeOverlayService extends Service {
       next.setTextSize(10);
       next.setOnClickListener(v->{});
     }else{
-      TextView feeLabel=new TextView(this);feeLabel.setText("Cancellation fare (optional)");feeLabel.setTextSize(9);feeLabel.setTextColor(mutedColor());feeLabel.setGravity(Gravity.CENTER);
+      TextView feeLabel=new TextView(this);feeLabel.setText("Cancellation fee");feeLabel.setTextSize(9);feeLabel.setTextColor(mutedColor());feeLabel.setGravity(Gravity.CENTER);
       formPanel.addView(feeLabel,new LinearLayout.LayoutParams(-1,dp(18)));
       LinearLayout grid=new LinearLayout(this);grid.setOrientation(LinearLayout.VERTICAL);
       String[][] keys={{"1","2","3"},{"4","5","6"},{"7","8","9"},{"C","0","⌫"}};
@@ -388,7 +388,7 @@ public class KfeOverlayService extends Service {
   private void submitNumericForm(){
     String actionTripId="FARE".equals(formMode)?resolveFareActionTripId(pendingFareTripId,pendingTripId):pendingTripId;
     if(formSubmitting||!awaitingEventId.isEmpty()||actionTripId.isEmpty())return;
-    double amount=0;try{amount=formValue.isEmpty()?0:Double.parseDouble(formValue);}catch(Exception e){return;}
+    double amount=0;try{if(formValue.isEmpty())return;amount=Double.parseDouble(formValue);}catch(Exception e){return;}
     if(amount<0)return;formSubmitting=true;
     if("FARE".equals(formMode)){
       // The native form is only an input surface. The canonical Trip is
@@ -406,7 +406,7 @@ public class KfeOverlayService extends Service {
       } catch(Exception ignored){ formSubmitting=false; }
       return;
     }else if("CANCEL".equals(formMode)){
-      if(cancelReason.isEmpty()){formSubmitting=false;return;}
+      if(cancelReason.isEmpty()||formValue.isEmpty()){formSubmitting=false;return;}
       try{
         JSONObject input=new JSONObject();
         input.put("revenue",amount);
