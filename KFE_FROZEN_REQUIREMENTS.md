@@ -4,7 +4,7 @@
 
 Active data requirements are governed by docs/KFE-CANONICAL-DATA-CONTRACT.md. Active GPS lifecycle requirements are governed by docs/KFE-OPERATIONAL-LIFECYCLE-CONTRACT.md. This file is retained for historical traceability only.  
 **Baseline:** `156dad734188bda63472aac394dd26d02b307aa6`  
-**Scope:** Business-entry and operational requirements. These requirements are authoritative for subsequent implementation and audit work.
+**Scope:** Historical business-entry and operational requirements retained for traceability. They are not independently authoritative for subsequent implementation or audit work.
 
 ## 1. Work — Fuel entry
 
