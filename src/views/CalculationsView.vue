@@ -1,7 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { PerformanceService } from '../application/performance/performanceService.js'
-import { AdminService } from '../application/admin/adminService.js'
 import { deriveLoanPosition } from '../domain/finance/loanEngine.js'
 import { getKfeReferenceNow, reportingRangeFor } from '../domain/time/ist.js'
 
@@ -48,11 +47,11 @@ const statusFor=computed(()=>id=>{
  if(id==='daily-be') return d.dailyBreakEven?'ISSUE':(m.dailyBreakEven?.status==='AUTHORITATIVE'?'OK':'INCOMPLETE')
  if(id==='driver-target') return d.target?'ISSUE':(m.driverTargetAvailable?'OK':'INCOMPLETE')
  if(id==='maintenance-km') return Number.isFinite(Number(m.breakEvenInputs?.maintenanceProvisionPerKm))||Number.isFinite(Number(m.maintenanceProvisionPerKm))?'OK':'INCOMPLETE'
- if(id==='fuel-cost-km') return m.calculationEvidence?.fuelCostPerKm?.status==='AUTHORITATIVE'?'OK':m.fuelCostPerKm!=null?'INCOMPLETE':'MISSING'
- if(id==='actual-pl') return Number.isFinite(Number(m.actualProfitLoss??m.actualProfit))?'OK':'INCOMPLETE'
- if(id==='provisional-pl') return Number.isFinite(Number(m.provisionalProfitLoss??m.provisionalProfit))?'OK':'INCOMPLETE'
+ if(id==='fuel-cost-km') return m.breakEvenInputs?.fuelEvidence?.status==='AUTHORITATIVE'?'OK':m.breakEvenInputs?.fuelEvidence?.status==='INDICATIVE'?'INCOMPLETE':'MISSING'
+ if(id==='actual-pl') return Number.isFinite(Number(m.performanceHeadlineActualProfit??m.actualProfit))?'OK':'INCOMPLETE'
+ if(id==='provisional-pl') return Number.isFinite(Number(m.performanceHeadlineProvisionalProfit??m.indicativeProfit))?'OK':'INCOMPLETE'
  if(id==='shift-km') return Number(m.vehicleKm??m.totalShiftKm)>=0?'OK':'MISSING'
- if(id==='trip-km') return Number(m.tripKm??m.businessKm??0)>=0?'OK':'MISSING'
+ if(id==='trip-km') return m.businessKmIntegrityStatus==='COMPLETE'?'OK':m.businessKmIntegrityStatus==='OVER_ESTIMATE'?'ISSUE':'INCOMPLETE'
  if(id==='dead-km') return Number(m.deadKm??0)>=0?'OK':'MISSING'
  if(id==='personal-km') return Number(m.personalKm??0)>=0?'OK':'MISSING'
  if(id==='revenue') return Number.isFinite(Number(m.revenue))?'OK':'MISSING'
@@ -78,12 +77,12 @@ const statusText=s=>s==='OK'?'Correct':s==='ISSUE'?'Issue':s==='INCOMPLETE'?'Inc
 const valueFor=id=>{
  const m=metrics.value||{}
  const map={
-  'actual-pl':m.actualProfitLoss??m.actualProfit,
-  'provisional-pl':m.provisionalProfitLoss??m.provisionalProfit,
+  'actual-pl':m.performanceHeadlineActualProfit??m.actualProfit,
+  'provisional-pl':m.performanceHeadlineProvisionalProfit??m.indicativeProfit,
   'monthly-be':m.monthlyBreakEvenRevenue,
   'daily-be':m.dailyBreakEvenRevenue,
   'driver-target':m.driverTarget,
-  'fuel-cost-km':m.fuelCostPerKm,
+  'fuel-cost-km':m.breakEvenInputs?.fuelCostPerKm??m.fuelCostPerKm,
   'maintenance-km':m.breakEvenInputs?.maintenanceProvisionPerKm??m.maintenanceProvisionPerKm,
   'loan-burden':m.breakEvenInputs?.scheduledEmiMonthly??m.scheduledEmi,
   'prebusiness':m.breakEvenInputs?.preBusinessRecoveryMonthly??m.preBusinessRecovery,
