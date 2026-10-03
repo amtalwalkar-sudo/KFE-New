@@ -195,6 +195,7 @@ try {
   await page.getByRole('button', { name: 'CANCEL TRIP', exact: true }).waitFor()
   await page.getByRole('button', { name: 'CANCEL TRIP', exact: true }).click()
   await page.getByRole('button', { name: 'Driver cancellation', exact: true }).click()
+  await page.getByLabel('Cancellation fee').fill('250')
   await page.getByRole('button', { name: 'OK — CONFIRM CANCELLATION', exact: true }).click()
   state = await db(page, ['trips'])
   assert(state.trips.length === 1 && state.trips[0].status === 'CANCELLED', 'CANCEL TRIP contract failed')
