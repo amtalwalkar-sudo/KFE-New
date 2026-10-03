@@ -311,7 +311,7 @@ public class KfeOverlayService extends Service {
     hideUnderlyingKeyboard();
     formMode=mode;formValue="";tollValue="";parkingValue="";activeAmountField="fare";formSubmitting=false;
     params.flags=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
-    params.height=dp("FARE".equals(mode)?420:310);
+    params.height="FARE".equals(mode)?dp(420):dp(310);
     if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);
 
     formPanel=new LinearLayout(this);formPanel.setOrientation(LinearLayout.VERTICAL);formPanel.setPadding(dp(14),dp(8),dp(14),dp(8));
@@ -352,7 +352,7 @@ public class KfeOverlayService extends Service {
     Button ok=keyButton("OKAY");ok.setTextSize(11);ok.setOnClickListener(v->submitNumericForm());
     actions.addView(cancel,new LinearLayout.LayoutParams(dp(105),dp(42)));actions.addView(ok,new LinearLayout.LayoutParams(dp(105),dp(42)));
     formPanel.addView(actions,new LinearLayout.LayoutParams(-1,dp(44)));
-    overlayRoot.addView(formPanel,new FrameLayout.LayoutParams(-1,dp("CANCEL".equals(mode)?300:420),Gravity.TOP));
+    overlayRoot.addView(formPanel,new FrameLayout.LayoutParams(-1,"CANCEL".equals(mode)?dp(300):dp(420),Gravity.TOP));
   }
 
   private LinearLayout overlayAmountField(String label,String field){
