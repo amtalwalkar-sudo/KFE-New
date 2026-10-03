@@ -3,7 +3,7 @@
 **Status:** FROZEN BASELINE — including authoritative swipe-bar contract  
 **Purpose:** Baseline UX/interaction architecture for the complete replacement of the KFE Work driver cockpit. This document records the agreed foundation before further refinement.
 
-This baseline is governed by KFE_VISUAL_DNA.md.
+Presentation, layout, theme, accessibility and shell rules are governed by `docs/UI-UX-SHELL-CONTRACT.md`. This file remains the Work workflow/state baseline; business semantics and authoritative transitions are unchanged.
 
 ## 1. Core Principle
 
