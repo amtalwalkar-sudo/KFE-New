@@ -128,6 +128,10 @@ const hideOverlay = () => {
   void AndroidOverlay.hide().catch(() => {})
 }
 
+const collapseOverlayToBubble = () => {
+  void AndroidOverlay.minimize().catch(() => {})
+}
+
 export const configureAndroidOverlayLifecycle = () => {
   if (configured || typeof document === 'undefined') return
   configured = true
@@ -142,7 +146,8 @@ export const configureAndroidOverlayLifecycle = () => {
 
   visibleHandler = () => {
     if (document.visibilityState !== 'visible') return
-    hideOverlay()
+    stopUpdates()
+    collapseOverlayToBubble()
   }
 
   blurHandler = () => {
@@ -154,7 +159,7 @@ export const configureAndroidOverlayLifecycle = () => {
   }
 
   focusHandler = () => {
-    hideOverlay()
+    collapseOverlayToBubble()
   }
 
   document.addEventListener('visibilitychange', hiddenHandler)
