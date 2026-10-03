@@ -140,10 +140,3 @@ function detailFor(row){selected.value=selected.value===row.id?null:row.id}
 </section>
 </template>
 
-<style scoped>
-.calc-page{padding:18px 16px 110px;max-width:980px;margin:0 auto}
-.calc-header{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:14px}
-.eyebrow,.section-title span{font-size:11px;letter-spacing:.08em;opacity:.65}.calc-header h1{margin:3px 0;font-size:26px}.calc-header p{margin:0;opacity:.7}.refresh{padding:10px 14px;border-radius:10px;border:1px solid currentColor;background:transparent;font-weight:700}
-.period-row{display:flex;gap:8px;margin:12px 0 18px}.period-row button{flex:1;padding:10px;border:1px solid currentColor;border-radius:10px;background:transparent}.period-row button.active{font-weight:800}
-.section-title{display:flex;justify-content:space-between;align-items:center;margin:18px 0 9px}.calc-card{border:1px solid color-mix(in srgb,currentColor 18%,transparent);border-radius:14px;padding:13px 14px;margin:8px 0;background:color-mix(in srgb,currentColor 4%,transparent);cursor:pointer}.issue-card{border-width:2px}.card-top{display:grid;grid-template-columns:110px 1fr auto;gap:10px;align-items:center}.card-top>span:first-child{font-size:11px;font-weight:800}.calc-card p{margin:8px 0 0;font-size:13px;opacity:.72}.calc-card small{display:block;margin-top:7px;font-weight:700}.trace{margin-top:12px;padding-top:10px;border-top:1px dashed currentColor;font-size:13px}.chain{margin:8px 0 12px;line-height:1.8}.source-row{display:flex;justify-content:space-between;padding:6px 0}.calc-error{padding:12px;border:1px solid currentColor;border-radius:10px}.calc-note{margin-top:18px;font-size:12px;opacity:.6}@media(max-width:620px){.calc-header{display:block}.refresh{margin-top:10px}.card-top{grid-template-columns:1fr auto}.card-top>span:first-child{grid-column:1/-1}}
-</style>
