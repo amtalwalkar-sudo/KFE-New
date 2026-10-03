@@ -387,36 +387,37 @@ public class KfeOverlayService extends Service {
   }
   private void submitNumericForm(){
     String actionTripId="FARE".equals(formMode)?resolveFareActionTripId(pendingFareTripId,pendingTripId):pendingTripId;
-    if(formSubmitting||actionTripId.isEmpty())return;
+    if(formSubmitting||!awaitingEventId.isEmpty()||actionTripId.isEmpty())return;
     double amount=0;try{amount=formValue.isEmpty()?0:Double.parseDouble(formValue);}catch(Exception e){return;}
     if(amount<0)return;formSubmitting=true;
     if("FARE".equals(formMode)){
-      // Do not close the native fare form until the WebView confirms that the
-      // authoritative trip record was updated. This prevents a lost fare from
-      // looking like a completed ride.
+      // The native form is only an input surface. The canonical Trip is
+      // persisted by the PWA/application path. Keep this form visible until
+      // that canonical write is acknowledged back to the overlay.
       try {
         JSONObject payload=new JSONObject();
         payload.put("fare",amount);
         payload.put("toll",tollValue.isEmpty()?0:Double.parseDouble(tollValue));
         payload.put("parking",parkingValue.isEmpty()?0:Double.parseDouble(parkingValue));
         String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"ENTER_FARE",actionTripId,payload.toString());
+        beginAwaiting(eventId,"ENTER_FARE",actionTripId);
+        persistNativeWorkflow();
         KfeRideNotificationsPlugin.emitAction("ENTER_FARE",actionTripId,payload.toString(),eventId);
-        // The native ledger has durably accepted the fare; don't require a
-        // live WebView acknowledgement before the driver can continue working.
-        closeForm(); formSubmitting=false; actionStage="GO_TO_PICKUP";
-        pendingTripId=""; pendingFareTripId=""; tripStartAt=0L;
-        persistNativeWorkflow(); animateRetract(); overlay.invalidate();
       } catch(Exception ignored){ formSubmitting=false; }
       return;
     }else if("CANCEL".equals(formMode)){
       if(cancelReason.isEmpty()){formSubmitting=false;return;}
-      try{JSONObject input=new JSONObject();input.put("revenue",amount);input.put("reason",cancelReason);String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"CANCEL_RIDE",pendingTripId,input.toString());KfeRideNotificationsPlugin.emitAction("CANCEL_RIDE",pendingTripId,input.toString(),eventId);
-        closeForm();formSubmitting=false;actionStage="GO_TO_PICKUP";pendingTripId="";pendingFareTripId="";persistNativeWorkflow();animateRetract();overlay.invalidate();
-        return;
+      try{
+        JSONObject input=new JSONObject();
+        input.put("revenue",amount);
+        input.put("reason",cancelReason);
+        String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"CANCEL_RIDE",pendingTripId,input.toString());
+        beginAwaiting(eventId,"CANCEL_RIDE",pendingTripId);
+        persistNativeWorkflow();
+        KfeRideNotificationsPlugin.emitAction("CANCEL_RIDE",pendingTripId,input.toString(),eventId);
       }catch(Exception ignored){formSubmitting=false;return;}
+      return;
     }
-    // Keep cancellation open until the WebView confirms the authoritative save.
-    if(!"CANCEL".equals(formMode)) closeForm();
   }
   private void closeForm(){
     if(formPanel!=null&&overlayRoot!=null)overlayRoot.removeView(formPanel);
