@@ -67,7 +67,6 @@ public class KfeNativeGpsService extends Service {
   @Override public void onCreate() {
     super.onCreate();
     createChannel();
-    startAsForeground();
     fused = LocationServices.getFusedLocationProviderClient(this);
   }
 
@@ -91,18 +90,25 @@ public class KfeNativeGpsService extends Service {
     if (ACTION_START.equals(action)) {
       String requested = intent.getStringExtra(EXTRA_TRIP_ID);
       String requestedEvent = intent.getStringExtra("eventType");
-      if (requested != null && !requested.isEmpty()) startTracking(requested, requestedEvent);
+      if (requested != null && !requested.isEmpty()) {
+        if (!ensureForegroundLocationService()) return START_NOT_STICKY;
+        startTracking(requested, requestedEvent);
+      }
       return START_STICKY;
     }
 
     String persisted = getSharedPreferences(PREFS, MODE_PRIVATE).getString(ACTIVE_TRIP, "");
     String persistedEvent = getSharedPreferences(PREFS, MODE_PRIVATE).getString(ACTIVE_EVENT, "PASSENGER_RIDE_TRACE");
-    if (persisted != null && !persisted.isEmpty()) startTracking(persisted, persistedEvent);
+    if (persisted != null && !persisted.isEmpty()) {
+      if (!ensureForegroundLocationService()) return START_NOT_STICKY;
+      startTracking(persisted, persistedEvent);
+    }
     return START_STICKY;
   }
 
   private void startTracking(String id, String requestedEventType) {
     if (id == null || id.isEmpty()) return;
+    if (!hasLocationPermission()) return;
     String requestedType = "DEAD_MOVEMENT_TRACE".equals(requestedEventType) ? "DEAD_MOVEMENT_TRACE" : "PASSENGER_RIDE_TRACE";
     if (id.equals(tripId) && callback != null && requestedType.equals(eventType)) return;
     // A trip starts with pickup/dead-movement telemetry and must switch to
@@ -241,6 +247,28 @@ public class KfeNativeGpsService extends Service {
 
   private static String safeName(String value) {
     return value.replaceAll("[^A-Za-z0-9._-]", "_");
+  }
+
+  private boolean hasLocationPermission() {
+    return androidx.core.app.ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        || androidx.core.app.ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+  }
+
+  private boolean ensureForegroundLocationService() {
+    if (!hasLocationPermission()) {
+      stopSelf();
+      return false;
+    }
+    try {
+      startAsForeground();
+      return true;
+    } catch (SecurityException ignored) {
+      // Android 14+ also enforces foreground-service eligibility at startForeground().
+      // Never let a missing runtime/FGS permission crash the process; the PWA can
+      // retry after the user grants location access and starts an eligible workflow.
+      stopSelf();
+      return false;
+    }
   }
 
   private void startAsForeground() {
