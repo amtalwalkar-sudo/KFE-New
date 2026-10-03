@@ -21,6 +21,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -53,6 +54,9 @@ public class KfeOverlayService extends Service {
   private SwipeOverlayView overlay;
   private WindowManager.LayoutParams params;
   private String actionStage="GO_TO_PICKUP";
+  private EditText formInput;
+  private EditText tollInput;
+  private EditText parkingInput;
   private String theme="light";
   private String target="—", rides="0", liveKm="0.0 km", revenue="₹0", pendingTripId="", pendingFareTripId="", cancellationRevenue="₹0";
   private long tripStartAt=0L;
@@ -306,11 +310,12 @@ public class KfeOverlayService extends Service {
 
   private void openFareForm(){openNumericForm("FARE","TRIP DETAILS","Enter trip fare, toll and parking");}
   private void openCancelForm(){cancelReason="";openNumericForm("CANCEL","CANCEL RIDE","Select reason and enter cancellation fee");}
+
   private void openNumericForm(String mode,String title,String hint){
     if(formMode!=null)return;
-    hideUnderlyingKeyboard();
     formMode=mode;formValue="";tollValue="";parkingValue="";activeAmountField="fare";formSubmitting=false;
-    params.flags=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
+    params.flags=WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
+    params.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE|WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE;
     params.height="FARE".equals(mode)?dp(420):dp(310);
     if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);
 
@@ -319,40 +324,60 @@ public class KfeOverlayService extends Service {
     formPanel.setElevation(dp(8));
     TextView titleView=new TextView(this);titleView.setText(title);titleView.setTextSize(15);titleView.setTextColor(textColor());titleView.setGravity(Gravity.CENTER);
     formPanel.addView(titleView,new LinearLayout.LayoutParams(-1,dp(30)));
-    TextView valueView=new TextView(this);valueView.setTag("value");valueView.setText("₹0");valueView.setTextSize(25);valueView.setTypeface(android.graphics.Typeface.DEFAULT,android.graphics.Typeface.BOLD);valueView.setTextColor(actionColor());valueView.setGravity(Gravity.CENTER);
-    formPanel.addView(valueView,new LinearLayout.LayoutParams(-1,dp(42)));
     TextView hintView=new TextView(this);hintView.setText(hint);hintView.setTextSize(10);hintView.setTextColor(mutedColor());hintView.setGravity(Gravity.CENTER);
     formPanel.addView(hintView,new LinearLayout.LayoutParams(-1,dp(18)));
+
     if("CANCEL".equals(mode)){
       final LinearLayout reasons=new LinearLayout(this); reasons.setOrientation(LinearLayout.HORIZONTAL); reasons.setGravity(Gravity.CENTER);
       String[] choices={"CUSTOMER","DRIVER"};
-      for(String choice:choices){ final String selectedChoice=choice; final Button reason=keyButton(choice.equals("CUSTOMER")?"Customer cancellation":"Driver cancellation"); reason.setTextSize(9); reason.setOnClickListener(v->{ cancelReason=selectedChoice; for(int i=0;i<reasons.getChildCount();i++) reasons.getChildAt(i).setAlpha(0.55f); reason.setAlpha(1f); }); reasons.addView(reason,new LinearLayout.LayoutParams(0,dp(40),1)); }
+      for(String choice:choices){
+        final String selectedChoice=choice;
+        final Button reason=new Button(this);
+        reason.setText(choice.equals("CUSTOMER")?"Customer cancellation":"Driver cancellation");
+        reason.setTextSize(9); reason.setAllCaps(false);
+        reason.setOnClickListener(v->{ cancelReason=selectedChoice; for(int i=0;i<reasons.getChildCount();i++) reasons.getChildAt(i).setAlpha(0.55f); reason.setAlpha(1f); });
+        reasons.addView(reason,new LinearLayout.LayoutParams(0,dp(40),1));
+      }
       formPanel.addView(reasons,new LinearLayout.LayoutParams(-1,dp(44)));
-    }
-    if("FARE".equals(mode)){
-      LinearLayout grid=new LinearLayout(this);grid.setOrientation(LinearLayout.VERTICAL);
-      String[][] keys={{"1","2","3"},{"4","5","6"},{"7","8","9"},{"C","0","⌫"}};
-      for(String[] row:keys){LinearLayout line=new LinearLayout(this);line.setGravity(Gravity.CENTER);for(String key:row){Button b=keyButton(key);line.addView(b,new LinearLayout.LayoutParams(0,dp(36),1));}grid.addView(line,new LinearLayout.LayoutParams(-1,dp(38)));}
-      formPanel.addView(grid,new LinearLayout.LayoutParams(-1,dp(152)));
-      formPanel.addView(overlayAmountField("TOLL","toll"),new LinearLayout.LayoutParams(-1,dp(42)));
-      formPanel.addView(overlayAmountField("PARKING","parking"),new LinearLayout.LayoutParams(-1,dp(42)));
-      Button next=keyButton("USE FARE FIELD");
-      next.setTextSize(10);
-      next.setOnClickListener(v->{});
+      formInput=numericInput("Cancellation fee","fare",android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
+      formPanel.addView(formInput,new LinearLayout.LayoutParams(-1,dp(48)));
     }else{
-      TextView feeLabel=new TextView(this);feeLabel.setText("Cancellation fee");feeLabel.setTextSize(9);feeLabel.setTextColor(mutedColor());feeLabel.setGravity(Gravity.CENTER);
-      formPanel.addView(feeLabel,new LinearLayout.LayoutParams(-1,dp(18)));
-      LinearLayout grid=new LinearLayout(this);grid.setOrientation(LinearLayout.VERTICAL);
-      String[][] keys={{"1","2","3"},{"4","5","6"},{"7","8","9"},{"C","0","⌫"}};
-      for(String[] row:keys){LinearLayout line=new LinearLayout(this);line.setGravity(Gravity.CENTER);for(String key:row){Button b=keyButton(key);line.addView(b,new LinearLayout.LayoutParams(0,dp(28),1));}grid.addView(line,new LinearLayout.LayoutParams(-1,dp(30)));}
-      formPanel.addView(grid,new LinearLayout.LayoutParams(-1,dp(120)));
+      formInput=numericInput("Trip fare","fare",android.view.inputmethod.EditorInfo.IME_ACTION_NEXT);
+      tollInput=numericInput("Toll","toll",android.view.inputmethod.EditorInfo.IME_ACTION_NEXT);
+      parkingInput=numericInput("Parking","parking",android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
+      formPanel.addView(formInput,new LinearLayout.LayoutParams(-1,dp(48)));
+      formPanel.addView(tollInput,new LinearLayout.LayoutParams(-1,dp(48)));
+      formPanel.addView(parkingInput,new LinearLayout.LayoutParams(-1,dp(48)));
     }
+
     LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.CENTER);
     Button cancel=keyButton("BACK");cancel.setTextSize(11);cancel.setOnClickListener(v->closeForm());
     Button ok=keyButton("OKAY");ok.setTextSize(11);ok.setOnClickListener(v->submitNumericForm());
     actions.addView(cancel,new LinearLayout.LayoutParams(dp(105),dp(42)));actions.addView(ok,new LinearLayout.LayoutParams(dp(105),dp(42)));
     formPanel.addView(actions,new LinearLayout.LayoutParams(-1,dp(44)));
-    overlayRoot.addView(formPanel,new FrameLayout.LayoutParams(-1,"CANCEL".equals(mode)?dp(300):dp(420),Gravity.TOP));
+    overlayRoot.addView(formPanel,new FrameLayout.LayoutParams(-1,"CANCEL".equals(mode)?dp(310):dp(420),Gravity.TOP));
+
+    EditText first=formInput;
+    first.postDelayed(()->{first.requestFocus();InputMethodManager imm=(InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);if(imm!=null)imm.showSoftInput(first,InputMethodManager.SHOW_IMPLICIT);},180);
+  }
+
+  private EditText numericInput(String hint,String field,int imeAction){
+    EditText input=new EditText(this);
+    input.setHint(hint);
+    input.setTextSize(16);
+    input.setTextColor(textColor());
+    input.setHintTextColor(mutedColor());
+    input.setSingleLine(true);
+    input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER|android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+    input.setImeOptions(imeAction);
+    input.setPadding(dp(12),0,dp(12),0);
+    input.setSelectAllOnFocus(false);
+    input.setOnFocusChangeListener((v,hasFocus)->{if(hasFocus)activeAmountField=field;});
+    input.setOnEditorActionListener((v,id,event)->{
+      if(id==android.view.inputmethod.EditorInfo.IME_ACTION_DONE){submitNumericForm();return true;}
+      return false;
+    });
+    return input;
   }
 
   private LinearLayout overlayAmountField(String label,String field){
@@ -386,14 +411,15 @@ public class KfeOverlayService extends Service {
     TextView p=formPanel.findViewWithTag("amount_parking");if(p!=null)p.setText("₹"+(parkingValue.isEmpty()?"0":parkingValue));
   }
   private void submitNumericForm(){
+    if(formInput!=null)formValue=formInput.getText().toString().trim();
+    if(tollInput!=null)tollValue=tollInput.getText().toString().trim();
+    if(parkingInput!=null)parkingValue=parkingInput.getText().toString().trim();
     String actionTripId="FARE".equals(formMode)?resolveFareActionTripId(pendingFareTripId,pendingTripId):pendingTripId;
     if(formSubmitting||!awaitingEventId.isEmpty()||actionTripId.isEmpty())return;
-    double amount=0;try{if(formValue.isEmpty())return;amount=Double.parseDouble(formValue);}catch(Exception e){return;}
+    double amount;
+    try{if(formValue.isEmpty())return;amount=Double.parseDouble(formValue);}catch(Exception e){return;}
     if(amount<0)return;formSubmitting=true;
     if("FARE".equals(formMode)){
-      // The native form is only an input surface. The canonical Trip is
-      // persisted by the PWA/application path. Keep this form visible until
-      // that canonical write is acknowledged back to the overlay.
       try {
         JSONObject payload=new JSONObject();
         payload.put("fare",amount);
@@ -419,10 +445,11 @@ public class KfeOverlayService extends Service {
       return;
     }
   }
+
   private void closeForm(){
     if(formPanel!=null&&overlayRoot!=null)overlayRoot.removeView(formPanel);
-    formPanel=null;formMode=null;formValue="";tollValue="";parkingValue="";formSubmitting=false;
-    if(params!=null){params.height=dp(COLLAPSED_TOTAL_DP);params.flags=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;if(windowManager!=null&&overlayRoot!=null)windowManager.updateViewLayout(overlayRoot,params);}
+    formPanel=null;formMode=null;formValue="";tollValue="";parkingValue="";formSubmitting=false;formInput=null;tollInput=null;parkingInput=null;
+    if(params!=null){params.height=dp(COLLAPSED_TOTAL_DP);params.flags=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;params.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING;if(windowManager!=null&&overlayRoot!=null)windowManager.updateViewLayout(overlayRoot,params);}
     if(overlay!=null)overlay.invalidate();
   }
 
