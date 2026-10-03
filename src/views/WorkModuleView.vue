@@ -557,11 +557,13 @@ function down(event) {
   if (!event.target.closest('.swipe-handle')) return
   swipePointerId.value = event.pointerId
   swipe.value = { down: true, start: event.clientX, offset: 0 }
+  event.preventDefault?.()
   event.currentTarget.setPointerCapture?.(event.pointerId)
 }
 
 function move(event) {
   if (!swipe.value.down || swipePointerId.value !== event.pointerId) return
+  event.preventDefault?.()
   const max = Math.max(0, (track.value?.clientWidth || 320) - 76)
   swipe.value.offset = Math.max(0, Math.min(max, event.clientX - swipe.value.start))
 }
@@ -768,7 +770,7 @@ onBeforeUnmount(() => {
         <div class="action-heading"><strong>{{ actionLabel }}</strong><details class="swipe-help"><summary aria-label="Swipe help">?</summary><span>Swipe the handle right to {{ actionLabel.toLowerCase() }}.</span></details></div>
         <div ref="track" class="swipe trip-swipe" :class="{threshold:swipeProgress>=70,committing:busy,'semantic-go':cockpit.action==='GO_TO_PICKUP','semantic-start':cockpit.action==='START_RIDE','semantic-end':cockpit.action==='END_RIDE'}" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up">
           <div class="swipe-copy"><span>{{ swipeProgress>=70 ? 'RELEASE' : 'SWIPE' }}</span><strong>{{ actionLabel }}</strong></div>
-          <button class="swipe-handle" type="button" :aria-label="actionLabel" @pointerup.stop="keyAction" @click="keyAction">→</button>
+          <button class="swipe-handle" type="button" :aria-label="actionLabel" @keydown.enter.prevent="keyAction" @keydown.space.prevent="keyAction">→</button>
         </div>
       </section>
     </template>
