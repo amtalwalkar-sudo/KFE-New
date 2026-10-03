@@ -152,6 +152,25 @@ When the current Work state is **TRIP COMPLETE / FARE ENTRY**:
 - After successful confirmation, both PWA and Android reflect the completed ride and return to **GO TO PICKUP** for the next pickup.
 - **Nothing else is added to State 5 beyond these frozen rules.**
 
+### 3.6 Frozen State 6 — CANCEL RIDE
+
+State 6 applies after the driver reaches the customer location and before START TRIP has been committed.
+
+- The cancellation form is displayed.
+- The form contains exactly two options:
+  - **Driver cancellation**
+  - **Customer cancellation**
+- The driver taps **one** of these two reasons.
+- The driver then enters the **cancellation fee in the same form**.
+- The primary confirmation action is **OKAY**.
+- Pressing OKAY cancels the ride through the same canonical KFE cancellation command, validation, persistence, and recovery path used by the PWA.
+- The ride is not considered cancelled merely because a reason is selected or a fee is entered; cancellation is committed only after OKAY succeeds.
+- After successful cancellation, PWA and Android reflect the same cancelled trip and return to **GO TO PICKUP**.
+- GPS remains background context only.
+- Minimize/bubble behavior remains the same as previous states.
+- PWA and Android remain synchronized representations of the same canonical cancellation workflow.
+- No additional State 6 information or controls are added.
+
 ## 4. Fare Entry
 
 After a ride ends, fare entry must be available through the overlay.
