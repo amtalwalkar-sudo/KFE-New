@@ -81,8 +81,18 @@ try {
   const page = await context.newPage()
   const errors = []
   const swipeAction = async () => {
-    const swipe = page.locator('.swipe-handle')
-    await swipe.evaluate(el => el.click())
+    const handle = page.locator('.swipe-handle')
+    const box = await handle.boundingBox()
+    if (!box) throw new Error('Swipe handle is not visible')
+    const y = box.y + box.height / 2
+    const startX = box.x + box.width / 2
+    const track = page.locator('.trip-swipe')
+    const trackBox = await track.boundingBox()
+    if (!trackBox) throw new Error('Swipe track is not visible')
+    await page.mouse.move(startX, y)
+    await page.mouse.down()
+    await page.mouse.move(trackBox.x + trackBox.width - 8, y, { steps: 8 })
+    await page.mouse.up()
   }
   page.on('pageerror', e => errors.push(e.stack || e.message))
   page.on('requestfailed', r => { if (!r.url().startsWith('http://127.0.0.1:4176/')) errors.push('request failed: ' + r.url()) })
