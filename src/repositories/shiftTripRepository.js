@@ -99,6 +99,30 @@ export const ShiftTripRepository = {
       request.onerror = () => reject(request.error); tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: ['trips'], reason: `trip:${status}` }); resolve(true) }; tx.onerror = () => reject(tx.error || new Error('Trip update failed.')); tx.onabort = () => reject(tx.error || new Error('Trip update aborted.'))
     })
   },
+  async enrichTripMovement(data) {
+    const db = await initializeCanonicalStorage(); return new Promise((resolve, reject) => {
+      const tx = db.transaction(['trips', 'pending_mutations', 'audit_history'], 'readwrite')
+      const trips = tx.objectStore('trips'); const mutations = tx.objectStore('pending_mutations'); const audit = tx.objectStore('audit_history')
+      const request = trips.get(data.id)
+      request.onsuccess = () => {
+        const record = request.result
+        if (!record || record.status !== 'COMPLETED') { try { tx.abort() } catch (_) {}; resolve(false); return }
+        const now = new Date().toISOString()
+        if (data.tripKm !== undefined && Number.isFinite(Number(data.tripKm)) && Number(data.tripKm) >= 0) record.tripKm = Number(data.tripKm)
+        if (data.tripKmAuthority) record.tripKmAuthority = data.tripKmAuthority
+        if (data.tripKmProvenance !== undefined) record.tripKmProvenance = data.tripKmProvenance
+        if (data.roadMatchedGeometry !== undefined) record.roadMatchedGeometry = data.roadMatchedGeometry
+        if (data.traceGeometry !== undefined) record.traceGeometry = data.traceGeometry
+        record.updatedAt = now
+        trips.put(record)
+        saveMutation(mutations, audit, record.id, 'TRIP', 'UPDATE', record, now)
+      }
+      request.onerror = () => reject(request.error || new Error('Trip enrichment lookup failed.'))
+      tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: ['trips'], reason: 'trip:movement-enrichment' }); resolve(true) }
+      tx.onerror = () => reject(tx.error || new Error('Trip enrichment failed.'))
+      tx.onabort = () => reject(tx.error || new Error('Trip enrichment aborted.'))
+    })
+  },
   async updateTrip(data) {
     const db = await initializeCanonicalStorage(); return new Promise((resolve, reject) => {
       const tx = db.transaction(['trips', 'shifts', 'pending_mutations', 'audit_history'], 'readwrite'); const trips = tx.objectStore('trips'); const shifts = tx.objectStore('shifts'); const mutations = tx.objectStore('pending_mutations'); const audit = tx.objectStore('audit_history'); const request = trips.get(data.id)
