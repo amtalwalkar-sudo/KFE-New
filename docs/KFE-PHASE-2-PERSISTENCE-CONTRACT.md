@@ -1,7 +1,7 @@
 # KFE Phase 2 — Data Persistence / Local-First Contract
 
 **Phase:** 2 — Data Persistence / Local-First  
-**Status:** Working contract  
+**Status:** SUPPORTING IMPLEMENTATION CONTRACT — subordinate to docs/KFE-CANONICAL-DATA-CONTRACT.md and docs/KFE-ARCHITECTURE-CONTRACT.md  
 **Calendar timezone:** `Asia/Kolkata` (IST)
 
 ## 1. Purpose
