@@ -41,7 +41,7 @@ const evidence = {
   'CV-25': { calc:/driverTarget|driverTargetEffectiveMonthlyTarget/, ui:[performance,/TODAY'S TARGET|Monthly target requirement/], e2e:/driverTarget|dailyTargetAchievement/ },
   'CV-26': { calc:/dailyRevenueAllocation/, ui:[performance,/DAILY REVENUE ALLOCATION|Available after allocations/], e2e:/dailyRevenueAllocation|calculationBoundary/ },
   'CV-27': { calc:/operatingKmForecast/, ui:[performance,/Operating KM outlook/], e2e:/operatingKmForecast|phase5CalculationTraceability/ },
-  'CV-28': { calc:/istDayRange|istMonthRange|Asia\\/Kolkata/, ui:[performance,/Performance period/], e2e:/calculationBoundary.confirmed|calculationAuthority/ },
+  'CV-28': { calc:/istDayRange|istMonthRange|Asia\\\/Kolkata/, ui:[performance,/Performance period/], e2e:/calculationBoundary.confirmed|calculationAuthority/ },
   'CV-29': { calc:/financialFacts|ACTUAL|OBLIGATION|PROVISION|VARIANCE/, ui:[performance,/PROVISIONS|ACTUAL PROFIT/], e2e:/fah3FinancialFactModel|financeAuthority/ },
   'CV-30': { calc:/buildPeriodSnapshot|verifyPeriodSnapshot/, ui:[finance,/Finance/], e2e:/fah4HistoricalIntegrity/ },
 }
