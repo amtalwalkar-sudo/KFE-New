@@ -37,7 +37,7 @@ const requiredHeadings = [
   'E2E verification matrix'
 ]
 for (const heading of requiredHeadings) {
-  assert.ok(contract.includes('## ' + heading), `Missing source-of-truth section: ${heading}`)
+  assert.ok(new RegExp('^## \\d+\\. ' + heading.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\assert.ok(contract.includes('## ' + heading), `Missing source-of-truth section: ${heading}`)'), 'm').test(contract), `Missing source-of-truth section: ${heading}`)
 }
 
 for (const obsolete of [
