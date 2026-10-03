@@ -724,7 +724,7 @@ This functional foundation is frozen independently of visual styling.
 
 **FROZEN**
 
-The Work cockpit inherits the global KFE native-keyboard rule from KFE Visual DNA.
+The Work cockpit inherits the global KFE native-keyboard rule from UI/UX & Shell Contract.
 
 All Work text/numeric input uses the device-native keyboard and appropriate native input types. Custom numeric keypads are not permitted unless explicitly approved as a future design change.
 
@@ -1032,7 +1032,7 @@ This document is the **frozen baseline**, including the authoritative swipe-bar 
 
 Further design refinement may add detail and new agreed behaviour.
 
-Existing baseline rules must not be silently removed, weakened, or contradicted. If a future refinement conflicts with this baseline or KFE_VISUAL_DNA.md, explicitly raise:
+Existing baseline rules must not be silently removed, weakened, or contradicted. If a future refinement conflicts with this baseline or docs/UI-UX-SHELL-CONTRACT.md, explicitly raise:
 
 **DESIGN DRIFT / CONFLICT WARNING**
 
@@ -1338,7 +1338,7 @@ These refinements are part of the frozen Work interaction language.
 
 They apply to existing and future short driver forms and operational states unless a specific state has a documented reason to behave differently.
 
-Any exception must be deliberate, documented, and consistent with KFE Visual DNA and the Work baseline.
+Any exception must be deliberate, documented, and consistent with UI/UX & Shell Contract and the Work baseline.
 
 ## 20.36 Work State-by-State Interaction Audit Gate
 
@@ -1384,7 +1384,7 @@ They refine the experience without changing:
 - the shift-level OFFLINE | ONLINE toggle;
 - the native keyboard/keyboard-safe viewport rule;
 - the Premium Instrument visual direction;
-- the KFE Visual DNA.
+- the UI/UX & Shell Contract.
 
 Implementation must treat these refinements as governing requirements.
 
@@ -1643,7 +1643,7 @@ Such changes must not silently modify:
 
 **FROZEN**
 
-Implementation of the new Work must treat this document, KFE_VISUAL_DNA.md, and the already-frozen Work workflow as the governing specification.
+Implementation of the new Work must treat this document, docs/UI-UX-SHELL-CONTRACT.md, and the already-frozen Work workflow as the governing specification.
 
 The old Work implementation is not a template to incrementally repair. It is reference material only for business understanding where needed.
 
@@ -1672,6 +1672,6 @@ The authoritative operational actions use these semantic colours:
 | **END SHIFT** | **Red / Error** | End the active shift |
 | **CANCEL** | **Amber / Warning** | Cancellation / exception action, where cancellation is presented as an action surface |
 
-The colour mapping is semantic and consistent; it must not change merely because of theme, viewport, or implementation surface. The exact rendered shades must use the corresponding KFE Visual DNA semantic tokens rather than scattered one-off colours.
+The colour mapping is semantic and consistent; it must not change merely because of theme, viewport, or implementation surface. The exact rendered shades must use the corresponding UI/UX & Shell Contract semantic tokens rather than scattered one-off colours.
 
 Colour must never be the only carrier of meaning. The action label, state, iconography, and accessible name remain explicit. Threshold and committing states preserve the action's semantic colour while adding clear progress/commit feedback.
