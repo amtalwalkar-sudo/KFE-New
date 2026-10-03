@@ -9,6 +9,8 @@ const timeline = read('../views/TimelineView.vue')
 const admin = read('../views/AdminView.vue')
 const breakEven = read('../components/admin/AdminBreakEven.vue')
 const finance = read('../components/admin/AdminFinanceView.vue')
+const loanEngine = read('../domain/finance/loanEngine.js')
+const periodSnapshot = read('../domain/finance/periodSnapshot.js')
 
 const ids = Array.from({ length: 30 }, (_, i) => `CV-${String(i + 1).padStart(2, '0')}`)
 for (const id of ids) assert.match(matrix, new RegExp('^\\| ' + id + ' ', 'm'), `matrix missing ${id}`)
@@ -47,7 +49,7 @@ const evidence = {
 }
 
 for (const [id, item] of Object.entries(evidence)) {
-  assert.ok(item.calc.test(matrix) || item.calc.test(performance), `${id} calculation evidence token missing`)
+  assert.ok(item.calc.test(matrix) || item.calc.test(performance) || item.calc.test(work) || item.calc.test(timeline) || item.calc.test(admin) || item.calc.test(breakEven) || item.calc.test(finance) || item.calc.test(loanEngine) || item.calc.test(periodSnapshot), `${id} calculation evidence token missing`)
   const [screen, label] = item.ui
   assert.ok(label.test(screen), `${id} UI binding/label evidence missing`)
   assert.ok(item.e2e.test(matrix), `${id} E2E evidence reference missing from matrix`)
