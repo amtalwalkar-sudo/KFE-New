@@ -55,6 +55,6 @@
 .work-canonical .start-shift-gate .primary-action{min-height:44px;}
 
 /* Frozen Work action zone: reserved above the shell bottom navigation. */
-.work-canonical .work-fixed-action{position:fixed;z-index:40;left:50%;bottom:calc(var(--kfe-shell-nav) + env(safe-area-inset-bottom) + 8px);transform:translateX(-50%);width:min(92vw,520px);margin:0;}
+.work-canonical .work-fixed-action{position:fixed;z-index:40;left:0;right:0;bottom:calc(var(--kfe-shell-nav) + env(safe-area-inset-bottom,0px) + 8px);width:auto;margin:0;padding:0 10px;transform:none;}
 .work-canonical .work-main{padding-bottom:calc(var(--kfe-shell-nav) + 116px);}
-@media(max-width:600px){.work-canonical .work-fixed-action{width:calc(100vw - 20px);bottom:calc(var(--kfe-shell-nav) + env(safe-area-inset-bottom) + 6px);}.work-canonical .work-main{padding-bottom:calc(var(--kfe-shell-nav) + 112px);}}
+@media(max-width:600px){.work-canonical .work-fixed-action{left:0;right:0;width:auto;bottom:calc(var(--kfe-shell-nav) + env(safe-area-inset-bottom,0px) + 6px);padding:0 10px;}.work-canonical .work-main{padding-bottom:calc(var(--kfe-shell-nav) + 112px);}}
