@@ -8,7 +8,7 @@ import { validateShiftStartOdometer, validateFirstDayShiftStartOdometer, validat
 import { calculateFuelQuantity, validateFuelEntry } from '../../domain/work/fuel.js'
 import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } from '../../domain/work/trip.js'
 import { BackupService } from '../backup/backupService.js'
-import { MovementAccountingService } from '../../domain/movement/movementAccounting.js'
+import { MovementAccountingService, routeTrace } from '../../domain/movement/movementAccounting.js'
 import { calculateTraceDistanceKm } from '../../infrastructure/location/movementTraceService.js'
 import { NativeGpsService } from '../../infrastructure/android/nativeGpsService.js'
 import { ValhallaRoutingAdapter } from '../../infrastructure/location/valhallaRoutingAdapter.js'
@@ -75,22 +75,55 @@ export const WorkService = Object.freeze({
     if (tripId) {
       void (async () => {
         try {
+          // Native GPS is the raw evidence. Synchronize it first, then enrich the
+          // already-committed trip asynchronously. Nothing here is awaited by the
+          // authoritative END TRIP transition or the pending-fare form.
           await NativeGpsService.syncTrace(tripId)
           await NativeGpsService.stop(tripId)
           const snapshots = (await LocationRepository.forEntity('TRIP', tripId)).filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')
-          if (snapshots.length >= 2) {
-            const lineKm = calculateTraceDistanceKm(snapshots)
-            if (Number.isFinite(Number(lineKm)) && lineKm >= 0) {
-              await ShiftTripRepository.updateTrip({
-                id: tripId,
-                tripKm: Number(lineKm),
-                tripKmAuthority: 'GPS_LINE_TRACE',
-                tripKmProvenance: { method: 'HAVERSINE_TRACE_SUM', gpsTracePoints: snapshots.length, source: 'WEB_AND_ANDROID_NATIVE' }
-              })
-            }
+          if (snapshots.length < 2) return
+
+          const gpsKm = calculateTraceDistanceKm(snapshots)
+          const router = new ValhallaRoutingAdapter()
+          const routed = await routeTrace(snapshots, router)
+
+          if (Number.isFinite(Number(routed.distanceKm)) && Number(routed.distanceKm) >= 0) {
+            await ShiftTripRepository.updateTrip({
+              id: tripId,
+              tripKm: Number(routed.distanceKm),
+              tripKmAuthority: routed.roadMatchedGeometry ? 'VALHALLA_ROAD_TRACE' : 'GPS_LINE_TRACE',
+              tripKmProvenance: {
+                ...(routed.provenance || {}),
+                method: routed.method,
+                confidence: routed.confidence,
+                gpsTracePoints: routed.points?.length || snapshots.length,
+                fallbackGpsKm: Number.isFinite(Number(gpsKm)) ? Number(gpsKm) : null,
+                source: 'ANDROID_NATIVE_GPS'
+              },
+              roadMatchedGeometry: routed.roadMatchedGeometry || null,
+              traceGeometry: routed.traceGeometry || []
+            })
+            return
+          }
+
+          if (Number.isFinite(Number(gpsKm)) && gpsKm >= 0) {
+            await ShiftTripRepository.updateTrip({
+              id: tripId,
+              tripKm: Number(gpsKm),
+              tripKmAuthority: 'GPS_LINE_TRACE',
+              tripKmProvenance: {
+                method: 'HAVERSINE_TRACE_SUM',
+                confidence: 'ESTIMATED_TRACE',
+                gpsTracePoints: snapshots.length,
+                source: 'ANDROID_NATIVE_GPS'
+              },
+              roadMatchedGeometry: null,
+              traceGeometry: snapshots.map(point => [Number(point.longitude), Number(point.latitude)])
+            })
           }
         } catch (_) {
-          // Completion is already persisted; telemetry must never block or undo it.
+          // Completion is already persisted. Valhalla/network/GPS enrichment must
+          // never block, undo, or delay the fare form or swipe transition.
         }
       })()
     }
