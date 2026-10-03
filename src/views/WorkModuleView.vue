@@ -1,18 +1,14 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Capacitor } from '@capacitor/core'
 import { useShiftTripStore } from '../stores/shiftTrip.js'
 import { useFuelStore } from '../stores/fuel.js'
 import { WorkService } from '../application/work/workService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { MovementTraceService } from '../infrastructure/location/movementTraceService.js'
-import { KfeRideNotificationService } from '../infrastructure/android/kfeRideNotificationService.js'
-import { AndroidOverlay } from '../infrastructure/android/kfeOverlay.js'
 import { deriveWorkCockpitState, WORK_COCKPIT_STATES } from '../application/work/workCockpit.js'
 
 const store = useShiftTripStore()
 const fuel = useFuelStore()
-const nativeAndroid = Capacitor.getPlatform() === 'android'
 
 const startOdo = ref('')
 const startAck = ref(false)
@@ -66,7 +62,6 @@ const swipePointerId = ref(null)
 
 let timer = null
 let traceRunning = false
-let notificationListener = null
 
 const money = value => Number.isFinite(Number(value))
   ? '₹' + Math.round(Number(value)).toLocaleString('en-IN')
@@ -176,64 +171,6 @@ async function targetRefresh() {
   }
 }
 
-async function syncOverlay() {
-  if (!store.isOnline || document.visibilityState === 'visible') {
-    await AndroidOverlay.hide().catch(() => {})
-    return
-  }
-
-  // Shift-end revenue is the ERP authority. Trip fares are optional supporting
-  // detail and must never become a competing overlay revenue total.
-  const revenue = money(store.shift?.revenue ?? 0)
-  let liveKm = '0.0 km'
-  let trips = []
-  try {
-    trips = await WorkService.getTripsForShift(store.shift.id)
-  } catch (_) {}
-
-  if (store.trip?.id) {
-    try {
-      const distance = await WorkService.getTripGpsDistanceKm(store.trip.id)
-      if (Number.isFinite(Number(distance))) liveKm = Number(distance).toFixed(1) + ' km'
-    } catch (_) {}
-  }
-
-  const recoveredPendingFareId = pendingFare.value?.id || [...trips]
-    .filter(t => t.status === 'COMPLETED' && t.revenue == null && t.fareDetailsSkipped !== true)
-    .sort((a, b) => Date.parse(b.tripEndAt || b.updatedAt || '') - Date.parse(a.tripEndAt || a.updatedAt || ''))[0]?.id || ''
-
-  const state = deriveWorkCockpitState({
-    shift: store.shift,
-    trip: store.trip,
-    trips,
-    pendingFareId: recoveredPendingFareId,
-    notificationPhase: KfeRideNotificationService.getState()?.phase || '',
-    target: targetValue.value == null ? '—' : money(targetValue.value),
-    targetProgress: targetProgress.value,
-    liveKm,
-    revenue
-  })
-
-  await AndroidOverlay.update({
-    theme: document.documentElement.getAttribute('data-kfe-theme') === 'night' ? 'dark' : 'light',
-    shift: store.shift ? { id: store.shift.id } : null,
-    trip: store.trip ? {
-      id: store.trip.id,
-      status: store.trip.status,
-      tripStage: store.trip.tripStage
-    } : null,
-    target: state.target,
-    targetProgress: state.targetProgress,
-    rides: String(trips.length),
-    liveKm: state.liveKm,
-    revenue: state.revenue,
-    tripStartAt: state.tripStartAt,
-    overlayAction: state.pendingFareId && (!store.trip?.id || store.trip.status !== 'ACTIVE') ? 'ENTER_FARE' : state.action,
-    overlayTripId: state.pendingFareId && (!store.trip?.id || store.trip.status !== 'ACTIVE') ? state.pendingFareId : state.tripId,
-    pendingFareId: state.pendingFareId
-  }).catch(() => {})
-}
-
 async function openStart() {
   fuelOpen.value = false
   endOpen.value = false
@@ -263,39 +200,7 @@ async function submitStart() {
     startAck.value = false
     gapChoice.value = ''
     await targetRefresh()
-    await KfeRideNotificationService.goOnline().catch(() => {})
-    await AndroidOverlay.prepare().catch(() => {})
-    await syncOverlay()
-    notify('Online — shift started.')
-  } catch (e) {
-    fail(e?.message || 'Could not start the shift.')
-  } finally {
-    startBusy.value = false
-  }
-}
 
-async function goPickup(nativeTripId = '') {
-  if (busy.value || !store.isOnline || store.isTripActive) return false
-  busy.value = true
-  try {
-    try {
-      traceRunning = MovementTraceService.start({
-        entityType: 'SHIFT',
-        entityId: store.shift?.id,
-        eventType: 'DEAD_MOVEMENT_TRACE',
-        profile: 'DEAD_LEG'
-      })
-    } catch (_) { traceRunning = false }
-
-    const result = await store.beginPickup(operator.value || store.defaultOperator, nativeTripId || null)
-    if (!result?.ok) {
-      if (traceRunning) MovementTraceService.reset()
-      traceRunning = false
-      fail(result?.reason || 'Could not start pickup.')
-      return false
-    }
-    await KfeRideNotificationService.beginPickup(store.trip?.id || '').catch(() => {})
-    await syncOverlay()
     notify('Going to pickup.')
     return true
   } finally {
@@ -313,8 +218,7 @@ async function startTrip() {
     }
     const result = await store.startRide()
     if (!result?.ok) { fail(result?.reason || 'Trip could not be started.'); return false }
-    await KfeRideNotificationService.startRide().catch(() => {})
-    await syncOverlay()
+
     notify('Trip active.')
     return true
   } finally {
@@ -332,8 +236,7 @@ async function endTrip() {
     fare.value = ''
     tripToll.value = ''
     tripParking.value = ''
-    await KfeRideNotificationService.completeRide().catch(() => {})
-    await syncOverlay()
+
     notify('Trip ended. Add optional details or skip.')
     return true
   } catch (e) {
@@ -344,7 +247,7 @@ async function endTrip() {
   }
 }
 
-async function saveFare(fromNative = false) {
+async function saveFare() {
   if (fareBusy.value || !pendingFare.value) return false
   for (const [label, value] of [['Trip fare', fare.value], ['Toll', tripToll.value], ['Parking', tripParking.value]]) {
     if (value !== '' && (!Number.isFinite(Number(value)) || Number(value) < 0)) return fail(`${label} must be a non-negative number.`)
@@ -366,10 +269,10 @@ async function saveFare(fromNative = false) {
     fare.value = ''
     tripToll.value = ''
     tripParking.value = ''
-    if (!fromNative) await AndroidOverlay.fareSaved().catch(() => {})
-    if (!fromNative) await KfeRideNotificationService.clearPendingAction().catch(() => {})
+
+
     await targetRefresh()
-    await syncOverlay()
+
     notify('Trip details saved.')
     return true
   } finally {
@@ -387,9 +290,7 @@ async function skipTripDetails() {
     fare.value = ''
     tripToll.value = ''
     tripParking.value = ''
-    await AndroidOverlay.fareSaved().catch(() => {})
-    await KfeRideNotificationService.clearPendingAction().catch(() => {})
-    await syncOverlay()
+
     notify('Trip details skipped.')
   } finally {
     fareBusy.value = false
@@ -404,7 +305,7 @@ async function openCancel() {
   message.value = ''
 }
 
-async function saveCancel(fromNative = false) {
+async function saveCancel() {
   if (cancelBusy.value) return false
   if (!cancelReason.value.trim()) { fail('Cancellation reason is required.'); return false }
   if (cancelFare.value !== '' && (!Number.isFinite(Number(cancelFare.value)) || Number(cancelFare.value) < 0)) { fail('Cancellation fare must be a non-negative number.'); return false }
@@ -417,9 +318,7 @@ async function saveCancel(fromNative = false) {
     })
     if (!result?.ok) { fail(result?.reason || 'Cancellation could not be saved.'); return false }
     cancelOpen.value = false
-    if (!fromNative) await AndroidOverlay.cancelSaved().catch(() => {})
-    if (!fromNative) await KfeRideNotificationService.clearPendingAction().catch(() => {})
-    await syncOverlay()
+
     notify('Trip cancelled.')
     return true
   } finally {
@@ -535,7 +434,7 @@ async function finishEnd() {
     })
     if (!result?.ok) return fail(result.reason)
     endStage.value = 'ENDED'
-    await KfeRideNotificationService.clear().catch(() => {})
+
     notify('Shift ended.')
   } finally {
     endBusy.value = false
@@ -590,55 +489,6 @@ function keyAction() {
   if (!busy.value) void doAction()
 }
 
-const handleNativeAction = async event => {
-  const stage = String(event?.stage || '')
-  if (stage === 'GO_TO_PICKUP') return Boolean(await goPickup(String(event?.tripId || '')))
-  if (stage === 'START_RIDE') return Boolean(await startTrip())
-  if (stage === 'END_RIDE') return Boolean(await endTrip())
-
-  if (stage === 'CANCEL_RIDE') {
-    try {
-      const payload = event?.input ? JSON.parse(String(event.input)) : {}
-      cancelReason.value = payload.reason === 'PASSENGER' ? 'PASSENGER' : 'DRIVER'
-      cancelFare.value = payload.revenue === '' || payload.revenue == null ? '' : String(payload.revenue)
-      return Boolean(await saveCancel(true))
-    } catch (e) {
-      fail(e?.message || 'Cancellation failed.')
-      return false
-    }
-  }
-
-  if (stage === 'ENTER_FARE' && event?.input != null) {
-    const tripId = String(event.tripId || fareTripId.value || pendingFare.value?.id || '')
-    if (!tripId) return false
-    fareTripId.value = tripId
-    try {
-      const payload = JSON.parse(String(event.input))
-      fare.value = payload.fare == null ? '' : String(payload.fare)
-      tripToll.value = payload.toll == null ? '' : String(payload.toll)
-      tripParking.value = payload.parking == null ? '' : String(payload.parking)
-    } catch (_) {
-      fare.value = String(event.input)
-      tripToll.value = ''
-      tripParking.value = ''
-    }
-    return Boolean(await saveFare(true))
-  }
-  return false
-}
-
-async function processNativeEvent(event) {
-  try {
-    const saved = await handleNativeAction(event)
-    if (saved && event?.eventId) await KfeRideNotificationService.acknowledgeAction(event.eventId, String(event?.stage || ''), String(event?.tripId || ''))
-    else if (!saved && event?.eventId) await KfeRideNotificationService.recordActionFailure(event.eventId, 'Work did not confirm the action was saved')
-    return saved
-  } catch (error) {
-    if (event?.eventId) await KfeRideNotificationService.recordActionFailure(event.eventId, error?.message || error)
-    return false
-  }
-}
-
 onMounted(async () => {
   await store.initialize()
   await targetRefresh()
@@ -646,31 +496,10 @@ onMounted(async () => {
 
   clock.value = Date.now()
   timer = setInterval(() => { clock.value = Date.now() }, 1000)
-
-  notificationListener = await KfeRideNotificationService.addListener(
-    'rideNotificationAction',
-    event => { void processNativeEvent(event) }
-  )
-
-  // Replay every native event in durable creation order. Failed/unconfirmed
-  // writes remain pending for the next launch instead of being silently lost.
-  const pendingEvents = await KfeRideNotificationService.consumePendingActions()
-  for (const event of pendingEvents) await processNativeEvent(event)
-
-  // Compatibility for events created by app versions before the SQLite ledger.
-  if (!pendingEvents.length) {
-    const pending = await KfeRideNotificationService.consumePendingAction()
-    if (pending && await handleNativeAction(pending)) await KfeRideNotificationService.clearPendingAction()
-  }
-
-  await KfeRideNotificationService.resume().catch(() => {})
-  await syncOverlay()
 })
 
-watch(() => store.isOnline, () => { void syncOverlay() })
-watch(() => store.trip?.tripStage, () => { void syncOverlay() })
 watch(pendingFare, async value => {
-  if (value && !endOpen.value && !nativeAndroid) {
+  if (value && !endOpen.value) {
     await nextTick()
     fareInput.value?.focus()
     fareInput.value?.select?.()
@@ -680,8 +509,7 @@ watch(pendingFare, async value => {
 onBeforeUnmount(() => {
   if (timer) clearInterval(timer)
   if (traceRunning) MovementTraceService.reset()
-  notificationListener?.remove?.()
-  void AndroidOverlay.hide().catch(() => {})
+
 })
 </script>
 
