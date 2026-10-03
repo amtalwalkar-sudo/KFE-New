@@ -105,7 +105,7 @@ assertIncludes(dataContract, 'Shift.revenue', 'Canonical data contract must iden
 assertIncludes(dataContract, 'Trip.revenue', 'Trip revenue must remain supporting detail.')
 assertIncludes(workView, 'store.shift?.revenue', 'PWA overlay revenue must read authoritative Shift revenue.')
 assertIncludes(overlayLifecycle, 'Number(active.shift?.revenue)', 'Native overlay reconstruction must read authoritative Shift revenue.')
-assertIncludes(nativeGps, 'tripKmAuthority', 'Native GPS must feed canonical trip-KM provenance rather than a separate calculation authority.')
+assertIncludes(workService, "tripKmAuthority: 'GPS_LINE_TRACE'", 'Native GPS results must be written through the canonical Trip update path.')
 assertIncludes(gpsContract, 'LocationRepository', 'Native GPS must converge into the canonical location repository.')
 assert.ok(!/const totalRevenue = trips\.reduce/.test(overlayLifecycle), 'Overlay must not calculate ERP revenue by summing Trip fares.')
 
