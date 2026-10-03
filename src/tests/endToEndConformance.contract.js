@@ -114,9 +114,9 @@ assertIncludes(authorityMap, 'KFE-OPERATIONAL-LIFECYCLE-CONTRACT.md', 'Authority
 assertIncludes(authorityMap, 'KFE-CANONICAL-DATA-CONTRACT.md', 'Authority map must expose canonical data authority.')
 assertIncludes(authorityMap, 'KFE_WORK_COCKPIT_BASELINE.md', 'Authority map must expose Work presentation authority.')
 assertIncludes(authorityMap, 'ANDROID-NATIVE-GPS-CONTRACT.md', 'Authority map must expose native GPS implementation boundary.')
-assertIncludes(matrix, 'repository/CI', 'Matrix must define Level A proof.')
-assertIncludes(matrix, 'Android emulator', 'Matrix must define Level B proof.')
-assertIncludes(matrix, 'Physical Android device', 'Matrix must define Level C proof.')
+assertIncludes(matrix, '### Level A — Repository/CI', 'Matrix must define Level A proof.')
+assertIncludes(matrix, '### Level B — Android emulator', 'Matrix must define Level B proof.')
+assertIncludes(matrix, '### Level C — Physical Android device', 'Matrix must define Level C proof.')
 
 // 9. Proof levels are explicitly separated.
 assertIncludes(gpsContract, 'Physical acceptance gate', 'Native GPS cannot be declared device-validated from source tests alone.')
