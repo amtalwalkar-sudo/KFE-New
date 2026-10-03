@@ -12,8 +12,10 @@ import { getKfeReferenceNow, istDateKey } from '../domain/time/ist.js'
 import { deriveLoanPosition, calculatePrepaymentEstimate, paymentAllocationPreview } from '../domain/finance/loanEngine.js'
 import { getKfeThemeSettings, setKfeThemeMode } from '../presentation/theme/kfeThemeController.js'
 import { KfeRideNotificationService } from '../infrastructure/android/kfeRideNotificationService.js'
+import CalculationsView from './CalculationsView.vue'
 
 const items=[
+ {key:'calculations',category:'DIAGNOSTICS',title:'Calculations',icon:'∑'},
  {key:'businessSetup',category:'BUSINESS SETUP',title:'Business Setup',icon:'⌂'},
  {key:'vehicle',category:'BUSINESS SETUP',title:'Vehicle',icon:'🚗'},
  {key:'driver',category:'BUSINESS SETUP',title:'Driver',icon:'👤'},
@@ -193,6 +195,10 @@ onMounted(load)
 
 <template v-else-if="settingsOpen">
 <section class="settings-screen"><div class="settings-menu"><button v-for="item in settingsMenu" :key="item.key" class="settings-item" :class="{active:settingsSelected===item.key}" @click="chooseSetting(item.key)"><span>{{item.icon}}</span><strong>{{item.title}}</strong><span>›</span></button></div><section v-if="settingsSelected==='backup'" class="settings-panel"><h2>Backup &amp; Restore</h2><BackupRestorePanel/></section><section v-else-if="settingsSelected==='application'" class="settings-panel"><h2>Application Settings</h2><div class="theme-selector"><button :class="{active:themeSettings.mode==='light'}" @click="chooseTheme('light')">☀ Light</button><button :class="{active:themeSettings.mode==='dark'}" @click="chooseTheme('dark')">☾ Dark</button><button :class="{active:themeSettings.mode==='auto'}" @click="chooseTheme('auto')">◐ Auto</button></div><div class="settings-option-row"><div><strong>Notifications</strong><small>Control KFE ride and system action notifications.</small></div><button class="settings-toggle" :class="{active:notificationsEnabled}" type="button" role="switch" :aria-checked="notificationsEnabled" @click="chooseNotifications(!notificationsEnabled)">{{notificationsEnabled?'ON':'OFF'}}</button></div></section><section v-else-if="settingsSelected==='synthetic'" class="settings-panel"><h2>Synthetic Data</h2><SyntheticDataPanel/></section><section v-else class="settings-panel"><h2>Data Reset</h2><p>This permanently clears canonical KFE business records.</p><button class="danger-button" :disabled="loading" @click="resetData">Reset all data</button></section></section>
+</template>
+
+<template v-else-if="selected==='calculations'">
+<CalculationsView/>
 </template>
 
 <template v-else>
