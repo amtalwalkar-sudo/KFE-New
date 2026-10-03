@@ -173,7 +173,9 @@ public class KfeOverlaySmokeTest {
       .getString("pendingEventId", "");
     assertTrue("Durable native event id must exist", !eventId.isEmpty());
     assertTrue("Durable native event must acknowledge", KfeNativeEventStore.get(context).acknowledge(eventId));
-    KfeOverlayService.acknowledgeFromPwa(context, eventId, stage, tripId);
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(() ->
+      KfeOverlayService.acknowledgeFromPwa(context, eventId, stage, tripId));
+    SystemClock.sleep(100L);
     clearPending();
   }
   private void clearPending() {
