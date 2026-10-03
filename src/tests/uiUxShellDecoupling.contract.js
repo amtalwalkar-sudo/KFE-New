@@ -49,6 +49,7 @@ for (const obsolete of [
 }
 
 assert.match(baseline, /docs\/UI-UX-SHELL-CONTRACT\.md/)
+assert.doesNotMatch(baseline, /KFE_VISUAL_DNA|KFE Visual DNA|Visual DNA/)
 assert.match(runner, /uiUxShellDecoupling\.contract\.js/)
 assert.equal(packageJson.scripts['ui:impact'], 'node tools/presentation-impact.mjs')
 assert.match(impactTool, /PROTECTED_PREFIXES/)
