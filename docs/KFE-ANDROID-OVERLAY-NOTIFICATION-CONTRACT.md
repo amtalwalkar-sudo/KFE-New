@@ -186,6 +186,101 @@ The intended architecture is:
 
 The Android overlay is a presentation/action surface for the canonical workflow, not a parallel workflow.
 
+
+## 11. Frozen Cross-Surface Driver Workflow
+
+The main PWA Work workflow is the reference interaction flow for the Android overlay. The overlay must reproduce the same operational workflow rather than define an Android-specific version.
+
+### 11.1 Normal ride flow
+
+The driver-facing sequence is:
+
+**SHIFT START → GO TO PICKUP → START RIDE → END RIDE → FARE + TOLL + PARKING → complete → GO TO PICKUP**
+
+The canonical lifecycle may represent the pickup-ready condition as **READY FOR TRIP** between GO TO PICKUP and START TRIP. This is a canonical lifecycle condition, not a separate Android-only driver workflow.
+
+After **START RIDE** is committed:
+
+- The trip is the same canonical trip on both surfaces.
+- The active-trip surface exposes **END RIDE**.
+- Cancellation is no longer offered for that active trip.
+- **END RIDE** opens the same Fare + Toll + Parking completion form.
+- Completing that form completes the trip through the canonical mutation path.
+- The resulting state returns the driver to **GO TO PICKUP** for the next pickup.
+
+### 11.2 Cancellation flow
+
+Cancellation is available before the ride has started:
+
+**GO TO PICKUP → CANCEL RIDE → cancellation reason → cancellation fee → OKAY → GO TO PICKUP**
+
+The two selectable cancellation reasons are exactly:
+
+- **Passenger cancelled**
+- **Driver cancelled**
+
+The cancellation fee is entered through the same canonical cancellation-fee form and committed through the same canonical persistence path. After successful confirmation, the driver returns to the pickup workflow with the **Blue GO TO PICKUP** action.
+
+### 11.3 Form parity
+
+Where the PWA provides an operational entry form for this workflow, the Android overlay must use the same form semantics:
+
+- same fields;
+- same validation;
+- same business rules;
+- same canonical command/wiring;
+- same calculations;
+- same persistence/database;
+- same trip identity;
+- same commit and recovery behavior.
+
+The overlay must not create a second Android-only form implementation with different business meaning.
+
+## 12. Frozen Shared Swipe-Bar Contract
+
+The PWA swipe bar and Android overlay swipe bar are two presentations of **one shared interaction contract**.
+
+The swipe bar is a **touch surface only**. It triggers the applicable canonical KFE command. It does not own:
+
+- business rules;
+- calculations;
+- persistence;
+- trip identity;
+- independent state transitions;
+- Android-specific workflow logic.
+
+### 12.1 Synchronization
+
+Both swipe bars operate against the same canonical workflow:
+
+**Swipe touch → canonical command → canonical validation → canonical mutation → persisted state → PWA + Android reflect the resulting state**
+
+An action initiated on either swipe bar must result in the same canonical state and trip data.
+
+### 12.2 Design parity
+
+The swipe bar must follow the same applicable KFE UI/UX Shell and Work presentation/interaction rules on both surfaces.
+
+The PWA and native Android swipe bars are therefore a **coupled design surface**:
+
+- a change to swipe-bar design applies to both;
+- a change to swipe mechanics applies to both;
+- a change to action semantics applies to both;
+- a change to threshold/gesture behavior applies to both;
+- a change to animation/interaction behavior applies to both;
+- semantic action colours remain shared.
+
+No Android-only swipe-bar interpretation may be introduced without an explicit rule change to this contract and the applicable canonical UI/UX authority.
+
+### 12.3 Frozen semantic actions
+
+- **Blue — GO TO PICKUP**
+- **Green — START RIDE / START TRIP**
+- **Red — END RIDE / END TRIP**
+
+The displayed wording may follow the canonical PWA terminology for the same command; the command meaning must remain identical.
+
+
 ## 9. Rule Evolution and Contradiction Warning
 
 This document will be expanded as the Android Overlay + Notification rules are defined.
@@ -277,3 +372,18 @@ Frozen from the agreed state-by-state definition:
 - START TRIP is available from both PWA and Android overlay.
 - Both surfaces must reflect the same canonical TRIP ACTIVE transition.
 - The swipe bar is only a touch surface for triggering the canonical START TRIP command; it has no independent business logic.
+
+
+### Cross-Surface Workflow + Swipe Bar Freeze — 2026-10-04
+
+Frozen from the complete driver-workflow clarification:
+
+- The main PWA Work workflow is the reference interaction flow for the Android overlay.
+- Normal flow: SHIFT START → GO TO PICKUP → START RIDE → END RIDE → Fare + Toll + Parking → complete → GO TO PICKUP.
+- READY FOR TRIP is the canonical lifecycle condition immediately before START TRIP, not a separate Android-only workflow.
+- Cancellation occurs before ride start: cancellation reason → cancellation fee → OKAY → GO TO PICKUP.
+- The exact cancellation reasons remain Passenger cancelled and Driver cancelled.
+- Overlay operational forms must have the same fields, validation, business rules, canonical wiring, calculations, persistence/database, trip identity, and recovery/commit behavior as the PWA forms.
+- PWA and Android swipe bars are two presentations of one shared interaction contract.
+- Swipe bar is a touch surface only and triggers the canonical command; it does not own business logic, calculations, persistence, or an independent workflow.
+- Swipe-bar design, mechanics, semantics, thresholds, gestures, animation, and semantic action colours are shared across PWA and Android; changes must apply to both.
