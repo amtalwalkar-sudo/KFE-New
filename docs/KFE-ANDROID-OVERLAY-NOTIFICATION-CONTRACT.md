@@ -59,6 +59,34 @@ When the current Work state is **ONLINE / READY**:
 - The minimized bubble remains movable by holding and dragging it.
 - No other information or control is introduced into ONLINE / READY beyond these frozen rules.
 
+### 3.2 Frozen State 2 — GO TO PICKUP
+
+When the current Work state is **GO TO PICKUP**:
+
+- The overlay displays:
+  - Current Target progress
+  - Timer
+  - Dead KM
+- The primary action is **START TRIP**.
+- **START TRIP** uses the frozen **Green semantic** action colour.
+- Trip cancellation is available from this state.
+- Cancellation presents exactly two predefined selectable reasons:
+  - **Passenger cancelled**
+  - **Driver cancelled**
+- After a cancellation reason is selected, a **Trip Cancellation Fee** form is displayed.
+- The driver enters the cancellation amount and presses **OKAY**.
+- After the cancellation fee is confirmed, the overlay returns to the **pickup screen with the Blue GO TO PICKUP swipe bar**, ready for the pickup workflow again.
+- GPS remains **background context only**. GPS availability must not block START TRIP or cancellation actions.
+- The overlay uses the same minimize interaction frozen for State 1:
+  - hold and drag upward beyond the phone's upper edge;
+  - overlay becomes a bubble;
+  - bubble fixes to either the left or right screen edge;
+  - bubble remains movable by holding and dragging.
+- PWA and Android overlay remain synchronized representations of the same canonical workflow.
+- **START TRIP** can be initiated directly from either the PWA or Android overlay.
+- If the action is performed on either surface, the other surface must reflect the same canonical resulting state.
+- Cancellation performed from either surface must use the same canonical cancellation workflow and return both surfaces to the same resulting pickup state.
+
 ## 4. Fare Entry
 
 After a ride ends, fare entry must be available through the overlay.
@@ -81,6 +109,13 @@ It must provide:
 - Cancellation fee entry
 
 The overlay must not introduce alternative cancellation reasons or independent cancellation business rules.
+
+For the frozen GO TO PICKUP state, the two predefined reasons are:
+
+- **Passenger cancelled**
+- **Driver cancelled**
+
+After the reason is selected, the driver enters the cancellation amount and presses **OKAY**. The canonical cancellation commit must complete before the workflow returns to the pickup state.
 
 ## 6. PWA and Android Overlay Synchronization
 
@@ -190,3 +225,18 @@ Frozen from the agreed state-by-state definition:
 - Minimized overlay becomes a bubble fixed to either the left or right screen edge.
 - The bubble can be moved by holding and dragging it.
 - No additional information or controls are added to ONLINE / READY.
+
+### State 2 Freeze — GO TO PICKUP — 2026-10-03
+
+Frozen from the agreed state-by-state definition:
+
+- Display only current Target progress, Timer, and Dead KM.
+- Primary action is START TRIP.
+- START TRIP uses the Green semantic action colour.
+- Trip cancellation is available in this state.
+- Cancellation has exactly two selectable reasons: Passenger cancelled and Driver cancelled.
+- After selecting a cancellation reason, the driver enters the cancellation amount in the Trip Cancellation Fee form and presses OKAY.
+- After successful cancellation confirmation, the workflow returns to the pickup screen with the Blue GO TO PICKUP swipe bar.
+- GPS remains background context only and never blocks START TRIP or cancellation.
+- Minimize behavior is identical to State 1: hold and drag beyond the upper edge, then use the movable edge-docked bubble.
+- START TRIP and cancellation can be initiated from either PWA or overlay and both surfaces must reflect the same canonical resulting state.
