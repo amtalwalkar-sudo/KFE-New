@@ -293,11 +293,14 @@ A calculation regression must be caught by deterministic calculation vectors rat
 
 ## 20. Documentation authority
 
-Only these three documents are authoritative for this context:
+The authoritative human-readable contracts have distinct scopes:
 
 1. `KFE_BUSINESS_RULES_REGISTER.md` — what KFE means; sole business-rule authority.
 2. `docs/KFE-CALCULATION-SPECIFICATION.md` — how KFE calculates.
-3. `docs/KFE-ARCHITECTURE-CONTRACT.md` — where/how KFE owns and implements it.
+3. `docs/KFE-ARCHITECTURE-CONTRACT.md` — architecture, layer ownership, data authority and implementation boundaries.
+4. `docs/UI-UX-SHELL-CONTRACT.md` — presentation, shell, screen/component ownership, visual/interaction rules and UI/E2E verification.
+
+When a concern crosses scopes, each contract governs its own responsibility: this architecture contract governs layer boundaries; the UI/UX & Shell Contract specializes presentation behavior and cannot override business/domain authority.
 
 `spec/calculations/index.json` is a machine-readable calculation registry, not a competing human-readable specification.
 
