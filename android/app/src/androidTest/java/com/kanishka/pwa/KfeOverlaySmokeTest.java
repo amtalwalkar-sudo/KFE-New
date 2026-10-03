@@ -79,8 +79,7 @@ public class KfeOverlaySmokeTest {
     pendingTripId.set(service, "trip-a");
     swipeOverlay(service);
     assertEquals("GO_TO_PICKUP|trip-a|", pendingValue());
-
-    clearPending();
+    acknowledgePending("GO_TO_PICKUP", "trip-a");
     state.put("overlayAction", "START_RIDE");
     KfeOverlayService.update(context, state.toString());
     waitForOverlay();
@@ -89,8 +88,7 @@ public class KfeOverlaySmokeTest {
     pendingTripId.set(service, "trip-a");
     swipeOverlay(service);
     assertEquals("START_RIDE|trip-a|", pendingValue());
-
-    clearPending();
+    acknowledgePending("START_RIDE", "trip-a");
     state.put("overlayAction", "END_RIDE");
     KfeOverlayService.update(context, state.toString());
     waitForOverlay();
@@ -99,13 +97,14 @@ public class KfeOverlaySmokeTest {
     pendingTripId.set(service, "trip-a");
     swipeOverlay(service);
     assertEquals("END_RIDE|trip-a|", pendingValue());
+    acknowledgePending("END_RIDE", "trip-a");
 
     pendingFareTripId.set(service, "trip-a");
     pendingTripId.set(service, "trip-b");
     assertEquals("trip-a", KfeOverlayService.resolveFareActionTripId("trip-a", "trip-b"));
     KfeRideNotificationsPlugin.recordPendingAction(context, "ENTER_FARE", "trip-a", "450");
     assertEquals("ENTER_FARE|trip-a|450", pendingValue());
-    clearPending();
+    acknowledgePending("ENTER_FARE", "trip-a");
   }
 
   @Test public void pendingActionSurvivesOverlayServiceRecreationUntilExplicitClear() throws Exception {
@@ -169,6 +168,14 @@ public class KfeOverlaySmokeTest {
       .getString("pending", "");
   }
 
+  private void acknowledgePending(String stage, String tripId) {
+    String eventId = context.getSharedPreferences("kfe_ride_notification_events", Context.MODE_PRIVATE)
+      .getString("pendingEventId", "");
+    assertTrue("Durable native event id must exist", !eventId.isEmpty());
+    assertTrue("Durable native event must acknowledge", KfeNativeEventStore.get(context).acknowledge(eventId));
+    KfeOverlayService.acknowledgeFromPwa(context, eventId, stage, tripId);
+    clearPending();
+  }
   private void clearPending() {
     context.getSharedPreferences("kfe_ride_notification_events", Context.MODE_PRIVATE).edit().remove("pending").commit();
   }
