@@ -1,7 +1,7 @@
 # KFE Canonical Data Contract
 
 **Phase:** Canonical Domain & Data Model / ERP input audit  
-**Status:** Working contract aligned with current implementation  
+**Status:** AUTHORITATIVE  
 **Calendar timezone:** `Asia/Kolkata` (IST)  
 **Scope:** Canonical persisted/application data boundary for the single-vehicle KFE ERP
 
@@ -184,7 +184,24 @@ Manual input must not be provided for derived values such as ride duration, tota
 
 Shift-end revenue is the explicit exception to any ride-level revenue detail: it is a user-entered source fact and is the ERP revenue authority.
 
-## 10. Removed legacy/supporting store
+## 10. Ledger and location evidence boundary
+
+The historical Ledger is a read-only representation of canonical persisted source records. It is not a separate financial store or authority.
+
+- Toll and parking ledger rows are reconstructed from their canonical source records and governed source dates.
+- Fuel ledger rows are reconstructed from authoritative fuel logs and their recorded timestamps/dates.
+- Ledger filters such as day, week, and month are presentation/read-model concerns and must not create new financial records.
+- A ledger aggregate never replaces the underlying source record.
+
+Location events are supporting operational evidence unless a business rule explicitly makes a particular location result authoritative. Persisted location evidence retains its timestamp and captured location data, including place information when available. Background/native collection may have a separate infrastructure implementation, but it must converge into the canonical evidence path and cannot create a second operational lifecycle.
+
+## 11. Authority boundary
+
+This document is the sole canonical data-model authority. Phase persistence/operational-record contracts, frozen requirements, audits, recovery gates, and implementation notes may explain or verify this model but may not redefine an entity, source-of-truth field, relationship, or data authority.
+
+If a data rule is discovered in a supporting document, it must be migrated here (or to the business-rule/calculation authority when its responsibility is semantic/formula ownership) before the supporting document is treated as current.
+
+## 12. Removed legacy/supporting store
 
 `driver_collected_data` is not part of the current canonical model. The former store was supporting-only and did not own an independent calculation authority; its operational fields duplicated facts already owned by Shift/Work or had no authoritative ERP calculation role.
 
