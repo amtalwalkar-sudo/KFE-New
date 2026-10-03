@@ -336,6 +336,9 @@ async function endTrip() {
     await syncOverlay()
     notify('Trip ended. Add optional details or skip.')
     return true
+  } catch (e) {
+    fail(e?.message || 'Trip could not be completed. Please retry.')
+    return false
   } finally {
     busy.value = false
   }
