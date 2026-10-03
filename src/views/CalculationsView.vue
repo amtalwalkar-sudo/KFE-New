@@ -1,11 +1,9 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { PerformanceService } from '../application/performance/performanceService.js'
-import { deriveLoanPosition } from '../domain/finance/loanEngine.js'
 import { getKfeReferenceNow, reportingRangeFor } from '../domain/time/ist.js'
 
 const loading=ref(false), error=ref(''), snapshot=ref(null), metrics=ref(null), selected=ref(null), period=ref('MONTH')
-const money=v=>Number.isFinite(Number(v))?'₹'+Number(v).toLocaleString('en-IN',{maximumFractionDigits:2}):'—'
 const num=v=>Number.isFinite(Number(v))?Number(v).toLocaleString('en-IN',{maximumFractionDigits:2}):'—'
 const live=xs=>(xs||[]).filter(x=>!x?.deletedAt&&!x?.deleted)
 
