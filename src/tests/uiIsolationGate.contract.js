@@ -19,6 +19,7 @@ assert.match(pkg.scripts.test, /runAllContracts\.js/)
 assert.match(gate, /CHANGE IMPACT WARNING/)
 assert.match(gate, /BLOCKED before edit/)
 assert.match(gate, /acknowledge-shared-impact/)
+assert.match(gate, /acknowledge-native-impact/)
 assert.match(gate, /all four routes/)
 assert.match(contract, /npm run ui:preflight/)
 assert.match(contract, /does \*\*not yet prove\*\*/)
@@ -33,6 +34,15 @@ const protectedResult = runGate('src/domain/trip.js')
 assert.notEqual(protectedResult.status, 0)
 assert.match(protectedResult.stderr, /protected business, persistence, or native authority/)
 
+// Native implementation is protected by default but may proceed only with an
+// explicit cross-surface native-impact acknowledgement.
+const nativeBlocked = runGate('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java')
+assert.notEqual(nativeBlocked.status, 0)
+assert.match(nativeBlocked.stderr, /native implementation authority/)
+const nativeAcknowledged = runGate('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java', '--acknowledge-native-impact')
+assert.equal(nativeAcknowledged.status, 0, nativeAcknowledged.stdout + nativeAcknowledged.stderr)
+assert.match(nativeAcknowledged.stdout, /NATIVE IMPACT ACKNOWLEDGED/)
+
 // Negative + acknowledgement control: shared theme surfaces block by default, then require explicit review.
 const sharedBlocked = runGate('src/styles/kfe-ui.css')
 assert.notEqual(sharedBlocked.status, 0)
@@ -41,4 +51,4 @@ const sharedAcknowledged = runGate('src/styles/kfe-ui.css', '--acknowledge-share
 assert.equal(sharedAcknowledged.status, 0, sharedAcknowledged.stdout + sharedAcknowledged.stderr)
 assert.match(sharedAcknowledged.stdout, /not proof of isolation/)
 
-console.log('UI isolation gate contract: PASS — local candidate allowed; protected layer blocked; shared theme blocked until acknowledged; acknowledgement explicitly is not proof.')
+console.log('UI isolation gate contract: PASS — local candidate allowed; protected business/persistence layer blocked; native layer requires explicit cross-surface acknowledgement; shared theme blocked until acknowledged.')
