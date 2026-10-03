@@ -33,10 +33,10 @@ console.log('Native GPS permission contract passed: tracking requests runtime lo
 
 assert.match(workService, /await NativeGpsService\.syncTrace\(tripId\)/)
 assert.match(workService, /await NativeGpsService\.stop\(tripId\)/)
-assert.match(workService, /await NativeGpsService\.syncTrace\(tripId\)/)
 assert.match(workService, /void \(async \(\) => \{/)
 assert.match(workService, /const router = new ValhallaRoutingAdapter\(\)/)
 assert.match(workService, /const routed = await routeTrace\(snapshots, router\)/)
+assert.match(workService, /ShiftTripRepository\.enrichTripMovement\(\{/)
 assert.match(workService, /tripKmAuthority: routed\.roadMatchedGeometry \? 'VALHALLA_ROAD_TRACE' : 'GPS_LINE_TRACE'/)
 assert.match(workService, /method: 'HAVERSINE_TRACE_SUM'/)
 assert.match(workService, /Completion is already persisted\. Valhalla\/network\/GPS enrichment must/)
