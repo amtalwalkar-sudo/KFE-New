@@ -22,10 +22,10 @@ const checks=[
  ['CV-14','performance','.performance-page','Compliance'],
  ['CV-15','admin','.admin-page','Loan'],
  ['CV-16','admin','.admin-page','Loan'],
- ['CV-17','finance','.admin-page','Finance'],
+ ['CV-17','finance','.admin-page','Ledger'],
  ['CV-18','performance','.performance-page','RECOVERY & PROVISIONS'],
  ['CV-19','performance','.performance-page','Operating cost'],
- ['CV-20','finance','.admin-page','Profit'],
+ ['CV-20','finance','.admin-page','Ledger'],
  ['CV-21','performance','.performance-page','ACTUAL PROFIT / LOSS'],
  ['CV-22','performance','.performance-page','PROVISIONAL PROFIT / LOSS'],
  ['CV-23','performance','.performance-page','BREAK-EVEN'],
@@ -35,7 +35,7 @@ const checks=[
  ['CV-27','performance','.performance-page','Operating KM outlook'],
  ['CV-28','performance','.performance-page','Performance period'],
  ['CV-29','performance','.performance-page','PROVISIONS'],
- ['CV-30','finance','.admin-page','Finance'],
+ ['CV-30','finance','.admin-page','Ledger'],
 ]
 let browser
 try{
