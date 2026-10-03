@@ -689,3 +689,24 @@ The monthly ledger is an expense ledger, not a second revenue authority.
 - Excluded toll ₹50 is subtracted once as an actual expense.
 
 This rule is frozen. Any change to its meaning requires an explicit governed amendment to this register before implementation.
+
+
+## Authority map — business rules and calculations
+
+The repository intentionally has two complementary canonical human-readable authorities:
+
+1. **Business meaning / business rules:** `KFE_BUSINESS_RULES_REGISTER.md` — sole authority for what KFE means and which business rule applies.
+2. **Arithmetic / calculation specification:** `docs/KFE-CALCULATION-SPECIFICATION.md` — sole authority for formulas, calculation inputs, units, time basis, dependencies and calculation ownership, subordinate to the business meaning in this register.
+
+These are not competing authorities: the register defines the rule; the calculation specification defines the arithmetic implementation of that rule. Supporting audits, freezes and implementation-boundary documents are evidence/support only.
+
+### Superseded calculation authority
+
+`docs/CURRENT-BUSINESS-CALCULATION-AUTHORITY.md` has been retired because its “active calculation map” duplicated and, in places, conflicted with the canonical calculation specification. Its valid material is retained in the canonical register/specification; it must not be recreated as a parallel authority.
+
+### Supporting documents that are not business-rule authorities
+
+- `docs/CALCULATION-AUTHORITY-MATRIX.md` — audit/evidence matrix.
+- `docs/KFE-FINANCE-FREEZE-2026-09-17.md` — frozen finance implementation supplement; business meaning remains in the register and arithmetic authority remains in the calculation specification.
+- Driver-target audit/boundary documents — audit/implementation evidence; they do not replace BR IDs or the canonical calculation specification.
+- `KFE_BUSINESS_RULES_AUDIT.md`, `KFE_BUSINESS_RULES_REAUDIT_PHASE3.md`, and `KFE_BUSINESS_RULE_DEFECTS.md` — audit/history/defect evidence, not rule authorities.
