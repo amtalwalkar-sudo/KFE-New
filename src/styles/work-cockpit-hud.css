@@ -53,3 +53,8 @@
 .work-canonical .start-shift-gate .gap-panel p{margin:2px 0;font-size:.68rem;}
 .work-canonical .start-shift-gate .choice-row button{min-height:38px;padding:0 8px;font-size:.7rem;}
 .work-canonical .start-shift-gate .primary-action{min-height:44px;}
+
+/* Frozen Work action zone: reserved above the shell bottom navigation. */
+.kfe-work-cockpit .work-fixed-action{position:fixed;z-index:40;left:50%;bottom:calc(var(--kfe-shell-nav) + env(safe-area-inset-bottom) + 8px);transform:translateX(-50%);width:min(92vw,520px);margin:0;}
+.kfe-work-cockpit .work-main{padding-bottom:calc(var(--kfe-shell-nav) + 116px);}
+@media(max-width:600px){.kfe-work-cockpit .work-fixed-action{width:calc(100vw - 20px);bottom:calc(var(--kfe-shell-nav) + env(safe-area-inset-bottom) + 6px);}.kfe-work-cockpit .work-main{padding-bottom:calc(var(--kfe-shell-nav) + 112px);}}
