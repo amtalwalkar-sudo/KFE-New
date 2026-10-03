@@ -87,6 +87,28 @@ When the current Work state is **GO TO PICKUP**:
 - If the action is performed on either surface, the other surface must reflect the same canonical resulting state.
 - Cancellation performed from either surface must use the same canonical cancellation workflow and return both surfaces to the same resulting pickup state.
 
+
+### 3.3 Frozen State 3 — READY FOR TRIP
+
+When the current Work state is **READY FOR TRIP**:
+
+- The overlay displays:
+  - Current Target progress
+  - Timer
+  - Trip KM
+- The primary action is **START TRIP**.
+- **START TRIP** uses the frozen **Green semantic** action colour.
+- Cancellation is no longer presented after START TRIP has been committed; cancellation belongs to the pickup/cancellation stage before the trip becomes active.
+- GPS remains **background context only** and must not block the operational action.
+- The overlay uses the same minimize interaction frozen for the earlier states:
+  - hold and drag upward beyond the phone's upper edge;
+  - overlay becomes a bubble;
+  - bubble fixes to either the left or right screen edge;
+  - bubble remains movable by holding and dragging.
+- START TRIP can be initiated directly from either the PWA or Android overlay.
+- Starting the trip from either surface must commit the same canonical trip transition and cause both surfaces to reflect the same resulting **TRIP ACTIVE** state.
+- The swipe bar remains a touch surface only; it triggers the canonical START TRIP command and contains no independent business logic.
+
 ## 4. Fare Entry
 
 After a ride ends, fare entry must be available through the overlay.
@@ -240,3 +262,18 @@ Frozen from the agreed state-by-state definition:
 - GPS remains background context only and never blocks START TRIP or cancellation.
 - Minimize behavior is identical to State 1: hold and drag beyond the upper edge, then use the movable edge-docked bubble.
 - START TRIP and cancellation can be initiated from either PWA or overlay and both surfaces must reflect the same canonical resulting state.
+
+
+### State 3 Freeze — READY FOR TRIP — 2026-10-03
+
+Frozen from the agreed state-by-state definition:
+
+- Display current Target progress, Timer, and Trip KM.
+- Primary action is START TRIP.
+- START TRIP uses the Green semantic action colour.
+- Cancellation is not presented after START TRIP has been committed.
+- GPS remains background context only and does not block the operational action.
+- Minimize behavior is identical to the earlier states: hold and drag beyond the upper edge, then use the movable edge-docked bubble.
+- START TRIP is available from both PWA and Android overlay.
+- Both surfaces must reflect the same canonical TRIP ACTIVE transition.
+- The swipe bar is only a touch surface for triggering the canonical START TRIP command; it has no independent business logic.
