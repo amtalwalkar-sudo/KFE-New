@@ -1,11 +1,9 @@
 import { SettingsRepository } from '../../repositories/settingsRepository.js'
-import { writeMutationAndAudit } from '../../repositories/mutationRepository.js'
 import { AdminService } from '../admin/adminService.js'
 import { BackupConfig } from '../backup/backupConfig.js'
 
 const SETTING_ID = 'kfe-first-run-setup'
 const SETTING_KEY = 'firstRunSetup'
-const STORAGE = 'settings'
 
 const readState = async () => (await SettingsRepository.get(SETTING_ID))?.values || null
 
@@ -17,7 +15,7 @@ const saveState = async values => {
 }
 
 const live = records => (records || []).filter(record => !record?.deletedAt && record?.deleted !== true)
-const readStore = async storeName => { const db = await initializeCanonicalStorage(); return new Promise((resolve, reject) => { const request = db.transaction(storeName, 'readonly').objectStore(storeName).getAll(); request.onsuccess = () => resolve(request.result || []); request.onerror = () => reject(request.error || new Error('Unable to read setup data.')) }) }
+const readStore = async storeName => (await SettingsRepository.list(storeName)) || []
 
 export const getFirstRunSetupState = async () => (await readState()) || { version: 1, status: 'not-started', steps: {}, completedAt: null }
 export const setStepState = async (key, state) => {
