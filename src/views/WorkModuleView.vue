@@ -700,8 +700,25 @@ onBeforeUnmount(() => {
   <main class="work-main">
     <section v-if="!store.isOnline && startOpen && !fuelOpen && !endOpen" class="state-gate start-shift-gate state-tone-warning">
       <div class="gate-head"><div><span class="eyebrow">START SHIFT</span><h2>Odometer check</h2></div><button class="text-action" type="button" @click="startOpen=false">Back</button></div>
-      <label>Current odometer<div class="input-unit"><input ref="startOdoInput" v-model="startOdo" type="text" inputmode="numeric" enterkeyhint="done" pattern="[0-9]*" autocomplete="off" aria-label="Current odometer" @pointerdown.stop @click.stop><b>km</b></div></label>
-      <label class="check-row"><input v-model="startAck" type="checkbox"><span>I confirm this is the current vehicle odometer.</span></label>
+      <label for="start-shift-odometer">Current vehicle odometer</label>
+      <div class="input-unit">
+        <input
+          id="start-shift-odometer"
+          v-model="startOdo"
+          type="number"
+          inputmode="numeric"
+          enterkeyhint="done"
+          min="0"
+          step="1"
+          autocomplete="off"
+          aria-label="Current vehicle odometer"
+        >
+        <b>km</b>
+      </div>
+      <label class="check-row">
+        <input v-model="startAck" type="checkbox" :disabled="!gap.valid || !startOdo">
+        <span>I confirm this is the current vehicle odometer.</span>
+      </label>
       <div v-if="gapKm>0" class="gap-panel">
         <div><span class="eyebrow">ODOMETER GAP</span><strong>{{ gapKm }} km</strong><p>Classify the full gap.</p></div>
         <div class="choice-row"><button type="button" :class="{selected:gapChoice==='PERSONAL'}" @click="gapChoice='PERSONAL'">Personal KM</button><button type="button" :class="{selected:gapChoice==='DEAD'}" @click="gapChoice='DEAD'">Dead KM</button></div>
