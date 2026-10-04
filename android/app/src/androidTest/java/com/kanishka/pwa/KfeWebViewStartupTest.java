@@ -52,17 +52,24 @@ public class KfeWebViewStartupTest {
         + "; title=" + title.get(), progress.get() >= 100);
 
       AtomicReference<String> dom = new AtomicReference<>("");
-      CountDownLatch evaluated = new CountDownLatch(1);
-      scenario.onActivity(activity -> activity.getBridge().getWebView().evaluateJavascript(
-        "!!(document.getElementById('app') && document.body && document.body.innerText.includes('KFE WORK') && document.body.innerText.includes('START SHIFT'))",
-        value -> {
-          dom.set(value == null ? "null JS result" : value);
-          evaluated.countDown();
-        }
-      ));
-      assertTrue("WebView JavaScript evaluation timed out", evaluated.await(10, TimeUnit.SECONDS));
-      assertTrue("KFE Work and Start Shift controls did not mount in APK WebView: " + dom.get(),
-        "true".equals(dom.get()));
+      long domDeadline = SystemClock.uptimeMillis() + 90000L;
+      while (SystemClock.uptimeMillis() < domDeadline) {
+        CountDownLatch check = new CountDownLatch(1);
+        scenario.onActivity(activity -> activity.getBridge().getWebView().evaluateJavascript(
+          "(function(){"
+            + "if(document.body.innerText.includes('KFE WORK')&&document.body.innerText.includes('START SHIFT'))return 'READY';"
+            + "const skip=[...document.querySelectorAll('button')].find(b=>b.innerText.includes(\"Skip — I'll fill this later\")&&!b.disabled);"
+            + "if(skip){skip.click();return 'SKIPPED';}"
+            + "return 'WAIT';"
+            + "})()",
+          value -> { dom.set(value == null ? "null" : value); check.countDown(); }
+        ));
+        if (!check.await(5, TimeUnit.SECONDS)) throw new AssertionError("WebView JavaScript evaluation timed out");
+        if ("\"READY\"".equals(dom.get())) break;
+        SystemClock.sleep(500L);
+      }
+      assertTrue("KFE Work and Start Shift controls did not mount after first-run setup: " + dom.get(),
+        "\"READY\"".equals(dom.get()));
     } finally {
       scenario.close();
     }

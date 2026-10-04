@@ -83,6 +83,14 @@ async function prepareFinanceValues(formKey, values, existingId) {
   return { ...values, amount: estimate.appliedAmount, outstandingBefore: estimate.outstandingBefore, outstandingAfter: estimate.outstandingAfter, effect: estimate.effect === 'CLOSE_LOAN' ? 'Close loan' : 'Reduce tenure', status: 'Applied' }
 }
 export const AdminRepository = {
+  async getSetting(id) { return toFormRecord('businessSetup', await readOne('settings', id)) },
+  async saveSetting(id, settingKey, values) {
+    const now = new Date().toISOString()
+    const record = { id, settingKey, values: structuredClone(values), createdAt: now, updatedAt: now }
+    const db = await initializeCanonicalStorage()
+    await new Promise((resolve, reject) => { const request = db.transaction('settings', 'readwrite').objectStore('settings').put(record); request.onsuccess = () => resolve(); request.onerror = () => reject(request.error || new Error('Failed to save setting.')) })
+    return structuredClone(values)
+  },
   async list(formKey) { const records = await readAll(storeFor(formKey)); return records.filter(record => !isDeleted(record) && (!isSettingsForm(formKey) || record.settingKey === formKey)).map(record => toFormRecord(formKey, record)).sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''))) },
   async get(formKey, id) { return toFormRecord(formKey, await readOne(storeFor(formKey), id)) },
   async save(formKey, values, existingId = null) {

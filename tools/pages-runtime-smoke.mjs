@@ -53,6 +53,13 @@ try {
   const response = await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded', timeout: 30000 })
   if (!response?.ok()) throw new Error(`Pages entry response was not successful: ${response?.status()}`)
 
+  // Fresh production data now opens the first-run setup. Complete it non-destructively
+  // so this smoke test can exercise the actual history router.
+  for (let i = 0; i < 20 && await page.locator('.first-run').count(); i++) {
+    const skip = page.getByRole('button', { name: "Skip — I'll fill this later", exact: true })
+    if (await skip.count() && await skip.isEnabled()) await skip.click()
+    else await page.waitForTimeout(250)
+  }
   await page.locator('header.top-bar').waitFor({ state: 'visible', timeout: 45000 })
   await page.getByText('Kanishka Enterprises', { exact: true }).first().waitFor({ state: 'visible', timeout: 5000 })
   await page.getByRole('link', { name: 'Work' }).waitFor({ state: 'visible', timeout: 5000 })
@@ -67,8 +74,9 @@ try {
   ]
 
   for (const route of routes) {
-    const directResponse = await page.goto(`http://127.0.0.1:4173${route.path}`, { waitUntil: 'domcontentloaded', timeout: 30000 })
-    if (!directResponse || ![200, 404].includes(directResponse.status())) throw new Error(`History route response failed for ${route.path}: ${directResponse?.status()}`)
+    const directResponse = await fetch(`http://127.0.0.1:4173${route.path}`)
+    if (![200, 404].includes(directResponse.status)) throw new Error(`History route response failed for ${route.path}: ${directResponse.status}`)
+    await page.goto(`http://127.0.0.1:4173${route.path}`, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(error => { if (!String(error).includes('net::ERR_ABORTED')) throw error })
     await page.getByText(route.text, { exact: true }).first().waitFor({ state: 'visible', timeout: 15000 })
     if (!page.url().endsWith(route.path)) throw new Error(`Router did not preserve history URL for ${route.path}: ${page.url()}`)
   }

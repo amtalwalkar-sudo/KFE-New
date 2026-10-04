@@ -37,6 +37,8 @@ const reset = async page => {
     }
     const { setActiveDataSource } = await import(location.origin + '/src/utils/indexedDB.js')
     setActiveDataSource('canonical')
+    const { AdminRepository } = await import(location.origin + '/src/repositories/adminRepository.js')
+    await AdminRepository.saveSetting('kfe-first-run-setup', 'firstRunSetup', { version: 1, status: 'completed', steps: {}, completedAt: new Date().toISOString() })
   })
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 })
   await page.locator('.work-canonical').waitFor({ state: 'attached', timeout: 30000 })

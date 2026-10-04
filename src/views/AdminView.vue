@@ -2,7 +2,6 @@
 import { computed, onMounted, ref, toRaw } from 'vue'
 import UniversalAdminForm from '../components/admin/UniversalAdminForm.vue'
 import BackupRestorePanel from '../components/admin/BackupRestorePanel.vue'
-import SyntheticDataPanel from '../components/admin/SyntheticDataPanel.vue'
 import FinanceLedgerPanel from '../components/admin/FinanceLedgerPanel.vue'
 import { ADMIN_FORM_DEFINITIONS } from '../application/admin/adminFormDefinitions.js'
 import { AdminService } from '../application/admin/adminService.js'
@@ -28,7 +27,7 @@ const items=[
  {key:'maintenanceRate',category:'TARGET',title:'Maintenance per KM',icon:'KM'}
 ]
 const categories=[...new Set(items.map(x=>x.category))]
-const settingsMenu=[{key:'backup',title:'Backup & Restore',icon:'↥'},{key:'application',title:'Application Settings',icon:'⚙'},{key:'reset',title:'Data Reset',icon:'⚠'},{key:'synthetic',title:'Synthetic Data',icon:'🧪'}]
+const settingsMenu=[{key:'backup',title:'Backup & Restore',icon:'↥'},{key:'application',title:'Application Settings',icon:'⚙'},{key:'reset',title:'Data Reset',icon:'⚠'}]
 const selected=ref(null),settingsOpen=ref(false),settingsSelected=ref('backup'),masterSelected=ref(null)
 const records=ref([]),all=ref({vehicle:[],driver:[],loan:[],compliance:[],maintenance:[],driverTarget:[],breakEvenInputs:[],loanPayment:[],prepayment:[],settlement:[]})
 const performanceSnapshot=ref(null),loading=ref(false),error=ref(''),notice=ref('')
@@ -194,7 +193,7 @@ onMounted(load)
 </template>
 
 <template v-else-if="settingsOpen">
-<section class="settings-screen"><div class="settings-menu"><button v-for="item in settingsMenu" :key="item.key" class="settings-item" :class="{active:settingsSelected===item.key}" @click="chooseSetting(item.key)"><span>{{item.icon}}</span><strong>{{item.title}}</strong><span>›</span></button></div><section v-if="settingsSelected==='backup'" class="settings-panel"><h2>Backup &amp; Restore</h2><BackupRestorePanel/></section><section v-else-if="settingsSelected==='application'" class="settings-panel"><h2>Application Settings</h2><div class="theme-selector"><button :class="{active:themeSettings.mode==='light'}" @click="chooseTheme('light')">☀ Light</button><button :class="{active:themeSettings.mode==='dark'}" @click="chooseTheme('dark')">☾ Dark</button><button :class="{active:themeSettings.mode==='auto'}" @click="chooseTheme('auto')">◐ Auto</button></div><div class="settings-option-row"><div><strong>Notifications</strong><small>Control KFE ride and system action notifications.</small></div><button class="settings-toggle" :class="{active:notificationsEnabled}" type="button" role="switch" :aria-checked="notificationsEnabled" @click="chooseNotifications(!notificationsEnabled)">{{notificationsEnabled?'ON':'OFF'}}</button></div></section><section v-else-if="settingsSelected==='synthetic'" class="settings-panel"><h2>Synthetic Data</h2><SyntheticDataPanel/></section><section v-else class="settings-panel"><h2>Data Reset</h2><p>This permanently clears canonical KFE business records.</p><button class="danger-button" :disabled="loading" @click="resetData">Reset all data</button></section></section>
+<section class="settings-screen"><div class="settings-menu"><button v-for="item in settingsMenu" :key="item.key" class="settings-item" :class="{active:settingsSelected===item.key}" @click="chooseSetting(item.key)"><span>{{item.icon}}</span><strong>{{item.title}}</strong><span>›</span></button></div><section v-if="settingsSelected==='backup'" class="settings-panel"><h2>Backup &amp; Restore</h2><BackupRestorePanel/></section><section v-else-if="settingsSelected==='application'" class="settings-panel"><h2>Application Settings</h2><div class="theme-selector"><button :class="{active:themeSettings.mode==='light'}" @click="chooseTheme('light')">☀ Light</button><button :class="{active:themeSettings.mode==='dark'}" @click="chooseTheme('dark')">☾ Dark</button><button :class="{active:themeSettings.mode==='auto'}" @click="chooseTheme('auto')">◐ Auto</button></div><div class="settings-option-row"><div><strong>Notifications</strong><small>Control KFE ride and system action notifications.</small></div><button class="settings-toggle" :class="{active:notificationsEnabled}" type="button" role="switch" :aria-checked="notificationsEnabled" @click="chooseNotifications(!notificationsEnabled)">{{notificationsEnabled?'ON':'OFF'}}</button></div></section><section v-else class="settings-panel"><h2>Data Reset</h2><p>This permanently clears canonical KFE business records.</p><button class="danger-button" :disabled="loading" @click="resetData">Reset all data</button></section></section>
 </template>
 
 <template v-else-if="selected==='calculations'">
