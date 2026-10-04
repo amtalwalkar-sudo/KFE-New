@@ -53,7 +53,7 @@ public class KfeNativeGpsService extends Service {
   public static void start(Context context, String tripId, String eventType) {
     // Never call startForegroundService unless the runtime location grant is
     // present; Android requires a started service to promote immediately.
-    if (tripId == null || tripId.isEmpty() || !hasLocationPermission(context)) return;
+    if (tripId == null || tripId.trim().isEmpty() || !hasLocationPermission(context)) return;
     Intent intent = new Intent(context, KfeNativeGpsService.class);
     intent.setAction(ACTION_START);
     intent.putExtra(EXTRA_TRIP_ID, tripId);
@@ -65,7 +65,7 @@ public class KfeNativeGpsService extends Service {
     // Boot/package-replacement broadcasts are delivered even when no ride is
     // active. Only revive an actually persisted ride with location permission.
     String persisted = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(ACTIVE_TRIP, "");
-    if (persisted == null || persisted.isEmpty() || !hasLocationPermission(context)) return;
+    if (persisted == null || persisted.trim().isEmpty() || !hasLocationPermission(context)) return;
     Intent intent = new Intent(context, KfeNativeGpsService.class);
     intent.setAction("com.kanishka.pwa.NATIVE_GPS_RESUME");
     androidx.core.content.ContextCompat.startForegroundService(context, intent);
