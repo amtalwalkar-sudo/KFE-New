@@ -70,9 +70,9 @@ run_instrumentation() {
 install_apk "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk" "production-apk"
 # Prove Android permits an in-place package replacement and preserves app-private data.
 adb_ready
-adb shell run-as com.kanishka.pwa sh -c 'mkdir -p files && printf "upgrade-proof" > files/kfe-upgrade-proof.txt'
+adb shell 'run-as com.kanishka.pwa sh -c "mkdir -p files; printf upgrade-proof > files/kfe-upgrade-proof.txt"'
 install_apk "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk" "production-apk-in-place-upgrade"
-if ! adb shell run-as com.kanishka.pwa sh -c 'test "$(cat files/kfe-upgrade-proof.txt)" = "upgrade-proof"'; then
+if ! adb shell 'run-as com.kanishka.pwa cat files/kfe-upgrade-proof.txt' | grep -qx 'upgrade-proof'; then
   capture_failure "in-place-upgrade-data-loss"
   echo "IN-PLACE UPGRADE DATA PRESERVATION FAILED" >&2
   exit 1
