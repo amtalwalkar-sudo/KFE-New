@@ -19,7 +19,6 @@ const startAck = ref(false)
 const gapChoice = ref('')
 const startBusy = ref(false)
 const startOpen = ref(false)
-const startOdoInput = ref(null)
 
 const operator = ref('')
 const busy = ref(false)
@@ -244,9 +243,7 @@ async function openStart() {
   gapChoice.value = ''
   error.value = ''
   message.value = ''
-  await nextTick()
-  startOdoInput.value?.focus()
-  startOdoInput.value?.select?.()
+  // Let the driver's tap focus the field so Android reliably opens its numeric keyboard.
 }
 
 async function submitStart() {
