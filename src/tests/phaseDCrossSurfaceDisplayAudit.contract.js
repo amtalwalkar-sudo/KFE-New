@@ -30,7 +30,7 @@ const figures = [
   { id: 'D-10 Break-even', canonical: [/monthlyBreakEvenRevenue/, /AUTHORITATIVE_MONTHLY_BREAK_EVEN/], displays: { performance: [/monthlyBreakEvenRevenue/, /Break-even/] } },
   { id: 'D-11 Driver Target', canonical: [/driverTargetEffectiveMonthlyTarget/, /driverTarget/], displays: { performance: [/driverTargetEffectiveMonthlyTarget/, /Daily target/], work: [/targetValue/, /TODAY'S TARGET/], timeline: [/target\?\.target/, /Target/] } },
   { id: 'D-12 Loan Position', canonical: [/Loan amortization \/ position/, /actualLoanPaid/], displays: { performance: [/actualLoanPaid/, /Outstanding principal/], admin: [/deriveLoanPosition/, /loan/] } },
-  { id: 'D-13 Trip Fare / Cancellation', canonical: [/tripRevenue|revenue/, /cancelFare|cancelledRevenue/], displays: { timeline: [/Cancellation fee/, /Fare/], work: [/fare/, /cancelFare/, /Cancellation fee/] } },
+  { id: 'D-13 Trip Fare / Cancellation', canonical: [/CV-07 Trip fare reconciliation/, /cancelTrip/], displays: { timeline: [/Cancellation fee/, /Fare/], work: [/fare/, /cancelFare/, /Cancellation fee/] } },
 ]
 
 assert.match(register, /One business fact has one authoritative source and one canonical calculation path/)
