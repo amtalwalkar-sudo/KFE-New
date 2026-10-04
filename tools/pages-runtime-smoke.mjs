@@ -53,6 +53,13 @@ try {
   const response = await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded', timeout: 30000 })
   if (!response?.ok()) throw new Error(`Pages entry response was not successful: ${response?.status()}`)
 
+  // Fresh production data now opens the first-run setup. Complete it non-destructively
+  // so this smoke test can exercise the actual history router.
+  for (let i = 0; i < 20 && await page.locator('.first-run').count(); i++) {
+    const skip = page.getByRole('button', { name: "Skip — I'll fill this later", exact: true })
+    if (await skip.count() && await skip.isEnabled()) await skip.click()
+    else await page.waitForTimeout(250)
+  }
   await page.locator('header.top-bar').waitFor({ state: 'visible', timeout: 45000 })
   await page.getByText('Kanishka Enterprises', { exact: true }).first().waitFor({ state: 'visible', timeout: 5000 })
   await page.getByRole('link', { name: 'Work' }).waitFor({ state: 'visible', timeout: 5000 })
