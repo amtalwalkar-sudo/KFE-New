@@ -10,10 +10,11 @@ import process from 'node:process'
 const args = process.argv.slice(2)
 const acknowledge = args.includes('--acknowledge-shared-impact')
 const acknowledgeNative = args.includes('--acknowledge-native-impact')
+const acknowledgeCrossLayer = args.includes('--acknowledge-cross-layer-impact')
 const requested = args.filter((arg) => !arg.startsWith('--')).map((p) => p.replaceAll('\\', '/').replace(/^\.\//, ''))
 
 if (!requested.length) {
-  console.error('Usage: npm run ui:preflight -- <path> [path ...] [--acknowledge-shared-impact]')
+  console.error('Usage: npm run ui:preflight -- <path> [path ...] [--acknowledge-shared-impact] [--acknowledge-native-impact] [--acknowledge-cross-layer-impact]')
   console.error('Run before editing. Shared-surface acknowledgement is not a substitute for reviewing the listed impact.')
   process.exit(2)
 }
@@ -34,11 +35,15 @@ const sharedFiles = requested.filter((file) => sharedPrefixes.some((prefix) => i
 console.log('KFE UI CHANGE PREFLIGHT')
 for (const file of requested) console.log(`Requested: ${file}`)
 
-if (protectedFiles.length) {
+if (protectedFiles.length && !(acknowledgeCrossLayer && acknowledgeNative && nativeFiles.length)) {
   console.error('\n🔴 CHANGE IMPACT WARNING — protected business or persistence authority is in scope:')
   for (const file of protectedFiles) console.error(`  - ${file}`)
   console.error('Stop. This is not a presentation-only change. Separate it or explicitly redesign the cross-layer contract.')
   process.exit(1)
+}
+
+if (protectedFiles.length) {
+  console.log('\n🟡 CROSS-LAYER IMPACT ACKNOWLEDGED — native + protected KFE changes are explicitly reviewed.')
 }
 
 if (nativeFiles.length && !acknowledgeNative) {
