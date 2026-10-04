@@ -50,7 +50,16 @@ export const completeFirstRunSetup = async () => {
   const current = await getFirstRunSetupState()
   return saveState({ ...current, version: 1, status: 'completed', completedAt: new Date().toISOString() })
 }
-export const isFirstRunSetupRequired = async () => (await getFirstRunSetupState()).status !== 'completed'
+export const isFirstRunSetupRequired = async () => {
+  const state = await getFirstRunSetupState()
+  if (state.status === 'completed') return false
+  const [businessSetup, vehicles, drivers] = await Promise.all([AdminService.list('businessSetup'), AdminService.list('vehicle'), AdminService.list('driver')])
+  if (live(businessSetup).length || live(vehicles).length || live(drivers).length) {
+    await saveState({ ...state, version: 1, status: 'completed', completedAt: new Date().toISOString(), autoCompletedForExistingData: true })
+    return false
+  }
+  return true
+}
 
 export const getCalculationSetupStatus = async () => {
   const state = await getFirstRunSetupState()
