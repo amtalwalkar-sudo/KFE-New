@@ -48,6 +48,9 @@ jobs:
           fi
           if [[ "${NATIVE_IMPACT_ACK}" == "true" ]]; then
             args+=(--acknowledge-native-impact)
+            if [[ "${UI_IMPACT_ACK}" == "true" ]]; then
+              args+=(--acknowledge-cross-layer-impact)
+            fi
           fi
           node tools/ui-isolation-gate.mjs "${args[@]}"
           if [[ "${NATIVE_IMPACT_ACK}" == "true" ]]; then
