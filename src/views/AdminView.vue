@@ -27,7 +27,7 @@ const items=[
  {key:'maintenanceRate',category:'TARGET',title:'Maintenance per KM',icon:'KM'}
 ]
 const categories=[...new Set(items.map(x=>x.category))]
-const settingsMenu=[{key:'backup',title:'Backup & Restore',icon:'↥'},{key:'application',title:'Application Settings',icon:'⚙'},{key:'reset',title:'Data Reset',icon:'⚠'},{key:'synthetic',title:'Synthetic Data',icon:'🧪'}]
+const settingsMenu=[{key:'backup',title:'Backup & Restore',icon:'↥'},{key:'application',title:'Application Settings',icon:'⚙'},{key:'reset',title:'Data Reset',icon:'⚠'}]
 const selected=ref(null),settingsOpen=ref(false),settingsSelected=ref('backup'),masterSelected=ref(null)
 const records=ref([]),all=ref({vehicle:[],driver:[],loan:[],compliance:[],maintenance:[],driverTarget:[],breakEvenInputs:[],loanPayment:[],prepayment:[],settlement:[]})
 const performanceSnapshot=ref(null),loading=ref(false),error=ref(''),notice=ref('')
