@@ -8,7 +8,7 @@ const sw = readFileSync('public/service-worker.js', 'utf8')
 const androidManifest = readFileSync('android/app/src/main/AndroidManifest.xml', 'utf8')
 const roadmap = readFileSync('KFE_LAUNCH_MASTER_PLAN.md', 'utf8')
 
-assert.equal(pkg.version, '2.0.0')
+assert.equal(pkg.version, '2.1.0')
 assert.equal(cap.appId, 'com.kanishka.pwa')
 assert.equal(cap.webDir, 'dist')
 assert.equal(manifest.start_url, './')
