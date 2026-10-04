@@ -64,7 +64,8 @@ const saveStep = async () => {
       try {
         await BackupConfig.saveBackupConfiguration(cloud.value)
         await CloudBackupLifecycle.registerDailyCloudBackupSchedule()
-        await CloudBackupLifecycle.backupToConfiguredCloud().catch(() => {})
+        const backupResult = await CloudBackupLifecycle.backupToConfiguredCloud()
+        if (backupResult.status !== 'backed-up' && backupResult.status !== 'fresh') throw new Error('Cloud backup connection was saved, but the first cloud backup could not be verified. You can skip this step and configure it later in Admin.')
         await FirstRunSetupService.setStepState(key, { status: 'COMPLETE' })
       } catch (e) { error.value = e?.message || 'Cloud backup setup failed.'; return }
       finally { saving.value = false }
