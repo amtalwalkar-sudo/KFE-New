@@ -83,7 +83,11 @@ try {
       }
 
       await finishSetupIfEnabled(page)
-      await page.locator('header.top-bar').waitFor({ state: 'visible', timeout: 15000 })
+      if (route.path === '/performance') {
+        if (await page.locator('header.top-bar').count()) throw new Error('Performance route must honor its frozen header-hidden shell setting')
+      } else {
+        await page.locator('header.top-bar').waitFor({ state: 'visible', timeout: 15000 })
+      }
       await page.locator(route.selector).waitFor({ state: 'visible', timeout: 20000 })
       await page.waitForFunction(selector => {
         const node = document.querySelector(selector)
