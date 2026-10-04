@@ -80,7 +80,7 @@ try{
  await shiftToggle.click();
  await page.getByText('Odometer check',{exact:true}).waitFor({state:'visible'});assert(await page.getByRole('button',{name:'Back'}).count()>0,'Start odometer Back missing');await page.getByRole('button',{name:'Back'}).first().click()
  await shiftToggle.click();await page.getByText('Odometer check',{exact:true}).waitFor({state:'visible'})
- const odo=page.locator('input[type="number"]').first();await odo.fill('1100');await page.getByRole('checkbox').first().check()
+ const odo=page.locator('input[aria-label="Current odometer"]').first();await odo.fill('1100');await page.getByRole('checkbox').first().check()
  // The seeded completed shift leaves a historical odometer gap. The UI requires
  // the driver to classify that full gap before the shift can be started.
  const personalKm=page.getByRole('button',{name:'Personal KM',exact:true})
