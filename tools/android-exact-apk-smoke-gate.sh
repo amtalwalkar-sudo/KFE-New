@@ -3,6 +3,7 @@ set -euo pipefail
 
 cd "$GITHUB_WORKSPACE"
 mkdir -p artifacts/android-golden
+adb_ready
 adb shell settings put global package_verifier_enable 0 || true
 adb shell settings put global verifier_verify_adb_installs 0 || true
 
@@ -68,8 +69,7 @@ run_instrumentation() {
 install_apk "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk" "production-apk"
 # Prove Android permits an in-place package replacement and preserves app-private data.
 adb_ready
-adb shell run-as com.kanishka.pwa mkdir -p files
-adb shell run-as com.kanishka.pwa sh -c 'printf "upgrade-proof" > files/kfe-upgrade-proof.txt'
+adb shell run-as com.kanishka.pwa sh -c 'mkdir -p files && printf "upgrade-proof" > files/kfe-upgrade-proof.txt'
 install_apk "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk" "production-apk-in-place-upgrade"
 if ! adb shell run-as com.kanishka.pwa sh -c 'test "$(cat files/kfe-upgrade-proof.txt)" = "upgrade-proof"'; then
   capture_failure "in-place-upgrade-data-loss"
