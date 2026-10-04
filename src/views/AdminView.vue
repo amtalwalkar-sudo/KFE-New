@@ -2,7 +2,6 @@
 import { computed, onMounted, ref, toRaw } from 'vue'
 import UniversalAdminForm from '../components/admin/UniversalAdminForm.vue'
 import BackupRestorePanel from '../components/admin/BackupRestorePanel.vue'
-import SyntheticDataPanel from '../components/admin/SyntheticDataPanel.vue'
 import FinanceLedgerPanel from '../components/admin/FinanceLedgerPanel.vue'
 import { ADMIN_FORM_DEFINITIONS } from '../application/admin/adminFormDefinitions.js'
 import { AdminService } from '../application/admin/adminService.js'
