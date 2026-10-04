@@ -3,7 +3,6 @@ set -euo pipefail
 
 cd "$GITHUB_WORKSPACE"
 mkdir -p artifacts/android-golden
-adb_ready
 adb shell settings put global package_verifier_enable 0 || true
 adb shell settings put global verifier_verify_adb_installs 0 || true
 
