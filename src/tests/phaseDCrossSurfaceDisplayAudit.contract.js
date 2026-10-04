@@ -40,7 +40,6 @@ const figures = [
       timeline: [/authoritativeRevenue/, /Authoritative Revenue/],
       performance: [/m\.value\.revenue/, /Financial revenue/],
       work: [/shiftRevenue/, /Shift revenue/],
-      overlay: [/store\.shift\?\.revenue/, /revenue: state\.revenue/],
     }
   },
   {
