@@ -1,4 +1,4 @@
-import { initializeCanonicalStorage } from '../../utils/indexedDB.js'
+import { SettingsRepository } from '../../repositories/settingsRepository.js'
 import { writeMutationAndAudit } from '../../repositories/mutationRepository.js'
 import { AdminService } from '../admin/adminService.js'
 import { BackupConfig } from '../backup/backupConfig.js'
@@ -7,35 +7,13 @@ const SETTING_ID = 'kfe-first-run-setup'
 const SETTING_KEY = 'firstRunSetup'
 const STORAGE = 'settings'
 
-const readState = async () => {
-  const db = await initializeCanonicalStorage()
-  return new Promise((resolve, reject) => {
-    const request = db.transaction(STORAGE, 'readonly').objectStore(STORAGE).get(SETTING_ID)
-    request.onsuccess = () => resolve(request.result?.values || null)
-    request.onerror = () => reject(request.error || new Error('Unable to read first-run setup state.'))
-  })
-}
+const readState = async () => (await SettingsRepository.get(SETTING_ID))?.values || null
 
 const saveState = async values => {
-  const db = await initializeCanonicalStorage()
   const now = new Date().toISOString()
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction([STORAGE, 'pending_mutations', 'audit_history'], 'readwrite')
-    const record = { id: SETTING_ID, settingKey: SETTING_KEY, values: structuredClone(values), createdAt: now, updatedAt: now }
-    try {
-      tx.objectStore(STORAGE).put(record)
-      writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), {
-        entityId: SETTING_ID, entityType: SETTING_KEY, action: 'UPDATE', payload: record, createdAt: now
-      })
-    } catch (error) {
-      try { tx.abort() } catch (_) {}
-      reject(error)
-      return
-    }
-    tx.oncomplete = () => resolve(record.values)
-    tx.onerror = () => reject(tx.error || new Error('Unable to save first-run setup state.'))
-    tx.onabort = () => reject(tx.error || new Error('First-run setup state save aborted.'))
-  })
+  const record = { id: SETTING_ID, settingKey: SETTING_KEY, values: structuredClone(values), createdAt: now, updatedAt: now }
+  await SettingsRepository.put(record)
+  return record.values
 }
 
 const live = records => (records || []).filter(record => !record?.deletedAt && record?.deleted !== true)
