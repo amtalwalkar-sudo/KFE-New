@@ -68,3 +68,17 @@ Use KFE for controlled real business activity and capture reconciliation evidenc
 ## Change-control rule
 
 If the active phase changes, this file must be updated in the same controlled change as the roadmap decision.
+
+
+## Phase E — Final Release Gate (2026-10-04)
+
+**Automated release sequence: PASS on exact main commit `abc11a5a208046a1ecdf8dbba1c9b5d11ce2338b`.**
+
+- Consolidated CI run #2625 (`37169395454`): SUCCESS; foundation contracts, end-to-end conformance, production PWA build, Pages artifact validation, browser runtime smoke, Phase 4 A–J matrix, operational gap suite, visual verification, rendered calculation UI smoke, and semantic control audit passed.
+- GitHub Pages artifact: `github-pages`, artifact ID `11290444687`, SHA-256 `23753b5ada9f509fb769650e662a30866ffbc7961e4115b4c8d9dfb021ba5e07`.
+- GitHub Pages deployment and deployed SPA-route/runtime verification: SUCCESS in the same run. Deployment target: https://amtalwalkar-sudo.github.io/KFE-New/
+- Android release gate: SUCCESS. Exact APK smoke gate passed; APK artifact `kfe-android-debug-apk`, artifact ID `11291015326`, artifact ZIP SHA-256 `d4b7f6627df944c2dad69103757d73302410a8f44bc99a8ee72bdecde8b6ea7f`.
+- Exact APK identity from the workflow's golden-gate artifact: SHA-256 `cc9f2fd2ab4b0d8bb9a880f4e3f388f4c34685d45f222d50550252d24dd332cd`. Independently extracted the APK from artifact 11291015326 and recomputed its SHA-256; it matches the golden-gate identity exactly.
+- Release source SHA: `abc11a5a208046a1ecdf8dbba1c9b5d11ce2338b`.
+
+**Physical-phone validation: PENDING — not represented as passed.** Automated CI/runtime/APK smoke is not physical-device evidence. Install the exact APK above on the target Android phone and validate permissions, overlay/notification lifecycle, screen-off/background GPS behavior, swipe transitions, cancellation/fare flow, persistence/restart recovery, and end-shift reconciliation. Record device/OS and outcomes before declaring the device gate complete.
