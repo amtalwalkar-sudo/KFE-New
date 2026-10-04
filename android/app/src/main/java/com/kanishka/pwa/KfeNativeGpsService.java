@@ -74,6 +74,13 @@ public class KfeNativeGpsService extends Service {
   @Override public void onCreate() {
     super.onCreate();
     createChannel();
+    // startForegroundService() has a strict promotion deadline. Promote the
+    // service immediately on creation so lifecycle recovery cannot time out
+    // before onStartCommand() processes persisted state.
+    if (!ensureForegroundLocationService()) {
+      stopSelf();
+      return;
+    }
     fused = LocationServices.getFusedLocationProviderClient(this);
   }
 
