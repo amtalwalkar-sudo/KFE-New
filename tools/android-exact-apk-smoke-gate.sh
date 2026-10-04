@@ -3,6 +3,15 @@ set -euo pipefail
 
 cd "$GITHUB_WORKSPACE"
 mkdir -p artifacts/android-golden
+adb_ready() {
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    if adb wait-for-device && [ "$(adb get-state 2>/dev/null || true)" = "device" ]; then return 0; fi
+    adb reconnect offline >/dev/null 2>&1 || true
+    sleep 2
+  done
+  return 1
+}
+
 adb_ready
 adb shell settings put global package_verifier_enable 0 || true
 adb shell settings put global verifier_verify_adb_installs 0 || true
@@ -14,14 +23,6 @@ capture_failure() {
   adb logcat -d -t 5000 > "artifacts/android-golden/${label}-logcat.log" || true
 }
 
-adb_ready() {
-  for _ in 1 2 3 4 5 6 7 8 9 10; do
-    if adb wait-for-device && [ "$(adb get-state 2>/dev/null || true)" = "device" ]; then return 0; fi
-    adb reconnect offline >/dev/null 2>&1 || true
-    sleep 2
-  done
-  return 1
-}
 
 install_apk() {
   local apk="$1"
