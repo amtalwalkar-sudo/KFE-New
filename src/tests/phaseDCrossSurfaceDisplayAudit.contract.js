@@ -29,7 +29,7 @@ const figures = [
   { id: 'D-09 Provisional P\/L', canonical: [/Headline Provisional P\/L/], displays: { performance: [/performanceHeadlineProvisionalProfit/, /Provisional profit \/ loss/] } },
   { id: 'D-10 Break-even', canonical: [/monthlyBreakEvenRevenue/, /AUTHORITATIVE_MONTHLY_BREAK_EVEN/], displays: { performance: [/monthlyBreakEvenRevenue/, /Break-even/] } },
   { id: 'D-11 Driver Target', canonical: [/driverTargetEffectiveMonthlyTarget/, /driverTarget/], displays: { performance: [/driverTargetEffectiveMonthlyTarget/, /Daily target/], work: [/targetValue/, /TODAY'S TARGET/], timeline: [/target\?\.target/, /Target/] } },
-  { id: 'D-12 Loan Position', canonical: [/actualLoanPaid/, /outstandingPrincipal/, /totalOverdue/], displays: { performance: [/actualLoanPaid/, /Outstanding principal/], admin: [/deriveLoanPosition/, /loan/] } },
+  { id: 'D-12 Loan Position', canonical: [/Loan amortization \/ position/, /actualLoanPaid/], displays: { performance: [/actualLoanPaid/, /Outstanding principal/], admin: [/deriveLoanPosition/, /loan/] } },
   { id: 'D-13 Trip Fare / Cancellation', canonical: [/tripRevenue|revenue/, /cancelFare|cancelledRevenue/], displays: { timeline: [/Cancellation fee/, /Fare/], work: [/fare/, /cancelFare/, /Cancellation fee/] } },
 ]
 
