@@ -91,7 +91,7 @@ export const getCalculationSetupStatus = async () => {
       step('breakEvenInputs', Boolean(currentRate), 'Add the effective Maintenance per KM planning input.'),
       step('driverTarget', Boolean(currentTarget), 'Add the monthly driver target, or leave it incomplete until known.'),
       step('loan', Boolean(activeLoan) || skipped.loan?.status === 'NOT_APPLICABLE', 'Add the active loan contract if the vehicle has financing; otherwise mark it not applicable.'),
-      step('preBusiness', !preBusinessApplies || Boolean(activeLoan), preBusinessApplies ? 'Pre-business loan recovery is derived from the loan start date and Business Start Date.' : 'No pre-business loan recovery is currently applicable.'),
+      step('preBusiness', Boolean(activeLoan) || skipped.loan?.status === 'NOT_APPLICABLE', preBusinessApplies ? 'Pre-business loan recovery is derived from the loan start date and Business Start Date.' : 'If financing existed before the Business Start Date, enter the loan contract so KFE can derive the recovery burden.'),
       step('historicalRecords', live(compliance).length + live(maintenance).length > 0 || skipped.historicalRecords?.status === 'NOT_APPLICABLE', 'Historical compliance and maintenance can be entered now or filled later.'),
       step('fuelBaseline', live(fuelLogs).length > 0, 'Fuel cost/KM evidence is incomplete until real refuelling records exist; full-tank evidence strengthens the result.'),
       step('cloudBackup', Boolean(backup.enabled && backup.hasAccessToken), 'Cloud backup is not connected. Local-first operation remains available.'),
