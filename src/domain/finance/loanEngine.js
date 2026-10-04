@@ -38,13 +38,29 @@ const dayCount = calendarDayCount
 const overdueDayCount = calendarDayCount
 
 const addMonths = (date, months) => {
-  const result = new Date(date)
-  const day = result.getDate()
-  result.setDate(1)
-  result.setMonth(result.getMonth() + months)
-  const last = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate()
-  result.setDate(Math.min(day, last))
-  return result
+  const parts = istCalendarParts(date)
+  if (!parts) return new Date(NaN)
+  const source = dateOf(date)
+  const sourceParts = source
+    ? new Intl.DateTimeFormat('en-CA', {
+        timeZone: KFE_TIME_ZONE,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hourCycle: 'h23',
+      }).formatToParts(source)
+    : []
+  const get = type => Number(sourceParts.find(part => part.type === type)?.value || 0)
+  const index = parts.year * 12 + (parts.month - 1) + months
+  const year = Math.floor(index / 12)
+  const month = index % 12
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
+  const day = Math.min(parts.day, lastDay)
+  // Construct the new instant from the IST calendar date/time rather than
+  // mutating a UTC instant. Loan due dates are calendar-month boundaries in
+  // IST; UTC/local Date arithmetic can otherwise shift an EMI into the next
+  // IST day and make a due EMI disappear from the selected period.
+  return new Date(Date.UTC(year, month, day, get('hour'), get('minute'), get('second')) - (5 * 60 + 30) * 60 * 1000)
 }
 const annualRateForLoan = loan => Math.max(0, finite(loan?.annualInterestRatePercent)) / 100
 
