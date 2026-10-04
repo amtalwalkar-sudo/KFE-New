@@ -7,6 +7,7 @@ const OPERATIONAL_FORM_TYPES=new Set(['compact','operational','fuel','fare','can
 function isEditableControl(el){
   return el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement;
 }
+function owner(el){ return el?.closest('form, [data-kfe-form-surface], .focus-surface, .state-gate') || null; }
 function controls(form){
   return [...form.querySelectorAll('input,select,textarea,button[type="submit"]')]
     .filter(el=>!el.disabled && el.type!=='hidden');
@@ -33,7 +34,7 @@ function tagForm(form){
   applyInputHints(form);
 }
 function ensureFocusedControlVisible(el){
-  const form=el.closest('form');
+  const form=owner(el);
   if(!form) return;
   requestAnimationFrame(()=>{
     const vv=window.visualViewport;
@@ -51,7 +52,7 @@ function handleEnter(event){
   const el=event.target;
   if(!(el instanceof HTMLInputElement) || ['checkbox','radio','file','button','submit','reset'].includes(el.type)) return;
   if(event.isComposing || event.shiftKey) return;
-  const form=el.closest('form');
+  const form=owner(el);
   if(!form || form.dataset.kfeEnterNavigation==='false') return;
   const editable=controls(form).filter(isEditableControl);
   const index=editable.indexOf(el);
@@ -75,6 +76,7 @@ function updateViewport(){
 }
 function install(){
   document.querySelectorAll('form').forEach(tagForm);
+  document.querySelectorAll('[data-kfe-form-surface], .focus-surface, .state-gate').forEach(el=>el.setAttribute('data-kfe-form-surface','true'));
   document.addEventListener('focusin',event=>{
     if(isEditableControl(event.target)){
       tagForm(event.target.closest('form'));
