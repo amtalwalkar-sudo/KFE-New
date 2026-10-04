@@ -2,8 +2,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { getKfeReferenceNow, reportingRangeFor } from '../domain/time/ist.js'
+import { FirstRunSetupService } from '../application/setup/firstRunSetupService.js'
 
-const loading=ref(false), error=ref(''), snapshot=ref(null), metrics=ref(null), selected=ref(null), period=ref('MONTH')
+const loading=ref(false), error=ref(''), snapshot=ref(null), metrics=ref(null), selected=ref(null), period=ref('MONTH'), setupStatus=ref(null)
 const num=v=>Number.isFinite(Number(v))?Number(v).toLocaleString('en-IN',{maximumFractionDigits:2}):'—'
 const live=xs=>(xs||[]).filter(x=>!x?.deletedAt&&!x?.deleted)
 
@@ -33,13 +34,20 @@ async function load(){
  try{
    snapshot.value=await PerformanceService.getSnapshot()
    metrics.value=PerformanceService.getMetrics(snapshot.value,rangeFor(period.value))
+   setupStatus.value=await FirstRunSetupService.getCalculationSetupStatus()
  }catch(e){error.value=e.message||'Unable to run calculation sanity check.'}
  finally{loading.value=false}
 }
 onMounted(load)
 
 const diagnostics=computed(()=>metrics.value?PerformanceService.getDiagnostics(metrics.value)||{}:{})
+const setupByKey=computed(()=>Object.fromEntries((setupStatus.value?.steps||[]).map(x=>[x.key,x])))
 const statusFor=computed(()=>id=>{
+ const setupMap=setupByKey.value
+ const setupMapFor={businessSetup:'businessSetup',vehicle:'vehicle',driver:'driver',maintenance:'breakEvenInputs',driverTarget:'driverTarget',loan:'loan',prebusiness:'preBusiness',fuelCostPerKm:'fuelBaseline'}
+ const setupKey=setupMapFor[id]
+ if(setupKey && setupMap[setupKey] && setupMap[setupKey].status==='INCOMPLETE') return 'INCOMPLETE'
+ if(setupKey && setupMap[setupKey] && setupMap[setupKey].status==='NOT_APPLICABLE') return 'NOT_APPLICABLE'
  const m=metrics.value||{}, d=diagnostics.value
  if(id==='monthly-be') return d.breakEven?'ISSUE':(m.completeness?.breakEven?'OK':'INCOMPLETE')
  if(id==='daily-be') return d.dailyBreakEven?'ISSUE':(m.dailyBreakEven?.status==='AUTHORITATIVE'?'OK':'INCOMPLETE')
@@ -64,14 +72,14 @@ const issueRows=computed(()=>{
  const issueDetails=[
   d.breakEven,d.target,d.dailyBreakEven,d.provision
  ].filter(Boolean)
- return rows.filter(x=>x.status!=='OK').map(x=>{
+ return rows.filter(x=>x.status!=='OK' && x.status!=='NOT_APPLICABLE').map(x=>{
    const detail=issueDetails.find(y=>String(y.calculation||'').toLowerCase().includes(x.name.toLowerCase().split(' ')[0]))
    return {...x,detail}
  })
 })
 const allRows=computed(()=>baseCalculations.map(x=>({...x,status:statusFor.value(x.id)})))
-const statusIcon=s=>s==='OK'?'🟢':s==='ISSUE'?'🔴':s==='INCOMPLETE'?'🟡':'⚪'
-const statusText=s=>s==='OK'?'Correct':s==='ISSUE'?'Issue':s==='INCOMPLETE'?'Incomplete':'Not available'
+const statusIcon=s=>s==='OK'?'🟢':s==='ISSUE'?'🔴':s==='INCOMPLETE'?'🟡':s==='NOT_APPLICABLE'?'⚪':'⚪'
+const statusText=s=>s==='OK'?'Correct':s==='ISSUE'?'Issue':s==='INCOMPLETE'?'Incomplete':s==='NOT_APPLICABLE'?'Not applicable':'Not available'
 const valueFor=id=>{
  const m=metrics.value||{}
  const map={
