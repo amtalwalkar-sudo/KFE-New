@@ -1,16 +1,16 @@
-import { SettingsRepository } from '../../repositories/settingsRepository.js'
+import { AdminRepository } from '../../repositories/adminRepository.js'
 import { AdminService } from '../admin/adminService.js'
 import { BackupConfig } from '../backup/backupConfig.js'
 
 const SETTING_ID = 'kfe-first-run-setup'
 const SETTING_KEY = 'firstRunSetup'
 
-const readState = async () => (await SettingsRepository.get(SETTING_ID))?.values || null
+const readState = async () => (await AdminRepository.getSetting(SETTING_ID))?.values || null
 
 const saveState = async values => {
   const now = new Date().toISOString()
   const record = { id: SETTING_ID, settingKey: SETTING_KEY, values: structuredClone(values), createdAt: now, updatedAt: now }
-  await SettingsRepository.put(record)
+  await AdminRepository.saveSetting(record.id, record.settingKey, record.values)
   return record.values
 }
 
