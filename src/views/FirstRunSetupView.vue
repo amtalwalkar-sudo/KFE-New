@@ -14,10 +14,10 @@ const form = ref({}), cloud = ref({ enabled: false, accessToken: '', hasAccessTo
 const data = ref({ vehicle: [], driver: [], loan: [] })
 
 const steps = [
-  { key: 'businessSetup', title: 'Business start', intro: 'Set the Business Start Date. This is the boundary used by the real-life calculations.', form: 'businessSetup', required: true },
-  { key: 'vehicle', title: 'Vehicle', intro: 'Add the vehicle and opening odometer used for movement and cost calculations.', form: 'vehicle', required: true },
-  { key: 'driver', title: 'Driver', intro: 'Add the active driver/operator used by Work and Driver Target calculations.', form: 'driver', required: true },
-  { key: 'breakEvenInputs', title: 'Calculation inputs', intro: 'Set the effective Maintenance per KM planning input. Other derived values are calculated by KFE.', form: 'breakEvenInputs', required: true },
+  { key: 'businessSetup', title: 'Business start', intro: 'Set the Business Start Date. This is the boundary used by the real-life calculations.', form: 'businessSetup', optional: true },
+  { key: 'vehicle', title: 'Vehicle', intro: 'Add the vehicle and opening odometer used for movement and cost calculations.', form: 'vehicle', optional: true },
+  { key: 'driver', title: 'Driver', intro: 'Add the active driver/operator used by Work and Driver Target calculations.', form: 'driver', optional: true },
+  { key: 'breakEvenInputs', title: 'Calculation inputs', intro: 'Set the effective Maintenance per KM planning input. Other derived values are calculated by KFE.', form: 'breakEvenInputs', optional: true },
   { key: 'driverTarget', title: 'Driver target', intro: 'Add the monthly driver profit/take-home target. You can skip it and fill it later.', form: 'driverTarget', optional: true },
   { key: 'loan', title: 'Loan & pre-business obligations', intro: 'If the vehicle is financed, enter the contractual loan. If the loan started before the Business Start Date, KFE derives the pre-business recovery automatically. You can skip this and complete it later.', form: 'loan', optional: true },
   { key: 'historicalRecords', title: 'History', intro: 'Enter historical compliance and maintenance records that should affect calculations, or skip and fill them later.', form: null, optional: true },
@@ -30,6 +30,7 @@ const definition = computed(() => {
   const key = current.value?.form
   if (!key) return null
   const d = structuredClone(ADMIN_FORM_DEFINITIONS[key])
+  for (const field of d.fields || []) delete field.defaultValue
   for (const field of d.fields || []) {
     if (field.key === 'vehicleId') field.options = data.value.vehicle.map(x => ({ value: x.id, label: \`\${x.values?.registrationNumber || x.id} · \${x.values?.make || ''} \${x.values?.model || ''}\`.trim() }))
     if (field.key === 'driverId') field.options = data.value.driver.map(x => ({ value: x.id, label: x.values?.name || x.id }))
@@ -89,7 +90,7 @@ const saveStep = async () => {
 const skip = async () => {
   error.value = ''
   const key = current.value.key
-  if (current.value.required) { error.value = 'This step is required to start the calculation foundation.'; return }
+  
   const notApplicable = key === 'loan' || key === 'cloudBackup'
   await FirstRunSetupService.setStepState(key, { status: notApplicable ? 'NOT_APPLICABLE' : 'SKIPPED' })
   await nextStep()
