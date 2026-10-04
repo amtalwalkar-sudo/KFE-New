@@ -1,6 +1,7 @@
 import { AdminRepository } from '../../repositories/adminRepository.js'
 import { AdminService } from '../admin/adminService.js'
 import { BackupConfig } from '../backup/backupConfig.js'
+import { FuelRepository } from '../../repositories/fuelRepository.js'
 
 const SETTING_ID = 'kfe-first-run-setup'
 const SETTING_KEY = 'firstRunSetup'
@@ -15,7 +16,7 @@ const saveState = async values => {
 }
 
 const live = records => (records || []).filter(record => !record?.deletedAt && record?.deleted !== true)
-const readStore = async storeName => (await SettingsRepository.list(storeName)) || []
+const readStore = async storeName => storeName === 'fuel_logs' ? await FuelRepository.getAll() : []
 
 export const getFirstRunSetupState = async () => (await readState()) || { version: 1, status: 'not-started', steps: {}, completedAt: null }
 export const setStepState = async (key, state) => {
