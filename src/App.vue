@@ -40,3 +40,4 @@ const recoverApp = () => { renderError.value = null; window.location.reload() }
     </router-view>
   </KfeShell>
 </template>
+
