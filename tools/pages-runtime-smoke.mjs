@@ -25,66 +25,88 @@ const waitForPreview = async () => {
 
 const stopPreview = async () => {
   if (!preview.pid) return
-  try {
-    process.kill(-preview.pid, 'SIGTERM')
-  } catch (_) {
+  try { process.kill(-preview.pid, 'SIGTERM') } catch (_) {
     try { preview.kill('SIGTERM') } catch (_) {}
   }
   await new Promise(resolve => setTimeout(resolve, 500))
-  try {
-    process.kill(-preview.pid, 'SIGKILL')
-  } catch (_) {}
+  try { process.kill(-preview.pid, 'SIGKILL') } catch (_) {}
 }
 
-let browser = null
-try {
-  await waitForPreview()
-  browser = await chromium.launch({ headless: true })
-  const page = await browser.newPage()
-  const errors = []
-  const failedRequests = []
-
-  page.on('pageerror', error => errors.push(error.stack || error.message))
-  page.on('requestfailed', request => { const errorText=request.failure()?.errorText || 'request failed'; if(request.resourceType()==='document' && errorText==='net::ERR_ABORTED') return; failedRequests.push(`${request.method()} ${request.url()} — ${errorText}`) })
-
-  // Vite preview serves the built site at its local root. The production
-  // bundle uses relative assets, so the same artifact remains compatible
-  // with the GitHub Pages /KFE-New/ subpath and Capacitor's local origin.
-  const response = await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded', timeout: 30000 })
-  if (!response?.ok()) throw new Error(`Pages entry response was not successful: ${response?.status()}`)
-
-  // Fresh production data now opens the first-run setup. Complete it non-destructively
-  // so this smoke test can exercise the actual history router.
+const finishSetupIfEnabled = async page => {
+  // The setup wizard is intentionally optional. When a launch build enables it,
+  // skip it non-destructively so this test can still verify the requested route.
   for (let i = 0; i < 20 && await page.locator('.first-run').count(); i++) {
     const skip = page.getByRole('button', { name: "Skip — I'll fill this later", exact: true })
     if (await skip.count() && await skip.isEnabled()) await skip.click()
     else await page.waitForTimeout(250)
   }
-  await page.locator('header.top-bar').waitFor({ state: 'visible', timeout: 45000 })
-  await page.getByText('Kanishka Enterprises', { exact: true }).first().waitFor({ state: 'visible', timeout: 5000 })
-  await page.getByRole('link', { name: 'Work' }).waitFor({ state: 'visible', timeout: 5000 })
+  await page.waitForFunction(() => !document.querySelector('.first-run'), undefined, { timeout: 15000 })
+}
 
-  // Exercise every production history route directly, including hard navigation.
-  // GitHub Pages serves 404.html as the SPA shell so these URLs must resolve
-  // to the correct Vue route rather than silently falling back to Work.
-  const routes = [
-    { path: '/timeline', text: 'Timeline' },
-    { path: '/performance', text: 'Performance' },
-    { path: '/admin', text: 'Admin' },
-  ]
+const routes = [
+  { path: '/', selector: '.work-canonical', label: 'Work' },
+  { path: '/timeline', selector: '.timeline', label: 'Timeline' },
+  { path: '/performance', selector: '.performance-page', label: 'Performance' },
+  { path: '/admin', selector: '.admin-page', label: 'Admin' },
+]
 
+let browser = null
+try {
+  await waitForPreview()
+  browser = await chromium.launch({ headless: true })
+
+  // Use an isolated browser context for each direct URL. This prevents service-worker
+  // controller changes or state from a previous route from contaminating the next
+  // hard-navigation check, while still exercising the actual production bundle.
   for (const route of routes) {
-    const directResponse = await fetch(`http://127.0.0.1:4173${route.path}`)
-    if (![200, 404].includes(directResponse.status)) throw new Error(`History route response failed for ${route.path}: ${directResponse.status}`)
-    await page.goto(`http://127.0.0.1:4173${route.path}`, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(error => { if (!String(error).includes('net::ERR_ABORTED')) throw error })
-    await page.getByText(route.text, { exact: true }).first().waitFor({ state: 'visible', timeout: 15000 })
-    if (!page.url().endsWith(route.path)) throw new Error(`Router did not preserve history URL for ${route.path}: ${page.url()}`)
+    const context = await browser.newContext()
+    const page = await context.newPage()
+    const errors = []
+    const failedRequests = []
+    page.on('pageerror', error => errors.push(error.stack || error.message))
+    page.on('requestfailed', request => {
+      const errorText = request.failure()?.errorText || 'request failed'
+      if (request.resourceType() === 'document' && errorText === 'net::ERR_ABORTED') return
+      failedRequests.push(`${request.method()} ${request.url()} — ${errorText}`)
+    })
+
+    try {
+      const url = `http://127.0.0.1:4173${route.path}`
+      const directResponse = await fetch(url)
+      if (![200, 404].includes(directResponse.status)) {
+        throw new Error(`${route.label}: history route response failed: ${directResponse.status}`)
+      }
+
+      const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 })
+      if (!response || ![200, 404].includes(response.status())) {
+        throw new Error(`${route.label}: unexpected document response ${response?.status()}`)
+      }
+
+      await finishSetupIfEnabled(page)
+      if (route.path === '/performance') {
+        if (await page.locator('header.top-bar').count()) throw new Error('Performance route must honor its frozen header-hidden shell setting')
+      } else {
+        await page.locator('header.top-bar').waitFor({ state: 'visible', timeout: 15000 })
+      }
+      await page.locator(route.selector).waitFor({ state: 'visible', timeout: 20000 })
+      await page.waitForFunction(selector => {
+        const node = document.querySelector(selector)
+        return !!node && node.children.length > 0 && document.readyState === 'complete'
+      }, route.selector, { timeout: 20000 })
+
+      if (!page.url().endsWith(route.path)) {
+        throw new Error(`${route.label}: router did not preserve direct history URL ${route.path}: ${page.url()}`)
+      }
+      if (errors.length) throw new Error(`${route.label}: browser runtime errors:\n${errors.join('\n\n')}`)
+      if (failedRequests.length) throw new Error(`${route.label}: failed browser requests:\n${failedRequests.join('\n')}`)
+
+      console.log(`PASS Pages route ${route.path}: HTTP ${response.status()}, visible ${route.label} surface, URL ${page.url()}`)
+    } finally {
+      await context.close()
+    }
   }
 
-  if (errors.length) throw new Error(`Browser runtime errors:\n${errors.join('\n\n')}`)
-  if (failedRequests.length) throw new Error(`Failed browser requests:\n${failedRequests.join('\n')}`)
-
-  console.log('GitHub Pages runtime smoke passed: built PWA loads, Vue mounts, startup completes, and the Work shell renders with relative assets.')
+  console.log('GitHub Pages runtime smoke passed: each direct route loads in an isolated browser context with the correct visible screen.')
 } finally {
   await browser?.close()
   await stopPreview()
