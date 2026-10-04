@@ -19,6 +19,7 @@ const startAck = ref(false)
 const gapChoice = ref('')
 const startBusy = ref(false)
 const startOpen = ref(false)
+const startOdoInput = ref(null)
 
 const operator = ref('')
 const busy = ref(false)
@@ -244,7 +245,8 @@ async function openStart() {
   error.value = ''
   message.value = ''
   await nextTick()
-  document.querySelector('.start-shift-gate input[type="number"]')?.focus()
+  startOdoInput.value?.focus()
+  startOdoInput.value?.select?.()
 }
 
 async function submitStart() {
@@ -701,7 +703,7 @@ onBeforeUnmount(() => {
   <main class="work-main">
     <section v-if="!store.isOnline && startOpen && !fuelOpen && !endOpen" class="state-gate start-shift-gate state-tone-warning">
       <div class="gate-head"><div><span class="eyebrow">START SHIFT</span><h2>Odometer check</h2></div><button class="text-action" type="button" @click="startOpen=false">Back</button></div>
-      <label>Current odometer<div class="input-unit"><input v-model="startOdo" type="number" inputmode="numeric" enterkeyhint="done" min="0" autocomplete="off"><b>km</b></div></label>
+      <label>Current odometer<div class="input-unit"><input ref="startOdoInput" v-model="startOdo" type="text" inputmode="numeric" enterkeyhint="done" pattern="[0-9]*" autocomplete="off" aria-label="Current odometer" @pointerdown.stop @click.stop><b>km</b></div></label>
       <label class="check-row"><input v-model="startAck" type="checkbox"><span>I confirm this is the current vehicle odometer.</span></label>
       <div v-if="gapKm>0" class="gap-panel">
         <div><span class="eyebrow">ODOMETER GAP</span><strong>{{ gapKm }} km</strong><p>Classify the full gap.</p></div>
