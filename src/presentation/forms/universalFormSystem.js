@@ -27,6 +27,7 @@ function applyInputHints(form){
   }
 }
 function tagForm(form){
+  if(!form) return;
   if(form.dataset.kfeUniversalForm==='true') return;
   form.dataset.kfeUniversalForm='true';
   form.classList.add('kfe-contextual-form');
@@ -79,6 +80,8 @@ function install(){
   document.querySelectorAll('[data-kfe-form-surface], .focus-surface, .state-gate').forEach(el=>el.setAttribute('data-kfe-form-surface','true'));
   document.addEventListener('focusin',event=>{
     if(isEditableControl(event.target)){
+      const surface=owner(event.target);
+      if(surface && !surface.matches('form')) surface.setAttribute('data-kfe-form-surface','true');
       tagForm(event.target.closest('form'));
       ensureFocusedControlVisible(event.target);
     }
