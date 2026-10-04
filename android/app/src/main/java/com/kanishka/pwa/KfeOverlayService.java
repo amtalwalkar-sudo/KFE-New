@@ -97,6 +97,7 @@ public class KfeOverlayService extends Service {
   public static void show(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_SHOW);i.putExtra(EXTRA_STATE,state==null?"{}":state);context.startService(i);}
   public static void update(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_UPDATE);i.putExtra(EXTRA_STATE,state==null?"{}":state);context.startService(i);}
   public static void hide(Context context){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_HIDE);context.startService(i);}
+  public static void resumePersisted(Context context){Intent i=new Intent(context,KfeOverlayService.class);i.setAction("com.kanishka.pwa.KFE_OVERLAY_RESUME");ContextCompat.startForegroundService(context,i);}
 
   @Override public void onCreate(){super.onCreate();instance=this;
     android.content.SharedPreferences saved=getSharedPreferences("kfe_overlay",MODE_PRIVATE);
@@ -121,6 +122,12 @@ public class KfeOverlayService extends Service {
       return START_STICKY;
     }
     String action=intent.getAction();
+    if ("com.kanishka.pwa.KFE_OVERLAY_RESUME".equals(action)) {
+      if (!Settings.canDrawOverlays(this)) return START_NOT_STICKY;
+      String saved=getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(LAST_STATE_KEY,"");
+      if (!saved.isEmpty()) { ensureOverlay(); applyState(saved); }
+      return START_STICKY;
+    }
     if(ACTION_HIDE.equals(action)){removeOverlay();stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return START_NOT_STICKY;}
     if(ACTION_MINIMIZE.equals(action)){minimizeToBubble();return START_STICKY;}
     if(ACTION_FARE_SAVED.equals(action)){onFareSaved();return START_NOT_STICKY;}
