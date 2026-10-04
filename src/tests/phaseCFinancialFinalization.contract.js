@@ -39,7 +39,7 @@ const base = {
   loans: [loan],
   prepayments: [],
   driverTargets: [],
-  breakEvenInputs: [],
+  breakEvenInputs: [{ effectiveFrom: '2026-01-01', maintenanceProvisionPerKm: 0, active: true }],
 }
 
 const noPayment = deriveFinanceAwarePerformance({ ...base, loanPayments: [] }, range)
