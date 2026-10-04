@@ -7,7 +7,13 @@ import { FirstRunSetupService } from './application/setup/firstRunSetupService.j
 
 const renderError = ref(null)
 const firstRunRequired = ref(false)
-onMounted(async () => { try { firstRunRequired.value = await FirstRunSetupService.isFirstRunSetupRequired() } catch (_) { firstRunRequired.value = false } })
+// First-run setup is a launch-only feature. Normal PWA development and deployments
+// keep it dormant unless the launch workflow explicitly enables the build flag.
+const firstRunSetupEnabled = import.meta.env.VITE_ENABLE_FIRST_RUN_SETUP === 'true'
+onMounted(async () => {
+  if (!firstRunSetupEnabled) return
+  try { firstRunRequired.value = await FirstRunSetupService.isFirstRunSetupRequired() } catch (_) { firstRunRequired.value = false }
+})
 const finishFirstRun = () => { firstRunRequired.value = false }
 const recoverApp = () => { renderError.value = null; window.location.reload() }
 </script>
