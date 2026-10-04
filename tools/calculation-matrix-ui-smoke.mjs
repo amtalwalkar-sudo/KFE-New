@@ -4,7 +4,19 @@ import { spawn } from 'node:child_process'
 const base=process.env.KFE_RUNTIME_BASE_URL?.trim() || 'http://127.0.0.1:4173/'
 const preview=process.env.KFE_RUNTIME_BASE_URL ? null : spawn('npm',['run','preview','--','--host','127.0.0.1'],{stdio:['ignore','pipe','pipe'],detached:true})
 const wait=async(fn,label)=>{const end=Date.now()+30000;while(Date.now()<end){if(await fn())return;await new Promise(r=>setTimeout(r,100))}throw new Error('Timed out: '+label)}
-const route=async(page,path,selector)=>{await page.goto(new URL(path,base).href,{waitUntil:'domcontentloaded',timeout:30000});await page.locator(selector).waitFor({state:'attached',timeout:30000})}
+const route=async(page,path,selector)=>{await page.goto(new URL(path,base).href,{waitUntil:'domcontentloaded',timeout:30000});await ensureFirstRunComplete(page);await page.locator(selector).waitFor({state:'attached',timeout:30000})}
+const ensureFirstRunComplete=async page=>{
+ const setup=page.locator('.first-run')
+ try{await setup.waitFor({state:'visible',timeout:3000})}catch(_){return}
+ const end=Date.now()+30000
+ while(Date.now()<end){
+   if(await page.locator('.performance-page,.work-canonical,.admin-page').count()) return
+   const skip=page.getByRole('button',{name:/Skip — I'll fill this later/})
+   if(await skip.count()) {await skip.click();await page.waitForTimeout(150);continue}
+   await page.waitForTimeout(150)
+ }
+ throw new Error('First-run setup did not complete within 30s')
+}
 const checks=[
  ['CV-01','performance','.performance-page','Vehicle KM'],
  ['CV-02','performance','.performance-page','Business KM'],
