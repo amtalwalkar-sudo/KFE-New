@@ -54,6 +54,14 @@ run_instrumentation() {
 }
 
 install_apk "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk" "production-apk"
+# Prove Android permits an in-place package replacement and preserves app-private data.
+adb shell run-as com.kanishka.pwa sh -c 'printf "upgrade-proof" > files/kfe-upgrade-proof.txt'
+install_apk "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk" "production-apk-in-place-upgrade"
+if ! adb shell run-as com.kanishka.pwa sh -c 'test "$(cat files/kfe-upgrade-proof.txt)" = "upgrade-proof"'; then
+  capture_failure "in-place-upgrade-data-loss"
+  echo "IN-PLACE UPGRADE DATA PRESERVATION FAILED" >&2
+  exit 1
+fi
 install_apk "$GITHUB_WORKSPACE/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk" "instrumentation-apk"
 adb shell appops set com.kanishka.pwa android:system_alert_window allow
 adb shell appops set com.kanishka.pwa android:camera allow || true
