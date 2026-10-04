@@ -50,4 +50,8 @@ jobs:
             args+=(--acknowledge-native-impact)
           fi
           node tools/ui-isolation-gate.mjs "${args[@]}"
-          npm run ui:impact -- "${ui_files[@]}"
+          if [[ "${NATIVE_IMPACT_ACK}" == "true" ]]; then
+            npm run ui:impact -- "${ui_files[@]}" --acknowledge-native-impact
+          else
+            npm run ui:impact -- "${ui_files[@]}"
+          fi
