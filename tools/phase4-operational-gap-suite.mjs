@@ -101,6 +101,11 @@ try {
     const request = indexedDB.deleteDatabase('kanishka_kfe_canonical_db')
     await new Promise((resolve, reject) => { request.onsuccess = resolve; request.onerror = () => reject(request.error); request.onblocked = () => reject(new Error('Canonical DB delete was blocked.')) })
     setActiveDataSource('canonical')
+    // The consolidated gap suite owns its clean canonical fixture. Mark first-run onboarding
+    // complete before reload so the fixture reaches the Work route rather than the production
+    // first-run screen; this does not seed business/master data or bypass any Work assertions.
+    const { AdminRepository } = await import(location.origin + '/src/repositories/adminRepository.js')
+    await AdminRepository.saveSetting('kfe-first-run-setup', 'firstRunSetup', { version: 1, status: 'completed', steps: {}, completedAt: new Date().toISOString() })
   })
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.locator('.work-canonical').waitFor({ state: 'attached', timeout: 30000 })
