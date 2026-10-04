@@ -1,9 +1,14 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import KfeShell from './components/shell/KfeShell.vue'
 import { startupState } from './application/startup/startupRuntime.js'
+import FirstRunSetupView from './views/FirstRunSetupView.vue'
+import { FirstRunSetupService } from './application/setup/firstRunSetupService.js'
 
 const renderError = ref(null)
+const firstRunRequired = ref(false)
+onMounted(async () => { try { firstRunRequired.value = await FirstRunSetupService.isFirstRunSetupRequired() } catch (_) { firstRunRequired.value = false } })
+const finishFirstRun = () => { firstRunRequired.value = false }
 const recoverApp = () => { renderError.value = null; window.location.reload() }
 </script>
 
@@ -35,7 +40,9 @@ const recoverApp = () => { renderError.value = null; window.location.reload() }
       <span>Local storage is initializing in the background.</span>
     </div>
 
-    <router-view v-slot="{ Component }">
+    <FirstRunSetupView v-if="firstRunRequired" @complete="finishFirstRun" />
+
+    <router-view v-else v-slot="{ Component }">
       <component :is="Component" />
     </router-view>
   </KfeShell>
