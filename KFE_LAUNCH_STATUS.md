@@ -82,3 +82,8 @@ If the active phase changes, this file must be updated in the same controlled ch
 - Release source SHA: `abc11a5a208046a1ecdf8dbba1c9b5d11ce2338b`.
 
 **Physical-phone validation: PENDING — not represented as passed.** Automated CI/runtime/APK smoke is not physical-device evidence. Install the exact APK above on the target Android phone and validate permissions, overlay/notification lifecycle, screen-off/background GPS behavior, swipe transitions, cancellation/fare flow, persistence/restart recovery, and end-shift reconciliation. Record device/OS and outcomes before declaring the device gate complete.
+
+
+## Prelaunch Production Readiness
+
+A–J and L–M are the frozen prelaunch scope. K is intentionally excluded because no real business data has been entered yet. The implementation branch adds production cleanup, guided first-run setup, local-first cloud-backup wiring, in-place APK upgrade checks, calculation completeness diagnostics, schema-safe setup metadata, and reproducible release identity evidence. CI/device/pilot evidence remains pending until those gates run.

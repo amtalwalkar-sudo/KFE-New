@@ -3,7 +3,7 @@ set -euo pipefail
 
 cd "$GITHUB_WORKSPACE"
 mkdir -p artifacts/android-golden
-adb wait-for-device
+adb_ready
 adb shell settings put global package_verifier_enable 0 || true
 adb shell settings put global verifier_verify_adb_installs 0 || true
 
@@ -14,13 +14,26 @@ capture_failure() {
   adb logcat -d -t 5000 > "artifacts/android-golden/${label}-logcat.log" || true
 }
 
+adb_ready() {
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    if adb wait-for-device && [ "$(adb get-state 2>/dev/null || true)" = "device" ]; then return 0; fi
+    adb reconnect offline >/dev/null 2>&1 || true
+    sleep 2
+  done
+  return 1
+}
+
 install_apk() {
   local apk="$1"
   local label="$2"
-  if ! adb install -r "$apk"; then
-    capture_failure "${label}-install-failure"
-    echo "APK install failed: ${label}" >&2
-    return 1
+  if ! adb_ready || ! adb install -r "$apk"; then
+    sleep 3
+    adb_ready || true
+    if ! adb install -r "$apk"; then
+      capture_failure "${label}-install-failure"
+      echo "APK install failed: ${label}" >&2
+      return 1
+    fi
   fi
 }
 
@@ -54,6 +67,16 @@ run_instrumentation() {
 }
 
 install_apk "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk" "production-apk"
+# Prove Android permits an in-place package replacement and preserves app-private data.
+adb_ready
+adb shell run-as com.kanishka.pwa mkdir -p files
+adb shell run-as com.kanishka.pwa sh -c 'printf "upgrade-proof" > files/kfe-upgrade-proof.txt'
+install_apk "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk" "production-apk-in-place-upgrade"
+if ! adb shell run-as com.kanishka.pwa sh -c 'test "$(cat files/kfe-upgrade-proof.txt)" = "upgrade-proof"'; then
+  capture_failure "in-place-upgrade-data-loss"
+  echo "IN-PLACE UPGRADE DATA PRESERVATION FAILED" >&2
+  exit 1
+fi
 install_apk "$GITHUB_WORKSPACE/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk" "instrumentation-apk"
 adb shell appops set com.kanishka.pwa android:system_alert_window allow
 adb shell appops set com.kanishka.pwa android:camera allow || true

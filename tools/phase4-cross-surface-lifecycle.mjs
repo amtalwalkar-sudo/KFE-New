@@ -40,6 +40,7 @@ try {
     const { WorkService } = await import('/src/application/work/workService.js')
     const { TimelineService } = await import('/src/application/timeline/timelineService.js')
     const { PerformanceService } = await import('/src/application/performance/performanceService.js')
+    const { AdminRepository } = await import('/src/repositories/adminRepository.js')
     const { istDayRange } = await import('/src/domain/time/ist.js')
 
     const deleteDb = name => new Promise((resolve, reject) => {
@@ -62,6 +63,7 @@ try {
 
     await deleteDb('kanishka_kfe_canonical_db')
     setActiveDataSource('canonical')
+    await AdminRepository.saveSetting('kfe-first-run-setup', 'firstRunSetup', { version: 1, status: 'completed', steps: {}, completedAt: new Date().toISOString() })
 
     const shift = await WorkService.startShift({
       id: shiftId,

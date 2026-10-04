@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs'
 const packageJson = JSON.parse(readFileSync('package.json', 'utf8'))
 const scripts = packageJson.scripts || {}
 
-assert.equal(packageJson.version, '2.0.0', 'release version must remain 2.0.0')
+assert.equal(packageJson.version, '2.1.0', 'release version must remain 2.1.0')
 assert.equal(typeof scripts.build, 'string', 'production build script must exist')
 assert.equal(typeof scripts.test, 'string', 'test script must exist')
 assert.ok(existsSync('dist'), 'production dist directory must exist after build')
@@ -20,7 +20,7 @@ assert.equal(capacitor.appId, 'com.kanishka.pwa', 'release app ID must remain ca
 
 const release = readFileSync('KFE_RELEASE_CANDIDATE_PHASE10.md', 'utf8')
 assert.match(release, /Status:\*\* FROZEN \/ NON-DEVICE PASS/, 'release candidate must be explicitly frozen')
-assert.match(release, /Version:\*\* 2\.0\.0/, 'release candidate version must be recorded')
+assert.match(release, /Version:\*\* 2.1.0/, 'release candidate version must be recorded')
 assert.match(release, /Android APK:/, 'release candidate must define APK evidence')
 assert.match(release, /Physical-device validation: \*\*deferred until after Phase 13\*\*/, 'physical-device audit must remain deferred')
 

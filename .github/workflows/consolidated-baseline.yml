@@ -191,11 +191,19 @@ jobs:
         working-directory: android
         run: ./gradlew assembleDebug
 
-      - name: Capture exact APK identity
+      - name: Capture exact APK and release identity
         run: |
           mkdir -p artifacts/android-golden
           cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/android-golden/app-debug.apk
           sha256sum artifacts/android-golden/app-debug.apk | tee artifacts/android-golden/apk.sha256
+          {
+            echo "git_commit=$(git rev-parse HEAD)"
+            echo "application_id=com.kanishka.pwa"
+            echo "version_code=4"
+            echo "version_name=2.1.0"
+            echo "apk_sha256=$(sha256sum artifacts/android-golden/app-debug.apk | awk '{print $1}')"
+            "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify --print-certs artifacts/android-golden/app-debug.apk | grep -E "Signer #1 certificate SHA-256 digest" >> artifacts/android-golden/release-identity.txt
+          } | tee artifacts/android-golden/release-identity.txt
 
       - name: Enable KVM access for Android emulator
         run: |
@@ -248,5 +256,12 @@ jobs:
         with:
           name: kfe-android-golden-gate-identity
           path: artifacts/android-golden/apk.sha256
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload Android release identity
+        uses: actions/upload-artifact@v4
+        with:
+          name: kfe-android-release-identity
+          path: artifacts/android-golden/release-identity.txt
           if-no-files-found: error
           retention-days: 7
