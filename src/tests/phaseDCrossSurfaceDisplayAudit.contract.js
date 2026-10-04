@@ -46,7 +46,6 @@ const figures = [
     id: 'D-02 Vehicle KM',
     canonical: [/vehicleKm/],
     displays: {
-      timeline: [/vehicleKm/, /km\(day\.businessKm\)/],
       performance: [/m\.value\.vehicleKm/, /Vehicle KM/],
       work: [/shiftKm/, /Total shift KM/],
     }
@@ -64,7 +63,6 @@ const figures = [
     id: 'D-04 Dead KM',
     canonical: [/deadKm/],
     displays: {
-      timeline: [/deadKm/],
       performance: [/deadKm/, /Dead KM/],
       work: [/reviewedDeadKm/, /Dead KM/],
     }
