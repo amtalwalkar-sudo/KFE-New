@@ -54,6 +54,9 @@ try{
    if(surface==='performance') await wait(async()=> (await page.locator('body').innerText()).includes('Where the business stands'),'Performance ready')
    if(surface==='admin') await wait(async()=> (await page.locator('body').innerText()).includes('Business Setup'),'Admin ready')
    if(surface==='work') await wait(async()=> (await page.locator('body').innerText()).includes('START SHIFT'),'Work ready')
+   // Performance cards are populated from async canonical read models. Wait for
+   // all labels in this surface's matrix before taking the DOM snapshot.
+   await wait(async()=>{const text=await page.locator('body').innerText();return items.every(([,label])=>text.includes(label))},surface+' calculation matrix labels')
    const body=await page.locator('body').textContent()
    for(const [id,label] of items) if(!body.includes(label)) throw new Error(`${id} UI DOM assertion failed: missing "${label}" on ${surface}`)
  }
