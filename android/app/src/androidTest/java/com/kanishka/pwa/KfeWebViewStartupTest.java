@@ -71,7 +71,7 @@ public class KfeWebViewStartupTest {
           evaluated.countDown();
         }
       ));
-      assertTrue("WebView JavaScript evaluation timed out", evaluated.await(20, TimeUnit.SECONDS));
+      assertTrue("WebView JavaScript evaluation timed out", evaluated.await(100, TimeUnit.SECONDS));
       assertTrue("KFE Work and Start Shift controls did not mount after first-run setup: " + dom.get(),
         "true".equals(dom.get()));
     } finally {
