@@ -40,7 +40,7 @@ const finishSetupIfEnabled = async page => {
     if (await skip.count() && await skip.isEnabled()) await skip.click()
     else await page.waitForTimeout(250)
   }
-  await page.waitForFunction(() => !document.querySelector('.first-run'), { timeout: 15000 })
+  await page.waitForFunction(() => !document.querySelector('.first-run'), undefined, { timeout: 15000 })
 }
 
 const routes = [
