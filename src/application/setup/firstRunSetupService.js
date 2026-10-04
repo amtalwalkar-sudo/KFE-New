@@ -39,6 +39,7 @@ const saveState = async values => {
 }
 
 const live = records => (records || []).filter(record => !record?.deletedAt && record?.deleted !== true)
+const readStore = async storeName => { const db = await initializeCanonicalStorage(); return new Promise((resolve, reject) => { const request = db.transaction(storeName, 'readonly').objectStore(storeName).getAll(); request.onsuccess = () => resolve(request.result || []); request.onerror = () => reject(request.error || new Error('Unable to read setup data.')) }) }
 
 export const getFirstRunSetupState = async () => (await readState()) || { version: 1, status: 'not-started', steps: {}, completedAt: null }
 export const setStepState = async (key, state) => {
@@ -53,10 +54,10 @@ export const isFirstRunSetupRequired = async () => (await getFirstRunSetupState(
 
 export const getCalculationSetupStatus = async () => {
   const state = await getFirstRunSetupState()
-  const [businessSetup, vehicles, drivers, targets, breakEvenInputs, loans, compliance, maintenance, backup] = await Promise.all([
+  const [businessSetup, vehicles, drivers, targets, breakEvenInputs, loans, compliance, maintenance, fuelLogs, backup] = await Promise.all([
     AdminService.list('businessSetup'), AdminService.list('vehicle'), AdminService.list('driver'),
     AdminService.list('driverTarget'), AdminService.list('breakEvenInputs'), AdminService.list('loan'),
-    AdminService.list('compliance'), AdminService.list('maintenance'), BackupConfig.getBackupConfiguration(),
+    AdminService.list('compliance'), AdminService.list('maintenance'), readStore('fuel_logs'), BackupConfig.getBackupConfiguration(),
   ])
   const business = live(businessSetup)[0]?.values || {}
   const activeVehicle = live(vehicles).find(v => v.values?.active !== false && String(v.values?.status || 'Active').toLowerCase() === 'active') || live(vehicles)[0]
@@ -83,7 +84,7 @@ export const getCalculationSetupStatus = async () => {
       step('loan', Boolean(activeLoan) || skipped.loan?.status === 'NOT_APPLICABLE', 'Add the active loan contract if the vehicle has financing; otherwise mark it not applicable.'),
       step('preBusiness', !preBusinessApplies || Boolean(activeLoan), preBusinessApplies ? 'Pre-business loan recovery is derived from the loan start date and Business Start Date.' : 'No pre-business loan recovery is currently applicable.'),
       step('historicalRecords', live(compliance).length + live(maintenance).length > 0 || skipped.historicalRecords?.status === 'NOT_APPLICABLE', 'Historical compliance and maintenance can be entered now or filled later.'),
-      step('fuelBaseline', false, 'Fuel cost/KM evidence becomes stronger after real refuelling records, especially full-tank evidence.'),
+      step('fuelBaseline', live(fuelLogs).length > 0, 'Fuel cost/KM evidence is incomplete until real refuelling records exist; full-tank evidence strengthens the result.'),
       step('cloudBackup', Boolean(backup.enabled && backup.hasAccessToken), 'Cloud backup is not connected. Local-first operation remains available.'),
     ],
   }
