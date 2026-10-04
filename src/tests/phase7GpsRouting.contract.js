@@ -41,3 +41,16 @@ assert.match(workService, /tripKmAuthority: routed\.roadMatchedGeometry \? 'VALH
 assert.match(workService, /method: 'HAVERSINE_TRACE_SUM'/)
 assert.match(workService, /Completion is already persisted\. Valhalla\/network\/GPS enrichment must/)
 console.log('END TRIP enrichment contract passed: commit/sync first, Valhalla enrichment is asynchronous, with GPS/Haversine fallback and no transition blocking.')
+
+// Phase A: GPS fallback must use dedicated movement enrichment so GPS-derived KM never becomes MANUAL.
+assert.ok(workService.includes("if (Number.isFinite(Number(gpsKm)) && gpsKm >= 0) {"))
+assert.ok(workService.includes("await ShiftTripRepository.enrichTripMovement({"))
+assert.equal(workService.includes("await ShiftTripRepository.updateTrip({\n              id: tripId,\n              tripKm: Number(gpsKm)"), false)
+console.log('Phase A GPS fallback authority contract passed: Haversine fallback remains GPS_LINE_TRACE, never MANUAL.')
+
+// Phase A: native GPS writes must be durable and failed points must remain retryable.
+assert.ok(nativeGps.includes("import android.util.Log;"))
+assert.ok(nativeGps.includes("new FileOutputStream(traceFile, true)"))
+assert.ok(nativeGps.includes("output.getFD().sync()"))
+assert.ok(nativeGps.includes("GPS trace persistence failed; point will be retried"))
+console.log('Phase A native GPS durability contract passed: writes are synced and failed points are retryable.')

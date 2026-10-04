@@ -107,7 +107,7 @@ export const WorkService = Object.freeze({
           }
 
           if (Number.isFinite(Number(gpsKm)) && gpsKm >= 0) {
-            await ShiftTripRepository.updateTrip({
+            await ShiftTripRepository.enrichTripMovement({
               id: tripId,
               tripKm: Number(gpsKm),
               tripKmAuthority: 'GPS_LINE_TRACE',
