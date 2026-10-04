@@ -1,0 +1,481 @@
+/*
+ * KFE PWA CLEAN BASELINE
+ * Temporary neutral presentation layer.
+ * Purpose: remove current colour themes, visual hierarchy, shadows, glass,
+ * gradients and decorative styling while preserving existing behaviour,
+ * content, routes, forms and business logic.
+ *
+ * This is a baseline, not the final visual design.
+ */
+
+:root,
+:root[data-kfe-theme],
+:root[data-kfe-theme="day"],
+:root[data-kfe-theme="light"],
+:root[data-kfe-theme="night"],
+:root[data-kfe-theme="dark"],
+:root[data-kfe-theme="dusk"] {
+  color-scheme: light;
+  --kfe-ui-bg: #fff !important;
+  --kfe-ui-surface: #fff !important;
+  --kfe-ui-surface-2: #f5f5f5 !important;
+  --kfe-ui-text: #111 !important;
+  --kfe-muted-text: #555 !important;
+  --kfe-ui-muted: #666 !important;
+  --kfe-ui-border: #ccc !important;
+  --kfe-ui-accent: #111 !important;
+  --kfe-accent: #111 !important;
+  --kfe-accent-soft: #f5f5f5 !important;
+  --kfe-success: #333 !important;
+  --kfe-warning: #333 !important;
+  --kfe-danger: #111 !important;
+  --kfe-info: #333 !important;
+  --kfe-ui-shadow: none !important;
+  --kfe-shadow: none !important;
+  --kfe-ui-overlay: rgba(255,255,255,.98) !important;
+  --kfe-bg: #fff !important;
+  --kfe-surface: #fff !important;
+  --kfe-surface-muted: #f5f5f5 !important;
+  --kfe-text: #111 !important;
+  --kfe-text-muted: #555 !important;
+  --kfe-border: #ccc !important;
+  --kfe-primary: #111 !important;
+  --kfe-primary-strong: #111 !important;
+  --kfe-on-accent: #fff !important;
+  --kfe-nav-height: 64px !important;
+  --kfe-top-height: 56px !important;
+  --kfe-motion-fast: 0ms !important;
+  --kfe-motion-standard: 0ms !important;
+}
+
+/* Reset decorative presentation. */
+html,
+body,
+#app,
+.viewport-wrapper,
+.kfe-frozen-shell,
+.kfe-shell,
+.content-scroll-area,
+.kfe-page,
+.work-page,
+.timeline-page,
+.performance-page,
+.admin-page {
+  background: #fff !important;
+  color: #111 !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  line-height: 1.4 !important;
+}
+
+button,
+input,
+select,
+textarea {
+  color: #111 !important;
+  background: #fff !important;
+  border-color: #ccc !important;
+  box-shadow: none !important;
+  background-image: none !important;
+}
+
+button {
+  border-radius: 4px !important;
+}
+
+input,
+select,
+textarea {
+  border-radius: 4px !important;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 2px solid #111 !important;
+  outline-offset: 2px !important;
+}
+
+/* Shared shell: plain header and plain fixed navigation. */
+.top-bar,
+.kfe-topbar,
+.brand-lockup,
+.kfe-brand,
+.header-gps,
+.kfe-connect,
+.bottom-nav,
+.kfe-bottom-nav {
+  background: #fff !important;
+  color: #111 !important;
+  border-color: #ccc !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.top-bar,
+.kfe-topbar {
+  min-height: 56px !important;
+  padding: 8px 12px !important;
+}
+
+.brand-mark {
+  background: #111 !important;
+  color: #fff !important;
+  border: 1px solid #111 !important;
+  box-shadow: none !important;
+}
+
+.brand-copy strong,
+.kfe-brand strong,
+.kfe-header-center > b {
+  color: #111 !important;
+}
+
+.brand-copy span,
+.kfe-brand span,
+.kfe-header-center > span,
+.kfe-header-right,
+.kfe-header-center {
+  color: #555 !important;
+  background: transparent !important;
+  border-color: #ccc !important;
+  box-shadow: none !important;
+}
+
+.bottom-nav,
+.kfe-bottom-nav {
+  border-top: 1px solid #ccc !important;
+  border-bottom: 0 !important;
+  min-height: 64px !important;
+}
+
+.nav-item,
+.kfe-nav-item {
+  color: #555 !important;
+  background: #fff !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.nav-item-active,
+.nav-item.router-link-active,
+.kfe-nav-item.is-active {
+  color: #111 !important;
+  background: #f5f5f5 !important;
+  font-weight: 800 !important;
+}
+
+.nav-icon svg,
+.kfe-nav-item svg,
+.gps-icon {
+  stroke: currentColor !important;
+  color: currentColor !important;
+}
+
+/* Remove status colour semantics from the visual layer. */
+.kfe-status-success,
+.status-success,
+.is-ok,
+.kfe-status-warning,
+.status-warning,
+.kfe-status-error,
+.status-error,
+.is-error,
+.kfe-status-info,
+.status-info,
+.error-text,
+.required-star {
+  color: #333 !important;
+}
+
+.kfe-alert,
+.kfe-alert.is-error,
+.kfe-alert.is-ok,
+.toast-item,
+.toast-info,
+.toast-success,
+.toast-error,
+.toast-warning {
+  background: #fff !important;
+  color: #111 !important;
+  border-color: #ccc !important;
+  box-shadow: none !important;
+}
+
+.toast-info,
+.toast-success,
+.toast-error,
+.toast-warning {
+  border-left: 1px solid #ccc !important;
+}
+
+/* Neutralise decorative cards and panels globally. */
+.kfe-surface,
+.surface,
+.workspace,
+.settings-workspace,
+.settings-menu,
+.financial-card,
+.record,
+.info-card,
+.reset-card,
+.kfe-list-item,
+.kfe-workspace .card,
+.kfe-workspace .module-card,
+.kfe-workspace .panel,
+.kfe-workspace .section-card,
+.kfe-workspace .summary-card,
+.kfe-workspace .metric-card,
+.kfe-workspace .form-card,
+.kfe-workspace .settings-card,
+.kfe-workspace .record-card,
+.kfe-workspace .timeline-card,
+.kfe-workspace .stat-card,
+.kfe-detail-card,
+.kfe-action-card,
+.kfe-admin-card,
+.kfe-financial-detail,
+.kfe-form-shell,
+.form-layout {
+  background: #fff !important;
+  color: #111 !important;
+  border: 1px solid #ccc !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* No pills, gradients or ornamental progress treatment. */
+.kfe-pill,
+.kfe-pill.is-active,
+.kfe-progress {
+  border-radius: 4px !important;
+  background: #f5f5f5 !important;
+  color: #333 !important;
+  border-color: #ccc !important;
+  box-shadow: none !important;
+}
+
+.kfe-progress {
+  height: 6px !important;
+}
+
+.kfe-progress > span {
+  background: #333 !important;
+  border-radius: 0 !important;
+}
+
+.kfe-eyebrow,
+.eyebrow,
+.section-label,
+.section-kicker,
+.kfe-source,
+.kfe-unit,
+.metric-unit,
+.metric-label,
+.stat-card span {
+  color: #555 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+}
+
+/* Forms: simple labels, fields and actions. */
+.base-input-group,
+.kfe-form-field,
+.form-body {
+  gap: 8px !important;
+}
+
+.input-label,
+.required-star,
+.form-title,
+.form-subtitle {
+  color: #111 !important;
+}
+
+.input-field,
+.kfe-form-shell input,
+.kfe-form-shell select,
+.kfe-form-shell textarea {
+  min-height: 44px !important;
+  background: #fff !important;
+  color: #111 !important;
+  border: 1px solid #aaa !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+}
+
+.kfe-ui-button,
+.kfe-ui-button.is-primary,
+.kfe-ui-button.is-secondary,
+.kfe-ui-button.is-danger,
+.primary,
+.primary-button,
+.add-button,
+.secondary,
+.kfe-primary-action,
+.kfe-action-primary,
+.kfe-secondary-action,
+.kfe-action-secondary,
+.kfe-action-danger,
+.delete,
+.reset-button {
+  background: #fff !important;
+  color: #111 !important;
+  border: 1px solid #777 !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  font-weight: 600 !important;
+}
+
+.kfe-ui-button.is-primary,
+.primary,
+.primary-button,
+.add-button,
+.kfe-primary-action,
+.kfe-action-primary {
+  background: #111 !important;
+  color: #fff !important;
+  border-color: #111 !important;
+}
+
+/* Work baseline: preserve the frozen cockpit mechanics, remove visual styling. */
+.work-canonical,
+.work-page,
+.cockpit,
+.work-main,
+.state-gate,
+.focus-surface,
+.work-state-panel,
+.cockpit .card,
+.cockpit .target-card,
+.trip-swipe {
+  color: #111 !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+.work-canonical .card,
+.work-canonical .target-card,
+.work-canonical .work-state-panel,
+.work-canonical .focus-surface,
+.work-canonical .state-gate {
+  border: 1px solid #ccc !important;
+  border-radius: 4px !important;
+}
+
+.online-toggle,
+.online-toggle.active {
+  background: #fff !important;
+  border: 1px solid #777 !important;
+}
+
+.online-toggle span {
+  background: #111 !important;
+  box-shadow: none !important;
+}
+
+.trip-swipe {
+  border: 1px solid #777 !important;
+  border-radius: 4px !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+
+/* Timeline / Performance / Admin: simple document-like surfaces. */
+.timeline-page,
+.performance-page,
+.admin-page {
+  max-width: 1120px !important;
+  margin-inline: auto !important;
+}
+
+.timeline-page .timeline-card,
+.performance-page .metric-card,
+.performance-page .summary-card,
+.admin-page .card,
+.admin-page .panel,
+.admin-page .section-card,
+.admin-page .settings-card,
+.admin-page .module-card {
+  box-shadow: none !important;
+  border-radius: 4px !important;
+}
+
+.timeline-page table,
+.performance-page table,
+.admin-page table {
+  background: #fff !important;
+  border-color: #ccc !important;
+}
+
+.timeline-page table th,
+.performance-page table th,
+.admin-page table th {
+  color: #333 !important;
+  background: #f5f5f5 !important;
+  border-color: #ccc !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+}
+
+/* Keep dynamic scrolling rules and fixed Work swipe zone intact. */
+.work-canonical .trip-swipe {
+  position: fixed !important;
+}
+
+.work-canonical .work-main {
+  overflow: hidden !important;
+}
+
+.work-canonical .state-gate,
+.work-canonical .focus-surface {
+  overflow-y: auto !important;
+}
+
+/* Remove visual motion; do not alter interaction mechanics. */
+*,
+*::before,
+*::after {
+  transition-duration: 0ms !important;
+  animation-duration: 0ms !important;
+  animation-iteration-count: 1 !important;
+}
+
+/* Small-screen baseline. */
+@media (max-width: 700px) {
+  .kfe-page,
+  .work-page,
+  .timeline-page,
+  .performance-page,
+  .admin-page {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  .kfe-workspace {
+    padding: 12px !important;
+  }
+}
+
+@media (min-width: 1000px) {
+  .kfe-page,
+  .work-page,
+  .timeline-page,
+  .performance-page,
+  .admin-page {
+    max-width: 1120px !important;
+  }
+}

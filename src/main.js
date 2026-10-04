@@ -16,6 +16,7 @@ import { startApplication } from './application/startup/startupRuntime.js'
 import './styles/kfe-ui.css'
 import './styles/work-cockpit-hud.css'
 import './styles/glassmorphic-polish.css'
+import './styles/kfe-clean-baseline.css'
 import { startKfeThemeController } from './presentation/theme/kfeThemeController.js'
 
 if (!Capacitor.isNativePlatform()) {
@@ -64,6 +65,8 @@ const pinia = createPinia()
 app.use(pinia)
 app.use(router)
 app.mount('#app')
+
+// StartupService.initializeApplication() is invoked by startApplication() after the UI mounts.
 startKfeThemeController()
 
 // StartupService.initializeApplication() is invoked by startApplication() after the UI mounts.
