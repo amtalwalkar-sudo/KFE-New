@@ -93,3 +93,21 @@ html[data-kfe-keyboard="open"] .kfe-contextual-form[data-form-type="trip"]{
 @media(prefers-reduced-motion:reduce){
   .kfe-contextual-form:focus-within{scroll-behavior:auto}
 }
+
+.kfe-shell form.kfe-contextual-form:not([data-form-type="compact"]):not([data-form-type="search"]){
+  background:var(--kfe-ui-surface);
+  border:1px solid var(--kfe-ui-border);
+  border-radius:var(--kfe-radius-lg);
+  padding:var(--kfe-space-3);
+  box-shadow:var(--kfe-ui-shadow);
+}
+[data-kfe-form-surface="true"] input,
+[data-kfe-form-surface="true"] select,
+[data-kfe-form-surface="true"] textarea{
+  min-height:var(--kfe-field,48px);
+  font-size:16px;
+}
+[data-kfe-form-surface="true"] button{min-height:var(--kfe-touch,48px)}
+[data-kfe-form-surface="true"]{
+  scroll-margin-bottom:calc(var(--kfe-nav-height,76px) + var(--kfe-keyboard-inset,0px) + env(safe-area-inset-bottom,0px));
+}
