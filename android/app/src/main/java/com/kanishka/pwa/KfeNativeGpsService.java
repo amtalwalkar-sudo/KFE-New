@@ -10,6 +10,7 @@ import android.content.pm.ServiceInfo;
 import android.location.Location;
 import android.os.IBinder;
 import android.os.Build;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
@@ -26,7 +27,7 @@ import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.io.FileWriter;
+import java.io.FileOutputStream;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -164,9 +165,11 @@ public class KfeNativeGpsService extends Service {
       point.put("source", "ANDROID_NATIVE_FGS");
       point.put("eventType", eventType);
 
-      try (FileWriter writer = new FileWriter(traceFile, true)) {
-        writer.write(point.toString());
-        writer.write("\n");
+      byte[] payload = (point.toString() + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+      try (FileOutputStream output = new FileOutputStream(traceFile, true)) {
+        output.write(payload);
+        output.flush();
+        output.getFD().sync();
       }
       seenKeys.add(key);
       if ("PASSENGER_RIDE_TRACE".equals(eventType)) {
@@ -174,8 +177,10 @@ public class KfeNativeGpsService extends Service {
         lastPassengerLocation = new Location(location);
         KfeOverlayService.updateLiveKm(String.format(java.util.Locale.US, "%.1f km", passengerDistanceMeters / 1000d));
       }
-    } catch (Exception ignored) {
-      // A transient local write failure must not kill the foreground location service.
+    } catch (Exception error) {
+      // Do not mark the point as seen when persistence fails. The next location
+      // callback can retry the same evidence instead of silently losing it.
+      Log.e("KfeNativeGpsService", "GPS trace persistence failed; point will be retried.", error);
     }
   }
 
