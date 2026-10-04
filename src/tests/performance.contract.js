@@ -187,8 +187,8 @@ const timestampRateMetrics = derivePerformance(timestampRateSnapshot, range, pre
 near(timestampRateMetrics.maintenanceProvision, 600, 'maintenance provision must apply an ISO timestamp rate to every vehicle KM')
 
 const performanceViewSource = (await import('node:fs')).readFileSync(new URL('../views/PerformanceView.vue', import.meta.url), 'utf8')
-assert.match(performanceViewSource, /\['Scheduled EMI',money\(m\.value\.performanceHeadlineScheduledEmi\)\]/)
-assert.match(performanceViewSource, /performanceHeadlineScheduledEmi\),'=',money\(actualProfit\.value\)/)
+assert.match(performanceViewSource, /\['Scheduled EMI · planning',money\(m\.value\.performanceHeadlineScheduledEmi\)\]/)
+assert.match(performanceViewSource, /performanceHeadlineScheduledEmi\)\],'Actual profit \/ loss'/)
 
 const noVehicleFuelSnapshot = {
   ...engineSnapshot,
