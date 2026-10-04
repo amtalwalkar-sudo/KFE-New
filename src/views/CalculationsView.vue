@@ -74,7 +74,9 @@ const issueRows=computed(()=>{
  ].filter(Boolean)
  return rows.filter(x=>x.status!=='OK' && x.status!=='NOT_APPLICABLE').map(x=>{
    const detail=issueDetails.find(y=>String(y.calculation||'').toLowerCase().includes(x.name.toLowerCase().split(' ')[0]))
-   return {...x,detail}
+   const setupKey={prebusiness:'preBusiness',driverTarget:'driverTarget',fuelCostKm:'fuelBaseline',loanBurden:'loan',maintenanceKm:'breakEvenInputs'}[x.id]
+   const setup=setupKey?setupByKey.value[setupKey]:null
+   return {...x,detail:detail||setup&&{why:setup.reason,fix:'Complete this item in Admin or finish the first-time setup journey.'}}
  })
 })
 const allRows=computed(()=>baseCalculations.map(x=>({...x,status:statusFor.value(x.id)})))
