@@ -32,9 +32,9 @@ const definition = computed(() => {
   const d = structuredClone(ADMIN_FORM_DEFINITIONS[key])
   for (const field of d.fields || []) delete field.defaultValue
   for (const field of d.fields || []) {
-    if (field.key === 'vehicleId') field.options = data.value.vehicle.map(x => ({ value: x.id, label: \`\${x.values?.registrationNumber || x.id} · \${x.values?.make || ''} \${x.values?.model || ''}\`.trim() }))
+    if (field.key === 'vehicleId') field.options = data.value.vehicle.map(x => ({ value: x.id, label: `${x.values?.registrationNumber || x.id} · ${x.values?.make || ''} ${x.values?.model || ''}`.trim() }))
     if (field.key === 'driverId') field.options = data.value.driver.map(x => ({ value: x.id, label: x.values?.name || x.id }))
-    if (field.key === 'loanId') field.options = data.value.loan.map(x => ({ value: x.id, label: \`\${x.values?.lender || ''} · \${x.values?.accountReference || x.id}\`.trim() }))
+    if (field.key === 'loanId') field.options = data.value.loan.map(x => ({ value: x.id, label: `${x.values?.lender || ''} · ${x.values?.accountReference || x.id}`.trim() }))
   }
   return d
 })
