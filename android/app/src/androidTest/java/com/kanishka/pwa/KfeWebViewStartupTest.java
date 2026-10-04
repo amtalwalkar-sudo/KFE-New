@@ -54,14 +54,25 @@ public class KfeWebViewStartupTest {
       AtomicReference<String> dom = new AtomicReference<>("");
       CountDownLatch evaluated = new CountDownLatch(1);
       scenario.onActivity(activity -> activity.getBridge().getWebView().evaluateJavascript(
-        "!!(document.getElementById('app') && document.body && document.body.innerText.includes('KFE WORK') && document.body.innerText.includes('START SHIFT'))",
+        "(async()=>{"
+          + "const app=document.getElementById('app');"
+          + "if(!app)return false;"
+          + "for(let i=0;i<12;i++){"
+          + "if(document.body.innerText.includes('KFE WORK')&&document.body.innerText.includes('START SHIFT'))return true;"
+          + "const skip=[...document.querySelectorAll('button')].find(b=>b.innerText.includes(\"Skip — I'll fill this later\"));"
+          + "if(!skip)break;"
+          + "skip.click();"
+          + "await new Promise(r=>setTimeout(r,250));"
+          + "}"
+          + "return document.body.innerText.includes('KFE WORK')&&document.body.innerText.includes('START SHIFT');"
+          + "})()",
         value -> {
           dom.set(value == null ? "null JS result" : value);
           evaluated.countDown();
         }
       ));
-      assertTrue("WebView JavaScript evaluation timed out", evaluated.await(10, TimeUnit.SECONDS));
-      assertTrue("KFE Work and Start Shift controls did not mount in APK WebView: " + dom.get(),
+      assertTrue("WebView JavaScript evaluation timed out", evaluated.await(20, TimeUnit.SECONDS));
+      assertTrue("KFE Work and Start Shift controls did not mount after first-run setup: " + dom.get(),
         "true".equals(dom.get()));
     } finally {
       scenario.close();
