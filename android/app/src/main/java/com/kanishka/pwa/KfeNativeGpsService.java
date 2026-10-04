@@ -58,6 +58,12 @@ public class KfeNativeGpsService extends Service {
     androidx.core.content.ContextCompat.startForegroundService(context, intent);
   }
 
+  public static void resumePersisted(Context context) {
+    Intent intent = new Intent(context, KfeNativeGpsService.class);
+    intent.setAction("com.kanishka.pwa.NATIVE_GPS_RESUME");
+    androidx.core.content.ContextCompat.startForegroundService(context, intent);
+  }
+
   public static void stop(Context context, String tripId) {
     Intent intent = new Intent(context, KfeNativeGpsService.class);
     intent.setAction(ACTION_STOP);
@@ -73,6 +79,17 @@ public class KfeNativeGpsService extends Service {
 
   @Override public int onStartCommand(Intent intent, int flags, int startId) {
     String action = intent == null ? null : intent.getAction();
+    if ("com.kanishka.pwa.NATIVE_GPS_RESUME".equals(action)) {
+      String persisted = getSharedPreferences(PREFS, MODE_PRIVATE).getString(ACTIVE_TRIP, "");
+      String persistedEvent = getSharedPreferences(PREFS, MODE_PRIVATE).getString(ACTIVE_EVENT, "PASSENGER_RIDE_TRACE");
+      if (persisted != null && !persisted.isEmpty()) {
+        if (!ensureForegroundLocationService()) return START_NOT_STICKY;
+        startTracking(persisted, persistedEvent);
+      } else {
+        stopSelf();
+      }
+      return START_STICKY;
+    }
     if (ACTION_STOP.equals(action)) {
       String requested = intent == null ? null : intent.getStringExtra(EXTRA_TRIP_ID);
       String active = tripId;
