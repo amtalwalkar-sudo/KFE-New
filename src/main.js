@@ -16,7 +16,7 @@ import { startApplication } from './application/startup/startupRuntime.js'
 import './styles/kfe-ui.css'
 import './styles/work-cockpit-hud.css'
 import './styles/glassmorphic-polish.css'
-import { startKfeThemeController } from './presentation/theme/kfeThemeController.js'
+import './styles/kfe-clean-baseline.css'
 
 if (!Capacitor.isNativePlatform()) {
   if ('serviceWorker' in navigator) {
@@ -64,7 +64,6 @@ const pinia = createPinia()
 app.use(pinia)
 app.use(router)
 app.mount('#app')
-startKfeThemeController()
 
 // StartupService.initializeApplication() is invoked by startApplication() after the UI mounts.
 void startApplication().catch(error => console.error('KFE application startup failed:', error))
