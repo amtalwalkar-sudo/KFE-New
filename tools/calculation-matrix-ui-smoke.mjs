@@ -51,7 +51,7 @@ try{
  for(const [surface,items] of grouped){
    const path=surface==='performance'?'performance':surface==='work'?'':'admin'
    await route(page,path,selectorFor(surface))
-   if(surface==='performance') await wait(async()=> (await page.locator('body').innerText()).includes('Where the business stands'),'Performance ready')
+   if(surface==='performance') await page.locator('.performance-page h1').waitFor({state:'visible',timeout:30000})
    if(surface==='admin') await wait(async()=> (await page.locator('body').innerText()).includes('Business Setup'),'Admin ready')
    if(surface==='work') await wait(async()=> (await page.locator('body').innerText()).includes('START SHIFT'),'Work ready')
    // Performance cards are populated from async canonical read models. Wait for
