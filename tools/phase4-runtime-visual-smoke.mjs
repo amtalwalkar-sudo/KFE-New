@@ -114,12 +114,14 @@ try{
  const beforeGps=await gps.getAttribute('aria-label');await gps.click()
  await wait(async()=>['GPS connected','GPS permission needed','GPS unavailable'].includes(await gps.getAttribute('aria-label')),'GPS post-check state')
  assert(!(await gps.innerText()).trim(),'GPS control is not icon-only')
-// 4D themes
- await page.evaluate(()=>localStorage.setItem('kfe.visual.theme.mode','light'));await page.reload({waitUntil:'domcontentloaded'});await wait(async()=>await page.locator('html').getAttribute('data-kfe-theme')==='day','light theme');assert(await page.locator('html').getAttribute('data-kfe-theme')==='day','light theme failed')
+// 4D clean baseline presentation
+ // The theme controller remains a compatibility/runtime service, but the clean baseline
+ // intentionally exposes one neutral visual palette. Theme mode must not alter presentation.
+ await page.evaluate(()=>localStorage.setItem('kfe.visual.theme.mode','light'));await page.reload({waitUntil:'domcontentloaded'});await wait(async()=>await page.locator('html').getAttribute('data-kfe-theme')==='day','light mode');assert(await page.locator('html').getAttribute('data-kfe-theme')==='day','light mode failed')
  const light=await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kfe-ui-bg').trim())
- await page.evaluate(()=>localStorage.setItem('kfe.visual.theme.mode','dark'));await page.reload({waitUntil:'domcontentloaded'});await wait(async()=>await page.locator('html').getAttribute('data-kfe-theme')==='night','dark theme');assert(await page.locator('html').getAttribute('data-kfe-theme')==='night','dark theme failed')
- const dark=await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kfe-ui-bg').trim());assert(light!==dark,'light/dark palettes are identical')
- await page.evaluate(()=>{localStorage.setItem('kfe.visual.theme.mode','auto');localStorage.setItem('kfe.visual.theme.schedule',JSON.stringify({dayStart:'00:00',nightStart:'23:59'}))});await page.reload({waitUntil:'domcontentloaded'});assert(['day','night'].includes(await page.locator('html').getAttribute('data-kfe-theme')),'auto theme invalid')
+ await page.evaluate(()=>localStorage.setItem('kfe.visual.theme.mode','dark'));await page.reload({waitUntil:'domcontentloaded'});await wait(async()=>await page.locator('html').getAttribute('data-kfe-theme')==='night','dark mode');assert(await page.locator('html').getAttribute('data-kfe-theme')==='night','dark mode failed')
+ const dark=await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kfe-ui-bg').trim());assert(light===dark,'clean baseline must use one neutral visual palette')
+ await page.evaluate(()=>{localStorage.setItem('kfe.visual.theme.mode','auto');localStorage.setItem('kfe.visual.theme.schedule',JSON.stringify({dayStart:'00:00',nightStart:'23:59'}))});await page.reload({waitUntil:'domcontentloaded'});assert(['day','night'].includes(await page.locator('html').getAttribute('data-kfe-theme')),'auto mode invalid')
  // 4E accessibility/responsive
  const unnamed=await page.evaluate(()=>[...document.querySelectorAll('button,a,[role="button"]')].filter(e=>{const s=getComputedStyle(e);return s.display!=='none'&&s.visibility!=='hidden'&&e.getClientRects().length}).filter(e=>!(e.textContent||'').trim()&&!e.getAttribute('aria-label')&&!e.getAttribute('title')).map(e=>e.outerHTML.slice(0,180)))
  assert(unnamed.length===0,'unnamed visible interactive elements: '+JSON.stringify(unnamed.slice(0,10)))
