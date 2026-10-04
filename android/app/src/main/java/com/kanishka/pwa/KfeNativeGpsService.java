@@ -51,6 +51,9 @@ public class KfeNativeGpsService extends Service {
   private final Set<String> seenKeys = new HashSet<>();
 
   public static void start(Context context, String tripId, String eventType) {
+    // Never call startForegroundService unless the runtime location grant is
+    // present; Android requires a started service to promote immediately.
+    if (tripId == null || tripId.trim().isEmpty() || !hasLocationPermission(context)) return;
     Intent intent = new Intent(context, KfeNativeGpsService.class);
     intent.setAction(ACTION_START);
     intent.putExtra(EXTRA_TRIP_ID, tripId);
@@ -59,6 +62,10 @@ public class KfeNativeGpsService extends Service {
   }
 
   public static void resumePersisted(Context context) {
+    // Boot/package-replacement broadcasts are delivered even when no ride is
+    // active. Only revive an actually persisted ride with location permission.
+    String persisted = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(ACTIVE_TRIP, "");
+    if (persisted == null || persisted.trim().isEmpty() || !hasLocationPermission(context)) return;
     Intent intent = new Intent(context, KfeNativeGpsService.class);
     intent.setAction("com.kanishka.pwa.NATIVE_GPS_RESUME");
     androidx.core.content.ContextCompat.startForegroundService(context, intent);
@@ -279,8 +286,12 @@ public class KfeNativeGpsService extends Service {
   }
 
   private boolean hasLocationPermission() {
-    return androidx.core.app.ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
-        || androidx.core.app.ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+    return hasLocationPermission(this);
+  }
+
+  private static boolean hasLocationPermission(Context context) {
+    return androidx.core.app.ActivityCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        || androidx.core.app.ActivityCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
   }
 
   private boolean ensureForegroundLocationService() {
