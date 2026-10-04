@@ -53,6 +53,13 @@ function importCandidates(specifier, fromFile) {
   return [base, `${base}.js`, `${base}.mjs`, `${base}.vue`, path.join(base, 'index.js')]
 }
 
+const acknowledgeNative = process.argv.includes('--acknowledge-native-impact')
+const requested = process.argv.slice(2).filter((arg) => !arg.startsWith('--')).map(normalize)
+if (!requested.length) {
+  console.error('Usage: npm run ui:impact -- <src/path> [src/path ...] [--acknowledge-native-impact]')
+  process.exit(2)
+}
+
 const files = await walk(SRC)
 const graph = new Map()
 for (const file of files) graph.set(normalize(path.relative(ROOT, file)), [])
@@ -67,12 +74,6 @@ for (const file of files) {
       if (graph.has(target)) graph.get(target).push(rel)
     }
   }
-}
-
-const requested = process.argv.slice(2).map(normalize)
-if (!requested.length) {
-  console.error('Usage: npm run ui:impact -- <src/path> [src/path ...]')
-  process.exit(2)
 }
 
 const seen = new Set()
@@ -110,9 +111,14 @@ for (const item of unique) {
 const protectedImpacts = unique.filter((item) => isProtected(item.dependent))
 console.log('')
 if (protectedImpacts.length) {
-  console.log('⚠️ CHANGE IMPACT WARNING: this presentation change reaches protected KFE layers.')
-  console.log('Do not proceed as a presentation-only change until the cross-layer dependency is reviewed.')
-  process.exitCode = 1
+  if (acknowledgeNative) {
+    console.log('🟡 NATIVE CROSS-LAYER IMPACT ACKNOWLEDGED — protected dependents are reported but do not fail this native-impact gate.')
+    console.log('Native changes must still pass the explicit native lifecycle/data contract and exact-APK verification.')
+  } else {
+    console.log('⚠️ CHANGE IMPACT WARNING: this presentation change reaches protected KFE layers.')
+    console.log('Do not proceed as a presentation-only change until the cross-layer dependency is reviewed.')
+    process.exitCode = 1
+  }
 } else {
   console.log('🟡 DEPENDENCY WARNING: other presentation files depend on the requested item.')
   console.log('This can be an expected presentation refactor, but those dependents must be included in the change review.')
