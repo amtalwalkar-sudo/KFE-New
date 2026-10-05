@@ -323,7 +323,7 @@ try {
   await page.getByRole('button', { name: 'START SHIFT', exact: true }).click()
   const endStartOdo = page.getByRole('spinbutton', { name: 'Current vehicle odometer' })
   await endStartOdo.click(); await endStartOdo.press('Control+A'); await endStartOdo.pressSequentially('1000'); assert(await endStartOdo.inputValue()==='1000','End Shift setup odometer was not replaced'); await endStartOdo.press('Tab')
-  await page.getByRole('checkbox', { name: /current vehicle odometer/i }).check()
+  const endStartAck = page.getByRole('checkbox', { name: /current vehicle odometer/i }); await endStartAck.waitFor({ state: 'visible' }); const endAckDeadline = Date.now() + 3000; while (Date.now() < endAckDeadline && !(await endStartAck.isEnabled())) await sleep(50); assert(await endStartAck.isEnabled(), 'End Shift setup odometer confirmation did not become enabled after validated input'); await endStartAck.check()
   await page.getByRole('button', { name: 'CONFIRM & GO ONLINE', exact: true }).click()
   await page.getByText('READY FOR NEXT PICKUP', { exact: true }).waitFor()
   await page.getByRole('button', { name: 'ONLINE', exact: true }).click()
