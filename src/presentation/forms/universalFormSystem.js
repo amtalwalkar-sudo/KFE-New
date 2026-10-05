@@ -134,6 +134,8 @@ function updateViewport(){
 }
 
 function install(){
+  if(window.__KFE_UNIVERSAL_FORM_SYSTEM_INSTALLED__) return
+  window.__KFE_UNIVERSAL_FORM_SYSTEM_INSTALLED__=true
   tagTree(document);
   document.addEventListener('focusin',event=>{
     if(!isEditableControl(event.target)) return;
@@ -146,13 +148,14 @@ function install(){
   window.visualViewport?.addEventListener('resize',updateViewport);
   window.visualViewport?.addEventListener('scroll',updateViewport);
   window.addEventListener('resize',updateViewport,{passive:true});
-  new MutationObserver(records=>{
+  const observer=new MutationObserver(records=>{
     for(const record of records){
       for(const node of record.addedNodes){
         if(node.nodeType===1) tagTree(node);
       }
     }
-  }).observe(document.body,{childList:true,subtree:true});
+  })
+  observer.observe(document.body,{childList:true,subtree:true});
 }
 
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',install,{once:true});
