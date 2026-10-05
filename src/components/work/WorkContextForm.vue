@@ -1,7 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
-
-const startAckLocal = ref(false)
+import { computed } from 'vue'
 
 const props = defineProps({
   type: { type: String, required: true },
@@ -73,26 +71,24 @@ const endTitle = computed(() => ({
   ENDED: 'Shift ended'
 }[props.endStage] || 'Close shift'))
 
-function preserveStartAck() {
-  const checkbox = document.querySelector('.form-start input[type="checkbox"]')
-  if (checkbox?.checked === true) {
-    startAckLocal.value = true
-    emit('update:start-ack', true)
-  }
-}
-
 function chooseGap(choice) {
-  preserveStartAck()
   emit('update:gap-choice', choice)
 }
 
-function submitStartAction() {
-  const checkbox = document.querySelector('.form-start input[type="checkbox"]')
-  emit('action', {
-    name: 'submit-start',
-    startOdo: props.startOdo,
-    startAck: startAckLocal.value === true
-  })
+function submitForm() {
+  if (props.type === 'start') {
+    emit('action', { name: 'submit-start', startOdo: props.startOdo, startAck: props.startAck === true })
+    return
+  }
+  const action = props.type === 'fare' ? 'save-fare'
+    : props.type === 'cancel' ? 'save-cancel'
+    : props.type === 'fuel' ? 'save-fuel'
+    : props.endStage === 'CLOSE' ? 'close-end'
+    : props.endStage === 'RECONCILE' ? 'continue-reconcile'
+    : props.endStage === 'REVIEW' ? 'review-complete'
+    : props.endStage === 'CONFIRM' ? 'finish-end'
+    : 'finish-ended'
+  emit('action', action)
 }
 
 const updateMap = (name, map, id, value) => {
@@ -101,8 +97,6 @@ const updateMap = (name, map, id, value) => {
 </script>
 
 <template>
-  <!-- CI verification marker: shift-start checkbox state is owned by the form across gap-choice rerenders. -->
-  <!-- Shift-start confirmation remains native so its checked state survives gap-choice rerenders. -->
   <section class="work-context-form contextual-form" :class="['form-' + type, type === 'start' ? 'start-shift-gate' : '', type === 'end' ? 'end-gate' : '', ['fare', 'cancel', 'fuel'].includes(type) ? 'focus-surface' : '']">
     <div v-if="type === 'start'" class="form-card state-tone-warning">
       <div class="form-head">
@@ -115,7 +109,7 @@ const updateMap = (name, map, id, value) => {
         <b>km</b>
       </div>
       <label class="check-row">
-        <input type="checkbox" :checked="startAckLocal" :disabled="!startOdo" aria-label="Confirm current vehicle odometer">
+        <input type="checkbox" :checked="startAck" :disabled="!startOdo" aria-label="Confirm current vehicle odometer" @change="emit('update:start-ack', $event.target.checked)">
         <span>I confirm this is the current odometer.</span>
       </label>
       <div v-if="gapKm > 0" class="gap-panel">
@@ -125,7 +119,7 @@ const updateMap = (name, map, id, value) => {
           <button type="button" :class="{selected:gapChoice==='DEAD'}" @click="chooseGap('DEAD')">Dead KM</button>
         </div>
       </div>
-      <button class="primary-action" :disabled="startBusy" @click="submitStartAction">{{ startBusy ? 'STARTING…' : 'CONFIRM & GO ONLINE' }}</button>
+      <button class="primary-action" :disabled="startBusy" @click="submitForm">{{ startBusy ? 'STARTING…' : 'CONFIRM & GO ONLINE' }}</button>
     </div>
 
     <div v-else-if="type === 'fare'" class="form-card state-tone-warning focus-surface">
