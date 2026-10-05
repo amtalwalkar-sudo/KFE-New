@@ -7,6 +7,8 @@ defineProps({
   error: { type: String, default: '' },
   required: { type: Boolean, default: false },
   disabled: { type: Boolean, default: false },
+  inputmode: { type: String, default: '' },
+  enterkeyhint: { type: String, default: '' },
   id: { type: String, default: () => `input-${Math.random().toString(36).substring(2, 9)}` }
 })
 
@@ -25,6 +27,8 @@ const emit = defineEmits(['update:modelValue'])
       :placeholder="placeholder"
       :disabled="disabled"
       :required="required"
+      :inputmode="inputmode || undefined"
+      :enterkeyhint="enterkeyhint || undefined"
       class="input-field"
       @input="emit('update:modelValue', $event.target.value)"
     />
