@@ -216,7 +216,9 @@ try {
   // Contract 9: cancellation control must persist CANCELLED and must not become a completed ride.
   await reset(page)
   await page.getByRole('button', { name: 'START SHIFT', exact: true }).click()
-  await page.getByRole('spinbutton', { name: 'Current vehicle odometer' }).fill('1000')
+  const cancelStartOdo = page.getByRole('spinbutton', { name: 'Current vehicle odometer' })
+  await cancelStartOdo.click()
+  await cancelStartOdo.pressSequentially('1000')
   await page.getByRole('checkbox', { name: /current vehicle odometer/i }).check()
   await page.getByRole('button', { name: 'CONFIRM & GO ONLINE', exact: true }).click()
   await swipeAction()
@@ -380,7 +382,9 @@ try {
   // Contract 16: Timeline trip quick-edit must persist the authoritative trip edit.
   await reset(page)
   await page.getByRole('button', { name: 'START SHIFT', exact: true }).click()
-  await page.getByRole('spinbutton', { name: 'Current vehicle odometer' }).fill('1000')
+  const timelineStartOdo = page.getByRole('spinbutton', { name: 'Current vehicle odometer' })
+  await timelineStartOdo.click()
+  await timelineStartOdo.pressSequentially('1000')
   await page.getByRole('checkbox', { name: /current vehicle odometer/i }).check()
   await page.getByRole('button', { name: 'CONFIRM & GO ONLINE', exact: true }).click()
   await swipeAction(); await page.getByRole('button', { name: 'START TRIP', exact: true }).waitFor()
