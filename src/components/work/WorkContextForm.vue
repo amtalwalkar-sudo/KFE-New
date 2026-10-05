@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 
 const props = defineProps({
   type: { type: String, required: true },
@@ -63,7 +63,6 @@ const emit = defineEmits([
 ])
 
 const startAckLocal = ref(props.startAck)
-watch(() => props.startAck, value => { startAckLocal.value = value })
 
 const endTitle = computed(() => ({
   CLOSE: 'Close shift',
