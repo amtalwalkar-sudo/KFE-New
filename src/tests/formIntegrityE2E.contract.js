@@ -26,11 +26,11 @@ const assertHas = (source, pattern, message) => assert.match(source, pattern, me
 
 assertHas(work, /await store\.startShift\(startOdo\.value,/, 'Start Shift form must commit through the shift store')
 assertHas(shiftStore, /const startShift = async/, 'Shift store must own Start Shift state transition')
-assertHas(workService, /async startShift\(data\).*ShiftTripRepository\.createShift/, 'Start Shift must persist through WorkService to the canonical shift repository')
+assertHas(workService, /async startShift\\(data\\)[\\s\\S]*ShiftTripRepository\\.createShift/, 'Start Shift must persist through WorkService to the canonical shift repository')
 assertHas(workRepo, /createShift\(data\)/, 'Shift repository must own canonical shift persistence')
 
 assertHas(work, /await store\.updateTrip\(details\)/, 'Fare save must commit through the shift store')
-assertHas(workService, /async updateTrip\(data\).*ShiftTripRepository\.updateTrip/, 'Fare/trip correction must reach the canonical trip repository')
+assertHas(workService, /async updateTrip\\(data\\)[\\s\\S]*ShiftTripRepository\\.updateTrip/, 'Fare/trip correction must reach the canonical trip repository')
 assertHas(work, /fareDetailsSkipped: fare\.value === ''/, 'Fare skip must be an explicit persisted terminal flag')
 assertHas(work, /await store\.updateTrip\(\{ id: pendingFare\.value\.id, fareDetailsSkipped: true \}\)/, 'Skip must update the exact completed trip and not create a blank record')
 assertHas(work, /function openCancel\(\)/, 'Cancellation form must have an explicit open path')
@@ -65,9 +65,9 @@ assertHas(timelineView, /Authoritative Revenue/, 'Timeline must display authorit
 assertHas(performanceView, /performanceHeadlineActualProfit/, 'Performance must display calculated actual P/L')
 assertHas(performanceView, /performanceHeadlineProvisionalProfit/, 'Performance must display calculated provisional P/L')
 
-assertHas(work, /if \(action === 'back-start'\).*startOpen\.value = false/, 'Start Shift back/cancel must not submit')
-assertHas(work, /if \(action === 'back-cancel'\).*cancelOpen\.value = false/, 'Cancellation back/cancel must not submit')
-assertHas(work, /if \(action === 'close-fuel'\).*fuelOpen\.value = false/, 'Fuel close/cancel must not submit')
+assertHas(work, /if \\(action === 'back-start'\\)[\\s\\S]*startOpen\\.value = false/, 'Start Shift back/cancel must not submit')
+assertHas(work, /if \\(action === 'back-cancel'\\)[\\s\\S]*cancelOpen\\.value = false/, 'Cancellation back/cancel must not submit')
+assertHas(work, /if \\(action === 'close-fuel'\\)[\\s\\S]*fuelOpen\\.value = false/, 'Fuel close/cancel must not submit')
 assertHas(adminForm, /@click="emit\('cancel'\)"/, 'Admin cancel must emit cancel instead of submitting')
 assertHas(reconciliation, /@submit\.prevent="handleFinalCommit"/, 'Reconciliation must commit only through final submit')
 
