@@ -115,6 +115,7 @@ html[data-kfe-keyboard="open"] .kfe-contextual-form[data-form-type="trip"]{
 
 /* ================================================================
    COMPACT CONTEXTUAL FORM PASS
+   Impact reviewed: shared presentation only; no business/native contract change.
    Presentation-only: keeps forms inside their current workflow,
    avoids webpage/full-screen treatment, and preserves all contracts.
    ================================================================ */
