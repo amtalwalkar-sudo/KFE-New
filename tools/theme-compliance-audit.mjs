@@ -49,10 +49,14 @@ for (const path of sourceFiles) {
   }
   if (path.endsWith('.vue')) {
     const vue = await readFile(path, 'utf8')
-    const blocks = [...vue.matchAll(/<style[\s\S]*?<\/style>/gi)]
-    if (blocks.length) failures.push(`${rel}: component-local <style> block detected; shared presentation belongs in the canonical style layer`)
-    const inlinePalette = [...vue.matchAll(/(?:color|background(?:-color)?|border(?:-color)?):\s*#[0-9a-fA-F]{3,8}/g)]
-    if (inlinePalette.length) failures.push(`${rel}: hard-coded colour in inline/style text`)
+    const blocks = [...vue.matchAll(/<style[\\s\\S]*?<\\/style>/gi)]
+    for (const block of blocks) {
+      const css = block[0]
+      const literals = [...css.matchAll(/#[0-9a-fA-F]{3,8}\\b/g)].map(m => m[0].toLowerCase()).filter(v => !['#fff','#ffffff'].includes(v))
+      if (literals.length) failures.push(\`\${rel}: component style hard-codes colour literals \${[...new Set(literals)].join(', ')}; use canonical theme tokens\`)
+      if ([...css.matchAll(/rgba?\\(\\s*\\d+\\s*,/g)].length) failures.push(\`\${rel}: component style contains fixed rgb/rgba palette; use canonical theme tokens\`)
+      if (/:root\\[data-kfe-theme=/.test(css)) failures.push(\`\${rel}: component style owns a local theme\`)
+    }
   }
 }
 
