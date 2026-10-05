@@ -16,8 +16,6 @@ watch(()=>[props.definition,props.modelValue],()=>syncValues(props.modelValue),{
 function setValue(key,value){values[key]=value;emit('update:modelValue',{...values});if(errors.value[key]){const next={...errors.value};delete next[key];errors.value=next}}
 function keyboardFor(field){if(field.type==='number')return field.step&&Number(field.step)%1!==0?'decimal':'numeric';if(field.key.toLowerCase().includes('phone'))return'tel';if(field.key.toLowerCase().includes('email'))return'email';return undefined}
 function setFieldRef(key,el){if(el)fieldRefs.value[key]=el}
-function focusNext(field){const index=fields.value.findIndex(x=>x.key===field.key);const next=fields.value.slice(index+1).find(x=>x.type!=='checkbox');if(next){fieldRefs.value[next.key]?.focus?.();return}submit()}
-function handleEnter(event,field){if(field.type==='textarea'||field.type==='checkbox')return;event.preventDefault();focusNext(field)}
 function submit(){const result=AdminService.validate(props.definition.key,values,props.context);errors.value=result.errors;if(result.valid)emit('submit',result.values)}
 </script>
 <template>
