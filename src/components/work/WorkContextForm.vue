@@ -116,7 +116,7 @@ const updateMap = (name, map, id, value) => {
         <b>km</b>
       </div>
       <label class="check-row">
-        <input type="checkbox" :disabled="!startOdoLocal" @click="startAckLocal = true" @change="startAckLocal = $event.target.checked">
+        <input type="checkbox" :checked="startAckLocal" :disabled="!startOdoLocal" @click="startAckLocal = true" @change="startAckLocal = $event.target.checked">
         <span>I confirm this is the current odometer.</span>
       </label>
       <div v-if="gapKm > 0" class="gap-panel">
