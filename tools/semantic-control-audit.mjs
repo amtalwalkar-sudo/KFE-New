@@ -246,7 +246,11 @@ try {
   await assertInputContract(formsStartOdo, { inputmode: 'numeric', enterkeyhint: 'done' })
   await formsStartOdo.click(); await formsStartOdo.pressSequentially('1000')
   await formsStartOdo.press('Tab')
-  await page.getByRole('checkbox', { name: /current vehicle odometer/i }).check()
+  const formsStartAck = page.getByRole('checkbox', { name: /current vehicle odometer/i })
+  const ackDeadline = Date.now() + 3000
+  while (Date.now() < ackDeadline && !(await formsStartAck.isEnabled())) await sleep(50)
+  assert(await formsStartAck.isEnabled(), 'Start Shift odometer confirmation did not become enabled after validated input')
+  await formsStartAck.check()
   await page.getByRole('button', { name: 'CONFIRM & GO ONLINE', exact: true }).click()
   await page.getByText('READY FOR NEXT PICKUP', { exact: true }).waitFor()
   evidence.push({ id: 'FORMS.START_SHIFT_INPUT', result: 'PASS', expected: 'contextual form + native numeric odometer + viewport-safe controls' })
