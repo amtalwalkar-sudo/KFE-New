@@ -41,20 +41,20 @@ async function close() {
   bottom: 0;
   margin: 16px;
   padding: 12px;
-  border: 1px solid var(--border-color, #e2e8f0);
-  border-radius: var(--radius-md, 6px);
+  border: 1px solid var(--kfe-ui-border);
+  border-radius: var(--kfe-radius-md);
   z-index: 1000;
   text-align: left;
-  box-shadow: var(--shadow-lg, 0 10px 15px -3px rgba(0, 0, 0, 0.1));
-  background-color: var(--bg-surface, #ffffff);
+  box-shadow: var(--kfe-ui-shadow);
+  background-color: var(--kfe-ui-surface);
   display: flex;
   flex-direction: column;
   gap: 12px;
   max-width: 300px;
 }
 .message {
-  font-size: var(--font-size-sm, 0.85rem);
-  color: var(--text-main, #0f172a);
+  font-size: .85rem;
+  color: var(--kfe-ui-text);
 }
 .actions {
   display: flex;
@@ -62,18 +62,18 @@ async function close() {
 }
 .pwa-btn {
   padding: 6px 12px;
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--kfe-radius-sm);
   border: none;
-  font-size: var(--font-size-xs, 0.75rem);
+  font-size: .75rem;
   cursor: pointer;
   font-weight: 600;
 }
 .pwa-reload {
-  background-color: var(--color-primary, #2563eb);
-  color: white;
+  background-color: var(--kfe-ui-accent);
+  color:var(--kfe-on-accent);
 }
 .pwa-close {
-  background-color: var(--bg-muted, #f1f5f9);
-  color: var(--text-muted, #64748b);
+  background-color: var(--kfe-ui-surface-2);
+  color: var(--kfe-muted-text);
 }
 </style>
