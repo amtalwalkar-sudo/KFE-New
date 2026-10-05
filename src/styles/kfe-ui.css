@@ -20,7 +20,7 @@
   --kfe-success:#16803C;
   --kfe-warning:#B76E00;
   --kfe-danger:#C62828;
-  --kfe-info:#2563EB;
+  --kfe-info:#2563EB;--kfe-on-accent:#fff;--kfe-ui-on-accent:#fff;
   --kfe-ui-shadow:0 4px 18px rgba(23,32,42,.06);
   --kfe-shadow:var(--kfe-ui-shadow);
   --kfe-ui-overlay:rgba(245,247,250,.96);
