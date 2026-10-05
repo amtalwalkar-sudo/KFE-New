@@ -10,7 +10,7 @@ const emit = defineEmits(['submit', 'cancel'])
 </script>
 
 <template>
-  <form class="form-layout" @submit.prevent="emit('submit')">
+  <form class="form-layout kfe-contextual-form" data-form-type="compact" @submit.prevent="emit('submit')">
     <div class="form-header">
       <div>
         <h2 class="form-title">{{ title }}</h2>
