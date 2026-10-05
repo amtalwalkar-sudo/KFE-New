@@ -103,6 +103,8 @@ try {
   // entered opening odometer and survive a repository reread.
   await reset(page)
   await page.getByRole('button', { name: 'START SHIFT', exact: true }).click()
+  assert(await page.locator('.offline-state').isVisible(), 'Offline cockpit disappeared when Start Shift contextual form opened')
+  assert(await page.locator('.start-shift-gate').isVisible(), 'Start Shift form did not open contextually inside Work')
   const startOdo = page.getByRole('spinbutton', { name: 'Current vehicle odometer' }); await startOdo.click(); await startOdo.pressSequentially('1000'); assert(await startOdo.inputValue()==='1000','START SHIFT input did not accept sequential typing')
   await page.getByRole('checkbox', { name: /current vehicle odometer/i }).check()
   await page.getByRole('button', { name: 'CONFIRM & GO ONLINE', exact: true }).click()
@@ -146,6 +148,9 @@ try {
   // Contract 6: OFFLINE -> End Shift must persist closing odometer and authoritative revenue,
   // then Timeline and Performance must consume the same values.
   await page.getByRole('button', { name: 'ONLINE', exact: true }).click()
+  assert(await page.locator('.target-instrument').isVisible(), 'Target context disappeared when End Shift opened')
+  assert(await page.locator('.operational-state').isVisible(), 'Operational context disappeared when End Shift opened')
+  assert(await page.locator('.end-gate').isVisible(), 'End Shift form did not open contextually inside Work')
   await page.getByLabel('Closing odometer').fill('1100')
   await page.getByLabel('Total shift revenue').fill('800')
   await page.getByRole('button', { name: 'CONTINUE', exact: true }).click()
@@ -178,6 +183,8 @@ try {
 
   // Contract 8: Fuel control must be usable while OFFLINE and persist one fuel record.
   await page.getByRole('button', { name: 'CNG refuelling', exact: true }).click()
+  assert(await page.locator('.offline-state').isVisible(), 'Fuel context replaced the current Work context')
+  assert(await page.locator('.focus-surface').filter({ hasText: 'CNG REFUEL' }).isVisible(), 'Fuel form did not open contextually')
   await page.getByLabel('Odometer').fill('1000')
   await page.getByLabel('Price / kg').fill('90')
   await page.getByLabel('Amount').fill('900')
