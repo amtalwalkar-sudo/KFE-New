@@ -42,7 +42,9 @@ export const PerformanceRepository = {
       driverTargets: data.driver_targets,
       breakEvenInputs: data.break_even_inputs,
       settlements: data.settlements,
-      businessSetup: data.settings.find(record => record?.settingKey === 'businessSetup')?.values || null,
+      businessSetup: data.settings
+        .filter(record => record?.settingKey === 'businessSetup' && !record?.deletedAt && record?.deleted !== true)
+        .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')))[0]?.values || null,
     }
   }
 }
