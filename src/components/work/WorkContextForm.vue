@@ -91,8 +91,8 @@ function nextField(event) {
 function submitStartAction() {
   emit('action', {
     name: 'submit-start',
-    startOdo: startOdoLocal.value,
-    startAck: startAckLocal.value === true
+    startOdo: props.startOdo,
+    startAck: props.startAck === true
   })
 }
 
