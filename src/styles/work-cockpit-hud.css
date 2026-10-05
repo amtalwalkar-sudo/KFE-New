@@ -70,3 +70,13 @@
 .contextual-form .gate-head>div{min-width:0}
 .contextual-form input,.contextual-form select,.contextual-form button{max-width:100%}
 @media(max-width:600px){.contextual-form{margin-top:.75rem;padding-bottom:max(.5rem,env(safe-area-inset-bottom))}}
+
+
+/* Work contextual fare surface: keep the completed-trip action usable without page scroll. */
+.fare-context-form{position:fixed;left:50%;bottom:max(64px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:30;width:min(calc(100vw - 20px),520px);box-sizing:border-box;max-height:calc(100vh - 150px);padding:12px;overflow:hidden;box-shadow:0 16px 42px color-mix(in srgb,var(--kfe-ui-text) 18%,transparent)}
+.fare-context-form .gate-head{margin-bottom:6px}
+.fare-context-form .fact-grid.two{gap:6px;margin:4px 0 6px}
+.fare-context-form label{margin:4px 0}
+.fare-context-form .input-unit{min-height:42px}
+.fare-context-form .primary-action,.fare-context-form .secondary-action{min-height:42px;margin-top:6px}
+@media(max-width:600px){.fare-context-form{bottom:max(62px,env(safe-area-inset-bottom));padding:10px}.fare-context-form .gate-head{gap:6px}.fare-context-form .fact-grid.two{font-size:.86rem}.fare-context-form label{font-size:.86rem}}
