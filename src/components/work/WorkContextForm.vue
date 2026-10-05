@@ -87,7 +87,6 @@ function chooseGap(choice) {
 }
 
 function submitStartAction() {
-  preserveStartAck()
   emit('action', {
     name: 'submit-start',
     startOdo: props.startOdo,
