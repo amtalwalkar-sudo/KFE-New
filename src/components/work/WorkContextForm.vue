@@ -1,10 +1,7 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 
-const startAckModel = computed({
-  get: () => props.startAck === true,
-  set: value => emit('update:start-ack', value === true)
-})
+const startAckLocal = ref(false)
 
 const props = defineProps({
   type: { type: String, required: true },
@@ -76,11 +73,27 @@ const endTitle = computed(() => ({
   ENDED: 'Shift ended'
 }[props.endStage] || 'Close shift'))
 
+watch(() => props.startAck, value => { startAckLocal.value = value === true }, { immediate: true })
+
+function preserveStartAck() {
+  const checkbox = document.querySelector('.form-start input[type="checkbox"]')
+  if (checkbox?.checked === true) {
+    startAckLocal.value = true
+    emit('update:start-ack', true)
+  }
+}
+
+function chooseGap(choice) {
+  preserveStartAck()
+  emit('update:gap-choice', choice)
+}
+
 function submitStartAction() {
+  preserveStartAck()
   emit('action', {
     name: 'submit-start',
     startOdo: props.startOdo,
-    startAck: startAckModel.value === true
+    startAck: startAckLocal.value === true
   })
 }
 
@@ -104,14 +117,14 @@ const updateMap = (name, map, id, value) => {
         <b>km</b>
       </div>
       <label class="check-row">
-        <input type="checkbox" v-model="startAckModel" :disabled="!startOdo" aria-label="Confirm current vehicle odometer">
+        <input type="checkbox" :checked="startAckLocal" :disabled="!startOdo" aria-label="Confirm current vehicle odometer">
         <span>I confirm this is the current odometer.</span>
       </label>
       <div v-if="gapKm > 0" class="gap-panel">
         <div><span class="eyebrow">ODOMETER GAP</span><strong>{{ gapKm }} km</strong><p>Classify the full gap.</p></div>
         <div class="choice-row">
-          <button type="button" :class="{selected:gapChoice==='PERSONAL'}" @click="emit('update:gap-choice','PERSONAL')">Personal KM</button>
-          <button type="button" :class="{selected:gapChoice==='DEAD'}" @click="emit('update:gap-choice','DEAD')">Dead KM</button>
+          <button type="button" :class="{selected:gapChoice==='PERSONAL'}" @click="chooseGap('PERSONAL')">Personal KM</button>
+          <button type="button" :class="{selected:gapChoice==='DEAD'}" @click="chooseGap('DEAD')">Dead KM</button>
         </div>
       </div>
       <button class="primary-action" :disabled="startBusy" @click="submitStartAction">{{ startBusy ? 'STARTING…' : 'CONFIRM & GO ONLINE' }}</button>
