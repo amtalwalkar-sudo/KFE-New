@@ -18,14 +18,14 @@ const handleSave = () => {
   <Teleport to="body"><div v-if="isOpen" style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999;padding:12px" @click.self="emit('close')">
     <div role="dialog" aria-modal="true" data-kfe-form-surface="true" data-form-type="fuel" style="background:white;border-radius:12px;width:100%;max-width:450px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden">
       <div style="padding:14px 16px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between"><h3 style="margin:0">⛽ Add CNG Fuel Log</h3><button @click="emit('close')">✕</button></div>
-      <div style="padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:12px">
-        <label>Odometer Reading (km) *<input v-model="odometer" type="number" inputmode="numeric" enterkeyhint="next" style="width:100%"></label>
-        <label>Amount Paid (₹) *<input v-model="amount" type="number" inputmode="numeric" enterkeyhint="next" style="width:100%"></label>
+      <form id="fuel-log-form" @submit.prevent="handleSave" style="padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:12px">
+        <label>Odometer Reading (km) *<input v-model="odometer" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" style="width:100%"></label>
+        <label>Amount Paid (₹) *<input v-model="amount" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" style="width:100%"></label>
         <label>CNG Quantity (kg) - Optional<input v-model="kg" type="number" inputmode="decimal" enterkeyhint="done" min="0" max="15" step="0.01" style="width:100%"><small>Maximum tank capacity: 15 kg</small></label>
         <label style="display:flex;gap:8px;align-items:center"><input v-model="isFullTank" type="checkbox"> Full tank (default)</label>
         <small v-if="!isFullTank">Partial fill is recorded but excluded from fuel cost/km calculations.</small>
-      </div>
-      <div style="padding:12px 16px;border-top:1px solid #e2e8f0;display:flex;gap:8px"><button style="flex:1" @click="emit('close')">Cancel</button><button style="flex:1" @click="handleSave">Save Fuel Log</button></div>
+      </form>
+      <div style="padding:12px 16px;border-top:1px solid #e2e8f0;display:flex;gap:8px"><button type="button" style="flex:1" @click="emit('close')">Cancel</button><button type="submit" form="fuel-log-form" style="flex:1">Save Fuel Log</button></div>
     </div>
   </div></Teleport>
 </template>
