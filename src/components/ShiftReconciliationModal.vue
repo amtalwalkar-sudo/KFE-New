@@ -116,10 +116,10 @@ const handleFinalCommit = async () => {
 
 <template>
   <div class="reconcile-overlay">
-    <div class="reconcile-card" role="dialog" aria-modal="true" data-kfe-form-surface="true" data-form-type="shift">
+    <form class="reconcile-card" role="dialog" @submit.prevent="handleFinalCommit" aria-modal="true" data-kfe-form-surface="true" data-form-type="shift">
       <header class="card-header">
         <h2>🏁 End Shift Reconciliation</h2>
-        <button class="close-btn" @click="emit('close')">✕</button>
+        <button type="button" class="close-btn" @click="emit('close')">✕</button>
       </header>
 
       <div class="card-body">
@@ -196,11 +196,11 @@ const handleFinalCommit = async () => {
       </div>
 
       <footer class="card-footer">
-        <button class="btn-submit" :disabled="!isValid || isSubmitting" @click="handleFinalCommit">
+        <button type="submit" class="btn-submit" :disabled="!isValid || isSubmitting">
           {{ isSubmitting ? 'Saving Shift...' : '💾 Confirm & Save Shift' }}
         </button>
       </footer>
-    </div>
+    </form>
   </div>
 </template>
 
