@@ -250,7 +250,8 @@ async function openStart() {
 async function submitStart() {
   if (startBusy.value) return
   if (!startOdo.value) return fail('Current odometer is required.')
-  if (!startAck.value) return fail('Confirm the current odometer reading before continuing.')
+  const startAcknowledged = document.querySelector('.form-start input[type="checkbox"]')?.checked === true
+  if (!startAck.value && !startAcknowledged) return fail('Confirm the current odometer reading before continuing.')
   if (!gap.value.valid) return fail(gap.value.reason || 'Enter a valid odometer.')
   if (gapKm.value && !gapChoice.value) return fail('Choose Personal KM or Dead KM for the full odometer gap.')
 
