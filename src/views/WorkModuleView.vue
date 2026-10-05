@@ -805,7 +805,7 @@ onBeforeUnmount(() => {
       </section>
     </template>
 
-    <section v-if="pendingFare && !endOpen && !cancelOpen && !fuelOpen" class="contextual-form focus-surface state-tone-warning">
+    <section v-if="pendingFare && !endOpen && !cancelOpen && !fuelOpen" class="contextual-form focus-surface fare-context-form state-tone-warning">
       <div class="gate-head"><div><span class="eyebrow">OPTIONAL DETAILS</span><strong>TRIP COMPLETED</strong></div><button class="text-action" type="button" @click="skipTripDetails">Skip</button></div>
       <div class="fact-grid two"><div><span>Operator</span><strong>{{ pendingFare.operator }}</strong></div><div><span>Trip KM</span><strong>{{ Number(pendingFare.tripKm||0).toFixed(1) }} km</strong></div></div>
       <label>Trip fare <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input v-model="fare" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" @keydown="handleFormEnter"></div></label>
