@@ -98,7 +98,7 @@ const updateMap = (name, map, id, value) => {
 
 <template>
   <section class="work-context-form contextual-form" :class="['form-' + type, type === 'start' ? 'start-shift-gate' : '', type === 'end' ? 'end-gate' : '', ['fare', 'cancel', 'fuel'].includes(type) ? 'focus-surface' : '']">
-    <div v-if="type === 'start'" class="form-card state-tone-warning">
+    <form v-if="type === 'start'" class="form-card state-tone-warning" @submit.prevent="submitForm">
       <div class="form-head">
         <div><span class="eyebrow">START SHIFT</span><h2>Confirm shift start</h2></div>
         <button class="text-action" type="button" @click="emit('action', 'back-start')">Back</button>
@@ -120,17 +120,17 @@ const updateMap = (name, map, id, value) => {
         </div>
       </div>
       <button class="primary-action" :disabled="startBusy" @click="submitForm">{{ startBusy ? 'STARTING…' : 'CONFIRM & GO ONLINE' }}</button>
-    </div>
+    </form>
 
-    <div v-else-if="type === 'fare'" class="form-card state-tone-warning focus-surface">
+    <form v-else-if="type === 'fare'" class="form-card state-tone-warning focus-surface" @submit.prevent="submitForm">
       <div class="form-head"><div><span class="eyebrow">TRIP COMPLETED</span><strong>OPTIONAL DETAILS</strong></div><button class="text-action" type="button" @click="emit('action','skip-fare')">Skip</button></div>
       <label>Trip fare <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="fare" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" @input="emit('update:fare',$event.target.value)"></div></label>
       <label>Toll <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="tripToll" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" @input="emit('update:trip-toll',$event.target.value)"></div></label>
       <label>Parking <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="tripParking" type="number" inputmode="numeric" enterkeyhint="done" min="0" autocomplete="off" @input="emit('update:trip-parking',$event.target.value)"></div></label>
       <button class="primary-action" :disabled="fareBusy" @click="emit('action','save-fare')">{{ fareBusy ? 'SAVING…' : 'SAVE DETAILS & CONTINUE' }}</button>
-    </div>
+    </form>
 
-    <div v-else-if="type === 'cancel'" class="form-card state-tone-warning focus-surface">
+    <form v-else-if="type === 'cancel'" class="form-card state-tone-warning focus-surface" @submit.prevent="submitForm">
       <div class="form-head"><div><span class="eyebrow">CANCELLATION</span><strong>CAPTURE CANCELLATION</strong></div><button class="text-action" type="button" @click="emit('action','back-cancel')">Back</button></div>
       <div class="choice-field"><span class="field-label">Cancellation reason</span><div class="choice-row cancellation-reasons">
         <button type="button" :class="{selected:cancelReason==='PASSENGER'}" @click="emit('update:cancel-reason','PASSENGER')">Passenger cancellation</button>
@@ -138,9 +138,9 @@ const updateMap = (name, map, id, value) => {
       </div></div>
       <label>Cancellation fee<div class="input-unit"><b>₹</b><input :value="cancelFare" type="number" inputmode="numeric" enterkeyhint="done" min="0" required autocomplete="off" @input="emit('update:cancel-fare',$event.target.value)"></div></label>
       <button class="primary-action" :disabled="cancelBusy" @click="emit('action','save-cancel')">{{ cancelBusy ? 'SAVING…' : 'OK — CONFIRM CANCELLATION' }}</button>
-    </div>
+    </form>
 
-    <div v-else-if="type === 'fuel'" class="form-card state-tone-info focus-surface">
+    <form v-else-if="type === 'fuel'" class="form-card state-tone-info focus-surface" @submit.prevent="submitForm">
       <div class="form-head"><div><span class="eyebrow">FUEL</span><strong>CNG REFUEL</strong></div><button class="text-action" type="button" @click="emit('action','close-fuel')">Close</button></div>
       <label>Odometer<div class="input-unit"><input :value="fuelOdo" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" aria-label="Odometer" @input="emit('update:fuel-odo',$event.target.value)"><b>km</b></div></label>
       <label>Price / kg<div class="input-unit"><b>₹</b><input :value="fuelPrice" type="number" inputmode="decimal" enterkeyhint="next" min="0" step=".01" autocomplete="off" @input="emit('update:fuel-price',$event.target.value)"></div></label>
@@ -148,9 +148,9 @@ const updateMap = (name, map, id, value) => {
       <div class="calculated-value"><span>Quantity</span><strong>{{ fuelQty.valid ? fuelQty.quantityKg.toFixed(2)+' kg' : '—' }}</strong></div>
       <label class="check-row"><input :checked="fuelPartial" type="checkbox" @change="emit('update:fuel-partial',$event.target.checked)"><span>Partial fill</span></label>
       <button class="primary-action" :disabled="fuelBusy" @click="emit('action','save-fuel')">{{ fuelBusy ? 'SAVING…' : 'OK — SAVE FUEL' }}</button>
-    </div>
+    </form>
 
-    <div v-else-if="type === 'end'" class="form-card state-tone-warning">
+    <form v-else-if="type === 'end'" class="form-card state-tone-warning" @submit.prevent="submitForm">
       <div class="form-head"><div><span class="eyebrow">GOING OFFLINE</span><h2>{{ endTitle }}</h2></div><button v-if="endStage==='CLOSE'" class="text-action" type="button" @click="emit('action','back-end')">Back</button></div>
       <template v-if="endStage==='CLOSE'">
         <div class="fact-line"><span>Shift started</span><strong>{{ startOdo || '—' }} km</strong></div>
@@ -175,7 +175,7 @@ const updateMap = (name, map, id, value) => {
         <button class="primary-action" :disabled="endBusy || !endReady" @click="emit('action','finish-end')">{{ endBusy ? 'ENDING SHIFT…' : 'OK — END SHIFT' }}</button>
       </template>
       <template v-else>
-        <div class="completion-panel success"><span class="completion-mark" aria-hidden="true">✓</span><strong>SHIFT ENDED</strong><p>Your shift has been saved. You are now offline.</p></div>
+        <div class="completion-panel success"><span class="completion-mark" aria-hidden="true">✓</span><strong>SHIFT ENDED</strong><p>Your shift has been saved. You are now offline.</p></form>
         <button class="primary-action" @click="emit('action','finish-ended')">OK</button>
       </template>
     </div>
