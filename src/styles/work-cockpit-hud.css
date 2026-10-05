@@ -58,11 +58,3 @@
 .work-canonical .work-fixed-action{position:fixed;z-index:40;left:0;right:0;bottom:calc(var(--kfe-shell-nav) + env(safe-area-inset-bottom,0px) + 8px);width:auto;margin:0;padding:0 10px;transform:none;}
 .work-canonical .work-main{padding-bottom:calc(var(--kfe-shell-nav) + 116px);}
 @media(max-width:600px){.work-canonical .work-fixed-action{left:0;right:0;width:auto;bottom:calc(var(--kfe-shell-nav) + env(safe-area-inset-bottom,0px) + 6px);padding:0 10px;}.work-canonical .work-main{padding-bottom:calc(var(--kfe-shell-nav) + 112px);}}
-/* Work contextual form shell: shared presentation styling kept outside the view. */
-.contextual-form-shell{position:relative}
-.contextual-form{width:100%;box-sizing:border-box;animation:contextual-form-in 140ms ease-out}
-@keyframes contextual-form-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
-.contextual-form .gate-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.contextual-form .gate-head>div{min-width:0}
-.contextual-form input,.contextual-form select,.contextual-form button{max-width:100%}
-@media(max-width:600px){.contextual-form{margin-top:.75rem;padding-bottom:max(.5rem,env(safe-area-inset-bottom))}}
