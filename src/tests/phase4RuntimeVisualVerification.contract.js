@@ -9,7 +9,7 @@ const work=readFileSync('src/views/WorkModuleView.vue','utf8')
 const router=readFileSync('src/router/index.js','utf8')
 
 for(const route of ['.work-canonical','.timeline','.performance-page','.admin-page']) assert.match(smoke,new RegExp(route.replace(/[.*+?^{}()|[\]\\]/g,'\\$&')),'Phase 4 smoke must cover '+route)
-for(const token of ['CNG refuelling','Odometer check','GPS connected','kfe.visual.theme.mode','reducedMotion','1280','390']) assert.ok(smoke.includes(token),'Phase 4 runtime smoke missing '+token)
+for(const token of ['CNG refuelling','Confirm shift start','GPS connected','kfe.visual.theme.mode','reducedMotion','1280','390']) assert.ok(smoke.includes(token),'Phase 4 runtime smoke missing '+token)
 assert.match(smoke,/kanishka_kfe_canonical_db/)
 assert.match(smoke,/kanishka_kfe_synthetic_db/)
 assert.match(db,/CANONICAL_DB_NAME = 'kanishka_kfe_canonical_db'/)

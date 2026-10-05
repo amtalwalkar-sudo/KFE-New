@@ -4,7 +4,7 @@ import fs from 'node:fs'
 const read = path => fs.readFileSync(new URL(path, import.meta.url), 'utf8')
 const matrix = fs.readFileSync(new URL('../../docs/CALCULATION-AUTHORITY-MATRIX.md', import.meta.url), 'utf8')
 const performance = read('../views/PerformanceView.vue')
-const work = read('../views/WorkModuleView.vue')
+const work = read('../views/WorkModuleView.vue') + '\n' + read('../components/work/WorkContextForm.vue')
 const timeline = read('../views/TimelineView.vue')
 const admin = read('../views/AdminView.vue')
 const breakEven = read('../components/admin/AdminBreakEven.vue')

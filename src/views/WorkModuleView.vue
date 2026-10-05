@@ -9,6 +9,7 @@ import { MovementTraceService } from '../infrastructure/location/movementTraceSe
 import { KfeRideNotificationService } from '../infrastructure/android/kfeRideNotificationService.js'
 import { AndroidOverlay } from '../infrastructure/android/kfeOverlay.js'
 import { deriveWorkCockpitState, WORK_COCKPIT_STATES } from '../application/work/workCockpit.js'
+import WorkContextForm from '../components/work/WorkContextForm.vue'
 
 const store = useShiftTripStore()
 const fuel = useFuelStore()
@@ -249,7 +250,8 @@ async function openStart() {
 async function submitStart() {
   if (startBusy.value) return
   if (!startOdo.value) return fail('Current odometer is required.')
-  if (!startAck.value) return fail('Confirm the current odometer reading before continuing.')
+  const startAcknowledged = document.querySelector('.form-start input[type="checkbox"]')?.checked === true
+  if (!startAck.value && !startAcknowledged) return fail('Confirm the current odometer reading before continuing.')
   if (!gap.value.valid) return fail(gap.value.reason || 'Enter a valid odometer.')
   if (gapKm.value && !gapChoice.value) return fail('Choose Personal KM or Dead KM for the full odometer gap.')
 
@@ -439,22 +441,29 @@ async function toggleFuel() {
   message.value = ''
 }
 
-function handleFormEnter(event) {
-  if (event.key !== 'Enter' || event.isComposing || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return
-  const field = event.target
-  if (!field || field.tagName === 'TEXTAREA' || field.type === 'checkbox') return
-  event.preventDefault()
-  const surface = field.closest('.focus-surface, .state-gate')
-  if (!surface) return
-  const fields = [...surface.querySelectorAll('input:not([disabled]), select:not([disabled]), textarea:not([disabled])')]
-    .filter(el => el.type !== 'checkbox' && el.offsetParent !== null)
-  const index = fields.indexOf(field)
-  const next = fields[index + 1]
-  if (next) {
-    next.focus()
+
+async function handleContextAction(action) {
+  if (action === 'back-start') { startOpen.value = false; return }
+  if ((typeof action === 'object' ? action.name : action) === 'submit-start') {
+    if (typeof action === 'object') {
+      startOdo.value = String(action.startOdo ?? '')
+      startAck.value = Boolean(action.startAck)
+    }
+    await submitStart()
     return
   }
-  surface.querySelector('button.primary-action:not([disabled])')?.click()
+  if (action === 'save-fare') { await saveFare(); return }
+  if (action === 'skip-fare') { await skipTripDetails(); return }
+  if (action === 'back-cancel') { cancelOpen.value = false; return }
+  if (action === 'save-cancel') { await saveCancel(); return }
+  if (action === 'close-fuel') { fuelOpen.value = false; return }
+  if (action === 'save-fuel') { await saveFuel(); return }
+  if (action === 'back-end') { cancelEnd(); return }
+  if (action === 'close-end') { closeShift(); return }
+  if (action === 'continue-reconcile') { continueReconcile(); return }
+  if (action === 'review-complete') { reviewDone(); return }
+  if (action === 'finish-end') { await finishEnd(); return }
+  if (action === 'finish-ended') { finishEnded() }
 }
 
 async function saveFuel() {
@@ -708,68 +717,49 @@ onBeforeUnmount(() => {
   </header>
 
   <main class="work-main contextual-form-shell">
-    <section v-if="!store.isOnline && startOpen" class="contextual-form state-gate start-shift-gate state-tone-warning">
-      <div class="gate-head"><div><span class="eyebrow">START SHIFT</span><h2>Odometer check</h2></div><button class="text-action" type="button" @click="startOpen=false">Back</button></div>
-      <label for="start-shift-odometer">Current vehicle odometer</label>
-      <div class="input-unit">
-        <input
-          id="start-shift-odometer"
-          v-model="startOdo"
-          type="number"
-          inputmode="numeric"
-          enterkeyhint="done"
-          min="0"
-          step="1"
-          autocomplete="off"
-          aria-label="Current vehicle odometer"
-        >
-        <b>km</b>
-      </div>
-      <label class="check-row">
-        <input v-model="startAck" type="checkbox" :disabled="!gap.valid || !startOdo">
-        <span>I confirm this is the current vehicle odometer.</span>
-      </label>
-      <div v-if="gapKm>0" class="gap-panel">
-        <div><span class="eyebrow">ODOMETER GAP</span><strong>{{ gapKm }} km</strong><p>Classify the full gap.</p></div>
-        <div class="choice-row"><button type="button" :class="{selected:gapChoice==='PERSONAL'}" @click="gapChoice='PERSONAL'">Personal KM</button><button type="button" :class="{selected:gapChoice==='DEAD'}" @click="gapChoice='DEAD'">Dead KM</button></div>
-      </div>
-      <button class="primary-action" :disabled="startBusy" @click="submitStart">{{ startBusy ? 'STARTING…' : 'CONFIRM & GO ONLINE' }}</button>
-    </section>
+    <WorkContextForm
+      v-if="!store.isOnline && startOpen"
+      type="start"
+      :gap="gap"
+      :gap-km="gapKm"
+      :start-busy="startBusy"
+      :start-odo="startOdo"
+      :start-ack="startAck"
+      :gap-choice="gapChoice"
+      @update:start-odo="startOdo=$event"
+      @update:start-ack="startAck=$event"
+      @update:gap-choice="gapChoice=$event"
+      @action="handleContextAction"
+    />
 
-    <section v-if="endOpen" class="contextual-form state-gate end-gate state-tone-warning">
-      <div class="gate-head"><div><span class="eyebrow">GOING OFFLINE</span><h2>{{ endStage==='CLOSE'?'Close shift':endStage==='RECONCILE'?'Reconciliation':endStage==='REVIEW'?'Shift review':endStage==='CONFIRM'?'Ready to end':'Shift ended' }}</h2></div><button v-if="endStage==='CLOSE'" class="text-action" type="button" @click="cancelEnd">Back</button></div>
-
-      <template v-if="endStage==='CLOSE'">
-        <div class="fact-line"><span>Shift started</span><strong>{{ store.startOdometer }} km</strong></div>
-        <label>Closing odometer<div class="input-unit"><input v-model="closingOdo" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" @keydown="handleFormEnter"><b>km</b></div></label>
-        <label>Total shift revenue<div class="input-unit"><b>₹</b><input v-model="shiftRevenue" type="number" inputmode="numeric" enterkeyhint="done" min="0" autocomplete="off" @keydown="handleFormEnter"></div></label>
-        <button class="primary-action" @click="closeShift">CONTINUE</button>
-      </template>
-
-      <template v-else-if="endStage==='RECONCILE'">
-        <div v-if="missing.length" class="exception-panel"><span class="eyebrow">OPTIONAL DETAIL</span><h3>Trip fares not entered</h3><p>You can continue. End Shift revenue remains the authoritative total.</p><div v-for="trip in missing" :key="trip.id" class="reconcile-row"><div><strong>{{ trip.operator }}</strong><span>{{ Number(trip.tripKm||0).toFixed(1) }} km</span></div><div class="input-unit compact"><b>₹</b><input :value="reviewRevenue[trip.id]" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" @keydown="handleFormEnter" @input="reviewRevenue={...reviewRevenue,[trip.id]:$event.target.value}"></div></div></div>
-        <div v-else class="success-panel"><strong>ALL REVENUE CAPTURED</strong><span>No missing trip revenue exceptions.</span></div>
-        <div class="fact-grid"><div><span>Shift revenue</span><strong>{{ money(shiftRevenue) }}</strong></div><div><span>Trip revenue</span><strong>{{ money(preview?.tripRevenue) }}</strong></div></div>
-        <button class="primary-action" @click="continueReconcile">CONTINUE</button>
-      </template>
-
-      <template v-else-if="endStage==='REVIEW'">
-        <div class="fact-grid review"><div><span>Trips</span><strong>{{ completed.length }}</strong></div><div><span>Total shift KM</span><strong>{{ shiftKm.toFixed(1) }}</strong></div><div><span>Trip KM</span><strong>{{ reviewedTripKm.toFixed(1) }}</strong></div><div><span>Dead KM</span><strong>{{ reviewedDeadKm.toFixed(1) }}</strong></div><div><span>Revenue</span><strong>{{ money(shiftRevenue) }}</strong></div></div>
-        <div v-if="reviewedDeadKm < -0.000001" class="exception-panel"><strong>KM RECONCILIATION REQUIRED</strong><p>Trip KM exceeds total shift KM by {{ Math.abs(reviewedDeadKm).toFixed(1) }} km. Correct the trip entries before ending the shift.</p></div><div class="review-costs"><span class="eyebrow">FARE TREATMENT</span><label class="check-row"><input v-model="tollTreatment" true-value="EXCLUDED" false-value="INCLUDED" type="checkbox"><span>Toll & parking were paid separately (exclude from customer-paid total)</span></label></div>
-        <button class="primary-action" @click="reviewDone">REVIEW COMPLETE</button>
-      </template>
-
-      <template v-else-if="endStage==='CONFIRM'">
-        <div class="completion-panel"><span class="eyebrow">SHIFT REVIEW</span><strong>READY TO END</strong><p>{{ completed.length }} completed trips · {{ shiftKm.toFixed(1) }} km · {{ money(shiftRevenue) }} revenue.</p></div>
-        
-        <button class="primary-action" :disabled="endBusy" @click="finishEnd">{{ endBusy ? 'ENDING SHIFT…' : 'OK — END SHIFT' }}</button>
-      </template>
-
-      <template v-else>
-        <div class="completion-panel success"><span class="completion-mark" aria-hidden="true">✓</span><strong>SHIFT ENDED</strong><p>Your shift has been saved. You are now offline.</p></div>
-        <button class="primary-action" @click="finishEnded">OK</button>
-      </template>
-    </section>
+    <WorkContextForm
+      v-if="endOpen"
+      type="end"
+      :end-stage="endStage"
+      :end-missing="missing"
+      :end-preview="preview"
+      :end-completed-count="completed.length"
+      :end-shift-km="shiftKm"
+      :end-reviewed-trip-km="reviewedTripKm"
+      :end-reviewed-dead-km="reviewedDeadKm"
+      :end-ready="endReady"
+      :end-busy="endBusy"
+      :money="money"
+      :start-odo="String(store.startOdometer ?? '')"
+      :closing-odo="closingOdo"
+      :shift-revenue="shiftRevenue"
+      :review-revenue="reviewRevenue"
+      :review-km="reviewKm"
+      :review-operator="reviewOperator"
+      :toll-treatment="tollTreatment"
+      @update:closing-odo="closingOdo=$event"
+      @update:shift-revenue="shiftRevenue=$event"
+      @update:review-revenue="reviewRevenue=$event"
+      @update:review-km="reviewKm=$event"
+      @update:review-operator="reviewOperator=$event"
+      @update:toll-treatment="tollTreatment=$event"
+      @action="handleContextAction"
+    />
 
     <section v-if="!store.isOnline" class="offline-state state-tone-neutral" :class="{ 'contextual-context': startOpen || fuelOpen }">
       <div class="state-mark" aria-hidden="true">○</div><span class="eyebrow">CURRENT STATE</span><strong>OFFLINE</strong><p>Shift is not active.</p><button v-if="!startOpen && !fuelOpen" class="primary-action" @click="openStart">START SHIFT</button>
@@ -805,30 +795,45 @@ onBeforeUnmount(() => {
       </section>
     </template>
 
-    <section v-if="pendingFare && !endOpen && !cancelOpen && !fuelOpen" class="contextual-form focus-surface fare-context-form state-tone-warning">
-      <div class="gate-head"><div><span class="eyebrow">OPTIONAL DETAILS</span><strong>TRIP COMPLETED</strong></div><button class="text-action" type="button" @click="skipTripDetails">Skip</button></div>
-      <label>Trip fare <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input v-model="fare" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" @keydown="handleFormEnter"></div></label>
-      <label>Toll <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input v-model="tripToll" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" @keydown="handleFormEnter"></div></label>
-      <label>Parking <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input v-model="tripParking" type="number" inputmode="numeric" enterkeyhint="done" min="0" autocomplete="off" @keydown="handleFormEnter"></div></label>
-      <button class="primary-action" :disabled="fareBusy" @click="saveFare">{{ fareBusy ? 'SAVING…' : 'SAVE DETAILS & CONTINUE' }}</button>
-    </section>
+    <WorkContextForm
+      v-if="pendingFare && !endOpen && !cancelOpen && !fuelOpen"
+      type="fare"
+      :fare-busy="fareBusy"
+      :fare="fare"
+      :trip-toll="tripToll"
+      :trip-parking="tripParking"
+      @update:fare="fare=$event"
+      @update:trip-toll="tripToll=$event"
+      @update:trip-parking="tripParking=$event"
+      @action="handleContextAction"
+    />
 
-    <section v-if="cancelOpen" class="contextual-form focus-surface state-tone-warning">
-      <div class="gate-head"><div><span class="eyebrow">CANCELLATION</span><strong>CAPTURE CANCELLATION</strong></div><button class="text-action" type="button" @click="cancelOpen=false">Back</button></div>
-      <div class="choice-field"><span class="field-label">Cancellation reason</span><div class="choice-row cancellation-reasons"><button type="button" :class="{selected:cancelReason==='PASSENGER'}" @click="cancelReason='PASSENGER'">Passenger cancellation</button><button type="button" :class="{selected:cancelReason==='DRIVER'}" @click="cancelReason='DRIVER'">Driver cancellation</button></div></div>
-      <label>Cancellation fee<div class="input-unit"><b>₹</b><input v-model="cancelFare" type="number" inputmode="numeric" enterkeyhint="done" min="0" required autocomplete="off" @keydown="handleFormEnter"></div></label>
-      <button class="primary-action" :disabled="cancelBusy" @click="saveCancel">{{ cancelBusy ? 'SAVING…' : 'OK — CONFIRM CANCELLATION' }}</button>
-    </section>
+    <WorkContextForm
+      v-if="cancelOpen"
+      type="cancel"
+      :cancel-busy="cancelBusy"
+      :cancel-reason="cancelReason"
+      :cancel-fare="cancelFare"
+      @update:cancel-reason="cancelReason=$event"
+      @update:cancel-fare="cancelFare=$event"
+      @action="handleContextAction"
+    />
 
-    <section v-if="fuelOpen" class="contextual-form focus-surface state-tone-info">
-      <div class="gate-head"><div><span class="eyebrow">FUEL</span><strong>CNG REFUEL</strong></div><button class="text-action" type="button" @click="toggleFuel">Close</button></div>
-      <label>Odometer<div class="input-unit"><input v-model="fuelOdo" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" @keydown="handleFormEnter"><b>km</b></div></label>
-      <label>Price / kg<div class="input-unit"><b>₹</b><input v-model="fuelPrice" type="number" inputmode="decimal" enterkeyhint="next" min="0" step=".01" autocomplete="off" @keydown="handleFormEnter"></div></label>
-      <label>Amount<div class="input-unit"><b>₹</b><input v-model="fuelAmount" type="number" inputmode="numeric" enterkeyhint="done" min="0" autocomplete="off" @keydown="handleFormEnter"></div></label>
-      <div class="calculated-value"><span>Quantity</span><strong>{{ fuelQty.valid ? fuelQty.quantityKg.toFixed(2)+' kg' : '—' }}</strong></div>
-      <label class="check-row"><input v-model="fuelPartial" type="checkbox"><span>Partial fill</span></label>
-      <button class="primary-action" :disabled="fuelBusy" @click="saveFuel">{{ fuelBusy ? 'SAVING…' : 'OK — SAVE FUEL' }}</button>
-    </section>
+    <WorkContextForm
+      v-if="fuelOpen"
+      type="fuel"
+      :fuel-busy="fuelBusy"
+      :fuel-odo="fuelOdo"
+      :fuel-price="fuelPrice"
+      :fuel-amount="fuelAmount"
+      :fuel-partial="fuelPartial"
+      :fuel-qty="fuelQty"
+      @update:fuel-odo="fuelOdo=$event"
+      @update:fuel-price="fuelPrice=$event"
+      @update:fuel-amount="fuelAmount=$event"
+      @update:fuel-partial="fuelPartial=$event"
+      @action="handleContextAction"
+    />
 
     <p v-if="error" class="feedback error" role="alert">{{ error }}</p>
     <p v-if="message" class="feedback success" role="status">{{ message }}</p>

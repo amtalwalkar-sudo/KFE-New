@@ -151,7 +151,7 @@ scenario('C1/C2/C3/C4/C5/D1/D2/E1/E2/E3/F1/F2/F4/F5', () => {
 
 // G5 — location-event UI contract: place-name layer must remain preferred where resolved.
 scenario('G5', () => {
-  const workView = read('views/WorkModuleView.vue')
+  const workView = read('views/WorkModuleView.vue') + '\n' + read('components/work/WorkContextForm.vue')
   assert.ok(/place|location/i.test(workView), 'Driver-facing Work view must retain location presentation surface')
   assertSource('views/TimelineView.vue', 'location', 'Timeline must retain location event presentation')
 })
@@ -168,7 +168,7 @@ scenario('J1/J2/J3/J5/J6/J7', () => {
 
 // K — frozen new Work cockpit, shell and cross-surface UX requirements.
 scenario('K1/K2/K3/K4/K5/K6', () => {
-  const work = read('views/WorkModuleView.vue')
+  const work = read('views/WorkModuleView.vue') + '\n' + read('components/work/WorkContextForm.vue')
   const shell = read('components/shell/KfeShell.vue')
   const overlay = read('../android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java')
   assert.match(work, /TODAY'S TARGET/); assert.doesNotMatch(work, /SHIFT TIME/)

@@ -7,7 +7,7 @@ const assert = (condition, message) => { if (!condition) throw new Error(message
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const repository = fs.readFileSync(path.join(root, 'repositories', 'shiftTripRepository.js'), 'utf8')
 const workService = fs.readFileSync(path.join(root, 'application', 'work', 'workService.js'), 'utf8')
-const workView = fs.readFileSync(path.join(root, 'views', 'WorkModuleView.vue'), 'utf8')
+const workView = fs.readFileSync(path.join(root, 'views', 'WorkModuleView.vue'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'components', 'work', 'WorkContextForm.vue'), 'utf8')
 const overlay = fs.readFileSync(path.join(root, '..', 'android', 'app', 'src', 'main', 'java', 'com', 'kanishka', 'pwa', 'KfeOverlayService.java'), 'utf8')
 
 console.log('--- Running KFE Canonical Trip Lifecycle Gate ---')
