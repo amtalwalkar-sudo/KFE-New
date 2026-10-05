@@ -727,7 +727,7 @@ onBeforeUnmount(() => {
 
   <main class="work-main contextual-form-shell">
     <WorkContextForm
-      v-if="!store.isOnline && startOpen"
+      v-show="!store.isOnline && startOpen"
       type="start"
       :gap="gap"
       :gap-km="gapKm"
