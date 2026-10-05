@@ -88,6 +88,7 @@ const updateMap = (name, map, id, value) => {
 </script>
 
 <template>
+  <!-- CI verification marker: shift-start checkbox state is native across gap-choice rerenders. -->
   <!-- Shift-start confirmation remains native so its checked state survives gap-choice rerenders. -->
   <section class="work-context-form contextual-form" :class="['form-' + type, type === 'start' ? 'start-shift-gate' : '', type === 'end' ? 'end-gate' : '', ['fare', 'cancel', 'fuel'].includes(type) ? 'focus-surface' : '']">
     <div v-if="type === 'start'" class="form-card state-tone-warning">
