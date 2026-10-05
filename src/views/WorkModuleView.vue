@@ -834,7 +834,10 @@ onBeforeUnmount(() => {
 
     <p v-if="error" class="feedback error" role="alert">{{ error }}</p>
     <p v-if="message" class="feedback success" role="status">{{ message }}</p>
-  <p v-if="error" class="feedback error" role="alert">{{ error }}</p>\n
+  </main>
+</div>
+</template>
+
 <style scoped>
 .contextual-form-shell{position:relative}
 .contextual-form{width:100%;box-sizing:border-box;animation:contextual-form-in 140ms ease-out}
@@ -844,6 +847,3 @@ onBeforeUnmount(() => {
 .contextual-form input,.contextual-form select,.contextual-form button{max-width:100%}
 @media(max-width:600px){.contextual-form{margin-top:.75rem;padding-bottom:max(.5rem,env(safe-area-inset-bottom))}}
 </style>
-</main>
-</div>
-</template>
