@@ -31,7 +31,7 @@
 .kfe-work-cockpit .work-fare-heading b{font-size:1.65rem;color:var(--kfe-ui-text);}
 .kfe-work-cockpit .work-keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
 .kfe-work-cockpit .work-keypad button{min-height:52px;border:1px solid var(--kfe-ui-border);border-radius:14px;background:var(--kfe-ui-surface-2);color:var(--kfe-ui-text);font-size:1.05rem;font-weight:850;}
-.kfe-work-cockpit .work-fare-ok{display:block;margin:12px 0 0 auto;min-width:96px;min-height:44px;border:0;border-radius:12px;background:var(--kfe-ui-accent,#2563eb);color:#fff;font-weight:900;}
+.kfe-work-cockpit .work-fare-ok{display:block;margin:12px 0 0 auto;min-width:96px;min-height:44px;border:0;border-radius:12px;background:var(--kfe-ui-accent);color:#fff;font-weight:900;}
 .kfe-work-cockpit .persistent-action{width:min(92vw,520px);margin:10px auto 72px;}
 .kfe-work-cockpit .swipe-bar{position:relative;display:flex;align-items:stretch;overflow:hidden;min-height:82px;border-radius:24px;}
 .kfe-work-cockpit .swipe-action-hit{position:relative;display:flex;align-items:center;justify-content:center;flex:1;min-width:0;overflow:hidden;touch-action:pan-y;border-radius:24px;}
