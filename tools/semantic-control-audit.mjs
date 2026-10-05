@@ -204,7 +204,7 @@ try {
   // Contract 8: Fuel control must be usable while OFFLINE and persist one fuel record.
   await page.getByRole('button', { name: 'CNG refuelling', exact: true }).click()
   assert(await page.locator('.offline-state').isVisible(), 'Fuel context replaced the current Work context')
-  assert(await page.locator('.focus-surface').filter({ hasText: 'CNG REFUEL' }).isVisible(), 'Fuel form did not open contextually')
+  assert(await page.locator('.focus-surface').filter({ hasText: 'CNG REFUEL' }).first().isVisible(), 'Fuel form did not open contextually')
   await page.getByLabel('Odometer').fill('1000')
   await page.getByLabel('Price / kg').fill('90')
   await page.getByLabel('Amount').fill('900')
