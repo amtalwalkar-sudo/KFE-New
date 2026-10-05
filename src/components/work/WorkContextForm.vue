@@ -91,7 +91,7 @@ function submitStartAction() {
   emit('action', {
     name: 'submit-start',
     startOdo: props.startOdo,
-    startAck: startAckLocal.value === true || checkbox?.checked === true || checkbox?.dataset.confirmed === 'true'
+    startAck: startAckLocal.value === true
   })
 }
 
