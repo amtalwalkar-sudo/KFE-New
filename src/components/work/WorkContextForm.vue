@@ -175,10 +175,10 @@ const updateMap = (name, map, id, value) => {
         <button type="submit" class="primary-action" :disabled="endBusy || !endReady">{{ endBusy ? 'ENDING SHIFT…' : 'OK — END SHIFT' }}</button>
       </template>
       <template v-else>
-        <div class="completion-panel success"><span class="completion-mark" aria-hidden="true">✓</span><strong>SHIFT ENDED</strong><p>Your shift has been saved. You are now offline.</p></form>
+        <div class="completion-panel success"><span class="completion-mark" aria-hidden="true">✓</span><strong>SHIFT ENDED</strong><p>Your shift has been saved. You are now offline.</p></div>
         <button type="submit" class="primary-action">OK</button>
       </template>
-    </div>
+    </form>
   </section>
 </template>
 
