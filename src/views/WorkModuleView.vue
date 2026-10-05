@@ -812,7 +812,6 @@ onBeforeUnmount(() => {
       <label>Toll <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input v-model="tripToll" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" @keydown="handleFormEnter"></div></label>
       <label>Parking <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input v-model="tripParking" type="number" inputmode="numeric" enterkeyhint="done" min="0" autocomplete="off" @keydown="handleFormEnter"></div></label>
       <button class="primary-action" :disabled="fareBusy" @click="saveFare">{{ fareBusy ? 'SAVING…' : 'SAVE DETAILS & CONTINUE' }}</button>
-      <button class="secondary-action" type="button" @click="skipTripDetails">SKIP DETAILS</button>
     </section>
 
     <section v-if="cancelOpen" class="contextual-form focus-surface state-tone-warning">
