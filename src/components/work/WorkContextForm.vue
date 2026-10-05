@@ -91,10 +91,7 @@ function nextField(event) {
 }
 
 function onStartAckChange(event) {
-  const acknowledged = event.target.checked === true
-  startAckLocal.value = acknowledged
-  emit('update:start-odo', startOdoLocal.value)
-  emit('update:start-ack', acknowledged)
+  startAckLocal.value = event.target.checked === true
 }
 
 function submitStartAction() {
@@ -119,7 +116,7 @@ const updateMap = (name, map, id, value) => {
       </div>
       <label for="start-shift-odometer">Current vehicle odometer</label>
       <div class="input-unit">
-        <input id="start-shift-odometer" v-model="startOdoLocal" type="number" inputmode="numeric" enterkeyhint="done" min="0" step="1" autocomplete="off" aria-label="Current vehicle odometer" @keydown="nextField">
+        <input id="start-shift-odometer" v-model="startOdoLocal" type="number" inputmode="numeric" enterkeyhint="done" min="0" step="1" autocomplete="off" aria-label="Current vehicle odometer" @keydown="nextField" @blur="emit('update:start-odo', startOdoLocal)">
         <b>km</b>
       </div>
       <label class="check-row">
