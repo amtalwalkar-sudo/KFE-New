@@ -249,17 +249,11 @@ async function openStart() {
 
 function setStartGapChoice(choice) {
   gapChoice.value = choice
-  const checkbox = document.querySelector('.form-start input[type="checkbox"]')
-  if (checkbox?.checked === true) startAck.value = true
 }
 
 async function submitStart() {
   if (startBusy.value) return
   if (!startOdo.value) return fail('Current odometer is required.')
-  const startAcknowledged = document.querySelector('.form-start input[type="checkbox"]')?.checked === true
-  // Read the rendered checkbox as the final UI authority as well as the Vue ref.
-  // This protects the start gate from a reactive update arriving one render behind.
-  if (startAcknowledged) startAck.value = true
   if (!startAck.value) return fail('Confirm the current odometer reading before continuing.')
   if (!gap.value.valid) return fail(gap.value.reason || 'Enter a valid odometer.')
   if (gapKm.value && !gapChoice.value) return fail('Choose Personal KM or Dead KM for the full odometer gap.')
