@@ -1,6 +1,8 @@
 <script setup>
 import { computed, ref } from 'vue'
 
+const startAckLocal = ref(false)
+
 const props = defineProps({
   type: { type: String, required: true },
   gap: { type: Object, default: () => ({}) },
@@ -72,13 +74,10 @@ const endTitle = computed(() => ({
 }[props.endStage] || 'Close shift'))
 
 function submitStartAction() {
-  const checkbox = document.querySelector('.form-start input[type="checkbox"]')
   emit('action', {
     name: 'submit-start',
     startOdo: props.startOdo,
-    // The submit tap is the final UI authority. Read the live checkbox so a
-    // reactive parent update cannot make a confirmed gate appear unchecked.
-    startAck: checkbox ? checkbox.checked === true : props.startAck === true
+    startAck: startAckLocal.value === true
   })
 }
 
@@ -88,7 +87,7 @@ const updateMap = (name, map, id, value) => {
 </script>
 
 <template>
-  <!-- CI verification marker: shift-start checkbox state is native across gap-choice rerenders. -->
+  <!-- CI verification marker: shift-start checkbox state is owned by the form across gap-choice rerenders. -->
   <!-- Shift-start confirmation remains native so its checked state survives gap-choice rerenders. -->
   <section class="work-context-form contextual-form" :class="['form-' + type, type === 'start' ? 'start-shift-gate' : '', type === 'end' ? 'end-gate' : '', ['fare', 'cancel', 'fuel'].includes(type) ? 'focus-surface' : '']">
     <div v-if="type === 'start'" class="form-card state-tone-warning">
@@ -102,7 +101,7 @@ const updateMap = (name, map, id, value) => {
         <b>km</b>
       </div>
       <label class="check-row">
-        <input type="checkbox" :disabled="!startOdo" aria-label="Confirm current vehicle odometer" @change="emit('update:start-ack', $event.target.checked)">
+        <input type="checkbox" :checked="startAckLocal" :disabled="!startOdo" aria-label="Confirm current vehicle odometer" @change="startAckLocal=$event.target.checked; emit('update:start-ack', $event.target.checked)">
         <span>I confirm this is the current odometer.</span>
       </label>
       <div v-if="gapKm > 0" class="gap-panel">
