@@ -93,7 +93,7 @@ const updateMap = (name, map, id, value) => {
 </script>
 
 <template>
-  <section class="work-context-form" :class="'form-' + type">
+  <section class="work-context-form contextual-form" :class="['form-' + type, type === 'start' ? 'start-shift-gate' : '', type === 'end' ? 'end-gate' : '', ['fare', 'cancel', 'fuel'].includes(type) ? 'focus-surface' : '']">
     <div v-if="type === 'start'" class="form-card state-tone-warning">
       <div class="form-head">
         <div><span class="eyebrow">START SHIFT</span><h2>Confirm shift start</h2></div>
@@ -138,7 +138,7 @@ const updateMap = (name, map, id, value) => {
 
     <div v-else-if="type === 'fuel'" class="form-card state-tone-info focus-surface">
       <div class="form-head"><div><span class="eyebrow">FUEL</span><strong>CNG REFUEL</strong></div><button class="text-action" type="button" @click="emit('action','close-fuel')">Close</button></div>
-      <label>Odometer<div class="input-unit"><input :value="fuelOdo" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" aria-label="Fuel odometer" @input="emit('update:fuelOdo',$event.target.value)" @keydown="nextField"><b>km</b></div></label>
+      <label>Odometer<div class="input-unit"><input :value="fuelOdo" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" aria-label="Odometer" @input="emit('update:fuelOdo',$event.target.value)" @keydown="nextField"><b>km</b></div></label>
       <label>Price / kg<div class="input-unit"><b>₹</b><input :value="fuelPrice" type="number" inputmode="decimal" enterkeyhint="next" min="0" step=".01" autocomplete="off" @input="emit('update:fuelPrice',$event.target.value)" @keydown="nextField"></div></label>
       <label>Amount<div class="input-unit"><b>₹</b><input :value="fuelAmount" type="number" inputmode="numeric" enterkeyhint="done" min="0" autocomplete="off" @input="emit('update:fuelAmount',$event.target.value)" @keydown="nextField"></div></label>
       <div class="calculated-value"><span>Quantity</span><strong>{{ fuelQty.valid ? fuelQty.quantityKg.toFixed(2)+' kg' : '—' }}</strong></div>
