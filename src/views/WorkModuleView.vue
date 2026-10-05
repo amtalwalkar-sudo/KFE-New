@@ -707,8 +707,8 @@ onBeforeUnmount(() => {
     </div>
   </header>
 
-  <main class="work-main">
-    <section v-if="!store.isOnline && startOpen && !fuelOpen && !endOpen" class="state-gate start-shift-gate state-tone-warning">
+  <main class="work-main contextual-form-shell">
+    <section v-if="!store.isOnline && startOpen" class="contextual-form state-gate start-shift-gate state-tone-warning">
       <div class="gate-head"><div><span class="eyebrow">START SHIFT</span><h2>Odometer check</h2></div><button class="text-action" type="button" @click="startOpen=false">Back</button></div>
       <label for="start-shift-odometer">Current vehicle odometer</label>
       <div class="input-unit">
@@ -736,7 +736,7 @@ onBeforeUnmount(() => {
       <button class="primary-action" :disabled="startBusy" @click="submitStart">{{ startBusy ? 'STARTING…' : 'CONFIRM & GO ONLINE' }}</button>
     </section>
 
-    <section v-if="endOpen" class="state-gate end-gate state-tone-warning">
+    <section v-if="endOpen" class="contextual-form state-gate end-gate state-tone-warning">
       <div class="gate-head"><div><span class="eyebrow">GOING OFFLINE</span><h2>{{ endStage==='CLOSE'?'Close shift':endStage==='RECONCILE'?'Reconciliation':endStage==='REVIEW'?'Shift review':endStage==='CONFIRM'?'Ready to end':'Shift ended' }}</h2></div><button v-if="endStage==='CLOSE'" class="text-action" type="button" @click="cancelEnd">Back</button></div>
 
       <template v-if="endStage==='CLOSE'">
@@ -771,11 +771,11 @@ onBeforeUnmount(() => {
       </template>
     </section>
 
-    <section v-if="!store.isOnline && !startOpen && !fuelOpen && !endOpen" class="offline-state state-tone-neutral">
+    <section v-if="!store.isOnline" class="offline-state state-tone-neutral">
       <div class="state-mark" aria-hidden="true">○</div><span class="eyebrow">CURRENT STATE</span><strong>OFFLINE</strong><p>Shift is not active.</p><button class="primary-action" @click="openStart">START SHIFT</button>
     </section>
 
-    <template v-if="store.isOnline && !fuelOpen && !endOpen && !cancelOpen">
+    <template v-if="store.isOnline">
       <section class="instrument target-instrument">
         <div><span class="eyebrow">TODAY'S TARGET</span><strong>{{ targetValue==null ? '—' : money(targetValue) }}</strong></div>
         <div class="target-meta"><span>PROGRESS</span><strong>{{ targetProgress }}%</strong><span>SHIFT {{ shiftTimer }}</span></div>
@@ -796,7 +796,7 @@ onBeforeUnmount(() => {
         <div class="trip-timer-block"><span class="timer-label">TRIP TIME</span><strong class="trip-timer" aria-live="polite">{{ tripTimer }}</strong></div>
       </section>
 
-      <section class="action-instrument work-fixed-action">
+      <section v-if="!fuelOpen && !endOpen && !cancelOpen" class="action-instrument work-fixed-action">
         <div class="action-heading"><strong>{{ actionLabel }}</strong><details class="swipe-help"><summary aria-label="Swipe help">?</summary><span>Swipe the handle right to {{ actionLabel.toLowerCase() }}.</span></details></div>
         <div ref="track" class="swipe trip-swipe" :class="{threshold:swipeProgress>=70,committing:busy,'semantic-go':cockpit.action==='GO_TO_PICKUP','semantic-start':cockpit.action==='START_RIDE','semantic-end':cockpit.action==='END_RIDE'}" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up">
           <div class="swipe-copy"><span>{{ swipeProgress>=70 ? 'RELEASE' : 'SWIPE' }}</span><strong>{{ actionLabel }}</strong></div>
@@ -805,7 +805,7 @@ onBeforeUnmount(() => {
       </section>
     </template>
 
-    <section v-if="pendingFare && !endOpen" class="focus-surface state-tone-warning">
+    <section v-if="pendingFare && !endOpen && !cancelOpen && !fuelOpen" class="contextual-form focus-surface state-tone-warning">
       <div class="gate-head"><div><span class="eyebrow">OPTIONAL DETAILS</span><strong>TRIP COMPLETED</strong></div><button class="text-action" type="button" @click="skipTripDetails">Skip</button></div>
       <div class="fact-grid two"><div><span>Operator</span><strong>{{ pendingFare.operator }}</strong></div><div><span>Trip KM</span><strong>{{ Number(pendingFare.tripKm||0).toFixed(1) }} km</strong></div></div>
       <label>Trip fare <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input v-model="fare" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" @keydown="handleFormEnter"></div></label>
@@ -815,14 +815,14 @@ onBeforeUnmount(() => {
       <button class="secondary-action" type="button" @click="skipTripDetails">SKIP DETAILS</button>
     </section>
 
-    <section v-if="cancelOpen" class="focus-surface state-tone-warning">
+    <section v-if="cancelOpen" class="contextual-form focus-surface state-tone-warning">
       <div class="gate-head"><div><span class="eyebrow">CANCELLATION</span><strong>CAPTURE CANCELLATION</strong></div><button class="text-action" type="button" @click="cancelOpen=false">Back</button></div>
       <div class="choice-field"><span class="field-label">Cancellation reason</span><div class="choice-row cancellation-reasons"><button type="button" :class="{selected:cancelReason==='PASSENGER'}" @click="cancelReason='PASSENGER'">Passenger cancellation</button><button type="button" :class="{selected:cancelReason==='DRIVER'}" @click="cancelReason='DRIVER'">Driver cancellation</button></div></div>
       <label>Cancellation fee<div class="input-unit"><b>₹</b><input v-model="cancelFare" type="number" inputmode="numeric" enterkeyhint="done" min="0" required autocomplete="off" @keydown="handleFormEnter"></div></label>
       <button class="primary-action" :disabled="cancelBusy" @click="saveCancel">{{ cancelBusy ? 'SAVING…' : 'OK — CONFIRM CANCELLATION' }}</button>
     </section>
 
-    <section v-if="fuelOpen" class="focus-surface state-tone-info">
+    <section v-if="fuelOpen" class="contextual-form focus-surface state-tone-info">
       <div class="gate-head"><div><span class="eyebrow">FUEL</span><strong>CNG REFUEL</strong></div><button class="text-action" type="button" @click="toggleFuel">Close</button></div>
       <label>Odometer<div class="input-unit"><input v-model="fuelOdo" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" @keydown="handleFormEnter"><b>km</b></div></label>
       <label>Price / kg<div class="input-unit"><b>₹</b><input v-model="fuelPrice" type="number" inputmode="decimal" enterkeyhint="next" min="0" step=".01" autocomplete="off" @keydown="handleFormEnter"></div></label>
@@ -834,6 +834,16 @@ onBeforeUnmount(() => {
 
     <p v-if="error" class="feedback error" role="alert">{{ error }}</p>
     <p v-if="message" class="feedback success" role="status">{{ message }}</p>
-  </main>
+  <p v-if="error" class="feedback error" role="alert">{{ error }}</p>\n
+<style scoped>
+.contextual-form-shell{position:relative}
+.contextual-form{width:100%;box-sizing:border-box;animation:contextual-form-in 140ms ease-out}
+@keyframes contextual-form-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.contextual-form .gate-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.contextual-form .gate-head>div{min-width:0}
+.contextual-form input,.contextual-form select,.contextual-form button{max-width:100%}
+@media(max-width:600px){.contextual-form{margin-top:.75rem;padding-bottom:max(.5rem,env(safe-area-inset-bottom))}}
+</style>
+</main>
 </div>
 </template>
