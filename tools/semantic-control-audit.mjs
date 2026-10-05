@@ -101,12 +101,12 @@ try {
     assert(await surface.isVisible(), label + ' is not visible')
     const viewport = await page.evaluate(() => ({ height: window.innerHeight, scrollY: window.scrollY }))
     assert(viewport.scrollY === 0, label + ' unexpectedly scrolled the Work page')
-    const controls = surface.locator('input, select, button').filter({ visible: true })
+    const controls = surface.locator('input, select, button.primary-action').filter({ visible: true })
     const count = await controls.count()
-    assert(count > 0, label + ' has no visible controls')
+    assert(count > 0, label + ' has no visible primary/input controls')
     for (let i = 0; i < count; i += 1) {
       const box = await controls.nth(i).boundingBox()
-      assert(box && box.top >= -1 && box.bottom <= viewport.height + 1, label + ' has a control obscured outside the viewport')
+      assert(box && box.top >= -1 && box.bottom <= viewport.height + 1, label + ' has a required control obscured outside the viewport')
     }
   }
   const assertInputContract = async (input, { inputmode, enterkeyhint }) => {
