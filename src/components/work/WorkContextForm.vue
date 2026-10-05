@@ -72,10 +72,13 @@ const endTitle = computed(() => ({
 }[props.endStage] || 'Close shift'))
 
 function submitStartAction() {
+  const checkbox = document.querySelector('.form-start input[type="checkbox"]')
   emit('action', {
     name: 'submit-start',
     startOdo: props.startOdo,
-    startAck: props.startAck === true
+    // The submit tap is the final UI authority. Read the live checkbox so a
+    // reactive parent update cannot make a confirmed gate appear unchecked.
+    startAck: checkbox ? checkbox.checked === true : props.startAck === true
   })
 }
 
