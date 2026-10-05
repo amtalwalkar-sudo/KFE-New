@@ -65,9 +65,9 @@ assertHas(timelineView, /Authoritative Revenue/, 'Timeline must display authorit
 assertHas(performanceView, /performanceHeadlineActualProfit/, 'Performance must display calculated actual P/L')
 assertHas(performanceView, /performanceHeadlineProvisionalProfit/, 'Performance must display calculated provisional P/L')
 
-assertHas(work, /if \\(action === 'back-start'\\)[\\s\\S]*startOpen\\.value = false/, 'Start Shift back/cancel must not submit')
-assertHas(work, /if \\(action === 'back-cancel'\\)[\\s\\S]*cancelOpen\\.value = false/, 'Cancellation back/cancel must not submit')
-assertHas(work, /if \\(action === 'close-fuel'\\)[\\s\\S]*fuelOpen\\.value = false/, 'Fuel close/cancel must not submit')
+assert.ok(work.includes("if (action === 'back-start') { startOpen.value = false; return }"), 'Start Shift back/cancel must not submit')
+assert.ok(work.includes("if (action === 'back-cancel') { cancelOpen.value = false; return }"), 'Cancellation back/cancel must not submit')
+assert.ok(work.includes("if (action === 'close-fuel') { fuelOpen.value = false; return }"), 'Fuel close/cancel must not submit')
 assertHas(adminForm, /@click="emit\('cancel'\)"/, 'Admin cancel must emit cancel instead of submitting')
 assertHas(reconciliation, /@submit\.prevent="handleFinalCommit"/, 'Reconciliation must commit only through final submit')
 
