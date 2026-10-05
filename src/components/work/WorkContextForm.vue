@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 
 const startAckLocal = ref(false)
 
@@ -72,8 +72,6 @@ const endTitle = computed(() => ({
   CONFIRM: 'Ready to end',
   ENDED: 'Shift ended'
 }[props.endStage] || 'Close shift'))
-
-watch(() => props.startAck, value => { startAckLocal.value = value === true }, { immediate: true })
 
 function preserveStartAck() {
   const checkbox = document.querySelector('.form-start input[type="checkbox"]')
