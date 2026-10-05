@@ -111,3 +111,115 @@ html[data-kfe-keyboard="open"] .kfe-contextual-form[data-form-type="trip"]{
 [data-kfe-form-surface="true"]{
   scroll-margin-bottom:calc(var(--kfe-nav-height,76px) + var(--kfe-keyboard-inset,0px) + env(safe-area-inset-bottom,0px));
 }
+
+
+/* ================================================================
+   COMPACT CONTEXTUAL FORM PASS
+   Presentation-only: keeps forms inside their current workflow,
+   avoids webpage/full-screen treatment, and preserves all contracts.
+   ================================================================ */
+.kfe-contextual-form{
+  width:min(100%,760px);
+  margin-inline:auto;
+  box-sizing:border-box;
+  align-self:start;
+}
+.kfe-contextual-form:not([data-form-type="search"]){
+  padding:10px 12px;
+  border-radius:16px;
+  box-shadow:0 6px 18px color-mix(in srgb,var(--kfe-ui-text) 7%,transparent);
+}
+.kfe-contextual-form .kfe-form-heading,
+.kfe-contextual-form .form-header{
+  gap:8px;
+}
+.kfe-contextual-form .kfe-form-heading h1,
+.kfe-contextual-form .form-title{
+  font-size:1rem;
+  line-height:1.15;
+}
+.kfe-contextual-form .kfe-destination-subtitle,
+.kfe-contextual-form .form-subtitle{
+  margin-top:3px;
+  font-size:.68rem;
+  line-height:1.35;
+}
+.kfe-contextual-form .kfe-form-body,
+.kfe-contextual-form .form-body{
+  gap:8px;
+}
+.kfe-contextual-form .kfe-form-section{
+  padding:9px;
+  border-radius:12px;
+  box-shadow:none;
+}
+.kfe-contextual-form .kfe-form-fields{
+  gap:7px;
+}
+.kfe-contextual-form .kfe-form-field{
+  padding:7px 8px;
+  gap:5px;
+  border-radius:12px;
+  box-shadow:none;
+}
+.kfe-contextual-form .kfe-form-label{
+  font-size:.7rem;
+}
+.kfe-contextual-form .kfe-form-input,
+.kfe-contextual-form input,
+.kfe-contextual-form select,
+.kfe-contextual-form textarea{
+  min-height:44px;
+  padding:8px 10px;
+}
+.kfe-contextual-form textarea{min-height:68px}
+.kfe-contextual-form .kfe-form-actions,
+.kfe-contextual-form .form-actions,
+.kfe-contextual-form .actions,
+.kfe-contextual-form .button-row{
+  gap:7px;
+  margin-top:2px;
+  padding-top:6px;
+  padding-bottom:0;
+}
+.kfe-contextual-form .kfe-button,
+.kfe-contextual-form button{
+  min-height:44px;
+}
+.kfe-form-shell.kfe-contextual-form{
+  max-height:none;
+}
+.kfe-shell .kfe-contextual-form:not([data-form-type="search"]){
+  background:var(--kfe-ui-surface);
+}
+.modal-backdrop{
+  padding:12px;
+}
+.modal-card{
+  width:min(100%,560px);
+  max-height:min(78dvh,620px);
+  border-radius:18px;
+}
+.modal-header{padding:10px 12px}
+.modal-body{padding:12px}
+.modal-footer{padding:9px 12px}
+.modal-title{font-size:.95rem}
+@media(max-width:600px){
+  .kfe-contextual-form:not([data-form-type="search"]){
+    border-radius:14px;
+    padding:9px 10px;
+  }
+  .kfe-contextual-form .kfe-form-actions,
+  .kfe-contextual-form .form-actions{
+    grid-template-columns:1fr 1fr;
+  }
+  .modal-backdrop{
+    align-items:flex-end;
+    padding:8px;
+  }
+  .modal-card{
+    width:100%;
+    max-height:min(82dvh,680px);
+    border-radius:18px 18px 12px 12px;
+  }
+}
