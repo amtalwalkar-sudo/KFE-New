@@ -107,7 +107,7 @@ try {
     if (requireViewport) {
       for (let i = 0; i < count; i += 1) {
         const box = await controls.nth(i).boundingBox()
-        assert(box && box.top >= -1 && box.bottom <= viewport.height + 1, label + ' has a required control obscured outside the viewport')
+        assert(box && box.top >= -1 && box.bottom <= viewport.height + 1, `${label} has a required control obscured outside the viewport: ${await controls.nth(i).getAttribute('aria-label') || await controls.nth(i).innerText().catch(() => '')} box=${JSON.stringify(box)} viewport=${viewport.height}`)
       }
     }
   }
