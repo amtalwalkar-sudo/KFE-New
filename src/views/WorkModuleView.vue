@@ -247,6 +247,12 @@ async function openStart() {
   // Let the driver's tap focus the field so Android reliably opens its numeric keyboard.
 }
 
+function setStartGapChoice(choice) {
+  gapChoice.value = choice
+  const checkbox = document.querySelector('.form-start input[type="checkbox"]')
+  if (checkbox?.checked === true) startAck.value = true
+}
+
 async function submitStart() {
   if (startBusy.value) return
   if (!startOdo.value) return fail('Current odometer is required.')
@@ -731,7 +737,7 @@ onBeforeUnmount(() => {
       :gap-choice="gapChoice"
       @update:start-odo="startOdo=$event"
       @update:start-ack="startAck=$event"
-      @update:gap-choice="gapChoice=$event"
+      @update:gap-choice="setStartGapChoice"
       @action="handleContextAction"
     />
 
