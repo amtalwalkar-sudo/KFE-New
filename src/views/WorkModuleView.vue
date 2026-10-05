@@ -837,13 +837,3 @@ onBeforeUnmount(() => {
   </main>
 </div>
 </template>
-
-<style scoped>
-.contextual-form-shell{position:relative}
-.contextual-form{width:100%;box-sizing:border-box;animation:contextual-form-in 140ms ease-out}
-@keyframes contextual-form-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
-.contextual-form .gate-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.contextual-form .gate-head>div{min-width:0}
-.contextual-form input,.contextual-form select,.contextual-form button{max-width:100%}
-@media(max-width:600px){.contextual-form{margin-top:.75rem;padding-bottom:max(.5rem,env(safe-area-inset-bottom))}}
-</style>
