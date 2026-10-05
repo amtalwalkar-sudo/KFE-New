@@ -1,7 +1,10 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 
-const startAckLocal = ref(false)
+const startAckModel = computed({
+  get: () => props.startAck === true,
+  set: value => emit('update:start-ack', value === true)
+})
 
 const props = defineProps({
   type: { type: String, required: true },
@@ -77,7 +80,7 @@ function submitStartAction() {
   emit('action', {
     name: 'submit-start',
     startOdo: props.startOdo,
-    startAck: startAckLocal.value === true
+    startAck: startAckModel.value === true
   })
 }
 
@@ -101,7 +104,7 @@ const updateMap = (name, map, id, value) => {
         <b>km</b>
       </div>
       <label class="check-row">
-        <input type="checkbox" :checked="startAckLocal" :disabled="!startOdo" aria-label="Confirm current vehicle odometer" @change="startAckLocal=$event.target.checked; emit('update:start-ack', $event.target.checked)">
+        <input type="checkbox" v-model="startAckModel" :disabled="!startOdo" aria-label="Confirm current vehicle odometer">
         <span>I confirm this is the current odometer.</span>
       </label>
       <div v-if="gapKm > 0" class="gap-panel">
