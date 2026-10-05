@@ -443,7 +443,7 @@ async function toggleFuel() {
 
 async function handleContextAction(action) {
   if (action === 'back-start') { startOpen.value = false; return }
-  if (action === 'submit-start') { await submitStart(); return }
+  if ((typeof action === 'object' ? action.name : action) === 'submit-start') { if (typeof action === 'object') startAck.value = Boolean(action.startAck); await submitStart(); return }
   if (action === 'save-fare') { await saveFare(); return }
   if (action === 'skip-fare') { await skipTripDetails(); return }
   if (action === 'back-cancel') { cancelOpen.value = false; return }
