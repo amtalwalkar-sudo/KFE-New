@@ -5,29 +5,21 @@
  * are intentionally untouched.
  */
 :root{
-  --kfe-base-bg:#f6f7f9;
-  --kfe-base-surface:#fff;
-  --kfe-base-surface-2:#f0f2f5;
-  --kfe-base-text:#171a1f;
-  --kfe-base-muted:#606872;
-  --kfe-base-border:#d8dde3;
-  --kfe-base-accent:#2563eb;
-  --kfe-base-danger:#c62828;
-  --kfe-base-success:#16803c;
-  --kfe-base-radius:12px;
-  --kfe-base-gap:12px;
-  --kfe-base-touch:48px;
-  --kfe-base-nav:64px;
-  --kfe-base-top:56px;
-}
-:root[data-kfe-theme="night"],:root[data-kfe-theme="dark"],:root[data-kfe-theme="dusk"]{
-  --kfe-base-bg:#101317;
-  --kfe-base-surface:#181c21;
-  --kfe-base-surface-2:#22272e;
-  --kfe-base-text:#eef1f4;
-  --kfe-base-muted:#aab1b9;
-  --kfe-base-border:#343b44;
-  --kfe-base-accent:#6b9cff;
+  /* Canonical aliases: this shell never owns a second palette. */
+  --kfe-base-bg:var(--kfe-ui-bg);
+  --kfe-base-surface:var(--kfe-ui-surface);
+  --kfe-base-surface-2:var(--kfe-ui-surface-2);
+  --kfe-base-text:var(--kfe-ui-text);
+  --kfe-base-muted:var(--kfe-muted-text);
+  --kfe-base-border:var(--kfe-ui-border);
+  --kfe-base-accent:var(--kfe-ui-accent);
+  --kfe-base-danger:var(--kfe-danger);
+  --kfe-base-success:var(--kfe-success);
+  --kfe-base-radius:var(--kfe-radius-md);
+  --kfe-base-gap:var(--kfe-space-3);
+  --kfe-base-touch:var(--kfe-touch);
+  --kfe-base-nav:var(--kfe-nav-height);
+  --kfe-base-top:var(--kfe-top-height);
 }
 html,body,#app{background:var(--kfe-base-bg)!important;color:var(--kfe-base-text)!important}
 body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.4}
