@@ -103,7 +103,7 @@ try {
   // entered opening odometer and survive a repository reread.
   await reset(page)
   await page.getByRole('button', { name: 'START SHIFT', exact: true }).click()
-  await page.getByRole('spinbutton', { name: 'Current vehicle odometer' }).fill('1000')
+  const startOdo = page.getByRole('spinbutton', { name: 'Current vehicle odometer' }); await startOdo.click(); await startOdo.pressSequentially('1000'); assert(await startOdo.inputValue()==='1000','START SHIFT input did not accept sequential typing')
   await page.getByRole('checkbox', { name: /current vehicle odometer/i }).check()
   await page.getByRole('button', { name: 'CONFIRM & GO ONLINE', exact: true }).click()
   await page.getByText('READY FOR NEXT PICKUP', { exact: true }).waitFor()
@@ -134,7 +134,7 @@ try {
   evidence.push({ id: 'WORK.END_TRIP', result: 'PASS', expected: 'trip completes immediately and optional details do not block next pickup', persisted: { trips: state.trips.length, status: state.trips[0].status, tripStage: state.trips[0].tripStage } })
 
   // Contract 5: optional fare/toll/parking details persist without changing trip lifecycle authority.
-  await page.getByLabel('Trip fare').fill('800')
+  const tripFare = page.getByLabel('Trip fare'); await tripFare.click(); await tripFare.pressSequentially('800'); assert(await tripFare.inputValue()==='800','Trip fare did not accept sequential typing')
   await page.getByLabel('Toll').fill('50')
   await page.getByLabel('Parking').fill('20')
   await page.getByRole('button', { name: 'SAVE DETAILS & CONTINUE', exact: true }).click()
