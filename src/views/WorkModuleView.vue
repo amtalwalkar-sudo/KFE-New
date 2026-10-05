@@ -718,9 +718,9 @@ onBeforeUnmount(() => {
       :start-odo="startOdo"
       :start-ack="startAck"
       :gap-choice="gapChoice"
-      @update:startOdo="startOdo=$event"
-      @update:startAck="startAck=$event"
-      @update:gapChoice="gapChoice=$event"
+      @update:start-odo="startOdo=$event"
+      @update:start-ack="startAck=$event"
+      @update:gap-choice="gapChoice=$event"
       @action="handleContextAction"
     />
 
@@ -744,12 +744,12 @@ onBeforeUnmount(() => {
       :review-km="reviewKm"
       :review-operator="reviewOperator"
       :toll-treatment="tollTreatment"
-      @update:closingOdo="closingOdo=$event"
-      @update:shiftRevenue="shiftRevenue=$event"
-      @update:reviewRevenue="reviewRevenue=$event"
-      @update:reviewKm="reviewKm=$event"
-      @update:reviewOperator="reviewOperator=$event"
-      @update:tollTreatment="tollTreatment=$event"
+      @update:closing-odo="closingOdo=$event"
+      @update:shift-revenue="shiftRevenue=$event"
+      @update:review-revenue="reviewRevenue=$event"
+      @update:review-km="reviewKm=$event"
+      @update:review-operator="reviewOperator=$event"
+      @update:toll-treatment="tollTreatment=$event"
       @action="handleContextAction"
     />
 
@@ -795,8 +795,8 @@ onBeforeUnmount(() => {
       :trip-toll="tripToll"
       :trip-parking="tripParking"
       @update:fare="fare=$event"
-      @update:tripToll="tripToll=$event"
-      @update:tripParking="tripParking=$event"
+      @update:trip-toll="tripToll=$event"
+      @update:trip-parking="tripParking=$event"
       @action="handleContextAction"
     />
 
@@ -806,8 +806,8 @@ onBeforeUnmount(() => {
       :cancel-busy="cancelBusy"
       :cancel-reason="cancelReason"
       :cancel-fare="cancelFare"
-      @update:cancelReason="cancelReason=$event"
-      @update:cancelFare="cancelFare=$event"
+      @update:cancel-reason="cancelReason=$event"
+      @update:cancel-fare="cancelFare=$event"
       @action="handleContextAction"
     />
 
@@ -820,10 +820,10 @@ onBeforeUnmount(() => {
       :fuel-amount="fuelAmount"
       :fuel-partial="fuelPartial"
       :fuel-qty="fuelQty"
-      @update:fuelOdo="fuelOdo=$event"
-      @update:fuelPrice="fuelPrice=$event"
-      @update:fuelAmount="fuelAmount=$event"
-      @update:fuelPartial="fuelPartial=$event"
+      @update:fuel-odo="fuelOdo=$event"
+      @update:fuel-price="fuelPrice=$event"
+      @update:fuel-amount="fuelAmount=$event"
+      @update:fuel-partial="fuelPartial=$event"
       @action="handleContextAction"
     />
 
