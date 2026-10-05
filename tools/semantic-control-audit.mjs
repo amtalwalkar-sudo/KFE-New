@@ -335,7 +335,7 @@ try {
   await assertInputContract(closingInput, { inputmode: 'numeric', enterkeyhint: 'next' })
   await assertInputContract(shiftRevenueInput, { inputmode: 'numeric', enterkeyhint: 'done' })
   await closingInput.fill('1100'); await closingInput.press('Enter')
-  assert(await page.evaluate(() => document.activeElement?.getAttribute('aria-label')) === 'Total shift revenue', 'Closing odometer Enter did not advance to shift revenue')
+  assert(await shiftRevenueInput.evaluate(el => el === document.activeElement), 'Closing odometer Enter did not advance to shift revenue')
   await shiftRevenueInput.fill('900'); await shiftRevenueInput.press('Enter')
   await page.getByText('Reconciliation', { exact: true }).waitFor()
   await assertContextualViewport('.end-gate', 'End Shift reconciliation form')
