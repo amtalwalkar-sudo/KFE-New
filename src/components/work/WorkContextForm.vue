@@ -90,10 +90,19 @@ function nextField(event) {
   surface.querySelector('button.primary-action:not([disabled])')?.click()
 }
 
-function submitStartAction(event) {
-  const form = event.currentTarget.closest('.form-card')
-  const acknowledged = form?.querySelector('input[type="checkbox"]')?.checked === true
-  emit('action', { name: 'submit-start', startOdo: startOdoLocal.value, startAck: acknowledged })
+function onStartAckChange(event) {
+  const acknowledged = event.target.checked === true
+  startAckLocal.value = acknowledged
+  emit('update:start-odo', startOdoLocal.value)
+  emit('update:start-ack', acknowledged)
+}
+
+function submitStartAction() {
+  emit('action', {
+    name: 'submit-start',
+    startOdo: startOdoLocal.value,
+    startAck: startAckLocal.value === true
+  })
 }
 
 const updateMap = (name, map, id, value) => {
@@ -114,7 +123,7 @@ const updateMap = (name, map, id, value) => {
         <b>km</b>
       </div>
       <label class="check-row">
-        <input :checked="startAckLocal" type="checkbox" :disabled="!startOdoLocal" @change="startAckLocal = $event.target.checked; emit('update:start-odo', startOdoLocal); emit('update:start-ack', startAckLocal)">
+        <input :checked="startAckLocal" type="checkbox" :disabled="!startOdoLocal" @change="onStartAckChange">
         <span>I confirm this is the current odometer.</span>
       </label>
       <div v-if="gapKm > 0" class="gap-panel">
