@@ -79,11 +79,12 @@ try{
  assert((await shiftToggle.innerText()).trim()==='OFFLINE','Work did not initialize in the expected OFFLINE state');
  await shiftToggle.click();
  await page.getByText('Confirm shift start',{exact:true}).waitFor({state:'visible'});assert(await page.getByRole('button',{name:'Back'}).count()>0,'Start odometer Back missing')
- const odo=page.locator('#start-shift-odometer');await odo.waitFor({state:'visible'});await odo.click();assert(await odo.evaluate(el=>document.activeElement===el),'Start Shift odometer did not receive focus from a real click');await odo.press('Control+A');await odo.pressSequentially('1100');assert(await odo.inputValue()==='1100','Start Shift odometer did not accept sequential keyboard typing after tap');const startConfirm=page.getByRole('checkbox',{name:'Confirm current vehicle odometer',exact:true});await startConfirm.waitFor({state:'visible'});assert(await startConfirm.isDisabled()===false,'Start Shift confirmation must become available only after a valid odometer is entered');await startConfirm.check();assert(await startConfirm.isChecked(),'Start Shift confirmation checkbox did not remain checked after tap')
- // The seeded completed shift leaves a historical odometer gap. The UI requires
- // the driver to classify that full gap before the shift can be started.
+ const odo=page.locator('#start-shift-odometer');await odo.waitFor({state:'visible'});await odo.click();assert(await odo.evaluate(el=>document.activeElement===el),'Start Shift odometer did not receive focus from a real click');await odo.press('Control+A');await odo.pressSequentially('1100');assert(await odo.inputValue()==='1100','Start Shift odometer did not accept sequential keyboard typing after tap');const startConfirm=page.getByRole('checkbox',{name:'Confirm current vehicle odometer',exact:true});await startConfirm.waitFor({state:'visible'});assert(await startConfirm.isDisabled()===false,'Start Shift confirmation must become available only after a valid odometer is entered')
+ // The seeded completed shift leaves a historical odometer gap. Classify the gap
+ // before the final confirmation so the confirmation is the final explicit gate.
  const personalKm=page.getByRole('button',{name:'Personal KM',exact:true})
  if(await personalKm.count()) await personalKm.click()
+ await startConfirm.check();assert(await startConfirm.isChecked(),'Start Shift confirmation checkbox did not remain checked after tap')
  await page.getByRole('button',{name:'CONFIRM & GO ONLINE',exact:true}).click()
  await wait(async()=>await page.getByRole('button',{name:'ONLINE',exact:true}).count()===1 || await page.locator('.feedback.error').count()>0,'shift goes ONLINE').catch(async e=>{throw new Error(e.message+'\nWork start UI: '+(await page.locator('body').innerText().catch(()=>'')))})
  assert(await page.getByRole('button',{name:'ONLINE',exact:true}).count()===1,'Shift start did not reach ONLINE: '+(await page.locator('.feedback.error').allTextContents()).join(' | '))
