@@ -206,12 +206,12 @@ const handleFinalCommit = async () => {
 
 <style scoped>
 .reconcile-overlay { position: fixed; inset: 0; background: color-mix(in srgb,var(--kfe-ui-text) 70%,transparent); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 12px; }
-.reconcile-card { background: var(--kfe-ui-surface); width: 100%; max-width: 480px; max-height: 90vh; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3); }
+.reconcile-card { background: var(--kfe-ui-surface); width: 100%; max-width: 480px; max-height: 90vh; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 25px color-mix(in srgb,var(--kfe-ui-text) 30%,transparent); }
 .card-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: var(--kfe-ui-surface-2); color: var(--kfe-ui-text); }
 .card-header h2 { font-size: 1.1rem; margin: 0; }
 .close-btn { background: none; border: none; color: var(--kfe-ui-text); font-size: 1.2rem; cursor: pointer; }
 .card-body { padding: 16px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
-.form-section { border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; }
+.form-section { border-bottom: 1px solid var(--kfe-ui-border); padding-bottom: 12px; }
 .form-section h3 { font-size: 0.9rem; color: var(--kfe-muted-text); margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.5px; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .stat-box, .input-box { display: flex; flex-direction: column; }
@@ -229,7 +229,7 @@ const handleFinalCommit = async () => {
 .summary-row.highlight { font-weight: bold; color: var(--kfe-ui-accent); margin-top: 6px; border-top: 1px dashed var(--kfe-ui-border); padding-top: 6px; }
 .warning-box { background: color-mix(in srgb,var(--kfe-danger) 10%,var(--kfe-ui-surface)); border: 1px solid color-mix(in srgb,var(--kfe-danger) 35%,var(--kfe-ui-border)); color: var(--kfe-danger); padding: 10px; border-radius: 8px; font-size: 0.85rem; }
 .error-box { background: color-mix(in srgb,var(--kfe-danger) 14%,var(--kfe-ui-surface)); border: 1px solid color-mix(in srgb,var(--kfe-danger) 55%,var(--kfe-ui-border)); color: var(--kfe-danger); padding: 10px; border-radius: 8px; font-size: 0.85rem; }
-.card-footer { padding: 16px 20px; background: var(--kfe-ui-surface-2); border-top: 1px solid #e2e8f0; }
+.card-footer { padding: 16px 20px; background: var(--kfe-ui-surface-2); border-top: 1px solid var(--kfe-ui-border); }
 .btn-submit { width: 100%; padding: 14px; background: var(--kfe-success); color: var(--kfe-ui-text); border: none; border-radius: 10px; font-size: 1rem; font-weight: bold; cursor: pointer; }
 .btn-submit:disabled { background: var(--kfe-muted-text); cursor: not-allowed; }
 </style>
