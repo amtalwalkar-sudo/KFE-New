@@ -119,7 +119,7 @@ const updateMap = (name, map, id, value) => {
     </div>
 
     <div v-else-if="type === 'fare'" class="form-card state-tone-warning focus-surface">
-      <div class="form-head"><div><span class="eyebrow">TRIP COMPLETE</span><strong>OPTIONAL TRIP DETAILS</strong></div><button class="text-action" type="button" @click="emit('action','skip-fare')">Skip</button></div>
+      <div class="form-head"><div><span class="eyebrow">TRIP COMPLETED</span><strong>OPTIONAL DETAILS</strong></div><button class="text-action" type="button" @click="emit('action','skip-fare')">Skip</button></div>
       <label>Trip fare <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="fare" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" @input="emit('update:fare',$event.target.value)" @keydown="nextField"></div></label>
       <label>Toll <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="tripToll" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" @input="emit('update:tripToll',$event.target.value)" @keydown="nextField"></div></label>
       <label>Parking <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="tripParking" type="number" inputmode="numeric" enterkeyhint="done" min="0" autocomplete="off" @input="emit('update:tripParking',$event.target.value)" @keydown="nextField"></div></label>
