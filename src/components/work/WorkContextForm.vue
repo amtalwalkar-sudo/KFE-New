@@ -62,8 +62,6 @@ const emit = defineEmits([
   'update:fuel-partial'
 ])
 
-const startOdoLocal = ref(props.startOdo)
-const startAckLocal = ref(props.startAck)
 
 const endTitle = computed(() => ({
   CLOSE: 'Close shift',
@@ -112,11 +110,11 @@ const updateMap = (name, map, id, value) => {
       </div>
       <label for="start-shift-odometer">Current vehicle odometer</label>
       <div class="input-unit">
-        <input id="start-shift-odometer" v-model="startOdoLocal" type="number" inputmode="numeric" enterkeyhint="done" min="0" step="1" autocomplete="off" aria-label="Current vehicle odometer" @keydown="nextField" @input="emit('update:start-odo', startOdoLocal)">
+        <input id="start-shift-odometer" :value="startOdo" type="number" inputmode="numeric" enterkeyhint="done" min="0" step="1" autocomplete="off" aria-label="Current vehicle odometer" @keydown="nextField" @input="emit('update:start-odo', $event.target.value)">
         <b>km</b>
       </div>
       <label class="check-row">
-        <input type="checkbox" v-model="startAckLocal" :disabled="!startOdoLocal" aria-label="Confirm current vehicle odometer" @change="emit('update:start-ack', startAckLocal)">
+        <input type="checkbox" :checked="startAck" :disabled="!startOdo" aria-label="Confirm current vehicle odometer" @change="emit('update:start-ack', $event.target.checked)">
         <span>I confirm this is the current odometer.</span>
       </label>
       <div v-if="gapKm > 0" class="gap-panel">
