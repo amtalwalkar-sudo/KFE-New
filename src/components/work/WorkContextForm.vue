@@ -89,6 +89,12 @@ function nextField(event) {
   surface.querySelector('button.primary-action:not([disabled])')?.click()
 }
 
+function submitStartAction(event) {
+  const form = event.currentTarget.closest('.form-card')
+  const acknowledged = form?.querySelector('input[type="checkbox"]')?.checked === true
+  emit('action', { name: 'submit-start', startAck: acknowledged })
+}
+
 const updateMap = (name, map, id, value) => {
   emit('update:' + name, { ...map, [id]: value })
 }
@@ -117,7 +123,7 @@ const updateMap = (name, map, id, value) => {
           <button type="button" :class="{selected:gapChoice==='DEAD'}" @click="emit('update:gap-choice','DEAD')">Dead KM</button>
         </div>
       </div>
-      <button class="primary-action" :disabled="startBusy" @click="emit('action',{name:'submit-start',startAck:startAckLocal})">{{ startBusy ? 'STARTING…' : 'CONFIRM & GO ONLINE' }}</button>
+      <button class="primary-action" :disabled="startBusy" @click="submitStartAction">{{ startBusy ? 'STARTING…' : 'CONFIRM & GO ONLINE' }}</button>
     </div>
 
     <div v-else-if="type === 'fare'" class="form-card state-tone-warning focus-surface">
