@@ -166,8 +166,8 @@ const handleFinalCommit = async () => {
                 </span>
               </div>
               <div class="trip-actions">
-                <button class="btn-icon" @click="openEditTrip(trip)">✏️</button>
-                <button class="btn-icon danger" @click="deleteTrip(trip.id)">🗑️</button>
+                <button type="button" class="btn-icon" @click="openEditTrip(trip)">✏️</button>
+                <button type="button" class="btn-icon danger" @click="deleteTrip(trip.id)">🗑️</button>
               </div>
             </div>
           </div>
