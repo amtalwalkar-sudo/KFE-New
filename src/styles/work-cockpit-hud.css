@@ -79,4 +79,4 @@
 .fare-context-form label{margin:4px 0}
 .fare-context-form .input-unit{min-height:42px}
 .fare-context-form .primary-action,.fare-context-form .secondary-action{min-height:42px;margin-top:6px}
-@media(max-width:600px){.fare-context-form{bottom:max(62px,env(safe-area-inset-bottom));padding:10px}.fare-context-form .gate-head{gap:6px}.fare-context-form .fact-grid.two{font-size:.86rem}.fare-context-form label{font-size:.86rem}}
+@media(max-width:600px){.fare-context-form{padding:10px}.fare-context-form .gate-head{gap:6px}.fare-context-form .fact-grid.two{font-size:.86rem}.fare-context-form label{font-size:.86rem}}
