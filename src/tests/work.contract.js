@@ -10,7 +10,7 @@ import { WorkService } from '../application/work/workService.js'
 
 assert.equal(typeof WorkService.getTripGpsDistanceKm, 'function')
 const root = process.cwd()
-const workView = fs.readFileSync(path.join(root, 'src/views/WorkModuleView.vue'), 'utf8')
+const workView = fs.readFileSync(path.join(root, 'src/views/WorkModuleView.vue'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'src/components/work/WorkContextForm.vue'), 'utf8')
 const workStore = fs.readFileSync(path.join(root, 'src/stores/shiftTrip.js'), 'utf8')
 const workService = fs.readFileSync(path.join(root, 'src/application/work/workService.js'), 'utf8')
 const shiftTripRepository = fs.readFileSync(path.join(root, 'src/repositories/shiftTripRepository.js'), 'utf8')
