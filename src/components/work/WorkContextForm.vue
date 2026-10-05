@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 const props = defineProps({
   type: { type: String, required: true },
@@ -62,6 +62,9 @@ const emit = defineEmits([
   'update:fuel-partial'
 ])
 
+const startAckLocal = ref(props.startAck)
+watch(() => props.startAck, value => { startAckLocal.value = value })
+
 const endTitle = computed(() => ({
   CLOSE: 'Close shift',
   RECONCILE: 'Reconciliation',
@@ -105,7 +108,7 @@ const updateMap = (name, map, id, value) => {
         <b>km</b>
       </div>
       <label class="check-row">
-        <input :checked="startAck" type="checkbox" :disabled="!gap.valid || !startOdo" @change="emit('update:start-ack', $event.target.checked)">
+        <input :checked="startAckLocal" type="checkbox" :disabled="!gap.valid || !startOdo" @change="startAckLocal = $event.target.checked; emit('update:start-ack', startAckLocal)">
         <span>I confirm this is the current odometer.</span>
       </label>
       <div v-if="gapKm > 0" class="gap-panel">
@@ -115,7 +118,7 @@ const updateMap = (name, map, id, value) => {
           <button type="button" :class="{selected:gapChoice==='DEAD'}" @click="emit('update:gap-choice','DEAD')">Dead KM</button>
         </div>
       </div>
-      <button class="primary-action" :disabled="startBusy" @click="emit('action','submit-start')">{{ startBusy ? 'STARTING…' : 'CONFIRM & GO ONLINE' }}</button>
+      <button class="primary-action" :disabled="startBusy" @click="emit('action',{name:'submit-start',startAck:startAckLocal})">{{ startBusy ? 'STARTING…' : 'CONFIRM & GO ONLINE' }}</button>
     </div>
 
     <div v-else-if="type === 'fare'" class="form-card state-tone-warning focus-surface">
