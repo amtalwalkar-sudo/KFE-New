@@ -127,7 +127,7 @@ const updateMap = (name, map, id, value) => {
           <button type="button" :class="{selected:gapChoice==='DEAD'}" @click="chooseGap('DEAD')">Dead KM</button>
         </div>
       </div>
-      <button class="primary-action" :disabled="startBusy" @click="submitStartAction">{{ startBusy ? 'STARTING…' : 'CONFIRM & GO ONLINE' }}</button>
+      <button class="primary-action" :disabled="startBusy || !startAckLocal" @click="submitStartAction">{{ startBusy ? 'STARTING…' : 'CONFIRM & GO ONLINE' }}</button>
     </div>
 
     <div v-else-if="type === 'fare'" class="form-card state-tone-warning focus-surface">
