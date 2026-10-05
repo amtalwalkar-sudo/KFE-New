@@ -309,6 +309,12 @@ try {
 
   // End Shift: closing odometer -> revenue -> reconciliation -> review -> confirm
   // remains contextual and each stage is reachable without page scrolling.
+  await page.getByRole('button', { name: 'START SHIFT', exact: true }).click()
+  const endStartOdo = page.getByRole('spinbutton', { name: 'Current vehicle odometer' })
+  await endStartOdo.click(); await endStartOdo.pressSequentially('1000')
+  await page.getByRole('checkbox', { name: /current vehicle odometer/i }).check()
+  await page.getByRole('button', { name: 'CONFIRM & GO ONLINE', exact: true }).click()
+  await page.getByText('READY FOR NEXT PICKUP', { exact: true }).waitFor()
   await page.getByRole('button', { name: 'ONLINE', exact: true }).click()
   await assertContextualViewport('.end-gate', 'End Shift close form')
   const closingInput = page.getByLabel('Closing odometer')
