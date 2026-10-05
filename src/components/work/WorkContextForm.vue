@@ -90,10 +90,6 @@ function nextField(event) {
   surface.querySelector('button.primary-action:not([disabled])')?.click()
 }
 
-function onStartAckChange(event) {
-  startAckLocal.value = event.target.checked === true
-}
-
 function submitStartAction() {
   emit('action', {
     name: 'submit-start',
@@ -120,7 +116,7 @@ const updateMap = (name, map, id, value) => {
         <b>km</b>
       </div>
       <label class="check-row">
-        <input :checked="startAckLocal" type="checkbox" :disabled="!startOdoLocal" @change="onStartAckChange">
+        <input v-model="startAckLocal" type="checkbox" :disabled="!startOdoLocal">
         <span>I confirm this is the current odometer.</span>
       </label>
       <div v-if="gapKm > 0" class="gap-panel">
