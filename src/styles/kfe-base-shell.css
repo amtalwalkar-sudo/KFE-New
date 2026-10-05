@@ -1,0 +1,94 @@
+/*
+ * KFE BASE SHELL UI/UX
+ * Presentation-only baseline. Business rules, persistence, calculations,
+ * Work state transitions, forms submission contracts and swipe mechanics
+ * are intentionally untouched.
+ */
+:root{
+  --kfe-base-bg:#f6f7f9;
+  --kfe-base-surface:#fff;
+  --kfe-base-surface-2:#f0f2f5;
+  --kfe-base-text:#171a1f;
+  --kfe-base-muted:#606872;
+  --kfe-base-border:#d8dde3;
+  --kfe-base-accent:#2563eb;
+  --kfe-base-danger:#c62828;
+  --kfe-base-success:#16803c;
+  --kfe-base-radius:12px;
+  --kfe-base-gap:12px;
+  --kfe-base-touch:48px;
+  --kfe-base-nav:64px;
+  --kfe-base-top:56px;
+}
+:root[data-kfe-theme="night"],:root[data-kfe-theme="dark"],:root[data-kfe-theme="dusk"]{
+  --kfe-base-bg:#101317;
+  --kfe-base-surface:#181c21;
+  --kfe-base-surface-2:#22272e;
+  --kfe-base-text:#eef1f4;
+  --kfe-base-muted:#aab1b9;
+  --kfe-base-border:#343b44;
+  --kfe-base-accent:#6b9cff;
+}
+html,body,#app{background:var(--kfe-base-bg)!important;color:var(--kfe-base-text)!important}
+body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.4}
+button,input,select,textarea{font:inherit}
+button,a,[role="button"]{min-width:var(--kfe-base-touch);min-height:var(--kfe-base-touch);touch-action:manipulation}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible,[role="button"]:focus-visible{outline:2px solid var(--kfe-base-accent);outline-offset:2px}
+
+/* App shell */
+.viewport-wrapper,.kfe-frozen-shell,.kfe-shell{background:var(--kfe-base-bg)!important;color:var(--kfe-base-text)!important}
+.content-scroll-area{background:var(--kfe-base-bg)!important;color:var(--kfe-base-text)!important;padding-bottom:calc(var(--kfe-base-nav) + env(safe-area-inset-bottom,0px))}
+.top-bar,.kfe-topbar{min-height:var(--kfe-base-top);padding:8px 12px!important;background:var(--kfe-base-surface)!important;color:var(--kfe-base-text)!important;border-bottom:1px solid var(--kfe-base-border)!important;box-shadow:none!important}
+.brand-mark{width:34px;height:34px;border-radius:9px;background:var(--kfe-base-text)!important;color:var(--kfe-base-surface)!important}
+.brand-copy strong{font-size:.9rem;color:var(--kfe-base-text)!important}
+.header-gps{background:transparent!important;color:var(--kfe-base-text)!important;border:1px solid var(--kfe-base-border)!important;border-radius:9px}
+.bottom-nav,.kfe-bottom-nav{background:var(--kfe-base-surface)!important;color:var(--kfe-base-muted)!important;border-top:1px solid var(--kfe-base-border)!important;box-shadow:none!important;min-height:var(--kfe-base-nav)}
+.nav-item,.kfe-nav-item{background:transparent!important;color:var(--kfe-base-muted)!important;border:0!important}
+.nav-item-active,.nav-item.router-link-active,.kfe-nav-item.is-active{background:var(--kfe-base-surface-2)!important;color:var(--kfe-base-text)!important;font-weight:800}
+
+/* Common page structure */
+.kfe-workspace{width:min(100%,1080px);margin:0 auto;padding:12px!important}
+.kfe-workspace .page-header,.kfe-workspace .module-header,.kfe-workspace .screen-header,.kfe-workspace .view-header{padding:2px 0 4px}
+.kfe-workspace .card,.kfe-workspace .module-card,.kfe-workspace .panel,.kfe-workspace .section-card,.kfe-workspace .summary-card,.kfe-workspace .metric-card,.kfe-workspace .settings-card,.kfe-workspace .record-card,.kfe-workspace .timeline-card,.kfe-workspace .stat-card{background:var(--kfe-base-surface)!important;color:var(--kfe-base-text)!important;border:1px solid var(--kfe-base-border)!important;border-radius:var(--kfe-base-radius)!important;box-shadow:none!important}
+.kfe-workspace .toolbar button,.kfe-workspace .filter-row button,.kfe-workspace .actions-row button,.kfe-segmented button{background:var(--kfe-base-surface)!important;color:var(--kfe-base-text)!important;border:1px solid var(--kfe-base-border)!important;border-radius:9px!important}
+.kfe-workspace .empty-state{background:var(--kfe-base-surface)!important;border-color:var(--kfe-base-border)!important;border-radius:var(--kfe-base-radius)!important}
+.kfe-eyebrow,.eyebrow,.section-label,.section-kicker,.metric-label,.stat-card span{color:var(--kfe-base-muted)!important}
+
+/* Common buttons */
+.kfe-primary-action,.primary,.primary-button,.add-button,.kfe-action-primary,.kfe-ui-button.is-primary,[data-primary="true"]{background:var(--kfe-base-accent)!important;color:#fff!important;border:1px solid var(--kfe-base-accent)!important;border-radius:9px!important}
+.kfe-secondary-action,.secondary,.kfe-action-secondary,.kfe-ui-button.is-secondary{background:var(--kfe-base-surface)!important;color:var(--kfe-base-text)!important;border:1px solid var(--kfe-base-border)!important;border-radius:9px!important}
+.kfe-destructive,.delete,.kfe-action-danger,.reset-button,.kfe-ui-button.is-danger{color:var(--kfe-base-danger)!important;border-color:var(--kfe-base-danger)!important}
+[disabled]{opacity:.55}
+
+/* Shared form baseline */
+.kfe-contextual-form,.kfe-form-shell,.form-layout,.universal-admin-form{background:var(--kfe-base-surface)!important;color:var(--kfe-base-text)!important;border:1px solid var(--kfe-base-border)!important;border-radius:var(--kfe-base-radius)!important;box-shadow:none!important}
+.kfe-contextual-form input,.kfe-contextual-form select,.kfe-contextual-form textarea,.kfe-form-shell input,.kfe-form-shell select,.kfe-form-shell textarea,.form-layout input,.form-layout select,.form-layout textarea,.universal-admin-form input,.universal-admin-form select,.universal-admin-form textarea{min-height:48px;background:var(--kfe-base-surface)!important;color:var(--kfe-base-text)!important;border:1px solid var(--kfe-base-border)!important;border-radius:9px!important;font-size:16px}
+.kfe-contextual-form .kfe-form-field,.kfe-contextual-form .kfe-form-section{background:var(--kfe-base-surface)!important;border-color:var(--kfe-base-border)!important;box-shadow:none!important}
+.kfe-contextual-form .kfe-form-field:focus-within{border-color:var(--kfe-base-accent)!important;box-shadow:0 0 0 2px color-mix(in srgb,var(--kfe-base-accent) 18%,transparent)!important}
+.kfe-contextual-form .kfe-form-actions,.kfe-form-actions,.form-actions,.actions,.button-row{gap:8px}
+.kfe-button,.primary-action{min-height:48px;border-radius:9px}
+
+/* Modal/sheet baseline */
+.modal-backdrop{background:rgba(0,0,0,.38)!important}
+.modal-card{background:var(--kfe-base-surface)!important;color:var(--kfe-base-text)!important;border:1px solid var(--kfe-base-border)!important;border-radius:14px!important;box-shadow:none!important}
+
+/* Work cockpit baseline: do not change mechanics or state semantics. */
+.kfe-work-cockpit .work-canonical-summary,.kfe-work-cockpit .work-fare-panel,.kfe-work-cockpit .cancel-ride-panel{background:var(--kfe-base-surface)!important;color:var(--kfe-base-text)!important;border:1px solid var(--kfe-base-border)!important;box-shadow:none!important;border-radius:14px!important}
+.kfe-work-cockpit .target-progress{background:var(--kfe-base-surface-2)!important}
+.kfe-work-cockpit .work-keypad button{background:var(--kfe-base-surface-2)!important;color:var(--kfe-base-text)!important;border:1px solid var(--kfe-base-border)!important;border-radius:9px!important}
+.kfe-work-cockpit .work-fare-ok{background:var(--kfe-base-accent)!important;border-radius:9px!important}
+.kfe-work-cockpit .swipe-bar{border-radius:14px!important;box-shadow:none!important}
+.kfe-work-cockpit .swipe-action-hit{border-radius:14px!important}
+
+/* System feedback */
+.kfe-alert,.toast-item,.toast-info,.toast-success,.toast-error,.toast-warning{background:var(--kfe-base-surface)!important;color:var(--kfe-base-text)!important;border:1px solid var(--kfe-base-border)!important;box-shadow:none!important;border-radius:var(--kfe-base-radius)!important}
+.kfe-status-success,.status-success,.is-ok{color:var(--kfe-base-success)!important}
+.kfe-status-error,.status-error,.is-error{color:var(--kfe-base-danger)!important}
+
+@media(max-width:600px){
+  .kfe-workspace{padding-left:10px!important;padding-right:10px!important}
+  .kfe-contextual-form,.kfe-form-shell,.form-layout,.universal-admin-form{border-radius:10px!important}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}

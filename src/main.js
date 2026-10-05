@@ -19,6 +19,7 @@ import './presentation/forms/universalFormSystem.js'
 import './styles/work-cockpit-hud.css'
 import './styles/glassmorphic-polish.css'
 import './styles/kfe-clean-baseline.css'
+import './styles/kfe-base-shell.css'
 import { startKfeThemeController } from './presentation/theme/kfeThemeController.js'
 
 if (!Capacitor.isNativePlatform()) {
