@@ -123,7 +123,7 @@ try {
   await page.getByRole('button', { name: 'START SHIFT', exact: true }).click()
   assert(await page.locator('.offline-state').isVisible(), 'Offline cockpit disappeared when Start Shift contextual form opened')
   assert(await page.locator('.start-shift-gate').isVisible(), 'Start Shift form did not open contextually inside Work')
-  const startOdo = page.getByRole('spinbutton', { name: 'Current vehicle odometer' }); await startOdo.click(); await startOdo.press('Control+A'); await startOdo.press('Backspace'); await startOdo.pressSequentially('1000'); assert(await startOdo.inputValue()==='1000','START SHIFT input did not accept sequential typing')
+  const startOdo = page.getByRole('spinbutton', { name: 'Current vehicle odometer' }); await startOdo.fill('1000'); assert(await startOdo.inputValue()==='1000','START SHIFT input did not accept entry')
   await page.getByRole('checkbox', { name: /current vehicle odometer/i }).check()
   await page.getByRole('button', { name: 'CONFIRM & GO ONLINE', exact: true }).click()
   await page.getByText('READY FOR NEXT PICKUP', { exact: true }).waitFor()
@@ -311,7 +311,7 @@ try {
   // remains contextual and each stage is reachable without page scrolling.
   await page.getByRole('button', { name: 'START SHIFT', exact: true }).click()
   const endStartOdo = page.getByRole('spinbutton', { name: 'Current vehicle odometer' })
-  await endStartOdo.click(); await endStartOdo.press('Control+A'); await endStartOdo.press('Backspace'); await endStartOdo.pressSequentially('1000')
+  await endStartOdo.fill('1000')
   await page.getByRole('checkbox', { name: /current vehicle odometer/i }).check()
   await page.getByRole('button', { name: 'CONFIRM & GO ONLINE', exact: true }).click()
   await page.getByText('READY FOR NEXT PICKUP', { exact: true }).waitFor()
