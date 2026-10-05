@@ -71,23 +71,6 @@ const endTitle = computed(() => ({
   ENDED: 'Shift ended'
 }[props.endStage] || 'Close shift'))
 
-function nextField(event) {
-  if (event.key !== 'Enter' || event.isComposing || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return
-  const field = event.target
-  if (!field || field.tagName === 'TEXTAREA' || field.type === 'checkbox') return
-  event.preventDefault()
-  const surface = field.closest('.work-context-form')
-  if (!surface) return
-  const fields = [...surface.querySelectorAll('input:not([disabled]), select:not([disabled]), textarea:not([disabled])')]
-    .filter(el => el.type !== 'checkbox' && el.offsetParent !== null)
-  const next = fields[fields.indexOf(field) + 1]
-  if (next) {
-    next.focus()
-    return
-  }
-  surface.querySelector('button.primary-action:not([disabled])')?.click()
-}
-
 function submitStartAction() {
   emit('action', {
     name: 'submit-start',
@@ -110,7 +93,7 @@ const updateMap = (name, map, id, value) => {
       </div>
       <label for="start-shift-odometer">Current vehicle odometer</label>
       <div class="input-unit">
-        <input id="start-shift-odometer" :value="startOdo" type="number" inputmode="numeric" enterkeyhint="done" min="0" step="1" autocomplete="off" aria-label="Current vehicle odometer" @keydown="nextField" @input="emit('update:start-odo', $event.target.value)">
+        <input id="start-shift-odometer" :value="startOdo" type="number" inputmode="numeric" enterkeyhint="done" min="0" step="1" autocomplete="off" aria-label="Current vehicle odometer" @input="emit('update:start-odo', $event.target.value)">
         <b>km</b>
       </div>
       <label class="check-row">
@@ -129,9 +112,9 @@ const updateMap = (name, map, id, value) => {
 
     <div v-else-if="type === 'fare'" class="form-card state-tone-warning focus-surface">
       <div class="form-head"><div><span class="eyebrow">TRIP COMPLETED</span><strong>OPTIONAL DETAILS</strong></div><button class="text-action" type="button" @click="emit('action','skip-fare')">Skip</button></div>
-      <label>Trip fare <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="fare" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" @input="emit('update:fare',$event.target.value)" @keydown="nextField"></div></label>
-      <label>Toll <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="tripToll" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" @input="emit('update:trip-toll',$event.target.value)" @keydown="nextField"></div></label>
-      <label>Parking <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="tripParking" type="number" inputmode="numeric" enterkeyhint="done" min="0" autocomplete="off" @input="emit('update:trip-parking',$event.target.value)" @keydown="nextField"></div></label>
+      <label>Trip fare <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="fare" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" @input="emit('update:fare',$event.target.value)"></div></label>
+      <label>Toll <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="tripToll" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" @input="emit('update:trip-toll',$event.target.value)"></div></label>
+      <label>Parking <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="tripParking" type="number" inputmode="numeric" enterkeyhint="done" min="0" autocomplete="off" @input="emit('update:trip-parking',$event.target.value)"></div></label>
       <button class="primary-action" :disabled="fareBusy" @click="emit('action','save-fare')">{{ fareBusy ? 'SAVING…' : 'SAVE DETAILS & CONTINUE' }}</button>
     </div>
 
@@ -141,15 +124,15 @@ const updateMap = (name, map, id, value) => {
         <button type="button" :class="{selected:cancelReason==='PASSENGER'}" @click="emit('update:cancel-reason','PASSENGER')">Passenger cancellation</button>
         <button type="button" :class="{selected:cancelReason==='DRIVER'}" @click="emit('update:cancel-reason','DRIVER')">Driver cancellation</button>
       </div></div>
-      <label>Cancellation fee<div class="input-unit"><b>₹</b><input :value="cancelFare" type="number" inputmode="numeric" enterkeyhint="done" min="0" required autocomplete="off" @input="emit('update:cancel-fare',$event.target.value)" @keydown="nextField"></div></label>
+      <label>Cancellation fee<div class="input-unit"><b>₹</b><input :value="cancelFare" type="number" inputmode="numeric" enterkeyhint="done" min="0" required autocomplete="off" @input="emit('update:cancel-fare',$event.target.value)"></div></label>
       <button class="primary-action" :disabled="cancelBusy" @click="emit('action','save-cancel')">{{ cancelBusy ? 'SAVING…' : 'OK — CONFIRM CANCELLATION' }}</button>
     </div>
 
     <div v-else-if="type === 'fuel'" class="form-card state-tone-info focus-surface">
       <div class="form-head"><div><span class="eyebrow">FUEL</span><strong>CNG REFUEL</strong></div><button class="text-action" type="button" @click="emit('action','close-fuel')">Close</button></div>
-      <label>Odometer<div class="input-unit"><input :value="fuelOdo" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" aria-label="Odometer" @input="emit('update:fuel-odo',$event.target.value)" @keydown="nextField"><b>km</b></div></label>
-      <label>Price / kg<div class="input-unit"><b>₹</b><input :value="fuelPrice" type="number" inputmode="decimal" enterkeyhint="next" min="0" step=".01" autocomplete="off" @input="emit('update:fuel-price',$event.target.value)" @keydown="nextField"></div></label>
-      <label>Amount<div class="input-unit"><b>₹</b><input :value="fuelAmount" type="number" inputmode="numeric" enterkeyhint="done" min="0" autocomplete="off" @input="emit('update:fuel-amount',$event.target.value)" @keydown="nextField"></div></label>
+      <label>Odometer<div class="input-unit"><input :value="fuelOdo" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" aria-label="Odometer" @input="emit('update:fuel-odo',$event.target.value)"><b>km</b></div></label>
+      <label>Price / kg<div class="input-unit"><b>₹</b><input :value="fuelPrice" type="number" inputmode="decimal" enterkeyhint="next" min="0" step=".01" autocomplete="off" @input="emit('update:fuel-price',$event.target.value)"></div></label>
+      <label>Amount<div class="input-unit"><b>₹</b><input :value="fuelAmount" type="number" inputmode="numeric" enterkeyhint="done" min="0" autocomplete="off" @input="emit('update:fuel-amount',$event.target.value)"></div></label>
       <div class="calculated-value"><span>Quantity</span><strong>{{ fuelQty.valid ? fuelQty.quantityKg.toFixed(2)+' kg' : '—' }}</strong></div>
       <label class="check-row"><input :checked="fuelPartial" type="checkbox" @change="emit('update:fuel-partial',$event.target.checked)"><span>Partial fill</span></label>
       <button class="primary-action" :disabled="fuelBusy" @click="emit('action','save-fuel')">{{ fuelBusy ? 'SAVING…' : 'OK — SAVE FUEL' }}</button>
@@ -159,12 +142,12 @@ const updateMap = (name, map, id, value) => {
       <div class="form-head"><div><span class="eyebrow">GOING OFFLINE</span><h2>{{ endTitle }}</h2></div><button v-if="endStage==='CLOSE'" class="text-action" type="button" @click="emit('action','back-end')">Back</button></div>
       <template v-if="endStage==='CLOSE'">
         <div class="fact-line"><span>Shift started</span><strong>{{ startOdo || '—' }} km</strong></div>
-        <label>Closing odometer<div class="input-unit"><input :value="closingOdo" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" @input="emit('update:closing-odo',$event.target.value)" @keydown="nextField"><b>km</b></div></label>
-        <label>Total shift revenue<div class="input-unit"><b>₹</b><input :value="shiftRevenue" type="number" inputmode="numeric" enterkeyhint="done" min="0" autocomplete="off" @input="emit('update:shift-revenue',$event.target.value)" @keydown="nextField"></div></label>
+        <label>Closing odometer<div class="input-unit"><input :value="closingOdo" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" @input="emit('update:closing-odo',$event.target.value)"><b>km</b></div></label>
+        <label>Total shift revenue<div class="input-unit"><b>₹</b><input :value="shiftRevenue" type="number" inputmode="numeric" enterkeyhint="done" min="0" autocomplete="off" @input="emit('update:shift-revenue',$event.target.value)"></div></label>
         <button class="primary-action" @click="emit('action','close-end')">CONTINUE</button>
       </template>
       <template v-else-if="endStage==='RECONCILE'">
-        <div v-if="endMissing.length" class="exception-panel"><span class="eyebrow">OPTIONAL DETAIL</span><h3>Trip fares not entered</h3><p>You can continue. End Shift revenue remains authoritative.</p><div v-for="trip in endMissing" :key="trip.id" class="reconcile-row"><div><strong>{{ trip.operator }}</strong><span>{{ Number(trip.tripKm||0).toFixed(1) }} km</span></div><div class="input-unit compact"><b>₹</b><input :value="reviewRevenue[trip.id]" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" @input="updateMap('review-revenue',reviewRevenue,trip.id,$event.target.value)" @keydown="nextField"></div></div></div>
+        <div v-if="endMissing.length" class="exception-panel"><span class="eyebrow">OPTIONAL DETAIL</span><h3>Trip fares not entered</h3><p>You can continue. End Shift revenue remains authoritative.</p><div v-for="trip in endMissing" :key="trip.id" class="reconcile-row"><div><strong>{{ trip.operator }}</strong><span>{{ Number(trip.tripKm||0).toFixed(1) }} km</span></div><div class="input-unit compact"><b>₹</b><input :value="reviewRevenue[trip.id]" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" @input="updateMap('review-revenue',reviewRevenue,trip.id,$event.target.value)"></div></div></div>
         <div v-else class="success-panel"><strong>ALL REVENUE CAPTURED</strong><span>No missing trip revenue exceptions.</span></div>
         <div class="fact-grid"><div><span>Shift revenue</span><strong>{{ money(shiftRevenue) }}</strong></div><div><span>Trip revenue</span><strong>{{ money(endPreview?.tripRevenue) }}</strong></div></div>
         <button class="primary-action" @click="emit('action','continue-reconcile')">CONTINUE</button>
