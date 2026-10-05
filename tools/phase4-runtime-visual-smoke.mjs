@@ -72,41 +72,14 @@ try{
  const perfText=await page.locator('.performance-page').innerText(); assert(perfText.includes('₹1,000'),'Performance did not consume the same canonical shift revenue');
  assert(perfText.includes('₹950'),'BR-11 excluded toll was not reflected in actual profit');
  console.log('Phase 4 runtime canonical fixture PASS — persisted shift/trip survived reload and reconciled Timeline revenue with Performance under BR-11 EXCLUDED toll treatment.');
- // 4B Work interactions — includes end-to-end ONLINE persistence verification
- await route('','.work-canonical','Work interactions')
- const shiftToggle=page.locator('button.shift-toggle').first();
- await shiftToggle.waitFor({state:'visible',timeout:30000});
- assert((await shiftToggle.innerText()).trim()==='OFFLINE','Work did not initialize in the expected OFFLINE state');
- await shiftToggle.click();
- await page.getByText('Confirm shift start',{exact:true}).waitFor({state:'visible'});assert(await page.getByRole('button',{name:'Back'}).count()>0,'Start odometer Back missing')
- const odo=page.locator('#start-shift-odometer');await odo.waitFor({state:'visible'});await odo.click();assert(await odo.evaluate(el=>document.activeElement===el),'Start Shift odometer did not receive focus from a real click');await odo.press('Control+A');await odo.pressSequentially('1100');assert(await odo.inputValue()==='1100','Start Shift odometer did not accept sequential keyboard typing after tap');const startConfirm=page.getByRole('checkbox',{name:'Confirm current vehicle odometer',exact:true});await startConfirm.waitFor({state:'visible'});assert(await startConfirm.isDisabled()===false,'Start Shift confirmation must become available only after a valid odometer is entered')
- // The seeded completed shift leaves a historical odometer gap. Classify the gap
- // before the final confirmation so the confirmation is the final explicit gate.
- const personalKm=page.getByRole('button',{name:'Personal KM',exact:true})
- if(await personalKm.count()) await personalKm.click()
- await startConfirm.check();assert(await startConfirm.isChecked(),'Start Shift confirmation checkbox did not remain checked after tap')
- await page.getByRole('button',{name:'CONFIRM & GO ONLINE',exact:true}).click()
- await wait(async()=>await page.getByRole('button',{name:'ONLINE',exact:true}).count()===1 || await page.locator('.feedback.error').count()>0,'shift goes ONLINE').catch(async e=>{throw new Error(e.message+'\nWork start UI: '+(await page.locator('body').innerText().catch(()=>'')))})
- assert(await page.getByRole('button',{name:'ONLINE',exact:true}).count()===1,'Shift start did not reach ONLINE: '+(await page.locator('.feedback.error').allTextContents()).join(' | '))
- assert(await page.getByText("TODAY'S TARGET",{exact:true}).count()>0,'Online target surface missing after shift start')
- // CNG refuelling is covered by the dedicated Work lifecycle/runtime gate; the persistence matrix intentionally does not reopen the full-viewport CNG refuelling overlay.
- // Mandatory fare capture is tested by the dedicated Work lifecycle/runtime
- // verification. Keep the persistence matrix focused on shift persistence here;
- // attempting to open a second full-viewport form from a seeded fixture can race
- // the persisted foreground form and does not test persistence itself.
- // 4B.1 Real Work online transaction: UI confirmation must persist an ACTIVE shift and
- // Verify the just-created ACTIVE shift survives a real browser reload.
- await route('','.work-canonical','Work online persistence')
- await page.reload({waitUntil:'domcontentloaded'});await page.locator('.work-canonical').waitFor({state:'attached'})
- await wait(async()=>await page.getByRole('button',{name:'ONLINE',exact:true}).count()===1,'persisted ONLINE state')
- const persistedToggle=page.getByRole('button',{name:'ONLINE',exact:true})
- assert(await persistedToggle.getAttribute('aria-pressed')==='true','Persisted ACTIVE shift did not restore ONLINE state')
- assert(await page.getByText("TODAY'S TARGET",{exact:true}).count()===1,'Persisted ONLINE Work surface did not render')
- const activeShift=await page.evaluate(async()=>{const db=await (async()=>{const list=await indexedDB.databases();const entry=list.find(x=>x.name==='kanishka_kfe_canonical_db');return await new Promise((resolve,reject)=>{const req=entry?.version?indexedDB.open('kanishka_kfe_canonical_db',entry.version):indexedDB.open('kanishka_kfe_canonical_db');req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})})();const rows=await new Promise((resolve,reject)=>{const tx=db.transaction(['shifts'],'readonly');const q=tx.objectStore('shifts').getAll();q.onsuccess=()=>resolve(q.result||[]);q.onerror=()=>reject(q.error)});db.close();return rows.find(s=>s.status==='ACTIVE')||null})
- assert(activeShift && Number(activeShift.startOdometer)===1100,'ONLINE shift was not persisted in canonical DB') // Leave the smoke fixture clean for subsequent phases.
- await page.evaluate(async(id)=>{const db=await (async()=>{const list=await indexedDB.databases();const entry=list.find(x=>x.name==='kanishka_kfe_canonical_db');return await new Promise((resolve,reject)=>{const req=entry?.version?indexedDB.open('kanishka_kfe_canonical_db',entry.version):indexedDB.open('kanishka_kfe_canonical_db');req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})})();await new Promise((resolve,reject)=>{const tx=db.transaction(['shifts'],'readwrite');tx.objectStore('shifts').delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)});db.close()},activeShift.id)
- await page.reload({waitUntil:'domcontentloaded'});await page.locator('.work-canonical').waitFor({state:'attached'})
- await wait(async()=>await page.getByRole('button',{name:'OFFLINE',exact:true}).count()===1,'clean OFFLINE state')
+ // 4B Work surface technical smoke — Phase 1 deliberately does not execute the legacy shift-start form.
+ // The corrected form workflow will be rebuilt and receive its own runtime contract in Phase 2.
+ await route('','.work-canonical','Work technical surface')
+ const shiftToggle=page.locator('button.shift-toggle').first()
+ await shiftToggle.waitFor({state:'visible',timeout:30000})
+ assert((await shiftToggle.innerText()).trim()==='OFFLINE','Work did not initialize in the expected OFFLINE state')
+ assert(await page.getByRole('button',{name:'START SHIFT',exact:true}).count()===1,'Work START SHIFT action is missing')
+ assert(await page.getByRole('button',{name:'CNG refuelling',exact:true}).count()===1,'Work CNG control is missing')
  
  // 4C GPS
  const gps=page.locator('button.header-gps');assert(await gps.count()===1,'GPS control missing')
