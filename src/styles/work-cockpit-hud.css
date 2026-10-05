@@ -73,8 +73,8 @@
 
 
 /* Work contextual fare surface: keep the completed-trip action usable without page scroll. */
-.fare-context-form{position:fixed;left:50%;bottom:max(64px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:30;width:min(calc(100vw - 20px),520px);box-sizing:border-box;max-height:calc(100vh - 150px);padding:12px;overflow:hidden;box-shadow:0 16px 42px color-mix(in srgb,var(--kfe-ui-text) 18%,transparent)}
-.fare-context-form .gate-head{margin-bottom:6px}
+.fare-context-form{display:grid;gap:3px;position:fixed;left:50%;bottom:max(64px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:30;width:min(calc(100vw - 20px),520px);box-sizing:border-box;max-height:none;padding:9px;overflow:visible;box-shadow:0 16px 42px color-mix(in srgb,var(--kfe-ui-text) 18%,transparent)}
+.fare-context-form .gate-head{margin-bottom:2px}.fare-context-form .optional-label{font-size:.7rem}.fare-context-form .fact-grid.two{min-height:0}
 .fare-context-form .fact-grid.two{gap:6px;margin:4px 0 6px}
 .fare-context-form label{margin:4px 0}
 .fare-context-form .input-unit{min-height:42px}
