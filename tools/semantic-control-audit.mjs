@@ -298,7 +298,7 @@ try {
   await reset(page)
   await page.getByRole('button', { name: 'CNG refuelling', exact: true }).click()
   await assertContextualViewport('.contextual-form.focus-surface', 'Fuel form')
-  const fuelOdo = page.getByLabel('Odometer')
+  const fuelOdo = page.getByRole('spinbutton', { name: 'Odometer', exact: true })
   const fuelPrice = page.getByLabel('Price / kg')
   const fuelAmount = page.getByLabel('Amount')
   await assertInputContract(fuelOdo, { inputmode: 'numeric', enterkeyhint: 'next' })
