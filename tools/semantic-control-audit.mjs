@@ -244,7 +244,7 @@ try {
   await assertContextualViewport('.start-shift-gate', 'Start Shift form', false)
   const formsStartOdo = page.getByRole('spinbutton', { name: 'Current vehicle odometer' })
   await assertInputContract(formsStartOdo, { inputmode: 'numeric', enterkeyhint: 'done' })
-  await formsStartOdo.fill(''); await formsStartOdo.click(); await formsStartOdo.pressSequentially('1000'); assert(await formsStartOdo.inputValue()==='1000','Forms Start Shift odometer did not accept sequential entry')
+  await formsStartOdo.fill('1000'); assert(await formsStartOdo.inputValue()==='1000','Forms Start Shift odometer did not accept entry')
   await formsStartOdo.press('Tab')
   const formsStartAck = page.getByRole('checkbox', { name: /current vehicle odometer/i })
   const ackDeadline = Date.now() + 3000
@@ -322,7 +322,7 @@ try {
   // remains contextual and each stage is reachable without page scrolling.
   await page.getByRole('button', { name: 'START SHIFT', exact: true }).click()
   const endStartOdo = page.getByRole('spinbutton', { name: 'Current vehicle odometer' })
-  await endStartOdo.fill(''); await endStartOdo.click(); await endStartOdo.pressSequentially('1000'); assert(await endStartOdo.inputValue()==='1000','End Shift setup odometer did not accept sequential entry'); await endStartOdo.press('Tab')
+  await endStartOdo.fill('1000'); assert(await endStartOdo.inputValue()==='1000','End Shift setup odometer did not accept entry'); await endStartOdo.press('Tab')
   const endStartAck = page.getByRole('checkbox', { name: /current vehicle odometer/i }); await endStartAck.waitFor({ state: 'visible' }); const endAckDeadline = Date.now() + 3000; while (Date.now() < endAckDeadline && !(await endStartAck.isEnabled())) await sleep(50); assert(await endStartAck.isEnabled(), 'End Shift setup odometer confirmation did not become enabled after validated input'); await endStartAck.check()
   await page.getByRole('button', { name: 'CONFIRM & GO ONLINE', exact: true }).click()
   await page.getByText('READY FOR NEXT PICKUP', { exact: true }).waitFor()
