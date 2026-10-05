@@ -3,6 +3,6 @@
 .kfe-financial-options button { min-height: 58px; padding: 0 1rem; border: 1px solid var(--kfe-border); border-radius: 14px; background: var(--kfe-surface); display: flex; align-items: center; justify-content: space-between; font: inherit; text-align: left; cursor: pointer; }
 .kfe-financial-detail { margin-top: 1rem; }
 .kfe-financial-breakdown { display: grid; gap: .75rem; margin-top: 1.25rem; }
-.kfe-financial-breakdown > div { padding: 1rem; border: 1px solid var(--kfe-border, #d9dde5); border-radius: 14px; background: var(--kfe-surface, #fff); display: grid; gap: .3rem; }
+.kfe-financial-breakdown > div { padding: 1rem; border: 1px solid var(--kfe-border); border-radius: 14px; background: var(--kfe-surface); display: grid; gap: .3rem; }
 .kfe-financial-breakdown span { font-size: .78rem; opacity: .7; text-transform: uppercase; letter-spacing: .06em; }
 .kfe-financial-breakdown strong { font-size: 1rem; }
