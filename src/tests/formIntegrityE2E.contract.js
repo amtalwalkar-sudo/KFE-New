@@ -26,11 +26,11 @@ const assertHas = (source, pattern, message) => assert.match(source, pattern, me
 
 assertHas(work, /await store\.startShift\(startOdo\.value,/, 'Start Shift form must commit through the shift store')
 assertHas(shiftStore, /const startShift = async/, 'Shift store must own Start Shift state transition')
-assertHas(workService, /async startShift\\(data\\)[\\s\\S]*ShiftTripRepository\\.createShift/, 'Start Shift must persist through WorkService to the canonical shift repository')
+assertHas(workService, /async startShift\(data\)[\s\S]*ShiftTripRepository\.createShift/, 'Start Shift must persist through WorkService to the canonical shift repository')
 assertHas(workRepo, /createShift\(data\)/, 'Shift repository must own canonical shift persistence')
 
 assertHas(work, /await store\.updateTrip\(details\)/, 'Fare save must commit through the shift store')
-assertHas(workService, /async updateTrip\\(data\\)[\\s\\S]*ShiftTripRepository\\.updateTrip/, 'Fare/trip correction must reach the canonical trip repository')
+assertHas(workService, /async updateTrip\(data\)[\s\S]*ShiftTripRepository\.updateTrip/, 'Fare/trip correction must reach the canonical trip repository')
 assertHas(work, /fareDetailsSkipped: fare\.value === ''/, 'Fare skip must be an explicit persisted terminal flag')
 assertHas(work, /await store\.updateTrip\(\{ id: pendingFare\.value\.id, fareDetailsSkipped: true \}\)/, 'Skip must update the exact completed trip and not create a blank record')
 assertHas(work, /function openCancel\(\)/, 'Cancellation form must have an explicit open path')
