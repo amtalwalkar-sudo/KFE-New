@@ -116,7 +116,7 @@ const handleFinalCommit = async () => {
 
 <template>
   <div class="reconcile-overlay">
-    <div class="reconcile-card">
+    <div class="reconcile-card" role="dialog" aria-modal="true" data-kfe-form-surface="true" data-form-type="shift">
       <header class="card-header">
         <h2>🏁 End Shift Reconciliation</h2>
         <button class="close-btn" @click="emit('close')">✕</button>
@@ -132,7 +132,7 @@ const handleFinalCommit = async () => {
             </div>
             <div class="input-box">
               <label for="endOdo">End Meter (km)</label>
-              <input id="endOdo" v-model.number="endOdometer" type="number" step="1" placeholder="e.g. 10150" />
+              <input id="endOdo" v-model.number="endOdometer" type="number" inputmode="numeric" enterkeyhint="next" step="1" placeholder="e.g. 10150" />
             </div>
           </div>
           <div class="metric-banner">
@@ -148,7 +148,7 @@ const handleFinalCommit = async () => {
           </div>
           <div class="input-box full-width">
             <label for="finalRev">Final Reconciled Revenue (₹)</label>
-            <input id="finalRev" v-model.number="finalRevenue" type="number" step="10" @input="onRevenueInput" placeholder="Total cash + digital" />
+            <input id="finalRev" v-model.number="finalRevenue" type="number" inputmode="numeric" enterkeyhint="done" step="10" @input="onRevenueInput" placeholder="Total cash + digital" />
           </div>
         </section>
 
