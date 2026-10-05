@@ -440,7 +440,7 @@ async function toggleFuel() {
 }
 
 function handleFormEnter(event) {
-  if (event.isComposing || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return
+  if (event.key !== 'Enter' || event.isComposing || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return
   const field = event.target
   if (!field || field.tagName === 'TEXTAREA' || field.type === 'checkbox') return
   event.preventDefault()
