@@ -244,7 +244,7 @@ try {
   await assertContextualViewport('.start-shift-gate', 'Start Shift form', false)
   const formsStartOdo = page.getByRole('spinbutton', { name: 'Current vehicle odometer' })
   await assertInputContract(formsStartOdo, { inputmode: 'numeric', enterkeyhint: 'done' })
-  await formsStartOdo.click(); await formsStartOdo.pressSequentially('1000')
+  await formsStartOdo.click(); await formsStartOdo.press('Control+A'); await formsStartOdo.pressSequentially('1000'); assert(await formsStartOdo.inputValue()==='1000','Forms Start Shift odometer was not replaced')
   await formsStartOdo.press('Tab')
   const formsStartAck = page.getByRole('checkbox', { name: /current vehicle odometer/i })
   const ackDeadline = Date.now() + 3000
