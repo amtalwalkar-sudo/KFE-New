@@ -58,3 +58,25 @@
 .work-canonical .work-fixed-action{position:fixed;z-index:40;left:0;right:0;bottom:calc(var(--kfe-shell-nav) + env(safe-area-inset-bottom,0px) + 8px);width:auto;margin:0;padding:0 10px;transform:none;}
 .work-canonical .work-main{padding-bottom:calc(var(--kfe-shell-nav) + 116px);}
 @media(max-width:600px){.work-canonical .work-fixed-action{left:0;right:0;width:auto;bottom:calc(var(--kfe-shell-nav) + env(safe-area-inset-bottom,0px) + 6px);padding:0 10px;}.work-canonical .work-main{padding-bottom:calc(var(--kfe-shell-nav) + 112px);}}
+.work-canonical .offline-state.contextual-context{min-height:0;padding:8px 12px;gap:4px}
+.work-canonical .offline-state.contextual-context .state-mark{display:none}
+.work-canonical .offline-state.contextual-context p{margin:0;font-size:.7rem}
+.work-canonical .offline-state.contextual-context strong{font-size:1rem}
+/* Work contextual form shell: shared presentation styling kept outside the view. */
+.contextual-form-shell{position:relative}
+.contextual-form{width:100%;box-sizing:border-box;animation:contextual-form-in 140ms ease-out}
+@keyframes contextual-form-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}@keyframes contextual-form-fare-in{from{opacity:0}to{opacity:1}}
+.contextual-form .gate-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.contextual-form .gate-head>div{min-width:0}
+.contextual-form input,.contextual-form select,.contextual-form button{max-width:100%}
+@media(max-width:600px){.contextual-form{margin-top:.75rem;padding-bottom:max(.5rem,env(safe-area-inset-bottom))}}
+
+
+/* Work contextual fare surface: keep the completed-trip action usable without page scroll. */
+.fare-context-form{display:grid;grid-template-columns:1fr 1fr;gap:3px;position:relative;animation:contextual-form-fare-in 140ms ease-out;z-index:30;width:100%;box-sizing:border-box;max-height:none;padding:9px;overflow:visible;box-shadow:0 16px 42px color-mix(in srgb,var(--kfe-ui-text) 18%,transparent)}
+.fare-context-form .gate-head,.fare-context-form .primary-action{grid-column:1/-1}.fare-context-form .gate-head{margin-bottom:2px}.fare-context-form .optional-label{font-size:.7rem}.fare-context-form .fact-grid.two{min-height:0}
+.fare-context-form .fact-grid.two{gap:6px;margin:4px 0 6px}
+.fare-context-form label{margin:4px 0}
+.fare-context-form .input-unit{min-height:42px}
+.fare-context-form .primary-action,.fare-context-form .secondary-action{min-height:42px;margin-top:6px}
+@media(max-width:600px){.fare-context-form{padding:10px}.fare-context-form .gate-head{gap:6px}.fare-context-form .fact-grid.two{font-size:.86rem}.fare-context-form label{font-size:.86rem}}

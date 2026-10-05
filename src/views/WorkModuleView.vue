@@ -440,7 +440,7 @@ async function toggleFuel() {
 }
 
 function handleFormEnter(event) {
-  if (event.isComposing || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return
+  if (event.key !== 'Enter' || event.isComposing || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return
   const field = event.target
   if (!field || field.tagName === 'TEXTAREA' || field.type === 'checkbox') return
   event.preventDefault()
@@ -771,8 +771,8 @@ onBeforeUnmount(() => {
       </template>
     </section>
 
-    <section v-if="!store.isOnline" class="offline-state state-tone-neutral">
-      <div class="state-mark" aria-hidden="true">○</div><span class="eyebrow">CURRENT STATE</span><strong>OFFLINE</strong><p>Shift is not active.</p><button class="primary-action" @click="openStart">START SHIFT</button>
+    <section v-if="!store.isOnline" class="offline-state state-tone-neutral" :class="{ 'contextual-context': startOpen || fuelOpen }">
+      <div class="state-mark" aria-hidden="true">○</div><span class="eyebrow">CURRENT STATE</span><strong>OFFLINE</strong><p>Shift is not active.</p><button v-if="!startOpen && !fuelOpen" class="primary-action" @click="openStart">START SHIFT</button>
     </section>
 
     <template v-if="store.isOnline">
@@ -805,14 +805,12 @@ onBeforeUnmount(() => {
       </section>
     </template>
 
-    <section v-if="pendingFare && !endOpen && !cancelOpen && !fuelOpen" class="contextual-form focus-surface state-tone-warning">
+    <section v-if="pendingFare && !endOpen && !cancelOpen && !fuelOpen" class="contextual-form focus-surface fare-context-form state-tone-warning">
       <div class="gate-head"><div><span class="eyebrow">OPTIONAL DETAILS</span><strong>TRIP COMPLETED</strong></div><button class="text-action" type="button" @click="skipTripDetails">Skip</button></div>
-      <div class="fact-grid two"><div><span>Operator</span><strong>{{ pendingFare.operator }}</strong></div><div><span>Trip KM</span><strong>{{ Number(pendingFare.tripKm||0).toFixed(1) }} km</strong></div></div>
       <label>Trip fare <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input v-model="fare" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" @keydown="handleFormEnter"></div></label>
       <label>Toll <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input v-model="tripToll" type="number" inputmode="numeric" enterkeyhint="next" min="0" autocomplete="off" @keydown="handleFormEnter"></div></label>
       <label>Parking <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input v-model="tripParking" type="number" inputmode="numeric" enterkeyhint="done" min="0" autocomplete="off" @keydown="handleFormEnter"></div></label>
       <button class="primary-action" :disabled="fareBusy" @click="saveFare">{{ fareBusy ? 'SAVING…' : 'SAVE DETAILS & CONTINUE' }}</button>
-      <button class="secondary-action" type="button" @click="skipTripDetails">SKIP DETAILS</button>
     </section>
 
     <section v-if="cancelOpen" class="contextual-form focus-surface state-tone-warning">
@@ -837,13 +835,3 @@ onBeforeUnmount(() => {
   </main>
 </div>
 </template>
-
-<style scoped>
-.contextual-form-shell{position:relative}
-.contextual-form{width:100%;box-sizing:border-box;animation:contextual-form-in 140ms ease-out}
-@keyframes contextual-form-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
-.contextual-form .gate-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.contextual-form .gate-head>div{min-width:0}
-.contextual-form input,.contextual-form select,.contextual-form button{max-width:100%}
-@media(max-width:600px){.contextual-form{margin-top:.75rem;padding-bottom:max(.5rem,env(safe-area-inset-bottom))}}
-</style>
