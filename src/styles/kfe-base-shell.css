@@ -61,7 +61,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .kfe-button,.primary-action{min-height:48px;border-radius:9px}
 
 /* Modal/sheet baseline */
-.modal-backdrop{background:rgba(0,0,0,.38)!important}
+.modal-backdrop{background:color-mix(in srgb,var(--kfe-ui-text) 38%,transparent)!important}
 .modal-card{background:var(--kfe-base-surface)!important;color:var(--kfe-base-text)!important;border:1px solid var(--kfe-base-border)!important;border-radius:14px!important;box-shadow:none!important}
 
 /* Work cockpit baseline: do not change mechanics or state semantics. */
