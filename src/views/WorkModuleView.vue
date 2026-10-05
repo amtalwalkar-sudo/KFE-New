@@ -771,7 +771,7 @@ onBeforeUnmount(() => {
       </template>
     </section>
 
-    <section v-if="!store.isOnline" class="offline-state state-tone-neutral">
+    <section v-if="!store.isOnline" class="offline-state state-tone-neutral" :class="{ 'contextual-context': startOpen || fuelOpen }">
       <div class="state-mark" aria-hidden="true">○</div><span class="eyebrow">CURRENT STATE</span><strong>OFFLINE</strong><p>Shift is not active.</p><button v-if="!startOpen && !fuelOpen" class="primary-action" @click="openStart">START SHIFT</button>
     </section>
 
