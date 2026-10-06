@@ -143,7 +143,10 @@ const numericLabel = name => {
 }
 const numericPress = token => {
   const field = activeNumeric.value
-  if (!field) return
+  if (!field || typeof field !== 'object') {
+    activeNumericField.value = null
+    return
+  }
   let next = field.value
   if (token === 'CLEAR') next = ''
   else if (token === 'BACK') next = next.slice(0, -1)
@@ -293,7 +296,7 @@ const updateMap = (name, map, id, value) => {
           <button v-for="key in ['1','2','3','4','5','6','7','8','9','CLEAR','0','BACK']" :key="key" type="button" @click="numericPress(key)">{{ key === 'CLEAR' ? 'CLR' : key === 'BACK' ? '⌫' : key }}</button>
         </div>
         <div class="kfe-work-number-pad__actions">
-          <button v-if="activeNumeric.decimal" type="button" @click="numericPress('.')">.</button>
+          <button v-if="activeNumeric && activeNumeric.decimal" type="button" @click="numericPress('.')">.</button>
           <span v-else></span>
           <button v-if="numericNext[activeNumeric.name]" type="button" @click="numericPress('NEXT')">NEXT →</button>
           <button type="button" class="done" @click="numericPress('DONE')">DONE</button>
