@@ -171,7 +171,7 @@ const updateMap = (name, map, id, value) => {
       </div>
       <label for="start-shift-odometer">Current vehicle odometer</label>
       <div class="input-unit">
-        <input id="start-shift-odometer" :value="startOdo" type="text" inputmode="none" readonly autocomplete="off" aria-label="Current vehicle odometer" @focus="activateNumeric('start-odo')" @click="activateNumeric('start-odo')">
+        <input id="start-shift-odometer" :value="startOdo" type="number" inputmode="numeric" readonly autocomplete="off" aria-label="Current vehicle odometer" @focus="activateNumeric('start-odo')" @click="activateNumeric('start-odo')">
         <b>km</b>
       </div>
       <label class="check-row">
@@ -190,9 +190,9 @@ const updateMap = (name, map, id, value) => {
 
     <form v-else-if="type === 'fare'" class="form-card state-tone-warning focus-surface" @submit.prevent="submitForm">
       <div class="form-head"><div><span class="eyebrow">TRIP COMPLETED</span><strong>OPTIONAL DETAILS</strong></div><button class="text-action" type="button" @click="emit('action','skip-fare')">Skip</button></div>
-      <label>Trip fare <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="fare" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('fare')" @click="activateNumeric('fare')"></div></label>
-      <label>Toll <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="tripToll" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('trip-toll')" @click="activateNumeric('trip-toll')"></div></label>
-      <label>Parking <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="tripParking" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('trip-parking')" @click="activateNumeric('trip-parking')"></div></label>
+      <label>Trip fare <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="fare" type="number" inputmode="numeric" readonly autocomplete="off" @focus="activateNumeric('fare')" @click="activateNumeric('fare')"></div></label>
+      <label>Toll <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="tripToll" type="number" inputmode="numeric" readonly autocomplete="off" @focus="activateNumeric('trip-toll')" @click="activateNumeric('trip-toll')"></div></label>
+      <label>Parking <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="tripParking" type="number" inputmode="numeric" readonly autocomplete="off" @focus="activateNumeric('trip-parking')" @click="activateNumeric('trip-parking')"></div></label>
       <button type="submit" class="primary-action" :disabled="fareBusy">{{ fareBusy ? 'SAVING…' : 'SAVE DETAILS & CONTINUE' }}</button>
     </form>
 
@@ -202,15 +202,15 @@ const updateMap = (name, map, id, value) => {
         <button type="button" :class="{selected:cancelReason==='PASSENGER'}" @click="emit('update:cancel-reason','PASSENGER')">Passenger cancellation</button>
         <button type="button" :class="{selected:cancelReason==='DRIVER'}" @click="emit('update:cancel-reason','DRIVER')">Driver cancellation</button>
       </div></div>
-      <label>Cancellation fee<div class="input-unit"><b>₹</b><input :value="cancelFare" type="text" inputmode="none" readonly required autocomplete="off" @focus="activateNumeric('cancel-fare')" @click="activateNumeric('cancel-fare')"></div></label>
+      <label>Cancellation fee<div class="input-unit"><b>₹</b><input :value="cancelFare" type="number" inputmode="numeric" readonly required autocomplete="off" @focus="activateNumeric('cancel-fare')" @click="activateNumeric('cancel-fare')"></div></label>
       <button type="submit" class="primary-action" :disabled="cancelBusy">{{ cancelBusy ? 'SAVING…' : 'OK — CONFIRM CANCELLATION' }}</button>
     </form>
 
     <form v-else-if="type === 'fuel'" class="form-card state-tone-info focus-surface" @submit.prevent="submitForm">
       <div class="form-head"><div><span class="eyebrow">FUEL</span><strong>CNG REFUEL</strong></div><button class="text-action" type="button" @click="emit('action','close-fuel')">Close</button></div>
-      <label>Odometer<div class="input-unit"><input :value="fuelOdo" type="text" inputmode="none" readonly autocomplete="off" aria-label="Odometer" @focus="activateNumeric('fuel-odo')" @click="activateNumeric('fuel-odo')"><b>km</b></div></label>
-      <label>Price / kg<div class="input-unit"><b>₹</b><input :value="fuelPrice" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('fuel-price')" @click="activateNumeric('fuel-price')"></div></label>
-      <label>Amount<div class="input-unit"><b>₹</b><input :value="fuelAmount" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('fuel-amount')" @click="activateNumeric('fuel-amount')"></div></label>
+      <label>Odometer<div class="input-unit"><input :value="fuelOdo" type="number" inputmode="numeric" readonly autocomplete="off" aria-label="Odometer" @focus="activateNumeric('fuel-odo')" @click="activateNumeric('fuel-odo')"><b>km</b></div></label>
+      <label>Price / kg<div class="input-unit"><b>₹</b><input :value="fuelPrice" type="number" inputmode="numeric" readonly autocomplete="off" @focus="activateNumeric('fuel-price')" @click="activateNumeric('fuel-price')"></div></label>
+      <label>Amount<div class="input-unit"><b>₹</b><input :value="fuelAmount" type="number" inputmode="numeric" readonly autocomplete="off" @focus="activateNumeric('fuel-amount')" @click="activateNumeric('fuel-amount')"></div></label>
       <div class="calculated-value"><span>Quantity</span><strong>{{ fuelQty.valid ? fuelQty.quantityKg.toFixed(2)+' kg' : '—' }}</strong></div>
       <label class="check-row"><input :checked="fuelPartial" type="checkbox" @change="emit('update:fuel-partial',$event.target.checked)"><span>Partial fill</span></label>
       <button type="submit" class="primary-action" :disabled="fuelBusy">{{ fuelBusy ? 'SAVING…' : 'OK — SAVE FUEL' }}</button>
@@ -220,12 +220,12 @@ const updateMap = (name, map, id, value) => {
       <div class="form-head"><div><span class="eyebrow">GOING OFFLINE</span><h2>{{ endTitle }}</h2></div><button v-if="endStage==='CLOSE'" class="text-action" type="button" @click="emit('action','back-end')">Back</button></div>
       <template v-if="endStage==='CLOSE'">
         <div class="fact-line"><span>Shift started</span><strong>{{ startOdo || '—' }} km</strong></div>
-        <label>Closing odometer<div class="input-unit"><input :value="closingOdo" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('closing-odo')" @click="activateNumeric('closing-odo')"><b>km</b></div></label>
-        <label>Total shift revenue<div class="input-unit"><b>₹</b><input :value="shiftRevenue" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('shift-revenue')" @click="activateNumeric('shift-revenue')"></div></label>
+        <label>Closing odometer<div class="input-unit"><input :value="closingOdo" type="number" inputmode="numeric" readonly autocomplete="off" @focus="activateNumeric('closing-odo')" @click="activateNumeric('closing-odo')"><b>km</b></div></label>
+        <label>Total shift revenue<div class="input-unit"><b>₹</b><input :value="shiftRevenue" type="number" inputmode="numeric" readonly autocomplete="off" @focus="activateNumeric('shift-revenue')" @click="activateNumeric('shift-revenue')"></div></label>
         <button type="submit" class="primary-action">CONTINUE</button>
       </template>
       <template v-else-if="endStage==='RECONCILE'">
-        <div v-if="endMissing.length" class="exception-panel"><span class="eyebrow">OPTIONAL DETAIL</span><h3>Trip fares not entered</h3><p>You can continue. End Shift revenue remains authoritative.</p><div v-for="trip in endMissing" :key="trip.id" class="reconcile-row"><div><strong>{{ trip.operator }}</strong><span>{{ Number(trip.tripKm||0).toFixed(1) }} km</span></div><div class="input-unit compact"><b>₹</b><input :value="reviewRevenue[trip.id]" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('review-revenue:' + trip.id)" @click="activateNumeric('review-revenue:' + trip.id)"></div></div></div>
+        <div v-if="endMissing.length" class="exception-panel"><span class="eyebrow">OPTIONAL DETAIL</span><h3>Trip fares not entered</h3><p>You can continue. End Shift revenue remains authoritative.</p><div v-for="trip in endMissing" :key="trip.id" class="reconcile-row"><div><strong>{{ trip.operator }}</strong><span>{{ Number(trip.tripKm||0).toFixed(1) }} km</span></div><div class="input-unit compact"><b>₹</b><input :value="reviewRevenue[trip.id]" type="number" inputmode="numeric" readonly autocomplete="off" @focus="activateNumeric('review-revenue:' + trip.id)" @click="activateNumeric('review-revenue:' + trip.id)"></div></div></div>
         <div v-else class="success-panel"><strong>ALL REVENUE CAPTURED</strong><span>No missing trip revenue exceptions.</span></div>
         <div class="fact-grid"><div><span>Shift revenue</span><strong>{{ money(shiftRevenue) }}</strong></div><div><span>Trip revenue</span><strong>{{ money(endPreview?.tripRevenue) }}</strong></div></div>
         <button type="submit" class="primary-action">CONTINUE</button>
