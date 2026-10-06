@@ -136,6 +136,7 @@ try {
     if (action === 'NEXT') {
       assert(await pad.isVisible(), label + ' NEXT unexpectedly closed the KFE keypad')
       if (nextLabel) {
+        await sleep(50)
         const activeLabel = await pad.locator('.kfe-work-number-pad__display span').innerText()
         assert(activeLabel.trim().toLowerCase() === nextLabel.trim().toLowerCase(), nextLabel + ' was not activated by KFE NEXT navigation; active=' + activeLabel)
       }
