@@ -268,7 +268,7 @@ try {
   await reset(page)
   await page.getByRole('button', { name: 'START SHIFT', exact: true }).click()
   await assertContextualViewport('.start-shift-gate', 'Start Shift form', false)
-  const formsStartOdo = page.getByLabel('Current vehicle odometer')
+  const formsStartOdo = page.getByLabel('Current vehicle odometer', { exact: true }).first()
   await assertInputContract(formsStartOdo)
   await enterKfeNumber('Current vehicle odometer', '1000')
   const formsStartAck = page.getByRole('checkbox', { name: /current vehicle odometer/i })
