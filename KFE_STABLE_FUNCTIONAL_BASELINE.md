@@ -1,6 +1,6 @@
 # KFE Stable Functional Baseline
 
-**Status:** AUTHORITATIVE BASELINE RECORD  
+**Status:** GOVERNED BASELINE RECORD  
 **Role:** Top-level stable starting-point record; not a replacement for any domain authority.  
 **Repository:** `amtalwalkar-sudo/KFE-New`  
 **Baseline implementation reference:** `713d1cbe042c93a47fdba2b9ff00b59498211b6c`  
