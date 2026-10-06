@@ -11,7 +11,8 @@
     "test": "node src/tests/runAllContracts.js",
     "ui:impact": "node tools/presentation-impact.mjs",
     "ui:preflight": "node tools/ui-isolation-gate.mjs",
-    "ui:theme-audit": "node tools/theme-compliance-audit.mjs"
+    "ui:theme-audit": "node tools/theme-compliance-audit.mjs",
+    "ui:native-swipe-parity": "node tools/native-swipe-visual-parity-audit.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.1",
