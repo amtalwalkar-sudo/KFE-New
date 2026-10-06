@@ -126,8 +126,9 @@ The visible viewport is a runtime constraint, not a fixed design mock. Layout mu
 Rules:
 - Use safe-area-aware shell padding and a single documented viewport sizing strategy.
 - Do not use fixed heights that hide required controls on short devices.
-- When the native keyboard opens, treat the reduced visible area as the active viewport.
-- Use the platform's native text/numeric keyboard and correct input type. Do not introduce a custom numeric keypad without a separately approved product decision.
+- When KFE's form-owned input surface opens, treat the reduced visible area as the active interaction viewport.
+- KFE numeric Work forms use the approved shared intelligent numpad rather than the device-native numeric keyboard. Text entry may continue to use the appropriate native text input where required.
+- The approved numpad is a form-owned input surface, not a competing application viewport system, and must preserve the active field, required action, shell chrome, and safe-area clearance.
 - The focused field, its context, required fields and the action needed to complete the active interaction must remain visible/reachable.
 - Short driver forms (fare, cancellation, fuel/refuelling, odometer/shift confirmation) are viewport-fit and non-scrolling. Reflow/reposition the surface instead of introducing scrolling solely to work around the keyboard.
 - Long exception lists may scroll when genuinely necessary.
@@ -255,7 +256,7 @@ Presentation invariants:
 - Semantic action colors are blue for GO TO PICKUP, green for START TRIP and red for END TRIP; color is supplemented with clear labels and interaction state.
 - The PWA bar and Android overlay swipe control retain equivalent gesture mechanics and command semantics, while remaining independently movable/minimizable.
 - After trip completion, required fare entry appears immediately and remains until the authoritative fare operation succeeds. Required forms preserve input on validation/persistence failure.
-- Fuel/refuelling remains a compact secondary action, not a permanently expanded block. Short driver forms use native keyboard and remain viewport-fit/non-scrolling.
+- Fuel/refuelling remains a compact secondary action, not a permanently expanded block. Short driver forms use the approved KFE input surface and remain viewport-fit/non-scrolling.
 - Driver UI does not calculate fare, trip distance, dead KM, target, fuel quantity, profit, EMI or other business figures independently.
 - The overlay/notification is a projection of persisted Work state; it must not become a separate operational state machine.
 - A visual relocation of the swipe bar is allowed; changing its command, commit threshold semantics, gesture ownership, fixed-position/safe-area contract, overlay parity or state transition is not a layout-only change and triggers a warning.
