@@ -118,7 +118,7 @@ try {
     if (decimal) assert(await input.getAttribute('aria-label'), 'Decimal KFE input must remain accessible')
   }
   const enterKfeNumber = async (label, value, { action = 'DONE', nextLabel = '' } = {}) => {
-    const input = page.getByRole('spinbutton', { name: label, exact: true }).first()
+    const input = page.locator('label').filter({ hasText: label }).locator('input[type="number"]').first()
     const pad = page.locator('.kfe-work-number-pad')
     if (!(await pad.isVisible().catch(() => false))) {
       await input.click()
