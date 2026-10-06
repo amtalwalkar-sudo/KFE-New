@@ -119,9 +119,14 @@ try {
   }
   const enterKfeNumber = async (label, value, { action = 'DONE', nextLabel = '' } = {}) => {
     const input = page.getByLabel(label).filter({ visible: true }).first()
-    await input.click()
     const pad = page.locator('.kfe-work-number-pad')
-    await pad.waitFor({ state: 'visible', timeout: 5000 })
+    if (!(await pad.isVisible().catch(() => false))) {
+      await input.click()
+      await pad.waitFor({ state: 'visible', timeout: 5000 })
+    } else {
+      const activeLabel = await pad.locator('.kfe-work-number-pad__display span').innerText()
+      assert(activeLabel === label, label + ' was not activated by KFE NEXT navigation; active=' + activeLabel)
+    }
     for (const key of String(value)) {
       const button = pad.getByRole('button', { name: key, exact: true })
       await button.click()
@@ -130,7 +135,7 @@ try {
     await pad.getByRole('button', { name: action === 'NEXT' ? 'NEXT →' : 'DONE', exact: true }).click()
     if (action === 'NEXT') {
       assert(await pad.isVisible(), label + ' NEXT unexpectedly closed the KFE keypad')
-      if (nextLabel) await pad.getByText(nextLabel, { exact: true }).waitFor({ state: 'visible', timeout: 3000 })
+      if (nextLabel) await pad.locator('.kfe-work-number-pad__display span').filter({ hasText: nextLabel }).waitFor({ state: 'visible', timeout: 3000 })
     } else {
       assert(!(await pad.isVisible()), label + ' DONE did not close the KFE keypad')
     }
