@@ -111,10 +111,29 @@ try {
       }
     }
   }
-  const assertInputContract = async (input, { inputmode, enterkeyhint }) => {
-    assert(await input.getAttribute('type') === 'number', 'Expected native number input')
-    assert(await input.getAttribute('inputmode') === inputmode, 'Expected inputmode=' + inputmode)
-    assert(await input.getAttribute('enterkeyhint') === enterkeyhint, 'Expected enterkeyhint=' + enterkeyhint)
+  const assertInputContract = async (input, { decimal = false }) => {
+    assert(await input.getAttribute('type') === 'text', 'Expected KFE keypad text input')
+    assert(await input.getAttribute('inputmode') === 'none', 'Expected inputmode=none for KFE keypad input')
+    assert(await input.getAttribute('readonly') !== null, 'KFE keypad input must be readonly to the device keyboard')
+    if (decimal) assert(await input.getAttribute('aria-label'), 'Decimal KFE input must remain accessible')
+  }
+  const enterKfeNumber = async (label, value, { action = 'DONE', nextLabel = '' } = {}) => {
+    const input = page.getByLabel(label).first()
+    await input.click()
+    const pad = page.locator('.kfe-work-number-pad')
+    await pad.waitFor({ state: 'visible', timeout: 5000 })
+    for (const key of String(value)) {
+      const button = pad.getByRole('button', { name: key, exact: true })
+      await button.click()
+    }
+    assert(await input.inputValue() === String(value), label + ' did not accept KFE keypad entry')
+    await pad.getByRole('button', { name: action === 'NEXT' ? 'NEXT →' : 'DONE', exact: true }).click()
+    if (action === 'NEXT') {
+      assert(await pad.isVisible(), label + ' NEXT unexpectedly closed the KFE keypad')
+      if (nextLabel) assert((await pad.innerText()).includes(nextLabel), label + ' NEXT did not advance to ' + nextLabel)
+    } else {
+      assert(!(await pad.isVisible()), label + ' DONE did not close the KFE keypad')
+    }
   }
   page.on('pageerror', e => errors.push(e.stack || e.message))
   page.on('requestfailed', r => { if (!r.url().startsWith('http://127.0.0.1:4176/')) errors.push('request failed: ' + r.url()) })
@@ -125,7 +144,7 @@ try {
   await page.getByRole('button', { name: 'START SHIFT', exact: true }).click()
   assert(await page.locator('.offline-state').isVisible(), 'Offline cockpit disappeared when Start Shift contextual form opened')
   assert(await page.locator('.start-shift-gate').isVisible(), 'Start Shift form did not open contextually inside Work')
-  const startOdo = page.getByRole('spinbutton', { name: 'Current vehicle odometer' }); await startOdo.fill('1000'); await startOdo.press('Tab'); assert(await startOdo.inputValue()==='1000','START SHIFT input did not accept entry')
+  await enterKfeNumber('Current vehicle odometer', '1000')
   await page.getByRole('checkbox', { name: /current vehicle odometer/i }).waitFor({ state: 'visible' }); await page.getByRole('checkbox', { name: /current vehicle odometer/i }).check()
   await page.getByRole('button', { name: 'CONFIRM & GO ONLINE', exact: true }).click()
   await page.getByText('READY FOR NEXT PICKUP', { exact: true }).waitFor()
@@ -156,9 +175,9 @@ try {
   evidence.push({ id: 'WORK.END_TRIP', result: 'PASS', expected: 'trip completes immediately and optional details do not block next pickup', persisted: { trips: state.trips.length, status: state.trips[0].status, tripStage: state.trips[0].tripStage } })
 
   // Contract 5: optional fare/toll/parking details persist without changing trip lifecycle authority.
-  const tripFare = page.getByLabel('Trip fare'); await tripFare.fill('800'); assert(await tripFare.inputValue()==='800','Trip fare did not accept entry')
-  await page.getByLabel('Toll').fill('50')
-  await page.getByLabel('Parking').fill('20')
+  await enterKfeNumber('Trip fare', '800', { action: 'NEXT', nextLabel: 'Toll' })
+  await enterKfeNumber('Toll', '50', { action: 'NEXT', nextLabel: 'Parking' })
+  await enterKfeNumber('Parking', '20')
   await page.getByRole('button', { name: 'SAVE DETAILS & CONTINUE', exact: true }).click()
   await page.getByText('Trip details saved.', { exact: true }).waitFor()
   state = await db(page, ['trips'])
@@ -205,9 +224,9 @@ try {
   await page.getByRole('button', { name: 'CNG refuelling', exact: true }).click()
   assert(await page.locator('.offline-state').isVisible(), 'Fuel context replaced the current Work context')
   assert(await page.locator('.focus-surface').filter({ hasText: 'CNG REFUEL' }).first().isVisible(), 'Fuel form did not open contextually')
-  await page.getByRole('spinbutton', { name: 'Odometer', exact: true }).fill('1000')
-  await page.getByLabel('Price / kg').fill('90')
-  await page.getByLabel('Amount').fill('900')
+  await enterKfeNumber('Odometer', '1000', { action: 'NEXT', nextLabel: 'Price / kg' })
+  await enterKfeNumber('Price / kg', '90', { action: 'NEXT', nextLabel: 'Amount' })
+  await enterKfeNumber('Amount', '900')
   await page.getByRole('button', { name: 'OK — SAVE FUEL', exact: true }).click()
   state = await db(page, ['fuel_logs'])
   assert(state.fuel_logs.length === 1 && Number(state.fuel_logs[0].odometer) === 1000, 'CNG refuel contract failed')
@@ -216,9 +235,7 @@ try {
   // Contract 9: cancellation control must persist CANCELLED and must not become a completed ride.
   await reset(page)
   await page.getByRole('button', { name: 'START SHIFT', exact: true }).click()
-  const cancelStartOdo = page.getByRole('spinbutton', { name: 'Current vehicle odometer' })
-  await cancelStartOdo.fill('1000')
-  await cancelStartOdo.press('Tab')
+  await enterKfeNumber('Current vehicle odometer', '1000')
   await page.getByRole('checkbox', { name: /current vehicle odometer/i }).check()
   await page.getByRole('button', { name: 'CONFIRM & GO ONLINE', exact: true }).click()
   await swipeAction()
@@ -226,7 +243,7 @@ try {
   await page.getByRole('button', { name: 'CANCEL TRIP', exact: true }).waitFor()
   await page.getByRole('button', { name: 'CANCEL TRIP', exact: true }).click()
   await page.getByRole('button', { name: 'Driver cancellation', exact: true }).click()
-  await page.getByLabel('Cancellation fee').fill('250')
+  await enterKfeNumber('Cancellation fee', '250')
   await page.getByRole('button', { name: 'OK — CONFIRM CANCELLATION', exact: true }).click()
   state = await db(page, ['trips'])
   assert(state.trips.length === 1 && state.trips[0].status === 'CANCELLED', 'CANCEL TRIP contract failed')
@@ -237,15 +254,14 @@ try {
   evidence.push({ id: 'WORK.CANCEL_TRIP', result: 'PASS', expected: 'CANCELLED trip excluded from completed ride count', persisted: { trips: state.trips.length, status: state.trips[0]?.status } })
 
   // Forms Contract: every Work contextual input surface must preserve its state
-  // context, use native mobile input semantics, keep controls in the viewport, and
+  // context, use the KFE-owned intelligent numeric input surface, keep controls in the viewport, and
   // commit the documented lifecycle without a hidden second step.
   await reset(page)
   await page.getByRole('button', { name: 'START SHIFT', exact: true }).click()
   await assertContextualViewport('.start-shift-gate', 'Start Shift form', false)
-  const formsStartOdo = page.getByRole('spinbutton', { name: 'Current vehicle odometer' })
-  await assertInputContract(formsStartOdo, { inputmode: 'numeric', enterkeyhint: 'done' })
-  await formsStartOdo.fill('1000'); assert(await formsStartOdo.inputValue()==='1000','Forms Start Shift odometer did not accept entry')
-  await formsStartOdo.press('Tab')
+  const formsStartOdo = page.getByLabel('Current vehicle odometer')
+  await assertInputContract(formsStartOdo)
+  await enterKfeNumber('Current vehicle odometer', '1000')
   const formsStartAck = page.getByRole('checkbox', { name: /current vehicle odometer/i })
   const ackDeadline = Date.now() + 3000
   while (Date.now() < ackDeadline && !(await formsStartAck.isEnabled())) await sleep(50)
@@ -255,37 +271,31 @@ try {
   await page.getByText('READY FOR NEXT PICKUP', { exact: true }).waitFor()
   evidence.push({ id: 'FORMS.START_SHIFT_INPUT', result: 'PASS', expected: 'contextual form + native numeric odometer + viewport-safe controls' })
 
-  // Trip details: END TRIP must expose the fare surface immediately, and Enter must
-  // advance fare -> toll -> parking -> save rather than requiring extra taps.
+  // Trip details: END TRIP must expose the fare surface immediately, and NEXT/DONE must
+  // advance fare -> toll -> parking -> save without opening the device keyboard.
   await swipeAction(); await page.getByRole('button', { name: 'START TRIP', exact: true }).waitFor()
   await swipeAction(); await page.getByRole('button', { name: 'END TRIP', exact: true }).waitFor()
   await swipeAction(); await page.getByText('TRIP COMPLETED', { exact: true }).waitFor()
   await assertContextualViewport('.contextual-form.focus-surface', 'Trip details form')
-  const fareInput = page.getByLabel('Trip fare')
-  const tripTollInput = page.getByLabel('Toll')
-  const tripParkingInput = page.getByLabel('Parking')
-  await assertInputContract(fareInput, { inputmode: 'numeric', enterkeyhint: 'next' })
-  await assertInputContract(tripTollInput, { inputmode: 'numeric', enterkeyhint: 'next' })
-  await assertInputContract(tripParkingInput, { inputmode: 'numeric', enterkeyhint: 'done' })
-  await fareInput.fill('800'); await fareInput.press('Enter')
-  assert(await tripTollInput.evaluate(el => el === document.activeElement), 'Fare Enter did not advance to Toll')
-  await tripTollInput.fill('50'); await tripTollInput.press('Enter')
-  assert(await tripParkingInput.evaluate(el => el === document.activeElement), 'Toll Enter did not advance to Parking')
-  await tripParkingInput.fill('20'); await tripParkingInput.press('Enter')
+  await assertInputContract(page.getByLabel('Trip fare'))
+  await assertInputContract(page.getByLabel('Toll'))
+  await assertInputContract(page.getByLabel('Parking'))
+  await enterKfeNumber('Trip fare', '800', { action: 'NEXT', nextLabel: 'Toll' })
+  await enterKfeNumber('Toll', '50', { action: 'NEXT', nextLabel: 'Parking' })
+  await enterKfeNumber('Parking', '20')
   await page.getByText('Trip details saved.', { exact: true }).waitFor()
   state = await db(page, ['trips'])
   assert(state.trips.length === 1 && state.trips[0].status === 'COMPLETED' && Number(state.trips[0].revenue) === 800 && Number(state.trips[0].toll) === 50 && Number(state.trips[0].parking) === 20, 'FORMS.TRIP_DETAILS keyboard commit failed: ' + JSON.stringify(state.trips[0]))
   evidence.push({ id: 'FORMS.TRIP_DETAILS_KEYBOARD', result: 'PASS', expected: 'END TRIP -> contextual fare; Enter advances all fields and final Enter saves' })
 
-  // Cancellation: reason + fee are contextual, fee uses the native numeric keyboard,
-  // and final Enter commits then returns to the ready/pickup cockpit with no stale form.
+  // Cancellation: reason + fee are contextual, the fee uses the KFE numpad,
+  // and DONE leaves the form ready to commit without a device keyboard.
   await swipeAction(); await page.getByRole('button', { name: 'START TRIP', exact: true }).waitFor()
   await page.getByRole('button', { name: 'CANCEL TRIP', exact: true }).click()
   await assertContextualViewport('.contextual-form.focus-surface', 'Cancellation form')
   await page.getByRole('button', { name: 'Driver cancellation', exact: true }).click()
-  const cancelFee = page.getByLabel('Cancellation fee')
-  await assertInputContract(cancelFee, { inputmode: 'numeric', enterkeyhint: 'done' })
-  await cancelFee.fill('250'); await cancelFee.press('Enter')
+  await assertInputContract(page.getByLabel('Cancellation fee'))
+  await enterKfeNumber('Cancellation fee', '250')
   await page.getByText('Trip cancelled.', { exact: true }).waitFor()
   assert(await page.locator('.contextual-form.focus-surface').count() === 0, 'Cancellation form remained open after commit')
   await page.getByText('READY FOR NEXT PICKUP', { exact: true }).waitFor()
@@ -294,49 +304,44 @@ try {
   evidence.push({ id: 'FORMS.CANCELLATION_KEYBOARD', result: 'PASS', expected: 'contextual cancellation commits and returns to ready/pickup context' })
 
   // Fuel: blank odometer must be rejected without mutation (fat-finger protection);
-  // Partial fill must persist explicitly and the numeric fields must chain by Enter.
+  // Partial fill must persist explicitly and the numeric fields must chain by NEXT/DONE.
   await reset(page)
   await page.getByRole('button', { name: 'CNG refuelling', exact: true }).click()
   await assertContextualViewport('.contextual-form.focus-surface', 'Fuel form')
-  const fuelOdo = page.getByRole('spinbutton', { name: 'Odometer', exact: true })
+  const fuelOdo = page.getByLabel('Odometer', { exact: true })
   const fuelPrice = page.getByLabel('Price / kg')
   const fuelAmount = page.getByLabel('Amount')
-  await assertInputContract(fuelOdo, { inputmode: 'numeric', enterkeyhint: 'next' })
-  await assertInputContract(fuelPrice, { inputmode: 'decimal', enterkeyhint: 'next' })
-  await assertInputContract(fuelAmount, { inputmode: 'numeric', enterkeyhint: 'done' })
+  await assertInputContract(fuelOdo)
+  await assertInputContract(fuelPrice, { decimal: true })
+  await assertInputContract(fuelAmount)
   await page.getByRole('button', { name: 'OK — SAVE FUEL', exact: true }).click()
   const fuelAlert = page.getByRole('alert')
   await fuelAlert.waitFor({ state: 'visible' })
   assert((await fuelAlert.innerText()).trim().length > 0, 'Blank fuel odometer did not produce visible validation feedback')
   state = await db(page, ['fuel_logs'])
   assert(state.fuel_logs.length === 0, 'Blank fuel save created a fuel record')
-  await fuelOdo.fill('1000'); await fuelOdo.press('Enter')
-  assert(await fuelPrice.evaluate(el => el === document.activeElement), 'Fuel odometer Enter did not advance')
-  await fuelPrice.fill('90'); await fuelPrice.press('Enter')
-  assert(await fuelAmount.evaluate(el => el === document.activeElement), 'Fuel price Enter did not advance')
-  await fuelAmount.fill('900'); await page.getByLabel('Partial fill').check(); await fuelAmount.press('Enter')
+  await enterKfeNumber('Odometer', '1000', { action: 'NEXT', nextLabel: 'Price / kg' })
+  await enterKfeNumber('Price / kg', '90', { action: 'NEXT', nextLabel: 'Amount' })
+  await enterKfeNumber('Amount', '900')
+  await page.getByLabel('Partial fill').check()
   await page.getByText('Fuel saved.', { exact: true }).waitFor()
   state = await db(page, ['fuel_logs'])
   assert(state.fuel_logs.length === 1 && Number(state.fuel_logs[0].odometer) === 1000 && state.fuel_logs[0].isFullTank === false, 'FORMS.FUEL partial-fill persistence failed')
   evidence.push({ id: 'FORMS.FUEL_KEYBOARD_SAFETY', result: 'PASS', expected: 'blank odometer rejected; numeric Enter chain works; Partial fill persists' })
 
   // End Shift: closing odometer -> revenue -> reconciliation -> review -> confirm
-  // remains contextual and each stage is reachable without page scrolling.
+  // remains contextual and numeric entry uses the KFE NEXT/DONE sequence.
   await page.getByRole('button', { name: 'START SHIFT', exact: true }).click()
-  const endStartOdo = page.getByRole('spinbutton', { name: 'Current vehicle odometer' })
-  await endStartOdo.fill('1000'); assert(await endStartOdo.inputValue()==='1000','End Shift setup odometer did not accept entry'); await endStartOdo.press('Tab')
+  await enterKfeNumber('Current vehicle odometer', '1000')
   const endStartAck = page.getByRole('checkbox', { name: /current vehicle odometer/i }); await endStartAck.waitFor({ state: 'visible' }); const endAckDeadline = Date.now() + 3000; while (Date.now() < endAckDeadline && !(await endStartAck.isEnabled())) await sleep(50); assert(await endStartAck.isEnabled(), 'End Shift setup odometer confirmation did not become enabled after validated input'); await endStartAck.check()
   await page.getByRole('button', { name: 'CONFIRM & GO ONLINE', exact: true }).click()
   await page.getByText('READY FOR NEXT PICKUP', { exact: true }).waitFor()
   await page.getByRole('button', { name: 'ONLINE', exact: true }).click()
   await assertContextualViewport('.end-gate', 'End Shift close form')
-  const closingInput = page.getByLabel('Closing odometer')
-  const shiftRevenueInput = page.getByLabel('Total shift revenue')
-  await assertInputContract(closingInput, { inputmode: 'numeric', enterkeyhint: 'next' })
-  await assertInputContract(shiftRevenueInput, { inputmode: 'numeric', enterkeyhint: 'done' })
-  await closingInput.fill('1100'); await closingInput.press('Enter')
-  assert(await shiftRevenueInput.evaluate(el => el === document.activeElement), 'Closing odometer Enter did not advance to shift revenue')
-  await shiftRevenueInput.fill('900'); await shiftRevenueInput.press('Enter')
+  await assertInputContract(page.getByLabel('Closing odometer'))
+  await assertInputContract(page.getByLabel('Total shift revenue'))
+  await enterKfeNumber('Closing odometer', '1100', { action: 'NEXT', nextLabel: 'Total shift revenue' })
+  await enterKfeNumber('Total shift revenue', '900')
   await page.getByText('Reconciliation', { exact: true }).waitFor()
   await assertContextualViewport('.end-gate', 'End Shift reconciliation form')
   await page.getByRole('button', { name: 'CONTINUE', exact: true }).click()
