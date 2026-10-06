@@ -130,7 +130,7 @@ try {
     await pad.getByRole('button', { name: action === 'NEXT' ? 'NEXT →' : 'DONE', exact: true }).click()
     if (action === 'NEXT') {
       assert(await pad.isVisible(), label + ' NEXT unexpectedly closed the KFE keypad')
-      if (nextLabel) assert((await pad.innerText()).includes(nextLabel), label + ' NEXT did not advance to ' + nextLabel)
+      if (nextLabel) await pad.getByText(nextLabel, { exact: true }).waitFor({ state: 'visible', timeout: 3000 })
     } else {
       assert(!(await pad.isVisible()), label + ' DONE did not close the KFE keypad')
     }
