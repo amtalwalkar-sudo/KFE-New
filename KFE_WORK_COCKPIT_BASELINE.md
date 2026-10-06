@@ -996,18 +996,18 @@ Exception states clearly identify what requires attention and provide the obviou
 
 Short multi-entry Work forms support both:
 
-1. **Direct field tapping** — the driver may tap any editable field and continue using the native keyboard.
+1. **Direct field tapping** — the driver may tap any editable field and continue using the active KFE input surface; text fields may use the native keyboard.
 2. **Native keyboard action navigation** — the keyboard provides an appropriate action such as **Next** to move focus directly to the next editable field without requiring the driver to tap it.
 
 When Next is used:
 
 - the current field is handled according to normal input/validation rules;
 - focus moves to the next meaningful editable field;
-- the native keyboard remains open;
+- the active KFE input surface remains available;
 - the newly focused field is brought into the active visible viewport;
 - no unnecessary keyboard dismissal/reopening occurs.
 
-For the final editable field, the native keyboard action should use an appropriate final action such as **Done** (or an explicitly appropriate final action where approved).
+For the final editable numeric field, the KFE input action uses **Done**.
 
 Keyboard actions must not bypass KFE's mandatory explicit-confirmation or business-rule gates.
 
@@ -1367,7 +1367,7 @@ A state is not considered interaction-complete merely because its normal path wo
 The review must also verify:
 
 - direct field tapping;
-- native keyboard navigation where applicable;
+- KFE NEXT/DONE input navigation where applicable;
 - keyboard-safe viewport;
 - back/cancel behaviour;
 - duplicate-action protection;
@@ -1392,7 +1392,7 @@ They refine the experience without changing:
 - the frozen operational state machine;
 - the authoritative swipe-bar contract;
 - the shift-level OFFLINE | ONLINE toggle;
-- the native keyboard/keyboard-safe viewport rule;
+- the KFE input-surface/keyboard-safe viewport rule;
 - the Premium Instrument visual direction;
 - the UI/UX & Shell Contract.
 
@@ -1450,7 +1450,7 @@ The implementation must support:
 
 Target and Timer remain visually important at every supported size. The dynamic operational area absorbs available space.
 
-No essential content, required field, confirmation action, swipe zone, or bottom navigation may be hidden behind another permanent region or the native keyboard.
+No essential content, required field, confirmation action, swipe zone, or bottom navigation may be hidden behind another permanent region or the KFE input surface.
 
 Normal driver operations should remain scroll-minimized. Genuine dynamic exception content may use contained/internal scrolling.
 
@@ -1484,7 +1484,7 @@ Every interactive control must have deliberate visual treatment for the states a
 
 State meaning must not depend on colour alone.
 
-Focused controls must remain clearly visible with the native keyboard open.
+Focused controls must remain clearly visible with the KFE input surface open.
 
 A committing control prevents duplicate submission without unnecessarily freezing unrelated parts of the cockpit.
 
