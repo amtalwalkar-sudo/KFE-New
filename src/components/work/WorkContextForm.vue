@@ -65,6 +65,7 @@ const emit = defineEmits([
 
 
 const activeNumericField = ref(null)
+const suppressNumericFocus = ref(false)
 const activeNumeric = computed(() => {
   const name = activeNumericField.value
   if (!name) return null
@@ -92,7 +93,13 @@ const activeNumeric = computed(() => {
   return null
 })
 const activeNumericDecimal = computed(() => activeNumeric.value?.decimal === true)
-function activateNumeric(name) { activeNumericField.value = name }
+function activateNumeric(name) {
+  if (suppressNumericFocus.value) {
+    suppressNumericFocus.value = false
+    return
+  }
+  activeNumericField.value = name
+}
 function emitNumeric(name, value) {
   const events = {
     'start-odo': 'update:start-odo',
@@ -158,6 +165,7 @@ const numericPress = async token => {
   if (token === 'DONE') {
     const finalFields = new Set(['trip-parking', 'cancel-fare', 'fuel-amount', 'shift-revenue'])
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+    suppressNumericFocus.value = true
     activeNumericField.value = null
     await nextTick()
     if (finalFields.has(field.name)) submitForm()
