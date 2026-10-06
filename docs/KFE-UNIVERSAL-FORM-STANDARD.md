@@ -22,7 +22,7 @@ These rules are non-negotiable unless the underlying architecture is intentional
 
 - No active `<form>`, input, interactive control, or submission/cancellation action may become hidden, clipped, covered, or physically unreachable.
 - Shell headers, bottom navigation, FABs, notifications, drawers, overlays, and other persistent chrome must never obscure active form content.
-- Virtual keyboards must not permanently cover the active field or required action.
+- Input surfaces must not permanently cover the active field or required action.
 - Conditional fields may appear or disappear according to business logic, but whenever a control is active it must remain reachable.
 - Parent containers must not use fixed heights or unsafe overflow behavior that clips active form content.
 - Safe-area insets and dynamic viewport behavior must be respected.
@@ -30,7 +30,7 @@ These rules are non-negotiable unless the underlying architecture is intentional
 ### Resilience
 
 - Focused controls must be brought into a usable viewport position when necessary.
-- Shared keyboard/visual-viewport handling must be reused; forms must not create competing viewport systems.
+- Shared input-surface/visual-viewport handling must be reused; forms must not create competing viewport systems. KFE numeric Work forms use the shared form-owned intelligent numpad.
 - Native constraint validation and business/domain validation must remain compatible.
 - Accessibility and usable focus behavior must not be intentionally broken by visual customization.
 
@@ -172,12 +172,12 @@ Before adding or changing a driver-facing form:
 
 1. Reuse the shared form infrastructure.
 2. Compose the form using the canonical hierarchy where applicable.
-3. Do not create a second keyboard/viewport system.
+3. Do not create a second competing input/viewport system. The shared KFE intelligent numpad is the approved numeric input surface.
 4. Do not add screen-specific bottom-clearance hacks when a shared rule can solve the issue.
 5. Preserve existing business validation and domain commands.
 6. Preserve the **Universal Form Action & Recovery Rules** contract.
 7. Mark legitimate exceptions explicitly.
-8. Verify the active form remains reachable at small viewports, with the keyboard open, with conditional fields present, and with shell chrome visible.
+8. Verify the active form remains reachable at small viewports, with the KFE input surface open, with conditional fields present, and with shell chrome visible.
 
 **Permanent principle:**
 
