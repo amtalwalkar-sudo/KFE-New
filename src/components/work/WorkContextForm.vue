@@ -157,6 +157,7 @@ const numericPress = token => {
 
   if (token === 'DONE') {
     const finalFields = new Set(['trip-parking', 'cancel-fare', 'fuel-amount', 'shift-revenue'])
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     activeNumericField.value = null
     if (finalFields.has(field.name)) submitForm()
     return
