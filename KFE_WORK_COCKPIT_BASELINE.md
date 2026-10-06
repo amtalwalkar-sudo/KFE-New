@@ -722,34 +722,42 @@ Supporting forms remain event-based and appear only when their information becom
 
 This functional foundation is frozen independently of visual styling.
 
-## 20.28 Work Native Keyboard + Keyboard-Safe Input Rule
+## 20.28 Work Intelligent Numpad + Keyboard-Safe Input Rule
 
-**FROZEN**
+**FROZEN — EXPLICIT PRODUCT CHANGE**
 
-The Work cockpit inherits the global KFE native-keyboard rule from UI/UX & Shell Contract.
+The Work cockpit uses a **KFE form-owned intelligent numeric keypad** for numeric driver entry instead of the device-native numeric keyboard.
 
-All Work text/numeric input uses the device-native keyboard and appropriate native input types. Custom numeric keypads are not permitted unless explicitly approved as a future design change.
+The keypad is an input surface owned by the active form. It must be:
 
-When the native keyboard opens, the Work layout must adapt to the reduced visible viewport.
+- fast and thumb-friendly;
+- compact enough to preserve the operational context;
+- usable without opening the device keyboard;
+- safe around the fixed bottom navigation;
+- free of unnecessary page scrolling;
+- available consistently across the PWA Work forms and future Android overlay-equivalent input surfaces.
 
-The active input and all controls required to complete the current interaction must remain accessible. Nothing required may be hidden underneath the keyboard.
+The keypad must never hide the active field, required context, calculated values, or the primary action needed to complete the current interaction.
 
-Short Work driver forms are **viewport-fit and non-scrolling** while the keyboard is open, including:
+Numeric entry uses the appropriate field semantics:
 
-- trip fare entry;
-- trip cancellation entry and confirmation;
-- CNG refuelling;
-- odometer entry;
-- shift revenue;
-- closing odometer;
-- other short numeric/text driver inputs.
+- whole-number fields remain whole-number entry;
+- decimal fields expose a decimal key;
+- correction is available through backspace and clear;
+- the final action is **DONE**;
+- multi-field sequences expose **NEXT** and advance to the next logical numeric field.
 
-The implementation may reflow, resize, reposition, or otherwise adapt the form to the keyboard-open viewport, but must not introduce form scrolling merely to work around keyboard occlusion.
+The intended efficient progression includes:
 
-Scrolling remains allowed for genuinely long dynamic content, such as a long reconciliation exception list, where scrolling is required by the amount of content rather than by keyboard handling.
+**Odometer → Price / kg → Amount → DONE**
 
-This rule is part of the frozen Work foundation and must be verified on real device/PWA keyboard-open states during implementation.
+and equivalent logical progression for other short Work forms such as fare, toll, parking, closing odometer, and shift revenue.
 
+The device-native keyboard must not be opened for these KFE numeric fields.
+
+The active form remains keyboard-safe and viewport-fit. The fixed KFE bottom navigation remains independently visible and must never be covered by the numeric keypad.
+
+This rule is part of the frozen Work foundation and must be verified on real-device/PWA interaction states.
 
 ## 20.29 Work Visual Direction — Premium Instrument
 
