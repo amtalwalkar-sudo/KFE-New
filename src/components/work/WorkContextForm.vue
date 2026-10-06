@@ -197,7 +197,7 @@ const updateMap = (name, map, id, value) => {
 .primary-action,.text-action,.choice-row button{touch-action:manipulation}
 .primary-action{min-height:48px}
 .form-card input,.form-card select,.form-card button{font:inherit}
-.form-card input{font-size:16px}.form-fare .form-card{padding:10px;gap:8px}.form-fare .form-card label{gap:4px}.form-fare .form-card .primary-action{min-height:44px}
+.form-card input{font-size:16px}.form-fare .form-card{padding:8px;gap:6px}.form-fare .form-card label{gap:2px}.form-fare .form-card .primary-action{min-height:42px}
 @keyframes work-form-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 @media(max-width:640px){.form-card{padding:12px}.form-card{max-width:100%}}
 </style>
