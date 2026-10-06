@@ -61,7 +61,7 @@ export function runNativeSwipeVisualParityAudit() {
   }
   const end = find('END_RIDE')
   const start = find('START_RIDE')
-  const pickup = action[1].match(/return dark\(\)\?Color\.rgb\(([^)]*)\):Color\.rgb\(([^)]*)\);\s*$/)
+  const pickupMatches = [...action[1].matchAll(/return dark\(\)\?Color\.rgb\(([^)]*)\):Color\.rgb\(([^)]*)\);/g)]\n  const pickup = pickupMatches.at(-1)
   if (!pickup) fail('Native GO_TO_PICKUP/default colour branch not found')
   const pickupColor = { night: pickup[1].split(',').map(Number), day: pickup[2].split(',').map(Number) }
 
