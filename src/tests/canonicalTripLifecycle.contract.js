@@ -52,7 +52,7 @@ assert(repository.includes("tripStage: normalized.tripStage || 'GOING_TO_PICKUP'
 assert(workService.includes('async startRide'), 'Work service must expose canonical START_RIDE stage transition')
 assert(workView.includes('GO TO PICKUP') && workView.includes('START TRIP') && workView.includes('END TRIP'), 'Work cockpit must expose the three frozen swipe states')
 assert(workView.includes('CANCEL TRIP'), 'Work cancellation must be available only at READY FOR TRIP')
-assert(workView.includes('TRIP COMPLETED') && workView.includes('Trip fare') && workView.includes('inputmode="numeric"'), 'Work cockpit must expose native completed-trip fare entry')
+assert(workView.includes('TRIP COMPLETED') && workView.includes('Trip fare') && workView.includes('inputmode="none"') && workView.includes('readonly'), 'Work cockpit must expose KFE-owned completed-trip fare entry')
 assert(overlay.includes('"START_RIDE".equals(actionStage)') && overlay.includes('openCancelForm()'), 'Overlay cancellation must be available only on the pre-ride START_RIDE state')
 
 console.log('✓ END_RIDE → COMPLETED → fare preserves one Trip ID')
