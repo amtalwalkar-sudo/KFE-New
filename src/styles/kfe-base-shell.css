@@ -37,10 +37,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .bottom-nav,.kfe-bottom-nav{background:var(--kfe-base-surface)!important;color:var(--kfe-base-muted)!important;border-top:1px solid var(--kfe-base-border)!important;box-shadow:none!important;min-height:var(--kfe-base-nav)}
 
 /* Work form input owns the lower interaction surface while numeric entry is active. */
-.viewport-wrapper:has(.work-context-form .kfe-work-number-pad) .bottom-nav,
-.viewport-wrapper:has(.work-context-form .kfe-work-number-pad) .kfe-bottom-nav{display:none!important}
 .viewport-wrapper:has(.work-context-form .kfe-work-number-pad) .content-scroll-area{padding-bottom:env(safe-area-inset-bottom,0px)!important}
-.work-context-form .kfe-work-number-pad{position:fixed;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);z-index:1200;margin:0 auto;width:min(520px,calc(100% - 20px));max-height:42vh;overflow:auto}
+.work-context-form .kfe-work-number-pad{position:fixed;left:10px;right:10px;bottom:calc(var(--kfe-shell-nav,76px) + env(safe-area-inset-bottom,0px) + 8px);z-index:1200;margin:0 auto;width:min(520px,calc(100% - 20px));max-height:42vh;overflow:auto}
 .nav-item,.kfe-nav-item{background:transparent!important;color:var(--kfe-base-muted)!important;border:0!important}
 .nav-item-active,.nav-item.router-link-active,.kfe-nav-item.is-active{background:var(--kfe-base-surface-2)!important;color:var(--kfe-base-text)!important;font-weight:800}
 
