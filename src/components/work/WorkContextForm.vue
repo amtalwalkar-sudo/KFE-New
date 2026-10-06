@@ -116,7 +116,32 @@ function emitNumeric(name, value) {
     emit('update:review-km', { ...props.reviewKm, [id]: value })
   }
 }
-function numericPress(token) {
+const numericLabels = {
+  'start-odo': 'Current odometer',
+  fare: 'Trip fare',
+  'trip-toll': 'Toll',
+  'trip-parking': 'Parking',
+  'cancel-fare': 'Cancellation fee',
+  'fuel-odo': 'Odometer',
+  'fuel-price': 'Price / kg',
+  'fuel-amount': 'Amount',
+  'closing-odo': 'Closing odometer',
+  'shift-revenue': 'Total shift revenue'
+}
+const numericNext = {
+  'fare': 'trip-toll',
+  'trip-toll': 'trip-parking',
+  'fuel-odo': 'fuel-price',
+  'fuel-price': 'fuel-amount',
+  'closing-odo': 'shift-revenue'
+}
+const numericLabel = name => {
+  if (numericLabels[name]) return numericLabels[name]
+  if (name.startsWith('review-revenue:')) return 'Trip revenue'
+  if (name.startsWith('review-km:')) return 'Trip KM'
+  return name.replace(/[-:]/g, ' ')
+}
+const numericPress = token => {
   const field = activeNumeric.value
   if (!field) return
   let next = field.value
@@ -124,9 +149,22 @@ function numericPress(token) {
   else if (token === 'BACK') next = next.slice(0, -1)
   else if (token === '.' && (!field.decimal || next.includes('.'))) return
   else if (token === '.' && next === '') next = '0.'
-  else if (token !== 'DONE') next += token
-  if (token !== 'DONE') emitNumeric(field.name, next)
-  else activeNumericField.value = null
+  else if (token !== 'DONE' && token !== 'NEXT') next = next === '0' ? token : next + token
+
+  if (token === 'DONE') {
+    activeNumericField.value = null
+    return
+  }
+  if (token === 'NEXT') {
+    const nextName = numericNext[field.name]
+    if (!nextName) {
+      activeNumericField.value = null
+      return
+    }
+    activeNumericField.value = nextName
+    return
+  }
+  emitNumeric(field.name, next)
 }
 
 const endTitle = computed(() => ({
@@ -246,11 +284,18 @@ const updateMap = (name, map, id, value) => {
       </template>
     </form>
 
-      <div v-if="activeNumeric" class="kfe-work-number-pad" aria-label="KFE numeric keypad">
-        <div class="kfe-work-number-pad__display"><span>{{ activeNumeric.name.split(':')[0].replace('-', ' ') }}</span><strong>{{ activeNumeric.value || '0' }}</strong></div>
+      <div v-if="activeNumeric" class="kfe-work-number-pad" aria-label="KFE intelligent numeric keypad">
+        <div class="kfe-work-number-pad__display">
+          <span>{{ numericLabel(activeNumeric.name) }}</span>
+          <strong>{{ activeNumeric.value || '0' }}</strong>
+        </div>
         <div class="kfe-work-number-pad__grid">
-          <button v-for="key in ['1','2','3','4','5','6','7','8','9','CLEAR','0','BACK']" :key="key" type="button" @click="numericPress(key)">{{ key === 'CLEAR' ? 'C' : key === 'BACK' ? '⌫' : key }}</button>
+          <button v-for="key in ['1','2','3','4','5','6','7','8','9','CLEAR','0','BACK']" :key="key" type="button" @click="numericPress(key)">{{ key === 'CLEAR' ? 'CLR' : key === 'BACK' ? '⌫' : key }}</button>
+        </div>
+        <div class="kfe-work-number-pad__actions">
           <button v-if="activeNumeric.decimal" type="button" @click="numericPress('.')">.</button>
+          <span v-else></span>
+          <button v-if="numericNext[activeNumeric.name]" type="button" @click="numericPress('NEXT')">NEXT →</button>
           <button type="button" class="done" @click="numericPress('DONE')">DONE</button>
         </div>
       </div>
@@ -277,7 +322,8 @@ const updateMap = (name, map, id, value) => {
 @media(max-width:640px){.form-card{padding:12px}.form-card{max-width:100%}}
 
 .kfe-work-number-pad{margin-top:4px;padding:8px;border:1px solid var(--kfe-ui-border);border-radius:16px;background:var(--kfe-ui-surface-2);box-shadow:0 8px 24px color-mix(in srgb,var(--kfe-ui-text) 10%,transparent)}
-.kfe-work-number-pad__display{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:4px 6px 8px}.kfe-work-number-pad__display span{font-size:.62rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--kfe-muted-text)}.kfe-work-number-pad__display strong{font-size:1.45rem;font-variant-numeric:tabular-nums}
-.kfe-work-number-pad__grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.kfe-work-number-pad__grid button{min-height:42px;border:1px solid var(--kfe-ui-border);border-radius:10px;background:var(--kfe-ui-surface);color:var(--kfe-ui-text);font-size:1rem;font-weight:900}.kfe-work-number-pad__grid button.done{grid-column:span 2;background:var(--kfe-ui-accent);color:#fff;border-color:var(--kfe-ui-accent)}
-
+.kfe-work-number-pad__display{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:4px 6px 7px}.kfe-work-number-pad__display span{font-size:.62rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--kfe-muted-text)}.kfe-work-number-pad__display strong{font-size:1.35rem;font-variant-numeric:tabular-nums}
+.kfe-work-number-pad__grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.kfe-work-number-pad__grid button,.kfe-work-number-pad__actions button{min-height:40px;border:1px solid var(--kfe-ui-border);border-radius:10px;background:var(--kfe-ui-surface);color:var(--kfe-ui-text);font-size:1rem;font-weight:900}
+.kfe-work-number-pad__grid button:nth-child(10){font-size:.68rem}.kfe-work-number-pad__actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-top:5px}.kfe-work-number-pad__actions button{font-size:.78rem}.kfe-work-number-pad__actions .done{background:var(--kfe-ui-accent);color:var(--kfe-on-accent);border-color:var(--kfe-ui-accent)}
+@media(max-width:600px){.kfe-work-number-pad{padding:7px}.kfe-work-number-pad__grid button,.kfe-work-number-pad__actions button{min-height:38px}}
 </style>
