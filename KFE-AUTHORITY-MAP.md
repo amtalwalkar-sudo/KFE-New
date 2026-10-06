@@ -17,7 +17,7 @@ When two documents appear to define the same responsibility, the authority liste
 
 | Responsibility | Sole authority | Boundary |
 |---|---|---|
-| Governance / authority map | KFE-AUTHORITY-MAP.md | This index only |
+| Governance / authority map | KFE-AUTHORITY-MAP.md | This index only |\n| Stable functional baseline | KFE_STABLE_FUNCTIONAL_BASELINE.md | Top-level stable starting-point record; references domain authorities and does not duplicate them |
 | Business meaning and business rules | KFE_BUSINESS_RULES_REGISTER.md | Rule meaning, invariants, business semantics |
 | Arithmetic and formulas | docs/KFE-CALCULATION-SPECIFICATION.md | Formula mechanics; subordinate to business meaning |
 | Architecture / ownership / layer boundaries | docs/KFE-ARCHITECTURE-CONTRACT.md | Responsibility and implementation boundaries |
