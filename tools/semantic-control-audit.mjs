@@ -135,7 +135,10 @@ try {
     await pad.getByRole('button', { name: action === 'NEXT' ? 'NEXT →' : 'DONE', exact: true }).click()
     if (action === 'NEXT') {
       assert(await pad.isVisible(), label + ' NEXT unexpectedly closed the KFE keypad')
-      if (nextLabel) await pad.locator('.kfe-work-number-pad__display span').filter({ hasText: new RegExp('^' + nextLabel + '
+      if (nextLabel) {
+        const activeLabel = await pad.locator('.kfe-work-number-pad__display span').innerText()
+        assert(activeLabel.trim().toLowerCase() === nextLabel.trim().toLowerCase(), nextLabel + ' was not activated by KFE NEXT navigation; active=' + activeLabel)
+      }
     } else {
       assert(!(await pad.isVisible()), label + ' DONE did not close the KFE keypad')
     }
