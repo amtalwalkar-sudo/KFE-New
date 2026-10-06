@@ -5,6 +5,7 @@ const props = defineProps({
   modelValue: { type: [String, Number], default: '' },
   label: { type: String, default: '' },
   ariaLabel: { type: String, default: '' },
+  inputId: { type: String, default: '' },
   decimal: { type: Boolean, default: false },
   nextFieldId: { type: String, default: '' },
   disabled: { type: Boolean, default: false },
@@ -54,6 +55,7 @@ onBeforeUnmount(() => { open.value = false })
       <span v-if="prefix" class="work-numeric-prefix" aria-hidden="true">{{ prefix }}</span>
       <input
         ref="inputRef"
+        :id="inputId || undefined"
         :value="modelValue"
         type="text"
         inputmode="none"
