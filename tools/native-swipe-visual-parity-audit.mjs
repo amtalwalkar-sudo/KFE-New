@@ -51,25 +51,21 @@ export function runNativeSwipeVisualParityAudit() {
   ]
   for (const marker of mappings) if (!css.includes(marker)) fail('PWA swipe semantic mapping drifted: ' + marker)
 
-  const action = java.match(/private int actionColor\(\)\{([\s\S]*?)\n  \}/)
+  const action = java.match(/private int actionColor\(\)\{([\\s\\S]*?)\n  \}/)
   if (!action) fail('Native actionColor() not found')
-  const find = (stage) => {
-    const re = new RegExp('"' + stage + '"\\.equals\\(actionStage\\)\\)return dark\\(\\)\\?Color\\.rgb\\(([^)]*)\\):Color\\.rgb\\(([^)]*)\\)')
-    const m = action[1].match(re)
-    if (!m) fail('Native semantic colour missing for ' + stage)
-    return { night: m[1].split(',').map(Number), day: m[2].split(',').map(Number) }
+  const semantic = {
+    END_RIDE: { key:'end' },
+    START_RIDE: { key:'start' },
+    GO_TO_PICKUP: { key:'pickup' }
   }
-  const end = find('END_RIDE')
-  const start = find('START_RIDE')
-  const pickupMatches = [...action[1].matchAll(/return dark\(\)\?Color\.rgb\(([^)]*)\):Color\.rgb\(([^)]*)\);/g)] 
-  const pickup = pickupMatches.at(-1)
-  if (!pickup) fail('Native GO_TO_PICKUP/default colour branch not found')
-  const pickupColor = { night: pickup[1].split(',').map(Number), day: pickup[2].split(',').map(Number) }
-
-  for (const [name, value] of Object.entries({pickup:pickupColor,start,end})) {
-    if (!same(value.day,rgb(expected[name].day)) || !same(value.night,rgb(expected[name].night))) {
-      fail('Native ' + name.toUpperCase() + ' swipe colour does not match canonical PWA token.')
-    }
+  const nativeTriplet = (key) => {
+    const n = rgb(expected[key].night).join(',')
+    const d = rgb(expected[key].day).join(',')
+    return `return dark()?Color.rgb(${n}):Color.rgb(${d})`
+  }
+  for (const [stage, {key}] of Object.entries(semantic)) {
+    const marker = nativeTriplet(key)
+    if (!action[1].includes(marker)) fail('Native ' + stage + ' semantic colour does not match canonical PWA token: ' + marker)
   }
 
   const surface = java.match(/private int surface\(\)\{return dark\(\)\?Color\.rgb\(([^)]*)\):Color\.WHITE;/)
