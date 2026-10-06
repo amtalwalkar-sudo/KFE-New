@@ -187,7 +187,6 @@ try {
   await enterKfeNumber('Trip fare', '800', { action: 'NEXT', nextLabel: 'Toll' })
   await enterKfeNumber('Toll', '50', { action: 'NEXT', nextLabel: 'Parking' })
   await enterKfeNumber('Parking', '20')
-  await page.getByRole('button', { name: 'SAVE DETAILS & CONTINUE', exact: true }).click()
   await page.getByText('Trip details saved.', { exact: true }).waitFor()
   state = await db(page, ['trips'])
   assert(state.trips.length === 1 && state.trips[0].status === 'COMPLETED' && Number(state.trips[0].revenue) === 800 && Number(state.trips[0].toll) === 50 && Number(state.trips[0].parking) === 20, 'SAVE TRIP DETAILS contract failed')
