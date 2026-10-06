@@ -111,7 +111,7 @@ try {
       }
     }
   }
-  const assertInputContract = async (input, { decimal = false }) => {
+  const assertInputContract = async (input, { decimal = false } = {}) => {
     assert(await input.getAttribute('type') === 'text', 'Expected KFE keypad text input')
     assert(await input.getAttribute('inputmode') === 'none', 'Expected inputmode=none for KFE keypad input')
     assert(await input.getAttribute('readonly') !== null, 'KFE keypad input must be readonly to the device keyboard')
