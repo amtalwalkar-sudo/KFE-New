@@ -51,7 +51,7 @@ export function runNativeSwipeVisualParityAudit() {
   ]
   for (const marker of mappings) if (!css.includes(marker)) fail('PWA swipe semantic mapping drifted: ' + marker)
 
-  const action = java.match(/private int actionColor\(\)\{([\\s\\S]*?)\n  \}/)
+  const action = java.match(/private int actionColor\(\)\{([\s\S]*?)\n  \}/)
   if (!action) fail('Native actionColor() not found')
   const semantic = {
     END_RIDE: { key:'end' },
