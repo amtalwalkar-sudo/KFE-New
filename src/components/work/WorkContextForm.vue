@@ -91,6 +91,7 @@ const activeNumeric = computed(() => {
   }
   return null
 })
+const activeNumericDecimal = computed(() => activeNumeric.value?.decimal === true)
 function activateNumeric(name) { activeNumericField.value = name }
 function emitNumeric(name, value) {
   const events = {
@@ -150,7 +151,7 @@ const numericPress = token => {
   let next = field.value
   if (token === 'CLEAR') next = ''
   else if (token === 'BACK') next = next.slice(0, -1)
-  else if (token === '.' && (!field.decimal || next.includes('.'))) return
+  else if (token === '.' && (!field?.decimal || next.includes('.'))) return
   else if (token === '.' && next === '') next = '0.'
   else if (token !== 'DONE' && token !== 'NEXT') next = next === '0' ? token : next + token
 
@@ -296,7 +297,7 @@ const updateMap = (name, map, id, value) => {
           <button v-for="key in ['1','2','3','4','5','6','7','8','9','CLEAR','0','BACK']" :key="key" type="button" @click="numericPress(key)">{{ key === 'CLEAR' ? 'CLR' : key === 'BACK' ? '⌫' : key }}</button>
         </div>
         <div class="kfe-work-number-pad__actions">
-          <button v-if="activeNumeric && activeNumeric.decimal" type="button" @click="numericPress('.')">.</button>
+          <button v-if="activeNumericDecimal" type="button" @click="numericPress('.')">.</button>
           <span v-else></span>
           <button v-if="numericNext[activeNumeric.name]" type="button" @click="numericPress('NEXT')">NEXT →</button>
           <button type="button" class="done" @click="numericPress('DONE')">DONE</button>
