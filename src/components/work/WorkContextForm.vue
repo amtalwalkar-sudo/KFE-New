@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 
 const props = defineProps({
   type: { type: String, required: true },
@@ -142,7 +142,7 @@ const numericLabel = name => {
   if (name.startsWith('review-km:')) return 'Trip KM'
   return name.replace(/[-:]/g, ' ')
 }
-const numericPress = token => {
+const numericPress = async token => {
   const field = activeNumeric.value
   if (!field || typeof field !== 'object') {
     activeNumericField.value = null
@@ -159,6 +159,7 @@ const numericPress = token => {
     const finalFields = new Set(['trip-parking', 'cancel-fare', 'fuel-amount', 'shift-revenue'])
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     activeNumericField.value = null
+    await nextTick()
     if (finalFields.has(field.name)) submitForm()
     return
   }
