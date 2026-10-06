@@ -156,7 +156,9 @@ const numericPress = token => {
   else if (token !== 'DONE' && token !== 'NEXT') next = next === '0' ? token : next + token
 
   if (token === 'DONE') {
+    const finalFields = new Set(['trip-parking', 'cancel-fare', 'fuel-amount', 'shift-revenue'])
     activeNumericField.value = null
+    if (finalFields.has(field.name)) submitForm()
     return
   }
   if (token === 'NEXT') {
