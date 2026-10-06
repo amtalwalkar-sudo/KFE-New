@@ -460,7 +460,7 @@ public class KfeOverlayService extends Service {
     if(overlay!=null)overlay.invalidate();
   }
 
-  private int textColor(){return dark()?Color.rgb(235,240,245):Color.rgb(23,32,42);}
+  private int textColor(){return dark()?Color.rgb(232,237,242):Color.rgb(23,32,42);}
   private int mutedColor(){return dark()?Color.rgb(170,180,191):Color.rgb(91,102,115);}
   private int actionColor(){if("END_RIDE".equals(actionStage))return dark()?Color.rgb(255,110,110):Color.rgb(198,40,40);if("START_RIDE".equals(actionStage))return dark()?Color.rgb(70,205,120):Color.rgb(22,128,60);
     if("CANCELLED".equals(actionStage)||"CANCEL_RIDE".equals(actionStage))return dark()?Color.rgb(255,190,80):Color.rgb(190,120,0);
@@ -485,7 +485,7 @@ public class KfeOverlayService extends Service {
       return String.format(java.util.Locale.US,"%02d:%02d:%02d",h,m,s);
     }
     SwipeOverlayView(Context c){super(c);setLayerType(View.LAYER_TYPE_SOFTWARE,null);}
-    private int surface(){return dark()?Color.rgb(22,29,37):Color.WHITE;}
+    private int surface(){return dark()?Color.rgb(23,30,38):Color.WHITE;}
     @Override protected void onDraw(Canvas c){
       super.onDraw(c);
       int w=getWidth(),a=actionColor();
