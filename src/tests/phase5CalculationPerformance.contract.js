@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { derivePerformance } from '../domain/performance/performanceEngineV2.js'
 import { deriveAuthoritativeDriverTarget } from '../domain/performance/driverTarget.js'
+import { deriveDailyTargetAchievement } from '../domain/performance/dailyTargetAchievement.js'
 
 const read = path => fs.readFileSync(new URL(path, import.meta.url), 'utf8')
 const engineSource = read('../domain/performance/performanceEngineV2.js')
@@ -84,8 +85,17 @@ assert.equal(missing.monthlyBreakEvenRevenue,null)
       { ...snapshot.shifts[0], id: 'future', shiftStartAt: '2026-09-10T14:00:00Z', shiftEndAt: '2026-09-10T18:00:00Z', revenue: 9000, status: 'COMPLETED' },
     ],
   }
-  const daily = await PerformanceService.getDailyTargetSnapshot(new Date('2026-09-10T10:00:00Z'))
-  assert.ok(daily.achieved <= 1000, 'Future same-day shift revenue must not enter the as-of target total.')
+  const dayRange = { from: new Date('2026-09-10T00:00:00Z'), to: new Date('2026-09-10T10:00:00Z') }
+  const daily = deriveDailyTargetAchievement({
+    shifts: snapshotAtMorning.shifts,
+    trips: [],
+    range: dayRange,
+    asOf: new Date('2026-09-10T10:00:00Z'),
+    completedShiftRevenue: 1000,
+  })
+  assert.equal(daily, 1000, 'Future same-day shift revenue must not enter the as-of target total.')
+  assert.match(serviceSource, /reportedDayRange = reportingRangeFor\('DAY', asOf\)/)
+  assert.match(serviceSource, /to: new Date\(Math\.min\(reportedDayRange\.to\.getTime\(\), new Date\(asOf\)\.getTime\(\)\)\)/)
 }
 
 // Regression: migrated shift-level toll/parking and new trip-level toll/parking
