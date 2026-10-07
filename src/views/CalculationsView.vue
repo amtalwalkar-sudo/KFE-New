@@ -137,7 +137,7 @@ onMounted(load)
   </section>
 
   <section v-if="!loading&&inputItems.length" class="input-list">
-    <div class="section-title"><strong>INCOMPLETE INPUTS</strong><span>{{inputItems.length}} remaining</span></div>
+    <div class="section-title"><strong>What needs your input</strong><span>Incomplete inputs · {{inputItems.length}} remaining</span></div>
 
     <article v-for="item in inputItems" :key="item.id" class="input-card" :class="{open:openId===item.id}">
       <button class="input-head" type="button" @click="openId===item.id?closeForm():openAdminInput(item.id)">
