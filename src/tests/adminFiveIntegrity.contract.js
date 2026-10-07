@@ -9,6 +9,10 @@ const adminService = read('../application/admin/adminService.js')
 const adminRepo = read('../repositories/adminRepository.js')
 const perfEngine = read('../domain/performance/performanceEngineV2.js')
 const adminForm = read('../components/admin/UniversalAdminForm.vue')
+const formShell = read('../components/KfeFormShell.vue')
+const formField = read('../components/KfeFormField.vue')
+const workForm = read('../components/work/WorkContextForm.vue')
+const useForm = read('../composables/useForm.js')
 
 const breakEven = getAdminFormDefinition('breakEvenInputs')
 assert.equal(breakEven.fields.some(field => field.key === 'expectedMonthlyVehicleKm'), false,
@@ -79,6 +83,11 @@ assert.match(adminForm, /const userEditing=ref\(false\)/, 'Admin form must track
 assert.match(adminForm, /if\(!userEditing\.value && valuesDiffer\(next\)\) syncValues\(next\)/, 'Admin form must not let parent model updates overwrite active user input')
 assert.match(adminForm, /userEditing\.value=true;values\[key\]=value/, 'Admin form input must mark local state as user-owned while typing')
 
+assert.doesNotMatch(formShell, /watch\(.*props\.initialValue/, 'Shared KfeFormShell must not overwrite active form state from initial props')
+assert.doesNotMatch(workForm, /watch\(.*props\..*form/, 'Work contextual form must not introduce a parent-prop watcher that resets active input')
+assert.match(formField, /emit\('update:modelValue'/, 'Shared form field must propagate user input directly')
+assert.match(useForm, /const form = reactive\(\{ \.\.\.initialState \}\)/, 'Shared useForm must own mutable local input state')
+console.log('PWA-wide form input ownership guards: PASS')
 console.log('Admin five-defect integrity contract: PASS')
 
 // CI retrigger only: preserve the reviewed cross-layer UI acknowledgement on the next PR event.
