@@ -108,7 +108,7 @@ assert.equal(missing.monthlyBreakEvenRevenue,null)
   const mixedMetrics = derivePerformance(mixed, range, previous)
   assert.equal(mixedMetrics.toll, 150)
   assert.equal(mixedMetrics.parking, 100)
-  assert.equal(mixedMetrics.operatingCost, 300 + 2200 + 150 + 100)
+  assert.equal(mixedMetrics.runningCost, 300 + 2200 + 150 + 100)
 }
 
 // Regression: fuel intervals must survive interleaved records from another vehicle.
