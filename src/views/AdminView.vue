@@ -115,18 +115,18 @@ const loanHistory=record=>{const s=performanceSnapshot.value||{};return [...live
 const sourceHistory=record=>sourcePayments(record.id).sort((a,b)=>String(b.settledOn||'').localeCompare(String(a.settledOn||'')))
 const loanSchedule=record=>{const loan=live(performanceSnapshot.value?.loans).find(x=>x.id===record.id)||record;const p=deriveLoanPosition({loan,payments:live(performanceSnapshot.value?.loanPayments),prepayments:live(performanceSnapshot.value?.prepayments),asOf:getKfeReferenceNow()});return p.overdue||[]}
 const currentMonth=computed(()=>istDateKey(getKfeReferenceNow()).slice(0,7))
-const currentMaintenanceRate=computed(()=>{const now=istDateKey(getKfeReferenceNow());return live(all.value.breakEvenInputs).filter(x=>String(x.values?.effectiveFrom||'')<=now).sort((a,b)=>String(b.values?.effectiveFrom||'').localeCompare(String(a.values?.effectiveFrom||''))||String(b.updatedAt||b.createdAt||b.id||'').localeCompare(String(a.updatedAt||a.createdAt||a.id||'')))[0]||null})
-const targetHistory=computed(()=>live(all.value.driverTarget).sort((a,b)=>String(b.values?.effectiveFrom||'').localeCompare(String(a.values?.effectiveFrom||''))||String(b.updatedAt||b.createdAt||b.id||'').localeCompare(String(a.updatedAt||a.createdAt||a.id||''))))
+const currentMaintenanceRate=computed(()=>{const now=istDateKey(getKfeReferenceNow());return live(all.value.breakEvenInputs).filter(x=>String(x.values?.effectiveFrom||'')<=now).sort((a,b)=>String(b.values?.effectiveFrom||'').localeCompare(String(a.values?.effectiveFrom||'')))[0]||null})
+const targetHistory=computed(()=>live(all.value.driverTarget).sort((a,b)=>String(b.values?.effectiveFrom||'').localeCompare(String(a.values?.effectiveFrom||''))))
 const currentTarget=computed(()=>{
   const driverId=targetDraft.value.driverId
   const month=targetDraft.value.month||currentMonth.value
   const effectiveMonth=monthStart(month)
   const matches=live(all.value.driverTarget).filter(x=>x.values?.driverId===driverId&&String(x.values?.effectiveFrom||'')<=effectiveMonth)
-  return matches.sort((a,b)=>String(b.values?.effectiveFrom||'').localeCompare(String(a.values?.effectiveFrom||''))||String(b.updatedAt||b.createdAt||b.id||'').localeCompare(String(a.updatedAt||a.createdAt||a.id||'')))[0]||null
+  return matches.sort((a,b)=>String(b.values?.effectiveFrom||'').localeCompare(String(a.values?.effectiveFrom||'')))[0]||null
 })
 const currentTargetHistory=computed(()=>targetHistory.value.filter(x=>x.id!==currentTarget.value?.id))
 
-const maintenanceHistory=computed(()=>live(all.value.breakEvenInputs).filter(x=>x.values?.maintenanceProvisionPerKm!=null).sort((a,b)=>String(b.values?.effectiveFrom||'').localeCompare(String(a.values?.effectiveFrom||''))||String(b.updatedAt||b.createdAt||b.id||'').localeCompare(String(a.updatedAt||a.createdAt||a.id||''))))
+const maintenanceHistory=computed(()=>live(all.value.breakEvenInputs).filter(x=>x.values?.maintenanceProvisionPerKm!=null).sort((a,b)=>String(b.values?.effectiveFrom||'').localeCompare(String(a.values?.effectiveFrom||''))))
 const driverNames=computed(()=>Object.fromEntries(all.value.driver.map(x=>[x.id,label('driver',x)])))
 const groupedItems=computed(()=>categories.map(category=>({category,items:items.filter(x=>x.category===category)})))
 function clearMessages(){error.value='';notice.value=''}
