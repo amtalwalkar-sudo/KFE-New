@@ -28,7 +28,7 @@ const scheduledEmiAccruedForRange = (schedule, range) => {
     if(!Number.isFinite(amount)||amount<0||start==null||due==null||due<start)return null
     const overlapFrom=Math.max(from,start),overlapTo=Math.min(to,due)
     if(overlapTo<overlapFrom)continue
-    total+=amount*((overlapTo-overlapFrom+1)/(due-start+1))
+    total+=amount*((overlapTo-overlapFrom)/(due-start))
   }
   return Math.round(total*100)/100
 }
@@ -108,10 +108,10 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   const availableCash = money(base.operatingProfit) - actualFinancingOutflow
   const loanProvisionForPeriod = finance && previousFinance ? Math.max(0, money(finance.provisionAccumulated) - money(previousFinance.provisionAccumulated)) : 0
   const totalIndicativeProvision = Number.isFinite(authoritativeMaintenanceProvision) && Number.isFinite(Number(base.renewalProvision)) ? loanProvisionForPeriod + authoritativeMaintenanceProvision + Number(base.renewalProvision) : NaN
-  // Actual P/L is cash-actual for financing: only recorded EMI/loan payments affect it.
-  // Scheduled EMI is a planning/break-even obligation and belongs to Provisional P/L.
-  const performanceActualProfit = Number.isFinite(Number(base.operatingProfit))
-    ? Number(base.operatingProfit) - actualLoanPaid
+  // Frozen management Actual P/L includes the full scheduled EMI obligation.
+  // Actual cash movement remains separately represented by actualFinancingOutflow.
+  const performanceActualProfit = Number.isFinite(Number(base.operatingProfit)) && Number.isFinite(Number(currentScheduledEmi))
+    ? Number(base.operatingProfit) - Number(currentScheduledEmi)
     : NaN
   const performanceProvisionalProfit = Number.isFinite(Number(base.operatingProfit)) && Number.isFinite(Number(currentScheduledEmi)) && Number.isFinite(authoritativeMaintenanceProvision) && Number.isFinite(Number(base.renewalProvision))
     ? Number(base.operatingProfit) - Number(currentScheduledEmi) - authoritativeMaintenanceProvision - Number(base.renewalProvision) - preBusinessRecoveryForPeriod - historicalMaintenanceRecoveryForPeriod
@@ -122,7 +122,7 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
     ...base, performanceHeadlineActualProfit: performanceActualProfit, performanceHeadlineProvisionalProfit: performanceProvisionalProfit, performanceHeadlineScheduledEmi: currentScheduledEmi, preBusinessRecoveryMonthly, loanScheduledObligation, loanPrincipal: money(finance?.outstandingPrincipal), loanInterest: currentScheduledInterest, loanProvisionAccumulated: money(finance?.provisionAccumulated), loanProvisionBalance: money(finance?.provisionBalance), actualLoanPaid, actualPrepayment, actualFinancingOutflow, availableCash, cashSurplusAfterFinancing: availableCash, maintenanceProvision: authoritativeMaintenanceProvision, historicalMaintenanceRecoveryMonthly: historicalMaintenanceRecovery, historicalMaintenanceRecoveryForPeriod, preBusinessRecoveryForPeriod, provisionRequired, provisionSetAside: provisionRequired, loanProvisionForPeriod, totalIndicativeProvision, actualProfit, indicativeProfit, provisionAdjustedProfit: Number.isFinite(provisionRequired) ? base.operatingProfit - provisionRequired : NaN, monthlyBreakEvenRevenue, breakEvenRevenue: monthlyBreakEvenRevenue,
     breakEvenInputs: { ...(base.breakEvenInputs || {}), scheduledEmiMonthly: monthScheduledEmi, fixedCosts: breakEven.fixedCosts, maintenanceProvisionPerKm: breakEven.maintenanceProvisionPerKm ?? base.breakEvenInputs?.maintenanceProvisionPerKm, vehicleKmBasis: breakEven.vehicleKm ?? null, vehicleKmBasisSource: breakEven.vehicleKmSource || normalizedMonthlyKmSource, normalizedMonthlyKmSource, preBusinessRecoveryMonthly: monthPreBusinessRecovery, historicalMaintenanceRecoveryMonthly: monthHistoricalMaintenanceRecovery, fuelCostPerKm: breakEven.fuelCostPerKm ?? base.breakEvenInputs?.fuelCostPerKm, fuelCostPerKmSource: base.breakEvenInputs?.fuelCostPerKmSource || null, fuelEvidence: base.breakEvenInputs?.fuelEvidence || null, fuelCostMonthly: breakEvenFuelCost, maintenanceProvisionMonthly: breakEvenMaintenanceProvision, financialObligationMonthly: breakEvenFinancialObligation, complianceProvisionMonthly: breakEvenComplianceProvision, otherRequiredMonthly: breakEvenOtherRequired },
     finance: { ...(finance || {}), available: !!finance?.available, reason: finance?.available ? null : loanUnavailableReason, annualInterestRatePercent: finance?.annualInterestRatePercent ?? null, preBusinessRecoveryMonthly, historicalMaintenanceRecoveryMonthly: historicalMaintenanceRecovery, historicalMaintenanceRecoveryForPeriod, businessStartDate: businessStart?.toISOString() || null, previousOutstandingPrincipal: previousFinance?.available ? previousFinance.outstandingPrincipal : null, overdueAmount: finance?.totalOverdue ?? 0, remainingInterest: finance?.remainingInterest ?? 0, scheduledFinalDate: finance?.scheduledFinalDate ?? null, totalInterest: finance?.totalInterest ?? 0 },
-    authority: { ...(base.authority || {}), loan: 'CANONICAL_FINANCE_LOAN_ENGINE', breakEven: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN', breakEvenTrace: breakEven.trace || null, actualProfit: 'OPERATING_PROFIT_MINUS_ACTUAL_LOAN_PAYMENTS', indicativeProfit: 'PROVISIONAL_PROFIT_AFTER_SCHEDULED_EMI_AND_NORMALIZED_HISTORICAL_RECOVERY' },
+    authority: { ...(base.authority || {}), loan: 'CANONICAL_FINANCE_LOAN_ENGINE', breakEven: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN', breakEvenTrace: breakEven.trace || null, actualProfit: 'OPERATING_PROFIT_MINUS_FULL_SCHEDULED_EMI', indicativeProfit: 'PROVISIONAL_PROFIT_AFTER_SCHEDULED_EMI_AND_NORMALIZED_HISTORICAL_RECOVERY' },
     completeness: { ...(base.completeness || {}), loan: !!finance?.available, breakEven: breakEven.available },
     calculationEvidence: { fuelCostPerKm: base.breakEvenInputs?.fuelEvidence || null, breakEven: breakEven.evidence || null },
     indicative: { monthlyBreakEvenRevenue: breakEven.indicativeMonthlyBreakEvenRevenue ?? null }, breakEvenTrace: breakEven.trace || null,
