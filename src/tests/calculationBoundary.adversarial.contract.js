@@ -101,7 +101,7 @@ assert.equal(typeof id1, 'string'); assert.equal(typeof id2, 'string'); assert.n
 // 3) Driver Target carries a prior active-day shortfall into the next active
 // day, and an above-target day reduces that carried balance.
 {
-  const targetInputs = [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', targetRevenue:1000, active:true }]
+  const targetInputs = [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', targetRevenue:30000, active:true }]
   const carried = deriveRollingDriverTarget({
     from:'2026-09-10', to:'2026-09-10',
     shifts:[
