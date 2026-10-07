@@ -9,7 +9,7 @@ import { calculateFuelQuantity, validateFuelEntry } from '../../domain/work/fuel
 import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } from '../../domain/work/trip.js'
 import { BackupService } from '../backup/backupService.js'
 import { MovementAccountingService, routeTrace } from '../../domain/movement/movementAccounting.js'
-import { calculateTraceDistanceKm } from '../../infrastructure/location/movementTraceService.js'
+import { MovementTraceService, calculateTraceDistanceKm } from '../../infrastructure/location/movementTraceService.js'
 import { NativeGpsService } from '../../infrastructure/android/nativeGpsService.js'
 import { ValhallaRoutingAdapter } from '../../infrastructure/location/valhallaRoutingAdapter.js'
 import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
@@ -66,7 +66,19 @@ export const WorkService = Object.freeze({
     }).catch(() => {})
     return result
   },
-  async startRide(data) { const result = await ShiftTripRepository.setTripStage(data?.id, 'RIDE_STARTED'); checkpoint(); void NativeGpsService.start(data?.id).catch(() => {}); return result },
+  async startRide(data) {
+    const result = await ShiftTripRepository.setTripStage(data?.id, 'RIDE_STARTED')
+    checkpoint()
+    // Android uses the native foreground trace. Browser/PWA builds do not have
+    // that plugin, so fall back to the existing web movement-trace service.
+    void NativeGpsService.start(data?.id).then(started => {
+      if (started || !data?.id) return
+      MovementTraceService.start({ entityType: 'TRIP', entityId: data.id, eventType: 'PASSENGER_RIDE_TRACE', profile: 'PASSENGER_RIDE' })
+    }).catch(() => {
+      try { MovementTraceService.start({ entityType: 'TRIP', entityId: data?.id, eventType: 'PASSENGER_RIDE_TRACE', profile: 'PASSENGER_RIDE' }) } catch (_) {}
+    })
+    return result
+  },
   async completeTrip(data) {
     // Commit the terminal state first. GPS is enrichment only: never hold the swipe
     // transition or the pending-fare form open while native trace synchronization runs.
@@ -78,8 +90,14 @@ export const WorkService = Object.freeze({
           // Native GPS is the raw evidence. Synchronize it first, then enrich the
           // already-committed trip asynchronously. Nothing here is awaited by the
           // authoritative END TRIP transition or the pending-fare form.
+          const activeTrace = MovementTraceService.getActiveSession()
+          if (activeTrace?.entityType === 'TRIP' && activeTrace.entityId === tripId) {
+            try { await MovementTraceService.stop({ captureFinal: true }) } catch (_) {}
+          }
           await NativeGpsService.syncTrace(tripId)
           await NativeGpsService.stop(tripId)
+          const endLocation = await captureLifecycleLocation({ entityType: 'TRIP', entityId: tripId, eventType: 'END' })
+          if (endLocation) await ShiftTripRepository.setTripEndLocation(tripId, endLocation)
           const snapshots = (await LocationRepository.forEntity('TRIP', tripId)).filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')
           if (snapshots.length < 2) return
 
@@ -144,7 +162,9 @@ export const WorkService = Object.freeze({
       const trips = await ShiftTripRepository.getTripsForShift(active.shift.id)
       const corrections = new Map((data.trips || []).filter(item => item?.id).map(item => [item.id, item]))
       const movementTrips = trips.map(trip => corrections.has(trip.id) ? { ...trip, ...corrections.get(trip.id), tripKm: corrections.get(trip.id).tripKm === '' ? trip.tripKm : corrections.get(trip.id).tripKm } : trip)
-      const gpsSnapshots = await LocationRepository.forEntity('SHIFT', active.shift.id)
+      const shiftGpsSnapshots = await LocationRepository.forEntity('SHIFT', active.shift.id)
+      const tripGpsSnapshots = (await Promise.all(movementTrips.map(trip => LocationRepository.forEntity('TRIP', trip.id)))).flat()
+      const gpsSnapshots = [...shiftGpsSnapshots, ...tripGpsSnapshots]
       try {
         const reconciliation = await MovementAccountingService.reconcileShiftMovement({
           trips: movementTrips,
