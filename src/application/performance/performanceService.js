@@ -26,7 +26,10 @@ export const PerformanceService = Object.freeze({
   async getDailyTargetSnapshot(asOf = getKfeReferenceNow()) {
     const target = await DriverTargetService.getTarget(asOf)
     const snapshot = await PerformanceRepository.getSnapshot()
-    const range = reportingRangeFor('DAY', asOf)
+    const reportedDayRange = reportingRangeFor('DAY', asOf)
+    const range = reportedDayRange
+      ? { ...reportedDayRange, to: new Date(Math.min(reportedDayRange.to.getTime(), new Date(asOf).getTime())) }
+      : reportedDayRange
     const metrics = this.getMetrics(snapshot, range)
     const achieved = deriveDailyTargetAchievement({
       shifts: snapshot?.shifts,

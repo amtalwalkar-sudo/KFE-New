@@ -74,4 +74,45 @@ const missing=PerformanceService.getMetrics({...snapshot,breakEvenInputs:[]},ran
 assert.equal(missing.breakEvenRevenue,null)
 assert.equal(missing.monthlyBreakEvenRevenue,null)
 
+// Regression: daily target achievement must never include a shift or trip
+// completed later on the same IST day than the requested as-of timestamp.
+{
+  const snapshotAtMorning = {
+    ...snapshot,
+    shifts: [
+      { ...snapshot.shifts[0], id: 'early', shiftEndAt: '2026-09-10T08:00:00Z', revenue: 1000 },
+      { ...snapshot.shifts[0], id: 'future', shiftStartAt: '2026-09-10T14:00:00Z', shiftEndAt: '2026-09-10T18:00:00Z', revenue: 9000, status: 'COMPLETED' },
+    ],
+  }
+  const daily = await PerformanceService.getDailyTargetSnapshot(new Date('2026-09-10T10:00:00Z'))
+  assert.ok(daily.achieved <= 1000, 'Future same-day shift revenue must not enter the as-of target total.')
+}
+
+// Regression: migrated shift-level toll/parking and new trip-level toll/parking
+// are alternative representations, not additive amounts.
+{
+  const mixed = {
+    ...snapshot,
+    shifts: [{ ...snapshot.shifts[0], toll: 50, parking: 25, tollParkingRevenueTreatment: 'EXCLUDED', revenue: 1000 }],
+    trips: [{ ...snapshot.trips[0], shiftId: 's1', toll: 100, parking: 75, revenue: 1 }],
+  }
+  const mixedMetrics = derivePerformance(mixed, range, previous)
+  assert.equal(mixedMetrics.toll, 50)
+  assert.equal(mixedMetrics.parking, 25)
+  assert.equal(mixedMetrics.operatingCost, 300 + 2200 + 50 + 25)
+}
+
+// Regression: fuel intervals must survive interleaved records from another vehicle.
+{
+  const { calculateRollingFuelCostPerKm } = await import('../domain/math/fuel.js')
+  const fuel = calculateRollingFuelCostPerKm([
+    { capturedAt: '2026-09-01T00:00:00Z', odometer: 1000, amount: 1000, isFullTank: true, vehicleId: 'A' },
+    { capturedAt: '2026-09-02T00:00:00Z', odometer: 5000, amount: 5000, isFullTank: true, vehicleId: 'B' },
+    { capturedAt: '2026-09-03T00:00:00Z', odometer: 1100, amount: 1200, isFullTank: true, vehicleId: 'A' },
+  ])
+  assert.equal(fuel.completedIntervals, 1)
+  assert.equal(fuel.observations[0].vehicleId, 'A')
+  assert.equal(fuel.observations[0].costPerKm, 12)
+}
+
 console.log('KFE Phase 5 Calculation & Performance contract tests: PASS')

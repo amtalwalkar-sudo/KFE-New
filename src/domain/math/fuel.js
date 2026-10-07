@@ -21,14 +21,26 @@ const sameVehicle = (a, b) => {
  * Partial or unassociated fills remain records but never establish an interval.
  */
 export function calculateRollingFuelCostPerKm(logs = [], windowSize = 10) {
-  const full = (logs || []).filter(x => validFuel(x) && fullTank(x)).sort((a, b) => new Date(a.capturedAt || a.createdAt || 0) - new Date(b.capturedAt || b.createdAt || 0) || Number(a.odometer) - Number(b.odometer))
+  const full = (logs || []).filter(x => validFuel(x) && fullTank(x))
+  // Build intervals independently per vehicle. A global timestamp sort can
+  // put another vehicle between two fills of the same vehicle (A, B, A), which
+  // would discard the valid A→A interval and make the fuel rate disappear.
+  const groups = new Map()
+  for (const row of full) {
+    const key = row?.vehicleId == null ? '__UNASSIGNED__' : String(row.vehicleId)
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(row)
+  }
   const intervals = []
-  for (let i = 1; i < full.length; i += 1) {
-    const previous = full[i - 1]
-    const current = full[i]
-    const km = Number(current.odometer) - Number(previous.odometer)
-    const cost = Number(current.amount ?? current.totalCost)
-    if (km > 0 && cost > 0 && sameVehicle(previous, current)) intervals.push({ km, cost, costPerKm: cost / km, capturedAt: current.capturedAt || current.createdAt || null, vehicleId: current.vehicleId })
+  for (const rows of groups.values()) {
+    const ordered = rows.sort((a, b) => new Date(a.capturedAt || a.createdAt || 0) - new Date(b.capturedAt || b.createdAt || 0) || Number(a.odometer) - Number(b.odometer))
+    for (let i = 1; i < ordered.length; i += 1) {
+      const previous = ordered[i - 1]
+      const current = ordered[i]
+      const km = Number(current.odometer) - Number(previous.odometer)
+      const cost = Number(current.amount ?? current.totalCost)
+      if (km > 0 && cost > 0 && sameVehicle(previous, current)) intervals.push({ km, cost, costPerKm: cost / km, capturedAt: current.capturedAt || current.createdAt || null, vehicleId: current.vehicleId })
+    }
   }
   const observations = intervals.slice(-Math.max(1, Number(windowSize) || 10))
   const rollingCostPerKm = observations.length ? observations.reduce((sum, x) => sum + x.costPerKm, 0) / observations.length : NaN
