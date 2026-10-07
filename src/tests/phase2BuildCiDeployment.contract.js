@@ -26,7 +26,7 @@ assert.match(workflow, /actions\/deploy-pages@v4/, 'canonical CI must deploy Pag
 assert.match(workflow, /github\.ref == 'refs\/heads\/main' && \(github\.event_name == 'push' \|\| github\.event_name == 'workflow_dispatch'\)/, 'Pages deployment must be restricted to main pushes or explicit main workflow dispatches')
 assert.match(workflow, /enable_first_run_setup:/, 'launch setup must be explicitly selectable at workflow dispatch')
 assert.match(workflow, /VITE_ENABLE_FIRST_RUN_SETUP:/, 'first-run setup must be controlled by a build-time launch flag')
-assert.match(workflow, /if: github\.event_name == 'workflow_dispatch' && inputs\.run_android_release_gate == true/, 'Android APK/emulator gate must require explicit manual opt-in')
+assert.match(workflow, /android-release-gate:/, 'canonical CI must retain the Android emulator gate')\nassert.match(workflow, /github\.head_ref == 'fix\\/android-webview-startup-fail-open'/, 'the dedicated startup fix must require native Android verification')
 assert.match(workflow, /needs: build-and-test/, 'deployment must depend on successful validation')
 assert.ok(!existsSync('.github/workflows/deploy-pages.yml'), 'duplicate Pages deployment workflow must remain removed')
 
