@@ -77,3 +77,5 @@ assert.match(adminForm, /function valuesDiffer\(source=\{\}\)/, 'Admin form must
 assert.match(adminForm, /if\(valuesDiffer\(next\)\) syncValues\(next\)/, 'Admin form must not reset local input state on every keystroke')
 
 console.log('Admin five-defect integrity contract: PASS')
+
+// CI retrigger only: preserve the reviewed cross-layer UI acknowledgement on the next PR event.
