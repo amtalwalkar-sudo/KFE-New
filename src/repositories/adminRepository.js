@@ -35,6 +35,31 @@ function toFormRecord(formKey, record) {
 const settlementSourceStore = Object.freeze({ Maintenance: 'maintenance_records', Compliance: 'compliance_records' })
 const settlementDirection = type => type === 'Receipt' ? 'IN' : 'OUT'
 const relationshipStore = Object.freeze({ settlement: [['sourceId', null]], compliance: [['vehicleId', 'vehicles']], ride: [['shiftId', 'shifts']], loanPayment: [['loanId', 'loans']], prepayment: [['loanId', 'loans']], driverTarget: [['driverId', 'drivers']] })
+const settlementSourceType = Object.freeze({ maintenance: 'Maintenance', compliance: 'Compliance' })
+async function readLiveSettlementsForSource(db, sourceId, sourceType) {
+  const rows = await new Promise((resolve, reject) => {
+    const request = db.transaction('settlements', 'readonly').objectStore('settlements').getAll()
+    request.onsuccess = () => resolve(request.result || [])
+    request.onerror = () => reject(request.error || new Error('Failed to read settlements.'))
+  })
+  return rows.filter(item => !isDeleted(item) && item.sourceId === sourceId && String(item.sourceType || '') === sourceType && String(item.direction || 'OUT').toUpperCase() === 'OUT')
+}
+async function assertSourcePaymentIntegrity(db, formKey, values) {
+  const sourceType = settlementSourceType[formKey]
+  if (!sourceType) return
+  const existingPayments = await readLiveSettlementsForSource(db, values.id, sourceType)
+  const paid = existingPayments.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
+  const sourceAmount = Number(values.cost)
+  if (Number.isFinite(sourceAmount) && paid > sourceAmount + 0.005) {
+    throw new Error(`Cannot reduce this ${formKey} amount below the already-paid amount. Already paid: ₹${paid.toFixed(2)}.`)
+  }
+}
+async function assertSourceHasNoSettlements(db, formKey, id) {
+  const sourceType = settlementSourceType[formKey]
+  if (!sourceType) return
+  const payments = await readLiveSettlementsForSource(db, id, sourceType)
+  if (payments.length) throw new Error(`Cannot delete this ${formKey}: existing payment settlements are linked to it.`)
+}
 async function validateRelationships(db, formKey, values) {
   if (formKey === 'settlement') {
     const storeName = settlementSourceStore[values.sourceType]
@@ -104,6 +129,7 @@ export const AdminRepository = {
       if (changed.length) throw new Error(`Active/contractual loan terms are immutable through normal edit. Use AdminRepository.correctLoan() for an audited correction: ${changed.join(', ')}.`)
     }
     await validateRelationships(db, formKey, values)
+    await assertSourcePaymentIntegrity(db, formKey, { ...values, id: existingId })
     const financeValues = isFinanceForm(formKey) ? await prepareFinanceValues(formKey, values, existingId) : formKey === 'settlement' ? { ...values, direction: settlementDirection(values.settlementType) } : values
     const record = formKey === 'shift' ? { ...existingRaw, ...structuredClone(financeValues), id: existingRaw.id, createdAt: existingRaw.createdAt, updatedAt: new Date().toISOString() } : toStoredRecord(formKey, financeValues, existingRaw)
     const now = record.updatedAt; const action = existing ? 'UPDATE' : 'CREATE'
@@ -138,6 +164,7 @@ export const AdminRepository = {
   async remove(formKey, id) {
     if (formKey === 'shift') throw new Error('Shift records are not deletable; correct the Work-created source record instead.')
     const db = await initializeCanonicalStorage(); const storeName = storeFor(formKey); const now = new Date().toISOString()
+    await assertSourceHasNoSettlements(db, formKey, id)
     return new Promise((resolve, reject) => {
       const tx = db.transaction([storeName, 'pending_mutations', 'audit_history'], 'readwrite'); const store = tx.objectStore(storeName); const request = store.get(id)
       request.onsuccess = () => { const record = request.result; if (!record) { try { tx.abort() } catch (_) {}; reject(new Error(`Cannot delete missing ${formKey} record.`)); return }; record.deletedAt = now; record.updatedAt = now; record.deleted = true; store.put(record); writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: id, entityType: formKey, action: 'DELETE', payload: { id, formKey, deletedAt: now }, createdAt: now }) }
