@@ -20,8 +20,8 @@ const periodDays = record => {
   return calendarDays(effectiveFrom(record), effectiveUntil(record)) || 1
 }
 const periodBaseTarget = (record, applicableBreakEven = null) => {
-  const desiredProfit = finite(record?.desiredDriverProfit)
-  if (desiredProfit != null && applicableBreakEven != null) return applicableBreakEven + desiredProfit
+  const desiredDriverProfit = finite(record?.desiredDriverProfit)
+  if (desiredDriverProfit != null && applicableBreakEven != null) return applicableBreakEven + desiredDriverProfit
   return finite(record?.targetRevenue)
 }
 const baseDailyFor = (record, applicableBreakEven = null) => {
