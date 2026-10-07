@@ -98,8 +98,7 @@ assert.equal(missing.monthlyBreakEvenRevenue,null)
   assert.match(serviceSource, /to: new Date\(Math\.min\(reportedDayRange\.to\.getTime\(\), new Date\(asOf\)\.getTime\(\)\)\)/)
 }
 
-// Regression: migrated shift-level toll/parking and new trip-level toll/parking
-// are alternative representations, not additive amounts.
+// Regression: shift-level and trip-level toll/parking are both counted.
 {
   const mixed = {
     ...snapshot,
@@ -107,9 +106,9 @@ assert.equal(missing.monthlyBreakEvenRevenue,null)
     trips: [{ ...snapshot.trips[0], shiftId: 's1', toll: 100, parking: 75, revenue: 1 }],
   }
   const mixedMetrics = derivePerformance(mixed, range, previous)
-  assert.equal(mixedMetrics.toll, 50)
-  assert.equal(mixedMetrics.parking, 25)
-  assert.equal(mixedMetrics.operatingCost, 300 + 2200 + 50 + 25)
+  assert.equal(mixedMetrics.toll, 150)
+  assert.equal(mixedMetrics.parking, 100)
+  assert.equal(mixedMetrics.operatingCost, 300 + 2200 + 150 + 100)
 }
 
 // Regression: fuel intervals must survive interleaved records from another vehicle.
