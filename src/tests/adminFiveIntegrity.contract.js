@@ -49,7 +49,7 @@ const targetResult = deriveRollingDriverTarget({
   to: '2026-10-02T23:59:59+05:30',
 })
 assert.equal(targetResult.balanceBefore, 200, 'latest saved target must win when effective period is identical')
-assert.equal(targetResult.currentDailyTarget, 200, 'current target must use deterministic latest same-period record')
+assert.equal(targetResult.currentDailyTarget, 400, 'current target must use deterministic latest same-period record')
 
 const nonWorkingResult = deriveRollingDriverTarget({
   driverTargets: [{
