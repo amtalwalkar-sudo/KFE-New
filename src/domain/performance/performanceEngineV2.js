@@ -138,16 +138,14 @@ export function derivePerformance(s, r, p = previousRange(r)) {
     const revenue = authoritativeShiftRevenue(S, x)
     const financial = sh.reduce((result, shift) => {
       const treatment = String(shift.tollParkingRevenueTreatment || 'INCLUDED').toUpperCase()
-      // New Work records keep toll/parking with the completed Trip that incurred
-      // the cost. Legacy shifts may still carry shift-level aggregate amounts.
       const shiftTrips = T.filter(trip => trip.shiftId === shift.id && trip.status === 'COMPLETED')
-      // A shift-level aggregate is authoritative when present; otherwise use
-      // trip-level values. Never add both representations, or migrated/new
-      // records would double-count toll/parking.
+      // Shift-level and trip-level toll/parking are both real cost records in
+      // the canonical model. Trip-level charges must therefore be included in
+      // addition to any shift-level aggregate, matching revenue treatment.
       const tripToll = shiftTrips.reduce((sum, trip) => sum + n(trip.toll), 0)
       const tripParking = shiftTrips.reduce((sum, trip) => sum + n(trip.parking), 0)
-      const toll = Number(shift.toll) > 0 ? n(shift.toll) : tripToll
-      const parking = Number(shift.parking) > 0 ? n(shift.parking) : tripParking
+      const toll = n(shift.toll) + tripToll
+      const parking = n(shift.parking) + tripParking
       const included = treatment === 'INCLUDED'
       result.financialRevenue += n(shift.revenue) - (included ? toll + parking : 0)
       result.toll += toll
