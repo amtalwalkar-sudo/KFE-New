@@ -69,13 +69,14 @@ export const WorkService = Object.freeze({
   async startRide(data) {
     const result = await ShiftTripRepository.setTripStage(data?.id, 'RIDE_STARTED')
     checkpoint()
+    if (!result || !data?.id) return result
     // Android uses the native foreground trace. Browser/PWA builds do not have
     // that plugin, so fall back to the existing web movement-trace service.
-    void NativeGpsService.start(data?.id).then(started => {
-      if (started || !data?.id) return
+    void NativeGpsService.start(data.id).then(started => {
+      if (started) return
       MovementTraceService.start({ entityType: 'TRIP', entityId: data.id, eventType: 'PASSENGER_RIDE_TRACE', profile: 'PASSENGER_RIDE' })
     }).catch(() => {
-      try { MovementTraceService.start({ entityType: 'TRIP', entityId: data?.id, eventType: 'PASSENGER_RIDE_TRACE', profile: 'PASSENGER_RIDE' }) } catch (_) {}
+      try { MovementTraceService.start({ entityType: 'TRIP', entityId: data.id, eventType: 'PASSENGER_RIDE_TRACE', profile: 'PASSENGER_RIDE' }) } catch (_) {}
     })
     return result
   },
@@ -91,14 +92,20 @@ export const WorkService = Object.freeze({
           // already-committed trip asynchronously. Nothing here is awaited by the
           // authoritative END TRIP transition or the pending-fare form.
           const activeTrace = MovementTraceService.getActiveSession()
+          let browserTracePoints = []
           if (activeTrace?.entityType === 'TRIP' && activeTrace.entityId === tripId) {
-            try { await MovementTraceService.stop({ captureFinal: true }) } catch (_) {}
+            try { browserTracePoints = await MovementTraceService.stop({ captureFinal: true }) } catch (_) {}
           }
           await NativeGpsService.syncTrace(tripId)
           await NativeGpsService.stop(tripId)
-          const endLocation = await captureLifecycleLocation({ entityType: 'TRIP', entityId: tripId, eventType: 'END' })
-          if (endLocation) await ShiftTripRepository.setTripEndLocation(tripId, endLocation)
-          const snapshots = (await LocationRepository.forEntity('TRIP', tripId)).filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')
+          let snapshots = (await LocationRepository.forEntity('TRIP', tripId)).filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')
+          const finalTracePoint = snapshots.at(-1) || browserTracePoints.at(-1)
+          if (finalTracePoint) {
+            await ShiftTripRepository.setTripEndLocation(tripId, finalTracePoint)
+          } else {
+            const endLocation = await captureLifecycleLocation({ entityType: 'TRIP', entityId: tripId, eventType: 'END' })
+            if (endLocation) await ShiftTripRepository.setTripEndLocation(tripId, endLocation)
+          }
           if (snapshots.length < 2) return
 
           const gpsKm = calculateTraceDistanceKm(snapshots)
