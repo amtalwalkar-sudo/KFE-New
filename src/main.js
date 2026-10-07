@@ -49,6 +49,7 @@ void (async () => {
       { StartupService },
       { startApplication },
       { startKfeThemeController },
+      { Capacitor },
       { default: formSystem }
     ] = await Promise.all([
       import('./application/backup/backupConfig.js'),
@@ -62,6 +63,7 @@ void (async () => {
       import('./application/startup/startupService.js'),
       import('./application/startup/startupRuntime.js'),
       import('./presentation/theme/kfeThemeController.js'),
+      import('@capacitor/core'),
       import('./presentation/forms/universalFormSystem.js').then(module => ({ default: module }))
     ])
 
@@ -77,7 +79,7 @@ void (async () => {
 
     if (!window.__KFE_STARTUP_LIFECYCLE_BOUND__) {
       window.__KFE_STARTUP_LIFECYCLE_BOUND__ = true
-      if (!window.Capacitor?.isNativePlatform?.() && 'serviceWorker' in navigator) {
+      if (!Capacitor.isNativePlatform() && 'serviceWorker' in navigator) {
         navigator.serviceWorker.addEventListener('message', event => {
           if (event.data?.type === 'kfe:daily-cloud-backup') {
             void CloudBackupLifecycle.maybeDailyCloudBackup().catch(error => console.warn('KFE scheduled cloud backup failed:', error))
