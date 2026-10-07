@@ -790,7 +790,6 @@ onBeforeUnmount(() => {
       </section>
 
       <section v-if="!fuelOpen && !endOpen && !cancelOpen" class="action-instrument work-fixed-action">
-        <div class="action-heading"><strong>{{ actionLabel }}</strong><details class="swipe-help"><summary aria-label="Swipe help">?</summary><span>Swipe the handle right to {{ actionLabel.toLowerCase() }}.</span></details></div>
         <div ref="track" class="swipe trip-swipe" :class="{threshold:swipeProgress>=70,committing:busy,'semantic-go':cockpit.action==='GO_TO_PICKUP','semantic-start':cockpit.action==='START_RIDE','semantic-end':cockpit.action==='END_RIDE'}" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up">
           <div class="swipe-copy"><span>{{ swipeProgress>=70 ? 'RELEASE' : 'SWIPE' }}</span><strong>{{ actionLabel }}</strong></div>
           <button class="swipe-handle" type="button" :aria-label="actionLabel" :style="{ transform: `translateX(${swipe.offset}px)`, transition: swipe.down ? 'none' : 'transform 180ms ease-out' }" @keydown.enter.prevent="keyAction" @keydown.space.prevent="keyAction">→</button>
