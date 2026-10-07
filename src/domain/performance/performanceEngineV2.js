@@ -199,7 +199,7 @@ export function derivePerformance(s, r, p = previousRange(r)) {
   const maintenancePaymentsAccumulated = live(s?.settlements).filter(x => String(x.sourceType || '') === 'Maintenance' && String(x.direction || 'OUT').toUpperCase() === 'OUT' && d(x.settledOn || x.paidOn || x.createdAt) && d(x.settledOn || x.paidOn || x.createdAt) <= r.to).reduce((sum, x) => sum + n(x.amount), 0)
   // A settlement can exceed the provision accrued so far; the provision
   // bucket is cleared by the actual payment and must not become negative.
-  const maintenanceProvisionBalance = Math.max(0, maintenanceProvisionAccumulated - maintenancePaymentsAccumulated)
+  const maintenanceProvisionBalance = maintenanceProvisionAccumulated - maintenancePaymentsAccumulated
   const historicalMaintenanceRecoveryMonthly = calculateHistoricalMaintenanceRecovery({ vehicles: s?.vehicles || [], businessStartDate: s?.businessSetup?.businessStartDate, asOf: r?.to })
   const prevMaintenanceProvision = maintenanceProvisionForShifts(S, s?.breakEvenInputs || [], p)
   const previousMaintenancePayments = live(s?.settlements).filter(x => String(x.sourceType || '') === 'Maintenance' && String(x.direction || 'OUT').toUpperCase() === 'OUT' && inR(x.settledOn || x.paidOn || x.createdAt, p)).reduce((sum, x) => sum + n(x.amount), 0)
@@ -210,7 +210,7 @@ export function derivePerformance(s, r, p = previousRange(r)) {
   const complianceProvisionAccumulatedById = Object.fromEntries(live(C).map(record => [record.id, complianceProvisionThrough(record, r?.to)]))
   const compliancePaymentsById = live(s?.settlements).filter(x => String(x.sourceType || '') === 'Compliance' && String(x.direction || 'OUT').toUpperCase() === 'OUT' && inR(x.settledOn || x.paidOn || x.createdAt, r)).reduce((map, payment) => { map[payment.sourceId] = (map[payment.sourceId] || 0) + n(payment.amount); return map }, {})
   const compliancePaymentsAccumulatedById = live(s?.settlements).filter(x => String(x.sourceType || '') === 'Compliance' && String(x.direction || 'OUT').toUpperCase() === 'OUT' && d(x.settledOn || x.paidOn || x.createdAt) && d(x.settledOn || x.paidOn || x.createdAt) <= r.to).reduce((map, payment) => { map[payment.sourceId] = (map[payment.sourceId] || 0) + n(payment.amount); return map }, {})
-  const complianceProvisionBalancesById = Object.fromEntries(Object.entries(complianceProvisionAccumulatedById).map(([id, value]) => [id, Math.max(0, value - (compliancePaymentsAccumulatedById[id] || 0))]))
+  const complianceProvisionBalancesById = Object.fromEntries(Object.entries(complianceProvisionAccumulatedById).map(([id, value]) => [id, value - (compliancePaymentsAccumulatedById[id] || 0)]))
   const complianceProvisionBalance = Object.values(complianceProvisionBalancesById).reduce((sum, value) => sum + n(value), 0)
   const provision = maintenanceProvision + ren
   const prevProvision = prevMaintenanceProvision + pren
