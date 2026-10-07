@@ -44,7 +44,7 @@ const base = {
 
 const noPayment = deriveFinanceAwarePerformance({ ...base, loanPayments: [] }, range)
 assert.equal(noPayment.actualLoanPaid, 0)
-assert.equal(noPayment.performanceHeadlineActualProfit, noPayment.operatingProfit)
+assert.equal(noPayment.performanceHeadlineActualProfit, noPayment.operatingProfit - 1000)
 assert.equal(noPayment.performanceHeadlineScheduledEmi, 1000)
 assert.equal(noPayment.performanceHeadlineProvisionalProfit, noPayment.operatingProfit - 1000)
 
@@ -73,6 +73,6 @@ const futurePayment = deriveFinanceAwarePerformance({
   }],
 }, range)
 assert.equal(futurePayment.actualLoanPaid, 0)
-assert.equal(futurePayment.performanceHeadlineActualProfit, futurePayment.operatingProfit)
+assert.equal(futurePayment.performanceHeadlineActualProfit, futurePayment.operatingProfit - 1000)
 
-console.log('Phase C financial finalization contract: Actual P/L uses actual loan cash payments; Provisional P/L uses scheduled EMI.')
+console.log('Phase C financial finalization contract: Actual P/L uses the full scheduled EMI obligation; actual cash outflow remains separately represented.')
