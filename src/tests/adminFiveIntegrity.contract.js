@@ -78,7 +78,7 @@ assert.match(adminRepo, /assertSourcePaymentIntegrity/, 'Maintenance/Compliance 
 assert.match(adminRepo, /assertSourceHasNoSettlements/, 'Maintenance/Compliance deletion must enforce settlement integrity')
 assert.match(perfEngine, /String\(b\.updatedAt \|\| b\.createdAt \|\| b\.id \|\| ''\)/, 'Maintenance rate selection must tie-break identical effective dates deterministically')
 assert.match(adminForm, /function valuesDiffer\(source=\{\}\)/, 'Admin form must compare incoming model values before resyncing')
-assert.match(adminForm, /if\(valuesDiffer\(next\)\) syncValues\(next\)/, 'Admin form must not reset local input state on every keystroke')
+assert.match(adminForm, /watch\(\(\)=>props\.modelValue,[\s\S]*if\(!userEditing\.value && valuesDiffer\(next\)\) syncValues\(next\)/, 'Admin form must not reset local input state on every keystroke')
 assert.match(adminForm, /const userEditing=ref\(false\)/, 'Admin form must track active user editing state')
 assert.match(adminForm, /if\(!userEditing\.value && valuesDiffer\(next\)\) syncValues\(next\)/, 'Admin form must not let parent model updates overwrite active user input')
 assert.match(adminForm, /userEditing\.value=true;values\[key\]=value/, 'Admin form input must mark local state as user-owned while typing')
