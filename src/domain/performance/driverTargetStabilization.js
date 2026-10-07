@@ -9,10 +9,16 @@ const applies = (x, day) => {
   const until = effectiveUntil(x) || new Date('9999-12-31T23:59:59.999Z')
   return x?.active !== false && x?.status !== 'INACTIVE' && from <= day && day <= until
 }
-const latestForDay = (xs, day) => live(xs).filter(x => applies(x, day)).sort((a, b) => String(b.effectiveFrom || b.startDate || '').localeCompare(String(a.effectiveFrom || a.startDate || '')))[0] || null
+const latestForDay = (xs, day) => live(xs).filter(x => applies(x, day)).sort((a, b) => String(b.effectiveFrom || b.startDate || '').localeCompare(String(a.effectiveFrom || a.startDate || '')) || String(b.updatedAt || b.createdAt || b.id || '').localeCompare(String(a.updatedAt || a.createdAt || a.id || '')))[0] || null
 const calendarDays = (from, to) => {
   const a = dateOf(from), b = dateOf(to)
   return a && b && b >= a ? Math.max(1, Math.ceil((b - a) / 86400000) + 1) : null
+}
+const nonWorkingDateKeys = record => {
+  const raw = record?.nonWorkingDates
+  const values = Array.isArray(raw) ? raw : String(raw || '').split(/[,
+]/)
+  return new Set(values.map(value => keyOf(String(value).trim())).filter(Boolean))
 }
 const periodDays = record => {
   const explicit = finite(record?.workingDays ?? record?.activeWorkingDays ?? record?.targetWorkingDays)
@@ -42,7 +48,10 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
   const activeDaySet = new Set()
   for (const shift of live(shifts)) {
     const day = keyOf(shift.shiftEndAt || shift.shiftStartAt)
-    if (day) activeDaySet.add(day)
+    if (!day) continue
+    const target = latestForDay(driverTargets, dateOf(day))
+    if (target && nonWorkingDateKeys(target).has(day)) continue
+    activeDaySet.add(day)
   }
   const allActiveDays = [...activeDaySet].sort()
   let balance = 0
