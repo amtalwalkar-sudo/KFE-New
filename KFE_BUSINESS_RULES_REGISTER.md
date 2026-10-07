@@ -612,6 +612,23 @@ Providers are replaceable infrastructure adapters.
 > **Actuals drive actual performance; provisions drive planning.**
 
 
+## BR-10A — Provision Buckets May Be Negative — FROZEN AUTHORITATIVE RULE
+
+**Status: FROZEN / AUTHORITATIVE — approved 07 10 2026.**
+
+Provision buckets are allowed to become negative.
+
+- Required provisions accumulate continuously according to their applicable rules.
+- Actual payment reduces the relevant provision bucket.
+- **No zero-floor/clamping is applied.**
+- Positive balance = provision available.
+- Zero = exactly covered.
+- **Negative balance = shortfall/recovery required.**
+- A negative bucket is a valid authoritative derived state and must remain visible/reconstructable across Performance, Timeline, Finance and other read-model surfaces.
+- KFE must not replace a negative bucket with zero, hide it, or create a separate “additional requirement” ledger.
+
+This rule explicitly controls overpayment/under-provision cases: if actual payments exceed provision accrued, the resulting negative balance is authoritative.
+
 ## BR-11 — Toll / Parking Revenue Treatment and Monthly Toll Ledger — FROZEN AUTHORITATIVE RULE
 
 **Status: FROZEN / AUTHORITATIVE — approved 25 09 2026.**
