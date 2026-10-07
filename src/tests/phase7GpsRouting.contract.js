@@ -53,6 +53,17 @@ assert.match(workService, /const tripGpsSnapshots = \(await Promise\.all\(moveme
 assert.match(workService, /const gpsSnapshots = \[\.\.\.shiftGpsSnapshots, \.\.\.tripGpsSnapshots\]/)
 console.log('Browser PWA ride trace contract passed: Start Trip records a 20-second passenger trace, End Trip captures the final boundary, and shift reconciliation consumes trip trace evidence.')
 
+// Lifecycle and reconciliation consistency guards: cancellation must stop browser/native ride tracing,
+// and preview must consume the same SHIFT + TRIP GPS evidence as final reconciliation.
+assert.match(workService, /MovementTraceService\.getActiveSession\(\)/)
+assert.match(workService, /MovementTraceService\.stop\(\{ captureFinal: false \}\)/)
+assert.match(workService, /NativeGpsService\.syncTrace\(data\.id\)/)
+assert.match(workService, /const shiftGpsSnapshots = await LocationRepository\.forEntity\('SHIFT', shiftId\)/)
+assert.match(workService, /const tripGpsSnapshots = \(await Promise\.all\(trips\.map\(trip => LocationRepository\.forEntity\('TRIP', trip\.id\)\)\)\)\.flat\(\)/)
+assert.match(workService, /const gpsSnapshots = \[\.\.\.shiftGpsSnapshots, \.\.\.tripGpsSnapshots\]/)
+assert.match(workService, /source: browserTracePoints\.length > 0 \? 'BROWSER_GEOLOCATION' : 'ANDROID_NATIVE_GPS'/)
+console.log('GPS lifecycle/provenance contract passed: cancellation stops active ride tracing, preview/final reconciliation share evidence, and provenance identifies the actual GPS source.')
+
 
 // Phase A: GPS fallback must use dedicated movement enrichment so GPS-derived KM never becomes MANUAL.
 assert.ok(workService.includes("if (Number.isFinite(Number(gpsKm)) && gpsKm >= 0) {"))
