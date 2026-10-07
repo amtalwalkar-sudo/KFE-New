@@ -45,7 +45,7 @@ export function deriveAuthoritativeBreakEven({ breakEvenInputs = [], range, loan
     renewalProvision: Number.isFinite(Number(renewalProvision)),
   }
   const firstMissing = ['input', 'maintenanceProvisionPerKm', 'fuelCostPerKm', 'fuelCostPerKmEvidence', 'vehicleKm', 'loanScheduledObligation', 'preBusinessRecovery', 'historicalMaintenanceRecovery', 'renewalProvision'].find(key => !availability[key])
-  const numericComplete = ['input', 'maintenanceProvisionPerKm', 'fuelCostPerKm', 'vehicleKm', 'loanScheduledObligation', 'preBusinessRecovery', 'renewalProvision'].every(key => availability[key])
+  const numericComplete = ['input', 'maintenanceProvisionPerKm', 'fuelCostPerKm', 'vehicleKm', 'loanScheduledObligation', 'preBusinessRecovery', 'historicalMaintenanceRecovery', 'renewalProvision'].every(key => availability[key])
   if (!numericComplete) {
     return {
       available: false,
