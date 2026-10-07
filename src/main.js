@@ -1,49 +1,11 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import { Capacitor } from '@capacitor/core'
 import App from './App.vue'
 import router from './router'
-import { BackupConfig } from './application/backup/backupConfig.js'
-import { CloudBackupLifecycle } from './application/backup/cloudBackupLifecycle.js'
-import { configureLocationProvider } from './application/work/locationProvider.js'
-import { createBackupConfigAdapter } from './infrastructure/backup/backupConfigAdapter.js'
-import { createCloudBackupScheduler } from './infrastructure/backup/cloudBackupScheduler.js'
-import { captureCurrentLocation } from './infrastructure/location/currentLocation.js'
-import { PlatformStartup } from './infrastructure/startup/platformStartup.js'
-import { configureAndroidOverlayLifecycle } from './infrastructure/android/androidOverlayLifecycle.js'
-import { StartupService } from './application/startup/startupService.js'
-import { startApplication } from './application/startup/startupRuntime.js'
 import './styles/kfe-ui.css'
 import './styles/forms.css'
-import './presentation/forms/universalFormSystem.js'
 import './styles/work-cockpit-hud.css'
 import './styles/kfe-base-shell.css'
-import { startKfeThemeController } from './presentation/theme/kfeThemeController.js'
-
-if (!Capacitor.isNativePlatform()) {
-  if ('serviceWorker' in navigator) {
-    let reloadedForController = false
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (reloadedForController) return
-      reloadedForController = true
-      window.location.reload()
-    })
-  }
-}
-
-BackupConfig.configureBackupConfig(createBackupConfigAdapter())
-CloudBackupLifecycle.configureCloudBackupScheduler(createCloudBackupScheduler())
-configureLocationProvider(captureCurrentLocation)
-StartupService.configureStartupPlatform(PlatformStartup)
-configureAndroidOverlayLifecycle()
-
-if (!Capacitor.isNativePlatform() && 'serviceWorker' in navigator) {
-  navigator.serviceWorker.addEventListener('message', event => {
-    if (event.data?.type === 'kfe:daily-cloud-backup') {
-      void CloudBackupLifecycle.maybeDailyCloudBackup().catch(error => console.warn('KFE scheduled cloud backup failed:', error))
-    }
-  })
-}
 
 const app = createApp(App)
 app.config.errorHandler = (err) => {
@@ -67,8 +29,65 @@ app.use(pinia)
 app.use(router)
 app.mount('#app')
 
-// StartupService.initializeApplication() is invoked by startApplication() after the UI mounts.
-startKfeThemeController()
+// This is the hard startup boundary: once Vue is mounted, the application is usable.
+// Storage, recovery, backup, theme, overlay, and service-worker work must never prevent
+// the WebView from reaching the mounted UI.
+window.__KFE_APP_MOUNTED__ = true
+window.dispatchEvent(new CustomEvent('kfe:app-mounted'))
 
-// StartupService.initializeApplication() is invoked by startApplication() after the UI mounts.
-void startApplication().catch(error => console.error('KFE application startup failed:', error))
+void (async () => {
+  try {
+    const [
+      { BackupConfig },
+      { CloudBackupLifecycle },
+      { configureLocationProvider },
+      { createBackupConfigAdapter },
+      { createCloudBackupScheduler },
+      { captureCurrentLocation },
+      { PlatformStartup },
+      { configureAndroidOverlayLifecycle },
+      { StartupService },
+      { startApplication },
+      { startKfeThemeController },
+      { default: formSystem }
+    ] = await Promise.all([
+      import('./application/backup/backupConfig.js'),
+      import('./application/backup/cloudBackupLifecycle.js'),
+      import('./application/work/locationProvider.js'),
+      import('./infrastructure/backup/backupConfigAdapter.js'),
+      import('./infrastructure/backup/cloudBackupScheduler.js'),
+      import('./infrastructure/location/currentLocation.js'),
+      import('./infrastructure/startup/platformStartup.js'),
+      import('./infrastructure/android/androidOverlayLifecycle.js'),
+      import('./application/startup/startupService.js'),
+      import('./application/startup/startupRuntime.js'),
+      import('./presentation/theme/kfeThemeController.js'),
+      import('./presentation/forms/universalFormSystem.js').then(module => ({ default: module }))
+    ])
+
+    BackupConfig.configureBackupConfig(createBackupConfigAdapter())
+    CloudBackupLifecycle.configureCloudBackupScheduler(createCloudBackupScheduler())
+    configureLocationProvider(captureCurrentLocation)
+    StartupService.configureStartupPlatform(PlatformStartup)
+    configureAndroidOverlayLifecycle()
+
+    startKfeThemeController()
+
+    if (typeof formSystem === 'object') void formSystem
+
+    if (!window.__KFE_STARTUP_LIFECYCLE_BOUND__) {
+      window.__KFE_STARTUP_LIFECYCLE_BOUND__ = true
+      if (!window.Capacitor?.isNativePlatform?.() && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', event => {
+          if (event.data?.type === 'kfe:daily-cloud-backup') {
+            void CloudBackupLifecycle.maybeDailyCloudBackup().catch(error => console.warn('KFE scheduled cloud backup failed:', error))
+          }
+        })
+      }
+    }
+
+    void startApplication().catch(error => console.error('KFE application startup failed:', error))
+  } catch (error) {
+    console.error('KFE post-mount infrastructure bootstrap failed:', error)
+  }
+})()
