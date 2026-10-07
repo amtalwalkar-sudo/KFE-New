@@ -4,6 +4,10 @@ import { generateUUID } from '../utils/uuid.js'
 import { deriveDailyRevenueAllocation } from '../domain/performance/dailyRevenueAllocation.js'
 import { derivePerformance } from '../domain/performance/performanceEngineV2.js'
 import { calculatePreBusinessLoanRecovery } from '../domain/finance/loanEngine.js'
+import { deriveAuthoritativeBreakEven } from '../domain/performance/authoritativeBreakEven.js'
+import { deriveRollingDriverTarget } from '../domain/performance/driverTargetStabilization.js'
+import { deriveFinanceAwarePerformance } from '../domain/performance/financePerformanceAdapter.js'
+import { CALCULATION_STATUS } from '../domain/performance/calculationAuthority.js'
 
 const range = { from: new Date('2026-09-10T00:00:00Z'), to: new Date('2026-09-10T23:59:59Z') }
 const base = {
@@ -54,6 +58,85 @@ assert.equal(Number.isNaN(blankTenureLoan.loanScheduledObligation), true)
 
 const id1 = generateUUID(); const id2 = generateUUID()
 assert.equal(typeof id1, 'string'); assert.equal(typeof id2, 'string'); assert.notEqual(id1, id2)
+
+// Controlled-batch adversarial contracts.
+// 1) EMI provision periods are half-open at the due boundary: a due date
+// belongs to the next period, never to both adjacent periods.
+{
+  const boundaryLoan = {
+    id:'boundary-loan', principal:120000, annualInterestRatePercent:0, tenureMonths:2,
+    startDate:'2026-08-10', status:'ACTIVE'
+  }
+  const boundaryRange = { from:new Date('2026-09-10T00:00:00Z'), to:new Date('2026-09-10T23:59:59Z') }
+  const boundaryMetrics = PerformanceService.getMetrics({
+    businessSetup:{ businessStartDate:'2026-08-01' },
+    shifts:[], trips:[], fuelLogs:[], maintenance:[], compliance:[],
+    loans:[boundaryLoan], loanPayments:[], prepayments:[],
+    breakEvenInputs:[{ effectiveFrom:'2026-08-01', maintenanceProvisionPerKm:1, active:true }],
+  }, boundaryRange)
+  assert.ok(Number.isFinite(boundaryMetrics.breakEvenInputs.scheduledEmiMonthly))
+  assert.ok(boundaryMetrics.breakEvenInputs.scheduledEmiMonthly > 0)
+}
+
+// 2) Break-even must become unavailable when a required historical-recovery
+// dependency is missing; it may not silently become authoritative.
+{
+  const incomplete = deriveAuthoritativeBreakEven({
+    breakEvenInputs:[{ effectiveFrom:'2026-09-01', maintenanceProvisionPerKm:2, active:true }],
+    range,
+    loanScheduledObligation:1000,
+    preBusinessRecovery:100,
+    historicalMaintenanceRecovery:NaN,
+    renewalProvision:200,
+    fuelCostPerKm:10,
+    fuelCostPerKmStatus:CALCULATION_STATUS.AUTHORITATIVE,
+    vehicleKm:1000,
+    vehicleKmSource:'TEST',
+  })
+  assert.equal(incomplete.available, false)
+  assert.equal(incomplete.reason, 'INCOMPLETE_BREAK_EVEN_INPUTS')
+  assert.equal(incomplete.trace.firstMissing, 'historicalMaintenanceRecovery')
+}
+
+// 3) Driver Target carries a prior active-day shortfall into the next active
+// day, and an above-target day reduces that carried balance.
+{
+  const targetInputs = [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', targetRevenue:1000, active:true }]
+  const carried = deriveRollingDriverTarget({
+    from:'2026-09-10', to:'2026-09-10',
+    shifts:[
+      { shiftStartAt:'2026-09-09T08:00:00Z', shiftEndAt:'2026-09-09T18:00:00Z' },
+      { shiftStartAt:'2026-09-10T08:00:00Z', shiftEndAt:'2026-09-10T18:00:00Z' },
+    ],
+    trips:[
+      { status:'COMPLETED', tripEndAt:'2026-09-09T10:00:00Z', revenue:700 },
+      { status:'COMPLETED', tripEndAt:'2026-09-10T10:00:00Z', revenue:1300 },
+    ],
+    driverTargets:targetInputs,
+  })
+  assert.equal(carried.currentBaseDaily, 1000)
+  assert.equal(carried.balanceBefore, 300)
+  assert.equal(carried.currentDailyTarget, 1300)
+  assert.equal(carried.balance, 0)
+}
+
+// 4) Actual P/L uses the full scheduled EMI obligation even when actual loan
+// cash paid is zero; cash outflow remains separately represented.
+{
+  const loan = { id:'pl-loan', principal:120000, annualInterestRatePercent:0, tenureMonths:12, startDate:'2026-08-10', status:'ACTIVE' }
+  const plRange = { from:new Date('2026-09-10T00:00:00Z'), to:new Date('2026-09-10T23:59:59Z') }
+  const pl = deriveFinanceAwarePerformance({
+    businessSetup:{ businessStartDate:'2026-08-01' },
+    shifts:[{ id:'pl-shift', shiftStartAt:'2026-09-10T08:00:00Z', shiftEndAt:'2026-09-10T18:00:00Z', startOdometer:1000, endOdometer:1100, revenue:5000 }],
+    trips:[], fuelLogs:[], maintenance:[], compliance:[],
+    loans:[loan], loanPayments:[], prepayments:[],
+    breakEvenInputs:[{ effectiveFrom:'2026-08-01', maintenanceProvisionPerKm:1, active:true }],
+  }, plRange, { from:new Date('2026-09-09T00:00:00Z'), to:new Date('2026-09-09T23:59:59Z') })
+  assert.equal(pl.actualLoanPaid, 0)
+  assert.ok(pl.performanceHeadlineScheduledEmi > 0)
+  assert.equal(pl.performanceHeadlineActualProfit, pl.operatingProfit - pl.performanceHeadlineScheduledEmi)
+  assert.equal(pl.actualProfit, pl.performanceHeadlineActualProfit)
+}
 
 console.log('Calculation-boundary adversarial contract: PASS')
 
