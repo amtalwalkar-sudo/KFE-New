@@ -27,7 +27,7 @@ assert.match(workflow, /github\.ref == 'refs\/heads\/main' && \(github\.event_na
 assert.match(workflow, /enable_first_run_setup:/, 'launch setup must be explicitly selectable at workflow dispatch')
 assert.match(workflow, /VITE_ENABLE_FIRST_RUN_SETUP:/, 'first-run setup must be controlled by a build-time launch flag')
 assert.match(workflow, /android-release-gate:/, 'canonical CI must retain the Android emulator gate')
-assert.match(workflow, /github\.head_ref == 'fix\\/android-webview-startup-fail-open'/, 'the dedicated startup fix must require native Android verification')
+assert.ok(workflow.includes("github.head_ref == 'fix/android-webview-startup-fail-open'"), 'the dedicated startup fix must require native Android verification')
 assert.match(workflow, /needs: build-and-test/, 'deployment must depend on successful validation')
 assert.ok(!existsSync('.github/workflows/deploy-pages.yml'), 'duplicate Pages deployment workflow must remain removed')
 
