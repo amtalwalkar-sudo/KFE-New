@@ -42,17 +42,22 @@ export const OperationalRecordService = {
     const completed = completedTrips(trips)
     const terminal = terminalTrips(trips)
     const revenue = Number.isFinite(Number(shift.revenue)) ? Number(shift.revenue) : 0
-    // During an active shift, toll/parking are stored on the trip as soon as
-    // the fare form is saved. After shift-end, shift.toll/shift.parking are
-    // the authoritative totals. Prefer the shift totals when present so the
-    // same expense is never counted twice.
+    // Shift-level and trip-level toll/parking are both canonical cost records.
+    // Keep the Timeline read model aligned with Performance: both are included.
     const tripToll = tripAmount(terminal, 'toll')
     const tripParking = tripAmount(terminal, 'parking')
-    const toll = Number(shift.toll) > 0 ? Number(shift.toll) : tripToll
-    const parking = Number(shift.parking) > 0 ? Number(shift.parking) : tripParking
-    const businessKm = completed.reduce((sum, trip) => sum + (Number.isFinite(Number(trip.tripKm)) ? Number(trip.tripKm) : 0), 0)
+    const toll = Number(shift.toll || 0) + tripToll
+    const parking = Number(shift.parking || 0) + tripParking
+    const invalidTripKm = completed.some(trip => {
+      if (trip.tripKm == null || trip.tripKm === '') return true
+      const km = Number(trip.tripKm)
+      return !Number.isFinite(km) || km < 0
+    })
+    const businessKm = invalidTripKm
+      ? NaN
+      : completed.reduce((sum, trip) => sum + Number(trip.tripKm), 0)
     const vehicleKm = shift.endOdometer == null ? null : finiteNonNegative(Number(shift.endOdometer) - Number(shift.startOdometer), 'vehicleKm')
-    const deadKm = vehicleKm == null ? null : vehicleKm - businessKm
+    const deadKm = vehicleKm == null || invalidTripKm ? null : vehicleKm - businessKm
     if (deadKm != null && deadKm < 0) throw new Error('Derived deadKm cannot be negative.')
 
     const relevantFuel = fuelForShift(fuelLogs, shift)
@@ -74,6 +79,7 @@ export const OperationalRecordService = {
       parking,
       unavailable: {
         vehicleKm: vehicleKm == null,
+        businessKm: !Number.isFinite(businessKm),
         deadKm: deadKm == null
       }
     }
