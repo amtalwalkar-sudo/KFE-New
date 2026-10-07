@@ -26,8 +26,8 @@ const scheduledEmiAccruedForRange = (schedule, range) => {
   for(const row of schedule){
     const amount=Number(row.originalEmiAmount),start=calendarSerial(row.periodStart),due=calendarSerial(row.dueDate)
     if(!Number.isFinite(amount)||amount<0||start==null||due==null||due<start)return null
-    const overlapFrom=Math.max(from,start),overlapTo=Math.min(to,due)
-    if(overlapTo<overlapFrom)continue
+    const overlapFrom=Math.max(from,start),overlapTo=Math.min(to+1,due)
+    if(overlapTo<=overlapFrom)continue
     total+=amount*((overlapTo-overlapFrom)/(due-start))
   }
   return Math.round(total*100)/100
