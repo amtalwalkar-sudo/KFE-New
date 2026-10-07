@@ -20,14 +20,20 @@ assert.ok(service.includes('record => record.toll'))
 assert.ok(service.includes('record => record.parking'))
 assert.ok(operational.includes("const tripToll = tripAmount(terminal, 'toll')"))
 assert.ok(operational.includes("const tripParking = tripAmount(terminal, 'parking')"))
-assert.ok(operational.includes("Number(shift.toll) > 0 ? Number(shift.toll) : tripToll"))
-assert.ok(operational.includes("Number(shift.parking) > 0 ? Number(shift.parking) : tripParking"))
+assert.ok(operational.includes("Number(shift.toll || 0) + tripToll"))
+assert.ok(operational.includes("Number(shift.parking || 0) + tripParking"))
+assert.ok(operational.includes("const invalidTripKm = completed.some(trip =>"))
+assert.ok(operational.includes("businessKm: !Number.isFinite(businessKm)"))
 assert.ok(service.includes('record.shift.openingPersonalKm'))
 assert.ok(endShift.includes('revenue'))
 assert.doesNotMatch(endShift, /calculateShiftRevenue/)
 assert.ok(cockpit.includes('PerformanceService.getDailyTargetSnapshot()'))
 assert.ok(cockpit.includes('shiftRevenue'))
 assert.ok(performanceService.includes('getDailyTargetSnapshot'))
+
+// Timeline must not fabricate mileage when a completed trip lacks authoritative trip KM.
+assert.ok(operational.includes("const businessKm = invalidTripKm\n      ? NaN\n      : completed.reduce((sum, trip) => sum + Number(trip.tripKm), 0)"))
+assert.ok(operational.includes("const deadKm = vehicleKm == null || invalidTripKm ? null : vehicleKm - businessKm"))
 
 console.log('KFE Timeline contract tests: PASS')
 
