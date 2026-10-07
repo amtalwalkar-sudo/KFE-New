@@ -41,7 +41,7 @@ assert.ok(Math.abs(metrics.operatingKmForecast.calculatedForecast.dailyKm - 212.
 
 assert.ok(Math.abs(metrics.actualProfit - (metrics.operatingProfit - metrics.performanceHeadlineScheduledEmi)) < 1e-9)
 assert.ok(Math.abs(metrics.performanceHeadlineActualProfit - metrics.actualProfit) < 1e-9)
-assert.ok(Math.abs(metrics.performanceHeadlineProvisionalProfit - (metrics.performanceHeadlineActualProfit - metrics.performanceHeadlineScheduledEmi - metrics.maintenanceProvision - metrics.renewalProvision - metrics.preBusinessRecoveryForPeriod - metrics.historicalMaintenanceRecoveryForPeriod)) < 1e-9)
+assert.ok(Math.abs(metrics.performanceHeadlineProvisionalProfit - (metrics.performanceHeadlineActualProfit - metrics.maintenanceProvision - metrics.renewalProvision - metrics.preBusinessRecoveryForPeriod - metrics.historicalMaintenanceRecoveryForPeriod)) < 1e-9)
 assert.ok(Math.abs(metrics.indicativeProfit - metrics.performanceHeadlineProvisionalProfit) < 1e-9)
 assert.ok(Math.abs(metrics.totalIndicativeProvision - (metrics.loanProvisionForPeriod + metrics.maintenanceProvision + metrics.renewalProvision)) < 1e-9)
 assert.equal(metrics.authority.actualProfit, 'OPERATING_PROFIT_MINUS_FULL_SCHEDULED_EMI')
