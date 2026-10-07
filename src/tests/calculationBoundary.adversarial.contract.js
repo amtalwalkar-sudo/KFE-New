@@ -98,6 +98,20 @@ assert.equal(afterPayments.maintenanceProvisionBalance, 0)
 assert.equal(afterPayments.complianceProvisionBalancesById.c1, 0)
 assert.equal(afterPayments.complianceProvisionBalance, 0)
 
+// An actual settlement larger than the currently accrued provision clears the
+// provision bucket; the excess actual payment must not create a negative bucket.
+const overpaid = derivePerformance({
+  ...provisionSnapshot,
+  settlements: [
+    { id:'over-m-pay', sourceType:'Maintenance', direction:'OUT', amount:500, paidOn:'2026-09-10T20:00:00Z' },
+    { id:'over-c-pay', sourceType:'Compliance', sourceId:'c1', direction:'OUT', amount:1500, paidOn:'2026-09-10T21:00:00Z' },
+  ],
+}, range)
+assert.equal(overpaid.maintenanceProvisionBalance, 0)
+assert.equal(overpaid.complianceProvisionBalancesById.c1, 0)
+assert.equal(overpaid.complianceProvisionBalance, 0)
+
+
 // Pre-business loan burden is outside the business period and is recovered
 // only from the business-start boundary onward.
 const preBusinessLoan = {
