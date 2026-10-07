@@ -1,152 +1,241 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, toRaw } from 'vue'
 import { PerformanceService } from '../application/performance/performanceService.js'
-import { getKfeReferenceNow, reportingRangeFor } from '../domain/time/ist.js'
 import { FirstRunSetupService } from '../application/setup/firstRunSetupService.js'
+import { AdminService } from '../application/admin/adminService.js'
+import { ADMIN_FORM_DEFINITIONS } from '../application/admin/adminFormDefinitions.js'
+import UniversalAdminForm from '../components/admin/UniversalAdminForm.vue'
+import { FuelRepository } from '../repositories/fuelRepository.js'
+import { getKfeReferenceNow, istDateKey, reportingRangeFor } from '../domain/time/ist.js'
 
-const loading=ref(false), error=ref(''), snapshot=ref(null), metrics=ref(null), selected=ref(null), period=ref('MONTH'), setupStatus=ref(null)
-const num=v=>Number.isFinite(Number(v))?Number(v).toLocaleString('en-IN',{maximumFractionDigits:2}):'—'
+const loading=ref(false), saving=ref(false), error=ref(''), notice=ref('')
+const snapshot=ref(null), metrics=ref(null), setupStatus=ref(null)
+const openId=ref(null), draft=ref({}), activeDefinition=ref(null)
+const fuelDraft=ref({odometer:'',pricePerKg:'',amount:'',isFullTank:true})
+
 const live=xs=>(xs||[]).filter(x=>!x?.deletedAt&&!x?.deleted)
+const clone=v=>structuredClone(toRaw(v))
+const money=v=>Number.isFinite(Number(v))?'₹'+Number(v).toLocaleString('en-IN',{maximumFractionDigits:2}):'—'
 
-const baseCalculations=[
- {id:'actual-pl',name:'Actual Profit / Loss',group:'PROFITABILITY',key:'actualProfitLoss',chain:['Canonical revenue','Fuel actuals','Toll / parking','Maintenance actuals','Financing cash payments','Actual P/L'],explain:'Uses recorded actual business facts; provisions are not treated as payments.'},
- {id:'provisional-pl',name:'Provisional Profit / Loss',group:'PROFITABILITY',key:'provisionalProfitLoss',chain:['Revenue','Actual expenses','Outstanding/provision buckets','Provisional P/L'],explain:'Extends the performance view with the applicable provisional expense burden.'},
- {id:'monthly-be',name:'Monthly Break-even',group:'TARGET & BREAK-EVEN',key:'monthlyBreakEvenRevenue',chain:['Break-even Input','Fuel cost / KM','Vehicle KM','Loan obligation','Pre-business recovery','Renewal provision','Maintenance / KM','Monthly Break-even'],explain:'Authoritative only when all required upstream evidence is complete.'},
- {id:'daily-be',name:'Daily Break-even',group:'TARGET & BREAK-EVEN',key:'dailyBreakEvenRevenue',chain:['Monthly Break-even','Calendar days in target month','Daily Break-even'],explain:'Allocates the authoritative monthly requirement across calendar days.'},
- {id:'driver-target',name:'Driver Target',group:'TARGET & BREAK-EVEN',key:'driverTarget',chain:['Monthly Break-even','Admin driver profit / take-home','Monthly target base','Current driver target'],explain:'Depends on the authoritative monthly break-even and applicable Driver Target input.'},
- {id:'fuel-cost-km',name:'Fuel Cost / KM',group:'OPERATING COSTS',key:'fuelCostPerKm',chain:['Qualifying fuel records','Full-tank evidence','Fuel quantity / cost','Fuel cost / KM'],explain:'The displayed rate is evidence-sensitive; provisional evidence must be visible as such.'},
- {id:'maintenance-km',name:'Maintenance / KM',group:'OPERATING COSTS',key:'maintenanceProvisionPerKm',chain:['Effective Break-even Input','Maintenance provision / KM'],explain:'The indicative/provision rate comes from the applicable effective Break-even Input.'},
- {id:'loan-burden',name:'Loan / EMI burden',group:'FINANCE',key:'scheduledEmi',chain:['Loan contract','Loan payments','Prepayments','Scheduled obligation','Outstanding position'],explain:'Loan position is derived from the canonical loan and payment records.'},
- {id:'prebusiness',name:'Pre-business recovery',group:'FINANCE',key:'preBusinessRecovery',chain:['Business Start Date','Qualifying pre-business burden','12-month date-to-date recovery','Recovery burden'],explain:'Only supported pre-business recovery categories belong in this calculation.'},
- {id:'shift-km',name:'Shift KM',group:'MOVEMENT',key:'shiftKm',chain:['Shift start odometer','Shift end odometer','Total vehicle KM'],explain:'Vehicle KM is the odometer delta; it is not reconstructed from trip distance.'},
- {id:'trip-km',name:'Trip KM',group:'MOVEMENT',key:'tripKm',chain:['Native GPS evidence','Haversine fallback','Async road matching','Completed trip movement'],explain:'Completed-trip enrichment never blocks fare entry; GPS/Haversine remains the fallback.'},
- {id:'dead-km',name:'Dead KM',group:'MOVEMENT',key:'deadKm',chain:['Shift KM','Trip KM','Personal KM','Dead KM reconciliation'],explain:'Dead KM is reconciled from the authoritative shift movement allocation.'},
- {id:'personal-km',name:'Personal KM',group:'MOVEMENT',key:'personalKm',chain:['Shift-start gap allocation','Personal KM','Business movement reconciliation'],explain:'Personal KM is allocated at shift start and excluded from business operating calculations.'},
- {id:'revenue',name:'Revenue reconciliation',group:'REVENUE',key:'revenue',chain:['Completed shift revenue','Completed trip fares','Cancellation records','Revenue reconciliation'],explain:'Completed shift revenue is the ERP revenue authority; trip fares are supporting detail.'},
- {id:'period-totals',name:'Day / Week / Month totals',group:'REPORTING',key:'periodTotals',chain:['Business Start Date','IST reporting range','Canonical records','Performance metrics','Period totals'],explain:'Reporting periods are bounded by Business Start Date.'},
- {id:'timeline',name:'Timeline figures',group:'REPORTING',key:'timeline',chain:['Canonical events','Revenue','Movement','Expenses','Finance','Timeline read model'],explain:'Timeline is a read model; it must agree with the canonical calculations.'},
- {id:'performance',name:'Performance figures',group:'REPORTING',key:'performance',chain:['Performance snapshot','Authoritative calculations','Daily / Weekly / Monthly','Performance display'],explain:'Performance consumes canonical calculation outputs rather than maintaining a parallel business-rule engine.'}
-]
+const setupMap=computed(()=>Object.fromEntries((setupStatus.value?.steps||[]).map(x=>[x.key,x])))
+const activeVehicle=computed(()=>live(snapshot.value?.vehicles||snapshot.value?.vehicle).find(v=>v.values?.active!==false&&String(v.values?.status||'Active').toLowerCase()==='active')||null)
+const drivers=computed(()=>live(snapshot.value?.drivers||snapshot.value?.driver))
+const vehicles=computed(()=>live(snapshot.value?.vehicles||snapshot.value?.vehicle))
+const loans=computed(()=>live(snapshot.value?.loans||snapshot.value?.loan))
 
-function rangeFor(p){const now=getKfeReferenceNow();return reportingRangeFor(p,now)}
+const definitions=computed(()=>{
+  const keys=['businessSetup','vehicle','driver','breakEvenInputs','driverTarget','loan']
+  return Object.fromEntries(keys.map(key=>{
+    const d=clone(ADMIN_FORM_DEFINITIONS[key])
+    for(const f of d.fields||[]){
+      if(f.key==='vehicleId')f.options=vehicles.value.map(x=>({value:x.id,label:[x.values?.registrationNumber,x.values?.make,x.values?.model].filter(Boolean).join(' · ')||x.id}))
+      if(f.key==='driverId')f.options=drivers.value.map(x=>({value:x.id,label:x.values?.name||x.id}))
+      if(f.key==='loanId')f.options=loans.value.map(x=>({value:x.id,label:[x.values?.lender,x.values?.accountReference].filter(Boolean).join(' · ')||x.id}))
+    }
+    return [key,d]
+  }))
+})
+
+const inputItems=computed(()=>{
+  const s=setupMap.value
+  const items=[]
+  const add=(id,title,description,step,priority=1)=>items.push({id,title,description,step,priority})
+  if(s.businessSetup?.status==='INCOMPLETE')add('businessSetup','Set the business start date','KFE uses this date to bound every calculation and reporting period.','businessSetup')
+  if(s.vehicle?.status==='INCOMPLETE')add('vehicle','Add the active vehicle','Vehicle and opening odometer are required for vehicle KM, fuel and break-even calculations.','vehicle')
+  if(s.driver?.status==='INCOMPLETE')add('driver','Add the active driver','The driver is needed for target and driver-facing calculations.','driver')
+  if(s.breakEvenInputs?.status==='INCOMPLETE')add('breakEvenInputs','Set maintenance cost per KM','This is the planning rate used by the break-even and target calculations.','breakEvenInputs')
+  if(s.loan?.status==='INCOMPLETE')add('loan','Confirm vehicle financing','Enter the loan contract, or tell KFE there is no loan so the EMI burden can be resolved.','loan')
+  if(s.driverTarget?.status==='INCOMPLETE')add('driverTarget','Set the monthly driver target','Enter the driver’s desired monthly profit / take-home. The target engine adds the applicable break-even burden.','driverTarget')
+  const fuelEvidence=metrics.value?.breakEvenInputs?.fuelEvidence?.status
+  if(s.fuelBaseline?.status==='INCOMPLETE'||fuelEvidence!=='AUTHORITATIVE')add('fuelBaseline','Record a full-tank fuel fill','Fuel cost per KM becomes authoritative from qualifying refuelling evidence.','fuelBaseline')
+  return items.sort((a,b)=>a.priority-b.priority)
+})
+
+const resolvedCount=computed(()=>Math.max(0,(setupStatus.value?.steps||[]).filter(x=>x.status==='COMPLETE').length))
+const totalInputs=computed(()=>inputItems.value.length)
+
+function rangeFor(p){return reportingRangeFor(p,getKfeReferenceNow())}
 async function load(){
- loading.value=true;error.value=''
- try{
-   snapshot.value=await PerformanceService.getSnapshot()
-   metrics.value=PerformanceService.getMetrics(snapshot.value,rangeFor(period.value))
-   setupStatus.value=await FirstRunSetupService.getCalculationSetupStatus()
- }catch(e){error.value=e.message||'Unable to run calculation sanity check.'}
- finally{loading.value=false}
+  loading.value=true;error.value=''
+  try{
+    snapshot.value=await PerformanceService.getSnapshot()
+    metrics.value=PerformanceService.getMetrics(snapshot.value,rangeFor('MONTH'))
+    setupStatus.value=await FirstRunSetupService.getCalculationSetupStatus()
+  }catch(e){error.value=e.message||'Unable to check calculation inputs.'}
+  finally{loading.value=false}
 }
+function closeForm(){openId.value=null;draft.value={};activeDefinition.value=null}
+function openAdminInput(id){
+  error.value='';notice.value='';openId.value=id
+  if(id==='fuelBaseline'){
+    const logs=live(snapshot.value?.fuelLogs||snapshot.value?.fuel_logs)
+    const latest=logs[0]
+    fuelDraft.value={odometer:latest?.odometer??'',pricePerKg:latest?.pricePerKg??'',amount:'',isFullTank:true}
+    return
+  }
+  activeDefinition.value=definitions.value[id]
+  draft.value={}
+}
+async function saveAdminInput(values){
+  saving.value=true;error.value='';notice.value=''
+  try{
+    await AdminService.save(openId.value,values)
+    notice.value='Saved. Rechecking calculations…'
+    closeForm()
+    await load()
+  }catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Unable to save this input.'}
+  finally{saving.value=false}
+}
+async function markLoanNotApplicable(){
+  saving.value=true;error.value='';notice.value=''
+  try{
+    await FirstRunSetupService.setStepState('loan',{status:'NOT_APPLICABLE'})
+    notice.value='Loan marked not applicable. Rechecking calculations…'
+    closeForm()
+    await load()
+  }catch(e){error.value=e.message||'Unable to update loan setup.'}
+  finally{saving.value=false}
+}
+async function saveFuel(){
+  saving.value=true;error.value='';notice.value=''
+  try{
+    const odometer=Number(fuelDraft.value.odometer), pricePerKg=Number(fuelDraft.value.pricePerKg), amount=Number(fuelDraft.value.amount)
+    if(!Number.isFinite(odometer)||!Number.isFinite(pricePerKg)||!Number.isFinite(amount)||amount<=0)throw new Error('Odometer, price/kg and amount are required.')
+    const quantityKg=amount/pricePerKg
+    await FuelRepository.create({odometer,pricePerKg,amount,quantityKg,isFullTank:Boolean(fuelDraft.value.isFullTank),capturedAt:getKfeReferenceNow().toISOString(),provenance:'MANUAL_CALCULATION_INPUT'})
+    notice.value='Fuel entry saved. Rechecking calculations…'
+    closeForm()
+    await load()
+  }catch(e){error.value=e.message||'Unable to save the fuel entry.'}
+  finally{saving.value=false}
+}
+const fuelQuantity=computed(()=>{const p=Number(fuelDraft.value.pricePerKg),a=Number(fuelDraft.value.amount);return p>0&&a>0?(a/p).toFixed(2):'—'})
 onMounted(load)
-
-const diagnostics=computed(()=>metrics.value?PerformanceService.getDiagnostics(metrics.value)||{}:{})
-const setupByKey=computed(()=>Object.fromEntries((setupStatus.value?.steps||[]).map(x=>[x.key,x])))
-const statusFor=computed(()=>id=>{
- const setupMap=setupByKey.value
- const setupMapFor={businessSetup:'businessSetup',vehicle:'vehicle',driver:'driver',maintenance:'breakEvenInputs',driverTarget:'driverTarget',loan:'loan',prebusiness:'preBusiness',fuelCostPerKm:'fuelBaseline'}
- const setupKey=setupMapFor[id]
- if(setupKey && setupMap[setupKey] && setupMap[setupKey].status==='INCOMPLETE') return 'INCOMPLETE'
- if(setupKey && setupMap[setupKey] && setupMap[setupKey].status==='NOT_APPLICABLE') return 'NOT_APPLICABLE'
- const m=metrics.value||{}, d=diagnostics.value
- if(id==='monthly-be') return d.breakEven?'ISSUE':(m.completeness?.breakEven?'OK':'INCOMPLETE')
- if(id==='daily-be') return d.dailyBreakEven?'ISSUE':(m.dailyBreakEven?.status==='AUTHORITATIVE'?'OK':'INCOMPLETE')
- if(id==='driver-target') return d.target?'ISSUE':(m.driverTargetAvailable?'OK':'INCOMPLETE')
- if(id==='maintenance-km') return Number.isFinite(Number(m.breakEvenInputs?.maintenanceProvisionPerKm))||Number.isFinite(Number(m.maintenanceProvisionPerKm))?'OK':'INCOMPLETE'
- if(id==='fuel-cost-km') return m.breakEvenInputs?.fuelEvidence?.status==='AUTHORITATIVE'?'OK':m.breakEvenInputs?.fuelEvidence?.status==='INDICATIVE'?'INCOMPLETE':'MISSING'
- if(id==='actual-pl') return Number.isFinite(Number(m.performanceHeadlineActualProfit??m.actualProfit))?'OK':'INCOMPLETE'
- if(id==='provisional-pl') return Number.isFinite(Number(m.performanceHeadlineProvisionalProfit??m.indicativeProfit))?'OK':'INCOMPLETE'
- if(id==='shift-km') return Number(m.vehicleKm??m.totalShiftKm)>=0?'OK':'MISSING'
- if(id==='trip-km') return m.businessKmIntegrityStatus==='COMPLETE'?'OK':m.businessKmIntegrityStatus==='OVER_ESTIMATE'?'ISSUE':'INCOMPLETE'
- if(id==='dead-km') return Number(m.deadKm??0)>=0?'OK':'MISSING'
- if(id==='personal-km') return Number(m.personalKm??0)>=0?'OK':'MISSING'
- if(id==='revenue') return Number.isFinite(Number(m.revenue))?'OK':'MISSING'
- if(id==='period-totals'||id==='timeline'||id==='performance') return 'OK'
- if(id==='loan-burden') return live(snapshot.value?.loans).length?'OK':'INCOMPLETE'
- if(id==='prebusiness') return metrics.value?.breakEvenInputs?'OK':'INCOMPLETE'
- return 'OK'
-})
-const issueRows=computed(()=>{
- const rows=baseCalculations.map(x=>({...x,status:statusFor.value(x.id)}))
- const d=diagnostics.value
- const issueDetails=[
-  d.breakEven,d.target,d.dailyBreakEven,d.provision
- ].filter(Boolean)
- return rows.filter(x=>x.status!=='OK' && x.status!=='NOT_APPLICABLE').map(x=>{
-   const detail=issueDetails.find(y=>String(y.calculation||'').toLowerCase().includes(x.name.toLowerCase().split(' ')[0]))
-   const setupKey={prebusiness:'preBusiness',driverTarget:'driverTarget',fuelCostKm:'fuelBaseline',loanBurden:'loan',maintenanceKm:'breakEvenInputs'}[x.id]
-   const setup=setupKey?setupByKey.value[setupKey]:null
-   return {...x,detail:detail||setup&&{why:setup.reason,fix:'Complete this item in Admin or finish the first-time setup journey.'}}
- })
-})
-const allRows=computed(()=>baseCalculations.map(x=>({...x,status:statusFor.value(x.id)})))
-const statusIcon=s=>s==='OK'?'🟢':s==='ISSUE'?'🔴':s==='INCOMPLETE'?'🟡':s==='NOT_APPLICABLE'?'⚪':'⚪'
-const statusText=s=>s==='OK'?'Correct':s==='ISSUE'?'Issue':s==='INCOMPLETE'?'Incomplete':s==='NOT_APPLICABLE'?'Not applicable':'Not available'
-const valueFor=id=>{
- const m=metrics.value||{}
- const map={
-  'actual-pl':m.performanceHeadlineActualProfit??m.actualProfit,
-  'provisional-pl':m.performanceHeadlineProvisionalProfit??m.indicativeProfit,
-  'monthly-be':m.monthlyBreakEvenRevenue,
-  'daily-be':m.dailyBreakEvenRevenue,
-  'driver-target':m.driverTarget,
-  'fuel-cost-km':m.breakEvenInputs?.fuelCostPerKm??m.fuelCostPerKm,
-  'maintenance-km':m.breakEvenInputs?.maintenanceProvisionPerKm??m.maintenanceProvisionPerKm,
-  'loan-burden':m.breakEvenInputs?.scheduledEmiMonthly??m.scheduledEmi,
-  'prebusiness':m.breakEvenInputs?.preBusinessRecoveryMonthly??m.preBusinessRecovery,
-  'shift-km':m.vehicleKm??m.totalShiftKm,
-  'trip-km':m.tripKm??m.businessKm,
-  'dead-km':m.deadKm,
-  'personal-km':m.personalKm,
-  'revenue':m.revenue
- }
- if(id==='period-totals'||id==='timeline'||id==='performance') return 'Read model'
- return map[id]===undefined?'—':num(map[id])
-}
-function detailFor(row){selected.value=selected.value===row.id?null:row.id}
 </script>
 
 <template>
-<section class="calc-page" aria-label="Calculation Sanity Check">
+<section class="calc-page" aria-label="Calculation inputs">
   <header class="calc-header">
-    <div><div class="eyebrow">ADMIN · CALCULATIONS</div><h1>Calculations</h1><p>End-to-end calculation sanity check. Issues are surfaced first.</p></div>
-    <button class="refresh" :disabled="loading" @click="load">{{loading?'Checking…':'↻ Check now'}}</button>
+    <div>
+      <div class="eyebrow">ADMIN · CALCULATIONS</div>
+      <h1>Complete your calculations</h1>
+      <p>Enter the missing business information below. KFE will recalculate the PWA automatically after each save.</p>
+    </div>
+    <button class="refresh" :disabled="loading||saving" @click="load">{{loading?'Checking…':'↻ Check again'}}</button>
   </header>
-  <div class="period-row">
-    <button v-for="p in ['DAY','WEEK','MONTH']" :key="p" :class="{active:period===p}" @click="period=p;load()">{{p}}</button>
-  </div>
-  <p v-if="error" class="calc-error">{{error}}</p>
-  <section v-if="!loading&&issueRows.length" class="issues">
-    <div class="section-title"><strong>Issues first</strong><span>{{issueRows.length}} item{{issueRows.length===1?'':'s'}} need attention</span></div>
-    <article v-for="row in issueRows" :key="'issue-'+row.id" class="calc-card issue-card" @click="detailFor(row)">
-      <div class="card-top"><span>{{statusIcon(row.status)}} {{statusText(row.status)}}</span><strong>{{row.name}}</strong><span>{{valueFor(row.id)}}</span></div>
-      <p>{{row.detail?.why||'An upstream input or authoritative result is unavailable for this calculation.'}}</p>
-      <small v-if="row.detail?.fix">Fix: {{row.detail.fix}}</small>
-      <div v-if="selected===row.id" class="trace">
-        <strong>Calculation path</strong>
-        <div class="chain"><span v-for="(step,i) in row.chain" :key="step">{{i?' → ':''}}{{step}}</span></div>
-        <div v-if="row.detail?.blockedBy"><strong>Blocked by:</strong> {{row.detail.blockedBy}}</div>
-        <div v-if="row.detail?.reason"><strong>Reason:</strong> {{row.detail.reason}}</div>
-        <div v-if="row.detail?.rootCause"><strong>Root cause:</strong> {{row.detail.rootCause}}</div>
+
+  <p v-if="error" class="calc-error" role="alert">{{error}}</p>
+  <p v-if="notice" class="calc-notice" role="status">{{notice}}</p>
+
+  <section class="progress-card">
+    <div>
+      <strong>{{totalInputs?totalInputs+' item'+(totalInputs===1?'':'s')+' to complete':'All required inputs are complete'}}</strong>
+      <span v-if="totalInputs">These are the inputs KFE still needs to produce the intended calculations.</span>
+      <span v-else>Your calculation inputs are complete. Calculated results are available throughout the PWA.</span>
+    </div>
+    <div class="progress-track" aria-hidden="true"><span :style="{width:(totalInputs?'0':'100')+'%'}"></span></div>
+  </section>
+
+  <section v-if="!loading&&inputItems.length" class="input-list">
+    <div class="section-title"><strong>What needs your input</strong><span>{{inputItems.length}} remaining</span></div>
+
+    <article v-for="item in inputItems" :key="item.id" class="input-card" :class="{open:openId===item.id}">
+      <button class="input-head" type="button" @click="openId===item.id?closeForm():openAdminInput(item.id)">
+        <span class="input-number">{{item.priority}}</span>
+        <span class="input-copy"><strong>{{item.title}}</strong><small>{{item.description}}</small></span>
+        <span class="input-action">{{openId===item.id?'Close':'Enter'}}</span>
+      </button>
+
+      <div v-if="openId===item.id" class="input-form">
+        <UniversalAdminForm
+          v-if="item.id!=='fuelBaseline'"
+          :definition="activeDefinition"
+          :model-value="draft"
+          :busy="saving"
+          :submit-label="item.id==='loan'?'Save loan':'Save'"
+          @update:model-value="draft=$event"
+          @submit="saveAdminInput"
+          @cancel="closeForm"
+        />
+
+        <form v-else class="fuel-form" @submit.prevent="saveFuel">
+          <div class="form-grid">
+            <label><span>Odometer (km)</span><input v-model="fuelDraft.odometer" type="number" inputmode="numeric" min="0" required></label>
+            <label><span>Price / kg</span><input v-model="fuelDraft.pricePerKg" type="number" inputmode="decimal" min="0" step="0.01" required></label>
+            <label><span>Amount</span><input v-model="fuelDraft.amount" type="number" inputmode="decimal" min="0.01" step="0.01" required></label>
+            <label class="quantity"><span>Quantity (auto)</span><strong>{{fuelQuantity}} kg</strong></label>
+          </div>
+          <label class="check-line"><input v-model="fuelDraft.isFullTank" type="checkbox"> Full tank</label>
+          <div class="form-actions"><button type="button" class="secondary" @click="closeForm">Cancel</button><button class="primary" type="submit" :disabled="saving">Save fuel entry</button></div>
+        </form>
+
+        <div v-if="item.id==='loan'" class="loan-note">
+          <strong>Does the vehicle have no loan?</strong>
+          <span>Choose this only when there is genuinely no financing to include.</span>
+          <button class="secondary" type="button" :disabled="saving" @click="markLoanNotApplicable">No loan</button>
+        </div>
       </div>
     </article>
   </section>
-  <section class="all">
-    <div class="section-title"><strong>All calculations</strong><span>{{allRows.length}} end-to-end checks</span></div>
-    <article v-for="row in allRows" :key="row.id" class="calc-card" :class="{selected:selected===row.id}" @click="detailFor(row)">
-      <div class="card-top"><span>{{statusIcon(row.status)}} {{statusText(row.status)}}</span><strong>{{row.name}}</strong><span>{{valueFor(row.id)}}</span></div>
-      <p>{{row.explain}}</p>
-      <div v-if="selected===row.id" class="trace">
-        <strong>Calculation path</strong>
-        <div class="chain"><span v-for="(step,i) in row.chain" :key="step">{{i?' → ':''}}{{step}}</span></div>
-        <div class="source-row"><span>Period</span><strong>{{period}}</strong></div>
-        <div v-if="row.id==='monthly-be'" class="source-row"><span>Evidence</span><strong>{{metrics?.calculationEvidence?.breakEven?.status||'—'}}</strong></div>
-        <div v-if="row.id==='driver-target'" class="source-row"><span>Authority</span><strong>{{metrics?.driverTargetAuthority||'—'}}</strong></div>
-        <div v-if="row.id==='fuel-cost-km'" class="source-row"><span>Evidence</span><strong>{{metrics?.calculationEvidence?.fuelCostPerKm?.status||'—'}}</strong></div>
-      </div>
-    </article>
+
+  <section v-else-if="!loading" class="complete-card">
+    <div class="complete-icon">✓</div>
+    <div><strong>Calculations are ready</strong><span>No manual calculation inputs are currently missing.</span></div>
   </section>
-  <footer class="calc-note">This screen is diagnostic only. It does not change business records or calculation rules.</footer>
+
+  <section class="results-note">
+    <strong>You enter facts here. KFE does the calculations.</strong>
+    <span>Saving an input updates the canonical record and refreshes the dependent calculations used by Work, Timeline, Performance and Finance. This screen does not ask you to calculate anything yourself.</span>
+  </section>
 </section>
 </template>
 
+<style scoped>
+.calc-page{max-width:820px;margin:0 auto;padding:1rem 1rem 5rem;display:grid;gap:1rem}
+.calc-header{display:flex;justify-content:space-between;gap:1rem;align-items:flex-start}
+.eyebrow{font-size:.68rem;font-weight:800;letter-spacing:.08em;color:var(--kfe-text-muted)}
+h1{margin:.25rem 0;font-size:1.55rem}
+.calc-header p{margin:.25rem 0;color:var(--kfe-text-muted);font-size:.85rem;max-width:620px}
+.refresh,.input-action,.primary,.secondary{min-height:44px;border:1px solid var(--kfe-border-strong);border-radius:var(--kfe-radius-sm);padding:.55rem .8rem;font-weight:800;cursor:pointer}
+.refresh{background:var(--kfe-surface);color:var(--kfe-text)}
+.primary{background:var(--kfe-text);color:var(--kfe-on-accent);border-color:var(--kfe-text)}
+.secondary{background:var(--kfe-surface);color:var(--kfe-text)}
+.calc-error,.calc-notice{margin:0;padding:.75rem;border-radius:var(--kfe-radius-sm);font-size:.8rem}
+.calc-error{color:var(--kfe-danger);background:color-mix(in srgb,var(--kfe-danger) 8%,transparent)}
+.calc-notice{color:var(--kfe-text);background:color-mix(in srgb,var(--kfe-ui-accent) 10%,transparent)}
+.progress-card,.results-note,.complete-card,.input-card{border:1px solid var(--kfe-border);border-radius:var(--kfe-radius-sm);background:var(--kfe-surface)}
+.progress-card{padding:1rem;display:grid;gap:.7rem}
+.progress-card strong,.progress-card span{display:block}
+.progress-card span,.results-note span,.complete-card span{font-size:.76rem;color:var(--kfe-text-muted)}
+.progress-track{height:7px;border-radius:99px;background:var(--kfe-border);overflow:hidden}
+.progress-track span{height:100%;display:block;background:var(--kfe-primary);transition:width .2s ease}
+.section-title{display:flex;justify-content:space-between;gap:1rem;align-items:center;margin-bottom:.55rem}
+.section-title span{font-size:.72rem;color:var(--kfe-text-muted)}
+.input-list{display:grid;gap:.55rem}
+.input-card{overflow:hidden}
+.input-card.open{border-color:var(--kfe-border-strong)}
+.input-head{width:100%;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:.75rem;padding:.85rem;background:transparent;border:0;text-align:left;color:var(--kfe-text);cursor:pointer}
+.input-number{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:var(--kfe-border);font-weight:900;font-size:.75rem}
+.input-copy{display:grid;gap:.2rem}
+.input-copy strong{font-size:.9rem}
+.input-copy small{font-size:.73rem;color:var(--kfe-text-muted);line-height:1.35}
+.input-action{min-height:36px;padding:.45rem .65rem;background:var(--kfe-text);color:var(--kfe-on-accent);display:grid;place-items:center}
+.input-form{padding:.2rem .85rem .9rem;border-top:1px solid var(--kfe-border)}
+.loan-note{margin-top:.7rem;padding:.75rem;border-top:1px solid var(--kfe-border);display:grid;gap:.3rem}
+.loan-note span{font-size:.72rem;color:var(--kfe-text-muted)}
+.loan-note button{justify-self:start;margin-top:.3rem}
+.fuel-form{display:grid;gap:.8rem;padding-top:.65rem}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem}
+.form-grid label{display:grid;gap:.3rem}
+.form-grid label span,.check-line{font-size:.72rem;font-weight:750}
+.form-grid input{min-height:44px;width:100%;box-sizing:border-box;padding:.6rem;border:1px solid var(--kfe-border-strong);border-radius:var(--kfe-radius-sm);background:var(--kfe-surface);color:var(--kfe-text)}
+.quantity strong{min-height:44px;display:flex;align-items:center}
+.check-line{display:flex;align-items:center;gap:.5rem}
+.check-line input{width:22px;height:22px}
+.form-actions{display:flex;justify-content:flex-end;gap:.5rem;padding-top:.5rem;border-top:1px solid var(--kfe-border)}
+.complete-card{padding:1rem;display:flex;align-items:center;gap:.8rem}
+.complete-icon{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--kfe-border);font-weight:900}
+.results-note{padding:1rem;display:grid;gap:.25rem}
+.results-note strong{font-size:.85rem}
+@media(max-width:600px){.calc-page{padding:.8rem .75rem 5rem}.calc-header{display:grid}.refresh{width:100%}.form-grid{grid-template-columns:1fr}.input-head{grid-template-columns:auto 1fr}.input-action{grid-column:2;justify-self:start}.input-copy small{padding-right:.2rem}.form-actions{position:static}.input-form{padding-inline:.65rem}}
+</style>
