@@ -16,7 +16,7 @@ assert.doesNotMatch(engineSource, /deriveLoanPosition|calculateEmi|scheduleWithP
 assert.match(adapterSource, /deriveLoanPosition/)
 assert.match(adapterSource, /deriveAuthoritativeBreakEven/)
 assert.match(serviceSource, /deriveFinanceAwarePerformance\(/)
-assert.match(serviceSource, /deriveAuthoritativeDriverTarget/)
+assert.doesNotMatch(serviceSource, /deriveAuthoritativeDriverTarget/)
 assert.match(serviceSource, /AUTHORITATIVE_MONTHLY_BREAK_EVEN/)
 assert.match(serviceSource, /deriveRollingDriverTarget/)
 
