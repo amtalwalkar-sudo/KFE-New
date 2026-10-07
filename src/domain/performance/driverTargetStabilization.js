@@ -16,8 +16,7 @@ const calendarDays = (from, to) => {
 }
 const nonWorkingDateKeys = record => {
   const raw = record?.nonWorkingDates
-  const values = Array.isArray(raw) ? raw : String(raw || '').split(/[,
-]/)
+  const values = Array.isArray(raw) ? raw : String(raw || '').split(/[,\n]/)
   return new Set(values.map(value => keyOf(String(value).trim())).filter(Boolean))
 }
 const periodDays = record => {
