@@ -42,6 +42,18 @@ assert.match(workService, /method: 'HAVERSINE_TRACE_SUM'/)
 assert.match(workService, /Completion is already persisted\. Valhalla\/network\/GPS enrichment must/)
 console.log('END TRIP enrichment contract passed: commit/sync first, Valhalla enrichment is asynchronous, with GPS/Haversine fallback and no transition blocking.')
 
+const movementTrace = fs.readFileSync('src/infrastructure/location/movementTraceService.js', 'utf8')
+assert.match(movementTrace, /PASSENGER_RIDE: 20 \* 1000/)
+assert.match(movementTrace, /recordTracePoint/)
+assert.match(movementTrace, /captureBoundary/)
+assert.match(workService, /MovementTraceService, calculateTraceDistanceKm/)
+assert.match(workService, /MovementTraceService\.start\(\{ entityType: 'TRIP', entityId: data\.id, eventType: 'PASSENGER_RIDE_TRACE', profile: 'PASSENGER_RIDE' \}\)/)
+assert.match(workService, /MovementTraceService\.stop\(\{ captureFinal: true \}\)/)
+assert.match(workService, /const tripGpsSnapshots = \(await Promise\.all\(movementTrips\.map\(trip => LocationRepository\.forEntity\('TRIP', trip\.id\)\)\)\)\.flat\(\)/)
+assert.match(workService, /const gpsSnapshots = \[\.\.\.shiftGpsSnapshots, \.\.\.tripGpsSnapshots\]/)
+console.log('Browser PWA ride trace contract passed: Start Trip records a 20-second passenger trace, End Trip captures the final boundary, and shift reconciliation consumes trip trace evidence.')
+
+
 // Phase A: GPS fallback must use dedicated movement enrichment so GPS-derived KM never becomes MANUAL.
 assert.ok(workService.includes("if (Number.isFinite(Number(gpsKm)) && gpsKm >= 0) {"))
 assert.ok(workService.includes("await ShiftTripRepository.enrichTripMovement({"))
