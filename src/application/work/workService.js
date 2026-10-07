@@ -32,7 +32,9 @@ export const WorkService = Object.freeze({
   async previewMovementReconciliation({ shiftId, closingOdometer, trips = [] }) {
     const shift = await ShiftTripRepository.getActive()
     if (!shift?.shift?.id || shift.shift.id !== shiftId) return { reconciliationStatus: 'UNAVAILABLE', reason: 'ACTIVE_SHIFT_NOT_FOUND' }
-    const gpsSnapshots = await LocationRepository.forEntity('SHIFT', shiftId)
+    const shiftGpsSnapshots = await LocationRepository.forEntity('SHIFT', shiftId)
+    const tripGpsSnapshots = (await Promise.all(trips.map(trip => LocationRepository.forEntity('TRIP', trip.id)))).flat()
+    const gpsSnapshots = [...shiftGpsSnapshots, ...tripGpsSnapshots]
     try {
       return await MovementAccountingService.reconcileShiftMovement({
         trips,
@@ -123,7 +125,7 @@ export const WorkService = Object.freeze({
                 confidence: routed.confidence,
                 gpsTracePoints: routed.points?.length || snapshots.length,
                 fallbackGpsKm: Number.isFinite(Number(gpsKm)) ? Number(gpsKm) : null,
-                source: 'ANDROID_NATIVE_GPS'
+                source: browserTracePoints.length > 0 ? 'BROWSER_GEOLOCATION' : 'ANDROID_NATIVE_GPS'
               },
               roadMatchedGeometry: routed.roadMatchedGeometry || null,
               traceGeometry: routed.traceGeometry || []
@@ -154,7 +156,7 @@ export const WorkService = Object.freeze({
     }
     return result
   },
-  async cancelTrip(data) { const result = await ShiftTripRepository.cancelTrip(data); checkpoint(); if (data?.id) { void (async () => { try { void (async () => { try { await NativeGpsService.syncTrace(data.id); await NativeGpsService.stop(data.id) } catch (_) {} })() } catch (_) {} })() } return result },
+  async cancelTrip(data) { const result = await ShiftTripRepository.cancelTrip(data); checkpoint(); if (data?.id) { void (async () => { try { const activeTrace = MovementTraceService.getActiveSession(); if (activeTrace?.entityType === 'TRIP' && activeTrace.entityId === data.id) { await MovementTraceService.stop({ captureFinal: false }) } await NativeGpsService.syncTrace(data.id); await NativeGpsService.stop(data.id) } catch (_) {} })() } return result },
   async updateTrip(data) {
     const validation = validateTripCorrection(data)
     if (!validation.valid) return { ok: false, reason: validation.reason }
