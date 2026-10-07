@@ -59,7 +59,7 @@ assert.equal(Number.isNaN(blankTenureLoan.loanScheduledObligation), true)
 const id1 = generateUUID(); const id2 = generateUUID()
 assert.equal(typeof id1, 'string'); assert.equal(typeof id2, 'string'); assert.notEqual(id1, id2)
 
-// Controlled-batch adversarial contracts.
+// Controlled-batch adversarial contracts. CI gate: four frozen calculation fixes only.
 // 1) EMI provision periods are half-open at the due boundary: a due date
 // belongs to the next period, never to both adjacent periods.
 {
