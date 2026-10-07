@@ -12,7 +12,17 @@ const optionValue=option=>option&&typeof option==='object'&&'value' in option?op
 const optionLabel=option=>option&&typeof option==='object'&&'label' in option?option.label:option
 function syncValues(source={}){for(const key of Object.keys(values))delete values[key];for(const field of fields.value)values[field.key]=source[field.key]!==undefined?source[field.key]:field.defaultValue;errors.value={}}
 syncValues(props.modelValue)
-watch(()=>[props.definition,props.modelValue],()=>syncValues(props.modelValue),{deep:true})
+function valuesDiffer(source={}) {
+  return fields.value.some(field => {
+    const key = field.key
+    const incoming = source[key] === undefined ? field.defaultValue : source[key]
+    return values[key] !== incoming
+  })
+}
+watch(()=>props.definition?.key,()=>syncValues(props.modelValue))
+watch(()=>props.modelValue,(next)=>{
+  if(valuesDiffer(next)) syncValues(next)
+},{deep:true})
 function setValue(key,value){values[key]=value;emit('update:modelValue',{...values});if(errors.value[key]){const next={...errors.value};delete next[key];errors.value=next}}
 function keyboardFor(field){if(field.type==='number')return field.step&&Number(field.step)%1!==0?'decimal':'numeric';if(field.key.toLowerCase().includes('phone'))return'tel';if(field.key.toLowerCase().includes('email'))return'email';return undefined}
 function setFieldRef(key,el){if(el)fieldRefs.value[key]=el}
