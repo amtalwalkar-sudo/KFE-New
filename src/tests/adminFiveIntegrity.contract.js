@@ -72,7 +72,8 @@ assert.match(adminService, /maintenance:\[\['settlement','sourceId'\]\]/, 'Maint
 assert.match(adminService, /compliance:\[\['settlement','sourceId'\]\]/, 'Compliance deletion must protect linked settlements')
 assert.match(adminRepo, /assertSourcePaymentIntegrity/, 'Maintenance/Compliance edits must enforce source/payment integrity')
 assert.match(adminRepo, /assertSourceHasNoSettlements/, 'Maintenance/Compliance deletion must enforce settlement integrity')
-assert.match(perfEngine, /String\(b\.updatedAt \|\| b\.createdAt \|\| b\.id \|\| ''\)/, 'Maintenance rate selection must tie-break identical effective dates deterministically')\nassert.match(adminForm, /function valuesDiffer\(source=\{\}\)/, 'Admin form must compare incoming model values before resyncing')
+assert.match(perfEngine, /String\(b\.updatedAt \|\| b\.createdAt \|\| b\.id \|\| ''\)/, 'Maintenance rate selection must tie-break identical effective dates deterministically')
+assert.match(adminForm, /function valuesDiffer\(source=\{\}\)/, 'Admin form must compare incoming model values before resyncing')
 assert.match(adminForm, /if\(valuesDiffer\(next\)\) syncValues\(next\)/, 'Admin form must not reset local input state on every keystroke')
 
 console.log('Admin five-defect integrity contract: PASS')
