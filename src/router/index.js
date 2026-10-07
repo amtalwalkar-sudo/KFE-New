@@ -1,4 +1,5 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router'
+import { Capacitor } from '@capacitor/core'
 import WorkModuleView from '../views/WorkModuleView.vue'
 import PerformanceView from '../views/PerformanceView.vue'
 import AdminView from '../views/AdminView.vue'
@@ -11,13 +12,16 @@ const routes = [
   { path: '/admin', name: 'Admin', component: AdminView },
 ]
 
-// Resolve the hosting directory from the current document URL. This keeps
-// GitHub Pages under /KFE-New/ while remaining compatible with Capacitor
-// (where the app is served from the local WebView origin).
+// GitHub Pages keeps normal HTML5 URLs. Native Capacitor WebView uses hash history so
+// refreshing Timeline/Performance/Admin always reloads the app entry document instead
+// of depending on a server rewrite for an arbitrary client-side route.
 const routerBase = new URL('./', window.location.href).pathname
+const history = Capacitor.isNativePlatform()
+  ? createWebHashHistory('/')
+  : createWebHistory(routerBase)
 
 const router = createRouter({
-  history: createWebHistory(routerBase),
+  history,
   routes
 })
 
