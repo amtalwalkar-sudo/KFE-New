@@ -6,11 +6,12 @@ const props = defineProps({ definition:{type:Object,required:true}, modelValue:{
 const emit=defineEmits(['update:modelValue','submit','cancel'])
 const values=reactive({})
 const errors=ref({})
+const userEditing=ref(false)
 const fieldRefs=ref({})
 const fields=computed(()=>props.definition.fields??[])
 const optionValue=option=>option&&typeof option==='object'&&'value' in option?option.value:option
 const optionLabel=option=>option&&typeof option==='object'&&'label' in option?option.label:option
-function syncValues(source={}){for(const key of Object.keys(values))delete values[key];for(const field of fields.value)values[field.key]=source[field.key]!==undefined?source[field.key]:field.defaultValue;errors.value={}}
+function syncValues(source={}){for(const key of Object.keys(values))delete values[key];for(const field of fields.value)values[field.key]=source[field.key]!==undefined?source[field.key]:field.defaultValue;errors.value={};userEditing.value=false}
 syncValues(props.modelValue)
 function valuesDiffer(source={}) {
   return fields.value.some(field => {
@@ -21,9 +22,9 @@ function valuesDiffer(source={}) {
 }
 watch(()=>props.definition?.key,()=>syncValues(props.modelValue))
 watch(()=>props.modelValue,(next)=>{
-  if(valuesDiffer(next)) syncValues(next)
+  if(!userEditing.value && valuesDiffer(next)) syncValues(next)
 },{deep:true})
-function setValue(key,value){values[key]=value;emit('update:modelValue',{...values});if(errors.value[key]){const next={...errors.value};delete next[key];errors.value=next}}
+function setValue(key,value){userEditing.value=true;values[key]=value;emit('update:modelValue',{...values});if(errors.value[key]){const next={...errors.value};delete next[key];errors.value=next}}
 function keyboardFor(field){if(field.type==='number')return field.step&&Number(field.step)%1!==0?'decimal':'numeric';if(field.key.toLowerCase().includes('phone'))return'tel';if(field.key.toLowerCase().includes('email'))return'email';return undefined}
 function setFieldRef(key,el){if(el)fieldRefs.value[key]=el}
 function submit(){const result=AdminService.validate(props.definition.key,values,props.context);errors.value=result.errors;if(result.valid)emit('submit',result.values)}
