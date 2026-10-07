@@ -22,35 +22,41 @@
       (() => {
         const BOOT_TIMEOUT_MS = 30000
         let bootCompleted = false
-        const showBootError = (error) => {
-          if (bootCompleted) return
+        const showBootDiagnostic = (error) => {
+          if (bootCompleted || window.__KFE_APP_MOUNTED__) return
           const root = document.getElementById('kfe-boot')
           if (!root) return
           const message = error?.message || String(error || 'Unknown startup error')
           root.replaceChildren()
           const box = document.createElement('div')
           const heading = document.createElement('strong')
-          heading.textContent = 'KFE could not start'
-          heading.style.cssText = 'display:block;font-size:1.05rem;color:#991b1b'
+          heading.textContent = 'KFE is taking longer than expected'
+          heading.style.cssText = 'display:block;font-size:1.05rem'
           const details = document.createElement('pre')
           details.textContent = message
-          details.style.cssText = 'margin-top:10px;max-width:680px;white-space:pre-wrap;text-align:left;background:#fff1f2;padding:12px;border-radius:8px;overflow:auto;font:12px/1.5 ui-monospace,monospace'
+          details.style.cssText = 'margin-top:10px;max-width:680px;white-space:pre-wrap;text-align:left;background:#f1f5f9;padding:12px;border-radius:8px;overflow:auto;font:12px/1.5 ui-monospace,monospace'
           const reload = document.createElement('button')
           reload.type = 'button'
-          reload.textContent = 'Reload'
+          reload.textContent = 'Retry'
           reload.style.cssText = 'min-height:44px;padding:10px 16px;border:0;border-radius:8px;background:#2563eb;color:white;font-weight:700'
           reload.addEventListener('click', () => location.reload())
           box.append(heading, details, reload)
           root.append(box)
         }
-        window.addEventListener('error', event => showBootError(event.error || event.message))
-        window.addEventListener('unhandledrejection', event => showBootError(event.reason))
+        const markMounted = () => {
+          bootCompleted = true
+          const root = document.getElementById('kfe-boot')
+          if (root) root.remove()
+        }
+        window.addEventListener('kfe:app-mounted', markMounted, { once: true })
+        window.addEventListener('error', event => showBootDiagnostic(event.error || event.message))
+        window.addEventListener('unhandledrejection', event => showBootDiagnostic(event.reason))
         window.setTimeout(() => {
-          if (!document.getElementById('kfe-boot')) {
+          if (window.__KFE_APP_MOUNTED__ || !document.getElementById('kfe-boot')) {
             bootCompleted = true
             return
           }
-          showBootError(new Error('KFE is still loading. Please wait while the Android WebView finishes loading the application.'))
+          showBootDiagnostic(new Error('The KFE application bundle did not reach the Vue mount boundary.'))
         }, BOOT_TIMEOUT_MS)
       })()
     </script>

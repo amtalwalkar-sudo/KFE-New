@@ -70,6 +70,17 @@ public class KfeWebViewStartupTest {
       }
       assertTrue("KFE Work and Start Shift controls did not mount after first-run setup: " + dom.get(),
         "\"READY\"".equals(dom.get()));
+
+      AtomicReference<String> boot = new AtomicReference<>("");
+      CountDownLatch bootCheck = new CountDownLatch(1);
+      scenario.onActivity(activity -> activity.getBridge().getWebView().evaluateJavascript(
+        "(function(){return JSON.stringify({mounted:!!window.__KFE_APP_MOUNTED__,boot:!!document.getElementById('kfe-boot'),fatal:document.body.innerText.includes('KFE could not start')})})()",
+        value -> { boot.set(value == null ? "null" : value); bootCheck.countDown(); }
+      ));
+      assertTrue("Startup boundary diagnostic timed out", bootCheck.await(5, TimeUnit.SECONDS));
+      String bootState = boot.get().replace("\\\"", "\"");
+      assertTrue("KFE must reach the mounted UI without the fatal boot gate: " + bootState,
+        bootState.contains("\"mounted\":true") && !bootState.contains("\"boot\":true") && !bootState.contains("\"fatal\":true"));
     } finally {
       scenario.close();
     }
