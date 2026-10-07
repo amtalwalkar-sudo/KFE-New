@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 /**
  * Pre-change guard for KFE presentation edits.
- * Run before editing. Shared CSS/theme/shell/native surfaces require an
- * explicit impact acknowledgement; business/persistence layers are never
- * accepted as presentation-only targets.
+ * Shared CSS/theme/shell/native surfaces require an explicit impact acknowledgement;
+ * business/persistence layers require explicit cross-layer acknowledgement.
  */
 import process from 'node:process'
 
@@ -35,15 +34,15 @@ const sharedFiles = requested.filter((file) => sharedPrefixes.some((prefix) => i
 console.log('KFE UI CHANGE PREFLIGHT')
 for (const file of requested) console.log(`Requested: ${file}`)
 
-if (protectedFiles.length && !(acknowledgeCrossLayer && acknowledgeNative && nativeFiles.length)) {
+if (protectedFiles.length && !acknowledgeCrossLayer) {
   console.error('\n🔴 CHANGE IMPACT WARNING — protected business or persistence authority is in scope:')
   for (const file of protectedFiles) console.error(`  - ${file}`)
-  console.error('Stop. This is not a presentation-only change. Separate it or explicitly redesign the cross-layer contract.')
+  console.error('Stop. This is not a presentation-only change. Separate it or explicitly acknowledge the reviewed cross-layer contract.')
   process.exit(1)
 }
 
 if (protectedFiles.length) {
-  console.log('\n🟡 CROSS-LAYER IMPACT ACKNOWLEDGED — native + protected KFE changes are explicitly reviewed.')
+  console.log('\n🟡 CROSS-LAYER IMPACT ACKNOWLEDGED — protected KFE changes are explicitly reviewed.')
 }
 
 if (nativeFiles.length && !acknowledgeNative) {

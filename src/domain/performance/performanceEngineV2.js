@@ -30,7 +30,7 @@ const applicableMaintenanceRate = (inputs, date) => {
     .filter(x => x.active !== false && x.status !== 'INACTIVE')
     .map(x => ({ ...x, effectiveKey: istDateKey(x.effectiveFrom) || String(x.effectiveFrom || '').slice(0, 10) }))
     .filter(x => x.effectiveKey && x.effectiveKey <= key && x.maintenanceProvisionPerKm != null && x.maintenanceProvisionPerKm !== '' && Number.isFinite(Number(x.maintenanceProvisionPerKm)) && Number(x.maintenanceProvisionPerKm) >= 0)
-    .sort((a, b) => String(b.effectiveKey).localeCompare(String(a.effectiveKey)))[0]
+    .sort((a, b) => String(b.effectiveKey).localeCompare(String(a.effectiveKey)) || String(b.updatedAt || b.createdAt || b.id || '').localeCompare(String(a.updatedAt || a.createdAt || a.id || '')))[0]
   return row ? Number(row.maintenanceProvisionPerKm) : NaN
 }
 const calendarParts = value => {
