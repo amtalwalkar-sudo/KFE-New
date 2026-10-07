@@ -222,8 +222,8 @@ export function deriveLoanPosition({ loan, payments = [], prepayments = [], asOf
     const due = dateOf(row.dueDate)
     if (!start || !due || effectiveAsOf < start) return sum
     const end = effectiveAsOf < due ? effectiveAsOf : due
-    const totalDays = Math.max(1, calendarDayCount(start, due) + 1)
-    const elapsedDays = Math.max(0, Math.min(totalDays, calendarDayCount(start, end) + 1))
+    const totalDays = Math.max(1, calendarDayCount(start, due))
+    const elapsedDays = Math.max(0, Math.min(totalDays, calendarDayCount(start, end)))
     return sum + Math.round(rupeesToPaise(row.originalEmiAmount) * elapsedDays / totalDays)
   }, 0)
   const actualPaidPaise = live(payments).filter(payment => payment.loanId === loan.id && String(payment.status || '').toLowerCase() !== 'reversed' && dateOf(payment.paidOn) <= effectiveAsOf).reduce((sum, payment) => sum + rupeesToPaise(payment.amount), 0)
