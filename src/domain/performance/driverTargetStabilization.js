@@ -22,7 +22,7 @@ const periodDays = record => {
 const periodBaseTarget = (record, applicableBreakEven = null) => {
   const desiredProfit = finite(record?.desiredDriverProfit)
   if (desiredProfit != null && applicableBreakEven != null) return applicableBreakEven + desiredProfit
-  return finite(record?.targetRevenue ?? record?.target ?? record?.amount)
+  return finite(record?.targetRevenue)
 }
 const baseDailyFor = (record, applicableBreakEven = null) => {
   const periodTarget = periodBaseTarget(record, applicableBreakEven)
