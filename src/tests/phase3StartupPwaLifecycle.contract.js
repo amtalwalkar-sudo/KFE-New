@@ -40,3 +40,5 @@ assert.match(main, /void startApplication\(\)\.catch/)
 assert.match(vite, /base:\s*['"]\.\/['"]/)
 
 console.log('Phase 3 startup/PWA lifecycle contract passed')
+
+// Native WebView startup gate is required for this dedicated startup fix.
