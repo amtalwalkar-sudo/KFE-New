@@ -41,16 +41,13 @@ jobs:
           fi
           echo "Changed UI/native presentation files:"
           printf ' - %s\n' "${ui_files[@]}"
-          # Include all changed paths so mixed business/persistence edits are blocked.
+          # Include all changed paths so mixed business/persistence edits are blocked unless explicitly reviewed.
           args=("${changed_files[@]}")
           if [[ "${UI_IMPACT_ACK}" == "true" ]]; then
-            args+=(--acknowledge-shared-impact)
+            args+=(--acknowledge-shared-impact --acknowledge-cross-layer-impact)
           fi
           if [[ "${NATIVE_IMPACT_ACK}" == "true" ]]; then
             args+=(--acknowledge-native-impact)
-            if [[ "${UI_IMPACT_ACK}" == "true" ]]; then
-              args+=(--acknowledge-cross-layer-impact)
-            fi
           fi
           node tools/ui-isolation-gate.mjs "${args[@]}"
           if [[ "${NATIVE_IMPACT_ACK}" == "true" ]]; then
