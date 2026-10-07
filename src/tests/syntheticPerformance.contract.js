@@ -31,7 +31,7 @@ assert.equal(metrics.operatingKmForecast.observedOperatingDays, 1826)
 assert.ok(Math.abs(metrics.operatingKmForecast.calculatedForecast.dailyKm - 212.21168510607765) < 1e-6)
 assert.equal(metrics.driverTargetAvailable, true)
 
-const expectedActualProfit = metrics.financialRevenue - metrics.actualOperatingCost - metrics.actualLoanPaid
+const expectedActualProfit = metrics.operatingProfit - metrics.performanceHeadlineScheduledEmi
 const expectedIndicativeProfit = metrics.performanceHeadlineProvisionalProfit
 assert.ok(Number.isFinite(metrics.actualProfit))
 assert.ok(Number.isFinite(metrics.indicativeProfit))
@@ -40,7 +40,7 @@ assert.ok(Math.abs(metrics.indicativeProfit - expectedIndicativeProfit) < 1e-9)
 assert.ok(Math.abs(metrics.totalIndicativeProvision - (
   metrics.loanProvisionForPeriod + metrics.maintenanceProvision + metrics.renewalProvision
 )) < 1e-9)
-assert.equal(metrics.authority.actualProfit, 'OPERATING_PROFIT_MINUS_ACTUAL_LOAN_PAYMENTS')
+assert.equal(metrics.authority.actualProfit, 'OPERATING_PROFIT_MINUS_FULL_SCHEDULED_EMI')
 assert.equal(metrics.authority.indicativeProfit, 'PROVISIONAL_PROFIT_AFTER_SCHEDULED_EMI_AND_NORMALIZED_HISTORICAL_RECOVERY')
 
 console.log('Synthetic end-to-end Performance calculation contract: PASS')
