@@ -12,6 +12,7 @@ import { getKfeReferenceNow, reportingRangeFor } from '../../domain/time/ist.js'
 import { deriveDailyTargetAchievement } from '../../domain/performance/dailyTargetAchievement.js'
 import { deriveDailyRevenueAllocation } from '../../domain/performance/dailyRevenueAllocation.js'
 import { deriveAuthoritativeDriverTarget, getApplicableDriverTarget } from '../../domain/performance/driverTarget.js'
+import { deriveRollingDriverTarget } from '../../domain/performance/driverTargetStabilization.js'
 
 export const PerformanceService = Object.freeze({
   async getSnapshot() {
@@ -76,7 +77,17 @@ export const PerformanceService = Object.freeze({
       desiredDriverProfitMonthly,
       calendarDays: targetMonthDays,
     })
-    const canonicalTarget = targetFormula.available ? targetFormula.target : null
+    const stabilization = targetFormula.available
+      ? deriveRollingDriverTarget({
+          trips: calculationSnapshot?.trips,
+          shifts: calculationSnapshot?.shifts,
+          driverTargets: calculationSnapshot?.driverTargets,
+          from: boundedRange.from,
+          to: boundedRange.to,
+          applicableBreakEven: authoritativeMonthlyBreakEven,
+        })
+      : { available: false, currentDailyTarget: null, balance: null, recoveryAdjustment: null, currentBaseDaily: null }
+    const canonicalTarget = stabilization.available ? stabilization.currentDailyTarget : null
     const targetAvailable = canonicalTarget != null
     const financialDays = Number(metrics.counts?.activeFinancialDays) || 0
     const revenuePerFinancialDay = financialDays > 0 ? metrics.revenue / financialDays : NaN
@@ -124,18 +135,21 @@ export const PerformanceService = Object.freeze({
       breakEvenInputs: metrics.breakEvenInputs,
       authority: {
         ...metrics.authority,
-        target: targetFormula.authority || 'MONTHLY_BREAK_EVEN_PLUS_ADMIN_MONTHLY_DRIVER_PROFIT',
+        target: stabilization.available ? 'DRIVER_TARGET_ROLLING_RECOVERY' : (targetFormula.authority || 'MONTHLY_BREAK_EVEN_PLUS_ADMIN_MONTHLY_DRIVER_PROFIT'),
         breakEven: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN',
       },
       completeness: { ...metrics.completeness, target: targetAvailable, breakEven: authoritativeMonthlyBreakEven != null },
       calculationEvidence: {
         ...(metrics.calculationEvidence || {}),
-        target: targetFormula.available ? { status: 'AUTHORITATIVE', source: targetFormula.authority } : { status: 'UNAVAILABLE', reason: targetFormula.reason },
+        target: stabilization.available ? { status: 'AUTHORITATIVE', source: 'DRIVER_TARGET_ROLLING_RECOVERY' } : { status: 'UNAVAILABLE', reason: targetFormula.reason },
         dailyBreakEven: dailyBreakEvenEvidence,
       },
       driverTarget: canonicalTarget,
       driverTargetAvailable: targetAvailable,
-      driverTargetReason: targetFormula.reason,
+      driverTargetReason: stabilization.available ? null : targetFormula.reason,
+      driverTargetBase: stabilization.currentBaseDaily,
+      driverTargetRecoveryAdjustment: stabilization.recoveryAdjustment,
+      driverTargetRollingBalance: stabilization.balance,
       driverTargetEffectiveMonthlyTarget: targetFormula.monthlyTarget,
       driverTargetCalendarDaysInMonth: targetMonthDays,
       driverTargetDesiredProfitMonthly: desiredDriverProfitMonthly,
