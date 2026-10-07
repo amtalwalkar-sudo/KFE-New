@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { derivePerformance } from '../domain/performance/performanceEngineV2.js'
 import { deriveAuthoritativeDriverTarget } from '../domain/performance/driverTarget.js'
+import { deriveRollingDriverTarget } from '../domain/performance/driverTargetStabilization.js'
 import { deriveDailyTargetAchievement } from '../domain/performance/dailyTargetAchievement.js'
 
 const read = path => fs.readFileSync(new URL(path, import.meta.url), 'utf8')
@@ -17,8 +18,7 @@ assert.match(adapterSource, /deriveAuthoritativeBreakEven/)
 assert.match(serviceSource, /deriveFinanceAwarePerformance\(/)
 assert.match(serviceSource, /deriveAuthoritativeDriverTarget/)
 assert.match(serviceSource, /AUTHORITATIVE_MONTHLY_BREAK_EVEN/)
-assert.doesNotMatch(serviceSource, /deriveRollingDriverTarget/)
-assert.doesNotMatch(serviceSource, /driverTargetRecovery|remainingEligibleDays|openingCarry/)
+assert.match(serviceSource, /deriveRollingDriverTarget/)
 
 const snapshot = {
   trips: [{ id:'t1', status:'COMPLETED', tripStartAt:'2026-09-10T09:00:00Z', tripEndAt:'2026-09-10T12:00:00Z', tripKm:150, revenue:1 }],
@@ -56,14 +56,19 @@ assert.equal(service.target,service.driverTarget)
 assert.ok(Number.isFinite(service.breakEvenRevenue))
 assert.ok(Number.isFinite(service.driverTarget))
 
-const formula=deriveAuthoritativeDriverTarget({
-  monthlyBreakEvenRevenue:service.monthlyBreakEvenRevenue,
-  desiredDriverProfitMonthly:1000,
-  calendarDays:30,
+const stabilization = deriveRollingDriverTarget({
+  trips: snapshot.trips,
+  shifts: snapshot.shifts,
+  driverTargets: snapshot.driverTargets,
+  from: range.from,
+  to: range.to,
+  applicableBreakEven: service.monthlyBreakEvenRevenue,
 })
-assert.equal(service.driverTarget,formula.target)
-assert.equal(service.driverTargetEffectiveMonthlyTarget,formula.monthlyTarget)
-assert.equal(service.driverTargetCalendarDaysInMonth,30)
+assert.equal(service.driverTarget, stabilization.currentDailyTarget)
+assert.equal(service.driverTargetBase, stabilization.currentBaseDaily)
+assert.equal(service.driverTargetRollingBalance, stabilization.balance)
+assert.equal(service.driverTargetAvailable, stabilization.available)
+assert.equal(service.driverTargetAuthority, 'DRIVER_TARGET_ROLLING_RECOVERY')
 
 const higher=PerformanceService.getMetrics({...snapshot,driverTargets:[{...snapshot.driverTargets[0],desiredDriverProfit:5000}]},range)
 for(const key of ['revenue','vehicleKm','businessKm','deadKm','fuelCost','toll','parking','actualMaintenance','runningCost','operatingProfit','breakEvenRevenue','monthlyBreakEvenRevenue']) {
