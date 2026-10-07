@@ -78,8 +78,9 @@ public class KfeWebViewStartupTest {
         value -> { boot.set(value == null ? "null" : value); bootCheck.countDown(); }
       ));
       assertTrue("Startup boundary diagnostic timed out", bootCheck.await(5, TimeUnit.SECONDS));
-      assertTrue("KFE must reach the mounted UI without the fatal boot gate: " + boot.get(),
-        boot.get().contains("\"mounted\":true") && !boot.get().contains("\"boot\":true") && !boot.get().contains("\"fatal\":true"));
+      String bootState = boot.get().replace("\\\"", "\"");
+      assertTrue("KFE must reach the mounted UI without the fatal boot gate: " + bootState,
+        bootState.contains("\"mounted\":true") && !bootState.contains("\"boot\":true") && !bootState.contains("\"fatal\":true"));
     } finally {
       scenario.close();
     }
