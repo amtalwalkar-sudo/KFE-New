@@ -14,7 +14,8 @@ function syncValues(source={}){for(const key of Object.keys(values))delete value
 syncValues(props.modelValue)
 onMounted(async()=>{await nextTick();const first=fields.value.find(field=>field.type!=='checkbox');if(first)fieldRefs.value[first.key]?.focus?.()})
 watch(()=>props.definition?.key,()=>syncValues(props.modelValue))
-function setValue(key,value){values[key]=value;emit('update:modelValue',{...values});if(errors.value[key]){const next={...errors.value};delete next[key];errors.value=next}}
+function setValue(key,value){values[key]=value;if(errors.value[key]){const next={...errors.value};delete next[key];errors.value=next}}
+watch(values,()=>emit('update:modelValue',{...values}),{deep:true})
 function keyboardFor(field){if(field.type==='number')return field.step&&Number(field.step)%1!==0?'decimal':'numeric';if(field.key.toLowerCase().includes('phone'))return'tel';if(field.key.toLowerCase().includes('email'))return'email';return undefined}
 function setFieldRef(key,el){if(el)fieldRefs.value[key]=el}
 function submit(){const result=AdminService.validate(props.definition.key,values,props.context);errors.value=result.errors;if(result.valid)emit('submit',result.values)}
@@ -25,11 +26,11 @@ function submit(){const result=AdminService.validate(props.definition.key,values
     <div class="form-grid">
       <label v-for="field in fields" :key="field.key" class="form-field" :class="{ invalid: !!errors[field.key] }">
         <span class="field-label">{{field.label}}<strong v-if="field.required" aria-hidden="true"> *</strong></span>
-        <select v-if="field.type==='select'" :ref="el=>setFieldRef(field.key,el)" :id="`field-${field.key}`" :value="values[field.key]??''" :aria-invalid="!!errors[field.key]" :aria-describedby="errors[field.key]?`error-${field.key}`:undefined" :disabled="busy" :required="field.required" @change="setValue(field.key,$event.target.value)">
+        <select v-if="field.type==='select'" :ref="el=>setFieldRef(field.key,el)" v-model="values[field.key]" :disabled="busy" :required="field.required">
           <option value="">Select…</option><option v-for="option in field.options||[]" :key="optionValue(option)" :value="optionValue(option)">{{optionLabel(option)}}</option>
         </select>
-        <textarea v-else-if="field.type==='textarea'" :id="`field-${field.key}`" :value="values[field.key]??''" :aria-invalid="!!errors[field.key]" :aria-describedby="errors[field.key]?`error-${field.key}`:undefined" :disabled="busy" :required="field.required" @input="setValue(field.key,$event.target.value)"/>
-        <input v-else :ref="el=>setFieldRef(field.key,el)" :id="`field-${field.key}`" :type="field.type==='checkbox'?'checkbox':field.type" :inputmode="field.type==='checkbox'?undefined:keyboardFor(field)" :enterkeyhint="field.type==='checkbox'?undefined:(fields[fields.length-1]?.key===field.key?'done':'next')" :min="field.min" :max="field.max" :step="field.step" :checked="field.type==='checkbox'?Boolean(values[field.key]):undefined" :required="field.required" :value="field.type==='checkbox'?undefined:values[field.key]??''" :aria-invalid="!!errors[field.key]" :aria-describedby="errors[field.key]?`error-${field.key}`:undefined" :disabled="busy" @change="field.type==='checkbox'?setValue(field.key,$event.target.checked):setValue(field.key,$event.target.value)" @input="field.type==='checkbox'?undefined:setValue(field.key,$event.target.value)"/>
+        <textarea v-else-if="field.type==='textarea'" :ref="el=>setFieldRef(field.key,el)" v-model="values[field.key]" :disabled="busy" :required="field.required"/>
+        <input v-else :ref="el=>setFieldRef(field.key,el)" v-model="values[field.key]" :type="field.type==='checkbox'?'checkbox':field.type" :inputmode="field.type==='checkbox'?undefined:keyboardFor(field)" :enterkeyhint="field.type==='checkbox'?undefined:(fields[fields.length-1]?.key===field.key?'done':'next')" :min="field.min" :max="field.max" :step="field.step" :required="field.required" :disabled="busy"/>
         <small v-if="errors[field.key]" :id="`error-${field.key}`" class="form-error" role="alert">{{errors[field.key]}}</small>
       </label>
     </div>
