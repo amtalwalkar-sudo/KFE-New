@@ -46,6 +46,7 @@ assert.match(startup, /export const startApplication/)
 assert.match(startup, /export const resetStartupAttempt/)
 assert.match(startup, /export \{ startupState \}/)
 assert.equal(fs.existsSync('src/application/startup/startupRuntime.js'), false, 'startupRuntime.js must be retired; StartupService is the sole startup authority')
-assert.match(vite, /base:\s*['"]\.\/['"]/)\nassert.ok(fs.existsSync('tools/stamp-service-worker.mjs'), 'production build must stamp the service-worker cache identity')
+assert.match(vite, /base:\s*['"]\.\/['"]/)
+assert.ok(fs.existsSync('tools/stamp-service-worker.mjs'), 'production build must stamp the service-worker cache identity')
 
 console.log('Phase 3 startup/PWA lifecycle contract passed: one StartupService authority, no competing boot watchdog.')
