@@ -97,10 +97,31 @@ try {
       if (!page.url().endsWith(route.path)) {
         throw new Error(`${route.label}: router did not preserve direct history URL ${route.path}: ${page.url()}`)
       }
-      if (errors.length) throw new Error(`${route.label}: browser runtime errors:\n${errors.join('\n\n')}`)
-      if (failedRequests.length) throw new Error(`${route.label}: failed browser requests:\n${failedRequests.join('\n')}`)
+      if (errors.length) throw new Error(`${route.label}: browser runtime errors before hard refresh:\n${errors.join('\n\n')}`)
+      if (failedRequests.length) throw new Error(`${route.label}: failed browser requests before hard refresh:\n${failedRequests.join('\n')}`)
 
-      console.log(`PASS Pages route ${route.path}: HTTP ${response.status()}, visible ${route.label} surface, URL ${page.url()}`)
+      errors.length = 0
+      failedRequests.length = 0
+      const refreshedResponse = await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 })
+      if (!refreshedResponse || ![200, 404].includes(refreshedResponse.status())) {
+        throw new Error(`${route.label}: unexpected hard-refresh response: ${refreshedResponse?.status()}`)
+      }
+      await finishSetupIfEnabled(page)
+      if (route.path === '/performance') {
+        if (await page.locator('header.top-bar').count()) throw new Error('Performance route must honor its frozen header-hidden shell setting after hard refresh')
+      } else {
+        await page.locator('header.top-bar').waitFor({ state: 'visible', timeout: 15000 })
+      }
+      await page.locator(route.selector).waitFor({ state: 'visible', timeout: 20000 })
+      await page.waitForFunction(selector => {
+        const node = document.querySelector(selector)
+        return !!node && node.children.length > 0 && document.readyState === 'complete'
+      }, route.selector, { timeout: 20000 })
+      if (!page.url().endsWith(route.path)) throw new Error(`${route.label}: hard refresh changed URL: ${page.url()}`)
+      if (errors.length) throw new Error(`${route.label}: browser runtime errors after hard refresh:\n${errors.join('\n\n')}`)
+      if (failedRequests.length) throw new Error(`${route.label}: failed browser requests after hard refresh:\n${failedRequests.join('\n')}`)
+
+      console.log(`PASS Pages route ${route.path}: initial HTTP ${response.status()}, hard refresh HTTP ${refreshedResponse.status()}, visible ${route.label} surface, URL ${page.url()}`)
     } finally {
       await context.close()
     }
