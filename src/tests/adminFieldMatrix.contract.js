@@ -30,7 +30,7 @@ const universalAdmin = fs.readFileSync(new URL('../components/admin/UniversalAdm
 assert.match(adminView, /:busy="saving"/, 'All Universal Admin create/edit surfaces must use save-state locking')
 assert.ok(adminView.includes('paymentMethod:actionDraft.value.paymentMethod'), 'Source payment must persist payment method')
 assert.ok(adminView.includes('referenceNumber:String(actionDraft.value.referenceNumber||\'\')'), 'Source payment must persist payment reference')
-assert.match(adminView, /notes:String\(actionDraft\.notes/, 'Admin payment/prepayment/rate/target notes must reach persistence')
+assert.ok(adminView.includes('notes:String(actionDraft.value.notes||\'\')'), 'Admin payment/prepayment/rate/target notes must reach persistence')
 assert.match(universalAdmin, /:required="field\.required"/, 'Universal Admin controls must expose required semantics')
 assert.match(universalAdmin, /fieldRefs\.value\[first\.key\]\?\.focus/, 'Universal Admin create/edit form must focus its first entry control')
 
