@@ -37,30 +37,30 @@ const prepaymentDraft=ref({loanId:'',paidOn:istDateKey(getKfeReferenceNow()),amo
 const targetDraft=ref({driverId:'',month:istDateKey(getKfeReferenceNow()).slice(0,7),desiredDriverProfit:0,nonWorkingDates:'',targetHours:'',targetKm:''})
 const maintenanceRateDraft=ref({rate:'',changeDate:istDateKey(getKfeReferenceNow())})
 const targetFields=computed(()=>[
- {key:'driverId',label:'Driver',type:'select',required:true,options:all.value.driver.map(d=>({value:d.id,label:label('driver',d)}))},
- {key:'month',label:'Month',type:'month',required:true},
- {key:'desiredDriverProfit',label:'Desired driver profit / take-home',type:'number',required:true,min:0,step:0.01},
- {key:'nonWorkingDates',label:'Planned non-working / holiday dates',type:'textarea',placeholder:'YYYY-MM-DD, one per line or comma separated'},
- {key:'active',label:'Active',type:'checkbox',defaultValue:true},
- {key:'notes',label:'Notes',type:'textarea'}
+ {key:'driverId',label:'Driver',type:'select',section:'Target period',required:true,options:all.value.driver.map(d=>({value:d.id,label:label('driver',d)}))},
+ {key:'month',label:'Month',type:'month',section:'Target period',required:true},
+ {key:'desiredDriverProfit',label:'Desired driver profit / take-home',type:'number',section:'Target amount',required:true,min:0,step:0.01,help:'The target engine derives break-even and provision amounts separately.'},
+ {key:'nonWorkingDates',label:'Planned non-working / holiday dates',type:'textarea',section:'Availability',placeholder:'YYYY-MM-DD, one per line or comma separated'},
+ {key:'active',label:'Active',type:'checkbox',section:'Availability',defaultValue:true,toggleLabel:'Target active'},
+ {key:'notes',label:'Notes',type:'textarea',section:'Additional context'}
 ])
 const prepaymentFields=computed(()=>[
- {key:'loanId',label:'Loan',type:'select',required:true,options:all.value.loan.map(x=>({value:x.id,label:label('loan',x)}))},
- {key:'amount',label:'Prepayment amount',type:'number',required:true,min:0,step:0.01},
- {key:'paidOn',label:'Payment date',type:'date',required:true},
- {key:'reason',label:'Reason',type:'textarea'},
- {key:'notes',label:'Notes',type:'textarea'}
+ {key:'loanId',label:'Loan',type:'select',section:'Loan to prepay',required:true,options:all.value.loan.map(x=>({value:x.id,label:label('loan',x)}))},
+ {key:'amount',label:'Actual prepayment amount',type:'number',section:'Prepayment details',required:true,min:0,step:0.01},
+ {key:'paidOn',label:'Payment date',type:'date',section:'Prepayment details',required:true},
+ {key:'reason',label:'Reason',type:'textarea',section:'Additional context'},
+ {key:'notes',label:'Notes',type:'textarea',section:'Additional context'}
 ])
 const loanPaymentFields=[
- {key:'paidOn',label:'Payment date',type:'date',required:true},
- {key:'amount',label:'Amount paid',type:'number',required:true,min:0,step:0.01},
+ {key:'paidOn',label:'Payment date',type:'date',section:'Actual payment',required:true},
+ {key:'amount',label:'Actual amount paid',type:'number',section:'Actual payment',required:true,min:0,step:0.01},
  {key:'notes',label:'Notes',type:'textarea'}
 ]
 const settlementFields=[
- {key:'settledOn',label:'Payment date',type:'date',required:true},
- {key:'amount',label:'Amount',type:'number',required:true,min:0,step:0.01},
- {key:'paymentMethod',label:'Payment method',type:'select',options:['Cash','Bank transfer','UPI','Card','Cheque','Other'],defaultValue:'Cash'},
- {key:'referenceNumber',label:'Payment reference',type:'text'},
+ {key:'settledOn',label:'Payment date',type:'date',section:'Payment details',required:true},
+ {key:'amount',label:'Amount paid',type:'number',section:'Payment details',required:true,min:0,step:0.01},
+ {key:'paymentMethod',label:'Payment method',type:'select',section:'Payment reference',options:['Cash','Bank transfer','UPI','Card','Cheque','Other'],defaultValue:'Cash'},
+ {key:'referenceNumber',label:'Payment reference',type:'text',section:'Payment reference'},
  {key:'notes',label:'Notes',type:'textarea'}
 ]
 const themeSettings=ref(getKfeThemeSettings())
