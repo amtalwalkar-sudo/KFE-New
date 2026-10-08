@@ -33,6 +33,8 @@ assert.ok(adminView.includes('referenceNumber:String(actionDraft.value.reference
 assert.ok(adminView.includes('notes:String(actionDraft.value.notes||\'\')'), 'Admin payment/prepayment/rate/target notes must reach persistence')
 assert.match(universalAdmin, /:required="field\.required"/, 'Universal Admin controls must expose required semantics')
 assert.match(universalAdmin, /fieldRefs\.value\[first\.key\]\?\.focus/, 'Universal Admin create/edit form must focus its first entry control')
+assert.match(universalAdmin, /v-model=\"values\[field\.key\]\"/, 'Universal Admin controls must bind typing directly to local form state')
+assert.doesNotMatch(universalAdmin, /watch\(values/, 'Universal Admin must not emit parent model updates on every keystroke')
 
 const fixture = definition => Object.fromEntries(definition.fields.map(field => [
   field.key,
