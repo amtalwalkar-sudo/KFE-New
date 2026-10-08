@@ -12,7 +12,7 @@ function openEditor(field){if(props.busy||!isEditorField(field))return;editorFie
 function closeEditor(save=true){const field=editorField.value,el=editorRef.value;if(field&&save&&el){values[field.key]=el.value;emit('field-change',{key:field.key,value:field.type==='number'?(String(el.value).trim()===''?'':Number(el.value)):el.value})}editorOpen.value=false;editorField.value=null;nextTick(hydrateNative)}
 function editorInput(){}
 function fieldChanged(field){const value=readDom(field);values[field.key]=value;emit('field-change',{key:field.key,value})}
-function toggle(field){values[field.key]=!values[field.key];const el=fieldRefs.value[field.key];if(el)el.checked=!!values[field.key];emit('field-change',{key:field.key,value:values[field.key]})}
+function toggle(field){const value=readDom(field);values[field.key]=value;emit('field-change',{key:field.key,value})}
 function submit(){if(editorOpen.value)closeEditor(true);for(const field of fields.value)values[field.key]=readDom(field);emit('submit',{...values})}
 function keyboardFor(field){if(field.type==='number')return field.step&&Number(field.step)%1!==0?'decimal':'numeric';if(field.key.toLowerCase().includes('phone'))return'tel';if(field.key.toLowerCase().includes('email'))return'email';return undefined}
 watch(()=>props.modelValue,source=>hydrate(source),{deep:true});watch(()=>props.fields,()=>hydrate(props.modelValue),{deep:true})
