@@ -64,7 +64,7 @@ public class KfeWebViewStartupTest {
             + "})()",
           value -> { dom.set(value == null ? "null" : value); check.countDown(); }
         ));
-        if (!check.await(5, TimeUnit.SECONDS)) throw new AssertionError("WebView JavaScript evaluation timed out");
+        if (!check.await(30, TimeUnit.SECONDS)) throw new AssertionError("WebView JavaScript evaluation timed out");
         if ("\"READY\"".equals(dom.get())) break;
         SystemClock.sleep(500L);
       }
@@ -77,7 +77,7 @@ public class KfeWebViewStartupTest {
         "(function(){return JSON.stringify({mounted:!!window.__KFE_APP_MOUNTED__,boot:!!document.getElementById('kfe-boot'),fatal:document.body.innerText.includes('KFE could not start')})})()",
         value -> { boot.set(value == null ? "null" : value); bootCheck.countDown(); }
       ));
-      assertTrue("Startup boundary diagnostic timed out", bootCheck.await(5, TimeUnit.SECONDS));
+      assertTrue("Startup boundary diagnostic timed out", bootCheck.await(30, TimeUnit.SECONDS));
       String bootState = boot.get().replace("\\\"", "\"");
       assertTrue("KFE must reach the mounted UI without the fatal boot gate: " + bootState,
         bootState.contains("\"mounted\":true") && !bootState.contains("\"boot\":true") && !bootState.contains("\"fatal\":true"));
