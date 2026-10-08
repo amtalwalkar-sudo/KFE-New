@@ -23,6 +23,7 @@ const driverDefaults = getAdminFormDefinition('driver')
 const loanDefaults = getAdminFormDefinition('loan')
 assert.equal(vehicleDefaults.fields.find(field => field.key === 'status')?.defaultValue, 'Active', 'Vehicle create form must default to Active')
 assert.equal(vehicleDefaults.fields.find(field => field.key === 'active')?.defaultValue, true, 'Vehicle create form must default Active flag to true')
+assert.equal(vehicleDefaults.fields.some(field => field.key === 'expiryDate'), false, 'Vehicle expiry belongs to dated compliance records, not a duplicate vehicle-level field')
 assert.equal(driverDefaults.fields.find(field => field.key === 'status')?.defaultValue, 'Active', 'Driver create form must default to Active')
 assert.equal(loanDefaults.fields.find(field => field.key === 'status')?.defaultValue, 'Active', 'Loan create form must default to Active')
 const adminView = fs.readFileSync(new URL('../views/AdminView.vue', import.meta.url), 'utf8')
@@ -37,6 +38,10 @@ assert.match(nativeAdmin, /field\.type === 'number' \? 'number' : 'text'/, 'Admi
 assert.ok(nativeAdmin.includes('autocapitalize=\"off\"'), 'Admin text entry must not force capitalization')
 assert.doesNotMatch(nativeAdmin, /openEditor|editorRef|editorOpen|readonly/, 'Admin fields must not use a popup editor or readonly text entry')
 assert.doesNotMatch(nativeAdmin, /watch\(values/, 'Admin must not emit parent model updates on every keystroke')
+assert.match(nativeAdmin, /record-form-section/, 'Admin inputs must use the new grouped record-form architecture')
+assert.match(nativeAdmin, /field\.section/, 'Admin form sections must be driven by business-purpose groups')
+assert.doesNotMatch(nativeAdmin, /AdminNativeForm/, 'The previous Admin form implementation must not remain in the replacement component')
+assert.match(adminView, /<AdminRecordForm/, 'Admin view must render the replacement record form')
 
 const fixture = definition => Object.fromEntries(definition.fields.map(field => [
   field.key,
