@@ -24,7 +24,7 @@ assert.ok(reconciliationForm.includes('<form class="reconcile-card"'),'Reconcili
 assert.ok(field.includes('enterkeyhint'),'Shared form field must expose native Enter/Next/Done hints')
 assert.ok(form.includes('optionValue(option)'),'Admin native form must support value/label select options')
 assert.ok(form.includes('optionLabel(option)'),'Admin native form must render human-readable select labels')
-assert.ok(form.includes("busy:{type:Boolean,default:false}"),'Admin native form must expose a busy state')
+assert.match(form, /busy: \{ type: Boolean, default: false \}/, 'Admin native form must expose a busy state')
 assert.ok(form.includes("{{ busy ? 'Saving…' : submitLabel }}"),'Admin native form must communicate save progress')
 assert.ok(!form.includes('v-model='),'Admin form must not use Vue-controlled v-model inputs')
 assert.ok(form.includes('function onInput(field)'),'Admin fields must write directly through native input events')
