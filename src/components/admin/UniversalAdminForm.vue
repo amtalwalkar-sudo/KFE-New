@@ -15,7 +15,6 @@ syncValues(props.modelValue)
 onMounted(async()=>{await nextTick();const first=fields.value.find(field=>field.type!=='checkbox');if(first)fieldRefs.value[first.key]?.focus?.()})
 watch(()=>props.definition?.key,()=>syncValues(props.modelValue))
 function setValue(key,value){values[key]=value;if(errors.value[key]){const next={...errors.value};delete next[key];errors.value=next}}
-watch(values,()=>emit('update:modelValue',{...values}),{deep:true})
 function keyboardFor(field){if(field.type==='number')return field.step&&Number(field.step)%1!==0?'decimal':'numeric';if(field.key.toLowerCase().includes('phone'))return'tel';if(field.key.toLowerCase().includes('email'))return'email';return undefined}
 function setFieldRef(key,el){if(el)fieldRefs.value[key]=el}
 function submit(){const result=AdminService.validate(props.definition.key,values,props.context);errors.value=result.errors;if(result.valid)emit('submit',result.values)}
