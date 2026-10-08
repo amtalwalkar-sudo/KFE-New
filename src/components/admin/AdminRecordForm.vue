@@ -111,7 +111,7 @@ onMounted(async () => {
 </script>
 
 <template>
-<form class="admin-record-form kfe-contextual-form" data-form-type="admin-record" novalidate @submit.prevent="submit">
+<form class="admin-record-form kfe-contextual-form" data-form-type="admin-record" aria-label="Admin source record entry" novalidate @submit.prevent="submit">
   <header class="record-form-intro">
     <span class="form-eyebrow">SOURCE RECORD</span>
     <span class="form-guidance">Enter only known business facts. KFE calculates derived values.</span>
