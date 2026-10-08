@@ -1,6 +1,6 @@
 # Admin Rebuild — Frozen Inventory and Acceptance Contract
 
-**Purpose:** Rebuild the Admin presentation from a clean implementation while preserving existing entry fields, headings, business rules, and canonical persistence.
+**Purpose:** Rebuild Admin forms around authoritative business facts, calculation ownership, canonical persistence, and the universal form/recovery contracts. The previous UI and its field list are discovery evidence—not a reason to retain redundant or non-authoritative inputs.
 **Baseline:** `main` at `4faf972761ea994796a98e6cb5c3201684cb61b5`.
 **Authority order:** `KFE_BUSINESS_RULES_REGISTER.md` → `docs/KFE-CANONICAL-DATA-CONTRACT.md` / architecture and persistence contracts → universal form and recovery contracts → current Admin definitions for exact existing field labels.
 
@@ -26,7 +26,9 @@
 
 Current source also exposes Loan Payments and Payments/Settlements as record actions within their parent records; preserve these entry flows and headings.
 
-## Existing field inventory (exact labels from `adminFormDefinitions.js`)
+## Business-owned input inventory (reconciled against `adminFormDefinitions.js`)
+
+The rebuilt form groups organize the following source facts by business purpose. Fields that duplicate another authority or only describe a derived value are not entered manually.
 
 ### Business Setup
 - Business Start Date (date, required)
@@ -124,7 +126,7 @@ Current source also exposes Loan Payments and Payments/Settlements as record act
 - Change date (date, required)
 - Maintenance provision per vehicle km (number, required, minimum 0; existing default 1.6 only where the definition supplies it)
 - Notes (textarea)
-- Existing fuel-baseline entry: Odometer (km), Price / kg, Amount, calculated Quantity, Full tank checkbox. Preserve its existing flow and validation; do not make calculated quantity an editable fact.
+- Fuel baseline is a separate setup form under Diagnostics → Calculations, not a field inside the break-even form. Inputs: Odometer (km), Price / kg, Amount, and a compact Partial tank fill checkbox. Quantity is calculated as Amount ÷ Price/kg and must remain non-editable. The save path writes an authoritative fuel log through `CalculationsService`.
 
 ### Settings
 - Backup & Restore: Enable daily backup, Dropbox access token, backup/restore actions and confirmation.
@@ -133,7 +135,7 @@ Current source also exposes Loan Payments and Payments/Settlements as record act
 
 ## Rebuild acceptance gates
 
-1. Every heading and field above is represented in the rebuilt UI.
+1. Every required business-owned input above is represented in the rebuilt UI; no old field is retained merely for visual parity.
 2. Every definition key remains bound to its existing service/repository contract.
 3. All reference selectors load canonical related records and persist IDs, not display labels.
 4. Required/range/date/select/domain validation remains enforced in the authoritative service/repository path.
