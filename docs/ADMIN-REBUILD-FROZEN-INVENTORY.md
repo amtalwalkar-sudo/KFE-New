@@ -68,7 +68,7 @@ Legacy `vehicle.expiryDate` values from older records are preserved during unrel
 - Compliance name (text, required)
 - Validity · From (date, required)
 - Validity · Upto (date, required)
-- Amount paid (number, required, greater than 0)
+- Compliance cost (number, required, greater than 0; actual payment is recorded separately in Payments / Settlements)
 
 ### Maintenance
 - Date (date, required)
