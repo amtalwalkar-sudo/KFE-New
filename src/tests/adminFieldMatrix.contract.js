@@ -33,8 +33,9 @@ assert.ok(adminView.includes('referenceNumber:String(actionDraft.value.reference
 assert.ok(adminView.includes('notes:String(actionDraft.value.notes||\'\')'), 'Admin payment/prepayment/rate/target notes must reach persistence')
 assert.match(universalAdmin, /:required="field\.required"/, 'Universal Admin controls must expose required semantics')
 assert.match(universalAdmin, /fieldRefs\.value\[first\.key\]\?\.focus/, 'Universal Admin create/edit form must focus its first entry control')
-assert.ok(universalAdmin.includes(':value="values[field.key]"'), 'Universal Admin controls must seed native controls from local form state')
-assert.ok(universalAdmin.includes('@input="captureField(field,$event)"'), 'Universal Admin controls must capture native typing without v-model rerender control')
+assert.ok(universalAdmin.includes('const values={}'), 'Universal Admin draft state must stay non-reactive while typing')
+assert.ok(universalAdmin.includes('hydrateDom()'), 'Universal Admin controls must be hydrated from draft state without reactive input reconciliation')
+assert.ok(universalAdmin.includes('@input="captureField(field,$event)"'), 'Universal Admin controls must capture native input events without rerender control')
 assert.doesNotMatch(universalAdmin, /watch\(values/, 'Universal Admin must not emit parent model updates on every keystroke')
 
 const fixture = definition => Object.fromEntries(definition.fields.map(field => [

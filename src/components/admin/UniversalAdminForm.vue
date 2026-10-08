@@ -4,7 +4,7 @@ import { AdminService } from '../../application/admin/adminService.js'
 
 const props = defineProps({ definition:{type:Object,required:true}, modelValue:{type:Object,default:()=>({})}, context:{type:Object,default:()=>({})}, submitLabel:{type:String,default:'Save'}, busy:{type:Boolean,default:false} })
 const emit=defineEmits(['update:modelValue','submit','cancel'])
-const values=reactive({})
+const values={}
 const errors=ref({})
 const fieldRefs=ref({})
 const fields=computed(()=>props.definition.fields??[])
@@ -12,12 +12,32 @@ const optionValue=option=>option&&typeof option==='object'&&'value' in option?op
 const optionLabel=option=>option&&typeof option==='object'&&'label' in option?option.label:option
 function syncValues(source={}){for(const key of Object.keys(values))delete values[key];for(const field of fields.value)values[field.key]=source[field.key]!==undefined?source[field.key]:field.defaultValue;errors.value={}}
 syncValues(props.modelValue)
-onMounted(async()=>{await nextTick();const first=fields.value.find(field=>field.type!=='checkbox');if(first)fieldRefs.value[first.key]?.focus?.()})
-watch(()=>props.definition?.key,()=>syncValues(props.modelValue))
+function hydrateDom(){
+  for(const field of fields.value){
+    const el=fieldRefs.value[field.key]
+    if(!el) continue
+    if(field.type==='checkbox') el.checked=!!values[field.key]
+    else el.value=values[field.key] ?? ''
+  }
+}
+onMounted(async()=>{
+  await nextTick()
+  hydrateDom()
+  const first=fields.value.find(field=>field.type!=='checkbox')
+  if(first)fieldRefs.value[first.key]?.focus?.()
+})
+watch(()=>props.definition?.key,async()=>{
+  syncValues(props.modelValue)
+  await nextTick()
+  hydrateDom()
+})
 function readFieldValue(field){const el=fieldRefs.value[field.key];if(!el)return values[field.key];if(field.type==='checkbox')return !!el.checked;if(field.type==='number'){const raw=String(el.value??'').trim();return raw===''?'':Number(raw)}return el.value}
 function syncFromDom(){for(const field of fields.value)values[field.key]=readFieldValue(field)}
-function captureField(field,event){const raw=field.type==='checkbox'?!!event.target.checked:field.type==='number'?(String(event.target.value).trim()===''?'':Number(event.target.value)):event.target.value;values[field.key]=raw;if(errors.value[field.key]){const next={...errors.value};delete next[field.key];errors.value=next}}
-function setValue(key,value){values[key]=value;if(errors.value[key]){const next={...errors.value};delete next[key];errors.value=next}}
+function captureField(field,event){
+  // Native controls are intentionally uncontrolled while the user types.
+  // Read the DOM on submit instead of reconciling it on every keystroke.
+}
+function setValue(key,value){values[key]=value}
 function keyboardFor(field){if(field.type==='number')return field.step&&Number(field.step)%1!==0?'decimal':'numeric';if(field.key.toLowerCase().includes('phone'))return'tel';if(field.key.toLowerCase().includes('email'))return'email';return undefined}
 function setFieldRef(key,el){if(el)fieldRefs.value[key]=el}
 function submit(){syncFromDom();const result=AdminService.validate(props.definition.key,values,props.context);errors.value=result.errors;if(result.valid)emit('submit',result.values)}
@@ -28,11 +48,11 @@ function submit(){syncFromDom();const result=AdminService.validate(props.definit
     <div class="form-grid">
       <label v-for="field in fields" :key="field.key" class="form-field" :class="{ invalid: !!errors[field.key] }">
         <span class="field-label">{{field.label}}<strong v-if="field.required" aria-hidden="true"> *</strong></span>
-        <select v-if="field.type==='select'" :ref="el=>setFieldRef(field.key,el)" :value="values[field.key]" @change="captureField(field,$event)" :disabled="busy" :required="field.required">
+        <select v-if="field.type==='select'" :ref="el=>setFieldRef(field.key,el)" @change="captureField(field,$event)" :disabled="busy" :required="field.required">
           <option value="">Select…</option><option v-for="option in field.options||[]" :key="optionValue(option)" :value="optionValue(option)">{{optionLabel(option)}}</option>
         </select>
-        <textarea v-else-if="field.type==='textarea'" :ref="el=>setFieldRef(field.key,el)" :value="values[field.key]" @input="captureField(field,$event)" :disabled="busy" :required="field.required"/>
-        <input v-else :ref="el=>setFieldRef(field.key,el)" :value="field.type==='checkbox'?undefined:values[field.key]" :checked="field.type==='checkbox'?!!values[field.key]:undefined" @input="captureField(field,$event)" @change="field.type==='checkbox'&&captureField(field,$event)" :type="field.type==='checkbox'?'checkbox':field.type" :inputmode="field.type==='checkbox'?undefined:keyboardFor(field)" :enterkeyhint="field.type==='checkbox'?undefined:(fields[fields.length-1]?.key===field.key?'done':'next')" :min="field.min" :max="field.max" :step="field.step" :required="field.required" :disabled="busy"/>
+        <textarea v-else-if="field.type==='textarea'" :ref="el=>setFieldRef(field.key,el)" @input="captureField(field,$event)" :disabled="busy" :required="field.required"/>
+        <input v-else :ref="el=>setFieldRef(field.key,el)"   @input="captureField(field,$event)" @change="field.type==='checkbox'&&captureField(field,$event)" :type="field.type==='checkbox'?'checkbox':field.type" :inputmode="field.type==='checkbox'?undefined:keyboardFor(field)" :enterkeyhint="field.type==='checkbox'?undefined:(fields[fields.length-1]?.key===field.key?'done':'next')" :min="field.min" :max="field.max" :step="field.step" :required="field.required" :disabled="busy"/>
         <small v-if="errors[field.key]" :id="`error-${field.key}`" class="form-error" role="alert">{{errors[field.key]}}</small>
       </label>
     </div>
