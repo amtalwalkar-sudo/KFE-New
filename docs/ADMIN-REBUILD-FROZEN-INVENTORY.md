@@ -12,7 +12,7 @@
 - UI must submit through existing application commands. No direct database writes from components.
 - Native direct entry only: no popup typing editor, readonly business inputs, reactive per-keystroke rehydration, or parallel field state authority.
 - Cancel/navigation never commits; save validates then commits; failures never display success; destructive reset/restore requires explicit confirmation.
-- Do not add Shift, Trip, Fuel, generic Expense, or other operational-authority forms to Admin merely because they are useful to display. Their canonical owners remain Work/domain repositories.
+- Do not add operational Shift, Trip, refuelling-log, generic Expense, or other operational-authority forms to Admin. The existing one-time fuel-baseline prerequisite remains a distinct Diagnostics → Calculations setup flow and writes through `CalculationsService`; it is not a replacement for Work refuelling capture.
 - Derived values (EMI, quantities where calculated, KM totals, provisions, break-even and target results) remain calculated by their existing authoritative paths, not typed as duplicate facts.
 
 ## Existing Admin navigation headings
@@ -46,7 +46,6 @@ The rebuilt form groups organize the following source facts by business purpose.
 - Tank / battery capacity (number, minimum 0)
 - Vehicle status (select: Active, Inactive, Sold; required; default Active)
 - Status date (date)
-- Expiry date (date)
 - Sell price (number, minimum 0)
 - Sale date (date)
 - Active (checkbox, default true)
