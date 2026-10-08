@@ -2,13 +2,13 @@
 
 **Purpose:** Rebuild Admin forms around authoritative business facts, calculation ownership, canonical persistence, and the universal form/recovery contracts. The previous UI and its field list are discovery evidence—not a reason to retain redundant or non-authoritative inputs.
 **Baseline:** `main` at `4faf972761ea994796a98e6cb5c3201684cb61b5`.
-**Authority order:** `KFE_BUSINESS_RULES_REGISTER.md` → `docs/KFE-CANONICAL-DATA-CONTRACT.md` / architecture and persistence contracts → universal form and recovery contracts → current Admin definitions for exact existing field labels.
+**Authority order:** `KFE_BUSINESS_RULES_REGISTER.md` → `docs/KFE-CANONICAL-DATA-CONTRACT.md` / architecture and persistence contracts → universal form and recovery contracts → current Admin definitions as field-discovery evidence.
 
 ## Non-negotiable boundaries
 
 - Replace the Admin UI as one coherent implementation; do not layer a second Admin over the current one.
 - Keep `AdminService`, `AdminRepository`, domain services, canonical stores, validation rules, mutation/audit behavior, stable IDs, and soft deletion.
-- Preserve every existing section title, form heading, field label, field key, type, option list, default, required flag, and relationship unless a frozen specification explicitly supersedes it.
+- Treat existing headings and fields as an inventory to reconcile against canonical business rules, not a requirement to reproduce the old forms. Keep stable canonical field keys and meaningful labels for retained facts; remove duplicate inputs, calculated values, and fields owned by another authoritative subsection. A removed presentation field must not silently delete canonical data without a governed migration.
 - UI must submit through existing application commands. No direct database writes from components.
 - Native direct entry only: no popup typing editor, readonly business inputs, reactive per-keystroke rehydration, or parallel field state authority.
 - Cancel/navigation never commits; save validates then commits; failures never display success; destructive reset/restore requires explicit confirmation.
