@@ -175,7 +175,7 @@ onMounted(async () => {
           @input="onInput(field)"
         ></textarea>
 
-        <label v-else-if="field.type === 'checkbox'" class="record-switch-row">
+        <span v-else-if="field.type === 'checkbox'" class="record-switch-row">
           <input
             :ref="el => setFieldRef(field.key, el)"
             type="checkbox"
@@ -185,7 +185,7 @@ onMounted(async () => {
           >
           <span class="record-switch" aria-hidden="true"></span>
           <span class="record-switch-copy">{{ field.toggleLabel || (valueFor(field) ? 'Enabled' : 'Disabled') }}</span>
-        </label>
+        </span>
 
         <input
           v-else
