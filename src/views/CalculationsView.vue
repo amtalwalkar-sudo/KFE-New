@@ -4,7 +4,7 @@ import { PerformanceService } from '../application/performance/performanceServic
 import { FirstRunSetupService } from '../application/setup/firstRunSetupService.js'
 import { AdminService } from '../application/admin/adminService.js'
 import { ADMIN_FORM_DEFINITIONS } from '../application/admin/adminFormDefinitions.js'
-import UniversalAdminForm from '../components/admin/UniversalAdminForm.vue'
+import AdminNativeForm from '../components/admin/AdminNativeForm.vue'
 import { CalculationsService } from '../application/calculations/calculationsService.js'
 import { getKfeReferenceNow, reportingRangeFor } from '../domain/time/ist.js'
 
@@ -147,13 +147,12 @@ onMounted(load)
       </button>
 
       <div v-if="openId===item.id" class="input-form">
-        <UniversalAdminForm
+        <AdminNativeForm
           v-if="item.id!=='fuelBaseline'"
           :definition="activeDefinition"
           :model-value="draft"
           :busy="saving"
           :submit-label="item.id==='loan'?'Save loan':'Save'"
-          @update:model-value="draft=$event"
           @submit="saveAdminInput"
           @cancel="closeForm"
         />
