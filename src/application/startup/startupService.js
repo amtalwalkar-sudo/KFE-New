@@ -1,22 +1,45 @@
-import { MutationRepository } from '../../repositories/mutationRepository.js'
-import { BackupService } from '../backup/backupService.js'
-import { CloudBackupLifecycle } from '../backup/cloudBackupLifecycle.js'
-import { DiagnosticService } from '../../infrastructure/diagnostics/diagnosticService.js'
+import { reactive } from 'vue'
+
+const startupState = reactive({
+  status: 'starting',
+  error: null,
+  elapsedMs: 0,
+})
 
 let platform = null
+let activeAttempt = null
+let timer = null
+
+const clearTimer = () => {
+  if (timer) {
+    clearInterval(timer)
+    timer = null
+  }
+}
+
 export const configureStartupPlatform = adapter => {
-  if (!adapter || typeof adapter.initializeStorage !== 'function' || typeof adapter.registerServiceWorker !== 'function') throw new TypeError('Invalid startup platform adapter.')
+  if (!adapter || typeof adapter.initializeStorage !== 'function' || typeof adapter.registerServiceWorker !== 'function') {
+    throw new TypeError('Invalid startup platform adapter.')
+  }
   platform = adapter
 }
 
 export const initializeApplication = async () => {
   if (!platform) throw new Error('Startup platform adapter has not been configured.')
 
-  DiagnosticService.start('KFE startup')
+  const [
+    { MutationRepository },
+    { BackupService },
+    { CloudBackupLifecycle },
+    { DiagnosticService },
+  ] = await Promise.all([
+    import('../../repositories/mutationRepository.js'),
+    import('../backup/backupService.js'),
+    import('../backup/cloudBackupLifecycle.js'),
+    import('../../infrastructure/diagnostics/diagnosticService.js'),
+  ])
 
-  // Register the PWA service worker before storage/recovery. GitHub Pages history
-  // routes can return a document 404; the worker must be registered independently
-  // of IndexedDB readiness so it can provide the application shell on refresh.
+  DiagnosticService.start('KFE startup')
   void platform.registerServiceWorker()
     .then(() => DiagnosticService.checkpoint('Service worker lifecycle scheduled'))
     .catch(error => {
@@ -37,7 +60,6 @@ export const initializeApplication = async () => {
   }
 
   DiagnosticService.checkpoint('First-render infrastructure ready')
-
   void BackupService.maybeDailyLocalBackup()
     .then(() => DiagnosticService.checkpoint('Local backup lifecycle scheduled'))
     .catch(error => {
@@ -56,12 +78,54 @@ export const initializeApplication = async () => {
       await CloudBackupLifecycle.maybeDailyCloudBackup()
       DiagnosticService.checkpoint('Cloud backup lifecycle checked')
     } catch (error) {
-      DiagnosticService.error('Cloud backup lifecycle failed', error)
+      DiagnosticService.error('KFE cloud backup lifecycle failed', error)
       console.warn('KFE cloud backup lifecycle failed:', error)
     }
   })()
-
   return { ready: true }
 }
 
-export const StartupService = Object.freeze({ configureStartupPlatform, initializeApplication, recoverPendingMutations: () => MutationRepository.recoverStaleSyncing() })
+export const startApplication = () => {
+  if (activeAttempt) return activeAttempt
+  const startedAt = Date.now()
+  startupState.status = 'starting'
+  startupState.error = null
+  startupState.elapsedMs = 0
+  timer = setInterval(() => { startupState.elapsedMs = Date.now() - startedAt }, 250)
+  activeAttempt = initializeApplication()
+    .then(result => {
+      clearTimer()
+      startupState.elapsedMs = Date.now() - startedAt
+      startupState.status = 'ready'
+      return result
+    })
+    .catch(error => {
+      clearTimer()
+      startupState.error = error?.message || 'Application initialization failed.'
+      startupState.status = 'error'
+      throw error
+    })
+  return activeAttempt
+}
+
+export const resetStartupAttempt = () => {
+  activeAttempt = null
+  clearTimer()
+  startupState.status = 'starting'
+  startupState.error = null
+  startupState.elapsedMs = 0
+  return startApplication()
+}
+
+export const StartupService = Object.freeze({
+  configureStartupPlatform,
+  initializeApplication,
+  startApplication,
+  resetStartupAttempt,
+  recoverPendingMutations: async () => {
+    const { MutationRepository } = await import('../../repositories/mutationRepository.js')
+    return MutationRepository.recoverStaleSyncing()
+  },
+})
+
+export { startupState }
