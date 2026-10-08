@@ -69,6 +69,8 @@ jobs:
           test -f dist/manifest.json
           test -f dist/service-worker.js
           grep -q "cached application shell" dist/service-worker.js
+          ! grep -q '__KFE_BUILD_ID__' dist/service-worker.js
+          grep -Eq "kfe-pwa-shell-[A-Za-z0-9._-]+" dist/service-worker.js
           test -f dist/icon-192.png
           test -f dist/icon-512.png
           grep -q '\./assets/' dist/index.html
@@ -171,8 +173,8 @@ jobs:
           if-no-files-found: warn
 
   android-release-gate:
-    # Native APK/emulator verification is required for the dedicated Android WebView startup fix; routine PWA pushes remain unchanged.
-    if: (github.event_name == 'workflow_dispatch' && inputs.run_android_release_gate == true) || github.head_ref == 'fix/android-webview-startup-fail-open'
+    # Cross-platform release gate: every PR and main deployment validates the same production web bundle inside Capacitor Android.
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.run_android_release_gate == true)
     runs-on: ubuntu-latest
 
     steps:

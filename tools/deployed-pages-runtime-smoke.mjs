@@ -26,8 +26,21 @@ try {
       const node = document.querySelector(selector)
       return !!node && node.children.length > 0 && document.readyState === 'complete'
     }, route.selector, { timeout: 45000 })
-    if (pageErrors.length) throw new Error(`${route.label}: browser runtime errors: ${pageErrors.join('; ')}`)
-    console.log(`PASS deployed route ${route.path}: HTTP ${response.status()}, visible ${route.label} surface, URL ${page.url()}`)
+    if (pageErrors.length) throw new Error(`${route.label}: browser runtime errors before refresh: ${pageErrors.join('; ')}`)
+
+    pageErrors.length = 0
+    const refreshedResponse = await page.reload({ waitUntil: 'domcontentloaded', timeout: 45000 })
+    if (!refreshedResponse || ![200, 404].includes(refreshedResponse.status())) {
+      throw new Error(`${route.label}: unexpected HTTP status after hard refresh ${refreshedResponse?.status()}`)
+    }
+    await page.waitForSelector(route.selector, { state: 'visible', timeout: 45000 })
+    await page.waitForFunction(selector => {
+      const node = document.querySelector(selector)
+      return !!node && node.children.length > 0 && document.readyState === 'complete'
+    }, route.selector, { timeout: 45000 })
+    if (pageErrors.length) throw new Error(`${route.label}: browser runtime errors after hard refresh: ${pageErrors.join('; ')}`)
+    if (page.url() !== url) throw new Error(`${route.label}: hard refresh changed URL from ${url} to ${page.url()}`)
+    console.log(`PASS deployed route ${route.path}: initial HTTP ${response.status()}, hard refresh HTTP ${refreshedResponse.status()}, visible ${route.label} surface, URL ${page.url()}`)
     await page.close()
   }
 } finally {

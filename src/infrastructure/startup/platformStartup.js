@@ -7,7 +7,7 @@ export const PlatformStartup = Object.freeze({
     if (Capacitor.isNativePlatform()) return null
     if (!('serviceWorker' in navigator)) return null
     try {
-      const registration = await navigator.serviceWorker.register('./service-worker.js', { scope: './' })
+      const registration = await navigator.serviceWorker.register('./service-worker.js', { scope: './', updateViaCache: 'none' })
       if (registration.waiting) registration.waiting.postMessage({ type: 'kfe:activate-update' })
       registration.update().catch(() => {})
       return registration

@@ -5,7 +5,7 @@ const workflow = readFileSync('.github/workflows/consolidated-baseline.yml', 'ut
 const packageJson = JSON.parse(readFileSync('package.json', 'utf8'))
 
 assert.equal(packageJson.type, 'module', 'package must explicitly declare ESM for contract/test scripts')
-assert.equal(packageJson.scripts?.build, 'vite build', 'production build script must remain canonical')
+assert.match(packageJson.scripts?.build || '', /^vite build && node tools\/stamp-service-worker\.mjs$/, 'production build must stamp the service-worker cache identity after Vite build')
 assert.equal(packageJson.scripts?.test, 'node src/tests/runAllContracts.js', 'contract runner must remain canonical')
 assert.ok(existsSync('package-lock.json'), 'package lockfile must be committed')
 assert.ok(existsSync('vite.config.js'), 'Vite configuration must exist')
@@ -27,7 +27,7 @@ assert.match(workflow, /github\.ref == 'refs\/heads\/main' && \(github\.event_na
 assert.match(workflow, /enable_first_run_setup:/, 'launch setup must be explicitly selectable at workflow dispatch')
 assert.match(workflow, /VITE_ENABLE_FIRST_RUN_SETUP:/, 'first-run setup must be controlled by a build-time launch flag')
 assert.match(workflow, /android-release-gate:/, 'canonical CI must retain the Android emulator gate')
-assert.ok(workflow.includes("github.head_ref == 'fix/android-webview-startup-fail-open'"), 'the dedicated startup fix must require native Android verification')
+assert.match(workflow, /github\.event_name == 'pull_request'.*github\.event_name == 'push'.*refs\/heads\/main/, 'Android release verification must run for every PR and main push')
 assert.match(workflow, /needs: build-and-test/, 'deployment must depend on successful validation')
 assert.ok(!existsSync('.github/workflows/deploy-pages.yml'), 'duplicate Pages deployment workflow must remain removed')
 

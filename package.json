@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:https": "vite --host 0.0.0.0 --https",
-    "build": "vite build",
+    "build": "vite build && node tools/stamp-service-worker.mjs",
     "preview": "vite preview",
     "test": "node src/tests/runAllContracts.js",
     "ui:impact": "node tools/presentation-impact.mjs",
