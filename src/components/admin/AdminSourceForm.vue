@@ -46,17 +46,6 @@ function collect() {
   }
   return result
 }
-function focusNext(field) {
-  const i = fields.value.findIndex(f => f.key === field.key)
-  const next = fields.value.slice(i + 1).find(f => f.type !== 'checkbox')
-  if (!next) { emit('submit', collect()); return }
-  nextTick(() => nodes.value[next.key]?.focus())
-}
-function enter(field, event) {
-  if (field.type === 'textarea' || event.isComposing) return
-  event.preventDefault()
-  focusNext(field)
-}
 function inputType(field) {
   if (field.type === 'date' || field.type === 'month' || field.type === 'number' || field.type === 'select') return field.type
   if (field.inputMode === 'tel') return 'tel'
@@ -108,7 +97,7 @@ onMounted(() => nextTick(() => {
           </select>
           <textarea v-else-if="field.type === 'textarea'" :ref="el => setNode(field.key, el)" :required="field.required" :disabled="busy" :placeholder="field.placeholder || 'Add details (optional)'" rows="3" @input="changed(field)"></textarea>
           <span v-else-if="field.type === 'checkbox'" class="source-toggle"><input :ref="el => setNode(field.key, el)" type="checkbox" :disabled="busy" @change="changed(field)"><span>{{ field.toggleLabel || field.label }}</span></span>
-          <input v-else :ref="el => setNode(field.key, el)" :type="inputType(field)" :inputmode="field.type === 'number' ? (field.step && Number(field.step) % 1 !== 0 ? 'decimal' : 'numeric') : field.inputMode" :min="field.min" :max="field.max" :step="field.step" :required="field.required" :disabled="busy" :placeholder="field.placeholder || (field.type === 'number' ? '0' : '')" :autocomplete="field.type === 'number' ? 'off' : 'on'" :enterkeyhint="field.type === 'textarea' ? 'enter' : 'next'" @input="changed(field)" @keydown.enter="enter(field, $event)">
+          <input v-else :ref="el => setNode(field.key, el)" :type="inputType(field)" :inputmode="field.type === 'number' ? (field.step && Number(field.step) % 1 !== 0 ? 'decimal' : 'numeric') : field.inputMode" :min="field.min" :max="field.max" :step="field.step" :required="field.required" :disabled="busy" :placeholder="field.placeholder || (field.type === 'number' ? '0' : '')" :autocomplete="field.type === 'number' ? 'off' : 'on'" :enterkeyhint="field.type === 'textarea' ? 'enter' : 'next'" @input="changed(field)">
           <small v-if="errors[field.key]" class="source-field-error" role="alert">{{ errors[field.key] }}</small>
         </label>
       </div>
