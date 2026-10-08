@@ -48,7 +48,7 @@ assertHas(endShift, /await ShiftTripRepository\.completeShift\(/, 'End Shift mus
 assertHas(work, /function cancelEnd\(\)/, 'End Shift must have an explicit cancel path')
 assertHas(work, /endOpen\.value = false/, 'End Shift cancellation must close the form without committing')
 
-assertHas(adminForm, /@submit\.prevent="submit"/, 'Admin form must submit through its Vue submit handler')
+assertHas(adminForm, /@submit\\.prevent="emit\\('submit', collect\\(\\)\\)"/, 'Admin form must submit the complete draft through its event')
 assertHas(adminService, /async save\(formKey,values,existingId=null/, 'Admin save must be application-owned')
 assertHas(adminRepo, /objectStore\(storeName\)\.put\(record\)/, 'Admin save must persist to the selected canonical store')
 assertHas(adminRepo, /pending_mutations.*audit_history/, 'Admin save must atomically couple mutation and audit records')
