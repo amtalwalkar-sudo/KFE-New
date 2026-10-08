@@ -69,6 +69,8 @@ jobs:
           test -f dist/manifest.json
           test -f dist/service-worker.js
           grep -q "cached application shell" dist/service-worker.js
+          ! grep -q '__KFE_BUILD_ID__' dist/service-worker.js
+          grep -Eq "kfe-pwa-shell-[A-Za-z0-9._-]+" dist/service-worker.js
           test -f dist/icon-192.png
           test -f dist/icon-512.png
           grep -q '\./assets/' dist/index.html
