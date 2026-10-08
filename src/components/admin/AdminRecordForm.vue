@@ -13,7 +13,8 @@ const props = defineProps({
 
 const emit = defineEmits(['submit', 'cancel', 'field-change'])
 const fieldRefs = ref({})
-const fields = computed(() => (props.fields ?? []).filter(Boolean))
+const allFields = computed(() => (props.fields ?? []).filter(Boolean))
+const fields = computed(() => allFields.value.filter(field => !field.hidden))
 const groups = computed(() => {
   const result = []
   for (const field of fields.value) {
@@ -69,7 +70,15 @@ function fieldChanged(field) {
 }
 function submit() {
   const values = {}
-  for (const field of fields.value) values[field.key] = readField(field)
+  for (const field of allFields.value) {
+    if (field.hidden) {
+      const existing = props.modelValue?.[field.key]
+      if (existing !== undefined && existing !== null && existing !== '') values[field.key] = existing
+      else if (field.defaultValue !== undefined) values[field.key] = field.defaultValue
+      continue
+    }
+    values[field.key] = readField(field)
+  }
   emit('submit', values)
 }
 function focusNext(field) {
