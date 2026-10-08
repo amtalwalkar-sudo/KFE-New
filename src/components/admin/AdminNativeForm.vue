@@ -35,7 +35,7 @@ onMounted(async()=>{await nextTick();hydrate(props.modelValue);if(props.autoOpen
 <div v-if="editorOpen&&editorField" class="admin-native-editor-backdrop" @click.self="closeEditor(true)">
 <div class="admin-native-editor" role="dialog" :aria-label="`Edit ${editorField.label}`">
 <div class="admin-native-editor__head"><strong>{{editorField.label}}</strong><button type="button" :disabled="busy" @click="closeEditor(false)">Cancel</button></div>
-<textarea v-if="editorField.type==='textarea'" ref="editorRef" class="admin-native-editor__input" rows="5" :aria-label="editorField.label" :placeholder="editorField.placeholder" @input="editorInput" @keydown.enter.exact.prevent="closeEditor(true)"></textarea>
+<textarea v-if="editorField.type==='textarea'" ref="editorRef" class="admin-native-editor__input" rows="5" :aria-label="editorField.label" :placeholder="editorField.placeholder" @input="editorInput" @keydown.enter.exact.stop></textarea>
 <input v-else ref="editorRef" class="admin-native-editor__input" type="text" :inputmode="keyboardFor(editorField)" :aria-label="editorField.label" autocomplete="off" autocapitalize="characters" @input="editorInput" @keydown.enter.prevent="closeEditor(true)">
 <div class="admin-native-editor__actions"><button type="button" @click="closeEditor(false)">Cancel</button><button type="button" class="primary" @click="closeEditor(true)">Done</button></div>
 </div></div>
