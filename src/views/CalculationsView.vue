@@ -4,7 +4,7 @@ import { PerformanceService } from '../application/performance/performanceServic
 import { FirstRunSetupService } from '../application/setup/firstRunSetupService.js'
 import { AdminService } from '../application/admin/adminService.js'
 import { ADMIN_FORM_DEFINITIONS } from '../application/admin/adminFormDefinitions.js'
-import AdminRecordForm from '../components/admin/AdminRecordForm.vue'
+import AdminSourceForm from '../components/admin/AdminSourceForm.vue'
 import { CalculationsService } from '../application/calculations/calculationsService.js'
 import { getKfeReferenceNow, reportingRangeFor } from '../domain/time/ist.js'
 
@@ -153,7 +153,7 @@ onMounted(load)
       </button>
 
       <div v-if="openId===item.id" class="input-form">
-        <AdminRecordForm
+        <AdminSourceForm
           v-if="item.id!=='fuelBaseline'"
           :fields="activeDefinition?.fields||[]"
           :model-value="draft"
@@ -165,7 +165,7 @@ onMounted(load)
 
         <template v-else>
           <div class="fuel-quantity-preview"><span>Calculated quantity</span><strong>{{fuelQuantity}} kg</strong><small>Calculated from amount ÷ price per kg. This value is not editable.</small></div>
-          <AdminRecordForm
+          <AdminSourceForm
             :fields="fuelFields"
             :model-value="fuelDraft"
             :busy="saving"
