@@ -32,10 +32,12 @@ assert.ok(adminView.includes('paymentMethod:actionDraft.value.paymentMethod'), '
 assert.ok(adminView.includes('referenceNumber:String(actionDraft.value.referenceNumber||\'\')'), 'Source payment must persist payment reference')
 assert.ok(adminView.includes('notes:String(actionDraft.value.notes||\'\')'), 'Admin payment/prepayment/rate/target notes must reach persistence')
 assert.match(universalAdmin, /:required="field\.required"/, 'Universal Admin controls must expose required semantics')
-assert.match(universalAdmin, /fieldRefs\.value\[first\.key\]\?\.focus/, 'Universal Admin create/edit form must focus its first entry control')
+assert.ok(universalAdmin.includes('openEditor(first)'), 'Universal Admin create/edit form must open its first entry control')
 assert.ok(universalAdmin.includes('const values={}'), 'Universal Admin draft state must stay non-reactive while typing')
-assert.ok(universalAdmin.includes('hydrateDom()'), 'Universal Admin controls must be hydrated from draft state without reactive input reconciliation')
-assert.ok(universalAdmin.includes('@input="captureField(field,$event)"'), 'Universal Admin controls must capture native input events without rerender control')
+assert.ok(universalAdmin.includes('editorRef'), 'Universal Admin must use a single native editor for text/number/textarea entry')
+assert.ok(universalAdmin.includes('openEditor(field)'), 'Universal Admin fields must enter through the isolated native editor')
+assert.ok(universalAdmin.includes('function editorInput(){'), 'Admin editor must not reconcile parent state on every native keystroke')
+assert.ok(universalAdmin.includes('readonly'), 'Visible Admin text/number fields must not compete for native IME focus')
 assert.doesNotMatch(universalAdmin, /watch\(values/, 'Universal Admin must not emit parent model updates on every keystroke')
 
 const fixture = definition => Object.fromEntries(definition.fields.map(field => [
