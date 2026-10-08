@@ -14,10 +14,13 @@ function syncValues(source={}){for(const key of Object.keys(values))delete value
 syncValues(props.modelValue)
 onMounted(async()=>{await nextTick();const first=fields.value.find(field=>field.type!=='checkbox');if(first)fieldRefs.value[first.key]?.focus?.()})
 watch(()=>props.definition?.key,()=>syncValues(props.modelValue))
+function readFieldValue(field){const el=fieldRefs.value[field.key];if(!el)return values[field.key];if(field.type==='checkbox')return !!el.checked;if(field.type==='number'){const raw=String(el.value??'').trim();return raw===''?'':Number(raw)}return el.value}
+function syncFromDom(){for(const field of fields.value)values[field.key]=readFieldValue(field)}
+function captureField(field,event){const raw=field.type==='checkbox'?!!event.target.checked:field.type==='number'?(String(event.target.value).trim()===''?'':Number(event.target.value)):event.target.value;values[field.key]=raw;if(errors.value[field.key]){const next={...errors.value};delete next[field.key];errors.value=next}}
 function setValue(key,value){values[key]=value;if(errors.value[key]){const next={...errors.value};delete next[key];errors.value=next}}
 function keyboardFor(field){if(field.type==='number')return field.step&&Number(field.step)%1!==0?'decimal':'numeric';if(field.key.toLowerCase().includes('phone'))return'tel';if(field.key.toLowerCase().includes('email'))return'email';return undefined}
 function setFieldRef(key,el){if(el)fieldRefs.value[key]=el}
-function submit(){const result=AdminService.validate(props.definition.key,values,props.context);errors.value=result.errors;if(result.valid)emit('submit',result.values)}
+function submit(){syncFromDom();const result=AdminService.validate(props.definition.key,values,props.context);errors.value=result.errors;if(result.valid)emit('submit',result.values)}
 </script>
 <template>
   <form class="universal-admin-form kfe-contextual-form" data-form-type="admin" novalidate @submit.prevent="submit">
@@ -25,11 +28,11 @@ function submit(){const result=AdminService.validate(props.definition.key,values
     <div class="form-grid">
       <label v-for="field in fields" :key="field.key" class="form-field" :class="{ invalid: !!errors[field.key] }">
         <span class="field-label">{{field.label}}<strong v-if="field.required" aria-hidden="true"> *</strong></span>
-        <select v-if="field.type==='select'" :ref="el=>setFieldRef(field.key,el)" v-model="values[field.key]" :disabled="busy" :required="field.required">
+        <select v-if="field.type==='select'" :ref="el=>setFieldRef(field.key,el)" :value="values[field.key]" @change="captureField(field,$event)" :disabled="busy" :required="field.required">
           <option value="">Select…</option><option v-for="option in field.options||[]" :key="optionValue(option)" :value="optionValue(option)">{{optionLabel(option)}}</option>
         </select>
-        <textarea v-else-if="field.type==='textarea'" :ref="el=>setFieldRef(field.key,el)" v-model="values[field.key]" :disabled="busy" :required="field.required"/>
-        <input v-else :ref="el=>setFieldRef(field.key,el)" v-model="values[field.key]" :type="field.type==='checkbox'?'checkbox':field.type" :inputmode="field.type==='checkbox'?undefined:keyboardFor(field)" :enterkeyhint="field.type==='checkbox'?undefined:(fields[fields.length-1]?.key===field.key?'done':'next')" :min="field.min" :max="field.max" :step="field.step" :required="field.required" :disabled="busy"/>
+        <textarea v-else-if="field.type==='textarea'" :ref="el=>setFieldRef(field.key,el)" :value="values[field.key]" @input="captureField(field,$event)" :disabled="busy" :required="field.required"/>
+        <input v-else :ref="el=>setFieldRef(field.key,el)" :value="field.type==='checkbox'?undefined:values[field.key]" :checked="field.type==='checkbox'?!!values[field.key]:undefined" @input="captureField(field,$event)" @change="field.type==='checkbox'&&captureField(field,$event)" :type="field.type==='checkbox'?'checkbox':field.type" :inputmode="field.type==='checkbox'?undefined:keyboardFor(field)" :enterkeyhint="field.type==='checkbox'?undefined:(fields[fields.length-1]?.key===field.key?'done':'next')" :min="field.min" :max="field.max" :step="field.step" :required="field.required" :disabled="busy"/>
         <small v-if="errors[field.key]" :id="`error-${field.key}`" class="form-error" role="alert">{{errors[field.key]}}</small>
       </label>
     </div>
