@@ -12,7 +12,7 @@ const fuelRepo = read('../repositories/fuelRepository.js')
 const fuelModal = read('../components/CngFuelModal.vue')
 const adminService = read('../application/admin/adminService.js')
 const adminRepo = read('../repositories/adminRepository.js')
-const adminForm = read('../components/admin/AdminNativeForm.vue')
+const adminForm = read('../components/admin/AdminRecordForm.vue')
 const definitions = read('../application/admin/adminFormDefinitions.js')
 const performanceRepo = read('../repositories/performanceRepository.js')
 const performance = read('../application/performance/performanceService.js')
@@ -53,7 +53,7 @@ assertHas(adminService, /async save\(formKey,values,existingId=null/, 'Admin sav
 assertHas(adminRepo, /objectStore\(storeName\)\.put\(record\)/, 'Admin save must persist to the selected canonical store')
 assertHas(adminRepo, /pending_mutations.*audit_history/, 'Admin save must atomically couple mutation and audit records')
 for (const key of ['businessSetup','vehicle','driver','compliance','maintenance','loan','loanPayment','prepayment','settlement','driverTarget','breakEvenInputs']) {
-  assertHas(definitions, new RegExp('^'+key+'\\s*:', 'm'), 'Missing Admin form definition: '+key)
+  assertHas(definitions, new RegExp('^\\s*'+key+'\\s*:', 'm'), 'Missing Admin form definition: '+key)
 }
 
 assertHas(performanceRepo, /'shifts', 'trips', 'fuel_logs', 'vehicles'/, 'Performance snapshot must read canonical operational and source stores')
