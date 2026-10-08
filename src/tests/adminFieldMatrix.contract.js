@@ -78,7 +78,8 @@ for (const key of ADMIN_FORM_KEYS) {
       const invalidDate = validateAdminForm(definition, { ...values, [field.key]: 'not-a-date' })
       assert.equal(invalidDate.valid, false, key + '.' + field.key + ': invalid date must be rejected')
     }
-const invalidNumber = validateAdminForm(definition, { ...values, [field.key]: 'not-a-number' })
+    if (field.type === 'number') {
+      const invalidNumber = validateAdminForm(definition, { ...values, [field.key]: 'not-a-number' })
       assert.equal(invalidNumber.valid, false, key + '.' + field.key + ': nonnumeric input must be rejected')
       if (field.min !== undefined) {
         const belowMin = field.exclusiveMin ? field.min : field.min - 1
