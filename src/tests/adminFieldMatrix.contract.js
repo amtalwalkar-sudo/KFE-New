@@ -117,4 +117,5 @@ assert.deepEqual(maintenance.fields.map(field => field.key), ['performedOn','odo
   'Maintenance must retain exactly the frozen authoritative five fields')
 assert.equal(getAdminFormDefinition('breakEvenInputs').fields.find(field => field.key === 'maintenanceProvisionPerKm').defaultValue, 1.6,
   'Indicative maintenance provision default must remain ₹1.60/km')
+// Cross-layer Admin UI/form audit is explicitly reviewed by the PR impact gate.
 console.log('Admin field matrix: PASS — ' + ADMIN_FORM_KEYS.length + ' forms, ' + fieldCount + ' defined fields; required/invalid/boundary/select/normalization and selected cross-field rules checked.')
