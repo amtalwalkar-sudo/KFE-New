@@ -77,9 +77,10 @@ assert.match(adminService, /compliance:\[\['settlement','sourceId'\]\]/, 'Compli
 assert.match(adminRepo, /assertSourcePaymentIntegrity/, 'Maintenance/Compliance edits must enforce source/payment integrity')
 assert.match(adminRepo, /assertSourceHasNoSettlements/, 'Maintenance/Compliance deletion must enforce settlement integrity')
 assert.match(perfEngine, /String\(b\.updatedAt \|\| b\.createdAt \|\| b\.id \|\| ''\)/, 'Maintenance rate selection must tie-break identical effective dates deterministically')
-assert.doesNotMatch(adminForm, /watch\(\(\)=>props\.modelValue/, 'Admin form must not resync local input from parent model updates')
+assert.doesNotMatch(adminForm, /v-model(?:\.[\\w-]+)?=/, 'Admin form controls must not use Vue v-model for native entry')
 assert.doesNotMatch(adminForm, /userEditing/, 'Admin form must not rely on an editing flag that can be reset by parent synchronization')
-assert.match(adminForm, /function setValue\(key,value\)\{values\[key\]=value/, 'Admin form input must write directly to local owned state')
+assert.match(adminForm, /function fieldChanged\(field\)/, 'Admin form native controls must write through explicit field events')
+assert.match(adminForm, /function closeEditor\(save=true\)/, 'Admin form text entry must commit through the isolated editor')
 
 assert.doesNotMatch(formShell, /watch\(.*props\.initialValue/, 'Shared KfeFormShell must not overwrite active form state from initial props')
 assert.doesNotMatch(workForm, /watch\(.*props\..*form/, 'Work contextual form must not introduce a parent-prop watcher that resets active input')
