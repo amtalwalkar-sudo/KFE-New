@@ -27,6 +27,7 @@ export const ADMIN_FORM_DEFINITIONS={
       select('fuelType','Fuel type',['CNG','Petrol','Diesel','Electric','Hybrid'],{section:'Powertrain',required:true}),
       number('tankCapacity','Tank / battery capacity',{section:'Powertrain',min:0,step:0.01}),
       select('status','Vehicle status',['Active','Inactive','Sold'],{section:'Lifecycle',required:true,defaultValue:'Active'}),
+      date('expiryDate','Expiry date',{section:'Lifecycle',hidden:true,help:'Legacy compatibility only; renewal validity is entered under Compliance.'}),
       date('statusDate','Status date',{section:'Lifecycle'}),
       checkbox('active','Active',{section:'Lifecycle',defaultValue:true,toggleLabel:'Include vehicle as active'}),
       number('sellPrice','Sell price',{section:'Sale details',min:0,step:0.01,help:'Enter only if the vehicle was sold.'}),
