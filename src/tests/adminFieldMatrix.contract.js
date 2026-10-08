@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { ADMIN_FORM_KEYS, getAdminFormDefinition } from '../application/admin/adminFormDefinitions.js'
 import { normalizeFormValues, validateAdminForm } from '../application/admin/universalFormRules.js'
 
+import fs from 'node:fs'
 const date = '2026-09-01'
 const validValue = field => {
   if (field.defaultValue !== undefined) return field.defaultValue
@@ -16,6 +17,23 @@ const validValue = field => {
   }
   throw new Error('Unhandled field type: ' + field.type)
 }
+
+const vehicle = getAdminFormDefinition('vehicle')
+const driver = getAdminFormDefinition('driver')
+const loan = getAdminFormDefinition('loan')
+assert.equal(vehicle.fields.find(field => field.key === 'status')?.defaultValue, 'Active', 'Vehicle create form must default to Active')
+assert.equal(vehicle.fields.find(field => field.key === 'active')?.defaultValue, true, 'Vehicle create form must default Active flag to true')
+assert.equal(driver.fields.find(field => field.key === 'status')?.defaultValue, 'Active', 'Driver create form must default to Active')
+assert.equal(loan.fields.find(field => field.key === 'status')?.defaultValue, 'Active', 'Loan create form must default to Active')
+const adminView = readFileSync(new URL('../views/AdminView.vue', import.meta.url), 'utf8')
+const universalAdmin = readFileSync(new URL('../components/admin/UniversalAdminForm.vue', import.meta.url), 'utf8')
+assert.match(adminView, /:busy="saving"/, 'All Universal Admin create/edit surfaces must use save-state locking')
+assert.match(adminView, /paymentMethod:actionDraft\.paymentMethod/, 'Source payment must persist payment method')
+assert.match(adminView, /referenceNumber:String\(actionDraft\.referenceNumber/, 'Source payment must persist payment reference')
+assert.match(adminView, /notes:String\(actionDraft\.notes/, 'Admin payment/prepayment/rate/target notes must reach persistence')
+assert.match(universalAdmin, /:required="field\.required"/, 'Universal Admin controls must expose required semantics')
+assert.match(universalAdmin, /fieldRefs\.value\[first\.key\]\?\.focus/, 'Universal Admin create/edit form must focus its first entry control')
+
 const fixture = definition => Object.fromEntries(definition.fields.map(field => [
   field.key,
   field.required ? validValue(field) : (field.defaultValue !== undefined ? field.defaultValue : '')
