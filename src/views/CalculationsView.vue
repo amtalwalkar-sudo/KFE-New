@@ -4,14 +4,20 @@ import { PerformanceService } from '../application/performance/performanceServic
 import { FirstRunSetupService } from '../application/setup/firstRunSetupService.js'
 import { AdminService } from '../application/admin/adminService.js'
 import { ADMIN_FORM_DEFINITIONS } from '../application/admin/adminFormDefinitions.js'
-import AdminNativeForm from '../components/admin/AdminNativeForm.vue'
+import AdminRecordForm from '../components/admin/AdminRecordForm.vue'
 import { CalculationsService } from '../application/calculations/calculationsService.js'
 import { getKfeReferenceNow, reportingRangeFor } from '../domain/time/ist.js'
 
 const loading=ref(false), saving=ref(false), error=ref(''), notice=ref('')
 const snapshot=ref(null), metrics=ref(null), setupStatus=ref(null)
 const openId=ref(null), draft=ref({}), activeDefinition=ref(null)
-const fuelDraft=ref({odometer:'',pricePerKg:'',amount:'',isFullTank:true})
+const fuelDraft=ref({odometer:'',pricePerKg:'',amount:'',isPartialTank:false})
+const fuelFields=[
+  {key:'odometer',label:'Odometer (km)',type:'number',required:true,min:0,step:1,section:'Refuelling evidence'},
+  {key:'pricePerKg',label:'Price / kg',type:'number',required:true,min:0,exclusiveMin:true,step:0.01,section:'Refuelling evidence'},
+  {key:'amount',label:'Amount',type:'number',required:true,min:0,exclusiveMin:true,step:0.01,section:'Refuelling evidence'},
+  {key:'isPartialTank',label:'Partial tank fill',type:'checkbox',defaultValue:false,section:'Refuelling evidence',toggleLabel:'Partial fill'}
+]
 
 const live=xs=>(xs||[]).filter(x=>!x?.deletedAt&&!x?.deleted)
 const clone=v=>structuredClone(toRaw(v))
@@ -70,7 +76,7 @@ function openAdminInput(id){
   if(id==='fuelBaseline'){
     const logs=live(snapshot.value?.fuelLogs||snapshot.value?.fuel_logs)
     const latest=logs[0]
-    fuelDraft.value={odometer:latest?.odometer??'',pricePerKg:latest?.pricePerKg??'',amount:'',isFullTank:true}
+    fuelDraft.value={odometer:latest?.odometer??'',pricePerKg:latest?.pricePerKg??'',amount:'',isPartialTank:false}
     return
   }
   activeDefinition.value=definitions.value[id]
@@ -96,13 +102,13 @@ async function markLoanNotApplicable(){
   }catch(e){error.value=e.message||'Unable to update loan setup.'}
   finally{saving.value=false}
 }
-async function saveFuel(){
+function onFuelFieldChange({key,value}){fuelDraft.value={...fuelDraft.value,[key]:value}}
+async function saveFuel(values){
   saving.value=true;error.value='';notice.value=''
   try{
-    const odometer=Number(fuelDraft.value.odometer), pricePerKg=Number(fuelDraft.value.pricePerKg), amount=Number(fuelDraft.value.amount)
-    if(!Number.isFinite(odometer)||!Number.isFinite(pricePerKg)||!Number.isFinite(amount)||amount<=0)throw new Error('Odometer, price/kg and amount are required.')
-    const quantityKg=amount/pricePerKg
-    await CalculationsService.recordFuelBaseline({odometer,pricePerKg,amount,isFullTank:Boolean(fuelDraft.value.isFullTank)})
+    const odometer=Number(values.odometer), pricePerKg=Number(values.pricePerKg), amount=Number(values.amount)
+    if(!Number.isFinite(odometer)||odometer<0||!Number.isFinite(pricePerKg)||pricePerKg<=0||!Number.isFinite(amount)||amount<=0)throw new Error('Enter a valid odometer, a price/kg greater than zero, and a positive amount.')
+    await CalculationsService.recordFuelBaseline({odometer,pricePerKg,amount,isFullTank:!Boolean(values.isPartialTank)})
     notice.value='Fuel entry saved. Rechecking calculations…'
     closeForm()
     await load()
@@ -147,7 +153,7 @@ onMounted(load)
       </button>
 
       <div v-if="openId===item.id" class="input-form">
-        <AdminNativeForm
+        <AdminRecordForm
           v-if="item.id!=='fuelBaseline'"
           :fields="activeDefinition?.fields||[]"
           :model-value="draft"
@@ -157,16 +163,18 @@ onMounted(load)
           @cancel="closeForm"
         />
 
-        <form v-else class="fuel-form" @submit.prevent="saveFuel">
-          <div class="form-grid">
-            <label><span>Odometer (km)</span><input v-model="fuelDraft.odometer" type="number" inputmode="numeric" min="0" required></label>
-            <label><span>Price / kg</span><input v-model="fuelDraft.pricePerKg" type="number" inputmode="decimal" min="0" step="0.01" required></label>
-            <label><span>Amount</span><input v-model="fuelDraft.amount" type="number" inputmode="decimal" min="0.01" step="0.01" required></label>
-            <label class="quantity"><span>Quantity (auto)</span><strong>{{fuelQuantity}} kg</strong></label>
-          </div>
-          <label class="check-line"><input v-model="fuelDraft.isFullTank" type="checkbox"> Full tank</label>
-          <div class="form-actions"><button type="button" class="secondary" @click="closeForm">Cancel</button><button class="primary" type="submit" :disabled="saving">Save fuel entry</button></div>
-        </form>
+        <template v-else>
+          <div class="fuel-quantity-preview"><span>Calculated quantity</span><strong>{{fuelQuantity}} kg</strong><small>Calculated from amount ÷ price per kg. This value is not editable.</small></div>
+          <AdminRecordForm
+            :fields="fuelFields"
+            :model-value="fuelDraft"
+            :busy="saving"
+            submit-label="Save fuel entry"
+            @field-change="onFuelFieldChange"
+            @submit="saveFuel"
+            @cancel="closeForm"
+          />
+        </template>
 
         <div v-if="item.id==='loan'" class="loan-note">
           <strong>Does the vehicle have no loan?</strong>
