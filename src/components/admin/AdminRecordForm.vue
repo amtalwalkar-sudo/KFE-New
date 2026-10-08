@@ -175,7 +175,7 @@ onMounted(async () => {
           @input="onInput(field)"
         ></textarea>
 
-        <span v-else-if="field.type === 'checkbox'" class="record-switch-row">
+        <span v-else-if="field.type === 'checkbox'" class="record-switch-row" :class="{ 'record-native-check-row': field.nativeCheckbox }">
           <input
             :ref="el => setFieldRef(field.key, el)"
             type="checkbox"
@@ -183,8 +183,8 @@ onMounted(async () => {
             :required="field.required"
             @change="onChange(field)"
           >
-          <span class="record-switch" aria-hidden="true"></span>
-          <span class="record-switch-copy">{{ field.toggleLabel || (valueFor(field) ? 'Enabled' : 'Disabled') }}</span>
+          <template v-if="field.nativeCheckbox"><span class="record-native-check-copy">{{ field.toggleLabel || field.label }}</span></template>
+          <template v-else><span class="record-switch" aria-hidden="true"></span><span class="record-switch-copy">{{ field.toggleLabel || (valueFor(field) ? 'Enabled' : 'Disabled') }}</span></template>
         </span>
 
         <input
@@ -244,6 +244,10 @@ onMounted(async () => {
 .field-wide{grid-column:1/-1}
 .record-switch-row{display:flex;align-items:center;gap:.65rem;min-height:52px;cursor:pointer}
 .record-switch-row input{position:absolute;opacity:0;width:1px;height:1px}
+.record-switch-row.record-native-check-row{min-height:36px;gap:.55rem}
+.record-switch-row.record-native-check-row input{position:static;opacity:1;width:20px;height:20px;accent-color:var(--kfe-accent,var(--kfe-text));flex:none}
+.record-switch-row.record-native-check-row .record-switch,.record-switch-row.record-native-check-row .record-switch-copy{display:none}
+.record-native-check-copy{font-size:.82rem;font-weight:650}
 .record-switch{position:relative;width:45px;height:27px;border-radius:999px;background:var(--kfe-border-strong);transition:background .15s;flex:none}
 .record-switch:after{content:'';position:absolute;width:21px;height:21px;top:3px;left:3px;border-radius:50%;background:white;box-shadow:0 1px 4px rgb(0 0 0 / .2);transition:transform .15s}
 .record-switch-row input:checked+.record-switch{background:var(--kfe-accent,var(--kfe-text))}
