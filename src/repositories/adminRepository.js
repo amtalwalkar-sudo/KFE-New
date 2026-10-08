@@ -133,7 +133,7 @@ export const AdminRepository = {
     const financeValues = isFinanceForm(formKey) ? await prepareFinanceValues(formKey, values, existingId) : formKey === 'settlement' ? { ...values, direction: settlementDirection(values.settlementType) } : values
     // Vehicle expiry is no longer an editable vehicle fact because dated compliance records own renewal validity.
     // Preserve a legacy value on unrelated edits so removing the old field never silently destroys stored history.
-    const persistedValues = formKey === 'vehicle' && existingRaw?.expiryDate && !Object.hasOwn(financeValues, 'expiryDate')
+    const persistedValues = formKey === 'vehicle' && existingRaw?.expiryDate && !financeValues.expiryDate
       ? { ...financeValues, expiryDate: existingRaw.expiryDate }
       : financeValues
     const record = formKey === 'shift' ? { ...existingRaw, ...structuredClone(persistedValues), id: existingRaw.id, createdAt: existingRaw.createdAt, updatedAt: new Date().toISOString() } : toStoredRecord(formKey, persistedValues, existingRaw)
