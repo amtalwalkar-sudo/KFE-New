@@ -54,7 +54,7 @@ export const ADMIN_FORM_DEFINITIONS={
       text('complianceType','Compliance name',{section:'Compliance record',required:true}),
       date('validFrom','Validity · From',{section:'Validity & cost',required:true}),
       date('validUntil','Validity · Upto',{section:'Validity & cost',required:true}),
-      number('cost','Amount paid',{section:'Validity & cost',required:true,min:0,exclusiveMin:true,step:0.01})
+      number('cost','Compliance cost',{section:'Validity & cost',required:true,min:0,exclusiveMin:true,step:0.01})
     ]
   },
   maintenance:{
