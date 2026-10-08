@@ -79,7 +79,7 @@ function submit() {
 function focusNext(field) {
   const index = fields.value.findIndex(item => item.key === field.key)
   const next = fields.value.slice(index + 1).find(item => item.type !== 'checkbox')
-  if (!next) return
+  if (!next) return false
   nextTick(() => {
     const el = fieldRefs.value[next.key]
     if (el && !el.disabled) {
@@ -87,12 +87,20 @@ function focusNext(field) {
       if (typeof el.select === 'function' && el.type === 'text') el.select()
     }
   })
+  return true
+}
+
+function enterHint(field) {
+  if (field.type === 'textarea') return 'enter'
+  const index = fields.value.findIndex(item => item.key === field.key)
+  const hasNext = fields.value.slice(index + 1).some(item => item.type !== 'checkbox')
+  return hasNext ? 'next' : 'done'
 }
 
 function onEnter(field, event) {
-  if (field.type === 'textarea') return
+  if (field.type === 'textarea' || event.isComposing) return
   event.preventDefault()
-  focusNext(field)
+  if (!focusNext(field)) submit()
 }
 
 function onInput(field) {
@@ -134,7 +142,9 @@ onMounted(async () => {
         :ref="el => setFieldRef(field.key, el)"
         :disabled="busy"
         :required="field.required"
+        :aria-label="field.label"
         @change="onChange(field)"
+        @keydown.enter="onEnter(field, $event)"
       >
         <option value="">Select…</option>
         <option
@@ -152,7 +162,10 @@ onMounted(async () => {
         :type="field.type"
         :disabled="busy"
         :required="field.required"
+        :aria-label="field.label"
+        :enterkeyhint="enterHint(field)"
         @change="onChange(field)"
+        @keydown.enter="onEnter(field, $event)"
       >
 
       <textarea
@@ -160,7 +173,9 @@ onMounted(async () => {
         :ref="el => setFieldRef(field.key, el)"
         :disabled="busy"
         :required="field.required"
+        :aria-label="field.label"
         :placeholder="field.placeholder"
+        enterkeyhint="enter"
         @input="onInput(field)"
       ></textarea>
 
@@ -178,6 +193,8 @@ onMounted(async () => {
         :ref="el => setFieldRef(field.key, el)"
         :type="field.type === 'number' ? 'number' : 'text'"
         :inputmode="keyboardFor(field)"
+        :enterkeyhint="enterHint(field)"
+        :aria-label="field.label"
         :min="field.min"
         :max="field.max"
         :step="field.step"
@@ -208,7 +225,7 @@ onMounted(async () => {
 .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem}
 .form-field{display:grid;gap:.4rem;min-width:0}
 .field-label{font-weight:750;font-size:.8rem}
-.form-field input,.form-field select,.form-field textarea{min-height:44px;width:100%;box-sizing:border-box;padding:.65rem .7rem;border:1px solid var(--kfe-border-strong);border-radius:var(--kfe-radius-sm)}
+.form-field input,.form-field select,.form-field textarea{min-height:52px;width:100%;box-sizing:border-box;padding:.65rem .7rem;border:1px solid var(--kfe-border-strong);border-radius:var(--kfe-radius-sm)}
 .form-field textarea{min-height:100px;resize:vertical}
 .form-field.invalid input,.form-field.invalid select,.form-field.invalid textarea{border-color:var(--kfe-danger)}
 .form-error{color:var(--kfe-danger);font-size:.72rem}

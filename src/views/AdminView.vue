@@ -224,7 +224,24 @@ onMounted(load)
 <button class="settings-icon-button" :class="{active:settingsOpen}" @click="settingsOpen?settingsOpen=false:openSettings()" aria-label="Settings">⚙</button>
 
 <template v-if="!selected&&!settingsOpen">
-<div class="admin-list"><section v-for="group in groupedItems" :key="group.category" class="admin-category"><div class="category-label">{{group.category}}</div><button v-for="item in group.items" :key="item.key" class="admin-item" @click="openItem(item.key)"><span class="item-icon">{{item.icon}}</span><span class="item-title">{{item.title}}</span><span class="item-arrow">›</span></button></section></div>
+  <header class="admin-hero">
+    <div class="admin-hero-kicker">ADMINISTRATION</div>
+    <h1>Business control centre</h1>
+    <p>Manage the source records and planning inputs behind KFE calculations. Changes are validated and saved through the authoritative Admin service.</p>
+    <div class="admin-hero-foot"><span><strong>{{items.length}}</strong> control areas</span><button type="button" class="admin-hero-settings" @click="openSettings">Settings <span aria-hidden="true">↗</span></button></div>
+  </header>
+  <div class="admin-workspace">
+    <section v-for="group in groupedItems" :key="group.category" class="admin-category">
+      <div class="admin-category-heading"><span class="category-label">{{group.category}}</span><span class="admin-category-count">{{group.items.length}}</span></div>
+      <div class="admin-category-grid">
+        <button v-for="item in group.items" :key="item.key" type="button" class="admin-item" @click="openItem(item.key)">
+          <span class="admin-item-icon" aria-hidden="true">{{item.icon}}</span>
+          <span class="admin-item-copy"><strong>{{item.title}}</strong><small>{{item.key==='calculations'?'Inspect calculation outputs':item.key==='businessSetup'?'Set the business start boundary':item.key==='vehicle'?'Vehicle identity and lifecycle':item.key==='driver'?'Driver identity and assignment':item.key==='compliance'?'Validity and compliance cost':item.key==='maintenance'?'Authoritative actual maintenance':item.key==='loan'?'Loan terms and position':item.key==='prepayment'?'Calculate and record prepayment':item.key==='ledger'?'Read-only finance history':item.key==='driverTarget'?'Monthly driver take-home target':'Effective maintenance provision rate'}}</small></span>
+          <span class="admin-item-arrow" aria-hidden="true">›</span>
+        </button>
+      </div>
+    </section>
+  </div>
 </template>
 
 <template v-else-if="settingsOpen">
