@@ -29,7 +29,7 @@ assert.ok(form.includes("{{busy?'Saving…':submitLabel}}"),'Admin native form m
 assert.ok(!form.includes("watch(values"),'Admin form must not emit parent model updates on every keystroke')
 assert.ok(!form.includes(':value="values[field.key]"'),'Admin fields must not be Vue-controlled while typing')
 assert.ok(form.includes('const values={}'),'Admin form draft state must not be reactive during native typing')
-assert.ok(form.includes('hydrateDom()'),'Admin form must hydrate native controls without per-keystroke reconciliation')
+assert.ok(form.includes('hydrateNative()'),'Admin form must hydrate native controls without per-keystroke reconciliation')
 assert.ok(form.includes('function editorInput(){'),'Admin fields must use the isolated native editor while typing')
 assert.ok(form.includes('openEditor(field)'),'Admin fields must route text/number entry through the isolated native editor')
 assert.ok(form.includes('ref="editorRef"'),'Admin must have one native editor DOM control')
