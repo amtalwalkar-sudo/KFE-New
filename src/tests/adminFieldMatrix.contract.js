@@ -35,7 +35,6 @@ assert.match(universalAdmin, /:required="field\.required"/, 'Universal Admin con
 assert.match(universalAdmin, /fieldRefs\.value\[first\.key\]\?\.focus/, 'Universal Admin create/edit form must focus its first entry control')
 assert.ok(universalAdmin.includes(':value="values[field.key]"'), 'Universal Admin controls must seed native controls from local form state')
 assert.ok(universalAdmin.includes('@input="captureField(field,$event)"'), 'Universal Admin controls must capture native typing without v-model rerender control')
-assert.match(universalAdmin, /@input="captureField\\(field,\\$event\\)"/, 'Universal Admin controls must capture native typing without v-model rerender control')
 assert.doesNotMatch(universalAdmin, /watch\(values/, 'Universal Admin must not emit parent model updates on every keystroke')
 
 const fixture = definition => Object.fromEntries(definition.fields.map(field => [
