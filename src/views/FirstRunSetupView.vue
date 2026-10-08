@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import AdminRecordForm from '../components/admin/AdminRecordForm.vue'
+import AdminSourceForm from '../components/admin/AdminSourceForm.vue'
 import { ADMIN_FORM_DEFINITIONS } from '../application/admin/adminFormDefinitions.js'
 import { AdminService } from '../application/admin/adminService.js'
 import { BackupConfig } from '../application/backup/backupConfig.js'
@@ -111,7 +111,7 @@ onMounted(load)
     <header class="setup-header"><div><div class="eyebrow">FIRST-TIME SETUP</div><h1>Let's set up KFE</h1><p>We'll collect the information KFE needs for real-life calculations. You can skip historical information and fill it later; skipped inputs stay visible in Admin → Calculations.</p></div><strong>{{ progress }}%</strong></header>
     <div class="setup-progress"><span :style="{ width: progress + '%' }"></span></div>
     <section class="setup-card"><div class="step-count">STEP {{ stepIndex + 1 }} OF {{ steps.length }}</div><h2>{{ current.title }}</h2><p>{{ current.intro }}</p>
-      <AdminRecordForm v-if="definition" :fields="definition.fields||[]" :model-value="form" :busy="saving" submit-label="Save & Continue" @submit="values=>{form=values;saveStep()}" @cancel="skip" />
+      <AdminSourceForm v-if="definition" :fields="definition.fields||[]" :model-value="form" :busy="saving" submit-label="Save & Continue" @submit="values=>{form=values;saveStep()}" @cancel="skip" />
       <template v-else-if="current.key === 'cloudBackup'"><label class="toggle"><input v-model="cloud.enabled" type="checkbox"> Enable daily Dropbox backup</label><label class="field"><span>Dropbox access token</span><input v-model="cloud.accessToken" type="password" autocomplete="off" placeholder="Enter token to connect"></label><p class="hint">The token is stored in secure storage. KFE data remains local-first.</p><button class="primary" :disabled="saving || !cloud.enabled || !cloud.accessToken" @click="saveStep">Connect & Continue</button></template>
       <template v-else><button class="primary" @click="saveStep">I have this information</button></template>
       <button v-if="current.optional" class="skip" :disabled="saving" @click="skip">Skip — I'll fill this later</button><p v-if="error" class="error">{{ error }}</p>
