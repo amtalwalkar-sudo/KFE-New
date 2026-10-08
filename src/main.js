@@ -29,9 +29,8 @@ app.use(pinia)
 app.use(router)
 app.mount('#app')
 
-// This is the hard startup boundary: once Vue is mounted, the application is usable.
-// Storage, recovery, backup, theme, overlay, and service-worker work must never prevent
-// the WebView from reaching the mounted UI.
+// Mounting is the WebView/application-shell boundary. StartupService owns the
+// application startup lifecycle after this point.
 window.__KFE_APP_MOUNTED__ = true
 window.dispatchEvent(new CustomEvent('kfe:app-mounted'))
 
@@ -47,7 +46,6 @@ void (async () => {
       { PlatformStartup },
       { configureAndroidOverlayLifecycle },
       { StartupService },
-      { startApplication },
       { startKfeThemeController },
       { Capacitor },
       { default: formSystem }
@@ -61,7 +59,6 @@ void (async () => {
       import('./infrastructure/startup/platformStartup.js'),
       import('./infrastructure/android/androidOverlayLifecycle.js'),
       import('./application/startup/startupService.js'),
-      import('./application/startup/startupRuntime.js'),
       import('./presentation/theme/kfeThemeController.js'),
       import('@capacitor/core'),
       import('./presentation/forms/universalFormSystem.js').then(module => ({ default: module }))
@@ -88,7 +85,7 @@ void (async () => {
       }
     }
 
-    void startApplication().catch(error => console.error('KFE application startup failed:', error))
+    void StartupService.startApplication().catch(error => console.error('KFE application startup failed:', error))
   } catch (error) {
     console.error('KFE post-mount infrastructure bootstrap failed:', error)
   }
