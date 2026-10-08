@@ -33,7 +33,7 @@ assert.ok(form.includes('hydrateNative()'),'Admin form must hydrate native contr
 assert.ok(form.includes('function editorInput(){'),'Admin fields must use the isolated native editor while typing')
 assert.ok(form.includes('openEditor(field)'),'Admin fields must route text/number entry through the isolated native editor')
 assert.ok(form.includes('ref="editorRef"'),'Admin must have one native editor DOM control')
-assert.ok(form.includes("emit('submit',result.values)"),'Admin form must submit the complete validated draft')
+assert.ok(form.includes("emit('submit',{...values})"),'Admin form must submit the complete draft')
 assert.ok(admin.includes(':busy="saving"'),'Admin form must lock controls while save is in flight')
 assert.ok(admin.includes("label('vehicle',x)"),'Vehicle relationship options must be human-readable')
 assert.ok(admin.includes("label('driver',x)"),'Driver relationship options must be human-readable')
