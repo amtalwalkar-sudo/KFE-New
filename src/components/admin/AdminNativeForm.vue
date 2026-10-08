@@ -9,7 +9,7 @@ function setFieldRef(key,el){if(el)fieldRefs.value[key]=el}
 function hydrateNative(){for(const field of fields.value){const el=fieldRefs.value[field.key];if(!el)continue;if(field.type==='checkbox')el.checked=!!values[field.key];else el.value=values[field.key]??''}}
 function readDom(field){const el=fieldRefs.value[field.key];if(!el)return values[field.key];if(field.type==='checkbox')return!!el.checked;if(field.type==='number'){const raw=String(el.value??'').trim();return raw===''?'':Number(raw)}return el.value}
 function openEditor(field){if(props.busy||!isEditorField(field))return;editorField.value=field;editorOpen.value=true;nextTick(()=>{const el=editorRef.value;if(!el)return;el.value=values[field.key]??'';el.focus();try{el.setSelectionRange(el.value.length,el.value.length)}catch(_){}})}
-function closeEditor(save=true){const field=editorField.value,el=editorRef.value;if(field&&save&&el)values[field.key]=el.value;editorOpen.value=false;editorField.value=null;nextTick(hydrateNative)}
+function closeEditor(save=true){const field=editorField.value,el=editorRef.value;if(field&&save&&el){values[field.key]=el.value;emit('field-change',{key:field.key,value:field.type==='number'?(String(el.value).trim()===''?'':Number(el.value)):el.value})}editorOpen.value=false;editorField.value=null;nextTick(hydrateNative)}
 function editorInput(){}
 function fieldChanged(field){const value=readDom(field);values[field.key]=value;emit('field-change',{key:field.key,value})}
 function toggle(field){values[field.key]=!values[field.key];const el=fieldRefs.value[field.key];if(el)el.checked=!!values[field.key];emit('field-change',{key:field.key,value:values[field.key]})}
@@ -24,7 +24,7 @@ onMounted(async()=>{await nextTick();hydrate(props.modelValue);if(props.autoOpen
 <label v-for="field in fields" :key="field.key" class="form-field" :class="{invalid:!!errors[field.key]}">
 <span class="field-label">{{field.label}}<strong v-if="field.required" aria-hidden="true"> *</strong></span>
 <select v-if="field.type==='select'" :ref="el=>setFieldRef(field.key,el)" :disabled="busy" :required="field.required" @change="fieldChanged(field)"><option value="">Select…</option><option v-for="option in field.options||[]" :key="optionValue(option)" :value="optionValue(option)">{{optionLabel(option)}}</option></select>
-<input v-else-if="field.type==='date'||field.type==='datetime-local'" :ref="el=>setFieldRef(field.key,el)" :type="field.type" :disabled="busy" :required="field.required" @change="fieldChanged(field)">
+<input v-else-if="field.type==='date'||field.type==='datetime-local'||field.type==='month'" :ref="el=>setFieldRef(field.key,el)" :type="field.type" :disabled="busy" :required="field.required" @change="fieldChanged(field)">
 <textarea v-else-if="field.type==='textarea'" :ref="el=>setFieldRef(field.key,el)" readonly :disabled="busy" :required="field.required" :placeholder="field.placeholder" @click="openEditor(field)"></textarea>
 <input v-else-if="field.type==='checkbox'" :ref="el=>setFieldRef(field.key,el)" type="checkbox" :disabled="busy" :required="field.required" @change="toggle(field)">
 <input v-else :ref="el=>setFieldRef(field.key,el)" readonly :disabled="busy" type="text" :inputmode="keyboardFor(field)" :min="field.min" :max="field.max" :step="field.step" :required="field.required" @click="openEditor(field)">
