@@ -5,7 +5,7 @@ const root=new URL('../',import.meta.url)
 const read=p=>fs.readFileSync(new URL(p,root),'utf8')
 
 const universal=read('presentation/forms/universalFormSystem.js')
-const admin=read('components/admin/AdminNativeForm.vue')
+const admin=read('components/admin/AdminRecordForm.vue')
 const baseInput=read('components/ui/BaseInput.vue')
 
 assert.ok(universal.includes('function install()'),'Universal form runtime must have one installation boundary')
