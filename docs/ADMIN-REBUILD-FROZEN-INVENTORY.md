@@ -51,6 +51,8 @@ The rebuilt form groups organize the following source facts by business purpose.
 - Active (checkbox, default true)
 - Notes (textarea)
 
+Legacy `vehicle.expiryDate` values from older records are preserved during unrelated vehicle edits but are no longer editable in the vehicle form; compliance records own dated renewal validity.
+
 ### Driver
 - Full name (text, required)
 - Phone number (text)
