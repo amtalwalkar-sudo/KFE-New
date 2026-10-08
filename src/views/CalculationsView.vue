@@ -149,7 +149,7 @@ onMounted(load)
       <div v-if="openId===item.id" class="input-form">
         <AdminNativeForm
           v-if="item.id!=='fuelBaseline'"
-          :definition="activeDefinition"
+          :fields="activeDefinition?.fields||[]"
           :model-value="draft"
           :busy="saving"
           :submit-label="item.id==='loan'?'Save loan':'Save'"
