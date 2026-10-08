@@ -54,14 +54,14 @@ const prepaymentFields=computed(()=>[
 const loanPaymentFields=[
  {key:'paidOn',label:'Payment date',type:'date',section:'Actual payment',required:true},
  {key:'amount',label:'Actual amount paid',type:'number',section:'Actual payment',required:true,min:0,step:0.01},
- {key:'notes',label:'Notes',type:'textarea'}
+ {key:'notes',label:'Notes',type:'textarea',section:'Additional context'}
 ]
 const settlementFields=[
  {key:'settledOn',label:'Payment date',type:'date',section:'Payment details',required:true},
  {key:'amount',label:'Amount paid',type:'number',section:'Payment details',required:true,min:0,step:0.01},
  {key:'paymentMethod',label:'Payment method',type:'select',section:'Payment reference',options:['Cash','Bank transfer','UPI','Card','Cheque','Other'],defaultValue:'Cash'},
  {key:'referenceNumber',label:'Payment reference',type:'text',section:'Payment reference'},
- {key:'notes',label:'Notes',type:'textarea'}
+ {key:'notes',label:'Notes',type:'textarea',section:'Additional context'}
 ]
 const themeSettings=ref(getKfeThemeSettings())
 const notificationsEnabled=ref(KfeRideNotificationService.notificationsEnabled())
@@ -276,7 +276,7 @@ onMounted(load)
 </template>
 
 <template v-else-if="selected==='maintenanceRate'">
-<section class="clean-card"><div class="card-heading"><div><strong>Current maintenance per KM</strong><span>Effective from {{currentMaintenanceRate?.values?.effectiveFrom||'—'}}</span></div><strong class="big-value">{{currentMaintenanceRate?.values?.maintenanceProvisionPerKm!=null?'₹'+Number(currentMaintenanceRate.values.maintenanceProvisionPerKm).toFixed(2):'—'}} / km</strong></div><AdminRecordForm :fields="[{key:'rate',label:'New rate per KM',type:'number',required:true,min:0,step:0.01},{key:'changeDate',label:'Change date',type:'date',required:true},{key:'notes',label:'Notes',type:'textarea'}]" :model-value="maintenanceRateDraft" :busy="loading" :show-actions="false" @field-change="(change)=>{maintenanceRateDraft={...maintenanceRateDraft,[change.key]:change.value}}" @submit="submitMaintenanceRateForm"/>
+<section class="clean-card"><div class="card-heading"><div><strong>Current maintenance per KM</strong><span>Effective from {{currentMaintenanceRate?.values?.effectiveFrom||'—'}}</span></div><strong class="big-value">{{currentMaintenanceRate?.values?.maintenanceProvisionPerKm!=null?'₹'+Number(currentMaintenanceRate.values.maintenanceProvisionPerKm).toFixed(2):'—'}} / km</strong></div><AdminRecordForm :fields="[{key:'rate',label:'New rate per KM',type:'number',section:'Effective-dated planning input',required:true,min:0,step:0.01},{key:'changeDate',label:'Change date',type:'date',section:'Effective-dated planning input',required:true},{key:'notes',label:'Notes',type:'textarea',section:'Additional context'}]" :model-value="maintenanceRateDraft" :busy="loading" :show-actions="false" @field-change="(change)=>{maintenanceRateDraft={...maintenanceRateDraft,[change.key]:change.value}}" @submit="submitMaintenanceRateForm"/>
 <p class="rule-note">The new rate applies from the change date until another change is made. Historical calculations use the rate applicable on their original date.</p><button class="primary wide" :disabled="loading" @click="saveMaintenanceRate">Save new rate</button></section><section class="history-card"><div class="category-label">RATE HISTORY</div><article v-for="row in maintenanceHistory" :key="row.id" class="history-row"><div><strong>{{row.values?.effectiveFrom}}</strong></div><strong>₹{{Number(row.values?.maintenanceProvisionPerKm||0).toFixed(2)}} / km</strong></article><div v-if="!maintenanceHistory.length" class="empty">No rate history yet.</div></section>
 </template>
 
