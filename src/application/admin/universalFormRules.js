@@ -8,7 +8,6 @@ export function validateAdminForm(definition,values={},context={}){const errors=
 if(definition.key==='vehicle'&&normalized.status==='Sold'&&blank(normalized.saleDate))errors.saleDate='Sale date is required when vehicle status is Sold.';
 if(definition.key==='vehicle'&&normalized.status==='Sold'&&blank(normalized.sellPrice))errors.sellPrice='Sell price is required when vehicle status is Sold.';
 if(definition.key==='vehicle'&&normalized.saleDate&&normalized.status!=='Sold')errors.saleDate='Sale date is only valid for a Sold vehicle.';
-if(definition.key==='vehicle'&&normalized.expiryDate&&normalized.statusDate&&dateValue(normalized.expiryDate)<dateValue(normalized.statusDate))errors.expiryDate='Expiry date cannot precede status date.';
 if(definition.key==='compliance'&&normalized.validUntil&&normalized.validFrom&&dateValue(normalized.validUntil)<dateValue(normalized.validFrom))errors.validUntil='Valid until cannot precede valid from.';
 if(definition.key==='driver'&&normalized.licenseExpiry&&normalized.joinedOn&&dateValue(normalized.licenseExpiry)<dateValue(normalized.joinedOn))errors.licenseExpiry='Licence expiry cannot precede joined date.';
 if(['driverTarget','breakEvenInputs'].includes(definition.key)&&normalized.effectiveUntil&&normalized.effectiveFrom&&dateValue(normalized.effectiveUntil)<dateValue(normalized.effectiveFrom))errors.effectiveUntil='Effective until cannot precede effective from.';
