@@ -32,12 +32,10 @@ assert.ok(adminView.includes('paymentMethod:actionDraft.value.paymentMethod'), '
 assert.ok(adminView.includes('referenceNumber:String(actionDraft.value.referenceNumber||\'\')'), 'Source payment must persist payment reference')
 assert.ok(adminView.includes('notes:String(actionDraft.value.notes||\'\')'), 'Admin payment/prepayment/rate/target notes must reach persistence')
 assert.match(nativeAdmin, /:required="field\.required"/, 'Admin controls must expose required semantics')
-assert.ok(nativeAdmin.includes('openEditor(first)'), 'Admin create form must support stable first-field entry')
-assert.ok(nativeAdmin.includes('const values={}'), 'Admin draft state must stay non-reactive while typing')
-assert.ok(nativeAdmin.includes('editorRef'), 'Admin must use a single native editor for text/number/textarea entry')
-assert.ok(nativeAdmin.includes('openEditor(field)'), 'Admin fields must enter through the isolated native editor')
-assert.ok(nativeAdmin.includes('function editorInput(){'), 'Admin editor must not reconcile parent state on every native keystroke')
-assert.ok(nativeAdmin.includes('readonly'), 'Visible Admin text/number fields must not compete for native IME focus')
+assert.ok(nativeAdmin.includes('function onInput(field)'), 'Admin fields must write directly through native input events')
+assert.match(nativeAdmin, /field\.type === 'number' \? 'number' : 'text'/, 'Admin numeric fields must render native number inputs')
+assert.ok(nativeAdmin.includes('autocapitalize=\"off\"'), 'Admin text entry must not force capitalization')
+assert.doesNotMatch(nativeAdmin, /openEditor|editorRef|editorOpen|readonly/, 'Admin fields must not use a popup editor or readonly text entry')
 assert.doesNotMatch(nativeAdmin, /watch\(values/, 'Admin must not emit parent model updates on every keystroke')
 
 const fixture = definition => Object.fromEntries(definition.fields.map(field => [

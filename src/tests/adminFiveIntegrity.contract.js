@@ -80,7 +80,8 @@ assert.match(perfEngine, /String\(b\.updatedAt \|\| b\.createdAt \|\| b\.id \|\|
 assert.doesNotMatch(adminForm, /v-model(?:\.[\\w-]+)?=/, 'Admin form controls must not use Vue v-model for native entry')
 assert.doesNotMatch(adminForm, /userEditing/, 'Admin form must not rely on an editing flag that can be reset by parent synchronization')
 assert.match(adminForm, /function fieldChanged\(field\)/, 'Admin form native controls must write through explicit field events')
-assert.match(adminForm, /function closeEditor\(save=true\)/, 'Admin form text entry must commit through the isolated editor')
+assert.doesNotMatch(adminForm, /openEditor|closeEditor|editorRef|editorOpen/, 'Admin form must not use an isolated editor overlay')
+assert.match(adminForm, /@input="onInput\(field\)"/, 'Admin text and numeric fields must write directly from native input events')
 
 assert.doesNotMatch(formShell, /watch\(.*props\.initialValue/, 'Shared KfeFormShell must not overwrite active form state from initial props')
 assert.doesNotMatch(workForm, /watch\(.*props\..*form/, 'Work contextual form must not introduce a parent-prop watcher that resets active input')
