@@ -39,6 +39,7 @@ assert.ok(nativeAdmin.includes('autocapitalize=\"off\"'), 'Admin text entry must
 assert.doesNotMatch(nativeAdmin, /openEditor|editorRef|editorOpen|readonly/, 'Admin fields must not use a popup editor or readonly text entry')
 assert.doesNotMatch(nativeAdmin, /watch\(values/, 'Admin must not emit parent model updates on every keystroke')
 assert.match(nativeAdmin, /record-form-section/, 'Admin inputs must use the new grouped record-form architecture')
+assert.match(nativeAdmin, /aria-label=\"Admin source record entry\"/, 'Admin record forms must have an accessible form name')
 assert.match(nativeAdmin, /field\.section/, 'Admin form sections must be driven by business-purpose groups')
 assert.doesNotMatch(nativeAdmin, /AdminNativeForm/, 'The previous Admin form implementation must not remain in the replacement component')
 assert.match(adminView, /<AdminRecordForm/, 'Admin view must render the replacement record form')
