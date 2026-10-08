@@ -79,7 +79,7 @@ onMounted(() => nextTick(() => {
 </script>
 
 <template>
-  <form class="admin-source-form" data-form-type="admin-source-record" novalidate @submit.prevent="emit('submit', collect())">
+  <form class="admin-source-form" data-form-type="admin-source-record" aria-label="Admin source record entry" novalidate @submit.prevent="emit('submit', collect())">
     <header class="source-form-heading">
       <div><span class="source-kicker">BUSINESS RECORD</span><h2>Record details</h2></div>
       <span v-if="requiredCount" class="source-required"><b>*</b> Required</span>
