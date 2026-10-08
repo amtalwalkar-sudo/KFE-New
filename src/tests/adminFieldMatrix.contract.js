@@ -26,7 +26,7 @@ assert.equal(vehicleDefaults.fields.find(field => field.key === 'active')?.defau
 assert.equal(driverDefaults.fields.find(field => field.key === 'status')?.defaultValue, 'Active', 'Driver create form must default to Active')
 assert.equal(loanDefaults.fields.find(field => field.key === 'status')?.defaultValue, 'Active', 'Loan create form must default to Active')
 const adminView = fs.readFileSync(new URL('../views/AdminView.vue', import.meta.url), 'utf8')
-const nativeAdmin = fs.readFileSync(new URL('../components/admin/AdminNativeForm.vue', import.meta.url), 'utf8')
+const nativeAdmin = fs.readFileSync(new URL('../components/admin/AdminRecordForm.vue', import.meta.url), 'utf8')
 assert.match(adminView, /:busy="saving"/, 'All Admin create/edit surfaces must use save-state locking')
 assert.ok(adminView.includes('paymentMethod:actionDraft.value.paymentMethod'), 'Source payment must persist payment method')
 assert.ok(adminView.includes('referenceNumber:String(actionDraft.value.referenceNumber||\'\')'), 'Source payment must persist payment reference')
