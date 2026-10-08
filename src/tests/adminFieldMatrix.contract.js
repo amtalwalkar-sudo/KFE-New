@@ -32,7 +32,7 @@ assert.ok(adminView.includes('paymentMethod:actionDraft.value.paymentMethod'), '
 assert.ok(adminView.includes('referenceNumber:String(actionDraft.value.referenceNumber||\'\')'), 'Source payment must persist payment reference')
 assert.ok(adminView.includes('notes:String(actionDraft.value.notes||\'\')'), 'Admin payment/prepayment/rate/target notes must reach persistence')
 assert.match(universalAdmin, /:required="field\.required"/, 'Universal Admin controls must expose required semantics')
-assert.match(universalAdmin, /fieldRefs\.value\[first\.key\]\?\.focus/, 'Universal Admin create/edit form must focus its first entry control')
+assert.ok(universalAdmin.includes('openEditor(first)'), 'Universal Admin create/edit form must open its first entry control')
 assert.ok(universalAdmin.includes('const values={}'), 'Universal Admin draft state must stay non-reactive while typing')
 assert.ok(universalAdmin.includes('editorRef'), 'Universal Admin must use a single native editor for text/number/textarea entry')
 assert.ok(universalAdmin.includes('openEditor(field)'), 'Universal Admin fields must enter through the isolated native editor')
