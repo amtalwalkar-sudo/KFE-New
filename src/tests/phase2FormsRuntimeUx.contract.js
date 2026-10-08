@@ -26,7 +26,7 @@ assert.ok(form.includes('optionValue(option)'),'Universal form must support valu
 assert.ok(form.includes('optionLabel(option)'),'Universal form must render human-readable select labels')
 assert.ok(form.includes("busy:{type:Boolean,default:false}"),'Universal form must expose a busy state')
 assert.ok(form.includes("{{busy?'Saving…':submitLabel}}"),'Universal form must communicate save progress')
-assert.ok(admin.includes(':busy="loading"'),'Admin form must lock controls while save is in flight')
+assert.ok(admin.includes(':busy="saving"'),'Admin form must lock controls while save is in flight')
 assert.ok(admin.includes("label('vehicle',x)"),'Vehicle relationship options must be human-readable')
 assert.ok(admin.includes("label('driver',x)"),'Driver relationship options must be human-readable')
 assert.ok(admin.includes("label('loan',x)"),'Loan relationship options must be human-readable')

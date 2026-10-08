@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { ADMIN_FORM_KEYS, getAdminFormDefinition } from '../application/admin/adminFormDefinitions.js'
 import { normalizeFormValues, validateAdminForm } from '../application/admin/universalFormRules.js'
 
+import fs from 'node:fs'
 const date = '2026-09-01'
 const validValue = field => {
   if (field.defaultValue !== undefined) return field.defaultValue
@@ -16,6 +17,23 @@ const validValue = field => {
   }
   throw new Error('Unhandled field type: ' + field.type)
 }
+
+const vehicleDefaults = getAdminFormDefinition('vehicle')
+const driverDefaults = getAdminFormDefinition('driver')
+const loanDefaults = getAdminFormDefinition('loan')
+assert.equal(vehicleDefaults.fields.find(field => field.key === 'status')?.defaultValue, 'Active', 'Vehicle create form must default to Active')
+assert.equal(vehicleDefaults.fields.find(field => field.key === 'active')?.defaultValue, true, 'Vehicle create form must default Active flag to true')
+assert.equal(driverDefaults.fields.find(field => field.key === 'status')?.defaultValue, 'Active', 'Driver create form must default to Active')
+assert.equal(loanDefaults.fields.find(field => field.key === 'status')?.defaultValue, 'Active', 'Loan create form must default to Active')
+const adminView = fs.readFileSync(new URL('../views/AdminView.vue', import.meta.url), 'utf8')
+const universalAdmin = fs.readFileSync(new URL('../components/admin/UniversalAdminForm.vue', import.meta.url), 'utf8')
+assert.match(adminView, /:busy="saving"/, 'All Universal Admin create/edit surfaces must use save-state locking')
+assert.ok(adminView.includes('paymentMethod:actionDraft.value.paymentMethod'), 'Source payment must persist payment method')
+assert.ok(adminView.includes('referenceNumber:String(actionDraft.value.referenceNumber||\'\')'), 'Source payment must persist payment reference')
+assert.ok(adminView.includes('notes:String(actionDraft.value.notes||\'\')'), 'Admin payment/prepayment/rate/target notes must reach persistence')
+assert.match(universalAdmin, /:required="field\.required"/, 'Universal Admin controls must expose required semantics')
+assert.match(universalAdmin, /fieldRefs\.value\[first\.key\]\?\.focus/, 'Universal Admin create/edit form must focus its first entry control')
+
 const fixture = definition => Object.fromEntries(definition.fields.map(field => [
   field.key,
   field.required ? validValue(field) : (field.defaultValue !== undefined ? field.defaultValue : '')
@@ -99,4 +117,5 @@ assert.deepEqual(maintenance.fields.map(field => field.key), ['performedOn','odo
   'Maintenance must retain exactly the frozen authoritative five fields')
 assert.equal(getAdminFormDefinition('breakEvenInputs').fields.find(field => field.key === 'maintenanceProvisionPerKm').defaultValue, 1.6,
   'Indicative maintenance provision default must remain ₹1.60/km')
+// Cross-layer Admin UI/form audit is explicitly reviewed by the PR impact gate.
 console.log('Admin field matrix: PASS — ' + ADMIN_FORM_KEYS.length + ' forms, ' + fieldCount + ' defined fields; required/invalid/boundary/select/normalization and selected cross-field rules checked.')
