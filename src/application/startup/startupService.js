@@ -13,6 +13,17 @@ export const initializeApplication = async () => {
   if (!platform) throw new Error('Startup platform adapter has not been configured.')
 
   DiagnosticService.start('KFE startup')
+
+  // Register the PWA service worker before storage/recovery. GitHub Pages history
+  // routes can return a document 404; the worker must be registered independently
+  // of IndexedDB readiness so it can provide the application shell on refresh.
+  void platform.registerServiceWorker()
+    .then(() => DiagnosticService.checkpoint('Service worker lifecycle scheduled'))
+    .catch(error => {
+      DiagnosticService.error('Service worker lifecycle failed', error)
+      console.warn('KFE service worker registration unavailable:', error)
+    })
+
   DiagnosticService.waiting('Storage initialization', 'Opening the active KFE IndexedDB database.')
   try {
     await platform.initializeStorage()
@@ -27,14 +38,6 @@ export const initializeApplication = async () => {
 
   DiagnosticService.checkpoint('First-render infrastructure ready')
 
-  // Non-critical infrastructure remains part of the startup lifecycle, but must not
-  // block the first usable paint. It runs in the background after the readiness gate.
-  void platform.registerServiceWorker()
-    .then(() => DiagnosticService.checkpoint('Service worker lifecycle scheduled'))
-    .catch(error => {
-      DiagnosticService.error('Service worker lifecycle failed', error)
-      console.warn('KFE service worker registration unavailable:', error)
-    })
   void BackupService.maybeDailyLocalBackup()
     .then(() => DiagnosticService.checkpoint('Local backup lifecycle scheduled'))
     .catch(error => {
