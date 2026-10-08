@@ -53,7 +53,7 @@ assertHas(adminService, /async save\(formKey,values,existingId=null/, 'Admin sav
 assertHas(adminRepo, /objectStore\(storeName\)\.put\(record\)/, 'Admin save must persist to the selected canonical store')
 assertHas(adminRepo, /pending_mutations.*audit_history/, 'Admin save must atomically couple mutation and audit records')
 for (const key of ['businessSetup','vehicle','driver','compliance','maintenance','loan','loanPayment','prepayment','settlement','driverTarget','breakEvenInputs']) {
-  assertHas(definitions, new RegExp('^'+key+'\\s*:', 'm'), 'Missing Admin form definition: '+key)
+  assertHas(definitions, new RegExp('^\\s*'+key+'\\s*:', 'm'), 'Missing Admin form definition: '+key)
 }
 
 assertHas(performanceRepo, /'shifts', 'trips', 'fuel_logs', 'vehicles'/, 'Performance snapshot must read canonical operational and source stores')
