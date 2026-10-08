@@ -8,7 +8,8 @@ import { downloadBackupText, readBackupFileText } from '../../presentation/backu
 const fileInput = ref(null); const status = ref(null); const cloudConfig = ref({ enabled:false, path:'/Apps/KFE/kfe-latest-backup.json', accessToken:'', hasAccessToken:false, lastCloudBackupAt:null });
 const tokenInput=ref(null)
 const setCloudEnabled=event=>{cloudConfig.value={...cloudConfig.value,enabled:event.target.checked}}
-const setCloudToken=event=>{cloudConfig.value={...cloudConfig.value,accessToken:event.target.value}} const pendingRestore = ref(null); const loading = ref(false); const error = ref(''); const notice = ref(''); const cloudNeedsReauth = ref(false)
+const setCloudToken=event=>{cloudConfig.value={...cloudConfig.value,accessToken:event.target.value}}
+const pendingRestore = ref(null); const loading = ref(false); const error = ref(''); const notice = ref(''); const cloudNeedsReauth = ref(false)
 const refresh = async () => { error.value=''; try { const local=await BackupService.getLocalBackup(); status.value=local?{savedAt:local.savedAt,...BackupService.getBackupSummary(local.backup)}:null; cloudConfig.value=await BackupConfig.getBackupConfiguration() } catch(e){error.value=e.message||'Unable to read backup status.'} }
 const create=async()=>{loading.value=true;error.value='';notice.value='';try{const backup=await BackupService.createBackup();await BackupService.saveLocalBackup(backup);downloadBackupText(BackupService.serializeBackup(backup),`kfe-backup-${backup.exportedAt.replace(/[:.]/g, '-')}.json`);notice.value=`Backup created: ${BackupService.getBackupSummary(backup).totalRecords} records.`;await refresh()}catch(e){error.value=e.message||'Backup creation failed.'}finally{loading.value=false}}
 const chooseRestoreFile=()=>fileInput.value?.click()
