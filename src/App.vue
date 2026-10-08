@@ -1,21 +1,22 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import KfeShell from './components/shell/KfeShell.vue'
-import { startupState } from './application/startup/startupRuntime.js'
+import { StartupService, startupState } from './application/startup/startupService.js'
 import FirstRunSetupView from './views/FirstRunSetupView.vue'
 import { FirstRunSetupService } from './application/setup/firstRunSetupService.js'
 
 const renderError = ref(null)
 const firstRunRequired = ref(false)
-// First-run setup is a launch-only feature. Normal PWA development and deployments
-// keep it dormant unless the launch workflow explicitly enables the build flag.
 const firstRunSetupEnabled = import.meta.env.VITE_ENABLE_FIRST_RUN_SETUP === 'true'
 onMounted(async () => {
   if (!firstRunSetupEnabled) return
   try { firstRunRequired.value = await FirstRunSetupService.isFirstRunSetupRequired() } catch (_) { firstRunRequired.value = false }
 })
 const finishFirstRun = () => { firstRunRequired.value = false }
-const recoverApp = () => { renderError.value = null; window.location.reload() }
+const recoverApp = () => {
+  renderError.value = null
+  void StartupService.resetStartupAttempt().catch(error => console.error('KFE startup retry failed:', error))
+}
 </script>
 
 <template>
@@ -23,7 +24,7 @@ const recoverApp = () => { renderError.value = null; window.location.reload() }
     <div v-if="renderError" class="error-container kfe-runtime-error" role="alert">
       <h3>Something went wrong</h3>
       <p>{{ renderError }}</p>
-      <button @click="recoverApp" class="retry-btn">Reload Application</button>
+      <button @click="recoverApp" class="retry-btn">Retry Initialization</button>
     </div>
 
     <div
@@ -32,7 +33,7 @@ const recoverApp = () => { renderError.value = null; window.location.reload() }
       role="status"
       aria-live="polite"
     >
-      <strong>KFE startup is still recovering</strong>
+      <strong>KFE startup failed to initialize safely</strong>
       <span>{{ startupState.error }}</span>
       <button @click="recoverApp" class="retry-btn">Retry Initialization</button>
     </div>
@@ -53,4 +54,3 @@ const recoverApp = () => { renderError.value = null; window.location.reload() }
     </router-view>
   </KfeShell>
 </template>
-
