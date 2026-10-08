@@ -16,7 +16,7 @@ const fuelFields=[
   {key:'odometer',label:'Odometer (km)',type:'number',required:true,min:0,step:1,section:'Refuelling evidence'},
   {key:'pricePerKg',label:'Price / kg',type:'number',required:true,min:0,exclusiveMin:true,step:0.01,section:'Refuelling evidence'},
   {key:'amount',label:'Amount',type:'number',required:true,min:0,exclusiveMin:true,step:0.01,section:'Refuelling evidence'},
-  {key:'isPartialTank',label:'Partial tank fill',type:'checkbox',defaultValue:false,section:'Refuelling evidence',toggleLabel:'Partial fill'}
+  {key:'isPartialTank',label:'Partial tank fill',type:'checkbox',defaultValue:false,section:'Refuelling evidence',toggleLabel:'Partial fill',nativeCheckbox:true}
 ]
 
 const live=xs=>(xs||[]).filter(x=>!x?.deletedAt&&!x?.deleted)
