@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import UniversalAdminForm from '../components/admin/UniversalAdminForm.vue'
+import AdminNativeForm from '../components/admin/AdminNativeForm.vue'
 import { ADMIN_FORM_DEFINITIONS } from '../application/admin/adminFormDefinitions.js'
 import { AdminService } from '../application/admin/adminService.js'
 import { BackupConfig } from '../application/backup/backupConfig.js'
