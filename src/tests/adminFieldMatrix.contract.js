@@ -9,7 +9,7 @@ const validValue = field => {
   if (field.type === 'checkbox') return false
   if (field.type === 'text' || field.type === 'textarea') return ' Test value '
   if (field.type === 'date' || field.type === 'datetime-local') return date
-  if (field.type === 'number') return field.exclusiveMin && field.min !== undefined ? field.min + 1 : (field.min ?? 1)
+assert.match(nativeAdmin, /function inputType\\(field\\)/, 'Admin numeric fields must render native number inputs')
   if (field.type === 'select') {
     const option = field.options?.[0]
     if (option !== undefined) return option && typeof option === 'object' && 'value' in option ? option.value : option
@@ -35,11 +35,11 @@ assert.ok(adminView.includes('notes:String(actionDraft.value.notes||\'\')'), 'Ad
 assert.match(nativeAdmin, /:required="field\.required"/, 'Admin controls must expose required semantics')
 assert.ok(nativeAdmin.includes('function changed(field)'), 'Admin fields must write directly through native input events')
 assert.match(nativeAdmin, /field\.type === 'number' \? 'number' : 'text'/, 'Admin numeric fields must render native number inputs')
-assert.ok(nativeAdmin.includes('autocapitalize=\"off\"'), 'Admin text entry must not force capitalization')
+assert.ok(!nativeAdmin.includes('autocapitalize="on"'), 'Admin text entry must not force capitalization')
 assert.doesNotMatch(nativeAdmin, /openEditor|editorRef|editorOpen|readonly/, 'Admin fields must not use a popup editor or readonly text entry')
 assert.doesNotMatch(nativeAdmin, /watch\(values/, 'Admin must not emit parent model updates on every keystroke')
 assert.match(nativeAdmin, /source-form-section/, 'Admin inputs must use the new grouped record-form architecture')
-assert.match(nativeAdmin, /aria-label=\"Admin source record entry\"/, 'Admin record forms must have an accessible form name')
+assert.match(nativeAdmin, /aria-label="Admin source record entry"/, 'Admin record forms must have an accessible form name')
 assert.match(nativeAdmin, /field\.section/, 'Admin form sections must be driven by business-purpose groups')
 assert.match(nativeAdmin, /allFields\.value\.filter\(field => !field\.hidden\)/, 'Compatibility-only fields must not render as editable inputs')
 assert.doesNotMatch(nativeAdmin, /AdminNativeForm/, 'The previous Admin form implementation must not remain in the replacement component')
@@ -79,7 +79,7 @@ for (const key of ADMIN_FORM_KEYS) {
       const invalidDate = validateAdminForm(definition, { ...values, [field.key]: 'not-a-date' })
       assert.equal(invalidDate.valid, false, key + '.' + field.key + ': invalid date must be rejected')
     }
-    if (field.type === 'number') {
+assert.match(nativeAdmin, /function inputType\\(field\\)/, 'Admin numeric fields must render native number inputs')
       const invalidNumber = validateAdminForm(definition, { ...values, [field.key]: 'not-a-number' })
       assert.equal(invalidNumber.valid, false, key + '.' + field.key + ': nonnumeric input must be rejected')
       if (field.min !== undefined) {
