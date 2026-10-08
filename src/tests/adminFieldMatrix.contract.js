@@ -9,6 +9,7 @@ const validValue = field => {
   if (field.type === 'checkbox') return false
   if (field.type === 'text' || field.type === 'textarea') return ' Test value '
   if (field.type === 'date' || field.type === 'datetime-local') return date
+  if (field.type === 'number') return field.exclusiveMin && field.min !== undefined ? field.min + 1 : (field.min ?? 1)
   if (field.type === 'select') {
     const option = field.options?.[0]
     if (option !== undefined) return option && typeof option === 'object' && 'value' in option ? option.value : option
