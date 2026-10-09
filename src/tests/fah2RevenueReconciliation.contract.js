@@ -65,7 +65,7 @@ const excludedMetrics = derivePerformance({
 assert.equal(excludedMetrics.financialRevenue, 500)
 assert.equal(excludedMetrics.toll, 50)
 assert.equal(excludedMetrics.parking, 5)
-assert.equal(excludedMetrics.runningCost, 65)
+assert.equal(excludedMetrics.runningCost, 55, 'Legacy aggregate toll is not added to trip toll twice')
 assert.equal(excludedMetrics.operatingProfit, 445)
 
 console.log('FAH-2 revenue reconciliation contract passed: shift-end revenue authority, optional trip detail, toll/parking inclusion without double counting, and end-shift revenue validation.')
