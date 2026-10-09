@@ -308,12 +308,20 @@ const updateMap = (name, map, id, value) => {
       <template v-else-if="endStage==='REVIEW'">
         <div class="fact-grid review"><div><span>Trips</span><strong>{{ endCompletedCount }}</strong></div><div><span>Total shift KM</span><strong>{{ endShiftKm.toFixed(1) }}</strong></div><div><span>Trip KM</span><strong>{{ endReviewedTripKm.toFixed(1) }}</strong></div><div><span>Dead KM</span><strong>{{ endReviewedDeadKm.toFixed(1) }}</strong></div><div><span>Revenue</span><strong>{{ money(shiftRevenue) }}</strong></div></div>
         <div v-if="endReviewedDeadKm < -0.000001" class="exception-panel"><strong>KM RECONCILIATION REQUIRED</strong><p>Trip KM exceeds total shift KM by {{ Math.abs(endReviewedDeadKm).toFixed(1) }} km.</p></div>
-        <div class="fact-line"><span>Trip toll already recorded</span><strong>{{ money(tripTollTotal) }}</strong></div>
-        <label>Additional shift toll <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="toll" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('shift-toll')" aria-label="Additional shift toll" @click="activateNumeric('shift-toll')"></div></label>
-        <label class="check-row"><input :checked="tollTreatment==='EXCLUDED'" type="checkbox" @change="emit('update:toll-treatment',$event.target.checked ? 'EXCLUDED' : 'INCLUDED')"><span>Additional toll paid separately</span></label>
-        <div class="fact-line"><span>Trip parking already recorded</span><strong>{{ money(tripParkingTotal) }}</strong></div>
-        <label>Additional shift parking <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="parking" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('shift-parking')" aria-label="Additional shift parking" @click="activateNumeric('shift-parking')"></div></label>
-        <label class="check-row"><input :checked="parkingTreatment==='EXCLUDED'" type="checkbox" @change="emit('update:parking-treatment',$event.target.checked ? 'EXCLUDED' : 'INCLUDED')"><span>Additional parking paid separately</span></label>
+        <div class="expense-row">
+          <div class="expense-trip-total"><span>Trip toll already recorded</span><strong>{{ money(tripTollTotal) }}</strong></div>
+          <div class="expense-shift-capture">
+            <label>Additional shift toll <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="toll" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('shift-toll')" aria-label="Additional shift toll" @click="activateNumeric('shift-toll')"></div></label>
+            <label class="check-row"><input :checked="tollTreatment==='EXCLUDED'" type="checkbox" @change="emit('update:toll-treatment',$event.target.checked ? 'EXCLUDED' : 'INCLUDED')"><span>Additional toll paid separately</span></label>
+          </div>
+        </div>
+        <div class="expense-row">
+          <div class="expense-trip-total"><span>Trip parking already recorded</span><strong>{{ money(tripParkingTotal) }}</strong></div>
+          <div class="expense-shift-capture">
+            <label>Additional shift parking <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="parking" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('shift-parking')" aria-label="Additional shift parking" @click="activateNumeric('shift-parking')"></div></label>
+            <label class="check-row"><input :checked="parkingTreatment==='EXCLUDED'" type="checkbox" @change="emit('update:parking-treatment',$event.target.checked ? 'EXCLUDED' : 'INCLUDED')"><span>Additional parking paid separately</span></label>
+          </div>
+        </div>
         <button type="submit" class="primary-action">REVIEW COMPLETE</button>
       </template>
       <template v-else-if="endStage==='CONFIRM'">
@@ -360,6 +368,10 @@ const updateMap = (name, map, id, value) => {
 .primary-action{min-height:48px}
 .form-card input,.form-card select,.form-card button{font:inherit}
 .form-card input{font-size:16px}.form-fare .form-card{padding:8px;gap:6px}.form-fare .form-card label{gap:2px}.form-fare .form-card .primary-action{min-height:42px}
+.expense-row{display:grid;grid-template-columns:minmax(76px,.8fr) minmax(0,1.2fr);gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--kfe-ui-border)}
+.expense-trip-total{display:grid;gap:3px;font-size:.78rem;overflow-wrap:anywhere}.expense-trip-total strong{font-size:.9rem}
+.expense-shift-capture{display:grid;gap:6px;min-width:0}.expense-shift-capture>label:not(.check-row){font-size:.78rem;gap:3px}.expense-shift-capture .check-row{font-size:.68rem;gap:5px;line-height:1.1}.expense-shift-capture .check-row input{width:18px!important;height:18px}
+@media(max-width:380px){.expense-row{grid-template-columns:minmax(70px,.7fr) minmax(0,1.3fr);gap:6px}}
 @keyframes work-form-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 @media(max-width:640px){.form-card{padding:12px}.form-card{max-width:100%}}
 
