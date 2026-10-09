@@ -22,5 +22,7 @@ assert.ok(router.includes("path: '/performance'") && router.includes('header: fa
 assert.match(work,/aria-label="CNG refuelling"/)
 assert.match(work,/START SHIFT/)
 assert.ok(smoke.includes("Work keypad Done did not advance from fuel odometer to price"),'Phase 4 runtime smoke must behaviorally exercise Work keypad Done/Next')
+assert.ok(smoke.includes("Stale focus callback scrolled the field that had already lost focus"),'Phase 4 runtime smoke must behaviorally exercise stale focus-scroll protection')
+assert.ok(smoke.includes("Focus-race behavioral check PASS"),'Phase 4 runtime smoke must report focus-race verification')
 assert.ok(smoke.includes("Work numeric keypad behavioral check PASS"),'Phase 4 runtime smoke must report the keypad interaction result')
 console.log('Phase 4 runtime visual verification contract: PASS')
