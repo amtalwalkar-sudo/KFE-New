@@ -86,7 +86,7 @@ A pending action is a recovery mechanism, never a second execution path.
 
 ## 5. Cancellation and notification gate
 
-Cancellation is a canonical trip lifecycle operation, never a second trip or a separate revenue record. Cancellation is available only while the canonical trip is in PICKUP; once the ride has started, cancellation is unavailable. The overlay cancellation action MUST reach the same WorkService/ShiftTripRepository path as the main app. A blank cancellation fee is treated as ₹0 revenue. The KFE Settings > Application Settings notification switch controls KFE ride/system action notifications without disabling the overlay itself.
+Cancellation is a canonical trip lifecycle operation, never a second trip or a separate revenue record. Cancellation is available only while the canonical trip is in PICKUP; once the ride has started, cancellation is unavailable. The overlay cancellation action MUST reach the same WorkService/ShiftTripRepository path as the main app. A blank cancellation fee remains absent (null); an explicitly entered ₹0 remains numeric zero. Cancellation amounts are supporting-only and never create or replace authoritative Shift.revenue. The KFE Settings > Application Settings notification switch controls KFE ride/system action notifications without disabling the overlay itself.
 
 ## 6. Bubble gate
 
