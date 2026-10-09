@@ -411,7 +411,6 @@ async function openCancel() {
 async function saveCancel(fromNative = false) {
   if (cancelBusy.value) return false
   if (!cancelReason.value.trim()) { fail('Cancellation reason is required.'); return false }
-  if (cancelFare.value === '') { fail('Cancellation fee is required.'); return false }
   if (!Number.isFinite(Number(cancelFare.value)) || Number(cancelFare.value) < 0) { fail('Cancellation fee must be a non-negative number.'); return false }
 
   cancelBusy.value = true
