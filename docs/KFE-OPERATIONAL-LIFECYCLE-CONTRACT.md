@@ -63,7 +63,7 @@ The current frozen operational rule permits the gap to be allocated to the gover
 While a canonical trip is in PICKUP / READY FOR TRIP:
 - Go to Pickup and cancellation are available according to the current Work command contract.
 - Cancellation records the existing canonical Trip as cancelled; it does not create a second trip.
-- A blank/not-applicable cancellation fee remains absent (`null`); an explicitly entered zero remains numeric `0`.
+- A blank/not-applicable cancellation fee defaults to numeric `0`; an explicitly entered zero is also stored as numeric `0`.
 - Blank cancellation-fee detail must not create an independent revenue record. Cancelled-trip amounts remain supporting-only and never replace authoritative shift revenue.
 
 Once the trip enters TRIP ACTIVE, cancellation is no longer an available operational command.
