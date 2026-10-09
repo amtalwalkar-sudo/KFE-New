@@ -160,7 +160,6 @@ const numericNext = {
   'fuel-odo': 'fuel-price',
   'fuel-price': 'fuel-amount',
   'closing-odo': 'shift-revenue',
-  'shift-revenue': 'shift-toll',
   'shift-toll': 'shift-parking'
 }
 const numericLabel = name => {
