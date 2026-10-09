@@ -49,6 +49,22 @@ try{
  await wait(async()=> (await page.locator('.timeline').innerText()).includes('Mumbai Pickup'),'persisted Timeline trip'); assert((await page.locator('.timeline').innerText()).includes('Mumbai Pickup → Mumbai Drop'),'Timeline did not render persisted canonical trip');
  await page.getByRole('link',{name:'Performance',exact:true}).click(); await page.locator('.performance-page').waitFor({state:'attached'}); await wait(async()=> (await page.locator('.performance-page').innerText()).includes('₹1,000'),'persisted Performance revenue'); const perfText=await page.locator('.performance-page').innerText(); assert(perfText.includes('₹1,000'),'Performance did not consume the same canonical shift revenue'); assert(perfText.includes('₹950'),'BR-11 excluded toll was not reflected in actual profit'); console.log('Phase 4 runtime canonical fixture PASS — persisted shift/trip survived reload and reconciled Timeline revenue with Performance under BR-11 EXCLUDED toll treatment.');
  await route('','.work-canonical','Work technical surface'); const shiftToggle=page.locator('button.shift-toggle').first(); await shiftToggle.waitFor({state:'visible',timeout:30000}); assert((await shiftToggle.innerText()).trim()==='OFFLINE','Work did not initialize in the expected OFFLINE state'); assert(await page.getByRole('button',{name:'START SHIFT',exact:true}).count()===1,'Work START SHIFT action is missing'); assert(await page.getByRole('button',{name:'CNG refuelling',exact:true}).count()===1,'Work CNG control is missing');
+ // Simulate an open keyboard where visualViewport already ends above the keyboard.
+ const viewportScrolls=await page.evaluate(async()=>{
+   const root=document.documentElement,oldInset=root.style.getPropertyValue('--kfe-keyboard-inset'),oldState=root.dataset.kfeKeyboard;
+   root.style.setProperty('--kfe-keyboard-inset','300px');root.dataset.kfeKeyboard='open';
+   const surface=document.createElement('form');surface.setAttribute('data-kfe-form-surface','true');
+   const field=document.createElement('input');field.id='kfe-viewport-inset-check';
+   const vv=window.visualViewport;const bottom=(vv?vv.height+vv.offsetTop:window.innerHeight)-100;
+   field.getBoundingClientRect=()=>({top:bottom-32,bottom,left:0,right:100,width:100,height:32,x:0,y:bottom-32,toJSON(){return this}});
+   const scrolls=[];field.scrollIntoView=()=>scrolls.push('scroll');surface.appendChild(field);document.body.appendChild(surface);
+   field.focus();await new Promise(resolve=>setTimeout(resolve,260));surface.remove();
+   if(oldInset)root.style.setProperty('--kfe-keyboard-inset',oldInset);else root.style.removeProperty('--kfe-keyboard-inset');
+   if(oldState===undefined)delete root.dataset.kfeKeyboard;else root.dataset.kfeKeyboard=oldState;
+   field.blur();return scrolls;
+ });
+ assert(viewportScrolls.length===0,'Visible-viewport control was unnecessarily scrolled after keyboard inset was counted twice: '+JSON.stringify(viewportScrolls));
+ console.log('Keyboard viewport behavioral check PASS — visible viewport is not reduced by the keyboard inset a second time.');
  // Reproduce a rapid focus change with off-screen test controls and capture scroll requests.
  const focusScrolls=await page.evaluate(async()=>{
    const surface=document.createElement('form');surface.setAttribute('data-kfe-form-surface','true');
