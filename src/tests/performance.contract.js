@@ -39,7 +39,7 @@ const independentExpenseMetrics = derivePerformance({
     shiftEndAt: '2026-09-10T18:00:00+05:30',
     startOdometer: 1000, endOdometer: 1100, revenue: 500,
     toll: 5, parking: 2, tollTreatment: 'INCLUDED', parkingTreatment: 'EXCLUDED',
-    tollParkingRevenueTreatment: 'INCLUDED'
+    tollParkingRevenueTreatment: 'INCLUDED', tollParkingCaptureMode: 'ADDITIONAL_ONLY'
   }],
   trips: [{
     id: 'mixed-expense-trip', shiftId: 'mixed-expense-shift', status: 'COMPLETED',
@@ -59,6 +59,26 @@ assert.equal(independentExpenseMetrics.excludedTollExpense, 0)
 assert.equal(independentExpenseMetrics.excludedParkingExpense, 12)
 assert.equal(independentExpenseMetrics.actualOperatingCost, 12, 'Only excluded parking is deducted as operating expense')
 assert.equal(independentExpenseMetrics.operatingProfit, 463, 'Mixed treatment must not double-count included toll')
+
+const legacyAggregateMetrics = derivePerformance({
+  shifts: [{
+    id: 'legacy-aggregate-shift',
+    shiftStartAt: '2026-09-10T08:00:00+05:30',
+    shiftEndAt: '2026-09-10T18:00:00+05:30',
+    startOdometer: 1000, endOdometer: 1100, revenue: 500,
+    toll: 50, parking: 25, tollParkingRevenueTreatment: 'INCLUDED'
+  }],
+  trips: [{
+    id: 'legacy-aggregate-trip', shiftId: 'legacy-aggregate-shift', status: 'COMPLETED',
+    tripStartAt: '2026-09-10T09:00:00+05:30', tripEndAt: '2026-09-10T12:00:00+05:30',
+    tripKm: 100, revenue: 500, toll: 50, parking: 25
+  }],
+  fuelLogs: [], maintenance: [], compliance: [], breakEvenInputs: []
+}, range)
+assert.equal(legacyAggregateMetrics.financialRevenue, 425, 'Legacy shift aggregates must not double-count trip expenses')
+assert.equal(legacyAggregateMetrics.toll, 50)
+assert.equal(legacyAggregateMetrics.parking, 25)
+assert.equal(legacyAggregateMetrics.operatingProfit, 425)
 const overEstimateMetrics = derivePerformance({
   shifts: [{ id: 'over-shift', shiftStartAt: '2026-09-10T08:00:00Z', shiftEndAt: '2026-09-10T18:00:00Z', startOdometer: 1000, endOdometer: 1200, revenue: 1000 }],
   trips: [{ id: 'over-trip', status: 'COMPLETED', tripStartAt: '2026-09-10T09:00:00Z', tripEndAt: '2026-09-10T12:00:00Z', tripKm: 250 }],
