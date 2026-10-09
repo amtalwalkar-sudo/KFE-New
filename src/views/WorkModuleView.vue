@@ -34,6 +34,8 @@ const fareTripId = ref(null)
 const fare = ref('')
 const tripToll = ref('')
 const tripParking = ref('')
+const tripTollTreatment = ref('INCLUDED')
+const tripParkingTreatment = ref('INCLUDED')
 const fareBusy = ref(false)
 
 
@@ -57,6 +59,7 @@ const shiftRevenue = ref('')
 const toll = ref('')
 const parking = ref('')
 const tollTreatment = ref('INCLUDED')
+const parkingTreatment = ref('INCLUDED')
 const endBusy = ref(false)
 const reviewRevenue = ref({})
 const reviewKm = ref({})
@@ -117,13 +120,14 @@ watch([startOdo, startAck, gapChoice], () => {
   if (!startOpen.value || !startWorkflowId.value || restoringDrafts) return
   void saveDraft(startDraftIdentity(), { startOdo: startOdo.value, startAck: startAck.value, gapChoice: gapChoice.value })
 })
-watch([fare, tripToll, tripParking], () => {
+watch([fare, tripToll, tripParking, tripTollTreatment, tripParkingTreatment], () => {
   // Persist only against the trip explicitly opened in the fare form; never
   // let a reset after commit overwrite the next pending trip's draft.
   const tripId = fareTripId.value
   if (!tripId || !store.shift?.id || restoringDrafts) return
   void saveDraft(tripDraftIdentity('work-trip-details', 'ENTER_FARE', tripId), {
-    fare: fare.value, tripToll: tripToll.value, tripParking: tripParking.value
+    fare: fare.value, tripToll: tripToll.value, tripParking: tripParking.value,
+    tripTollTreatment: tripTollTreatment.value, tripParkingTreatment: tripParkingTreatment.value
   })
 })
 watch([cancelReason, cancelFare], () => {
@@ -138,11 +142,11 @@ watch([fuelOdo, fuelPrice, fuelAmount, fuelFull], () => {
   if (!identity.parentId && !identity.workflowId) return
   void saveDraft(identity, { fuelOdo: fuelOdo.value, fuelPrice: fuelPrice.value, fuelAmount: fuelAmount.value, fuelFull: fuelFull.value })
 })
-watch([closingOdo, shiftRevenue, toll, parking, tollTreatment, endStage, reviewRevenue, reviewKm, reviewOperator], () => {
+watch([closingOdo, shiftRevenue, toll, parking, tollTreatment, parkingTreatment, endStage, reviewRevenue, reviewKm, reviewOperator], () => {
   if (!endOpen.value || endStage.value === 'ENDED' || !store.shift?.id || restoringDrafts) return
   void saveDraft(shiftDraftIdentity('work-end-shift', 'END_SHIFT'), {
     endStage: endStage.value, closingOdo: closingOdo.value, shiftRevenue: shiftRevenue.value,
-    toll: toll.value, parking: parking.value, tollTreatment: tollTreatment.value,
+    toll: toll.value, parking: parking.value, tollTreatment: tollTreatment.value, parkingTreatment: parkingTreatment.value,
     reviewRevenue: reviewRevenue.value, reviewKm: reviewKm.value, reviewOperator: reviewOperator.value
   })
 }, { deep: true })
@@ -155,6 +159,8 @@ const targetProgress = computed(() => targetValue.value > 0
   : 0)
 
 const completed = computed(() => store.completedTrips.filter(t => t.status === 'COMPLETED'))
+const tripTollTotal = computed(() => completed.value.filter(t => t.shiftId === store.shift?.id).reduce((sum, trip) => sum + Math.max(0, Number(trip.toll) || 0), 0))
+const tripParkingTotal = computed(() => completed.value.filter(t => t.shiftId === store.shift?.id).reduce((sum, trip) => sum + Math.max(0, Number(trip.parking) || 0), 0))
 const pendingFare = computed(() => {
   if (fareTripId.value) {
     const selected = completed.value.find(t => t.id === fareTripId.value)
@@ -203,10 +209,16 @@ const preview = computed(() => endOpen.value ? WorkService.reconcileShiftRevenue
     ...t,
     revenue: reviewRevenue.value[t.id] ?? t.revenue,
     tripKm: reviewKm.value[t.id] ?? t.tripKm,
-    operator: reviewOperator.value[t.id] ?? t.operator
+    operator: reviewOperator.value[t.id] ?? t.operator,
+    toll: t.toll,
+    parking: t.parking,
+    tollTreatment: t.tollTreatment,
+    parkingTreatment: t.parkingTreatment
   })),
   toll: toll.value,
   parking: parking.value,
+  tollTreatment: tollTreatment.value,
+  parkingTreatment: parkingTreatment.value,
   tollParkingRevenueTreatment: tollTreatment.value
 }) : null)
 
@@ -412,11 +424,15 @@ async function endTrip() {
     fare.value = ''
     tripToll.value = ''
     tripParking.value = ''
+    tripTollTreatment.value = 'INCLUDED'
+    tripParkingTreatment.value = 'INCLUDED'
     const draft = await restoreDraft(tripDraftIdentity('work-trip-details', 'ENTER_FARE', tripId))
     if (draft?.values) {
       fare.value = String(draft.values.fare ?? '')
       tripToll.value = String(draft.values.tripToll ?? '')
       tripParking.value = String(draft.values.tripParking ?? '')
+      tripTollTreatment.value = String(draft.values.tripTollTreatment || 'INCLUDED')
+      tripParkingTreatment.value = String(draft.values.tripParkingTreatment || 'INCLUDED')
     }
     restoringDrafts = false
     await KfeRideNotificationService.completeRide().catch(() => {})
@@ -444,7 +460,9 @@ async function saveFare(fromNative = false) {
       ...(fare.value === '' ? {} : { revenue: Number(fare.value) }),
       fareDetailsSkipped: fare.value === '',
       toll: tripToll.value === '' ? 0 : Number(tripToll.value),
-      parking: tripParking.value === '' ? 0 : Number(tripParking.value)
+      parking: tripParking.value === '' ? 0 : Number(tripParking.value),
+      tollTreatment: tripTollTreatment.value,
+      parkingTreatment: tripParkingTreatment.value
     }
     const fareDraft = tripDraftIdentity('work-trip-details', 'ENTER_FARE', pendingFare.value.id)
     const result = await store.updateTrip(details)
@@ -455,6 +473,8 @@ async function saveFare(fromNative = false) {
     fare.value = ''
     tripToll.value = ''
     tripParking.value = ''
+    tripTollTreatment.value = 'INCLUDED'
+    tripParkingTreatment.value = 'INCLUDED'
     if (!fromNative) await AndroidOverlay.fareSaved().catch(() => {})
     if (!fromNative) await KfeRideNotificationService.clearPendingAction().catch(() => {})
     await targetRefresh()
@@ -478,6 +498,8 @@ async function skipTripDetails() {
     fare.value = ''
     tripToll.value = ''
     tripParking.value = ''
+    tripTollTreatment.value = 'INCLUDED'
+    tripParkingTreatment.value = 'INCLUDED'
     await AndroidOverlay.fareSaved().catch(() => {})
     await KfeRideNotificationService.clearPendingAction().catch(() => {})
     await syncOverlay()
@@ -620,6 +642,7 @@ async function openEnd() {
   toll.value = ''
   parking.value = ''
   tollTreatment.value = 'INCLUDED'
+  parkingTreatment.value = 'INCLUDED'
   seedReview()
   restoringDrafts = true
   const draft = await restoreDraft(shiftDraftIdentity('work-end-shift', 'END_SHIFT'))
@@ -630,6 +653,7 @@ async function openEnd() {
     toll.value = String(draft.values.toll ?? '')
     parking.value = String(draft.values.parking ?? '')
     tollTreatment.value = String(draft.values.tollTreatment || 'INCLUDED')
+    parkingTreatment.value = String(draft.values.parkingTreatment || 'INCLUDED')
     reviewRevenue.value = draft.values.reviewRevenue || reviewRevenue.value
     reviewKm.value = draft.values.reviewKm || reviewKm.value
     reviewOperator.value = draft.values.reviewOperator || reviewOperator.value
@@ -681,6 +705,8 @@ async function finishEnd() {
       revenue: shiftRevenue.value,
       toll: toll.value,
       parking: parking.value,
+      tollTreatment: tollTreatment.value,
+      parkingTreatment: parkingTreatment.value,
       tollParkingRevenueTreatment: tollTreatment.value,
       trips
     })
@@ -769,10 +795,14 @@ const handleNativeAction = async event => {
       fare.value = payload.fare == null ? '' : String(payload.fare)
       tripToll.value = payload.toll == null ? '' : String(payload.toll)
       tripParking.value = payload.parking == null ? '' : String(payload.parking)
+      tripTollTreatment.value = String(payload.tollTreatment || 'INCLUDED')
+      tripParkingTreatment.value = String(payload.parkingTreatment || 'INCLUDED')
     } catch (_) {
       fare.value = String(event.input)
       tripToll.value = ''
       tripParking.value = ''
+      tripTollTreatment.value = 'INCLUDED'
+      tripParkingTreatment.value = 'INCLUDED'
     }
     return Boolean(await saveFare(true))
   }
@@ -805,6 +835,8 @@ onMounted(async () => {
       fare.value = String(draft.values.fare ?? '')
       tripToll.value = String(draft.values.tripToll ?? '')
       tripParking.value = String(draft.values.tripParking ?? '')
+      tripTollTreatment.value = String(draft.values.tripTollTreatment || 'INCLUDED')
+      tripParkingTreatment.value = String(draft.values.tripParkingTreatment || 'INCLUDED')
     }
     restoringDrafts = false
   }
@@ -892,12 +924,20 @@ onBeforeUnmount(() => {
       :review-km="reviewKm"
       :review-operator="reviewOperator"
       :toll-treatment="tollTreatment"
+      :parking-treatment="parkingTreatment"
+      :toll="toll"
+      :parking="parking"
+      :trip-toll-total="tripTollTotal"
+      :trip-parking-total="tripParkingTotal"
       @update:closing-odo="closingOdo=$event"
       @update:shift-revenue="shiftRevenue=$event"
       @update:review-revenue="reviewRevenue=$event"
       @update:review-km="reviewKm=$event"
       @update:review-operator="reviewOperator=$event"
       @update:toll-treatment="tollTreatment=$event"
+      @update:parking-treatment="parkingTreatment=$event"
+      @update:toll="toll=$event"
+      @update:parking="parking=$event"
       @action="handleContextAction"
     />
 
@@ -941,9 +981,13 @@ onBeforeUnmount(() => {
       :fare="fare"
       :trip-toll="tripToll"
       :trip-parking="tripParking"
+      :trip-toll-treatment="tripTollTreatment"
+      :trip-parking-treatment="tripParkingTreatment"
       @update:fare="fare=$event"
       @update:trip-toll="tripToll=$event"
       @update:trip-parking="tripParking=$event"
+      @update:trip-toll-treatment="tripTollTreatment=$event"
+      @update:trip-parking-treatment="tripParkingTreatment=$event"
       @action="handleContextAction"
     />
 
