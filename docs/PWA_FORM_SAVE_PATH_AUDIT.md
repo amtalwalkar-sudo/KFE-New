@@ -5,6 +5,24 @@ Scope: routed PWA surfaces plus setup, settings, and form-capable secondary view
 
 ## Active PWA form matrix
 
+## Canonical Admin field inventory
+
+The following fields come from `ADMIN_FORM_DEFINITIONS`; hidden legacy-compatibility fields are marked where known. Required/range/select/date rules are enforced by `universalFormRules.js` and form-specific rules, not by calculated UI values.
+
+| Form key | Declared fields |
+|---|---|
+| `businessSetup` | Business Start Date (required); Notes |
+| `vehicle` | Registration number (required); Make (required); Model (required); Variant; Acquisition date (required); Acquisition cost/value; Opening odometer (required); Fuel type (required); Tank/battery capacity; Vehicle status (required); Expiry date (hidden legacy compatibility); Status date; Active; Sell price; Sale date; Notes |
+| `driver` | Full name (required); Phone number; Driving licence number; Licence expiry; Joined on; Status (required); Assigned vehicle; Notes |
+| `compliance` | Vehicle (required); Compliance name (required); Validity From (required); Validity Upto (required); Compliance cost (required, positive) |
+| `maintenance` | Date (required); Odometer (required); Maintenance (required); Amount (required, positive); Notes |
+| `loan` | Lender (required); Account reference; Loan amount (required, positive); Tenure months (required, at least 1); Loan start date (required); Annual interest rate (required); Loan status (required); Notes |
+| `loanPayment` | Loan (required); Actual payment date (required); Actual amount paid (required, positive); Notes |
+| `prepayment` | Loan (required); Prepayment date (required); Actual prepayment amount (required, positive); Reason; Notes |
+| `settlement` | Settlement type; Paying for/source type; Source record; Payment date; Amount paid; Payment method; Payment reference; Notes |
+| `driverTarget` | Driver; Effective month; Monthly target; Planned non-working dates; Active; Notes |
+| `breakEvenInputs` | Effective change date; Maintenance provision per vehicle km; Notes |
+
 | Surface / form | Validation and submit boundary | Canonical persistence | Calculation / read-model consumers | Draft / failure behavior | Audit status |
 |---|---|---|---|---|---|
 | Admin — Business Setup | `AdminSourceForm` → `AdminView` → `AdminService.save` → `validateAdminForm` | `AdminRepository` → `settings` record keyed `businessSetup`; mutation + audit history | Performance snapshot selects latest non-deleted businessSetup setting; business start date bounds reporting periods and related calculations | Shared `FormDraftService`; parent must clear only after save succeeds or confirmed discard | Source path present; verify field-level business date normalization/IST in runtime |
