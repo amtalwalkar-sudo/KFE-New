@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core'
 import { useShiftTripStore } from '../stores/shiftTrip.js'
 import { useFuelStore } from '../stores/fuel.js'
 import { WorkService } from '../application/work/workService.js'
+import { FormDraftRepository } from '../repositories/formDraftRepository.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { MovementTraceService } from '../infrastructure/location/movementTraceService.js'
 import { KfeRideNotificationService } from '../infrastructure/android/kfeRideNotificationService.js'
@@ -14,6 +15,9 @@ import WorkContextForm from '../components/work/WorkContextForm.vue'
 const store = useShiftTripStore()
 const fuel = useFuelStore()
 const nativeAndroid = Capacitor.getPlatform() === 'android'
+const startWorkflowId = ref('')
+const fuelWorkflowId = ref('')
+let restoringDrafts = false
 
 const startOdo = ref('')
 const startAck = ref(false)
@@ -82,6 +86,64 @@ const notify = text => {
   }, 2400)
 }
 const fail = text => { error.value = text; message.value = '' }
+
+const tripDraftIdentity = (formId, step, tripId = store.trip?.id, shiftId = store.shift?.id) => ({
+  formId, workflowStep: step, parentType: 'TRIP', parentId: tripId, ownerId: shiftId
+})
+const shiftDraftIdentity = (formId, step, shiftId = store.shift?.id) => ({
+  formId, workflowStep: step, parentType: 'SHIFT', parentId: shiftId
+})
+const startDraftIdentity = () => ({
+  formId: 'work-start-shift', workflowStep: 'START_SHIFT', parentType: 'WORKFLOW',
+  workflowId: startWorkflowId.value
+})
+const fuelDraftIdentity = () => store.shift?.id
+  ? shiftDraftIdentity('work-fuel', 'RECORD_FUEL')
+  : { formId: 'work-fuel', workflowStep: 'RECORD_FUEL', parentType: 'WORKFLOW', workflowId: fuelWorkflowId.value }
+const restoreDraft = async identity => {
+  try { return await FormDraftRepository.get(identity) } catch (_) { return null }
+}
+const saveDraft = async (identity, values) => {
+  if (restoringDrafts) return
+  try { await FormDraftRepository.save(identity, values) } catch (_) {
+    fail('Draft could not be saved locally. Keep this form open and retry.')
+  }
+}
+const clearCommittedDraft = async identity => {
+  try { await FormDraftRepository.clear(identity, { committed: true }) } catch (_) {}
+}
+
+watch([startOdo, startAck, gapChoice], () => {
+  if (!startOpen.value || !startWorkflowId.value || restoringDrafts) return
+  void saveDraft(startDraftIdentity(), { startOdo: startOdo.value, startAck: startAck.value, gapChoice: gapChoice.value })
+})
+watch([fare, tripToll, tripParking], () => {
+  const tripId = pendingFare.value?.id || fareTripId.value
+  if (!tripId || !store.shift?.id || restoringDrafts) return
+  void saveDraft(tripDraftIdentity('work-trip-details', 'ENTER_FARE', tripId), {
+    fare: fare.value, tripToll: tripToll.value, tripParking: tripParking.value
+  })
+})
+watch([cancelReason, cancelFare], () => {
+  if (!cancelOpen.value || !store.trip?.id || !store.shift?.id || restoringDrafts) return
+  void saveDraft(tripDraftIdentity('work-cancellation', 'CANCEL_TRIP'), {
+    cancelReason: cancelReason.value, cancelFare: cancelFare.value
+  })
+})
+watch([fuelOdo, fuelPrice, fuelAmount, fuelFull], () => {
+  if (!fuelOpen.value || restoringDrafts) return
+  const identity = fuelDraftIdentity()
+  if (!identity.parentId && !identity.workflowId) return
+  void saveDraft(identity, { fuelOdo: fuelOdo.value, fuelPrice: fuelPrice.value, fuelAmount: fuelAmount.value, fuelFull: fuelFull.value })
+})
+watch([closingOdo, shiftRevenue, toll, parking, tollTreatment, endStage, reviewRevenue, reviewKm, reviewOperator], () => {
+  if (!endOpen.value || !store.shift?.id || restoringDrafts) return
+  void saveDraft(shiftDraftIdentity('work-end-shift', 'END_SHIFT'), {
+    endStage: endStage.value, closingOdo: closingOdo.value, shiftRevenue: shiftRevenue.value,
+    toll: toll.value, parking: parking.value, tollTreatment: tollTreatment.value,
+    reviewRevenue: reviewRevenue.value, reviewKm: reviewKm.value, reviewOperator: reviewOperator.value
+  })
+}, { deep: true })
 
 const gap = computed(() => store.calculateGap(startOdo.value))
 const gapKm = computed(() => Number(gap.value?.gapKm || 0))
