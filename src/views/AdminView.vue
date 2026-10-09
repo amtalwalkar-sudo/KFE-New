@@ -31,7 +31,7 @@ const settingsMenu=[{key:'backup',title:'Backup & Restore',icon:'↥'},{key:'app
 const selected=ref(null),settingsOpen=ref(false),settingsSelected=ref('backup'),masterSelected=ref(null)
 const records=ref([]),all=ref({vehicle:[],driver:[],loan:[],compliance:[],maintenance:[],driverTarget:[],breakEvenInputs:[],loanPayment:[],prepayment:[],settlement:[]})
 const performanceSnapshot=ref(null),loading=ref(false),saving=ref(false),error=ref(''),notice=ref('')
-const formOpen=ref(false),editing=ref(null),draft=ref({})
+const formOpen=ref(false),editing=ref(null),draft=ref({}),formErrors=ref({})
 const actionKey=ref(null),actionRecord=ref(null),actionDraft=ref({}),paymentCalculated=ref(false),paymentConfirmed=ref(false)
 const prepaymentDraft=ref({loanId:'',paidOn:istDateKey(getKfeReferenceNow()),amount:0,reason:'',notes:''}),prepaymentCalculated=ref(false),prepaymentConfirmed=ref(false)
 const targetDraft=ref({driverId:'',month:istDateKey(getKfeReferenceNow()).slice(0,7),desiredDriverProfit:0,nonWorkingDates:'',targetHours:'',targetKm:''})
@@ -167,8 +167,8 @@ function openSettings(){clearMessages();selected.value=null;settingsOpen.value=t
 function chooseSetting(key){settingsSelected.value=key;clearMessages()}
 function chooseTheme(mode){themeSettings.value={...themeSettings.value,mode};setKfeThemeMode(mode);notice.value='Theme set to '+(mode==='light'?'Light':mode==='dark'?'Dark':'Auto')+'.'}
 function chooseNotifications(enabled){notificationsEnabled.value=KfeRideNotificationService.setNotificationsEnabled(enabled);notice.value='Notifications '+(enabled?'enabled':'disabled')+'.'}
-function add(){clearMessages();editing.value=null;draft.value=Object.fromEntries((currentDefinition.value?.fields||[]).map(field=>[field.key,field.defaultValue]));formOpen.value=true}
-function edit(record){editing.value=record.id;draft.value=clone(record.values||{});formOpen.value=true}
+function add(){clearMessages();formErrors.value={};editing.value=null;draft.value=Object.fromEntries((currentDefinition.value?.fields||[]).map(field=>[field.key,field.defaultValue]));formOpen.value=true}
+function edit(record){formErrors.value={};editing.value=record.id;draft.value=clone(record.values||{});formOpen.value=true}
 function updateDraft(v){draft.value={...v}}
 function openAction(kind,record){actionKey.value=kind;actionRecord.value=record;paymentCalculated.value=false;paymentConfirmed.value=false;const f=entityFinancial(record);actionDraft.value=kind==='loanPayment'?{loanId:record.id,paidOn:istDateKey(getKfeReferenceNow()),amount:Math.max(0,Number(f?.overdue||f?.emi||0)),notes:''}:{settledOn:istDateKey(getKfeReferenceNow()),amount:Math.max(0,Number(f?.remaining||0)),paymentMethod:'Cash',referenceNumber:'',notes:''}}
 const loanPaymentPreview=computed(()=>{if(actionKey.value!=='loanPayment'||!actionRecord.value||!paymentCalculated.value)return null;const loan=live(performanceSnapshot.value?.loans).find(x=>x.id===actionRecord.value.id)||actionRecord.value;return paymentAllocationPreview({loan,payments:live(performanceSnapshot.value?.loanPayments),prepayments:live(performanceSnapshot.value?.prepayments),amount:Number(actionDraft.value.amount)||0,paidOn:actionDraft.value.paidOn})})
@@ -198,7 +198,7 @@ function resetMaintenanceRate(){maintenanceRateDraft.value={rate:currentMaintena
 function monthStart(m){return (m||currentMonth.value)+'-01'}
 async function saveTarget(){clearMessages();loading.value=true;try{if(!targetDraft.value.driverId||Number(targetDraft.value.desiredDriverProfit)<0)throw new Error('Driver and monthly target are required.');await AdminService.save('driverTarget',{driverId:targetDraft.value.driverId,effectiveFrom:monthStart(targetDraft.value.month),desiredDriverProfit:Number(targetDraft.value.desiredDriverProfit),nonWorkingDates:String(targetDraft.value.nonWorkingDates||''),active:targetDraft.value.active!==false,notes:String(targetDraft.value.notes||'')});notice.value='Monthly driver target saved.';await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Unable to save target.'}finally{loading.value=false}}
 async function saveMaintenanceRate(){clearMessages();loading.value=true;try{const rate=Number(maintenanceRateDraft.value.rate);if(!Number.isFinite(rate)||rate<0)throw new Error('Maintenance per KM must be zero or greater.');await AdminService.save('breakEvenInputs',{effectiveFrom:maintenanceRateDraft.value.changeDate,maintenanceProvisionPerKm:rate,notes:String(maintenanceRateDraft.value.notes||'')});notice.value='Maintenance per KM rate saved.';await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Unable to save rate.'}finally{loading.value=false}}
-async function save(values){clearMessages();saving.value=true;try{
+function clearFieldError({key}){if(!(key in formErrors.value))return;const next={...formErrors.value};delete next[key];formErrors.value=next}\nasync function save(values){clearMessages();formErrors.value={};saving.value=true;try{
   const id=editing.value
   const sourceType=selected.value==='maintenance'?'Maintenance':'Compliance'
   const isSource=selected.value==='compliance'||selected.value==='maintenance'
@@ -208,7 +208,7 @@ async function save(values){clearMessages();saving.value=true;try{
    // separate authoritative record with its own actual payment date.
    // Never synthesize a payment merely because a source record was saved.
    notice.value=(id!==null?'Record updated.':'Record created.');formOpen.value=false;editing.value=null;await load()
-}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Save failed.'}finally{saving.value=false}}
+}catch(e){formErrors.value=e.validation&&typeof e.validation==='object'?e.validation:{};error.value=e.validation?Object.values(e.validation).flat().join(' '):e.message||'Save failed.'}finally{saving.value=false}}
 async function saveLoanPayment(){clearMessages();loading.value=true;try{await AdminService.save('loanPayment',{...actionDraft.value,amount:Number(actionDraft.value.amount)});notice.value='Loan payment recorded.';closeAction();await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Payment failed.'}finally{loading.value=false}}
 async function saveSourcePayment(){clearMessages();loading.value=true;try{await AdminService.save('settlement',{settlementType:'Payment',sourceType:selected.value==='maintenance'?'Maintenance':'Compliance',sourceId:actionRecord.value.id,settledOn:actionDraft.value.settledOn,amount:Number(actionDraft.value.amount),paymentMethod:actionDraft.value.paymentMethod,referenceNumber:String(actionDraft.value.referenceNumber||''),notes:String(actionDraft.value.notes||'')});notice.value='Payment recorded.';closeAction();await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Payment failed.'}finally{loading.value=false}}
 async function recordPrepayment(){if(!prepaymentEstimate.value?.available||!prepaymentConfirmed.value)return;clearMessages();loading.value=true;try{await AdminService.save('prepayment',{loanId:prepaymentDraft.value.loanId,paidOn:prepaymentDraft.value.paidOn,amount:prepaymentEstimate.value.appliedAmount,reason:String(prepaymentDraft.value.reason||''),notes:String(prepaymentDraft.value.notes||'')});notice.value='Prepayment recorded.';resetPrepayment();await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Prepayment failed.'}finally{loading.value=false}}
@@ -300,7 +300,7 @@ onMounted(load)
   <div v-if="selected==='maintenance'" class="metric-grid"><div><span>Maintenance pool balance</span><strong>{{money(maintenanceProvisionBalance)}}</strong></div></div>
   <div class="provision-bar" aria-hidden="true"><span :style="{width:(selected==='compliance'?(live(records).reduce((s,r)=>s+(Number(r.values?.cost)||0),0)>0?Math.min(100,complianceProvisionTotal/live(records).reduce((s,r)=>s+(Number(r.values?.cost)||0),0)*100):0):100)+'%'}"></span></div>
 </section>
-  <div v-if="formOpen"><AdminSourceForm :fields="activeDefinition?.fields||[]" :model-value="draft" :busy="saving" :auto-open-first="editing===null" @submit="save" @cancel="formOpen=false;editing=null" :submit-label="editing!==null?'Update record':'Save record'"/></div>
+  <div v-if="formOpen"><AdminSourceForm :fields="activeDefinition?.fields||[]" :model-value="draft" :busy="saving" :auto-open-first="editing===null" :errors="formErrors" @field-change="clearFieldError" @submit="save" @cancel="formOpen=false;editing=null" :submit-label="editing!==null?'Update record':'Save record'"/></div>
   <div v-if="loading&&!records.length" class="empty">Loading…</div>
   <div v-else-if="records.length" class="record-list">
     <button v-for="record in records" :key="record.id" class="clean-card master-list-row" @click="openMasterRecord(record)">
@@ -324,7 +324,7 @@ onMounted(load)
     <div v-if="sourceHistory(masterRecord).length" class="history-inline"><span>Payment history</span><small v-for="x in sourceHistory(masterRecord).slice(0,5)" :key="x.id">{{x.settledOn?.slice(0,10)}} · {{money(x.amount)}}</small></div>
     <div v-if="actionRecord?.id===masterRecord.id&&actionKey==='settlement'" class="calculation-box"><AdminSourceForm :fields="settlementFields" :model-value="actionDraft" :busy="loading" :show-actions="false" @field-change="onActionFieldChange" @submit="submitActionForm"/><button class="primary wide" :disabled="Number(actionDraft.amount)<=0||loading" @click="saveSourcePayment">Confirm &amp; record payment</button></div>
   </section>
-  <AdminSourceForm v-if="formOpen" :fields="activeDefinition?.fields||[]" :model-value="draft" :busy="saving" :auto-open-first="false" @submit="save" @cancel="formOpen=false;editing=null" submit-label="Update record"/>
+  <AdminSourceForm v-if="formOpen" :fields="activeDefinition?.fields||[]" :model-value="draft" :busy="saving" :auto-open-first="false" :errors="formErrors" @field-change="clearFieldError" @submit="save" @cancel="formOpen=false;editing=null" submit-label="Update record"/>
   <div class="record-footer"><button class="text-button" @click="remove(masterRecord)">Delete</button></div>
 </div>
 </template>
