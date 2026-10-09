@@ -26,7 +26,7 @@ const sections = computed(() => {
 const requiredCount = computed(() => fields.value.filter(f => f.required).length)
 const value = field => props.modelValue?.[field.key] ?? field.defaultValue ?? ''
 const setNode = (key, el) => { if (el) nodes.value[key] = el; else delete nodes.value[key] }
-const options = field => (field.options || []).map(o => typeof o === 'object' ? o : ({ value: o, label: o }))
+const options = field => (field.options || []).map(o => typeof o === 'object' ? o : ({ value: o, label: o }))\nconst errorText = key => { const error = props.errors?.[key]; return Array.isArray(error) ? error.join(' ') : String(error ?? '') }
 function read(field) {
   const el = nodes.value[field.key]
   if (!el) return value(field)
@@ -88,17 +88,17 @@ onMounted(() => nextTick(() => {
     <section v-for="(section, index) in sections" :key="section.name" class="source-form-section">
       <div class="source-section-heading"><span class="source-section-index">{{ String(index + 1).padStart(2, '0') }}</span><div><h3>{{ section.name }}</h3><p>{{ section.fields.length }} {{ section.fields.length === 1 ? 'field' : 'fields' }}</p></div></div>
       <div class="source-field-grid">
-        <label v-for="field in section.fields" :key="field.key" class="source-field" :class="{ 'source-field-wide': field.wide || field.type === 'textarea', 'source-field-invalid': errors[field.key] }">
+        <label v-for="field in section.fields" :key="field.key" class="source-field" :class="{ 'source-field-wide': field.wide || field.type === 'textarea', 'source-field-invalid': errorText(field.key) }">
           <span class="source-field-label">{{ field.label }} <b v-if="field.required">*</b></span>
           <small v-if="field.help" class="source-field-help">{{ field.help }}</small>
-          <select v-if="field.type === 'select'" :ref="el => setNode(field.key, el)" :required="field.required" :disabled="busy" @change="changed(field)">
+          <select v-if="field.type === 'select'" :ref="el => setNode(field.key, el)" :required="field.required" :disabled="busy" :aria-invalid="!!errorText(field.key)" :aria-describedby="errorText(field.key) ? `admin-error-${field.key}` : undefined" @change="changed(field)">
             <option value="">Choose {{ field.label.toLowerCase() }}</option>
             <option v-for="option in options(field)" :key="String(option.value)" :value="option.value">{{ option.label }}</option>
           </select>
-          <textarea v-else-if="field.type === 'textarea'" :ref="el => setNode(field.key, el)" :required="field.required" :disabled="busy" :placeholder="field.placeholder || 'Add details (optional)'" rows="3" @input="changed(field)"></textarea>
+          <textarea v-else-if="field.type === 'textarea'" :ref="el => setNode(field.key, el)" :required="field.required" :disabled="busy" :aria-invalid="!!errorText(field.key)" :aria-describedby="errorText(field.key) ? `admin-error-${field.key}` : undefined" :placeholder="field.placeholder || 'Add details (optional)'" rows="3" @input="changed(field)"></textarea>
           <span v-else-if="field.type === 'checkbox'" class="source-toggle"><input :ref="el => setNode(field.key, el)" type="checkbox" :disabled="busy" @change="changed(field)"><span>{{ field.toggleLabel || field.label }}</span></span>
-          <input v-else :ref="el => setNode(field.key, el)" :type="inputType(field)" :inputmode="field.type === 'number' ? (field.step && Number(field.step) % 1 !== 0 ? 'decimal' : 'numeric') : field.inputMode" :min="field.min" :max="field.max" :step="field.step" :required="field.required" :disabled="busy" :placeholder="field.placeholder || (field.type === 'number' ? '0' : '')" :autocomplete="field.type === 'number' ? 'off' : 'on'" :enterkeyhint="field.type === 'textarea' ? 'enter' : 'next'" @input="changed(field)">
-          <small v-if="errors[field.key]" class="source-field-error" role="alert">{{ errors[field.key] }}</small>
+          <input v-else :ref="el => setNode(field.key, el)" :type="inputType(field)" :inputmode="field.type === 'number' ? (field.step && Number(field.step) % 1 !== 0 ? 'decimal' : 'numeric') : field.inputMode" :min="field.min" :max="field.max" :step="field.step" :required="field.required" :disabled="busy" :aria-invalid="!!errorText(field.key)" :aria-describedby="errorText(field.key) ? `admin-error-${field.key}` : undefined" :placeholder="field.placeholder || (field.type === 'number' ? '0' : '')" :autocomplete="field.type === 'number' ? 'off' : 'on'" :enterkeyhint="field.type === 'textarea' ? 'enter' : 'next'" @input="changed(field)">
+          <small v-if="errorText(field.key)" :id="`admin-error-${field.key}`" class="source-field-error" role="alert">{{ errorText(field.key) }}</small>
         </label>
       </div>
     </section>
