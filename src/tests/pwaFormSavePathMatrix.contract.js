@@ -24,6 +24,7 @@ const calculations = read('../views/CalculationsView.vue')
 const calculationsService = read('../application/calculations/calculationsService.js')
 const settings = read('../components/KfeSettingsView.vue')
 const drafts = read('../application/forms/formDraftService.js')
+const draftRepo = read('../repositories/formDraftRepository.js')
 
 const match = (source, pattern, message) => assert.match(source, pattern, message)
 
@@ -77,7 +78,8 @@ match(calculationsService, /FuelRepository\.create\(\{[\s\S]*quantityKg: values\
 match(settings, /exportBackup\(\)|restoreBackup\(payload\)|resetAllData\(\)/, 'Settings operations must use application backup/reset boundary')
 
 // Draft storage must remain separate from canonical operational records and enforce commit/discard clearing.
-match(drafts, /form_drafts/, 'Shared drafts must use dedicated IndexedDB store')
+match(drafts, /FormDraftRepository\.(get|save|clear)/, 'Shared draft service must delegate to the draft repository')
+match(draftRepo, /objectStore\(['"]form_drafts['"]\)/, 'Shared drafts must use dedicated IndexedDB store')
 match(drafts, /committed|confirmedDiscard/, 'Draft clear must require a commit or explicit discard')
 
 console.log('PWA form save-path matrix regression contract: PASS')
