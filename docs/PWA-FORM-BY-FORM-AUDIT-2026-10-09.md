@@ -96,3 +96,20 @@ This is the baseline, not evidence that the newly identified draft/recovery gaps
 3. Fix the shared form/recovery boundary first, rather than patching each form with a new persistence system. Keep domain rules and repositories authoritative.
 4. Re-run targeted suites, then the complete contract suite, production build, UI isolation, deployed route/runtime checks and Android release gate.
 5. Only merge when the new regression tests and existing CI are green. Do not claim physical-device verification from emulator or static contracts alone.
+
+
+## 6. Regression baseline and remediation follow-up
+
+The new universalFormDraftRecoveryRegression.contract.js was first run against the unchanged implementation. After correcting a syntax error in the test harness, CI reported four distinct failures:
+- Admin source forms had no stable draft identity or shared draft-service integration.
+- Admin parent save handlers had no explicit committed-draft clearing boundary.
+- Timeline trip/fuel editors had no shared draft persistence/restore path.
+- Work draft writes were fire-and-forget, with no serialized write/clear queue.
+
+These are source-contract findings. The targeted contract passes after the follow-up implementation changes on PR #211:
+- A shared FormDraftService serializes saves and clears.
+- Admin form entry uses parent/workflow-scoped draft identities, restores saved values, persists edits, and supports explicit confirmed discard; parent save paths clear drafts after successful canonical save.
+- Timeline trip and fuel editors restore drafts by record identity, preserve drafts when dismissed, and clear only after a successful update.
+- Work draft writes are serialized; a committed identity cannot be re-saved by a late watcher; draft-clear errors are surfaced without misreporting the canonical commit.
+
+Existing contract assertions were updated only where the shared form now submits through an awaited handler and cancel flows through confirmed-discard logic. The targeted suite passing does not replace full CI, rendered-browser verification, Android process-death testing, or physical-device verification. PR #211 remains unmerged until the complete required checks pass.
