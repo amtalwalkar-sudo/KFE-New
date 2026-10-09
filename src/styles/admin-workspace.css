@@ -274,7 +274,7 @@
 .admin-page .source-field { display: grid; align-content: start; gap: 7px; min-width: 0; }
 .admin-page .source-field-wide { grid-column: 1 / -1; }
 .admin-page .source-field-label { font-size: .9rem; font-weight: 700; line-height: 1.4; }
-.admin-page .source-field-label b { color: #c43d3d; }
+.admin-page .source-field-label b { color: var(--kfe-danger); }
 .admin-page .source-field-help { color: var(--admin-muted); line-height: 1.4; }
 .admin-page .source-field input,
 .admin-page .source-field select,
@@ -296,7 +296,7 @@
 .admin-page .source-field textarea:focus { outline: 2px solid Highlight; outline-offset: 1px; }
 .admin-page .source-field-invalid input,
 .admin-page .source-field-invalid select,
-.admin-page .source-field-invalid textarea { border-color: #c43d3d; }
+.admin-page .source-field-invalid textarea { border-color: var(--kfe-danger); }
 .admin-page .primary,
 .admin-page .secondary,
 .admin-page .danger-button,
@@ -309,14 +309,14 @@
 }
 .admin-page .primary { border: 1px solid color-mix(in srgb, Highlight 75%, CanvasText); background: Highlight; color: HighlightText; }
 .admin-page .secondary { border: 1px solid var(--admin-border); background: Canvas; color: inherit; }
-.admin-page .danger-button { border: 1px solid #c43d3d; background: #c43d3d; color: white; }
+.admin-page .danger-button { border: 1px solid var(--kfe-danger); background: var(--kfe-danger); color: white; }
 .admin-page .wide { width: 100%; }
 .admin-page .rule-note,
 .admin-page .calculation-box { margin-top: 16px; padding: 14px; border: 1px solid var(--admin-border); border-radius: 13px; background: var(--admin-panel-strong); line-height: 1.55; }
 .admin-page .rule-note { color: var(--admin-muted); }
 .admin-page .message { padding: 13px 15px; border: 1px solid var(--admin-border); border-radius: 12px; overflow-wrap: anywhere; }
-.admin-page .message.error { border-color: color-mix(in srgb, #c43d3d 45%, transparent); }
-.admin-page .message.notice { border-color: color-mix(in srgb, #27844d 45%, transparent); }
+.admin-page .message.error { border-color: color-mix(in srgb, var(--kfe-danger) 45%, transparent); }
+.admin-page .message.notice { border-color: color-mix(in srgb, var(--kfe-success) 45%, transparent); }
 .admin-page .empty { padding: 28px 16px; border: 1px dashed var(--admin-border); border-radius: 14px; color: var(--admin-muted); text-align: center; }
 .admin-page .record-footer { display: flex; justify-content: flex-end; padding-top: 12px; }
 .admin-page .text-button { min-height: 42px; padding: 8px 12px; border: 1px solid var(--admin-border); border-radius: 10px; background: transparent; color: inherit; font-weight: 700; }
