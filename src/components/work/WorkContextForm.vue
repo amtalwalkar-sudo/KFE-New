@@ -28,6 +28,13 @@ const props = defineProps({
   reviewKm: { type: Object, default: () => ({}) },
   reviewOperator: { type: Object, default: () => ({}) },
   tollTreatment: { type: String, default: 'INCLUDED' },
+  parkingTreatment: { type: String, default: 'INCLUDED' },
+  tripTollTreatment: { type: String, default: 'INCLUDED' },
+  tripParkingTreatment: { type: String, default: 'INCLUDED' },
+  toll: { type: String, default: '' },
+  parking: { type: String, default: '' },
+  tripTollTotal: { type: Number, default: 0 },
+  tripParkingTotal: { type: Number, default: 0 },
   fare: { type: String, default: '' },
   tripToll: { type: String, default: '' },
   tripParking: { type: String, default: '' },
@@ -51,6 +58,11 @@ const emit = defineEmits([
   'update:review-km',
   'update:review-operator',
   'update:toll-treatment',
+  'update:parking-treatment',
+  'update:trip-toll-treatment',
+  'update:trip-parking-treatment',
+  'update:toll',
+  'update:parking',
   'update:fare',
   'update:trip-toll',
   'update:trip-parking',
@@ -79,7 +91,9 @@ const activeNumeric = computed(() => {
     'fuel-price': props.fuelPrice,
     'fuel-amount': props.fuelAmount,
     'closing-odo': props.closingOdo,
-    'shift-revenue': props.shiftRevenue
+    'shift-revenue': props.shiftRevenue,
+    'shift-toll': props.toll,
+    'shift-parking': props.parking
   }
   if (name in map) return { name, value: map[name] == null ? '' : String(map[name]), decimal: name === 'fuel-price' }
   if (name.startsWith('review-revenue:')) {
@@ -111,7 +125,9 @@ function emitNumeric(name, value) {
     'fuel-price': 'update:fuel-price',
     'fuel-amount': 'update:fuel-amount',
     'closing-odo': 'update:closing-odo',
-    'shift-revenue': 'update:shift-revenue'
+    'shift-revenue': 'update:shift-revenue',
+    'shift-toll': 'update:toll',
+    'shift-parking': 'update:parking'
   }
   if (events[name]) { emit(events[name], value); return }
   if (name.startsWith('review-revenue:')) {
@@ -134,14 +150,18 @@ const numericLabels = {
   'fuel-price': 'Price / kg',
   'fuel-amount': 'Amount',
   'closing-odo': 'Closing odometer',
-  'shift-revenue': 'Total shift revenue'
+  'shift-revenue': 'Total shift revenue',
+  'shift-toll': 'Additional toll',
+  'shift-parking': 'Additional parking'
 }
 const numericNext = {
   'fare': 'trip-toll',
   'trip-toll': 'trip-parking',
   'fuel-odo': 'fuel-price',
   'fuel-price': 'fuel-amount',
-  'closing-odo': 'shift-revenue'
+  'closing-odo': 'shift-revenue',
+  'shift-revenue': 'shift-toll',
+  'shift-toll': 'shift-parking'
 }
 const numericLabel = name => {
   if (numericLabels[name]) return numericLabels[name]
@@ -163,7 +183,7 @@ const numericPress = async token => {
   else if (token !== 'DONE' && token !== 'NEXT') next = next === '0' ? token : next + token
 
   if (token === 'DONE') {
-    const finalFields = new Set(['trip-parking', 'cancel-fare', 'fuel-amount', 'shift-revenue'])
+    const finalFields = new Set(['trip-parking', 'cancel-fare', 'fuel-amount', 'shift-parking'])
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     suppressNumericFocus.value = true
     activeNumericField.value = null
@@ -247,6 +267,8 @@ const updateMap = (name, map, id, value) => {
       <label>Trip fare <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="fare" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('fare')" aria-label="Trip fare" @click="activateNumeric('fare')"></div></label>
       <label>Toll <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="tripToll" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('trip-toll')" aria-label="Toll" @click="activateNumeric('trip-toll')"></div></label>
       <label>Parking <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="tripParking" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('trip-parking')" aria-label="Parking" @click="activateNumeric('trip-parking')"></div></label>
+      <label class="check-row"><input :checked="tripTollTreatment==='EXCLUDED'" type="checkbox" @change="emit('update:trip-toll-treatment',$event.target.checked ? 'EXCLUDED' : 'INCLUDED')"><span>Toll was paid separately</span></label>
+      <label class="check-row"><input :checked="tripParkingTreatment==='EXCLUDED'" type="checkbox" @change="emit('update:trip-parking-treatment',$event.target.checked ? 'EXCLUDED' : 'INCLUDED')"><span>Parking was paid separately</span></label>
       <button type="submit" class="primary-action" :disabled="fareBusy">{{ fareBusy ? 'SAVING…' : 'SAVE DETAILS & CONTINUE' }}</button>
     </form>
 
@@ -287,7 +309,12 @@ const updateMap = (name, map, id, value) => {
       <template v-else-if="endStage==='REVIEW'">
         <div class="fact-grid review"><div><span>Trips</span><strong>{{ endCompletedCount }}</strong></div><div><span>Total shift KM</span><strong>{{ endShiftKm.toFixed(1) }}</strong></div><div><span>Trip KM</span><strong>{{ endReviewedTripKm.toFixed(1) }}</strong></div><div><span>Dead KM</span><strong>{{ endReviewedDeadKm.toFixed(1) }}</strong></div><div><span>Revenue</span><strong>{{ money(shiftRevenue) }}</strong></div></div>
         <div v-if="endReviewedDeadKm < -0.000001" class="exception-panel"><strong>KM RECONCILIATION REQUIRED</strong><p>Trip KM exceeds total shift KM by {{ Math.abs(endReviewedDeadKm).toFixed(1) }} km.</p></div>
-        <label class="check-row"><input :checked="tollTreatment==='EXCLUDED'" type="checkbox" @change="emit('update:toll-treatment',$event.target.checked ? 'EXCLUDED' : 'INCLUDED')"><span>Toll & parking were paid separately</span></label>
+        <div class="fact-line"><span>Trip toll already recorded</span><strong>{{ money(tripTollTotal) }}</strong></div>
+        <label>Additional shift toll <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="toll" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('shift-toll')" aria-label="Additional shift toll" @click="activateNumeric('shift-toll')"></div></label>
+        <label class="check-row"><input :checked="tollTreatment==='EXCLUDED'" type="checkbox" @change="emit('update:toll-treatment',$event.target.checked ? 'EXCLUDED' : 'INCLUDED')"><span>Additional toll paid separately</span></label>
+        <div class="fact-line"><span>Trip parking already recorded</span><strong>{{ money(tripParkingTotal) }}</strong></div>
+        <label>Additional shift parking <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="parking" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('shift-parking')" aria-label="Additional shift parking" @click="activateNumeric('shift-parking')"></div></label>
+        <label class="check-row"><input :checked="parkingTreatment==='EXCLUDED'" type="checkbox" @change="emit('update:parking-treatment',$event.target.checked ? 'EXCLUDED' : 'INCLUDED')"><span>Additional parking paid separately</span></label>
         <button type="submit" class="primary-action">REVIEW COMPLETE</button>
       </template>
       <template v-else-if="endStage==='CONFIRM'">
