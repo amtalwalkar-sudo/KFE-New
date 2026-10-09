@@ -162,13 +162,15 @@ const numericPress = async token => {
   else if (token === '.' && next === '') next = '0.'
   else if (token !== 'DONE' && token !== 'NEXT') next = next === '0' ? token : next + token
 
-  if (token === 'NEXT') {
+  if (token === 'DONE' || token === 'NEXT') {
     const nextName = numericNext[field.name]
-    if (nextName) activeNumericField.value = nextName
-    // NEXT without a declared successor must not dismiss an unfinished form.
-    return
-  }
-  if (token === 'DONE') {
+    // DONE and NEXT both advance when this form declares a successor.
+    // A terminal DONE submits only for an explicitly declared final field.
+    if (nextName) {
+      activeNumericField.value = nextName
+      return
+    }
+    if (token === 'NEXT') return
     const finalFields = new Set(['trip-parking', 'cancel-fare', 'fuel-amount', 'shift-revenue'])
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     suppressNumericFocus.value = true
