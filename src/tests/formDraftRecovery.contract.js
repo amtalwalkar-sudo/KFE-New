@@ -47,5 +47,13 @@ assert.match(workView, /watch\(\[fuelOdo, fuelPrice, fuelAmount, fuelFull\]/, 'F
 assert.match(workView, /watch\(\[closingOdo, shiftRevenue, toll, parking, tollTreatment, endStage/, 'End-shift draft must persist edits')
 assert.doesNotMatch(workView, /Cancellation fee is required/, 'Blank cancellation fee must remain valid')
 assert.match(workForm, /Cancellation fee \(optional\)/, 'Cancellation fee must be presented as optional')
+assert.match(workForm, /Trip toll already recorded/, 'Trip-level toll must be shown as read-only total during shift review')
+assert.match(workForm, /Trip parking already recorded/, 'Trip-level parking must be shown as read-only total during shift review')
+assert.match(workForm, /Additional shift toll/, 'Shift-level toll entry must be additional-only')
+assert.match(workForm, /Additional shift parking/, 'Shift-level parking entry must be additional-only')
+assert.match(workForm, /Toll was paid separately/, 'Trip toll treatment must be independent')
+assert.match(workForm, /Parking was paid separately/, 'Trip parking treatment must be independent')
+assert.match(workForm, /Additional toll paid separately/, 'Shift toll treatment must be independent')
+assert.match(workForm, /Additional parking paid separately/, 'Shift parking treatment must be independent')
 
 console.log('Universal parent-scoped form draft recovery contract passed.')
