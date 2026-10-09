@@ -56,6 +56,6 @@ assert.equal(legacyAggregate.includedPassThrough, 75)
 assert.equal(normalizeTripInput({ tollTreatment: 'excluded' }).tollTreatment, 'EXCLUDED')
 assert.equal(normalizeShiftInput({ tollTreatment: 'included', parkingTreatment: 'excluded' }).parkingTreatment, 'EXCLUDED')
 assert.throws(() => normalizeTripInput({ parkingTreatment: 'SOMETIMES' }), /INCLUDED or EXCLUDED/)
-assert.throws(() => normalizeShiftInput({ tollParkingCaptureMode: 'DUPLICATE' }), /capture mode/)
+assert.throws(() => normalizeShiftInput({ tollParkingCaptureMode: 'DUPLICATE' }), /tollParkingCaptureMode/)
 
 console.log('BR-11 independent toll/parking treatment contract passed.')
