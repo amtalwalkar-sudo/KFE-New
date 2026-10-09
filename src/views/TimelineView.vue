@@ -92,7 +92,7 @@ const today = () => { anchor.value=getKfeReferenceNow(); period.value='day'; voi
 const openEdit = async trip => {
   restoringTimelineDraft = true
   editing.value = trip
-  form.value = { operator: trip.operator || '', tripKm: trip.tripKm ?? '', revenue: trip.revenue ?? '', toll: trip.toll ?? 0, parking: trip.parking ?? 0, cancelReason: trip.cancelReason || 'DRIVER_MISTAKE' }
+  form.value = { operator:trip.operator||'',tripKm:trip.tripKm??'',revenue:trip.revenue??'',toll:trip.toll??0,parking:trip.parking??0,cancelReason:trip.cancelReason||'DRIVER_MISTAKE' }
   try { const draft = await FormDraftService.get(tripDraftIdentity(trip.id)); if (draft?.values) form.value = { ...form.value, ...draft.values } }
   catch (e) { error.value = e?.message || 'Unable to restore Timeline trip edits.' }
   finally { restoringTimelineDraft = false }
