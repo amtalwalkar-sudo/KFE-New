@@ -48,6 +48,7 @@ The source tree also contains `VehicleModuleRole`, `MaintenanceModuleRole`, `Loa
 
 ## Baseline test evidence and limitations
 
+- First targeted PR run: 91 contract suites passed; the new matrix contract failed at its assertion that `CalculationsService` delegates to `PerformanceService`. Inspection showed the assumption was wrong: the service owns validation for the manual fuel baseline and writes canonical evidence through `FuelRepository.create`, deriving quantity from amount / price-per-kg. The assertion was corrected to test that actual save path. This was a test failure, not a confirmed product defect.
 - Existing main CI at the audit baseline completed successfully (run [37960126493](https://github.com/amtalwalkar-sudo/KFE-New/actions/runs/37960126493)). This proves the currently registered contract suite passed, not that every possible form path has runtime coverage.
 - Existing `pwaFormSavePathRegression.contract.js` and `formIntegrityE2E.contract.js` are source-contract checks, not browser-driven E2E tests.
 - This audit has not run a local npm test process because the execution environment could not clone the repository. The new targeted contract will run in GitHub Actions before implementation changes.
