@@ -49,6 +49,20 @@ try{
  await wait(async()=> (await page.locator('.timeline').innerText()).includes('Mumbai Pickup'),'persisted Timeline trip'); assert((await page.locator('.timeline').innerText()).includes('Mumbai Pickup → Mumbai Drop'),'Timeline did not render persisted canonical trip');
  await page.getByRole('link',{name:'Performance',exact:true}).click(); await page.locator('.performance-page').waitFor({state:'attached'}); await wait(async()=> (await page.locator('.performance-page').innerText()).includes('₹1,000'),'persisted Performance revenue'); const perfText=await page.locator('.performance-page').innerText(); assert(perfText.includes('₹1,000'),'Performance did not consume the same canonical shift revenue'); assert(perfText.includes('₹950'),'BR-11 excluded toll was not reflected in actual profit'); console.log('Phase 4 runtime canonical fixture PASS — persisted shift/trip survived reload and reconciled Timeline revenue with Performance under BR-11 EXCLUDED toll treatment.');
  await route('','.work-canonical','Work technical surface'); const shiftToggle=page.locator('button.shift-toggle').first(); await shiftToggle.waitFor({state:'visible',timeout:30000}); assert((await shiftToggle.innerText()).trim()==='OFFLINE','Work did not initialize in the expected OFFLINE state'); assert(await page.getByRole('button',{name:'START SHIFT',exact:true}).count()===1,'Work START SHIFT action is missing'); assert(await page.getByRole('button',{name:'CNG refuelling',exact:true}).count()===1,'Work CNG control is missing');
+ // Reproduce a rapid focus change with off-screen test controls and capture scroll requests.
+ const focusScrolls=await page.evaluate(async()=>{
+   const surface=document.createElement('form');surface.setAttribute('data-kfe-form-surface','true');
+   const first=document.createElement('input');first.id='kfe-focus-race-first';
+   const second=document.createElement('input');second.id='kfe-focus-race-second';
+   const scrolls=[];for(const [el,id] of [[first,'first'],[second,'second']]){
+     el.getBoundingClientRect=()=>({top:1000,bottom:1032,left:0,right:100,width:100,height:32,x:0,y:1000,toJSON(){return this}});
+     el.scrollIntoView=()=>scrolls.push(id);surface.appendChild(el);
+   }
+   document.body.appendChild(surface);first.focus();second.focus();
+   await new Promise(resolve=>setTimeout(resolve,260));surface.remove();return scrolls;
+ });
+ assert(!focusScrolls.includes('first')&&focusScrolls.includes('second'),'Stale focus callback scrolled the field that had already lost focus: '+JSON.stringify(focusScrolls));
+ console.log('Focus-race behavioral check PASS — stale field callbacks cannot scroll after focus moves.');
  // Exercise the custom Work keypad rather than only checking that the controls render.
  await page.getByRole('button',{name:'CNG refuelling',exact:true}).click();
  await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'visible'});
