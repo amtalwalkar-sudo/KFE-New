@@ -26,7 +26,7 @@ assert(cancelled.status === 'CANCELLED', 'Cancellation must produce one CANCELLE
 assert(cancelled.id === active.id, 'Cancellation must retain the canonical Trip ID')
 assert(cancelled.cancelledRevenue === 0 && cancelled.revenue === 0, 'Cancellation default revenue must be ₹0')
 const cancelledBlank = transitionTrip(active, TRIP_STATES.CANCELLED, { revenue: '', reason: 'DRIVER_MISTAKE' })
-assert(cancelledBlank.cancelledRevenue === null && cancelledBlank.revenue === null, 'Blank cancellation fee must remain absent (null), not become explicit zero')
+assert(cancelledBlank.cancelledRevenue === 0 && cancelledBlank.revenue === 0, 'Blank cancellation fee must default to ₹0')
 const cancelledZero = transitionTrip(active, TRIP_STATES.CANCELLED, { revenue: 0, reason: 'DRIVER_MISTAKE' })
 assert(cancelledZero.cancelledRevenue === 0 && cancelledZero.revenue === 0, 'Explicit zero cancellation fee must remain numeric zero')
 let invalidCancellationRejected = false
