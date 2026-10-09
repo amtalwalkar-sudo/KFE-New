@@ -6,6 +6,7 @@ import { AdminService } from '../application/admin/adminService.js'
 import { BackupConfig } from '../application/backup/backupConfig.js'
 import { CloudBackupLifecycle } from '../application/backup/cloudBackupLifecycle.js'
 import { FirstRunSetupService } from '../application/setup/firstRunSetupService.js'
+import { FormDraftService } from '../application/forms/formDraftService.js'
 
 const emit = defineEmits(['complete'])
 const loading = ref(true), saving = ref(false), error = ref(''), stepIndex = ref(0)
@@ -39,6 +40,7 @@ const definition = computed(() => {
   return d
 })
 const progress = computed(() => Math.round(((stepIndex.value + 1) / steps.length) * 100))
+const firstRunDraftIdentity = computed(() => ({ formId: 'first-run-' + (current.value?.key || 'setup'), workflowStep: 'SETUP', parentType: 'WORKFLOW', workflowId: 'first-run-' + (current.value?.key || 'setup') }))
 
 const load = async () => {
   loading.value = true
@@ -75,6 +77,7 @@ const saveStep = async () => {
     try {
       await AdminService.save(current.value.form, form.value)
       await FirstRunSetupService.setStepState(key, { status: 'COMPLETE' })
+      await FormDraftService.clear(firstRunDraftIdentity.value, { committed: true })
       form.value = {}
       if (key === 'vehicle' || key === 'driver' || key === 'loan') {
         const [vehicle, driver, loan] = await Promise.all([AdminService.list('vehicle'), AdminService.list('driver'), AdminService.list('loan')])
@@ -91,6 +94,7 @@ const saveStep = async () => {
 const skip = async () => {
   error.value = ''
   const key = current.value.key
+  if (current.value.form) { try { await FormDraftService.clear(firstRunDraftIdentity.value, { confirmedDiscard: true }) } catch (e) { error.value = e?.message || 'Could not discard the unfinished setup draft.'; return } }
   
   const notApplicable = key === 'loan' || key === 'cloudBackup'
   await FirstRunSetupService.setStepState(key, { status: notApplicable ? 'NOT_APPLICABLE' : 'SKIPPED' })
@@ -111,7 +115,7 @@ onMounted(load)
     <header class="setup-header"><div><div class="eyebrow">FIRST-TIME SETUP</div><h1>Let's set up KFE</h1><p>We'll collect the information KFE needs for real-life calculations. You can skip historical information and fill it later; skipped inputs stay visible in Admin → Calculations.</p></div><strong>{{ progress }}%</strong></header>
     <div class="setup-progress"><span :style="{ width: progress + '%' }"></span></div>
     <section class="setup-card"><div class="step-count">STEP {{ stepIndex + 1 }} OF {{ steps.length }}</div><h2>{{ current.title }}</h2><p>{{ current.intro }}</p>
-      <AdminSourceForm v-if="definition" :fields="definition.fields||[]" :model-value="form" :busy="saving" submit-label="Save & Continue" @submit="values=>{form=values;saveStep()}" @cancel="skip" />
+      <AdminSourceForm v-if="definition" :fields="definition.fields||[]" :model-value="form" :draft-identity="firstRunDraftIdentity" :busy="saving" submit-label="Save & Continue" @submit="values=>{form=values;saveStep()}" @cancel="skip" />
       <template v-else-if="current.key === 'cloudBackup'"><label class="toggle"><input v-model="cloud.enabled" type="checkbox"> Enable daily Dropbox backup</label><label class="field"><span>Dropbox access token</span><input v-model="cloud.accessToken" type="password" autocomplete="off" placeholder="Enter token to connect"></label><p class="hint">The token is stored in secure storage. KFE data remains local-first.</p><button class="primary" :disabled="saving || !cloud.enabled || !cloud.accessToken" @click="saveStep">Connect & Continue</button></template>
       <template v-else><button class="primary" @click="saveStep">I have this information</button></template>
       <button v-if="current.optional" class="skip" :disabled="saving" @click="skip">Skip — I'll fill this later</button><p v-if="error" class="error">{{ error }}</p>

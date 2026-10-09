@@ -1,7 +1,8 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { WorkService } from '../application/work/workService.js'
 import { TimelineService } from '../application/timeline/timelineService.js'
+import { FormDraftService } from '../application/forms/formDraftService.js'
 import { useFuelStore } from '../stores/fuel.js'
 import { getKfeReferenceNow, istDateKey, istDayRange, istMonthRange, istParts } from '../domain/time/ist.js'
 
@@ -18,6 +19,28 @@ const fuelForm = ref({ odometer: '', pricePerKg: '', amount: '', isFullTank: tru
 const saving = ref(false)
 const timelineActiveField = ref(null)
 const timelineKeypadVisible = ref(false)
+let timelineDraftQueue = Promise.resolve()
+let restoringTimelineDraft = false
+const tripDraftIdentity = tripId => ({ formId: 'timeline-trip-edit', workflowStep: 'EDIT', parentType: 'TIMELINE_TRIP', parentId: tripId })
+const fuelDraftIdentity = fuelId => ({ formId: 'timeline-fuel-edit', workflowStep: 'EDIT', parentType: 'FUEL_LOG', parentId: fuelId })
+const queueTimelineDraft = (identity, values) => {
+  timelineDraftQueue = timelineDraftQueue.then(() => FormDraftService.save(identity, values))
+    .catch(e => { error.value = e?.message || 'Unable to preserve unfinished Timeline edits.'; return null })
+}
+const clearTimelineDraft = async identity => {
+  await timelineDraftQueue
+  await FormDraftService.clear(identity, { committed: true })
+}
+const closeTripEditor = () => { closeTimelineKeypad(); editing.value = null }
+const closeFuelEditor = () => { closeTimelineKeypad(); editingFuel.value = null }
+watch([editing, form], () => {
+  if (restoringTimelineDraft || !editing.value?.id) return
+  queueTimelineDraft(tripDraftIdentity(editing.value.id), { ...form.value })
+}, { deep: true })
+watch([editingFuel, fuelForm], () => {
+  if (restoringTimelineDraft || !editingFuel.value?.id) return
+  queueTimelineDraft(fuelDraftIdentity(editingFuel.value.id), { ...fuelForm.value })
+}, { deep: true })
 
 const dayAtNoon = value => { const p = istParts(value); return p ? new Date(Date.UTC(p.year, p.month - 1, p.day, 12)) : new Date(value) }
 const weekStart = value => { const day = dayAtNoon(value); return new Date(day.getTime() - ((day.getUTCDay() + 6) % 7) * 86400000) }
@@ -66,16 +89,30 @@ const load = async () => { loading.value=true; error.value=''; try { if(period.v
 const move = amount => { const d=dayAtNoon(anchor.value); if(period.value==='month') d.setUTCMonth(d.getUTCMonth()+amount); else if(period.value==='week') d.setUTCDate(d.getUTCDate()+amount*7); else d.setUTCDate(d.getUTCDate()+amount); anchor.value=d; void load() }
 const choosePeriod = next => { period.value=next; void load() }
 const today = () => { anchor.value=getKfeReferenceNow(); period.value='day'; void load() }
-const openEdit = trip => { editing.value=trip; form.value={operator:trip.operator||'',tripKm:trip.tripKm??'',revenue:trip.revenue??'',toll:trip.toll??0,parking:trip.parking??0,cancelReason:trip.cancelReason||'DRIVER_MISTAKE'} }
-const openFuelEdit = fuel => { editingFuel.value=fuel; fuelForm.value={odometer:fuel.odometer??'',pricePerKg:fuel.pricePerKg??'',amount:fuel.amount??'',isFullTank:fuel.isFullTank!==false} }
+const openEdit = async trip => {
+  restoringTimelineDraft = true
+  editing.value = trip
+  form.value = { operator:trip.operator||'',tripKm:trip.tripKm??'',revenue:trip.revenue??'',toll:trip.toll??0,parking:trip.parking??0,cancelReason:trip.cancelReason||'DRIVER_MISTAKE' }
+  try { const draft = await FormDraftService.get(tripDraftIdentity(trip.id)); if (draft?.values) form.value = { ...form.value, ...draft.values } }
+  catch (e) { error.value = e?.message || 'Unable to restore Timeline trip edits.' }
+  finally { restoringTimelineDraft = false }
+}
+const openFuelEdit = async fuel => {
+  restoringTimelineDraft = true
+  editingFuel.value = fuel
+  fuelForm.value = { odometer: fuel.odometer ?? '', pricePerKg: fuel.pricePerKg ?? '', amount: fuel.amount ?? '', isFullTank: fuel.isFullTank !== false }
+  try { const draft = await FormDraftService.get(fuelDraftIdentity(fuel.id)); if (draft?.values) fuelForm.value = { ...fuelForm.value, ...draft.values } }
+  catch (e) { error.value = e?.message || 'Unable to restore Timeline fuel edits.' }
+  finally { restoringTimelineDraft = false }
+}
 const timelineFieldValue = field => field === 'tripKm' ? form.value.tripKm : field === 'revenue' ? form.value.revenue : field === 'toll' ? form.value.toll : field === 'parking' ? form.value.parking : field === 'odometer' ? fuelForm.value.odometer : field === 'pricePerKg' ? fuelForm.value.pricePerKg : field === 'amount' ? fuelForm.value.amount : ''
 const setTimelineFieldValue = (field,value) => { if(field==='tripKm') form.value.tripKm=value; else if(field==='revenue') form.value.revenue=value; else if(field==='toll') form.value.toll=value; else if(field==='parking') form.value.parking=value; else if(field==='odometer') fuelForm.value.odometer=value; else if(field==='pricePerKg') fuelForm.value.pricePerKg=value; else if(field==='amount') fuelForm.value.amount=value }
 const openTimelineKeypad = field => { timelineActiveField.value=field; timelineKeypadVisible.value=true }
 const closeTimelineKeypad = () => { timelineActiveField.value=null; timelineKeypadVisible.value=false }
 const timelineKeypadKeys = computed(() => ['1','2','3','4','5','6','7','8','9','clear','0',...(timelineActiveField.value==='revenue'?[]:['decimal']),'backspace'])
 const timelineKeypadPress = key => { const field=timelineActiveField.value; if(!field)return; let value=String(timelineFieldValue(field)??''); if(key==='backspace')value=value.slice(0,-1); else if(key==='clear')value=''; else if(key==='decimal'&&!value.includes('.'))value=value ? value+'.' : '0.'; else if(/^\d$/.test(key)&&value.length<12)value=value==='0'?key:value+key; setTimelineFieldValue(field,value) }
-const save = async () => { closeTimelineKeypad(); saving.value=true; error.value=''; try { const payload={id:editing.value.id,operator:form.value.operator,tripKm:form.value.tripKm,revenue:form.value.revenue,toll:form.value.toll,parking:form.value.parking}; if(editing.value.status==='CANCELLED') payload.cancelReason=form.value.cancelReason; const r=await WorkService.updateTrip(payload); if(!r?.ok) throw new Error(r?.reason||'Trip update failed.'); editing.value=null; await load() } catch(e) { error.value=e?.message||'Trip update failed.' } finally { saving.value=false } }
-const saveFuel = async () => { closeTimelineKeypad(); saving.value=true; error.value=''; try { const r=await fuelStore.update({id:editingFuel.value.id,odometer:fuelForm.value.odometer,pricePerKg:fuelForm.value.pricePerKg,amount:fuelForm.value.amount,isFullTank:fuelForm.value.isFullTank}); if(!r?.ok) throw new Error(r?.reason||'Fuel update failed.'); editingFuel.value=null; await load() } catch(e) { error.value=e?.message||'Fuel update failed.' } finally { saving.value=false } }
+const save = async () => { closeTimelineKeypad(); saving.value=true; error.value=''; const identity = editing.value?.id ? tripDraftIdentity(editing.value.id) : null; try { const payload={id:editing.value.id,operator:form.value.operator,tripKm:form.value.tripKm,revenue:form.value.revenue,toll:form.value.toll,parking:form.value.parking}; if(editing.value.status==='CANCELLED') payload.cancelReason=form.value.cancelReason; await timelineDraftQueue; const r=await WorkService.updateTrip(payload); if(!r?.ok) throw new Error(r?.reason||'Trip update failed.'); if(identity) await clearTimelineDraft(identity); editing.value=null; await load() } catch(e) { error.value=e?.message||'Trip update failed.' } finally { saving.value=false } }
+const saveFuel = async () => { closeTimelineKeypad(); saving.value=true; error.value=''; const identity = editingFuel.value?.id ? fuelDraftIdentity(editingFuel.value.id) : null; try { await timelineDraftQueue; const r=await fuelStore.update({id:editingFuel.value.id,odometer:fuelForm.value.odometer,pricePerKg:fuelForm.value.pricePerKg,amount:fuelForm.value.amount,isFullTank:fuelForm.value.isFullTank}); if(!r?.ok) throw new Error(r?.reason||'Fuel update failed.'); if(identity) await clearTimelineDraft(identity); editingFuel.value=null; await load() } catch(e) { error.value=e?.message||'Fuel update failed.' } finally { saving.value=false } }
 const deleteFuel = async fuel => { closeTimelineKeypad(); if(!confirm(`Delete this fuel entry of ${kg(fuel.quantityKg)} at ${dateTime(fuel.capturedAt||fuel.createdAt)}?`)) return; saving.value=true; error.value=''; try { const r=await fuelStore.remove(fuel.id); if(!r?.ok) throw new Error(r?.reason||'Fuel delete failed.'); await load() } catch(e) { error.value=e?.message||'Fuel delete failed.' } finally { saving.value=false } }
 const personalEntries = computed(() => data.value?.entries || [])
 onMounted(load)
@@ -118,8 +155,8 @@ onMounted(load)
     </template>
 
     <Teleport to="body">
-      <div v-if="editing" class="overlay timeline-quick-edit-overlay" @click.self="editing=null"><form class="editor" @submit.prevent="save"><div class="editor-head"><div><p class="eyebrow">QUICK EDIT</p><h2>{{editing.operator}} · {{time(editing.tripStartAt)}}</h2></div><button type="button" @click="editing=null">×</button></div><label>Operator<select v-model="form.operator"><option v-for="o in WorkService.getTripOperators()" :key="o" :value="o">{{o}}</option></select></label><label>Distance (km)<input :value="form.tripKm" type="text" inputmode="none" readonly @click="openTimelineKeypad('tripKm')"></label><label>{{editing.status==='CANCELLED'?'Cancellation fee (₹)':'Fare (₹)'}}<input :value="form.revenue" type="text" inputmode="none" readonly @click="openTimelineKeypad('revenue')"></label><label>Toll (₹)<input :value="form.toll" type="text" inputmode="none" readonly @click="openTimelineKeypad('toll')"></label><label>Parking (₹)<input :value="form.parking" type="text" inputmode="none" readonly @click="openTimelineKeypad('parking')"></label><label v-if="editing.status==='CANCELLED'">Cancellation reason<select v-model="form.cancelReason"><option value="DRIVER_MISTAKE">Driver mistake</option><option value="PASSENGER_CANCELLED">Passenger cancelled</option><option value="VEHICLE_ISSUE">Vehicle issue</option><option value="OPERATOR_REQUEST">Operator request</option><option value="OTHER">Other</option></select></label><button class="save" :disabled="saving">{{saving?'Saving…':'Save'}}</button></form></div>
-      <div v-if="editingFuel" class="overlay timeline-quick-edit-overlay" @click.self="editingFuel=null"><form class="editor" @submit.prevent="saveFuel"><div class="editor-head"><div><p class="eyebrow">FUEL EDIT</p><h2>{{dateTime(editingFuel.capturedAt||editingFuel.createdAt)}}</h2></div><button type="button" @click="editingFuel=null">×</button></div><label>Odometer (km)<input :value="fuelForm.odometer" type="text" inputmode="none" readonly @click="openTimelineKeypad('odometer')"></label><label>Price per kg (₹)<input :value="fuelForm.pricePerKg" type="text" inputmode="none" readonly @click="openTimelineKeypad('pricePerKg')"></label><label>Amount (₹)<input :value="fuelForm.amount" type="text" inputmode="none" readonly @click="openTimelineKeypad('amount')"></label><div class="calculated">ERP recalculates quantity from amount ÷ price/kg.</div><label class="check"><input v-model="fuelForm.isFullTank" type="checkbox"> Full tank</label><button class="save" :disabled="saving">{{saving?'Saving…':'Save fuel changes'}}</button></form></div>
+      <div v-if="editing" class="overlay timeline-quick-edit-overlay" @click.self="closeTripEditor"><form class="editor" @submit.prevent="save"><div class="editor-head"><div><p class="eyebrow">QUICK EDIT</p><h2>{{editing.operator}} · {{time(editing.tripStartAt)}}</h2></div><button type="button" @click="closeTripEditor">×</button></div><label>Operator<select v-model="form.operator"><option v-for="o in WorkService.getTripOperators()" :key="o" :value="o">{{o}}</option></select></label><label>Distance (km)<input :value="form.tripKm" type="text" inputmode="none" readonly @click="openTimelineKeypad('tripKm')"></label><label>{{editing.status==='CANCELLED'?'Cancellation fee (₹)':'Fare (₹)'}}<input :value="form.revenue" type="text" inputmode="none" readonly @click="openTimelineKeypad('revenue')"></label><label>Toll (₹)<input :value="form.toll" type="text" inputmode="none" readonly @click="openTimelineKeypad('toll')"></label><label>Parking (₹)<input :value="form.parking" type="text" inputmode="none" readonly @click="openTimelineKeypad('parking')"></label><label v-if="editing.status==='CANCELLED'">Cancellation reason<select v-model="form.cancelReason"><option value="DRIVER_MISTAKE">Driver mistake</option><option value="PASSENGER_CANCELLED">Passenger cancelled</option><option value="VEHICLE_ISSUE">Vehicle issue</option><option value="OPERATOR_REQUEST">Operator request</option><option value="OTHER">Other</option></select></label><button class="save" :disabled="saving">{{saving?'Saving…':'Save'}}</button></form></div>
+      <div v-if="editingFuel" class="overlay timeline-quick-edit-overlay" @click.self="closeFuelEditor"><form class="editor" @submit.prevent="saveFuel"><div class="editor-head"><div><p class="eyebrow">FUEL EDIT</p><h2>{{dateTime(editingFuel.capturedAt||editingFuel.createdAt)}}</h2></div><button type="button" @click="closeFuelEditor">×</button></div><label>Odometer (km)<input :value="fuelForm.odometer" type="text" inputmode="none" readonly @click="openTimelineKeypad('odometer')"></label><label>Price per kg (₹)<input :value="fuelForm.pricePerKg" type="text" inputmode="none" readonly @click="openTimelineKeypad('pricePerKg')"></label><label>Amount (₹)<input :value="fuelForm.amount" type="text" inputmode="none" readonly @click="openTimelineKeypad('amount')"></label><div class="calculated">ERP recalculates quantity from amount ÷ price/kg.</div><label class="check"><input v-model="fuelForm.isFullTank" type="checkbox"> Full tank</label><button class="save" :disabled="saving">{{saving?'Saving…':'Save fuel changes'}}</button></form></div>
       <div v-if="timelineKeypadVisible" class="kfe-number-pad timeline-number-pad" aria-label="KFE number pad">
         <div class="number-pad-display"><span>{{timelineActiveField==='tripKm'?'DISTANCE':timelineActiveField==='revenue'?'FARE':timelineActiveField==='odometer'?'ODOMETER':timelineActiveField==='pricePerKg'?'PRICE / KG':timelineActiveField==='toll'?'TOLL':timelineActiveField==='parking'?'PARKING':'AMOUNT'}}</span><strong>{{timelineActiveField==='revenue'||timelineActiveField==='pricePerKg'||timelineActiveField==='amount'||timelineActiveField==='toll'||timelineActiveField==='parking'?'₹':''}}{{timelineFieldValue(timelineActiveField)||'0'}}<small v-if="timelineActiveField==='tripKm'||timelineActiveField==='odometer'"> km</small><small v-else-if="timelineActiveField==='pricePerKg'"> / kg</small></strong></div>
         <div class="number-pad-grid"><button v-for="key in timelineKeypadKeys" :key="key" type="button" @pointerdown.stop.prevent="timelineKeypadPress(key)"><span v-if="key==='backspace'">⌫</span><span v-else-if="key==='clear'">C</span><span v-else-if="key==='decimal'">.</span><span v-else>{{key}}</span></button></div>

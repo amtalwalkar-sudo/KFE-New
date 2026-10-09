@@ -48,7 +48,7 @@ assertHas(endShift, /await ShiftTripRepository\.completeShift\(/, 'End Shift mus
 assertHas(work, /function cancelEnd\(\)/, 'End Shift must have an explicit cancel path')
 assertHas(work, /endOpen\.value = false/, 'End Shift cancellation must close the form without committing')
 
-assert.ok(adminForm.includes(`@submit.prevent="emit('submit', collect())"`), 'Admin form must submit the complete draft through its event')
+assert.ok(adminForm.includes('@submit.prevent="submitForm"') && adminForm.includes("emit('submit', collect())"), 'Admin form must await pending draft writes and submit the complete draft through its event')
 assertHas(adminService, /async save\(formKey,values,existingId=null/, 'Admin save must be application-owned')
 assertHas(adminRepo, /objectStore\(storeName\)\.put\(record\)/, 'Admin save must persist to the selected canonical store')
 assertHas(adminRepo, /pending_mutations.*audit_history/, 'Admin save must atomically couple mutation and audit records')
@@ -68,7 +68,7 @@ assertHas(performanceView, /performanceHeadlineProvisionalProfit/, 'Performance 
 assert.ok(work.includes("if (action === 'back-start') { startOpen.value = false; return }"), 'Start Shift back/cancel must not submit')
 assert.ok(work.includes("if (action === 'back-cancel') { cancelOpen.value = false; return }"), 'Cancellation back/cancel must not submit')
 assert.ok(work.includes("if (action === 'close-fuel') { fuelOpen.value = false; return }"), 'Fuel close/cancel must not submit')
-assertHas(adminForm, /@click="emit\('cancel'\)"/, 'Admin cancel must emit cancel instead of submitting')
+assert.ok(adminForm.includes('@click="cancelForm"') && adminForm.includes('async function cancelForm()') && adminForm.includes("emit('cancel')"), 'Admin cancel must confirm discard when applicable and emit cancel instead of submitting')
 assertHas(reconciliation, /@submit\.prevent="handleFinalCommit"/, 'Reconciliation must commit only through final submit')
 
 for (const source of [adminRepo, workRepo, fuelRepo]) {
