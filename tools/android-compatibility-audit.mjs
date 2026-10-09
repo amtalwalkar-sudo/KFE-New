@@ -37,7 +37,7 @@ const deleteDb = async page => page.evaluate(async () => {
   }
 })
 const readShifts = page => page.evaluate(async () => {
-  const request = indexedDB.open('kanishka_kfe_canonical_db', 14)
+  const request = indexedDB.open('kanishka_kfe_canonical_db', 15)
   const db = await new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result)
     request.onerror = () => reject(request.error)
