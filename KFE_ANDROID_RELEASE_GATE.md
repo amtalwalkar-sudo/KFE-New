@@ -37,7 +37,7 @@ The tested APK MUST exercise the real Android flow end-to-end:
 12. Foreground/reopen the main app
 13. Timeline shows the same completed ride and fare
 14. While the canonical trip is in PICKUP, the right-edge ❌ opens cancellation fee entry
-15. Confirming cancellation records the same canonical trip as CANCELLED and ₹0 revenue when no fee is entered
+15. Confirming cancellation records the same canonical trip as CANCELLED; a blank fee remains null supporting detail and does not create revenue
 16. Cancelling the cancellation form leaves the pickup trip active
 17. Once the ride has started, cancellation is not available
 18. Revenue/fare entry uses the in-overlay numeric keypad; the Android system keyboard must not take over the overlay
