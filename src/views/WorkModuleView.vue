@@ -219,6 +219,7 @@ const preview = computed(() => endOpen.value ? WorkService.reconcileShiftRevenue
   parking: parking.value,
   tollTreatment: tollTreatment.value,
   parkingTreatment: parkingTreatment.value,
+  tollParkingCaptureMode: 'ADDITIONAL_ONLY',
   tollParkingRevenueTreatment: tollTreatment.value
 }) : null)
 
@@ -707,6 +708,7 @@ async function finishEnd() {
       parking: parking.value,
       tollTreatment: tollTreatment.value,
       parkingTreatment: parkingTreatment.value,
+      tollParkingCaptureMode: 'ADDITIONAL_ONLY',
       tollParkingRevenueTreatment: tollTreatment.value,
       trips
     })
