@@ -707,6 +707,16 @@ The monthly ledger is an expense ledger, not a second revenue authority.
 
 This rule is frozen. Any change to its meaning requires an explicit governed amendment to this register before implementation.
 
+### BR-11.7 — Separate toll and parking treatment
+
+Toll and parking are treated independently. Each recorded actual expense must retain its category, amount, canonical source identity, and Included/Excluded treatment.
+
+Shift-level capture records only additional actual expenses not already recorded at trip level. Existing trip-level amounts may be displayed as read-only totals and must not be recorded again.
+
+A shared treatment value must not represent toll and parking when their treatments differ. Legacy aggregate Shift fields remain readable but must not cause duplicate expense records or double counting.
+
+BR-11 financial-revenue and operating-profit formulas remain authoritative.
+
 
 ## Authority map — business rules and calculations
 

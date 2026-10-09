@@ -82,9 +82,17 @@ No component should directly manipulate the database merely to implement Undo or
 
 Navigation must not save a form, start/end a trip, change an odometer, create a financial record, discard committed data, or terminate an operational action accidentally. Navigation and domain commitment remain separate.
 
-## 8. Partially completed forms must be recoverable safely
+## 8. Mandatory parent-scoped draft recovery
 
-If the user has entered information but has not committed it, KFE must not accidentally commit it. KFE may discard it, ask whether to discard it, or preserve it as a temporary draft. A temporary draft can never become authoritative without an explicit commit.
+Every rebuilt form must preserve uncommitted input across application restart. Drafts are temporary and non-authoritative.
+
+Draft identity must include the form identity, workflow step, parent entity type, and canonical parent ID when one exists. Trip drafts must remain scoped to that Trip and its owning Shift; shift-closure drafts must remain scoped to that Shift.
+
+A workflow that has not yet created a canonical parent must use a unique temporary workflow identity. It must not reuse a previous Trip or Shift's draft identity.
+
+Restore a draft only when the active form and parent identity match. Failed validation or failed commitment preserves the draft. Remove it only after successful authoritative commitment or explicit confirmed discard. Navigation, restart, and parent changes must not silently commit or destroy it.
+
+Drafts must use non-authoritative persistence separate from canonical business records and pending mutation recovery. Restoring a draft must never replay a committed mutation.
 
 ## 9. Destructive actions require stronger protection
 

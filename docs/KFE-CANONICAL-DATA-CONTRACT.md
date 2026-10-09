@@ -75,6 +75,8 @@ Ride-level operational detail linked to a Shift through `shiftId`. Completed `tr
 
 Ride cancellation is an operational status/outcome, not deletion. Trip history is retained.
 
+Cancellation-fee detail preserves absence separately from an explicitly entered zero. Blank/not-applicable detail is represented as `null`; explicit zero remains numeric `0`. Cancelled-trip amounts are supporting-only and never replace authoritative `Shift.revenue`. Legacy records that already collapsed blank to zero are not presumed to contain an explicitly entered zero.
+
 ### Odometer
 
 No separate persisted Odometer entity is required in the current single-vehicle model. Shift start/end odometer observations own vehicle movement.

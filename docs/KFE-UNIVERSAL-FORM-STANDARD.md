@@ -39,6 +39,8 @@ These rules are non-negotiable unless the underlying architecture is intentional
 - The **Universal Form Action & Recovery Rules** contract remains authoritative for Cancel, Undo, correction, reversal, confirmation, and authoritative domain state.
 - UI layers must not invent competing deletion/reversal semantics.
 - Unsaved draft restoration must never silently create an authoritative domain mutation.
+- Draft recovery is mandatory and parent-scoped: uncommitted values survive application restart, failed saves preserve them, and drafts are cleared only after successful commitment or explicit confirmed discard.
+- Draft persistence remains non-authoritative and separate from canonical business records and pending mutation recovery; restoration never commits or replays a mutation.
 
 ### Architecture
 

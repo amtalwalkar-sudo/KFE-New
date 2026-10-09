@@ -159,7 +159,8 @@ Once START TRIP is performed, the cancellation option disappears on the next sta
 If the driver chooses CANCEL TRIP:
 
 - Required cancellation reason is entered.
-- Required cancellation fare/data is entered where applicable.
+- Cancellation fee is entered only when applicable; otherwise it may remain blank.
+- Blank/not-applicable fee remains absent and must not create an independent revenue record; an explicitly entered zero remains distinct from blank.
 - Mandatory fields cannot be bypassed.
 - KFE records the cancellation event and automatic context such as time/GPS where available.
 - After successful cancellation confirmation, the driver returns directly to the main KFE state before going for the next pickup.
@@ -185,9 +186,10 @@ The driver should not need to type routine tracking information during the activ
 After END TRIP:
 
 - KFE records trip completion automatically.
-- Driver enters the trip fare.
-- Fare is compulsory where the business rule requires recorded revenue.
-- The driver cannot proceed without required fare information.
+- The trip fare form appears immediately and remains recoverable.
+- Trip fare is optional supporting detail; the driver may save it or explicitly skip it.
+- Skipping preserves the completed trip and does not create fare/revenue detail.
+- Missing optional trip fare must not block the next pickup or shift closure. Authoritative shift revenue is entered at shift closure.
 
 Trip KM entry is optional.
 
@@ -219,8 +221,10 @@ The first end-shift surface asks for information that becomes known at shift clo
 
 - Closing odometer — required.
 - Shift revenue — required.
-- Business toll — optional where applicable.
-- Business parking — optional where applicable.
+- Additional business toll not already recorded per trip — optional where applicable.
+- Additional business parking not already recorded per trip — optional where applicable.
+- Existing trip-level toll and parking amounts are shown as read-only totals, not re-entered or duplicated.
+- Toll and parking retain independent Included/Excluded treatment; legacy aggregate shift values remain readable without double counting.
 
 Start odometer is displayed as context, not re-entered.
 
@@ -232,12 +236,12 @@ After closure data is captured, KFE calculates/reconciles the shift distance.
 
 The driver should not be forced to review every trip.
 
-Revenue reconciliation is **exception based**:
+Revenue reconciliation is **exception based** and supporting-only:
 
-- If all completed trips have recorded revenue, show a simple all-clear state.
-- If some completed trips have no recorded revenue, show **only those trips** for reconciliation.
-- The driver enters the missing revenue for those trips.
-- Already-reconciled trips remain out of the primary reconciliation workflow.
+- Compare available completed-trip fare details with authoritative shift-end revenue when the details are complete.
+- Missing trip fare detail is unavailable supporting information, not missing authoritative shift revenue and not a shift-closure gate.
+- Do not invent or require per-trip fares to make the shift revenue authoritative.
+- Already-recorded fare details remain available for reconciliation/display without creating a second revenue authority.
 
 Separately, the driver may optionally review and enter authoritative trip KM for individual trips. This is not mandatory for every trip.
 
@@ -278,12 +282,12 @@ Driver inputs occur when the information becomes known:
 - Pre-shift gap → choose whole gap as Personal KM or Dead KM.
 - Trip setup → operator, when required.
 - Trip cancellation → cancellation details.
-- Trip completion → fare.
+- Trip completion → optional supporting fare detail, which may be saved or explicitly skipped.
 - Optional trip review → authoritative trip KM.
 - Refuel → odometer, price/kg, amount.
 - End shift → closing odometer and required shift revenue.
 - End-shift expenses → optional business toll/parking.
-- Reconciliation → only missing revenue entries.
+- Reconciliation → compare available supporting trip fare details with authoritative shift revenue; missing trip fares alone do not block closure.
 
 Everything KFE can reliably capture should be automatic.
 
