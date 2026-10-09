@@ -84,11 +84,8 @@ try{
  await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'visible'});
  await page.getByRole('textbox',{name:'Odometer',exact:true}).click();
  await page.getByRole('button',{name:'6',exact:true}).click();
- console.log('Work keypad before Done: '+(await page.locator('.kfe-work-number-pad__display').innerText()));
  await page.getByRole('button',{name:'DONE',exact:true}).click();
- await page.waitForTimeout(100);
- console.log('Work keypad after Done: '+(await page.locator('.kfe-work-number-pad__display').innerText()));
- await wait(async()=> (await page.locator('.kfe-work-number-pad__display').innerText()).includes('Price / kg'),'Work keypad Done navigation');
+ await wait(async()=> (await page.locator('.kfe-work-number-pad__display').innerText()).toLowerCase().includes('price / kg'),'Work keypad Done navigation');
  assert((await page.locator('.kfe-work-number-pad__display').innerText()).includes('Price / kg'),'Work keypad Done did not advance from fuel odometer to price; display='+(await page.locator('.kfe-work-number-pad__display').innerText()));
  await page.getByRole('button',{name:'Close',exact:true}).click();
  await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'detached'});
