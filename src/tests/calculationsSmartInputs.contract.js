@@ -5,7 +5,7 @@ const source=fs.readFileSync('src/views/CalculationsView.vue','utf8')
 
 assert.match(source,/What needs your input/)
 assert.match(source,/Enter the missing business information/)
-assert.match(source,/AdminRecordForm/)
+assert.match(source,/AdminSourceForm/)
 assert.match(source,/CalculationsService\.recordFuelBaseline/)
 assert.match(source,/markLoanNotApplicable/)
 assert.match(source,/Rechecking calculations/)
