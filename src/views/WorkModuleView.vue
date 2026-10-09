@@ -118,7 +118,9 @@ watch([startOdo, startAck, gapChoice], () => {
   void saveDraft(startDraftIdentity(), { startOdo: startOdo.value, startAck: startAck.value, gapChoice: gapChoice.value })
 })
 watch([fare, tripToll, tripParking], () => {
-  const tripId = pendingFare.value?.id || fareTripId.value
+  // Persist only against the trip explicitly opened in the fare form; never
+  // let a reset after commit overwrite the next pending trip's draft.
+  const tripId = fareTripId.value
   if (!tripId || !store.shift?.id || restoringDrafts) return
   void saveDraft(tripDraftIdentity('work-trip-details', 'ENTER_FARE', tripId), {
     fare: fare.value, tripToll: tripToll.value, tripParking: tripParking.value
