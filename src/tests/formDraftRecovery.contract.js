@@ -44,7 +44,7 @@ assert.match(workView, /watch\(\[startOdo, startAck, gapChoice\]/, 'Shift-start 
 assert.match(workView, /watch\(\[fare, tripToll, tripParking, tripTollTreatment/, 'Trip detail draft must persist edits')
 assert.match(workView, /watch\(\[cancelReason, cancelFare\]/, 'Cancellation draft must persist edits')
 assert.match(workView, /watch\(\[fuelOdo, fuelPrice, fuelAmount, fuelFull\]/, 'Fuel draft must persist edits')
-assert.match(workView, /watch\(\[closingOdo, shiftRevenue, toll, parking, tollTreatment, endStage/, 'End-shift draft must persist edits')
+assert.match(workView, /watch\(\[closingOdo, shiftRevenue, toll, parking, tollTreatment, parkingTreatment, endStage/, 'End-shift draft must persist edits')
 assert.doesNotMatch(workView, /Cancellation fee is required/, 'Blank cancellation fee must remain valid')
 assert.match(workForm, /Cancellation fee \(optional\)/, 'Cancellation fee must be presented as optional')
 assert.match(workForm, /Trip toll already recorded/, 'Trip-level toll must be shown as read-only total during shift review')
