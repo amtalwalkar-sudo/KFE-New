@@ -17,6 +17,11 @@ export const normalizeShiftInput = input => {
     if (!['INCLUDED', 'EXCLUDED'].includes(treatment)) throw new Error(`Shift ${field} must be INCLUDED or EXCLUDED.`)
     value[field] = treatment
   }
+  if (input.tollParkingCaptureMode !== undefined) {
+    const mode = String(input.tollParkingCaptureMode || '').toUpperCase()
+    if (!['ADDITIONAL_ONLY', 'LEGACY_AGGREGATE'].includes(mode)) throw new Error('Shift tollParkingCaptureMode must be ADDITIONAL_ONLY or LEGACY_AGGREGATE.')
+    value.tollParkingCaptureMode = mode
+  }
   for (const key of ['start_odometer','end_odometer','openingOdometer','opening_odometer','closingOdometer','closing_odometer']) delete value[key]
   return value
 }
