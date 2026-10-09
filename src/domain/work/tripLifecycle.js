@@ -19,7 +19,8 @@ export const transitionTrip = (trip, to, data = {}) => {
     next.tripKmProvenance = data.tripKmProvenance || null
   }
   if (to === TRIP_STATES.CANCELLED) {
-    const revenue = data.revenue === undefined || data.revenue === '' || data.revenue === null ? 0 : Number(data.revenue)
+    const hasRevenue = data.revenue !== undefined && data.revenue !== '' && data.revenue !== null
+    const revenue = hasRevenue ? Number(data.revenue) : null
     if (revenue !== null && (!Number.isFinite(revenue) || revenue < 0)) throw new Error('Cancelled trip revenue must be a non-negative number.')
     next.cancelledRevenue = revenue
     next.cancelReason = data.reason || 'DRIVER_MISTAKE'
