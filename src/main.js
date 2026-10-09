@@ -6,6 +6,7 @@ import './styles/kfe-ui.css'
 import './styles/forms.css'
 import './styles/work-cockpit-hud.css'
 import './styles/kfe-base-shell.css'
+import './styles/admin-workspace.css'
 
 const app = createApp(App)
 app.config.errorHandler = (err) => {
