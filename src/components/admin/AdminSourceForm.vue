@@ -58,6 +58,9 @@ async function restoreDraft() {
       if (field.type === 'checkbox') el.checked = !!record.values[field.key]
       else el.value = record.values[field.key] ?? ''
     }
+    for (const field of fields.value) {
+      if (record.values[field.key] !== undefined) emit('field-change', { key: field.key, value: field.type === 'checkbox' ? !!record.values[field.key] : record.values[field.key] })
+    }
     emit('draft-restored', structuredClone(record.values))
   } catch (error) { emit('draft-error', error) }
   finally { restoringDraft = false }
