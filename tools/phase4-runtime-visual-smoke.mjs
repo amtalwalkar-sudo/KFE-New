@@ -84,9 +84,9 @@ try{
  await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'visible'});
  await page.getByRole('textbox',{name:'Odometer',exact:true}).click();
  await page.getByRole('button',{name:'6',exact:true}).click();
- await page.getByRole('button',{name:'DONE',exact:true}).click();
- await wait(async()=> (await page.locator('.kfe-work-number-pad__display').innerText()).toLowerCase().includes('price / kg'),'Work keypad Done navigation');
- assert((await page.locator('.kfe-work-number-pad__display').innerText()).toLowerCase().includes('price / kg'),'Work keypad Done did not advance from fuel odometer to price; display='+(await page.locator('.kfe-work-number-pad__display').innerText()));
+ await page.getByRole('button',{name:'NEXT →',exact:true}).click();
+ await wait(async()=> (await page.locator('.kfe-work-number-pad__display').innerText()).toLowerCase().includes('price / kg'),'Work keypad Next navigation');
+ assert((await page.locator('.kfe-work-number-pad__display').innerText()).toLowerCase().includes('price / kg'),'Work keypad Next did not advance from fuel odometer to price; display='+(await page.locator('.kfe-work-number-pad__display').innerText()));
  await page.getByRole('button',{name:'Close',exact:true}).click();
  await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'detached'});
  console.log('Work numeric keypad behavioral check PASS — Done advances to the declared next fuel field without submitting the form.');
