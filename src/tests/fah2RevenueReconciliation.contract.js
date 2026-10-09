@@ -53,19 +53,19 @@ const performanceSnapshot = {
   fuelLogs: [], maintenance: [], compliance: [], breakEvenInputs: [], settlements: [], vehicles: []
 }
 const includedMetrics = derivePerformance(performanceSnapshot, range)
-assert.equal(includedMetrics.financialRevenue, 435)
-assert.equal(includedMetrics.toll, 60)
+assert.equal(includedMetrics.financialRevenue, 445, 'Legacy aggregate shift toll must not be added to trip toll twice')
+assert.equal(includedMetrics.toll, 50)
 assert.equal(includedMetrics.parking, 5)
 assert.equal(includedMetrics.runningCost, 0)
-assert.equal(includedMetrics.operatingProfit, 435)
+assert.equal(includedMetrics.operatingProfit, 445)
 const excludedMetrics = derivePerformance({
   ...performanceSnapshot,
   shifts: [{ ...performanceSnapshot.shifts[0], tollParkingRevenueTreatment: 'EXCLUDED' }]
 }, range)
 assert.equal(excludedMetrics.financialRevenue, 500)
-assert.equal(excludedMetrics.toll, 60)
+assert.equal(excludedMetrics.toll, 50)
 assert.equal(excludedMetrics.parking, 5)
 assert.equal(excludedMetrics.runningCost, 65)
-assert.equal(excludedMetrics.operatingProfit, 435)
+assert.equal(excludedMetrics.operatingProfit, 445)
 
 console.log('FAH-2 revenue reconciliation contract passed: shift-end revenue authority, optional trip detail, toll/parking inclusion without double counting, and end-shift revenue validation.')
