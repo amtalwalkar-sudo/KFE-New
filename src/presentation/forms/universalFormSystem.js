@@ -74,10 +74,25 @@ function tagTree(root=document){
   root.querySelectorAll?.(SURFACE_SELECTOR).forEach(tagSurface);
 }
 
+let focusFrame = 0;
+let focusTimers = [];
+let focusGeneration = 0;
+
+function cancelPendingFocusScroll(){
+  focusGeneration += 1;
+  if(focusFrame) cancelAnimationFrame(focusFrame);
+  focusFrame = 0;
+  for(const timer of focusTimers) clearTimeout(timer);
+  focusTimers = [];
+}
+
 function ensureFocusedControlVisible(el){
   const surface=owner(el);
   if(!surface) return;
+  cancelPendingFocusScroll();
+  const generation = focusGeneration;
   const move=()=>{
+    if(generation !== focusGeneration || document.activeElement !== el || !el.isConnected || owner(el) !== surface) return;
     const vv=window.visualViewport;
     const viewportTop=vv?.offsetTop ?? 0;
     const viewportBottom=(vv ? vv.height + vv.offsetTop : window.innerHeight);
@@ -87,17 +102,20 @@ function ensureFocusedControlVisible(el){
     const keyboard=Number.parseFloat(
       getComputedStyle(document.documentElement).getPropertyValue('--kfe-keyboard-inset')
     ) || 0;
+    const keyboardOpen = keyboard > 80 || document.documentElement.dataset.kfeKeyboard === 'open';
     const safeTop=viewportTop+8;
-    const safeBottom=viewportBottom-nav-Math.max(0,keyboard)-8;
+    // visualViewport already excludes the on-screen keyboard. Subtracting the
+    // keyboard inset again double-counts it; the bottom nav is obscured while
+    // the keyboard is open, so only reserve nav height when it is closed.
+    const safeBottom=viewportBottom-(keyboardOpen?0:nav)-8;
     const rect=el.getBoundingClientRect();
     if(rect.top<safeTop || rect.bottom>safeBottom){
       el.scrollIntoView({block:'nearest',inline:'nearest',behavior:
         document.documentElement.dataset.kfeReducedMotion==='true'?'auto':'smooth'});
     }
   };
-  requestAnimationFrame(move);
-  setTimeout(move,60);
-  setTimeout(move,220);
+  focusFrame = requestAnimationFrame(() => { focusFrame = 0; move(); });
+  focusTimers = [60,220].map(delay => setTimeout(move,delay));
 }
 
 function handleEnter(event){
