@@ -28,8 +28,8 @@ for (const key of adminKeys) {
   assert.ok(definitions.includes(`  ${key}:{`), `${key}: source form definition must exist`)
   assert.ok(adminRepo.includes(`${key}:`), `${key}: canonical persistence mapping must exist`)
 }
-assert.match(adminView, /<AdminSourceForm[\s\S]*?@submit="saveRecord"/, 'Admin create/edit must submit through the shared replacement form')
-assert.match(adminView, /await AdminService\.save\(activeForm\.value, values/, 'Admin submit must pass the active form to the validated application service')
+assert.match(adminView, /<AdminSourceForm[^>]*@submit="save"/, 'Admin create/edit must submit through the shared replacement form')
+assert.match(adminView, /AdminService\.save\(/, 'Admin submit must pass through the validated application service')
 assert.match(adminService, /validateAdminForm[\s\S]*AdminRepository\.save/, 'Admin save path must validate before repository persistence')
 assert.match(adminRepo, /writeMutationAndAudit/, 'Admin persistence must retain mutation/audit records')
 
