@@ -57,7 +57,7 @@ assert.equal(independentExpenseMetrics.passThroughToll, 25)
 assert.equal(independentExpenseMetrics.passThroughParking, 0)
 assert.equal(independentExpenseMetrics.excludedTollExpense, 0)
 assert.equal(independentExpenseMetrics.excludedParkingExpense, 12)
-assert.equal(independentExpenseMetrics.operatingCost, 12, 'Only excluded parking is deducted as operating expense')
+assert.equal(independentExpenseMetrics.actualOperatingCost, 12, 'Only excluded parking is deducted as operating expense')
 assert.equal(independentExpenseMetrics.operatingProfit, 463, 'Mixed treatment must not double-count included toll')
 const overEstimateMetrics = derivePerformance({
   shifts: [{ id: 'over-shift', shiftStartAt: '2026-09-10T08:00:00Z', shiftEndAt: '2026-09-10T18:00:00Z', startOdometer: 1000, endOdometer: 1200, revenue: 1000 }],
