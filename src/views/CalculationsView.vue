@@ -3,6 +3,7 @@ import { computed, onMounted, ref, toRaw } from 'vue'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { FirstRunSetupService } from '../application/setup/firstRunSetupService.js'
 import { AdminService } from '../application/admin/adminService.js'
+import { FormDraftService } from '../application/forms/formDraftService.js'
 import { ADMIN_FORM_DEFINITIONS } from '../application/admin/adminFormDefinitions.js'
 import AdminSourceForm from '../components/admin/AdminSourceForm.vue'
 import { CalculationsService } from '../application/calculations/calculationsService.js'
@@ -59,6 +60,7 @@ const inputItems=computed(()=>{
 
 const resolvedCount=computed(()=>Math.max(0,(setupStatus.value?.steps||[]).filter(x=>x.status==='COMPLETE').length))
 const totalInputs=computed(()=>inputItems.value.length)
+const calculationDraftIdentity = computed(() => ({ formId: 'calculations-' + (openId.value || 'input'), workflowStep: 'EDIT_INPUT', parentType: 'WORKFLOW', workflowId: 'calculations-' + (openId.value || 'input') }))
 
 function rangeFor(p){return reportingRangeFor(p,getKfeReferenceNow())}
 async function load(){
@@ -86,6 +88,7 @@ async function saveAdminInput(values){
   saving.value=true;error.value='';notice.value=''
   try{
     await AdminService.save(openId.value,values)
+    await FormDraftService.clear(calculationDraftIdentity.value, { committed: true })
     notice.value='Saved. Rechecking calculations…'
     closeForm()
     await load()
@@ -96,6 +99,7 @@ async function markLoanNotApplicable(){
   saving.value=true;error.value='';notice.value=''
   try{
     await FirstRunSetupService.setStepState('loan',{status:'NOT_APPLICABLE'})
+    await FormDraftService.clear({ formId: 'calculations-loan', workflowStep: 'EDIT_INPUT', parentType: 'WORKFLOW', workflowId: 'calculations-loan' }, { confirmedDiscard: true })
     notice.value='Loan marked not applicable. Rechecking calculations…'
     closeForm()
     await load()
@@ -109,6 +113,7 @@ async function saveFuel(values){
     const odometer=Number(values.odometer), pricePerKg=Number(values.pricePerKg), amount=Number(values.amount)
     if(!Number.isFinite(odometer)||odometer<0||!Number.isFinite(pricePerKg)||pricePerKg<=0||!Number.isFinite(amount)||amount<=0)throw new Error('Enter a valid odometer, a price/kg greater than zero, and a positive amount.')
     await CalculationsService.recordFuelBaseline({odometer,pricePerKg,amount,isFullTank:!Boolean(values.isPartialTank)})
+    await FormDraftService.clear(calculationDraftIdentity.value, { committed: true })
     notice.value='Fuel entry saved. Rechecking calculations…'
     closeForm()
     await load()
@@ -157,6 +162,7 @@ onMounted(load)
           v-if="item.id!=='fuelBaseline'"
           :fields="activeDefinition?.fields||[]"
           :model-value="draft"
+          :draft-identity="calculationDraftIdentity"
           :busy="saving"
           :submit-label="item.id==='loan'?'Save loan':'Save'"
           @submit="saveAdminInput"
@@ -168,6 +174,7 @@ onMounted(load)
           <AdminSourceForm
             :fields="fuelFields"
             :model-value="fuelDraft"
+            :draft-identity="calculationDraftIdentity"
             :busy="saving"
             submit-label="Save fuel entry"
             @field-change="onFuelFieldChange"
