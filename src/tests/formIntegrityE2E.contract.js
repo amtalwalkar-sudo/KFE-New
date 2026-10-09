@@ -68,7 +68,7 @@ assertHas(performanceView, /performanceHeadlineProvisionalProfit/, 'Performance 
 assert.ok(work.includes("if (action === 'back-start') { startOpen.value = false; return }"), 'Start Shift back/cancel must not submit')
 assert.ok(work.includes("if (action === 'back-cancel') { cancelOpen.value = false; return }"), 'Cancellation back/cancel must not submit')
 assert.ok(work.includes("if (action === 'close-fuel') { fuelOpen.value = false; return }"), 'Fuel close/cancel must not submit')
-assertHas(adminForm, /@click="emit\('cancel'\)"/, 'Admin cancel must emit cancel instead of submitting')
+assertHas(adminForm, /@click="cancelForm"[\s\S]*?function cancelForm\(\)[\s\S]*?emit\('cancel'\)/, 'Admin cancel must confirm discard when applicable and emit cancel instead of submitting')
 assertHas(reconciliation, /@submit\.prevent="handleFinalCommit"/, 'Reconciliation must commit only through final submit')
 
 for (const source of [adminRepo, workRepo, fuelRepo]) {
