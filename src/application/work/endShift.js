@@ -3,7 +3,7 @@ import { validateTripCorrection } from '../../domain/work/trip.js'
 import { ShiftTripRepository } from '../../repositories/shiftTripRepository.js'
 import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
 
-export async function completeEndShift({ shiftId, closingOdometer, revenue, toll, parking, tollParkingRevenueTreatment, trips = [], confirmLargeDistance = false, movementReconciliation = null }) {
+export async function completeEndShift({ shiftId, closingOdometer, revenue, toll, parking, tollTreatment, parkingTreatment, tollParkingCaptureMode = 'ADDITIONAL_ONLY', tollParkingRevenueTreatment, trips = [], confirmLargeDistance = false, movementReconciliation = null }) {
   const active = await ShiftTripRepository.getActive()
   if (!active.shift || active.shift.id !== shiftId) return { ok: false, reason: 'Active shift not found.' }
   if (active.trip) return { ok: false, reason: 'ACTIVE_TRIP_IN_PROGRESS' }
@@ -23,7 +23,7 @@ export async function completeEndShift({ shiftId, closingOdometer, revenue, toll
   }
 
   const correctedTrips = existingTrips.map(trip => correctionById.has(trip.id) ? { ...trip, ...correctionById.get(trip.id) } : trip)
-  const revenueReconciliation = reconcileShiftRevenue({ shiftRevenue, trips: correctedTrips, toll, parking, tollParkingRevenueTreatment })
+  const revenueReconciliation = reconcileShiftRevenue({ shiftRevenue, trips: correctedTrips, toll, parking, tollTreatment, parkingTreatment, tollParkingCaptureMode, tollParkingRevenueTreatment })
 
   try {
     await ShiftTripRepository.completeShift({
@@ -32,6 +32,9 @@ export async function completeEndShift({ shiftId, closingOdometer, revenue, toll
       revenue: shiftRevenue,
       toll,
       parking,
+      tollTreatment,
+      parkingTreatment,
+      tollParkingCaptureMode,
       tollParkingRevenueTreatment,
       movementReconciliation,
       revenueReconciliation,
