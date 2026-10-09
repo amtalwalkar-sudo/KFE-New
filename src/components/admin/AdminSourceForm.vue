@@ -24,6 +24,12 @@ const sections = computed(() => {
   return groups
 })
 const requiredCount = computed(() => fields.value.filter(f => f.required).length)
+const editableFields = computed(() => fields.value.filter(f => f.type !== 'checkbox'))
+const enterKeyHint = field => {
+  if (field.type === 'textarea') return 'enter'
+  const index = editableFields.value.findIndex(item => item.key === field.key)
+  return index >= 0 && index < editableFields.value.length - 1 ? 'next' : 'done'
+}
 const value = field => props.modelValue?.[field.key] ?? field.defaultValue ?? ''
 const setNode = (key, el) => { if (el) nodes.value[key] = el; else delete nodes.value[key] }
 const options = field => (field.options || []).map(o => typeof o === 'object' ? o : ({ value: o, label: o }))
@@ -97,7 +103,7 @@ onMounted(() => nextTick(() => {
           </select>
           <textarea v-else-if="field.type === 'textarea'" :ref="el => setNode(field.key, el)" :required="field.required" :disabled="busy" :placeholder="field.placeholder || 'Add details (optional)'" rows="3" @input="changed(field)"></textarea>
           <span v-else-if="field.type === 'checkbox'" class="source-toggle"><input :ref="el => setNode(field.key, el)" type="checkbox" :disabled="busy" @change="changed(field)"><span>{{ field.toggleLabel || field.label }}</span></span>
-          <input v-else :ref="el => setNode(field.key, el)" :type="inputType(field)" :inputmode="field.type === 'number' ? (field.step && Number(field.step) % 1 !== 0 ? 'decimal' : 'numeric') : field.inputMode" :min="field.min" :max="field.max" :step="field.step" :required="field.required" :disabled="busy" :placeholder="field.placeholder || (field.type === 'number' ? '0' : '')" :autocomplete="field.type === 'number' ? 'off' : 'on'" :enterkeyhint="field.type === 'textarea' ? 'enter' : 'next'" @input="changed(field)">
+          <input v-else :ref="el => setNode(field.key, el)" :type="inputType(field)" :inputmode="field.type === 'number' ? (field.step && Number(field.step) % 1 !== 0 ? 'decimal' : 'numeric') : field.inputMode" :min="field.min" :max="field.max" :step="field.step" :required="field.required" :disabled="busy" :placeholder="field.placeholder || (field.type === 'number' ? '0' : '')" :autocomplete="field.type === 'number' ? 'off' : 'on'" :enterkeyhint="enterKeyHint(field)" @input="changed(field)">
           <small v-if="errors[field.key]" class="source-field-error" role="alert">{{ errors[field.key] }}</small>
         </label>
       </div>
