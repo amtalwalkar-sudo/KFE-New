@@ -17,10 +17,11 @@ const resolveTreatment = (specific, legacy) =>
   validTreatment(specific) || validTreatment(legacy) || TOLL_PARKING_TREATMENTS.INCLUDED
 
 /**
- * Sum actual toll/parking records by their own category and Included/Excluded
- * treatment. Shift-level amounts are additional-only; trip amounts are counted
- * separately. Legacy records without independent treatments fall back to the
- * historical shared shift treatment.
+ * Sum actual toll/parking records by category and Included/Excluded treatment.
+ * ADDITIONAL_ONLY shifts add their shift-level additional amounts to trip records.
+ * Legacy aggregate shifts use the greater of the old shift total and trip detail
+ * to avoid double counting; missing independent treatment fields use the old
+ * shared shift treatment.
  */
 export function deriveTollParkingExpenseTreatment({
   trips = [], toll = 0, parking = 0,
