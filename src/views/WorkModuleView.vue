@@ -106,33 +106,45 @@ const fuelDraftIdentity = () => store.shift?.id
 const restoreDraft = async identity => {
   try { return await WorkDraftService.get(identity) } catch (_) { return null }
 }
-const saveDraft = async (identity, values) => {
-  if (restoringDrafts) return
-  try { await WorkDraftService.save(identity, values) } catch (_) {
+let draftWriteQueue = Promise.resolve()
+const committedDraftKeys = new Set()
+const draftIdentityKey = identity => JSON.stringify([
+  identity?.formId, identity?.workflowStep, identity?.parentType,
+  identity?.parentId || null, identity?.ownerId || null, identity?.workflowId || null
+])
+const saveDraft = (identity, values) => {
+  if (restoringDrafts || committedDraftKeys.has(draftIdentityKey(identity))) return draftWriteQueue
+  draftWriteQueue = draftWriteQueue.then(() => WorkDraftService.save(identity, values)).catch(() => {
     fail('Draft could not be saved locally. Keep this form open and retry.')
-  }
+    return null
+  })
+  return draftWriteQueue
 }
 const clearCommittedDraft = async identity => {
-  try { await WorkDraftService.clear(identity, { committed: true }) } catch (_) {}
+  const key = draftIdentityKey(identity)
+  committedDraftKeys.add(key)
+  await draftWriteQueue
+  try { await WorkDraftService.clear(identity, { committed: true }) }
+  catch (_) { fail('The record was saved, but its temporary draft could not be cleared. Do not replay it; reopen the record and verify the saved value.') }
 }
 
 watch([startOdo, startAck, gapChoice], () => {
   if (!startOpen.value || !startWorkflowId.value || restoringDrafts) return
-  void saveDraft(startDraftIdentity(), { startOdo: startOdo.value, startAck: startAck.value, gapChoice: gapChoice.value })
+  saveDraft(startDraftIdentity(), { startOdo: startOdo.value, startAck: startAck.value, gapChoice: gapChoice.value })
 })
 watch([fare, tripToll, tripParking, tripTollTreatment, tripParkingTreatment], () => {
   // Persist only against the trip explicitly opened in the fare form; never
   // let a reset after commit overwrite the next pending trip's draft.
   const tripId = fareTripId.value
   if (!tripId || !store.shift?.id || restoringDrafts) return
-  void saveDraft(tripDraftIdentity('work-trip-details', 'ENTER_FARE', tripId), {
+  saveDraft(tripDraftIdentity('work-trip-details', 'ENTER_FARE', tripId), {
     fare: fare.value, tripToll: tripToll.value, tripParking: tripParking.value,
     tripTollTreatment: tripTollTreatment.value, tripParkingTreatment: tripParkingTreatment.value
   })
 })
 watch([cancelReason, cancelFare], () => {
   if (!cancelOpen.value || !store.trip?.id || !store.shift?.id || restoringDrafts) return
-  void saveDraft(tripDraftIdentity('work-cancellation', 'CANCEL_TRIP'), {
+  saveDraft(tripDraftIdentity('work-cancellation', 'CANCEL_TRIP'), {
     cancelReason: cancelReason.value, cancelFare: cancelFare.value
   })
 })
@@ -140,11 +152,11 @@ watch([fuelOdo, fuelPrice, fuelAmount, fuelFull], () => {
   if (!fuelOpen.value || restoringDrafts) return
   const identity = fuelDraftIdentity()
   if (!identity.parentId && !identity.workflowId) return
-  void saveDraft(identity, { fuelOdo: fuelOdo.value, fuelPrice: fuelPrice.value, fuelAmount: fuelAmount.value, fuelFull: fuelFull.value })
+  saveDraft(identity, { fuelOdo: fuelOdo.value, fuelPrice: fuelPrice.value, fuelAmount: fuelAmount.value, fuelFull: fuelFull.value })
 })
 watch([closingOdo, shiftRevenue, toll, parking, tollTreatment, parkingTreatment, endStage, reviewRevenue, reviewKm, reviewOperator], () => {
   if (!endOpen.value || endStage.value === 'ENDED' || !store.shift?.id || restoringDrafts) return
-  void saveDraft(shiftDraftIdentity('work-end-shift', 'END_SHIFT'), {
+  saveDraft(shiftDraftIdentity('work-end-shift', 'END_SHIFT'), {
     endStage: endStage.value, closingOdo: closingOdo.value, shiftRevenue: shiftRevenue.value,
     toll: toll.value, parking: parking.value, tollTreatment: tollTreatment.value, parkingTreatment: parkingTreatment.value,
     reviewRevenue: reviewRevenue.value, reviewKm: reviewKm.value, reviewOperator: reviewOperator.value
