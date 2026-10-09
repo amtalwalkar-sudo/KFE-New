@@ -30,6 +30,7 @@ const mixed = reconcileShiftRevenue({
   parking: 2,
   tollTreatment: 'INCLUDED',
   parkingTreatment: 'EXCLUDED',
+  tollParkingCaptureMode: 'ADDITIONAL_ONLY',
   trips: [{
     status: 'COMPLETED', revenue: 500, toll: 20, parking: 10,
     tollTreatment: 'INCLUDED', parkingTreatment: 'EXCLUDED'
@@ -43,6 +44,15 @@ assert.equal(mixed.includedPassThrough, 25, 'Included toll is pass-through')
 assert.equal(mixed.excludedActualExpense, 12, 'Excluded parking is an actual expense counted once')
 assert.equal(mixed.additionalToll, 5, 'Shift-level toll is additional-only')
 assert.equal(mixed.additionalParking, 2, 'Shift-level parking is additional-only')
+
+const legacyAggregate = reconcileShiftRevenue({
+  shiftRevenue: 500, toll: 50, parking: 25, tollParkingRevenueTreatment: 'INCLUDED',
+  trips: [{ status: 'COMPLETED', revenue: 500, toll: 50, parking: 25 }]
+})
+assert.equal(legacyAggregate.financialRevenue, 425, 'Legacy aggregate shift amounts must not be added to the same trip expense records twice')
+assert.equal(legacyAggregate.toll, 50)
+assert.equal(legacyAggregate.parking, 25)
+assert.equal(legacyAggregate.includedPassThrough, 75)
 assert.equal(normalizeTripInput({ tollTreatment: 'excluded' }).tollTreatment, 'EXCLUDED')
 assert.equal(normalizeShiftInput({ tollTreatment: 'included', parkingTreatment: 'excluded' }).parkingTreatment, 'EXCLUDED')
 assert.throws(() => normalizeTripInput({ parkingTreatment: 'SOMETIMES' }), /INCLUDED or EXCLUDED/)
