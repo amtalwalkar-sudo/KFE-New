@@ -26,10 +26,11 @@ export function deriveTollParkingExpenseTreatment({
   trips = [], toll = 0, parking = 0,
   tollTreatment, parkingTreatment,
   tollParkingRevenueTreatment = TOLL_PARKING_TREATMENTS.INCLUDED,
+  tollParkingCaptureMode = 'LEGACY_AGGREGATE',
 } = {}) {
   const totals = {
-    toll: nonNegativeMoney(toll),
-    parking: nonNegativeMoney(parking),
+    toll: 0,
+    parking: 0,
     includedToll: 0,
     includedParking: 0,
     excludedTollExpense: 0,
@@ -48,17 +49,26 @@ export function deriveTollParkingExpenseTreatment({
       else totals.excludedParkingExpense += value
     }
   }
+  const completedTrips = live(trips).filter(item => item?.status === 'COMPLETED')
+  const mode = String(tollParkingCaptureMode || 'LEGACY_AGGREGATE').toUpperCase()
 
-  // The initial values above are the additional shift-level amounts. Classify
-  // them independently, then add each completed trip's canonical expense.
-  totals.toll = 0
-  totals.parking = 0
-  add('toll', toll, resolveTreatment(tollTreatment, tollParkingRevenueTreatment))
-  add('parking', parking, resolveTreatment(parkingTreatment, tollParkingRevenueTreatment))
-  for (const trip of live(trips).filter(item => item?.status === 'COMPLETED')) {
-    const legacy = trip.tollParkingRevenueTreatment || tollParkingRevenueTreatment
-    add('toll', trip.toll, resolveTreatment(trip.tollTreatment, legacy))
-    add('parking', trip.parking, resolveTreatment(trip.parkingTreatment, legacy))
+  if (mode === 'ADDITIONAL_ONLY') {
+    // Current Work captures only additional shift-level amounts, so sum those
+    // with independently treated trip expenses.
+    add('toll', toll, resolveTreatment(tollTreatment, tollParkingRevenueTreatment))
+    add('parking', parking, resolveTreatment(parkingTreatment, tollParkingRevenueTreatment))
+    for (const trip of completedTrips) {
+      const legacy = trip.tollParkingRevenueTreatment || tollParkingRevenueTreatment
+      add('toll', trip.toll, resolveTreatment(trip.tollTreatment, legacy))
+      add('parking', trip.parking, resolveTreatment(trip.parkingTreatment, legacy))
+    }
+  } else {
+    // Historical Shift.toll/parking may already aggregate the trip amounts.
+    // Preserve those legacy totals without adding the same trip records again.
+    const tripToll = completedTrips.reduce((sum, trip) => sum + nonNegativeMoney(trip.toll), 0)
+    const tripParking = completedTrips.reduce((sum, trip) => sum + nonNegativeMoney(trip.parking), 0)
+    add('toll', Math.max(nonNegativeMoney(toll), tripToll), resolveTreatment(tollTreatment, tollParkingRevenueTreatment))
+    add('parking', Math.max(nonNegativeMoney(parking), tripParking), resolveTreatment(parkingTreatment, tollParkingRevenueTreatment))
   }
   return {
     ...totals,
@@ -67,6 +77,7 @@ export function deriveTollParkingExpenseTreatment({
     tollTreatment: resolveTreatment(tollTreatment, tollParkingRevenueTreatment),
     parkingTreatment: resolveTreatment(parkingTreatment, tollParkingRevenueTreatment),
     tollParkingRevenueTreatment,
+    tollParkingCaptureMode: mode,
   }
 }
 
@@ -78,12 +89,12 @@ export function deriveTollParkingExpenseTreatment({
  */
 export function deriveFinancialRevenue({
   customerPaidTotal, toll = 0, parking = 0, trips = [],
-  tollTreatment, parkingTreatment,
+  tollTreatment, parkingTreatment, tollParkingCaptureMode,
   tollParkingRevenueTreatment = TOLL_PARKING_TREATMENTS.INCLUDED,
 } = {}) {
   const gross = money(customerPaidTotal)
   const expenses = deriveTollParkingExpenseTreatment({
-    trips, toll, parking, tollTreatment, parkingTreatment, tollParkingRevenueTreatment,
+    trips, toll, parking, tollTreatment, parkingTreatment, tollParkingCaptureMode, tollParkingRevenueTreatment,
   })
   if (!Number.isFinite(gross) || gross < 0) {
     return {
@@ -107,13 +118,13 @@ export function deriveFinancialRevenue({
  */
 export function reconcileShiftRevenue({
   shiftRevenue, trips = [], toll = 0, parking = 0,
-  tollTreatment, parkingTreatment,
+  tollTreatment, parkingTreatment, tollParkingCaptureMode,
   tollParkingRevenueTreatment = TOLL_PARKING_TREATMENTS.INCLUDED,
 } = {}) {
   const authoritativeRevenue = money(shiftRevenue)
   const financial = deriveFinancialRevenue({
     customerPaidTotal: authoritativeRevenue, trips, toll, parking,
-    tollTreatment, parkingTreatment, tollParkingRevenueTreatment,
+    tollTreatment, parkingTreatment, tollParkingCaptureMode, tollParkingRevenueTreatment,
   })
   const common = {
     authoritativeRevenue: Number.isFinite(authoritativeRevenue) ? authoritativeRevenue : null,
@@ -123,6 +134,7 @@ export function reconcileShiftRevenue({
     unpricedTrips: 0,
     additionalToll: nonNegativeMoney(toll),
     additionalParking: nonNegativeMoney(parking),
+    tollParkingCaptureMode: financial.tollParkingCaptureMode,
   }
   if (!Number.isFinite(authoritativeRevenue) || authoritativeRevenue < 0) {
     return { ...common, reconciliationStatus: 'UNAVAILABLE', reason: 'SHIFT_REVENUE_REQUIRED', tripRevenue: null, difference: null }
