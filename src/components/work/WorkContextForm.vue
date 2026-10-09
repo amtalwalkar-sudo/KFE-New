@@ -363,7 +363,7 @@ const updateMap = (name, map, id, value) => {
 .choice-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .choice-row button{min-height:48px}
 .check-row{display:flex!important;grid-template-columns:none!important;align-items:center;gap:10px}
-.check-row input{width:22px!important;height:22px}
+.check-row input{width:22px!important;height:22px;min-height:22px!important}
 .primary-action,.text-action,.choice-row button{touch-action:manipulation}
 .primary-action{min-height:48px}
 .form-card input,.form-card select,.form-card button{font:inherit}
