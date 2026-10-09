@@ -137,7 +137,7 @@ watch([fuelOdo, fuelPrice, fuelAmount, fuelFull], () => {
   void saveDraft(identity, { fuelOdo: fuelOdo.value, fuelPrice: fuelPrice.value, fuelAmount: fuelAmount.value, fuelFull: fuelFull.value })
 })
 watch([closingOdo, shiftRevenue, toll, parking, tollTreatment, endStage, reviewRevenue, reviewKm, reviewOperator], () => {
-  if (!endOpen.value || !store.shift?.id || restoringDrafts) return
+  if (!endOpen.value || endStage.value === 'ENDED' || !store.shift?.id || restoringDrafts) return
   void saveDraft(shiftDraftIdentity('work-end-shift', 'END_SHIFT'), {
     endStage: endStage.value, closingOdo: closingOdo.value, shiftRevenue: shiftRevenue.value,
     toll: toll.value, parking: parking.value, tollTreatment: tollTreatment.value,
@@ -471,6 +471,7 @@ async function skipTripDetails() {
     const fareDraft = tripDraftIdentity('work-trip-details', 'ENTER_FARE', pendingFare.value.id)
     const result = await store.updateTrip({ id: pendingFare.value.id, fareDetailsSkipped: true })
     if (!result?.ok) return fail(result?.reason || 'Trip detail skip could not be saved.')
+    await clearCommittedDraft(fareDraft)
     fareTripId.value = null
     fare.value = ''
     tripToll.value = ''
@@ -666,6 +667,7 @@ async function finishEnd() {
   endBusy.value = true
   try {
     if (reviewedDeadKm.value < -0.000001) return fail('Completed trip KM exceeds total shift KM. Correct the trip KM before ending the shift.')
+    const endDraft = shiftDraftIdentity('work-end-shift', 'END_SHIFT')
     const trips = completed.value.map(t => ({
       id: t.id,
       operator: reviewOperator.value[t.id] ?? t.operator,
@@ -681,7 +683,7 @@ async function finishEnd() {
       trips
     })
     if (!result?.ok) return fail(result.reason)
-    await clearCommittedDraft(shiftDraftIdentity('work-end-shift', 'END_SHIFT'))
+    await clearCommittedDraft(endDraft)
     endStage.value = 'ENDED'
     await KfeRideNotificationService.clear().catch(() => {})
     notify('Shift ended.')
