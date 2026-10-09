@@ -31,6 +31,34 @@ assert.equal(serviceMetrics.revenue, 1000)
 assert.equal(serviceMetrics.revenue, snapshot.shifts[0].revenue)
 assert.notEqual(serviceMetrics.revenue, snapshot.trips[0].revenue)
 assert.equal(serviceMetrics.authority.revenue, 'SHIFT_END_REVENUE')
+
+const independentExpenseMetrics = derivePerformance({
+  shifts: [{
+    id: 'mixed-expense-shift',
+    shiftStartAt: '2026-09-10T08:00:00+05:30',
+    shiftEndAt: '2026-09-10T18:00:00+05:30',
+    startOdometer: 1000, endOdometer: 1100, revenue: 500,
+    toll: 5, parking: 2, tollTreatment: 'INCLUDED', parkingTreatment: 'EXCLUDED',
+    tollParkingRevenueTreatment: 'INCLUDED'
+  }],
+  trips: [{
+    id: 'mixed-expense-trip', shiftId: 'mixed-expense-shift', status: 'COMPLETED',
+    tripStartAt: '2026-09-10T09:00:00+05:30', tripEndAt: '2026-09-10T12:00:00+05:30',
+    tripKm: 100, revenue: 500, toll: 20, parking: 10,
+    tollTreatment: 'INCLUDED', parkingTreatment: 'EXCLUDED'
+  }],
+  fuelLogs: [], maintenance: [], compliance: [], breakEvenInputs: []
+}, range)
+assert.equal(independentExpenseMetrics.revenue, 500, 'Shift-end customer-paid revenue remains authoritative')
+assert.equal(independentExpenseMetrics.financialRevenue, 475, 'Included trip and shift toll reduce financial revenue once')
+assert.equal(independentExpenseMetrics.toll, 25, 'Trip and additional shift toll are both included in expense facts')
+assert.equal(independentExpenseMetrics.parking, 12, 'Trip and additional shift parking are both included in expense facts')
+assert.equal(independentExpenseMetrics.passThroughToll, 25)
+assert.equal(independentExpenseMetrics.passThroughParking, 0)
+assert.equal(independentExpenseMetrics.excludedTollExpense, 0)
+assert.equal(independentExpenseMetrics.excludedParkingExpense, 12)
+assert.equal(independentExpenseMetrics.operatingCost, 12, 'Only excluded parking is deducted as operating expense')
+assert.equal(independentExpenseMetrics.operatingProfit, 463, 'Mixed treatment must not double-count included toll')
 const overEstimateMetrics = derivePerformance({
   shifts: [{ id: 'over-shift', shiftStartAt: '2026-09-10T08:00:00Z', shiftEndAt: '2026-09-10T18:00:00Z', startOdometer: 1000, endOdometer: 1200, revenue: 1000 }],
   trips: [{ id: 'over-trip', status: 'COMPLETED', tripStartAt: '2026-09-10T09:00:00Z', tripEndAt: '2026-09-10T12:00:00Z', tripKm: 250 }],
