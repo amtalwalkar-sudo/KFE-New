@@ -26,7 +26,8 @@ const sections = computed(() => {
 const requiredCount = computed(() => fields.value.filter(f => f.required).length)
 const value = field => props.modelValue?.[field.key] ?? field.defaultValue ?? ''
 const setNode = (key, el) => { if (el) nodes.value[key] = el; else delete nodes.value[key] }
-const options = field => (field.options || []).map(o => typeof o === 'object' ? o : ({ value: o, label: o }))\nconst errorText = key => { const error = props.errors?.[key]; return Array.isArray(error) ? error.join(' ') : String(error ?? '') }
+const options = field => (field.options || []).map(o => typeof o === 'object' ? o : ({ value: o, label: o }))
+const errorText = key => { const error = props.errors?.[key]; return Array.isArray(error) ? error.join(' ') : String(error ?? '') }
 function read(field) {
   const el = nodes.value[field.key]
   if (!el) return value(field)
