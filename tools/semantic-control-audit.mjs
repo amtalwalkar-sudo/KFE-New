@@ -44,7 +44,7 @@ const reset = async page => {
   await page.locator('.work-canonical').waitFor({ state: 'attached', timeout: 30000 })
 }
 const db = async (page, stores) => page.evaluate(async stores => {
-  const request = indexedDB.open('kanishka_kfe_canonical_db', 13)
+  const request = indexedDB.open('kanishka_kfe_canonical_db', 14)
   const database = await new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result)
     request.onerror = () => reject(request.error)
