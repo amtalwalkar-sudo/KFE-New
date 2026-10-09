@@ -73,7 +73,7 @@ match(timelineService, /ShiftTripRepository|FuelRepository/, 'Timeline service m
 match(performanceRepo, /'shifts', 'trips', 'fuel_logs', 'vehicles'/, 'Performance snapshot must read canonical operating records')
 match(performanceService, /normalizeCalculationSnapshot\(snapshot\)/, 'Performance must normalize canonical data before calculations')
 match(calculations, /CalculationsService\./, 'Calculations view must use calculation service')
-match(calculationsService, /PerformanceService|calculate/i, 'Calculation service must delegate calculation logic')
+match(calculationsService, /FuelRepository\.create\(\{[\s\S]*quantityKg: values\.amount \/ values\.pricePerKg/, 'Manual fuel baseline must validate and persist canonical fuel evidence with derived quantity')
 match(settings, /exportBackup\(\)|restoreBackup\(payload\)|resetAllData\(\)/, 'Settings operations must use application backup/reset boundary')
 
 // Draft storage must remain separate from canonical operational records and enforce commit/discard clearing.
