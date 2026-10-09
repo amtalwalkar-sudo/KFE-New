@@ -300,10 +300,19 @@ async function syncOverlay() {
 async function openStart() {
   fuelOpen.value = false
   endOpen.value = false
+  restoringDrafts = true
+  startWorkflowId.value = (await FormDraftRepository.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || FormDraftRepository.newWorkflowId()
   startOpen.value = true
   startOdo.value = store.lastKnownOdometer == null ? '' : String(store.lastKnownOdometer)
   startAck.value = false
   gapChoice.value = ''
+  const draft = await restoreDraft(startDraftIdentity())
+  if (draft?.values) {
+    startOdo.value = String(draft.values.startOdo ?? startOdo.value)
+    startAck.value = Boolean(draft.values.startAck)
+    gapChoice.value = String(draft.values.gapChoice ?? '')
+  }
+  restoringDrafts = false
   error.value = ''
   message.value = ''
   // Let the driver's tap focus the field so Android reliably opens its numeric keyboard.
@@ -324,6 +333,8 @@ async function submitStart() {
   try {
     const result = await store.startShift(startOdo.value, gapKm.value ? { category: gapChoice.value } : null)
     if (!result?.ok) return fail(result?.reason || 'Could not start the shift.')
+    await clearCommittedDraft(startDraftIdentity())
+    startWorkflowId.value = FormDraftRepository.newWorkflowId()
     startOpen.value = false
     startOdo.value = ''
     startAck.value = false
@@ -395,9 +406,17 @@ async function endTrip() {
     const tripId = store.trip.id
     if (!await store.endTrip()) { fail('Trip could not be completed.'); return false }
     fareTripId.value = tripId
+    restoringDrafts = true
     fare.value = ''
     tripToll.value = ''
     tripParking.value = ''
+    const draft = await restoreDraft(tripDraftIdentity('work-trip-details', 'ENTER_FARE', tripId))
+    if (draft?.values) {
+      fare.value = String(draft.values.fare ?? '')
+      tripToll.value = String(draft.values.tripToll ?? '')
+      tripParking.value = String(draft.values.tripParking ?? '')
+    }
+    restoringDrafts = false
     await KfeRideNotificationService.completeRide().catch(() => {})
     await syncOverlay()
     notify('Trip ended. Add optional details or skip.')
@@ -425,9 +444,11 @@ async function saveFare(fromNative = false) {
       toll: tripToll.value === '' ? 0 : Number(tripToll.value),
       parking: tripParking.value === '' ? 0 : Number(tripParking.value)
     }
+    const fareDraft = tripDraftIdentity('work-trip-details', 'ENTER_FARE', pendingFare.value.id)
     const result = await store.updateTrip(details)
     if (!result?.ok) { fail(result?.reason || 'Trip details could not be saved.'); return false }
 
+    await clearCommittedDraft(fareDraft)
     fareTripId.value = null
     fare.value = ''
     tripToll.value = ''
@@ -447,6 +468,7 @@ async function skipTripDetails() {
   if (!pendingFare.value || fareBusy.value) return
   fareBusy.value = true
   try {
+    const fareDraft = tripDraftIdentity('work-trip-details', 'ENTER_FARE', pendingFare.value.id)
     const result = await store.updateTrip({ id: pendingFare.value.id, fareDetailsSkipped: true })
     if (!result?.ok) return fail(result?.reason || 'Trip detail skip could not be saved.')
     fareTripId.value = null
@@ -463,9 +485,18 @@ async function skipTripDetails() {
 }
 
 async function openCancel() {
+  restoringDrafts = true
   cancelOpen.value = true
   cancelReason.value = ''
   cancelFare.value = ''
+  const draft = store.trip?.id && store.shift?.id
+    ? await restoreDraft(tripDraftIdentity('work-cancellation', 'CANCEL_TRIP'))
+    : null
+  if (draft?.values) {
+    cancelReason.value = String(draft.values.cancelReason ?? '')
+    cancelFare.value = String(draft.values.cancelFare ?? '')
+  }
+  restoringDrafts = false
   error.value = ''
   message.value = ''
 }
@@ -477,11 +508,13 @@ async function saveCancel(fromNative = false) {
 
   cancelBusy.value = true
   try {
+    const cancellationDraft = tripDraftIdentity('work-cancellation', 'CANCEL_TRIP')
     const result = await store.cancelTrip({
       reason: cancelReason.value.trim(),
       revenue: cancelFare.value
     })
     if (!result?.ok) { fail(result?.reason || 'Cancellation could not be saved.'); return false }
+    await clearCommittedDraft(cancellationDraft)
     cancelOpen.value = false
     if (!fromNative) await AndroidOverlay.cancelSaved().catch(() => {})
     if (!fromNative) await KfeRideNotificationService.clearPendingAction().catch(() => {})
@@ -497,10 +530,20 @@ async function toggleFuel() {
   fuelOpen.value = !fuelOpen.value
   if (!fuelOpen.value) return
   endOpen.value = false
+  restoringDrafts = true
   fuelOdo.value = ''
   fuelPrice.value = ''
   fuelAmount.value = ''
   fuelFull.value = true
+  if (!store.shift?.id) fuelWorkflowId.value = (await FormDraftRepository.latestWorkflow('work-fuel', 'RECORD_FUEL'))?.workflowId || FormDraftRepository.newWorkflowId()
+  const draft = await restoreDraft(fuelDraftIdentity())
+  if (draft?.values) {
+    fuelOdo.value = String(draft.values.fuelOdo ?? '')
+    fuelPrice.value = String(draft.values.fuelPrice ?? '')
+    fuelAmount.value = String(draft.values.fuelAmount ?? '')
+    fuelFull.value = draft.values.fuelFull !== false
+  }
+  restoringDrafts = false
   error.value = ''
   message.value = ''
 }
@@ -541,6 +584,7 @@ async function saveFuel() {
       isFullTank: fuelFull.value
     })
     if (!result?.ok) return fail(result.reason)
+    await clearCommittedDraft(fuelDraftIdentity())
     fuelOpen.value = false
     notify('Fuel saved.')
   } finally {
@@ -562,7 +606,7 @@ function seedReview() {
   reviewOperator.value = operators
 }
 
-function openEnd() {
+async function openEnd() {
   if (store.isTripActive) return fail('End the active Trip before going Offline.')
   
   fuelOpen.value = false
@@ -574,6 +618,20 @@ function openEnd() {
   parking.value = ''
   tollTreatment.value = 'INCLUDED'
   seedReview()
+  restoringDrafts = true
+  const draft = await restoreDraft(shiftDraftIdentity('work-end-shift', 'END_SHIFT'))
+  if (draft?.values) {
+    endStage.value = String(draft.values.endStage || 'CLOSE')
+    closingOdo.value = String(draft.values.closingOdo ?? '')
+    shiftRevenue.value = String(draft.values.shiftRevenue ?? '')
+    toll.value = String(draft.values.toll ?? '')
+    parking.value = String(draft.values.parking ?? '')
+    tollTreatment.value = String(draft.values.tollTreatment || 'INCLUDED')
+    reviewRevenue.value = draft.values.reviewRevenue || reviewRevenue.value
+    reviewKm.value = draft.values.reviewKm || reviewKm.value
+    reviewOperator.value = draft.values.reviewOperator || reviewOperator.value
+  }
+  restoringDrafts = false
   error.value = ''
   message.value = ''
 }
@@ -623,6 +681,7 @@ async function finishEnd() {
       trips
     })
     if (!result?.ok) return fail(result.reason)
+    await clearCommittedDraft(shiftDraftIdentity('work-end-shift', 'END_SHIFT'))
     endStage.value = 'ENDED'
     await KfeRideNotificationService.clear().catch(() => {})
     notify('Shift ended.')
@@ -730,8 +789,21 @@ async function processNativeEvent(event) {
 
 onMounted(async () => {
   await store.initialize()
+  startWorkflowId.value = (await FormDraftRepository.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || FormDraftRepository.newWorkflowId()
+  fuelWorkflowId.value = (await FormDraftRepository.latestWorkflow('work-fuel', 'RECORD_FUEL'))?.workflowId || FormDraftRepository.newWorkflowId()
   await targetRefresh()
   operator.value = store.defaultOperator
+  if (pendingFare.value?.id && store.shift?.id) {
+    fareTripId.value = pendingFare.value.id
+    restoringDrafts = true
+    const draft = await restoreDraft(tripDraftIdentity('work-trip-details', 'ENTER_FARE', pendingFare.value.id))
+    if (draft?.values) {
+      fare.value = String(draft.values.fare ?? '')
+      tripToll.value = String(draft.values.tripToll ?? '')
+      tripParking.value = String(draft.values.tripParking ?? '')
+    }
+    restoringDrafts = false
+  }
 
   clock.value = Date.now()
   timer = setInterval(() => { clock.value = Date.now() }, 1000)
