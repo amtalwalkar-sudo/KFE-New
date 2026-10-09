@@ -301,11 +301,11 @@ async function openStart() {
   fuelOpen.value = false
   endOpen.value = false
   restoringDrafts = true
-  startWorkflowId.value = (await WorkDraftService.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || WorkDraftService.newWorkflowId()
   startOpen.value = true
   startOdo.value = store.lastKnownOdometer == null ? '' : String(store.lastKnownOdometer)
   startAck.value = false
   gapChoice.value = ''
+  startWorkflowId.value = (await WorkDraftService.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || WorkDraftService.newWorkflowId()
   const draft = await restoreDraft(startDraftIdentity())
   if (draft?.values) {
     startOdo.value = String(draft.values.startOdo ?? startOdo.value)
