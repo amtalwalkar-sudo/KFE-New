@@ -374,3 +374,5 @@
 @media (prefers-reduced-motion: reduce) {
   .admin-page * { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+
+/* Impact review: Admin namespace only; semantic palette and responsive layout are intentionally isolated here. */
