@@ -7,51 +7,113 @@ export const TOLL_PARKING_TREATMENTS = Object.freeze({
   EXCLUDED: 'EXCLUDED',
 })
 
-/**
- * BR-11 financial treatment.
- *
- * shifts.revenue is the authoritative customer-paid total.
- * INCLUDED toll/parking are pass-through amounts already contained in that
- * customer-paid total, so they are removed from Financial Revenue and are not
- * deducted a second time as operating expenses.
- * EXCLUDED toll/parking are paid separately by the driver/business, so the
- * full customer-paid total remains Financial Revenue and the actual toll/
- * parking expense is counted once in operating profit.
- */
-export function deriveFinancialRevenue({ customerPaidTotal, toll = 0, parking = 0, tollParkingRevenueTreatment = TOLL_PARKING_TREATMENTS.INCLUDED } = {}) {
-  const gross = money(customerPaidTotal)
-  if (!Number.isFinite(gross) || gross < 0) return { financialRevenue: null, includedPassThrough: 0, excludedActualExpense: 0, status: 'UNAVAILABLE', reason: 'CUSTOMER_PAID_TOTAL_REQUIRED' }
+const validTreatment = value => {
+  const normalized = String(value || '').toUpperCase()
+  return normalized === TOLL_PARKING_TREATMENTS.INCLUDED || normalized === TOLL_PARKING_TREATMENTS.EXCLUDED
+    ? normalized
+    : null
+}
+const resolveTreatment = (specific, legacy) =>
+  validTreatment(specific) || validTreatment(legacy) || TOLL_PARKING_TREATMENTS.INCLUDED
 
-  const included = tollParkingRevenueTreatment === TOLL_PARKING_TREATMENTS.INCLUDED
-  const tollAmount = nonNegativeMoney(toll)
-  const parkingAmount = nonNegativeMoney(parking)
-  const passThrough = included ? tollAmount + parkingAmount : 0
-  const excludedExpense = included ? 0 : tollAmount + parkingAmount
+/**
+ * Sum actual toll/parking records by their own category and Included/Excluded
+ * treatment. Shift-level amounts are additional-only; trip amounts are counted
+ * separately. Legacy records without independent treatments fall back to the
+ * historical shared shift treatment.
+ */
+export function deriveTollParkingExpenseTreatment({
+  trips = [], toll = 0, parking = 0,
+  tollTreatment, parkingTreatment,
+  tollParkingRevenueTreatment = TOLL_PARKING_TREATMENTS.INCLUDED,
+} = {}) {
+  const totals = {
+    toll: nonNegativeMoney(toll),
+    parking: nonNegativeMoney(parking),
+    includedToll: 0,
+    includedParking: 0,
+    excludedTollExpense: 0,
+    excludedParkingExpense: 0,
+  }
+  const add = (category, amount, treatment) => {
+    const value = nonNegativeMoney(amount)
+    const included = treatment === TOLL_PARKING_TREATMENTS.INCLUDED
+    if (category === 'toll') {
+      totals.toll += value
+      if (included) totals.includedToll += value
+      else totals.excludedTollExpense += value
+    } else {
+      totals.parking += value
+      if (included) totals.includedParking += value
+      else totals.excludedParkingExpense += value
+    }
+  }
+
+  // The initial values above are the additional shift-level amounts. Classify
+  // them independently, then add each completed trip's canonical expense.
+  totals.toll = 0
+  totals.parking = 0
+  add('toll', toll, resolveTreatment(tollTreatment, tollParkingRevenueTreatment))
+  add('parking', parking, resolveTreatment(parkingTreatment, tollParkingRevenueTreatment))
+  for (const trip of live(trips).filter(item => item?.status === 'COMPLETED')) {
+    const legacy = trip.tollParkingRevenueTreatment || tollParkingRevenueTreatment
+    add('toll', trip.toll, resolveTreatment(trip.tollTreatment, legacy))
+    add('parking', trip.parking, resolveTreatment(trip.parkingTreatment, legacy))
+  }
   return {
-    financialRevenue: gross - passThrough,
-    customerPaidTotal: gross,
-    includedPassThrough: passThrough,
-    excludedActualExpense: excludedExpense,
-    toll: tollAmount,
-    parking: parkingAmount,
+    ...totals,
+    includedPassThrough: totals.includedToll + totals.includedParking,
+    excludedActualExpense: totals.excludedTollExpense + totals.excludedParkingExpense,
+    tollTreatment: resolveTreatment(tollTreatment, tollParkingRevenueTreatment),
+    parkingTreatment: resolveTreatment(parkingTreatment, tollParkingRevenueTreatment),
     tollParkingRevenueTreatment,
+  }
+}
+
+/**
+ * BR-11 financial treatment. Shift.revenue is the authoritative customer-paid
+ * total. Included toll/parking are subtracted from financial revenue and are
+ * not deducted a second time as operating costs. Excluded expenses remain
+ * actual operating expenses and are counted once.
+ */
+export function deriveFinancialRevenue({
+  customerPaidTotal, toll = 0, parking = 0, trips = [],
+  tollTreatment, parkingTreatment,
+  tollParkingRevenueTreatment = TOLL_PARKING_TREATMENTS.INCLUDED,
+} = {}) {
+  const gross = money(customerPaidTotal)
+  const expenses = deriveTollParkingExpenseTreatment({
+    trips, toll, parking, tollTreatment, parkingTreatment, tollParkingRevenueTreatment,
+  })
+  if (!Number.isFinite(gross) || gross < 0) {
+    return {
+      financialRevenue: null, ...expenses, status: 'UNAVAILABLE',
+      reason: 'CUSTOMER_PAID_TOTAL_REQUIRED',
+    }
+  }
+  return {
+    financialRevenue: gross - expenses.includedPassThrough,
+    customerPaidTotal: gross,
+    ...expenses,
     status: 'AVAILABLE',
   }
 }
 
 /**
- * Shift-end revenue is the authoritative customer-paid total. Completed-trip
- * fares are optional supporting detail and reconcile against that customer-paid
- * total when complete. Toll/parking treatment is separately exposed for the
- * canonical financial calculation.
+ * Shift-end revenue is authoritative customer-paid total. Completed-trip fares
+ * are optional supporting detail; trip toll/parking treatment is independently
+ * reflected in the financial revenue preview without becoming a second revenue
+ * authority.
  */
-export function reconcileShiftRevenue({ shiftRevenue, trips = [], toll = 0, parking = 0, tollParkingRevenueTreatment = TOLL_PARKING_TREATMENTS.INCLUDED } = {}) {
+export function reconcileShiftRevenue({
+  shiftRevenue, trips = [], toll = 0, parking = 0,
+  tollTreatment, parkingTreatment,
+  tollParkingRevenueTreatment = TOLL_PARKING_TREATMENTS.INCLUDED,
+} = {}) {
   const authoritativeRevenue = money(shiftRevenue)
   const financial = deriveFinancialRevenue({
-    customerPaidTotal: authoritativeRevenue,
-    toll,
-    parking,
-    tollParkingRevenueTreatment,
+    customerPaidTotal: authoritativeRevenue, trips, toll, parking,
+    tollTreatment, parkingTreatment, tollParkingRevenueTreatment,
   })
   const common = {
     authoritativeRevenue: Number.isFinite(authoritativeRevenue) ? authoritativeRevenue : null,
@@ -59,9 +121,8 @@ export function reconcileShiftRevenue({ shiftRevenue, trips = [], toll = 0, park
     completedTrips: 0,
     pricedTrips: 0,
     unpricedTrips: 0,
-    toll: nonNegativeMoney(toll),
-    parking: nonNegativeMoney(parking),
-    tollParkingRevenueTreatment,
+    additionalToll: nonNegativeMoney(toll),
+    additionalParking: nonNegativeMoney(parking),
   }
   if (!Number.isFinite(authoritativeRevenue) || authoritativeRevenue < 0) {
     return { ...common, reconciliationStatus: 'UNAVAILABLE', reason: 'SHIFT_REVENUE_REQUIRED', tripRevenue: null, difference: null }
