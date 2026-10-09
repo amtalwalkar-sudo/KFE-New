@@ -256,7 +256,7 @@ const updateMap = (name, map, id, value) => {
         <button type="button" :class="{selected:cancelReason==='PASSENGER'}" @click="emit('update:cancel-reason','PASSENGER')">Passenger cancellation</button>
         <button type="button" :class="{selected:cancelReason==='DRIVER'}" @click="emit('update:cancel-reason','DRIVER')">Driver cancellation</button>
       </div></div>
-      <label>Cancellation fee<div class="input-unit"><b>₹</b><input :value="cancelFare" type="text" inputmode="none" readonly required autocomplete="off" @focus="activateNumeric('cancel-fare')" aria-label="Cancellation fee" @click="activateNumeric('cancel-fare')"></div></label>
+      <label>Cancellation fee (optional)<div class="input-unit"><b>₹</b><input :value="cancelFare" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('cancel-fare')" aria-label="Optional cancellation fee" @click="activateNumeric('cancel-fare')"></div></label>
       <button type="submit" class="primary-action" :disabled="cancelBusy">{{ cancelBusy ? 'SAVING…' : 'OK — CONFIRM CANCELLATION' }}</button>
     </form>
 
