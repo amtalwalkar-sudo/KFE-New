@@ -135,7 +135,7 @@ const cancelled = transitionTrip(
   { revenue: '', reason: 'DRIVER_MISTAKE' }
 )
 assert.equal(cancelled.id, 'trip-cancel')
-assert.equal(cancelled.cancelledRevenue, 0)
+assert.equal(cancelled.cancelledRevenue, 0, 'Blank cancellation fee defaults to zero')
 
 // 11. Release enforcement.
 assertIncludes(workflow, 'run: npm test', 'Consolidated CI must run the complete contract suite.')

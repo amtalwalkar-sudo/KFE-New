@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core'
 import { useShiftTripStore } from '../stores/shiftTrip.js'
 import { useFuelStore } from '../stores/fuel.js'
 import { WorkService } from '../application/work/workService.js'
+import { WorkDraftService } from '../application/work/workDraftService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { MovementTraceService } from '../infrastructure/location/movementTraceService.js'
 import { KfeRideNotificationService } from '../infrastructure/android/kfeRideNotificationService.js'
@@ -14,6 +15,9 @@ import WorkContextForm from '../components/work/WorkContextForm.vue'
 const store = useShiftTripStore()
 const fuel = useFuelStore()
 const nativeAndroid = Capacitor.getPlatform() === 'android'
+const startWorkflowId = ref('')
+const fuelWorkflowId = ref('')
+let restoringDrafts = false
 
 const startOdo = ref('')
 const startAck = ref(false)
@@ -30,6 +34,8 @@ const fareTripId = ref(null)
 const fare = ref('')
 const tripToll = ref('')
 const tripParking = ref('')
+const tripTollTreatment = ref('INCLUDED')
+const tripParkingTreatment = ref('INCLUDED')
 const fareBusy = ref(false)
 
 
@@ -53,6 +59,7 @@ const shiftRevenue = ref('')
 const toll = ref('')
 const parking = ref('')
 const tollTreatment = ref('INCLUDED')
+const parkingTreatment = ref('INCLUDED')
 const endBusy = ref(false)
 const reviewRevenue = ref({})
 const reviewKm = ref({})
@@ -83,6 +90,67 @@ const notify = text => {
 }
 const fail = text => { error.value = text; message.value = '' }
 
+const tripDraftIdentity = (formId, step, tripId = store.trip?.id, shiftId = store.shift?.id) => ({
+  formId, workflowStep: step, parentType: 'TRIP', parentId: tripId, ownerId: shiftId
+})
+const shiftDraftIdentity = (formId, step, shiftId = store.shift?.id) => ({
+  formId, workflowStep: step, parentType: 'SHIFT', parentId: shiftId
+})
+const startDraftIdentity = () => ({
+  formId: 'work-start-shift', workflowStep: 'START_SHIFT', parentType: 'WORKFLOW',
+  workflowId: startWorkflowId.value
+})
+const fuelDraftIdentity = () => store.shift?.id
+  ? shiftDraftIdentity('work-fuel', 'RECORD_FUEL')
+  : { formId: 'work-fuel', workflowStep: 'RECORD_FUEL', parentType: 'WORKFLOW', workflowId: fuelWorkflowId.value }
+const restoreDraft = async identity => {
+  try { return await WorkDraftService.get(identity) } catch (_) { return null }
+}
+const saveDraft = async (identity, values) => {
+  if (restoringDrafts) return
+  try { await WorkDraftService.save(identity, values) } catch (_) {
+    fail('Draft could not be saved locally. Keep this form open and retry.')
+  }
+}
+const clearCommittedDraft = async identity => {
+  try { await WorkDraftService.clear(identity, { committed: true }) } catch (_) {}
+}
+
+watch([startOdo, startAck, gapChoice], () => {
+  if (!startOpen.value || !startWorkflowId.value || restoringDrafts) return
+  void saveDraft(startDraftIdentity(), { startOdo: startOdo.value, startAck: startAck.value, gapChoice: gapChoice.value })
+})
+watch([fare, tripToll, tripParking, tripTollTreatment, tripParkingTreatment], () => {
+  // Persist only against the trip explicitly opened in the fare form; never
+  // let a reset after commit overwrite the next pending trip's draft.
+  const tripId = fareTripId.value
+  if (!tripId || !store.shift?.id || restoringDrafts) return
+  void saveDraft(tripDraftIdentity('work-trip-details', 'ENTER_FARE', tripId), {
+    fare: fare.value, tripToll: tripToll.value, tripParking: tripParking.value,
+    tripTollTreatment: tripTollTreatment.value, tripParkingTreatment: tripParkingTreatment.value
+  })
+})
+watch([cancelReason, cancelFare], () => {
+  if (!cancelOpen.value || !store.trip?.id || !store.shift?.id || restoringDrafts) return
+  void saveDraft(tripDraftIdentity('work-cancellation', 'CANCEL_TRIP'), {
+    cancelReason: cancelReason.value, cancelFare: cancelFare.value
+  })
+})
+watch([fuelOdo, fuelPrice, fuelAmount, fuelFull], () => {
+  if (!fuelOpen.value || restoringDrafts) return
+  const identity = fuelDraftIdentity()
+  if (!identity.parentId && !identity.workflowId) return
+  void saveDraft(identity, { fuelOdo: fuelOdo.value, fuelPrice: fuelPrice.value, fuelAmount: fuelAmount.value, fuelFull: fuelFull.value })
+})
+watch([closingOdo, shiftRevenue, toll, parking, tollTreatment, parkingTreatment, endStage, reviewRevenue, reviewKm, reviewOperator], () => {
+  if (!endOpen.value || endStage.value === 'ENDED' || !store.shift?.id || restoringDrafts) return
+  void saveDraft(shiftDraftIdentity('work-end-shift', 'END_SHIFT'), {
+    endStage: endStage.value, closingOdo: closingOdo.value, shiftRevenue: shiftRevenue.value,
+    toll: toll.value, parking: parking.value, tollTreatment: tollTreatment.value, parkingTreatment: parkingTreatment.value,
+    reviewRevenue: reviewRevenue.value, reviewKm: reviewKm.value, reviewOperator: reviewOperator.value
+  })
+}, { deep: true })
+
 const gap = computed(() => store.calculateGap(startOdo.value))
 const gapKm = computed(() => Number(gap.value?.gapKm || 0))
 const targetValue = computed(() => target.value?.target == null ? null : Number(target.value.target))
@@ -91,6 +159,8 @@ const targetProgress = computed(() => targetValue.value > 0
   : 0)
 
 const completed = computed(() => store.completedTrips.filter(t => t.status === 'COMPLETED'))
+const tripTollTotal = computed(() => completed.value.filter(t => t.shiftId === store.shift?.id).reduce((sum, trip) => sum + Math.max(0, Number(trip.toll) || 0), 0))
+const tripParkingTotal = computed(() => completed.value.filter(t => t.shiftId === store.shift?.id).reduce((sum, trip) => sum + Math.max(0, Number(trip.parking) || 0), 0))
 const pendingFare = computed(() => {
   if (fareTripId.value) {
     const selected = completed.value.find(t => t.id === fareTripId.value)
@@ -139,10 +209,17 @@ const preview = computed(() => endOpen.value ? WorkService.reconcileShiftRevenue
     ...t,
     revenue: reviewRevenue.value[t.id] ?? t.revenue,
     tripKm: reviewKm.value[t.id] ?? t.tripKm,
-    operator: reviewOperator.value[t.id] ?? t.operator
+    operator: reviewOperator.value[t.id] ?? t.operator,
+    toll: t.toll,
+    parking: t.parking,
+    tollTreatment: t.tollTreatment,
+    parkingTreatment: t.parkingTreatment
   })),
   toll: toll.value,
   parking: parking.value,
+  tollTreatment: tollTreatment.value,
+  parkingTreatment: parkingTreatment.value,
+  tollParkingCaptureMode: 'ADDITIONAL_ONLY',
   tollParkingRevenueTreatment: tollTreatment.value
 }) : null)
 
@@ -238,10 +315,19 @@ async function syncOverlay() {
 async function openStart() {
   fuelOpen.value = false
   endOpen.value = false
+  restoringDrafts = true
   startOpen.value = true
   startOdo.value = store.lastKnownOdometer == null ? '' : String(store.lastKnownOdometer)
   startAck.value = false
   gapChoice.value = ''
+  startWorkflowId.value = (await WorkDraftService.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || WorkDraftService.newWorkflowId()
+  const draft = await restoreDraft(startDraftIdentity())
+  if (draft?.values) {
+    startOdo.value = String(draft.values.startOdo ?? startOdo.value)
+    startAck.value = Boolean(draft.values.startAck)
+    gapChoice.value = String(draft.values.gapChoice ?? '')
+  }
+  restoringDrafts = false
   error.value = ''
   message.value = ''
   // Let the driver's tap focus the field so Android reliably opens its numeric keyboard.
@@ -262,6 +348,8 @@ async function submitStart() {
   try {
     const result = await store.startShift(startOdo.value, gapKm.value ? { category: gapChoice.value } : null)
     if (!result?.ok) return fail(result?.reason || 'Could not start the shift.')
+    await clearCommittedDraft(startDraftIdentity())
+    startWorkflowId.value = WorkDraftService.newWorkflowId()
     startOpen.value = false
     startOdo.value = ''
     startAck.value = false
@@ -333,9 +421,21 @@ async function endTrip() {
     const tripId = store.trip.id
     if (!await store.endTrip()) { fail('Trip could not be completed.'); return false }
     fareTripId.value = tripId
+    restoringDrafts = true
     fare.value = ''
     tripToll.value = ''
     tripParking.value = ''
+    tripTollTreatment.value = 'INCLUDED'
+    tripParkingTreatment.value = 'INCLUDED'
+    const draft = await restoreDraft(tripDraftIdentity('work-trip-details', 'ENTER_FARE', tripId))
+    if (draft?.values) {
+      fare.value = String(draft.values.fare ?? '')
+      tripToll.value = String(draft.values.tripToll ?? '')
+      tripParking.value = String(draft.values.tripParking ?? '')
+      tripTollTreatment.value = String(draft.values.tripTollTreatment || 'INCLUDED')
+      tripParkingTreatment.value = String(draft.values.tripParkingTreatment || 'INCLUDED')
+    }
+    restoringDrafts = false
     await KfeRideNotificationService.completeRide().catch(() => {})
     await syncOverlay()
     notify('Trip ended. Add optional details or skip.')
@@ -361,15 +461,21 @@ async function saveFare(fromNative = false) {
       ...(fare.value === '' ? {} : { revenue: Number(fare.value) }),
       fareDetailsSkipped: fare.value === '',
       toll: tripToll.value === '' ? 0 : Number(tripToll.value),
-      parking: tripParking.value === '' ? 0 : Number(tripParking.value)
+      parking: tripParking.value === '' ? 0 : Number(tripParking.value),
+      tollTreatment: tripTollTreatment.value,
+      parkingTreatment: tripParkingTreatment.value
     }
+    const fareDraft = tripDraftIdentity('work-trip-details', 'ENTER_FARE', pendingFare.value.id)
     const result = await store.updateTrip(details)
     if (!result?.ok) { fail(result?.reason || 'Trip details could not be saved.'); return false }
 
+    await clearCommittedDraft(fareDraft)
     fareTripId.value = null
     fare.value = ''
     tripToll.value = ''
     tripParking.value = ''
+    tripTollTreatment.value = 'INCLUDED'
+    tripParkingTreatment.value = 'INCLUDED'
     if (!fromNative) await AndroidOverlay.fareSaved().catch(() => {})
     if (!fromNative) await KfeRideNotificationService.clearPendingAction().catch(() => {})
     await targetRefresh()
@@ -385,12 +491,16 @@ async function skipTripDetails() {
   if (!pendingFare.value || fareBusy.value) return
   fareBusy.value = true
   try {
+    const fareDraft = tripDraftIdentity('work-trip-details', 'ENTER_FARE', pendingFare.value.id)
     const result = await store.updateTrip({ id: pendingFare.value.id, fareDetailsSkipped: true })
     if (!result?.ok) return fail(result?.reason || 'Trip detail skip could not be saved.')
+    await clearCommittedDraft(fareDraft)
     fareTripId.value = null
     fare.value = ''
     tripToll.value = ''
     tripParking.value = ''
+    tripTollTreatment.value = 'INCLUDED'
+    tripParkingTreatment.value = 'INCLUDED'
     await AndroidOverlay.fareSaved().catch(() => {})
     await KfeRideNotificationService.clearPendingAction().catch(() => {})
     await syncOverlay()
@@ -401,9 +511,18 @@ async function skipTripDetails() {
 }
 
 async function openCancel() {
+  restoringDrafts = true
   cancelOpen.value = true
   cancelReason.value = ''
   cancelFare.value = ''
+  const draft = store.trip?.id && store.shift?.id
+    ? await restoreDraft(tripDraftIdentity('work-cancellation', 'CANCEL_TRIP'))
+    : null
+  if (draft?.values) {
+    cancelReason.value = String(draft.values.cancelReason ?? '')
+    cancelFare.value = String(draft.values.cancelFare ?? '')
+  }
+  restoringDrafts = false
   error.value = ''
   message.value = ''
 }
@@ -411,16 +530,17 @@ async function openCancel() {
 async function saveCancel(fromNative = false) {
   if (cancelBusy.value) return false
   if (!cancelReason.value.trim()) { fail('Cancellation reason is required.'); return false }
-  if (cancelFare.value === '') { fail('Cancellation fee is required.'); return false }
   if (!Number.isFinite(Number(cancelFare.value)) || Number(cancelFare.value) < 0) { fail('Cancellation fee must be a non-negative number.'); return false }
 
   cancelBusy.value = true
   try {
+    const cancellationDraft = tripDraftIdentity('work-cancellation', 'CANCEL_TRIP')
     const result = await store.cancelTrip({
       reason: cancelReason.value.trim(),
       revenue: cancelFare.value
     })
     if (!result?.ok) { fail(result?.reason || 'Cancellation could not be saved.'); return false }
+    await clearCommittedDraft(cancellationDraft)
     cancelOpen.value = false
     if (!fromNative) await AndroidOverlay.cancelSaved().catch(() => {})
     if (!fromNative) await KfeRideNotificationService.clearPendingAction().catch(() => {})
@@ -436,10 +556,20 @@ async function toggleFuel() {
   fuelOpen.value = !fuelOpen.value
   if (!fuelOpen.value) return
   endOpen.value = false
+  restoringDrafts = true
   fuelOdo.value = ''
   fuelPrice.value = ''
   fuelAmount.value = ''
   fuelFull.value = true
+  if (!store.shift?.id) fuelWorkflowId.value = (await WorkDraftService.latestWorkflow('work-fuel', 'RECORD_FUEL'))?.workflowId || WorkDraftService.newWorkflowId()
+  const draft = await restoreDraft(fuelDraftIdentity())
+  if (draft?.values) {
+    fuelOdo.value = String(draft.values.fuelOdo ?? '')
+    fuelPrice.value = String(draft.values.fuelPrice ?? '')
+    fuelAmount.value = String(draft.values.fuelAmount ?? '')
+    fuelFull.value = draft.values.fuelFull !== false
+  }
+  restoringDrafts = false
   error.value = ''
   message.value = ''
 }
@@ -480,6 +610,7 @@ async function saveFuel() {
       isFullTank: fuelFull.value
     })
     if (!result?.ok) return fail(result.reason)
+    await clearCommittedDraft(fuelDraftIdentity())
     fuelOpen.value = false
     notify('Fuel saved.')
   } finally {
@@ -501,7 +632,7 @@ function seedReview() {
   reviewOperator.value = operators
 }
 
-function openEnd() {
+async function openEnd() {
   if (store.isTripActive) return fail('End the active Trip before going Offline.')
   
   fuelOpen.value = false
@@ -512,7 +643,23 @@ function openEnd() {
   toll.value = ''
   parking.value = ''
   tollTreatment.value = 'INCLUDED'
+  parkingTreatment.value = 'INCLUDED'
   seedReview()
+  restoringDrafts = true
+  const draft = await restoreDraft(shiftDraftIdentity('work-end-shift', 'END_SHIFT'))
+  if (draft?.values) {
+    endStage.value = String(draft.values.endStage || 'CLOSE')
+    closingOdo.value = String(draft.values.closingOdo ?? '')
+    shiftRevenue.value = String(draft.values.shiftRevenue ?? '')
+    toll.value = String(draft.values.toll ?? '')
+    parking.value = String(draft.values.parking ?? '')
+    tollTreatment.value = String(draft.values.tollTreatment || 'INCLUDED')
+    parkingTreatment.value = String(draft.values.parkingTreatment || 'INCLUDED')
+    reviewRevenue.value = draft.values.reviewRevenue || reviewRevenue.value
+    reviewKm.value = draft.values.reviewKm || reviewKm.value
+    reviewOperator.value = draft.values.reviewOperator || reviewOperator.value
+  }
+  restoringDrafts = false
   error.value = ''
   message.value = ''
 }
@@ -547,6 +694,7 @@ async function finishEnd() {
   endBusy.value = true
   try {
     if (reviewedDeadKm.value < -0.000001) return fail('Completed trip KM exceeds total shift KM. Correct the trip KM before ending the shift.')
+    const endDraft = shiftDraftIdentity('work-end-shift', 'END_SHIFT')
     const trips = completed.value.map(t => ({
       id: t.id,
       operator: reviewOperator.value[t.id] ?? t.operator,
@@ -558,10 +706,14 @@ async function finishEnd() {
       revenue: shiftRevenue.value,
       toll: toll.value,
       parking: parking.value,
+      tollTreatment: tollTreatment.value,
+      parkingTreatment: parkingTreatment.value,
+      tollParkingCaptureMode: 'ADDITIONAL_ONLY',
       tollParkingRevenueTreatment: tollTreatment.value,
       trips
     })
     if (!result?.ok) return fail(result.reason)
+    await clearCommittedDraft(endDraft)
     endStage.value = 'ENDED'
     await KfeRideNotificationService.clear().catch(() => {})
     notify('Shift ended.')
@@ -645,10 +797,14 @@ const handleNativeAction = async event => {
       fare.value = payload.fare == null ? '' : String(payload.fare)
       tripToll.value = payload.toll == null ? '' : String(payload.toll)
       tripParking.value = payload.parking == null ? '' : String(payload.parking)
+      tripTollTreatment.value = String(payload.tollTreatment || 'INCLUDED')
+      tripParkingTreatment.value = String(payload.parkingTreatment || 'INCLUDED')
     } catch (_) {
       fare.value = String(event.input)
       tripToll.value = ''
       tripParking.value = ''
+      tripTollTreatment.value = 'INCLUDED'
+      tripParkingTreatment.value = 'INCLUDED'
     }
     return Boolean(await saveFare(true))
   }
@@ -669,8 +825,23 @@ async function processNativeEvent(event) {
 
 onMounted(async () => {
   await store.initialize()
+  startWorkflowId.value = (await WorkDraftService.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || WorkDraftService.newWorkflowId()
+  fuelWorkflowId.value = (await WorkDraftService.latestWorkflow('work-fuel', 'RECORD_FUEL'))?.workflowId || WorkDraftService.newWorkflowId()
   await targetRefresh()
   operator.value = store.defaultOperator
+  if (pendingFare.value?.id && store.shift?.id) {
+    fareTripId.value = pendingFare.value.id
+    restoringDrafts = true
+    const draft = await restoreDraft(tripDraftIdentity('work-trip-details', 'ENTER_FARE', pendingFare.value.id))
+    if (draft?.values) {
+      fare.value = String(draft.values.fare ?? '')
+      tripToll.value = String(draft.values.tripToll ?? '')
+      tripParking.value = String(draft.values.tripParking ?? '')
+      tripTollTreatment.value = String(draft.values.tripTollTreatment || 'INCLUDED')
+      tripParkingTreatment.value = String(draft.values.tripParkingTreatment || 'INCLUDED')
+    }
+    restoringDrafts = false
+  }
 
   clock.value = Date.now()
   timer = setInterval(() => { clock.value = Date.now() }, 1000)
@@ -755,12 +926,20 @@ onBeforeUnmount(() => {
       :review-km="reviewKm"
       :review-operator="reviewOperator"
       :toll-treatment="tollTreatment"
+      :parking-treatment="parkingTreatment"
+      :toll="toll"
+      :parking="parking"
+      :trip-toll-total="tripTollTotal"
+      :trip-parking-total="tripParkingTotal"
       @update:closing-odo="closingOdo=$event"
       @update:shift-revenue="shiftRevenue=$event"
       @update:review-revenue="reviewRevenue=$event"
       @update:review-km="reviewKm=$event"
       @update:review-operator="reviewOperator=$event"
       @update:toll-treatment="tollTreatment=$event"
+      @update:parking-treatment="parkingTreatment=$event"
+      @update:toll="toll=$event"
+      @update:parking="parking=$event"
       @action="handleContextAction"
     />
 
@@ -804,9 +983,13 @@ onBeforeUnmount(() => {
       :fare="fare"
       :trip-toll="tripToll"
       :trip-parking="tripParking"
+      :trip-toll-treatment="tripTollTreatment"
+      :trip-parking-treatment="tripParkingTreatment"
       @update:fare="fare=$event"
       @update:trip-toll="tripToll=$event"
       @update:trip-parking="tripParking=$event"
+      @update:trip-toll-treatment="tripTollTreatment=$event"
+      @update:trip-parking-treatment="tripParkingTreatment=$event"
       @action="handleContextAction"
     />
 

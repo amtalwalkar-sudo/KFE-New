@@ -160,7 +160,7 @@ If the driver chooses CANCEL TRIP:
 
 - Required cancellation reason is entered.
 - Cancellation fee is entered only when applicable; otherwise it may remain blank.
-- Blank/not-applicable fee remains absent and must not create an independent revenue record; an explicitly entered zero remains distinct from blank.
+- Blank/not-applicable cancellation fee defaults to numeric zero (`0`); explicitly entered zero has the same stored amount. Cancelled-trip amounts remain supporting-only and must not create an independent revenue authority.
 - Mandatory fields cannot be bypassed.
 - KFE records the cancellation event and automatic context such as time/GPS where available.
 - After successful cancellation confirmation, the driver returns directly to the main KFE state before going for the next pickup.

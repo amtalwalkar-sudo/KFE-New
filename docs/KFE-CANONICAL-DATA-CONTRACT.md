@@ -63,6 +63,8 @@ Operational boundary for vehicle movement and shift lifecycle. `Shift.startOdome
 
 **Revenue authority:** `Shift.revenue`, entered/confirmed at shift completion, is the authoritative ERP revenue input for the shift. It is the value used by performance, target, break-even and reporting calculations that require operational revenue.
 
+`Shift.toll` and `Shift.parking` represent additional shift-level actual expenses only for records marked `tollParkingCaptureMode: 'ADDITIONAL_ONLY'`; they must not duplicate expenses already recorded against Trips. New Work-created shifts use this mode. Legacy shifts without the mode retain aggregate compatibility and must not have trip-level amounts added twice. `Shift.tollTreatment` and `Shift.parkingTreatment` independently retain Included/Excluded treatment. The legacy `Shift.tollParkingRevenueTreatment` remains readable as a fallback for historical records without independent treatment fields.
+
 A Shift cannot be administratively deleted through the normal Admin repository. Corrections are updates to the Work-created source record and are audited.
 
 ### Trip / Ride
@@ -71,11 +73,11 @@ Ride-level operational detail linked to a Shift through `shiftId`. Completed `tr
 
 `Trip.revenue` is **optional supporting/detail data only**. It must never override or replace shift-end revenue in ERP revenue calculations. Missing trip fare detail never blocks the next pickup or shift closure. Its provenance may be retained for audit and ride-level display.
 
-`Trip.toll` and `Trip.parking` are optional trip-associated actual expense details captured after a completed trip. They retain the Trip identity and completion timestamp for reconciliation and monthly expense-ledger display. Legacy `Shift.toll` and `Shift.parking` values remain readable for historical records; current Work capture must not duplicate the same expense in both places.
+`Trip.toll` and `Trip.parking` are optional trip-associated actual expense details captured after a completed trip. They retain the Trip identity and completion timestamp for reconciliation and monthly expense-ledger display. `Trip.tollTreatment` and `Trip.parkingTreatment` independently retain Included/Excluded treatment for their respective actual expense records. Legacy `Shift.toll` and `Shift.parking` values remain readable for historical records; current Work capture must not duplicate the same expense in both places.
 
 Ride cancellation is an operational status/outcome, not deletion. Trip history is retained.
 
-Cancellation-fee detail preserves absence separately from an explicitly entered zero. Blank/not-applicable detail is represented as `null`; explicit zero remains numeric `0`. Cancelled-trip amounts are supporting-only and never replace authoritative `Shift.revenue`. Legacy records that already collapsed blank to zero are not presumed to contain an explicitly entered zero.
+Cancellation-fee detail defaults to numeric `0` when blank or not applicable. An explicitly entered zero is also stored as numeric `0`. Cancelled-trip amounts are supporting-only and never replace authoritative `Shift.revenue`.
 
 ### Odometer
 

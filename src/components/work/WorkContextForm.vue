@@ -28,6 +28,13 @@ const props = defineProps({
   reviewKm: { type: Object, default: () => ({}) },
   reviewOperator: { type: Object, default: () => ({}) },
   tollTreatment: { type: String, default: 'INCLUDED' },
+  parkingTreatment: { type: String, default: 'INCLUDED' },
+  tripTollTreatment: { type: String, default: 'INCLUDED' },
+  tripParkingTreatment: { type: String, default: 'INCLUDED' },
+  toll: { type: String, default: '' },
+  parking: { type: String, default: '' },
+  tripTollTotal: { type: Number, default: 0 },
+  tripParkingTotal: { type: Number, default: 0 },
   fare: { type: String, default: '' },
   tripToll: { type: String, default: '' },
   tripParking: { type: String, default: '' },
@@ -51,6 +58,11 @@ const emit = defineEmits([
   'update:review-km',
   'update:review-operator',
   'update:toll-treatment',
+  'update:parking-treatment',
+  'update:trip-toll-treatment',
+  'update:trip-parking-treatment',
+  'update:toll',
+  'update:parking',
   'update:fare',
   'update:trip-toll',
   'update:trip-parking',
@@ -79,7 +91,9 @@ const activeNumeric = computed(() => {
     'fuel-price': props.fuelPrice,
     'fuel-amount': props.fuelAmount,
     'closing-odo': props.closingOdo,
-    'shift-revenue': props.shiftRevenue
+    'shift-revenue': props.shiftRevenue,
+    'shift-toll': props.toll,
+    'shift-parking': props.parking
   }
   if (name in map) return { name, value: map[name] == null ? '' : String(map[name]), decimal: name === 'fuel-price' }
   if (name.startsWith('review-revenue:')) {
@@ -111,7 +125,9 @@ function emitNumeric(name, value) {
     'fuel-price': 'update:fuel-price',
     'fuel-amount': 'update:fuel-amount',
     'closing-odo': 'update:closing-odo',
-    'shift-revenue': 'update:shift-revenue'
+    'shift-revenue': 'update:shift-revenue',
+    'shift-toll': 'update:toll',
+    'shift-parking': 'update:parking'
   }
   if (events[name]) { emit(events[name], value); return }
   if (name.startsWith('review-revenue:')) {
@@ -134,14 +150,17 @@ const numericLabels = {
   'fuel-price': 'Price / kg',
   'fuel-amount': 'Amount',
   'closing-odo': 'Closing odometer',
-  'shift-revenue': 'Total shift revenue'
+  'shift-revenue': 'Total shift revenue',
+  'shift-toll': 'Additional toll',
+  'shift-parking': 'Additional parking'
 }
 const numericNext = {
   'fare': 'trip-toll',
   'trip-toll': 'trip-parking',
   'fuel-odo': 'fuel-price',
   'fuel-price': 'fuel-amount',
-  'closing-odo': 'shift-revenue'
+  'closing-odo': 'shift-revenue',
+  'shift-toll': 'shift-parking'
 }
 const numericLabel = name => {
   if (numericLabels[name]) return numericLabels[name]
@@ -163,7 +182,7 @@ const numericPress = async token => {
   else if (token !== 'DONE' && token !== 'NEXT') next = next === '0' ? token : next + token
 
   if (token === 'DONE') {
-    const finalFields = new Set(['trip-parking', 'cancel-fare', 'fuel-amount', 'shift-revenue'])
+    const finalFields = new Set(['trip-parking', 'cancel-fare', 'fuel-amount', 'shift-revenue', 'shift-parking'])
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     suppressNumericFocus.value = true
     activeNumericField.value = null
@@ -245,6 +264,10 @@ const updateMap = (name, map, id, value) => {
     <form v-else-if="type === 'fare'" class="form-card state-tone-warning focus-surface" @submit.prevent="submitForm">
       <div class="form-head"><div><span class="eyebrow">TRIP COMPLETED</span><strong>OPTIONAL DETAILS</strong></div><button class="text-action" type="button" @click="emit('action','skip-fare')">Skip</button></div>
       <label>Trip fare <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="fare" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('fare')" aria-label="Trip fare" @click="activateNumeric('fare')"></div></label>
+      <div class="treatment-row">
+        <label class="check-row"><input aria-label="Toll was paid separately" :checked="tripTollTreatment==='EXCLUDED'" type="checkbox" @change="emit('update:trip-toll-treatment',$event.target.checked ? 'EXCLUDED' : 'INCLUDED')"><span>Toll separate</span></label>
+        <label class="check-row"><input aria-label="Parking was paid separately" :checked="tripParkingTreatment==='EXCLUDED'" type="checkbox" @change="emit('update:trip-parking-treatment',$event.target.checked ? 'EXCLUDED' : 'INCLUDED')"><span>Parking separate</span></label>
+      </div>
       <label>Toll <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="tripToll" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('trip-toll')" aria-label="Toll" @click="activateNumeric('trip-toll')"></div></label>
       <label>Parking <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="tripParking" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('trip-parking')" aria-label="Parking" @click="activateNumeric('trip-parking')"></div></label>
       <button type="submit" class="primary-action" :disabled="fareBusy">{{ fareBusy ? 'SAVING…' : 'SAVE DETAILS & CONTINUE' }}</button>
@@ -256,7 +279,7 @@ const updateMap = (name, map, id, value) => {
         <button type="button" :class="{selected:cancelReason==='PASSENGER'}" @click="emit('update:cancel-reason','PASSENGER')">Passenger cancellation</button>
         <button type="button" :class="{selected:cancelReason==='DRIVER'}" @click="emit('update:cancel-reason','DRIVER')">Driver cancellation</button>
       </div></div>
-      <label>Cancellation fee<div class="input-unit"><b>₹</b><input :value="cancelFare" type="text" inputmode="none" readonly required autocomplete="off" @focus="activateNumeric('cancel-fare')" aria-label="Cancellation fee" @click="activateNumeric('cancel-fare')"></div></label>
+      <label>Cancellation fee (optional)<div class="input-unit"><b>₹</b><input :value="cancelFare" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('cancel-fare')" aria-label="Cancellation fee" @click="activateNumeric('cancel-fare')"></div></label>
       <button type="submit" class="primary-action" :disabled="cancelBusy">{{ cancelBusy ? 'SAVING…' : 'OK — CONFIRM CANCELLATION' }}</button>
     </form>
 
@@ -287,7 +310,20 @@ const updateMap = (name, map, id, value) => {
       <template v-else-if="endStage==='REVIEW'">
         <div class="fact-grid review"><div><span>Trips</span><strong>{{ endCompletedCount }}</strong></div><div><span>Total shift KM</span><strong>{{ endShiftKm.toFixed(1) }}</strong></div><div><span>Trip KM</span><strong>{{ endReviewedTripKm.toFixed(1) }}</strong></div><div><span>Dead KM</span><strong>{{ endReviewedDeadKm.toFixed(1) }}</strong></div><div><span>Revenue</span><strong>{{ money(shiftRevenue) }}</strong></div></div>
         <div v-if="endReviewedDeadKm < -0.000001" class="exception-panel"><strong>KM RECONCILIATION REQUIRED</strong><p>Trip KM exceeds total shift KM by {{ Math.abs(endReviewedDeadKm).toFixed(1) }} km.</p></div>
-        <label class="check-row"><input :checked="tollTreatment==='EXCLUDED'" type="checkbox" @change="emit('update:toll-treatment',$event.target.checked ? 'EXCLUDED' : 'INCLUDED')"><span>Toll & parking were paid separately</span></label>
+        <div class="expense-row">
+          <div class="expense-trip-total"><span>Trip toll already recorded</span><strong>{{ money(tripTollTotal) }}</strong></div>
+          <div class="expense-shift-capture">
+            <label>Additional shift toll <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="toll" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('shift-toll')" aria-label="Additional shift toll" @click="activateNumeric('shift-toll')"></div></label>
+            <label class="check-row"><input :checked="tollTreatment==='EXCLUDED'" type="checkbox" @change="emit('update:toll-treatment',$event.target.checked ? 'EXCLUDED' : 'INCLUDED')"><span>Additional toll paid separately</span></label>
+          </div>
+        </div>
+        <div class="expense-row">
+          <div class="expense-trip-total"><span>Trip parking already recorded</span><strong>{{ money(tripParkingTotal) }}</strong></div>
+          <div class="expense-shift-capture">
+            <label>Additional shift parking <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="parking" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('shift-parking')" aria-label="Additional shift parking" @click="activateNumeric('shift-parking')"></div></label>
+            <label class="check-row"><input :checked="parkingTreatment==='EXCLUDED'" type="checkbox" @change="emit('update:parking-treatment',$event.target.checked ? 'EXCLUDED' : 'INCLUDED')"><span>Additional parking paid separately</span></label>
+          </div>
+        </div>
         <button type="submit" class="primary-action">REVIEW COMPLETE</button>
       </template>
       <template v-else-if="endStage==='CONFIRM'">
@@ -329,11 +365,16 @@ const updateMap = (name, map, id, value) => {
 .choice-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .choice-row button{min-height:48px}
 .check-row{display:flex!important;grid-template-columns:none!important;align-items:center;gap:10px}
-.check-row input{width:22px!important;height:22px}
+.check-row input{width:22px!important;height:22px;min-height:22px!important}
+.treatment-row{display:grid;grid-template-columns:1fr 1fr;gap:4px;min-width:0}.treatment-row .check-row{font-size:.68rem;gap:4px;line-height:1.1;min-width:0}.treatment-row .check-row input{width:18px!important;height:18px;min-height:18px!important}.treatment-row .check-row span{overflow-wrap:anywhere}
 .primary-action,.text-action,.choice-row button{touch-action:manipulation}
 .primary-action{min-height:48px}
 .form-card input,.form-card select,.form-card button{font:inherit}
-.form-card input{font-size:16px}.form-fare .form-card{padding:8px;gap:6px}.form-fare .form-card label{gap:2px}.form-fare .form-card .primary-action{min-height:42px}
+.form-card input{font-size:16px}.form-fare .form-card{padding:3px;gap:3px}.form-fare .form-card label{gap:0}.form-fare .form-card .input-unit input{height:42px;min-height:42px!important}.form-fare .form-card .primary-action{min-height:38px}
+.expense-row{display:grid;grid-template-columns:minmax(76px,.8fr) minmax(0,1.2fr);gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--kfe-ui-border)}
+.expense-trip-total{display:grid;gap:3px;font-size:.78rem;overflow-wrap:anywhere}.expense-trip-total strong{font-size:.9rem}
+.expense-shift-capture{display:grid;gap:6px;min-width:0}.expense-shift-capture>label:not(.check-row){font-size:.78rem;gap:3px}.expense-shift-capture .check-row{font-size:.68rem;gap:5px;line-height:1.1}.expense-shift-capture .check-row input{width:18px!important;height:18px}
+@media(max-width:380px){.expense-row{grid-template-columns:minmax(70px,.7fr) minmax(0,1.3fr);gap:6px}}
 @keyframes work-form-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 @media(max-width:640px){.form-card{padding:12px}.form-card{max-width:100%}}
 

@@ -2,6 +2,7 @@ import { calculateRollingFuelCostPerKm } from '../math/fuel.js'
 import { CALCULATION_STATUS, calculationEvidence } from './calculationAuthority.js'
 import { authoritativeShiftRevenue } from './authoritativeRevenue.js'
 import { istDateKey } from '../time/ist.js'
+import { deriveTollParkingExpenseTreatment } from '../work/revenueReconciliation.js'
 
 const n = v => Number.isFinite(Number(v)) ? Number(v) : 0
 const odometer = v => { const x = Number(v); return Number.isFinite(x) && x >= 0 ? x : NaN }
@@ -137,23 +138,23 @@ export function derivePerformance(s, r, p = previousRange(r)) {
     const sh = S.filter(a => inR(a.shiftEndAt || a.shiftStartAt, x)), tr = T.filter(a => a.status === 'COMPLETED' && inR(a.tripEndAt || a.tripStartAt, x)), fu = F.filter(a => inR(a.capturedAt, x)), ma = M.filter(a => inR(a.performedOn, x))
     const revenue = authoritativeShiftRevenue(S, x)
     const financial = sh.reduce((result, shift) => {
-      const treatment = String(shift.tollParkingRevenueTreatment || 'INCLUDED').toUpperCase()
       const shiftTrips = T.filter(trip => trip.shiftId === shift.id && trip.status === 'COMPLETED')
-      // Shift-level and trip-level toll/parking are both real cost records in
-      // the canonical model. Trip-level charges must therefore be included in
-      // addition to any shift-level aggregate, matching revenue treatment.
-      const tripToll = shiftTrips.reduce((sum, trip) => sum + n(trip.toll), 0)
-      const tripParking = shiftTrips.reduce((sum, trip) => sum + n(trip.parking), 0)
-      const toll = n(shift.toll) + tripToll
-      const parking = n(shift.parking) + tripParking
-      const included = treatment === 'INCLUDED'
-      result.financialRevenue += n(shift.revenue) - (included ? toll + parking : 0)
-      result.toll += toll
-      result.parking += parking
-      result.passThroughToll += included ? toll : 0
-      result.passThroughParking += included ? parking : 0
-      result.excludedTollExpense += included ? 0 : toll
-      result.excludedParkingExpense += included ? 0 : parking
+      const expenses = deriveTollParkingExpenseTreatment({
+        trips: shiftTrips,
+        toll: shift.toll,
+        parking: shift.parking,
+        tollTreatment: shift.tollTreatment,
+        parkingTreatment: shift.parkingTreatment,
+        tollParkingCaptureMode: shift.tollParkingCaptureMode,
+        tollParkingRevenueTreatment: shift.tollParkingRevenueTreatment || 'INCLUDED',
+      })
+      result.financialRevenue += n(shift.revenue) - expenses.includedPassThrough
+      result.toll += expenses.toll
+      result.parking += expenses.parking
+      result.passThroughToll += expenses.includedToll
+      result.passThroughParking += expenses.includedParking
+      result.excludedTollExpense += expenses.excludedTollExpense
+      result.excludedParkingExpense += expenses.excludedParkingExpense
       return result
     }, { financialRevenue: 0, toll: 0, parking: 0, passThroughToll: 0, passThroughParking: 0, excludedTollExpense: 0, excludedParkingExpense: 0 })
     const vehicleKm = sh.reduce((z, a) => { const start = odometer(a.startOdometer); const end = odometer(a.endOdometer); return Number.isFinite(start) && Number.isFinite(end) && end >= start ? z + (end - start) : z }, 0)

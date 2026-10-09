@@ -37,7 +37,7 @@ The tested APK MUST exercise the real Android flow end-to-end:
 12. Foreground/reopen the main app
 13. Timeline shows the same completed ride and fare
 14. While the canonical trip is in PICKUP, the right-edge ❌ opens cancellation fee entry
-15. Confirming cancellation records the same canonical trip as CANCELLED and ₹0 revenue when no fee is entered
+15. Confirming cancellation records the same canonical trip as CANCELLED; a blank fee defaults to numeric zero supporting detail and does not create revenue
 16. Cancelling the cancellation form leaves the pickup trip active
 17. Once the ride has started, cancellation is not available
 18. Revenue/fare entry uses the in-overlay numeric keypad; the Android system keyboard must not take over the overlay
@@ -86,7 +86,7 @@ A pending action is a recovery mechanism, never a second execution path.
 
 ## 5. Cancellation and notification gate
 
-Cancellation is a canonical trip lifecycle operation, never a second trip or a separate revenue record. Cancellation is available only while the canonical trip is in PICKUP; once the ride has started, cancellation is unavailable. The overlay cancellation action MUST reach the same WorkService/ShiftTripRepository path as the main app. A blank cancellation fee is treated as ₹0 revenue. The KFE Settings > Application Settings notification switch controls KFE ride/system action notifications without disabling the overlay itself.
+Cancellation is a canonical trip lifecycle operation, never a second trip or a separate revenue record. Cancellation is available only while the canonical trip is in PICKUP; once the ride has started, cancellation is unavailable. The overlay cancellation action MUST reach the same WorkService/ShiftTripRepository path as the main app. A blank cancellation fee defaults to numeric ₹0; an explicitly entered ₹0 is also numeric zero. Cancellation amounts are supporting-only and never create or replace authoritative Shift.revenue. The KFE Settings > Application Settings notification switch controls KFE ride/system action notifications without disabling the overlay itself.
 
 ## 6. Bubble gate
 
