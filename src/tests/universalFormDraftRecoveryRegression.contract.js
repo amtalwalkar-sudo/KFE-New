@@ -34,7 +34,7 @@ check('Timeline trip and fuel edits survive dismissal and restart', () => {
 check('Work draft writes cannot race commit-time clearing', () => {
   assert.doesNotMatch(workView, /void saveDraft\(/, 'Draft writes must be serialized/awaitable, not fire-and-forget')
   assert.match(workView, /flushDraft|awaitDraftWrites|draftWriteQueue|serializeDraft/, 'Commit must wait for pending draft writes before clearing')
-  assert.doesNotMatch(workView, /const clearCommittedDraft = async identity => \{\s*try \{ await WorkDraftService\.clear\(identity, \{ committed: true \}\) \} catch \(_) \{\} \}/, 'Draft-clear failures must be surfaced or reconciled rather than silently swallowed')
+  assert.doesNotMatch(workView, /const clearCommittedDraft[\\s\\S]{0,180}catch/, 'Draft-clear failures must be surfaced or reconciled rather than silently swallowed')
 })
 
 if (failures.length) {
