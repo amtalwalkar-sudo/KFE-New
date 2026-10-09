@@ -4,7 +4,7 @@ import { Capacitor } from '@capacitor/core'
 import { useShiftTripStore } from '../stores/shiftTrip.js'
 import { useFuelStore } from '../stores/fuel.js'
 import { WorkService } from '../application/work/workService.js'
-import { FormDraftRepository } from '../repositories/formDraftRepository.js'
+import { WorkDraftService } from '../application/work/workDraftService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { MovementTraceService } from '../infrastructure/location/movementTraceService.js'
 import { KfeRideNotificationService } from '../infrastructure/android/kfeRideNotificationService.js'
@@ -101,16 +101,16 @@ const fuelDraftIdentity = () => store.shift?.id
   ? shiftDraftIdentity('work-fuel', 'RECORD_FUEL')
   : { formId: 'work-fuel', workflowStep: 'RECORD_FUEL', parentType: 'WORKFLOW', workflowId: fuelWorkflowId.value }
 const restoreDraft = async identity => {
-  try { return await FormDraftRepository.get(identity) } catch (_) { return null }
+  try { return await WorkDraftService.get(identity) } catch (_) { return null }
 }
 const saveDraft = async (identity, values) => {
   if (restoringDrafts) return
-  try { await FormDraftRepository.save(identity, values) } catch (_) {
+  try { await WorkDraftService.save(identity, values) } catch (_) {
     fail('Draft could not be saved locally. Keep this form open and retry.')
   }
 }
 const clearCommittedDraft = async identity => {
-  try { await FormDraftRepository.clear(identity, { committed: true }) } catch (_) {}
+  try { await WorkDraftService.clear(identity, { committed: true }) } catch (_) {}
 }
 
 watch([startOdo, startAck, gapChoice], () => {
@@ -301,7 +301,7 @@ async function openStart() {
   fuelOpen.value = false
   endOpen.value = false
   restoringDrafts = true
-  startWorkflowId.value = (await FormDraftRepository.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || FormDraftRepository.newWorkflowId()
+  startWorkflowId.value = (await WorkDraftService.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || WorkDraftService.newWorkflowId()
   startOpen.value = true
   startOdo.value = store.lastKnownOdometer == null ? '' : String(store.lastKnownOdometer)
   startAck.value = false
@@ -334,7 +334,7 @@ async function submitStart() {
     const result = await store.startShift(startOdo.value, gapKm.value ? { category: gapChoice.value } : null)
     if (!result?.ok) return fail(result?.reason || 'Could not start the shift.')
     await clearCommittedDraft(startDraftIdentity())
-    startWorkflowId.value = FormDraftRepository.newWorkflowId()
+    startWorkflowId.value = WorkDraftService.newWorkflowId()
     startOpen.value = false
     startOdo.value = ''
     startAck.value = false
@@ -536,7 +536,7 @@ async function toggleFuel() {
   fuelPrice.value = ''
   fuelAmount.value = ''
   fuelFull.value = true
-  if (!store.shift?.id) fuelWorkflowId.value = (await FormDraftRepository.latestWorkflow('work-fuel', 'RECORD_FUEL'))?.workflowId || FormDraftRepository.newWorkflowId()
+  if (!store.shift?.id) fuelWorkflowId.value = (await WorkDraftService.latestWorkflow('work-fuel', 'RECORD_FUEL'))?.workflowId || WorkDraftService.newWorkflowId()
   const draft = await restoreDraft(fuelDraftIdentity())
   if (draft?.values) {
     fuelOdo.value = String(draft.values.fuelOdo ?? '')
@@ -791,8 +791,8 @@ async function processNativeEvent(event) {
 
 onMounted(async () => {
   await store.initialize()
-  startWorkflowId.value = (await FormDraftRepository.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || FormDraftRepository.newWorkflowId()
-  fuelWorkflowId.value = (await FormDraftRepository.latestWorkflow('work-fuel', 'RECORD_FUEL'))?.workflowId || FormDraftRepository.newWorkflowId()
+  startWorkflowId.value = (await WorkDraftService.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || WorkDraftService.newWorkflowId()
+  fuelWorkflowId.value = (await WorkDraftService.latestWorkflow('work-fuel', 'RECORD_FUEL'))?.workflowId || WorkDraftService.newWorkflowId()
   await targetRefresh()
   operator.value = store.defaultOperator
   if (pendingFare.value?.id && store.shift?.id) {
