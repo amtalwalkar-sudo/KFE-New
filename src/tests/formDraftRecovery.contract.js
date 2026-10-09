@@ -46,6 +46,6 @@ assert.match(workView, /watch\(\[cancelReason, cancelFare\]/, 'Cancellation draf
 assert.match(workView, /watch\(\[fuelOdo, fuelPrice, fuelAmount, fuelFull\]/, 'Fuel draft must persist edits')
 assert.match(workView, /watch\(\[closingOdo, shiftRevenue, toll, parking, tollTreatment, endStage/, 'End-shift draft must persist edits')
 assert.doesNotMatch(workView, /Cancellation fee is required/, 'Blank cancellation fee must remain valid')
-assert.match(workForm, /Cancellation fee \\(optional\\)/, 'Cancellation fee must be presented as optional')
+assert.match(workForm, /Cancellation fee \(optional\)/, 'Cancellation fee must be presented as optional')
 
 console.log('Universal parent-scoped form draft recovery contract passed.')
