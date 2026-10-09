@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { FormDraftService } from '../../application/forms/formDraftService.js'
 
 const props = defineProps({
   fields: { type: Array, required: true },
@@ -8,9 +9,12 @@ const props = defineProps({
   submitLabel: { type: String, default: 'Save record' },
   showActions: { type: Boolean, default: true },
   autoOpenFirst: { type: Boolean, default: false },
-  errors: { type: Object, default: () => ({}) }
+  errors: { type: Object, default: () => ({}) },
+  draftIdentity: { type: Object, default: null }
 })
-const emit = defineEmits(['submit', 'cancel', 'field-change'])
+const emit = defineEmits(['submit', 'cancel', 'field-change', 'draft-restored', 'draft-error'])
+let draftWriteQueue = Promise.resolve()
+let restoringDraft = false
 const nodes = ref({})
 const fields = computed(() => (props.fields || []).filter(f => f && !f.hidden))
 const sections = computed(() => {
@@ -34,7 +38,43 @@ function read(field) {
   if (field.type === 'number') return el.value === '' ? '' : Number(el.value)
   return el.value
 }
-function changed(field) { emit('field-change', { key: field.key, value: read(field) }) }
+function changed(field) {
+  emit('field-change', { key: field.key, value: read(field) })
+  if (restoringDraft || !props.draftIdentity) return
+  const values = collect()
+  draftWriteQueue = draftWriteQueue.then(() => FormDraftService.save(props.draftIdentity, values))
+    .catch(error => { emit('draft-error', error); return null })
+}
+async function restoreDraft() {
+  if (!props.draftIdentity) return
+  try {
+    const record = await FormDraftService.get(props.draftIdentity)
+    if (!record?.values) return
+    restoringDraft = true
+    await nextTick()
+    for (const field of fields.value) {
+      const el = nodes.value[field.key]
+      if (!el || record.values[field.key] === undefined) continue
+      if (field.type === 'checkbox') el.checked = !!record.values[field.key]
+      else el.value = record.values[field.key] ?? ''
+    }
+    emit('draft-restored', structuredClone(record.values))
+  } catch (error) { emit('draft-error', error) }
+  finally { restoringDraft = false }
+}
+async function submitForm() {
+  await draftWriteQueue
+  emit('submit', collect())
+}
+async function cancelForm() {
+  if (props.draftIdentity) {
+    const confirmed = typeof confirm === 'function' && confirm('Discard this unfinished form?')
+    if (!confirmed) return
+    try { await draftWriteQueue; await FormDraftService.clear(props.draftIdentity, { confirmedDiscard: true }) }
+    catch (error) { emit('draft-error', error); return }
+  }
+  emit('cancel')
+}
 function collect() {
   const result = {}
   for (const f of props.fields || []) {
@@ -67,19 +107,20 @@ watch(() => props.fields, () => nextTick(() => {
     else el.value = value(f) ?? ''
   }
 }), { deep: true })
-onMounted(() => nextTick(() => {
+onMounted(async () => { await nextTick();
   for (const f of fields.value) {
     const el = nodes.value[f.key]
     if (!el) continue
     if (f.type === 'checkbox') el.checked = !!value(f)
     else el.value = value(f) ?? ''
   }
+  await restoreDraft()
   if (props.autoOpenFirst) nodes.value[fields.value.find(f => f.type !== 'checkbox')?.key]?.focus()
-}))
+})
 </script>
 
 <template>
-  <form class="admin-source-form" data-form-type="admin-source-record" aria-label="Admin source record entry" novalidate @submit.prevent="emit('submit', collect())">
+  <form class="admin-source-form" data-form-type="admin-source-record" aria-label="Admin source record entry" novalidate @submit.prevent="submitForm">
     <header class="source-form-heading">
       <div><span class="source-kicker">BUSINESS RECORD</span><h2>Record details</h2></div>
       <span v-if="requiredCount" class="source-required"><b>*</b> Required</span>
@@ -103,7 +144,7 @@ onMounted(() => nextTick(() => {
       </div>
     </section>
     <footer v-if="showActions" class="source-form-actions">
-      <button type="button" class="source-cancel" :disabled="busy" @click="emit('cancel')">Cancel</button>
+      <button type="button" class="source-cancel" :disabled="busy" @click="cancelForm">Cancel</button>
       <button type="submit" class="source-save" :disabled="busy">{{ busy ? 'Saving…' : submitLabel }} <span aria-hidden="true">→</span></button>
     </footer>
   </form>
