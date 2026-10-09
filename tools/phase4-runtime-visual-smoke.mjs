@@ -49,6 +49,16 @@ try{
  await wait(async()=> (await page.locator('.timeline').innerText()).includes('Mumbai Pickup'),'persisted Timeline trip'); assert((await page.locator('.timeline').innerText()).includes('Mumbai Pickup → Mumbai Drop'),'Timeline did not render persisted canonical trip');
  await page.getByRole('link',{name:'Performance',exact:true}).click(); await page.locator('.performance-page').waitFor({state:'attached'}); await wait(async()=> (await page.locator('.performance-page').innerText()).includes('₹1,000'),'persisted Performance revenue'); const perfText=await page.locator('.performance-page').innerText(); assert(perfText.includes('₹1,000'),'Performance did not consume the same canonical shift revenue'); assert(perfText.includes('₹950'),'BR-11 excluded toll was not reflected in actual profit'); console.log('Phase 4 runtime canonical fixture PASS — persisted shift/trip survived reload and reconciled Timeline revenue with Performance under BR-11 EXCLUDED toll treatment.');
  await route('','.work-canonical','Work technical surface'); const shiftToggle=page.locator('button.shift-toggle').first(); await shiftToggle.waitFor({state:'visible',timeout:30000}); assert((await shiftToggle.innerText()).trim()==='OFFLINE','Work did not initialize in the expected OFFLINE state'); assert(await page.getByRole('button',{name:'START SHIFT',exact:true}).count()===1,'Work START SHIFT action is missing'); assert(await page.getByRole('button',{name:'CNG refuelling',exact:true}).count()===1,'Work CNG control is missing');
+ // Exercise the custom Work keypad rather than only checking that the controls render.
+ await page.getByRole('button',{name:'CNG refuelling',exact:true}).click();
+ await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'visible'});
+ await page.getByRole('textbox',{name:'Odometer',exact:true}).click();
+ await page.getByRole('button',{name:'6',exact:true}).click();
+ await page.getByRole('button',{name:'DONE',exact:true}).click();
+ assert((await page.locator('.kfe-work-number-pad__display').innerText()).includes('Price / kg'),'Work keypad Done did not advance from fuel odometer to price');
+ await page.getByRole('button',{name:'Close',exact:true}).click();
+ await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'detached'});
+ console.log('Work numeric keypad behavioral check PASS — Done advances to the declared next fuel field without submitting the form.');
  const gps=page.locator('button.header-gps');assert(await gps.count()===1,'GPS control missing'); await wait(async()=>['GPS connected','GPS ready — tap to check','GPS permission needed','GPS unavailable','Connecting GPS'].includes(await gps.getAttribute('aria-label')),'GPS initial state'); await gps.click(); await wait(async()=>['GPS connected','GPS permission needed','GPS unavailable'].includes(await gps.getAttribute('aria-label')),'GPS post-check state'); assert(!(await gps.innerText()).trim(),'GPS control is not icon-only');
  // 4D canonical theme presentation: light and dark must use the shared token system and
  // the whole PWA must actually respond when the user changes theme mode.
