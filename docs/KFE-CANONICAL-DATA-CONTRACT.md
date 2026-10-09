@@ -63,7 +63,7 @@ Operational boundary for vehicle movement and shift lifecycle. `Shift.startOdome
 
 **Revenue authority:** `Shift.revenue`, entered/confirmed at shift completion, is the authoritative ERP revenue input for the shift. It is the value used by performance, target, break-even and reporting calculations that require operational revenue.
 
-`Shift.toll` and `Shift.parking` represent additional shift-level actual expenses only; they must not duplicate expenses already recorded against Trips. `Shift.tollTreatment` and `Shift.parkingTreatment` independently retain Included/Excluded treatment. The legacy `Shift.tollParkingRevenueTreatment` remains readable as a fallback for historical records without independent treatment fields.
+`Shift.toll` and `Shift.parking` represent additional shift-level actual expenses only for records marked `tollParkingCaptureMode: 'ADDITIONAL_ONLY'`; they must not duplicate expenses already recorded against Trips. New Work-created shifts use this mode. Legacy shifts without the mode retain aggregate compatibility and must not have trip-level amounts added twice. `Shift.tollTreatment` and `Shift.parkingTreatment` independently retain Included/Excluded treatment. The legacy `Shift.tollParkingRevenueTreatment` remains readable as a fallback for historical records without independent treatment fields.
 
 A Shift cannot be administratively deleted through the normal Admin repository. Corrections are updates to the Work-created source record and are audited.
 
