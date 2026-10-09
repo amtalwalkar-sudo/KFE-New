@@ -145,6 +145,7 @@ export function derivePerformance(s, r, p = previousRange(r)) {
         parking: shift.parking,
         tollTreatment: shift.tollTreatment,
         parkingTreatment: shift.parkingTreatment,
+        tollParkingCaptureMode: shift.tollParkingCaptureMode,
         tollParkingRevenueTreatment: shift.tollParkingRevenueTreatment || 'INCLUDED',
       })
       result.financialRevenue += n(shift.revenue) - expenses.includedPassThrough
