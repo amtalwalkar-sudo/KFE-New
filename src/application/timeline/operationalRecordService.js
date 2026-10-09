@@ -46,8 +46,11 @@ export const OperationalRecordService = {
     // Keep the Timeline read model aligned with Performance: both are included.
     const tripToll = tripAmount(terminal, 'toll')
     const tripParking = tripAmount(terminal, 'parking')
-    const toll = Number(shift.toll || 0) + tripToll
-    const parking = Number(shift.parking || 0) + tripParking
+    const additionalOnly = shift.tollParkingCaptureMode === 'ADDITIONAL_ONLY'
+    // Older Shift.toll/parking may already include trip-level amounts.
+    // Only current additional-only records are summed with Trip expenses.
+    const toll = additionalOnly ? Number(shift.toll || 0) + tripToll : Math.max(Number(shift.toll || 0), tripToll)
+    const parking = additionalOnly ? Number(shift.parking || 0) + tripParking : Math.max(Number(shift.parking || 0), tripParking)
     const invalidTripKm = completed.some(trip => {
       if (trip.tripKm == null || trip.tripKm === '') return true
       const km = Number(trip.tripKm)
