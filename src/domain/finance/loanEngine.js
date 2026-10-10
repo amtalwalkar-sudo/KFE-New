@@ -71,9 +71,9 @@ export function calculateEmi(principal, tenureMonths, annualInterestRatePercent)
   if (!principalPaise) return 0
   if (!Number.isFinite(Number(annualInterestRatePercent))) throw new Error('Loan annual interest rate is required to calculate EMI.')
   const monthlyRate = annualRate / 12
-  if (!monthlyRate) return Math.round(paiseToRupees(roundPaise(principalPaise / T)))
+  if (!monthlyRate) return paiseToRupees(roundPaise(principalPaise / T))
   const emiPaise = principalPaise * monthlyRate * Math.pow(1 + monthlyRate, T) / (Math.pow(1 + monthlyRate, T) - 1)
-  return Math.round(paiseToRupees(roundPaise(emiPaise)))
+  return paiseToRupees(roundPaise(emiPaise))
 }
 
 function prepaymentsBeforeOrOn(prepayments, loanId, date) {
