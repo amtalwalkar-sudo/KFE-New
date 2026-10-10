@@ -49,6 +49,50 @@ try{
  await wait(async()=> (await page.locator('.timeline').innerText()).includes('Mumbai Pickup'),'persisted Timeline trip'); assert((await page.locator('.timeline').innerText()).includes('Mumbai Pickup → Mumbai Drop'),'Timeline did not render persisted canonical trip');
  await page.getByRole('link',{name:'Performance',exact:true}).click(); await page.locator('.performance-page').waitFor({state:'attached'}); await wait(async()=> (await page.locator('.performance-page').innerText()).includes('₹1,000'),'persisted Performance revenue'); const perfText=await page.locator('.performance-page').innerText(); assert(perfText.includes('₹1,000'),'Performance did not consume the same canonical shift revenue'); assert(perfText.includes('₹950'),'BR-11 excluded toll was not reflected in actual profit'); console.log('Phase 4 runtime canonical fixture PASS — persisted shift/trip survived reload and reconciled Timeline revenue with Performance under BR-11 EXCLUDED toll treatment.');
  await route('','.work-canonical','Work technical surface'); const shiftToggle=page.locator('button.shift-toggle').first(); await shiftToggle.waitFor({state:'visible',timeout:30000}); assert((await shiftToggle.innerText()).trim()==='OFFLINE','Work did not initialize in the expected OFFLINE state'); assert(await page.getByRole('button',{name:'START SHIFT',exact:true}).count()===1,'Work START SHIFT action is missing'); assert(await page.getByRole('button',{name:'CNG refuelling',exact:true}).count()===1,'Work CNG control is missing');
+ // Simulate an open keyboard where visualViewport already ends above the keyboard.
+ const viewportScrolls=await page.evaluate(async()=>{
+   const root=document.documentElement,oldInset=root.style.getPropertyValue('--kfe-keyboard-inset'),oldState=root.dataset.kfeKeyboard;
+   root.style.setProperty('--kfe-keyboard-inset','300px');root.dataset.kfeKeyboard='open';
+   const surface=document.createElement('form');surface.setAttribute('data-kfe-form-surface','true');
+   const field=document.createElement('input');field.id='kfe-viewport-inset-check';
+   const vv=window.visualViewport;const bottom=(vv?vv.height+vv.offsetTop:window.innerHeight)-100;
+   field.getBoundingClientRect=()=>({top:bottom-32,bottom,left:0,right:100,width:100,height:32,x:0,y:bottom-32,toJSON(){return this}});
+   const scrolls=[];field.scrollIntoView=()=>scrolls.push('scroll');surface.appendChild(field);document.body.appendChild(surface);
+   field.focus();await new Promise(resolve=>setTimeout(resolve,260));surface.remove();
+   if(oldInset)root.style.setProperty('--kfe-keyboard-inset',oldInset);else root.style.removeProperty('--kfe-keyboard-inset');
+   if(oldState===undefined)delete root.dataset.kfeKeyboard;else root.dataset.kfeKeyboard=oldState;
+   field.blur();return scrolls;
+ });
+ assert(viewportScrolls.length===0,'Visible-viewport control was unnecessarily scrolled after keyboard inset was counted twice: '+JSON.stringify(viewportScrolls));
+ console.log('Keyboard viewport behavioral check PASS — visible viewport is not reduced by the keyboard inset a second time.');
+ // Reproduce a rapid focus change with off-screen test controls and capture scroll requests.
+ const focusScrolls=await page.evaluate(async()=>{
+   const surface=document.createElement('form');surface.setAttribute('data-kfe-form-surface','true');
+   const first=document.createElement('input');first.id='kfe-focus-race-first';
+   const second=document.createElement('input');second.id='kfe-focus-race-second';
+   const scrolls=[];for(const [el,id] of [[first,'first'],[second,'second']]){
+     el.getBoundingClientRect=()=>({top:1000,bottom:1032,left:0,right:100,width:100,height:32,x:0,y:1000,toJSON(){return this}});
+     el.scrollIntoView=()=>scrolls.push(id);surface.appendChild(el);
+   }
+   document.body.appendChild(surface);first.focus();second.focus();
+   await new Promise(resolve=>setTimeout(resolve,260));surface.remove();return scrolls;
+ });
+ assert(!focusScrolls.includes('first')&&focusScrolls.includes('second'),'Stale focus callback scrolled the field that had already lost focus: '+JSON.stringify(focusScrolls));
+ console.log('Focus-race behavioral check PASS — stale field callbacks cannot scroll after focus moves.');
+ // Exercise the custom Work keypad's distinct NEXT and DONE semantics.
+ await page.getByRole('button',{name:'CNG refuelling',exact:true}).click();
+ await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'visible'});
+ await page.getByRole('textbox',{name:'Odometer',exact:true}).click();
+ await page.getByRole('button',{name:'6',exact:true}).click();
+ await page.getByRole('button',{name:/NEXT/}).click();
+ await wait(async()=> (await page.locator('.kfe-work-number-pad__display').innerText()).toLowerCase().includes('price / kg'),'Work keypad Next navigation');
+ assert((await page.locator('.kfe-work-number-pad__display').innerText()).toLowerCase().includes('price / kg'),'Work keypad NEXT did not advance from fuel odometer to price; display='+(await page.locator('.kfe-work-number-pad__display').innerText()));
+ await page.getByRole('button',{name:'DONE',exact:true}).click();
+ await page.locator('.kfe-work-number-pad').waitFor({state:'detached'});
+ assert(await page.getByText('CNG REFUEL',{exact:true}).count()===1,'DONE unexpectedly submitted or dismissed the fuel form before the final field');
+ await page.getByRole('button',{name:'Close',exact:true}).click();
+ await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'detached'});
+ console.log('Work numeric keypad behavioral check PASS — NEXT advances and non-terminal DONE closes the keypad without submitting.');
  const gps=page.locator('button.header-gps');assert(await gps.count()===1,'GPS control missing'); await wait(async()=>['GPS connected','GPS ready — tap to check','GPS permission needed','GPS unavailable','Connecting GPS'].includes(await gps.getAttribute('aria-label')),'GPS initial state'); await gps.click(); await wait(async()=>['GPS connected','GPS permission needed','GPS unavailable'].includes(await gps.getAttribute('aria-label')),'GPS post-check state'); assert(!(await gps.innerText()).trim(),'GPS control is not icon-only');
  // 4D canonical theme presentation: light and dark must use the shared token system and
  // the whole PWA must actually respond when the user changes theme mode.
