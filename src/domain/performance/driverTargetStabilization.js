@@ -66,7 +66,9 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     if (!day || day >= start) break
     const record = latestForDay(driverTargets, day)
     if (!record) continue
-    const baseDaily = baseDailyFor(record, null, day)
+    const sameTargetMonth = keyOf(day) === keyOf(start) || keyOf(day)?.slice(0, 7) === keyOf(start)?.slice(0, 7)
+    const priorMonthBreakEven = sameTargetMonth ? applicableBreakEven : null
+    const baseDaily = baseDailyFor(record, priorMonthBreakEven, day)
     if (baseDaily == null) continue
     if (byDay.has(dayKey)) balance += baseDaily - byDay.get(dayKey)
   }
