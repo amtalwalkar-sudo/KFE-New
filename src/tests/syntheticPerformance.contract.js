@@ -74,6 +74,36 @@ assert.equal(
 assert.equal(metrics.actualLoanPaid, 0, 'synthetic baseline deliberately has no actual loan payments')
 assert.equal(metrics.actualPrepayment, 0, 'synthetic baseline deliberately has no prepayments')
 
+const syntheticLoan = snapshot.loans[0]
+const monthlyRate = syntheticLoan.annualInterestRatePercent / 100 / 12
+const emiFactor = Math.pow(1 + monthlyRate, syntheticLoan.tenureMonths)
+const expectedEmi = Math.round((syntheticLoan.principal * monthlyRate * emiFactor / (emiFactor - 1) + Number.EPSILON) * 100) / 100
+assert.equal(metrics.finance.emi, expectedEmi, 'canonical EMI must match the independent amortization formula')
+assert.equal(metrics.finance.outstandingPrincipal, syntheticLoan.principal, 'with zero actual payments, outstanding principal must remain the original principal')
+assert.equal(metrics.finance.schedule.reduce((sum, row) => sum + Number(row.paidAmount || 0), 0), 0, 'no synthetic loan payment means no EMI allocation may be marked paid')
+const expectedScheduledEmi = metrics.finance.schedule
+  .filter(row => new Date(row.periodStart) >= range.from && new Date(row.periodStart) <= range.to)
+  .reduce((sum, row) => sum + Number(row.originalEmiAmount || 0), 0)
+assert.ok(Math.abs(metrics.performanceHeadlineScheduledEmi - expectedScheduledEmi) < 0.011, 'scheduled EMI P/L must reconcile to the covered EMI schedule rows')
+
+assert.equal(metrics.completeness.breakEven, true, 'the full synthetic history supplies all authoritative break-even inputs')
+const breakEvenInputs = metrics.breakEvenInputs
+assert.equal(breakEvenInputs.maintenanceProvisionPerKm, 1.6, 'the applicable KFE maintenance provision rate must be ₹1.60/km')
+assert.equal(breakEvenInputs.vehicleKmBasisSource, 'CALCULATED_OPERATING_KM_FORECAST')
+assert.equal(breakEvenInputs.fuelCostPerKmSource, 'FULL_TANK_INTERVAL')
+assert.equal(metrics.calculationEvidence.breakEven.status, 'AUTHORITATIVE')
+assert.ok(Math.abs(
+  metrics.monthlyBreakEvenRevenue - (
+    breakEvenInputs.fixedCosts + breakEvenInputs.fuelCostMonthly + breakEvenInputs.maintenanceProvisionMonthly
+  ),
+) < 0.011, 'monthly break-even must equal fixed obligations/recoveries plus forecast fuel and maintenance costs')
+assert.ok(Math.abs(
+  breakEvenInputs.fuelCostMonthly - breakEvenInputs.fuelCostPerKm * breakEvenInputs.vehicleKmBasis,
+) < 0.011, 'break-even fuel cost must reconcile to fuel rate × normalized forecast KM')
+assert.ok(Math.abs(
+  breakEvenInputs.maintenanceProvisionMonthly - breakEvenInputs.maintenanceProvisionPerKm * breakEvenInputs.vehicleKmBasis,
+) < 0.011, 'break-even maintenance provision must reconcile to provision rate × normalized forecast KM')
+
 const expectedActualProfit = metrics.operatingProfit - metrics.performanceHeadlineScheduledEmi
 const expectedIndicativeProfit = metrics.performanceHeadlineProvisionalProfit
 assert.ok(Number.isFinite(metrics.actualProfit))
