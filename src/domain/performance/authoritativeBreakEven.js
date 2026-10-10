@@ -11,7 +11,8 @@ const latest = (xs, range) => {
     .filter(x => x.active !== false && x.status !== 'INACTIVE')
     .filter(x => {
       const from = businessDate(x.effectiveFrom || x.validFrom || x.startDate) || '0000-01-01'
-      return from <= rangeTo
+      const until = businessDate(x.effectiveUntil || x.validUntil || x.endDate) || '9999-12-31'
+      return from <= rangeTo && rangeTo <= until
     })
     .sort((a, b) => {
       const dateCompare = String(b.effectiveFrom || b.validFrom || b.startDate || '').localeCompare(String(a.effectiveFrom || a.validFrom || a.startDate || ''))
@@ -73,6 +74,7 @@ export function deriveAuthoritativeBreakEven({
   const maintenanceCost = components.maintenance && hasKm ? maintenanceProvisionPerKm * km : 0
   const monthlyBreakEvenRevenue = fixedCosts + fuelCost + maintenanceCost
   const missingComponents = Object.keys(components).filter(key => !components[key] && !(key === 'loan' && loanNotApplicable))
+  if (!hasKm && (components.fuel || components.maintenance)) missingComponents.push('vehicleKmForVariableCosts')
   const fuelIsAuthoritative = components.fuel &&
     fuelCostPerKmStatus === CALCULATION_STATUS.AUTHORITATIVE
   const recoveryEvidenceComplete = preBusiness != null && historicalMaintenance != null
