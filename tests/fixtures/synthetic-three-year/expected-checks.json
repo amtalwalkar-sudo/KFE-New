@@ -66,10 +66,10 @@
       "id": "PRE-BUSINESS-MAINT-001",
       "input": {
         "distanceKm": 60000,
-        "rateInrPerKm": 0.6
+        "rateInrPerKm": 0.4
       },
       "expected": {
-        "obligationInr": 36000
+        "obligationInr": 24000
       },
       "invariant": "separate historical obligation from ongoing maintenance provision at 1.60/km"
     },
