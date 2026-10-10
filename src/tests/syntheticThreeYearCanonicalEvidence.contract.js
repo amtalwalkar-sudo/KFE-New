@@ -113,6 +113,8 @@ try {
   assert.match(view, /money\(m\.value\.maintenanceProvisionExcessPayments\)/)
   assert.match(view, /money\(m\.value\.complianceProvisionBalance\)/)
   assert.match(view, /money\(m\.value\.complianceProvisionExcessPayments\)/)
+  assert.match(view, /m\.value\.finance\?\.invalidPaymentCount/)
+  assert.match(view, /money\(m\.value\.finance\?\.invalidPaymentAmount/)
 
   const evidence = [
     { fixtureId: 'THREE-YEAR-BASELINE', selectedPeriod: '2023-01-01..2025-12-31 IST', inputs: { days: 1096, kmPerDay: 200, maintenanceRateInrPerKm: 1.6, complianceCostInrPerYear: 30000, annualValidityDays: '365/366 by calendar year' }, expected: { vehicleKm: expected.vehicleKm, maintenanceProvisionInr: expected.maintenanceAccruedInr, complianceProvisionInr: expected.complianceAccruedInr }, canonical: { vehicleKm: canonical.vehicleKm, maintenanceProvisionInr: canonical.maintenanceProvisionAccumulated, complianceProvisionInr: canonical.renewalProvision }, displayed: { vehicleKm: 'not a headline on provision detail', maintenanceProvisionInr: money(canonical.maintenanceProvision), complianceProvisionInr: money(canonical.renewalProvision) }, expectedDisplayed: { vehicleKm: 'not a headline on provision detail', maintenanceProvisionInr: '₹350,720', complianceProvisionInr: '₹90,000' }, pass: true },
