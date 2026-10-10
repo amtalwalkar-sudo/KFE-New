@@ -2,6 +2,7 @@ import { istDateKey } from '../time/ist.js'
 import { CALCULATION_STATUS, calculationEvidence } from './calculationAuthority.js'
 
 const finite = v => v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v)
+const nonNegative = v => { const value = finite(v); return value != null && value >= 0 ? value : null }
 const live = xs => (xs || []).filter(x => !x?.deletedAt && x?.deleted !== true)
 const businessDate = v => istDateKey(v)
 const latest = (xs, range) => {
@@ -37,13 +38,13 @@ export function deriveAuthoritativeBreakEven({
   vehicleKmSource = 'UNAVAILABLE',
 } = {}) {
   const input = latest(breakEvenInputs, range)
-  const maintenanceProvisionPerKm = finite(input?.maintenanceProvisionPerKm)
+  const maintenanceProvisionPerKm = nonNegative(input?.maintenanceProvisionPerKm)
   const fuelRate = finite(fuelCostPerKm)
   const km = finite(vehicleKm)
-  const loan = finite(loanScheduledObligation)
-  const preBusiness = finite(preBusinessRecovery)
-  const historicalMaintenance = finite(historicalMaintenanceRecovery)
-  const compliance = finite(renewalProvision)
+  const loan = nonNegative(loanScheduledObligation)
+  const preBusiness = nonNegative(preBusinessRecovery)
+  const historicalMaintenance = nonNegative(historicalMaintenanceRecovery)
+  const compliance = nonNegative(renewalProvision)
   const components = {
     loan: (loanInputAvailable == null ? loan != null : !!loanInputAvailable) && loan != null,
     compliance: (complianceInputAvailable == null ? compliance != null : !!complianceInputAvailable) && compliance != null,
