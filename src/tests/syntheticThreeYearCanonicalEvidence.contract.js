@@ -7,10 +7,13 @@ import { fileURLToPath } from 'node:url'
 import { derivePerformance } from '../domain/performance/performanceEngineV2.js'
 import { calculateHistoricalMaintenanceRecovery, calculateHistoricalMaintenanceRecoveryForRange } from '../domain/performance/performanceEngineV2.js'
 import { deriveFinanceAwarePerformance } from '../domain/performance/financePerformanceAdapter.js'
-import { calculateFuelQuantityKg } from '../domain/math/fuel.js'
+import { calculateFuelQuantityKg, calculateRollingFuelCostPerKm } from '../domain/math/fuel.js'
+import { deriveAuthoritativeBreakEven } from '../domain/performance/authoritativeBreakEven.js'
+import { CALCULATION_STATUS } from '../domain/performance/calculationAuthority.js'
 import { deriveLoanPosition } from '../domain/finance/loanEngine.js'
 import { deriveRollingDriverTarget, stabilizeActiveDay } from '../domain/performance/driverTargetStabilization.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
+import { istMonthRange, istDayRange } from '../domain/time/ist.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const generator = path.join(root, 'tests/fixtures/synthetic-three-year/generate-fixture.cjs')
@@ -58,6 +61,35 @@ try {
   assert.equal(fixture.specialCases.targetSurplus.earnedEligibleAmountInr - fixture.specialCases.targetSurplus.requiredTargetInr, fixture.specialCases.targetSurplus.expectedSurplusCreditInr)
   assert.equal(fixture.specialCases.fuelPrecision.expectedQuantityKgExact, 500 / 82)
   assert.equal(calculateFuelQuantityKg(500, 82), 500 / 82, 'fuel quantity calculation must preserve raw precision')
+  const unassociatedFuelRate = calculateRollingFuelCostPerKm([
+    { id: 'unassociated-full-1', capturedAt: '2024-06-01T10:00:00+05:30', odometer: 1000, amount: 2000, isFullTank: true },
+    { id: 'unassociated-full-2', capturedAt: '2024-06-02T10:00:00+05:30', odometer: 1100, amount: 2200, isFullTank: true },
+  ])
+  assert.equal(unassociatedFuelRate.completedIntervals, 0, 'unassociated full-tank records must not establish an authoritative fuel rate')
+  assert.equal(Number.isNaN(unassociatedFuelRate.rollingCostPerKm), true, 'missing vehicle identity must leave authoritative fuel rate unavailable')
+  const associatedFuelRate = calculateRollingFuelCostPerKm([
+    { id: 'associated-full-1', vehicleId: 'synthetic-vehicle', capturedAt: '2024-06-01T10:00:00+05:30', odometer: 1000, amount: 2000, isFullTank: true },
+    { id: 'associated-full-2', vehicleId: 'synthetic-vehicle', capturedAt: '2024-06-02T10:00:00+05:30', odometer: 1100, amount: 2200, isFullTank: true },
+  ])
+  assert.equal(associatedFuelRate.completedIntervals, 1)
+  assert.equal(associatedFuelRate.rollingCostPerKm, 22)
+  const negativeMaintenanceBreakEven = deriveAuthoritativeBreakEven({
+    breakEvenInputs: [{ id: 'negative-maintenance-rate', effectiveFrom: '2024-01-01', maintenanceProvisionPerKm: -1.6, active: true }],
+    range: { from: new Date('2024-06-01T00:00:00+05:30'), to: new Date('2024-06-30T23:59:59+05:30') },
+    loanScheduledObligation: 10000,
+    loanInputAvailable: true,
+    preBusinessRecovery: 0,
+    historicalMaintenanceRecovery: 0,
+    renewalProvision: 3000,
+    complianceInputAvailable: true,
+    fuelCostPerKm: 2,
+    fuelCostPerKmStatus: CALCULATION_STATUS.AUTHORITATIVE,
+    vehicleKm: 1000,
+    vehicleKmSource: 'SYNTHETIC_FIXTURE',
+  })
+  assert.equal(negativeMaintenanceBreakEven.status, CALCULATION_STATUS.INDICATIVE, 'negative maintenance rate must not produce authoritative break-even')
+  assert.equal(negativeMaintenanceBreakEven.maintenanceCost, null, 'invalid negative maintenance rate must not reduce break-even cost')
+  assert.equal(negativeMaintenanceBreakEven.indicativeMonthlyBreakEvenRevenue, 15000, 'invalid negative maintenance rate is excluded rather than subtracted')
   assert.equal(Math.round(calculateFuelQuantityKg(500, 82) * 10) / 10, 6.1, 'fuel quantity rounding belongs to display only')
   assert.equal(fixture.specialCases.fuelPrecision.expectedQuantityKgDisplay2dp, 6.1)
   assert.equal(fixture.specialCases.provisionalDeduction.expectedTotalInr, 815)
@@ -126,7 +158,7 @@ try {
   assert.equal(fullFinancial.renewalProvision, fixture.expectedAggregates.complianceProvisionInr)
   assert.equal(fullFinancial.provisionAdjustedProfit, -fixture.expectedAggregates.fuelCostInr - fixture.expectedAggregates.ongoingMaintenanceProvisionInr - fixture.expectedAggregates.complianceProvisionInr)
 
-  const fullManagement = deriveFinanceAwarePerformance({
+  const managementSnapshot = {
     businessSetup: { businessStartDate: '2023-01-01' },
     vehicles: [{ id: 'synthetic-vehicle', openingOdometerKm: 0, active: true }],
     shifts,
@@ -139,7 +171,8 @@ try {
     prepayments: [],
     settlements: [],
     breakEvenInputs: [{ effectiveFrom: '2023-01-01', maintenanceProvisionPerKm: 1.6 }],
-  }, selectedPeriod)
+  }
+  const fullManagement = deriveFinanceAwarePerformance(managementSnapshot, selectedPeriod)
   assert.equal(fullManagement.performanceHeadlineActualProfit, -fixture.expectedAggregates.fuelCostInr, 'actual P/L must deduct actual operating cost when no EMI is applicable')
   assert.equal(fullManagement.performanceHeadlineProvisionalProfit, -fixture.expectedAggregates.fuelCostInr - fixture.expectedAggregates.ongoingMaintenanceProvisionInr - fixture.expectedAggregates.complianceProvisionInr, 'provisional P/L must additionally deduct maintenance and compliance accruals')
   assert.equal(
@@ -147,6 +180,31 @@ try {
     fixture.expectedAggregates.ongoingMaintenanceProvisionInr + fixture.expectedAggregates.complianceProvisionInr,
     'the provisional deduction breakdown must reconcile to actual minus provisional P/L',
   )
+
+  // Period views must reconcile to the same three-year canonical result.
+  let monthlyActualProfit = 0
+  let monthlyProvisionalProfit = 0
+  for (const month of fixture.monthly) {
+    const monthRange = istMonthRange(new Date(`${month.month}-15T12:00:00+05:30`), new Date('2026-01-01T00:00:00+05:30'))
+    const monthly = deriveFinanceAwarePerformance(managementSnapshot, monthRange)
+    monthlyActualProfit += monthly.performanceHeadlineActualProfit
+    monthlyProvisionalProfit += monthly.performanceHeadlineProvisionalProfit
+  }
+  assert.ok(Math.abs(monthlyActualProfit - fullManagement.performanceHeadlineActualProfit) < 0.02, 'monthly actual P/L must sum to the full three-year actual P/L')
+  assert.ok(Math.abs(monthlyProvisionalProfit - fullManagement.performanceHeadlineProvisionalProfit) < 0.02, 'monthly provisional P/L must sum to the full three-year provisional P/L')
+
+  let weeklyActualProfit = 0
+  let weeklyProvisionalProfit = 0
+  for (let index = 0; index < fixture.daily.length; index += 7) {
+    const firstDay = fixture.daily[index].date
+    const lastDay = fixture.daily[Math.min(index + 6, fixture.daily.length - 1)].date
+    const weekRange = { from: istDayRange(firstDay).from, to: istDayRange(lastDay).to }
+    const weekly = deriveFinanceAwarePerformance(managementSnapshot, weekRange)
+    weeklyActualProfit += weekly.performanceHeadlineActualProfit
+    weeklyProvisionalProfit += weekly.performanceHeadlineProvisionalProfit
+  }
+  assert.ok(Math.abs(weeklyActualProfit - fullManagement.performanceHeadlineActualProfit) < 0.02, 'weekly actual P/L must sum to the full three-year actual P/L')
+  assert.ok(Math.abs(weeklyProvisionalProfit - fullManagement.performanceHeadlineProvisionalProfit) < 0.02, 'weekly provisional P/L must sum to the full three-year provisional P/L')
 
   const canonical = derivePerformance({
     shifts,
@@ -236,6 +294,32 @@ try {
   assert.equal(targetSurplus.currentDailyTarget, 0, 'surplus must never create a negative daily target')
   assert.equal(targetSurplus.surplusCreditBefore, 1500, 'surplus must remain available as a separate credit')
   assert.equal(targetSurplus.surplusCredit, 1500, 'unfinished active day must not consume credit prematurely')
+  const crossMonthTarget = deriveRollingDriverTarget({
+    from: '2024-06-15T00:00:00+05:30',
+    to: '2024-06-15T23:59:59+05:30',
+    monthlyBreakEvenByMonth: { '2024-01': 31000, '2024-06': 62000 },
+    driverTargets: [{ effectiveFrom: '2024-01-01', effectiveUntil: '2024-06-30', desiredDriverProfit: 30000, active: true }],
+    shifts: [
+      { id: 'cross-month-prior', shiftStartAt: '2024-01-15T08:00:00+05:30', shiftEndAt: '2024-01-15T18:00:00+05:30', status: 'COMPLETED', revenue: 1000 },
+      { id: 'cross-month-current', shiftStartAt: '2024-06-15T08:00:00+05:30', status: 'ACTIVE' },
+    ],
+  })
+  const januaryDailyBase = (31000 + 30000) / 31
+  const juneDailyBase = (62000 + 30000) / 30
+  assert.ok(Math.abs(crossMonthTarget.balanceBefore - (januaryDailyBase - 1000)) < 1e-9, 'prior-month shortfall must use that month’s break-even, not reset or reuse current month')
+  assert.ok(Math.abs(crossMonthTarget.currentDailyTarget - (juneDailyBase + januaryDailyBase - 1000)) < 1e-9, 'current target must carry prior-month shortfall into the current month')
+  const incompleteTargetHistory = deriveRollingDriverTarget({
+    from: '2024-06-15T00:00:00+05:30',
+    to: '2024-06-15T23:59:59+05:30',
+    monthlyBreakEvenByMonth: { '2024-06': 62000 },
+    driverTargets: [{ effectiveFrom: '2024-01-01', effectiveUntil: '2024-06-30', desiredDriverProfit: 30000, active: true }],
+    shifts: [
+      { id: 'incomplete-history-prior', shiftStartAt: '2024-01-15T08:00:00+05:30', shiftEndAt: '2024-01-15T18:00:00+05:30', status: 'COMPLETED', revenue: 1000 },
+      { id: 'incomplete-history-current', shiftStartAt: '2024-06-15T08:00:00+05:30', status: 'ACTIVE' },
+    ],
+  })
+  assert.equal(incompleteTargetHistory.historyComplete, false, 'missing prior-month break-even must be visible rather than silently resetting the rolling balance')
+  assert.equal(incompleteTargetHistory.currentDailyTarget, null, 'incomplete rolling history must not publish a fabricated current target')
   const stabilizedSurplus = stabilizeActiveDay({ baseTarget: 1000, balance: -1500, actualRevenue: null })
   assert.equal(stabilizedSurplus.target, 0, 'the shared active-day target helper must also clamp to zero')
   assert.equal(stabilizedSurplus.nextBalance, null)

@@ -5,6 +5,8 @@ import { calculateEmi, deriveLoanPosition, paymentAllocationPreview, calculatePr
 const loan = { id: 'loan-e2e', principal: 550000, tenureMonths: 60, startDate: '2026-01-01', annualInterestRatePercent: 10, status: 'Active' }
 const emi = calculateEmi(loan.principal, loan.tenureMonths, loan.annualInterestRatePercent)
 assert.ok(emi > 0, 'EMI must be calculated from explicit loan source inputs')
+assert.equal(Math.round(emi * 100), emi * 100, 'calculated EMI retains paise precision for schedule reconciliation');
+assert.equal(calculateEmi(100000, 12, 0), 8333.33, 'zero-interest EMI retains paise precision for schedule reconciliation');
 assert.equal(ADMIN_FORM_DEFINITIONS.loan.fields.some(field => field.key === 'emi'), false, 'EMI must not be a user-entered loan source field')
 const rateField = ADMIN_FORM_DEFINITIONS.loan.fields.find(field => field.key === 'annualInterestRatePercent')
 assert.ok(rateField, 'Annual interest rate must be an editable loan source field')
@@ -115,6 +117,37 @@ const later = '2026-04-01'
   const malformedPreview = paymentAllocationPreview({ loan, amount: 1000, paidOn: 'not-a-date' })
   assert.equal(malformedPreview.available, false)
   assert.equal(malformedPreview.reason, 'INVALID_PAYMENT_DATE')
+}
+
+
+{
+  // Fully specified synthetic amortization oracle: reconcile the first 36
+  // scheduled payments against the canonical schedule and outstanding principal.
+  const horizon = '2029-01-01T00:00:00+05:30'
+  const unPaidSchedule = deriveLoanPosition({ loan, asOf: horizon })
+  const first36 = unPaidSchedule.schedule.slice(0, 36)
+  assert.equal(first36.length, 36)
+  const syntheticPayments = first36.map((row, index) => ({
+    id: `synthetic-36m-payment-${index + 1}`,
+    loanId: loan.id,
+    amount: emi,
+    paidOn: row.dueDate,
+    status: 'PAID',
+  }))
+  const paidPosition = deriveLoanPosition({
+    loan,
+    payments: syntheticPayments,
+    asOf: first36.at(-1).dueDate,
+  })
+  const fullyPaidInstallments = paidPosition.schedule.filter(row =>
+    row.paidAmount >= row.originalEmiAmount - 0.01
+  ).length
+  const paidPrincipal = paidPosition.schedule.reduce((sum, row) => sum + row.scheduledPrincipalPaid, 0)
+  assert.equal(paidPosition.actualPaid, Math.round(36 * emi * 100) / 100)
+  assert.equal(fullyPaidInstallments, 36, '36 synthetic payments must settle exactly 36 installments')
+  assert.equal(paidPosition.schedule.length - fullyPaidInstallments, 24, 'paid and remaining installments must reconcile to the 60-month original tenure')
+  assert.ok(Math.abs(paidPosition.outstandingPrincipal - (loan.principal - paidPrincipal)) < 0.02, 'opening principal less allocated principal must equal outstanding principal')
+  assert.ok(paidPosition.outstandingPrincipal > 0 && paidPosition.outstandingPrincipal < loan.principal, '36 scheduled payments must reduce, but not erase, principal for a 60-month loan')
 }
 
 console.log('Loan finance E2E contract passed: explicit per-loan rate, no KFE-wide default, source forms, payment allocation, overdue scenarios, prepayment gating, principal/outflow and downstream finance inputs.')

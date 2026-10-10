@@ -78,7 +78,8 @@ export function resolveDriverTargetAuthority({
   })
   const rolling = finite(rollingTarget?.currentDailyTarget)
   const useRolling = rollingTarget?.available === true && rolling != null
-  const target = useRolling ? Math.max(0, rolling) : base.target
+  const historyBlocked = rollingTarget?.historyComplete === false
+  const target = useRolling ? Math.max(0, rolling) : historyBlocked ? null : base.target
   const available = target != null && Number.isFinite(target)
   const status = !available
     ? 'UNAVAILABLE'
@@ -91,7 +92,7 @@ export function resolveDriverTargetAuthority({
     status,
     provisional: status === 'INDICATIVE',
     authority: useRolling ? 'DRIVER_TARGET_ROLLING_RECOVERY' : base.available ? base.authority : null,
-    reason: available ? null : base.reason || rollingTarget?.reason || 'MISSING_AUTHORITATIVE_TARGET_INPUT',
+    reason: available ? null : rollingTarget?.reason || base.reason || 'MISSING_AUTHORITATIVE_TARGET_INPUT',
     monthlyTarget: base.monthlyTarget,
     baseDailyTarget: base.target,
     rollingTarget: useRolling ? rolling : null,

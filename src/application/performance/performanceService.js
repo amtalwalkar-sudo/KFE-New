@@ -4,7 +4,7 @@ import { layerRows, previousRange } from '../../domain/performance/performanceEn
 import { deriveFinanceAwarePerformance } from '../../domain/performance/financePerformanceAdapter.js'
 import { DriverTargetService } from './driverTargetService.js'
 import { normalizeCalculationSnapshot } from './normalizeCalculationSnapshot.js'
-import { istMonthRange, istCalendarDaysInclusive } from '../../domain/time/ist.js'
+import { istMonthRange, istMonthKey, istCalendarDaysInclusive } from '../../domain/time/ist.js'
 import { deriveFinancialFactModel } from '../../domain/finance/financialFactModel.js'
 import { deriveOperatingKmForecast } from '../../domain/performance/operatingKmForecast.js'
 import { getPerformanceDiagnostics } from '../../domain/performance/performanceDiagnostics.js'
@@ -80,6 +80,37 @@ export const PerformanceService = Object.freeze({
     const desiredDriverProfitMonthly = desiredValue != null && desiredValue !== '' && Number.isFinite(Number(desiredValue))
       ? Number(desiredValue)
       : null
+    // Reconstruct the rolling target from each historical month's own break-even
+    // value. Reusing only the current month (or falling back to a missing legacy
+    // targetRevenue field) silently reset the rolling balance at month boundaries.
+    const currentTargetMonth = istMonthKey(boundedRange.to)
+    const monthlyBreakEvenByMonth = {}
+    if (currentTargetMonth && monthlyBreakEvenEstimate != null) monthlyBreakEvenByMonth[currentTargetMonth] = monthlyBreakEvenEstimate
+    const historicalTargetMonths = [...new Set((calculationSnapshot?.shifts || [])
+      .map(shift => { const value = shift.shiftEndAt || shift.shiftStartAt; const date = value ? new Date(value) : null; return date && !Number.isNaN(date.getTime()) ? date : null })
+      .filter(date => date && date <= boundedRange.to && (!businessStart || date >= businessStart))
+      .map(date => istMonthKey(date))
+      .filter(month => month && month < currentTargetMonth))].sort()
+    for (const monthKey of historicalTargetMonths) {
+      const monthRange = istMonthRange(new Date(`${monthKey}-15T12:00:00+05:30`), new Date(0))
+      if (!monthRange) continue
+      const historyRange = {
+        from: businessStart && businessStart > monthRange.from ? businessStart : monthRange.from,
+        to: monthRange.to,
+      }
+      if (historyRange.to < historyRange.from) continue
+      const historicalMetrics = deriveFinanceAwarePerformance(
+        calculationSnapshot,
+        historyRange,
+        previousRange(historyRange),
+      )
+      const historicalBreakEven = Number.isFinite(historicalMetrics.monthlyBreakEvenRevenue)
+        ? historicalMetrics.monthlyBreakEvenRevenue
+        : Number.isFinite(historicalMetrics.indicative?.monthlyBreakEvenRevenue)
+          ? historicalMetrics.indicative.monthlyBreakEvenRevenue
+          : null
+      if (historicalBreakEven != null) monthlyBreakEvenByMonth[monthKey] = historicalBreakEven
+    }
     const stabilization = deriveRollingDriverTarget({
       trips: calculationSnapshot?.trips,
       shifts: calculationSnapshot?.shifts,
@@ -87,6 +118,7 @@ export const PerformanceService = Object.freeze({
       from: boundedRange.from,
       to: boundedRange.to,
       applicableBreakEven: monthlyBreakEvenEstimate,
+      monthlyBreakEvenByMonth,
     })
     const targetAuthority = resolveDriverTargetAuthority({
       monthlyBreakEvenRevenue: monthlyBreakEvenEstimate,

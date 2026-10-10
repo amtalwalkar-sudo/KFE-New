@@ -11,13 +11,22 @@ describe('CNG Fuel Calculation', () => {
   it('returns null for invalid or non-positive inputs', () => { expect(calculateFuelQuantityKg(0, 90)).toBeNull(); expect(calculateFuelQuantityKg(500, 0)).toBeNull(); expect(calculateFuelQuantityKg(null, 90)).toBeNull() })
   it('uses only completed full-tank intervals and ignores partial fills', () => {
     const result = calculateRollingFuelCostPerKm([
-      { odometer: 1000, amount: 2000, capturedAt: '2026-01-01' },
-      { odometer: 1050, amount: 999, isFullTank: false, capturedAt: '2026-01-02' },
-      { odometer: 1100, amount: 2200, capturedAt: '2026-01-03' },
-      { odometer: 1200, amount: 2400, capturedAt: '2026-01-04' }
+      { odometer: 1000, amount: 2000, isFullTank: true, vehicleId: 'synthetic-vehicle', capturedAt: '2026-01-01' },
+      { odometer: 1050, amount: 999, isFullTank: false, vehicleId: 'synthetic-vehicle', capturedAt: '2026-01-02' },
+      { odometer: 1100, amount: 2200, isFullTank: true, vehicleId: 'synthetic-vehicle', capturedAt: '2026-01-03' },
+      { odometer: 1200, amount: 2400, isFullTank: true, vehicleId: 'synthetic-vehicle', capturedAt: '2026-01-04' }
     ], 10)
     expect(result.completedIntervals).toBe(2)
     expect(result.rollingCostPerKm).toBe(23)
+  })
+  it('does not qualify full-tank intervals without an explicit stable vehicle identity', () => {
+    const result = calculateRollingFuelCostPerKm([
+      { odometer: 1000, amount: 2000, isFullTank: true, capturedAt: '2026-01-01' },
+      { odometer: 1100, amount: 2200, isFullTank: true, capturedAt: '2026-01-02' },
+      { odometer: 1200, amount: 2400, isFullTank: true, vehicleId: 'vehicle-a', capturedAt: '2026-01-03' }
+    ])
+    expect(result.completedIntervals).toBe(0)
+    expect(Number.isNaN(result.rollingCostPerKm)).toBe(true)
   })
 })
 

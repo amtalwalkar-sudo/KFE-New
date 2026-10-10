@@ -257,7 +257,11 @@ const noVehicleFuelSnapshot = {
   ],
 }
 const noVehicleFuelMetrics = derivePerformance(noVehicleFuelSnapshot, range, previousRange(range))
-near(noVehicleFuelMetrics.fuelCostPerKm, 11, 'single-vehicle Work fuel logs without vehicleId must still form full-tank intervals')
+assert.equal(Number.isNaN(noVehicleFuelMetrics.fuelCostPerKm), true, 'full-tank logs without vehicleId must not establish an authoritative fuel rate')
+assert.equal(noVehicleFuelMetrics.breakEvenInputs?.fuelEvidence?.status, 'UNAVAILABLE', 'unassociated full-tank logs must remain explicitly unavailable')
+const associatedFuelSnapshot = { ...noVehicleFuelSnapshot, fuelLogs: noVehicleFuelSnapshot.fuelLogs.map(row => ({ ...row, vehicleId: 'synthetic-vehicle' })) }
+const associatedFuelMetrics = derivePerformance(associatedFuelSnapshot, range, previousRange(range))
+near(associatedFuelMetrics.fuelCostPerKm, 11, 'full-tank intervals with a stable vehicleId must produce the authoritative fuel rate')
 
 const recoverySnapshot = {
   ...engineSnapshot,
