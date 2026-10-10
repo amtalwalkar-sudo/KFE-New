@@ -29,7 +29,7 @@ export function deriveAuthoritativeBreakEven({
   preBusinessRecovery = 0,
   historicalMaintenanceRecovery = 0,
   renewalProvision = NaN,
-  complianceInputAvailable = false,
+  complianceInputAvailable = null,
   fuelCostPerKm = NaN,
   fuelCostPerKmStatus = CALCULATION_STATUS.UNAVAILABLE,
   vehicleKm = NaN,
@@ -45,7 +45,7 @@ export function deriveAuthoritativeBreakEven({
   const compliance = finite(renewalProvision)
   const components = {
     loan: (loanInputAvailable == null ? loan != null : !!loanInputAvailable) && loan != null,
-    compliance: !!complianceInputAvailable && compliance != null,
+    compliance: (complianceInputAvailable == null ? compliance != null : !!complianceInputAvailable) && compliance != null,
     maintenance: maintenanceProvisionPerKm != null,
     fuel: fuelRate != null && fuelRate >= 0,
   }
@@ -75,7 +75,8 @@ export function deriveAuthoritativeBreakEven({
   const missingComponents = Object.keys(components).filter(key => !components[key] && !(key === 'loan' && loanNotApplicable))
   const fuelIsAuthoritative = components.fuel &&
     fuelCostPerKmStatus === CALCULATION_STATUS.AUTHORITATIVE
-  const allRequiredEvidence = missingComponents.length === 0 && hasKm && fuelIsAuthoritative &&
+  const recoveryEvidenceComplete = preBusiness != null && historicalMaintenance != null
+  const allRequiredEvidence = missingComponents.length === 0 && recoveryEvidenceComplete && hasKm && fuelIsAuthoritative &&
     (components.maintenance || !maintenanceProvisionPerKm) &&
     (components.loan || loanScheduledObligation === 0) &&
     (components.compliance || renewalProvision === 0)
@@ -114,7 +115,7 @@ export function deriveAuthoritativeBreakEven({
   return {
     available: false,
     status: CALCULATION_STATUS.INDICATIVE,
-    reason: missingComponents.length ? 'PARTIAL_BREAK_EVEN_COMPONENTS' : 'PROVISIONAL_FUEL_OR_KM_EVIDENCE',
+    reason: missingComponents.length ? 'PARTIAL_BREAK_EVEN_COMPONENTS' : !recoveryEvidenceComplete ? 'PROVISIONAL_RECOVERY_EVIDENCE' : 'PROVISIONAL_FUEL_OR_KM_EVIDENCE',
     indicativeMonthlyBreakEvenRevenue: monthlyBreakEvenRevenue,
     maintenanceProvisionPerKm,
     fixedCosts,
@@ -125,9 +126,9 @@ export function deriveAuthoritativeBreakEven({
     evidence: calculationEvidence({
       status: CALCULATION_STATUS.INDICATIVE,
       source: fuelIsAuthoritative ? 'PARTIAL_COMPONENTS' : fuelCostPerKmStatus === CALCULATION_STATUS.INDICATIVE ? 'OBSERVED_PERIOD' : 'PARTIAL_COMPONENTS',
-      reason: missingComponents.length ? 'PARTIAL_BREAK_EVEN_COMPONENTS' : 'PROVISIONAL_FUEL_OR_KM_EVIDENCE',
-      dependencies,
+      reason: missingComponents.length ? 'PARTIAL_BREAK_EVEN_COMPONENTS' : !recoveryEvidenceComplete ? 'PROVISIONAL_RECOVERY_EVIDENCE' : 'PROVISIONAL_FUEL_OR_KM_EVIDENCE',
+      dependencies: { ...dependencies, recoveryEvidenceComplete },
     }),
-    trace: { ...dependencies, firstMissing: missingComponents[0] || (!hasKm ? 'vehicleKm' : 'fuelCostPerKmEvidence') },
+    trace: { ...dependencies, firstMissing: missingComponents[0] || (!recoveryEvidenceComplete ? (!preBusiness ? 'preBusinessRecovery' : 'historicalMaintenanceRecovery') : !hasKm ? 'vehicleKm' : 'fuelCostPerKmEvidence') },
   }
 }
