@@ -101,6 +101,9 @@ function ensureFocusedControlVisible(el){
 }
 
 function handleEnter(event){
+  // Only the Enter key may advance focus; intercepting ordinary key presses
+  // makes text fields jump away after the first typed character on Android.
+  if(event.key!=='Enter') return;
   const el=event.target;
   if(!(el instanceof HTMLInputElement)) return;
   if(['checkbox','radio','file','button','submit','reset'].includes(el.type)) return;
