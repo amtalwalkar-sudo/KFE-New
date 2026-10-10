@@ -19,6 +19,30 @@ try {
   assert.equal(fixture.isolation.pwaStorageWrite, false)
   assert.equal(fixture.daily.length, 1096)
   assert.equal(fixture.expectedAggregates.complianceProvisionInr, 90000)
+  assert.equal(fixture.expectedAggregates.calendarDays, 1096)
+  assert.equal(fixture.expectedAggregates.totalDistanceKm, 219200)
+  assert.equal(fixture.expectedAggregates.fuelCostInr, 701440)
+  assert.equal(fixture.expectedAggregates.ongoingMaintenanceProvisionInr, 350720)
+  assert.equal(fixture.expectedAggregates.emiPaymentCount, 36)
+  assert.equal(fixture.expectedAggregates.emiTotalInr, 407664)
+  assert.equal(fixture.expectedAggregates.preBusinessMaintenanceObligationInr, 36000)
+
+  // Reconcile every generated monthly rollup against its daily source rows.
+  for (const month of fixture.monthly) {
+    const dailyRows = fixture.daily.filter(day => day.date.startsWith(month.month))
+    assert.equal(month.operatingDays, dailyRows.length, `${month.month}: operating-day count must match daily records`)
+    assert.equal(month.totalKm, dailyRows.reduce((sum, day) => sum + day.totalKm, 0), `${month.month}: monthly KM must reconcile to daily KM`)
+    assert.equal(month.fuelCostInr, dailyRows.reduce((sum, day) => sum + day.fuelCostInr, 0), `${month.month}: fuel cost must reconcile to daily rows`)
+    assert.equal(month.maintenanceProvisionInr, dailyRows.reduce((sum, day) => sum + day.maintenanceProvisionInr, 0), `${month.month}: maintenance provision must reconcile to daily rows`)
+    assert.equal(month.emiPaymentInr, dailyRows.reduce((sum, day) => sum + day.emiPaymentInr, 0), `${month.month}: EMI cash must reconcile to daily rows`)
+  }
+  assert.equal(Math.round(fixture.monthly.reduce((sum, month) => sum + month.complianceProvisionInr, 0) * 100) / 100, 90000)
+  assert.equal(fixture.specialCases.targetSurplus.expectedDailyTargetInr, 0)
+  assert.equal(fixture.specialCases.targetSurplus.earnedEligibleAmountInr - fixture.specialCases.targetSurplus.requiredTargetInr, fixture.specialCases.targetSurplus.expectedSurplusCreditInr)
+  assert.equal(fixture.specialCases.fuelPrecision.expectedQuantityKgExact, 500 / 82)
+  assert.equal(fixture.specialCases.fuelPrecision.expectedQuantityKgDisplay2dp, 6.1)
+  assert.equal(fixture.specialCases.provisionalDeduction.expectedTotalInr, 815)
+  assert.equal(fixture.specialCases.breakEven.expectedBreakEvenInr, 4672)
   for (const year of [2023, 2024, 2025]) {
     const annualDaily = fixture.daily.filter(day => day.date.startsWith(String(year))).reduce((sum, day) => sum + day.complianceProvisionInr, 0)
     const annualMonthly = fixture.monthly.filter(month => month.month.startsWith(String(year))).reduce((sum, month) => sum + month.complianceProvisionInr, 0)
@@ -55,6 +79,34 @@ try {
     { id: 'compliance-2024-paid', sourceType: 'Compliance', sourceId: 'compliance-2024', direction: 'OUT', amount: 30000, paidOn: '2024-12-31T12:00:00+05:30' },
     { id: 'compliance-2025-paid', sourceType: 'Compliance', sourceId: 'compliance-2025', direction: 'OUT', amount: 35000, paidOn: '2025-12-31T12:00:00+05:30' },
   ]
+  // Run the canonical engine over the same three-year odometer timeline with
+  // the fixture's explicit fuel cost. This checks calculated outputs, not just
+  // arithmetic stored by the fixture generator.
+  const canonicalFuelLogs = fixture.daily.map(day => ({
+    id: `fuel-${day.date}`,
+    capturedAt: `${day.date}T17:00:00+05:30`,
+    amount: day.fuelCostInr,
+    quantityKg: 0,
+    vehicleId: 'synthetic-vehicle',
+    isFullTank: false,
+  }))
+  const fullFinancial = derivePerformance({
+    shifts,
+    trips: [],
+    fuelLogs: canonicalFuelLogs,
+    maintenance: [],
+    compliance,
+    settlements: [],
+    breakEvenInputs: [{ effectiveFrom: '2023-01-01', maintenanceProvisionPerKm: 1.6 }],
+  }, selectedPeriod)
+  assert.equal(fullFinancial.vehicleKm, fixture.expectedAggregates.totalDistanceKm)
+  assert.equal(fullFinancial.fuelCost, fixture.expectedAggregates.fuelCostInr)
+  assert.equal(fullFinancial.actualOperatingCost, fixture.expectedAggregates.fuelCostInr)
+  assert.equal(fullFinancial.operatingProfit, -fixture.expectedAggregates.fuelCostInr)
+  assert.equal(fullFinancial.maintenanceProvisionAccumulated, fixture.expectedAggregates.ongoingMaintenanceProvisionInr)
+  assert.equal(fullFinancial.renewalProvision, fixture.expectedAggregates.complianceProvisionInr)
+  assert.equal(fullFinancial.provisionAdjustedProfit, -fixture.expectedAggregates.fuelCostInr - fixture.expectedAggregates.ongoingMaintenanceProvisionInr - fixture.expectedAggregates.complianceProvisionInr)
+
   const canonical = derivePerformance({
     shifts,
     trips: [],
