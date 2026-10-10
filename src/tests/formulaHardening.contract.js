@@ -36,7 +36,7 @@ const range = { from: new Date('2026-09-10T00:00:00Z'), to: new Date('2026-09-10
   assert.deepEqual(position.schedule.map(row => row.originalPrincipalComponent), [333.34,333.34,333.33])
   assert.equal(position.scheduledPrincipal, 1000.01)
   assert.equal(position.outstandingPrincipal, 1000.01)
-  assert.equal(calculateEmi(1000.01, 3, 0), 333, 'canonical EMI is rounded to the nearest whole rupee; paise precision remains in the amortization schedule')
+  assert.equal(calculateEmi(1000.01, 3, 0), 333.34, 'canonical EMI retains paise precision to reconcile the amortization schedule')
 }
 
 // Boundary vector: KFE counts IST calendar dates, including leap-day.
