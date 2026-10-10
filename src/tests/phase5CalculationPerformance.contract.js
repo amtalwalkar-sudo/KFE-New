@@ -77,8 +77,8 @@ for(const key of ['revenue','vehicleKm','businessKm','deadKm','fuelCost','toll',
 assert.ok(higher.driverTarget>service.driverTarget)
 
 const missing=PerformanceService.getMetrics({...snapshot,breakEvenInputs:[]},range)
-assert.equal(missing.breakEvenRevenue,null)
-assert.equal(missing.monthlyBreakEvenRevenue,null)
+assert.ok(Number.isFinite(missing.breakEvenRevenue), 'Available fuel/compliance data still produces a provisional estimate')
+assert.equal(missing.calculationEvidence.breakEven.status, 'INDICATIVE')
 
 // Regression: daily target achievement must never include a shift or trip
 // completed later on the same IST day than the requested as-of timestamp.
