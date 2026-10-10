@@ -33,7 +33,7 @@ assert.ok(adminView.includes('paymentMethod:actionDraft.value.paymentMethod'), '
 assert.ok(adminView.includes('referenceNumber:String(actionDraft.value.referenceNumber||\'\')'), 'Source payment must persist payment reference')
 assert.ok(adminView.includes('notes:String(actionDraft.value.notes||\'\')'), 'Admin payment/prepayment/rate/target notes must reach persistence')
 assert.match(nativeAdmin, /:required="field\.required"/, 'Admin controls must expose required semantics')
-assert.ok(nativeAdmin.includes('function changed(field)'), 'Admin fields must write directly through native input events')
+assert.ok(nativeAdmin.includes('function changed(field, raw)') && nativeAdmin.includes(':value="value(field)"') && nativeAdmin.includes('@input="changed(field, $event.target.value)"'), 'Admin fields must use reactive values and native input events')
 assert.match(nativeAdmin, /function inputType\(field\)/, 'Admin numeric fields must render native number inputs')
 assert.ok(!nativeAdmin.includes('autocapitalize="on"'), 'Admin text entry must not force capitalization')
 assert.doesNotMatch(nativeAdmin, /openEditor|editorRef|editorOpen|readonly/, 'Admin fields must not use a popup editor or readonly text entry')

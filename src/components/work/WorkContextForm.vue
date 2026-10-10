@@ -181,6 +181,15 @@ const numericPress = async token => {
   else if (token === '.' && next === '') next = '0.'
   else if (token !== 'DONE' && token !== 'NEXT') next = next === '0' ? token : next + token
 
+  if (token === 'NEXT') {
+    const nextName = numericNext[field.name]
+    if (nextName) {
+      activeNumericField.value = nextName
+      return
+    }
+    activeNumericField.value = null
+    return
+  }
   if (token === 'DONE') {
     const finalFields = new Set(['trip-parking', 'cancel-fare', 'fuel-amount', 'shift-revenue', 'shift-parking'])
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
@@ -188,15 +197,6 @@ const numericPress = async token => {
     activeNumericField.value = null
     await nextTick()
     if (finalFields.has(field.name)) submitForm()
-    return
-  }
-  if (token === 'NEXT') {
-    const nextName = numericNext[field.name]
-    if (!nextName) {
-      activeNumericField.value = null
-      return
-    }
-    activeNumericField.value = nextName
     return
   }
   emitNumeric(field.name, next)
