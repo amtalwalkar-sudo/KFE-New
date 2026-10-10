@@ -29,14 +29,19 @@
 2. **The fuel unit test contradicted the authority contract.** Its supposed full-tank baseline/interval rows omitted isFullTank=true and vehicleId, yet expected an authoritative ₹/km value. The test now supplies those required fields, and the Performance contract now expects unassociated logs to remain unavailable.
 3. **Negative cost inputs could reduce break-even.** A negative maintenance-provision rate (or negative fixed-cost input) was treated as a present component and could lower the computed total. The break-even domain now treats negative cost/rate values as missing/invalid, keeps the result indicative, and excludes the negative amount. The synthetic contract includes a regression vector for a negative maintenance rate.
 4. **Rolling target balance could reset across months.** Historical desiredDriverProfit-only target records did not have their own historical break-even supplied to the rolling calculation, so they could be skipped. PerformanceService now builds a month-specific break-even map for historical active months and the stabilizer uses that month’s value. A January-to-June shortfall carryover regression is included.
+5. **Loan principal/installment reconciliation lacked a fully specified independent fixture.** PR #230 adds a 60-month synthetic loan with 36 scheduled payments, checking paid and remaining installments and reconciling opening principal minus allocated principal to outstanding principal.
 
-## Remaining calculation-audit gaps
+## Verification status
 
-- **Historical rolling target reconstruction across months — fixed in PR #230:** the target stabilizer now accepts month-specific break-even values. PerformanceService reconstructs each prior active month’s own break-even estimate and passes it to the rolling target calculation; a regression vector verifies January shortfall is carried into June using different month costs. If an active historical day lacks the break-even needed to reconstruct its balance, the target is now marked unavailable rather than silently falling back to a base target.
-- **Displayed-value verification:** the three-year contract independently asserts canonical numeric outputs, but some evidence rows construct their displayed string by formatting the canonical output itself. That proves formatting, not that the browser rendered the same value. Existing rendered UI smoke checks currently verify the presence of calculation labels, not the numeric values against seeded synthetic data.
-- **Loan principal reconciliation:** the three-year fixture's 36 × ₹11,324 cash total remains a separate output-only oracle because it omits loan inputs. PR #230 now adds an independent fully specified 60-month synthetic loan with 36 scheduled payments, checking paid and remaining installments and reconciling opening principal minus allocated principal to outstanding principal.
-- **₹815 / ₹4,672 component-level trace:** these accepted reference outputs are not being challenged. Their component/source provenance is simply not present in this fixture, so this audit does not claim independent component-level recomputation from the three-year fixture.
+- **Canonical synthetic and regression contracts:** PASS in the repository's contract suite.
+- **UI Isolation Gate:** PASS on PR head `48cb0931801a9bb77adfbabac3bb79dfbf69eb36`.
+- **Phase 0 Governance Gate:** PASS on the same PR head.
+- **KFE 2.0 single CI:** PASS on run [38093151698](https://github.com/amtalwalkar-sudo/KFE-New/actions/runs/38093151698), head `48cb0931801a9bb77adfbabac3bb79dfbf69eb36`. Jobs: `build-and-test` PASS, `android-release-gate` PASS, `deploy` skipped because this is a pull request.
+- **Merge/deploy/live runtime:** not performed by this PR; do not infer production verification from green CI.
 
-## Evidence boundary
+## Remaining verification boundary
 
-A green contract suite is source/canonical evidence, not proof that a live deployed PWA renders every monetary value correctly. PR #230 must pass the full CI workflow; it has not been merged or deployed by this audit. Do not promote this document to “all audit gaps closed” until the remaining items above have their own fixtures, expected values, canonical outputs, and (for display checks) DOM-level numeric assertions.
+- **Rendered numeric-value parity remains unverified.** `tools/calculation-matrix-ui-smoke.mjs` currently checks that 30 calculation labels appear in the browser DOM; it does not seed the three-year fixture into the running PWA and compare every rendered number against that fixture's expected value. Canonical arithmetic is covered, but this is not yet a DOM-level numeric parity test.
+- **₹815 / ₹4,672 component-level trace:** these accepted reference outputs are not being challenged. Their component/source provenance is not present in this three-year fixture, so this audit does not claim independent component-level recomputation for those two scenarios.
+
+**Conclusion:** The source-level synthetic calculation audit and regression fixes are complete for the confirmed defects listed above, and full PR CI is green. The audit is not a claim that every rendered browser number or the live deployed PWA has been verified; numeric DOM parity and post-merge deployed-runtime verification remain explicit gates.
