@@ -5,6 +5,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { derivePerformance } from '../domain/performance/performanceEngineV2.js'
+import { calculateHistoricalMaintenanceRecovery, calculateHistoricalMaintenanceRecoveryForRange } from '../domain/performance/performanceEngineV2.js'
 import { deriveFinanceAwarePerformance } from '../domain/performance/financePerformanceAdapter.js'
 import { calculateFuelQuantityKg } from '../domain/math/fuel.js'
 import { deriveLoanPosition } from '../domain/finance/loanEngine.js'
@@ -29,7 +30,19 @@ try {
   assert.equal(fixture.expectedAggregates.ongoingMaintenanceProvisionInr, 350720)
   assert.equal(fixture.expectedAggregates.emiPaymentCount, 36)
   assert.equal(fixture.expectedAggregates.emiTotalInr, 407664)
-  assert.equal(fixture.expectedAggregates.preBusinessMaintenanceObligationInr, 36000)
+
+  assert.equal(fixture.expectedAggregates.preBusinessMaintenanceObligationInr, 24000)
+  const historicalMaintenanceVehicle = [{ id: 'synthetic-history-vehicle', openingOdometerKm: 60000, active: true }]
+  assert.equal(calculateHistoricalMaintenanceRecovery({
+    vehicles: historicalMaintenanceVehicle,
+    businessStartDate: '2023-01-01',
+    asOf: '2023-06-15T12:00:00+05:30',
+  }), 2000, 'historical maintenance recovery must use the frozen ₹0.40/km rate divided across 12 months')
+  assert.equal(calculateHistoricalMaintenanceRecoveryForRange({
+    vehicles: historicalMaintenanceVehicle,
+    businessStartDate: '2023-01-01',
+    range: { from: new Date('2022-12-31T18:30:00.000Z'), to: new Date('2023-12-31T18:29:59.999Z') },
+  }), 24000, 'the full first 12-month recovery window must reconcile to 60,000 km × ₹0.40/km')
 
   // Reconcile every generated monthly rollup against its daily source rows.
   for (const month of fixture.monthly) {
