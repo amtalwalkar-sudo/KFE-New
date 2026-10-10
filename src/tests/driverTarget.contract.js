@@ -43,6 +43,23 @@ const explicitZeroProfit = deriveAuthoritativeDriverTarget({
 assert.equal(explicitZeroProfit.available, true, 'Explicit ₹0 remains a valid entered value')
 assert.equal(explicitZeroProfit.target, 10000 / 30)
 
+const negativeBreakEven = deriveAuthoritativeDriverTarget({
+  monthlyBreakEvenRevenue: -5000,
+  desiredDriverProfitMonthly: 0,
+  calendarDays: 30,
+})
+assert.equal(negativeBreakEven.available, true)
+assert.equal(negativeBreakEven.target, 0, 'daily target must never be negative even if an upstream break-even input is malformed')
+
+const negativeRolling = resolveDriverTargetAuthority({
+  monthlyBreakEvenRevenue: 10000,
+  desiredDriverProfitMonthly: 4000,
+  calendarDays: 30,
+  rollingTarget: { available: true, currentDailyTarget: -500 },
+  breakEvenStatus: 'AUTHORITATIVE',
+})
+assert.equal(negativeRolling.target, 0, 'shared target authority must clamp negative rolling values')
+
 const sharedRolling = resolveDriverTargetAuthority({
   monthlyBreakEvenRevenue: 10000,
   desiredDriverProfitMonthly: 4000,

@@ -43,6 +43,8 @@ const later = '2026-04-01'
   assert.equal(position.actualPaid, amount)
   assert.equal(position.schedule[0].paidAmount, amount, 'saved advance payment must be reflected in installment allocation')
   assert.ok(position.schedule[0].dueDate > earlyPaidOn, 'regression must cover payment before the EMI due date')
+  assert.ok(position.provisionBalance >= 0, 'advance EMI payments must not drive the accrued provision bucket negative')
+  assert.ok(position.paymentsAheadOfAccrual > 0, 'advance payment above accrued EMI provision is reported separately')
 }
 {
   const beforeLoanStart = paymentAllocationPreview({ loan, amount: 1000, paidOn: '2025-12-31' })
@@ -90,6 +92,29 @@ const later = '2026-04-01'
   assert.equal(estimate.available, true); assert.equal(estimate.appliedAmount, 50000); assert.equal(estimate.outstandingAfter, position.outstandingPrincipal - 50000); assert.equal(estimate.effect, 'REDUCE_TENURE_KEEP_EMI'); assert.equal(estimate.prepaymentCharge, 0)
   const after = deriveLoanPosition({ loan, payments: [onTimePayment], prepayments: [{ id: 'pp1', loanId: loan.id, amount: 50000, paidOn: due, status: 'Applied' }], asOf: due })
   assert.equal(after.actualPrepayment, 50000); assert.equal(after.actualFinancingOutflow, emi + 50000); assert.equal(after.outstandingPrincipal, estimate.outstandingAfter)
+}
+
+
+{
+  // Missing and malformed dates are diagnostic-invalid records: they must
+  // not be allocated to an EMI or counted as actual cash paid.
+  const invalidDatedPayments = [
+    { id: 'missing-date', loanId: loan.id, amount: 1000, status: 'PAID' },
+    { id: 'empty-date', loanId: loan.id, amount: 1000, paidOn: '', status: 'PAID' },
+    { id: 'bad-date', loanId: loan.id, amount: 1000, paidOn: 'not-a-date', status: 'PAID' },
+    { id: 'valid-date', loanId: loan.id, amount: 500, paidOn: '2026-01-15', status: 'PAID' },
+  ]
+  const position = deriveLoanPosition({ loan, payments: invalidDatedPayments, asOf: '2026-02-01' })
+  assert.equal(position.invalidPaymentCount, 3, 'all missing/invalid dates are counted for correction')
+  assert.equal(position.invalidPaymentAmount, 3000, 'invalid-date amounts remain visible but are not treated as paid')
+  assert.equal(position.actualPaid, 500, 'only the dated valid payment counts as actual cash')
+  assert.equal(position.schedule.reduce((sum, row) => sum + row.paidAmount, 0), 500, 'only valid dated payments reach EMI allocation')
+  const missingPreview = paymentAllocationPreview({ loan, amount: 1000, paidOn: null })
+  assert.equal(missingPreview.available, false)
+  assert.equal(missingPreview.reason, 'INVALID_PAYMENT_DATE')
+  const malformedPreview = paymentAllocationPreview({ loan, amount: 1000, paidOn: 'not-a-date' })
+  assert.equal(malformedPreview.available, false)
+  assert.equal(malformedPreview.reason, 'INVALID_PAYMENT_DATE')
 }
 
 console.log('Loan finance E2E contract passed: explicit per-loan rate, no KFE-wide default, source forms, payment allocation, overdue scenarios, prepayment gating, principal/outflow and downstream finance inputs.')

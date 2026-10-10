@@ -43,6 +43,25 @@ const historicalWithFutureOperations = derivePerformance(futureOperational, rang
 assert.equal(historicalWithFutureOperations.revenue, historical.revenue)
 assert.equal(historicalWithFutureOperations.vehicleKm, historical.vehicleKm)
 
+const missingStartOdometer = derivePerformance({
+  ...base,
+  shifts: [{ ...base.shifts[0], startOdometer: null }],
+}, range)
+assert.equal(missingStartOdometer.vehicleKm, 0, 'missing start odometer must not be coerced to zero and inflate vehicle KM')
+assert.equal(missingStartOdometer.deadKmIntegrityStatus, 'OVER_ESTIMATE', 'trip KM must remain visibly inconsistent when odometer evidence is missing')
+const blankEndOdometer = derivePerformance({
+  ...base,
+  shifts: [{ ...base.shifts[0], endOdometer: '   ' }],
+}, range)
+assert.equal(blankEndOdometer.vehicleKm, 0, 'blank end odometer must not be treated as a real zero reading')
+
+const expiredMaintenanceRate = derivePerformance({
+  ...base,
+  breakEvenInputs: [{ effectiveFrom: '2026-09-01', effectiveUntil: '2026-09-05', maintenanceProvisionPerKm: 2, active: true }],
+}, range)
+assert.equal(Number.isNaN(expiredMaintenanceRate.maintenanceProvision), true, 'expired maintenance rates must not leak into a later reporting period')
+assert.equal(expiredMaintenanceRate.maintenanceProvisionEvidenceStatus, 'UNAVAILABLE', 'maintenance provision must be unavailable when no effective rate covers the selected KM date')
+
 // Soft-deleted source records are excluded from actual calculations and financial-day classification.
 const deletedTrip = { ...base.trips[0], deletedAt:'2026-09-10T20:00:00Z', deleted:true }
 const withoutDeletedTrip = PerformanceService.getMetrics({ ...base, trips:[deletedTrip] }, range)

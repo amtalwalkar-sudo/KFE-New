@@ -44,7 +44,7 @@ export function deriveAuthoritativeDriverTarget({
     available: true,
     reason: null,
     monthlyTarget,
-    target: monthlyTarget / days,
+    target: Math.max(0, monthlyTarget / days),
     authority: 'MONTHLY_BREAK_EVEN_PLUS_ADMIN_MONTHLY_DRIVER_PROFIT',
   }
 }
@@ -78,7 +78,7 @@ export function resolveDriverTargetAuthority({
   })
   const rolling = finite(rollingTarget?.currentDailyTarget)
   const useRolling = rollingTarget?.available === true && rolling != null
-  const target = useRolling ? rolling : base.target
+  const target = useRolling ? Math.max(0, rolling) : base.target
   const available = target != null && Number.isFinite(target)
   const status = !available
     ? 'UNAVAILABLE'

@@ -48,6 +48,10 @@ const evidence = {
   'CV-30': { calc:/buildPeriodSnapshot|verifyPeriodSnapshot/, ui:[finance,/Finance/], e2e:/fah4HistoricalIntegrity/ },
 }
 
+assert.match(performance, /driverTargetSurplusCredit/, 'Performance view must bind the explicit rolling surplus-credit metric')
+assert.match(performance, /Surplus credit carried forward/, 'Performance view must display surplus credit separately from target and shortfall')
+assert.match(performance, /driverTargetCarriedShortfall/, 'Performance view must bind carried shortfall separately from surplus credit')
+
 for (const [id, item] of Object.entries(evidence)) {
   assert.ok(item.calc.test(matrix) || item.calc.test(performance) || item.calc.test(work) || item.calc.test(timeline) || item.calc.test(admin) || item.calc.test(breakEven) || item.calc.test(finance) || item.calc.test(loanEngine) || item.calc.test(periodSnapshot), `${id} calculation evidence token missing`)
   const [screen, label] = item.ui

@@ -156,6 +156,8 @@ export const PerformanceService = Object.freeze({
       driverTargetBase: stabilization.currentBaseDaily,
       driverTargetRecoveryAdjustment: stabilization.recoveryAdjustment,
       driverTargetRollingBalance: stabilization.balance,
+      driverTargetSurplusCredit: stabilization.surplusCredit ?? Math.max(0, -Number(stabilization.balance || 0)),
+      driverTargetCarriedShortfall: stabilization.carriedShortfall ?? Math.max(0, Number(stabilization.balance || 0)),
       driverTargetEffectiveMonthlyTarget: stabilization.currentPeriodBaseTarget,
       driverTargetCalendarDaysInMonth: targetMonthDays,
       driverTargetDesiredProfitMonthly: desiredDriverProfitMonthly,

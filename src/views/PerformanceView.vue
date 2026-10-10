@@ -67,6 +67,24 @@ const diagnostics = computed(() => PerformanceService.getDiagnostics(m.value))
 const actualProfit = computed(() => finite(m.value.performanceHeadlineActualProfit ?? m.value.actualProfit ?? m.value.operatingProfit))
 const indicativeProfit = computed(() => finite(m.value.performanceHeadlineProvisionalProfit ?? m.value.indicativeProfit))
 const indicativeProvision = computed(() => finite(m.value.totalIndicativeProvision))
+const provisionalDeductionRows = computed(() => [
+  { label: 'Maintenance provision', value: m.value.maintenanceProvision },
+  { label: 'Compliance provision', value: m.value.renewalProvision },
+  { label: 'Pre-business loan recovery', value: m.value.preBusinessRecoveryForPeriod },
+  { label: 'Historical maintenance recovery', value: m.value.historicalMaintenanceRecoveryForPeriod },
+])
+const provisionalDeductionTotal = computed(() => {
+  const values = provisionalDeductionRows.value.map(row => row.value)
+  if (values.some(value => value == null || value === '' || !Number.isFinite(Number(value)))) return null
+  return values.reduce((sum, value) => sum + Number(value), 0)
+})
+const provisionalDeductionReconciles = computed(() => {
+  const actual = actualProfit.value
+  const provisional = indicativeProfit.value
+  const total = provisionalDeductionTotal.value
+  return actual != null && provisional != null && total != null &&
+    Math.abs((actual - provisional) - total) < 0.011
+})
 const fuelEconomy = computed(() => {
   const km = finite(m.value.vehicleKm)
   const kg = finite(m.value.fuelQty)
@@ -130,10 +148,10 @@ const detailGroups = computed(() => {
     { key:'revenueHour', title:'Revenue / hour', kicker:'ACTUAL', value:money2(m.value.revenuePerHour), formula:'Revenue / hour = authoritative revenue ÷ qualifying working hours from completed shifts.', rows:[['Revenue',money(m.value.revenue)],['Working hours',num(m.value.workingHours)],['Revenue / hour',money2(m.value.revenuePerHour)]] },
     { key:'fuelEconomy', title:'Fuel economy', kicker:'ACTUAL', value:fuelEconomy.value == null ? '—' : `${num(fuelEconomy.value)} KM/KG`, formula:'Fuel economy = authoritative vehicle KM ÷ recorded CNG quantity in KG.', rows:[['Vehicle KM',num(m.value.vehicleKm)],['CNG consumed',m.value.fuelQty == null ? '—' : `${num(m.value.fuelQty)} KG`],['Fuel economy',fuelEconomy.value == null ? '—' : `${num(fuelEconomy.value)} KM/KG`],['Fuel cost / KG',money2(fuelCostPerKg.value)]] },
     { key:'activity', title:'Operating activity', kicker:'ACTUAL', value:num(m.value.vehicleKm) + ' KM', formula:'Vehicle KM = qualifying shift closing odometer minus start odometer. Business KM = validated completed-trip KM. Dead KM = vehicle KM minus business KM; opening odometer gap is separate.', rows:[['Vehicle KM · selected period',num(m.value.vehicleKm) + ' KM'],['Business KM · completed trips',businessKm.value == null ? '—' : num(businessKm.value) + ' KM'],['Business KM integrity status',m.value.businessKmIntegrityStatus || 'UNAVAILABLE'],['Dead KM · current shift movement',deadKm.value == null ? '—' : num(deadKm.value) + ' KM'],['Dead KM reconciliation status',m.value.deadKmIntegrityStatus || 'UNAVAILABLE'],['Opening gap · Personal KM',num(m.value.openingPersonalKm) + ' KM'],['Opening gap · Dead KM',num(m.value.openingDeadKm) + ' KM'],['Working hours',num(m.value.workingHours)],['Completed trips',num(m.value.counts?.trips)]] },
-    { key:'provision', title:'Provisions', kicker:'TRACKED', value:money(m.value.totalIndicativeProvision), formula:'Provision tracking shows loan, maintenance and compliance accruals separately from cash settlement. The P/L already deducts the full scheduled EMI, so loan provision is not deducted a second time; maintenance and compliance provisions are additional provisional costs.', rows:[['Loan provision · selected period',money(m.value.loanProvisionForPeriod)],['Maintenance provision · selected period',money(m.value.maintenanceProvision)],['Maintenance provision evidence',m.value.maintenanceProvisionEvidenceStatus || 'UNAVAILABLE'],['Compliance provision · selected period',money(m.value.renewalProvision)],['Total provisions · selected period',money(m.value.totalIndicativeProvision)],['Loan rolling balance',money(m.value.finance?.provisionBalance)],['Maintenance provision evidence',m.value.maintenanceProvisionEvidenceStatus || 'UNAVAILABLE'],['Maintenance rolling balance',money(m.value.maintenanceProvisionBalance)],['Compliance rolling balance',money(m.value.complianceProvisionBalance)]] },
-    { key:'target', title:'Target', kicker:targetStatus.value === 'AUTHORITATIVE' ? 'AUTHORITATIVE' : 'UNAVAILABLE', value:money(target.value), formula:'Daily driver target = (authoritative monthly break-even + Admin desired monthly driver profit) ÷ calendar days in the target month.', rows:[['Daily target',money(target.value)],['Monthly target requirement',money(m.value.driverTargetEffectiveMonthlyTarget)],['Monthly break-even',money(m.value.monthlyBreakEvenRevenue)],['Desired driver profit / take-home',money(m.value.driverTargetDesiredProfitMonthly)],['Calendar days in target month',num(m.value.driverTargetCalendarDaysInMonth)]] },
+    { key:'provision', title:'Provisions', kicker:'TRACKED', value:money(m.value.totalIndicativeProvision), formula:'Provision tracking shows loan, maintenance and compliance accruals separately from cash settlement. The P/L already deducts the full scheduled EMI, so loan provision is not deducted a second time; maintenance and compliance provisions are additional provisional costs.', rows:[['Loan provision · selected period',money(m.value.loanProvisionForPeriod)],['Maintenance provision · selected period',money(m.value.maintenanceProvision)],['Maintenance provision evidence',m.value.maintenanceProvisionEvidenceStatus || 'UNAVAILABLE'],['Compliance provision · selected period',money(m.value.renewalProvision)],['Total provisions · selected period',money(m.value.totalIndicativeProvision)],['Loan rolling balance',money(m.value.finance?.provisionBalance)],['Maintenance provision evidence',m.value.maintenanceProvisionEvidenceStatus || 'UNAVAILABLE'],['Maintenance rolling balance',money(m.value.maintenanceProvisionBalance)],['Maintenance payments ahead of provision',money(m.value.maintenanceProvisionExcessPayments)],['Compliance rolling balance',money(m.value.complianceProvisionBalance)],['Compliance payments ahead of provision',money(m.value.complianceProvisionExcessPayments)]] },
+    { key:'target', title:'Target', kicker:targetStatus.value === 'AUTHORITATIVE' ? 'AUTHORITATIVE' : 'UNAVAILABLE', value:money(target.value), formula:'Daily driver target = (authoritative monthly break-even + Admin desired monthly driver profit) ÷ calendar days in the target month.', rows:[['Daily target',money(target.value)],['Surplus credit carried forward',money(m.value.driverTargetSurplusCredit)],['Carried shortfall',money(m.value.driverTargetCarriedShortfall)],['Monthly target requirement',money(m.value.driverTargetEffectiveMonthlyTarget)],['Monthly break-even',money(m.value.monthlyBreakEvenRevenue)],['Desired driver profit / take-home',money(m.value.driverTargetDesiredProfitMonthly)],['Calendar days in target month',num(m.value.driverTargetCalendarDaysInMonth)]] },
     { key:'breakEven', title:'Break-even', kicker:breakEvenStatus.value, value:money(breakEven.value), formula:'Break-even is supplied by the authoritative break-even engine and presented here as an outlook requirement, separate from actual operating result.', rows:[['Total monthly break-even',knownMoney2(m.value.monthlyBreakEvenRevenue ?? breakEven.value)],['Revenue achieved · selected period',knownMoney2(targetRevenue.value)],['Revenue remaining to break-even',knownMoney2(breakEvenLeft.value)],['Break-even evidence status',m.value.calculationEvidence?.breakEven?.status || breakEvenStatus.value || 'UNAVAILABLE'],['Break-even evidence source',m.value.calculationEvidence?.breakEven?.source || '—'],['Missing break-even components',Array.isArray(m.value.breakEvenTrace?.missingComponents) && m.value.breakEvenTrace.missingComponents.length ? m.value.breakEvenTrace.missingComponents.join(', ') : 'None recorded'],['Fixed commitments and recoveries · total',knownMoney2(m.value.breakEvenInputs?.fixedCosts)],['Scheduled EMI · monthly',knownMoney2(m.value.breakEvenInputs?.scheduledEmiMonthly)],['Compliance provision · monthly',knownMoney2(m.value.breakEvenInputs?.complianceProvisionMonthly)],['Pre-business loan recovery · monthly',knownMoney2(m.value.breakEvenInputs?.preBusinessRecoveryMonthly)],['Historical maintenance recovery · monthly',knownMoney2(m.value.breakEvenInputs?.historicalMaintenanceRecoveryMonthly)],['Predicted fuel cost · month',knownMoney2(m.value.breakEvenInputs?.fuelCostMonthly)],['Historical fuel cost / KM',knownMoney2(m.value.breakEvenInputs?.fuelCostPerKm)],['Fuel rate source',m.value.breakEvenInputs?.fuelCostPerKmSource || '—'],['Fuel evidence status',m.value.breakEvenInputs?.fuelEvidence?.status || 'UNAVAILABLE'],['Predicted maintenance provision · month',knownMoney2(m.value.breakEvenInputs?.maintenanceProvisionMonthly)],['Maintenance provision / KM',knownMoney2(m.value.breakEvenInputs?.maintenanceProvisionPerKm)],['Forecast monthly vehicle KM',knownNum(m.value.breakEvenInputs?.vehicleKmBasis)],['Forecast KM basis source',m.value.breakEvenInputs?.vehicleKmBasisSource || '—']] },
-    { key:'loan', title:'Loan position', kicker:'FINANCIAL POSITION', value:money(m.value.finance?.provisionBalance), formula:'Loan provision accrues as the daily share of each fixed EMI across every calendar day in its EMI validity period. The rolling balance is provision accumulated minus loan payments.', rows:[['Provision accumulated',money(m.value.finance?.provisionAccumulated)],['Rolling provision balance',money(m.value.finance?.provisionBalance)],['Outstanding principal',money(m.value.finance?.outstandingPrincipal)],['Pending / overdue',money(m.value.finance?.totalOverdue)],['Delayed interest',money(m.value.finance?.totalUnpaidOverdueInterest)],['Actual loan paid',money(m.value.actualLoanPaid)],['Prepayments',money(m.value.actualPrepayment)]] },
+    { key:'loan', title:'Loan position', kicker:'FINANCIAL POSITION', value:money(m.value.finance?.provisionBalance), formula:'Loan provision accrues as the daily share of each fixed EMI across every calendar day in its EMI validity period. The rolling balance is provision accumulated minus loan payments.', rows:[['Provision accumulated',money(m.value.finance?.provisionAccumulated)],['Rolling provision balance',money(m.value.finance?.provisionBalance)],['Outstanding principal',money(m.value.finance?.outstandingPrincipal)],['Pending / overdue',money(m.value.finance?.totalOverdue)],['Delayed interest',money(m.value.finance?.totalUnpaidOverdueInterest)],['Actual loan paid',money(m.value.actualLoanPaid)],['Prepayments',money(m.value.actualPrepayment)],['Loan payments with missing/invalid date',String(m.value.finance?.invalidPaymentCount ?? 0)],['Invalid-date payment amount excluded',money(m.value.finance?.invalidPaymentAmount ?? 0)]] },
   ]
 })
 
@@ -313,6 +331,24 @@ const periodContext = computed(() => periodLabel.value)
           <div><strong>{{ num(m.vehicleKm) }}</strong><span>Vehicle KM</span></div>
           <div><strong>{{ num(refuelTrail.length) }}</strong><span>Refuelling events</span></div>
         </div>
+
+        <div class="pp-section-heading pp-provisional-breakdown-heading">
+          <span>PROVISIONAL PROFIT / LOSS</span>
+          <h2>Deduction breakdown · {{ periodLabel }}</h2>
+        </div>
+        <div class="metric-grid pp-break-even-breakdown" aria-label="Provisional profit deduction calculation breakdown">
+          <div><span>Actual profit / loss</span><strong>{{ money2(actualProfit) }}</strong></div>
+          <div v-for="row in provisionalDeductionRows" :key="row.label">
+            <span>{{ row.label }}</span>
+            <strong>{{ row.value == null || row.value === '' || !Number.isFinite(Number(row.value)) ? '—' : money2(row.value) }}</strong>
+          </div>
+          <div><span>Total provisional deductions</span><strong>{{ provisionalDeductionTotal == null ? '—' : money2(provisionalDeductionTotal) }}</strong></div>
+          <div><span>Provisional profit / loss</span><strong>{{ money2(indicativeProfit) }}</strong></div>
+        </div>
+        <p class="pp-boundary-note" v-if="provisionalDeductionTotal != null">
+          Reconciliation: Actual P/L − total provisional deductions = Provisional P/L.
+          <strong>{{ provisionalDeductionReconciles ? 'RECONCILED' : 'CHECK REQUIRED' }}</strong>
+        </p>
       </section>
 
       <section class="pp-section pp-timeline-section">
@@ -431,6 +467,8 @@ const periodContext = computed(() => periodLabel.value)
         </div>
         <div class="metric-grid pp-target-recovery">
           <div><span>Monthly target requirement</span><strong>{{ money(m.driverTargetEffectiveMonthlyTarget) }}</strong></div>
+          <div><span>Surplus credit carried forward</span><strong>{{ money(m.driverTargetSurplusCredit) }}</strong></div>
+          <div><span>Carried shortfall</span><strong>{{ money(m.driverTargetCarriedShortfall) }}</strong></div>
           <div><span>Monthly break-even</span><strong>{{ money(m.monthlyBreakEvenRevenue) }}</strong></div>
           <div><span>Desired driver profit / take-home</span><strong>{{ money(m.driverTargetDesiredProfitMonthly) }}</strong></div>
           <div><span>Calendar days in target month</span><strong>{{ num(m.driverTargetCalendarDaysInMonth) }}</strong></div>

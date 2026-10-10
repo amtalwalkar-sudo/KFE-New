@@ -226,9 +226,21 @@ export function deriveLoanPosition({ loan, payments = [], prepayments = [], asOf
     const elapsedDays = Math.max(0, Math.min(totalDays, calendarDayCount(start, end)))
     return sum + Math.round(rupeesToPaise(row.originalEmiAmount) * elapsedDays / totalDays)
   }, 0)
-  const actualPaidPaise = live(payments).filter(payment => payment.loanId === loan.id && String(payment.status || '').toLowerCase() !== 'reversed' && dateOf(payment.paidOn) <= effectiveAsOf).reduce((sum, payment) => sum + rupeesToPaise(payment.amount), 0)
-  const actualPrepaymentPaise = live(prepayments).filter(payment => payment.loanId === loan.id && String(payment.status || '').toLowerCase() === 'applied' && dateOf(payment.paidOn) <= effectiveAsOf).reduce((sum, payment) => sum + rupeesToPaise(payment.amount), 0)
-  const loanProvisionBalancePaise = provisionAccumulatedPaise - actualPaidPaise
+  const loanPayments = live(payments).filter(payment => payment.loanId === loan.id && String(payment.status || '').toLowerCase() !== 'reversed')
+  const invalidPaymentRecords = loanPayments.filter(payment => !dateOf(payment.paidOn))
+  const actualPaidPaise = loanPayments.filter(payment => {
+    const paidOn = dateOf(payment.paidOn)
+    return paidOn && paidOn <= effectiveAsOf
+  }).reduce((sum, payment) => sum + rupeesToPaise(payment.amount), 0)
+  const actualPrepaymentPaise = live(prepayments).filter(payment => {
+    const paidOn = dateOf(payment.paidOn)
+    return payment.loanId === loan.id && String(payment.status || '').toLowerCase() === 'applied' && paidOn && paidOn <= effectiveAsOf
+  }).reduce((sum, payment) => sum + rupeesToPaise(payment.amount), 0)
+  // An actual payment can be ahead of accrued EMI provision (for example,
+  // an advance EMI). Keep the provision bucket non-negative and expose the
+  // amount paid ahead of accrual separately rather than hiding it as a deficit.
+  const loanProvisionBalancePaise = Math.max(0, provisionAccumulatedPaise - actualPaidPaise)
+  const paymentsAheadOfAccrualPaise = Math.max(0, actualPaidPaise - provisionAccumulatedPaise)
   const scheduledInterestPaise = obligations.filter(row => dateOf(row.dueDate) <= effectiveAsOf).reduce((sum, row) => sum + rupeesToPaise(row.originalInterestComponent), 0)
   const scheduledPrincipalPaise = obligations.filter(row => dateOf(row.dueDate) <= effectiveAsOf).reduce((sum, row) => sum + rupeesToPaise(row.originalPrincipalComponent), 0)
   const paidPrincipalPaise = obligations.reduce((sum, row) => sum + rupeesToPaise(row.scheduledPrincipalPaid), 0)
@@ -247,10 +259,13 @@ export function deriveLoanPosition({ loan, payments = [], prepayments = [], asOf
     scheduledInterest: paiseToRupees(scheduledInterestPaise),
     scheduledPrincipal: paiseToRupees(scheduledPrincipalPaise),
     actualPaid: paiseToRupees(actualPaidPaise),
+    invalidPaymentCount: invalidPaymentRecords.length,
+    invalidPaymentAmount: paiseToRupees(invalidPaymentRecords.reduce((sum, payment) => sum + rupeesToPaise(payment.amount), 0)),
     actualPrepayment: paiseToRupees(actualPrepaymentPaise),
     actualFinancingOutflow: paiseToRupees(actualPaidPaise + actualPrepaymentPaise),
     provisionAccumulated: paiseToRupees(provisionAccumulatedPaise),
     provisionBalance: paiseToRupees(loanProvisionBalancePaise),
+    paymentsAheadOfAccrual: paiseToRupees(paymentsAheadOfAccrualPaise),
     outstandingPrincipal: paiseToRupees(outstandingPrincipalPaise),
     remainingInterest: paiseToRupees(totalRemainingInterestPaise),
     scheduledFinalDate: schedule.at(-1)?.dueDate || null,

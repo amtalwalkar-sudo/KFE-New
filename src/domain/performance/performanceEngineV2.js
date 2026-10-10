@@ -5,7 +5,7 @@ import { istDateKey } from '../time/ist.js'
 import { deriveTollParkingExpenseTreatment } from '../work/revenueReconciliation.js'
 
 const n = v => Number.isFinite(Number(v)) ? Number(v) : 0
-const odometer = v => { const x = Number(v); return Number.isFinite(x) && x >= 0 ? x : NaN }
+const odometer = v => { if (v == null || String(v).trim() === '') return NaN; const x = Number(v); return Number.isFinite(x) && x >= 0 ? x : NaN }
 const d = v => { const x = v ? new Date(v) : null; return x && !Number.isNaN(x.getTime()) ? x : null }
 const inR = (v, r) => { const x = d(v); return !!x && x >= r.from && x <= r.to }
 const days = (a, b) => Math.max(1, Math.ceil((b - a) / 86400000) + 1)
@@ -29,8 +29,12 @@ const applicableMaintenanceRate = (inputs, date) => {
   // YYYY-MM-DD and full ISO timestamps resolve consistently.
   const row = live(inputs)
     .filter(x => x.active !== false && x.status !== 'INACTIVE')
-    .map(x => ({ ...x, effectiveKey: istDateKey(x.effectiveFrom) || String(x.effectiveFrom || '').slice(0, 10) }))
-    .filter(x => x.effectiveKey && x.effectiveKey <= key && x.maintenanceProvisionPerKm != null && x.maintenanceProvisionPerKm !== '' && Number.isFinite(Number(x.maintenanceProvisionPerKm)) && Number(x.maintenanceProvisionPerKm) >= 0)
+    .map(x => ({
+      ...x,
+      effectiveKey: istDateKey(x.effectiveFrom) || String(x.effectiveFrom || '').slice(0, 10),
+      untilKey: istDateKey(x.effectiveUntil || x.validUntil || x.endDate),
+    }))
+    .filter(x => x.effectiveKey && x.effectiveKey <= key && (!x.untilKey || x.untilKey >= key) && x.maintenanceProvisionPerKm != null && x.maintenanceProvisionPerKm !== '' && Number.isFinite(Number(x.maintenanceProvisionPerKm)) && Number(x.maintenanceProvisionPerKm) >= 0)
     .sort((a, b) => String(b.effectiveKey).localeCompare(String(a.effectiveKey)) || String(b.updatedAt || b.createdAt || b.id || '').localeCompare(String(a.updatedAt || a.createdAt || a.id || '')))[0]
   return row ? Number(row.maintenanceProvisionPerKm) : NaN
 }
@@ -100,25 +104,28 @@ const maintenanceProvisionThrough = (shifts, inputs, asOf) => {
   if(rows.some(x=>!Number.isFinite(x.rate)))return NaN
   return rows.reduce((sum,x)=>sum+shiftKm(x.shift)*x.rate,0)
 }
+const inclusiveCalendarDays = (fromKey, toKey) => {
+  const from = dateKeyDate(fromKey), to = dateKeyDate(toKey)
+  if (!from || !to || to < from) return 0
+  return Math.round((to.getTime() - from.getTime()) / 86400000) + 1
+}
 const complianceProvisionForRecord = (record, shifts, r) => {
   const start = d(record?.validFrom), end = d(record?.validUntil), cost = n(record?.cost)
   if (!start || !end || end < start || cost <= 0) return 0
-  const validityFrom = istDateKey(start), validityTo = istDateKey(end), reportFrom = istDateKey(r?.from) || validityFrom, reportTo = istDateKey(r?.to) || validityTo
-  const overlapFrom = validityFrom > reportFrom ? validityFrom : reportFrom, overlapTo = validityTo < reportTo ? validityTo : reportTo
-  if (!validityFrom || !validityTo || overlapTo < overlapFrom) return 0
-  const dailyRevenue = revenueByDay(shifts)
-  const dailyProvision = cost / days(start, end)
-  let provision = 0
-  const a = dateKeyDate(overlapFrom), b = dateKeyDate(overlapTo)
-  if (!a || !b) return 0
-  for (let cursor = a; cursor <= b; cursor = new Date(cursor.getTime() + 86400000)) {
-    // Compliance is a fixed-validity obligation. It accrues for every
-    // calendar day in its validity period, regardless of whether a shift
-    // or revenue occurred on that day. Holidays therefore do not remove a
-    // day's provision or defer it to a later working day.
-    provision += dailyProvision
-  }
-  return provision
+  // All validity and reporting boundaries are inclusive IST calendar dates.
+  // Never derive day counts from elapsed milliseconds: timestamp offsets and
+  // leap days must not change the number of covered calendar dates.
+  const validityFrom = istDateKey(start), validityTo = istDateKey(end)
+  const reportFrom = istDateKey(r?.from) || validityFrom
+  const reportTo = istDateKey(r?.to) || validityTo
+  if (!validityFrom || !validityTo || !reportFrom || !reportTo) return 0
+  const overlapFrom = validityFrom > reportFrom ? validityFrom : reportFrom
+  const overlapTo = validityTo < reportTo ? validityTo : reportTo
+  if (overlapTo < overlapFrom) return 0
+  const totalDays = inclusiveCalendarDays(validityFrom, validityTo)
+  const overlapDays = inclusiveCalendarDays(overlapFrom, overlapTo)
+  if (!totalDays || !overlapDays) return 0
+  return cost * overlapDays / totalDays
 }
 const renewal = (xs, shifts, r) => live(xs).reduce((sum, record) => sum + complianceProvisionForRecord(record, shifts, r), 0)
 const complianceProvisionThrough = (record, asOf) => {
@@ -127,9 +134,9 @@ const complianceProvisionThrough = (record, asOf) => {
   const validityFrom = istDateKey(start), validityTo = istDateKey(end), asOfKey = istDateKey(boundary)
   if (!validityFrom || !validityTo || !asOfKey || asOfKey < validityFrom) return 0
   const accruedTo = asOfKey < validityTo ? asOfKey : validityTo
-  const totalDays = days(dateKeyDate(validityFrom), dateKeyDate(validityTo))
-  const accruedDays = days(dateKeyDate(validityFrom), dateKeyDate(accruedTo))
-  return cost * accruedDays / totalDays
+  const totalDays = inclusiveCalendarDays(validityFrom, validityTo)
+  const accruedDays = inclusiveCalendarDays(validityFrom, accruedTo)
+  return totalDays > 0 ? cost * accruedDays / totalDays : 0
 }
 
 export function derivePerformance(s, r, p = previousRange(r)) {
@@ -200,19 +207,23 @@ export function derivePerformance(s, r, p = previousRange(r)) {
   const maintenancePaymentsAccumulated = live(s?.settlements).filter(x => String(x.sourceType || '') === 'Maintenance' && String(x.direction || 'OUT').toUpperCase() === 'OUT' && d(x.settledOn || x.paidOn || x.createdAt) && d(x.settledOn || x.paidOn || x.createdAt) <= r.to).reduce((sum, x) => sum + n(x.amount), 0)
   // A settlement can exceed the provision accrued so far; the provision
   // bucket is cleared by the actual payment and must not become negative.
-  const maintenanceProvisionBalance = maintenanceProvisionAccumulated - maintenancePaymentsAccumulated
+  const maintenanceProvisionBalance = Number.isFinite(maintenanceProvisionAccumulated) ? Math.max(0, maintenanceProvisionAccumulated - maintenancePaymentsAccumulated) : NaN
+  const maintenanceProvisionExcessPayments = Number.isFinite(maintenanceProvisionAccumulated) ? Math.max(0, maintenancePaymentsAccumulated - maintenanceProvisionAccumulated) : NaN
   const historicalMaintenanceRecoveryMonthly = calculateHistoricalMaintenanceRecovery({ vehicles: s?.vehicles || [], businessStartDate: s?.businessSetup?.businessStartDate, asOf: r?.to })
   const prevMaintenanceProvision = maintenanceProvisionForShifts(S, s?.breakEvenInputs || [], p)
   const previousMaintenancePayments = live(s?.settlements).filter(x => String(x.sourceType || '') === 'Maintenance' && String(x.direction || 'OUT').toUpperCase() === 'OUT' && inR(x.settledOn || x.paidOn || x.createdAt, p)).reduce((sum, x) => sum + n(x.amount), 0)
   const previousMaintenanceProvisionAccumulated = maintenanceProvisionThrough(S, s?.breakEvenInputs || [], p?.to)
   const previousMaintenancePaymentsAccumulated = live(s?.settlements).filter(x => String(x.sourceType || '') === 'Maintenance' && String(x.direction || 'OUT').toUpperCase() === 'OUT' && d(x.settledOn || x.paidOn || x.createdAt) && d(x.settledOn || x.paidOn || x.createdAt) <= p.to).reduce((sum, x) => sum + n(x.amount), 0)
-  const previousMaintenanceProvisionBalance = previousMaintenanceProvisionAccumulated - previousMaintenancePaymentsAccumulated
+  const previousMaintenanceProvisionBalance = Number.isFinite(previousMaintenanceProvisionAccumulated) ? Math.max(0, previousMaintenanceProvisionAccumulated - previousMaintenancePaymentsAccumulated) : NaN
+  const previousMaintenanceProvisionExcessPayments = Number.isFinite(previousMaintenanceProvisionAccumulated) ? Math.max(0, previousMaintenancePaymentsAccumulated - previousMaintenanceProvisionAccumulated) : NaN
   const complianceProvisionById = Object.fromEntries(live(C).map(record => [record.id, complianceProvisionForRecord(record, S, r)]))
   const complianceProvisionAccumulatedById = Object.fromEntries(live(C).map(record => [record.id, complianceProvisionThrough(record, r?.to)]))
   const compliancePaymentsById = live(s?.settlements).filter(x => String(x.sourceType || '') === 'Compliance' && String(x.direction || 'OUT').toUpperCase() === 'OUT' && inR(x.settledOn || x.paidOn || x.createdAt, r)).reduce((map, payment) => { map[payment.sourceId] = (map[payment.sourceId] || 0) + n(payment.amount); return map }, {})
   const compliancePaymentsAccumulatedById = live(s?.settlements).filter(x => String(x.sourceType || '') === 'Compliance' && String(x.direction || 'OUT').toUpperCase() === 'OUT' && d(x.settledOn || x.paidOn || x.createdAt) && d(x.settledOn || x.paidOn || x.createdAt) <= r.to).reduce((map, payment) => { map[payment.sourceId] = (map[payment.sourceId] || 0) + n(payment.amount); return map }, {})
-  const complianceProvisionBalancesById = Object.fromEntries(Object.entries(complianceProvisionAccumulatedById).map(([id, value]) => [id, value - (compliancePaymentsAccumulatedById[id] || 0)]))
+  const complianceProvisionBalancesById = Object.fromEntries(Object.entries(complianceProvisionAccumulatedById).map(([id, value]) => [id, Number.isFinite(value) ? Math.max(0, value - (compliancePaymentsAccumulatedById[id] || 0)) : NaN]))
+  const complianceProvisionExcessPaymentsById = Object.fromEntries(Object.entries(complianceProvisionAccumulatedById).map(([id, value]) => [id, Number.isFinite(value) ? Math.max(0, (compliancePaymentsAccumulatedById[id] || 0) - value) : NaN]))
   const complianceProvisionBalance = Object.values(complianceProvisionBalancesById).reduce((sum, value) => sum + n(value), 0)
+  const complianceProvisionExcessPayments = Object.values(complianceProvisionExcessPaymentsById).reduce((sum, value) => sum + n(value), 0)
   const provision = maintenanceProvision + ren
   const prevProvision = prevMaintenanceProvision + pren
   const wd = days(r.from, r.to), elapsed = wd, activeDays = new Set(a.sh.map(x => istDateKey(d(x.shiftEndAt || x.shiftStartAt))).filter(Boolean)).size, prevActive = new Set(q.sh.map(x => istDateKey(d(x.shiftEndAt || x.shiftStartAt))).filter(Boolean)).size
@@ -225,7 +236,7 @@ export function derivePerformance(s, r, p = previousRange(r)) {
     completeness: { target: false, renewal: ren > 0, hourlyData: a.workingHours > 0, breakEven: false, fuelCostPerKm: Number.isFinite(fuelCostPerKm) },
     counts: { trips: a.tr.length, activeFinancialDays: activeDays, workingDays: wd, elapsedDays: elapsed, daysRemaining: Math.max(0, wd - elapsed) }, previousCounts: { trips: q.tr.length, activeFinancialDays: prevActive },
     revenue: a.revenue, financialRevenue: a.financialRevenue, previousFinancialRevenue: q.financialRevenue, passThroughToll: a.passThroughToll, passThroughParking: a.passThroughParking, excludedTollExpense: a.excludedTollExpense, excludedParkingExpense: a.excludedParkingExpense, previousRevenue: q.revenue, vehicleKm: a.vehicleKm, previousVehicleKm: q.vehicleKm, businessKm: a.businessKm, previousBusinessKm: q.businessKm, businessKmIntegrityStatus: a.businessKmIntegrityStatus, previousBusinessKmIntegrityStatus: q.businessKmIntegrityStatus, deadKm: a.deadKm, previousDeadKm: q.deadKm, deadKmIntegrityStatus: a.deadKmIntegrityStatus, previousDeadKmIntegrityStatus: q.deadKmIntegrityStatus, openingPersonalKm: a.openingPersonalKm, previousOpeningPersonalKm: q.openingPersonalKm, openingDeadKm: a.openingDeadKm, previousOpeningDeadKm: q.openingDeadKm, fuelCost: a.fuelCost, fuelQty: a.fuelQty, fuelCostPerKm, fuelCostPerKmObservations: fuelModel.observations.length, toll: a.toll, parking: a.parking, actualMaintenance: a.maintenance, workingHours: a.workingHours, previousWorkingHours: q.workingHours, runningCost: a.operatingCost, previousRunningCost: q.operatingCost, actualOperatingCost: a.operatingCost, previousActualOperatingCost: q.operatingCost,
-    costPerKm, maintenanceProvision, maintenanceProvisionEvidenceStatus: Number.isFinite(maintenanceProvision) && Number.isFinite(maintenanceProvisionAccumulated) ? 'AUTHORITATIVE' : 'UNAVAILABLE', previousMaintenanceProvision: prevMaintenanceProvision, maintenanceProvisionAccumulated, previousMaintenanceProvisionAccumulated, historicalMaintenanceRecoveryMonthly, maintenancePayments, maintenancePaymentsAccumulated, previousMaintenancePayments, previousMaintenancePaymentsAccumulated, maintenanceProvisionBalance, previousMaintenanceProvisionBalance, renewalProvision: ren, complianceProvisionById, complianceProvisionAccumulatedById, compliancePaymentsById, compliancePaymentsAccumulatedById, complianceProvisionBalancesById, complianceProvisionBalance, otherProvision: 0, provisionRequired: provision, provisionSetAside: provision, operatingProfit: a.operatingProfit, previousOperatingProfit: q.operatingProfit, provisionAdjustedProfit, previousProvisionAdjustedProfit: prevProvisionAdjustedProfit,
+    costPerKm, maintenanceProvision, maintenanceProvisionEvidenceStatus: Number.isFinite(maintenanceProvision) && Number.isFinite(maintenanceProvisionAccumulated) ? 'AUTHORITATIVE' : 'UNAVAILABLE', previousMaintenanceProvision: prevMaintenanceProvision, maintenanceProvisionAccumulated, previousMaintenanceProvisionAccumulated, historicalMaintenanceRecoveryMonthly, maintenancePayments, maintenancePaymentsAccumulated, previousMaintenancePayments, previousMaintenancePaymentsAccumulated, maintenanceProvisionBalance, maintenanceProvisionExcessPayments, previousMaintenanceProvisionBalance, previousMaintenanceProvisionExcessPayments, renewalProvision: ren, complianceProvisionById, complianceProvisionAccumulatedById, compliancePaymentsById, compliancePaymentsAccumulatedById, complianceProvisionBalancesById, complianceProvisionBalance, complianceProvisionExcessPaymentsById, complianceProvisionExcessPayments, otherProvision: 0, provisionRequired: provision, provisionSetAside: provision, operatingProfit: a.operatingProfit, previousOperatingProfit: q.operatingProfit, provisionAdjustedProfit, previousProvisionAdjustedProfit: prevProvisionAdjustedProfit,
     monthlyBreakEvenRevenue: NaN, revenuePerKm: a.vehicleKm ? a.financialRevenue / a.vehicleKm : NaN, revenuePerTrip: a.tr.length ? a.financialRevenue / a.tr.length : NaN, revenuePerHour: a.workingHours ? a.financialRevenue / a.workingHours : NaN, profitPerKm: a.vehicleKm ? a.operatingProfit / a.vehicleKm : NaN, profitPerHour: a.workingHours ? a.operatingProfit / a.workingHours : NaN, revenueGrowth: q.revenue ? (a.revenue - q.revenue) / Math.abs(q.revenue) * 100 : NaN, profitGrowth: q.operatingProfit ? (a.operatingProfit - q.operatingProfit) / Math.abs(q.operatingProfit) * 100 : NaN, revenuePerActiveDay: perDay, target: null,
     breakEvenInputs: { maintenanceProvisionPerKm: NaN, fixedCosts: NaN, fuelCostPerKm, fuelCostPerKmSource, fuelEvidence }, pace: { currentRevenuePerFinancialDay: perDay, requiredRevenuePerFinancialDay: NaN, paceVariance: NaN }, trips: a.tr, shifts: a.sh, fuelLogs: a.fu, maintenance: a.ma,
 previous: { revenue: q.revenue, cost: q.operatingCost, operatingProfit: q.operatingProfit, provisionAdjustedProfit: prevProvisionAdjustedProfit, businessKm: q.businessKm, vehicleKm: q.vehicleKm, deadKm: q.deadKm, workingHours: q.workingHours }
