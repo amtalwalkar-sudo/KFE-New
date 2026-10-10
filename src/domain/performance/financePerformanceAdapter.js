@@ -87,10 +87,10 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   const monthHistoricalMaintenanceRecovery = calculateHistoricalMaintenanceRecoveryForRange({ vehicles: snapshot?.vehicles || [], businessStartDate: businessStart, range: breakEvenMonthRange })
   const breakEven = deriveAuthoritativeBreakEven({ breakEvenInputs: snapshot?.breakEvenInputs || [], range: breakEvenMonthRange, loanScheduledObligation: monthScheduledEmi, loanInputAvailable: !!activeLoan && !hasIncompleteActiveLoan && Number.isFinite(Number(monthScheduledEmi)), loanNotApplicable: candidateLoans.length === 0, preBusinessRecovery: monthPreBusinessRecovery, historicalMaintenanceRecovery: monthHistoricalMaintenanceRecovery, renewalProvision: monthlyBase.renewalProvision, complianceInputAvailable: live(snapshot?.compliance).length > 0, fuelCostPerKm: monthlyEvidenceBase.breakEvenInputs?.fuelCostPerKm ?? monthlyEvidenceBase.fuelCostPerKm, fuelCostPerKmStatus: monthlyEvidenceBase.breakEvenInputs?.fuelEvidence?.status || CALCULATION_STATUS.UNAVAILABLE, vehicleKm: normalizedMonthlyKm, vehicleKmSource: normalizedMonthlyKmSource })
   const monthlyBreakEvenRevenue = breakEven.available ? breakEven.monthlyBreakEvenRevenue : Number.isFinite(breakEven.indicativeMonthlyBreakEvenRevenue) ? breakEven.indicativeMonthlyBreakEvenRevenue : NaN
-  const breakEvenFuelCost = breakEven.available || breakEven.status === CALCULATION_STATUS.INDICATIVE
+  const breakEvenFuelCost = (breakEven.available || breakEven.status === CALCULATION_STATUS.INDICATIVE) && Number.isFinite(Number(breakEven.fuelCostPerKm)) && breakEven.vehicleKm != null && Number.isFinite(Number(breakEven.vehicleKm))
     ? Number(breakEven.fuelCostPerKm) * Number(breakEven.vehicleKm)
     : NaN
-  const breakEvenMaintenanceProvision = breakEven.available || breakEven.status === CALCULATION_STATUS.INDICATIVE
+  const breakEvenMaintenanceProvision = (breakEven.available || breakEven.status === CALCULATION_STATUS.INDICATIVE) && Number.isFinite(Number(breakEven.maintenanceProvisionPerKm)) && breakEven.vehicleKm != null && Number.isFinite(Number(breakEven.vehicleKm))
     ? Number(breakEven.maintenanceProvisionPerKm) * Number(breakEven.vehicleKm)
     : NaN
   const breakEvenFinancialObligation = Number.isFinite(Number(monthScheduledEmi))
