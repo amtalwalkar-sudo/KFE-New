@@ -11,7 +11,7 @@ import { getPerformanceDiagnostics } from '../../domain/performance/performanceD
 import { getKfeReferenceNow, reportingRangeFor } from '../../domain/time/ist.js'
 import { deriveDailyTargetAchievement } from '../../domain/performance/dailyTargetAchievement.js'
 import { deriveDailyRevenueAllocation } from '../../domain/performance/dailyRevenueAllocation.js'
-import { getApplicableDriverTarget } from '../../domain/performance/driverTarget.js'
+import { getApplicableDriverTarget, resolveDriverTargetAuthority } from '../../domain/performance/driverTarget.js'
 import { deriveRollingDriverTarget } from '../../domain/performance/driverTargetStabilization.js'
 
 export const PerformanceService = Object.freeze({
@@ -76,8 +76,9 @@ export const PerformanceService = Object.freeze({
         ? metrics.indicative.monthlyBreakEvenRevenue
         : null
     const targetRecord = getApplicableDriverTarget(calculationSnapshot?.driverTargets, boundedRange.to)
-    const desiredDriverProfitMonthly = Number.isFinite(Number(targetRecord?.desiredDriverProfit))
-      ? Number(targetRecord.desiredDriverProfit)
+    const desiredValue = targetRecord?.desiredDriverProfit
+    const desiredDriverProfitMonthly = desiredValue != null && desiredValue !== '' && Number.isFinite(Number(desiredValue))
+      ? Number(desiredValue)
       : null
     const stabilization = deriveRollingDriverTarget({
       trips: calculationSnapshot?.trips,
@@ -87,8 +88,15 @@ export const PerformanceService = Object.freeze({
       to: boundedRange.to,
       applicableBreakEven: monthlyBreakEvenEstimate,
     })
-    const canonicalTarget = stabilization.currentDailyTarget
-    const targetAvailable = stabilization.available && Number.isFinite(Number(canonicalTarget))
+    const targetAuthority = resolveDriverTargetAuthority({
+      monthlyBreakEvenRevenue: monthlyBreakEvenEstimate,
+      desiredDriverProfitMonthly,
+      calendarDays: targetMonthDays,
+      rollingTarget: stabilization,
+      breakEvenStatus: metrics.calculationEvidence?.breakEven?.status || 'UNAVAILABLE',
+    })
+    const canonicalTarget = targetAuthority.target
+    const targetAvailable = targetAuthority.available
     const financialDays = Number(metrics.counts?.activeFinancialDays) || 0
     const revenuePerFinancialDay = financialDays > 0 ? metrics.revenue / financialDays : NaN
     const dailyBreakEvenRevenue = monthlyBreakEvenEstimate != null && Number.isFinite(targetMonthDays) && targetMonthDays > 0
@@ -139,19 +147,19 @@ export const PerformanceService = Object.freeze({
       completeness: { ...metrics.completeness, target: targetAvailable, breakEven: authoritativeMonthlyBreakEven != null },
       calculationEvidence: {
         ...(metrics.calculationEvidence || {}),
-        target: stabilization.available ? { status: metrics.calculationEvidence?.breakEven?.status === 'AUTHORITATIVE' ? 'AUTHORITATIVE' : 'INDICATIVE', source: 'DRIVER_TARGET_ROLLING_RECOVERY', reason: metrics.calculationEvidence?.breakEven?.status === 'AUTHORITATIVE' ? null : 'PARTIAL_BREAK_EVEN_COMPONENTS' } : { status: 'UNAVAILABLE', reason: stabilization.reason },
+        target: { status: targetAuthority.status, source: targetAuthority.authority, reason: targetAuthority.reason },
         dailyBreakEven: dailyBreakEvenEvidence,
       },
       driverTarget: canonicalTarget,
       driverTargetAvailable: targetAvailable,
-      driverTargetReason: stabilization.available ? null : stabilization.reason,
+      driverTargetReason: targetAuthority.reason,
       driverTargetBase: stabilization.currentBaseDaily,
       driverTargetRecoveryAdjustment: stabilization.recoveryAdjustment,
       driverTargetRollingBalance: stabilization.balance,
       driverTargetEffectiveMonthlyTarget: stabilization.currentPeriodBaseTarget,
       driverTargetCalendarDaysInMonth: targetMonthDays,
       driverTargetDesiredProfitMonthly: desiredDriverProfitMonthly,
-      driverTargetAuthority: 'DRIVER_TARGET_ROLLING_RECOVERY',
+      driverTargetAuthority: targetAuthority.authority,
       dailyRevenueAllocation,
       dailyRevenueAllocationDate: today,
       dailyRevenueAllocationAuthority: 'MONTHLY_BREAK_EVEN_COMPONENTS_ALLOCATED_AS_DAILY_REVENUE_RESERVATION',
