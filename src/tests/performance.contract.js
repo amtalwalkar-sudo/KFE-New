@@ -154,6 +154,7 @@ assert.ok(Number.isNaN(missingEngineMetrics.monthlyBreakEvenRevenue))
 assert.equal(missingServiceMetrics.completeness.breakEven, false)
 
 const missingBreakEvenInput = PerformanceService.getMetrics({ ...snapshot, breakEvenInputs: [] }, range)
+assert.ok(Number.isFinite(missingBreakEvenInput.monthlyBreakEvenRevenue), 'Other available components must not be blocked by a missing maintenance rate')
 
 const shiftStartedNoCompletedTrip = { ...snapshot, trips: [], shifts: [{ ...snapshot.shifts[0], shiftEndAt: null, revenue: 0 }] }
 const shiftStartedMetrics = PerformanceService.getMetrics(shiftStartedNoCompletedTrip, range)
