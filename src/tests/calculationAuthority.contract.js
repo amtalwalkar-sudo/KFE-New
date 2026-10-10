@@ -68,7 +68,7 @@ assert.equal('targetGap' in metrics.pace, false)
 assert.equal(metrics.pace.currentRevenuePerFinancialDay, metrics.revenuePerActiveDay)
 assert.equal(metrics.pace.requiredRevenuePerFinancialDay, metrics.target)
 
-assert.equal(metrics.dailyBreakEvenRevenue, null)
+assert.ok(Number.isFinite(metrics.dailyBreakEvenRevenue), 'Indicative monthly break-even must yield a provisional daily figure')
 assert.equal(metrics.dailyBreakEven.status, 'INDICATIVE')
 
 assert.equal(istDateKey(new Date('2026-09-10T23:00:00Z')), '2026-09-11')
