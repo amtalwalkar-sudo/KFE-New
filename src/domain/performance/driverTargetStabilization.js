@@ -95,7 +95,10 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     if (baseDaily == null) continue
     currentBaseDaily = baseDaily
     currentPeriodBaseTarget = periodBaseTarget(record, applicableBreakEven)
-    currentDailyTarget = baseDaily + balance
+    // A carried surplus can fully cover today's base target, but must never
+    // turn the displayed daily target negative. Keep the signed balance intact
+    // so surplus credit remains available to offset later active days.
+    currentDailyTarget = Math.max(0, baseDaily + balance)
     balanceBeforeCurrent = balance
     if (byDay.has(dayKey)) balance += baseDaily - byDay.get(dayKey)
   }
@@ -108,6 +111,9 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     currentBaseDaily,
     currentPeriodBaseTarget,
     recoveryAdjustment: currentDailyTarget != null && currentBaseDaily != null ? currentDailyTarget - currentBaseDaily : null,
+    surplusCreditBefore: Math.max(0, -balanceBeforeCurrent),
+    surplusCredit: Math.max(0, -balance),
+    carriedShortfall: Math.max(0, balance),
     activeDays: currentDays.length,
     authority: 'COMPLETED_SHIFT_REVENUE_AND_SHIFTS_FOR_ACTIVE_DAYS'
   }
