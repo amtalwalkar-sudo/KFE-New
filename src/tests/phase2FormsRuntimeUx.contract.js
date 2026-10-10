@@ -15,6 +15,7 @@ assert.ok(universal.includes('.work-context-form'),'Universal input system must 
 assert.ok(universal.includes('visualViewport'),'Universal input system must respond to virtual keyboard viewport changes')
 assert.ok(universal.includes('enterKeyHint'),'Universal input system must provide native Enter/Next/Done hints')
 assert.ok(universal.includes('primary-action'),'Universal input system must complete non-form contextual actions')
+assert.ok(universal.includes("if(event.key!=='Enter') return;"),'Only Enter may trigger shared next-field navigation; ordinary typing must never move focus')
 assert.ok(!workForm.includes('function nextField('),'Work must not maintain a competing keyboard navigation implementation')
 assert.ok(!adminForm.includes('function handleEnter('),'Admin must not maintain a competing keyboard navigation implementation')
 assert.ok(workForm.includes('@submit.prevent="submitForm"'),'Work contextual states must use native form submission')
