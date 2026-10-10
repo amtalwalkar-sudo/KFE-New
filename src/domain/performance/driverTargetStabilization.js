@@ -68,6 +68,8 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
   }
   const allActiveDays = [...activeDaySet].sort()
   let balance = 0
+  let historyComplete = true
+  let historyMissingMonth = null
   for (const dayKey of allActiveDays) {
     const day = dateOf(dayKey)
     if (!day || day >= start) break
@@ -76,7 +78,13 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     const priorMonthKey = istMonthKey(day)
     const priorMonthBreakEven = finite(monthlyBreakEvenByMonth?.[priorMonthKey]) ?? (priorMonthKey === istMonthKey(start) ? applicableBreakEven : null)
     const baseDaily = baseDailyFor(record, priorMonthBreakEven, day)
-    if (baseDaily == null) continue
+    if (baseDaily == null) {
+      if (byDay.has(dayKey)) {
+        historyComplete = false
+        historyMissingMonth = historyMissingMonth || priorMonthKey
+      }
+      continue
+    }
     if (byDay.has(dayKey)) balance += baseDaily - byDay.get(dayKey)
   }
   const currentDays = allActiveDays.filter(k => {
@@ -105,11 +113,14 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     if (byDay.has(dayKey)) balance += baseDaily - byDay.get(dayKey)
   }
   return {
-    available: currentDailyTarget != null,
-    reason: currentDailyTarget == null ? 'NO_APPLICABLE_ACTIVE_DAY_TARGET' : null,
+    available: currentDailyTarget != null && historyComplete,
+    reason: !historyComplete ? 'HISTORICAL_BREAK_EVEN_UNAVAILABLE' : currentDailyTarget == null ? 'NO_APPLICABLE_ACTIVE_DAY_TARGET' : null,
+    historyComplete,
+    historyMissingMonth,
     balanceBefore: balanceBeforeCurrent,
     balance,
-    currentDailyTarget,
+    currentDailyTarget: historyComplete ? currentDailyTarget : null,
+    indicativeCurrentDailyTarget: currentDailyTarget,
     currentBaseDaily,
     currentPeriodBaseTarget,
     recoveryAdjustment: currentDailyTarget != null && currentBaseDaily != null ? currentDailyTarget - currentBaseDaily : null,
