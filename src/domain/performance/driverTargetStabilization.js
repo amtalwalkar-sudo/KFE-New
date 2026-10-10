@@ -1,6 +1,8 @@
-const finite = v => Number.isFinite(Number(v)) ? Number(v) : null
+import { istDateKey } from '../time/ist.js'
+
+const finite = v => v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v)
 const dateOf = v => { const x = v ? new Date(v) : null; return x && !Number.isNaN(x.getTime()) ? x : null }
-const keyOf = v => { const x = dateOf(v); return x ? x.toISOString().slice(0, 10) : null }
+const keyOf = v => istDateKey(v)
 const live = xs => (xs || []).filter(x => !x?.deletedAt && x?.deleted !== true)
 const effectiveFrom = x => dateOf(x?.effectiveFrom || x?.validFrom || x?.startDate)
 const effectiveUntil = x => dateOf(x?.effectiveUntil || x?.validUntil || x?.endDate)
@@ -11,8 +13,10 @@ const applies = (x, day) => {
 }
 const latestForDay = (xs, day) => live(xs).filter(x => applies(x, day)).sort((a, b) => String(b.effectiveFrom || b.startDate || '').localeCompare(String(a.effectiveFrom || a.startDate || '')) || String(b.updatedAt || b.createdAt || b.id || '').localeCompare(String(a.updatedAt || a.createdAt || a.id || '')))[0] || null
 const calendarDays = (from, to) => {
-  const a = dateOf(from), b = dateOf(to)
-  return a && b && b >= a ? Math.max(1, Math.ceil((b - a) / 86400000) + 1) : null
+  const a = keyOf(from), b = keyOf(to)
+  if (!a || !b || b < a) return null
+  const ordinal = key => { const [y, m, d] = key.split('-').map(Number); return Date.UTC(y, m - 1, d) / 86400000 }
+  return ordinal(b) - ordinal(a) + 1
 }
 const nonWorkingDateKeys = record => {
   const raw = record?.nonWorkingDates
@@ -37,12 +41,15 @@ const baseDailyFor = (record, applicableBreakEven = null) => {
 export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTargets = [], from, to, applicableBreakEven = null } = {}) {
   const start = dateOf(from), end = dateOf(to)
   if (!start || !end || end < start) return { available: false, reason: 'INVALID_PERIOD', balanceBefore: null, currentDailyTarget: null, periodBaseTarget: null }
-  const completed = live(trips).filter(x => x.status === 'COMPLETED')
+  // Shift.revenue is the authoritative finalized revenue source. Trip fares are
+  // supporting detail and must never be substituted for the shift total.
   const byDay = new Map()
-  for (const trip of completed) {
-    const day = keyOf(trip.tripEndAt || trip.tripStartAt)
-    if (!day) continue
-    byDay.set(day, (byDay.get(day) || 0) + (finite(trip.revenue) || 0))
+  for (const shift of live(shifts)) {
+    if (!shift?.shiftEndAt && String(shift?.status || '').toUpperCase() !== 'COMPLETED') continue
+    const day = keyOf(shift.shiftEndAt || shift.shiftStartAt)
+    const revenue = finite(shift.revenue)
+    if (!day || revenue == null || revenue < 0) continue
+    byDay.set(day, (byDay.get(day) || 0) + revenue)
   }
   const activeDaySet = new Set()
   for (const shift of live(shifts)) {
@@ -93,16 +100,16 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     currentPeriodBaseTarget,
     recoveryAdjustment: currentDailyTarget != null && currentBaseDaily != null ? currentDailyTarget - currentBaseDaily : null,
     activeDays: currentDays.length,
-    authority: 'COMPLETED_TRIPS_FOR_REVENUE_AND_SHIFTS_FOR_ACTIVE_DAYS'
+    authority: 'COMPLETED_SHIFT_REVENUE_AND_SHIFTS_FOR_ACTIVE_DAYS'
   }
 }
 
 export function stabilizeActiveDay({ baseTarget, balance = 0, actualRevenue = null } = {}) {
   const base = finite(baseTarget)
   if (base == null) return { available: false, target: null, nextBalance: null }
-  const currentBalance = finite(balance) || 0
+  const currentBalance = finite(balance) ?? 0
   const target = base + currentBalance
   if (actualRevenue == null) return { available: true, target, nextBalance: null }
-  const actual = finite(actualRevenue) || 0
+  const actual = finite(actualRevenue) ?? 0
   return { available: true, target, nextBalance: currentBalance + base - actual }
 }
