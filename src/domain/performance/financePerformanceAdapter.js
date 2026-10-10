@@ -18,13 +18,34 @@ const businessStartDate = snapshot => {
 const asOf = range => dateOf(range?.to) || new Date()
 const inRange = (value, range) => { const date = dateOf(value); return !!date && date >= range.from && date <= range.to }
 const calendarSerial = value => { const key=istDateKey(value); if(!key)return null; const [y,m,d]=key.split('-').map(Number); return Date.UTC(y,m-1,d)/86400000 }
-const scheduledEmiAccruedForRange = (schedule, range) => {
+export const scheduledObligationForRange = (schedule, range, amountField = 'originalEmiAmount') => {
+  if (!Array.isArray(schedule)) return null
+  const from = calendarSerial(range?.from), to = calendarSerial(range?.to)
+  if (from == null || to == null || to < from) return null
+  let total = 0
+  for (const row of schedule) {
+    const amount = Number(row[amountField])
+    const periodStart = calendarSerial(row.periodStart)
+    const due = calendarSerial(row.dueDate)
+    if (!Number.isFinite(amount) || amount < 0) return null
+    // Each schedule row represents one monthly obligation. Attribute that full
+    // obligation to its covered period's start date, not the later cash due date.
+    // This keeps a month-end/next-month due date from making the covered month
+    // appear EMI-free, while the separate break-even helper can still prorate.
+    const obligationDay = periodStart ?? due
+    if (obligationDay == null) return null
+    if (obligationDay >= from && obligationDay <= to) total += amount
+  }
+  return Math.round(total * 100) / 100
+}
+
+export const scheduledEmiAccruedForRange = (schedule, range, amountField = 'originalEmiAmount') => {
   if (!Array.isArray(schedule)) return null
   const from=calendarSerial(range?.from),to=calendarSerial(range?.to)
   if(from==null||to==null||to<from)return null
   let total=0
   for(const row of schedule){
-    const amount=Number(row.originalEmiAmount),start=calendarSerial(row.periodStart),due=calendarSerial(row.dueDate)
+    const amount=Number(row[amountField]),start=calendarSerial(row.periodStart),due=calendarSerial(row.dueDate)
     if(!Number.isFinite(amount)||amount<0||start==null||due==null||due<start)return null
     const overlapFrom=Math.max(from,start),overlapTo=Math.min(to+1,due)
     if(overlapTo<=overlapFrom)continue
@@ -48,7 +69,13 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   const businessStart = businessStartDate(snapshot)
   const historicalMaintenanceRecovery = calculateHistoricalMaintenanceRecovery({ vehicles: snapshot?.vehicles || [], businessStartDate: businessStart, asOf: currentAsOf })
   const preBusinessRecoveryMonthly = finance ? calculatePreBusinessLoanRecovery({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, businessStartDate: businessStart, asOf: currentAsOf }) : 0
-  const currentScheduledEmi = finance?.schedule ? finance.schedule.filter(row => inRange(row.dueDate, range)).reduce((sum, row) => sum + money(row.originalEmiAmount), 0) : 0
+  // Management P/L includes each full monthly EMI in its covered period,
+  // independent of the cash due date. Otherwise a month whose EMI falls on
+  // the first of the following month incorrectly reports zero EMI.
+  const currentScheduledEmi = finance?.schedule ? scheduledObligationForRange(finance.schedule, range) : 0
+  // Interest reporting remains tied to the scheduled due date; only the P/L EMI
+  // obligation is assigned to its covered period. Do not change interest's
+  // existing reporting semantics as a side effect of the P/L correction.
   const currentScheduledInterest = finance?.schedule ? finance.schedule.filter(row => inRange(row.dueDate, range)).reduce((sum, row) => sum + money(row.originalInterestComponent), 0) : 0
   const preBusinessRecoveryForPeriod = finance ? calculatePreBusinessLoanRecoveryForRange({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, businessStartDate: businessStart, range }) : 0
   const historicalMaintenanceRecoveryForPeriod = calculateHistoricalMaintenanceRecoveryForRange({ vehicles: snapshot?.vehicles || [], businessStartDate: businessStart, range: range })
