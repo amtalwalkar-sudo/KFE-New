@@ -11,7 +11,8 @@ const latest = (xs, range) => {
     .filter(x => x.active !== false && x.status !== 'INACTIVE')
     .filter(x => {
       const from = businessDate(x.effectiveFrom || x.validFrom || x.startDate) || '0000-01-01'
-      return from <= rangeTo
+      const until = businessDate(x.effectiveUntil || x.validUntil || x.endDate) || '9999-12-31'
+      return from <= rangeTo && rangeTo <= until
     })
     .sort((a, b) => {
       const dateCompare = String(b.effectiveFrom || b.validFrom || b.startDate || '').localeCompare(String(a.effectiveFrom || a.validFrom || a.startDate || ''))
@@ -26,8 +27,8 @@ export function deriveAuthoritativeBreakEven({
   loanScheduledObligation = NaN,
   loanInputAvailable = null,
   loanNotApplicable = false,
-  preBusinessRecovery = 0,
-  historicalMaintenanceRecovery = 0,
+  preBusinessRecovery = NaN,
+  historicalMaintenanceRecovery = NaN,
   renewalProvision = NaN,
   complianceInputAvailable = null,
   fuelCostPerKm = NaN,
@@ -63,16 +64,23 @@ export function deriveAuthoritativeBreakEven({
   // Missing categories are omitted from the provisional estimate, not treated as
   // confirmed zero-cost categories. The component flags keep that distinction visible.
   const fixedParts = [
-    components.loan ? loan + (preBusiness ?? 0) : 0,
-    components.compliance ? compliance : 0,
-    historicalMaintenance ?? 0,
-  ]
-  const fixedCosts = fixedParts.reduce((sum, value) => sum + value, 0)
+    components.loan ? loan : null,
+    components.compliance ? compliance : null,
+    preBusiness,
+    historicalMaintenance,
+  ].filter(value => value != null && Number.isFinite(value))
+  const fixedCosts = fixedParts.length ? fixedParts.reduce((sum, value) => sum + value, 0) : null
   const hasKm = km != null && km >= 0
-  const fuelCost = components.fuel && hasKm ? fuelRate * km : 0
-  const maintenanceCost = components.maintenance && hasKm ? maintenanceProvisionPerKm * km : 0
-  const monthlyBreakEvenRevenue = fixedCosts + fuelCost + maintenanceCost
+  const fuelCost = components.fuel ? (hasKm ? fuelRate * km : null) : null
+  const maintenanceCost = components.maintenance ? (hasKm ? maintenanceProvisionPerKm * km : null) : null
+  const knownVariableCosts = [fuelCost, maintenanceCost].filter(value => value != null && Number.isFinite(value))
+  const hasCalculableVariableCost = knownVariableCosts.length > 0
+  const hasCalculableSubtotal = fixedCosts != null || hasCalculableVariableCost
+  const monthlyBreakEvenRevenue = hasCalculableSubtotal
+    ? (fixedCosts ?? 0) + knownVariableCosts.reduce((sum, value) => sum + value, 0)
+    : null
   const missingComponents = Object.keys(components).filter(key => !components[key] && !(key === 'loan' && loanNotApplicable))
+  if (!hasKm && (components.fuel || components.maintenance)) missingComponents.push('vehicleKmForVariableCosts')
   const fuelIsAuthoritative = components.fuel &&
     fuelCostPerKmStatus === CALCULATION_STATUS.AUTHORITATIVE
   const recoveryEvidenceComplete = preBusiness != null && historicalMaintenance != null
@@ -101,6 +109,8 @@ export function deriveAuthoritativeBreakEven({
       available: true,
       status: CALCULATION_STATUS.AUTHORITATIVE,
       monthlyBreakEvenRevenue,
+      fuelCost,
+      maintenanceCost,
       maintenanceProvisionPerKm,
       fixedCosts,
       fuelCostPerKm: fuelRate,
@@ -117,6 +127,8 @@ export function deriveAuthoritativeBreakEven({
     status: CALCULATION_STATUS.INDICATIVE,
     reason: missingComponents.length ? 'PARTIAL_BREAK_EVEN_COMPONENTS' : !recoveryEvidenceComplete ? 'PROVISIONAL_RECOVERY_EVIDENCE' : 'PROVISIONAL_FUEL_OR_KM_EVIDENCE',
     indicativeMonthlyBreakEvenRevenue: monthlyBreakEvenRevenue,
+    fuelCost,
+    maintenanceCost,
     maintenanceProvisionPerKm,
     fixedCosts,
     fuelCostPerKm: fuelRate,

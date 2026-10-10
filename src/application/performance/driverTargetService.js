@@ -1,7 +1,8 @@
 import { PerformanceRepository } from '../../repositories/performanceRepository.js'
 import { subscribeCanonicalDataChanges } from '../../repositories/canonicalDataChangeRepository.js'
 import { deriveFinanceAwarePerformance } from '../../domain/performance/financePerformanceAdapter.js'
-import { deriveAuthoritativeDriverTarget, getApplicableDriverTarget } from '../../domain/performance/driverTarget.js'
+import { resolveDriverTargetAuthority, getApplicableDriverTarget } from '../../domain/performance/driverTarget.js'
+import { deriveRollingDriverTarget } from '../../domain/performance/driverTargetStabilization.js'
 import { istMonthRange, istCalendarDaysInclusive, getKfeReferenceNow } from '../../domain/time/ist.js'
 import { normalizeCalculationSnapshot } from './normalizeCalculationSnapshot.js'
 import { previousRange } from '../../domain/performance/performanceEngineV2.js'
@@ -18,20 +19,33 @@ export const DriverTargetService = Object.freeze({
     const metrics = deriveFinanceAwarePerformance(snapshot, asOfRange, previousRange(asOfRange))
     const monthlyBreakEvenRevenue = Number.isFinite(metrics.monthlyBreakEvenRevenue)
       ? metrics.monthlyBreakEvenRevenue
-      : null
+      : Number.isFinite(metrics.indicative?.monthlyBreakEvenRevenue)
+        ? metrics.indicative.monthlyBreakEvenRevenue
+        : null
     const targetRecord = getApplicableDriverTarget(snapshot?.driverTargets, targetTo)
-    const desiredDriverProfitMonthly = Number.isFinite(Number(targetRecord?.desiredDriverProfit))
-      ? Number(targetRecord.desiredDriverProfit)
+    const desiredValue = targetRecord?.desiredDriverProfit
+    const desiredDriverProfitMonthly = desiredValue != null && desiredValue !== '' && Number.isFinite(Number(desiredValue))
+      ? Number(desiredValue)
       : null
     const calendarDays = istCalendarDaysInclusive(monthRange.from, monthRange.to)
-    const formula = deriveAuthoritativeDriverTarget({
+    const breakEvenStatus = metrics.calculationEvidence?.breakEven?.status || 'UNAVAILABLE'
+    const rolling = deriveRollingDriverTarget({
+      trips: snapshot?.trips,
+      shifts: snapshot?.shifts,
+      driverTargets: snapshot?.driverTargets,
+      from: monthRange.from,
+      to: targetTo,
+      applicableBreakEven: monthlyBreakEvenRevenue,
+    })
+    const formula = resolveDriverTargetAuthority({
       monthlyBreakEvenRevenue,
       desiredDriverProfitMonthly,
       calendarDays,
+      rollingTarget: rolling,
+      breakEvenStatus,
     })
 
-    const breakEvenStatus = metrics.calculationEvidence?.breakEven?.status || 'UNAVAILABLE'
-    const targetStatus = formula.available && breakEvenStatus === 'AUTHORITATIVE' ? 'AUTHORITATIVE' : formula.available ? 'INDICATIVE' : 'UNAVAILABLE'
+    const targetStatus = formula.status
     return {
       ...formula,
       status: targetStatus,

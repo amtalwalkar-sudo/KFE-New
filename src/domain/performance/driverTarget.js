@@ -1,7 +1,7 @@
 import { istDateKey, istMonthRange } from '../time/ist.js'
 
 // One authoritative target formula; no recovery, smoothing, KM multiplier, or alternate target authority lives here.\n// This module is the sole driver-target calculation boundary.\n// Target availability requires authoritative break-even evidence upstream. Final calculation boundary. No legacy recovery inputs. Ready for new work. Clean slate.
-const finite = value => Number.isFinite(Number(value)) ? Number(value) : null
+const finite = value => value == null || value === '' || !Number.isFinite(Number(value)) ? null : Number(value)
 
 const live = records => (records || []).filter(record => !record?.deletedAt && record?.deleted !== true)
 
@@ -55,4 +55,45 @@ export function getApplicableDriverTarget(driverTargets, asOf = new Date()) {
 
 export function getTargetMonth(asOf = new Date()) {
   return istMonthRange(asOf, asOf)
+}
+
+
+/**
+ * Shared target authority for every target-facing API.
+ * Rolling recovery wins when an active business day has an applicable target;
+ * before the first active day, use the same explicit monthly formula used by
+ * Admin setup. Missing numeric inputs remain unavailable, never implicit zero.
+ */
+export function resolveDriverTargetAuthority({
+  monthlyBreakEvenRevenue,
+  desiredDriverProfitMonthly,
+  calendarDays,
+  rollingTarget = null,
+  breakEvenStatus = 'UNAVAILABLE',
+} = {}) {
+  const base = deriveAuthoritativeDriverTarget({
+    monthlyBreakEvenRevenue,
+    desiredDriverProfitMonthly,
+    calendarDays,
+  })
+  const rolling = finite(rollingTarget?.currentDailyTarget)
+  const useRolling = rollingTarget?.available === true && rolling != null
+  const target = useRolling ? rolling : base.target
+  const available = target != null && Number.isFinite(target)
+  const status = !available
+    ? 'UNAVAILABLE'
+    : breakEvenStatus === 'AUTHORITATIVE' && base.available
+      ? (useRolling ? 'AUTHORITATIVE' : 'AUTHORITATIVE')
+      : 'INDICATIVE'
+  return {
+    available,
+    target: available ? target : null,
+    status,
+    provisional: status === 'INDICATIVE',
+    authority: useRolling ? 'DRIVER_TARGET_ROLLING_RECOVERY' : base.available ? base.authority : null,
+    reason: available ? null : base.reason || rollingTarget?.reason || 'MISSING_AUTHORITATIVE_TARGET_INPUT',
+    monthlyTarget: base.monthlyTarget,
+    baseDailyTarget: base.target,
+    rollingTarget: useRolling ? rolling : null,
+  }
 }

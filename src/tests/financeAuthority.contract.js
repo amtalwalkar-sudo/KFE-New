@@ -12,6 +12,7 @@ const breakEvenWithPreBusinessRecovery = deriveAuthoritativeBreakEven({
   range: { from: new Date('2026-01-01T00:00:00+05:30'), to: new Date('2026-01-31T23:59:59+05:30') },
   loanScheduledObligation: 1000,
   preBusinessRecovery: 500,
+  historicalMaintenanceRecovery: 0,
   renewalProvision: 200,
   fuelCostPerKm: 2,
   fuelCostPerKmStatus: CALCULATION_STATUS.AUTHORITATIVE,

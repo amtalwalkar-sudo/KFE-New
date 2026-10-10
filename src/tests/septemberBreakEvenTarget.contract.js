@@ -114,3 +114,25 @@ assert.equal(Object.prototype.hasOwnProperty.call(midMonthMetrics.breakEvenInput
 assert.equal(midMonthMetrics.indicative.monthlyBreakEvenRevenue,
   midMonthMetrics.breakEvenInputs.fixedCosts + midMonthMetrics.breakEvenInputs.vehicleKmBasis * (midMonthMetrics.breakEvenInputs.fuelCostPerKm + midMonthMetrics.breakEvenInputs.maintenanceProvisionPerKm),
   'Monthly break-even uses the frozen operating-KM forecast rather than selected-period vehicle KM')
+
+
+const missingKmFuel = deriveAuthoritativeBreakEven({
+  range: partialRange,
+  fuelCostPerKm: 2,
+  fuelCostPerKmStatus: 'INDICATIVE',
+})
+assert.equal(missingKmFuel.status, 'INDICATIVE')
+assert.equal(missingKmFuel.trace.missingComponents.includes('vehicleKmForVariableCosts'), true,
+  'A fuel rate without a KM basis must be marked missing, not priced as zero variable cost')
+assert.equal(missingKmFuel.fuelCost, null, 'Fuel cost remains missing without a KM basis')
+assert.equal(missingKmFuel.indicativeMonthlyBreakEvenRevenue, null,
+  'A rate with no KM basis and no known cost subtotal must not fabricate a ₹0 estimate')
+
+const expiredConfiguration = deriveAuthoritativeBreakEven({
+  range: partialRange,
+  breakEvenInputs: [{ id: 'expired', effectiveFrom: '2026-01-01', effectiveUntil: '2026-08-31', maintenanceProvisionPerKm: 9, active: true }],
+  loanScheduledObligation: 1000,
+  loanInputAvailable: true,
+})
+assert.equal(expiredConfiguration.maintenanceProvisionPerKm, null,
+  'A break-even configuration past its effective-until date must not be selected')

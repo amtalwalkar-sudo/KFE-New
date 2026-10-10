@@ -52,8 +52,8 @@ for (const file of files(['domain'])) {
 // The monthly break-even formula has one owner. Other layers may consume the
 // result but must not define another monthly break-even authority.
 const authoritativeBreakEven = source('domain/performance/authoritativeBreakEven.js')
-if (!/const\s+monthlyBreakEvenRevenue\s*=\s*fixedCosts\s*\+\s*fuelCost\s*\+\s*maintenanceCost/.test(authoritativeBreakEven)) {
-  violations.push('Authoritative monthly break-even formula is missing or has drifted.')
+if (!/const\s+monthlyBreakEvenRevenue\s*=\s*hasCalculableSubtotal\s*\?\s*\(fixedCosts\s*\?\?\s*0\)\s*\+\s*knownVariableCosts\.reduce\(\(sum,\s*value\)\s*=>\s*sum\s*\+\s*value,\s*0\)/.test(authoritativeBreakEven)) {
+  violations.push('Authoritative monthly break-even subtotal formula is missing or has drifted.')
 }
 
 const architectureMatrix = source('../docs/CALCULATION-AUTHORITY-MATRIX.md')

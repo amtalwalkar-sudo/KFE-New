@@ -108,8 +108,8 @@ assert.equal(typeof id1, 'string'); assert.equal(typeof id2, 'string'); assert.n
   const carried = deriveRollingDriverTarget({
     from:'2026-09-10', to:'2026-09-10',
     shifts:[
-      { shiftStartAt:'2026-09-09T08:00:00Z', shiftEndAt:'2026-09-09T18:00:00Z' },
-      { shiftStartAt:'2026-09-10T08:00:00Z', shiftEndAt:'2026-09-10T18:00:00Z' },
+      { shiftStartAt:'2026-09-09T08:00:00Z', shiftEndAt:'2026-09-09T18:00:00Z', revenue:700 },
+      { shiftStartAt:'2026-09-10T08:00:00Z', shiftEndAt:'2026-09-10T18:00:00Z', revenue:1300 },
     ],
     trips:[
       { status:'COMPLETED', tripEndAt:'2026-09-09T10:00:00Z', revenue:700 },
