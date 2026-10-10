@@ -13,7 +13,7 @@ const START = new Date("2023-01-01T00:00:00.000Z");
 const END = new Date("2025-12-31T00:00:00.000Z");
 const INR = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 const iso = (d) => d.toISOString().slice(0, 10);
-const daysInYear = (year) => new Date(Date.UTC(year + 1, 0, 1) - Date.UTC(year, 0, 1)) / 86400000;
+const daysInYear = (year) => (Date.UTC(year + 1, 0, 1) - Date.UTC(year, 0, 1)) / 86400000;
 
 function generate() {
   const daily = [];
