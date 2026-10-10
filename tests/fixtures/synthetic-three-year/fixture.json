@@ -23,7 +23,7 @@
     "EMI ₹11,324 monthly, modeled on the first of each month",
     "Compliance ₹30,000 per annual Jan 1–Dec 31 validity record; accrue over 365 or 366 calendar days without daily rounding",
     "Synthetic business start date 2023-01-01",
-    "Pre-business maintenance obligation 60,000 km × ₹0.60/km = ₹36,000, separate from ongoing provision",
+    "Historical maintenance burden 60,000 km × ₹0.40/km = ₹24,000, recovered over 12 months separately from ongoing provision",
     "Loan principal/rate/tenure and ₹815/₹4,672 component inputs not specified; do not fabricate"
   ],
   "expectedAggregates": {
@@ -33,7 +33,7 @@
     "ongoingMaintenanceProvisionInr": 350720,
     "emiPaymentCount": 36,
     "emiTotalInr": 407664,
-    "preBusinessMaintenanceObligationInr": 36000,
+    "preBusinessMaintenanceObligationInr": 24000,
     "complianceProvisionInr": 90000
   },
   "specialCases": {
@@ -77,8 +77,8 @@
     "preBusinessMaintenance": {
       "id": "PRE-BUSINESS-MAINT-001",
       "distanceKm": 60000,
-      "rateInrPerKm": 0.6,
-      "expectedObligationInr": 36000,
+      "rateInrPerKm": 0.4,
+      "expectedObligationInr": 24000,
       "ongoingMaintenanceProvisionRateInrPerKm": 1.6
     },
     "missingTripKm": {
