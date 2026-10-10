@@ -123,7 +123,7 @@ export function stabilizeActiveDay({ baseTarget, balance = 0, actualRevenue = nu
   const base = finite(baseTarget)
   if (base == null) return { available: false, target: null, nextBalance: null }
   const currentBalance = finite(balance) ?? 0
-  const target = base + currentBalance
+  const target = Math.max(0, base + currentBalance)
   if (actualRevenue == null) return { available: true, target, nextBalance: null }
   const actual = finite(actualRevenue)
   if (actual == null) return { available: true, target, nextBalance: null }
