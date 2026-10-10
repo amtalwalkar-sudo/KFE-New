@@ -134,6 +134,34 @@ function generate() {
       ongoingMaintenanceProvisionRateInrPerKm: 1.6,
       expectedInvariant: "historical pre-business obligation is a separate bucket and is not double-counted as ongoing provision or actual maintenance"
     },
+    provisionBucketOverpayment: {
+      id: "PROVISION-OVERPAY-001",
+      selectedPeriod: "2023-01-01..2025-12-31",
+      maintenanceAccruedInr: 350720,
+      maintenancePaymentsInr: 400000,
+      expectedMaintenanceBalanceInr: 0,
+      expectedMaintenanceExcessPaymentInr: 49280,
+      complianceAccruedInr: 90000,
+      compliancePaymentsInr: 95000,
+      expectedComplianceBalanceInr: 0,
+      expectedComplianceExcessPaymentInr: 5000
+    },
+    complianceLeapYear: {
+      id: "COMPLIANCE-LEAP-001",
+      validityFrom: "2024-01-01",
+      validityUntil: "2024-12-31",
+      annualCostInr: 30000,
+      validityDays: 366,
+      expectedLeapDayAccrualExactInr: 30000 / 366,
+      expectedFullYearAccrualInr: 30000
+    },
+    loanInvalidPaymentDate: {
+      id: "LOAN-INVALID-DATE-001",
+      invalidDates: [null, "", "not-a-date"],
+      expectedInvalidPaymentCount: 3,
+      expectedInvalidPaymentAmountInr: 3000,
+      expectedActualPaidFromInvalidRecordsInr: 0
+    },
     missingTripKm: tripScenarios[0]
   };
 
