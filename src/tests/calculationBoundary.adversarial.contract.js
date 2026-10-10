@@ -43,6 +43,18 @@ const historicalWithFutureOperations = derivePerformance(futureOperational, rang
 assert.equal(historicalWithFutureOperations.revenue, historical.revenue)
 assert.equal(historicalWithFutureOperations.vehicleKm, historical.vehicleKm)
 
+const missingStartOdometer = derivePerformance({
+  ...base,
+  shifts: [{ ...base.shifts[0], startOdometer: null }],
+}, range)
+assert.equal(missingStartOdometer.vehicleKm, 0, 'missing start odometer must not be coerced to zero and inflate vehicle KM')
+assert.equal(missingStartOdometer.deadKmIntegrityStatus, 'OVER_ESTIMATE', 'trip KM must remain visibly inconsistent when odometer evidence is missing')
+const blankEndOdometer = derivePerformance({
+  ...base,
+  shifts: [{ ...base.shifts[0], endOdometer: '   ' }],
+}, range)
+assert.equal(blankEndOdometer.vehicleKm, 0, 'blank end odometer must not be treated as a real zero reading')
+
 // Soft-deleted source records are excluded from actual calculations and financial-day classification.
 const deletedTrip = { ...base.trips[0], deletedAt:'2026-09-10T20:00:00Z', deleted:true }
 const withoutDeletedTrip = PerformanceService.getMetrics({ ...base, trips:[deletedTrip] }, range)
