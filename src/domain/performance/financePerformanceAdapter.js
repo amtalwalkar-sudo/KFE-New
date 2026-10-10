@@ -73,7 +73,10 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   // independent of the cash due date. Otherwise a month whose EMI falls on
   // the first of the following month incorrectly reports zero EMI.
   const currentScheduledEmi = finance?.schedule ? scheduledObligationForRange(finance.schedule, range) : 0
-  const currentScheduledInterest = finance?.schedule ? scheduledObligationForRange(finance.schedule, range, 'originalInterestComponent') : 0
+  // Interest reporting remains tied to the scheduled due date; only the P/L EMI
+  // obligation is assigned to its covered period. Do not change interest's
+  // existing reporting semantics as a side effect of the P/L correction.
+  const currentScheduledInterest = finance?.schedule ? finance.schedule.filter(row => inRange(row.dueDate, range)).reduce((sum, row) => sum + money(row.originalInterestComponent), 0) : 0
   const preBusinessRecoveryForPeriod = finance ? calculatePreBusinessLoanRecoveryForRange({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, businessStartDate: businessStart, range }) : 0
   const historicalMaintenanceRecoveryForPeriod = calculateHistoricalMaintenanceRecoveryForRange({ vehicles: snapshot?.vehicles || [], businessStartDate: businessStart, range: range })
   const fullMonthRange = istMonthRange(range?.to) || range
