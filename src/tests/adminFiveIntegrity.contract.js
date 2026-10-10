@@ -46,8 +46,8 @@ const samePeriodNew = {
 const targetResult = deriveRollingDriverTarget({
   driverTargets: [samePeriodOld, samePeriodNew],
   shifts: [
-    { id: 'shift-1', shiftStartAt: '2026-10-01T09:00:00+05:30', shiftEndAt: '2026-10-01T18:00:00+05:30' },
-    { id: 'shift-2', shiftStartAt: '2026-10-02T09:00:00+05:30', shiftEndAt: '2026-10-02T18:00:00+05:30' },
+    { id: 'shift-1', shiftStartAt: '2026-10-01T09:00:00+05:30', shiftEndAt: '2026-10-01T18:00:00+05:30', revenue: 0 },
+    { id: 'shift-2', shiftStartAt: '2026-10-02T09:00:00+05:30', shiftEndAt: '2026-10-02T18:00:00+05:30', revenue: 0 },
   ],
   trips: [],
   from: '2026-10-02T00:00:00+05:30',
