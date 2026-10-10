@@ -18,6 +18,27 @@ const businessStartDate = snapshot => {
 const asOf = range => dateOf(range?.to) || new Date()
 const inRange = (value, range) => { const date = dateOf(value); return !!date && date >= range.from && date <= range.to }
 const calendarSerial = value => { const key=istDateKey(value); if(!key)return null; const [y,m,d]=key.split('-').map(Number); return Date.UTC(y,m-1,d)/86400000 }
+export const scheduledObligationForRange = (schedule, range, amountField = 'originalEmiAmount') => {
+  if (!Array.isArray(schedule)) return null
+  const from = calendarSerial(range?.from), to = calendarSerial(range?.to)
+  if (from == null || to == null || to < from) return null
+  let total = 0
+  for (const row of schedule) {
+    const amount = Number(row[amountField])
+    const periodStart = calendarSerial(row.periodStart)
+    const due = calendarSerial(row.dueDate)
+    if (!Number.isFinite(amount) || amount < 0) return null
+    // Each schedule row represents one monthly obligation. Attribute that full
+    // obligation to its covered period's start date, not the later cash due date.
+    // This keeps a month-end/next-month due date from making the covered month
+    // appear EMI-free, while the separate break-even helper can still prorate.
+    const obligationDay = periodStart ?? due
+    if (obligationDay == null) return null
+    if (obligationDay >= from && obligationDay <= to) total += amount
+  }
+  return Math.round(total * 100) / 100
+}
+
 export const scheduledEmiAccruedForRange = (schedule, range, amountField = 'originalEmiAmount') => {
   if (!Array.isArray(schedule)) return null
   const from=calendarSerial(range?.from),to=calendarSerial(range?.to)
@@ -48,11 +69,11 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   const businessStart = businessStartDate(snapshot)
   const historicalMaintenanceRecovery = calculateHistoricalMaintenanceRecovery({ vehicles: snapshot?.vehicles || [], businessStartDate: businessStart, asOf: currentAsOf })
   const preBusinessRecoveryMonthly = finance ? calculatePreBusinessLoanRecovery({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, businessStartDate: businessStart, asOf: currentAsOf }) : 0
-  // Management P/L accrues the scheduled EMI obligation over its coverage period,
-  // not only on the cash due date. Otherwise a month whose EMI falls on the 1st
-  // of the following month incorrectly reports zero EMI and overstates profit.
-  const currentScheduledEmi = finance?.schedule ? scheduledEmiAccruedForRange(finance.schedule, range) : 0
-  const currentScheduledInterest = finance?.schedule ? scheduledEmiAccruedForRange(finance.schedule, range, 'originalInterestComponent') : 0
+  // Management P/L includes each full monthly EMI in its covered period,
+  // independent of the cash due date. Otherwise a month whose EMI falls on
+  // the first of the following month incorrectly reports zero EMI.
+  const currentScheduledEmi = finance?.schedule ? scheduledObligationForRange(finance.schedule, range) : 0
+  const currentScheduledInterest = finance?.schedule ? scheduledObligationForRange(finance.schedule, range, 'originalInterestComponent') : 0
   const preBusinessRecoveryForPeriod = finance ? calculatePreBusinessLoanRecoveryForRange({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, businessStartDate: businessStart, range }) : 0
   const historicalMaintenanceRecoveryForPeriod = calculateHistoricalMaintenanceRecoveryForRange({ vehicles: snapshot?.vehicles || [], businessStartDate: businessStart, range: range })
   const fullMonthRange = istMonthRange(range?.to) || range
