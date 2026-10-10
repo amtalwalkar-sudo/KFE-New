@@ -30,8 +30,12 @@ export const DriverTargetService = Object.freeze({
       calendarDays,
     })
 
+    const breakEvenStatus = metrics.calculationEvidence?.breakEven?.status || 'UNAVAILABLE'
+    const targetStatus = formula.available && breakEvenStatus === 'AUTHORITATIVE' ? 'AUTHORITATIVE' : formula.available ? 'INDICATIVE' : 'UNAVAILABLE'
     return {
       ...formula,
+      status: targetStatus,
+      provisional: targetStatus === 'INDICATIVE',
       target: formula.available ? formula.target : null,
       monthlyBreakEvenRevenue,
       desiredDriverProfitMonthly,
