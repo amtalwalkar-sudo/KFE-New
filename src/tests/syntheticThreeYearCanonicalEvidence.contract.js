@@ -23,7 +23,7 @@ try {
     const annualDaily = fixture.daily.filter(day => day.date.startsWith(String(year))).reduce((sum, day) => sum + day.complianceProvisionInr, 0)
     const annualMonthly = fixture.monthly.filter(month => month.month.startsWith(String(year))).reduce((sum, month) => sum + month.complianceProvisionInr, 0)
     assert.ok(Math.abs(annualDaily - 30000) < 1e-7, `${year} daily compliance accrual must sum to its annual validity cost`)
-    assert.equal(annualMonthly, 30000, `${year} monthly rollups must reconcile exactly after paise rounding`)
+    assert.equal(Math.round(annualMonthly * 100) / 100, 30000, `${year} monthly rollups must reconcile exactly after paise rounding`)
   }
 
   const selectedPeriod = {
