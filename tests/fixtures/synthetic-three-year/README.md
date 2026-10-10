@@ -16,7 +16,7 @@ Optional separate output path:
 node tests/fixtures/synthetic-three-year/generate-fixture.cjs /tmp/kfe-synthetic
 ```
 
-The generated `fixture.json` contains 1,096 daily synthetic records for 2023–2025, 36 monthly rollups, and named special-case oracles. Inputs include 200 km/day, fuel ₹3.20/km, ongoing maintenance provision ₹1.60/km, EMI ₹11,324/month, annual compliance ₹30,000 per Jan 1–Dec 31 validity record, and the separate pre-business maintenance obligation of 60,000 km × ₹0.60/km = ₹36,000. Compliance accrues over 365/366 IST calendar days without daily rounding; monthly paise-rounding residuals are reconciled in December so each annual rollup equals ₹30,000.
+The generated `fixture.json` contains 1,096 daily synthetic records for 2023–2025, 36 monthly rollups, and named special-case oracles. Inputs include 200 km/day, fuel ₹3.20/km, ongoing maintenance provision ₹1.60/km, EMI ₹11,324/month, annual compliance ₹30,000 per Jan 1–Dec 31 validity record, and the separate historical maintenance burden of 60,000 km × ₹0.40/km = ₹24,000, recovered over 12 months. Compliance accrues over 365/366 IST calendar days without daily rounding; monthly paise-rounding residuals are reconciled in December so each annual rollup equals ₹30,000.
 
 ## Evidence discipline
 
