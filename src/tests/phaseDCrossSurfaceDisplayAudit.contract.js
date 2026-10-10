@@ -25,7 +25,7 @@ const figures = [
   { id: 'D-05 Fuel', canonical: [/fuelQty/, /fuelCost/], displays: { timeline: [/fuelQuantityKg/, /fuelCost/, /CNG Refuelling/], performance: [/fuelQty/, /fuelCost/, /Fuel economy/], work: [/fuelQty/, /fuelPrice/, /fuelAmount/, /Partial fill/] } },
   { id: 'D-06 Operating Cost', canonical: [/actualOperatingCost/], displays: { performance: [/actualOperatingCost/, /Operating cost/] } },
   { id: 'D-07 Operating Profit', canonical: [/operatingProfit/], displays: { performance: [/actualOperatingCost/, /Actual profit \/ loss/] } },
-  { id: 'D-08 Actual P\/L', canonical: [/Headline Actual P\/L/, /actualLoanPaid/], displays: { performance: [/performanceHeadlineActualProfit/, /Actual P\/L \(includes actual EMI\/loan payments\)/] } },
+  { id: 'D-08 Actual P.L', canonical: [/deriveFinanceAwarePerformance/, /operatingProfit/], displays: { performance: [/performanceHeadlineActualProfit/, /Actual P.L · includes scheduled EMI obligation/] } },
   { id: 'D-09 Provisional P\/L', canonical: [/Headline Provisional P\/L/], displays: { performance: [/performanceHeadlineProvisionalProfit/, /Provisional profit \/ loss/] } },
   { id: 'D-10 Break-even', canonical: [/monthlyBreakEvenRevenue/, /AUTHORITATIVE_MONTHLY_BREAK_EVEN/], displays: { performance: [/monthlyBreakEvenRevenue/, /Break-even/] } },
   { id: 'D-11 Driver Target', canonical: [/driverTargetEffectiveMonthlyTarget/, /driverTarget/], displays: { performance: [/driverTargetEffectiveMonthlyTarget/, /Daily target/], work: [/targetValue/, /TODAY'S TARGET/], timeline: [/target\?\.target/, /Target/] } },

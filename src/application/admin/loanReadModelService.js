@@ -24,6 +24,7 @@ export const LoanReadModelService = Object.freeze({
         position,
         overdue: position.overdue || [],
         overdueCount: (position.overdue || []).length,
+        installmentCounts: position.installmentCounts || { scheduled: (position.schedule || []).length, paid: 0, partiallyPaid: 0, due: 0, unsettled: (position.schedule || []).length },
         overdueAmount: position.totalOverdue || 0,
         nextDueDate: (position.schedule || []).find(row => new Date(row.dueDate) > new Date(asOf))?.dueDate || null,
       }
