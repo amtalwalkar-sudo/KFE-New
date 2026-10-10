@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { derivePerformance } from '../domain/performance/performanceEngineV2.js'
 import { calculateHistoricalMaintenanceRecovery, calculateHistoricalMaintenanceRecoveryForRange } from '../domain/performance/performanceEngineV2.js'
 import { deriveFinanceAwarePerformance } from '../domain/performance/financePerformanceAdapter.js'
-import { calculateFuelQuantityKg } from '../domain/math/fuel.js'
+import { calculateFuelQuantityKg, calculateRollingFuelCostPerKm } from '../domain/math/fuel.js'
 import { deriveLoanPosition } from '../domain/finance/loanEngine.js'
 import { deriveRollingDriverTarget, stabilizeActiveDay } from '../domain/performance/driverTargetStabilization.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
@@ -58,6 +58,18 @@ try {
   assert.equal(fixture.specialCases.targetSurplus.earnedEligibleAmountInr - fixture.specialCases.targetSurplus.requiredTargetInr, fixture.specialCases.targetSurplus.expectedSurplusCreditInr)
   assert.equal(fixture.specialCases.fuelPrecision.expectedQuantityKgExact, 500 / 82)
   assert.equal(calculateFuelQuantityKg(500, 82), 500 / 82, 'fuel quantity calculation must preserve raw precision')
+  const unassociatedFuelRate = calculateRollingFuelCostPerKm([
+    { id: 'unassociated-full-1', capturedAt: '2024-06-01T10:00:00+05:30', odometer: 1000, amount: 2000, isFullTank: true },
+    { id: 'unassociated-full-2', capturedAt: '2024-06-02T10:00:00+05:30', odometer: 1100, amount: 2200, isFullTank: true },
+  ])
+  assert.equal(unassociatedFuelRate.completedIntervals, 0, 'unassociated full-tank records must not establish an authoritative fuel rate')
+  assert.equal(Number.isNaN(unassociatedFuelRate.rollingCostPerKm), true, 'missing vehicle identity must leave authoritative fuel rate unavailable')
+  const associatedFuelRate = calculateRollingFuelCostPerKm([
+    { id: 'associated-full-1', vehicleId: 'synthetic-vehicle', capturedAt: '2024-06-01T10:00:00+05:30', odometer: 1000, amount: 2000, isFullTank: true },
+    { id: 'associated-full-2', vehicleId: 'synthetic-vehicle', capturedAt: '2024-06-02T10:00:00+05:30', odometer: 1100, amount: 2200, isFullTank: true },
+  ])
+  assert.equal(associatedFuelRate.completedIntervals, 1)
+  assert.equal(associatedFuelRate.rollingCostPerKm, 22)
   assert.equal(Math.round(calculateFuelQuantityKg(500, 82) * 10) / 10, 6.1, 'fuel quantity rounding belongs to display only')
   assert.equal(fixture.specialCases.fuelPrecision.expectedQuantityKgDisplay2dp, 6.1)
   assert.equal(fixture.specialCases.provisionalDeduction.expectedTotalInr, 815)
