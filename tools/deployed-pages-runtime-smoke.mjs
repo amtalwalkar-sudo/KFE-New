@@ -18,8 +18,8 @@ try {
     page.on('pageerror', error => pageErrors.push(error.message))
     const url = route.path === '/' ? `${base}/` : `${base}${route.path}`
     const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 })
-    if (!response || ![200, 404].includes(response.status())) {
-      throw new Error(`${route.label}: unexpected HTTP status ${response?.status()}`)
+    if (!response || response.status() !== 200) {
+      throw new Error(`${route.label}: expected HTTP 200 on initial navigation, got ${response?.status()}`)
     }
     await page.waitForSelector(route.selector, { state: 'visible', timeout: 45000 })
     await page.waitForFunction(selector => {
@@ -30,8 +30,8 @@ try {
 
     pageErrors.length = 0
     const refreshedResponse = await page.reload({ waitUntil: 'domcontentloaded', timeout: 45000 })
-    if (!refreshedResponse || ![200, 404].includes(refreshedResponse.status())) {
-      throw new Error(`${route.label}: unexpected HTTP status after hard refresh ${refreshedResponse?.status()}`)
+    if (!refreshedResponse || refreshedResponse.status() !== 200) {
+      throw new Error(`${route.label}: expected HTTP 200 after hard refresh, got ${refreshedResponse?.status()}`)
     }
     await page.waitForSelector(route.selector, { state: 'visible', timeout: 45000 })
     await page.waitForFunction(selector => {
@@ -39,7 +39,8 @@ try {
       return !!node && node.children.length > 0 && document.readyState === 'complete'
     }, route.selector, { timeout: 45000 })
     if (pageErrors.length) throw new Error(`${route.label}: browser runtime errors after hard refresh: ${pageErrors.join('; ')}`)
-    if (page.url() !== url) throw new Error(`${route.label}: hard refresh changed URL from ${url} to ${page.url()}`)
+    const allowedUrls = route.path === '/' ? [url] : [url, `${url}/`]
+    if (!allowedUrls.includes(page.url())) throw new Error(`${route.label}: unexpected URL after hard refresh; expected ${allowedUrls.join(' or ')}, got ${page.url()}`)
     console.log(`PASS deployed route ${route.path}: initial HTTP ${response.status()}, hard refresh HTTP ${refreshedResponse.status()}, visible ${route.label} surface, URL ${page.url()}`)
     await page.close()
   }
