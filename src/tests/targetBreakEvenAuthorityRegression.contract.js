@@ -111,7 +111,10 @@ const octoberTargetRecord = [{
   active: true,
 }]
 const octoberTarget = deriveRollingDriverTarget({
-  shifts: [{ id: 'oct-10', status: 'COMPLETED', shiftStartAt: '2026-10-10T03:00:00Z', shiftEndAt: '2026-10-10T12:00:00Z', revenue: 0 }],
+  shifts: [
+    { id: 'oct-09', status: 'COMPLETED', shiftStartAt: '2026-10-09T03:00:00Z', shiftEndAt: '2026-10-09T12:00:00Z', revenue: 0 },
+    { id: 'oct-10', status: 'COMPLETED', shiftStartAt: '2026-10-10T03:00:00Z', shiftEndAt: '2026-10-10T12:00:00Z', revenue: 0 },
+  ],
   driverTargets: octoberTargetRecord,
   from: new Date('2026-10-10T00:00:00+05:30'),
   to: new Date('2026-10-10T23:59:59.999+05:30'),
@@ -119,6 +122,8 @@ const octoberTarget = deriveRollingDriverTarget({
 })
 assert.equal(octoberTarget.activeDays, 1)
 assert.ok(Math.abs(octoberTarget.currentBaseDaily - (19672 / 31)) < 1e-10, 'October daily target must use all 31 calendar days, not the 10-day effective record span')
+assert.ok(Math.abs(octoberTarget.balanceBefore - (19672 / 31)) < 1e-10, 'Prior active days in the same month must accrue the same authoritative daily base target')
+assert.ok(Math.abs(octoberTarget.currentDailyTarget - (2 * 19672 / 31)) < 1e-10, 'Current target must add the prior active-day shortfall without changing the calendar-day denominator')
 
 const octoberAuthoritativeTarget = deriveAuthoritativeDriverTarget({
   monthlyBreakEvenRevenue: 4672,
