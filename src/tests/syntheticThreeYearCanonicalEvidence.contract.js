@@ -5,6 +5,8 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { derivePerformance } from '../domain/performance/performanceEngineV2.js'
+import { deriveFinanceAwarePerformance } from '../domain/performance/financePerformanceAdapter.js'
+import { calculateFuelQuantityKg } from '../domain/math/fuel.js'
 import { deriveLoanPosition } from '../domain/finance/loanEngine.js'
 import { deriveRollingDriverTarget, stabilizeActiveDay } from '../domain/performance/driverTargetStabilization.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
@@ -42,6 +44,8 @@ try {
   assert.equal(fixture.specialCases.targetSurplus.expectedDailyTargetInr, 0)
   assert.equal(fixture.specialCases.targetSurplus.earnedEligibleAmountInr - fixture.specialCases.targetSurplus.requiredTargetInr, fixture.specialCases.targetSurplus.expectedSurplusCreditInr)
   assert.equal(fixture.specialCases.fuelPrecision.expectedQuantityKgExact, 500 / 82)
+  assert.equal(calculateFuelQuantityKg(500, 82), 500 / 82, 'fuel quantity calculation must preserve raw precision')
+  assert.equal(Math.round(calculateFuelQuantityKg(500, 82) * 10) / 10, 6.1, 'fuel quantity rounding belongs to display only')
   assert.equal(fixture.specialCases.fuelPrecision.expectedQuantityKgDisplay2dp, 6.1)
   assert.equal(fixture.specialCases.provisionalDeduction.expectedTotalInr, 815)
   assert.equal(fixture.specialCases.breakEven.expectedBreakEvenInr, 4672)
@@ -108,6 +112,28 @@ try {
   assert.equal(fullFinancial.maintenanceProvisionAccumulated, fixture.expectedAggregates.ongoingMaintenanceProvisionInr)
   assert.equal(fullFinancial.renewalProvision, fixture.expectedAggregates.complianceProvisionInr)
   assert.equal(fullFinancial.provisionAdjustedProfit, -fixture.expectedAggregates.fuelCostInr - fixture.expectedAggregates.ongoingMaintenanceProvisionInr - fixture.expectedAggregates.complianceProvisionInr)
+
+  const fullManagement = deriveFinanceAwarePerformance({
+    businessSetup: { businessStartDate: '2023-01-01' },
+    vehicles: [{ id: 'synthetic-vehicle', openingOdometerKm: 0, active: true }],
+    shifts,
+    trips: [],
+    fuelLogs: canonicalFuelLogs,
+    maintenance: [],
+    compliance,
+    loans: [],
+    loanPayments: [],
+    prepayments: [],
+    settlements: [],
+    breakEvenInputs: [{ effectiveFrom: '2023-01-01', maintenanceProvisionPerKm: 1.6 }],
+  }, selectedPeriod)
+  assert.equal(fullManagement.performanceHeadlineActualProfit, -fixture.expectedAggregates.fuelCostInr, 'actual P/L must deduct actual operating cost when no EMI is applicable')
+  assert.equal(fullManagement.performanceHeadlineProvisionalProfit, -fixture.expectedAggregates.fuelCostInr - fixture.expectedAggregates.ongoingMaintenanceProvisionInr - fixture.expectedAggregates.complianceProvisionInr, 'provisional P/L must additionally deduct maintenance and compliance accruals')
+  assert.equal(
+    fullManagement.performanceHeadlineActualProfit - fullManagement.performanceHeadlineProvisionalProfit,
+    fixture.expectedAggregates.ongoingMaintenanceProvisionInr + fixture.expectedAggregates.complianceProvisionInr,
+    'the provisional deduction breakdown must reconcile to actual minus provisional P/L',
+  )
 
   const canonical = derivePerformance({
     shifts,
