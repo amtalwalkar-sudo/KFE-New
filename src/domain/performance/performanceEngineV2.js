@@ -5,7 +5,7 @@ import { istDateKey } from '../time/ist.js'
 import { deriveTollParkingExpenseTreatment } from '../work/revenueReconciliation.js'
 
 const n = v => Number.isFinite(Number(v)) ? Number(v) : 0
-const odometer = v => { const x = Number(v); return Number.isFinite(x) && x >= 0 ? x : NaN }
+const odometer = v => { if (v == null || String(v).trim() === '') return NaN; const x = Number(v); return Number.isFinite(x) && x >= 0 ? x : NaN }
 const d = v => { const x = v ? new Date(v) : null; return x && !Number.isNaN(x.getTime()) ? x : null }
 const inR = (v, r) => { const x = d(v); return !!x && x >= r.from && x <= r.to }
 const days = (a, b) => Math.max(1, Math.ceil((b - a) / 86400000) + 1)
