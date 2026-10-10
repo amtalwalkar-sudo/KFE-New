@@ -13,6 +13,7 @@ const START = new Date("2023-01-01T00:00:00.000Z");
 const END = new Date("2025-12-31T00:00:00.000Z");
 const INR = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 const iso = (d) => d.toISOString().slice(0, 10);
+const daysInYear = (year) => new Date(Date.UTC(year + 1, 0, 1) - Date.UTC(year, 0, 1)) / 86400000;
 
 function generate() {
   const daily = [];
@@ -40,7 +41,9 @@ function generate() {
     const month = date.slice(0, 7);
     const fuel = INR(km * 3.2);
     const maintenanceProvision = INR(km * 1.6);
-    const complianceProvision = INR(30000 / 365); // baseline accrual; leap-year policy is explicitly testable
+    // Each annual compliance record spans Jan 1–Dec 31 in its calendar year.
+    // Accrue over actual covered calendar days (365 or 366), without daily rounding.
+    const complianceProvision = 30000 / daysInYear(d.getUTCFullYear());
     const emiPayment = d.getUTCDate() === 1 ? 11324 : 0;
     const record = {
       id: `DAY-${date}`,
@@ -68,9 +71,10 @@ function generate() {
     m.totalKm += km;
     m.fuelCostInr = INR(m.fuelCostInr + fuel);
     m.maintenanceProvisionInr = INR(m.maintenanceProvisionInr + maintenanceProvision);
-    m.complianceProvisionInr = INR(m.complianceProvisionInr + complianceProvision);
+    m.complianceProvisionInr += complianceProvision;
     m.emiPaymentInr = INR(m.emiPaymentInr + emiPayment);
   }
+  for (const month of byMonth.values()) month.complianceProvisionInr = INR(month.complianceProvisionInr);
   monthly.push(...byMonth.values());
 
   const specialCases = {
@@ -151,7 +155,7 @@ function generate() {
       "Fuel cost baseline ₹3.20/km",
       "Ongoing maintenance provision baseline ₹1.60/km; this is not actual maintenance paid",
       "EMI baseline ₹11,324/month, modeled on the first day of each month",
-      "Compliance baseline ₹30,000/year, accrued at ₹30,000/365 per calendar day; leap-year and business-rule treatment should be verified",
+      "Compliance baseline ₹30,000 per annual Jan 1–Dec 31 validity record; accrue across 365 or 366 IST calendar days without daily rounding",
       "Synthetic business start date 2023-01-01, solely to exercise three-year period logic",
       "Pre-business maintenance obligation 60,000 km × ₹0.60/km = ₹36,000, separate from ongoing provision",
       "Unknown loan principal/rate/tenure and unknown provisional/break-even component inputs are intentionally not fabricated"
@@ -161,6 +165,7 @@ function generate() {
       totalDistanceKm: daily.length * 200,
       fuelCostInr: INR(daily.length * 200 * 3.2),
       ongoingMaintenanceProvisionInr: INR(daily.length * 200 * 1.6),
+      complianceProvisionInr: 90000,
       emiPaymentCount: monthly.length,
       emiTotalInr: INR(monthly.length * 11324),
       preBusinessMaintenanceObligationInr: 36000
