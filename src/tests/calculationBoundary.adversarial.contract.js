@@ -85,17 +85,20 @@ assert.equal(typeof id1, 'string'); assert.equal(typeof id2, 'string'); assert.n
     breakEvenInputs:[{ effectiveFrom:'2026-09-01', maintenanceProvisionPerKm:2, active:true }],
     range,
     loanScheduledObligation:1000,
+    loanInputAvailable:true,
     preBusinessRecovery:100,
     historicalMaintenanceRecovery:NaN,
     renewalProvision:200,
+    complianceInputAvailable:true,
     fuelCostPerKm:10,
     fuelCostPerKmStatus:CALCULATION_STATUS.AUTHORITATIVE,
     vehicleKm:1000,
     vehicleKmSource:'TEST',
   })
   assert.equal(incomplete.available, false)
-  assert.equal(incomplete.reason, 'INCOMPLETE_BREAK_EVEN_INPUTS')
+  assert.equal(incomplete.reason, 'PROVISIONAL_RECOVERY_EVIDENCE')
   assert.equal(incomplete.trace.firstMissing, 'historicalMaintenanceRecovery')
+  assert.ok(Number.isFinite(incomplete.indicativeMonthlyBreakEvenRevenue), 'Available components remain calculable despite incomplete recovery evidence')
 }
 
 // 3) Driver Target carries a prior active-day shortfall into the next active
