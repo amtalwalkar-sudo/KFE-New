@@ -80,9 +80,9 @@ assert.match(adminRepo, /legacy value on unrelated edits so removing the old fie
 assert.match(perfEngine, /String\(b\.updatedAt \|\| b\.createdAt \|\| b\.id \|\| ''\)/, 'Maintenance rate selection must tie-break identical effective dates deterministically')
 assert.doesNotMatch(adminForm, /v-model(?:\.[\\w-]+)?=/, 'Admin form controls must not use Vue v-model for native entry')
 assert.doesNotMatch(adminForm, /userEditing/, 'Admin form must not rely on an editing flag that can be reset by parent synchronization')
-assert.ok(adminForm.includes('function changed(field)'), 'Admin form native controls must write through explicit field events')
+assert.ok(adminForm.includes('function changed(field, raw)'), 'Admin form native controls must write through explicit field events')
 assert.doesNotMatch(adminForm, /openEditor|closeEditor|editorRef|editorOpen/, 'Admin form must not use an isolated editor overlay')
-assert.ok(adminForm.includes('@input="changed(field)"'), 'Admin text and numeric fields must write directly from native input events')
+assert.ok(adminForm.includes(':value="value(field)"') && adminForm.includes('@input="changed(field, $event.target.value)"'), 'Admin text and numeric fields must use reactive values and native input events')
 
 assert.doesNotMatch(formShell, /watch\(.*props\.initialValue/, 'Shared KfeFormShell must not overwrite active form state from initial props')
 assert.doesNotMatch(workForm, /watch\(.*props\..*form/, 'Work contextual form must not introduce a parent-prop watcher that resets active input')
