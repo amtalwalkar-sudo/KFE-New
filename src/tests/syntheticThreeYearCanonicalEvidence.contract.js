@@ -281,6 +281,18 @@ try {
   const juneDailyBase = (62000 + 30000) / 30
   assert.ok(Math.abs(crossMonthTarget.balanceBefore - (januaryDailyBase - 1000)) < 1e-9, 'prior-month shortfall must use that month’s break-even, not reset or reuse current month')
   assert.ok(Math.abs(crossMonthTarget.currentDailyTarget - (juneDailyBase + januaryDailyBase - 1000)) < 1e-9, 'current target must carry prior-month shortfall into the current month')
+  const incompleteTargetHistory = deriveRollingDriverTarget({
+    from: '2024-06-15T00:00:00+05:30',
+    to: '2024-06-15T23:59:59+05:30',
+    monthlyBreakEvenByMonth: { '2024-06': 62000 },
+    driverTargets: [{ effectiveFrom: '2024-01-01', effectiveUntil: '2024-06-30', desiredDriverProfit: 30000, active: true }],
+    shifts: [
+      { id: 'incomplete-history-prior', shiftStartAt: '2024-01-15T08:00:00+05:30', shiftEndAt: '2024-01-15T18:00:00+05:30', status: 'COMPLETED', revenue: 1000 },
+      { id: 'incomplete-history-current', shiftStartAt: '2024-06-15T08:00:00+05:30', status: 'ACTIVE' },
+    ],
+  })
+  assert.equal(incompleteTargetHistory.historyComplete, false, 'missing prior-month break-even must be visible rather than silently resetting the rolling balance')
+  assert.equal(incompleteTargetHistory.currentDailyTarget, null, 'incomplete rolling history must not publish a fabricated current target')
   const stabilizedSurplus = stabilizeActiveDay({ baseTarget: 1000, balance: -1500, actualRevenue: null })
   assert.equal(stabilizedSurplus.target, 0, 'the shared active-day target helper must also clamp to zero')
   assert.equal(stabilizedSurplus.nextBalance, null)
