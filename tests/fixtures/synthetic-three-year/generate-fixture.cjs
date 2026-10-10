@@ -136,8 +136,8 @@ function generate() {
     preBusinessMaintenance: {
       id: "PRE-BUSINESS-MAINT-001",
       distanceKm: 60000,
-      rateInrPerKm: 0.6,
-      expectedObligationInr: 36000,
+      rateInrPerKm: 0.4,
+      expectedObligationInr: 24000,
       ongoingMaintenanceProvisionRateInrPerKm: 1.6,
       expectedInvariant: "historical pre-business obligation is a separate bucket and is not double-counted as ongoing provision or actual maintenance"
     },
@@ -192,7 +192,7 @@ function generate() {
       "EMI baseline ₹11,324/month, modeled on the first day of each month",
       "Compliance baseline ₹30,000 per annual Jan 1–Dec 31 validity record; accrue across 365 or 366 IST calendar days without daily rounding",
       "Synthetic business start date 2023-01-01, solely to exercise three-year period logic",
-      "Pre-business maintenance obligation 60,000 km × ₹0.60/km = ₹36,000, separate from ongoing provision",
+      "Historical maintenance burden 60,000 km × ₹0.40/km = ₹24,000, recovered over 12 months separately from ongoing provision",
       "Unknown loan principal/rate/tenure and unknown provisional/break-even component inputs are intentionally not fabricated"
     ],
     expectedAggregates: {
@@ -203,7 +203,7 @@ function generate() {
       complianceProvisionInr: 90000,
       emiPaymentCount: monthly.length,
       emiTotalInr: INR(monthly.length * 11324),
-      preBusinessMaintenanceObligationInr: 36000
+      preBusinessMaintenanceObligationInr: 24000
     },
     specialCases,
     daily,
