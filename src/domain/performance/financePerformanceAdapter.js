@@ -18,13 +18,13 @@ const businessStartDate = snapshot => {
 const asOf = range => dateOf(range?.to) || new Date()
 const inRange = (value, range) => { const date = dateOf(value); return !!date && date >= range.from && date <= range.to }
 const calendarSerial = value => { const key=istDateKey(value); if(!key)return null; const [y,m,d]=key.split('-').map(Number); return Date.UTC(y,m-1,d)/86400000 }
-const scheduledEmiAccruedForRange = (schedule, range) => {
+export const scheduledEmiAccruedForRange = (schedule, range, amountField = 'originalEmiAmount') => {
   if (!Array.isArray(schedule)) return null
   const from=calendarSerial(range?.from),to=calendarSerial(range?.to)
   if(from==null||to==null||to<from)return null
   let total=0
   for(const row of schedule){
-    const amount=Number(row.originalEmiAmount),start=calendarSerial(row.periodStart),due=calendarSerial(row.dueDate)
+    const amount=Number(row[amountField]),start=calendarSerial(row.periodStart),due=calendarSerial(row.dueDate)
     if(!Number.isFinite(amount)||amount<0||start==null||due==null||due<start)return null
     const overlapFrom=Math.max(from,start),overlapTo=Math.min(to+1,due)
     if(overlapTo<=overlapFrom)continue
@@ -48,8 +48,11 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   const businessStart = businessStartDate(snapshot)
   const historicalMaintenanceRecovery = calculateHistoricalMaintenanceRecovery({ vehicles: snapshot?.vehicles || [], businessStartDate: businessStart, asOf: currentAsOf })
   const preBusinessRecoveryMonthly = finance ? calculatePreBusinessLoanRecovery({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, businessStartDate: businessStart, asOf: currentAsOf }) : 0
-  const currentScheduledEmi = finance?.schedule ? finance.schedule.filter(row => inRange(row.dueDate, range)).reduce((sum, row) => sum + money(row.originalEmiAmount), 0) : 0
-  const currentScheduledInterest = finance?.schedule ? finance.schedule.filter(row => inRange(row.dueDate, range)).reduce((sum, row) => sum + money(row.originalInterestComponent), 0) : 0
+  // Management P/L accrues the scheduled EMI obligation over its coverage period,
+  // not only on the cash due date. Otherwise a month whose EMI falls on the 1st
+  // of the following month incorrectly reports zero EMI and overstates profit.
+  const currentScheduledEmi = finance?.schedule ? scheduledEmiAccruedForRange(finance.schedule, range) : 0
+  const currentScheduledInterest = finance?.schedule ? scheduledEmiAccruedForRange(finance.schedule, range, 'originalInterestComponent') : 0
   const preBusinessRecoveryForPeriod = finance ? calculatePreBusinessLoanRecoveryForRange({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, businessStartDate: businessStart, range }) : 0
   const historicalMaintenanceRecoveryForPeriod = calculateHistoricalMaintenanceRecoveryForRange({ vehicles: snapshot?.vehicles || [], businessStartDate: businessStart, range: range })
   const fullMonthRange = istMonthRange(range?.to) || range
