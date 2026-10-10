@@ -64,8 +64,9 @@ export function deriveAuthoritativeBreakEven({
   // Missing categories are omitted from the provisional estimate, not treated as
   // confirmed zero-cost categories. The component flags keep that distinction visible.
   const fixedParts = [
-    components.loan && preBusiness != null ? loan + preBusiness : null,
+    components.loan ? loan : null,
     components.compliance ? compliance : null,
+    preBusiness,
     historicalMaintenance,
   ].filter(value => value != null && Number.isFinite(value))
   const fixedCosts = fixedParts.length ? fixedParts.reduce((sum, value) => sum + value, 0) : null
