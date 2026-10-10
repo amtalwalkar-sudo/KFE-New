@@ -5,6 +5,7 @@ import { calculateEmi, deriveLoanPosition, paymentAllocationPreview, calculatePr
 const loan = { id: 'loan-e2e', principal: 550000, tenureMonths: 60, startDate: '2026-01-01', annualInterestRatePercent: 10, status: 'Active' }
 const emi = calculateEmi(loan.principal, loan.tenureMonths, loan.annualInterestRatePercent)
 assert.ok(emi > 0, 'EMI must be calculated from explicit loan source inputs')
+assert.equal(Number.isInteger(emi), true, 'calculated EMI is rounded to the nearest whole rupee');
 assert.equal(ADMIN_FORM_DEFINITIONS.loan.fields.some(field => field.key === 'emi'), false, 'EMI must not be a user-entered loan source field')
 const rateField = ADMIN_FORM_DEFINITIONS.loan.fields.find(field => field.key === 'annualInterestRatePercent')
 assert.ok(rateField, 'Annual interest rate must be an editable loan source field')
