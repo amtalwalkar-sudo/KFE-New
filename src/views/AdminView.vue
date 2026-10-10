@@ -220,6 +220,7 @@ function monthStart(m){return (m||currentMonth.value)+'-01'}
 async function saveTarget(){clearMessages();loading.value=true;try{if(!targetDraft.value.driverId||Number(targetDraft.value.desiredDriverProfit)<0)throw new Error('Driver and monthly target are required.');await AdminService.save('driverTarget',{driverId:targetDraft.value.driverId,effectiveFrom:monthStart(targetDraft.value.month),desiredDriverProfit:Number(targetDraft.value.desiredDriverProfit),nonWorkingDates:String(targetDraft.value.nonWorkingDates||''),active:targetDraft.value.active!==false,notes:String(targetDraft.value.notes||'')});await clearFormDraft(targetFormDraftIdentity.value);notice.value='Monthly driver target saved.';await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Unable to save target.'}finally{loading.value=false}}
 async function saveMaintenanceRate(){clearMessages();loading.value=true;try{const rate=Number(maintenanceRateDraft.value.rate);if(!Number.isFinite(rate)||rate<0)throw new Error('Maintenance per KM must be zero or greater.');await AdminService.save('breakEvenInputs',{effectiveFrom:maintenanceRateDraft.value.changeDate,maintenanceProvisionPerKm:rate,notes:String(maintenanceRateDraft.value.notes||'')});await clearFormDraft(maintenanceRateFormDraftIdentity.value);notice.value='Maintenance per KM rate saved.';await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Unable to save rate.'}finally{loading.value=false}}
 function clearFieldError({key}){if(!(key in formErrors.value))return;const next={...formErrors.value};delete next[key];formErrors.value=next}
+function onSourceFieldChange(change){draft.value={...draft.value,[change.key]:change.value};clearFieldError(change)}
 async function save(values){clearMessages();formErrors.value={};saving.value=true;try{
   const id=editing.value
   const draftIdentity = sourceFormDraftIdentity.value
@@ -324,7 +325,7 @@ onMounted(load)
   <div v-if="selected==='maintenance'" class="metric-grid"><div><span>Maintenance pool balance</span><strong>{{money(maintenanceProvisionBalance)}}</strong></div></div>
   <div class="provision-bar" aria-hidden="true"><span :style="{width:(selected==='compliance'?(live(records).reduce((s,r)=>s+(Number(r.values?.cost)||0),0)>0?Math.min(100,complianceProvisionTotal/live(records).reduce((s,r)=>s+(Number(r.values?.cost)||0),0)*100):0):100)+'%'}"></span></div>
 </section>
-  <div v-if="formOpen"><AdminSourceForm :fields="activeDefinition?.fields||[]" :model-value="draft" :draft-identity="sourceFormDraftIdentity" :busy="saving" :auto-open-first="editing===null" :errors="formErrors" @field-change="clearFieldError" @submit="save" @cancel="formOpen=false;editing=null" :submit-label="editing!==null?'Update record':'Save record'"/></div>
+  <div v-if="formOpen"><AdminSourceForm :fields="activeDefinition?.fields||[]" :model-value="draft" :draft-identity="sourceFormDraftIdentity" :busy="saving" :auto-open-first="editing===null" :errors="formErrors" @field-change="onSourceFieldChange" @submit="save" @cancel="formOpen=false;editing=null" :submit-label="editing!==null?'Update record':'Save record'"/></div>
   <div v-if="loading&&!records.length" class="empty">Loading…</div>
   <div v-else-if="records.length" class="record-list">
     <button v-for="record in records" :key="record.id" class="clean-card master-list-row" @click="openMasterRecord(record)">
@@ -348,7 +349,7 @@ onMounted(load)
     <div v-if="sourceHistory(masterRecord).length" class="history-inline"><span>Payment history</span><small v-for="x in sourceHistory(masterRecord).slice(0,5)" :key="x.id">{{x.settledOn?.slice(0,10)}} · {{money(x.amount)}}</small></div>
     <div v-if="actionRecord?.id===masterRecord.id&&actionKey==='settlement'" class="calculation-box"><AdminSourceForm :fields="settlementFields" :model-value="actionDraft" :draft-identity="actionFormDraftIdentity" :busy="loading" :show-actions="false" @field-change="onActionFieldChange" @submit="submitActionForm"/><button class="primary wide" :disabled="Number(actionDraft.amount)<=0||loading" @click="saveSourcePayment">Confirm &amp; record payment</button></div>
   </section>
-  <AdminSourceForm v-if="formOpen" :fields="activeDefinition?.fields||[]" :model-value="draft" :draft-identity="sourceFormDraftIdentity" :busy="saving" :auto-open-first="false" :errors="formErrors" @field-change="clearFieldError" @submit="save" @cancel="formOpen=false;editing=null" submit-label="Update record"/>
+  <AdminSourceForm v-if="formOpen" :fields="activeDefinition?.fields||[]" :model-value="draft" :draft-identity="sourceFormDraftIdentity" :busy="saving" :auto-open-first="false" :errors="formErrors" @field-change="onSourceFieldChange" @submit="save" @cancel="formOpen=false;editing=null" submit-label="Update record"/>
   <div class="record-footer"><button class="text-button" @click="remove(masterRecord)">Delete</button></div>
 </div>
 </template>
