@@ -8,6 +8,8 @@ import { derivePerformance } from '../domain/performance/performanceEngineV2.js'
 import { calculateHistoricalMaintenanceRecovery, calculateHistoricalMaintenanceRecoveryForRange } from '../domain/performance/performanceEngineV2.js'
 import { deriveFinanceAwarePerformance } from '../domain/performance/financePerformanceAdapter.js'
 import { calculateFuelQuantityKg, calculateRollingFuelCostPerKm } from '../domain/math/fuel.js'
+import { deriveAuthoritativeBreakEven } from '../domain/performance/authoritativeBreakEven.js'
+import { CALCULATION_STATUS } from '../domain/performance/calculationAuthority.js'
 import { deriveLoanPosition } from '../domain/finance/loanEngine.js'
 import { deriveRollingDriverTarget, stabilizeActiveDay } from '../domain/performance/driverTargetStabilization.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
@@ -70,6 +72,23 @@ try {
   ])
   assert.equal(associatedFuelRate.completedIntervals, 1)
   assert.equal(associatedFuelRate.rollingCostPerKm, 22)
+  const negativeMaintenanceBreakEven = deriveAuthoritativeBreakEven({
+    breakEvenInputs: [{ id: 'negative-maintenance-rate', effectiveFrom: '2024-01-01', maintenanceProvisionPerKm: -1.6, active: true }],
+    range: { from: new Date('2024-06-01T00:00:00+05:30'), to: new Date('2024-06-30T23:59:59+05:30') },
+    loanScheduledObligation: 10000,
+    loanInputAvailable: true,
+    preBusinessRecovery: 0,
+    historicalMaintenanceRecovery: 0,
+    renewalProvision: 3000,
+    complianceInputAvailable: true,
+    fuelCostPerKm: 2,
+    fuelCostPerKmStatus: CALCULATION_STATUS.AUTHORITATIVE,
+    vehicleKm: 1000,
+    vehicleKmSource: 'SYNTHETIC_FIXTURE',
+  })
+  assert.equal(negativeMaintenanceBreakEven.status, CALCULATION_STATUS.INDICATIVE, 'negative maintenance rate must not produce authoritative break-even')
+  assert.equal(negativeMaintenanceBreakEven.maintenanceCost, null, 'invalid negative maintenance rate must not reduce break-even cost')
+  assert.equal(negativeMaintenanceBreakEven.monthlyBreakEvenRevenue, 15000, 'invalid negative maintenance rate is excluded rather than subtracted')
   assert.equal(Math.round(calculateFuelQuantityKg(500, 82) * 10) / 10, 6.1, 'fuel quantity rounding belongs to display only')
   assert.equal(fixture.specialCases.fuelPrecision.expectedQuantityKgDisplay2dp, 6.1)
   assert.equal(fixture.specialCases.provisionalDeduction.expectedTotalInr, 815)
