@@ -24,7 +24,8 @@ export function deriveAuthoritativeBreakEven({
   breakEvenInputs = [],
   range,
   loanScheduledObligation = NaN,
-  loanInputAvailable = false,
+  loanInputAvailable = null,
+  loanNotApplicable = false,
   preBusinessRecovery = 0,
   historicalMaintenanceRecovery = 0,
   renewalProvision = NaN,
@@ -43,7 +44,7 @@ export function deriveAuthoritativeBreakEven({
   const historicalMaintenance = finite(historicalMaintenanceRecovery)
   const compliance = finite(renewalProvision)
   const components = {
-    loan: !!loanInputAvailable && loan != null,
+    loan: (loanInputAvailable == null ? loan != null : !!loanInputAvailable) && loan != null,
     compliance: !!complianceInputAvailable && compliance != null,
     maintenance: maintenanceProvisionPerKm != null,
     fuel: fuelRate != null && fuelRate >= 0,
@@ -64,14 +65,14 @@ export function deriveAuthoritativeBreakEven({
   const fixedParts = [
     components.loan ? loan + (preBusiness ?? 0) : 0,
     components.compliance ? compliance : 0,
-    components.loan ? (historicalMaintenance ?? 0) : 0,
+    historicalMaintenance ?? 0,
   ]
   const fixedCosts = fixedParts.reduce((sum, value) => sum + value, 0)
   const hasKm = km != null && km >= 0
   const fuelCost = components.fuel && hasKm ? fuelRate * km : 0
   const maintenanceCost = components.maintenance && hasKm ? maintenanceProvisionPerKm * km : 0
   const monthlyBreakEvenRevenue = fixedCosts + fuelCost + maintenanceCost
-  const missingComponents = Object.keys(components).filter(key => !components[key])
+  const missingComponents = Object.keys(components).filter(key => !components[key] && !(key === 'loan' && loanNotApplicable))
   const fuelIsAuthoritative = components.fuel &&
     fuelCostPerKmStatus === CALCULATION_STATUS.AUTHORITATIVE
   const allRequiredEvidence = missingComponents.length === 0 && hasKm && fuelIsAuthoritative &&
