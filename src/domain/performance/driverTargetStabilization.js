@@ -68,7 +68,7 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     if (!record) continue
     const baseDaily = baseDailyFor(record)
     if (baseDaily == null) continue
-    balance += baseDaily - (byDay.get(dayKey) || 0)
+    if (byDay.has(dayKey)) balance += baseDaily - byDay.get(dayKey)
   }
   const currentDays = allActiveDays.filter(k => {
     const day = dateOf(k)
@@ -88,7 +88,7 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     currentPeriodBaseTarget = periodBaseTarget(record, applicableBreakEven)
     currentDailyTarget = baseDaily + balance
     balanceBeforeCurrent = balance
-    balance += baseDaily - (byDay.get(dayKey) || 0)
+    if (byDay.has(dayKey)) balance += baseDaily - byDay.get(dayKey)
   }
   return {
     available: currentDailyTarget != null,
