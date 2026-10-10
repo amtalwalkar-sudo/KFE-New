@@ -137,6 +137,8 @@ const detailGroups = computed(() => {
   ]
 })
 
+const breakEvenRows = computed(() => detailGroups.value.find(item => item.key === 'breakEven')?.rows || [])
+
 function openDetail(key) { detailGroup.value = detailGroups.value.find(item => item.key === key) || null }
 function toggleSection(key) { openSection.value = openSection.value === key ? null : key }
 function choosePeriod(value) { period.value=value; openSection.value=null; detailGroup.value=null }
@@ -407,6 +409,12 @@ const periodContext = computed(() => periodLabel.value)
         <div class="pp-focus">
           <div class="pp-focus-ring"><span>BREAK-EVEN</span><strong>{{ money(breakEven) }}</strong><small v-if="breakEvenStatus === 'AUTHORITATIVE'">AUTHORITATIVE</small><small v-else-if="breakEvenStatus === 'INDICATIVE'">INDICATIVE</small><small v-else>NOT ESTABLISHED</small></div>
           <div class="pp-focus-line"><i></i></div>
+        </div>
+        <div class="metric-grid pp-break-even-breakdown" aria-label="Break-even calculation breakdown">
+          <div v-for="row in breakEvenRows" :key="row[0]">
+            <span>{{ row[0] }}</span>
+            <strong>{{ row[1] }}</strong>
+          </div>
         </div>
       </section>
 
