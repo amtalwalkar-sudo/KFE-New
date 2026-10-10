@@ -15,7 +15,7 @@ const routes = [
 // GitHub Pages keeps normal HTML5 URLs. Native Capacitor WebView uses hash history so
 // refreshing Timeline/Performance/Admin always reloads the app entry document instead
 // of depending on a server rewrite for an arbitrary client-side route.
-const routerBase = new URL('./', window.location.href).pathname
+const routerBase = import.meta.env.BASE_URL
 const history = Capacitor.isNativePlatform()
   ? createWebHashHistory('/')
   : createWebHistory(routerBase)
