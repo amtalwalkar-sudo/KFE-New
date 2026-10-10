@@ -124,6 +124,7 @@ const missingKmFuel = deriveAuthoritativeBreakEven({
 assert.equal(missingKmFuel.status, 'INDICATIVE')
 assert.equal(missingKmFuel.trace.missingComponents.includes('vehicleKmForVariableCosts'), true,
   'A fuel rate without a KM basis must be marked missing, not priced as zero variable cost')
+assert.equal(missingKmFuel.fuelCost, null, 'Fuel cost remains missing without a KM basis')
 assert.equal(missingKmFuel.indicativeMonthlyBreakEvenRevenue, null,
   'A rate with no KM basis and no known cost subtotal must not fabricate a ₹0 estimate')
 
