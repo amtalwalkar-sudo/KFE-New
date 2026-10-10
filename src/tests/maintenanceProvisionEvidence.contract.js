@@ -25,6 +25,7 @@ assert.equal(explicitZero.maintenanceProvisionEvidenceStatus,'AUTHORITATIVE','An
 
 const maintenanceOverpaid = derivePerformance({
   ...base,
+  breakEvenInputs: [{ effectiveFrom: '2026-09-01', maintenanceProvisionPerKm: 2, active: true }],
   settlements: [{ id: 'maintenance-overpay', sourceType: 'Maintenance', direction: 'OUT', amount: 500, paidOn: '2026-09-10T12:00:00Z' }],
 }, range)
 assert.equal(maintenanceOverpaid.maintenanceProvisionAccumulated, 400)
