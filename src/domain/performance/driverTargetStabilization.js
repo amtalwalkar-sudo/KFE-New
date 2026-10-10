@@ -1,4 +1,4 @@
-import { istDateKey, istMonthRange } from '../time/ist.js'
+import { istDateKey } from '../time/ist.js'
 
 const finite = v => v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v)
 const dateOf = v => { const x = v ? new Date(v) : null; return x && !Number.isNaN(x.getTime()) ? x : null }
@@ -24,8 +24,10 @@ const nonWorkingDateKeys = record => {
   return new Set(values.map(value => keyOf(String(value).trim())).filter(Boolean))
 }
 const calendarDaysInMonthFor = day => {
-  const month = istMonthRange(day, day)
-  return month ? calendarDays(month.from, month.to) : null
+  const key = keyOf(day)
+  if (!key) return null
+  const [year, month] = key.split('-').map(Number)
+  return new Date(Date.UTC(year, month, 0)).getUTCDate()
 }
 const periodBaseTarget = (record, applicableBreakEven = null) => {
   const desiredDriverProfit = finite(record?.desiredDriverProfit)
@@ -35,7 +37,12 @@ const periodBaseTarget = (record, applicableBreakEven = null) => {
 const baseDailyFor = (record, applicableBreakEven = null, day = null) => {
   const periodTarget = periodBaseTarget(record, applicableBreakEven)
   const daysInMonth = calendarDaysInMonthFor(day || effectiveFrom(record))
-  return periodTarget == null || daysInMonth == null || daysInMonth <= 0 ? null : periodTarget / daysInMonth
+  // A configured monthly target (monthly desired profit + authoritative break-even,
+  // or a target with an explicit validity window) uses calendar-month days. Legacy
+  // targetRevenue records without an end date remain daily targets for compatibility.
+  const isMonthlyTarget = (finite(record?.desiredDriverProfit) != null && applicableBreakEven != null) || !!effectiveUntil(record)
+  const denominator = isMonthlyTarget ? daysInMonth : 1
+  return periodTarget == null || denominator == null || denominator <= 0 ? null : periodTarget / denominator
 }
 
 export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTargets = [], from, to, applicableBreakEven = null } = {}) {
