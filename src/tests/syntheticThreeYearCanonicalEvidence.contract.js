@@ -19,6 +19,12 @@ try {
   assert.equal(fixture.isolation.pwaStorageWrite, false)
   assert.equal(fixture.daily.length, 1096)
   assert.equal(fixture.expectedAggregates.complianceProvisionInr, 90000)
+  for (const year of [2023, 2024, 2025]) {
+    const annualDaily = fixture.daily.filter(day => day.date.startsWith(String(year))).reduce((sum, day) => sum + day.complianceProvisionInr, 0)
+    const annualMonthly = fixture.monthly.filter(month => month.month.startsWith(String(year))).reduce((sum, month) => sum + month.complianceProvisionInr, 0)
+    assert.ok(Math.abs(annualDaily - 30000) < 1e-7, `${year} daily compliance accrual must sum to its annual validity cost`)
+    assert.equal(annualMonthly, 30000, `${year} monthly rollups must reconcile exactly after paise rounding`)
+  }
 
   const selectedPeriod = {
     from: new Date('2022-12-31T18:30:00.000Z'),
@@ -104,7 +110,9 @@ try {
   assert.match(view, /Maintenance payments ahead of provision/)
   assert.match(view, /Compliance payments ahead of provision/)
   assert.match(view, /money\(m\.value\.maintenanceProvisionBalance\)/)
+  assert.match(view, /money\(m\.value\.maintenanceProvisionExcessPayments\)/)
   assert.match(view, /money\(m\.value\.complianceProvisionBalance\)/)
+  assert.match(view, /money\(m\.value\.complianceProvisionExcessPayments\)/)
 
   const evidence = [
     { fixtureId: 'THREE-YEAR-BASELINE', selectedPeriod: '2023-01-01..2025-12-31 IST', inputs: { days: 1096, kmPerDay: 200, maintenanceRateInrPerKm: 1.6, complianceCostInrPerYear: 30000, annualValidityDays: '365/366 by calendar year' }, expected: { vehicleKm: expected.vehicleKm, maintenanceProvisionInr: expected.maintenanceAccruedInr, complianceProvisionInr: expected.complianceAccruedInr }, canonical: { vehicleKm: canonical.vehicleKm, maintenanceProvisionInr: canonical.maintenanceProvisionAccumulated, complianceProvisionInr: canonical.renewalProvision }, displayed: { vehicleKm: 'not a headline on provision detail', maintenanceProvisionInr: money(canonical.maintenanceProvision), complianceProvisionInr: money(canonical.renewalProvision) }, expectedDisplayed: { vehicleKm: 'not a headline on provision detail', maintenanceProvisionInr: '₹350,720', complianceProvisionInr: '₹90,000' }, pass: true },
