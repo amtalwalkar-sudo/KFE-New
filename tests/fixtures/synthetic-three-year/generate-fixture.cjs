@@ -75,6 +75,13 @@ function generate() {
     m.emiPaymentInr = INR(m.emiPaymentInr + emiPayment);
   }
   for (const month of byMonth.values()) month.complianceProvisionInr = INR(month.complianceProvisionInr);
+  // Keep each annual rollup equal to its ₹30,000 source obligation after
+  // monthly paise rounding: put any rounding residual in December.
+  for (const year of [2023, 2024, 2025]) {
+    const rows = [...byMonth.values()].filter(month => month.month.startsWith(String(year))).sort((a, b) => a.month.localeCompare(b.month))
+    const december = rows.find(month => month.month === `${year}-12`)
+    if (december) december.complianceProvisionInr = INR(30000 - rows.filter(month => month !== december).reduce((sum, month) => sum + month.complianceProvisionInr, 0))
+  }
   monthly.push(...byMonth.values());
 
   const specialCases = {
