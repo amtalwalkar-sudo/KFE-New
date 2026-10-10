@@ -27,8 +27,8 @@ export function deriveAuthoritativeBreakEven({
   loanScheduledObligation = NaN,
   loanInputAvailable = null,
   loanNotApplicable = false,
-  preBusinessRecovery = 0,
-  historicalMaintenanceRecovery = 0,
+  preBusinessRecovery = NaN,
+  historicalMaintenanceRecovery = NaN,
   renewalProvision = NaN,
   complianceInputAvailable = null,
   fuelCostPerKm = NaN,
@@ -64,15 +64,17 @@ export function deriveAuthoritativeBreakEven({
   // Missing categories are omitted from the provisional estimate, not treated as
   // confirmed zero-cost categories. The component flags keep that distinction visible.
   const fixedParts = [
-    components.loan ? loan + (preBusiness ?? 0) : 0,
-    components.compliance ? compliance : 0,
-    historicalMaintenance ?? 0,
-  ]
-  const fixedCosts = fixedParts.reduce((sum, value) => sum + value, 0)
+    components.loan && preBusiness != null ? loan + preBusiness : null,
+    components.compliance ? compliance : null,
+    historicalMaintenance,
+  ].filter(value => value != null && Number.isFinite(value))
+  const fixedCosts = fixedParts.length ? fixedParts.reduce((sum, value) => sum + value, 0) : null
   const hasKm = km != null && km >= 0
   const fuelCost = components.fuel && hasKm ? fuelRate * km : 0
   const maintenanceCost = components.maintenance && hasKm ? maintenanceProvisionPerKm * km : 0
-  const monthlyBreakEvenRevenue = fixedCosts + fuelCost + maintenanceCost
+  const hasCalculableVariableCost = hasKm && ((components.fuel && fuelRate != null) || (components.maintenance && maintenanceProvisionPerKm != null))
+  const hasCalculableSubtotal = fixedCosts != null || hasCalculableVariableCost
+  const monthlyBreakEvenRevenue = hasCalculableSubtotal ? (fixedCosts ?? 0) + fuelCost + maintenanceCost : null
   const missingComponents = Object.keys(components).filter(key => !components[key] && !(key === 'loan' && loanNotApplicable))
   if (!hasKm && (components.fuel || components.maintenance)) missingComponents.push('vehicleKmForVariableCosts')
   const fuelIsAuthoritative = components.fuel &&
