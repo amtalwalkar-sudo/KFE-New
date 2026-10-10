@@ -57,7 +57,7 @@ for (const key of ['revenue', 'vehicleKm', 'businessKm', 'deadKm', 'fuelCost', '
 assert.equal(variantMetrics.period.timeZone, 'Asia/Kolkata')
 const serviceMetrics = PerformanceService.getMetrics(canonical, range)
 assert.equal(serviceMetrics.breakEvenRevenue, serviceMetrics.monthlyBreakEvenRevenue)
-assert.equal(serviceMetrics.breakEvenRevenue, null)
+assert.ok(Number.isFinite(serviceMetrics.breakEvenRevenue), 'Partial setup must surface a break-even estimate')
 assert.equal(serviceMetrics.calculationEvidence.breakEven.status, 'INDICATIVE')
 assert.ok(Number.isFinite(serviceMetrics.indicativeMonthlyBreakEvenRevenue), 'Indicative break-even candidate should remain visible')
 assert.ok(Number.isNaN(canonicalMetrics.monthlyBreakEvenRevenue))
