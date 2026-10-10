@@ -30,6 +30,27 @@ const late = '2026-02-11'
 const later = '2026-04-01'
 
 {
+  // Advance EMI payments after loan origination must be allocatable to the next
+  // scheduled installment even when its due date has not arrived yet.
+  const earlyPaidOn = '2026-01-15'
+  const amount = Math.min(emi - 0.67, 11324)
+  const preview = paymentAllocationPreview({ loan, amount, paidOn: earlyPaidOn })
+  assert.equal(preview.available, true, 'an advance payment below the EMI must not be rejected')
+  assert.equal(preview.allocatedAmount, amount)
+  assert.equal(preview.allocations[0].obligationId, `${loan.id}:emi:1`)
+  const earlyPayment = { id: 'early-p1', loanId: loan.id, amount, paidOn: earlyPaidOn, status: 'PAID' }
+  const position = deriveLoanPosition({ loan, payments: [earlyPayment], asOf: earlyPaidOn })
+  assert.equal(position.actualPaid, amount)
+  assert.equal(position.schedule[0].paidAmount, amount, 'saved advance payment must be reflected in installment allocation')
+  assert.ok(position.schedule[0].dueDate > earlyPaidOn, 'regression must cover payment before the EMI due date')
+}
+{
+  const beforeLoanStart = paymentAllocationPreview({ loan, amount: 1000, paidOn: '2025-12-31' })
+  assert.equal(beforeLoanStart.available, false, 'payments before loan origination must not be allocated')
+  assert.equal(beforeLoanStart.reason, 'PAYMENT_EXCEEDS_EMI_OBLIGATIONS')
+}
+
+{
   const position = deriveLoanPosition({ loan, payments: [{ id: 'p1', loanId: loan.id, amount: emi, paidOn: due, status: 'PAID' }], asOf: due })
   assert.equal(position.available, true); assert.equal(position.totalOverdue, 0); assert.ok(position.actualPaid === emi); assert.ok(position.outstandingPrincipal < loan.principal)
 }
