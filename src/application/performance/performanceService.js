@@ -87,7 +87,7 @@ export const PerformanceService = Object.freeze({
     const monthlyBreakEvenByMonth = {}
     if (currentTargetMonth && monthlyBreakEvenEstimate != null) monthlyBreakEvenByMonth[currentTargetMonth] = monthlyBreakEvenEstimate
     const historicalTargetMonths = [...new Set((calculationSnapshot?.shifts || [])
-      .map(shift => dateOf(shift.shiftEndAt || shift.shiftStartAt))
+      .map(shift => { const value = shift.shiftEndAt || shift.shiftStartAt; const date = value ? new Date(value) : null; return date && !Number.isNaN(date.getTime()) ? date : null })
       .filter(date => date && date <= boundedRange.to && (!businessStart || date >= businessStart))
       .map(date => istMonthKey(date))
       .filter(month => month && month < currentTargetMonth))].sort()
