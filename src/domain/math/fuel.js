@@ -21,7 +21,7 @@ const sameVehicle = (a, b) => {
  * Partial or unassociated fills remain records but never establish an interval.
  */
 export function calculateRollingFuelCostPerKm(logs = [], windowSize = 10) {
-  const full = (logs || []).filter(x => validFuel(x) && fullTank(x))
+  const full = (logs || []).filter(x => validFuel(x) && fullTank(x)).slice().sort((a, b) => new Date(a.capturedAt || a.createdAt) - new Date(b.capturedAt || b.createdAt) || Number(a.odometer) - Number(b.odometer))
   // Build intervals independently per vehicle. A global timestamp sort can
   // put another vehicle between two fills of the same vehicle (A, B, A), which
   // would discard the valid A→A interval and make the fuel rate disappear.
@@ -42,6 +42,7 @@ export function calculateRollingFuelCostPerKm(logs = [], windowSize = 10) {
       if (km > 0 && cost > 0 && sameVehicle(previous, current)) intervals.push({ km, cost, costPerKm: cost / km, capturedAt: current.capturedAt || current.createdAt || null, vehicleId: current.vehicleId })
     }
   }
+  intervals.sort((a, b) => new Date(a.capturedAt || 0) - new Date(b.capturedAt || 0) || String(a.vehicleId ?? '').localeCompare(String(b.vehicleId ?? '')))
   const observations = intervals.slice(-Math.max(1, Number(windowSize) || 10))
   const rollingCostPerKm = observations.length ? observations.reduce((sum, x) => sum + x.costPerKm, 0) / observations.length : NaN
   return { rollingCostPerKm, observations, completedIntervals: intervals.length, baselineFullTank: full[0] || null, latestFullTank: full[full.length - 1] || null }
