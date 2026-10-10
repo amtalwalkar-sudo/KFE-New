@@ -181,16 +181,16 @@ const numericPress = async token => {
   else if (token === '.' && next === '') next = '0.'
   else if (token !== 'DONE' && token !== 'NEXT') next = next === '0' ? token : next + token
 
-  if (token === 'DONE' || token === 'NEXT') {
+  if (token === 'NEXT') {
     const nextName = numericNext[field.name]
     if (nextName) {
       activeNumericField.value = nextName
       return
     }
-    if (token === 'NEXT') {
-      activeNumericField.value = null
-      return
-    }
+    activeNumericField.value = null
+    return
+  }
+  if (token === 'DONE') {
     const finalFields = new Set(['trip-parking', 'cancel-fare', 'fuel-amount', 'shift-revenue', 'shift-parking'])
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     suppressNumericFocus.value = true
