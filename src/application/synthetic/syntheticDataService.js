@@ -175,11 +175,11 @@ export const buildSyntheticSnapshot = (days, options = {}) => {
     desiredDriverProfit: 1000, desiredTakeHome: 1000, targetHours: 12, targetKm: 300, active: true, synthetic: true,
   }]
   const breakEvenInputs = [
-    { id: id('break-even', 'pre-kfe'), effectiveFrom: '2026-04-01', effectiveUntil: '2026-04-08', maintenanceProvisionPerKm: 0.6, active: true, synthetic: true },
+    { id: id('break-even', 'pre-kfe'), effectiveFrom: '2026-04-01', effectiveUntil: '2026-04-08', maintenanceProvisionPerKm: 0.4, active: true, synthetic: true },
     { id: id('break-even', 'kfe'), effectiveFrom: KFE_START, effectiveUntil: stageEndDate, maintenanceProvisionPerKm: 1.6, active: true, synthetic: true },
   ]
   const settings = [{ id: 'synthetic-setting-manifest', settingKey: 'synthetic_dataset_manifest',
-    values: { synthetic: true, startDate: KFE_START, endDate: stageEndDate, days: generatedDays, requestedStageDays: days, fullTimeline: window.fullTimeline, kfeStartDate: KFE_START, maintenancePreKfe: 0.6, maintenanceKfe: 1.6, currentDateTime: window.now.toISOString(), emiPaidThrough: null,
+    values: { synthetic: true, startDate: KFE_START, endDate: stageEndDate, days: generatedDays, requestedStageDays: days, fullTimeline: window.fullTimeline, kfeStartDate: KFE_START, maintenancePreKfe: 0.4, maintenanceKfe: 1.6, currentDateTime: window.now.toISOString(), emiPaidThrough: null,
       forecastScenarios: generatedDays >= FORECAST_SCENARIO_KM.length ? { name: 'Operating KM forecast scenarios embedded in normal synthetic history', priorKm: 200, scenarioWindowDays: FORECAST_SCENARIO_KM.length, scenarios: ['280 sustained high', '300 sustained high', '100 sustained low', '500 isolated high', 'alternating 100/300', '100→300 transition', '300→100 transition'] } : null },
     updatedAt: new Date().toISOString() }]
   const loan = [{ id: LOAN_ID, lender: 'Synthetic Bank', accountReference: 'SYN-LOAN-001', principal: 550000,
