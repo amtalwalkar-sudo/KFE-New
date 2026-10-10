@@ -117,6 +117,14 @@ assert.equal(serviceMetrics.driverTargetCalendarDaysInMonth, 30)
 near(serviceMetrics.dailyBreakEvenRevenue, serviceMetrics.monthlyBreakEvenRevenue / 30, 'financial daily BE uses calendar days in target month')
 near(serviceMetrics.driverTarget, serviceMetrics.driverTargetEffectiveMonthlyTarget / 30, 'driver target uses calendar days')
 
+const octoberTargetMonthRange = {
+  from: new Date('2026-10-10T00:00:00+05:30'),
+  to: new Date('2026-10-10T23:59:59.999+05:30'),
+}
+const octoberCalendarMetrics = PerformanceService.getMetrics(snapshot, octoberTargetMonthRange)
+assert.equal(octoberCalendarMetrics.driverTargetCalendarDaysInMonth, 31, 'October target-month display must show 31 calendar days even when the selected day and target record span fewer days')
+
+
 const manualDailyTargetInput = { ...snapshot, driverTargets: [{ effectiveFrom:'2026-09-01', effectiveUntil:'2026-09-30', desiredDriverProfit:1000, dailyTarget:1, targetPerActiveDay:2, active:true }] }
 const manualDailyTargetMetrics = PerformanceService.getMetrics(manualDailyTargetInput, range)
 assert.equal(manualDailyTargetMetrics.driverTargetAvailable, true)
