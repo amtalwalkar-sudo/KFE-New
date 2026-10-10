@@ -24,7 +24,7 @@ assert.match(target, /MONTHLY_BREAK_EVEN_PLUS_ADMIN_MONTHLY_DRIVER_PROFIT/)
 assert.match(facts, /SHIFT_END_REVENUE/)
 assert.match(forecast, /calculatedForecast/)
 assert.match(forecast, /effectiveForecast/)
-assert.match(performanceView, /Actual P\/L = Financial Revenue − Actual Operating Expenses − Actual EMI\/loan payments/)
+assert.match(performanceView, /Management Actual P\\/L = Financial Revenue − Actual Operating Expenses − scheduled EMI obligation accrued/)
 assert.match(performanceView, /Provisional P\/L = Actual P\/L − Maintenance Provision − Compliance Provision − Pre-business Loan Recovery − Historical Maintenance Recovery/)
 assert.doesNotMatch(performanceView, /Provisional Profit \/ Loss = Authoritative Revenue/)
 
