@@ -1,4 +1,4 @@
-import { istDateKey } from '../time/ist.js'
+import { istDateKey, istMonthKey } from '../time/ist.js'
 
 const finite = v => v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v)
 const dateOf = v => { const x = v ? new Date(v) : null; return x && !Number.isNaN(x.getTime()) ? x : null }
@@ -45,7 +45,7 @@ const baseDailyFor = (record, applicableBreakEven = null, day = null) => {
   return periodTarget == null || denominator == null || denominator <= 0 ? null : periodTarget / denominator
 }
 
-export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTargets = [], from, to, applicableBreakEven = null } = {}) {
+export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTargets = [], from, to, applicableBreakEven = null, monthlyBreakEvenByMonth = {} } = {}) {
   const start = dateOf(from), end = dateOf(to)
   if (!start || !end || end < start) return { available: false, reason: 'INVALID_PERIOD', balanceBefore: null, currentDailyTarget: null, periodBaseTarget: null }
   // Shift.revenue is the authoritative finalized revenue source. Trip fares are
@@ -73,8 +73,8 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     if (!day || day >= start) break
     const record = latestForDay(driverTargets, day)
     if (!record) continue
-    const sameTargetMonth = keyOf(day) === keyOf(start) || keyOf(day)?.slice(0, 7) === keyOf(start)?.slice(0, 7)
-    const priorMonthBreakEven = sameTargetMonth ? applicableBreakEven : null
+    const priorMonthKey = istMonthKey(day)
+    const priorMonthBreakEven = finite(monthlyBreakEvenByMonth?.[priorMonthKey])
     const baseDaily = baseDailyFor(record, priorMonthBreakEven, day)
     if (baseDaily == null) continue
     if (byDay.has(dayKey)) balance += baseDaily - byDay.get(dayKey)
@@ -91,10 +91,12 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     const day = dateOf(dayKey)
     const record = latestForDay(driverTargets, day)
     if (!record) continue
-    const baseDaily = baseDailyFor(record, applicableBreakEven, day)
+    const monthKey = istMonthKey(day)
+    const dayBreakEven = finite(monthlyBreakEvenByMonth?.[monthKey]) ?? applicableBreakEven
+    const baseDaily = baseDailyFor(record, dayBreakEven, day)
     if (baseDaily == null) continue
     currentBaseDaily = baseDaily
-    currentPeriodBaseTarget = periodBaseTarget(record, applicableBreakEven)
+    currentPeriodBaseTarget = periodBaseTarget(record, dayBreakEven)
     // A carried surplus can fully cover today's base target, but must never
     // turn the displayed daily target negative. Keep the signed balance intact
     // so surplus credit remains available to offset later active days.
