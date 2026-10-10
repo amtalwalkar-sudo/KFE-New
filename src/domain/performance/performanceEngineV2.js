@@ -29,8 +29,12 @@ const applicableMaintenanceRate = (inputs, date) => {
   // YYYY-MM-DD and full ISO timestamps resolve consistently.
   const row = live(inputs)
     .filter(x => x.active !== false && x.status !== 'INACTIVE')
-    .map(x => ({ ...x, effectiveKey: istDateKey(x.effectiveFrom) || String(x.effectiveFrom || '').slice(0, 10) }))
-    .filter(x => x.effectiveKey && x.effectiveKey <= key && x.maintenanceProvisionPerKm != null && x.maintenanceProvisionPerKm !== '' && Number.isFinite(Number(x.maintenanceProvisionPerKm)) && Number(x.maintenanceProvisionPerKm) >= 0)
+    .map(x => ({
+      ...x,
+      effectiveKey: istDateKey(x.effectiveFrom) || String(x.effectiveFrom || '').slice(0, 10),
+      untilKey: istDateKey(x.effectiveUntil || x.validUntil || x.endDate),
+    }))
+    .filter(x => x.effectiveKey && x.effectiveKey <= key && (!x.untilKey || x.untilKey >= key) && x.maintenanceProvisionPerKm != null && x.maintenanceProvisionPerKm !== '' && Number.isFinite(Number(x.maintenanceProvisionPerKm)) && Number(x.maintenanceProvisionPerKm) >= 0)
     .sort((a, b) => String(b.effectiveKey).localeCompare(String(a.effectiveKey)) || String(b.updatedAt || b.createdAt || b.id || '').localeCompare(String(a.updatedAt || a.createdAt || a.id || '')))[0]
   return row ? Number(row.maintenanceProvisionPerKm) : NaN
 }
