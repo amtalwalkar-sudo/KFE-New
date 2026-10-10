@@ -1,4 +1,4 @@
-import { istDateKey } from '../time/ist.js'
+import { istDateKey, istMonthRange } from '../time/ist.js'
 
 const finite = v => v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v)
 const dateOf = v => { const x = v ? new Date(v) : null; return x && !Number.isNaN(x.getTime()) ? x : null }
@@ -23,19 +23,19 @@ const nonWorkingDateKeys = record => {
   const values = Array.isArray(raw) ? raw : String(raw || '').split(/[,\n]/)
   return new Set(values.map(value => keyOf(String(value).trim())).filter(Boolean))
 }
-const periodDays = record => {
-  const explicit = finite(record?.workingDays ?? record?.activeWorkingDays ?? record?.targetWorkingDays)
-  if (explicit != null && explicit > 0) return explicit
-  return calendarDays(effectiveFrom(record), effectiveUntil(record)) || 1
+const calendarDaysInMonthFor = day => {
+  const month = istMonthRange(day, day)
+  return month ? calendarDays(month.from, month.to) : null
 }
 const periodBaseTarget = (record, applicableBreakEven = null) => {
   const desiredDriverProfit = finite(record?.desiredDriverProfit)
   if (desiredDriverProfit != null && applicableBreakEven != null) return applicableBreakEven + desiredDriverProfit
   return finite(record?.targetRevenue)
 }
-const baseDailyFor = (record, applicableBreakEven = null) => {
+const baseDailyFor = (record, applicableBreakEven = null, day = null) => {
   const periodTarget = periodBaseTarget(record, applicableBreakEven)
-  return periodTarget == null ? null : periodTarget / periodDays(record)
+  const daysInMonth = calendarDaysInMonthFor(day || effectiveFrom(record))
+  return periodTarget == null || daysInMonth == null || daysInMonth <= 0 ? null : periodTarget / daysInMonth
 }
 
 export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTargets = [], from, to, applicableBreakEven = null } = {}) {
@@ -66,7 +66,7 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     if (!day || day >= start) break
     const record = latestForDay(driverTargets, day)
     if (!record) continue
-    const baseDaily = baseDailyFor(record)
+    const baseDaily = baseDailyFor(record, null, day)
     if (baseDaily == null) continue
     if (byDay.has(dayKey)) balance += baseDaily - byDay.get(dayKey)
   }
@@ -82,7 +82,7 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     const day = dateOf(dayKey)
     const record = latestForDay(driverTargets, day)
     if (!record) continue
-    const baseDaily = baseDailyFor(record, applicableBreakEven)
+    const baseDaily = baseDailyFor(record, applicableBreakEven, day)
     if (baseDaily == null) continue
     currentBaseDaily = baseDaily
     currentPeriodBaseTarget = periodBaseTarget(record, applicableBreakEven)
