@@ -139,7 +139,7 @@ export const PerformanceService = Object.freeze({
       completeness: { ...metrics.completeness, target: targetAvailable, breakEven: authoritativeMonthlyBreakEven != null },
       calculationEvidence: {
         ...(metrics.calculationEvidence || {}),
-        target: stabilization.available ? { status: 'AUTHORITATIVE', source: 'DRIVER_TARGET_ROLLING_RECOVERY' } : { status: 'UNAVAILABLE', reason: stabilization.reason },
+        target: stabilization.available ? { status: metrics.calculationEvidence?.breakEven?.status === 'AUTHORITATIVE' ? 'AUTHORITATIVE' : 'INDICATIVE', source: 'DRIVER_TARGET_ROLLING_RECOVERY', reason: metrics.calculationEvidence?.breakEven?.status === 'AUTHORITATIVE' ? null : 'PARTIAL_BREAK_EVEN_COMPONENTS' } : { status: 'UNAVAILABLE', reason: stabilization.reason },
         dailyBreakEven: dailyBreakEvenEvidence,
       },
       driverTarget: canonicalTarget,
