@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { calculateRollingFuelCostPerKm } from '../domain/math/fuel.js'
-import { deriveRollingDriverTarget } from '../domain/performance/driverTargetStabilization.js'
+import { deriveRollingDriverTarget, stabilizeActiveDay } from '../domain/performance/driverTargetStabilization.js'
 import { deriveAuthoritativeBreakEven } from '../domain/performance/authoritativeBreakEven.js'
 import { deriveAuthoritativeDriverTarget } from '../domain/performance/driverTarget.js'
 import { scheduledEmiAccruedForRange, scheduledObligationForRange } from '../domain/performance/financePerformanceAdapter.js'
@@ -137,6 +137,10 @@ const surplusTarget = deriveRollingDriverTarget({
 })
 assert.equal(surplusTarget.currentDailyTarget, 0, 'Prior-day revenue surplus must never produce a negative daily target')
 assert.ok(surplusTarget.rollingCredit > 0, 'Prior-day surplus must remain visible as a separate rolling credit')
+const stabilizedSurplus = stabilizeActiveDay({ baseTarget: 635, balance: -1890, actualRevenue: 2525 })
+assert.equal(stabilizedSurplus.target, 0, 'Standalone active-day target must clamp at zero')
+assert.equal(stabilizedSurplus.rollingCredit, 3780, 'Surplus remains represented separately after the day closes')
+
 
 
 const octoberAuthoritativeTarget = deriveAuthoritativeDriverTarget({
