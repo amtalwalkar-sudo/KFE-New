@@ -29,3 +29,5 @@ The canonical evidence contract regenerates this fixture into a temporary direct
 ## Isolation
 
 The generator writes only files under its output directory. It does not import PWA modules, seed app data, or touch browser storage. The fixture folder itself is outside the runtime data path; keep it test-only.
+
+Performance’s provision detail now shows maintenance/compliance payments ahead of accrued provision separately from non-negative balances. Loan position also exposes missing/invalid payment-date count and excluded amount so the source records can be corrected.
