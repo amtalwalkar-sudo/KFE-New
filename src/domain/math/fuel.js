@@ -10,8 +10,8 @@ const fullTank = x => x?.isFullTank === true
 const sameVehicle = (a, b) => {
   const aVehicle = a?.vehicleId
   const bVehicle = b?.vehicleId
-  if (aVehicle == null && bVehicle == null) return true
-  if (aVehicle == null || bVehicle == null) return false
+  // A missing vehicle identity is not evidence that two fills belong to the same vehicle.
+  if (aVehicle == null || bVehicle == null || String(aVehicle).trim() === '' || String(bVehicle).trim() === '') return false
   return String(aVehicle) === String(bVehicle)
 }
 
