@@ -1,0 +1,80 @@
+# PWA Form-by-Form Save-Path Audit
+
+Audit baseline: `main` at `931d8bb18c6337dbe8b229298e7abc24dc9ea25a` (2026-10-09).
+Scope: routed PWA surfaces plus setup, settings, and form-capable secondary views. This is a source-trace audit, not a claim of physical-device testing.
+
+## Active PWA form matrix
+
+## Canonical Admin field inventory
+
+The following fields come from `ADMIN_FORM_DEFINITIONS`; hidden legacy-compatibility fields are marked where known. Required/range/select/date rules are enforced by `universalFormRules.js` and form-specific rules, not by calculated UI values.
+
+| Form key | Declared fields |
+|---|---|
+| `businessSetup` | Business Start Date (required); Notes |
+| `vehicle` | Registration number (required); Make (required); Model (required); Variant; Acquisition date (required); Acquisition cost/value; Opening odometer (required); Fuel type (required); Tank/battery capacity; Vehicle status (required); Expiry date (hidden legacy compatibility); Status date; Active; Sell price; Sale date; Notes |
+| `driver` | Full name (required); Phone number; Driving licence number; Licence expiry; Joined on; Status (required); Assigned vehicle; Notes |
+| `compliance` | Vehicle (required); Compliance name (required); Validity From (required); Validity Upto (required); Compliance cost (required, positive) |
+| `maintenance` | Date (required); Odometer (required); Maintenance (required); Amount (required, positive); Notes |
+| `loan` | Lender (required); Account reference; Loan amount (required, positive); Tenure months (required, at least 1); Loan start date (required); Annual interest rate (required); Loan status (required); Notes |
+| `loanPayment` | Loan (required); Actual payment date (required); Actual amount paid (required, positive); Notes |
+| `prepayment` | Loan (required); Prepayment date (required); Actual prepayment amount (required, positive); Reason; Notes |
+| `settlement` | Settlement type; Paying for/source type; Source record; Payment date; Amount paid; Payment method; Payment reference; Notes |
+| `driverTarget` | Driver; Effective month; Monthly target; Planned non-working dates; Active; Notes |
+| `breakEvenInputs` | Effective change date; Maintenance provision per vehicle km; Notes |
+
+| Surface / form | Validation and submit boundary | Canonical persistence | Calculation / read-model consumers | Draft / failure behavior | Audit status |
+|---|---|---|---|---|---|
+| Admin — Business Setup | `AdminSourceForm` → `AdminView` → `AdminService.save` → `validateAdminForm` | `AdminRepository` → `settings` record keyed `businessSetup`; mutation + audit history | Performance snapshot selects latest non-deleted businessSetup setting; business start date bounds reporting periods and related calculations | Shared `FormDraftService`; parent must clear only after save succeeds or confirmed discard | Source path present; verify field-level business date normalization/IST in runtime |
+| Admin — Vehicle | Same Admin shared path | `vehicles` | Performance / calculations vehicle and opening odometer, fuel type and active lifecycle | Shared form draft | Source path present; legacy vehicle module also exists but is not in router |
+| Admin — Driver | Same Admin shared path | `drivers` | Work operator/assignment and driver-target calculations | Shared form draft | Source path present |
+| Admin — Compliance | Same Admin shared path | `compliance_records` | Compliance status/history and expense/settlement-related views where read | Shared form draft | Source path present; a separate legacy `ComplianceModuleView` uses a different save-request event and is not routed |
+| Admin — Maintenance | Same Admin shared path | `maintenance_records` | Actual maintenance expense / actual P&L; maintenance-per-KM planning input is separate under Break-even inputs | Shared form draft | Source path present; field contract should remain Date, Odometer, Maintenance, Amount, Notes |
+| Admin — Loan | Same Admin shared path | `loans` | Loan engine, EMI/loan position, finance and performance snapshots | Shared form draft | Source path present |
+| Admin — Loan Payments | Same Admin shared path | `loan_payments` | Loan position/payment allocation and finance read models | Shared form draft | Source path present |
+| Admin — Prepayments | Same Admin shared path | `prepayments` | Loan engine prepayment estimate/position and finance views | Shared form draft | Source path present |
+| Admin — Settlements | Same Admin shared path | `settlements` | Settlement / expense history and financial read models | Shared form draft | Source path present |
+| Admin — Driver Target | Same Admin shared path | `driver_targets` | Driver target and performance calculations | Shared form draft | Source path present |
+| Admin — Break-even inputs | Same Admin shared path | `break_even_inputs` | Indicative break-even/target calculations; fixed maintenance-per-KM input, not actual maintenance rows | Shared form draft | Source path present |
+| Admin — Driver Target workflow | Custom target draft/form → `AdminService.save('driverTarget', …)`; effective date is derived from selected month | `driver_targets` | Driver target, target achievement and Performance | Target-specific draft identity; clear after successful save | Source path present; regression-test effective month, driver identity and non-negative amount |
+| Admin — Maintenance/KM rate workflow | Custom rate draft/form → `AdminService.save('breakEvenInputs', …)` | `break_even_inputs` | Indicative break-even/target calculations by effective date; never substitutes for actual maintenance rows | Rate-specific draft identity; clear after save | Source path present; regression-test effective-date history |
+| Admin — Loan Payment workflow | Enter payment fields → calculate allocation preview → explicit confirmation → `AdminService.save('loanPayment', …)` | `loan_payments` | Loan balance/payment allocation and finance/performance views | Action-specific draft identity; confirm before commit | Source path present; test preview-to-commit identity and duplicate-submit protection |
+| Admin — Prepayment workflow | Select loan/date/amount → loan-engine estimate → explicit confirmation → `AdminService.save('prepayment', …)` | `prepayments` | Loan engine, prepayment savings/position and finance views | Prepayment-specific draft identity; clear only after successful commit | Source path present; test stale estimate invalidation when inputs change |
+| Admin — Maintenance/Compliance settlement | Select existing source record → enter settlement date/amount → confirm → `AdminService.save('settlement', …)` | `settlements` | Settlement history and actual-payment evidence; source maintenance/compliance facts remain separately stored | Action-specific draft identity | Source path present; verify settlement never rewrites source record or duplicates expense |
+| Admin — Backup & Restore | `BackupRestorePanel` delegates export/import/restore to backup application services | Backup/export lifecycle and canonical restore boundary | Recovery only | Restore confirmation and surfaced errors | Source path present; destructive restore requires runtime verification |
+| Admin — Theme / notification settings | Admin setting actions; confirm exact handler/store for each control before changing | Settings-backed preferences where applicable | Presentation only; must not alter calculation facts | Verify per control | Needs field-by-field save trace; do not assume all controls share the source-record path |
+| First-run setup source steps | `AdminSourceForm` → `AdminService.save`; separate `FirstRunSetupService.setStepState` | Same canonical Admin stores; step completion is setup state | Same consumers as corresponding Admin forms | Shared form draft; optional setup steps can be skipped; cloud backup step has a separate config save and performs a backup verification | Source path present; cloud flow needs integration/runtime test |
+| First-run historical records | Setup step is guidance, not a separate entry form; the canonical Compliance and Maintenance forms remain under Admin | `compliance_records` and `maintenance_records` when entered via their Admin forms | Compliance history and actual maintenance/P&L consumers | Use the respective Admin form draft/save boundary | No separate first-run historical-record save path exists in the setup step list |
+| First-run fuel baseline | Instruction points users to Work fuel entry; not an independent canonical form in the setup step list | Work fuel path → `fuel_logs` | Performance, Timeline, fuel evidence and operating-cost calculations | Work draft rules apply when entered in Work | No separate form save path claimed |
+| First-run cloud backup | Backup config save then `CloudBackupLifecycle.backupToConfiguredCloud()` | Backup configuration + exported backup lifecycle | Recovery / backup only, not operational calculations | Errors surfaced by setup flow | Source path present; live cloud provider not exercised here |
+| Work — Start Shift / odometer gap | `WorkModuleView` → shift store → `WorkService.startShift` | `ShiftTripRepository.createShift` → canonical `shifts` | Work state, trip allocation, performance, timeline, daily target and KM calculations | Work draft identity scoped to start-shift workflow; clear after successful commit | Source path present; verify odometer-gap edge cases with tests |
+| Work — Trip details / fare / toll / parking | Work form → `store.updateTrip` → Work service/repository | Existing canonical `trips` record | Shift review, Timeline authoritative revenue display where present, performance/revenue reconciliation; toll/parking treatment must avoid double counting | Trip-scoped draft; explicit skipped-fare terminal flag; clear after successful update | Source path present |
+| Work — Cancellation | Work form → `store.cancelTrip` → canonical trip lifecycle/repository | Existing trip's cancellation fields/status | Work lifecycle and Timeline; blank cancellation fee normalizes to numeric 0; cancellation amount does not replace authoritative shift revenue | Trip-scoped draft; clear after successful transition | Source path present; explicit blank-vs-zero regression coverage exists |
+| Work — Fuel | Work form → `WorkService.recordFuel` → `FuelRepository.create` | `fuel_logs` | Performance snapshot, Timeline fuel edits/history, fuel/operating cost calculations | Shift/workflow-scoped draft; full/partial tank value stored | Source path present |
+| Work — End Shift / reconciliation / review | Work form → shift store → end-shift domain flow | `ShiftTripRepository.completeShift` → canonical `shifts`; shift revenue is authoritative | Performance, Timeline, finance and revenue reconciliation; shift-level toll/parking are additional-only | Shift-scoped draft; commit only at final submit; clear after successful completion | Source path present; test retries and duplicate-submit behavior |
+| Timeline — trip edit | Timeline editor → `WorkService` / canonical trip update | Existing canonical `trips` record | Timeline and performance read models | `FormDraftService`, trip-scoped; queue awaited before clearing on commit | Source path present |
+| Timeline — fuel edit | Timeline editor → fuel-store/repository update | Existing canonical `fuel_logs` record | Timeline and performance/fuel calculations | `FormDraftService`, fuel-record-scoped | Source path present |
+| Calculations — Admin source edits | Uses `ADMIN_FORM_DEFINITIONS` and `AdminService` for Business Setup, Vehicle, Driver, Break-even inputs, Driver Target and Loan | Same canonical stores as Admin | Calculation preview via `PerformanceService` / `CalculationsService` | Shared form draft boundary | Source path present; must not introduce duplicate calculations in UI |
+| Calculations — manual fuel input | View validates positive price/amount and non-negative odometer → `CalculationsService.recordFuelBaseline` | `FuelRepository.create` → `fuel_logs`; quantity is derived as amount ÷ price/kg and full/partial flag is preserved | Performance snapshot and fuel-evidence status; calculation inputs refresh after save | Shared `FormDraftService`; draft cleared after successful repository write | Source path present; dedicated runtime/restart test remains outstanding |
+| Settings — backup export / restore | `KfeSettingsView` → application `exportBackup` / `restoreBackup` | Backup serialization and restore pipeline, not an operational source record | Recovery only | Restore requires confirmation; success/error feedback; reload after success | Source path present; destructive restore not device-tested |
+| Settings — reset | `KfeSettingsView` → application `resetAllData` after two confirmations | Canonical local data reset | All operational consumers affected | Double confirmation and error state | Source path present; destructive reset not device-tested |
+
+## Alternate / legacy form implementations
+
+The source tree also contains `VehicleModuleRole`, `MaintenanceModuleRole`, `LoanModuleRole`, `ComplianceModuleView`, `KfeFormShell`, and `AuthoritativeRecordFormRole`. The current router registers only Work, Timeline, Performance, and Admin. These alternate components are therefore not proven to be active route-level forms. Their persistence contracts differ (for example, some emit `save-request` to a parent; `KfeFormShell` uses `js/ui/form-drafts.js`, separate from the current IndexedDB form draft service). Do not silently merge these paths or claim them as the active Admin replacement. If any are reachable through a parent modal/slot, trace that caller separately before deleting or changing them.
+
+## Save-to-consumer chain
+
+- Admin source forms: field definition → universal normalization/validation → `AdminService` → `AdminRepository` canonical store → mutation/audit record → performance/calculation read model.
+- Work shift/trip: form state → shift store → Work application service → `ShiftTripRepository` / lifecycle → `shifts` and `trips` → Timeline/Performance/target/reconciliation consumers.
+- Fuel: Work form → Work fuel service → fuel repository → `fuel_logs` → Performance/Timeline/cost consumers.
+- Timeline edits: editor draft → canonical trip/fuel update → read-model refresh; draft clear follows successful commit.
+- Settings backup/reset: application lifecycle boundary; not part of normal revenue/expense entry.
+
+## Baseline test evidence and limitations
+
+- First targeted PR run: 91 contract suites passed; the new matrix contract failed at its assertion that `CalculationsService` delegates to `PerformanceService`. Inspection showed the assumption was wrong: the service owns validation for the manual fuel baseline and writes canonical evidence through `FuelRepository.create`, deriving quantity from amount / price-per-kg. The assertion was corrected to test that actual save path. A second run then exposed another test-assumption issue: the application draft service correctly delegates to `FormDraftRepository`, where the physical `form_drafts` store is opened. The check was moved to the repository layer. Both failures were test-harness assumptions, not confirmed product defects.
+- Existing main CI at the audit baseline completed successfully (run [37960126493](https://github.com/amtalwalkar-sudo/KFE-New/actions/runs/37960126493)). This proves the currently registered contract suite passed, not that every possible form path has runtime coverage.
+- Existing `pwaFormSavePathRegression.contract.js` and `formIntegrityE2E.contract.js` are source-contract checks, not browser-driven E2E tests.
+- This audit has not run a local npm test process because the execution environment could not clone the repository. The new targeted contract will run in GitHub Actions before implementation changes.
+- No Android device, keyboard/viewport, offline/restart, or live cloud restore test is claimed.
