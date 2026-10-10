@@ -36,10 +36,11 @@ function normalizeValue(field, raw) {
   return raw ?? ''
 }
 function changed(field, raw) {
-  const nextValue = normalizeValue(field, raw)
+  // Keep the exact text while the user is typing; normalize numeric values only at submit.
+  const nextValue = field.type === 'checkbox' ? !!raw : (raw ?? '')
   emit('field-change', { key: field.key, value: nextValue })
   if (restoringDraft || !props.draftIdentity) return
-  const values = collect({ [field.key]: nextValue })
+  const values = { ...collect(), [field.key]: nextValue }
   draftWriteQueue = draftWriteQueue.then(() => FormDraftService.save(props.draftIdentity, values))
     .catch(error => { emit('draft-error', error); return null })
 }
