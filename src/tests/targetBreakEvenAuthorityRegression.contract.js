@@ -125,6 +125,20 @@ assert.ok(Math.abs(octoberTarget.currentBaseDaily - (19672 / 31)) < 1e-10, 'Octo
 assert.ok(Math.abs(octoberTarget.balanceBefore - (19672 / 31)) < 1e-10, 'Prior active days in the same month must accrue the same authoritative daily base target')
 assert.ok(Math.abs(octoberTarget.currentDailyTarget - (2 * 19672 / 31)) < 1e-10, 'Current target must add the prior active-day shortfall without changing the calendar-day denominator')
 
+const surplusTarget = deriveRollingDriverTarget({
+  shifts: [
+    { id: 'surplus-yesterday', status: 'COMPLETED', shiftStartAt: '2026-10-09T03:00:00Z', shiftEndAt: '2026-10-09T12:00:00Z', revenue: 2525 },
+    { id: 'surplus-today', status: 'COMPLETED', shiftStartAt: '2026-10-10T03:00:00Z', shiftEndAt: '2026-10-10T12:00:00Z', revenue: 250 },
+  ],
+  driverTargets: [{ id: 'surplus-target', effectiveFrom: '2026-10-01', effectiveUntil: '2026-10-31', desiredDriverProfit: 15000, active: true }],
+  from: new Date('2026-10-10T00:00:00+05:30'),
+  to: new Date('2026-10-10T23:59:59.999+05:30'),
+  applicableBreakEven: 4672,
+})
+assert.equal(surplusTarget.currentDailyTarget, 0, 'Prior-day revenue surplus must never produce a negative daily target')
+assert.ok(surplusTarget.rollingCredit > 0, 'Prior-day surplus must remain visible as a separate rolling credit')
+
+
 const octoberAuthoritativeTarget = deriveAuthoritativeDriverTarget({
   monthlyBreakEvenRevenue: 4672,
   desiredDriverProfitMonthly: 15000,
