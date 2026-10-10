@@ -235,12 +235,23 @@ export function deriveLoanPosition({ loan, payments = [], prepayments = [], asOf
   const outstandingPrincipalPaise = Math.max(0, rupeesToPaise(schedule[0]?.openingPrincipal || loan.principal) - paidPrincipalPaise - actualPrepaymentPaise)
   const totalOverduePaise = overdue.reduce((sum, row) => sum + rupeesToPaise(row.overdueAmount), 0)
   const totalRemainingInterestPaise = obligations.reduce((sum, row) => sum + Math.max(0, rupeesToPaise(row.originalInterestComponent) - rupeesToPaise(row.scheduledInterestPaid)), 0)
+  const installmentIsPaid = row =>
+    rupeesToPaise(row.scheduledInterestPaid) >= rupeesToPaise(row.originalInterestComponent) &&
+    rupeesToPaise(row.scheduledPrincipalPaid) >= rupeesToPaise(row.originalPrincipalComponent)
+  const paidInstallments = obligations.filter(installmentIsPaid).length
+  const partiallyPaidInstallments = obligations.filter(row =>
+    !installmentIsPaid(row) &&
+    (rupeesToPaise(row.scheduledInterestPaid) > 0 || rupeesToPaise(row.scheduledPrincipalPaid) > 0)
+  ).length
+  const dueInstallments = obligations.filter(row => dateOf(row.dueDate) <= effectiveAsOf).length
+  const unsettledInstallments = obligations.filter(row => !installmentIsPaid(row)).length
 
   return {
     available: true,
     annualInterestRatePercent,
     emi: calculateEmi(loan.principal, loan.tenureMonths, loan.annualInterestRatePercent),
     schedule: obligations,
+    installmentCounts: { scheduled: obligations.length, paid: paidInstallments, partiallyPaid: partiallyPaidInstallments, due: dueInstallments, unsettled: unsettledInstallments },
     overdue,
     totalOverdue: paiseToRupees(totalOverduePaise),
     scheduledDue: paiseToRupees(scheduledDuePaise),
