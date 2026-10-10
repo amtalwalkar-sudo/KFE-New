@@ -1,6 +1,6 @@
 # PWA Form-by-Form Save-Path Audit Matrix
 
-**Audit baseline:** `main` at `1b5ca3186c5b8aa43f08b115da063a9ad5c40456`.  
+**Audit baseline:** main at `931d8bb18c6337dbe8b229298e7abc24dc9ea25a`.  
 **Scope:** active Admin, first-run, Work, backup/settings/calculation surfaces and form-like secondary module components found in the PWA source tree.  
 **Method:** source tracing plus a regression contract. Source wiring is not browser/device runtime proof.
 
@@ -27,7 +27,12 @@
 | Admin Prepayment | Same | Prepayment record | Loan balance/timeline | Source traced |
 | Admin Payment/Settlement | Same | Settlement record | Settlement and expense-payment history | Source traced |
 | Admin Driver Target | Same | Target record | Daily target/performance views | Source traced |
-| Admin Break-even Planning Inputs | Same | Effective-dated planning record | Indicative breakeven/target calculations | Source traced |\n| Admin quick Driver Target editor | Target/driver checks and AdminService validation | AdminView → AdminService.save('driverTarget') → AdminRepository | Target/progress and performance views | Source traced |\n| Admin quick Maintenance-per-KM editor | Non-negative rate check and AdminService validation | AdminView → AdminService.save('breakEvenInputs') → AdminRepository | Indicative planning calculations only | Source traced |\n| Admin loan-payment action | Payment allocation preview/confirmation; AdminService validation | AdminView → AdminService.save('loanPayment') → AdminRepository | Actual loan payment/loan position | Source traced |\n| Admin source-payment action | Source record, date, amount, method; AdminService validation | AdminView → AdminService.save('settlement') → AdminRepository | Actual maintenance/compliance settlement | Source traced |\n| Admin prepayment action | Estimate and explicit confirmation before save | AdminView → AdminService.save('prepayment') → AdminRepository | Loan balance/timeline | Source traced |
+| Admin Break-even Planning Inputs | Same | Effective-dated planning record | Indicative breakeven/target calculations | Source traced |
+| Admin quick Driver Target editor | Target/driver checks and AdminService validation | AdminView → AdminService.save('driverTarget') → AdminRepository | Target/progress and performance views | Source traced |
+| Admin quick Maintenance-per-KM editor | Non-negative rate check and AdminService validation | AdminView → AdminService.save('breakEvenInputs') → AdminRepository | Indicative planning calculations only | Source traced |
+| Admin loan-payment action | Payment allocation preview/confirmation; AdminService validation | AdminView → AdminService.save('loanPayment') → AdminRepository | Actual loan payment/loan position | Source traced |
+| Admin source-payment action | Source record, date, amount, method; AdminService validation | AdminView → AdminService.save('settlement') → AdminRepository | Actual maintenance/compliance settlement | Source traced |
+| Admin prepayment action | Estimate and explicit confirmation before save | AdminView → AdminService.save('prepayment') → AdminRepository | Loan balance/timeline | Source traced |
 | Work Start Shift / odometer gap | Work/domain validation | WorkModuleView → shift store → WorkService → ShiftTripRepository → canonical shift; temporary draft separate | Shift KM, gap allocation, Work cockpit | Source traced; mobile keyboard runtime pending |
 | Work trip start/operator | Operator validation in WorkService/domain | Shift store → WorkService → ShiftTripRepository | Trip state, Timeline, GPS enrichment | Source traced; GPS must remain non-blocking |
 | Work trip fare/details | Trip correction/form handling | WorkModuleView → shift store updateTrip → WorkService → ShiftTripRepository | Timeline/performance supporting detail; End Shift revenue remains authoritative | Source traced |
@@ -37,7 +42,9 @@
 | Work form drafts | Parent/step identity and guarded clear | FormDraftRepository → separate `form_drafts`; clear only after commit or confirmed discard | Restore unfinished forms after navigation/restart | Source traced; actual WebView kill/restart pending |
 | Admin Backup & Restore | Backup validation/confirmation | BackupRestorePanel → BackupService → backup repository | Local recovery/data integrity | Wiring traced; round-trip runtime pending |
 | Settings Backup/Restore/Reset | JSON parsing and explicit confirmation | KfeSettingsView → application export/restore/reset boundary | Canonical data recovery/reset | Wiring traced; destructive/round-trip runtime pending |
-| Calculations / diagnostics — source inputs | Admin universal rules | CalculationsView → AdminService.save(openId, values) → AdminRepository | Business setup, vehicle, driver, planning inputs and loans | Source traced |\n| Calculations fuel baseline | Odometer, price/kg and amount must be finite/positive; partial/full tank flag | CalculationsView → CalculationsService.recordFuelBaseline → FuelRepository → fuel_logs | Fuel evidence and cost/km calculation | Source traced |\n| Calculations / diagnostics — read-only panels | N/A | CalculationsView → PerformanceService / CalculationsService | Calculation snapshots, target/breakeven/profit | Source path traced; rendered runtime checks in CI |
+| Calculations / diagnostics — source inputs | Admin universal rules | CalculationsView → AdminService.save(openId, values) → AdminRepository | Business setup, vehicle, driver, planning inputs and loans | Source traced |
+| Calculations fuel baseline | Odometer, price/kg and amount must be finite/positive; partial/full tank flag | CalculationsView → CalculationsService.recordFuelBaseline → FuelRepository → fuel_logs | Fuel evidence and cost/km calculation | Source traced |
+| Calculations / diagnostics — read-only panels | N/A | CalculationsView → PerformanceService / CalculationsService | Calculation snapshots, target/breakeven/profit | Source path traced; rendered runtime checks in CI |
 
 ## Secondary / legacy module components found
 
@@ -54,7 +61,7 @@ The current router exposes four routes: Work (`/`), Timeline (`/timeline`), Perf
 
 ## Regression-first test status
 
-`src/tests/pwaFormSavePathRegression.contract.js` checks form inventory, validation boundaries, persistence routing, draft safety, backup boundaries, and calculation/read-model consumers. It is wired into the full contract runner. Initial CI attempts exposed **test-harness assertion mismatches** (the Admin handler passes `selected.value,payload,id`, and BackupService calls `createBackupRepository(CANONICAL_BACKUP_STORES)`); these were corrected. Those failures were not evidence of product defects. Final rerun result must be appended after CI completes.
+`src/tests/pwaFormSavePathRegression.contract.js` checks the active form inventory, validation boundaries, persistence routing, draft safety, backup boundaries, and calculation/read-model consumers. It is registered in `src/tests/runAllContracts.js` alongside `src/tests/universalFormDraftRecoveryRegression.contract.js`. The initial regression-first draft-recovery test recorded four failures before the corresponding fixes: missing Admin draft identity/recovery, missing parent commit-time clearing, missing Timeline trip/fuel recovery, and unsequenced Work draft writes/clears. These were fixed on main. GitHub Actions KFE 2.0 single CI run #3282 passed the full contract suite, end-to-end conformance, production build, Pages artifact and deployed runtime checks; Android build and exact-APK emulator smoke also passed. See `docs/PWA-FORM-BY-FORM-AUDIT-2026-10-09.md` for the findings and remaining runtime limits.
 
 ## Limits / next test tier
 

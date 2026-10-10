@@ -1,6 +1,6 @@
 # PWA Form-by-Form Audit — 2026-10-09
 
-**Scope:** Current `main` at `1b5ca3186c5b8aa43f08b115da063a9ad5c40456`. Source audit only; no product fixes are included in this document. The goal is to trace every active PWA form/action from UI entry through validation and persistence to calculation/read-model consumers, and to separate confirmed findings from items requiring runtime proof.
+**Scope:** Current main at 931d8bb18c6337dbe8b229298e7abc24dc9ea25a. This is the current form inventory, save-path trace, and verification record. Draft-recovery fixes are already present on main; this audit update does not change product behavior. The goal is to trace every active PWA form/action from UI entry through validation and persistence to calculation/read-model consumers, and to separate confirmed findings from items requiring runtime proof.
 
 **Authority:** `KFE_BUSINESS_RULES_REGISTER.md`, `KFE-AUTHORITY-MAP.md`, `docs/KFE-CANONICAL-DATA-CONTRACT.md`, `docs/KFE-UNIVERSAL-FORM-STANDARD.md`, `docs/KFE-UNIVERSAL-FORM-ACTION-RECOVERY-RULES-FROZEN.md`, and `docs/ADMIN-REBUILD-FROZEN-INVENTORY.md`.
 
@@ -71,45 +71,50 @@ Timeline trip edit → `WorkService.updateTrip` → `ShiftTripRepository`; Timel
 - `TimelineService` reads canonical operational records; Timeline is a read/correction surface, not a second authority for shift revenue.
 - Work reads active lifecycle state and target snapshots; it must not derive a separate revenue authority from trip fare fields.
 
-## 3. Confirmed gaps and risks
+## 3. Findings after the regression-first remediation
 
-| Severity | Finding | Evidence / impact | Required regression proof before a fix is accepted |
+The original regression-first run found four source-contract failures before implementation changes. Those failures are retained in §6 as historical evidence. The current main includes the shared draft-recovery implementation and the latest CI has passed. The original high-severity findings are therefore **resolved at source-contract level**, with runtime limitations noted below.
+
+| Severity | Current finding | Evidence / impact | Status / required follow-up |
 |---|---|---|---|
-| **High** | Active Admin/Calculations/first-run forms use `AdminSourceForm`, which has no parent-scoped restart-persistent draft integration. | It stores values in component/model state and collects DOM values; there is no `WorkDraftService` / `FormDraftRepository` integration in the component. A process/app restart can lose unsaved source facts, contrary to the frozen universal recovery rule. | Add a form-by-form draft-recovery test covering create/edit identity, restart restore, failed validation/save retention, successful save clearing, and confirmed discard. |
-| **High** | Active Timeline trip/fuel editors have no parent-scoped draft persistence. Trip editor also closes on backdrop click with `@click.self="editing=null"`. | `TimelineView` stores edit values in component refs; backdrop click drops the editor without a confirmation gate; no draft service is called in these save paths. | Test restart recovery for trip and fuel edits, cancel/backdrop behavior, failed save retention, successful commit clearing, and correct parent record identity. |
-| **High / test-required** | Work draft watchers fire-and-forget asynchronous writes while commit handlers clear drafts asynchronously. | `watch(...)` calls `void saveDraft(...)`; successful handlers call `clearCommittedDraft`. Source alone does not prove a race, but a pending write could theoretically complete after clear and recreate a stale draft. | Add deterministic delayed-write tests that interleave last keystroke, commit, clear and app re-open; assert committed drafts never reappear and failed commits preserve the draft. |
-| **Medium** | Work silently swallows draft-clear failures after successful commit. | `clearCommittedDraft` catches all errors and returns no status. A stale draft can remain without a warning even though the authoritative commit succeeded. | Test failed clear after commit; UI/recovery must not misrepresent commit status and must prevent stale draft from being replayed or silently applied. |
-| **Medium** | Admin form definition and special-form UI are not one fully unified form entry contract. | Standard source records use `AdminSourceForm`; driver target, maintenance rate, loan payment, prepayment and source settlement have special handlers/draft objects; Diagnostics and first-run reuse some definitions. The business service boundary is shared, but form recovery and completion behavior are not uniform. | Per-row validation, keyboard, error-retention and recovery tests; preserve special calculate/confirm gates and avoid introducing duplicate fields. |
-| **Medium** | Legacy form/component implementations remain in the repository alongside the active route implementation. | Current router imports Work, Timeline, Performance and Admin; active Work uses `WorkContextForm`, active Admin uses `AdminSourceForm`. Separate `KfeFormShell` / module-role wrappers / `AuthoritativeRecordFormRole` / `ShiftReconciliationModal` exist outside this direct route graph. `KfeFormShell.vue` imports `../../js/ui/form-drafts.js`, but no such path appears in the current main tree; the old surface should not be wired back without reconciling that dependency and the current canonical services. | Add a reachability/import-graph contract and build check if any legacy module is reactivated; remove only after confirming it is unused and not needed by native/diagnostic flows. |
-| **Medium** | Existing green contracts do not themselves prove every form row has complete save-to-consumer coverage. | Main CI includes Admin, Work, Timeline, form recovery, calculation, finance and runtime suites, but no single assertion currently maps every active form ID to its persistence store and all consumer services. | Add the audit matrix as test inventory; add narrow regression tests for each confirmed gap and verify all impacted consumers, not just form submission. |
+| Resolved | Admin, first-run and Calculations source forms lacked parent-scoped persistent draft recovery. | The current AdminSourceForm uses FormDraftService, receives stable identities, restores values, serializes edits, and the parent clears only after a successful save or confirmed discard. | universalFormDraftRecoveryRegression.contract.js and pwaFormSavePathRegression.contract.js are in the full contract runner; latest main CI #3282 passed. Field-by-field browser interruption testing remains useful. |
+| Resolved | Timeline trip and fuel editors lacked persistent draft recovery. | Current Timeline edit paths restore drafts by canonical record identity and clear only after successful update. | Source contract and full CI passed. Add explicit runtime assertions for editor dismiss/reopen, validation errors and browser process restart in the next interaction tier. |
+| Resolved | Work draft writes could race commit-time clearing. | Current Work draft writes and clears are serialized; committed identities are guarded against late watcher writes, and clear failures are surfaced without misreporting the canonical commit. | Regression contract and full CI passed. Android WebView process-death/restart behavior still needs device-specific proof. |
+| Medium / runtime proof required | Timeline quick-edit dismissal behavior needs explicit interaction verification. | The overlay can close the editor via backdrop/close control. Drafts are preserved and restored, but interaction-level behavior should prove users can distinguish “close and keep draft” from discard. | Add browser tests for backdrop, close, reopen, explicit save, and failed save; do not change business fields or silently discard draft data. |
+| Medium / consistency risk | Standard Admin source forms and special action forms do not share one identical UI component. | Driver target, maintenance rate, loan payment, prepayment and settlement have special calculate/confirm workflows; they share AdminService/repository boundaries but have distinct interaction paths. | Keep the frozen confirmation steps. Extend the matrix tests to each special form’s validation, disabled/busy state, keyboard behavior, failure retention and successful draft clear. This is not, by itself, a business-logic defect. |
+| Medium / dormant code risk | Legacy form components remain in the repository outside the active route graph. | Current router surfaces are Work, Timeline, Performance and Admin; some legacy module/form components are not direct active routes. KfeFormShell.vue references a legacy draft module path that is not present in the current tree. | Do not reconnect legacy components without an import/reachability audit and build check. Remove them only after confirming no native or diagnostic path depends on them. |
+| Medium / coverage gap | Source-level matrix assertions do not dynamically exercise every field-to-consumer scenario. | The regression contract checks the form inventory and key service/repository/read-model boundaries. It does not inject every storage failure or prove every numeric/date input via real touch interaction. | Add focused integration/browser tests for invalid inputs, failed transactions, duplicate submits, reload recovery, and changed/deleted records appearing correctly in Timeline and Performance. |
 
-## 4. Existing baseline test result (before fixes)
+## 4. Current verification result
 
-At audit start, the current `main` head is `1b5ca3186c5b8aa43f08b115da063a9ad5c40456`. GitHub Actions run **#3247 — KFE 2.0 single CI** completed successfully. The run's `build-and-test` job passed the contract suite, end-to-end conformance, production PWA build, GitHub Pages artifact validation, deployed route/runtime smoke, persistence/recovery and Phase 4 audits. The `android-release-gate` job passed the Android build and exact-APK emulator smoke; the deploy job completed successfully.
+Current main is 931d8bb18c6337dbe8b229298e7abc24dc9ea25a. GitHub Actions KFE 2.0 single CI run #3282 completed successfully.
 
-This is the baseline, not evidence that the newly identified draft/recovery gaps are absent. The existing suites should be rerun after any remediation, and the specific new regression tests above must be added before a fix is called complete. No new fix is made in this audit change.
+- build-and-test: passed contract tests, end-to-end conformance, production PWA build, Pages artifact validation, deployed route/runtime smoke, persistence/recovery checks, Phase 4 audit suites, calculation matrix smoke and semantic-control audit.
+- android-release-gate: passed Android build and exact-APK emulator smoke.
+- deploy: passed Pages deployment and post-deploy SPA fallback/visible-runtime verification for routed surfaces.
+- The new save-path and universal draft-recovery contracts are registered in src/tests/runAllContracts.js.
 
-## 5. Implementation order after audit
+This is evidence that the current source contracts and CI runtime gates pass. It is **not** a claim that every form field has been manually exercised on a physical Android device. CI's Android evidence is emulator-based.
 
-1. Add focused failing regression tests for Admin/first-run/Calculations draft recovery, Timeline edit recovery/backdrop cancel, and Work async draft-write/clear ordering.
-2. Run those tests against the unmodified implementation and record exact failures.
-3. Fix the shared form/recovery boundary first, rather than patching each form with a new persistence system. Keep domain rules and repositories authoritative.
-4. Re-run targeted suites, then the complete contract suite, production build, UI isolation, deployed route/runtime checks and Android release gate.
-5. Only merge when the new regression tests and existing CI are green. Do not claim physical-device verification from emulator or static contracts alone.
+## 5. Remaining audit work (not a blocker to the source-path inventory)
 
+1. Add targeted browser/integration tests for validation failures, IndexedDB transaction abort/quota errors, duplicate submissions and stale-draft replay across all form families.
+2. Exercise Timeline dismissal/reopen and save-error behavior with a real browser interaction test.
+3. Exercise mobile numeric/date keyboards and keyboard occlusion on Android; static contracts cannot prove the keyboard does not cover controls.
+4. Perform Android WebView process-death/restart recovery and PWA/native overlay parity on a physical device before claiming device verification.
+5. Keep the frozen business rules and field inventory unchanged unless a separately approved requirement authorizes a change.
 
-## 6. Regression baseline and remediation follow-up
+No product fix is introduced by this audit update. It records the current state and separates verified source/CI evidence from runtime proof still outstanding.
 
-The new universalFormDraftRecoveryRegression.contract.js was first run against the unchanged implementation. After correcting a syntax error in the test harness, CI reported four distinct failures:
+## 6. Regression-first baseline and remediation history
+
+The regression-first test was run against the implementation before the fixes. After correcting a syntax error in the test harness, CI reported four distinct failures:
+
 - Admin source forms had no stable draft identity or shared draft-service integration.
 - Admin parent save handlers had no explicit committed-draft clearing boundary.
 - Timeline trip/fuel editors had no shared draft persistence/restore path.
 - Work draft writes were fire-and-forget, with no serialized write/clear queue.
 
-These are source-contract findings. The targeted contract passes after the follow-up implementation changes on PR #211:
-- A shared FormDraftService serializes saves and clears.
-- Admin form entry uses parent/workflow-scoped draft identities, restores saved values, persists edits, and supports explicit confirmed discard; parent save paths clear drafts after successful canonical save.
-- Timeline trip and fuel editors restore drafts by record identity, preserve drafts when dismissed, and clear only after a successful update.
-- Work draft writes are serialized; a committed identity cannot be re-saved by a late watcher; draft-clear errors are surfaced without misreporting the canonical commit.
+Those were source-contract findings, not merely UI impressions. The subsequent implementation added a shared FormDraftService that serializes saves and clears; parent/workflow-scoped identities and restoration for Admin/first-run/Calculations forms; record-scoped Timeline trip/fuel recovery; and serialized Work draft writes with commit-time guards and surfaced clear errors.
 
-Existing contract assertions were updated only where the shared form now submits through an awaited handler and cancel flows through confirmed-discard logic. The targeted suite passing does not replace full CI, rendered-browser verification, Android process-death testing, or physical-device verification. PR #211 remains unmerged until the complete required checks pass.
+The targeted contracts passed after the changes, and current main CI run #3282 passed the full contract/build/deployment/emulator gates. The prior failures are kept here as regression history rather than represented as current failures.
