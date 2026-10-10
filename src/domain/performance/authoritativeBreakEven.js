@@ -71,11 +71,14 @@ export function deriveAuthoritativeBreakEven({
   ].filter(value => value != null && Number.isFinite(value))
   const fixedCosts = fixedParts.length ? fixedParts.reduce((sum, value) => sum + value, 0) : null
   const hasKm = km != null && km >= 0
-  const fuelCost = components.fuel && hasKm ? fuelRate * km : 0
-  const maintenanceCost = components.maintenance && hasKm ? maintenanceProvisionPerKm * km : 0
-  const hasCalculableVariableCost = hasKm && ((components.fuel && fuelRate != null) || (components.maintenance && maintenanceProvisionPerKm != null))
+  const fuelCost = components.fuel ? (hasKm ? fuelRate * km : null) : null
+  const maintenanceCost = components.maintenance ? (hasKm ? maintenanceProvisionPerKm * km : null) : null
+  const knownVariableCosts = [fuelCost, maintenanceCost].filter(value => value != null && Number.isFinite(value))
+  const hasCalculableVariableCost = knownVariableCosts.length > 0
   const hasCalculableSubtotal = fixedCosts != null || hasCalculableVariableCost
-  const monthlyBreakEvenRevenue = hasCalculableSubtotal ? (fixedCosts ?? 0) + fuelCost + maintenanceCost : null
+  const monthlyBreakEvenRevenue = hasCalculableSubtotal
+    ? (fixedCosts ?? 0) + knownVariableCosts.reduce((sum, value) => sum + value, 0)
+    : null
   const missingComponents = Object.keys(components).filter(key => !components[key] && !(key === 'loan' && loanNotApplicable))
   if (!hasKm && (components.fuel || components.maintenance)) missingComponents.push('vehicleKmForVariableCosts')
   const fuelIsAuthoritative = components.fuel &&
@@ -106,6 +109,8 @@ export function deriveAuthoritativeBreakEven({
       available: true,
       status: CALCULATION_STATUS.AUTHORITATIVE,
       monthlyBreakEvenRevenue,
+      fuelCost,
+      maintenanceCost,
       maintenanceProvisionPerKm,
       fixedCosts,
       fuelCostPerKm: fuelRate,
@@ -122,6 +127,8 @@ export function deriveAuthoritativeBreakEven({
     status: CALCULATION_STATUS.INDICATIVE,
     reason: missingComponents.length ? 'PARTIAL_BREAK_EVEN_COMPONENTS' : !recoveryEvidenceComplete ? 'PROVISIONAL_RECOVERY_EVIDENCE' : 'PROVISIONAL_FUEL_OR_KM_EVIDENCE',
     indicativeMonthlyBreakEvenRevenue: monthlyBreakEvenRevenue,
+    fuelCost,
+    maintenanceCost,
     maintenanceProvisionPerKm,
     fixedCosts,
     fuelCostPerKm: fuelRate,
