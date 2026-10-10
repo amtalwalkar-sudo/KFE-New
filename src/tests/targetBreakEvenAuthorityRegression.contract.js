@@ -24,10 +24,10 @@ const rolling = deriveRollingDriverTarget({
   ],
   from: new Date('2026-09-10T18:30:00.000Z'),
   to: new Date('2026-09-11T18:29:59.999Z'),
-  applicableBreakEven: 36500,
+  applicableBreakEven: 73000,
 })
 assert.equal(rolling.activeDays, 1, 'Shift timestamps must be grouped by IST business day, not UTC date')
 assert.equal(rolling.authority, 'COMPLETED_SHIFT_REVENUE_AND_SHIFTS_FOR_ACTIVE_DAYS')
-assert.ok(rolling.balance < 0, 'Rolling recovery must use the authoritative ₹100 Shift revenue, not the ₹9,999 trip fare')
+assert.equal(rolling.balance, 100, 'Rolling recovery must use the authoritative ₹100 Shift revenue, not the ₹9,999 trip fare')
 
 console.log('Target/break-even authority regression vectors: PASS')
