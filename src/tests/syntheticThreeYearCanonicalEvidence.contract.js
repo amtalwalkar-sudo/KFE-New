@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { derivePerformance } from '../domain/performance/performanceEngineV2.js'
 import { deriveLoanPosition } from '../domain/finance/loanEngine.js'
 import { deriveRollingDriverTarget, stabilizeActiveDay } from '../domain/performance/driverTargetStabilization.js'
+import { PerformanceService } from '../application/performance/performanceService.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const generator = path.join(root, 'tests/fixtures/synthetic-three-year/generate-fixture.cjs')
@@ -199,6 +200,20 @@ try {
   const stabilizedSurplus = stabilizeActiveDay({ baseTarget: 1000, balance: -1500, actualRevenue: null })
   assert.equal(stabilizedSurplus.target, 0, 'the shared active-day target helper must also clamp to zero')
   assert.equal(stabilizedSurplus.nextBalance, null)
+
+  const targetServiceMetrics = PerformanceService.getMetrics({
+    businessSetup: { businessStartDate: '2024-06-01' },
+    shifts: [
+      { id: 'service-surplus-prior', shiftStartAt: '2024-06-14T08:00:00+05:30', shiftEndAt: '2024-06-14T18:00:00+05:30', status: 'COMPLETED', startOdometer: 1000, endOdometer: 1100, revenue: 2500 },
+      { id: 'service-surplus-current', shiftStartAt: '2024-06-15T08:00:00+05:30', status: 'ACTIVE', startOdometer: 1100, endOdometer: 1100 },
+    ],
+    trips: [], fuelLogs: [], maintenance: [], compliance: [], loans: [], loanPayments: [], prepayments: [],
+    breakEvenInputs: [],
+    driverTargets: [{ effectiveFrom: '2024-06-01', effectiveUntil: '2024-06-30', targetRevenue: 30000, active: true }],
+  }, { from: new Date('2024-06-14T18:30:00.000Z'), to: new Date('2024-06-15T18:29:59.999Z') })
+  assert.equal(targetServiceMetrics.target, 0, 'PerformanceService must not publish a negative target')
+  assert.equal(targetServiceMetrics.driverTargetSurplusCredit, 1500, 'PerformanceService must publish the carried surplus as a separate metric')
+  assert.equal(targetServiceMetrics.driverTargetCarriedShortfall, 0)
 
   console.log('Synthetic three-year canonical calculation evidence: PASS')
   console.log(JSON.stringify({ evidence }, null, 2))
