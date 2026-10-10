@@ -77,7 +77,7 @@ assert.equal(metrics.actualPrepayment, 0, 'synthetic baseline deliberately has n
 const syntheticLoan = snapshot.loans[0]
 const monthlyRate = syntheticLoan.annualInterestRatePercent / 100 / 12
 const emiFactor = Math.pow(1 + monthlyRate, syntheticLoan.tenureMonths)
-const expectedEmi = Math.round(syntheticLoan.principal * monthlyRate * emiFactor / (emiFactor - 1) + Number.EPSILON)
+const expectedEmi = Math.round((syntheticLoan.principal * monthlyRate * emiFactor / (emiFactor - 1) + Number.EPSILON) * 100) / 100
 assert.equal(metrics.finance.emi, expectedEmi, 'canonical EMI must match the independent amortization formula')
 assert.equal(metrics.finance.outstandingPrincipal, syntheticLoan.principal, 'with zero actual payments, outstanding principal must remain the original principal')
 assert.equal(metrics.finance.schedule.reduce((sum, row) => sum + Number(row.paidAmount || 0), 0), 0, 'no synthetic loan payment means no EMI allocation may be marked paid')
