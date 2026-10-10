@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { calculateRollingFuelCostPerKm } from '../domain/math/fuel.js'
 import { deriveRollingDriverTarget } from '../domain/performance/driverTargetStabilization.js'
-import { scheduledEmiAccruedForRange } from '../domain/performance/financePerformanceAdapter.js'
+import { scheduledEmiAccruedForRange, scheduledObligationForRange } from '../domain/performance/financePerformanceAdapter.js'
 
 const fuel = calculateRollingFuelCostPerKm([
   { id: 'a0', vehicleId: 'A', capturedAt: '2026-01-01T00:00:00Z', odometer: 0, amount: 100, isFullTank: true },
@@ -55,6 +55,34 @@ assert.equal(
   322.58,
   'Daily P/L must accrue the monthly EMI over the covered calendar period, not wait for the due date',
 )
+
+assert.equal(
+  scheduledObligationForRange(emiDueNextMonth, octoberRange),
+  10000,
+  'October management P/L must include the full October EMI obligation even when its cash due date is 1 November',
+)
+assert.equal(
+  scheduledObligationForRange(emiDueNextMonth, {
+    from: new Date('2026-10-01T00:00:00+05:30'),
+    to: new Date('2026-10-01T23:59:59.999+05:30'),
+  }),
+  10000,
+  'The full monthly obligation belongs to the schedule period start, not its later due date',
+)
+assert.equal(
+  scheduledObligationForRange(emiDueNextMonth, {
+    from: new Date('2026-10-10T00:00:00+05:30'),
+    to: new Date('2026-10-10T23:59:59.999+05:30'),
+  }),
+  0,
+  'The monthly EMI must not be charged again on every day within its coverage period',
+)
+assert.equal(
+  scheduledObligationForRange(emiDueNextMonth, octoberRange, 'originalInterestComponent'),
+  1800,
+  'Scheduled interest uses the same monthly obligation assignment',
+)
+
 assert.equal(
   scheduledEmiAccruedForRange(emiDueNextMonth, octoberRange, 'originalInterestComponent'),
   1800,
