@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { derivePerformance } from '../domain/performance/performanceEngineV2.js'
 import { deriveLoanPosition } from '../domain/finance/loanEngine.js'
+import { deriveRollingDriverTarget, stabilizeActiveDay } from '../domain/performance/driverTargetStabilization.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const generator = path.join(root, 'tests/fixtures/synthetic-three-year/generate-fixture.cjs')
@@ -179,6 +180,26 @@ try {
     assert.ok(row.displayed && Object.keys(row.displayed).length, `${row.fixtureId}: displayed value must be recorded`)
     assert.deepEqual(row.displayed, row.expectedDisplayed, `${row.fixtureId}: formatted displayed values must match the UI oracle`)
   }
+  // A large surplus must not create a negative target; unused surplus is
+  // carried explicitly and remains available to reduce later active-day targets.
+  const targetSurplus = deriveRollingDriverTarget({
+    from: '2024-06-15T00:00:00+05:30',
+    to: '2024-06-15T23:59:59+05:30',
+    driverTargets: [{ effectiveFrom: '2024-06-01', effectiveUntil: '2024-06-30', targetRevenue: 30000, active: true }],
+    shifts: [
+      { id: 'surplus-prior-day', shiftStartAt: '2024-06-14T08:00:00+05:30', shiftEndAt: '2024-06-14T18:00:00+05:30', status: 'COMPLETED', revenue: 2500 },
+      { id: 'surplus-current-day', shiftStartAt: '2024-06-15T08:00:00+05:30', status: 'ACTIVE' },
+    ],
+  })
+  assert.equal(targetSurplus.currentBaseDaily, 1000)
+  assert.equal(targetSurplus.balanceBefore, -1500)
+  assert.equal(targetSurplus.currentDailyTarget, 0, 'surplus must never create a negative daily target')
+  assert.equal(targetSurplus.surplusCreditBefore, 1500, 'surplus must remain available as a separate credit')
+  assert.equal(targetSurplus.surplusCredit, 1500, 'unfinished active day must not consume credit prematurely')
+  const stabilizedSurplus = stabilizeActiveDay({ baseTarget: 1000, balance: -1500, actualRevenue: null })
+  assert.equal(stabilizedSurplus.target, 0, 'the shared active-day target helper must also clamp to zero')
+  assert.equal(stabilizedSurplus.nextBalance, null)
+
   console.log('Synthetic three-year canonical calculation evidence: PASS')
   console.log(JSON.stringify({ evidence }, null, 2))
 } finally {
