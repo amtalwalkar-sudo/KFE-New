@@ -13,6 +13,7 @@ import { CALCULATION_STATUS } from '../domain/performance/calculationAuthority.j
 import { deriveLoanPosition } from '../domain/finance/loanEngine.js'
 import { deriveRollingDriverTarget, stabilizeActiveDay } from '../domain/performance/driverTargetStabilization.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
+import { istMonthRange, istDayRange } from '../domain/time/ist.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const generator = path.join(root, 'tests/fixtures/synthetic-three-year/generate-fixture.cjs')
@@ -157,7 +158,7 @@ try {
   assert.equal(fullFinancial.renewalProvision, fixture.expectedAggregates.complianceProvisionInr)
   assert.equal(fullFinancial.provisionAdjustedProfit, -fixture.expectedAggregates.fuelCostInr - fixture.expectedAggregates.ongoingMaintenanceProvisionInr - fixture.expectedAggregates.complianceProvisionInr)
 
-  const fullManagement = deriveFinanceAwarePerformance({
+  const managementSnapshot = {
     businessSetup: { businessStartDate: '2023-01-01' },
     vehicles: [{ id: 'synthetic-vehicle', openingOdometerKm: 0, active: true }],
     shifts,
@@ -170,7 +171,8 @@ try {
     prepayments: [],
     settlements: [],
     breakEvenInputs: [{ effectiveFrom: '2023-01-01', maintenanceProvisionPerKm: 1.6 }],
-  }, selectedPeriod)
+  }
+  const fullManagement = deriveFinanceAwarePerformance(managementSnapshot, selectedPeriod)
   assert.equal(fullManagement.performanceHeadlineActualProfit, -fixture.expectedAggregates.fuelCostInr, 'actual P/L must deduct actual operating cost when no EMI is applicable')
   assert.equal(fullManagement.performanceHeadlineProvisionalProfit, -fixture.expectedAggregates.fuelCostInr - fixture.expectedAggregates.ongoingMaintenanceProvisionInr - fixture.expectedAggregates.complianceProvisionInr, 'provisional P/L must additionally deduct maintenance and compliance accruals')
   assert.equal(
@@ -178,6 +180,31 @@ try {
     fixture.expectedAggregates.ongoingMaintenanceProvisionInr + fixture.expectedAggregates.complianceProvisionInr,
     'the provisional deduction breakdown must reconcile to actual minus provisional P/L',
   )
+
+  // Period views must reconcile to the same three-year canonical result.
+  let monthlyActualProfit = 0
+  let monthlyProvisionalProfit = 0
+  for (const month of fixture.monthly) {
+    const monthRange = istMonthRange(new Date(`${month.month}-15T12:00:00+05:30`), new Date('2026-01-01T00:00:00+05:30'))
+    const monthly = deriveFinanceAwarePerformance(managementSnapshot, monthRange)
+    monthlyActualProfit += monthly.performanceHeadlineActualProfit
+    monthlyProvisionalProfit += monthly.performanceHeadlineProvisionalProfit
+  }
+  assert.ok(Math.abs(monthlyActualProfit - fullManagement.performanceHeadlineActualProfit) < 0.02, 'monthly actual P/L must sum to the full three-year actual P/L')
+  assert.ok(Math.abs(monthlyProvisionalProfit - fullManagement.performanceHeadlineProvisionalProfit) < 0.02, 'monthly provisional P/L must sum to the full three-year provisional P/L')
+
+  let weeklyActualProfit = 0
+  let weeklyProvisionalProfit = 0
+  for (let index = 0; index < fixture.daily.length; index += 7) {
+    const firstDay = fixture.daily[index].date
+    const lastDay = fixture.daily[Math.min(index + 6, fixture.daily.length - 1)].date
+    const weekRange = { from: istDayRange(firstDay).from, to: istDayRange(lastDay).to }
+    const weekly = deriveFinanceAwarePerformance(managementSnapshot, weekRange)
+    weeklyActualProfit += weekly.performanceHeadlineActualProfit
+    weeklyProvisionalProfit += weekly.performanceHeadlineProvisionalProfit
+  }
+  assert.ok(Math.abs(weeklyActualProfit - fullManagement.performanceHeadlineActualProfit) < 0.02, 'weekly actual P/L must sum to the full three-year actual P/L')
+  assert.ok(Math.abs(weeklyProvisionalProfit - fullManagement.performanceHeadlineProvisionalProfit) < 0.02, 'weekly provisional P/L must sum to the full three-year provisional P/L')
 
   const canonical = derivePerformance({
     shifts,
