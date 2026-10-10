@@ -27,6 +27,7 @@ assert.equal(metrics.calculationEvidence.breakEven.status, 'INDICATIVE')
 assert.ok(Number.isFinite(metrics.indicative?.monthlyBreakEvenRevenue), 'Expected indicative monthly break-even candidate')
 assert.equal(metrics.completeness.loan, true)
 assert.ok(Number.isFinite(metrics.breakEvenInputs.fuelCostPerKm), 'Expected observed fuel cost/km fallback')
+assert.ok(Number.isFinite(metrics.monthlyBreakEvenRevenue), 'Partial setup must expose a provisional monthly break-even estimate')
 assert.equal(metrics.breakEvenInputs.fuelCostPerKmSource, 'OBSERVED_PERIOD')
 assert.equal(metrics.breakEvenInputs.fuelEvidence.status, 'INDICATIVE')
 assert.ok(Number.isFinite(metrics.breakEvenInputs.maintenanceProvisionPerKm), 'Expected configured maintenance provision/km')
@@ -37,7 +38,7 @@ const targetFromIndicativeBreakEven = deriveAuthoritativeDriverTarget({
   desiredDriverProfitMonthly: targetRecord?.desiredDriverProfit,
   calendarDays: 30,
 })
-assert.equal(targetFromIndicativeBreakEven.available, false, 'Indicative break-even must not feed authoritative target')
+assert.equal(targetFromIndicativeBreakEven.available, true, 'Indicative break-even must feed a provisional target so the figure updates before full-tank qualification')
 
 const qualifiedSnapshot = normalizeCalculationSnapshot({
   ...snapshot,
