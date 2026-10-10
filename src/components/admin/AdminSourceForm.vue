@@ -1,21 +1,15 @@
 <script setup>
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted } from 'vue'
 import { FormDraftService } from '../../application/forms/formDraftService.js'
-
 const props = defineProps({
-  fields: { type: Array, required: true },
-  modelValue: { type: Object, default: () => ({}) },
-  busy: { type: Boolean, default: false },
-  submitLabel: { type: String, default: 'Save record' },
-  showActions: { type: Boolean, default: true },
-  autoOpenFirst: { type: Boolean, default: false },
-  errors: { type: Object, default: () => ({}) },
-  draftIdentity: { type: Object, default: null }
+  fields: { type: Array, required: true }, modelValue: { type: Object, default: () => ({}) },
+  busy: { type: Boolean, default: false }, submitLabel: { type: String, default: 'Save record' },
+  showActions: { type: Boolean, default: true }, autoOpenFirst: { type: Boolean, default: false },
+  errors: { type: Object, default: () => ({}) }, draftIdentity: { type: Object, default: null }
 })
 const emit = defineEmits(['submit', 'cancel', 'field-change', 'draft-restored', 'draft-error'])
 let draftWriteQueue = Promise.resolve()
 let restoringDraft = false
-const nodes = ref({})
 const fields = computed(() => (props.fields || []).filter(f => f && !f.hidden))
 const sections = computed(() => {
   const groups = []
@@ -35,19 +29,17 @@ const enterKeyHint = field => {
   return index >= 0 && index < editableFields.value.length - 1 ? 'next' : 'done'
 }
 const value = field => props.modelValue?.[field.key] ?? field.defaultValue ?? ''
-const setNode = (key, el) => { if (el) nodes.value[key] = el; else delete nodes.value[key] }
 const options = field => (field.options || []).map(o => typeof o === 'object' ? o : ({ value: o, label: o }))
-function read(field) {
-  const el = nodes.value[field.key]
-  if (!el) return value(field)
-  if (field.type === 'checkbox') return !!el.checked
-  if (field.type === 'number') return el.value === '' ? '' : Number(el.value)
-  return el.value
+function normalizeValue(field, raw) {
+  if (field.type === 'checkbox') return !!raw
+  if (field.type === 'number') return raw === '' || raw == null ? '' : Number(raw)
+  return raw ?? ''
 }
-function changed(field) {
-  emit('field-change', { key: field.key, value: read(field) })
+function changed(field, raw) {
+  const nextValue = normalizeValue(field, raw)
+  emit('field-change', { key: field.key, value: nextValue })
   if (restoringDraft || !props.draftIdentity) return
-  const values = collect()
+  const values = collect({ [field.key]: nextValue })
   draftWriteQueue = draftWriteQueue.then(() => FormDraftService.save(props.draftIdentity, values))
     .catch(error => { emit('draft-error', error); return null })
 }
@@ -57,22 +49,17 @@ async function restoreDraft() {
     const record = await FormDraftService.get(props.draftIdentity)
     if (!record?.values) return
     restoringDraft = true
+    for (const field of fields.value) {
+      if (record.values[field.key] !== undefined) emit('field-change', { key: field.key, value: normalizeValue(field, record.values[field.key]) })
+    }
     await nextTick()
-    for (const field of fields.value) {
-      const el = nodes.value[field.key]
-      if (!el || record.values[field.key] === undefined) continue
-      if (field.type === 'checkbox') el.checked = !!record.values[field.key]
-      else el.value = record.values[field.key] ?? ''
-    }
-    for (const field of fields.value) {
-      if (record.values[field.key] !== undefined) emit('field-change', { key: field.key, value: field.type === 'checkbox' ? !!record.values[field.key] : record.values[field.key] })
-    }
     emit('draft-restored', structuredClone(record.values))
   } catch (error) { emit('draft-error', error) }
   finally { restoringDraft = false }
 }
 async function submitForm() {
   await draftWriteQueue
+  await nextTick()
   emit('submit', collect())
 }
 async function cancelForm() {
@@ -84,14 +71,17 @@ async function cancelForm() {
   }
   emit('cancel')
 }
-function collect() {
+function collect(overrides = {}) {
   const result = {}
-  for (const f of props.fields || []) {
-    if (f.hidden) {
-      const old = props.modelValue?.[f.key]
-      if (old !== undefined && old !== null && old !== '') result[f.key] = old
-      else if (f.defaultValue !== undefined) result[f.key] = f.defaultValue
-    } else result[f.key] = read(f)
+  for (const field of props.fields || []) {
+    if (field.hidden) {
+      const old = props.modelValue?.[field.key]
+      if (old !== undefined && old !== null && old !== '') result[field.key] = old
+      else if (field.defaultValue !== undefined) result[field.key] = field.defaultValue
+    } else {
+      const raw = Object.prototype.hasOwnProperty.call(overrides, field.key) ? overrides[field.key] : value(field)
+      result[field.key] = normalizeValue(field, raw)
+    }
   }
   return result
 }
@@ -100,31 +90,12 @@ function inputType(field) {
   if (field.inputMode === 'tel') return 'tel'
   return 'text'
 }
-watch(() => props.modelValue, () => {
-  for (const f of fields.value) {
-    const el = nodes.value[f.key]
-    if (!el || document.activeElement === el) continue
-    if (f.type === 'checkbox') el.checked = !!value(f)
-    else el.value = value(f) ?? ''
-  }
-}, { deep: true })
-watch(() => props.fields, () => nextTick(() => {
-  for (const f of fields.value) {
-    const el = nodes.value[f.key]
-    if (!el || document.activeElement === el) continue
-    if (f.type === 'checkbox') el.checked = !!value(f)
-    else el.value = value(f) ?? ''
-  }
-}), { deep: true })
-onMounted(async () => { await nextTick();
-  for (const f of fields.value) {
-    const el = nodes.value[f.key]
-    if (!el) continue
-    if (f.type === 'checkbox') el.checked = !!value(f)
-    else el.value = value(f) ?? ''
-  }
+onMounted(async () => {
   await restoreDraft()
-  if (props.autoOpenFirst) nodes.value[fields.value.find(f => f.type !== 'checkbox')?.key]?.focus()
+  if (props.autoOpenFirst) {
+    await nextTick()
+    document.querySelector('.admin-source-form')?.querySelector('input:not([type="checkbox"]),select,textarea')?.focus()
+  }
 })
 </script>
 
@@ -141,13 +112,13 @@ onMounted(async () => { await nextTick();
         <label v-for="field in section.fields" :key="field.key" class="source-field" :class="{ 'source-field-wide': field.wide || field.type === 'textarea', 'source-field-invalid': errors[field.key] }">
           <span class="source-field-label">{{ field.label }} <b v-if="field.required">*</b></span>
           <small v-if="field.help" class="source-field-help">{{ field.help }}</small>
-          <select v-if="field.type === 'select'" :ref="el => setNode(field.key, el)" :required="field.required" :disabled="busy" @change="changed(field)">
+          <select v-if="field.type === 'select'" :value="value(field)"  :required="field.required" :disabled="busy" @change="changed(field, $event.target.value)">
             <option value="">Choose {{ field.label.toLowerCase() }}</option>
             <option v-for="option in options(field)" :key="String(option.value)" :value="option.value">{{ option.label }}</option>
           </select>
-          <textarea v-else-if="field.type === 'textarea'" :ref="el => setNode(field.key, el)" :required="field.required" :disabled="busy" :placeholder="field.placeholder || 'Add details (optional)'" rows="3" @input="changed(field)"></textarea>
-          <span v-else-if="field.type === 'checkbox'" class="source-toggle"><input :ref="el => setNode(field.key, el)" type="checkbox" :disabled="busy" @change="changed(field)"><span>{{ field.toggleLabel || field.label }}</span></span>
-          <input v-else :ref="el => setNode(field.key, el)" :type="inputType(field)" :inputmode="field.type === 'number' ? (field.step && Number(field.step) % 1 !== 0 ? 'decimal' : 'numeric') : field.inputMode" :min="field.min" :max="field.max" :step="field.step" :required="field.required" :disabled="busy" :placeholder="field.placeholder || (field.type === 'number' ? '0' : '')" :autocomplete="field.type === 'number' ? 'off' : 'on'" :enterkeyhint="enterKeyHint(field)" @input="changed(field)">
+          <textarea v-else-if="field.type === 'textarea'" :value="value(field)"  :required="field.required" :disabled="busy" :placeholder="field.placeholder || 'Add details (optional)'" rows="3" @input="changed(field, $event.target.value)"></textarea>
+          <span v-else-if="field.type === 'checkbox'" class="source-toggle"><input type="checkbox" :checked="!!value(field)" :disabled="busy" @change="changed(field, $event.target.checked)"><span>{{ field.toggleLabel || field.label }}</span></span>
+          <input v-else  :type="inputType(field)" :inputmode="field.type === 'number' ? (field.step && Number(field.step) % 1 !== 0 ? 'decimal' : 'numeric') : field.inputMode" :min="field.min" :max="field.max" :step="field.step" :required="field.required" :disabled="busy" :placeholder="field.placeholder || (field.type === 'number' ? '0' : '')" :autocomplete="field.type === 'number' ? 'off' : 'on'" :enterkeyhint="enterKeyHint(field)" @input="changed(field, $event.target.value)">
           <small v-if="errors[field.key]" class="source-field-error" role="alert">{{ errors[field.key] }}</small>
         </label>
       </div>
