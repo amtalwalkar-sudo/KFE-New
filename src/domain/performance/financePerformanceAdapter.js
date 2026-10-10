@@ -69,10 +69,10 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   const businessStart = businessStartDate(snapshot)
   const historicalMaintenanceRecovery = calculateHistoricalMaintenanceRecovery({ vehicles: snapshot?.vehicles || [], businessStartDate: businessStart, asOf: currentAsOf })
   const preBusinessRecoveryMonthly = finance ? calculatePreBusinessLoanRecovery({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, businessStartDate: businessStart, asOf: currentAsOf }) : 0
-  // Management P/L includes each full monthly EMI in its covered period,
-  // independent of the cash due date. Otherwise a month whose EMI falls on
-  // the first of the following month incorrectly reports zero EMI.
-  const currentScheduledEmi = finance?.schedule ? scheduledObligationForRange(finance.schedule, range) : 0
+  // Management P/L accrues the scheduled EMI obligation over its covered calendar period,
+  // independent of payment status and cash due date. This keeps day/week/month views
+  // consistent while ensuring the full obligation is counted once across its period.
+  const currentScheduledEmi = finance?.schedule ? scheduledEmiAccruedForRange(finance.schedule, range) : 0
   // Interest reporting remains tied to the scheduled due date; only the P/L EMI
   // obligation is assigned to its covered period. Do not change interest's
   // existing reporting semantics as a side effect of the P/L correction.

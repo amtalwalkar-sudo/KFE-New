@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { calculateRollingFuelCostPerKm } from '../domain/math/fuel.js'
 import { deriveRollingDriverTarget } from '../domain/performance/driverTargetStabilization.js'
+import { deriveAuthoritativeBreakEven } from '../domain/performance/authoritativeBreakEven.js'
+import { deriveAuthoritativeDriverTarget } from '../domain/performance/driverTarget.js'
 import { scheduledEmiAccruedForRange, scheduledObligationForRange } from '../domain/performance/financePerformanceAdapter.js'
 
 const fuel = calculateRollingFuelCostPerKm([
@@ -29,7 +31,7 @@ const rolling = deriveRollingDriverTarget({
 })
 assert.equal(rolling.activeDays, 1, 'Shift timestamps must be grouped by IST business day, not UTC date')
 assert.equal(rolling.authority, 'COMPLETED_SHIFT_REVENUE_AND_SHIFTS_FOR_ACTIVE_DAYS')
-assert.equal(rolling.balance, 100, 'Rolling recovery must use the authoritative ₹100 Shift revenue, not the ₹9,999 trip fare')
+assert.equal(rolling.balance, 2333.3333333333335, 'Rolling recovery must use the calendar-month daily target and authoritative ₹100 Shift revenue, not the ₹9,999 trip fare')
 
 
 const octoberRange = {
@@ -98,5 +100,54 @@ assert.equal(
   null,
   'An unavailable schedule must not be fabricated as zero',
 )
+
+
+
+const octoberTargetRecord = [{
+  id: 'october-target',
+  effectiveFrom: '2026-10-01',
+  effectiveUntil: '2026-10-10',
+  desiredDriverProfit: 15000,
+  active: true,
+}]
+const octoberTarget = deriveRollingDriverTarget({
+  shifts: [
+    { id: 'oct-09', status: 'COMPLETED', shiftStartAt: '2026-10-09T03:00:00Z', shiftEndAt: '2026-10-09T12:00:00Z', revenue: 0 },
+    { id: 'oct-10', status: 'COMPLETED', shiftStartAt: '2026-10-10T03:00:00Z', shiftEndAt: '2026-10-10T12:00:00Z', revenue: 0 },
+  ],
+  driverTargets: octoberTargetRecord,
+  from: new Date('2026-10-10T00:00:00+05:30'),
+  to: new Date('2026-10-10T23:59:59.999+05:30'),
+  applicableBreakEven: 4672,
+})
+assert.equal(octoberTarget.activeDays, 1)
+assert.ok(Math.abs(octoberTarget.currentBaseDaily - (19672 / 31)) < 1e-10, 'October daily target must use all 31 calendar days, not the 10-day effective record span')
+assert.ok(Math.abs(octoberTarget.balanceBefore - (19672 / 31)) < 1e-10, 'Prior active days in the same month must accrue the same authoritative daily base target')
+assert.ok(Math.abs(octoberTarget.currentDailyTarget - (2 * 19672 / 31)) < 1e-10, 'Current target must add the prior active-day shortfall without changing the calendar-day denominator')
+
+const octoberAuthoritativeTarget = deriveAuthoritativeDriverTarget({
+  monthlyBreakEvenRevenue: 4672,
+  desiredDriverProfitMonthly: 15000,
+  calendarDays: 31,
+})
+assert.equal(octoberAuthoritativeTarget.monthlyTarget, 19672)
+assert.ok(Math.abs(octoberAuthoritativeTarget.target - (19672 / 31)) < 1e-10, 'Authoritative target divides monthly break-even plus desired profit by calendar days in October')
+
+const breakEvenWithUnpaidObligations = deriveAuthoritativeBreakEven({
+  breakEvenInputs: [{ effectiveFrom: '2026-10-01', maintenanceProvisionPerKm: 3, active: true }],
+  range: octoberRange,
+  loanScheduledObligation: 10000,
+  loanInputAvailable: true,
+  preBusinessRecovery: 0,
+  historicalMaintenanceRecovery: 0,
+  renewalProvision: 1000,
+  complianceInputAvailable: true,
+  fuelCostPerKm: 0,
+  fuelCostPerKmStatus: 'AUTHORITATIVE',
+  vehicleKm: 100,
+  vehicleKmSource: 'CONTRACT_TEST',
+})
+assert.equal(breakEvenWithUnpaidObligations.status, 'AUTHORITATIVE')
+assert.equal(breakEvenWithUnpaidObligations.monthlyBreakEvenRevenue, 11300, 'Break-even includes scheduled EMI and maintenance/compliance provisions regardless of payment status')
 
 console.log('Target/break-even authority regression vectors: PASS')

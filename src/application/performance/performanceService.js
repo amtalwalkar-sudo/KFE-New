@@ -60,7 +60,7 @@ export const PerformanceService = Object.freeze({
       to: boundedRange.to,
       asOf: boundedRange.to,
     })
-    const targetMonthRange = istMonthRange(boundedRange.to)
+    const targetMonthRange = istMonthRange(boundedRange.to, new Date(0))
     const targetMonthDays = targetMonthRange
       ? istCalendarDaysInclusive(targetMonthRange.from, targetMonthRange.to)
       : null

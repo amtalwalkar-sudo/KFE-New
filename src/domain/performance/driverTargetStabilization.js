@@ -23,19 +23,26 @@ const nonWorkingDateKeys = record => {
   const values = Array.isArray(raw) ? raw : String(raw || '').split(/[,\n]/)
   return new Set(values.map(value => keyOf(String(value).trim())).filter(Boolean))
 }
-const periodDays = record => {
-  const explicit = finite(record?.workingDays ?? record?.activeWorkingDays ?? record?.targetWorkingDays)
-  if (explicit != null && explicit > 0) return explicit
-  return calendarDays(effectiveFrom(record), effectiveUntil(record)) || 1
+const calendarDaysInMonthFor = day => {
+  const key = keyOf(day)
+  if (!key) return null
+  const [year, month] = key.split('-').map(Number)
+  return new Date(Date.UTC(year, month, 0)).getUTCDate()
 }
 const periodBaseTarget = (record, applicableBreakEven = null) => {
   const desiredDriverProfit = finite(record?.desiredDriverProfit)
   if (desiredDriverProfit != null && applicableBreakEven != null) return applicableBreakEven + desiredDriverProfit
   return finite(record?.targetRevenue)
 }
-const baseDailyFor = (record, applicableBreakEven = null) => {
+const baseDailyFor = (record, applicableBreakEven = null, day = null) => {
   const periodTarget = periodBaseTarget(record, applicableBreakEven)
-  return periodTarget == null ? null : periodTarget / periodDays(record)
+  const daysInMonth = calendarDaysInMonthFor(day || effectiveFrom(record))
+  // A configured monthly target (monthly desired profit + authoritative break-even,
+  // or a target with an explicit validity window) uses calendar-month days. Legacy
+  // targetRevenue records without an end date remain daily targets for compatibility.
+  const isMonthlyTarget = (finite(record?.desiredDriverProfit) != null && applicableBreakEven != null) || !!effectiveUntil(record)
+  const denominator = isMonthlyTarget ? daysInMonth : 1
+  return periodTarget == null || denominator == null || denominator <= 0 ? null : periodTarget / denominator
 }
 
 export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTargets = [], from, to, applicableBreakEven = null } = {}) {
@@ -66,7 +73,9 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     if (!day || day >= start) break
     const record = latestForDay(driverTargets, day)
     if (!record) continue
-    const baseDaily = baseDailyFor(record)
+    const sameTargetMonth = keyOf(day) === keyOf(start) || keyOf(day)?.slice(0, 7) === keyOf(start)?.slice(0, 7)
+    const priorMonthBreakEven = sameTargetMonth ? applicableBreakEven : null
+    const baseDaily = baseDailyFor(record, priorMonthBreakEven, day)
     if (baseDaily == null) continue
     if (byDay.has(dayKey)) balance += baseDaily - byDay.get(dayKey)
   }
@@ -82,7 +91,7 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     const day = dateOf(dayKey)
     const record = latestForDay(driverTargets, day)
     if (!record) continue
-    const baseDaily = baseDailyFor(record, applicableBreakEven)
+    const baseDaily = baseDailyFor(record, applicableBreakEven, day)
     if (baseDaily == null) continue
     currentBaseDaily = baseDaily
     currentPeriodBaseTarget = periodBaseTarget(record, applicableBreakEven)
