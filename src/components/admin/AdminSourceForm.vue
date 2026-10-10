@@ -113,14 +113,14 @@ onMounted(async () => {
         <label v-for="field in section.fields" :key="field.key" class="source-field" :class="{ 'source-field-wide': field.wide || field.type === 'textarea', 'source-field-invalid': errors[field.key] }">
           <span class="source-field-label">{{ field.label }} <b v-if="field.required">*</b></span>
           <small v-if="field.help" class="source-field-help">{{ field.help }}</small>
-          <select v-if="field.type === 'select'" :value="value(field)" :required="field.required" :disabled="busy" @change="changed(field, $event.target.value)">
+          <select v-if="field.type === 'select'" :value="value(field)"  :required="field.required" :disabled="busy" :aria-invalid="!!errors[field.key]" :aria-describedby="errors[field.key] ? `admin-error-${field.key}` : undefined" @change="changed(field, $event.target.value)">
             <option value="">Choose {{ field.label.toLowerCase() }}</option>
             <option v-for="option in options(field)" :key="String(option.value)" :value="option.value">{{ option.label }}</option>
           </select>
-          <textarea v-else-if="field.type === 'textarea'" :value="value(field)"  :required="field.required" :disabled="busy" :placeholder="field.placeholder || 'Add details (optional)'" rows="3" @input="changed(field, $event.target.value)"></textarea>
-          <span v-else-if="field.type === 'checkbox'" class="source-toggle"><input type="checkbox" :checked="!!value(field)" :disabled="busy" @change="changed(field, $event.target.checked)"><span>{{ field.toggleLabel || field.label }}</span></span>
-          <input v-else :value="value(field)" :type="inputType(field)" :inputmode="field.type === 'number' ? (field.step && Number(field.step) % 1 !== 0 ? 'decimal' : 'numeric') : field.inputMode" :min="field.min" :max="field.max" :step="field.step" :required="field.required" :disabled="busy" :placeholder="field.placeholder || (field.type === 'number' ? '0' : '')" :autocomplete="field.type === 'number' ? 'off' : 'on'" :enterkeyhint="enterKeyHint(field)" @input="changed(field, $event.target.value)">
-          <small v-if="errors[field.key]" class="source-field-error" role="alert">{{ errors[field.key] }}</small>
+          <textarea v-else-if="field.type === 'textarea'" :value="value(field)" :required="field.required" :disabled="busy" :aria-invalid="!!errors[field.key]" :aria-describedby="errors[field.key] ? `admin-error-${field.key}` : undefined" :placeholder="field.placeholder || 'Add details (optional)'" rows="3" @input="changed(field, $event.target.value)"></textarea>
+          <span v-else-if="field.type === 'checkbox'" class="source-toggle"><input type="checkbox" :checked="!!value(field)" :disabled="busy" :aria-invalid="!!errors[field.key]" :aria-describedby="errors[field.key] ? `admin-error-${field.key}` : undefined" @change="changed(field, $event.target.checked)"><span>{{ field.toggleLabel || field.label }}</span></span>
+          <input v-else :value="value(field)" :type="inputType(field)" :inputmode="field.type === 'number' ? (field.step && Number(field.step) % 1 !== 0 ? 'decimal' : 'numeric') : field.inputMode" :min="field.min" :max="field.max" :step="field.step" :required="field.required" :disabled="busy" :aria-invalid="!!errors[field.key]" :aria-describedby="errors[field.key] ? `admin-error-${field.key}` : undefined" :placeholder="field.placeholder || (field.type === 'number' ? '0' : '')" :autocomplete="field.type === 'number' ? 'off' : 'on'" :enterkeyhint="enterKeyHint(field)" @input="changed(field, $event.target.value)">
+          <small v-if="errors[field.key]" :id="`admin-error-${field.key}`" class="source-field-error" role="alert">{{ Array.isArray(errors[field.key]) ? errors[field.key].join(' ') : errors[field.key] }}</small>
         </label>
       </div>
     </section>
