@@ -28,7 +28,7 @@ assert.ok(form.includes('label: o'),'Admin native form must render human-readabl
 assert.match(form, /busy: \{ type: Boolean, default: false \}/, 'Admin native form must expose a busy state')
 assert.ok(form.includes("{{ busy ? 'Saving…' : submitLabel }}"),'Admin native form must communicate save progress')
 assert.ok(!form.includes('v-model='),'Admin form must not use Vue-controlled v-model inputs')
-assert.ok(form.includes('function changed(field)'),'Admin fields must write directly through native input events')
+assert.ok(form.includes('function changed(field, raw)') && form.includes(':value="value(field)"') && form.includes('@input="changed(field, $event.target.value)"'),'Admin fields must use reactive values and native input events')
 assert.ok(!form.includes('autocapitalize="on"'),'Admin text entry must not force capitalization')
 assert.ok(!form.includes('openEditor') && !form.includes('editorRef') && !form.includes('readonly'),'Admin fields must be directly editable with no popup editor')
 assert.ok(!form.includes('function handleEnter('),'Admin form must support keyboard next-field navigation')
