@@ -95,7 +95,7 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     if (baseDaily == null) continue
     currentBaseDaily = baseDaily
     currentPeriodBaseTarget = periodBaseTarget(record, applicableBreakEven)
-    currentDailyTarget = baseDaily + balance
+    currentDailyTarget = Math.max(0, baseDaily + balance)
     balanceBeforeCurrent = balance
     if (byDay.has(dayKey)) balance += baseDaily - byDay.get(dayKey)
   }
@@ -108,6 +108,8 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     currentBaseDaily,
     currentPeriodBaseTarget,
     recoveryAdjustment: currentDailyTarget != null && currentBaseDaily != null ? currentDailyTarget - currentBaseDaily : null,
+    rollingCredit: Math.max(0, -balanceBeforeCurrent),
+    rollingShortfall: Math.max(0, balanceBeforeCurrent),
     activeDays: currentDays.length,
     authority: 'COMPLETED_SHIFT_REVENUE_AND_SHIFTS_FOR_ACTIVE_DAYS'
   }
@@ -117,7 +119,7 @@ export function stabilizeActiveDay({ baseTarget, balance = 0, actualRevenue = nu
   const base = finite(baseTarget)
   if (base == null) return { available: false, target: null, nextBalance: null }
   const currentBalance = finite(balance) ?? 0
-  const target = base + currentBalance
+  const target = Math.max(0, base + currentBalance)
   if (actualRevenue == null) return { available: true, target, nextBalance: null }
   const actual = finite(actualRevenue)
   if (actual == null) return { available: true, target, nextBalance: null }
