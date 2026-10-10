@@ -29,6 +29,8 @@ for (const key of adminKeys) {
   assert.ok(adminRepo.includes(`${key}:`), `${key}: canonical persistence mapping must exist`)
 }
 assert.match(adminView, /<AdminSourceForm[^>]*@submit="save"/, 'Admin create/edit must submit through the shared replacement form')
+assert.match(adminView, /function onSourceFieldChange\(change\)\s*\{\s*draft\.value=\{\.\.\.draft\.value,\[change\.key\]:change\.value\};clearFieldError\(change\)\}/, 'Admin source input changes must update the reactive draft before rendering from modelValue');
+assert.equal((adminView.match(/@field-change="onSourceFieldChange"/g)||[]).length, 2, 'Both Admin create and edit forms must preserve field values in the parent draft');
 assert.match(adminView, /AdminService\.save\(/, 'Admin submit must pass through the validated application service')
 assert.match(adminService, /validateAdminForm[\s\S]*AdminRepository\.save/, 'Admin save path must validate before repository persistence')
 assert.match(adminRepo, /writeMutationAndAudit/, 'Admin persistence must retain mutation/audit records')
