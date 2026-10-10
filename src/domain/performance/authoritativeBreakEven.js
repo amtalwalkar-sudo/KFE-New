@@ -20,71 +20,115 @@ const latest = (xs, range) => {
     })[0] || null
 }
 
-export function deriveAuthoritativeBreakEven({ breakEvenInputs = [], range, loanScheduledObligation = NaN, preBusinessRecovery = 0, historicalMaintenanceRecovery = 0, renewalProvision = NaN, fuelCostPerKm = NaN, fuelCostPerKmStatus = CALCULATION_STATUS.UNAVAILABLE, vehicleKm = NaN, vehicleKmSource = 'UNAVAILABLE' } = {}) {
+export function deriveAuthoritativeBreakEven({
+  breakEvenInputs = [],
+  range,
+  loanScheduledObligation = NaN,
+  loanInputAvailable = null,
+  loanNotApplicable = false,
+  preBusinessRecovery = 0,
+  historicalMaintenanceRecovery = 0,
+  renewalProvision = NaN,
+  complianceInputAvailable = null,
+  fuelCostPerKm = NaN,
+  fuelCostPerKmStatus = CALCULATION_STATUS.UNAVAILABLE,
+  vehicleKm = NaN,
+  vehicleKmSource = 'UNAVAILABLE',
+} = {}) {
   const input = latest(breakEvenInputs, range)
-  if (!input) {
+  const maintenanceProvisionPerKm = finite(input?.maintenanceProvisionPerKm)
+  const fuelRate = finite(fuelCostPerKm)
+  const km = finite(vehicleKm)
+  const loan = finite(loanScheduledObligation)
+  const preBusiness = finite(preBusinessRecovery)
+  const historicalMaintenance = finite(historicalMaintenanceRecovery)
+  const compliance = finite(renewalProvision)
+  const components = {
+    loan: (loanInputAvailable == null ? loan != null : !!loanInputAvailable) && loan != null,
+    compliance: (complianceInputAvailable == null ? compliance != null : !!complianceInputAvailable) && compliance != null,
+    maintenance: maintenanceProvisionPerKm != null,
+    fuel: fuelRate != null && fuelRate >= 0,
+  }
+  const hasAnyEnteredComponent = Object.values(components).some(Boolean)
+  if (!hasAnyEnteredComponent) {
     return {
       available: false,
       status: CALCULATION_STATUS.UNAVAILABLE,
-      reason: 'NO_APPLICABLE_BREAK_EVEN_INPUT',
-      evidence: calculationEvidence({ status: CALCULATION_STATUS.UNAVAILABLE, reason: 'NO_APPLICABLE_BREAK_EVEN_INPUT' }),
-      trace: { input: false, maintenanceProvisionPerKm: false, fuelCostPerKm: false, fuelCostPerKmEvidence: false, vehicleKm: false, loanScheduledObligation: false, renewalProvision: false },
+      reason: 'NO_BREAK_EVEN_COMPONENTS_ENTERED',
+      evidence: calculationEvidence({ status: CALCULATION_STATUS.UNAVAILABLE, reason: 'NO_BREAK_EVEN_COMPONENTS_ENTERED', dependencies: components }),
+      trace: { components, missingComponents: Object.keys(components).filter(key => !components[key]) },
     }
   }
-  const maintenanceProvisionPerKm = finite(input.maintenanceProvisionPerKm)
-  const availability = {
-    input: true,
+
+  // Missing categories are omitted from the provisional estimate, not treated as
+  // confirmed zero-cost categories. The component flags keep that distinction visible.
+  const fixedParts = [
+    components.loan ? loan + (preBusiness ?? 0) : 0,
+    components.compliance ? compliance : 0,
+    historicalMaintenance ?? 0,
+  ]
+  const fixedCosts = fixedParts.reduce((sum, value) => sum + value, 0)
+  const hasKm = km != null && km >= 0
+  const fuelCost = components.fuel && hasKm ? fuelRate * km : 0
+  const maintenanceCost = components.maintenance && hasKm ? maintenanceProvisionPerKm * km : 0
+  const monthlyBreakEvenRevenue = fixedCosts + fuelCost + maintenanceCost
+  const missingComponents = Object.keys(components).filter(key => !components[key] && !(key === 'loan' && loanNotApplicable))
+  const fuelIsAuthoritative = components.fuel &&
+    fuelCostPerKmStatus === CALCULATION_STATUS.AUTHORITATIVE
+  const recoveryEvidenceComplete = preBusiness != null && historicalMaintenance != null
+  const allRequiredEvidence = missingComponents.length === 0 && recoveryEvidenceComplete && hasKm && fuelIsAuthoritative &&
+    (components.maintenance || !maintenanceProvisionPerKm) &&
+    (components.loan || loanScheduledObligation === 0) &&
+    (components.compliance || renewalProvision === 0)
+
+  const dependencies = {
+    ...components,
+    input: !!input,
     maintenanceProvisionPerKm: maintenanceProvisionPerKm != null,
-    fuelCostPerKm: Number.isFinite(Number(fuelCostPerKm)),
-    fuelCostPerKmEvidence: fuelCostPerKmStatus === CALCULATION_STATUS.AUTHORITATIVE,
-    vehicleKm: Number.isFinite(Number(vehicleKm)),
+    fuelCostPerKm: fuelRate != null,
+    fuelCostPerKmEvidence: fuelIsAuthoritative,
+    vehicleKm: hasKm,
     vehicleKmSource: String(vehicleKmSource || 'UNAVAILABLE'),
-    loanScheduledObligation: Number.isFinite(Number(loanScheduledObligation)),
-    preBusinessRecovery: Number.isFinite(Number(preBusinessRecovery)),
-    historicalMaintenanceRecovery: Number.isFinite(Number(historicalMaintenanceRecovery)),
-    renewalProvision: Number.isFinite(Number(renewalProvision)),
+    loanScheduledObligation: loan != null,
+    preBusinessRecovery: preBusiness != null,
+    historicalMaintenanceRecovery: historicalMaintenance != null,
+    renewalProvision: compliance != null,
+    missingComponents,
   }
-  const firstMissing = ['input', 'maintenanceProvisionPerKm', 'fuelCostPerKm', 'fuelCostPerKmEvidence', 'vehicleKm', 'loanScheduledObligation', 'preBusinessRecovery', 'historicalMaintenanceRecovery', 'renewalProvision'].find(key => !availability[key])
-  const numericComplete = ['input', 'maintenanceProvisionPerKm', 'fuelCostPerKm', 'vehicleKm', 'loanScheduledObligation', 'preBusinessRecovery', 'historicalMaintenanceRecovery', 'renewalProvision'].every(key => availability[key])
-  if (!numericComplete) {
+
+  if (allRequiredEvidence) {
     return {
-      available: false,
-      status: CALCULATION_STATUS.UNAVAILABLE,
-      reason: 'INCOMPLETE_BREAK_EVEN_INPUTS',
-      evidence: calculationEvidence({ status: CALCULATION_STATUS.UNAVAILABLE, reason: 'INCOMPLETE_BREAK_EVEN_INPUTS', dependencies: availability }),
-      trace: { ...availability, firstMissing },
-    }
-  }
-  const fixedCosts = Number(loanScheduledObligation) + Number(preBusinessRecovery) + Number(historicalMaintenanceRecovery) + Number(renewalProvision)
-  const dynamicCosts = Number(vehicleKm) * Number(fuelCostPerKm) + Number(vehicleKm) * maintenanceProvisionPerKm
-  const monthlyBreakEvenRevenue = fixedCosts + dynamicCosts
-  if (fuelCostPerKmStatus !== CALCULATION_STATUS.AUTHORITATIVE) {
-    return {
-      available: false,
-      status: CALCULATION_STATUS.INDICATIVE,
-      reason: 'PROVISIONAL_FUEL_EVIDENCE',
-      indicativeMonthlyBreakEvenRevenue: monthlyBreakEvenRevenue,
+      available: true,
+      status: CALCULATION_STATUS.AUTHORITATIVE,
+      monthlyBreakEvenRevenue,
       maintenanceProvisionPerKm,
       fixedCosts,
-      fuelCostPerKm: Number(fuelCostPerKm),
-      vehicleKm: Number(vehicleKm),
+      fuelCostPerKm: fuelRate,
+      vehicleKm: km,
       vehicleKmSource: String(vehicleKmSource || 'UNAVAILABLE'),
       authority: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN',
-      evidence: calculationEvidence({ status: CALCULATION_STATUS.INDICATIVE, source: fuelCostPerKmStatus === CALCULATION_STATUS.INDICATIVE ? 'OBSERVED_PERIOD' : null, reason: 'PROVISIONAL_FUEL_EVIDENCE', dependencies: availability }),
-      trace: { ...availability, firstMissing: 'fuelCostPerKmEvidence' },
+      evidence: calculationEvidence({ status: CALCULATION_STATUS.AUTHORITATIVE, source: 'FULL_TANK_INTERVAL', dependencies }),
+      trace: { ...dependencies, firstMissing: null },
     }
   }
+
   return {
-    available: true,
-    status: CALCULATION_STATUS.AUTHORITATIVE,
-    monthlyBreakEvenRevenue,
+    available: false,
+    status: CALCULATION_STATUS.INDICATIVE,
+    reason: missingComponents.length ? 'PARTIAL_BREAK_EVEN_COMPONENTS' : !recoveryEvidenceComplete ? 'PROVISIONAL_RECOVERY_EVIDENCE' : 'PROVISIONAL_FUEL_OR_KM_EVIDENCE',
+    indicativeMonthlyBreakEvenRevenue: monthlyBreakEvenRevenue,
     maintenanceProvisionPerKm,
     fixedCosts,
-    fuelCostPerKm: Number(fuelCostPerKm),
-    vehicleKm: Number(vehicleKm),
+    fuelCostPerKm: fuelRate,
+    vehicleKm: km,
     vehicleKmSource: String(vehicleKmSource || 'UNAVAILABLE'),
-    authority: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN',
-    evidence: calculationEvidence({ status: CALCULATION_STATUS.AUTHORITATIVE, source: 'FULL_TANK_INTERVAL', dependencies: availability }),
-    trace: { ...availability, firstMissing: null },
+    authority: 'INDICATIVE_MONTHLY_BREAK_EVEN',
+    evidence: calculationEvidence({
+      status: CALCULATION_STATUS.INDICATIVE,
+      source: fuelIsAuthoritative ? 'PARTIAL_COMPONENTS' : fuelCostPerKmStatus === CALCULATION_STATUS.INDICATIVE ? 'OBSERVED_PERIOD' : 'PARTIAL_COMPONENTS',
+      reason: missingComponents.length ? 'PARTIAL_BREAK_EVEN_COMPONENTS' : !recoveryEvidenceComplete ? 'PROVISIONAL_RECOVERY_EVIDENCE' : 'PROVISIONAL_FUEL_OR_KM_EVIDENCE',
+      dependencies: { ...dependencies, recoveryEvidenceComplete },
+    }),
+    trace: { ...dependencies, firstMissing: missingComponents[0] || (!recoveryEvidenceComplete ? (!preBusiness ? 'preBusinessRecovery' : 'historicalMaintenanceRecovery') : !hasKm ? 'vehicleKm' : 'fuelCostPerKmEvidence') },
   }
 }

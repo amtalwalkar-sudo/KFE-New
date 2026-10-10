@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { deriveFinanceAwarePerformance } from '../domain/performance/financePerformanceAdapter.js'
 import { previousRange } from '../domain/performance/performanceEngineV2.js'
 import { deriveAuthoritativeDriverTarget, getApplicableDriverTarget } from '../domain/performance/driverTarget.js'
+import { deriveAuthoritativeBreakEven } from '../domain/performance/authoritativeBreakEven.js'
 import { normalizeCalculationSnapshot } from '../application/performance/normalizeCalculationSnapshot.js'
 
 const snapshot = normalizeCalculationSnapshot({
@@ -27,6 +28,7 @@ assert.equal(metrics.calculationEvidence.breakEven.status, 'INDICATIVE')
 assert.ok(Number.isFinite(metrics.indicative?.monthlyBreakEvenRevenue), 'Expected indicative monthly break-even candidate')
 assert.equal(metrics.completeness.loan, true)
 assert.ok(Number.isFinite(metrics.breakEvenInputs.fuelCostPerKm), 'Expected observed fuel cost/km fallback')
+assert.ok(Number.isFinite(metrics.monthlyBreakEvenRevenue), 'Partial setup must expose a provisional monthly break-even estimate')
 assert.equal(metrics.breakEvenInputs.fuelCostPerKmSource, 'OBSERVED_PERIOD')
 assert.equal(metrics.breakEvenInputs.fuelEvidence.status, 'INDICATIVE')
 assert.ok(Number.isFinite(metrics.breakEvenInputs.maintenanceProvisionPerKm), 'Expected configured maintenance provision/km')
@@ -37,7 +39,7 @@ const targetFromIndicativeBreakEven = deriveAuthoritativeDriverTarget({
   desiredDriverProfitMonthly: targetRecord?.desiredDriverProfit,
   calendarDays: 30,
 })
-assert.equal(targetFromIndicativeBreakEven.available, false, 'Indicative break-even must not feed authoritative target')
+assert.equal(targetFromIndicativeBreakEven.available, true, 'Indicative break-even must feed a provisional target so the figure updates before full-tank qualification')
 
 const qualifiedSnapshot = normalizeCalculationSnapshot({
   ...snapshot,
@@ -60,6 +62,35 @@ const qualifiedTarget = deriveAuthoritativeDriverTarget({
 assert.equal(qualifiedTarget.available, true)
 assert.equal(qualifiedTarget.authority, 'MONTHLY_BREAK_EVEN_PLUS_ADMIN_MONTHLY_DRIVER_PROFIT')
 assert.ok(Number.isFinite(qualifiedTarget.target))
+
+
+const partialRange = { from: new Date('2026-09-01T00:00:00+05:30'), to: new Date('2026-09-30T23:59:59.999+05:30') }
+const loanOnly = deriveAuthoritativeBreakEven({ range: partialRange, loanScheduledObligation: 12000, loanInputAvailable: true })
+assert.equal(loanOnly.status, 'INDICATIVE')
+assert.equal(loanOnly.indicativeMonthlyBreakEvenRevenue, 12000, 'Loan-only setup must produce a provisional break-even')
+
+const complianceOnly = deriveAuthoritativeBreakEven({ range: partialRange, renewalProvision: 900, complianceInputAvailable: true })
+assert.equal(complianceOnly.status, 'INDICATIVE')
+assert.equal(complianceOnly.indicativeMonthlyBreakEvenRevenue, 900, 'Compliance-only setup must produce a provisional break-even')
+
+const maintenanceOnly = deriveAuthoritativeBreakEven({
+  range: partialRange,
+  breakEvenInputs: [{ id: 'maintenance-only', effectiveFrom: '2026-01-01', maintenanceProvisionPerKm: 1.5, active: true }],
+  vehicleKm: 1000,
+  vehicleKmSource: 'TEST',
+})
+assert.equal(maintenanceOnly.status, 'INDICATIVE')
+assert.equal(maintenanceOnly.indicativeMonthlyBreakEvenRevenue, 1500, 'Maintenance-only setup must produce a provisional break-even')
+
+const fuelOnly = deriveAuthoritativeBreakEven({
+  range: partialRange,
+  fuelCostPerKm: 2,
+  fuelCostPerKmStatus: 'INDICATIVE',
+  vehicleKm: 1000,
+  vehicleKmSource: 'TEST',
+})
+assert.equal(fuelOnly.status, 'INDICATIVE')
+assert.equal(fuelOnly.indicativeMonthlyBreakEvenRevenue, 2000, 'Fuel-only setup must produce a provisional break-even')
 
 console.log('September break-even → target dependency contract: PASS')
 const midMonthStartSnapshot = normalizeCalculationSnapshot({

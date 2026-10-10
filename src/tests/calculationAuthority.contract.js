@@ -57,7 +57,7 @@ for (const key of ['revenue', 'vehicleKm', 'businessKm', 'deadKm', 'fuelCost', '
 assert.equal(variantMetrics.period.timeZone, 'Asia/Kolkata')
 const serviceMetrics = PerformanceService.getMetrics(canonical, range)
 assert.equal(serviceMetrics.breakEvenRevenue, serviceMetrics.monthlyBreakEvenRevenue)
-assert.equal(serviceMetrics.breakEvenRevenue, null)
+assert.ok(Number.isFinite(serviceMetrics.breakEvenRevenue), 'Partial setup must surface a break-even estimate')
 assert.equal(serviceMetrics.calculationEvidence.breakEven.status, 'INDICATIVE')
 assert.ok(Number.isFinite(serviceMetrics.indicativeMonthlyBreakEvenRevenue), 'Indicative break-even candidate should remain visible')
 assert.ok(Number.isNaN(canonicalMetrics.monthlyBreakEvenRevenue))
@@ -68,7 +68,7 @@ assert.equal('targetGap' in metrics.pace, false)
 assert.equal(metrics.pace.currentRevenuePerFinancialDay, metrics.revenuePerActiveDay)
 assert.equal(metrics.pace.requiredRevenuePerFinancialDay, metrics.target)
 
-assert.equal(metrics.dailyBreakEvenRevenue, null)
+assert.ok(Number.isFinite(metrics.dailyBreakEvenRevenue), 'Indicative monthly break-even must yield a provisional daily figure')
 assert.equal(metrics.dailyBreakEven.status, 'INDICATIVE')
 
 assert.equal(istDateKey(new Date('2026-09-10T23:00:00Z')), '2026-09-11')
