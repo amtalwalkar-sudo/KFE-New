@@ -67,6 +67,24 @@ const diagnostics = computed(() => PerformanceService.getDiagnostics(m.value))
 const actualProfit = computed(() => finite(m.value.performanceHeadlineActualProfit ?? m.value.actualProfit ?? m.value.operatingProfit))
 const indicativeProfit = computed(() => finite(m.value.performanceHeadlineProvisionalProfit ?? m.value.indicativeProfit))
 const indicativeProvision = computed(() => finite(m.value.totalIndicativeProvision))
+const provisionalDeductionRows = computed(() => [
+  { label: 'Maintenance provision', value: m.value.maintenanceProvision },
+  { label: 'Compliance provision', value: m.value.renewalProvision },
+  { label: 'Pre-business loan recovery', value: m.value.preBusinessRecoveryForPeriod },
+  { label: 'Historical maintenance recovery', value: m.value.historicalMaintenanceRecoveryForPeriod },
+])
+const provisionalDeductionTotal = computed(() => {
+  const values = provisionalDeductionRows.value.map(row => row.value)
+  if (values.some(value => value == null || value === '' || !Number.isFinite(Number(value)))) return null
+  return values.reduce((sum, value) => sum + Number(value), 0)
+})
+const provisionalDeductionReconciles = computed(() => {
+  const actual = actualProfit.value
+  const provisional = indicativeProfit.value
+  const total = provisionalDeductionTotal.value
+  return actual != null && provisional != null && total != null &&
+    Math.abs((actual - provisional) - total) < 0.011
+})
 const fuelEconomy = computed(() => {
   const km = finite(m.value.vehicleKm)
   const kg = finite(m.value.fuelQty)
@@ -313,6 +331,24 @@ const periodContext = computed(() => periodLabel.value)
           <div><strong>{{ num(m.vehicleKm) }}</strong><span>Vehicle KM</span></div>
           <div><strong>{{ num(refuelTrail.length) }}</strong><span>Refuelling events</span></div>
         </div>
+
+        <div class="pp-section-heading pp-provisional-breakdown-heading">
+          <span>PROVISIONAL PROFIT / LOSS</span>
+          <h2>Deduction breakdown · {{ periodLabel }}</h2>
+        </div>
+        <div class="metric-grid pp-break-even-breakdown" aria-label="Provisional profit deduction calculation breakdown">
+          <div><span>Actual profit / loss</span><strong>{{ money2(actualProfit) }}</strong></div>
+          <div v-for="row in provisionalDeductionRows" :key="row.label">
+            <span>{{ row.label }}</span>
+            <strong>{{ row.value == null || row.value === '' || !Number.isFinite(Number(row.value)) ? '—' : money2(row.value) }}</strong>
+          </div>
+          <div><span>Total provisional deductions</span><strong>{{ provisionalDeductionTotal == null ? '—' : money2(provisionalDeductionTotal) }}</strong></div>
+          <div><span>Provisional profit / loss</span><strong>{{ money2(indicativeProfit) }}</strong></div>
+        </div>
+        <p class="pp-boundary-note" v-if="provisionalDeductionTotal != null">
+          Reconciliation: Actual P/L − total provisional deductions = Provisional P/L.
+          <strong>{{ provisionalDeductionReconciles ? 'RECONCILED' : 'CHECK REQUIRED' }}</strong>
+        </p>
       </section>
 
       <section class="pp-section pp-timeline-section">
