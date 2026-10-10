@@ -26,6 +26,9 @@ assert.match(forecast, /calculatedForecast/)
 assert.match(forecast, /effectiveForecast/)
 assert.match(performanceView, /Actual P\/L = Financial Revenue − Actual Operating Expenses − Actual EMI\/loan payments/)
 assert.match(performanceView, /Provisional P\/L = Actual P\/L − Maintenance Provision − Compliance Provision − Pre-business Loan Recovery − Historical Maintenance Recovery/)
+assert.match(performanceView, /Deduction breakdown · \{\{ periodLabel \}\}/)
+assert.match(performanceView, /Total provisional deductions/)
+assert.match(performanceView, /provisionalDeductionReconciles/)
 assert.doesNotMatch(performanceView, /Provisional Profit \/ Loss = Authoritative Revenue/)
 
 const snapshot = buildSyntheticSnapshot(1826, { fullTimeline: true })
@@ -42,6 +45,16 @@ assert.ok(Math.abs(metrics.operatingKmForecast.calculatedForecast.dailyKm - 212.
 assert.ok(Math.abs(metrics.actualProfit - (metrics.operatingProfit - metrics.performanceHeadlineScheduledEmi)) < 1e-9)
 assert.ok(Math.abs(metrics.performanceHeadlineActualProfit - metrics.actualProfit) < 1e-9)
 assert.ok(Math.abs(metrics.performanceHeadlineProvisionalProfit - (metrics.performanceHeadlineActualProfit - metrics.maintenanceProvision - metrics.renewalProvision - metrics.preBusinessRecoveryForPeriod - metrics.historicalMaintenanceRecoveryForPeriod)) < 1e-9)
+const provisionalDeductionComponents = [
+  metrics.maintenanceProvision,
+  metrics.renewalProvision,
+  metrics.preBusinessRecoveryForPeriod,
+  metrics.historicalMaintenanceRecoveryForPeriod,
+]
+assert.ok(provisionalDeductionComponents.every(value => Number.isFinite(Number(value))), 'Provisional deduction trace must expose every canonical component')
+const provisionalDeductionTotal = provisionalDeductionComponents.reduce((sum, value) => sum + Number(value), 0)
+assert.ok(Math.abs((metrics.performanceHeadlineActualProfit - metrics.performanceHeadlineProvisionalProfit) - provisionalDeductionTotal) < 1e-9,
+  'The selected-period provisional deduction total must reconcile to Actual P/L minus Provisional P/L')
 assert.ok(Math.abs(metrics.indicativeProfit - metrics.performanceHeadlineProvisionalProfit) < 1e-9)
 assert.ok(Math.abs(metrics.totalIndicativeProvision - (metrics.loanProvisionForPeriod + metrics.maintenanceProvision + metrics.renewalProvision)) < 1e-9)
 assert.equal(metrics.authority.actualProfit, 'OPERATING_PROFIT_MINUS_FULL_SCHEDULED_EMI')
