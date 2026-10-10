@@ -163,7 +163,7 @@ function allocationState(schedule, payments, asOf, annualRate) {
     const paymentDate = dateOf(payment.paidOn)
     if (!paymentDate || remainingPaise <= 0) continue
     for (const row of rows) {
-      if (remainingPaise <= 0 || dateOf(row.dueDate) > paymentDate) continue
+      if (remainingPaise <= 0 || paymentDate < dateOf(row.periodStart)) continue
       const unpaidInterestPaise = Math.max(0, rupeesToPaise(row.originalInterestComponent) - rupeesToPaise(row.scheduledInterestPaid))
       const unpaidPrincipalPaise = Math.max(0, rupeesToPaise(row.originalPrincipalComponent) - rupeesToPaise(row.scheduledPrincipalPaid))
       const overdueDays = overdueDayCount(dateOf(row.dueDate), paymentDate)
@@ -372,18 +372,28 @@ export function calculatePreBusinessRecovery({ position, businessStartDate, asOf
 export function paymentAllocationPreview({ loan, payments = [], prepayments = [], amount, paidOn } = {}) {
   const position = deriveLoanPosition({ loan, payments, prepayments, asOf: paidOn })
   if (!position.available) return { available: false, reason: position.reason }
+  const paymentDate = dateOf(paidOn)
+  if (!paymentDate) return { available: false, reason: 'INVALID_PAYMENT_DATE' }
   const targetPaise = Math.max(0, rupeesToPaise(amount))
   let remainingPaise = targetPaise
   const allocations = []
-  for (const row of position.overdue) {
+  for (const row of position.schedule) {
     if (remainingPaise <= 0) break
-    const overduePaise = Math.min(remainingPaise, Math.max(0, rupeesToPaise(row.overdueAmount) - rupeesToPaise(row.unpaidPrincipal) - rupeesToPaise(row.unpaidScheduledInterest)))
-    remainingPaise -= overduePaise
-    const interestPaise = Math.min(remainingPaise, rupeesToPaise(row.unpaidScheduledInterest))
+    if (paymentDate < dateOf(row.periodStart)) continue
+    const unpaidInterestPaise = Math.max(0, rupeesToPaise(row.originalInterestComponent) - rupeesToPaise(row.scheduledInterestPaid))
+    const unpaidPrincipalPaise = Math.max(0, rupeesToPaise(row.originalPrincipalComponent) - rupeesToPaise(row.scheduledPrincipalPaid))
+    const overdueDays = overdueDayCount(dateOf(row.dueDate), paymentDate)
+    const additionalOverdueInterestPaise = roundPaise(unpaidInterestPaise * annualRateForLoan(loan) * overdueDays / DAYS_IN_YEAR)
+    const overdueDuePaise = Math.max(0, additionalOverdueInterestPaise - rupeesToPaise(row.overdueInterestPaid))
+    const overdueInterestPaise = Math.min(remainingPaise, overdueDuePaise)
+    remainingPaise -= overdueInterestPaise
+    const interestPaise = Math.min(remainingPaise, unpaidInterestPaise)
     remainingPaise -= interestPaise
-    const principalPaise = Math.min(remainingPaise, rupeesToPaise(row.unpaidPrincipal))
+    const principalPaise = Math.min(remainingPaise, unpaidPrincipalPaise)
     remainingPaise -= principalPaise
-    allocations.push({ obligationId: row.id, overdueInterest: paiseToRupees(overduePaise), scheduledInterest: paiseToRupees(interestPaise), scheduledPrincipal: paiseToRupees(principalPaise) })
+    if (overdueInterestPaise || interestPaise || principalPaise) {
+      allocations.push({ obligationId: row.id, overdueInterest: paiseToRupees(overdueInterestPaise), scheduledInterest: paiseToRupees(interestPaise), scheduledPrincipal: paiseToRupees(principalPaise) })
+    }
   }
   if (remainingPaise > 0) return { available: false, reason: 'PAYMENT_EXCEEDS_EMI_OBLIGATIONS' }
   return { available: true, allocations, allocatedAmount: paiseToRupees(targetPaise - remainingPaise) }
