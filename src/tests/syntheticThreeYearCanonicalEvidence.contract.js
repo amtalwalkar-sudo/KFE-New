@@ -88,7 +88,7 @@ try {
   })
   assert.equal(negativeMaintenanceBreakEven.status, CALCULATION_STATUS.INDICATIVE, 'negative maintenance rate must not produce authoritative break-even')
   assert.equal(negativeMaintenanceBreakEven.maintenanceCost, null, 'invalid negative maintenance rate must not reduce break-even cost')
-  assert.equal(negativeMaintenanceBreakEven.monthlyBreakEvenRevenue, 15000, 'invalid negative maintenance rate is excluded rather than subtracted')
+  assert.equal(negativeMaintenanceBreakEven.indicativeMonthlyBreakEvenRevenue, 15000, 'invalid negative maintenance rate is excluded rather than subtracted')
   assert.equal(Math.round(calculateFuelQuantityKg(500, 82) * 10) / 10, 6.1, 'fuel quantity rounding belongs to display only')
   assert.equal(fixture.specialCases.fuelPrecision.expectedQuantityKgDisplay2dp, 6.1)
   assert.equal(fixture.specialCases.provisionalDeduction.expectedTotalInr, 815)
