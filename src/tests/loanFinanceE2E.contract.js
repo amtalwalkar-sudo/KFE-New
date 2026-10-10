@@ -42,6 +42,10 @@ const later = '2026-04-01'
   const position = deriveLoanPosition({ loan, payments: [earlyPayment], asOf: earlyPaidOn })
   assert.equal(position.actualPaid, amount)
   assert.equal(position.schedule[0].paidAmount, amount, 'saved advance payment must be reflected in installment allocation')
+  assert.equal(position.installmentCounts.partiallyPaid, 1, 'A short early payment must be visible as a partially paid installment')
+  assert.equal(position.installmentCounts.paid, 0, 'A short payment must not count as a fully paid EMI')
+  assert.equal(position.installmentCounts.unsettled, position.installmentCounts.scheduled, 'A partially paid EMI remains unsettled until its scheduled components are satisfied')
+
   assert.ok(position.schedule[0].dueDate > earlyPaidOn, 'regression must cover payment before the EMI due date')
 }
 {
