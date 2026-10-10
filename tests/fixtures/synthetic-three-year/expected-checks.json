@@ -1,0 +1,51 @@
+{
+  "fixture": "KFE three-year synthetic calculation fixture",
+  "synthetic": true,
+  "expectedChecks": [
+    {
+      "id": "TGT-SURPLUS-001",
+      "input": {"requiredTargetInr": 1000, "earnedEligibleAmountInr": 1350},
+      "expected": {"dailyTargetInr": 0, "surplusCreditInr": 350},
+      "invariant": "daily target is never negative; surplus is tracked separately"
+    },
+    {
+      "id": "LOAN-RECON-001",
+      "input": {"monthlyEmiInr": 11324, "paymentsIn36Months": 36, "totalPaidInr": 407664},
+      "expected": {"paidEmiCount": 36, "totalPaidInr": 407664},
+      "status": "PARTIAL_ORACLE_ONLY",
+      "invariant": "principal reconciliation requires configured principal, rate, and original tenure"
+    },
+    {
+      "id": "PROVISIONAL-815-001",
+      "input": {"selectedPeriod": "2024-06"},
+      "expected": {"totalInr": 815},
+      "status": "TOTAL_ORACLE_ONLY",
+      "invariant": "canonical components sum to 815 and UI displays 815; no invented components"
+    },
+    {
+      "id": "BREAK-EVEN-4672-001",
+      "input": {"selectedPeriod": "fixture-defined"},
+      "expected": {"breakEvenInr": 4672},
+      "status": "OUTPUT_ORACLE_ONLY",
+      "invariant": "input provenance, formula, canonical result, and displayed result are all traceable"
+    },
+    {
+      "id": "FUEL-PRECISION-001",
+      "input": {"amountInr": 500, "pricePerKgInr": 82},
+      "expected": {"quantityKgExact": 6.097560975609756, "quantityKgDisplay2dp": 6.1},
+      "invariant": "round only according to explicit display/storage rules"
+    },
+    {
+      "id": "PRE-BUSINESS-MAINT-001",
+      "input": {"distanceKm": 60000, "rateInrPerKm": 0.6},
+      "expected": {"obligationInr": 36000},
+      "invariant": "separate historical obligation from ongoing maintenance provision at 1.60/km"
+    },
+    {
+      "id": "MISSING-TRIP-KM-001",
+      "input": {"fareInr": 420, "tripKm": null},
+      "expected": {"missingTripKmWarning": true},
+      "invariant": "missing KM is not silently converted to zero; warning survives refresh/reconciliation"
+    }
+  ]
+}
