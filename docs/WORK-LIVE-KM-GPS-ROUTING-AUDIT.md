@@ -54,7 +54,7 @@ The follow-up implementation adds these behaviours:
 - While connectivity is available, Work attempts Valhalla trace matching no more frequently than every 30 seconds, and only treats a response as a road match when it includes valid matched LineString geometry. A validated live match is explicitly labelled **PROVISIONAL ROAD MATCH**; otherwise the screen retains **LIVE GPS ESTIMATE**.
 - Completed trips whose canonical distance is currently GPS-line fallback are queued in local storage. Queue discovery runs at app startup and before retry; connectivity restoration triggers a forced retry. The queue is retained unless Valhalla returns a valid matched geometry and the canonical trip enrichment is saved.
 - Reconciliation stores the accepted Valhalla distance and provenance, including the GPS-line fallback comparison, and removes the trip from the queue only after successful persistence. Re-running reconciliation is idempotent at the trip enrichment level; it replaces the provisional distance rather than adding it to totals.
-- Queue retries are throttled to 30 seconds during ordinary Work refresh; connectivity restoration can trigger an immediate retry.
+- Queue retries are throttled to 30 seconds during ordinary Work refresh; connectivity restoration can trigger an immediate retry. Queue identifiers are persisted in local storage, while the trace evidence remains in IndexedDB/native JSONL so the queue can be rebuilt from saved completed trips if needed.
 
 ## Offline acceptance status
 
