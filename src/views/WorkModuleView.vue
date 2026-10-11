@@ -222,6 +222,8 @@ const tripTimer = computed(() => {
 })
 
 async function refreshLiveMovementKm() {
+  // Queue discovery/reconciliation is independent of whether a trip is currently active.
+  void MovementReconciliationQueue.reconcilePending()
   const currentTrip = store.trip
   if (!store.isOnline || !currentTrip?.id) {
     liveMovementKm.value = 0
