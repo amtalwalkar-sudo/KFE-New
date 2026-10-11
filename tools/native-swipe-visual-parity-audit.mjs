@@ -61,8 +61,8 @@ export function runNativeSwipeVisualParityAudit() {
   }
   const nativeDarkColour = (key) => rgb(expected[key].night).join(',')
   for (const [stage, {key}] of Object.entries(semantic)) {
-    const branches = action[1].match(/return dark\(\)\?Color\.rgb\(([^)]*)\):Color\.rgb\(([^)]*)\)/)
-    if (!branches || branches[1] !== nativeDarkColour(key)) fail('Native ' + stage + ' dark semantic colour does not match canonical PWA token: ' + nativeDarkColour(key))
+    const marker = `return dark()?Color.rgb(${nativeDarkColour(key)}):Color.rgb(`
+    if (!action[1].includes(marker)) fail('Native ' + stage + ' dark semantic colour does not match canonical PWA token: ' + nativeDarkColour(key))
   }
 
   const surface = java.match(/private int surface\(\)\{return dark\(\)\?Color\.rgb\(([^)]*)\):Color\.WHITE;/)
