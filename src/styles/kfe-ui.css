@@ -1556,3 +1556,48 @@ table th,table td{border-color:var(--kfe-ui-border)}
   }
 }
 /* A back action never silently discards an in-progress Work form. */
+
+
+/* Work visibility recovery: allow vertical scrolling whenever content extends
+   behind the fixed swipe dock or shell navigation. Keep the dock itself fixed. */
+@supports (height: 100dvh) {
+  body:has(.work-canonical) {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain !important;
+  }
+}
+.work-canonical {
+  height: auto !important;
+  min-height: 100dvh !important;
+  overflow: visible !important;
+}
+.work-canonical .work-main {
+  height: auto !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain !important;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(var(--kfe-nav-height, 76px) + 156px + env(safe-area-inset-bottom, 0px)) !important;
+}
+.work-canonical .work-main:has(.form-fare),
+.work-canonical .work-main:has(.form-cancel),
+.work-canonical .work-main:has(.form-fuel),
+.work-canonical .work-main:has(.form-end),
+.work-canonical .work-main:has(.form-start) {
+  height: auto !important;
+  max-height: none !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  padding-top: 8px !important;
+  padding-bottom: calc(var(--kfe-nav-height, 76px) + 156px + env(safe-area-inset-bottom, 0px)) !important;
+}
+.work-canonical .work-context-form,
+.work-canonical .work-context-form .form-card {
+  max-height: none !important;
+}
+.work-canonical .work-context-form.form-end .form-card {
+  overflow: visible !important;
+}
