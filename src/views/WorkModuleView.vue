@@ -203,7 +203,7 @@ const ready = computed(() => cockpit.value.state === WORK_COCKPIT_STATES.READY_F
 const active = computed(() => cockpit.value.state === WORK_COCKPIT_STATES.TRIP_ACTIVE)
 const liveMovementKm = ref(0)
 const liveMovementStatus = ref('WAITING FOR GPS')
-const liveMovementLabel = computed(() => store.trip?.id ? (active.value ? 'BUSINESS KM' : 'DEAD KM') : '')
+const liveMovementLabel = computed(() => store.isOnline ? (active.value ? 'BUSINESS KM' : 'DEAD KM') : '')
 const actionLabel = computed(() => {
   if (cockpit.value.action === 'END_RIDE') return 'END TRIP'
   if (cockpit.value.action === 'START_RIDE') return 'START TRIP'
@@ -214,29 +214,48 @@ const shiftTimer = computed(() => {
   const seconds = Math.floor(elapsed / 1000)
   return `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds % 3600 / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
 })
+const formatElapsed = elapsedMs => {
+  const seconds = Math.max(0, Math.floor(Number(elapsedMs || 0) / 1000))
+  return `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds % 3600 / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
+}
 const tripTimer = computed(() => {
   const started = cockpit.value.tripStartAt
-  if (!started) return '00:00:00'
-  const seconds = Math.max(0, Math.floor((clock.value - started) / 1000))
-  return `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds % 3600 / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
+  return started ? formatElapsed(clock.value - started) : '00:00:00'
 })
+const stateTimerLabel = computed(() => {
+  if (cockpit.value.state === WORK_COCKPIT_STATES.TRIP_ACTIVE) return 'TRIP TIME'
+  if (cockpit.value.state === WORK_COCKPIT_STATES.GOING_TO_PICKUP || cockpit.value.state === WORK_COCKPIT_STATES.READY_FOR_TRIP) return 'PICKUP TIME'
+  return 'READY TIME'
+})
+const stateTimerStartAt = computed(() => {
+  if (cockpit.value.state === WORK_COCKPIT_STATES.TRIP_ACTIVE) return cockpit.value.tripStartAt
+  if (cockpit.value.state === WORK_COCKPIT_STATES.GOING_TO_PICKUP || cockpit.value.state === WORK_COCKPIT_STATES.READY_FOR_TRIP) {
+    return Date.parse(store.trip?.createdAt || store.trip?.updatedAt || '') || clock.value
+  }
+  const lastTrip = completed.value
+    .filter(trip => trip.shiftId === store.shift?.id)
+    .sort((a, b) => (Date.parse(b.tripEndAt || b.updatedAt || '') || 0) - (Date.parse(a.tripEndAt || a.updatedAt || '') || 0))[0]
+  return Date.parse(lastTrip?.tripEndAt || lastTrip?.updatedAt || store.shift?.shiftStartAt || '') || clock.value
+})
+const stateTimer = computed(() => formatElapsed(clock.value - stateTimerStartAt.value))
 
 async function refreshLiveMovementKm() {
-  // Queue discovery/reconciliation is independent of whether a trip is currently active.
+  // Keep shift-level dead KM visible between trips as well as during pickup.
   void MovementReconciliationQueue.reconcilePending()
   const currentTrip = store.trip
-  if (!store.isOnline || !currentTrip?.id) {
+  if (!store.isOnline || !store.shift?.id) {
     liveMovementKm.value = 0
     liveMovementStatus.value = 'WAITING FOR GPS'
     return
   }
 
   const expectedEvent = active.value ? 'PASSENGER_RIDE_TRACE' : 'DEAD_MOVEMENT_TRACE'
+  const traceOwnerId = active.value && currentTrip?.id ? currentTrip.id : store.shift.id
   let tracePoints = []
 
   if (nativeAndroid) {
     try {
-      tracePoints = (await NativeGpsService.readTrace(currentTrip.id))
+      tracePoints = (await NativeGpsService.readTrace(traceOwnerId))
         .filter(point => point?.eventType === expectedEvent)
     } catch (_) {}
   }
@@ -244,7 +263,7 @@ async function refreshLiveMovementKm() {
   if (tracePoints.length < 2) {
     const session = MovementTraceService.getActiveSession()
     const matchesCurrentMovement = active.value
-      ? session?.entityType === 'TRIP' && session.entityId === currentTrip.id && session.profile === 'PASSENGER_RIDE'
+      ? Boolean(currentTrip?.id) && session?.entityType === 'TRIP' && session.entityId === currentTrip.id && session.profile === 'PASSENGER_RIDE'
       : session?.entityType === 'SHIFT' && session.entityId === store.shift?.id && session.profile === 'DEAD_LEG'
     if (matchesCurrentMovement) {
       tracePoints = MovementTraceService.getPoints()
@@ -1050,16 +1069,26 @@ onBeforeUnmount(() => {
       <section v-if="cockpit.state===WORK_COCKPIT_STATES.READY" class="operational-state state-tone-info">
         <strong>READY FOR NEXT PICKUP</strong>
         <label class="operator-compact"><span>Operator</span><select v-model="operator"><option v-for="item in store.operators" :key="item">{{ item }}</option></select></label>
+        <div class="work-live-metrics">
+          <div class="live-km-readout" aria-live="polite"><span>{{ liveMovementLabel }}</span><strong>{{ liveMovementKm.toFixed(1) }} km</strong><small>{{ liveMovementStatus }}</small></div>
+          <div class="trip-timer-block"><span class="timer-label">{{ stateTimerLabel }}</span><strong class="trip-timer" aria-live="polite">{{ stateTimer }}</strong></div>
+        </div>
       </section>
 
       <section v-else-if="cockpit.state===WORK_COCKPIT_STATES.READY_FOR_TRIP || cockpit.state===WORK_COCKPIT_STATES.GOING_TO_PICKUP" class="operational-state state-tone-info">
-        <span class="eyebrow">GOING TO PICKUP</span><strong>{{ store.trip?.operator || 'TRIP' }}</strong><div class="live-km-readout" aria-live="polite"><span>{{ liveMovementLabel }}</span><strong>{{ liveMovementKm.toFixed(1) }} km</strong><small>{{ liveMovementStatus }}</small></div>
+        <span class="eyebrow">GOING TO PICKUP</span><strong>{{ store.trip?.operator || 'TRIP' }}</strong>
+        <div class="work-live-metrics">
+          <div class="live-km-readout" aria-live="polite"><span>{{ liveMovementLabel }}</span><strong>{{ liveMovementKm.toFixed(1) }} km</strong><small>{{ liveMovementStatus }}</small></div>
+          <div class="trip-timer-block"><span class="timer-label">{{ stateTimerLabel }}</span><strong class="trip-timer" aria-live="polite">{{ stateTimer }}</strong></div>
+        </div>
       </section>
 
       <section v-else-if="cockpit.state===WORK_COCKPIT_STATES.TRIP_ACTIVE" class="operational-state trip-timer-state state-tone-success">
         <span class="eyebrow">TRIP ACTIVE</span><strong>{{ store.trip?.operator || 'TRIP' }}</strong>
-        <div class="live-km-readout" aria-live="polite"><span>{{ liveMovementLabel }}</span><strong>{{ liveMovementKm.toFixed(1) }} km</strong><small>{{ liveMovementStatus }}</small></div>
-        <div class="trip-timer-block"><span class="timer-label">TRIP TIME</span><strong class="trip-timer" aria-live="polite">{{ tripTimer }}</strong></div>
+        <div class="work-live-metrics">
+          <div class="live-km-readout" aria-live="polite"><span>{{ liveMovementLabel }}</span><strong>{{ liveMovementKm.toFixed(1) }} km</strong><small>{{ liveMovementStatus }}</small></div>
+          <div class="trip-timer-block"><span class="timer-label">{{ stateTimerLabel }}</span><strong class="trip-timer" aria-live="polite">{{ tripTimer }}</strong></div>
+        </div>
       </section>
 
       <section v-if="!fuelOpen && !endOpen && !cancelOpen" class="action-instrument work-fixed-action">
