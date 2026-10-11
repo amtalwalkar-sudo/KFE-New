@@ -1,4 +1,4 @@
-const finite = value => Number.isFinite(Number(value)) ? Number(value) : null
+const finite = value => value == null || (typeof value === 'string' && value.trim() === '') || !Number.isFinite(Number(value)) ? null : Number(value)
 const money = value => Math.round((Number(value) || 0) * 100) / 100
 
 /**
@@ -14,21 +14,21 @@ export function deriveDailyRevenueAllocation({
   revenue = NaN,
   monthlyBreakEvenRevenue = NaN,
   scheduledEmi = NaN,
-  preBusinessRecovery = 0,
+  preBusinessRecovery,
   maintenanceProvision = NaN,
   complianceProvision = NaN,
-  historicalMaintenanceRecovery = 0,
+  historicalMaintenanceRecovery,
 } = {}) {
   const dayRevenue = finite(revenue)
   const monthlyBe = finite(monthlyBreakEvenRevenue)
   const emi = finite(scheduledEmi)
   const maintenance = finite(maintenanceProvision)
   const compliance = finite(complianceProvision)
-  const preBusiness = finite(preBusinessRecovery) ?? 0
-  const historical = finite(historicalMaintenanceRecovery) ?? 0
+  const preBusiness = finite(preBusinessRecovery)
+  const historical = finite(historicalMaintenanceRecovery)
 
-  const financialObligation = emi != null ? Math.max(0, emi) + Math.max(0, preBusiness) : null
-  const otherRequired = Math.max(0, historical)
+  const financialObligation = emi != null && preBusiness != null ? Math.max(0, emi) + Math.max(0, preBusiness) : null
+  const otherRequired = historical != null ? Math.max(0, historical) : null
   const components = [financialObligation, maintenance, compliance, otherRequired]
   const complete = dayRevenue != null && monthlyBe != null && monthlyBe > 0 && components.every(value => value != null)
   if (!complete) {

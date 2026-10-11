@@ -52,4 +52,14 @@ const fullLeapYear = derivePerformance({
 }, { from: new Date('2023-12-31T18:30:00.000Z'), to: new Date('2024-12-31T18:29:59.999Z') })
 assert.ok(Math.abs(fullLeapYear.renewalProvision - 30000) < 1e-9, 'full 2024 validity accrues exactly the annual cost without daily rounding')
 
+for (const invalidRecord of [
+  { id: 'bad-date', cost: 1000, validFrom: 'not-a-date', validUntil: '2026-12-31' },
+  { id: 'reversed-date', cost: 1000, validFrom: '2026-12-31', validUntil: '2026-01-01' },
+  { id: 'missing-cost', validFrom: '2026-01-01', validUntil: '2026-12-31' },
+  { id: 'zero-cost', cost: 0, validFrom: '2026-01-01', validUntil: '2026-12-31' },
+]) {
+  const invalid = derivePerformance({ shifts: [], trips: [], fuelLogs: [], maintenance: [], compliance: [invalidRecord], settlements: [] }, range)
+  assert.ok(Number.isNaN(invalid.renewalProvision), `invalid compliance record ${invalidRecord.id} must not silently become zero provision`)
+  assert.ok(Number.isNaN(invalid.complianceProvisionAccumulatedById[invalidRecord.id]), `invalid compliance record ${invalidRecord.id} must retain unavailable accumulated evidence`)
+}
 console.log('Maintenance provision evidence and balance contract: PASS')

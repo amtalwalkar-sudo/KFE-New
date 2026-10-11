@@ -26,6 +26,13 @@ assert.equal(ADMIN_FORM_DEFINITIONS.prepayment.calculationRole, 'authoritative-p
   assert.equal(alternatePosition.emi, alternateEmi)
 }
 assert.throws(() => calculateEmi(loan.principal, loan.tenureMonths), /annual interest rate is required/i)
+for (const missingRate of [null, '', undefined]) {
+  assert.throws(() => calculateEmi(loan.principal, loan.tenureMonths, missingRate), /annual interest rate is required/i, `missing rate ${String(missingRate)} must not be coerced to zero`)
+  const incomplete = deriveLoanPosition({ loan: { ...loan, annualInterestRatePercent: missingRate }, asOf: '2026-02-01' })
+  assert.equal(incomplete.available, false, `loan with rate ${String(missingRate)} must be unavailable`)
+  assert.equal(incomplete.reason, 'MISSING_OR_INVALID_INTEREST_RATE')
+}
+assert.equal(calculateEmi(100000, 12, 0), 8333.33, 'explicit zero interest remains valid')
 
 const due = '2026-02-01'
 const late = '2026-02-11'
