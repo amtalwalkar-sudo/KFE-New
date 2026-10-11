@@ -62,14 +62,15 @@ const addMonths = (date, months) => {
   // IST day and make a due EMI disappear from the selected period.
   return new Date(Date.UTC(year, month, day, get('hour'), get('minute'), get('second')) - (5 * 60 + 30) * 60 * 1000)
 }
-const annualRateForLoan = loan => Math.max(0, finite(loan?.annualInterestRatePercent)) / 100
+const hasExplicitInterestRate = loan => loan?.annualInterestRatePercent != null && String(loan.annualInterestRatePercent).trim() !== '' && Number.isFinite(Number(loan.annualInterestRatePercent)) && Number(loan.annualInterestRatePercent) >= 0
+const annualRateForLoan = loan => hasExplicitInterestRate(loan) ? Number(loan.annualInterestRatePercent) / 100 : NaN
 
 export function calculateEmi(principal, tenureMonths, annualInterestRatePercent) {
+  if (annualInterestRatePercent == null || String(annualInterestRatePercent).trim() === '' || !Number.isFinite(Number(annualInterestRatePercent)) || Number(annualInterestRatePercent) < 0) throw new Error('Loan annual interest rate is required to calculate EMI.')
   const principalPaise = Math.max(0, rupeesToPaise(principal))
   const T = Math.max(1, Math.floor(finite(tenureMonths)))
-  const annualRate = Math.max(0, finite(annualInterestRatePercent)) / 100
+  const annualRate = Number(annualInterestRatePercent) / 100
   if (!principalPaise) return 0
-  if (!Number.isFinite(Number(annualInterestRatePercent))) throw new Error('Loan annual interest rate is required to calculate EMI.')
   const monthlyRate = annualRate / 12
   if (!monthlyRate) return paiseToRupees(roundPaise(principalPaise / T))
   const emiPaise = principalPaise * monthlyRate * Math.pow(1 + monthlyRate, T) / (Math.pow(1 + monthlyRate, T) - 1)
@@ -196,6 +197,7 @@ function allocationState(schedule, payments, asOf, annualRate) {
 
 export function deriveLoanPosition({ loan, payments = [], prepayments = [], asOf = new Date() } = {}) {
   if (!loan || !dateOf(loan.startDate)) return { available: false, reason: 'INVALID_LOAN' }
+  if (!hasExplicitInterestRate(loan)) return { available: false, reason: 'MISSING_OR_INVALID_INTEREST_RATE' }
   const effectiveAsOf = dateOf(asOf) || new Date()
   const annualRate = annualRateForLoan(loan)
   const annualInterestRatePercent = annualRate * 100
