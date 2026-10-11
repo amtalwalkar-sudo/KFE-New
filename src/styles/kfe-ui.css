@@ -671,11 +671,11 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
   background:color-mix(in srgb,var(--swipe-action-color) 60%,transparent);
 }
 .cockpit .swipe-threshold em{
-  font-size:.48rem;
+  font-size:.5rem;
   font-style:normal;
-  font-weight:900;
-  letter-spacing:.04em;
-  color:color-mix(in srgb,var(--kfe-ui-text) 58%,transparent);
+  font-weight:950;
+  letter-spacing:.05em;
+  color:color-mix(in srgb,var(--kfe-ui-text) 82%,transparent);
 }
 .cockpit .swipe-hint{
   min-height:16px;
