@@ -626,11 +626,11 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
   min-height:81px;
   padding:0 62px 0 66px;
   overflow:hidden;
-  border:1px solid var(--kfe-ui-border);
-  border-radius:15px;
-  background:var(--kfe-ui-surface-2);
+  border:1px solid color-mix(in srgb,var(--swipe-action-color) 34%,var(--kfe-ui-border));
+  border-radius:18px;
+  background:linear-gradient(135deg,color-mix(in srgb,var(--swipe-action-color) 7%,var(--kfe-ui-surface-2)),var(--kfe-ui-surface));
   color:var(--kfe-ui-text);
-  box-shadow:inset 0 1px 0 color-mix(in srgb,var(--kfe-ui-text) 5%,transparent),0 5px 16px color-mix(in srgb,var(--kfe-ui-text) 7%,transparent);
+  box-shadow:inset 0 1px 0 color-mix(in srgb,var(--kfe-ui-text) 7%,transparent),0 6px 18px color-mix(in srgb,var(--swipe-action-color) 10%,transparent);
   cursor:grab;
   touch-action:pan-y;
   user-select:none;
@@ -648,7 +648,7 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
   z-index:2;
 }
 .cockpit .swipe-progress{position:absolute;left:0;right:auto;top:0;bottom:0;width:var(--swipe-progress,0%);background:color-mix(in srgb,var(--swipe-action-color) 14%,transparent);border-radius:inherit;transition:background .12s ease;z-index:0;}
-.cockpit .swipe-thumb{position:absolute;left:7px;right:auto;top:7px;bottom:7px;width:50px;display:grid;place-items:center;border-radius:11px;background:var(--swipe-action-color);color:#fff;box-shadow:0 3px 10px color-mix(in srgb,var(--swipe-action-color) 35%,transparent);transform:translateX(var(--swipe-offset,0));transition:box-shadow .12s ease,background .12s ease;z-index:3;pointer-events:none;}
+.cockpit .swipe-thumb{position:absolute;left:7px;right:auto;top:7px;bottom:7px;width:50px;display:grid;place-items:center;border:1px solid color-mix(in srgb,var(--kfe-ui-on-accent) 20%,transparent);border-radius:12px;background:var(--swipe-action-color);color:var(--kfe-ui-on-accent);box-shadow:0 3px 12px color-mix(in srgb,var(--swipe-action-color) 38%,transparent),inset 0 1px 0 color-mix(in srgb,#fff 28%,transparent);transform:translateX(var(--swipe-offset,0));transition:box-shadow .12s ease,background .12s ease;z-index:3;pointer-events:none;}
 .cockpit .swipe-thumb b{font-size:1.18rem;font-weight:950;line-height:1}
 .cockpit .swipe-label{
   position:relative;
@@ -671,11 +671,11 @@ small{font-size:.62rem;letter-spacing:.13em;font-weight:900;color:var(--kfe-mute
   background:color-mix(in srgb,var(--swipe-action-color) 60%,transparent);
 }
 .cockpit .swipe-threshold em{
-  font-size:.48rem;
+  font-size:.5rem;
   font-style:normal;
-  font-weight:900;
-  letter-spacing:.04em;
-  color:color-mix(in srgb,var(--kfe-ui-text) 58%,transparent);
+  font-weight:950;
+  letter-spacing:.05em;
+  color:color-mix(in srgb,var(--kfe-ui-text) 82%,transparent);
 }
 .cockpit .swipe-hint{
   min-height:16px;
