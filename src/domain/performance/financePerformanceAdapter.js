@@ -113,10 +113,11 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   const monthAsOf = asOf(breakEvenMonthRange)
   const monthFinance = activeLoan ? deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: monthAsOf }) : null
   const monthScheduledEmi = hasIncompleteActiveLoan ? NaN : activeLoan && monthFinance ? scheduledEmiAccruedForRange(monthFinance.schedule, breakEvenMonthRange) : activeLoan ? NaN : 0
-  const monthPreBusinessRecovery = monthFinance ? calculatePreBusinessLoanRecoveryForRange({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, businessStartDate: businessStart, range: breakEvenMonthRange }) : 0
+  const monthPreBusinessRecovery = monthFinance ? calculatePreBusinessLoanRecoveryForRange({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, businessStartDate: businessStart, range: breakEvenMonthRange }) : hasIncompleteActiveLoan ? NaN : 0
   const monthHistoricalMaintenanceRecovery = calculateHistoricalMaintenanceRecoveryForRange({ vehicles: snapshot?.vehicles || [], businessStartDate: businessStart, range: breakEvenMonthRange })
   const breakEven = deriveAuthoritativeBreakEven({ breakEvenInputs: snapshot?.breakEvenInputs || [], range: breakEvenMonthRange, loanScheduledObligation: monthScheduledEmi, loanInputAvailable: !!activeLoan && !hasIncompleteActiveLoan && Number.isFinite(Number(monthScheduledEmi)), loanNotApplicable: candidateLoans.length === 0, preBusinessRecovery: monthPreBusinessRecovery, historicalMaintenanceRecovery: monthHistoricalMaintenanceRecovery, renewalProvision: monthlyBase.renewalProvision, complianceInputAvailable: live(snapshot?.compliance).length > 0, fuelCostPerKm: monthlyEvidenceBase.breakEvenInputs?.fuelCostPerKm ?? monthlyEvidenceBase.fuelCostPerKm, fuelCostPerKmStatus: monthlyEvidenceBase.breakEvenInputs?.fuelEvidence?.status || CALCULATION_STATUS.UNAVAILABLE, vehicleKm: normalizedMonthlyKm, vehicleKmSource: normalizedMonthlyKmSource })
-  const monthlyBreakEvenRevenue = breakEven.available ? breakEven.monthlyBreakEvenRevenue : Number.isFinite(breakEven.indicativeMonthlyBreakEvenRevenue) ? breakEven.indicativeMonthlyBreakEvenRevenue : NaN
+  // Never surface a partial total as the driver's break-even when loan evidence is incomplete.
+  const monthlyBreakEvenRevenue = hasIncompleteActiveLoan ? NaN : breakEven.available ? breakEven.monthlyBreakEvenRevenue : Number.isFinite(breakEven.indicativeMonthlyBreakEvenRevenue) ? breakEven.indicativeMonthlyBreakEvenRevenue : NaN
   const breakEvenFuelCost = (breakEven.available || breakEven.status === CALCULATION_STATUS.INDICATIVE) && Number.isFinite(Number(breakEven.fuelCostPerKm)) && breakEven.vehicleKm != null && Number.isFinite(Number(breakEven.vehicleKm))
     ? Number(breakEven.fuelCostPerKm) * Number(breakEven.vehicleKm)
     : NaN
@@ -155,6 +156,6 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
     authority: { ...(base.authority || {}), loan: 'CANONICAL_FINANCE_LOAN_ENGINE', breakEven: 'AUTHORITATIVE_MONTHLY_BREAK_EVEN', breakEvenTrace: breakEven.trace || null, actualProfit: 'OPERATING_PROFIT_MINUS_FULL_SCHEDULED_EMI', indicativeProfit: 'PROVISIONAL_PROFIT_AFTER_SCHEDULED_EMI_AND_NORMALIZED_HISTORICAL_RECOVERY' },
     completeness: { ...(base.completeness || {}), loan: !!finance?.available, breakEven: breakEven.available },
     calculationEvidence: { fuelCostPerKm: base.breakEvenInputs?.fuelEvidence || null, breakEven: breakEven.evidence || null },
-    indicative: { monthlyBreakEvenRevenue: breakEven.indicativeMonthlyBreakEvenRevenue ?? null }, breakEvenTrace: breakEven.trace || null,
+    indicative: { monthlyBreakEvenRevenue: hasIncompleteActiveLoan ? null : breakEven.indicativeMonthlyBreakEvenRevenue ?? null }, breakEvenTrace: breakEven.trace || null,
   }
 }
