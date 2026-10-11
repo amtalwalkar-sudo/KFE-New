@@ -1091,10 +1091,10 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .live-km-readout {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 4px 12px;
   margin-top: 12px;
   padding: 10px 12px;
   border: 1px solid var(--kfe-border, rgba(127, 140, 155, 0.35));
@@ -1110,8 +1110,8 @@ onBeforeUnmount(() => {
   font-variant-numeric: tabular-nums;
 }
 .live-km-readout > small {
-  flex-basis: 100%;
-  margin-left: auto;
+  grid-column: 1 / -1;
+  margin-left: 0;
   color: var(--kfe-muted, #667085);
   font-size: 0.65rem;
   text-align: right;
