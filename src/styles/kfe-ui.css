@@ -2,28 +2,27 @@
  * Frozen Visual DNA -> tokens -> shared/global UI -> screens -> build/runtime.
  * No screen/component-local style blocks are used for presentation.
  */
-/* KFE Visual DNA — authoritative global visual tokens.
- * Purpose: one visual/interaction language across the complete PWA.
- * Business meaning and screen workflows remain owned by their existing contracts.
- */
+/* KFE Visual DNA — one fixed dark theme for consistent contrast and readability. */
 :root{
-  --kfe-ui-bg:#F5F7FA;
-  --kfe-ui-surface:#FFFFFF;
-  --kfe-ui-surface-2:#EEF2F6;
-  --kfe-ui-text:#17202A;
-  --kfe-muted-text:#5B6673;
-  --kfe-ui-muted:#7D8792;
-  --kfe-ui-border:#DCE2E8;
-  --kfe-ui-accent:#2563EB;
-  --kfe-accent:#2563EB;
-  --kfe-accent-soft:#EFF6FF;
-  --kfe-success:#16803C;
-  --kfe-warning:#B76E00;
-  --kfe-danger:#C62828;
-  --kfe-info:#2563EB;--kfe-on-accent:#fff;--kfe-ui-on-accent:#fff;
-  --kfe-ui-shadow:0 4px 18px rgba(23,32,42,.06);
+  --kfe-ui-bg:#10151B;
+  --kfe-ui-surface:#171E26;
+  --kfe-ui-surface-2:#202934;
+  --kfe-ui-text:#E8EDF2;
+  --kfe-muted-text:#B8C2CD;
+  --kfe-ui-muted:#9AA6B2;
+  --kfe-ui-border:#3A4653;
+  --kfe-ui-accent:#78A2FF;
+  --kfe-accent:#78A2FF;
+  --kfe-accent-soft:#243653;
+  --kfe-success:#62D18A;
+  --kfe-warning:#F0BD58;
+  --kfe-danger:#FF8585;
+  --kfe-info:#8AB2FF;
+  --kfe-on-accent:#10151B;
+  --kfe-ui-on-accent:#10151B;
+  --kfe-ui-shadow:0 8px 24px rgba(0,0,0,.24);
   --kfe-shadow:var(--kfe-ui-shadow);
-  --kfe-ui-overlay:rgba(245,247,250,.96);
+  --kfe-ui-overlay:rgba(16,21,27,.97);
   --kfe-radius-sm:8px;
   --kfe-radius-md:12px;
   --kfe-radius-lg:16px;
@@ -39,34 +38,9 @@
   --kfe-space-7:40px;
   --kfe-motion-fast:120ms;
   --kfe-motion-standard:180ms;
-  color-scheme:light;
-}
-:root[data-kfe-theme="day"],:root[data-kfe-theme="light"]{
-  --kfe-ui-bg:#F5F7FA;--kfe-ui-surface:#FFFFFF;--kfe-ui-surface-2:#EEF2F6;
-  --kfe-ui-text:#17202A;--kfe-muted-text:#5B6673;--kfe-ui-muted:#7D8792;--kfe-ui-border:#DCE2E8;
-  --kfe-ui-accent:#2563EB;--kfe-accent:#2563EB;--kfe-accent-soft:#EFF6FF;
-  --kfe-success:#16803C;--kfe-warning:#B76E00;--kfe-danger:#C62828;--kfe-info:#2563EB;
-  --kfe-ui-shadow:0 4px 18px rgba(23,32,42,.06);--kfe-shadow:var(--kfe-ui-shadow);--kfe-ui-overlay:rgba(245,247,250,.96);
-  color-scheme:light;
-}
-:root[data-kfe-theme="night"],:root[data-kfe-theme="dark"]{
-  --kfe-ui-bg:#10151B;--kfe-ui-surface:#171E26;--kfe-ui-surface-2:#202934;
-  --kfe-ui-text:#E8EDF2;--kfe-muted-text:#AAB4BF;--kfe-ui-muted:#7F8A96;--kfe-ui-border:#303A46;
-  --kfe-ui-accent:#5B8DEF;--kfe-accent:#5B8DEF;--kfe-accent-soft:#1D2A40;
-  --kfe-success:#4DBD74;--kfe-warning:#E2A93B;--kfe-danger:#F06A6A;--kfe-info:#6FA0FF;
-  --kfe-ui-shadow:0 8px 24px rgba(0,0,0,.20);--kfe-shadow:var(--kfe-ui-shadow);--kfe-ui-overlay:rgba(16,21,27,.97);
   color-scheme:dark;
 }
-:root[data-kfe-theme="dusk"]{
-  /* Compatibility alias: dusk is presentation-only and uses the frozen dark palette. */
-  --kfe-ui-bg:#10151B;--kfe-ui-surface:#171E26;--kfe-ui-surface-2:#202934;
-  --kfe-ui-text:#E8EDF2;--kfe-muted-text:#AAB4BF;--kfe-ui-muted:#7F8A96;--kfe-ui-border:#303A46;
-  --kfe-ui-accent:#5B8DEF;--kfe-accent:#5B8DEF;--kfe-accent-soft:#1D2A40;
-  --kfe-success:#4DBD74;--kfe-warning:#E2A93B;--kfe-danger:#F06A6A;--kfe-info:#6FA0FF;
-  --kfe-ui-shadow:0 8px 24px rgba(0,0,0,.20);--kfe-shadow:var(--kfe-ui-shadow);--kfe-ui-overlay:rgba(16,21,27,.97);
-  color-scheme:dark;
-}
-
+:root[data-kfe-theme="night"],:root[data-kfe-theme="dark"]{color-scheme:dark}
 
 *,*::before,*::after{box-sizing:border-box}
 html{background:var(--kfe-bg);-webkit-text-size-adjust:100%;text-size-adjust:100%}
@@ -1370,3 +1344,22 @@ button,input,select,textarea{min-height:var(--kfe-touch)}
 .detail-title{margin:8px 0 20px}
 @media(max-width:560px){.admin-page{padding:10px}.admin-hero{border-radius:19px;padding:20px 17px;padding-top:4.2rem}.admin-category{padding:12px;border-radius:17px}.admin-category-grid{grid-template-columns:1fr}.admin-item{min-height:68px}.admin-item-copy small{font-size:.76rem}}
 @media(prefers-reduced-motion:reduce){.admin-item{transition:none}}
+
+
+/* Dark-only readability pass: make secondary content, controls and focus states legible. */
+html,body,#app{color-scheme:dark;background:var(--kfe-ui-bg);color:var(--kfe-ui-text)}
+input,select,textarea,option{color-scheme:dark}
+input::placeholder,textarea::placeholder{color:var(--kfe-ui-muted);opacity:1}
+small,.help-text,.form-help,.field-help,.source-field-help,.kfe-source,.kfe-unit,.metric-unit{
+  color:var(--kfe-muted-text);
+}
+label,.input-label,.source-field-label{color:var(--kfe-ui-text)}
+table th,table td{border-color:var(--kfe-ui-border)}
+:where(button,a,input,select,textarea,[role="button"],[tabindex]):focus-visible{
+  outline:3px solid color-mix(in srgb,var(--kfe-ui-accent) 82%,white);
+  outline-offset:2px;
+}
+::selection{background:color-mix(in srgb,var(--kfe-ui-accent) 42%,var(--kfe-ui-surface));color:var(--kfe-ui-text)}
+@media(forced-colors:active){
+  :where(button,a,input,select,textarea,[role="button"],[tabindex]):focus-visible{outline:2px solid Highlight}
+}
