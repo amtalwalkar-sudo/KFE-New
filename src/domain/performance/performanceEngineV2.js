@@ -230,8 +230,10 @@ export function derivePerformance(s, r, p = previousRange(r)) {
   const compliancePaymentsAccumulatedById = live(s?.settlements).filter(x => String(x.sourceType || '') === 'Compliance' && String(x.direction || 'OUT').toUpperCase() === 'OUT' && d(x.settledOn || x.paidOn || x.createdAt) && d(x.settledOn || x.paidOn || x.createdAt) <= r.to).reduce((map, payment) => { map[payment.sourceId] = (map[payment.sourceId] || 0) + n(payment.amount); return map }, {})
   const complianceProvisionBalancesById = Object.fromEntries(Object.entries(complianceProvisionAccumulatedById).map(([id, value]) => [id, Number.isFinite(value) ? Math.max(0, value - (compliancePaymentsAccumulatedById[id] || 0)) : NaN]))
   const complianceProvisionExcessPaymentsById = Object.fromEntries(Object.entries(complianceProvisionAccumulatedById).map(([id, value]) => [id, Number.isFinite(value) ? Math.max(0, (compliancePaymentsAccumulatedById[id] || 0) - value) : NaN]))
-  const complianceProvisionBalance = Object.values(complianceProvisionBalancesById).reduce((sum, value) => sum + n(value), 0)
-  const complianceProvisionExcessPayments = Object.values(complianceProvisionExcessPaymentsById).reduce((sum, value) => sum + n(value), 0)
+  const complianceBalanceValues = Object.values(complianceProvisionBalancesById)
+  const complianceExcessValues = Object.values(complianceProvisionExcessPaymentsById)
+  const complianceProvisionBalance = complianceBalanceValues.every(Number.isFinite) ? complianceBalanceValues.reduce((sum, value) => sum + value, 0) : NaN
+  const complianceProvisionExcessPayments = complianceExcessValues.every(Number.isFinite) ? complianceExcessValues.reduce((sum, value) => sum + value, 0) : NaN
   const provision = maintenanceProvision + ren
   const prevProvision = prevMaintenanceProvision + pren
   const wd = days(r.from, r.to), elapsed = wd, activeDays = new Set(a.sh.map(x => istDateKey(d(x.shiftEndAt || x.shiftStartAt))).filter(Boolean)).size, prevActive = new Set(q.sh.map(x => istDateKey(d(x.shiftEndAt || x.shiftStartAt))).filter(Boolean)).size
