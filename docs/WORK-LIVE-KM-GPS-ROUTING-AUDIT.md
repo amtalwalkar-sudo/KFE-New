@@ -1,6 +1,6 @@
 # Work Live KM, GPS and Routing — Layer 1 Audit
 
-**Status:** Source audit completed; CI and real-device acceptance pending  
+**Status:** Source audit completed; CI passed on commit `be477dd3399442423504ae2bd7c0c2a8b377d0e3`; physical-device and live routing acceptance pending  
 **Scope:** Work screen live movement display, GPS trace capture, road routing, and distance classification  
 **Authority:** `KFE_WORK_COCKPIT_BASELINE.md`, `docs/KFE-OPERATIONAL-LIFECYCLE-CONTRACT.md`, `docs/ANDROID-NATIVE-GPS-CONTRACT.md`, and `KFE_BUSINESS_RULES_REGISTER.md`
 
@@ -29,8 +29,8 @@
 | Main Work screen live display | Implemented on `fix/work-live-km-classification` |
 | Live trace noise filtering | Uses existing movement-accounting filter |
 | Missing-routing-geometry handling | Corrected; regression tests added |
-| Existing contract suite and production build | Must be confirmed by CI on the branch |
-| Real Valhalla endpoint reachability/road accuracy | Not verified by mocked tests |
+| Existing contract suite and production build | PASS on commit `be477dd3399442423504ae2bd7c0c2a8b377d0e3`: 95 contract suites, all 11 conformance steps, production PWA build, Pages runtime smoke, Android release/emulator smoke |
+| Real Valhalla endpoint reachability/road accuracy | Not verified; adapter tests are mocked and endpoint was not reachable through the available verification tool |
 | Android permission, screen-off/background continuity, and live overlay behavior | Requires physical-device/runtime evidence |
 | End-to-end classification and persisted kilometres against a controlled drive | Requires runtime/device evidence |
 
