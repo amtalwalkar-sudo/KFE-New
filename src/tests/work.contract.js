@@ -9,6 +9,11 @@ import { calculateFuelQuantity, validateFuelEntry } from '../domain/work/fuel.js
 import { WorkService } from '../application/work/workService.js'
 
 assert.equal(typeof WorkService.getTripGpsDistanceKm, 'function')
+assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /liveMovementLabel = computed\(\(\) => store\.trip\?\.id \? \(active\.value \? 'BUSINESS KM' : 'DEAD KM'\) : ''\)/)
+assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /NativeGpsService\.readTrace\(currentTrip\.id\)/)
+assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /setInterval\(\(\) => \{ void refreshLiveMovementKm\(\) \}, 3000\)/)
+assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /live-km-readout/)
+assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /liveMovementKm\.value\.toFixed\(1\)/)
 const root = process.cwd()
 const workView = fs.readFileSync(path.join(root, 'src/views/WorkModuleView.vue'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'src/components/work/WorkContextForm.vue'), 'utf8')
 const workStore = fs.readFileSync(path.join(root, 'src/stores/shiftTrip.js'), 'utf8')
