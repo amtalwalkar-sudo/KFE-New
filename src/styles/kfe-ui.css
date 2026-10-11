@@ -1702,9 +1702,28 @@ table th,table td{border-color:var(--kfe-ui-border)}
   border: 2px solid #FFFFFF !important;
   box-shadow: 0 0 0 2px #10151B, 0 3px 12px color-mix(in srgb,var(--swipe-action-color) 42%,transparent) !important;
 }
-.work-canonical .work-fixed-action .trip-swipe.semantic-go { --swipe-action-color: #78A2FF; }
-.work-canonical .work-fixed-action .trip-swipe.semantic-start { --swipe-action-color: #62D18A; }
-.work-canonical .work-fixed-action .trip-swipe.semantic-end { --swipe-action-color: #FF8585; }
+/* Dark-theme semantic tracks: tinted surfaces keep the action colour visible
+   without sacrificing contrast against the white action label. */
+.work-canonical .work-fixed-action .trip-swipe.semantic-go {
+  --swipe-action-color: #78A2FF;
+  --swipe-action-surface: #172B4D;
+  --swipe-action-border: #527FCF;
+}
+.work-canonical .work-fixed-action .trip-swipe.semantic-start {
+  --swipe-action-color: #62D18A;
+  --swipe-action-surface: #123728;
+  --swipe-action-border: #3F9D68;
+}
+.work-canonical .work-fixed-action .trip-swipe.semantic-end {
+  --swipe-action-color: #FF8585;
+  --swipe-action-surface: #421F27;
+  --swipe-action-border: #C65C68;
+}
+.work-canonical .work-fixed-action .trip-swipe {
+  background: var(--swipe-action-surface, #202934) !important;
+  border-color: var(--swipe-action-border, #3A4653) !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.035), 0 8px 22px rgba(0,0,0,.32) !important;
+}
 @media(max-width:380px) {
   .work-canonical .work-fixed-action .trip-swipe .swipe-copy { padding-left: 70px !important; padding-right: 6px !important; }
   .work-canonical .work-fixed-action .trip-swipe .swipe-copy strong { font-size: 14px !important; }
