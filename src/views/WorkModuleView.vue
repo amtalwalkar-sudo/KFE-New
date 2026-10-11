@@ -253,8 +253,11 @@ async function refreshLiveMovementKm() {
 
   const movement = WorkService.calculateLiveMovement(tracePoints)
   if (movement.points.length < 2) {
-    liveMovementKm.value = 0
-    liveMovementStatus.value = 'ACQUIRING GPS'
+    // A temporary GPS gap must not make the live readout jump to zero.
+    // Keep the last measured value, but make its stale/provisional status explicit.
+    liveMovementStatus.value = liveMovementKm.value > 0
+      ? 'GPS SIGNAL GAP · LAST ESTIMATE'
+      : 'ACQUIRING GPS'
     return
   }
 
