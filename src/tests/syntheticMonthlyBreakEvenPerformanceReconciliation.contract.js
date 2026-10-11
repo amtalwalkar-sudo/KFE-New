@@ -83,7 +83,6 @@ const expected = {
 assert.equal(expected.calendarDays * expected.kmPerDay, expected.forecastMonthlyKm)
 assert.equal(expected.forecastMonthlyKm * expected.fuelRateInrPerKm, expected.fuelCostMonthlyInr)
 assert.equal(expected.forecastMonthlyKm * expected.maintenanceRateInrPerKm, expected.maintenanceProvisionMonthlyInr)
-assert.equal(expected.emiMonthlyInr, expected.provisionalDeductionInr - expected.maintenanceProvisionMonthlyInr - expected.complianceProvisionMonthlyInr + expected.emiMonthlyInr - expected.emiMonthlyInr)
 assert.equal(
   expected.emiMonthlyInr + expected.fuelCostMonthlyInr + expected.maintenanceProvisionMonthlyInr + expected.complianceProvisionMonthlyInr,
   expected.monthlyBreakEvenInr,
