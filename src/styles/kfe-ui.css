@@ -1729,9 +1729,13 @@ table th,table td{border-color:var(--kfe-ui-border)}
   .work-canonical .work-fixed-action .trip-swipe .swipe-copy strong { font-size: 14px !important; }
 }
 
-/* Optional fare entry stays non-blocking: let the fare form receive taps while
-   preserving the swipe handle as the next-pickup control. */
-.work-canonical:has(.form-fare) .work-fixed-action .trip-swipe {
+/* Optional fare entry stays non-blocking: the fixed dock itself must not
+   intercept keypad taps; only the swipe handle remains interactive. */
+.work-canonical:has(.form-fare) .work-fixed-action {
+  pointer-events: none !important;
+}
+.work-canonical:has(.form-fare) .work-fixed-action .trip-swipe,
+.work-canonical:has(.form-fare) .work-fixed-action .trip-swipe .swipe-copy {
   pointer-events: none !important;
 }
 .work-canonical:has(.form-fare) .work-fixed-action .trip-swipe .swipe-handle {
