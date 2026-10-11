@@ -22,6 +22,8 @@ For Android APK builds, the native location foreground service is the authoritat
 10. The final ride stores `tripKmAuthority: GPS_LINE_TRACE` and records the trace-point count/source in provenance.
 11. The browser/PWA location path remains available and is not replaced by the Android implementation.
 12. Network loss does not discard native GPS points because collection and persistence are local; synchronization/reconciliation occurs when KFE is available again.
+13. The main Work screen's provisional distance must remain available with Wi-Fi and mobile data disabled; routing is optional enrichment and must never gate GPS capture or trip transitions.
+14. When Valhalla is unavailable, completed trip distance remains explicitly provisional with GPS-line provenance and a durable local reconciliation queue entry. Connectivity restoration retries matching; only valid matched geometry can promote the distance to `VALHALLA_ROAD_TRACE`.
 
 ## Physical acceptance gate
 

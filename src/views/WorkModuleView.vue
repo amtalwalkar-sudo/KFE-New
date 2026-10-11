@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core'
 import { useShiftTripStore } from '../stores/shiftTrip.js'
 import { useFuelStore } from '../stores/fuel.js'
 import { WorkService } from '../application/work/workService.js'
+import { MovementReconciliationQueue } from '../application/work/movementReconciliationQueue.js'
 import { WorkDraftService } from '../application/work/workDraftService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { MovementTraceService, calculateTraceDistanceKm } from '../infrastructure/location/movementTraceService.js'
@@ -221,6 +222,8 @@ const tripTimer = computed(() => {
 })
 
 async function refreshLiveMovementKm() {
+  // Queue discovery/reconciliation is independent of whether a trip is currently active.
+  void MovementReconciliationQueue.reconcilePending()
   const currentTrip = store.trip
   if (!store.isOnline || !currentTrip?.id) {
     liveMovementKm.value = 0
@@ -229,31 +232,54 @@ async function refreshLiveMovementKm() {
   }
 
   const expectedEvent = active.value ? 'PASSENGER_RIDE_TRACE' : 'DEAD_MOVEMENT_TRACE'
+  let tracePoints = []
+
   if (nativeAndroid) {
     try {
-      const nativePoints = await NativeGpsService.readTrace(currentTrip.id)
-      const matching = WorkService.calculateLiveMovement(nativePoints.filter(point => point?.eventType === expectedEvent))
-      if (matching.points.length >= 2) {
-        liveMovementKm.value = matching.distanceKm
-        liveMovementStatus.value = 'LIVE GPS ESTIMATE'
-        return
-      }
+      tracePoints = (await NativeGpsService.readTrace(currentTrip.id))
+        .filter(point => point?.eventType === expectedEvent)
     } catch (_) {}
   }
 
-  const session = MovementTraceService.getActiveSession()
-  const matchesCurrentMovement = active.value
-    ? session?.entityType === 'TRIP' && session.entityId === currentTrip.id && session.profile === 'PASSENGER_RIDE'
-    : session?.entityType === 'SHIFT' && session.entityId === store.shift?.id && session.profile === 'DEAD_LEG'
-  if (matchesCurrentMovement) {
-    const movement = WorkService.calculateLiveMovement(MovementTraceService.getPoints())
-    liveMovementKm.value = movement.distanceKm
-    liveMovementStatus.value = movement.points.length >= 2 ? 'LIVE GPS ESTIMATE' : 'ACQUIRING GPS'
+  if (tracePoints.length < 2) {
+    const session = MovementTraceService.getActiveSession()
+    const matchesCurrentMovement = active.value
+      ? session?.entityType === 'TRIP' && session.entityId === currentTrip.id && session.profile === 'PASSENGER_RIDE'
+      : session?.entityType === 'SHIFT' && session.entityId === store.shift?.id && session.profile === 'DEAD_LEG'
+    if (matchesCurrentMovement) {
+      tracePoints = MovementTraceService.getPoints()
+    }
+  }
+
+  const movement = WorkService.calculateLiveMovement(tracePoints)
+  if (movement.points.length < 2) {
+    // A temporary GPS gap must not make the live readout jump to zero.
+    // Keep the last measured value, but make its stale/provisional status explicit.
+    liveMovementStatus.value = liveMovementKm.value > 0
+      ? 'GPS SIGNAL GAP · LAST ESTIMATE'
+      : 'ACQUIRING GPS'
     return
   }
 
-  liveMovementKm.value = 0
-  liveMovementStatus.value = 'GPS TRACE UNAVAILABLE'
+  // GPS is local telemetry: this estimate remains available with Wi-Fi and mobile
+  // data disabled. Network routing is an optional enrichment, never a prerequisite.
+  liveMovementKm.value = movement.distanceKm
+  liveMovementStatus.value = 'LIVE GPS ESTIMATE · PROVISIONAL'
+
+  if (typeof navigator !== 'undefined' && navigator.onLine !== false) {
+    const matched = await MovementReconciliationQueue.matchLiveTrace(
+      active.value ? 'TRIP' : 'SHIFT',
+      active.value ? currentTrip.id : store.shift?.id,
+      movement.points
+    )
+    if (matched) {
+      liveMovementKm.value = matched.distanceKm
+      liveMovementStatus.value = 'PROVISIONAL ROAD MATCH'
+    }
+    // Also discovers completed GPS-fallback trips after a restart and retries
+    // persisted route work no more often than the queue's configured cadence.
+    void MovementReconciliationQueue.reconcilePending()
+  }
 }
 
 const preview = computed(() => endOpen.value ? WorkService.reconcileShiftRevenue({
