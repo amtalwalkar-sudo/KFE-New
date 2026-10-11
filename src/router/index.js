@@ -12,10 +12,14 @@ const routes = [
   { path: '/admin', name: 'Admin', component: AdminView },
 ]
 
-// GitHub Pages keeps normal HTML5 URLs. Native Capacitor WebView uses hash history so
-// refreshing Timeline/Performance/Admin always reloads the app entry document instead
-// of depending on a server rewrite for an arbitrary client-side route.
-const routerBase = import.meta.env.BASE_URL
+// Vite uses relative asset URLs so the same bundle works in Pages and Capacitor.
+// Vue Router needs an absolute history base on project Pages, not "./" (which
+// resolves to "/./" and leaves the route-view empty at /KFE-New/).
+const pagesProjectBase = window.location.pathname === '/KFE-New'
+  || window.location.pathname.startsWith('/KFE-New/')
+  ? '/KFE-New/'
+  : '/'
+const routerBase = Capacitor.isNativePlatform() ? '/' : pagesProjectBase
 const history = Capacitor.isNativePlatform()
   ? createWebHashHistory('/')
   : createWebHistory(routerBase)
