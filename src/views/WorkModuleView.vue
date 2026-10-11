@@ -6,7 +6,8 @@ import { useFuelStore } from '../stores/fuel.js'
 import { WorkService } from '../application/work/workService.js'
 import { WorkDraftService } from '../application/work/workDraftService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
-import { MovementTraceService } from '../infrastructure/location/movementTraceService.js'
+import { MovementTraceService, calculateTraceDistanceKm } from '../infrastructure/location/movementTraceService.js'
+import { NativeGpsService } from '../infrastructure/android/nativeGpsService.js'
 import { KfeRideNotificationService } from '../infrastructure/android/kfeRideNotificationService.js'
 import { AndroidOverlay } from '../infrastructure/android/kfeOverlay.js'
 import { deriveWorkCockpitState, WORK_COCKPIT_STATES } from '../application/work/workCockpit.js'
@@ -73,6 +74,7 @@ const swipe = ref({ down: false, start: 0, offset: 0 })
 const swipePointerId = ref(null)
 
 let timer = null
+let liveKmRefreshTimer = null
 let traceRunning = false
 let notificationListener = null
 
@@ -191,13 +193,16 @@ const cockpit = computed(() => deriveWorkCockpitState({
   pendingFareId: pendingFare.value?.id || '',
   target: targetValue.value == null ? '—' : money(targetValue.value),
   targetProgress: targetProgress.value,
-  liveKm: '0.0 km',
+  liveKm: `${liveMovementKm.value.toFixed(1)} km`,
   revenue: '₹0',
   asOf: clock.value
 }))
 
 const ready = computed(() => cockpit.value.state === WORK_COCKPIT_STATES.READY_FOR_TRIP || cockpit.value.state === WORK_COCKPIT_STATES.GOING_TO_PICKUP)
 const active = computed(() => cockpit.value.state === WORK_COCKPIT_STATES.TRIP_ACTIVE)
+const liveMovementKm = ref(0)
+const liveMovementStatus = ref('WAITING FOR GPS')
+const liveMovementLabel = computed(() => store.trip?.id ? (active.value ? 'BUSINESS KM' : 'DEAD KM') : '')
 const actionLabel = computed(() => {
   if (cockpit.value.action === 'END_RIDE') return 'END TRIP'
   if (cockpit.value.action === 'START_RIDE') return 'START TRIP'
@@ -214,6 +219,42 @@ const tripTimer = computed(() => {
   const seconds = Math.max(0, Math.floor((clock.value - started) / 1000))
   return `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds % 3600 / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
 })
+
+async function refreshLiveMovementKm() {
+  const currentTrip = store.trip
+  if (!store.isOnline || !currentTrip?.id) {
+    liveMovementKm.value = 0
+    liveMovementStatus.value = 'WAITING FOR GPS'
+    return
+  }
+
+  const expectedEvent = active.value ? 'PASSENGER_RIDE_TRACE' : 'DEAD_MOVEMENT_TRACE'
+  if (nativeAndroid) {
+    try {
+      const nativePoints = await NativeGpsService.readTrace(currentTrip.id)
+      const matching = WorkService.calculateLiveMovement(nativePoints.filter(point => point?.eventType === expectedEvent))
+      if (matching.points.length >= 2) {
+        liveMovementKm.value = matching.distanceKm
+        liveMovementStatus.value = 'LIVE GPS ESTIMATE'
+        return
+      }
+    } catch (_) {}
+  }
+
+  const session = MovementTraceService.getActiveSession()
+  const matchesCurrentMovement = active.value
+    ? session?.entityType === 'TRIP' && session.entityId === currentTrip.id && session.profile === 'PASSENGER_RIDE'
+    : session?.entityType === 'SHIFT' && session.entityId === store.shift?.id && session.profile === 'DEAD_LEG'
+  if (matchesCurrentMovement) {
+    const movement = WorkService.calculateLiveMovement(MovementTraceService.getPoints())
+    liveMovementKm.value = movement.distanceKm
+    liveMovementStatus.value = movement.points.length >= 2 ? 'LIVE GPS ESTIMATE' : 'ACQUIRING GPS'
+    return
+  }
+
+  liveMovementKm.value = 0
+  liveMovementStatus.value = 'GPS TRACE UNAVAILABLE'
+}
 
 const preview = computed(() => endOpen.value ? WorkService.reconcileShiftRevenue({
   shiftRevenue: shiftRevenue.value,
@@ -380,6 +421,8 @@ async function submitStart() {
 
 async function goPickup(nativeTripId = '') {
   if (busy.value || !store.isOnline || store.isTripActive) return false
+  liveMovementKm.value = 0
+  liveMovementStatus.value = 'ACQUIRING GPS'
   busy.value = true
   try {
     try {
@@ -409,6 +452,8 @@ async function goPickup(nativeTripId = '') {
 
 async function startTrip() {
   if (busy.value || !ready.value) return false
+  liveMovementKm.value = 0
+  liveMovementStatus.value = 'ACQUIRING GPS'
   busy.value = true
   try {
     if (traceRunning) {
@@ -857,6 +902,8 @@ onMounted(async () => {
 
   clock.value = Date.now()
   timer = setInterval(() => { clock.value = Date.now() }, 1000)
+  void refreshLiveMovementKm()
+  liveKmRefreshTimer = setInterval(() => { void refreshLiveMovementKm() }, 3000)
 
   notificationListener = await KfeRideNotificationService.addListener(
     'rideNotificationAction',
@@ -884,6 +931,7 @@ watch(() => store.trip?.tripStage, () => { void syncOverlay() })
 
 onBeforeUnmount(() => {
   if (timer) clearInterval(timer)
+  if (liveKmRefreshTimer) clearInterval(liveKmRefreshTimer)
   if (traceRunning) MovementTraceService.reset()
   notificationListener?.remove?.()
   void AndroidOverlay.hide().catch(() => {})
@@ -972,11 +1020,12 @@ onBeforeUnmount(() => {
       </section>
 
       <section v-else-if="cockpit.state===WORK_COCKPIT_STATES.READY_FOR_TRIP || cockpit.state===WORK_COCKPIT_STATES.GOING_TO_PICKUP" class="operational-state state-tone-info">
-        <span class="eyebrow">GOING TO PICKUP</span><strong>{{ store.trip?.operator || 'TRIP' }}</strong><p>Pickup movement is active. GPS remains background telemetry.</p><button class="secondary-action cancel-trip-tab" type="button" @click="openCancel">CANCEL TRIP</button>
+        <span class="eyebrow">GOING TO PICKUP</span><strong>{{ store.trip?.operator || 'TRIP' }}</strong><div class="live-km-readout" aria-live="polite"><span>{{ liveMovementLabel }}</span><strong>{{ liveMovementKm.toFixed(1) }} km</strong><small>{{ liveMovementStatus }}</small></div><button class="secondary-action cancel-trip-tab" type="button" @click="openCancel">CANCEL TRIP</button>
       </section>
 
       <section v-else-if="cockpit.state===WORK_COCKPIT_STATES.TRIP_ACTIVE" class="operational-state trip-timer-state state-tone-success">
         <span class="eyebrow">TRIP ACTIVE</span><strong>{{ store.trip?.operator || 'TRIP' }}</strong>
+        <div class="live-km-readout" aria-live="polite"><span>{{ liveMovementLabel }}</span><strong>{{ liveMovementKm.toFixed(1) }} km</strong><small>{{ liveMovementStatus }}</small></div>
         <div class="trip-timer-block"><span class="timer-label">TRIP TIME</span><strong class="trip-timer" aria-live="polite">{{ tripTimer }}</strong></div>
       </section>
 
@@ -1037,3 +1086,5 @@ onBeforeUnmount(() => {
   </main>
 </div>
 </template>
+
+

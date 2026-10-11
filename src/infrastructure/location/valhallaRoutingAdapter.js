@@ -97,7 +97,7 @@ export class ValhallaRoutingAdapter {
         method: 'VALHALLA_TRACE_ROUTE_MAP_MATCH',
         confidence: geometry ? 'ESTIMATED_ROAD_TRACE' : 'ESTIMATED_ROAD_TRACE_NO_GEOMETRY',
         distanceKm: Number.isFinite(distance) ? distance : null,
-        geometry: geometry || { type: 'LineString', coordinates: [] },
+        geometry,
         provenance: { provider: 'valhalla', endpoint: this.endpoint, operation: 'trace_route', shapeMatch: 'map_snap', costing: 'auto', units: 'kilometers', shapeFormat: 'geojson', sourcePointCount: shape.length },
         raw: payload
       }

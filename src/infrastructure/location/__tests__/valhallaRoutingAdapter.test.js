@@ -81,4 +81,23 @@ describe('ValhallaRoutingAdapter road-matched geometry', () => {
       [-8.670718, 42.225224]
     ])
   })
+  
+  it('does not fabricate matched geometry when Valhalla returns a distance without trace geometry', async () => {
+    const adapter = new ValhallaRoutingAdapter({
+      fetchImpl: async () => ({
+        ok: true,
+        async json() {
+          return { trip: { summary: { length: 2.7 }, legs: [] } }
+        }
+      })
+    })
+    const result = await adapter.routeTrace([
+      { latitude: 19.076, longitude: 72.8777 },
+      { latitude: 19.0772, longitude: 72.8792 }
+    ])
+    expect(result.distanceKm).toBe(2.7)
+    expect(result.geometry).toBeNull()
+    expect(result.confidence).toBe('ESTIMATED_ROAD_TRACE_NO_GEOMETRY')
+  })
+
 })

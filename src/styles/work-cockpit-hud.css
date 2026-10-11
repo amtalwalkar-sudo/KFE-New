@@ -80,3 +80,10 @@
 .fare-context-form .input-unit{min-height:42px}
 .fare-context-form .primary-action,.fare-context-form .secondary-action{min-height:42px;margin-top:6px}
 @media(max-width:600px){.fare-context-form{padding:10px}.fare-context-form .gate-head{gap:6px}.fare-context-form .fact-grid.two{font-size:.86rem}.fare-context-form label{font-size:.86rem}}
+
+
+/* Live movement classification and distance are visible during pickup and ride. */
+.work-canonical .live-km-readout{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:4px 12px;margin-top:12px;padding:10px 12px;border:1px solid var(--kfe-ui-border);border-radius:12px;background:var(--kfe-ui-surface-2);color:var(--kfe-ui-text);}
+.work-canonical .live-km-readout>span{font-size:.78rem;font-weight:750;letter-spacing:.04em;}
+.work-canonical .live-km-readout>strong{font-size:1.2rem;font-variant-numeric:tabular-nums;}
+.work-canonical .live-km-readout>small{grid-column:1/-1;color:var(--kfe-muted-text);font-size:.65rem;text-align:right;}

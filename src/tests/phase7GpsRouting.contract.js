@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { routeTrace } from '../domain/movement/movementAccounting.js'
 import fs from 'node:fs'
 const location=fs.readFileSync('src/services/locationService.js','utf8')
 assert.match(location,/GPS_INTERVALS_MS = Object\.freeze/)
@@ -77,3 +78,20 @@ assert.ok(nativeGps.includes("new FileOutputStream(traceFile, true)"))
 assert.ok(nativeGps.includes("output.getFD().sync()"))
 assert.ok(nativeGps.includes("GPS trace persistence failed; point will be retried"))
 console.log('Phase A native GPS durability contract passed: writes are synced and failed points are retryable.')
+
+const noGeometryRoute = await routeTrace([
+  { latitude: 19.076, longitude: 72.8777, accuracy: 5, speed: 10, capturedAt: '2026-10-01T08:00:00.000Z' },
+  { latitude: 19.077, longitude: 72.8787, accuracy: 5, speed: 10, capturedAt: '2026-10-01T08:00:20.000Z' }
+], {
+  routeTrace: async () => ({
+    provider: 'valhalla',
+    method: 'VALHALLA_TRACE_ROUTE_MAP_MATCH',
+    distanceKm: 9.9,
+    geometry: null,
+    provenance: { provider: 'valhalla', operation: 'trace_route' }
+  })
+})
+assert.equal(noGeometryRoute.method, 'FILTERED_GPS_TRACE')
+assert.equal(noGeometryRoute.roadMatchedGeometry, null)
+assert.equal(noGeometryRoute.provenance.provider, 'KFE_TRACE_FALLBACK')
+console.log('Routing evidence contract passed: a distance without matched geometry falls back to filtered GPS trace.')

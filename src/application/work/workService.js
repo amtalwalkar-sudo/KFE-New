@@ -49,6 +49,7 @@ export const WorkService = Object.freeze({
     }
   },
   async getTripGpsDistanceKm(tripId) { try { await NativeGpsService.syncTrace(tripId) } catch (_) {} const snapshots = await LocationRepository.forEntity('TRIP', tripId); return calculateTraceDistanceKm(snapshots.filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')) },
+  calculateLiveMovement(points = []) { const filteredPoints = MovementAccountingService.filterGpsTrace(points); return { points: filteredPoints, distanceKm: calculateTraceDistanceKm(filteredPoints) } },
   async captureLocation(data) { const result = await captureLifecycleLocation(data); checkpoint(); return result },
   validateShiftStartOdometer(currentOdometer, previousOdometer) { return validateShiftStartOdometer(currentOdometer, previousOdometer) },
   validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer) { return validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer) },
