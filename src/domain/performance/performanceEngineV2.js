@@ -110,33 +110,41 @@ const inclusiveCalendarDays = (fromKey, toKey) => {
   return Math.round((to.getTime() - from.getTime()) / 86400000) + 1
 }
 const complianceProvisionForRecord = (record, shifts, r) => {
-  const start = d(record?.validFrom), end = d(record?.validUntil), cost = n(record?.cost)
-  if (!start || !end || end < start || cost <= 0) return 0
+  const start = d(record?.validFrom), end = d(record?.validUntil)
+  const costValue = record?.cost
+  const cost = costValue == null || String(costValue).trim() === '' || !Number.isFinite(Number(costValue)) ? NaN : Number(costValue)
+  // A present but malformed compliance record is missing required evidence,
+  // not evidence that the obligation is zero.
+  if (!start || !end || end < start || !Number.isFinite(cost) || cost <= 0) return NaN
   // All validity and reporting boundaries are inclusive IST calendar dates.
   // Never derive day counts from elapsed milliseconds: timestamp offsets and
   // leap days must not change the number of covered calendar dates.
   const validityFrom = istDateKey(start), validityTo = istDateKey(end)
   const reportFrom = istDateKey(r?.from) || validityFrom
   const reportTo = istDateKey(r?.to) || validityTo
-  if (!validityFrom || !validityTo || !reportFrom || !reportTo) return 0
+  if (!validityFrom || !validityTo || !reportFrom || !reportTo) return NaN
   const overlapFrom = validityFrom > reportFrom ? validityFrom : reportFrom
   const overlapTo = validityTo < reportTo ? validityTo : reportTo
   if (overlapTo < overlapFrom) return 0
   const totalDays = inclusiveCalendarDays(validityFrom, validityTo)
   const overlapDays = inclusiveCalendarDays(overlapFrom, overlapTo)
-  if (!totalDays || !overlapDays) return 0
+  if (!totalDays) return NaN
+  if (!overlapDays) return 0
   return cost * overlapDays / totalDays
 }
 const renewal = (xs, shifts, r) => live(xs).reduce((sum, record) => sum + complianceProvisionForRecord(record, shifts, r), 0)
 const complianceProvisionThrough = (record, asOf) => {
-  const start = d(record?.validFrom), end = d(record?.validUntil), boundary = d(asOf), cost = n(record?.cost)
-  if (!start || !end || !boundary || end < start || cost <= 0) return 0
+  const start = d(record?.validFrom), end = d(record?.validUntil), boundary = d(asOf)
+  const costValue = record?.cost
+  const cost = costValue == null || String(costValue).trim() === '' || !Number.isFinite(Number(costValue)) ? NaN : Number(costValue)
+  if (!start || !end || !boundary || end < start || !Number.isFinite(cost) || cost <= 0) return NaN
   const validityFrom = istDateKey(start), validityTo = istDateKey(end), asOfKey = istDateKey(boundary)
-  if (!validityFrom || !validityTo || !asOfKey || asOfKey < validityFrom) return 0
+  if (!validityFrom || !validityTo || !asOfKey) return NaN
+  if (asOfKey < validityFrom) return 0
   const accruedTo = asOfKey < validityTo ? asOfKey : validityTo
   const totalDays = inclusiveCalendarDays(validityFrom, validityTo)
   const accruedDays = inclusiveCalendarDays(validityFrom, accruedTo)
-  return totalDays > 0 ? cost * accruedDays / totalDays : 0
+  return totalDays > 0 ? cost * accruedDays / totalDays : NaN
 }
 
 export function derivePerformance(s, r, p = previousRange(r)) {
