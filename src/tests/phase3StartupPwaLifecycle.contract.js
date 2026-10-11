@@ -17,7 +17,9 @@ assert.match(startup, /void platform\.registerServiceWorker\(\)/, 'service-worke
 const serviceWorkerRegistration = startup.indexOf('void platform.registerServiceWorker()')
 const storageInitialization = startup.indexOf('await platform.initializeStorage()')
 assert.ok(serviceWorkerRegistration >= 0 && serviceWorkerRegistration < storageInitialization, 'service-worker registration must start before storage recovery')
-assert.match(platform, /serviceWorker\.register\('\.\/service-worker\.js', \{ scope: '\.\/', updateViaCache: 'none' \}\)/)
+assert.match(platform, /const base = getWebAppBase\(\)/)
+assert.match(platform, /serviceWorker\.register\(\`\$\{base\}service-worker\.js\`, \{ scope: base, updateViaCache: 'none' \}\)/)
+assert.match(platform, /window\.location\.pathname\.startsWith\('\/KFE-New\/'\)/)
 assert.match(platform, /registration\.update\(\)\.catch/)
 
 assert.match(sw, /const CACHE_NAME = 'kfe-pwa-shell-__KFE_BUILD_ID__'/)
