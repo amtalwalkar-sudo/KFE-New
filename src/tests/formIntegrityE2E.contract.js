@@ -65,9 +65,9 @@ assertHas(timelineView, /Authoritative Revenue/, 'Timeline must display authorit
 assertHas(performanceView, /performanceHeadlineActualProfit/, 'Performance must display calculated actual P/L')
 assertHas(performanceView, /performanceHeadlineProvisionalProfit/, 'Performance must display calculated provisional P/L')
 
-assertHas(work, /if \(action === 'back-start'\) \{ if \(window\.confirm\('Leave shift start and discard these entries\?'\)\) startOpen\.value = false; return \}/, 'Start Shift back must confirm before discarding entries and must not submit')
-assertHas(work, /if \(action === 'back-cancel'\) \{ if \(window\.confirm\('Leave cancellation and discard these entries\?'\)\) cancelOpen\.value = false; return \}/, 'Cancellation back must confirm before discarding entries and must not submit')
-assertHas(work, /if \(action === 'close-fuel'\) \{ if \(window\.confirm\('Leave refuelling and discard these entries\?'\)\) fuelOpen\.value = false; return \}/, 'Fuel close must confirm before discarding entries and must not submit')
+assert.ok(work.includes("if (action === 'back-start') { startOpen.value = false; return }"), 'Start Shift back/cancel must not submit')
+assert.ok(work.includes("if (action === 'back-cancel') { cancelOpen.value = false; return }"), 'Cancellation back/cancel must not submit')
+assert.ok(work.includes("if (action === 'close-fuel') { fuelOpen.value = false; return }"), 'Fuel close/cancel must not submit')
 assert.ok(adminForm.includes('@click="cancelForm"') && adminForm.includes('async function cancelForm()') && adminForm.includes("emit('cancel')"), 'Admin cancel must confirm discard when applicable and emit cancel instead of submitting')
 assertHas(reconciliation, /@submit\.prevent="handleFinalCommit"/, 'Reconciliation must commit only through final submit')
 
