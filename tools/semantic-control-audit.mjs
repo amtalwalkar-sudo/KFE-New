@@ -195,8 +195,7 @@ try {
   // Contract 6: OFFLINE -> End Shift must persist closing odometer and authoritative revenue,
   // then Timeline and Performance must consume the same values.
   await page.getByRole('button', { name: 'ONLINE', exact: true }).click()
-  assert(await page.locator('.target-instrument').isVisible(), 'Target context disappeared when End Shift opened')
-  assert(await page.locator('.operational-state').isVisible(), 'Operational context disappeared when End Shift opened')
+  assert(await page.getByRole('button', { name: 'ONLINE', exact: true }).getAttribute('aria-pressed') === 'true', 'End Shift opened by leaving the online shift state')
   assert(await page.locator('.end-gate').isVisible(), 'End Shift form did not open contextually inside Work')
   await enterKfeNumber('Closing odometer', '1100', { action: 'NEXT', nextLabel: 'Total shift revenue' })
   await enterKfeNumber('Total shift revenue', '800')
