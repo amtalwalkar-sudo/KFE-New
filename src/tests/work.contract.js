@@ -14,6 +14,8 @@ assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /setInterval\(\(\) => \{ void refreshLiveMovementKm\(\) \}, 3000\)/)
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /live-km-readout/)
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /liveMovementKm\.value\.toFixed\(1\)/)
+assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /filterGpsTrace\(nativePoints\.filter\(point => point\?\.eventType === expectedEvent\)\)/)
+assert.doesNotMatch(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /liveKm: '0\.0 km'/)
 const root = process.cwd()
 const workView = fs.readFileSync(path.join(root, 'src/views/WorkModuleView.vue'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'src/components/work/WorkContextForm.vue'), 'utf8')
 const workStore = fs.readFileSync(path.join(root, 'src/stores/shiftTrip.js'), 'utf8')
