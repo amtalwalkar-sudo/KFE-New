@@ -1363,3 +1363,45 @@ table th,table td{border-color:var(--kfe-ui-border)}
 @media(forced-colors:active){
   :where(button,a,input,select,textarea,[role="button"],[tabindex]):focus-visible{outline:2px solid Highlight}
 }
+
+
+/* Ride swipe labels — high-contrast, readable on small Android screens. */
+.persistent-action .swipe-bar.trip-action {
+  min-height:76px !important;
+  border:2px solid var(--swipe-action-color) !important;
+  background:#171E26 !important;
+}
+.persistent-action .swipe-bar.trip-action .swipe-progress {
+  background:color-mix(in srgb,var(--swipe-action-color) 24%,#171E26) !important;
+}
+.persistent-action .swipe-bar.trip-action .swipe-label {
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  padding:0 12px 0 66px !important;
+  color:#FFFFFF !important;
+  font-size:clamp(15px,4.2vw,18px) !important;
+  font-weight:950 !important;
+  line-height:1.2 !important;
+  letter-spacing:0 !important;
+  text-align:center !important;
+  white-space:normal !important;
+  overflow-wrap:anywhere !important;
+  text-shadow:0 1px 3px #000000,0 0 2px #000000 !important;
+  z-index:1 !important;
+  pointer-events:none !important;
+}
+.persistent-action .swipe-bar.trip-action .swipe-thumb {
+  z-index:2 !important;
+  border:2px solid #FFFFFF !important;
+  color:#10151B !important;
+  box-shadow:0 0 0 2px #10151B !important;
+}
+@media(max-width:380px) {
+  .persistent-action .swipe-bar.trip-action { min-height:78px !important; }
+  .persistent-action .swipe-bar.trip-action .swipe-label {
+    padding-left:62px !important;
+    padding-right:8px !important;
+    font-size:15px !important;
+  }
+}
