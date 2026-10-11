@@ -8,6 +8,7 @@ const QUEUE_KEY = 'kfe.movement-reconciliation-queue.v1'
 const LIVE_MATCH_INTERVAL_MS = 30000
 const MIN_LIVE_MATCH_POINTS = 4
 let lastLiveMatchAt = new Map()
+let lastLiveMatches = new Map()
 let flushPromise = null
 let lastFlushAt = 0
 const FLUSH_INTERVAL_MS = 30000
@@ -22,7 +23,6 @@ const writeQueue = ids => {
   try { localStorage.setItem(QUEUE_KEY, JSON.stringify([...new Set(ids)])); return true }
   catch (_) { return false }
 }
-const enqueue = id => { if (!id) return; writeQueue([...readQueue(), id]) }
 const isRoadMatch = result => Boolean(
   result?.method === 'VALHALLA_TRACE_ROUTE_MAP_MATCH' &&
   result?.roadMatchedGeometry?.type === 'LineString' &&
@@ -36,17 +36,20 @@ export const MovementReconciliationQueue = Object.freeze({
     if (!online() || !entityId || !Array.isArray(tracePoints) || tracePoints.length < MIN_LIVE_MATCH_POINTS) return null
     const key = entityType + ':' + entityId
     const now = Date.now()
-    if (now - (lastLiveMatchAt.get(key) || 0) < LIVE_MATCH_INTERVAL_MS) return null
+    if (now - (lastLiveMatchAt.get(key) || 0) < LIVE_MATCH_INTERVAL_MS) return lastLiveMatches.get(key) || null
     lastLiveMatchAt.set(key, now)
     try {
       const routed = await routeTrace(MovementAccountingService.filterGpsTrace(tracePoints), new ValhallaRoutingAdapter())
-      return isRoadMatch(routed) ? {
+      if (!isRoadMatch(routed)) { lastLiveMatches.delete(key); return null }
+      const matched = {
         distanceKm: Number(routed.distanceKm),
         method: routed.method,
         provenance: routed.provenance,
         roadMatchedGeometry: routed.roadMatchedGeometry
-      } : null
-    } catch (_) { return null }
+      }
+      lastLiveMatches.set(key, matched)
+      return matched
+    } catch (_) { lastLiveMatches.delete(key); return null }
   },
 
   async enqueuePendingCompletedTrips() {
