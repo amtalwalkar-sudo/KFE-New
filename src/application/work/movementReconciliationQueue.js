@@ -52,11 +52,19 @@ export const MovementReconciliationQueue = Object.freeze({
   async enqueuePendingCompletedTrips() {
     let trips = []
     try { trips = await ShiftTripRepository.getAllTrips() } catch (_) { return readQueue() }
-    const pending = trips.filter(trip =>
+    const candidates = trips.filter(trip =>
       trip?.id && trip.status === 'COMPLETED' &&
-      trip.tripKmAuthority === 'GPS_LINE_TRACE' &&
+      (trip.tripKmAuthority === 'GPS_LINE_TRACE' || (!trip.tripKmAuthority && (trip.tripKm == null || trip.tripKm === ''))) &&
       trip.tripKmProvenance?.method !== 'VALHALLA_TRACE_ROUTE_MAP_MATCH'
-    ).map(trip => trip.id)
+    )
+    const pending = []
+    for (const trip of candidates) {
+      try {
+        const snapshots = (await LocationRepository.forEntity('TRIP', trip.id))
+          .filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')
+        if (snapshots.length >= 2) pending.push(trip.id)
+      } catch (_) { pending.push(trip.id) }
+    }
     writeQueue([...readQueue(), ...pending])
     return readQueue()
   },
@@ -108,3 +116,10 @@ export const MovementReconciliationQueue = Object.freeze({
 
   getPendingIds() { return readQueue() }
 })
+
+// The trace itself is persisted locally; queue reconciliation on startup and when
+// connectivity returns. Neither listener is required for GPS capture to continue.
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => { void MovementReconciliationQueue.reconcilePending({ force: true }) })
+  void MovementReconciliationQueue.reconcilePending()
+}
