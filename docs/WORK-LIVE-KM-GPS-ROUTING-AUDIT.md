@@ -1,6 +1,6 @@
 # Work Live KM, GPS and Routing — Layer 1 Audit
 
-**Status:** Source audit completed; CI passed on commit `be477dd3399442423504ae2bd7c0c2a8b377d0e3`; physical-device and live routing acceptance pending  
+**Status:** Offline-first/incremental-routing implementation added on `fix/offline-incremental-gps-routing`; CI and physical-device acceptance pending  
 **Scope:** Work screen live movement display, GPS trace capture, road routing, and distance classification  
 **Authority:** `KFE_WORK_COCKPIT_BASELINE.md`, `docs/KFE-OPERATIONAL-LIFECYCLE-CONTRACT.md`, `docs/ANDROID-NATIVE-GPS-CONTRACT.md`, and `KFE_BUSINESS_RULES_REGISTER.md`
 
@@ -44,3 +44,26 @@
 6. Reconcile a completed shift: total vehicle KM = closing odometer − starting odometer; business KM uses completed-trip values, dead KM is reconciled separately, and Personal KM is only the approved opening-gap allocation.
 
 **Freeze rule:** do not mark this layer verified from source inspection or green CI alone. The branch must pass CI, then the real-device and route-service gates above must be recorded.
+
+## Offline-first and incremental routing implementation
+
+The follow-up implementation adds these behaviours:
+
+- The Work screen calculates and displays the filtered GPS trace estimate immediately; it does not wait for a routing response.
+- GPS trace collection/persistence remains local-first: browser trace points are written to IndexedDB, while Android's native foreground service writes its trace to an app-private JSONL file. Neither collector requires mobile data or Wi-Fi.
+- While connectivity is available, Work attempts Valhalla trace matching no more frequently than every 30 seconds, and only treats a response as a road match when it includes valid matched LineString geometry. A validated live match is explicitly labelled **PROVISIONAL ROAD MATCH**; otherwise the screen retains **LIVE GPS ESTIMATE**.
+- Completed trips whose canonical distance is currently GPS-line fallback are queued in local storage. Queue discovery runs at app startup and before retry; connectivity restoration triggers a forced retry. The queue is retained unless Valhalla returns a valid matched geometry and the canonical trip enrichment is saved.
+- Reconciliation stores the accepted Valhalla distance and provenance, including the GPS-line fallback comparison, and removes the trip from the queue only after successful persistence. Re-running reconciliation is idempotent at the trip enrichment level; it replaces the provisional distance rather than adding it to totals.
+- Queue retries are throttled to 30 seconds during ordinary Work refresh; connectivity restoration can trigger an immediate retry.
+
+## Offline acceptance status
+
+**Not yet proven on a physical Android device.** Automated contracts can verify source-level behavior, but cannot establish actual GPS continuity or local persistence on a particular handset. Required manual test:
+
+1. Start a shift and pickup leg, disable Wi-Fi and mobile data, and verify the DEAD KM figure increases from locally captured GPS points.
+2. Start a passenger trip with connectivity still disabled; verify BUSINESS KM starts for the passenger trace and continues increasing with the screen locked.
+3. Background/interrupt KFE, resume it, and verify the native trace survives and no duplicate points are imported.
+4. End the trip while offline; verify the saved trip keeps a clearly identified GPS-line provisional distance and the route reconciliation remains queued.
+5. Restore connectivity; verify the queue retries, a valid Valhalla matched geometry is required before replacing the provisional canonical distance, and the trip is reconciled exactly once.
+6. Repeat with routing unavailable, invalid response, missing geometry and weak/no GPS. No unavailable or provisional state may be presented as validated road distance.
+
