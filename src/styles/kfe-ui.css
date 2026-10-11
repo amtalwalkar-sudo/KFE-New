@@ -1478,3 +1478,81 @@ table th,table td{border-color:var(--kfe-ui-border)}
   color: #FFFFFF !important;
   opacity: 1 !important;
 }
+
+
+/* Compact Work forms: keep the action fixed and scroll only crowded form content. */
+.work-canonical .work-main:has(.form-end) {
+  height: 100%;
+  overflow: hidden !important;
+}
+.work-canonical .work-main:has(.form-end) .work-context-form.form-end {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 100%;
+}
+.work-canonical .work-context-form.form-end .form-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 100%;
+  padding: 12px !important;
+  gap: 8px !important;
+}
+.work-canonical .work-context-form.form-end .form-head {
+  flex: 0 0 auto;
+  margin-bottom: 0 !important;
+}
+.work-canonical .work-context-form.form-end .fact-grid {
+  gap: 8px !important;
+  margin: 0 !important;
+}
+.work-canonical .work-context-form.form-end .fact-grid > div {
+  min-height: 58px !important;
+  padding: 8px 10px !important;
+}
+.work-canonical .work-context-form.form-end .expense-row {
+  display: grid;
+  grid-template-columns: minmax(0, .8fr) minmax(0, 1fr);
+  gap: 8px !important;
+  padding: 8px 0 !important;
+  margin: 0 !important;
+}
+.work-canonical .work-context-form.form-end .expense-trip-total,
+.work-canonical .work-context-form.form-end .expense-shift-capture {
+  min-width: 0;
+  gap: 6px !important;
+}
+.work-canonical .work-context-form.form-end .expense-shift-capture .input-unit {
+  min-height: 44px !important;
+}
+.work-canonical .work-context-form.form-end .primary-action {
+  flex: 0 0 auto;
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  margin-top: auto !important;
+}
+.work-canonical .work-context-form.form-end .form-card > :not(.form-head):not(.primary-action) {
+  flex-shrink: 0;
+}
+.work-canonical .work-context-form.form-end .exception-panel,
+.work-canonical .work-context-form.form-end .success-panel {
+  padding: 10px !important;
+  margin: 0 !important;
+}
+@media (max-height: 780px) {
+  .work-canonical .work-context-form.form-end .form-card {
+    padding: 8px !important;
+    gap: 6px !important;
+  }
+  .work-canonical .work-context-form.form-end .fact-grid > div {
+    min-height: 48px !important;
+    padding: 6px 8px !important;
+  }
+  .work-canonical .work-context-form.form-end .expense-row {
+    padding: 5px 0 !important;
+  }
+}
+/* A back action never silently discards an in-progress Work form. */
