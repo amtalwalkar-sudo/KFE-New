@@ -1412,3 +1412,69 @@ table th,table td{border-color:var(--kfe-ui-border)}
   color: #000000 !important;
   text-shadow: none !important;
 }
+
+
+/* Work screen: fixed viewport, focused trip/cancellation forms, and readable reconciliation totals. */
+@supports (height: 100dvh) {
+  body:has(.work-canonical) {
+    overflow: hidden !important;
+    overscroll-behavior: none;
+  }
+}
+.work-canonical {
+  min-height: 0 !important;
+}
+.work-canonical .work-main {
+  min-height: 0 !important;
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+}
+.work-canonical .work-main:has(.form-fare) .target-instrument,
+.work-canonical .work-main:has(.form-fare) .operational-state,
+.work-canonical .work-main:has(.form-cancel) .target-instrument,
+.work-canonical .work-main:has(.form-cancel) .operational-state,
+.work-canonical .work-main:has(.form-fuel) .target-instrument,
+.work-canonical .work-main:has(.form-fuel) .operational-state,
+.work-canonical .work-main:has(.form-end) .target-instrument,
+.work-canonical .work-main:has(.form-end) .operational-state,
+.work-canonical .work-main:has(.form-start) .target-instrument,
+.work-canonical .work-main:has(.form-start) .operational-state {
+  display: none !important;
+}
+.work-canonical .work-main:has(.form-fare),
+.work-canonical .work-main:has(.form-cancel),
+.work-canonical .work-main:has(.form-fuel),
+.work-canonical .work-main:has(.form-end),
+.work-canonical .work-main:has(.form-start) {
+  height: 100%;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+  gap: 8px !important;
+}
+.work-canonical .work-context-form {
+  min-height: 0;
+  max-height: 100%;
+}
+.work-canonical .work-context-form .form-card {
+  min-height: 0;
+  max-height: 100%;
+}
+.work-canonical .work-context-form.form-fare .form-card,
+.work-canonical .work-context-form.form-cancel .form-card,
+.work-canonical .work-context-form.form-fuel .form-card,
+.work-canonical .work-context-form.form-end .form-card {
+  overflow: hidden !important;
+}
+.work-canonical .form-end .fact-grid > div {
+  background: #202934 !important;
+  color: #E8EDF2 !important;
+  border: 1px solid #3A4653 !important;
+}
+.work-canonical .form-end .fact-grid > div > span {
+  color: #B8C2CD !important;
+  opacity: 1 !important;
+}
+.work-canonical .form-end .fact-grid > div > strong {
+  color: #FFFFFF !important;
+  opacity: 1 !important;
+}
