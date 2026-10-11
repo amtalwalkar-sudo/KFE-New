@@ -231,13 +231,11 @@ async function refreshLiveMovementKm() {
 
   const expectedEvent = active.value ? 'PASSENGER_RIDE_TRACE' : 'DEAD_MOVEMENT_TRACE'
   let tracePoints = []
-  let traceSource = 'GPS TRACE'
 
   if (nativeAndroid) {
     try {
       tracePoints = (await NativeGpsService.readTrace(currentTrip.id))
         .filter(point => point?.eventType === expectedEvent)
-      if (tracePoints.length) traceSource = 'ANDROID_NATIVE_GPS'
     } catch (_) {}
   }
 
@@ -248,7 +246,6 @@ async function refreshLiveMovementKm() {
       : session?.entityType === 'SHIFT' && session.entityId === store.shift?.id && session.profile === 'DEAD_LEG'
     if (matchesCurrentMovement) {
       tracePoints = MovementTraceService.getPoints()
-      traceSource = 'BROWSER_GEOLOCATION'
     }
   }
 
