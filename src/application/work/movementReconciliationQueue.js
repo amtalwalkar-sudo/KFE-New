@@ -11,7 +11,9 @@ let lastLiveMatchAt = new Map()
 let lastLiveMatches = new Map()
 let flushPromise = null
 let lastFlushAt = 0
+let lastDiscoveryAt = 0
 const FLUSH_INTERVAL_MS = 30000
+const DISCOVERY_INTERVAL_MS = 30000
 const online = () => typeof navigator === 'undefined' || navigator.onLine !== false
 const readQueue = () => {
   try {
@@ -52,7 +54,9 @@ export const MovementReconciliationQueue = Object.freeze({
     } catch (_) { lastLiveMatches.delete(key); return null }
   },
 
-  async enqueuePendingCompletedTrips() {
+  async enqueuePendingCompletedTrips({ force = false } = {}) {
+    if (!force && Date.now() - lastDiscoveryAt < DISCOVERY_INTERVAL_MS) return readQueue()
+    lastDiscoveryAt = Date.now()
     let trips = []
     try { trips = await ShiftTripRepository.getAllTrips() } catch (_) { return readQueue() }
     const candidates = trips.filter(trip =>
@@ -73,7 +77,7 @@ export const MovementReconciliationQueue = Object.freeze({
   },
 
   async reconcilePending({ force = false } = {}) {
-    await this.enqueuePendingCompletedTrips()
+    await this.enqueuePendingCompletedTrips({ force })
     if (!online()) return { status: 'OFFLINE', queued: readQueue().length, reconciled: 0 }
     if (flushPromise) return flushPromise
     if (!force && Date.now() - lastFlushAt < FLUSH_INTERVAL_MS) return { status: 'THROTTLED', queued: readQueue().length, reconciled: 0 }
