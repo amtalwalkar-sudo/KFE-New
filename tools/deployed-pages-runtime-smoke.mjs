@@ -10,6 +10,17 @@ const routes = [
   { path: '/admin', selector: '.admin-page', label: 'Admin' },
 ]
 
+// A launch deployment may intentionally enable first-run setup. Dismiss it
+// non-destructively so the runtime gate tests the requested route itself.
+const finishSetupIfEnabled = async page => {
+  for (let i = 0; i < 20 && await page.locator('.first-run').count(); i++) {
+    const skip = page.getByRole('button', { name: "Skip — I'll fill this later", exact: true })
+    if (await skip.count() && await skip.isEnabled()) await skip.click()
+    else await page.waitForTimeout(250)
+  }
+  await page.waitForFunction(() => !document.querySelector('.first-run'), undefined, { timeout: 15000 })
+}
+
 const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] })
 try {
   for (const route of routes) {
@@ -21,6 +32,7 @@ try {
     if (!response || response.status() !== 200) {
       throw new Error(`${route.label}: expected HTTP 200 on initial navigation, got ${response?.status()}`)
     }
+    await finishSetupIfEnabled(page)
     await page.waitForSelector(route.selector, { state: 'visible', timeout: 45000 })
     await page.waitForFunction(selector => {
       const node = document.querySelector(selector)
@@ -33,6 +45,7 @@ try {
     if (!refreshedResponse || refreshedResponse.status() !== 200) {
       throw new Error(`${route.label}: expected HTTP 200 after hard refresh, got ${refreshedResponse?.status()}`)
     }
+    await finishSetupIfEnabled(page)
     await page.waitForSelector(route.selector, { state: 'visible', timeout: 45000 })
     await page.waitForFunction(selector => {
       const node = document.querySelector(selector)
