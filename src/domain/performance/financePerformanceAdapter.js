@@ -62,22 +62,25 @@ export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
   const paymentRecords = live(snapshot?.loanPayments)
   const prepaymentRecords = live(snapshot?.prepayments)
   const candidateLoans = loanRecords.filter(loan => { const status = String(loan.status || '').toUpperCase(); return !status || status === 'ACTIVE' }).filter(loan => !dateOf(loan.startDate) || dateOf(loan.startDate) <= currentAsOf)
-  const activeLoan = candidateLoans.filter(loan => Number.isFinite(Number(loan.principal)) && Number(loan.principal) > 0).filter(loan => Number.isFinite(Number(loan.tenureMonths)) && Number(loan.tenureMonths) > 0).filter(loan => Number.isFinite(Number(loan.annualInterestRatePercent)) && Number(loan.annualInterestRatePercent) >= 0).filter(loan => dateOf(loan.startDate)).sort((a, b) => (dateOf(b.startDate)?.getTime() || 0) - (dateOf(a.startDate)?.getTime() || 0))[0]
+  const validCandidateLoans = candidateLoans.filter(loan => loan?.principal != null && String(loan.principal).trim() !== '' && Number.isFinite(Number(loan.principal)) && Number(loan.principal) > 0).filter(loan => loan?.tenureMonths != null && String(loan.tenureMonths).trim() !== '' && Number.isFinite(Number(loan.tenureMonths)) && Number(loan.tenureMonths) > 0).filter(loan => loan?.annualInterestRatePercent != null && String(loan.annualInterestRatePercent).trim() !== '' && Number.isFinite(Number(loan.annualInterestRatePercent)) && Number(loan.annualInterestRatePercent) >= 0).filter(loan => dateOf(loan.startDate))
+  // Until multi-loan aggregation is defined by the business rules, refuse to
+  // report a single-loan result when more than one active loan is in scope.
+  const activeLoan = candidateLoans.length === 1 && validCandidateLoans.length === 1 ? validCandidateLoans[0] : null
   const hasIncompleteActiveLoan = candidateLoans.length > 0 && !activeLoan
   const finance = activeLoan ? deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: currentAsOf }) : null
   const previousFinance = activeLoan ? deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: previousAsOf }) : null
   const businessStart = businessStartDate(snapshot)
   const historicalMaintenanceRecovery = calculateHistoricalMaintenanceRecovery({ vehicles: snapshot?.vehicles || [], businessStartDate: businessStart, asOf: currentAsOf })
-  const preBusinessRecoveryMonthly = finance ? calculatePreBusinessLoanRecovery({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, businessStartDate: businessStart, asOf: currentAsOf }) : 0
+  const preBusinessRecoveryMonthly = finance ? calculatePreBusinessLoanRecovery({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, businessStartDate: businessStart, asOf: currentAsOf }) : hasIncompleteActiveLoan ? NaN : 0
   // Management P/L accrues the scheduled EMI obligation over its covered calendar period,
   // independent of payment status and cash due date. This keeps day/week/month views
   // consistent while ensuring the full obligation is counted once across its period.
-  const currentScheduledEmi = finance?.schedule ? scheduledEmiAccruedForRange(finance.schedule, range) : 0
+  const currentScheduledEmi = finance?.schedule ? scheduledEmiAccruedForRange(finance.schedule, range) : hasIncompleteActiveLoan ? NaN : 0
   // Interest reporting remains tied to the scheduled due date; only the P/L EMI
   // obligation is assigned to its covered period. Do not change interest's
   // existing reporting semantics as a side effect of the P/L correction.
   const currentScheduledInterest = finance?.schedule ? finance.schedule.filter(row => inRange(row.dueDate, range)).reduce((sum, row) => sum + money(row.originalInterestComponent), 0) : 0
-  const preBusinessRecoveryForPeriod = finance ? calculatePreBusinessLoanRecoveryForRange({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, businessStartDate: businessStart, range }) : 0
+  const preBusinessRecoveryForPeriod = finance ? calculatePreBusinessLoanRecoveryForRange({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, businessStartDate: businessStart, range }) : hasIncompleteActiveLoan ? NaN : 0
   const historicalMaintenanceRecoveryForPeriod = calculateHistoricalMaintenanceRecoveryForRange({ vehicles: snapshot?.vehicles || [], businessStartDate: businessStart, range: range })
   const fullMonthRange = istMonthRange(range?.to) || range
   const breakEvenMonthRange = fullMonthRange
