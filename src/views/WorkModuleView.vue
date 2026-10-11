@@ -7,7 +7,6 @@ import { WorkService } from '../application/work/workService.js'
 import { WorkDraftService } from '../application/work/workDraftService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { MovementTraceService, calculateTraceDistanceKm } from '../infrastructure/location/movementTraceService.js'
-import { filterGpsTrace } from '../domain/movement/movementAccounting.js'
 import { NativeGpsService } from '../infrastructure/android/nativeGpsService.js'
 import { KfeRideNotificationService } from '../infrastructure/android/kfeRideNotificationService.js'
 import { AndroidOverlay } from '../infrastructure/android/kfeOverlay.js'
@@ -233,9 +232,9 @@ async function refreshLiveMovementKm() {
   if (nativeAndroid) {
     try {
       const nativePoints = await NativeGpsService.readTrace(currentTrip.id)
-      const matching = filterGpsTrace(nativePoints.filter(point => point?.eventType === expectedEvent))
-      if (matching.length >= 2) {
-        liveMovementKm.value = calculateTraceDistanceKm(matching)
+      const matching = WorkService.calculateLiveMovement(nativePoints.filter(point => point?.eventType === expectedEvent))
+      if (matching.points.length >= 2) {
+        liveMovementKm.value = matching.distanceKm
         liveMovementStatus.value = 'LIVE GPS ESTIMATE'
         return
       }
@@ -247,9 +246,9 @@ async function refreshLiveMovementKm() {
     ? session?.entityType === 'TRIP' && session.entityId === currentTrip.id && session.profile === 'PASSENGER_RIDE'
     : session?.entityType === 'SHIFT' && session.entityId === store.shift?.id && session.profile === 'DEAD_LEG'
   if (matchesCurrentMovement) {
-    const points = filterGpsTrace(MovementTraceService.getPoints())
-    liveMovementKm.value = calculateTraceDistanceKm(points)
-    liveMovementStatus.value = points.length >= 2 ? 'LIVE GPS ESTIMATE' : 'ACQUIRING GPS'
+    const movement = WorkService.calculateLiveMovement(MovementTraceService.getPoints())
+    liveMovementKm.value = movement.distanceKm
+    liveMovementStatus.value = movement.points.length >= 2 ? 'LIVE GPS ESTIMATE' : 'ACQUIRING GPS'
     return
   }
 
@@ -1089,31 +1088,3 @@ onBeforeUnmount(() => {
 </template>
 
 
-<style scoped>
-.live-km-readout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: baseline;
-  gap: 4px 12px;
-  margin-top: 12px;
-  padding: 10px 12px;
-  border: 1px solid var(--kfe-border, rgba(127, 140, 155, 0.35));
-  border-radius: 12px;
-}
-.live-km-readout > span {
-  font-size: 0.78rem;
-  font-weight: 750;
-  letter-spacing: 0.04em;
-}
-.live-km-readout > strong {
-  font-size: 1.2rem;
-  font-variant-numeric: tabular-nums;
-}
-.live-km-readout > small {
-  grid-column: 1 / -1;
-  margin-left: 0;
-  color: var(--kfe-muted, #667085);
-  font-size: 0.65rem;
-  text-align: right;
-}
-</style>
