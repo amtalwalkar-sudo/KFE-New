@@ -32,16 +32,17 @@ const same = (a,b) => a.join(',') === b.join(',')
 export function runNativeSwipeVisualParityAudit() {
   const css = read(cssPath)
   const java = read(javaPath)
-  const day = block(css, ':root[data-kfe-theme="day"],:root[data-kfe-theme="light"]')
-  const night = block(css, ':root[data-kfe-theme="night"],:root[data-kfe-theme="dark"]')
+  // The canonical PWA now has one dark palette. Compare the native overlay's
+  // dark branch to those tokens; no separate light/day palette is authoritative.
+  const night = block(css, ':root')
 
   const expected = {
-    pickup: { day: token(day,'kfe-ui-accent'), night: token(night,'kfe-ui-accent') },
-    start: { day: token(day,'kfe-success'), night: token(night,'kfe-success') },
-    end: { day: token(day,'kfe-danger'), night: token(night,'kfe-danger') },
-    surface: { day: token(day,'kfe-ui-surface'), night: token(night,'kfe-ui-surface') },
-    text: { day: token(day,'kfe-ui-text'), night: token(night,'kfe-ui-text') },
-    muted: { day: token(day,'kfe-muted-text'), night: token(night,'kfe-muted-text') }
+    pickup: { night: token(night,'kfe-ui-accent') },
+    start: { night: token(night,'kfe-success') },
+    end: { night: token(night,'kfe-danger') },
+    surface: { night: token(night,'kfe-ui-surface') },
+    text: { night: token(night,'kfe-ui-text') },
+    muted: { night: token(night,'kfe-muted-text') }
   }
 
   const mappings = [
@@ -58,24 +59,20 @@ export function runNativeSwipeVisualParityAudit() {
     START_RIDE: { key:'start' },
     GO_TO_PICKUP: { key:'pickup' }
   }
-  const nativeTriplet = (key) => {
-    const n = rgb(expected[key].night).join(',')
-    const d = rgb(expected[key].day).join(',')
-    return `return dark()?Color.rgb(${n}):Color.rgb(${d})`
-  }
+  const nativeDarkColour = (key) => rgb(expected[key].night).join(',')
   for (const [stage, {key}] of Object.entries(semantic)) {
-    const marker = nativeTriplet(key)
-    if (!action[1].includes(marker)) fail('Native ' + stage + ' semantic colour does not match canonical PWA token: ' + marker)
+    const branches = action[1].match(/return dark\(\)\?Color\.rgb\(([^)]*)\):Color\.rgb\(([^)]*)\)/)
+    if (!branches || branches[1] !== nativeDarkColour(key)) fail('Native ' + stage + ' dark semantic colour does not match canonical PWA token: ' + nativeDarkColour(key))
   }
 
   const surface = java.match(/private int surface\(\)\{return dark\(\)\?Color\.rgb\(([^)]*)\):Color\.WHITE;/)
   if (!surface || !same(surface[1].split(',').map(Number),rgb(expected.surface.night))) fail('Native dark swipe surface does not match canonical dark surface.')
 
   const text = java.match(/private int textColor\(\)\{return dark\(\)\?Color\.rgb\(([^)]*)\):Color\.rgb\(([^)]*)\);\}/)
-  if (!text || !same(text[1].split(',').map(Number),rgb(expected.text.night)) || !same(text[2].split(',').map(Number),rgb(expected.text.day))) fail('Native overlay text colour does not match canonical PWA text token.')
+  if (!text || !same(text[1].split(',').map(Number),rgb(expected.text.night))) fail('Native overlay dark text colour does not match canonical PWA text token.')
 
   const muted = java.match(/private int mutedColor\(\)\{return dark\(\)\?Color\.rgb\(([^)]*)\):Color\.rgb\(([^)]*)\);\}/)
-  if (!muted || !same(muted[1].split(',').map(Number),rgb(expected.muted.night)) || !same(muted[2].split(',').map(Number),rgb(expected.muted.day))) fail('Native overlay muted text colour does not match canonical PWA muted text token.')
+  if (!muted || !same(muted[1].split(',').map(Number),rgb(expected.muted.night))) fail('Native overlay dark muted text colour does not match canonical PWA muted text token.')
 
   for (const marker of ['fx>=maxTravel*.70f','thumbW=dp(58)','barTop+dp(124)','localY>=dp(100)&&localY<=dp(132)']) {
     if (!java.includes(marker)) fail('Frozen native swipe mechanic marker missing: ' + marker)
