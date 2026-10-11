@@ -1741,3 +1741,57 @@ table th,table td{border-color:var(--kfe-ui-border)}
 .work-canonical:has(.form-fare) .work-fixed-action .trip-swipe .swipe-handle {
   pointer-events: auto !important;
 }
+
+/* Work viewport telemetry: state elapsed time and movement distance stay together
+   in a compact, labeled row across READY, pickup, and active-trip states. */
+.work-canonical .work-live-metrics {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.work-canonical .work-live-metrics .live-km-readout,
+.work-canonical .work-live-metrics .trip-timer-block {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding: 10px 11px;
+  border: 1px solid var(--kfe-ui-border, #dce2e8);
+  border-radius: 12px;
+  background: var(--kfe-ui-surface-2, #eef2f6);
+}
+.work-canonical .work-live-metrics .live-km-readout > span,
+.work-canonical .work-live-metrics .timer-label {
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 900;
+  letter-spacing: .08em;
+  color: var(--kfe-muted-text, #5b6673);
+}
+.work-canonical .work-live-metrics .live-km-readout > strong,
+.work-canonical .work-live-metrics .trip-timer {
+  display: block;
+  margin: 0;
+  font-size: clamp(19px, 5vw, 25px);
+  line-height: 1.05;
+  font-weight: 950;
+  letter-spacing: -.025em;
+  font-variant-numeric: tabular-nums;
+  color: var(--kfe-ui-text, #17202a);
+  white-space: nowrap;
+}
+.work-canonical .work-live-metrics .live-km-readout > small {
+  font-size: 9px;
+  line-height: 1.2;
+  color: var(--kfe-muted-text, #5b6673);
+}
+@media (max-width: 360px) {
+  .work-canonical .work-live-metrics { gap: 6px; }
+  .work-canonical .work-live-metrics .live-km-readout,
+  .work-canonical .work-live-metrics .trip-timer-block { padding: 8px; }
+  .work-canonical .work-live-metrics .live-km-readout > strong,
+  .work-canonical .work-live-metrics .trip-timer { font-size: 18px; }
+}
