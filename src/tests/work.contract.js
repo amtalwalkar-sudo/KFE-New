@@ -9,6 +9,13 @@ import { calculateFuelQuantity, validateFuelEntry } from '../domain/work/fuel.js
 import { WorkService } from '../application/work/workService.js'
 
 assert.equal(typeof WorkService.getTripGpsDistanceKm, 'function')
+const liveMovementFixture = WorkService.calculateLiveMovement([
+  { latitude: 19, longitude: 72, accuracy: 5, speed: 10, capturedAt: '2026-10-01T08:00:00.000Z' },
+  { latitude: 19.001, longitude: 72, accuracy: 5, speed: 10, capturedAt: '2026-10-01T08:00:20.000Z' },
+  { latitude: 19.002, longitude: 72, accuracy: 120, speed: 10, capturedAt: '2026-10-01T08:00:40.000Z' }
+])
+assert.equal(liveMovementFixture.points.length, 2, 'Live movement excludes GPS fixes worse than the canonical 80 m accuracy limit.')
+assert.ok(liveMovementFixture.distanceKm > 0, 'Live movement sums filtered GPS segments into a non-zero distance.')
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /liveMovementLabel = computed\(\(\) => store\.trip\?\.id \? \(active\.value \? 'BUSINESS KM' : 'DEAD KM'\) : ''\)/)
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /NativeGpsService\.readTrace\(currentTrip\.id\)/)
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /setInterval\(\(\) => \{ void refreshLiveMovementKm\(\) \}, 3000\)/)
