@@ -1405,3 +1405,10 @@ table th,table td{border-color:var(--kfe-ui-border)}
     font-size:15px !important;
   }
 }
+
+
+/* White swipe-bar readability: keep action lettering black for strong contrast. */
+.persistent-action .swipe-bar.trip-action .swipe-label {
+  color: #000000 !important;
+  text-shadow: none !important;
+}
