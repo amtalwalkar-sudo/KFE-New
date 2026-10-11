@@ -57,7 +57,7 @@ public class KfeOverlayService extends Service {
   private EditText formInput;
   private EditText tollInput;
   private EditText parkingInput;
-  private String theme="light";
+  private String theme="dark";
   private String target="—", rides="0", liveKm="0.0 km", revenue="₹0", pendingTripId="", pendingFareTripId="", cancellationRevenue="₹0";
   private long tripStartAt=0L;
   private int targetProgress=0;
@@ -164,7 +164,7 @@ public class KfeOverlayService extends Service {
       JSONObject root=new JSONObject(raw==null?"{}":raw);
       JSONObject shift=root.optJSONObject("shift"),trip=root.optJSONObject("trip");
       if(shift==null||shift.optString("id","").isEmpty()){removeOverlay();return;}
-      theme=root.optString("theme","light");
+      theme="dark";
       target=root.optString("target","—");
       targetProgress=Math.max(0,Math.min(100,root.optInt("targetProgress",0)));
       rides=root.optString("rides","0");
@@ -461,10 +461,10 @@ public class KfeOverlayService extends Service {
   }
 
   private int textColor(){return dark()?Color.rgb(232,237,242):Color.rgb(23,32,42);}
-  private int mutedColor(){return dark()?Color.rgb(170,180,191):Color.rgb(91,102,115);}
-  private int actionColor(){if("END_RIDE".equals(actionStage))return dark()?Color.rgb(240,106,106):Color.rgb(198,40,40);if("START_RIDE".equals(actionStage))return dark()?Color.rgb(77,189,116):Color.rgb(22,128,60);
+  private int mutedColor(){return dark()?Color.rgb(184,194,205):Color.rgb(91,102,115);}
+  private int actionColor(){if("END_RIDE".equals(actionStage))return dark()?Color.rgb(255,133,133):Color.rgb(198,40,40);if("START_RIDE".equals(actionStage))return dark()?Color.rgb(98,209,138):Color.rgb(22,128,60);
     if("CANCELLED".equals(actionStage)||"CANCEL_RIDE".equals(actionStage))return dark()?Color.rgb(255,190,80):Color.rgb(190,120,0);
-    return dark()?Color.rgb(91,141,239):Color.rgb(37,99,235);}
+    return dark()?Color.rgb(120,162,255):Color.rgb(37,99,235);}
   private int targetColor(){if(targetProgress>=100)return dark()?Color.rgb(80,220,130):Color.rgb(20,145,75);if(targetProgress>=70)return dark()?Color.rgb(255,205,90):Color.rgb(190,125,0);return actionColor();}
   private boolean dark(){return "dark".equals(theme)||"night".equals(theme)||"dusk".equals(theme);}
   private void removeOverlay(){closeForm();if(windowManager!=null&&overlayRoot!=null){try{windowManager.removeView(overlayRoot);}catch(Exception ignored){}}overlayRoot=null;overlay=null;}

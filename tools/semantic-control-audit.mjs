@@ -452,8 +452,8 @@ try {
   assert(JSON.stringify(performanceDbBefore) === JSON.stringify(performanceDbAfter), 'Performance view controls mutated business records')
   evidence.push({ id: 'PERFORMANCE.PERIOD_CONTROLS', result: 'PASS', expected: 'Day/Week/Month/Today/previous/next change view only' })
 
-  // Contract 19: Admin settings controls must persist the selected theme mode and
-  // expose every master/settings navigation target.
+  // Contract 19: Application Settings is dark-only; keep the notification switch interactive
+  // and expose every master/settings navigation target.
   await reset(page)
   await page.goto(new URL('admin', base).href, { waitUntil: 'domcontentloaded' })
   await page.locator('.admin-page').waitFor()
@@ -462,15 +462,16 @@ try {
   await page.locator('.settings-item').filter({ hasText: 'Application Settings' }).click()
   const settingsText = await page.locator('.admin-page').innerText()
   assert(settingsText.includes('Application Settings'), 'ADMIN application settings did not render')
-  const dark = page.getByRole('button', { name: /Dark/, exact: true })
-  const light = page.getByRole('button', { name: /Light/, exact: true })
-  const auto = page.getByRole('button', { name: /Auto/, exact: true })
-  assert(await dark.count() + await light.count() + await auto.count() > 0, 'ADMIN theme controls did not render')
-  await (await dark.count() ? dark : light).click()
-  const themeAfterFirst = await page.evaluate(() => localStorage.getItem('kfe.visual.theme.mode'))
-  assert(['dark','light','auto'].includes(themeAfterFirst), 'ADMIN theme selection did not persist')
-  if (await light.count()) { await light.click(); assert(await page.evaluate(() => localStorage.getItem('kfe.visual.theme.mode')) === 'light', 'ADMIN.THEME_LIGHT did not persist') }
-  if (await auto.count()) { await auto.click(); assert(await page.evaluate(() => localStorage.getItem('kfe.visual.theme.mode')) === 'auto', 'ADMIN.THEME_AUTO did not persist') }
+  assert(await page.getByRole('button', { name: /Light/, exact: true }).count() === 0, 'ADMIN Light theme option must be absent')
+  assert(await page.getByRole('button', { name: /Dark/, exact: true }).count() === 0, 'ADMIN Dark theme option must be absent')
+  assert(await page.getByRole('button', { name: /Auto/, exact: true }).count() === 0, 'ADMIN Auto theme option must be absent')
+  const notificationToggle = page.getByRole('switch')
+  assert(await notificationToggle.count() === 1, 'ADMIN notification ON/OFF switch did not render')
+  const notificationBefore = await notificationToggle.getAttribute('aria-checked')
+  await notificationToggle.click()
+  assert(await notificationToggle.getAttribute('aria-checked') !== notificationBefore, 'ADMIN notification switch did not toggle')
+  await notificationToggle.click()
+  assert(await notificationToggle.getAttribute('aria-checked') === notificationBefore, 'ADMIN notification switch could not restore its previous state')
   await page.goto(new URL('admin', base).href, { waitUntil: 'domcontentloaded' })
   await page.locator('.admin-page').waitFor()
   const adminItems = ['Vehicle','Driver','Compliance','Maintenance','Loan','Prepayments','Ledger','Driver Monthly Target','Maintenance per KM']
@@ -482,7 +483,7 @@ try {
     const back = page.getByRole('button', { name: '‹ Back', exact: true })
     if (await back.count()) await back.click()
   }
-  evidence.push({ id: 'ADMIN.SETTINGS_NAVIGATION', result: 'PASS', expected: 'theme modes persist and all Admin master targets open' })
+  evidence.push({ id: 'ADMIN.SETTINGS_NAVIGATION', result: 'PASS', expected: 'theme selector absent, notification switch works, and all Admin master targets open' })
 
   assert(errors.length === 0, 'Semantic audit browser errors:\n' + errors.join('\n'))
   const result = { audit: 'semantic-control', rule: 'Each tested control must perform its documented business operation, persist the authoritative mutation, and propagate it where applicable.', total: evidence.length, pass: evidence.length, fail: 0, controls: evidence }

@@ -10,7 +10,6 @@ import { BackupService } from '../application/backup/backupService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { getKfeReferenceNow, istDateKey } from '../domain/time/ist.js'
 import { deriveLoanPosition, calculatePrepaymentEstimate, paymentAllocationPreview } from '../domain/finance/loanEngine.js'
-import { getKfeThemeSettings, setKfeThemeMode } from '../presentation/theme/kfeThemeController.js'
 import { KfeRideNotificationService } from '../infrastructure/android/kfeRideNotificationService.js'
 import CalculationsView from './CalculationsView.vue'
 
@@ -84,7 +83,6 @@ const settlementFields=[
  {key:'referenceNumber',label:'Payment reference',type:'text',section:'Payment reference'},
  {key:'notes',label:'Notes',type:'textarea',section:'Additional context'}
 ]
-const themeSettings=ref(getKfeThemeSettings())
 const notificationsEnabled=ref(KfeRideNotificationService.notificationsEnabled())
 const money=v=>Number.isFinite(Number(v))?'₹'+Number(v).toLocaleString('en-IN',{maximumFractionDigits:2}):'—'
 const clone=v=>structuredClone(toRaw(v))
@@ -186,7 +184,6 @@ function masterFieldValue(field,record){const v=record?.values?.[field.key];if(v
 function back(){selected.value=null;settingsOpen.value=false;formOpen.value=false;editing.value=null;draft.value={};closeAction();clearMessages()}
 function openSettings(){clearMessages();selected.value=null;settingsOpen.value=true}
 function chooseSetting(key){settingsSelected.value=key;clearMessages()}
-function chooseTheme(mode){themeSettings.value={...themeSettings.value,mode};setKfeThemeMode(mode);notice.value='Theme set to '+(mode==='light'?'Light':mode==='dark'?'Dark':'Auto')+'.'}
 function chooseNotifications(enabled){notificationsEnabled.value=KfeRideNotificationService.setNotificationsEnabled(enabled);notice.value='Notifications '+(enabled?'enabled':'disabled')+'.'}
 function add(){clearMessages();formErrors.value={};editing.value=null;draft.value=Object.fromEntries((currentDefinition.value?.fields||[]).map(field=>[field.key,field.defaultValue]));formOpen.value=true}
 function edit(record){formErrors.value={};editing.value=record.id;draft.value=clone(record.values||{});formOpen.value=true}
@@ -270,7 +267,7 @@ onMounted(load)
 </template>
 
 <template v-else-if="settingsOpen">
-<section class="settings-screen"><div class="settings-menu"><button v-for="item in settingsMenu" :key="item.key" class="settings-item" :class="{active:settingsSelected===item.key}" @click="chooseSetting(item.key)"><span>{{item.icon}}</span><strong>{{item.title}}</strong><span>›</span></button></div><section v-if="settingsSelected==='backup'" class="settings-panel"><h2>Backup &amp; Restore</h2><BackupRestorePanel/></section><section v-else-if="settingsSelected==='application'" class="settings-panel"><h2>Application Settings</h2><div class="theme-selector"><button :class="{active:themeSettings.mode==='light'}" @click="chooseTheme('light')">☀ Light</button><button :class="{active:themeSettings.mode==='dark'}" @click="chooseTheme('dark')">☾ Dark</button><button :class="{active:themeSettings.mode==='auto'}" @click="chooseTheme('auto')">◐ Auto</button></div><div class="settings-option-row"><div><strong>Notifications</strong><small>Control KFE ride and system action notifications.</small></div><button class="settings-toggle" :class="{active:notificationsEnabled}" type="button" role="switch" :aria-checked="notificationsEnabled" @click="chooseNotifications(!notificationsEnabled)">{{notificationsEnabled?'ON':'OFF'}}</button></div></section><section v-else class="settings-panel"><h2>Data Reset</h2><p>This permanently clears canonical KFE business records.</p><button class="danger-button" :disabled="loading" @click="resetData">Reset all data</button></section></section>
+<section class="settings-screen"><div class="settings-menu"><button v-for="item in settingsMenu" :key="item.key" class="settings-item" :class="{active:settingsSelected===item.key}" @click="chooseSetting(item.key)"><span>{{item.icon}}</span><strong>{{item.title}}</strong><span>›</span></button></div><section v-if="settingsSelected==='backup'" class="settings-panel"><h2>Backup &amp; Restore</h2><BackupRestorePanel/></section><section v-else-if="settingsSelected==='application'" class="settings-panel"><h2>Application Settings</h2><div class="settings-option-row"><div><strong>Notifications</strong><small>Control KFE ride and system action notifications.</small></div><button class="settings-toggle" :class="{active:notificationsEnabled}" type="button" role="switch" :aria-checked="notificationsEnabled" @click="chooseNotifications(!notificationsEnabled)">{{notificationsEnabled?'ON':'OFF'}}</button></div></section><section v-else class="settings-panel"><h2>Data Reset</h2><p>This permanently clears canonical KFE business records.</p><button class="danger-button" :disabled="loading" @click="resetData">Reset all data</button></section></section>
 </template>
 
 <template v-else-if="selected==='calculations'">

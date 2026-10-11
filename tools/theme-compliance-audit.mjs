@@ -15,7 +15,8 @@ const canonical = await readFile(new URL('../src/styles/kfe-ui.css', import.meta
 for (const token of ['--kfe-ui-bg','--kfe-ui-surface','--kfe-ui-text','--kfe-ui-border','--kfe-ui-accent','--kfe-success','--kfe-warning','--kfe-danger']) {
   if (!canonical.includes(token)) failures.push('canonical theme token missing: ' + token)
 }
-if (!/:root\[data-kfe-theme="day"\]/.test(canonical) || !/:root\[data-kfe-theme="night"\]/.test(canonical)) failures.push('canonical stylesheet must define both day and night theme states')
+if (!canonical.includes('--kfe-ui-bg:#10151B') || !/color-scheme:dark/.test(canonical)) failures.push('canonical stylesheet must default to the fixed dark palette')
+if (/data-kfe-theme="(?:day|light|dusk)"/.test(canonical)) failures.push('canonical stylesheet must not expose light/day/dusk theme states')
 
 async function walk(dir) {
   const entries = await readdir(dir, { withFileTypes: true })
