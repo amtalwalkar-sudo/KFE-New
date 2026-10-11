@@ -466,7 +466,8 @@ public class KfeOverlayService extends Service {
     if("CANCELLED".equals(actionStage)||"CANCEL_RIDE".equals(actionStage))return dark()?Color.rgb(255,190,80):Color.rgb(190,120,0);
     return dark()?Color.rgb(120,162,255):Color.rgb(37,99,235);}
   private int targetColor(){if(targetProgress>=100)return dark()?Color.rgb(80,220,130):Color.rgb(20,145,75);if(targetProgress>=70)return dark()?Color.rgb(255,205,90):Color.rgb(190,125,0);return actionColor();}
-  private boolean dark(){return "dark".equals(theme)||"night".equals(theme)||"dusk".equals(theme);}
+  // KFE is dark-only: ignore stale persisted theme values so white action text can never land on a white overlay surface.
+  private boolean dark(){return true;}
   private void removeOverlay(){closeForm();if(windowManager!=null&&overlayRoot!=null){try{windowManager.removeView(overlayRoot);}catch(Exception ignored){}}overlayRoot=null;overlay=null;}
   @Override public void onDestroy(){removeOverlay();if(instance==this)instance=null;super.onDestroy();}
   @Override public IBinder onBind(Intent intent){return null;}
