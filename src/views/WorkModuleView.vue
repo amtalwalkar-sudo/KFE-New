@@ -1053,7 +1053,7 @@ onBeforeUnmount(() => {
       </section>
 
       <section v-else-if="cockpit.state===WORK_COCKPIT_STATES.READY_FOR_TRIP || cockpit.state===WORK_COCKPIT_STATES.GOING_TO_PICKUP" class="operational-state state-tone-info">
-        <span class="eyebrow">GOING TO PICKUP</span><strong>{{ store.trip?.operator || 'TRIP' }}</strong><div class="live-km-readout" aria-live="polite"><span>{{ liveMovementLabel }}</span><strong>{{ liveMovementKm.toFixed(1) }} km</strong><small>{{ liveMovementStatus }}</small></div><button class="secondary-action cancel-trip-tab" type="button" @click="openCancel">CANCEL TRIP</button>
+        <span class="eyebrow">GOING TO PICKUP</span><strong>{{ store.trip?.operator || 'TRIP' }}</strong><div class="live-km-readout" aria-live="polite"><span>{{ liveMovementLabel }}</span><strong>{{ liveMovementKm.toFixed(1) }} km</strong><small>{{ liveMovementStatus }}</small></div>
       </section>
 
       <section v-else-if="cockpit.state===WORK_COCKPIT_STATES.TRIP_ACTIVE" class="operational-state trip-timer-state state-tone-success">
@@ -1069,6 +1069,13 @@ onBeforeUnmount(() => {
         </div>
       </section>
     </template>
+
+    <button
+      v-if="store.isOnline && (store.trip?.tripStage === 'GOING_TO_PICKUP' || store.trip?.tripStage === 'PICKUP') && !endOpen && !fuelOpen && !cancelOpen"
+      class="secondary-action cancel-trip-tab"
+      type="button"
+      @click="openCancel"
+    >CANCEL TRIP</button>
 
     <WorkContextForm
       v-if="pendingFare && !endOpen && !cancelOpen && !fuelOpen"
