@@ -523,7 +523,7 @@ public class KfeOverlayService extends Service {
         }
       }
       int thumbW=dp(58),pad=dp(8);float tx=pad+(w-pad*2-thumbW)*progress;
-      paint.setColor(a);rect.set(tx,barTop+dp(100),tx+thumbW,barTop+dp(124));c.drawRoundRect(rect,dp(12),dp(12),paint);
+      paint.setStyle(Paint.Style.FILL);paint.setColor(a);rect.set(tx,barTop+dp(100),tx+thumbW,barTop+dp(124));c.drawRoundRect(rect,dp(12),dp(12),paint);\n      // Visual-only affordance: dark high-contrast chevron on the semantic-colour thumb.\n      text(22,Color.rgb(16,21,27),true);center(c,\"›\",tx+thumbW/2f,barTop+dp(119));
       if("START_RIDE".equals(actionStage)){
         paint.setStyle(Paint.Style.FILL);paint.setColor(Color.argb(235,dark()?95:245,dark()?45:245,dark()?45:245));
         rect.set(w-dp(112),barTop+dp(61),w-dp(12),barTop+dp(94));c.drawRoundRect(rect,dp(12),dp(12),paint);
