@@ -1601,3 +1601,37 @@ table th,table td{border-color:var(--kfe-ui-border)}
 .work-canonical .work-context-form.form-end .form-card {
   overflow: visible !important;
 }
+
+
+/* Correct Work scrolling at the shell's actual scroll container.
+   The shell viewport is fixed between the top bar and bottom navigation;
+   let that container scroll instead of giving an unconstrained inner region overflow:auto. */
+.content-scroll-area:has(.work-canonical) {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain !important;
+  -webkit-overflow-scrolling: touch;
+}
+.content-scroll-area:has(.work-canonical) .work-canonical {
+  height: auto !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+}
+.content-scroll-area:has(.work-canonical) .work-canonical .work-main,
+.content-scroll-area:has(.work-canonical) .work-canonical .work-main:has(.form-fare),
+.content-scroll-area:has(.work-canonical) .work-canonical .work-main:has(.form-cancel),
+.content-scroll-area:has(.work-canonical) .work-canonical .work-main:has(.form-fuel),
+.content-scroll-area:has(.work-canonical) .work-canonical .work-main:has(.form-end),
+.content-scroll-area:has(.work-canonical) .work-canonical .work-main:has(.form-start) {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  padding-bottom: calc(var(--kfe-nav-height, 76px) + 156px + env(safe-area-inset-bottom, 0px)) !important;
+}
+.content-scroll-area:has(.work-canonical) .work-canonical .work-context-form,
+.content-scroll-area:has(.work-canonical) .work-canonical .work-context-form .form-card {
+  max-height: none !important;
+}
+.content-scroll-area:has(.work-canonical) .work-canonical .work-context-form.form-end .form-card {
+  overflow: visible !important;
+}
