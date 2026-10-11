@@ -96,7 +96,6 @@ jobs:
       - name: Run Phase 4 Operational Gap Suite
         run: node tools/phase4-operational-gap-suite.mjs
 
-
       - name: Run Phase 4 Runtime Visual Verification
         run: node tools/phase4-runtime-visual-smoke.mjs
 
@@ -121,7 +120,10 @@ jobs:
           for route in timeline performance admin; do
             mkdir -p "dist/$route"
             cp dist/index.html "dist/$route/index.html"
+            sed -i 's#\./assets/#../assets/#g; s#\./manifest\.json#../manifest.json#g' "dist/$route/index.html"
           done
+          grep -q '../assets/' dist/timeline/index.html
+          grep -q '../manifest.json' dist/timeline/index.html
 
       - name: Upload GitHub Pages Artifact
         if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
