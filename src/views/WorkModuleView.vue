@@ -674,7 +674,7 @@ async function handleContextAction(action) {
   if (action === 'save-cancel') { await saveCancel(); return }
   if (action === 'close-fuel') { if (window.confirm('Leave refuelling and discard these entries?')) fuelOpen.value = false; return }
   if (action === 'save-fuel') { await saveFuel(); return }
-  if (action === 'back-end') { if (window.confirm('Leave shift reconciliation and discard these entries?')) cancelEnd(); return }
+  if (action === 'back-end') { backEndStage(); return }
   if (action === 'close-end') { closeShift(); return }
   if (action === 'continue-reconcile') { continueReconcile(); return }
   if (action === 'review-complete') { reviewDone(); return }
@@ -750,6 +750,13 @@ async function openEnd() {
 function cancelEnd() {
   endOpen.value = false
   notify('Still Online — End Shift cancelled.')
+}
+
+function backEndStage() {
+  if (endStage.value === 'CONFIRM') { endStage.value = 'REVIEW'; return }
+  if (endStage.value === 'REVIEW') { endStage.value = 'RECONCILE'; return }
+  if (endStage.value === 'RECONCILE') { endStage.value = 'CLOSE'; return }
+  cancelEnd()
 }
 
 function closeShift() {
