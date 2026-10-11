@@ -1635,3 +1635,77 @@ table th,table td{border-color:var(--kfe-ui-border)}
 .content-scroll-area:has(.work-canonical) .work-canonical .work-context-form.form-end .form-card {
   overflow: visible !important;
 }
+
+
+/* Work swipe action: keep both instruction and action fully readable beside the thumb. */
+.work-canonical .work-fixed-action {
+  position: fixed !important;
+  left: max(10px, env(safe-area-inset-left, 0px)) !important;
+  right: max(10px, env(safe-area-inset-right, 0px)) !important;
+  bottom: calc(var(--kfe-nav-height, 76px) + env(safe-area-inset-bottom, 0px) + 8px) !important;
+  z-index: 9000 !important;
+  width: auto !important;
+  max-width: 720px !important;
+  margin-inline: auto !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.work-canonical .work-fixed-action .trip-swipe {
+  width: 100% !important;
+  height: 76px !important;
+  min-height: 76px !important;
+  border-width: 2px !important;
+  border-radius: 22px !important;
+  background: #171E26 !important;
+  overflow: hidden !important;
+}
+.work-canonical .work-fixed-action .trip-swipe .swipe-copy {
+  left: 0 !important;
+  right: 0 !important;
+  padding: 0 10px 0 76px !important;
+  gap: 3px !important;
+  text-align: center !important;
+  overflow: hidden !important;
+}
+.work-canonical .work-fixed-action .trip-swipe .swipe-copy span {
+  display: block !important;
+  color: #E8EDF2 !important;
+  font-size: 10px !important;
+  line-height: 1.1 !important;
+  font-weight: 900 !important;
+  letter-spacing: .12em !important;
+}
+.work-canonical .work-fixed-action .trip-swipe .swipe-copy strong {
+  display: block !important;
+  max-width: 100% !important;
+  color: #FFFFFF !important;
+  font-size: clamp(14px, 3.8vw, 17px) !important;
+  line-height: 1.15 !important;
+  letter-spacing: .015em !important;
+  font-weight: 950 !important;
+  white-space: nowrap !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  text-shadow: 0 1px 2px #000 !important;
+}
+.work-canonical .work-fixed-action .trip-swipe .swipe-handle {
+  left: 6px !important;
+  top: 6px !important;
+  width: 60px !important;
+  height: 60px !important;
+  min-width: 60px !important;
+  min-height: 60px !important;
+  z-index: 3 !important;
+  background: var(--swipe-action-color) !important;
+  color: #10151B !important;
+  border: 2px solid #FFFFFF !important;
+  box-shadow: 0 0 0 2px #10151B, 0 3px 12px color-mix(in srgb,var(--swipe-action-color) 42%,transparent) !important;
+}
+.work-canonical .work-fixed-action .trip-swipe.semantic-go { --swipe-action-color: #78A2FF; }
+.work-canonical .work-fixed-action .trip-swipe.semantic-start { --swipe-action-color: #62D18A; }
+.work-canonical .work-fixed-action .trip-swipe.semantic-end { --swipe-action-color: #FF8585; }
+@media(max-width:380px) {
+  .work-canonical .work-fixed-action .trip-swipe .swipe-copy { padding-left: 70px !important; padding-right: 6px !important; }
+  .work-canonical .work-fixed-action .trip-swipe .swipe-copy strong { font-size: 14px !important; }
+}
