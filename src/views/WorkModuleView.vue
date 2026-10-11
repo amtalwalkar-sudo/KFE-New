@@ -659,7 +659,7 @@ async function toggleFuel() {
 
 
 async function handleContextAction(action) {
-  if (action === 'back-start') { if (window.confirm('Leave shift start and discard these entries?')) startOpen.value = false; return }
+  if (action === 'back-start') { startOpen.value = false; return }
   if ((typeof action === 'object' ? action.name : action) === 'submit-start') {
     if (typeof action === 'object') {
       startOdo.value = String(action.startOdo ?? '')
@@ -670,9 +670,9 @@ async function handleContextAction(action) {
   }
   if (action === 'save-fare') { await saveFare(); return }
   if (action === 'skip-fare') { await skipTripDetails(); return }
-  if (action === 'back-cancel') { if (window.confirm('Leave cancellation and discard these entries?')) cancelOpen.value = false; return }
+  if (action === 'back-cancel') { cancelOpen.value = false; return }
   if (action === 'save-cancel') { await saveCancel(); return }
-  if (action === 'close-fuel') { if (window.confirm('Leave refuelling and discard these entries?')) fuelOpen.value = false; return }
+  if (action === 'close-fuel') { fuelOpen.value = false; return }
   if (action === 'save-fuel') { await saveFuel(); return }
   if (action === 'back-end') { backEndStage(); return }
   if (action === 'close-end') { closeShift(); return }
