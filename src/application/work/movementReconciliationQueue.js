@@ -9,6 +9,8 @@ const LIVE_MATCH_INTERVAL_MS = 30000
 const MIN_LIVE_MATCH_POINTS = 4
 let lastLiveMatchAt = new Map()
 let flushPromise = null
+let lastFlushAt = 0
+const FLUSH_INTERVAL_MS = 30000
 const online = () => typeof navigator === 'undefined' || navigator.onLine !== false
 const readQueue = () => {
   try {
@@ -59,11 +61,13 @@ export const MovementReconciliationQueue = Object.freeze({
     return readQueue()
   },
 
-  async reconcilePending() {
+  async reconcilePending({ force = false } = {}) {
+    await this.enqueuePendingCompletedTrips()
     if (!online()) return { status: 'OFFLINE', queued: readQueue().length, reconciled: 0 }
     if (flushPromise) return flushPromise
+    if (!force && Date.now() - lastFlushAt < FLUSH_INTERVAL_MS) return { status: 'THROTTLED', queued: readQueue().length, reconciled: 0 }
+    lastFlushAt = Date.now()
     flushPromise = (async () => {
-      await this.enqueuePendingCompletedTrips()
       const queue = readQueue()
       const remaining = []
       let reconciled = 0
