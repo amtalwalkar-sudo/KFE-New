@@ -1,6 +1,6 @@
 const requiredMethods = Object.freeze({
   movementTrace: ['start', 'reset', 'getActiveSession', 'getPoints', 'stop', 'resumePersisted', 'pause', 'getDistanceKm'],
-  nativeGps: ['start', 'stop', 'readTrace', 'syncTrace', 'getPermissionStatus', 'openAppSettings'],
+  nativeGps: ['start', 'stop', 'readTrace', 'syncTrace', 'getPermissionStatus', 'openAppSettings', 'listTraceOwners'],
   rideNotifications: ['getState', 'goOnline', 'beginPickup', 'startRide', 'completeRide', 'clearPendingAction', 'clear', 'addListener', 'consumePendingActions', 'consumePendingAction', 'resume', 'acknowledgeAction', 'recordActionFailure'],
   androidOverlay: ['hide', 'update', 'prepare', 'fareSaved', 'cancelSaved'],
   routing: ['createRouter'],
