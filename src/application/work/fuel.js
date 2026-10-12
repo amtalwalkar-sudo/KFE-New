@@ -19,8 +19,12 @@ export async function recordFuelEntry({ odometer, pricePerKg, amount, isFullTank
     location = null
   }
   try {
-    const vehicleId = await ShiftTripRepository.getPrimaryVehicleId()
-    const record = await FuelRepository.create({ ...validation, ...(location || {}), ...(vehicleId ? { vehicleId } : {}) })
+    // Persist the validated refuel before optional vehicle-master repair/backfill.
+    // A slow IndexedDB vehicle lookup must never leave the driver waiting on Save.
+    const record = await FuelRepository.create({ ...validation, ...(location || {}) })
+    void ShiftTripRepository.getPrimaryVehicleId()
+      .then(vehicleId => vehicleId ? FuelRepository.update(record.id, { vehicleId }) : null)
+      .catch(() => {})
     return { ok: true, record }
   } catch (error) {
     return { ok: false, reason: error?.message || 'FUEL_ENTRY_FAILED' }
