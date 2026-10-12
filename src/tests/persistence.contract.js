@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 const assert = (condition, message) => { if (!condition) throw new Error(message) }
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = file => fs.readFileSync(path.join(root, file), 'utf8')
-const db = read('utils/indexedDB.js')
+const db = read('constants/canonicalDatabase.js') + '\n' + read('utils/indexedDB.js')
 const admin = read('repositories/adminRepository.js')
 const shiftTrip = read('repositories/shiftTripRepository.js')
 const fuel = read('repositories/fuelRepository.js')
