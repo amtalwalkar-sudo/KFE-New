@@ -10,7 +10,8 @@ import { calculateRollingFuelCostPerKm } from '../../domain/math/fuel.js'
 import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } from '../../domain/work/trip.js'
 import { BackupService } from '../backup/backupService.js'
 import { MovementAccountingService, routeTrace } from '../../domain/movement/movementAccounting.js'
-import { MovementTraceService, calculateTraceDistanceKm } from '../../infrastructure/location/movementTraceService.js'
+import { MovementTraceService } from '../../infrastructure/location/movementTraceService.js'
+import { calculateTraceDistanceKm } from '../../domain/movement/traceDistance.js'
 import { NativeGpsService } from '../../infrastructure/android/nativeGpsService.js'
 import { ValhallaRoutingAdapter } from '../../infrastructure/location/valhallaRoutingAdapter.js'
 import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
@@ -66,6 +67,7 @@ export const WorkService = Object.freeze({
   validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer) { return validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer) },
   validateGapAllocation(gapKm, category) { return validateGapAllocation(gapKm, category) },
   calculateFuelQuantity(pricePerKg, amount) { return calculateFuelQuantity({ pricePerKg, amount }) },
+  calculateTraceDistanceKm(points = []) { return calculateTraceDistanceKm(points) },
   reconcileShiftRevenue(data) { return reconcileShiftRevenue(data) },
   async startShift(data) { const result = await ShiftTripRepository.createShift(data); checkpoint(); return result },
   async startTrip(data) {
