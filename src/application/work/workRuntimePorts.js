@@ -3,6 +3,7 @@ const requiredMethods = Object.freeze({
   nativeGps: ['start', 'stop', 'readTrace', 'syncTrace'],
   rideNotifications: ['getState', 'goOnline', 'beginPickup', 'startRide', 'completeRide', 'clearPendingAction', 'clear', 'addListener', 'consumePendingActions', 'consumePendingAction', 'resume', 'acknowledgeAction', 'recordActionFailure'],
   androidOverlay: ['hide', 'update', 'prepare', 'fareSaved', 'cancelSaved'],
+  routing: ['createRouter'],
 })
 
 let configuredPorts = null
@@ -33,4 +34,5 @@ export const WorkRuntimePorts = Object.freeze({
   nativeGps: createPortProxy('nativeGps'),
   rideNotifications: createPortProxy('rideNotifications'),
   androidOverlay: createPortProxy('androidOverlay'),
+  routing: createPortProxy('routing'),
 })
