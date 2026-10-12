@@ -27,7 +27,7 @@ assert(db.includes("initializeCanonicalStorage({ dataSource: 'canonical' })"), '
 assert(db.includes('for (const db of dbInstances.values())'), 'Data-source switch must close cached DB connections')
 assert(db.includes('dbInstances.clear(); initializationPromises.clear()'), 'Data-source switch must invalidate cached DB state')
 
-assert(backup.includes("source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: 13 }"), 'Backups must identify canonical source DB')
+assert(backup.includes('dbVersion: CANONICAL_DB_VERSION'), 'Backups must identify the current canonical source DB version')
 assert(backup.includes('CANONICAL_BACKUP_STORES'), 'Backup store allowlist missing')
 assert(backup.includes("backup.source.dbName !== 'kanishka_kfe_canonical_db'"), 'Synthetic DB must never be accepted as a restore source')
 assert(backup.includes('Backup store set does not exactly match'), 'Backup store allowlist must be exact')
