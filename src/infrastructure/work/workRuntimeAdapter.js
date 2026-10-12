@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core'
 import { configureWorkRuntimePorts } from '../../application/work/workRuntimePorts.js'
 import { MovementTraceService } from '../location/movementTraceService.js'
 import { NativeGpsService } from '../android/nativeGpsService.js'
@@ -11,4 +12,5 @@ export const installWorkRuntimeAdapter = () => configureWorkRuntimePorts({
   rideNotifications: KfeRideNotificationService,
   androidOverlay: AndroidOverlay,
   routing: { createRouter: () => new ValhallaRoutingAdapter() },
+  platform: { getPlatform: () => Capacitor.getPlatform() },
 })
