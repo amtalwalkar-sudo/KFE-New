@@ -5,9 +5,9 @@ if (!base) throw new Error('KFE_RUNTIME_BASE_URL is required')
 
 const routes = [
   { path: '/', selector: '.work-canonical', label: 'Work' },
-  { path: '/timeline', selector: '.timeline', label: 'Timeline' },
-  { path: '/performance', selector: '.performance-page', label: 'Performance' },
-  { path: '/admin', selector: '.admin-page', label: 'Admin' },
+  { path: '/timeline', selector: '.kfe-blank-workspace', label: 'Timeline workspace' },
+  { path: '/performance', selector: '.kfe-blank-workspace', label: 'Performance workspace' },
+  { path: '/admin', selector: '.kfe-settings-page', label: 'Admin settings' },
 ]
 
 const finishSetupIfEnabled = async page => {
