@@ -595,7 +595,7 @@ async function endTrip() {
     if (!await store.endTrip()) { fail('Trip could not be completed.'); return false }
     if (nativeAndroid) {
       await WorkRuntimePorts.nativeGps.stop(tripId)
-      if (store.shift?.id) await WorkRuntimePorts.nativeGps.start(store.shift.id, 'DEAD_MOVEMENT_TRACE')
+      if (store.shift?.id) await WorkRuntimePorts.nativeGps.start(store.shift.id, 'DEAD_MOVEMENT_TRACE', 'SHIFT')
     }
     // Return browser tracking to the shift owner whenever it was the active
     // capture path (all web runs and Android when native location is unavailable).
@@ -909,7 +909,7 @@ async function finishEnd() {
       try {
         await WorkRuntimePorts.nativeGps.syncTrace(endingShiftId, { entityType: 'SHIFT' })
       } catch (traceError) {
-        await WorkRuntimePorts.nativeGps.start(endingShiftId, 'DEAD_MOVEMENT_TRACE')
+        await WorkRuntimePorts.nativeGps.start(endingShiftId, 'DEAD_MOVEMENT_TRACE', 'SHIFT')
         throw new Error('Shift GPS trace could not be saved locally. Tracking was restarted; retry ending the shift.')
       }
     }
@@ -925,7 +925,7 @@ async function finishEnd() {
       trips
     })
     if (!result?.ok) {
-      if (nativeAndroid && endingShiftId) await WorkRuntimePorts.nativeGps.start(endingShiftId, 'DEAD_MOVEMENT_TRACE')
+      if (nativeAndroid && endingShiftId) await WorkRuntimePorts.nativeGps.start(endingShiftId, 'DEAD_MOVEMENT_TRACE', 'SHIFT')
       return fail(result.reason)
     }
     if (nativeAndroid && endingShiftId) await WorkRuntimePorts.nativeGps.stop(endingShiftId)
