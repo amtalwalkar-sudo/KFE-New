@@ -1173,7 +1173,7 @@ onBeforeUnmount(() => {
 
   <main class="work-main contextual-form-shell">
     <div v-if="nativeAndroid && backgroundLocationPermission?.supported && !backgroundLocationPermission.backgroundLocationAllowed" class="gps-recovery-warning" role="status">
-      <span>Allow background location in Android app settings to resume GPS automatically after a phone restart.</span>
+      <span>Set Location permission to “Allow all the time” in Android app settings to resume GPS after a phone restart.</span>
       <button type="button" @click="openGpsPermissionSettings">Open settings</button>
     </div>
     <section v-if="!fuelOpen && !pendingFare && (store.isOnline || cancelOpen || endOpen)" class="operational-state state-tone-info work-persistent-metrics" aria-label="Live distance and workflow timer">
