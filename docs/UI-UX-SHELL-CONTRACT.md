@@ -296,7 +296,7 @@ npm run ui:impact -- src/path/to/component.vue
 
 For a multi-file or shared change, pass every known changed path in the same invocation. Review all warnings before editing. A red protected-layer warning blocks treating the change as presentation-only. A yellow dependency warning means the dependent presentation files must be reviewed and tested together.
 
-**Important limitation:** the current impact tool is a local import-dependency check. It does not yet prove the absence of every CSS cascade, selector, runtime slot, native overlay, or visual-regression dependency. A green result is not a guarantee of total isolation; global tokens/styles, shell geometry, swipe gesture mechanics, and native/PWA parity require the explicit verification matrix below. Do not suppress or reinterpret this limitation as a clean bill of health.
+**Important limitation:** the impact tool checks local import dependencies and reports shared class/ID hooks across unscoped global CSS files. This is a useful cascade warning, not a full CSS parser or browser-computed-style proof; it does not prove the absence of every selector specificity interaction, runtime slot, native overlay, or visual-regression dependency. A green result is not a guarantee of total isolation; global tokens/styles, shell geometry, swipe gesture mechanics, and native/PWA parity still require the explicit verification matrix below.
 
 ## 17. UI verification matrix
 
