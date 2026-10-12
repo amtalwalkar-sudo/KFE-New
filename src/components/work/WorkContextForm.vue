@@ -77,6 +77,7 @@ const emit = defineEmits([
 
 
 const activeNumericField = ref(null)
+const numericPad = ref(null)
 const tollDetailsOpen = ref(false)
 const parkingDetailsOpen = ref(false)
 const suppressNumericFocus = ref(false)
@@ -113,8 +114,7 @@ onMounted(() => {
   if (props.type === 'fare') {
     activeNumericField.value = 'fare'
     nextTick(() => {
-      document.querySelector('.work-context-form .kfe-work-number-pad')
-        ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      numericPad.value?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
     })
   }
 })
@@ -139,8 +139,7 @@ function activateNumeric(name) {
   // The keypad lives in normal flow, so bring it into the scrollable viewport
   // without pinning it over the fixed swipe action or bottom navigation.
   nextTick(() => {
-    document.querySelector('.work-context-form .kfe-work-number-pad')
-      ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    numericPad.value?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   })
 }
 function emitNumeric(name, value) {
@@ -371,7 +370,7 @@ const updateMap = (name, map, id, value) => {
       </template>
     </form>
 
-      <div v-if="activeNumeric" class="kfe-work-number-pad" aria-label="KFE intelligent numeric keypad">
+      <div v-if="activeNumeric" ref="numericPad" class="kfe-work-number-pad" aria-label="KFE intelligent numeric keypad">
         <div class="kfe-work-number-pad__display">
           <span>{{ numericLabel(activeNumeric.name) }}</span>
           <strong>{{ activeNumeric.value || '0' }}</strong>
