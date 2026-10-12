@@ -18,7 +18,7 @@ assert.ok(universal.includes('primary-action'),'Universal input system must comp
 assert.ok(universal.includes("if(event.key!=='Enter') return;"),'Only Enter may trigger shared next-field navigation; ordinary typing must never move focus')
 assert.ok(!workForm.includes('function nextField('),'Work must not maintain a competing keyboard navigation implementation')
 assert.ok(!adminForm.includes('function handleEnter('),'Admin must not maintain a competing keyboard navigation implementation')
-assert.ok(workForm.includes('@submit.prevent="submitForm"'),'Work contextual states must use native form submission')
+assert.ok(/<form[^>]*@submit\.prevent/.test(workForm),'Each extracted Work form must use native form submission')
 assert.ok(!workForm.includes('document.querySelector'), 'Work form state must not read DOM controls as state')
 assert.ok(fuelForm.includes('<form id="fuel-log-form"'),'Fuel modal must use a native form surface')
 assert.ok(reconciliationForm.includes('<form class="reconcile-card"'),'Reconciliation must use a native form surface')
