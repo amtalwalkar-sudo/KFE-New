@@ -90,6 +90,48 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 }
 
 
+/* Work form viewport contract: compact fare entry without auto-scrolling the page. */
+:root{
+  --kfe-work-go-pickup:var(--kfe-info,var(--kfe-ui-accent));
+  --kfe-work-start-trip:var(--kfe-success);
+  --kfe-work-end-trip:var(--kfe-danger);
+}
+.work-canonical .work-fixed-action .trip-swipe.semantic-go .swipe-handle{
+  background:var(--kfe-work-go-pickup)!important;
+}
+.work-canonical .work-fixed-action .trip-swipe.semantic-start .swipe-handle{
+  background:var(--kfe-work-start-trip)!important;
+}
+.work-canonical .work-fixed-action .trip-swipe.semantic-end .swipe-handle{
+  background:var(--kfe-work-end-trip)!important;
+}
+.work-context-form.form-fare{margin:0 auto!important;min-width:0;scroll-margin:0!important;}
+.work-context-form.form-fare .form-card{
+  padding:8px!important;
+  gap:6px!important;
+}
+.work-context-form.form-fare .fare-form-head{margin:0!important;min-height:28px;}
+.work-context-form.form-fare .fare-main-field{gap:4px!important;}
+.work-context-form.form-fare .fare-main-field .input-unit{min-height:38px!important;}
+.work-context-form.form-fare .fare-optional-actions{gap:6px!important;margin:0!important;}
+.work-context-form.form-fare .fare-optional-actions button{min-height:34px!important;}
+.work-context-form.form-fare .kfe-work-number-pad{
+  margin:4px auto 0!important;
+  padding:5px!important;
+}
+.work-context-form.form-fare .kfe-work-number-pad__display{padding:3px 6px!important;min-height:28px!important;}
+.work-context-form.form-fare .kfe-work-number-pad__grid{gap:4px!important;}
+.work-context-form.form-fare .kfe-work-number-pad__grid button{min-height:31px!important;height:31px!important;padding:0!important;}
+.work-context-form.form-fare .kfe-work-number-pad__actions{gap:4px!important;margin-top:4px!important;}
+.work-context-form.form-fare .kfe-work-number-pad__actions button{min-height:32px!important;height:32px!important;padding:0 8px!important;}
+.work-context-form.form-fare .primary-action{min-height:36px!important;}
+@media(max-width:600px){
+  .viewport-wrapper:has(.work-context-form.form-fare) .content-scroll-area{
+    padding-bottom:calc(var(--kfe-base-nav,76px) + env(safe-area-inset-bottom,0px))!important;
+  }
+  .work-context-form.form-fare .form-card{padding:7px!important;gap:5px!important;}
+}
+
 /* Final high-contrast neutral pass — one dark palette, semantic colour only.
  * These presentation overrides intentionally preserve workflow and data rules.
  */

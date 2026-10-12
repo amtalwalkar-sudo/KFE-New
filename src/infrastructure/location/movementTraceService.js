@@ -140,6 +140,49 @@ export const MovementTraceService = {
     }
     return result
   },
+  async resumePersisted(expectedSession) {
+    const persisted = readSession()
+    if (!persisted || !expectedSession ||
+      persisted.entityType !== expectedSession.entityType ||
+      persisted.entityId !== expectedSession.entityId ||
+      persisted.eventType !== expectedSession.eventType ||
+      persisted.profile !== expectedSession.profile) return false
+
+    let restoredPoints = []
+    try {
+      restoredPoints = (await LocationRepository.forEntity(persisted.entityType, persisted.entityId))
+        .filter(point => point.eventType === persisted.eventType)
+        .map(point => ({
+          latitude: Number(point.latitude),
+          longitude: Number(point.longitude),
+          accuracy: Number.isFinite(Number(point.accuracy)) ? Number(point.accuracy) : null,
+          speed: Number.isFinite(Number(point.speed)) ? Number(point.speed) : null,
+          bearing: Number.isFinite(Number(point.bearing)) ? Number(point.bearing) : null,
+          capturedAt: new Date(point.capturedAt).toISOString()
+        }))
+        .filter(point => Number.isFinite(point.latitude) && Number.isFinite(point.longitude))
+    } catch (error) {
+      lastPersistenceError = error
+    }
+
+    const started = this.start({
+      entityType: persisted.entityType,
+      entityId: persisted.entityId,
+      eventType: persisted.eventType,
+      profile: persisted.profile
+    })
+    if (!started) return false
+    points.splice(0, points.length, ...restoredPoints)
+    lastAcceptedAt = Date.now()
+    return true
+  },
+  pause() {
+    // Stop the browser watch when the view is left, but retain the durable
+    // owner marker and canonical points so the next Work mount can resume it.
+    traceGeneration += 1
+    clearWatch()
+    active = null
+  },
   getPoints() { return [...points] },
   getActiveSession() { return active ? { entityType: active.entityType, entityId: active.entityId, eventType: active.eventType, profile: Object.entries(PROFILES).find(([, value]) => value === active.profile)?.[0] || 'DEAD_LEG' } : readSession() },
   hasActiveTrace() { return Boolean(active || readSession()) },
