@@ -72,7 +72,7 @@ function extractSelectors(source) {
 
 function selectorTokens(selector) {
   return new Set([...selector.matchAll(/\.([_a-zA-Z][\w-]*)|#([_a-zA-Z][\w-]*)|\[([_a-zA-Z][\w-]*)/g)]
-    .map((match) => match[1] ? \`.\${match[1]}\` : match[2] ? \`#\${match[2]}\` : \`[\${match[3]}\`))
+    .map((match) => match[1] ? '.' + match[1] : match[2] ? '#' + match[2] : '[' + match[3]))
 }
 
 function importCandidates(specifier, fromFile) {
