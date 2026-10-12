@@ -81,6 +81,7 @@ void (async () => {
 
     if (typeof formSystem === 'object') void formSystem
 
+    let retryCloudBackupOnStartup = null
     if (!window.__KFE_STARTUP_LIFECYCLE_BOUND__) {
       window.__KFE_STARTUP_LIFECYCLE_BOUND__ = true
       // Dropbox backup requires the application data/credential context. The
@@ -93,6 +94,7 @@ void (async () => {
           if (result?.status === 'failed') console.warn('KFE automatic Dropbox backup needs attention:', result.error)
         }).catch(error => console.warn('KFE automatic Dropbox backup retry failed:', error))
       }
+      retryCloudBackupOnStartup = retryCloudBackup
       window.addEventListener('online', retryCloudBackup)
       window.addEventListener('pageshow', retryCloudBackup)
       document.addEventListener('visibilitychange', retryCloudBackup)
@@ -104,11 +106,10 @@ void (async () => {
           if (event.data?.type === 'kfe:daily-cloud-backup') retryCloudBackup()
         })
       }
-      // Run once immediately after configuration, then retry on resume/connectivity.
-      retryCloudBackup()
+      // Startup invokes the first attempt after canonical storage initialization.
     }
 
-    void StartupService.startApplication().catch(error => console.error('KFE application startup failed:', error))
+    void StartupService.startApplication().then(() => { retryCloudBackupOnStartup?.() }).catch(error => console.error('KFE application startup failed:', error))
   } catch (error) {
     console.error('KFE post-mount infrastructure bootstrap failed:', error)
   }
