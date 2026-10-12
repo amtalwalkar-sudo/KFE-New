@@ -32,6 +32,7 @@ export const maybeDailyCloudBackup = async ({ force = false } = {}) => {
     return { status: 'backed-up', completedAt, result }
   } catch (error) {
     console.warn('KFE cloud backup failed; canonical and local data remain authoritative:', error)
+    try { await BackupConfig.markCloudBackupFailed(error?.message || error) } catch (statusError) { console.warn('KFE could not persist cloud backup failure status:', statusError) }
     return { status: 'failed', error }
   }
 }
