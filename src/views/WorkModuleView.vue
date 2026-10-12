@@ -33,6 +33,7 @@ const operator = ref('')
 const busy = ref(false)
 const message = ref('')
 const error = ref('')
+const fuelSaveConfirmation = ref(false)
 
 const fareTripId = ref(null)
 const fare = ref('')
@@ -86,6 +87,7 @@ const money = value => Number.isFinite(Number(value))
   : '—'
 
 const notify = text => {
+  fuelSaveConfirmation.value = text === 'Fuel saved.'
   message.value = text
   error.value = ''
   clearTimeout(notify.timer)
@@ -93,7 +95,7 @@ const notify = text => {
     if (message.value === text) message.value = ''
   }, 8000)
 }
-const fail = text => { error.value = text; message.value = '' }
+const fail = text => { fuelSaveConfirmation.value = false; error.value = text; message.value = '' }
 
 const tripDraftIdentity = (formId, step, tripId = store.trip?.id, shiftId = store.shift?.id) => ({
   formId, workflowStep: step, parentType: 'TRIP', parentId: tripId, ownerId: shiftId
@@ -732,6 +734,7 @@ async function saveCancel(fromNative = false) {
 async function toggleFuel() {
   fuelOpen.value = !fuelOpen.value
   if (!fuelOpen.value) return
+  fuelSaveConfirmation.value = false
   endOpen.value = false
   restoringDrafts = true
   fuelOdo.value = ''
@@ -1276,7 +1279,8 @@ onBeforeUnmount(() => {
     />
 
     <p v-if="error" class="feedback error" role="alert">{{ error }}</p>
-    <p v-if="message" class="feedback success" role="status">{{ message }}</p>
+    <p v-if="fuelSaveConfirmation" class="feedback success fuel-save-confirmation" role="status">Fuel saved.</p>
+    <p v-else-if="message" class="feedback success" role="status">{{ message }}</p>
   </main>
 </div>
 </template>
