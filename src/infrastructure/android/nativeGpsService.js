@@ -22,11 +22,11 @@ export const NativeGpsService = {
     try { const NativeGps = await getNativeGps(); await NativeGps.openAppSettings(); return true }
     catch (error) { console.warn('Unable to open Android app settings.', error); return false }
   },
-  async start(tripId, eventType = "PASSENGER_RIDE_TRACE") {
+  async start(tripId, eventType = "PASSENGER_RIDE_TRACE", entityType = "TRIP") {
     if (!(await isAndroid()) || !tripId) return false
     try {
       const NativeGps = await getNativeGps()
-      await NativeGps.start({ tripId, eventType })
+      await NativeGps.start({ tripId, eventType, entityType })
       return true
     } catch (error) {
       console.warn('Native Android ride GPS unavailable; browser GPS remains active.', error)
