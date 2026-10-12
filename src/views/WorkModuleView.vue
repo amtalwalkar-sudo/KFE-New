@@ -894,6 +894,18 @@ async function finishEnd() {
       revenue: reviewRevenue.value[t.id] ?? t.revenue ?? ''
     }))
     const endingShiftId = store.shift?.id
+    // Freeze and import the native shift trace before reconciliation reads
+    // canonical SHIFT snapshots. Never end the shift with dead-movement points
+    // stranded only in the app-private JSONL file.
+    if (nativeAndroid && endingShiftId) {
+      await NativeGpsService.stop(endingShiftId)
+      try {
+        await NativeGpsService.syncTrace(endingShiftId, { entityType: 'SHIFT' })
+      } catch (traceError) {
+        await NativeGpsService.start(endingShiftId, 'DEAD_MOVEMENT_TRACE')
+        throw new Error('Shift GPS trace could not be saved locally. Tracking was restarted; retry ending the shift.')
+      }
+    }
     const result = await store.endShift({
       closingOdometer: closingOdo.value,
       revenue: shiftRevenue.value,
@@ -905,7 +917,10 @@ async function finishEnd() {
       tollParkingRevenueTreatment: tollTreatment.value,
       trips
     })
-    if (!result?.ok) return fail(result.reason)
+    if (!result?.ok) {
+      if (nativeAndroid && endingShiftId) await NativeGpsService.start(endingShiftId, 'DEAD_MOVEMENT_TRACE')
+      return fail(result.reason)
+    }
     if (nativeAndroid && endingShiftId) await NativeGpsService.stop(endingShiftId)
     if (traceRunning) {
       MovementTraceService.reset()
