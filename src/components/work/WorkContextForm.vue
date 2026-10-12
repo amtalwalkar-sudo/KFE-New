@@ -285,28 +285,6 @@ const updateMap = (name, map, id, value) => {
 
 <style scoped>
 .work-context-form{width:100%;box-sizing:border-box;animation:work-form-in 140ms ease-out}
-.form-card{width:100%;box-sizing:border-box;padding:14px;border-radius:16px;display:grid;gap:12px}
-.form-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.form-card h2,.form-card strong{margin:0}
-.form-card label{display:grid;gap:6px;font-weight:700}
-.input-unit{display:flex;align-items:center;gap:8px}
-.input-unit input{width:100%;min-width:0}
-.choice-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.choice-row button{min-height:48px}
-.check-row{display:flex!important;grid-template-columns:none!important;align-items:center;gap:10px}
-.check-row input{width:22px!important;height:22px;min-height:22px!important}
-.treatment-row{display:grid;grid-template-columns:1fr 1fr;gap:4px;min-width:0}.treatment-row .check-row{font-size:.68rem;gap:4px;line-height:1.1;min-width:0}.treatment-row .check-row input{width:18px!important;height:18px;min-height:18px!important}.treatment-row .check-row span{overflow-wrap:anywhere}
-.primary-action,.text-action,.choice-row button{touch-action:manipulation}
-.primary-action{min-height:48px}
-.form-card input,.form-card select,.form-card button{font:inherit}
-.form-card input{font-size:16px}.form-fare .form-card{grid-template-columns:minmax(0,1fr) minmax(0,1fr);padding:8px;gap:6px}.form-fare .form-card .form-head,.form-fare .form-card>.primary-action,.form-fare .form-card .fare-main-field,.form-fare .form-card .fare-optional-actions,.form-fare .form-card .fare-optional-field{grid-column:1/-1}.form-fare .form-card label{gap:3px;font-size:.78rem}.form-fare .form-card .form-head{margin-bottom:0}.form-fare .form-card .input-unit{gap:5px}.form-fare .form-card .input-unit input{height:40px;min-height:40px!important}.form-fare .form-card .primary-action{min-height:40px;margin-top:0}.form-fare .form-card .optional-label{font-size:.62rem}.fare-optional-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.fare-optional-actions .optional-toggle{min-height:38px;border:1px dashed var(--kfe-ui-border);border-radius:10px;background:var(--kfe-ui-surface-2);color:var(--kfe-ui-text);font-weight:800}.fare-optional-field{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:end;gap:8px;padding:6px 0;border-top:1px solid var(--kfe-ui-border)}.fare-optional-field .check-row{font-size:.67rem;line-height:1.1}.fare-optional-field .check-row input{width:18px!important;height:18px;min-height:18px!important}
-.expense-row{display:grid;grid-template-columns:minmax(76px,.8fr) minmax(0,1.2fr);gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--kfe-ui-border)}
-.expense-trip-total{display:grid;gap:3px;font-size:.78rem;overflow-wrap:anywhere}.expense-trip-total strong{font-size:.9rem}
-.expense-shift-capture{display:grid;gap:6px;min-width:0}.expense-shift-capture>label:not(.check-row){font-size:.78rem;gap:3px}.expense-shift-capture .check-row{font-size:.68rem;gap:5px;line-height:1.1}.expense-shift-capture .check-row input{width:18px!important;height:18px}
-@media(max-width:380px){.expense-row{grid-template-columns:minmax(70px,.7fr) minmax(0,1.3fr);gap:6px}.form-fare .fare-optional-field{grid-template-columns:minmax(0,1fr);align-items:stretch}.form-fare .fare-optional-field .check-row{min-height:36px}}
-@keyframes work-form-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
-@media(max-width:640px){.form-card{padding:12px}.form-card{max-width:100%}}
-
 .kfe-work-number-pad{margin-top:4px;padding:8px;border:1px solid var(--kfe-ui-border);border-radius:16px;background:var(--kfe-ui-surface-2);box-shadow:0 8px 24px color-mix(in srgb,var(--kfe-ui-text) 10%,transparent)}
 .kfe-work-number-pad__display{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:4px 6px 7px}.kfe-work-number-pad__display span{font-size:.62rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--kfe-muted-text)}.kfe-work-number-pad__display strong{font-size:1.35rem;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;min-width:0}
 .kfe-work-number-pad__grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.kfe-work-number-pad__grid button,.kfe-work-number-pad__actions button{min-height:40px;border:1px solid var(--kfe-ui-border);border-radius:10px;background:var(--kfe-ui-surface);color:var(--kfe-ui-text);font-size:1rem;font-weight:900}
@@ -319,13 +297,5 @@ const updateMap = (name, map, id, value) => {
 .form-fare .kfe-work-number-pad__actions{gap:4px;margin-top:4px}
 .form-fare .kfe-work-number-pad__actions button{min-height:32px;border-radius:7px}
 @media(max-width:600px){.kfe-work-number-pad{padding:7px}.kfe-work-number-pad__grid button,.kfe-work-number-pad__actions button{min-height:38px}.form-fare .kfe-work-number-pad{padding:5px}.form-fare .kfe-work-number-pad__grid button{min-height:31px}.form-fare .kfe-work-number-pad__actions button{min-height:32px}}
-
-/* Explicit semantic contrast for the odometer-gap allocation gate. */
-.gap-panel{display:grid;gap:10px;padding:12px;border:1px solid var(--kfe-ui-border);border-radius:12px;background:var(--kfe-ui-surface-2);color:var(--kfe-ui-text)}
-.gap-panel .eyebrow{color:var(--kfe-ui-muted-strong)}
-.gap-panel strong{color:var(--kfe-ui-text);font-size:1.15rem}
-.gap-panel p{margin:4px 0 0;color:var(--kfe-muted-text)}
-.gap-panel .choice-row button{background:var(--kfe-ui-surface);color:var(--kfe-ui-text);border:1px solid var(--kfe-ui-input-border);border-radius:10px;font-weight:800}
-.gap-panel .choice-row button.selected{background:var(--kfe-ui-accent);color:var(--kfe-ui-on-accent);border-color:var(--kfe-ui-accent)}
-.gap-panel .choice-row button:focus-visible{outline:3px solid var(--kfe-ui-focus);outline-offset:2px}
+@keyframes work-form-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 </style>
