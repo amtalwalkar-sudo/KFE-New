@@ -38,6 +38,7 @@ public class KfeNativeGpsService extends Service {
   private static final String PREFS = "kfe_native_gps";
   private static final String ACTIVE_TRIP = "activeTripId";
   private static final String ACTIVE_EVENT = "activeEventType";
+  private static final String ACTIVE_ENTITY = "activeEntityType";
   private static final String CHANNEL_ID = "kfe_native_gps";
   private static final int NOTIFICATION_ID = 7110;
 
@@ -45,12 +46,13 @@ public class KfeNativeGpsService extends Service {
   private LocationCallback callback;
   private String tripId;
   private String eventType = "PASSENGER_RIDE_TRACE";
+  private String entityType = "TRIP";
   private File traceFile;
   private Location lastPassengerLocation;
   private double passengerDistanceMeters = 0d;
   private final Set<String> seenKeys = new HashSet<>();
 
-  public static void start(Context context, String tripId, String eventType) {
+  public static void start(Context context, String tripId, String eventType, String entityType) {
     // Never call startForegroundService unless the runtime location grant is
     // present; Android requires a started service to promote immediately.
     if (tripId == null || tripId.trim().isEmpty() || !hasLocationPermission(context)) return;
@@ -58,6 +60,7 @@ public class KfeNativeGpsService extends Service {
     intent.setAction(ACTION_START);
     intent.putExtra(EXTRA_TRIP_ID, tripId);
     intent.putExtra("eventType", eventType == null ? "PASSENGER_RIDE_TRACE" : eventType);
+    intent.putExtra("entityType", "SHIFT".equals(entityType) ? "SHIFT" : "TRIP");
     androidx.core.content.ContextCompat.startForegroundService(context, intent);
   }
 
@@ -96,9 +99,10 @@ public class KfeNativeGpsService extends Service {
     if ("com.kanishka.pwa.NATIVE_GPS_RESUME".equals(action)) {
       String persisted = getSharedPreferences(PREFS, MODE_PRIVATE).getString(ACTIVE_TRIP, "");
       String persistedEvent = getSharedPreferences(PREFS, MODE_PRIVATE).getString(ACTIVE_EVENT, "PASSENGER_RIDE_TRACE");
+      String persistedEntity = getSharedPreferences(PREFS, MODE_PRIVATE).getString(ACTIVE_ENTITY, "TRIP");
       if (persisted != null && !persisted.isEmpty()) {
         if (!ensureForegroundLocationService()) return START_NOT_STICKY;
-        startTracking(persisted, persistedEvent);
+        startTracking(persisted, persistedEvent, persistedEntity);
       } else {
         stopSelf();
       }
@@ -122,15 +126,17 @@ public class KfeNativeGpsService extends Service {
     if (ACTION_START.equals(action)) {
       String requested = intent.getStringExtra(EXTRA_TRIP_ID);
       String requestedEvent = intent.getStringExtra("eventType");
+      String requestedEntity = intent.getStringExtra("entityType");
       if (requested != null && !requested.isEmpty()) {
         if (!ensureForegroundLocationService()) return START_NOT_STICKY;
-        startTracking(requested, requestedEvent);
+        startTracking(requested, requestedEvent, requestedEntity);
       }
       return START_STICKY;
     }
 
     String persisted = getSharedPreferences(PREFS, MODE_PRIVATE).getString(ACTIVE_TRIP, "");
     String persistedEvent = getSharedPreferences(PREFS, MODE_PRIVATE).getString(ACTIVE_EVENT, "PASSENGER_RIDE_TRACE");
+    String persistedEntity = getSharedPreferences(PREFS, MODE_PRIVATE).getString(ACTIVE_ENTITY, "TRIP");
     if (persisted != null && !persisted.isEmpty()) {
       if (!ensureForegroundLocationService()) return START_NOT_STICKY;
       startTracking(persisted, persistedEvent);
@@ -138,11 +144,12 @@ public class KfeNativeGpsService extends Service {
     return START_STICKY;
   }
 
-  private void startTracking(String id, String requestedEventType) {
+  private void startTracking(String id, String requestedEventType, String requestedEntityType) {
     if (id == null || id.isEmpty()) return;
     if (!hasLocationPermission()) return;
     String requestedType = "DEAD_MOVEMENT_TRACE".equals(requestedEventType) ? "DEAD_MOVEMENT_TRACE" : "PASSENGER_RIDE_TRACE";
-    if (id.equals(tripId) && callback != null && requestedType.equals(eventType)) return;
+    String requestedEntity = "SHIFT".equals(requestedEntityType) ? "SHIFT" : "TRIP";
+    if (id.equals(tripId) && callback != null && requestedType.equals(eventType) && requestedEntity.equals(entityType)) return;
     // A trip starts with pickup/dead-movement telemetry and must switch to
     // passenger-ride telemetry when Start Trip is pressed. Restart the callback
     // for the same trip when its event type changes; otherwise all ride points
@@ -150,9 +157,10 @@ public class KfeNativeGpsService extends Service {
     releaseLocationUpdates();
     tripId = id;
     eventType = requestedType;
+    entityType = requestedEntity;
     traceFile = new File(getFilesDir(), "kfe_gps_trace_" + safeName(id) + ".jsonl");
     loadSeenKeys();
-    getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(ACTIVE_TRIP, id).putString(ACTIVE_EVENT, eventType).apply();
+    getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(ACTIVE_TRIP, id).putString(ACTIVE_EVENT, eventType).putString(ACTIVE_ENTITY, entityType).apply();
 
     if (androidx.core.app.ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED
         && androidx.core.app.ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -186,6 +194,7 @@ public class KfeNativeGpsService extends Service {
       JSONObject point = new JSONObject();
       point.put("id", "native-" + Integer.toHexString(key.hashCode()));
       point.put("tripId", tripId);
+      point.put("entityType", entityType);
       point.put("latitude", location.getLatitude());
       point.put("longitude", location.getLongitude());
       point.put("accuracy", location.hasAccuracy() ? location.getAccuracy() : JSONObject.NULL);
@@ -259,7 +268,7 @@ public class KfeNativeGpsService extends Service {
     lastPassengerLocation = null;
     passengerDistanceMeters = 0d;
     seenKeys.clear();
-    getSharedPreferences(PREFS, MODE_PRIVATE).edit().remove(ACTIVE_TRIP).remove(ACTIVE_EVENT).apply();
+    getSharedPreferences(PREFS, MODE_PRIVATE).edit().remove(ACTIVE_TRIP).remove(ACTIVE_EVENT).remove(ACTIVE_ENTITY).apply();
   }
 
   public static String listTraceOwners(Context context) {
