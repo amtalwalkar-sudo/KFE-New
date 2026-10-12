@@ -61,7 +61,7 @@ assert.match(workView, /<WorkCancellationForm v-else-if="type === 'cancel'/, 'Ca
 assert.match(workView, /<WorkEndShiftForm v-else-if="type === 'end'/, 'End-shift stages have an independent form component.')
 assert.doesNotMatch(workView, /<form v-else-if="type === 'fuel'/, 'The parent form controller no longer owns the fuel form markup.')
 assert.match(workFuelForm, /aria-label="Close fuel form"/)
-assert.match(workFuelForm, /@focus-numeric="activateNumeric"/)
+assert.match(workFuelForm, /emit\('focus-numeric', 'fuel-odo'\)/, 'Fuel inputs emit a semantic focus event to the parent form controller.')
 assert.match(fs.readFileSync(path.join(root, 'src/views/WorkModuleView.vue'), 'utf8'), /backgroundLocationPermission\.backgroundLocationAllowed/, 'Work exposes reboot-recovery permission state without blocking the shift workflow.')
 assert.match(fs.readFileSync(path.join(root, 'android/app/src/main/AndroidManifest.xml'), 'utf8'), /android\.permission\.ACCESS_BACKGROUND_LOCATION/, 'Android declares the permission required for post-reboot location recovery.')
 assert.match(fs.readFileSync(path.join(root, 'android/app/src/main/java/com/kanishka/pwa/KfeNativeGpsService.java'), 'utf8'), /!hasBackgroundLocationPermission\(context\)/, 'Boot recovery does not silently claim GPS resumption without background permission.')
