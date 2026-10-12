@@ -27,6 +27,11 @@ if (fs.existsSync(workViewPath)) {
   const workView = fs.readFileSync(workViewPath, 'utf8')
   if (/from\s+['"][^'"]*\/infrastructure\//.test(workView)) violations.push('WorkModuleView.vue must use application runtime ports instead of importing infrastructure adapters directly.')
 }
+const workServicePath = path.join(root, 'application/work/workService.js')
+if (fs.existsSync(workServicePath)) {
+  const workService = fs.readFileSync(workServicePath, 'utf8')
+  if (/from\s+['"][^'"]*\/infrastructure\//.test(workService)) violations.push('WorkService must use application runtime ports instead of importing infrastructure adapters directly.')
+}
 
 assertForbidden(['domain'], [ /from\s+['"][^'"]*\/repositories\//, /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/, /from\s+['"][^'"]*\/application\//, /from\s+['"][^'"]*\/infrastructure\//, /from\s+['"][^'"]*\/presentation\// ], 'Domain must remain independent of outer layers')
 assertForbidden(['application'], [ /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/ ], 'Application must not depend directly on raw IndexedDB')
