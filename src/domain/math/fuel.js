@@ -5,45 +5,95 @@ export function calculateFuelQuantityKg(amountRupees, pricePerKg) {
   return amount / price
 }
 
-const validFuel = x => { const capturedAtValue = x?.capturedAt || x?.createdAt; const capturedAt = capturedAtValue ? new Date(capturedAtValue) : null; return x && capturedAt && Number.isFinite(capturedAt.getTime()) && Number.isFinite(Number(x.odometer)) && Number(x.odometer) >= 0 && Number.isFinite(Number(x.amount ?? x.totalCost)) && Number(x.amount ?? x.totalCost) > 0 }
-const fullTank = x => x?.isFullTank === true
-const sameVehicle = (a, b) => {
-  const aVehicle = a?.vehicleId
-  const bVehicle = b?.vehicleId
-  // A missing vehicle identity is not evidence that two fills belong to the same vehicle.
-  if (aVehicle == null || bVehicle == null || String(aVehicle).trim() === '' || String(bVehicle).trim() === '') return false
-  return String(aVehicle) === String(bVehicle)
+const validFuel = row => {
+  const capturedAtValue = row?.capturedAt || row?.createdAt
+  const capturedAt = capturedAtValue ? new Date(capturedAtValue) : null
+  return Boolean(row && capturedAt && Number.isFinite(capturedAt.getTime()) &&
+    Number.isFinite(Number(row.odometer)) && Number(row.odometer) >= 0 &&
+    Number.isFinite(Number(row.amount ?? row.totalCost)) && Number(row.amount ?? row.totalCost) > 0)
+}
+const fullTank = row => row?.isFullTank === true
+const vehicleKey = row => {
+  const id = row?.vehicleId
+  // KFE currently operates as a single-vehicle ERP. Older canonical fuel logs
+  // do not carry vehicleId, so they must still form intervals with one another.
+  return id == null || String(id).trim() === '' ? '__SINGLE_UNASSIGNED_VEHICLE__' : String(id)
 }
 
 /**
- * Authoritative full-tank-to-full-tank fuel cost/km requires explicit full-tank
- * confirmation, valid timestamp/odometer/amount, and a stable vehicle association.
- * Partial or unassociated fills remain records but never establish an interval.
+ * Full-to-full CNG economics.
+ * Distance is measured between consecutive confirmed full-tank odometer readings.
+ * Fuel spend/quantity includes every refill after the baseline full tank through
+ * the next full tank, including partial fills. The baseline fill itself is not
+ * charged to the following interval because it establishes the starting state.
  */
 export function calculateRollingFuelCostPerKm(logs = [], windowSize = 10) {
-  const full = (logs || []).filter(x => validFuel(x) && fullTank(x)).slice().sort((a, b) => new Date(a.capturedAt || a.createdAt) - new Date(b.capturedAt || b.createdAt) || Number(a.odometer) - Number(b.odometer))
-  // Build intervals independently per vehicle. A global timestamp sort can
-  // put another vehicle between two fills of the same vehicle (A, B, A), which
-  // would discard the valid A→A interval and make the fuel rate disappear.
-  const groups = new Map()
-  for (const row of full) {
-    const key = row?.vehicleId == null ? '__UNASSIGNED__' : String(row.vehicleId)
-    if (!groups.has(key)) groups.set(key, [])
-    groups.get(key).push(row)
+  const grouped = new Map()
+  for (const row of (logs || []).filter(validFuel)) {
+    const key = vehicleKey(row)
+    if (!grouped.has(key)) grouped.set(key, [])
+    grouped.get(key).push(row)
   }
+
   const intervals = []
-  for (const rows of groups.values()) {
-    const ordered = rows.sort((a, b) => new Date(a.capturedAt || a.createdAt || 0) - new Date(b.capturedAt || b.createdAt || 0) || Number(a.odometer) - Number(b.odometer))
-    for (let i = 1; i < ordered.length; i += 1) {
-      const previous = ordered[i - 1]
-      const current = ordered[i]
-      const km = Number(current.odometer) - Number(previous.odometer)
-      const cost = Number(current.amount ?? current.totalCost)
-      if (km > 0 && cost > 0 && sameVehicle(previous, current)) intervals.push({ km, cost, costPerKm: cost / km, capturedAt: current.capturedAt || current.createdAt || null, vehicleId: current.vehicleId })
+  const fullTanks = []
+  for (const rows of grouped.values()) {
+    const ordered = rows.slice().sort((a, b) =>
+      new Date(a.capturedAt || a.createdAt).getTime() - new Date(b.capturedAt || b.createdAt).getTime() ||
+      Number(a.odometer) - Number(b.odometer)
+    )
+    const anchors = []
+    ordered.forEach((row, index) => {
+      if (fullTank(row)) {
+        anchors.push({ row, index })
+        fullTanks.push(row)
+      }
+    })
+
+    for (let i = 1; i < anchors.length; i += 1) {
+      const previous = anchors[i - 1]
+      const current = anchors[i]
+      const km = Number(current.row.odometer) - Number(previous.row.odometer)
+      if (!(km > 0)) continue
+
+      const included = ordered.slice(previous.index + 1, current.index + 1)
+      const cost = included.reduce((sum, row) => sum + Number(row.amount ?? row.totalCost), 0)
+      const quantityKg = included.reduce((sum, row) => {
+        const quantity = Number(row.quantityKg ?? row.kg)
+        return sum + (Number.isFinite(quantity) && quantity > 0 ? quantity : 0)
+      }, 0)
+      if (!(cost > 0)) continue
+
+      intervals.push({
+        km, distanceKm: km, cost, fuelCost: cost, quantityKg, costPerKm: cost / km,
+        previousFullTank: previous.row, currentFullTank: current.row,
+        capturedAt: current.row.capturedAt || current.row.createdAt || null,
+        vehicleId: current.row.vehicleId ?? null,
+      })
     }
   }
-  intervals.sort((a, b) => new Date(a.capturedAt || 0) - new Date(b.capturedAt || 0) || String(a.vehicleId ?? '').localeCompare(String(b.vehicleId ?? '')))
-  const observations = intervals.slice(-Math.max(1, Number(windowSize) || 10))
-  const rollingCostPerKm = observations.length ? observations.reduce((sum, x) => sum + x.costPerKm, 0) / observations.length : NaN
-  return { rollingCostPerKm, observations, completedIntervals: intervals.length, baselineFullTank: full[0] || null, latestFullTank: full[full.length - 1] || null }
+
+  intervals.sort((a, b) =>
+    new Date(a.capturedAt || 0).getTime() - new Date(b.capturedAt || 0).getTime() ||
+    String(a.vehicleId ?? '').localeCompare(String(b.vehicleId ?? ''))
+  )
+  fullTanks.sort((a, b) =>
+    new Date(a.capturedAt || a.createdAt).getTime() - new Date(b.capturedAt || b.createdAt).getTime() ||
+    Number(a.odometer) - Number(b.odometer)
+  )
+
+  const size = Math.max(1, Number(windowSize) || 10)
+  const observations = intervals.slice(-size)
+  const rollingCostPerKm = observations.length
+    ? observations.reduce((sum, interval) => sum + interval.costPerKm, 0) / observations.length
+    : NaN
+  const totalIntervalKm = intervals.reduce((sum, interval) => sum + interval.km, 0)
+  const totalIntervalCost = intervals.reduce((sum, interval) => sum + interval.cost, 0)
+  const averageCostPerKm = totalIntervalKm > 0 ? totalIntervalCost / totalIntervalKm : NaN
+
+  return {
+    rollingCostPerKm, averageCostPerKm, totalIntervalKm, totalIntervalCost,
+    observations, intervals, completedIntervals: intervals.length,
+    baselineFullTank: fullTanks[0] || null, latestFullTank: fullTanks[fullTanks.length - 1] || null,
+  }
 }
