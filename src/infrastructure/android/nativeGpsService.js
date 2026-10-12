@@ -37,6 +37,17 @@ export const NativeGpsService = {
     if (!(await isAndroid()) || !tripId) return
     try { const NativeGps = await getNativeGps(); await NativeGps.stop({ tripId }) } catch (error) { console.warn('Native Android GPS stop failed.', error) }
   },
+  async listTraceOwners() {
+    if (!(await isAndroid())) return []
+    try {
+      const NativeGps = await getNativeGps()
+      const result = await NativeGps.listTraceOwners()
+      return Array.isArray(result?.owners) ? result.owners.filter(id => typeof id === 'string' && id.trim()) : []
+    } catch (error) {
+      console.warn('Native Android GPS trace inventory unavailable.', error)
+      return []
+    }
+  },
   async readTrace(tripId) {
     if (!(await isAndroid()) || !tripId) return []
     try {
