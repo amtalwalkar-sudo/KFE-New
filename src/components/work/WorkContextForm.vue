@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 
 const props = defineProps({
   type: { type: String, required: true },
@@ -77,6 +77,8 @@ const emit = defineEmits([
 
 
 const activeNumericField = ref(null)
+const tollDetailsOpen = ref(false)
+const parkingDetailsOpen = ref(false)
 const suppressNumericFocus = ref(false)
 const activeNumeric = computed(() => {
   const name = activeNumericField.value
@@ -107,6 +109,9 @@ const activeNumeric = computed(() => {
   return null
 })
 const activeNumericDecimal = computed(() => activeNumeric.value?.decimal === true)
+onMounted(() => {
+  if (props.type === 'fare') activeNumericField.value = 'fare'
+})
 function activateNumeric(name) {
   if (suppressNumericFocus.value) {
     suppressNumericFocus.value = false
@@ -191,7 +196,7 @@ const numericPress = async token => {
     return
   }
   if (token === 'DONE') {
-    const finalFields = new Set(['trip-parking', 'cancel-fare', 'fuel-amount', 'shift-revenue', 'shift-parking'])
+    const finalFields = new Set(['fare', 'trip-parking', 'cancel-fare', 'fuel-amount', 'shift-revenue', 'shift-parking'])
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     suppressNumericFocus.value = true
     activeNumericField.value = null
@@ -262,15 +267,21 @@ const updateMap = (name, map, id, value) => {
     </form>
 
     <form v-else-if="type === 'fare'" class="form-card state-tone-warning focus-surface" @submit.prevent="submitForm">
-      <div class="form-head"><div><span class="eyebrow">TRIP COMPLETED</span><strong>OPTIONAL DETAILS</strong></div><button class="text-action" type="button" @click="emit('action','skip-fare')">Skip</button></div>
-      <label>Trip fare <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="fare" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('fare')" aria-label="Trip fare" @click="activateNumeric('fare')"></div></label>
-      <div class="treatment-row">
-        <label class="check-row"><input aria-label="Toll was paid separately" :checked="tripTollTreatment==='EXCLUDED'" type="checkbox" @change="emit('update:trip-toll-treatment',$event.target.checked ? 'EXCLUDED' : 'INCLUDED')"><span>Toll separate</span></label>
-        <label class="check-row"><input aria-label="Parking was paid separately" :checked="tripParkingTreatment==='EXCLUDED'" type="checkbox" @change="emit('update:trip-parking-treatment',$event.target.checked ? 'EXCLUDED' : 'INCLUDED')"><span>Parking separate</span></label>
+      <div class="form-head"><div><span class="eyebrow">TRIP COMPLETED</span><strong>ENTER FARE</strong></div><button class="text-action" type="button" @click="emit('action','skip-fare')">Skip</button></div>
+      <label class="fare-main-field">Trip fare <div class="input-unit"><b>₹</b><input :value="fare" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('fare')" aria-label="Trip fare" @click="activateNumeric('fare')"></div></label>
+      <div class="fare-optional-actions">
+        <button type="button" class="optional-toggle" :aria-expanded="tollDetailsOpen" @click="tollDetailsOpen = !tollDetailsOpen; if (tollDetailsOpen) activateNumeric('trip-toll')">{{ tollDetailsOpen ? '− Toll' : '+ Toll' }}</button>
+        <button type="button" class="optional-toggle" :aria-expanded="parkingDetailsOpen" @click="parkingDetailsOpen = !parkingDetailsOpen; if (parkingDetailsOpen) activateNumeric('trip-parking')">{{ parkingDetailsOpen ? '− Parking' : '+ Parking' }}</button>
       </div>
-      <label>Toll <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="tripToll" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('trip-toll')" aria-label="Toll" @click="activateNumeric('trip-toll')"></div></label>
-      <label>Parking <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="tripParking" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('trip-parking')" aria-label="Parking" @click="activateNumeric('trip-parking')"></div></label>
-      <button v-if="!activeNumeric" type="submit" class="primary-action" :disabled="fareBusy">{{ fareBusy ? 'SAVING…' : 'SAVE DETAILS & CONTINUE' }}</button>
+      <div v-if="tollDetailsOpen" class="fare-optional-field">
+        <label>Toll <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="tripToll" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('trip-toll')" aria-label="Toll" @click="activateNumeric('trip-toll')"></div></label>
+        <label class="check-row"><input aria-label="Toll was paid separately" :checked="tripTollTreatment==='EXCLUDED'" type="checkbox" @change="emit('update:trip-toll-treatment',$event.target.checked ? 'EXCLUDED' : 'INCLUDED')"><span>Toll paid separately</span></label>
+      </div>
+      <div v-if="parkingDetailsOpen" class="fare-optional-field">
+        <label>Parking <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="tripParking" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('trip-parking')" aria-label="Parking" @click="activateNumeric('trip-parking')"></div></label>
+        <label class="check-row"><input aria-label="Parking was paid separately" :checked="tripParkingTreatment==='EXCLUDED'" type="checkbox" @change="emit('update:trip-parking-treatment',$event.target.checked ? 'EXCLUDED' : 'INCLUDED')"><span>Parking paid separately</span></label>
+      </div>
+      <button v-if="!activeNumeric" type="submit" class="primary-action" :disabled="fareBusy">{{ fareBusy ? 'SAVING…' : 'OK — SAVE TRIP' }}</button>
     </form>
 
     <form v-else-if="type === 'cancel'" class="form-card state-tone-warning focus-surface" @submit.prevent="submitForm">
@@ -349,7 +360,7 @@ const updateMap = (name, map, id, value) => {
           <span v-else></span>
           <button v-if="numericNext[activeNumeric.name]" type="button" @click="numericPress('NEXT')">NEXT →</button>
           <button type="button" class="done" @click="numericPress('DONE')">DONE</button>
-          <button v-if="type === 'fare'" type="button" class="done fare-save-action" :disabled="fareBusy" @click="submitForm">{{ fareBusy ? 'SAVING…' : 'SAVE DETAILS & CONTINUE' }}</button>
+          <button v-if="type === 'fare'" type="button" class="done fare-save-action" :disabled="fareBusy" @click="submitForm">{{ fareBusy ? 'SAVING…' : 'OK — SAVE TRIP' }}</button>
         </div>
       </div>
   </section>
@@ -371,7 +382,7 @@ const updateMap = (name, map, id, value) => {
 .primary-action,.text-action,.choice-row button{touch-action:manipulation}
 .primary-action{min-height:48px}
 .form-card input,.form-card select,.form-card button{font:inherit}
-.form-card input{font-size:16px}.form-fare .form-card{grid-template-columns:minmax(0,1fr) minmax(0,1fr);padding:8px;gap:6px}.form-fare .form-card .form-head,.form-fare .form-card>.primary-action,.form-fare .form-card>label:first-of-type,.form-fare .form-card .treatment-row{grid-column:1/-1}.form-fare .form-card label{gap:3px;font-size:.78rem}.form-fare .form-card .form-head{margin-bottom:0}.form-fare .form-card .input-unit{gap:5px}.form-fare .form-card .input-unit input{height:40px;min-height:40px!important}.form-fare .form-card .primary-action{min-height:40px;margin-top:0}.form-fare .form-card .treatment-row{gap:8px}.form-fare .form-card .optional-label{font-size:.62rem}.form-fare .form-card .treatment-row .check-row{font-size:.67rem}
+.form-card input{font-size:16px}.form-fare .form-card{grid-template-columns:minmax(0,1fr) minmax(0,1fr);padding:8px;gap:6px}.form-fare .form-card .form-head,.form-fare .form-card>.primary-action,.form-fare .form-card .fare-main-field,.form-fare .form-card .fare-optional-actions,.form-fare .form-card .fare-optional-field{grid-column:1/-1}.form-fare .form-card label{gap:3px;font-size:.78rem}.form-fare .form-card .form-head{margin-bottom:0}.form-fare .form-card .input-unit{gap:5px}.form-fare .form-card .input-unit input{height:40px;min-height:40px!important}.form-fare .form-card .primary-action{min-height:40px;margin-top:0}.form-fare .form-card .optional-label{font-size:.62rem}.fare-optional-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.fare-optional-actions .optional-toggle{min-height:38px;border:1px dashed var(--kfe-ui-border);border-radius:10px;background:var(--kfe-ui-surface-2);color:var(--kfe-ui-text);font-weight:800}.fare-optional-field{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:end;gap:8px;padding:6px 0;border-top:1px solid var(--kfe-ui-border)}.fare-optional-field .check-row{font-size:.67rem;line-height:1.1}.fare-optional-field .check-row input{width:18px!important;height:18px;min-height:18px!important}
 .expense-row{display:grid;grid-template-columns:minmax(76px,.8fr) minmax(0,1.2fr);gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--kfe-ui-border)}
 .expense-trip-total{display:grid;gap:3px;font-size:.78rem;overflow-wrap:anywhere}.expense-trip-total strong{font-size:.9rem}
 .expense-shift-capture{display:grid;gap:6px;min-width:0}.expense-shift-capture>label:not(.check-row){font-size:.78rem;gap:3px}.expense-shift-capture .check-row{font-size:.68rem;gap:5px;line-height:1.1}.expense-shift-capture .check-row input{width:18px!important;height:18px}
