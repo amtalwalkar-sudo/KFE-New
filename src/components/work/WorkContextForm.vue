@@ -213,7 +213,7 @@ const numericPress = async token => {
     return
   }
   if (token === 'DONE') {
-    const finalFields = new Set(['fare', 'trip-parking', 'cancel-fare', 'fuel-amount', 'shift-revenue', 'shift-parking'])
+    const finalFields = new Set(['fare', 'trip-parking', 'cancel-fare', 'shift-revenue', 'shift-parking'])
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     suppressNumericFocus.value = true
     activeNumericField.value = null
