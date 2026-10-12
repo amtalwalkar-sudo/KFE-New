@@ -101,11 +101,6 @@ void (async () => {
           if (event.data?.type === 'kfe:daily-cloud-backup') retryCloudBackup()
         })
       }
-      if (Capacitor.isNativePlatform()) {
-        void import('@capacitor/app').then(({ App }) => App.addListener('appStateChange', state => {
-          if (state.isActive) retryCloudBackup()
-        })).catch(error => console.warn('KFE app-resume backup hook unavailable:', error))
-      }
     }
 
     void StartupService.startApplication().catch(error => console.error('KFE application startup failed:', error))
