@@ -280,7 +280,7 @@ const updateMap = (name, map, id, value) => {
     </form>
 
     <form v-else-if="type === 'fare'" class="form-card state-tone-warning focus-surface" @submit.prevent="submitForm">
-      <div class="form-head"><div><span class="eyebrow">TRIP COMPLETED</span><strong>OPTIONAL DETAILS</strong></div><button class="text-action" type="button" @click="emit('action','skip-fare')">Skip</button></div>
+      <div class="form-head fare-form-head"><span class="eyebrow">TRIP COMPLETED</span><button class="text-action" type="button" @click="emit('action','skip-fare')">Skip</button></div>
       <label class="fare-main-field">Trip fare <div class="input-unit"><b>₹</b><input :value="fare" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('fare')" aria-label="Trip fare" @click="activateNumeric('fare')"></div></label>
       <div class="fare-optional-actions">
         <button type="button" class="optional-toggle" :aria-expanded="tollDetailsOpen" @click="toggleFareOptional('toll')">{{ tollDetailsOpen ? '− Toll' : '+ Toll' }}</button>
