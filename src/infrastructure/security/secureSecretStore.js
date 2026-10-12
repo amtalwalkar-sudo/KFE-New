@@ -5,6 +5,7 @@ const WEB_DB_NAME = 'kfe_secure_secret_store'
 const WEB_DB_VERSION = 1
 const WEB_STORE = 'secrets'
 const WEB_KEY_ID = 'kfe-web-secret-key-v1'
+const nonBrowserTestSecrets = new Map()
 const webCrypto = () => {
   if (!globalThis.crypto?.subtle || !globalThis.crypto?.getRandomValues || !globalThis.indexedDB) {
     throw new Error('Persistent encrypted secret storage is unavailable in this browser. Use the installed Android app or a supported secure browser.')
@@ -86,11 +87,17 @@ export const SecureSecretStore = Object.freeze({
       const result = await NativeSecureStorage.get({ key })
       return result?.value || ''
     }
+    if (typeof window === 'undefined') return nonBrowserTestSecrets.get(key) || ''
     return getWebSecret(key)
   },
   async set(key, value) {
     if (Capacitor.isNativePlatform()) {
       await NativeSecureStorage.set({ key, value })
+      return
+    }
+    if (typeof window === 'undefined') {
+      if (value) nonBrowserTestSecrets.set(key, String(value))
+      else nonBrowserTestSecrets.delete(key)
       return
     }
     if (value) await setWebSecret(key, String(value))
@@ -101,6 +108,7 @@ export const SecureSecretStore = Object.freeze({
       await NativeSecureStorage.remove({ key })
       return
     }
+    if (typeof window === 'undefined') { nonBrowserTestSecrets.delete(key); return }
     await removeWebValue(`secret:${key}`)
   },
 })
