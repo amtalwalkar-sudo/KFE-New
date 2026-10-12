@@ -32,7 +32,7 @@ assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /NativeGpsService\.start\(store\.shift\.id, 'DEAD_MOVEMENT_TRACE'\)/, 'Dead-leg GPS is restored under the canonical shift owner between rides.')
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /NativeGpsService\.start\(nativeOwnerId, nativeEventType\)/, 'Native GPS owner is reasserted after WebView recovery.')
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/infrastructure/location/movementTraceService.js'), 'utf8'), /async resumePersisted\(expectedSession\)/, 'Browser trace recovery validates persisted ownership and hydrates durable points.')
-assert.match(fs.readFileSync(path.join(process.cwd(), 'src/infrastructure/location/movementTraceService.js'), 'utf8'), /pause\(\) \{[\s\S]*retain the durable owner marker/, 'Leaving Work pauses the browser watch without deleting its recovery marker.')
+assert.match(fs.readFileSync(path.join(process.cwd(), 'src/infrastructure/location/movementTraceService.js'), 'utf8'), /pause\(\) \{[\s\S]*owner marker and canonical points/, 'Leaving Work pauses the browser watch without deleting its recovery marker.')
 
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /MovementReconciliationQueue\.matchLiveTrace/)
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/application/work/movementReconciliationQueue.js'), 'utf8'), /reconciledAfterReconnect/)
