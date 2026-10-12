@@ -98,7 +98,7 @@ console.log('Routing evidence contract passed: a distance without matched geomet
 
 // Offline-first trace / deferred road matching contracts.
 const reconciliationQueue = fs.readFileSync('src/application/work/movementReconciliationQueue.js', 'utf8')
-const liveWorkView = fs.readFileSync('src/views/WorkModuleView.vue', 'utf8')
+const liveWorkView = fs.readFileSync('src/views/WorkModuleView.vue', 'utf8') + '\n' + fs.readFileSync('src/application/work/workService.js', 'utf8')
 assert.match(liveWorkView, /LIVE GPS ESTIMATE/)
 assert.match(liveWorkView, /PROVISIONAL ROAD MATCH/)
 assert.match(liveWorkView, /MovementReconciliationQueue\.matchLiveTrace/)
