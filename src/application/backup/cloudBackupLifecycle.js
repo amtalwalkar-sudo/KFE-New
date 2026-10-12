@@ -3,6 +3,7 @@ import { BackupConfig } from './backupConfig.js'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 let scheduler = null
+let activeCloudBackupAttempt = null
 
 export const configureCloudBackupScheduler = nextScheduler => {
   if (!nextScheduler || typeof nextScheduler.registerDaily !== 'function') throw new TypeError('Invalid cloud backup scheduler.')
@@ -18,7 +19,7 @@ export const initializeConfiguredCloudBackupProvider = async () => {
 
 export const registerDailyCloudBackupSchedule = async () => scheduler ? scheduler.registerDaily() : false
 
-export const maybeDailyCloudBackup = async ({ force = false } = {}) => {
+const runCloudBackupAttempt = async ({ force = false } = {}) => {
   const config = await BackupConfig.getBackupConfiguration()
   if (!config.enabled || !config.hasAccessToken) return { status: 'disabled' }
   if (!force && config.lastCloudBackupAt && Date.now() - Date.parse(config.lastCloudBackupAt) < DAY_MS) return { status: 'fresh', lastCloudBackupAt: config.lastCloudBackupAt }
@@ -35,6 +36,12 @@ export const maybeDailyCloudBackup = async ({ force = false } = {}) => {
     try { await BackupConfig.markCloudBackupFailed(error?.message || error) } catch (statusError) { console.warn('KFE could not persist cloud backup failure status:', statusError) }
     return { status: 'failed', error }
   }
+}
+
+export const maybeDailyCloudBackup = (options = {}) => {
+  if (activeCloudBackupAttempt) return activeCloudBackupAttempt
+  activeCloudBackupAttempt = runCloudBackupAttempt(options).finally(() => { activeCloudBackupAttempt = null })
+  return activeCloudBackupAttempt
 }
 
 export const backupToConfiguredCloud = async () => maybeDailyCloudBackup({ force: true })
