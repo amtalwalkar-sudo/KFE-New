@@ -493,14 +493,24 @@ async function goPickup(nativeTripId = '') {
   liveMovementStatus.value = 'ACQUIRING GPS'
   busy.value = true
   try {
-    try {
-      traceRunning = MovementTraceService.start({
-        entityType: 'SHIFT',
-        entityId: store.shift?.id,
-        eventType: 'DEAD_MOVEMENT_TRACE',
-        profile: 'DEAD_LEG'
-      })
-    } catch (_) { traceRunning = false }
+    const traceSession = MovementTraceService.getActiveSession()
+    const alreadyTrackingDeadLeg = traceSession?.entityType === 'SHIFT' &&
+      traceSession.entityId === store.shift?.id &&
+      traceSession.eventType === 'DEAD_MOVEMENT_TRACE' &&
+      traceSession.profile === 'DEAD_LEG'
+    if (!alreadyTrackingDeadLeg) {
+      try {
+        traceRunning = MovementTraceService.start({
+          entityType: 'SHIFT',
+          entityId: store.shift?.id,
+          eventType: 'DEAD_MOVEMENT_TRACE',
+          profile: 'DEAD_LEG'
+        })
+      } catch (_) { traceRunning = false }
+    }
+    if (nativeAndroid && store.shift?.id) {
+      await NativeGpsService.start(store.shift.id, 'DEAD_MOVEMENT_TRACE')
+    }
 
     const result = await store.beginPickup(operator.value || store.defaultOperator, nativeTripId || null)
     if (!result?.ok) {
@@ -524,12 +534,24 @@ async function startTrip() {
   liveMovementStatus.value = 'ACQUIRING GPS'
   busy.value = true
   try {
+    const result = await store.startRide()
+    if (!result?.ok) { fail(result?.reason || 'Trip could not be started.'); return false }
     if (traceRunning) {
       MovementTraceService.reset()
       traceRunning = false
     }
-    const result = await store.startRide()
-    if (!result?.ok) { fail(result?.reason || 'Trip could not be started.'); return false }
+    let nativeTraceStarted = false
+    if (nativeAndroid && store.trip?.id) {
+      nativeTraceStarted = await NativeGpsService.start(store.trip.id, 'PASSENGER_RIDE_TRACE')
+    }
+    if (!nativeTraceStarted && store.trip?.id) {
+      traceRunning = MovementTraceService.start({
+        entityType: 'TRIP',
+        entityId: store.trip.id,
+        eventType: 'PASSENGER_RIDE_TRACE',
+        profile: 'PASSENGER_RIDE'
+      })
+    }
     await KfeRideNotificationService.startRide().catch(() => {})
     await syncOverlay()
     // Keep state transitions silent; the cockpit/action label reflects the new state.
@@ -545,6 +567,18 @@ async function endTrip() {
   try {
     const tripId = store.trip.id
     if (!await store.endTrip()) { fail('Trip could not be completed.'); return false }
+    if (nativeAndroid) {
+      await NativeGpsService.stop(tripId)
+      if (store.shift?.id) await NativeGpsService.start(store.shift.id, 'DEAD_MOVEMENT_TRACE')
+    } else {
+      if (traceRunning) MovementTraceService.reset()
+      traceRunning = MovementTraceService.start({
+        entityType: 'SHIFT',
+        entityId: store.shift?.id,
+        eventType: 'DEAD_MOVEMENT_TRACE',
+        profile: 'DEAD_LEG'
+      })
+    }
     fareTripId.value = tripId
     restoringDrafts = true
     fare.value = ''
@@ -845,6 +879,11 @@ async function finishEnd() {
       trips
     })
     if (!result?.ok) return fail(result.reason)
+    if (nativeAndroid && store.shift?.id) await NativeGpsService.stop(store.shift.id)
+    if (traceRunning) {
+      MovementTraceService.reset()
+      traceRunning = false
+    }
     await clearCommittedDraft(endDraft)
     endStage.value = 'ENDED'
     await KfeRideNotificationService.clear().catch(() => {})
