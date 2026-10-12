@@ -10,10 +10,8 @@ import { calculateRollingFuelCostPerKm } from '../../domain/math/fuel.js'
 import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } from '../../domain/work/trip.js'
 import { BackupService } from '../backup/backupService.js'
 import { MovementAccountingService, routeTrace } from '../../domain/movement/movementAccounting.js'
-import { MovementTraceService } from '../../infrastructure/location/movementTraceService.js'
+import { WorkRuntimePorts } from './workRuntimePorts.js'
 import { calculateTraceDistanceKm } from '../../domain/movement/traceDistance.js'
-import { NativeGpsService } from '../../infrastructure/android/nativeGpsService.js'
-import { ValhallaRoutingAdapter } from '../../infrastructure/location/valhallaRoutingAdapter.js'
 import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
 
 const checkpoint = () => BackupService.requestLocalBackupCheckpoint()
@@ -52,7 +50,7 @@ export const WorkService = Object.freeze({
         trips,
         startOdometer: shift.shift.startOdometer,
         endOdometer: closingOdometer,
-        router: new ValhallaRoutingAdapter(),
+        router: WorkRuntimePorts.routing.createRouter(),
         businessKmByTripId: Object.fromEntries(trips.filter(item => item.tripKm != null && item.tripKm !== '' && Number.isFinite(Number(item.tripKm)) && Number(item.tripKm) >= 0).map(item => [item.id, Number(item.tripKm)])),
         gpsSnapshots
       })
@@ -60,7 +58,7 @@ export const WorkService = Object.freeze({
       return { reconciliationStatus: 'UNAVAILABLE', reason: error?.message || 'MOVEMENT_RECONCILIATION_FAILED', gpsTracePoints: gpsSnapshots.length }
     }
   },
-  async getTripGpsDistanceKm(tripId) { try { await NativeGpsService.syncTrace(tripId) } catch (_) {} const snapshots = await LocationRepository.forEntity('TRIP', tripId); return calculateTraceDistanceKm(snapshots.filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')) },
+  async getTripGpsDistanceKm(tripId) { try { await WorkRuntimePorts.nativeGps.syncTrace(tripId) } catch (_) {} const snapshots = await LocationRepository.forEntity('TRIP', tripId); return calculateTraceDistanceKm(snapshots.filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')) },
   calculateLiveMovement(points = []) { const filteredPoints = MovementAccountingService.filterGpsTrace(points); return { points: filteredPoints, distanceKm: calculateTraceDistanceKm(filteredPoints) } },
   async captureLocation(data) { const result = await captureLifecycleLocation(data); checkpoint(); return result },
   validateShiftStartOdometer(currentOdometer, previousOdometer) { return validateShiftStartOdometer(currentOdometer, previousOdometer) },
@@ -75,7 +73,7 @@ export const WorkService = Object.freeze({
     if (!validation.valid) return { ok: false, reason: validation.reason }
     const result = await ShiftTripRepository.createTrip({ ...data, operator: validation.operator, tripStage: data?.tripStage || 'GOING_TO_PICKUP' }); checkpoint()
     // GPS is telemetry/enrichment. Never block the authoritative trip transition on it.
-    void NativeGpsService.start(result.id, 'DEAD_MOVEMENT_TRACE').catch(() => {})
+    void WorkRuntimePorts.nativeGps.start(result.id, 'DEAD_MOVEMENT_TRACE').catch(() => {})
     void captureLifecycleLocation({ entityType: 'TRIP', entityId: result.id, eventType: 'START' }).then(location => {
       if (location) return ShiftTripRepository.setTripStartLocation(result.id, location)
       return null
@@ -88,11 +86,11 @@ export const WorkService = Object.freeze({
     if (!result || !data?.id) return result
     // Android uses the native foreground trace. Browser/PWA builds do not have
     // that plugin, so fall back to the existing web movement-trace service.
-    void NativeGpsService.start(data.id).then(started => {
+    void WorkRuntimePorts.nativeGps.start(data.id).then(started => {
       if (started) return
-      MovementTraceService.start({ entityType: 'TRIP', entityId: data.id, eventType: 'PASSENGER_RIDE_TRACE', profile: 'PASSENGER_RIDE' })
+      WorkRuntimePorts.movementTrace.start({ entityType: 'TRIP', entityId: data.id, eventType: 'PASSENGER_RIDE_TRACE', profile: 'PASSENGER_RIDE' })
     }).catch(() => {
-      try { MovementTraceService.start({ entityType: 'TRIP', entityId: data.id, eventType: 'PASSENGER_RIDE_TRACE', profile: 'PASSENGER_RIDE' }) } catch (_) {}
+      try { WorkRuntimePorts.movementTrace.start({ entityType: 'TRIP', entityId: data.id, eventType: 'PASSENGER_RIDE_TRACE', profile: 'PASSENGER_RIDE' }) } catch (_) {}
     })
     return result
   },
@@ -107,13 +105,13 @@ export const WorkService = Object.freeze({
           // Native GPS is the raw evidence. Synchronize it first, then enrich the
           // already-committed trip asynchronously. Nothing here is awaited by the
           // authoritative END TRIP transition or the pending-fare form.
-          const activeTrace = MovementTraceService.getActiveSession()
+          const activeTrace = WorkRuntimePorts.movementTrace.getActiveSession()
           let browserTracePoints = []
           if (activeTrace?.entityType === 'TRIP' && activeTrace.entityId === tripId) {
-            try { browserTracePoints = await MovementTraceService.stop({ captureFinal: true }) } catch (_) {}
+            try { browserTracePoints = await WorkRuntimePorts.movementTrace.stop({ captureFinal: true }) } catch (_) {}
           }
-          await NativeGpsService.syncTrace(tripId)
-          await NativeGpsService.stop(tripId)
+          await WorkRuntimePorts.nativeGps.syncTrace(tripId)
+          await WorkRuntimePorts.nativeGps.stop(tripId)
           let snapshots = (await LocationRepository.forEntity('TRIP', tripId)).filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')
           const finalTracePoint = snapshots.at(-1) || browserTracePoints.at(-1)
           if (finalTracePoint) {
@@ -125,7 +123,7 @@ export const WorkService = Object.freeze({
           if (snapshots.length < 2) return
 
           const gpsKm = calculateTraceDistanceKm(snapshots)
-          const router = new ValhallaRoutingAdapter()
+          const router = WorkRuntimePorts.routing.createRouter()
           const routed = await routeTrace(snapshots, router)
 
           if (Number.isFinite(Number(routed.distanceKm)) && Number(routed.distanceKm) >= 0) {
@@ -170,7 +168,7 @@ export const WorkService = Object.freeze({
     }
     return result
   },
-  async cancelTrip(data) { const result = await ShiftTripRepository.cancelTrip(data); checkpoint(); if (data?.id) { void (async () => { try { const activeTrace = MovementTraceService.getActiveSession(); if (activeTrace?.entityType === 'TRIP' && activeTrace.entityId === data.id) { await MovementTraceService.stop({ captureFinal: false }) } await NativeGpsService.syncTrace(data.id); await NativeGpsService.stop(data.id) } catch (_) {} })() } return result },
+  async cancelTrip(data) { const result = await ShiftTripRepository.cancelTrip(data); checkpoint(); if (data?.id) { void (async () => { try { const activeTrace = WorkRuntimePorts.movementTrace.getActiveSession(); if (activeTrace?.entityType === 'TRIP' && activeTrace.entityId === data.id) { await WorkRuntimePorts.movementTrace.stop({ captureFinal: false }) } await WorkRuntimePorts.nativeGps.syncTrace(data.id); await WorkRuntimePorts.nativeGps.stop(data.id) } catch (_) {} })() } return result },
   async updateTrip(data) {
     const validation = validateTripCorrection(data)
     if (!validation.valid) return { ok: false, reason: validation.reason }
@@ -193,7 +191,7 @@ export const WorkService = Object.freeze({
           trips: movementTrips,
           startOdometer: active.shift.startOdometer,
           endOdometer: data?.closingOdometer,
-          router: new ValhallaRoutingAdapter(),
+          router: WorkRuntimePorts.routing.createRouter(),
           businessKmByTripId: Object.fromEntries(movementTrips.filter(item => item.tripKm != null && item.tripKm !== '' && Number.isFinite(Number(item.tripKm)) && Number(item.tripKm) >= 0).map(item => [item.id, Number(item.tripKm)])),
           gpsSnapshots
         })
