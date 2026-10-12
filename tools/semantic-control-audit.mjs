@@ -243,7 +243,10 @@ try {
   await enterKfeNumber('Amount', '900')
   // DONE only closes the KFE keypad; saving fuel is an explicit form action.
   await page.getByRole('button', { name: 'OK — SAVE FUEL', exact: true }).click()
-  await page.getByText('Fuel saved.', { exact: true }).waitFor({ state: 'visible', timeout: 5000 })
+  await page.waitForFunction(() => document.querySelector('[role="status"]')?.textContent?.includes('Fuel saved.') || Boolean(document.querySelector('[role="alert"]')?.textContent?.trim()), null, { timeout: 5000 })
+  const fuelSaveError = await page.locator('[role="alert"]').innerText().catch(() => '')
+  assert(!fuelSaveError, 'Fuel save action returned an error: ' + fuelSaveError)
+  assert(await page.getByText('Fuel saved.', { exact: true }).isVisible(), 'Fuel save action did not confirm success')
   state = await db(page, ['fuel_logs'])
   assert(state.fuel_logs.length === 1 && Number(state.fuel_logs[0].odometer) === 1000, 'CNG refuel contract failed: ' + JSON.stringify(state.fuel_logs))
   evidence.push({ id: 'WORK.CNG_REFUEL_OFFLINE', result: 'PASS', expected: 'one fuel record at 1000 km', persisted: { fuel: state.fuel_logs.length, odometer: state.fuel_logs[0]?.odometer } })
