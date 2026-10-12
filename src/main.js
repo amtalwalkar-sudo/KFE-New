@@ -104,6 +104,8 @@ void (async () => {
           if (event.data?.type === 'kfe:daily-cloud-backup') retryCloudBackup()
         })
       }
+      // Run once immediately after configuration, then retry on resume/connectivity.
+      retryCloudBackup()
     }
 
     void StartupService.startApplication().catch(error => console.error('KFE application startup failed:', error))
