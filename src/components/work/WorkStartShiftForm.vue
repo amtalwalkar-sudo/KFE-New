@@ -36,12 +36,3 @@ const submit = () => emit('action', { name: 'submit-start', startOdo: props.star
   </form>
 </template>
 
-<style scoped>
-.gap-panel{display:grid;gap:10px;padding:12px;border:1px solid var(--kfe-ui-border);border-radius:12px;background:var(--kfe-ui-surface-2);color:var(--kfe-ui-text)}
-.gap-panel .eyebrow{color:var(--kfe-ui-muted-strong)}
-.gap-panel strong{color:var(--kfe-ui-text);font-size:1.15rem}
-.gap-panel p{margin:4px 0 0;color:var(--kfe-muted-text)}
-.gap-panel .choice-row button{background:var(--kfe-ui-surface);color:var(--kfe-ui-text);border:1px solid var(--kfe-ui-input-border);border-radius:10px;font-weight:800}
-.gap-panel .choice-row button.selected{background:var(--kfe-ui-accent);color:var(--kfe-ui-on-accent);border-color:var(--kfe-ui-accent)}
-.gap-panel .choice-row button:focus-visible{outline:3px solid var(--kfe-ui-focus);outline-offset:2px}
-</style>
