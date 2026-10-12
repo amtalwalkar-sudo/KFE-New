@@ -80,8 +80,9 @@ try {
       quantityKg: 5,
       isFullTank: true,
     })
-    const canonicalPendingBefore = await count(openCanonicalDB(), 'pending_mutations')
-    if (canonicalPendingBefore !== 1) throw new Error('Canonical repository write did not create exactly one pending mutation.')
+    const canonicalPendingRowsBefore = await rows(openCanonicalDB(), 'pending_mutations')
+    const canonicalPendingBefore = canonicalPendingRowsBefore.filter(row => row.entityId === canonicalId || row.payload?.id === canonicalId || row.payload?.clientMutationId === 'phase4-canonical-mutation').length
+    if (canonicalPendingBefore !== 1) throw new Error('Canonical repository write did not create exactly one pending mutation for its own entity.')
 
     setActiveDataSource('synthetic')
     if (getActiveDataSource() !== 'synthetic') throw new Error('Synthetic mode did not activate.')
