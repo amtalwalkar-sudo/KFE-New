@@ -131,7 +131,7 @@
 .work-context-form .expense-shift-capture>label:not(.check-row){font-size:.78rem;gap:3px}
 .work-context-form .expense-shift-capture .check-row{font-size:.68rem;gap:5px;line-height:1.1}
 .work-context-form .expense-shift-capture .check-row input{width:18px!important;height:18px}
-.work-context-form .work-fuel-form .fuel-form-close-row{display:flex;justify-content:flex-end}
+ .work-context-form .work-fuel-form .input-unit input{height:40px;min-height:40px}\n.work-context-form .work-fuel-form .fuel-form-close-row{display:flex;justify-content:flex-end}
 .work-context-form .work-fuel-form .calculated-value{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:10px;background:var(--kfe-ui-surface-2);color:var(--kfe-ui-text)}
 .work-context-form .work-fuel-form .calculated-value strong{font-variant-numeric:tabular-nums}
 @media(max-width:380px){.work-context-form .expense-row{grid-template-columns:minmax(70px,.7fr) minmax(0,1.3fr);gap:6px}.work-context-form .fare-optional-field{grid-template-columns:minmax(0,1fr);align-items:stretch}.work-context-form .fare-optional-field .check-row{min-height:36px}}
