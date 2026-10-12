@@ -104,7 +104,7 @@ export const WorkService = Object.freeze({
     if (!validation.valid) return { ok: false, reason: validation.reason }
     const result = await ShiftTripRepository.createTrip({ ...data, operator: validation.operator, tripStage: data?.tripStage || 'GOING_TO_PICKUP' }); checkpoint()
     // GPS is telemetry/enrichment. Never block the authoritative trip transition on it.
-    void WorkRuntimePorts.nativeGps.start(result.id, 'DEAD_MOVEMENT_TRACE').catch(() => {})
+    void WorkRuntimePorts.nativeGps.start(result.id, 'DEAD_MOVEMENT_TRACE', 'TRIP').catch(() => {})
     void captureLifecycleLocation({ entityType: 'TRIP', entityId: result.id, eventType: 'START' }).then(location => {
       if (location) return ShiftTripRepository.setTripStartLocation(result.id, location)
       return null
@@ -117,7 +117,7 @@ export const WorkService = Object.freeze({
     if (!result || !data?.id) return result
     // Android uses the native foreground trace. Browser/PWA builds do not have
     // that plugin, so fall back to the existing web movement-trace service.
-    void WorkRuntimePorts.nativeGps.start(data.id).then(started => {
+    void WorkRuntimePorts.nativeGps.start(data.id, 'PASSENGER_RIDE_TRACE', 'TRIP').then(started => {
       if (started) return
       WorkRuntimePorts.movementTrace.start({ entityType: 'TRIP', entityId: data.id, eventType: 'PASSENGER_RIDE_TRACE', profile: 'PASSENGER_RIDE' })
     }).catch(() => {
