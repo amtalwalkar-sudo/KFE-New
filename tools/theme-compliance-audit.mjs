@@ -11,7 +11,7 @@ const failures = []
 for (const file of expected) if (!styleImports.includes(file)) failures.push('main.js must import canonical stylesheet ' + file)
 for (const file of forbidden) if (styleImports.includes(file)) failures.push('competing theme stylesheet is still imported: ' + file)
 
-const gapForm = await readFile(new URL('../src/components/work/WorkStartShiftForm.vue', import.meta.url), 'utf8')
+const gapForm = (await readFile(new URL('../src/components/work/WorkStartShiftForm.vue', import.meta.url), 'utf8')) + '\n' + (await readFile(new URL('../src/styles/work-cockpit-hud.css', import.meta.url), 'utf8'))
 const reconciliationForm = await readFile(new URL('../src/components/ShiftReconciliationModal.vue', import.meta.url), 'utf8')
 const requiredContrastRules = [
   [gapForm, /\.gap-panel[\s\S]*?background:\s*var\(--kfe-ui-surface-2\)[\s\S]*?color:\s*var\(--kfe-ui-text\)/, 'odometer-gap panel must define a semantic surface and foreground'],
