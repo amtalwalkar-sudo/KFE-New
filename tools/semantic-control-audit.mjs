@@ -241,8 +241,11 @@ try {
   await enterKfeNumber('Odometer', '1000', { action: 'NEXT', nextLabel: 'Price / kg' })
   await enterKfeNumber('Price / kg', '90', { action: 'NEXT', nextLabel: 'Amount' })
   await enterKfeNumber('Amount', '900')
+  // DONE only closes the KFE keypad; saving fuel is an explicit form action.
+  await page.getByRole('button', { name: 'OK — SAVE FUEL', exact: true }).click()
+  await page.getByText('Fuel saved.', { exact: true }).waitFor({ state: 'visible', timeout: 5000 })
   state = await db(page, ['fuel_logs'])
-  assert(state.fuel_logs.length === 1 && Number(state.fuel_logs[0].odometer) === 1000, 'CNG refuel contract failed')
+  assert(state.fuel_logs.length === 1 && Number(state.fuel_logs[0].odometer) === 1000, 'CNG refuel contract failed: ' + JSON.stringify(state.fuel_logs))
   evidence.push({ id: 'WORK.CNG_REFUEL_OFFLINE', result: 'PASS', expected: 'one fuel record at 1000 km', persisted: { fuel: state.fuel_logs.length, odometer: state.fuel_logs[0]?.odometer } })
 
   // Contract 9: cancellation control must persist CANCELLED and must not become a completed ride.
