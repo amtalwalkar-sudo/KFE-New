@@ -110,6 +110,49 @@ try {
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.locator('.work-canonical').waitFor({ state: 'attached', timeout: 30000 })
 
+  // VEHICLE IDENTITY: the one current car has a stable master ID, and legacy
+  // fuel logs without vehicleId are linked to that car before calculations.
+  const vehicleFuelLink = await page.evaluate(async () => {
+    const { initializeCanonicalStorage } = await import(location.origin + '/src/utils/indexedDB.js')
+    const { ShiftTripRepository } = await import(location.origin + '/src/repositories/shiftTripRepository.js')
+    const db = await initializeCanonicalStorage()
+    const fixtureId = 'phase4-mh01em7360-unlinked-fuel'
+    const now = new Date().toISOString()
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction('fuel_logs', 'readwrite')
+      tx.objectStore('fuel_logs').put({
+        id: fixtureId, odometer: 12345, pricePerKg: 80, amount: 160,
+        quantityKg: 2, isFullTank: true, capturedAt: now, createdAt: now, updatedAt: now
+      })
+      tx.oncomplete = resolve
+      tx.onerror = () => reject(tx.error || new Error('Could not seed unlinked fuel fixture.'))
+      tx.onabort = () => reject(tx.error || new Error('Unlinked fuel fixture transaction aborted.'))
+    })
+    const vehicleId = await ShiftTripRepository.getPrimaryVehicleId()
+    const [vehicle, linkedFuel] = await Promise.all([
+      new Promise((resolve, reject) => {
+        const request = db.transaction('vehicles', 'readonly').objectStore('vehicles').get(vehicleId)
+        request.onsuccess = () => resolve(request.result || null)
+        request.onerror = () => reject(request.error)
+      }),
+      new Promise((resolve, reject) => {
+        const request = db.transaction('fuel_logs', 'readonly').objectStore('fuel_logs').get(fixtureId)
+        request.onsuccess = () => resolve(request.result || null)
+        request.onerror = () => reject(request.error)
+      })
+    ])
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction('fuel_logs', 'readwrite')
+      tx.objectStore('fuel_logs').delete(fixtureId)
+      tx.oncomplete = resolve
+      tx.onerror = () => reject(tx.error || new Error('Could not clean fuel fixture.'))
+    })
+    return { vehicleId, registrationNumber: vehicle?.registrationNumber, registration_number: vehicle?.registration_number, linkedFuelVehicleId: linkedFuel?.vehicleId }
+  })
+  assert(vehicleFuelLink.vehicleId === 'vehicle-mh01em7360', 'Primary vehicle did not use the stable MH01EM7360 identity.')
+  assert(vehicleFuelLink.registrationNumber === 'MH01EM7360' || vehicleFuelLink.registration_number === 'MH01EM7360', 'Primary vehicle master is missing registration MH01EM7360.')
+  assert(vehicleFuelLink.linkedFuelVehicleId === vehicleFuelLink.vehicleId, 'Legacy fuel record was not linked to MH01EM7360.')
+
   // D5: an Admin master-data edit must be consumed by the Work baseline.
   const d5 = await page.evaluate(async () => {
     const { setActiveDataSource } = await import(location.origin + '/src/utils/indexedDB.js')
