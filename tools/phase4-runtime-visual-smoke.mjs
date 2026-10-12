@@ -82,7 +82,7 @@ try{
  console.log('Focus-race behavioral check PASS — stale field callbacks cannot scroll after focus moves.');
  // Exercise the custom Work keypad's distinct NEXT and DONE semantics.
  await page.getByRole('button',{name:'CNG refuelling',exact:true}).click();
- await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'visible'});
+ await page.locator('.work-context-form.form-fuel').waitFor({state:'visible'});
  await page.getByRole('textbox',{name:'Odometer',exact:true}).click();
  await page.getByRole('button',{name:'6',exact:true}).click();
  await page.getByRole('button',{name:/NEXT/}).click();
@@ -90,9 +90,9 @@ try{
  assert((await page.locator('.kfe-work-number-pad__display').innerText()).toLowerCase().includes('price / kg'),'Work keypad NEXT did not advance from fuel odometer to price; display='+(await page.locator('.kfe-work-number-pad__display').innerText()));
  await page.getByRole('button',{name:'DONE',exact:true}).click();
  await page.locator('.kfe-work-number-pad').waitFor({state:'detached'});
- assert(await page.getByText('CNG REFUEL',{exact:true}).count()===1,'DONE unexpectedly submitted or dismissed the fuel form before the final field');
- await page.getByRole('button',{name:'Close',exact:true}).click();
- await page.getByText('CNG REFUEL',{exact:true}).waitFor({state:'detached'});
+ assert(await page.locator('.work-context-form.form-fuel').count()===1,'DONE unexpectedly submitted or dismissed the fuel form before the final field');
+ await page.getByRole('button',{name:'Close fuel form'}).click();
+ await page.locator('.work-context-form.form-fuel').waitFor({state:'detached'});
  console.log('Work numeric keypad behavioral check PASS — NEXT advances and non-terminal DONE closes the keypad without submitting.');
  const gps=page.locator('button.header-gps');assert(await gps.count()===1,'GPS control missing'); await wait(async()=>['GPS connected','GPS ready — tap to check','GPS permission needed','GPS unavailable','Connecting GPS'].includes(await gps.getAttribute('aria-label')),'GPS initial state'); await gps.click(); await wait(async()=>['GPS connected','GPS permission needed','GPS unavailable'].includes(await gps.getAttribute('aria-label')),'GPS post-check state'); assert(!(await gps.innerText()).trim(),'GPS control is not icon-only');
  // 4D dark-only canonical theme: legacy light/auto preferences must normalize to dark.
