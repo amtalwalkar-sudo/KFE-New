@@ -144,7 +144,10 @@ export const ShiftTripRepository = {
     if (!vehicle) {
       // There is one known car today. Reuse an existing active vehicle identity
       // rather than making a second master record just because it lacks a plate.
-      vehicle = vehicles.find(item => Number.isFinite(Number(item.openingOdometerKm)) || Number.isFinite(Number(item.acquisition_odometer)))
+      vehicle = vehicles.find(item =>
+        (item.openingOdometerKm != null && item.openingOdometerKm !== '' && Number.isFinite(Number(item.openingOdometerKm))) ||
+        (item.acquisition_odometer != null && item.acquisition_odometer !== '' && Number.isFinite(Number(item.acquisition_odometer)))
+      ) || (vehicles.length === 1 ? vehicles[0] : null)
       const now = new Date().toISOString()
       if (vehicle) {
         const updated = { ...vehicle, registrationNumber: registration, registration_number: registration, updatedAt: now }
