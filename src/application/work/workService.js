@@ -53,13 +53,14 @@ export const WorkService = Object.freeze({
     for (const ownerId of owners) {
       const trip = tripById.get(ownerId)
       const shift = shiftById.get(ownerId)
-      // Never clear the currently active trace file. It is flushed on trip or
-      // shift completion; completed/orphaned trace files are safe to import now.
-      if (trip?.status === 'ACTIVE' || (shift?.status === 'ACTIVE' && !activeTrip)) continue
+      // Snapshot even the currently active trace into canonical IndexedDB so
+      // backups include it. Keep the live JSONL file only for the active owner;
+      // completed/orphaned files can be cleared after a successful import.
       const entityType = trip ? 'TRIP' : shift ? 'SHIFT' : null
       if (!entityType) continue
+      const activeOwner = trip?.status === 'ACTIVE' || (shift?.status === 'ACTIVE' && !activeTrip)
       try {
-        const result = await WorkRuntimePorts.nativeGps.syncTrace(ownerId, { entityType })
+        const result = await WorkRuntimePorts.nativeGps.syncTrace(ownerId, { entityType, clearAfterImport: !activeOwner })
         const imported = Number(result?.imported) || 0
         if (imported > 0) checkpoint()
         recovered.push({ ownerId, entityType, imported })
