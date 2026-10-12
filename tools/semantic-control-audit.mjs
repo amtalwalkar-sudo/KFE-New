@@ -183,9 +183,13 @@ try {
   assert(await page.getByRole('button', { name: 'GO TO PICKUP', exact: true }).count() === 1, 'Optional trip details incorrectly block next pickup')
   evidence.push({ id: 'WORK.END_TRIP', result: 'PASS', expected: 'trip completes immediately and optional details do not block next pickup', persisted: { trips: state.trips.length, status: state.trips[0].status, tripStage: state.trips[0].tripStage } })
 
-  // Contract 5: optional fare/toll/parking details persist without changing trip lifecycle authority.
-  await enterKfeNumber('Trip fare', '800', { action: 'NEXT', nextLabel: 'Toll' })
-  await enterKfeNumber('Toll', '50', { action: 'NEXT', nextLabel: 'Parking' })
+  // Contract 5: fare is the quick-entry default; optional Toll/Parking must be explicitly expanded.
+  await enterKfeNumber('Trip fare', '800', { action: 'TYPE' })
+  await page.getByRole('button', { name: '+ Toll', exact: true }).evaluate(button => button.click())
+  await page.getByLabel('Toll', { exact: true }).first().waitFor({ state: 'visible' })
+  await enterKfeNumber('Toll', '50', { action: 'TYPE' })
+  await page.getByRole('button', { name: '+ Parking', exact: true }).evaluate(button => button.click())
+  await page.getByLabel('Parking', { exact: true }).first().waitFor({ state: 'visible' })
   await enterKfeNumber('Parking', '20')
   await page.getByText('Trip details saved.', { exact: true }).waitFor()
   state = await db(page, ['trips'])
