@@ -283,9 +283,9 @@ try {
   assert(await fuelButton.count() === 1, 'A5 fuel control is missing')
   assert(await page.getByRole('button', { name: 'OFFLINE', exact: true }).count() === 1, 'A5 online/offline control is missing')
   await fuelButton.click()
-  assert(await page.getByText('CNG REFUEL', { exact: true }).count() === 1, 'A5 offline fuel form did not open')
-  await page.getByRole('button', { name: 'Close', exact: true }).click()
-  assert(await page.getByText('CNG REFUEL', { exact: true }).count() === 0, 'A5 fuel form Close control did not close the overlay')
+  assert(await page.locator('.work-context-form.form-fuel').count() === 1, 'A5 offline fuel form did not open')
+  await page.getByRole('button', { name: 'Close fuel form' }).click()
+  assert(await page.locator('.work-context-form.form-fuel').count() === 0, 'A5 fuel form Close control did not close the form')
 
   await page.evaluate(async () => { const { setActiveDataSource } = await import(location.origin + '/src/utils/indexedDB.js'); setActiveDataSource('canonical') })
   // D2: create a deterministic canonical Work fixture while online, then perform a
