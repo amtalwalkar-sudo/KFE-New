@@ -1017,7 +1017,7 @@ onBeforeUnmount(() => {
   </header>
 
   <main class="work-main contextual-form-shell">
-    <section class="operational-state state-tone-info work-persistent-metrics" aria-label="Live distance and workflow timer">
+    <section v-if="store.isOnline || pendingFare || cancelOpen || fuelOpen || endOpen" class="operational-state state-tone-info work-persistent-metrics" aria-label="Live distance and workflow timer">
       <div class="work-live-metrics">
         <div class="live-km-readout" aria-live="polite"><span>{{ liveMovementLabel || 'LIVE KM' }}</span><strong>{{ liveMovementKm.toFixed(1) }} km</strong><small>{{ liveMovementStatus }}</small></div>
         <div class="trip-timer-block"><span class="timer-label">{{ stateTimerLabel }}</span><strong class="trip-timer" aria-live="polite">{{ active ? tripTimer : stateTimer }}</strong></div>
