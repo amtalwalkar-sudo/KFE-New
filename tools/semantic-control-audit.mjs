@@ -345,6 +345,8 @@ try {
   await enterKfeNumber('Price / kg', '90', { action: 'NEXT', nextLabel: 'Amount' })
   await page.getByLabel('Partial fill').check()
   await enterKfeNumber('Amount', '900')
+  // DONE only dismisses the numeric keypad; fuel persistence is an explicit action.
+  await page.getByRole('button', { name: 'OK — SAVE FUEL', exact: true }).click()
   await page.getByText('Fuel saved.', { exact: true }).waitFor()
   state = await db(page, ['fuel_logs'])
   assert(state.fuel_logs.length === 1 && Number(state.fuel_logs[0].odometer) === 1000 && state.fuel_logs[0].isFullTank === false, 'FORMS.FUEL partial-fill persistence failed')
