@@ -232,7 +232,10 @@ try {
 
   // Contract 8: Fuel control must be usable while OFFLINE and persist one fuel record.
   await page.getByRole('button', { name: 'CNG refuelling', exact: true }).click()
-  assert(await page.locator('.offline-state').isVisible(), 'Fuel context replaced the current Work context')
+  // The compact fuel form intentionally hides the offline helper block to save
+  // viewport space. The Work cockpit itself must remain mounted underneath it.
+  assert(await page.locator('.work-canonical').isVisible(), 'Fuel context replaced the current Work cockpit')
+  assert(!(await page.locator('.offline-state').isVisible()), 'Offline helper block should be hidden while the fuel form is open')
   assert(await page.locator('.focus-surface').filter({ hasText: 'CNG REFUEL' }).first().isVisible(), 'Fuel form did not open contextually')
   await enterKfeNumber('Odometer', '1000', { action: 'NEXT', nextLabel: 'Price / kg' })
   await enterKfeNumber('Price / kg', '90', { action: 'NEXT', nextLabel: 'Amount' })
