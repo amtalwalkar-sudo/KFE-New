@@ -1430,15 +1430,10 @@ table th,table td{border-color:var(--kfe-ui-border)}
   overscroll-behavior: none !important;
 }
 .work-canonical .work-main:has(.form-fare) .target-instrument,
-.work-canonical .work-main:has(.form-fare) .operational-state,
 .work-canonical .work-main:has(.form-cancel) .target-instrument,
-.work-canonical .work-main:has(.form-cancel) .operational-state,
 .work-canonical .work-main:has(.form-fuel) .target-instrument,
-.work-canonical .work-main:has(.form-fuel) .operational-state,
 .work-canonical .work-main:has(.form-end) .target-instrument,
-.work-canonical .work-main:has(.form-end) .operational-state,
-.work-canonical .work-main:has(.form-start) .target-instrument,
-.work-canonical .work-main:has(.form-start) .operational-state {
+.work-canonical .work-main:has(.form-start) .target-instrument {
   display: none !important;
 }
 .work-canonical .work-main:has(.form-fare),
@@ -1794,4 +1789,85 @@ table th,table td{border-color:var(--kfe-ui-border)}
   .work-canonical .work-live-metrics .trip-timer-block { padding: 8px; }
   .work-canonical .work-live-metrics .live-km-readout > strong,
   .work-canonical .work-live-metrics .trip-timer { font-size: 18px; }
+}
+
+
+/* Work fix: keep the live distance and workflow timer visible over contextual forms. */
+.work-canonical .work-main:has(.form-fare) .work-persistent-metrics,
+.work-canonical .work-main:has(.form-cancel) .work-persistent-metrics,
+.work-canonical .work-main:has(.form-fuel) .work-persistent-metrics,
+.work-canonical .work-main:has(.form-end) .work-persistent-metrics,
+.work-canonical .work-main:has(.form-start) .work-persistent-metrics {
+  display: grid !important;
+  position: sticky !important;
+  top: 0;
+  z-index: 1100;
+  flex: 0 0 auto;
+  margin: 0 0 6px;
+}
+
+/* Fare entry: fit the existing fields into a compact two-column form. */
+.work-canonical .work-context-form.form-fare .form-card {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 5px !important;
+  padding: 8px !important;
+  overflow: visible !important;
+}
+.work-canonical .work-context-form.form-fare .form-head,
+.work-canonical .work-context-form.form-fare .form-card > label:first-of-type,
+.work-canonical .work-context-form.form-fare .treatment-row,
+.work-canonical .work-context-form.form-fare .primary-action {
+  grid-column: 1 / -1;
+}
+.work-canonical .work-context-form.form-fare .form-card > label {
+  min-width: 0;
+  gap: 3px !important;
+  margin: 0 !important;
+  font-size: .8rem;
+}
+.work-canonical .work-context-form.form-fare .input-unit {
+  min-height: 38px;
+}
+.work-canonical .work-context-form.form-fare .input-unit input {
+  min-height: 36px !important;
+  height: 36px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+.work-canonical .work-context-form.form-fare .treatment-row {
+  gap: 6px;
+  margin: 0;
+}
+.work-canonical .work-context-form.form-fare .treatment-row .check-row {
+  min-height: 30px;
+}
+.work-canonical .work-context-form.form-fare .primary-action {
+  min-height: 42px !important;
+  margin: 2px 0 0 !important;
+}
+
+/* While the custom number pad is open, pin the existing save action just above it. */
+.work-canonical .work-context-form.form-fare:has(.kfe-work-number-pad) .primary-action {
+  position: fixed !important;
+  z-index: 1201 !important;
+  left: 10px !important;
+  right: 10px !important;
+  bottom: calc(var(--kfe-shell-nav, 76px) + 38vh + env(safe-area-inset-bottom, 0px) + 14px) !important;
+  width: auto !important;
+  max-width: 520px;
+  margin: 0 auto !important;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--kfe-ui-text) 22%, transparent);
+}
+.work-context-form .kfe-work-number-pad {
+  max-height: 38vh !important;
+}
+@media (max-width: 600px) {
+  .work-canonical .work-context-form.form-fare .form-card {
+    gap: 4px !important;
+    padding: 7px !important;
+  }
+  .work-canonical .work-context-form.form-fare .form-card > label {
+    font-size: .76rem;
+  }
 }
