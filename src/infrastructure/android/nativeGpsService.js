@@ -45,7 +45,7 @@ export const NativeGpsService = {
       return Array.isArray(result?.owners) ? result.owners.filter(id => typeof id === 'string' && id.trim()) : []
     } catch (error) {
       console.warn('Native Android GPS trace inventory unavailable.', error)
-      return []
+      throw error
     }
   },
   async readTrace(tripId) {
@@ -56,7 +56,7 @@ export const NativeGpsService = {
       return Array.isArray(result?.points) ? result.points : []
     } catch (error) {
       console.warn('Native Android GPS trace read failed.', error)
-      return []
+      throw error
     }
   },
   async syncTrace(tripId, { entityType = 'TRIP', clearAfterImport = true } = {}) {
