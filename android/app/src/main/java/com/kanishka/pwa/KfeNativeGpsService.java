@@ -262,6 +262,26 @@ public class KfeNativeGpsService extends Service {
     getSharedPreferences(PREFS, MODE_PRIVATE).edit().remove(ACTIVE_TRIP).remove(ACTIVE_EVENT).apply();
   }
 
+  public static String listTraceOwners(Context context) {
+    org.json.JSONArray owners = new org.json.JSONArray();
+    java.util.HashSet<String> seenOwners = new java.util.HashSet<>();
+    File[] files = context.getFilesDir().listFiles((dir, name) -> name.startsWith("kfe_gps_trace_") && name.endsWith(".jsonl"));
+    if (files == null) return owners.toString();
+    for (File file : files) {
+      try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+        String line;
+        while ((line = reader.readLine()) != null) {
+          try {
+            String ownerId = new JSONObject(line).optString("tripId", "");
+            if (!ownerId.isEmpty() && seenOwners.add(ownerId)) owners.put(ownerId);
+            break;
+          } catch (Exception ignored) {}
+        }
+      } catch (Exception ignored) {}
+    }
+    return owners.toString();
+  }
+
   public static String readTrace(Context context, String tripId) {
     if (tripId == null || tripId.isEmpty()) return "[]";
     File file = new File(context.getFilesDir(), "kfe_gps_trace_" + safeName(tripId) + ".jsonl");
