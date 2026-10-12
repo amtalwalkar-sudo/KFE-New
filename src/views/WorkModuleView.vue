@@ -783,6 +783,7 @@ async function saveFuel() {
     })
     if (!result?.ok) return fail(result.reason)
     await clearCommittedDraft(fuelDraftIdentity())
+    await fuel.refresh()
     fuelOpen.value = false
     notify('Fuel saved.')
   } finally {
@@ -1010,6 +1011,7 @@ async function processNativeEvent(event) {
 
 onMounted(async () => {
   await store.initialize()
+  await fuel.refresh().catch(() => {})
   // Restore only the exact persisted movement owner that still matches the
   // canonical active shift/trip. A stale trace must never be attached to a new one.
   const savedTrace = MovementTraceService.getActiveSession()
