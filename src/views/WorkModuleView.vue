@@ -782,10 +782,12 @@ async function saveFuel() {
       isFullTank: fuelFull.value
     })
     if (!result?.ok) return fail(result.reason)
-    await clearCommittedDraft(fuelDraftIdentity())
-    await fuel.refresh()
+    // The repository has committed the fuel record. Close/confirm immediately;
+    // draft cleanup and derived-metric refresh are non-critical follow-up work.
     fuelOpen.value = false
     notify('Fuel saved.')
+    void clearCommittedDraft(fuelDraftIdentity()).catch(() => {})
+    void fuel.refresh().catch(() => {})
   } finally {
     fuelBusy.value = false
   }
