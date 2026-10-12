@@ -14,7 +14,7 @@ assert.match(router, /path: '\/timeline', name: 'Timeline', component: BlankWork
 assert.match(router, /path: '\/performance', name: 'Performance', component: BlankWorkspaceView/)
 assert.match(router, /path: '\/', name: 'Work', component: WorkModuleView/)
 assert.match(router, /path: '\/admin', name: 'Admin', component: AdminSettingsOnlyView/)
-assert.match(blank, /class="blank-workspace"/)
+assert.match(blank, /class="kfe-blank-workspace"/)
 assert.match(settingsView, /<KfeSettingsView :application="application"\s*\/>/)
 assert.match(settingsService, /complianceDefaults: 'complianceDefaults'/)
 assert.match(settingsService, /emiDefaults: 'emiDefaults'/)
