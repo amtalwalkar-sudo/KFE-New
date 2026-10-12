@@ -254,10 +254,10 @@ watch(workflowTimerIdentity, identity => {
 }, { immediate: true })
 watch([startOpen, fuelOpen, cancelOpen, endOpen, endStage], () => {
   if (!workflowTimerReady) return
-  const session = endOpen.value ? { form: 'end', endStage: endStage.value }
-    : cancelOpen.value ? { form: 'cancel' }
-    : fuelOpen.value ? { form: 'fuel' }
-    : startOpen.value ? { form: 'start' }
+  const session = endOpen.value ? { form: 'end', endStage: endStage.value, shiftId: store.shift?.id || null }
+    : cancelOpen.value ? { form: 'cancel', shiftId: store.shift?.id || null, tripId: store.trip?.id || null }
+    : fuelOpen.value ? { form: 'fuel', shiftId: store.shift?.id || null }
+    : startOpen.value ? { form: 'start', shiftId: store.shift?.id || null }
     : null
   WorkWorkflowSessionService.save(session)
 })
@@ -1054,11 +1054,13 @@ onMounted(async () => {
   // Restore an interrupted context form from its durable UI session marker.
   // Canonical trip/shift records remain authoritative; invalid/stale forms are ignored.
   const savedForm = WorkWorkflowSessionService.read()
-  if (!pendingFare.value && savedForm?.form === 'start' && !store.isOnline) {
+  const savedShiftMatches = savedForm?.shiftId === (store.shift?.id || null)
+  const savedTripMatches = savedForm?.tripId === (store.trip?.id || null)
+  if (savedForm?.form === 'start' && savedShiftMatches && !store.isOnline) {
     await openStart()
-  } else if (!pendingFare.value && savedForm?.form === 'fuel') {
+  } else if (savedForm?.form === 'fuel' && savedShiftMatches) {
     await toggleFuel()
-  } else if (!pendingFare.value && savedForm?.form === 'cancel' && store.isOnline &&
+  } else if (savedForm?.form === 'cancel' && savedShiftMatches && savedTripMatches && store.isOnline &&
     store.trip?.id && ['PICKUP', 'GOING_TO_PICKUP'].includes(store.trip?.tripStage)) {
     cancelOpen.value = true
     restoringDrafts = true
@@ -1068,7 +1070,7 @@ onMounted(async () => {
       cancelFare.value = String(draft.values.cancelFare ?? '')
     }
     restoringDrafts = false
-  } else if (!pendingFare.value && savedForm?.form === 'end' && store.isOnline && !store.isTripActive) {
+  } else if (savedForm?.form === 'end' && savedShiftMatches && store.isOnline && !store.isTripActive) {
     await openEnd()
     if (savedForm.endStage && ['CLOSE', 'RECONCILE', 'REVIEW', 'CONFIRM'].includes(savedForm.endStage)) {
       endStage.value = savedForm.endStage
