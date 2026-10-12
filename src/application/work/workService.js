@@ -60,7 +60,9 @@ export const WorkService = Object.freeze({
       if (!entityType) continue
       try {
         const result = await WorkRuntimePorts.nativeGps.syncTrace(ownerId, { entityType })
-        recovered.push({ ownerId, entityType, imported: Number(result?.imported) || 0 })
+        const imported = Number(result?.imported) || 0
+        if (imported > 0) checkpoint()
+        recovered.push({ ownerId, entityType, imported })
       } catch (error) {
         console.warn('KFE native GPS trace recovery deferred; source file retained:', ownerId, error)
       }
@@ -138,7 +140,8 @@ export const WorkService = Object.freeze({
           if (activeTrace?.entityType === 'TRIP' && activeTrace.entityId === tripId) {
             try { browserTracePoints = await WorkRuntimePorts.movementTrace.stop({ captureFinal: true }) } catch (_) {}
           }
-          await WorkRuntimePorts.nativeGps.syncTrace(tripId)
+          const nativeSync = await WorkRuntimePorts.nativeGps.syncTrace(tripId)
+          if (Number(nativeSync?.imported) > 0 || browserTracePoints.length > 0) checkpoint()
           await WorkRuntimePorts.nativeGps.stop(tripId)
           let snapshots = (await LocationRepository.forEntity('TRIP', tripId)).filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')
           const finalTracePoint = snapshots.at(-1) || browserTracePoints.at(-1)
@@ -196,7 +199,7 @@ export const WorkService = Object.freeze({
     }
     return result
   },
-  async cancelTrip(data) { const result = await ShiftTripRepository.cancelTrip(data); checkpoint(); if (data?.id) { void (async () => { try { const activeTrace = WorkRuntimePorts.movementTrace.getActiveSession(); if (activeTrace?.entityType === 'TRIP' && activeTrace.entityId === data.id) { await WorkRuntimePorts.movementTrace.stop({ captureFinal: false }) } await WorkRuntimePorts.nativeGps.syncTrace(data.id); await WorkRuntimePorts.nativeGps.stop(data.id) } catch (_) {} })() } return result },
+  async cancelTrip(data) { const result = await ShiftTripRepository.cancelTrip(data); checkpoint(); if (data?.id) { void (async () => { try { const activeTrace = WorkRuntimePorts.movementTrace.getActiveSession(); if (activeTrace?.entityType === 'TRIP' && activeTrace.entityId === data.id) { await WorkRuntimePorts.movementTrace.stop({ captureFinal: false }) } const sync = await WorkRuntimePorts.nativeGps.syncTrace(data.id); if (Number(sync?.imported) > 0) checkpoint(); await WorkRuntimePorts.nativeGps.stop(data.id) } catch (_) {} })() } return result },
   async updateTrip(data) {
     const validation = validateTripCorrection(data)
     if (!validation.valid) return { ok: false, reason: validation.reason }
