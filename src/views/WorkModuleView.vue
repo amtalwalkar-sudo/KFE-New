@@ -9,7 +9,6 @@ import { WorkDraftService } from '../application/work/workDraftService.js'
 import { WorkflowTimerService, WorkWorkflowSessionService } from '../application/work/workflowTimerService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { WorkRuntimePorts } from '../application/work/workRuntimePorts.js'
-import { calculateTraceDistanceKm } from '../domain/movement/traceDistance.js'
 import { deriveWorkCockpitState, WORK_COCKPIT_STATES } from '../application/work/workCockpit.js'
 import WorkContextForm from '../components/work/WorkContextForm.vue'
 
