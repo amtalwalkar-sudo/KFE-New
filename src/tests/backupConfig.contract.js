@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
 import { BackupConfig } from '../application/backup/backupConfig.js'
 import { CloudBackupLifecycle } from '../application/backup/cloudBackupLifecycle.js'
 import { createBackupConfigAdapter } from '../infrastructure/backup/backupConfigAdapter.js'
 
 BackupConfig.configureBackupConfig(createBackupConfigAdapter())
+const secureStoreSource = fs.readFileSync('src/infrastructure/security/secureSecretStore.js', 'utf8'); assert.match(secureStoreSource, /AndroidKeyStore/); assert.match(secureStoreSource, /subtle\.generateKey/); assert.match(secureStoreSource, /indexedDB/); assert.match(secureStoreSource, /AES-GCM/);
 await BackupConfig.clearBackupConfiguration()
 let config = await BackupConfig.getBackupConfiguration()
 assert.equal(config.enabled, false)
