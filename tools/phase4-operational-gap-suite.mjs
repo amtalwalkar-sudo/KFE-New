@@ -331,6 +331,7 @@ try {
   assert(await page.locator('.work-context-form.form-fuel').count() === 1, 'A5 offline fuel form did not open')
   assert(await page.getByText('CNG REFUEL', { exact: true }).count() === 0, 'A5 duplicate fuel heading should be removed')
   assert(await page.getByText('Partial fill', { exact: true }).count() === 1, 'A5 partial-fill control is missing')
+  assert(await page.locator('.fuel-calculated-value.state-tone-info').count() === 1, 'A5 calculated Quantity does not use the semantic info tone')
   await page.getByRole('textbox', { name: 'Odometer' }).click()
   const fuelKeypad = page.locator('.work-context-form.form-fuel .kfe-work-number-pad')
   await fuelKeypad.waitFor({ state: 'visible', timeout: 5000 })
