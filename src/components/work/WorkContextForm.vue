@@ -312,7 +312,7 @@ const updateMap = (name, map, id, value) => {
     </form>
 
     <form v-else-if="type === 'fuel'" class="form-card state-tone-info focus-surface" @submit.prevent="submitForm">
-      <div class="form-head"><div><span class="eyebrow">FUEL</span><strong>CNG REFUEL</strong></div><button class="text-action" type="button" @click="emit('action','close-fuel')">Close</button></div>
+      <div class="form-head fuel-form-head"><span aria-hidden="true"></span><button class="text-action" type="button" @click="emit('action','close-fuel')">Close</button></div>
       <label class="check-row"><input :checked="fuelPartial" type="checkbox" @change="emit('update:fuel-partial',$event.target.checked)"><span>Partial fill</span></label>
       <label>Odometer<div class="input-unit"><input :value="fuelOdo" type="text" inputmode="none" readonly autocomplete="off" aria-label="Odometer" @focus="activateNumeric('fuel-odo')" @click="activateNumeric('fuel-odo')"><b>km</b></div></label>
       <label>Price / kg<div class="input-unit"><b>₹</b><input :value="fuelPrice" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('fuel-price')" aria-label="Price / kg" @click="activateNumeric('fuel-price')"></div></label>
@@ -393,6 +393,25 @@ const updateMap = (name, map, id, value) => {
 .form-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .form-card h2,.form-card strong{margin:0}
 .form-card label{display:grid;gap:6px;font-weight:700}
+.form-fuel .form-card{grid-template-columns:repeat(2,minmax(0,1fr));padding:8px;gap:6px}
+.form-fuel .form-card .fuel-form-head,.form-fuel .form-card>.check-row,.form-fuel .form-card>.primary-action{grid-column:1/-1}
+.form-fuel .form-card .fuel-form-head{min-height:24px}
+.form-fuel .form-card label{gap:3px;font-size:.78rem}
+.form-fuel .form-card .input-unit{gap:5px}
+.form-fuel .form-card .input-unit input{height:38px;min-height:38px!important}
+.form-fuel .form-card .check-row{font-size:.78rem;min-height:30px}
+.form-fuel .form-card .check-row input{width:18px!important;height:18px;min-height:18px!important}
+.form-fuel .form-card .primary-action{min-height:40px;margin-top:0}
+.form-fuel .calculated-value{display:flex;flex-direction:column;justify-content:center;gap:3px;min-width:0;padding:7px 9px;border:1px solid var(--kfe-ui-border);border-radius:10px;background:var(--kfe-ui-surface-2);color:var(--kfe-info)}
+.form-fuel .calculated-value span{font-size:.75rem;font-weight:800;color:var(--kfe-ui-muted-strong)}
+.form-fuel .calculated-value strong{font-size:1rem;font-weight:900;color:var(--kfe-info);font-variant-numeric:tabular-nums}
+.form-fuel .kfe-work-number-pad{padding:5px;border-radius:12px;box-shadow:none}
+.form-fuel .kfe-work-number-pad__display{padding:1px 5px 3px}
+.form-fuel .kfe-work-number-pad__display strong{font-size:1.05rem}
+.form-fuel .kfe-work-number-pad__grid{gap:3px}
+.form-fuel .kfe-work-number-pad__grid button{min-height:31px;border-radius:7px;font-size:.9rem}
+.form-fuel .kfe-work-number-pad__actions{gap:4px;margin-top:4px}
+.form-fuel .kfe-work-number-pad__actions button{min-height:32px;border-radius:7px}
 .input-unit{display:flex;align-items:center;gap:8px}
 .input-unit input{width:100%;min-width:0}
 .choice-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
