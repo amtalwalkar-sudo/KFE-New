@@ -284,19 +284,3 @@ const updateMap = (name, map, id, value) => {
   </section>
 </template>
 
-<style scoped>
-.work-context-form{width:100%;box-sizing:border-box;animation:work-form-in 140ms ease-out}
-.kfe-work-number-pad{margin-top:4px;padding:8px;border:1px solid var(--kfe-ui-border);border-radius:16px;background:var(--kfe-ui-surface-2);box-shadow:0 8px 24px color-mix(in srgb,var(--kfe-ui-text) 10%,transparent)}
-.kfe-work-number-pad__display{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:4px 6px 7px}.kfe-work-number-pad__display span{font-size:.62rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--kfe-muted-text)}.kfe-work-number-pad__display strong{font-size:1.35rem;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;min-width:0}
-.kfe-work-number-pad__grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.kfe-work-number-pad__grid button,.kfe-work-number-pad__actions button{min-height:40px;border:1px solid var(--kfe-ui-border);border-radius:10px;background:var(--kfe-ui-surface);color:var(--kfe-ui-text);font-size:1rem;font-weight:900}
-.kfe-work-number-pad__grid button:nth-child(10){font-size:.68rem}.kfe-work-number-pad__actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-top:5px}.kfe-work-number-pad__actions button{font-size:.78rem}.kfe-work-number-pad__actions .done{background:var(--kfe-ui-accent);color:var(--kfe-on-accent);border-color:var(--kfe-ui-accent)}.kfe-work-number-pad__actions.fare-keypad-actions{grid-template-columns:minmax(0,1fr) auto}.kfe-work-number-pad__actions .fare-save-action{grid-column:auto;min-height:36px;font-size:.82rem;white-space:normal;line-height:1.15}
-.form-fare .kfe-work-number-pad{padding:5px;border-radius:12px;box-shadow:none}
-.form-fare .kfe-work-number-pad__display{padding:1px 5px 3px}
-.form-fare .kfe-work-number-pad__display strong{font-size:1.05rem}
-.form-fare .kfe-work-number-pad__grid{gap:3px}
-.form-fare .kfe-work-number-pad__grid button{min-height:31px;border-radius:7px;font-size:.9rem}
-.form-fare .kfe-work-number-pad__actions{gap:4px;margin-top:4px}
-.form-fare .kfe-work-number-pad__actions button{min-height:32px;border-radius:7px}
-@media(max-width:600px){.kfe-work-number-pad{padding:7px}.kfe-work-number-pad__grid button,.kfe-work-number-pad__actions button{min-height:38px}.form-fare .kfe-work-number-pad{padding:5px}.form-fare .kfe-work-number-pad__grid button{min-height:31px}.form-fare .kfe-work-number-pad__actions button{min-height:32px}}
-@keyframes work-form-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
-</style>
