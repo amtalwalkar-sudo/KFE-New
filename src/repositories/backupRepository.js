@@ -56,12 +56,16 @@ export const createBackupRepository = stores => Object.freeze({
 
   async resetCanonicalData() {
     const db = await openCanonicalDB()
+    // The settings store is configuration, not business activity. Compliance/EMI
+    // defaults and other saved configuration must survive a business-data reset.
+    // Unfinished form drafts are operational state and should be cleared.
+    const resetStores = [...new Set([...stores.filter(storeName => storeName !== 'settings'), 'form_drafts'])]
     await new Promise((resolve, reject) => {
-      const tx = db.transaction(stores, 'readwrite')
+      const tx = db.transaction(resetStores, 'readwrite')
       try {
-        for (const storeName of stores) tx.objectStore(storeName).clear()
+        for (const storeName of resetStores) tx.objectStore(storeName).clear()
       } catch (error) { try { tx.abort() } catch (_) {}; reject(error); return }
-      tx.oncomplete = () => { notifyCanonicalDataChanged({ stores, reason: 'data:reset' }); resolve() }
+      tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: resetStores, reason: 'data:reset' }); resolve() }
       tx.onerror = () => reject(tx.error || new Error('KFE data reset transaction failed.'))
       tx.onabort = () => reject(tx.error || new Error('KFE data reset transaction aborted.'))
     })
