@@ -14,6 +14,7 @@ const webCrypto = () => {
 }
 
 let databasePromise
+let webKeyPromise
 const openWebDatabase = () => {
   if (databasePromise) return databasePromise
   databasePromise = new Promise((resolve, reject) => {
@@ -56,13 +57,18 @@ const removeWebValue = async key => {
     tx.onabort = () => reject(tx.error || new Error('Secure secret storage removal was aborted.'))
   })
 }
-const getWebKey = async () => {
-  const cryptoApi = webCrypto()
-  let key = await readWebValue(WEB_KEY_ID)
-  if (key) return key
-  key = await cryptoApi.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt'])
-  await writeWebValue(WEB_KEY_ID, key)
-  return key
+const getWebKey = () => {
+  if (!webKeyPromise) {
+    webKeyPromise = (async () => {
+      const cryptoApi = webCrypto()
+      let key = await readWebValue(WEB_KEY_ID)
+      if (key) return key
+      key = await cryptoApi.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt'])
+      await writeWebValue(WEB_KEY_ID, key)
+      return key
+    })().catch(error => { webKeyPromise = null; throw error })
+  }
+  return webKeyPromise
 }
 const getWebSecret = async key => {
   const record = await readWebValue(`secret:${key}`)
