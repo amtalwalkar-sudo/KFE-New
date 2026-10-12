@@ -272,3 +272,15 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .work-canonical .error{color:var(--kfe-danger-readable,var(--kfe-danger))!important}
 .work-context-form [role="status"],
 .work-canonical .feedback.success{color:var(--kfe-success-readable,var(--kfe-success))!important}
+
+/* Other shared accent surfaces also use a high-contrast on-colour. */
+.kfe-skip-link:focus,
+.kfe-workspace .retry-btn,
+.kfe-workspace .brand-mark,
+.kfe-workspace .number-pad-done,
+.kfe-workspace .performance-custom-range button,
+.kfe-workspace .swipe-bar,
+.kfe-workspace .premium-work .swipe-handle,
+.kfe-workspace .kfe-ui-button.is-danger{
+  color:var(--kfe-ui-on-accent,var(--kfe-ui-bg))!important;
+}
