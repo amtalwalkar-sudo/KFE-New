@@ -270,7 +270,7 @@ const updateMap = (name, map, id, value) => {
       </div>
       <label>Toll <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="tripToll" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('trip-toll')" aria-label="Toll" @click="activateNumeric('trip-toll')"></div></label>
       <label>Parking <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="tripParking" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('trip-parking')" aria-label="Parking" @click="activateNumeric('trip-parking')"></div></label>
-      <button type="submit" class="primary-action" :disabled="fareBusy">{{ fareBusy ? 'SAVING…' : 'SAVE DETAILS & CONTINUE' }}</button>
+      <button v-if="!activeNumeric" type="submit" class="primary-action" :disabled="fareBusy">{{ fareBusy ? 'SAVING…' : 'SAVE DETAILS & CONTINUE' }}</button>
     </form>
 
     <form v-else-if="type === 'cancel'" class="form-card state-tone-warning focus-surface" @submit.prevent="submitForm">
@@ -344,11 +344,12 @@ const updateMap = (name, map, id, value) => {
         <div class="kfe-work-number-pad__grid">
           <button v-for="key in ['1','2','3','4','5','6','7','8','9','CLEAR','0','BACK']" :key="key" type="button" @click="numericPress(key)">{{ key === 'CLEAR' ? 'CLR' : key === 'BACK' ? '⌫' : key }}</button>
         </div>
-        <div class="kfe-work-number-pad__actions">
+        <div class="kfe-work-number-pad__actions" :class="{ 'fare-keypad-actions': type === 'fare' }">
           <button v-if="activeNumericDecimal" type="button" @click="numericPress('.')">.</button>
           <span v-else></span>
           <button v-if="numericNext[activeNumeric.name]" type="button" @click="numericPress('NEXT')">NEXT →</button>
-          <button type="button" class="done" @click="numericPress('DONE')">DONE</button>
+          <button v-if="type === 'fare'" type="button" class="done fare-save-action" :disabled="fareBusy" @click="submitForm">{{ fareBusy ? 'SAVING…' : 'SAVE DETAILS & CONTINUE' }}</button>
+          <button v-else type="button" class="done" @click="numericPress('DONE')">DONE</button>
         </div>
       </div>
   </section>
@@ -370,7 +371,7 @@ const updateMap = (name, map, id, value) => {
 .primary-action,.text-action,.choice-row button{touch-action:manipulation}
 .primary-action{min-height:48px}
 .form-card input,.form-card select,.form-card button{font:inherit}
-.form-card input{font-size:16px}.form-fare .form-card{padding:3px;gap:3px}.form-fare .form-card label{gap:0}.form-fare .form-card .input-unit input{height:42px;min-height:42px!important}.form-fare .form-card .primary-action{min-height:38px}
+.form-card input{font-size:16px}.form-fare .form-card{grid-template-columns:minmax(0,1fr) minmax(0,1fr);padding:8px;gap:6px}.form-fare .form-card .form-head,.form-fare .form-card>.primary-action,.form-fare .form-card>label:first-of-type,.form-fare .form-card .treatment-row{grid-column:1/-1}.form-fare .form-card label{gap:3px;font-size:.78rem}.form-fare .form-card .form-head{margin-bottom:0}.form-fare .form-card .input-unit{gap:5px}.form-fare .form-card .input-unit input{height:40px;min-height:40px!important}.form-fare .form-card .primary-action{min-height:40px;margin-top:0}.form-fare .form-card .treatment-row{gap:8px}.form-fare .form-card .optional-label{font-size:.62rem}.form-fare .form-card .treatment-row .check-row{font-size:.67rem}
 .expense-row{display:grid;grid-template-columns:minmax(76px,.8fr) minmax(0,1.2fr);gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--kfe-ui-border)}
 .expense-trip-total{display:grid;gap:3px;font-size:.78rem;overflow-wrap:anywhere}.expense-trip-total strong{font-size:.9rem}
 .expense-shift-capture{display:grid;gap:6px;min-width:0}.expense-shift-capture>label:not(.check-row){font-size:.78rem;gap:3px}.expense-shift-capture .check-row{font-size:.68rem;gap:5px;line-height:1.1}.expense-shift-capture .check-row input{width:18px!important;height:18px}
@@ -381,6 +382,6 @@ const updateMap = (name, map, id, value) => {
 .kfe-work-number-pad{margin-top:4px;padding:8px;border:1px solid var(--kfe-ui-border);border-radius:16px;background:var(--kfe-ui-surface-2);box-shadow:0 8px 24px color-mix(in srgb,var(--kfe-ui-text) 10%,transparent)}
 .kfe-work-number-pad__display{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:4px 6px 7px}.kfe-work-number-pad__display span{font-size:.62rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--kfe-muted-text)}.kfe-work-number-pad__display strong{font-size:1.35rem;font-variant-numeric:tabular-nums}
 .kfe-work-number-pad__grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.kfe-work-number-pad__grid button,.kfe-work-number-pad__actions button{min-height:40px;border:1px solid var(--kfe-ui-border);border-radius:10px;background:var(--kfe-ui-surface);color:var(--kfe-ui-text);font-size:1rem;font-weight:900}
-.kfe-work-number-pad__grid button:nth-child(10){font-size:.68rem}.kfe-work-number-pad__actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-top:5px}.kfe-work-number-pad__actions button{font-size:.78rem}.kfe-work-number-pad__actions .done{background:var(--kfe-ui-accent);color:var(--kfe-on-accent);border-color:var(--kfe-ui-accent)}
+.kfe-work-number-pad__grid button:nth-child(10){font-size:.68rem}.kfe-work-number-pad__actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-top:5px}.kfe-work-number-pad__actions button{font-size:.78rem}.kfe-work-number-pad__actions .done{background:var(--kfe-ui-accent);color:var(--kfe-on-accent);border-color:var(--kfe-ui-accent)}.kfe-work-number-pad__actions.fare-keypad-actions{grid-template-columns:minmax(0,.65fr) minmax(0,1fr)}.kfe-work-number-pad__actions .fare-save-action{grid-column:1/-1;min-height:44px;font-size:.78rem;white-space:normal;line-height:1.15}
 @media(max-width:600px){.kfe-work-number-pad{padding:7px}.kfe-work-number-pad__grid button,.kfe-work-number-pad__actions button{min-height:38px}}
 </style>
