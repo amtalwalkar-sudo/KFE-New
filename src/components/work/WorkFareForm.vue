@@ -42,12 +42,3 @@ const toggleOptional = kind => {
     <button v-if="showSaveAction" type="submit" class="primary-action" :disabled="fareBusy">{{ fareBusy ? 'SAVING…' : 'OK — SAVE TRIP' }}</button>
   </form>
 </template>
-
-<style scoped>
-.fare-optional-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.fare-optional-actions .optional-toggle{min-height:38px;border:1px dashed var(--kfe-ui-border);border-radius:10px;background:var(--kfe-ui-surface-2);color:var(--kfe-ui-text);font-weight:800}
-.fare-optional-field{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:end;gap:8px;padding:6px 0;border-top:1px solid var(--kfe-ui-border)}
-.fare-optional-field .check-row{font-size:.67rem;line-height:1.1}
-.fare-optional-field .check-row input{width:18px!important;height:18px;min-height:18px!important}
-@media(max-width:380px){.fare-optional-field{grid-template-columns:minmax(0,1fr);align-items:stretch}.fare-optional-field .check-row{min-height:36px}}
-</style>
