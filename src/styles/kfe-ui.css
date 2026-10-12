@@ -20,6 +20,12 @@
   --kfe-info:#8AB2FF;
   --kfe-on-accent:#10151B;
   --kfe-ui-on-accent:#10151B;
+  --kfe-ui-muted-strong:#C2CBD4;
+  --kfe-ui-focus:#A9C4FF;
+  --kfe-ui-input-bg:#10151B;
+  --kfe-ui-input-border:#526170;
+  --kfe-danger-readable:#FF9B9B;
+  --kfe-success-readable:#83E0A1;
   --kfe-ui-shadow:0 8px 24px rgba(0,0,0,.24);
   --kfe-shadow:var(--kfe-ui-shadow);
   --kfe-ui-overlay:rgba(16,21,27,.97);
