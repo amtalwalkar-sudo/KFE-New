@@ -232,13 +232,23 @@ try {
 
   // Contract 8: Fuel control must be usable while OFFLINE and persist one fuel record.
   await page.getByRole('button', { name: 'CNG refuelling', exact: true }).click()
-  assert(await page.locator('.offline-state').isVisible(), 'Fuel context replaced the current Work context')
-  assert(await page.locator('.focus-surface').filter({ hasText: 'CNG REFUEL' }).first().isVisible(), 'Fuel form did not open contextually')
+  // The compact fuel form intentionally hides the offline helper block to save
+  // viewport space. The Work cockpit itself must remain mounted underneath it.
+  assert(await page.locator('.work-canonical').isVisible(), 'Fuel context replaced the current Work cockpit')
+  assert(!(await page.locator('.offline-state').isVisible()), 'Offline helper block should be hidden while the fuel form is open')
+  const compactFuelForm = page.locator('form.focus-surface').filter({ has: page.getByRole('button', { name: 'OK — SAVE FUEL', exact: true }) }).first()
+  assert(await compactFuelForm.isVisible(), 'Fuel form did not open contextually')
   await enterKfeNumber('Odometer', '1000', { action: 'NEXT', nextLabel: 'Price / kg' })
   await enterKfeNumber('Price / kg', '90', { action: 'NEXT', nextLabel: 'Amount' })
   await enterKfeNumber('Amount', '900')
+  // DONE only closes the KFE keypad; saving fuel is an explicit form action.
+  await page.getByRole('button', { name: 'OK — SAVE FUEL', exact: true }).click()
+  await page.waitForFunction(() => document.querySelector('[role="status"]')?.textContent?.includes('Fuel saved.') || Boolean(document.querySelector('[role="alert"]')?.textContent?.trim()), null, { timeout: 5000 })
+  const fuelSaveError = await page.locator('[role="alert"]').innerText().catch(() => '')
+  assert(!fuelSaveError, 'Fuel save action returned an error: ' + fuelSaveError)
+  assert(await page.getByText('Fuel saved.', { exact: true }).isVisible(), 'Fuel save action did not confirm success')
   state = await db(page, ['fuel_logs'])
-  assert(state.fuel_logs.length === 1 && Number(state.fuel_logs[0].odometer) === 1000, 'CNG refuel contract failed')
+  assert(state.fuel_logs.length === 1 && Number(state.fuel_logs[0].odometer) === 1000, 'CNG refuel contract failed: ' + JSON.stringify(state.fuel_logs))
   evidence.push({ id: 'WORK.CNG_REFUEL_OFFLINE', result: 'PASS', expected: 'one fuel record at 1000 km', persisted: { fuel: state.fuel_logs.length, odometer: state.fuel_logs[0]?.odometer } })
 
   // Contract 9: cancellation control must persist CANCELLED and must not become a completed ride.
@@ -318,7 +328,7 @@ try {
   // Partial fill must persist explicitly and the numeric fields must chain by NEXT/DONE.
   await reset(page)
   await page.getByRole('button', { name: 'CNG refuelling', exact: true }).click()
-  await assertContextualViewport('.contextual-form.focus-surface', 'Fuel form')
+  await assertContextualViewport('form.focus-surface:has(button:has-text("OK — SAVE FUEL"))', 'Fuel form')
   const fuelOdo = page.getByLabel('Odometer', { exact: true })
   const fuelPrice = page.getByLabel('Price / kg')
   const fuelAmount = page.getByLabel('Amount')
@@ -335,6 +345,8 @@ try {
   await enterKfeNumber('Price / kg', '90', { action: 'NEXT', nextLabel: 'Amount' })
   await page.getByLabel('Partial fill').check()
   await enterKfeNumber('Amount', '900')
+  // DONE only dismisses the numeric keypad; fuel persistence is an explicit action.
+  await page.getByRole('button', { name: 'OK — SAVE FUEL', exact: true }).click()
   await page.getByText('Fuel saved.', { exact: true }).waitFor()
   state = await db(page, ['fuel_logs'])
   assert(state.fuel_logs.length === 1 && Number(state.fuel_logs[0].odometer) === 1000 && state.fuel_logs[0].isFullTank === false, 'FORMS.FUEL partial-fill persistence failed')

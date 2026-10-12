@@ -9,24 +9,31 @@ describe('Currency Conversion', () => {
 describe('CNG Fuel Calculation', () => {
   it('calculates weight in kg from total cost and price per kg', () => { expect(calculateFuelQuantityKg(500, 90)).toBeCloseTo(5.5555, 3); expect(calculateFuelQuantityKg(900, 90)).toBe(10) })
   it('returns null for invalid or non-positive inputs', () => { expect(calculateFuelQuantityKg(0, 90)).toBeNull(); expect(calculateFuelQuantityKg(500, 0)).toBeNull(); expect(calculateFuelQuantityKg(null, 90)).toBeNull() })
-  it('uses only completed full-tank intervals and ignores partial fills', () => {
+  it('calculates consecutive full-tank mileage and cost/km; partial fills do not enter the authoritative interval', () => {
     const result = calculateRollingFuelCostPerKm([
-      { odometer: 1000, amount: 2000, isFullTank: true, vehicleId: 'synthetic-vehicle', capturedAt: '2026-01-01' },
-      { odometer: 1050, amount: 999, isFullTank: false, vehicleId: 'synthetic-vehicle', capturedAt: '2026-01-02' },
-      { odometer: 1100, amount: 2200, isFullTank: true, vehicleId: 'synthetic-vehicle', capturedAt: '2026-01-03' },
-      { odometer: 1200, amount: 2400, isFullTank: true, vehicleId: 'synthetic-vehicle', capturedAt: '2026-01-04' }
+      { odometer: 1000, amount: 2000, quantityKg: 20, pricePerKg: 100, isFullTank: true, vehicleId: 'synthetic-vehicle', capturedAt: '2026-01-01' },
+      { odometer: 1050, amount: 999, quantityKg: 10, pricePerKg: 99.9, isFullTank: false, vehicleId: 'synthetic-vehicle', capturedAt: '2026-01-02' },
+      { odometer: 1100, amount: 2200, quantityKg: 20, pricePerKg: 110, isFullTank: true, vehicleId: 'synthetic-vehicle', capturedAt: '2026-01-03' },
+      { odometer: 1200, amount: 2400, quantityKg: 20, pricePerKg: 120, isFullTank: true, vehicleId: 'synthetic-vehicle', capturedAt: '2026-01-04' }
     ], 10)
     expect(result.completedIntervals).toBe(2)
-    expect(result.rollingCostPerKm).toBe(23)
+    expect(result.observations[0].km).toBe(100)
+    expect(result.observations[0].cost).toBe(2200)
+    expect(result.observations[0].costPerKm).toBe(22)
+    expect(result.observations[0].mileageKmPerKg).toBe(5)
+    expect(result.latestMileageKm).toBe(100)
+    expect(result.latestCostPerKm).toBe(24)
+    expect(result.averageCostPerKm).toBe(23)
+    expect(result.averageMileageKmPerKg).toBe(5)
   })
-  it('does not qualify full-tank intervals without an explicit stable vehicle identity', () => {
+  it('does not calculate an authoritative fuel rate without a registered vehicle identity', () => {
     const result = calculateRollingFuelCostPerKm([
-      { odometer: 1000, amount: 2000, isFullTank: true, capturedAt: '2026-01-01' },
-      { odometer: 1100, amount: 2200, isFullTank: true, capturedAt: '2026-01-02' },
-      { odometer: 1200, amount: 2400, isFullTank: true, vehicleId: 'vehicle-a', capturedAt: '2026-01-03' }
+      { odometer: 1000, amount: 2000, quantityKg: 20, isFullTank: true, capturedAt: '2026-01-01' },
+      { odometer: 1100, amount: 2200, quantityKg: 22, isFullTank: true, capturedAt: '2026-01-02' }
     ])
     expect(result.completedIntervals).toBe(0)
     expect(Number.isNaN(result.rollingCostPerKm)).toBe(true)
+    expect(Number.isNaN(result.averageCostPerKm)).toBe(true)
   })
 })
 

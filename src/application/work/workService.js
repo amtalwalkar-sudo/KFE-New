@@ -6,6 +6,7 @@ import { completeEndShift } from './endShift.js'
 import { recordFuelEntry } from './fuel.js'
 import { validateShiftStartOdometer, validateFirstDayShiftStartOdometer, validateGapAllocation } from '../../domain/work/shift.js'
 import { calculateFuelQuantity, validateFuelEntry } from '../../domain/work/fuel.js'
+import { calculateRollingFuelCostPerKm } from '../../domain/math/fuel.js'
 import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } from '../../domain/work/trip.js'
 import { BackupService } from '../backup/backupService.js'
 import { MovementAccountingService, routeTrace } from '../../domain/movement/movementAccounting.js'
@@ -27,7 +28,17 @@ export const WorkService = Object.freeze({
   async getLastCompletedShift() { return ShiftTripRepository.getLastCompletedShift() },
   async getBusinessStartBaseline() { return ShiftTripRepository.getBusinessStartBaseline() },
   async getLastCompletedTrip() { return ShiftTripRepository.getLastCompletedTrip() },
-  async getFuelLogs() { return FuelRepository.getAll() },
+  async getFuelLogs() {
+    // Ensure the single current vehicle master exists and legacy fuel entries
+    // are linked before returning records to the PWA/read models.
+    await ShiftTripRepository.getPrimaryVehicleId()
+    return FuelRepository.getAll()
+  },
+  calculateFuelMetrics(logs = []) { return calculateRollingFuelCostPerKm(logs) },
+  async getFuelMetrics() {
+    await ShiftTripRepository.getPrimaryVehicleId()
+    return calculateRollingFuelCostPerKm(await FuelRepository.getAll())
+  },
   async getLocations(entityType, entityId) { return LocationRepository.forEntity(entityType, entityId) },
   async previewMovementReconciliation({ shiftId, closingOdometer, trips = [] }) {
     const shift = await ShiftTripRepository.getActive()
@@ -200,5 +211,11 @@ export const WorkService = Object.freeze({
     }
     const result = await completeEndShift(completionData); checkpoint(); return result
   },
-  async recordFuel(data) { const result = await recordFuelEntry(data); checkpoint(); return result },
+  async recordFuel(data) {
+    const result = await recordFuelEntry(data)
+    // Fuel persistence is the user-visible commit. Local backup is best-effort
+    // follow-up work and must not hold the form open after the record is saved.
+    void Promise.resolve().then(() => checkpoint()).catch(() => {})
+    return result
+  },
 })

@@ -57,14 +57,15 @@ try {
         request.onerror = () => reject(request.error)
       })
     }
-    const ids = async (dbPromise, storeName) => {
+    const rows = async (dbPromise, storeName) => {
       const db = await dbPromise
       return new Promise((resolve, reject) => {
         const request = db.transaction(storeName, 'readonly').objectStore(storeName).getAll()
-        request.onsuccess = () => resolve((request.result || []).map(row => row.id))
+        request.onsuccess = () => resolve(request.result || [])
         request.onerror = () => reject(request.error)
       })
     }
+    const ids = async (dbPromise, storeName) => (await rows(dbPromise, storeName)).map(row => row.id)
 
     for (const name of dbNames) await deleteDb(name)
 
@@ -101,12 +102,20 @@ try {
 
     const syntheticPending = await count(initializeSyntheticStorage(), 'pending_mutations')
     const syntheticAudit = await count(initializeSyntheticStorage(), 'audit_history')
-    const canonicalPendingAfter = await count(openCanonicalDB(), 'pending_mutations')
+    const canonicalPendingRows = await rows(openCanonicalDB(), 'pending_mutations')
+    const canonicalPendingAfter = canonicalPendingRows.length
     if (syntheticPending !== 0 || syntheticAudit !== 0) throw new Error('Synthetic write created mutation/audit records in synthetic DB.')
-    if (canonicalPendingAfter !== canonicalPendingBefore) throw new Error('Synthetic write changed canonical pending mutations.')
+    // Assert isolation by entity, not global queue length: application bootstrap
+    // may legitimately enqueue unrelated canonical work during this browser test.
+    if (canonicalPendingRows.some(row => row.entityId === 'phase4-synthetic-fuel' || row.payload?.id === 'phase4-synthetic-fuel' || row.payload?.clientMutationId === 'phase4-synthetic-mutation')) {
+      throw new Error('Synthetic fuel write leaked into canonical pending mutations.')
+    }
 
     const pendingFromSyntheticMode = await MutationRepository.getPending()
-    if (pendingFromSyntheticMode.length !== canonicalPendingBefore) throw new Error('MutationRepository did not read the canonical queue in synthetic mode.')
+    if (!pendingFromSyntheticMode.some(row => row.entityId === canonicalId)) throw new Error('MutationRepository did not read the canonical queue in synthetic mode.')
+    if (pendingFromSyntheticMode.some(row => row.entityId === 'phase4-synthetic-fuel' || row.payload?.clientMutationId === 'phase4-synthetic-mutation')) {
+      throw new Error('MutationRepository exposed synthetic fuel mutation in canonical queue.')
+    }
 
     setActiveDataSource('canonical')
     const canonicalReads = await FuelRepository.getAll()

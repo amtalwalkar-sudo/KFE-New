@@ -33,6 +33,7 @@ const operator = ref('')
 const busy = ref(false)
 const message = ref('')
 const error = ref('')
+const fuelSaveConfirmation = ref(false)
 
 const fareTripId = ref(null)
 const fare = ref('')
@@ -86,14 +87,15 @@ const money = value => Number.isFinite(Number(value))
   : '—'
 
 const notify = text => {
+  fuelSaveConfirmation.value = text === 'Fuel saved.'
   message.value = text
   error.value = ''
   clearTimeout(notify.timer)
   notify.timer = setTimeout(() => {
     if (message.value === text) message.value = ''
-  }, 2400)
+  }, 8000)
 }
-const fail = text => { error.value = text; message.value = '' }
+const fail = text => { fuelSaveConfirmation.value = false; error.value = text; message.value = '' }
 
 const tripDraftIdentity = (formId, step, tripId = store.trip?.id, shiftId = store.shift?.id) => ({
   formId, workflowStep: step, parentType: 'TRIP', parentId: tripId, ownerId: shiftId
@@ -125,12 +127,17 @@ const saveDraft = (identity, values) => {
   })
   return draftWriteQueue
 }
-const clearCommittedDraft = async identity => {
+const clearCommittedDraft = async (identity, { quiet = false } = {}) => {
   const key = draftIdentityKey(identity)
   committedDraftKeys.add(key)
   await draftWriteQueue
   try { await WorkDraftService.clear(identity, { committed: true }) }
-  catch (_) { fail('The record was saved, but its temporary draft could not be cleared. Do not replay it; reopen the record and verify the saved value.') }
+  catch (_) {
+    // A draft-cleanup failure must not overwrite the authoritative commit
+    // confirmation or make a saved fuel record look unsaved. The draft is never
+    // auto-submitted; a later open still requires explicit user confirmation.
+    if (!quiet) fail('The record was saved, but its temporary draft could not be cleared. Do not replay it; reopen the record and verify the saved value.')
+  }
 }
 
 watch([startOdo, startAck, gapChoice], () => {
@@ -727,6 +734,7 @@ async function saveCancel(fromNative = false) {
 async function toggleFuel() {
   fuelOpen.value = !fuelOpen.value
   if (!fuelOpen.value) return
+  fuelSaveConfirmation.value = false
   endOpen.value = false
   restoringDrafts = true
   fuelOdo.value = ''
@@ -782,9 +790,14 @@ async function saveFuel() {
       isFullTank: fuelFull.value
     })
     if (!result?.ok) return fail(result.reason)
-    await clearCommittedDraft(fuelDraftIdentity())
+    // The repository has committed the fuel record. Close/confirm immediately;
+    // draft cleanup and derived-metric refresh are non-critical follow-up work.
     fuelOpen.value = false
     notify('Fuel saved.')
+    void clearCommittedDraft(fuelDraftIdentity(), { quiet: true }).catch(() => {})
+    void fuel.refresh().catch(() => {})
+  } catch (e) {
+    fail(e?.message || 'Fuel save failed. Please retry.')
   } finally {
     fuelBusy.value = false
   }
@@ -1010,6 +1023,7 @@ async function processNativeEvent(event) {
 
 onMounted(async () => {
   await store.initialize()
+  await fuel.refresh().catch(() => {})
   // Restore only the exact persisted movement owner that still matches the
   // canonical active shift/trip. A stale trace must never be attached to a new one.
   const savedTrace = MovementTraceService.getActiveSession()
@@ -1132,7 +1146,7 @@ onBeforeUnmount(() => {
   </header>
 
   <main class="work-main contextual-form-shell">
-    <section v-if="!pendingFare && (store.isOnline || cancelOpen || fuelOpen || endOpen)" class="operational-state state-tone-info work-persistent-metrics" aria-label="Live distance and workflow timer">
+    <section v-if="!fuelOpen && !pendingFare && (store.isOnline || cancelOpen || endOpen)" class="operational-state state-tone-info work-persistent-metrics" aria-label="Live distance and workflow timer">
       <div class="work-live-metrics">
         <div class="live-km-readout" aria-live="polite"><span>{{ liveMovementLabel || 'LIVE KM' }}</span><strong>{{ liveMovementKm.toFixed(1) }} km</strong><small>{{ liveMovementStatus }}</small></div>
         <div class="trip-timer-block"><span class="timer-label">{{ stateTimerLabel }}</span><strong class="trip-timer" aria-live="polite">{{ active ? tripTimer : stateTimer }}</strong></div>
@@ -1190,7 +1204,7 @@ onBeforeUnmount(() => {
       @action="handleContextAction"
     />
 
-    <section v-if="!store.isOnline" class="offline-state state-tone-neutral" :class="{ 'contextual-context': startOpen || fuelOpen }">
+    <section v-if="!store.isOnline && !fuelOpen" class="offline-state state-tone-neutral" :class="{ 'contextual-context': startOpen }">
       <div class="state-mark" aria-hidden="true">○</div><span class="eyebrow">CURRENT STATE</span><strong>OFFLINE</strong><p>Shift is not active.</p><button v-if="!startOpen && !fuelOpen" class="primary-action" @click="openStart">START SHIFT</button>
     </section>
 
@@ -1265,7 +1279,8 @@ onBeforeUnmount(() => {
     />
 
     <p v-if="error" class="feedback error" role="alert">{{ error }}</p>
-    <p v-if="message" class="feedback success" role="status">{{ message }}</p>
+    <p v-if="fuelSaveConfirmation" class="feedback success fuel-save-confirmation" role="status">Fuel saved.</p>
+    <p v-else-if="message" class="feedback success" role="status">{{ message }}</p>
   </main>
 </div>
 </template>

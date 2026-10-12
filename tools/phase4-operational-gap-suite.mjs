@@ -110,6 +110,49 @@ try {
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.locator('.work-canonical').waitFor({ state: 'attached', timeout: 30000 })
 
+  // VEHICLE IDENTITY: the one current car has a stable master ID, and legacy
+  // fuel logs without vehicleId are linked to that car before calculations.
+  const vehicleFuelLink = await page.evaluate(async () => {
+    const { initializeCanonicalStorage } = await import(location.origin + '/src/utils/indexedDB.js')
+    const { ShiftTripRepository } = await import(location.origin + '/src/repositories/shiftTripRepository.js')
+    const db = await initializeCanonicalStorage()
+    const fixtureId = 'phase4-mh01em7360-unlinked-fuel'
+    const now = new Date().toISOString()
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction('fuel_logs', 'readwrite')
+      tx.objectStore('fuel_logs').put({
+        id: fixtureId, odometer: 12345, pricePerKg: 80, amount: 160,
+        quantityKg: 2, isFullTank: true, capturedAt: now, createdAt: now, updatedAt: now
+      })
+      tx.oncomplete = resolve
+      tx.onerror = () => reject(tx.error || new Error('Could not seed unlinked fuel fixture.'))
+      tx.onabort = () => reject(tx.error || new Error('Unlinked fuel fixture transaction aborted.'))
+    })
+    const vehicleId = await ShiftTripRepository.getPrimaryVehicleId()
+    const [vehicle, linkedFuel] = await Promise.all([
+      new Promise((resolve, reject) => {
+        const request = db.transaction('vehicles', 'readonly').objectStore('vehicles').get(vehicleId)
+        request.onsuccess = () => resolve(request.result || null)
+        request.onerror = () => reject(request.error)
+      }),
+      new Promise((resolve, reject) => {
+        const request = db.transaction('fuel_logs', 'readonly').objectStore('fuel_logs').get(fixtureId)
+        request.onsuccess = () => resolve(request.result || null)
+        request.onerror = () => reject(request.error)
+      })
+    ])
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction('fuel_logs', 'readwrite')
+      tx.objectStore('fuel_logs').delete(fixtureId)
+      tx.oncomplete = resolve
+      tx.onerror = () => reject(tx.error || new Error('Could not clean fuel fixture.'))
+    })
+    return { vehicleId, registrationNumber: vehicle?.registrationNumber, registration_number: vehicle?.registration_number, linkedFuelVehicleId: linkedFuel?.vehicleId }
+  })
+  assert(vehicleFuelLink.vehicleId === 'vehicle-mh01em7360', 'Primary vehicle did not use the stable MH01EM7360 identity.')
+  assert(vehicleFuelLink.registrationNumber === 'MH01EM7360' || vehicleFuelLink.registration_number === 'MH01EM7360', 'Primary vehicle master is missing registration MH01EM7360.')
+  assert(vehicleFuelLink.linkedFuelVehicleId === vehicleFuelLink.vehicleId, 'Legacy fuel record was not linked to MH01EM7360.')
+
   // D5: an Admin master-data edit must be consumed by the Work baseline.
   const d5 = await page.evaluate(async () => {
     const { setActiveDataSource } = await import(location.origin + '/src/utils/indexedDB.js')
@@ -283,9 +326,32 @@ try {
   assert(await fuelButton.count() === 1, 'A5 fuel control is missing')
   assert(await page.getByRole('button', { name: 'OFFLINE', exact: true }).count() === 1, 'A5 online/offline control is missing')
   await fuelButton.click()
-  assert(await page.getByText('CNG REFUEL', { exact: true }).count() === 1, 'A5 offline fuel form did not open')
-  await page.getByRole('button', { name: 'Close', exact: true }).click()
-  assert(await page.getByText('CNG REFUEL', { exact: true }).count() === 0, 'A5 fuel form Close control did not close the overlay')
+  const fuelForm = page.locator('.work-context-form.form-fuel .form-card')
+  await fuelForm.waitFor({ state: 'visible', timeout: 5000 })
+  assert(await page.locator('.work-context-form.form-fuel').count() === 1, 'A5 offline fuel form did not open')
+  assert(await page.getByText('CNG REFUEL', { exact: true }).count() === 0, 'A5 duplicate fuel heading should be removed')
+  assert(await page.getByText('Partial fill', { exact: true }).count() === 1, 'A5 partial-fill control is missing')
+  assert(await page.locator('.fuel-calculated-value.state-tone-info').count() === 1, 'A5 calculated Quantity does not use the semantic info tone')
+  await page.getByRole('textbox', { name: 'Odometer' }).click()
+  const fuelKeypad = page.locator('.work-context-form.form-fuel .kfe-work-number-pad')
+  await fuelKeypad.waitFor({ state: 'visible', timeout: 5000 })
+  const fuelViewport = await page.evaluate(() => {
+    const form = document.querySelector('.work-context-form.form-fuel .form-card')?.getBoundingClientRect()
+    const keypad = document.querySelector('.work-context-form.form-fuel .kfe-work-number-pad')?.getBoundingClientRect()
+    const header = document.querySelector('.work-header')?.getBoundingClientRect()
+    const nav = document.querySelector('.kfe-bottom-nav')?.getBoundingClientRect()
+    return {
+      formTop: form?.top ?? Infinity,
+      keypadBottom: keypad?.bottom ?? Infinity,
+      headerBottom: header?.bottom ?? 0,
+      navTop: nav?.top ?? window.innerHeight,
+      viewportHeight: window.innerHeight,
+    }
+  })
+  assert(fuelViewport.formTop >= fuelViewport.headerBottom, 'A5 fuel form overlaps the Work header')
+  assert(fuelViewport.keypadBottom <= fuelViewport.navTop && fuelViewport.keypadBottom <= fuelViewport.viewportHeight, 'A5 full fuel form and keypad do not fit above bottom navigation')
+  await page.getByRole('button', { name: 'Close fuel form' }).click()
+  assert(await page.locator('.work-context-form.form-fuel').count() === 0, 'A5 fuel form Close control did not close the form')
 
   await page.evaluate(async () => { const { setActiveDataSource } = await import(location.origin + '/src/utils/indexedDB.js'); setActiveDataSource('canonical') })
   // D2: create a deterministic canonical Work fixture while online, then perform a

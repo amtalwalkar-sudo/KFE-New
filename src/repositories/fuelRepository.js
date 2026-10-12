@@ -24,7 +24,7 @@ export const FuelRepository = {
     validateNormalizedFuel(normalized)
     const now = new Date().toISOString()
     const fuelRecord = {
-      id: normalized.id || generateUUID(), clientMutationId: normalized.clientMutationId || null, odometer: Number(normalized.odometer), pricePerKg: Number(normalized.pricePerKg), amount: Number(normalized.amount), quantityKg: Number(normalized.quantityKg), isFullTank: normalized.isFullTank !== false,
+      id: normalized.id || generateUUID(), clientMutationId: normalized.clientMutationId || null, vehicleId: normalized.vehicleId ?? null, odometer: Number(normalized.odometer), pricePerKg: Number(normalized.pricePerKg), amount: Number(normalized.amount), quantityKg: Number(normalized.quantityKg), isFullTank: normalized.isFullTank !== false,
       latitude: normalized.latitude ?? null, longitude: normalized.longitude ?? null, accuracy: normalized.accuracy ?? null, provenance: normalized.provenance ?? null, capturedAt: normalized.capturedAt || now, createdAt: normalized.createdAt || now, updatedAt: now
     }
     return new Promise((resolve, reject) => {
@@ -46,6 +46,7 @@ export const FuelRepository = {
     const now = new Date().toISOString()
     const fuelRecord = {
       ...existing,
+      vehicleId: normalized.vehicleId ?? existing.vehicleId ?? null,
       odometer: Number(normalized.odometer), pricePerKg: Number(normalized.pricePerKg), amount: Number(normalized.amount), quantityKg: Number(validation.quantityKg), isFullTank: normalized.isFullTank !== false,
       updatedAt: now
     }

@@ -4,10 +4,11 @@ import { WorkService } from '../application/work/workService.js'
 
 export const useFuelStore = defineStore('fuel', () => {
   const logs = ref([])
+  const metrics = ref({ rollingCostPerKm: NaN, latestMileageKm: null, latestCostPerKm: null, latestMileageKmPerKg: null, averageCostPerKm: NaN, averageMileageKmPerKg: NaN, observations: [], completedIntervals: 0 })
   const saving = ref(false)
   const deleting = ref(false)
 
-  const refresh = async () => { logs.value = await WorkService.getFuelLogs() }
+  const refresh = async () => { logs.value = await WorkService.getFuelLogs(); metrics.value = WorkService.calculateFuelMetrics(logs.value) }
   const calculateQuantity = (pricePerKg, amount) => {
     const result = WorkService.calculateFuelQuantity(pricePerKg, amount)
     return result.valid ? result.quantityKg : 0
@@ -44,5 +45,5 @@ export const useFuelStore = defineStore('fuel', () => {
     } finally { deleting.value = false }
   }
 
-  return { logs, saving, deleting, refresh, save, update, remove, calculateQuantity }
+  return { logs, metrics, saving, deleting, refresh, save, update, remove, calculateQuantity }
 })
