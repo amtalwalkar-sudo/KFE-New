@@ -139,7 +139,7 @@ public class KfeNativeGpsService extends Service {
     String persistedEntity = getSharedPreferences(PREFS, MODE_PRIVATE).getString(ACTIVE_ENTITY, "TRIP");
     if (persisted != null && !persisted.isEmpty()) {
       if (!ensureForegroundLocationService()) return START_NOT_STICKY;
-      startTracking(persisted, persistedEvent);
+      startTracking(persisted, persistedEvent, persistedEntity);
     }
     return START_STICKY;
   }
