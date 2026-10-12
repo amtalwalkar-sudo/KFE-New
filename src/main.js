@@ -1,5 +1,6 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
+import { installWorkRuntimeAdapter } from './infrastructure/work/workRuntimeAdapter.js'
 import App from './App.vue'
 import router from './router'
 import './styles/kfe-ui.css'
@@ -7,6 +8,8 @@ import './styles/forms.css'
 import './styles/work-cockpit-hud.css'
 import './styles/kfe-base-shell.css'
 import './styles/admin-workspace.css'
+
+installWorkRuntimeAdapter()
 
 const app = createApp(App)
 app.config.errorHandler = (err) => {
