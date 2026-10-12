@@ -134,7 +134,63 @@ export const ShiftTripRepository = {
   async getTripsForShift(shiftId) { const trips = await readAll('trips'); return trips.filter(t => t.shiftId === shiftId).sort((a, b) => new Date(a.tripStartAt) - new Date(b.tripStartAt)) },
   async getAllTrips() { return readAll('trips') },
   async getCompletedTripsForShift(shiftId) { const trips = await this.getTripsForShift(shiftId); return trips.filter(t => t.status === 'COMPLETED') },
-  async getPrimaryVehicleId() { const vehicles = await readAll('vehicles'); const active = vehicles.filter(v => !v.deleted && !v.deletedAt && v.status !== 'Sold' && Number.isFinite(Number(v.openingOdometerKm))); return active.sort((a, b) => String(a.id || '').localeCompare(String(b.id || '')))[0]?.id || null },
+  async getPrimaryVehicleId() {
+    const registration = 'MH01EM7360'
+    const normalizeRegistration = value => String(value || '').replace(/[^a-z0-9]/gi, '').toUpperCase()
+    const liveVehicle = vehicle => !vehicle?.deleted && !vehicle?.deletedAt && !['SOLD', 'RETIRED', 'TRANSFERRED', 'INACTIVE'].includes(String(vehicle?.status || vehicle?.lifecycle_status || '').toUpperCase())
+    let vehicles = (await readAll('vehicles')).filter(liveVehicle)
+    let vehicle = vehicles.find(item => normalizeRegistration(item.registrationNumber || item.registration_number) === registration)
+
+    if (!vehicle) {
+      // There is one known car today. Reuse an existing active vehicle identity
+      // rather than making a second master record just because it lacks a plate.
+      vehicle = vehicles.find(item => Number.isFinite(Number(item.openingOdometerKm)) || Number.isFinite(Number(item.acquisition_odometer)))
+      const now = new Date().toISOString()
+      if (vehicle) {
+        const updated = { ...vehicle, registrationNumber: registration, registration_number: registration, updatedAt: now }
+        await atomic(['vehicles'], (tx, mutations, audit) => {
+          tx.objectStore('vehicles').put(updated)
+          saveMutation(mutations, audit, updated.id, 'VEHICLE', 'UPDATE', updated, now)
+        })
+        vehicle = updated
+      } else {
+        const id = 'vehicle-mh01em7360'
+        vehicle = {
+          id,
+          registrationNumber: registration,
+          registration_number: registration,
+          status: 'Active',
+          lifecycle_status: 'ACTIVE',
+          active: true,
+          createdAt: now,
+          updatedAt: now,
+        }
+        await atomic(['vehicles'], (tx, mutations, audit) => {
+          tx.objectStore('vehicles').put(vehicle)
+          saveMutation(mutations, audit, vehicle.id, 'VEHICLE', 'CREATE', vehicle, now)
+        })
+      }
+    }
+
+    // MH01EM7360 is currently the only car. Assign legacy fuel records that
+    // predate vehicle IDs to this canonical vehicle so existing history remains
+    // usable for full-tank mileage calculations.
+    const unlinkedFuel = (await readAll('fuel_logs')).filter(item =>
+      !item?.deleted && !item?.deletedAt && (item.vehicleId == null || String(item.vehicleId).trim() === '')
+    )
+    if (unlinkedFuel.length) {
+      const now = new Date().toISOString()
+      await atomic(['fuel_logs'], (tx, mutations, audit) => {
+        const store = tx.objectStore('fuel_logs')
+        for (const record of unlinkedFuel) {
+          const linked = { ...record, vehicleId: vehicle.id, updatedAt: now }
+          store.put(linked)
+          saveMutation(mutations, audit, linked.id, 'FUEL', 'UPDATE', linked, now)
+        }
+      })
+    }
+    return vehicle.id
+  },
   async getBusinessStartBaseline() { const [vehicles, settings] = await Promise.all([readAll('vehicles'), readAll('settings')]); const active = vehicles.filter(v => !v.deleted && !v.deletedAt && v.status !== 'Sold' && Number.isFinite(Number(v.openingOdometerKm))); const vehicle = active.sort((a, b) => String(a.id || '').localeCompare(String(b.id || '')))[0] || null; const setup = settings.find(item => item.settingKey === 'businessSetup' && !item.deleted && !item.deletedAt); const businessStartDate = setup?.values?.businessStartDate || null; return vehicle ? { businessStartDate, businessStartOdometer: Number(vehicle.openingOdometerKm) } : (businessStartDate ? { businessStartDate, businessStartOdometer: null } : null) },
   async getLastCompletedShift() { const shifts = await readAll('shifts'); return shifts.filter(s => s.status === 'COMPLETED' && Number.isFinite(Number(s.endOdometer))).sort((a, b) => new Date(b.shiftEndAt || b.updatedAt) - new Date(a.shiftEndAt || a.updatedAt))[0] || null },
   async getLastCompletedTrip() { const trips = await readAll('trips'); return trips.filter(t => t.status === 'COMPLETED' && t.operator).sort((a, b) => new Date(b.tripEndAt || b.updatedAt) - new Date(a.tripEndAt || a.updatedAt))[0] || null },
