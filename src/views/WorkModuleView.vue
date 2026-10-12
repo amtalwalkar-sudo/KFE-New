@@ -793,6 +793,8 @@ async function saveFuel() {
     notify('Fuel saved.')
     void clearCommittedDraft(fuelDraftIdentity(), { quiet: true }).catch(() => {})
     void fuel.refresh().catch(() => {})
+  } catch (e) {
+    fail(e?.message || 'Fuel save failed. Please retry.')
   } finally {
     fuelBusy.value = false
   }
