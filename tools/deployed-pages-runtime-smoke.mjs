@@ -5,9 +5,9 @@ if (!base) throw new Error('KFE_RUNTIME_BASE_URL is required')
 
 const routes = [
   { path: '/', selector: '.work-canonical', label: 'Work' },
-  { path: '/timeline', selector: '.timeline', label: 'Timeline' },
-  { path: '/performance', selector: '.performance-page', label: 'Performance' },
-  { path: '/admin', selector: '.admin-page', label: 'Admin' },
+  { path: '/timeline', selector: '.kfe-blank-workspace', label: 'Timeline blank workspace' },
+  { path: '/performance', selector: '.kfe-blank-workspace', label: 'Performance blank workspace' },
+  { path: '/admin', selector: '.kfe-settings-page', label: 'Admin Settings' },
 ]
 
 const finishSetupIfEnabled = async page => {
@@ -38,6 +38,15 @@ const waitForSurface = async (page, route, phase) => {
     const node = document.querySelector(selector)
     return !!node && node.children.length > 0 && document.readyState === 'complete'
   }, route.selector, { timeout: 45000 })
+  if (route.path === '/timeline' || route.path === '/performance') {
+    const retired = route.path === '/timeline' ? '.timeline' : '.performance-page'
+    if (await page.locator(retired).count()) {
+      throw new Error(`${route.label}: retired screen ${retired} must not render`)
+    }
+  }
+  if (route.path === '/admin' && await page.locator('.admin-page').count()) {
+    throw new Error('Admin: retired admin page must not render; expected Settings-only view')
+  }
 }
 
 const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] })
