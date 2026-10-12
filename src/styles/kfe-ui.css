@@ -1971,3 +1971,28 @@ table th,table td{border-color:var(--kfe-ui-border)}
 .work-canonical .form-fuel .fuel-calculated-value{min-height:44px;border:1px solid color-mix(in srgb,var(--kfe-info) 42%,var(--kfe-ui-border));background:color-mix(in srgb,var(--kfe-info) 10%,var(--kfe-ui-surface));color:var(--kfe-info)}
 .work-canonical .form-fuel .fuel-calculated-value span{color:var(--kfe-info);opacity:.9}
 .work-canonical .form-fuel .fuel-calculated-value strong{color:var(--kfe-info)}
+
+
+/* Fuel entry viewport contract: fit fields and the in-flow keypad without scrolling. */
+.work-canonical .form-fuel .form-card{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  padding:8px;
+  gap:6px;
+}
+.work-canonical .form-fuel .fuel-form-close-row,
+.work-canonical .form-fuel .form-card>.check-row,
+.work-canonical .form-fuel .form-card>.primary-action{grid-column:1/-1}
+.work-canonical .form-fuel .form-card label{gap:3px;font-size:.78rem}
+.work-canonical .form-fuel .form-card .input-unit{gap:5px}
+.work-canonical .form-fuel .form-card .input-unit input{height:38px;min-height:38px!important}
+.work-canonical .form-fuel .form-card .check-row{font-size:.78rem;min-height:30px}
+.work-canonical .form-fuel .form-card .check-row input{width:18px!important;height:18px;min-height:18px!important}
+.work-canonical .form-fuel .form-card>.primary-action{min-height:40px;margin-top:0}
+.work-canonical .form-fuel .fuel-calculated-value{display:flex;flex-direction:column;justify-content:center;gap:3px;min-width:0;padding:7px 9px;min-height:44px}
+.work-canonical .form-fuel .kfe-work-number-pad{padding:5px;border-radius:12px;box-shadow:none}
+.work-canonical .form-fuel .kfe-work-number-pad__display{padding:1px 5px 3px}
+.work-canonical .form-fuel .kfe-work-number-pad__display strong{font-size:1.05rem}
+.work-canonical .form-fuel .kfe-work-number-pad__grid{gap:3px}
+.work-canonical .form-fuel .kfe-work-number-pad__grid button{min-height:31px;border-radius:7px;font-size:.9rem}
+.work-canonical .form-fuel .kfe-work-number-pad__actions{gap:4px;margin-top:4px}
+.work-canonical .form-fuel .kfe-work-number-pad__actions button{min-height:32px;border-radius:7px}
