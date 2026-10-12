@@ -77,6 +77,7 @@ const emit = defineEmits([
 
 
 const activeNumericField = ref(null)
+const numericPad = ref(null)
 const tollDetailsOpen = ref(false)
 const parkingDetailsOpen = ref(false)
 const suppressNumericFocus = ref(false)
@@ -110,7 +111,12 @@ const activeNumeric = computed(() => {
 })
 const activeNumericDecimal = computed(() => activeNumeric.value?.decimal === true)
 onMounted(() => {
-  if (props.type === 'fare') activeNumericField.value = 'fare'
+  if (props.type === 'fare') {
+    activeNumericField.value = 'fare'
+    nextTick(() => {
+      numericPad.value?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    })
+  }
 })
 function toggleFareOptional(which) {
   const isToll = which === 'toll'
@@ -118,9 +124,8 @@ function toggleFareOptional(which) {
   if (isToll) tollDetailsOpen.value = opening
   else parkingDetailsOpen.value = opening
 
-  // The keypad is fixed over the lower viewport. Dismiss it when revealing
-  // optional fields so the newly expanded inputs and treatment checkbox remain
-  // visible and receive taps; the driver can tap an input to reopen the keypad.
+  // Dismiss the in-flow keypad while optional fields are expanded so the new
+  // inputs and treatment checkbox remain easy to reach.
   if (opening || activeNumericField.value === (isToll ? 'trip-toll' : 'trip-parking')) {
     activeNumericField.value = null
   }
@@ -131,6 +136,11 @@ function activateNumeric(name) {
     return
   }
   activeNumericField.value = name
+  // The keypad lives in normal flow, so bring it into the scrollable viewport
+  // without pinning it over the fixed swipe action or bottom navigation.
+  nextTick(() => {
+    numericPad.value?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  })
 }
 function emitNumeric(name, value) {
   const events = {
@@ -360,7 +370,7 @@ const updateMap = (name, map, id, value) => {
       </template>
     </form>
 
-      <div v-if="activeNumeric" class="kfe-work-number-pad" aria-label="KFE intelligent numeric keypad">
+      <div v-if="activeNumeric" ref="numericPad" class="kfe-work-number-pad" aria-label="KFE intelligent numeric keypad">
         <div class="kfe-work-number-pad__display">
           <span>{{ numericLabel(activeNumeric.name) }}</span>
           <strong>{{ activeNumeric.value || '0' }}</strong>
@@ -399,12 +409,12 @@ const updateMap = (name, map, id, value) => {
 .expense-row{display:grid;grid-template-columns:minmax(76px,.8fr) minmax(0,1.2fr);gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--kfe-ui-border)}
 .expense-trip-total{display:grid;gap:3px;font-size:.78rem;overflow-wrap:anywhere}.expense-trip-total strong{font-size:.9rem}
 .expense-shift-capture{display:grid;gap:6px;min-width:0}.expense-shift-capture>label:not(.check-row){font-size:.78rem;gap:3px}.expense-shift-capture .check-row{font-size:.68rem;gap:5px;line-height:1.1}.expense-shift-capture .check-row input{width:18px!important;height:18px}
-@media(max-width:380px){.expense-row{grid-template-columns:minmax(70px,.7fr) minmax(0,1.3fr);gap:6px}}
+@media(max-width:380px){.expense-row{grid-template-columns:minmax(70px,.7fr) minmax(0,1.3fr);gap:6px}.form-fare .fare-optional-field{grid-template-columns:minmax(0,1fr);align-items:stretch}.form-fare .fare-optional-field .check-row{min-height:36px}}
 @keyframes work-form-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 @media(max-width:640px){.form-card{padding:12px}.form-card{max-width:100%}}
 
 .kfe-work-number-pad{margin-top:4px;padding:8px;border:1px solid var(--kfe-ui-border);border-radius:16px;background:var(--kfe-ui-surface-2);box-shadow:0 8px 24px color-mix(in srgb,var(--kfe-ui-text) 10%,transparent)}
-.kfe-work-number-pad__display{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:4px 6px 7px}.kfe-work-number-pad__display span{font-size:.62rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--kfe-muted-text)}.kfe-work-number-pad__display strong{font-size:1.35rem;font-variant-numeric:tabular-nums}
+.kfe-work-number-pad__display{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:4px 6px 7px}.kfe-work-number-pad__display span{font-size:.62rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--kfe-muted-text)}.kfe-work-number-pad__display strong{font-size:1.35rem;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;min-width:0}
 .kfe-work-number-pad__grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.kfe-work-number-pad__grid button,.kfe-work-number-pad__actions button{min-height:40px;border:1px solid var(--kfe-ui-border);border-radius:10px;background:var(--kfe-ui-surface);color:var(--kfe-ui-text);font-size:1rem;font-weight:900}
 .kfe-work-number-pad__grid button:nth-child(10){font-size:.68rem}.kfe-work-number-pad__actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-top:5px}.kfe-work-number-pad__actions button{font-size:.78rem}.kfe-work-number-pad__actions .done{background:var(--kfe-ui-accent);color:var(--kfe-on-accent);border-color:var(--kfe-ui-accent)}.kfe-work-number-pad__actions.fare-keypad-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.kfe-work-number-pad__actions .fare-save-action{grid-column:1/-1;min-height:44px;font-size:.78rem;white-space:normal;line-height:1.15}
 @media(max-width:600px){.kfe-work-number-pad{padding:7px}.kfe-work-number-pad__grid button,.kfe-work-number-pad__actions button{min-height:38px}}
