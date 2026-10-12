@@ -112,6 +112,19 @@ const activeNumericDecimal = computed(() => activeNumeric.value?.decimal === tru
 onMounted(() => {
   if (props.type === 'fare') activeNumericField.value = 'fare'
 })
+function toggleFareOptional(which) {
+  const isToll = which === 'toll'
+  const opening = !(isToll ? tollDetailsOpen.value : parkingDetailsOpen.value)
+  if (isToll) tollDetailsOpen.value = opening
+  else parkingDetailsOpen.value = opening
+
+  // The keypad is fixed over the lower viewport. Dismiss it when revealing
+  // optional fields so the newly expanded inputs and treatment checkbox remain
+  // visible and receive taps; the driver can tap an input to reopen the keypad.
+  if (opening || activeNumericField.value === (isToll ? 'trip-toll' : 'trip-parking')) {
+    activeNumericField.value = null
+  }
+}
 function activateNumeric(name) {
   if (suppressNumericFocus.value) {
     suppressNumericFocus.value = false
@@ -270,8 +283,8 @@ const updateMap = (name, map, id, value) => {
       <div class="form-head"><div><span class="eyebrow">TRIP COMPLETED</span><strong>OPTIONAL DETAILS</strong></div><button class="text-action" type="button" @click="emit('action','skip-fare')">Skip</button></div>
       <label class="fare-main-field">Trip fare <div class="input-unit"><b>₹</b><input :value="fare" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('fare')" aria-label="Trip fare" @click="activateNumeric('fare')"></div></label>
       <div class="fare-optional-actions">
-        <button type="button" class="optional-toggle" :aria-expanded="tollDetailsOpen" @click="tollDetailsOpen = !tollDetailsOpen; if (tollDetailsOpen) activateNumeric('trip-toll')">{{ tollDetailsOpen ? '− Toll' : '+ Toll' }}</button>
-        <button type="button" class="optional-toggle" :aria-expanded="parkingDetailsOpen" @click="parkingDetailsOpen = !parkingDetailsOpen; if (parkingDetailsOpen) activateNumeric('trip-parking')">{{ parkingDetailsOpen ? '− Parking' : '+ Parking' }}</button>
+        <button type="button" class="optional-toggle" :aria-expanded="tollDetailsOpen" @click="toggleFareOptional('toll')">{{ tollDetailsOpen ? '− Toll' : '+ Toll' }}</button>
+        <button type="button" class="optional-toggle" :aria-expanded="parkingDetailsOpen" @click="toggleFareOptional('parking')">{{ parkingDetailsOpen ? '− Parking' : '+ Parking' }}</button>
       </div>
       <div v-if="tollDetailsOpen" class="fare-optional-field">
         <label>Toll <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="tripToll" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('trip-toll')" aria-label="Toll" @click="activateNumeric('trip-toll')"></div></label>
