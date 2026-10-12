@@ -13,10 +13,6 @@ import { deriveWorkCockpitState, WORK_COCKPIT_STATES } from '../application/work
 import WorkContextForm from '../components/work/WorkContextForm.vue'
 
 const store = useShiftTripStore()
-const MovementTraceService = WorkRuntimePorts.movementTrace
-const NativeGpsService = WorkRuntimePorts.nativeGps
-const KfeRideNotificationService = WorkRuntimePorts.rideNotifications
-const AndroidOverlay = WorkRuntimePorts.androidOverlay
 const fuel = useFuelStore()
 const nativeAndroid = Capacitor.getPlatform() === 'android'
 const backgroundLocationPermission = ref(null)
@@ -308,18 +304,18 @@ async function refreshLiveMovementKm() {
 
   if (nativeAndroid) {
     try {
-      tracePoints = (await NativeGpsService.readTrace(traceOwnerId))
+      tracePoints = (await WorkRuntimePorts.nativeGps.readTrace(traceOwnerId))
         .filter(point => point?.eventType === expectedEvent)
     } catch (_) {}
   }
 
   if (tracePoints.length < 2) {
-    const session = MovementTraceService.getActiveSession()
+    const session = WorkRuntimePorts.movementTrace.getActiveSession()
     const matchesCurrentMovement = active.value
       ? Boolean(currentTrip?.id) && session?.entityType === 'TRIP' && session.entityId === currentTrip.id && session.profile === 'PASSENGER_RIDE'
       : session?.entityType === 'SHIFT' && session.entityId === store.shift?.id && session.profile === 'DEAD_LEG'
     if (matchesCurrentMovement) {
-      tracePoints = MovementTraceService.getPoints()
+      tracePoints = WorkRuntimePorts.movementTrace.getPoints()
     }
   }
 
@@ -407,7 +403,7 @@ async function targetRefresh() {
 
 async function syncOverlay() {
   if (!store.isOnline || document.visibilityState === 'visible') {
-    await AndroidOverlay.hide().catch(() => {})
+    await WorkRuntimePorts.androidOverlay.hide().catch(() => {})
     return
   }
 
@@ -436,14 +432,14 @@ async function syncOverlay() {
     trip: store.trip,
     trips,
     pendingFareId: recoveredPendingFareId,
-    notificationPhase: KfeRideNotificationService.getState()?.phase || '',
+    notificationPhase: WorkRuntimePorts.rideNotifications.getState()?.phase || '',
     target: targetValue.value == null ? '—' : money(targetValue.value),
     targetProgress: targetProgress.value,
     liveKm,
     revenue
   })
 
-  await AndroidOverlay.update({
+  await WorkRuntimePorts.androidOverlay.update({
     theme: document.documentElement.getAttribute('data-kfe-theme') === 'night' ? 'dark' : 'light',
     shift: store.shift ? { id: store.shift.id } : null,
     trip: store.trip ? {
@@ -506,8 +502,8 @@ async function submitStart() {
     startAck.value = false
     gapChoice.value = ''
     await targetRefresh()
-    await KfeRideNotificationService.goOnline().catch(() => {})
-    await AndroidOverlay.prepare().catch(() => {})
+    await WorkRuntimePorts.rideNotifications.goOnline().catch(() => {})
+    await WorkRuntimePorts.androidOverlay.prepare().catch(() => {})
     await syncOverlay()
     notify('Online — shift started.')
   } catch (e) {
@@ -523,14 +519,14 @@ async function goPickup(nativeTripId = '') {
   liveMovementStatus.value = 'ACQUIRING GPS'
   busy.value = true
   try {
-    const traceSession = MovementTraceService.getActiveSession()
+    const traceSession = WorkRuntimePorts.movementTrace.getActiveSession()
     const alreadyTrackingDeadLeg = traceSession?.entityType === 'SHIFT' &&
       traceSession.entityId === store.shift?.id &&
       traceSession.eventType === 'DEAD_MOVEMENT_TRACE' &&
       traceSession.profile === 'DEAD_LEG'
     if (!alreadyTrackingDeadLeg) {
       try {
-        traceRunning = MovementTraceService.start({
+        traceRunning = WorkRuntimePorts.movementTrace.start({
           entityType: 'SHIFT',
           entityId: store.shift?.id,
           eventType: 'DEAD_MOVEMENT_TRACE',
@@ -539,17 +535,17 @@ async function goPickup(nativeTripId = '') {
       } catch (_) { traceRunning = false }
     }
     if (nativeAndroid && store.shift?.id) {
-      await NativeGpsService.start(store.shift.id, 'DEAD_MOVEMENT_TRACE')
+      await WorkRuntimePorts.nativeGps.start(store.shift.id, 'DEAD_MOVEMENT_TRACE', 'SHIFT')
     }
 
     const result = await store.beginPickup(operator.value || store.defaultOperator, nativeTripId || null)
     if (!result?.ok) {
-      if (traceRunning) MovementTraceService.reset()
+      if (traceRunning) WorkRuntimePorts.movementTrace.reset()
       traceRunning = false
       fail(result?.reason || 'Could not start pickup.')
       return false
     }
-    await KfeRideNotificationService.beginPickup(store.trip?.id || '').catch(() => {})
+    await WorkRuntimePorts.rideNotifications.beginPickup(store.trip?.id || '').catch(() => {})
     await syncOverlay()
     // Keep state transitions silent; the cockpit/action label reflects the new state.
     return true
@@ -567,22 +563,22 @@ async function startTrip() {
     const result = await store.startRide()
     if (!result?.ok) { fail(result?.reason || 'Trip could not be started.'); return false }
     if (traceRunning) {
-      MovementTraceService.reset()
+      WorkRuntimePorts.movementTrace.reset()
       traceRunning = false
     }
     let nativeTraceStarted = false
     if (nativeAndroid && store.trip?.id) {
-      nativeTraceStarted = await NativeGpsService.start(store.trip.id, 'PASSENGER_RIDE_TRACE')
+      nativeTraceStarted = await WorkRuntimePorts.nativeGps.start(store.trip.id, 'PASSENGER_RIDE_TRACE')
     }
     if (!nativeTraceStarted && store.trip?.id) {
-      traceRunning = MovementTraceService.start({
+      traceRunning = WorkRuntimePorts.movementTrace.start({
         entityType: 'TRIP',
         entityId: store.trip.id,
         eventType: 'PASSENGER_RIDE_TRACE',
         profile: 'PASSENGER_RIDE'
       })
     }
-    await KfeRideNotificationService.startRide().catch(() => {})
+    await WorkRuntimePorts.rideNotifications.startRide().catch(() => {})
     await syncOverlay()
     // Keep state transitions silent; the cockpit/action label reflects the new state.
     return true
@@ -598,13 +594,13 @@ async function endTrip() {
     const tripId = store.trip.id
     if (!await store.endTrip()) { fail('Trip could not be completed.'); return false }
     if (nativeAndroid) {
-      await NativeGpsService.stop(tripId)
-      if (store.shift?.id) await NativeGpsService.start(store.shift.id, 'DEAD_MOVEMENT_TRACE')
+      await WorkRuntimePorts.nativeGps.stop(tripId)
+      if (store.shift?.id) await WorkRuntimePorts.nativeGps.start(store.shift.id, 'DEAD_MOVEMENT_TRACE')
     }
     // Return browser tracking to the shift owner whenever it was the active
     // capture path (all web runs and Android when native location is unavailable).
-    if (traceRunning) MovementTraceService.reset()
-    traceRunning = MovementTraceService.start({
+    if (traceRunning) WorkRuntimePorts.movementTrace.reset()
+    traceRunning = WorkRuntimePorts.movementTrace.start({
       entityType: 'SHIFT',
       entityId: store.shift?.id,
       eventType: 'DEAD_MOVEMENT_TRACE',
@@ -626,7 +622,7 @@ async function endTrip() {
       tripParkingTreatment.value = String(draft.values.tripParkingTreatment || 'INCLUDED')
     }
     restoringDrafts = false
-    await KfeRideNotificationService.completeRide().catch(() => {})
+    await WorkRuntimePorts.rideNotifications.completeRide().catch(() => {})
     await syncOverlay()
     // Keep state transitions silent; the cockpit/action label reflects the new state.
     return true
@@ -666,8 +662,8 @@ async function saveFare(fromNative = false) {
     tripParking.value = ''
     tripTollTreatment.value = 'INCLUDED'
     tripParkingTreatment.value = 'INCLUDED'
-    if (!fromNative) await AndroidOverlay.fareSaved().catch(() => {})
-    if (!fromNative) await KfeRideNotificationService.clearPendingAction().catch(() => {})
+    if (!fromNative) await WorkRuntimePorts.androidOverlay.fareSaved().catch(() => {})
+    if (!fromNative) await WorkRuntimePorts.rideNotifications.clearPendingAction().catch(() => {})
     await targetRefresh()
     await syncOverlay()
     notify('Trip details saved.')
@@ -691,8 +687,8 @@ async function skipTripDetails() {
     tripParking.value = ''
     tripTollTreatment.value = 'INCLUDED'
     tripParkingTreatment.value = 'INCLUDED'
-    await AndroidOverlay.fareSaved().catch(() => {})
-    await KfeRideNotificationService.clearPendingAction().catch(() => {})
+    await WorkRuntimePorts.androidOverlay.fareSaved().catch(() => {})
+    await WorkRuntimePorts.rideNotifications.clearPendingAction().catch(() => {})
     await syncOverlay()
     notify('Trip details skipped.')
   } finally {
@@ -732,8 +728,8 @@ async function saveCancel(fromNative = false) {
     if (!result?.ok) { fail(result?.reason || 'Cancellation could not be saved.'); return false }
     await clearCommittedDraft(cancellationDraft)
     cancelOpen.value = false
-    if (!fromNative) await AndroidOverlay.cancelSaved().catch(() => {})
-    if (!fromNative) await KfeRideNotificationService.clearPendingAction().catch(() => {})
+    if (!fromNative) await WorkRuntimePorts.androidOverlay.cancelSaved().catch(() => {})
+    if (!fromNative) await WorkRuntimePorts.rideNotifications.clearPendingAction().catch(() => {})
     await syncOverlay()
     notify('Trip cancelled.')
     return true
@@ -909,11 +905,11 @@ async function finishEnd() {
     // canonical SHIFT snapshots. Never end the shift with dead-movement points
     // stranded only in the app-private JSONL file.
     if (nativeAndroid && endingShiftId) {
-      await NativeGpsService.stop(endingShiftId)
+      await WorkRuntimePorts.nativeGps.stop(endingShiftId)
       try {
-        await NativeGpsService.syncTrace(endingShiftId, { entityType: 'SHIFT' })
+        await WorkRuntimePorts.nativeGps.syncTrace(endingShiftId, { entityType: 'SHIFT' })
       } catch (traceError) {
-        await NativeGpsService.start(endingShiftId, 'DEAD_MOVEMENT_TRACE')
+        await WorkRuntimePorts.nativeGps.start(endingShiftId, 'DEAD_MOVEMENT_TRACE')
         throw new Error('Shift GPS trace could not be saved locally. Tracking was restarted; retry ending the shift.')
       }
     }
@@ -929,17 +925,17 @@ async function finishEnd() {
       trips
     })
     if (!result?.ok) {
-      if (nativeAndroid && endingShiftId) await NativeGpsService.start(endingShiftId, 'DEAD_MOVEMENT_TRACE')
+      if (nativeAndroid && endingShiftId) await WorkRuntimePorts.nativeGps.start(endingShiftId, 'DEAD_MOVEMENT_TRACE')
       return fail(result.reason)
     }
-    if (nativeAndroid && endingShiftId) await NativeGpsService.stop(endingShiftId)
+    if (nativeAndroid && endingShiftId) await WorkRuntimePorts.nativeGps.stop(endingShiftId)
     if (traceRunning) {
-      MovementTraceService.reset()
+      WorkRuntimePorts.movementTrace.reset()
       traceRunning = false
     }
     await clearCommittedDraft(endDraft)
     endStage.value = 'ENDED'
-    await KfeRideNotificationService.clear().catch(() => {})
+    await WorkRuntimePorts.rideNotifications.clear().catch(() => {})
     notify('Shift ended.')
   } finally {
     endBusy.value = false
@@ -1038,11 +1034,11 @@ const handleNativeAction = async event => {
 async function processNativeEvent(event) {
   try {
     const saved = await handleNativeAction(event)
-    if (saved && event?.eventId) await KfeRideNotificationService.acknowledgeAction(event.eventId, String(event?.stage || ''), String(event?.tripId || ''))
-    else if (!saved && event?.eventId) await KfeRideNotificationService.recordActionFailure(event.eventId, 'Work did not confirm the action was saved')
+    if (saved && event?.eventId) await WorkRuntimePorts.rideNotifications.acknowledgeAction(event.eventId, String(event?.stage || ''), String(event?.tripId || ''))
+    else if (!saved && event?.eventId) await WorkRuntimePorts.rideNotifications.recordActionFailure(event.eventId, 'Work did not confirm the action was saved')
     return saved
   } catch (error) {
-    if (event?.eventId) await KfeRideNotificationService.recordActionFailure(event.eventId, error?.message || error)
+    if (event?.eventId) await WorkRuntimePorts.rideNotifications.recordActionFailure(event.eventId, error?.message || error)
     return false
   }
 }
@@ -1055,7 +1051,7 @@ onMounted(async () => {
   await WorkService.recoverNativeGpsTraces().catch(error => console.warn('KFE native GPS trace recovery deferred:', error))
   // Restore only the exact persisted movement owner that still matches the
   // canonical active shift/trip. A stale trace must never be attached to a new one.
-  const savedTrace = MovementTraceService.getActiveSession()
+  const savedTrace = WorkRuntimePorts.movementTrace.getActiveSession()
   if (store.isOnline && savedTrace) {
     const shiftDeadLeg = savedTrace.entityType === 'SHIFT' &&
       savedTrace.entityId === store.shift?.id &&
@@ -1066,7 +1062,7 @@ onMounted(async () => {
       savedTrace.eventType === 'PASSENGER_RIDE_TRACE' &&
       savedTrace.profile === 'PASSENGER_RIDE' && active.value
     if (shiftDeadLeg || passengerRide) {
-      traceRunning = await MovementTraceService.resumePersisted(savedTrace)
+      traceRunning = await WorkRuntimePorts.movementTrace.resumePersisted(savedTrace)
     }
   }
   // Reassert the canonical native GPS owner on WebView/process recovery.
@@ -1074,7 +1070,7 @@ onMounted(async () => {
   if (store.isOnline && nativeAndroid && store.shift?.id) {
     const nativeOwnerId = active.value && store.trip?.id ? store.trip.id : store.shift.id
     const nativeEventType = active.value ? 'PASSENGER_RIDE_TRACE' : 'DEAD_MOVEMENT_TRACE'
-    await NativeGpsService.start(nativeOwnerId, nativeEventType)
+    await WorkRuntimePorts.nativeGps.start(nativeOwnerId, nativeEventType, active.value && store.trip?.id ? 'TRIP' : 'SHIFT')
   }
   startWorkflowId.value = (await WorkDraftService.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || WorkDraftService.newWorkflowId()
   fuelWorkflowId.value = (await WorkDraftService.latestWorkflow('work-fuel', 'RECORD_FUEL'))?.workflowId || WorkDraftService.newWorkflowId()
@@ -1129,23 +1125,23 @@ onMounted(async () => {
   void refreshLiveMovementKm()
   liveKmRefreshTimer = setInterval(() => { void refreshLiveMovementKm() }, 3000)
 
-  notificationListener = await KfeRideNotificationService.addListener(
+  notificationListener = await WorkRuntimePorts.rideNotifications.addListener(
     'rideNotificationAction',
     event => { void processNativeEvent(event) }
   )
 
   // Replay every native event in durable creation order. Failed/unconfirmed
   // writes remain pending for the next launch instead of being silently lost.
-  const pendingEvents = await KfeRideNotificationService.consumePendingActions()
+  const pendingEvents = await WorkRuntimePorts.rideNotifications.consumePendingActions()
   for (const event of pendingEvents) await processNativeEvent(event)
 
   // Compatibility for events created by app versions before the SQLite ledger.
   if (!pendingEvents.length) {
-    const pending = await KfeRideNotificationService.consumePendingAction()
-    if (pending && await handleNativeAction(pending)) await KfeRideNotificationService.clearPendingAction()
+    const pending = await WorkRuntimePorts.rideNotifications.consumePendingAction()
+    if (pending && await handleNativeAction(pending)) await WorkRuntimePorts.rideNotifications.clearPendingAction()
   }
 
-  await KfeRideNotificationService.resume().catch(() => {})
+  await WorkRuntimePorts.rideNotifications.resume().catch(() => {})
   await syncOverlay()
 })
 
@@ -1157,9 +1153,9 @@ onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', refreshGpsPermissionOnResume)
   if (timer) clearInterval(timer)
   if (liveKmRefreshTimer) clearInterval(liveKmRefreshTimer)
-  if (traceRunning) MovementTraceService.pause()
+  if (traceRunning) WorkRuntimePorts.movementTrace.pause()
   notificationListener?.remove?.()
-  void AndroidOverlay.hide().catch(() => {})
+  void WorkRuntimePorts.androidOverlay.hide().catch(() => {})
 })
 </script>
 
