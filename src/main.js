@@ -109,7 +109,14 @@ void (async () => {
       // Startup invokes the first attempt after canonical storage initialization.
     }
 
-    void StartupService.startApplication().then(() => { retryCloudBackupOnStartup?.() }).catch(error => console.error('KFE application startup failed:', error))
+    window.__KFE_STARTUP_READY__ = false
+    void StartupService.startApplication().then(() => {
+      window.__KFE_STARTUP_READY__ = true
+      retryCloudBackupOnStartup?.()
+    }).catch(error => {
+      window.__KFE_STARTUP_ERROR__ = error?.message || String(error)
+      console.error('KFE application startup failed:', error)
+    })
   } catch (error) {
     console.error('KFE post-mount infrastructure bootstrap failed:', error)
   }
