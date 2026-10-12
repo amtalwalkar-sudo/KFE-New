@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
 import { BACKUP_FORMAT, BACKUP_FORMAT_VERSION, CANONICAL_BACKUP_STORES, BackupService } from '../application/backup/backupService.js'
 import { createDropboxBackupProvider, DROPBOX_DEFAULT_BACKUP_PATH } from '../infrastructure/backup/dropboxBackupProvider.js'
 const emptyStores = Object.fromEntries(CANONICAL_BACKUP_STORES.map(store => [store, []]))
 const emptyCounts = Object.fromEntries(CANONICAL_BACKUP_STORES.map(store => [store, 0]))
 const valid = { format: BACKUP_FORMAT, formatVersion: BACKUP_FORMAT_VERSION, source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: 13 }, exportedAt: '2026-09-16T00:00:00.000Z', stores: emptyStores }
+const backupSource = fs.readFileSync('src/application/backup/backupService.js', 'utf8'); assert.match(backupSource, /dbVersion: 15/, 'New backups identify the current canonical IndexedDB schema.'); assert.match(backupSource, /\[12, 13, 15\]/, 'Current backups and supported historical schema versions remain readable.');
 assert.equal(CANONICAL_BACKUP_STORES.length, 21); assert.equal(CANONICAL_BACKUP_STORES.includes('driver_collected_data'), false); assert.deepEqual(BackupService.getBackupSummary(valid), { exportedAt: valid.exportedAt, totalRecords: 0, counts: emptyCounts }); assert.deepEqual(BackupService.validateBackup(valid), valid)
 const currentSchema = { ...valid, source: { ...valid.source, dbVersion: 15 } }; assert.deepEqual(BackupService.validateBackup(currentSchema), currentSchema)
 const withRecord = structuredClone(valid); withRecord.stores.vehicles = [{ id: 'vehicle-1', registrationNumber: 'TEST-01' }]; assert.equal(BackupService.getBackupSummary(withRecord).totalRecords, 1)
