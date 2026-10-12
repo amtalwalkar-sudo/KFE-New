@@ -1975,6 +1975,7 @@ table th,table td{border-color:var(--kfe-ui-border)}
 
 /* Fuel entry viewport contract: fit fields and the in-flow keypad without scrolling. */
 .work-canonical .form-fuel .form-card{
+  display:grid!important;
   grid-template-columns:repeat(2,minmax(0,1fr));
   padding:8px;
   gap:6px;
