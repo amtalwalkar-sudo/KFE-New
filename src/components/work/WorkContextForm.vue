@@ -131,6 +131,12 @@ function activateNumeric(name) {
     return
   }
   activeNumericField.value = name
+  // The keypad lives in normal flow, so bring it into the scrollable viewport
+  // without pinning it over the fixed swipe action or bottom navigation.
+  nextTick(() => {
+    document.querySelector('.work-context-form .kfe-work-number-pad')
+      ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  })
 }
 function emitNumeric(name, value) {
   const events = {
