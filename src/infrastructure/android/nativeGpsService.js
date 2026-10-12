@@ -38,11 +38,12 @@ export const NativeGpsService = {
       return []
     }
   },
-  async syncTrace(tripId) {
+  async syncTrace(tripId, { entityType = 'TRIP' } = {}) {
+    if (!['TRIP', 'SHIFT'].includes(entityType)) throw new Error('Native GPS trace owner must be TRIP or SHIFT.')
     const points = await this.readTrace(tripId)
     if (!points.length) return { imported: 0, points: [] }
 
-    const existing = await LocationRepository.forEntity('TRIP', tripId)
+    const existing = await LocationRepository.forEntity(entityType, tripId)
     const existingKeys = new Set(existing.map(dedupeKey))
     let imported = 0
     const ordered = [...points].sort((a, b) => new Date(a.capturedAt) - new Date(b.capturedAt))
@@ -59,7 +60,7 @@ export const NativeGpsService = {
       const key = dedupeKey(normalized)
       if (existingKeys.has(key)) continue
       await LocationRepository.recordTracePoint({
-        entityType: 'TRIP',
+        entityType,
         entityId: tripId,
         eventType: point?.eventType || 'PASSENGER_RIDE_TRACE',
         ...normalized
