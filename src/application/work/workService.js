@@ -211,5 +211,11 @@ export const WorkService = Object.freeze({
     }
     const result = await completeEndShift(completionData); checkpoint(); return result
   },
-  async recordFuel(data) { const result = await recordFuelEntry(data); checkpoint(); return result },
+  async recordFuel(data) {
+    const result = await recordFuelEntry(data)
+    // Fuel persistence is the user-visible commit. Local backup is best-effort
+    // follow-up work and must not hold the form open after the record is saved.
+    void Promise.resolve().then(() => checkpoint()).catch(() => {})
+    return result
+  },
 })
