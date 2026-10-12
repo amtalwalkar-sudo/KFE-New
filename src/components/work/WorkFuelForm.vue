@@ -21,20 +21,20 @@ const emit = defineEmits(['action', 'focus-numeric', 'update:fuel-partial'])
     </label>
     <label>Odometer
       <div class="input-unit">
-        <input :value="fuelOdo" type="text" inputmode="none" readonly autocomplete="off" aria-label="Odometer" @focus="emit('focus-numeric', 'fuel-odo')" @click="emit('action', 'focus-fuel-odo')">
+        <input :value="fuelOdo" type="text" inputmode="none" readonly autocomplete="off" aria-label="Odometer" @focus="emit('focus-numeric', 'fuel-odo')" @click="emit('focus-numeric', 'fuel-odo')">
         <b>km</b>
       </div>
     </label>
     <label>Price / kg
       <div class="input-unit">
         <b>₹</b>
-        <input :value="fuelPrice" type="text" inputmode="none" readonly autocomplete="off" aria-label="Price / kg" @focus="emit('focus-numeric', 'fuel-price')" @click="emit('action', 'focus-fuel-price')">
+        <input :value="fuelPrice" type="text" inputmode="none" readonly autocomplete="off" aria-label="Price / kg" @focus="emit('focus-numeric', 'fuel-price')" @click="emit('focus-numeric', 'fuel-price')">
       </div>
     </label>
     <label>Amount
       <div class="input-unit">
         <b>₹</b>
-        <input :value="fuelAmount" type="text" inputmode="none" readonly autocomplete="off" aria-label="Amount" @focus="emit('focus-numeric', 'fuel-amount')" @click="emit('action', 'focus-fuel-amount')">
+        <input :value="fuelAmount" type="text" inputmode="none" readonly autocomplete="off" aria-label="Amount" @focus="emit('focus-numeric', 'fuel-amount')" @click="emit('focus-numeric', 'fuel-amount')">
       </div>
     </label>
     <div class="calculated-value fuel-calculated-value state-tone-info" aria-live="polite">
