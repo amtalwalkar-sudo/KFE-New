@@ -27,6 +27,13 @@ assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /liveMovementKm\.value\.toFixed\(1\)/)
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /NativeGpsService\.readTrace\(traceOwnerId\)/)
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /LIVE GPS ESTIMATE/)
+assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /MovementTraceService\.resumePersisted\(savedTrace\)/, 'A persisted browser trace is resumed only after its canonical owner is matched.')
+assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /NativeGpsService\.start\(store\.trip\.id, 'PASSENGER_RIDE_TRACE'\)/, 'Passenger GPS switches to the canonical trip owner when a ride starts.')
+assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /NativeGpsService\.start\(store\.shift\.id, 'DEAD_MOVEMENT_TRACE'\)/, 'Dead-leg GPS is restored under the canonical shift owner between rides.')
+assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /NativeGpsService\.start\(nativeOwnerId, nativeEventType\)/, 'Native GPS owner is reasserted after WebView recovery.')
+assert.match(fs.readFileSync(path.join(process.cwd(), 'src/infrastructure/location/movementTraceService.js'), 'utf8'), /async resumePersisted\(expectedSession\)/, 'Browser trace recovery validates persisted ownership and hydrates durable points.')
+assert.match(fs.readFileSync(path.join(process.cwd(), 'src/infrastructure/location/movementTraceService.js'), 'utf8'), /pause\(\) \{[\s\S]*retain the durable owner marker/, 'Leaving Work pauses the browser watch without deleting its recovery marker.')
+
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /MovementReconciliationQueue\.matchLiveTrace/)
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/application/work/movementReconciliationQueue.js'), 'utf8'), /reconciledAfterReconnect/)
 assert.doesNotMatch(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /liveKm: '0\.0 km'/)
