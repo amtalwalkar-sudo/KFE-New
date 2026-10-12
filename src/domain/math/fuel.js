@@ -32,6 +32,7 @@ export function calculateRollingFuelCostPerKm(logs = [], windowSize = 10) {
     groups.get(vehicleId).push(row)
   }
 
+  const fullTankRecords = [...groups.values()].flat().filter(fullTank).sort((a, b) => new Date(timestamp(a)) - new Date(timestamp(b)) || Number(a.odometer) - Number(b.odometer))
   const intervals = []
   for (const [vehicleId, vehicleRows] of groups) {
     const ordered = vehicleRows.slice().sort((a, b) =>
@@ -80,7 +81,7 @@ export function calculateRollingFuelCostPerKm(logs = [], windowSize = 10) {
     averageMileageKm: observations.length ? totalKm / observations.length : NaN,
     observations,
     completedIntervals: intervals.length,
-    baselineFullTank: observations.length ? intervals[0] : null,
-    latestFullTank: observations.length ? intervals.at(-1) : null
+    baselineFullTank: fullTankRecords[0] || null,
+    latestFullTank: fullTankRecords.at(-1) || null
   }
 }
