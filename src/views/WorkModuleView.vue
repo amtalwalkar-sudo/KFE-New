@@ -1132,7 +1132,7 @@ onBeforeUnmount(() => {
   </header>
 
   <main class="work-main contextual-form-shell">
-    <section v-if="!pendingFare && (store.isOnline || cancelOpen || fuelOpen || endOpen)" class="operational-state state-tone-info work-persistent-metrics" aria-label="Live distance and workflow timer">
+    <section v-if="!pendingFare && !fuelOpen && (store.isOnline || cancelOpen || endOpen)" class="operational-state state-tone-info work-persistent-metrics" aria-label="Live distance and workflow timer">
       <div class="work-live-metrics">
         <div class="live-km-readout" aria-live="polite"><span>{{ liveMovementLabel || 'LIVE KM' }}</span><strong>{{ liveMovementKm.toFixed(1) }} km</strong><small>{{ liveMovementStatus }}</small></div>
         <div class="trip-timer-block"><span class="timer-label">{{ stateTimerLabel }}</span><strong class="trip-timer" aria-live="polite">{{ active ? tripTimer : stateTimer }}</strong></div>
@@ -1190,7 +1190,7 @@ onBeforeUnmount(() => {
       @action="handleContextAction"
     />
 
-    <section v-if="!store.isOnline" class="offline-state state-tone-neutral" :class="{ 'contextual-context': startOpen || fuelOpen }">
+    <section v-if="!store.isOnline && !fuelOpen" class="offline-state state-tone-neutral" :class="{ 'contextual-context': startOpen }">
       <div class="state-mark" aria-hidden="true">○</div><span class="eyebrow">CURRENT STATE</span><strong>OFFLINE</strong><p>Shift is not active.</p><button v-if="!startOpen && !fuelOpen" class="primary-action" @click="openStart">START SHIFT</button>
     </section>
 
