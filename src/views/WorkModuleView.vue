@@ -223,6 +223,10 @@ const tripTimer = computed(() => {
   return started ? formatElapsed(clock.value - started) : '00:00:00'
 })
 const stateTimerLabel = computed(() => {
+  if (endOpen.value) return 'SHIFT REVIEW TIME'
+  if (cancelOpen.value) return 'CANCELLATION TIME'
+  if (fuelOpen.value) return 'FUEL ENTRY TIME'
+  if (pendingFare.value) return 'FARE ENTRY TIME'
   if (cockpit.value.state === WORK_COCKPIT_STATES.TRIP_ACTIVE) return 'TRIP TIME'
   if (cockpit.value.state === WORK_COCKPIT_STATES.GOING_TO_PICKUP || cockpit.value.state === WORK_COCKPIT_STATES.READY_FOR_TRIP) return 'PICKUP TIME'
   return 'READY TIME'
@@ -1066,29 +1070,14 @@ onBeforeUnmount(() => {
         <div class="progress-track"><i :style="{width:targetProgress+'%'}"/></div>
       </section>
 
-      <section v-if="cockpit.state===WORK_COCKPIT_STATES.READY" class="operational-state state-tone-info">
-        <strong>READY FOR NEXT PICKUP</strong>
-        <label class="operator-compact"><span>Operator</span><select v-model="operator"><option v-for="item in store.operators" :key="item">{{ item }}</option></select></label>
+      <section v-if="!endOpen" class="operational-state state-tone-info work-persistent-metrics">
         <div class="work-live-metrics">
-          <div class="live-km-readout" aria-live="polite"><span>{{ liveMovementLabel }}</span><strong>{{ liveMovementKm.toFixed(1) }} km</strong><small>{{ liveMovementStatus }}</small></div>
-          <div class="trip-timer-block"><span class="timer-label">{{ stateTimerLabel }}</span><strong class="trip-timer" aria-live="polite">{{ stateTimer }}</strong></div>
+          <div class="live-km-readout" aria-live="polite"><span>{{ liveMovementLabel || 'LIVE KM' }}</span><strong>{{ liveMovementKm.toFixed(1) }} km</strong><small>{{ liveMovementStatus }}</small></div>
+          <div class="trip-timer-block"><span class="timer-label">{{ stateTimerLabel }}</span><strong class="trip-timer" aria-live="polite">{{ active.value ? tripTimer : stateTimer }}</strong></div>
         </div>
-      </section>
-
-      <section v-else-if="cockpit.state===WORK_COCKPIT_STATES.READY_FOR_TRIP || cockpit.state===WORK_COCKPIT_STATES.GOING_TO_PICKUP" class="operational-state state-tone-info">
-        <span class="eyebrow">GOING TO PICKUP</span><strong>{{ store.trip?.operator || 'TRIP' }}</strong>
-        <div class="work-live-metrics">
-          <div class="live-km-readout" aria-live="polite"><span>{{ liveMovementLabel }}</span><strong>{{ liveMovementKm.toFixed(1) }} km</strong><small>{{ liveMovementStatus }}</small></div>
-          <div class="trip-timer-block"><span class="timer-label">{{ stateTimerLabel }}</span><strong class="trip-timer" aria-live="polite">{{ stateTimer }}</strong></div>
-        </div>
-      </section>
-
-      <section v-else-if="cockpit.state===WORK_COCKPIT_STATES.TRIP_ACTIVE" class="operational-state trip-timer-state state-tone-success">
-        <span class="eyebrow">TRIP ACTIVE</span><strong>{{ store.trip?.operator || 'TRIP' }}</strong>
-        <div class="work-live-metrics">
-          <div class="live-km-readout" aria-live="polite"><span>{{ liveMovementLabel }}</span><strong>{{ liveMovementKm.toFixed(1) }} km</strong><small>{{ liveMovementStatus }}</small></div>
-          <div class="trip-timer-block"><span class="timer-label">{{ stateTimerLabel }}</span><strong class="trip-timer" aria-live="polite">{{ tripTimer }}</strong></div>
-        </div>
+        <div v-if="cockpit.state===WORK_COCKPIT_STATES.READY" class="operator-compact"><label><span>Operator</span><select v-model="operator"><option v-for="item in store.operators" :key="item">{{ item }}</option></select></label></div>
+        <div v-else-if="cockpit.state===WORK_COCKPIT_STATES.GOING_TO_PICKUP || cockpit.state===WORK_COCKPIT_STATES.READY_FOR_TRIP"><span class="eyebrow">GOING TO PICKUP</span><strong>{{ store.trip?.operator || 'TRIP' }}</strong></div>
+        <div v-else-if="cockpit.state===WORK_COCKPIT_STATES.TRIP_ACTIVE"><span class="eyebrow">TRIP ACTIVE</span><strong>{{ store.trip?.operator || 'TRIP' }}</strong></div>
       </section>
 
       <section v-if="!fuelOpen && !endOpen && !cancelOpen" class="action-instrument work-fixed-action">
@@ -1157,3 +1146,13 @@ onBeforeUnmount(() => {
 </template>
 
 
+
+
+<style scoped>
+.work-persistent-metrics{position:sticky;top:0;z-index:12;display:grid;gap:6px;padding:8px;border:1px solid var(--kfe-ui-border);border-radius:12px;background:var(--kfe-ui-surface);box-shadow:0 4px 12px color-mix(in srgb,var(--kfe-ui-text) 8%,transparent)}
+.work-persistent-metrics .work-live-metrics{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+.work-persistent-metrics .live-km-readout,.work-persistent-metrics .trip-timer-block{display:grid;gap:2px;min-width:0}
+.work-persistent-metrics .live-km-readout>span,.work-persistent-metrics .timer-label{font-size:.65rem;font-weight:900;letter-spacing:.06em}
+.work-persistent-metrics .live-km-readout>strong,.work-persistent-metrics .trip-timer{font-size:1.15rem;font-variant-numeric:tabular-nums;line-height:1.2}
+.work-persistent-metrics small{font-size:.58rem;line-height:1.15}
+</style>
