@@ -50,7 +50,7 @@ for (const figure of figures) {
 
 assert.match(overlay, /KfeOverlay\.update\(\{ state: JSON\.stringify\(state\) \}\)/)
 assert.doesNotMatch(overlay, /deriveAuthoritativeBreakEven|calculateEmi|PerformanceService/)
-assert.match(work, /AndroidOverlay\.update\(/)
+assert.match(work, /WorkRuntimePorts\.androidOverlay\.update\(/)
 assert.match(work, /deriveWorkCockpitState\(/)
 assert.match(performanceService, /subscribeCanonicalDataChanges/)
 assert.match(performanceService, /PerformanceRepository\.getSnapshot/)
