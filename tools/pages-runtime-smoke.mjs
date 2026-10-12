@@ -45,8 +45,8 @@ const finishSetupIfEnabled = async page => {
 
 const routes = [
   { path: '/', selector: '.work-canonical', label: 'Work' },
-  { path: '/timeline', selector: '.blank-workspace', label: 'blank Timeline' },
-  { path: '/performance', selector: '.blank-workspace', label: 'blank Performance' },
+  { path: '/timeline', selector: '.kfe-blank-workspace', label: 'blank Timeline' },
+  { path: '/performance', selector: '.kfe-blank-workspace', label: 'blank Performance' },
   { path: '/admin', selector: '.kfe-settings-page', label: 'Admin Settings' },
 ]
 
