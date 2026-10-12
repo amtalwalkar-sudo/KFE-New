@@ -69,7 +69,14 @@ const run = async page => page.evaluate(async () => {
   })
   if (retry.id !== first.id) throw new Error('Duplicate clientMutationId did not return the original record.')
   if ((await count('fuel_logs')) !== 1) throw new Error('Idempotent retry created a duplicate fuel record.')
-  if ((await count('pending_mutations')) !== 1) throw new Error('Idempotent retry created a duplicate mutation.')
+  // Scope the idempotency assertion to this fuel entity. App bootstrap or other
+  // independent canonical work may legitimately enqueue unrelated mutations.
+  const fuelMutationsAfterRetry = (await getAll('pending_mutations')).filter(
+    mutation => mutation.entityType === 'FUEL' && mutation.entityId === first.id && mutation.action === 'CREATE'
+  )
+  if (fuelMutationsAfterRetry.length !== 1) {
+    throw new Error('Idempotent retry should create exactly one mutation for the fuel entity; found ' + fuelMutationsAfterRetry.length)
+  }
 
   const db = await openCanonicalDB()
   await new Promise(resolve => {
@@ -105,7 +112,7 @@ const run = async page => page.evaluate(async () => {
   if (!restored.some(row => row.id === first.id)) throw new Error('Canonical state reconstruction did not restore the repository record.')
 
   return { initialId: first.id, retryReturnedId: retry.id, fuelCountAfterRetry: 1,
-    pendingMutationCountAfterRetry: 1, interruptedWriteAbsent: true, staleMutationStatus: recovered.status,
+    fuelMutationCountAfterRetry: fuelMutationsAfterRetry.length, interruptedWriteAbsent: true, staleMutationStatus: recovered.status,
     restoredIds: restored.map(row => row.id) }
 })
 let browser
