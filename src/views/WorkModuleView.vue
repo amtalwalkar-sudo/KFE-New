@@ -1070,10 +1070,10 @@ onBeforeUnmount(() => {
         <div class="progress-track"><i :style="{width:targetProgress+'%'}"/></div>
       </section>
 
-      <section v-if="!endOpen" class="operational-state state-tone-info work-persistent-metrics">
+      <section class="operational-state state-tone-info work-persistent-metrics">
         <div class="work-live-metrics">
           <div class="live-km-readout" aria-live="polite"><span>{{ liveMovementLabel || 'LIVE KM' }}</span><strong>{{ liveMovementKm.toFixed(1) }} km</strong><small>{{ liveMovementStatus }}</small></div>
-          <div class="trip-timer-block"><span class="timer-label">{{ stateTimerLabel }}</span><strong class="trip-timer" aria-live="polite">{{ active.value ? tripTimer : stateTimer }}</strong></div>
+          <div class="trip-timer-block"><span class="timer-label">{{ stateTimerLabel }}</span><strong class="trip-timer" aria-live="polite">{{ active ? tripTimer : stateTimer }}</strong></div>
         </div>
         <div v-if="cockpit.state===WORK_COCKPIT_STATES.READY" class="operator-compact"><label><span>Operator</span><select v-model="operator"><option v-for="item in store.operators" :key="item">{{ item }}</option></select></label></div>
         <div v-else-if="cockpit.state===WORK_COCKPIT_STATES.GOING_TO_PICKUP || cockpit.state===WORK_COCKPIT_STATES.READY_FOR_TRIP"><span class="eyebrow">GOING TO PICKUP</span><strong>{{ store.trip?.operator || 'TRIP' }}</strong></div>
