@@ -567,7 +567,7 @@ async function startTrip() {
     }
     let nativeTraceStarted = false
     if (nativeAndroid && store.trip?.id) {
-      nativeTraceStarted = await WorkRuntimePorts.nativeGps.start(store.trip.id, 'PASSENGER_RIDE_TRACE')
+      nativeTraceStarted = await WorkRuntimePorts.nativeGps.start(store.trip.id, 'PASSENGER_RIDE_TRACE', 'TRIP')
     }
     if (!nativeTraceStarted && store.trip?.id) {
       traceRunning = WorkRuntimePorts.movementTrace.start({
