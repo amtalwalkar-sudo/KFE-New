@@ -231,7 +231,17 @@ const stateTimerLabel = computed(() => {
   if (cockpit.value.state === WORK_COCKPIT_STATES.GOING_TO_PICKUP || cockpit.value.state === WORK_COCKPIT_STATES.READY_FOR_TRIP) return 'PICKUP TIME'
   return 'READY TIME'
 })
+const workflowStepKey = computed(() => {
+  if (endOpen.value) return 'SHIFT_REVIEW'
+  if (cancelOpen.value) return 'CANCELLATION'
+  if (fuelOpen.value) return 'FUEL_ENTRY'
+  if (pendingFare.value) return 'FARE_ENTRY'
+  return cockpit.value.state
+})
+const workflowStepStartedAt = ref(Date.now())
+watch(workflowStepKey, () => { workflowStepStartedAt.value = Date.now() }, { immediate: true })
 const stateTimerStartAt = computed(() => {
+  if (endOpen.value || cancelOpen.value || fuelOpen.value || pendingFare.value) return workflowStepStartedAt.value
   if (cockpit.value.state === WORK_COCKPIT_STATES.TRIP_ACTIVE) return cockpit.value.tripStartAt
   if (cockpit.value.state === WORK_COCKPIT_STATES.GOING_TO_PICKUP || cockpit.value.state === WORK_COCKPIT_STATES.READY_FOR_TRIP) {
     return Date.parse(store.trip?.createdAt || store.trip?.updatedAt || '') || clock.value
