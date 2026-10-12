@@ -374,124 +374,42 @@ try {
   assert(state.shifts.length === 1 && state.shifts[0].status === 'COMPLETED' && Number(state.shifts[0].endOdometer) === 1100 && Number(state.shifts[0].revenue) === 900, 'FORMS.END_SHIFT sequence failed')
   evidence.push({ id: 'FORMS.END_SHIFT_SEQUENCE', result: 'PASS', expected: 'close -> reconciliation -> review -> confirm -> ended, viewport-safe' })
 
-  // Route controls: navigation must land on the requested module and render it.
-  for (const [label, path, selector] of [['NAV.WORK','/','.work-canonical'],['NAV.TIMELINE','/timeline','.timeline'],['NAV.PERFORMANCE','/performance','.performance-page'],['NAV.ADMIN','/admin','.admin-page']]) {
+  // Frozen workspace contract: Timeline and Performance are intentionally blank.
+  // Admin is Settings-only; do not reintroduce retired data-entry/period-control screens.
+  for (const [label, path, selector] of [
+    ['NAV.WORK', '/', '.work-canonical'],
+    ['NAV.TIMELINE', '/timeline', '.kfe-blank-workspace'],
+    ['NAV.PERFORMANCE', '/performance', '.kfe-blank-workspace'],
+    ['NAV.ADMIN', '/admin', '.kfe-settings-page'],
+  ]) {
     await page.goto(new URL(path, base).href, { waitUntil: 'domcontentloaded', timeout: 30000 })
     await page.locator(selector).waitFor({ state: 'attached', timeout: 30000 })
-    evidence.push({ id: label, result: 'PASS', expected: 'route renders requested module', persisted: { route: path } })
+    evidence.push({ id: label, result: 'PASS', expected: 'route renders the current frozen module', persisted: { route: path } })
   }
 
-
-  // Contract 14: Timeline period controls must change the authoritative viewing range
-  // without mutating business records.
-  await reset(page)
   await page.goto(new URL('timeline', base).href, { waitUntil: 'domcontentloaded' })
-  await page.locator('.timeline').waitFor()
-  const timelineDbBefore = await db(page, ['shifts','trips','fuel_logs'])
-  for (const [label, expected] of [['Day','day'],['Personal','personal'],['Week','week'],['Month','month']]) {
-    await page.getByRole('button', { name: label, exact: true }).click()
-    await page.locator('.slider button.active').filter({ hasText: label }).waitFor()
-    const periodState = await page.locator('.slider button.active').innerText()
-    assert(periodState === label, `TIMELINE.${label} period control did not activate`)
-  }
-  await page.getByRole('button', { name: 'Today', exact: true }).click()
-  assert((await page.locator('.slider button.active').innerText()) === 'Day', 'TIMELINE.TODAY did not return to Day view')
-  const timelineDbAfter = await db(page, ['shifts','trips','fuel_logs'])
-  assert(JSON.stringify(timelineDbBefore) === JSON.stringify(timelineDbAfter), 'Timeline view controls mutated business records')
-  evidence.push({ id: 'TIMELINE.PERIOD_CONTROLS', result: 'PASS', expected: 'Day/Personal/Week/Month/Today change view only; no business mutation' })
+  await page.locator('.kfe-blank-workspace-surface').waitFor({ state: 'attached' })
+  assert(await page.locator('.kfe-blank-workspace').isVisible(), 'Timeline blank workspace is not visible')
+  assert(await page.locator('.timeline, .period, .slider').count() === 0, 'Timeline unexpectedly rendered retired data/period controls')
+  evidence.push({ id: 'TIMELINE.INTENTIONALLY_BLANK', result: 'PASS', expected: 'blank workspace with no retired timeline controls' })
 
-  // Contract 15: Timeline previous/next controls must move the displayed period.
-  const beforeMove = await page.locator('.period strong').innerText()
-  await page.getByRole('button', { name: 'Next', exact: true }).click()
-  await page.locator('.period strong').waitFor()
-  const afterMove = await page.locator('.period strong').innerText()
-  assert(afterMove !== beforeMove, 'TIMELINE.NEXT did not move the period')
-  await page.getByRole('button', { name: 'Previous', exact: true }).click()
-  const restoredMove = await page.locator('.period strong').innerText()
-  assert(restoredMove === beforeMove, 'TIMELINE.PREVIOUS did not restore the prior period')
-  evidence.push({ id: 'TIMELINE.PERIOD_NAVIGATION', result: 'PASS', expected: 'Next advances and Previous reverses the displayed period' })
-
-  // Contract 16: Timeline trip quick-edit must persist the authoritative trip edit.
-  await reset(page)
-  await page.getByRole('button', { name: 'START SHIFT', exact: true }).click()
-  await enterKfeNumber('Current vehicle odometer', '1000')
-  await page.getByRole('checkbox', { name: /current vehicle odometer/i }).check()
-  await page.getByRole('button', { name: 'CONFIRM & GO ONLINE', exact: true }).click()
-  await swipeAction(); await page.getByRole('button', { name: 'START TRIP', exact: true }).waitFor()
-  await swipeAction(); await page.getByRole('button', { name: 'END TRIP', exact: true }).waitFor()
-  await swipeAction(); await page.getByText('TRIP COMPLETED', { exact: true }).waitFor()
-  await enterKfeNumber('Trip fare', '800', { action: 'TYPE' })
-  await page.getByRole('button', { name: 'OK', exact: true }).click()
-  await page.getByText('Trip details saved.', { exact: true }).waitFor()
-  await page.goto(new URL('timeline', base).href, { waitUntil: 'domcontentloaded' })
-  await page.locator('.timeline').waitFor()
-  await page.getByRole('button', { name: 'Edit trip', exact: true }).click()
-  const editorFare = page.getByRole('textbox', { name: 'Fare (₹)' })
-  await editorFare.click()
-  await page.getByRole('button', { name: 'C', exact: true }).click()
-  await page.getByRole('button', { name: '9', exact: true }).click()
-  await page.getByRole('button', { name: '0', exact: true }).click()
-  await page.getByRole('button', { name: '0', exact: true }).click()
-  await page.getByRole('button', { name: 'DONE', exact: true }).click()
-  await page.getByRole('button', { name: 'Save', exact: true }).click()
-  state = await db(page, ['trips'])
-  assert(state.trips.length === 1 && Number(state.trips[0].revenue) === 900, 'TIMELINE.EDIT_TRIP did not persist fare 900')
-  evidence.push({ id: 'TIMELINE.EDIT_TRIP', result: 'PASS', expected: 'edited completed trip revenue persists as 900' })
-
-  // Contract 18: Performance period controls must update the selected period without
-  // mutating business data.
-  await reset(page)
   await page.goto(new URL('performance', base).href, { waitUntil: 'domcontentloaded' })
-  await page.locator('.performance-page').waitFor()
-  const performanceDbBefore = await db(page, ['shifts','trips','fuel_logs'])
-  for (const label of ['DAY','WEEK','MONTH']) {
-    await page.getByRole('button', { name: label, exact: true }).click()
-    await page.locator('.pp-period button.active').filter({ hasText: label }).waitFor()
-  }
-  const performanceBeforeNav = await page.locator('.pp-period-nav span').innerText()
-  await page.getByRole('button', { name: 'Previous period', exact: true }).click()
-  const performanceAfterNav = await page.locator('.pp-period-nav span').innerText()
-  assert(performanceAfterNav !== performanceBeforeNav, 'PERFORMANCE.PREVIOUS did not move period')
-  await page.getByRole('button', { name: 'Next period', exact: true }).click()
-  assert((await page.locator('.pp-period-nav span').innerText()) === performanceBeforeNav, 'PERFORMANCE.NEXT did not restore period')
-  await page.getByRole('button', { name: 'Today', exact: true }).click()
-  await page.locator('.pp-period button.active').filter({ hasText: 'DAY' }).waitFor()
-  const performanceDbAfter = await db(page, ['shifts','trips','fuel_logs'])
-  assert(JSON.stringify(performanceDbBefore) === JSON.stringify(performanceDbAfter), 'Performance view controls mutated business records')
-  evidence.push({ id: 'PERFORMANCE.PERIOD_CONTROLS', result: 'PASS', expected: 'Day/Week/Month/Today/previous/next change view only' })
+  await page.locator('.kfe-blank-workspace-surface').waitFor({ state: 'attached' })
+  assert(await page.locator('.kfe-blank-workspace').isVisible(), 'Performance blank workspace is not visible')
+  assert(await page.locator('.performance-page, .pp-period, .pp-period-nav').count() === 0, 'Performance unexpectedly rendered retired metrics/period controls')
+  evidence.push({ id: 'PERFORMANCE.INTENTIONALLY_BLANK', result: 'PASS', expected: 'blank workspace with no retired performance controls' })
 
-  // Contract 19: Application Settings is dark-only; keep the notification switch interactive
-  // and expose every master/settings navigation target.
-  await reset(page)
   await page.goto(new URL('admin', base).href, { waitUntil: 'domcontentloaded' })
-  await page.locator('.admin-page').waitFor()
-  await page.locator('.settings-icon-button').click()
-  await page.locator('.settings-screen').waitFor({ state: 'visible' })
-  await page.locator('.settings-item').filter({ hasText: 'Application Settings' }).click()
-  const settingsText = await page.locator('.admin-page').innerText()
-  assert(settingsText.includes('Application Settings'), 'ADMIN application settings did not render')
-  assert(await page.getByRole('button', { name: /Light/, exact: true }).count() === 0, 'ADMIN Light theme option must be absent')
-  assert(await page.getByRole('button', { name: /Dark/, exact: true }).count() === 0, 'ADMIN Dark theme option must be absent')
-  assert(await page.getByRole('button', { name: /Auto/, exact: true }).count() === 0, 'ADMIN Auto theme option must be absent')
-  const notificationToggle = page.getByRole('switch')
-  assert(await notificationToggle.count() === 1, 'ADMIN notification ON/OFF switch did not render')
-  const notificationBefore = await notificationToggle.getAttribute('aria-checked')
-  await notificationToggle.click()
-  assert(await notificationToggle.getAttribute('aria-checked') !== notificationBefore, 'ADMIN notification switch did not toggle')
-  await notificationToggle.click()
-  assert(await notificationToggle.getAttribute('aria-checked') === notificationBefore, 'ADMIN notification switch could not restore its previous state')
-  await page.goto(new URL('admin', base).href, { waitUntil: 'domcontentloaded' })
-  await page.locator('.admin-page').waitFor()
-  const adminItems = ['Vehicle','Driver','Compliance','Maintenance','Loan','Prepayments','Ledger','Driver Monthly Target','Maintenance per KM']
-  for (const item of adminItems) {
-    const adminControl = page.locator('.admin-item').filter({ hasText: item }).first()
-    await adminControl.waitFor({ state: 'visible', timeout: 30000 })
-    await adminControl.click()
-    assert((await page.locator('.admin-page').innerText()).includes(item), 'ADMIN navigation did not open ' + item)
-    const back = page.getByRole('button', { name: '‹ Back', exact: true })
-    if (await back.count()) await back.click()
-  }
-  evidence.push({ id: 'ADMIN.SETTINGS_NAVIGATION', result: 'PASS', expected: 'theme selector absent, notification switch works, and all Admin master targets open' })
+  const settings = page.locator('.kfe-settings-page')
+  await settings.waitFor({ state: 'visible', timeout: 30000 })
+  assert(await settings.getByRole('heading', { name: 'Settings', exact: true }).count() === 1, 'Admin Settings heading did not render')
+  assert(await settings.getByRole('heading', { name: 'Backup & restore', exact: true }).count() === 1, 'Admin Backup & restore section did not render')
+  assert(await settings.getByRole('button', { name: 'Export backup', exact: true }).count() === 1, 'Admin Export backup action missing')
+  assert(await settings.getByRole('button', { name: 'Restore backup', exact: true }).count() === 1, 'Admin Restore backup action missing')
+  assert(await settings.getByRole('button', { name: 'Reset business data', exact: true }).count() === 1, 'Admin Reset business data action missing')
+  assert(await settings.getByText('Business Setup', { exact: true }).count() === 0, 'Retired Business Setup UI reappeared in Admin')
+  assert(await page.locator('.admin-page, .admin-item, .settings-screen').count() === 0, 'Retired Admin navigation UI reappeared')
+  evidence.push({ id: 'ADMIN.SETTINGS_ONLY', result: 'PASS', expected: 'canonical Settings with backup/restore/reset actions and no retired Admin masters' })
 
   assert(errors.length === 0, 'Semantic audit browser errors:\n' + errors.join('\n'))
   const result = { audit: 'semantic-control', rule: 'Each tested control must perform its documented business operation, persist the authoritative mutation, and propagate it where applicable.', total: evidence.length, pass: evidence.length, fail: 0, controls: evidence }
