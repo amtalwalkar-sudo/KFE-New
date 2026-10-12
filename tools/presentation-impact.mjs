@@ -51,19 +51,19 @@ async function walk(dir) {
 function extractGlobalStyleSources(source, file) {
   if (file.endsWith('.css')) return [source]
   if (!file.endsWith('.vue')) return []
-  return [...source.matchAll(/<style([^>]*)>([\\s\\S]*?)<\\/style>/gi)]
-    .filter((match) => !/\\bscoped\\b/i.test(match[1]))
+  return [...source.matchAll(/<style([^>]*)>([\s\S]*?)<\/style>/gi)]
+    .filter((match) => !/\bscoped\b/i.test(match[1]))
     .map((match) => match[2])
 }
 
 function extractSelectors(source) {
-  const clean = source.replace(/\/\\*[\\s\\S]*?\\*\//g, '')
+  const clean = source.replace(/\/\*[\s\S]*?\*\//g, '')
   const selectors = new Set()
-  for (const match of clean.matchAll(/([^{}]+)\\{[^{}]*\\}/g)) {
+  for (const match of clean.matchAll(/([^{}]+)\{[^{}]*\}/g)) {
     const header = match[1].trim()
     if (!header || header.startsWith('@')) continue
     for (const selector of header.split(',')) {
-      const normalized = selector.trim().replace(/\\s+/g, ' ')
+      const normalized = selector.trim().replace(/\s+/g, ' ')
       if (normalized) selectors.add(normalized)
     }
   }
@@ -71,8 +71,8 @@ function extractSelectors(source) {
 }
 
 function selectorTokens(selector) {
-  return new Set([...selector.matchAll(/\\.([_a-zA-Z][\\w-]*)|#([_a-zA-Z][\\w-]*)|\\[([_a-zA-Z][\\w-]*)/g)]
-    .map((match) => match[1] ? `.${match[1]}` : match[2] ? `#${match[2]}` : `[${match[3]}`))
+  return new Set([...selector.matchAll(/\.([_a-zA-Z][\w-]*)|#([_a-zA-Z][\w-]*)|\[([_a-zA-Z][\w-]*)/g)]
+    .map((match) => match[1] ? \`.\${match[1]}\` : match[2] ? \`#\${match[2]}\` : \`[\${match[3]}\`))
 }
 
 function importCandidates(specifier, fromFile) {
