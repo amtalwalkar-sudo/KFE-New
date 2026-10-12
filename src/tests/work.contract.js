@@ -64,6 +64,8 @@ assert.match(fs.readFileSync(path.join(root, 'android/app/src/main/java/com/kani
 assert.match(fs.readFileSync(path.join(root, 'src/application/work/workService.js'), 'utf8'), /async recoverNativeGpsTraces\(\)/, 'Work startup can reconcile persisted native traces left by a killed WebView.')
 assert.match(fs.readFileSync(path.join(root, 'src/infrastructure/android/nativeGpsService.js'), 'utf8'), /async listTraceOwners\(\)/, 'Native trace files can be inventoried after process death.')
 assert.match(fs.readFileSync(path.join(root, 'src/views/WorkModuleView.vue'), 'utf8'), /WorkService\.recoverNativeGpsTraces\(\)/, 'Work invokes native trace recovery during startup.')
+assert.match(fs.readFileSync(path.join(root, 'android/app/src/main/java/com/kanishka/pwa/KfeNativeGpsService.java'), 'utf8'), /point\.put\("entityType", entityType\)/, 'Native GPS trace files preserve canonical owner type.')
+assert.match(fs.readFileSync(path.join(root, 'android/app/src/main/java/com/kanishka/pwa/KfeNativeGpsPlugin.java'), 'utf8'), /listTraceOwners/, 'Native trace files can be inventoried after process death.')
 const workStyles = fs.readFileSync(path.join(root, 'src/styles/kfe-base-shell.css'), 'utf8')
 const reconciliationView = fs.readFileSync(path.join(root, 'src/components/ShiftReconciliationModal.vue'), 'utf8')
 assert.doesNotMatch(workView, /scrollIntoView\(\{ block: 'nearest', behavior: 'smooth' \}\)/, 'Opening fare entry must not auto-scroll the whole page when the compact form fits.')
