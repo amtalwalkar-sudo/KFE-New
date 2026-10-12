@@ -419,7 +419,7 @@ try {
   await swipeAction(); await page.getByRole('button', { name: 'START TRIP', exact: true }).waitFor()
   await swipeAction(); await page.getByRole('button', { name: 'END TRIP', exact: true }).waitFor()
   await swipeAction(); await page.getByText('TRIP COMPLETED', { exact: true }).waitFor()
-  await enterKfeNumber('Trip fare', '800')
+  await enterKfeNumber('Trip fare', '800', { action: 'TYPE' })
   await page.getByRole('button', { name: 'OK — SAVE TRIP', exact: true }).click()
   await page.getByText('Trip details saved.', { exact: true }).waitFor()
   await page.goto(new URL('timeline', base).href, { waitUntil: 'domcontentloaded' })
