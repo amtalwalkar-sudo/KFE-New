@@ -8,6 +8,10 @@ import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection, calc
 import { calculateFuelQuantity, validateFuelEntry } from '../domain/work/fuel.js'
 import { WorkService } from '../application/work/workService.js'
 import { WorkflowTimerService, WorkWorkflowSessionService } from '../application/work/workflowTimerService.js'
+const workViewSource = fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8')
+assert.doesNotMatch(workViewSource, /from ['"][^'"]*\/infrastructure\//, 'Work view must not import infrastructure adapters directly.')
+assert.doesNotMatch(workViewSource, /from ['"]@capacitor\/core['"]/, 'Work view must not depend directly on Capacitor.')
+assert.match(workViewSource, /WorkRuntimePorts\.platform\.getPlatform\(\)/, 'Platform identity must arrive through an application-facing port.')
 
 assert.equal(typeof WorkService.getTripGpsDistanceKm, 'function')
 const liveMovementFixture = WorkService.calculateLiveMovement([
