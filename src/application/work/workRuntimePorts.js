@@ -4,6 +4,7 @@ const requiredMethods = Object.freeze({
   rideNotifications: ['getState', 'goOnline', 'beginPickup', 'startRide', 'completeRide', 'clearPendingAction', 'clear', 'addListener', 'consumePendingActions', 'consumePendingAction', 'resume', 'acknowledgeAction', 'recordActionFailure'],
   androidOverlay: ['hide', 'update', 'prepare', 'fareSaved', 'cancelSaved'],
   routing: ['createRouter'],
+  platform: ['getPlatform'],
 })
 
 let configuredPorts = null
@@ -35,4 +36,5 @@ export const WorkRuntimePorts = Object.freeze({
   rideNotifications: createPortProxy('rideNotifications'),
   androidOverlay: createPortProxy('androidOverlay'),
   routing: createPortProxy('routing'),
+  platform: createPortProxy('platform'),
 })
