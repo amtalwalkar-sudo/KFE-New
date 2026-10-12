@@ -42,7 +42,7 @@ export const validateBackup = input => {
   }
   return backup
 }
-export const createBackup = async () => validateBackup({ format: BACKUP_FORMAT, formatVersion: BACKUP_FORMAT_VERSION, source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: 15 }, exportedAt: new Date().toISOString(), stores: await backupRepository.readCanonicalSnapshot() })
+export const createBackup = async () => validateBackup({ format: BACKUP_FORMAT, formatVersion: BACKUP_FORMAT_VERSION, source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: CANONICAL_DB_VERSION }, exportedAt: new Date().toISOString(), stores: await backupRepository.readCanonicalSnapshot() })
 export const serializeBackup = backup => JSON.stringify(validateBackup(backup), null, 2)
 export const getBackupSummary = backup => { const valid = validateBackup(backup); const counts = Object.fromEntries(CANONICAL_BACKUP_STORES.map(store => [store, valid.stores[store].length])); return { exportedAt: valid.exportedAt, totalRecords: Object.values(counts).reduce((sum, count) => sum + count, 0), counts } }
 export const saveLocalBackup = async backup => { const valid = validateBackup(backup); await backupRepository.saveLocalBackup(valid); return true }
