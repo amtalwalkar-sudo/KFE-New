@@ -6,6 +6,7 @@ import { completeEndShift } from './endShift.js'
 import { recordFuelEntry } from './fuel.js'
 import { validateShiftStartOdometer, validateFirstDayShiftStartOdometer, validateGapAllocation } from '../../domain/work/shift.js'
 import { calculateFuelQuantity, validateFuelEntry } from '../../domain/work/fuel.js'
+import { calculateRollingFuelCostPerKm } from '../../domain/math/fuel.js'
 import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } from '../../domain/work/trip.js'
 import { BackupService } from '../backup/backupService.js'
 import { MovementAccountingService, routeTrace } from '../../domain/movement/movementAccounting.js'
@@ -28,6 +29,8 @@ export const WorkService = Object.freeze({
   async getBusinessStartBaseline() { return ShiftTripRepository.getBusinessStartBaseline() },
   async getLastCompletedTrip() { return ShiftTripRepository.getLastCompletedTrip() },
   async getFuelLogs() { return FuelRepository.getAll() },
+  calculateFuelMetrics(logs = []) { return calculateRollingFuelCostPerKm(logs) },
+  async getFuelMetrics() { return calculateRollingFuelCostPerKm(await FuelRepository.getAll()) },
   async getLocations(entityType, entityId) { return LocationRepository.forEntity(entityType, entityId) },
   async previewMovementReconciliation({ shiftId, closingOdometer, trips = [] }) {
     const shift = await ShiftTripRepository.getActive()
