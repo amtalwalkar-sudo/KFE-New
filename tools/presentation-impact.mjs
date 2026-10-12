@@ -78,7 +78,7 @@ function selectorTokens(selector) {
 function importCandidates(specifier, fromFile) {
   if (!specifier.startsWith('.')) return []
   const base = path.resolve(path.dirname(fromFile), specifier)
-  return [base, `${base}.js`, `${base}.mjs`, `${base}.vue`, path.join(base, 'index.js')]
+  return [base, `${base}.js`, `${base}.mjs`, `${base}.vue`, `${base}.css`, path.join(base, 'index.js')]
 }
 
 const acknowledgeNative = process.argv.includes('--acknowledge-native-impact')
