@@ -1871,3 +1871,76 @@ table th,table td{border-color:var(--kfe-ui-border)}
     font-size: .76rem;
   }
 }
+
+
+/* Contextual forms need a single-line metrics strip so the form's primary action
+   remains inside the viewport, including the fuel form's required save action. */
+.work-canonical .work-main:has(.form-fare) .work-persistent-metrics,
+.work-canonical .work-main:has(.form-cancel) .work-persistent-metrics,
+.work-canonical .work-main:has(.form-fuel) .work-persistent-metrics,
+.work-canonical .work-main:has(.form-end) .work-persistent-metrics,
+.work-canonical .work-main:has(.form-start) .work-persistent-metrics {
+  padding: 4px 6px !important;
+  gap: 0 !important;
+}
+.work-canonical .work-main:has(.form-fare) .work-persistent-metrics .work-live-metrics,
+.work-canonical .work-main:has(.form-cancel) .work-persistent-metrics .work-live-metrics,
+.work-canonical .work-main:has(.form-fuel) .work-persistent-metrics .work-live-metrics,
+.work-canonical .work-main:has(.form-end) .work-persistent-metrics .work-live-metrics,
+.work-canonical .work-main:has(.form-start) .work-persistent-metrics .work-live-metrics {
+  gap: 6px !important;
+}
+.work-canonical .work-main:has(.form-fare) .work-persistent-metrics .live-km-readout,
+.work-canonical .work-main:has(.form-cancel) .work-persistent-metrics .live-km-readout,
+.work-canonical .work-main:has(.form-fuel) .work-persistent-metrics .live-km-readout,
+.work-canonical .work-main:has(.form-end) .work-persistent-metrics .live-km-readout,
+.work-canonical .work-main:has(.form-start) .work-persistent-metrics .live-km-readout {
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  gap: 4px !important;
+}
+.work-canonical .work-main:has(.form-fare) .work-persistent-metrics .trip-timer-block,
+.work-canonical .work-main:has(.form-cancel) .work-persistent-metrics .trip-timer-block,
+.work-canonical .work-main:has(.form-fuel) .work-persistent-metrics .trip-timer-block,
+.work-canonical .work-main:has(.form-end) .work-persistent-metrics .trip-timer-block,
+.work-canonical .work-main:has(.form-start) .work-persistent-metrics .trip-timer-block {
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  gap: 4px !important;
+}
+.work-canonical .work-main:has(.form-fare) .work-persistent-metrics small,
+.work-canonical .work-main:has(.form-cancel) .work-persistent-metrics small,
+.work-canonical .work-main:has(.form-fuel) .work-persistent-metrics small,
+.work-canonical .work-main:has(.form-end) .work-persistent-metrics small,
+.work-canonical .work-main:has(.form-start) .work-persistent-metrics small {
+  display: none !important;
+}
+.work-canonical .work-main:has(.form-fare) .work-persistent-metrics .live-km-readout > strong,
+.work-canonical .work-main:has(.form-fare) .work-persistent-metrics .trip-timer,
+.work-canonical .work-main:has(.form-cancel) .work-persistent-metrics .live-km-readout > strong,
+.work-canonical .work-main:has(.form-cancel) .work-persistent-metrics .trip-timer,
+.work-canonical .work-main:has(.form-fuel) .work-persistent-metrics .live-km-readout > strong,
+.work-canonical .work-main:has(.form-fuel) .work-persistent-metrics .trip-timer,
+.work-canonical .work-main:has(.form-end) .work-persistent-metrics .live-km-readout > strong,
+.work-canonical .work-main:has(.form-end) .work-persistent-metrics .trip-timer,
+.work-canonical .work-main:has(.form-start) .work-persistent-metrics .live-km-readout > strong,
+.work-canonical .work-main:has(.form-start) .work-persistent-metrics .trip-timer {
+  font-size: .95rem !important;
+  line-height: 1.1 !important;
+}
+.work-canonical .work-main:has(.form-fare) .work-persistent-metrics .live-km-readout > span,
+.work-canonical .work-main:has(.form-fare) .work-persistent-metrics .timer-label,
+.work-canonical .work-main:has(.form-cancel) .work-persistent-metrics .live-km-readout > span,
+.work-canonical .work-main:has(.form-cancel) .work-persistent-metrics .timer-label,
+.work-canonical .work-main:has(.form-fuel) .work-persistent-metrics .live-km-readout > span,
+.work-canonical .work-main:has(.form-fuel) .work-persistent-metrics .timer-label,
+.work-canonical .work-main:has(.form-end) .work-persistent-metrics .live-km-readout > span,
+.work-canonical .work-main:has(.form-end) .work-persistent-metrics .timer-label,
+.work-canonical .work-main:has(.form-start) .work-persistent-metrics .live-km-readout > span,
+.work-canonical .work-main:has(.form-start) .work-persistent-metrics .timer-label {
+  font-size: .58rem !important;
+}
