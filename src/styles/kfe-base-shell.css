@@ -192,6 +192,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .work-context-form{
   color:var(--kfe-ui-text)!important;
   min-width:0;
+  width:100%;
+  box-sizing:border-box;
+  animation:contextual-form-in 140ms ease-out;
 }
 .work-context-form .form-card{
   background:var(--kfe-ui-surface)!important;
@@ -248,14 +251,28 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   max-height:none!important;
   overflow:visible!important;
   margin:8px auto 18px!important;
+  padding:8px;
+  border-radius:16px;
+  overscroll-behavior:contain;
   background:var(--kfe-ui-surface-2)!important;
   color:var(--kfe-ui-text)!important;
   border:1px solid var(--kfe-ui-input-border,var(--kfe-ui-border))!important;
   box-shadow:none!important;
 }
+.work-context-form .kfe-work-number-pad__display{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:4px 6px 7px}
+.work-context-form .kfe-work-number-pad__display strong{font-size:1.35rem;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;min-width:0}
+.work-context-form .kfe-work-number-pad__grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.work-context-form .kfe-work-number-pad__grid button:nth-child(10){font-size:.68rem}
+.work-context-form .kfe-work-number-pad__actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-top:5px}
+.work-context-form .kfe-work-number-pad__actions button{font-size:.78rem}
+.work-context-form .kfe-work-number-pad__actions.fare-keypad-actions{grid-template-columns:minmax(0,1fr) auto}
+.work-context-form .kfe-work-number-pad__actions .fare-save-action{grid-column:auto;min-height:36px;font-size:.82rem;white-space:normal;line-height:1.15}
 .work-context-form .kfe-work-number-pad__grid button,
 .work-context-form .kfe-work-number-pad__actions button{
   min-height:44px;
+  border-radius:10px;
+  font-size:1rem;
+  font-weight:900;
   background:var(--kfe-ui-surface)!important;
   color:var(--kfe-ui-text)!important;
   border:1px solid var(--kfe-ui-input-border,var(--kfe-ui-border))!important;
