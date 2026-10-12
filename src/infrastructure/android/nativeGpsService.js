@@ -59,7 +59,7 @@ export const NativeGpsService = {
       return []
     }
   },
-  async syncTrace(tripId, { entityType = 'TRIP' } = {}) {
+  async syncTrace(tripId, { entityType = 'TRIP', clearAfterImport = true } = {}) {
     if (!['TRIP', 'SHIFT'].includes(entityType)) throw new Error('Native GPS trace owner must be TRIP or SHIFT.')
     const points = await this.readTrace(tripId)
     if (!points.length) return { imported: 0, points: [] }
@@ -90,7 +90,7 @@ export const NativeGpsService = {
       imported += 1
     }
 
-    try { const NativeGps = await getNativeGps(); await NativeGps.clearTrace({ tripId }) } catch (_) {}
+    if (clearAfterImport) { try { const NativeGps = await getNativeGps(); await NativeGps.clearTrace({ tripId }) } catch (_) {} }
     return { imported, points: ordered }
   }
 }
