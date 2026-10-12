@@ -12,6 +12,16 @@ const isAndroid = async () => {
 const dedupeKey = point => [point?.capturedAt, point?.latitude, point?.longitude].join('|')
 
 export const NativeGpsService = {
+  async getPermissionStatus() {
+    if (!(await isAndroid())) return { supported: false, locationAllowed: false, backgroundLocationAllowed: false }
+    try { const NativeGps = await getNativeGps(); return await NativeGps.getPermissionStatus() }
+    catch (error) { return { supported: true, locationAllowed: false, backgroundLocationAllowed: false, error: error?.message || String(error) } }
+  },
+  async openAppSettings() {
+    if (!(await isAndroid())) return false
+    try { const NativeGps = await getNativeGps(); await NativeGps.openAppSettings(); return true }
+    catch (error) { console.warn('Unable to open Android app settings.', error); return false }
+  },
   async start(tripId, eventType = "PASSENGER_RIDE_TRACE") {
     if (!(await isAndroid()) || !tripId) return false
     try {
