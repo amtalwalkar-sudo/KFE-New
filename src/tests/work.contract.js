@@ -7,7 +7,7 @@ import { validateEndShiftEntry } from '../domain/work/endShift.js'
 import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection, calculateTripRevenueDetail } from '../domain/work/trip.js'
 import { calculateFuelQuantity, validateFuelEntry } from '../domain/work/fuel.js'
 import { WorkService } from '../application/work/workService.js'
-import { WorkflowTimerService } from '../application/work/workflowTimerService.js'
+import { WorkflowTimerService, WorkWorkflowSessionService } from '../application/work/workflowTimerService.js'
 
 assert.equal(typeof WorkService.getTripGpsDistanceKm, 'function')
 const liveMovementFixture = WorkService.calculateLiveMovement([
@@ -58,6 +58,10 @@ try {
   assert.equal(WorkflowTimerService.enter('shift-1:FARE_ENTRY', 1000), 1000)
   assert.equal(WorkflowTimerService.enter('shift-1:FARE_ENTRY', 9000), 1000, 'Reloading the same workflow step must preserve its original start timestamp.')
   assert.equal(WorkflowTimerService.enter('shift-1:READY', 10000), 10000, 'Changing workflow step must start a new timer.')
+  assert.equal(WorkWorkflowSessionService.save({ form: 'fuel' }), true)
+  assert.deepEqual(WorkWorkflowSessionService.read(), { form: 'fuel' }, 'An interrupted context form is restored from the durable workflow session.')
+  assert.equal(WorkWorkflowSessionService.save(null), true)
+  assert.equal(WorkWorkflowSessionService.read(), null, 'Closing a form clears the durable UI session marker.')
 } finally {
   if (originalLocalStorage === undefined) delete globalThis.localStorage
   else globalThis.localStorage = originalLocalStorage
