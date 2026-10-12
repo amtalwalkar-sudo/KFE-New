@@ -6,7 +6,7 @@ import { useFuelStore } from '../stores/fuel.js'
 import { WorkService } from '../application/work/workService.js'
 import { MovementReconciliationQueue } from '../application/work/movementReconciliationQueue.js'
 import { WorkDraftService } from '../application/work/workDraftService.js'
-import { WorkflowTimerService } from '../application/work/workflowTimerService.js'
+import { WorkflowTimerService, WorkWorkflowSessionService } from '../application/work/workflowTimerService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { MovementTraceService, calculateTraceDistanceKm } from '../infrastructure/location/movementTraceService.js'
 import { NativeGpsService } from '../infrastructure/android/nativeGpsService.js'
@@ -21,6 +21,7 @@ const nativeAndroid = Capacitor.getPlatform() === 'android'
 const startWorkflowId = ref('')
 const fuelWorkflowId = ref('')
 let restoringDrafts = false
+let workflowTimerReady = false
 
 const startOdo = ref('')
 const startAck = ref(false)
@@ -233,6 +234,7 @@ const stateTimerLabel = computed(() => {
   return 'READY TIME'
 })
 const workflowStepKey = computed(() => {
+  if (startOpen.value) return 'START_SHIFT'
   if (endOpen.value) return 'SHIFT_REVIEW'
   if (cancelOpen.value) return 'CANCELLATION'
   if (fuelOpen.value) return 'FUEL_ENTRY'
@@ -247,8 +249,18 @@ const workflowTimerIdentity = computed(() => JSON.stringify({
 }))
 const workflowStepStartedAt = ref(Date.now())
 watch(workflowTimerIdentity, identity => {
+  if (!workflowTimerReady) return
   workflowStepStartedAt.value = WorkflowTimerService.enter(identity, Date.now())
 }, { immediate: true })
+watch([startOpen, fuelOpen, cancelOpen, endOpen, endStage], () => {
+  if (!workflowTimerReady) return
+  const session = endOpen.value ? { form: 'end', endStage: endStage.value }
+    : cancelOpen.value ? { form: 'cancel' }
+    : fuelOpen.value ? { form: 'fuel' }
+    : startOpen.value ? { form: 'start' }
+    : null
+  WorkWorkflowSessionService.save(session)
+})
 const stateTimerStartAt = computed(() => {
   if (endOpen.value || cancelOpen.value || fuelOpen.value || pendingFare.value) return workflowStepStartedAt.value
   if (cockpit.value.state === WORK_COCKPIT_STATES.TRIP_ACTIVE) return cockpit.value.tripStartAt
@@ -570,15 +582,16 @@ async function endTrip() {
     if (nativeAndroid) {
       await NativeGpsService.stop(tripId)
       if (store.shift?.id) await NativeGpsService.start(store.shift.id, 'DEAD_MOVEMENT_TRACE')
-    } else {
-      if (traceRunning) MovementTraceService.reset()
-      traceRunning = MovementTraceService.start({
-        entityType: 'SHIFT',
-        entityId: store.shift?.id,
-        eventType: 'DEAD_MOVEMENT_TRACE',
-        profile: 'DEAD_LEG'
-      })
     }
+    // Return browser tracking to the shift owner whenever it was the active
+    // capture path (all web runs and Android when native location is unavailable).
+    if (traceRunning) MovementTraceService.reset()
+    traceRunning = MovementTraceService.start({
+      entityType: 'SHIFT',
+      entityId: store.shift?.id,
+      eventType: 'DEAD_MOVEMENT_TRACE',
+      profile: 'DEAD_LEG'
+    })
     fareTripId.value = tripId
     restoringDrafts = true
     fare.value = ''
@@ -1037,6 +1050,34 @@ onMounted(async () => {
     }
     restoringDrafts = false
   }
+
+  // Restore an interrupted context form from its durable UI session marker.
+  // Canonical trip/shift records remain authoritative; invalid/stale forms are ignored.
+  const savedForm = WorkWorkflowSessionService.read()
+  if (!pendingFare.value && savedForm?.form === 'start' && !store.isOnline) {
+    await openStart()
+  } else if (!pendingFare.value && savedForm?.form === 'fuel') {
+    await toggleFuel()
+  } else if (!pendingFare.value && savedForm?.form === 'cancel' && store.isOnline &&
+    store.trip?.id && ['PICKUP', 'GOING_TO_PICKUP'].includes(store.trip?.tripStage)) {
+    cancelOpen.value = true
+    restoringDrafts = true
+    const draft = await restoreDraft(tripDraftIdentity('work-cancellation', 'CANCEL_TRIP'))
+    if (draft?.values) {
+      cancelReason.value = String(draft.values.cancelReason ?? '')
+      cancelFare.value = String(draft.values.cancelFare ?? '')
+    }
+    restoringDrafts = false
+  } else if (!pendingFare.value && savedForm?.form === 'end' && store.isOnline && !store.isTripActive) {
+    await openEnd()
+    if (savedForm.endStage && ['CLOSE', 'RECONCILE', 'REVIEW', 'CONFIRM'].includes(savedForm.endStage)) {
+      endStage.value = savedForm.endStage
+    }
+  } else if (savedForm) {
+    WorkWorkflowSessionService.save(null)
+  }
+  workflowTimerReady = true
+  workflowStepStartedAt.value = WorkflowTimerService.enter(workflowTimerIdentity.value, Date.now())
 
   clock.value = Date.now()
   timer = setInterval(() => { clock.value = Date.now() }, 1000)
