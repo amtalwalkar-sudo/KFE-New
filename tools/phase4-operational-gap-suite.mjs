@@ -283,7 +283,29 @@ try {
   assert(await fuelButton.count() === 1, 'A5 fuel control is missing')
   assert(await page.getByRole('button', { name: 'OFFLINE', exact: true }).count() === 1, 'A5 online/offline control is missing')
   await fuelButton.click()
+  const fuelForm = page.locator('.work-context-form.form-fuel .form-card')
+  await fuelForm.waitFor({ state: 'visible', timeout: 5000 })
   assert(await page.locator('.work-context-form.form-fuel').count() === 1, 'A5 offline fuel form did not open')
+  assert(await page.getByText('CNG REFUEL', { exact: true }).count() === 0, 'A5 duplicate fuel heading should be removed')
+  assert(await page.getByText('Partial fill', { exact: true }).count() === 1, 'A5 partial-fill control is missing')
+  await page.getByRole('textbox', { name: 'Odometer' }).click()
+  const fuelKeypad = page.locator('.work-context-form.form-fuel .kfe-work-number-pad')
+  await fuelKeypad.waitFor({ state: 'visible', timeout: 5000 })
+  const fuelViewport = await page.evaluate(() => {
+    const form = document.querySelector('.work-context-form.form-fuel .form-card')?.getBoundingClientRect()
+    const keypad = document.querySelector('.work-context-form.form-fuel .kfe-work-number-pad')?.getBoundingClientRect()
+    const header = document.querySelector('.work-header')?.getBoundingClientRect()
+    const nav = document.querySelector('.kfe-bottom-nav')?.getBoundingClientRect()
+    return {
+      formTop: form?.top ?? Infinity,
+      keypadBottom: keypad?.bottom ?? Infinity,
+      headerBottom: header?.bottom ?? 0,
+      navTop: nav?.top ?? window.innerHeight,
+      viewportHeight: window.innerHeight,
+    }
+  })
+  assert(fuelViewport.formTop >= fuelViewport.headerBottom, 'A5 fuel form overlaps the Work header')
+  assert(fuelViewport.keypadBottom <= fuelViewport.navTop && fuelViewport.keypadBottom <= fuelViewport.viewportHeight, 'A5 full fuel form and keypad do not fit above bottom navigation')
   await page.getByRole('button', { name: 'Close fuel form' }).click()
   assert(await page.locator('.work-context-form.form-fuel').count() === 0, 'A5 fuel form Close control did not close the form')
 
