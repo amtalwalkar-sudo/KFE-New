@@ -132,7 +132,7 @@ try {
       await button.click()
     }
     assert(await input.inputValue() === String(value), label + ' did not accept KFE keypad entry')
-    await pad.getByRole('button', { name: action === 'NEXT' ? 'NEXT →' : 'DONE', exact: true }).click()
+    if (action !== 'TYPE') await pad.getByRole('button', { name: action === 'NEXT' ? 'NEXT →' : 'DONE', exact: true }).click()
     if (action === 'NEXT') {
       assert(await pad.isVisible(), label + ' NEXT unexpectedly closed the KFE keypad')
       if (nextLabel) {
@@ -287,10 +287,10 @@ try {
   await assertInputContract(page.getByLabel('Trip fare', { exact: true }).first())
   assert(await page.getByRole('button', { name: '+ Toll', exact: true }).isVisible(), 'Toll must be collapsed behind an optional control')
   assert(await page.getByRole('button', { name: '+ Parking', exact: true }).isVisible(), 'Parking must be collapsed behind an optional control')
-  await enterKfeNumber('Trip fare', '800', { action: 'NEXT', nextLabel: 'Toll' })
+  await enterKfeNumber('Trip fare', '800', { action: 'TYPE' })
   await page.getByRole('button', { name: '+ Toll', exact: true }).click()
   await assertInputContract(page.getByLabel('Toll', { exact: true }).first())
-  await enterKfeNumber('Toll', '50', { action: 'NEXT', nextLabel: 'Parking' })
+  await enterKfeNumber('Toll', '50', { action: 'TYPE' })
   await page.getByRole('button', { name: '+ Parking', exact: true }).click()
   await assertInputContract(page.getByLabel('Parking', { exact: true }).first())
   await enterKfeNumber('Parking', '20')
