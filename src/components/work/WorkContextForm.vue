@@ -110,7 +110,13 @@ const activeNumeric = computed(() => {
 })
 const activeNumericDecimal = computed(() => activeNumeric.value?.decimal === true)
 onMounted(() => {
-  if (props.type === 'fare') activeNumericField.value = 'fare'
+  if (props.type === 'fare') {
+    activeNumericField.value = 'fare'
+    nextTick(() => {
+      document.querySelector('.work-context-form .kfe-work-number-pad')
+        ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    })
+  }
 })
 function toggleFareOptional(which) {
   const isToll = which === 'toll'
@@ -118,9 +124,8 @@ function toggleFareOptional(which) {
   if (isToll) tollDetailsOpen.value = opening
   else parkingDetailsOpen.value = opening
 
-  // The keypad is fixed over the lower viewport. Dismiss it when revealing
-  // optional fields so the newly expanded inputs and treatment checkbox remain
-  // visible and receive taps; the driver can tap an input to reopen the keypad.
+  // Dismiss the in-flow keypad while optional fields are expanded so the new
+  // inputs and treatment checkbox remain easy to reach.
   if (opening || activeNumericField.value === (isToll ? 'trip-toll' : 'trip-parking')) {
     activeNumericField.value = null
   }
