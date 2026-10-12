@@ -410,7 +410,7 @@ const updateMap = (name, map, id, value) => {
 .expense-row{display:grid;grid-template-columns:minmax(76px,.8fr) minmax(0,1.2fr);gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--kfe-ui-border)}
 .expense-trip-total{display:grid;gap:3px;font-size:.78rem;overflow-wrap:anywhere}.expense-trip-total strong{font-size:.9rem}
 .expense-shift-capture{display:grid;gap:6px;min-width:0}.expense-shift-capture>label:not(.check-row){font-size:.78rem;gap:3px}.expense-shift-capture .check-row{font-size:.68rem;gap:5px;line-height:1.1}.expense-shift-capture .check-row input{width:18px!important;height:18px}
-@media(max-width:380px){.expense-row{grid-template-columns:minmax(70px,.7fr) minmax(0,1.3fr);gap:6px}}
+@media(max-width:380px){.expense-row{grid-template-columns:minmax(70px,.7fr) minmax(0,1.3fr);gap:6px}.form-fare .fare-optional-field{grid-template-columns:minmax(0,1fr);align-items:stretch}.form-fare .fare-optional-field .check-row{min-height:36px}}
 @keyframes work-form-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 @media(max-width:640px){.form-card{padding:12px}.form-card{max-width:100%}}
 
