@@ -181,21 +181,18 @@ try {
     }
   })
 
-  const timelineText = await (async () => {
-    await page.goto(base + 'timeline', { waitUntil: 'domcontentloaded', timeout: 30000 })
-    await page.locator('.timeline').waitFor({ state: 'attached', timeout: 30000 })
-    await page.getByRole('button', { name: 'Today', exact: true }).click()
-    await page.getByText('Mumbai Pickup → Mumbai Drop', { exact: true }).waitFor({ state: 'visible', timeout: 30000 })
-    return page.locator('.timeline').innerText()
-  })()
-  assert(timelineText.includes('✓ Completed'), 'Timeline UI did not render the completed lifecycle state.')
-  assert(timelineText.includes('Cancelled'), 'Timeline UI did not render the cancelled lifecycle state.')
-  assert(timelineText.includes('Mumbai Pickup → Mumbai Drop'), 'Timeline UI lost the canonical completed trip identity.')
+  // Timeline and Performance are intentionally blank presentation workspaces
+  // while their domain services/read models remain covered above. Verify the
+  // current product scope instead of requiring retired UI components to mount.
+  await page.goto(base + 'timeline', { waitUntil: 'domcontentloaded', timeout: 30000 })
+  const timelineWorkspace = page.locator('.kfe-blank-workspace')
+  await timelineWorkspace.waitFor({ state: 'visible', timeout: 30000 })
+  assert(await page.locator('.timeline').count() === 0, 'Timeline unexpectedly mounted retired presentation during the blank-workspace phase.')
 
   await page.goto(base + 'performance', { waitUntil: 'domcontentloaded', timeout: 30000 })
-  await page.locator('.performance-page').waitFor({ state: 'attached', timeout: 30000 })
-  const performanceText = await page.locator('.performance-page').innerText()
-  assert(performanceText.includes('₹800'), 'Performance UI did not render the authoritative shift revenue.')
+  const performanceWorkspace = page.locator('.kfe-blank-workspace')
+  await performanceWorkspace.waitFor({ state: 'visible', timeout: 30000 })
+  assert(await page.locator('.performance-page').count() === 0, 'Performance unexpectedly mounted retired presentation during the blank-workspace phase.')
 
   console.log('PASS Phase 4 Item 4 Cross-surface lifecycle:', JSON.stringify(evidence))
 } catch (error) {
