@@ -20,6 +20,6 @@ const toolText = await readFile(tool, 'utf8')
 assert.match(toolText, /PROTECTED_PREFIXES/)
 assert.match(toolText, /PRESENTATION_PREFIXES/)
 assert.match(toolText, /CHANGE IMPACT WARNING/)
-assert.match(toolText, /process\.exitCode = 1/)
+assert.match(toolText, /process\.exitCode = 1/)\nassert.match(toolText, /extractSelectors/)\nassert.match(toolText, /GLOBAL CSS CASCADE CHECK/)\nassert.match(toolText, /selectorTokens/)
 
 console.log('Presentation impact contract passed: presentation changes have a permanent dependency-warning guard.')
