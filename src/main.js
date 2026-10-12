@@ -77,12 +77,31 @@ void (async () => {
 
     if (!window.__KFE_STARTUP_LIFECYCLE_BOUND__) {
       window.__KFE_STARTUP_LIFECYCLE_BOUND__ = true
+      // Dropbox backup requires the application data/credential context. The
+      // service worker cannot perform that upload by itself, so retry on app
+      // foreground, restored connectivity, and periodic foreground intervals.
+      const retryCloudBackup = () => {
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) return
+        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+        void CloudBackupLifecycle.maybeDailyCloudBackup().then(result => {
+          if (result?.status === 'failed') console.warn('KFE automatic Dropbox backup needs attention:', result.error)
+        }).catch(error => console.warn('KFE automatic Dropbox backup retry failed:', error))
+      }
+      window.addEventListener('online', retryCloudBackup)
+      window.addEventListener('pageshow', retryCloudBackup)
+      document.addEventListener('visibilitychange', retryCloudBackup)
+      // A foreground-only retry is intentional. It avoids promising an Android
+      // background upload that cannot read the WebView's canonical IndexedDB.
+      window.setInterval(retryCloudBackup, 6 * 60 * 60 * 1000)
       if (!Capacitor.isNativePlatform() && 'serviceWorker' in navigator) {
         navigator.serviceWorker.addEventListener('message', event => {
-          if (event.data?.type === 'kfe:daily-cloud-backup') {
-            void CloudBackupLifecycle.maybeDailyCloudBackup().catch(error => console.warn('KFE scheduled cloud backup failed:', error))
-          }
+          if (event.data?.type === 'kfe:daily-cloud-backup') retryCloudBackup()
         })
+      }
+      if (Capacitor.isNativePlatform()) {
+        void import('@capacitor/app').then(({ App }) => App.addListener('appStateChange', state => {
+          if (state.isActive) retryCloudBackup()
+        })).catch(error => console.warn('KFE app-resume backup hook unavailable:', error))
       }
     }
 
