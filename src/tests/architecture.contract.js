@@ -25,7 +25,7 @@ assertForbidden(['views', 'components', 'presentation'], [ /from\s+['"][^'"]*\/d
 const workViewPath = path.join(root, 'views/WorkModuleView.vue')
 if (fs.existsSync(workViewPath)) {
   const workView = fs.readFileSync(workViewPath, 'utf8')
-  if (/from\\s+['"][^'"]*\\/infrastructure\\//.test(workView)) violations.push('WorkModuleView.vue must use application runtime ports instead of importing infrastructure adapters directly.')
+  if (/from\s+['"][^'"]*\/infrastructure\//.test(workView)) violations.push('WorkModuleView.vue must use application runtime ports instead of importing infrastructure adapters directly.')
 }
 
 assertForbidden(['domain'], [ /from\s+['"][^'"]*\/repositories\//, /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/, /from\s+['"][^'"]*\/application\//, /from\s+['"][^'"]*\/infrastructure\//, /from\s+['"][^'"]*\/presentation\// ], 'Domain must remain independent of outer layers')
