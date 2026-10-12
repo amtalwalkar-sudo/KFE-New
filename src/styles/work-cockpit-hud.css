@@ -49,9 +49,9 @@
 .work-canonical .start-shift-gate label{gap:4px;font-size:.72rem;}
 .work-canonical .start-shift-gate .input-unit{min-height:42px;}
 .work-canonical .start-shift-gate .check-row{font-size:.7rem;}
-.work-canonical .start-shift-gate .gap-panel{padding:8px 10px;}
-.work-canonical .start-shift-gate .gap-panel p{margin:2px 0;font-size:.68rem;}
-.work-canonical .start-shift-gate .choice-row button{min-height:38px;padding:0 8px;font-size:.7rem;}
+ .work-canonical .start-shift-gate .gap-panel{padding:8px 10px;background:var(--kfe-ui-surface-2);color:var(--kfe-ui-text);border:1px solid var(--kfe-ui-border);border-radius:12px;}
+ .work-canonical .start-shift-gate .gap-panel .eyebrow{color:var(--kfe-ui-muted-strong,var(--kfe-muted-text));}.work-canonical .start-shift-gate .gap-panel strong{color:var(--kfe-ui-text);font-size:1.15rem}.work-canonical .start-shift-gate .gap-panel p{margin:2px 0;font-size:.68rem;color:var(--kfe-muted-text);}
+ .work-canonical .start-shift-gate .choice-row button{min-height:38px;padding:0 8px;font-size:.7rem;background:var(--kfe-ui-surface);color:var(--kfe-ui-text);border:1px solid var(--kfe-ui-input-border,var(--kfe-ui-border));border-radius:10px;font-weight:800}.work-canonical .start-shift-gate .choice-row button.selected{background:var(--kfe-ui-accent);color:var(--kfe-ui-on-accent);border-color:var(--kfe-ui-accent)}.work-canonical .start-shift-gate .choice-row button:focus-visible{outline:3px solid var(--kfe-ui-focus);outline-offset:2px}
 .work-canonical .start-shift-gate .primary-action{min-height:44px;}
 
 /* Frozen Work action zone: reserved above the shell bottom navigation. */
