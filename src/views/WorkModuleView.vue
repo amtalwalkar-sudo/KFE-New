@@ -91,7 +91,7 @@ const notify = text => {
   clearTimeout(notify.timer)
   notify.timer = setTimeout(() => {
     if (message.value === text) message.value = ''
-  }, 2400)
+  }, 8000)
 }
 const fail = text => { error.value = text; message.value = '' }
 
