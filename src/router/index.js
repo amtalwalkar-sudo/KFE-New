@@ -4,12 +4,16 @@ import WorkModuleView from '../views/WorkModuleView.vue'
 import PerformanceView from '../views/PerformanceView.vue'
 import AdminView from '../views/AdminView.vue'
 import TimelineView from '../views/TimelineView.vue'
+import BlankWorkspaceView from '../views/BlankWorkspaceView.vue'
+import AdminSettingsOnlyView from '../views/AdminSettingsOnlyView.vue'
 
 const routes = [
   { path: '/', name: 'Work', component: WorkModuleView },
-  { path: '/timeline', name: 'Timeline', component: TimelineView },
-  { path: '/performance', name: 'Performance', component: PerformanceView, meta: { shell: { header: false } } },
-  { path: '/admin', name: 'Admin', component: AdminView },
+  // Keep the existing domain views and services in the codebase, but do not
+  // mount their presentation while rebuilding the workspace one concept at a time.
+  { path: '/timeline', name: 'Timeline', component: BlankWorkspaceView },
+  { path: '/performance', name: 'Performance', component: BlankWorkspaceView, meta: { shell: { header: false } } },
+  { path: '/admin', name: 'Admin', component: AdminSettingsOnlyView },
 ]
 
 // Vite uses relative asset URLs so the same bundle works in Pages and Capacitor.

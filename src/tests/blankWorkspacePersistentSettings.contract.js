@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+
+const read = path => readFile(new URL(path, import.meta.url), 'utf8')
+const router = await read('../router/index.js')
+const blank = await read('../views/BlankWorkspaceView.vue')
+const settingsView = await read('../views/AdminSettingsOnlyView.vue')
+const settingsService = await read('../application/admin/persistentSettingsService.js')
+const settingsRepository = await read('../repositories/persistentSettingsRepository.js')
+const backupRepository = await read('../repositories/backupRepository.js')
+const settingsUi = await read('../components/KfeSettingsView.vue')
+
+assert.match(router, /path: '\/timeline', name: 'Timeline', component: BlankWorkspaceView/)
+assert.match(router, /path: '\/performance', name: 'Performance', component: BlankWorkspaceView/)
+assert.match(router, /path: '\/', name: 'Work', component: WorkModuleView/)
+assert.match(router, /path: '\/admin', name: 'Admin', component: AdminSettingsOnlyView/)
+assert.match(blank, /class="kfe-blank-workspace"/)
+assert.match(settingsView, /<KfeSettingsView :application="application"\s*\/>/)
+assert.match(settingsService, /complianceDefaults: 'complianceDefaults'/)
+assert.match(settingsService, /emiDefaults: 'emiDefaults'/)
+assert.match(settingsService, /PersistentSettingsRepository\.save\(key, values\)/)
+assert.doesNotMatch(settingsService, /utils\/indexedDB\.js/)
+assert.match(settingsRepository, /initializeCanonicalStorage\(\)/)
+assert.match(settingsRepository, /objectStore\('settings'\)\.put\(record\)/)
+assert.match(backupRepository, /stores\.filter\(storeName => storeName !== 'settings'\)/)
+assert.match(backupRepository, /'form_drafts'/)
+assert.match(settingsUi, /Saved configuration defaults will remain/)
+assert.match(settingsUi, /Reset business data/)
+
+console.log('Blank workspace and persistent settings contract: PASS')
