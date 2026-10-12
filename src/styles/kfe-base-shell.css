@@ -257,3 +257,18 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .work-context-form .kfe-work-number-pad{width:100%!important}
   .work-context-form .form-card{padding:10px!important;gap:9px!important}
 }
+
+.work-context-form :disabled{
+  opacity:1!important;
+  cursor:not-allowed!important;
+}
+.work-context-form :is(input,select,textarea)[aria-invalid="true"],
+.work-context-form :is(input,select,textarea):user-invalid{
+  border-color:var(--kfe-danger)!important;
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--kfe-danger) 24%,transparent)!important;
+}
+.work-context-form [role="alert"],
+.work-canonical .feedback.error,
+.work-canonical .error{color:var(--kfe-danger-readable,var(--kfe-danger))!important}
+.work-context-form [role="status"],
+.work-canonical .feedback.success{color:var(--kfe-success-readable,var(--kfe-success))!important}
