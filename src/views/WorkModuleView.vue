@@ -502,7 +502,7 @@ async function goPickup(nativeTripId = '') {
     }
     await KfeRideNotificationService.beginPickup(store.trip?.id || '').catch(() => {})
     await syncOverlay()
-    notify('Going to pickup.')
+    // Keep state transitions silent; the cockpit/action label reflects the new state.
     return true
   } finally {
     busy.value = false
@@ -523,7 +523,7 @@ async function startTrip() {
     if (!result?.ok) { fail(result?.reason || 'Trip could not be started.'); return false }
     await KfeRideNotificationService.startRide().catch(() => {})
     await syncOverlay()
-    notify('Trip active.')
+    // Keep state transitions silent; the cockpit/action label reflects the new state.
     return true
   } finally {
     busy.value = false
@@ -554,7 +554,7 @@ async function endTrip() {
     restoringDrafts = false
     await KfeRideNotificationService.completeRide().catch(() => {})
     await syncOverlay()
-    notify('Trip ended. Add optional details or skip.')
+    // Keep state transitions silent; the cockpit/action label reflects the new state.
     return true
   } catch (e) {
     fail(e?.message || 'Trip could not be completed. Please retry.')
