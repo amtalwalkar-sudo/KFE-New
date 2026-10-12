@@ -297,11 +297,12 @@ try {
   await enterKfeNumber('Toll', '50', { action: 'TYPE' })
   await page.getByRole('button', { name: '+ Parking', exact: true }).evaluate(button => button.click())
   await assertInputContract(page.getByLabel('Parking', { exact: true }).first())
-  await enterKfeNumber('Parking', '20')
+  await enterKfeNumber('Parking', '20', { action: 'TYPE' })
+  await page.getByRole('button', { name: 'OK', exact: true }).click()
   await page.getByText('Trip details saved.', { exact: true }).waitFor()
   state = await db(page, ['trips'])
   assert(state.trips.length === 1 && state.trips[0].status === 'COMPLETED' && Number(state.trips[0].revenue) === 800 && Number(state.trips[0].toll) === 50 && Number(state.trips[0].parking) === 20, 'FORMS.TRIP_DETAILS keyboard commit failed: ' + JSON.stringify(state.trips[0]))
-  evidence.push({ id: 'FORMS.TRIP_DETAILS_KEYBOARD', result: 'PASS', expected: 'END TRIP -> contextual fare; Enter advances all fields and final Enter saves' })
+  evidence.push({ id: 'FORMS.TRIP_DETAILS_KEYBOARD', result: 'PASS', expected: 'END TRIP -> contextual fare; optional fields expand and one OK saves' })
 
   // Cancellation: reason + fee are contextual, the fee uses the KFE numpad,
   // and DONE leaves the form ready to commit without a device keyboard.
