@@ -111,12 +111,9 @@ const activeNumeric = computed(() => {
 })
 const activeNumericDecimal = computed(() => activeNumeric.value?.decimal === true)
 onMounted(() => {
-  if (props.type === 'fare') {
-    activeNumericField.value = 'fare'
-    nextTick(() => {
-      numericPad.value?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-    })
-  }
+  // The fare keypad is rendered in-flow and the compact fare layout is sized
+  // to fit the viewport. Do not auto-scroll the whole page on form open.
+  if (props.type === 'fare') activeNumericField.value = 'fare'
 })
 function toggleFareOptional(which) {
   const isToll = which === 'toll'
@@ -136,11 +133,8 @@ function activateNumeric(name) {
     return
   }
   activeNumericField.value = name
-  // The keypad lives in normal flow, so bring it into the scrollable viewport
-  // without pinning it over the fixed swipe action or bottom navigation.
-  nextTick(() => {
-    numericPad.value?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-  })
+  // Keep the page position stable. The keypad remains in document flow and
+  // compact viewport styles reserve the fixed swipe/navigation zones.
 }
 function emitNumeric(name, value) {
   const events = {

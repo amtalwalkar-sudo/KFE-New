@@ -7,6 +7,7 @@ import { validateEndShiftEntry } from '../domain/work/endShift.js'
 import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection, calculateTripRevenueDetail } from '../domain/work/trip.js'
 import { calculateFuelQuantity, validateFuelEntry } from '../domain/work/fuel.js'
 import { WorkService } from '../application/work/workService.js'
+import { WorkflowTimerService, WorkWorkflowSessionService } from '../application/work/workflowTimerService.js'
 
 assert.equal(typeof WorkService.getTripGpsDistanceKm, 'function')
 const liveMovementFixture = WorkService.calculateLiveMovement([
@@ -26,6 +27,13 @@ assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /liveMovementKm\.value\.toFixed\(1\)/)
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /NativeGpsService\.readTrace\(traceOwnerId\)/)
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /LIVE GPS ESTIMATE/)
+assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /MovementTraceService\.resumePersisted\(savedTrace\)/, 'A persisted browser trace is resumed only after its canonical owner is matched.')
+assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /NativeGpsService\.start\(store\.trip\.id, 'PASSENGER_RIDE_TRACE'\)/, 'Passenger GPS switches to the canonical trip owner when a ride starts.')
+assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /NativeGpsService\.start\(store\.shift\.id, 'DEAD_MOVEMENT_TRACE'\)/, 'Dead-leg GPS is restored under the canonical shift owner between rides.')
+assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /NativeGpsService\.start\(nativeOwnerId, nativeEventType\)/, 'Native GPS owner is reasserted after WebView recovery.')
+assert.match(fs.readFileSync(path.join(process.cwd(), 'src/infrastructure/location/movementTraceService.js'), 'utf8'), /async resumePersisted\(expectedSession\)/, 'Browser trace recovery validates persisted ownership and hydrates durable points.')
+assert.match(fs.readFileSync(path.join(process.cwd(), 'src/infrastructure/location/movementTraceService.js'), 'utf8'), /pause\(\) \{[\s\S]*owner marker and canonical points/, 'Leaving Work pauses the browser watch without deleting its recovery marker.')
+
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /MovementReconciliationQueue\.matchLiveTrace/)
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/application/work/movementReconciliationQueue.js'), 'utf8'), /reconciledAfterReconnect/)
 assert.doesNotMatch(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /liveKm: '0\.0 km'/)
@@ -38,7 +46,26 @@ const workService = fs.readFileSync(path.join(root, 'src/application/work/workSe
 
 const workStyles = fs.readFileSync(path.join(root, 'src/styles/kfe-base-shell.css'), 'utf8')
 const reconciliationView = fs.readFileSync(path.join(root, 'src/components/ShiftReconciliationModal.vue'), 'utf8')
-assert.match(workView, /scrollIntoView\(\{ block: 'nearest', behavior: 'smooth' \}\)/, 'Opening numeric entry scrolls the in-flow keypad into view.')
+assert.doesNotMatch(workView, /scrollIntoView\(\{ block: 'nearest', behavior: 'smooth' \}\)/, 'Opening fare entry must not auto-scroll the whole page when the compact form fits.')
+assert.match(workStyles, /work-context-form\.form-fare \.kfe-work-number-pad__grid button\{min-height:31px!important;height:31px!important/, 'Fare keypad is compact enough to fit with its header and actions in the viewport.')
+assert.match(workStyles, /--kfe-work-go-pickup:var\(--kfe-info/, 'Go to Pickup uses the semantic information/blue token.')
+assert.match(workView, /WorkflowTimerService\.enter\(identity, Date\.now\(\)\)/, 'Workflow timers restore their persisted start timestamp for the same step identity.')
+
+const memory = new Map()
+const originalLocalStorage = globalThis.localStorage
+globalThis.localStorage = { getItem: key => memory.has(key) ? memory.get(key) : null, setItem: (key, value) => memory.set(key, String(value)), removeItem: key => memory.delete(key) }
+try {
+  assert.equal(WorkflowTimerService.enter('shift-1:FARE_ENTRY', 1000), 1000)
+  assert.equal(WorkflowTimerService.enter('shift-1:FARE_ENTRY', 9000), 1000, 'Reloading the same workflow step must preserve its original start timestamp.')
+  assert.equal(WorkflowTimerService.enter('shift-1:READY', 10000), 10000, 'Changing workflow step must start a new timer.')
+  assert.equal(WorkWorkflowSessionService.save({ form: 'fuel' }), true)
+  assert.deepEqual(WorkWorkflowSessionService.read(), { form: 'fuel' }, 'An interrupted context form is restored from the durable workflow session.')
+  assert.equal(WorkWorkflowSessionService.save(null), true)
+  assert.equal(WorkWorkflowSessionService.read(), null, 'Closing a form clears the durable UI session marker.')
+} finally {
+  if (originalLocalStorage === undefined) delete globalThis.localStorage
+  else globalThis.localStorage = originalLocalStorage
+}
 assert.match(workStyles, /\.work-context-form \.kfe-work-number-pad\{position:relative!important/, 'The Work keypad must stay in document flow instead of covering the fixed swipe action.')
 assert.doesNotMatch(workStyles, /\.work-context-form \.kfe-work-number-pad\{position:fixed/, 'The Work keypad must never be fixed over the swipe action.')
 assert.match(workStyles, /color:var\(--kfe-ui-on-accent/, 'Primary actions use the dark on-accent text token for high contrast.')

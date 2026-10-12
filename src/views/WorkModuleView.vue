@@ -6,6 +6,7 @@ import { useFuelStore } from '../stores/fuel.js'
 import { WorkService } from '../application/work/workService.js'
 import { MovementReconciliationQueue } from '../application/work/movementReconciliationQueue.js'
 import { WorkDraftService } from '../application/work/workDraftService.js'
+import { WorkflowTimerService, WorkWorkflowSessionService } from '../application/work/workflowTimerService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { MovementTraceService, calculateTraceDistanceKm } from '../infrastructure/location/movementTraceService.js'
 import { NativeGpsService } from '../infrastructure/android/nativeGpsService.js'
@@ -20,6 +21,7 @@ const nativeAndroid = Capacitor.getPlatform() === 'android'
 const startWorkflowId = ref('')
 const fuelWorkflowId = ref('')
 let restoringDrafts = false
+let workflowTimerReady = false
 
 const startOdo = ref('')
 const startAck = ref(false)
@@ -232,14 +234,33 @@ const stateTimerLabel = computed(() => {
   return 'READY TIME'
 })
 const workflowStepKey = computed(() => {
+  if (startOpen.value) return 'START_SHIFT'
   if (endOpen.value) return 'SHIFT_REVIEW'
   if (cancelOpen.value) return 'CANCELLATION'
   if (fuelOpen.value) return 'FUEL_ENTRY'
   if (pendingFare.value) return 'FARE_ENTRY'
   return cockpit.value.state
 })
+const workflowTimerIdentity = computed(() => JSON.stringify({
+  shiftId: store.shift?.id || null,
+  tripId: pendingFare.value?.id || store.trip?.id || null,
+  step: workflowStepKey.value,
+  endStage: endOpen.value ? endStage.value : null
+}))
 const workflowStepStartedAt = ref(Date.now())
-watch(workflowStepKey, () => { workflowStepStartedAt.value = Date.now() }, { immediate: true })
+watch(workflowTimerIdentity, identity => {
+  if (!workflowTimerReady) return
+  workflowStepStartedAt.value = WorkflowTimerService.enter(identity, Date.now())
+}, { immediate: true })
+watch([startOpen, fuelOpen, cancelOpen, endOpen, endStage], () => {
+  if (!workflowTimerReady) return
+  const session = endOpen.value ? { form: 'end', endStage: endStage.value, shiftId: store.shift?.id || null }
+    : cancelOpen.value ? { form: 'cancel', shiftId: store.shift?.id || null, tripId: store.trip?.id || null }
+    : fuelOpen.value ? { form: 'fuel', shiftId: store.shift?.id || null }
+    : startOpen.value ? { form: 'start', shiftId: store.shift?.id || null }
+    : null
+  WorkWorkflowSessionService.save(session)
+})
 const stateTimerStartAt = computed(() => {
   if (endOpen.value || cancelOpen.value || fuelOpen.value || pendingFare.value) return workflowStepStartedAt.value
   if (cockpit.value.state === WORK_COCKPIT_STATES.TRIP_ACTIVE) return cockpit.value.tripStartAt
@@ -484,14 +505,24 @@ async function goPickup(nativeTripId = '') {
   liveMovementStatus.value = 'ACQUIRING GPS'
   busy.value = true
   try {
-    try {
-      traceRunning = MovementTraceService.start({
-        entityType: 'SHIFT',
-        entityId: store.shift?.id,
-        eventType: 'DEAD_MOVEMENT_TRACE',
-        profile: 'DEAD_LEG'
-      })
-    } catch (_) { traceRunning = false }
+    const traceSession = MovementTraceService.getActiveSession()
+    const alreadyTrackingDeadLeg = traceSession?.entityType === 'SHIFT' &&
+      traceSession.entityId === store.shift?.id &&
+      traceSession.eventType === 'DEAD_MOVEMENT_TRACE' &&
+      traceSession.profile === 'DEAD_LEG'
+    if (!alreadyTrackingDeadLeg) {
+      try {
+        traceRunning = MovementTraceService.start({
+          entityType: 'SHIFT',
+          entityId: store.shift?.id,
+          eventType: 'DEAD_MOVEMENT_TRACE',
+          profile: 'DEAD_LEG'
+        })
+      } catch (_) { traceRunning = false }
+    }
+    if (nativeAndroid && store.shift?.id) {
+      await NativeGpsService.start(store.shift.id, 'DEAD_MOVEMENT_TRACE')
+    }
 
     const result = await store.beginPickup(operator.value || store.defaultOperator, nativeTripId || null)
     if (!result?.ok) {
@@ -515,12 +546,24 @@ async function startTrip() {
   liveMovementStatus.value = 'ACQUIRING GPS'
   busy.value = true
   try {
+    const result = await store.startRide()
+    if (!result?.ok) { fail(result?.reason || 'Trip could not be started.'); return false }
     if (traceRunning) {
       MovementTraceService.reset()
       traceRunning = false
     }
-    const result = await store.startRide()
-    if (!result?.ok) { fail(result?.reason || 'Trip could not be started.'); return false }
+    let nativeTraceStarted = false
+    if (nativeAndroid && store.trip?.id) {
+      nativeTraceStarted = await NativeGpsService.start(store.trip.id, 'PASSENGER_RIDE_TRACE')
+    }
+    if (!nativeTraceStarted && store.trip?.id) {
+      traceRunning = MovementTraceService.start({
+        entityType: 'TRIP',
+        entityId: store.trip.id,
+        eventType: 'PASSENGER_RIDE_TRACE',
+        profile: 'PASSENGER_RIDE'
+      })
+    }
     await KfeRideNotificationService.startRide().catch(() => {})
     await syncOverlay()
     // Keep state transitions silent; the cockpit/action label reflects the new state.
@@ -536,6 +579,19 @@ async function endTrip() {
   try {
     const tripId = store.trip.id
     if (!await store.endTrip()) { fail('Trip could not be completed.'); return false }
+    if (nativeAndroid) {
+      await NativeGpsService.stop(tripId)
+      if (store.shift?.id) await NativeGpsService.start(store.shift.id, 'DEAD_MOVEMENT_TRACE')
+    }
+    // Return browser tracking to the shift owner whenever it was the active
+    // capture path (all web runs and Android when native location is unavailable).
+    if (traceRunning) MovementTraceService.reset()
+    traceRunning = MovementTraceService.start({
+      entityType: 'SHIFT',
+      entityId: store.shift?.id,
+      eventType: 'DEAD_MOVEMENT_TRACE',
+      profile: 'DEAD_LEG'
+    })
     fareTripId.value = tripId
     restoringDrafts = true
     fare.value = ''
@@ -824,6 +880,7 @@ async function finishEnd() {
       tripKm: reviewKm.value[t.id] === '' || reviewKm.value[t.id] == null ? (t.tripKm ?? '') : reviewKm.value[t.id],
       revenue: reviewRevenue.value[t.id] ?? t.revenue ?? ''
     }))
+    const endingShiftId = store.shift?.id
     const result = await store.endShift({
       closingOdometer: closingOdo.value,
       revenue: shiftRevenue.value,
@@ -836,6 +893,11 @@ async function finishEnd() {
       trips
     })
     if (!result?.ok) return fail(result.reason)
+    if (nativeAndroid && endingShiftId) await NativeGpsService.stop(endingShiftId)
+    if (traceRunning) {
+      MovementTraceService.reset()
+      traceRunning = false
+    }
     await clearCommittedDraft(endDraft)
     endStage.value = 'ENDED'
     await KfeRideNotificationService.clear().catch(() => {})
@@ -948,6 +1010,29 @@ async function processNativeEvent(event) {
 
 onMounted(async () => {
   await store.initialize()
+  // Restore only the exact persisted movement owner that still matches the
+  // canonical active shift/trip. A stale trace must never be attached to a new one.
+  const savedTrace = MovementTraceService.getActiveSession()
+  if (store.isOnline && savedTrace) {
+    const shiftDeadLeg = savedTrace.entityType === 'SHIFT' &&
+      savedTrace.entityId === store.shift?.id &&
+      savedTrace.eventType === 'DEAD_MOVEMENT_TRACE' &&
+      savedTrace.profile === 'DEAD_LEG' && !active.value
+    const passengerRide = savedTrace.entityType === 'TRIP' &&
+      savedTrace.entityId === store.trip?.id &&
+      savedTrace.eventType === 'PASSENGER_RIDE_TRACE' &&
+      savedTrace.profile === 'PASSENGER_RIDE' && active.value
+    if (shiftDeadLeg || passengerRide) {
+      traceRunning = await MovementTraceService.resumePersisted(savedTrace)
+    }
+  }
+  // Reassert the canonical native GPS owner on WebView/process recovery.
+  // The foreground service itself remains responsible for screen-off tracking.
+  if (store.isOnline && nativeAndroid && store.shift?.id) {
+    const nativeOwnerId = active.value && store.trip?.id ? store.trip.id : store.shift.id
+    const nativeEventType = active.value ? 'PASSENGER_RIDE_TRACE' : 'DEAD_MOVEMENT_TRACE'
+    await NativeGpsService.start(nativeOwnerId, nativeEventType)
+  }
   startWorkflowId.value = (await WorkDraftService.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || WorkDraftService.newWorkflowId()
   fuelWorkflowId.value = (await WorkDraftService.latestWorkflow('work-fuel', 'RECORD_FUEL'))?.workflowId || WorkDraftService.newWorkflowId()
   await targetRefresh()
@@ -965,6 +1050,36 @@ onMounted(async () => {
     }
     restoringDrafts = false
   }
+
+  // Restore an interrupted context form from its durable UI session marker.
+  // Canonical trip/shift records remain authoritative; invalid/stale forms are ignored.
+  const savedForm = WorkWorkflowSessionService.read()
+  const savedShiftMatches = savedForm?.shiftId === (store.shift?.id || null)
+  const savedTripMatches = savedForm?.tripId === (store.trip?.id || null)
+  if (savedForm?.form === 'start' && savedShiftMatches && !store.isOnline) {
+    await openStart()
+  } else if (savedForm?.form === 'fuel' && savedShiftMatches) {
+    await toggleFuel()
+  } else if (savedForm?.form === 'cancel' && savedShiftMatches && savedTripMatches && store.isOnline &&
+    store.trip?.id && ['PICKUP', 'GOING_TO_PICKUP'].includes(store.trip?.tripStage)) {
+    cancelOpen.value = true
+    restoringDrafts = true
+    const draft = await restoreDraft(tripDraftIdentity('work-cancellation', 'CANCEL_TRIP'))
+    if (draft?.values) {
+      cancelReason.value = String(draft.values.cancelReason ?? '')
+      cancelFare.value = String(draft.values.cancelFare ?? '')
+    }
+    restoringDrafts = false
+  } else if (savedForm?.form === 'end' && savedShiftMatches && store.isOnline && !store.isTripActive) {
+    await openEnd()
+    if (savedForm.endStage && ['CLOSE', 'RECONCILE', 'REVIEW', 'CONFIRM'].includes(savedForm.endStage)) {
+      endStage.value = savedForm.endStage
+    }
+  } else if (savedForm) {
+    WorkWorkflowSessionService.save(null)
+  }
+  workflowTimerReady = true
+  workflowStepStartedAt.value = WorkflowTimerService.enter(workflowTimerIdentity.value, Date.now())
 
   clock.value = Date.now()
   timer = setInterval(() => { clock.value = Date.now() }, 1000)
@@ -998,7 +1113,7 @@ watch(() => store.trip?.tripStage, () => { void syncOverlay() })
 onBeforeUnmount(() => {
   if (timer) clearInterval(timer)
   if (liveKmRefreshTimer) clearInterval(liveKmRefreshTimer)
-  if (traceRunning) MovementTraceService.reset()
+  if (traceRunning) MovementTraceService.pause()
   notificationListener?.remove?.()
   void AndroidOverlay.hide().catch(() => {})
 })
