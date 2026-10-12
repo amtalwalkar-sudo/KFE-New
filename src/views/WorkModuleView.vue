@@ -8,14 +8,16 @@ import { MovementReconciliationQueue } from '../application/work/movementReconci
 import { WorkDraftService } from '../application/work/workDraftService.js'
 import { WorkflowTimerService, WorkWorkflowSessionService } from '../application/work/workflowTimerService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
-import { MovementTraceService, calculateTraceDistanceKm } from '../infrastructure/location/movementTraceService.js'
-import { NativeGpsService } from '../infrastructure/android/nativeGpsService.js'
-import { KfeRideNotificationService } from '../infrastructure/android/kfeRideNotificationService.js'
-import { AndroidOverlay } from '../infrastructure/android/kfeOverlay.js'
+import { WorkRuntimePorts } from '../application/work/workRuntimePorts.js'
+import { calculateTraceDistanceKm } from '../domain/movement/traceDistance.js'
 import { deriveWorkCockpitState, WORK_COCKPIT_STATES } from '../application/work/workCockpit.js'
 import WorkContextForm from '../components/work/WorkContextForm.vue'
 
 const store = useShiftTripStore()
+const MovementTraceService = WorkRuntimePorts.movementTrace
+const NativeGpsService = WorkRuntimePorts.nativeGps
+const KfeRideNotificationService = WorkRuntimePorts.rideNotifications
+const AndroidOverlay = WorkRuntimePorts.androidOverlay
 const fuel = useFuelStore()
 const nativeAndroid = Capacitor.getPlatform() === 'android'
 const startWorkflowId = ref('')
