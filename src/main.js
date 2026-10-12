@@ -50,6 +50,7 @@ void (async () => {
       { PlatformStartup },
       { configureAndroidOverlayLifecycle },
       { StartupService },
+      { WorkService },
       { startKfeThemeController },
       { Capacitor },
       { default: formSystem }
@@ -63,6 +64,7 @@ void (async () => {
       import('./infrastructure/startup/platformStartup.js'),
       import('./infrastructure/android/androidOverlayLifecycle.js'),
       import('./application/startup/startupService.js'),
+      import('./application/work/workService.js'),
       import('./presentation/theme/kfeThemeController.js'),
       import('@capacitor/core'),
       import('./presentation/forms/universalFormSystem.js').then(module => ({ default: module }))
@@ -70,6 +72,7 @@ void (async () => {
 
     BackupConfig.configureBackupConfig(createBackupConfigAdapter())
     CloudBackupLifecycle.configureCloudBackupScheduler(createCloudBackupScheduler())
+    CloudBackupLifecycle.configureBeforeCloudBackup(() => WorkService.recoverNativeGpsTraces())
     configureLocationProvider(captureCurrentLocation)
     StartupService.configureStartupPlatform(PlatformStartup)
     configureAndroidOverlayLifecycle()
