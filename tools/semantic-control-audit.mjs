@@ -183,14 +183,15 @@ try {
   assert(await page.getByRole('button', { name: 'GO TO PICKUP', exact: true }).count() === 1, 'Optional trip details incorrectly block next pickup')
   evidence.push({ id: 'WORK.END_TRIP', result: 'PASS', expected: 'trip completes immediately and optional details do not block next pickup', persisted: { trips: state.trips.length, status: state.trips[0].status, tripStage: state.trips[0].tripStage } })
 
-  // Contract 5: fare is the quick-entry default; optional Toll/Parking must be explicitly expanded.
+  // Contract 5: fare is the quick-entry default; optional Toll/Parking expand explicitly, then one OK commits the trip.
   await enterKfeNumber('Trip fare', '800', { action: 'TYPE' })
   await page.getByRole('button', { name: '+ Toll', exact: true }).evaluate(button => button.click())
   await page.getByLabel('Toll', { exact: true }).first().waitFor({ state: 'visible' })
   await enterKfeNumber('Toll', '50', { action: 'TYPE' })
   await page.getByRole('button', { name: '+ Parking', exact: true }).evaluate(button => button.click())
   await page.getByLabel('Parking', { exact: true }).first().waitFor({ state: 'visible' })
-  await enterKfeNumber('Parking', '20')
+  await enterKfeNumber('Parking', '20', { action: 'TYPE' })
+  await page.getByRole('button', { name: 'OK', exact: true }).click()
   await page.getByText('Trip details saved.', { exact: true }).waitFor()
   state = await db(page, ['trips'])
   assert(state.trips.length === 1 && state.trips[0].status === 'COMPLETED' && Number(state.trips[0].revenue) === 800 && Number(state.trips[0].toll) === 50 && Number(state.trips[0].parking) === 20, 'SAVE TRIP DETAILS contract failed')
@@ -282,8 +283,7 @@ try {
   await page.locator('.swipe-copy strong').filter({ hasText: 'GO TO PICKUP' }).waitFor({ state: 'visible', timeout: 10000 })
   evidence.push({ id: 'FORMS.START_SHIFT_INPUT', result: 'PASS', expected: 'contextual form + native numeric odometer + viewport-safe controls' })
 
-  // Trip details: END TRIP must expose the fare surface immediately, and NEXT/DONE must
-  // advance fare -> toll -> parking -> save without opening the device keyboard.
+  // Trip details: END TRIP exposes fare immediately; optional fields are expanded as needed and one OK saves.
   await swipeAction(); await page.getByRole('button', { name: 'START TRIP', exact: true }).waitFor()
   await swipeAction(); await page.getByRole('button', { name: 'END TRIP', exact: true }).waitFor()
   await swipeAction(); await page.getByText('TRIP COMPLETED', { exact: true }).waitFor()
@@ -420,7 +420,7 @@ try {
   await swipeAction(); await page.getByRole('button', { name: 'END TRIP', exact: true }).waitFor()
   await swipeAction(); await page.getByText('TRIP COMPLETED', { exact: true }).waitFor()
   await enterKfeNumber('Trip fare', '800', { action: 'TYPE' })
-  await page.getByRole('button', { name: 'OK — SAVE TRIP', exact: true }).click()
+  await page.getByRole('button', { name: 'OK', exact: true }).click()
   await page.getByText('Trip details saved.', { exact: true }).waitFor()
   await page.goto(new URL('timeline', base).href, { waitUntil: 'domcontentloaded' })
   await page.locator('.timeline').waitFor()
