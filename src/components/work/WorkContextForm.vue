@@ -317,7 +317,7 @@ const updateMap = (name, map, id, value) => {
       <label>Odometer<div class="input-unit"><input :value="fuelOdo" type="text" inputmode="none" readonly autocomplete="off" aria-label="Odometer" @focus="activateNumeric('fuel-odo')" @click="activateNumeric('fuel-odo')"><b>km</b></div></label>
       <label>Price / kg<div class="input-unit"><b>₹</b><input :value="fuelPrice" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('fuel-price')" aria-label="Price / kg" @click="activateNumeric('fuel-price')"></div></label>
       <label>Amount<div class="input-unit"><b>₹</b><input :value="fuelAmount" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('fuel-amount')" aria-label="Amount" @click="activateNumeric('fuel-amount')"></div></label>
-      <div class="calculated-value fuel-calculated-value" aria-live="polite"><span>Quantity</span><strong>{{ fuelQty.valid ? fuelQty.quantityKg.toFixed(2)+' kg' : '—' }}</strong></div>
+      <div class="calculated-value fuel-calculated-value state-tone-info" aria-live="polite"><span>Quantity</span><strong>{{ fuelQty.valid ? fuelQty.quantityKg.toFixed(2)+' kg' : '—' }}</strong></div>
       <button type="submit" class="primary-action" :disabled="fuelBusy">{{ fuelBusy ? 'SAVING…' : 'OK — SAVE FUEL' }}</button>
     </form>
 
