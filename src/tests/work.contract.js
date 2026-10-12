@@ -43,7 +43,7 @@ assert.doesNotMatch(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModu
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/application/work/workService.js'), 'utf8'), /calculateLiveMovement\(points = \[\]\)/)
 assert.doesNotMatch(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /from ['\"][^'\"]*\/domain\/movement\//)
 const root = process.cwd()
-const workView = fs.readFileSync(path.join(root, 'src/views/WorkModuleView.vue'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'src/components/work/WorkContextForm.vue'), 'utf8')
+const workView = fs.readFileSync(path.join(root, 'src/views/WorkModuleView.vue'), 'utf8') + '\n' + ['WorkContextForm.vue','WorkStartShiftForm.vue','WorkFareForm.vue','WorkCancellationForm.vue','WorkFuelForm.vue','WorkEndShiftForm.vue'].map(name => fs.readFileSync(path.join(root, 'src/components/work', name), 'utf8')).join('\n')
 const workStore = fs.readFileSync(path.join(root, 'src/stores/shiftTrip.js'), 'utf8')
 const workService = fs.readFileSync(path.join(root, 'src/application/work/workService.js'), 'utf8')
 
