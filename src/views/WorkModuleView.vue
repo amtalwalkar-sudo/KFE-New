@@ -1,6 +1,5 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Capacitor } from '@capacitor/core'
 import { useShiftTripStore } from '../stores/shiftTrip.js'
 import { useFuelStore } from '../stores/fuel.js'
 import { WorkService } from '../application/work/workService.js'
@@ -14,7 +13,7 @@ import WorkContextForm from '../components/work/WorkContextForm.vue'
 
 const store = useShiftTripStore()
 const fuel = useFuelStore()
-const nativeAndroid = Capacitor.getPlatform() === 'android'
+const nativeAndroid = WorkRuntimePorts.platform.getPlatform() === 'android'
 const backgroundLocationPermission = ref(null)
 const startWorkflowId = ref('')
 const fuelWorkflowId = ref('')
