@@ -95,3 +95,9 @@
 .work-persistent-metrics .live-km-readout>span,.work-persistent-metrics .timer-label{font-size:.65rem;font-weight:900;letter-spacing:.06em}
 .work-persistent-metrics .live-km-readout>strong,.work-persistent-metrics .trip-timer{font-size:1.15rem;font-variant-numeric:tabular-nums;line-height:1.2}
 .work-persistent-metrics small{font-size:.58rem;line-height:1.15}
+
+
+/* Explicit, non-blocking permission guidance for post-reboot GPS recovery. */
+.gps-recovery-warning{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0;padding:9px 11px;border:1px solid var(--kfe-ui-warning-border,var(--kfe-ui-border));border-radius:10px;background:var(--kfe-ui-surface-2);color:var(--kfe-ui-text);font-size:.72rem;line-height:1.35}
+.gps-recovery-warning button{flex:0 0 auto;min-height:36px;padding:6px 10px;border:1px solid var(--kfe-ui-border);border-radius:8px;background:var(--kfe-ui-surface);color:var(--kfe-ui-text);font:inherit;font-weight:800}
+@media(max-width:360px){.gps-recovery-warning{align-items:stretch;flex-direction:column}.gps-recovery-warning button{width:100%}}
