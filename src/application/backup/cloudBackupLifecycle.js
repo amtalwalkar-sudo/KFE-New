@@ -26,12 +26,12 @@ export const initializeConfiguredCloudBackupProvider = async () => {
 export const registerDailyCloudBackupSchedule = async () => scheduler ? scheduler.registerDaily() : false
 
 const runCloudBackupAttempt = async ({ force = false } = {}) => {
-  const config = await BackupConfig.getBackupConfiguration()
-  if (!config.enabled || !config.hasAccessToken) return { status: 'disabled' }
-  if (!force && config.lastCloudBackupAt && Date.now() - Date.parse(config.lastCloudBackupAt) < DAY_MS) return { status: 'fresh', lastCloudBackupAt: config.lastCloudBackupAt }
-  const provider = await initializeConfiguredCloudBackupProvider()
-  if (!provider) return { status: 'disabled' }
   try {
+    const config = await BackupConfig.getBackupConfiguration()
+    if (!config.enabled || !config.hasAccessToken) return { status: 'disabled' }
+    if (!force && config.lastCloudBackupAt && Date.now() - Date.parse(config.lastCloudBackupAt) < DAY_MS) return { status: 'fresh', lastCloudBackupAt: config.lastCloudBackupAt }
+    const provider = await initializeConfiguredCloudBackupProvider()
+    if (!provider) return { status: 'disabled' }
     if (beforeBackup) await beforeBackup()
     const backup = await BackupService.createBackup()
     const result = await BackupService.backupToCloud(backup)
