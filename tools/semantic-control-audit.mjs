@@ -215,16 +215,12 @@ try {
   assert(state.shifts.length === 1 && state.shifts[0].status === 'COMPLETED' && Number(state.shifts[0].endOdometer) === 1100 && Number(state.shifts[0].revenue) === 800, 'END SHIFT persistence contract failed')
   assert(state.trips.length === 1 && Number(state.trips[0].revenue) === 800, 'END SHIFT trip linkage contract failed')
   await page.goto(new URL('timeline', base).href, { waitUntil: 'domcontentloaded' })
-  await page.locator('.timeline').waitFor()
-  await page.getByText('₹800', { exact: true }).first().waitFor({ state: 'visible', timeout: 30000 })
-  const timelineText = await page.locator('.timeline').innerText()
-  assert(timelineText.includes('₹800'), 'Timeline did not propagate authoritative revenue')
+  await page.locator('.kfe-blank-workspace').waitFor({ state: 'visible' })
+  assert(await page.locator('.timeline').count() === 0, 'Timeline must remain intentionally blank')
   await page.goto(new URL('performance', base).href, { waitUntil: 'domcontentloaded' })
-  await page.locator('.performance-page').waitFor()
-  await page.getByText('₹800', { exact: true }).first().waitFor({ state: 'visible', timeout: 30000 })
-  const performanceText = await page.locator('.performance-page').innerText()
-  assert(performanceText.includes('₹800'), 'Performance did not propagate authoritative revenue')
-  evidence.push({ id: 'WORK.END_SHIFT', result: 'PASS', expected: 'COMPLETED shift 1000→1100, revenue 800; Timeline and Performance show 800', persisted: { shiftStatus: state.shifts[0].status, endOdometer: state.shifts[0].endOdometer, revenue: state.shifts[0].revenue, timelineRevenue: '₹800', performanceRevenue: '₹800' } })
+  await page.locator('.kfe-blank-workspace').waitFor({ state: 'visible' })
+  assert(await page.locator('.performance-page').count() === 0, 'Performance must remain intentionally blank')
+  evidence.push({ id: 'WORK.END_SHIFT', result: 'PASS', expected: 'COMPLETED shift and revenue persist canonically; Timeline/Performance remain blank', persisted: { shiftStatus: state.shifts[0].status, endOdometer: state.shifts[0].endOdometer, revenue: state.shifts[0].revenue } })
 
   // Contract 7: Back from start-shift gate must not write a shift.
   await reset(page)
@@ -260,10 +256,9 @@ try {
   state = await db(page, ['trips'])
   assert(state.trips.length === 1 && state.trips[0].status === 'CANCELLED', 'CANCEL TRIP contract failed')
   await page.goto(new URL('timeline', base).href, { waitUntil: 'domcontentloaded' })
-  await page.locator('.timeline').waitFor()
-  const cancelledTimeline = await page.locator('.timeline').innerText()
-  assert(!cancelledTimeline.includes('1 ride'), 'Cancelled trip incorrectly counted as a completed ride')
-  evidence.push({ id: 'WORK.CANCEL_TRIP', result: 'PASS', expected: 'CANCELLED trip excluded from completed ride count', persisted: { trips: state.trips.length, status: state.trips[0]?.status } })
+  await page.locator('.kfe-blank-workspace').waitFor({ state: 'visible' })
+  assert(await page.locator('.timeline').count() === 0, 'Timeline must remain intentionally blank after cancellation')
+  evidence.push({ id: 'WORK.CANCEL_TRIP', result: 'PASS', expected: 'CANCELLED trip persists canonically and Timeline remains intentionally blank', persisted: { trips: state.trips.length, status: state.trips[0]?.status } })
 
   // Forms Contract: every Work contextual input surface must preserve its state
   // context, use the KFE-owned intelligent numeric input surface, keep controls in the viewport, and
