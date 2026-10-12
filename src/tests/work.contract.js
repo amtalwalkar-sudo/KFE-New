@@ -41,6 +41,11 @@ assert.match(workView, /scrollIntoView\(\{ block: 'nearest', behavior: 'smooth' 
 assert.match(workStyles, /\.work-context-form \.kfe-work-number-pad\{position:relative!important/, 'The Work keypad must stay in document flow instead of covering the fixed swipe action.')
 assert.doesNotMatch(workStyles, /\.work-context-form \.kfe-work-number-pad\{position:fixed/, 'The Work keypad must never be fixed over the swipe action.')
 assert.match(workStyles, /color:var\(--kfe-ui-on-accent/, 'Primary actions use the dark on-accent text token for high contrast.')
+assert.match(workView, /type="start"[\s\S]*type="end"[\s\S]*type="fare"[\s\S]*type="cancel"[\s\S]*type="fuel"/, 'Start, end, fare, cancellation, and fuel forms remain covered by the Work view contract.')
+assert.match(workStyles, /@media\(max-width:600px\)/, 'Work form and keypad presentation includes a phone-width layout.')
+assert.match(workStyles, /button:disabled[\s\S]{0,120}background:var\(--kfe-ui-surface-2/, 'Disabled actions retain a neutral readable surface rather than opacity-washing text.')
+assert.match(workStyles, /\[aria-invalid="true"\]/, 'Invalid fields receive a visible semantic error treatment.')
+assert.match(workStyles, /scroll-margin-bottom:calc\(var\(--kfe-base-nav,76px\) \+ 104px/, 'Keypad scrolling reserves space above the fixed swipe action and bottom navigation.')
 
 const shiftTripRepository = fs.readFileSync(path.join(root, 'src/repositories/shiftTripRepository.js'), 'utf8')
 const endShiftService = fs.readFileSync(path.join(root, 'src/application/work/endShift.js'), 'utf8')
