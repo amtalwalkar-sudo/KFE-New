@@ -101,6 +101,17 @@ public class KfeNativeGpsPlugin extends Plugin {
   }
 
   @com.getcapacitor.PluginMethod
+  public void listTraceOwners(PluginCall call) {
+    try {
+      JSObject result = new JSObject();
+      result.put("owners", new org.json.JSONArray(KfeNativeGpsService.listTraceOwners(getContext())));
+      call.resolve(result);
+    } catch (Exception error) {
+      call.reject("Unable to list persisted native GPS traces.", error);
+    }
+  }
+
+  @com.getcapacitor.PluginMethod
   public void clearTrace(PluginCall call) {
     KfeNativeGpsService.clearTrace(getContext(), call.getString("tripId", ""));
     call.resolve();
