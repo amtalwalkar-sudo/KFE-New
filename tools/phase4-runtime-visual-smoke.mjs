@@ -32,7 +32,7 @@ try{
  await page.screenshot({path:'artifacts/phase4-runtime/work-mobile.png',fullPage:true})
  await route('timeline','.kfe-blank-workspace','Timeline blank workspace');await page.locator('.kfe-blank-workspace').waitFor({state:'visible'});assert(await page.locator('.timeline').count()===0,'Timeline unexpectedly mounted retired presentation');await page.screenshot({path:'artifacts/phase4-runtime/timeline-mobile.png',fullPage:true})
  await route('performance','.kfe-blank-workspace','Performance blank workspace');await page.locator('.kfe-blank-workspace').waitFor({state:'visible'});assert(await page.locator('.performance-page').count()===0,'Performance unexpectedly mounted retired presentation');assert(await page.locator('header.top-bar').count()===0,'Performance header metadata not honored');await page.screenshot({path:'artifacts/phase4-runtime/performance-mobile.png',fullPage:true})
-  await route('admin','.admin-page','Admin');await page.screenshot({path:'artifacts/phase4-runtime/admin-mobile.png',fullPage:true})
+  await route('admin','.kfe-settings-page','Admin');await page.screenshot({path:'artifacts/phase4-runtime/admin-mobile.png',fullPage:true})
  const seedCanonicalFixture=async()=>page.evaluate(async()=>{
    const openCanonicalDb=async()=>{const list=await indexedDB.databases();const entry=list.find(x=>x.name==='kanishka_kfe_canonical_db');return await new Promise((resolve,reject)=>{const req=entry?.version?indexedDB.open('kanishka_kfe_canonical_db',entry.version):indexedDB.open('kanishka_kfe_canonical_db');req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})};
    const db=await openCanonicalDb(); const now=new Date();
