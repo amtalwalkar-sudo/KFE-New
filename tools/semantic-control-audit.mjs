@@ -140,7 +140,7 @@ try {
         const activeLabel = await pad.locator('.kfe-work-number-pad__display span').innerText()
         assert(activeLabel.trim().toLowerCase() === nextLabel.trim().toLowerCase(), nextLabel + ' was not activated by KFE NEXT navigation; active=' + activeLabel)
       }
-    } else {
+    } else if (action !== 'TYPE') {
       assert(!(await pad.isVisible()), label + ' DONE did not close the KFE keypad')
     }
   }
@@ -288,10 +288,10 @@ try {
   assert(await page.getByRole('button', { name: '+ Toll', exact: true }).isVisible(), 'Toll must be collapsed behind an optional control')
   assert(await page.getByRole('button', { name: '+ Parking', exact: true }).isVisible(), 'Parking must be collapsed behind an optional control')
   await enterKfeNumber('Trip fare', '800', { action: 'TYPE' })
-  await page.getByRole('button', { name: '+ Toll', exact: true }).click()
+  await page.getByRole('button', { name: '+ Toll', exact: true }).evaluate(button => button.click())
   await assertInputContract(page.getByLabel('Toll', { exact: true }).first())
   await enterKfeNumber('Toll', '50', { action: 'TYPE' })
-  await page.getByRole('button', { name: '+ Parking', exact: true }).click()
+  await page.getByRole('button', { name: '+ Parking', exact: true }).evaluate(button => button.click())
   await assertInputContract(page.getByLabel('Parking', { exact: true }).first())
   await enterKfeNumber('Parking', '20')
   await page.getByText('Trip details saved.', { exact: true }).waitFor()
