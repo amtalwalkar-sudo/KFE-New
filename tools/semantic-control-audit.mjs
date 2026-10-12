@@ -236,7 +236,8 @@ try {
   // viewport space. The Work cockpit itself must remain mounted underneath it.
   assert(await page.locator('.work-canonical').isVisible(), 'Fuel context replaced the current Work cockpit')
   assert(!(await page.locator('.offline-state').isVisible()), 'Offline helper block should be hidden while the fuel form is open')
-  assert(await page.locator('.focus-surface').filter({ hasText: 'CNG REFUEL' }).first().isVisible(), 'Fuel form did not open contextually')
+  const compactFuelForm = page.locator('form.focus-surface').filter({ has: page.getByRole('button', { name: 'OK — SAVE FUEL', exact: true }) }).first()
+  assert(await compactFuelForm.isVisible(), 'Fuel form did not open contextually')
   await enterKfeNumber('Odometer', '1000', { action: 'NEXT', nextLabel: 'Price / kg' })
   await enterKfeNumber('Price / kg', '90', { action: 'NEXT', nextLabel: 'Amount' })
   await enterKfeNumber('Amount', '900')
@@ -321,7 +322,7 @@ try {
   // Partial fill must persist explicitly and the numeric fields must chain by NEXT/DONE.
   await reset(page)
   await page.getByRole('button', { name: 'CNG refuelling', exact: true }).click()
-  await assertContextualViewport('.contextual-form.focus-surface', 'Fuel form')
+  await assertContextualViewport('form.focus-surface:has(button:has-text("OK — SAVE FUEL"))', 'Fuel form')
   const fuelOdo = page.getByLabel('Odometer', { exact: true })
   const fuelPrice = page.getByLabel('Price / kg')
   const fuelAmount = page.getByLabel('Amount')
