@@ -1950,3 +1950,16 @@ table th,table td{border-color:var(--kfe-ui-border)}
 .work-canonical .work-main:has(.form-start) .work-persistent-metrics .timer-label {
   font-size: .58rem !important;
 }
+
+/* Empty Timeline/Performance workspace: visible route surface, intentionally no content. */
+.kfe-blank-workspace {
+  display: block;
+  visibility: visible;
+  width: 100%;
+  min-height: 100%;
+}
+.kfe-blank-workspace-surface {
+  display: block;
+  visibility: visible;
+  min-height: 1px;
+}
