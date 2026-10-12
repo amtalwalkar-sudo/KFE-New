@@ -50,6 +50,7 @@ export const WorkService = Object.freeze({
     const shiftById = new Map(shifts.map(shift => [shift.id, shift]))
     const tripById = new Map(trips.map(trip => [trip.id, trip]))
     const recovered = []
+    const unresolvedOwners = []
     for (const ownerId of owners) {
       const trip = tripById.get(ownerId)
       const shift = shiftById.get(ownerId)
@@ -57,7 +58,7 @@ export const WorkService = Object.freeze({
       // backups include it. Keep the live JSONL file only for the active owner;
       // completed/orphaned files can be cleared after a successful import.
       const entityType = trip ? 'TRIP' : shift ? 'SHIFT' : null
-      if (!entityType) continue
+      if (!entityType) { unresolvedOwners.push(ownerId); continue }
       const activeOwner = trip?.status === 'ACTIVE' || (shift?.status === 'ACTIVE' && !activeTrip)
       try {
         const result = await WorkRuntimePorts.nativeGps.syncTrace(ownerId, { entityType, clearAfterImport: !activeOwner })
@@ -65,10 +66,12 @@ export const WorkService = Object.freeze({
         if (imported > 0) checkpoint()
         recovered.push({ ownerId, entityType, imported })
       } catch (error) {
+        unresolvedOwners.push(ownerId)
         console.warn('KFE native GPS trace recovery deferred; source file retained:', ownerId, error)
       }
     }
-    return { ownersChecked: owners.length, recovered }
+    if (unresolvedOwners.length) throw new Error('Native GPS trace recovery incomplete; cloud backup is blocked to avoid omitting movement evidence. Unresolved owners: ' + unresolvedOwners.join(', '))
+    return { ownersChecked: owners.length, recovered, unresolvedOwners: [] }
   },
   async previewMovementReconciliation({ shiftId, closingOdometer, trips = [] }) {
     const shift = await ShiftTripRepository.getActive()
