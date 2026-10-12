@@ -40,7 +40,7 @@ const workStyles = fs.readFileSync(path.join(root, 'src/styles/kfe-base-shell.cs
 assert.match(workView, /scrollIntoView\(\{ block: 'nearest', behavior: 'smooth' \}\)/, 'Opening numeric entry scrolls the in-flow keypad into view.')
 assert.match(workStyles, /\.work-context-form \.kfe-work-number-pad\{position:relative!important/, 'The Work keypad must stay in document flow instead of covering the fixed swipe action.')
 assert.doesNotMatch(workStyles, /\.work-context-form \.kfe-work-number-pad\{position:fixed/, 'The Work keypad must never be fixed over the swipe action.')
-assert.match(workStyles, /color:var\\(--kfe-ui-on-accent/, 'Primary actions use the dark on-accent text token for high contrast.')
+assert.match(workStyles, /color:var\(--kfe-ui-on-accent/, 'Primary actions use the dark on-accent text token for high contrast.')
 
 const shiftTripRepository = fs.readFileSync(path.join(root, 'src/repositories/shiftTripRepository.js'), 'utf8')
 const endShiftService = fs.readFileSync(path.join(root, 'src/application/work/endShift.js'), 'utf8')
