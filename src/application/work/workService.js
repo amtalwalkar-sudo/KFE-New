@@ -39,6 +39,34 @@ export const WorkService = Object.freeze({
     return calculateRollingFuelCostPerKm(await FuelRepository.getAll())
   },
   async getLocations(entityType, entityId) { return LocationRepository.forEntity(entityType, entityId) },
+  async recoverNativeGpsTraces() {
+    const [shifts, trips, owners] = await Promise.all([
+      ShiftTripRepository.getAllShifts(),
+      ShiftTripRepository.getAllTrips(),
+      WorkRuntimePorts.nativeGps.listTraceOwners(),
+    ])
+    const activeShift = shifts.find(shift => shift.status === 'ACTIVE')
+    const activeTrip = trips.find(trip => trip.status === 'ACTIVE')
+    const shiftById = new Map(shifts.map(shift => [shift.id, shift]))
+    const tripById = new Map(trips.map(trip => [trip.id, trip]))
+    const recovered = []
+    for (const ownerId of owners) {
+      const trip = tripById.get(ownerId)
+      const shift = shiftById.get(ownerId)
+      // Never clear the currently active trace file. It is flushed on trip or
+      // shift completion; completed/orphaned trace files are safe to import now.
+      if (trip?.status === 'ACTIVE' || (shift?.status === 'ACTIVE' && !activeTrip)) continue
+      const entityType = trip ? 'TRIP' : shift ? 'SHIFT' : null
+      if (!entityType) continue
+      try {
+        const result = await WorkRuntimePorts.nativeGps.syncTrace(ownerId, { entityType })
+        recovered.push({ ownerId, entityType, imported: Number(result?.imported) || 0 })
+      } catch (error) {
+        console.warn('KFE native GPS trace recovery deferred; source file retained:', ownerId, error)
+      }
+    }
+    return { ownersChecked: owners.length, recovered }
+  },
   async previewMovementReconciliation({ shiftId, closingOdometer, trips = [] }) {
     const shift = await ShiftTripRepository.getActive()
     if (!shift?.shift?.id || shift.shift.id !== shiftId) return { reconciliationStatus: 'UNAVAILABLE', reason: 'ACTIVE_SHIFT_NOT_FOUND' }
