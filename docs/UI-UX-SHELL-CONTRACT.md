@@ -364,7 +364,7 @@ The warning must precede a potentially cross-boundary edit, not appear only in t
 
 ## Known implementation gap
 
-This contract establishes the source of truth and required guardrails. The current repository has an import-based `ui:impact` command, but it does **not yet prove** that every card/region can be relocated through a declarative layout manifest or that CSS/runtime/native dependencies are exhaustively detected. Do not claim “one-command layout editing with guaranteed zero collateral impact” until a layout-configuration layer and corresponding isolation/visual regression tests are implemented and passing. Until then, the safe workflow is one clear change request + impact preflight + scoped implementation + UI/E2E verification.
+This contract establishes the source of truth and required guardrails. The current repository has an import- and CSS-overlap-based `ui:impact` command, but it does **not yet prove** that every card/region can be relocated through a declarative layout manifest or that CSS/runtime/native dependencies are exhaustively detected. Do not claim “one-command layout editing with guaranteed zero collateral impact” until a layout-configuration layer and corresponding isolation/visual regression tests are implemented and passing. Until then, the safe workflow is one clear change request + impact preflight + scoped implementation + UI/E2E verification.
 
 
 ### Automated preflight command
