@@ -418,4 +418,13 @@ const updateMap = (name, map, id, value) => {
 .kfe-work-number-pad__grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.kfe-work-number-pad__grid button,.kfe-work-number-pad__actions button{min-height:40px;border:1px solid var(--kfe-ui-border);border-radius:10px;background:var(--kfe-ui-surface);color:var(--kfe-ui-text);font-size:1rem;font-weight:900}
 .kfe-work-number-pad__grid button:nth-child(10){font-size:.68rem}.kfe-work-number-pad__actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-top:5px}.kfe-work-number-pad__actions button{font-size:.78rem}.kfe-work-number-pad__actions .done{background:var(--kfe-ui-accent);color:var(--kfe-on-accent);border-color:var(--kfe-ui-accent)}.kfe-work-number-pad__actions.fare-keypad-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.kfe-work-number-pad__actions .fare-save-action{grid-column:1/-1;min-height:44px;font-size:.78rem;white-space:normal;line-height:1.15}
 @media(max-width:600px){.kfe-work-number-pad{padding:7px}.kfe-work-number-pad__grid button,.kfe-work-number-pad__actions button{min-height:38px}}
+
+/* Explicit semantic contrast for the odometer-gap allocation gate. */
+.gap-panel{display:grid;gap:10px;padding:12px;border:1px solid var(--kfe-ui-border);border-radius:12px;background:var(--kfe-ui-surface-2);color:var(--kfe-ui-text)}
+.gap-panel .eyebrow{color:var(--kfe-ui-muted-strong)}
+.gap-panel strong{color:var(--kfe-ui-text);font-size:1.15rem}
+.gap-panel p{margin:4px 0 0;color:var(--kfe-muted-text)}
+.gap-panel .choice-row button{background:var(--kfe-ui-surface);color:var(--kfe-ui-text);border:1px solid var(--kfe-ui-input-border);border-radius:10px;font-weight:800}
+.gap-panel .choice-row button.selected{background:var(--kfe-ui-accent);color:var(--kfe-ui-on-accent);border-color:var(--kfe-ui-accent)}
+.gap-panel .choice-row button:focus-visible{outline:3px solid var(--kfe-ui-focus);outline-offset:2px}
 </style>
