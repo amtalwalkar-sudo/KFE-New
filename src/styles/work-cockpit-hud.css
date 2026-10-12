@@ -112,7 +112,7 @@
 .work-context-form .input-unit{display:flex;align-items:center;gap:8px}
 .work-context-form .input-unit input{width:100%;min-width:0}
 .work-context-form .choice-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.work-context-form .choice-row button{min-height:48px}
+.work-context-form .choice-row button{min-height:48px}.work-context-form .choice-row button.selected{background:var(--kfe-ui-accent);color:var(--kfe-ui-on-accent);border-color:var(--kfe-ui-accent)}
 .work-context-form .check-row{display:flex!important;grid-template-columns:none!important;align-items:center;gap:10px}
 .work-context-form .check-row input{width:22px!important;height:22px;min-height:22px!important}
 .work-context-form .primary-action,.work-context-form .text-action,.work-context-form .choice-row button{touch-action:manipulation}
