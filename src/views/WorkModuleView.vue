@@ -125,12 +125,17 @@ const saveDraft = (identity, values) => {
   })
   return draftWriteQueue
 }
-const clearCommittedDraft = async identity => {
+const clearCommittedDraft = async (identity, { quiet = false } = {}) => {
   const key = draftIdentityKey(identity)
   committedDraftKeys.add(key)
   await draftWriteQueue
   try { await WorkDraftService.clear(identity, { committed: true }) }
-  catch (_) { fail('The record was saved, but its temporary draft could not be cleared. Do not replay it; reopen the record and verify the saved value.') }
+  catch (_) {
+    // A draft-cleanup failure must not overwrite the authoritative commit
+    // confirmation or make a saved fuel record look unsaved. The draft is never
+    // auto-submitted; a later open still requires explicit user confirmation.
+    if (!quiet) fail('The record was saved, but its temporary draft could not be cleared. Do not replay it; reopen the record and verify the saved value.')
+  }
 }
 
 watch([startOdo, startAck, gapChoice], () => {
@@ -786,7 +791,7 @@ async function saveFuel() {
     // draft cleanup and derived-metric refresh are non-critical follow-up work.
     fuelOpen.value = false
     notify('Fuel saved.')
-    void clearCommittedDraft(fuelDraftIdentity()).catch(() => {})
+    void clearCommittedDraft(fuelDraftIdentity(), { quiet: true }).catch(() => {})
     void fuel.refresh().catch(() => {})
   } finally {
     fuelBusy.value = false
