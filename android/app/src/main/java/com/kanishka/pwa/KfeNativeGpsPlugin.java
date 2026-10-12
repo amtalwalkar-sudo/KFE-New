@@ -1,6 +1,10 @@
 package com.kanishka.pwa;
 
 import android.Manifest;
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Build;
+import android.provider.Settings;
 import android.content.pm.PackageManager;
 
 import com.getcapacitor.Plugin;
@@ -16,10 +20,36 @@ import androidx.core.content.ContextCompat;
 @CapacitorPlugin(
   name = "KfeNativeGps",
   permissions = {
-    @Permission(alias = "location", strings = { Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION })
+    @Permission(alias = "location", strings = { Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION }),
+    @Permission(alias = "backgroundLocation", strings = { Manifest.permission.ACCESS_BACKGROUND_LOCATION })
   }
 )
 public class KfeNativeGpsPlugin extends Plugin {
+  @com.getcapacitor.PluginMethod
+  public void getPermissionStatus(PluginCall call) {
+    boolean fine = ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+    boolean coarse = ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+    boolean background = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+      || ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED;
+    JSObject result = new JSObject();
+    result.put("supported", true);
+    result.put("locationAllowed", fine || coarse);
+    result.put("backgroundLocationAllowed", background);
+    call.resolve(result);
+  }
+
+  @com.getcapacitor.PluginMethod
+  public void openAppSettings(PluginCall call) {
+    try {
+      Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getContext().getPackageName()));
+      intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+      getContext().startActivity(intent);
+      call.resolve();
+    } catch (Exception error) {
+      call.reject("Unable to open KFE app settings.", error);
+    }
+  }
+
   @com.getcapacitor.PluginMethod
   public void start(PluginCall call) {
     String tripId = call.getString("tripId", "");
