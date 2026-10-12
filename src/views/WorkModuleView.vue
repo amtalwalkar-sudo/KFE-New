@@ -1080,15 +1080,7 @@ onBeforeUnmount(() => {
         <div class="progress-track"><i :style="{width:targetProgress+'%'}"/></div>
       </section>
 
-      <section class="operational-state state-tone-info work-persistent-metrics">
-        <div class="work-live-metrics">
-          <div class="live-km-readout" aria-live="polite"><span>{{ liveMovementLabel || 'LIVE KM' }}</span><strong>{{ liveMovementKm.toFixed(1) }} km</strong><small>{{ liveMovementStatus }}</small></div>
-          <div class="trip-timer-block"><span class="timer-label">{{ stateTimerLabel }}</span><strong class="trip-timer" aria-live="polite">{{ active ? tripTimer : stateTimer }}</strong></div>
-        </div>
-        <div v-if="cockpit.state===WORK_COCKPIT_STATES.READY" class="operator-compact"><label><span>Operator</span><select v-model="operator"><option v-for="item in store.operators" :key="item">{{ item }}</option></select></label></div>
-        <div v-else-if="cockpit.state===WORK_COCKPIT_STATES.GOING_TO_PICKUP || cockpit.state===WORK_COCKPIT_STATES.READY_FOR_TRIP"><span class="eyebrow">GOING TO PICKUP</span><strong>{{ store.trip?.operator || 'TRIP' }}</strong></div>
-        <div v-else-if="cockpit.state===WORK_COCKPIT_STATES.TRIP_ACTIVE"><span class="eyebrow">TRIP ACTIVE</span><strong>{{ store.trip?.operator || 'TRIP' }}</strong></div>
-      </section>
+
 
       <section v-if="!fuelOpen && !endOpen && !cancelOpen" class="action-instrument work-fixed-action">
         <div ref="track" class="swipe trip-swipe" :class="{threshold:swipeProgress>=70,committing:busy,'semantic-go':cockpit.action==='GO_TO_PICKUP','semantic-start':cockpit.action==='START_RIDE','semantic-end':cockpit.action==='END_RIDE'}" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up">
@@ -1097,6 +1089,16 @@ onBeforeUnmount(() => {
         </div>
       </section>
     </template>
+
+    <section v-if="store.isOnline || startOpen || fuelOpen || endOpen || cancelOpen || pendingFare" class="operational-state state-tone-info work-persistent-metrics">
+      <div class="work-live-metrics">
+        <div class="live-km-readout" aria-live="polite"><span>{{ liveMovementLabel || 'LIVE KM' }}</span><strong>{{ liveMovementKm.toFixed(1) }} km</strong><small>{{ liveMovementStatus }}</small></div>
+        <div class="trip-timer-block"><span class="timer-label">{{ stateTimerLabel }}</span><strong class="trip-timer" aria-live="polite">{{ active ? tripTimer : stateTimer }}</strong></div>
+      </div>
+      <div v-if="store.isOnline && cockpit.state===WORK_COCKPIT_STATES.READY" class="operator-compact"><label><span>Operator</span><select v-model="operator"><option v-for="item in store.operators" :key="item">{{ item }}</option></select></label></div>
+      <div v-else-if="store.isOnline && (cockpit.state===WORK_COCKPIT_STATES.GOING_TO_PICKUP || cockpit.state===WORK_COCKPIT_STATES.READY_FOR_TRIP)"><span class="eyebrow">GOING TO PICKUP</span><strong>{{ store.trip?.operator || 'TRIP' }}</strong></div>
+      <div v-else-if="store.isOnline && cockpit.state===WORK_COCKPIT_STATES.TRIP_ACTIVE"><span class="eyebrow">TRIP ACTIVE</span><strong>{{ store.trip?.operator || 'TRIP' }}</strong></div>
+    </section>
 
     <button
       v-if="store.isOnline && (store.trip?.tripStage === 'GOING_TO_PICKUP' || store.trip?.tripStage === 'PICKUP') && !endOpen && !fuelOpen && !cancelOpen"
