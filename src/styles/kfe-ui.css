@@ -1963,3 +1963,11 @@ table th,table td{border-color:var(--kfe-ui-border)}
   visibility: visible;
   min-height: 1px;
 }
+
+
+/* Fuel entry: the calculated quantity uses the same semantic info token as other status readouts. */
+.work-canonical .form-fuel .fuel-form-close-row{display:flex;justify-content:flex-end;min-height:24px;margin:-4px 0 -8px}
+.work-canonical .form-fuel .fuel-form-close-row .text-action{min-height:32px;padding:0 8px;color:var(--kfe-ui-muted);font-size:12px}
+.work-canonical .form-fuel .fuel-calculated-value{min-height:44px;border:1px solid color-mix(in srgb,var(--kfe-info) 42%,var(--kfe-ui-border));background:color-mix(in srgb,var(--kfe-info) 10%,var(--kfe-ui-surface));color:var(--kfe-info)}
+.work-canonical .form-fuel .fuel-calculated-value span{color:var(--kfe-info);opacity:.9}
+.work-canonical .form-fuel .fuel-calculated-value strong{color:var(--kfe-info)}
