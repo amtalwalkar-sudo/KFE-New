@@ -13,7 +13,7 @@ assert.equal(packageJson.scripts['ui:impact'], 'node tools/presentation-impact.m
 
 const boundaryText = await readFile(boundary, 'utf8')
 assert.match(boundaryText, /🔴 CHANGE IMPACT WARNING/)
-assert.match(boundaryText, /current impact tool is a local import-dependency check/)
+assert.match(boundaryText, /impact tool checks local import dependencies and reports shared class\/ID hooks/)
 assert.match(boundaryText, /npm run ui:impact -- src\/path\/to\/component\.vue/)
 
 const toolText = await readFile(tool, 'utf8')
