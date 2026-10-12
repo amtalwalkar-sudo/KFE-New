@@ -867,6 +867,7 @@ async function finishEnd() {
       tripKm: reviewKm.value[t.id] === '' || reviewKm.value[t.id] == null ? (t.tripKm ?? '') : reviewKm.value[t.id],
       revenue: reviewRevenue.value[t.id] ?? t.revenue ?? ''
     }))
+    const endingShiftId = store.shift?.id
     const result = await store.endShift({
       closingOdometer: closingOdo.value,
       revenue: shiftRevenue.value,
@@ -879,7 +880,7 @@ async function finishEnd() {
       trips
     })
     if (!result?.ok) return fail(result.reason)
-    if (nativeAndroid && store.shift?.id) await NativeGpsService.stop(store.shift.id)
+    if (nativeAndroid && endingShiftId) await NativeGpsService.stop(endingShiftId)
     if (traceRunning) {
       MovementTraceService.reset()
       traceRunning = false
@@ -1011,6 +1012,13 @@ onMounted(async () => {
     if (shiftDeadLeg || passengerRide) {
       traceRunning = await MovementTraceService.resumePersisted(savedTrace)
     }
+  }
+  // Reassert the canonical native GPS owner on WebView/process recovery.
+  // The foreground service itself remains responsible for screen-off tracking.
+  if (store.isOnline && nativeAndroid && store.shift?.id) {
+    const nativeOwnerId = active.value && store.trip?.id ? store.trip.id : store.shift.id
+    const nativeEventType = active.value ? 'PASSENGER_RIDE_TRACE' : 'DEAD_MOVEMENT_TRACE'
+    await NativeGpsService.start(nativeOwnerId, nativeEventType)
   }
   startWorkflowId.value = (await WorkDraftService.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || WorkDraftService.newWorkflowId()
   fuelWorkflowId.value = (await WorkDraftService.latestWorkflow('work-fuel', 'RECORD_FUEL'))?.workflowId || WorkDraftService.newWorkflowId()
