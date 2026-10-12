@@ -19,6 +19,7 @@ const KfeRideNotificationService = WorkRuntimePorts.rideNotifications
 const AndroidOverlay = WorkRuntimePorts.androidOverlay
 const fuel = useFuelStore()
 const nativeAndroid = Capacitor.getPlatform() === 'android'
+const backgroundLocationPermission = ref(null)
 const startWorkflowId = ref('')
 const fuelWorkflowId = ref('')
 let restoringDrafts = false
@@ -82,6 +83,15 @@ let timer = null
 let liveKmRefreshTimer = null
 let traceRunning = false
 let notificationListener = null
+
+const refreshBackgroundLocationPermission = async () => {
+  if (!nativeAndroid) return
+  backgroundLocationPermission.value = await WorkRuntimePorts.nativeGps.getPermissionStatus()
+}
+const openGpsPermissionSettings = async () => { await WorkRuntimePorts.nativeGps.openAppSettings() }
+const refreshGpsPermissionOnResume = () => {
+  if (document.visibilityState === 'visible') void refreshBackgroundLocationPermission()
+}
 
 const money = value => Number.isFinite(Number(value))
   ? '₹' + Math.round(Number(value)).toLocaleString('en-IN')
@@ -1038,6 +1048,8 @@ async function processNativeEvent(event) {
 }
 
 onMounted(async () => {
+  void refreshBackgroundLocationPermission()
+  document.addEventListener('visibilitychange', refreshGpsPermissionOnResume)
   await store.initialize()
   await fuel.refresh().catch(() => {})
   // Restore only the exact persisted movement owner that still matches the
@@ -1141,6 +1153,7 @@ watch(() => store.trip?.tripStage, () => { void syncOverlay() })
 
 
 onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', refreshGpsPermissionOnResume)
   if (timer) clearInterval(timer)
   if (liveKmRefreshTimer) clearInterval(liveKmRefreshTimer)
   if (traceRunning) MovementTraceService.pause()
@@ -1162,6 +1175,10 @@ onBeforeUnmount(() => {
   </header>
 
   <main class="work-main contextual-form-shell">
+    <div v-if="nativeAndroid && backgroundLocationPermission?.supported && !backgroundLocationPermission.backgroundLocationAllowed" class="gps-recovery-warning" role="status">
+      <span>Allow background location in Android app settings to resume GPS automatically after a phone restart.</span>
+      <button type="button" @click="openGpsPermissionSettings">Open settings</button>
+    </div>
     <section v-if="!fuelOpen && !pendingFare && (store.isOnline || cancelOpen || endOpen)" class="operational-state state-tone-info work-persistent-metrics" aria-label="Live distance and workflow timer">
       <div class="work-live-metrics">
         <div class="live-km-readout" aria-live="polite"><span>{{ liveMovementLabel || 'LIVE KM' }}</span><strong>{{ liveMovementKm.toFixed(1) }} km</strong><small>{{ liveMovementStatus }}</small></div>
