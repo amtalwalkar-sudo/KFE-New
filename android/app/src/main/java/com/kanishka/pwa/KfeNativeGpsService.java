@@ -65,7 +65,7 @@ public class KfeNativeGpsService extends Service {
     // Boot/package-replacement broadcasts are delivered even when no ride is
     // active. Only revive an actually persisted ride with location permission.
     String persisted = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(ACTIVE_TRIP, "");
-    if (persisted == null || persisted.trim().isEmpty() || !hasLocationPermission(context)) return;
+    if (persisted == null || persisted.trim().isEmpty() || !hasLocationPermission(context) || !hasBackgroundLocationPermission(context)) return;
     Intent intent = new Intent(context, KfeNativeGpsService.class);
     intent.setAction("com.kanishka.pwa.NATIVE_GPS_RESUME");
     androidx.core.content.ContextCompat.startForegroundService(context, intent);
@@ -283,6 +283,12 @@ public class KfeNativeGpsService extends Service {
 
   private static String safeName(String value) {
     return value.replaceAll("[^A-Za-z0-9._-]", "_");
+  }
+
+  private static boolean hasBackgroundLocationPermission(Context context) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return true;
+    return androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+      == android.content.pm.PackageManager.PERMISSION_GRANTED;
   }
 
   private boolean hasLocationPermission() {
