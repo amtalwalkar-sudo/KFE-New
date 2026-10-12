@@ -1052,6 +1052,7 @@ onMounted(async () => {
   document.addEventListener('visibilitychange', refreshGpsPermissionOnResume)
   await store.initialize()
   await fuel.refresh().catch(() => {})
+  await WorkService.recoverNativeGpsTraces().catch(error => console.warn('KFE native GPS trace recovery deferred:', error))
   // Restore only the exact persisted movement owner that still matches the
   // canonical active shift/trip. A stale trace must never be attached to a new one.
   const savedTrace = MovementTraceService.getActiveSession()
