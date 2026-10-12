@@ -312,12 +312,12 @@ const updateMap = (name, map, id, value) => {
     </form>
 
     <form v-else-if="type === 'fuel'" class="form-card state-tone-info focus-surface" @submit.prevent="submitForm">
-      <div class="form-head"><div><span class="eyebrow">FUEL</span><strong>CNG REFUEL</strong></div><button class="text-action" type="button" @click="emit('action','close-fuel')">Close</button></div>
+      <div class="fuel-form-close-row"><button class="text-action" type="button" aria-label="Close fuel form" @click="emit('action','close-fuel')">Close</button></div>
       <label class="check-row"><input :checked="fuelPartial" type="checkbox" @change="emit('update:fuel-partial',$event.target.checked)"><span>Partial fill</span></label>
       <label>Odometer<div class="input-unit"><input :value="fuelOdo" type="text" inputmode="none" readonly autocomplete="off" aria-label="Odometer" @focus="activateNumeric('fuel-odo')" @click="activateNumeric('fuel-odo')"><b>km</b></div></label>
       <label>Price / kg<div class="input-unit"><b>₹</b><input :value="fuelPrice" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('fuel-price')" aria-label="Price / kg" @click="activateNumeric('fuel-price')"></div></label>
       <label>Amount<div class="input-unit"><b>₹</b><input :value="fuelAmount" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('fuel-amount')" aria-label="Amount" @click="activateNumeric('fuel-amount')"></div></label>
-      <div class="calculated-value"><span>Quantity</span><strong>{{ fuelQty.valid ? fuelQty.quantityKg.toFixed(2)+' kg' : '—' }}</strong></div>
+      <div class="calculated-value fuel-calculated-value" aria-live="polite"><span>Quantity</span><strong>{{ fuelQty.valid ? fuelQty.quantityKg.toFixed(2)+' kg' : '—' }}</strong></div>
       <button type="submit" class="primary-action" :disabled="fuelBusy">{{ fuelBusy ? 'SAVING…' : 'OK — SAVE FUEL' }}</button>
     </form>
 
