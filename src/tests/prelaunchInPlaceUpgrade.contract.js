@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const buildGradle = fs.readFileSync(path.join(root, 'android', 'app', 'build.gradle'), 'utf8')
-const indexedDb = fs.readFileSync(path.join(root, 'src', 'utils', 'indexedDB.js'), 'utf8')
+const indexedDb = fs.readFileSync(path.join(root, 'src', 'utils', 'indexedDB.js'), 'utf8') + fs.readFileSync(path.join(root, 'src', 'constants', 'canonicalDatabase.js'), 'utf8')
 const backup = fs.readFileSync(path.join(root, 'src', 'application', 'backup', 'backupService.js'), 'utf8')
 
 assert(buildGradle.includes('applicationId "com.kanishka.pwa"'), 'Android package ID must remain stable for in-place upgrades.')
