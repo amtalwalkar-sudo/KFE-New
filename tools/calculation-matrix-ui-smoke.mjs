@@ -20,7 +20,7 @@ const route = async (page, path, selector, label) => {
 }
 const ensureFirstRunComplete = async page => {
   const setup = page.locator('.first-run')
-  try { await setup.waitFor({ state: 'visible', timeout: 3000) } catch (_) { return }
+  try { await setup.waitFor({ state: 'visible', timeout: 3000 }) } catch (_) { return }
   const end = Date.now() + 30000
   while (Date.now() < end) {
     if (await page.locator('.work-canonical,.kfe-blank-workspace,.kfe-settings-page').count()) return
