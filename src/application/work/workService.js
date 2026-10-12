@@ -195,15 +195,39 @@ export const WorkService = Object.freeze({
               traceGeometry: snapshots.map(point => [Number(point.longitude), Number(point.latitude)])
             })
           }
-        } catch (_) {
+        } catch (error) {
           // Completion is already persisted. Valhalla/network/GPS enrichment must
-          // never block, undo, or delay the fare form or swipe transition.
+          // never block, undo, or delay the fare form or swipe transition. The raw
+          // native file remains on disk if import failed and startup can retry it.
+          console.warn('Trip GPS enrichment deferred; native trace retained for recovery:', tripId, error)
+        } finally {
+          try { await WorkRuntimePorts.nativeGps.stop(tripId) } catch (_) {}
         }
       })()
     }
     return result
   },
-  async cancelTrip(data) { const result = await ShiftTripRepository.cancelTrip(data); checkpoint(); if (data?.id) { void (async () => { try { const activeTrace = WorkRuntimePorts.movementTrace.getActiveSession(); if (activeTrace?.entityType === 'TRIP' && activeTrace.entityId === data.id) { await WorkRuntimePorts.movementTrace.stop({ captureFinal: false }) } const sync = await WorkRuntimePorts.nativeGps.syncTrace(data.id); if (Number(sync?.imported) > 0) checkpoint(); await WorkRuntimePorts.nativeGps.stop(data.id) } catch (_) {} })() } return result },
+  async cancelTrip(data) {
+    const result = await ShiftTripRepository.cancelTrip(data)
+    checkpoint()
+    if (data?.id) {
+      void (async () => {
+        try {
+          const activeTrace = WorkRuntimePorts.movementTrace.getActiveSession()
+          if (activeTrace?.entityType === 'TRIP' && activeTrace.entityId === data.id) {
+            await WorkRuntimePorts.movementTrace.stop({ captureFinal: false })
+          }
+          const sync = await WorkRuntimePorts.nativeGps.syncTrace(data.id)
+          if (Number(sync?.imported) > 0) checkpoint()
+        } catch (error) {
+          console.warn('Cancelled trip GPS sync deferred; native trace retained for recovery:', data.id, error)
+        } finally {
+          try { await WorkRuntimePorts.nativeGps.stop(data.id) } catch (_) {}
+        }
+      })()
+    }
+    return result
+  },
   async updateTrip(data) {
     const validation = validateTripCorrection(data)
     if (!validation.valid) return { ok: false, reason: validation.reason }
