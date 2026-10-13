@@ -20,6 +20,8 @@ assert.match(service, /startForeground\(NOTIFICATION_ID, notification, ServiceIn
 assert.match(service, /START_STICKY/)
 assert.match(service, /resumePersisted\(Context context\)/)
 assert.match(service, /output\.getFD\(\)\.sync\(\)/, 'native raw trace must be fsynced')
+assert.ok(service.includes('String key = eventType + "|" + timestamp'), 'Native deduplication must keep otherwise-identical points from different movement phases.')
+assert.match(service, /seenKeys\.add\(point\.optString\("eventType"/, 'Native restart recovery must rebuild dedupe keys with the movement phase.')
 assert.match(service, /isPersistedTracking\(Context context, String id, String requestedEventType, String requestedEntityType\)/)
 assert.match(plugin, /awaitCollectorState\(call, tripId, eventType, entityType, true/)
 assert.match(plugin, /awaitCollectorState\(call, tripId, null, null, false/)

@@ -220,7 +220,7 @@ public class KfeNativeGpsService extends Service {
     if (!location.hasAccuracy() || location.getAccuracy() > 100f) return;
 
     long timestamp = location.getTime() > 0 ? location.getTime() : System.currentTimeMillis();
-    String key = timestamp + "|" + location.getLatitude() + "|" + location.getLongitude();
+    String key = eventType + "|" + timestamp + "|" + location.getLatitude() + "|" + location.getLongitude();
     if (seenKeys.contains(key)) return;
 
     try {
@@ -267,7 +267,7 @@ public class KfeNativeGpsService extends Service {
       while ((line = reader.readLine()) != null) {
         try {
           JSONObject point = new JSONObject(line);
-          seenKeys.add(point.optLong("capturedAtEpoch", -1) + "|" + point.optDouble("latitude") + "|" + point.optDouble("longitude"));
+          seenKeys.add(point.optString("eventType", "PASSENGER_RIDE_TRACE") + "|" + point.optLong("capturedAtEpoch", -1) + "|" + point.optDouble("latitude") + "|" + point.optDouble("longitude"));
           if ("PASSENGER_RIDE_TRACE".equals(point.optString("eventType", ""))) {
             Location passengerPoint = new Location("KFE");
             passengerPoint.setLatitude(point.optDouble("latitude"));
