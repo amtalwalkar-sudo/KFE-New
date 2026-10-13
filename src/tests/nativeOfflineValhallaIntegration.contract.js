@@ -14,6 +14,7 @@ assert.match(gradle, /io\.github\.rallista:valhalla-mobile:0\.6\.3/, 'Android pa
 assert.match(mainActivity, /registerPlugin\(KfeOfflineMapsPlugin\.class\)/, 'Native map plugin must be registered with Capacitor.')
 assert.match(nativePlugin, /getFilesDir\(\), "offline-maps"/, 'Map data must live in isolated app-specific native files.')
 assert.match(nativePlugin, /offline-maps-manifest\.json/, 'Downloader must use the versioned map manifest.')
+assert.match(nativePlugin, /MANIFEST_URL = "https:\/\//, 'Manifest must be fetched over HTTPS.')
 assert.match(nativePlugin, /SHA-256|SHA256|SHA-256 verification|MessageDigest\.getInstance\("SHA-256"\)/, 'Downloaded map packages must be checksum verified.')
 assert.match(nativePlugin, /expectedBytes|sizeBytes/, 'Downloader must verify package size.')
 assert.match(nativePlugin, /downloadProgress/, 'Downloader must emit progress.')
