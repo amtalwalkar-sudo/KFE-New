@@ -84,13 +84,13 @@ public class KfeOfflineMapsPlugin extends Plugin {
                 SimpleDateFormat installedAtFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.ROOT); installedAtFormat.setTimeZone(TimeZone.getTimeZone("UTC")); metadata.put("installedAt", installedAtFormat.format(new Date())); metadata.put("engineVersion", manifest.optString("engineVersion", "0.6.3"));
                 File nextMeta = new File(stage, "map-metadata.json"); writeText(nextMeta, metadata.toString());
                 File active = tilesFile(); File old = new File(stage, "previous-tiles.tar");
-                if (old.exists()) old.delete();
+                File activeMeta = metadataFile(); File oldMeta = new File(stage, "previous-map-metadata.json");
+                if (old.exists()) old.delete(); if (oldMeta.exists()) oldMeta.delete();
                 if (active.exists() && !active.renameTo(old)) throw new IllegalStateException("Unable to stage existing map safely.");
-                if (!part.renameTo(active)) { if (old.exists()) old.renameTo(active); throw new IllegalStateException("Unable to activate downloaded map."); }
-                File activeMeta = metadataFile();
-                if (activeMeta.exists() && !activeMeta.delete()) { active.delete(); if (old.exists()) old.renameTo(active); throw new IllegalStateException("Unable to update map metadata."); }
-                if (!nextMeta.renameTo(activeMeta)) { active.delete(); if (old.exists()) old.renameTo(active); throw new IllegalStateException("Unable to commit map metadata."); }
-                old.delete();
+                if (activeMeta.exists() && !activeMeta.renameTo(oldMeta)) { if (old.exists()) old.renameTo(active); throw new IllegalStateException("Unable to stage existing map metadata safely."); }
+                if (!part.renameTo(active)) { if (old.exists()) old.renameTo(active); if (oldMeta.exists()) oldMeta.renameTo(activeMeta); throw new IllegalStateException("Unable to activate downloaded map."); }
+                if (!nextMeta.renameTo(activeMeta)) { active.delete(); if (old.exists()) old.renameTo(active); if (oldMeta.exists()) oldMeta.renameTo(activeMeta); throw new IllegalStateException("Unable to commit map metadata."); }
+                old.delete(); oldMeta.delete();
                 JSObject done = new JSObject(); done.put("version", version); done.put("bytesInstalled", expectedBytes); done.put("regionId", REGION_ID);
                 notifyListeners("downloadComplete", done);
             } catch (Exception e) {
