@@ -94,8 +94,9 @@ jobs:
           {"locations":[{"lat":19.0760,"lon":72.8777,"type":"break"},{"lat":18.6414,"lon":72.8722,"type":"break"}],"costing":"auto","directions_options":{"units":"kilometers"}}
           JSON
 
-          # valhalla_service is an HTTP server, not a CLI request runner. Start it
-          # once, then exercise the same HTTP API used by the native adapter.
+          # Start the HTTP service and send JSON request bodies. Valhalla's HTTP
+          # handlers accept the request JSON as the POST body; query-string
+          # wrapping via a "json=" parameter returns HTTP 400 in this image.
           docker run --detach --rm --name kfe-valhalla-smoke -p 127.0.0.1:8002:8002 \
             -v "$PWD/work:/custom_files" \
             --entrypoint valhalla_service \
@@ -118,16 +119,18 @@ jobs:
           fi
 
           for city in mumbai pune nashik alibag; do
-            curl --silent --show-error --fail --get \
-              --data-urlencode "json@work/trace-$city.json" \
+            curl --silent --show-error --fail \
+              -H 'Content-Type: application/json' \
+              --data-binary "@work/trace-$city.json" \
               http://127.0.0.1:8002/trace_route > "work/result-$city.json"
             jq -e '.trip.summary.length > 0' "work/result-$city.json" >/dev/null
             echo "trace_route HTTP smoke passed: $city"
           done
 
           for route in mumbai-pune pune-nashik mumbai-alibag; do
-            curl --silent --show-error --fail --get \
-              --data-urlencode "json@work/route-$route.json" \
+            curl --silent --show-error --fail \
+              -H 'Content-Type: application/json' \
+              --data-binary "@work/route-$route.json" \
               http://127.0.0.1:8002/route > "work/result-route-$route.json"
             jq -e '.trip.summary.length > 0' "work/result-route-$route.json" >/dev/null
             echo "intercity route HTTP smoke passed: $route"
