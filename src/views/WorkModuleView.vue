@@ -341,7 +341,9 @@ async function refreshLiveMovementKm() {
   )
   if (matched) {
     liveMovementKm.value = matched.distanceKm
-    liveMovementStatus.value = 'PROVISIONAL ROAD MATCH'
+    liveMovementStatus.value = Number(matched.liveGpsTailKm) > 0
+      ? 'ROAD MATCH + LIVE GPS TAIL'
+      : 'PROVISIONAL ROAD MATCH'
   }
   // Pending traces are also eligible for local-only matching without internet.
   void MovementReconciliationQueue.reconcilePending()
