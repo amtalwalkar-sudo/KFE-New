@@ -258,15 +258,18 @@ export const WorkService = Object.freeze({
           try {
             const active = await ShiftTripRepository.getActive()
             if (active.shift?.id && active.shift.status === 'ACTIVE' && !active.trip?.id) {
-              const nativeStarted = await WorkRuntimePorts.nativeGps.start(active.shift.id, 'DEAD_MOVEMENT_TRACE', 'SHIFT').catch(() => false)
-              if (!nativeStarted) {
-                WorkRuntimePorts.movementTrace.start({
-                  entityType: 'SHIFT',
-                  entityId: active.shift.id,
-                  eventType: 'DEAD_MOVEMENT_TRACE',
-                  profile: 'DEAD_LEG'
+              void WorkRuntimePorts.nativeGps.start(active.shift.id, 'DEAD_MOVEMENT_TRACE', 'SHIFT')
+                .then(nativeStarted => {
+                  if (!nativeStarted) {
+                    WorkRuntimePorts.movementTrace.start({
+                      entityType: 'SHIFT',
+                      entityId: active.shift.id,
+                      eventType: 'DEAD_MOVEMENT_TRACE',
+                      profile: 'DEAD_LEG'
+                    })
+                  }
                 })
-              }
+                .catch(error => console.warn('Shift GPS capture could not restart after cancellation:', error))
             }
           } catch (error) {
             console.warn('Shift GPS capture could not resume after cancellation:', error)
