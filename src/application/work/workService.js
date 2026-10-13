@@ -9,7 +9,7 @@ import { calculateFuelQuantity, validateFuelEntry } from '../../domain/work/fuel
 import { calculateRollingFuelCostPerKm } from '../../domain/math/fuel.js'
 import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } from '../../domain/work/trip.js'
 import { BackupService } from '../backup/backupService.js'
-import { MovementAccountingService, routeTrace, assessGpsTraceCompleteness } from '../../domain/movement/movementAccounting.js'
+import { MovementAccountingService, routeTrace, assessGpsTraceCompleteness, isUsableDistanceKm } from '../../domain/movement/movementAccounting.js'
 import { WorkRuntimePorts } from './workRuntimePorts.js'
 import { calculateTraceDistanceKm } from '../../domain/movement/traceDistance.js'
 import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
@@ -186,11 +186,12 @@ export const WorkService = Object.freeze({
             return
           }
 
-          const gpsKm = calculateTraceDistanceKm(snapshots)
+          const usableGpsPoints = MovementAccountingService.filterGpsTrace(snapshots)
+          const gpsKm = usableGpsPoints.length >= 2 ? calculateTraceDistanceKm(usableGpsPoints) : null
           const router = WorkRuntimePorts.routing.createRouter()
           const routed = await routeTrace(snapshots, router)
 
-          if (Number.isFinite(Number(routed.distanceKm)) && Number(routed.distanceKm) >= 0) {
+          if (isUsableDistanceKm(routed.distanceKm) && (routed.points?.length || 0) >= 2) {
             await ShiftTripRepository.enrichTripMovement({
               id: tripId,
               tripKm: Number(routed.distanceKm),
@@ -209,7 +210,7 @@ export const WorkService = Object.freeze({
             return
           }
 
-          if (Number.isFinite(Number(gpsKm)) && gpsKm >= 0) {
+          if (usableGpsPoints.length >= 2 && isUsableDistanceKm(gpsKm)) {
             await ShiftTripRepository.enrichTripMovement({
               id: tripId,
               tripKm: Number(gpsKm),
