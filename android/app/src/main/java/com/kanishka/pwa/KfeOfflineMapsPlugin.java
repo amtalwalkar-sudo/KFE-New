@@ -26,12 +26,16 @@ import java.security.MessageDigest;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.Locale;
+import java.util.Date;
+import java.text.SimpleDateFormat;
+import java.util.TimeZone;
 
 @CapacitorPlugin(name = "KfeOfflineMaps")
 public class KfeOfflineMapsPlugin extends Plugin {
     private static final String REGION_ID = "mumbai-pune-nashik-alibag-v1";
     private static final String MANIFEST_URL = "https://github.com/amtalwalkar-sudo/KFE-New/releases/latest/download/offline-maps-manifest.json";
-    private static final ExecutorService IO = Executors.newSingleThreadExecutor();
+    private static final ExecutorService DOWNLOAD_IO = Executors.newSingleThreadExecutor();
+    private static final ExecutorService MATCH_IO = Executors.newSingleThreadExecutor();
     private File mapDir() { File f = new File(getContext().getFilesDir(), "offline-maps"); if (!f.exists()) f.mkdirs(); return f; }
     private File tilesFile() { return new File(mapDir(), "valhalla-tiles.tar"); }
     private File metadataFile() { return new File(mapDir(), "map-metadata.json"); }
@@ -57,7 +61,7 @@ public class KfeOfflineMapsPlugin extends Plugin {
 
     @PluginMethod public void downloadUpdate(PluginCall call) {
         if (!call.getBoolean("confirmed", false)) { call.reject("Confirm the offline map download first."); return; }
-        IO.execute(() -> {
+        DOWNLOAD_IO.execute(() -> {
             File stage = new File(mapDir(), "staging"); if (!stage.exists()) stage.mkdirs();
             File part = new File(stage, "valhalla-tiles.tar.part");
             File manifestTemp = new File(stage, "manifest.json");
@@ -75,7 +79,7 @@ public class KfeOfflineMapsPlugin extends Plugin {
                 JSONObject metadata = new JSONObject();
                 metadata.put("regionId", REGION_ID); metadata.put("region", manifest.optString("region", "Mumbai · Pune · Nashik · Alibag"));
                 metadata.put("version", version); metadata.put("sha256", expectedHash); metadata.put("sizeBytes", expectedBytes);
-                metadata.put("installedAt", java.time.Instant.now().toString()); metadata.put("engineVersion", manifest.optString("engineVersion", "0.6.3"));
+                SimpleDateFormat installedAtFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.ROOT); installedAtFormat.setTimeZone(TimeZone.getTimeZone("UTC")); metadata.put("installedAt", installedAtFormat.format(new Date())); metadata.put("engineVersion", manifest.optString("engineVersion", "0.6.3"));
                 File nextMeta = new File(stage, "map-metadata.json"); writeText(nextMeta, metadata.toString());
                 File active = tilesFile(); File old = new File(stage, "previous-tiles.tar");
                 if (old.exists()) old.delete();
@@ -99,7 +103,7 @@ public class KfeOfflineMapsPlugin extends Plugin {
     @PluginMethod public void traceRoute(PluginCall call) {
         JSArray points = call.getArray("points");
         if (points == null || points.length() < 2) { call.reject("At least two GPS points are required."); return; }
-        IO.execute(() -> {
+        MATCH_IO.execute(() -> {
             try {
                 File tiles = tilesFile(); if (!tiles.isFile() || tiles.length() == 0) throw new IllegalStateException("Offline Valhalla maps are not installed.");
                 JSONArray shape = new JSONArray();
@@ -109,7 +113,7 @@ public class KfeOfflineMapsPlugin extends Plugin {
                     if (Double.isNaN(lat) || Double.isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) continue;
                     JSONObject q = new JSONObject(); q.put("lat", lat); q.put("lon", lon);
                     String capturedAt = p.optString("capturedAt", p.optString("timestamp", ""));
-                    try { q.put("time", java.time.Instant.parse(capturedAt).getEpochSecond()); } catch (Exception ignored) {}
+                    try { SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSX", Locale.US); f.setTimeZone(TimeZone.getTimeZone("UTC")); q.put("time", f.parse(capturedAt).getTime() / 1000L); } catch (Exception ignored) {}
                     shape.put(q);
                 }
                 if (shape.length() < 2) throw new IllegalArgumentException("GPS trace has fewer than two valid points.");
