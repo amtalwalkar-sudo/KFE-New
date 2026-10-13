@@ -33,6 +33,20 @@ export const isRoadMatch = result => Boolean(
   Number.isFinite(Number(result.distanceKm)) && Number(result.distanceKm) >= 0
 )
 
+export const extendRoadMatchWithLiveGpsTail = (cached, tracePoints = []) => {
+  if (!cached || !Array.isArray(tracePoints)) return null
+  const previousCount = Math.max(0, Number(cached.sourcePointCount) || 0)
+  if (tracePoints.length <= previousCount) return cached
+  const tail = tracePoints.slice(Math.max(0, previousCount - 1))
+  const tailKm = tail.length > 1 ? calculateTraceDistanceKm(tail) : 0
+  return {
+    ...cached,
+    distanceKm: Number(cached.distanceKm) + tailKm,
+    sourcePointCount: tracePoints.length,
+    liveGpsTailKm: (Number(cached.liveGpsTailKm) || 0) + tailKm
+  }
+}
+
 export const MovementReconciliationQueue = Object.freeze({
   async matchLiveTrace(entityType, entityId, tracePoints) {
     if (!entityId || !Array.isArray(tracePoints) || tracePoints.length < MIN_LIVE_MATCH_POINTS) return null
@@ -40,7 +54,11 @@ export const MovementReconciliationQueue = Object.freeze({
     const now = Date.now()
     // Never replay an older full-trace road distance over the newer live GPS estimate.
     // The next eligible call re-matches the complete current trace.
-    if (now - (lastLiveMatchAt.get(key) || 0) < LIVE_MATCH_INTERVAL_MS) return null
+    if (now - (lastLiveMatchAt.get(key) || 0) < LIVE_MATCH_INTERVAL_MS) {
+      const extended = extendRoadMatchWithLiveGpsTail(lastLiveMatches.get(key), tracePoints)
+      if (extended) lastLiveMatches.set(key, extended)
+      return extended
+    }
     lastLiveMatchAt.set(key, now)
     try {
       const routed = await routeTrace(MovementAccountingService.filterGpsTrace(tracePoints), new ValhallaRoutingAdapter({ onlineFallback: online() }))
@@ -49,7 +67,9 @@ export const MovementReconciliationQueue = Object.freeze({
         distanceKm: Number(routed.distanceKm),
         method: routed.method,
         provenance: routed.provenance,
-        roadMatchedGeometry: routed.roadMatchedGeometry
+        roadMatchedGeometry: routed.roadMatchedGeometry,
+        sourcePointCount: tracePoints.length,
+        liveGpsTailKm: 0
       }
       lastLiveMatches.set(key, matched)
       return matched
@@ -130,6 +150,6 @@ export const MovementReconciliationQueue = Object.freeze({
 // The trace itself is persisted locally; queue reconciliation on startup and when
 // connectivity returns. Neither listener is required for GPS capture to continue.
 if (typeof window !== 'undefined') {
-  window.addEventListener('online', () => { void MovementReconciliationQueue.reconcilePending({ force: true }) })
+  window.addEventListener('online', () => { lastLiveMatchAt = new Map(); void MovementReconciliationQueue.reconcilePending({ force: true }) })
   void MovementReconciliationQueue.reconcilePending()
 }
