@@ -502,11 +502,15 @@ async function ensureDeadMovementCapture(entityType, entityId) {
     // older owner after the driver has already moved to another workflow state.
     if (!isStillCurrentOwner()) {
       const currentTrip = store.trip
-      if (currentTrip?.id && currentTrip.status === 'ACTIVE') {
+      if (currentTrip?.id && currentTrip.status === 'ACTIVE' &&
+          ['PICKUP', 'GOING_TO_PICKUP', 'RIDE_STARTED'].includes(currentTrip.tripStage)) {
         const eventType = currentTrip.tripStage === 'RIDE_STARTED' ? 'PASSENGER_RIDE_TRACE' : 'DEAD_MOVEMENT_TRACE'
         void WorkRuntimePorts.nativeGps.start(currentTrip.id, eventType, 'TRIP').catch(() => {})
-      } else if (store.shift?.id) {
-        void WorkRuntimePorts.nativeGps.start(store.shift.id, 'DEAD_MOVEMENT_TRACE', 'SHIFT').catch(() => {})
+      } else {
+        // The driver may have finished/cancelled the trip while Android was
+        // acknowledging service startup. Do not fall back to shift-owned GPS:
+        // online/waiting is intentionally GPS-silent.
+        void WorkRuntimePorts.nativeGps.stop(entityId).catch(() => {})
       }
       return false
     }
@@ -1079,12 +1083,16 @@ onMounted(async () => {
   // Online/waiting after shift start, trip completion, or cancellation is GPS-silent.
   const savedTrace = WorkRuntimePorts.movementTrace.getActiveSession()
   const recoveryPlan = getLiveMovementTracePlan({ shiftId: store.shift?.id, trip: store.trip })
-  if (store.isOnline && store.trip?.id && savedTrace && matchesLiveMovementSession(savedTrace, recoveryPlan)) {
+  const resumableMovementStage = store.trip?.status === 'ACTIVE' &&
+    ['PICKUP', 'GOING_TO_PICKUP', 'RIDE_STARTED'].includes(store.trip?.tripStage)
+  if (store.isOnline && resumableMovementStage && savedTrace &&
+      matchesLiveMovementSession(savedTrace, recoveryPlan)) {
     traceRunning = await WorkRuntimePorts.movementTrace.resumePersisted(savedTrace)
   }
-  // Reassert native capture only when the canonical workflow has an active trip.
-  // Never start a shift-owned location service merely because the shift is online.
-  if (store.isOnline && nativeAndroid && store.trip?.id && recoveryPlan.entityType === 'TRIP') {
+  // Recovery is state/stage-gated, never merely shift-online-gated.
+  // An active pickup resumes dead-movement capture; a started ride resumes
+  // passenger capture. Waiting after shift start/completion/cancellation stays GPS-silent.
+  if (store.isOnline && nativeAndroid && resumableMovementStage && recoveryPlan.entityType === 'TRIP') {
     await WorkRuntimePorts.nativeGps.start(recoveryPlan.entityId, recoveryPlan.eventType, 'TRIP')
   }
   startWorkflowId.value = (await WorkDraftService.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || WorkDraftService.newWorkflowId()
