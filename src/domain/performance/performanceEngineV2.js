@@ -147,6 +147,47 @@ const complianceProvisionThrough = (record, asOf) => {
   return totalDays > 0 ? cost * accruedDays / totalDays : NaN
 }
 
+function deriveShiftMovementTotals(shifts, allTrips, totalVehicleKm) {
+  let businessKm = 0, deadKm = 0, cancelledKm = 0, unclassifiedKm = 0
+  let missingBusinessKm = false, overEstimate = false
+  for (const shift of shifts) {
+    const trips = allTrips.filter(trip => trip.shiftId === shift.id || (!trip.shiftId && shifts.length === 1))
+    const reconciliation = shift.movementReconciliation
+    const segments = Array.isArray(reconciliation?.segments) ? reconciliation.segments : null
+    if (segments && ['RECONCILED', 'OVER_ESTIMATE'].includes(reconciliation.reconciliationStatus)) {
+      businessKm += segments.filter(segment => segment.classification === 'BUSINESS').reduce((sum, segment) => sum + n(segment.distanceKm), 0)
+      deadKm += segments.filter(segment => segment.classification === 'DEAD').reduce((sum, segment) => sum + n(segment.distanceKm), 0)
+      cancelledKm += segments.filter(segment => segment.classification === 'CANCELLED').reduce((sum, segment) => sum + n(segment.distanceKm), 0)
+      unclassifiedKm += segments.filter(segment => segment.classification === 'UNCLASSIFIED').reduce((sum, segment) => sum + n(segment.distanceKm), 0)
+      overEstimate ||= reconciliation.reconciliationStatus === 'OVER_ESTIMATE'
+      continue
+    }
+    // Without an authoritative segment reconciliation, known business KM is
+    // retained and the remainder stays explicitly unclassified (never "dead").
+    const completedTrips = trips.filter(trip => trip.status === 'COMPLETED')
+    const incomplete = completedTrips.some(trip => trip.tripKm == null || trip.tripKm === '' || !Number.isFinite(Number(trip.tripKm)) || Number(trip.tripKm) < 0)
+    if (incomplete) missingBusinessKm = true
+    const knownBusinessKm = completedTrips.reduce((sum, trip) => {
+      const km = Number(trip.tripKm)
+      return Number.isFinite(km) && km >= 0 ? sum + km : sum
+    }, 0)
+    businessKm += knownBusinessKm
+    const shiftVehicleKm = Number(shift.endOdometer) - Number(shift.startOdometer)
+    if (Number.isFinite(shiftVehicleKm) && shiftVehicleKm >= 0) unclassifiedKm += Math.max(0, shiftVehicleKm - knownBusinessKm)
+    if (knownBusinessKm > shiftVehicleKm) overEstimate = true
+  }
+  const totalsExceedOdometer = businessKm + deadKm + cancelledKm + unclassifiedKm > totalVehicleKm + 0.000001
+  const integrity = overEstimate || totalsExceedOdometer ? 'OVER_ESTIMATE' : missingBusinessKm ? 'MISSING_TRIP_KM' : 'COMPLETE'
+  return {
+    businessKm: missingBusinessKm ? NaN : businessKm,
+    deadKm: integrity === 'OVER_ESTIMATE' || missingBusinessKm ? NaN : deadKm,
+    cancelledKm,
+    unclassifiedKm,
+    businessKmIntegrityStatus: integrity,
+    deadKmIntegrityStatus: integrity === 'OVER_ESTIMATE' ? 'OVER_ESTIMATE' : missingBusinessKm ? 'MISSING_BUSINESS_KM' : unclassifiedKm > 0 ? 'UNCLASSIFIED_REMAINDER' : 'RECONCILED',
+  }
+}
+
 export function derivePerformance(s, r, p = previousRange(r)) {
   const S = live(s.shifts), T = live(s.trips), F = live(s.fuelLogs), M = live(s.maintenance), C = live(s.compliance)
   const calc = x => {
@@ -173,21 +214,18 @@ export function derivePerformance(s, r, p = previousRange(r)) {
       return result
     }, { financialRevenue: 0, toll: 0, parking: 0, passThroughToll: 0, passThroughParking: 0, excludedTollExpense: 0, excludedParkingExpense: 0 })
     const vehicleKm = sh.reduce((z, a) => { const start = odometer(a.startOdometer); const end = odometer(a.endOdometer); return Number.isFinite(start) && Number.isFinite(end) && end >= start ? z + (end - start) : z }, 0)
-    const tripKmIncomplete = tr.some(trip => {
-      if (trip.tripKm == null || trip.tripKm === '') return true
-      const km = Number(trip.tripKm)
-      return !Number.isFinite(km) || km < 0
-    })
-    const summedBusinessKm = tr.reduce((sum, trip) => sum + Number(trip.tripKm), 0)
-    const businessKmIntegrityStatus = tripKmIncomplete ? 'MISSING_TRIP_KM' : 'COMPLETE'
-    const businessKm = tripKmIncomplete ? NaN : summedBusinessKm
+    const movement = deriveShiftMovementTotals(sh, T, vehicleKm)
+    const businessKmIntegrityStatus = movement.businessKmIntegrityStatus
+    const businessKm = movement.businessKm
+    const cancelledKm = movement.cancelledKm
+    const unclassifiedKm = movement.unclassifiedKm
     const openingPersonalKm = sh.reduce((sum, shift) => sum + n(shift.openingPersonalKm), 0)
     const openingDeadKm = sh.reduce((sum, shift) => sum + n(shift.openingDeadKm), 0)
-    const deadKmIntegrityStatus = tripKmIncomplete ? 'MISSING_BUSINESS_KM' : businessKm > vehicleKm ? 'OVER_ESTIMATE' : 'RECONCILED'
-    const deadKm = deadKmIntegrityStatus === 'RECONCILED' ? vehicleKm - businessKm : NaN
+    const deadKmIntegrityStatus = movement.deadKmIntegrityStatus
+    const deadKm = movement.deadKm
     const fuelCost = fu.reduce((z, a) => z + n(a.amount), 0), fuelQty = fu.reduce((z, a) => z + n(a.quantityKg), 0), toll = financial.toll, parking = financial.parking, maintenance = ma.reduce((z, a) => z + n(a.cost), 0), workingHours = sh.reduce((z, a) => z + hrs(a.shiftStartAt, a.shiftEndAt), 0)
     const operatingCost = fuelCost + financial.excludedTollExpense + financial.excludedParkingExpense + maintenance
-    return { sh, tr, fu, ma, revenue, financialRevenue: financial.financialRevenue, passThroughToll: financial.passThroughToll, passThroughParking: financial.passThroughParking, excludedTollExpense: financial.excludedTollExpense, excludedParkingExpense: financial.excludedParkingExpense, vehicleKm, businessKm, businessKmIntegrityStatus, deadKm, deadKmIntegrityStatus, openingPersonalKm, openingDeadKm, fuelCost, fuelQty, toll, parking, maintenance, workingHours, operatingCost, operatingProfit: financial.financialRevenue - operatingCost }
+    return { sh, tr, fu, ma, revenue, financialRevenue: financial.financialRevenue, passThroughToll: financial.passThroughToll, passThroughParking: financial.passThroughParking, excludedTollExpense: financial.excludedTollExpense, excludedParkingExpense: financial.excludedParkingExpense, vehicleKm, businessKm, businessKmIntegrityStatus, deadKm, deadKmIntegrityStatus, cancelledKm, unclassifiedKm, openingPersonalKm, openingDeadKm, fuelCost, fuelQty, toll, parking, maintenance, workingHours, operatingCost, operatingProfit: financial.financialRevenue - operatingCost }
   }
   const a = calc(r), q = calc(p), ren = renewal(C, S, r), pren = renewal(C, S, p)
   const asOfFuelLogs = F.filter(x => { const capturedAt = d(x.capturedAt); return capturedAt && capturedAt <= r.to })
@@ -242,10 +280,10 @@ export function derivePerformance(s, r, p = previousRange(r)) {
   const costPerKm = a.vehicleKm ? a.operatingCost / a.vehicleKm : NaN
   return {
     period: { from: r.from, to: r.to, previousFrom: p.from, previousTo: p.to, timeZone: 'Asia/Kolkata' },
-    authority: { revenue: 'SHIFT_END_REVENUE', vehicleKm: 'SHIFT_END_MINUS_START_ODOMETER', businessKm: 'VALIDATED_COMPLETED_TRIP_KM', deadKm: 'VEHICLE_KM_MINUS_BUSINESS_KM', costs: 'FUEL_LOGS_PLUS_BR11_TOLL_PARKING_PLUS_ACTUAL_MAINTENANCE', renewal: 'COMPLIANCE_VALIDITY_AND_COST', target: 'DRIVER_TARGET_STABILIZATION_SERVICE', breakEven: 'FINANCE_PERFORMANCE_ADAPTER' },
+    authority: { revenue: 'SHIFT_END_REVENUE', vehicleKm: 'SHIFT_END_MINUS_START_ODOMETER', businessKm: 'WORK_MOVEMENT_RECONCILIATION_SEGMENTS', deadKm: 'WORK_MOVEMENT_RECONCILIATION_SEGMENTS', cancelledKm: 'WORK_MOVEMENT_RECONCILIATION_SEGMENTS', unclassifiedKm: 'WORK_MOVEMENT_RECONCILIATION_SEGMENTS_OR_UNCLASSIFIED_REMAINDER', costs: 'FUEL_LOGS_PLUS_BR11_TOLL_PARKING_PLUS_ACTUAL_MAINTENANCE', renewal: 'COMPLIANCE_VALIDITY_AND_COST', target: 'DRIVER_TARGET_STABILIZATION_SERVICE', breakEven: 'FINANCE_PERFORMANCE_ADAPTER' },
     completeness: { target: false, renewal: ren > 0, hourlyData: a.workingHours > 0, breakEven: false, fuelCostPerKm: Number.isFinite(fuelCostPerKm) },
     counts: { trips: a.tr.length, activeFinancialDays: activeDays, workingDays: wd, elapsedDays: elapsed, daysRemaining: Math.max(0, wd - elapsed) }, previousCounts: { trips: q.tr.length, activeFinancialDays: prevActive },
-    revenue: a.revenue, financialRevenue: a.financialRevenue, previousFinancialRevenue: q.financialRevenue, passThroughToll: a.passThroughToll, passThroughParking: a.passThroughParking, excludedTollExpense: a.excludedTollExpense, excludedParkingExpense: a.excludedParkingExpense, previousRevenue: q.revenue, vehicleKm: a.vehicleKm, previousVehicleKm: q.vehicleKm, businessKm: a.businessKm, previousBusinessKm: q.businessKm, businessKmIntegrityStatus: a.businessKmIntegrityStatus, previousBusinessKmIntegrityStatus: q.businessKmIntegrityStatus, deadKm: a.deadKm, previousDeadKm: q.deadKm, deadKmIntegrityStatus: a.deadKmIntegrityStatus, previousDeadKmIntegrityStatus: q.deadKmIntegrityStatus, openingPersonalKm: a.openingPersonalKm, previousOpeningPersonalKm: q.openingPersonalKm, openingDeadKm: a.openingDeadKm, previousOpeningDeadKm: q.openingDeadKm, fuelCost: a.fuelCost, fuelQty: a.fuelQty, fuelCostPerKm, fuelCostPerKmObservations: fuelModel.observations.length, toll: a.toll, parking: a.parking, actualMaintenance: a.maintenance, workingHours: a.workingHours, previousWorkingHours: q.workingHours, runningCost: a.operatingCost, previousRunningCost: q.operatingCost, actualOperatingCost: a.operatingCost, previousActualOperatingCost: q.operatingCost,
+    revenue: a.revenue, financialRevenue: a.financialRevenue, previousFinancialRevenue: q.financialRevenue, passThroughToll: a.passThroughToll, passThroughParking: a.passThroughParking, excludedTollExpense: a.excludedTollExpense, excludedParkingExpense: a.excludedParkingExpense, previousRevenue: q.revenue, vehicleKm: a.vehicleKm, previousVehicleKm: q.vehicleKm, businessKm: a.businessKm, previousBusinessKm: q.businessKm, businessKmIntegrityStatus: a.businessKmIntegrityStatus, previousBusinessKmIntegrityStatus: q.businessKmIntegrityStatus, deadKm: a.deadKm, previousDeadKm: q.deadKm, deadKmIntegrityStatus: a.deadKmIntegrityStatus, previousDeadKmIntegrityStatus: q.deadKmIntegrityStatus, cancelledKm: a.cancelledKm, previousCancelledKm: q.cancelledKm, unclassifiedKm: a.unclassifiedKm, previousUnclassifiedKm: q.unclassifiedKm, openingPersonalKm: a.openingPersonalKm, previousOpeningPersonalKm: q.openingPersonalKm, openingDeadKm: a.openingDeadKm, previousOpeningDeadKm: q.openingDeadKm, fuelCost: a.fuelCost, fuelQty: a.fuelQty, fuelCostPerKm, fuelCostPerKmObservations: fuelModel.observations.length, toll: a.toll, parking: a.parking, actualMaintenance: a.maintenance, workingHours: a.workingHours, previousWorkingHours: q.workingHours, runningCost: a.operatingCost, previousRunningCost: q.operatingCost, actualOperatingCost: a.operatingCost, previousActualOperatingCost: q.operatingCost,
     costPerKm, maintenanceProvision, maintenanceProvisionEvidenceStatus: Number.isFinite(maintenanceProvision) && Number.isFinite(maintenanceProvisionAccumulated) ? 'AUTHORITATIVE' : 'UNAVAILABLE', previousMaintenanceProvision: prevMaintenanceProvision, maintenanceProvisionAccumulated, previousMaintenanceProvisionAccumulated, historicalMaintenanceRecoveryMonthly, maintenancePayments, maintenancePaymentsAccumulated, previousMaintenancePayments, previousMaintenancePaymentsAccumulated, maintenanceProvisionBalance, maintenanceProvisionExcessPayments, previousMaintenanceProvisionBalance, previousMaintenanceProvisionExcessPayments, renewalProvision: ren, complianceProvisionById, complianceProvisionAccumulatedById, compliancePaymentsById, compliancePaymentsAccumulatedById, complianceProvisionBalancesById, complianceProvisionBalance, complianceProvisionExcessPaymentsById, complianceProvisionExcessPayments, otherProvision: 0, provisionRequired: provision, provisionSetAside: provision, operatingProfit: a.operatingProfit, previousOperatingProfit: q.operatingProfit, provisionAdjustedProfit, previousProvisionAdjustedProfit: prevProvisionAdjustedProfit,
     monthlyBreakEvenRevenue: NaN, revenuePerKm: a.vehicleKm ? a.financialRevenue / a.vehicleKm : NaN, revenuePerTrip: a.tr.length ? a.financialRevenue / a.tr.length : NaN, revenuePerHour: a.workingHours ? a.financialRevenue / a.workingHours : NaN, profitPerKm: a.vehicleKm ? a.operatingProfit / a.vehicleKm : NaN, profitPerHour: a.workingHours ? a.operatingProfit / a.workingHours : NaN, revenueGrowth: q.revenue ? (a.revenue - q.revenue) / Math.abs(q.revenue) * 100 : NaN, profitGrowth: q.operatingProfit ? (a.operatingProfit - q.operatingProfit) / Math.abs(q.operatingProfit) * 100 : NaN, revenuePerActiveDay: perDay, target: null,
     breakEvenInputs: { maintenanceProvisionPerKm: NaN, fixedCosts: NaN, fuelCostPerKm, fuelCostPerKmSource, fuelEvidence }, pace: { currentRevenuePerFinancialDay: perDay, requiredRevenuePerFinancialDay: NaN, paceVariance: NaN }, trips: a.tr, shifts: a.sh, fuelLogs: a.fu, maintenance: a.ma,

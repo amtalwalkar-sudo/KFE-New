@@ -201,7 +201,8 @@ scenario('H6/H7 — Timeline ↔ Performance ↔ shift authority', () => {
   assert.equal(m.operatingProfit, 2080)
   assert.equal(m.vehicleKm, 200)
   assert.equal(m.businessKm, 170)
-  assert.equal(m.deadKm, 30)
+  assert.equal(m.deadKm, 0)
+  assert.equal(m.unclassifiedKm, 30, 'unexplained odometer remainder stays unclassified rather than being called dead KM')
 })
 
 scenario('I2/I6/I7 — multi-day/history continuity and month boundary', () => {
