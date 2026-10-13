@@ -484,15 +484,31 @@ function setStartGapChoice(choice) {
 
 async function ensureDeadMovementCapture(entityType, entityId) {
   if (!entityId) return false
+  const isStillCurrentOwner = () => entityType === 'SHIFT'
+    ? store.shift?.id === entityId && !store.trip?.id
+    : store.trip?.id === entityId && store.trip?.status === 'ACTIVE'
   const previousSession = WorkRuntimePorts.movementTrace.getActiveSession()
   if (nativeAndroid) {
     const nativeStarted = await WorkRuntimePorts.nativeGps.start(entityId, 'DEAD_MOVEMENT_TRACE', entityType).catch(() => false)
+    // A slow service-start acknowledgement must not switch capture back to an
+    // older owner after the driver has already moved to another workflow state.
+    if (!isStillCurrentOwner()) {
+      const currentTrip = store.trip
+      if (currentTrip?.id && currentTrip.status === 'ACTIVE') {
+        const eventType = currentTrip.tripStage === 'RIDE_STARTED' ? 'PASSENGER_RIDE_TRACE' : 'DEAD_MOVEMENT_TRACE'
+        void WorkRuntimePorts.nativeGps.start(currentTrip.id, eventType, 'TRIP').catch(() => {})
+      } else if (store.shift?.id) {
+        void WorkRuntimePorts.nativeGps.start(store.shift.id, 'DEAD_MOVEMENT_TRACE', 'SHIFT').catch(() => {})
+      }
+      return false
+    }
     if (nativeStarted) {
       if (previousSession) WorkRuntimePorts.movementTrace.reset()
       traceRunning = false
       return true
     }
   }
+  if (!isStillCurrentOwner()) return false
   if (previousSession) WorkRuntimePorts.movementTrace.reset()
   traceRunning = WorkRuntimePorts.movementTrace.start({
     entityType,
@@ -541,10 +557,8 @@ async function goPickup(nativeTripId = '') {
   liveMovementStatus.value = 'ACQUIRING GPS'
   busy.value = true
   try {
-    // Keep a shift-owned capture alive until the pickup transition commits.
-    // GPS startup is asynchronous and must not delay the authoritative workflow action.
-    void ensureDeadMovementCapture('SHIFT', store.shift?.id).catch(error => console.warn('Shift GPS capture unavailable:', error))
-
+    // Shift-owned capture is already started when the shift comes online.
+    // Do not reassert that owner here: pickup changes the canonical trace owner.
     const result = await store.beginPickup(operator.value || store.defaultOperator, nativeTripId || null)
     if (!result?.ok) {
       fail(result?.reason || 'Could not start pickup.')
