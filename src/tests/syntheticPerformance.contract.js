@@ -54,7 +54,8 @@ const expectedComplianceAccrual = snapshot.compliance_records.reduce((sum, recor
 
 assert.equal(metrics.vehicleKm, expectedVehicleKm, 'vehicle KM must reconcile to shift odometer deltas')
 assert.equal(metrics.businessKm, expectedBusinessKm, 'business KM must reconcile to completed trip KM')
-assert.equal(metrics.deadKm, expectedVehicleKm - expectedBusinessKm, 'dead KM must reconcile to vehicle KM less business KM')
+assert.equal(metrics.deadKm, 0, 'without a saved movement reconciliation, the remainder must not be promoted to dead KM')
+assert.equal(metrics.unclassifiedKm, expectedVehicleKm - expectedBusinessKm, 'unreconciled vehicle KM remains unclassified')
 assert.equal(metrics.businessKmIntegrityStatus, 'COMPLETE')
 assert.equal(metrics.revenue, expectedRevenue, 'authoritative revenue must reconcile to shift-end revenue only')
 assert.equal(metrics.financialRevenue, expectedFinancialRevenue, 'included toll/parking must be removed from financial revenue exactly once')
