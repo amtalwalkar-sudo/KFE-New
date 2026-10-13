@@ -6,6 +6,7 @@ const manifest = fs.readFileSync('android/app/src/main/AndroidManifest.xml', 'ut
 const service = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeNativeGpsService.java', 'utf8')
 const plugin = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeNativeGpsPlugin.java', 'utf8')
 const bridge = fs.readFileSync('src/infrastructure/android/nativeGpsService.js', 'utf8')
+const tripRepository = fs.readFileSync('src/repositories/shiftTripRepository.js', 'utf8')
 const work = fs.readFileSync('src/application/work/workService.js', 'utf8')
 
 assert.match(manifest, /\.KfeNativeGpsService[^\n]*android:stopWithTask="false"[^\n]*android:foregroundServiceType="location"/)
@@ -20,6 +21,9 @@ assert.match(plugin, /awaitCollectorState\(call, tripId, eventType, entityType, 
 assert.match(plugin, /awaitCollectorState\(call, tripId, null, null, false/)
 assert.match(plugin, /NATIVE_GPS_START_NOT_CONFIRMED/)
 assert.match(plugin, /NATIVE_GPS_STOP_NOT_CONFIRMED/)
+assert.match(tripRepository, /async invalidateGpsTripMovement/)
+assert.match(tripRepository, /record\\.tripKm = null/)
+assert.match(tripRepository, /record\\.tripKmAuthority = 'GPS_TRACE_INCOMPLETE'/)
 
 assert.match(bridge, /async syncTrace\(tripId, \{ entityType = 'TRIP', clearAfterImport = false \} = \{\}\)/)
 assert.match(bridge, /NATIVE_GPS_TRACE_IMPORT_VERIFICATION_FAILED; raw evidence retained/)
