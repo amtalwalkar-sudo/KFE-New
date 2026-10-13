@@ -163,7 +163,7 @@ jobs:
             post_and_validate "route seed $city" route "work/route-seed-$city.json" "work/result-seed-$city.json"
             encoded="$(jq -er '.trip.legs[0].shape' "work/result-seed-$city.json")"
             jq -n --arg encoded "$encoded" \
-              '{encoded_polyline:$encoded,shape_match:"edge_walk",costing:"auto",directions_options:{units:"kilometers"}}' \
+              '{encoded_polyline:$encoded,shape_match:"walk_or_snap",trace_options:{search_radius:100,gps_accuracy:100},costing:"auto",directions_options:{units:"kilometers"}}' \
               > "work/trace-request-$city.json"
             post_and_validate "trace_route $city" trace_route "work/trace-request-$city.json" "work/result-$city.json"
             sleep 1
