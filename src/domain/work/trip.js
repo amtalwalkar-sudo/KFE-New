@@ -21,10 +21,16 @@ export function validateTripCorrection(data = {}) {
     result.tripKmAuthority = 'MANUAL'
     result.tripKmProvenance = { method: 'MANUAL_CORRECTION', source: 'WORK_TRIP_CORRECTION' }
   }
-  if (data.revenue !== undefined && data.revenue !== '') {
-    const revenue = Number(data.revenue)
-    if (!Number.isFinite(revenue) || revenue < 0) return { valid: false, reason: 'Trip revenue must be a non-negative number.' }
-    result.revenue = revenue
+  if (data.revenue !== undefined) {
+    if (data.revenue === '' || data.revenue === null) {
+      // Explicitly clearing a previously saved fare is different from omitting
+      // the field: persist null so reconciliation reports it as unpriced.
+      result.revenue = null
+    } else {
+      const revenue = Number(data.revenue)
+      if (!Number.isFinite(revenue) || revenue < 0) return { valid: false, reason: 'Trip revenue must be a non-negative number.' }
+      result.revenue = revenue
+    }
   }
   for (const field of ['toll', 'parking']) {
     if (data[field] === undefined || data[field] === '') continue
