@@ -87,7 +87,7 @@ export const MovementReconciliationQueue = Object.freeze({
     const candidates = trips.filter(trip =>
       trip?.id && trip.status === 'COMPLETED' &&
       (trip.tripKmAuthority === 'GPS_LINE_TRACE' || (!trip.tripKmAuthority && (trip.tripKm == null || trip.tripKm === ''))) &&
-      trip.tripKmProvenance?.method !== 'VALHALLA_TRACE_ROUTE_MAP_MATCH'
+      !['VALHALLA_TRACE_ROUTE_MAP_MATCH', 'OFFLINE_VALHALLA_TRACE_ROUTE_MAP_MATCH'].includes(trip.tripKmProvenance?.method)
     )
     const pending = []
     for (const trip of candidates) {
