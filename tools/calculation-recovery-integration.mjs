@@ -31,11 +31,12 @@ try {
   await page.waitForFunction(() => document.readyState === 'complete', undefined, { timeout: 15000 })
 
   const result = await page.evaluate(async () => {
-    const [{ initializeCanonicalStorage }, { ShiftTripRepository }, { FuelRepository }, { recordFuelEntry }, { OperationalRecordService }, { PerformanceRepository }, { derivePerformance }, { BackupService }] = await Promise.all([
+    const [{ initializeCanonicalStorage }, { ShiftTripRepository }, { FuelRepository }, { recordFuelEntry }, { completeEndShift }, { OperationalRecordService }, { PerformanceRepository }, { derivePerformance }, { BackupService }] = await Promise.all([
       import('/src/utils/indexedDB.js'),
       import('/src/repositories/shiftTripRepository.js'),
       import('/src/repositories/fuelRepository.js'),
       import('/src/application/work/fuel.js'),
+      import('/src/application/work/endShift.js'),
       import('/src/application/timeline/operationalRecordService.js'),
       import('/src/repositories/performanceRepository.js'),
       import('/src/domain/performance/performanceEngineV2.js'),
@@ -66,10 +67,11 @@ try {
         { id: 'unclassified', classification: 'UNCLASSIFIED', distanceKm: 20 },
       ],
     }
-    await ShiftTripRepository.completeShift({
-      id: shift.id, endOdometer: 200, revenue: 500, movementReconciliation,
+    const closeResult = await completeEndShift({
+      shiftId: shift.id, closingOdometer: 200, revenue: 500, movementReconciliation,
       trips: [{ id: trip.id, revenue: '' }],
     })
+    if (!closeResult.ok) throw new Error(`End Shift application flow failed: ${closeResult.reason}`)
     const afterClose = await ShiftTripRepository.getTripsForShift(shift.id)
     const correctedTrip = afterClose.find(item => item.id === trip.id)
     const closedShift = (await ShiftTripRepository.getAllShifts()).find(item => item.id === shift.id)
