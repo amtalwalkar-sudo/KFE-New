@@ -8,6 +8,7 @@ import { WorkDraftService } from '../application/work/workDraftService.js'
 import { WorkflowTimerService, WorkWorkflowSessionService } from '../application/work/workflowTimerService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { WorkRuntimePorts } from '../application/work/workRuntimePorts.js'
+import { getLiveMovementTracePlan, matchesLiveMovementSession } from '../application/work/liveMovementTrace.js'
 import { deriveWorkCockpitState, WORK_COCKPIT_STATES } from '../application/work/workCockpit.js'
 import WorkContextForm from '../components/work/WorkContextForm.vue'
 
@@ -297,23 +298,21 @@ async function refreshLiveMovementKm() {
     return
   }
 
-  const expectedEvent = active.value ? 'PASSENGER_RIDE_TRACE' : 'DEAD_MOVEMENT_TRACE'
-  const traceOwnerId = active.value && currentTrip?.id ? currentTrip.id : store.shift.id
+  // A trip is still dead movement until Start Trip commits RIDE_STARTED.
+  // Use the canonical event label rather than treating every active trip as a ride.
+  const tracePlan = getLiveMovementTracePlan({ shiftId: store.shift.id, trip: currentTrip })
   let tracePoints = []
 
   if (nativeAndroid) {
     try {
-      tracePoints = (await WorkRuntimePorts.nativeGps.readTrace(traceOwnerId))
-        .filter(point => point?.eventType === expectedEvent)
+      tracePoints = (await WorkRuntimePorts.nativeGps.readTrace(tracePlan.entityId))
+        .filter(point => point?.eventType === tracePlan.eventType)
     } catch (_) {}
   }
 
   if (tracePoints.length < 2) {
     const session = WorkRuntimePorts.movementTrace.getActiveSession()
-    const matchesCurrentMovement = active.value
-      ? Boolean(currentTrip?.id) && session?.entityType === 'TRIP' && session.entityId === currentTrip.id && session.profile === 'PASSENGER_RIDE'
-      : session?.entityType === 'SHIFT' && session.entityId === store.shift?.id && session.profile === 'DEAD_LEG'
-    if (matchesCurrentMovement) {
+    if (matchesLiveMovementSession(session, tracePlan)) {
       tracePoints = WorkRuntimePorts.movementTrace.getPoints()
     }
   }
@@ -335,8 +334,8 @@ async function refreshLiveMovementKm() {
 
   if (typeof navigator !== 'undefined' && navigator.onLine !== false) {
     const matched = await MovementReconciliationQueue.matchLiveTrace(
-      active.value ? 'TRIP' : 'SHIFT',
-      active.value ? currentTrip.id : store.shift?.id,
+      tracePlan.entityType,
+      tracePlan.entityId,
       movement.points
     )
     if (matched) {
@@ -483,6 +482,27 @@ function setStartGapChoice(choice) {
   gapChoice.value = choice
 }
 
+async function ensureDeadMovementCapture(entityType, entityId) {
+  if (!entityId) return false
+  const previousSession = WorkRuntimePorts.movementTrace.getActiveSession()
+  if (nativeAndroid) {
+    const nativeStarted = await WorkRuntimePorts.nativeGps.start(entityId, 'DEAD_MOVEMENT_TRACE', entityType).catch(() => false)
+    if (nativeStarted) {
+      if (previousSession) WorkRuntimePorts.movementTrace.reset()
+      traceRunning = false
+      return true
+    }
+  }
+  if (previousSession) WorkRuntimePorts.movementTrace.reset()
+  traceRunning = WorkRuntimePorts.movementTrace.start({
+    entityType,
+    entityId,
+    eventType: 'DEAD_MOVEMENT_TRACE',
+    profile: 'DEAD_LEG'
+  })
+  return traceRunning
+}
+
 async function submitStart() {
   if (startBusy.value) return
   if (!startOdo.value) return fail('Current odometer is required.')
@@ -501,6 +521,9 @@ async function submitStart() {
     startAck.value = false
     gapChoice.value = ''
     await targetRefresh()
+    // GPS capture begins with the shift, not only after the first pickup.
+    // Capture is telemetry: a delayed native service must never undo shift start.
+    void ensureDeadMovementCapture('SHIFT', store.shift?.id).catch(error => console.warn('Shift GPS capture could not start:', error))
     await WorkRuntimePorts.rideNotifications.goOnline().catch(() => {})
     await WorkRuntimePorts.androidOverlay.prepare().catch(() => {})
     await syncOverlay()
@@ -518,32 +541,18 @@ async function goPickup(nativeTripId = '') {
   liveMovementStatus.value = 'ACQUIRING GPS'
   busy.value = true
   try {
-    const traceSession = WorkRuntimePorts.movementTrace.getActiveSession()
-    const alreadyTrackingDeadLeg = traceSession?.entityType === 'SHIFT' &&
-      traceSession.entityId === store.shift?.id &&
-      traceSession.eventType === 'DEAD_MOVEMENT_TRACE' &&
-      traceSession.profile === 'DEAD_LEG'
-    if (!alreadyTrackingDeadLeg) {
-      try {
-        traceRunning = WorkRuntimePorts.movementTrace.start({
-          entityType: 'SHIFT',
-          entityId: store.shift?.id,
-          eventType: 'DEAD_MOVEMENT_TRACE',
-          profile: 'DEAD_LEG'
-        })
-      } catch (_) { traceRunning = false }
-    }
-    if (nativeAndroid && store.shift?.id) {
-      await WorkRuntimePorts.nativeGps.start(store.shift.id, 'DEAD_MOVEMENT_TRACE', 'SHIFT')
-    }
+    // Keep a shift-owned capture alive until the pickup transition commits.
+    // GPS startup is asynchronous and must not delay the authoritative workflow action.
+    void ensureDeadMovementCapture('SHIFT', store.shift?.id).catch(error => console.warn('Shift GPS capture unavailable:', error))
 
     const result = await store.beginPickup(operator.value || store.defaultOperator, nativeTripId || null)
     if (!result?.ok) {
-      if (traceRunning) WorkRuntimePorts.movementTrace.reset()
-      traceRunning = false
       fail(result?.reason || 'Could not start pickup.')
       return false
     }
+    // A pickup is dead movement owned by this trip. Isolating its trace keeps the
+    // live dead-KM readout from inheriting all movement accumulated earlier in the shift.
+    void ensureDeadMovementCapture('TRIP', store.trip?.id).catch(error => console.warn('Pickup GPS capture unavailable:', error))
     await WorkRuntimePorts.rideNotifications.beginPickup(store.trip?.id || '').catch(() => {})
     await syncOverlay()
     // Keep state transitions silent; the cockpit/action label reflects the new state.
@@ -592,19 +601,12 @@ async function endTrip() {
   try {
     const tripId = store.trip.id
     if (!await store.endTrip()) { fail('Trip could not be completed.'); return false }
-    if (nativeAndroid) {
-      await WorkRuntimePorts.nativeGps.stop(tripId)
-      if (store.shift?.id) await WorkRuntimePorts.nativeGps.start(store.shift.id, 'DEAD_MOVEMENT_TRACE', 'SHIFT')
-    }
-    // Return browser tracking to the shift owner whenever it was the active
-    // capture path (all web runs and Android when native location is unavailable).
+    if (nativeAndroid) await WorkRuntimePorts.nativeGps.stop(tripId)
     if (traceRunning) WorkRuntimePorts.movementTrace.reset()
-    traceRunning = WorkRuntimePorts.movementTrace.start({
-      entityType: 'SHIFT',
-      entityId: store.shift?.id,
-      eventType: 'DEAD_MOVEMENT_TRACE',
-      profile: 'DEAD_LEG'
-    })
+    traceRunning = false
+    // Return to shift-owned dead-movement capture without blocking the completed-trip
+    // transition on GPS startup or network/map matching.
+    void ensureDeadMovementCapture('SHIFT', store.shift?.id).catch(error => console.warn('Shift GPS capture could not resume:', error))
     fareTripId.value = tripId
     restoringDrafts = true
     fare.value = ''
