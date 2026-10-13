@@ -4,6 +4,18 @@ import path from 'node:path'
 import { getLiveMovementTracePlan, matchesLiveMovementSession } from '../application/work/liveMovementTrace.js'
 import { isRoadMatch, extendRoadMatchWithLiveGpsTail } from '../application/work/movementReconciliationQueue.js'
 import { ValhallaRoutingAdapter } from '../infrastructure/location/valhallaRoutingAdapter.js'
+import { normalizeNullableGpsNumber } from '../repositories/locationRepository.js'
+import { MovementAccountingService } from '../domain/movement/movementAccounting.js'
+
+assert.equal(normalizeNullableGpsNumber(null), null, 'Missing GPS accuracy must remain unknown, not become a perfect 0 m fix.')
+assert.equal(normalizeNullableGpsNumber(''), null)
+assert.equal(normalizeNullableGpsNumber(0), 0)
+assert.equal(normalizeNullableGpsNumber('invalid'), null)
+const unknownSpeedTrace = MovementAccountingService.filterGpsTrace([
+  { latitude: 19.00000, longitude: 72.00000, accuracy: 5, speed: null, capturedAt: '2026-10-01T08:00:00.000Z' },
+  { latitude: 19.00018, longitude: 72.00000, accuracy: 5, speed: null, capturedAt: '2026-10-01T08:00:10.000Z' }
+])
+assert.equal(unknownSpeedTrace.length, 2, 'Missing speed must not be interpreted as zero speed and discard genuine movement.')
 
 const shift = getLiveMovementTracePlan({ shiftId: 'shift-1', trip: null })
 assert.deepEqual(shift, { entityType: 'SHIFT', entityId: 'shift-1', eventType: 'DEAD_MOVEMENT_TRACE', profile: 'DEAD_LEG' })
