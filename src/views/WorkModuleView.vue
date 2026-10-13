@@ -1075,28 +1075,17 @@ onMounted(async () => {
   await store.initialize()
   await fuel.refresh().catch(() => {})
   await WorkService.recoverNativeGpsTraces().catch(error => console.warn('KFE native GPS trace recovery deferred:', error))
-  // Restore only the exact persisted movement owner that still matches the
-  // canonical active shift/trip. A stale trace must never be attached to a new one.
+  // Restore movement capture only for an explicit, still-active pickup or ride.
+  // Online/waiting after shift start, trip completion, or cancellation is GPS-silent.
   const savedTrace = WorkRuntimePorts.movementTrace.getActiveSession()
-  if (store.isOnline && savedTrace) {
-    const shiftDeadLeg = savedTrace.entityType === 'SHIFT' &&
-      savedTrace.entityId === store.shift?.id &&
-      savedTrace.eventType === 'DEAD_MOVEMENT_TRACE' &&
-      savedTrace.profile === 'DEAD_LEG' && !active.value
-    const passengerRide = savedTrace.entityType === 'TRIP' &&
-      savedTrace.entityId === store.trip?.id &&
-      savedTrace.eventType === 'PASSENGER_RIDE_TRACE' &&
-      savedTrace.profile === 'PASSENGER_RIDE' && active.value
-    if (shiftDeadLeg || passengerRide) {
-      traceRunning = await WorkRuntimePorts.movementTrace.resumePersisted(savedTrace)
-    }
+  const recoveryPlan = getLiveMovementTracePlan({ shiftId: store.shift?.id, trip: store.trip })
+  if (store.isOnline && store.trip?.id && savedTrace && matchesLiveMovementSession(savedTrace, recoveryPlan)) {
+    traceRunning = await WorkRuntimePorts.movementTrace.resumePersisted(savedTrace)
   }
-  // Reassert the canonical native GPS owner on WebView/process recovery.
-  // The foreground service itself remains responsible for screen-off tracking.
-  if (store.isOnline && nativeAndroid && store.shift?.id) {
-    const nativeOwnerId = active.value && store.trip?.id ? store.trip.id : store.shift.id
-    const nativeEventType = active.value ? 'PASSENGER_RIDE_TRACE' : 'DEAD_MOVEMENT_TRACE'
-    await WorkRuntimePorts.nativeGps.start(nativeOwnerId, nativeEventType, active.value && store.trip?.id ? 'TRIP' : 'SHIFT')
+  // Reassert native capture only when the canonical workflow has an active trip.
+  // Never start a shift-owned location service merely because the shift is online.
+  if (store.isOnline && nativeAndroid && store.trip?.id && recoveryPlan.entityType === 'TRIP') {
+    await WorkRuntimePorts.nativeGps.start(recoveryPlan.entityId, recoveryPlan.eventType, 'TRIP')
   }
   startWorkflowId.value = (await WorkDraftService.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || WorkDraftService.newWorkflowId()
   fuelWorkflowId.value = (await WorkDraftService.latestWorkflow('work-fuel', 'RECORD_FUEL'))?.workflowId || WorkDraftService.newWorkflowId()
