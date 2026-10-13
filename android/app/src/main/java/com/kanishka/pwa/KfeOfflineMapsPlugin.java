@@ -39,6 +39,8 @@ public class KfeOfflineMapsPlugin extends Plugin {
     private static final ExecutorService DOWNLOAD_IO = Executors.newSingleThreadExecutor();
     private static final ExecutorService MATCH_IO = Executors.newSingleThreadExecutor();
     private static final ExecutorService STATUS_IO = Executors.newSingleThreadExecutor();
+    private final Object mapStateLock = new Object();
+    private boolean mapUpdateInProgress = false;
     private File mapDir() { File f = new File(getContext().getFilesDir(), "offline-maps"); if (!f.exists()) f.mkdirs(); return f; }
     private File tilesFile() { return new File(mapDir(), "valhalla-tiles.tar"); }
     private File metadataFile() { return new File(mapDir(), "map-metadata.json"); }
@@ -47,10 +49,11 @@ public class KfeOfflineMapsPlugin extends Plugin {
         STATUS_IO.execute(() -> {
             File statusManifest = new File(mapDir(), "status-manifest.json");
             try {
-                recoverStagedMap();
+                synchronized (mapStateLock) { if (!mapUpdateInProgress) recoverStagedMap(); }
                 File tiles = tilesFile(); File meta = metadataFile();
                 JSObject out = new JSObject();
                 out.put("supported", true); out.put("regionId", REGION_ID);
+                synchronized (mapStateLock) { out.put("updateInProgress", mapUpdateInProgress); }
                 out.put("installed", tiles.isFile() && tiles.length() > 0 && meta.isFile());
                 long installedBytes = tiles.isFile() ? tiles.length() : 0;
                 out.put("bytesInstalled", installedBytes);
@@ -83,6 +86,10 @@ public class KfeOfflineMapsPlugin extends Plugin {
 
     @PluginMethod public void downloadUpdate(PluginCall call) {
         if (!call.getBoolean("confirmed", false)) { call.reject("Confirm the offline map download first."); return; }
+        synchronized (mapStateLock) {
+            if (mapUpdateInProgress) { call.reject("An offline map download/update is already running."); return; }
+            mapUpdateInProgress = true;
+        }
         DOWNLOAD_IO.execute(() -> {
             File stage = new File(mapDir(), "staging"); if (!stage.exists()) stage.mkdirs();
             File part = new File(stage, "valhalla-tiles.tar.part");
@@ -120,7 +127,7 @@ public class KfeOfflineMapsPlugin extends Plugin {
                 part.delete();
                 JSObject failure = new JSObject(); failure.put("message", e.getMessage() == null ? "Map download failed." : e.getMessage());
                 notifyListeners("downloadFailed", failure);
-            } finally { manifestTemp.delete(); }
+            } finally { manifestTemp.delete(); synchronized (mapStateLock) { mapUpdateInProgress = false; } }
         });
         JSObject response = new JSObject(); response.put("started", true); call.resolve(response);
     }
