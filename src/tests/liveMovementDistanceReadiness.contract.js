@@ -17,6 +17,7 @@ const unknownSpeedTrace = MovementAccountingService.filterGpsTrace([
 ])
 assert.equal(unknownSpeedTrace.length, 2, 'Missing speed must not be interpreted as zero speed and discard genuine movement.')
 
+// Cross-layer regression: Work state, capture ownership, local persistence, and route matching must agree.
 const shift = getLiveMovementTracePlan({ shiftId: 'shift-1', trip: null })
 assert.deepEqual(shift, { entityType: 'SHIFT', entityId: 'shift-1', eventType: 'DEAD_MOVEMENT_TRACE', profile: 'DEAD_LEG' })
 
