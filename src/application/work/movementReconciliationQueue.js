@@ -30,6 +30,7 @@ export const isRoadMatch = result => Boolean(
   result?.roadMatchedGeometry?.type === 'LineString' &&
   Array.isArray(result.roadMatchedGeometry.coordinates) &&
   result.roadMatchedGeometry.coordinates.length >= 2 &&
+  result.distanceKm != null && result.distanceKm !== '' &&
   Number.isFinite(Number(result.distanceKm)) && Number(result.distanceKm) >= 0
 )
 
