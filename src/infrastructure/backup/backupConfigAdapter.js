@@ -4,12 +4,12 @@ import { SecureSecretStore } from '../security/secureSecretStore.js'
 const CONFIG_KEY = 'kfe.backup.configuration.v2'
 const LEGACY_CONFIG_KEY = 'kfe.backup.configuration.v1'
 const TOKEN_KEY = 'kfe.dropbox.access-token'
-const DEFAULT_CONFIG = Object.freeze({ enabled: false, path: DROPBOX_DEFAULT_BACKUP_PATH, lastCloudBackupAt: null })
+const DEFAULT_CONFIG = Object.freeze({ enabled: false, path: DROPBOX_DEFAULT_BACKUP_PATH, lastCloudBackupAt: null, lastCloudBackupAttemptAt: null, lastCloudBackupError: null })
 const memoryStorage = new Map()
 const storage = () => globalThis.localStorage || { getItem: key => memoryStorage.get(key) || null, setItem: (key, value) => memoryStorage.set(key, value), removeItem: key => memoryStorage.delete(key) }
 const readRaw = key => { try { return JSON.parse(storage().getItem(key) || 'null') } catch (_) { return null } }
 const readConfig = () => { const raw = readRaw(CONFIG_KEY); return { ...DEFAULT_CONFIG, ...(raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}) } }
-const writeConfig = config => storage().setItem(CONFIG_KEY, JSON.stringify({ enabled: Boolean(config.enabled), path: config.path, lastCloudBackupAt: config.lastCloudBackupAt || null }))
+const writeConfig = config => storage().setItem(CONFIG_KEY, JSON.stringify({ enabled: Boolean(config.enabled), path: config.path, lastCloudBackupAt: config.lastCloudBackupAt || null, lastCloudBackupAttemptAt: config.lastCloudBackupAttemptAt || null, lastCloudBackupError: config.lastCloudBackupError || null }))
 
 export const createBackupConfigAdapter = () => Object.freeze({
   async get() {
@@ -21,7 +21,7 @@ export const createBackupConfigAdapter = () => Object.freeze({
       await SecureSecretStore.set(TOKEN_KEY, token)
       storage().removeItem(LEGACY_CONFIG_KEY)
     }
-    return { ...current, accessToken: '', hasAccessToken: Boolean(token) }
+    return { ...current, accessToken: '', hasAccessToken: Boolean(token), automaticBackupMode: 'FOREGROUND_WHEN_APP_OPEN' }
   },
   async save(input) {
     const current = readConfig()
@@ -36,7 +36,7 @@ export const createBackupConfigAdapter = () => Object.freeze({
     storage().removeItem(CONFIG_KEY)
     storage().removeItem(LEGACY_CONFIG_KEY)
     await SecureSecretStore.remove(TOKEN_KEY)
-    return { ...DEFAULT_CONFIG, accessToken: '', hasAccessToken: false }
+    return { ...DEFAULT_CONFIG, accessToken: '', hasAccessToken: false, automaticBackupMode: 'FOREGROUND_WHEN_APP_OPEN' }
   },
   async createConfiguredProvider() {
     const config = readConfig()

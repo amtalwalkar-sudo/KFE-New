@@ -1,15 +1,15 @@
-const DAY_MS = 24 * 60 * 60 * 1000
+// Dropbox backup currently runs in the application/WebView context because
+// canonical records live in WebView IndexedDB and the credential provider is
+// configured there. A service-worker wake-up can notify a live page, but it
+// cannot guarantee an upload while the app is closed or Android has killed it.
+export const CLOUD_BACKUP_EXECUTION_MODE = 'FOREGROUND_WHEN_APP_OPEN'
 
 export const createCloudBackupScheduler = () => Object.freeze({
   async registerDaily() {
-    try {
-      if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'periodicSync' in ServiceWorkerRegistration.prototype) {
-        const registration = await navigator.serviceWorker.ready
-        const permission = await navigator.permissions?.query?.({ name: 'periodic-background-sync' }).catch(() => null)
-        if (!permission || permission.state !== 'denied') await registration.periodicSync.register('kfe-daily-cloud-backup', { minInterval: DAY_MS })
-        return true
-      }
-    } catch (error) { console.warn('KFE periodic cloud backup registration unavailable:', error) }
+    // Deliberately do not register Periodic Background Sync as a "backup
+    // scheduler": that event only notifies clients and is not a cloud upload.
+    // main.js retries on startup, app resume, restored connectivity, visible
+    // page and a six-hour foreground interval instead.
     return false
   },
 })

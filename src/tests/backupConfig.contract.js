@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
 import { BackupConfig } from '../application/backup/backupConfig.js'
 import { CloudBackupLifecycle } from '../application/backup/cloudBackupLifecycle.js'
 import { createBackupConfigAdapter } from '../infrastructure/backup/backupConfigAdapter.js'
 
 BackupConfig.configureBackupConfig(createBackupConfigAdapter())
+const secureStoreSource = fs.readFileSync('src/infrastructure/security/secureSecretStore.js', 'utf8'); const nativeSecureStoreSource = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeSecureStoragePlugin.java', 'utf8'); assert.match(nativeSecureStoreSource, /AndroidKeyStore/); assert.match(nativeSecureStoreSource, /\.commit\(\)/, 'Native secure credentials must be durably committed before the save operation resolves.'); assert.match(secureStoreSource, /subtle\.generateKey/); assert.match(secureStoreSource, /indexedDB/); assert.match(secureStoreSource, /AES-GCM/);
 await BackupConfig.clearBackupConfiguration()
 let config = await BackupConfig.getBackupConfiguration()
 assert.equal(config.enabled, false)

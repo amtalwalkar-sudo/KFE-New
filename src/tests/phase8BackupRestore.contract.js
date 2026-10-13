@@ -1,3 +1,4 @@
+import { CANONICAL_DB_VERSION } from '../constants/canonicalDatabase.js'
 import assert from 'node:assert/strict'
 import { BACKUP_FORMAT, BACKUP_FORMAT_VERSION, CANONICAL_BACKUP_STORES, BackupService } from '../application/backup/backupService.js'
 const stores = Object.fromEntries(CANONICAL_BACKUP_STORES.map(store => [store, []]))
@@ -9,9 +10,9 @@ const serialized = BackupService.serializeBackup(record); assert.deepEqual(Backu
 const PRE_FA4_BACKUP_STORES = ['shifts','fuel_logs','odoGaps','pending_mutations','days','trips','gps_snapshots','movement_artifacts','vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history']
 const legacyV1Stores = Object.fromEntries([...PRE_FA4_BACKUP_STORES.filter(store => store !== 'audit_history').slice(0, 11).map(store => [store, []]), ['driver_collected_data', []], ...PRE_FA4_BACKUP_STORES.filter(store => store !== 'audit_history').slice(11).map(store => [store, []])])
 const legacyV1 = { format: BACKUP_FORMAT, formatVersion: 1, source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: 8 }, exportedAt: snapshot.exportedAt, stores: legacyV1Stores }
-const migratedV1 = BackupService.validateBackup(legacyV1); assert.equal(migratedV1.formatVersion, BACKUP_FORMAT_VERSION); assert.equal(migratedV1.source.dbVersion, 13); assert.equal('driver_collected_data' in migratedV1.stores, false); assert.deepEqual(migratedV1.stores.audit_history, [])
+const migratedV1 = BackupService.validateBackup(legacyV1); assert.equal(migratedV1.formatVersion, BACKUP_FORMAT_VERSION); assert.equal(migratedV1.source.dbVersion, CANONICAL_DB_VERSION); assert.equal('driver_collected_data' in migratedV1.stores, false); assert.deepEqual(migratedV1.stores.audit_history, [])
 const legacyV2Stores = Object.fromEntries([...PRE_FA4_BACKUP_STORES.map(store => [store, []]), ['driver_collected_data', []]])
 const legacyV2 = { format: BACKUP_FORMAT, formatVersion: 2, source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: 9 }, exportedAt: snapshot.exportedAt, stores: legacyV2Stores }
-const migratedV2 = BackupService.validateBackup(legacyV2); assert.equal(migratedV2.formatVersion, BACKUP_FORMAT_VERSION); assert.equal(migratedV2.source.dbVersion, 13); assert.equal('driver_collected_data' in migratedV2.stores, false)
+const migratedV2 = BackupService.validateBackup(legacyV2); assert.equal(migratedV2.formatVersion, BACKUP_FORMAT_VERSION); assert.equal(migratedV2.source.dbVersion, CANONICAL_DB_VERSION); assert.equal('driver_collected_data' in migratedV2.stores, false)
 const malformed = structuredClone(record); malformed.stores.trips = [{ id: 'trip-1' }, { id: 'trip-1' }]; assert.throws(() => BackupService.validateBackup(malformed), /duplicate id/); assert.throws(() => BackupService.validateBackup('{not-json'), /not valid JSON/); assert.throws(() => BackupService.validateBackup({ ...record, source: { dbName: 'other', dbVersion: 12 } }), /source does not match/); assert.throws(() => BackupService.validateBackup({ ...record, stores: { ...record.stores, unexpected: [] } }), /store set does not exactly match/)
 console.log('Phase 8 Backup & Restore contract: PASS')

@@ -54,7 +54,7 @@ assert.match(runner, /uiUxShellDecoupling\.contract\.js/)
 assert.equal(packageJson.scripts['ui:impact'], 'node tools/presentation-impact.mjs')
 assert.match(impactTool, /PROTECTED_PREFIXES/)
 assert.match(impactTool, /CHANGE IMPACT WARNING/)
-assert.match(contract, /current impact tool is a local import-dependency check/)
+assert.match(contract, /impact tool checks local import dependencies and reports shared class\/ID hooks/)
 
 // Shell may own routing and platform-level GPS status, but not business state,
 // business calculations, direct persistence or screen-store orchestration.

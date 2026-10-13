@@ -35,6 +35,9 @@ try {
   const context = await browser.newContext({ serviceWorkers: 'block' })
   const page = await context.newPage()
   await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 30000 })
+  await page.waitForFunction(() => window.__KFE_STARTUP_READY__ === true || Boolean(window.__KFE_STARTUP_ERROR__), null, { timeout: 30000 })
+  const startupStatus = await page.evaluate(() => ({ ready: window.__KFE_STARTUP_READY__ === true, error: window.__KFE_STARTUP_ERROR__ || null }))
+  if (!startupStatus.ready) throw new Error('KFE startup did not become ready before the canonical isolation test: ' + (startupStatus.error || 'unknown startup error'))
 
   const result = await page.evaluate(async () => {
     const { setActiveDataSource, getActiveDataSource, initializeSyntheticStorage, openCanonicalDB } =
@@ -80,8 +83,9 @@ try {
       quantityKg: 5,
       isFullTank: true,
     })
-    const canonicalPendingBefore = await count(openCanonicalDB(), 'pending_mutations')
-    if (canonicalPendingBefore !== 1) throw new Error('Canonical repository write did not create exactly one pending mutation.')
+    const canonicalPendingRowsBefore = await rows(openCanonicalDB(), 'pending_mutations')
+    const canonicalPendingBefore = canonicalPendingRowsBefore.filter(row => row.entityId === canonicalId || row.payload?.id === canonicalId || row.payload?.clientMutationId === 'phase4-canonical-mutation').length
+    if (canonicalPendingBefore !== 1) throw new Error('Canonical repository write did not create exactly one pending mutation for its own entity.')
 
     setActiveDataSource('synthetic')
     if (getActiveDataSource() !== 'synthetic') throw new Error('Synthetic mode did not activate.')

@@ -68,8 +68,8 @@ export const initializeApplication = async () => {
     })
   void (async () => {
     try {
-      await CloudBackupLifecycle.registerDailyCloudBackupSchedule()
-      DiagnosticService.checkpoint('Cloud backup schedule checked')
+      const backgroundBackupRegistered = await CloudBackupLifecycle.registerDailyCloudBackupSchedule()
+      DiagnosticService.checkpoint(backgroundBackupRegistered ? 'Cloud backup background schedule registered' : 'Cloud backup is foreground-only; retries on startup, app visibility and connectivity')
     } catch (error) {
       DiagnosticService.error('Cloud backup schedule failed', error)
       console.warn('KFE cloud backup schedule registration failed:', error)

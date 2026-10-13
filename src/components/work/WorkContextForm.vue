@@ -1,5 +1,10 @@
 <script setup>
 import { computed, nextTick, onMounted, ref } from 'vue'
+import WorkFuelForm from './WorkFuelForm.vue'
+import WorkStartShiftForm from './WorkStartShiftForm.vue'
+import WorkFareForm from './WorkFareForm.vue'
+import WorkCancellationForm from './WorkCancellationForm.vue'
+import WorkEndShiftForm from './WorkEndShiftForm.vue'
 
 const props = defineProps({
   type: { type: String, required: true },
@@ -78,8 +83,6 @@ const emit = defineEmits([
 
 const activeNumericField = ref(null)
 const numericPad = ref(null)
-const tollDetailsOpen = ref(false)
-const parkingDetailsOpen = ref(false)
 const suppressNumericFocus = ref(false)
 const activeNumeric = computed(() => {
   const name = activeNumericField.value
@@ -115,18 +118,7 @@ onMounted(() => {
   // to fit the viewport. Do not auto-scroll the whole page on form open.
   if (props.type === 'fare') activeNumericField.value = 'fare'
 })
-function toggleFareOptional(which) {
-  const isToll = which === 'toll'
-  const opening = !(isToll ? tollDetailsOpen.value : parkingDetailsOpen.value)
-  if (isToll) tollDetailsOpen.value = opening
-  else parkingDetailsOpen.value = opening
-
-  // Dismiss the in-flow keypad while optional fields are expanded so the new
-  // inputs and treatment checkbox remain easy to reach.
-  if (opening || activeNumericField.value === (isToll ? 'trip-toll' : 'trip-parking')) {
-    activeNumericField.value = null
-  }
-}
+function dismissNumeric() { activeNumericField.value = null }
 function activateNumeric(name) {
   if (suppressNumericFocus.value) {
     suppressNumericFocus.value = false
@@ -259,110 +251,15 @@ const updateMap = (name, map, id, value) => {
 
 <template>
   <section class="work-context-form contextual-form" :class="['form-' + type, type === 'start' ? 'start-shift-gate' : '', type === 'end' ? 'end-gate' : '', ['fare', 'cancel', 'fuel'].includes(type) ? 'focus-surface' : '']">
-    <form v-if="type === 'start'" class="form-card state-tone-warning" @submit.prevent="submitForm">
-      <div class="form-head">
-        <div><span class="eyebrow">START SHIFT</span><h2>Confirm shift start</h2></div>
-        <button class="text-action" type="button" @click="emit('action', 'back-start')">Back</button>
-      </div>
-      <label for="start-shift-odometer">Current vehicle odometer</label>
-      <div class="input-unit">
-        <input id="start-shift-odometer" :value="startOdo" type="text" inputmode="none" readonly autocomplete="off" aria-label="Current vehicle odometer" @focus="activateNumeric('start-odo')" @click="activateNumeric('start-odo')">
-        <b>km</b>
-      </div>
-      <label class="check-row">
-        <input type="checkbox" :checked="startAck" :disabled="!startOdo" aria-label="Confirm current vehicle odometer" @change="emit('update:start-ack', $event.target.checked)">
-        <span>I confirm this is the current odometer.</span>
-      </label>
-      <div v-if="gapKm > 0" class="gap-panel">
-        <div><span class="eyebrow">ODOMETER GAP</span><strong>{{ gapKm }} km</strong><p>Classify the full gap.</p></div>
-        <div class="choice-row">
-          <button type="button" :class="{selected:gapChoice==='PERSONAL'}" @click="chooseGap('PERSONAL')">Personal KM</button>
-          <button type="button" :class="{selected:gapChoice==='DEAD'}" @click="chooseGap('DEAD')">Dead KM</button>
-        </div>
-      </div>
-      <button type="submit" class="primary-action" :disabled="startBusy">{{ startBusy ? 'STARTING…' : 'CONFIRM & GO ONLINE' }}</button>
-    </form>
+    <WorkStartShiftForm v-if="type === 'start'" :start-odo="startOdo" :start-ack="startAck" :gap-choice="gapChoice" :gap-km="gapKm" :start-busy="startBusy" @action="emit('action', $event)" @focus-numeric="activateNumeric" @update:start-ack="emit('update:start-ack', $event)" @update:gap-choice="emit('update:gap-choice', $event)" />
 
-    <form v-else-if="type === 'fare'" class="form-card state-tone-warning focus-surface" @submit.prevent="submitForm">
-      <div class="form-head fare-form-head"><span class="eyebrow">TRIP COMPLETED</span><button class="text-action" type="button" @click="emit('action','skip-fare')">Skip</button></div>
-      <label class="fare-main-field">Trip fare <div class="input-unit"><b>₹</b><input :value="fare" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('fare')" aria-label="Trip fare" @click="activateNumeric('fare')"></div></label>
-      <div class="fare-optional-actions">
-        <button type="button" class="optional-toggle" :aria-expanded="tollDetailsOpen" @click="toggleFareOptional('toll')">{{ tollDetailsOpen ? '− Toll' : '+ Toll' }}</button>
-        <button type="button" class="optional-toggle" :aria-expanded="parkingDetailsOpen" @click="toggleFareOptional('parking')">{{ parkingDetailsOpen ? '− Parking' : '+ Parking' }}</button>
-      </div>
-      <div v-if="tollDetailsOpen" class="fare-optional-field">
-        <label>Toll <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="tripToll" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('trip-toll')" aria-label="Toll" @click="activateNumeric('trip-toll')"></div></label>
-        <label class="check-row"><input aria-label="Toll was paid separately" :checked="tripTollTreatment==='EXCLUDED'" type="checkbox" @change="emit('update:trip-toll-treatment',$event.target.checked ? 'EXCLUDED' : 'INCLUDED')"><span>Toll paid separately</span></label>
-      </div>
-      <div v-if="parkingDetailsOpen" class="fare-optional-field">
-        <label>Parking <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="tripParking" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('trip-parking')" aria-label="Parking" @click="activateNumeric('trip-parking')"></div></label>
-        <label class="check-row"><input aria-label="Parking was paid separately" :checked="tripParkingTreatment==='EXCLUDED'" type="checkbox" @change="emit('update:trip-parking-treatment',$event.target.checked ? 'EXCLUDED' : 'INCLUDED')"><span>Parking paid separately</span></label>
-      </div>
-      <button v-if="!activeNumeric" type="submit" class="primary-action" :disabled="fareBusy">{{ fareBusy ? 'SAVING…' : 'OK — SAVE TRIP' }}</button>
-    </form>
+    <WorkFareForm v-else-if="type === 'fare'" :fare="fare" :fare-busy="fareBusy" :trip-toll="tripToll" :trip-parking="tripParking" :trip-toll-treatment="tripTollTreatment" :trip-parking-treatment="tripParkingTreatment" :show-save-action="!activeNumeric" @action="emit('action', $event)" @focus-numeric="activateNumeric" @dismiss-numeric="dismissNumeric" @update:trip-toll-treatment="emit('update:trip-toll-treatment', $event)" @update:trip-parking-treatment="emit('update:trip-parking-treatment', $event)" />
 
-    <form v-else-if="type === 'cancel'" class="form-card state-tone-warning focus-surface" @submit.prevent="submitForm">
-      <div class="form-head"><div><span class="eyebrow">CANCELLATION</span><strong>CAPTURE CANCELLATION</strong></div><button class="text-action" type="button" @click="emit('action','back-cancel')">Back</button></div>
-      <div class="choice-field"><span class="field-label">Cancellation reason</span><div class="choice-row cancellation-reasons">
-        <button type="button" :class="{selected:cancelReason==='PASSENGER'}" @click="emit('update:cancel-reason','PASSENGER')">Passenger cancellation</button>
-        <button type="button" :class="{selected:cancelReason==='DRIVER'}" @click="emit('update:cancel-reason','DRIVER')">Driver cancellation</button>
-      </div></div>
-      <label>Cancellation fee (optional)<div class="input-unit"><b>₹</b><input :value="cancelFare" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('cancel-fare')" aria-label="Cancellation fee" @click="activateNumeric('cancel-fare')"></div></label>
-      <button type="submit" class="primary-action" :disabled="cancelBusy">{{ cancelBusy ? 'SAVING…' : 'OK — CONFIRM CANCELLATION' }}</button>
-    </form>
+    <WorkCancellationForm v-else-if="type === 'cancel'" :cancel-reason="cancelReason" :cancel-fare="cancelFare" :cancel-busy="cancelBusy" @action="emit('action', $event)" @focus-numeric="activateNumeric" @update:cancel-reason="emit('update:cancel-reason', $event)" />
 
-    <form v-else-if="type === 'fuel'" class="form-card state-tone-info focus-surface" @submit.prevent="submitForm">
-      <div class="fuel-form-close-row"><button class="text-action" type="button" aria-label="Close fuel form" @click="emit('action','close-fuel')">Close</button></div>
-      <label class="check-row"><input :checked="fuelPartial" type="checkbox" @change="emit('update:fuel-partial',$event.target.checked)"><span>Partial fill</span></label>
-      <label>Odometer<div class="input-unit"><input :value="fuelOdo" type="text" inputmode="none" readonly autocomplete="off" aria-label="Odometer" @focus="activateNumeric('fuel-odo')" @click="activateNumeric('fuel-odo')"><b>km</b></div></label>
-      <label>Price / kg<div class="input-unit"><b>₹</b><input :value="fuelPrice" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('fuel-price')" aria-label="Price / kg" @click="activateNumeric('fuel-price')"></div></label>
-      <label>Amount<div class="input-unit"><b>₹</b><input :value="fuelAmount" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('fuel-amount')" aria-label="Amount" @click="activateNumeric('fuel-amount')"></div></label>
-      <div class="calculated-value fuel-calculated-value state-tone-info" aria-live="polite"><span>Quantity</span><strong>{{ fuelQty.valid ? fuelQty.quantityKg.toFixed(2)+' kg' : '—' }}</strong></div>
-      <button type="button" class="primary-action" :disabled="fuelBusy" @click="emit('action', 'save-fuel')">{{ fuelBusy ? 'SAVING…' : 'OK — SAVE FUEL' }}</button>
-    </form>
+    <WorkFuelForm v-else-if="type === 'fuel'" :fuel-odo="fuelOdo" :fuel-price="fuelPrice" :fuel-amount="fuelAmount" :fuel-partial="fuelPartial" :fuel-qty="fuelQty" :fuel-busy="fuelBusy" @action="emit('action', $event)" @focus-numeric="activateNumeric" @update:fuel-partial="emit('update:fuel-partial', $event)" />
 
-    <form v-else-if="type === 'end'" class="form-card state-tone-warning" @submit.prevent="submitForm">
-      <div class="form-head"><div><span class="eyebrow">GOING OFFLINE</span><h2>{{ endTitle }}</h2></div><button v-if="endStage==='CLOSE'" class="text-action" type="button" @click="emit('action','back-end')">Back</button></div>
-      <template v-if="endStage==='CLOSE'">
-        <div class="fact-line"><span>Shift started</span><strong>{{ startOdo || '—' }} km</strong></div>
-        <label>Closing odometer<div class="input-unit"><input :value="closingOdo" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('closing-odo')" aria-label="Closing odometer" @click="activateNumeric('closing-odo')"><b>km</b></div></label>
-        <label>Total shift revenue<div class="input-unit"><b>₹</b><input :value="shiftRevenue" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('shift-revenue')" aria-label="Total shift revenue" @click="activateNumeric('shift-revenue')"></div></label>
-        <button type="submit" class="primary-action">CONTINUE</button>
-      </template>
-      <template v-else-if="endStage==='RECONCILE'">
-        <div v-if="endMissing.length" class="exception-panel"><span class="eyebrow">OPTIONAL DETAIL</span><h3>Trip fares not entered</h3><p>You can continue. End Shift revenue remains authoritative.</p><div v-for="trip in endMissing" :key="trip.id" class="reconcile-row"><div><strong>{{ trip.operator }}</strong><span>{{ Number(trip.tripKm||0).toFixed(1) }} km</span></div><div class="input-unit compact"><b>₹</b><input :value="reviewRevenue[trip.id]" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('review-revenue:' + trip.id)" aria-label="Trip revenue" @click="activateNumeric('review-revenue:' + trip.id)"></div></div></div>
-        <div v-else class="success-panel"><strong>ALL REVENUE CAPTURED</strong><span>No missing trip revenue exceptions.</span></div>
-        <div class="fact-grid"><div><span>Shift revenue</span><strong>{{ money(shiftRevenue) }}</strong></div><div><span>Trip revenue</span><strong>{{ money(endPreview?.tripRevenue) }}</strong></div></div>
-        <button type="submit" class="primary-action">CONTINUE</button>
-      </template>
-      <template v-else-if="endStage==='REVIEW'">
-        <div class="fact-grid review"><div><span>Trips</span><strong>{{ endCompletedCount }}</strong></div><div><span>Total shift KM</span><strong>{{ endShiftKm.toFixed(1) }}</strong></div><div><span>Trip KM</span><strong>{{ endReviewedTripKm.toFixed(1) }}</strong></div><div><span>Dead KM</span><strong>{{ endReviewedDeadKm.toFixed(1) }}</strong></div><div><span>Revenue</span><strong>{{ money(shiftRevenue) }}</strong></div></div>
-        <div v-if="endReviewedDeadKm < -0.000001" class="exception-panel"><strong>KM RECONCILIATION REQUIRED</strong><p>Trip KM exceeds total shift KM by {{ Math.abs(endReviewedDeadKm).toFixed(1) }} km.</p></div>
-        <div class="expense-row">
-          <div class="expense-trip-total"><span>Trip toll already recorded</span><strong>{{ money(tripTollTotal) }}</strong></div>
-          <div class="expense-shift-capture">
-            <label>Additional shift toll <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="toll" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('shift-toll')" aria-label="Additional shift toll" @click="activateNumeric('shift-toll')"></div></label>
-            <label class="check-row"><input :checked="tollTreatment==='EXCLUDED'" type="checkbox" @change="emit('update:toll-treatment',$event.target.checked ? 'EXCLUDED' : 'INCLUDED')"><span>Additional toll paid separately</span></label>
-          </div>
-        </div>
-        <div class="expense-row">
-          <div class="expense-trip-total"><span>Trip parking already recorded</span><strong>{{ money(tripParkingTotal) }}</strong></div>
-          <div class="expense-shift-capture">
-            <label>Additional shift parking <span class="optional-label">optional</span><div class="input-unit"><b>₹</b><input :value="parking" type="text" inputmode="none" readonly autocomplete="off" @focus="activateNumeric('shift-parking')" aria-label="Additional shift parking" @click="activateNumeric('shift-parking')"></div></label>
-            <label class="check-row"><input :checked="parkingTreatment==='EXCLUDED'" type="checkbox" @change="emit('update:parking-treatment',$event.target.checked ? 'EXCLUDED' : 'INCLUDED')"><span>Additional parking paid separately</span></label>
-          </div>
-        </div>
-        <button type="submit" class="primary-action">REVIEW COMPLETE</button>
-      </template>
-      <template v-else-if="endStage==='CONFIRM'">
-        <div class="completion-panel"><span class="eyebrow">SHIFT REVIEW</span><strong>READY TO END</strong><p>{{ endCompletedCount }} completed trips · {{ endShiftKm.toFixed(1) }} km · {{ money(shiftRevenue) }} revenue.</p></div>
-        <button type="submit" class="primary-action" :disabled="endBusy || !endReady">{{ endBusy ? 'ENDING SHIFT…' : 'OK — END SHIFT' }}</button>
-      </template>
-      <template v-else>
-        <div class="completion-panel success"><span class="completion-mark" aria-hidden="true">✓</span><strong>SHIFT ENDED</strong><p>Your shift has been saved. You are now offline.</p></div>
-        <button type="submit" class="primary-action">OK</button>
-      </template>
-    </form>
+    <WorkEndShiftForm v-else-if="type === 'end'" :end-title="endTitle" :end-stage="endStage" :end-missing="endMissing" :end-preview="endPreview" :end-completed-count="endCompletedCount" :end-shift-km="endShiftKm" :end-reviewed-trip-km="endReviewedTripKm" :end-reviewed-dead-km="endReviewedDeadKm" :end-ready="endReady" :end-busy="endBusy" :start-odo="startOdo" :closing-odo="closingOdo" :shift-revenue="shiftRevenue" :review-revenue="reviewRevenue" :review-km="reviewKm" :review-operator="reviewOperator" :toll-treatment="tollTreatment" :parking-treatment="parkingTreatment" :toll="toll" :parking="parking" :trip-toll-total="tripTollTotal" :trip-parking-total="tripParkingTotal" :money="money" @action="emit('action', $event)" @focus-numeric="activateNumeric" @update:toll-treatment="emit('update:toll-treatment', $event)" @update:parking-treatment="emit('update:parking-treatment', $event)" />
 
       <div v-if="activeNumeric" ref="numericPad" class="kfe-work-number-pad" aria-label="KFE intelligent numeric keypad">
         <div class="kfe-work-number-pad__display">
@@ -387,49 +284,3 @@ const updateMap = (name, map, id, value) => {
   </section>
 </template>
 
-<style scoped>
-.work-context-form{width:100%;box-sizing:border-box;animation:work-form-in 140ms ease-out}
-.form-card{width:100%;box-sizing:border-box;padding:14px;border-radius:16px;display:grid;gap:12px}
-.form-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.form-card h2,.form-card strong{margin:0}
-.form-card label{display:grid;gap:6px;font-weight:700}
-.input-unit{display:flex;align-items:center;gap:8px}
-.input-unit input{width:100%;min-width:0}
-.choice-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.choice-row button{min-height:48px}
-.check-row{display:flex!important;grid-template-columns:none!important;align-items:center;gap:10px}
-.check-row input{width:22px!important;height:22px;min-height:22px!important}
-.treatment-row{display:grid;grid-template-columns:1fr 1fr;gap:4px;min-width:0}.treatment-row .check-row{font-size:.68rem;gap:4px;line-height:1.1;min-width:0}.treatment-row .check-row input{width:18px!important;height:18px;min-height:18px!important}.treatment-row .check-row span{overflow-wrap:anywhere}
-.primary-action,.text-action,.choice-row button{touch-action:manipulation}
-.primary-action{min-height:48px}
-.form-card input,.form-card select,.form-card button{font:inherit}
-.form-card input{font-size:16px}.form-fare .form-card{grid-template-columns:minmax(0,1fr) minmax(0,1fr);padding:8px;gap:6px}.form-fare .form-card .form-head,.form-fare .form-card>.primary-action,.form-fare .form-card .fare-main-field,.form-fare .form-card .fare-optional-actions,.form-fare .form-card .fare-optional-field{grid-column:1/-1}.form-fare .form-card label{gap:3px;font-size:.78rem}.form-fare .form-card .form-head{margin-bottom:0}.form-fare .form-card .input-unit{gap:5px}.form-fare .form-card .input-unit input{height:40px;min-height:40px!important}.form-fare .form-card .primary-action{min-height:40px;margin-top:0}.form-fare .form-card .optional-label{font-size:.62rem}.fare-optional-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.fare-optional-actions .optional-toggle{min-height:38px;border:1px dashed var(--kfe-ui-border);border-radius:10px;background:var(--kfe-ui-surface-2);color:var(--kfe-ui-text);font-weight:800}.fare-optional-field{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:end;gap:8px;padding:6px 0;border-top:1px solid var(--kfe-ui-border)}.fare-optional-field .check-row{font-size:.67rem;line-height:1.1}.fare-optional-field .check-row input{width:18px!important;height:18px;min-height:18px!important}
-.expense-row{display:grid;grid-template-columns:minmax(76px,.8fr) minmax(0,1.2fr);gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--kfe-ui-border)}
-.expense-trip-total{display:grid;gap:3px;font-size:.78rem;overflow-wrap:anywhere}.expense-trip-total strong{font-size:.9rem}
-.expense-shift-capture{display:grid;gap:6px;min-width:0}.expense-shift-capture>label:not(.check-row){font-size:.78rem;gap:3px}.expense-shift-capture .check-row{font-size:.68rem;gap:5px;line-height:1.1}.expense-shift-capture .check-row input{width:18px!important;height:18px}
-@media(max-width:380px){.expense-row{grid-template-columns:minmax(70px,.7fr) minmax(0,1.3fr);gap:6px}.form-fare .fare-optional-field{grid-template-columns:minmax(0,1fr);align-items:stretch}.form-fare .fare-optional-field .check-row{min-height:36px}}
-@keyframes work-form-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
-@media(max-width:640px){.form-card{padding:12px}.form-card{max-width:100%}}
-
-.kfe-work-number-pad{margin-top:4px;padding:8px;border:1px solid var(--kfe-ui-border);border-radius:16px;background:var(--kfe-ui-surface-2);box-shadow:0 8px 24px color-mix(in srgb,var(--kfe-ui-text) 10%,transparent)}
-.kfe-work-number-pad__display{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:4px 6px 7px}.kfe-work-number-pad__display span{font-size:.62rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--kfe-muted-text)}.kfe-work-number-pad__display strong{font-size:1.35rem;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;min-width:0}
-.kfe-work-number-pad__grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.kfe-work-number-pad__grid button,.kfe-work-number-pad__actions button{min-height:40px;border:1px solid var(--kfe-ui-border);border-radius:10px;background:var(--kfe-ui-surface);color:var(--kfe-ui-text);font-size:1rem;font-weight:900}
-.kfe-work-number-pad__grid button:nth-child(10){font-size:.68rem}.kfe-work-number-pad__actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-top:5px}.kfe-work-number-pad__actions button{font-size:.78rem}.kfe-work-number-pad__actions .done{background:var(--kfe-ui-accent);color:var(--kfe-on-accent);border-color:var(--kfe-ui-accent)}.kfe-work-number-pad__actions.fare-keypad-actions{grid-template-columns:minmax(0,1fr) auto}.kfe-work-number-pad__actions .fare-save-action{grid-column:auto;min-height:36px;font-size:.82rem;white-space:normal;line-height:1.15}
-.form-fare .kfe-work-number-pad{padding:5px;border-radius:12px;box-shadow:none}
-.form-fare .kfe-work-number-pad__display{padding:1px 5px 3px}
-.form-fare .kfe-work-number-pad__display strong{font-size:1.05rem}
-.form-fare .kfe-work-number-pad__grid{gap:3px}
-.form-fare .kfe-work-number-pad__grid button{min-height:31px;border-radius:7px;font-size:.9rem}
-.form-fare .kfe-work-number-pad__actions{gap:4px;margin-top:4px}
-.form-fare .kfe-work-number-pad__actions button{min-height:32px;border-radius:7px}
-@media(max-width:600px){.kfe-work-number-pad{padding:7px}.kfe-work-number-pad__grid button,.kfe-work-number-pad__actions button{min-height:38px}.form-fare .kfe-work-number-pad{padding:5px}.form-fare .kfe-work-number-pad__grid button{min-height:31px}.form-fare .kfe-work-number-pad__actions button{min-height:32px}}
-
-/* Explicit semantic contrast for the odometer-gap allocation gate. */
-.gap-panel{display:grid;gap:10px;padding:12px;border:1px solid var(--kfe-ui-border);border-radius:12px;background:var(--kfe-ui-surface-2);color:var(--kfe-ui-text)}
-.gap-panel .eyebrow{color:var(--kfe-ui-muted-strong)}
-.gap-panel strong{color:var(--kfe-ui-text);font-size:1.15rem}
-.gap-panel p{margin:4px 0 0;color:var(--kfe-muted-text)}
-.gap-panel .choice-row button{background:var(--kfe-ui-surface);color:var(--kfe-ui-text);border:1px solid var(--kfe-ui-input-border);border-radius:10px;font-weight:800}
-.gap-panel .choice-row button.selected{background:var(--kfe-ui-accent);color:var(--kfe-ui-on-accent);border-color:var(--kfe-ui-accent)}
-.gap-panel .choice-row button:focus-visible{outline:3px solid var(--kfe-ui-focus);outline-offset:2px}
-</style>

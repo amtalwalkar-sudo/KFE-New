@@ -69,10 +69,14 @@ public class KfeSecureStoragePlugin extends Plugin {
       System.arraycopy(iv, 0, packed, 2, iv.length);
       System.arraycopy(encrypted, 0, packed, 2 + iv.length, encrypted.length);
 
-      getContext().getSharedPreferences(PREFS, 0)
+      boolean saved = getContext().getSharedPreferences(PREFS, 0)
         .edit()
         .putString(key, Base64.encodeToString(packed, Base64.NO_WRAP))
-        .apply();
+        .commit();
+      if (!saved) {
+        call.reject("Secure storage write could not be committed to disk.");
+        return;
+      }
       call.resolve();
     } catch (Exception e) {
       call.reject("Secure storage write failed.", e);
@@ -134,8 +138,14 @@ public class KfeSecureStoragePlugin extends Plugin {
   @PluginMethod
   public void remove(PluginCall call) {
     String key = call.getString("key");
-    if (key != null) {
-      getContext().getSharedPreferences(PREFS, 0).edit().remove(key).apply();
+    if (key == null || key.trim().isEmpty()) {
+      call.reject("Key is required.");
+      return;
+    }
+    boolean removed = getContext().getSharedPreferences(PREFS, 0).edit().remove(key).commit();
+    if (!removed) {
+      call.reject("Secure storage removal could not be committed to disk.");
+      return;
     }
     call.resolve();
   }

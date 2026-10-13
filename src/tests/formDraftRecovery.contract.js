@@ -34,7 +34,7 @@ assert.equal(isFormDraftClearAuthorized({ confirmedDiscard: true }), true, 'Expl
 const db = fs.readFileSync('src/utils/indexedDB.js', 'utf8')
 const repository = fs.readFileSync('src/repositories/formDraftRepository.js', 'utf8')
 const workView = fs.readFileSync('src/views/WorkModuleView.vue', 'utf8')
-const workForm = fs.readFileSync('src/components/work/WorkContextForm.vue', 'utf8')
+const workForm = ['WorkContextForm.vue','WorkStartShiftForm.vue','WorkFareForm.vue','WorkCancellationForm.vue','WorkFuelForm.vue','WorkEndShiftForm.vue'].map(name => fs.readFileSync('src/components/work/' + name, 'utf8')).join('\n')
 assert.match(db, /createSimpleStore\(db, 'form_drafts'/, 'Drafts need a dedicated non-canonical store')
 assert.match(repository, /tx\.objectStore\('form_drafts'\)\.put\(record\)/, 'Draft persistence must not write canonical business entities')
 assert.match(repository, /Form draft can only be cleared after successful commitment or explicit confirmed discard/, 'Clear must enforce the frozen recovery rule')

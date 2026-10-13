@@ -42,15 +42,43 @@ async function walk(dir) {
   for (const entry of entries) {
     const full = path.join(dir, entry.name)
     if (entry.isDirectory()) files.push(...await walk(full))
-    else if (/\.(vue|js|mjs)$/.test(entry.name)) files.push(full)
+    else if (/\.(vue|js|mjs|css)$/.test(entry.name)) files.push(full)
   }
   return files
+}
+
+
+function extractGlobalStyleSources(source, file) {
+  if (file.endsWith('.css')) return [source]
+  if (!file.endsWith('.vue')) return []
+  return [...source.matchAll(/<style([^>]*)>([\s\S]*?)<\/style>/gi)]
+    .filter((match) => !/\bscoped\b/i.test(match[1]))
+    .map((match) => match[2])
+}
+
+function extractSelectors(source) {
+  const clean = source.replace(/\/\*[\s\S]*?\*\//g, '')
+  const selectors = new Set()
+  for (const match of clean.matchAll(/([^{}]+)\{[^{}]*\}/g)) {
+    const header = match[1].trim()
+    if (!header || header.startsWith('@')) continue
+    for (const selector of header.split(',')) {
+      const normalized = selector.trim().replace(/\s+/g, ' ')
+      if (normalized) selectors.add(normalized)
+    }
+  }
+  return selectors
+}
+
+function selectorTokens(selector) {
+  return new Set([...selector.matchAll(/\.([_a-zA-Z][\w-]*)|#([_a-zA-Z][\w-]*)|\[([_a-zA-Z][\w-]*)/g)]
+    .map((match) => match[1] ? '.' + match[1] : match[2] ? '#' + match[2] : '[' + match[3]))
 }
 
 function importCandidates(specifier, fromFile) {
   if (!specifier.startsWith('.')) return []
   const base = path.resolve(path.dirname(fromFile), specifier)
-  return [base, `${base}.js`, `${base}.mjs`, `${base}.vue`, path.join(base, 'index.js')]
+  return [base, `${base}.js`, `${base}.mjs`, `${base}.vue`, `${base}.css`, path.join(base, 'index.js')]
 }
 
 const acknowledgeNative = process.argv.includes('--acknowledge-native-impact')
@@ -94,6 +122,40 @@ console.log('KFE PRESENTATION CHANGE IMPACT')
 console.log('')
 for (const item of requested) console.log(`Requested: ${item}`)
 console.log('')
+
+// Global CSS cascade check: report exact selector reuse and shared class/ID
+// hooks across different unscoped stylesheets. Vue <style scoped> blocks are
+// excluded because Vue scopes those selectors at build time.
+const styleByFile = new Map()
+for (const file of files) {
+  const rel = normalize(path.relative(ROOT, file))
+  const source = await readFile(file, 'utf8')
+  const styles = extractGlobalStyleSources(source, rel)
+  if (styles.length) styleByFile.set(rel, new Set(styles.flatMap(style => [...extractSelectors(style)])))
+}
+const requestedStyleFiles = requested.filter(file => styleByFile.has(file))
+const cssOverlaps = []
+for (const requestedFile of requestedStyleFiles) {
+  const requestedSelectors = styleByFile.get(requestedFile)
+  const requestedTokens = new Set([...requestedSelectors].flatMap(selector => [...selectorTokens(selector)]))
+  for (const [otherFile, selectors] of styleByFile) {
+    if (otherFile === requestedFile) continue
+    for (const selector of selectors) {
+      const shared = [...selectorTokens(selector)].filter(token => requestedTokens.has(token))
+      if (shared.length) cssOverlaps.push({ requestedFile, otherFile, selector, shared: [...new Set(shared)] })
+    }
+  }
+}
+if (requestedStyleFiles.length) {
+  console.log('GLOBAL CSS CASCADE CHECK')
+  if (!cssOverlaps.length) console.log('🟢 No shared class/ID selector hooks found in other unscoped stylesheets.')
+  else {
+    for (const item of cssOverlaps.slice(0, 100)) console.log(`🟡 ${item.requestedFile} ↔ ${item.otherFile}: ${item.selector} (shared ${item.shared.join(', ')})`)
+    if (cssOverlaps.length > 100) console.log(`… ${cssOverlaps.length - 100} additional selector overlaps omitted.`)
+    console.log('Review these cascade overlaps before treating the change as component-isolated.')
+  }
+  console.log('')
+}
 
 if (!impacted.length) {
   console.log('🟢 ISOLATED: no local import dependents were found.')

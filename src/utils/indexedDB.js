@@ -1,6 +1,7 @@
+import { CANONICAL_DB_VERSION } from '../constants/canonicalDatabase.js'
+
 const CANONICAL_DB_NAME = 'kanishka_kfe_canonical_db'
 const SYNTHETIC_DB_NAME = 'kanishka_kfe_synthetic_db'
-const CANONICAL_DB_VERSION = 15
 const SYNTHETIC_DB_VERSION = 14
 const DATA_SOURCE_KEY = 'kfe:active-data-source'
 const DATA_SOURCE_CHANGE_EVENT = 'kfe:data-source-changed'

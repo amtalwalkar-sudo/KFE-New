@@ -10,9 +10,8 @@ import { calculateRollingFuelCostPerKm } from '../../domain/math/fuel.js'
 import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } from '../../domain/work/trip.js'
 import { BackupService } from '../backup/backupService.js'
 import { MovementAccountingService, routeTrace } from '../../domain/movement/movementAccounting.js'
-import { MovementTraceService, calculateTraceDistanceKm } from '../../infrastructure/location/movementTraceService.js'
-import { NativeGpsService } from '../../infrastructure/android/nativeGpsService.js'
-import { ValhallaRoutingAdapter } from '../../infrastructure/location/valhallaRoutingAdapter.js'
+import { WorkRuntimePorts } from './workRuntimePorts.js'
+import { calculateTraceDistanceKm } from '../../domain/movement/traceDistance.js'
 import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
 
 const checkpoint = () => BackupService.requestLocalBackupCheckpoint()
@@ -40,6 +39,40 @@ export const WorkService = Object.freeze({
     return calculateRollingFuelCostPerKm(await FuelRepository.getAll())
   },
   async getLocations(entityType, entityId) { return LocationRepository.forEntity(entityType, entityId) },
+  async recoverNativeGpsTraces() {
+    const [shifts, trips, owners] = await Promise.all([
+      ShiftTripRepository.getAllShifts(),
+      ShiftTripRepository.getAllTrips(),
+      WorkRuntimePorts.nativeGps.listTraceOwners(),
+    ])
+    const activeShift = shifts.find(shift => shift.status === 'ACTIVE')
+    const activeTrip = trips.find(trip => trip.status === 'ACTIVE')
+    const shiftById = new Map(shifts.map(shift => [shift.id, shift]))
+    const tripById = new Map(trips.map(trip => [trip.id, trip]))
+    const recovered = []
+    const unresolvedOwners = []
+    for (const ownerId of owners) {
+      const trip = tripById.get(ownerId)
+      const shift = shiftById.get(ownerId)
+      // Snapshot even the currently active trace into canonical IndexedDB so
+      // backups include it. Keep the live JSONL file only for the active owner;
+      // completed/orphaned files can be cleared after a successful import.
+      const entityType = trip ? 'TRIP' : shift ? 'SHIFT' : null
+      if (!entityType) { unresolvedOwners.push(ownerId); continue }
+      const activeOwner = trip?.status === 'ACTIVE' || (shift?.status === 'ACTIVE' && !activeTrip)
+      try {
+        const result = await WorkRuntimePorts.nativeGps.syncTrace(ownerId, { entityType, clearAfterImport: !activeOwner })
+        const imported = Number(result?.imported) || 0
+        if (imported > 0) checkpoint()
+        recovered.push({ ownerId, entityType, imported })
+      } catch (error) {
+        unresolvedOwners.push(ownerId)
+        console.warn('KFE native GPS trace recovery deferred; source file retained:', ownerId, error)
+      }
+    }
+    if (unresolvedOwners.length) throw new Error('Native GPS trace recovery incomplete; cloud backup is blocked to avoid omitting movement evidence. Unresolved owners: ' + unresolvedOwners.join(', '))
+    return { ownersChecked: owners.length, recovered, unresolvedOwners: [] }
+  },
   async previewMovementReconciliation({ shiftId, closingOdometer, trips = [] }) {
     const shift = await ShiftTripRepository.getActive()
     if (!shift?.shift?.id || shift.shift.id !== shiftId) return { reconciliationStatus: 'UNAVAILABLE', reason: 'ACTIVE_SHIFT_NOT_FOUND' }
@@ -51,7 +84,7 @@ export const WorkService = Object.freeze({
         trips,
         startOdometer: shift.shift.startOdometer,
         endOdometer: closingOdometer,
-        router: new ValhallaRoutingAdapter(),
+        router: WorkRuntimePorts.routing.createRouter(),
         businessKmByTripId: Object.fromEntries(trips.filter(item => item.tripKm != null && item.tripKm !== '' && Number.isFinite(Number(item.tripKm)) && Number(item.tripKm) >= 0).map(item => [item.id, Number(item.tripKm)])),
         gpsSnapshots
       })
@@ -59,13 +92,14 @@ export const WorkService = Object.freeze({
       return { reconciliationStatus: 'UNAVAILABLE', reason: error?.message || 'MOVEMENT_RECONCILIATION_FAILED', gpsTracePoints: gpsSnapshots.length }
     }
   },
-  async getTripGpsDistanceKm(tripId) { try { await NativeGpsService.syncTrace(tripId) } catch (_) {} const snapshots = await LocationRepository.forEntity('TRIP', tripId); return calculateTraceDistanceKm(snapshots.filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')) },
+  async getTripGpsDistanceKm(tripId) { try { await WorkRuntimePorts.nativeGps.syncTrace(tripId) } catch (_) {} const snapshots = await LocationRepository.forEntity('TRIP', tripId); return calculateTraceDistanceKm(snapshots.filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')) },
   calculateLiveMovement(points = []) { const filteredPoints = MovementAccountingService.filterGpsTrace(points); return { points: filteredPoints, distanceKm: calculateTraceDistanceKm(filteredPoints) } },
   async captureLocation(data) { const result = await captureLifecycleLocation(data); checkpoint(); return result },
   validateShiftStartOdometer(currentOdometer, previousOdometer) { return validateShiftStartOdometer(currentOdometer, previousOdometer) },
   validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer) { return validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer) },
   validateGapAllocation(gapKm, category) { return validateGapAllocation(gapKm, category) },
   calculateFuelQuantity(pricePerKg, amount) { return calculateFuelQuantity({ pricePerKg, amount }) },
+  calculateTraceDistanceKm(points = []) { return calculateTraceDistanceKm(points) },
   reconcileShiftRevenue(data) { return reconcileShiftRevenue(data) },
   async startShift(data) { const result = await ShiftTripRepository.createShift(data); checkpoint(); return result },
   async startTrip(data) {
@@ -73,7 +107,7 @@ export const WorkService = Object.freeze({
     if (!validation.valid) return { ok: false, reason: validation.reason }
     const result = await ShiftTripRepository.createTrip({ ...data, operator: validation.operator, tripStage: data?.tripStage || 'GOING_TO_PICKUP' }); checkpoint()
     // GPS is telemetry/enrichment. Never block the authoritative trip transition on it.
-    void NativeGpsService.start(result.id, 'DEAD_MOVEMENT_TRACE').catch(() => {})
+    void WorkRuntimePorts.nativeGps.start(result.id, 'DEAD_MOVEMENT_TRACE', 'TRIP').catch(() => {})
     void captureLifecycleLocation({ entityType: 'TRIP', entityId: result.id, eventType: 'START' }).then(location => {
       if (location) return ShiftTripRepository.setTripStartLocation(result.id, location)
       return null
@@ -86,11 +120,11 @@ export const WorkService = Object.freeze({
     if (!result || !data?.id) return result
     // Android uses the native foreground trace. Browser/PWA builds do not have
     // that plugin, so fall back to the existing web movement-trace service.
-    void NativeGpsService.start(data.id).then(started => {
+    void WorkRuntimePorts.nativeGps.start(data.id, 'PASSENGER_RIDE_TRACE', 'TRIP').then(started => {
       if (started) return
-      MovementTraceService.start({ entityType: 'TRIP', entityId: data.id, eventType: 'PASSENGER_RIDE_TRACE', profile: 'PASSENGER_RIDE' })
+      WorkRuntimePorts.movementTrace.start({ entityType: 'TRIP', entityId: data.id, eventType: 'PASSENGER_RIDE_TRACE', profile: 'PASSENGER_RIDE' })
     }).catch(() => {
-      try { MovementTraceService.start({ entityType: 'TRIP', entityId: data.id, eventType: 'PASSENGER_RIDE_TRACE', profile: 'PASSENGER_RIDE' }) } catch (_) {}
+      try { WorkRuntimePorts.movementTrace.start({ entityType: 'TRIP', entityId: data.id, eventType: 'PASSENGER_RIDE_TRACE', profile: 'PASSENGER_RIDE' }) } catch (_) {}
     })
     return result
   },
@@ -105,13 +139,14 @@ export const WorkService = Object.freeze({
           // Native GPS is the raw evidence. Synchronize it first, then enrich the
           // already-committed trip asynchronously. Nothing here is awaited by the
           // authoritative END TRIP transition or the pending-fare form.
-          const activeTrace = MovementTraceService.getActiveSession()
+          const activeTrace = WorkRuntimePorts.movementTrace.getActiveSession()
           let browserTracePoints = []
           if (activeTrace?.entityType === 'TRIP' && activeTrace.entityId === tripId) {
-            try { browserTracePoints = await MovementTraceService.stop({ captureFinal: true }) } catch (_) {}
+            try { browserTracePoints = await WorkRuntimePorts.movementTrace.stop({ captureFinal: true }) } catch (_) {}
           }
-          await NativeGpsService.syncTrace(tripId)
-          await NativeGpsService.stop(tripId)
+          const nativeSync = await WorkRuntimePorts.nativeGps.syncTrace(tripId)
+          if (Number(nativeSync?.imported) > 0 || browserTracePoints.length > 0) checkpoint()
+          await WorkRuntimePorts.nativeGps.stop(tripId)
           let snapshots = (await LocationRepository.forEntity('TRIP', tripId)).filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')
           const finalTracePoint = snapshots.at(-1) || browserTracePoints.at(-1)
           if (finalTracePoint) {
@@ -123,7 +158,7 @@ export const WorkService = Object.freeze({
           if (snapshots.length < 2) return
 
           const gpsKm = calculateTraceDistanceKm(snapshots)
-          const router = new ValhallaRoutingAdapter()
+          const router = WorkRuntimePorts.routing.createRouter()
           const routed = await routeTrace(snapshots, router)
 
           if (Number.isFinite(Number(routed.distanceKm)) && Number(routed.distanceKm) >= 0) {
@@ -160,15 +195,39 @@ export const WorkService = Object.freeze({
               traceGeometry: snapshots.map(point => [Number(point.longitude), Number(point.latitude)])
             })
           }
-        } catch (_) {
+        } catch (error) {
           // Completion is already persisted. Valhalla/network/GPS enrichment must
-          // never block, undo, or delay the fare form or swipe transition.
+          // never block, undo, or delay the fare form or swipe transition. The raw
+          // native file remains on disk if import failed and startup can retry it.
+          console.warn('Trip GPS enrichment deferred; native trace retained for recovery:', tripId, error)
+        } finally {
+          try { await WorkRuntimePorts.nativeGps.stop(tripId) } catch (_) {}
         }
       })()
     }
     return result
   },
-  async cancelTrip(data) { const result = await ShiftTripRepository.cancelTrip(data); checkpoint(); if (data?.id) { void (async () => { try { const activeTrace = MovementTraceService.getActiveSession(); if (activeTrace?.entityType === 'TRIP' && activeTrace.entityId === data.id) { await MovementTraceService.stop({ captureFinal: false }) } await NativeGpsService.syncTrace(data.id); await NativeGpsService.stop(data.id) } catch (_) {} })() } return result },
+  async cancelTrip(data) {
+    const result = await ShiftTripRepository.cancelTrip(data)
+    checkpoint()
+    if (data?.id) {
+      void (async () => {
+        try {
+          const activeTrace = WorkRuntimePorts.movementTrace.getActiveSession()
+          if (activeTrace?.entityType === 'TRIP' && activeTrace.entityId === data.id) {
+            await WorkRuntimePorts.movementTrace.stop({ captureFinal: false })
+          }
+          const sync = await WorkRuntimePorts.nativeGps.syncTrace(data.id)
+          if (Number(sync?.imported) > 0) checkpoint()
+        } catch (error) {
+          console.warn('Cancelled trip GPS sync deferred; native trace retained for recovery:', data.id, error)
+        } finally {
+          try { await WorkRuntimePorts.nativeGps.stop(data.id) } catch (_) {}
+        }
+      })()
+    }
+    return result
+  },
   async updateTrip(data) {
     const validation = validateTripCorrection(data)
     if (!validation.valid) return { ok: false, reason: validation.reason }
@@ -191,7 +250,7 @@ export const WorkService = Object.freeze({
           trips: movementTrips,
           startOdometer: active.shift.startOdometer,
           endOdometer: data?.closingOdometer,
-          router: new ValhallaRoutingAdapter(),
+          router: WorkRuntimePorts.routing.createRouter(),
           businessKmByTripId: Object.fromEntries(movementTrips.filter(item => item.tripKm != null && item.tripKm !== '' && Number.isFinite(Number(item.tripKm)) && Number(item.tripKm) >= 0).map(item => [item.id, Number(item.tripKm)])),
           gpsSnapshots
         })

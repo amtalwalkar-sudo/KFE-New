@@ -22,6 +22,17 @@ const assertForbidden = (dirs, patterns, label) => {
 
 assertForbidden(['views', 'components', 'stores', 'presentation'], [ /from\s+['"][^'"]*\/repositories\//, /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/ ], 'Presentation/state must not access persistence directly')
 assertForbidden(['views', 'components', 'presentation'], [ /from\s+['"][^'"]*\/domain\/performance\//, /from\s+['"][^'"]*\/domain\/work\//, /from\s+['"][^'"]*\/domain\/math\//, /from\s+['"][^'"]*\/domain\/movement\// ], 'Presentation must not orchestrate domain logic directly')
+const workViewPath = path.join(root, 'views/WorkModuleView.vue')
+if (fs.existsSync(workViewPath)) {
+  const workView = fs.readFileSync(workViewPath, 'utf8')
+  if (/from\s+['"][^'"]*\/infrastructure\//.test(workView)) violations.push('WorkModuleView.vue must use application runtime ports instead of importing infrastructure adapters directly.')
+}
+const workServicePath = path.join(root, 'application/work/workService.js')
+if (fs.existsSync(workServicePath)) {
+  const workService = fs.readFileSync(workServicePath, 'utf8')
+  if (/from\s+['"][^'"]*\/infrastructure\//.test(workService)) violations.push('WorkService must use application runtime ports instead of importing infrastructure adapters directly.')
+}
+
 assertForbidden(['domain'], [ /from\s+['"][^'"]*\/repositories\//, /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/, /from\s+['"][^'"]*\/application\//, /from\s+['"][^'"]*\/infrastructure\//, /from\s+['"][^'"]*\/presentation\// ], 'Domain must remain independent of outer layers')
 assertForbidden(['application'], [ /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/ ], 'Application must not depend directly on raw IndexedDB')
 assertForbidden(['views', 'components', 'presentation', 'application', 'infrastructure'], [ /from\s+['"][^'"]*\/services\// ], 'Canonical runtime must not depend on legacy src/services')

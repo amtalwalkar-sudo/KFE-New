@@ -23,7 +23,7 @@ for (const permission of [
   'android.permission.SYSTEM_ALERT_WINDOW'
 ]) assert.match(manifest, new RegExp(permission.replaceAll('.', '\\.')))
 
-assert.doesNotMatch(manifest, /ACCESS_BACKGROUND_LOCATION/)
+assert.match(manifest, /ACCESS_BACKGROUND_LOCATION/)
 assert.doesNotMatch(manifest, /SCHEDULE_EXACT_ALARM/)
 assert.match(manifest, /android:allowBackup="false"/)
 assert.match(manifest, /android:fullBackupOnly="false"/)
