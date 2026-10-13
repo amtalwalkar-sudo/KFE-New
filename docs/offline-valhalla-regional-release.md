@@ -6,7 +6,7 @@ The Android app uses one standard offline region: Mumbai, Pune, Nashik and Aliba
 
 ## Native storage and engine
 
-- Native Valhalla engine: `io.github.rallista:valhalla-mobile:0.6.3`, with `trace_route` map matching.
+- Native Valhalla engine: `io.github.rallista:valhalla-mobile:0.6.4`, with `trace_route` map matching.
 - Regional tile archive and small install metadata live under the app-private `files/offline-maps/` directory.
 - Downloads are staged separately, checked against the manifest byte count and SHA-256, and only then activated. The previous tile archive and metadata are retained for rollback until the new pair is committed; startup recovery restores the previous pair if a process dies mid-update. Status exposes latest version, download size, safe-update free-space requirement, and available storage.
 - Matching runs on a dedicated worker. The JavaScript router gives it a 1.2-second foreground wait budget; a slow/failed match falls back to the online adapter. Raw GPS points remain the evidence source and are not deleted by map operations.
@@ -18,7 +18,7 @@ The Android downloader reads this stable release asset (not GitHub's moving `lat
 
 `https://github.com/amtalwalkar-sudo/KFE-New/releases/download/offline-maps/offline-maps-manifest.json`
 
-`.github/workflows/publish-offline-valhalla-maps.yml` builds the regional tile extract from Geofabrik's Western Zone OSM extract using Valhalla 3.9.0 (matching `valhalla-mobile` 0.6.3), smoke-tests local `trace_route` in each city plus a Mumbai–Pune route, then publishes the versioned TAR, SHA-256 manifest and OSM attribution to the fixed `offline-maps` release.
+`.github/workflows/publish-offline-valhalla-maps.yml` builds the regional tile extract from Geofabrik's Western Zone OSM extract using Valhalla 3.9.1 (matching `valhalla-mobile` 0.6.4), smoke-tests local `trace_route` in each city plus a Mumbai–Pune route, then publishes the versioned TAR, SHA-256 manifest and OSM attribution to the fixed `offline-maps` release.
 
 The manifest must be JSON with these fields:
 
