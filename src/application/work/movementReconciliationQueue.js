@@ -42,7 +42,7 @@ export const extendRoadMatchWithLiveGpsTail = (cached, tracePoints = []) => {
   return {
     ...cached,
     distanceKm: Number(cached.distanceKm) + tailKm,
-    sourcePointCount: filteredPoints.length,
+    sourcePointCount: tracePoints.length,
     liveGpsTailKm: (Number(cached.liveGpsTailKm) || 0) + tailKm
   }
 }
@@ -70,7 +70,7 @@ export const MovementReconciliationQueue = Object.freeze({
         method: routed.method,
         provenance: routed.provenance,
         roadMatchedGeometry: routed.roadMatchedGeometry,
-        sourcePointCount: tracePoints.length,
+        sourcePointCount: filteredPoints.length,
         liveGpsTailKm: 0
       }
       lastLiveMatches.set(key, matched)
