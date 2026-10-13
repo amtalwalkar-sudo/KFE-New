@@ -85,7 +85,7 @@ assert.doesNotMatch(queueSource, /if \(!online\(\) \|\| !entityId/, 'Live matchi
 
 const workView = fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8')
 assert.match(workView, /ensureDeadMovementCapture\('SHIFT', store\.shift\?\.id\)/, 'Starting a shift must start local movement capture immediately.')
-assert.match(workView, /getLiveMovementTracePlan\(\{ shiftId: store\.shift\?\.id, trip: currentTrip \}\)/, 'Live display chooses GPS event type from the actual trip phase.')
+assert.match(workView, /getLiveMovementTracePlan\(\{ shiftId: store\.shift\.id, trip: currentTrip \}\)/, 'Live display chooses GPS event type from the actual trip phase.')
 assert.match(workView, /ensureDeadMovementCapture\('TRIP', store\.trip\?\.id\)/, 'Pickup capture is re-owned by the trip so live dead KM starts from pickup.')
 assert.match(workView, /matchLiveTrace\([\s\S]*?tracePlan\.entityType[\s\S]*?tracePlan\.entityId/, 'Live map matching runs regardless of internet connectivity.')
 const workService = fs.readFileSync(path.join(process.cwd(), 'src/application/work/workService.js'), 'utf8')
