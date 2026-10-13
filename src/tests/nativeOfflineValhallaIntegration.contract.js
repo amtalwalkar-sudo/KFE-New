@@ -34,7 +34,7 @@ assert.ok(nativePlugin.includes('/releases/download/offline-maps/offline-maps-ma
 assert.ok(nativePlugin.includes('recoverStagedMap()'), 'Interrupted map updates must recover or roll back on restart.')
 assert.ok(nativePlugin.includes('bytesRequiredForUpdate'), 'Native status must expose safe-update storage requirements.')
 assert.ok(admin.includes('bytesRequiredForUpdate'), 'Admin must show required free storage before map updates.')
-assert.ok(mapReleaseWorkflow.includes('ghcr.io/valhalla/valhalla-scripted:3.9.0'), 'Map pipeline must build tiles with the matching Valhalla engine version.')
+assert.ok(mapReleaseWorkflow.includes('ghcr.io/valhalla/valhalla-scripted:3.9.1'), 'Map pipeline must build tiles with the matching Valhalla engine version.')
 assert.ok(mapReleaseWorkflow.includes('/releases/download/offline-maps/'), 'Map pipeline must publish versioned packages behind a stable release tag.')
 assert.ok(mapReleaseWorkflow.includes('trace-mumbai.json') && mapReleaseWorkflow.includes('trace-pune.json') && mapReleaseWorkflow.includes('trace-nashik.json') && mapReleaseWorkflow.includes('trace-alibag.json'), 'Map pipeline must smoke-test map matching in all four cities.')
 
