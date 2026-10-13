@@ -332,20 +332,19 @@ async function refreshLiveMovementKm() {
   liveMovementKm.value = movement.distanceKm
   liveMovementStatus.value = 'LIVE GPS ESTIMATE · PROVISIONAL'
 
-  if (typeof navigator !== 'undefined' && navigator.onLine !== false) {
-    const matched = await MovementReconciliationQueue.matchLiveTrace(
-      tracePlan.entityType,
-      tracePlan.entityId,
-      movement.points
-    )
-    if (matched) {
-      liveMovementKm.value = matched.distanceKm
-      liveMovementStatus.value = 'PROVISIONAL ROAD MATCH'
-    }
-    // Also discovers completed GPS-fallback trips after a restart and retries
-    // persisted route work no more often than the queue's configured cadence.
-    void MovementReconciliationQueue.reconcilePending()
+  // The queue tries local Valhalla while offline and only enables HTTP fallback
+  // when connected. GPS remains the immediate display path if no road match is ready.
+  const matched = await MovementReconciliationQueue.matchLiveTrace(
+    tracePlan.entityType,
+    tracePlan.entityId,
+    movement.points
+  )
+  if (matched) {
+    liveMovementKm.value = matched.distanceKm
+    liveMovementStatus.value = 'PROVISIONAL ROAD MATCH'
   }
+  // Pending traces are also eligible for local-only matching without internet.
+  void MovementReconciliationQueue.reconcilePending()
 }
 
 const preview = computed(() => endOpen.value ? WorkService.reconcileShiftRevenue({
