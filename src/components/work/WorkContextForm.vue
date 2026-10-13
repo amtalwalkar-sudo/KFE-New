@@ -19,6 +19,9 @@ const props = defineProps({
   endReviewedDeadKm: { type: Number, default: 0 },
   endReady: { type: Boolean, default: false },
   endBusy: { type: Boolean, default: false },
+  endLargeDistanceKm: { type: Number, default: 0 },
+  largeDistanceConfirmedFor: { type: String, default: '' },
+  largeDistanceIdentity: { type: String, default: '' },
   startBusy: { type: Boolean, default: false },
   fareBusy: { type: Boolean, default: false },
   cancelBusy: { type: Boolean, default: false },
@@ -64,6 +67,7 @@ const emit = defineEmits([
   'update:review-operator',
   'update:toll-treatment',
   'update:parking-treatment',
+  'update:large-distance-confirmed-for',
   'update:trip-toll-treatment',
   'update:trip-parking-treatment',
   'update:toll',
@@ -259,7 +263,7 @@ const updateMap = (name, map, id, value) => {
 
     <WorkFuelForm v-else-if="type === 'fuel'" :fuel-odo="fuelOdo" :fuel-price="fuelPrice" :fuel-amount="fuelAmount" :fuel-partial="fuelPartial" :fuel-qty="fuelQty" :fuel-busy="fuelBusy" @action="emit('action', $event)" @focus-numeric="activateNumeric" @update:fuel-partial="emit('update:fuel-partial', $event)" />
 
-    <WorkEndShiftForm v-else-if="type === 'end'" :end-title="endTitle" :end-stage="endStage" :end-missing="endMissing" :end-preview="endPreview" :end-completed-count="endCompletedCount" :end-shift-km="endShiftKm" :end-reviewed-trip-km="endReviewedTripKm" :end-reviewed-dead-km="endReviewedDeadKm" :end-ready="endReady" :end-busy="endBusy" :start-odo="startOdo" :closing-odo="closingOdo" :shift-revenue="shiftRevenue" :review-revenue="reviewRevenue" :review-km="reviewKm" :review-operator="reviewOperator" :toll-treatment="tollTreatment" :parking-treatment="parkingTreatment" :toll="toll" :parking="parking" :trip-toll-total="tripTollTotal" :trip-parking-total="tripParkingTotal" :money="money" @action="emit('action', $event)" @focus-numeric="activateNumeric" @update:toll-treatment="emit('update:toll-treatment', $event)" @update:parking-treatment="emit('update:parking-treatment', $event)" />
+    <WorkEndShiftForm v-else-if="type === 'end'" :end-title="endTitle" :end-stage="endStage" :end-missing="endMissing" :end-preview="endPreview" :end-completed-count="endCompletedCount" :end-shift-km="endShiftKm" :end-reviewed-trip-km="endReviewedTripKm" :end-reviewed-dead-km="endReviewedDeadKm" :end-ready="endReady" :end-busy="endBusy" :end-large-distance-km="endLargeDistanceKm" :large-distance-confirmed-for="largeDistanceConfirmedFor" :large-distance-identity="largeDistanceIdentity" :start-odo="startOdo" :closing-odo="closingOdo" :shift-revenue="shiftRevenue" :review-revenue="reviewRevenue" :review-km="reviewKm" :review-operator="reviewOperator" :toll-treatment="tollTreatment" :parking-treatment="parkingTreatment" :toll="toll" :parking="parking" :trip-toll-total="tripTollTotal" :trip-parking-total="tripParkingTotal" :money="money" @action="emit('action', $event)" @focus-numeric="activateNumeric" @update:toll-treatment="emit('update:toll-treatment', $event)" @update:parking-treatment="emit('update:parking-treatment', $event)" @update:large-distance-confirmed-for="emit('update:large-distance-confirmed-for', $event)" />
 
       <div v-if="activeNumeric" ref="numericPad" class="kfe-work-number-pad" aria-label="KFE intelligent numeric keypad">
         <div class="kfe-work-number-pad__display">
