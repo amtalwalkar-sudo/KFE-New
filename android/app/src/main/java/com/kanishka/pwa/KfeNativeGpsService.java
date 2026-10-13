@@ -254,6 +254,21 @@ public class KfeNativeGpsService extends Service {
     callback = null;
   }
 
+  static String persistedActiveTripId(Context context) {
+    String id = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(ACTIVE_TRIP, "");
+    return id == null ? "" : id;
+  }
+
+  static boolean isPersistedTracking(Context context, String id, String requestedEventType, String requestedEntityType) {
+    android.content.SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    String activeId = prefs.getString(ACTIVE_TRIP, "");
+    String activeEvent = prefs.getString(ACTIVE_EVENT, "PASSENGER_RIDE_TRACE");
+    String activeEntity = prefs.getString(ACTIVE_ENTITY, "TRIP");
+    String wantedEvent = "DEAD_MOVEMENT_TRACE".equals(requestedEventType) ? "DEAD_MOVEMENT_TRACE" : "PASSENGER_RIDE_TRACE";
+    String wantedEntity = "SHIFT".equals(requestedEntityType) ? "SHIFT" : "TRIP";
+    return id != null && id.equals(activeId) && wantedEvent.equals(activeEvent) && wantedEntity.equals(activeEntity);
+  }
+
   static boolean shouldStopForTrip(String activeTripId, String requestedTripId) {
     return activeTripId != null && !activeTripId.isEmpty()
       && requestedTripId != null && !requestedTripId.isEmpty()
