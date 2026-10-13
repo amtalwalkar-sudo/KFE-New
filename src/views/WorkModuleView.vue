@@ -297,6 +297,12 @@ async function refreshLiveMovementKm() {
     liveMovementStatus.value = 'WAITING FOR GPS'
     return
   }
+  if (!currentTrip?.id) {
+    // Online/waiting is intentionally GPS-silent to conserve battery.
+    liveMovementKm.value = 0
+    liveMovementStatus.value = 'WAITING FOR PICKUP'
+    return
+  }
 
   // A trip is still dead movement until Start Trip commits RIDE_STARTED.
   // Use the canonical event label rather than treating every active trip as a ride.
