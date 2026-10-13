@@ -56,11 +56,28 @@ export const OperationalRecordService = {
       const km = Number(trip.tripKm)
       return !Number.isFinite(km) || km < 0
     })
-    const businessKm = invalidTripKm
-      ? NaN
-      : completed.reduce((sum, trip) => sum + Number(trip.tripKm), 0)
     const vehicleKm = shift.endOdometer == null ? null : finiteNonNegative(Number(shift.endOdometer) - Number(shift.startOdometer), 'vehicleKm')
-    const deadKm = vehicleKm == null || invalidTripKm ? null : vehicleKm - businessKm
+    const reconciliation = shift.movementReconciliation
+    const reconciledSegments = Array.isArray(reconciliation?.segments)
+      && ['RECONCILED', 'OVER_ESTIMATE'].includes(reconciliation.reconciliationStatus)
+      ? reconciliation.segments
+      : null
+    const segmentTotal = classification => (reconciledSegments || [])
+      .filter(segment => segment.classification === classification)
+      .reduce((sum, segment) => sum + (Number.isFinite(Number(segment.distanceKm)) && Number(segment.distanceKm) >= 0 ? Number(segment.distanceKm) : 0), 0)
+    // Timeline must consume the same persisted movement authority as Performance.
+    // Without a valid reconciliation, only known trip KM is business KM; the
+    // remaining odometer distance is not automatically proven to be dead KM.
+    const businessKm = reconciledSegments
+      ? segmentTotal('BUSINESS')
+      : invalidTripKm ? NaN : completed.reduce((sum, trip) => sum + Number(trip.tripKm), 0)
+    const deadKm = reconciledSegments
+      ? segmentTotal('DEAD')
+      : null
+    const cancelledKm = reconciledSegments ? segmentTotal('CANCELLED') : tripAmount(terminal.filter(trip => trip.status === 'CANCELLED'), 'tripKm')
+    const unclassifiedKm = reconciledSegments
+      ? segmentTotal('UNCLASSIFIED')
+      : vehicleKm == null || !Number.isFinite(businessKm) ? null : Math.max(0, vehicleKm - businessKm - cancelledKm)
     if (deadKm != null && deadKm < 0) throw new Error('Derived deadKm cannot be negative.')
 
     const relevantFuel = fuelForShift(fuelLogs, shift)
@@ -75,6 +92,9 @@ export const OperationalRecordService = {
       businessKm,
       vehicleKm,
       deadKm,
+      cancelledKm,
+      unclassifiedKm,
+      movementReconciliationStatus: reconciliation?.reconciliationStatus || 'LEGACY_UNRECONCILED',
       fuelLogs: relevantFuel,
       fuelQuantityKg,
       fuelCost,
@@ -83,7 +103,9 @@ export const OperationalRecordService = {
       unavailable: {
         vehicleKm: vehicleKm == null,
         businessKm: !Number.isFinite(businessKm),
-        deadKm: deadKm == null
+        deadKm: deadKm == null,
+        movementReconciliation: !reconciledSegments,
+        unclassifiedKm: unclassifiedKm == null || unclassifiedKm > 0
       }
     }
   }

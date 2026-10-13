@@ -33,6 +33,7 @@ const fuelService = source('src/application/work/fuel.js')
 const fuelView = source('src/views/WorkModuleView.vue')
 assert.match(fuelService, /await ShiftTripRepository\.getPrimaryVehicleId\(\)/)
 assert.match(fuelService, /FuelRepository\.create\(\{ \.\.\.validation, vehicleId/)
+assert.doesNotMatch(fuelService, /captureWorkLocation|Promise\.race|setTimeout/)
 assert.doesNotMatch(fuelService, /void ShiftTripRepository\.getPrimaryVehicleId/)
 assert.match(fuelView, /await fuel\.refresh\(\)/)
 const fuelRepo = source('src/repositories/fuelRepository.js')
@@ -47,7 +48,8 @@ const fareReconciliation = reconcileShiftRevenue({ shiftRevenue: 500, trips: [{ 
 assert.equal(fareReconciliation.reconciliationStatus, 'UNAVAILABLE')
 assert.equal(fareReconciliation.unpricedTrips, 1)
 const shiftRepo = source('src/repositories/shiftTripRepository.js')
-assert.match(shiftRepo, /shift\.revenueReconciliation = reconcileShiftRevenue\(\{ shiftRevenue: shift\.revenue, trips: completedTrips/)
+assert.match(shiftRepo, /const effectiveCompletedTrips = completedTrips\.map\(trip =>/)
+assert.match(shiftRepo, /shift\.revenueReconciliation = reconcileShiftRevenue\(\{ shiftRevenue: shift\.revenue, trips: effectiveCompletedTrips/)
 assert.match(shiftRepo, /db\.transaction\(\['shifts', 'trips', 'pending_mutations', 'audit_history'\], 'readwrite'\)/)
 
 // Odometer remainder with no trustworthy segment evidence must stay UNCLASSIFIED, not be silently called dead KM.
