@@ -144,9 +144,11 @@ export const WorkService = Object.freeze({
           if (activeTrace?.entityType === 'TRIP' && activeTrace.entityId === tripId) {
             try { browserTracePoints = await WorkRuntimePorts.movementTrace.stop({ captureFinal: true }) } catch (_) {}
           }
-          const nativeSync = await WorkRuntimePorts.nativeGps.syncTrace(tripId)
-          if (Number(nativeSync?.imported) > 0 || browserTracePoints.length > 0) checkpoint()
+          // Stop is an acknowledged native lifecycle transition, not merely a queued Intent.
+          // Only read/import the final JSONL after callbacks have been detached.
           await WorkRuntimePorts.nativeGps.stop(tripId)
+          const nativeSync = await WorkRuntimePorts.nativeGps.syncTrace(tripId, { clearAfterImport: true })
+          if (Number(nativeSync?.imported) > 0 || browserTracePoints.length > 0) checkpoint()
           let snapshots = (await LocationRepository.forEntity('TRIP', tripId)).filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')
           const finalTracePoint = snapshots.at(-1) || browserTracePoints.at(-1)
           if (finalTracePoint) {
@@ -217,7 +219,8 @@ export const WorkService = Object.freeze({
           if (activeTrace?.entityType === 'TRIP' && activeTrace.entityId === data.id) {
             await WorkRuntimePorts.movementTrace.stop({ captureFinal: false })
           }
-          const sync = await WorkRuntimePorts.nativeGps.syncTrace(data.id)
+          await WorkRuntimePorts.nativeGps.stop(data.id)
+          const sync = await WorkRuntimePorts.nativeGps.syncTrace(data.id, { clearAfterImport: true })
           if (Number(sync?.imported) > 0) checkpoint()
         } catch (error) {
           console.warn('Cancelled trip GPS sync deferred; native trace retained for recovery:', data.id, error)
