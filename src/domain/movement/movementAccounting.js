@@ -5,6 +5,9 @@ const JITTER_DISTANCE_KM = 0.03
 const STATIONARY_SPEED_KMH = 2
 const finite = value => Number.isFinite(Number(value))
 
+// Missing distances are not measurements. Number(null) and Number('') both coerce to 0.
+export const isUsableDistanceKm = value => value != null && value !== '' && finite(value) && Number(value) >= 0
+
 export const assessGpsTraceCompleteness = (points = [], { startAt, endAt, edgeToleranceMs = 90000, maxGapMs = 120000 } = {}) => {
   const start = Date.parse(startAt || '')
   const end = Date.parse(endAt || '')
