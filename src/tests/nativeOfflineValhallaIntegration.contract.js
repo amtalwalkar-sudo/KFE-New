@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+
+const read = path => fs.readFileSync(path, 'utf8')
+const gradle = read('android/app/build.gradle')
+const mainActivity = read('android/app/src/main/java/com/kanishka/pwa/MainActivity.java')
+const nativePlugin = read('android/app/src/main/java/com/kanishka/pwa/KfeOfflineMapsPlugin.java')
+const bridge = read('src/infrastructure/location/offlineMapService.js')
+const router = read('src/infrastructure/location/valhallaRoutingAdapter.js')
+const admin = read('src/views/AdminView.vue')
+const backup = read('src/application/backup/backupService.js')
+
+assert.match(gradle, /io\.github\.rallista:valhalla-mobile:0\.6\.3/, 'Android package must include the native Valhalla engine.')
+assert.match(mainActivity, /registerPlugin\(KfeOfflineMapsPlugin\.class\)/, 'Native map plugin must be registered with Capacitor.')
+assert.match(nativePlugin, /getFilesDir\(\), "offline-maps"/, 'Map data must live in isolated app-specific native files.')
+assert.match(nativePlugin, /offline-maps-manifest\.json/, 'Downloader must use the versioned map manifest.')
+assert.match(nativePlugin, /SHA-256|SHA256|SHA-256 verification|MessageDigest\.getInstance\("SHA-256"\)/, 'Downloaded map packages must be checksum verified.')
+assert.match(nativePlugin, /expectedBytes|sizeBytes/, 'Downloader must verify package size.')
+assert.match(nativePlugin, /downloadProgress/, 'Downloader must emit progress.')
+assert.match(nativePlugin, /traceRouteRaw/, 'Native plugin must call the on-device Valhalla trace matcher.')
+assert.match(nativePlugin, /previous-tiles\.tar|staging/, 'Map updates must stage downloads away from active map data.')
+assert.match(bridge, /registerPlugin\('KfeOfflineMaps'\)/, 'Web application must call the native map plugin.')
+assert.match(router, /OFFLINE_VALHALLA_TRACE_ROUTE_MAP_MATCH/, 'Offline matches must be identified distinctly in provenance.')
+assert.match(router, /OFFLINE_MATCH_BUDGET_MS = 1200/, 'Offline map matching must have a bounded wait budget.')
+assert.match(admin, /Download \/ Update Offline Maps/, 'Admin must expose user-facing map download/update controls.')
+assert.match(admin, /downloadProgress/, 'Admin must render download progress events.')
+assert.ok(backup.includes("'gps_snapshots'"), 'GPS evidence remains backed up.')
+assert.doesNotMatch(backup, /offline-maps|valhalla_tiles|routing_tiles|map_files/i, 'Large map files must never enter the business backup allowlist.')
+
+console.log('Native offline Valhalla integration contract: PASS')
