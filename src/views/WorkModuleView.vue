@@ -844,9 +844,10 @@ async function saveFuel() {
     if (!result?.ok) return fail(result.reason)
     // The repository commits the vehicle-linked fuel record before returning.
     // Refresh derived full-tank intervals from that committed canonical record.
-    await fuel.refresh()
+    let metricsRefreshed = true
+    try { await fuel.refresh() } catch (_) { metricsRefreshed = false }
     fuelOpen.value = false
-    notify('Fuel saved.')
+    notify(metricsRefreshed ? 'Fuel saved.' : 'Fuel saved. Metrics refresh failed; reopen Fuel to retry.')
     void clearCommittedDraft(fuelDraftIdentity(), { quiet: true }).catch(() => {})
   } catch (e) {
     fail(e?.message || 'Fuel save failed. Please retry.')
