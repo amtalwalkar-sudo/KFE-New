@@ -81,6 +81,9 @@ jobs:
       - name: Install Chromium for Runtime Smoke Test
         run: npx playwright install --with-deps chromium
 
+      - name: Run canonical persistence, calculation and restore integration
+        run: node tools/calculation-recovery-integration.mjs
+
       - name: Run GitHub Pages Runtime Smoke Test
         run: node tools/pages-runtime-smoke.mjs
 
