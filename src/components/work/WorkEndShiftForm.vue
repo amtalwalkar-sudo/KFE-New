@@ -10,6 +10,9 @@ const props = defineProps({
   endReviewedDeadKm: { type: Number, default: 0 },
   endReady: { type: Boolean, default: false },
   endBusy: { type: Boolean, default: false },
+  endLargeDistanceKm: { type: Number, default: 0 },
+  largeDistanceConfirmedFor: { type: String, default: '' },
+  largeDistanceIdentity: { type: String, default: '' },
   startOdo: { type: String, default: '' },
   closingOdo: { type: String, default: '' },
   shiftRevenue: { type: String, default: '' },
@@ -24,7 +27,7 @@ const props = defineProps({
   tripParkingTotal: { type: Number, default: 0 },
   money: { type: Function, required: true },
 })
-const emit = defineEmits(['action', 'focus-numeric', 'update:toll-treatment', 'update:parking-treatment'])
+const emit = defineEmits(['action', 'focus-numeric', 'update:toll-treatment', 'update:parking-treatment', 'update:large-distance-confirmed-for'])
 const submit = () => {
   const action = props.endStage === 'CLOSE' ? 'close-end'
     : props.endStage === 'RECONCILE' ? 'continue-reconcile'
@@ -71,7 +74,15 @@ const submit = () => {
     </template>
     <template v-else-if="endStage==='CONFIRM'">
       <div class="completion-panel"><span class="eyebrow">SHIFT REVIEW</span><strong>READY TO END</strong><p>{{ endCompletedCount }} completed trips · {{ endShiftKm.toFixed(1) }} km · {{ money(shiftRevenue) }} revenue.</p></div>
-      <button type="submit" class="primary-action" :disabled="endBusy || !endReady">{{ endBusy ? 'ENDING SHIFT…' : 'OK — END SHIFT' }}</button>
+      <div v-if="endLargeDistanceKm > 500" class="exception-panel">
+        <strong>LONG SHIFT DISTANCE — CONFIRM</strong>
+        <p>This shift covers {{ endLargeDistanceKm.toFixed(1) }} km. Confirm the closing odometer before ending the shift.</p>
+        <label class="check-row">
+          <input type="checkbox" :checked="largeDistanceConfirmedFor === largeDistanceIdentity" @change="emit('update:large-distance-confirmed-for', $event.target.checked ? largeDistanceIdentity : '')">
+          <span>I confirm the closing odometer and total distance are correct.</span>
+        </label>
+      </div>
+      <button type="submit" class="primary-action" :disabled="endBusy || !endReady || (endLargeDistanceKm > 500 && largeDistanceConfirmedFor !== largeDistanceIdentity)">{{ endBusy ? 'ENDING SHIFT…' : 'OK — END SHIFT' }}</button>
     </template>
     <template v-else>
       <div class="completion-panel success"><span class="completion-mark" aria-hidden="true">✓</span><strong>SHIFT ENDED</strong><p>Your shift has been saved. You are now offline.</p></div>
