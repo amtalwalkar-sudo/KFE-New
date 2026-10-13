@@ -47,6 +47,7 @@ assert.equal(isRoadMatch({ method: 'VALHALLA_TRACE_ROUTE_MAP_MATCH', distanceKm:
 assert.equal(isRoadMatch({ method: 'OFFLINE_VALHALLA_TRACE_ROUTE_MAP_MATCH', distanceKm: 3.2, roadMatchedGeometry: geometry }), true, 'Valid offline Valhalla matches must be accepted by live/reconciliation queues.')
 assert.equal(isRoadMatch({ method: 'OFFLINE_VALHALLA_TRACE_ROUTE_MAP_MATCH', distanceKm: 3.2, roadMatchedGeometry: null }), false, 'A distance without matched road geometry must not be accepted as a road match.')
 assert.equal(isRoadMatch({ method: 'OFFLINE_VALHALLA_TRACE_ROUTE_MAP_MATCH', distanceKm: null, roadMatchedGeometry: geometry }), false, 'A null Valhalla distance must not be coerced into a false 0 km match.')
+assert.match(fs.readFileSync(path.join(process.cwd(), 'src/application/work/movementReconciliationQueue.js'), 'utf8'), /!\['VALHALLA_TRACE_ROUTE_MAP_MATCH', 'OFFLINE_VALHALLA_TRACE_ROUTE_MAP_MATCH'\]\.includes\(trip\.tripKmProvenance\?\.method\)/, 'Completed offline matches must not be queued and re-enriched indefinitely.')
 const noDistanceFallback = await routeTrace([
   { latitude: 19.000, longitude: 72.000, accuracy: 5, capturedAt: '2026-10-01T08:00:00.000Z' },
   { latitude: 19.001, longitude: 72.000, accuracy: 5, capturedAt: '2026-10-01T08:00:10.000Z' }
