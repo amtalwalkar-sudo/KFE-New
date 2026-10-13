@@ -539,9 +539,6 @@ async function submitStart() {
     startAck.value = false
     gapChoice.value = ''
     await targetRefresh()
-    // GPS capture begins with the shift, not only after the first pickup.
-    // Capture is telemetry: a delayed native service must never undo shift start.
-    void ensureDeadMovementCapture('SHIFT', store.shift?.id).catch(error => console.warn('Shift GPS capture could not start:', error))
     await WorkRuntimePorts.rideNotifications.goOnline().catch(() => {})
     await WorkRuntimePorts.androidOverlay.prepare().catch(() => {})
     await syncOverlay()
@@ -559,8 +556,8 @@ async function goPickup(nativeTripId = '') {
   liveMovementStatus.value = 'ACQUIRING GPS'
   busy.value = true
   try {
-    // Shift-owned capture is already started when the shift comes online.
-    // Do not reassert that owner here: pickup changes the canonical trace owner.
+    // Do not collect location while the driver is online but waiting for a ride.
+    // Start dead-movement GPS only after the driver explicitly begins Going to Pickup.
     const result = await store.beginPickup(operator.value || store.defaultOperator, nativeTripId || null)
     if (!result?.ok) {
       fail(result?.reason || 'Could not start pickup.')
@@ -620,9 +617,6 @@ async function endTrip() {
     if (nativeAndroid) await WorkRuntimePorts.nativeGps.stop(tripId)
     if (traceRunning) WorkRuntimePorts.movementTrace.reset()
     traceRunning = false
-    // Return to shift-owned dead-movement capture without blocking the completed-trip
-    // transition on GPS startup or network/map matching.
-    void ensureDeadMovementCapture('SHIFT', store.shift?.id).catch(error => console.warn('Shift GPS capture could not resume:', error))
     fareTripId.value = tripId
     restoringDrafts = true
     fare.value = ''
