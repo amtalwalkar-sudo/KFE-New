@@ -78,25 +78,25 @@ jobs:
         run: |
           set -euo pipefail
           cat > work/trace-mumbai.json <<'JSON'
-          {"shape":[{"lat":19.0760,"lon":72.8777},{"lat":19.0850,"lon":72.8697},{"lat":19.0930,"lon":72.8610}],"shape_match":"map_snap","costing":"auto","units":"kilometers","shape_format":"geojson"}
+          {"shape":[{"radius":500,"lat":19.0760,"lon":72.8777},{"radius":500,"lat":19.0850,"lon":72.8697},{"radius":500,"lat":19.0930,"lon":72.8610}],"shape_match":"map_snap","costing":"auto","units":"kilometers","shape_format":"geojson"}
           JSON
           cat > work/trace-pune.json <<'JSON'
-          {"shape":[{"lat":18.5204,"lon":73.8567},{"lat":18.5300,"lon":73.8470},{"lat":18.5400,"lon":73.8380}],"shape_match":"map_snap","costing":"auto","units":"kilometers","shape_format":"geojson"}
+          {"shape":[{"radius":500,"lat":18.5204,"lon":73.8567},{"radius":500,"lat":18.5300,"lon":73.8470},{"radius":500,"lat":18.5400,"lon":73.8380}],"shape_match":"map_snap","costing":"auto","units":"kilometers","shape_format":"geojson"}
           JSON
           cat > work/trace-nashik.json <<'JSON'
-          {"shape":[{"lat":19.9975,"lon":73.7898},{"lat":20.0050,"lon":73.7800},{"lat":20.0120,"lon":73.7720}],"shape_match":"map_snap","costing":"auto","units":"kilometers","shape_format":"geojson"}
+          {"shape":[{"radius":500,"lat":19.9975,"lon":73.7898},{"radius":500,"lat":20.0050,"lon":73.7800},{"radius":500,"lat":20.0120,"lon":73.7720}],"shape_match":"map_snap","costing":"auto","units":"kilometers","shape_format":"geojson"}
           JSON
           cat > work/trace-alibag.json <<'JSON'
-          {"shape":[{"lat":18.6414,"lon":72.8722},{"lat":18.6480,"lon":72.8660},{"lat":18.6540,"lon":72.8600}],"shape_match":"map_snap","costing":"auto","units":"kilometers","shape_format":"geojson"}
+          {"shape":[{"radius":500,"lat":18.6414,"lon":72.8722},{"radius":500,"lat":18.6480,"lon":72.8660},{"radius":500,"lat":18.6540,"lon":72.8600}],"shape_match":"map_snap","costing":"auto","units":"kilometers","shape_format":"geojson"}
           JSON
           cat > work/route-mumbai-pune.json <<'JSON'
-          {"locations":[{"lat":19.0760,"lon":72.8777,"type":"break"},{"lat":18.5204,"lon":73.8567,"type":"break"}],"costing":"auto","directions_options":{"units":"kilometers"}}
+          {"locations":[{"lat":19.0760,"lon":72.8777,"type":"break"},{"radius":500,"lat":18.5204,"lon":73.8567,"type":"break"}],"costing":"auto","directions_options":{"units":"kilometers"}}
           JSON
           cat > work/route-pune-nashik.json <<'JSON'
-          {"locations":[{"lat":18.5204,"lon":73.8567,"type":"break"},{"lat":19.9975,"lon":73.7898,"type":"break"}],"costing":"auto","directions_options":{"units":"kilometers"}}
+          {"locations":[{"lat":18.5204,"lon":73.8567,"type":"break"},{"radius":500,"lat":19.9975,"lon":73.7898,"type":"break"}],"costing":"auto","directions_options":{"units":"kilometers"}}
           JSON
           cat > work/route-mumbai-alibag.json <<'JSON'
-          {"locations":[{"lat":19.0760,"lon":72.8777,"type":"break"},{"lat":18.6414,"lon":72.8722,"type":"break"}],"costing":"auto","directions_options":{"units":"kilometers"}}
+          {"locations":[{"lat":19.0760,"lon":72.8777,"type":"break"},{"radius":500,"lat":18.6414,"lon":72.8722,"type":"break"}],"costing":"auto","directions_options":{"units":"kilometers"}}
           JSON
 
           # Start the HTTP service and send JSON request bodies. Valhalla's HTTP
