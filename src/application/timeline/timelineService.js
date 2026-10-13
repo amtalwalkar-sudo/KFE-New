@@ -2,6 +2,7 @@ import { OperationalRecordService } from './operationalRecordService.js'
 import { ShiftTripRepository } from '../../repositories/shiftTripRepository.js'
 import { DriverTargetService } from '../performance/driverTargetService.js'
 import { istDateKey, istDayRange } from '../../domain/time/ist.js'
+import { subscribeCanonicalDataChanges } from '../../repositories/canonicalDataChangeRepository.js'
 
 const live = value => !value?.deletedAt && value?.deleted !== true
 const completed = shift => shift?.status === 'COMPLETED'
@@ -37,6 +38,7 @@ const toSummary = records => ({
 })
 
 export const TimelineService = Object.freeze({
+  subscribeDataChanges(callback) { return subscribeCanonicalDataChanges(callback) },
   async getDay(date) {
     const range = istDayRange(date)
     if (!range) throw new Error('Invalid timeline day.')

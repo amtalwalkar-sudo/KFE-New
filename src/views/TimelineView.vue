@@ -5,7 +5,7 @@ import { TimelineService } from '../application/timeline/timelineService.js'
 import { FormDraftService } from '../application/forms/formDraftService.js'
 import { useFuelStore } from '../stores/fuel.js'
 import { getKfeReferenceNow, istDateKey, istDayRange, istMonthRange, istParts } from '../domain/time/ist.js'
-import { subscribeCanonicalDataChanges } from '../repositories/canonicalDataChangeRepository.js'
+
 
 const fuelStore = useFuelStore()
 const period = ref('day')
@@ -119,7 +119,7 @@ const personalEntries = computed(() => data.value?.entries || [])
 let unsubscribeCanonicalChanges = () => {}
 onMounted(() => {
   void load()
-  unsubscribeCanonicalChanges = subscribeCanonicalDataChanges(() => {
+  unsubscribeCanonicalChanges = TimelineService.subscribeDataChanges(() => {
     // Keep the read model fresh after edits from Work, Admin, restore, or another tab.
     // A save in progress already refreshes explicitly when its commit returns.
     if (!saving.value) void load()
