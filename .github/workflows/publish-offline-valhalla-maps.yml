@@ -65,7 +65,7 @@ jobs:
             valhalla_build_tiles -c /data/valhalla.json /data/region.osm.pbf
             valhalla_build_extract -c /data/valhalla.json -v
             test -s /data/offline-maps.tar
-            tar -tf /data/offline-maps.tar | head -20
+            tar -tf /data/offline-maps.tar | sed -n "1,20p"
           '
 
       - name: Smoke test local map matching and connecting roads
