@@ -52,22 +52,21 @@ jobs:
         run: |
           set -euo pipefail
           docker pull ghcr.io/valhalla/valhalla-scripted:3.9.1
-          docker run --rm --user "$(id -u):$(id -g)" --entrypoint /bin/bash -v "$PWD/work:/data" ghcr.io/valhalla/valhalla-scripted:3.9.1 -lc '
-            set -euo pipefail
-            mkdir -p /data/tiles
-            valhalla_build_config \
-              --mjolnir-tile-dir /data/tiles \
-              --mjolnir-tile-extract /data/offline-maps.tar \
-              --mjolnir-timezone /data/tiles/timezones.sqlite \
-              --mjolnir-admin /data/tiles/admins.sqlite > /data/valhalla.json
-            # Timezone polygon data is optional for KFE's map-matching and non-time-dependent routing.
-            # Avoid the image script's runtime download of a large external timezone archive.
-            valhalla_build_admins -c /data/valhalla.json /data/region.osm.pbf
-            valhalla_build_tiles -c /data/valhalla.json /data/region.osm.pbf
-            valhalla_build_extract -c /data/valhalla.json -v
-            test -s /data/offline-maps.tar
-            tar -tf /data/offline-maps.tar | sed -n "1,20p"
-          '
+          # Use the image's supported build_tiles entrypoint. It builds admins itself;
+          # timezone polygons and default-speed overrides are optional for KFE matching.
+          docker run --rm --user "$(id -u):$(id -g)" \
+            -e build_admins=True \
+            -e build_time_zones=False \
+            -e build_elevation=False \
+            -e build_transit=False \
+            -e use_default_speeds_config=False \
+            -e use_tiles_ignore_pbf=False \
+            -e serve_tiles=False \
+            -v "$PWD/work:/custom_files" \
+            ghcr.io/valhalla/valhalla-scripted:3.9.1 build_tiles
+          test -s work/valhalla_tiles.tar
+          cp work/valhalla_tiles.tar work/offline-maps.tar
+          tar -tf work/offline-maps.tar | sed -n "1,20p"
 
       - name: Smoke test local map matching and connecting roads
         run: |
@@ -88,11 +87,11 @@ jobs:
           {"locations":[{"lat":19.0760,"lon":72.8777,"type":"break"},{"lat":18.5204,"lon":73.8567,"type":"break"}],"costing":"auto","directions_options":{"units":"kilometers"}}
           JSON
           for city in mumbai pune nashik alibag; do
-            docker run --rm --user "$(id -u):$(id -g)" --entrypoint /bin/bash -v "$PWD/work:/data" ghcr.io/valhalla/valhalla-scripted:3.9.1 -lc "valhalla_service /data/valhalla.json trace_route /data/trace-$city.json > /data/result-$city.json"
+            docker run --rm --user "$(id -u):$(id -g)" --entrypoint /bin/bash -v "$PWD/work:/custom_files" ghcr.io/valhalla/valhalla-scripted:3.9.1 -lc "valhalla_service /custom_files/valhalla.json trace_route /custom_files/trace-$city.json > /custom_files/result-$city.json"
             jq -e '.trip.summary.length > 0' "work/result-$city.json" >/dev/null
             echo "trace_route smoke passed: $city"
           done
-          docker run --rm --user "$(id -u):$(id -g)" --entrypoint /bin/bash -v "$PWD/work:/data" ghcr.io/valhalla/valhalla-scripted:3.9.1 -lc 'valhalla_service /data/valhalla.json route /data/route-mumbai-pune.json > /data/result-mumbai-pune.json'
+          docker run --rm --user "$(id -u):$(id -g)" --entrypoint /bin/bash -v "$PWD/work:/custom_files" ghcr.io/valhalla/valhalla-scripted:3.9.1 -lc 'valhalla_service /custom_files/valhalla.json route /custom_files/route-mumbai-pune.json > /custom_files/result-mumbai-pune.json'
           jq -e '.trip.summary.length > 0' work/result-mumbai-pune.json >/dev/null
           echo "Mumbai–Pune connecting-road route smoke passed"
 
