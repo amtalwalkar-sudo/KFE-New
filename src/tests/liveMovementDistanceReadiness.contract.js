@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { getLiveMovementTracePlan, matchesLiveMovementSession } from '../application/work/liveMovementTrace.js'
-import { isRoadMatch } from '../application/work/movementReconciliationQueue.js'
+import { isRoadMatch, extendRoadMatchWithLiveGpsTail } from '../application/work/movementReconciliationQueue.js'
 import { ValhallaRoutingAdapter } from '../infrastructure/location/valhallaRoutingAdapter.js'
 
 const shift = getLiveMovementTracePlan({ shiftId: 'shift-1', trip: null })
@@ -34,6 +34,26 @@ assert.equal(isRoadMatch({ method: 'VALHALLA_TRACE_ROUTE_MAP_MATCH', distanceKm:
 assert.equal(isRoadMatch({ method: 'OFFLINE_VALHALLA_TRACE_ROUTE_MAP_MATCH', distanceKm: 3.2, roadMatchedGeometry: geometry }), true, 'Valid offline Valhalla matches must be accepted by live/reconciliation queues.')
 assert.equal(isRoadMatch({ method: 'OFFLINE_VALHALLA_TRACE_ROUTE_MAP_MATCH', distanceKm: 3.2, roadMatchedGeometry: null }), false, 'A distance without matched road geometry must not be accepted as a road match.')
 
+const cachedRoadMatch = {
+  method: 'VALHALLA_TRACE_ROUTE_MAP_MATCH',
+  distanceKm: 1,
+  sourcePointCount: 2,
+  liveGpsTailKm: 0,
+  roadMatchedGeometry: geometry
+}
+const extendedMatch = extendRoadMatchWithLiveGpsTail(cachedRoadMatch, [
+  { latitude: 19.000, longitude: 72.000, capturedAt: '2026-10-01T08:00:00.000Z' },
+  { latitude: 19.001, longitude: 72.000, capturedAt: '2026-10-01T08:00:10.000Z' },
+  { latitude: 19.002, longitude: 72.000, capturedAt: '2026-10-01T08:00:20.000Z' }
+])
+assert.ok(extendedMatch.distanceKm > cachedRoadMatch.distanceKm, 'Live distance must continue advancing between throttled road-match requests.')
+assert.equal(extendedMatch.sourcePointCount, 3)
+assert.equal(extendRoadMatchWithLiveGpsTail(extendedMatch, [
+  { latitude: 19.000, longitude: 72.000 },
+  { latitude: 19.001, longitude: 72.000 },
+  { latitude: 19.002, longitude: 72.000 }
+]).distanceKm, extendedMatch.distanceKm, 'Repeated refreshes must not count the same GPS tail twice.')
+
 let onlineRequests = 0
 const offlineOnlyRouter = new ValhallaRoutingAdapter({
   endpoint: 'https://offline-must-not-fetch.example.test',
@@ -56,4 +76,6 @@ assert.match(workView, /ensureDeadMovementCapture\('SHIFT', store\.shift\.id\)/,
 assert.match(workView, /getLiveMovementTracePlan\(\{ shiftId: store\.shift\.id, trip: currentTrip \}\)/, 'Live display chooses GPS event type from the actual trip phase.')
 assert.match(workView, /ensureDeadMovementCapture\('TRIP', store\.trip\.id\)/, 'Pickup capture is re-owned by the trip so live dead KM starts from pickup.')
 assert.match(workView, /matchLiveTrace\([\s\S]*?tracePlan\.entityType[\s\S]*?tracePlan\.entityId/, 'Live map matching runs regardless of internet connectivity.')
-console.log('Live GPS distance readiness contract: PASS — shift-start capture, pickup/ride trace selection, offline-only routing, and offline road-match acceptance.')
+const workService = fs.readFileSync(path.join(process.cwd(), 'src/application/work/workService.js'), 'utf8')
+assert.match(workService, /Shift GPS capture after cancellation[\s\S]*?nativeGps\.start\(active\.shift\.id, 'DEAD_MOVEMENT_TRACE', 'SHIFT'\)/, 'Cancellation cleanup must resume shift-level dead movement capture.')
+console.log('Live GPS distance readiness contract: PASS — shift-start capture, pickup/ride trace selection, offline-only routing, live GPS tail extension, and offline road-match acceptance.')
