@@ -48,11 +48,11 @@ jobs:
           test -s work/region.osm.pbf
           osmium fileinfo -e work/region.osm.pbf
 
-      - name: Build Valhalla 3.9.0 regional tiles and tile extract
+      - name: Build Valhalla 3.9.1 regional tiles and tile extract
         run: |
           set -euo pipefail
-          docker pull ghcr.io/valhalla/valhalla-scripted:3.9.0
-          docker run --rm --user "$(id -u):$(id -g)" --entrypoint /bin/bash -v "$PWD/work:/data" ghcr.io/valhalla/valhalla-scripted:3.9.0 -lc '
+          docker pull ghcr.io/valhalla/valhalla-scripted:3.9.1
+          docker run --rm --user "$(id -u):$(id -g)" --entrypoint /bin/bash -v "$PWD/work:/data" ghcr.io/valhalla/valhalla-scripted:3.9.1 -lc '
             set -euo pipefail
             mkdir -p /data/tiles
             valhalla_build_config \
@@ -87,11 +87,11 @@ jobs:
           {"locations":[{"lat":19.0760,"lon":72.8777,"type":"break"},{"lat":18.5204,"lon":73.8567,"type":"break"}],"costing":"auto","directions_options":{"units":"kilometers"}}
           JSON
           for city in mumbai pune nashik alibag; do
-            docker run --rm --user "$(id -u):$(id -g)" --entrypoint /bin/bash -v "$PWD/work:/data" ghcr.io/valhalla/valhalla-scripted:3.9.0 -lc "valhalla_service /data/valhalla.json trace_route /data/trace-$city.json > /data/result-$city.json"
+            docker run --rm --user "$(id -u):$(id -g)" --entrypoint /bin/bash -v "$PWD/work:/data" ghcr.io/valhalla/valhalla-scripted:3.9.1 -lc "valhalla_service /data/valhalla.json trace_route /data/trace-$city.json > /data/result-$city.json"
             jq -e '.trip.summary.length > 0' "work/result-$city.json" >/dev/null
             echo "trace_route smoke passed: $city"
           done
-          docker run --rm --user "$(id -u):$(id -g)" --entrypoint /bin/bash -v "$PWD/work:/data" ghcr.io/valhalla/valhalla-scripted:3.9.0 -lc 'valhalla_service /data/valhalla.json route /data/route-mumbai-pune.json > /data/result-mumbai-pune.json'
+          docker run --rm --user "$(id -u):$(id -g)" --entrypoint /bin/bash -v "$PWD/work:/data" ghcr.io/valhalla/valhalla-scripted:3.9.1 -lc 'valhalla_service /data/valhalla.json route /data/route-mumbai-pune.json > /data/result-mumbai-pune.json'
           jq -e '.trip.summary.length > 0' work/result-mumbai-pune.json >/dev/null
           echo "Mumbai–Pune connecting-road route smoke passed"
 
@@ -114,7 +114,7 @@ jobs:
             --arg regionId "mumbai-pune-nashik-alibag-v1" \
             --arg region "Mumbai · Pune · Nashik · Alibag" \
             --arg version "$MAP_VERSION" \
-            --arg engineVersion "valhalla-mobile-0.6.3 / Valhalla 3.9.0" \
+            --arg engineVersion "valhalla-mobile-0.6.4 / Valhalla 3.9.1" \
             --arg packageUrl "$PACKAGE_URL" \
             --arg sha256 "$SHA256" \
             --arg generatedAt "$GENERATED_AT" \
