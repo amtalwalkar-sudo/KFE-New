@@ -6,6 +6,7 @@ import { isRoadMatch, extendRoadMatchWithLiveGpsTail } from '../application/work
 import { ValhallaRoutingAdapter } from '../infrastructure/location/valhallaRoutingAdapter.js'
 import { normalizeNullableGpsNumber } from '../repositories/locationRepository.js'
 import { MovementAccountingService, routeTrace, isUsableDistanceKm } from '../domain/movement/movementAccounting.js'
+import { nativeGpsTraceDedupeKey } from '../infrastructure/android/nativeGpsService.js'
 
 assert.equal(normalizeNullableGpsNumber(null), null, 'Missing GPS accuracy must remain unknown, not become a perfect 0 m fix.')
 assert.equal(normalizeNullableGpsNumber(''), null)
@@ -17,6 +18,12 @@ assert.equal(isUsableDistanceKm('invalid'), false)
 assert.equal(isUsableDistanceKm(0), true, 'A literal numeric zero is valid when supported by usable GPS points.')
 assert.equal(isUsableDistanceKm('0'), true)
 assert.equal(isUsableDistanceKm(2.4), true)
+const phaseBoundaryPoint = { capturedAt: '2026-10-13T10:00:00.000Z', latitude: 19.1, longitude: 72.8 }
+assert.notEqual(
+  nativeGpsTraceDedupeKey({ ...phaseBoundaryPoint, eventType: 'DEAD_MOVEMENT_TRACE' }),
+  nativeGpsTraceDedupeKey({ ...phaseBoundaryPoint, eventType: 'PASSENGER_RIDE_TRACE' }),
+  'Identical coordinates/time in different phases must not cause pickup GPS to suppress passenger GPS during canonical import.'
+)
 const unknownSpeedTrace = MovementAccountingService.filterGpsTrace([
   { latitude: 19.00000, longitude: 72.00000, accuracy: 5, speed: null, capturedAt: '2026-10-01T08:00:00.000Z' },
   { latitude: 19.00018, longitude: 72.00000, accuracy: 5, speed: null, capturedAt: '2026-10-01T08:00:10.000Z' }
