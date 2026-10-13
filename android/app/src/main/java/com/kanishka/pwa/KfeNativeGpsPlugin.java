@@ -4,6 +4,8 @@ import android.Manifest;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.content.pm.PackageManager;
 
@@ -78,14 +80,38 @@ public class KfeNativeGpsPlugin extends Plugin {
       call.reject("LOCATION_PERMISSION_REQUIRED");
       return;
     }
-    KfeNativeGpsService.start(getContext(), tripId, call.getString("eventType", "PASSENGER_RIDE_TRACE"), call.getString("entityType", "TRIP"));
-    call.resolve();
+    String eventType = call.getString("eventType", "PASSENGER_RIDE_TRACE");
+    String entityType = call.getString("entityType", "TRIP");
+    KfeNativeGpsService.start(getContext(), tripId, eventType, entityType);
+    awaitCollectorState(call, tripId, eventType, entityType, true, System.currentTimeMillis() + 8000L);
   }
 
   @com.getcapacitor.PluginMethod
   public void stop(PluginCall call) {
-    KfeNativeGpsService.stop(getContext(), call.getString("tripId", ""));
-    call.resolve();
+    String tripId = call.getString("tripId", "");
+    if (tripId == null || tripId.trim().isEmpty()) { call.reject("tripId is required"); return; }
+    KfeNativeGpsService.stop(getContext(), tripId);
+    awaitCollectorState(call, tripId, null, null, false, System.currentTimeMillis() + 8000L);
+  }
+
+  private void awaitCollectorState(PluginCall call, String tripId, String eventType, String entityType, boolean expectActive, long deadline) {
+    Handler handler = new Handler(Looper.getMainLooper());
+    Runnable check = new Runnable() {
+      @Override public void run() {
+        if (!call.getCallbackId().isEmpty()) {
+          boolean matches = expectActive
+            ? KfeNativeGpsService.isPersistedTracking(getContext(), tripId, eventType, entityType)
+            : !tripId.equals(KfeNativeGpsService.persistedActiveTripId(getContext()));
+          if (matches) { call.resolve(); return; }
+          if (System.currentTimeMillis() >= deadline) {
+            call.reject(expectActive ? "NATIVE_GPS_START_NOT_CONFIRMED" : "NATIVE_GPS_STOP_NOT_CONFIRMED");
+            return;
+          }
+          handler.postDelayed(this, 100L);
+        }
+      }
+    };
+    handler.post(check);
   }
 
   @com.getcapacitor.PluginMethod
