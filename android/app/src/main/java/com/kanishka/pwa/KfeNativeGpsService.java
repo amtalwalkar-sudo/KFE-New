@@ -40,6 +40,7 @@ public class KfeNativeGpsService extends Service {
   private static final String ACTIVE_TRIP = "activeTripId";
   private static final String ACTIVE_EVENT = "activeEventType";
   private static final String ACTIVE_ENTITY = "activeEntityType";
+  private static final String ACTIVE_READY = "activeCollectorReady";
   private static final String CHANNEL_ID = "kfe_native_gps";
   private static final int NOTIFICATION_ID = 7110;
 
@@ -177,7 +178,7 @@ public class KfeNativeGpsService extends Service {
     entityType = requestedEntity;
     traceFile = new File(getFilesDir(), "kfe_gps_trace_" + safeName(id) + ".jsonl");
     loadSeenKeys();
-    getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(ACTIVE_TRIP, id).putString(ACTIVE_EVENT, eventType).putString(ACTIVE_ENTITY, entityType).apply();
+    getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(ACTIVE_TRIP, id).putString(ACTIVE_EVENT, eventType).putString(ACTIVE_ENTITY, entityType).putBoolean(ACTIVE_READY, false).apply();
 
     if (androidx.core.app.ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED
         && androidx.core.app.ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -197,7 +198,21 @@ public class KfeNativeGpsService extends Service {
     };
 
     acquireLocationWakeLock();
-    fused.requestLocationUpdates(request, callback, getMainLooper());
+    LocationCallback requestedCallback = callback;
+    fused.requestLocationUpdates(request, requestedCallback, getMainLooper())
+        .addOnSuccessListener(unused -> {
+          if (id.equals(tripId) && callback == requestedCallback) {
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE_READY, true).apply();
+          }
+        })
+        .addOnFailureListener(error -> {
+          Log.e("KfeNativeGpsService", "Unable to register native GPS updates.", error);
+          if (callback == requestedCallback) {
+            releaseLocationUpdates();
+            releaseLocationWakeLock();
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE_READY, false).apply();
+          }
+        });
   }
 
   private void persistLocation(Location location) {
@@ -284,7 +299,8 @@ public class KfeNativeGpsService extends Service {
     String activeEntity = prefs.getString(ACTIVE_ENTITY, "TRIP");
     String wantedEvent = "DEAD_MOVEMENT_TRACE".equals(requestedEventType) ? "DEAD_MOVEMENT_TRACE" : "PASSENGER_RIDE_TRACE";
     String wantedEntity = "SHIFT".equals(requestedEntityType) ? "SHIFT" : "TRIP";
-    return id != null && id.equals(activeId) && wantedEvent.equals(activeEvent) && wantedEntity.equals(activeEntity);
+    return id != null && id.equals(activeId) && wantedEvent.equals(activeEvent) && wantedEntity.equals(activeEntity)
+      && prefs.getBoolean(ACTIVE_READY, false);
   }
 
   static boolean shouldStopForTrip(String activeTripId, String requestedTripId) {
@@ -302,7 +318,7 @@ public class KfeNativeGpsService extends Service {
     lastPassengerLocation = null;
     passengerDistanceMeters = 0d;
     seenKeys.clear();
-    getSharedPreferences(PREFS, MODE_PRIVATE).edit().remove(ACTIVE_TRIP).remove(ACTIVE_EVENT).remove(ACTIVE_ENTITY).apply();
+    getSharedPreferences(PREFS, MODE_PRIVATE).edit().remove(ACTIVE_TRIP).remove(ACTIVE_EVENT).remove(ACTIVE_ENTITY).remove(ACTIVE_READY).apply();
   }
 
   public static String listTraceOwners(Context context) {
@@ -408,6 +424,7 @@ public class KfeNativeGpsService extends Service {
     // an OS/process interruption, and the persisted trip id is required to resume.
     releaseLocationUpdates();
     releaseLocationWakeLock();
+    getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE_READY, false).apply();
     super.onDestroy();
   }
 
