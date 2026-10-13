@@ -9,6 +9,7 @@ const bridge = read('src/infrastructure/location/offlineMapService.js')
 const router = read('src/infrastructure/location/valhallaRoutingAdapter.js')
 const admin = read('src/views/AdminView.vue')
 const backup = read('src/application/backup/backupService.js')
+const mapReleaseWorkflow = read('.github/workflows/publish-offline-valhalla-maps.yml')
 
 assert.match(gradle, /io\.github\.rallista:valhalla-mobile:0\.6\.3/, 'Android package must include the native Valhalla engine.')
 assert.match(mainActivity, /registerPlugin\(KfeOfflineMapsPlugin\.class\)/, 'Native map plugin must be registered with Capacitor.')
@@ -27,5 +28,14 @@ assert.match(admin, /Download \/ Update Offline Maps/, 'Admin must expose user-f
 assert.match(admin, /downloadProgress/, 'Admin must render download progress events.')
 assert.ok(backup.includes("'gps_snapshots'"), 'GPS evidence remains backed up.')
 assert.doesNotMatch(backup, /offline-maps|valhalla_tiles|routing_tiles|map_files/i, 'Large map files must never enter the business backup allowlist.')
+
+
+assert.match(nativePlugin, /releases\\/download\\/offline-maps\\/offline-maps-manifest\\.json/, 'Manifest must use a stable offline-maps release URL.')
+assert.match(nativePlugin, /recoverStagedMap\\(\\)/, 'Interrupted map updates must recover or roll back on restart.')
+assert.match(nativePlugin, /bytesRequiredForUpdate/, 'Native status must expose safe-update storage requirements.')
+assert.match(admin, /bytesRequiredForUpdate/, 'Admin must show required free storage before map updates.')
+assert.match(mapReleaseWorkflow, /ghcr\\.io\\/valhalla\\/valhalla-scripted:3\\.9\\.0/, 'Map pipeline must build tiles with the matching Valhalla engine version.')
+assert.match(mapReleaseWorkflow, /releases\\/download\\/offline-maps\\//, 'Map pipeline must publish versioned packages behind a stable release tag.')
+assert.match(mapReleaseWorkflow, /trace-mumbai|trace-pune|trace-nashik|trace-alibag/, 'Map pipeline must smoke-test regional map matching.')
 
 console.log('Native offline Valhalla integration contract: PASS')
