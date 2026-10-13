@@ -102,17 +102,19 @@ const geometryFromTrip = (trip = {}) => {
 }
 
 export class ValhallaRoutingAdapter {
-  constructor({ endpoint = endpointFromRuntime(), fetchImpl = globalThis.fetch, clientId = KFE_CLIENT_ID, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
+  constructor({ endpoint = endpointFromRuntime(), fetchImpl = globalThis.fetch, clientId = KFE_CLIENT_ID, timeoutMs = DEFAULT_TIMEOUT_MS, onlineFallback = true } = {}) {
     this.endpoint = String(endpoint || DEFAULT_VALHALLA_ENDPOINT).replace(/\/$/, '')
     this.fetchImpl = fetchImpl
     this.clientId = clientId
     this.timeoutMs = Number.isFinite(Number(timeoutMs)) && Number(timeoutMs) > 0 ? Number(timeoutMs) : DEFAULT_TIMEOUT_MS
+    this.onlineFallback = onlineFallback !== false
   }
 
   async routeTrace(points) {
     const offline = await tryOfflineTrace(points)
     if (offline) return offline
-    if (typeof this.fetchImpl !== 'function') return null
+    // Offline capture/reconciliation must never wait for an unreachable endpoint.
+    if (!this.onlineFallback || typeof this.fetchImpl !== 'function') return null
     const shape = toShape(points)
     if (shape.length < 2) return null
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
