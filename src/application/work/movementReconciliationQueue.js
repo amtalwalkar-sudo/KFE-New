@@ -117,7 +117,7 @@ export const MovementReconciliationQueue = Object.freeze({
           const snapshots = (await LocationRepository.forEntity('TRIP', tripId))
             .filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')
           if (snapshots.length < 2) { remaining.push(tripId); continue }
-          const routed = await routeTrace(snapshots, new ValhallaRoutingAdapter())
+          const routed = await routeTrace(snapshots, new ValhallaRoutingAdapter({ onlineFallback: online() }))
           if (!isRoadMatch(routed)) { remaining.push(tripId); continue }
           const gpsKm = calculateTraceDistanceKm(MovementAccountingService.filterGpsTrace(snapshots))
           await ShiftTripRepository.enrichTripMovement({
