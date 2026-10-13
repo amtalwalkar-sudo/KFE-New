@@ -1,3 +1,4 @@
+import { assessGpsTraceCompleteness } from '../domain/movement/movementAccounting.js'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 
@@ -34,5 +35,20 @@ const cancelTripStart = work.indexOf('async cancelTrip(data)')
 const cancelTripEnd = work.indexOf('async updateTrip(data)', cancelTripStart)
 const cancelTrip = work.slice(cancelTripStart, cancelTripEnd)
 assert.ok(cancelTrip.indexOf('await WorkRuntimePorts.nativeGps.stop(data.id)') < cancelTrip.indexOf('WorkRuntimePorts.nativeGps.syncTrace(data.id, { clearAfterImport: true })'), 'trip cancellation must stop/ack collector before importing and clearing trace')
+
+const startAt = '2026-10-13T10:00:00.000Z'
+const endAt = '2026-10-13T10:02:00.000Z'
+const completeTrace = [
+  { latitude: 19.01, longitude: 72.85, accuracy: 8, capturedAt: '2026-10-13T10:00:05.000Z' },
+  { latitude: 19.02, longitude: 72.86, accuracy: 8, capturedAt: '2026-10-13T10:01:00.000Z' },
+  { latitude: 19.03, longitude: 72.87, accuracy: 8, capturedAt: '2026-10-13T10:01:55.000Z' }
+]
+assert.equal(assessGpsTraceCompleteness(completeTrace, { startAt, endAt }).complete, true)
+const staleEndingTrace = completeTrace.map(point => ({ ...point }))
+staleEndingTrace[2].capturedAt = '2026-10-13T10:01:00.000Z'
+const staleQuality = assessGpsTraceCompleteness(staleEndingTrace, { startAt, endAt })
+assert.equal(staleQuality.complete, false)
+assert.equal(staleQuality.reason, 'GPS_TRACE_END_GAP', 'a trace that stops long before trip end must not produce a trusted trip KM')
+assert.equal(assessGpsTraceCompleteness(completeTrace.slice(0, 2), { startAt, endAt }).reason, 'TOO_FEW_USABLE_GPS_POINTS')
 
 console.log('Native GPS lifecycle integrity contract passed.')
