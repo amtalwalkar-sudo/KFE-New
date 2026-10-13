@@ -15,6 +15,7 @@ import { calculateTraceDistanceKm } from '../../domain/movement/traceDistance.js
 import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
 
 const checkpoint = () => BackupService.requestLocalBackupCheckpoint()
+let nativeGpsRecoveryAttempt = null
 
 export const WorkService = Object.freeze({
   getTripOperators() { return WORK_TRIP_OPERATORS },
@@ -39,7 +40,14 @@ export const WorkService = Object.freeze({
     return calculateRollingFuelCostPerKm(await FuelRepository.getAll())
   },
   async getLocations(entityType, entityId) { return LocationRepository.forEntity(entityType, entityId) },
-  async recoverNativeGpsTraces() {
+  recoverNativeGpsTraces() {
+    // Startup, Work resume and cloud backup can request recovery at the same time.
+    // Share one import transaction to avoid duplicate GPS evidence being inserted.
+    if (nativeGpsRecoveryAttempt) return nativeGpsRecoveryAttempt
+    nativeGpsRecoveryAttempt = this._recoverNativeGpsTraces().finally(() => { nativeGpsRecoveryAttempt = null })
+    return nativeGpsRecoveryAttempt
+  },
+  async _recoverNativeGpsTraces() {
     const [shifts, trips, owners] = await Promise.all([
       ShiftTripRepository.getAllShifts(),
       ShiftTripRepository.getAllTrips(),
