@@ -35,13 +35,15 @@ export const isRoadMatch = result => Boolean(
 
 export const MovementReconciliationQueue = Object.freeze({
   async matchLiveTrace(entityType, entityId, tracePoints) {
-    if (!online() || !entityId || !Array.isArray(tracePoints) || tracePoints.length < MIN_LIVE_MATCH_POINTS) return null
+    if (!entityId || !Array.isArray(tracePoints) || tracePoints.length < MIN_LIVE_MATCH_POINTS) return null
     const key = entityType + ':' + entityId
     const now = Date.now()
-    if (now - (lastLiveMatchAt.get(key) || 0) < LIVE_MATCH_INTERVAL_MS) return lastLiveMatches.get(key) || null
+    // Never replay an older full-trace road distance over the newer live GPS estimate.
+    // The next eligible call re-matches the complete current trace.
+    if (now - (lastLiveMatchAt.get(key) || 0) < LIVE_MATCH_INTERVAL_MS) return null
     lastLiveMatchAt.set(key, now)
     try {
-      const routed = await routeTrace(MovementAccountingService.filterGpsTrace(tracePoints), new ValhallaRoutingAdapter())
+      const routed = await routeTrace(MovementAccountingService.filterGpsTrace(tracePoints), new ValhallaRoutingAdapter({ onlineFallback: online() }))
       if (!isRoadMatch(routed)) { lastLiveMatches.delete(key); return null }
       const matched = {
         distanceKm: Number(routed.distanceKm),
@@ -78,7 +80,8 @@ export const MovementReconciliationQueue = Object.freeze({
 
   async reconcilePending({ force = false } = {}) {
     await this.enqueuePendingCompletedTrips({ force })
-    if (!online()) return { status: 'OFFLINE', queued: readQueue().length, reconciled: 0 }
+    // Try local Valhalla even without connectivity; the adapter disables HTTP fallback
+    // while offline, so pending records remain local and retry after reconnect.
     if (flushPromise) return flushPromise
     if (!force && Date.now() - lastFlushAt < FLUSH_INTERVAL_MS) return { status: 'THROTTLED', queued: readQueue().length, reconciled: 0 }
     lastFlushAt = Date.now()
