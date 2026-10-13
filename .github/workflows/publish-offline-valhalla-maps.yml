@@ -1,0 +1,158 @@
+name: Publish KFE Offline Valhalla Maps
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/publish-offline-valhalla-maps.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kfe-offline-valhalla-map-release
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish-region:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v4
+
+      - name: Install regional extract tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y osmium-tool jq
+          mkdir -p work/tiles
+
+      - name: Download and verify OpenStreetMap source
+        shell: bash
+        run: |
+          set -euo pipefail
+          PBF_URL="https://download.geofabrik.de/asia/india/western-zone-latest.osm.pbf"
+          curl --fail --location --retry 5 --retry-all-errors --connect-timeout 20 --max-time 900 "$PBF_URL" -o work/western-zone-latest.osm.pbf
+          curl --fail --location --retry 5 --retry-all-errors --connect-timeout 20 --max-time 60 "$PBF_URL.md5" -o work/source.md5
+          SOURCE_MD5="$(awk 'NR==1 {print $1}' work/source.md5)"
+          test "${#SOURCE_MD5}" -eq 32
+          printf '%s  %s\n' "$SOURCE_MD5" work/western-zone-latest.osm.pbf | md5sum --check -
+          osmium fileinfo -e work/western-zone-latest.osm.pbf
+
+      - name: Clip standard Mumbai Pune Nashik Alibag region
+        run: |
+          set -euo pipefail
+          osmium extract --bbox=71.8,17.0,75.2,21.2 --strategy=complete_ways --overwrite -o work/region.osm.pbf work/western-zone-latest.osm.pbf
+          test -s work/region.osm.pbf
+          osmium fileinfo -e work/region.osm.pbf
+
+      - name: Build Valhalla 3.9.1 regional tiles and tile extract
+        run: |
+          set -euo pipefail
+          docker pull ghcr.io/valhalla/valhalla-scripted:3.9.1
+          docker run --rm --user "$(id -u):$(id -g)" --entrypoint /bin/bash -v "$PWD/work:/data" ghcr.io/valhalla/valhalla-scripted:3.9.1 -lc '
+            set -euo pipefail
+            mkdir -p /data/tiles
+            valhalla_build_config \
+              --mjolnir-tile-dir /data/tiles \
+              --mjolnir-tile-extract /data/offline-maps.tar \
+              --mjolnir-timezone /data/tiles/timezones.sqlite \
+              --mjolnir-admin /data/tiles/admins.sqlite > /data/valhalla.json
+            valhalla_build_timezones > /data/tiles/timezones.sqlite
+            valhalla_build_admins -c /data/valhalla.json /data/region.osm.pbf
+            valhalla_build_tiles -c /data/valhalla.json /data/region.osm.pbf
+            valhalla_build_extract -c /data/valhalla.json -v
+            test -s /data/offline-maps.tar
+            tar -tf /data/offline-maps.tar | sed -n "1,20p"
+          '
+
+      - name: Smoke test local map matching and connecting roads
+        run: |
+          set -euo pipefail
+          cat > work/trace-mumbai.json <<'JSON'
+          {"shape":[{"lat":19.0760,"lon":72.8777},{"lat":19.0850,"lon":72.8697},{"lat":19.0930,"lon":72.8610}],"shape_match":"map_snap","costing":"auto","units":"kilometers","shape_format":"geojson"}
+          JSON
+          cat > work/trace-pune.json <<'JSON'
+          {"shape":[{"lat":18.5204,"lon":73.8567},{"lat":18.5300,"lon":73.8470},{"lat":18.5400,"lon":73.8380}],"shape_match":"map_snap","costing":"auto","units":"kilometers","shape_format":"geojson"}
+          JSON
+          cat > work/trace-nashik.json <<'JSON'
+          {"shape":[{"lat":19.9975,"lon":73.7898},{"lat":20.0050,"lon":73.7800},{"lat":20.0120,"lon":73.7720}],"shape_match":"map_snap","costing":"auto","units":"kilometers","shape_format":"geojson"}
+          JSON
+          cat > work/trace-alibag.json <<'JSON'
+          {"shape":[{"lat":18.6414,"lon":72.8722},{"lat":18.6480,"lon":72.8660},{"lat":18.6540,"lon":72.8600}],"shape_match":"map_snap","costing":"auto","units":"kilometers","shape_format":"geojson"}
+          JSON
+          cat > work/route-mumbai-pune.json <<'JSON'
+          {"locations":[{"lat":19.0760,"lon":72.8777,"type":"break"},{"lat":18.5204,"lon":73.8567,"type":"break"}],"costing":"auto","directions_options":{"units":"kilometers"}}
+          JSON
+          for city in mumbai pune nashik alibag; do
+            docker run --rm --user "$(id -u):$(id -g)" --entrypoint /bin/bash -v "$PWD/work:/data" ghcr.io/valhalla/valhalla-scripted:3.9.1 -lc "valhalla_service /data/valhalla.json trace_route /data/trace-$city.json > /data/result-$city.json"
+            jq -e '.trip.summary.length > 0' "work/result-$city.json" >/dev/null
+            echo "trace_route smoke passed: $city"
+          done
+          docker run --rm --user "$(id -u):$(id -g)" --entrypoint /bin/bash -v "$PWD/work:/data" ghcr.io/valhalla/valhalla-scripted:3.9.1 -lc 'valhalla_service /data/valhalla.json route /data/route-mumbai-pune.json > /data/result-mumbai-pune.json'
+          jq -e '.trip.summary.length > 0' work/result-mumbai-pune.json >/dev/null
+          echo "Mumbai–Pune connecting-road route smoke passed"
+
+      - name: Create checksummed regional manifest and attribution
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAP_VERSION="$(date -u +%Y%m%d)-${GITHUB_RUN_NUMBER}"
+          PACKAGE_NAME="offline-maps-${MAP_VERSION}.tar"
+          cp work/offline-maps.tar "work/$PACKAGE_NAME"
+          SIZE_BYTES="$(stat -c '%s' "work/$PACKAGE_NAME")"
+          test "$SIZE_BYTES" -gt 0
+          test "$SIZE_BYTES" -lt 1900000000
+          SHA256="$(sha256sum "work/$PACKAGE_NAME" | awk '{print $1}')"
+          GENERATED_AT="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          PACKAGE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/offline-maps/$PACKAGE_NAME"
+          ATTRIBUTION="© OpenStreetMap contributors. Map data is licensed under the Open Database License (ODbL). Source: Geofabrik Western Zone extract, clipped to the standard KFE regional coverage."
+          jq -n \
+            --arg regionId "mumbai-pune-nashik-alibag-v1" \
+            --arg region "Mumbai · Pune · Nashik · Alibag" \
+            --arg version "$MAP_VERSION" \
+            --arg engineVersion "valhalla-mobile-0.6.4 / Valhalla 3.9.1" \
+            --arg packageUrl "$PACKAGE_URL" \
+            --arg sha256 "$SHA256" \
+            --arg generatedAt "$GENERATED_AT" \
+            --arg attribution "$ATTRIBUTION" \
+            --arg sourceUrl "https://download.geofabrik.de/asia/india/western-zone-latest.osm.pbf" \
+            --argjson sizeBytes "$SIZE_BYTES" \
+            '{regionId:$regionId,region:$region,version:$version,engineVersion:$engineVersion,packageUrl:$packageUrl,sizeBytes:$sizeBytes,sha256:$sha256,generatedAt:$generatedAt,attribution:$attribution,sourceUrl:$sourceUrl}' \
+            > work/offline-maps-manifest.json
+          printf '%s\n' "$ATTRIBUTION" > work/offline-maps-attribution.txt
+          echo "map_version=$MAP_VERSION" >> "$GITHUB_OUTPUT"
+          echo "package_name=$PACKAGE_NAME" >> "$GITHUB_OUTPUT"
+          echo "size_bytes=$SIZE_BYTES" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+          cat work/offline-maps-manifest.json
+
+      - name: Publish versioned map package and stable manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release view offline-maps --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create offline-maps --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --title "KFE Offline Maps" \
+              --notes "Versioned Valhalla tile extracts for KFE. The stable manifest is offline-maps-manifest.json. © OpenStreetMap contributors; ODbL applies."
+          gh release upload offline-maps --repo "$GITHUB_REPOSITORY" --clobber \
+            "work/${{ steps.package.outputs.package_name }}" \
+            work/offline-maps-manifest.json \
+            work/offline-maps-attribution.txt
+          echo "Published map version ${{ steps.package.outputs.map_version }} (${{ steps.package.outputs.size_bytes }} bytes). SHA-256: ${{ steps.package.outputs.sha256 }}"
+
+      - name: Upload build evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kfe-offline-valhalla-map-build-evidence
+          path: |
+            work/offline-maps-manifest.json
+            work/offline-maps-attribution.txt
+            work/result-*.json
+          if-no-files-found: warn
+          retention-days: 14

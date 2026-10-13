@@ -1,0 +1,42 @@
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+
+const read = path => fs.readFileSync(path, 'utf8')
+const gradle = read('android/app/build.gradle')
+const mainActivity = read('android/app/src/main/java/com/kanishka/pwa/MainActivity.java')
+const nativePlugin = read('android/app/src/main/java/com/kanishka/pwa/KfeOfflineMapsPlugin.java')
+const bridge = read('src/infrastructure/location/offlineMapService.js')
+const router = read('src/infrastructure/location/valhallaRoutingAdapter.js')
+const admin = read('src/views/AdminView.vue')
+const backup = read('src/application/backup/backupService.js')
+const mapReleaseWorkflow = read('.github/workflows/publish-offline-valhalla-maps.yml')
+
+assert.ok(gradle.includes('io.github.rallista:valhalla-mobile:0.6.4'), 'Android package must include the native Valhalla engine.')
+assert.ok(gradle.includes('io.github.rallista:valhalla-models:0.6.0') && gradle.includes('io.github.rallista:valhalla-models-config:0.6.0'), 'Valhalla models must match the mobile engine release.')
+assert.match(mainActivity, /registerPlugin\(KfeOfflineMapsPlugin\.class\)/, 'Native map plugin must be registered with Capacitor.')
+assert.match(nativePlugin, /getFilesDir\(\), "offline-maps"/, 'Map data must live in isolated app-specific native files.')
+assert.match(nativePlugin, /offline-maps-manifest\.json/, 'Downloader must use the versioned map manifest.')
+assert.match(nativePlugin, /MANIFEST_URL = "https:\/\//, 'Manifest must be fetched over HTTPS.')
+assert.match(nativePlugin, /SHA-256|SHA256|SHA-256 verification|MessageDigest\.getInstance\("SHA-256"\)/, 'Downloaded map packages must be checksum verified.')
+assert.match(nativePlugin, /expectedBytes|sizeBytes/, 'Downloader must verify package size.')
+assert.match(nativePlugin, /downloadProgress/, 'Downloader must emit progress.')
+assert.match(nativePlugin, /traceRouteRaw/, 'Native plugin must call the on-device Valhalla trace matcher.')
+assert.match(nativePlugin, /previous-tiles\.tar|staging/, 'Map updates must stage downloads away from active map data.')
+assert.match(bridge, /registerPlugin\('KfeOfflineMaps'\)/, 'Web application must call the native map plugin.')
+assert.match(router, /OFFLINE_VALHALLA_TRACE_ROUTE_MAP_MATCH/, 'Offline matches must be identified distinctly in provenance.')
+assert.match(router, /OFFLINE_MATCH_BUDGET_MS = 1200/, 'Offline map matching must have a bounded wait budget.')
+assert.match(admin, /Download \/ Update Offline Maps/, 'Admin must expose user-facing map download/update controls.')
+assert.match(admin, /downloadProgress/, 'Admin must render download progress events.')
+assert.ok(backup.includes("'gps_snapshots'"), 'GPS evidence remains backed up.')
+assert.doesNotMatch(backup, /offline-maps|valhalla_tiles|routing_tiles|map_files/i, 'Large map files must never enter the business backup allowlist.')
+
+
+assert.ok(nativePlugin.includes('/releases/download/offline-maps/offline-maps-manifest.json'), 'Manifest must use a stable offline-maps release URL.')
+assert.ok(nativePlugin.includes('recoverStagedMap()'), 'Interrupted map updates must recover or roll back on restart.')
+assert.ok(nativePlugin.includes('bytesRequiredForUpdate'), 'Native status must expose safe-update storage requirements.')
+assert.ok(admin.includes('bytesRequiredForUpdate'), 'Admin must show required free storage before map updates.')
+assert.ok(mapReleaseWorkflow.includes('ghcr.io/valhalla/valhalla-scripted:3.9.1'), 'Map pipeline must build tiles with the matching Valhalla engine version.')
+assert.ok(mapReleaseWorkflow.includes('/releases/download/offline-maps/'), 'Map pipeline must publish versioned packages behind a stable release tag.')
+assert.ok(mapReleaseWorkflow.includes('trace-mumbai.json') && mapReleaseWorkflow.includes('trace-pune.json') && mapReleaseWorkflow.includes('trace-nashik.json') && mapReleaseWorkflow.includes('trace-alibag.json'), 'Map pipeline must smoke-test map matching in all four cities.')
+
+console.log('Native offline Valhalla integration contract: PASS')

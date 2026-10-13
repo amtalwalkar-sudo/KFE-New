@@ -1,6 +1,40 @@
 const DEFAULT_VALHALLA_ENDPOINT = 'https://valhalla1.openstreetmap.de'
 const KFE_CLIENT_ID = 'KANISHKA-ENTERPRISES-PWA'
 const DEFAULT_TIMEOUT_MS = 8000
+const OFFLINE_MATCH_BUDGET_MS = 1200
+const OFFLINE_REGION_BOUNDS = { south: 17.35, north: 20.95, west: 72.05, east: 74.65 }
+
+const traceInsideOfflineRegion = points => {
+  const shape = toShape(points)
+  return shape.length >= 2 && shape.every(p => p.lat >= OFFLINE_REGION_BOUNDS.south && p.lat <= OFFLINE_REGION_BOUNDS.north && p.lon >= OFFLINE_REGION_BOUNDS.west && p.lon <= OFFLINE_REGION_BOUNDS.east)
+}
+
+const tryOfflineTrace = async points => {
+  if (!traceInsideOfflineRegion(points)) return null
+  try {
+    const { OfflineMapService } = await import('./offlineMapService.js')
+    const pending = OfflineMapService.traceRoute(points)
+    const timeout = new Promise(resolve => setTimeout(() => resolve(null), OFFLINE_MATCH_BUDGET_MS))
+    const result = await Promise.race([pending, timeout])
+    const payload = result?.raw
+    if (!payload?.trip) return null
+    const distance = Number(payload.trip?.summary?.length)
+    const geometry = geometryFromTrip(payload.trip)
+    return {
+      provider: 'valhalla-mobile',
+      method: 'OFFLINE_VALHALLA_TRACE_ROUTE_MAP_MATCH',
+      confidence: geometry ? 'ESTIMATED_ROAD_TRACE' : 'ESTIMATED_ROAD_TRACE_NO_GEOMETRY',
+      distanceKm: Number.isFinite(distance) ? distance : null,
+      geometry,
+      provenance: { provider: 'valhalla-mobile', regionId: 'mumbai-pune-nashik-alibag-v1', operation: 'trace_route', shapeMatch: 'map_snap', costing: 'auto', units: 'kilometers', sourcePointCount: toShape(points).length },
+      raw: payload
+    }
+  } catch (error) {
+    // Matching is enrichment only: callers must retain raw GPS evidence and continue.
+    console.warn('Offline Valhalla matching unavailable; continuing with online/queued matching.', error)
+    return null
+  }
+}
 
 const toShape = (points) => points.map((point) => {
   const capturedAt = point.capturedAt || point.timestamp
@@ -76,6 +110,8 @@ export class ValhallaRoutingAdapter {
   }
 
   async routeTrace(points) {
+    const offline = await tryOfflineTrace(points)
+    if (offline) return offline
     if (typeof this.fetchImpl !== 'function') return null
     const shape = toShape(points)
     if (shape.length < 2) return null
