@@ -25,8 +25,8 @@ const writeQueue = ids => {
   try { localStorage.setItem(QUEUE_KEY, JSON.stringify([...new Set(ids)])); return true }
   catch (_) { return false }
 }
-const isRoadMatch = result => Boolean(
-  result?.method === 'VALHALLA_TRACE_ROUTE_MAP_MATCH' &&
+export const isRoadMatch = result => Boolean(
+  ['VALHALLA_TRACE_ROUTE_MAP_MATCH', 'OFFLINE_VALHALLA_TRACE_ROUTE_MAP_MATCH'].includes(result?.method) &&
   result?.roadMatchedGeometry?.type === 'LineString' &&
   Array.isArray(result.roadMatchedGeometry.coordinates) &&
   result.roadMatchedGeometry.coordinates.length >= 2 &&
