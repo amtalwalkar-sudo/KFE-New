@@ -70,6 +70,21 @@ export const WorkService = Object.freeze({
         console.warn('KFE native GPS trace recovery deferred; source file retained:', ownerId, error)
       }
     }
+    // Revalidate previously stored GPS-derived trip distances after trace recovery.
+    // Old builds could store a tiny estimate from a short/stale trace as if it were
+    // complete. Never erase a manually entered authoritative distance.
+    for (const trip of trips.filter(item => item.status === 'COMPLETED' && ['GPS_LINE_TRACE', 'VALHALLA_ROAD_TRACE'].includes(item.tripKmAuthority))) {
+      try {
+        const snapshots = (await LocationRepository.forEntity('TRIP', trip.id)).filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')
+        const quality = assessGpsTraceCompleteness(snapshots, { startAt: trip.tripStartAt, endAt: trip.tripEndAt })
+        if (!quality.complete) {
+          const invalidated = await ShiftTripRepository.invalidateGpsTripMovement({ id: trip.id, reason: quality.reason, traceQuality: quality })
+          if (invalidated) recovered.push({ ownerId: trip.id, entityType: 'TRIP', imported: 0, qualityStatus: 'INCOMPLETE', reason: quality.reason })
+        }
+      } catch (error) {
+        console.warn('Unable to verify historical GPS-derived trip distance; preserving raw trace evidence:', trip.id, error)
+      }
+    }
     if (unresolvedOwners.length) throw new Error('Native GPS trace recovery incomplete; cloud backup is blocked to avoid omitting movement evidence. Unresolved owners: ' + unresolvedOwners.join(', '))
     return { ownersChecked: owners.length, recovered, unresolvedOwners: [] }
   },
