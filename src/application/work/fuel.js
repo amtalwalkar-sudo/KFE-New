@@ -19,12 +19,12 @@ export async function recordFuelEntry({ odometer, pricePerKg, amount, isFullTank
     location = null
   }
   try {
-    // Persist the validated refuel before optional vehicle-master repair/backfill.
-    // A slow IndexedDB vehicle lookup must never leave the driver waiting on Save.
-    const record = await FuelRepository.create({ ...validation, ...(location || {}) })
-    void ShiftTripRepository.getPrimaryVehicleId()
-      .then(vehicleId => vehicleId ? FuelRepository.update(record.id, { vehicleId }) : null)
-      .catch(() => {})
+    // Resolve the vehicle before committing the refuel so the canonical record
+    // is linked at creation time. Full-tank interval calculations never race a
+    // best-effort post-save vehicle backfill.
+    const vehicleId = await ShiftTripRepository.getPrimaryVehicleId()
+    if (!vehicleId) return { ok: false, reason: 'PRIMARY_VEHICLE_REQUIRED_FOR_FUEL_ENTRY' }
+    const record = await FuelRepository.create({ ...validation, vehicleId, ...(location || {}) })
     return { ok: true, record }
   } catch (error) {
     return { ok: false, reason: error?.message || 'FUEL_ENTRY_FAILED' }
