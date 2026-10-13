@@ -5,7 +5,7 @@ import { getLiveMovementTracePlan, matchesLiveMovementSession } from '../applica
 import { isRoadMatch, extendRoadMatchWithLiveGpsTail } from '../application/work/movementReconciliationQueue.js'
 import { ValhallaRoutingAdapter } from '../infrastructure/location/valhallaRoutingAdapter.js'
 import { normalizeNullableGpsNumber } from '../repositories/locationRepository.js'
-import { MovementAccountingService } from '../domain/movement/movementAccounting.js'
+import { MovementAccountingService, routeTrace } from '../domain/movement/movementAccounting.js'
 
 assert.equal(normalizeNullableGpsNumber(null), null, 'Missing GPS accuracy must remain unknown, not become a perfect 0 m fix.')
 assert.equal(normalizeNullableGpsNumber(''), null)
@@ -46,6 +46,13 @@ const geometry = { type: 'LineString', coordinates: [[72.8, 19.0], [72.9, 19.1]]
 assert.equal(isRoadMatch({ method: 'VALHALLA_TRACE_ROUTE_MAP_MATCH', distanceKm: 3.2, roadMatchedGeometry: geometry }), true)
 assert.equal(isRoadMatch({ method: 'OFFLINE_VALHALLA_TRACE_ROUTE_MAP_MATCH', distanceKm: 3.2, roadMatchedGeometry: geometry }), true, 'Valid offline Valhalla matches must be accepted by live/reconciliation queues.')
 assert.equal(isRoadMatch({ method: 'OFFLINE_VALHALLA_TRACE_ROUTE_MAP_MATCH', distanceKm: 3.2, roadMatchedGeometry: null }), false, 'A distance without matched road geometry must not be accepted as a road match.')
+assert.equal(isRoadMatch({ method: 'OFFLINE_VALHALLA_TRACE_ROUTE_MAP_MATCH', distanceKm: null, roadMatchedGeometry: geometry }), false, 'A null Valhalla distance must not be coerced into a false 0 km match.')
+const noDistanceFallback = await routeTrace([
+  { latitude: 19.000, longitude: 72.000, accuracy: 5, capturedAt: '2026-10-01T08:00:00.000Z' },
+  { latitude: 19.001, longitude: 72.000, accuracy: 5, capturedAt: '2026-10-01T08:00:10.000Z' }
+], { routeTrace: async () => ({ distanceKm: null, geometry, method: 'OFFLINE_VALHALLA_TRACE_ROUTE_MAP_MATCH' }) })
+assert.equal(noDistanceFallback.method, 'FILTERED_GPS_TRACE', 'Missing route distance must fall back to measured GPS rather than 0 km.')
+assert.ok(noDistanceFallback.distanceKm > 0)
 
 const cachedRoadMatch = {
   method: 'VALHALLA_TRACE_ROUTE_MAP_MATCH',
