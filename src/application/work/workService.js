@@ -9,7 +9,7 @@ import { calculateFuelQuantity, validateFuelEntry } from '../../domain/work/fuel
 import { calculateRollingFuelCostPerKm } from '../../domain/math/fuel.js'
 import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } from '../../domain/work/trip.js'
 import { BackupService } from '../backup/backupService.js'
-import { MovementAccountingService, routeTrace } from '../../domain/movement/movementAccounting.js'
+import { MovementAccountingService, routeTrace, assessGpsTraceCompleteness } from '../../domain/movement/movementAccounting.js'
 import { WorkRuntimePorts } from './workRuntimePorts.js'
 import { calculateTraceDistanceKm } from '../../domain/movement/traceDistance.js'
 import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
@@ -150,14 +150,25 @@ export const WorkService = Object.freeze({
           const nativeSync = await WorkRuntimePorts.nativeGps.syncTrace(tripId, { clearAfterImport: true })
           if (Number(nativeSync?.imported) > 0 || browserTracePoints.length > 0) checkpoint()
           let snapshots = (await LocationRepository.forEntity('TRIP', tripId)).filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')
+          // Capture a fresh END location while the user is still in the foreground.
+          // The last persisted trace point may be stale by minutes/hours and must
+          // never be mistaken for the actual trip endpoint.
+          const endLocation = await captureLifecycleLocation({ entityType: 'TRIP', entityId: tripId, eventType: 'END' }).catch(() => null)
           const finalTracePoint = snapshots.at(-1) || browserTracePoints.at(-1)
-          if (finalTracePoint) {
-            await ShiftTripRepository.setTripEndLocation(tripId, finalTracePoint)
-          } else {
-            const endLocation = await captureLifecycleLocation({ entityType: 'TRIP', entityId: tripId, eventType: 'END' })
-            if (endLocation) await ShiftTripRepository.setTripEndLocation(tripId, endLocation)
+          if (endLocation) await ShiftTripRepository.setTripEndLocation(tripId, endLocation)
+          else if (finalTracePoint) await ShiftTripRepository.setTripEndLocation(tripId, finalTracePoint)
+
+          const active = await ShiftTripRepository.getActive()
+          const shiftTrips = active.shift?.id ? await ShiftTripRepository.getTripsForShift(active.shift.id) : []
+          const completedTrip = shiftTrips.find(item => item.id === tripId)
+          const traceQuality = assessGpsTraceCompleteness(snapshots, {
+            startAt: completedTrip?.tripStartAt,
+            endAt: completedTrip?.tripEndAt || data?.tripEndAt
+          })
+          if (!traceQuality.complete) {
+            console.warn('Trip GPS distance withheld because trace coverage is incomplete:', tripId, traceQuality)
+            return
           }
-          if (snapshots.length < 2) return
 
           const gpsKm = calculateTraceDistanceKm(snapshots)
           const router = WorkRuntimePorts.routing.createRouter()
