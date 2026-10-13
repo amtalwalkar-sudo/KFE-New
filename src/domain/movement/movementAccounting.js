@@ -122,7 +122,7 @@ export const MovementAccountingService = {
       segment.confidence = trip.tripKmAuthority === 'MANUAL' ? 'AUTHORITATIVE' : 'ESTIMATED_ROAD_TRACE'
       segment.authority = trip.tripKmAuthority === 'MANUAL' ? 'MANUAL_AUDIT' : 'GPS_ESTIMATE'
     }
-    const classifiedKm = reconciledSegments.filter(s => (s.classification === 'DEAD' || s.classification === 'BUSINESS' || s.classification === 'CANCELLED') && finite(s.distanceKm)).reduce((t, s) => t + Number(s.distanceKm), 0)
+    const classifiedKm = reconciledSegments.filter(s => (s.classification === 'DEAD' || s.classification === 'BUSINESS' || s.classification === 'CANCELLED' || s.classification === 'UNCLASSIFIED') && finite(s.distanceKm)).reduce((t, s) => t + Number(s.distanceKm), 0)
     const remainderKm = Math.max(0, totalShiftVehicleKm - classifiedKm)
     if (classifiedKm - totalShiftVehicleKm > EPSILON_KM) return { ...base, segments: reconciledSegments, totalShiftVehicleKm, manualBusinessKmByTripId: Object.fromEntries(manualByTrip), deadMilesKm: sum(reconciledSegments, 'DEAD'), businessMilesKm: sum(reconciledSegments, 'BUSINESS'), cancelledMilesKm: sum(reconciledSegments, 'CANCELLED'), unclassifiedKm: 0, reconciliationDifferenceKm: totalShiftVehicleKm - classifiedKm, reconciliationStatus: 'OVER_ESTIMATE', personalKmInShift: 0, authoritativeOdometerKm: totalShiftVehicleKm }
     if (remainderKm > EPSILON_KM) reconciledSegments.push({ id: 'SHIFT_RECONCILIATION_REMAINDER', tripId: null, label: 'SHIFT_RECONCILIATION_REMAINDER', classification: 'UNCLASSIFIED', authority: 'ODOMETER_REMAINDER', distanceKm: remainderKm, method: 'ODOMETER_RECONCILIATION', confidence: 'AUTHORITATIVE_REMAINDER', roadMatchedGeometry: null, traceGeometry: [] })
