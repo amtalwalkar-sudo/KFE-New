@@ -8,6 +8,7 @@ import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection, calc
 import { calculateFuelQuantity, validateFuelEntry } from '../domain/work/fuel.js'
 import { WorkService } from '../application/work/workService.js'
 import { WorkflowTimerService, WorkWorkflowSessionService } from '../application/work/workflowTimerService.js'
+import { getLiveMovementTracePlan } from '../application/work/liveMovementTrace.js'
 const workViewSource = fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8')
 assert.doesNotMatch(workViewSource, /from ['"][^'"]*\/infrastructure\//, 'Work view must not import infrastructure adapters directly.')
 assert.doesNotMatch(workViewSource, /from ['"]@capacitor\/core['"]/, 'Work view must not depend directly on Capacitor.')
@@ -39,6 +40,21 @@ assert.match(movementRecoverySource, /const resumableMovementStage = store\.trip
 assert.match(movementRecoverySource, /if \(store\.isOnline && nativeAndroid && resumableMovementStage && recoveryPlan\.entityType === 'TRIP'\) \{\s*await WorkRuntimePorts\.nativeGps\.start\(recoveryPlan\.entityId, recoveryPlan\.eventType, 'TRIP'\)/, 'Native GPS resumes only for the matching active trip trace owner and event type.')
 assert.doesNotMatch(movementRecoverySource, /if \(store\.isOnline && nativeAndroid && store\.trip\?\.id/, 'Online status and a stale trip ID alone must never restart GPS.')
 assert.doesNotMatch(movementRecoverySource, /store\.isOnline && nativeAndroid && !resumableMovementStage[\s\S]{0,160}nativeGps\.start/, 'GPS remains silent during online waiting and other non-movement stages.')
+assert.deepEqual(
+  (({ eventType, entityType, profile }) => ({ eventType, entityType, profile }))(getLiveMovementTracePlan({
+    shiftId: 'shift-1', trip: { id: 'trip-1', status: 'ACTIVE', tripStage: 'GOING_TO_PICKUP' }
+  })),
+  { entityType: 'TRIP', eventType: 'DEAD_MOVEMENT_TRACE', profile: 'DEAD_LEG' },
+  'GO TO PICKUP assigns GPS movement to dead miles owned by the active trip.'
+)
+assert.deepEqual(
+  (({ eventType, entityType, profile }) => ({ eventType, entityType, profile }))(getLiveMovementTracePlan({
+    shiftId: 'shift-1', trip: { id: 'trip-1', status: 'ACTIVE', tripStage: 'RIDE_STARTED' }
+  })),
+  { entityType: 'TRIP', eventType: 'PASSENGER_RIDE_TRACE', profile: 'PASSENGER_RIDE' },
+  'START TRIP assigns GPS movement to business miles owned by the active trip.'
+)
+assert.match(movementRecoverySource, /const cancelledTripId = store\.trip\?\.id[\s\S]*?await WorkRuntimePorts\.nativeGps\.stop\(cancelledTripId\)[\s\S]*?syncTrace\(cancelledTripId, \{ entityType: 'TRIP' \}\)/, 'CANCEL TRIP stops native GPS and commits its dead-movement trace.')
 assert.doesNotMatch(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /nativeGps\.start\(nativeOwnerId, nativeEventType, active\.value && store\.trip\?\.id \? 'TRIP' : 'SHIFT'\)/, 'Recovery must not start GPS for a shift that is merely online and waiting.')
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /WorkRuntimePorts\.nativeGps.syncTrace\(endingShiftId, \{ entityType: 'SHIFT' \}\)/, 'Native shift-owned dead-movement points are committed before shift reconciliation.')
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/infrastructure/android/nativeGpsService.js'), 'utf8'), /async syncTrace\(tripId, \{ entityType = 'TRIP', clearAfterImport = false \} = \{\}\)/, 'Native GPS trace import supports both trip and shift ownership.')
