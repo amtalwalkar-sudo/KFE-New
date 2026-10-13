@@ -301,11 +301,12 @@ async function refreshLiveMovementKm() {
   // A trip is still dead movement until Start Trip commits RIDE_STARTED.
   // Use the canonical event label rather than treating every active trip as a ride.
   const tracePlan = getLiveMovementTracePlan({ shiftId: store.shift.id, trip: currentTrip })
+  const traceOwnerId = tracePlan.entityId
   let tracePoints = []
 
   if (nativeAndroid) {
     try {
-      tracePoints = (await WorkRuntimePorts.nativeGps.readTrace(tracePlan.entityId))
+      tracePoints = (await WorkRuntimePorts.nativeGps.readTrace(traceOwnerId))
         .filter(point => point?.eventType === tracePlan.eventType)
     } catch (_) {}
   }
