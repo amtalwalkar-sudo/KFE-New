@@ -60,7 +60,8 @@ jobs:
               --mjolnir-tile-extract /data/offline-maps.tar \
               --mjolnir-timezone /data/tiles/timezones.sqlite \
               --mjolnir-admin /data/tiles/admins.sqlite > /data/valhalla.json
-            valhalla_build_timezones > /data/tiles/timezones.sqlite
+            # Timezone polygon data is optional for KFE's map-matching and non-time-dependent routing.
+            # Avoid the image script's runtime download of a large external timezone archive.
             valhalla_build_admins -c /data/valhalla.json /data/region.osm.pbf
             valhalla_build_tiles -c /data/valhalla.json /data/region.osm.pbf
             valhalla_build_extract -c /data/valhalla.json -v
