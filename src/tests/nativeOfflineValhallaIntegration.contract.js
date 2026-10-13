@@ -12,6 +12,7 @@ const backup = read('src/application/backup/backupService.js')
 const mapReleaseWorkflow = read('.github/workflows/publish-offline-valhalla-maps.yml')
 
 assert.ok(gradle.includes('io.github.rallista:valhalla-mobile:0.6.4'), 'Android package must include the native Valhalla engine.')
+assert.ok(gradle.includes('io.github.rallista:valhalla-models:0.6.0') && gradle.includes('io.github.rallista:valhalla-models-config:0.6.0'), 'Valhalla models must match the mobile engine release.')
 assert.match(mainActivity, /registerPlugin\(KfeOfflineMapsPlugin\.class\)/, 'Native map plugin must be registered with Capacitor.')
 assert.match(nativePlugin, /getFilesDir\(\), "offline-maps"/, 'Map data must live in isolated app-specific native files.')
 assert.match(nativePlugin, /offline-maps-manifest\.json/, 'Downloader must use the versioned map manifest.')
