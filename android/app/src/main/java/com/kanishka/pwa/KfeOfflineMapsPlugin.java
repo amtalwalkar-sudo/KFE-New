@@ -111,7 +111,7 @@ public class KfeOfflineMapsPlugin extends Plugin {
                 JSONObject metadata = new JSONObject();
                 metadata.put("regionId", REGION_ID); metadata.put("region", manifest.optString("region", "Mumbai · Pune · Nashik · Alibag"));
                 metadata.put("version", version); metadata.put("sha256", expectedHash); metadata.put("sizeBytes", expectedBytes);
-                SimpleDateFormat installedAtFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.ROOT); installedAtFormat.setTimeZone(TimeZone.getTimeZone("UTC")); metadata.put("installedAt", installedAtFormat.format(new Date())); metadata.put("engineVersion", manifest.optString("engineVersion", "0.6.3"));
+                SimpleDateFormat installedAtFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.ROOT); installedAtFormat.setTimeZone(TimeZone.getTimeZone("UTC")); metadata.put("installedAt", installedAtFormat.format(new Date())); metadata.put("engineVersion", manifest.optString("engineVersion", "0.6.4"));
                 File nextMeta = new File(stage, "map-metadata.json"); writeText(nextMeta, metadata.toString());
                 File active = tilesFile(); File old = new File(stage, "previous-tiles.tar");
                 File activeMeta = metadataFile(); File oldMeta = new File(stage, "previous-map-metadata.json");
