@@ -77,5 +77,5 @@ assert.match(workView, /getLiveMovementTracePlan\(\{ shiftId: store\.shift\.id, 
 assert.match(workView, /ensureDeadMovementCapture\('TRIP', store\.trip\.id\)/, 'Pickup capture is re-owned by the trip so live dead KM starts from pickup.')
 assert.match(workView, /matchLiveTrace\([\s\S]*?tracePlan\.entityType[\s\S]*?tracePlan\.entityId/, 'Live map matching runs regardless of internet connectivity.')
 const workService = fs.readFileSync(path.join(process.cwd(), 'src/application/work/workService.js'), 'utf8')
-assert.match(workService, /Shift GPS capture after cancellation[\s\S]*?nativeGps\.start\(active\.shift\.id, 'DEAD_MOVEMENT_TRACE', 'SHIFT'\)/, 'Cancellation cleanup must resume shift-level dead movement capture.')
+assert.match(workService, /Cancellation ends the trip trace[\\s\\S]*?nativeGps\.start\(active\.shift\.id, 'DEAD_MOVEMENT_TRACE', 'SHIFT'\)/, 'Cancellation cleanup must resume shift-level dead movement capture.')
 console.log('Live GPS distance readiness contract: PASS — shift-start capture, pickup/ride trace selection, offline-only routing, live GPS tail extension, and offline road-match acceptance.')
