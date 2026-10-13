@@ -1,10 +1,11 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { WorkService } from '../application/work/workService.js'
 import { TimelineService } from '../application/timeline/timelineService.js'
 import { FormDraftService } from '../application/forms/formDraftService.js'
 import { useFuelStore } from '../stores/fuel.js'
 import { getKfeReferenceNow, istDateKey, istDayRange, istMonthRange, istParts } from '../domain/time/ist.js'
+import { subscribeCanonicalDataChanges } from '../repositories/canonicalDataChangeRepository.js'
 
 const fuelStore = useFuelStore()
 const period = ref('day')
@@ -115,7 +116,16 @@ const save = async () => { closeTimelineKeypad(); saving.value=true; error.value
 const saveFuel = async () => { closeTimelineKeypad(); saving.value=true; error.value=''; const identity = editingFuel.value?.id ? fuelDraftIdentity(editingFuel.value.id) : null; try { await timelineDraftQueue; const r=await fuelStore.update({id:editingFuel.value.id,odometer:fuelForm.value.odometer,pricePerKg:fuelForm.value.pricePerKg,amount:fuelForm.value.amount,isFullTank:fuelForm.value.isFullTank}); if(!r?.ok) throw new Error(r?.reason||'Fuel update failed.'); if(identity) await clearTimelineDraft(identity); editingFuel.value=null; await load() } catch(e) { error.value=e?.message||'Fuel update failed.' } finally { saving.value=false } }
 const deleteFuel = async fuel => { closeTimelineKeypad(); if(!confirm(`Delete this fuel entry of ${kg(fuel.quantityKg)} at ${dateTime(fuel.capturedAt||fuel.createdAt)}?`)) return; saving.value=true; error.value=''; try { const r=await fuelStore.remove(fuel.id); if(!r?.ok) throw new Error(r?.reason||'Fuel delete failed.'); await load() } catch(e) { error.value=e?.message||'Fuel delete failed.' } finally { saving.value=false } }
 const personalEntries = computed(() => data.value?.entries || [])
-onMounted(load)
+let unsubscribeCanonicalChanges = () => {}
+onMounted(() => {
+  void load()
+  unsubscribeCanonicalChanges = subscribeCanonicalDataChanges(() => {
+    // Keep the read model fresh after edits from Work, Admin, restore, or another tab.
+    // A save in progress already refreshes explicitly when its commit returns.
+    if (!saving.value) void load()
+  })
+})
+onBeforeUnmount(() => unsubscribeCanonicalChanges())
 </script>
 
 <template>
