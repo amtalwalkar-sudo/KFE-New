@@ -35,30 +35,50 @@ import java.util.TimeZone;
 @CapacitorPlugin(name = "KfeOfflineMaps")
 public class KfeOfflineMapsPlugin extends Plugin {
     private static final String REGION_ID = "mumbai-pune-nashik-alibag-v1";
-    private static final String MANIFEST_URL = "https://github.com/amtalwalkar-sudo/KFE-New/releases/latest/download/offline-maps-manifest.json";
+    private static final String MANIFEST_URL = "https://github.com/amtalwalkar-sudo/KFE-New/releases/download/offline-maps/offline-maps-manifest.json";
     private static final ExecutorService DOWNLOAD_IO = Executors.newSingleThreadExecutor();
     private static final ExecutorService MATCH_IO = Executors.newSingleThreadExecutor();
+    private static final ExecutorService STATUS_IO = Executors.newSingleThreadExecutor();
     private File mapDir() { File f = new File(getContext().getFilesDir(), "offline-maps"); if (!f.exists()) f.mkdirs(); return f; }
     private File tilesFile() { return new File(mapDir(), "valhalla-tiles.tar"); }
     private File metadataFile() { return new File(mapDir(), "map-metadata.json"); }
 
     @PluginMethod public void getStatus(PluginCall call) {
-        try {
-            File tiles = tilesFile(); File meta = metadataFile();
-            JSObject out = new JSObject();
-            out.put("supported", true); out.put("regionId", REGION_ID);
-            out.put("installed", tiles.isFile() && tiles.length() > 0 && meta.isFile());
-            out.put("bytesInstalled", tiles.isFile() ? tiles.length() : 0);
-            StatFs fs = new StatFs(getContext().getFilesDir().getAbsolutePath());
-            out.put("bytesAvailable", fs.getAvailableBytes());
-            if (meta.isFile()) {
-                JSONObject m = new JSONObject(readText(meta));
-                out.put("version", m.optString("version", ""));
-                out.put("installedAt", m.optString("installedAt", ""));
-                out.put("region", m.optString("region", "Mumbai · Pune · Nashik · Alibag"));
-            }
-            call.resolve(out);
-        } catch (Exception e) { call.reject("Unable to read offline map status.", e); }
+        STATUS_IO.execute(() -> {
+            File statusManifest = new File(mapDir(), "status-manifest.json");
+            try {
+                recoverStagedMap();
+                File tiles = tilesFile(); File meta = metadataFile();
+                JSObject out = new JSObject();
+                out.put("supported", true); out.put("regionId", REGION_ID);
+                out.put("installed", tiles.isFile() && tiles.length() > 0 && meta.isFile());
+                long installedBytes = tiles.isFile() ? tiles.length() : 0;
+                out.put("bytesInstalled", installedBytes);
+                StatFs fs = new StatFs(getContext().getFilesDir().getAbsolutePath());
+                out.put("bytesAvailable", fs.getAvailableBytes());
+                if (meta.isFile()) {
+                    JSONObject m = new JSONObject(readText(meta));
+                    out.put("version", m.optString("version", ""));
+                    out.put("installedAt", m.optString("installedAt", ""));
+                    out.put("region", m.optString("region", "Mumbai · Pune · Nashik · Alibag"));
+                }
+                try {
+                    JSONObject manifest = fetchJson(MANIFEST_URL, statusManifest, 4000, 5000);
+                    long requiredBytes = manifest.optLong("sizeBytes", 0);
+                    if (!REGION_ID.equals(manifest.optString("regionId")) || requiredBytes <= 0) throw new IllegalStateException("Map manifest is invalid.");
+                    long safetyMargin = Math.max(64L * 1024 * 1024, requiredBytes / 10);
+                    out.put("manifestAvailable", true);
+                    out.put("latestVersion", manifest.optString("version", ""));
+                    out.put("bytesRequired", requiredBytes);
+                    out.put("bytesRequiredForUpdate", requiredBytes + installedBytes + safetyMargin);
+                    out.put("mapAttribution", manifest.optString("attribution", "© OpenStreetMap contributors"));
+                } catch (Exception manifestError) {
+                    out.put("manifestAvailable", false);
+                    out.put("manifestError", "Latest map version could not be checked. Connect to the internet and refresh.");
+                } finally { statusManifest.delete(); }
+                call.resolve(out);
+            } catch (Exception e) { statusManifest.delete(); call.reject("Unable to read offline map status safely.", e); }
+        });
     }
 
     @PluginMethod public void downloadUpdate(PluginCall call) {
@@ -68,6 +88,7 @@ public class KfeOfflineMapsPlugin extends Plugin {
             File part = new File(stage, "valhalla-tiles.tar.part");
             File manifestTemp = new File(stage, "manifest.json");
             try {
+                recoverStagedMap();
                 JSONObject manifest = fetchJson(MANIFEST_URL, manifestTemp);
                 if (!REGION_ID.equals(manifest.optString("regionId"))) throw new IllegalStateException("The map manifest is for a different region.");
                 String version = manifest.getString("version");
@@ -76,7 +97,9 @@ public class KfeOfflineMapsPlugin extends Plugin {
                 long expectedBytes = manifest.getLong("sizeBytes");
                 if (!packageUrl.startsWith("https://") || expectedBytes <= 0 || expectedHash.length() != 64) throw new IllegalStateException("The map manifest is incomplete or unsafe.");
                 long available = new StatFs(getContext().getFilesDir().getAbsolutePath()).getAvailableBytes();
-                if (available < expectedBytes + Math.max(64L * 1024 * 1024, expectedBytes / 10)) throw new IllegalStateException("Not enough free storage for a safe map update.");
+                long existingBytes = tilesFile().isFile() ? tilesFile().length() : 0;
+                long requiredBytes = expectedBytes + existingBytes + Math.max(64L * 1024 * 1024, expectedBytes / 10);
+                if (available < requiredBytes) throw new IllegalStateException("Not enough free storage for a safe map update. Required free space: " + requiredBytes + " bytes.");
                 downloadFile(packageUrl, part, expectedBytes, expectedHash);
                 JSONObject metadata = new JSONObject();
                 metadata.put("regionId", REGION_ID); metadata.put("region", manifest.optString("region", "Mumbai · Pune · Nashik · Alibag"));
@@ -130,14 +153,37 @@ public class KfeOfflineMapsPlugin extends Plugin {
         });
     }
 
-    private JSONObject fetchJson(String address, File temp) throws Exception {
-        HttpURLConnection c = (HttpURLConnection) new URL(address).openConnection(); c.setConnectTimeout(15000); c.setReadTimeout(30000); c.setRequestProperty("Accept", "application/json");
-        try { if (c.getResponseCode() < 200 || c.getResponseCode() >= 300) throw new IllegalStateException("Map manifest unavailable (HTTP " + c.getResponseCode() + ")."); try (InputStream in = c.getInputStream(); OutputStream out = new FileOutputStream(temp)) { byte[] b = new byte[8192]; int n; while ((n=in.read(b))!=-1) out.write(b,0,n); } return new JSONObject(readText(temp)); } finally { c.disconnect(); }
+    private void recoverStagedMap() throws Exception {
+        File active = tilesFile(); File activeMeta = metadataFile();
+        File stage = new File(mapDir(), "staging");
+        File old = new File(stage, "previous-tiles.tar");
+        File oldMeta = new File(stage, "previous-map-metadata.json");
+        boolean activePairValid = active.isFile() && active.length() > 0 && activeMeta.isFile();
+        if (activePairValid) { old.delete(); oldMeta.delete(); return; }
+        if (old.isFile() && old.length() > 0) {
+            if (active.exists() && !active.delete()) throw new IllegalStateException("Unable to remove incomplete map during recovery.");
+            if (!old.renameTo(active)) throw new IllegalStateException("Unable to restore previous offline map after interrupted update.");
+            if (oldMeta.isFile()) {
+                if (activeMeta.exists() && !activeMeta.delete()) throw new IllegalStateException("Unable to replace incomplete map metadata.");
+                if (!oldMeta.renameTo(activeMeta)) throw new IllegalStateException("Unable to restore previous map metadata.");
+            }
+            return;
+        }
+        if (active.exists() && !active.delete()) throw new IllegalStateException("Unable to remove incomplete first map download.");
+        if (activeMeta.exists() && !activeMeta.delete()) throw new IllegalStateException("Unable to remove incomplete map metadata.");
+        if (oldMeta.exists() && !oldMeta.delete()) throw new IllegalStateException("Unable to clean incomplete map recovery metadata.");
+    }
+
+    private JSONObject fetchJson(String address, File temp) throws Exception { return fetchJson(address, temp, 15000, 30000); }
+    private JSONObject fetchJson(String address, File temp, int connectTimeout, int readTimeout) throws Exception {
+        HttpURLConnection c = (HttpURLConnection) new URL(address).openConnection(); c.setConnectTimeout(connectTimeout); c.setReadTimeout(readTimeout); c.setInstanceFollowRedirects(true); c.setRequestProperty("Accept", "application/json");
+        try { if (c.getResponseCode() < 200 || c.getResponseCode() >= 300) throw new IllegalStateException("Map manifest unavailable (HTTP " + c.getResponseCode() + ")."); if (!"https".equalsIgnoreCase(c.getURL().getProtocol())) throw new IllegalStateException("Map manifest redirected to an insecure URL."); try (InputStream in = c.getInputStream(); OutputStream out = new FileOutputStream(temp)) { byte[] b = new byte[8192]; int n; while ((n=in.read(b))!=-1) out.write(b,0,n); } return new JSONObject(readText(temp)); } finally { c.disconnect(); }
     }
     private void downloadFile(String address, File destination, long expectedBytes, String expectedHash) throws Exception {
         HttpURLConnection c = (HttpURLConnection) new URL(address).openConnection(); c.setConnectTimeout(20000); c.setReadTimeout(60000); c.setInstanceFollowRedirects(true);
         try {
             if (c.getResponseCode() < 200 || c.getResponseCode() >= 300) throw new IllegalStateException("Map package unavailable (HTTP " + c.getResponseCode() + ").");
+            if (!"https".equalsIgnoreCase(c.getURL().getProtocol())) throw new IllegalStateException("Map package redirected to an insecure URL.");
             long contentLength = c.getContentLengthLong(); if (contentLength > 0 && contentLength != expectedBytes) throw new IllegalStateException("Map package size does not match its manifest.");
             MessageDigest digest = MessageDigest.getInstance("SHA-256"); long count = 0;
             try (InputStream in = new BufferedInputStream(c.getInputStream()); OutputStream out = new FileOutputStream(destination)) {
