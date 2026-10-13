@@ -751,11 +751,26 @@ async function saveCancel(fromNative = false) {
   cancelBusy.value = true
   try {
     const cancellationDraft = tripDraftIdentity('work-cancellation', 'CANCEL_TRIP')
+    const cancelledTripId = store.trip?.id
     const result = await store.cancelTrip({
       reason: cancelReason.value.trim(),
       revenue: cancelFare.value
     })
     if (!result?.ok) { fail(result?.reason || 'Cancellation could not be saved.'); return false }
+
+    // Cancellation ends this trip's movement window just like END TRIP.
+    // Stop native capture and commit the dead-movement trace to canonical
+    // trip locations; waiting online must remain GPS-silent.
+    if (nativeAndroid && cancelledTripId) {
+      await WorkRuntimePorts.nativeGps.stop(cancelledTripId)
+      try {
+        await WorkRuntimePorts.nativeGps.syncTrace(cancelledTripId, { entityType: 'TRIP' })
+      } catch (traceError) {
+        console.warn('Cancelled trip GPS sync deferred; native trace retained for recovery:', cancelledTripId, traceError)
+      }
+    }
+    if (traceRunning) WorkRuntimePorts.movementTrace.reset()
+    traceRunning = false
     await clearCommittedDraft(cancellationDraft)
     cancelOpen.value = false
     if (!fromNative) await WorkRuntimePorts.androidOverlay.cancelSaved().catch(() => {})
