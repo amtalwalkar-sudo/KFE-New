@@ -40,11 +40,12 @@ const startAt = '2026-10-13T10:00:00.000Z'
 const endAt = '2026-10-13T10:02:00.000Z'
 const completeTrace = [
   { latitude: 19.01, longitude: 72.85, accuracy: 8, capturedAt: '2026-10-13T10:00:05.000Z' },
-  { latitude: 19.02, longitude: 72.86, accuracy: 8, capturedAt: '2026-10-13T10:00:20.000Z' },
-  { latitude: 19.03, longitude: 72.87, accuracy: 8, capturedAt: '2026-10-13T10:00:25.000Z' }
+  { latitude: 19.02, longitude: 72.86, accuracy: 8, capturedAt: '2026-10-13T10:01:00.000Z' },
+  { latitude: 19.03, longitude: 72.87, accuracy: 8, capturedAt: '2026-10-13T10:01:55.000Z' }
 ]
 assert.equal(assessGpsTraceCompleteness(completeTrace, { startAt, endAt }).complete, true)
 const staleEndingTrace = completeTrace.map(point => ({ ...point }))
+staleEndingTrace[1].capturedAt = '2026-10-13T10:00:20.000Z'
 staleEndingTrace[2].capturedAt = '2026-10-13T10:00:25.000Z'
 const staleQuality = assessGpsTraceCompleteness(staleEndingTrace, { startAt, endAt })
 assert.equal(staleQuality.complete, false)
