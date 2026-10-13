@@ -69,6 +69,7 @@ jobs:
           tar -tf work/offline-maps.tar | sed -n "1,20p"
 
       - name: Smoke test local map matching and connecting roads
+        shell: bash
         run: |
           set -euo pipefail
           cat > work/trace-mumbai.json <<'JSON'
@@ -86,14 +87,51 @@ jobs:
           cat > work/route-mumbai-pune.json <<'JSON'
           {"locations":[{"lat":19.0760,"lon":72.8777,"type":"break"},{"lat":18.5204,"lon":73.8567,"type":"break"}],"costing":"auto","directions_options":{"units":"kilometers"}}
           JSON
-          for city in mumbai pune nashik alibag; do
-            docker run --rm --user "$(id -u):$(id -g)" --entrypoint /bin/bash -v "$PWD/work:/custom_files" ghcr.io/valhalla/valhalla-scripted:3.9.1 -lc "valhalla_service /custom_files/valhalla.json trace_route /custom_files/trace-$city.json > /custom_files/result-$city.json"
-            jq -e '.trip.summary.length > 0' "work/result-$city.json" >/dev/null
-            echo "trace_route smoke passed: $city"
+          cat > work/route-pune-nashik.json <<'JSON'
+          {"locations":[{"lat":18.5204,"lon":73.8567,"type":"break"},{"lat":19.9975,"lon":73.7898,"type":"break"}],"costing":"auto","directions_options":{"units":"kilometers"}}
+          JSON
+          cat > work/route-mumbai-alibag.json <<'JSON'
+          {"locations":[{"lat":19.0760,"lon":72.8777,"type":"break"},{"lat":18.6414,"lon":72.8722,"type":"break"}],"costing":"auto","directions_options":{"units":"kilometers"}}
+          JSON
+
+          # valhalla_service is an HTTP server, not a CLI request runner. Start it
+          # once, then exercise the same HTTP API used by the native adapter.
+          docker run --detach --rm --name kfe-valhalla-smoke -p 127.0.0.1:8002:8002 \
+            -v "$PWD/work:/custom_files" \
+            --entrypoint valhalla_service \
+            ghcr.io/valhalla/valhalla-scripted:3.9.1 /custom_files/valhalla.json 1
+          cleanup() { docker stop kfe-valhalla-smoke >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+
+          ready=false
+          for attempt in $(seq 1 60); do
+            if curl --silent --fail http://127.0.0.1:8002/status >/dev/null; then
+              ready=true
+              break
+            fi
+            sleep 2
           done
-          docker run --rm --user "$(id -u):$(id -g)" --entrypoint /bin/bash -v "$PWD/work:/custom_files" ghcr.io/valhalla/valhalla-scripted:3.9.1 -lc 'valhalla_service /custom_files/valhalla.json route /custom_files/route-mumbai-pune.json > /custom_files/result-mumbai-pune.json'
-          jq -e '.trip.summary.length > 0' work/result-mumbai-pune.json >/dev/null
-          echo "Mumbai–Pune connecting-road route smoke passed"
+          if [ "$ready" != true ]; then
+            docker logs kfe-valhalla-smoke || true
+            echo "Valhalla HTTP service failed to become ready" >&2
+            exit 1
+          fi
+
+          for city in mumbai pune nashik alibag; do
+            curl --silent --show-error --fail --get \
+              --data-urlencode "json@work/trace-$city.json" \
+              http://127.0.0.1:8002/trace_route > "work/result-$city.json"
+            jq -e '.trip.summary.length > 0' "work/result-$city.json" >/dev/null
+            echo "trace_route HTTP smoke passed: $city"
+          done
+
+          for route in mumbai-pune pune-nashik mumbai-alibag; do
+            curl --silent --show-error --fail --get \
+              --data-urlencode "json@work/route-$route.json" \
+              http://127.0.0.1:8002/route > "work/result-route-$route.json"
+            jq -e '.trip.summary.length > 0' "work/result-route-$route.json" >/dev/null
+            echo "intercity route HTTP smoke passed: $route"
+          done
 
       - name: Create checksummed regional manifest and attribution
         id: package
