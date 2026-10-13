@@ -42,7 +42,7 @@ export const extendRoadMatchWithLiveGpsTail = (cached, tracePoints = []) => {
   return {
     ...cached,
     distanceKm: Number(cached.distanceKm) + tailKm,
-    sourcePointCount: tracePoints.length,
+    sourcePointCount: filteredPoints.length,
     liveGpsTailKm: (Number(cached.liveGpsTailKm) || 0) + tailKm
   }
 }
@@ -50,18 +50,20 @@ export const extendRoadMatchWithLiveGpsTail = (cached, tracePoints = []) => {
 export const MovementReconciliationQueue = Object.freeze({
   async matchLiveTrace(entityType, entityId, tracePoints) {
     if (!entityId || !Array.isArray(tracePoints) || tracePoints.length < MIN_LIVE_MATCH_POINTS) return null
+    const filteredPoints = MovementAccountingService.filterGpsTrace(tracePoints)
+    if (filteredPoints.length < MIN_LIVE_MATCH_POINTS) return null
     const key = entityType + ':' + entityId
     const now = Date.now()
     // Never replay an older full-trace road distance over the newer live GPS estimate.
     // The next eligible call re-matches the complete current trace.
     if (now - (lastLiveMatchAt.get(key) || 0) < LIVE_MATCH_INTERVAL_MS) {
-      const extended = extendRoadMatchWithLiveGpsTail(lastLiveMatches.get(key), tracePoints)
+      const extended = extendRoadMatchWithLiveGpsTail(lastLiveMatches.get(key), filteredPoints)
       if (extended) lastLiveMatches.set(key, extended)
       return extended
     }
     lastLiveMatchAt.set(key, now)
     try {
-      const routed = await routeTrace(MovementAccountingService.filterGpsTrace(tracePoints), new ValhallaRoutingAdapter({ onlineFallback: online() }))
+      const routed = await routeTrace(filteredPoints, new ValhallaRoutingAdapter({ onlineFallback: online() }))
       if (!isRoadMatch(routed)) { lastLiveMatches.delete(key); return null }
       const matched = {
         distanceKm: Number(routed.distanceKm),
