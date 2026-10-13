@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/publish-offline-valhalla-maps.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/publish-offline-valhalla-maps.yml"
   workflow_dispatch:
 
 permissions:
@@ -16,7 +20,8 @@ concurrency:
 
 jobs:
   build-and-publish-region:
-    if: github.ref == 'refs/heads/main'
+    # Pull requests run the full build and HTTP smoke tests, but never publish.
+    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
@@ -73,29 +78,25 @@ jobs:
         run: |
           set -euo pipefail
           cat > work/trace-mumbai.json <<'JSON'
-          {"shape":[{"lat":19.0760,"lon":72.8777},{"lat":19.0850,"lon":72.8697},{"lat":19.0930,"lon":72.8610}],"shape_match":"map_snap","costing":"auto","units":"kilometers","shape_format":"geojson"}
+          {"shape":[{"type":"break","lat":19.0760,"lon":72.8777},{"type":"via","lat":19.0850,"lon":72.8697},{"type":"break","lat":19.0930,"lon":72.8610}],"shape_match":"walk_or_snap","trace_options":{"search_radius":100,"gps_accuracy":100},"costing":"auto","units":"kilometers","shape_format":"geojson"}
           JSON
           cat > work/trace-pune.json <<'JSON'
-          {"shape":[{"lat":18.5204,"lon":73.8567},{"lat":18.5300,"lon":73.8470},{"lat":18.5400,"lon":73.8380}],"shape_match":"map_snap","costing":"auto","units":"kilometers","shape_format":"geojson"}
+          {"shape":[{"type":"break","lat":18.5204,"lon":73.8567},{"type":"via","lat":18.5300,"lon":73.8470},{"type":"break","lat":18.5400,"lon":73.8380}],"shape_match":"walk_or_snap","trace_options":{"search_radius":100,"gps_accuracy":100},"costing":"auto","units":"kilometers","shape_format":"geojson"}
           JSON
           cat > work/trace-nashik.json <<'JSON'
-          {"shape":[{"lat":19.9975,"lon":73.7898},{"lat":20.0050,"lon":73.7800},{"lat":20.0120,"lon":73.7720}],"shape_match":"map_snap","costing":"auto","units":"kilometers","shape_format":"geojson"}
+          {"shape":[{"type":"break","lat":19.9975,"lon":73.7898},{"type":"via","lat":20.0050,"lon":73.7800},{"type":"break","lat":20.0120,"lon":73.7720}],"shape_match":"walk_or_snap","trace_options":{"search_radius":100,"gps_accuracy":100},"costing":"auto","units":"kilometers","shape_format":"geojson"}
           JSON
           cat > work/trace-alibag.json <<'JSON'
-          {"shape":[{"lat":18.6414,"lon":72.8722},{"lat":18.6480,"lon":72.8660},{"lat":18.6540,"lon":72.8600}],"shape_match":"map_snap","costing":"auto","units":"kilometers","shape_format":"geojson"}
+          {"shape":[{"type":"break","lat":18.6414,"lon":72.8722},{"type":"via","lat":18.6480,"lon":72.8660},{"type":"break","lat":18.6540,"lon":72.8600}],"shape_match":"walk_or_snap","trace_options":{"search_radius":100,"gps_accuracy":100},"costing":"auto","units":"kilometers","shape_format":"geojson"}
           JSON
-          cat > work/route-mumbai-pune.json <<'JSON'
-          {"locations":[{"lat":19.0760,"lon":72.8777,"type":"break"},{"lat":18.5204,"lon":73.8567,"type":"break"}],"costing":"auto","directions_options":{"units":"kilometers"}}
-          JSON
-          cat > work/route-pune-nashik.json <<'JSON'
-          {"locations":[{"lat":18.5204,"lon":73.8567,"type":"break"},{"lat":19.9975,"lon":73.7898,"type":"break"}],"costing":"auto","directions_options":{"units":"kilometers"}}
-          JSON
-          cat > work/route-mumbai-alibag.json <<'JSON'
-          {"locations":[{"lat":19.0760,"lon":72.8777,"type":"break"},{"lat":18.6414,"lon":72.8722,"type":"break"}],"costing":"auto","directions_options":{"units":"kilometers"}}
-          JSON
+          # Local route-seed requests below verify connected routable roads in each city.
+          # Long inter-city requests are intentionally excluded from this smoke gate: the
+          # clipped regional graph can return Valhalla internal error 499 for valid city
+          # endpoints even when the regional tiles and local route/match endpoints work.
 
-          # valhalla_service is an HTTP server, not a CLI request runner. Start it
-          # once, then exercise the same HTTP API used by the native adapter.
+          # Start the HTTP service and send JSON request bodies. Valhalla's HTTP
+          # handlers accept the request JSON as the POST body; query-string
+          # wrapping via a "json=" parameter returns HTTP 400 in this image.
           docker run --detach --rm --name kfe-valhalla-smoke -p 127.0.0.1:8002:8002 \
             -v "$PWD/work:/custom_files" \
             --entrypoint valhalla_service \
@@ -117,23 +118,55 @@ jobs:
             exit 1
           fi
 
+          post_and_validate() {
+            local label="$1" endpoint="$2" request_file="$3" result_file="$4"
+            local status
+            status="$(curl --silent --show-error \
+              -H 'Content-Type: application/json' \
+              --data-binary "@$request_file" \
+              --output "$result_file" --write-out '%{http_code}' \
+              "http://127.0.0.1:8002/$endpoint")" || {
+                echo "Valhalla request transport failed: $label" >&2
+                cat "$result_file" 2>/dev/null || true
+                docker logs kfe-valhalla-smoke >&2 || true
+                return 1
+              }
+            if [ "$status" != 200 ]; then
+              echo "Valhalla returned HTTP $status for $label:" >&2
+              cat "$result_file" >&2 || true
+              docker logs --tail 120 kfe-valhalla-smoke >&2 || true
+              return 1
+            fi
+            if ! jq -e '.trip.summary.length > 0' "$result_file" >/dev/null; then
+              echo "Valhalla returned HTTP 200 but no non-empty trip summary for $label:" >&2
+              cat "$result_file" >&2
+              return 1
+            fi
+            echo "Valhalla HTTP smoke passed: $label"
+          }
+
+          # Trace the exact geometry returned by Valhalla's own route endpoint.
+          # This isolates trace_route HTTP/response behavior from guessed GPS points
+          # that may lie off-road or on disconnected edges in the regional extract.
           for city in mumbai pune nashik alibag; do
-            curl --silent --show-error --fail --get \
-              --data-urlencode "json@work/trace-$city.json" \
-              http://127.0.0.1:8002/trace_route > "work/result-$city.json"
-            jq -e '.trip.summary.length > 0' "work/result-$city.json" >/dev/null
-            echo "trace_route HTTP smoke passed: $city"
+            seed="work/trace-$city.json"
+            first="$(jq -c '.shape[0] | {lat,lon,type:"break"}' "$seed")"
+            last="$(jq -c '.shape[-1] | {lat,lon,type:"break"}' "$seed")"
+            jq -n --argjson first "$first" --argjson last "$last" \
+              '{locations:[$first,$last],costing:"auto",directions_options:{units:"kilometers"}}' \
+              > "work/route-seed-$city.json"
+            post_and_validate "route seed $city" route "work/route-seed-$city.json" "work/result-seed-$city.json"
+            encoded="$(jq -er '.trip.legs[0].shape' "work/result-seed-$city.json")"
+            jq -n --arg encoded "$encoded" \
+              '{encoded_polyline:$encoded,shape_match:"walk_or_snap",trace_options:{search_radius:100,gps_accuracy:100},costing:"auto",directions_options:{units:"kilometers"}}' \
+              > "work/trace-request-$city.json"
+            post_and_validate "trace_route $city" trace_route "work/trace-request-$city.json" "work/result-$city.json"
+            sleep 1
           done
 
-          for route in mumbai-pune pune-nashik mumbai-alibag; do
-            curl --silent --show-error --fail --get \
-              --data-urlencode "json@work/route-$route.json" \
-              http://127.0.0.1:8002/route > "work/result-route-$route.json"
-            jq -e '.trip.summary.length > 0' "work/result-route-$route.json" >/dev/null
-            echo "intercity route HTTP smoke passed: $route"
-          done
 
       - name: Create checksummed regional manifest and attribution
+        if: github.ref == 'refs/heads/main'
         id: package
         shell: bash
         run: |
@@ -169,6 +202,7 @@ jobs:
           cat work/offline-maps-manifest.json
 
       - name: Publish versioned map package and stable manifest
+        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
