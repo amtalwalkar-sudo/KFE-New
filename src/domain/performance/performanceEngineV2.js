@@ -151,7 +151,7 @@ function deriveShiftMovementTotals(shifts, allTrips, totalVehicleKm) {
   let businessKm = 0, deadKm = 0, cancelledKm = 0, unclassifiedKm = 0
   let missingBusinessKm = false, overEstimate = false
   for (const shift of shifts) {
-    const trips = allTrips.filter(trip => trip.shiftId === shift.id)
+    const trips = allTrips.filter(trip => trip.shiftId === shift.id || (!trip.shiftId && shifts.length === 1))
     const reconciliation = shift.movementReconciliation
     const segments = Array.isArray(reconciliation?.segments) ? reconciliation.segments : null
     if (segments && ['RECONCILED', 'OVER_ESTIMATE'].includes(reconciliation.reconciliationStatus)) {
