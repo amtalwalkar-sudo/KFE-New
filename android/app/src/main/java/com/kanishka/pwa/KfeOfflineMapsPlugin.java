@@ -9,6 +9,8 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.valhalla.valhalla.Valhalla;
+import com.squareup.moshi.Moshi;
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory;
 import com.valhalla.valhalla.config.ValhallaConfigFactory;
 import com.valhalla.valhalla.config.ValhallaConfigManager;
 import com.valhalla.valhalla.files.ValhallaFile;
@@ -118,7 +120,7 @@ public class KfeOfflineMapsPlugin extends Plugin {
                 }
                 if (shape.length() < 2) throw new IllegalArgumentException("GPS trace has fewer than two valid points.");
                 JSONObject request = new JSONObject(); request.put("shape", shape); request.put("shape_match", "map_snap"); request.put("costing", "auto"); request.put("units", "kilometers"); request.put("shape_format", "geojson");
-                ValhallaConfigManager manager = new ValhallaConfigManager(getContext(), new ValhallaFile(getContext(), "valhalla-offline.json", mapDir()));
+                ValhallaConfigManager manager = new ValhallaConfigManager(getContext(), new ValhallaFile(getContext(), "valhalla-offline.json", mapDir()), new Moshi.Builder().add(new KotlinJsonAdapterFactory()).build());
                 try (Valhalla engine = new Valhalla(getContext(), ValhallaConfigFactory.INSTANCE.usingTileExtract(tiles.getAbsolutePath(), null), manager)) {
                     String raw = engine.traceRouteRaw(request.toString());
                     JSObject result = new JSObject(); result.put("raw", raw); result.put("provider", "valhalla-mobile"); result.put("regionId", REGION_ID);
