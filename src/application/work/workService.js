@@ -293,10 +293,31 @@ export const WorkService = Object.freeze({
       const trips = await ShiftTripRepository.getTripsForShift(active.shift.id)
       const corrections = new Map((data.trips || []).filter(item => item?.id).map(item => [item.id, item]))
       const movementTrips = trips.map(trip => corrections.has(trip.id) ? { ...trip, ...corrections.get(trip.id), tripKm: corrections.get(trip.id).tripKm === '' ? trip.tripKm : corrections.get(trip.id).tripKm } : trip)
+      let traceRecoveryError = null
+      try {
+        // Import any remaining native files for this shift/trips before reading the
+        // canonical snapshot set. This closes the cancel/end-shift race without making
+        // GPS failure prevent the authoritative shift close.
+        const owners = await WorkRuntimePorts.nativeGps.listTraceOwners()
+        const tripById = new Map(movementTrips.map(trip => [trip.id, trip]))
+        for (const ownerId of owners) {
+          const tripOwner = tripById.get(ownerId)
+          if (ownerId !== active.shift.id && !tripOwner) continue
+          const entityType = ownerId === active.shift.id ? 'SHIFT' : 'TRIP'
+          await WorkRuntimePorts.nativeGps.syncTrace(ownerId, {
+            entityType,
+            clearAfterImport: entityType === 'SHIFT' || tripOwner?.status !== 'ACTIVE'
+          })
+        }
+      } catch (error) {
+        traceRecoveryError = error
+        console.warn('Final shift GPS trace recovery incomplete; preserving source evidence:', error)
+      }
       const shiftGpsSnapshots = await LocationRepository.forEntity('SHIFT', active.shift.id)
       const tripGpsSnapshots = (await Promise.all(movementTrips.map(trip => LocationRepository.forEntity('TRIP', trip.id)))).flat()
       const gpsSnapshots = [...shiftGpsSnapshots, ...tripGpsSnapshots]
       try {
+        if (traceRecoveryError) throw new Error('GPS_TRACE_RECOVERY_FAILED: ' + (traceRecoveryError?.message || 'Unknown trace recovery error'))
         const reconciliation = await MovementAccountingService.reconcileShiftMovement({
           trips: movementTrips,
           startOdometer: active.shift.startOdometer,
