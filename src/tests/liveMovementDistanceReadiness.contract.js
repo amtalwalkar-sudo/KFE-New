@@ -5,17 +5,29 @@ import { getLiveMovementTracePlan, matchesLiveMovementSession } from '../applica
 import { isRoadMatch, extendRoadMatchWithLiveGpsTail } from '../application/work/movementReconciliationQueue.js'
 import { ValhallaRoutingAdapter } from '../infrastructure/location/valhallaRoutingAdapter.js'
 import { normalizeNullableGpsNumber } from '../repositories/locationRepository.js'
-import { MovementAccountingService, routeTrace } from '../domain/movement/movementAccounting.js'
+import { MovementAccountingService, routeTrace, isUsableDistanceKm } from '../domain/movement/movementAccounting.js'
 
 assert.equal(normalizeNullableGpsNumber(null), null, 'Missing GPS accuracy must remain unknown, not become a perfect 0 m fix.')
 assert.equal(normalizeNullableGpsNumber(''), null)
 assert.equal(normalizeNullableGpsNumber(0), 0)
 assert.equal(normalizeNullableGpsNumber('invalid'), null)
+assert.equal(isUsableDistanceKm(null), false, 'A missing route distance must not be coerced into a measured 0 km.')
+assert.equal(isUsableDistanceKm(''), false, 'An empty route distance must remain unavailable.')
+assert.equal(isUsableDistanceKm('invalid'), false)
+assert.equal(isUsableDistanceKm(0), true, 'A literal numeric zero is valid when supported by usable GPS points.')
+assert.equal(isUsableDistanceKm('0'), true)
+assert.equal(isUsableDistanceKm(2.4), true)
 const unknownSpeedTrace = MovementAccountingService.filterGpsTrace([
   { latitude: 19.00000, longitude: 72.00000, accuracy: 5, speed: null, capturedAt: '2026-10-01T08:00:00.000Z' },
   { latitude: 19.00018, longitude: 72.00000, accuracy: 5, speed: null, capturedAt: '2026-10-01T08:00:10.000Z' }
 ])
 assert.equal(unknownSpeedTrace.length, 2, 'Missing speed must not be interpreted as zero speed and discard genuine movement.')
+
+// Source-level regression: trip enrichment must reject null/empty distances and require at least two filtered points.
+const workServiceSource = fs.readFileSync(path.join(process.cwd(), 'src/application/work/workService.js'), 'utf8')
+assert.match(workServiceSource, /isUsableDistanceKm\(routed\.distanceKm\) && \(routed\.points\?\.length \|\| 0\) >= 2/)
+assert.match(workServiceSource, /usableGpsPoints\.length >= 2 && isUsableDistanceKm\(gpsKm\)/)
+assert.doesNotMatch(workServiceSource, /Number\.isFinite\(Number\(routed\.distanceKm\)\)/, 'Never use Number(null) to validate a route distance.')
 
 // Cross-layer regression: Work state, capture ownership, local persistence, and route matching must agree.
 const shift = getLiveMovementTracePlan({ shiftId: 'shift-1', trip: null })
