@@ -28,7 +28,7 @@ const toSummary = records => ({
   deadKm: records.some(record => record.deadKm == null || !Number.isFinite(Number(record.deadKm))) ? null : sum(records, record => record.deadKm),
   cancelledKm: records.some(record => record.cancelledKm == null || !Number.isFinite(Number(record.cancelledKm))) ? null : sum(records, record => record.cancelledKm),
   unclassifiedKm: records.some(record => record.unclassifiedKm == null || !Number.isFinite(Number(record.unclassifiedKm))) ? null : sum(records, record => record.unclassifiedKm),
-  movementReconciliationStatus: records.every(record => ['RECONCILED', 'OVER_ESTIMATE'].includes(record.movementReconciliationStatus)) ? 'RECONCILED' : 'REQUIRES_RECONCILIATION',
+  movementReconciliationStatus: records.length === 0 ? 'NO_SHIFTS' : records.some(record => record.movementReconciliationStatus === 'OVER_ESTIMATE') ? 'OVER_ESTIMATE' : records.every(record => record.movementReconciliationStatus === 'RECONCILED') ? 'RECONCILED' : 'REQUIRES_RECONCILIATION',
   fuelQuantityKg: sum(records, record => record.fuelQuantityKg),
   fuelCost: sum(records, record => record.fuelCost),
   toll: sum(records, record => record.toll),
