@@ -123,22 +123,41 @@ jobs:
             exit 1
           fi
 
-          for city in mumbai pune nashik alibag; do
-            curl --silent --show-error --fail \
+          post_and_validate() {
+            local label="$1" endpoint="$2" request_file="$3" result_file="$4"
+            local status
+            status="$(curl --silent --show-error \
               -H 'Content-Type: application/json' \
-              --data-binary "@work/trace-$city.json" \
-              http://127.0.0.1:8002/trace_route > "work/result-$city.json"
-            jq -e '.trip.summary.length > 0' "work/result-$city.json" >/dev/null
-            echo "trace_route HTTP smoke passed: $city"
+              --data-binary "@$request_file" \
+              --output "$result_file" --write-out '%{http_code}' \
+              "http://127.0.0.1:8002/$endpoint")" || {
+                echo "Valhalla request transport failed: $label" >&2
+                cat "$result_file" 2>/dev/null || true
+                docker logs kfe-valhalla-smoke >&2 || true
+                return 1
+              }
+            if [ "$status" != 200 ]; then
+              echo "Valhalla returned HTTP $status for $label:" >&2
+              cat "$result_file" >&2 || true
+              docker logs --tail 120 kfe-valhalla-smoke >&2 || true
+              return 1
+            fi
+            if ! jq -e '.trip.summary.length > 0' "$result_file" >/dev/null; then
+              echo "Valhalla returned HTTP 200 but no non-empty trip summary for $label:" >&2
+              cat "$result_file" >&2
+              return 1
+            fi
+            echo "Valhalla HTTP smoke passed: $label"
+          }
+
+          for city in mumbai pune nashik alibag; do
+            post_and_validate "trace_route $city" trace_route "work/trace-$city.json" "work/result-$city.json"
+            sleep 1
           done
 
           for route in mumbai-pune pune-nashik mumbai-alibag; do
-            curl --silent --show-error --fail \
-              -H 'Content-Type: application/json' \
-              --data-binary "@work/route-$route.json" \
-              http://127.0.0.1:8002/route > "work/result-route-$route.json"
-            jq -e '.trip.summary.length > 0' "work/result-route-$route.json" >/dev/null
-            echo "intercity route HTTP smoke passed: $route"
+            post_and_validate "route $route" route "work/route-$route.json" "work/result-route-$route.json"
+            sleep 1
           done
 
       - name: Create checksummed regional manifest and attribution
