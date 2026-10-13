@@ -123,6 +123,47 @@ export const ShiftTripRepository = {
       tx.onabort = () => reject(tx.error || new Error('Trip enrichment aborted.'))
     })
   },
+  async invalidateGpsTripMovement({ id, reason, traceQuality = {} } = {}) {
+    const db = await initializeCanonicalStorage()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['trips', 'pending_mutations', 'audit_history'], 'readwrite')
+      const trips = tx.objectStore('trips')
+      const mutations = tx.objectStore('pending_mutations')
+      const audit = tx.objectStore('audit_history')
+      const request = trips.get(id)
+      request.onsuccess = () => {
+        const record = request.result
+        if (!record || record.status !== 'COMPLETED' || !['GPS_LINE_TRACE', 'VALHALLA_ROAD_TRACE'].includes(record.tripKmAuthority)) {
+          try { tx.abort() } catch (_) {}
+          resolve(false)
+          return
+        }
+        const now = new Date().toISOString()
+        record.tripKm = null
+        record.tripKmAuthority = 'GPS_TRACE_INCOMPLETE'
+        record.tripKmProvenance = {
+          ...(record.tripKmProvenance || {}),
+          qualityStatus: 'INCOMPLETE',
+          qualityReason: reason || traceQuality.reason || 'GPS_TRACE_COVERAGE_UNVERIFIED',
+          gpsTracePoints: traceQuality.pointCount ?? record.tripKmProvenance?.gpsTracePoints ?? null,
+          maxObservedGapMs: traceQuality.maxObservedGapMs ?? null,
+          checkedAt: now
+        }
+        record.roadMatchedGeometry = null
+        record.traceGeometry = []
+        record.updatedAt = now
+        trips.put(record)
+        saveMutation(mutations, audit, record.id, 'TRIP', 'UPDATE', record, now)
+      }
+      request.onerror = () => reject(request.error || new Error('Trip GPS quality invalidation lookup failed.'))
+      tx.oncomplete = () => {
+        notifyCanonicalDataChanged({ stores: ['trips'], reason: 'trip:gps-trace-incomplete' })
+        resolve(true)
+      }
+      tx.onerror = () => reject(tx.error || new Error('Trip GPS quality invalidation failed.'))
+      tx.onabort = () => { if (tx.error) reject(tx.error); else resolve(false) }
+    })
+  },
   async updateTrip(data) {
     const db = await initializeCanonicalStorage(); return new Promise((resolve, reject) => {
       const tx = db.transaction(['trips', 'shifts', 'pending_mutations', 'audit_history'], 'readwrite'); const trips = tx.objectStore('trips'); const shifts = tx.objectStore('shifts'); const mutations = tx.objectStore('pending_mutations'); const audit = tx.objectStore('audit_history'); const request = trips.get(data.id)

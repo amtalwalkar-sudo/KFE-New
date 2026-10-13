@@ -32,7 +32,7 @@ assert.match(nativePlugin, /requestPermissionForAlias\("location", call, "locati
 assert.match(nativePlugin, /@PermissionCallback/)
 console.log('Native GPS permission contract passed: tracking requests runtime location permission before starting the foreground service.')
 
-assert.match(workService, /await WorkRuntimePorts\.nativeGps\.syncTrace\(tripId\)/)
+assert.match(workService, /await WorkRuntimePorts\.nativeGps\.stop\(tripId\)[\s\S]*?WorkRuntimePorts\.nativeGps\.syncTrace\(tripId, \{ clearAfterImport: true \}\)/)
 assert.match(workService, /await WorkRuntimePorts\.nativeGps\.stop\(tripId\)/)
 assert.match(workService, /void \(async \(\) => \{/)
 assert.match(workService, /const router = WorkRuntimePorts\.routing\.createRouter\(\)/)
@@ -41,7 +41,7 @@ assert.match(workService, /ShiftTripRepository\.enrichTripMovement\(\{/)
 assert.match(workService, /tripKmAuthority: routed\.roadMatchedGeometry \? 'VALHALLA_ROAD_TRACE' : 'GPS_LINE_TRACE'/)
 assert.match(workService, /method: 'HAVERSINE_TRACE_SUM'/)
 assert.match(workService, /Completion is already persisted\. Valhalla\/network\/GPS enrichment must/)
-console.log('END TRIP enrichment contract passed: commit/sync first, Valhalla enrichment is asynchronous, with GPS/Haversine fallback and no transition blocking.')
+console.log('END TRIP enrichment contract passed: acknowledged native stop precedes verified trace import; route enrichment remains asynchronous and does not block the transition.')
 
 const movementTrace = fs.readFileSync('src/infrastructure/location/movementTraceService.js', 'utf8')
 assert.match(movementTrace, /PASSENGER_RIDE: 20 \* 1000/)
@@ -58,7 +58,7 @@ console.log('Browser PWA ride trace contract passed: Start Trip records a 20-sec
 // and preview must consume the same SHIFT + TRIP GPS evidence as final reconciliation.
 assert.match(workService, /WorkRuntimePorts\.movementTrace\.getActiveSession\(\)/)
 assert.match(workService, /WorkRuntimePorts\.movementTrace\.stop\(\{ captureFinal: false \}\)/)
-assert.match(workService, /WorkRuntimePorts\.nativeGps\.syncTrace\(data\.id\)/)
+assert.match(workService, /WorkRuntimePorts\.nativeGps\.stop\(data\.id\)[\s\S]*?WorkRuntimePorts\.nativeGps\.syncTrace\(data\.id, \{ clearAfterImport: true \}\)/)
 assert.match(workService, /const shiftGpsSnapshots = await LocationRepository\.forEntity\('SHIFT', shiftId\)/)
 assert.match(workService, /const tripGpsSnapshots = \(await Promise\.all\(trips\.map\(trip => LocationRepository\.forEntity\('TRIP', trip\.id\)\)\)\)\.flat\(\)/)
 assert.match(workService, /const gpsSnapshots = \[\.\.\.shiftGpsSnapshots, \.\.\.tripGpsSnapshots\]/)

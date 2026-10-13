@@ -9,7 +9,7 @@ import { calculateFuelQuantity, validateFuelEntry } from '../../domain/work/fuel
 import { calculateRollingFuelCostPerKm } from '../../domain/math/fuel.js'
 import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } from '../../domain/work/trip.js'
 import { BackupService } from '../backup/backupService.js'
-import { MovementAccountingService, routeTrace } from '../../domain/movement/movementAccounting.js'
+import { MovementAccountingService, routeTrace, assessGpsTraceCompleteness } from '../../domain/movement/movementAccounting.js'
 import { WorkRuntimePorts } from './workRuntimePorts.js'
 import { calculateTraceDistanceKm } from '../../domain/movement/traceDistance.js'
 import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
@@ -68,6 +68,21 @@ export const WorkService = Object.freeze({
       } catch (error) {
         unresolvedOwners.push(ownerId)
         console.warn('KFE native GPS trace recovery deferred; source file retained:', ownerId, error)
+      }
+    }
+    // Revalidate previously stored GPS-derived trip distances after trace recovery.
+    // Old builds could store a tiny estimate from a short/stale trace as if it were
+    // complete. Never erase a manually entered authoritative distance.
+    for (const trip of trips.filter(item => item.status === 'COMPLETED' && ['GPS_LINE_TRACE', 'VALHALLA_ROAD_TRACE'].includes(item.tripKmAuthority))) {
+      try {
+        const snapshots = (await LocationRepository.forEntity('TRIP', trip.id)).filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')
+        const quality = assessGpsTraceCompleteness(snapshots, { startAt: trip.tripStartAt, endAt: trip.tripEndAt })
+        if (!quality.complete) {
+          const invalidated = await ShiftTripRepository.invalidateGpsTripMovement({ id: trip.id, reason: quality.reason, traceQuality: quality })
+          if (invalidated) recovered.push({ ownerId: trip.id, entityType: 'TRIP', imported: 0, qualityStatus: 'INCOMPLETE', reason: quality.reason })
+        }
+      } catch (error) {
+        console.warn('Unable to verify historical GPS-derived trip distance; preserving raw trace evidence:', trip.id, error)
       }
     }
     if (unresolvedOwners.length) throw new Error('Native GPS trace recovery incomplete; cloud backup is blocked to avoid omitting movement evidence. Unresolved owners: ' + unresolvedOwners.join(', '))
@@ -144,18 +159,32 @@ export const WorkService = Object.freeze({
           if (activeTrace?.entityType === 'TRIP' && activeTrace.entityId === tripId) {
             try { browserTracePoints = await WorkRuntimePorts.movementTrace.stop({ captureFinal: true }) } catch (_) {}
           }
-          const nativeSync = await WorkRuntimePorts.nativeGps.syncTrace(tripId)
-          if (Number(nativeSync?.imported) > 0 || browserTracePoints.length > 0) checkpoint()
+          // Stop is an acknowledged native lifecycle transition, not merely a queued Intent.
+          // Only read/import the final JSONL after callbacks have been detached.
           await WorkRuntimePorts.nativeGps.stop(tripId)
+          const nativeSync = await WorkRuntimePorts.nativeGps.syncTrace(tripId, { clearAfterImport: true })
+          if (Number(nativeSync?.imported) > 0 || browserTracePoints.length > 0) checkpoint()
           let snapshots = (await LocationRepository.forEntity('TRIP', tripId)).filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')
+          // Capture a fresh END location while the user is still in the foreground.
+          // The last persisted trace point may be stale by minutes/hours and must
+          // never be mistaken for the actual trip endpoint.
+          const endLocation = await captureLifecycleLocation({ entityType: 'TRIP', entityId: tripId, eventType: 'END' }).catch(() => null)
           const finalTracePoint = snapshots.at(-1) || browserTracePoints.at(-1)
-          if (finalTracePoint) {
-            await ShiftTripRepository.setTripEndLocation(tripId, finalTracePoint)
-          } else {
-            const endLocation = await captureLifecycleLocation({ entityType: 'TRIP', entityId: tripId, eventType: 'END' })
-            if (endLocation) await ShiftTripRepository.setTripEndLocation(tripId, endLocation)
+          if (endLocation) await ShiftTripRepository.setTripEndLocation(tripId, endLocation)
+          else if (finalTracePoint) await ShiftTripRepository.setTripEndLocation(tripId, finalTracePoint)
+
+          const active = await ShiftTripRepository.getActive()
+          const shiftTrips = active.shift?.id ? await ShiftTripRepository.getTripsForShift(active.shift.id) : []
+          const completedTrip = shiftTrips.find(item => item.id === tripId)
+          const traceQuality = assessGpsTraceCompleteness(snapshots, {
+            startAt: completedTrip?.tripStartAt,
+            endAt: completedTrip?.tripEndAt || data?.tripEndAt
+          })
+          if (!traceQuality.complete) {
+            await ShiftTripRepository.invalidateGpsTripMovement({ id: tripId, reason: traceQuality.reason, traceQuality })
+            console.warn('Trip GPS distance withheld because trace coverage is incomplete:', tripId, traceQuality)
+            return
           }
-          if (snapshots.length < 2) return
 
           const gpsKm = calculateTraceDistanceKm(snapshots)
           const router = WorkRuntimePorts.routing.createRouter()
@@ -217,7 +246,8 @@ export const WorkService = Object.freeze({
           if (activeTrace?.entityType === 'TRIP' && activeTrace.entityId === data.id) {
             await WorkRuntimePorts.movementTrace.stop({ captureFinal: false })
           }
-          const sync = await WorkRuntimePorts.nativeGps.syncTrace(data.id)
+          await WorkRuntimePorts.nativeGps.stop(data.id)
+          const sync = await WorkRuntimePorts.nativeGps.syncTrace(data.id, { clearAfterImport: true })
           if (Number(sync?.imported) > 0) checkpoint()
         } catch (error) {
           console.warn('Cancelled trip GPS sync deferred; native trace retained for recovery:', data.id, error)

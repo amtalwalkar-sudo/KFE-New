@@ -5,6 +5,27 @@ const JITTER_DISTANCE_KM = 0.03
 const STATIONARY_SPEED_KMH = 2
 const finite = value => Number.isFinite(Number(value))
 
+export const assessGpsTraceCompleteness = (points = [], { startAt, endAt, edgeToleranceMs = 90000, maxGapMs = 120000 } = {}) => {
+  const start = Date.parse(startAt || '')
+  const end = Date.parse(endAt || '')
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return { complete: false, reason: 'TRIP_TIME_RANGE_UNAVAILABLE', pointCount: 0, maxObservedGapMs: null }
+  const usable = orderedTrace(points).filter(point => point.accuracy == null || point.accuracy <= MAX_ACCURACY_METERS)
+  if (usable.length < 3) return { complete: false, reason: 'TOO_FEW_USABLE_GPS_POINTS', pointCount: usable.length, maxObservedGapMs: null }
+  const firstAt = Date.parse(usable[0].capturedAt || '')
+  const lastAt = Date.parse(usable[usable.length - 1].capturedAt || '')
+  if (!Number.isFinite(firstAt) || !Number.isFinite(lastAt)) return { complete: false, reason: 'GPS_TIMESTAMPS_UNAVAILABLE', pointCount: usable.length, maxObservedGapMs: null }
+  if (firstAt < start - edgeToleranceMs || firstAt > start + edgeToleranceMs) return { complete: false, reason: 'GPS_TRACE_START_GAP', pointCount: usable.length, maxObservedGapMs: null }
+  if (lastAt < end - edgeToleranceMs || lastAt > end + edgeToleranceMs) return { complete: false, reason: 'GPS_TRACE_END_GAP', pointCount: usable.length, maxObservedGapMs: null }
+  let maxObservedGapMs = 0
+  for (let i = 1; i < usable.length; i += 1) {
+    const gap = Date.parse(usable[i].capturedAt || '') - Date.parse(usable[i - 1].capturedAt || '')
+    if (!Number.isFinite(gap) || gap < 0) return { complete: false, reason: 'GPS_TRACE_TIME_ORDER_INVALID', pointCount: usable.length, maxObservedGapMs: null }
+    maxObservedGapMs = Math.max(maxObservedGapMs, gap)
+  }
+  if (maxObservedGapMs > maxGapMs) return { complete: false, reason: 'GPS_TRACE_INTERNAL_GAP', pointCount: usable.length, maxObservedGapMs }
+  return { complete: true, reason: 'GPS_TRACE_COVERAGE_ACCEPTABLE', pointCount: usable.length, maxObservedGapMs }
+}
+
 const normalizeLocation = location => {
   if (!location) return null
   const latitude = Number(location.latitude); const longitude = Number(location.longitude)
