@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.location.Location;
 import android.os.IBinder;
+import android.os.PowerManager;
 import android.os.Build;
 import android.util.Log;
 
@@ -50,6 +51,7 @@ public class KfeNativeGpsService extends Service {
   private File traceFile;
   private Location lastPassengerLocation;
   private double passengerDistanceMeters = 0d;
+  private PowerManager.WakeLock locationWakeLock;
   private final Set<String> seenKeys = new HashSet<>();
 
   public static void start(Context context, String tripId, String eventType, String entityType) {
@@ -144,6 +146,21 @@ public class KfeNativeGpsService extends Service {
     return START_STICKY;
   }
 
+  private void acquireLocationWakeLock() {
+    if (locationWakeLock != null && locationWakeLock.isHeld()) return;
+    PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
+    if (powerManager == null) return;
+    locationWakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, getPackageName() + ":KfeNativeGps");
+    locationWakeLock.setReferenceCounted(false);
+    locationWakeLock.acquire();
+  }
+
+  private void releaseLocationWakeLock() {
+    if (locationWakeLock == null) return;
+    try { if (locationWakeLock.isHeld()) locationWakeLock.release(); } catch (RuntimeException ignored) {}
+    locationWakeLock = null;
+  }
+
   private void startTracking(String id, String requestedEventType, String requestedEntityType) {
     if (id == null || id.isEmpty()) return;
     if (!hasLocationPermission()) return;
@@ -179,6 +196,7 @@ public class KfeNativeGpsService extends Service {
       }
     };
 
+    acquireLocationWakeLock();
     fused.requestLocationUpdates(request, callback, getMainLooper());
   }
 
@@ -277,6 +295,7 @@ public class KfeNativeGpsService extends Service {
 
   private void stopTracking() {
     releaseLocationUpdates();
+    releaseLocationWakeLock();
     tripId = null;
     eventType = "PASSENGER_RIDE_TRACE";
     traceFile = null;
@@ -388,6 +407,7 @@ public class KfeNativeGpsService extends Service {
     // Do not clear ACTIVE_TRIP here. START_STICKY may recreate this service after
     // an OS/process interruption, and the persisted trip id is required to resume.
     releaseLocationUpdates();
+    releaseLocationWakeLock();
     super.onDestroy();
   }
 
