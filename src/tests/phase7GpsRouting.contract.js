@@ -67,7 +67,7 @@ console.log('GPS lifecycle/provenance contract passed: cancellation stops active
 
 
 // Phase A: GPS fallback must use dedicated movement enrichment so GPS-derived KM never becomes MANUAL.
-assert.ok(workService.includes("if (Number.isFinite(Number(gpsKm)) && gpsKm >= 0) {"))
+assert.ok(workService.includes("if (usableGpsPoints.length >= 2 && isUsableDistanceKm(gpsKm)) {"))
 assert.ok(workService.includes("await ShiftTripRepository.enrichTripMovement({"))
 assert.equal(workService.includes("await ShiftTripRepository.updateTrip({\n              id: tripId,\n              tripKm: Number(gpsKm)"), false)
 console.log('Phase A GPS fallback authority contract passed: Haversine fallback remains GPS_LINE_TRACE, never MANUAL.')
