@@ -181,6 +181,7 @@ export const WorkService = Object.freeze({
             endAt: completedTrip?.tripEndAt || data?.tripEndAt
           })
           if (!traceQuality.complete) {
+            await ShiftTripRepository.invalidateGpsTripMovement({ id: tripId, reason: traceQuality.reason, traceQuality })
             console.warn('Trip GPS distance withheld because trace coverage is incomplete:', tripId, traceQuality)
             return
           }
