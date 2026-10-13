@@ -150,8 +150,22 @@ jobs:
             echo "Valhalla HTTP smoke passed: $label"
           }
 
+          # Trace the exact geometry returned by Valhalla's own route endpoint.
+          # This isolates trace_route HTTP/response behavior from guessed GPS points
+          # that may lie off-road or on disconnected edges in the regional extract.
           for city in mumbai pune nashik alibag; do
-            post_and_validate "trace_route $city" trace_route "work/trace-$city.json" "work/result-$city.json"
+            seed="work/trace-$city.json"
+            first="$(jq -c '.shape[0] | {lat,lon,type:"break"}' "$seed")"
+            last="$(jq -c '.shape[-1] | {lat,lon,type:"break"}' "$seed")"
+            jq -n --argjson first "$first" --argjson last "$last" \
+              '{locations:[$first,$last],costing:"auto",directions_options:{units:"kilometers"}}' \
+              > "work/route-seed-$city.json"
+            post_and_validate "route seed $city" route "work/route-seed-$city.json" "work/result-seed-$city.json"
+            encoded="$(jq -er '.trip.legs[0].shape' "work/result-seed-$city.json")"
+            jq -n --arg encoded "$encoded" \
+              '{encoded_polyline:$encoded,shape_match:"edge_walk",costing:"auto",directions_options:{units:"kilometers"}}' \
+              > "work/trace-request-$city.json"
+            post_and_validate "trace_route $city" trace_route "work/trace-request-$city.json" "work/result-$city.json"
             sleep 1
           done
 
