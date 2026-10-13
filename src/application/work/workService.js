@@ -253,27 +253,8 @@ export const WorkService = Object.freeze({
           console.warn('Cancelled trip GPS sync deferred; native trace retained for recovery:', data.id, error)
         } finally {
           try { await WorkRuntimePorts.nativeGps.stop(data.id) } catch (_) {}
-          // Cancellation ends the trip trace, not the shift's movement capture.
-          // Restore the shift owner after cleanup so dead KM between trips remains measured.
-          try {
-            const active = await ShiftTripRepository.getActive()
-            if (active.shift?.id && active.shift.status === 'ACTIVE' && !active.trip?.id) {
-              void WorkRuntimePorts.nativeGps.start(active.shift.id, 'DEAD_MOVEMENT_TRACE', 'SHIFT')
-                .then(nativeStarted => {
-                  if (!nativeStarted) {
-                    WorkRuntimePorts.movementTrace.start({
-                      entityType: 'SHIFT',
-                      entityId: active.shift.id,
-                      eventType: 'DEAD_MOVEMENT_TRACE',
-                      profile: 'DEAD_LEG'
-                    })
-                  }
-                })
-                .catch(error => console.warn('Shift GPS capture could not restart after cancellation:', error))
-            }
-          } catch (error) {
-            console.warn('Shift GPS capture could not resume after cancellation:', error)
-          }
+          // Returning to the online/waiting state intentionally leaves GPS capture off.
+          // The next explicit Going to Pickup action starts a fresh dead-movement trace.
         }
       })()
     }
