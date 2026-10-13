@@ -9,7 +9,7 @@ const isAndroid = async () => {
   } catch (_) { return false }
 }
 
-const dedupeKey = point => [point?.capturedAt, point?.latitude, point?.longitude].join('|')
+export const nativeGpsTraceDedupeKey = point => [point?.eventType || 'PASSENGER_RIDE_TRACE', point?.capturedAt, point?.latitude, point?.longitude].join('|')
 
 export const NativeGpsService = {
   async getPermissionStatus() {
@@ -67,7 +67,7 @@ export const NativeGpsService = {
     if (!points.length) return { imported: 0, points: [], persisted: true }
 
     const existing = await LocationRepository.forEntity(entityType, tripId)
-    const existingKeys = new Set(existing.map(dedupeKey))
+    const existingKeys = new Set(existing.map(nativeGpsTraceDedupeKey))
     let imported = 0
     let alreadyPresent = 0
     const ordered = [...points].sort((a, b) => new Date(a.capturedAt) - new Date(b.capturedAt))
@@ -81,18 +81,18 @@ export const NativeGpsService = {
         throw new Error('NATIVE_GPS_TRACE_CONTAINS_INVALID_POINT; raw evidence retained.')
       }
       const normalized = {
+        eventType: point?.eventType || 'PASSENGER_RIDE_TRACE',
         latitude, longitude,
         accuracy: point.accuracy == null || point.accuracy === '' ? null : Number(point.accuracy),
         speed: point.speed == null || point.speed === '' ? null : Number(point.speed),
         bearing: point.bearing == null || point.bearing === '' ? null : Number(point.bearing),
         capturedAt: new Date(capturedTime).toISOString()
       }
-      const key = dedupeKey(normalized)
+      const key = nativeGpsTraceDedupeKey(normalized)
       if (existingKeys.has(key)) { alreadyPresent += 1; continue }
       await LocationRepository.recordTracePoint({
         entityType,
         entityId: tripId,
-        eventType: point?.eventType || 'PASSENGER_RIDE_TRACE',
         ...normalized
       })
       existingKeys.add(key)
@@ -102,8 +102,9 @@ export const NativeGpsService = {
     // Verify all native evidence is represented by durable canonical records before
     // permitting deletion. If storage fails, this function throws and raw JSONL stays.
     const persisted = await LocationRepository.forEntity(entityType, tripId)
-    const persistedKeys = new Set(persisted.map(dedupeKey))
-    const missing = ordered.some(point => !persistedKeys.has(dedupeKey({
+    const persistedKeys = new Set(persisted.map(nativeGpsTraceDedupeKey))
+    const missing = ordered.some(point => !persistedKeys.has(nativeGpsTraceDedupeKey({
+      eventType: point?.eventType || 'PASSENGER_RIDE_TRACE',
       capturedAt: new Date(point.capturedAt).toISOString(),
       latitude: Number(point.latitude),
       longitude: Number(point.longitude)
