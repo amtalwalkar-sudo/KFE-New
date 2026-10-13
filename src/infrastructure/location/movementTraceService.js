@@ -1,4 +1,4 @@
-import { LocationRepository } from '../../repositories/locationRepository.js'
+import { LocationRepository, normalizeNullableGpsNumber } from '../../repositories/locationRepository.js'
 import { calculateTraceDistanceKm } from '../../domain/movement/traceDistance.js'
 export { calculateTraceDistanceKm } from '../../domain/movement/traceDistance.js'
 
@@ -20,9 +20,9 @@ const normalizePoint = position => {
   return {
     latitude,
     longitude,
-    accuracy: Number.isFinite(Number(coords?.accuracy)) ? Number(coords.accuracy) : null,
-    speed: Number.isFinite(Number(coords?.speed)) ? Number(coords.speed) : null,
-    bearing: Number.isFinite(Number(coords?.heading)) ? Number(coords.heading) : null,
+    accuracy: normalizeNullableGpsNumber(coords?.accuracy),
+    speed: normalizeNullableGpsNumber(coords?.speed),
+    bearing: normalizeNullableGpsNumber(coords?.heading),
     capturedAt: new Date(position?.timestamp || coords?.timestamp || Date.now()).toISOString()
   }
 }

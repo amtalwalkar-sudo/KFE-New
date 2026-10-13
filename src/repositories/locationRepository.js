@@ -3,9 +3,11 @@ import { generateUUID } from '../utils/uuid.js'
 import { writeMutationAndAudit } from './mutationRepository.js'
 import { notifyCanonicalDataChanged } from '../utils/indexedDB.js'
 
+export const normalizeNullableGpsNumber = value => value == null || value === '' ? null : Number.isFinite(Number(value)) ? Number(value) : null
+
 export const LocationRepository = {
   async record({ entityType, entityId, eventType, latitude, longitude, accuracy = null, capturedAt, placeName = null }) {
-    const db = await initializeCanonicalStorage(); const now = new Date().toISOString(); const record = { id: generateUUID(), entityType, entityId, eventType, latitude: Number(latitude), longitude: Number(longitude), accuracy: Number.isFinite(Number(accuracy)) ? Number(accuracy) : null, placeName: placeName || null, capturedAt: capturedAt || now, createdAt: now }
+    const db = await initializeCanonicalStorage(); const now = new Date().toISOString(); const record = { id: generateUUID(), entityType, entityId, eventType, latitude: Number(latitude), longitude: Number(longitude), accuracy: normalizeNullableGpsNumber(accuracy), placeName: placeName || null, capturedAt: capturedAt || now, createdAt: now }
     return new Promise((resolve, reject) => {
       const tx = db.transaction(['gps_snapshots', 'pending_mutations', 'audit_history'], 'readwrite')
       try { tx.objectStore('gps_snapshots').put(record); writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: record.id, entityType: 'GPS_SNAPSHOT', action: 'CREATE', payload: record, createdAt: now }) } catch (error) { try { tx.abort() } catch (_) {}; reject(error); return }
@@ -42,9 +44,9 @@ export const LocationRepository = {
     const record = {
       id: generateUUID(), entityType, entityId, eventType,
       latitude: Number(latitude), longitude: Number(longitude),
-      accuracy: Number.isFinite(Number(accuracy)) ? Number(accuracy) : null,
-      speed: Number.isFinite(Number(speed)) ? Number(speed) : null,
-      bearing: Number.isFinite(Number(bearing)) ? Number(bearing) : null,
+      accuracy: normalizeNullableGpsNumber(accuracy),
+      speed: normalizeNullableGpsNumber(speed),
+      bearing: normalizeNullableGpsNumber(bearing),
       placeName: null, capturedAt: capturedAt || now, createdAt: now
     }
     return new Promise((resolve, reject) => {

@@ -31,7 +31,7 @@ const normalizeLocation = location => {
   const latitude = Number(location.latitude); const longitude = Number(location.longitude)
   const accuracy = location.accuracy == null ? null : Number(location.accuracy)
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null
-  return { latitude, longitude, accuracy: Number.isFinite(accuracy) ? accuracy : null, speed: finite(location.speed) ? Number(location.speed) : null, bearing: finite(location.bearing) ? Number(location.bearing) : null, capturedAt: location.capturedAt || location.timestamp || null }
+  return { latitude, longitude, accuracy: Number.isFinite(accuracy) ? accuracy : null, speed: location.speed == null || location.speed === '' ? null : finite(location.speed) ? Number(location.speed) : null, bearing: location.bearing == null || location.bearing === '' ? null : finite(location.bearing) ? Number(location.bearing) : null, capturedAt: location.capturedAt || location.timestamp || null }
 }
 
 export const haversineDistanceKm = (from, to) => {
@@ -49,7 +49,7 @@ export const filterGpsTrace = points => {
     if (point.accuracy != null && point.accuracy > MAX_ACCURACY_METERS) continue
     const previous = filtered[filtered.length - 1]
     if (!previous) { filtered.push(point); continue }
-    const displacement = haversineDistanceKm(previous, point) || 0; const speed = Number(point.speed)
+    const displacement = haversineDistanceKm(previous, point) || 0; const speed = point.speed == null || point.speed === '' ? NaN : Number(point.speed)
     if (Number.isFinite(speed) && speed <= STATIONARY_SPEED_KMH && displacement <= JITTER_DISTANCE_KM) continue
     filtered.push(point)
   }
@@ -69,7 +69,7 @@ export const routeTrace = async (trace, router) => {
   if (points.length < 2) return { distanceKm: null, method: 'UNAVAILABLE', confidence: 'UNAVAILABLE', roadMatchedGeometry: null, traceGeometry: [], provenance: null, points }
   try {
     const routed = typeof router?.routeTrace === 'function' ? await router.routeTrace(points) : typeof router === 'function' ? await router(points[0], points[points.length - 1], points) : null
-    if (routed && finite(routed.distanceKm) && Number(routed.distanceKm) >= 0 && routed.geometry?.type === 'LineString' && Array.isArray(routed.geometry.coordinates) && routed.geometry.coordinates.length >= 2) return { distanceKm: Number(routed.distanceKm), method: routed.method || 'ROUTED_TRACE', confidence: routed.confidence || 'ESTIMATED_ROAD_TRACE', roadMatchedGeometry: routed.provenance?.provider === 'valhalla' || String(routed.method || '').includes('MAP_MATCH') ? (routed.geometry || null) : null, traceGeometry: Array.isArray(routed.geometry) ? routed.geometry : [], provenance: routed.provenance || { provider: routed.provider || 'UNKNOWN', method: routed.method || 'ROUTED_TRACE' }, points }
+    if (routed && routed.distanceKm != null && routed.distanceKm !== '' && finite(routed.distanceKm) && Number(routed.distanceKm) >= 0 && routed.geometry?.type === 'LineString' && Array.isArray(routed.geometry.coordinates) && routed.geometry.coordinates.length >= 2) return { distanceKm: Number(routed.distanceKm), method: routed.method || 'ROUTED_TRACE', confidence: routed.confidence || 'ESTIMATED_ROAD_TRACE', roadMatchedGeometry: routed.provenance?.provider === 'valhalla' || String(routed.method || '').includes('MAP_MATCH') ? (routed.geometry || null) : null, traceGeometry: Array.isArray(routed.geometry) ? routed.geometry : [], provenance: routed.provenance || { provider: routed.provider || 'UNKNOWN', method: routed.method || 'ROUTED_TRACE' }, points }
   } catch (error) { console.warn('Routing engine unavailable; falling back to filtered GPS trace.', error) }
   let distanceKm = 0
   for (let i = 1; i < points.length; i += 1) distanceKm += haversineDistanceKm(points[i - 1], points[i]) || 0
