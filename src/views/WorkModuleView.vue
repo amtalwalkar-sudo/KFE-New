@@ -933,6 +933,14 @@ function reviewDone() {
   endStage.value = 'CONFIRM'
 }
 
+const largeDistanceConfirmation = ref('')
+const largeDistanceKm = computed(() => {
+  const start = Number(store.shift?.startOdometer)
+  const end = Number(closingOdo.value)
+  return closingOdo.value !== '' && Number.isFinite(start) && Number.isFinite(end) && end >= start ? end - start : 0
+})
+const largeDistanceIdentity = computed(() => `${store.shift?.id || ''}:${closingOdo.value}:${largeDistanceKm.value}`)
+
 async function finishEnd() {
   if (endBusy.value || !endReady.value) return
   endBusy.value = true
@@ -967,6 +975,7 @@ async function finishEnd() {
       parkingTreatment: parkingTreatment.value,
       tollParkingCaptureMode: 'ADDITIONAL_ONLY',
       tollParkingRevenueTreatment: tollTreatment.value,
+      confirmLargeDistance: largeDistanceKm.value > 500 && largeDistanceConfirmation.value === largeDistanceIdentity.value,
       trips
     })
     if (!result?.ok) {
@@ -1247,6 +1256,9 @@ onBeforeUnmount(() => {
       :end-reviewed-dead-km="reviewedDeadKm"
       :end-ready="endReady"
       :end-busy="endBusy"
+      :end-large-distance-km="largeDistanceKm"
+      :large-distance-confirmed-for="largeDistanceConfirmation"
+      :large-distance-identity="largeDistanceIdentity"
       :money="money"
       :start-odo="String(store.startOdometer ?? '')"
       :closing-odo="closingOdo"
@@ -1267,6 +1279,7 @@ onBeforeUnmount(() => {
       @update:review-operator="reviewOperator=$event"
       @update:toll-treatment="tollTreatment=$event"
       @update:parking-treatment="parkingTreatment=$event"
+      @update:large-distance-confirmed-for="largeDistanceConfirmation=$event"
       @update:toll="toll=$event"
       @update:parking="parking=$event"
       @action="handleContextAction"
