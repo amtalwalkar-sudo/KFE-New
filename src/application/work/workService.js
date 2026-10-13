@@ -40,7 +40,7 @@ export const WorkService = Object.freeze({
     return calculateRollingFuelCostPerKm(await FuelRepository.getAll())
   },
   async getLocations(entityType, entityId) { return LocationRepository.forEntity(entityType, entityId) },
-  recoverNativeGpsTraces() {
+  async recoverNativeGpsTraces() {
     // Startup, Work resume and cloud backup can request recovery at the same time.
     // Share one import transaction to avoid duplicate GPS evidence being inserted.
     if (nativeGpsRecoveryAttempt) return nativeGpsRecoveryAttempt

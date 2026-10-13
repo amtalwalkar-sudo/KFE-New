@@ -37,7 +37,7 @@ assert.ok(operational.includes(": invalidTripKm ? NaN : completed.reduce((sum, t
 assert.ok(operational.includes('const reconciliation = shift.movementReconciliation'))
 assert.ok(operational.includes("? segmentTotal('DEAD')"))
 assert.ok(operational.includes("movementReconciliationStatus: reconciliation?.reconciliationStatus || 'LEGACY_UNRECONCILED'"))
-assert.ok(operational.includes('the remaining odometer distance is not automatically proven to be dead KM'))
+assert.ok(operational.includes('remaining odometer distance is not automatically proven to be dead KM'))
 
 console.log('KFE Timeline contract tests: PASS')
 
