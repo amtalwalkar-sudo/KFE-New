@@ -8,15 +8,17 @@ The Android app uses one standard offline region: Mumbai, Pune, Nashik and Aliba
 
 - Native Valhalla engine: `io.github.rallista:valhalla-mobile:0.6.3`, with `trace_route` map matching.
 - Regional tile archive and small install metadata live under the app-private `files/offline-maps/` directory.
-- Downloads are staged separately, checked against the manifest byte count and SHA-256, and only then activated. The previous tile archive and metadata are retained for rollback until the new pair is committed.
+- Downloads are staged separately, checked against the manifest byte count and SHA-256, and only then activated. The previous tile archive and metadata are retained for rollback until the new pair is committed; startup recovery restores the previous pair if a process dies mid-update. Status exposes latest version, download size, safe-update free-space requirement, and available storage.
 - Matching runs on a dedicated worker. The JavaScript router gives it a 1.2-second foreground wait budget; a slow/failed match falls back to the online adapter. Raw GPS points remain the evidence source and are not deleted by map operations.
 - The canonical backup allowlist remains explicit. GPS evidence and trips stay backed up; map files, tile indexes and map metadata are not business backup stores.
 
 ## Required release asset
 
-The Android downloader reads this release asset:
+The Android downloader reads this stable release asset (not GitHub's moving `latest` alias):
 
-`https://github.com/amtalwalkar-sudo/KFE-New/releases/latest/download/offline-maps-manifest.json`
+`https://github.com/amtalwalkar-sudo/KFE-New/releases/download/offline-maps/offline-maps-manifest.json`
+
+`.github/workflows/publish-offline-valhalla-maps.yml` builds the regional tile extract from Geofabrik's Western Zone OSM extract using Valhalla 3.9.0 (matching `valhalla-mobile` 0.6.3), smoke-tests local `trace_route` in each city plus a Mumbai–Pune route, then publishes the versioned TAR, SHA-256 manifest and OSM attribution to the fixed `offline-maps` release.
 
 The manifest must be JSON with these fields:
 
@@ -32,9 +34,9 @@ The archive must be built from OSM road data using a compatible Valhalla tile bu
 
 ## Release readiness limitation
 
-The native engine bridge, app-private downloader, checksum/size validation, staged update/rollback, bounded matching path and Admin controls are implemented in the feature branch. **The actual regional tile archive and its release manifest are not yet published.** Until that release asset exists, the Admin download action will report that the map manifest is unavailable; this branch must not be represented as having a downloadable map package or as ready for real offline-routing field tests. Publish and verify the tile archive/manifest before shipping an APK for map testing.
+The native engine bridge, app-private downloader, checksum/size validation, staged update/rollback, bounded matching path, storage/version UI and map-publishing workflow are implemented in the feature branch. **The actual regional tile archive and its release manifest are not yet published.** The workflow is designed to generate and publish them after the feature is merged to `main`; until the release asset exists and its build/smoke checks pass, the Admin download action will report that the map manifest is unavailable. This must not be represented as working offline routing yet.
 
-## Acceptance checks before merge/release
+## Acceptance checks before field use/release
 
 1. CI compiles the Android dependency and plugin and runs the offline map + backup boundary contracts.
 2. Publish a region package and manifest; verify size and SHA-256 from a clean device.
