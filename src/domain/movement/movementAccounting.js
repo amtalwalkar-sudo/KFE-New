@@ -31,7 +31,7 @@ const normalizeLocation = location => {
   const latitude = Number(location.latitude); const longitude = Number(location.longitude)
   const accuracy = location.accuracy == null ? null : Number(location.accuracy)
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null
-  return { latitude, longitude, accuracy: Number.isFinite(accuracy) ? accuracy : null, speed: finite(location.speed) ? Number(location.speed) : null, bearing: finite(location.bearing) ? Number(location.bearing) : null, capturedAt: location.capturedAt || location.timestamp || null }
+  return { latitude, longitude, accuracy: Number.isFinite(accuracy) ? accuracy : null, speed: location.speed == null || location.speed === '' ? null : finite(location.speed) ? Number(location.speed) : null, bearing: location.bearing == null || location.bearing === '' ? null : finite(location.bearing) ? Number(location.bearing) : null, capturedAt: location.capturedAt || location.timestamp || null }
 }
 
 export const haversineDistanceKm = (from, to) => {
@@ -49,7 +49,7 @@ export const filterGpsTrace = points => {
     if (point.accuracy != null && point.accuracy > MAX_ACCURACY_METERS) continue
     const previous = filtered[filtered.length - 1]
     if (!previous) { filtered.push(point); continue }
-    const displacement = haversineDistanceKm(previous, point) || 0; const speed = Number(point.speed)
+    const displacement = haversineDistanceKm(previous, point) || 0; const speed = point.speed == null || point.speed === '' ? NaN : Number(point.speed)
     if (Number.isFinite(speed) && speed <= STATIONARY_SPEED_KMH && displacement <= JITTER_DISTANCE_KM) continue
     filtered.push(point)
   }
