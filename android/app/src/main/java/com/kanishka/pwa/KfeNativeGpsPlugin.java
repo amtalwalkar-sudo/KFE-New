@@ -98,17 +98,15 @@ public class KfeNativeGpsPlugin extends Plugin {
     Handler handler = new Handler(Looper.getMainLooper());
     Runnable check = new Runnable() {
       @Override public void run() {
-        if (!call.getCallbackId().isEmpty()) {
-          boolean matches = expectActive
-            ? KfeNativeGpsService.isPersistedTracking(getContext(), tripId, eventType, entityType)
-            : !tripId.equals(KfeNativeGpsService.persistedActiveTripId(getContext()));
-          if (matches) { call.resolve(); return; }
-          if (System.currentTimeMillis() >= deadline) {
-            call.reject(expectActive ? "NATIVE_GPS_START_NOT_CONFIRMED" : "NATIVE_GPS_STOP_NOT_CONFIRMED");
-            return;
-          }
-          handler.postDelayed(this, 100L);
+        boolean matches = expectActive
+          ? KfeNativeGpsService.isPersistedTracking(getContext(), tripId, eventType, entityType)
+          : !tripId.equals(KfeNativeGpsService.persistedActiveTripId(getContext()));
+        if (matches) { call.resolve(); return; }
+        if (System.currentTimeMillis() >= deadline) {
+          call.reject(expectActive ? "NATIVE_GPS_START_NOT_CONFIRMED" : "NATIVE_GPS_STOP_NOT_CONFIRMED");
+          return;
         }
+        handler.postDelayed(this, 100L);
       }
     };
     handler.post(check);
