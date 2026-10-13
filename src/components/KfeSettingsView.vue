@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from 'vue'
+import BackupRestorePanel from './admin/BackupRestorePanel.vue'
 
 const props=defineProps({application:{type:Object,required:true}})
 const busy=ref(false),message=ref(''),error=ref(''),fileInput=ref(null)
@@ -11,7 +12,7 @@ async function resetData(){if(!confirm('RESET ALL KFE BUSINESS DATA? Saved confi
 <template>
 <section class="kfe-settings-page" aria-labelledby="settings-title"><header class="kfe-page-head"><span class="kfe-eyebrow">ADMIN SETTINGS</span><h1 id="settings-title">Settings</h1><p>Manage backups and reset business activity. Saved configuration defaults remain separate from resettable records.</p></header>
 <div v-if="error" class="kfe-alert is-error" role="alert">{{error}}</div><div v-if="message" class="kfe-alert is-ok" role="status">✓ {{message}}</div>
-<section class="kfe-settings-card" aria-labelledby="backup-title"><span class="kfe-card-kicker">BACKUP</span><h2 id="backup-title">Backup & restore</h2><p>Export the complete local KFE dataset to a portable backup, or restore a backup onto this device.</p><div class="kfe-settings-actions"><button class="kfe-action-primary" :disabled="busy" @click="backup">Export backup</button><button class="kfe-action-secondary" :disabled="busy" @click="requestFile">Restore backup</button><input ref="fileInput" hidden type="file" accept="application/json,.json" @change="restore"></div></section>
+<section class="kfe-settings-card" aria-labelledby="backup-title"><span class="kfe-card-kicker">BACKUP</span><h2 id="backup-title">Backup &amp; restore</h2><p>Manage local recovery copies, portable exports, and the Dropbox connection for cloud backups.</p><BackupRestorePanel /></section>
 <section class="kfe-settings-card danger" aria-labelledby="reset-title"><span class="kfe-card-kicker">BUSINESS DATA</span><h2 id="reset-title">Reset business data</h2><p>Erase trips, shifts, fuel logs, payments, and other operational records. Saved settings and defaults are retained.</p><button class="kfe-action-danger" :disabled="busy" @click="resetData">Reset business data</button></section>
 </section>
 </template>
