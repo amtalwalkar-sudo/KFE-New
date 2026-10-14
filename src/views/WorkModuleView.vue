@@ -461,7 +461,10 @@ async function syncOverlay() {
     tripStartAt: state.tripStartAt,
     overlayAction: state.pendingFareId && (!store.trip?.id || store.trip.status !== 'ACTIVE') ? 'ENTER_FARE' : state.action,
     overlayTripId: state.pendingFareId && (!store.trip?.id || store.trip.status !== 'ACTIVE') ? state.pendingFareId : state.tripId,
-    pendingFareId: state.pendingFareId
+    pendingFareId: state.pendingFareId,
+    cancelOpen: cancelOpen.value,
+    cancelDraft: { cancelReason: cancelReason.value, cancelFare: cancelFare.value },
+    fareDraft: { fare: fare.value, tripToll: tripToll.value, tripParking: tripParking.value, tripTollTreatment: tripTollTreatment.value, tripParkingTreatment: tripParkingTreatment.value }
   }).catch(() => {})
 }
 
@@ -1132,6 +1135,7 @@ async function processNativeEvent(event) {
 onMounted(async () => {
   void refreshBackgroundLocationPermission()
   document.addEventListener('visibilitychange', refreshGpsPermissionOnResume)
+  document.addEventListener('visibilitychange', syncOverlay)
   await store.initialize()
   await fuel.refresh().catch(() => {})
   await WorkService.recoverNativeGpsTraces().catch(error => console.warn('KFE native GPS trace recovery deferred:', error))
@@ -1230,10 +1234,12 @@ onMounted(async () => {
 
 watch(() => store.isOnline, () => { void syncOverlay() })
 watch(() => store.trip?.tripStage, () => { void syncOverlay() })
+watch(cancelOpen, () => { void syncOverlay() })
 
 
 onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', refreshGpsPermissionOnResume)
+  document.removeEventListener('visibilitychange', syncOverlay)
   document.removeEventListener('visibilitychange', refreshClock)
   window.removeEventListener('pageshow', refreshClock)
   window.removeEventListener('focus', refreshClock)
