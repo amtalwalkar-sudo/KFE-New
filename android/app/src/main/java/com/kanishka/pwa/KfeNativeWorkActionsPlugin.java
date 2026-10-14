@@ -3,7 +3,6 @@ package com.kanishka.pwa;
 import android.app.NotificationManager;
 import android.content.Context;
 
-import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -22,7 +21,12 @@ public class KfeNativeWorkActionsPlugin extends Plugin {
     // Remove the legacy ride notification from installations upgrading from
     // versions that exposed ride management in Android notifications.
     NotificationManager manager = (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
-    if (manager != null) manager.cancel(LEGACY_RIDE_NOTIFICATION_ID);
+    if (manager != null) {
+      manager.cancel(LEGACY_RIDE_NOTIFICATION_ID);
+      if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+        manager.deleteNotificationChannel("kfe_ride_actions");
+      }
+    }
   }
 
   @Override
