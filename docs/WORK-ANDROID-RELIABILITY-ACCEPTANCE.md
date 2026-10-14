@@ -61,6 +61,20 @@ This runbook is the required physical-device acceptance test for the KFE Work wo
 - Verify the active/pending trip state is restored safely, form drafts are not accidentally replayed, and subsequent writes succeed.
 - Expected: all canonical allowlisted records match; excluded native trace files and form drafts are not assumed to be present in Dropbox. If a required movement trace has not been imported into canonical gps_snapshots, the restore test fails.
 
+## Test G — native overlay and persistent Work notification
+
+- Start a test shift and wait for the startup permission gate to finish. Confirm missing permissions/settings are handled one at a time and KFE rechecks each after returning.
+- Put KFE in the background. Confirm the native overlay appears and the ongoing KFE Work notification remains in the notification shade.
+- Verify the notification title/body follows the current workflow: GOING TO PICKUP, PICKUP IN PROGRESS / START TRIP, TRIP ACTIVE / END TRIP, and TRIP COMPLETED / FARE REQUIRED. Tap the notification and verify it returns to KFE.
+- Verify the GPS indicator reflects the native collector's persisted ready state. During `DEAD_MOVEMENT_TRACE`, confirm the overlay and notification show accumulated dead KM; after process death/recovery, confirm the displayed distance is reconstructed from the persisted trace and does not reset. Before any valid distance is available, show an unavailable marker rather than inventing a value.
+- Minimize and drag the floating overlay, then restore it. Confirm it can be moved independently and the persistent notification remains available.
+- Perform GO TO PICKUP, START TRIP and END TRIP using the native swipe. Confirm each action is emitted once, the visible stage does not advance before durable acknowledgement, and reopening KFE recovers any unacknowledged event.
+- End a trip and leave fare entry pending. Confirm the notification continues to say fare is required until the fare is durably saved; swiping alone must never save fare.
+- Disable Android notification permission/channel in Settings on a test installation, reopen KFE, and verify the startup gate identifies the missing setting and does not claim notification delivery succeeded. Re-enable it and confirm recovery.
+- Repeat with KFE foregrounded, backgrounded, screen off, after process death, and after normal reboot. Record any OEM battery/autostart limitations separately.
+
+Expected: one canonical Work state drives both surfaces. The overlay is the foreground interaction surface; the ongoing Android notification is the background status/re-entry surface. No notification or overlay action may create a duplicate trip, silently save form data, or block a trip transition while waiting for GPS.
+
 ## Result recording
 
 For each test mark PASS/FAIL/NOT RUN and attach:

@@ -20,6 +20,7 @@ const activeOverlayState = async () => {
   let target = '—'
   let targetProgress = 0
   let liveKm = '0.0 km'
+  let deadKm = '—'
   let revenue = '₹0'
   let trips = []
 
@@ -53,6 +54,13 @@ const activeOverlayState = async () => {
     } catch (_) {}
   }
 
+  if (active.trip?.id) {
+    try {
+      const distance = await WorkService.getTripDeadMovementDistanceKm(active.trip.id)
+      if (distance !== null && distance !== undefined && Number.isFinite(Number(distance))) deadKm = `${Number(distance).toFixed(1)} km`
+    } catch (_) {}
+  }
+
   const pendingFareId = trips
     .filter(item => item?.status === 'COMPLETED' && item?.fareDetailsSkipped !== true &&
       (item?.revenue === null || item?.revenue === undefined || item?.revenue === ''))
@@ -76,10 +84,13 @@ const activeOverlayState = async () => {
     targetProgress: state.targetProgress,
     rides: String(trips.length),
     liveKm: state.liveKm,
+    deadKm,
     revenue: state.revenue,
     tripStartAt: state.tripStartAt,
-    overlayAction: state.action,
-    overlayTripId: state.tripId,
+    // A completed trip awaiting fare takes precedence over the idle
+    // GO_TO_PICKUP action, exactly as it does in the foreground Work view.
+    overlayAction: state.pendingFareId && (!active.trip?.id || active.trip.status !== 'ACTIVE') ? 'ENTER_FARE' : state.action,
+    overlayTripId: state.pendingFareId && (!active.trip?.id || active.trip.status !== 'ACTIVE') ? state.pendingFareId : state.tripId,
     pendingFareId: state.pendingFareId,
     cancellationRevenue: '₹0',
     theme: document.documentElement?.dataset?.kfeTheme || 'light'

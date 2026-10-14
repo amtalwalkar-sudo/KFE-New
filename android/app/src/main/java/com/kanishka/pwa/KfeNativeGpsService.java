@@ -245,10 +245,12 @@ public class KfeNativeGpsService extends Service {
         output.getFD().sync();
       }
       seenKeys.add(key);
-      if ("PASSENGER_RIDE_TRACE".equals(eventType)) {
+      if ("PASSENGER_RIDE_TRACE".equals(eventType) || "DEAD_MOVEMENT_TRACE".equals(eventType)) {
         if (lastPassengerLocation != null) passengerDistanceMeters += lastPassengerLocation.distanceTo(location);
         lastPassengerLocation = new Location(location);
-        KfeOverlayService.updateLiveKm(String.format(java.util.Locale.US, "%.1f km", passengerDistanceMeters / 1000d));
+        String distance = String.format(java.util.Locale.US, "%.1f km", passengerDistanceMeters / 1000d);
+        if ("DEAD_MOVEMENT_TRACE".equals(eventType)) KfeOverlayService.updateDeadKm(distance);
+        else KfeOverlayService.updateLiveKm(distance);
       }
     } catch (Exception error) {
       // Do not mark the point as seen when persistence fails. The next location
@@ -268,12 +270,14 @@ public class KfeNativeGpsService extends Service {
         try {
           JSONObject point = new JSONObject(line);
           seenKeys.add(point.optString("eventType", "PASSENGER_RIDE_TRACE") + "|" + point.optLong("capturedAtEpoch", -1) + "|" + point.optDouble("latitude") + "|" + point.optDouble("longitude"));
-          if ("PASSENGER_RIDE_TRACE".equals(point.optString("eventType", ""))) {
-            Location passengerPoint = new Location("KFE");
-            passengerPoint.setLatitude(point.optDouble("latitude"));
-            passengerPoint.setLongitude(point.optDouble("longitude"));
-            if (lastPassengerLocation != null) passengerDistanceMeters += lastPassengerLocation.distanceTo(passengerPoint);
-            lastPassengerLocation = passengerPoint;
+          // Rebuild the live distance from durable trace points for the active
+          // event type so service/process recovery does not reset the displayed KM.
+          if (eventType.equals(point.optString("eventType", ""))) {
+            Location distancePoint = new Location("KFE");
+            distancePoint.setLatitude(point.optDouble("latitude"));
+            distancePoint.setLongitude(point.optDouble("longitude"));
+            if (lastPassengerLocation != null) passengerDistanceMeters += lastPassengerLocation.distanceTo(distancePoint);
+            lastPassengerLocation = distancePoint;
           }
         } catch (Exception ignored) {}
       }
@@ -285,6 +289,12 @@ public class KfeNativeGpsService extends Service {
       try { fused.removeLocationUpdates(callback); } catch (Exception ignored) {}
     }
     callback = null;
+  }
+
+  static boolean isAnyPersistedTracking(Context context) {
+    android.content.SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    String activeId = prefs.getString(ACTIVE_TRIP, "");
+    return activeId != null && !activeId.trim().isEmpty() && prefs.getBoolean(ACTIVE_READY, false);
   }
 
   static String persistedActiveTripId(Context context) {

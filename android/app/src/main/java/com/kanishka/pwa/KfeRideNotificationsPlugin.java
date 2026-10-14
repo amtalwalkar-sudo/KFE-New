@@ -5,19 +5,25 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.RemoteInput;
+import androidx.core.app.NotificationManagerCompat;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 
-@CapacitorPlugin(name = "KfeRideNotifications")
+@CapacitorPlugin(name = "KfeRideNotifications", permissions = {
+  @Permission(alias = "notifications", strings = { Manifest.permission.POST_NOTIFICATIONS })
+})
 public class KfeRideNotificationsPlugin extends Plugin {
   static KfeRideNotificationsPlugin instance;
   static final String CHANNEL_ID = "kfe_ride_actions";
@@ -39,16 +45,49 @@ public class KfeRideNotificationsPlugin extends Plugin {
 
   @com.getcapacitor.PluginMethod
   public void requestPermission(PluginCall call) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && getContext().checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-      getActivity().requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 4102);
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+        getContext().checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+      call.resolve(notificationStatus());
+      return;
     }
-    call.resolve();
+    // Keep the Capacitor call open until Android returns the actual permission result.
+    requestPermissionForAlias("notifications", call, "notificationPermissionCallback");
+  }
+
+  @PermissionCallback
+  private void notificationPermissionCallback(PluginCall call) {
+    call.resolve(notificationStatus());
+  }
+
+  private JSObject notificationStatus() {
+    JSObject result = new JSObject();
+    boolean runtimeGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+      getContext().checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+    boolean enabled = NotificationManagerCompat.from(getContext()).areNotificationsEnabled();
+    result.put("granted", runtimeGranted);
+    result.put("enabled", enabled);
+    return result;
   }
 
   @com.getcapacitor.PluginMethod
   public void show(PluginCall call) {
-    showNotification(getContext(), call.getString("stage", "GO_TO_PICKUP"), call.getString("tripId", ""));
-    call.resolve();
+    if (!NotificationManagerCompat.from(getContext()).areNotificationsEnabled()) {
+      call.reject("KFE notifications are disabled in Android settings.");
+      return;
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        getContext().checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+      call.reject("Android notification permission is not granted.");
+      return;
+    }
+    try {
+      showNotification(getContext(), call.getString("stage", "GO_TO_PICKUP"), call.getString("tripId", ""));
+      JSObject result = notificationStatus();
+      result.put("shown", true);
+      call.resolve(result);
+    } catch (SecurityException error) {
+      call.reject("Android blocked the KFE notification: " + error.getMessage());
+    }
   }
 
   @com.getcapacitor.PluginMethod
