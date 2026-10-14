@@ -302,6 +302,11 @@ jobs:
 
       - name: Android Exact APK Smoke Gate
         uses: reactivecircus/android-emulator-runner@v2
+        env:
+          KFE_ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android/keystore/kfe-release.jks
+          KFE_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.KFE_ANDROID_KEYSTORE_PASSWORD }}
+          KFE_ANDROID_KEY_ALIAS: ${{ secrets.KFE_ANDROID_KEY_ALIAS }}
+          KFE_ANDROID_KEY_PASSWORD: ${{ secrets.KFE_ANDROID_KEY_PASSWORD }}
         with:
           api-level: 34
           target: google_apis
