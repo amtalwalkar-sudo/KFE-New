@@ -716,7 +716,7 @@ public class KfeOverlayService extends Service {
 
   private class SwipeOverlayView extends View{
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);private final RectF rect=new RectF();
-    private float downX,downY,downLocalX,downLocalY,lastX,lastY;private boolean tracking,moving,swipeLocked,swipeEligible;private float progress;
+    private float downX,downY,downLocalX,downLocalY,lastX,lastY;private boolean tracking,moving,swipeLocked,swipeEligible,swipeMoved;private float progress;
     private String formatTripTime(){
       if(tripStartAt<=0) return "00:00:00";
       long elapsed=Math.max(0L,System.currentTimeMillis()-tripStartAt)/1000L;
@@ -801,12 +801,12 @@ public class KfeOverlayService extends Service {
         case MotionEvent.ACTION_DOWN:{
           downX=e.getRawX();downY=e.getRawY();downLocalX=e.getX();downLocalY=e.getY();lastX=downX;lastY=downY;tracking=true;moving=false;
           float localX=e.getX(),localY=e.getY();
-          // Accept the whole lower swipe lane, not just the thumb's exact painted
-          // bounds. OEM touch slop/insets can shift the perceived hit target by a few dp.
-          swipeLocked=!minimized&&localY>=dp(96)&&localY<=dp(140)&&localX<=dp(112);
+          // The touch lane spans the complete handle track. A partially displaced
+          // thumb must remain recoverable instead of becoming impossible to grab.
+          swipeLocked=!minimized&&localY>=dp(96)&&localY<=dp(140);
           swipeEligible=swipeLocked&&awaitingEventId.isEmpty()&&
             ("GO_TO_PICKUP".equals(actionStage)||"START_RIDE".equals(actionStage)||"END_RIDE".equals(actionStage));
-          progress=0;return true;}
+          swipeMoved=false;return true;}
         case MotionEvent.ACTION_MOVE:{
           float dx=e.getX()-downLocalX,dy=e.getRawY()-downY;
           if(swipeLocked){
@@ -858,15 +858,15 @@ public class KfeOverlayService extends Service {
           if(!minimized&&!moving&&"ENTER_FARE".equals(actionStage)&&downLocalY>=dp(58)&&downLocalY<=dp(96)){if(!"FARE".equals(formMode))openFareForm();return true;}
           float maxTravel=Math.max(1,getWidth()-dp(16)-dp(58));
           if(swipeLocked){
-            if(swipeEligible&&fx>=maxTravel*.70f){
+            if(swipeEligible&&swipeMoved&&progress>=0.70f){
               progress=1;invalidate();triggerAction();
             }else{
               animateRetract();
             }
-            tracking=false;moving=false;swipeLocked=false;swipeEligible=false;return true;
+            tracking=false;moving=false;swipeLocked=false;swipeEligible=false;swipeMoved=false;return true;
           }
           progress=0;invalidate();tracking=false;moving=false;return true;}
-        case MotionEvent.ACTION_CANCEL:tracking=false;moving=false;swipeLocked=false;swipeEligible=false;animateRetract();return true;
+        case MotionEvent.ACTION_CANCEL:tracking=false;moving=false;swipeLocked=false;swipeEligible=false;swipeMoved=false;animateRetract();return true;
       }return true;
     }
   }
