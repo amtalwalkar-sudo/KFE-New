@@ -447,7 +447,7 @@ public class KfeOverlayService extends Service {
       for(String choice:choices){
         final String selectedChoice=choice;
         final Button reason=new Button(this);
-        reason.setText(choice.equals("CUSTOMER")?"Customer cancellation":"Driver cancellation");
+        reason.setText(choice.equals("PASSENGER")?"Passenger cancellation":"Driver cancellation");
         reason.setTextSize(9); reason.setAllCaps(false);
         reason.setOnClickListener(v->{ cancelReason=selectedChoice; for(int i=0;i<reasons.getChildCount();i++) reasons.getChildAt(i).setAlpha(0.55f); reason.setAlpha(1f); persistNativeForm(); });
         reasons.addView(reason,new LinearLayout.LayoutParams(0,dp(40),1));
@@ -475,8 +475,13 @@ public class KfeOverlayService extends Service {
     }
 
     LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.CENTER);
-    Button back=new Button(this);back.setText("Back");back.setAllCaps(false);back.setTextSize(11);back.setOnClickListener(v->closeForm());
-    actions.addView(back,new LinearLayout.LayoutParams(0,dp(42),1));
+    if("CANCEL".equals(mode)){
+      Button back=new Button(this);back.setText("Back");back.setAllCaps(false);back.setTextSize(11);back.setOnClickListener(v->{
+        if(!pendingTripId.isEmpty()){String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"CLOSE_CANCEL_FORM",pendingTripId,"");KfeNativeWorkActionsPlugin.emitAction("CLOSE_CANCEL_FORM",pendingTripId,"",eventId);}
+        closeForm();
+      });
+      actions.addView(back,new LinearLayout.LayoutParams(0,dp(42),1));
+    }
     if("FARE".equals(mode)){
       Button skip=new Button(this);skip.setText("Skip");skip.setAllCaps(false);skip.setTextSize(11);skip.setOnClickListener(v->{formValue="";if(formInput!=null)formInput.setText("");submitNumericForm();});
       actions.addView(skip,new LinearLayout.LayoutParams(0,dp(42),1));
