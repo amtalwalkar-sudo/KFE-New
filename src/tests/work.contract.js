@@ -107,7 +107,7 @@ assert.match(workView, /setInterval\(refreshClock, 1000\)/, 'The 1 Hz display re
 assert.match(workView, /document\.addEventListener\('visibilitychange', refreshClock\)/, 'Work timer refreshes immediately when the Android WebView returns to visibility.')
 assert.match(workView, /window\.addEventListener\('pageshow', refreshClock\)/, 'Work timer refreshes after Android restores the page from the back-forward cache.')
 assert.match(workView, /window\.addEventListener\('focus', refreshClock\)/, 'Work timer refreshes immediately when the app regains focus.')
-assert.match(fs.readFileSync(path.join(root, 'android/app/build.gradle'), 'utf8'), /applicationId \"com\\.kanishka\\.pwa\"/, 'The APK preserves the original package identity for in-place upgrades and data continuity.')
+assert.match(fs.readFileSync(path.join(root, 'android/app/build.gradle'), 'utf8'), /applicationId "com\.kanishka\.pwa"/, 'The APK preserves the original package identity for in-place upgrades and data continuity.')
 assert.match(fs.readFileSync(path.join(root, 'android/app/build.gradle'), 'utf8'), /versionCode 5[\s\S]*versionName \"2\.1\.1\"/, 'The corrected APK has a monotonic Android version code and release version.')
 
 const memory = new Map()
