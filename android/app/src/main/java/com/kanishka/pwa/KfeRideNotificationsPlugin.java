@@ -86,7 +86,7 @@ public class KfeRideNotificationsPlugin extends Plugin {
       result.put("shown", true);
       call.resolve(result);
     } catch (SecurityException error) {
-      call.reject("Android blocked the KFE notification.", error);
+      call.reject("Android blocked the KFE notification: " + error.getMessage());
     }
   }
 
