@@ -27,7 +27,7 @@ assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /const stateTimer = computed\(\(\) =>/)
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /work-live-metrics/)
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /WorkRuntimePorts\.nativeGps.readTrace\(traceOwnerId\)/)
-assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /setInterval\(\(\) => \{ void refreshLiveMovementKm\(\) \}, 3000\)/)
+assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /setInterval\(\(\) => \{ void refreshLiveMovementKm\(\).then\(\(\) => syncOverlay\(\)\).catch\(\(\) => \{\}\) \}, 3000\)/)
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /live-km-readout/)
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /liveMovementKm\.value\.toFixed\(1\)/)
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /WorkRuntimePorts\.nativeGps.readTrace\(traceOwnerId\)/)
