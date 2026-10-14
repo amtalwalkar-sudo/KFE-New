@@ -29,8 +29,8 @@ android {
         }
     }
 
-    // Keep the installable APK identity stable across CI updates. Debug builds must not
-    // silently switch application IDs; the on-request APK is signed with the persistent release key.
+    // Use the conflict-free KFE application ID consistently for future upgrades. The prior
+    // com.kanishka.pwa ID may remain installed as a separate legacy app; signing uses the persistent release key.
     buildTypes {
         debug {
             applicationIdSuffix ""
