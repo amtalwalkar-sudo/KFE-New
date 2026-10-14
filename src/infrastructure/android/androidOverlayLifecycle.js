@@ -87,8 +87,10 @@ const activeOverlayState = async () => {
     deadKm,
     revenue: state.revenue,
     tripStartAt: state.tripStartAt,
-    overlayAction: state.action,
-    overlayTripId: state.tripId,
+    // A completed trip awaiting fare takes precedence over the idle
+    // GO_TO_PICKUP action, exactly as it does in the foreground Work view.
+    overlayAction: state.pendingFareId && (!active.trip?.id || active.trip.status !== 'ACTIVE') ? 'ENTER_FARE' : state.action,
+    overlayTripId: state.pendingFareId && (!active.trip?.id || active.trip.status !== 'ACTIVE') ? state.pendingFareId : state.tripId,
     pendingFareId: state.pendingFareId,
     cancellationRevenue: '₹0',
     theme: document.documentElement?.dataset?.kfeTheme || 'light'
