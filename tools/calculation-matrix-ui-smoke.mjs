@@ -35,7 +35,7 @@ let browser
 try {
   await wait(async () => { try { return (await fetch(base)).ok } catch (_) { return false } }, 'preview server')
   browser = await chromium.launch({ headless: true })
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 } })
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, geolocation: { latitude: 19.076, longitude: 72.8777, accuracy: 20 }, permissions: ['geolocation'] })
 
   // Work remains the operational surface; Timeline and Performance intentionally
   // remain blank, and Admin exposes only the canonical Settings workspace.

@@ -119,13 +119,13 @@ let browser
 try {
   await waitForServer()
   const profileDir = await mkdtemp(join(tmpdir(), 'kfe-phase4-persistence-'))
-  browser = await chromium.launchPersistentContext(profileDir, { headless: true, serviceWorkers: 'block' })
+  browser = await chromium.launchPersistentContext(profileDir, { headless: true, serviceWorkers: 'block', geolocation: { latitude: 19.076, longitude: 72.8777, accuracy: 20 }, permissions: ['geolocation'] })
   const context1 = browser
   const page1 = await context1.newPage()
   await page1.goto(base, { waitUntil: 'domcontentloaded', timeout: 30000 })
   const firstRun = await run(page1)
   await context1.close()
-  browser = await chromium.launchPersistentContext(profileDir, { headless: true, serviceWorkers: 'block' })
+  browser = await chromium.launchPersistentContext(profileDir, { headless: true, serviceWorkers: 'block', geolocation: { latitude: 19.076, longitude: 72.8777, accuracy: 20 }, permissions: ['geolocation'] })
   const context2 = browser
   const page2 = await context2.newPage()
   await page2.goto(base, { waitUntil: 'domcontentloaded', timeout: 30000 })
