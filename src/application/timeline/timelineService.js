@@ -2,6 +2,7 @@ import { OperationalRecordService } from './operationalRecordService.js'
 import { ShiftTripRepository } from '../../repositories/shiftTripRepository.js'
 import { DriverTargetService } from '../performance/driverTargetService.js'
 import { istDateKey, istDayRange } from '../../domain/time/ist.js'
+import { subscribeCanonicalDataChanges } from '../../repositories/canonicalDataChangeRepository.js'
 
 const live = value => !value?.deletedAt && value?.deleted !== true
 const completed = shift => shift?.status === 'COMPLETED'
@@ -23,9 +24,12 @@ const toSummary = records => ({
   completedShifts: records.filter(record => completed(record.shift)),
   rides: sum(records, record => record.completedTrips.length),
   vehicleKm: sum(records, record => record.vehicleKm),
-  businessKm: sum(records, record => record.businessKm),
+  businessKm: records.some(record => !Number.isFinite(Number(record.businessKm))) ? null : sum(records, record => record.businessKm),
   personalKm: sum(records, record => record.shift.openingPersonalKm),
-  deadKm: sum(records, record => record.deadKm),
+  deadKm: records.some(record => record.deadKm == null || !Number.isFinite(Number(record.deadKm))) ? null : sum(records, record => record.deadKm),
+  cancelledKm: records.some(record => record.cancelledKm == null || !Number.isFinite(Number(record.cancelledKm))) ? null : sum(records, record => record.cancelledKm),
+  unclassifiedKm: records.some(record => record.unclassifiedKm == null || !Number.isFinite(Number(record.unclassifiedKm))) ? null : sum(records, record => record.unclassifiedKm),
+  movementReconciliationStatus: records.length === 0 ? 'NO_SHIFTS' : records.some(record => record.movementReconciliationStatus === 'OVER_ESTIMATE') ? 'OVER_ESTIMATE' : records.every(record => record.movementReconciliationStatus === 'RECONCILED') ? 'RECONCILED' : 'REQUIRES_RECONCILIATION',
   fuelQuantityKg: sum(records, record => record.fuelQuantityKg),
   fuelCost: sum(records, record => record.fuelCost),
   toll: sum(records, record => record.toll),
@@ -34,6 +38,7 @@ const toSummary = records => ({
 })
 
 export const TimelineService = Object.freeze({
+  subscribeDataChanges(callback) { return subscribeCanonicalDataChanges(callback) },
   async getDay(date) {
     const range = istDayRange(date)
     if (!range) throw new Error('Invalid timeline day.')

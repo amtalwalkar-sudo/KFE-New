@@ -33,8 +33,11 @@ assert.ok(cockpit.includes('shiftRevenue'))
 assert.ok(performanceService.includes('getDailyTargetSnapshot'))
 
 // Timeline must not fabricate mileage when a completed trip lacks authoritative trip KM.
-assert.ok(operational.includes("const businessKm = invalidTripKm\n      ? NaN\n      : completed.reduce((sum, trip) => sum + Number(trip.tripKm), 0)"))
-assert.ok(operational.includes("const deadKm = vehicleKm == null || invalidTripKm ? null : vehicleKm - businessKm"))
+assert.ok(operational.includes(": invalidTripKm ? NaN : completed.reduce((sum, trip) => sum + Number(trip.tripKm), 0)"))
+assert.ok(operational.includes('const reconciliation = shift.movementReconciliation'))
+assert.ok(operational.includes("? segmentTotal('DEAD')"))
+assert.ok(operational.includes("movementReconciliationStatus: reconciliation?.reconciliationStatus || 'LEGACY_UNRECONCILED'"))
+assert.ok(operational.includes('remaining odometer distance is not automatically proven to be dead KM'))
 
 console.log('KFE Timeline contract tests: PASS')
 

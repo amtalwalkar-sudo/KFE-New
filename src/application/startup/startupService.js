@@ -60,12 +60,20 @@ export const initializeApplication = async () => {
   }
 
   DiagnosticService.checkpoint('First-render infrastructure ready')
-  void BackupService.maybeDailyLocalBackup()
-    .then(() => DiagnosticService.checkpoint('Local backup lifecycle scheduled'))
-    .catch(error => {
-      DiagnosticService.error('Local backup lifecycle failed', error)
-      console.warn('KFE local daily backup failed:', error)
-    })
+  void (async () => {
+    try {
+      // Recover durable native movement evidence before any local snapshot.
+      // If import is incomplete, skip this backup attempt rather than creating
+      // a successful-looking snapshot that silently omits raw trace evidence.
+      const { WorkService } = await import('../work/workService.js')
+      await WorkService.recoverNativeGpsTraces()
+      await BackupService.maybeDailyLocalBackup()
+      DiagnosticService.checkpoint('Local backup lifecycle scheduled after native trace recovery')
+    } catch (error) {
+      DiagnosticService.error('Local backup deferred; native trace recovery or local backup failed', error)
+      console.warn('KFE local backup deferred to preserve movement evidence:', error)
+    }
+  })()
   void (async () => {
     try {
       const backgroundBackupRegistered = await CloudBackupLifecycle.registerDailyCloudBackupSchedule()
