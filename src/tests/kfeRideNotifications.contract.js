@@ -96,6 +96,11 @@ assert.match(workService, /if \(snapshots\.length < 2\) return null/)
 assert.match(overlayLifecycle, /WorkService\.getTripDeadMovementDistanceKm\(active\.trip\.id\)/)
 assert.match(overlayLifecycle, /deadKm = \x27—\x27/)
 assert.match(overlayLifecycle, /deadKm,/)
+assert.match(overlayLifecycle, /state\.pendingFareId && \(!active\.trip\?\.id \|\| active\.trip\.status !== 'ACTIVE'\) \? 'ENTER_FARE'/)
+assert.match(overlay, /stateLabel="GO TO PICKUP"/)
+assert.match(overlay, /downLocalX>getWidth\(\)-dp\(120\)/)
+assert.match(overlay, /downLocalY>=dp\(60\)&&downLocalY<=dp\(110\)/)
+assert.match(overlay, /downLocalY>=dp\(58\)&&downLocalY<=dp\(96\)\)\{launchWorkActivity\(\);return true;/)
 
 
 // Overlay trip actions must enter the same Vue Work forms and canonical write path.
