@@ -77,16 +77,12 @@ assert.match(overlayLifecycle, /showOverlayIfNeeded/)
 assert.doesNotMatch(overlay, /if \(intent == null\) return START_STICKY/)
 assert.doesNotMatch(overlay, /startActivity\(launch\)/, 'Native fare/cancel submission must not launch the PWA.')
 
-assert.match(notifications, /static void showNotification\(Context context, String stage, String tripId\)/)
-assert.match(receiver, /KfeRideNotificationsPlugin\.showNotification\(context/)
 assert.match(receiver, /KfeRideNotificationsPlugin\.recordPendingAction\(context/)
+assert.doesNotMatch(receiver, /showNotification\(context/);
+assert.match(receiver, /Ignore alarms persisted by older builds/);
+assert.match(notifications, /Do not schedule delayed Work-stage notification reminders/);
 assert.match(notifications, /getPendingAction/)
 assert.match(notifications, /clearPendingAction/)
-assert.doesNotMatch(receiver, /KfeRideNotificationsPlugin\.instance\.showNotification/)
-assert.match(notifications, /FLAG_IMMUTABLE/)
-assert.match(notifications, /FLAG_MUTABLE/)
-assert.match(notifications, /setAndAllowWhileIdle/)
-assert.match(notifications, /setExactAndAllowWhileIdle/)
 
 assert.match(secureStorage, /AndroidKeyStore/)
 assert.match(secureStorage, /AES\/GCM\/NoPadding/)
