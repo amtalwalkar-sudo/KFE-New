@@ -244,6 +244,7 @@ public class KfeOverlaySmokeTest {
     throw new AssertionError("KFE overlay view did not become interactive");
   }
 
+  // Capture the handle's intermediate position before release/retraction.
   private float swipeOverlay(KfeOverlayService service, float endFraction) throws Exception {
     service = waitForService();
     Field field = KfeOverlayService.class.getDeclaredField("overlay");
