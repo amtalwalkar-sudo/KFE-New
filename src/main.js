@@ -50,6 +50,7 @@ void (async () => {
       { PlatformStartup },
       { configureAndroidOverlayLifecycle },
       { StartupService },
+      { runStartupPermissionGate },
       { WorkService },
       { startKfeThemeController },
       { Capacitor },
@@ -64,6 +65,7 @@ void (async () => {
       import('./infrastructure/startup/platformStartup.js'),
       import('./infrastructure/android/androidOverlayLifecycle.js'),
       import('./application/startup/startupService.js'),
+      import('./application/startup/permissionGate.js'),
       import('./application/work/workService.js'),
       import('./presentation/theme/kfeThemeController.js'),
       import('@capacitor/core'),
@@ -110,6 +112,7 @@ void (async () => {
     }
 
     window.__KFE_STARTUP_READY__ = false
+    await runStartupPermissionGate()
     void StartupService.startApplication().then(() => {
       window.__KFE_STARTUP_READY__ = true
       retryCloudBackupOnStartup?.()

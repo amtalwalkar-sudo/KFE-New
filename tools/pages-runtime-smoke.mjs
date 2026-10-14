@@ -60,6 +60,10 @@ try {
   // hard-navigation check, while still exercising the actual production bundle.
   for (const route of routes) {
     const context = await browser.newContext()
+    // The startup gate correctly blocks until browser geolocation is granted.
+    // Grant it explicitly in this isolated smoke context so the test exercises
+    // route rendering after a successful permission decision, not a denied prompt.
+    await context.grantPermissions(['geolocation'], { origin: 'http://127.0.0.1:4173' })
     const page = await context.newPage()
     const errors = []
     const failedRequests = []

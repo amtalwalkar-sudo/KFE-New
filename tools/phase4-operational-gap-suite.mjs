@@ -458,14 +458,15 @@ try {
   })
   assert(recoveredShiftState?.id === offlineShiftState.id && recoveredShiftState.status === 'ACTIVE', 'F5 network recovery did not preserve the canonical shift')
 
-  // G2: explicit permission denial is surfaced as the GPS permission state.
+  // G2: a denied browser location permission now blocks app startup by design.
   await page.goto(base, { waitUntil: 'domcontentloaded' })
   await page.locator('.work-canonical').waitFor({ state: 'attached' })
   await page.evaluate(() => sessionStorage.setItem('__phase4_gps_mode', 'denied'))
   await page.reload({ waitUntil: 'domcontentloaded' })
-  await page.locator('.work-canonical').waitFor({ state: 'attached' })
+  await page.locator('.kfe-permission-gate').waitFor({ state: 'visible' })
+  await page.getByRole('button', { name: 'Check again' }).waitFor({ state: 'visible' })
+  assert(await page.locator('.work-canonical').count() === 0, 'G2 denied location permission did not block startup')
   const gps = page.locator('button.header-gps')
-  assert(await gps.getAttribute('aria-label') === 'GPS permission needed', 'G2 permission denial was not surfaced')
 
   // G3: a position provider failure is surfaced as degraded/unavailable GPS.
   await page.evaluate(() => sessionStorage.setItem('__phase4_gps_mode', 'unavailable'))

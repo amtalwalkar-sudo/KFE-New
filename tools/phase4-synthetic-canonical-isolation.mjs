@@ -33,6 +33,9 @@ try {
   await waitForServer()
   browser = await chromium.launch({ headless: true })
   const context = await browser.newContext({ serviceWorkers: 'block' })
+  // Startup now gates the app until geolocation permission is granted; give this
+  // isolated test context that permission so it can reach canonical storage setup.
+  await context.grantPermissions(['geolocation'], { origin: 'http://127.0.0.1:4174' })
   const page = await context.newPage()
   await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 30000 })
   await page.waitForFunction(() => window.__KFE_STARTUP_READY__ === true || Boolean(window.__KFE_STARTUP_ERROR__), null, { timeout: 30000 })

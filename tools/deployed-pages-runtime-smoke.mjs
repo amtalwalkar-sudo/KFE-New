@@ -43,7 +43,7 @@ const waitForSurface = async (page, route, phase) => {
 const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] })
 try {
   for (const route of routes) {
-    const page = await browser.newPage()
+    const page = await browser.newPage({ geolocation: { latitude: 19.076, longitude: 72.8777, accuracy: 20 }, permissions: ['geolocation'] })
     page.__kfePageErrors = []
     page.__kfeConsoleErrors = []
     page.__kfeFailedRequests = []

@@ -8,6 +8,9 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
 import android.content.pm.PackageManager;
+import android.location.LocationManager;
+import android.app.NotificationManager;
+import androidx.core.app.NotificationManagerCompat;
 
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -23,7 +26,8 @@ import androidx.core.content.ContextCompat;
   name = "KfeNativeGps",
   permissions = {
     @Permission(alias = "location", strings = { Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION }),
-    @Permission(alias = "backgroundLocation", strings = { Manifest.permission.ACCESS_BACKGROUND_LOCATION })
+    @Permission(alias = "backgroundLocation", strings = { Manifest.permission.ACCESS_BACKGROUND_LOCATION }),
+    @Permission(alias = "notifications", strings = { Manifest.permission.POST_NOTIFICATIONS })
   }
 )
 public class KfeNativeGpsPlugin extends Plugin {
@@ -40,6 +44,45 @@ public class KfeNativeGpsPlugin extends Plugin {
     call.resolve(result);
   }
 
+  @com.getcapacitor.PluginMethod
+  public void getStartupPermissionStatus(PluginCall call) {
+    boolean fine = ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+    boolean coarse = ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+    boolean background = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED;
+    LocationManager locationManager = (LocationManager) getContext().getSystemService(android.content.Context.LOCATION_SERVICE);
+    boolean locationServices = false;
+    try { if (locationManager != null) { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) locationServices = locationManager.isLocationEnabled(); else locationServices = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) || locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER); } } catch (Exception ignored) { locationServices = false; }
+    boolean notifications = NotificationManagerCompat.from(getContext()).areNotificationsEnabled();
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) notifications = notifications && ContextCompat.checkSelfPermission(getContext(), Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) { NotificationManager manager = (NotificationManager) getContext().getSystemService(android.content.Context.NOTIFICATION_SERVICE); if (manager != null) { android.app.NotificationChannel channel = manager.getNotificationChannel("kfe_ride_actions"); if (channel != null && channel.getImportance() == NotificationManager.IMPORTANCE_NONE) notifications = false; } }
+    boolean overlay = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(getContext());
+    JSObject result = new JSObject(); result.put("supported", true); result.put("locationAllowed", fine || coarse); result.put("fineLocationAllowed", fine); result.put("backgroundLocationAllowed", background); result.put("locationServicesEnabled", locationServices); result.put("notificationsAllowed", notifications); result.put("overlayAllowed", overlay); call.resolve(result);
+  }
+
+  @com.getcapacitor.PluginMethod
+  public void requestStartupPermission(PluginCall call) {
+    String permission = call.getString("permission", "");
+    if ("location".equals(permission)) { if (getPermissionState("location") == PermissionState.GRANTED) { call.resolve(); return; } requestPermissionForAlias("location", call, "startupLocationPermissionCallback"); return; }
+    if ("notifications".equals(permission)) { if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || ContextCompat.checkSelfPermission(getContext(), Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) { call.resolve(); return; } requestPermissionForAlias("notifications", call, "startupNotificationsPermissionCallback"); return; }
+    call.reject("Unsupported startup permission request.");
+  }
+  @PermissionCallback private void startupLocationPermissionCallback(PluginCall call) { call.resolve(); }
+  @PermissionCallback private void startupNotificationsPermissionCallback(PluginCall call) { call.resolve(); }
+
+  @com.getcapacitor.PluginMethod
+  public void openStartupSetting(PluginCall call) {
+    String setting = call.getString("setting", "");
+    try {
+      Intent intent;
+      switch (setting) {
+        case "locationServices": intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS); break;
+        case "overlay": intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getContext().getPackageName())); break;
+        case "location": case "backgroundLocation": case "notifications": intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getContext().getPackageName())); break;
+        default: call.reject("Unsupported startup setting."); return;
+      }
+      intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); getContext().startActivity(intent); call.resolve();
+    } catch (Exception error) { call.reject("Unable to open the required phone setting.", error); }
+  }
   @com.getcapacitor.PluginMethod
   public void openAppSettings(PluginCall call) {
     try {

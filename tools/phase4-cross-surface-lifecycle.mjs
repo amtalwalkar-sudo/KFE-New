@@ -28,7 +28,7 @@ let browser
 try {
   await waitForServer()
   browser = await chromium.launch({ headless: true })
-  const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 390, height: 844 } })
+  const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 390, height: 844 }, geolocation: { latitude: 19.076, longitude: 72.8777, accuracy: 20 }, permissions: ['geolocation'] })
   const page = await context.newPage()
 
   await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 30000 })
