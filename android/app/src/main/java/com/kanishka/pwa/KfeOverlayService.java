@@ -540,17 +540,10 @@ public class KfeOverlayService extends Service {
   @Override public void onDestroy(){if(foregroundHandler!=null)foregroundHandler.removeCallbacks(foregroundCheck);removeOverlay();if(instance==this)instance=null;super.onDestroy();}
   @Override public IBinder onBind(Intent intent){return null;}
   private Notification buildNotification(){
-    String title="KFE Work";
-    String stageText;
-    if("GO_TO_PICKUP".equals(actionStage)) stageText="GOING TO PICKUP";
-    else if("START_RIDE".equals(actionStage)) stageText="PICKUP IN PROGRESS · READY TO START TRIP";
-    else if("END_RIDE".equals(actionStage)) stageText="TRIP ACTIVE · END TRIP TO ENTER FARE";
-    else if("ENTER_FARE".equals(actionStage)) stageText="TRIP COMPLETED · FARE REQUIRED";
-    else if("CANCEL_RIDE".equals(actionStage)) stageText="CANCELLATION DETAILS REQUIRED";
-    else stageText="WORK SESSION ACTIVE";
-    String gpsIndicator=KfeNativeGpsService.isAnyPersistedTracking(this)?"GPS active":"GPS not tracking";
-    String text=stageText+" · "+gpsIndicator+" · Dead KM "+deadKm;
-    if(!"0".equals(rides)) text += " · Trips "+rides;
+    // This notice exists for the Android foreground-service lifecycle only.
+    // Keep it quiet and independent of Work stage, GPS readings, and dead KM.
+    String title="KFE background service";
+    String text="KFE driver controls are active in the background.";
     Intent openApp=new Intent(this,MainActivity.class);
     openApp.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP|Intent.FLAG_ACTIVITY_CLEAR_TOP);
     int pendingFlags=PendingIntent.FLAG_UPDATE_CURRENT;
@@ -560,7 +553,6 @@ public class KfeOverlayService extends Service {
       .setSmallIcon(android.R.drawable.ic_dialog_info)
       .setContentTitle(title)
       .setContentText(text)
-      .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
       .setContentIntent(contentIntent)
       .setOngoing(true)
       .setOnlyAlertOnce(true)
