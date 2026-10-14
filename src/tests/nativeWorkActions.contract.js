@@ -45,6 +45,7 @@ assert.match(gpsService, /private static final int NOTIFICATION_ID = 7110/)
 assert.match(gpsService, /startForeground\(/)
 assert.match(overlayService, /startForeground\(NOTIFICATION_ID,buildNotification\(\)\)/)
 assert.match(overlayService, /KFE driver controls are active in the background/)
+assert.doesNotMatch(overlayService, /refreshPersistentNotification/)
 assert.doesNotMatch(overlayService, /GOING TO PICKUP|PICKUP IN PROGRESS|TRIP ACTIVE|TRIP COMPLETED|gpsIndicator|Dead KM|Trips/)
 
 // Overlay actions retain their own durable bridge and do not route through notifications.
