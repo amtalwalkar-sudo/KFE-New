@@ -5,6 +5,7 @@ const NativeGate = registerPlugin('KfeNativeGps')
 const native = () => Capacitor?.isNativePlatform?.() === true
 const attempted = new Set()
 const runtimeRequested = new Set()
+const confirmedOemSettings = new Set()
 let activeRun = null
 let retryCurrent = null
 
@@ -15,7 +16,9 @@ const nativeChecks = [
   { key: 'backgroundLocation', label: 'Background location access', ok: s => s.backgroundLocationAllowed === true, setting: 'backgroundLocation', message: 'Set KFE location access to “Allow all the time” so an active ride can continue when the screen is off.' },
   { key: 'locationServices', label: 'Phone location services', ok: s => s.locationServicesEnabled === true, setting: 'locationServices', message: 'Turn on Location on your phone, then return to KFE.' },
   { key: 'notifications', label: 'KFE notifications', ok: s => s.notificationsAllowed === true, request: 'notifications', setting: 'notifications', message: 'Allow KFE notifications so persistent ride actions can be shown.' },
-  { key: 'overlay', label: 'KFE floating ride controls', ok: s => s.overlayAllowed === true, setting: 'overlay', message: 'Allow KFE to display over other apps so the floating ride controls can work.' }
+  { key: 'overlay', label: 'KFE floating ride controls', ok: s => s.overlayAllowed === true, setting: 'overlay', message: 'Allow KFE to display over other apps so the floating ride controls can work.' },
+  { key: 'oemAutostart', label: 'Xiaomi background autostart', ok: s => s.oemBackgroundSettingsRequired !== true || confirmedOemSettings.has('oemAutostart'), setting: 'oemAutostart', manualConfirmation: true, message: 'In Xiaomi settings, enable Background autostart for KFE. Return here and confirm only after it is enabled.', actionLabel: 'I enabled autostart — check again' },
+  { key: 'oemBattery', label: 'Xiaomi battery restrictions', ok: s => s.oemBackgroundSettingsRequired !== true || confirmedOemSettings.has('oemBattery'), setting: 'oemBattery', manualConfirmation: true, message: 'Open KFE App info → Battery saver and choose No restrictions. MIUI does not expose a reliable status API, so confirm only after checking it.', actionLabel: 'I chose No restrictions — continue' }
 ]
 
 function waitForForegroundReturn() {
@@ -52,6 +55,7 @@ async function getFirstMissing() {
 function waitForRetry() { return new Promise(resolve => { retryCurrent = resolve }) }
 export function retryStartupPermissionGate() {
   if (permissionGateState.current?.key) attempted.delete(permissionGateState.current.key)
+  if (permissionGateState.current?.manualConfirmation) confirmedOemSettings.add(permissionGateState.current.key)
   const resolve = retryCurrent; retryCurrent = null
   if (resolve) resolve(); else if (!activeRun) void runStartupPermissionGate()
 }
