@@ -281,6 +281,12 @@ jobs:
           printf '%s\n' "$CERT_REPORT"
           CERT_SHA256="$(printf '%s\n' "$CERT_REPORT" | awk -F': ' '/certificate SHA-256 digest:/ {print $NF; exit}')"
           test -n "$CERT_SHA256" || { echo "::error::Could not extract APK signing certificate fingerprint"; exit 1; }
+          CERT_SHA256_NORMALIZED="$(printf '%s' "$CERT_SHA256" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          EXPECTED_CERT_SHA256="3099f60a97640f72931b7c33bc8330a845bdc1e4979b9ea3de0429db54a3eb2f"
+          test "$CERT_SHA256_NORMALIZED" = "$EXPECTED_CERT_SHA256" || {
+            echo "::error::APK signing certificate mismatch. Expected approved KFE certificate SHA-256 $EXPECTED_CERT_SHA256; got $CERT_SHA256_NORMALIZED"
+            exit 1
+          }
           {
             echo "git_commit=$(git rev-parse HEAD)"
             echo "application_id=$APP_ID"
