@@ -176,6 +176,16 @@ public class KfeOverlayService extends Service {
       return START_STICKY;
     }
     String action=intent.getAction();
+    // An explicit restart may arrive with an Intent whose action is null. Restore
+    // the last valid shift snapshot so the overlay and any persisted form draft
+    // are reattached instead of leaving the foreground service invisible.
+    if(action==null){
+      if(Settings.canDrawOverlays(this)){
+        String saved=getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(LAST_STATE_KEY,"");
+        if(!saved.isEmpty()){ensureOverlay();applyState(saved);}
+      }
+      return START_STICKY;
+    }
     if ("com.kanishka.pwa.KFE_OVERLAY_RESUME".equals(action)) {
       if (!Settings.canDrawOverlays(this)) return START_NOT_STICKY;
       String saved=getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(LAST_STATE_KEY,"");
