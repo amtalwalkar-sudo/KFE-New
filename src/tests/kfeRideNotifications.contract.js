@@ -118,5 +118,7 @@ assert.match(overlay, /if\(!awaitingEventId\.isEmpty\(\)\) launchWorkActivityIfU
 assert.match(workView, /store\.trip\?\.id === eventTripId && store\.trip\.status === 'ACTIVE'/)
 assert.match(workView, /if \(!eventTripId \|\| store\.trip\?\.id !== eventTripId\) return false/)
 assert.match(workView, /if \(!store\.trip\?\.id && completed\.value\.some\(trip => trip\.id === eventTripId/)
+assert.doesNotMatch(workView, /await WorkRuntimePorts\.nativeGps\.syncTrace\(tripId/)
+assert.match(workView, /never hold the fare form or native-action acknowledgement open while GPS telemetry is synchronized/)
 
 console.log('KFE ride notification contract tests passed')
