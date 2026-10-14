@@ -8,7 +8,7 @@ const buildGradle = fs.readFileSync(path.join(root, 'android', 'app', 'build.gra
 const indexedDb = fs.readFileSync(path.join(root, 'src', 'utils', 'indexedDB.js'), 'utf8') + fs.readFileSync(path.join(root, 'src', 'constants', 'canonicalDatabase.js'), 'utf8')
 const backup = fs.readFileSync(path.join(root, 'src', 'application', 'backup', 'backupService.js'), 'utf8')
 
-assert(buildGradle.includes('applicationId "com.kanishka.kfe"'), 'The conflict-free KFE package ID must remain stable for subsequent upgrades.')
+assert(buildGradle.includes('applicationId "com.kanishka.pwa"'), 'Android package ID must remain stable for in-place upgrades.')
 assert(buildGradle.includes('applicationIdSuffix ""'), 'Debug APK must not add a package suffix.')
 assert(/versionCode\s+[4-9]\d*/.test(buildGradle), 'Android versionCode must advance beyond the previous release.')
 assert(buildGradle.includes('versionName "2.1.1"'), 'Android release version must match the corrected prelaunch release identity.')
