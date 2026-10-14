@@ -132,4 +132,4 @@ KFE_ANDROID_RELEASE_GATE.md defines release acceptance and does not redefine the
 
 Any lifecycle change must update this document first, then affected tests, application transitions, PWA/Android surfaces, and evidence.
 
-A phase freeze, audit, overlay implementation, notification implementation, or UI document cannot silently change the operational state machine.
+A phase freeze, audit, overlay implementation, or UI document cannot silently change the operational state machine.
