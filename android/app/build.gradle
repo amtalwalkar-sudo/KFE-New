@@ -4,7 +4,7 @@ android {
     namespace = "com.kanishka.pwa"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.kanishka.kfe"
+        applicationId "com.kanishka.pwa"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 5
@@ -29,8 +29,8 @@ android {
         }
     }
 
-    // Use the conflict-free KFE application ID consistently for future upgrades. The prior
-    // com.kanishka.pwa ID may remain installed as a separate legacy app; signing uses the persistent release key.
+    // Preserve the original application ID so Android upgrades the installed app in place.
+    // The signing certificate must also match the installed release key to avoid signature conflicts.
     buildTypes {
         debug {
             applicationIdSuffix ""
