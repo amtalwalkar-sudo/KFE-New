@@ -716,14 +716,14 @@ public class KfeOverlayService extends Service {
 
   private class SwipeOverlayView extends View{
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);private final RectF rect=new RectF();
-    private float downX,downY,downLocalX,downLocalY,lastX,lastY;private boolean tracking,moving,swipeLocked,swipeEligible;private float progress;
+    private float downX,downY,downLocalX,downLocalY,lastX,lastY;private boolean tracking,moving,swipeLocked,swipeEligible,swipeMoved;private float progress;
     private String formatTripTime(){
       if(tripStartAt<=0) return "00:00:00";
       long elapsed=Math.max(0L,System.currentTimeMillis()-tripStartAt)/1000L;
       long h=elapsed/3600L,m=(elapsed%3600L)/60L,s=elapsed%60L;
       return String.format(java.util.Locale.US,"%02d:%02d:%02d",h,m,s);
     }
-    SwipeOverlayView(Context c){super(c);setLayerType(View.LAYER_TYPE_SOFTWARE,null);}
+    SwipeOverlayView(Context c){super(c);setClickable(true);setLayerType(View.LAYER_TYPE_SOFTWARE,null);}
     private int surface(){return dark()?Color.rgb(23,30,38):Color.WHITE;}
     @Override protected void onDraw(Canvas c){
       super.onDraw(c);
@@ -801,16 +801,19 @@ public class KfeOverlayService extends Service {
         case MotionEvent.ACTION_DOWN:{
           downX=e.getRawX();downY=e.getRawY();downLocalX=e.getX();downLocalY=e.getY();lastX=downX;lastY=downY;tracking=true;moving=false;
           float localX=e.getX(),localY=e.getY();
-          swipeLocked=!minimized&&localY>=dp(100)&&localY<=dp(132)&&localX<=dp(74);
+          // The touch lane spans the complete handle track. A partially displaced
+          // thumb must remain recoverable instead of becoming impossible to grab.
+          swipeLocked=!minimized&&localY>=dp(96)&&localY<=dp(140);
           swipeEligible=swipeLocked&&awaitingEventId.isEmpty()&&
             ("GO_TO_PICKUP".equals(actionStage)||"START_RIDE".equals(actionStage)||"END_RIDE".equals(actionStage));
-          progress=0;return true;}
+          swipeMoved=false;return true;}
         case MotionEvent.ACTION_MOVE:{
-          float dx=e.getRawX()-downX,dy=e.getRawY()-downY;
+          float dx=e.getX()-downLocalX,dy=e.getRawY()-downY;
           if(swipeLocked){
             if(swipeEligible){
               float maxTravel=Math.max(1,getWidth()-dp(16)-dp(58));
-              progress=Math.min(1f,Math.max(0f,dx)/maxTravel);
+              if(Math.abs(dx)>dp(8)) swipeMoved=true;
+              progress=Math.min(1f,Math.max(0f,(e.getX()-dp(37))/maxTravel));
               invalidate();
             }
             return true;
@@ -840,7 +843,7 @@ public class KfeOverlayService extends Service {
           }
           return true;}
         case MotionEvent.ACTION_UP:{
-          float fx=e.getRawX()-downX,fy=e.getRawY()-downY;tracking=false;
+          float fx=e.getX()-downLocalX,fy=e.getRawY()-downY;tracking=false;
           if(minimized&&moving){
             int screenWidth=getResources().getDisplayMetrics().widthPixels;
             params.x=downX<screenWidth/2f?0:Math.max(0,screenWidth-dp(BUBBLE_DP));
@@ -856,15 +859,15 @@ public class KfeOverlayService extends Service {
           if(!minimized&&!moving&&"ENTER_FARE".equals(actionStage)&&downLocalY>=dp(58)&&downLocalY<=dp(96)){if(!"FARE".equals(formMode))openFareForm();return true;}
           float maxTravel=Math.max(1,getWidth()-dp(16)-dp(58));
           if(swipeLocked){
-            if(swipeEligible&&fx>=maxTravel*.70f){
+            if(swipeEligible&&swipeMoved&&progress>=0.70f){
               progress=1;invalidate();triggerAction();
             }else{
               animateRetract();
             }
-            tracking=false;moving=false;swipeLocked=false;swipeEligible=false;return true;
+            tracking=false;moving=false;swipeLocked=false;swipeEligible=false;swipeMoved=false;return true;
           }
           progress=0;invalidate();tracking=false;moving=false;return true;}
-        case MotionEvent.ACTION_CANCEL:tracking=false;moving=false;swipeLocked=false;swipeEligible=false;animateRetract();return true;
+        case MotionEvent.ACTION_CANCEL:tracking=false;moving=false;swipeLocked=false;swipeEligible=false;swipeMoved=false;animateRetract();return true;
       }return true;
     }
   }

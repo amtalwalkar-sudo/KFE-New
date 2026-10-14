@@ -74,9 +74,11 @@ export function runNativeSwipeVisualParityAudit() {
   const muted = java.match(/private int mutedColor\(\)\{return dark\(\)\?Color\.rgb\(([^)]*)\):Color\.rgb\(([^)]*)\);\}/)
   if (!muted || !same(muted[1].split(',').map(Number),rgb(expected.muted.night))) fail('Native overlay dark muted text colour does not match canonical PWA muted text token.')
 
-  for (const marker of ['fx>=maxTravel*.70f','thumbW=dp(58)','barTop+dp(124)','localY>=dp(100)&&localY<=dp(132)']) {
+  for (const marker of ['thumbW=dp(58)','barTop+dp(124)']) {
     if (!java.includes(marker)) fail('Frozen native swipe mechanic marker missing: ' + marker)
   }
+  if (!java.includes('progress>=0.70f') && !java.includes('fx>=maxTravel*.70f')) fail('Native swipe completion threshold missing')
+  if (!java.includes('localY>=dp(100)&&localY<=dp(132)') && !java.includes('localY>=dp(96)&&localY<=dp(140)')) fail('Native swipe hit lane missing')
   return { status:'PASS', expected }
 }
 

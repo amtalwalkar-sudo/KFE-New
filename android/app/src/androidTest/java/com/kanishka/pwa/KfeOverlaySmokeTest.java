@@ -105,6 +105,49 @@ public class KfeOverlaySmokeTest {
     assertEquals("An incomplete gesture must not emit an action", pendingBefore, KfeNativeEventStore.get(context).pending(100).length());
   }
 
+  @Test public void swipeAcceptsNearEdgeOfThumbAndLowerHitLane() throws Exception {
+    clearPending();
+    JSONObject state = new JSONObject()
+      .put("shift", new JSONObject().put("id", "edge-swipe-shift"))
+      .put("trip", JSONObject.NULL)
+      .put("overlayAction", "GO_TO_PICKUP")
+      .put("overlayTripId", "edge-swipe-trip");
+    KfeOverlayService.update(context, state.toString());
+    waitForOverlay();
+    KfeOverlayService service = waitForService();
+    setField(service, "actionStage", "GO_TO_PICKUP");
+    setField(service, "pendingTripId", "edge-swipe-trip");
+    float progress = swipeOverlay(service, 0.92f, 65f, 136f);
+    assertTrue("Swipe must track a drag starting near the thumb edge and lower hit lane", progress > 0.05f);
+    assertEquals("A complete swipe from the expanded hit lane must emit one pickup action",
+      "GO_TO_PICKUP|edge-swipe-trip|", pendingValue());
+  }
+
+  @Test public void partiallyDisplacedHandleCanBeGrabbedAndCompleted() throws Exception {
+    clearPending();
+    JSONObject state = new JSONObject()
+      .put("shift", new JSONObject().put("id", "partial-handle-shift"))
+      .put("trip", JSONObject.NULL)
+      .put("overlayAction", "GO_TO_PICKUP")
+      .put("overlayTripId", "partial-handle-trip");
+    KfeOverlayService.update(context, state.toString());
+    waitForOverlay();
+    KfeOverlayService service = waitForService();
+    setField(service, "actionStage", "GO_TO_PICKUP");
+    setField(service, "pendingTripId", "partial-handle-trip");
+    Field overlayField = KfeOverlayService.class.getDeclaredField("overlay");
+    overlayField.setAccessible(true);
+    android.view.View view = (android.view.View) overlayField.get(service);
+    float density = view.getResources().getDisplayMetrics().density;
+    float widthDp = view.getWidth() / density;
+    float startXdp = 8f + (widthDp - 16f - 58f) * 0.45f + 29f;
+    setField(view, "progress", 0.45f);
+    float intermediate = swipeOverlay(service, 0.92f, startXdp, 120f);
+    assertTrue("Recovered swipe must continue tracking from the displaced thumb", intermediate > 0.05f);
+    assertEquals("A displaced handle must still complete the pickup action",
+      "GO_TO_PICKUP|partial-handle-trip|", pendingValue());
+  }
+
   @Test public void failedNativeActionCanRecoverByAcknowledgingSameDurableEvent() throws Exception {
     clearPending();
     JSONObject state = new JSONObject()
@@ -246,13 +289,18 @@ public class KfeOverlaySmokeTest {
 
   // Capture the handle's intermediate position before release/retraction.
   private float swipeOverlay(KfeOverlayService service, float endFraction) throws Exception {
+    return swipeOverlay(service, endFraction, 20f, 115f);
+  }
+
+  private float swipeOverlay(KfeOverlayService service, float endFraction, float startXdp, float startYdp) throws Exception {
     service = waitForService();
     Field field = KfeOverlayService.class.getDeclaredField("overlay");
     field.setAccessible(true);
     android.view.View view = (android.view.View) field.get(service);
     int width = view.getWidth();
     final float density = view.getResources().getDisplayMetrics().density;
-    final float y = Math.max(105f * density, Math.min(view.getHeight() - 5f, 115f * density));
+    final float y = Math.max(1f, Math.min(view.getHeight() - 2f, startYdp * density));
+    final float startX = startXdp * density;
     final int overlayWidth = width;
     Field progressField = view.getClass().getDeclaredField("progress");
     progressField.setAccessible(true);
@@ -260,8 +308,8 @@ public class KfeOverlaySmokeTest {
     InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
       long now = SystemClock.uptimeMillis();
       try {
-        view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now, android.view.MotionEvent.ACTION_DOWN, 20f, y, 0));
-        view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now + 80, android.view.MotionEvent.ACTION_MOVE, overlayWidth * 0.35f, y, 0));
+        view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now, android.view.MotionEvent.ACTION_DOWN, startX, y, 0));
+        view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now + 80, android.view.MotionEvent.ACTION_MOVE, startX + (overlayWidth * 0.35f - startX) * 0.45f, y, 0));
         intermediateProgress[0] = progressField.getFloat(view);
         view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now + 160, android.view.MotionEvent.ACTION_MOVE, overlayWidth * endFraction, y, 0));
         view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now + 220, android.view.MotionEvent.ACTION_UP, overlayWidth * endFraction, y, 0));
