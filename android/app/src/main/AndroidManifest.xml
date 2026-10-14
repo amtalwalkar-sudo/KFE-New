@@ -35,7 +35,6 @@
         <service android:name=".KfeOverlayService" android:enabled="true" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="driver_overlay_for_active_fleet_workflow" />
         </service>
-        <receiver android:name=".KfeRideNotificationReceiver" android:enabled="true" android:exported="false" />
         <receiver android:name=".KfeLifecycleRecoveryReceiver" android:enabled="true" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
