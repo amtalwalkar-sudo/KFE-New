@@ -80,6 +80,7 @@ public class KfeOverlayService extends Service {
   private String activeAmountField="fare";
   private String cancelReason="";
   private boolean formSubmitting=false;
+  private boolean cancelFormPwaSynchronized=false;
   private boolean acknowledgedEventNeedsRecovery=false;
   private String awaitingEventId="";
   private String awaitingStage="";
@@ -240,9 +241,10 @@ public class KfeOverlayService extends Service {
         if((("ENTER_FARE".equals(actionStage)||"END_RIDE".equals(actionStage))&&!"FARE".equals(formMode))||("CANCEL_RIDE".equals(actionStage)&&!"CANCEL".equals(formMode)))closeForm();
       }
       restorePersistedFormIfNeeded();
+      if(root.optBoolean("cancelOpen",false))cancelFormPwaSynchronized=true;
       if(formMode==null&&"ENTER_FARE".equals(actionStage)){openFareForm();applyFareDraft(root.optJSONObject("fareDraft"));}
       if(formMode==null&&"START_RIDE".equals(actionStage)&&root.optBoolean("cancelOpen",false)){openCancelForm();applyCancelDraft(root.optJSONObject("cancelDraft"));}
-      if("CANCEL".equals(formMode)&&"START_RIDE".equals(actionStage)&&!root.optBoolean("cancelOpen",false)&&!"CANCEL_RIDE".equals(awaitingStage))closeForm();
+      if("CANCEL".equals(formMode)&&"START_RIDE".equals(actionStage)&&cancelFormPwaSynchronized&&!root.optBoolean("cancelOpen",false)&&!"CANCEL_RIDE".equals(awaitingStage)){closeForm();cancelFormPwaSynchronized=false;}
       if(acknowledgedEventNeedsRecovery){acknowledgedEventNeedsRecovery=false;onEventAcknowledged(awaitingEventId,awaitingStage,awaitingTripId);}
       overlay.invalidate();
     }catch(Exception ignored){ overlay.invalidate(); }
@@ -252,7 +254,7 @@ public class KfeOverlayService extends Service {
     getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit()
       .putString("formMode",formMode==null?"":formMode)
       .putString("formValue",formValue).putString("tollValue",tollValue).putString("parkingValue",parkingValue)
-      .putString("cancelReason",cancelReason).putBoolean("tollExpanded",tollExpanded).putBoolean("parkingExpanded",parkingExpanded)
+      .putString("cancelReason",cancelReason).putBoolean("cancelFormPwaSynchronized",cancelFormPwaSynchronized).putBoolean("tollExpanded",tollExpanded).putBoolean("parkingExpanded",parkingExpanded)
       .putBoolean("tollExcluded",tollTreatmentInput!=null&&tollTreatmentInput.isChecked())
       .putBoolean("parkingExcluded",parkingTreatmentInput!=null&&parkingTreatmentInput.isChecked()).apply();
   }
@@ -291,6 +293,7 @@ public class KfeOverlayService extends Service {
     String savedToll=saved.getString("tollValue","");
     String savedParking=saved.getString("parkingValue","");
     String savedReason=saved.getString("cancelReason","");
+    cancelFormPwaSynchronized=saved.getBoolean("cancelFormPwaSynchronized",false);
     boolean savedTollExpanded=saved.getBoolean("tollExpanded",false);
     boolean savedParkingExpanded=saved.getBoolean("parkingExpanded",false);
     boolean savedTollExcluded=saved.getBoolean("tollExcluded",false);
@@ -373,6 +376,8 @@ public class KfeOverlayService extends Service {
   static void acknowledgeFromPwa(Context context,String eventId,String stage,String tripId){
     KfeOverlayService current=instance;
     if(current==null)return;
+    if("OPEN_CANCEL_FORM".equals(stage)){current.cancelFormPwaSynchronized=true;current.persistNativeForm();return;}
+    if("CLOSE_CANCEL_FORM".equals(stage)){current.cancelFormPwaSynchronized=false;if("CANCEL".equals(current.formMode))current.closeForm();return;}
     if(android.os.Looper.myLooper()==current.getMainLooper()){
       current.onEventAcknowledged(eventId,stage,tripId);
       return;
@@ -392,7 +397,7 @@ public class KfeOverlayService extends Service {
     if("START_RIDE".equals(stage)){ actionStage="END_RIDE"; persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); return; }
     if("END_RIDE".equals(stage)){ pendingFareTripId=tripId; pendingTripId=tripId; actionStage="ENTER_FARE"; persistNativeWorkflow(); KfeNativeGpsService.stop(this,tripId); if(!"FARE".equals(formMode)){if("FARE".equals(getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString("formMode","")))restorePersistedFormIfNeeded();else openFareForm();} if(overlay!=null)overlay.invalidate(); return; }
     if("OPEN_CANCEL_FORM".equals(stage)){ persistNativeWorkflow(); if(overlay!=null)overlay.invalidate(); return; }
-    if("ENTER_FARE".equals(stage) || "CANCEL_RIDE".equals(stage)){ closeForm(); actionStage="GO_TO_PICKUP"; pendingTripId=""; pendingFareTripId=""; tripStartAt=0L; persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); }
+    if("ENTER_FARE".equals(stage) || "CANCEL_RIDE".equals(stage)){ closeForm(); if("CANCEL_RIDE".equals(stage))cancelFormPwaSynchronized=false; actionStage="GO_TO_PICKUP"; pendingTripId=""; pendingFareTripId=""; tripStartAt=0L; persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); }
   }
 
   private void persistNativeWorkflow(){
@@ -633,7 +638,7 @@ public class KfeOverlayService extends Service {
   private void closeForm(){closeForm(true);}
   private void closeForm(boolean clearDraft){
     if(formPanel!=null&&overlayRoot!=null)overlayRoot.removeView(formPanel);
-    formPanel=null;formMode=null;formValue="";tollValue="";parkingValue="";formSubmitting=false;formInput=null;tollInput=null;parkingInput=null;tollTreatmentInput=null;parkingTreatmentInput=null;tollToggle=null;parkingToggle=null;if(clearDraft)getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().remove("formMode").remove("formValue").remove("tollValue").remove("parkingValue").remove("cancelReason").remove("tollExpanded").remove("parkingExpanded").remove("tollExcluded").remove("parkingExcluded").apply();
+    formPanel=null;formMode=null;formValue="";tollValue="";parkingValue="";formSubmitting=false;formInput=null;tollInput=null;parkingInput=null;tollTreatmentInput=null;parkingTreatmentInput=null;tollToggle=null;parkingToggle=null;if(clearDraft)getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().remove("formMode").remove("formValue").remove("tollValue").remove("parkingValue").remove("cancelReason").remove("cancelFormPwaSynchronized").remove("tollExpanded").remove("parkingExpanded").remove("tollExcluded").remove("parkingExcluded").apply();
     if(params!=null){params.height=dp(COLLAPSED_TOTAL_DP);params.flags=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;params.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING;if(windowManager!=null&&overlayRoot!=null)windowManager.updateViewLayout(overlayRoot,params);}
     if(overlay!=null)overlay.invalidate();
   }
