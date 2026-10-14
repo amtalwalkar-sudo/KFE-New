@@ -69,7 +69,6 @@ const activeOverlayState = async () => {
     trip: active.trip,
     trips,
     pendingFareId,
-    notificationPhase: '',
     target,
     targetProgress,
     liveKm,
