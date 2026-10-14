@@ -123,6 +123,31 @@ public class KfeOverlaySmokeTest {
       "GO_TO_PICKUP|edge-swipe-trip|", pendingValue());
   }
 
+  @Test public void partiallyDisplacedHandleCanBeGrabbedAndCompleted() throws Exception {
+    clearPending();
+    JSONObject state = new JSONObject()
+      .put("shift", new JSONObject().put("id", "partial-handle-shift"))
+      .put("trip", JSONObject.NULL)
+      .put("overlayAction", "GO_TO_PICKUP")
+      .put("overlayTripId", "partial-handle-trip");
+    KfeOverlayService.update(context, state.toString());
+    waitForOverlay();
+    KfeOverlayService service = waitForService();
+    setField(service, "actionStage", "GO_TO_PICKUP");
+    setField(service, "pendingTripId", "partial-handle-trip");
+    Field overlayField = KfeOverlayService.class.getDeclaredField("overlay");
+    overlayField.setAccessible(true);
+    android.view.View view = (android.view.View) overlayField.get(service);
+    float density = view.getResources().getDisplayMetrics().density;
+    float widthDp = view.getWidth() / density;
+    float startXdp = 8f + (widthDp - 16f - 58f) * 0.45f + 29f;
+    setField(view, "progress", 0.45f);
+    float intermediate = swipeOverlay(service, 0.92f, startXdp, 120f);
+    assertTrue("Recovered swipe must continue tracking from the displaced thumb", intermediate > 0.05f);
+    assertEquals("A displaced handle must still complete the pickup action",
+      "GO_TO_PICKUP|partial-handle-trip|", pendingValue());
+  }
+
   @Test public void failedNativeActionCanRecoverByAcknowledgingSameDurableEvent() throws Exception {
     clearPending();
     JSONObject state = new JSONObject()
