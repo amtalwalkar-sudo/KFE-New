@@ -225,6 +225,42 @@ public class KfeOverlaySmokeTest {
     assertTrue("Overlay form flow must not retain an activity-launch fallback", hasNoActivityLaunchFallback());
   }
 
+  @Test public void fareFormSendsOptionalTollParkingAndTreatmentFlags() throws Exception {
+    clearPending();
+    JSONObject state = new JSONObject()
+      .put("shift", new JSONObject().put("id", "fare-shift"))
+      .put("trip", JSONObject.NULL)
+      .put("overlayAction", "ENTER_FARE")
+      .put("overlayTripId", "fare-trip")
+      .put("pendingFareId", "fare-trip");
+    KfeOverlayService.update(context, state.toString());
+    waitForOverlay();
+    KfeOverlayService service = waitForService();
+    setField(service, "pendingFareTripId", "fare-trip");
+    setField(service, "pendingTripId", "fare-trip");
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+      try {
+        java.lang.reflect.Method open = KfeOverlayService.class.getDeclaredMethod("openFareForm");
+        open.setAccessible(true);
+        open.invoke(service);
+        ((EditText) fieldValue(service, "formInput")).setText("450");
+        ((EditText) fieldValue(service, "tollInput")).setText("0");
+        ((EditText) fieldValue(service, "parkingInput")).setText("25");
+        ((android.widget.CheckBox) fieldValue(service, "tollTreatmentInput")).setChecked(true);
+        java.lang.reflect.Method submit = KfeOverlayService.class.getDeclaredMethod("submitNumericForm");
+        submit.setAccessible(true);
+        submit.invoke(service);
+      } catch (Exception e) { throw new AssertionError(e); }
+    });
+    assertTrue(pendingValue().startsWith("ENTER_FARE|fare-trip|"));
+    JSONObject payload = new JSONObject(pendingValue().substring("ENTER_FARE|fare-trip|".length()));
+    assertEquals("450", payload.getString("fare"));
+    assertEquals("0", payload.getString("toll"));
+    assertEquals("25", payload.getString("parking"));
+    assertEquals("EXCLUDED", payload.getString("tollTreatment"));
+    assertEquals("INCLUDED", payload.getString("parkingTreatment"));
+  }
+
   @Test public void cancellationFormAllowsOptionalFeeAndPersistsPassengerReason() throws Exception {
     clearPending();
     JSONObject state = new JSONObject()
