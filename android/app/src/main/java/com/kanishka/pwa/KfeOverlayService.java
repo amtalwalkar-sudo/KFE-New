@@ -554,7 +554,7 @@ public class KfeOverlayService extends Service {
 
   private class SwipeOverlayView extends View{
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);private final RectF rect=new RectF();
-    private float downX,downY,lastX,lastY;private boolean tracking,moving,swipeLocked,swipeEligible;private float progress;
+    private float downX,downY,downLocalX,downLocalY,lastX,lastY;private boolean tracking,moving,swipeLocked,swipeEligible;private float progress;
     private String formatTripTime(){
       if(tripStartAt<=0) return "00:00:00";
       long elapsed=Math.max(0L,System.currentTimeMillis()-tripStartAt)/1000L;
@@ -596,16 +596,20 @@ public class KfeOverlayService extends Service {
         text(11,a,true);center(c,"CANCELLED · "+cancellationRevenue,w*.50f,barTop+dp(77));
         text(10,mutedColor(),false);center(c,"Same trip · cancellation recorded",w*.50f,barTop+dp(95));
       }else{
-        String stateLabel="";if("START_RIDE".equals(actionStage))stateLabel="START RIDE";if("END_RIDE".equals(actionStage))stateLabel="END RIDE";if("ENTER_FARE".equals(actionStage))stateLabel="ENTER FARE";
-        if(!stateLabel.isEmpty()){
+        String stateLabel="";if("START_RIDE".equals(actionStage))stateLabel="START RIDE";if("END_RIDE".equals(actionStage))stateLabel="END RIDE";
+        if("ENTER_FARE".equals(actionStage)){
+          text(11,a,true);center(c,"FARE REQUIRED · TAP TO OPEN",w*.50f,barTop+dp(79));
+        }else if(!stateLabel.isEmpty()){
           text(11,mutedColor(),true);String prefix="SWIPE TO ";float total=measureAction(prefix,11)+dp(4)+measureAction(stateLabel,11);float startX=w/2f-total/2f;
           c.drawText(prefix,startX,barTop+dp(79),paint);text(11,a,true);c.drawText(stateLabel,startX+measureAction(prefix,11)+dp(4),barTop+dp(79),paint);
         }
       }
-      int thumbW=dp(58),pad=dp(8);float tx=pad+(w-pad*2-thumbW)*progress;
-      paint.setStyle(Paint.Style.FILL);paint.setColor(a);rect.set(tx,barTop+dp(100),tx+thumbW,barTop+dp(124));c.drawRoundRect(rect,dp(12),dp(12),paint);
-      // Visual-only affordance: dark high-contrast chevron on the semantic-colour thumb.
-      text(22,Color.rgb(16,21,27),true);center(c,"›",tx+thumbW/2f,barTop+dp(119));
+      if(!"ENTER_FARE".equals(actionStage)){
+        int thumbW=dp(58),pad=dp(8);float tx=pad+(w-pad*2-thumbW)*progress;
+        paint.setStyle(Paint.Style.FILL);paint.setColor(a);rect.set(tx,barTop+dp(100),tx+thumbW,barTop+dp(124));c.drawRoundRect(rect,dp(12),dp(12),paint);
+        // Visual-only affordance: dark high-contrast chevron on the semantic-colour thumb.
+        text(22,Color.rgb(16,21,27),true);center(c,"›",tx+thumbW/2f,barTop+dp(119));
+      }
       if("START_RIDE".equals(actionStage)){
         paint.setStyle(Paint.Style.FILL);paint.setColor(Color.argb(235,dark()?95:245,dark()?45:245,dark()?45:245));
         rect.set(w-dp(112),barTop+dp(61),w-dp(12),barTop+dp(94));c.drawRoundRect(rect,dp(12),dp(12),paint);
@@ -634,7 +638,7 @@ public class KfeOverlayService extends Service {
     @Override public boolean onTouchEvent(MotionEvent e){
       switch(e.getActionMasked()){
         case MotionEvent.ACTION_DOWN:{
-          downX=e.getRawX();downY=e.getRawY();lastX=downX;lastY=downY;tracking=true;moving=false;
+          downX=e.getRawX();downY=e.getRawY();downLocalX=e.getX();downLocalY=e.getY();lastX=downX;lastY=downY;tracking=true;moving=false;
           float localX=e.getX(),localY=e.getY();
           swipeEligible=!minimized&&localY>=dp(100)&&localY<=dp(132)&&localX<=dp(74);
           swipeLocked=swipeEligible;progress=0;return true;}
@@ -678,7 +682,8 @@ public class KfeOverlayService extends Service {
             if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);return true;
           }
           if(minimized&&!moving&&Math.abs(fx)<dp(16)&&Math.abs(fy)<dp(16)){expandFromBubble();return true;}
-          if(!minimized&&!moving&&awaitingEventId.isEmpty()&&"START_RIDE".equals(actionStage)&&downX>getWidth()-dp(120)&&downY>=dp(60)&&downY<=dp(110)){requestPwaForm("OPEN_CANCEL_FORM");return true;}
+          if(!minimized&&!moving&&awaitingEventId.isEmpty()&&"START_RIDE".equals(actionStage)&&downLocalX>getWidth()-dp(120)&&downLocalY>=dp(60)&&downLocalY<=dp(110)){requestPwaForm("OPEN_CANCEL_FORM");return true;}
+          if(!minimized&&!moving&&"ENTER_FARE".equals(actionStage)&&downLocalY>=dp(58)&&downLocalY<=dp(96)){launchWorkActivity();return true;}
           float maxTravel=Math.max(1,getWidth()-dp(16)-dp(58));
           if(!minimized&&!moving&&swipeEligible&&swipeLocked&&fx>=maxTravel*.70f){progress=1;invalidate();triggerAction();swipeLocked=false;swipeEligible=false;return true;}
           progress=0;invalidate();return true;}
