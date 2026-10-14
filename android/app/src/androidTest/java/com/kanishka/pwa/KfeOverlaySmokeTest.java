@@ -120,6 +120,20 @@ public class KfeOverlaySmokeTest {
     assertEquals("", pendingValue());
   }
 
+  @Test public void rebootRecoveryRejectsMissingOrClearedShiftSnapshot() throws Exception {
+    assertTrue(!KfeOverlayService.isResumableState(""));
+    assertTrue(!KfeOverlayService.isResumableState("{\"shift\":{}}"));
+    assertTrue(KfeOverlayService.isResumableState(
+      new JSONObject().put("shift", new JSONObject().put("id", "active-shift")).toString()));
+
+    context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE).edit()
+      .putString("lastOverlayState", new JSONObject()
+        .put("shift", new JSONObject().put("id", "ended-shift")).toString()).commit();
+    assertTrue(KfeOverlayService.hasPersistedOverlayState(context));
+    KfeOverlayService.clearPersistedOverlayState(context);
+    assertTrue(!KfeOverlayService.hasPersistedOverlayState(context));
+  }
+
   private KfeOverlayService waitForService() {
     long deadline = SystemClock.uptimeMillis() + 5000L;
     while (SystemClock.uptimeMillis() < deadline) {

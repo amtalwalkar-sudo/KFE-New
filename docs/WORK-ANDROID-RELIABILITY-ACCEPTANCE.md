@@ -75,6 +75,23 @@ This runbook is the required physical-device acceptance test for the KFE Work wo
 
 Expected: one canonical Work state drives both surfaces. The overlay is the foreground interaction surface; the ongoing Android notification is the background status/re-entry surface. No notification or overlay action may create a duplicate trip, silently save form data, or block a trip transition while waiting for GPS.
 
+## Test H — fully offline native ride workflow
+
+- Start a test shift while online, wait for all required permissions/settings to be confirmed, and verify the native overlay plus ongoing notification are visible.
+- Enable Airplane mode; explicitly verify Wi-Fi and mobile data remain disabled. Keep device Location enabled.
+- Run the complete native overlay flow: GO TO PICKUP → START TRIP → END TRIP. Verify the same canonical PWA cancellation/fare forms open when those forms are requested; fare is required, toll and parking are optional.
+- Repeat the ride action sequence from the PWA while still offline. Confirm each surface reflects the same active stage and that exactly one trip is created per ride.
+- Turn the screen off for at least 10 minutes during a pickup/active ride. After waking the device, verify the current stage, notification, GPS collector status, and locally persisted trace.
+- While still offline, restart the phone normally. Unlock it, wait for boot recovery, and verify the last valid active shift/trip state is restored without creating a new trip. Confirm new GPS points resume when Android grants the service permission to run.
+- Complete the trip and save fare once. Reopen Work and verify the completed trip/fare are not duplicated and the trace is importable locally. Restore internet only after checking local persistence; then verify sync/reconciliation does not duplicate records.
+- Repeat once with an ended shift. After ending the shift, reboot and verify no stale overlay from that ended shift reappears.
+
+Expected: native actions and canonical local records do not depend on network access. GPS still depends on device Location being enabled, runtime/background location permissions, and Android allowing the foreground service to run. Mark any missing permission or OS restriction explicitly; never mark the test PASS just because the overlay window is visible.
+
+## Android lifecycle boundary — force-stop is not process death
+
+A user/system force-stop is different from ordinary process death. Android can suppress app services, alarms and boot/background receivers for a force-stopped package until the user launches it again. Do not promise automatic overlay/GPS recovery from force-stop. Test ordinary process death separately; for force-stop, verify the next manual app launch recovers durable state and pending actions without duplication.
+
 ## Result recording
 
 For each test mark PASS/FAIL/NOT RUN and attach:
