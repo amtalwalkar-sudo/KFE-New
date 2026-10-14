@@ -9,6 +9,7 @@ const receiver = fs.readFileSync(path.join(root, 'android/app/src/main/java/com/
 const overlay = fs.readFileSync(path.join(root, 'android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java'), 'utf8')
 const gpsService = fs.readFileSync(path.join(root, 'android/app/src/main/java/com/kanishka/pwa/KfeNativeGpsService.java'), 'utf8')
 const startupPlugin = fs.readFileSync(path.join(root, 'android/app/src/main/java/com/kanishka/pwa/KfeNativeGpsPlugin.java'), 'utf8')
+const workView = fs.readFileSync(path.join(root, 'src/views/WorkModuleView.vue'), 'utf8')
 assert.match(service, /ENTER_PICKUP_DURATION/)
 assert.match(service, /ENTER_RIDE_DURATION/)
 assert.match(service, /END_RIDE/)
@@ -95,5 +96,18 @@ assert.match(workService, /if \(snapshots\.length < 2\) return null/)
 assert.match(overlayLifecycle, /WorkService\.getTripDeadMovementDistanceKm\(active\.trip\.id\)/)
 assert.match(overlayLifecycle, /deadKm = \x27—\x27/)
 assert.match(overlayLifecycle, /deadKm,/)
+
+
+// Overlay trip actions must enter the same Vue Work forms and canonical write path.
+// Ending a ride opens the app's pending-fare WorkContextForm instead of a second
+// native fare form; cancellation likewise opens the existing PWA cancellation form.
+assert.match(overlay, /requestPwaForm\("OPEN_CANCEL_FORM"\)/)
+assert.match(overlay, /launchWorkActivityIfUnacknowledged\(eventId\)/)
+assert.match(overlay, /if\("END_RIDE"\.equals\(stage\)\).*launchWorkActivity\(\)/)
+assert.match(overlay, /if\("OPEN_CANCEL_FORM"\.equals\(stage\)\).*launchWorkActivity\(\)/)
+assert.doesNotMatch(overlay, /if\(overlay!=null\)openFareForm\(\)/)
+assert.match(workView, /stage === 'OPEN_CANCEL_FORM'\) \{ await openCancel\(\); return true \}/)
+assert.match(workView, /type="fare"/)
+assert.match(workView, /type="cancel"/)
 
 console.log('KFE ride notification contract tests passed')
