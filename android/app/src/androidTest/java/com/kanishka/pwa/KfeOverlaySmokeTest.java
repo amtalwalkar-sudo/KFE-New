@@ -63,7 +63,7 @@ public class KfeOverlaySmokeTest {
     assertEquals("", KfeOverlayService.resolveActionLabel("ENTER_FARE"));
   }
 
-  @Test public void swipeWhileAwaitingAcknowledgementCannotLockHandleOrCreateAnotherAction() throws Exception {
+  @Test public void swipeWhileAwaitingAcknowledgementCannotCreateDuplicateDurableEvent() throws Exception {
     clearPending();
     JSONObject state = new JSONObject()
       .put("shift", new JSONObject().put("id", "awaiting-shift"))
@@ -73,11 +73,68 @@ public class KfeOverlaySmokeTest {
     KfeOverlayService.update(context, state.toString());
     waitForOverlay();
     KfeOverlayService service = waitForService();
+    String eventId = KfeNativeWorkActionsPlugin.recordPendingAction(context, "GO_TO_PICKUP", "awaiting-trip", "");
     setField(service, "actionStage", "GO_TO_PICKUP");
-    setField(service, "awaitingEventId", "already-pending-event");
-    swipeOverlay(service);
+    setField(service, "pendingTripId", "awaiting-trip");
+    setField(service, "awaitingEventId", eventId);
+    setField(service, "awaitingStage", "GO_TO_PICKUP");
+    setField(service, "awaitingTripId", "awaiting-trip");
+    float progress = swipeOverlay(service, 0.92f);
+    assertTrue("An in-flight action must not visually move the swipe handle", progress < 0.01f);
     assertSwipeRetracted(service);
-    assertEquals("An in-flight action must not create a duplicate swipe action", "", pendingValue());
+    org.json.JSONArray pending = KfeNativeEventStore.get(context).pending(100);
+    assertEquals("Repeated swipes while awaiting acknowledgement must not append another durable event", 1, pending.length());
+    assertEquals("The original durable event identity must remain pending", eventId, pending.getJSONObject(0).getString("eventId"));
+  }
+
+  @Test public void swipeHandleTracksFingerAndRetractsAfterIncompleteGesture() throws Exception {
+    clearPending();
+    JSONObject state = new JSONObject()
+      .put("shift", new JSONObject().put("id", "progress-shift"))
+      .put("trip", JSONObject.NULL)
+      .put("overlayAction", "GO_TO_PICKUP")
+      .put("overlayTripId", "progress-trip");
+    KfeOverlayService.update(context, state.toString());
+    waitForOverlay();
+    KfeOverlayService service = waitForService();
+    setField(service, "actionStage", "GO_TO_PICKUP");
+    setField(service, "pendingTripId", "progress-trip");
+    float intermediate = swipeOverlay(service, 0.45f);
+    assertTrue("Swipe handle must follow the finger before the commit threshold", intermediate > 0.05f);
+    assertTrue("Partial gesture must not jump to the completed position", intermediate < 0.70f);
+    assertSwipeRetracted(service);
+    assertEquals("An incomplete gesture must not emit an action", 0, KfeNativeEventStore.get(context).pending(100).length());
+  }
+
+  @Test public void failedNativeActionCanRecoverByAcknowledgingSameDurableEvent() throws Exception {
+    clearPending();
+    JSONObject state = new JSONObject()
+      .put("shift", new JSONObject().put("id", "recover-shift"))
+      .put("trip", JSONObject.NULL)
+      .put("overlayAction", "GO_TO_PICKUP")
+      .put("overlayTripId", "recover-trip");
+    KfeOverlayService.update(context, state.toString());
+    waitForOverlay();
+    KfeOverlayService service = waitForService();
+    String eventId = KfeNativeWorkActionsPlugin.recordPendingAction(context, "GO_TO_PICKUP", "recover-trip", "");
+    setField(service, "actionStage", "GO_TO_PICKUP");
+    setField(service, "pendingTripId", "recover-trip");
+    setField(service, "awaitingEventId", eventId);
+    setField(service, "awaitingStage", "GO_TO_PICKUP");
+    setField(service, "awaitingTripId", "recover-trip");
+
+    KfeNativeEventStore.get(context).recordFailure(eventId, "simulated interrupted Work save");
+    org.json.JSONArray afterFailure = KfeNativeEventStore.get(context).pending(100);
+    assertEquals("Failed save must remain durable for retry", 1, afterFailure.length());
+    assertEquals("Recovery must reuse the original event, not append a replacement", eventId, afterFailure.getJSONObject(0).getString("eventId"));
+
+    assertTrue("Recovered event must acknowledge exactly once", KfeNativeEventStore.get(context).acknowledge(eventId));
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(() ->
+      KfeOverlayService.acknowledgeFromPwa(context, eventId, "GO_TO_PICKUP", "recover-trip"));
+    assertEquals("Successful recovery must release the in-flight lock", "", fieldValue(service, "awaitingEventId"));
+    assertEquals("Pickup acknowledgement must advance to the existing next workflow action", "START_RIDE", fieldValue(service, "actionStage"));
+    assertSwipeRetracted(service);
+    assertEquals("Acknowledged event must no longer be pending", 0, KfeNativeEventStore.get(context).pending(100).length());
   }
 
   @Test public void goldenRideSwipeLoopPersistsPickupStartEndAndFareIdentity() throws Exception {
@@ -106,8 +163,7 @@ public class KfeOverlaySmokeTest {
     service = waitForService();
     actionStage.set(service, "GO_TO_PICKUP");
     pendingTripId.set(service, "trip-a");
-    swipeOverlay(service);
-    assertSwipeRetracted(service);
+    assertSwipeTracksAndRetracts(service);
     assertEquals("GO_TO_PICKUP|trip-a|", pendingValue());
     acknowledgePending("GO_TO_PICKUP", "trip-a");
     state.put("overlayAction", "START_RIDE");
@@ -116,7 +172,7 @@ public class KfeOverlaySmokeTest {
     service = waitForService();
     actionStage.set(service, "START_RIDE");
     pendingTripId.set(service, "trip-a");
-    swipeOverlay(service);
+    assertSwipeTracksAndRetracts(service);
     assertEquals("START_RIDE|trip-a|", pendingValue());
     acknowledgePending("START_RIDE", "trip-a");
     state.put("overlayAction", "END_RIDE");
@@ -125,7 +181,7 @@ public class KfeOverlaySmokeTest {
     service = waitForService();
     actionStage.set(service, "END_RIDE");
     pendingTripId.set(service, "trip-a");
-    swipeOverlay(service);
+    assertSwipeTracksAndRetracts(service);
     assertEquals("END_RIDE|trip-a|", pendingValue());
     acknowledgePending("END_RIDE", "trip-a");
 
@@ -188,7 +244,7 @@ public class KfeOverlaySmokeTest {
     throw new AssertionError("KFE overlay view did not become interactive");
   }
 
-  private void swipeOverlay(KfeOverlayService service) throws Exception {
+  private float swipeOverlay(KfeOverlayService service, float endFraction) throws Exception {
     service = waitForService();
     Field field = KfeOverlayService.class.getDeclaredField("overlay");
     field.setAccessible(true);
@@ -197,14 +253,29 @@ public class KfeOverlaySmokeTest {
     final float density = view.getResources().getDisplayMetrics().density;
     final float y = Math.max(105f * density, Math.min(view.getHeight() - 5f, 115f * density));
     final int overlayWidth = width;
+    Field progressField = view.getClass().getDeclaredField("progress");
+    progressField.setAccessible(true);
+    final float[] intermediateProgress = {0f};
     InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
       long now = SystemClock.uptimeMillis();
-      view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now, android.view.MotionEvent.ACTION_DOWN, 20f, y, 0));
-      view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now + 80, android.view.MotionEvent.ACTION_MOVE, overlayWidth * 0.55f, y, 0));
-      view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now + 160, android.view.MotionEvent.ACTION_MOVE, overlayWidth * 0.92f, y, 0));
-      view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now + 220, android.view.MotionEvent.ACTION_UP, overlayWidth * 0.92f, y, 0));
+      try {
+        view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now, android.view.MotionEvent.ACTION_DOWN, 20f, y, 0));
+        view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now + 80, android.view.MotionEvent.ACTION_MOVE, overlayWidth * 0.35f, y, 0));
+        intermediateProgress[0] = progressField.getFloat(view);
+        view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now + 160, android.view.MotionEvent.ACTION_MOVE, overlayWidth * endFraction, y, 0));
+        view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now + 220, android.view.MotionEvent.ACTION_UP, overlayWidth * endFraction, y, 0));
+      } catch (Exception e) {
+        throw new AssertionError("Could not measure intermediate native swipe progress", e);
+      }
     });
-    SystemClock.sleep(250);
+    SystemClock.sleep(300);
+    return intermediateProgress[0];
+  }
+
+  private void assertSwipeTracksAndRetracts(KfeOverlayService service) throws Exception {
+    float intermediate = swipeOverlay(service, 0.92f);
+    assertTrue("Swipe handle must visibly move during ACTION_MOVE", intermediate > 0.05f);
+    assertSwipeRetracted(service);
   }
 
   private void assertSwipeRetracted(KfeOverlayService service) throws Exception {
