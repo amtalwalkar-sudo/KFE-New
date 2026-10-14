@@ -596,7 +596,7 @@ public class KfeOverlayService extends Service {
         text(11,a,true);center(c,"CANCELLED · "+cancellationRevenue,w*.50f,barTop+dp(77));
         text(10,mutedColor(),false);center(c,"Same trip · cancellation recorded",w*.50f,barTop+dp(95));
       }else{
-        String stateLabel="";if("START_RIDE".equals(actionStage))stateLabel="START RIDE";if("END_RIDE".equals(actionStage))stateLabel="END RIDE";
+        String stateLabel="";if("GO_TO_PICKUP".equals(actionStage))stateLabel="GO TO PICKUP";if("START_RIDE".equals(actionStage))stateLabel="START RIDE";if("END_RIDE".equals(actionStage))stateLabel="END RIDE";
         if("ENTER_FARE".equals(actionStage)){
           text(11,a,true);center(c,"FARE REQUIRED · TAP TO OPEN",w*.50f,barTop+dp(79));
         }else if(!stateLabel.isEmpty()){
