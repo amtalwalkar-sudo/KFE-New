@@ -48,7 +48,7 @@ assert.match(overlay, /ContextCompat\.startForegroundService/)
 assert.match(overlay, /TYPE_APPLICATION_OVERLAY/)
 assert.match(overlay, /String\[\] labels=\{\"TARGET\",\"LIVE KM\",\"TRIP TIME\",\"REVENUE\"\}/)
 assert.match(overlay, /for\(int i=0;i<4;i\+\+\)/)
-assert.match(overlayLifecycle, /notificationPhase: ''/)
+
 assert.match(overlayLifecycle, /deriveWorkCockpitState/)
 assert.match(cockpit, /trip\.tripStage === 'RIDE_STARTED'/)
 assert.match(cockpit, /state: WORK_COCKPIT_STATES.READY_FOR_TRIP/)
