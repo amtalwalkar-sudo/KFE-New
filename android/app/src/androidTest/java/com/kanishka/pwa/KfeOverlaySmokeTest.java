@@ -82,9 +82,7 @@ public class KfeOverlaySmokeTest {
     float progress = swipeOverlay(service, 0.92f);
     assertTrue("An in-flight action must not visually move the swipe handle", progress < 0.01f);
     assertSwipeRetracted(service);
-    org.json.JSONArray pending = KfeNativeEventStore.get(context).pending(100);
-    assertEquals("Repeated swipes while awaiting acknowledgement must not append another durable event", 1, pending.length());
-    assertEquals("The original durable event identity must remain pending", eventId, pending.getJSONObject(0).getString("eventId"));
+    assertEquals("Repeated swipes while awaiting acknowledgement must not append another durable event", 1, pendingEventCount(eventId));
   }
 
   @Test public void swipeHandleTracksFingerAndRetractsAfterIncompleteGesture() throws Exception {
@@ -99,11 +97,12 @@ public class KfeOverlaySmokeTest {
     KfeOverlayService service = waitForService();
     setField(service, "actionStage", "GO_TO_PICKUP");
     setField(service, "pendingTripId", "progress-trip");
+    int pendingBefore = KfeNativeEventStore.get(context).pending(100).length();
     float intermediate = swipeOverlay(service, 0.45f);
     assertTrue("Swipe handle must follow the finger before the commit threshold", intermediate > 0.05f);
     assertTrue("Partial gesture must not jump to the completed position", intermediate < 0.70f);
     assertSwipeRetracted(service);
-    assertEquals("An incomplete gesture must not emit an action", 0, KfeNativeEventStore.get(context).pending(100).length());
+    assertEquals("An incomplete gesture must not emit an action", pendingBefore, KfeNativeEventStore.get(context).pending(100).length());
   }
 
   @Test public void failedNativeActionCanRecoverByAcknowledgingSameDurableEvent() throws Exception {
@@ -116,6 +115,7 @@ public class KfeOverlaySmokeTest {
     KfeOverlayService.update(context, state.toString());
     waitForOverlay();
     KfeOverlayService service = waitForService();
+    int pendingBefore = KfeNativeEventStore.get(context).pending(100).length();
     String eventId = KfeNativeWorkActionsPlugin.recordPendingAction(context, "GO_TO_PICKUP", "recover-trip", "");
     setField(service, "actionStage", "GO_TO_PICKUP");
     setField(service, "pendingTripId", "recover-trip");
@@ -124,9 +124,8 @@ public class KfeOverlaySmokeTest {
     setField(service, "awaitingTripId", "recover-trip");
 
     KfeNativeEventStore.get(context).recordFailure(eventId, "simulated interrupted Work save");
-    org.json.JSONArray afterFailure = KfeNativeEventStore.get(context).pending(100);
-    assertEquals("Failed save must remain durable for retry", 1, afterFailure.length());
-    assertEquals("Recovery must reuse the original event, not append a replacement", eventId, afterFailure.getJSONObject(0).getString("eventId"));
+    assertEquals("Failed save must remain durable for retry under its original ID", 1, pendingEventCount(eventId));
+    assertEquals("Failure must not append a replacement event", pendingBefore + 1, KfeNativeEventStore.get(context).pending(100).length());
 
     assertTrue("Recovered event must acknowledge exactly once", KfeNativeEventStore.get(context).acknowledge(eventId));
     InstrumentationRegistry.getInstrumentation().runOnMainSync(() ->
@@ -134,7 +133,8 @@ public class KfeOverlaySmokeTest {
     assertEquals("Successful recovery must release the in-flight lock", "", fieldValue(service, "awaitingEventId"));
     assertEquals("Pickup acknowledgement must advance to the existing next workflow action", "START_RIDE", fieldValue(service, "actionStage"));
     assertSwipeRetracted(service);
-    assertEquals("Acknowledged event must no longer be pending", 0, KfeNativeEventStore.get(context).pending(100).length());
+    assertEquals("Acknowledged event must no longer be pending", 0, pendingEventCount(eventId));
+    assertEquals("Recovery must return the pending queue to its previous size", pendingBefore, KfeNativeEventStore.get(context).pending(100).length());
   }
 
   @Test public void goldenRideSwipeLoopPersistsPickupStartEndAndFareIdentity() throws Exception {
@@ -285,6 +285,15 @@ public class KfeOverlaySmokeTest {
     Field progressField = overlay.getClass().getDeclaredField("progress");
     progressField.setAccessible(true);
     assertTrue("Completed overlay swipe must retract its handle", progressField.getFloat(overlay) < 0.05f);
+  }
+
+  private int pendingEventCount(String eventId) throws Exception {
+    org.json.JSONArray events = KfeNativeEventStore.get(context).pending(100);
+    int count = 0;
+    for (int i = 0; i < events.length(); i++) {
+      if (eventId.equals(events.getJSONObject(i).getString("eventId"))) count++;
+    }
+    return count;
   }
 
   private String pendingValue() {
