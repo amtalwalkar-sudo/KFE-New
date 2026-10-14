@@ -35,6 +35,8 @@ public class KfeRideNotificationsPlugin extends Plugin {
   public void load() {
     instance = this;
     createChannel();
+    // Clear any stage notification left by an older installed build.
+    cancelNotification(getContext());
   }
 
   @Override
@@ -71,50 +73,18 @@ public class KfeRideNotificationsPlugin extends Plugin {
 
   @com.getcapacitor.PluginMethod
   public void show(PluginCall call) {
-    if (!NotificationManagerCompat.from(getContext()).areNotificationsEnabled()) {
-      call.reject("KFE notifications are disabled in Android settings.");
-      return;
-    }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-        getContext().checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-      call.reject("Android notification permission is not granted.");
-      return;
-    }
-    try {
-      showNotification(getContext(), call.getString("stage", "GO_TO_PICKUP"), call.getString("tripId", ""));
-      JSObject result = notificationStatus();
-      result.put("shown", true);
-      call.resolve(result);
-    } catch (SecurityException error) {
-      call.reject("Android blocked the KFE notification: " + error.getMessage());
-    }
+    // Work-stage notifications are intentionally disabled. Foreground-service
+    // notifications are owned by the native tracking services, not this plugin.
+    cancelNotification(getContext());
+    JSObject result = notificationStatus();
+    result.put("shown", false);
+    result.put("disabled", true);
+    call.resolve(result);
   }
 
   @com.getcapacitor.PluginMethod
   public void schedule(PluginCall call) {
-    String stage = call.getString("stage", "START_RIDE");
-    String tripId = call.getString("tripId", "");
-    long delayMs = Math.max(1000L, call.getLong("delayMs", 1000L));
-    long triggerAt = System.currentTimeMillis() + delayMs;
-
-    Intent intent = new Intent(getContext(), KfeRideNotificationReceiver.class);
-    intent.setAction(KfeRideNotificationReceiver.ACTION_ALARM);
-    intent.putExtra("stage", stage);
-    intent.putExtra("tripId", tripId);
-    PendingIntent pending = PendingIntent.getBroadcast(
-      getContext(), requestCode(stage, tripId), intent,
-      PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-    );
-    AlarmManager alarm = (AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE);
-    if (alarm != null) {
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && alarm.canScheduleExactAlarms()) {
-        alarm.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending);
-      } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending);
-      } else {
-        alarm.set(AlarmManager.RTC_WAKEUP, triggerAt, pending);
-      }
-    }
+    // Do not schedule delayed Work-stage notification reminders.
     call.resolve();
   }
 
