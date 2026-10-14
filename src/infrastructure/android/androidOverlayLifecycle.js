@@ -1,7 +1,6 @@
 import { AndroidOverlay } from './kfeOverlay.js'
 import { WorkService } from '../../application/work/workService.js'
 import { PerformanceService } from '../../application/performance/performanceService.js'
-import { KfeRideNotificationService } from './kfeRideNotificationService.js'
 import { deriveWorkCockpitState } from '../../application/work/workCockpit.js'
 
 let configured = false
@@ -13,7 +12,6 @@ let showing = false
 let updateTimer = null
 
 const activeOverlayState = async () => {
-  KfeRideNotificationService.restore()
   const active = await WorkService.getActiveState()
   if (!active?.shift?.id) return null
 
@@ -71,7 +69,6 @@ const activeOverlayState = async () => {
     trip: active.trip,
     trips,
     pendingFareId,
-    notificationPhase: '',
     target,
     targetProgress,
     liveKm,

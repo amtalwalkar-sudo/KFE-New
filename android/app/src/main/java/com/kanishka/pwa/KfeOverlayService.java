@@ -88,7 +88,6 @@ public class KfeOverlayService extends Service {
     if(current==null)return;
     current.liveKm=value==null?"0.0 km":value;
     if(current.overlay!=null)current.overlay.postInvalidate();
-    current.refreshPersistentNotification();
   }
 
   static void updateDeadKm(String value){
@@ -97,7 +96,6 @@ public class KfeOverlayService extends Service {
     current.deadKm=value==null?"—":value;
     current.getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putString("deadKm",current.deadKm).apply();
     if(current.overlay!=null)current.overlay.postInvalidate();
-    current.refreshPersistentNotification();
   }
 
   static String resolveFareActionTripId(String pendingFareTripId, String currentTripId){
@@ -230,12 +228,11 @@ public class KfeOverlayService extends Service {
       if(formMode!=null){
         if((("ENTER_FARE".equals(actionStage)||"END_RIDE".equals(actionStage))&&!"FARE".equals(formMode))||("CANCEL_RIDE".equals(actionStage)&&!"CANCEL".equals(formMode)))closeForm();
       }
-      refreshPersistentNotification();
       overlay.invalidate();
     }catch(Exception ignored){ overlay.invalidate(); }
   }
 
-  private void onCancelSaved(){formSubmitting=false;closeForm();actionStage="GO_TO_PICKUP";pendingTripId="";pendingFareTripId="";tripStartAt=0L;awaitingEventId="";awaitingStage="";awaitingTripId="";persistNativeWorkflow();KfeRideNotificationsPlugin.cancelNotification(this);if(overlay!=null)overlay.invalidate();}
+  private void onCancelSaved(){formSubmitting=false;closeForm();actionStage="GO_TO_PICKUP";pendingTripId="";pendingFareTripId="";tripStartAt=0L;awaitingEventId="";awaitingStage="";awaitingTripId="";persistNativeWorkflow();if(overlay!=null)overlay.invalidate();}
 
   private void onFareSaved(){
     formSubmitting=false;
@@ -245,7 +242,7 @@ public class KfeOverlayService extends Service {
     pendingFareTripId="";
     tripStartAt=0L;
     persistNativeWorkflow();
-    KfeRideNotificationsPlugin.cancelNotification(this);
+    
     animateRetract();
     if(overlay!=null) overlay.invalidate();
   }
@@ -268,9 +265,9 @@ public class KfeOverlayService extends Service {
 
   private void requestPwaForm(String stage){
     if(!awaitingEventId.isEmpty()||pendingTripId.isEmpty())return;
-    String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,stage,pendingTripId,"");
+    String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,stage,pendingTripId,"");
     beginAwaiting(eventId,stage,pendingTripId);persistNativeWorkflow();animateRetract();if(overlay!=null)overlay.invalidate();
-    KfeRideNotificationsPlugin.emitAction(stage,pendingTripId,"",eventId);
+    KfeNativeWorkActionsPlugin.emitAction(stage,pendingTripId,"",eventId);
     launchWorkActivityIfUnacknowledged(eventId);
   }
 
@@ -281,21 +278,21 @@ public class KfeOverlayService extends Service {
     if("GO_TO_PICKUP".equals(actionStage)){
       if(!awaitingEventId.isEmpty()) return;
       if(pendingTripId.isEmpty()) pendingTripId=java.util.UUID.randomUUID().toString();
-      String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"GO_TO_PICKUP",pendingTripId,"");
+      String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"GO_TO_PICKUP",pendingTripId,"");
       beginAwaiting(eventId,"GO_TO_PICKUP",pendingTripId); persistNativeWorkflow(); animateRetract(); overlay.invalidate();
-      KfeRideNotificationsPlugin.emitAction("GO_TO_PICKUP",pendingTripId,"",eventId); launchWorkActivityIfUnacknowledged(eventId); return;
+      KfeNativeWorkActionsPlugin.emitAction("GO_TO_PICKUP",pendingTripId,"",eventId); launchWorkActivityIfUnacknowledged(eventId); return;
     }
     if("START_RIDE".equals(actionStage)){
       if(!awaitingEventId.isEmpty() || pendingTripId.isEmpty()) return;
-      String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"START_RIDE",pendingTripId,"");
+      String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"START_RIDE",pendingTripId,"");
       beginAwaiting(eventId,"START_RIDE",pendingTripId); persistNativeWorkflow(); animateRetract(); overlay.invalidate();
-      KfeRideNotificationsPlugin.emitAction("START_RIDE",pendingTripId,"",eventId); launchWorkActivityIfUnacknowledged(eventId); return;
+      KfeNativeWorkActionsPlugin.emitAction("START_RIDE",pendingTripId,"",eventId); launchWorkActivityIfUnacknowledged(eventId); return;
     }
     if("END_RIDE".equals(actionStage)){
       if(!awaitingEventId.isEmpty() || pendingTripId.isEmpty()) return;
-      String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"END_RIDE",pendingTripId,"");
+      String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"END_RIDE",pendingTripId,"");
       beginAwaiting(eventId,"END_RIDE",pendingTripId); persistNativeWorkflow(); animateRetract(); overlay.invalidate();
-      KfeRideNotificationsPlugin.emitAction("END_RIDE",pendingTripId,"",eventId); launchWorkActivityIfUnacknowledged(eventId);
+      KfeNativeWorkActionsPlugin.emitAction("END_RIDE",pendingTripId,"",eventId); launchWorkActivityIfUnacknowledged(eventId);
     }
   }
 
@@ -346,7 +343,6 @@ public class KfeOverlayService extends Service {
       }catch(Exception ignored){}
     }
     editor.apply();
-    refreshPersistentNotification();
   }
 
   private void hideIfKfeActivityForeground(){
@@ -500,10 +496,10 @@ public class KfeOverlayService extends Service {
         payload.put("fare",amount);
         payload.put("toll",tollValue.isEmpty()?0:Double.parseDouble(tollValue));
         payload.put("parking",parkingValue.isEmpty()?0:Double.parseDouble(parkingValue));
-        String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"ENTER_FARE",actionTripId,payload.toString());
+        String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"ENTER_FARE",actionTripId,payload.toString());
         beginAwaiting(eventId,"ENTER_FARE",actionTripId);
         persistNativeWorkflow();
-        KfeRideNotificationsPlugin.emitAction("ENTER_FARE",actionTripId,payload.toString(),eventId);
+        KfeNativeWorkActionsPlugin.emitAction("ENTER_FARE",actionTripId,payload.toString(),eventId);
       } catch(Exception ignored){ formSubmitting=false; }
       return;
     }else if("CANCEL".equals(formMode)){
@@ -512,10 +508,10 @@ public class KfeOverlayService extends Service {
         JSONObject input=new JSONObject();
         input.put("revenue",amount);
         input.put("reason",cancelReason);
-        String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"CANCEL_RIDE",pendingTripId,input.toString());
+        String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"CANCEL_RIDE",pendingTripId,input.toString());
         beginAwaiting(eventId,"CANCEL_RIDE",pendingTripId);
         persistNativeWorkflow();
-        KfeRideNotificationsPlugin.emitAction("CANCEL_RIDE",pendingTripId,input.toString(),eventId);
+        KfeNativeWorkActionsPlugin.emitAction("CANCEL_RIDE",pendingTripId,input.toString(),eventId);
       }catch(Exception ignored){formSubmitting=false;return;}
       return;
     }
@@ -540,17 +536,10 @@ public class KfeOverlayService extends Service {
   @Override public void onDestroy(){if(foregroundHandler!=null)foregroundHandler.removeCallbacks(foregroundCheck);removeOverlay();if(instance==this)instance=null;super.onDestroy();}
   @Override public IBinder onBind(Intent intent){return null;}
   private Notification buildNotification(){
-    String title="KFE Work";
-    String stageText;
-    if("GO_TO_PICKUP".equals(actionStage)) stageText="GOING TO PICKUP";
-    else if("START_RIDE".equals(actionStage)) stageText="PICKUP IN PROGRESS · READY TO START TRIP";
-    else if("END_RIDE".equals(actionStage)) stageText="TRIP ACTIVE · END TRIP TO ENTER FARE";
-    else if("ENTER_FARE".equals(actionStage)) stageText="TRIP COMPLETED · FARE REQUIRED";
-    else if("CANCEL_RIDE".equals(actionStage)) stageText="CANCELLATION DETAILS REQUIRED";
-    else stageText="WORK SESSION ACTIVE";
-    String gpsIndicator=KfeNativeGpsService.isAnyPersistedTracking(this)?"GPS active":"GPS not tracking";
-    String text=stageText+" · "+gpsIndicator+" · Dead KM "+deadKm;
-    if(!"0".equals(rides)) text += " · Trips "+rides;
+    // This notice exists for the Android foreground-service lifecycle only.
+    // Keep it quiet and independent of Work stage, GPS readings, and dead KM.
+    String title="KFE background service";
+    String text="KFE driver controls are active in the background.";
     Intent openApp=new Intent(this,MainActivity.class);
     openApp.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP|Intent.FLAG_ACTIVITY_CLEAR_TOP);
     int pendingFlags=PendingIntent.FLAG_UPDATE_CURRENT;
@@ -560,16 +549,11 @@ public class KfeOverlayService extends Service {
       .setSmallIcon(android.R.drawable.ic_dialog_info)
       .setContentTitle(title)
       .setContentText(text)
-      .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
       .setContentIntent(contentIntent)
       .setOngoing(true)
       .setOnlyAlertOnce(true)
       .setCategory(NotificationCompat.CATEGORY_SERVICE)
       .build();
-  }
-  private void refreshPersistentNotification(){
-    NotificationManager manager=(NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
-    if(manager!=null) manager.notify(NOTIFICATION_ID,buildNotification());
   }
   private void createChannel(){if(android.os.Build.VERSION.SDK_INT>=android.os.Build.VERSION_CODES.O){NotificationManager m=(NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);if(m!=null)m.createNotificationChannel(new NotificationChannel(CHANNEL_ID,"KFE Overlay",NotificationManager.IMPORTANCE_LOW));}}
   private int dp(int v){return (int)(v*getResources().getDisplayMetrics().density+0.5f);}

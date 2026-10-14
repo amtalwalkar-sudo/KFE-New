@@ -7,7 +7,7 @@
 
 This is the sole human-readable authority for the KFE operational lifecycle.
 
-It defines the canonical operational state machine and transition ownership used by the PWA Work cockpit, Android operational overlay, ride/system notifications, and background/native operational capture.
+It defines the canonical operational state machine and transition ownership used by the PWA Work cockpit, Android operational overlay, and background/native operational capture.
 
 Those surfaces are representations/controllers of the same canonical operational state. None is a second workflow or business system.
 
@@ -36,7 +36,7 @@ The precise persisted state names may differ from presentation labels, but every
 | Reconciliation | canonical reconciliation/application path |
 | Shift Review / closure | canonical Work/application path |
 
-PWA, Android overlay, and notification actions must invoke the same authoritative command/mutation path for a transition. A surface must never implement a private second mutation path.
+PWA and Android overlay actions must invoke the same authoritative command/mutation path for a transition. A surface must never implement a private second mutation path.
 
 ## 4. Transition invariants
 
@@ -44,7 +44,7 @@ PWA, Android overlay, and notification actions must invoke the same authoritativ
 - A completed trip remains history; completion is not deletion.
 - Fare entry after trip completion remains available until the authoritative completion/fare workflow is resolved.
 - Only a valid active operational state can expose the corresponding primary action.
-- Repeated taps, swipes, notifications, process resumes, and retries must not create duplicate authoritative mutations.
+- Repeated taps, swipes, process resumes, and retries must not create duplicate authoritative mutations.
 - A failed commit must not be presented as committed.
 - Network availability must not be required for an action that the canonical local-first business path permits offline.
 - GPS availability must not block an operational command unless the governing business rule explicitly requires GPS evidence for that command.
@@ -84,13 +84,13 @@ Closure proceeds through END SHIFT → RECONCILIATION → SHIFT REVIEW → SHIFT
 
 Reconciliation is derived from canonical persisted records. A reconstructed total is a read representation, not a replacement persisted authority. It must distinguish missing optional trip-level fare detail from missing authoritative shift-level revenue; missing fare detail alone is not a closure gate.
 
-## 9. PWA / Android / notification parity
+## 9. PWA / Android overlay parity
 
 The three operational surfaces may differ in presentation, touch mechanics, and available controls, but they must represent the same canonical state.
 
-canonical operational state → PWA / Android / Notification
+canonical operational state → PWA / Android overlay
 
-The Android overlay is not an alternate Work screen with alternate business logic. The notification is not an alternate state machine. The PWA Work cockpit is not permitted to bypass the canonical application/repository transition path.
+The Android overlay is not an alternate Work screen with alternate business logic. Android foreground-service notifications are lifecycle notices only; they do not expose ride actions, request revenue, or participate in the ride state machine. The PWA Work cockpit is not permitted to bypass the canonical application/repository transition path.
 
 ## 10. Background, interruption and restart
 
@@ -132,4 +132,4 @@ KFE_ANDROID_RELEASE_GATE.md defines release acceptance and does not redefine the
 
 Any lifecycle change must update this document first, then affected tests, application transitions, PWA/Android surfaces, and evidence.
 
-A phase freeze, audit, overlay implementation, notification implementation, or UI document cannot silently change the operational state machine.
+A phase freeze, audit, overlay implementation, or UI document cannot silently change the operational state machine.

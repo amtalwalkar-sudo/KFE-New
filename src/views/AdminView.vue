@@ -10,7 +10,6 @@ import { BackupService } from '../application/backup/backupService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { getKfeReferenceNow, istDateKey } from '../domain/time/ist.js'
 import { deriveLoanPosition, calculatePrepaymentEstimate, paymentAllocationPreview } from '../domain/finance/loanEngine.js'
-import { KfeRideNotificationService } from '../infrastructure/android/kfeRideNotificationService.js'
 import { OfflineMapService } from '../infrastructure/location/offlineMapService.js'
 import CalculationsView from './CalculationsView.vue'
 
@@ -84,7 +83,6 @@ const settlementFields=[
  {key:'referenceNumber',label:'Payment reference',type:'text',section:'Payment reference'},
  {key:'notes',label:'Notes',type:'textarea',section:'Additional context'}
 ]
-const notificationsEnabled=ref(KfeRideNotificationService.notificationsEnabled())
 const offlineMapStatus=ref({supported:false,installed:false,manifestAvailable:false,regionId:OfflineMapService.regionId,version:'',latestVersion:'',bytesInstalled:0,bytesRequired:0,bytesRequiredForUpdate:0,bytesAvailable:null,mapAttribution:'© OpenStreetMap contributors'})
 const offlineMapBusy=ref(false),offlineMapProgress=ref(0),offlineMapError=ref(''),offlineMapNotice=ref('')
 const formatBytes=value=>{const n=Number(value);if(!Number.isFinite(n)||n<0)return '—';return n>=1024**3?`${(n/1024**3).toFixed(2)} GB`:`${(n/1024**2).toFixed(0)} MB`}
@@ -190,7 +188,6 @@ function masterFieldValue(field,record){const v=record?.values?.[field.key];if(v
 function back(){selected.value=null;settingsOpen.value=false;formOpen.value=false;editing.value=null;draft.value={};closeAction();clearMessages()}
 function openSettings(){clearMessages();selected.value=null;settingsOpen.value=true}
 function chooseSetting(key){settingsSelected.value=key;clearMessages();if(key==='application')void refreshOfflineMapStatus()}
-function chooseNotifications(enabled){notificationsEnabled.value=KfeRideNotificationService.setNotificationsEnabled(enabled);notice.value='Notifications '+(enabled?'enabled':'disabled')+'.'}
 function add(){clearMessages();formErrors.value={};editing.value=null;draft.value=Object.fromEntries((currentDefinition.value?.fields||[]).map(field=>[field.key,field.defaultValue]));formOpen.value=true}
 function edit(record){formErrors.value={};editing.value=record.id;draft.value=clone(record.values||{});formOpen.value=true}
 function updateDraft(v){draft.value={...v}}
@@ -273,7 +270,7 @@ onMounted(()=>{load();void refreshOfflineMapStatus()})
 </template>
 
 <template v-else-if="settingsOpen">
-<section class="settings-screen"><div class="settings-menu"><button v-for="item in settingsMenu" :key="item.key" class="settings-item" :class="{active:settingsSelected===item.key}" @click="chooseSetting(item.key)"><span>{{item.icon}}</span><strong>{{item.title}}</strong><span>›</span></button></div><section v-if="settingsSelected==='backup'" class="settings-panel"><h2>Backup &amp; Restore</h2><BackupRestorePanel/></section><section v-else-if="settingsSelected==='application'" class="settings-panel"><h2>Application Settings</h2><div class="settings-option-row"><div><strong>Notifications</strong><small>Control KFE ride and system action notifications.</small></div><button class="settings-toggle" :class="{active:notificationsEnabled}" type="button" role="switch" :aria-checked="notificationsEnabled" @click="chooseNotifications(!notificationsEnabled)">{{notificationsEnabled?'ON':'OFF'}}</button></div>
+<section class="settings-screen"><div class="settings-menu"><button v-for="item in settingsMenu" :key="item.key" class="settings-item" :class="{active:settingsSelected===item.key}" @click="chooseSetting(item.key)"><span>{{item.icon}}</span><strong>{{item.title}}</strong><span>›</span></button></div><section v-if="settingsSelected==='backup'" class="settings-panel"><h2>Backup &amp; Restore</h2><BackupRestorePanel/></section><section v-else-if="settingsSelected==='application'" class="settings-panel"><h2>Application Settings</h2>
 <div class="settings-option-row offline-map-option"><div><strong>Download / Update Offline Maps</strong><small>Standard road coverage: Mumbai, Pune, Nashik and Alibag, including connecting roads. Map files stay in native app storage and are excluded from business backups.</small><small v-if="offlineMapStatus.installed">Installed version {{offlineMapStatus.version||'unknown'}} · {{formatBytes(offlineMapStatus.bytesInstalled)}}</small><small v-else>No offline road map is installed on this phone.</small><small v-if="offlineMapStatus.manifestAvailable">Latest version {{offlineMapStatus.latestVersion}} · Download size {{formatBytes(offlineMapStatus.bytesRequired)}}</small><small v-if="offlineMapStatus.manifestAvailable">Free space required for safe download/update: {{formatBytes(offlineMapStatus.bytesRequiredForUpdate)}}</small><small v-if="offlineMapStatus.bytesAvailable!==null">Available app storage: {{formatBytes(offlineMapStatus.bytesAvailable)}}</small><small v-if="offlineMapStatus.manifestError">{{offlineMapStatus.manifestError}}</small><small>© OpenStreetMap contributors · {{offlineMapStatus.mapAttribution||'ODbL map data'}}</small></div><button class="primary" type="button" :disabled="offlineMapBusy||!offlineMapStatus.supported||(!offlineMapStatus.manifestAvailable&&!offlineMapStatus.installed)" @click="startOfflineMapDownload">{{offlineMapBusy?'Downloading…':offlineMapStatus.installed?'Update maps':'Download maps'}}</button></div>
 <div v-if="offlineMapBusy" class="offline-map-progress" role="status" aria-live="polite"><div class="offline-map-progress-track"><div class="offline-map-progress-fill" :style="{width:offlineMapProgress+'%'}"></div></div><small>{{offlineMapProgress}}% · Download and checksum verification</small></div>
 <p v-if="!offlineMapStatus.supported" class="rule-note">Map downloads and local matching are available only in the native Android app. This browser session cannot install the native engine.</p>

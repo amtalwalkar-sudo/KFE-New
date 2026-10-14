@@ -18,10 +18,9 @@ assert.match(controller, /dataset\.kfeTheme='night'/)
 assert.match(controller, /dataset\.kfeThemeMode='dark'/)
 assert.match(controller, /localStorage\.setItem\(STORAGE_KEY,'dark'\)/)
 assert.doesNotMatch(controller, /'auto','light','dark'/)
-// Application Settings intentionally has no theme selector; notifications stay user-controllable.
+// Application Settings intentionally has no theme selector or ride-notification toggle.
 assert.doesNotMatch(adminView, /theme-selector|Dark theme enabled|☀ Light|◐ Auto|chooseTheme/)
-assert.match(adminView, /role="switch"/)
-assert.match(adminView, /chooseNotifications\(!notificationsEnabled\)/)
+assert.doesNotMatch(adminView, /chooseNotifications|notificationsEnabled|Control KFE ride and system action notifications/)
 assert.match(canonicalCss, /--kfe-muted-text:#B8C2CD/)
 assert.match(canonicalCss, /color-scheme:dark/)
 

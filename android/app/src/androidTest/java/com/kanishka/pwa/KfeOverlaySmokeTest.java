@@ -102,14 +102,14 @@ public class KfeOverlaySmokeTest {
     pendingFareTripId.set(service, "trip-a");
     pendingTripId.set(service, "trip-b");
     assertEquals("trip-a", KfeOverlayService.resolveFareActionTripId("trip-a", "trip-b"));
-    KfeRideNotificationsPlugin.recordPendingAction(context, "ENTER_FARE", "trip-a", "450");
+    KfeNativeWorkActionsPlugin.recordPendingAction(context, "ENTER_FARE", "trip-a", "450");
     assertEquals("ENTER_FARE|trip-a|450", pendingValue());
     acknowledgePending("ENTER_FARE", "trip-a");
   }
 
   @Test public void pendingActionSurvivesOverlayServiceRecreationUntilExplicitClear() throws Exception {
     clearPending();
-    KfeRideNotificationsPlugin.recordPendingAction(context, "END_RIDE", "trip-replay", "");
+    KfeNativeWorkActionsPlugin.recordPendingAction(context, "END_RIDE", "trip-replay", "");
     assertEquals("END_RIDE|trip-replay|", pendingValue());
     context.stopService(new Intent(context, KfeOverlayService.class));
     SystemClock.sleep(300);
@@ -178,12 +178,12 @@ public class KfeOverlaySmokeTest {
   }
 
   private String pendingValue() {
-    return context.getSharedPreferences("kfe_ride_notification_events", Context.MODE_PRIVATE)
+    return context.getSharedPreferences("kfe_native_work_actions", Context.MODE_PRIVATE)
       .getString("pending", "");
   }
 
   private void acknowledgePending(String stage, String tripId) {
-    String eventId = context.getSharedPreferences("kfe_ride_notification_events", Context.MODE_PRIVATE)
+    String eventId = context.getSharedPreferences("kfe_native_work_actions", Context.MODE_PRIVATE)
       .getString("pendingEventId", "");
     assertTrue("Durable native event id must exist", !eventId.isEmpty());
     assertTrue("Durable native event must acknowledge", KfeNativeEventStore.get(context).acknowledge(eventId));
@@ -193,7 +193,7 @@ public class KfeOverlaySmokeTest {
     clearPending();
   }
   private void clearPending() {
-    context.getSharedPreferences("kfe_ride_notification_events", Context.MODE_PRIVATE).edit().remove("pending").commit();
+    context.getSharedPreferences("kfe_native_work_actions", Context.MODE_PRIVATE).edit().remove("pending").commit();
   }
 
   @Test public void exactApkCanStartNativeOverlaySmoke() throws Exception {
