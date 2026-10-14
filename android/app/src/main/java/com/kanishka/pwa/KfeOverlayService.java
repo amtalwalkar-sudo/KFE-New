@@ -812,7 +812,8 @@ public class KfeOverlayService extends Service {
           if(swipeLocked){
             if(swipeEligible){
               float maxTravel=Math.max(1,getWidth()-dp(16)-dp(58));
-              progress=Math.min(1f,Math.max(0f,dx)/maxTravel);
+              if(Math.abs(dx)>dp(8)) swipeMoved=true;
+              progress=Math.min(1f,Math.max(0f,(e.getX()-dp(37))/maxTravel));
               invalidate();
             }
             return true;
