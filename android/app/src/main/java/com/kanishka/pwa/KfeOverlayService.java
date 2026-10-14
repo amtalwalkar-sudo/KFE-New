@@ -591,9 +591,10 @@ public class KfeOverlayService extends Service {
     }
   }
 
-  private void closeForm(){
+  private void closeForm(){closeForm(true);}
+  private void closeForm(boolean clearDraft){
     if(formPanel!=null&&overlayRoot!=null)overlayRoot.removeView(formPanel);
-    formPanel=null;formMode=null;formValue="";tollValue="";parkingValue="";formSubmitting=false;formInput=null;tollInput=null;parkingInput=null;tollTreatmentInput=null;parkingTreatmentInput=null;tollToggle=null;parkingToggle=null;getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().remove("formMode").remove("formValue").remove("tollValue").remove("parkingValue").remove("cancelReason").remove("tollExpanded").remove("parkingExpanded").remove("tollExcluded").remove("parkingExcluded").apply();
+    formPanel=null;formMode=null;formValue="";tollValue="";parkingValue="";formSubmitting=false;formInput=null;tollInput=null;parkingInput=null;tollTreatmentInput=null;parkingTreatmentInput=null;tollToggle=null;parkingToggle=null;if(clearDraft)getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().remove("formMode").remove("formValue").remove("tollValue").remove("parkingValue").remove("cancelReason").remove("tollExpanded").remove("parkingExpanded").remove("tollExcluded").remove("parkingExcluded").apply();
     if(params!=null){params.height=dp(COLLAPSED_TOTAL_DP);params.flags=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;params.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING;if(windowManager!=null&&overlayRoot!=null)windowManager.updateViewLayout(overlayRoot,params);}
     if(overlay!=null)overlay.invalidate();
   }
@@ -606,8 +607,9 @@ public class KfeOverlayService extends Service {
   private int targetColor(){if(targetProgress>=100)return dark()?Color.rgb(80,220,130):Color.rgb(20,145,75);if(targetProgress>=70)return dark()?Color.rgb(255,205,90):Color.rgb(190,125,0);return actionColor();}
   // KFE is dark-only: ignore stale persisted theme values so white action text can never land on a white overlay surface.
   private boolean dark(){return true;}
-  private void removeOverlay(){closeForm();if(windowManager!=null&&overlayRoot!=null){try{windowManager.removeView(overlayRoot);}catch(Exception ignored){}}overlayRoot=null;overlay=null;}
-  @Override public void onDestroy(){if(foregroundHandler!=null)foregroundHandler.removeCallbacks(foregroundCheck);removeOverlay();if(instance==this)instance=null;super.onDestroy();}
+  private void removeOverlay(){removeOverlay(false);}
+  private void removeOverlay(boolean preserveFormDraft){closeForm(!preserveFormDraft);if(windowManager!=null&&overlayRoot!=null){try{windowManager.removeView(overlayRoot);}catch(Exception ignored){}}overlayRoot=null;overlay=null;}
+  @Override public void onDestroy(){if(foregroundHandler!=null)foregroundHandler.removeCallbacks(foregroundCheck);removeOverlay(true);if(instance==this)instance=null;super.onDestroy();}
   @Override public IBinder onBind(Intent intent){return null;}
   private Notification buildNotification(){
     // This notice exists for the Android foreground-service lifecycle only.
