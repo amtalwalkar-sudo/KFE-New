@@ -55,14 +55,6 @@ assert.match(service, /notificationsEnabled/)
 
 // The foreground-service notification must reflect the active Work stage and
 // be tappable to reopen KFE, rather than remaining a generic "overlay ready" card.
-assert.match(overlay, /GOING TO PICKUP/)
-assert.match(overlay, /PICKUP IN PROGRESS/)
-assert.match(overlay, /TRIP ACTIVE/)
-assert.match(overlay, /TRIP COMPLETED · FARE REQUIRED/)
-assert.match(overlay, /gpsStatus/)
-assert.match(overlay, /Dead KM/)
-assert.match(overlay, /GPS ●/)
-assert.match(overlay, /DEAD KM/)
 assert.match(overlay, /isAnyPersistedTracking\(this\)/)
 assert.match(gpsService, /static boolean isAnyPersistedTracking\(Context context\)/)
 assert.match(gpsService, /prefs\.getBoolean\(ACTIVE_READY, false\)/)
@@ -71,6 +63,11 @@ assert.match(gpsService, /KfeOverlayService\.updateDeadKm\(distance\)/)
 assert.match(gpsService, /eventType\.equals\(point\.optString\("eventType", ""\)\)/)
 assert.match(startupPlugin, /"kfe_ride_actions", "kfe_overlay"/)
 assert.match(overlay, /setContentIntent\(contentIntent\)/)
+const foregroundNotice = overlay.match(/private Notification buildNotification\(\)\{([\s\S]*?)\n  \}\n  private void refreshPersistentNotification/);
+assert.ok(foregroundNotice, 'overlay foreground-service notice must remain present');
+assert.match(foregroundNotice[1], /KFE driver controls are active in the background/);
+assert.match(foregroundNotice[1], /setOngoing\(true\)/);
+assert.doesNotMatch(foregroundNotice[1], /GOING TO PICKUP|PICKUP IN PROGRESS|TRIP ACTIVE|TRIP COMPLETED|gpsIndicator|Dead KM|Trips/);
 assert.match(overlay, /setOngoing\(true\)/)
 assert.match(overlay, /refreshPersistentNotification\(\)/)
 assert.match(overlay, /current\.refreshPersistentNotification\(\)/)
