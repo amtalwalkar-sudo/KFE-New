@@ -125,6 +125,9 @@ public class KfeOverlayService extends Service {
       onEventAcknowledged(awaitingEventId,awaitingStage,awaitingTripId);
     }
     createChannel();startForeground(NOTIFICATION_ID,buildNotification());foregroundHandler=new android.os.Handler(getMainLooper());foregroundHandler.post(foregroundCheck);
+    // If Android recreated the service while an action was awaiting the WebView,
+    // wake KFE so its durable event queue can finish or safely reject the action.
+    if(!awaitingEventId.isEmpty()) launchWorkActivityIfUnacknowledged(awaitingEventId);
   }
   @Override public int onStartCommand(Intent intent,int flags,int startId){
     if(intent==null){
