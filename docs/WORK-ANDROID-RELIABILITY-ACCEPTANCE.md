@@ -61,27 +61,27 @@ This runbook is the required physical-device acceptance test for the KFE Work wo
 - Verify the active/pending trip state is restored safely, form drafts are not accidentally replayed, and subsequent writes succeed.
 - Expected: all canonical allowlisted records match; excluded native trace files and form drafts are not assumed to be present in Dropbox. If a required movement trace has not been imported into canonical gps_snapshots, the restore test fails.
 
-## Test G — native overlay and persistent Work notification
+## Test G — native overlay and Android foreground-service notices
 
 - Start a test shift and wait for the startup permission gate to finish. Confirm missing permissions/settings are handled one at a time and KFE rechecks each after returning.
-- Put KFE in the background. Confirm the native overlay appears and the ongoing KFE Work notification remains in the notification shade.
-- Verify the notification title/body follows the current workflow: GOING TO PICKUP, PICKUP IN PROGRESS / START TRIP, TRIP ACTIVE / END TRIP, and TRIP COMPLETED / FARE REQUIRED. Tap the notification and verify it returns to KFE.
-- Verify the GPS indicator reflects the native collector's persisted ready state. During `DEAD_MOVEMENT_TRACE`, confirm the overlay and notification show accumulated dead KM; after process death/recovery, confirm the displayed distance is reconstructed from the persisted trace and does not reset. Before any valid distance is available, show an unavailable marker rather than inventing a value.
+- Put KFE in the background. Confirm the native overlay appears and the ongoing Android foreground-service notice(s) remain visible as Android permits.
+- Verify foreground-service notices are generic, quiet, and independent of ride stage. Ride transitions, cancellation, and fare entry must be performed only through the Work screen or floating overlay, never through a notification.
+- Verify GPS and dead-KM information remains in the overlay/Work UI, not in notifications. After process death/recovery, confirm the displayed distance is reconstructed from the persisted trace and does not reset. Before any valid distance is available, show an unavailable marker rather than inventing a value.
 - Minimize and drag the floating overlay, then restore it. Confirm it can be moved independently and the persistent notification remains available.
 - Perform GO TO PICKUP, START TRIP and END TRIP using the native swipe. Confirm each action is emitted once, the visible stage does not advance before durable acknowledgement, and reopening KFE recovers any unacknowledged event.
-- End a trip and leave fare entry pending. Confirm the notification continues to say fare is required until the fare is durably saved; swiping alone must never save fare.
-- Disable Android notification permission/channel in Settings on a test installation, reopen KFE, and verify the startup gate identifies the missing setting and does not claim notification delivery succeeded. Re-enable it and confirm recovery.
+- End a trip and leave fare entry pending. Confirm the Work/overlay fare flow remains available until saved; notifications must not ask for or submit fare.
+- Disable Android notification permission or the foreground-service notification channels in Settings on a test installation, reopen KFE, and verify the startup gate identifies the missing setting. Re-enable it and confirm the required foreground-service notices return.
 - Repeat with KFE foregrounded, backgrounded, screen off, after process death, and after normal reboot. Record any OEM battery/autostart limitations separately.
 
-Expected: one canonical Work state drives both surfaces. The overlay is the foreground interaction surface; the ongoing Android notification is the background status/re-entry surface. No notification or overlay action may create a duplicate trip, silently save form data, or block a trip transition while waiting for GPS.
+Expected: one canonical Work state drives both surfaces. The overlay is the interaction surface; Android notifications exist only to satisfy foreground-service lifecycle requirements and must never manage rides or revenue. No notification or overlay action may create a duplicate trip, silently save form data, or block a trip transition while waiting for GPS.
 
 ## Test H — fully offline native ride workflow
 
-- Start a test shift while online, wait for all required permissions/settings to be confirmed, and verify the native overlay plus ongoing notification are visible.
+- Start a test shift while online, wait for all required permissions/settings to be confirmed, and verify the native overlay and required foreground-service notice(s) are visible.
 - Enable Airplane mode; explicitly verify Wi-Fi and mobile data remain disabled. Keep device Location enabled.
 - Run the complete native overlay flow: GO TO PICKUP → START TRIP → END TRIP. Verify the same canonical PWA cancellation/fare forms open when those forms are requested; fare is required, toll and parking are optional.
 - Repeat the ride action sequence from the PWA while still offline. Confirm each surface reflects the same active stage and that exactly one trip is created per ride.
-- Turn the screen off for at least 10 minutes during a pickup/active ride. After waking the device, verify the current stage, notification, GPS collector status, and locally persisted trace.
+- Turn the screen off for at least 10 minutes during a pickup/active ride. After waking the device, verify the current stage in the overlay/Work UI, generic foreground-service notice(s), GPS collector status, and locally persisted trace.
 - While still offline, restart the phone normally. Unlock it, wait for boot recovery, and verify the last valid active shift/trip state is restored without creating a new trip. Confirm new GPS points resume when Android grants the service permission to run.
 - Complete the trip and save fare once. Reopen Work and verify the completed trip/fare are not duplicated and the trace is importable locally. Restore internet only after checking local persistence; then verify sync/reconciliation does not duplicate records.
 - Repeat once with an ended shift. After ending the shift, reboot and verify no stale overlay from that ended shift reappears.
