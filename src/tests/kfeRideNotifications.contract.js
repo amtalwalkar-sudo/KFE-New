@@ -55,7 +55,7 @@ assert.match(service, /notificationsEnabled/)
 
 // The foreground-service notification must reflect the active Work stage and
 // be tappable to reopen KFE, rather than remaining a generic "overlay ready" card.
-assert.match(overlay, /isAnyPersistedTracking\(this\)/)
+assert.match(overlay, /KfeNativeGpsService\.isAnyPersistedTracking\(KfeOverlayService\.this\)/)
 assert.match(gpsService, /static boolean isAnyPersistedTracking\(Context context\)/)
 assert.match(gpsService, /prefs\.getBoolean\(ACTIVE_READY, false\)/)
 assert.match(overlay, /static void updateDeadKm\(String value\)/)
