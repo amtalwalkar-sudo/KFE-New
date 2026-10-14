@@ -625,16 +625,9 @@ async function endTrip() {
   try {
     const tripId = store.trip.id
     if (!await store.endTrip()) { fail('Trip could not be completed.'); return false }
-    if (nativeAndroid) {
-      await WorkRuntimePorts.nativeGps.stop(tripId)
-      // Commit the just-finished native ride trace to canonical IndexedDB now;
-      // do not wait until shift close for trip-distance reconciliation to discover it.
-      try {
-        const sync = await WorkRuntimePorts.nativeGps.syncTrace(tripId, { entityType: 'TRIP' })
-      } catch (error) {
-        console.warn('Completed trip GPS sync deferred; native trace retained for recovery:', tripId, error)
-      }
-    }
+    // The canonical completion is committed above. Native trace stop/import is
+    // already scheduled by WorkService.completeTrip; never hold the fare form or
+    // native-action acknowledgement open while GPS telemetry is synchronized.
     if (traceRunning) WorkRuntimePorts.movementTrace.reset()
     traceRunning = false
     fareTripId.value = tripId
