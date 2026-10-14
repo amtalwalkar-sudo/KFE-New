@@ -80,6 +80,7 @@ public class KfeOverlayService extends Service {
   private String activeAmountField="fare";
   private String cancelReason="";
   private boolean formSubmitting=false;
+  private boolean acknowledgedEventNeedsRecovery=false;
   private String awaitingEventId="";
   private String awaitingStage="";
   private String awaitingTripId="";
@@ -151,7 +152,9 @@ public class KfeOverlayService extends Service {
     awaitingStage=saved.getString("awaitingStage","");
     awaitingTripId=saved.getString("awaitingTripId","");
     if(!awaitingEventId.isEmpty() && KfeNativeEventStore.get(this).isAcknowledged(awaitingEventId)){
-      onEventAcknowledged(awaitingEventId,awaitingStage,awaitingTripId);
+      // The overlay root is not attached until onStartCommand. Defer UI work
+      // until applyState so a recovered acknowledgement cannot touch null views.
+      acknowledgedEventNeedsRecovery=true;
     }
     createChannel();startForeground(NOTIFICATION_ID,buildNotification());foregroundHandler=new android.os.Handler(getMainLooper());foregroundHandler.post(foregroundCheck);
     // Pending native events remain durable across process death. Do not force the
@@ -237,6 +240,7 @@ public class KfeOverlayService extends Service {
         if((("ENTER_FARE".equals(actionStage)||"END_RIDE".equals(actionStage))&&!"FARE".equals(formMode))||("CANCEL_RIDE".equals(actionStage)&&!"CANCEL".equals(formMode)))closeForm();
       }
       restorePersistedFormIfNeeded();
+      if(acknowledgedEventNeedsRecovery){acknowledgedEventNeedsRecovery=false;onEventAcknowledged(awaitingEventId,awaitingStage,awaitingTripId);}
       overlay.invalidate();
     }catch(Exception ignored){ overlay.invalidate(); }
   }
@@ -357,7 +361,7 @@ public class KfeOverlayService extends Service {
     awaitingEventId=""; awaitingStage=""; awaitingTripId="";
     if("GO_TO_PICKUP".equals(stage)){ actionStage="START_RIDE"; pendingFareTripId=""; persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); return; }
     if("START_RIDE".equals(stage)){ actionStage="END_RIDE"; persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); return; }
-    if("END_RIDE".equals(stage)){ pendingFareTripId=tripId; pendingTripId=tripId; actionStage="ENTER_FARE"; persistNativeWorkflow(); KfeNativeGpsService.stop(this,tripId); if(!"FARE".equals(formMode))openFareForm(); if(overlay!=null)overlay.invalidate(); return; }
+    if("END_RIDE".equals(stage)){ pendingFareTripId=tripId; pendingTripId=tripId; actionStage="ENTER_FARE"; persistNativeWorkflow(); KfeNativeGpsService.stop(this,tripId); if(!"FARE".equals(formMode)){if("FARE".equals(getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString("formMode","")))restorePersistedFormIfNeeded();else openFareForm();} if(overlay!=null)overlay.invalidate(); return; }
     if("OPEN_CANCEL_FORM".equals(stage)){ persistNativeWorkflow(); if(overlay!=null)overlay.invalidate(); return; }
     if("ENTER_FARE".equals(stage) || "CANCEL_RIDE".equals(stage)){ closeForm(); actionStage="GO_TO_PICKUP"; pendingTripId=""; pendingFareTripId=""; tripStartAt=0L; persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); }
   }
