@@ -235,7 +235,7 @@ public class KfeOverlayService extends Service {
     }catch(Exception ignored){ overlay.invalidate(); }
   }
 
-  private void onCancelSaved(){formSubmitting=false;closeForm();actionStage="GO_TO_PICKUP";pendingTripId="";pendingFareTripId="";tripStartAt=0L;awaitingEventId="";awaitingStage="";awaitingTripId="";persistNativeWorkflow();KfeRideNotificationsPlugin.cancelNotification(this);if(overlay!=null)overlay.invalidate();}
+  private void onCancelSaved(){formSubmitting=false;closeForm();actionStage="GO_TO_PICKUP";pendingTripId="";pendingFareTripId="";tripStartAt=0L;awaitingEventId="";awaitingStage="";awaitingTripId="";persistNativeWorkflow();if(overlay!=null)overlay.invalidate();}
 
   private void onFareSaved(){
     formSubmitting=false;
@@ -245,7 +245,7 @@ public class KfeOverlayService extends Service {
     pendingFareTripId="";
     tripStartAt=0L;
     persistNativeWorkflow();
-    KfeRideNotificationsPlugin.cancelNotification(this);
+    
     animateRetract();
     if(overlay!=null) overlay.invalidate();
   }
@@ -268,9 +268,9 @@ public class KfeOverlayService extends Service {
 
   private void requestPwaForm(String stage){
     if(!awaitingEventId.isEmpty()||pendingTripId.isEmpty())return;
-    String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,stage,pendingTripId,"");
+    String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,stage,pendingTripId,"");
     beginAwaiting(eventId,stage,pendingTripId);persistNativeWorkflow();animateRetract();if(overlay!=null)overlay.invalidate();
-    KfeRideNotificationsPlugin.emitAction(stage,pendingTripId,"",eventId);
+    KfeNativeWorkActionsPlugin.emitAction(stage,pendingTripId,"",eventId);
     launchWorkActivityIfUnacknowledged(eventId);
   }
 
@@ -281,21 +281,21 @@ public class KfeOverlayService extends Service {
     if("GO_TO_PICKUP".equals(actionStage)){
       if(!awaitingEventId.isEmpty()) return;
       if(pendingTripId.isEmpty()) pendingTripId=java.util.UUID.randomUUID().toString();
-      String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"GO_TO_PICKUP",pendingTripId,"");
+      String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"GO_TO_PICKUP",pendingTripId,"");
       beginAwaiting(eventId,"GO_TO_PICKUP",pendingTripId); persistNativeWorkflow(); animateRetract(); overlay.invalidate();
-      KfeRideNotificationsPlugin.emitAction("GO_TO_PICKUP",pendingTripId,"",eventId); launchWorkActivityIfUnacknowledged(eventId); return;
+      KfeNativeWorkActionsPlugin.emitAction("GO_TO_PICKUP",pendingTripId,"",eventId); launchWorkActivityIfUnacknowledged(eventId); return;
     }
     if("START_RIDE".equals(actionStage)){
       if(!awaitingEventId.isEmpty() || pendingTripId.isEmpty()) return;
-      String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"START_RIDE",pendingTripId,"");
+      String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"START_RIDE",pendingTripId,"");
       beginAwaiting(eventId,"START_RIDE",pendingTripId); persistNativeWorkflow(); animateRetract(); overlay.invalidate();
-      KfeRideNotificationsPlugin.emitAction("START_RIDE",pendingTripId,"",eventId); launchWorkActivityIfUnacknowledged(eventId); return;
+      KfeNativeWorkActionsPlugin.emitAction("START_RIDE",pendingTripId,"",eventId); launchWorkActivityIfUnacknowledged(eventId); return;
     }
     if("END_RIDE".equals(actionStage)){
       if(!awaitingEventId.isEmpty() || pendingTripId.isEmpty()) return;
-      String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"END_RIDE",pendingTripId,"");
+      String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"END_RIDE",pendingTripId,"");
       beginAwaiting(eventId,"END_RIDE",pendingTripId); persistNativeWorkflow(); animateRetract(); overlay.invalidate();
-      KfeRideNotificationsPlugin.emitAction("END_RIDE",pendingTripId,"",eventId); launchWorkActivityIfUnacknowledged(eventId);
+      KfeNativeWorkActionsPlugin.emitAction("END_RIDE",pendingTripId,"",eventId); launchWorkActivityIfUnacknowledged(eventId);
     }
   }
 
@@ -500,10 +500,10 @@ public class KfeOverlayService extends Service {
         payload.put("fare",amount);
         payload.put("toll",tollValue.isEmpty()?0:Double.parseDouble(tollValue));
         payload.put("parking",parkingValue.isEmpty()?0:Double.parseDouble(parkingValue));
-        String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"ENTER_FARE",actionTripId,payload.toString());
+        String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"ENTER_FARE",actionTripId,payload.toString());
         beginAwaiting(eventId,"ENTER_FARE",actionTripId);
         persistNativeWorkflow();
-        KfeRideNotificationsPlugin.emitAction("ENTER_FARE",actionTripId,payload.toString(),eventId);
+        KfeNativeWorkActionsPlugin.emitAction("ENTER_FARE",actionTripId,payload.toString(),eventId);
       } catch(Exception ignored){ formSubmitting=false; }
       return;
     }else if("CANCEL".equals(formMode)){
@@ -512,10 +512,10 @@ public class KfeOverlayService extends Service {
         JSONObject input=new JSONObject();
         input.put("revenue",amount);
         input.put("reason",cancelReason);
-        String eventId=KfeRideNotificationsPlugin.recordPendingAction(this,"CANCEL_RIDE",pendingTripId,input.toString());
+        String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"CANCEL_RIDE",pendingTripId,input.toString());
         beginAwaiting(eventId,"CANCEL_RIDE",pendingTripId);
         persistNativeWorkflow();
-        KfeRideNotificationsPlugin.emitAction("CANCEL_RIDE",pendingTripId,input.toString(),eventId);
+        KfeNativeWorkActionsPlugin.emitAction("CANCEL_RIDE",pendingTripId,input.toString(),eventId);
       }catch(Exception ignored){formSubmitting=false;return;}
       return;
     }
