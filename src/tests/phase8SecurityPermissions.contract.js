@@ -5,12 +5,12 @@ import path from 'node:path'
 const read = file => fs.readFileSync(file, 'utf8')
 const manifest = read('android/app/src/main/AndroidManifest.xml')
 const overlayPlugin = read('android/app/src/main/java/com/kanishka/pwa/KfeOverlayPlugin.java')
-const notifications = read('android/app/src/main/java/com/kanishka/pwa/KfeRideNotificationsPlugin.java')
+const nativeActions = read('android/app/src/main/java/com/kanishka/pwa/KfeNativeWorkActionsPlugin.java')
+const nativeGpsPlugin = read('android/app/src/main/java/com/kanishka/pwa/KfeNativeGpsPlugin.java')
+const nativeGpsService = read('android/app/src/main/java/com/kanishka/pwa/KfeNativeGpsService.java')
 const secureStorage = read('android/app/src/main/java/com/kanishka/pwa/KfeSecureStoragePlugin.java')
-const receiver = read('android/app/src/main/java/com/kanishka/pwa/KfeRideNotificationReceiver.java')
 const overlay = read('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java')
 const activity = read('android/app/src/main/java/com/kanishka/pwa/MainActivity.java')
-const notificationService = read('src/infrastructure/android/kfeRideNotificationService.js')
 const androidOverlayLifecycle = read('src/infrastructure/android/androidOverlayLifecycle.js')
 
 for (const permission of [
@@ -32,7 +32,7 @@ assert.match(manifest, /<provider[^>]+android:exported="false"/)
 assert.match(manifest, /<service[^>]+android:exported="false"/)
 
 assert.match(activity, /registerPlugin\(KfeSecureStoragePlugin\.class\)/)
-assert.match(activity, /registerPlugin\(KfeRideNotificationsPlugin\.class\)/)
+assert.match(activity, /registerPlugin\(KfeNativeWorkActionsPlugin\.class\)/)
 assert.match(activity, /registerPlugin\(KfeOverlayPlugin\.class\)/)
 
 assert.match(overlayPlugin, /Settings\.canDrawOverlays/)
@@ -43,14 +43,16 @@ assert.match(overlay, /START_NOT_STICKY/)
 assert.match(androidOverlayLifecycle, /if \(!permission\.granted\)/)
 assert.match(androidOverlayLifecycle, /AndroidOverlay\.hide\(\)/)
 
-assert.match(notifications, /POST_NOTIFICATIONS/)
-assert.match(notifications, /requestPermissionForAlias\("notifications", call, "notificationPermissionCallback"\)/)
-assert.match(notifications, /@PermissionCallback/)
-assert.match(notifications, /areNotificationsEnabled\(\)/)
-assert.match(notifications, /FLAG_IMMUTABLE/)
-assert.match(notifications, /FLAG_MUTABLE/)
-assert.match(notificationService, /localStorage\.getItem\(NOTIFICATIONS_KEY\) !== 'off'/)
-assert.match(notificationService, /if \(!notificationsEnabled\(\)\) return true/)
+assert.match(nativeGpsPlugin, /POST_NOTIFICATIONS/)
+assert.match(nativeGpsPlugin, /requestPermissionForAlias\("notifications", call, "startupNotificationsPermissionCallback"\)/)
+assert.match(nativeGpsPlugin, /@PermissionCallback/)
+assert.match(nativeGpsPlugin, /areNotificationsEnabled\(\)/)
+assert.match(nativeGpsService, /startForeground\(/)
+assert.match(overlay, /startForeground\(NOTIFICATION_ID,buildNotification\(\)\)/)
+assert.doesNotMatch(nativeActions, /RemoteInput|AlarmManager|NotificationCompat\.Action/)
+assert.equal(fs.existsSync('android/app/src/main/java/com/kanishka/pwa/KfeRideNotificationsPlugin.java'), false)
+assert.equal(fs.existsSync('android/app/src/main/java/com/kanishka/pwa/KfeRideNotificationReceiver.java'), false)
+assert.equal(fs.existsSync('src/infrastructure/android/kfeRideNotificationService.js'), false)
 
 assert.match(secureStorage, /AndroidKeyStore/)
 assert.match(secureStorage, /AES\/GCM\/NoPadding/)
@@ -58,8 +60,6 @@ assert.match(secureStorage, /PURPOSE_ENCRYPT/)
 assert.match(secureStorage, /PURPOSE_DECRYPT/)
 assert.doesNotMatch(secureStorage, /SharedPreferences\([^)]*MODE_WORLD_(READABLE|WRITEABLE)/)
 
-assert.match(receiver, /android:exported|KfeRideNotificationsPlugin/)
-assert.doesNotMatch(receiver, /getStringExtra\("password"|getStringExtra\("token"|getStringExtra\("secret"/i)
 
 const scanRoots = ['src', 'android/app/src/main']
 const secretPatterns = [
