@@ -240,6 +240,9 @@ public class KfeOverlayService extends Service {
         if((("ENTER_FARE".equals(actionStage)||"END_RIDE".equals(actionStage))&&!"FARE".equals(formMode))||("CANCEL_RIDE".equals(actionStage)&&!"CANCEL".equals(formMode)))closeForm();
       }
       restorePersistedFormIfNeeded();
+      if(formMode==null&&"ENTER_FARE".equals(actionStage)){openFareForm();applyFareDraft(root.optJSONObject("fareDraft"));}
+      if(formMode==null&&"START_RIDE".equals(actionStage)&&root.optBoolean("cancelOpen",false)){openCancelForm();applyCancelDraft(root.optJSONObject("cancelDraft"));}
+      if("CANCEL".equals(formMode)&&"START_RIDE".equals(actionStage)&&!root.optBoolean("cancelOpen",false)&&!"CANCEL_RIDE".equals(awaitingStage))closeForm();
       if(acknowledgedEventNeedsRecovery){acknowledgedEventNeedsRecovery=false;onEventAcknowledged(awaitingEventId,awaitingStage,awaitingTripId);}
       overlay.invalidate();
     }catch(Exception ignored){ overlay.invalidate(); }
@@ -252,6 +255,32 @@ public class KfeOverlayService extends Service {
       .putString("cancelReason",cancelReason).putBoolean("tollExpanded",tollExpanded).putBoolean("parkingExpanded",parkingExpanded)
       .putBoolean("tollExcluded",tollTreatmentInput!=null&&tollTreatmentInput.isChecked())
       .putBoolean("parkingExcluded",parkingTreatmentInput!=null&&parkingTreatmentInput.isChecked()).apply();
+  }
+
+  private void applyFareDraft(JSONObject draft){
+    if(draft==null)return;
+    formValue=draft.optString("fare","");tollValue=draft.optString("tripToll","");parkingValue=draft.optString("tripParking","");
+    tollExpanded=!tollValue.isEmpty()||"EXCLUDED".equals(draft.optString("tripTollTreatment","INCLUDED"));
+    parkingExpanded=!parkingValue.isEmpty()||"EXCLUDED".equals(draft.optString("tripParkingTreatment","INCLUDED"));
+    if(formInput!=null)formInput.setText(formValue);
+    if(tollInput!=null){tollInput.setText(tollValue);tollInput.setVisibility(tollExpanded?View.VISIBLE:View.GONE);}
+    if(parkingInput!=null){parkingInput.setText(parkingValue);parkingInput.setVisibility(parkingExpanded?View.VISIBLE:View.GONE);}
+    if(tollTreatmentInput!=null){tollTreatmentInput.setChecked("EXCLUDED".equals(draft.optString("tripTollTreatment","INCLUDED")));tollTreatmentInput.setVisibility(tollExpanded?View.VISIBLE:View.GONE);}
+    if(parkingTreatmentInput!=null){parkingTreatmentInput.setChecked("EXCLUDED".equals(draft.optString("tripParkingTreatment","INCLUDED")));parkingTreatmentInput.setVisibility(parkingExpanded?View.VISIBLE:View.GONE);}
+    if(tollToggle!=null)tollToggle.setText(tollExpanded?"− Toll":"+ Toll");
+    if(parkingToggle!=null)parkingToggle.setText(parkingExpanded?"− Parking":"+ Parking");
+    persistNativeForm();
+  }
+
+  private void applyCancelDraft(JSONObject draft){
+    if(draft==null)return;
+    cancelReason=draft.optString("cancelReason","");formValue=draft.optString("cancelFare","");
+    if(formInput!=null)formInput.setText(formValue);
+    if(formPanel!=null&&formPanel.getChildCount()>2){
+      android.view.ViewGroup reasons=(android.view.ViewGroup)formPanel.getChildAt(2);
+      for(int i=0;i<reasons.getChildCount();i++){View child=reasons.getChildAt(i);String label=String.valueOf(((Button)child).getText());child.setAlpha((cancelReason.equals("PASSENGER")&&label.contains("Passenger"))||(cancelReason.equals("DRIVER")&&label.contains("Driver"))?1f:0.55f);}
+    }
+    persistNativeForm();
   }
 
   private void restorePersistedFormIfNeeded(){
@@ -428,6 +457,7 @@ public class KfeOverlayService extends Service {
   private void openNumericForm(String mode,String title,String hint){
     if(formMode!=null)return;
     formMode=mode;formValue="";tollValue="";parkingValue="";activeAmountField="fare";formSubmitting=false;tollExpanded=false;parkingExpanded=false;tollTreatmentInput=null;parkingTreatmentInput=null;tollToggle=null;parkingToggle=null;persistNativeForm();
+    if(minimized)expandFromBubble();
     params.flags=WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
     params.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE|WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE;
     params.height="FARE".equals(mode)?dp(420):dp(310);
