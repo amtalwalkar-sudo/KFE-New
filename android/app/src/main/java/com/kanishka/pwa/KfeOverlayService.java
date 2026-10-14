@@ -422,7 +422,7 @@ public class KfeOverlayService extends Service {
     if(overlay!=null) overlay.invalidate();
   }
 
-  private void openFareForm(){openNumericForm("FARE","TRIP COMPLETED","Enter fare; toll and parking are optional");}
+  private void openFareForm(){openNumericForm("FARE","ENTER FARE","Enter fare; toll and parking are optional");}
   private void openCancelForm(){if(!"CANCEL".equals(formMode)){cancelReason="";openNumericForm("CANCEL","CANCELLATION","Select reason; fee is optional");}}
 
   private void openNumericForm(String mode,String title,String hint){
