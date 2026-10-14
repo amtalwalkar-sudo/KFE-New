@@ -76,6 +76,7 @@ assert.match(gpsService, /static boolean isAnyPersistedTracking\(Context context
 assert.match(gpsService, /prefs\.getBoolean\(ACTIVE_READY, false\)/)
 assert.match(overlay, /static void updateDeadKm\(String value\)/)
 assert.match(gpsService, /KfeOverlayService\.updateDeadKm\(distance\)/)
+assert.match(gpsService, /eventType\.equals\(point\.optString\("eventType", ""\)\)/)
 assert.match(startupPlugin, /"kfe_ride_actions", "kfe_overlay"/)
 assert.match(overlay, /setContentIntent\(contentIntent\)/)
 assert.match(overlay, /setOngoing\(true\)/)
