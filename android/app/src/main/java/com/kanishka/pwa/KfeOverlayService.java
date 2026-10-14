@@ -91,6 +91,15 @@ public class KfeOverlayService extends Service {
     current.refreshPersistentNotification();
   }
 
+  static void updateDeadKm(String value){
+    KfeOverlayService current=instance;
+    if(current==null)return;
+    current.deadKm=value==null?"—":value;
+    current.getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putString("deadKm",current.deadKm).apply();
+    if(current.overlay!=null)current.overlay.postInvalidate();
+    current.refreshPersistentNotification();
+  }
+
   static String resolveFareActionTripId(String pendingFareTripId, String currentTripId){
     if(pendingFareTripId!=null&&!pendingFareTripId.isEmpty())return pendingFareTripId;
     return currentTripId==null?"":currentTripId;
@@ -108,6 +117,7 @@ public class KfeOverlayService extends Service {
     minimized=saved.getBoolean("minimized",false);
     pendingTripId=saved.getString("pendingTripId","");
     pendingFareTripId=saved.getString("pendingFareTripId","");
+    deadKm=saved.getString("deadKm","—");
     awaitingEventId=saved.getString("awaitingEventId","");
     awaitingStage=saved.getString("awaitingStage","");
     awaitingTripId=saved.getString("awaitingTripId","");
