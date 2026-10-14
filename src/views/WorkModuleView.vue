@@ -1048,10 +1048,34 @@ function keyAction() {
 
 const handleNativeAction = async event => {
   const stage = String(event?.stage || '')
-  if (stage === 'OPEN_CANCEL_FORM') { await openCancel(); return true }
-  if (stage === 'GO_TO_PICKUP') return Boolean(await goPickup(String(event?.tripId || '')))
-  if (stage === 'START_RIDE') return Boolean(await startTrip())
-  if (stage === 'END_RIDE') return Boolean(await endTrip())
+  const eventTripId = String(event?.tripId || '')
+  if (stage === 'OPEN_CANCEL_FORM') {
+    if (!store.trip?.id || store.trip.id !== eventTripId ||
+        !['PICKUP', 'GOING_TO_PICKUP'].includes(store.trip.tripStage)) return false
+    await openCancel()
+    return true
+  }
+  if (stage === 'GO_TO_PICKUP') {
+    // An acknowledgement may be lost after the canonical write. Treat a replay
+    // for the already-created trip as success instead of attempting a second trip.
+    if (store.trip?.id === eventTripId && store.trip.status === 'ACTIVE' &&
+        ['PICKUP', 'GOING_TO_PICKUP'].includes(store.trip.tripStage)) return true
+    return Boolean(await goPickup(eventTripId))
+  }
+  if (stage === 'START_RIDE') {
+    if (store.trip?.id === eventTripId && store.trip.status === 'ACTIVE' &&
+        store.trip.tripStage === 'RIDE_STARTED') return true
+    return Boolean(await startTrip())
+  }
+  if (stage === 'END_RIDE') {
+    if (!store.trip?.id && completed.value.some(trip => trip.id === eventTripId && trip.status === 'COMPLETED')) {
+      // END TRIP committed already; only replay the acknowledgement, not the write.
+      fareTripId.value = eventTripId
+      return true
+    }
+    if (store.trip?.id !== eventTripId) return false
+    return Boolean(await endTrip())
+  }
 
   if (stage === 'CANCEL_RIDE') {
     try {
