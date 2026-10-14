@@ -19,7 +19,7 @@ public class KfeRideNotificationReceiver extends BroadcastReceiver {
     if (stage == null) return;
 
     if (ACTION_ALARM.equals(intent.getAction())) {
-      KfeRideNotificationsPlugin.showNotification(context, stage, tripId == null ? "" : tripId);
+      // Ignore alarms persisted by older builds; Work-stage reminders are retired.
       return;
     }
 
