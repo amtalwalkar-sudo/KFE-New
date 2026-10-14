@@ -56,6 +56,8 @@ assert.match(actionsPlugin, /KfeNativeEventStore\.get\(getContext\(\)\)\.pending
 assert.match(actionsPlugin, /KfeNativeEventStore\.get\(getContext\(\)\)\.acknowledge\(eventId\)/)
 assert.match(actionsPlugin, /notifyListeners\("nativeWorkAction"/)
 assert.match(actionsPlugin, /kfe_native_work_actions/)
+assert.match(actionsPlugin, /kfe_ride_notification_events/)
+assert.match(actionsPlugin, /legacy\.edit\(\)\.remove\(PENDING_KEY\)/)
 assert.match(actionsPlugin, /deleteNotificationChannel\("kfe_ride_actions"\)/)
 assert.match(actionService, /registerPlugin\('KfeNativeWorkActions'\)/)
 assert.match(workView, /WorkRuntimePorts\.nativeWorkActions\.addListener/)
