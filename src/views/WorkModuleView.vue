@@ -417,18 +417,14 @@ async function syncOverlay() {
   // Shift-end revenue is the ERP authority. Trip fares are optional supporting
   // detail and must never become a competing overlay revenue total.
   const revenue = money(store.shift?.revenue ?? 0)
-  let liveKm = '0.0 km'
+  // Mirror the same state-aware live movement estimate shown in Work.
+  // The native overlay labels this value DEAD KM on the pickup leg and BUSINESS KM
+  // once the passenger ride starts; do not substitute a passenger-only trace here.
+  const liveKm = `${liveMovementKm.value.toFixed(1)} km`
   let trips = []
   try {
     trips = await WorkService.getTripsForShift(store.shift.id)
   } catch (_) {}
-
-  if (store.trip?.id) {
-    try {
-      const distance = await WorkService.getTripGpsDistanceKm(store.trip.id)
-      if (Number.isFinite(Number(distance))) liveKm = Number(distance).toFixed(1) + ' km'
-    } catch (_) {}
-  }
 
   const recoveredPendingFareId = pendingFare.value?.id || [...trips]
     .filter(t => t.status === 'COMPLETED' && t.revenue == null && t.fareDetailsSkipped !== true)
@@ -1211,7 +1207,7 @@ onMounted(async () => {
   window.addEventListener('pageshow', refreshClock)
   window.addEventListener('focus', refreshClock)
   void refreshLiveMovementKm()
-  liveKmRefreshTimer = setInterval(() => { void refreshLiveMovementKm() }, 3000)
+  liveKmRefreshTimer = setInterval(() => { void refreshLiveMovementKm().then(() => syncOverlay()).catch(() => {}) }, 3000)
 
   nativeActionListener = await WorkRuntimePorts.nativeWorkActions.addListener(
     'nativeWorkAction',
