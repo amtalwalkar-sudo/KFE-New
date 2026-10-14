@@ -111,6 +111,40 @@ jobs:
           KFE_ANDROID_KEY_PASSWORD: ${{ secrets.KFE_ANDROID_KEY_PASSWORD }}
         run: ./gradlew assembleDebug
 
+      - name: Verify APK package and signing identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          "$BUILD_TOOLS/apksigner" verify --verbose "$APK"
+          BADGING="$("$BUILD_TOOLS/aapt" dump badging "$APK" | grep "^package:")"
+          APP_ID="$(printf '%s\n' "$BADGING" | sed -n "s/.*name='\([^']*\)'.*/\1/p")"
+          VERSION_CODE="$(printf '%s\n' "$BADGING" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p")"
+          VERSION_NAME="$(printf '%s\n' "$BADGING" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")"
+          test "$APP_ID" = "com.kanishka.pwa" || { echo "::error::Unexpected APK package ID: $APP_ID"; exit 1; }
+          test -n "$VERSION_CODE" && test -n "$VERSION_NAME"
+          CERT_SHA256="$("$BUILD_TOOLS/apksigner" verify --print-certs "$APK" |
+            sed -n 's/.*Signer #1 certificate SHA-256 digest: //p' | head -n 1)"
+          test -n "$CERT_SHA256" || { echo "::error::Could not extract APK signing certificate fingerprint"; exit 1; }
+          mkdir -p artifacts/android-signing
+          {
+            echo "git_commit=$(git rev-parse HEAD)"
+            echo "application_id=$APP_ID"
+            echo "version_code=$VERSION_CODE"
+            echo "version_name=$VERSION_NAME"
+            echo "apk_sha256=$(sha256sum "$APK" | awk '{print $1}')"
+            echo "signer_certificate_sha256=$CERT_SHA256"
+          } > artifacts/android-signing/release-identity.txt
+          cat artifacts/android-signing/release-identity.txt
+
+      - name: Upload APK signing identity
+        uses: actions/upload-artifact@v4
+        with:
+          name: kfe-android-signing-identity
+          path: artifacts/android-signing/release-identity.txt
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Upload requested APK
         uses: actions/upload-artifact@v4
