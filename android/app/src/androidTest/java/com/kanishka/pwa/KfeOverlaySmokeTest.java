@@ -122,7 +122,7 @@ public class KfeOverlaySmokeTest {
 
   @Test public void rebootRecoveryRejectsMissingOrClearedShiftSnapshot() throws Exception {
     assertTrue(!KfeOverlayService.isResumableState(""));
-    assertTrue(!KfeOverlayService.isResumableState("{\\"shift\\":{}}"));
+    assertTrue(!KfeOverlayService.isResumableState("{\"shift\":{}}"));
     assertTrue(KfeOverlayService.isResumableState(
       new JSONObject().put("shift", new JSONObject().put("id", "active-shift")).toString()));
 
