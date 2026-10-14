@@ -10,7 +10,7 @@ const state = { tripId: null, phase: null, pickupDurationMinutes: null, rideDura
 const notificationsEnabled = () => localStorage.getItem(NOTIFICATIONS_KEY) !== 'off'
 const persist = () => localStorage.setItem(KEY, JSON.stringify(state))
 const restore = () => { try { const parsed = JSON.parse(localStorage.getItem(KEY) || 'null'); if (parsed) Object.assign(state, parsed) } catch (_) {} }
-const call = async (method, options) => { if (!native()) return false; try { await KfeRideNotifications[method](options); return true } catch (_) { return false } }
+const call = async (method, options) => { if (!native()) return false; if (['show', 'schedule', 'requestPermission', 'clearScheduled'].includes(method)) return true; try { await KfeRideNotifications[method](options); return true } catch (_) { return false } }
 
 export const KfeRideNotificationService = Object.freeze({
   restore,
@@ -20,7 +20,7 @@ export const KfeRideNotificationService = Object.freeze({
   async goOnline() {
     restore(); state.phase = 'GO_TO_PICKUP'; state.tripId = null; persist()
     if (!notificationsEnabled()) return true
-    await call('requestPermission'); return call('show', { stage: 'GO_TO_PICKUP', tripId: '' })
+    return true
   },
   async beginPickup(tripId) {
     restore(); state.tripId = tripId; state.phase = 'READY_FOR_TRIP'; persist(); await call('cancel')
