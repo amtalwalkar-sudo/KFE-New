@@ -1046,6 +1046,13 @@ function keyAction() {
 const handleNativeAction = async event => {
   const stage = String(event?.stage || '')
   const eventTripId = String(event?.tripId || '')
+  if (stage === 'CLOSE_CANCEL_FORM') {
+    if (!store.trip?.id || store.trip.id !== eventTripId) return false
+    cancelOpen.value = false
+    error.value = ''
+    message.value = ''
+    return true
+  }
   if (stage === 'OPEN_CANCEL_FORM') {
     if (!store.trip?.id || store.trip.id !== eventTripId ||
         !['PICKUP', 'GOING_TO_PICKUP'].includes(store.trip.tripStage)) return false
