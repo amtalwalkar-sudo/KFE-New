@@ -52,6 +52,13 @@ public class KfeOverlaySmokeTest {
     assertEquals("", KfeOverlayService.resolveFareActionTripId("", null));
   }
 
+  @Test public void overlayUsesOneStateAwareLiveKmLabel() {
+    assertEquals("DEAD KM", KfeOverlayService.resolveMovementLabel("GO_TO_PICKUP"));
+    assertEquals("DEAD KM", KfeOverlayService.resolveMovementLabel("START_RIDE"));
+    assertEquals("BUSINESS KM", KfeOverlayService.resolveMovementLabel("END_RIDE"));
+    assertEquals("LIVE KM", KfeOverlayService.resolveMovementLabel("ENTER_FARE"));
+  }
+
   @Test public void goldenRideSwipeLoopPersistsPickupStartEndAndFareIdentity() throws Exception {
     clearPending();
     KfeOverlayService service = waitForService();
@@ -79,6 +86,7 @@ public class KfeOverlaySmokeTest {
     actionStage.set(service, "GO_TO_PICKUP");
     pendingTripId.set(service, "trip-a");
     swipeOverlay(service);
+    assertSwipeRetracted(service);
     assertEquals("GO_TO_PICKUP|trip-a|", pendingValue());
     acknowledgePending("GO_TO_PICKUP", "trip-a");
     state.put("overlayAction", "START_RIDE");
@@ -176,6 +184,15 @@ public class KfeOverlaySmokeTest {
       view.dispatchTouchEvent(android.view.MotionEvent.obtain(now, now + 220, android.view.MotionEvent.ACTION_UP, overlayWidth * 0.92f, y, 0));
     });
     SystemClock.sleep(250);
+  }
+
+  private void assertSwipeRetracted(KfeOverlayService service) throws Exception {
+    Field overlayField = KfeOverlayService.class.getDeclaredField("overlay");
+    overlayField.setAccessible(true);
+    Object overlay = overlayField.get(service);
+    Field progressField = overlay.getClass().getDeclaredField("progress");
+    progressField.setAccessible(true);
+    assertTrue("Completed overlay swipe must retract its handle", progressField.getFloat(overlay) < 0.05f);
   }
 
   private String pendingValue() {
