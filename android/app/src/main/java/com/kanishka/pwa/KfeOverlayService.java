@@ -445,6 +445,19 @@ public class KfeOverlayService extends Service {
     if(overlay!=null) overlay.invalidate();
   }
 
+  private void openFormForCurrentState(){
+    android.content.SharedPreferences saved=getSharedPreferences("kfe_overlay",MODE_PRIVATE);
+    JSONObject state=null;
+    try{state=new JSONObject(saved.getString(LAST_STATE_KEY,"{}"));}catch(Exception ignored){}
+    if("ENTER_FARE".equals(actionStage)){
+      if("FARE".equals(saved.getString("formMode","")))restorePersistedFormIfNeeded();
+      if(formMode==null){openFareForm();applyFareDraft(state==null?null:state.optJSONObject("fareDraft"));}
+    }else if("START_RIDE".equals(actionStage)&&cancelFormPwaSynchronized){
+      if("CANCEL".equals(saved.getString("formMode","")))restorePersistedFormIfNeeded();
+      if(formMode==null){openCancelForm();applyCancelDraft(state==null?null:state.optJSONObject("cancelDraft"));}
+    }
+  }
+
   private void expandFromBubble(){
     if(overlayRoot==null || params==null) return;
     minimized=false;
@@ -809,8 +822,7 @@ public class KfeOverlayService extends Service {
           }
           if(minimized&&!moving&&Math.abs(fx)<dp(16)&&Math.abs(fy)<dp(16)){
             expandFromBubble();
-            if("ENTER_FARE".equals(actionStage))openFareForm();
-            else if("START_RIDE".equals(actionStage)&&cancelFormPwaSynchronized)openCancelForm();
+            openFormForCurrentState();
             return true;
           }
           if(!minimized&&!moving&&awaitingEventId.isEmpty()&&"START_RIDE".equals(actionStage)&&downLocalX>getWidth()-dp(120)&&downLocalY>=dp(60)&&downLocalY<=dp(110)){requestPwaForm("OPEN_CANCEL_FORM");return true;}
