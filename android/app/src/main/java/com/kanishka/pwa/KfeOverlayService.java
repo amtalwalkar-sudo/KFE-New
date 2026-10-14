@@ -492,7 +492,8 @@ public class KfeOverlayService extends Service {
     else if("ENTER_FARE".equals(actionStage)) stageText="TRIP COMPLETED · FARE REQUIRED";
     else if("CANCEL_RIDE".equals(actionStage)) stageText="CANCELLATION DETAILS REQUIRED";
     else stageText="WORK SESSION ACTIVE";
-    String text=stageText+" · "+gpsStatus+" · Dead KM "+deadKm;
+    String gpsIndicator=KfeNativeGpsService.isAnyPersistedTracking(this)?"GPS active":"GPS not tracking";
+    String text=stageText+" · "+gpsIndicator+" · Dead KM "+deadKm;
     if(!"0".equals(rides)) text += " · Trips "+rides;
     Intent openApp=new Intent(this,MainActivity.class);
     openApp.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP|Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -548,12 +549,16 @@ public class KfeOverlayService extends Service {
       rect.set(8,barTop,w-8,barTop+barH);c.drawRoundRect(rect,dp(22),dp(22),paint);paint.clearShadowLayer();
       paint.setColor(Color.argb(55,Color.red(a),Color.green(a),Color.blue(a)));
       rect.set(8,barTop,(w-8)*progress+8,barTop+barH);c.drawRoundRect(rect,dp(22),dp(22),paint);
-      // Target, Live KM, Trip Time and Revenue are the persistent live overlay metrics.
+      // Target, live distance, trip timer and revenue remain the compact primary metrics.
       float[] cols={.14f,.38f,.62f,.86f};
       String[] labels={"TARGET","LIVE KM","TRIP TIME","REVENUE"};
       String[] values={target,liveKm,formatTripTime(),revenue};
       for(int i=0;i<4;i++){text(9,mutedColor(),true);center(c,labels[i],w*cols[i],barTop+dp(23));text(15,i==0?targetColor():(i==1?a:textColor()),true);center(c,values[i],w*cols[i],barTop+dp(44));}
       if("END_RIDE".equals(actionStage)||"START_RIDE".equals(actionStage)) postInvalidateDelayed(1000);
+      boolean gpsActive=KfeNativeGpsService.isAnyPersistedTracking(KfeOverlayService.this);
+      text(9,gpsActive?(dark()?Color.rgb(98,209,138):Color.rgb(22,128,60)):mutedColor(),true);
+      center(c,gpsActive?"GPS ●":"GPS ○",w*.20f,barTop+dp(62));
+      text(9,mutedColor(),true);center(c,"DEAD KM "+deadKm,w*.48f,barTop+dp(62));
       if("CANCELLED".equals(actionStage)){
         text(11,a,true);center(c,"CANCELLED · "+cancellationRevenue,w*.50f,barTop+dp(77));
         text(10,mutedColor(),false);center(c,"Same trip · cancellation recorded",w*.50f,barTop+dp(95));
