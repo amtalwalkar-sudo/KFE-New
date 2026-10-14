@@ -1116,15 +1116,35 @@ const handleNativeAction = async event => {
   return false
 }
 
+// Prevent a listener callback and a foreground replay from processing the
+// same durable native event concurrently. The event ID remains the idempotency key.
+const nativeEventsInFlight = new Set()
+
 async function processNativeEvent(event) {
+  const eventId = String(event?.eventId || '')
+  if (eventId && nativeEventsInFlight.has(eventId)) return false
+  if (eventId) nativeEventsInFlight.add(eventId)
   try {
     const saved = await handleNativeAction(event)
-    if (saved && event?.eventId) await WorkRuntimePorts.nativeWorkActions.acknowledgeAction(event.eventId, String(event?.stage || ''), String(event?.tripId || ''))
-    else if (!saved && event?.eventId) await WorkRuntimePorts.nativeWorkActions.recordActionFailure(event.eventId, 'Work did not confirm the action was saved')
+    if (saved && eventId) await WorkRuntimePorts.nativeWorkActions.acknowledgeAction(eventId, String(event?.stage || ''), String(event?.tripId || ''))
+    else if (!saved && eventId) await WorkRuntimePorts.nativeWorkActions.recordActionFailure(eventId, 'Work did not confirm the action was saved')
     return saved
   } catch (error) {
-    if (event?.eventId) await WorkRuntimePorts.nativeWorkActions.recordActionFailure(event.eventId, error?.message || error)
+    if (eventId) await WorkRuntimePorts.nativeWorkActions.recordActionFailure(eventId, error?.message || error)
     return false
+  } finally {
+    if (eventId) nativeEventsInFlight.delete(eventId)
+  }
+}
+
+// A failed durable event remains pending under its original ID. Retry it when
+// Android brings the already-mounted Work view back to the foreground; never
+// synthesize a replacement action or append another event.
+async function replayFailedNativeActions() {
+  if (document.visibilityState !== 'visible') return
+  const pendingEvents = await WorkRuntimePorts.nativeWorkActions.consumePendingActions()
+  for (const event of pendingEvents) {
+    if (Number(event?.attempts || 0) > 0) await processNativeEvent(event)
   }
 }
 
@@ -1132,6 +1152,9 @@ onMounted(async () => {
   void refreshBackgroundLocationPermission()
   document.addEventListener('visibilitychange', refreshGpsPermissionOnResume)
   document.addEventListener('visibilitychange', syncOverlay)
+  document.addEventListener('visibilitychange', replayFailedNativeActions)
+  window.addEventListener('pageshow', replayFailedNativeActions)
+  window.addEventListener('focus', replayFailedNativeActions)
   await store.initialize()
   await fuel.refresh().catch(() => {})
   await WorkService.recoverNativeGpsTraces().catch(error => console.warn('KFE native GPS trace recovery deferred:', error))
@@ -1236,6 +1259,9 @@ watch(cancelOpen, () => { void syncOverlay() })
 onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', refreshGpsPermissionOnResume)
   document.removeEventListener('visibilitychange', syncOverlay)
+  document.removeEventListener('visibilitychange', replayFailedNativeActions)
+  window.removeEventListener('pageshow', replayFailedNativeActions)
+  window.removeEventListener('focus', replayFailedNativeActions)
   document.removeEventListener('visibilitychange', refreshClock)
   window.removeEventListener('pageshow', refreshClock)
   window.removeEventListener('focus', refreshClock)
