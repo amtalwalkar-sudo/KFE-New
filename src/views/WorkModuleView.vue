@@ -79,7 +79,7 @@ let timer = null
 let liveKmRefreshTimer = null
 const refreshClock = () => { clock.value = Date.now() }
 let traceRunning = false
-let notificationListener = null
+let nativeActionListener = null
 
 const refreshBackgroundLocationPermission = async () => {
   if (!nativeAndroid) return
@@ -439,7 +439,7 @@ async function syncOverlay() {
     trip: store.trip,
     trips,
     pendingFareId: recoveredPendingFareId,
-    notificationPhase: WorkRuntimePorts.rideNotifications.getState()?.phase || '',
+    notificationPhase: '',
     target: targetValue.value == null ? '—' : money(targetValue.value),
     targetProgress: targetProgress.value,
     liveKm,
@@ -550,7 +550,6 @@ async function submitStart() {
     startAck.value = false
     gapChoice.value = ''
     await targetRefresh()
-    await WorkRuntimePorts.rideNotifications.goOnline().catch(() => {})
     await WorkRuntimePorts.androidOverlay.prepare().catch(() => {})
     await syncOverlay()
     notify('Online — shift started.')
@@ -577,7 +576,6 @@ async function goPickup(nativeTripId = '') {
     // A pickup is dead movement owned by this trip. Isolating its trace keeps the
     // live dead-KM readout from inheriting all movement accumulated earlier in the shift.
     void ensureDeadMovementCapture('TRIP', store.trip?.id).catch(error => console.warn('Pickup GPS capture unavailable:', error))
-    await WorkRuntimePorts.rideNotifications.beginPickup(store.trip?.id || '').catch(() => {})
     await syncOverlay()
     // Keep state transitions silent; the cockpit/action label reflects the new state.
     return true
@@ -610,7 +608,6 @@ async function startTrip() {
         profile: 'PASSENGER_RIDE'
       })
     }
-    await WorkRuntimePorts.rideNotifications.startRide().catch(() => {})
     await syncOverlay()
     // Keep state transitions silent; the cockpit/action label reflects the new state.
     return true
@@ -656,7 +653,6 @@ async function endTrip() {
       tripParkingTreatment.value = String(draft.values.tripParkingTreatment || 'INCLUDED')
     }
     restoringDrafts = false
-    await WorkRuntimePorts.rideNotifications.completeRide().catch(() => {})
     await syncOverlay()
     // Keep state transitions silent; the cockpit/action label reflects the new state.
     return true
@@ -697,7 +693,7 @@ async function saveFare(fromNative = false) {
     tripTollTreatment.value = 'INCLUDED'
     tripParkingTreatment.value = 'INCLUDED'
     if (!fromNative) await WorkRuntimePorts.androidOverlay.fareSaved().catch(() => {})
-    if (!fromNative) await WorkRuntimePorts.rideNotifications.clearPendingAction().catch(() => {})
+    if (!fromNative) await WorkRuntimePorts.nativeWorkActions.clearPendingAction().catch(() => {})
     await targetRefresh()
     await syncOverlay()
     notify('Trip details saved.')
@@ -722,7 +718,7 @@ async function skipTripDetails() {
     tripTollTreatment.value = 'INCLUDED'
     tripParkingTreatment.value = 'INCLUDED'
     await WorkRuntimePorts.androidOverlay.fareSaved().catch(() => {})
-    await WorkRuntimePorts.rideNotifications.clearPendingAction().catch(() => {})
+    await WorkRuntimePorts.nativeWorkActions.clearPendingAction().catch(() => {})
     await syncOverlay()
     notify('Trip details skipped.')
   } finally {
@@ -778,7 +774,7 @@ async function saveCancel(fromNative = false) {
     await clearCommittedDraft(cancellationDraft)
     cancelOpen.value = false
     if (!fromNative) await WorkRuntimePorts.androidOverlay.cancelSaved().catch(() => {})
-    if (!fromNative) await WorkRuntimePorts.rideNotifications.clearPendingAction().catch(() => {})
+    if (!fromNative) await WorkRuntimePorts.nativeWorkActions.clearPendingAction().catch(() => {})
     await syncOverlay()
     notify('Trip cancelled.')
     return true
@@ -994,7 +990,6 @@ async function finishEnd() {
     }
     await clearCommittedDraft(endDraft)
     endStage.value = 'ENDED'
-    await WorkRuntimePorts.rideNotifications.clear().catch(() => {})
     notify('Shift ended.')
   } finally {
     endBusy.value = false
@@ -1119,11 +1114,11 @@ const handleNativeAction = async event => {
 async function processNativeEvent(event) {
   try {
     const saved = await handleNativeAction(event)
-    if (saved && event?.eventId) await WorkRuntimePorts.rideNotifications.acknowledgeAction(event.eventId, String(event?.stage || ''), String(event?.tripId || ''))
-    else if (!saved && event?.eventId) await WorkRuntimePorts.rideNotifications.recordActionFailure(event.eventId, 'Work did not confirm the action was saved')
+    if (saved && event?.eventId) await WorkRuntimePorts.nativeWorkActions.acknowledgeAction(event.eventId, String(event?.stage || ''), String(event?.tripId || ''))
+    else if (!saved && event?.eventId) await WorkRuntimePorts.nativeWorkActions.recordActionFailure(event.eventId, 'Work did not confirm the action was saved')
     return saved
   } catch (error) {
-    if (event?.eventId) await WorkRuntimePorts.rideNotifications.recordActionFailure(event.eventId, error?.message || error)
+    if (event?.eventId) await WorkRuntimePorts.nativeWorkActions.recordActionFailure(event.eventId, error?.message || error)
     return false
   }
 }
@@ -1208,23 +1203,22 @@ onMounted(async () => {
   void refreshLiveMovementKm()
   liveKmRefreshTimer = setInterval(() => { void refreshLiveMovementKm() }, 3000)
 
-  notificationListener = await WorkRuntimePorts.rideNotifications.addListener(
-    'rideNotificationAction',
+  nativeActionListener = await WorkRuntimePorts.nativeWorkActions.addListener(
+    'nativeWorkAction',
     event => { void processNativeEvent(event) }
   )
 
   // Replay every native event in durable creation order. Failed/unconfirmed
   // writes remain pending for the next launch instead of being silently lost.
-  const pendingEvents = await WorkRuntimePorts.rideNotifications.consumePendingActions()
+  const pendingEvents = await WorkRuntimePorts.nativeWorkActions.consumePendingActions()
   for (const event of pendingEvents) await processNativeEvent(event)
 
   // Compatibility for events created by app versions before the SQLite ledger.
   if (!pendingEvents.length) {
-    const pending = await WorkRuntimePorts.rideNotifications.consumePendingAction()
-    if (pending && await handleNativeAction(pending)) await WorkRuntimePorts.rideNotifications.clearPendingAction()
+    const pending = await WorkRuntimePorts.nativeWorkActions.consumePendingAction()
+    if (pending && await handleNativeAction(pending)) await WorkRuntimePorts.nativeWorkActions.clearPendingAction()
   }
 
-  await WorkRuntimePorts.rideNotifications.resume().catch(() => {})
   await syncOverlay()
 })
 
@@ -1240,7 +1234,7 @@ onBeforeUnmount(() => {
   if (timer) clearInterval(timer)
   if (liveKmRefreshTimer) clearInterval(liveKmRefreshTimer)
   if (traceRunning) WorkRuntimePorts.movementTrace.pause()
-  notificationListener?.remove?.()
+  nativeActionListener?.remove?.()
   void WorkRuntimePorts.androidOverlay.hide().catch(() => {})
 })
 </script>
