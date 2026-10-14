@@ -4,6 +4,7 @@ import { Capacitor, registerPlugin } from '@capacitor/core'
 const NativeGate = registerPlugin('KfeNativeGps')
 const native = () => Capacitor?.isNativePlatform?.() === true
 const attempted = new Set()
+const runtimeRequested = new Set()
 let activeRun = null
 let retryCurrent = null
 
@@ -68,7 +69,7 @@ export function runStartupPermissionGate() {
       if (!attempted.has(missing.key)) {
         attempted.add(missing.key)
         if (!native() && missing.key === 'location' && !missing.browserDenied) { permissionGateState.status = 'checking'; await requestBrowserLocation(); continue }
-        if (native() && missing.request) { permissionGateState.status = 'checking'; try { await NativeGate.requestStartupPermission({ permission: missing.request }) } catch (_) {} continue }
+        if (native() && missing.request && !runtimeRequested.has(missing.key)) { runtimeRequested.add(missing.key); permissionGateState.status = 'checking'; try { await NativeGate.requestStartupPermission({ permission: missing.request }) } catch (_) {} continue }
         if (native()) {
           permissionGateState.status = 'checking'; const returned = waitForForegroundReturn()
           try { await NativeGate.openStartupSetting({ setting: missing.setting }) } catch (error) { permissionGateState.error = error?.message || String(error) }
