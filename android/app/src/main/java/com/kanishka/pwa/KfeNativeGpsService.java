@@ -270,12 +270,14 @@ public class KfeNativeGpsService extends Service {
         try {
           JSONObject point = new JSONObject(line);
           seenKeys.add(point.optString("eventType", "PASSENGER_RIDE_TRACE") + "|" + point.optLong("capturedAtEpoch", -1) + "|" + point.optDouble("latitude") + "|" + point.optDouble("longitude"));
-          if ("PASSENGER_RIDE_TRACE".equals(point.optString("eventType", ""))) {
-            Location passengerPoint = new Location("KFE");
-            passengerPoint.setLatitude(point.optDouble("latitude"));
-            passengerPoint.setLongitude(point.optDouble("longitude"));
-            if (lastPassengerLocation != null) passengerDistanceMeters += lastPassengerLocation.distanceTo(passengerPoint);
-            lastPassengerLocation = passengerPoint;
+          // Rebuild the live distance from durable trace points for the active
+          // event type so service/process recovery does not reset the displayed KM.
+          if (eventType.equals(point.optString("eventType", ""))) {
+            Location distancePoint = new Location("KFE");
+            distancePoint.setLatitude(point.optDouble("latitude"));
+            distancePoint.setLongitude(point.optDouble("longitude"));
+            if (lastPassengerLocation != null) passengerDistanceMeters += lastPassengerLocation.distanceTo(distancePoint);
+            lastPassengerLocation = distancePoint;
           }
         } catch (Exception ignored) {}
       }
