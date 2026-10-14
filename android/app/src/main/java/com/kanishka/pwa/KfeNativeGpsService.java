@@ -245,10 +245,12 @@ public class KfeNativeGpsService extends Service {
         output.getFD().sync();
       }
       seenKeys.add(key);
-      if ("PASSENGER_RIDE_TRACE".equals(eventType)) {
+      if ("PASSENGER_RIDE_TRACE".equals(eventType) || "DEAD_MOVEMENT_TRACE".equals(eventType)) {
         if (lastPassengerLocation != null) passengerDistanceMeters += lastPassengerLocation.distanceTo(location);
         lastPassengerLocation = new Location(location);
-        KfeOverlayService.updateLiveKm(String.format(java.util.Locale.US, "%.1f km", passengerDistanceMeters / 1000d));
+        String distance = String.format(java.util.Locale.US, "%.1f km", passengerDistanceMeters / 1000d);
+        if ("DEAD_MOVEMENT_TRACE".equals(eventType)) KfeOverlayService.updateDeadKm(distance);
+        else KfeOverlayService.updateLiveKm(distance);
       }
     } catch (Exception error) {
       // Do not mark the point as seen when persistence fails. The next location
