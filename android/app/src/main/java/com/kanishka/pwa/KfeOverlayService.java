@@ -120,6 +120,13 @@ public class KfeOverlayService extends Service {
     return "LIVE KM";
   }
 
+  static String resolveActionLabel(String stage){
+    if("GO_TO_PICKUP".equals(stage))return "GO TO PICKUP";
+    if("START_RIDE".equals(stage))return "START RIDE";
+    if("END_RIDE".equals(stage))return "END RIDE";
+    return "";
+  }
+
   public static void prepare(Context context){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_PREPARE);ContextCompat.startForegroundService(context,i);}
   public static void show(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_SHOW);i.putExtra(EXTRA_STATE,state==null?"{}":state);ContextCompat.startForegroundService(context,i);}
   public static void update(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_UPDATE);i.putExtra(EXTRA_STATE,state==null?"{}":state);ContextCompat.startForegroundService(context,i);}
@@ -750,7 +757,7 @@ public class KfeOverlayService extends Service {
         text(11,a,true);center(c,"CANCELLED · "+cancellationRevenue,w*.50f,barTop+dp(77));
         text(10,mutedColor(),false);center(c,"Same trip · cancellation recorded",w*.50f,barTop+dp(95));
       }else{
-        String stateLabel="";if("GO_TO_PICKUP".equals(actionStage))stateLabel="GO TO PICKUP";if("START_RIDE".equals(actionStage))stateLabel="START RIDE";if("END_RIDE".equals(actionStage))stateLabel="END RIDE";if(!awaitingEventId.isEmpty())stateLabel="SYNCING ACTION";
+        String stateLabel=resolveActionLabel(actionStage);
         if("ENTER_FARE".equals(actionStage)){
           text(11,a,true);center(c,"FARE REQUIRED · TAP TO OPEN",w*.50f,barTop+dp(79));
         }else if(!stateLabel.isEmpty()){
@@ -794,14 +801,19 @@ public class KfeOverlayService extends Service {
         case MotionEvent.ACTION_DOWN:{
           downX=e.getRawX();downY=e.getRawY();downLocalX=e.getX();downLocalY=e.getY();lastX=downX;lastY=downY;tracking=true;moving=false;
           float localX=e.getX(),localY=e.getY();
-          swipeEligible=!minimized&&localY>=dp(100)&&localY<=dp(132)&&localX<=dp(74);
-          swipeLocked=swipeEligible;progress=0;return true;}
+          swipeLocked=!minimized&&localY>=dp(100)&&localY<=dp(132)&&localX<=dp(74);
+          swipeEligible=swipeLocked&&awaitingEventId.isEmpty()&&
+            ("GO_TO_PICKUP".equals(actionStage)||"START_RIDE".equals(actionStage)||"END_RIDE".equals(actionStage));
+          progress=0;return true;}
         case MotionEvent.ACTION_MOVE:{
           float dx=e.getRawX()-downX,dy=e.getRawY()-downY;
-          if(swipeEligible){
-            float maxTravel=Math.max(1,getWidth()-dp(16)-dp(58));
-            progress=Math.min(1f,Math.max(0f,dx)/maxTravel);
-            invalidate();return true;
+          if(swipeLocked){
+            if(swipeEligible){
+              float maxTravel=Math.max(1,getWidth()-dp(16)-dp(58));
+              progress=Math.min(1f,Math.max(0f,dx)/maxTravel);
+              invalidate();
+            }
+            return true;
           }
           if(!moving&&Math.hypot(dx,dy)>dp(10)) moving=true;
           if(moving){
@@ -843,8 +855,15 @@ public class KfeOverlayService extends Service {
           if(!minimized&&!moving&&awaitingEventId.isEmpty()&&"START_RIDE".equals(actionStage)&&downLocalX>getWidth()-dp(120)&&downLocalY>=dp(60)&&downLocalY<=dp(110)){requestPwaForm("OPEN_CANCEL_FORM");return true;}
           if(!minimized&&!moving&&"ENTER_FARE".equals(actionStage)&&downLocalY>=dp(58)&&downLocalY<=dp(96)){if(!"FARE".equals(formMode))openFareForm();return true;}
           float maxTravel=Math.max(1,getWidth()-dp(16)-dp(58));
-          if(!minimized&&!moving&&swipeEligible&&swipeLocked&&fx>=maxTravel*.70f){progress=1;invalidate();triggerAction();swipeLocked=false;swipeEligible=false;return true;}
-          progress=0;invalidate();return true;}
+          if(swipeLocked){
+            if(swipeEligible&&fx>=maxTravel*.70f){
+              progress=1;invalidate();triggerAction();
+            }else{
+              animateRetract();
+            }
+            tracking=false;moving=false;swipeLocked=false;swipeEligible=false;return true;
+          }
+          progress=0;invalidate();tracking=false;moving=false;return true;}
         case MotionEvent.ACTION_CANCEL:tracking=false;moving=false;swipeLocked=false;swipeEligible=false;animateRetract();return true;
       }return true;
     }
