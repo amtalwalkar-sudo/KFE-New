@@ -57,6 +57,27 @@ public class KfeOverlaySmokeTest {
     assertEquals("DEAD KM", KfeOverlayService.resolveMovementLabel("START_RIDE"));
     assertEquals("BUSINESS KM", KfeOverlayService.resolveMovementLabel("END_RIDE"));
     assertEquals("LIVE KM", KfeOverlayService.resolveMovementLabel("ENTER_FARE"));
+    assertEquals("GO TO PICKUP", KfeOverlayService.resolveActionLabel("GO_TO_PICKUP"));
+    assertEquals("START RIDE", KfeOverlayService.resolveActionLabel("START_RIDE"));
+    assertEquals("END RIDE", KfeOverlayService.resolveActionLabel("END_RIDE"));
+    assertEquals("", KfeOverlayService.resolveActionLabel("ENTER_FARE"));
+  }
+
+  @Test public void swipeWhileAwaitingAcknowledgementCannotLockHandleOrCreateAnotherAction() throws Exception {
+    clearPending();
+    JSONObject state = new JSONObject()
+      .put("shift", new JSONObject().put("id", "awaiting-shift"))
+      .put("trip", JSONObject.NULL)
+      .put("overlayAction", "GO_TO_PICKUP")
+      .put("overlayTripId", "awaiting-trip");
+    KfeOverlayService.update(context, state.toString());
+    waitForOverlay();
+    KfeOverlayService service = waitForService();
+    setField(service, "actionStage", "GO_TO_PICKUP");
+    setField(service, "awaitingEventId", "already-pending-event");
+    swipeOverlay(service);
+    assertSwipeRetracted(service);
+    assertEquals("An in-flight action must not create a duplicate swipe action", "", pendingValue());
   }
 
   @Test public void goldenRideSwipeLoopPersistsPickupStartEndAndFareIdentity() throws Exception {
