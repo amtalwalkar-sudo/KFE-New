@@ -439,7 +439,6 @@ async function syncOverlay() {
     trip: store.trip,
     trips,
     pendingFareId: recoveredPendingFareId,
-    notificationPhase: '',
     target: targetValue.value == null ? '—' : money(targetValue.value),
     targetProgress: targetProgress.value,
     liveKm,
