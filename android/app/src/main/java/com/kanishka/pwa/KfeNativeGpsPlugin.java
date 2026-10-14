@@ -6,6 +6,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.provider.Settings;
 import android.content.pm.PackageManager;
 import android.location.LocationManager;
@@ -56,7 +57,11 @@ public class KfeNativeGpsPlugin extends Plugin {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) notifications = notifications && ContextCompat.checkSelfPermission(getContext(), Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) { NotificationManager manager = (NotificationManager) getContext().getSystemService(android.content.Context.NOTIFICATION_SERVICE); if (manager != null) { android.app.NotificationChannel channel = manager.getNotificationChannel("kfe_ride_actions"); if (channel != null && channel.getImportance() == NotificationManager.IMPORTANCE_NONE) notifications = false; } }
     boolean overlay = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(getContext());
-    JSObject result = new JSObject(); result.put("supported", true); result.put("locationAllowed", fine || coarse); result.put("fineLocationAllowed", fine); result.put("backgroundLocationAllowed", background); result.put("locationServicesEnabled", locationServices); result.put("notificationsAllowed", notifications); result.put("overlayAllowed", overlay); call.resolve(result);
+    PowerManager powerManager = (PowerManager) getContext().getSystemService(android.content.Context.POWER_SERVICE);
+    boolean batteryOptimizationExempt = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || (powerManager != null && powerManager.isIgnoringBatteryOptimizations(getContext().getPackageName()));
+    String manufacturer = Build.MANUFACTURER == null ? "" : Build.MANUFACTURER.toLowerCase(java.util.Locale.ROOT);
+    boolean xiaomiOem = manufacturer.contains("xiaomi") || manufacturer.contains("redmi") || manufacturer.contains("poco");
+    JSObject result = new JSObject(); result.put("supported", true); result.put("locationAllowed", fine || coarse); result.put("fineLocationAllowed", fine); result.put("backgroundLocationAllowed", background); result.put("locationServicesEnabled", locationServices); result.put("notificationsAllowed", notifications); result.put("overlayAllowed", overlay); result.put("batteryOptimizationExempt", batteryOptimizationExempt); result.put("oemBackgroundSettingsRequired", xiaomiOem); call.resolve(result);
   }
 
   @com.getcapacitor.PluginMethod
@@ -77,12 +82,25 @@ public class KfeNativeGpsPlugin extends Plugin {
       switch (setting) {
         case "locationServices": intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS); break;
         case "overlay": intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getContext().getPackageName())); break;
+        case "oemAutostart":
+          intent = new Intent(); intent.setComponent(new android.content.ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity"));
+          if (!canResolve(intent)) intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getContext().getPackageName()));
+          break;
+        case "oemBattery":
+          intent = new Intent(); intent.setComponent(new android.content.ComponentName("com.miui.powerkeeper", "com.miui.powerkeeper.ui.HiddenAppsConfigActivity")); intent.putExtra("package_name", getContext().getPackageName()); intent.putExtra("package_label", getContext().getApplicationInfo().loadLabel(getContext().getPackageManager()).toString());
+          if (!canResolve(intent)) { intent = new Intent(); intent.setComponent(new android.content.ComponentName("com.miui.powercenter", "com.miui.powercenter.PowerSettings")); }
+          if (!canResolve(intent)) intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getContext().getPackageName()));
+          break;
         case "location": case "backgroundLocation": case "notifications": intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getContext().getPackageName())); break;
         default: call.reject("Unsupported startup setting."); return;
       }
       intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); getContext().startActivity(intent); call.resolve();
     } catch (Exception error) { call.reject("Unable to open the required phone setting.", error); }
   }
+  private boolean canResolve(Intent intent) {
+    try { return intent.resolveActivity(getContext().getPackageManager()) != null; } catch (Exception ignored) { return false; }
+  }
+
   @com.getcapacitor.PluginMethod
   public void openAppSettings(PluginCall call) {
     try {
