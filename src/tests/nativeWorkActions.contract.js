@@ -70,7 +70,7 @@ assert.match(workView, /Work saved the action but native acknowledgement failed/
 assert.match(workView, /for \(const event of pendingEvents\) await processNativeEvent\(event\)/)
 assert.match(actionsPlugin, /boolean alreadyAcknowledged = store\.isAcknowledged\(eventId\)/)
 assert.match(actionsPlugin, /if \(accepted\) KfeOverlayService\.acknowledgeFromPwa/)
-assert.match(workView, /Number\(event\?\.attempts \|\| 0\) > 0/)
+assert.doesNotMatch(workView, /if \(Number\(event\?\.attempts \|\| 0\) > 0\)/)
 assert.match(workView, /addEventListener\('visibilitychange', replayFailedNativeActions\)/)
 assert.match(workView, /removeEventListener\('visibilitychange', replayFailedNativeActions\)/)
 assert.match(workView, /window\.addEventListener\('pageshow', replayFailedNativeActions\)/)
