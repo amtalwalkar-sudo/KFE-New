@@ -102,6 +102,11 @@ assert.doesNotMatch(workView, /scrollIntoView\(\{ block: 'nearest', behavior: 's
 assert.match(workStyles, /work-context-form\.form-fare \.kfe-work-number-pad__grid button\{min-height:31px!important;height:31px!important/, 'Fare keypad is compact enough to fit with its header and actions in the viewport.')
 assert.match(workStyles, /--kfe-work-go-pickup:var\(--kfe-info/, 'Go to Pickup uses the semantic information/blue token.')
 assert.match(workView, /WorkflowTimerService\.enter\(identity, Date\.now\(\)\)/, 'Workflow timers restore their persisted start timestamp for the same step identity.')
+assert.match(workView, /document\.addEventListener\('visibilitychange', refreshClock\)/, 'Work timer refreshes immediately when the Android WebView returns to visibility.')
+assert.match(workView, /window\.addEventListener\('pageshow', refreshClock\)/, 'Work timer refreshes after Android restores the page from the back-forward cache.')
+assert.match(workView, /window\.addEventListener\('focus', refreshClock\)/, 'Work timer refreshes immediately when the app regains focus.')
+assert.match(fs.readFileSync(path.join(root, 'android/app/build.gradle'), 'utf8'), /applicationId \"com\.kanishka\.kfe\"/, 'The corrected APK uses a new stable package identity to avoid conflicts with legacy com.kanishka.pwa installs.')
+assert.match(fs.readFileSync(path.join(root, 'android/app/build.gradle'), 'utf8'), /versionCode 5[\s\S]*versionName \"2\.1\.1\"/, 'The corrected APK has a monotonic Android version code and release version.')
 
 const memory = new Map()
 const originalLocalStorage = globalThis.localStorage
