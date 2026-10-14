@@ -8,6 +8,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.SystemClock;
 import android.provider.Settings;
+import android.widget.EditText;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -263,12 +264,13 @@ public class KfeOverlaySmokeTest {
     KfeOverlayService.update(context, state.toString());
     waitForOverlay();
     KfeOverlayService service = waitForService();
+    final KfeOverlayService initialService = service;
     InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
       try {
         java.lang.reflect.Method open = KfeOverlayService.class.getDeclaredMethod("openFareForm");
         open.setAccessible(true);
-        open.invoke(service);
-        EditText fare = (EditText) fieldValue(service, "formInput");
+        open.invoke(initialService);
+        EditText fare = (EditText) fieldValue(initialService, "formInput");
         fare.setText("425");
       } catch (Exception e) { throw new AssertionError(e); }
     });
