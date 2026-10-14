@@ -1126,8 +1126,22 @@ async function processNativeEvent(event) {
   if (eventId) nativeEventsInFlight.add(eventId)
   try {
     const saved = await handleNativeAction(event)
-    if (saved && eventId) await WorkRuntimePorts.nativeWorkActions.acknowledgeAction(eventId, String(event?.stage || ''), String(event?.tripId || ''))
-    else if (!saved && eventId) await WorkRuntimePorts.nativeWorkActions.recordActionFailure(eventId, 'Work did not confirm the action was saved')
+    if (saved && eventId) {
+      const acknowledged = await WorkRuntimePorts.nativeWorkActions.acknowledgeAction(
+        eventId, String(event?.stage || ''), String(event?.tripId || '')
+      )
+      // A successful Work write is not a completed native transition until its
+      // durable event is acknowledged. Keep the original event retryable if the
+      // acknowledgement bridge fails; the handlers above are idempotent by ID.
+      if (!acknowledged) {
+        await WorkRuntimePorts.nativeWorkActions.recordActionFailure(
+          eventId, 'Work saved the action but native acknowledgement failed'
+        )
+        return false
+      }
+    } else if (!saved && eventId) {
+      await WorkRuntimePorts.nativeWorkActions.recordActionFailure(eventId, 'Work did not confirm the action was saved')
+    }
     return saved
   } catch (error) {
     if (eventId) await WorkRuntimePorts.nativeWorkActions.recordActionFailure(eventId, error?.message || error)
@@ -1143,9 +1157,10 @@ async function processNativeEvent(event) {
 async function replayFailedNativeActions() {
   if (document.visibilityState !== 'visible') return
   const pendingEvents = await WorkRuntimePorts.nativeWorkActions.consumePendingActions()
-  for (const event of pendingEvents) {
-    if (Number(event?.attempts || 0) > 0) await processNativeEvent(event)
-  }
+  // Replay every still-pending event, not only events with a recorded write
+  // failure. An interruption can happen after the Work commit but before the
+  // failure counter is persisted; handlers must safely accept replays.
+  for (const event of pendingEvents) await processNativeEvent(event)
 }
 
 onMounted(async () => {

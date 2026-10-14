@@ -91,16 +91,22 @@ public class KfeNativeWorkActionsPlugin extends Plugin {
   @com.getcapacitor.PluginMethod
   public void acknowledgeAction(PluginCall call) {
     String eventId = call.getString("eventId", "");
-    boolean acknowledged = KfeNativeEventStore.get(getContext()).acknowledge(eventId);
+    KfeNativeEventStore store = KfeNativeEventStore.get(getContext());
+    boolean acknowledged = store.acknowledge(eventId);
+    // A repeated acknowledgement is a valid recovery path: the DB commit may
+    // have survived a process interruption while the overlay's in-memory stage
+    // transition did not. Notify the service for both newly and already acked IDs.
+    boolean alreadyAcknowledged = store.isAcknowledged(eventId);
+    boolean accepted = acknowledged || alreadyAcknowledged;
     String stage = call.getString("stage", "");
     String tripId = call.getString("tripId", "");
-    if (acknowledged) KfeOverlayService.acknowledgeFromPwa(getContext(), eventId, stage, tripId);
+    if (accepted) KfeOverlayService.acknowledgeFromPwa(getContext(), eventId, stage, tripId);
     String legacyId = getContext().getSharedPreferences(PREFS, 0).getString("pendingEventId", "");
-    if (acknowledged && eventId.equals(legacyId)) {
+    if (accepted && eventId.equals(legacyId)) {
       getContext().getSharedPreferences(PREFS, 0).edit().remove(PENDING_KEY).remove("pendingEventId").apply();
     }
     JSObject result = new JSObject();
-    result.put("acknowledged", acknowledged);
+    result.put("acknowledged", accepted);
     call.resolve(result);
   }
 
