@@ -761,8 +761,8 @@ public class KfeOverlayService extends Service {
         if("ENTER_FARE".equals(actionStage)){
           text(11,a,true);center(c,"FARE REQUIRED · TAP TO OPEN",w*.50f,barTop+dp(79));
         }else if(!stateLabel.isEmpty()){
-          text(11,mutedColor(),true);String prefix="SWIPE TO ";float total=measureAction(prefix,11)+dp(4)+measureAction(stateLabel,11);float startX=w/2f-total/2f;
-          c.drawText(prefix,startX,barTop+dp(79),paint);text(11,a,true);c.drawText(stateLabel,startX+measureAction(prefix,11)+dp(4),barTop+dp(79),paint);
+          String prefix=awaitingEventId.isEmpty()?"SWIPE TO ":"";text(11,mutedColor(),true);float total=measureAction(prefix,11)+dp(4)+measureAction(stateLabel,11);float startX=w/2f-total/2f;
+          if(!prefix.isEmpty())c.drawText(prefix,startX,barTop+dp(79),paint);text(11,a,true);c.drawText(stateLabel,startX+measureAction(prefix,11)+dp(4),barTop+dp(79),paint);
         }
       }
       if(!"ENTER_FARE".equals(actionStage)){
