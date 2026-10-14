@@ -22,6 +22,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -58,6 +59,12 @@ public class KfeOverlayService extends Service {
   private EditText formInput;
   private EditText tollInput;
   private EditText parkingInput;
+  private CheckBox tollTreatmentInput;
+  private CheckBox parkingTreatmentInput;
+  private Button tollToggle;
+  private Button parkingToggle;
+  private boolean tollExpanded=false;
+  private boolean parkingExpanded=false;
   private String theme="dark";
   private String target="—", rides="0", liveKm="0.0 km", revenue="₹0", pendingTripId="", pendingFareTripId="", cancellationRevenue="₹0";
   private String deadKm="—", gpsStatus="GPS status unavailable";
@@ -145,9 +152,8 @@ public class KfeOverlayService extends Service {
       onEventAcknowledged(awaitingEventId,awaitingStage,awaitingTripId);
     }
     createChannel();startForeground(NOTIFICATION_ID,buildNotification());foregroundHandler=new android.os.Handler(getMainLooper());foregroundHandler.post(foregroundCheck);
-    // If Android recreated the service while an action was awaiting the WebView,
-    // wake KFE so its durable event queue can finish or safely reject the action.
-    if(!awaitingEventId.isEmpty()) launchWorkActivityIfUnacknowledged(awaitingEventId);
+    // Pending native events remain durable across process death. Do not force the
+    // main activity to the foreground; the PWA replays them when it next runs.
   }
   @Override public int onStartCommand(Intent intent,int flags,int startId){
     if(intent==null){
@@ -268,7 +274,10 @@ public class KfeOverlayService extends Service {
     String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,stage,pendingTripId,"");
     beginAwaiting(eventId,stage,pendingTripId);persistNativeWorkflow();animateRetract();if(overlay!=null)overlay.invalidate();
     KfeNativeWorkActionsPlugin.emitAction(stage,pendingTripId,"",eventId);
-    launchWorkActivityIfUnacknowledged(eventId);
+    openCancelForm();
+    // Form-open is a durable synchronization hint, not a state-changing action;
+    // do not block form submission while the PWA is unavailable.
+    KfeNativeWorkActionsPlugin.emitAction(stage,pendingTripId,"",eventId);
   }
 
   private void triggerAction(){
@@ -280,19 +289,19 @@ public class KfeOverlayService extends Service {
       if(pendingTripId.isEmpty()) pendingTripId=java.util.UUID.randomUUID().toString();
       String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"GO_TO_PICKUP",pendingTripId,"");
       beginAwaiting(eventId,"GO_TO_PICKUP",pendingTripId); persistNativeWorkflow(); animateRetract(); overlay.invalidate();
-      KfeNativeWorkActionsPlugin.emitAction("GO_TO_PICKUP",pendingTripId,"",eventId); launchWorkActivityIfUnacknowledged(eventId); return;
+      KfeNativeWorkActionsPlugin.emitAction("GO_TO_PICKUP",pendingTripId,"",eventId); return;
     }
     if("START_RIDE".equals(actionStage)){
       if(!awaitingEventId.isEmpty() || pendingTripId.isEmpty()) return;
       String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"START_RIDE",pendingTripId,"");
       beginAwaiting(eventId,"START_RIDE",pendingTripId); persistNativeWorkflow(); animateRetract(); overlay.invalidate();
-      KfeNativeWorkActionsPlugin.emitAction("START_RIDE",pendingTripId,"",eventId); launchWorkActivityIfUnacknowledged(eventId); return;
+      KfeNativeWorkActionsPlugin.emitAction("START_RIDE",pendingTripId,"",eventId); return;
     }
     if("END_RIDE".equals(actionStage)){
       if(!awaitingEventId.isEmpty() || pendingTripId.isEmpty()) return;
       String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"END_RIDE",pendingTripId,"");
       beginAwaiting(eventId,"END_RIDE",pendingTripId); persistNativeWorkflow(); animateRetract(); overlay.invalidate();
-      KfeNativeWorkActionsPlugin.emitAction("END_RIDE",pendingTripId,"",eventId); launchWorkActivityIfUnacknowledged(eventId);
+      KfeNativeWorkActionsPlugin.emitAction("END_RIDE",pendingTripId,"",eventId);
     }
   }
 
@@ -318,8 +327,8 @@ public class KfeOverlayService extends Service {
     awaitingEventId=""; awaitingStage=""; awaitingTripId="";
     if("GO_TO_PICKUP".equals(stage)){ actionStage="START_RIDE"; pendingFareTripId=""; persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); return; }
     if("START_RIDE".equals(stage)){ actionStage="END_RIDE"; persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); return; }
-    if("END_RIDE".equals(stage)){ pendingFareTripId=tripId; pendingTripId=tripId; actionStage="ENTER_FARE"; persistNativeWorkflow(); KfeNativeGpsService.stop(this,tripId); if(overlay!=null)overlay.invalidate(); launchWorkActivity(); return; }
-    if("OPEN_CANCEL_FORM".equals(stage)){ persistNativeWorkflow(); if(overlay!=null)overlay.invalidate(); launchWorkActivity(); return; }
+    if("END_RIDE".equals(stage)){ pendingFareTripId=tripId; pendingTripId=tripId; actionStage="ENTER_FARE"; persistNativeWorkflow(); KfeNativeGpsService.stop(this,tripId); if(!"FARE".equals(formMode))openFareForm(); if(overlay!=null)overlay.invalidate(); return; }
+    if("OPEN_CANCEL_FORM".equals(stage)){ persistNativeWorkflow(); if(overlay!=null)overlay.invalidate(); return; }
     if("ENTER_FARE".equals(stage) || "CANCEL_RIDE".equals(stage)){ closeForm(); actionStage="GO_TO_PICKUP"; pendingTripId=""; pendingFareTripId=""; tripStartAt=0L; persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); }
   }
 
@@ -379,12 +388,12 @@ public class KfeOverlayService extends Service {
     if(overlay!=null) overlay.invalidate();
   }
 
-  private void openFareForm(){openNumericForm("FARE","TRIP DETAILS","Enter trip fare, toll and parking");}
-  private void openCancelForm(){cancelReason="";openNumericForm("CANCEL","CANCEL RIDE","Select reason and enter cancellation fee");}
+  private void openFareForm(){openNumericForm("FARE","TRIP COMPLETED","Enter fare; toll and parking are optional");}
+  private void openCancelForm(){if(!"CANCEL".equals(formMode)){cancelReason="";openNumericForm("CANCEL","CANCELLATION","Select reason; fee is optional");}}
 
   private void openNumericForm(String mode,String title,String hint){
     if(formMode!=null)return;
-    formMode=mode;formValue="";tollValue="";parkingValue="";activeAmountField="fare";formSubmitting=false;
+    formMode=mode;formValue="";tollValue="";parkingValue="";activeAmountField="fare";formSubmitting=false;tollExpanded=false;parkingExpanded=false;tollTreatmentInput=null;parkingTreatmentInput=null;tollToggle=null;parkingToggle=null;
     params.flags=WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
     params.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE|WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE;
     params.height="FARE".equals(mode)?dp(420):dp(310);
@@ -400,7 +409,7 @@ public class KfeOverlayService extends Service {
 
     if("CANCEL".equals(mode)){
       final LinearLayout reasons=new LinearLayout(this); reasons.setOrientation(LinearLayout.HORIZONTAL); reasons.setGravity(Gravity.CENTER);
-      String[] choices={"CUSTOMER","DRIVER"};
+      String[] choices={"PASSENGER","DRIVER"};
       for(String choice:choices){
         final String selectedChoice=choice;
         final Button reason=new Button(this);
@@ -410,27 +419,44 @@ public class KfeOverlayService extends Service {
         reasons.addView(reason,new LinearLayout.LayoutParams(0,dp(40),1));
       }
       formPanel.addView(reasons,new LinearLayout.LayoutParams(-1,dp(44)));
-      formInput=numericInput("Cancellation fee","fare",android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
+      formInput=numericInput("Cancellation fee (optional)","fare",android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
       formPanel.addView(formInput,new LinearLayout.LayoutParams(-1,dp(48)));
     }else{
-      formInput=numericInput("Trip fare","fare",android.view.inputmethod.EditorInfo.IME_ACTION_NEXT);
-      tollInput=numericInput("Toll","toll",android.view.inputmethod.EditorInfo.IME_ACTION_NEXT);
-      parkingInput=numericInput("Parking","parking",android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
+      formInput=numericInput("Trip fare (optional — Skip)","fare",android.view.inputmethod.EditorInfo.IME_ACTION_NEXT);
+      tollInput=numericInput("Toll (optional)","toll",android.view.inputmethod.EditorInfo.IME_ACTION_NEXT);
+      parkingInput=numericInput("Parking (optional)","parking",android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
       formPanel.addView(formInput,new LinearLayout.LayoutParams(-1,dp(48)));
-      formPanel.addView(tollInput,new LinearLayout.LayoutParams(-1,dp(48)));
-      formPanel.addView(parkingInput,new LinearLayout.LayoutParams(-1,dp(48)));
+      LinearLayout optionalActions=new LinearLayout(this);optionalActions.setGravity(Gravity.CENTER);
+      tollToggle=new Button(this);tollToggle.setText("+ Toll");tollToggle.setAllCaps(false);tollToggle.setTextSize(11);
+      parkingToggle=new Button(this);parkingToggle.setText("+ Parking");parkingToggle.setAllCaps(false);parkingToggle.setTextSize(11);
+      optionalActions.addView(tollToggle,new LinearLayout.LayoutParams(0,dp(38),1));optionalActions.addView(parkingToggle,new LinearLayout.LayoutParams(0,dp(38),1));
+      formPanel.addView(optionalActions,new LinearLayout.LayoutParams(-1,dp(40)));
+      tollTreatmentInput=new CheckBox(this);tollTreatmentInput.setText("Toll paid separately");tollTreatmentInput.setTextColor(textColor());tollTreatmentInput.setTextSize(11);
+      parkingTreatmentInput=new CheckBox(this);parkingTreatmentInput.setText("Parking paid separately");parkingTreatmentInput.setTextColor(textColor());parkingTreatmentInput.setTextSize(11);
+      tollInput.setVisibility(View.GONE);tollTreatmentInput.setVisibility(View.GONE);parkingInput.setVisibility(View.GONE);parkingTreatmentInput.setVisibility(View.GONE);
+      formPanel.addView(tollInput,new LinearLayout.LayoutParams(-1,dp(44)));formPanel.addView(tollTreatmentInput,new LinearLayout.LayoutParams(-1,dp(32)));
+      formPanel.addView(parkingInput,new LinearLayout.LayoutParams(-1,dp(44)));formPanel.addView(parkingTreatmentInput,new LinearLayout.LayoutParams(-1,dp(32)));
+      tollToggle.setOnClickListener(v->{tollExpanded=!tollExpanded;tollInput.setVisibility(tollExpanded?View.VISIBLE:View.GONE);tollTreatmentInput.setVisibility(tollExpanded?View.VISIBLE:View.GONE);tollToggle.setText(tollExpanded?"− Toll":"+ Toll");resizeForm();});
+      parkingToggle.setOnClickListener(v->{parkingExpanded=!parkingExpanded;parkingInput.setVisibility(parkingExpanded?View.VISIBLE:View.GONE);parkingTreatmentInput.setVisibility(parkingExpanded?View.VISIBLE:View.GONE);parkingToggle.setText(parkingExpanded?"− Parking":"+ Parking");resizeForm();});
     }
 
     LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.CENTER);
-    Button cancel=keyButton("BACK");cancel.setTextSize(11);cancel.setOnClickListener(v->closeForm());
-    Button ok=keyButton("OKAY");ok.setTextSize(11);ok.setOnClickListener(v->submitNumericForm());
-    actions.addView(cancel,new LinearLayout.LayoutParams(dp(105),dp(42)));actions.addView(ok,new LinearLayout.LayoutParams(dp(105),dp(42)));
+    Button back=new Button(this);back.setText("Back");back.setAllCaps(false);back.setTextSize(11);back.setOnClickListener(v->closeForm());
+    actions.addView(back,new LinearLayout.LayoutParams(0,dp(42),1));
+    if("FARE".equals(mode)){
+      Button skip=new Button(this);skip.setText("Skip");skip.setAllCaps(false);skip.setTextSize(11);skip.setOnClickListener(v->{formValue="";if(formInput!=null)formInput.setText("");submitNumericForm();});
+      actions.addView(skip,new LinearLayout.LayoutParams(0,dp(42),1));
+    }
+    Button ok=new Button(this);ok.setText("CANCEL".equals(mode)?"Confirm cancellation":"Save trip");ok.setAllCaps(false);ok.setTextSize(11);ok.setOnClickListener(v->submitNumericForm());
+    actions.addView(ok,new LinearLayout.LayoutParams(0,dp(42),1));
     formPanel.addView(actions,new LinearLayout.LayoutParams(-1,dp(44)));
     overlayRoot.addView(formPanel,new FrameLayout.LayoutParams(-1,"CANCEL".equals(mode)?dp(310):dp(420),Gravity.TOP));
 
     EditText first=formInput;
     first.postDelayed(()->{first.requestFocus();InputMethodManager imm=(InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);if(imm!=null)imm.showSoftInput(first,InputMethodManager.SHOW_IMPLICIT);},180);
   }
+
+  private void resizeForm(){if(formPanel!=null){formPanel.requestLayout();if(overlayRoot!=null)overlayRoot.requestLayout();}}
 
   private EditText numericInput(String hint,String field,int imeAction){
     EditText input=new EditText(this);
@@ -487,15 +513,25 @@ public class KfeOverlayService extends Service {
     if(parkingInput!=null)parkingValue=parkingInput.getText().toString().trim();
     String actionTripId="FARE".equals(formMode)?resolveFareActionTripId(pendingFareTripId,pendingTripId):pendingTripId;
     if(formSubmitting||!awaitingEventId.isEmpty()||actionTripId.isEmpty())return;
-    double amount;
-    try{if(formValue.isEmpty())return;amount=Double.parseDouble(formValue);}catch(Exception e){return;}
-    if(amount<0)return;formSubmitting=true;
+    if(!formValue.isEmpty()){
+      try{if(!Double.isFinite(Double.parseDouble(formValue))||Double.parseDouble(formValue)<0)return;}catch(Exception e){return;}
+    }
+    if(!tollValue.isEmpty()){
+      try{if(!Double.isFinite(Double.parseDouble(tollValue))||Double.parseDouble(tollValue)<0)return;}catch(Exception e){return;}
+    }
+    if(!parkingValue.isEmpty()){
+      try{if(!Double.isFinite(Double.parseDouble(parkingValue))||Double.parseDouble(parkingValue)<0)return;}catch(Exception e){return;}
+    }
+    if("CANCEL".equals(formMode)&&cancelReason.isEmpty())return;
+    formSubmitting=true;
     if("FARE".equals(formMode)){
       try {
         JSONObject payload=new JSONObject();
-        payload.put("fare",amount);
-        payload.put("toll",tollValue.isEmpty()?0:Double.parseDouble(tollValue));
-        payload.put("parking",parkingValue.isEmpty()?0:Double.parseDouble(parkingValue));
+        payload.put("fare",formValue);
+        payload.put("toll",tollValue);
+        payload.put("parking",parkingValue);
+        payload.put("tollTreatment",tollTreatmentInput!=null&&tollTreatmentInput.isChecked()?"EXCLUDED":"INCLUDED");
+        payload.put("parkingTreatment",parkingTreatmentInput!=null&&parkingTreatmentInput.isChecked()?"EXCLUDED":"INCLUDED");
         String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"ENTER_FARE",actionTripId,payload.toString());
         beginAwaiting(eventId,"ENTER_FARE",actionTripId);
         persistNativeWorkflow();
@@ -503,10 +539,9 @@ public class KfeOverlayService extends Service {
       } catch(Exception ignored){ formSubmitting=false; }
       return;
     }else if("CANCEL".equals(formMode)){
-      if(cancelReason.isEmpty()||formValue.isEmpty()){formSubmitting=false;return;}
       try{
         JSONObject input=new JSONObject();
-        input.put("revenue",amount);
+        input.put("revenue",formValue);
         input.put("reason",cancelReason);
         String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"CANCEL_RIDE",pendingTripId,input.toString());
         beginAwaiting(eventId,"CANCEL_RIDE",pendingTripId);
@@ -519,7 +554,7 @@ public class KfeOverlayService extends Service {
 
   private void closeForm(){
     if(formPanel!=null&&overlayRoot!=null)overlayRoot.removeView(formPanel);
-    formPanel=null;formMode=null;formValue="";tollValue="";parkingValue="";formSubmitting=false;formInput=null;tollInput=null;parkingInput=null;
+    formPanel=null;formMode=null;formValue="";tollValue="";parkingValue="";formSubmitting=false;formInput=null;tollInput=null;parkingInput=null;tollTreatmentInput=null;parkingTreatmentInput=null;tollToggle=null;parkingToggle=null;
     if(params!=null){params.height=dp(COLLAPSED_TOTAL_DP);params.flags=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;params.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING;if(windowManager!=null&&overlayRoot!=null)windowManager.updateViewLayout(overlayRoot,params);}
     if(overlay!=null)overlay.invalidate();
   }
