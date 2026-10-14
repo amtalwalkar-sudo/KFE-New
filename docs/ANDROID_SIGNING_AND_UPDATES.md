@@ -31,8 +31,9 @@ Maintain an access-controlled backup of the keystore and recovery instructions o
 3. Verify the signing certificate SHA-256 matches the approved fingerprint above.
 4. Verify `versionCode` is greater than the last published version code.
 5. Verify APK integrity and record the exact artifact SHA-256, package ID, version name/code, and signing certificate fingerprint in the CI run output or release identity artifact.
-6. Run the Android Exact APK Smoke Gate and the relevant test suite against the exact APK that will be offered for installation.
-7. Test an in-place upgrade from the previous approved APK where practical. The update must retain the same package ID and signing identity. Do not treat a successful build alone as proof that Android will accept an update.
+6. The main Android release gate and the on-request APK workflow both compare the extracted certificate fingerprint against the approved SHA-256 value and fail closed on any mismatch.
+7. Run the Android Exact APK Smoke Gate and the relevant test suite against the exact APK that will be offered for installation.
+8. Test an in-place upgrade from the previous approved APK where practical. The update must retain the same package ID and signing identity. Do not treat a successful build alone as proof that Android will accept an update.
 
 If the certificate changes unexpectedly, stop publication. Investigate the CI secrets, keystore provisioning, and artifact provenance; do not ask users to uninstall as a routine workaround.
 
