@@ -1065,6 +1065,7 @@ const handleNativeAction = async event => {
   if (stage === 'START_RIDE') {
     if (store.trip?.id === eventTripId && store.trip.status === 'ACTIVE' &&
         store.trip.tripStage === 'RIDE_STARTED') return true
+    if (!eventTripId || store.trip?.id !== eventTripId) return false
     return Boolean(await startTrip())
   }
   if (stage === 'END_RIDE') {
