@@ -1126,8 +1126,21 @@ async function processNativeEvent(event) {
   if (eventId) nativeEventsInFlight.add(eventId)
   try {
     const saved = await handleNativeAction(event)
-    if (saved && eventId) await WorkRuntimePorts.nativeWorkActions.acknowledgeAction(eventId, String(event?.stage || ''), String(event?.tripId || ''))
-    else if (!saved && eventId) await WorkRuntimePorts.nativeWorkActions.recordActionFailure(eventId, 'Work did not confirm the action was saved')
+    if (saved && eventId) {
+      const acknowledged = await WorkRuntimePorts.nativeWorkActions.acknowledgeAction(
+        eventId, String(event?.stage || ''), String(event?.tripId || '')
+      )
+      // A canonical Work write without a confirmed native acknowledgement leaves
+      // the overlay locked on its old stage. Mark the same durable event retryable;
+      // never synthesize a replacement event or repeat the trip write.
+      if (!acknowledged) {
+        await WorkRuntimePorts.nativeWorkActions.recordActionFailure(
+          eventId, 'Work saved the action but native acknowledgement was not confirmed'
+        )
+      }
+    } else if (!saved && eventId) {
+      await WorkRuntimePorts.nativeWorkActions.recordActionFailure(eventId, 'Work did not confirm the action was saved')
+    }
     return saved
   } catch (error) {
     if (eventId) await WorkRuntimePorts.nativeWorkActions.recordActionFailure(eventId, error?.message || error)
