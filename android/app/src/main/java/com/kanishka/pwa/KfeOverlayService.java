@@ -242,8 +242,8 @@ public class KfeOverlayService extends Service {
       }
       restorePersistedFormIfNeeded();
       if(root.optBoolean("cancelOpen",false))cancelFormPwaSynchronized=true;
-      if(formMode==null&&"ENTER_FARE".equals(actionStage)){openFareForm();applyFareDraft(root.optJSONObject("fareDraft"));}
-      if(formMode==null&&"START_RIDE".equals(actionStage)&&root.optBoolean("cancelOpen",false)){openCancelForm();applyCancelDraft(root.optJSONObject("cancelDraft"));}
+      if(!minimized&&formMode==null&&"ENTER_FARE".equals(actionStage)){openFareForm();applyFareDraft(root.optJSONObject("fareDraft"));}
+      if(!minimized&&formMode==null&&"START_RIDE".equals(actionStage)&&root.optBoolean("cancelOpen",false)){openCancelForm();applyCancelDraft(root.optJSONObject("cancelDraft"));}
       if("CANCEL".equals(formMode)&&"START_RIDE".equals(actionStage)&&cancelFormPwaSynchronized&&!root.optBoolean("cancelOpen",false)&&!"CANCEL_RIDE".equals(awaitingStage)){closeForm();cancelFormPwaSynchronized=false;}
       if(acknowledgedEventNeedsRecovery){acknowledgedEventNeedsRecovery=false;onEventAcknowledged(awaitingEventId,awaitingStage,awaitingTripId);}
       overlay.invalidate();
@@ -286,7 +286,7 @@ public class KfeOverlayService extends Service {
   }
 
   private void restorePersistedFormIfNeeded(){
-    if(formMode!=null)return;
+    if(formMode!=null||minimized)return;
     android.content.SharedPreferences saved=getSharedPreferences("kfe_overlay",MODE_PRIVATE);
     String mode=saved.getString("formMode","");
     String savedFare=saved.getString("formValue","");
@@ -395,7 +395,7 @@ public class KfeOverlayService extends Service {
     awaitingEventId=""; awaitingStage=""; awaitingTripId="";
     if("GO_TO_PICKUP".equals(stage)){ actionStage="START_RIDE"; pendingFareTripId=""; persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); return; }
     if("START_RIDE".equals(stage)){ actionStage="END_RIDE"; persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); return; }
-    if("END_RIDE".equals(stage)){ pendingFareTripId=tripId; pendingTripId=tripId; actionStage="ENTER_FARE"; persistNativeWorkflow(); KfeNativeGpsService.stop(this,tripId); if(!"FARE".equals(formMode)){if("FARE".equals(getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString("formMode","")))restorePersistedFormIfNeeded();else openFareForm();} if(overlay!=null)overlay.invalidate(); return; }
+    if("END_RIDE".equals(stage)){ pendingFareTripId=tripId; pendingTripId=tripId; actionStage="ENTER_FARE"; persistNativeWorkflow(); KfeNativeGpsService.stop(this,tripId); if(!minimized&&!"FARE".equals(formMode)){if("FARE".equals(getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString("formMode","")))restorePersistedFormIfNeeded();else openFareForm();} if(overlay!=null)overlay.invalidate(); return; }
     if("OPEN_CANCEL_FORM".equals(stage)){ persistNativeWorkflow(); if(overlay!=null)overlay.invalidate(); return; }
     if("ENTER_FARE".equals(stage) || "CANCEL_RIDE".equals(stage)){ closeForm(); if("CANCEL_RIDE".equals(stage))cancelFormPwaSynchronized=false; actionStage="GO_TO_PICKUP"; pendingTripId=""; pendingFareTripId=""; tripStartAt=0L; persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); }
   }
@@ -462,7 +462,6 @@ public class KfeOverlayService extends Service {
   private void openNumericForm(String mode,String title,String hint){
     if(formMode!=null)return;
     formMode=mode;formValue="";tollValue="";parkingValue="";activeAmountField="fare";formSubmitting=false;tollExpanded=false;parkingExpanded=false;tollTreatmentInput=null;parkingTreatmentInput=null;tollToggle=null;parkingToggle=null;persistNativeForm();
-    if(minimized)expandFromBubble();
     params.flags=WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
     params.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE|WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE;
     params.height="FARE".equals(mode)?dp(420):dp(310);
@@ -808,7 +807,12 @@ public class KfeOverlayService extends Service {
             getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putInt("x",params.x).putInt("y",params.y).apply();
             if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);return true;
           }
-          if(minimized&&!moving&&Math.abs(fx)<dp(16)&&Math.abs(fy)<dp(16)){expandFromBubble();return true;}
+          if(minimized&&!moving&&Math.abs(fx)<dp(16)&&Math.abs(fy)<dp(16)){
+            expandFromBubble();
+            if("ENTER_FARE".equals(actionStage))openFareForm();
+            else if("START_RIDE".equals(actionStage)&&cancelFormPwaSynchronized)openCancelForm();
+            return true;
+          }
           if(!minimized&&!moving&&awaitingEventId.isEmpty()&&"START_RIDE".equals(actionStage)&&downLocalX>getWidth()-dp(120)&&downLocalY>=dp(60)&&downLocalY<=dp(110)){requestPwaForm("OPEN_CANCEL_FORM");return true;}
           if(!minimized&&!moving&&"ENTER_FARE".equals(actionStage)&&downLocalY>=dp(58)&&downLocalY<=dp(96)){if(!"FARE".equals(formMode))openFareForm();return true;}
           float maxTravel=Math.max(1,getWidth()-dp(16)-dp(58));
