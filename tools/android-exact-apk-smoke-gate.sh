@@ -18,6 +18,19 @@ adb shell settings put global verifier_verify_adb_installs 0 || true
 
 "$GITHUB_WORKSPACE/android/gradlew" -p "$GITHUB_WORKSPACE/android" :app:assembleDebugAndroidTest
 
+# Android requires the instrumentation APK to share the target app signer.
+# Re-sign the test APK with the persistent release key; never modify the tested app APK.
+: "${KFE_ANDROID_KEYSTORE_PATH:?Missing persistent Android keystore path}"
+: "${KFE_ANDROID_KEYSTORE_PASSWORD:?Missing persistent Android keystore password}"
+: "${KFE_ANDROID_KEY_ALIAS:?Missing persistent Android key alias}"
+: "${KFE_ANDROID_KEY_PASSWORD:?Missing persistent Android key password}"
+BUILD_TOOLS="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+TEST_APK="$GITHUB_WORKSPACE/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
+SIGNED_TEST_APK="${TEST_APK%.apk}-release-signed.apk"
+"$BUILD_TOOLS/apksigner" sign --ks "$KFE_ANDROID_KEYSTORE_PATH" --ks-key-alias "$KFE_ANDROID_KEY_ALIAS" --ks-pass "pass:$KFE_ANDROID_KEYSTORE_PASSWORD" --key-pass "pass:$KFE_ANDROID_KEY_PASSWORD" --out "$SIGNED_TEST_APK" "$TEST_APK"
+"$BUILD_TOOLS/apksigner" verify --verbose "$SIGNED_TEST_APK"
+mv "$SIGNED_TEST_APK" "$TEST_APK"
+
 capture_failure() {
   local label="$1"
   adb logcat -d -t 5000 > "artifacts/android-golden/${label}-logcat.log" || true

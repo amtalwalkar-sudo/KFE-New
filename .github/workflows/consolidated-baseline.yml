@@ -215,23 +215,81 @@ jobs:
       - name: Sync Capacitor Android Project
         run: npx cap sync android
 
-      - name: Build Android Debug APK
+      - name: Verify persistent Android signing configuration
+        env:
+          KFE_ANDROID_KEYSTORE_BASE64: ${{ secrets.KFE_ANDROID_KEYSTORE_BASE64 }}
+          KFE_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.KFE_ANDROID_KEYSTORE_PASSWORD }}
+          KFE_ANDROID_KEY_ALIAS: ${{ secrets.KFE_ANDROID_KEY_ALIAS }}
+          KFE_ANDROID_KEY_PASSWORD: ${{ secrets.KFE_ANDROID_KEY_PASSWORD }}
+        run: |
+          test -n "$KFE_ANDROID_KEYSTORE_BASE64" || { echo "::error::Missing KFE_ANDROID_KEYSTORE_BASE64 repository secret"; exit 1; }
+          test -n "$KFE_ANDROID_KEYSTORE_PASSWORD" || { echo "::error::Missing KFE_ANDROID_KEYSTORE_PASSWORD repository secret"; exit 1; }
+          test -n "$KFE_ANDROID_KEY_ALIAS" || { echo "::error::Missing KFE_ANDROID_KEY_ALIAS repository secret"; exit 1; }
+          test -n "$KFE_ANDROID_KEY_PASSWORD" || { echo "::error::Missing KFE_ANDROID_KEY_PASSWORD repository secret"; exit 1; }
+
+      - name: Configure persistent Android signing key
+        env:
+          KFE_ANDROID_KEYSTORE_BASE64: ${{ secrets.KFE_ANDROID_KEYSTORE_BASE64 }}
+          KFE_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.KFE_ANDROID_KEYSTORE_PASSWORD }}
+          KFE_ANDROID_KEY_ALIAS: ${{ secrets.KFE_ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          mkdir -p android/keystore
+          B64="$(printf '%s' "$KFE_ANDROID_KEYSTORE_BASE64" |
+            tr -cd 'A-Za-z0-9+/=_-' |
+            tr '_-' '/+')"
+          B64="${B64//=/}"
+          case $((${#B64} % 4)) in
+            0) ;;
+            2) B64="${B64}==";;
+            3) B64="${B64}=";;
+            *) echo "::error::Invalid Base64 length"; exit 1;;
+          esac
+          printf '%s' "$B64" | base64 --decode > android/keystore/kfe-release.jks
+          test -s android/keystore/kfe-release.jks
+          keytool -list -keystore android/keystore/kfe-release.jks \
+            -storepass "$KFE_ANDROID_KEYSTORE_PASSWORD" \
+            -alias "$KFE_ANDROID_KEY_ALIAS" >/dev/null
+
+      - name: Build Android Debug APK with persistent signing identity
         working-directory: android
+        env:
+          KFE_ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android/keystore/kfe-release.jks
+          KFE_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.KFE_ANDROID_KEYSTORE_PASSWORD }}
+          KFE_ANDROID_KEY_ALIAS: ${{ secrets.KFE_ANDROID_KEY_ALIAS }}
+          KFE_ANDROID_KEY_PASSWORD: ${{ secrets.KFE_ANDROID_KEY_PASSWORD }}
         run: ./gradlew assembleDebug
 
       - name: Capture exact APK and release identity
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p artifacts/android-golden
-          cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/android-golden/app-debug.apk
-          sha256sum artifacts/android-golden/app-debug.apk | tee artifacts/android-golden/apk.sha256
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          cp "$APK" artifacts/android-golden/app-debug.apk
+          APK="artifacts/android-golden/app-debug.apk"
+          sha256sum "$APK" | tee artifacts/android-golden/apk.sha256
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          BADGING="$("$BUILD_TOOLS/aapt" dump badging "$APK" | grep "^package:")"
+          APP_ID="$(printf '%s\n' "$BADGING" | sed -n "s/^package: name='\\([^']*\\)'.*/\\1/p")"
+          VERSION_CODE="$(printf '%s\n' "$BADGING" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p")"
+          VERSION_NAME="$(printf '%s\n' "$BADGING" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")"
+          test "$APP_ID" = "com.kanishka.pwa" || { echo "::error::Unexpected APK package ID: $APP_ID"; exit 1; }
+          test -n "$VERSION_CODE" && test -n "$VERSION_NAME"
+          "$BUILD_TOOLS/apksigner" verify --verbose "$APK"
+          CERT_REPORT="$("$BUILD_TOOLS/apksigner" verify --print-certs "$APK" 2>&1)"
+          printf '%s\n' "$CERT_REPORT"
+          CERT_SHA256="$(printf '%s\n' "$CERT_REPORT" | awk -F': ' '/certificate SHA-256 digest:/ {print $NF; exit}')"
+          test -n "$CERT_SHA256" || { echo "::error::Could not extract APK signing certificate fingerprint"; exit 1; }
           {
             echo "git_commit=$(git rev-parse HEAD)"
-            echo "application_id=com.kanishka.pwa"
-            echo "version_code=4"
-            echo "version_name=2.1.0"
-            echo "apk_sha256=$(sha256sum artifacts/android-golden/app-debug.apk | awk '{print $1}')"
-            "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify --print-certs artifacts/android-golden/app-debug.apk | grep -E "Signer #1 certificate SHA-256 digest" >> artifacts/android-golden/release-identity.txt
-          } | tee artifacts/android-golden/release-identity.txt
+            echo "application_id=$APP_ID"
+            echo "version_code=$VERSION_CODE"
+            echo "version_name=$VERSION_NAME"
+            echo "apk_sha256=$(sha256sum "$APK" | awk '{print $1}')"
+            echo "signer_certificate_sha256=$CERT_SHA256"
+          } > artifacts/android-golden/release-identity.txt
+          cat artifacts/android-golden/release-identity.txt
 
       - name: Enable KVM access for Android emulator
         run: |
@@ -244,6 +302,11 @@ jobs:
 
       - name: Android Exact APK Smoke Gate
         uses: reactivecircus/android-emulator-runner@v2
+        env:
+          KFE_ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android/keystore/kfe-release.jks
+          KFE_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.KFE_ANDROID_KEYSTORE_PASSWORD }}
+          KFE_ANDROID_KEY_ALIAS: ${{ secrets.KFE_ANDROID_KEY_ALIAS }}
+          KFE_ANDROID_KEY_PASSWORD: ${{ secrets.KFE_ANDROID_KEY_PASSWORD }}
         with:
           api-level: 34
           target: google_apis

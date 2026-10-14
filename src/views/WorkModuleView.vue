@@ -77,6 +77,7 @@ const swipePointerId = ref(null)
 
 let timer = null
 let liveKmRefreshTimer = null
+const refreshClock = () => { clock.value = Date.now() }
 let traceRunning = false
 let notificationListener = null
 
@@ -1168,8 +1169,13 @@ onMounted(async () => {
   workflowTimerReady = true
   workflowStepStartedAt.value = WorkflowTimerService.enter(workflowTimerIdentity.value, Date.now())
 
-  clock.value = Date.now()
-  timer = setInterval(() => { clock.value = Date.now() }, 1000)
+  // Wall-clock time is authoritative. Background throttling may delay interval callbacks,
+  // so refresh immediately whenever Android/WebView returns to the foreground.
+  refreshClock()
+  timer = setInterval(refreshClock, 1000)
+  document.addEventListener('visibilitychange', refreshClock)
+  window.addEventListener('pageshow', refreshClock)
+  window.addEventListener('focus', refreshClock)
   void refreshLiveMovementKm()
   liveKmRefreshTimer = setInterval(() => { void refreshLiveMovementKm() }, 3000)
 
@@ -1199,6 +1205,9 @@ watch(() => store.trip?.tripStage, () => { void syncOverlay() })
 
 onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', refreshGpsPermissionOnResume)
+  document.removeEventListener('visibilitychange', refreshClock)
+  window.removeEventListener('pageshow', refreshClock)
+  window.removeEventListener('focus', refreshClock)
   if (timer) clearInterval(timer)
   if (liveKmRefreshTimer) clearInterval(liveKmRefreshTimer)
   if (traceRunning) WorkRuntimePorts.movementTrace.pause()
