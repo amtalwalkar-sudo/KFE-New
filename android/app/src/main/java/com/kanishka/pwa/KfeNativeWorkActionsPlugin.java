@@ -11,15 +11,26 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 @CapacitorPlugin(name = "KfeNativeWorkActions")
 public class KfeNativeWorkActionsPlugin extends Plugin {
   static volatile KfeNativeWorkActionsPlugin instance;
-  private static final String PREFS = "kfe_ride_notification_events";
+  private static final String PREFS = "kfe_native_work_actions";
+  private static final String LEGACY_PREFS = "kfe_ride_notification_events";
   private static final String PENDING_KEY = "pending";
   private static final int LEGACY_RIDE_NOTIFICATION_ID = 4101;
 
   @Override
   public void load() {
     instance = this;
-    // Remove the legacy ride notification from installations upgrading from
-    // versions that exposed ride management in Android notifications.
+    // Move any compatibility handoff from the former notification-owned
+    // bridge before retiring its SharedPreferences namespace.
+    android.content.SharedPreferences legacy = getContext().getSharedPreferences(LEGACY_PREFS, 0);
+    android.content.SharedPreferences current = getContext().getSharedPreferences(PREFS, 0);
+    String legacyPending = legacy.getString(PENDING_KEY, "");
+    if (!legacyPending.isEmpty() && current.getString(PENDING_KEY, "").isEmpty()) {
+      current.edit().putString(PENDING_KEY, legacyPending)
+        .putString("pendingEventId", legacy.getString("pendingEventId", "")).apply();
+    }
+    legacy.edit().remove(PENDING_KEY).remove("pendingEventId").apply();
+
+    // Remove the old ride notification and channel from existing installations.
     NotificationManager manager = (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
     if (manager != null) {
       manager.cancel(LEGACY_RIDE_NOTIFICATION_ID);
