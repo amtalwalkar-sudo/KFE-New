@@ -109,7 +109,29 @@ public class KfeOverlayService extends Service {
   public static void show(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_SHOW);i.putExtra(EXTRA_STATE,state==null?"{}":state);ContextCompat.startForegroundService(context,i);}
   public static void update(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_UPDATE);i.putExtra(EXTRA_STATE,state==null?"{}":state);ContextCompat.startForegroundService(context,i);}
   public static void hide(Context context){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_HIDE);context.startService(i);}
-  public static void resumePersisted(Context context){Intent i=new Intent(context,KfeOverlayService.class);i.setAction("com.kanishka.pwa.KFE_OVERLAY_RESUME");ContextCompat.startForegroundService(context,i);}
+  public static boolean isResumableState(String raw){
+    if(raw==null||raw.trim().isEmpty())return false;
+    try{
+      JSONObject state=new JSONObject(raw);
+      JSONObject shift=state.optJSONObject("shift");
+      return shift!=null&&!shift.optString("id","").trim().isEmpty();
+    }catch(Exception ignored){return false;}
+  }
+  static boolean hasPersistedOverlayState(Context context){
+    String raw=context.getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(LAST_STATE_KEY,"");
+    return isResumableState(raw);
+  }
+  static void clearPersistedOverlayState(Context context){
+    context.getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().remove(LAST_STATE_KEY).apply();
+  }
+  public static void resumePersisted(Context context){
+    // Boot recovery must not resurrect an ended shift from a stale snapshot,
+    // or start a foreground overlay service when no active shift was persisted.
+    if(!Settings.canDrawOverlays(context)||!hasPersistedOverlayState(context))return;
+    Intent i=new Intent(context,KfeOverlayService.class);
+    i.setAction("com.kanishka.pwa.KFE_OVERLAY_RESUME");
+    ContextCompat.startForegroundService(context,i);
+  }
 
   @Override public void onCreate(){super.onCreate();instance=this;
     android.content.SharedPreferences saved=getSharedPreferences("kfe_overlay",MODE_PRIVATE);
@@ -144,7 +166,7 @@ public class KfeOverlayService extends Service {
       if (!saved.isEmpty()) { ensureOverlay(); applyState(saved); }
       return START_STICKY;
     }
-    if(ACTION_HIDE.equals(action)){removeOverlay();stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return START_NOT_STICKY;}
+    if(ACTION_HIDE.equals(action)){clearPersistedOverlayState(this);removeOverlay();stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return START_NOT_STICKY;}
     if(ACTION_MINIMIZE.equals(action)){minimizeToBubble();return START_STICKY;}
     if(ACTION_FARE_SAVED.equals(action)){onFareSaved();return START_NOT_STICKY;}
     if(ACTION_CANCEL_SAVED.equals(action)){onCancelSaved();return START_NOT_STICKY;}
@@ -180,6 +202,7 @@ public class KfeOverlayService extends Service {
       JSONObject root=new JSONObject(raw==null?"{}":raw);
       JSONObject shift=root.optJSONObject("shift"),trip=root.optJSONObject("trip");
       if(shift==null||shift.optString("id","").isEmpty()){
+        clearPersistedOverlayState(this);
         removeOverlay();
         stopForeground(STOP_FOREGROUND_REMOVE);
         stopSelf();
