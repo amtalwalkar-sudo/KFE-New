@@ -328,9 +328,14 @@ public class KfeOverlaySmokeTest {
       } catch (Exception e) { throw new AssertionError(e); }
     });
     context.stopService(new Intent(context, KfeOverlayService.class));
-    SystemClock.sleep(350L);
+    long stoppedDeadline = SystemClock.uptimeMillis() + 5000L;
+    while (KfeOverlayService.instance != null && SystemClock.uptimeMillis() < stoppedDeadline) {
+      SystemClock.sleep(50L);
+    }
+    assertEquals("Old native overlay service must be destroyed before restart", null, KfeOverlayService.instance);
     context.startService(new Intent(context, KfeOverlayService.class));
     service = waitForService();
+    assertTrue("Restart must create a new service instance", service != initialService);
     waitForOverlay();
     assertEquals("FARE", fieldValue(service, "formMode"));
     assertEquals("425", ((EditText) fieldValue(service, "formInput")).getText().toString());
