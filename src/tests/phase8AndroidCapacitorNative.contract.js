@@ -6,9 +6,9 @@ const manifest = fs.readFileSync('android/app/src/main/AndroidManifest.xml', 'ut
 const mainActivity = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/MainActivity.java', 'utf8')
 const overlay = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java', 'utf8')
 const overlayPlugin = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeOverlayPlugin.java', 'utf8')
-const notifications = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeRideNotificationsPlugin.java', 'utf8')
+const nativeWorkActions = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeNativeWorkActionsPlugin.java', 'utf8')
 const nativeEventStore = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeNativeEventStore.java', 'utf8')
-const receiver = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeRideNotificationReceiver.java', 'utf8')
+
 const secureStorage = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeSecureStoragePlugin.java', 'utf8')
 const gradle = fs.readFileSync('android/app/build.gradle', 'utf8')
 const overlayLifecycle = fs.readFileSync('src/infrastructure/android/androidOverlayLifecycle.js', 'utf8')
@@ -17,11 +17,11 @@ const cockpit = fs.readFileSync('src/application/work/workCockpit.js', 'utf8')
 
 assert.match(mainActivity, /extends BridgeActivity/)
 assert.match(mainActivity, /registerPlugin\(KfeSecureStoragePlugin\.class\)/)
-assert.match(mainActivity, /registerPlugin\(KfeRideNotificationsPlugin\.class\)/)
+assert.match(mainActivity, /registerPlugin(KfeNativeWorkActionsPlugin.class)/)
 assert.match(mainActivity, /registerPlugin\(KfeOverlayPlugin\.class\)/)
 const superIndex = mainActivity.indexOf('super.onCreate(savedInstanceState)')
 assert.ok(superIndex >= 0, 'BridgeActivity must be initialized')
-for (const plugin of ['KfeSecureStoragePlugin', 'KfeRideNotificationsPlugin', 'KfeOverlayPlugin']) {
+for (const plugin of ['KfeSecureStoragePlugin', 'KfeNativeWorkActionsPlugin', 'KfeOverlayPlugin']) {
   assert.ok(mainActivity.indexOf('registerPlugin(' + plugin + '.class)') < superIndex, plugin + ' must register before BridgeActivity.onCreate')
 }
 
@@ -35,12 +35,11 @@ assert.doesNotMatch(manifest, /SCHEDULE_EXACT_ALARM/)
 assert.match(manifest, /android\.permission\.SYSTEM_ALERT_WINDOW/)
 assert.match(manifest, /AndroidForegroundService/)
 assert.match(manifest, /\.KfeOverlayService/)
-assert.match(manifest, /\.KfeRideNotificationReceiver/)
+assert.doesNotMatch(manifest, /KfeRideNotificationReceiver/)
 assert.match(manifest, /foregroundServiceType="location"/)
 assert.match(manifest, /foregroundServiceType="specialUse"/)
 
 assert.match(gradle, /implementation project\(':capacitor-android'\)/)
-assert.match(gradle, /implementation project\(':capacitor-local-notifications'\)/)
 assert.match(gradle, /implementation project\(':capawesome-team-capacitor-android-foreground-service'\)/)
 
 assert.match(overlayPlugin, /Settings\.canDrawOverlays/)
@@ -77,25 +76,19 @@ assert.match(overlayLifecycle, /showOverlayIfNeeded/)
 assert.doesNotMatch(overlay, /if \(intent == null\) return START_STICKY/)
 assert.doesNotMatch(overlay, /startActivity\(launch\)/, 'Native fare/cancel submission must not launch the PWA.')
 
-assert.match(receiver, /KfeRideNotificationsPlugin\.recordPendingAction\(context/)
-assert.doesNotMatch(receiver, /showNotification\(context/);
-assert.match(receiver, /Ignore alarms persisted by older builds/);
-assert.match(notifications, /Do not schedule delayed Work-stage notification reminders/);
-assert.match(notifications, /getPendingAction/)
-assert.match(notifications, /clearPendingAction/)
 
 assert.match(secureStorage, /AndroidKeyStore/)
 assert.match(secureStorage, /AES\/GCM\/NoPadding/)
 assert.match(secureStorage, /PURPOSE_ENCRYPT/)
 assert.match(secureStorage, /PURPOSE_DECRYPT/)
 
-assert.ok(notifications.includes('getPendingActions'))
-assert.ok(notifications.includes('acknowledgeAction'))
-assert.ok(notifications.includes('recordActionFailure'))
+assert.ok(nativeWorkActions.includes('getPendingActions'))
+assert.ok(nativeWorkActions.includes('acknowledgeAction'))
+assert.ok(nativeWorkActions.includes('recordActionFailure'))
 assert.ok(nativeEventStore.includes('SQLiteOpenHelper'))
 assert.ok(nativeEventStore.includes('created_at ASC, rowid ASC'))
 assert.ok(nativeEventStore.includes('status=\'PENDING\''))
-assert.ok(fs.readFileSync('src/infrastructure/android/kfeRideNotificationService.js', 'utf8').includes('consumePendingActions'))
+assert.ok(fs.readFileSync('src/infrastructure/android/nativeWorkActions.js', 'utf8').includes('consumePendingActions'))
 assert.ok(fs.readFileSync('src/views/WorkModuleView.vue', 'utf8').includes('Replay every native event in durable creation order'))
 
 console.log('KFE Phase 8 Android/Capacitor native architecture contract: PASS')
