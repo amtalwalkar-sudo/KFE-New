@@ -196,6 +196,110 @@ public class KfeOverlaySmokeTest {
     context.getSharedPreferences("kfe_native_work_actions", Context.MODE_PRIVATE).edit().remove("pending").commit();
   }
 
+  @Test public void endRideAcknowledgementOpensNativeFareFormWithoutActivityLaunch() throws Exception {
+    clearPending();
+    JSONObject state = new JSONObject()
+      .put("shift", new JSONObject().put("id", "form-shift"))
+      .put("trip", new JSONObject().put("id", "form-trip"))
+      .put("overlayAction", "END_RIDE")
+      .put("overlayTripId", "form-trip");
+    KfeOverlayService.update(context, state.toString());
+    waitForOverlay();
+    KfeOverlayService service = waitForService();
+    setField(service, "actionStage", "END_RIDE");
+    setField(service, "pendingTripId", "form-trip");
+    setField(service, "awaitingEventId", "end-event");
+    setField(service, "awaitingStage", "END_RIDE");
+    setField(service, "awaitingTripId", "form-trip");
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+      try {
+        java.lang.reflect.Method ack = KfeOverlayService.class.getDeclaredMethod(
+          "onEventAcknowledged", String.class, String.class, String.class);
+        ack.setAccessible(true);
+        ack.invoke(service, "end-event", "END_RIDE", "form-trip");
+      } catch (Exception e) { throw new AssertionError(e); }
+    });
+    assertEquals("FARE", fieldValue(service, "formMode"));
+    assertNotNull(fieldValue(service, "formPanel"));
+    assertTrue("Overlay form flow must not retain an activity-launch fallback", hasNoActivityLaunchFallback());
+  }
+
+  @Test public void cancellationFormAllowsOptionalFeeAndPersistsPassengerReason() throws Exception {
+    clearPending();
+    JSONObject state = new JSONObject()
+      .put("shift", new JSONObject().put("id", "cancel-shift"))
+      .put("trip", new JSONObject().put("id", "cancel-trip"))
+      .put("overlayAction", "START_RIDE")
+      .put("overlayTripId", "cancel-trip");
+    KfeOverlayService.update(context, state.toString());
+    waitForOverlay();
+    KfeOverlayService service = waitForService();
+    setField(service, "pendingTripId", "cancel-trip");
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+      try {
+        java.lang.reflect.Method open = KfeOverlayService.class.getDeclaredMethod("openCancelForm");
+        open.setAccessible(true);
+        open.invoke(service);
+        setField(service, "cancelReason", "PASSENGER");
+        java.lang.reflect.Method submit = KfeOverlayService.class.getDeclaredMethod("submitNumericForm");
+        submit.setAccessible(true);
+        submit.invoke(service);
+      } catch (Exception e) { throw new AssertionError(e); }
+    });
+    assertTrue(pendingValue().startsWith("CANCEL_RIDE|cancel-trip|"));
+    JSONObject payload = new JSONObject(pendingValue().substring("CANCEL_RIDE|cancel-trip|".length()));
+    assertEquals("", payload.getString("revenue"));
+    assertEquals("PASSENGER", payload.getString("reason"));
+  }
+
+  @Test public void fareDraftSurvivesNativeOverlayServiceRestart() throws Exception {
+    clearPending();
+    JSONObject state = new JSONObject()
+      .put("shift", new JSONObject().put("id", "recovery-shift"))
+      .put("trip", JSONObject.NULL)
+      .put("overlayAction", "ENTER_FARE")
+      .put("overlayTripId", "recovery-trip")
+      .put("pendingFareId", "recovery-trip");
+    KfeOverlayService.update(context, state.toString());
+    waitForOverlay();
+    KfeOverlayService service = waitForService();
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+      try {
+        java.lang.reflect.Method open = KfeOverlayService.class.getDeclaredMethod("openFareForm");
+        open.setAccessible(true);
+        open.invoke(service);
+        EditText fare = (EditText) fieldValue(service, "formInput");
+        fare.setText("425");
+      } catch (Exception e) { throw new AssertionError(e); }
+    });
+    context.stopService(new Intent(context, KfeOverlayService.class));
+    SystemClock.sleep(350L);
+    context.startService(new Intent(context, KfeOverlayService.class));
+    service = waitForService();
+    waitForOverlay();
+    assertEquals("FARE", fieldValue(service, "formMode"));
+    assertEquals("425", ((EditText) fieldValue(service, "formInput")).getText().toString());
+  }
+
+  private void setField(Object target, String name, Object value) throws Exception {
+    Field field = target.getClass().getDeclaredField(name);
+    field.setAccessible(true);
+    field.set(target, value);
+  }
+
+  private Object fieldValue(Object target, String name) throws Exception {
+    Field field = target.getClass().getDeclaredField(name);
+    field.setAccessible(true);
+    return field.get(target);
+  }
+
+  private boolean hasNoActivityLaunchFallback() {
+    for (java.lang.reflect.Method method : KfeOverlayService.class.getDeclaredMethods()) {
+      if (method.getName().contains("launchWorkActivity")) return false;
+    }
+    return true;
+  }
+
   @Test public void exactApkCanStartNativeOverlaySmoke() throws Exception {
     if (android.os.Build.VERSION.SDK_INT >= 23) assertTrue("SYSTEM_ALERT_WINDOW must be granted by CI", Settings.canDrawOverlays(context));
     JSONObject state = new JSONObject()
