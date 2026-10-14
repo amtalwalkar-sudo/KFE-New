@@ -16,6 +16,8 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.PixelFormat;
 import android.os.IBinder;
 import android.provider.Settings;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.inputmethod.InputMethodManager;
 import android.view.MotionEvent;
@@ -234,8 +236,41 @@ public class KfeOverlayService extends Service {
       if(formMode!=null){
         if((("ENTER_FARE".equals(actionStage)||"END_RIDE".equals(actionStage))&&!"FARE".equals(formMode))||("CANCEL_RIDE".equals(actionStage)&&!"CANCEL".equals(formMode)))closeForm();
       }
+      restorePersistedFormIfNeeded();
       overlay.invalidate();
     }catch(Exception ignored){ overlay.invalidate(); }
+  }
+
+  private void persistNativeForm(){
+    getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit()
+      .putString("formMode",formMode==null?"":formMode)
+      .putString("formValue",formValue).putString("tollValue",tollValue).putString("parkingValue",parkingValue)
+      .putString("cancelReason",cancelReason).putBoolean("tollExpanded",tollExpanded).putBoolean("parkingExpanded",parkingExpanded)
+      .putBoolean("tollExcluded",tollTreatmentInput!=null&&tollTreatmentInput.isChecked())
+      .putBoolean("parkingExcluded",parkingTreatmentInput!=null&&parkingTreatmentInput.isChecked()).apply();
+  }
+
+  private void restorePersistedFormIfNeeded(){
+    if(formMode!=null)return;
+    android.content.SharedPreferences saved=getSharedPreferences("kfe_overlay",MODE_PRIVATE);
+    String mode=saved.getString("formMode","");
+    if("FARE".equals(mode)&&"ENTER_FARE".equals(actionStage))openFareForm();
+    else if("CANCEL".equals(mode)&&"START_RIDE".equals(actionStage))openCancelForm();
+    else return;
+    formValue=saved.getString("formValue","");tollValue=saved.getString("tollValue","");parkingValue=saved.getString("parkingValue","");cancelReason=saved.getString("cancelReason","");
+    tollExpanded=saved.getBoolean("tollExpanded",false);parkingExpanded=saved.getBoolean("parkingExpanded",false);
+    if(formInput!=null)formInput.setText(formValue);
+    if(tollInput!=null){tollInput.setText(tollValue);tollInput.setVisibility(tollExpanded?View.VISIBLE:View.GONE);}
+    if(parkingInput!=null){parkingInput.setText(parkingValue);parkingInput.setVisibility(parkingExpanded?View.VISIBLE:View.GONE);}
+    if(tollTreatmentInput!=null){tollTreatmentInput.setChecked(saved.getBoolean("tollExcluded",false));tollTreatmentInput.setVisibility(tollExpanded?View.VISIBLE:View.GONE);}
+    if(parkingTreatmentInput!=null){parkingTreatmentInput.setChecked(saved.getBoolean("parkingExcluded",false));parkingTreatmentInput.setVisibility(parkingExpanded?View.VISIBLE:View.GONE);}
+    if(tollToggle!=null)tollToggle.setText(tollExpanded?"− Toll":"+ Toll");
+    if(parkingToggle!=null)parkingToggle.setText(parkingExpanded?"− Parking":"+ Parking");
+    if("CANCEL".equals(mode)&&formPanel!=null&&formPanel.getChildCount()>2){
+      android.view.ViewGroup reasons=(android.view.ViewGroup)formPanel.getChildAt(2);
+      for(int i=0;i<reasons.getChildCount();i++){View child=reasons.getChildAt(i);String label=String.valueOf(((Button)child).getText());child.setAlpha((cancelReason.equals("PASSENGER")&&label.contains("Passenger"))||(cancelReason.equals("DRIVER")&&label.contains("Driver"))?1f:0.55f);}
+    }
+    persistNativeForm();
   }
 
   private void onCancelSaved(){formSubmitting=false;closeForm();actionStage="GO_TO_PICKUP";pendingTripId="";pendingFareTripId="";tripStartAt=0L;awaitingEventId="";awaitingStage="";awaitingTripId="";persistNativeWorkflow();if(overlay!=null)overlay.invalidate();}
@@ -380,7 +415,7 @@ public class KfeOverlayService extends Service {
 
   private void openNumericForm(String mode,String title,String hint){
     if(formMode!=null)return;
-    formMode=mode;formValue="";tollValue="";parkingValue="";activeAmountField="fare";formSubmitting=false;tollExpanded=false;parkingExpanded=false;tollTreatmentInput=null;parkingTreatmentInput=null;tollToggle=null;parkingToggle=null;
+    formMode=mode;formValue="";tollValue="";parkingValue="";activeAmountField="fare";formSubmitting=false;tollExpanded=false;parkingExpanded=false;tollTreatmentInput=null;parkingTreatmentInput=null;tollToggle=null;parkingToggle=null;persistNativeForm();
     params.flags=WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
     params.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE|WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE;
     params.height="FARE".equals(mode)?dp(420):dp(310);
@@ -402,7 +437,7 @@ public class KfeOverlayService extends Service {
         final Button reason=new Button(this);
         reason.setText(choice.equals("CUSTOMER")?"Customer cancellation":"Driver cancellation");
         reason.setTextSize(9); reason.setAllCaps(false);
-        reason.setOnClickListener(v->{ cancelReason=selectedChoice; for(int i=0;i<reasons.getChildCount();i++) reasons.getChildAt(i).setAlpha(0.55f); reason.setAlpha(1f); });
+        reason.setOnClickListener(v->{ cancelReason=selectedChoice; for(int i=0;i<reasons.getChildCount();i++) reasons.getChildAt(i).setAlpha(0.55f); reason.setAlpha(1f); persistNativeForm(); });
         reasons.addView(reason,new LinearLayout.LayoutParams(0,dp(40),1));
       }
       formPanel.addView(reasons,new LinearLayout.LayoutParams(-1,dp(44)));
@@ -423,8 +458,8 @@ public class KfeOverlayService extends Service {
       tollInput.setVisibility(View.GONE);tollTreatmentInput.setVisibility(View.GONE);parkingInput.setVisibility(View.GONE);parkingTreatmentInput.setVisibility(View.GONE);
       formPanel.addView(tollInput,new LinearLayout.LayoutParams(-1,dp(44)));formPanel.addView(tollTreatmentInput,new LinearLayout.LayoutParams(-1,dp(32)));
       formPanel.addView(parkingInput,new LinearLayout.LayoutParams(-1,dp(44)));formPanel.addView(parkingTreatmentInput,new LinearLayout.LayoutParams(-1,dp(32)));
-      tollToggle.setOnClickListener(v->{tollExpanded=!tollExpanded;tollInput.setVisibility(tollExpanded?View.VISIBLE:View.GONE);tollTreatmentInput.setVisibility(tollExpanded?View.VISIBLE:View.GONE);tollToggle.setText(tollExpanded?"− Toll":"+ Toll");resizeForm();});
-      parkingToggle.setOnClickListener(v->{parkingExpanded=!parkingExpanded;parkingInput.setVisibility(parkingExpanded?View.VISIBLE:View.GONE);parkingTreatmentInput.setVisibility(parkingExpanded?View.VISIBLE:View.GONE);parkingToggle.setText(parkingExpanded?"− Parking":"+ Parking");resizeForm();});
+      tollToggle.setOnClickListener(v->{tollExpanded=!tollExpanded;tollInput.setVisibility(tollExpanded?View.VISIBLE:View.GONE);tollTreatmentInput.setVisibility(tollExpanded?View.VISIBLE:View.GONE);tollToggle.setText(tollExpanded?"− Toll":"+ Toll");persistNativeForm();resizeForm();});
+      parkingToggle.setOnClickListener(v->{parkingExpanded=!parkingExpanded;parkingInput.setVisibility(parkingExpanded?View.VISIBLE:View.GONE);parkingTreatmentInput.setVisibility(parkingExpanded?View.VISIBLE:View.GONE);parkingToggle.setText(parkingExpanded?"− Parking":"+ Parking");persistNativeForm();resizeForm();});
     }
 
     LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.CENTER);
@@ -456,6 +491,15 @@ public class KfeOverlayService extends Service {
     input.setImeOptions(imeAction);
     input.setPadding(dp(12),0,dp(12),0);
     input.setSelectAllOnFocus(false);
+    input.addTextChangedListener(new TextWatcher(){
+      @Override public void beforeTextChanged(CharSequence text,int start,int count,int after){}
+      @Override public void onTextChanged(CharSequence text,int start,int before,int count){
+        String value=text==null?"":text.toString();
+        if("fare".equals(field))formValue=value;else if("toll".equals(field))tollValue=value;else if("parking".equals(field))parkingValue=value;
+        persistNativeForm();
+      }
+      @Override public void afterTextChanged(Editable editable){}
+    });
     input.setOnFocusChangeListener((v,hasFocus)->{if(hasFocus)activeAmountField=field;});
     input.setOnEditorActionListener((v,id,event)->{
       if(id==android.view.inputmethod.EditorInfo.IME_ACTION_DONE){submitNumericForm();return true;}
@@ -541,7 +585,7 @@ public class KfeOverlayService extends Service {
 
   private void closeForm(){
     if(formPanel!=null&&overlayRoot!=null)overlayRoot.removeView(formPanel);
-    formPanel=null;formMode=null;formValue="";tollValue="";parkingValue="";formSubmitting=false;formInput=null;tollInput=null;parkingInput=null;tollTreatmentInput=null;parkingTreatmentInput=null;tollToggle=null;parkingToggle=null;
+    formPanel=null;formMode=null;formValue="";tollValue="";parkingValue="";formSubmitting=false;formInput=null;tollInput=null;parkingInput=null;tollTreatmentInput=null;parkingTreatmentInput=null;tollToggle=null;parkingToggle=null;getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().remove("formMode").remove("formValue").remove("tollValue").remove("parkingValue").remove("cancelReason").remove("tollExpanded").remove("parkingExpanded").remove("tollExcluded").remove("parkingExcluded").apply();
     if(params!=null){params.height=dp(COLLAPSED_TOTAL_DP);params.flags=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;params.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING;if(windowManager!=null&&overlayRoot!=null)windowManager.updateViewLayout(overlayRoot,params);}
     if(overlay!=null)overlay.invalidate();
   }
