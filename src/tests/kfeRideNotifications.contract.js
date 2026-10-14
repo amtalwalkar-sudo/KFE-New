@@ -85,4 +85,15 @@ assert.match(overlay, /current\.refreshPersistentNotification\(\)/)
 assert.doesNotMatch(overlay, /setContentTitle\("KFE overlay ready"\)/)
 
 // CI verification marker for the native notification bridge.
+// Dead-movement KM is derived from durable pickup/dead trace points and must
+// remain unavailable until at least two points support a real distance.
+const workService = fs.readFileSync(path.join(root, 'src/application/work/workService.js'), 'utf8')
+const overlayLifecycle = fs.readFileSync(path.join(root, 'src/infrastructure/android/androidOverlayLifecycle.js'), 'utf8')
+assert.match(workService, /getTripDeadMovementDistanceKm\(tripId\)/)
+assert.match(workService, /point\?\.eventType === 'DEAD_MOVEMENT_TRACE'/)
+assert.match(workService, /if \(snapshots\.length < 2\) return null/)
+assert.match(overlayLifecycle, /WorkService\.getTripDeadMovementDistanceKm\(active\.trip\.id\)/)
+assert.match(overlayLifecycle, /deadKm = \x27—\x27/)
+assert.match(overlayLifecycle, /deadKm,/)
+
 console.log('KFE ride notification contract tests passed')

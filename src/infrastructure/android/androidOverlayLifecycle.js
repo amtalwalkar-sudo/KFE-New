@@ -20,6 +20,7 @@ const activeOverlayState = async () => {
   let target = '—'
   let targetProgress = 0
   let liveKm = '0.0 km'
+  let deadKm = '—'
   let revenue = '₹0'
   let trips = []
 
@@ -53,6 +54,13 @@ const activeOverlayState = async () => {
     } catch (_) {}
   }
 
+  if (active.trip?.id) {
+    try {
+      const distance = await WorkService.getTripDeadMovementDistanceKm(active.trip.id)
+      if (distance !== null && distance !== undefined && Number.isFinite(Number(distance))) deadKm = `${Number(distance).toFixed(1)} km`
+    } catch (_) {}
+  }
+
   const pendingFareId = trips
     .filter(item => item?.status === 'COMPLETED' && item?.fareDetailsSkipped !== true &&
       (item?.revenue === null || item?.revenue === undefined || item?.revenue === ''))
@@ -76,6 +84,7 @@ const activeOverlayState = async () => {
     targetProgress: state.targetProgress,
     rides: String(trips.length),
     liveKm: state.liveKm,
+    deadKm,
     revenue: state.revenue,
     tripStartAt: state.tripStartAt,
     overlayAction: state.action,

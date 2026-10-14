@@ -116,6 +116,13 @@ export const WorkService = Object.freeze({
     }
   },
   async getTripGpsDistanceKm(tripId) { try { await WorkRuntimePorts.nativeGps.syncTrace(tripId) } catch (_) {} const snapshots = await LocationRepository.forEntity('TRIP', tripId); return calculateTraceDistanceKm(snapshots.filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')) },
+  async getTripDeadMovementDistanceKm(tripId) {
+    try { await WorkRuntimePorts.nativeGps.syncTrace(tripId) } catch (_) {}
+    const snapshots = (await LocationRepository.forEntity('TRIP', tripId)).filter(point => point?.eventType === 'DEAD_MOVEMENT_TRACE')
+    if (snapshots.length < 2) return null
+    const distanceKm = calculateTraceDistanceKm(snapshots)
+    return Number.isFinite(Number(distanceKm)) ? Number(distanceKm) : null
+  },
   calculateLiveMovement(points = []) { const filteredPoints = MovementAccountingService.filterGpsTrace(points); return { points: filteredPoints, distanceKm: calculateTraceDistanceKm(filteredPoints) } },
   async captureLocation(data) { const result = await captureLifecycleLocation(data); checkpoint(); return result },
   validateShiftStartOdometer(currentOdometer, previousOdometer) { return validateShiftStartOdometer(currentOdometer, previousOdometer) },
