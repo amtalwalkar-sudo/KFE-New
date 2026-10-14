@@ -88,6 +88,7 @@ public class KfeOverlayService extends Service {
     if(current==null)return;
     current.liveKm=value==null?"0.0 km":value;
     if(current.overlay!=null)current.overlay.postInvalidate();
+    current.refreshPersistentNotification();
   }
 
   static String resolveFareActionTripId(String pendingFareTripId, String currentTripId){
@@ -96,8 +97,8 @@ public class KfeOverlayService extends Service {
   }
 
   public static void prepare(Context context){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_PREPARE);ContextCompat.startForegroundService(context,i);}
-  public static void show(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_SHOW);i.putExtra(EXTRA_STATE,state==null?"{}":state);context.startService(i);}
-  public static void update(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_UPDATE);i.putExtra(EXTRA_STATE,state==null?"{}":state);context.startService(i);}
+  public static void show(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_SHOW);i.putExtra(EXTRA_STATE,state==null?"{}":state);ContextCompat.startForegroundService(context,i);}
+  public static void update(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_UPDATE);i.putExtra(EXTRA_STATE,state==null?"{}":state);ContextCompat.startForegroundService(context,i);}
   public static void hide(Context context){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_HIDE);context.startService(i);}
   public static void resumePersisted(Context context){Intent i=new Intent(context,KfeOverlayService.class);i.setAction("com.kanishka.pwa.KFE_OVERLAY_RESUME");ContextCompat.startForegroundService(context,i);}
 
@@ -480,7 +481,7 @@ public class KfeOverlayService extends Service {
   // KFE is dark-only: ignore stale persisted theme values so white action text can never land on a white overlay surface.
   private boolean dark(){return true;}
   private void removeOverlay(){closeForm();if(windowManager!=null&&overlayRoot!=null){try{windowManager.removeView(overlayRoot);}catch(Exception ignored){}}overlayRoot=null;overlay=null;}
-  @Override public void onDestroy(){removeOverlay();if(instance==this)instance=null;super.onDestroy();}
+  @Override public void onDestroy(){if(foregroundHandler!=null)foregroundHandler.removeCallbacks(foregroundCheck);removeOverlay();if(instance==this)instance=null;super.onDestroy();}
   @Override public IBinder onBind(Intent intent){return null;}
   private Notification buildNotification(){
     String title="KFE Work";
