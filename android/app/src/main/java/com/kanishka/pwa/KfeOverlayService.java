@@ -257,27 +257,14 @@ public class KfeOverlayService extends Service {
     if(overlay!=null) overlay.animateProgressToZero();
   }
 
-  private void launchWorkActivity(){
-    Intent intent=new Intent(this,MainActivity.class);
-    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_SINGLE_TOP|Intent.FLAG_ACTIVITY_CLEAR_TOP);
-    try{startActivity(intent);}catch(Exception ignored){}
-  }
-
-  private void launchWorkActivityIfUnacknowledged(String eventId){
-    getMainHandler().postDelayed(()->{
-      if(eventId!=null&&!eventId.isEmpty()&&eventId.equals(awaitingEventId)) launchWorkActivity();
-    },1500L);
-  }
-
   private void requestPwaForm(String stage){
     if(!awaitingEventId.isEmpty()||pendingTripId.isEmpty())return;
     String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,stage,pendingTripId,"");
-    beginAwaiting(eventId,stage,pendingTripId);persistNativeWorkflow();animateRetract();if(overlay!=null)overlay.invalidate();
+    persistNativeWorkflow();
+    // Keep the open-form hint durable, but do not reserve the single in-flight
+    // state-changing action slot; cancellation submission is a separate event.
     KfeNativeWorkActionsPlugin.emitAction(stage,pendingTripId,"",eventId);
     openCancelForm();
-    // Form-open is a durable synchronization hint, not a state-changing action;
-    // do not block form submission while the PWA is unavailable.
-    KfeNativeWorkActionsPlugin.emitAction(stage,pendingTripId,"",eventId);
   }
 
   private void triggerAction(){
@@ -725,7 +712,7 @@ public class KfeOverlayService extends Service {
           }
           if(minimized&&!moving&&Math.abs(fx)<dp(16)&&Math.abs(fy)<dp(16)){expandFromBubble();return true;}
           if(!minimized&&!moving&&awaitingEventId.isEmpty()&&"START_RIDE".equals(actionStage)&&downLocalX>getWidth()-dp(120)&&downLocalY>=dp(60)&&downLocalY<=dp(110)){requestPwaForm("OPEN_CANCEL_FORM");return true;}
-          if(!minimized&&!moving&&"ENTER_FARE".equals(actionStage)&&downLocalY>=dp(58)&&downLocalY<=dp(96)){launchWorkActivity();return true;}
+          if(!minimized&&!moving&&"ENTER_FARE".equals(actionStage)&&downLocalY>=dp(58)&&downLocalY<=dp(96)){if(!"FARE".equals(formMode))openFareForm();return true;}
           float maxTravel=Math.max(1,getWidth()-dp(16)-dp(58));
           if(!minimized&&!moving&&swipeEligible&&swipeLocked&&fx>=maxTravel*.70f){progress=1;invalidate();triggerAction();swipeLocked=false;swipeEligible=false;return true;}
           progress=0;invalidate();return true;}
