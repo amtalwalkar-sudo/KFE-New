@@ -17,7 +17,7 @@ const cockpit = fs.readFileSync('src/application/work/workCockpit.js', 'utf8')
 
 assert.match(mainActivity, /extends BridgeActivity/)
 assert.match(mainActivity, /registerPlugin\(KfeSecureStoragePlugin\.class\)/)
-assert.match(mainActivity, /registerPlugin(KfeNativeWorkActionsPlugin.class)/)
+assert.match(mainActivity, /registerPlugin\\(KfeNativeWorkActionsPlugin\\.class\\)/)
 assert.match(mainActivity, /registerPlugin\(KfeOverlayPlugin\.class\)/)
 const superIndex = mainActivity.indexOf('super.onCreate(savedInstanceState)')
 assert.ok(superIndex >= 0, 'BridgeActivity must be initialized')
