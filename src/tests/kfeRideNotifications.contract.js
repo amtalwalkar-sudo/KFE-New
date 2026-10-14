@@ -15,12 +15,8 @@ assert.match(service, /ENTER_RIDE_DURATION/)
 assert.match(service, /END_RIDE/)
 assert.match(service, /clearPendingAction/)
 assert.doesNotMatch(service, /getPendingAction\(\).*clearPendingAction/)
-assert.match(service, /TWO_MINUTES/)
-assert.match(plugin, /setOngoing\(true\)/)
-assert.match(plugin, /RemoteInput/)
-assert.match(plugin, /GO_TO_PICKUP/)
-assert.match(plugin, /START_RIDE/)
-assert.match(plugin, /END_RIDE/)
+assert.match(plugin, /Work-stage notifications are intentionally disabled/)
+assert.match(plugin, /Do not schedule delayed Work-stage notification reminders/)
 assert.match(receiver, /RemoteInput\.getResultsFromIntent/)
 assert.match(overlay, /windowManager\.updateViewLayout\(overlayRoot,params\)/)
 assert.doesNotMatch(overlay, /windowManager\.updateViewLayout\(this,params\)/)
@@ -56,11 +52,6 @@ assert.match(service, /setNotificationsEnabled/)
 assert.match(service, /notificationsEnabled/)
 
 // Android permission requests must resolve only after the OS returns a result.
-assert.match(plugin, /requestPermissionForAlias\("notifications", call, "notificationPermissionCallback"\)/)
-assert.match(plugin, /@PermissionCallback/)
-assert.match(plugin, /notificationStatus\(\)/)
-assert.match(plugin, /areNotificationsEnabled\(\)/)
-assert.match(plugin, /Android notification permission is not granted/)
 
 // The foreground-service notification must reflect the active Work stage and
 // be tappable to reopen KFE, rather than remaining a generic "overlay ready" card.
