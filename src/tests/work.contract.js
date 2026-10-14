@@ -102,6 +102,8 @@ assert.doesNotMatch(workView, /scrollIntoView\(\{ block: 'nearest', behavior: 's
 assert.match(workStyles, /work-context-form\.form-fare \.kfe-work-number-pad__grid button\{min-height:31px!important;height:31px!important/, 'Fare keypad is compact enough to fit with its header and actions in the viewport.')
 assert.match(workStyles, /--kfe-work-go-pickup:var\(--kfe-info/, 'Go to Pickup uses the semantic information/blue token.')
 assert.match(workView, /WorkflowTimerService\.enter\(identity, Date\.now\(\)\)/, 'Workflow timers restore their persisted start timestamp for the same step identity.')
+assert.match(workView, /const refreshClock = \(\) => \{ clock\.value = Date\.now\(\) \}/, 'Timer display derives from the current timestamp instead of counting callbacks.')
+assert.match(workView, /setInterval\(refreshClock, 1000\)/, 'The 1 Hz display refresh invokes the timestamp-based clock refresh.')
 assert.match(workView, /document\.addEventListener\('visibilitychange', refreshClock\)/, 'Work timer refreshes immediately when the Android WebView returns to visibility.')
 assert.match(workView, /window\.addEventListener\('pageshow', refreshClock\)/, 'Work timer refreshes after Android restores the page from the back-forward cache.')
 assert.match(workView, /window\.addEventListener\('focus', refreshClock\)/, 'Work timer refreshes immediately when the app regains focus.')
