@@ -1048,6 +1048,7 @@ function keyAction() {
 
 const handleNativeAction = async event => {
   const stage = String(event?.stage || '')
+  if (stage === 'OPEN_CANCEL_FORM') { await openCancel(); return true }
   if (stage === 'GO_TO_PICKUP') return Boolean(await goPickup(String(event?.tripId || '')))
   if (stage === 'START_RIDE') return Boolean(await startTrip())
   if (stage === 'END_RIDE') return Boolean(await endTrip())
