@@ -91,7 +91,12 @@ public class KfeNativeWorkActionsPlugin extends Plugin {
   @com.getcapacitor.PluginMethod
   public void acknowledgeAction(PluginCall call) {
     String eventId = call.getString("eventId", "");
-    boolean acknowledged = KfeNativeEventStore.get(getContext()).acknowledge(eventId);
+    KfeNativeEventStore events = KfeNativeEventStore.get(getContext());
+    boolean newlyAcknowledged = events.acknowledge(eventId);
+    // A retry must also replay the native transition if the event was already
+    // committed in SQLite but the process was interrupted before the overlay
+    // consumed the acknowledgement callback.
+    boolean acknowledged = newlyAcknowledged || events.isAcknowledged(eventId);
     String stage = call.getString("stage", "");
     String tripId = call.getString("tripId", "");
     if (acknowledged) KfeOverlayService.acknowledgeFromPwa(getContext(), eventId, stage, tripId);
