@@ -254,16 +254,24 @@ public class KfeOverlayService extends Service {
     if(formMode!=null)return;
     android.content.SharedPreferences saved=getSharedPreferences("kfe_overlay",MODE_PRIVATE);
     String mode=saved.getString("formMode","");
+    String savedFare=saved.getString("formValue","");
+    String savedToll=saved.getString("tollValue","");
+    String savedParking=saved.getString("parkingValue","");
+    String savedReason=saved.getString("cancelReason","");
+    boolean savedTollExpanded=saved.getBoolean("tollExpanded",false);
+    boolean savedParkingExpanded=saved.getBoolean("parkingExpanded",false);
+    boolean savedTollExcluded=saved.getBoolean("tollExcluded",false);
+    boolean savedParkingExcluded=saved.getBoolean("parkingExcluded",false);
     if("FARE".equals(mode)&&"ENTER_FARE".equals(actionStage))openFareForm();
     else if("CANCEL".equals(mode)&&"START_RIDE".equals(actionStage))openCancelForm();
     else return;
-    formValue=saved.getString("formValue","");tollValue=saved.getString("tollValue","");parkingValue=saved.getString("parkingValue","");cancelReason=saved.getString("cancelReason","");
-    tollExpanded=saved.getBoolean("tollExpanded",false);parkingExpanded=saved.getBoolean("parkingExpanded",false);
+    formValue=savedFare;tollValue=savedToll;parkingValue=savedParking;cancelReason=savedReason;
+    tollExpanded=savedTollExpanded;parkingExpanded=savedParkingExpanded;
     if(formInput!=null)formInput.setText(formValue);
     if(tollInput!=null){tollInput.setText(tollValue);tollInput.setVisibility(tollExpanded?View.VISIBLE:View.GONE);}
     if(parkingInput!=null){parkingInput.setText(parkingValue);parkingInput.setVisibility(parkingExpanded?View.VISIBLE:View.GONE);}
-    if(tollTreatmentInput!=null){tollTreatmentInput.setChecked(saved.getBoolean("tollExcluded",false));tollTreatmentInput.setVisibility(tollExpanded?View.VISIBLE:View.GONE);}
-    if(parkingTreatmentInput!=null){parkingTreatmentInput.setChecked(saved.getBoolean("parkingExcluded",false));parkingTreatmentInput.setVisibility(parkingExpanded?View.VISIBLE:View.GONE);}
+    if(tollTreatmentInput!=null){tollTreatmentInput.setChecked(savedTollExcluded);tollTreatmentInput.setVisibility(tollExpanded?View.VISIBLE:View.GONE);}
+    if(parkingTreatmentInput!=null){parkingTreatmentInput.setChecked(savedParkingExcluded);parkingTreatmentInput.setVisibility(parkingExpanded?View.VISIBLE:View.GONE);}
     if(tollToggle!=null)tollToggle.setText(tollExpanded?"− Toll":"+ Toll");
     if(parkingToggle!=null)parkingToggle.setText(parkingExpanded?"− Parking":"+ Parking");
     if("CANCEL".equals(mode)&&formPanel!=null&&formPanel.getChildCount()>2){
