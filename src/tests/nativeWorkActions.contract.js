@@ -57,7 +57,7 @@ assert.match(actionService, /registerPlugin\('KfeNativeWorkActions'\)/)
 assert.match(workView, /WorkRuntimePorts\.nativeWorkActions\.addListener/)
 assert.match(workView, /WorkRuntimePorts\.nativeWorkActions\.consumePendingActions/)
 assert.match(workView, /WorkRuntimePorts\.nativeWorkActions\.acknowledgeAction/)
-assert.match(overlayLifecycle, /notificationPhase: ''/)
+assert.doesNotMatch(overlayLifecycle, /notificationPhase/)
 assert.doesNotMatch(gpsPlugin, /kfe_ride_actions/)
 
 console.log('KFE native Work action separation contract: PASS')
