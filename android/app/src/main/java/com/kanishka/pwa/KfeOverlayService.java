@@ -723,7 +723,7 @@ public class KfeOverlayService extends Service {
       long h=elapsed/3600L,m=(elapsed%3600L)/60L,s=elapsed%60L;
       return String.format(java.util.Locale.US,"%02d:%02d:%02d",h,m,s);
     }
-    SwipeOverlayView(Context c){super(c);setLayerType(View.LAYER_TYPE_SOFTWARE,null);}
+    SwipeOverlayView(Context c){super(c);setClickable(true);setLayerType(View.LAYER_TYPE_SOFTWARE,null);}
     private int surface(){return dark()?Color.rgb(23,30,38):Color.WHITE;}
     @Override protected void onDraw(Canvas c){
       super.onDraw(c);
@@ -801,12 +801,14 @@ public class KfeOverlayService extends Service {
         case MotionEvent.ACTION_DOWN:{
           downX=e.getRawX();downY=e.getRawY();downLocalX=e.getX();downLocalY=e.getY();lastX=downX;lastY=downY;tracking=true;moving=false;
           float localX=e.getX(),localY=e.getY();
-          swipeLocked=!minimized&&localY>=dp(100)&&localY<=dp(132)&&localX<=dp(74);
+          // Accept the whole lower swipe lane, not just the thumb's exact painted
+          // bounds. OEM touch slop/insets can shift the perceived hit target by a few dp.
+          swipeLocked=!minimized&&localY>=dp(96)&&localY<=dp(140)&&localX<=dp(112);
           swipeEligible=swipeLocked&&awaitingEventId.isEmpty()&&
             ("GO_TO_PICKUP".equals(actionStage)||"START_RIDE".equals(actionStage)||"END_RIDE".equals(actionStage));
           progress=0;return true;}
         case MotionEvent.ACTION_MOVE:{
-          float dx=e.getRawX()-downX,dy=e.getRawY()-downY;
+          float dx=e.getX()-downLocalX,dy=e.getRawY()-downY;
           if(swipeLocked){
             if(swipeEligible){
               float maxTravel=Math.max(1,getWidth()-dp(16)-dp(58));
@@ -840,7 +842,7 @@ public class KfeOverlayService extends Service {
           }
           return true;}
         case MotionEvent.ACTION_UP:{
-          float fx=e.getRawX()-downX,fy=e.getRawY()-downY;tracking=false;
+          float fx=e.getX()-downLocalX,fy=e.getRawY()-downY;tracking=false;
           if(minimized&&moving){
             int screenWidth=getResources().getDisplayMetrics().widthPixels;
             params.x=downX<screenWidth/2f?0:Math.max(0,screenWidth-dp(BUBBLE_DP));
