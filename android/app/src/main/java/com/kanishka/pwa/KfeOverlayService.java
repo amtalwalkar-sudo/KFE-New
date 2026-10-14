@@ -4,6 +4,7 @@ import android.animation.ValueAnimator;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -59,6 +60,7 @@ public class KfeOverlayService extends Service {
   private EditText parkingInput;
   private String theme="dark";
   private String target="—", rides="0", liveKm="0.0 km", revenue="₹0", pendingTripId="", pendingFareTripId="", cancellationRevenue="₹0";
+  private String deadKm="—", gpsStatus="GPS status unavailable";
   private long tripStartAt=0L;
   private int targetProgress=0;
   private boolean minimized=false;
@@ -163,12 +165,19 @@ public class KfeOverlayService extends Service {
     try{
       JSONObject root=new JSONObject(raw==null?"{}":raw);
       JSONObject shift=root.optJSONObject("shift"),trip=root.optJSONObject("trip");
-      if(shift==null||shift.optString("id","").isEmpty()){removeOverlay();return;}
+      if(shift==null||shift.optString("id","").isEmpty()){
+        removeOverlay();
+        stopForeground(STOP_FOREGROUND_REMOVE);
+        stopSelf();
+        return;
+      }
       theme="dark";
       target=root.optString("target","—");
       targetProgress=Math.max(0,Math.min(100,root.optInt("targetProgress",0)));
       rides=root.optString("rides","0");
       liveKm=root.optString("liveKm","0.0 km");
+      deadKm=root.optString("deadKm",root.optString("deadMovementKm","—"));
+      gpsStatus=root.optString("gpsStatus",root.optBoolean("gpsTracking",false)?"GPS active":"GPS status unavailable");
       revenue=root.optString("revenue","₹0");
       cancellationRevenue=root.optString("cancellationRevenue","₹0");
       tripStartAt=root.optLong("tripStartAt",0L);
@@ -185,6 +194,7 @@ public class KfeOverlayService extends Service {
         if((("ENTER_FARE".equals(actionStage)||"END_RIDE".equals(actionStage))&&!"FARE".equals(formMode))||("CANCEL_RIDE".equals(actionStage)&&!"CANCEL".equals(formMode)))closeForm();
       }
       if(formMode==null && "ENTER_FARE".equals(actionStage)) openFareForm();
+      refreshPersistentNotification();
       overlay.invalidate();
     }catch(Exception ignored){ overlay.invalidate(); }
   }
@@ -279,6 +289,7 @@ public class KfeOverlayService extends Service {
       }catch(Exception ignored){}
     }
     editor.apply();
+    refreshPersistentNotification();
   }
 
   private void hideIfKfeActivityForeground(){
@@ -471,7 +482,37 @@ public class KfeOverlayService extends Service {
   private void removeOverlay(){closeForm();if(windowManager!=null&&overlayRoot!=null){try{windowManager.removeView(overlayRoot);}catch(Exception ignored){}}overlayRoot=null;overlay=null;}
   @Override public void onDestroy(){removeOverlay();if(instance==this)instance=null;super.onDestroy();}
   @Override public IBinder onBind(Intent intent){return null;}
-  private Notification buildNotification(){return new NotificationCompat.Builder(this,CHANNEL_ID).setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle("KFE overlay ready").setContentText("Driver overlay is ready for use above other apps.").setOngoing(true).setCategory(NotificationCompat.CATEGORY_SERVICE).build();}
+  private Notification buildNotification(){
+    String title="KFE Work";
+    String stageText;
+    if("GO_TO_PICKUP".equals(actionStage)) stageText="GOING TO PICKUP";
+    else if("START_RIDE".equals(actionStage)) stageText="PICKUP IN PROGRESS · READY TO START TRIP";
+    else if("END_RIDE".equals(actionStage)) stageText="TRIP ACTIVE · END TRIP TO ENTER FARE";
+    else if("ENTER_FARE".equals(actionStage)) stageText="TRIP COMPLETED · FARE REQUIRED";
+    else if("CANCEL_RIDE".equals(actionStage)) stageText="CANCELLATION DETAILS REQUIRED";
+    else stageText="WORK SESSION ACTIVE";
+    String text=stageText+" · "+gpsStatus+" · Dead KM "+deadKm;
+    if(!"0".equals(rides)) text += " · Trips "+rides;
+    Intent openApp=new Intent(this,MainActivity.class);
+    openApp.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP|Intent.FLAG_ACTIVITY_CLEAR_TOP);
+    int pendingFlags=PendingIntent.FLAG_UPDATE_CURRENT;
+    if(android.os.Build.VERSION.SDK_INT>=android.os.Build.VERSION_CODES.M) pendingFlags|=PendingIntent.FLAG_IMMUTABLE;
+    PendingIntent contentIntent=PendingIntent.getActivity(this,4202,openApp,pendingFlags);
+    return new NotificationCompat.Builder(this,CHANNEL_ID)
+      .setSmallIcon(android.R.drawable.ic_dialog_info)
+      .setContentTitle(title)
+      .setContentText(text)
+      .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
+      .setContentIntent(contentIntent)
+      .setOngoing(true)
+      .setOnlyAlertOnce(true)
+      .setCategory(NotificationCompat.CATEGORY_SERVICE)
+      .build();
+  }
+  private void refreshPersistentNotification(){
+    NotificationManager manager=(NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
+    if(manager!=null) manager.notify(NOTIFICATION_ID,buildNotification());
+  }
   private void createChannel(){if(android.os.Build.VERSION.SDK_INT>=android.os.Build.VERSION_CODES.O){NotificationManager m=(NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);if(m!=null)m.createNotificationChannel(new NotificationChannel(CHANNEL_ID,"KFE Overlay",NotificationManager.IMPORTANCE_LOW));}}
   private int dp(int v){return (int)(v*getResources().getDisplayMetrics().density+0.5f);}
   private float dpf(float v){return v*getResources().getDisplayMetrics().density;}
