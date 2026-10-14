@@ -78,6 +78,14 @@ if ! adb shell 'run-as com.kanishka.pwa cat files/kfe-upgrade-proof.txt' | grep 
   exit 1
 fi
 install_apk "$GITHUB_WORKSPACE/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk" "instrumentation-apk"
+# The startup gate now intentionally blocks until the required native permissions
+# are granted. Pre-grant them on this disposable emulator so instrumentation tests
+# verify the post-setup app state rather than getting stuck on permission UI.
+adb shell pm grant com.kanishka.pwa android.permission.ACCESS_FINE_LOCATION
+adb shell pm grant com.kanishka.pwa android.permission.ACCESS_COARSE_LOCATION
+adb shell pm grant com.kanishka.pwa android.permission.ACCESS_BACKGROUND_LOCATION
+adb shell pm grant com.kanishka.pwa android.permission.POST_NOTIFICATIONS
+adb shell cmd location set-location-enabled true || adb shell settings put secure location_mode 3
 adb shell appops set com.kanishka.pwa android:system_alert_window allow
 adb shell appops set com.kanishka.pwa android:camera allow || true
 adb shell am force-stop com.kanishka.pwa
