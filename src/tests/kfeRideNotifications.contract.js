@@ -52,5 +52,26 @@ assert.match(service, /NOTIFICATIONS_KEY/)
 assert.match(service, /setNotificationsEnabled/)
 assert.match(service, /notificationsEnabled/)
 
+// Android permission requests must resolve only after the OS returns a result.
+assert.match(plugin, /requestPermissionForAlias\("notifications", call, "notificationPermissionCallback"\)/)
+assert.match(plugin, /@PermissionCallback/)
+assert.match(plugin, /notificationStatus\(\)/)
+assert.match(plugin, /areNotificationsEnabled\(\)/)
+assert.match(plugin, /Android notification permission is not granted/)
+
+// The foreground-service notification must reflect the active Work stage and
+// be tappable to reopen KFE, rather than remaining a generic "overlay ready" card.
+assert.match(overlay, /GOING TO PICKUP/)
+assert.match(overlay, /PICKUP IN PROGRESS/)
+assert.match(overlay, /TRIP ACTIVE/)
+assert.match(overlay, /TRIP COMPLETED · FARE REQUIRED/)
+assert.match(overlay, /gpsStatus/)
+assert.match(overlay, /Dead KM/)
+assert.match(overlay, /setContentIntent\(contentIntent\)/)
+assert.match(overlay, /setOngoing\(true\)/)
+assert.match(overlay, /refreshPersistentNotification\(\)/)
+assert.match(overlay, /current\.refreshPersistentNotification\(\)/)
+assert.doesNotMatch(overlay, /setContentTitle\("KFE overlay ready"\)/)
+
 // CI verification marker for the native notification bridge.
 console.log('KFE ride notification contract tests passed')
