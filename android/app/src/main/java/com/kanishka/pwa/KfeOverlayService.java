@@ -114,6 +114,12 @@ public class KfeOverlayService extends Service {
     return currentTripId==null?"":currentTripId;
   }
 
+  static String resolveMovementLabel(String stage){
+    if("GO_TO_PICKUP".equals(stage)||"START_RIDE".equals(stage))return "DEAD KM";
+    if("END_RIDE".equals(stage))return "BUSINESS KM";
+    return "LIVE KM";
+  }
+
   public static void prepare(Context context){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_PREPARE);ContextCompat.startForegroundService(context,i);}
   public static void show(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_SHOW);i.putExtra(EXTRA_STATE,state==null?"{}":state);ContextCompat.startForegroundService(context,i);}
   public static void update(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_UPDATE);i.putExtra(EXTRA_STATE,state==null?"{}":state);ContextCompat.startForegroundService(context,i);}
@@ -723,19 +729,18 @@ public class KfeOverlayService extends Service {
       rect.set(8,barTop,(w-8)*progress+8,barTop+barH);c.drawRoundRect(rect,dp(22),dp(22),paint);
       // Target, live distance, trip timer and revenue remain the compact primary metrics.
       float[] cols={.14f,.38f,.62f,.86f};
-      String[] labels={"TARGET","LIVE KM","TRIP TIME","REVENUE"};
+      String[] labels={"TARGET",resolveMovementLabel(actionStage),"TRIP TIME","REVENUE"};
       String[] values={target,liveKm,formatTripTime(),revenue};
       for(int i=0;i<4;i++){text(9,mutedColor(),true);center(c,labels[i],w*cols[i],barTop+dp(23));text(15,i==0?targetColor():(i==1?a:textColor()),true);center(c,values[i],w*cols[i],barTop+dp(44));}
       if("END_RIDE".equals(actionStage)||"START_RIDE".equals(actionStage)) postInvalidateDelayed(1000);
       boolean gpsActive=KfeNativeGpsService.isAnyPersistedTracking(KfeOverlayService.this);
       text(9,gpsActive?(dark()?Color.rgb(98,209,138):Color.rgb(22,128,60)):mutedColor(),true);
       center(c,gpsActive?"GPS ●":"GPS ○",w*.20f,barTop+dp(62));
-      text(9,mutedColor(),true);center(c,"DEAD KM "+deadKm,w*.48f,barTop+dp(62));
       if("CANCELLED".equals(actionStage)){
         text(11,a,true);center(c,"CANCELLED · "+cancellationRevenue,w*.50f,barTop+dp(77));
         text(10,mutedColor(),false);center(c,"Same trip · cancellation recorded",w*.50f,barTop+dp(95));
       }else{
-        String stateLabel="";if("GO_TO_PICKUP".equals(actionStage))stateLabel="GO TO PICKUP";if("START_RIDE".equals(actionStage))stateLabel="START RIDE";if("END_RIDE".equals(actionStage))stateLabel="END RIDE";
+        String stateLabel="";if("GO_TO_PICKUP".equals(actionStage))stateLabel="GO TO PICKUP";if("START_RIDE".equals(actionStage))stateLabel="START RIDE";if("END_RIDE".equals(actionStage))stateLabel="END RIDE";if(!awaitingEventId.isEmpty())stateLabel="SYNCING ACTION";
         if("ENTER_FARE".equals(actionStage)){
           text(11,a,true);center(c,"FARE REQUIRED · TAP TO OPEN",w*.50f,barTop+dp(79));
         }else if(!stateLabel.isEmpty()){
