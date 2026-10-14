@@ -17,6 +17,7 @@ const actionService = read('src/infrastructure/android/nativeWorkActions.js')
 const overlayLifecycle = read('src/infrastructure/android/androidOverlayLifecycle.js')
 const packageJson = read('package.json')
 const gradle = read('android/app/build.gradle')
+const capacitorBuildGradle = read('android/app/capacitor.build.gradle')
 const capacitorSettings = read('android/capacitor.settings.gradle')
 
 // The ride-notification feature is deleted, not stubbed or disabled.
@@ -30,6 +31,7 @@ assert.doesNotMatch(workPorts, /rideNotifications/)
 assert.doesNotMatch(workAdapter, /KfeRideNotificationService|rideNotifications/)
 assert.doesNotMatch(packageJson, /@capacitor\/local-notifications/)
 assert.doesNotMatch(gradle, /capacitor-local-notifications/)
+assert.doesNotMatch(capacitorBuildGradle, /capacitor-local-notifications/)
 assert.doesNotMatch(capacitorSettings, /capacitor-local-notifications/)
 
 // Android foreground-service notices remain, separate from Work actions.
