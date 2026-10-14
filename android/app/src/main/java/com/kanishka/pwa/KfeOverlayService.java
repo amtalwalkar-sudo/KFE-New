@@ -88,7 +88,6 @@ public class KfeOverlayService extends Service {
     if(current==null)return;
     current.liveKm=value==null?"0.0 km":value;
     if(current.overlay!=null)current.overlay.postInvalidate();
-    current.refreshPersistentNotification();
   }
 
   static void updateDeadKm(String value){
@@ -97,7 +96,6 @@ public class KfeOverlayService extends Service {
     current.deadKm=value==null?"—":value;
     current.getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putString("deadKm",current.deadKm).apply();
     if(current.overlay!=null)current.overlay.postInvalidate();
-    current.refreshPersistentNotification();
   }
 
   static String resolveFareActionTripId(String pendingFareTripId, String currentTripId){
@@ -230,7 +228,6 @@ public class KfeOverlayService extends Service {
       if(formMode!=null){
         if((("ENTER_FARE".equals(actionStage)||"END_RIDE".equals(actionStage))&&!"FARE".equals(formMode))||("CANCEL_RIDE".equals(actionStage)&&!"CANCEL".equals(formMode)))closeForm();
       }
-      refreshPersistentNotification();
       overlay.invalidate();
     }catch(Exception ignored){ overlay.invalidate(); }
   }
@@ -346,7 +343,6 @@ public class KfeOverlayService extends Service {
       }catch(Exception ignored){}
     }
     editor.apply();
-    refreshPersistentNotification();
   }
 
   private void hideIfKfeActivityForeground(){
@@ -558,10 +554,6 @@ public class KfeOverlayService extends Service {
       .setOnlyAlertOnce(true)
       .setCategory(NotificationCompat.CATEGORY_SERVICE)
       .build();
-  }
-  private void refreshPersistentNotification(){
-    NotificationManager manager=(NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
-    if(manager!=null) manager.notify(NOTIFICATION_ID,buildNotification());
   }
   private void createChannel(){if(android.os.Build.VERSION.SDK_INT>=android.os.Build.VERSION_CODES.O){NotificationManager m=(NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);if(m!=null)m.createNotificationChannel(new NotificationChannel(CHANNEL_ID,"KFE Overlay",NotificationManager.IMPORTANCE_LOW));}}
   private int dp(int v){return (int)(v*getResources().getDisplayMetrics().density+0.5f);}
