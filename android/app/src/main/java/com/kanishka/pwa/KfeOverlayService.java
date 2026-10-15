@@ -85,11 +85,17 @@ public class KfeOverlayService extends Service {
   private String awaitingEventId="";
   private String awaitingStage="";
   private String awaitingTripId="";
+  private long lastPendingRecoveryLogAt=0L;
   private LinearLayout formPanel;
   private android.os.Handler foregroundHandler;
   private final Runnable foregroundCheck=new Runnable(){
     @Override public void run(){
       hideIfKfeActivityForeground();
+      if(!awaitingEventId.isEmpty() && System.currentTimeMillis()-lastPendingRecoveryLogAt>=15000L){
+        lastPendingRecoveryLogAt=System.currentTimeMillis();
+        Log.w("KFE-SWIPE","pending-action recovery required event="+shortEventId(awaitingEventId)+" stage="+awaitingStage+" trip="+shortEventId(awaitingTripId)+" action remains locked; durable queue replay/ack required");
+        if(overlay!=null)overlay.postInvalidate();
+      }
       if(foregroundHandler!=null) foregroundHandler.postDelayed(this,500L);
     }
   };
@@ -394,7 +400,11 @@ public class KfeOverlayService extends Service {
     }
   }
 
-  private void beginAwaiting(String eventId,String stage,String tripId){ awaitingEventId=eventId==null?"":eventId; awaitingStage=stage==null?"":stage; awaitingTripId=tripId==null?"":tripId; }
+  private static String shortEventId(String id){ return id==null||id.isEmpty()?"none":id.substring(0,Math.min(8,id.length())); }
+  private void beginAwaiting(String eventId,String stage,String tripId){
+    awaitingEventId=eventId==null?"":eventId; awaitingStage=stage==null?"":stage; awaitingTripId=tripId==null?"":tripId;
+    Log.i("KFE-SWIPE","dispatch stage="+awaitingStage+" event="+shortEventId(awaitingEventId)+" trip="+shortEventId(awaitingTripId));
+  }
 
   static void acknowledgeFromPwa(Context context,String eventId,String stage,String tripId){
     KfeOverlayService current=instance;
@@ -414,13 +424,17 @@ public class KfeOverlayService extends Service {
   }
 
   private void onEventAcknowledged(String eventId,String stage,String tripId){
-    if(eventId==null || !eventId.equals(awaitingEventId)) return;
+    if(eventId==null || !eventId.equals(awaitingEventId)){
+      Log.w("KFE-SWIPE","ack ignored event="+shortEventId(eventId)+" awaiting="+shortEventId(awaitingEventId)+" stage="+stage);
+      return;
+    }
+    Log.i("KFE-SWIPE","acknowledged event="+shortEventId(eventId)+" stage="+stage+" trip="+shortEventId(tripId));
     awaitingEventId=""; awaitingStage=""; awaitingTripId="";
-    if("GO_TO_PICKUP".equals(stage)){ actionStage="START_RIDE"; pendingFareTripId=""; persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); return; }
-    if("START_RIDE".equals(stage)){ actionStage="END_RIDE"; persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); return; }
-    if("END_RIDE".equals(stage)){ pendingFareTripId=tripId; pendingTripId=tripId; actionStage="ENTER_FARE"; persistNativeWorkflow(); KfeNativeGpsService.stop(this,tripId); if(!minimized&&!"FARE".equals(formMode)){if("FARE".equals(getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString("formMode","")))restorePersistedFormIfNeeded();else openFareForm();} if(overlay!=null)overlay.invalidate(); return; }
+    if("GO_TO_PICKUP".equals(stage)){ actionStage="START_RIDE"; pendingFareTripId=""; Log.i("KFE-SWIPE","stage transition GO_TO_PICKUP -> START_RIDE"); persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); return; }
+    if("START_RIDE".equals(stage)){ actionStage="END_RIDE"; Log.i("KFE-SWIPE","stage transition START_RIDE -> END_RIDE"); persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); return; }
+    if("END_RIDE".equals(stage)){ pendingFareTripId=tripId; pendingTripId=tripId; actionStage="ENTER_FARE"; Log.i("KFE-SWIPE","stage transition END_RIDE -> ENTER_FARE"); persistNativeWorkflow(); KfeNativeGpsService.stop(this,tripId); if(!minimized&&!"FARE".equals(formMode)){if("FARE".equals(getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString("formMode","")))restorePersistedFormIfNeeded();else openFareForm();} if(overlay!=null)overlay.invalidate(); return; }
     if("OPEN_CANCEL_FORM".equals(stage)){ persistNativeWorkflow(); if(overlay!=null)overlay.invalidate(); return; }
-    if("ENTER_FARE".equals(stage) || "CANCEL_RIDE".equals(stage)){ closeForm(); if("CANCEL_RIDE".equals(stage))cancelFormPwaSynchronized=false; actionStage="GO_TO_PICKUP"; pendingTripId=""; pendingFareTripId=""; tripStartAt=0L; persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); }
+    if("ENTER_FARE".equals(stage) || "CANCEL_RIDE".equals(stage)){ Log.i("KFE-SWIPE","stage transition "+stage+" -> GO_TO_PICKUP"); closeForm(); if("CANCEL_RIDE".equals(stage))cancelFormPwaSynchronized=false; actionStage="GO_TO_PICKUP"; pendingTripId=""; pendingFareTripId=""; tripStartAt=0L; persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); }
   }
 
   private void persistNativeWorkflow(){
@@ -761,8 +775,10 @@ public class KfeOverlayService extends Service {
         if("ENTER_FARE".equals(actionStage)){
           text(11,a,true);center(c,"FARE REQUIRED · TAP TO OPEN",w*.50f,barTop+dp(79));
         }else if(!stateLabel.isEmpty()){
-          String prefix=awaitingEventId.isEmpty()?"SWIPE TO ":"";text(11,mutedColor(),true);float total=measureAction(prefix,11)+dp(4)+measureAction(stateLabel,11);float startX=w/2f-total/2f;
-          if(!prefix.isEmpty())c.drawText(prefix,startX,barTop+dp(79),paint);text(11,a,true);c.drawText(stateLabel,startX+measureAction(prefix,11)+dp(4),barTop+dp(79),paint);
+          String pendingLabel=awaitingEventId.isEmpty()?"":"WAITING FOR APP · "+shortEventId(awaitingEventId);
+          String prefix=awaitingEventId.isEmpty()?"SWIPE TO ":"";String shown=awaitingEventId.isEmpty()?stateLabel:pendingLabel;
+          text(11,mutedColor(),true);float total=measureAction(prefix,11)+dp(4)+measureAction(shown,11);float startX=w/2f-total/2f;
+          if(!prefix.isEmpty())c.drawText(prefix,startX,barTop+dp(79),paint);text(11,awaitingEventId.isEmpty()?a:Color.rgb(255,190,80),true);c.drawText(shown,startX+measureAction(prefix,11)+dp(4),barTop+dp(79),paint);
         }
       }
       if(!"ENTER_FARE".equals(actionStage)){
@@ -812,8 +828,9 @@ public class KfeOverlayService extends Service {
           if(swipeLocked){
             if(swipeEligible){
               float maxTravel=Math.max(1,getWidth()-dp(16)-dp(58));
-              if(Math.abs(dx)>dp(8)) swipeMoved=true;
-              progress=Math.min(1f,Math.max(0f,(e.getX()-dp(37))/maxTravel));
+              progress=KfeSwipeGesture.progress(dx,maxTravel);
+              swipeMoved=KfeSwipeGesture.hasMovedRight(dx,dp(8));
+              Log.d("KFE-SWIPE","move stage="+actionStage+" startX="+downLocalX+" x="+e.getX()+" dx="+dx+" progress="+progress+" movedRight="+swipeMoved+" pending="+shortEventId(awaitingEventId));
               invalidate();
             }
             return true;
@@ -859,7 +876,11 @@ public class KfeOverlayService extends Service {
           if(!minimized&&!moving&&"ENTER_FARE".equals(actionStage)&&downLocalY>=dp(58)&&downLocalY<=dp(96)){if(!"FARE".equals(formMode))openFareForm();return true;}
           float maxTravel=Math.max(1,getWidth()-dp(16)-dp(58));
           if(swipeLocked){
-            if(swipeEligible&&swipeMoved&&progress>=0.70f){
+            float finalProgress=KfeSwipeGesture.progress(fx,maxTravel);
+            boolean commit=swipeEligible&&KfeSwipeGesture.shouldCommit(fx,maxTravel,dp(8),0.70f);
+            progress=finalProgress;
+            Log.i("KFE-SWIPE","release stage="+actionStage+" startX="+downLocalX+" x="+e.getX()+" dx="+fx+" progress="+finalProgress+" threshold=0.70 eligible="+swipeEligible+" pending="+shortEventId(awaitingEventId)+" commit="+commit);
+            if(commit){
               progress=1;invalidate();triggerAction();
             }else{
               animateRetract();
