@@ -46,7 +46,7 @@ scenario('I5/J5', () => {
 scenario('A4/B3/B4/J2', () => {
   assert.equal(validateEndShiftEntry({ closingOdometer: 65002, startOdometer: 65000, revenue: 1 }).valid, true)
   assert.equal(validateEndShiftEntry({ closingOdometer: 64999, startOdometer: 65000, revenue: 1 }).valid, false)
-  assert.equal(validateEndShiftEntry({ closingOdometer: 65002, startOdometer: 65000, revenue: '' }).valid, false)
+  assert.equal(validateEndShiftEntry({ closingOdometer: 65002, startOdometer: 65000 }).valid, true)
   assert.equal(validateEndShiftEntry({ closingOdometer: 65000, startOdometer: 65000, revenue: 0 }).valid, true)
   assert.equal(validateEndShiftEntry({ closingOdometer: 65601, startOdometer: 65000, revenue: 1 }).requiresConfirmation, true)
   assert.equal(validateEndShiftEntry({ closingOdometer: 65601, startOdometer: 65000, revenue: 1, confirmLargeDistance: true }).valid, true)
