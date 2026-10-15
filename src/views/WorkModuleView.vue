@@ -62,6 +62,7 @@ const endOpen = ref(false)
 const endStage = ref('CLOSE')
 const closingOdo = ref('')
 const endBusy = ref(false)
+const largeDistanceConfirmation = ref('')
 
 const target = ref(null)
 const targetAchieved = ref(0)
@@ -234,7 +235,7 @@ const tripTimer = computed(() => {
   return started ? formatElapsed(clock.value - started) : '00:00:00'
 })
 const stateTimerLabel = computed(() => {
-  if (endOpen.value) return 'SHIFT REVIEW TIME'
+  if (endOpen.value) return 'END SHIFT TIME'
   if (cancelOpen.value) return 'CANCELLATION TIME'
   if (fuelOpen.value) return 'FUEL ENTRY TIME'
   if (pendingFare.value) return 'FARE ENTRY TIME'
@@ -244,7 +245,7 @@ const stateTimerLabel = computed(() => {
 })
 const workflowStepKey = computed(() => {
   if (startOpen.value) return 'START_SHIFT'
-  if (endOpen.value) return 'SHIFT_REVIEW'
+  if (endOpen.value) return 'END_SHIFT'
   if (cancelOpen.value) return 'CANCELLATION'
   if (fuelOpen.value) return 'FUEL_ENTRY'
   if (pendingFare.value) return 'FARE_ENTRY'
@@ -878,7 +879,6 @@ function closeShift() {
   void finishEnd()
 }
 
-const largeDistanceConfirmation = ref('')
 const largeDistanceKm = computed(() => {
   const start = Number(store.shift?.startOdometer)
   const end = Number(closingOdo.value)
@@ -1292,15 +1292,7 @@ onBeforeUnmount(() => {
       :start-odo="String(store.startOdometer ?? '')"
       :closing-odo="closingOdo"
       @update:closing-odo="closingOdo=$event"
-      @update:shift-revenue="shiftRevenue=$event"
-      @update:review-revenue="reviewRevenue=$event"
-      @update:review-km="reviewKm=$event"
-      @update:review-operator="reviewOperator=$event"
-      @update:toll-treatment="tollTreatment=$event"
-      @update:parking-treatment="parkingTreatment=$event"
       @update:large-distance-confirmed-for="largeDistanceConfirmation=$event"
-      @update:toll="toll=$event"
-      @update:parking="parking=$event"
       @action="handleContextAction"
     />
 
