@@ -427,6 +427,14 @@ public class KfeOverlaySmokeTest {
     assertEquals("25", payload.getString("parking"));
     assertEquals("EXCLUDED", payload.getString("tollTreatment"));
     assertEquals("INCLUDED", payload.getString("parkingTreatment"));
+    JSONObject storedOutcome = KfeCanonicalWorkStore.get(context).getRecord("TRIP", "fare-trip");
+    assertTrue("Fare must commit to native canonical storage", storedOutcome.optBoolean("found", false));
+    JSONObject storedTrip = storedOutcome.getJSONObject("record");
+    assertEquals("COMPLETED", storedTrip.getString("status"));
+    assertEquals(450d, storedTrip.getDouble("revenue"), 0.001d);
+    assertEquals(0d, storedTrip.getDouble("toll"), 0.001d);
+    assertEquals(25d, storedTrip.getDouble("parking"), 0.001d);
+    assertEquals("EXCLUDED", storedTrip.getString("tollTreatment"));
   }
 
   @Test public void cancellationFormAllowsOptionalFeeAndPersistsPassengerReason() throws Exception {
@@ -455,6 +463,13 @@ public class KfeOverlaySmokeTest {
     JSONObject payload = new JSONObject(pendingValue().substring("CANCEL_RIDE|cancel-trip|".length()));
     assertEquals("", payload.getString("revenue"));
     assertEquals("PASSENGER", payload.getString("reason"));
+    JSONObject storedOutcome = KfeCanonicalWorkStore.get(context).getRecord("TRIP", "cancel-trip");
+    assertTrue("Cancellation must commit to native canonical storage", storedOutcome.optBoolean("found", false));
+    JSONObject storedTrip = storedOutcome.getJSONObject("record");
+    assertEquals("CANCELLED", storedTrip.getString("status"));
+    assertEquals("PASSENGER", storedTrip.getString("cancelReason"));
+    assertTrue("An omitted cancellation fee remains absent, not a fabricated amount",
+      storedTrip.isNull("cancelledRevenue"));
   }
 
   @Test public void fareDraftSurvivesNativeOverlayServiceRestart() throws Exception {
