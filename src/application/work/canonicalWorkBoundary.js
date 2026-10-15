@@ -7,7 +7,7 @@ const requireText = (value, name) => {
   return value.trim()
 }
 
-/** Shared application boundary. Repository cutover occurs only after migration gates pass. */
+/** Shared application boundary for native canonical writes and browser canonical records. */
 export const CanonicalWorkBoundary = Object.freeze({
   async putRecord(input) {
     const normalized = { operationId: requireText(input?.operationId, 'operationId'), entityType: requireText(input?.entityType, 'entityType'), record: input?.record }

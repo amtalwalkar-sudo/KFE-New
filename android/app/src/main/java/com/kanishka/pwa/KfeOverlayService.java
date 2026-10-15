@@ -72,6 +72,11 @@ public class KfeOverlayService extends Service {
   private String target="—", rides="0", liveKm="0.0 km", revenue="₹0", pendingTripId="", pendingFareTripId="", cancellationRevenue="₹0";
   private String deadKm="—", gpsStatus="GPS status unavailable";
   private long tripStartAt=0L;
+  private long phaseStartAt=0L;
+  private String phaseLabel="TRIP TIME";
+  private String defaultOperator="";
+  private int swipeCommitThresholdPercent=70, swipeReturnDurationMs=220;
+  private int swipePickupColor=Color.rgb(120,162,255), swipeStartColor=Color.rgb(98,209,138), swipeEndColor=Color.rgb(255,133,133);
   private int targetProgress=0;
   private boolean minimized=false;
   private String formMode=null;
@@ -259,6 +264,11 @@ public class KfeOverlayService extends Service {
       targetProgress=Math.max(0,Math.min(100,root.optInt("targetProgress",0)));
       rides=root.optString("rides","0");
       liveKm=root.optString("liveKm","0.0 km");
+      phaseStartAt=root.optLong("phaseStartAt",phaseStartAt);
+      phaseLabel=root.optString("phaseLabel",phaseLabel);
+      defaultOperator=root.optString("defaultOperator",defaultOperator);
+      JSONObject swipeConfig=root.optJSONObject("swipeConfig");
+      if(swipeConfig!=null){ swipeCommitThresholdPercent=Math.max(50,Math.min(95,swipeConfig.optInt("commitThresholdPercent",70))); swipeReturnDurationMs=Math.max(80,Math.min(500,swipeConfig.optInt("returnDurationMs",220))); try{swipePickupColor=Color.parseColor(swipeConfig.optString("pickupColor","#78A2FF"));swipeStartColor=Color.parseColor(swipeConfig.optString("startColor","#62D18A"));swipeEndColor=Color.parseColor(swipeConfig.optString("endColor","#FF8585"));}catch(Exception ignored){} }
       deadKm=root.optString("deadKm",root.optString("deadMovementKm","—"));
       gpsStatus=root.optString("gpsStatus",root.optBoolean("gpsTracking",false)?"GPS active":"GPS status unavailable");
       revenue=root.optString("revenue","₹0");
@@ -412,6 +422,8 @@ public class KfeOverlayService extends Service {
     if("GO_TO_PICKUP".equals(actionStage)){
       if(pendingTripId.isEmpty()) pendingTripId=java.util.UUID.randomUUID().toString();
       String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"GO_TO_PICKUP",pendingTripId,"");
+      persistCanonicalTripStage("GOING_TO_PICKUP", false);
+      phaseStartAt=System.currentTimeMillis(); phaseLabel="PICKUP TIME";
       actionStage="START_RIDE"; pendingFareTripId="";
       awaitingEventId=""; awaitingStage=""; awaitingTripId="";
       persistNativeWorkflow(); KfeNativeGpsService.start(this,pendingTripId,gpsEventForAction("GO_TO_PICKUP"),"TRIP"); animateRetract(); overlay.invalidate();
@@ -421,7 +433,8 @@ public class KfeOverlayService extends Service {
     if("START_RIDE".equals(actionStage)){
       if(pendingTripId.isEmpty()) return;
       String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"START_RIDE",pendingTripId,"");
-      actionStage="END_RIDE"; tripStartAt=System.currentTimeMillis();
+      actionStage="END_RIDE"; tripStartAt=System.currentTimeMillis(); phaseStartAt=tripStartAt; phaseLabel="TRIP TIME";
+      persistCanonicalTripStage("RIDE_STARTED", true);
       getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit()
         .putLong("tripStartAt",tripStartAt).putString("tripTimerTripId",pendingTripId).apply();
       awaitingEventId=""; awaitingStage=""; awaitingTripId="";
@@ -432,7 +445,7 @@ public class KfeOverlayService extends Service {
     if("END_RIDE".equals(actionStage)){
       if(pendingTripId.isEmpty()) return;
       String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"END_RIDE",pendingTripId,"");
-      actionStage="ENTER_FARE"; pendingFareTripId=pendingTripId; tripStartAt=0L;
+      actionStage="ENTER_FARE"; pendingFareTripId=pendingTripId; tripStartAt=0L; phaseStartAt=System.currentTimeMillis(); phaseLabel="FARE ENTRY TIME";
       getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().remove("tripStartAt").remove("tripTimerTripId").apply();
       awaitingEventId=""; awaitingStage=""; awaitingTripId="";
       persistNativeWorkflow(); KfeNativeGpsService.stop(this,pendingTripId);
@@ -477,7 +490,7 @@ public class KfeOverlayService extends Service {
     if("START_RIDE".equals(stage)){ actionStage="END_RIDE"; Log.i("KFE-SWIPE","stage transition START_RIDE -> END_RIDE"); persistNativeWorkflow(); KfeNativeGpsService.start(this,pendingTripId,gpsEventForAction("START_RIDE"),"TRIP"); animateRetract(); if(overlay!=null)overlay.invalidate(); return; }
     if("END_RIDE".equals(stage)){ pendingFareTripId=tripId; pendingTripId=tripId; actionStage="ENTER_FARE"; Log.i("KFE-SWIPE","stage transition END_RIDE -> ENTER_FARE"); persistNativeWorkflow(); KfeNativeGpsService.stop(this,tripId); if(!minimized&&!"FARE".equals(formMode)){if("FARE".equals(getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString("formMode","")))restorePersistedFormIfNeeded();else openFareForm();} if(overlay!=null)overlay.invalidate(); return; }
     if("OPEN_CANCEL_FORM".equals(stage)){ persistNativeWorkflow(); if(overlay!=null)overlay.invalidate(); return; }
-    if("ENTER_FARE".equals(stage) || "CANCEL_RIDE".equals(stage)){ Log.i("KFE-SWIPE","stage transition "+stage+" -> GO_TO_PICKUP"); closeForm(); if("CANCEL_RIDE".equals(stage)){cancelFormPwaSynchronized=false;KfeNativeGpsService.stop(this,tripId);} actionStage="GO_TO_PICKUP"; pendingTripId=""; pendingFareTripId=""; tripStartAt=0L; persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); }
+    if("ENTER_FARE".equals(stage) || "CANCEL_RIDE".equals(stage)){ Log.i("KFE-SWIPE","stage transition "+stage+" -> GO_TO_PICKUP"); closeForm(); if("CANCEL_RIDE".equals(stage)){cancelFormPwaSynchronized=false;KfeNativeGpsService.stop(this,tripId);} actionStage="GO_TO_PICKUP"; pendingTripId=""; pendingFareTripId=""; tripStartAt=0L; phaseStartAt=0L; phaseLabel="READY TIME"; persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); }
   }
 
   private void persistNativeWorkflow(){
@@ -489,7 +502,9 @@ public class KfeOverlayService extends Service {
       .putString("awaitingEventId",awaitingEventId)
       .putString("awaitingStage",awaitingStage)
       .putString("awaitingTripId",awaitingTripId)
-      .putLong("tripStartAt",tripStartAt);
+      .putLong("tripStartAt",tripStartAt)
+      .putLong("phaseStartAt",phaseStartAt)
+      .putString("phaseLabel",phaseLabel);
     if("END_RIDE".equals(actionStage)&&!pendingTripId.isEmpty()&&tripStartAt>0L)
       editor.putString("tripTimerTripId",pendingTripId);
     else editor.remove("tripTimerTripId");
@@ -500,6 +515,7 @@ public class KfeOverlayService extends Service {
         state.put("overlayAction",actionStage);
         state.put("overlayTripId",pendingTripId);
         state.put("pendingFareId",pendingFareTripId);
+        state.put("phaseStartAt",phaseStartAt); state.put("phaseLabel",phaseLabel);
         editor.putString(LAST_STATE_KEY,state.toString());
       }catch(Exception ignored){}
     }
@@ -741,6 +757,44 @@ public class KfeOverlayService extends Service {
     }
   }
 
+  
+  private void persistCanonicalTripStage(String stage, boolean rideStarted){
+    try{
+      JSONObject root=new JSONObject(getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(LAST_STATE_KEY,"{}"));
+      JSONObject shift=root.optJSONObject("shift");
+      if(shift==null||shift.optString("id","").isEmpty()||pendingTripId.isEmpty())return;
+      KfeCanonicalWorkStore store=KfeCanonicalWorkStore.get(this);
+      JSONObject found=store.getRecord("TRIP",pendingTripId);
+      JSONObject trip=found.optJSONObject("record"); if(trip==null)trip=new JSONObject();
+      trip.put("id",pendingTripId); trip.put("shiftId",shift.optString("id"));
+      if(!defaultOperator.isEmpty())trip.put("operator",defaultOperator);
+      trip.put("status","COMPLETED".equals(stage)?"COMPLETED":"ACTIVE");
+      trip.put("tripStage","COMPLETED".equals(stage)?"COMPLETED":stage);
+      if(!trip.has("createdAt"))trip.put("createdAt",new java.util.Date().toInstant().toString());
+      if(rideStarted)trip.put("tripStartAt",new java.util.Date(tripStartAt).toInstant().toString());
+      if("COMPLETED".equals(stage))trip.put("tripEndAt",new java.util.Date().toInstant().toString());
+      trip.put("updatedAt",new java.util.Date().toInstant().toString());
+      store.putRecord("native-trip-stage-"+pendingTripId+"-"+stage,"TRIP",trip);
+    }catch(Exception error){Log.e("KFE-CANONICAL","Could not persist native trip stage",error);}
+  }
+  private void refreshCanonicalRevenue(String shiftId){
+    if(shiftId==null||shiftId.isEmpty())return;
+    try{
+      org.json.JSONArray records=KfeCanonicalWorkStore.get(this).listRecords("TRIP",1000).optJSONArray("records");
+      double total=0d;
+      if(records!=null)for(int i=0;i<records.length();i++){
+        JSONObject trip=records.optJSONObject(i); if(trip==null||!shiftId.equals(trip.optString("shiftId","")))continue;
+        if("COMPLETED".equals(trip.optString("status"))&&!trip.optBoolean("fareDetailsSkipped",false)){
+          Object v=trip.opt("revenue");if(v instanceof Number&&((Number)v).doubleValue()>=0d)total+=((Number)v).doubleValue();
+        }else if("CANCELLED".equals(trip.optString("status"))){
+          Object v=trip.has("cancelledRevenue")&&!trip.isNull("cancelledRevenue")?trip.opt("cancelledRevenue"):trip.opt("revenue");
+          if(v instanceof Number&&((Number)v).doubleValue()>=0d)total+=((Number)v).doubleValue();
+        }
+      }
+      revenue="₹"+String.format(java.util.Locale.US,"%.0f",total);if(overlay!=null)overlay.postInvalidate();
+    }catch(Exception error){Log.e("KFE-CANONICAL","Could not derive live revenue",error);}
+  }
+
   private void persistCanonicalTripForm(String mode,String tripId,JSONObject input) throws Exception {
     if(tripId==null||tripId.trim().isEmpty())throw new IllegalArgumentException("Trip ID is required.");
     JSONObject trip=null;
@@ -784,6 +838,7 @@ public class KfeOverlayService extends Service {
     trip.put("updatedAt",now);
     KfeCanonicalWorkStore.Outcome outcome=canonical.putRecord(operationId,"TRIP",trip);
     if(!outcome.accepted)throw new IllegalStateException("Canonical trip form was not accepted.");
+    refreshCanonicalRevenue(trip.optString("shiftId",""));
   }
 
   private void finishNativeFormCommit(){
@@ -794,6 +849,7 @@ public class KfeOverlayService extends Service {
     pendingTripId="";
     pendingFareTripId="";
     tripStartAt=0L;
+    phaseStartAt=0L; phaseLabel="READY TIME";
     awaitingEventId="";awaitingStage="";awaitingTripId="";
     persistNativeWorkflow();
     animateRetract();
@@ -810,9 +866,10 @@ public class KfeOverlayService extends Service {
 
   private int textColor(){return dark()?Color.rgb(232,237,242):Color.rgb(23,32,42);}
   private int mutedColor(){return dark()?Color.rgb(184,194,205):Color.rgb(91,102,115);}
-  private int actionColor(){if("END_RIDE".equals(actionStage))return dark()?Color.rgb(255,133,133):Color.rgb(198,40,40);if("START_RIDE".equals(actionStage))return dark()?Color.rgb(98,209,138):Color.rgb(22,128,60);
+  private int actionColor(){if("END_RIDE".equals(actionStage))return swipeEndColor;if("START_RIDE".equals(actionStage))return swipeStartColor;
     if("CANCELLED".equals(actionStage)||"CANCEL_RIDE".equals(actionStage))return dark()?Color.rgb(255,190,80):Color.rgb(190,120,0);
-    return dark()?Color.rgb(120,162,255):Color.rgb(37,99,235);}
+    return swipePickupColor;}
+  private String formatPhaseTime(){long start=phaseStartAt;if("END_RIDE".equals(actionStage)&&tripStartAt>0L)start=tripStartAt;if(start<=0L)return "00:00:00";long elapsed=Math.max(0L,System.currentTimeMillis()-start)/1000L;long h=elapsed/3600L,m=(elapsed%3600L)/60L,s=elapsed%60L;return String.format(java.util.Locale.US,"%02d:%02d:%02d",h,m,s);}
   private int targetColor(){if(targetProgress>=100)return dark()?Color.rgb(80,220,130):Color.rgb(20,145,75);if(targetProgress>=70)return dark()?Color.rgb(255,205,90):Color.rgb(190,125,0);return actionColor();}
   // KFE is dark-only: ignore stale persisted theme values so white action text can never land on a white overlay surface.
   private boolean dark(){return true;}
@@ -876,10 +933,11 @@ public class KfeOverlayService extends Service {
       rect.set(8,barTop,(w-8)*progress+8,barTop+barH);c.drawRoundRect(rect,dp(22),dp(22),paint);
       // Target, live distance, trip timer and revenue remain the compact primary metrics.
       float[] cols={.14f,.38f,.62f,.86f};
-      String[] labels={"TARGET",resolveMovementLabel(actionStage),"TRIP TIME","REVENUE"};
-      String[] values={target,liveKm,formatTripTime(),revenue};
+      String[] labels={"TARGET",resolveMovementLabel(actionStage),phaseLabel,"REVENUE"};
+      String movementValue=("GO_TO_PICKUP".equals(actionStage)||"START_RIDE".equals(actionStage))?deadKm:liveKm;
+      String[] values={target,movementValue,formatPhaseTime(),revenue};
       for(int i=0;i<4;i++){text(9,mutedColor(),true);center(c,labels[i],w*cols[i],barTop+dp(23));text(15,i==0?targetColor():(i==1?a:textColor()),true);center(c,values[i],w*cols[i],barTop+dp(44));}
-      if("END_RIDE".equals(actionStage)||"START_RIDE".equals(actionStage)) postInvalidateDelayed(1000);
+      if("END_RIDE".equals(actionStage)||"START_RIDE".equals(actionStage)||phaseStartAt>0L) postInvalidateDelayed(1000);
       boolean gpsActive=KfeNativeGpsService.isAnyPersistedTracking(KfeOverlayService.this);
       text(9,gpsActive?(dark()?Color.rgb(98,209,138):Color.rgb(22,128,60)):mutedColor(),true);
       center(c,gpsActive?"GPS ●":"GPS ○",w*.20f,barTop+dp(62));
@@ -919,7 +977,7 @@ public class KfeOverlayService extends Service {
       float from=progress;
       if(from<=0.001f){progress=0f;invalidate();return;}
       retractAnimator=ValueAnimator.ofFloat(from,0f);
-      retractAnimator.setDuration(220L);
+      retractAnimator.setDuration(swipeReturnDurationMs);
       retractAnimator.addUpdateListener(v->{progress=(Float)v.getAnimatedValue();invalidate();});
       retractAnimator.addListener(new android.animation.AnimatorListenerAdapter(){
         @Override public void onAnimationEnd(android.animation.Animator animation){progress=0f;invalidate();}
@@ -995,9 +1053,9 @@ public class KfeOverlayService extends Service {
           float maxTravel=Math.max(1,getWidth()-dp(16)-dp(58));
           if(swipeLocked){
             float finalProgress=KfeSwipeGesture.progress(downProgress*maxTravel+fx,maxTravel);
-            boolean commit=swipeEligible&&KfeSwipeGesture.hasMovedRight(fx,dp(8))&&finalProgress>=0.70f;
+            boolean commit=swipeEligible&&KfeSwipeGesture.hasMovedRight(fx,dp(8))&&finalProgress>=swipeCommitThresholdPercent/100f;
             progress=finalProgress;
-            Log.i("KFE-SWIPE","release stage="+actionStage+" startX="+downLocalX+" x="+e.getX()+" dx="+fx+" progress="+finalProgress+" threshold=0.70 eligible="+swipeEligible+" pending="+shortEventId(awaitingEventId)+" commit="+commit);
+            Log.i("KFE-SWIPE","release stage="+actionStage+" startX="+downLocalX+" x="+e.getX()+" dx="+fx+" progress="+finalProgress+" threshold="+(swipeCommitThresholdPercent/100f)+" eligible="+swipeEligible+" pending="+shortEventId(awaitingEventId)+" commit="+commit);
             if(commit){
               progress=1;invalidate();triggerAction();
             }else{

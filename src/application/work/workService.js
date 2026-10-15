@@ -11,10 +11,25 @@ import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } fro
 import { BackupService } from '../backup/backupService.js'
 import { MovementAccountingService, routeTrace, assessGpsTraceCompleteness, isUsableDistanceKm } from '../../domain/movement/movementAccounting.js'
 import { WorkRuntimePorts } from './workRuntimePorts.js'
+import { CanonicalWorkBoundary } from './canonicalWorkBoundary.js'
 import { calculateTraceDistanceKm } from '../../domain/movement/traceDistance.js'
 import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
 
 const checkpoint = () => BackupService.requestLocalBackupCheckpoint()
+const mirrorCanonicalRecord = async (entityType, record) => {
+  if (!record?.id || !WorkRuntimePorts.canonicalWork.isAvailable()) return record
+  const outcome = await CanonicalWorkBoundary.putRecord({ operationId: CanonicalWorkBoundary.createOperationId(), entityType, record })
+  if (outcome?.accepted !== true) throw new Error(`Native canonical ${entityType} commit was not acknowledged.`)
+  return record
+}
+const mirrorCanonicalTripById = async id => {
+  if (!id || !WorkRuntimePorts.canonicalWork.isAvailable()) return null
+  const trips = await ShiftTripRepository.getAllTrips()
+  const record = trips.find(item => item.id === id)
+  if (record) await mirrorCanonicalRecord('TRIP', record)
+  return record || null
+}
+
 let nativeGpsRecoveryAttempt = null
 
 export const WorkService = Object.freeze({
@@ -22,7 +37,16 @@ export const WorkService = Object.freeze({
   validateTripOperator(operator) { return validateTripOperator(operator) },
   validateTripCorrection(data) { return validateTripCorrection(data) },
   validateFuelEntry(data) { return validateFuelEntry(data) },
-  async getActiveState() { return ShiftTripRepository.getActive() },
+  async getActiveState() {
+    if (WorkRuntimePorts.canonicalWork.isAvailable()) {
+      const [shifts, trips] = await Promise.all([
+        WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'SHIFT', limit: 1000 }),
+        WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'TRIP', limit: 1000 })
+      ])
+      await ShiftTripRepository.syncCanonicalRecords({ shifts: shifts.records, trips: trips.records })
+    }
+    return ShiftTripRepository.getActive()
+  },
   async getTripsForShift(shiftId) { return ShiftTripRepository.getTripsForShift(shiftId) },
   async getAllTrips() { return ShiftTripRepository.getAllTrips() },
   async getLastCompletedShift() { return ShiftTripRepository.getLastCompletedShift() },
@@ -131,11 +155,11 @@ export const WorkService = Object.freeze({
   calculateFuelQuantity(pricePerKg, amount) { return calculateFuelQuantity({ pricePerKg, amount }) },
   calculateTraceDistanceKm(points = []) { return calculateTraceDistanceKm(points) },
   reconcileShiftRevenue(data) { return reconcileShiftRevenue(data) },
-  async startShift(data) { const result = await ShiftTripRepository.createShift(data); checkpoint(); return result },
+  async startShift(data) { const result = await ShiftTripRepository.createShift(data); await mirrorCanonicalRecord('SHIFT', result); checkpoint(); return result },
   async startTrip(data) {
     const validation = validateTripOperator(data?.operator)
     if (!validation.valid) return { ok: false, reason: validation.reason }
-    const result = await ShiftTripRepository.createTrip({ ...data, operator: validation.operator, tripStage: data?.tripStage || 'GOING_TO_PICKUP' }); checkpoint()
+    const result = await ShiftTripRepository.createTrip({ ...data, operator: validation.operator, tripStage: data?.tripStage || 'GOING_TO_PICKUP' }); await mirrorCanonicalRecord('TRIP', result); checkpoint()
     // GPS is telemetry/enrichment. Never block the authoritative trip transition on it.
     void WorkRuntimePorts.nativeGps.start(result.id, 'DEAD_MOVEMENT_TRACE', 'TRIP').catch(() => {})
     void captureLifecycleLocation({ entityType: 'TRIP', entityId: result.id, eventType: 'START' }).then(location => {
@@ -146,6 +170,7 @@ export const WorkService = Object.freeze({
   },
   async startRide(data) {
     const result = await ShiftTripRepository.setTripStage(data?.id, 'RIDE_STARTED')
+    if (result && typeof result === 'object') await mirrorCanonicalRecord('TRIP', result)
     checkpoint()
     if (!result || !data?.id) return result
     // Android uses the native foreground trace. Browser/PWA builds do not have
@@ -161,7 +186,7 @@ export const WorkService = Object.freeze({
   async completeTrip(data) {
     // Commit the terminal state first. GPS is enrichment only: never hold the swipe
     // transition or the pending-fare form open while native trace synchronization runs.
-    const result = await ShiftTripRepository.completeTrip({ ...data }); checkpoint()
+    const result = await ShiftTripRepository.completeTrip({ ...data }); await mirrorCanonicalTripById(data?.id); checkpoint()
     const tripId = data?.id
     if (tripId) {
       void (async () => {
@@ -254,6 +279,7 @@ export const WorkService = Object.freeze({
   },
   async cancelTrip(data) {
     const result = await ShiftTripRepository.cancelTrip(data)
+    await mirrorCanonicalTripById(data?.id)
     checkpoint()
     if (data?.id) {
       void (async () => {
@@ -279,7 +305,7 @@ export const WorkService = Object.freeze({
   async updateTrip(data) {
     const validation = validateTripCorrection(data)
     if (!validation.valid) return { ok: false, reason: validation.reason }
-    const result = await ShiftTripRepository.updateTrip({ ...data, ...validation }); checkpoint(); return result
+    const result = await ShiftTripRepository.updateTrip({ ...data, ...validation }); await mirrorCanonicalTripById(data?.id); checkpoint(); return result
   },
   async updateFuel(data) { const result = await FuelRepository.update(data.id, data); checkpoint(); return { ok: true, record: result } },
   async deleteFuel(id) { const result = await FuelRepository.remove(id); checkpoint(); return { ok: result } },
@@ -334,6 +360,11 @@ export const WorkService = Object.freeze({
       }
     }
     const result = await completeEndShift(completionData)
+    if (WorkRuntimePorts.canonicalWork.isAvailable()) {
+      const closedShift = await ShiftTripRepository.getLastCompletedShift()
+      if (closedShift?.id === active.shift?.id) await mirrorCanonicalRecord('SHIFT', closedShift)
+      if (active.shift?.id) for (const trip of await ShiftTripRepository.getTripsForShift(active.shift.id)) await mirrorCanonicalRecord('TRIP', trip)
+    }
     checkpoint()
     return result
   },

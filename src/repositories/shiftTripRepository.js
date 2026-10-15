@@ -278,5 +278,21 @@ export const ShiftTripRepository = {
   async getBusinessStartBaseline() { const [vehicles, settings] = await Promise.all([readAll('vehicles'), readAll('settings')]); const active = vehicles.filter(v => !v.deleted && !v.deletedAt && v.status !== 'Sold' && Number.isFinite(Number(v.openingOdometerKm))); const vehicle = active.sort((a, b) => String(a.id || '').localeCompare(String(b.id || '')))[0] || null; const setup = settings.find(item => item.settingKey === 'businessSetup' && !item.deleted && !item.deletedAt); const businessStartDate = setup?.values?.businessStartDate || null; return vehicle ? { businessStartDate, businessStartOdometer: Number(vehicle.openingOdometerKm) } : (businessStartDate ? { businessStartDate, businessStartOdometer: null } : null) },
   async getLastCompletedShift() { const shifts = await readAll('shifts'); return shifts.filter(s => s.status === 'COMPLETED' && Number.isFinite(Number(s.endOdometer))).sort((a, b) => new Date(b.shiftEndAt || b.updatedAt) - new Date(a.shiftEndAt || a.updatedAt))[0] || null },
   async getLastCompletedTrip() { const trips = await readAll('trips'); return trips.filter(t => t.status === 'COMPLETED' && t.operator).sort((a, b) => new Date(b.tripEndAt || b.updatedAt) - new Date(a.tripEndAt || a.updatedAt))[0] || null },
+  async syncCanonicalRecords({ shifts = [], trips = [] } = {}) {
+    const db = await initializeCanonicalStorage()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['shifts', 'trips'], 'readwrite')
+      const shiftStore = tx.objectStore('shifts')
+      const tripStore = tx.objectStore('trips')
+      for (const record of shifts) if (record?.id) shiftStore.put(record)
+      for (const record of trips) if (record?.id) tripStore.put(record)
+      tx.oncomplete = () => {
+        notifyCanonicalDataChanged({ stores: ['shifts', 'trips'], reason: 'native-canonical-recovery' })
+        resolve(true)
+      }
+      tx.onerror = () => reject(tx.error || new Error('Native canonical recovery failed.'))
+      tx.onabort = () => reject(tx.error || new Error('Native canonical recovery aborted.'))
+    })
+  },
   async getActive() { const [shifts, trips] = await Promise.all([readAll('shifts'), readAll('trips')]); return { shift: shifts.find(s => s.status === 'ACTIVE') || null, trip: trips.find(t => t.status === 'ACTIVE') || null } }
 }

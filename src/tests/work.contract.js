@@ -9,6 +9,8 @@ import { calculateFuelQuantity, validateFuelEntry } from '../domain/work/fuel.js
 import { WorkService } from '../application/work/workService.js'
 import { WorkflowTimerService, WorkWorkflowSessionService } from '../application/work/workflowTimerService.js'
 import { getLiveMovementTracePlan } from '../application/work/liveMovementTrace.js'
+import { deriveLiveRevenue } from '../domain/work/liveRevenue.js'
+assert.equal(deriveLiveRevenue([{status:'COMPLETED',revenue:250},{status:'COMPLETED',revenue:150}]),400)
 const workViewSource = fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8')
 assert.doesNotMatch(workViewSource, /from ['"][^'"]*\/infrastructure\//, 'Work view must not import infrastructure adapters directly.')
 assert.doesNotMatch(workViewSource, /from ['"]@capacitor\/core['"]/, 'Work view must not depend directly on Capacitor.')

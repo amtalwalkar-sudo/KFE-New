@@ -10,6 +10,8 @@ import { PerformanceService } from '../application/performance/performanceServic
 import { WorkRuntimePorts } from '../application/work/workRuntimePorts.js'
 import { CanonicalWorkBoundary } from '../application/work/canonicalWorkBoundary.js'
 import { getLiveMovementTracePlan, matchesLiveMovementSession } from '../application/work/liveMovementTrace.js'
+import { deriveLiveRevenue } from '../domain/work/liveRevenue.js'
+import { SWIPE_CONFIG } from '../domain/work/swipeConfig.js'
 import { deriveWorkCockpitState, WORK_COCKPIT_STATES } from '../application/work/workCockpit.js'
 import WorkContextForm from '../components/work/WorkContextForm.vue'
 
@@ -186,6 +188,7 @@ const targetProgress = computed(() => targetValue.value > 0
   : 0)
 
 const completed = computed(() => store.completedTrips.filter(t => t.status === 'COMPLETED'))
+const liveRevenue = computed(() => deriveLiveRevenue(store.registeredTrips))
 const pendingFare = computed(() => {
   if (fareTripId.value) {
     const selected = completed.value.find(t => t.id === fareTripId.value)
@@ -205,7 +208,7 @@ const cockpit = computed(() => deriveWorkCockpitState({
   target: targetValue.value == null ? '—' : money(targetValue.value),
   targetProgress: targetProgress.value,
   liveKm: `${liveMovementKm.value.toFixed(1)} km`,
-  revenue: '₹0',
+  revenue: money(liveRevenue.value)
   asOf: clock.value
 }))
 
@@ -214,6 +217,10 @@ const active = computed(() => cockpit.value.state === WORK_COCKPIT_STATES.TRIP_A
 const liveMovementKm = ref(0)
 const liveMovementStatus = ref('WAITING FOR GPS')
 const liveMovementLabel = computed(() => store.isOnline ? (active.value ? 'BUSINESS KM' : 'DEAD KM') : '')
+const swipeStyle = computed(() => {
+  const color = cockpit.value.action === 'END_RIDE' ? SWIPE_CONFIG.endColor : cockpit.value.action === 'START_RIDE' ? SWIPE_CONFIG.startColor : SWIPE_CONFIG.pickupColor
+  return { '--swipe-action-color': color }
+})
 const actionLabel = computed(() => {
   if (cockpit.value.action === 'END_RIDE') return 'END TRIP'
   if (cockpit.value.action === 'START_RIDE') return 'START TRIP'
@@ -370,9 +377,7 @@ async function syncOverlay() {
     return
   }
 
-  // Shift-end revenue is the ERP authority. Trip fares are optional supporting
-  // detail and must never become a competing overlay revenue total.
-  const revenue = money(store.shift?.revenue ?? 0)
+  // Revenue is derived from saved trip fares, not manual shift-end entry.
   // Mirror the same state-aware live movement estimate shown in Work.
   // The native overlay labels this value DEAD KM on the pickup leg and BUSINESS KM
   // once the passenger ride starts; do not substitute a passenger-only trace here.
@@ -382,6 +387,7 @@ async function syncOverlay() {
     trips = await WorkService.getTripsForShift(store.shift.id)
   } catch (_) {}
 
+  const revenue = money(deriveLiveRevenue(trips))
   const recoveredPendingFareId = pendingFare.value?.id || [...trips]
     .filter(t => t.status === 'COMPLETED' && t.revenue == null && t.fareDetailsSkipped !== true)
     .sort((a, b) => Date.parse(b.tripEndAt || b.updatedAt || '') - Date.parse(a.tripEndAt || a.updatedAt || ''))[0]?.id || ''
@@ -411,6 +417,10 @@ async function syncOverlay() {
     liveKm: state.liveKm,
     revenue: state.revenue,
     tripStartAt: state.tripStartAt,
+    phaseStartAt: stateTimerStartAt.value,
+    phaseLabel: stateTimerLabel.value,
+    defaultOperator: store.defaultOperator,
+    swipeConfig: SWIPE_CONFIG,
     overlayAction: state.pendingFareId && (!store.trip?.id || store.trip.status !== 'ACTIVE') ? 'ENTER_FARE' : state.action,
     overlayTripId: state.pendingFareId && (!store.trip?.id || store.trip.status !== 'ACTIVE') ? state.pendingFareId : state.tripId,
     pendingFareId: state.pendingFareId,
@@ -956,7 +966,7 @@ function move(event) {
 async function up(event) {
   if (!swipe.value.down) return
   if (event?.pointerId != null && swipePointerId.value !== event.pointerId) return
-  const commit = swipeProgress.value >= 70
+  const commit = swipeProgress.value >= SWIPE_CONFIG.commitThresholdPercent
   swipe.value = { down: false, start: 0, offset: 0 }
   swipePointerId.value = null
   if (commit) await doAction()
@@ -1260,6 +1270,7 @@ onBeforeUnmount(() => {
       <div class="work-live-metrics">
         <div class="live-km-readout" aria-live="polite"><span>{{ liveMovementLabel || 'LIVE KM' }}</span><strong>{{ liveMovementKm.toFixed(1) }} km</strong><small>{{ liveMovementStatus }}</small></div>
         <div class="trip-timer-block"><span class="timer-label">{{ stateTimerLabel }}</span><strong class="trip-timer" aria-live="polite">{{ active ? tripTimer : stateTimer }}</strong></div>
+        <div class="live-revenue-readout" aria-live="polite"><span>REVENUE</span><strong>{{ money(liveRevenue) }}</strong><small>Saved fares</small></div>
       </div>
     </section>
     <WorkContextForm
@@ -1308,9 +1319,9 @@ onBeforeUnmount(() => {
 
 
       <section v-if="!fuelOpen && !endOpen && !cancelOpen" class="action-instrument work-fixed-action">
-        <div ref="track" class="swipe trip-swipe" :class="{threshold:swipeProgress>=70,committing:busy,'semantic-go':cockpit.action==='GO_TO_PICKUP','semantic-start':cockpit.action==='START_RIDE','semantic-end':cockpit.action==='END_RIDE'}" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up">
+        <div ref="track" class="swipe trip-swipe" :class="{threshold:swipeProgress>=SWIPE_CONFIG.commitThresholdPercent,committing:busy,'semantic-go':cockpit.action==='GO_TO_PICKUP','semantic-start':cockpit.action==='START_RIDE','semantic-end':cockpit.action==='END_RIDE'}" :style="swipeStyle" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up">
           <div class="swipe-copy"><strong>{{ actionLabel }}</strong></div>
-          <button class="swipe-handle" type="button" :aria-label="actionLabel" :style="{ transform: `translateX(${swipe.offset}px)`, transition: swipe.down ? 'none' : 'transform 180ms ease-out' }" @keydown.enter.prevent="keyAction" @keydown.space.prevent="keyAction">→</button>
+          <button class="swipe-handle" type="button" :aria-label="actionLabel" :style="{ transform: `translateX(${swipe.offset}px)`, transition: swipe.down ? 'none' : `transform ${SWIPE_CONFIG.returnDurationMs}ms ease-out` }" @keydown.enter.prevent="keyAction" @keydown.space.prevent="keyAction">→</button>
         </div>
       </section>
     </template>

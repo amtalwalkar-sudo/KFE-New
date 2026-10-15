@@ -1747,13 +1747,14 @@ table th,table td{border-color:var(--kfe-ui-border)}
    in a compact, labeled row across READY, pickup, and active-trip states. */
 .work-canonical .work-live-metrics {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   margin-top: 8px;
 }
 .work-canonical .work-live-metrics .live-km-readout,
-.work-canonical .work-live-metrics .trip-timer-block {
+.work-canonical .work-live-metrics .trip-timer-block,
+.work-canonical .work-live-metrics .live-revenue-readout {
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -1765,7 +1766,8 @@ table th,table td{border-color:var(--kfe-ui-border)}
   background: var(--kfe-ui-surface-2, #eef2f6);
 }
 .work-canonical .work-live-metrics .live-km-readout > span,
-.work-canonical .work-live-metrics .timer-label {
+.work-canonical .work-live-metrics .timer-label,
+.work-canonical .work-live-metrics .live-revenue-readout > span {
   font-size: 10px;
   line-height: 1.2;
   font-weight: 900;
@@ -1773,7 +1775,8 @@ table th,table td{border-color:var(--kfe-ui-border)}
   color: var(--kfe-muted-text, #5b6673);
 }
 .work-canonical .work-live-metrics .live-km-readout > strong,
-.work-canonical .work-live-metrics .trip-timer {
+.work-canonical .work-live-metrics .trip-timer,
+.work-canonical .work-live-metrics .live-revenue-readout > strong {
   display: block;
   margin: 0;
   font-size: clamp(19px, 5vw, 25px);
@@ -1784,6 +1787,7 @@ table th,table td{border-color:var(--kfe-ui-border)}
   color: var(--kfe-ui-text, #17202a);
   white-space: nowrap;
 }
+.work-canonical .work-live-metrics .live-revenue-readout > small,
 .work-canonical .work-live-metrics .live-km-readout > small {
   font-size: 9px;
   line-height: 1.2;
@@ -1997,3 +2001,7 @@ table th,table td{border-color:var(--kfe-ui-border)}
 .work-canonical .form-fuel .kfe-work-number-pad__grid button{min-height:31px;border-radius:7px;font-size:.9rem}
 .work-canonical .form-fuel .kfe-work-number-pad__actions{gap:4px;margin-top:4px}
 .work-canonical .form-fuel .kfe-work-number-pad__actions button{min-height:32px;border-radius:7px}
+
+.work-canonical .work-fixed-action .trip-swipe.semantic-go { --swipe-action-color: var(--swipe-config-pickup, #78A2FF); }
+.work-canonical .work-fixed-action .trip-swipe.semantic-start { --swipe-action-color: var(--swipe-config-start, #62D18A); }
+.work-canonical .work-fixed-action .trip-swipe.semantic-end { --swipe-action-color: var(--swipe-config-end, #FF8585); }

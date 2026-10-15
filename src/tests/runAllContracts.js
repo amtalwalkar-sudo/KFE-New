@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process'
 
 const suites = [
+  'liveRevenueSwipeParity.contract.js',
   'nativeOverlayFareCancellation.contract.js',
   'nativeCanonicalPersistence.contract.js',
   'nativeCanonicalMigration.contract.js',
