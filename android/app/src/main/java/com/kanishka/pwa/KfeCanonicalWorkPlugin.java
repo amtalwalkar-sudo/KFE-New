@@ -26,6 +26,40 @@ public class KfeCanonicalWorkPlugin extends Plugin {
   }
 
   @com.getcapacitor.PluginMethod
+  public void migrateLegacySnapshot(PluginCall call) {
+    try {
+      String migrationId = call.getString("migrationId", "");
+      JSObject snapshot = call.getObject("snapshot");
+      JSONObject result = KfeCanonicalWorkStore.get(getContext()).migrateLegacySnapshot(migrationId, snapshot);
+      call.resolve(new JSObject(result.toString()));
+    } catch (IllegalArgumentException error) {
+      call.reject(error.getMessage(), "CANONICAL_MIGRATION_REJECTED");
+    } catch (Exception error) {
+      call.reject("Legacy canonical migration failed.", "CANONICAL_MIGRATION_FAILED", error);
+    }
+  }
+
+  @com.getcapacitor.PluginMethod
+  public void verifyLegacyMigration(PluginCall call) {
+    try {
+      JSONObject result = KfeCanonicalWorkStore.get(getContext()).verifyLegacyMigration(call.getString("migrationId", ""));
+      call.resolve(new JSObject(result.toString()));
+    } catch (Exception error) {
+      call.reject("Legacy canonical migration verification failed.", "CANONICAL_MIGRATION_VERIFY_FAILED", error);
+    }
+  }
+
+  @com.getcapacitor.PluginMethod
+  public void getMigration(PluginCall call) {
+    try {
+      JSONObject result = KfeCanonicalWorkStore.get(getContext()).getMigration(call.getString("migrationId", ""));
+      call.resolve(new JSObject(result.toString()));
+    } catch (Exception error) {
+      call.reject("Canonical migration query failed.", "CANONICAL_MIGRATION_QUERY_FAILED", error);
+    }
+  }
+
+  @com.getcapacitor.PluginMethod
   public void getRecord(PluginCall call) {
     try {
       JSONObject result = KfeCanonicalWorkStore.get(getContext()).getRecord(call.getString("entityType", ""), call.getString("entityId", ""));
