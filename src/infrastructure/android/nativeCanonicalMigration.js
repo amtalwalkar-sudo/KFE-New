@@ -25,9 +25,14 @@ const readLegacySnapshot = async () => {
     for (const [entityType, storeName] of SOURCE_STORES) {
       const request = tx.objectStore(storeName).getAll()
       request.onsuccess = () => {
-        entities[entityType] = (request.result || [])
-          .filter(record => record && typeof record.id === 'string' && record.id.trim())
-          .sort((a, b) => a.id.localeCompare(b.id))
+        const records = request.result || []
+        if (records.some(record => !record || typeof record.id !== 'string' || !record.id.trim())) {
+          failed = true
+          try { tx.abort() } catch (_) {}
+          reject(new Error(`Migration source contains a record without a stable id in ${storeName}.`))
+          return
+        }
+        entities[entityType] = records.sort((a, b) => a.id.localeCompare(b.id))
       }
       request.onerror = () => {
         failed = true
