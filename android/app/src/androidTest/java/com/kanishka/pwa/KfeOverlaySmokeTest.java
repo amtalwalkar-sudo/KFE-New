@@ -97,6 +97,17 @@ public class KfeOverlaySmokeTest {
       KfeNativeGpsService.persistedActiveTripId(context));
   }
 
+  @Test public void nativeOverlaySelectsKmFromDisplayedMovementPhase() {
+    assertEquals("Pickup phase must display dead-movement KM", "12.4 km",
+      KfeOverlayService.resolveMovementValue("START_RIDE", "12.4 km", "8.1 km"));
+    assertEquals("Pre-trip phase must display dead-movement KM", "3.2 km",
+      KfeOverlayService.resolveMovementValue("GO_TO_PICKUP", "3.2 km", "8.1 km"));
+    assertEquals("Passenger phase must display business KM", "8.1 km",
+      KfeOverlayService.resolveMovementValue("END_RIDE", "12.4 km", "8.1 km"));
+    assertEquals("Missing dead-movement estimate remains explicit", "—",
+      KfeOverlayService.resolveMovementValue("START_RIDE", null, "8.1 km"));
+  }
+
   @Test public void staleGpsStopCannotStopNewerTripCollector() {
     assertTrue(KfeNativeGpsService.shouldStopForTrip("trip-a", "trip-a"));
     assertTrue(!KfeNativeGpsService.shouldStopForTrip("trip-b", "trip-a"));
