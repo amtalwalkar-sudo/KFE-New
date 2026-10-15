@@ -682,8 +682,8 @@ public class KfeOverlayService extends Service {
         // The deterministic operation ID makes process-death/retry safe; the
         // separate native event remains queued so the PWA's IndexedDB read model
         // catches up when its WebView next runs.
-        persistCanonicalTripForm("FARE",actionTripId,payload);
         String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"ENTER_FARE",actionTripId,payload.toString());
+        persistCanonicalTripForm("FARE",actionTripId,payload);
         KfeNativeWorkActionsPlugin.emitAction("ENTER_FARE",actionTripId,payload.toString(),eventId);
         finishNativeFormCommit();
       } catch(Exception error){
@@ -696,8 +696,8 @@ public class KfeOverlayService extends Service {
         JSONObject input=new JSONObject();
         input.put("revenue",formValue);
         input.put("reason",cancelReason);
-        persistCanonicalTripForm("CANCEL",pendingTripId,input);
         String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"CANCEL_RIDE",pendingTripId,input.toString());
+        persistCanonicalTripForm("CANCEL",pendingTripId,input);
         KfeNativeWorkActionsPlugin.emitAction("CANCEL_RIDE",pendingTripId,input.toString(),eventId);
         finishNativeFormCommit();
       }catch(Exception error){
@@ -711,16 +711,20 @@ public class KfeOverlayService extends Service {
   private void persistCanonicalTripForm(String mode,String tripId,JSONObject input) throws Exception {
     if(tripId==null||tripId.trim().isEmpty())throw new IllegalArgumentException("Trip ID is required.");
     JSONObject trip=null;
+    KfeCanonicalWorkStore canonical=KfeCanonicalWorkStore.get(this);
+    JSONObject found=canonical.getRecord("TRIP",tripId);
+    if(found.optBoolean("found",false))trip=found.optJSONObject("record");
     String raw=getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(LAST_STATE_KEY,"");
     if(!raw.isEmpty()){
       JSONObject root=new JSONObject(raw);
       JSONObject candidate=root.optJSONObject("trip");
-      if(candidate!=null&&tripId.equals(candidate.optString("id","")))trip=new JSONObject(candidate.toString());
-    }
-    KfeCanonicalWorkStore canonical=KfeCanonicalWorkStore.get(this);
-    if(trip==null){
-      JSONObject found=canonical.getRecord("TRIP",tripId);
-      if(found.optBoolean("found",false))trip=found.optJSONObject("record");
+      if(candidate!=null&&tripId.equals(candidate.optString("id",""))){
+        if(trip==null)trip=new JSONObject(candidate.toString());
+        else {
+          java.util.Iterator<String> keys=candidate.keys();
+          while(keys.hasNext()){String key=keys.next();if(!candidate.isNull(key))trip.put(key,candidate.get(key));}
+        }
+      }
     }
     if(trip==null)throw new IllegalStateException("The last known trip record is unavailable; form was not marked saved.");
     String operationId="native-form-"+mode+"-"+tripId;
