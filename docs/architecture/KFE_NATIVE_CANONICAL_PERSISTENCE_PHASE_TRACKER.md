@@ -3,7 +3,7 @@
 **Repository:** `amtalwalkar-sudo/KFE-New`  
 **Implementation base:** `fix/native-overlay-background-transitions`  
 **Tracking branch:** `feat/native-canonical-persistence-phase`  
-**Status:** Run 1 complete; Run 2 implementation and CI gate complete; Run 3 migration implementation drafted and awaiting CI.
+**Status:** Runs 1–3 complete with CI green; Run 4 implementation in progress and awaiting CI validation.
 
 ## Frozen scope
 
@@ -66,6 +66,17 @@ Do not merge or request physical-device sign-off until required automated checks
 - Fuel is not part of the migration snapshot.
 - Latest known Run 3 implementation commit before this tracker update: `d94494d7a2a052f66400d023b3415be13dd07987`. CI for the new migration code has not yet been confirmed.
 
+## Run 4 — Native fare/cancellation commit integration
+
+**Implementation in progress; CI validation pending.**
+
+- `KfeOverlayService.java`: fare and cancellation form submissions now attempt a durable write to `KfeCanonicalWorkStore` before they are reported as saved to the native overlay.
+- Fare writes completion status, fare/skipped flag, toll/parking values and treatment fields; cancellation writes cancelled status, reason and cancellation revenue.
+- The native canonical write uses a stable per-trip/per-form operation ID. The existing durable native event is still queued and emitted so the PWA replays the same form into its IndexedDB read model when it is available.
+- The overlay no longer needs to wait for the PWA acknowledgement to leave the form after the canonical form record has committed. Failure to find a usable trip snapshot or to commit leaves the form available and logs the failure.
+- Added `nativeOverlayFareCancellation.contract.js` to check canonical-write-before-replay ordering, the fare/cancellation record fields, event replay/acknowledgement wiring, and absence of a main-activity launch in the form submission branches.
+- **Important validation limit:** this is not yet proof of full end-to-end consistency. CI must verify Java compilation, contract tests and the exact built APK. The PWA still catches up through its existing event replay path; the canonical/native and IndexedDB views have not been proven reconciled under process death or conflicting snapshots.
+
 ## Progress ledger
 
 | Run | Status | Evidence / exit criteria |
@@ -73,7 +84,7 @@ Do not merge or request physical-device sign-off until required automated checks
 | 1 — Source audit | **Complete** | Source-backed findings above |
 | 2 — Canonical boundary | **Complete; CI green** | CI #4059 build/test and Android release gate passed |
 | 3 — Migration | **Implemented draft; validation pending** | Native migration ledger, deterministic source snapshot, idempotent import, read-back verification, source retention and contract test; wait for CI and fix failures |
-| 4 — Fare/cancellation | Not started | Overlay save visible in PWA and calculations exactly once |
+| 4 — Fare/cancellation | **Implementation in progress; CI pending** | Native canonical write plus durable PWA replay; verify duplicate/interruption and downstream calculation behavior |
 | 5 — Timer | Not started | Restart/background and stale-snapshot tests |
 | 6 — GPS | Not started | Trace lifecycle, distance-type and recovery tests |
 | 7 — Shift-end removal + release gate | Not started | Reconciliation code removed; end odometer is final driver-facing step; full test/build/CI/APK evidence |
