@@ -139,6 +139,14 @@ public class KfeOverlayService extends Service {
     return "LIVE KM";
   }
 
+  static String resolveMovementValue(String stage, String deadMovementKm, String businessKm){
+    // START_RIDE is the pickup phase (the next swipe starts the passenger leg).
+    // Select by the displayed phase, not by whichever collector updated last.
+    if("GO_TO_PICKUP".equals(stage)||"START_RIDE".equals(stage))
+      return deadMovementKm==null?"—":deadMovementKm;
+    return businessKm==null?"0.0 km":businessKm;
+  }
+
   static String resolveActionLabel(String stage){
     if("GO_TO_PICKUP".equals(stage))return "GO TO PICKUP";
     if("START_RIDE".equals(stage))return "START RIDE";
@@ -963,7 +971,7 @@ public class KfeOverlayService extends Service {
       // Target, live distance, trip timer and revenue remain the compact primary metrics.
       float[] cols={.14f,.38f,.62f,.86f};
       String[] labels={"TARGET",resolveMovementLabel(actionStage),phaseLabel,"REVENUE"};
-      String movementValue=liveKm;
+      String movementValue=resolveMovementValue(actionStage,deadKm,liveKm);
       String[] values={target,movementValue,formatPhaseTime(),revenue};
       for(int i=0;i<4;i++){text(9,mutedColor(),true);center(c,labels[i],w*cols[i],barTop+dp(23));text(15,i==0?targetColor():(i==1?a:textColor()),true);center(c,values[i],w*cols[i],barTop+dp(44));}
       if("END_RIDE".equals(actionStage)||"START_RIDE".equals(actionStage)||phaseStartAt>0L) postInvalidateDelayed(1000);
