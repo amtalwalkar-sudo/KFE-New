@@ -302,6 +302,11 @@ public class KfeNativeGpsService extends Service {
     return id == null ? "" : id;
   }
 
+  static String persistedActiveEventType(Context context) {
+    String event = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(ACTIVE_EVENT, "");
+    return event == null ? "" : event;
+  }
+
   static boolean isPersistedTracking(Context context, String id, String requestedEventType, String requestedEntityType) {
     android.content.SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     String activeId = prefs.getString(ACTIVE_TRIP, "");
