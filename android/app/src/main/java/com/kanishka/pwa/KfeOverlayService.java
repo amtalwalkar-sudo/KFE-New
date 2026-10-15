@@ -24,6 +24,7 @@ import android.view.inputmethod.InputMethodManager;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.Toast;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
