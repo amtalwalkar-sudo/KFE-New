@@ -59,7 +59,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     String entityId = record.optString("id", "");
     if (empty(entityId)) throw new IllegalArgumentException("record.id is required.");
     String payload = record.toString();
-    String now = java.time.Instant.now().toString();
+    String now = timestampNow();
     SQLiteDatabase db = getWritableDatabase();
     db.beginTransaction();
     try {
@@ -150,6 +150,12 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
           .put("status", cursor.getString(3)).put("outcome", new JSONObject(cursor.getString(4)))
           .put("createdAt", cursor.getString(5));
     }
+  }
+
+  private static String timestampNow() {
+    java.text.SimpleDateFormat format = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US);
+    format.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+    return format.format(new java.util.Date());
   }
 
   private static boolean empty(String value) { return value == null || value.trim().isEmpty(); }
