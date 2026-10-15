@@ -48,8 +48,6 @@ const emit = defineEmits([
   'update:large-distance-confirmed-for',
   'update:trip-toll-treatment',
   'update:trip-parking-treatment',
-  'update:toll',
-  'update:parking',
   'update:fare',
   'update:trip-toll',
   'update:trip-parking',
@@ -159,7 +157,7 @@ const numericPress = async token => {
     return
   }
   if (token === 'DONE') {
-    const finalFields = new Set(['fare', 'trip-parking', 'cancel-fare', 'shift-revenue', 'shift-parking'])
+    const finalFields = new Set(['fare', 'trip-parking', 'cancel-fare'])
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     suppressNumericFocus.value = true
     activeNumericField.value = null
