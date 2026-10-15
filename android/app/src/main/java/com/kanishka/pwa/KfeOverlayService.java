@@ -257,15 +257,35 @@ public class KfeOverlayService extends Service {
       gpsStatus=root.optString("gpsStatus",root.optBoolean("gpsTracking",false)?"GPS active":"GPS status unavailable");
       revenue=root.optString("revenue","₹0");
       cancellationRevenue=root.optString("cancellationRevenue","₹0");
-      tripStartAt=root.optLong("tripStartAt",0L);
+      String incomingTripId=root.optString("overlayTripId",trip==null?"":trip.optString("id",""));
+      android.content.SharedPreferences durable=getSharedPreferences("kfe_overlay",MODE_PRIVATE);
+      String durableStage=durable.getString("actionStage","GO_TO_PICKUP");
+      String durableTripId=durable.getString("pendingTripId","");
+      String durableTimerTripId=durable.getString("tripTimerTripId","");
+      long durableTripStartAt=durable.getLong("tripStartAt",0L);
       String previousActionStage=actionStage;
       String nextActionStage=root.optString("overlayAction",actionStage);
-      if(awaitingEventId.isEmpty()) actionStage=nextActionStage;
-      if(!actionStage.equals(previousActionStage) && !"ENTER_FARE".equals(actionStage)) animateRetract();
-      if(awaitingEventId.isEmpty()){
-        pendingTripId=root.optString("overlayTripId","");
-        if(pendingTripId.isEmpty()&&trip!=null)pendingTripId=trip.optString("id","");
+      boolean preserveActiveTrip=awaitingEventId.isEmpty()
+        && "END_RIDE".equals(durableStage)
+        && !durableTripId.isEmpty()
+        && durableTripId.equals(incomingTripId)
+        && durableTimerTripId.equals(durableTripId)
+        && durableTripStartAt>0L;
+      if(preserveActiveTrip){
+        actionStage="END_RIDE";
+        pendingTripId=durableTripId;
+        tripStartAt=durableTripStartAt;
+      }else{
+        tripStartAt=root.optLong("tripStartAt",0L);
+        if(awaitingEventId.isEmpty()) actionStage=nextActionStage;
+        if(awaitingEventId.isEmpty()){
+          pendingTripId=incomingTripId;
+          if(pendingTripId.isEmpty()&&trip!=null)pendingTripId=trip.optString("id","");
+        }
+        if("END_RIDE".equals(actionStage)&&tripStartAt<=0L&&durableTripId.equals(pendingTripId)
+          &&durableTimerTripId.equals(pendingTripId))tripStartAt=durableTripStartAt;
       }
+      if(!actionStage.equals(previousActionStage) && !"ENTER_FARE".equals(actionStage)) animateRetract();
       if(awaitingEventId.isEmpty()) pendingFareTripId=root.optString("pendingFareId","");
       if(formMode!=null){
         if((("ENTER_FARE".equals(actionStage)||"END_RIDE".equals(actionStage))&&!"FARE".equals(formMode))||("CANCEL_RIDE".equals(actionStage)&&!"CANCEL".equals(formMode)))closeForm();
@@ -396,6 +416,8 @@ public class KfeOverlayService extends Service {
       if(pendingTripId.isEmpty()) return;
       String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"START_RIDE",pendingTripId,"");
       actionStage="END_RIDE"; tripStartAt=System.currentTimeMillis();
+      getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit()
+        .putLong("tripStartAt",tripStartAt).putString("tripTimerTripId",pendingTripId).apply();
       awaitingEventId=""; awaitingStage=""; awaitingTripId="";
       persistNativeWorkflow(); animateRetract(); overlay.invalidate();
       Log.i("KFE-SWIPE","durably queued START_RIDE; native stage advanced to END_RIDE event="+shortEventId(eventId));
@@ -404,7 +426,8 @@ public class KfeOverlayService extends Service {
     if("END_RIDE".equals(actionStage)){
       if(pendingTripId.isEmpty()) return;
       String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"END_RIDE",pendingTripId,"");
-      actionStage="ENTER_FARE"; pendingFareTripId=pendingTripId;
+      actionStage="ENTER_FARE"; pendingFareTripId=pendingTripId; tripStartAt=0L;
+      getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().remove("tripStartAt").remove("tripTimerTripId").apply();
       awaitingEventId=""; awaitingStage=""; awaitingTripId="";
       persistNativeWorkflow(); KfeNativeGpsService.stop(this,pendingTripId);
       if(!minimized && !"FARE".equals(formMode)) openFareForm();
@@ -459,7 +482,11 @@ public class KfeOverlayService extends Service {
       .putString("pendingFareTripId",pendingFareTripId)
       .putString("awaitingEventId",awaitingEventId)
       .putString("awaitingStage",awaitingStage)
-      .putString("awaitingTripId",awaitingTripId);
+      .putString("awaitingTripId",awaitingTripId)
+      .putLong("tripStartAt",tripStartAt);
+    if("END_RIDE".equals(actionStage)&&!pendingTripId.isEmpty()&&tripStartAt>0L)
+      editor.putString("tripTimerTripId",pendingTripId);
+    else editor.remove("tripTimerTripId");
     String raw=prefs.getString(LAST_STATE_KEY,"");
     if(!raw.isEmpty()){
       try{
