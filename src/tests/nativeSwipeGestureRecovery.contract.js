@@ -36,6 +36,7 @@ assert.match(service, /actionStage="ENTER_FARE"; pendingFareTripId=pendingTripId
 assert.match(workView, /let nativeEventQueue = Promise\.resolve\(\)/)
 assert.match(workView, /nativeEventQueue\.then\(\(\) => processNativeEvent\(event\)\)/)
 assert.match(workView, /event => \{ void enqueueNativeEvent\(event\) \}/)
+// Keep the background queue contract adjacent to the original swipe/recovery assertions.
 console.log('KFE native background transition queue contract: PASS')
 
 console.log('KFE native swipe gesture and pending recovery contract: PASS')
