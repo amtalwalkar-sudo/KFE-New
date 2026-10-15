@@ -3,7 +3,7 @@
 **Repository:** `amtalwalkar-sudo/KFE-New`  
 **Implementation base:** `fix/native-overlay-background-transitions`  
 **Tracking branch:** `feat/native-canonical-persistence-phase`  
-**Status:** CI [#4125](https://github.com/amtalwalkar-sudo/KFE-New/actions/runs/38803266019) is green: `build-and-test` and `android-release-gate` passed, including the exact-APK smoke gate and tested APK artifact. Runs 5 and 6 have automated CI coverage; Run 7 implementation is complete in this commit series. Physical-device validation remains pending.
+**Status:** CI [#4126](https://github.com/amtalwalkar-sudo/KFE-New/actions/runs/38803856177) is green: `build-and-test` and `android-release-gate` passed, including the exact-APK smoke gate and tested APK artifact. Runs 5 and 6 have automated CI coverage; Run 7 implementation is complete in this commit series. Physical-device validation remains pending.
 
 ## Frozen scope
 
@@ -102,7 +102,7 @@ Do not merge or request physical-device sign-off until required automated checks
 
 ## Run 7 — Odometer-only shift end and final acceptance
 
-**Implementation complete; CI #4125 passed both required jobs. This tracker update triggers one final CI rerun.**
+**Complete; the tracker commit itself passed CI #4126.**
 
 - Removed the shift-end shift-revenue input, trip-fare review list, shift toll/parking capture, and the multi-stage reconciliation/review/confirmation flow from `WorkContextForm.vue`, `WorkEndShiftForm.vue`, and `WorkModuleView.vue`.
 - The driver-facing end-shift path now validates the closing odometer, retains the explicit confirmation gate for unusually large distance, and commits the odometer plus shift lifecycle/audit state.
@@ -110,7 +110,7 @@ Do not merge or request physical-device sign-off until required automated checks
 - Existing shift financial authority and trip fare/cancellation records are preserved. Trip fare corrections and financial read-model recalculation remain separate from shift closure.
 - Native GPS trace import and movement accounting remain internal to shift completion so persisted mileage evidence is retained without asking the driver to perform a reconciliation workflow.
 - Updated regression contracts and browser integration scenarios to verify odometer-only closure, preserved financial fields, trip fare edits outside shift closure, GPS/movement read-model consistency, and the intentionally blank Timeline/Performance presentation surfaces.
-- CI [#4125](https://github.com/amtalwalkar-sudo/KFE-New/actions/runs/38803266019) passed `build-and-test` and `android-release-gate`, including semantic control audit, Phase 4 cross-surface lifecycle and boundary continuity, production PWA runtime checks, Android instrumentation on the exact built APK, and tested APK artifact upload.
+- CI [#4126](https://github.com/amtalwalkar-sudo/KFE-New/actions/runs/38803856177) passed `build-and-test` and `android-release-gate`, including semantic control audit, Phase 4 cross-surface lifecycle and boundary continuity, production PWA runtime checks, Android instrumentation on the exact built APK, and tested APK artifact upload.
 - Physical-device testing is still pending until after merge. No merge has been performed.
 
 ## Progress ledger
@@ -123,6 +123,6 @@ Do not merge or request physical-device sign-off until required automated checks
 | 4 — Fare/cancellation | **CI passed (Run #4079)** | Native canonical write plus durable PWA replay; full physical-device validation remains pending |
 | 5 — Timer | **Complete; CI green** | Stale-snapshot/timer recovery instrumentation plus corrected exact-APK gate passed in #4091 |
 | 6 — GPS | **Implementation and CI green; device check pending** | GPS lifecycle instrumentation and exact-APK gate passed in #4125; physical-device validation remains pending |
-| 7 — Shift-end removal + release gate | **Implementation complete; CI #4125 green; tracker-commit CI pending** | Removed shift-end revenue/review stages and reconciliation code from the driver flow; end odometer is the final input; financial records are preserved; regression/integration suites and exact-APK smoke passed. Rerun CI after this tracker update. |
+| 7 — Shift-end removal + release gate | **Complete; CI #4126 green** | Removed shift-end revenue/review stages and reconciliation code from the driver flow; end odometer is the final input; financial records are preserved; regression/integration suites and exact-APK smoke passed. Physical-device acceptance remains pending. |
 
 At the end of each run, record changed files/commit, checks actually executed, failures/blockers and next run. Never mark a check green unless its result is available.
