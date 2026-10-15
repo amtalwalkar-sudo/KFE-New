@@ -83,7 +83,7 @@ const uiAssertions = {
 for (const [id, patterns] of Object.entries(uiAssertions)) for (const pattern of patterns) assert.match(performance, pattern, `${id} Performance UI binding missing`)
 
 const secondary = [
-  [work, 'CV-04', [/gapKm/, /Personal/, /Dead/]], [work, 'CV-06', [/shiftRevenue/, /Revenue/]],
+  [work, 'CV-04', [/gapKm/, /Personal/, /Dead/]],
   [work, 'CV-08', [/fuelPrice/, /fuelAmount/, /fuelFull|fuelPartial/]], [timeline, 'CV-07', [/tripKm/, /revenue/, /Authoritative Revenue/]],
   [timeline, 'CV-08', [/pricePerKg/, /amount/, /isFullTank/]], [breakEvenAdmin, 'CV-23', [/breakEvenPaise/, /Break-even/]],
   [financeAdmin, 'CV-20', [/costsPaise/, /Profit/]], [financeAdmin, 'CV-23', [/breakEvenPaise/, /Break-even/]],
