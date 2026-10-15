@@ -63,6 +63,34 @@ public class KfeOverlaySmokeTest {
       context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE).getLong("tripStartAt", 0L));
   }
 
+  @Test public void nativeGpsSwitchesFromPickupDeadKmToPassengerTripAndStopsByTripId() throws Exception {
+    String tripId = "gps-lifecycle-trip";
+    KfeNativeGpsService.start(context, tripId, KfeOverlayService.gpsEventForAction("GO_TO_PICKUP"), "TRIP");
+    long deadline = SystemClock.uptimeMillis() + 5000L;
+    while (SystemClock.uptimeMillis() < deadline
+        && !"DEAD_MOVEMENT_TRACE".equals(KfeNativeGpsService.persistedActiveEventType(context))) {
+      SystemClock.sleep(50L);
+    }
+    assertEquals("Pickup travel must be tracked as dead movement",
+      "DEAD_MOVEMENT_TRACE", KfeNativeGpsService.persistedActiveEventType(context));
+    KfeNativeGpsService.start(context, tripId, KfeOverlayService.gpsEventForAction("START_RIDE"), "TRIP");
+    deadline = SystemClock.uptimeMillis() + 5000L;
+    while (SystemClock.uptimeMillis() < deadline
+        && !"PASSENGER_RIDE_TRACE".equals(KfeNativeGpsService.persistedActiveEventType(context))) {
+      SystemClock.sleep(50L);
+    }
+    assertEquals("Start Trip must switch the same collector to passenger-trip telemetry",
+      "PASSENGER_RIDE_TRACE", KfeNativeGpsService.persistedActiveEventType(context));
+    KfeNativeGpsService.stop(context, tripId);
+    deadline = SystemClock.uptimeMillis() + 5000L;
+    while (SystemClock.uptimeMillis() < deadline
+        && !KfeNativeGpsService.persistedActiveTripId(context).isEmpty()) {
+      SystemClock.sleep(50L);
+    }
+    assertEquals("End Trip must stop its own collector", "",
+      KfeNativeGpsService.persistedActiveTripId(context));
+  }
+
   @Test public void staleGpsStopCannotStopNewerTripCollector() {
     assertTrue(KfeNativeGpsService.shouldStopForTrip("trip-a", "trip-a"));
     assertTrue(!KfeNativeGpsService.shouldStopForTrip("trip-b", "trip-a"));
