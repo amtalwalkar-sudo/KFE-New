@@ -73,7 +73,7 @@ try {
     if (!closeResult.ok) throw new Error(`End Shift application flow failed: ${closeResult.reason}`)
     // End Shift is intentionally odometer-only. Fare corrections are saved through
     // the trip record workflow, which recalculates financial read models separately.
-    await ShiftTripRepository.updateTrip({ id: trip.id, revenue: '' })
+    await ShiftTripRepository.updateTrip({ id: trip.id, revenue: null })
     const afterClose = await ShiftTripRepository.getTripsForShift(shift.id)
     const correctedTrip = afterClose.find(item => item.id === trip.id)
     const closedShift = (await ShiftTripRepository.getAllShifts()).find(item => item.id === shift.id)
