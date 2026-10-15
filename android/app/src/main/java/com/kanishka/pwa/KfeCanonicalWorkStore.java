@@ -22,7 +22,7 @@ import java.security.MessageDigest;
  */
 final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
   private static final String DB_NAME = "kfe_canonical_work.db";
-  private static final int DB_VERSION = 1;
+  private static final int DB_VERSION = 2;
   private static volatile KfeCanonicalWorkStore instance;
 
   static synchronized KfeCanonicalWorkStore get(Context context) {
@@ -41,7 +41,12 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     db.execSQL("CREATE TABLE canonical_migration_items (migration_id TEXT NOT NULL, entity_type TEXT NOT NULL, entity_id TEXT NOT NULL, payload_hash TEXT NOT NULL, PRIMARY KEY(migration_id, entity_type, entity_id))");
   }
 
-  @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) { }
+  @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+    if (oldVersion < 2) {
+      db.execSQL("CREATE TABLE IF NOT EXISTS canonical_migrations (migration_id TEXT PRIMARY KEY, snapshot_hash TEXT NOT NULL, record_count INTEGER NOT NULL, verified INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, verified_at TEXT)");
+      db.execSQL("CREATE TABLE IF NOT EXISTS canonical_migration_items (migration_id TEXT NOT NULL, entity_type TEXT NOT NULL, entity_id TEXT NOT NULL, payload_hash TEXT NOT NULL, PRIMARY KEY(migration_id, entity_type, entity_id))");
+    }
+  }
 
   static final class Outcome {
     final boolean accepted;
