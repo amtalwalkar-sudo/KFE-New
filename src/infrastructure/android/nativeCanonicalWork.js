@@ -23,7 +23,7 @@ export const NativeCanonicalWorkService = Object.freeze({
     requireNative()
     if (!entityType) throw new Error('entityType is required.')
     const result = await NativeCanonicalWork.listRecords({ entityType, limit })
-    return Array.isArray(result?.records) ? result.records : []
+    return { entityType, records: Array.isArray(result?.records) ? result.records : [], count: Number(result?.count) || 0 }
   },
   async getOperation(operationId) {
     requireNative()
