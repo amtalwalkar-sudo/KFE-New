@@ -788,22 +788,32 @@ public class KfeOverlayService extends Service {
       return true;
     }catch(Exception error){Log.e("KFE-CANONICAL","Could not persist native trip stage",error);return false;}
   }
-  private void refreshCanonicalRevenue(String shiftId){
-    if(shiftId==null||shiftId.isEmpty())return;
-    try{
-      org.json.JSONArray records=KfeCanonicalWorkStore.get(this).listRecords("TRIP",1000).optJSONArray("records");
-      double total=0d;
-      if(records!=null)for(int i=0;i<records.length();i++){
-        JSONObject trip=records.optJSONObject(i); if(trip==null||!shiftId.equals(trip.optString("shiftId","")))continue;
-        if("COMPLETED".equals(trip.optString("status"))&&!trip.optBoolean("fareDetailsSkipped",false)){
-          Object v=trip.opt("revenue");if(v instanceof Number&&((Number)v).doubleValue()>=0d)total+=((Number)v).doubleValue();
-        }else if("CANCELLED".equals(trip.optString("status"))){
-          Object v=trip.has("cancelledRevenue")&&!trip.isNull("cancelledRevenue")?trip.opt("cancelledRevenue"):trip.opt("revenue");
-          if(v instanceof Number&&((Number)v).doubleValue()>=0d)total+=((Number)v).doubleValue();
-        }
+  private void refreshCanonicalRevenue(String shiftId,String sourceTripId,String sourceUpdatedAt) throws Exception {
+    if(shiftId==null||shiftId.isEmpty())throw new IllegalArgumentException("Shift ID is required for revenue projection.");
+    org.json.JSONArray records=KfeCanonicalWorkStore.get(this).listRecords("TRIP",1000).optJSONArray("records");
+    double total=0d;
+    if(records!=null)for(int i=0;i<records.length();i++){
+      JSONObject trip=records.optJSONObject(i); if(trip==null||!shiftId.equals(trip.optString("shiftId","")))continue;
+      if("COMPLETED".equals(trip.optString("status"))&&!trip.optBoolean("fareDetailsSkipped",false)){
+        Object v=trip.opt("revenue");if(v instanceof Number&&((Number)v).doubleValue()>=0d)total+=((Number)v).doubleValue();
+      }else if("CANCELLED".equals(trip.optString("status"))){
+        Object v=trip.has("cancelledRevenue")&&!trip.isNull("cancelledRevenue")?trip.opt("cancelledRevenue"):trip.opt("revenue");
+        if(v instanceof Number&&((Number)v).doubleValue()>=0d)total+=((Number)v).doubleValue();
       }
-      revenue="₹"+String.format(java.util.Locale.US,"%.0f",total);if(overlay!=null)overlay.postInvalidate();
-    }catch(Exception error){Log.e("KFE-CANONICAL","Could not derive live revenue",error);}
+    }
+    KfeCanonicalWorkStore store=KfeCanonicalWorkStore.get(this);
+    JSONObject foundShift=store.getRecord("SHIFT",shiftId);
+    JSONObject shift=foundShift.optJSONObject("record");
+    if(shift==null)throw new IllegalStateException("Canonical shift is missing; revenue projection was not acknowledged.");
+    shift.put("revenue",total);shift.put("liveFareRevenue",total);shift.put("revenueSource","TRIP_FARES");
+    String updatedAt=new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",java.util.Locale.US){{
+      setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+    }}.format(new java.util.Date());
+    shift.put("updatedAt",updatedAt);
+    String revision=(sourceUpdatedAt==null?"":sourceUpdatedAt).replaceAll("[^A-Za-z0-9]","");
+    KfeCanonicalWorkStore.Outcome outcome=store.putRecord("native-shift-revenue-"+shiftId+"-"+sourceTripId+"-"+revision,"SHIFT",shift);
+    if(!outcome.accepted)throw new IllegalStateException("Canonical shift revenue projection was not acknowledged.");
+    revenue="₹"+String.format(java.util.Locale.US,"%.0f",total);if(overlay!=null)overlay.postInvalidate();
   }
 
   private void persistCanonicalTripForm(String mode,String tripId,JSONObject input) throws Exception {
@@ -849,7 +859,7 @@ public class KfeOverlayService extends Service {
     trip.put("updatedAt",now);
     KfeCanonicalWorkStore.Outcome outcome=canonical.putRecord(operationId,"TRIP",trip);
     if(!outcome.accepted)throw new IllegalStateException("Canonical trip form was not accepted.");
-    refreshCanonicalRevenue(trip.optString("shiftId",""));
+    refreshCanonicalRevenue(trip.optString("shiftId",""),tripId,trip.optString("updatedAt",""));
   }
 
   private void finishNativeFormCommit(){
