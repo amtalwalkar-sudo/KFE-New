@@ -15,6 +15,7 @@ import android.graphics.RectF;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.PixelFormat;
 import android.os.IBinder;
+import android.util.Log;
 import android.provider.Settings;
 import android.text.Editable;
 import android.text.TextWatcher;
