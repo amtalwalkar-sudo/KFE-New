@@ -3,7 +3,7 @@
 **Repository:** `amtalwalkar-sudo/KFE-New`  
 **Implementation base:** `fix/native-overlay-background-transitions`  
 **Tracking branch:** `feat/native-canonical-persistence-phase`  
-**Status:** Runs 1–3 complete with CI green; Run 4 implementation in progress and awaiting CI validation.
+**Status:** Runs 1–4 have passed their current CI gates; Run 5 timer recovery implementation is in progress and CI Run #4082 is pending.
 
 ## Frozen scope
 
@@ -68,15 +68,25 @@ Do not merge or request physical-device sign-off until required automated checks
 
 ## Run 4 — Native fare/cancellation commit integration
 
-**Implementation in progress; CI validation pending.**
+**Current implementation passed CI Run #4079, including the Android exact-APK smoke gate.**
 
-- `KfeOverlayService.java`: fare and cancellation form submissions now attempt a durable write to `KfeCanonicalWorkStore` before they are reported as saved to the native overlay.
-- Fare writes completion status, fare/skipped flag, toll/parking values and treatment fields; cancellation writes cancelled status, reason and cancellation revenue.
-- The native canonical write uses a stable per-trip/per-form operation ID. The existing durable native event is still queued and emitted so the PWA replays the same form into its IndexedDB read model when it is available.
-- The overlay no longer needs to wait for the PWA acknowledgement to leave the form after the canonical form record has committed. Failure to find a usable trip snapshot or to commit leaves the form available and logs the failure.
-- Added `nativeOverlayFareCancellation.contract.js` to check canonical-write-before-replay ordering, the fare/cancellation record fields, event replay/acknowledgement wiring, and absence of a main-activity launch in the form submission branches.
-- **Important validation limit:** this is not yet proof of full end-to-end consistency. CI must verify Java compilation, contract tests and the exact built APK. The PWA still catches up through its existing event replay path; the canonical/native and IndexedDB views have not been proven reconciled under process death or conflicting snapshots.
+- `KfeOverlayService.java` now creates the durable form event and writes the fare/cancellation trip snapshot to `KfeCanonicalWorkStore`; only after the canonical commit succeeds does it emit the event and dismiss the form.
+- Fare stores completion status, fare/skipped-fare state, toll/parking values and treatment flags. Cancellation stores cancelled status, reason and optional cancellation fee.
+- Stable per-trip form operation IDs prevent duplicate canonical commits. If canonical save fails, the form remains available for retry.
+- `WorkModuleView.vue` mirrors the resulting trip snapshot into the native canonical store during PWA replay and passes the durable event ID through the replay path.
+- Added the native overlay fare/cancellation contract and Android instrumentation assertions for the stored records.
+- **Scope of the green result:** CI passed contract suites, production PWA/runtime checks, and exact-APK Android instrumentation. Full physical-device validation remains pending until merge. This is not yet a claim that every possible interrupted/conflicting native↔IndexedDB reconciliation has been exhaustively proven.
 
+## Run 5 — Timer authority and recovery
+
+**Implementation in progress; CI Run #4082 pending.**
+
+- Persist the trip-start wall-clock timestamp and the trip ID together in native preferences when the native `START_RIDE` transition commits.
+- Restore the timer from the durable timestamp after service/process recovery rather than trusting an absent or stale PWA snapshot.
+- Protect an active native `END_RIDE` state from a stale PWA snapshot that still reports `START_RIDE`, but only when the saved timer and incoming state identify the same trip.
+- Clear the active timer when `END_RIDE` commits and the workflow advances to fare entry.
+- Added Android instrumentation coverage that injects a stale PWA snapshot and asserts that native stage, trip identity and original timer timestamp remain authoritative.
+- Awaiting CI verification of Java compilation, Android instrumentation and the exact built APK before marking Run 5 complete.
 ## Progress ledger
 
 | Run | Status | Evidence / exit criteria |
@@ -84,7 +94,7 @@ Do not merge or request physical-device sign-off until required automated checks
 | 1 — Source audit | **Complete** | Source-backed findings above |
 | 2 — Canonical boundary | **Complete; CI green** | CI #4059 build/test and Android release gate passed |
 | 3 — Migration | **Implemented draft; validation pending** | Native migration ledger, deterministic source snapshot, idempotent import, read-back verification, source retention and contract test; wait for CI and fix failures |
-| 4 — Fare/cancellation | **Implementation in progress; CI pending** | Native canonical write plus durable PWA replay; verify duplicate/interruption and downstream calculation behavior |
+| 4 — Fare/cancellation | **CI passed (Run #4079)** | Native canonical write plus durable PWA replay; full physical-device validation remains pending |
 | 5 — Timer | Not started | Restart/background and stale-snapshot tests |
 | 6 — GPS | Not started | Trace lifecycle, distance-type and recovery tests |
 | 7 — Shift-end removal + release gate | Not started | Reconciliation code removed; end odometer is final driver-facing step; full test/build/CI/APK evidence |
