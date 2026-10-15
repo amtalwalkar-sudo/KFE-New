@@ -8,6 +8,7 @@ import { WorkDraftService } from '../application/work/workDraftService.js'
 import { WorkflowTimerService, WorkWorkflowSessionService } from '../application/work/workflowTimerService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { WorkRuntimePorts } from '../application/work/workRuntimePorts.js'
+import { CanonicalWorkBoundary } from '../application/work/canonicalWorkBoundary.js'
 import { getLiveMovementTracePlan, matchesLiveMovementSession } from '../application/work/liveMovementTrace.js'
 import { deriveWorkCockpitState, WORK_COCKPIT_STATES } from '../application/work/workCockpit.js'
 import WorkContextForm from '../components/work/WorkContextForm.vue'
@@ -664,7 +665,7 @@ async function endTrip() {
   }
 }
 
-async function saveFare(fromNative = false) {
+async function saveFare(fromNative = false, operationId = '') {
   if (fareBusy.value || !pendingFare.value) return false
   for (const [label, value] of [['Trip fare', fare.value], ['Toll', tripToll.value], ['Parking', tripParking.value]]) {
     if (value !== '' && (!Number.isFinite(Number(value)) || Number(value) < 0)) return fail(`${label} must be a non-negative number.`)
@@ -684,6 +685,18 @@ async function saveFare(fromNative = false) {
     const fareDraft = tripDraftIdentity('work-trip-details', 'ENTER_FARE', pendingFare.value.id)
     const result = await store.updateTrip(details)
     if (!result?.ok) { fail(result?.reason || 'Trip details could not be saved.'); return false }
+
+    // Android's native canonical record is authoritative for the overlay.
+    // Mirror the exact saved trip snapshot under the durable event ID so replay
+    // after an interrupted acknowledgement cannot count fare/toll/parking twice.
+    if (nativeAndroid) {
+      const savedTrip = { ...(pendingFare.value || {}), ...details, status: 'COMPLETED', updatedAt: new Date().toISOString() }
+      await CanonicalWorkBoundary.putRecord({
+        operationId: operationId || CanonicalWorkBoundary.createOperationId(),
+        entityType: 'TRIP',
+        record: savedTrip
+      })
+    }
 
     await clearCommittedDraft(fareDraft)
     fareTripId.value = null
@@ -743,7 +756,7 @@ async function openCancel() {
   message.value = ''
 }
 
-async function saveCancel(fromNative = false) {
+async function saveCancel(fromNative = false, operationId = '') {
   if (cancelBusy.value) return false
   if (!cancelReason.value.trim()) { fail('Cancellation reason is required.'); return false }
   if (!Number.isFinite(Number(cancelFare.value)) || Number(cancelFare.value) < 0) { fail('Cancellation fee must be a non-negative number.'); return false }
@@ -751,12 +764,30 @@ async function saveCancel(fromNative = false) {
   cancelBusy.value = true
   try {
     const cancellationDraft = tripDraftIdentity('work-cancellation', 'CANCEL_TRIP')
+    const cancelledTripSnapshot = store.trip ? { ...store.trip } : null
     const cancelledTripId = store.trip?.id
+    const cancellationReason = cancelReason.value.trim()
+    const cancellationRevenue = Number(cancelFare.value)
     const result = await store.cancelTrip({
-      reason: cancelReason.value.trim(),
+      reason: cancellationReason,
       revenue: cancelFare.value
     })
     if (!result?.ok) { fail(result?.reason || 'Cancellation could not be saved.'); return false }
+
+    if (nativeAndroid && cancelledTripSnapshot) {
+      await CanonicalWorkBoundary.putRecord({
+        operationId: operationId || CanonicalWorkBoundary.createOperationId(),
+        entityType: 'TRIP',
+        record: {
+          ...cancelledTripSnapshot,
+          status: 'CANCELLED',
+          cancelReason: cancellationReason,
+          cancelledRevenue: cancellationRevenue,
+          tripEndAt: cancelledTripSnapshot.tripEndAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      })
+    }
 
     // Cancellation ends this trip's movement window just like END TRIP.
     // Stop native capture and commit the dead-movement trace to canonical
@@ -1088,7 +1119,7 @@ const handleNativeAction = async event => {
       const payload = event?.input ? JSON.parse(String(event.input)) : {}
       cancelReason.value = payload.reason === 'PASSENGER' ? 'PASSENGER' : 'DRIVER'
       cancelFare.value = payload.revenue === '' || payload.revenue == null ? '' : String(payload.revenue)
-      return Boolean(await saveCancel(true))
+      return Boolean(await saveCancel(true, String(event?.eventId || '')))
     } catch (e) {
       fail(e?.message || 'Cancellation failed.')
       return false
@@ -1113,7 +1144,7 @@ const handleNativeAction = async event => {
       tripTollTreatment.value = 'INCLUDED'
       tripParkingTreatment.value = 'INCLUDED'
     }
-    return Boolean(await saveFare(true))
+    return Boolean(await saveFare(true, String(event?.eventId || '')))
   }
   return false
 }
