@@ -1118,8 +1118,18 @@ const handleNativeAction = async event => {
   return false
 }
 
-// Prevent a listener callback and a foreground replay from processing the
-// same durable native event concurrently. The event ID remains the idempotency key.
+// Serialize listener delivery and foreground replay through one FIFO queue.
+// Several overlay swipes can be queued while Android has suspended this WebView;
+// replay must apply GO_TO_PICKUP before START_RIDE and END_RIDE, never in parallel.
+let nativeEventQueue = Promise.resolve()
+function enqueueNativeEvent(event) {
+  const next = nativeEventQueue.then(() => processNativeEvent(event))
+  nativeEventQueue = next.catch(() => {})
+  return next
+}
+
+// Prevent duplicate delivery of one durable event while it is being processed.
+// The event ID remains the idempotency key.
 const nativeEventsInFlight = new Set()
 
 async function processNativeEvent(event) {
@@ -1164,7 +1174,7 @@ async function replayFailedNativeActions() {
     // Replay every still-pending event, not only events with a recorded write
     // failure. An interruption can happen after the Work commit but before the
     // failure counter is persisted; handlers must safely accept replays.
-    for (const event of pendingEvents) await processNativeEvent(event)
+    for (const event of pendingEvents) await enqueueNativeEvent(event)
   } finally {
     nativeReplayRunning = false
   }
@@ -1260,7 +1270,7 @@ onMounted(async () => {
 
   nativeActionListener = await WorkRuntimePorts.nativeWorkActions.addListener(
     'nativeWorkAction',
-    event => { void processNativeEvent(event) }
+    event => { void enqueueNativeEvent(event) }
   )
 
   // Replay every native event in durable creation order. Failed/unconfirmed
