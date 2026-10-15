@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main, kfe-clean-build ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, fix/native-overlay-background-transitions ]
   workflow_dispatch:
     inputs:
       enable_first_run_setup:
