@@ -51,7 +51,7 @@ assert.equal(fareReconciliation.reconciliationStatus, 'UNAVAILABLE')
 assert.equal(fareReconciliation.unpricedTrips, 1)
 const shiftRepo = source('src/repositories/shiftTripRepository.js')
 assert.match(shiftRepo, /db\.transaction\(\['shifts', 'pending_mutations', 'audit_history'\], 'readwrite'\)/)
-assert.doesNotMatch(shiftRepo.slice(shiftRepo.indexOf('async completeShift(data)'), shiftRepo.indexOf('async createTrip(data)'), /shift\.revenueReconciliation\s*=|shift\.revenue\s*=|data\.trips/, 'Shift completion persists odometer/lifecycle only; financial data is preserved.')
+assert.doesNotMatch(shiftRepo.slice(shiftRepo.indexOf('async completeShift(data)'), shiftRepo.indexOf('async createTrip(data)')), /shift\.revenueReconciliation\s*=|shift\.revenue\s*=|data\.trips/, 'Shift completion persists odometer/lifecycle only; financial data is preserved.')
 
 // Odometer remainder with no trustworthy segment evidence must stay UNCLASSIFIED, not be silently called dead KM.
 const movement = await MovementAccountingService.reconcileShiftMovement({ trips: [], startOdometer: 100, endOdometer: 200 })
