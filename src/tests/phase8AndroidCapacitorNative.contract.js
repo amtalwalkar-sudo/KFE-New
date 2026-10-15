@@ -46,7 +46,7 @@ assert.match(overlayPlugin, /Settings\.canDrawOverlays/)
 assert.match(overlayPlugin, /ACTION_MANAGE_OVERLAY_PERMISSION/)
 assert.match(overlay, /ContextCompat\.startForegroundService/)
 assert.match(overlay, /TYPE_APPLICATION_OVERLAY/)
-assert.match(overlay, /String\[\] labels=\{\"TARGET\",resolveMovementLabel\(actionStage\),\"TRIP TIME\",\"REVENUE\"\}/)
+assert.match(overlay, /String\[\] labels=\{\"TARGET\",resolveMovementLabel\(actionStage\),phaseLabel,\"REVENUE\"\}/)
 assert.match(overlay, /for\(int i=0;i<4;i\+\+\)/)
 
 assert.match(overlayLifecycle, /deriveWorkCockpitState/)
