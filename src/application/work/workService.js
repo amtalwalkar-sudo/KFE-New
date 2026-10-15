@@ -288,15 +288,12 @@ export const WorkService = Object.freeze({
     const active = await ShiftTripRepository.getActive()
     if (active.shift?.id) {
       const trips = await ShiftTripRepository.getTripsForShift(active.shift.id)
-      const corrections = new Map((data.trips || []).filter(item => item?.id).map(item => [item.id, item]))
-      const movementTrips = trips.map(trip => corrections.has(trip.id) ? { ...trip, ...corrections.get(trip.id), tripKm: corrections.get(trip.id).tripKm === '' ? trip.tripKm : corrections.get(trip.id).tripKm } : trip)
       let traceRecoveryError = null
       try {
-        // Import any remaining native files for this shift/trips before reading the
-        // canonical snapshot set. This closes the cancel/end-shift race without making
-        // GPS failure prevent the authoritative shift close.
+        // Import any remaining native traces before internal movement accounting.
+        // This remains background accounting, not a driver-facing reconciliation step.
         const owners = await WorkRuntimePorts.nativeGps.listTraceOwners()
-        const tripById = new Map(movementTrips.map(trip => [trip.id, trip]))
+        const tripById = new Map(trips.map(trip => [trip.id, trip]))
         for (const ownerId of owners) {
           const tripOwner = tripById.get(ownerId)
           if (ownerId !== active.shift.id && !tripOwner) continue
@@ -311,19 +308,18 @@ export const WorkService = Object.freeze({
         console.warn('Final shift GPS trace recovery incomplete; preserving source evidence:', error)
       }
       const shiftGpsSnapshots = await LocationRepository.forEntity('SHIFT', active.shift.id)
-      const tripGpsSnapshots = (await Promise.all(movementTrips.map(trip => LocationRepository.forEntity('TRIP', trip.id)))).flat()
+      const tripGpsSnapshots = (await Promise.all(trips.map(trip => LocationRepository.forEntity('TRIP', trip.id)))).flat()
       const gpsSnapshots = [...shiftGpsSnapshots, ...tripGpsSnapshots]
       try {
         if (traceRecoveryError) throw new Error('GPS_TRACE_RECOVERY_FAILED: ' + (traceRecoveryError?.message || 'Unknown trace recovery error'))
-        const reconciliation = await MovementAccountingService.reconcileShiftMovement({
-          trips: movementTrips,
+        completionData.movementReconciliation = await MovementAccountingService.reconcileShiftMovement({
+          trips,
           startOdometer: active.shift.startOdometer,
           endOdometer: data?.closingOdometer,
           router: WorkRuntimePorts.routing.createRouter(),
-          businessKmByTripId: Object.fromEntries(movementTrips.filter(item => item.tripKm != null && item.tripKm !== '' && Number.isFinite(Number(item.tripKm)) && Number(item.tripKm) >= 0).map(item => [item.id, Number(item.tripKm)])),
+          businessKmByTripId: Object.fromEntries(trips.filter(item => item.tripKm != null && item.tripKm !== '' && Number.isFinite(Number(item.tripKm)) && Number(item.tripKm) >= 0).map(item => [item.id, Number(item.tripKm)])),
           gpsSnapshots
         })
-        completionData.movementReconciliation = reconciliation
       } catch (error) {
         completionData.movementReconciliation = {
           reconciliationStatus: 'UNAVAILABLE',
@@ -337,7 +333,9 @@ export const WorkService = Object.freeze({
         }
       }
     }
-    const result = await completeEndShift(completionData); checkpoint(); return result
+    const result = await completeEndShift(completionData)
+    checkpoint()
+    return result
   },
   async recordFuel(data) {
     const result = await recordFuelEntry(data)
