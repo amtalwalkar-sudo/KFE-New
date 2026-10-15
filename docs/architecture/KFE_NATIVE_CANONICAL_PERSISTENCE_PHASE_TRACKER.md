@@ -3,7 +3,7 @@
 **Repository:** `amtalwalkar-sudo/KFE-New`  
 **Implementation base:** `fix/native-overlay-background-transitions`  
 **Tracking branch:** `feat/native-canonical-persistence-phase`  
-**Status:** Runs 1–4 have passed their current CI gates; Run 5 timer recovery implementation is in progress and CI Run #4082 is pending.
+**Status:** Runs 1–4 passed their current CI gates. Run 5 code and contracts passed, but CI #4083 failed only because the exact-APK smoke script expected 16 overlay tests while the suite reported 17; the count has been corrected. Run 6 GPS lifecycle implementation is underway, with a new end-to-end Android instrumentation test. Await a fresh CI run before marking either run complete.
 
 ## Frozen scope
 
@@ -79,14 +79,27 @@ Do not merge or request physical-device sign-off until required automated checks
 
 ## Run 5 — Timer authority and recovery
 
-**Implementation in progress; CI Run #4082 pending.**
+**Implementation complete; final CI verification pending after a smoke-gate test-count correction.**
 
 - Persist the trip-start wall-clock timestamp and the trip ID together in native preferences when the native `START_RIDE` transition commits.
 - Restore the timer from the durable timestamp after service/process recovery rather than trusting an absent or stale PWA snapshot.
 - Protect an active native `END_RIDE` state from a stale PWA snapshot that still reports `START_RIDE`, but only when the saved timer and incoming state identify the same trip.
 - Clear the active timer when `END_RIDE` commits and the workflow advances to fare entry.
 - Added Android instrumentation coverage that injects a stale PWA snapshot and asserts that native stage, trip identity and original timer timestamp remain authoritative.
-- Awaiting CI verification of Java compilation, Android instrumentation and the exact built APK before marking Run 5 complete.
+- CI Run [#4083](https://github.com/amtalwalkar-sudo/KFE-New/actions/runs/38793269245) passed `build-and-test`, including contracts and runtime checks, but the Android release gate failed after all 17 overlay instrumentation tests reported `OK (17 tests)`: the smoke script still expected 16. The failure was a stale test-count assertion, not a failing instrumentation test. The expected count was corrected; Run 6 adds one new instrumentation test and the gate now expects 18 overlay tests.
+- Do not mark Run 5 fully green until a new CI run proves the corrected exact-APK gate passes.
+
+## Run 6 — Native GPS lifecycle and telemetry
+
+**Implementation started; fresh CI verification pending.**
+
+- Native overlay transitions now own GPS start/stop rather than relying on the PWA action consumer: after `GO_TO_PICKUP`, start `DEAD_MOVEMENT_TRACE`; after `START_RIDE`, switch the same trip collector to `PASSENGER_RIDE_TRACE`; after `END_RIDE`, stop the matching trip collector.
+- The same GPS transition hooks are applied when a durable PWA acknowledgement restores/advances the overlay stage. Starting the same trip/type is idempotent in `KfeNativeGpsService.startTracking`; changing event type restarts collection for the same trip.
+- Cancellation stops the collector for the cancelled trip while retaining its raw trace evidence; the GPS stop path is trip-ID guarded so a stale stop cannot terminate a newer trip.
+- Added `gpsEventForAction` to make the dead-movement/passenger-trace mapping explicit, and `persistedActiveEventType` for instrumentation verification.
+- Added Android instrumentation coverage for dead-movement collection on pickup travel, switching to passenger-trip telemetry at Start Trip, and stopping the same collector at End Trip.
+- Existing native trace JSONL persistence, de-duplication, import read-back verification and clear-after-verified-import behavior remain intact; this run must still verify lifecycle recovery and telemetry behavior in CI.
+
 ## Progress ledger
 
 | Run | Status | Evidence / exit criteria |
@@ -95,8 +108,8 @@ Do not merge or request physical-device sign-off until required automated checks
 | 2 — Canonical boundary | **Complete; CI green** | CI #4059 build/test and Android release gate passed |
 | 3 — Migration | **Implemented draft; validation pending** | Native migration ledger, deterministic source snapshot, idempotent import, read-back verification, source retention and contract test; wait for CI and fix failures |
 | 4 — Fare/cancellation | **CI passed (Run #4079)** | Native canonical write plus durable PWA replay; full physical-device validation remains pending |
-| 5 — Timer | Not started | Restart/background and stale-snapshot tests |
-| 6 — GPS | Not started | Trace lifecycle, distance-type and recovery tests |
+| 5 — Timer | Implementation done; CI rerun pending | Timer instrumentation passed in #4083; exact-APK gate had stale expected test count, now corrected |
+| 6 — GPS | In progress | Native transition-owned collector start/switch/stop plus new Android lifecycle instrumentation; fresh CI pending |
 | 7 — Shift-end removal + release gate | Not started | Reconciliation code removed; end odometer is final driver-facing step; full test/build/CI/APK evidence |
 
 At the end of each run, record changed files/commit, checks actually executed, failures/blockers and next run. Never mark a check green unless its result is available.
