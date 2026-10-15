@@ -19,6 +19,18 @@ const saveMutation = (mutationStore, auditStore, entityId, entityType, action, p
 const readAll = async storeName => { const db = await initializeCanonicalStorage(); return new Promise((resolve, reject) => { const tx = db.transaction([storeName], 'readonly'); const request = tx.objectStore(storeName).getAll(); request.onsuccess = () => resolve(request.result || []); request.onerror = () => reject(request.error || new Error(`${storeName} query failed.`)) }) }
 const applyTripCorrection = (trip, data, now) => { const normalized = normalizeTripInput(data); if (normalized.operator !== undefined) trip.operator = normalized.operator; if (normalized.tripKm !== undefined) { trip.tripKm = normalized.tripKm; trip.tripKmAuthority = 'MANUAL'; if (normalized.tripKmProvenance !== undefined) trip.tripKmProvenance = normalized.tripKmProvenance }; if (normalized.revenue !== undefined) { trip.revenue = normalized.revenue; if (trip.status === 'CANCELLED') trip.cancelledRevenue = normalized.revenue; trip.revenueAuthority = 'SUPPORTING_ONLY'; if (normalized.revenueProvenance !== undefined) trip.revenueProvenance = normalized.revenueProvenance }; if (normalized.toll !== undefined) trip.toll = normalized.toll; if (normalized.parking !== undefined) trip.parking = normalized.parking; if (normalized.tollTreatment !== undefined) trip.tollTreatment = normalized.tollTreatment; if (normalized.parkingTreatment !== undefined) trip.parkingTreatment = normalized.parkingTreatment; if (normalized.cancelReason !== undefined) trip.cancelReason = normalized.cancelReason; if (normalized.fareDetailsSkipped !== undefined) trip.fareDetailsSkipped = normalized.fareDetailsSkipped; trip.updatedAt = now; return trip }
 const requireFinite = (value, field) => { const result = Number(value); if (!Number.isFinite(result)) throw new Error(`${field} must be a finite number.`); return result }
+const stableRecordValue = value => {
+  if (Array.isArray(value)) return value.map(stableRecordValue)
+  if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map(key => [key, stableRecordValue(value[key])]))
+  return value
+}
+const sameRecordValue = (left, right) => JSON.stringify(stableRecordValue(left)) === JSON.stringify(stableRecordValue(right))
+const compareRecordVersion = (left, right) => {
+  const a = Date.parse(left?.updatedAt || '')
+  const b = Date.parse(right?.updatedAt || '')
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null
+  return Math.sign(a - b)
+}
 
 export const ShiftTripRepository = {
   async createShift(data) { const normalized = normalizeShiftInput(data); const now = new Date().toISOString(); const startOdometer = requireFinite(normalized.startOdometer, 'startOdometer'); const record = { id: normalized.id || generateUUID(), startOdometer, openingPersonalKm: Number(normalized.openingPersonalKm || 0), openingDeadKm: Number(normalized.openingDeadKm || 0), openingPersonalToll: Number(normalized.openingPersonalToll || 0), openingPersonalParking: Number(normalized.openingPersonalParking || 0), openingBaselineType: normalized.openingBaselineType || 'POST_KFE_GAP', historicalOdometerGapKm: Number(normalized.historicalOdometerGapKm || 0), businessStartDate: normalized.businessStartDate || null, businessStartOdometer: Number.isFinite(Number(normalized.businessStartOdometer)) ? Number(normalized.businessStartOdometer) : null, endOdometer: null, totalDistance: 0, revenue: 0, toll: 0, parking: 0, tollParkingRevenueTreatment: 'INCLUDED', tollParkingCaptureMode: 'ADDITIONAL_ONLY', tollTreatment: normalized.tollTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED', parkingTreatment: normalized.parkingTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED', shiftStartAt: normalized.shiftStartAt || now, shiftEndAt: null, status: 'ACTIVE', createdAt: now, updatedAt: now }; await atomic(['shifts'], (_, m, a) => { _.objectStore('shifts').put(record); saveMutation(m, a, record.id, 'SHIFT', 'CREATE', record, now) }); return record },
@@ -285,16 +297,54 @@ export const ShiftTripRepository = {
       const tx = db.transaction(['shifts', 'trips'], 'readwrite')
       const shiftStore = tx.objectStore('shifts')
       const tripStore = tx.objectStore('trips')
+      let conflict = null
+      const queueRecord = (store, canonicalRecord, writeRecord = canonicalRecord) => {
+        if (!canonicalRecord?.id) return
+        const request = store.get(canonicalRecord.id)
+        request.onsuccess = () => {
+          const current = request.result
+          if (!current) {
+            store.put(writeRecord)
+            return
+          }
+          const order = compareRecordVersion(canonicalRecord, current)
+          if (order === null) {
+            if (!sameRecordValue(canonicalRecord, current)) {
+              conflict = new Error(`Canonical recovery conflict for ${canonicalRecord.id}: updatedAt versions are not comparable.`)
+              try { tx.abort() } catch (_) {}
+              return
+            }
+            if (!sameRecordValue(writeRecord, current)) store.put(writeRecord)
+            return
+          }
+          if (order < 0) return // Never replace a newer local write with an older snapshot.
+          if (order === 0) {
+            if (!sameRecordValue(canonicalRecord, current)) {
+              conflict = new Error(`Canonical recovery conflict for ${canonicalRecord.id}: different records share updatedAt.`)
+              try { tx.abort() } catch (_) {}
+              return
+            }
+            if (!sameRecordValue(writeRecord, current)) store.put(writeRecord)
+            return
+          }
+          store.put(writeRecord)
+        }
+        request.onerror = () => {
+          conflict = request.error || new Error('Canonical recovery record lookup failed.')
+          try { tx.abort() } catch (_) {}
+        }
+      }
       const normalizedShifts = shifts.filter(record => record?.id).map(record => {
         const shiftTrips = trips.filter(trip => trip?.shiftId === record.id)
         const hasSavedFare = shiftTrips.some(trip => (trip.status === 'COMPLETED' && trip.revenue != null && trip.fareDetailsSkipped !== true) || (trip.status === 'CANCELLED' && (trip.cancelledRevenue != null || trip.revenue != null)))
         return hasSavedFare ? { ...record, revenue: deriveLiveRevenue(shiftTrips), liveFareRevenue: deriveLiveRevenue(shiftTrips), revenueSource: 'TRIP_FARES' } : record
       })
-      for (const record of normalizedShifts) shiftStore.put(record)
-      for (const record of trips) if (record?.id) tripStore.put(record)
+      const normalizedById = new Map(normalizedShifts.map(record => [record.id, record]))
+      for (const record of shifts) queueRecord(shiftStore, record, normalizedById.get(record?.id) || record)
+      for (const record of trips) queueRecord(tripStore, record)
       tx.oncomplete = () => resolve(true)
-      tx.onerror = () => reject(tx.error || new Error('Native canonical recovery failed.'))
-      tx.onabort = () => reject(tx.error || new Error('Native canonical recovery aborted.'))
+      tx.onerror = () => reject(conflict || tx.error || new Error('Native canonical recovery failed.'))
+      tx.onabort = () => reject(conflict || tx.error || new Error('Native canonical recovery aborted.'))
     })
   },
   async getActive() { const [shifts, trips] = await Promise.all([readAll('shifts'), readAll('trips')]); return { shift: shifts.find(s => s.status === 'ACTIVE') || null, trip: trips.find(t => t.status === 'ACTIVE') || null } }

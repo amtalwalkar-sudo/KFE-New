@@ -15,6 +15,13 @@
 - **Fuel is explicitly out of scope. Do not change fuel forms, logic, persistence, calculations, or tests.**
 - Shift ending is end-odometer entry, validation and durable save, then shift ends. Permanently remove the end-of-shift date reconciliation workflow at code level in Run 7.
 
+## Android lifecycle/fare authority and recovery follow-up
+
+- **Authority:** Android SQLite `canonical_records` is authoritative for acknowledged Android lifecycle and fare records. The PWA IndexedDB shift/trip stores remain the browser authority and, on Android, a local staging/read cache; a native mirror is not considered acknowledged until `putRecord` returns `accepted: true`.
+- **Write acknowledgement:** WorkService must propagate a failed or missing native acknowledgement rather than report the lifecycle/fare action as successful. Because current repository mutations commit to IndexedDB before mirroring to native SQLite, the two stores are not one atomic transaction; a failed mirror leaves a local staged record that recovery must retry before syncing a native snapshot.
+- **Recovery ordering:** promote a demonstrably newer local staged record to native SQLite and require acknowledgement, re-read native canonical records, then sync the snapshot to IndexedDB. Reject older native writes and fail closed when different payloads share an `updatedAt` value. IndexedDB recovery also skips a stale snapshot if a newer local record appeared during synchronization.
+- **Limit:** timestamp ordering is a stale-write guard, not a cross-store transaction or a substitute for a fully atomic native-first cutover. Any direct lifecycle/fare path that bypasses the WorkService acknowledgement boundary needs separate review. Physical-device validation remains required.
+
 ## Seven-run execution plan
 
 1. **Audit current branch, canonical persistence boundary and existing data models** — complete.

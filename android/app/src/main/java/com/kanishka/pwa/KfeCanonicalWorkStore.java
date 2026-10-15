@@ -89,6 +89,31 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
         }
       }
 
+      // Android SQLite is authoritative for lifecycle/fare records. Never let a
+      // delayed mirror replace a newer canonical payload. ISO-8601 updatedAt
+      // values sort chronologically; missing/equal-but-different versions fail
+      // closed rather than guessing which snapshot is newer.
+      try (Cursor existing = db.query("canonical_records", new String[]{"payload"},
+          "entity_type=? AND entity_id=?", new String[]{entityType, entityId}, null, null, null, "1")) {
+        if (existing.moveToFirst()) {
+          String existingPayload = existing.getString(0);
+          if (!jsonEquivalent(new JSONObject(payload), new JSONObject(existingPayload))) {
+            String existingVersion = new JSONObject(existingPayload).optString("updatedAt", "");
+            String incomingVersion = record.optString("updatedAt", "");
+            if (empty(existingVersion) || empty(incomingVersion)) {
+              throw new IllegalArgumentException("Canonical version conflict: updatedAt is required to replace an existing record.");
+            }
+            int versionOrder = incomingVersion.compareTo(existingVersion);
+            if (versionOrder < 0) {
+              throw new IllegalArgumentException("Stale canonical write rejected for " + entityType + "/" + entityId + ".");
+            }
+            if (versionOrder == 0) {
+              throw new IllegalArgumentException("Canonical version conflict: different payloads share updatedAt for " + entityType + "/" + entityId + ".");
+            }
+          }
+        }
+      }
+
       ContentValues recordValues = new ContentValues();
       recordValues.put("entity_type", entityType);
       recordValues.put("entity_id", entityId);
@@ -296,6 +321,33 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
           .put("status", cursor.getString(3)).put("outcome", new JSONObject(cursor.getString(4)))
           .put("createdAt", cursor.getString(5));
     }
+  }
+
+  private static boolean jsonEquivalent(Object left, Object right) throws JSONException {
+    if (left == right) return true;
+    if (left == null || right == null) return false;
+    if (left instanceof JSONObject && right instanceof JSONObject) {
+      JSONObject a = (JSONObject) left, b = (JSONObject) right;
+      if (a.length() != b.length()) return false;
+      java.util.Iterator<String> keys = a.keys();
+      while (keys.hasNext()) {
+        String key = keys.next();
+        if (!b.has(key) || !jsonEquivalent(a.opt(key), b.opt(key))) return false;
+      }
+      return true;
+    }
+    if (left instanceof JSONArray && right instanceof JSONArray) {
+      JSONArray a = (JSONArray) left, b = (JSONArray) right;
+      if (a.length() != b.length()) return false;
+      for (int i = 0; i < a.length(); i++) {
+        if (!jsonEquivalent(a.opt(i), b.opt(i))) return false;
+      }
+      return true;
+    }
+    if (left instanceof Number && right instanceof Number) {
+      return Double.compare(((Number) left).doubleValue(), ((Number) right).doubleValue()) == 0;
+    }
+    return left.equals(right);
   }
 
   private static String timestampNow() {

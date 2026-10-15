@@ -19,6 +19,10 @@ export function runNativeSwipeVisualParityAudit(){
   for(const item of items){const m=java.match(new RegExp(item.field+'=Color\\.rgb\\(([^)]*)\\)'));if(!m||!same(m[1].split(',').map(Number),rgb(item.color)))fail('Native '+item.stage+' default colour differs from shared SWIPE_CONFIG.');if(!action[1].includes(item.returned))fail('Native '+item.stage+' renderer is not bound to shared semantic colour.')}
   if(!java.includes('swipeCommitThresholdPercent/100f'))fail('Native swipe threshold must use shared SWIPE_CONFIG.')
   if(!java.includes('retractAnimator.setDuration(swipeReturnDurationMs)'))fail('Native swipe return animation must use shared SWIPE_CONFIG.')
+  for(const key of ['swipeConfig.optInt("commitThresholdPercent",70)','swipeConfig.optInt("returnDurationMs",220)','swipeConfig.optString("pickupColor"','swipeConfig.optString("startColor"','swipeConfig.optString("endColor"'])if(!java.includes(key))fail('Native overlay does not apply shared setting: '+key)
+  if(!view.includes('swipeProgress.value >= SWIPE_CONFIG.commitThresholdPercent'))fail('PWA commit threshold must use shared SWIPE_CONFIG.')
+  if(!view.includes('SWIPE_CONFIG.returnDurationMs'))fail('PWA return animation must use shared SWIPE_CONFIG.')
+  if(!view.includes('SWIPE_CONFIG.endColor')||!view.includes('SWIPE_CONFIG.startColor')||!view.includes('SWIPE_CONFIG.pickupColor'))fail('PWA semantic colors must use shared SWIPE_CONFIG.')
   if(!java.includes('thumbW=dp(58)')||!java.includes('barTop+dp(124)'))fail('Frozen native swipe mechanics missing.')
   return{status:'PASS',threshold:SWIPE_CONFIG.commitThresholdPercent,returnDurationMs:SWIPE_CONFIG.returnDurationMs,colors:{pickup:SWIPE_CONFIG.pickupColor,start:SWIPE_CONFIG.startColor,end:SWIPE_CONFIG.endColor}}
 }

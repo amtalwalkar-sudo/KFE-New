@@ -12,6 +12,7 @@ import { BackupService } from '../backup/backupService.js'
 import { MovementAccountingService, routeTrace, assessGpsTraceCompleteness, isUsableDistanceKm } from '../../domain/movement/movementAccounting.js'
 import { WorkRuntimePorts } from './workRuntimePorts.js'
 import { CanonicalWorkBoundary } from './canonicalWorkBoundary.js'
+import { recoverCanonicalWorkSnapshot } from './canonicalWorkRecovery.js'
 import { calculateTraceDistanceKm } from '../../domain/movement/traceDistance.js'
 import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
 
@@ -48,13 +49,24 @@ export const WorkService = Object.freeze({
   validateFuelEntry(data) { return validateFuelEntry(data) },
   async getActiveState() {
     if (nativeCanonicalAvailable()) {
-      const [shifts, trips] = await Promise.all([
-        WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'SHIFT', limit: 1000 }),
-        WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'TRIP', limit: 1000 })
-      ])
-      await ShiftTripRepository.syncCanonicalRecords({ shifts: shifts.records, trips: trips.records })
-      const active = await ShiftTripRepository.getActive()
-      if (active.shift) await mirrorCanonicalRecord('SHIFT', active.shift)
+      await recoverCanonicalWorkSnapshot({
+        readCanonical: async () => {
+          const [shifts, trips] = await Promise.all([
+            WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'SHIFT', limit: 1000 }),
+            WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'TRIP', limit: 1000 })
+          ])
+          return { shifts, trips }
+        },
+        readLocal: async () => {
+          const [shifts, trips] = await Promise.all([
+            ShiftTripRepository.getAllShifts(),
+            ShiftTripRepository.getAllTrips()
+          ])
+          return { shifts, trips }
+        },
+        mirrorRecord: mirrorCanonicalRecord,
+        syncCanonicalRecords: records => ShiftTripRepository.syncCanonicalRecords(records)
+      })
     }
     return ShiftTripRepository.getActive()
   },
