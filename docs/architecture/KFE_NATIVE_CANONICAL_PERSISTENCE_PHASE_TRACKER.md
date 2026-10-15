@@ -3,7 +3,7 @@
 **Repository:** `amtalwalkar-sudo/KFE-New`  
 **Implementation base:** `fix/native-overlay-background-transitions`  
 **Tracking branch:** `feat/native-canonical-persistence-phase`  
-**Status:** Runs 1–4 passed their current CI gates. Run 5 code and contracts passed, but CI #4083 failed only because the exact-APK smoke script expected 16 overlay tests while the suite reported 17; the count has been corrected. Run 6 GPS lifecycle implementation is underway, with a new end-to-end Android instrumentation test. Await a fresh CI run before marking either run complete.
+**Status:** CI #4091 is green: both `build-and-test` and `android-release-gate` passed after correcting the exact-APK instrumentation count. Run 5 timer authority/recovery is verified; Run 6 GPS lifecycle changes and instrumentation are also included in this green run. Physical-device validation remains pending.
 
 ## Frozen scope
 
@@ -79,15 +79,15 @@ Do not merge or request physical-device sign-off until required automated checks
 
 ## Run 5 — Timer authority and recovery
 
-**Implementation complete; final CI verification pending after a smoke-gate test-count correction.**
+**Complete; CI #4091 passed.**
 
 - Persist the trip-start wall-clock timestamp and the trip ID together in native preferences when the native `START_RIDE` transition commits.
 - Restore the timer from the durable timestamp after service/process recovery rather than trusting an absent or stale PWA snapshot.
 - Protect an active native `END_RIDE` state from a stale PWA snapshot that still reports `START_RIDE`, but only when the saved timer and incoming state identify the same trip.
 - Clear the active timer when `END_RIDE` commits and the workflow advances to fare entry.
 - Added Android instrumentation coverage that injects a stale PWA snapshot and asserts that native stage, trip identity and original timer timestamp remain authoritative.
-- CI Run [#4083](https://github.com/amtalwalkar-sudo/KFE-New/actions/runs/38793269245) passed `build-and-test`, including contracts and runtime checks, but the Android release gate failed after all 17 overlay instrumentation tests reported `OK (17 tests)`: the smoke script still expected 16. The failure was a stale test-count assertion, not a failing instrumentation test. The expected count was corrected; Run 6 adds one new instrumentation test and the gate now expects 18 overlay tests.
-- Do not mark Run 5 fully green until a new CI run proves the corrected exact-APK gate passes.
+- CI #4083 exposed a stale exact-APK expected count (16 versus 17 reported tests); the count was corrected, and Run 6's added GPS lifecycle test brought the expected overlay count to 18.
+- CI Run [#4091](https://github.com/amtalwalkar-sudo/KFE-New/actions/runs/38795165779) passed both `build-and-test` and `android-release-gate`, including the corrected exact-APK smoke gate. Timer recovery and stale-snapshot protection are therefore CI-verified; physical-device testing remains pending.
 
 ## Run 6 — Native GPS lifecycle and telemetry
 
@@ -108,8 +108,8 @@ Do not merge or request physical-device sign-off until required automated checks
 | 2 — Canonical boundary | **Complete; CI green** | CI #4059 build/test and Android release gate passed |
 | 3 — Migration | **Implemented draft; validation pending** | Native migration ledger, deterministic source snapshot, idempotent import, read-back verification, source retention and contract test; wait for CI and fix failures |
 | 4 — Fare/cancellation | **CI passed (Run #4079)** | Native canonical write plus durable PWA replay; full physical-device validation remains pending |
-| 5 — Timer | Implementation done; CI rerun pending | Timer instrumentation passed in #4083; exact-APK gate had stale expected test count, now corrected |
-| 6 — GPS | In progress | Native transition-owned collector start/switch/stop plus new Android lifecycle instrumentation; fresh CI pending |
+| 5 — Timer | **Complete; CI green** | Stale-snapshot/timer recovery instrumentation plus corrected exact-APK gate passed in #4091 |
+| 6 — GPS | Implementation and CI gate green; review remains | Native GPS lifecycle instrumentation and exact-APK gate passed in #4091; physical-device validation remains pending |
 | 7 — Shift-end removal + release gate | Not started | Reconciliation code removed; end odometer is final driver-facing step; full test/build/CI/APK evidence |
 
 At the end of each run, record changed files/commit, checks actually executed, failures/blockers and next run. Never mark a check green unless its result is available.
