@@ -433,9 +433,11 @@ public class KfeOverlayService extends Service {
     if("START_RIDE".equals(actionStage)){
       if(pendingTripId.isEmpty()) return;
       long rideStartedAt=System.currentTimeMillis();
-      if(!persistCanonicalTripStage("RIDE_STARTED", true)){Toast.makeText(this,"Trip state could not be saved. Swipe again when storage is available.",Toast.LENGTH_LONG).show();return;}
+      long previousTripStartAt=tripStartAt;
+      tripStartAt=rideStartedAt;
+      if(!persistCanonicalTripStage("RIDE_STARTED", true)){tripStartAt=previousTripStartAt;Toast.makeText(this,"Trip state could not be saved. Swipe again when storage is available.",Toast.LENGTH_LONG).show();return;}
       String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"START_RIDE",pendingTripId,"");
-      actionStage="END_RIDE"; tripStartAt=rideStartedAt; phaseStartAt=tripStartAt; phaseLabel="TRIP TIME";
+      actionStage="END_RIDE"; phaseStartAt=tripStartAt; phaseLabel="TRIP TIME";
       getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit()
         .putLong("tripStartAt",tripStartAt).putString("tripTimerTripId",pendingTripId).apply();
       awaitingEventId=""; awaitingStage=""; awaitingTripId="";
