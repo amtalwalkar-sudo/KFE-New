@@ -2,6 +2,7 @@ import { initializeCanonicalStorage, notifyCanonicalDataChanged } from '../utils
 import { generateUUID } from '../utils/uuid.js'
 import { writeMutationAndAudit } from './mutationRepository.js'
 import { normalizeShiftInput, normalizeTripInput } from '../domain/canonicalNormalization.js'
+import { reconcileShiftRevenue } from '../domain/work/revenueReconciliation.js'
 import { transitionTrip, transitionTripStage, TRIP_STATES } from '../domain/work/tripLifecycle.js'
 
 const TERMINAL_STATES = new Set([TRIP_STATES.COMPLETED, TRIP_STATES.CANCELLED])
