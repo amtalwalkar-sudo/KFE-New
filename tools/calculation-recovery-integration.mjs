@@ -68,15 +68,17 @@ try {
       ],
     }
     const closeResult = await completeEndShift({
-      shiftId: shift.id, closingOdometer: 200, revenue: 500, movementReconciliation,
-      trips: [{ id: trip.id, revenue: '' }],
+      shiftId: shift.id, closingOdometer: 200, movementReconciliation,
     })
     if (!closeResult.ok) throw new Error(`End Shift application flow failed: ${closeResult.reason}`)
+    // End Shift is intentionally odometer-only. Fare corrections are saved through
+    // the trip record workflow, which recalculates financial read models separately.
+    await ShiftTripRepository.updateTrip({ id: trip.id, revenue: '' })
     const afterClose = await ShiftTripRepository.getTripsForShift(shift.id)
     const correctedTrip = afterClose.find(item => item.id === trip.id)
     const closedShift = (await ShiftTripRepository.getAllShifts()).find(item => item.id === shift.id)
     if (correctedTrip.revenue !== null) throw new Error('Fare clear was not persisted as null')
-    if (closedShift.revenueReconciliation?.unpricedTrips !== 1) throw new Error('Shift reconciliation did not consume corrected fare in the same commit')
+    if (closedShift.revenueReconciliation?.unpricedTrips !== 1) throw new Error('Trip fare edit did not refresh financial reconciliation after shift close')
 
     const fuel = await recordFuelEntry({ odometer: 150, pricePerKg: 75, amount: 300, isFullTank: false })
     if (!fuel.ok || !fuel.record?.vehicleId) throw new Error('Fuel record did not persist with canonical vehicle link')
@@ -119,14 +121,14 @@ try {
       tripId: trip.id,
       fuelId: fuel.record.id,
       fareClearPersisted: correctedTrip.revenue === null,
-      sameTransactionReconciliation: closedShift.revenueReconciliation.unpricedTrips === 1,
+      postCloseTripEditReconciliation: closedShift.revenueReconciliation.unpricedTrips === 1,
       canonicalChangeInvalidation: changeObserved,
       timelineAndPerformanceMovementAgreement: true,
       cloudRestoreAndDownstreamRecalculation: true,
     }
   })
   assert.equal(result.fareClearPersisted, true)
-  assert.equal(result.sameTransactionReconciliation, true)
+  assert.equal(result.postCloseTripEditReconciliation, true)
   assert.equal(result.canonicalChangeInvalidation, true)
   assert.equal(result.timelineAndPerformanceMovementAgreement, true)
   assert.equal(result.cloudRestoreAndDownstreamRecalculation, true)
