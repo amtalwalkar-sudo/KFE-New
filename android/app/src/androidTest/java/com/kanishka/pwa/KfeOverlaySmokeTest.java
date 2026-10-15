@@ -56,9 +56,9 @@ public class KfeOverlaySmokeTest {
     KfeOverlayService.update(context, staleState.toString());
     waitForOverlay();
     KfeOverlayService service = waitForService();
-    assertEquals("END_RIDE", getField(service, "actionStage"));
-    assertEquals("timer-trip", getField(service, "pendingTripId"));
-    assertEquals(authoritativeStart, ((Long) getField(service, "tripStartAt")).longValue());
+    assertEquals("END_RIDE", fieldValue(service, "actionStage"));
+    assertEquals("timer-trip", fieldValue(service, "pendingTripId"));
+    assertEquals(authoritativeStart, ((Long) fieldValue(service, "tripStartAt")).longValue());
     assertEquals(authoritativeStart,
       context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE).getLong("tripStartAt", 0L));
   }
