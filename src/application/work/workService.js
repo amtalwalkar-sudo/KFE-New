@@ -363,7 +363,7 @@ export const WorkService = Object.freeze({
       }
     }
     const result = await completeEndShift(completionData)
-    if (WorkRuntimePorts.canonicalWork.isAvailable()) {
+    if (nativeCanonicalAvailable()) {
       const closedShift = await ShiftTripRepository.getLastCompletedShift()
       if (closedShift?.id === active.shift?.id) await mirrorCanonicalRecord('SHIFT', closedShift)
       if (active.shift?.id) for (const trip of await ShiftTripRepository.getTripsForShift(active.shift.id)) await mirrorCanonicalRecord('TRIP', trip)
