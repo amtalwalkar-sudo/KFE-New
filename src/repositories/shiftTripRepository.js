@@ -2,7 +2,6 @@ import { initializeCanonicalStorage, notifyCanonicalDataChanged } from '../utils
 import { generateUUID } from '../utils/uuid.js'
 import { writeMutationAndAudit } from './mutationRepository.js'
 import { normalizeShiftInput, normalizeTripInput } from '../domain/canonicalNormalization.js'
-import { reconcileShiftRevenue } from '../domain/work/revenueReconciliation.js'
 import { transitionTrip, transitionTripStage, TRIP_STATES } from '../domain/work/tripLifecycle.js'
 
 const TERMINAL_STATES = new Set([TRIP_STATES.COMPLETED, TRIP_STATES.CANCELLED])
@@ -22,10 +21,50 @@ const requireFinite = (value, field) => { const result = Number(value); if (!Num
 export const ShiftTripRepository = {
   async createShift(data) { const normalized = normalizeShiftInput(data); const now = new Date().toISOString(); const startOdometer = requireFinite(normalized.startOdometer, 'startOdometer'); const record = { id: normalized.id || generateUUID(), startOdometer, openingPersonalKm: Number(normalized.openingPersonalKm || 0), openingDeadKm: Number(normalized.openingDeadKm || 0), openingPersonalToll: Number(normalized.openingPersonalToll || 0), openingPersonalParking: Number(normalized.openingPersonalParking || 0), openingBaselineType: normalized.openingBaselineType || 'POST_KFE_GAP', historicalOdometerGapKm: Number(normalized.historicalOdometerGapKm || 0), businessStartDate: normalized.businessStartDate || null, businessStartOdometer: Number.isFinite(Number(normalized.businessStartOdometer)) ? Number(normalized.businessStartOdometer) : null, endOdometer: null, totalDistance: 0, revenue: 0, toll: 0, parking: 0, tollParkingRevenueTreatment: 'INCLUDED', tollParkingCaptureMode: 'ADDITIONAL_ONLY', tollTreatment: normalized.tollTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED', parkingTreatment: normalized.parkingTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED', shiftStartAt: normalized.shiftStartAt || now, shiftEndAt: null, status: 'ACTIVE', createdAt: now, updatedAt: now }; await atomic(['shifts'], (_, m, a) => { _.objectStore('shifts').put(record); saveMutation(m, a, record.id, 'SHIFT', 'CREATE', record, now) }); return record },
   async completeShift(data) {
-    const db = await initializeCanonicalStorage(); return new Promise((resolve, reject) => {
-      const tx = db.transaction(['shifts', 'trips', 'pending_mutations', 'audit_history'], 'readwrite'); const shifts = tx.objectStore('shifts'); const trips = tx.objectStore('trips'); const mutations = tx.objectStore('pending_mutations'); const audit = tx.objectStore('audit_history'); const shiftRequest = shifts.get(data.id)
-      shiftRequest.onsuccess = () => { const shift = shiftRequest.result; if (!shift) { try { tx.abort() } catch (_) {}; reject(new Error('Active shift not found.')); return }; if (shift.status !== 'ACTIVE') { try { tx.abort() } catch (_) {}; reject(new Error('Shift is not active.')); return }; const now = new Date().toISOString(); const correctionById = new Map((data.trips || []).filter(item => item?.id).map(item => [item.id, item])); const completedTripsRequest = trips.getAll(); completedTripsRequest.onsuccess = () => { try { const completedTrips = (completedTripsRequest.result || []).filter(trip => trip.shiftId === shift.id && trip.status === 'COMPLETED'); const effectiveCompletedTrips = completedTrips.map(trip => { const correction = correctionById.get(trip.id); if (!correction) return trip; const updatedTrip = applyTripCorrection(trip, correction, now); trips.put(updatedTrip); saveMutation(mutations, audit, updatedTrip.id, 'TRIP', 'UPDATE', updatedTrip, now); return updatedTrip }); const normalized = normalizeShiftInput(data); shift.endOdometer = requireFinite(normalized.endOdometer, 'endOdometer'); if (shift.endOdometer < shift.startOdometer) throw new Error('endOdometer cannot be less than startOdometer.'); shift.totalDistance = shift.endOdometer - shift.startOdometer; const correctedTripKm = effectiveCompletedTrips.reduce((sum, trip) => { const raw = trip.tripKm; const value = Number(raw); return Number.isFinite(value) && value >= 0 ? sum + value : sum }, 0); if (correctedTripKm > shift.totalDistance + 0.000001) throw new Error('Completed trip KM cannot exceed total shift KM.'); shift.revenue = Number(normalized.revenue || 0); shift.toll = Number(normalized.toll || 0); shift.parking = Number(normalized.parking || 0); shift.tollTreatment = normalized.tollTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED'; shift.parkingTreatment = normalized.parkingTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED'; shift.tollParkingRevenueTreatment = normalized.tollParkingRevenueTreatment || 'INCLUDED'; shift.tollParkingCaptureMode = 'ADDITIONAL_ONLY'; if (data.movementReconciliation) shift.movementReconciliation = data.movementReconciliation; shift.revenueReconciliation = reconcileShiftRevenue({ shiftRevenue: shift.revenue, trips: effectiveCompletedTrips, toll: shift.toll, parking: shift.parking, tollTreatment: shift.tollTreatment, parkingTreatment: shift.parkingTreatment, tollParkingCaptureMode: shift.tollParkingCaptureMode, tollParkingRevenueTreatment: shift.tollParkingRevenueTreatment }); shift.shiftEndAt = now; shift.shiftDurationMs = Math.max(0, Date.parse(now) - Date.parse(shift.shiftStartAt || now)); shift.status = 'COMPLETED'; shift.updatedAt = now; shifts.put(shift); saveMutation(mutations, audit, shift.id, 'SHIFT', 'UPDATE', shift, now) } catch (error) { try { tx.abort() } catch (_) {}; reject(error) } }; completedTripsRequest.onerror = () => { const error = completedTripsRequest.error || new Error('Trip correction lookup failed.'); try { tx.abort() } catch (_) {}; reject(error) } }
-      shiftRequest.onerror = () => reject(shiftRequest.error || new Error('Active shift lookup failed.')); tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: ['shifts', 'trips'], reason: 'shift-trip:completeShift' }); resolve(true) }; tx.onerror = () => reject(tx.error || new Error('Atomic shift completion failed.')); tx.onabort = () => reject(tx.error || new Error('Atomic shift completion aborted.'))
+    const db = await initializeCanonicalStorage()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['shifts', 'pending_mutations', 'audit_history'], 'readwrite')
+      const shifts = tx.objectStore('shifts')
+      const mutations = tx.objectStore('pending_mutations')
+      const audit = tx.objectStore('audit_history')
+      const request = shifts.get(data.id)
+      request.onsuccess = () => {
+        const shift = request.result
+        if (!shift) {
+          try { tx.abort() } catch (_) {}
+          reject(new Error('Active shift not found.'))
+          return
+        }
+        if (shift.status !== 'ACTIVE') {
+          try { tx.abort() } catch (_) {}
+          reject(new Error('Shift is not active.'))
+          return
+        }
+        try {
+          const now = new Date().toISOString()
+          const normalized = normalizeShiftInput(data)
+          shift.endOdometer = requireFinite(normalized.endOdometer, 'endOdometer')
+          if (shift.endOdometer < shift.startOdometer) throw new Error('endOdometer cannot be less than startOdometer.')
+          shift.totalDistance = shift.endOdometer - shift.startOdometer
+          if (data.movementReconciliation) shift.movementReconciliation = data.movementReconciliation
+          shift.shiftEndAt = now
+          shift.shiftDurationMs = Math.max(0, Date.parse(now) - Date.parse(shift.shiftStartAt || now))
+          shift.status = 'COMPLETED'
+          shift.updatedAt = now
+          shifts.put(shift)
+          saveMutation(mutations, audit, shift.id, 'SHIFT', 'UPDATE', shift, now)
+        } catch (error) {
+          try { tx.abort() } catch (_) {}
+          reject(error)
+        }
+      }
+      request.onerror = () => reject(request.error || new Error('Active shift lookup failed.'))
+      tx.oncomplete = () => {
+        notifyCanonicalDataChanged({ stores: ['shifts'], reason: 'shift-trip:completeShift' })
+        resolve(true)
+      }
+      tx.onerror = () => reject(tx.error || new Error('Atomic shift completion failed.'))
+      tx.onabort = () => reject(tx.error || new Error('Atomic shift completion aborted.'))
     })
   },
   async createTrip(data) { const normalized = normalizeTripInput(data); if (!normalized.shiftId) throw new Error('shiftId is required for a Trip.'); const now = new Date().toISOString(); const record = { id: normalized.id || generateUUID(), shiftId: normalized.shiftId, operator: normalized.operator, tripStartAt: normalized.tripStartAt || null, tripEndAt: null, status: 'ACTIVE', tripStartLocation: normalized.tripStartLocation || null, tripEndLocation: null, tripKm: normalized.tripKm ?? null, tripKmAuthority: normalized.tripKm !== undefined ? 'MANUAL' : 'ESTIMATE', tripKmProvenance: normalized.tripKmProvenance ?? null, tripStage: normalized.tripStage || 'GOING_TO_PICKUP', toll: normalized.toll ?? 0, parking: normalized.parking ?? 0, tollTreatment: normalized.tollTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED', parkingTreatment: normalized.parkingTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED', revenue: normalized.revenue ?? null, revenueAuthority: normalized.revenue !== undefined ? 'SUPPORTING_ONLY' : 'SUPPORTING_ONLY', revenueProvenance: normalized.revenueProvenance ?? null, fareDetailsSkipped: false, cancelledRevenue: null, cancelReason: null, createdAt: now, updatedAt: now }; await atomic(['trips'], (_, m, a) => { _.objectStore('trips').put(record); saveMutation(m, a, record.id, 'TRIP', 'CREATE', record, now) }); return record },
