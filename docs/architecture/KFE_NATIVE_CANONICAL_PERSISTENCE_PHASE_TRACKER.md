@@ -18,12 +18,12 @@
 ## Seven-run execution plan
 
 1. **Audit current branch, canonical persistence boundary and existing data models** — source-backed baseline, gaps and current CI/branch status.
-2. **Implement the canonical command/query/persistence boundary** — stable operation IDs, validation, atomic durable outcomes/audit, idempotency and read APIs; keep browser IndexedDB adapter.
+2. **Implement the canonical command/query/persistence boundary** — stable operation IDs, validation, atomic durable outcomes/audit, idempotency and read APIs; keep browser IndexedDB adapter and implement shift completion as end-odometer validation/save followed immediately by shift end, removing the obsolete reconciliation workflow.
 3. **Implement safe, idempotent Android data migration** — shifts, trips, fare/cancellation records, pending mutations, audit and GPS evidence; verify before switching reads/writes and retain source evidence until verified.
 4. **Integrate fare and cancellation workflows end to end** — overlay submission, durable canonical save, PWA read models, downstream calculations, retry/recovery and duplicate protection.
 5. **Fix timer authority and recovery** — durable transition timestamps, wall-clock-derived elapsed time, native redraw and protection from stale PWA snapshots.
 6. **Fix native GPS lifecycle and telemetry** — canonical-transition ownership, correct dead/passenger trace selection, status/accuracy/distance telemetry, idempotent trace import and evidence retention.
-7. **Remove end-of-shift date reconciliation and perform final acceptance/release verification** — end odometer is the final driver-facing step; full regression/migration/offline/recovery/Android instrumentation, production build, CI and APK artifact verification.
+7. **Perform final acceptance/release verification** — consolidated regression, migration, offline/recovery and Android instrumentation tests, production build, CI and APK artifact verification.
 
 Run tests relevant to a change during that run; Run 7 also performs the consolidated release gate. Do not merge or request physical-device sign-off until required automated checks and APK verification are recorded.
 
@@ -48,11 +48,11 @@ Run tests relevant to a change during that run; Run 7 also performs the consolid
 | Run | Status | Evidence / exit criteria |
 |---|---|---|
 | 1 — Source audit | **Complete** | Findings above; no runtime code changed |
-| 2 — Canonical boundary | Not started | Shared command/query contract, native persistence and focused tests |
+| 2 — Canonical boundary + shift completion contract | Not started | Shared command/query contract, native persistence; shift ends after end-odometer save; reconciliation workflow removed; focused tests |
 | 3 — Migration | Not started | Idempotent migration and verification tests |
 | 4 — Fare/cancellation | Not started | Overlay save visible in PWA and calculations exactly once |
 | 5 — Timer | Not started | Restart/background and stale-snapshot tests |
 | 6 — GPS | Not started | Trace lifecycle, distance-type and recovery tests |
-| 7 — Shift-end removal + release gate | Not started | Reconciliation code removed; full test/build/CI/APK evidence |
+| 7 — Release gate | Not started | Full test/build/CI/APK evidence; shift-end removal already verified |
 
 Update this ledger at the end of every run with changed files/commit, checks actually executed, failures/blockers, and the next run. Never mark a check green unless its result is available.
