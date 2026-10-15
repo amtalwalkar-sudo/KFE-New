@@ -390,7 +390,7 @@ public class KfeOverlayService extends Service {
     persistNativeForm();
   }
 
-  private void onCancelSaved(){formSubmitting=false;closeForm();KfeNativeGpsService.stop(this,pendingTripId);actionStage="GO_TO_PICKUP";pendingTripId="";pendingFareTripId="";tripStartAt=0L;awaitingEventId="";awaitingStage="";awaitingTripId="";persistNativeWorkflow();if(overlay!=null)overlay.invalidate();}
+  private void onCancelSaved(){formSubmitting=false;closeForm();KfeNativeGpsService.stop(this,pendingTripId);actionStage="GO_TO_PICKUP";pendingTripId="";pendingFareTripId="";tripStartAt=0L;phaseStartAt=System.currentTimeMillis();phaseLabel="READY TIME";awaitingEventId="";awaitingStage="";awaitingTripId="";persistNativeWorkflow();if(overlay!=null)overlay.invalidate();}
 
   private void onFareSaved(){
     formSubmitting=false;
@@ -399,6 +399,7 @@ public class KfeOverlayService extends Service {
     pendingTripId="";
     pendingFareTripId="";
     tripStartAt=0L;
+    phaseStartAt=System.currentTimeMillis(); phaseLabel="READY TIME";
     persistNativeWorkflow();
     
     animateRetract();
@@ -877,7 +878,7 @@ public class KfeOverlayService extends Service {
     pendingTripId="";
     pendingFareTripId="";
     tripStartAt=0L;
-    phaseStartAt=0L; phaseLabel="READY TIME";
+    phaseStartAt=System.currentTimeMillis(); phaseLabel="READY TIME";
     awaitingEventId="";awaitingStage="";awaitingTripId="";
     persistNativeWorkflow();
     animateRetract();
@@ -962,7 +963,7 @@ public class KfeOverlayService extends Service {
       // Target, live distance, trip timer and revenue remain the compact primary metrics.
       float[] cols={.14f,.38f,.62f,.86f};
       String[] labels={"TARGET",resolveMovementLabel(actionStage),phaseLabel,"REVENUE"};
-      String movementValue=("GO_TO_PICKUP".equals(actionStage)||"START_RIDE".equals(actionStage))?deadKm:liveKm;
+      String movementValue=liveKm;
       String[] values={target,movementValue,formatPhaseTime(),revenue};
       for(int i=0;i<4;i++){text(9,mutedColor(),true);center(c,labels[i],w*cols[i],barTop+dp(23));text(15,i==0?targetColor():(i==1?a:textColor()),true);center(c,values[i],w*cols[i],barTop+dp(44));}
       if("END_RIDE".equals(actionStage)||"START_RIDE".equals(actionStage)||phaseStartAt>0L) postInvalidateDelayed(1000);
