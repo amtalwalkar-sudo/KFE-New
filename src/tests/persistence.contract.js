@@ -22,10 +22,10 @@ assert(db.includes('onupgradeneeded'), 'Migration hook missing')
 assert(db.includes('initializationPromise'), 'Initialization guard missing')
 assert(db.includes('dbInstance.onversionchange'), 'Version-change lifecycle handling missing')
 const version = Number(db.match(/CANONICAL_DB_VERSION\s*=\s*(\d+)/)?.[1])
-assert(version === 15, 'Canonical DB must be version 15 after form draft store migration')
+assert(version === 16, 'Canonical DB must be version 16 after canonical operation outcome migration')
 assert(contract.includes('cloud service must not be required'), 'Local-first boundary missing')
 
-const stores = ['financial_period_snapshots','shifts','trips','fuel_logs','vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','pending_mutations','audit_history']
+const stores = ['financial_period_snapshots','canonical_operations','shifts','trips','fuel_logs','vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','pending_mutations','audit_history']
 for (const store of stores) assert(db.includes(`'${store}'`), `Canonical store missing: ${store}`)
 assert(!db.includes("createSimpleStore(db, 'driver_collected_data'"), 'Removed driver-collected store must not be recreated')
 assert(db.includes("deleteObjectStore('driver_collected_data')"), 'Removed driver-collected store migration missing')
@@ -41,7 +41,7 @@ assert(fuel.includes('normalized.id || generateUUID()'), 'Fuel UUID contract mis
 assert(mutation.includes('id: generateUUID()'), 'Mutation UUID contract missing')
 
 for (const index of ["createIndex('shiftEndAt'", "createIndex('createdAt'", "createIndex('status'", "createIndex('shiftId'", "createIndex('tripStartAt'"]) assert(db.includes(index), `Required persistence index missing: ${index}`)
-for (const indexedStore of ['vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history']) assert(db.includes(`createSimpleStore(db, '${indexedStore}'`), `Shared indexed store definition missing: ${indexedStore}`)
+for (const indexedStore of ['vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history','canonical_operations']) assert(db.includes(`createSimpleStore(db, '${indexedStore}'`), `Shared indexed store definition missing: ${indexedStore}`)
 assert(db.includes("createObjectStore('financial_period_snapshots', { keyPath: 'periodKey' })"), 'Historical period snapshot store must use periodKey key paths')
 for (const explicitStore of ['shifts','fuel_logs','odoGaps','pending_mutations','days','trips','gps_snapshots']) assert(db.includes(`!db.objectStoreNames.contains('${explicitStore}')`), `Upgrade path missing for explicit store: ${explicitStore}`)
 
