@@ -22,7 +22,7 @@ const operationRecord = (operationId, entityType, entityId, outcome, createdAt) 
 })
 
 const browserPutRecord = async ({ operationId, entityType, record }) => {
-  const db = await initializeCanonicalStorage({ dataSource: 'canonical' })
+  const db = await initializeCanonicalStorage()
   const storeName = browserStoreFor(entityType)
   const entityId = requireText(record?.id, 'record.id')
   const id = requireText(operationId, 'operationId')
@@ -76,7 +76,7 @@ const browserPutRecord = async ({ operationId, entityType, record }) => {
   })
 }
 const browserGetRecord = async ({ entityType, entityId }) => {
-  const db = await initializeCanonicalStorage({ dataSource: 'canonical' })
+  const db = await initializeCanonicalStorage()
   const storeName = browserStoreFor(requireText(entityType, 'entityType'))
   const id = requireText(entityId, 'entityId')
   return new Promise((resolve, reject) => {
@@ -87,7 +87,7 @@ const browserGetRecord = async ({ entityType, entityId }) => {
   })
 }
 const browserListRecords = async ({ entityType, limit = 500 }) => {
-  const db = await initializeCanonicalStorage({ dataSource: 'canonical' })
+  const db = await initializeCanonicalStorage()
   const storeName = browserStoreFor(requireText(entityType, 'entityType'))
   const safeLimit = Math.max(1, Math.min(Number(limit) || 500, 1000))
   return new Promise((resolve, reject) => {
@@ -98,7 +98,7 @@ const browserListRecords = async ({ entityType, limit = 500 }) => {
   })
 }
 const browserGetOperation = async operationId => {
-  const db = await initializeCanonicalStorage({ dataSource: 'canonical' })
+  const db = await initializeCanonicalStorage()
   const id = requireText(operationId, 'operationId')
   return new Promise((resolve, reject) => {
     const tx = db.transaction(['canonical_operations'], 'readonly')
