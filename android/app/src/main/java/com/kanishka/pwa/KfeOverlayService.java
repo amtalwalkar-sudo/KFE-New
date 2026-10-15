@@ -377,26 +377,39 @@ public class KfeOverlayService extends Service {
   }
 
   private void triggerAction(){
-    // Keep the visible native action on the current canonical stage until the
-    // PWA acknowledges the durable event. This prevents native/PWA divergence
-    // when the WebView is slow, unavailable, or rejects the action.
+    // The SQLite queue is the durable hand-off. Advance the native cockpit
+    // immediately after the action is committed to that queue so a suspended
+    // WebView cannot leave the overlay stuck on "WAITING FOR APP". When Work
+    // resumes, it replays these events in creation order and persists each
+    // canonical business transition using the same event IDs.
+    if(!awaitingEventId.isEmpty()) return;
     if("GO_TO_PICKUP".equals(actionStage)){
-      if(!awaitingEventId.isEmpty()) return;
       if(pendingTripId.isEmpty()) pendingTripId=java.util.UUID.randomUUID().toString();
       String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"GO_TO_PICKUP",pendingTripId,"");
-      beginAwaiting(eventId,"GO_TO_PICKUP",pendingTripId); persistNativeWorkflow(); animateRetract(); overlay.invalidate();
+      actionStage="START_RIDE"; pendingFareTripId="";
+      awaitingEventId=""; awaitingStage=""; awaitingTripId="";
+      persistNativeWorkflow(); animateRetract(); overlay.invalidate();
+      Log.i("KFE-SWIPE","durably queued GO_TO_PICKUP; native stage advanced to START_RIDE event="+shortEventId(eventId));
       KfeNativeWorkActionsPlugin.emitAction("GO_TO_PICKUP",pendingTripId,"",eventId); return;
     }
     if("START_RIDE".equals(actionStage)){
-      if(!awaitingEventId.isEmpty() || pendingTripId.isEmpty()) return;
+      if(pendingTripId.isEmpty()) return;
       String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"START_RIDE",pendingTripId,"");
-      beginAwaiting(eventId,"START_RIDE",pendingTripId); persistNativeWorkflow(); animateRetract(); overlay.invalidate();
+      actionStage="END_RIDE"; tripStartAt=System.currentTimeMillis();
+      awaitingEventId=""; awaitingStage=""; awaitingTripId="";
+      persistNativeWorkflow(); animateRetract(); overlay.invalidate();
+      Log.i("KFE-SWIPE","durably queued START_RIDE; native stage advanced to END_RIDE event="+shortEventId(eventId));
       KfeNativeWorkActionsPlugin.emitAction("START_RIDE",pendingTripId,"",eventId); return;
     }
     if("END_RIDE".equals(actionStage)){
-      if(!awaitingEventId.isEmpty() || pendingTripId.isEmpty()) return;
+      if(pendingTripId.isEmpty()) return;
       String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"END_RIDE",pendingTripId,"");
-      beginAwaiting(eventId,"END_RIDE",pendingTripId); persistNativeWorkflow(); animateRetract(); overlay.invalidate();
+      actionStage="ENTER_FARE"; pendingFareTripId=pendingTripId;
+      awaitingEventId=""; awaitingStage=""; awaitingTripId="";
+      persistNativeWorkflow(); KfeNativeGpsService.stop(this,pendingTripId);
+      if(!minimized && !"FARE".equals(formMode)) openFareForm();
+      animateRetract(); if(overlay!=null)overlay.invalidate();
+      Log.i("KFE-SWIPE","durably queued END_RIDE; native stage advanced to ENTER_FARE event="+shortEventId(eventId));
       KfeNativeWorkActionsPlugin.emitAction("END_RIDE",pendingTripId,"",eventId);
     }
   }
