@@ -77,7 +77,7 @@ export function runNativeSwipeVisualParityAudit() {
   for (const marker of ['thumbW=dp(58)','barTop+dp(124)']) {
     if (!java.includes(marker)) fail('Frozen native swipe mechanic marker missing: ' + marker)
   }
-  if (!java.includes('KfeSwipeGesture.shouldCommit(fx,maxTravel,dp(8),0.70f)') && !java.includes('progress>=0.70f') && !java.includes('fx>=maxTravel*.70f')) fail('Native swipe completion threshold missing')
+  if (!java.includes('KfeSwipeGesture.shouldCommit(fx,maxTravel,dp(8),0.70f)') && !java.includes('progress>=0.70f') && !java.includes('finalProgress>=0.70f') && !java.includes('fx>=maxTravel*.70f')) fail('Native swipe completion threshold missing')
   if (!java.includes('localY>=dp(100)&&localY<=dp(132)') && !java.includes('localY>=dp(96)&&localY<=dp(140)')) fail('Native swipe hit lane missing')
   return { status:'PASS', expected }
 }
