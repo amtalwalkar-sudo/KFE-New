@@ -60,7 +60,7 @@ match(fuelService, /FuelRepository\.create\(\{ \.\.\.validation/, 'Fuel save mus
 match(fuelRepo, /objectStore\('fuel_logs'\)|objectStore\(\s*'fuel_logs'\s*\)/, 'Fuel must persist to fuel_logs')
 match(work, /await store\.endShift\(\{/, 'End Shift must use shift store')
 match(shiftRepo, /completeShift/, 'End Shift must persist through shift repository')
-doesNotMatch(workForm, /Additional shift toll|Additional shift parking|Trip fares not entered|Shift review/, 'End Shift must not present revenue/toll/parking reconciliation.')
+assert.doesNotMatch(workForm, /Additional shift toll|Additional shift parking|Trip fares not entered|Shift review/, 'End Shift must not present revenue/toll/parking reconciliation.')
 
 // Timeline editors: both need stable record identity, queued drafts, and canonical update paths.
 match(timeline, /FormDraftService/, 'Timeline must use the shared IndexedDB draft service')
