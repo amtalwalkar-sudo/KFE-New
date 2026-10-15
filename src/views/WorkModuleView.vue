@@ -208,7 +208,7 @@ const cockpit = computed(() => deriveWorkCockpitState({
   target: targetValue.value == null ? '—' : money(targetValue.value),
   targetProgress: targetProgress.value,
   liveKm: `${liveMovementKm.value.toFixed(1)} km`,
-  revenue: money(liveRevenue.value)
+  revenue: money(liveRevenue.value),
   asOf: clock.value
 }))
 

@@ -286,10 +286,7 @@ export const ShiftTripRepository = {
       const tripStore = tx.objectStore('trips')
       for (const record of shifts) if (record?.id) shiftStore.put(record)
       for (const record of trips) if (record?.id) tripStore.put(record)
-      tx.oncomplete = () => {
-        notifyCanonicalDataChanged({ stores: ['shifts', 'trips'], reason: 'native-canonical-recovery' })
-        resolve(true)
-      }
+      tx.oncomplete = () => resolve(true)
       tx.onerror = () => reject(tx.error || new Error('Native canonical recovery failed.'))
       tx.onabort = () => reject(tx.error || new Error('Native canonical recovery aborted.'))
     })

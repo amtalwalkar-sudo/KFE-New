@@ -445,6 +445,7 @@ public class KfeOverlayService extends Service {
     if("END_RIDE".equals(actionStage)){
       if(pendingTripId.isEmpty()) return;
       String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"END_RIDE",pendingTripId,"");
+      persistCanonicalTripStage("COMPLETED", false);
       actionStage="ENTER_FARE"; pendingFareTripId=pendingTripId; tripStartAt=0L; phaseStartAt=System.currentTimeMillis(); phaseLabel="FARE ENTRY TIME";
       getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().remove("tripStartAt").remove("tripTimerTripId").apply();
       awaitingEventId=""; awaitingStage=""; awaitingTripId="";
