@@ -396,7 +396,8 @@ public class KfeOverlaySmokeTest {
     clearPending();
     JSONObject state = new JSONObject()
       .put("shift", new JSONObject().put("id", "fare-shift"))
-      .put("trip", JSONObject.NULL)
+      .put("trip", new JSONObject().put("id", "fare-trip").put("shiftId", "fare-shift")
+        .put("status", "COMPLETED").put("tripEndAt", "2026-10-15T19:00:00.000Z"))
       .put("overlayAction", "ENTER_FARE")
       .put("overlayTripId", "fare-trip")
       .put("pendingFareId", "fare-trip");
