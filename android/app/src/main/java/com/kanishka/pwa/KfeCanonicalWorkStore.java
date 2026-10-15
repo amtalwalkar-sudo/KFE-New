@@ -10,6 +10,9 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+
 /**
  * Authoritative native-backed business record boundary.
  *
@@ -34,6 +37,8 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     db.execSQL("CREATE INDEX canonical_records_updated ON canonical_records(updated_at)");
     db.execSQL("CREATE TABLE canonical_operations (operation_id TEXT PRIMARY KEY, command TEXT NOT NULL, entity_type TEXT NOT NULL, entity_id TEXT NOT NULL, status TEXT NOT NULL, result_json TEXT NOT NULL, created_at TEXT NOT NULL)");
     db.execSQL("CREATE TABLE canonical_audit (id INTEGER PRIMARY KEY AUTOINCREMENT, operation_id TEXT NOT NULL UNIQUE, entity_type TEXT NOT NULL, entity_id TEXT NOT NULL, action TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL)");
+    db.execSQL("CREATE TABLE canonical_migrations (migration_id TEXT PRIMARY KEY, snapshot_hash TEXT NOT NULL, record_count INTEGER NOT NULL, verified INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, verified_at TEXT)");
+    db.execSQL("CREATE TABLE canonical_migration_items (migration_id TEXT NOT NULL, entity_type TEXT NOT NULL, entity_id TEXT NOT NULL, payload_hash TEXT NOT NULL, PRIMARY KEY(migration_id, entity_type, entity_id))");
   }
 
   @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) { }
@@ -117,6 +122,142 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     } finally {
       db.endTransaction();
     }
+  }
+
+
+  synchronized JSONObject migrateLegacySnapshot(String migrationId, JSONObject snapshot) throws Exception {
+    if (empty(migrationId)) throw new IllegalArgumentException("migrationId is required.");
+    if (snapshot == null || !(snapshot.opt("entities") instanceof JSONObject)) {
+      throw new IllegalArgumentException("snapshot.entities is required.");
+    }
+    JSONObject entities = snapshot.getJSONObject("entities");
+    String snapshotHash = sha256(snapshot.toString());
+    String now = timestampNow();
+    SQLiteDatabase db = getWritableDatabase();
+    db.beginTransaction();
+    try {
+      try (Cursor cursor = db.query("canonical_migrations", new String[]{"snapshot_hash", "record_count", "verified"},
+          "migration_id=?", new String[]{migrationId}, null, null, null, "1")) {
+        if (cursor.moveToFirst()) {
+          if (!snapshotHash.equals(cursor.getString(0))) {
+            throw new IllegalArgumentException("migrationId was already used with a different source snapshot.");
+          }
+          db.setTransactionSuccessful();
+          return new JSONObject().put("migrationId", migrationId).put("snapshotHash", snapshotHash)
+              .put("recordCount", cursor.getInt(1)).put("verified", cursor.getInt(2) == 1).put("duplicate", true);
+        }
+      }
+      int importedCount = 0;
+      JSONArray entityNames = entities.names();
+      if (entityNames == null) throw new IllegalArgumentException("snapshot.entities must not be empty.");
+      for (int i = 0; i < entityNames.length(); i++) {
+        String entityType = entityNames.getString(i);
+        JSONArray records = entities.optJSONArray(entityType);
+        if (records == null) throw new IllegalArgumentException("Migration entity must be an array: " + entityType);
+        for (int j = 0; j < records.length(); j++) {
+          JSONObject record = records.optJSONObject(j);
+          if (record == null) throw new IllegalArgumentException("Migration records must be objects.");
+          String entityId = record.optString("id", "");
+          if (empty(entityId)) throw new IllegalArgumentException("Migration record id is required for " + entityType);
+          String payload = record.toString();
+          String payloadHash = sha256(payload);
+          try (Cursor existing = db.query("canonical_records", new String[]{"payload"},
+              "entity_type=? AND entity_id=?", new String[]{entityType, entityId}, null, null, null, "1")) {
+            if (existing.moveToFirst()) {
+              if (!payload.equals(existing.getString(0))) {
+                throw new IllegalArgumentException("Migration conflict: native record differs for " + entityType + "/" + entityId);
+              }
+            } else {
+              ContentValues values = new ContentValues();
+              values.put("entity_type", entityType);
+              values.put("entity_id", entityId);
+              values.put("payload", payload);
+              values.put("updated_at", record.optString("updatedAt", now));
+              db.insertOrThrow("canonical_records", null, values);
+            }
+          }
+          ContentValues item = new ContentValues();
+          item.put("migration_id", migrationId);
+          item.put("entity_type", entityType);
+          item.put("entity_id", entityId);
+          item.put("payload_hash", payloadHash);
+          db.insertOrThrow("canonical_migration_items", null, item);
+          importedCount++;
+        }
+      }
+      ContentValues migration = new ContentValues();
+      migration.put("migration_id", migrationId);
+      migration.put("snapshot_hash", snapshotHash);
+      migration.put("record_count", importedCount);
+      migration.put("verified", 0);
+      migration.put("created_at", now);
+      db.insertOrThrow("canonical_migrations", null, migration);
+      db.setTransactionSuccessful();
+      return new JSONObject().put("migrationId", migrationId).put("snapshotHash", snapshotHash)
+          .put("recordCount", importedCount).put("verified", false).put("duplicate", false);
+    } finally {
+      db.endTransaction();
+    }
+  }
+
+  synchronized JSONObject verifyLegacyMigration(String migrationId) throws Exception {
+    if (empty(migrationId)) throw new IllegalArgumentException("migrationId is required.");
+    SQLiteDatabase db = getWritableDatabase();
+    db.beginTransaction();
+    try {
+      String expectedHash;
+      int expectedCount;
+      try (Cursor migration = db.query("canonical_migrations", new String[]{"snapshot_hash", "record_count"},
+          "migration_id=?", new String[]{migrationId}, null, null, null, "1")) {
+        if (!migration.moveToFirst()) throw new IllegalArgumentException("Migration has not been imported.");
+        expectedHash = migration.getString(0);
+        expectedCount = migration.getInt(1);
+      }
+      int verifiedCount = 0;
+      try (Cursor items = db.query("canonical_migration_items", new String[]{"entity_type", "entity_id", "payload_hash"},
+          "migration_id=?", new String[]{migrationId}, null, null, null)) {
+        while (items.moveToNext()) {
+          String entityType = items.getString(0), entityId = items.getString(1), expectedPayloadHash = items.getString(2);
+          try (Cursor record = db.query("canonical_records", new String[]{"payload"},
+              "entity_type=? AND entity_id=?", new String[]{entityType, entityId}, null, null, null, "1")) {
+            if (!record.moveToFirst() || !expectedPayloadHash.equals(sha256(record.getString(0)))) {
+              throw new IllegalStateException("Migration verification failed for " + entityType + "/" + entityId);
+            }
+          }
+          verifiedCount++;
+        }
+      }
+      if (verifiedCount != expectedCount) throw new IllegalStateException("Migration record count mismatch.");
+      ContentValues verified = new ContentValues();
+      verified.put("verified", 1);
+      verified.put("verified_at", timestampNow());
+      db.update("canonical_migrations", verified, "migration_id=?", new String[]{migrationId});
+      db.setTransactionSuccessful();
+      return new JSONObject().put("migrationId", migrationId).put("snapshotHash", expectedHash)
+          .put("recordCount", verifiedCount).put("verified", true);
+    } finally {
+      db.endTransaction();
+    }
+  }
+
+  synchronized JSONObject getMigration(String migrationId) throws JSONException {
+    if (empty(migrationId)) throw new IllegalArgumentException("migrationId is required.");
+    try (Cursor cursor = getReadableDatabase().query("canonical_migrations",
+        new String[]{"snapshot_hash", "record_count", "verified", "created_at", "verified_at"},
+        "migration_id=?", new String[]{migrationId}, null, null, null, "1")) {
+      if (!cursor.moveToFirst()) return new JSONObject().put("found", false);
+      return new JSONObject().put("found", true).put("migrationId", migrationId)
+          .put("snapshotHash", cursor.getString(0)).put("recordCount", cursor.getInt(1))
+          .put("verified", cursor.getInt(2) == 1).put("createdAt", cursor.getString(3))
+          .put("verifiedAt", cursor.isNull(4) ? JSONObject.NULL : cursor.getString(4));
+    }
+  }
+
+  private static String sha256(String value) throws Exception {
+    byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
+    StringBuilder out = new StringBuilder();
+    for (byte item : digest) out.append(String.format(java.util.Locale.US, "%02x", item & 0xff));
+    return out.toString();
   }
 
   synchronized JSONObject getRecord(String entityType, String entityId) throws JSONException {
