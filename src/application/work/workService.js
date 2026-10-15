@@ -16,14 +16,15 @@ import { calculateTraceDistanceKm } from '../../domain/movement/traceDistance.js
 import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
 
 const checkpoint = () => BackupService.requestLocalBackupCheckpoint()
+const nativeCanonicalAvailable = () => { try { return WorkRuntimePorts.canonicalWork.isAvailable() === true } catch (_) { return false } }
 const mirrorCanonicalRecord = async (entityType, record) => {
-  if (!record?.id || !WorkRuntimePorts.canonicalWork.isAvailable()) return record
+  if (!record?.id || !nativeCanonicalAvailable()) return record
   const outcome = await CanonicalWorkBoundary.putRecord({ operationId: CanonicalWorkBoundary.createOperationId(), entityType, record })
   if (outcome?.accepted !== true) throw new Error(`Native canonical ${entityType} commit was not acknowledged.`)
   return record
 }
 const mirrorCanonicalTripById = async id => {
-  if (!id || !WorkRuntimePorts.canonicalWork.isAvailable()) return null
+  if (!id || !nativeCanonicalAvailable()) return null
   const trips = await ShiftTripRepository.getAllTrips()
   const record = trips.find(item => item.id === id)
   if (record) await mirrorCanonicalRecord('TRIP', record)
@@ -38,12 +39,14 @@ export const WorkService = Object.freeze({
   validateTripCorrection(data) { return validateTripCorrection(data) },
   validateFuelEntry(data) { return validateFuelEntry(data) },
   async getActiveState() {
-    if (WorkRuntimePorts.canonicalWork.isAvailable()) {
+    if (nativeCanonicalAvailable()) {
       const [shifts, trips] = await Promise.all([
         WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'SHIFT', limit: 1000 }),
         WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'TRIP', limit: 1000 })
       ])
       await ShiftTripRepository.syncCanonicalRecords({ shifts: shifts.records, trips: trips.records })
+      const active = await ShiftTripRepository.getActive()
+      if (active.shift) await mirrorCanonicalRecord('SHIFT', active.shift)
     }
     return ShiftTripRepository.getActive()
   },
@@ -305,7 +308,7 @@ export const WorkService = Object.freeze({
   async updateTrip(data) {
     const validation = validateTripCorrection(data)
     if (!validation.valid) return { ok: false, reason: validation.reason }
-    const result = await ShiftTripRepository.updateTrip({ ...data, ...validation }); await mirrorCanonicalTripById(data?.id); checkpoint(); return result
+    const result = await ShiftTripRepository.updateTrip({ ...data, ...validation }); const trip = await mirrorCanonicalTripById(data?.id); if (trip?.shiftId && nativeCanonicalAvailable()) { const shift = (await ShiftTripRepository.getAllShifts()).find(item => item.id === trip.shiftId); if (shift) await mirrorCanonicalRecord('SHIFT', shift) }; checkpoint(); return result
   },
   async updateFuel(data) { const result = await FuelRepository.update(data.id, data); checkpoint(); return { ok: true, record: result } },
   async deleteFuel(id) { const result = await FuelRepository.remove(id); checkpoint(); return { ok: result } },
