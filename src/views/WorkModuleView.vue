@@ -10,8 +10,8 @@ import { PerformanceService } from '../application/performance/performanceServic
 import { WorkRuntimePorts } from '../application/work/workRuntimePorts.js'
 import { CanonicalWorkBoundary } from '../application/work/canonicalWorkBoundary.js'
 import { getLiveMovementTracePlan, matchesLiveMovementSession } from '../application/work/liveMovementTrace.js'
-import { deriveLiveRevenue } from '../domain/work/liveRevenue.js'
-import { SWIPE_CONFIG } from '../domain/work/swipeConfig.js'
+import { deriveLiveRevenue } from '../application/work/liveRevenueReadModel.js'
+import { SWIPE_CONFIG } from '../application/work/swipeConfiguration.js'
 import { deriveWorkCockpitState, WORK_COCKPIT_STATES } from '../application/work/workCockpit.js'
 import WorkContextForm from '../components/work/WorkContextForm.vue'
 
