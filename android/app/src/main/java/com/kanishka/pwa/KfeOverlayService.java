@@ -414,7 +414,7 @@ public class KfeOverlayService extends Service {
       String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"GO_TO_PICKUP",pendingTripId,"");
       actionStage="START_RIDE"; pendingFareTripId="";
       awaitingEventId=""; awaitingStage=""; awaitingTripId="";
-      persistNativeWorkflow(); animateRetract(); overlay.invalidate();
+      persistNativeWorkflow(); KfeNativeGpsService.start(this,pendingTripId,gpsEventForAction("GO_TO_PICKUP"),"TRIP"); animateRetract(); overlay.invalidate();
       Log.i("KFE-SWIPE","durably queued GO_TO_PICKUP; native stage advanced to START_RIDE event="+shortEventId(eventId));
       KfeNativeWorkActionsPlugin.emitAction("GO_TO_PICKUP",pendingTripId,"",eventId); return;
     }
@@ -425,7 +425,7 @@ public class KfeOverlayService extends Service {
       getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit()
         .putLong("tripStartAt",tripStartAt).putString("tripTimerTripId",pendingTripId).apply();
       awaitingEventId=""; awaitingStage=""; awaitingTripId="";
-      persistNativeWorkflow(); animateRetract(); overlay.invalidate();
+      persistNativeWorkflow(); KfeNativeGpsService.start(this,pendingTripId,gpsEventForAction("START_RIDE"),"TRIP"); animateRetract(); overlay.invalidate();
       Log.i("KFE-SWIPE","durably queued START_RIDE; native stage advanced to END_RIDE event="+shortEventId(eventId));
       KfeNativeWorkActionsPlugin.emitAction("START_RIDE",pendingTripId,"",eventId); return;
     }
