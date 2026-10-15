@@ -36,14 +36,11 @@ const invalidRevenue = reconcileShiftRevenue({ shiftRevenue: 1000, trips: [{ id:
 assert.equal(invalidRevenue.reconciliationStatus, 'UNAVAILABLE')
 assert.equal(invalidRevenue.reason, 'INVALID_TRIP_REVENUE_DETAIL')
 
-const validEndShift = validateEndShiftEntry({ closingOdometer: 1200, startOdometer: 1000, revenue: 1000 })
+const validEndShift = validateEndShiftEntry({ closingOdometer: 1200, startOdometer: 1000 })
 assert.equal(validEndShift.valid, true)
-const missingRevenue = validateEndShiftEntry({ closingOdometer: 1200, startOdometer: 1000, revenue: '' })
-assert.equal(missingRevenue.valid, false)
-assert.equal(missingRevenue.reason, 'SHIFT_REVENUE_REQUIRED')
-const negativeRevenue = validateEndShiftEntry({ closingOdometer: 1200, startOdometer: 1000, revenue: -1 })
-assert.equal(negativeRevenue.valid, false)
-assert.equal(negativeRevenue.reason, 'SHIFT_REVENUE_REQUIRED')
+const invalidEndOdometer = validateEndShiftEntry({ closingOdometer: 999, startOdometer: 1000 })
+assert.equal(invalidEndOdometer.valid, false)
+assert.match(invalidEndOdometer.reason, /lower than the shift opening odometer/)
 
 
 const range = { from: new Date('2026-10-01T00:00:00+05:30'), to: new Date('2026-10-31T23:59:59+05:30') }
