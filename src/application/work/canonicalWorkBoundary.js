@@ -82,7 +82,7 @@ const browserGetRecord = async ({ entityType, entityId }) => {
   return new Promise((resolve, reject) => {
     const tx = db.transaction([storeName], 'readonly')
     const request = tx.objectStore(storeName).get(id)
-    request.onsuccess = () => resolve(request.result ? { found: true, record: request.result } : { found: false })
+    request.onsuccess = () => resolve(request.result ? { found: true, record: request.result, updatedAt: request.result.updatedAt || null } : { found: false })
     request.onerror = () => reject(request.error || new Error('Canonical record query failed.'))
   })
 }
@@ -93,7 +93,7 @@ const browserListRecords = async ({ entityType, limit = 500 }) => {
   return new Promise((resolve, reject) => {
     const tx = db.transaction([storeName], 'readonly')
     const request = tx.objectStore(storeName).getAll()
-    request.onsuccess = () => resolve({ entityType, records: (request.result || []).slice(0, safeLimit), count: Math.min((request.result || []).length, safeLimit) })
+    request.onsuccess = () => { const records = (request.result || []).sort((a, b) => String(a.updatedAt || '').localeCompare(String(b.updatedAt || '') || String(a.id).localeCompare(String(b.id)))).slice(0, safeLimit); resolve({ entityType, records, count: records.length }) }
     request.onerror = () => reject(request.error || new Error('Canonical record list failed.'))
   })
 }
