@@ -18,7 +18,7 @@ const activity = read('android/app/src/main/java/com/kanishka/pwa/MainActivity.j
 assert.match(store, /CREATE TABLE canonical_records/)
 assert.match(boundary, /BrowserCanonicalWorkService\.putRecord/)
 assert.match(boundary, /WorkRuntimePorts\.canonicalWork\.isAvailable\(\)/)
-assert.match(boundary, /STORE_BY_ENTITY/)
+assert.match(read('src/infrastructure/work/browserCanonicalWork.js'), /STORE_BY_ENTITY/)
 assert.match(indexedDb, /createSimpleStore\(db, 'canonical_operations'/)
 assert.match(version, /CANONICAL_DB_VERSION = 16/)
 assert.match(store, /CREATE TABLE canonical_operations/)
