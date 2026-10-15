@@ -424,7 +424,7 @@ public class KfeOverlayService extends Service {
   }
 
   private void onEventAcknowledged(String eventId,String stage,String tripId){
-    if(eventId==null || !eventId.equals(awaitingEventId)){
+    if(!KfePendingActionState.matchesAwaitingEvent(awaitingEventId,eventId)){
       Log.w("KFE-SWIPE","ack ignored event="+shortEventId(eventId)+" awaiting="+shortEventId(awaitingEventId)+" stage="+stage);
       return;
     }
@@ -822,7 +822,9 @@ public class KfeOverlayService extends Service {
           swipeLocked=!minimized&&localY>=dp(96)&&localY<=dp(140);
           swipeEligible=swipeLocked&&awaitingEventId.isEmpty()&&
             ("GO_TO_PICKUP".equals(actionStage)||"START_RIDE".equals(actionStage)||"END_RIDE".equals(actionStage));
-          swipeMoved=false;return true;}
+          swipeMoved=false;
+          Log.d("KFE-SWIPE","down stage="+actionStage+" x="+downLocalX+" y="+downLocalY+" eligible="+swipeEligible+" pending="+shortEventId(awaitingEventId));
+          return true;}
         case MotionEvent.ACTION_MOVE:{
           float dx=e.getX()-downLocalX,dy=e.getRawY()-downY;
           if(swipeLocked){
