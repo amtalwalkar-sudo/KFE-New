@@ -421,8 +421,8 @@ public class KfeOverlayService extends Service {
     if(!awaitingEventId.isEmpty()) return;
     if("GO_TO_PICKUP".equals(actionStage)){
       if(pendingTripId.isEmpty()) pendingTripId=java.util.UUID.randomUUID().toString();
+      if(!persistCanonicalTripStage("GOING_TO_PICKUP", false)){Toast.makeText(this,"Trip state could not be saved. Swipe again when storage is available.",Toast.LENGTH_LONG).show();return;}
       String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"GO_TO_PICKUP",pendingTripId,"");
-      persistCanonicalTripStage("GOING_TO_PICKUP", false);
       phaseStartAt=System.currentTimeMillis(); phaseLabel="PICKUP TIME";
       actionStage="START_RIDE"; pendingFareTripId="";
       awaitingEventId=""; awaitingStage=""; awaitingTripId="";
@@ -432,9 +432,10 @@ public class KfeOverlayService extends Service {
     }
     if("START_RIDE".equals(actionStage)){
       if(pendingTripId.isEmpty()) return;
+      long rideStartedAt=System.currentTimeMillis();
+      if(!persistCanonicalTripStage("RIDE_STARTED", true)){Toast.makeText(this,"Trip state could not be saved. Swipe again when storage is available.",Toast.LENGTH_LONG).show();return;}
       String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"START_RIDE",pendingTripId,"");
-      actionStage="END_RIDE"; tripStartAt=System.currentTimeMillis(); phaseStartAt=tripStartAt; phaseLabel="TRIP TIME";
-      persistCanonicalTripStage("RIDE_STARTED", true);
+      actionStage="END_RIDE"; tripStartAt=rideStartedAt; phaseStartAt=tripStartAt; phaseLabel="TRIP TIME";
       getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit()
         .putLong("tripStartAt",tripStartAt).putString("tripTimerTripId",pendingTripId).apply();
       awaitingEventId=""; awaitingStage=""; awaitingTripId="";
@@ -444,8 +445,8 @@ public class KfeOverlayService extends Service {
     }
     if("END_RIDE".equals(actionStage)){
       if(pendingTripId.isEmpty()) return;
+      if(!persistCanonicalTripStage("COMPLETED", false)){Toast.makeText(this,"Trip state could not be saved. Swipe again when storage is available.",Toast.LENGTH_LONG).show();return;}
       String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"END_RIDE",pendingTripId,"");
-      persistCanonicalTripStage("COMPLETED", false);
       actionStage="ENTER_FARE"; pendingFareTripId=pendingTripId; tripStartAt=0L; phaseStartAt=System.currentTimeMillis(); phaseLabel="FARE ENTRY TIME";
       getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().remove("tripStartAt").remove("tripTimerTripId").apply();
       awaitingEventId=""; awaitingStage=""; awaitingTripId="";
@@ -759,24 +760,31 @@ public class KfeOverlayService extends Service {
   }
 
   
-  private void persistCanonicalTripStage(String stage, boolean rideStarted){
+  private boolean persistCanonicalTripStage(String stage, boolean rideStarted){
     try{
       JSONObject root=new JSONObject(getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(LAST_STATE_KEY,"{}"));
       JSONObject shift=root.optJSONObject("shift");
-      if(shift==null||shift.optString("id","").isEmpty()||pendingTripId.isEmpty())return;
+      if(shift==null||shift.optString("id","").isEmpty()||pendingTripId.isEmpty())return false;
       KfeCanonicalWorkStore store=KfeCanonicalWorkStore.get(this);
       JSONObject found=store.getRecord("TRIP",pendingTripId);
-      JSONObject trip=found.optJSONObject("record"); if(trip==null)trip=new JSONObject();
+      JSONObject trip=found.optJSONObject("record");
+      if(trip==null){
+        JSONObject snapshotTrip=root.optJSONObject("trip");
+        trip=snapshotTrip!=null&&pendingTripId.equals(snapshotTrip.optString("id",""))
+          ?new JSONObject(snapshotTrip.toString()):new JSONObject();
+      }
       trip.put("id",pendingTripId); trip.put("shiftId",shift.optString("id"));
-      if(!defaultOperator.isEmpty())trip.put("operator",defaultOperator);
+      if(!defaultOperator.isEmpty()&&!trip.has("operator"))trip.put("operator",defaultOperator);
       trip.put("status","COMPLETED".equals(stage)?"COMPLETED":"ACTIVE");
       trip.put("tripStage","COMPLETED".equals(stage)?"COMPLETED":stage);
       if(!trip.has("createdAt"))trip.put("createdAt",new java.util.Date().toInstant().toString());
       if(rideStarted)trip.put("tripStartAt",new java.util.Date(tripStartAt).toInstant().toString());
       if("COMPLETED".equals(stage))trip.put("tripEndAt",new java.util.Date().toInstant().toString());
       trip.put("updatedAt",new java.util.Date().toInstant().toString());
-      store.putRecord("native-trip-stage-"+pendingTripId+"-"+stage,"TRIP",trip);
-    }catch(Exception error){Log.e("KFE-CANONICAL","Could not persist native trip stage",error);}
+      KfeCanonicalWorkStore.Outcome outcome=store.putRecord("native-trip-stage-"+pendingTripId+"-"+stage,"TRIP",trip);
+      if(!outcome.accepted)throw new IllegalStateException("Canonical trip lifecycle stage was not acknowledged.");
+      return true;
+    }catch(Exception error){Log.e("KFE-CANONICAL","Could not persist native trip stage",error);return false;}
   }
   private void refreshCanonicalRevenue(String shiftId){
     if(shiftId==null||shiftId.isEmpty())return;
