@@ -20,6 +20,8 @@ const startWorkflowId = ref('')
 const fuelWorkflowId = ref('')
 let restoringDrafts = false
 let workflowTimerReady = false
+let nativeReplayTimer = null
+let nativeReplayRunning = false
 
 const startOdo = ref('')
 const startAck = ref(false)
@@ -1155,12 +1157,17 @@ async function processNativeEvent(event) {
 // Android brings the already-mounted Work view back to the foreground; never
 // synthesize a replacement action or append another event.
 async function replayFailedNativeActions() {
-  if (document.visibilityState !== 'visible') return
-  const pendingEvents = await WorkRuntimePorts.nativeWorkActions.consumePendingActions()
-  // Replay every still-pending event, not only events with a recorded write
-  // failure. An interruption can happen after the Work commit but before the
-  // failure counter is persisted; handlers must safely accept replays.
-  for (const event of pendingEvents) await processNativeEvent(event)
+  if (document.visibilityState !== 'visible' || nativeReplayRunning) return
+  nativeReplayRunning = true
+  try {
+    const pendingEvents = await WorkRuntimePorts.nativeWorkActions.consumePendingActions()
+    // Replay every still-pending event, not only events with a recorded write
+    // failure. An interruption can happen after the Work commit but before the
+    // failure counter is persisted; handlers must safely accept replays.
+    for (const event of pendingEvents) await processNativeEvent(event)
+  } finally {
+    nativeReplayRunning = false
+  }
 }
 
 onMounted(async () => {
@@ -1170,6 +1177,10 @@ onMounted(async () => {
   document.addEventListener('visibilitychange', replayFailedNativeActions)
   window.addEventListener('pageshow', replayFailedNativeActions)
   window.addEventListener('focus', replayFailedNativeActions)
+  // A transient bridge/WebView failure must not leave the native swipe locked
+  // indefinitely while Work remains visible. Reuse the same durable event IDs;
+  // processNativeEvent serializes per-ID work and acknowledges only confirmed saves.
+  nativeReplayTimer = setInterval(() => { void replayFailedNativeActions() }, 5000)
   await store.initialize()
   await fuel.refresh().catch(() => {})
   await WorkService.recoverNativeGpsTraces().catch(error => console.warn('KFE native GPS trace recovery deferred:', error))
@@ -1277,6 +1288,8 @@ onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', replayFailedNativeActions)
   window.removeEventListener('pageshow', replayFailedNativeActions)
   window.removeEventListener('focus', replayFailedNativeActions)
+  if (nativeReplayTimer) clearInterval(nativeReplayTimer)
+  nativeReplayTimer = null
   document.removeEventListener('visibilitychange', refreshClock)
   window.removeEventListener('pageshow', refreshClock)
   window.removeEventListener('focus', refreshClock)
