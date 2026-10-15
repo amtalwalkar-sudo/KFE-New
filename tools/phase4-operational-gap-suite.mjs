@@ -279,7 +279,7 @@ try {
     await AdminService.remove('settlement', settlementId)
     if ((await AdminService.list('settlement')).some(row => row.id === settlementId)) throw new Error('settlement soft-delete still appears in active list')
     const db = await new Promise((resolve, reject) => {
-      const request = indexedDB.open('kanishka_kfe_canonical_db', 15)
+      const request = indexedDB.open('kanishka_kfe_canonical_db', 16)
       request.onsuccess = () => resolve(request.result)
       request.onerror = () => reject(request.error)
     })
@@ -384,7 +384,7 @@ try {
     const updated = await repo.setTripStage(trip.id, 'RIDE_STARTED')
     if (!updated || updated.id !== trip.id || updated.tripStage !== 'RIDE_STARTED') throw new Error('D2 offline canonical trip mutation was rejected')
     const db = await new Promise((resolve, reject) => {
-      const request = indexedDB.open('kanishka_kfe_canonical_db', 15)
+      const request = indexedDB.open('kanishka_kfe_canonical_db', 16)
       request.onsuccess = () => resolve(request.result)
       request.onerror = () => reject(request.error)
     })
@@ -444,7 +444,7 @@ try {
   assert(await page.locator('.timeline').count() === 0, 'Timeline unexpectedly mounted retired presentation during the blank-workspace phase.')
   const recoveredShiftState = await page.evaluate(async () => {
     const db = await new Promise((resolve, reject) => {
-      const request = indexedDB.open('kanishka_kfe_canonical_db', 15)
+      const request = indexedDB.open('kanishka_kfe_canonical_db', 16)
       request.onsuccess = () => resolve(request.result)
       request.onerror = () => reject(request.error)
     })
@@ -478,7 +478,7 @@ try {
   // G4: restoring permission returns to connected GPS without creating a GPS snapshot.
   const beforeSnapshots = await page.evaluate(async () => {
     const db = await new Promise((resolve, reject) => {
-      const request = indexedDB.open('kanishka_kfe_canonical_db', 15)
+      const request = indexedDB.open('kanishka_kfe_canonical_db', 16)
       request.onsuccess = () => resolve(request.result)
       request.onerror = () => reject(request.error)
     })
@@ -498,7 +498,7 @@ try {
   assert(await gps.getAttribute('aria-label') === 'GPS connected', 'G4 GPS permission restoration did not recover')
   const afterSnapshots = await page.evaluate(async () => {
     const db = await new Promise((resolve, reject) => {
-      const request = indexedDB.open('kanishka_kfe_canonical_db', 15)
+      const request = indexedDB.open('kanishka_kfe_canonical_db', 16)
       request.onsuccess = () => resolve(request.result)
       request.onerror = () => reject(request.error)
     })
