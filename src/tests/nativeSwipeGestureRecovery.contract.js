@@ -5,8 +5,8 @@ const service = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeO
 const gesture = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeSwipeGesture.java', 'utf8')
 const store = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeNativeEventStore.java', 'utf8')
 
-assert.match(service, /progress=KfeSwipeGesture\.progress\(dx,maxTravel\)/)
-assert.match(service, /KfeSwipeGesture\.shouldCommit\(fx,maxTravel,dp\(8\),0\.70f\)/)
+assert.match(service, /progress=KfeSwipeGesture\.progress\(downProgress\*maxTravel\+dx,maxTravel\)/)
+assert.match(service, /KfeSwipeGesture\.hasMovedRight\(fx,dp\(8\)\)&&finalProgress>=0\.70f/)
 assert.match(service, /Log\.d\("KFE-SWIPE","down stage=/)
 assert.match(service, /Log\.d\("KFE-SWIPE","move stage=/)
 assert.match(service, /KfePendingActionState\.matchesAwaitingEvent\(awaitingEventId,eventId\)/)
