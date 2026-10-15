@@ -678,24 +678,88 @@ public class KfeOverlayService extends Service {
         payload.put("parking",parkingValue);
         payload.put("tollTreatment",tollTreatmentInput!=null&&tollTreatmentInput.isChecked()?"EXCLUDED":"INCLUDED");
         payload.put("parkingTreatment",parkingTreatmentInput!=null&&parkingTreatmentInput.isChecked()?"EXCLUDED":"INCLUDED");
+        // Commit the business record before reporting success to the overlay.
+        // The deterministic operation ID makes process-death/retry safe; the
+        // separate native event remains queued so the PWA's IndexedDB read model
+        // catches up when its WebView next runs.
+        persistCanonicalTripForm("FARE",actionTripId,payload);
         String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"ENTER_FARE",actionTripId,payload.toString());
-        beginAwaiting(eventId,"ENTER_FARE",actionTripId);
-        persistNativeWorkflow();
         KfeNativeWorkActionsPlugin.emitAction("ENTER_FARE",actionTripId,payload.toString(),eventId);
-      } catch(Exception ignored){ formSubmitting=false; }
+        finishNativeFormCommit();
+      } catch(Exception error){
+        Log.e("KFE-SWIPE","canonical fare commit failed; keeping form available",error);
+        formSubmitting=false;
+      }
       return;
     }else if("CANCEL".equals(formMode)){
       try{
         JSONObject input=new JSONObject();
         input.put("revenue",formValue);
         input.put("reason",cancelReason);
+        persistCanonicalTripForm("CANCEL",pendingTripId,input);
         String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"CANCEL_RIDE",pendingTripId,input.toString());
-        beginAwaiting(eventId,"CANCEL_RIDE",pendingTripId);
-        persistNativeWorkflow();
         KfeNativeWorkActionsPlugin.emitAction("CANCEL_RIDE",pendingTripId,input.toString(),eventId);
-      }catch(Exception ignored){formSubmitting=false;return;}
+        finishNativeFormCommit();
+      }catch(Exception error){
+        Log.e("KFE-SWIPE","canonical cancellation commit failed; keeping form available",error);
+        formSubmitting=false;
+      }
       return;
     }
+  }
+
+  private void persistCanonicalTripForm(String mode,String tripId,JSONObject input) throws Exception {
+    if(tripId==null||tripId.trim().isEmpty())throw new IllegalArgumentException("Trip ID is required.");
+    JSONObject trip=null;
+    String raw=getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(LAST_STATE_KEY,"");
+    if(!raw.isEmpty()){
+      JSONObject root=new JSONObject(raw);
+      JSONObject candidate=root.optJSONObject("trip");
+      if(candidate!=null&&tripId.equals(candidate.optString("id","")))trip=new JSONObject(candidate.toString());
+    }
+    KfeCanonicalWorkStore canonical=KfeCanonicalWorkStore.get(this);
+    if(trip==null){
+      JSONObject found=canonical.getRecord("TRIP",tripId);
+      if(found.optBoolean("found",false))trip=found.optJSONObject("record");
+    }
+    if(trip==null)throw new IllegalStateException("The last known trip record is unavailable; form was not marked saved.");
+    String operationId="native-form-"+mode+"-"+tripId;
+    String now=new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",java.util.Locale.US){{
+      setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+    }}.format(new java.util.Date());
+    if("FARE".equals(mode)){
+      trip.put("status","COMPLETED");
+      if(!input.optString("fare","").trim().isEmpty())trip.put("revenue",Double.parseDouble(input.optString("fare")));
+      else trip.put("revenue",JSONObject.NULL);
+      trip.put("fareDetailsSkipped",input.optString("fare","").trim().isEmpty());
+      trip.put("revenueAuthority","SUPPORTING_ONLY");
+      trip.put("toll",input.optString("toll","").trim().isEmpty()?0d:Double.parseDouble(input.optString("toll")));
+      trip.put("parking",input.optString("parking","").trim().isEmpty()?0d:Double.parseDouble(input.optString("parking")));
+      trip.put("tollTreatment",input.optString("tollTreatment","INCLUDED"));
+      trip.put("parkingTreatment",input.optString("parkingTreatment","INCLUDED"));
+    }else if("CANCEL".equals(mode)){
+      trip.put("status","CANCELLED");
+      trip.put("cancelReason",input.optString("reason",""));
+      String revenueValue=input.optString("revenue","");
+      trip.put("cancelledRevenue",revenueValue.trim().isEmpty()?JSONObject.NULL:Double.parseDouble(revenueValue));
+    }else throw new IllegalArgumentException("Unsupported native form mode.");
+    if(trip.isNull("tripEndAt")||trip.optString("tripEndAt","").isEmpty())trip.put("tripEndAt",now);
+    trip.put("updatedAt",now);
+    KfeCanonicalWorkStore.Outcome outcome=canonical.putRecord(operationId,"TRIP",trip);
+    if(!outcome.accepted)throw new IllegalStateException("Canonical trip form was not accepted.");
+  }
+
+  private void finishNativeFormCommit(){
+    formSubmitting=false;
+    closeForm();
+    actionStage="GO_TO_PICKUP";
+    pendingTripId="";
+    pendingFareTripId="";
+    tripStartAt=0L;
+    awaitingEventId="";awaitingStage="";awaitingTripId="";
+    persistNativeWorkflow();
+    animateRetract();
+    if(overlay!=null)overlay.invalidate();
   }
 
   private void closeForm(){closeForm(true);}
