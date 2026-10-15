@@ -233,7 +233,7 @@ const tripTimer = computed(() => {
   return started ? formatElapsed(clock.value - started) : '00:00:00'
 })
 const stateTimerLabel = computed(() => {
-  if (endOpen.value) return 'END SHIFT TIME'
+  if (endOpen.value) return 'ENDING TIME'
   if (cancelOpen.value) return 'CANCELLATION TIME'
   if (fuelOpen.value) return 'FUEL ENTRY TIME'
   if (pendingFare.value) return 'FARE ENTRY TIME'
