@@ -186,8 +186,6 @@ const targetProgress = computed(() => targetValue.value > 0
   : 0)
 
 const completed = computed(() => store.completedTrips.filter(t => t.status === 'COMPLETED'))
-const tripTollTotal = computed(() => completed.value.filter(t => t.shiftId === store.shift?.id).reduce((sum, trip) => sum + Math.max(0, Number(trip.toll) || 0), 0))
-const tripParkingTotal = computed(() => completed.value.filter(t => t.shiftId === store.shift?.id).reduce((sum, trip) => sum + Math.max(0, Number(trip.parking) || 0), 0))
 const pendingFare = computed(() => {
   if (fareTripId.value) {
     const selected = completed.value.find(t => t.id === fareTripId.value)
