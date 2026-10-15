@@ -731,7 +731,7 @@ public class KfeOverlayService extends Service {
 
   private class SwipeOverlayView extends View{
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);private final RectF rect=new RectF();
-    private float downX,downY,downLocalX,downLocalY,lastX,lastY;private boolean tracking,moving,swipeLocked,swipeEligible,swipeMoved;private float progress;
+    private float downX,downY,downLocalX,downLocalY,lastX,lastY;private boolean tracking,moving,swipeLocked,swipeEligible,swipeMoved;private float progress,downProgress;
     private String formatTripTime(){
       if(tripStartAt<=0) return "00:00:00";
       long elapsed=Math.max(0L,System.currentTimeMillis()-tripStartAt)/1000L;
@@ -816,7 +816,7 @@ public class KfeOverlayService extends Service {
     @Override public boolean onTouchEvent(MotionEvent e){
       switch(e.getActionMasked()){
         case MotionEvent.ACTION_DOWN:{
-          downX=e.getRawX();downY=e.getRawY();downLocalX=e.getX();downLocalY=e.getY();lastX=downX;lastY=downY;tracking=true;moving=false;
+          downX=e.getRawX();downY=e.getRawY();downLocalX=e.getX();downLocalY=e.getY();lastX=downX;lastY=downY;tracking=true;moving=false;downProgress=progress;
           float localX=e.getX(),localY=e.getY();
           // The touch lane spans the complete handle track. A partially displaced
           // thumb must remain recoverable instead of becoming impossible to grab.
@@ -831,7 +831,7 @@ public class KfeOverlayService extends Service {
           if(swipeLocked){
             if(swipeEligible){
               float maxTravel=Math.max(1,getWidth()-dp(16)-dp(58));
-              progress=KfeSwipeGesture.progress(dx,maxTravel);
+              progress=KfeSwipeGesture.progress(downProgress*maxTravel+dx,maxTravel);
               swipeMoved=KfeSwipeGesture.hasMovedRight(dx,dp(8));
               Log.d("KFE-SWIPE","move stage="+actionStage+" startX="+downLocalX+" x="+e.getX()+" dx="+dx+" progress="+progress+" movedRight="+swipeMoved+" pending="+shortEventId(awaitingEventId));
               invalidate();
@@ -879,8 +879,8 @@ public class KfeOverlayService extends Service {
           if(!minimized&&!moving&&"ENTER_FARE".equals(actionStage)&&downLocalY>=dp(58)&&downLocalY<=dp(96)){if(!"FARE".equals(formMode))openFareForm();return true;}
           float maxTravel=Math.max(1,getWidth()-dp(16)-dp(58));
           if(swipeLocked){
-            float finalProgress=KfeSwipeGesture.progress(fx,maxTravel);
-            boolean commit=swipeEligible&&KfeSwipeGesture.shouldCommit(fx,maxTravel,dp(8),0.70f);
+            float finalProgress=KfeSwipeGesture.progress(downProgress*maxTravel+fx,maxTravel);
+            boolean commit=swipeEligible&&KfeSwipeGesture.hasMovedRight(fx,dp(8))&&finalProgress>=0.70f;
             progress=finalProgress;
             Log.i("KFE-SWIPE","release stage="+actionStage+" startX="+downLocalX+" x="+e.getX()+" dx="+fx+" progress="+finalProgress+" threshold=0.70 eligible="+swipeEligible+" pending="+shortEventId(awaitingEventId)+" commit="+commit);
             if(commit){
