@@ -40,6 +40,29 @@ public class KfeOverlaySmokeTest {
     MainActivity.isResumed = true;
   }
 
+  @Test public void stalePwaSnapshotCannotResetNativeTripTimerAfterRecovery() throws Exception {
+    long authoritativeStart = System.currentTimeMillis() - 65000L;
+    context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE).edit()
+      .putString("actionStage", "END_RIDE")
+      .putString("pendingTripId", "timer-trip")
+      .putString("tripTimerTripId", "timer-trip")
+      .putLong("tripStartAt", authoritativeStart).apply();
+    JSONObject staleState = new JSONObject()
+      .put("shift", new JSONObject().put("id", "timer-shift"))
+      .put("trip", new JSONObject().put("id", "timer-trip").put("status", "ACTIVE"))
+      .put("overlayAction", "START_RIDE")
+      .put("overlayTripId", "timer-trip")
+      .put("tripStartAt", 0L);
+    KfeOverlayService.update(context, staleState.toString());
+    waitForOverlay();
+    KfeOverlayService service = waitForService();
+    assertEquals("END_RIDE", getField(service, "actionStage"));
+    assertEquals("timer-trip", getField(service, "pendingTripId"));
+    assertEquals(authoritativeStart, ((Long) getField(service, "tripStartAt")).longValue());
+    assertEquals(authoritativeStart,
+      context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE).getLong("tripStartAt", 0L));
+  }
+
   @Test public void staleGpsStopCannotStopNewerTripCollector() {
     assertTrue(KfeNativeGpsService.shouldStopForTrip("trip-a", "trip-a"));
     assertTrue(!KfeNativeGpsService.shouldStopForTrip("trip-b", "trip-a"));
