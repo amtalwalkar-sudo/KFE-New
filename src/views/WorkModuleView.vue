@@ -188,7 +188,7 @@ const targetProgress = computed(() => targetValue.value > 0
   : 0)
 
 const completed = computed(() => store.completedTrips.filter(t => t.status === 'COMPLETED'))
-const liveRevenue = computed(() => deriveLiveRevenue(store.registeredTrips))
+const liveRevenue = computed(() => deriveLiveRevenue(store.registeredTrips.filter(trip => trip.shiftId === store.shift?.id)))
 const pendingFare = computed(() => {
   if (fareTripId.value) {
     const selected = completed.value.find(t => t.id === fareTripId.value)
