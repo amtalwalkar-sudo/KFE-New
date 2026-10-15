@@ -30,6 +30,14 @@ const mirrorCanonicalTripById = async id => {
   if (record) await mirrorCanonicalRecord('TRIP', record)
   return record || null
 }
+const mirrorCanonicalShiftByTripId = async id => {
+  const trip = await mirrorCanonicalTripById(id)
+  if (trip?.shiftId && nativeCanonicalAvailable()) {
+    const shift = (await ShiftTripRepository.getAllShifts()).find(item => item.id === trip.shiftId)
+    if (shift) await mirrorCanonicalRecord('SHIFT', shift)
+  }
+  return trip
+}
 
 let nativeGpsRecoveryAttempt = null
 
@@ -189,7 +197,7 @@ export const WorkService = Object.freeze({
   async completeTrip(data) {
     // Commit the terminal state first. GPS is enrichment only: never hold the swipe
     // transition or the pending-fare form open while native trace synchronization runs.
-    const result = await ShiftTripRepository.completeTrip({ ...data }); await mirrorCanonicalTripById(data?.id); checkpoint()
+    const result = await ShiftTripRepository.completeTrip({ ...data }); await mirrorCanonicalShiftByTripId(data?.id); checkpoint()
     const tripId = data?.id
     if (tripId) {
       void (async () => {
@@ -308,7 +316,7 @@ export const WorkService = Object.freeze({
   async updateTrip(data) {
     const validation = validateTripCorrection(data)
     if (!validation.valid) return { ok: false, reason: validation.reason }
-    const result = await ShiftTripRepository.updateTrip({ ...data, ...validation }); const trip = await mirrorCanonicalTripById(data?.id); if (trip?.shiftId && nativeCanonicalAvailable()) { const shift = (await ShiftTripRepository.getAllShifts()).find(item => item.id === trip.shiftId); if (shift) await mirrorCanonicalRecord('SHIFT', shift) }; checkpoint(); return result
+    const result = await ShiftTripRepository.updateTrip({ ...data, ...validation }); await mirrorCanonicalShiftByTripId(data?.id); checkpoint(); return result
   },
   async updateFuel(data) { const result = await FuelRepository.update(data.id, data); checkpoint(); return { ok: true, record: result } },
   async deleteFuel(id) { const result = await FuelRepository.remove(id); checkpoint(); return { ok: result } },
