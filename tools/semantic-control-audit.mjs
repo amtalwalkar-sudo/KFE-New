@@ -206,7 +206,7 @@ try {
   await page.getByRole('button', { name: 'OK — END SHIFT', exact: true }).click()
   await page.getByText('SHIFT ENDED', { exact: true }).waitFor()
   state = await db(page, ['shifts', 'trips'])
-  assert(state.shifts.length === 1 && state.shifts[0].status === 'COMPLETED' && Number(state.shifts[0].endOdometer) === 1100 && Number(state.shifts[0].revenue) === 0, 'END SHIFT must persist the odometer without overwriting existing financial authority')
+  assert(state.shifts.length === 1 && state.shifts[0].status === 'COMPLETED' && Number(state.shifts[0].endOdometer) === 1100 && Number(state.shifts[0].revenue) === 800, 'END SHIFT must preserve existing trip-derived financial authority')
   assert(state.trips.length === 1 && Number(state.trips[0].revenue) === 800, 'END SHIFT must preserve the separately saved trip fare')
   assert(state.trips.length === 1 && Number(state.trips[0].revenue) === 800, 'END SHIFT trip linkage contract failed')
   await page.goto(new URL('timeline', base).href, { waitUntil: 'domcontentloaded' })
