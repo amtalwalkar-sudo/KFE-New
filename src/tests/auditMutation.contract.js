@@ -27,7 +27,7 @@ assert.equal(writes[1][1].mutationId, written.id)
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8')
 const indexedDb = read('utils/indexedDB.js')
-assert.match(fs.readFileSync('src/constants/canonicalDatabase.js', 'utf8'), /CANONICAL_DB_VERSION\\s*=\\s*16/)
+assert.match(fs.readFileSync('src/constants/canonicalDatabase.js', 'utf8'), /CANONICAL_DB_VERSION\s*=\s*16/)
 assert.match(indexedDb, /audit_history/)
 assert.match(indexedDb, /deleteObjectStore\('driver_collected_data'\)/)
 
