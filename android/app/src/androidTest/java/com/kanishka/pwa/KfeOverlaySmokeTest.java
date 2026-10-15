@@ -46,19 +46,25 @@ public class KfeOverlaySmokeTest {
       .putString("actionStage", "END_RIDE")
       .putString("pendingTripId", "timer-trip")
       .putString("tripTimerTripId", "timer-trip")
-      .putLong("tripStartAt", authoritativeStart).apply();
+      .putLong("tripStartAt", authoritativeStart)
+      .putLong("phaseStartAt", authoritativeStart)
+      .putString("phaseLabel", "TRIP TIME").apply();
     JSONObject staleState = new JSONObject()
       .put("shift", new JSONObject().put("id", "timer-shift"))
       .put("trip", new JSONObject().put("id", "timer-trip").put("status", "ACTIVE"))
       .put("overlayAction", "START_RIDE")
       .put("overlayTripId", "timer-trip")
-      .put("tripStartAt", 0L);
+      .put("tripStartAt", 0L)
+      .put("phaseStartAt", 0L)
+      .put("phaseLabel", "STALE TIMER");
     KfeOverlayService.update(context, staleState.toString());
     waitForOverlay();
     KfeOverlayService service = waitForService();
     assertEquals("END_RIDE", fieldValue(service, "actionStage"));
     assertEquals("timer-trip", fieldValue(service, "pendingTripId"));
     assertEquals(authoritativeStart, ((Long) fieldValue(service, "tripStartAt")).longValue());
+    assertEquals(authoritativeStart, ((Long) fieldValue(service, "phaseStartAt")).longValue());
+    assertEquals("TRIP TIME", fieldValue(service, "phaseLabel"));
     assertEquals(authoritativeStart,
       context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE).getLong("tripStartAt", 0L));
   }

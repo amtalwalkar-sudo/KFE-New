@@ -264,8 +264,6 @@ public class KfeOverlayService extends Service {
       targetProgress=Math.max(0,Math.min(100,root.optInt("targetProgress",0)));
       rides=root.optString("rides","0");
       liveKm=root.optString("liveKm","0.0 km");
-      phaseStartAt=root.optLong("phaseStartAt",phaseStartAt);
-      phaseLabel=root.optString("phaseLabel",phaseLabel);
       defaultOperator=root.optString("defaultOperator",defaultOperator);
       JSONObject swipeConfig=root.optJSONObject("swipeConfig");
       if(swipeConfig!=null){ swipeCommitThresholdPercent=Math.max(50,Math.min(95,swipeConfig.optInt("commitThresholdPercent",70))); swipeReturnDurationMs=Math.max(80,Math.min(500,swipeConfig.optInt("returnDurationMs",220))); try{swipePickupColor=Color.parseColor(swipeConfig.optString("pickupColor","#78A2FF"));swipeStartColor=Color.parseColor(swipeConfig.optString("startColor","#62D18A"));swipeEndColor=Color.parseColor(swipeConfig.optString("endColor","#FF8585"));}catch(Exception ignored){} }
@@ -279,6 +277,14 @@ public class KfeOverlayService extends Service {
       String durableTripId=durable.getString("pendingTripId","");
       String durableTimerTripId=durable.getString("tripTimerTripId","");
       long durableTripStartAt=durable.getLong("tripStartAt",0L);
+      long incomingPhaseStartAt=root.optLong("phaseStartAt",phaseStartAt);
+      String incomingPhaseLabel=root.optString("phaseLabel",phaseLabel);
+      long durablePhaseStartAt=durable.getLong("phaseStartAt",0L);
+      String durablePhaseLabel=durable.getString("phaseLabel",phaseLabel);
+      boolean preserveDurablePhaseTimer=!durableTripId.isEmpty()&&durableTripId.equals(incomingTripId)
+        &&durablePhaseStartAt>0L&&("START_RIDE".equals(durableStage)||"END_RIDE".equals(durableStage)||"ENTER_FARE".equals(durableStage));
+      phaseStartAt=preserveDurablePhaseTimer?durablePhaseStartAt:incomingPhaseStartAt;
+      phaseLabel=preserveDurablePhaseTimer?durablePhaseLabel:incomingPhaseLabel;
       String previousActionStage=actionStage;
       String nextActionStage=root.optString("overlayAction",actionStage);
       boolean preserveActiveTrip=awaitingEventId.isEmpty()
