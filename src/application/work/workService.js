@@ -290,7 +290,7 @@ export const WorkService = Object.freeze({
   },
   async cancelTrip(data) {
     const result = await ShiftTripRepository.cancelTrip(data)
-    await mirrorCanonicalTripById(data?.id)
+    await mirrorCanonicalShiftByTripId(data?.id)
     checkpoint()
     if (data?.id) {
       void (async () => {
