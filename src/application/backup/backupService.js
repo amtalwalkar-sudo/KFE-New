@@ -15,7 +15,7 @@ export const validateBackup = input => {
   if (backup.format !== BACKUP_FORMAT) throw new Error('Unsupported KFE backup format.')
   if (![1, 2, 3, BACKUP_FORMAT_VERSION].includes(backup.formatVersion)) throw new Error(`Unsupported backup format version: ${backup.formatVersion}.`)
   const sourceVersion = backup.source?.dbVersion
-  const supportedSourceVersions = backup.formatVersion === BACKUP_FORMAT_VERSION ? [12, 13, CANONICAL_DB_VERSION] : backup.formatVersion === 3 ? [11, 12] : [8, 9]
+  const supportedSourceVersions = backup.formatVersion === BACKUP_FORMAT_VERSION ? [12, 13, 15, CANONICAL_DB_VERSION] : backup.formatVersion === 3 ? [11, 12] : [8, 9]
   if (!backup.source || backup.source.dbName !== 'kanishka_kfe_canonical_db' || !supportedSourceVersions.includes(sourceVersion)) throw new Error('Backup source does not match a supported canonical KFE database version.')
   if (typeof backup.exportedAt !== 'string' || Number.isNaN(Date.parse(backup.exportedAt))) throw new Error('Backup exportedAt timestamp is invalid.')
   if (!backup.stores || typeof backup.stores !== 'object' || Array.isArray(backup.stores)) throw new Error('Backup stores section is missing.')
