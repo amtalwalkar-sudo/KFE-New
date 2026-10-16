@@ -42,6 +42,7 @@ assert.equal(quality.reason, 'GPS_TRACE_INTERNAL_GAP')
 
 const service = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeNativeGpsService.java', 'utf8')
 const work = fs.readFileSync('src/application/work/workService.js', 'utf8')
+const workView = fs.readFileSync('src/views/WorkModuleView.vue', 'utf8')
 assert.match(service, /MAX_ACCURACY_FOR_DISTANCE_METERS = 80f/)
 assert.match(service, /MAX_CONTIGUOUS_GAP_MS = 120000L/)
 assert.match(service, /appendFilteredDistanceLocation\(location\)/)
