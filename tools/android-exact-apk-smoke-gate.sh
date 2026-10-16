@@ -305,7 +305,12 @@ if [ "$booted" != true ]; then
   echo "EMULATOR DID NOT FINISH BOOTING FOR GPS RECOVERY TEST" >&2
   exit 1
 fi
+# BOOT_COMPLETED is delivered after the user has unlocked the device. Keyevent 82
+# alone is not a reliable keyguard dismissal on recent emulator images.
+adb shell input keyevent 224 || true
+adb shell wm dismiss-keyguard || true
 adb shell input keyevent 82 || true
+sleep 2
 # The boot receiver must have resumed the collector. The verification session waits
 # for a live service, signals readiness, then records points injected after boot.
 start_instrumentation_until_ready verifyGpsCollectorAfterReboot reboot-recovery-ready reboot-verify
