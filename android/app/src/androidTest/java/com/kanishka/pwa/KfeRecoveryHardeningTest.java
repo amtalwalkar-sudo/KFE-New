@@ -164,6 +164,11 @@ public class KfeRecoveryHardeningTest {
             .put("updatedAt", updatedAtB));
     startPersistentGps(tripId);
     rememberTraceCount("processDeath", tripId);
+    // Keep this target process alive long enough for the emulator shell to kill
+    // it while the foreground GPS service is actively collecting. The harness
+    // launches this instrumentation method asynchronously and injects the kill.
+    // If the harness fails, the bounded sleep prevents a permanently hung test.
+    SystemClock.sleep(30000L);
   }
 
   @Test public void verifyGpsCollectorAfterProcessDeath() throws Exception {
