@@ -34,13 +34,14 @@ const noisyGpsTrace = [
   { latitude: 19.001, longitude: 72, accuracy: 5, speed: 10, capturedAt: '2026-10-01T08:00:40.000Z' },
   { latitude: 19.2, longitude: 72, accuracy: 5, speed: 0, capturedAt: '2026-10-01T08:01:00.000Z' },
   { latitude: 19.002, longitude: 72, accuracy: 120, speed: 10, capturedAt: '2026-10-01T08:01:20.000Z' },
-  { latitude: 19.0011, longitude: 72, accuracy: 5, speed: 10, capturedAt: '2026-10-01T08:01:20.000Z' }
+  { latitude: 19.0011, longitude: 72, accuracy: 5, speed: 10, capturedAt: '2026-10-01T08:01:20.000Z' },
+  { latitude: 19.002, longitude: 72, accuracy: 5, speed: 10, capturedAt: '2026-10-01T08:01:20.000Z' }
 ]
 const filteredNoisyTrace = filterGpsTrace(noisyGpsTrace)
 assert.equal(filteredNoisyTrace.length, 3, 'Routing trace removes stationary jitter, poor-accuracy fixes, equal-time duplicates and implausible jumps.')
 assert.equal(filteredNoisyTrace[0].latitude, 19, 'The stationary anchor is preserved.')
 assert.equal(filteredNoisyTrace[1].latitude, 19.001, 'The first plausible movement point is retained.')
-assert.equal(filteredNoisyTrace[2].latitude, 19.001, 'A zero-duration point cannot replace the last accepted point.')
+assert.equal(filteredNoisyTrace[2].latitude, 19.0011, 'A zero-duration point cannot replace the last accepted point.')
 let routedPointCount = 0
 const filteredRoute = await routeTrace(noisyGpsTrace, { routeTrace: async points => {
   routedPointCount = points.length
