@@ -43,10 +43,16 @@ assert.ok(emulatorGate.includes('start_instrumentation_until_ready verifyGpsColl
 assert.ok(emulatorGate.includes('start_instrumentation_until_ready verifyGpsCollectorAfterReboot reboot-recovery-ready'),
   'Reboot GPS points must be injected only after the boot-resumed collector signals readiness.')
 const rebootPrepareIndex = emulatorGate.indexOf('prepareGpsCollectorForReboot reboot-prepare')
-const rebootUnstopIndex = emulatorGate.indexOf('adb shell am start -n com.kanishka.pwa/.MainActivity', rebootPrepareIndex)
+const rebootUnstopIndex = emulatorGate.indexOf('adb shell am start -W -n com.kanishka.pwa/.MainActivity', rebootPrepareIndex)
+const rebootStoppedStateIndex = emulatorGate.indexOf('cmd package set-stopped-state com.kanishka.pwa false', rebootPrepareIndex)
+const rebootStoppedAssertionIndex = emulatorGate.indexOf('stopped_state', rebootStoppedStateIndex)
 const rebootCommandIndex = emulatorGate.indexOf('adb reboot', rebootPrepareIndex)
-assert.ok(rebootPrepareIndex >= 0 && rebootUnstopIndex > rebootPrepareIndex && rebootCommandIndex > rebootUnstopIndex,
-  'The reboot test must launch the app after instrumentation preparation so Android does not suppress BOOT_COMPLETED for a stopped package.')
+assert.ok(rebootPrepareIndex >= 0 && rebootUnstopIndex > rebootPrepareIndex
+  && rebootStoppedStateIndex > rebootUnstopIndex && rebootStoppedAssertionIndex > rebootStoppedStateIndex
+  && rebootCommandIndex > rebootStoppedAssertionIndex,
+  'The reboot test must relaunch and verify the package is not stopped before Android delivers BOOT_COMPLETED.')
+assert.match(emulatorGate, /BOOT_COMPLETED was not recorded by KfeLifecycleRecoveryReceiver after reboot/,
+  'The reboot harness must separately verify actual boot receiver delivery before checking GPS recovery.')
 assert.match(emulatorGate, /wm dismiss-keyguard/, 'Reboot recovery must unlock the emulator so Android can deliver BOOT_COMPLETED to the receiver.')
 assert.ok(!emulatorGate.includes('prepareGpsCollectorForScreenOff screen-off-prepare'),
   'Screen-off coverage must not split collector preparation and verification across instrumentation sessions.')
