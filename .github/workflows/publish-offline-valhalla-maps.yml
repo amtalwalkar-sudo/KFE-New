@@ -5,10 +5,20 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/publish-offline-valhalla-maps.yml"
+      - "android/app/src/androidTest/java/com/kanishka/pwa/KfeRecoveryHardeningTest.java"
+      - "android/app/src/main/java/com/kanishka/pwa/KfeOfflineMapsPlugin.java"
+      - "android/app/build.gradle"
+      - "src/infrastructure/location/offlineMapService.js"
+      - "src/infrastructure/location/valhallaRoutingAdapter.js"
   pull_request:
     branches: [main, fix/native-overlay-background-transitions]
     paths:
       - ".github/workflows/publish-offline-valhalla-maps.yml"
+      - "android/app/src/androidTest/java/com/kanishka/pwa/KfeRecoveryHardeningTest.java"
+      - "android/app/src/main/java/com/kanishka/pwa/KfeOfflineMapsPlugin.java"
+      - "android/app/build.gradle"
+      - "src/infrastructure/location/offlineMapService.js"
+      - "src/infrastructure/location/valhallaRoutingAdapter.js"
   workflow_dispatch:
 
 permissions:
