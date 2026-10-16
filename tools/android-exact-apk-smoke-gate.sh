@@ -33,7 +33,7 @@ mv "$SIGNED_TEST_APK" "$TEST_APK"
 
 capture_failure() {
   local label="$1"
-  adb logcat -d -t 5000 > "artifacts/android-golden/${label}-logcat.log" || true
+  timeout 8s adb logcat -d -t 5000 > "artifacts/android-golden/${label}-logcat.log" || true
 }
 
 inject_gps_fixes() {
@@ -313,9 +313,12 @@ adb shell dumpsys deviceidle whitelist +com.kanishka.pwa || true
 sleep 3
 adb reboot || true
 booted=false
-for attempt in $(seq 1 120); do
-  adb wait-for-device >/dev/null 2>&1 || true
-  boot_state="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+# adb wait-for-device can itself block for minutes while an emulator reboots.
+# Bound each probe so the outer loop remains a real timeout and diagnostics can
+# be collected if the emulator never returns.
+for attempt in $(seq 1 180); do
+  timeout 2s adb wait-for-device >/dev/null 2>&1 || true
+  boot_state="$(timeout 2s adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
   if [ "$boot_state" = "1" ]; then booted=true; break; fi
   sleep 2
 done
