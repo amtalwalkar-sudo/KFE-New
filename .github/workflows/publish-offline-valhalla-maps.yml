@@ -165,6 +165,84 @@ jobs:
           done
 
 
+      # Exercise the exact locally built Valhalla tile extract inside Android.
+      # This must run before the area-build helper replaces the corridor tiles.
+      - name: Setup Java for Android offline-routing instrumentation
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Setup Node.js for Android offline-routing instrumentation
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Build Android APK and instrumentation for local routing test
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run build
+          npx cap sync android
+          cd android
+          ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+
+      - name: Verify installed Valhalla tiles with Android networking disabled
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          cores: 2
+          ram-size: 2048M
+          heap-size: 512M
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+          disable-animations: true
+          emulator-boot-timeout: 600
+          script: |
+            set -euo pipefail
+            mkdir -p artifacts/android-offline-routing
+            adb wait-for-device
+            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            adb install -r android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb push work/valhalla_tiles.tar /data/local/tmp/valhalla-tiles.tar
+            test "$(adb shell ls -l /data/local/tmp/valhalla-tiles.tar | awk '{print $5}' | tr -d '\r')" -gt 0
+
+            # Disable emulator-managed external network paths before invoking the native engine.
+            adb shell svc wifi disable
+            adb shell svc data disable || true
+            adb shell settings put global airplane_mode_on 1
+            adb shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true >/dev/null
+            sleep 3
+            test "$(adb shell settings get global airplane_mode_on | tr -d '\r')" = "1"
+
+            set +e
+            adb shell am instrument -w -r \
+              -e class com.kanishka.pwa.KfeRecoveryHardeningTest#installedOfflineValhallaRoutesWithNetworkDisabled \
+              com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner \
+              > artifacts/android-offline-routing/instrumentation.log 2>&1
+            result=$?
+            set -e
+            cat artifacts/android-offline-routing/instrumentation.log
+            test "$result" -eq 0
+            grep -Eq '^INSTRUMENTATION_CODE: -1$' artifacts/android-offline-routing/instrumentation.log
+            grep -Eq '^OK \(1 test\)$' artifacts/android-offline-routing/instrumentation.log
+            ! grep -Eq 'FAILURES!!!|Tests run: [0-9]+, Failures: [1-9]|shortMsg=Process crashed' artifacts/android-offline-routing/instrumentation.log
+
+      - name: Upload Android offline-routing evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kfe-android-offline-routing-evidence
+          path: artifacts/android-offline-routing/
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Build selectable city-area tile packages
         shell: bash
         run: |
