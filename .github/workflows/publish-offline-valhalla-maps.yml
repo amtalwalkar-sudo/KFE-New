@@ -208,7 +208,9 @@ jobs:
           build_area "nashik" "73.1,19.4,74.2,20.4" "work/trace-request-nashik.json"
           build_area "alibag" "72.4,18.2,73.3,19.0" "work/trace-request-alibag.json"
 
-      # Exercise the actual selectable Mumbai-metro tile package in Android.
+      # Exercise an actual selectable area package in Android. Alibag keeps the
+      # native-engine smoke bounded on memory-constrained emulator runners while
+      # still proving local tile routing with all network paths disabled.
       # This runs after the area packages are built and before catalog publication.
       - name: Setup Java for Android offline-routing instrumentation
         uses: actions/setup-java@v5
