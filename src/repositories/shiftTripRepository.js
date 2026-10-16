@@ -5,9 +5,6 @@ import { normalizeShiftInput, normalizeTripInput } from '../domain/canonicalNorm
 import { reconcileShiftRevenue } from '../domain/work/revenueReconciliation.js'
 import { deriveLiveRevenue } from '../domain/work/liveRevenue.js'
 import { transitionTrip, transitionTripStage, TRIP_STATES } from '../domain/work/tripLifecycle.js'
-import { WorkRuntimePorts } from '../application/work/workRuntimePorts.js'
-import { CanonicalWorkBoundary } from '../application/work/canonicalWorkBoundary.js'
-import { recoverCanonicalWorkSnapshot } from '../application/work/canonicalWorkRecovery.js'
 
 const TERMINAL_STATES = new Set([TRIP_STATES.COMPLETED, TRIP_STATES.CANCELLED])
 const atomic = async (stores, writer) => {
@@ -35,36 +32,13 @@ const compareRecordVersion = (left, right) => {
   return Math.sign(a - b)
 }
 
-// Every Android lifecycle/fare read crosses the same canonical recovery boundary.
-// IndexedDB remains the browser authority; on Android it is only a local read cache
-// and interrupted-write staging area until native SQLite has acknowledged the record.
-let canonicalReadAttempt = null
-const ensureCanonicalReadBoundary = async () => {
-  let available = false
-  try { available = WorkRuntimePorts.canonicalWork.isAvailable() === true } catch (_) {}
-  if (!available) return
-  if (canonicalReadAttempt) return canonicalReadAttempt
-  canonicalReadAttempt = recoverCanonicalWorkSnapshot({
-    readCanonical: async () => {
-      const [shifts, trips] = await Promise.all([
-        WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'SHIFT', limit: 1000 }),
-        WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'TRIP', limit: 1000 }),
-      ])
-      return { shifts, trips }
-    },
-    readLocal: async () => {
-      const [shifts, trips] = await Promise.all([readAll('shifts'), readAll('trips')])
-      return { shifts, trips }
-    },
-    mirrorRecord: async (entityType, record) => {
-      const outcome = await CanonicalWorkBoundary.putRecord({
-        operationId: CanonicalWorkBoundary.createOperationId(), entityType, record,
-      })
-      if (outcome?.accepted !== true) throw new Error(`Native canonical ${entityType} commit was not acknowledged.`)
-    },
-    syncCanonicalRecords: async records => ShiftTripRepository.syncCanonicalRecords(records),
-  }).finally(() => { canonicalReadAttempt = null })
-  return canonicalReadAttempt
+// Application-layer canonical reconciliation is injected to keep repository
+// code independent from platform adapters and application services.
+let canonicalReadBoundary = async () => {}
+const ensureCanonicalReadBoundary = () => canonicalReadBoundary()
+export const configureCanonicalReadBoundary = boundary => {
+  if (typeof boundary !== 'function') throw new TypeError('Canonical read boundary must be a function.')
+  canonicalReadBoundary = boundary
 }
 
 export const ShiftTripRepository = {
@@ -259,9 +233,9 @@ export const ShiftTripRepository = {
       request.onerror = () => reject(request.error); tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: ['trips'], reason: 'trip:UPDATE' }); resolve(true) }; tx.onerror = () => reject(tx.error || new Error('Trip correction failed.')); tx.onabort = () => reject(tx.error || new Error('Trip correction aborted.'))
     })
   },
-  async getAllShifts() { await ensureCanonicalReadBoundary(); return readAll('shifts') },
-  async getTripsForShift(shiftId) { await ensureCanonicalReadBoundary(); const trips = await readAll('trips'); return trips.filter(t => t.shiftId === shiftId).sort((a, b) => new Date(a.tripStartAt) - new Date(b.tripStartAt)) },
-  async getAllTrips() { await ensureCanonicalReadBoundary(); return readAll('trips') },
+  async getAllShifts({ skipCanonicalReadBoundary = false } = {}) { if (!skipCanonicalReadBoundary) await ensureCanonicalReadBoundary(); return readAll('shifts') },
+  async getTripsForShift(shiftId, { skipCanonicalReadBoundary = false } = {}) { if (!skipCanonicalReadBoundary) await ensureCanonicalReadBoundary(); const trips = await readAll('trips'); return trips.filter(t => t.shiftId === shiftId).sort((a, b) => new Date(a.tripStartAt) - new Date(b.tripStartAt)) },
+  async getAllTrips({ skipCanonicalReadBoundary = false } = {}) { if (!skipCanonicalReadBoundary) await ensureCanonicalReadBoundary(); return readAll('trips') },
   async getCompletedTripsForShift(shiftId) { const trips = await this.getTripsForShift(shiftId); return trips.filter(t => t.status === 'COMPLETED') },
   async getPrimaryVehicleId() {
     const registration = 'MH01EM7360'
@@ -382,5 +356,5 @@ export const ShiftTripRepository = {
       tx.onabort = () => reject(conflict || tx.error || new Error('Native canonical recovery aborted.'))
     })
   },
-  async getActive() { await ensureCanonicalReadBoundary(); const [shifts, trips] = await Promise.all([readAll('shifts'), readAll('trips')]); return { shift: shifts.find(s => s.status === 'ACTIVE') || null, trip: trips.find(t => t.status === 'ACTIVE') || null } }
+  async getActive({ skipCanonicalReadBoundary = false } = {}) { if (!skipCanonicalReadBoundary) await ensureCanonicalReadBoundary(); const [shifts, trips] = await Promise.all([readAll('shifts'), readAll('trips')]); return { shift: shifts.find(s => s.status === 'ACTIVE') || null, trip: trips.find(t => t.status === 'ACTIVE') || null } }
 }
