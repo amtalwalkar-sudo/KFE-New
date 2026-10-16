@@ -145,6 +145,18 @@ public class KfeRecoveryHardeningTest {
     await("GPS collector cleanup", 8000L, () -> KfeNativeGpsService.persistedActiveTripId(context).isEmpty());
   }
 
+  @Test public void prepareGpsCollectorForProcessDeath() throws Exception {
+    startPersistentGps("gps-process-death-" + System.currentTimeMillis());
+  }
+
+  @Test public void verifyGpsCollectorAfterProcessDeath() throws Exception {
+    String tripId = context.getSharedPreferences("kfe_native_gps", Context.MODE_PRIVATE)
+        .getString("activeTripId", "");
+    assertTrue("Process recovery must retain the pre-death trip identity.", tripId.startsWith("gps-process-death-"));
+    await("GPS collector after process death", 25000L,
+        () -> KfeNativeGpsService.isPersistedTracking(context, tripId, "PASSENGER_RIDE_TRACE", "TRIP"));
+  }
+
   @Test public void prepareGpsCollectorForScreenOff() throws Exception {
     startPersistentGps("gps-screen-off-" + System.currentTimeMillis());
   }
@@ -171,7 +183,7 @@ public class KfeRecoveryHardeningTest {
 
   @Test public void cleanupRecoveredGpsCollector() throws Exception {
     String tripId = KfeNativeGpsService.persistedActiveTripId(context);
-    if (tripId.startsWith("gps-screen-off-") || tripId.startsWith("gps-reboot-")) {
+    if (tripId.startsWith("gps-process-death-") || tripId.startsWith("gps-screen-off-") || tripId.startsWith("gps-reboot-")) {
       KfeNativeGpsService.stop(context, tripId);
       await("Recovered GPS cleanup", 8000L, () -> KfeNativeGpsService.persistedActiveTripId(context).isEmpty());
     }
