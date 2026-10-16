@@ -236,6 +236,7 @@ jobs:
 
       - name: Verify installed Valhalla tiles with Android networking disabled
         uses: reactivecircus/android-emulator-runner@v2
+        timeout-minutes: 15
         with:
           api-level: 34
           target: google_apis
@@ -251,9 +252,9 @@ jobs:
             set -euo pipefail
             mkdir -p artifacts/android-offline-routing
             adb wait-for-device
-            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-            adb install -r android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            adb push work/area-mumbai-metro.tar /data/local/tmp/valhalla-tiles.tar
+            timeout 120s adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            timeout 120s adb install -r android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            timeout 300s adb push work/area-mumbai-metro.tar /data/local/tmp/valhalla-tiles.tar
             test "$(adb shell ls -l /data/local/tmp/valhalla-tiles.tar | awk '{print $5}' | tr -d '\r')" -gt 0
 
             # Disable emulator-managed external network paths before invoking the native engine.
