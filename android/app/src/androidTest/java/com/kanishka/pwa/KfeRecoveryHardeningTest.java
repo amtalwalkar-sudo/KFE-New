@@ -292,7 +292,10 @@ public class KfeRecoveryHardeningTest {
             && gps.getLong("lastResumeAt", 0L) > recovery.getLong("rebootTestPreparedAt", Long.MAX_VALUE)
             && "START_REQUESTED".equals(gps.getString("lastResumeDecision", ""))
             && gps.getBoolean("activeCollectorReady", false));
-    rememberTraceCount("reboot", tripId);
+    // Keep the baseline captured before reboot. The shell injects fresh GPS fixes
+    // after BOOT_COMPLETED but before launching instrumentation: starting the test
+    // runner can recreate the app process and would otherwise perturb the service
+    // whose autonomous boot recovery this test is meant to observe.
     writeRecoveryReadyMarker("reboot-recovery-ready");
     long gpsDeadline = SystemClock.uptimeMillis() + 60000L;
     while (SystemClock.uptimeMillis() < gpsDeadline && !traceGrewSinceBaseline("reboot", tripId)) {
