@@ -120,44 +120,62 @@ run_instrumentation com.kanishka.pwa.KfeWebViewStartupTest webview-startup 1
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#canonicalWritesRemainIdempotentAfterLostAcknowledgementAndRejectStaleSnapshots canonical-persistence 1
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#gpsCollectorRecoversAfterServiceInterruption gps-service-recovery 1
 
-# Kill the target app process (not a force-stop) while its sticky foreground GPS
-# service is active. Android must recreate the service from its persisted identity.
-run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#prepareGpsCollectorForProcessDeath process-death-prepare 1
+# Keep the instrumentation target alive while the shell injects process death.
+# The test method writes the durable trip/fare state, starts the foreground GPS
+# service, records a trace baseline, then waits up to 30 seconds.
+prepare_log="artifacts/android-golden/process-death-prepare-instrumentation.log"
+timeout 90s adb shell am instrument -w -r -e class com.kanishka.pwa.KfeRecoveryHardeningTest#prepareGpsCollectorForProcessDeath com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner > "$prepare_log" 2>&1 &
+prepare_instrument_pid=$!
 app_pid() {
   adb shell pidof com.kanishka.pwa 2>/dev/null | tr -d '\r' | awk '{print $1}'
 }
-pid_before="$(app_pid || true)"
-process_was_already_gone=false
+pid_before=""
+for attempt in $(seq 1 20); do
+  pid_before="$(app_pid || true)"
+  if [ -n "$pid_before" ]; then break; fi
+  sleep 1
+done
 if [ -z "$pid_before" ]; then
-  # Some emulator images tear down the target process when the instrumentation
-  # invocation exits. That is itself a lifecycle boundary; require the sticky
-  # service to recreate the process and later prove the persisted trace grows.
-  process_was_already_gone=true
-  echo "KFE process already exited after prepare instrumentation; waiting for persisted-service recovery."
-else
-  adb root >/dev/null 2>&1 || true
-  adb wait-for-device || true
-  if adb shell id 2>/dev/null | grep -q 'uid=0'; then
-    pid_to_kill="$(app_pid || true)"
-    if [ -n "$pid_to_kill" ]; then
-      # The process may disappear between pidof and kill as the emulator tears
-      # down instrumentation. Treat that as an already-observed death and still
-      # require a different PID plus newly persisted GPS fixes below.
-      adb shell kill -9 "$pid_to_kill" || process_was_already_gone=true
-    else
-      process_was_already_gone=true
-      echo "KFE process exited during adb root transition; waiting for persisted-service recovery."
-    fi
-    adb unroot >/dev/null 2>&1 || true
-    adb wait-for-device || true
-  else
-    adb shell am kill com.kanishka.pwa || process_was_already_gone=true
-  fi
+  cat "$prepare_log" >&2 || true
+  capture_failure "process-death-pid-not-found"
+  kill "$prepare_instrument_pid" >/dev/null 2>&1 || true
+  echo "Could not observe the target process while GPS recovery preparation was active." >&2
+  exit 1
 fi
+# This PID is observed while the prepare instrumentation is still blocked in its
+# bounded wait, so the process death is injected against a live process.
+adb root >/dev/null 2>&1 || true
+adb wait-for-device || true
+if adb shell id 2>/dev/null | grep -q 'uid=0'; then
+  pid_to_kill="$(app_pid || true)"
+  if [ -z "$pid_to_kill" ]; then
+    capture_failure "process-death-pid-lost-before-kill"
+    kill "$prepare_instrument_pid" >/dev/null 2>&1 || true
+    echo "KFE process disappeared before the explicit process-death injection." >&2
+    exit 1
+  fi
+  adb shell kill -9 "$pid_to_kill" || {
+    capture_failure "process-death-kill-failed"
+    kill "$prepare_instrument_pid" >/dev/null 2>&1 || true
+    echo "Could not kill the live KFE process for the recovery test." >&2
+    exit 1
+  }
+  adb unroot >/dev/null 2>&1 || true
+  adb wait-for-device || true
+else
+  # A foreground service is not reliably killable through am kill. Do not
+  # silently substitute force-stop; fail this explicit process-death gate.
+  capture_failure "process-death-root-unavailable"
+  kill "$prepare_instrument_pid" >/dev/null 2>&1 || true
+  echo "Emulator cannot run adb root; explicit foreground-process kill is unavailable." >&2
+  exit 1
+fi
+# The instrumentation process is expected to die with the target process.
+wait "$prepare_instrument_pid" >/dev/null 2>&1 || true
 process_restarted=false
 for attempt in $(seq 1 25); do
   pid_after="$(app_pid || true)"
-  if [ -n "$pid_after" ] && { [ -z "$pid_before" ] || [ "$pid_after" != "$pid_before" ]; }; then
+  if [ -n "$pid_after" ] && [ "$pid_after" != "$pid_before" ]; then
     process_restarted=true
     break
   fi
