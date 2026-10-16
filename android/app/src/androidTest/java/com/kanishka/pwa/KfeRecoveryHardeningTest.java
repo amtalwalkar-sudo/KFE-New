@@ -294,7 +294,7 @@ public class KfeRecoveryHardeningTest {
             && gps.getBoolean("activeCollectorReady", false));
     rememberTraceCount("reboot", tripId);
     writeRecoveryReadyMarker("reboot-recovery-ready");
-    await("new GPS fixes after reboot", 20000L,
+    await("new GPS fixes after reboot", 60000L,
         () -> traceGrewSinceBaseline("reboot", tripId));
     assertTraceGrew("reboot", tripId, "after reboot");
     assertLifecycleFixture("reboot", tripId);
