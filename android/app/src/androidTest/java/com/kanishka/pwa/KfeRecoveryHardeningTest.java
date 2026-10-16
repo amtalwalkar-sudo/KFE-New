@@ -178,6 +178,8 @@ public class KfeRecoveryHardeningTest {
     String tripId = context.getSharedPreferences("kfe_native_gps", Context.MODE_PRIVATE)
         .getString("activeTripId", "");
     assertTrue("Process recovery must retain the pre-death trip identity.", tripId.startsWith("gps-process-death-"));
+    // Exercise the same persisted-resume entrypoint used by app startup and boot recovery.
+    KfeNativeGpsService.resumePersisted(context);
     await("live GPS collector after process death", 25000L,
         () -> KfeNativeGpsService.isPersistedTracking(context, tripId, "PASSENGER_RIDE_TRACE", "TRIP"));
   }
