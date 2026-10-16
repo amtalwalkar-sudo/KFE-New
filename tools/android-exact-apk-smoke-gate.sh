@@ -418,5 +418,15 @@ start_instrumentation_until_ready verifyGpsCollectorAfterReboot reboot-recovery-
 finish_instrumentation_until_ready
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#cleanupRecoveredGpsCollector gps-recovery-cleanup 1
 
+# Reboot may reset the special overlay app-op on emulator images. Re-grant it
+# after GPS reboot recovery and verify the effective mode before overlay UI tests.
+adb shell appops set com.kanishka.pwa SYSTEM_ALERT_WINDOW allow
+overlay_appop="$(adb shell appops get com.kanishka.pwa SYSTEM_ALERT_WINDOW | tr -d '\r')"
+printf '%s\n' "$overlay_appop"
+if ! printf '%s\n' "$overlay_appop" | grep -qi 'allow'; then
+  capture_failure "overlay-appop-not-granted-after-reboot"
+  echo "SYSTEM_ALERT_WINDOW app-op was not allowed after reboot: $overlay_appop" >&2
+  exit 1
+fi
 run_instrumentation com.kanishka.pwa.KfeOverlaySmokeTest native-overlay 19
 sha256sum "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
