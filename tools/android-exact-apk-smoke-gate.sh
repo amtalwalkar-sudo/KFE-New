@@ -299,7 +299,7 @@ adb shell am start -W -n com.kanishka.pwa/.MainActivity >/dev/null
 # The instrumentation runner may mark its target package stopped on exit. Explicitly
 # clear that state and verify it before reboot, otherwise Android legitimately skips
 # BOOT_COMPLETED for the app and the test would not exercise the receiver.
-adb shell cmd package set-stopped-state com.kanishka.pwa false
+adb shell cmd package set-stopped-state com.kanishka.pwa false || true
 stopped_state="$(adb shell dumpsys package com.kanishka.pwa | grep -o 'stopped=[^ ]*' | head -1 || true)"
 if [ "$stopped_state" != "stopped=false" ]; then
   capture_failure "reboot-package-still-stopped"
