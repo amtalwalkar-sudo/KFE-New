@@ -12,7 +12,6 @@ import { BackupService } from '../backup/backupService.js'
 import { MovementAccountingService, routeTrace, assessGpsTraceCompleteness, isUsableDistanceKm } from '../../domain/movement/movementAccounting.js'
 import { WorkRuntimePorts } from './workRuntimePorts.js'
 import { CanonicalWorkBoundary } from './canonicalWorkBoundary.js'
-import { recoverCanonicalWorkSnapshot } from './canonicalWorkRecovery.js'
 import { calculateTraceDistanceKm } from '../../domain/movement/traceDistance.js'
 import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
 
@@ -49,26 +48,8 @@ export const WorkService = Object.freeze({
   validateTripCorrection(data) { return validateTripCorrection(data) },
   validateFuelEntry(data) { return validateFuelEntry(data) },
   async getActiveState() {
-    if (nativeCanonicalAvailable()) {
-      await recoverCanonicalWorkSnapshot({
-        readCanonical: async () => {
-          const [shifts, trips] = await Promise.all([
-            WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'SHIFT', limit: 1000 }),
-            WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'TRIP', limit: 1000 })
-          ])
-          return { shifts, trips }
-        },
-        readLocal: async () => {
-          const [shifts, trips] = await Promise.all([
-            ShiftTripRepository.getAllShifts(),
-            ShiftTripRepository.getAllTrips()
-          ])
-          return { shifts, trips }
-        },
-        mirrorRecord: mirrorCanonicalRecord,
-        syncCanonicalRecords: records => ShiftTripRepository.syncCanonicalRecords(records)
-      })
-    }
+    // The repository owns the single-flight canonical read boundary so startup,
+    // resume, history and calculation consumers cannot race independent recoveries.
     return ShiftTripRepository.getActive()
   },
   async getTripsForShift(shiftId) { return ShiftTripRepository.getTripsForShift(shiftId) },
