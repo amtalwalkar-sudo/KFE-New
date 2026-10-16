@@ -326,7 +326,7 @@ fi
 adb shell am set-standby-bucket com.kanishka.pwa active || true
 adb shell dumpsys deviceidle whitelist +com.kanishka.pwa || true
 sleep 3
-adb reboot || true
+timeout 10s adb reboot || true
 booted=false
 # adb wait-for-device can itself block for minutes while an emulator reboots.
 # Bound each probe so the outer loop remains a real timeout and diagnostics can
