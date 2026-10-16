@@ -20,6 +20,9 @@ assert.match(nativePlugin, /MANIFEST_URL = "https:\/\//, 'Manifest must be fetch
 assert.match(nativePlugin, /SHA-256|SHA256|SHA-256 verification|MessageDigest\.getInstance\("SHA-256"\)/, 'Downloaded map packages must be checksum verified.')
 assert.match(nativePlugin, /expectedBytes|sizeBytes/, 'Downloader must verify package size.')
 assert.match(nativePlugin, /downloadProgress/, 'Downloader must emit progress.')
+assert.match(nativePlugin, /findRegionManifest/, 'Native downloader must resolve the selected area from the published map catalog.')
+assert.match(nativePlugin, /coverageBounds/, 'Installed map metadata must carry region coverage bounds.')
+assert.match(nativePlugin, /outside the installed offline map coverage/, 'Native matching must reject traces outside the installed area.')
 assert.match(nativePlugin, /traceRouteRaw/, 'Native plugin must call the on-device Valhalla trace matcher.')
 assert.match(nativePlugin, /previous-tiles\.tar|staging/, 'Map updates must stage downloads away from active map data.')
 assert.match(bridge, /registerPlugin\('KfeOfflineMaps'\)/, 'Web application must call the native map plugin.')
@@ -27,6 +30,8 @@ assert.match(router, /OFFLINE_VALHALLA_TRACE_ROUTE_MAP_MATCH/, 'Offline matches 
 assert.match(router, /OFFLINE_MATCH_BUDGET_MS = 1200/, 'Offline map matching must have a bounded wait budget.')
 assert.match(admin, /Download \/ Update Offline Maps/, 'Admin must expose user-facing map download/update controls.')
 assert.match(admin, /downloadProgress/, 'Admin must render download progress events.')
+assert.match(admin, /Offline coverage area/, 'Admin must let the user select an available offline coverage area.')
+assert.match(admin, /downloadUpdate\(selectedOfflineMapRegionId\.value\)/, 'Admin must request the selected area package.')
 assert.ok(backup.includes("'gps_snapshots'"), 'GPS evidence remains backed up.')
 assert.doesNotMatch(backup, /offline-maps|valhalla_tiles|routing_tiles|map_files/i, 'Large map files must never enter the business backup allowlist.')
 
@@ -38,5 +43,8 @@ assert.ok(admin.includes('bytesRequiredForUpdate'), 'Admin must show required fr
 assert.ok(mapReleaseWorkflow.includes('ghcr.io/valhalla/valhalla-scripted:3.9.1'), 'Map pipeline must build tiles with the matching Valhalla engine version.')
 assert.ok(mapReleaseWorkflow.includes('/releases/download/offline-maps/'), 'Map pipeline must publish versioned packages behind a stable release tag.')
 assert.ok(mapReleaseWorkflow.includes('trace-mumbai.json') && mapReleaseWorkflow.includes('trace-pune.json') && mapReleaseWorkflow.includes('trace-nashik.json') && mapReleaseWorkflow.includes('trace-alibag.json'), 'Map pipeline must smoke-test map matching in all four cities.')
+assert.ok(mapReleaseWorkflow.includes('Build selectable city-area tile packages'), 'Map pipeline must build area-specific packages, not just relabel the full corridor.')
+assert.ok(mapReleaseWorkflow.includes('offline-maps-mumbai-metro-') && mapReleaseWorkflow.includes('offline-maps-pune-') && mapReleaseWorkflow.includes('offline-maps-nashik-') && mapReleaseWorkflow.includes('offline-maps-alibag-'), 'Release pipeline must publish each selectable area package.')
+assert.ok(mapReleaseWorkflow.includes('coverageBounds:$coverageBounds') && mapReleaseWorkflow.includes('regions:$regions'), 'Published catalog must declare package-specific coverage bounds.')
 
 console.log('Native offline Valhalla integration contract: PASS')

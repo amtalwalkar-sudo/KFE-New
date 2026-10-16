@@ -34,7 +34,7 @@ import java.util.TimeZone;
 
 @CapacitorPlugin(name = "KfeOfflineMaps")
 public class KfeOfflineMapsPlugin extends Plugin {
-    private static final String REGION_ID = "mumbai-pune-nashik-alibag-v1";
+    private static final String DEFAULT_REGION_ID = "mumbai-pune-nashik-alibag-v1";
     private static final String MANIFEST_URL = "https://github.com/amtalwalkar-sudo/KFE-New/releases/download/offline-maps/offline-maps-manifest.json";
     private static final ExecutorService DOWNLOAD_IO = Executors.newSingleThreadExecutor();
     private static final ExecutorService MATCH_IO = Executors.newSingleThreadExecutor();
@@ -51,33 +51,47 @@ public class KfeOfflineMapsPlugin extends Plugin {
             try {
                 synchronized (mapStateLock) { if (!mapUpdateInProgress) recoverStagedMap(); }
                 File tiles = tilesFile(); File meta = metadataFile();
+                String requestedRegionId = call.getString("regionId", DEFAULT_REGION_ID);
                 JSObject out = new JSObject();
-                out.put("supported", true); out.put("regionId", REGION_ID);
+                out.put("supported", true); out.put("regionId", requestedRegionId);
                 synchronized (mapStateLock) { out.put("updateInProgress", mapUpdateInProgress); }
-                out.put("installed", tiles.isFile() && tiles.length() > 0 && meta.isFile());
                 long installedBytes = tiles.isFile() ? tiles.length() : 0;
                 out.put("bytesInstalled", installedBytes);
                 StatFs fs = new StatFs(getContext().getFilesDir().getAbsolutePath());
                 out.put("bytesAvailable", fs.getAvailableBytes());
+                JSONObject installedMetadata = meta.isFile() ? new JSONObject(readText(meta)) : new JSONObject();
+                String installedRegionId = installedMetadata.optString("regionId", "");
+                out.put("installedRegionId", installedRegionId);
+                out.put("installed", tiles.isFile() && tiles.length() > 0 && meta.isFile() && requestedRegionId.equals(installedRegionId));
                 if (meta.isFile()) {
-                    JSONObject m = new JSONObject(readText(meta));
-                    out.put("version", m.optString("version", ""));
-                    out.put("installedAt", m.optString("installedAt", ""));
-                    out.put("region", m.optString("region", "Mumbai · Pune · Nashik · Alibag"));
+                    out.put("installedVersion", installedMetadata.optString("version", ""));
+                    out.put("installedAt", installedMetadata.optString("installedAt", ""));
+                    out.put("installedRegion", installedMetadata.optString("region", ""));
                 }
                 try {
-                    JSONObject manifest = fetchJson(MANIFEST_URL, statusManifest, 4000, 5000);
+                    JSONObject catalog = fetchJson(MANIFEST_URL, statusManifest, 4000, 5000);
+                    JSONArray regions = catalog.optJSONArray("regions");
+                    JSONObject manifest = findRegionManifest(catalog, requestedRegionId);
+                    if (regions != null) out.put("availableRegions", regionsForUi(regions));
+                    if (manifest == null) throw new IllegalStateException("No published offline map package exists for the selected area.");
                     long requiredBytes = manifest.optLong("sizeBytes", 0);
-                    if (!REGION_ID.equals(manifest.optString("regionId")) || requiredBytes <= 0) throw new IllegalStateException("Map manifest is invalid.");
+                    if (requiredBytes <= 0 || manifest.optString("sha256", "").length() != 64 || !manifest.optString("packageUrl", "").startsWith("https://")) throw new IllegalStateException("Map manifest is invalid.");
                     long safetyMargin = Math.max(64L * 1024 * 1024, requiredBytes / 10);
                     out.put("manifestAvailable", true);
                     out.put("latestVersion", manifest.optString("version", ""));
                     out.put("bytesRequired", requiredBytes);
                     out.put("bytesRequiredForUpdate", requiredBytes + installedBytes + safetyMargin);
-                    out.put("mapAttribution", manifest.optString("attribution", "© OpenStreetMap contributors"));
+                    out.put("region", manifest.optString("region", requestedRegionId));
+                    out.put("coverageBounds", manifest.optJSONObject("coverageBounds"));
+                    out.put("mapAttribution", catalog.optString("attribution", manifest.optString("attribution", "© OpenStreetMap contributors")));
                 } catch (Exception manifestError) {
                     out.put("manifestAvailable", false);
-                    out.put("manifestError", "Latest map version could not be checked. Connect to the internet and refresh.");
+                    out.put("manifestError", manifestError.getMessage() == null ? "Latest map version could not be checked. Connect to the internet and refresh." : manifestError.getMessage());
+                    if (!out.has("availableRegions")) {
+                        JSONArray knownRegions = new JSONArray();
+                        knownRegions.put(new JSONObject().put("regionId", DEFAULT_REGION_ID).put("region", "Mumbai · Pune · Nashik · Alibag"));
+                        out.put("availableRegions", knownRegions);
+                    }
                 } finally { statusManifest.delete(); }
                 call.resolve(out);
             } catch (Exception e) { statusManifest.delete(); call.reject("Unable to read offline map status safely.", e); }
@@ -86,6 +100,7 @@ public class KfeOfflineMapsPlugin extends Plugin {
 
     @PluginMethod public void downloadUpdate(PluginCall call) {
         if (!call.getBoolean("confirmed", false)) { call.reject("Confirm the offline map download first."); return; }
+        String requestedRegionId = call.getString("regionId", DEFAULT_REGION_ID);
         synchronized (mapStateLock) {
             if (mapUpdateInProgress) { call.reject("An offline map download/update is already running."); return; }
             mapUpdateInProgress = true;
@@ -96,8 +111,9 @@ public class KfeOfflineMapsPlugin extends Plugin {
             File manifestTemp = new File(stage, "manifest.json");
             try {
                 recoverStagedMap();
-                JSONObject manifest = fetchJson(MANIFEST_URL, manifestTemp);
-                if (!REGION_ID.equals(manifest.optString("regionId"))) throw new IllegalStateException("The map manifest is for a different region.");
+                JSONObject catalog = fetchJson(MANIFEST_URL, manifestTemp);
+                JSONObject manifest = findRegionManifest(catalog, requestedRegionId);
+                if (manifest == null) throw new IllegalStateException("No published offline map package exists for the selected area.");
                 String version = manifest.getString("version");
                 String packageUrl = manifest.getString("packageUrl");
                 String expectedHash = manifest.getString("sha256").toLowerCase(Locale.ROOT);
@@ -109,7 +125,8 @@ public class KfeOfflineMapsPlugin extends Plugin {
                 if (available < requiredBytes) throw new IllegalStateException("Not enough free storage for a safe map update. Required free space: " + requiredBytes + " bytes.");
                 downloadFile(packageUrl, part, expectedBytes, expectedHash);
                 JSONObject metadata = new JSONObject();
-                metadata.put("regionId", REGION_ID); metadata.put("region", manifest.optString("region", "Mumbai · Pune · Nashik · Alibag"));
+                metadata.put("regionId", requestedRegionId); metadata.put("region", manifest.optString("region", requestedRegionId));
+                if (manifest.has("coverageBounds") && !manifest.isNull("coverageBounds")) metadata.put("coverageBounds", manifest.getJSONObject("coverageBounds"));
                 metadata.put("version", version); metadata.put("sha256", expectedHash); metadata.put("sizeBytes", expectedBytes);
                 SimpleDateFormat installedAtFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.ROOT); installedAtFormat.setTimeZone(TimeZone.getTimeZone("UTC")); metadata.put("installedAt", installedAtFormat.format(new Date())); metadata.put("engineVersion", manifest.optString("engineVersion", "0.6.4"));
                 File nextMeta = new File(stage, "map-metadata.json"); writeText(nextMeta, metadata.toString());
@@ -121,7 +138,7 @@ public class KfeOfflineMapsPlugin extends Plugin {
                 if (!part.renameTo(active)) { if (old.exists()) old.renameTo(active); if (oldMeta.exists()) oldMeta.renameTo(activeMeta); throw new IllegalStateException("Unable to activate downloaded map."); }
                 if (!nextMeta.renameTo(activeMeta)) { active.delete(); if (old.exists()) old.renameTo(active); if (oldMeta.exists()) oldMeta.renameTo(activeMeta); throw new IllegalStateException("Unable to commit map metadata."); }
                 old.delete(); oldMeta.delete();
-                JSObject done = new JSObject(); done.put("version", version); done.put("bytesInstalled", expectedBytes); done.put("regionId", REGION_ID);
+                JSObject done = new JSObject(); done.put("version", version); done.put("bytesInstalled", expectedBytes); done.put("regionId", requestedRegionId); done.put("region", manifest.optString("region", requestedRegionId));
                 notifyListeners("downloadComplete", done);
             } catch (Exception e) {
                 part.delete();
@@ -137,7 +154,21 @@ public class KfeOfflineMapsPlugin extends Plugin {
         if (points == null || points.length() < 2) { call.reject("At least two GPS points are required."); return; }
         MATCH_IO.execute(() -> {
             try {
-                File tiles = tilesFile(); if (!tiles.isFile() || tiles.length() == 0) throw new IllegalStateException("Offline Valhalla maps are not installed.");
+                File tiles = tilesFile(); File meta = metadataFile();
+                if (!tiles.isFile() || tiles.length() == 0 || !meta.isFile()) throw new IllegalStateException("Offline Valhalla maps are not installed.");
+                JSONObject installed = new JSONObject(readText(meta));
+                JSONObject bounds = installed.optJSONObject("coverageBounds");
+                if (bounds != null) {
+                    for (int i = 0; i < points.length(); i++) {
+                        JSONObject point = points.getJSONObject(i);
+                        double lat = point.optDouble("latitude", Double.NaN), lon = point.optDouble("longitude", Double.NaN);
+                        if (!Double.isFinite(lat) || !Double.isFinite(lon)) continue;
+                        if (lat < bounds.optDouble("south", -90) || lat > bounds.optDouble("north", 90)
+                            || lon < bounds.optDouble("west", -180) || lon > bounds.optDouble("east", 180)) {
+                            throw new IllegalArgumentException("GPS trace is outside the installed offline map coverage.");
+                        }
+                    }
+                }
                 JSONArray shape = new JSONArray();
                 for (int i = 0; i < points.length(); i++) {
                     JSONObject p = points.getJSONObject(i);
@@ -153,11 +184,37 @@ public class KfeOfflineMapsPlugin extends Plugin {
                 ValhallaConfigManager manager = new ValhallaConfigManager(getContext(), new ValhallaFile(getContext(), "valhalla-offline.json", mapDir()), new Moshi.Builder().add(new KotlinJsonAdapterFactory()).build());
                 try (Valhalla engine = new Valhalla(getContext(), ValhallaConfigFactory.INSTANCE.usingTileExtract(tiles.getAbsolutePath(), null), manager)) {
                     String raw = engine.traceRouteRaw(request.toString());
-                    JSObject result = new JSObject(); result.put("raw", raw); result.put("provider", "valhalla-mobile"); result.put("regionId", REGION_ID);
+                    JSObject result = new JSObject(); result.put("raw", raw); result.put("provider", "valhalla-mobile"); result.put("regionId", installed.optString("regionId", DEFAULT_REGION_ID));
                     call.resolve(result);
                 }
             } catch (Exception e) { call.reject("Offline Valhalla map matching failed; raw GPS evidence must be retained.", e); }
         });
+    }
+
+    private JSONObject findRegionManifest(JSONObject catalog, String regionId) throws Exception {
+        JSONArray regions = catalog.optJSONArray("regions");
+        if (regions != null) {
+            for (int i = 0; i < regions.length(); i++) {
+                JSONObject region = regions.optJSONObject(i);
+                if (region != null && regionId.equals(region.optString("regionId"))) return region;
+            }
+            return null;
+        }
+        return regionId.equals(catalog.optString("regionId")) ? catalog : null;
+    }
+
+    private JSONArray regionsForUi(JSONArray source) throws Exception {
+        JSONArray result = new JSONArray();
+        for (int i = 0; i < source.length(); i++) {
+            JSONObject item = source.optJSONObject(i);
+            if (item == null) continue;
+            JSONObject option = new JSONObject();
+            option.put("regionId", item.optString("regionId", ""));
+            option.put("region", item.optString("region", item.optString("regionId", "")));
+            option.put("sizeBytes", item.optLong("sizeBytes", 0));
+            result.put(option);
+        }
+        return result;
     }
 
     private void recoverStagedMap() throws Exception {

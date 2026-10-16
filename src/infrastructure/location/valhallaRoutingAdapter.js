@@ -2,15 +2,7 @@ const DEFAULT_VALHALLA_ENDPOINT = 'https://valhalla1.openstreetmap.de'
 const KFE_CLIENT_ID = 'KANISHKA-ENTERPRISES-PWA'
 const DEFAULT_TIMEOUT_MS = 8000
 const OFFLINE_MATCH_BUDGET_MS = 1200
-const OFFLINE_REGION_BOUNDS = { south: 17.35, north: 20.95, west: 72.05, east: 74.65 }
-
-const traceInsideOfflineRegion = points => {
-  const shape = toShape(points)
-  return shape.length >= 2 && shape.every(p => p.lat >= OFFLINE_REGION_BOUNDS.south && p.lat <= OFFLINE_REGION_BOUNDS.north && p.lon >= OFFLINE_REGION_BOUNDS.west && p.lon <= OFFLINE_REGION_BOUNDS.east)
-}
-
 const tryOfflineTrace = async points => {
-  if (!traceInsideOfflineRegion(points)) return null
   try {
     const { OfflineMapService } = await import('./offlineMapService.js')
     const pending = OfflineMapService.traceRoute(points)
@@ -26,7 +18,7 @@ const tryOfflineTrace = async points => {
       confidence: geometry ? 'ESTIMATED_ROAD_TRACE' : 'ESTIMATED_ROAD_TRACE_NO_GEOMETRY',
       distanceKm: Number.isFinite(distance) ? distance : null,
       geometry,
-      provenance: { provider: 'valhalla-mobile', regionId: 'mumbai-pune-nashik-alibag-v1', operation: 'trace_route', shapeMatch: 'map_snap', costing: 'auto', units: 'kilometers', sourcePointCount: toShape(points).length },
+      provenance: { provider: 'valhalla-mobile', regionId: result.regionId || 'mumbai-pune-nashik-alibag-v1', operation: 'trace_route', shapeMatch: 'map_snap', costing: 'auto', units: 'kilometers', sourcePointCount: toShape(points).length },
       raw: payload
     }
   } catch (error) {
