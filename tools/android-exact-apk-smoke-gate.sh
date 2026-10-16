@@ -401,12 +401,22 @@ case "$reboot_trip_id" in
   *) capture_failure "reboot-active-trip-missing"; echo "Persisted GPS trip was not restored after reboot: $reboot_trip_id" >&2; exit 1 ;;
 esac
 reboot_trace_file="files/kfe_gps_trace_${reboot_trip_id}.jsonl"
-trace_before="$(adb shell run-as com.kanishka.pwa wc -l "$reboot_trace_file" | awk '{print $1}' | tr -d '\r')"
+# No GPS fix may have arrived before reboot preparation; treat a missing trace
+# file as an empty baseline, but require the post-boot injections to create/grow it.
+if adb shell run-as com.kanishka.pwa test -f "$reboot_trace_file"; then
+  trace_before="$(adb shell run-as com.kanishka.pwa wc -l "$reboot_trace_file" | awk '{print $1}' | tr -d '\r')"
+else
+  trace_before=0
+fi
 for attempt in 1 2 3; do
   inject_gps_fixes
   sleep 3
 done
-trace_after="$(adb shell run-as com.kanishka.pwa wc -l "$reboot_trace_file" | awk '{print $1}' | tr -d '\r')"
+if adb shell run-as com.kanishka.pwa test -f "$reboot_trace_file"; then
+  trace_after="$(adb shell run-as com.kanishka.pwa wc -l "$reboot_trace_file" | awk '{print $1}' | tr -d '\r')"
+else
+  trace_after=0
+fi
 if ! [[ "$trace_before" =~ ^[0-9]+$ && "$trace_after" =~ ^[0-9]+$ ]] || [ "$trace_after" -le "$trace_before" ]; then
   capture_failure "reboot-gps-trace-did-not-grow"
   echo "Boot-resumed GPS collector did not persist injected fixes before instrumentation; before=$trace_before after=$trace_after" >&2
