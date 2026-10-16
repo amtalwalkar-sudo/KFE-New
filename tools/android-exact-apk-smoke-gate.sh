@@ -365,7 +365,14 @@ fi
 # The boot receiver must have resumed the collector. The verification session waits
 # for a live service, signals readiness, then records points injected after boot.
 start_instrumentation_until_ready verifyGpsCollectorAfterReboot reboot-recovery-ready reboot-verify
-inject_gps_fixes
+# The fused provider can take longer to settle after a full Android reboot than
+# after an ordinary service restart. Keep the same live instrumentation assertion
+# running while we inject multiple fresh fixes; the test still fails unless the
+# native trace actually grows for the persisted trip.
+for attempt in 1 2 3; do
+  inject_gps_fixes
+  sleep 3
+done
 finish_instrumentation_until_ready
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#cleanupRecoveredGpsCollector gps-recovery-cleanup 1
 
