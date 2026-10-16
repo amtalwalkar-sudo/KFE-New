@@ -5,6 +5,9 @@ import { normalizeShiftInput, normalizeTripInput } from '../domain/canonicalNorm
 import { reconcileShiftRevenue } from '../domain/work/revenueReconciliation.js'
 import { deriveLiveRevenue } from '../domain/work/liveRevenue.js'
 import { transitionTrip, transitionTripStage, TRIP_STATES } from '../domain/work/tripLifecycle.js'
+import { WorkRuntimePorts } from '../application/work/workRuntimePorts.js'
+import { CanonicalWorkBoundary } from '../application/work/canonicalWorkBoundary.js'
+import { recoverCanonicalWorkSnapshot } from '../application/work/canonicalWorkRecovery.js'
 
 const TERMINAL_STATES = new Set([TRIP_STATES.COMPLETED, TRIP_STATES.CANCELLED])
 const atomic = async (stores, writer) => {
@@ -32,9 +35,41 @@ const compareRecordVersion = (left, right) => {
   return Math.sign(a - b)
 }
 
+// Every Android lifecycle/fare read crosses the same canonical recovery boundary.
+// IndexedDB remains the browser authority; on Android it is only a local read cache
+// and interrupted-write staging area until native SQLite has acknowledged the record.
+let canonicalReadAttempt = null
+const ensureCanonicalReadBoundary = async () => {
+  let available = false
+  try { available = WorkRuntimePorts.canonicalWork.isAvailable() === true } catch (_) {}
+  if (!available) return
+  if (canonicalReadAttempt) return canonicalReadAttempt
+  canonicalReadAttempt = recoverCanonicalWorkSnapshot({
+    readCanonical: async () => {
+      const [shifts, trips] = await Promise.all([
+        WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'SHIFT', limit: 1000 }),
+        WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'TRIP', limit: 1000 }),
+      ])
+      return { shifts, trips }
+    },
+    readLocal: async () => {
+      const [shifts, trips] = await Promise.all([readAll('shifts'), readAll('trips')])
+      return { shifts, trips }
+    },
+    mirrorRecord: async (entityType, record) => {
+      const outcome = await CanonicalWorkBoundary.putRecord({
+        operationId: CanonicalWorkBoundary.createOperationId(), entityType, record,
+      })
+      if (outcome?.accepted !== true) throw new Error(`Native canonical ${entityType} commit was not acknowledged.`)
+    },
+    syncCanonicalRecords: async records => ShiftTripRepository.syncCanonicalRecords(records),
+  }).finally(() => { canonicalReadAttempt = null })
+  return canonicalReadAttempt
+}
+
 export const ShiftTripRepository = {
-  async createShift(data) { const normalized = normalizeShiftInput(data); const now = new Date().toISOString(); const startOdometer = requireFinite(normalized.startOdometer, 'startOdometer'); const record = { id: normalized.id || generateUUID(), startOdometer, openingPersonalKm: Number(normalized.openingPersonalKm || 0), openingDeadKm: Number(normalized.openingDeadKm || 0), openingPersonalToll: Number(normalized.openingPersonalToll || 0), openingPersonalParking: Number(normalized.openingPersonalParking || 0), openingBaselineType: normalized.openingBaselineType || 'POST_KFE_GAP', historicalOdometerGapKm: Number(normalized.historicalOdometerGapKm || 0), businessStartDate: normalized.businessStartDate || null, businessStartOdometer: Number.isFinite(Number(normalized.businessStartOdometer)) ? Number(normalized.businessStartOdometer) : null, endOdometer: null, totalDistance: 0, revenue: 0, toll: 0, parking: 0, tollParkingRevenueTreatment: 'INCLUDED', tollParkingCaptureMode: 'ADDITIONAL_ONLY', tollTreatment: normalized.tollTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED', parkingTreatment: normalized.parkingTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED', shiftStartAt: normalized.shiftStartAt || now, shiftEndAt: null, status: 'ACTIVE', createdAt: now, updatedAt: now }; await atomic(['shifts'], (_, m, a) => { _.objectStore('shifts').put(record); saveMutation(m, a, record.id, 'SHIFT', 'CREATE', record, now) }); return record },
-  async completeShift(data) {
+  async createShift(data) { await ensureCanonicalReadBoundary(); const normalized = normalizeShiftInput(data); const now = new Date().toISOString(); const startOdometer = requireFinite(normalized.startOdometer, 'startOdometer'); const record = { id: normalized.id || generateUUID(), startOdometer, openingPersonalKm: Number(normalized.openingPersonalKm || 0), openingDeadKm: Number(normalized.openingDeadKm || 0), openingPersonalToll: Number(normalized.openingPersonalToll || 0), openingPersonalParking: Number(normalized.openingPersonalParking || 0), openingBaselineType: normalized.openingBaselineType || 'POST_KFE_GAP', historicalOdometerGapKm: Number(normalized.historicalOdometerGapKm || 0), businessStartDate: normalized.businessStartDate || null, businessStartOdometer: Number.isFinite(Number(normalized.businessStartOdometer)) ? Number(normalized.businessStartOdometer) : null, endOdometer: null, totalDistance: 0, revenue: 0, toll: 0, parking: 0, tollParkingRevenueTreatment: 'INCLUDED', tollParkingCaptureMode: 'ADDITIONAL_ONLY', tollTreatment: normalized.tollTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED', parkingTreatment: normalized.parkingTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED', shiftStartAt: normalized.shiftStartAt || now, shiftEndAt: null, status: 'ACTIVE', createdAt: now, updatedAt: now }; await atomic(['shifts'], (_, m, a) => { _.objectStore('shifts').put(record); saveMutation(m, a, record.id, 'SHIFT', 'CREATE', record, now) }); return record },
+  async completeShift(data) { await ensureCanonicalReadBoundary();
     const db = await initializeCanonicalStorage()
     return new Promise((resolve, reject) => {
       const tx = db.transaction(['shifts', 'pending_mutations', 'audit_history'], 'readwrite')
@@ -81,11 +116,11 @@ export const ShiftTripRepository = {
       tx.onabort = () => reject(tx.error || new Error('Atomic shift completion aborted.'))
     })
   },
-  async createTrip(data) { const normalized = normalizeTripInput(data); if (!normalized.shiftId) throw new Error('shiftId is required for a Trip.'); const now = new Date().toISOString(); const record = { id: normalized.id || generateUUID(), shiftId: normalized.shiftId, operator: normalized.operator, tripStartAt: normalized.tripStartAt || null, tripEndAt: null, status: 'ACTIVE', tripStartLocation: normalized.tripStartLocation || null, tripEndLocation: null, tripKm: normalized.tripKm ?? null, tripKmAuthority: normalized.tripKm !== undefined ? 'MANUAL' : 'ESTIMATE', tripKmProvenance: normalized.tripKmProvenance ?? null, tripStage: normalized.tripStage || 'GOING_TO_PICKUP', toll: normalized.toll ?? 0, parking: normalized.parking ?? 0, tollTreatment: normalized.tollTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED', parkingTreatment: normalized.parkingTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED', revenue: normalized.revenue ?? null, revenueAuthority: normalized.revenue !== undefined ? 'SUPPORTING_ONLY' : 'SUPPORTING_ONLY', revenueProvenance: normalized.revenueProvenance ?? null, fareDetailsSkipped: false, cancelledRevenue: null, cancelReason: null, createdAt: now, updatedAt: now }; await atomic(['trips'], (_, m, a) => { _.objectStore('trips').put(record); saveMutation(m, a, record.id, 'TRIP', 'CREATE', record, now) }); return record },
+  async createTrip(data) { await ensureCanonicalReadBoundary(); const normalized = normalizeTripInput(data); if (!normalized.shiftId) throw new Error('shiftId is required for a Trip.'); const now = new Date().toISOString(); const record = { id: normalized.id || generateUUID(), shiftId: normalized.shiftId, operator: normalized.operator, tripStartAt: normalized.tripStartAt || null, tripEndAt: null, status: 'ACTIVE', tripStartLocation: normalized.tripStartLocation || null, tripEndLocation: null, tripKm: normalized.tripKm ?? null, tripKmAuthority: normalized.tripKm !== undefined ? 'MANUAL' : 'ESTIMATE', tripKmProvenance: normalized.tripKmProvenance ?? null, tripStage: normalized.tripStage || 'GOING_TO_PICKUP', toll: normalized.toll ?? 0, parking: normalized.parking ?? 0, tollTreatment: normalized.tollTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED', parkingTreatment: normalized.parkingTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED', revenue: normalized.revenue ?? null, revenueAuthority: normalized.revenue !== undefined ? 'SUPPORTING_ONLY' : 'SUPPORTING_ONLY', revenueProvenance: normalized.revenueProvenance ?? null, fareDetailsSkipped: false, cancelledRevenue: null, cancelReason: null, createdAt: now, updatedAt: now }; await atomic(['trips'], (_, m, a) => { _.objectStore('trips').put(record); saveMutation(m, a, record.id, 'TRIP', 'CREATE', record, now) }); return record },
   async setTripStartLocation(id, location) {
     return this._setTripLocation(id, location, 'tripStartLocation')
   },
-  async setTripStage(id, stage) {
+  async setTripStage(id, stage) { await ensureCanonicalReadBoundary();
     if (!id || !stage) return false
     const db = await initializeCanonicalStorage(); const now = new Date().toISOString()
     let updatedTrip = null
@@ -120,7 +155,7 @@ export const ShiftTripRepository = {
   async setTripEndLocation(id, location) {
     return this._setTripLocation(id, location, 'tripEndLocation')
   },
-  async _setTripLocation(id, location, field) {
+  async _setTripLocation(id, location, field) { await ensureCanonicalReadBoundary();
     if (!id || !location) return false
     const db = await initializeCanonicalStorage()
     return new Promise((resolve, reject) => {
@@ -145,14 +180,14 @@ export const ShiftTripRepository = {
   },
   async completeTrip(data) { return this._finishTrip(data, 'COMPLETED') },
   async cancelTrip(data) { return this._finishTrip(data, 'CANCELLED') },
-  async _finishTrip(data, status) {
+  async _finishTrip(data, status) { await ensureCanonicalReadBoundary();
     const db = await initializeCanonicalStorage(); return new Promise((resolve, reject) => {
       const tx = db.transaction(['shifts', 'trips', 'pending_mutations', 'audit_history'], 'readwrite'); const shifts = tx.objectStore('shifts'); const trips = tx.objectStore('trips'); const mutations = tx.objectStore('pending_mutations'); const audit = tx.objectStore('audit_history'); const request = trips.get(data.id)
       request.onsuccess = () => { const record = request.result; if (!record) { reject(new Error('Trip not found.')); try { tx.abort() } catch (_) {}; return }; if (record.status === status && TERMINAL_STATES.has(status)) { resolve(true); try { tx.abort() } catch (_) {}; return }; if (record.status !== 'ACTIVE') { reject(new Error('Trip is not active.')); try { tx.abort() } catch (_) {}; return }; const now = new Date().toISOString(); const next = transitionTrip(record, status, data); next.tripEndAt = data.tripEndAt || now; next.tripEndLocation = data.tripEndLocation || null; next.updatedAt = now; trips.put(next); saveMutation(mutations, audit, next.id, 'TRIP', 'UPDATE', next, now); const shiftRequest = shifts.get(next.shiftId); shiftRequest.onsuccess = () => { const shift = shiftRequest.result; if (!shift) return; const allTripsRequest = trips.getAll(); allTripsRequest.onsuccess = () => { const shiftTrips = allTripsRequest.result.filter(trip => trip.shiftId === shift.id); const hasSavedFare = shiftTrips.some(trip => (trip.status === 'COMPLETED' && trip.revenue != null && trip.fareDetailsSkipped !== true) || (trip.status === 'CANCELLED' && (trip.cancelledRevenue != null || trip.revenue != null))); if (hasSavedFare) { shift.revenue = deriveLiveRevenue(shiftTrips); shift.liveFareRevenue = shift.revenue; shift.revenueSource = 'TRIP_FARES' }; shift.updatedAt = now; shifts.put(shift); saveMutation(mutations, audit, shift.id, 'SHIFT', 'UPDATE', shift, now) }; allTripsRequest.onerror = () => { try { tx.abort() } catch (_) {} } }; shiftRequest.onerror = () => { try { tx.abort() } catch (_) {} } }
       request.onerror = () => reject(request.error); tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: ['trips'], reason: `trip:${status}` }); resolve(true) }; tx.onerror = () => reject(tx.error || new Error('Trip update failed.')); tx.onabort = () => reject(tx.error || new Error('Trip update aborted.'))
     })
   },
-  async enrichTripMovement(data) {
+  async enrichTripMovement(data) { await ensureCanonicalReadBoundary();
     const db = await initializeCanonicalStorage(); return new Promise((resolve, reject) => {
       const tx = db.transaction(['trips', 'pending_mutations', 'audit_history'], 'readwrite')
       const trips = tx.objectStore('trips'); const mutations = tx.objectStore('pending_mutations'); const audit = tx.objectStore('audit_history')
@@ -217,16 +252,16 @@ export const ShiftTripRepository = {
       tx.onabort = () => { if (tx.error) reject(tx.error); else resolve(false) }
     })
   },
-  async updateTrip(data) {
+  async updateTrip(data) { await ensureCanonicalReadBoundary();
     const db = await initializeCanonicalStorage(); return new Promise((resolve, reject) => {
       const tx = db.transaction(['trips', 'shifts', 'pending_mutations', 'audit_history'], 'readwrite'); const trips = tx.objectStore('trips'); const shifts = tx.objectStore('shifts'); const mutations = tx.objectStore('pending_mutations'); const audit = tx.objectStore('audit_history'); const request = trips.get(data.id)
       request.onsuccess = () => { const record = request.result; if (!record) { reject(new Error('Trip not found.')); try { tx.abort() } catch (_) {}; return }; if (record.status !== 'COMPLETED' && record.status !== 'CANCELLED') { reject(new Error('Only completed or cancelled trips can be corrected.')); try { tx.abort() } catch (_) {}; return }; const now = new Date().toISOString(); applyTripCorrection(record, data, now); trips.put(record); saveMutation(mutations, audit, record.id, 'TRIP', 'UPDATE', record, now); const shiftRequest = shifts.get(record.shiftId); shiftRequest.onsuccess = () => { const shift = shiftRequest.result; if (!shift) return; const allTripsRequest = trips.getAll(); allTripsRequest.onsuccess = () => { const shiftTrips = allTripsRequest.result.filter(trip => trip.shiftId === shift.id); const hasSavedFare = shiftTrips.some(trip => (trip.status === 'COMPLETED' && trip.revenue != null && trip.fareDetailsSkipped !== true) || (trip.status === 'CANCELLED' && (trip.cancelledRevenue != null || trip.revenue != null))); if (hasSavedFare) { shift.revenue = deriveLiveRevenue(shiftTrips); shift.liveFareRevenue = shift.revenue; shift.revenueSource = 'TRIP_FARES' }; const reconciliation = reconcileShiftRevenue({ shiftRevenue: shift.revenue, trips: shiftTrips, toll: shift.toll, parking: shift.parking, tollTreatment: shift.tollTreatment, parkingTreatment: shift.parkingTreatment, tollParkingCaptureMode: shift.tollParkingCaptureMode, tollParkingRevenueTreatment: shift.tollParkingRevenueTreatment }); shift.revenueReconciliation = reconciliation; shift.updatedAt = now; shifts.put(shift); saveMutation(mutations, audit, shift.id, 'SHIFT', 'UPDATE', shift, now) }; allTripsRequest.onerror = () => { try { tx.abort() } catch (_) {} } }; shiftRequest.onerror = () => { try { tx.abort() } catch (_) {} } }
       request.onerror = () => reject(request.error); tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: ['trips'], reason: 'trip:UPDATE' }); resolve(true) }; tx.onerror = () => reject(tx.error || new Error('Trip correction failed.')); tx.onabort = () => reject(tx.error || new Error('Trip correction aborted.'))
     })
   },
-  async getAllShifts() { return readAll('shifts') },
-  async getTripsForShift(shiftId) { const trips = await readAll('trips'); return trips.filter(t => t.shiftId === shiftId).sort((a, b) => new Date(a.tripStartAt) - new Date(b.tripStartAt)) },
-  async getAllTrips() { return readAll('trips') },
+  async getAllShifts() { await ensureCanonicalReadBoundary(); return readAll('shifts') },
+  async getTripsForShift(shiftId) { await ensureCanonicalReadBoundary(); const trips = await readAll('trips'); return trips.filter(t => t.shiftId === shiftId).sort((a, b) => new Date(a.tripStartAt) - new Date(b.tripStartAt)) },
+  async getAllTrips() { await ensureCanonicalReadBoundary(); return readAll('trips') },
   async getCompletedTripsForShift(shiftId) { const trips = await this.getTripsForShift(shiftId); return trips.filter(t => t.status === 'COMPLETED') },
   async getPrimaryVehicleId() {
     const registration = 'MH01EM7360'
@@ -289,8 +324,8 @@ export const ShiftTripRepository = {
     return vehicle.id
   },
   async getBusinessStartBaseline() { const [vehicles, settings] = await Promise.all([readAll('vehicles'), readAll('settings')]); const active = vehicles.filter(v => !v.deleted && !v.deletedAt && v.status !== 'Sold' && Number.isFinite(Number(v.openingOdometerKm))); const vehicle = active.sort((a, b) => String(a.id || '').localeCompare(String(b.id || '')))[0] || null; const setup = settings.find(item => item.settingKey === 'businessSetup' && !item.deleted && !item.deletedAt); const businessStartDate = setup?.values?.businessStartDate || null; return vehicle ? { businessStartDate, businessStartOdometer: Number(vehicle.openingOdometerKm) } : (businessStartDate ? { businessStartDate, businessStartOdometer: null } : null) },
-  async getLastCompletedShift() { const shifts = await readAll('shifts'); return shifts.filter(s => s.status === 'COMPLETED' && Number.isFinite(Number(s.endOdometer))).sort((a, b) => new Date(b.shiftEndAt || b.updatedAt) - new Date(a.shiftEndAt || a.updatedAt))[0] || null },
-  async getLastCompletedTrip() { const trips = await readAll('trips'); return trips.filter(t => t.status === 'COMPLETED' && t.operator).sort((a, b) => new Date(b.tripEndAt || b.updatedAt) - new Date(a.tripEndAt || a.updatedAt))[0] || null },
+  async getLastCompletedShift() { await ensureCanonicalReadBoundary(); const shifts = await readAll('shifts'); return shifts.filter(s => s.status === 'COMPLETED' && Number.isFinite(Number(s.endOdometer))).sort((a, b) => new Date(b.shiftEndAt || b.updatedAt) - new Date(a.shiftEndAt || a.updatedAt))[0] || null },
+  async getLastCompletedTrip() { await ensureCanonicalReadBoundary(); const trips = await readAll('trips'); return trips.filter(t => t.status === 'COMPLETED' && t.operator).sort((a, b) => new Date(b.tripEndAt || b.updatedAt) - new Date(a.tripEndAt || a.updatedAt))[0] || null },
   async syncCanonicalRecords({ shifts = [], trips = [] } = {}) {
     const db = await initializeCanonicalStorage()
     return new Promise((resolve, reject) => {
@@ -347,5 +382,5 @@ export const ShiftTripRepository = {
       tx.onabort = () => reject(conflict || tx.error || new Error('Native canonical recovery aborted.'))
     })
   },
-  async getActive() { const [shifts, trips] = await Promise.all([readAll('shifts'), readAll('trips')]); return { shift: shifts.find(s => s.status === 'ACTIVE') || null, trip: trips.find(t => t.status === 'ACTIVE') || null } }
+  async getActive() { await ensureCanonicalReadBoundary(); const [shifts, trips] = await Promise.all([readAll('shifts'), readAll('trips')]); return { shift: shifts.find(s => s.status === 'ACTIVE') || null, trip: trips.find(t => t.status === 'ACTIVE') || null } }
 }
