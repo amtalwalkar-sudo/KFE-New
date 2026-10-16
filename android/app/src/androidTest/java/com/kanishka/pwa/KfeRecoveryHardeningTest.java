@@ -75,17 +75,16 @@ public class KfeRecoveryHardeningTest {
     assertEquals(250, store.getRecord("TRIP", tripA).getJSONObject("record").getInt("fare"));
     assertEquals(150, store.getRecord("TRIP", tripB).getJSONObject("record").getInt("fare"));
     assertEquals(400, store.getRecord("SHIFT", shiftId).getJSONObject("record").getInt("revenue"));
-    assertEquals(400,
-        store.getRecord("SHIFT", shiftId).getJSONObject("record").getInt("revenue"),
-        "A repeated read after an acknowledgement retry must not increment revenue again.");
+    assertEquals("A repeated read after an acknowledgement retry must not increment revenue again.", 400,
+        store.getRecord("SHIFT", shiftId).getJSONObject("record").getInt("revenue"));
 
     JSONObject stale = new JSONObject(shift.toString()).put("revenue", 250).put("updatedAt", t1);
     assertRejectedWrite(store, "recovery-stale-op-" + suffix, "SHIFT", stale, "Stale canonical write rejected");
     JSONObject equalVersionConflict = new JSONObject(shift.toString()).put("revenue", 999);
     assertRejectedWrite(store, "recovery-equal-op-" + suffix, "SHIFT", equalVersionConflict,
         "different payloads share updatedAt");
-    assertEquals(400, store.getRecord("SHIFT", shiftId).getJSONObject("record").getInt("revenue"),
-        "Rejected stale/conflicting snapshots must not roll back the acknowledged projection.");
+    assertEquals("Rejected stale/conflicting snapshots must not roll back the acknowledged projection.", 400,
+        store.getRecord("SHIFT", shiftId).getJSONObject("record").getInt("revenue"));
 
     assertAuditCount(store, fareAOperation, 1);
     assertAuditCount(store, fareBOperation, 1);
