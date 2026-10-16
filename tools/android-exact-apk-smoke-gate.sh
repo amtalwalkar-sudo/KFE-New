@@ -96,7 +96,7 @@ finish_instrumentation_until_ready() {
   cat "$RECOVERY_INSTRUMENTATION_LOG"
   if [ "$instrumentation_status" -ne 0 ] \
     || ! grep -Eq "^INSTRUMENTATION_CODE: -1$" "$RECOVERY_INSTRUMENTATION_LOG" \
-    || ! grep -Eq "^OK \\(1 test\\)$" "$RECOVERY_INSTRUMENTATION_LOG"; then
+    || ! grep -Eq "^OK \(1 test\)$" "$RECOVERY_INSTRUMENTATION_LOG"; then
     capture_failure "$RECOVERY_INSTRUMENTATION_LABEL"
     echo "Recovery instrumentation failed or did not report one passing test: $RECOVERY_INSTRUMENTATION_LABEL" >&2
     exit 1
@@ -134,7 +134,7 @@ run_instrumentation() {
     echo "ANDROID INSTRUMENTATION TERMINAL RESULT CODE WAS NOT SUCCESS (-1): $label" >&2
     return 1
   fi
-  if ! grep -Eq "^OK \\(${expected_count} tests?\\)$" "$log_file"; then
+  if ! grep -Eq "^OK \(${expected_count} tests?\)$" "$log_file"; then
     capture_failure "$label"
     echo "ANDROID INSTRUMENTATION DID NOT REPORT THE EXPECTED TEST COUNT (${expected_count}): $label" >&2
     return 1
@@ -281,7 +281,7 @@ inject_gps_fixes
 process_death_instrumentation_status=0
 wait "$process_death_verify_pid" || process_death_instrumentation_status=$?
 cat "$process_death_log"
-if [ "$process_death_instrumentation_status" -ne 0 ] || ! grep -Eq "^INSTRUMENTATION_CODE: -1$" "$process_death_log" || ! grep -Eq "^OK \\(1 test\\)$" "$process_death_log"; then
+if [ "$process_death_instrumentation_status" -ne 0 ] || ! grep -Eq "^INSTRUMENTATION_CODE: -1$" "$process_death_log" || ! grep -Eq "^OK \(1 test\)$" "$process_death_log"; then
   capture_failure "process-death-verify"
   echo "Process-death recovery instrumentation failed or did not report one passing test." >&2
   exit 1
@@ -393,18 +393,18 @@ sleep 5
 # Exercise the boot-started collector before launching instrumentation. Starting
 # an instrumentation process can recreate the target app process and perturb the
 # very service whose autonomous BOOT_COMPLETED recovery is under test.
-reboot_trip_id="$(adb shell run-as com.kanishka.pwa sed -n 's/.*<string name="activeTripId">\\([^<]*\\)<\\/string>.*/\\1/p' shared_prefs/kfe_native_gps.xml | tr -d '\\r' | head -1)"
+reboot_trip_id="$(adb shell run-as com.kanishka.pwa sed -n 's/.*<string name="activeTripId">\([^<]*\)<\/string>.*/\1/p' shared_prefs/kfe_native_gps.xml | tr -d '\r' | head -1)"
 case "$reboot_trip_id" in
   gps-reboot-*) ;;
   *) capture_failure "reboot-active-trip-missing"; echo "Persisted GPS trip was not restored after reboot: $reboot_trip_id" >&2; exit 1 ;;
 esac
 reboot_trace_file="files/kfe_gps_trace_${reboot_trip_id}.jsonl"
-trace_before="$(adb shell run-as com.kanishka.pwa wc -l "$reboot_trace_file" | awk '{print $1}' | tr -d '\\r')"
+trace_before="$(adb shell run-as com.kanishka.pwa wc -l "$reboot_trace_file" | awk '{print $1}' | tr -d '\r')"
 for attempt in 1 2 3; do
   inject_gps_fixes
   sleep 3
 done
-trace_after="$(adb shell run-as com.kanishka.pwa wc -l "$reboot_trace_file" | awk '{print $1}' | tr -d '\\r')"
+trace_after="$(adb shell run-as com.kanishka.pwa wc -l "$reboot_trace_file" | awk '{print $1}' | tr -d '\r')"
 if ! [[ "$trace_before" =~ ^[0-9]+$ && "$trace_after" =~ ^[0-9]+$ ]] || [ "$trace_after" -le "$trace_before" ]; then
   capture_failure "reboot-gps-trace-did-not-grow"
   echo "Boot-resumed GPS collector did not persist injected fixes before instrumentation; before=$trace_before after=$trace_after" >&2
