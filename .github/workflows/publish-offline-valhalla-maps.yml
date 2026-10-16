@@ -6,7 +6,7 @@ on:
     paths:
       - ".github/workflows/publish-offline-valhalla-maps.yml"
   pull_request:
-    branches: [main]
+    branches: [main, fix/native-overlay-background-transitions]
     paths:
       - ".github/workflows/publish-offline-valhalla-maps.yml"
   workflow_dispatch:

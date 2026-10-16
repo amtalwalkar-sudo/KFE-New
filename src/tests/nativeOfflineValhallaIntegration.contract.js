@@ -45,6 +45,7 @@ assert.ok(mapReleaseWorkflow.includes('ghcr.io/valhalla/valhalla-scripted:3.9.1'
 assert.ok(mapReleaseWorkflow.includes('/releases/download/offline-maps/'), 'Map pipeline must publish versioned packages behind a stable release tag.')
 assert.ok(mapReleaseWorkflow.includes('trace-mumbai.json') && mapReleaseWorkflow.includes('trace-pune.json') && mapReleaseWorkflow.includes('trace-nashik.json') && mapReleaseWorkflow.includes('trace-alibag.json'), 'Map pipeline must smoke-test map matching in all four cities.')
 assert.ok(mapReleaseWorkflow.includes('Build selectable city-area tile packages'), 'Map pipeline must build area-specific packages, not just relabel the full corridor.')
+assert.ok(mapReleaseWorkflow.includes('branches: [main, fix/native-overlay-background-transitions]'), 'Pull-request CI must execute the regional package build and smoke tests against the PR base branch.')
 assert.ok(mapReleaseWorkflow.includes('offline-maps-mumbai-metro-') && mapReleaseWorkflow.includes('offline-maps-pune-') && mapReleaseWorkflow.includes('offline-maps-nashik-') && mapReleaseWorkflow.includes('offline-maps-alibag-'), 'Release pipeline must publish each selectable area package.')
 assert.ok(mapReleaseWorkflow.includes('coverageBounds:$coverageBounds') && mapReleaseWorkflow.includes('regions:$regions'), 'Published catalog must declare package-specific coverage bounds.')
 
