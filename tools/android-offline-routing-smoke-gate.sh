@@ -35,7 +35,8 @@ sleep 3
 test "$(adb shell settings get global airplane_mode_on | tr -d '\r')" = "1"
 
 set +e
-timeout 240s adb shell am instrument -w -r \
+# Valhalla must load the local tile extract and route with networking disabled; allow slow CI disks to finish.
+timeout 600s adb shell am instrument -w -r \
   -e class com.kanishka.pwa.KfeRecoveryHardeningTest#installedOfflineValhallaRoutesWithNetworkDisabled \
   com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner \
   > artifacts/android-offline-routing/instrumentation.log 2>&1
