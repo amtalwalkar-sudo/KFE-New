@@ -295,7 +295,17 @@ run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#prepareGpsCollecto
 # Instrumentation completion can force-stop the target package. A stopped package
 # will not receive BOOT_COMPLETED, so launch once after preparation to clear the
 # stopped bit before the reboot under test.
-adb shell am start -n com.kanishka.pwa/.MainActivity >/dev/null
+adb shell am start -W -n com.kanishka.pwa/.MainActivity >/dev/null
+# The instrumentation runner may mark its target package stopped on exit. Explicitly
+# clear that state and verify it before reboot, otherwise Android legitimately skips
+# BOOT_COMPLETED for the app and the test would not exercise the receiver.
+adb shell cmd package set-stopped-state com.kanishka.pwa false
+stopped_state="$(adb shell dumpsys package com.kanishka.pwa | grep -o 'stopped=[^ ]*' | head -1 || true)"
+if [ "$stopped_state" != "stopped=false" ]; then
+  capture_failure "reboot-package-still-stopped"
+  echo "KFE package must be eligible for BOOT_COMPLETED before reboot; observed $stopped_state" >&2
+  exit 1
+fi
 # Keep this user-launched test app eligible for BOOT_COMPLETED delivery; Android 13+
 # can defer the broadcast for apps placed in the restricted standby bucket.
 adb shell am set-standby-bucket com.kanishka.pwa active || true
@@ -314,12 +324,25 @@ if [ "$booted" != true ]; then
   echo "EMULATOR DID NOT FINISH BOOTING FOR GPS RECOVERY TEST" >&2
   exit 1
 fi
-# BOOT_COMPLETED is delivered after the user has unlocked the device. Keyevent 82
-# alone is not a reliable keyguard dismissal on recent emulator images.
+# BOOT_COMPLETED is delivered after the user has unlocked the device. Explicitly
+# dismiss the emulator keyguard, then allow the system broadcast queue to dispatch.
 adb shell input keyevent 224 || true
 adb shell wm dismiss-keyguard || true
 adb shell input keyevent 82 || true
-sleep 2
+sleep 3
+boot_receiver_seen=false
+for attempt in $(seq 1 30); do
+  if adb shell run-as com.kanishka.pwa grep -q 'android.intent.action.BOOT_COMPLETED' shared_prefs/kfe_lifecycle_recovery.xml 2>/dev/null; then
+    boot_receiver_seen=true
+    break
+  fi
+  sleep 1
+done
+if [ "$boot_receiver_seen" != true ]; then
+  capture_failure "reboot-boot-receiver-not-delivered"
+  echo "BOOT_COMPLETED was not recorded by KfeLifecycleRecoveryReceiver after reboot." >&2
+  exit 1
+fi
 # The boot receiver must have resumed the collector. The verification session waits
 # for a live service, signals readiness, then records points injected after boot.
 start_instrumentation_until_ready verifyGpsCollectorAfterReboot reboot-recovery-ready reboot-verify
