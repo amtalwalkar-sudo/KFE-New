@@ -3,6 +3,12 @@ const EPSILON_KM = 1e-6
 const MAX_ACCURACY_METERS = 80
 const JITTER_DISTANCE_KM = 0.03
 const STATIONARY_SPEED_KMH = 2
+// GPS speed is reported in metres/second by browser and Android location APIs.
+const MAX_REASONABLE_SPEED_KMH = 180
+const speedKmh = point => {
+  const speed = point?.speed == null || point.speed === '' ? NaN : Number(point.speed)
+  return Number.isFinite(speed) && speed >= 0 ? speed * 3.6 : NaN
+}
 const finite = value => Number.isFinite(Number(value))
 
 // Missing distances are not measurements. Number(null) and Number('') both coerce to 0.
@@ -32,9 +38,13 @@ export const assessGpsTraceCompleteness = (points = [], { startAt, endAt, edgeTo
 const normalizeLocation = location => {
   if (!location) return null
   const latitude = Number(location.latitude); const longitude = Number(location.longitude)
-  const accuracy = location.accuracy == null ? null : Number(location.accuracy)
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null
-  return { latitude, longitude, accuracy: Number.isFinite(accuracy) ? accuracy : null, speed: location.speed == null || location.speed === '' ? null : finite(location.speed) ? Number(location.speed) : null, bearing: location.bearing == null || location.bearing === '' ? null : finite(location.bearing) ? Number(location.bearing) : null, capturedAt: location.capturedAt || location.timestamp || null }
+  const accuracy = location.accuracy == null || location.accuracy === '' ? null : Number(location.accuracy)
+  const speed = location.speed == null || location.speed === '' ? null : Number(location.speed)
+  const bearing = location.bearing == null || location.bearing === '' ? null : Number(location.bearing)
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return null
+  if (accuracy != null && (!Number.isFinite(accuracy) || accuracy < 0)) return null
+  if (speed != null && (!Number.isFinite(speed) || speed < 0)) return null
+  return { latitude, longitude, accuracy, speed, bearing: bearing != null && Number.isFinite(bearing) ? bearing : null, capturedAt: location.capturedAt || location.timestamp || null }
 }
 
 export const haversineDistanceKm = (from, to) => {
@@ -45,15 +55,53 @@ export const haversineDistanceKm = (from, to) => {
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2
   return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
 }
-const orderedTrace = (snapshots = []) => [...snapshots].filter(Boolean).map(normalizeLocation).filter(Boolean).sort((a, b) => new Date(a.capturedAt || 0) - new Date(b.capturedAt || 0))
+const timestampMs = point => {
+  const value = point?.capturedAt || point?.timestamp
+  if (value == null || value === '') return NaN
+  const milliseconds = new Date(value).getTime()
+  return Number.isFinite(milliseconds) ? milliseconds : NaN
+}
+const orderedTrace = (snapshots = []) => [...snapshots]
+  .filter(Boolean)
+  .map(normalizeLocation)
+  .filter(Boolean)
+  .sort((a, b) => {
+    const at = timestampMs(a); const bt = timestampMs(b)
+    if (!Number.isFinite(at)) return Number.isFinite(bt) ? 1 : 0
+    if (!Number.isFinite(bt)) return -1
+    return at - bt
+  })
+
+/**
+ * Filters only the derived routing trace; canonical raw GPS points are retained.
+ * Accuracy, stationary drift and physically implausible jumps must not inflate KM.
+ */
 export const filterGpsTrace = points => {
   const filtered = []
   for (const point of orderedTrace(points)) {
     if (point.accuracy != null && point.accuracy > MAX_ACCURACY_METERS) continue
     const previous = filtered[filtered.length - 1]
     if (!previous) { filtered.push(point); continue }
-    const displacement = haversineDistanceKm(previous, point) || 0; const speed = point.speed == null || point.speed === '' ? NaN : Number(point.speed)
-    if (Number.isFinite(speed) && speed <= STATIONARY_SPEED_KMH && displacement <= JITTER_DISTANCE_KM) continue
+
+    const displacement = haversineDistanceKm(previous, point) || 0
+    const previousAt = timestampMs(previous); const pointAt = timestampMs(point)
+    const elapsedMs = pointAt - previousAt
+    const measuredSpeedKmh = Number.isFinite(elapsedMs) && elapsedMs > 0
+      ? displacement / (elapsedMs / 3600000)
+      : NaN
+    const reportedSpeedKmh = speedKmh(point)
+
+    // Equal/invalid timestamps cannot support a trustworthy segment. Ignore exact
+    // repeats and equal-time fixes rather than allowing a zero-duration GPS jump.
+    if (Number.isFinite(previousAt) && Number.isFinite(pointAt) && elapsedMs <= 0) continue
+    if (displacement < 0.001 && Number.isFinite(pointAt) && Number.isFinite(previousAt) && elapsedMs >= 0) continue
+
+    // Location APIs report speed in m/s; convert before applying the km/h limit.
+    if (Number.isFinite(reportedSpeedKmh) && reportedSpeedKmh > MAX_REASONABLE_SPEED_KMH) continue
+    if (Number.isFinite(measuredSpeedKmh) && measuredSpeedKmh > MAX_REASONABLE_SPEED_KMH) continue
+
+    // At walking/stationary speeds, small movements within GPS accuracy are jitter.
+    if (Number.isFinite(reportedSpeedKmh) && reportedSpeedKmh <= STATIONARY_SPEED_KMH && displacement <= JITTER_DISTANCE_KM) continue
     filtered.push(point)
   }
   return filtered
@@ -61,7 +109,11 @@ export const filterGpsTrace = points => {
 const waitingAnchorForTrace = points => {
   const trace = filterGpsTrace(points); if (!trace.length) return null
   let anchor = trace[0]
-  for (let i = 1; i < trace.length; i += 1) { const point = trace[i]; const speed = Number(point.speed); if (Number.isFinite(speed) && speed > STATIONARY_SPEED_KMH) break; anchor = point }
+  for (let i = 1; i < trace.length; i += 1) {
+    const point = trace[i]; const speed = speedKmh(point)
+    if (Number.isFinite(speed) && speed > STATIONARY_SPEED_KMH) break
+    anchor = point
+  }
   return anchor
 }
 const sum = (segments, classification) => segments.filter(s => s.classification === classification && finite(s.distanceKm)).reduce((t, s) => t + Number(s.distanceKm), 0)
