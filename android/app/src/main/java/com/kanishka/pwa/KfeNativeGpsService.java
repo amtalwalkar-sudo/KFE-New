@@ -29,7 +29,9 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileOutputStream;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public class KfeNativeGpsService extends Service {
@@ -54,6 +56,10 @@ public class KfeNativeGpsService extends Service {
   private double passengerDistanceMeters = 0d;
   private PowerManager.WakeLock locationWakeLock;
   private final Set<String> seenKeys = new HashSet<>();
+  private final List<Location> filteredDistanceLocations = new ArrayList<>();
+  private static final long MAX_CONTIGUOUS_GAP_MS = 120000L;
+  private static final float MAX_ACCURACY_FOR_DISTANCE_METERS = 80f;
+  private static final float MAX_REASONABLE_SPEED_KMH = 180f;
 
   public static void start(Context context, String tripId, String eventType, String entityType) {
     // Never call startForegroundService unless the runtime location grant is
@@ -246,11 +252,8 @@ public class KfeNativeGpsService extends Service {
       }
       seenKeys.add(key);
       if ("PASSENGER_RIDE_TRACE".equals(eventType) || "DEAD_MOVEMENT_TRACE".equals(eventType)) {
-        if (lastPassengerLocation != null) passengerDistanceMeters += lastPassengerLocation.distanceTo(location);
-        lastPassengerLocation = new Location(location);
-        String distance = String.format(java.util.Locale.US, "%.1f km", passengerDistanceMeters / 1000d);
-        if ("DEAD_MOVEMENT_TRACE".equals(eventType)) KfeOverlayService.updateDeadKm(distance);
-        else KfeOverlayService.updateLiveKm(distance);
+        appendFilteredDistanceLocation(location);
+        refreshLiveDistanceReadout();
       }
     } catch (Exception error) {
       // Do not mark the point as seen when persistence fails. The next location
@@ -261,27 +264,76 @@ public class KfeNativeGpsService extends Service {
 
   private void loadSeenKeys() {
     seenKeys.clear();
+    filteredDistanceLocations.clear();
     lastPassengerLocation = null;
     passengerDistanceMeters = 0d;
-    if (traceFile == null || !traceFile.exists()) return;
+    if (traceFile == null || !traceFile.exists()) {
+      refreshLiveDistanceReadout();
+      return;
+    }
     try (BufferedReader reader = new BufferedReader(new FileReader(traceFile))) {
       String line;
       while ((line = reader.readLine()) != null) {
         try {
           JSONObject point = new JSONObject(line);
-          seenKeys.add(point.optString("eventType", "PASSENGER_RIDE_TRACE") + "|" + point.optLong("capturedAtEpoch", -1) + "|" + point.optDouble("latitude") + "|" + point.optDouble("longitude"));
-          // Rebuild the live distance from durable trace points for the active
-          // event type so service/process recovery does not reset the displayed KM.
-          if (eventType.equals(point.optString("eventType", ""))) {
+          String storedEvent = point.optString("eventType", "PASSENGER_RIDE_TRACE");
+          long timestamp = point.optLong("capturedAtEpoch", -1);
+          double latitude = point.optDouble("latitude", Double.NaN);
+          double longitude = point.optDouble("longitude", Double.NaN);
+          seenKeys.add(storedEvent + "|" + timestamp + "|" + latitude + "|" + longitude);
+          if (eventType.equals(storedEvent) && Double.isFinite(latitude) && Double.isFinite(longitude)) {
             Location distancePoint = new Location("KFE");
-            distancePoint.setLatitude(point.optDouble("latitude"));
-            distancePoint.setLongitude(point.optDouble("longitude"));
-            if (lastPassengerLocation != null) passengerDistanceMeters += lastPassengerLocation.distanceTo(distancePoint);
-            lastPassengerLocation = distancePoint;
+            distancePoint.setLatitude(latitude);
+            distancePoint.setLongitude(longitude);
+            if (timestamp > 0) distancePoint.setTime(timestamp);
+            if (point.has("accuracy") && !point.isNull("accuracy")) distancePoint.setAccuracy((float) point.optDouble("accuracy"));
+            if (point.has("speed") && !point.isNull("speed")) distancePoint.setSpeed((float) point.optDouble("speed"));
+            appendFilteredDistanceLocation(distancePoint);
           }
         } catch (Exception ignored) {}
       }
-    } catch (Exception ignored) {}
+    } catch (Exception error) {
+      Log.e("KfeNativeGpsService", "Unable to rebuild filtered GPS distance from durable trace.", error);
+    }
+    refreshLiveDistanceReadout();
+  }
+
+  private void appendFilteredDistanceLocation(Location location) {
+    if (location == null || !location.hasAccuracy() || location.getAccuracy() > MAX_ACCURACY_FOR_DISTANCE_METERS) return;
+    Location previous = filteredDistanceLocations.isEmpty() ? null : filteredDistanceLocations.get(filteredDistanceLocations.size() - 1);
+    if (previous != null) {
+      long elapsedMs = location.getTime() - previous.getTime();
+      if (elapsedMs <= 0L) return;
+      float displacementMeters = previous.distanceTo(location);
+      if (displacementMeters < 1f) return;
+      if (location.hasSpeed() && location.getSpeed() * 3.6f > MAX_REASONABLE_SPEED_KMH) return;
+      if (elapsedMs <= MAX_CONTIGUOUS_GAP_MS) {
+        float measuredSpeedKmh = displacementMeters / (elapsedMs / 3600000f);
+        if (measuredSpeedKmh > MAX_REASONABLE_SPEED_KMH) return;
+      }
+      // Match the shared JS filter: only an explicitly stationary, short move is
+      // discarded as jitter. Missing speed is unknown, not stationary.
+      if (location.hasSpeed() && location.getSpeed() * 3.6f <= 2f && displacementMeters <= 30f) return;
+    }
+    filteredDistanceLocations.add(new Location(location));
+    recalculateFilteredDistanceMeters();
+  }
+
+  private void recalculateFilteredDistanceMeters() {
+    passengerDistanceMeters = 0d;
+    for (int i = 1; i < filteredDistanceLocations.size(); i++) {
+      Location previous = filteredDistanceLocations.get(i - 1);
+      Location current = filteredDistanceLocations.get(i);
+      long elapsedMs = current.getTime() - previous.getTime();
+      if (elapsedMs > 0L && elapsedMs <= MAX_CONTIGUOUS_GAP_MS) passengerDistanceMeters += previous.distanceTo(current);
+    }
+    lastPassengerLocation = filteredDistanceLocations.isEmpty() ? null : new Location(filteredDistanceLocations.get(filteredDistanceLocations.size() - 1));
+  }
+
+  private void refreshLiveDistanceReadout() {
+    String distance = String.format(java.util.Locale.US, "%.1f km", passengerDistanceMeters / 1000d);
+    if ("DEAD_MOVEMENT_TRACE".equals(eventType)) KfeOverlayService.updateDeadKm(distance);
+    else KfeOverlayService.updateLiveKm(distance);
   }
 
   private void releaseLocationUpdates() {
@@ -333,6 +385,7 @@ public class KfeNativeGpsService extends Service {
     lastPassengerLocation = null;
     passengerDistanceMeters = 0d;
     seenKeys.clear();
+    filteredDistanceLocations.clear();
     getSharedPreferences(PREFS, MODE_PRIVATE).edit().remove(ACTIVE_TRIP).remove(ACTIVE_EVENT).remove(ACTIVE_ENTITY).remove(ACTIVE_READY).apply();
   }
 
