@@ -18,6 +18,9 @@ assert.doesNotMatch(workViewSource, /from ['"]@capacitor\/core['"]/, 'Work view 
 assert.match(workViewSource, /WorkRuntimePorts\.platform\.getPlatform\(\)/, 'Platform identity must arrive through an application-facing port.')
 
 assert.equal(typeof WorkService.getTripGpsDistanceKm, 'function')
+const workServiceSource = fs.readFileSync(path.join(process.cwd(), 'src/application/work/workService.js'), 'utf8')
+assert.match(workServiceSource, /getTripGpsDistanceKm[\s\S]*?filterGpsTrace\(snapshots\)/, 'Passenger-ride distance reads must use the filtered derived GPS trace.')
+assert.match(workServiceSource, /getTripDeadMovementDistanceKm[\s\S]*?filterGpsTrace\(snapshots\)/, 'Dead-movement distance reads must use the same filtered derived GPS trace.')
 const liveMovementFixture = WorkService.calculateLiveMovement([
   { latitude: 19, longitude: 72, accuracy: 5, speed: 10, capturedAt: '2026-10-01T08:00:00.000Z' },
   { latitude: 19.001, longitude: 72, accuracy: 5, speed: 10, capturedAt: '2026-10-01T08:00:20.000Z' },
