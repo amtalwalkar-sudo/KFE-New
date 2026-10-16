@@ -240,9 +240,13 @@ public class KfeRecoveryHardeningTest {
   }
 
   @Test public void verifyGpsCollectorAfterScreenOff() throws Exception {
-    String tripId = context.getSharedPreferences("kfe_native_gps", Context.MODE_PRIVATE)
-        .getString("activeTripId", "");
-    assertTrue("The GPS trip identity must survive screen-off.", tripId.startsWith("gps-screen-off-"));
+    String tripId = "gps-screen-off-" + System.currentTimeMillis();
+    startPersistentGps(tripId);
+    persistLifecycleFixture("screenOff", tripId);
+    rememberTraceCount("screenOff", tripId);
+    writeRecoveryReadyMarker("screen-off-recovery-ready");
+    await("new GPS fixes while screen off", 20000L,
+        () -> traceGrewSinceBaseline("screenOff", tripId));
     await("GPS collector after screen-off", 8000L,
         () -> KfeNativeGpsService.isPersistedTracking(context, tripId, "PASSENGER_RIDE_TRACE", "TRIP"));
     assertTraceGrew("screenOff", tripId, "while the screen was off");
@@ -262,6 +266,10 @@ public class KfeRecoveryHardeningTest {
     assertTrue("Boot recovery must retain the pre-reboot trip identity.", tripId.startsWith("gps-reboot-"));
     await("GPS collector after reboot", 25000L,
         () -> KfeNativeGpsService.isPersistedTracking(context, tripId, "PASSENGER_RIDE_TRACE", "TRIP"));
+    rememberTraceCount("reboot", tripId);
+    writeRecoveryReadyMarker("reboot-recovery-ready");
+    await("new GPS fixes after reboot", 20000L,
+        () -> traceGrewSinceBaseline("reboot", tripId));
     assertTraceGrew("reboot", tripId, "after reboot");
     assertLifecycleFixture("reboot", tripId);
   }
@@ -335,6 +343,25 @@ public class KfeRecoveryHardeningTest {
     context.getSharedPreferences("kfe_test_recovery", Context.MODE_PRIVATE).edit()
         .putString(boundaryKey + "TripId", tripId)
         .putInt(boundaryKey + "TraceCountBefore", count).commit();
+  }
+
+  private void writeRecoveryReadyMarker(String fileName) throws Exception {
+    File ready = new File(context.getFilesDir(), fileName);
+    try (FileOutputStream output = new FileOutputStream(ready)) {
+      output.write("ready".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      output.getFD().sync();
+    }
+  }
+
+  private boolean traceGrewSinceBaseline(String boundaryKey, String tripId) {
+    try {
+      android.content.SharedPreferences prefs = context.getSharedPreferences("kfe_test_recovery", Context.MODE_PRIVATE);
+      int before = prefs.getInt(boundaryKey + "TraceCountBefore", -1);
+      return before >= 0 && tripId.equals(prefs.getString(boundaryKey + "TripId", ""))
+          && new JSONArray(KfeNativeGpsService.readTrace(context, tripId)).length() > before;
+    } catch (Exception ignored) {
+      return false;
+    }
   }
 
   private void assertTraceGrew(String boundaryKey, String tripId, String boundary) throws Exception {
