@@ -332,8 +332,14 @@ adb shell input keyevent 82 || true
 # Re-enable the emulator's location provider after reboot before injecting new
 # fixes. Some emulator images restore the device with location disabled even
 # though the pre-reboot permission grants and provider state were enabled.
-adb shell cmd location set-location-enabled true || adb shell settings put secure location_mode 3
-sleep 3
+adb shell cmd location set-location-enabled true || true
+# Also set the legacy global mode for emulator images where the cmd service
+# reports success but the secure setting is restored disabled during boot.
+adb shell settings put secure location_mode 3 || true
+adb shell appops set com.kanishka.pwa android:fine_location allow || true
+adb shell appops set com.kanishka.pwa android:coarse_location allow || true
+# Let the fused provider settle after boot before testing newly injected fixes.
+sleep 8
 boot_receiver_seen=false
 for attempt in $(seq 1 30); do
   if adb shell run-as com.kanishka.pwa grep -q 'android.intent.action.BOOT_COMPLETED' shared_prefs/kfe_lifecycle_recovery.xml 2>/dev/null; then
