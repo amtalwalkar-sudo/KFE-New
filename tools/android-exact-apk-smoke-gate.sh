@@ -162,7 +162,7 @@ adb reboot || true
 booted=false
 for attempt in $(seq 1 120); do
   adb wait-for-device >/dev/null 2>&1 || true
-  boot_state="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r' || true)"
+  boot_state="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
   if [ "$boot_state" = "1" ]; then booted=true; break; fi
   sleep 2
 done
