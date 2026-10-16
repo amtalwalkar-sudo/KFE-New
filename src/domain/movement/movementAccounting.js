@@ -100,8 +100,11 @@ export const filterGpsTrace = points => {
     if (Number.isFinite(reportedSpeedKmh) && reportedSpeedKmh > MAX_REASONABLE_SPEED_KMH) continue
     if (Number.isFinite(measuredSpeedKmh) && measuredSpeedKmh > MAX_REASONABLE_SPEED_KMH) continue
 
-    // At walking/stationary speeds, small movements within GPS accuracy are jitter.
-    if (Number.isFinite(reportedSpeedKmh) && reportedSpeedKmh <= STATIONARY_SPEED_KMH && displacement <= JITTER_DISTANCE_KM) continue
+    // Some GPS providers omit speed while stationary. Use elapsed-time displacement
+    // as a second signal, but only suppress short segments that are also very slow.
+    const reportedStationary = Number.isFinite(reportedSpeedKmh) && reportedSpeedKmh <= STATIONARY_SPEED_KMH
+    const measuredStationary = Number.isFinite(measuredSpeedKmh) && measuredSpeedKmh <= STATIONARY_SPEED_KMH
+    if ((reportedStationary || measuredStationary) && displacement <= JITTER_DISTANCE_KM) continue
     filtered.push(point)
   }
   return filtered
