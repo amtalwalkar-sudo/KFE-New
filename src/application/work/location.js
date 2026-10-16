@@ -91,7 +91,7 @@ export async function captureLifecycleLocation({ entityType, entityId, eventType
       }).catch(() => {})
     }, () => resolve(null), {
       enableHighAccuracy: true,
-      maximumAge: 30000,
+      maximumAge: eventType === 'RIDE_START' || eventType === 'END' ? 0 : 30000,
       timeout: 8000
     })
   })
