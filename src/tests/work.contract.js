@@ -10,6 +10,7 @@ import { WorkService } from '../application/work/workService.js'
 import { WorkflowTimerService, WorkWorkflowSessionService } from '../application/work/workflowTimerService.js'
 import { getLiveMovementTracePlan } from '../application/work/liveMovementTrace.js'
 import { deriveLiveRevenue } from '../domain/work/liveRevenue.js'
+import { filterGpsTrace, routeTrace } from '../domain/movement/movementAccounting.js'
 assert.equal(deriveLiveRevenue([{status:'COMPLETED',revenue:250},{status:'COMPLETED',revenue:150}]),400)
 const workViewSource = fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8')
 assert.doesNotMatch(workViewSource, /from ['"][^'"]*\/infrastructure\//, 'Work view must not import infrastructure adapters directly.')
@@ -24,6 +25,29 @@ const liveMovementFixture = WorkService.calculateLiveMovement([
 ])
 assert.equal(liveMovementFixture.points.length, 2, 'Live movement excludes GPS fixes worse than the canonical 80 m accuracy limit.')
 assert.ok(liveMovementFixture.distanceKm > 0, 'Live movement sums filtered GPS segments into a non-zero distance.')
+
+// GPS jitter/outlier regression: speed is supplied in m/s, so it must be converted
+// before stationary thresholds; stationary drift and impossible jumps cannot inflate KM.
+const noisyGpsTrace = [
+  { latitude: 19, longitude: 72, accuracy: 5, speed: 0, capturedAt: '2026-10-01T08:00:00.000Z' },
+  { latitude: 19.0001, longitude: 72, accuracy: 5, speed: 0, capturedAt: '2026-10-01T08:00:20.000Z' },
+  { latitude: 19.001, longitude: 72, accuracy: 5, speed: 10, capturedAt: '2026-10-01T08:00:40.000Z' },
+  { latitude: 19.2, longitude: 72, accuracy: 5, speed: 0, capturedAt: '2026-10-01T08:01:00.000Z' },
+  { latitude: 19.002, longitude: 72, accuracy: 120, speed: 10, capturedAt: '2026-10-01T08:01:20.000Z' },
+  { latitude: 19.0011, longitude: 72, accuracy: 5, speed: 10, capturedAt: '2026-10-01T08:01:20.000Z' }
+]
+const filteredNoisyTrace = filterGpsTrace(noisyGpsTrace)
+assert.equal(filteredNoisyTrace.length, 3, 'Routing trace removes stationary jitter, poor-accuracy fixes, equal-time duplicates and implausible jumps.')
+assert.equal(filteredNoisyTrace[0].latitude, 19, 'The stationary anchor is preserved.')
+assert.equal(filteredNoisyTrace[1].latitude, 19.001, 'The first plausible movement point is retained.')
+assert.equal(filteredNoisyTrace[2].latitude, 19.001, 'A zero-duration point cannot replace the last accepted point.')
+let routedPointCount = 0
+const filteredRoute = await routeTrace(noisyGpsTrace, { routeTrace: async points => {
+  routedPointCount = points.length
+  return { distanceKm: 1.2, geometry: { type: 'LineString', coordinates: [[72, 19], [72, 19.01]] }, method: 'TEST_MAP_MATCH', provider: 'test', provenance: { provider: 'valhalla' } }
+} })
+assert.equal(routedPointCount, 3, 'Valhalla receives the filtered derived trace, not noisy raw fixes.')
+assert.equal(filteredRoute.distanceKm, 1.2, 'A valid map-matched road distance is retained.')
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /liveMovementLabel = computed\(\(\) => store\.isOnline \? \(active\.value \? 'BUSINESS KM' : 'DEAD KM'\) : ''\)/, 'Live movement labels remain visible throughout an online shift, including between trips.')
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /const stateTimerLabel = computed\(\(\) =>/)
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /const stateTimer = computed\(\(\) =>/)
