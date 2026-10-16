@@ -36,13 +36,28 @@ capture_failure() {
   timeout 8s adb logcat -d -t 5000 > "artifacts/android-golden/${label}-logcat.log" || true
 }
 
+emu_geo_fix() {
+  local longitude="$1"
+  local latitude="$2"
+  # The emulator console can briefly disconnect across reboot. Bound the call
+  # and retry once after reconnecting rather than hanging the entire CI step.
+  if ! timeout 10s adb emu geo fix "$longitude" "$latitude"; then
+    adb reconnect device >/dev/null 2>&1 || true
+    sleep 2
+    timeout 10s adb emu geo fix "$longitude" "$latitude" || {
+      echo "Unable to inject emulator GPS fix ($longitude,$latitude) after reconnect." >&2
+      return 1
+    }
+  fi
+}
+
 inject_gps_fixes() {
   # The Android emulator accepts longitude before latitude.
-  adb emu geo fix 72.8777 19.0760
+  emu_geo_fix 72.8777 19.0760
   sleep 3
-  adb emu geo fix 72.8697 19.0850
+  emu_geo_fix 72.8697 19.0850
   sleep 3
-  adb emu geo fix 72.8610 19.0930
+  emu_geo_fix 72.8610 19.0930
   sleep 4
 }
 
