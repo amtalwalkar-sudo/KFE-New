@@ -340,6 +340,13 @@ sleep 3
 adb shell input keyevent 224 || true
 adb shell wm dismiss-keyguard || true
 adb shell input keyevent 82 || true
+# Some emulator builds reset location while the user is unlocking. Re-assert it
+# after unlock too; KfeNativeGpsService listens for provider changes and must
+# restart a persisted collector if boot recovery registered while location was off.
+adb shell cmd location set-location-enabled true || true
+adb shell settings put secure location_mode 3 || true
+adb shell appops set com.kanishka.pwa android:fine_location allow || true
+adb shell appops set com.kanishka.pwa android:coarse_location allow || true
 # Let the boot receiver and fused provider settle before injecting test fixes.
 sleep 8
 boot_receiver_seen=false
