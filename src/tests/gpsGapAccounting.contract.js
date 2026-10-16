@@ -53,5 +53,8 @@ assert.match(work, /estimatedGapDistanceKm/)
 assert.match(work, /unresolvedGapCount/)
 assert.match(work, /incompleteKmSegments/)
 assert.match(work, /\/VALHALLA\/i\.test\(method\)/)
+assert.match(workView, /INCOMPLETE GPS KM — THIS RIDE/)
+assert.match(workView, /pendingFareGpsGap/)
+assert.match(workView, /Unresolved kilometres remain flagged for later review/)
 
 console.log('GPS outage contract passed: distance is retained on both sides, outage chord is excluded, and the ride carries explicit incomplete-kilometre metadata.')
