@@ -4,10 +4,13 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.ServiceInfo;
 import android.location.Location;
+import android.location.LocationManager;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.Build;
@@ -50,6 +53,7 @@ public class KfeNativeGpsService extends Service {
 
   private FusedLocationProviderClient fused;
   private LocationCallback callback;
+  private BroadcastReceiver locationProviderReceiver;
   private String tripId;
   private String eventType = "PASSENGER_RIDE_TRACE";
   private String entityType = "TRIP";
@@ -141,6 +145,65 @@ public class KfeNativeGpsService extends Service {
       return;
     }
     fused = LocationServices.getFusedLocationProviderClient(this);
+    registerLocationProviderReceiver();
+  }
+
+  /**
+   * Android can accept a location callback while the provider is disabled during
+   * boot/unlock. Re-register when the user enables location again so a persisted
+   * active ride does not remain "ready" but silently receive no fixes.
+   */
+  private void registerLocationProviderReceiver() {
+    if (locationProviderReceiver != null) return;
+    locationProviderReceiver = new BroadcastReceiver() {
+      @Override public void onReceive(Context receiverContext, Intent intent) {
+        android.content.SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        String activeId = prefs.getString(ACTIVE_TRIP, "");
+        if (activeId == null || activeId.trim().isEmpty()) return;
+
+        if (!isLocationProviderEnabled()) {
+          releaseLocationUpdates();
+          releaseLocationWakeLock();
+          prefs.edit().putBoolean(ACTIVE_READY, false).commit();
+          Log.w("KfeNativeGpsService", "Location provider disabled during active work; GPS gap remains visible until recording resumes.");
+          return;
+        }
+
+        // Provider state changed after boot. Recreate the callback rather than
+        // trusting a registration accepted while the provider was unavailable.
+        String activeEvent = prefs.getString(ACTIVE_EVENT, "PASSENGER_RIDE_TRACE");
+        String activeEntity = prefs.getString(ACTIVE_ENTITY, "TRIP");
+        releaseLocationUpdates();
+        releaseLocationWakeLock();
+        prefs.edit().putBoolean(ACTIVE_READY, false).commit();
+        if (!hasLocationPermission() || !hasBackgroundLocationPermission(KfeNativeGpsService.this)) return;
+        if (!ensureForegroundLocationService()) return;
+        Log.i("KfeNativeGpsService", "Location provider enabled; restarting persisted GPS collector for trip=" + activeId);
+        startTracking(activeId, activeEvent, activeEntity);
+      }
+    };
+    IntentFilter filter = new IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+      filter.addAction(LocationManager.MODE_CHANGED_ACTION);
+    }
+    if (Build.VERSION.SDK_INT >= 33) {
+      registerReceiver(locationProviderReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+    } else {
+      registerReceiver(locationProviderReceiver, filter);
+    }
+  }
+
+  private boolean isLocationProviderEnabled() {
+    LocationManager manager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+    if (manager == null) return false;
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return manager.isLocationEnabled();
+      return manager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+          || manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+    } catch (RuntimeException error) {
+      Log.w("KfeNativeGpsService", "Unable to inspect location-provider state.", error);
+      return false;
+    }
   }
 
   @Override public int onStartCommand(Intent intent, int flags, int startId) {
@@ -544,6 +607,10 @@ public class KfeNativeGpsService extends Service {
     releaseLocationUpdates();
     releaseLocationWakeLock();
     getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE_READY, false).apply();
+    if (locationProviderReceiver != null) {
+      try { unregisterReceiver(locationProviderReceiver); } catch (RuntimeException ignored) {}
+      locationProviderReceiver = null;
+    }
     if (liveInstance == this) liveInstance = null;
     super.onDestroy();
   }
