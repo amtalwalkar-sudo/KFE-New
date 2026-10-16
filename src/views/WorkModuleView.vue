@@ -484,6 +484,8 @@ async function ensureDeadMovementCapture(entityType, entityId) {
       traceRunning = false
       return true
     }
+    // Android must not silently replace native background GPS with browser GPS.
+    if (nativeAndroid) return false
   }
   if (!isStillCurrentOwner()) return false
   if (previousSession) WorkRuntimePorts.movementTrace.reset()
@@ -564,7 +566,7 @@ async function startTrip() {
     if (nativeAndroid && store.trip?.id) {
       nativeTraceStarted = await WorkRuntimePorts.nativeGps.start(store.trip.id, 'PASSENGER_RIDE_TRACE', 'TRIP')
     }
-    if (!nativeTraceStarted && store.trip?.id) {
+    if (!nativeTraceStarted && !nativeAndroid && store.trip?.id) {
       traceRunning = WorkRuntimePorts.movementTrace.start({
         entityType: 'TRIP',
         entityId: store.trip.id,
