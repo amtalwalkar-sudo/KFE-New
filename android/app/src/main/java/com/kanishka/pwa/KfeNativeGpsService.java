@@ -157,6 +157,8 @@ public class KfeNativeGpsService extends Service {
     if (locationProviderReceiver != null) return;
     locationProviderReceiver = new BroadcastReceiver() {
       @Override public void onReceive(Context receiverContext, Intent intent) {
+        Log.i("KfeNativeGpsService", "Location provider state broadcast received: "
+            + (intent == null ? "UNKNOWN" : intent.getAction()));
         android.content.SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         String activeId = prefs.getString(ACTIVE_TRIP, "");
         if (activeId == null || activeId.trim().isEmpty()) return;
@@ -187,7 +189,12 @@ public class KfeNativeGpsService extends Service {
       filter.addAction(LocationManager.MODE_CHANGED_ACTION);
     }
     if (Build.VERSION.SDK_INT >= 33) {
-      registerReceiver(locationProviderReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+      // Location-mode/provider-change broadcasts can be sent by privileged
+      // system components rather than the system UID. Export this narrowly
+      // filtered receiver so Android can deliver those broadcasts after boot.
+      // The handler only reacts to the current provider state and persisted
+      // active trip; a spoofed broadcast cannot supply a location or mutate data.
+      registerReceiver(locationProviderReceiver, filter, Context.RECEIVER_EXPORTED);
     } else {
       registerReceiver(locationProviderReceiver, filter);
     }
