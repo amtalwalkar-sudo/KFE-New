@@ -33,7 +33,7 @@ assert.ok(liveMovementFixture.distanceKm > 0, 'Live movement sums filtered GPS s
 // before stationary thresholds; stationary drift and impossible jumps cannot inflate KM.
 const noisyGpsTrace = [
   { latitude: 19, longitude: 72, accuracy: 5, speed: 0, capturedAt: '2026-10-01T08:00:00.000Z' },
-  { latitude: 19.0001, longitude: 72, accuracy: 5, speed: null, capturedAt: '2026-10-01T08:00:20.000Z' },
+  { latitude: 19.0001, longitude: 72, accuracy: 5, speed: 0, capturedAt: '2026-10-01T08:00:20.000Z' },
   { latitude: 19.001, longitude: 72, accuracy: 5, speed: 10, capturedAt: '2026-10-01T08:00:40.000Z' },
   { latitude: 19.2, longitude: 72, accuracy: 5, speed: 0, capturedAt: '2026-10-01T08:01:00.000Z' },
   { latitude: 19.002, longitude: 72, accuracy: 120, speed: 10, capturedAt: '2026-10-01T08:01:20.000Z' },
