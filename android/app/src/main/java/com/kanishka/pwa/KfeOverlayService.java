@@ -802,7 +802,7 @@ public class KfeOverlayService extends Service {
         trip.put("rideStartLocationEventAt",new java.util.Date(tripStartAt).toInstant().toString());
       }
       if("COMPLETED".equals(stage)){
-        if(!trip.has("tripEndAt"))trip.put("tripEndAt",new java.util.Date().toInstant().toString());
+        if(!trip.has("tripEndAt")||trip.isNull("tripEndAt")||trip.optString("tripEndAt","").isEmpty())trip.put("tripEndAt",new java.util.Date().toInstant().toString());
         trip.put("tripEndLocationStatus",trip.has("tripEndLocation")&&!trip.isNull("tripEndLocation")?"CAPTURED":"MISSING");
       }
       trip.put("updatedAt",new java.util.Date().toInstant().toString());
