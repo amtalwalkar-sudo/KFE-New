@@ -117,12 +117,12 @@ run_instrumentation com.kanishka.pwa.KfeWebViewStartupTest webview-startup 1
 # Failure-oriented native persistence checks: a lost bridge acknowledgement must
 # not double-count fares, and stale/equal-version snapshots must not overwrite
 # the canonical shift/trip projection.
-run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest canonicalWritesRemainIdempotentAfterLostAcknowledgementAndRejectStaleSnapshots 1
-run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest gpsCollectorRecoversAfterServiceInterruption 1
+run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#canonicalWritesRemainIdempotentAfterLostAcknowledgementAndRejectStaleSnapshots canonical-persistence 1
+run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#gpsCollectorRecoversAfterServiceInterruption gps-service-recovery 1
 
 # Kill the target app process (not a force-stop) while its sticky foreground GPS
 # service is active. Android must recreate the service from its persisted identity.
-run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest prepareGpsCollectorForProcessDeath 1
+run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#prepareGpsCollectorForProcessDeath process-death-prepare 1
 pid_before="$(adb shell pidof com.kanishka.pwa | tr -d '\r' | awk '{print $1}')"
 test -n "$pid_before" || { echo "Could not identify KFE process before kill" >&2; exit 1; }
 adb root >/dev/null 2>&1 || true
@@ -148,12 +148,12 @@ if [ "$process_restarted" != true ]; then
   exit 1
 fi
 inject_gps_fixes
-run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest verifyGpsCollectorAfterProcessDeath 1
-run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest cleanupRecoveredGpsCollector 1
+run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#verifyGpsCollectorAfterProcessDeath process-death-verify 1
+run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#cleanupRecoveredGpsCollector gps-recovery-cleanup 1
 
 # Screen-off is a separate lifecycle boundary. Verify the emulator really entered
 # sleep before waking it and checking that the same GPS collector is still active.
-run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest prepareGpsCollectorForScreenOff 1
+run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#prepareGpsCollectorForScreenOff screen-off-prepare 1
 adb shell input keyevent 223
 sleep 5
 if ! adb shell dumpsys power | grep -q 'mWakefulness=Asleep'; then
@@ -164,12 +164,12 @@ fi
 inject_gps_fixes
 adb shell input keyevent 224
 sleep 2
-run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest verifyGpsCollectorAfterScreenOff 1
-run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest cleanupRecoveredGpsCollector 1
+run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#verifyGpsCollectorAfterScreenOff screen-off-verify 1
+run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#cleanupRecoveredGpsCollector gps-recovery-cleanup 1
 
 # Reboot is tested independently from process/service restart. The boot receiver
 # must resume the exact persisted collector without creating a new trip identity.
-run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest prepareGpsCollectorForReboot 1
+run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#prepareGpsCollectorForReboot reboot-prepare 1
 adb reboot || true
 booted=false
 for attempt in $(seq 1 120); do
@@ -185,8 +185,8 @@ if [ "$booted" != true ]; then
 fi
 adb shell input keyevent 82 || true
 inject_gps_fixes
-run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest verifyGpsCollectorAfterReboot 1
-run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest cleanupRecoveredGpsCollector 1
+run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#verifyGpsCollectorAfterReboot reboot-verify 1
+run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#cleanupRecoveredGpsCollector gps-recovery-cleanup 1
 
 run_instrumentation com.kanishka.pwa.KfeOverlaySmokeTest native-overlay 19
 sha256sum "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
