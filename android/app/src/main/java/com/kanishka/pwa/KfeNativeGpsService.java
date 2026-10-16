@@ -84,6 +84,10 @@ public class KfeNativeGpsService extends Service {
       recordResumeDecision(prefs, "SKIPPED_NO_ACTIVE_TRIP", null);
       return;
     }
+    // A persisted READY bit belongs to the previous service process. Clear it
+    // before any resume attempt so boot recovery cannot report a live collector
+    // unless this attempt actually registers a callback.
+    prefs.edit().putBoolean(ACTIVE_READY, false).commit();
     if (!hasLocationPermission(context)) {
       recordResumeDecision(prefs, "SKIPPED_NO_LOCATION_PERMISSION", null);
       return;
@@ -209,7 +213,9 @@ public class KfeNativeGpsService extends Service {
     if (!hasLocationPermission()) return;
     String requestedType = "DEAD_MOVEMENT_TRACE".equals(requestedEventType) ? "DEAD_MOVEMENT_TRACE" : "PASSENGER_RIDE_TRACE";
     String requestedEntity = "SHIFT".equals(requestedEntityType) ? "SHIFT" : "TRIP";
-    if (id.equals(tripId) && callback != null && requestedType.equals(eventType) && requestedEntity.equals(entityType)) return;
+    if (id.equals(tripId) && callback != null && requestedType.equals(eventType)
+        && requestedEntity.equals(entityType)
+        && getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(ACTIVE_READY, false)) return;
     // A trip starts with pickup/dead-movement telemetry and must switch to
     // passenger-ride telemetry when Start Trip is pressed. Restart the callback
     // for the same trip when its event type changes; otherwise all ride points
