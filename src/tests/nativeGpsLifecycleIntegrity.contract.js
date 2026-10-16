@@ -41,6 +41,7 @@ assert.ok(emulatorGate.includes('start_instrumentation_until_ready verifyGpsColl
   'Screen-off GPS points must be injected while the same verification session is live.')
 assert.ok(emulatorGate.includes('start_instrumentation_until_ready verifyGpsCollectorAfterReboot reboot-recovery-ready'),
   'Reboot GPS points must be injected only after the boot-resumed collector signals readiness.')
+assert.match(emulatorGate, /wm dismiss-keyguard/, 'Reboot recovery must unlock the emulator so Android can deliver BOOT_COMPLETED to the receiver.')
 assert.ok(!emulatorGate.includes('prepareGpsCollectorForScreenOff screen-off-prepare'),
   'Screen-off coverage must not split collector preparation and verification across instrumentation sessions.')
 assert.doesNotMatch(emulatorGate, /process_restarted=false/, 'Process-death gate must not fail only because Android recovery timing differs.')
