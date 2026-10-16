@@ -188,6 +188,15 @@ jobs:
               -v "$PWD/work:/custom_files" ghcr.io/valhalla/valhalla-scripted:3.9.1 build_tiles
             test -s work/valhalla_tiles.tar
             cp work/valhalla_tiles.tar "work/area-$id.tar"
+            local area_size
+            area_size="$(stat -c '%s' "work/area-$id.tar")"
+            # City packages must contain only the clipped region, not the source
+            # Western Zone extract. A leaked source file previously inflated Alibag
+            # to ~1.9 GB and made on-device offline routing time out.
+            if [ "$area_size" -gt 800000000 ]; then
+              echo "Selectable area package $id is unexpectedly large ($area_size bytes); refusing to run the Android routing gate." >&2
+              return 1
+            fi
             docker run --detach --rm --name "kfe-valhalla-$id" -p 127.0.0.1:8002:8002 \
               -v "$PWD/work:/custom_files" --entrypoint valhalla_service \
               ghcr.io/valhalla/valhalla-scripted:3.9.1 /custom_files/valhalla.json 1
