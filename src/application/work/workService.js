@@ -171,12 +171,18 @@ export const WorkService = Object.freeze({
       return { reconciliationStatus: 'UNAVAILABLE', reason: error?.message || 'MOVEMENT_RECONCILIATION_FAILED', gpsTracePoints: gpsSnapshots.length }
     }
   },
-  async getTripGpsDistanceKm(tripId) { try { await WorkRuntimePorts.nativeGps.syncTrace(tripId) } catch (_) {} const snapshots = await LocationRepository.forEntity('TRIP', tripId); return calculateTraceDistanceKm(snapshots.filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')) },
+  async getTripGpsDistanceKm(tripId) {
+    try { await WorkRuntimePorts.nativeGps.syncTrace(tripId) } catch (_) {}
+    const snapshots = (await LocationRepository.forEntity('TRIP', tripId)).filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')
+    const filtered = MovementAccountingService.filterGpsTrace(snapshots)
+    return filtered.length >= 2 ? calculateTraceDistanceKm(filtered) : null
+  },
   async getTripDeadMovementDistanceKm(tripId) {
     try { await WorkRuntimePorts.nativeGps.syncTrace(tripId) } catch (_) {}
     const snapshots = (await LocationRepository.forEntity('TRIP', tripId)).filter(point => point?.eventType === 'DEAD_MOVEMENT_TRACE')
-    if (snapshots.length < 2) return null
-    const distanceKm = calculateTraceDistanceKm(snapshots)
+    const filtered = MovementAccountingService.filterGpsTrace(snapshots)
+    if (filtered.length < 2) return null
+    const distanceKm = calculateTraceDistanceKm(filtered)
     return Number.isFinite(Number(distanceKm)) ? Number(distanceKm) : null
   },
   calculateLiveMovement(points = []) { const filteredPoints = MovementAccountingService.filterGpsTrace(points); return { points: filteredPoints, distanceKm: calculateTraceDistanceKm(filteredPoints) } },
@@ -316,11 +322,11 @@ export const WorkService = Object.freeze({
               tripKmProvenance: {
                 method: 'HAVERSINE_TRACE_SUM',
                 confidence: 'ESTIMATED_TRACE',
-                gpsTracePoints: snapshots.length,
-                source: 'ANDROID_NATIVE_GPS'
+                gpsTracePoints: usableGpsPoints.length,
+                source: browserTracePoints.length > 0 ? 'BROWSER_GEOLOCATION' : 'ANDROID_NATIVE_GPS'
               },
               roadMatchedGeometry: null,
-              traceGeometry: snapshots.map(point => [Number(point.longitude), Number(point.latitude)])
+              traceGeometry: usableGpsPoints.map(point => [Number(point.longitude), Number(point.latitude)])
             })
           }
         } catch (error) {
