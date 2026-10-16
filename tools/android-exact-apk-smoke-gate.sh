@@ -393,7 +393,9 @@ sleep 5
 # Exercise the boot-started collector before launching instrumentation. Starting
 # an instrumentation process can recreate the target app process and perturb the
 # very service whose autonomous BOOT_COMPLETED recovery is under test.
-reboot_trip_id="$(adb shell run-as com.kanishka.pwa sed -n 's/.*<string name="activeTripId">\([^<]*\)<\/string>.*/\1/p' shared_prefs/kfe_native_gps.xml | tr -d '\r' | head -1)"
+# Parse the preferences XML on the runner, not in Android's remote shell;
+# adb shell does not preserve nested quoting for sed expressions containing spaces.
+reboot_trip_id="$(adb shell run-as com.kanishka.pwa cat shared_prefs/kfe_native_gps.xml | grep -o 'gps-reboot-[0-9]*' | head -1 | tr -d '\r')"
 case "$reboot_trip_id" in
   gps-reboot-*) ;;
   *) capture_failure "reboot-active-trip-missing"; echo "Persisted GPS trip was not restored after reboot: $reboot_trip_id" >&2; exit 1 ;;
