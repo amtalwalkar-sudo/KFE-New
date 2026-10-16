@@ -279,22 +279,19 @@ public class KfeRecoveryHardeningTest {
     assertEquals("Background location permission must remain granted after reboot.",
         android.content.pm.PackageManager.PERMISSION_GRANTED,
         androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION));
-    try {
-      await("GPS collector after reboot", 25000L,
-          () -> KfeNativeGpsService.isPersistedTracking(context, tripId, "PASSENGER_RIDE_TRACE", "TRIP"));
-    } catch (AssertionError failure) {
-      android.content.SharedPreferences gps = context.getSharedPreferences("kfe_native_gps", Context.MODE_PRIVATE);
-      throw new AssertionError("GPS collector after reboot did not become live. resumeDecision="
-          + gps.getString("lastResumeDecision", "NONE")
-          + ", resumeError=" + gps.getString("lastResumeError", "NONE")
-          + ", foregroundStartFailure=" + gps.getString("lastForegroundStartFailure", "NONE")
-          + ", locationRegistrationFailure=" + gps.getString("lastLocationRegistrationFailure", "NONE")
-          + ", activeTrip=" + gps.getString("activeTripId", "NONE")
-          + ", activeEvent=" + gps.getString("activeEventType", "NONE")
-          + ", collectorReady=" + gps.getBoolean("activeCollectorReady", false)
-          + ", lastResumeAt=" + gps.getLong("lastResumeAt", 0L)
-          + ", lastRecoveryAt=" + recovery.getLong("lastRecoveryAt", 0L), failure);
-    }
+    // Avoid using isPersistedTracking() as the reboot readiness signal: it
+    // includes process-local service-instance state that may be recreated when
+    // Android starts the instrumentation process. The durable resume decision
+    // is the precondition; injected fixes and trace growth below prove that the
+    // post-boot collector is actually receiving data.
+    android.content.SharedPreferences gps = context.getSharedPreferences("kfe_native_gps", Context.MODE_PRIVATE);
+    await("boot receiver's persisted GPS resume request", 25000L, () ->
+        tripId.equals(gps.getString("activeTripId", ""))
+            && "PASSENGER_RIDE_TRACE".equals(gps.getString("activeEventType", ""))
+            && "TRIP".equals(gps.getString("activeEntityType", ""))
+            && gps.getLong("lastResumeAt", 0L) > recovery.getLong("rebootTestPreparedAt", Long.MAX_VALUE)
+            && "START_REQUESTED".equals(gps.getString("lastResumeDecision", ""))
+            && gps.getBoolean("activeCollectorReady", false));
     rememberTraceCount("reboot", tripId);
     writeRecoveryReadyMarker("reboot-recovery-ready");
     await("new GPS fixes after reboot", 20000L,
@@ -422,19 +419,19 @@ public class KfeRecoveryHardeningTest {
       output.getFD().sync();
     }
     JSONObject metadata = new JSONObject()
-        .put("regionId", "mumbai-metro")
+        .put("regionId", "alibag")
         .put("version", "ci-fixture")
-        .put("coverageBounds", new JSONObject().put("south", 18.6).put("north", 19.7)
-            .put("west", 72.4).put("east", 73.5));
+        .put("coverageBounds", new JSONObject().put("south", 18.2).put("north", 19.0)
+            .put("west", 72.4).put("east", 73.3));
     try (FileOutputStream output = new FileOutputStream(new File(mapDir, "map-metadata.json"))) {
       output.write(metadata.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
       output.getFD().sync();
     }
 
     JSONArray shape = new JSONArray()
-        .put(new JSONObject().put("lat", 19.0760).put("lon", 72.8777).put("time", 1792140000L))
-        .put(new JSONObject().put("lat", 19.0850).put("lon", 72.8697).put("time", 1792140060L))
-        .put(new JSONObject().put("lat", 19.0930).put("lon", 72.8610).put("time", 1792140120L));
+        .put(new JSONObject().put("lat", 18.6414).put("lon", 72.8722).put("time", 1792140000L))
+        .put(new JSONObject().put("lat", 18.6480).put("lon", 72.8660).put("time", 1792140060L))
+        .put(new JSONObject().put("lat", 18.6540).put("lon", 72.8600).put("time", 1792140120L));
     JSONObject request = new JSONObject().put("shape", shape).put("shape_match", "map_snap")
         .put("costing", "auto").put("units", "kilometers").put("shape_format", "geojson");
     ValhallaConfigManager manager = new ValhallaConfigManager(context,

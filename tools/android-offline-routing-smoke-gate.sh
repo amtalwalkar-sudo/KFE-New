@@ -6,7 +6,9 @@ mkdir -p artifacts/android-offline-routing
 adb wait-for-device
 timeout 120s adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 timeout 120s adb install -r android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-timeout 300s adb push work/area-mumbai-metro.tar /data/local/tmp/valhalla-tiles.tar
+# Use the smaller, separately published Alibag package so the on-device
+# test exercises a real region extract without exhausting emulator RAM/time.
+timeout 300s adb push work/area-alibag.tar /data/local/tmp/valhalla-tiles.tar
 test "$(adb shell ls -l /data/local/tmp/valhalla-tiles.tar | awk '{print $5}' | tr -d '\r')" -gt 0
 
 # Disable emulator-managed external network paths before invoking the native engine.

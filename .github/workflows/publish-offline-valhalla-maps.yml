@@ -236,7 +236,7 @@ jobs:
 
       - name: Verify installed Valhalla tiles with Android networking disabled
         uses: reactivecircus/android-emulator-runner@v2
-        timeout-minutes: 25
+        timeout-minutes: 45
         with:
           api-level: 34
           target: google_apis
