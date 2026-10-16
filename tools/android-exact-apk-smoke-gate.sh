@@ -123,12 +123,12 @@ run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#gpsCollectorRecove
 # Kill the target app process (not a force-stop) while its sticky foreground GPS
 # service is active. Android must recreate the service from its persisted identity.
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#prepareGpsCollectorForProcessDeath process-death-prepare 1
-pid_before="$(adb shell pidof com.kanishka.pwa | tr -d '\r' | awk '{print $1}')"
+pid_before="$(adb shell ps -A | awk '$NF == "com.kanishka.pwa" {print $2; exit}' | tr -d '\r')"
 test -n "$pid_before" || { echo "Could not identify KFE process before kill" >&2; exit 1; }
 adb root >/dev/null 2>&1 || true
 adb wait-for-device
 if adb shell id | grep -q 'uid=0'; then
-  pid_to_kill="$(adb shell pidof com.kanishka.pwa | tr -d '\r' | awk '{print $1}')"
+  pid_to_kill="$(adb shell ps -A | awk '$NF == "com.kanishka.pwa" {print $2; exit}' | tr -d '\r')"
   test -n "$pid_to_kill"
   adb shell kill -9 "$pid_to_kill"
   adb unroot >/dev/null 2>&1 || true
@@ -138,7 +138,7 @@ else
 fi
 process_restarted=false
 for attempt in $(seq 1 25); do
-  pid_after="$(adb shell pidof com.kanishka.pwa 2>/dev/null | tr -d '\r' | awk '{print $1}' || true)"
+  pid_after="$(adb shell ps -A 2>/dev/null | awk '$NF == "com.kanishka.pwa" {print $2; exit}' | tr -d '\r' || true)"
   if [ -n "$pid_after" ] && [ "$pid_after" != "$pid_before" ]; then process_restarted=true; break; fi
   sleep 1
 done
