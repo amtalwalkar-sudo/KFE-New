@@ -29,7 +29,7 @@ export const NativeGpsService = {
       await NativeGps.start({ tripId, eventType, entityType })
       return true
     } catch (error) {
-      console.warn('Native Android ride GPS unavailable; browser GPS remains active.', error)
+      console.warn('Native Android GPS start failed; Android background coverage is unavailable until native tracking recovers.', error)
       return false
     }
   },
