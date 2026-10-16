@@ -178,18 +178,21 @@ else
 fi
 # The instrumentation process is expected to die with the target process.
 wait "$prepare_instrument_pid" >/dev/null 2>&1 || true
-process_restarted=false
+process_death_observed=false
 for attempt in $(seq 1 25); do
   pid_after="$(app_pid || true)"
-  if [ -n "$pid_after" ] && [ "$pid_after" != "$pid_before" ]; then
-    process_restarted=true
+  # The kill itself must terminate the original process. Whether Android has
+  # already recreated it is deliberately left to the recovery instrumentation
+  # below, which verifies the persisted collector and newly recorded GPS points.
+  if [ -z "$pid_after" ] || [ "$pid_after" != "$pid_before" ]; then
+    process_death_observed=true
     break
   fi
   sleep 1
 done
-if [ "$process_restarted" != true ]; then
+if [ "$process_death_observed" != true ]; then
   capture_failure "process-death-not-observed"
-  echo "KFE process did not restart after the injected process death" >&2
+  echo "KFE process did not exit after the injected process death" >&2
   exit 1
 fi
 inject_gps_fixes
