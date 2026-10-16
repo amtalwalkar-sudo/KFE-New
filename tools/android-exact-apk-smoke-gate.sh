@@ -197,9 +197,39 @@ if [ "$process_death_observed" != true ]; then
 fi
 adb shell am start -n com.kanishka.pwa/.MainActivity >/dev/null
 sleep 3
-run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#awaitGpsCollectorAfterProcessDeath process-death-ready 1
+# Keep readiness and trace verification in one instrumentation process. A second
+# instrumentation invocation can recreate the target process and invalidate the
+# live-service observation made by the first invocation.
+mkdir -p artifacts/android-golden
+process_death_log="artifacts/android-golden/process-death-verify-instrumentation.log"
+adb shell run-as com.kanishka.pwa rm -f files/process-death-recovery-ready >/dev/null 2>&1 || true
+timeout 180s adb shell am instrument -w -r -e class com.kanishka.pwa.KfeRecoveryHardeningTest#verifyGpsCollectorAfterProcessDeath com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner > "$process_death_log" 2>&1 &
+process_death_verify_pid=$!
+process_death_recovery_ready=false
+for attempt in $(seq 1 35); do
+  if adb shell run-as com.kanishka.pwa test -f files/process-death-recovery-ready >/dev/null 2>&1; then
+    process_death_recovery_ready=true
+    break
+  fi
+  if ! kill -0 "$process_death_verify_pid" 2>/dev/null; then break; fi
+  sleep 1
+done
+if [ "$process_death_recovery_ready" != true ]; then
+  capture_failure "process-death-recovery-not-ready"
+  cat "$process_death_log" >&2 || true
+  kill "$process_death_verify_pid" >/dev/null 2>&1 || true
+  echo "GPS collector did not become live after process-death recovery." >&2
+  exit 1
+fi
 inject_gps_fixes
-run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#verifyGpsCollectorAfterProcessDeath process-death-verify 1
+process_death_instrumentation_status=0
+wait "$process_death_verify_pid" || process_death_instrumentation_status=$?
+cat "$process_death_log"
+if [ "$process_death_instrumentation_status" -ne 0 ] || ! grep -Eq "^INSTRUMENTATION_CODE: -1$" "$process_death_log" || ! grep -Eq "^OK \\(1 test\\)$" "$process_death_log"; then
+  capture_failure "process-death-verify"
+  echo "Process-death recovery instrumentation failed or did not report one passing test." >&2
+  exit 1
+fi
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#cleanupRecoveredGpsCollector gps-recovery-cleanup 1
 
 # Screen-off is a separate lifecycle boundary. Verify the emulator really entered
