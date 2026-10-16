@@ -3,9 +3,24 @@ set -euo pipefail
 
 cd "${GITHUB_WORKSPACE:?GITHUB_WORKSPACE is required}"
 mkdir -p artifacts/android-offline-routing
-adb wait-for-device
-timeout 120s adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-timeout 120s adb install -r android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+
+# android-emulator-runner can return from its boot helper while the emulator's
+# package manager is still starting on slow/loaded hosted runners. Wait for the
+# system boot property explicitly before installing either APK.
+timeout 300s adb wait-for-device
+booted=false
+for attempt in $(seq 1 150); do
+  state="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+  if [ "$state" = "1" ]; then booted=true; break; fi
+  sleep 2
+done
+if [ "$booted" != true ]; then
+  adb logcat -d -t 1000 > artifacts/android-offline-routing/boot-timeout-logcat.log || true
+  echo "Android emulator did not finish system boot before offline-routing install." >&2
+  exit 1
+fi
+timeout 300s adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+timeout 300s adb install -r android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 # Use the smaller, separately published Alibag package so the on-device
 # test exercises a real region extract without exhausting emulator RAM/time.
 timeout 300s adb push work/area-alibag.tar /data/local/tmp/valhalla-tiles.tar
