@@ -147,16 +147,21 @@ public class KfeRecoveryHardeningTest {
   @Test public void prepareGpsCollectorForProcessDeath() throws Exception {
     String suffix = Long.toString(System.currentTimeMillis());
     String tripId = "gps-process-death-" + suffix;
-    String fareTripId = "recovery-process-death-trip-" + suffix;
+    String fareTripIdA = "recovery-process-death-trip-a-" + suffix;
+    String fareTripIdB = "recovery-process-death-trip-b-" + suffix;
     String shiftId = "recovery-process-death-shift-" + suffix;
-    String updatedAt = "2026-10-16T03:00:00.000Z";
+    String updatedAtA = "2026-10-16T03:00:00.000Z";
+    String updatedAtB = "2026-10-16T03:01:00.000Z";
     KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
-    store.putRecord("recovery-process-death-trip-op-" + suffix, "TRIP",
-        new JSONObject().put("id", fareTripId).put("shiftId", shiftId).put("status", "COMPLETED")
-            .put("fare", 250).put("updatedAt", updatedAt));
+    store.putRecord("recovery-process-death-trip-op-a-" + suffix, "TRIP",
+        new JSONObject().put("id", fareTripIdA).put("shiftId", shiftId).put("status", "COMPLETED")
+            .put("fare", 250).put("updatedAt", updatedAtA));
+    store.putRecord("recovery-process-death-trip-op-b-" + suffix, "TRIP",
+        new JSONObject().put("id", fareTripIdB).put("shiftId", shiftId).put("status", "COMPLETED")
+            .put("fare", 150).put("updatedAt", updatedAtB));
     store.putRecord("recovery-process-death-shift-op-" + suffix, "SHIFT",
-        new JSONObject().put("id", shiftId).put("status", "ACTIVE").put("revenue", 250)
-            .put("updatedAt", updatedAt));
+        new JSONObject().put("id", shiftId).put("status", "ACTIVE").put("revenue", 400)
+            .put("updatedAt", updatedAtB));
     startPersistentGps(tripId);
     rememberTraceCount("processDeath", tripId);
   }
@@ -171,14 +176,23 @@ public class KfeRecoveryHardeningTest {
 
     String suffix = tripId.substring("gps-process-death-".length());
     KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
-    JSONObject trip = store.getRecord("TRIP", "recovery-process-death-trip-" + suffix);
+    JSONObject tripA = store.getRecord("TRIP", "recovery-process-death-trip-a-" + suffix);
+    JSONObject tripB = store.getRecord("TRIP", "recovery-process-death-trip-b-" + suffix);
     JSONObject shift = store.getRecord("SHIFT", "recovery-process-death-shift-" + suffix);
-    assertTrue("Saved trip must survive target-process death.", trip.optBoolean("found", false));
-    assertEquals(250, trip.getJSONObject("record").getInt("fare"));
+    assertTrue("First saved fare must survive target-process death.", tripA.optBoolean("found", false));
+    assertTrue("Second saved fare must survive target-process death.", tripB.optBoolean("found", false));
+    assertEquals(250, tripA.getJSONObject("record").getInt("fare"));
+    assertEquals(150, tripB.getJSONObject("record").getInt("fare"));
+    int restoredFareTotal = tripA.getJSONObject("record").getInt("fare")
+        + tripB.getJSONObject("record").getInt("fare");
+    assertEquals("Restored saved fares must reconcile to the known ₹400 projection.", 400, restoredFareTotal);
     assertTrue("Shift projection must survive target-process death.", shift.optBoolean("found", false));
-    assertEquals(250, shift.getJSONObject("record").getInt("revenue"));
-    assertTrue("The durable fare operation outcome must survive target-process death.",
-        store.getOperation("recovery-process-death-trip-op-" + suffix).optBoolean("found", false));
+    assertEquals("Persisted cumulative revenue must still agree after restart.", restoredFareTotal,
+        shift.getJSONObject("record").getInt("revenue"));
+    assertTrue("First durable fare operation outcome must survive target-process death.",
+        store.getOperation("recovery-process-death-trip-op-a-" + suffix).optBoolean("found", false));
+    assertTrue("Second durable fare operation outcome must survive target-process death.",
+        store.getOperation("recovery-process-death-trip-op-b-" + suffix).optBoolean("found", false));
   }
 
   @Test public void prepareGpsCollectorForScreenOff() throws Exception {
