@@ -271,11 +271,30 @@ public class KfeRecoveryHardeningTest {
         recovery.getString("lastRecoveryAction", "NONE"),
         Intent.ACTION_BOOT_COMPLETED.equals(recovery.getString("lastRecoveryAction", "")) &&
         recovery.getLong("lastRecoveryAt", 0L) > recovery.getLong("rebootTestPreparedAt", Long.MAX_VALUE));
+    assertTrue("Fine or coarse location permission must remain granted after reboot.",
+        androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION)
+            == android.content.pm.PackageManager.PERMISSION_GRANTED
+        || androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION)
+            == android.content.pm.PackageManager.PERMISSION_GRANTED);
     assertEquals("Background location permission must remain granted after reboot.",
         android.content.pm.PackageManager.PERMISSION_GRANTED,
         androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION));
-    await("GPS collector after reboot", 25000L,
-        () -> KfeNativeGpsService.isPersistedTracking(context, tripId, "PASSENGER_RIDE_TRACE", "TRIP"));
+    try {
+      await("GPS collector after reboot", 25000L,
+          () -> KfeNativeGpsService.isPersistedTracking(context, tripId, "PASSENGER_RIDE_TRACE", "TRIP"));
+    } catch (AssertionError failure) {
+      android.content.SharedPreferences gps = context.getSharedPreferences("kfe_native_gps", Context.MODE_PRIVATE);
+      throw new AssertionError("GPS collector after reboot did not become live. resumeDecision="
+          + gps.getString("lastResumeDecision", "NONE")
+          + ", resumeError=" + gps.getString("lastResumeError", "NONE")
+          + ", foregroundStartFailure=" + gps.getString("lastForegroundStartFailure", "NONE")
+          + ", locationRegistrationFailure=" + gps.getString("lastLocationRegistrationFailure", "NONE")
+          + ", activeTrip=" + gps.getString("activeTripId", "NONE")
+          + ", activeEvent=" + gps.getString("activeEventType", "NONE")
+          + ", collectorReady=" + gps.getBoolean("activeCollectorReady", false)
+          + ", lastResumeAt=" + gps.getLong("lastResumeAt", 0L)
+          + ", lastRecoveryAt=" + recovery.getLong("lastRecoveryAt", 0L), failure);
+    }
     rememberTraceCount("reboot", tripId);
     writeRecoveryReadyMarker("reboot-recovery-ready");
     await("new GPS fixes after reboot", 20000L,
