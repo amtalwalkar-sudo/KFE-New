@@ -191,6 +191,16 @@ public class KfeRecoveryHardeningTest {
       output.write("ready".getBytes(java.nio.charset.StandardCharsets.UTF_8));
       output.getFD().sync();
     }
+    int recoveredTraceBaseline = context.getSharedPreferences("kfe_test_recovery", Context.MODE_PRIVATE)
+        .getInt("processDeathTraceCountBefore", -1);
+    await("new GPS fixes after process-death recovery", 20000L, () -> {
+      try {
+        return recoveredTraceBaseline >= 0
+            && new JSONArray(KfeNativeGpsService.readTrace(context, tripId)).length() > recoveredTraceBaseline;
+      } catch (Exception ignored) {
+        return false;
+      }
+    });
     assertTraceGrew("processDeath", tripId, "after process death");
 
     String suffix = tripId.substring("gps-process-death-".length());
