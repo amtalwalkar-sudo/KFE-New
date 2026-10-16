@@ -110,6 +110,39 @@ export const filterGpsTrace = points => {
   }
   return filtered
 }
+// A long interval is a break in evidence, not a measured straight-line segment.
+export const splitGpsTraceAtGaps = (points = [], { maxGapMs = 120000 } = {}) => {
+  const usable = filterGpsTrace(points)
+  const segments = []
+  const gaps = []
+  let current = []
+  for (const point of usable) {
+    const previous = current[current.length - 1]
+    const previousAt = timestampMs(previous)
+    const pointAt = timestampMs(point)
+    const elapsedMs = previous ? pointAt - previousAt : 0
+    if (previous && Number.isFinite(elapsedMs) && elapsedMs > maxGapMs) {
+      segments.push(current)
+      gaps.push({
+        startAt: previous.capturedAt || previous.timestamp || null,
+        endAt: point.capturedAt || point.timestamp || null,
+        durationMs: elapsedMs,
+        from: previous,
+        to: point,
+        status: 'UNRESOLVED',
+        distanceKm: null,
+        method: null,
+        confidence: 'UNAVAILABLE',
+        routingProvenance: null
+      })
+      current = []
+    }
+    current.push(point)
+  }
+  if (current.length) segments.push(current)
+  return { points: usable, segments, gaps }
+}
+
 const waitingAnchorForTrace = points => {
   const trace = filterGpsTrace(points); if (!trace.length) return null
   let anchor = trace[0]
