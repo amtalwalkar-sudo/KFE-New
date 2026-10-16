@@ -146,7 +146,18 @@ public class KfeRecoveryHardeningTest {
   }
 
   @Test public void prepareGpsCollectorForProcessDeath() throws Exception {
-    startPersistentGps("gps-process-death-" + System.currentTimeMillis());
+    String suffix = Long.toString(System.currentTimeMillis());
+    String tripId = "gps-process-death-" + suffix;
+    String shiftId = "recovery-process-death-shift-" + suffix;
+    String updatedAt = "2026-10-16T03:00:00.000Z";
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    store.putRecord("recovery-process-death-trip-op-" + suffix, "TRIP",
+        new JSONObject().put("id", tripId).put("shiftId", shiftId).put("status", "COMPLETED")
+            .put("fare", 250).put("updatedAt", updatedAt));
+    store.putRecord("recovery-process-death-shift-op-" + suffix, "SHIFT",
+        new JSONObject().put("id", shiftId).put("status", "ACTIVE").put("revenue", 250)
+            .put("updatedAt", updatedAt));
+    startPersistentGps(tripId);
   }
 
   @Test public void verifyGpsCollectorAfterProcessDeath() throws Exception {
@@ -155,6 +166,17 @@ public class KfeRecoveryHardeningTest {
     assertTrue("Process recovery must retain the pre-death trip identity.", tripId.startsWith("gps-process-death-"));
     await("GPS collector after process death", 25000L,
         () -> KfeNativeGpsService.isPersistedTracking(context, tripId, "PASSENGER_RIDE_TRACE", "TRIP"));
+
+    String suffix = tripId.substring("gps-process-death-".length());
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    JSONObject trip = store.getRecord("TRIP", tripId);
+    JSONObject shift = store.getRecord("SHIFT", "recovery-process-death-shift-" + suffix);
+    assertTrue("Saved trip must survive target-process death.", trip.optBoolean("found", false));
+    assertEquals(250, trip.getJSONObject("record").getInt("fare"));
+    assertTrue("Shift projection must survive target-process death.", shift.optBoolean("found", false));
+    assertEquals(250, shift.getJSONObject("record").getInt("revenue"));
+    assertTrue("The durable fare operation outcome must survive target-process death.",
+        store.getOperation("recovery-process-death-trip-op-" + suffix).optBoolean("found", false));
   }
 
   @Test public void prepareGpsCollectorForScreenOff() throws Exception {
