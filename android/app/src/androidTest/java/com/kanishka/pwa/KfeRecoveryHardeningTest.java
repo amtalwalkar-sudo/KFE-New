@@ -258,12 +258,22 @@ public class KfeRecoveryHardeningTest {
     startPersistentGps(tripId);
     persistLifecycleFixture("reboot", tripId);
     rememberTraceCount("reboot", tripId);
+    context.getSharedPreferences("kfe_lifecycle_recovery", Context.MODE_PRIVATE).edit()
+        .putLong("rebootTestPreparedAt", System.currentTimeMillis()).commit();
   }
 
   @Test public void verifyGpsCollectorAfterReboot() throws Exception {
     String tripId = context.getSharedPreferences("kfe_native_gps", Context.MODE_PRIVATE)
         .getString("activeTripId", "");
     assertTrue("Boot recovery must retain the pre-reboot trip identity.", tripId.startsWith("gps-reboot-"));
+    android.content.SharedPreferences recovery = context.getSharedPreferences("kfe_lifecycle_recovery", Context.MODE_PRIVATE);
+    assertTrue("Android must deliver BOOT_COMPLETED after the reboot; last action=" +
+        recovery.getString("lastRecoveryAction", "NONE"),
+        Intent.ACTION_BOOT_COMPLETED.equals(recovery.getString("lastRecoveryAction", "")) &&
+        recovery.getLong("lastRecoveryAt", 0L) > recovery.getLong("rebootTestPreparedAt", Long.MAX_VALUE));
+    assertEquals("Background location permission must remain granted after reboot.",
+        android.content.pm.PackageManager.PERMISSION_GRANTED,
+        androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION));
     await("GPS collector after reboot", 25000L,
         () -> KfeNativeGpsService.isPersistedTracking(context, tripId, "PASSENGER_RIDE_TRACE", "TRIP"));
     rememberTraceCount("reboot", tripId);
