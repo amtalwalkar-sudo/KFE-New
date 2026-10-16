@@ -33,24 +33,28 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y osmium-tool jq
-          mkdir -p work/tiles
+          # Keep the original regional extract outside Valhalla's mounted build directory.
+          # build_tiles scans the mounted directory for *.osm.pbf; leaving the source
+          # beside each clipped input silently builds the full Western Zone into every
+          # selectable city package.
+          mkdir -p work/tiles source
 
       - name: Download and verify OpenStreetMap source
         shell: bash
         run: |
           set -euo pipefail
           PBF_URL="https://download.geofabrik.de/asia/india/western-zone-latest.osm.pbf"
-          curl --fail --location --retry 5 --retry-all-errors --connect-timeout 20 --max-time 900 "$PBF_URL" -o work/western-zone-latest.osm.pbf
+          curl --fail --location --retry 5 --retry-all-errors --connect-timeout 20 --max-time 900 "$PBF_URL" -o source/western-zone-latest.osm.pbf
           curl --fail --location --retry 5 --retry-all-errors --connect-timeout 20 --max-time 60 "$PBF_URL.md5" -o work/source.md5
           SOURCE_MD5="$(awk 'NR==1 {print $1}' work/source.md5)"
           test "${#SOURCE_MD5}" -eq 32
-          printf '%s  %s\n' "$SOURCE_MD5" work/western-zone-latest.osm.pbf | md5sum --check -
-          osmium fileinfo -e work/western-zone-latest.osm.pbf
+          printf '%s  %s\n' "$SOURCE_MD5" source/western-zone-latest.osm.pbf | md5sum --check -
+          osmium fileinfo -e source/western-zone-latest.osm.pbf
 
       - name: Clip standard Mumbai Pune Nashik Alibag region
         run: |
           set -euo pipefail
-          osmium extract --bbox=71.8,17.0,75.2,21.2 --strategy=complete_ways --overwrite -o work/region.osm.pbf work/western-zone-latest.osm.pbf
+          osmium extract --bbox=71.8,17.0,75.2,21.2 --strategy=complete_ways --overwrite -o work/region.osm.pbf source/western-zone-latest.osm.pbf
           test -s work/region.osm.pbf
           osmium fileinfo -e work/region.osm.pbf
 
@@ -175,7 +179,7 @@ jobs:
           build_area() {
             local id="$1" bbox="$2" request="$3"
             rm -rf work/tiles work/valhalla_tiles.tar work/valhalla.json work/region.osm.pbf
-            osmium extract --bbox="$bbox" --strategy=complete_ways --overwrite -o work/region.osm.pbf work/western-zone-latest.osm.pbf
+            osmium extract --bbox="$bbox" --strategy=complete_ways --overwrite -o work/region.osm.pbf source/western-zone-latest.osm.pbf
             test -s work/region.osm.pbf
             docker run --rm --user "$(id -u):$(id -g)" \
               -e build_admins=True -e build_time_zones=False -e build_elevation=False \
