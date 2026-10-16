@@ -296,6 +296,10 @@ run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#prepareGpsCollecto
 # will not receive BOOT_COMPLETED, so launch once after preparation to clear the
 # stopped bit before the reboot under test.
 adb shell am start -n com.kanishka.pwa/.MainActivity >/dev/null
+# Keep this user-launched test app eligible for BOOT_COMPLETED delivery; Android 13+
+# can defer the broadcast for apps placed in the restricted standby bucket.
+adb shell am set-standby-bucket com.kanishka.pwa active || true
+adb shell dumpsys deviceidle whitelist +com.kanishka.pwa || true
 sleep 3
 adb reboot || true
 booted=false
