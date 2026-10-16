@@ -184,6 +184,8 @@ public class KfeRecoveryHardeningTest {
     KfeNativeGpsService.resumePersisted(context);
     await("live GPS collector after process death", 25000L,
         () -> KfeNativeGpsService.isPersistedTracking(context, tripId, "PASSENGER_RIDE_TRACE", "TRIP"));
+    // Reset the baseline only after recovery is live, so later growth proves new fixes were captured.
+    rememberTraceCount("processDeath", tripId);
     File ready = new File(context.getFilesDir(), "process-death-recovery-ready");
     try (FileOutputStream output = new FileOutputStream(ready)) {
       output.write("ready".getBytes(java.nio.charset.StandardCharsets.UTF_8));
