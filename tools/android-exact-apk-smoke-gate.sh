@@ -195,6 +195,8 @@ if [ "$process_death_observed" != true ]; then
   echo "KFE process did not exit after the injected process death" >&2
   exit 1
 fi
+adb shell am start -n com.kanishka.pwa/.MainActivity >/dev/null
+sleep 3
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#awaitGpsCollectorAfterProcessDeath process-death-ready 1
 inject_gps_fixes
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#verifyGpsCollectorAfterProcessDeath process-death-verify 1
