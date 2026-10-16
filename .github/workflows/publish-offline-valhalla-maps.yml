@@ -207,6 +207,207 @@ jobs:
           build_area "nashik" "73.1,19.4,74.2,20.4" "work/trace-request-nashik.json"
           build_area "alibag" "72.4,18.2,73.3,19.0" "work/trace-request-alibag.json"
 
+      # Exercise the same Valhalla mobile engine embedded in the Android APK,
+      # using the exact region tile extract built above. The route test runs only
+      # after emulator networking is disabled, so an online fallback cannot pass.
+      - name: Set up Java for native Valhalla mobile test
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK for native Valhalla mobile test
+        uses: android-actions/setup-android@v3
+
+      - name: Build Android APK and instrumentation APK for offline route test
+        run: |
+          set -euo pipefail
+          chmod +x android/gradlew
+          cd android
+          ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest
+
+      - name: Android mobile-engine offline route test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          cores: 2
+          ram-size: 2048M
+          heap-size: 512M
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            mkdir -p "$GITHUB_WORKSPACE/artifacts/offline-mobile"
+            adb install -r "$GITHUB_WORKSPACE/android/app/build/outputs/apk/debug/app-debug.apk"
+            adb install -r "$GITHUB_WORKSPACE/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
+            adb push "$GITHUB_WORKSPACE/work/area-mumbai-metro.tar" /data/local/tmp/valhalla-tiles.tar
+            adb shell pm grant com.kanishka.pwa android.permission.ACCESS_FINE_LOCATION
+            adb shell pm grant com.kanishka.pwa android.permission.ACCESS_COARSE_LOCATION
+            adb shell pm grant com.kanishka.pwa android.permission.ACCESS_BACKGROUND_LOCATION
+            adb shell cmd location set-location-enabled true || adb shell settings put secure location_mode 3
+            adb shell svc wifi disable || true
+            adb shell svc data disable || true
+            adb shell settings put global airplane_mode_on 1
+            adb shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true >/dev/null || true
+            test "$(adb shell settings get global airplane_mode_on | tr -d '\\r')" = "1"
+            if ! timeout 240s adb shell am instrument -w -r \
+              -e class com.kanishka.pwa.KfeRecoveryHardeningTest#installedOfflineValhallaRoutesWithNetworkDisabled \
+              com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner \
+              > "$GITHUB_WORKSPACE/artifacts/offline-mobile/instrumentation.log" 2>&1; then
+              cat "$GITHUB_WORKSPACE/artifacts/offline-mobile/instrumentation.log"
+              adb logcat -d -t 5000 > "$GITHUB_WORKSPACE/artifacts/offline-mobile/logcat.log" || true
+              exit 1
+            fi
+            cat "$GITHUB_WORKSPACE/artifacts/offline-mobile/instrumentation.log"
+            grep -Eq '^INSTRUMENTATION_CODE: -1        if: github.ref == 'refs/heads/main'
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAP_VERSION="$(date -u +%Y%m%d)-${GITHUB_RUN_NUMBER}"
+          ATTRIBUTION="© OpenStreetMap contributors. Map data is licensed under the Open Database License (ODbL). Source: Geofabrik Western Zone extract, clipped to KFE coverage."
+          SOURCE_URL="https://download.geofabrik.de/asia/india/western-zone-latest.osm.pbf"
+          REGIONS='[]'
+          publish_entry() {
+            local id="$1" label="$2" source="$3" bounds="$4" filename="$5"
+            local size sha url entry
+            size="$(stat -c '%s' "$source")"
+            test "$size" -gt 0
+            test "$size" -lt 1900000000
+            cp "$source" "work/$filename"
+            sha="$(sha256sum "work/$filename" | awk '{print $1}')"
+            url="https://github.com/${GITHUB_REPOSITORY}/releases/download/offline-maps/$filename"
+            entry="$(jq -n --arg regionId "$id" --arg region "$label" --arg version "$MAP_VERSION" \
+              --arg engineVersion "valhalla-mobile-0.6.4 / Valhalla 3.9.1" --arg packageUrl "$url" \
+              --arg sha256 "$sha" --arg sourceUrl "$SOURCE_URL" --argjson sizeBytes "$size" \
+              --argjson coverageBounds "$bounds" \
+              '{regionId:$regionId,region:$region,version:$version,engineVersion:$engineVersion,packageUrl:$packageUrl,sizeBytes:$sizeBytes,sha256:$sha256,sourceUrl:$sourceUrl,coverageBounds:$coverageBounds}')"
+            REGIONS="$(jq -cn --argjson existing "$REGIONS" --argjson entry "$entry" '$existing + [$entry]')"
+            echo "Prepared $id: $size bytes; SHA-256 $sha"
+          }
+          publish_entry "mumbai-pune-nashik-alibag-v1" "Mumbai · Pune · Nashik · Alibag corridor" "work/offline-maps.tar" '{"south":17.0,"north":21.2,"west":71.8,"east":75.2}' "offline-maps-${MAP_VERSION}.tar"
+          publish_entry "mumbai-metro" "Mumbai metro" "work/area-mumbai-metro.tar" '{"south":18.6,"north":19.7,"west":72.4,"east":73.5}' "offline-maps-mumbai-metro-${MAP_VERSION}.tar"
+          publish_entry "pune" "Pune area" "work/area-pune.tar" '{"south":18.1,"north":19.0,"west":73.3,"east":74.2}' "offline-maps-pune-${MAP_VERSION}.tar"
+          publish_entry "nashik" "Nashik area" "work/area-nashik.tar" '{"south":19.4,"north":20.4,"west":73.1,"east":74.2}' "offline-maps-nashik-${MAP_VERSION}.tar"
+          publish_entry "alibag" "Alibag area" "work/area-alibag.tar" '{"south":18.2,"north":19.0,"west":72.4,"east":73.3}' "offline-maps-alibag-${MAP_VERSION}.tar"
+          jq -n --argjson schemaVersion 1 --argjson regions "$REGIONS" --arg attribution "$ATTRIBUTION" \
+            '{schemaVersion:$schemaVersion,regions:$regions,attribution:$attribution}' > work/offline-maps-manifest.json
+          printf '%s\n' "$ATTRIBUTION" > work/offline-maps-attribution.txt
+          echo "map_version=$MAP_VERSION" >> "$GITHUB_OUTPUT"
+          cat work/offline-maps-manifest.json
+
+      - name: Publish versioned area packages and stable catalog
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release view offline-maps --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create offline-maps --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --title "KFE Offline Maps" \
+              --notes "Selectable regional Valhalla tile packages for KFE. Catalog: offline-maps-manifest.json. © OpenStreetMap contributors; ODbL applies."
+          gh release upload offline-maps --repo "$GITHUB_REPOSITORY" --clobber \
+            work/offline-maps-${{ steps.package.outputs.map_version }}.tar \
+            work/offline-maps-mumbai-metro-${{ steps.package.outputs.map_version }}.tar \
+            work/offline-maps-pune-${{ steps.package.outputs.map_version }}.tar \
+            work/offline-maps-nashik-${{ steps.package.outputs.map_version }}.tar \
+            work/offline-maps-alibag-${{ steps.package.outputs.map_version }}.tar \
+            work/offline-maps-manifest.json work/offline-maps-attribution.txt
+          echo "Published the catalog and five checksummed area packages."
+
+      - name: Upload build evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kfe-offline-valhalla-map-build-evidence
+          path: |
+            work/offline-maps-manifest.json
+            work/offline-maps-attribution.txt
+            work/result-*.json
+          if-no-files-found: warn
+          retention-days: 14
+ "$GITHUB_WORKSPACE/artifacts/offline-mobile/instrumentation.log"
+            grep -Eq '^OK \\(1 test\\)        if: github.ref == 'refs/heads/main'
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAP_VERSION="$(date -u +%Y%m%d)-${GITHUB_RUN_NUMBER}"
+          ATTRIBUTION="© OpenStreetMap contributors. Map data is licensed under the Open Database License (ODbL). Source: Geofabrik Western Zone extract, clipped to KFE coverage."
+          SOURCE_URL="https://download.geofabrik.de/asia/india/western-zone-latest.osm.pbf"
+          REGIONS='[]'
+          publish_entry() {
+            local id="$1" label="$2" source="$3" bounds="$4" filename="$5"
+            local size sha url entry
+            size="$(stat -c '%s' "$source")"
+            test "$size" -gt 0
+            test "$size" -lt 1900000000
+            cp "$source" "work/$filename"
+            sha="$(sha256sum "work/$filename" | awk '{print $1}')"
+            url="https://github.com/${GITHUB_REPOSITORY}/releases/download/offline-maps/$filename"
+            entry="$(jq -n --arg regionId "$id" --arg region "$label" --arg version "$MAP_VERSION" \
+              --arg engineVersion "valhalla-mobile-0.6.4 / Valhalla 3.9.1" --arg packageUrl "$url" \
+              --arg sha256 "$sha" --arg sourceUrl "$SOURCE_URL" --argjson sizeBytes "$size" \
+              --argjson coverageBounds "$bounds" \
+              '{regionId:$regionId,region:$region,version:$version,engineVersion:$engineVersion,packageUrl:$packageUrl,sizeBytes:$sizeBytes,sha256:$sha256,sourceUrl:$sourceUrl,coverageBounds:$coverageBounds}')"
+            REGIONS="$(jq -cn --argjson existing "$REGIONS" --argjson entry "$entry" '$existing + [$entry]')"
+            echo "Prepared $id: $size bytes; SHA-256 $sha"
+          }
+          publish_entry "mumbai-pune-nashik-alibag-v1" "Mumbai · Pune · Nashik · Alibag corridor" "work/offline-maps.tar" '{"south":17.0,"north":21.2,"west":71.8,"east":75.2}' "offline-maps-${MAP_VERSION}.tar"
+          publish_entry "mumbai-metro" "Mumbai metro" "work/area-mumbai-metro.tar" '{"south":18.6,"north":19.7,"west":72.4,"east":73.5}' "offline-maps-mumbai-metro-${MAP_VERSION}.tar"
+          publish_entry "pune" "Pune area" "work/area-pune.tar" '{"south":18.1,"north":19.0,"west":73.3,"east":74.2}' "offline-maps-pune-${MAP_VERSION}.tar"
+          publish_entry "nashik" "Nashik area" "work/area-nashik.tar" '{"south":19.4,"north":20.4,"west":73.1,"east":74.2}' "offline-maps-nashik-${MAP_VERSION}.tar"
+          publish_entry "alibag" "Alibag area" "work/area-alibag.tar" '{"south":18.2,"north":19.0,"west":72.4,"east":73.3}' "offline-maps-alibag-${MAP_VERSION}.tar"
+          jq -n --argjson schemaVersion 1 --argjson regions "$REGIONS" --arg attribution "$ATTRIBUTION" \
+            '{schemaVersion:$schemaVersion,regions:$regions,attribution:$attribution}' > work/offline-maps-manifest.json
+          printf '%s\n' "$ATTRIBUTION" > work/offline-maps-attribution.txt
+          echo "map_version=$MAP_VERSION" >> "$GITHUB_OUTPUT"
+          cat work/offline-maps-manifest.json
+
+      - name: Publish versioned area packages and stable catalog
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release view offline-maps --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create offline-maps --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --title "KFE Offline Maps" \
+              --notes "Selectable regional Valhalla tile packages for KFE. Catalog: offline-maps-manifest.json. © OpenStreetMap contributors; ODbL applies."
+          gh release upload offline-maps --repo "$GITHUB_REPOSITORY" --clobber \
+            work/offline-maps-${{ steps.package.outputs.map_version }}.tar \
+            work/offline-maps-mumbai-metro-${{ steps.package.outputs.map_version }}.tar \
+            work/offline-maps-pune-${{ steps.package.outputs.map_version }}.tar \
+            work/offline-maps-nashik-${{ steps.package.outputs.map_version }}.tar \
+            work/offline-maps-alibag-${{ steps.package.outputs.map_version }}.tar \
+            work/offline-maps-manifest.json work/offline-maps-attribution.txt
+          echo "Published the catalog and five checksummed area packages."
+
+      - name: Upload build evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kfe-offline-valhalla-map-build-evidence
+          path: |
+            work/offline-maps-manifest.json
+            work/offline-maps-attribution.txt
+            work/result-*.json
+          if-no-files-found: warn
+          retention-days: 14
+ "$GITHUB_WORKSPACE/artifacts/offline-mobile/instrumentation.log"
+
+      - name: Upload native offline route test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kfe-native-offline-route-test
+          path: artifacts/offline-mobile/
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Create checksummed regional catalog and attribution
         if: github.ref == 'refs/heads/main'
         id: package
