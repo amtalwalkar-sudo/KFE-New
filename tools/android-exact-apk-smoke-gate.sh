@@ -36,6 +36,16 @@ capture_failure() {
   adb logcat -d -t 5000 > "artifacts/android-golden/${label}-logcat.log" || true
 }
 
+inject_gps_fixes() {
+  # The Android emulator accepts longitude before latitude.
+  adb emu geo fix 72.8777 19.0760
+  sleep 3
+  adb emu geo fix 72.8697 19.0850
+  sleep 3
+  adb emu geo fix 72.8610 19.0930
+  sleep 4
+}
+
 
 install_apk() {
   local apk="$1"
@@ -137,6 +147,7 @@ if [ "$process_restarted" != true ]; then
   echo "KFE process did not restart after the injected process death" >&2
   exit 1
 fi
+inject_gps_fixes
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest verifyGpsCollectorAfterProcessDeath 1
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest cleanupRecoveredGpsCollector 1
 
@@ -150,6 +161,7 @@ if ! adb shell dumpsys power | grep -q 'mWakefulness=Asleep'; then
   echo "EMULATOR DID NOT ENTER SCREEN-OFF/SLEEP STATE" >&2
   exit 1
 fi
+inject_gps_fixes
 adb shell input keyevent 224
 sleep 2
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest verifyGpsCollectorAfterScreenOff 1
@@ -172,6 +184,7 @@ if [ "$booted" != true ]; then
   exit 1
 fi
 adb shell input keyevent 82 || true
+inject_gps_fixes
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest verifyGpsCollectorAfterReboot 1
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest cleanupRecoveredGpsCollector 1
 
