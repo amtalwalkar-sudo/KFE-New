@@ -176,6 +176,7 @@ const makeSegment = async ({ from, to, classification, label, router, tripId = n
 
 export const MovementAccountingService = {
   filterGpsTrace,
+  splitGpsTraceAtGaps,
   waitingAnchorForTrace,
   async calculateSegments({ garageLocation, trips = [], router, gpsSnapshots = [] } = {}) {
     const garage = normalizeLocation(garageLocation)
