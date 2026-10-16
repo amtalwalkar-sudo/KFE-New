@@ -103,9 +103,9 @@ export const filterGpsTrace = points => {
     // Some GPS providers omit speed while stationary. Use elapsed-time displacement
     // as a second signal, but only suppress short segments that are also very slow.
     const reportedStationary = Number.isFinite(reportedSpeedKmh) && reportedSpeedKmh <= STATIONARY_SPEED_KMH
-    const measuredStationaryWithoutSpeed = !Number.isFinite(reportedSpeedKmh) &&
-      Number.isFinite(measuredSpeedKmh) && measuredSpeedKmh <= STATIONARY_SPEED_KMH + 0.5
-    if ((reportedStationary || measuredStationaryWithoutSpeed) && displacement <= JITTER_DISTANCE_KM) continue
+    // Missing speed stays unknown; only an explicit low-speed fix is used to
+    // classify a short segment as stationary jitter.
+    if (reportedStationary && displacement <= JITTER_DISTANCE_KM) continue
     filtered.push(point)
   }
   return filtered
