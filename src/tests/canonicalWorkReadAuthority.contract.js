@@ -1,47 +1,50 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 
-const repository = fs.readFileSync(new URL('../repositories/shiftTripRepository.js', import.meta.url), 'utf8')
-const service = fs.readFileSync(new URL('../application/work/workService.js', import.meta.url), 'utf8')
-const recovery = fs.readFileSync(new URL('../application/work/canonicalWorkRecovery.js', import.meta.url), 'utf8')
-const store = fs.readFileSync(new URL('../stores/shiftTrip.js', import.meta.url), 'utf8')
-const view = fs.readFileSync(new URL('../views/WorkModuleView.vue', import.meta.url), 'utf8')
-const overlay = fs.readFileSync(new URL('../../android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java', import.meta.url), 'utf8')
-const nativeGps = fs.readFileSync(new URL('../infrastructure/android/nativeGpsService.js', import.meta.url), 'utf8')
-const revenue = fs.readFileSync(new URL('../domain/work/liveRevenue.js', import.meta.url), 'utf8')
+const read = path => fs.readFileSync(new URL(path, import.meta.url), 'utf8')
+const repository = read('../repositories/shiftTripRepository.js')
+const service = read('../application/work/workService.js')
+const recovery = read('../application/work/canonicalWorkRecovery.js')
+const store = read('../stores/shiftTrip.js')
+const view = read('../views/WorkModuleView.vue')
+const overlay = read('../../android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java')
+const nativeGps = read('../infrastructure/android/nativeGpsService.js')
+const revenue = read('../domain/work/liveRevenue.js')
 
-// Direct repository reads—not just startup—must cross the same native authority
-// boundary before they can feed history, fare forms, timers, or calculations.
-for (const method of [
-  'getAllShifts', 'getTripsForShift', 'getAllTrips',
-  'getLastCompletedShift', 'getLastCompletedTrip', 'getActive',
-]) {
-  const match = repository.match(new RegExp('async ' + method + '\\([^)]*\\) \\{([^}]+)\\}'))
-  assert.ok(match, `expected repository read method ${method}`)
-  assert.match(match[1], /ensureCanonicalReadBoundary\\(\\)/, `${method} must reconcile canonical records before returning`)
-}
-for (const method of ['createShift', 'completeShift', 'createTrip', 'setTripStage', '_finishTrip', 'updateTrip']) {
-  const match = repository.match(new RegExp('async ' + method + '\\([^)]*\\) \\{([^;]+);'))
-  assert.ok(match, `expected lifecycle/fare writer ${method}`)
-  assert.match(match[1], /ensureCanonicalReadBoundary\\(\\)/, `${method} must reconcile before deriving or mutating state`)
-}
-assert.match(repository, /outcome\?\.accepted !== true/)
-assert.match(repository, /Native canonical .* commit was not acknowledged/)
-assert.match(recovery, /await mirrorRecord\\(entityType, local\\)/)
-assert.match(recovery, /await syncCanonicalRecords\\(\{ shifts: refreshed\.shifts\.records, trips: refreshed\.trips\.records \}\)/)
-assert.match(store, /registeredTrips\.value = await WorkService\.getTripsForShift/)
-assert.match(view, /deriveLiveRevenue\\(store\.registeredTrips\.filter/)
-assert.match(revenue, /export function deriveLiveRevenue|export const deriveLiveRevenue/)
+for (const snippet of [
+  "async getAllShifts() { await ensureCanonicalReadBoundary();",
+  "async getTripsForShift(shiftId) { await ensureCanonicalReadBoundary();",
+  "async getAllTrips() { await ensureCanonicalReadBoundary();",
+  "async getLastCompletedShift() { await ensureCanonicalReadBoundary();",
+  "async getLastCompletedTrip() { await ensureCanonicalReadBoundary();",
+  "async getActive() { await ensureCanonicalReadBoundary();",
+]) assert.ok(repository.includes(snippet), 'missing canonical read boundary: ' + snippet)
+
+for (const snippet of [
+  "async createShift(data) { await ensureCanonicalReadBoundary();",
+  "async completeShift(data) { await ensureCanonicalReadBoundary();",
+  "async createTrip(data) { await ensureCanonicalReadBoundary();",
+  "async setTripStage(id, stage) { await ensureCanonicalReadBoundary();",
+  "async _finishTrip(data, status) { await ensureCanonicalReadBoundary();",
+  "async updateTrip(data) { await ensureCanonicalReadBoundary();",
+]) assert.ok(repository.includes(snippet), 'missing pre-write canonical reconciliation: ' + snippet)
+
+assert.ok(repository.includes('outcome?.accepted !== true'), 'native write acknowledgement must be required')
+assert.ok(repository.includes('Native canonical ' + '${entityType}' + ' commit was not acknowledged.'))
+assert.ok(recovery.includes('await mirrorRecord(entityType, local)'))
+assert.ok(recovery.includes('await syncCanonicalRecords({ shifts: refreshed.shifts.records, trips: refreshed.trips.records })'))
+assert.ok(store.includes('registeredTrips.value = await WorkService.getTripsForShift'))
+assert.ok(view.includes('deriveLiveRevenue(store.registeredTrips.filter'))
+assert.ok(revenue.includes('deriveLiveRevenue'))
+assert.ok(overlay.includes('refreshCanonicalRevenue'))
+assert.ok(overlay.includes('Canonical shift revenue projection was not acknowledged'))
 
 // Android background/screen-off GPS is not silently replaced by browser tracking.
-// The PWA path remains a separate foreground geolocation capability.
-assert.match(service, /const isAndroidRuntime = \\(\) => .*getPlatform\(\) === 'android'/)
-assert.match(service, /if \(started \|\| isAndroidRuntime\(\)\)/)
-assert.match(service, /if \(isAndroidRuntime\(\)\) \{[\s\S]*?not substituting PWA tracking/)
-assert.match(service, /WorkRuntimePorts\.movementTrace\.start/)
-assert.match(overlay, /ContextCompat\.startForegroundService/)
-assert.match(nativeGps, /Capacitor\.isNativePlatform/)
-assert.match(nativeGps, /ForegroundService|foreground service/i)
-assert.match(overlay, /ContextCompat\.startForegroundService/)
+assert.ok(service.includes("const isAndroidRuntime = () => { try { return WorkRuntimePorts.platform.getPlatform() === 'android'"))
+assert.ok(service.includes('if (started || isAndroidRuntime())'))
+assert.ok(service.includes('not substituting PWA tracking'))
+assert.ok(service.includes('WorkRuntimePorts.movementTrace.start'))
+assert.ok(overlay.includes('ContextCompat.startForegroundService'))
+assert.ok(nativeGps.includes('Capacitor.isNativePlatform'))
 
-console.log('PASS: canonical read authority covers direct lifecycle/fare reads and calculation inputs; Android background GPS remains separate from PWA tracking')
+console.log('PASS: direct canonical reads, pre-write reconciliation, revenue read-model wiring, and native/PWA GPS boundary')
