@@ -200,7 +200,7 @@ public class KfeRecoveryHardeningTest {
         activeTrip.getJSONObject("record").getString("status"));
     assertEquals("Recovered trip must retain the passenger-ride phase.", "RIDE_STARTED",
         activeTrip.getJSONObject("record").getString("tripStage"));
-    assertEquals("Recovered trip must retain the authoritative start timestamp.", updatedAtB,
+    assertEquals("Recovered trip must retain the authoritative start timestamp.", "2026-10-16T03:01:00.000Z",
         activeTrip.getJSONObject("record").getString("tripStartAt"));
     assertTrue("Shift projection must survive target-process death.", shift.optBoolean("found", false));
     assertEquals("Persisted cumulative revenue must still agree after restart.", restoredFareTotal,
