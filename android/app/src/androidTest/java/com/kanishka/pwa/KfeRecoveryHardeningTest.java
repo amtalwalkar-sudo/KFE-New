@@ -294,8 +294,18 @@ public class KfeRecoveryHardeningTest {
             && gps.getBoolean("activeCollectorReady", false));
     rememberTraceCount("reboot", tripId);
     writeRecoveryReadyMarker("reboot-recovery-ready");
-    await("new GPS fixes after reboot", 60000L,
-        () -> traceGrewSinceBaseline("reboot", tripId));
+    long gpsDeadline = SystemClock.uptimeMillis() + 60000L;
+    while (SystemClock.uptimeMillis() < gpsDeadline && !traceGrewSinceBaseline("reboot", tripId)) {
+      SystemClock.sleep(100L);
+    }
+    if (!traceGrewSinceBaseline("reboot", tripId)) {
+      android.content.SharedPreferences gpsPrefs =
+          context.getSharedPreferences("kfe_test_recovery", Context.MODE_PRIVATE);
+      int before = gpsPrefs.getInt("rebootTraceCountBefore", -1);
+      int after = new JSONArray(KfeNativeGpsService.readTrace(context, tripId)).length();
+      fail("No GPS fixes persisted after reboot; traceBefore=" + before + "; traceAfter=" + after
+          + "; serviceDiagnostics=" + KfeNativeGpsService.diagnostics(context).toString());
+    }
     assertTraceGrew("reboot", tripId, "after reboot");
     assertLifecycleFixture("reboot", tripId);
   }
