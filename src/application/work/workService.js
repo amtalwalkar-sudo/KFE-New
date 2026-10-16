@@ -1,4 +1,4 @@
-import { ShiftTripRepository } from '../../repositories/shiftTripRepository.js'
+import { ShiftTripRepository, configureCanonicalReadBoundary } from '../../repositories/shiftTripRepository.js'
 import { FuelRepository } from '../../repositories/fuelRepository.js'
 import { LocationRepository } from '../../repositories/locationRepository.js'
 import { captureLifecycleLocation } from './location.js'
@@ -12,6 +12,7 @@ import { BackupService } from '../backup/backupService.js'
 import { MovementAccountingService, routeTrace, assessGpsTraceCompleteness, isUsableDistanceKm } from '../../domain/movement/movementAccounting.js'
 import { WorkRuntimePorts } from './workRuntimePorts.js'
 import { CanonicalWorkBoundary } from './canonicalWorkBoundary.js'
+import { recoverCanonicalWorkSnapshot } from './canonicalWorkRecovery.js'
 import { calculateTraceDistanceKm } from '../../domain/movement/traceDistance.js'
 import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
 
@@ -39,6 +40,32 @@ const mirrorCanonicalShiftByTripId = async id => {
   }
   return trip
 }
+
+let canonicalReadAttempt = null
+const reconcileCanonicalReads = () => {
+  if (!nativeCanonicalAvailable()) return Promise.resolve()
+  if (canonicalReadAttempt) return canonicalReadAttempt
+  canonicalReadAttempt = recoverCanonicalWorkSnapshot({
+    readCanonical: async () => {
+      const [shifts, trips] = await Promise.all([
+        WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'SHIFT', limit: 1000 }),
+        WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'TRIP', limit: 1000 }),
+      ])
+      return { shifts, trips }
+    },
+    readLocal: async () => {
+      const [shifts, trips] = await Promise.all([
+        ShiftTripRepository.getAllShifts({ skipCanonicalReadBoundary: true }),
+        ShiftTripRepository.getAllTrips({ skipCanonicalReadBoundary: true }),
+      ])
+      return { shifts, trips }
+    },
+    mirrorRecord: mirrorCanonicalRecord,
+    syncCanonicalRecords: records => ShiftTripRepository.syncCanonicalRecords(records),
+  }).finally(() => { canonicalReadAttempt = null })
+  return canonicalReadAttempt
+}
+configureCanonicalReadBoundary(reconcileCanonicalReads)
 
 let nativeGpsRecoveryAttempt = null
 
