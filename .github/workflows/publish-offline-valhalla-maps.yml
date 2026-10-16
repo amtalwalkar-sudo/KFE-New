@@ -15,8 +15,8 @@ permissions:
   contents: write
 
 concurrency:
-  # New PR commits supersede stale, expensive map-test runs; main publication is never cancelled.
-  group: ${{ github.event_name == 'pull_request' && 'kfe-offline-valhalla-map-release' || 'kfe-offline-valhalla-map-release-main' }}
+  # PR builds are serialized per PR, while main publication is isolated and never cancelled.
+  group: ${{ github.event_name == 'pull_request' && format('kfe-offline-valhalla-map-release-pr-{0}', github.event.pull_request.number) || 'kfe-offline-valhalla-map-release-main' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
