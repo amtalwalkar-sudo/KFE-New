@@ -50,7 +50,7 @@ assert.ok(mapReleaseWorkflow.includes('offline-maps-mumbai-metro-') && mapReleas
 assert.ok(mapReleaseWorkflow.includes('coverageBounds:$coverageBounds') && mapReleaseWorkflow.includes('regions:$regions'), 'Published catalog must declare package-specific coverage bounds.')
 assert.ok(mapReleaseWorkflow.includes('Verify installed Valhalla tiles with Android networking disabled'), 'The Android emulator must run the native Valhalla engine against the exact locally built tiles.')
 assert.ok(mapReleaseWorkflow.includes('KfeRecoveryHardeningTest#installedOfflineValhallaRoutesWithNetworkDisabled'), 'The actual mobile-engine offline route instrumentation must be invoked by CI.')
-assert.ok(mapReleaseWorkflow.includes('adb push work/valhalla_tiles.tar /data/local/tmp/valhalla-tiles.tar'), 'CI must install the actual built tile extract in the emulator test sandbox.')
+assert.ok(mapReleaseWorkflow.includes('adb push work/area-mumbai-metro.tar /data/local/tmp/valhalla-tiles.tar'), 'CI must install the actual selectable Mumbai-metro tile package in the emulator test sandbox.')
 assert.ok(mapReleaseWorkflow.includes('settings put global airplane_mode_on 1'), 'The mobile-engine route test must run with emulator networking disabled.')
 const recoveryTest = read('android/app/src/androidTest/java/com/kanishka/pwa/KfeRecoveryHardeningTest.java')
 assert.ok(recoveryTest.includes('new Valhalla(context,'), 'Offline routing must exercise the embedded native Valhalla engine.')
