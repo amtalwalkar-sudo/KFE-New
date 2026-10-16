@@ -281,7 +281,7 @@ public class KfeNativeGpsService extends Service {
           double latitude = point.optDouble("latitude", Double.NaN);
           double longitude = point.optDouble("longitude", Double.NaN);
           seenKeys.add(storedEvent + "|" + timestamp + "|" + latitude + "|" + longitude);
-          if (eventType.equals(storedEvent) && Double.isFinite(latitude) && Double.isFinite(longitude)) {
+          if (eventType.equals(storedEvent) && !Double.isNaN(latitude) && !Double.isInfinite(latitude) && !Double.isNaN(longitude) && !Double.isInfinite(longitude)) {
             Location distancePoint = new Location("KFE");
             distancePoint.setLatitude(latitude);
             distancePoint.setLongitude(longitude);
