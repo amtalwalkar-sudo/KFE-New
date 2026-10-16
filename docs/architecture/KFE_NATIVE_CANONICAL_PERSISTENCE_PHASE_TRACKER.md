@@ -133,3 +133,13 @@ Do not merge or request physical-device sign-off until required automated checks
 | 7 — Shift-end removal + release gate | **Complete; CI #4127 green** | Removed shift-end revenue/review stages and reconciliation code from the driver flow; end odometer is the final input; financial records are preserved; regression/integration suites and exact-APK smoke passed. Physical-device acceptance remains pending. |
 
 At the end of each run, record changed files/commit, checks actually executed, failures/blockers and next run. Never mark a check green unless its result is available.
+
+## Follow-up: read-boundary and platform capability separation
+
+- Android lifecycle/fare repository reads now enter the canonical recovery boundary before returning records, including direct shift/trip history reads and the inputs used by the live revenue read model.
+- Lifecycle/fare mutations reconcile first, then write locally and require an explicit native acknowledgement. This remains guarded write-through with recoverable staging—not a cross-database atomic transaction.
+- Failed native acknowledgement blocks recovery sync; the next application/process recovery must retry a newer staged record before applying the native snapshot. Equal-version conflicting payloads remain fail-closed.
+- Cross-surface revenue contract: completed fares of ₹250 and ₹150 produce ₹400 in the PWA read model; native shift revenue projection is refreshed from acknowledged canonical fare records.
+- **Platform capability boundary:** Android background/screen-off GPS is owned by the Android native GPS service/foreground-service lifecycle. On Android, a failed native GPS start is not silently replaced by browser geolocation. PWA/browser movement tracking remains a separate foreground capability and must not be described as screen-off/background-equivalent.
+- Physical-device checks remain mandatory for KM phase transitions, persisted fares/revenue, phase timers through background/process restart, swipe gestures/animations, fuel entry, and GPS with the screen off. Emulator smoke and source contracts do not satisfy this requirement.
+
