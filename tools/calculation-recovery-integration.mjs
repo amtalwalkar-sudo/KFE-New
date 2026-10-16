@@ -64,7 +64,6 @@ try {
     // Exercise the real saved-ride completion/enrichment pipeline with an internal
     // GPS outage. All four points are persisted in IndexedDB, but the middle interval
     // is deliberately missing. A deterministic router refuses to estimate that gap.
-    const { configureWorkRuntimePorts } = await import('/src/application/work/workRuntimePorts.js')
     const noOp = async () => true
     configureWorkRuntimePorts({
       movementTrace: { start: noOp, reset: noOp, getActiveSession: () => null, getPoints: () => [], stop: async () => [], resumePersisted: noOp, pause: noOp, getDistanceKm: () => 0 },
