@@ -6,7 +6,7 @@ const STATIONARY_SPEED_KMH = 2
 // GPS speed is reported in metres/second by browser and Android location APIs.
 const MAX_REASONABLE_SPEED_KMH = 180
 const speedKmh = point => {
-  const speed = point?.speed == null || point.speed === '' ? NaN : Number(point.speed)
+  const speed = point.speed == null || point.speed === '' ? NaN : Number(point.speed)
   return Number.isFinite(speed) && speed >= 0 ? speed * 3.6 : NaN
 }
 const finite = value => Number.isFinite(Number(value))
