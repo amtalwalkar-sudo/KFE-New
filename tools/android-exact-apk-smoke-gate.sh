@@ -324,21 +324,23 @@ if [ "$booted" != true ]; then
   echo "EMULATOR DID NOT FINISH BOOTING FOR GPS RECOVERY TEST" >&2
   exit 1
 fi
-# BOOT_COMPLETED is delivered after the user has unlocked the device. Explicitly
-# dismiss the emulator keyguard, then allow the system broadcast queue to dispatch.
-adb shell input keyevent 224 || true
-adb shell wm dismiss-keyguard || true
-adb shell input keyevent 82 || true
-# Re-enable the emulator's location provider after reboot before injecting new
-# fixes. Some emulator images restore the device with location disabled even
-# though the pre-reboot permission grants and provider state were enabled.
+# Some emulator images restore location disabled after reboot. Enable the
+# provider BEFORE unlocking: Android delivers BOOT_COMPLETED to this app after
+# unlock, and the receiver must register GPS against an already-enabled provider.
 adb shell cmd location set-location-enabled true || true
 # Also set the legacy global mode for emulator images where the cmd service
 # reports success but the secure setting is restored disabled during boot.
 adb shell settings put secure location_mode 3 || true
 adb shell appops set com.kanishka.pwa android:fine_location allow || true
 adb shell appops set com.kanishka.pwa android:coarse_location allow || true
-# Let the fused provider settle after boot before testing newly injected fixes.
+sleep 3
+# BOOT_COMPLETED is delivered after the user has unlocked the device. Unlock
+# only after location is ready so the receiver does not register into a disabled
+# provider state and then appear healthy without receiving any GPS fixes.
+adb shell input keyevent 224 || true
+adb shell wm dismiss-keyguard || true
+adb shell input keyevent 82 || true
+# Let the boot receiver and fused provider settle before injecting test fixes.
 sleep 8
 boot_receiver_seen=false
 for attempt in $(seq 1 30); do
