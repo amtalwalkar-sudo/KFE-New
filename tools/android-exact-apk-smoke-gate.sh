@@ -103,5 +103,47 @@ adb shell appops set com.kanishka.pwa android:system_alert_window allow
 adb shell appops set com.kanishka.pwa android:camera allow || true
 adb shell am force-stop com.kanishka.pwa
 run_instrumentation com.kanishka.pwa.KfeWebViewStartupTest webview-startup 1
+
+# Failure-oriented native persistence checks: a lost bridge acknowledgement must
+# not double-count fares, and stale/equal-version snapshots must not overwrite
+# the canonical shift/trip projection.
+run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest canonicalWritesRemainIdempotentAfterLostAcknowledgementAndRejectStaleSnapshots 1
+run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest gpsCollectorRecoversAfterServiceInterruption 1
+
+# Screen-off is a separate lifecycle boundary. Verify the emulator really entered
+# sleep before waking it and checking that the same GPS collector is still active.
+run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest prepareGpsCollectorForScreenOff 1
+adb shell input keyevent 223
+sleep 5
+if ! adb shell dumpsys power | grep -q 'mWakefulness=Asleep'; then
+  capture_failure "screen-off-state-not-reached"
+  echo "EMULATOR DID NOT ENTER SCREEN-OFF/SLEEP STATE" >&2
+  exit 1
+fi
+adb shell input keyevent 224
+sleep 2
+run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest verifyGpsCollectorAfterScreenOff 1
+run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest cleanupRecoveredGpsCollector 1
+
+# Reboot is tested independently from process/service restart. The boot receiver
+# must resume the exact persisted collector without creating a new trip identity.
+run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest prepareGpsCollectorForReboot 1
+adb reboot || true
+booted=false
+for attempt in $(seq 1 120); do
+  adb wait-for-device >/dev/null 2>&1 || true
+  boot_state="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r' || true)"
+  if [ "$boot_state" = "1" ]; then booted=true; break; fi
+  sleep 2
+done
+if [ "$booted" != true ]; then
+  capture_failure "reboot-recovery-boot-timeout"
+  echo "EMULATOR DID NOT FINISH BOOTING FOR GPS RECOVERY TEST" >&2
+  exit 1
+fi
+adb shell input keyevent 82 || true
+run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest verifyGpsCollectorAfterReboot 1
+run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest cleanupRecoveredGpsCollector 1
+
 run_instrumentation com.kanishka.pwa.KfeOverlaySmokeTest native-overlay 19
 sha256sum "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
