@@ -31,6 +31,12 @@ assert.ok(processDeathAwaitIndex >= 0 && processDeathInjectIndex > processDeathA
 const nativeGpsService = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeNativeGpsService.java', 'utf8')
 assert.match(nativeGpsService, /private static volatile KfeNativeGpsService liveInstance/, 'GPS readiness must be tied to a live service instance, not only persisted flags.')
 assert.match(nativeGpsService, /service.callback != null/, 'GPS readiness must require an active location callback.')
+const mainActivity = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/MainActivity.java', 'utf8')
+assert.match(mainActivity, /KfeNativeGpsService\.resumePersisted\(this\)/, 'App relaunch must request persisted native GPS recovery.')
+assert.match(mainActivity, /KfeOverlayService\.resumePersisted\(this\)/, 'App relaunch must request persisted overlay recovery.')
+const processDeathLaunchIndex = emulatorGate.indexOf('adb shell am start -n com.kanishka.pwa/.MainActivity')
+assert.ok(processDeathLaunchIndex >= 0 && processDeathLaunchIndex < processDeathAwaitIndex,
+  'The emulator must relaunch the app before asserting process-death GPS recovery.')
 assert.doesNotMatch(emulatorGate, /process_restarted=false/, 'Process-death gate must not fail only because Android recovery timing differs.')
 assert.match(service, /output\.getFD\(\)\.sync\(\)/, 'native raw trace must be fsynced')
 assert.ok(service.includes('String key = eventType + "|" + timestamp'), 'Native deduplication must keep otherwise-identical points from different movement phases.')
