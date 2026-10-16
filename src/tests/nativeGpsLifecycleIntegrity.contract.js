@@ -37,6 +37,12 @@ assert.match(mainActivity, /KfeOverlayService\.resumePersisted\(this\)/, 'App re
 const processDeathLaunchIndex = emulatorGate.indexOf('adb shell am start -n com.kanishka.pwa/.MainActivity')
 assert.ok(processDeathLaunchIndex >= 0 && processDeathLaunchIndex < processDeathVerifyIndex,
   'The emulator must relaunch the app before asserting process-death GPS recovery.')
+assert.ok(emulatorGate.includes('start_instrumentation_until_ready verifyGpsCollectorAfterScreenOff screen-off-recovery-ready'),
+  'Screen-off GPS points must be injected while the same verification session is live.')
+assert.ok(emulatorGate.includes('start_instrumentation_until_ready verifyGpsCollectorAfterReboot reboot-recovery-ready'),
+  'Reboot GPS points must be injected only after the boot-resumed collector signals readiness.')
+assert.ok(!emulatorGate.includes('prepareGpsCollectorForScreenOff screen-off-prepare'),
+  'Screen-off coverage must not split collector preparation and verification across instrumentation sessions.')
 assert.doesNotMatch(emulatorGate, /process_restarted=false/, 'Process-death gate must not fail only because Android recovery timing differs.')
 assert.match(service, /output\.getFD\(\)\.sync\(\)/, 'native raw trace must be fsynced')
 assert.ok(service.includes('String key = eventType + "|" + timestamp'), 'Native deduplication must keep otherwise-identical points from different movement phases.')
