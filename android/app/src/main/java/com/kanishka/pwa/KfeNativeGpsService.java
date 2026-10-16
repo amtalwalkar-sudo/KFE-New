@@ -301,6 +301,7 @@ public class KfeNativeGpsService extends Service {
   private void appendFilteredDistanceLocation(Location location) {
     if (location == null || !location.hasAccuracy() || location.getAccuracy() > MAX_ACCURACY_FOR_DISTANCE_METERS) return;
     Location previous = filteredDistanceLocations.isEmpty() ? null : filteredDistanceLocations.get(filteredDistanceLocations.size() - 1);
+    float segmentMeters = 0f;
     if (previous != null) {
       long elapsedMs = location.getTime() - previous.getTime();
       if (elapsedMs <= 0L) return;
@@ -310,24 +311,16 @@ public class KfeNativeGpsService extends Service {
       if (elapsedMs <= MAX_CONTIGUOUS_GAP_MS) {
         float measuredSpeedKmh = displacementMeters / (elapsedMs / 3600000f);
         if (measuredSpeedKmh > MAX_REASONABLE_SPEED_KMH) return;
+        segmentMeters = displacementMeters;
       }
       // Match the shared JS filter: only an explicitly stationary, short move is
       // discarded as jitter. Missing speed is unknown, not stationary.
       if (location.hasSpeed() && location.getSpeed() * 3.6f <= 2f && displacementMeters <= 30f) return;
     }
+    // Incremental accounting avoids an O(n^2) full-trace rescan on every GPS fix.
+    passengerDistanceMeters += segmentMeters;
     filteredDistanceLocations.add(new Location(location));
-    recalculateFilteredDistanceMeters();
-  }
-
-  private void recalculateFilteredDistanceMeters() {
-    passengerDistanceMeters = 0d;
-    for (int i = 1; i < filteredDistanceLocations.size(); i++) {
-      Location previous = filteredDistanceLocations.get(i - 1);
-      Location current = filteredDistanceLocations.get(i);
-      long elapsedMs = current.getTime() - previous.getTime();
-      if (elapsedMs > 0L && elapsedMs <= MAX_CONTIGUOUS_GAP_MS) passengerDistanceMeters += previous.distanceTo(current);
-    }
-    lastPassengerLocation = filteredDistanceLocations.isEmpty() ? null : new Location(filteredDistanceLocations.get(filteredDistanceLocations.size() - 1));
+    lastPassengerLocation = new Location(location);
   }
 
   private void refreshLiveDistanceReadout() {
