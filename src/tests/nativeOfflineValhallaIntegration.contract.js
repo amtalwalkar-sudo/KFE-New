@@ -26,6 +26,7 @@ assert.match(nativePlugin, /outside the installed offline map coverage/, 'Native
 assert.match(nativePlugin, /traceRouteRaw/, 'Native plugin must call the on-device Valhalla trace matcher.')
 assert.match(nativePlugin, /previous-tiles\.tar|staging/, 'Map updates must stage downloads away from active map data.')
 assert.match(bridge, /registerPlugin\('KfeOfflineMaps'\)/, 'Web application must call the native map plugin.')
+assert.match(bridge, /regionId: result\.regionId \|\| REGION_ID/, 'Offline route provenance must identify the installed region, not a fixed default.')
 assert.match(router, /OFFLINE_VALHALLA_TRACE_ROUTE_MAP_MATCH/, 'Offline matches must be identified distinctly in provenance.')
 assert.match(router, /OFFLINE_MATCH_BUDGET_MS = 1200/, 'Offline map matching must have a bounded wait budget.')
 assert.match(admin, /Download \/ Update Offline Maps/, 'Admin must expose user-facing map download/update controls.')

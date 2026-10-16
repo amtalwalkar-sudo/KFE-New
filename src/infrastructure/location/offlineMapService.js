@@ -35,6 +35,6 @@ export const OfflineMapService = {
     const result = await native.traceRoute({ points })
     const raw = typeof result?.raw === 'string' ? JSON.parse(result.raw) : result?.raw
     if (!raw) return null
-    return { raw, provider: 'valhalla-mobile', regionId: REGION_ID }
+    return { raw, provider: 'valhalla-mobile', regionId: result.regionId || REGION_ID }
   }
 }

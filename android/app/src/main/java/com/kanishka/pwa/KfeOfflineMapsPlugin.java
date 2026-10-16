@@ -51,7 +51,9 @@ public class KfeOfflineMapsPlugin extends Plugin {
             try {
                 synchronized (mapStateLock) { if (!mapUpdateInProgress) recoverStagedMap(); }
                 File tiles = tilesFile(); File meta = metadataFile();
-                String requestedRegionId = call.getString("regionId", DEFAULT_REGION_ID);
+                JSONObject installedMetadata = meta.isFile() ? new JSONObject(readText(meta)) : new JSONObject();
+                String installedRegionId = installedMetadata.optString("regionId", "");
+                String requestedRegionId = call.getString("regionId", installedRegionId.isEmpty() ? DEFAULT_REGION_ID : installedRegionId);
                 JSObject out = new JSObject();
                 out.put("supported", true); out.put("regionId", requestedRegionId);
                 synchronized (mapStateLock) { out.put("updateInProgress", mapUpdateInProgress); }
@@ -59,8 +61,6 @@ public class KfeOfflineMapsPlugin extends Plugin {
                 out.put("bytesInstalled", installedBytes);
                 StatFs fs = new StatFs(getContext().getFilesDir().getAbsolutePath());
                 out.put("bytesAvailable", fs.getAvailableBytes());
-                JSONObject installedMetadata = meta.isFile() ? new JSONObject(readText(meta)) : new JSONObject();
-                String installedRegionId = installedMetadata.optString("regionId", "");
                 out.put("installedRegionId", installedRegionId);
                 out.put("installed", tiles.isFile() && tiles.length() > 0 && meta.isFile() && requestedRegionId.equals(installedRegionId));
                 if (meta.isFile()) {
