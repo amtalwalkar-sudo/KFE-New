@@ -205,6 +205,15 @@ export const WorkService = Object.freeze({
     if (result && typeof result === 'object') await mirrorCanonicalRecord('TRIP', result)
     checkpoint()
     if (!result || !data?.id) return result
+    // Record a fresh passenger-ride boundary separately from the pickup/dead-leg start.
+    // tripStartAt is the authoritative lifecycle transition time; capturedAt remains
+    // the actual GPS fix time, and rideStartLocationEventAt links the two explicitly.
+    void captureLifecycleLocation({ entityType: 'TRIP', entityId: data.id, eventType: 'RIDE_START' }).then(async location => {
+      if (!location) return
+      await ShiftTripRepository.setTripRideStartLocation(data.id, location, result.tripStartAt || null)
+      await mirrorCanonicalTripById(data.id)
+      checkpoint()
+    }).catch(error => console.warn('Passenger-ride start GPS fix unavailable; lifecycle timestamp retained:', error))
     // Android uses the native foreground trace. Browser/PWA builds do not have
     // that plugin, so fall back to the existing web movement-trace service.
     void WorkRuntimePorts.nativeGps.start(data.id, 'PASSENGER_RIDE_TRACE', 'TRIP').then(started => {
@@ -252,9 +261,15 @@ export const WorkService = Object.freeze({
           // The last persisted trace point may be stale by minutes/hours and must
           // never be mistaken for the actual trip endpoint.
           const endLocation = await captureLifecycleLocation({ entityType: 'TRIP', entityId: tripId, eventType: 'END' }).catch(() => null)
-          const finalTracePoint = snapshots.at(-1) || browserTracePoints.at(-1)
-          if (endLocation) await ShiftTripRepository.setTripEndLocation(tripId, endLocation)
-          else if (finalTracePoint) await ShiftTripRepository.setTripEndLocation(tripId, finalTracePoint)
+          if (endLocation) {
+            await ShiftTripRepository.setTripEndLocation(tripId, endLocation)
+            await mirrorCanonicalTripById(tripId)
+            checkpoint()
+          } else {
+            // _finishTrip persisted tripEndLocationStatus=MISSING with the terminal
+            // transition. Never relabel an older trace point as a fresh endpoint fix.
+            console.warn('Trip completed without a fresh endpoint GPS fix:', tripId)
+          }
 
           const active = await ShiftTripRepository.getActive()
           const shiftTrips = active.shift?.id ? await ShiftTripRepository.getTripsForShift(active.shift.id) : []
