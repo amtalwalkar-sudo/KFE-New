@@ -76,13 +76,41 @@ public class KfeNativeGpsService extends Service {
   }
 
   public static void resumePersisted(Context context) {
-    // Boot/package-replacement broadcasts are delivered even when no ride is
-    // active. Only revive an actually persisted ride with location permission.
-    String persisted = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(ACTIVE_TRIP, "");
-    if (persisted == null || persisted.trim().isEmpty() || !hasLocationPermission(context) || !hasBackgroundLocationPermission(context)) return;
+    // Keep the decision durable so a failed boot recovery can be distinguished
+    // from a receiver-delivery problem in instrumentation and field diagnostics.
+    android.content.SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    String persisted = prefs.getString(ACTIVE_TRIP, "");
+    if (persisted == null || persisted.trim().isEmpty()) {
+      recordResumeDecision(prefs, "SKIPPED_NO_ACTIVE_TRIP", null);
+      return;
+    }
+    if (!hasLocationPermission(context)) {
+      recordResumeDecision(prefs, "SKIPPED_NO_LOCATION_PERMISSION", null);
+      return;
+    }
+    if (!hasBackgroundLocationPermission(context)) {
+      recordResumeDecision(prefs, "SKIPPED_NO_BACKGROUND_LOCATION_PERMISSION", null);
+      return;
+    }
+    recordResumeDecision(prefs, "START_REQUESTED", null);
     Intent intent = new Intent(context, KfeNativeGpsService.class);
     intent.setAction("com.kanishka.pwa.NATIVE_GPS_RESUME");
-    androidx.core.content.ContextCompat.startForegroundService(context, intent);
+    try {
+      androidx.core.content.ContextCompat.startForegroundService(context, intent);
+    } catch (RuntimeException error) {
+      recordResumeDecision(prefs, "START_REQUEST_FAILED", error.getClass().getSimpleName() + ": " + error.getMessage());
+      throw error;
+    }
+  }
+
+  private static void recordResumeDecision(android.content.SharedPreferences prefs, String decision, String error) {
+    android.content.SharedPreferences.Editor edit = prefs.edit()
+        .putString("lastResumeDecision", decision)
+        .putLong("lastResumeAt", System.currentTimeMillis());
+    if (error == null) edit.remove("lastResumeError");
+    else edit.putString("lastResumeError", error);
+    edit.commit();
+    Log.i("KfeNativeGpsService", "Persisted GPS resume decision=" + decision + (error == null ? "" : " error=" + error));
   }
 
   public static void stop(Context context, String tripId) {
@@ -211,15 +239,22 @@ public class KfeNativeGpsService extends Service {
     fused.requestLocationUpdates(request, requestedCallback, getMainLooper())
         .addOnSuccessListener(unused -> {
           if (id.equals(tripId) && callback == requestedCallback) {
-            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE_READY, true).apply();
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                .putBoolean(ACTIVE_READY, true)
+                .remove("lastLocationRegistrationFailure")
+                .commit();
+            Log.i("KfeNativeGpsService", "Native GPS callback registered for trip=" + id + " phase=" + eventType);
           }
         })
         .addOnFailureListener(error -> {
           Log.e("KfeNativeGpsService", "Unable to register native GPS updates.", error);
+          getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+              .putBoolean(ACTIVE_READY, false)
+              .putString("lastLocationRegistrationFailure", error.getClass().getSimpleName() + ": " + error.getMessage())
+              .commit();
           if (callback == requestedCallback) {
             releaseLocationUpdates();
             releaseLocationWakeLock();
-            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE_READY, false).apply();
           }
         });
   }
@@ -456,10 +491,14 @@ public class KfeNativeGpsService extends Service {
     try {
       startAsForeground();
       return true;
-    } catch (SecurityException ignored) {
-      // Android 14+ also enforces foreground-service eligibility at startForeground().
-      // Never let a missing runtime/FGS permission crash the process; the PWA can
-      // retry after the user grants location access and starts an eligible workflow.
+    } catch (SecurityException error) {
+      // Keep this failure visible: boot recovery can reach the receiver while
+      // Android still rejects promotion of the location foreground service.
+      Log.e("KfeNativeGpsService", "Unable to promote native GPS service to foreground.", error);
+      getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+          .putString("lastForegroundStartFailure", error.getClass().getSimpleName() + ": " + error.getMessage())
+          .putBoolean(ACTIVE_READY, false)
+          .commit();
       stopSelf();
       return false;
     }
