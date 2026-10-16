@@ -390,17 +390,29 @@ sleep 3
 adb shell cmd location set-location-enabled true || true
 adb shell settings put secure location_mode 3 || true
 sleep 5
-# The boot receiver must have resumed the collector. The verification session waits
-# for a live service, signals readiness, then records points injected after boot.
-start_instrumentation_until_ready verifyGpsCollectorAfterReboot reboot-recovery-ready reboot-verify
-# The fused provider can take longer to settle after a full Android reboot than
-# after an ordinary service restart. Keep the same live instrumentation assertion
-# running while we inject multiple fresh fixes; the test still fails unless the
-# native trace actually grows for the persisted trip.
+# Exercise the boot-started collector before launching instrumentation. Starting
+# an instrumentation process can recreate the target app process and perturb the
+# very service whose autonomous BOOT_COMPLETED recovery is under test.
+reboot_trip_id="$(adb shell run-as com.kanishka.pwa sed -n 's/.*<string name="activeTripId">\\([^<]*\\)<\\/string>.*/\\1/p' shared_prefs/kfe_native_gps.xml | tr -d '\\r' | head -1)"
+case "$reboot_trip_id" in
+  gps-reboot-*) ;;
+  *) capture_failure "reboot-active-trip-missing"; echo "Persisted GPS trip was not restored after reboot: $reboot_trip_id" >&2; exit 1 ;;
+esac
+reboot_trace_file="files/kfe_gps_trace_${reboot_trip_id}.jsonl"
+trace_before="$(adb shell run-as com.kanishka.pwa wc -l "$reboot_trace_file" | awk '{print $1}' | tr -d '\\r')"
 for attempt in 1 2 3; do
   inject_gps_fixes
   sleep 3
 done
+trace_after="$(adb shell run-as com.kanishka.pwa wc -l "$reboot_trace_file" | awk '{print $1}' | tr -d '\\r')"
+if ! [[ "$trace_before" =~ ^[0-9]+$ && "$trace_after" =~ ^[0-9]+$ ]] || [ "$trace_after" -le "$trace_before" ]; then
+  capture_failure "reboot-gps-trace-did-not-grow"
+  echo "Boot-resumed GPS collector did not persist injected fixes before instrumentation; before=$trace_before after=$trace_after" >&2
+  exit 1
+fi
+# Now attach instrumentation to validate canonical lifecycle/fare state and
+# confirm the trace grew relative to the baseline captured before reboot.
+start_instrumentation_until_ready verifyGpsCollectorAfterReboot reboot-recovery-ready reboot-verify
 finish_instrumentation_until_ready
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#cleanupRecoveredGpsCollector gps-recovery-cleanup 1
 
