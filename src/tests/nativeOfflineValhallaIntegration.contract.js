@@ -50,7 +50,7 @@ assert.ok(mapReleaseWorkflow.includes('branches: [main, fix/native-overlay-backg
 assert.ok(mapReleaseWorkflow.includes('offline-maps-mumbai-metro-') && mapReleaseWorkflow.includes('offline-maps-pune-') && mapReleaseWorkflow.includes('offline-maps-nashik-') && mapReleaseWorkflow.includes('offline-maps-alibag-'), 'Release pipeline must publish each selectable area package.')
 assert.ok(mapReleaseWorkflow.includes('coverageBounds:$coverageBounds') && mapReleaseWorkflow.includes('regions:$regions'), 'Published catalog must declare package-specific coverage bounds.')
 assert.ok(mapReleaseWorkflow.includes('Verify installed Valhalla tiles with Android networking disabled'), 'The Android emulator must run the native Valhalla engine against the exact locally built tiles.')
-assert.ok(mapReleaseWorkflow.includes('KfeRecoveryHardeningTest#installedOfflineValhallaRoutesWithNetworkDisabled'), 'The actual mobile-engine offline route instrumentation must be invoked by CI.')
+assert.ok(mapReleaseScript.includes('KfeRecoveryHardeningTest#installedOfflineValhallaRoutesWithNetworkDisabled'), 'The actual mobile-engine offline route instrumentation must be invoked by CI.')
 assert.ok(mapReleaseWorkflow.includes('script: bash "$GITHUB_WORKSPACE/tools/android-offline-routing-smoke-gate.sh"'), 'The Android offline-routing workflow must invoke the dedicated Bash gate.')
 assert.ok(mapReleaseScript.includes('adb push work/area-mumbai-metro.tar /data/local/tmp/valhalla-tiles.tar'), 'CI must install the actual selectable Mumbai-metro tile package in the emulator test sandbox.')
 assert.ok(mapReleaseScript.includes('settings put global airplane_mode_on 1'), 'The mobile-engine route test must run with emulator networking disabled.')
