@@ -180,6 +180,13 @@ try {
       canonicalChangeInvalidation: changeObserved,
       timelineAndPerformanceMovementAgreement: true,
       cloudRestoreAndDownstreamRecalculation: true,
+      savedRideGpsGapAccounting: {
+        authority: savedGapTrip.tripKmAuthority,
+        knownDistanceKm: gapProvenance.knownDistanceKm,
+        estimatedGapDistanceKm: gapProvenance.estimatedGapDistanceKm,
+        unresolvedGapCount: gapProvenance.unresolvedGapCount,
+        noOutageChord: savedGapTrip.tripKm < 5,
+      },
     }
   })
   assert.equal(result.fareClearPersisted, true)
@@ -187,6 +194,10 @@ try {
   assert.equal(result.canonicalChangeInvalidation, true)
   assert.equal(result.timelineAndPerformanceMovementAgreement, true)
   assert.equal(result.cloudRestoreAndDownstreamRecalculation, true)
+  assert.equal(result.savedRideGpsGapAccounting.authority, 'GPS_TRACE_INCOMPLETE')
+  assert.equal(result.savedRideGpsGapAccounting.estimatedGapDistanceKm, 0)
+  assert.equal(result.savedRideGpsGapAccounting.unresolvedGapCount, 1)
+  assert.equal(result.savedRideGpsGapAccounting.noOutageChord, true)
   if (pageErrors.length) throw new Error(`Browser errors during canonical integration test:\n${pageErrors.join('\n\n')}`)
   console.log('Canonical persistence/calculation/restore integration: PASS')
   console.log(JSON.stringify(result))
