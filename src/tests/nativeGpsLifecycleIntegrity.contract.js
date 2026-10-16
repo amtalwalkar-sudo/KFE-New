@@ -35,7 +35,7 @@ const mainActivity = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa
 assert.match(mainActivity, /KfeNativeGpsService\.resumePersisted\(this\)/, 'App relaunch must request persisted native GPS recovery.')
 assert.match(mainActivity, /KfeOverlayService\.resumePersisted\(this\)/, 'App relaunch must request persisted overlay recovery.')
 const processDeathLaunchIndex = emulatorGate.indexOf('adb shell am start -n com.kanishka.pwa/.MainActivity')
-assert.ok(processDeathLaunchIndex >= 0 && processDeathLaunchIndex < processDeathAwaitIndex,
+assert.ok(processDeathLaunchIndex >= 0 && processDeathLaunchIndex < processDeathVerifyIndex,
   'The emulator must relaunch the app before asserting process-death GPS recovery.')
 assert.doesNotMatch(emulatorGate, /process_restarted=false/, 'Process-death gate must not fail only because Android recovery timing differs.')
 assert.match(service, /output\.getFD\(\)\.sync\(\)/, 'native raw trace must be fsynced')
