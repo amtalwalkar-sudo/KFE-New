@@ -126,7 +126,7 @@ run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#prepareGpsCollecto
 app_pid() {
   adb shell pidof com.kanishka.pwa 2>/dev/null | tr -d '\r' | awk '{print $1}'
 }
-pid_before="$(app_pid)"
+pid_before="$(app_pid || true)"
 process_was_already_gone=false
 if [ -z "$pid_before" ]; then
   # Some emulator images tear down the target process when the instrumentation
