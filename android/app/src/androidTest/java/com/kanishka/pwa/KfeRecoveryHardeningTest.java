@@ -148,11 +148,12 @@ public class KfeRecoveryHardeningTest {
   @Test public void prepareGpsCollectorForProcessDeath() throws Exception {
     String suffix = Long.toString(System.currentTimeMillis());
     String tripId = "gps-process-death-" + suffix;
+    String fareTripId = "recovery-process-death-trip-" + suffix;
     String shiftId = "recovery-process-death-shift-" + suffix;
     String updatedAt = "2026-10-16T03:00:00.000Z";
     KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
     store.putRecord("recovery-process-death-trip-op-" + suffix, "TRIP",
-        new JSONObject().put("id", tripId).put("shiftId", shiftId).put("status", "COMPLETED")
+        new JSONObject().put("id", fareTripId).put("shiftId", shiftId).put("status", "COMPLETED")
             .put("fare", 250).put("updatedAt", updatedAt));
     store.putRecord("recovery-process-death-shift-op-" + suffix, "SHIFT",
         new JSONObject().put("id", shiftId).put("status", "ACTIVE").put("revenue", 250)
@@ -171,7 +172,7 @@ public class KfeRecoveryHardeningTest {
 
     String suffix = tripId.substring("gps-process-death-".length());
     KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
-    JSONObject trip = store.getRecord("TRIP", tripId);
+    JSONObject trip = store.getRecord("TRIP", "recovery-process-death-trip-" + suffix);
     JSONObject shift = store.getRecord("SHIFT", "recovery-process-death-shift-" + suffix);
     assertTrue("Saved trip must survive target-process death.", trip.optBoolean("found", false));
     assertEquals(250, trip.getJSONObject("record").getInt("fare"));
