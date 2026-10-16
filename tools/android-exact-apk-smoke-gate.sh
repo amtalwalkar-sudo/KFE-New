@@ -380,6 +380,16 @@ if [ "$boot_receiver_seen" != true ]; then
   echo "BOOT_COMPLETED was not recorded by KfeLifecycleRecoveryReceiver after reboot." >&2
   exit 1
 fi
+# The emulator can report a successful fused-location registration while its
+# provider is still settling after boot. Force a real provider-state transition
+# after the boot receiver has requested recovery; the native provider receiver
+# must tear down the stale callback and register a fresh one when location returns.
+adb shell cmd location set-location-enabled false || true
+adb shell settings put secure location_mode 0 || true
+sleep 3
+adb shell cmd location set-location-enabled true || true
+adb shell settings put secure location_mode 3 || true
+sleep 5
 # The boot receiver must have resumed the collector. The verification session waits
 # for a live service, signals readiness, then records points injected after boot.
 start_instrumentation_until_ready verifyGpsCollectorAfterReboot reboot-recovery-ready reboot-verify
