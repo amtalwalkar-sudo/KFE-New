@@ -174,22 +174,21 @@ public class KfeRecoveryHardeningTest {
     SystemClock.sleep(30000L);
   }
 
-  @Test public void awaitGpsCollectorAfterProcessDeath() throws Exception {
-    String tripId = context.getSharedPreferences("kfe_native_gps", Context.MODE_PRIVATE)
-        .getString("activeTripId", "");
-    assertTrue("Process recovery must retain the pre-death trip identity.", tripId.startsWith("gps-process-death-"));
-    // Exercise the same persisted-resume entrypoint used by app startup and boot recovery.
-    KfeNativeGpsService.resumePersisted(context);
-    await("live GPS collector after process death", 25000L,
-        () -> KfeNativeGpsService.isPersistedTracking(context, tripId, "PASSENGER_RIDE_TRACE", "TRIP"));
-  }
-
   @Test public void verifyGpsCollectorAfterProcessDeath() throws Exception {
     String tripId = context.getSharedPreferences("kfe_native_gps", Context.MODE_PRIVATE)
         .getString("activeTripId", "");
     assertTrue("Process recovery must retain the pre-death trip identity.", tripId.startsWith("gps-process-death-"));
-    await("GPS collector after process death", 25000L,
+    // Trigger the persisted-resume path in this same instrumentation session, then
+    // signal the shell only after a live collector has registered its callback.
+    context.deleteFile("process-death-recovery-ready");
+    KfeNativeGpsService.resumePersisted(context);
+    await("live GPS collector after process death", 25000L,
         () -> KfeNativeGpsService.isPersistedTracking(context, tripId, "PASSENGER_RIDE_TRACE", "TRIP"));
+    File ready = new File(context.getFilesDir(), "process-death-recovery-ready");
+    try (FileOutputStream output = new FileOutputStream(ready)) {
+      output.write("ready".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      output.getFD().sync();
+    }
     assertTraceGrew("processDeath", tripId, "after process death");
 
     String suffix = tripId.substring("gps-process-death-".length());
