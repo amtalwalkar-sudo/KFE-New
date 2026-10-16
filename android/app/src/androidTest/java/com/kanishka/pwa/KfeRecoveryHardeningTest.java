@@ -166,6 +166,7 @@ public class KfeRecoveryHardeningTest {
     assertTrue("Process recovery must retain the pre-death trip identity.", tripId.startsWith("gps-process-death-"));
     await("GPS collector after process death", 25000L,
         () -> KfeNativeGpsService.isPersistedTracking(context, tripId, "PASSENGER_RIDE_TRACE", "TRIP"));
+    assertTraceCaptured(tripId, "after process death");
 
     String suffix = tripId.substring("gps-process-death-".length());
     KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
@@ -189,6 +190,7 @@ public class KfeRecoveryHardeningTest {
     assertTrue("The GPS trip identity must survive screen-off.", tripId.startsWith("gps-screen-off-"));
     await("GPS collector after screen-off", 8000L,
         () -> KfeNativeGpsService.isPersistedTracking(context, tripId, "PASSENGER_RIDE_TRACE", "TRIP"));
+    assertTraceCaptured(tripId, "while the screen was off");
   }
 
   @Test public void prepareGpsCollectorForReboot() throws Exception {
@@ -201,6 +203,7 @@ public class KfeRecoveryHardeningTest {
     assertTrue("Boot recovery must retain the pre-reboot trip identity.", tripId.startsWith("gps-reboot-"));
     await("GPS collector after reboot", 25000L,
         () -> KfeNativeGpsService.isPersistedTracking(context, tripId, "PASSENGER_RIDE_TRACE", "TRIP"));
+    assertTraceCaptured(tripId, "after reboot");
   }
 
   @Test public void cleanupRecoveredGpsCollector() throws Exception {
@@ -209,6 +212,12 @@ public class KfeRecoveryHardeningTest {
       KfeNativeGpsService.stop(context, tripId);
       await("Recovered GPS cleanup", 8000L, () -> KfeNativeGpsService.persistedActiveTripId(context).isEmpty());
     }
+  }
+
+  private void assertTraceCaptured(String tripId, String boundary) throws Exception {
+    JSONArray trace = new JSONArray(KfeNativeGpsService.readTrace(context, tripId));
+    assertTrue("Native GPS must persist at least one fix " + boundary + "; trace=" + trace,
+        trace.length() > 0);
   }
 
   private void startPersistentGps(String tripId) throws Exception {
