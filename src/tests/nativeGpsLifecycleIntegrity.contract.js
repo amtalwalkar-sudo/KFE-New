@@ -22,12 +22,12 @@ assert.match(service, /START_STICKY/)
 assert.match(service, /resumePersisted\(Context context\)/)
 assert.match(emulatorGate, /process_death_observed=false/, 'Emulator gate must distinguish observing process death from the subsequent recovery assertion.')
 assert.match(emulatorGate, /KfeRecoveryHardeningTest#verifyGpsCollectorAfterProcessDeath/, 'Process-death gate must separately verify persisted GPS resumption after the kill.')
-const processDeathAwaitIndex = emulatorGate.indexOf('awaitGpsCollectorAfterProcessDeath process-death-ready 1')
-const processDeathVerifyIndex = emulatorGate.indexOf('#verifyGpsCollectorAfterProcessDeath process-death-verify 1')
-const processDeathInjectIndex = emulatorGate.indexOf('inject_gps_fixes', processDeathAwaitIndex)
-assert.ok(processDeathAwaitIndex >= 0 && processDeathInjectIndex > processDeathAwaitIndex
-  && processDeathVerifyIndex > processDeathInjectIndex,
-  'The emulator must wait for a live recovered collector before injecting GPS fixes.')
+const processDeathVerifyIndex = emulatorGate.indexOf('KfeRecoveryHardeningTest#verifyGpsCollectorAfterProcessDeath')
+const processDeathInjectIndex = emulatorGate.indexOf('inject_gps_fixes', processDeathVerifyIndex)
+assert.ok(processDeathVerifyIndex >= 0 && processDeathInjectIndex > processDeathVerifyIndex
+  && emulatorGate.includes('process-death-recovery-ready')
+  && emulatorGate.includes('Keep readiness and trace verification in one instrumentation process'),
+  'The emulator must inject GPS only after the same instrumentation session confirms a live recovered collector.')
 const nativeGpsService = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeNativeGpsService.java', 'utf8')
 assert.match(nativeGpsService, /private static volatile KfeNativeGpsService liveInstance/, 'GPS readiness must be tied to a live service instance, not only persisted flags.')
 assert.match(nativeGpsService, /service.callback != null/, 'GPS readiness must require an active location callback.')
