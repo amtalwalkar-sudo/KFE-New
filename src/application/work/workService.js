@@ -308,6 +308,22 @@ export const WorkService = Object.freeze({
               to: { latitude: gap.to.latitude, longitude: gap.to.longitude },
               routingProvenance: null
             }))
+            if (!incompleteKmSegments.length) {
+              // Edge gaps and traces with too few trustworthy fixes still need
+              // a durable unresolved marker; never present "0 gaps" as complete.
+              incompleteKmSegments.push({
+                id: 'GPS_COVERAGE_GAP',
+                status: 'UNRESOLVED',
+                startAt: completedTrip?.tripStartAt || null,
+                endAt: completedTrip?.tripEndAt || data?.tripEndAt || null,
+                durationMs: null,
+                reason: traceQuality.reason,
+                distanceKm: null,
+                method: null,
+                confidence: 'UNAVAILABLE',
+                routingProvenance: null
+              })
+            }
 
             for (let index = 0; index < split.segments.length; index += 1) {
               const segment = split.segments[index]
@@ -371,6 +387,8 @@ export const WorkService = Object.freeze({
               tripKmAuthority: 'GPS_TRACE_INCOMPLETE',
               tripKmProvenance: {
                 qualityStatus: 'INCOMPLETE',
+                gpsRecordingStatus: 'INCOMPLETE',
+                recordingGapDetected: true,
                 qualityReason: traceQuality.reason,
                 gpsTracePoints: split.points.length,
                 maxObservedGapMs: traceQuality.maxObservedGapMs ?? Math.max(0, ...split.gaps.map(gap => gap.durationMs)),
