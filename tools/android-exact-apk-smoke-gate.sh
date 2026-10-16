@@ -110,6 +110,36 @@ run_instrumentation com.kanishka.pwa.KfeWebViewStartupTest webview-startup 1
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest canonicalWritesRemainIdempotentAfterLostAcknowledgementAndRejectStaleSnapshots 1
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest gpsCollectorRecoversAfterServiceInterruption 1
 
+# Kill the target app process (not a force-stop) while its sticky foreground GPS
+# service is active. Android must recreate the service from its persisted identity.
+run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest prepareGpsCollectorForProcessDeath 1
+pid_before="$(adb shell pidof com.kanishka.pwa | tr -d '\r' | awk '{print $1}')"
+test -n "$pid_before" || { echo "Could not identify KFE process before kill" >&2; exit 1; }
+adb root >/dev/null 2>&1 || true
+adb wait-for-device
+if adb shell id | grep -q 'uid=0'; then
+  pid_to_kill="$(adb shell pidof com.kanishka.pwa | tr -d '\r' | awk '{print $1}')"
+  test -n "$pid_to_kill"
+  adb shell kill -9 "$pid_to_kill"
+  adb unroot >/dev/null 2>&1 || true
+  adb wait-for-device
+else
+  adb shell am kill com.kanishka.pwa
+fi
+process_restarted=false
+for attempt in $(seq 1 25); do
+  pid_after="$(adb shell pidof com.kanishka.pwa 2>/dev/null | tr -d '\r' | awk '{print $1}' || true)"
+  if [ -n "$pid_after" ] && [ "$pid_after" != "$pid_before" ]; then process_restarted=true; break; fi
+  sleep 1
+done
+if [ "$process_restarted" != true ]; then
+  capture_failure "process-death-not-observed"
+  echo "KFE process did not restart after the injected process death" >&2
+  exit 1
+fi
+run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest verifyGpsCollectorAfterProcessDeath 1
+run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest cleanupRecoveredGpsCollector 1
+
 # Screen-off is a separate lifecycle boundary. Verify the emulator really entered
 # sleep before waking it and checking that the same GPS collector is still active.
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest prepareGpsCollectorForScreenOff 1
