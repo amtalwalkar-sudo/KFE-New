@@ -12,6 +12,7 @@ const emulatorGate = fs.readFileSync('tools/android-exact-apk-smoke-gate.sh', 'u
 
 assert.match(manifest, /\.KfeNativeGpsService[^\n]*android:stopWithTask="false"[^\n]*android:foregroundServiceType="location"/)
 assert.match(manifest, /android\.permission\.RECEIVE_BOOT_COMPLETED/)
+assert.match(manifest, /KfeLifecycleRecoveryReceiver[^>]*android:exported="true"/, 'The manifest receiver must be exported to receive system lifecycle broadcasts on Android versions that require exported receivers for external/system sources.')
 assert.match(manifest, /android\.permission\.ACCESS_BACKGROUND_LOCATION/)
 assert.match(manifest, /android\.permission\.WAKE_LOCK/)
 assert.match(service, /PowerManager\.PARTIAL_WAKE_LOCK/)
