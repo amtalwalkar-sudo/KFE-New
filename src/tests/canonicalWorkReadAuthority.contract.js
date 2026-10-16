@@ -13,12 +13,12 @@ const revenue = read('../domain/work/liveRevenue.js')
 const { deriveLiveRevenue } = await import('../domain/work/liveRevenue.js')
 
 for (const snippet of [
-  "async getAllShifts() { await ensureCanonicalReadBoundary();",
-  "async getTripsForShift(shiftId) { await ensureCanonicalReadBoundary();",
-  "async getAllTrips() { await ensureCanonicalReadBoundary();",
+  "async getAllShifts({ skipCanonicalReadBoundary = false } = {}) { if (!skipCanonicalReadBoundary) await ensureCanonicalReadBoundary();",
+  "async getTripsForShift(shiftId, { skipCanonicalReadBoundary = false } = {}) { if (!skipCanonicalReadBoundary) await ensureCanonicalReadBoundary();",
+  "async getAllTrips({ skipCanonicalReadBoundary = false } = {}) { if (!skipCanonicalReadBoundary) await ensureCanonicalReadBoundary();",
   "async getLastCompletedShift() { await ensureCanonicalReadBoundary();",
   "async getLastCompletedTrip() { await ensureCanonicalReadBoundary();",
-  "async getActive() { await ensureCanonicalReadBoundary();",
+  "async getActive({ skipCanonicalReadBoundary = false } = {}) { if (!skipCanonicalReadBoundary) await ensureCanonicalReadBoundary();",
 ]) assert.ok(repository.includes(snippet), 'missing canonical read boundary: ' + snippet)
 
 for (const snippet of [
@@ -30,8 +30,11 @@ for (const snippet of [
   "async updateTrip(data) { await ensureCanonicalReadBoundary();",
 ]) assert.ok(repository.includes(snippet), 'missing pre-write canonical reconciliation: ' + snippet)
 
-assert.ok(repository.includes('outcome?.accepted !== true'), 'native write acknowledgement must be required')
-assert.ok(repository.includes('Native canonical ' + '${entityType}' + ' commit was not acknowledged.'))
+assert.ok(!repository.includes('../application/'), 'repository must not depend on application-layer modules')
+assert.ok(service.includes('configureCanonicalReadBoundary(reconcileCanonicalReads)'))
+assert.ok(repository.includes('outcome?.accepted !== true') === false, 'native acknowledgement check belongs to the injected application boundary')
+assert.ok(service.includes('outcome?.accepted !== true'), 'native write acknowledgement must be required')
+assert.ok(service.includes('Native canonical ' + '${entityType}' + ' commit was not acknowledged.'))
 assert.ok(recovery.includes('await mirrorRecord(entityType, local)'))
 assert.ok(recovery.includes('await syncCanonicalRecords({ shifts: refreshed.shifts.records, trips: refreshed.trips.records })'))
 assert.ok(store.includes('registeredTrips.value = await WorkService.getTripsForShift'))
