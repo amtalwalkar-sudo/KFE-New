@@ -292,6 +292,11 @@ run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#cleanupRecoveredGp
 # Reboot is tested independently from process/service restart. The boot receiver
 # must resume the exact persisted collector without creating a new trip identity.
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#prepareGpsCollectorForReboot reboot-prepare 1
+# Instrumentation completion can force-stop the target package. A stopped package
+# will not receive BOOT_COMPLETED, so launch once after preparation to clear the
+# stopped bit before the reboot under test.
+adb shell am start -n com.kanishka.pwa/.MainActivity >/dev/null
+sleep 3
 adb reboot || true
 booted=false
 for attempt in $(seq 1 120); do
