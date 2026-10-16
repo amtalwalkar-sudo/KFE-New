@@ -1,5 +1,6 @@
 import { LocationRepository, normalizeNullableGpsNumber } from '../../repositories/locationRepository.js'
 import { calculateTraceDistanceKm } from '../../domain/movement/traceDistance.js'
+import { filterGpsTrace } from '../../domain/movement/movementAccounting.js'
 export { calculateTraceDistanceKm } from '../../domain/movement/traceDistance.js'
 
 export const MOVEMENT_TRACE_INTERVALS_MS = Object.freeze({
@@ -94,7 +95,7 @@ const captureBoundary = () => new Promise(resolve => {
         points.push(point)
         lastAcceptedAt = Date.now()
         void persist(point)
-        active?.onPoint?.(point, points.length, calculateTraceDistanceKm(points))
+        active?.onPoint?.(point, points.length, calculateTraceDistanceKm(filterGpsTrace(points)))
       }
     }
     resolve(point)
@@ -180,7 +181,7 @@ export const MovementTraceService = {
   getActiveSession() { return active ? { entityType: active.entityType, entityId: active.entityId, eventType: active.eventType, profile: Object.entries(PROFILES).find(([, value]) => value === active.profile)?.[0] || 'DEAD_LEG' } : readSession() },
   hasActiveTrace() { return Boolean(active || readSession()) },
   getPointCount() { return points.length },
-  getDistanceKm() { return calculateTraceDistanceKm(points) },
+  getDistanceKm() { return calculateTraceDistanceKm(filterGpsTrace(points)) },
   getLastPersistenceError() { return lastPersistenceError },
   getPersistenceFailureCount() { return persistenceFailureCount },
   getProfile(profile = 'DEAD_LEG') { return PROFILES[profile] || PROFILES.DEAD_LEG },
