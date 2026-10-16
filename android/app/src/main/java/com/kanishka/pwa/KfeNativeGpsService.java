@@ -61,6 +61,10 @@ public class KfeNativeGpsService extends Service {
   private Location lastPassengerLocation;
   private double passengerDistanceMeters = 0d;
   private PowerManager.WakeLock locationWakeLock;
+  private volatile long lastLocationCallbackAt;
+  private volatile int lastLocationCallbackCount;
+  private volatile long lastLocationPersistedAt;
+  private volatile String lastLocationRejectReason = "";
   private final Set<String> seenKeys = new HashSet<>();
   private final List<Location> filteredDistanceLocations = new ArrayList<>();
   private static final long MAX_CONTIGUOUS_GAP_MS = 120000L;
@@ -311,7 +315,11 @@ public class KfeNativeGpsService extends Service {
 
     callback = new LocationCallback() {
       @Override public void onLocationResult(LocationResult result) {
-        for (Location location : result.getLocations()) persistLocation(location);
+        lastLocationCallbackAt = System.currentTimeMillis();
+        lastLocationCallbackCount = result == null ? 0 : result.getLocations().size();
+        if (result != null) {
+          for (Location location : result.getLocations()) persistLocation(location);
+        }
       }
     };
 
@@ -341,12 +349,21 @@ public class KfeNativeGpsService extends Service {
   }
 
   private void persistLocation(Location location) {
-    if (location == null || traceFile == null) return;
-    if (!location.hasAccuracy() || location.getAccuracy() > 100f) return;
+    if (location == null || traceFile == null) {
+      lastLocationRejectReason = "NULL_LOCATION_OR_TRACE_FILE";
+      return;
+    }
+    if (!location.hasAccuracy() || location.getAccuracy() > 100f) {
+      lastLocationRejectReason = "ACCURACY_REJECTED:" + (location.hasAccuracy() ? location.getAccuracy() : "MISSING");
+      return;
+    }
 
     long timestamp = location.getTime() > 0 ? location.getTime() : System.currentTimeMillis();
     String key = eventType + "|" + timestamp + "|" + location.getLatitude() + "|" + location.getLongitude();
-    if (seenKeys.contains(key)) return;
+    if (seenKeys.contains(key)) {
+      lastLocationRejectReason = "DUPLICATE_FIX";
+      return;
+    }
 
     try {
       JSONObject point = new JSONObject();
@@ -370,6 +387,8 @@ public class KfeNativeGpsService extends Service {
         output.getFD().sync();
       }
       seenKeys.add(key);
+      lastLocationPersistedAt = System.currentTimeMillis();
+      lastLocationRejectReason = "";
       if ("PASSENGER_RIDE_TRACE".equals(eventType) || "DEAD_MOVEMENT_TRACE".equals(eventType)) {
         appendFilteredDistanceLocation(location);
         refreshLiveDistanceReadout();
@@ -471,6 +490,29 @@ public class KfeNativeGpsService extends Service {
   static String persistedActiveEventType(Context context) {
     String event = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(ACTIVE_EVENT, "");
     return event == null ? "" : event;
+  }
+
+  static JSONObject diagnostics(Context context) {
+    android.content.SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    KfeNativeGpsService service = liveInstance;
+    JSONObject out = new JSONObject();
+    try {
+      out.put("activeTripId", prefs.getString(ACTIVE_TRIP, ""));
+      out.put("activeEventType", prefs.getString(ACTIVE_EVENT, ""));
+      out.put("activeEntityType", prefs.getString(ACTIVE_ENTITY, ""));
+      out.put("activeCollectorReady", prefs.getBoolean(ACTIVE_READY, false));
+      out.put("lastResumeDecision", prefs.getString("lastResumeDecision", ""));
+      out.put("lastResumeAt", prefs.getLong("lastResumeAt", 0L));
+      out.put("lastLocationRegistrationFailure", prefs.getString("lastLocationRegistrationFailure", ""));
+      out.put("liveServiceInstance", service != null);
+      out.put("serviceTripId", service == null ? "" : service.tripId);
+      out.put("callbackRegistered", service != null && service.callback != null);
+      out.put("lastLocationCallbackAt", service == null ? 0L : service.lastLocationCallbackAt);
+      out.put("lastLocationCallbackCount", service == null ? 0 : service.lastLocationCallbackCount);
+      out.put("lastLocationPersistedAt", service == null ? 0L : service.lastLocationPersistedAt);
+      out.put("lastLocationRejectReason", service == null ? "" : service.lastLocationRejectReason);
+    } catch (Exception ignored) {}
+    return out;
   }
 
   static boolean isPersistedTracking(Context context, String id, String requestedEventType, String requestedEntityType) {
