@@ -796,8 +796,15 @@ public class KfeOverlayService extends Service {
       trip.put("status","COMPLETED".equals(stage)?"COMPLETED":"ACTIVE");
       trip.put("tripStage","COMPLETED".equals(stage)?"COMPLETED":stage);
       if(!trip.has("createdAt"))trip.put("createdAt",new java.util.Date().toInstant().toString());
-      if(rideStarted)trip.put("tripStartAt",new java.util.Date(tripStartAt).toInstant().toString());
-      if("COMPLETED".equals(stage))trip.put("tripEndAt",new java.util.Date().toInstant().toString());
+      if(rideStarted){
+        trip.put("tripStartAt",new java.util.Date(tripStartAt).toInstant().toString());
+        if(!trip.has("rideStartLocation"))trip.put("rideStartLocationStatus","MISSING");
+        trip.put("rideStartLocationEventAt",new java.util.Date(tripStartAt).toInstant().toString());
+      }
+      if("COMPLETED".equals(stage)){
+        if(!trip.has("tripEndAt"))trip.put("tripEndAt",new java.util.Date().toInstant().toString());
+        trip.put("tripEndLocationStatus",trip.has("tripEndLocation")&&!trip.isNull("tripEndLocation")?"CAPTURED":"MISSING");
+      }
       trip.put("updatedAt",new java.util.Date().toInstant().toString());
       KfeCanonicalWorkStore.Outcome outcome=store.putRecord("native-trip-stage-"+pendingTripId+"-"+stage,"TRIP",trip);
       if(!outcome.accepted)throw new IllegalStateException("Canonical trip lifecycle stage was not acknowledged.");
