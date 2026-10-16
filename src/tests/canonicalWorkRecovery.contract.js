@@ -76,4 +76,44 @@ const makeHarness = ({ failFirstMirror = true } = {}) => {
   assert.equal(h.getSyncCalls(), 0, 'equal-version conflict must not be silently overwritten')
 }
 
-console.log('PASS: canonical recovery retries interrupted mirrors and rejects stale/equal-version conflicts')
+{
+  // Native SQLite commits the write, but the bridge response is lost. The first
+  // reconciliation must not sync a snapshot until the retry/re-read establishes
+  // the durable canonical result.
+  let canonicalShifts = [oldRecord]
+  let canonicalTrips = [trip]
+  let localShifts = [newerRecord]
+  let localTrips = [trip]
+  let loseAcknowledgementAfterCommit = true
+  let syncCalls = 0
+  const harness = {
+    readCanonical: async () => ({
+      shifts: { records: canonicalShifts.map(record => ({ ...record })) },
+      trips: { records: canonicalTrips.map(record => ({ ...record })) },
+    }),
+    readLocal: async () => ({ shifts: localShifts.map(record => ({ ...record })), trips: localTrips.map(record => ({ ...record })) }),
+    mirrorRecord: async (entityType, record) => {
+      const records = entityType === 'SHIFT' ? canonicalShifts : canonicalTrips
+      const index = records.findIndex(item => item.id === record.id)
+      if (index >= 0) records[index] = { ...record }
+      else records.push({ ...record })
+      if (loseAcknowledgementAfterCommit) {
+        loseAcknowledgementAfterCommit = false
+        throw new Error('simulated lost acknowledgement after native commit')
+      }
+    },
+    syncCanonicalRecords: async ({ shifts, trips }) => {
+      syncCalls++
+      localShifts = shifts.map(record => ({ ...record }))
+      localTrips = trips.map(record => ({ ...record }))
+    },
+  }
+  await assert.rejects(recoverCanonicalWorkSnapshot(harness), /lost acknowledgement after native commit/)
+  assert.equal(canonicalShifts[0].revenue, 400, 'the native write may have committed despite a lost response')
+  assert.equal(syncCalls, 0, 'no snapshot may be copied back while the write outcome is ambiguous')
+  const recovered = await recoverCanonicalWorkSnapshot(harness)
+  assert.equal(recovered.shifts.records[0].revenue, 400, 'retry must converge to the committed canonical value')
+  assert.equal(syncCalls, 1, 'recovery must sync only after re-reading canonical state')
+}
+
+console.log('PASS: canonical recovery retries interrupted mirrors, handles lost acknowledgements after commit, and rejects stale/equal-version conflicts')
