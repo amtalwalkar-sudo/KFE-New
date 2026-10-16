@@ -18,6 +18,7 @@ import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.j
 
 const checkpoint = () => BackupService.requestLocalBackupCheckpoint()
 const nativeCanonicalAvailable = () => { try { return WorkRuntimePorts.canonicalWork.isAvailable() === true } catch (_) { return false } }
+const isAndroidRuntime = () => { try { return WorkRuntimePorts.platform.getPlatform() === 'android' } catch (_) { return nativeCanonicalAvailable() } }
 const mirrorCanonicalRecord = async (entityType, record) => {
   if (!record?.id || !nativeCanonicalAvailable()) return record
   const outcome = await CanonicalWorkBoundary.putRecord({ operationId: CanonicalWorkBoundary.createOperationId(), entityType, record })
@@ -199,9 +200,20 @@ export const WorkService = Object.freeze({
     // Android uses the native foreground trace. Browser/PWA builds do not have
     // that plugin, so fall back to the existing web movement-trace service.
     void WorkRuntimePorts.nativeGps.start(data.id, 'PASSENGER_RIDE_TRACE', 'TRIP').then(started => {
-      if (started) return
+      // Android background/screen-off collection is a native capability. If its
+      // service is unavailable, surface the native failure rather than silently
+      // substituting foreground browser geolocation and implying equivalent coverage.
+      if (started || isAndroidRuntime()) {
+        if (!started && isAndroidRuntime()) console.warn('Android native GPS did not start; browser tracking is not a background-equivalent fallback.')
+        return
+      }
+      // Browser/PWA collection is intentionally foreground-only and independent.
       WorkRuntimePorts.movementTrace.start({ entityType: 'TRIP', entityId: data.id, eventType: 'PASSENGER_RIDE_TRACE', profile: 'PASSENGER_RIDE' })
-    }).catch(() => {
+    }).catch(error => {
+      if (isAndroidRuntime()) {
+        console.warn('Android native GPS start failed; not substituting PWA tracking:', error)
+        return
+      }
       try { WorkRuntimePorts.movementTrace.start({ entityType: 'TRIP', entityId: data.id, eventType: 'PASSENGER_RIDE_TRACE', profile: 'PASSENGER_RIDE' }) } catch (_) {}
     })
     return result
