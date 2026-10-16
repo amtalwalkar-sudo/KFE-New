@@ -47,6 +47,47 @@ inject_gps_fixes() {
 }
 
 
+start_instrumentation_until_ready() {
+  local test_class="$1"
+  local marker="$2"
+  local label="$3"
+  mkdir -p artifacts/android-golden
+  RECOVERY_INSTRUMENTATION_LOG="artifacts/android-golden/${label}-instrumentation.log"
+  RECOVERY_INSTRUMENTATION_LABEL="$label"
+  adb shell run-as com.kanishka.pwa rm -f "files/$marker" >/dev/null 2>&1 || true
+  timeout 180s adb shell am instrument -w -r -e class "com.kanishka.pwa.KfeRecoveryHardeningTest#$test_class" com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner > "$RECOVERY_INSTRUMENTATION_LOG" 2>&1 &
+  RECOVERY_INSTRUMENTATION_PID=$!
+  local ready=false
+  for attempt in $(seq 1 35); do
+    if adb shell run-as com.kanishka.pwa test -f "files/$marker" >/dev/null 2>&1; then
+      ready=true
+      break
+    fi
+    if ! kill -0 "$RECOVERY_INSTRUMENTATION_PID" 2>/dev/null; then break; fi
+    sleep 1
+  done
+  if [ "$ready" != true ]; then
+    capture_failure "${label}-not-ready"
+    cat "$RECOVERY_INSTRUMENTATION_LOG" >&2 || true
+    kill "$RECOVERY_INSTRUMENTATION_PID" >/dev/null 2>&1 || true
+    echo "Recovery instrumentation did not signal readiness: $label" >&2
+    exit 1
+  fi
+}
+
+finish_instrumentation_until_ready() {
+  local instrumentation_status=0
+  wait "$RECOVERY_INSTRUMENTATION_PID" || instrumentation_status=$?
+  cat "$RECOVERY_INSTRUMENTATION_LOG"
+  if [ "$instrumentation_status" -ne 0 ] \
+    || ! grep -Eq "^INSTRUMENTATION_CODE: -1$" "$RECOVERY_INSTRUMENTATION_LOG" \
+    || ! grep -Eq "^OK \\(1 test\\)$" "$RECOVERY_INSTRUMENTATION_LOG"; then
+    capture_failure "$RECOVERY_INSTRUMENTATION_LABEL"
+    echo "Recovery instrumentation failed or did not report one passing test: $RECOVERY_INSTRUMENTATION_LABEL" >&2
+    exit 1
+  fi
+}
+
 install_apk() {
   local apk="$1"
   local label="$2"
@@ -232,9 +273,9 @@ if [ "$process_death_instrumentation_status" -ne 0 ] || ! grep -Eq "^INSTRUMENTA
 fi
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#cleanupRecoveredGpsCollector gps-recovery-cleanup 1
 
-# Screen-off is a separate lifecycle boundary. Verify the emulator really entered
-# sleep before waking it and checking that the same GPS collector is still active.
-run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#prepareGpsCollectorForScreenOff screen-off-prepare 1
+# Screen-off is tested within one instrumentation session so the collector remains live
+# while the shell locks the emulator and injects fixes.
+start_instrumentation_until_ready verifyGpsCollectorAfterScreenOff screen-off-recovery-ready screen-off-verify
 adb shell input keyevent 223
 sleep 5
 if ! adb shell dumpsys power | grep -q 'mWakefulness=Asleep'; then
@@ -245,7 +286,7 @@ fi
 inject_gps_fixes
 adb shell input keyevent 224
 sleep 2
-run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#verifyGpsCollectorAfterScreenOff screen-off-verify 1
+finish_instrumentation_until_ready
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#cleanupRecoveredGpsCollector gps-recovery-cleanup 1
 
 # Reboot is tested independently from process/service restart. The boot receiver
@@ -265,8 +306,11 @@ if [ "$booted" != true ]; then
   exit 1
 fi
 adb shell input keyevent 82 || true
+# The boot receiver must have resumed the collector. The verification session waits
+# for a live service, signals readiness, then records points injected after boot.
+start_instrumentation_until_ready verifyGpsCollectorAfterReboot reboot-recovery-ready reboot-verify
 inject_gps_fixes
-run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#verifyGpsCollectorAfterReboot reboot-verify 1
+finish_instrumentation_until_ready
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#cleanupRecoveredGpsCollector gps-recovery-cleanup 1
 
 run_instrumentation com.kanishka.pwa.KfeOverlaySmokeTest native-overlay 19
