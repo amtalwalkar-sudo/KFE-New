@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process'
 
 const suites = [
   'canonicalWorkReadAuthority.contract.js',
+  'tripBoundaryGpsIntegrity.contract.js',
   'canonicalWorkRecovery.contract.js',
   'liveRevenueSwipeParity.contract.js',
   'nativeOverlayFareCancellation.contract.js',
