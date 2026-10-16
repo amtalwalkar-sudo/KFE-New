@@ -285,8 +285,103 @@ export const WorkService = Object.freeze({
             endAt: completedTrip?.tripEndAt || data?.tripEndAt
           })
           if (!traceQuality.complete) {
-            await ShiftTripRepository.invalidateGpsTripMovement({ id: tripId, reason: traceQuality.reason, traceQuality })
-            console.warn('Trip GPS distance withheld because trace coverage is incomplete:', tripId, traceQuality)
+            // Preserve measurable portions of the ride. A long interval is an
+            // evidence gap, not permission to count the straight line between fixes.
+            // Route continuous chunks independently, then try Valhalla on each gap
+            // endpoint pair. Any inferred gap distance remains explicitly estimated.
+            const split = MovementAccountingService.splitGpsTraceAtGaps(snapshots)
+            const router = WorkRuntimePorts.routing.createRouter()
+            let knownDistanceKm = 0
+            let estimatedGapDistanceKm = 0
+            let hasDistance = false
+            const traceGeometry = []
+            const roadMatchedGeometry = []
+            const incompleteKmSegments = split.gaps.map((gap, index) => ({
+              id: `GPS_GAP_${index + 1}`,
+              status: 'UNRESOLVED',
+              startAt: gap.startAt,
+              endAt: gap.endAt,
+              durationMs: gap.durationMs,
+              distanceKm: null,
+              method: null,
+              confidence: 'UNAVAILABLE',
+              from: { latitude: gap.from.latitude, longitude: gap.from.longitude },
+              to: { latitude: gap.to.latitude, longitude: gap.to.longitude },
+              routingProvenance: null
+            }))
+
+            for (let index = 0; index < split.segments.length; index += 1) {
+              const segment = split.segments[index]
+              if (segment.length < 2) continue
+              const routedSegment = await routeTrace(segment, router)
+              if (!isUsableDistanceKm(routedSegment.distanceKm) || (routedSegment.points?.length || 0) < 2) continue
+              knownDistanceKm += Number(routedSegment.distanceKm)
+              hasDistance = true
+              if (routedSegment.roadMatchedGeometry) roadMatchedGeometry.push(routedSegment.roadMatchedGeometry)
+              if (Array.isArray(routedSegment.traceGeometry)) traceGeometry.push(...routedSegment.traceGeometry)
+              else traceGeometry.push(...segment.map(point => [Number(point.longitude), Number(point.latitude)]))
+            }
+
+            for (let index = 0; index < split.gaps.length; index += 1) {
+              const gap = split.gaps[index]
+              const from = gap.from
+              const to = gap.to
+              try {
+                // Deliberately call the router directly: routeTrace() falls back
+                // to straight-line Haversine, which is not evidence of road distance.
+                const estimate = typeof router?.routeTrace === 'function'
+                  ? await router.routeTrace([from, to])
+                  : null
+                const method = String(estimate?.method || '')
+                const routedGapKm = Number(estimate?.distanceKm)
+                const isRoadEstimate = /VALHALLA/i.test(method) &&
+                  estimate?.distanceKm != null && estimate.distanceKm !== '' &&
+                  Number.isFinite(routedGapKm) && routedGapKm >= 0
+                if (isRoadEstimate) {
+                  estimatedGapDistanceKm += routedGapKm
+                  hasDistance = true
+                  incompleteKmSegments[index] = {
+                    ...incompleteKmSegments[index],
+                    status: 'ESTIMATED',
+                    distanceKm: routedGapKm,
+                    method,
+                    confidence: estimate.confidence || 'ESTIMATED_ROAD_TRACE',
+                    routingProvenance: estimate.provenance || { provider: estimate.provider || 'VALHALLA' }
+                  }
+                  if (estimate.geometry?.type === 'LineString') roadMatchedGeometry.push(estimate.geometry)
+                }
+              } catch (error) {
+                console.warn('Valhalla could not estimate an interrupted GPS interval:', tripId, gap.startAt, gap.endAt, error)
+              }
+            }
+
+            const incompleteKmSegmentsWithStatus = incompleteKmSegments
+            const unresolvedGapCount = incompleteKmSegmentsWithStatus.filter(segment => segment.status === 'UNRESOLVED').length
+            await ShiftTripRepository.enrichTripMovement({
+              id: tripId,
+              ...(hasDistance ? { tripKm: knownDistanceKm + estimatedGapDistanceKm } : {}),
+              tripKmAuthority: 'GPS_TRACE_INCOMPLETE',
+              tripKmProvenance: {
+                qualityStatus: 'INCOMPLETE',
+                qualityReason: traceQuality.reason,
+                gpsTracePoints: split.points.length,
+                maxObservedGapMs: traceQuality.maxObservedGapMs ?? Math.max(0, ...split.gaps.map(gap => gap.durationMs)),
+                knownDistanceKm,
+                estimatedGapDistanceKm,
+                unresolvedGapCount,
+                incompleteKmSegments: incompleteKmSegmentsWithStatus,
+                checkedAt: new Date().toISOString(),
+                source: browserTracePoints.length > 0 ? 'BROWSER_GEOLOCATION' : 'ANDROID_NATIVE_GPS'
+              },
+              roadMatchedGeometry: roadMatchedGeometry.length ? { type: 'MultiLineString', coordinates: roadMatchedGeometry.flatMap(item => item.coordinates ? [item.coordinates] : []) } : null,
+              traceGeometry
+            })
+            console.warn('Trip saved with explicit incomplete-kilometre metadata:', tripId, {
+              reason: traceQuality.reason,
+              knownDistanceKm,
+              estimatedGapDistanceKm,
+              unresolvedGapCount
+            })
             return
           }
 
