@@ -294,8 +294,7 @@ export const WorkService = Object.freeze({
             let knownDistanceKm = 0
             let estimatedGapDistanceKm = 0
             let hasDistance = false
-            const traceGeometry = []
-            const roadMatchedGeometry = []
+            const knownTraceSegments = []
             const incompleteKmSegments = split.gaps.map((gap, index) => ({
               id: `GPS_GAP_${index + 1}`,
               status: 'UNRESOLVED',
@@ -317,9 +316,18 @@ export const WorkService = Object.freeze({
               if (!isUsableDistanceKm(routedSegment.distanceKm) || (routedSegment.points?.length || 0) < 2) continue
               knownDistanceKm += Number(routedSegment.distanceKm)
               hasDistance = true
-              if (routedSegment.roadMatchedGeometry) roadMatchedGeometry.push(routedSegment.roadMatchedGeometry)
-              if (Array.isArray(routedSegment.traceGeometry)) traceGeometry.push(...routedSegment.traceGeometry)
-              else traceGeometry.push(...segment.map(point => [Number(point.longitude), Number(point.latitude)]))
+              knownTraceSegments.push({
+                startAt: segment[0].capturedAt || segment[0].timestamp || null,
+                endAt: segment[segment.length - 1].capturedAt || segment[segment.length - 1].timestamp || null,
+                distanceKm: Number(routedSegment.distanceKm),
+                method: routedSegment.method,
+                confidence: routedSegment.confidence,
+                routingProvenance: routedSegment.provenance || null,
+                roadMatchedGeometry: routedSegment.roadMatchedGeometry || null,
+                traceGeometry: Array.isArray(routedSegment.traceGeometry) && routedSegment.traceGeometry.length
+                  ? routedSegment.traceGeometry
+                  : segment.map(point => [Number(point.longitude), Number(point.latitude)])
+              })
             }
 
             for (let index = 0; index < split.gaps.length; index += 1) {
@@ -346,9 +354,9 @@ export const WorkService = Object.freeze({
                     distanceKm: routedGapKm,
                     method,
                     confidence: estimate.confidence || 'ESTIMATED_ROAD_TRACE',
-                    routingProvenance: estimate.provenance || { provider: estimate.provider || 'VALHALLA' }
+                    routingProvenance: estimate.provenance || { provider: estimate.provider || 'VALHALLA' },
+                    routingGeometry: estimate.geometry?.type === 'LineString' ? estimate.geometry : null
                   }
-                  if (estimate.geometry?.type === 'LineString') roadMatchedGeometry.push(estimate.geometry)
                 }
               } catch (error) {
                 console.warn('Valhalla could not estimate an interrupted GPS interval:', tripId, gap.startAt, gap.endAt, error)
@@ -370,11 +378,14 @@ export const WorkService = Object.freeze({
                 estimatedGapDistanceKm,
                 unresolvedGapCount,
                 incompleteKmSegments: incompleteKmSegmentsWithStatus,
+                knownTraceSegments,
                 checkedAt: new Date().toISOString(),
                 source: browserTracePoints.length > 0 ? 'BROWSER_GEOLOCATION' : 'ANDROID_NATIVE_GPS'
               },
-              roadMatchedGeometry: roadMatchedGeometry.length ? { type: 'MultiLineString', coordinates: roadMatchedGeometry.flatMap(item => item.coordinates ? [item.coordinates] : []) } : null,
-              traceGeometry
+              // A single LineString would visually invent a continuous path across
+              // the outage. Keep each observed chunk separately in provenance.
+              roadMatchedGeometry: null,
+              traceGeometry: []
             })
             console.warn('Trip saved with explicit incomplete-kilometre metadata:', tripId, {
               reason: traceQuality.reason,
