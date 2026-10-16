@@ -10,7 +10,7 @@ const overlay = read('../../android/app/src/main/java/com/kanishka/pwa/KfeOverla
 
 assert.ok(repository.includes("async setTripRideStartLocation(id, location, lifecycleAt = null)"), 'passenger-ride start GPS must be stored separately')
 assert.ok(repository.includes("record.rideStartLocationEventAt = lifecycleAt || record.tripStartAt || null"), 'ride start GPS must link to the authoritative lifecycle timestamp')
-assert.ok(repository.includes("next.tripEndLocationStatus = data.tripEndLocation ? 'CAPTURED' : 'MISSING'"), 'missing endpoint GPS must be explicit at completion')
+assert.ok(repository.includes("next.tripEndLocationStatus = next.tripEndLocation ? 'CAPTURED' : 'MISSING'"), 'missing endpoint GPS must be explicit at completion')
 assert.ok(repository.includes("if (field === 'tripEndLocation') record.tripEndLocationStatus = 'CAPTURED'"), 'a fresh endpoint fix must clear missing status')
 assert.ok(repository.includes('data.tripEndAt || record.tripEndAt || now'), 'a delayed PWA completion must preserve an existing canonical completion timestamp')
 assert.ok(overlay.includes('trip.put("rideStartLocationStatus","MISSING")'), 'native overlay must explicitly expose an unavailable ride-start GPS fix')
