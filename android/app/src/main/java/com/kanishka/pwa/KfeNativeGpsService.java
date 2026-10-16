@@ -123,6 +123,11 @@ public class KfeNativeGpsService extends Service {
   @Override public void onCreate() {
     super.onCreate();
     liveInstance = this;
+    // ACTIVE_READY describes a live callback in this service process, not a
+    // durable fact. Clear it on every service recreation so reboot/process
+    // recovery cannot mistake the previous process's readiness for a live GPS
+    // registration and race location-fix verification.
+    getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE_READY, false).commit();
     createChannel();
     // startForegroundService() has a strict promotion deadline. Promote the
     // service immediately on creation so lifecycle recovery cannot time out
