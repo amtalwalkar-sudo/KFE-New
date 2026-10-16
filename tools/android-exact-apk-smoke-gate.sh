@@ -329,6 +329,10 @@ fi
 adb shell input keyevent 224 || true
 adb shell wm dismiss-keyguard || true
 adb shell input keyevent 82 || true
+# Re-enable the emulator's location provider after reboot before injecting new
+# fixes. Some emulator images restore the device with location disabled even
+# though the pre-reboot permission grants and provider state were enabled.
+adb shell cmd location set-location-enabled true || adb shell settings put secure location_mode 3
 sleep 3
 boot_receiver_seen=false
 for attempt in $(seq 1 30); do
