@@ -45,6 +45,8 @@ public class KfeNativeGpsService extends Service {
   private static final String ACTIVE_READY = "activeCollectorReady";
   private static final String CHANNEL_ID = "kfe_native_gps";
   private static final int NOTIFICATION_ID = 7110;
+  // Process-local truth prevents stale SharedPreferences from claiming GPS is live after process death.
+  private static volatile KfeNativeGpsService liveInstance;
 
   private FusedLocationProviderClient fused;
   private LocationCallback callback;
@@ -92,6 +94,7 @@ public class KfeNativeGpsService extends Service {
 
   @Override public void onCreate() {
     super.onCreate();
+    liveInstance = this;
     createChannel();
     // startForegroundService() has a strict promotion deadline. Promote the
     // service immediately on creation so lifecycle recovery cannot time out
@@ -339,7 +342,9 @@ public class KfeNativeGpsService extends Service {
   static boolean isAnyPersistedTracking(Context context) {
     android.content.SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     String activeId = prefs.getString(ACTIVE_TRIP, "");
-    return activeId != null && !activeId.trim().isEmpty() && prefs.getBoolean(ACTIVE_READY, false);
+    KfeNativeGpsService service = liveInstance;
+    return service != null && activeId != null && !activeId.trim().isEmpty()
+      && activeId.equals(service.tripId) && service.callback != null && prefs.getBoolean(ACTIVE_READY, false);
   }
 
   static String persistedActiveTripId(Context context) {
@@ -359,8 +364,11 @@ public class KfeNativeGpsService extends Service {
     String activeEntity = prefs.getString(ACTIVE_ENTITY, "TRIP");
     String wantedEvent = "DEAD_MOVEMENT_TRACE".equals(requestedEventType) ? "DEAD_MOVEMENT_TRACE" : "PASSENGER_RIDE_TRACE";
     String wantedEntity = "SHIFT".equals(requestedEntityType) ? "SHIFT" : "TRIP";
-    return id != null && id.equals(activeId) && wantedEvent.equals(activeEvent) && wantedEntity.equals(activeEntity)
-      && prefs.getBoolean(ACTIVE_READY, false);
+    KfeNativeGpsService service = liveInstance;
+    return service != null && id != null && id.equals(activeId) && id.equals(service.tripId)
+      && wantedEvent.equals(activeEvent) && wantedEntity.equals(activeEntity)
+      && wantedEvent.equals(service.eventType) && wantedEntity.equals(service.entityType)
+      && service.callback != null && prefs.getBoolean(ACTIVE_READY, false);
   }
 
   static boolean shouldStopForTrip(String activeTripId, String requestedTripId) {
@@ -486,6 +494,7 @@ public class KfeNativeGpsService extends Service {
     releaseLocationUpdates();
     releaseLocationWakeLock();
     getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE_READY, false).apply();
+    if (liveInstance == this) liveInstance = null;
     super.onDestroy();
   }
 
