@@ -309,7 +309,7 @@ public class KfeNativeGpsService extends Service {
       if (displacementMeters < 1f) return;
       if (location.hasSpeed() && location.getSpeed() * 3.6f > MAX_REASONABLE_SPEED_KMH) return;
       if (elapsedMs <= MAX_CONTIGUOUS_GAP_MS) {
-        float measuredSpeedKmh = displacementMeters / (elapsedMs / 3600000f);
+        float measuredSpeedKmh = (displacementMeters / 1000f) / (elapsedMs / 3600000f);
         if (measuredSpeedKmh > MAX_REASONABLE_SPEED_KMH) return;
         segmentMeters = displacementMeters;
       }
