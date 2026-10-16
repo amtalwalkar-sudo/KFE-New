@@ -15,8 +15,10 @@ permissions:
   contents: write
 
 concurrency:
-  group: kfe-offline-valhalla-map-release
-  cancel-in-progress: false
+  # A newer PR revision supersedes its older, expensive tile build. Keep main
+  # publication isolated so a PR update cannot cancel a release publication.
+  group: ${{ github.event_name == 'pull_request' && 'kfe-offline-valhalla-map-release' || 'kfe-offline-valhalla-map-release-main' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build-and-publish-region:
