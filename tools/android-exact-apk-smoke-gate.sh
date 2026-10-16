@@ -130,16 +130,22 @@ app_pid() {
   adb shell pidof com.kanishka.pwa 2>/dev/null | tr -d '\r' | awk '{print $1}'
 }
 pid_before=""
+process_death_ready=false
 for attempt in $(seq 1 20); do
   pid_before="$(app_pid || true)"
-  if [ -n "$pid_before" ]; then break; fi
+  # The instrumentation writes this marker only after the persisted trip is
+  # active and the pre-death GPS trace baseline has been captured.
+  if [ -n "$pid_before" ] && adb shell run-as com.kanishka.pwa grep -q processDeathTripId shared_prefs/kfe_test_recovery.xml 2>/dev/null; then
+    process_death_ready=true
+    break
+  fi
   sleep 1
 done
-if [ -z "$pid_before" ]; then
+if [ -z "$pid_before" ] || [ "$process_death_ready" != true ]; then
   cat "$prepare_log" >&2 || true
-  capture_failure "process-death-pid-not-found"
+  capture_failure "process-death-ready-state-not-observed"
   kill "$prepare_instrument_pid" >/dev/null 2>&1 || true
-  echo "Could not observe the target process while GPS recovery preparation was active." >&2
+  echo "Could not observe a live KFE process with its persisted GPS trace baseline." >&2
   exit 1
 fi
 # This PID is observed while the prepare instrumentation is still blocked in its
