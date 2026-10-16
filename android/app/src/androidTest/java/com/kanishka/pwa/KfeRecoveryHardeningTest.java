@@ -158,6 +158,7 @@ public class KfeRecoveryHardeningTest {
         new JSONObject().put("id", shiftId).put("status", "ACTIVE").put("revenue", 250)
             .put("updatedAt", updatedAt));
     startPersistentGps(tripId);
+    rememberTraceCount("processDeath", tripId);
   }
 
   @Test public void verifyGpsCollectorAfterProcessDeath() throws Exception {
@@ -166,7 +167,7 @@ public class KfeRecoveryHardeningTest {
     assertTrue("Process recovery must retain the pre-death trip identity.", tripId.startsWith("gps-process-death-"));
     await("GPS collector after process death", 25000L,
         () -> KfeNativeGpsService.isPersistedTracking(context, tripId, "PASSENGER_RIDE_TRACE", "TRIP"));
-    assertTraceCaptured(tripId, "after process death");
+    assertTraceGrew("processDeath", tripId, "after process death");
 
     String suffix = tripId.substring("gps-process-death-".length());
     KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
@@ -181,7 +182,9 @@ public class KfeRecoveryHardeningTest {
   }
 
   @Test public void prepareGpsCollectorForScreenOff() throws Exception {
-    startPersistentGps("gps-screen-off-" + System.currentTimeMillis());
+    String tripId = "gps-screen-off-" + System.currentTimeMillis();
+    startPersistentGps(tripId);
+    rememberTraceCount("screenOff", tripId);
   }
 
   @Test public void verifyGpsCollectorAfterScreenOff() throws Exception {
@@ -190,11 +193,13 @@ public class KfeRecoveryHardeningTest {
     assertTrue("The GPS trip identity must survive screen-off.", tripId.startsWith("gps-screen-off-"));
     await("GPS collector after screen-off", 8000L,
         () -> KfeNativeGpsService.isPersistedTracking(context, tripId, "PASSENGER_RIDE_TRACE", "TRIP"));
-    assertTraceCaptured(tripId, "while the screen was off");
+    assertTraceGrew("screenOff", tripId, "while the screen was off");
   }
 
   @Test public void prepareGpsCollectorForReboot() throws Exception {
-    startPersistentGps("gps-reboot-" + System.currentTimeMillis());
+    String tripId = "gps-reboot-" + System.currentTimeMillis();
+    startPersistentGps(tripId);
+    rememberTraceCount("reboot", tripId);
   }
 
   @Test public void verifyGpsCollectorAfterReboot() throws Exception {
@@ -203,7 +208,7 @@ public class KfeRecoveryHardeningTest {
     assertTrue("Boot recovery must retain the pre-reboot trip identity.", tripId.startsWith("gps-reboot-"));
     await("GPS collector after reboot", 25000L,
         () -> KfeNativeGpsService.isPersistedTracking(context, tripId, "PASSENGER_RIDE_TRACE", "TRIP"));
-    assertTraceCaptured(tripId, "after reboot");
+    assertTraceGrew("reboot", tripId, "after reboot");
   }
 
   @Test public void cleanupRecoveredGpsCollector() throws Exception {
@@ -214,10 +219,21 @@ public class KfeRecoveryHardeningTest {
     }
   }
 
-  private void assertTraceCaptured(String tripId, String boundary) throws Exception {
-    JSONArray trace = new JSONArray(KfeNativeGpsService.readTrace(context, tripId));
-    assertTrue("Native GPS must persist at least one fix " + boundary + "; trace=" + trace,
-        trace.length() > 0);
+  private void rememberTraceCount(String boundaryKey, String tripId) throws Exception {
+    int count = new JSONArray(KfeNativeGpsService.readTrace(context, tripId)).length();
+    context.getSharedPreferences("kfe_test_recovery", Context.MODE_PRIVATE).edit()
+        .putString(boundaryKey + "TripId", tripId)
+        .putInt(boundaryKey + "TraceCountBefore", count).commit();
+  }
+
+  private void assertTraceGrew(String boundaryKey, String tripId, String boundary) throws Exception {
+    android.content.SharedPreferences prefs = context.getSharedPreferences("kfe_test_recovery", Context.MODE_PRIVATE);
+    assertEquals("The trace baseline must belong to the same trip across recovery.",
+        tripId, prefs.getString(boundaryKey + "TripId", ""));
+    int before = prefs.getInt(boundaryKey + "TraceCountBefore", -1);
+    int after = new JSONArray(KfeNativeGpsService.readTrace(context, tripId)).length();
+    assertTrue("Native GPS must persist new fixes " + boundary + "; before=" + before + "; after=" + after,
+        before >= 0 && after > before);
   }
 
   private void startPersistentGps(String tripId) throws Exception {
