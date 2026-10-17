@@ -13,6 +13,7 @@ const makeHarness = ({ shifts = [canonicalShift], trips = [canonicalCompletedTri
   let failNextMirror = mirrorFailure
   let loseNextAckAfterCommit = loseAckAfterCommit
   const seenOperations = new Set()
+  const mirrorOperationIds = []
   let mirrorCalls = 0
   let syncCalls = 0
   const readCanonical = async () => ({
@@ -23,6 +24,7 @@ const makeHarness = ({ shifts = [canonicalShift], trips = [canonicalCompletedTri
   const mirrorRecord = async (entityType, record) => {
     mirrorCalls++
     const operationId = record?._nativeCanonicalSync?.operationId
+    mirrorOperationIds.push(operationId || null)
     if (operationId && seenOperations.has(operationId)) return
     if (failNextMirror) {
       failNextMirror = false
@@ -53,6 +55,7 @@ const makeHarness = ({ shifts = [canonicalShift], trips = [canonicalCompletedTri
     getPwaShifts: () => pwaShifts,
     getPwaTrips: () => pwaTrips,
     getMirrorCalls: () => mirrorCalls,
+    getMirrorOperationIds: () => mirrorOperationIds,
     getSyncCalls: () => syncCalls,
   }
 }
@@ -96,6 +99,29 @@ const makeHarness = ({ shifts = [canonicalShift], trips = [canonicalCompletedTri
 }
 
 
+// A native write failure after the durable journal is created keeps the
+// legitimate local update pending; retry reuses the same operation ID and commits it.
+{
+  const pendingPayload = { ...canonicalShift, revenue: 300, updatedAt: '2026-10-15T10:30:00.000Z' }
+  const stablePayload = Object.fromEntries(Object.keys(pendingPayload).sort().map(key => [key, pendingPayload[key]]))
+  const pendingShift = {
+    ...pendingPayload,
+    _nativeCanonicalSync: {
+      operationId: 'op-shift-failed-write',
+      fingerprint: JSON.stringify(stablePayload),
+    },
+  }
+  const h = makeHarness({ localShifts: [pendingShift], mirrorFailure: true })
+  await assert.rejects(recoverCanonicalWorkSnapshot(h), /simulated native write\\/ack interruption/)
+  assert.equal(h.getCanonicalShifts()[0].revenue, 275, 'failed native write must not partially update canonical state')
+  assert.equal(h.getSyncCalls(), 0, 'do not sync away a journaled pending mutation after write failure')
+  await recoverCanonicalWorkSnapshot(h)
+  assert.equal(h.getCanonicalShifts()[0].revenue, 300, 'retry must commit the legitimate pending update')
+  assert.equal(h.getPwaShifts()[0].revenue, 300)
+  assert.deepEqual(h.getMirrorOperationIds(), ['op-shift-failed-write', 'op-shift-failed-write'], 'retry must reuse the journaled operation ID')
+  assert.equal(h.getSyncCalls(), 1)
+}
+
 // An explicit durable pending-operation marker preserves a legitimate local
 // mutation, and a lost post-commit acknowledgement retries with the same ID.
 {
@@ -113,6 +139,7 @@ const makeHarness = ({ shifts = [canonicalShift], trips = [canonicalCompletedTri
   assert.equal(recovered.shifts.records[0].revenue, 300)
   assert.equal(h.getPwaShifts()[0].revenue, 300)
   assert.equal(h.getMirrorCalls(), 2, 'retry must use the same idempotent operation rather than lose the pending write')
+  assert.deepEqual(h.getMirrorOperationIds(), ['op-shift-300', 'op-shift-300'], 'lost acknowledgement retry must reuse the exact operation ID')
   assert.equal(h.getSyncCalls(), 1)
 }
 
