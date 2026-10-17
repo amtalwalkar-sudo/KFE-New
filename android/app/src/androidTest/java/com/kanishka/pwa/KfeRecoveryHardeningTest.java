@@ -10,6 +10,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.os.SystemClock;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -420,6 +423,12 @@ public class KfeRecoveryHardeningTest {
   }
 
   @Test public void installedOfflineValhallaRoutesWithNetworkDisabled() throws Exception {
+    ConnectivityManager connectivity = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+    Network activeNetwork = connectivity == null ? null : connectivity.getActiveNetwork();
+    NetworkCapabilities capabilities = activeNetwork == null ? null : connectivity.getNetworkCapabilities(activeNetwork);
+    assertTrue("The offline-routing test must run without an active internet-capable network.",
+        capabilities == null || !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET));
+
     File source = new File("/data/local/tmp/valhalla-tiles.tar");
     assertTrue("CI must push the actual region tile extract before the offline test.", source.isFile() && source.length() > 0);
     File mapDir = new File(context.getFilesDir(), "offline-maps");
