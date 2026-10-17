@@ -103,7 +103,18 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
             if (empty(existingVersion) || empty(incomingVersion)) {
               throw new IllegalArgumentException("Canonical version conflict: updatedAt is required to replace an existing record.");
             }
-            int versionOrder = incomingVersion.compareTo(existingVersion);
+            final int versionOrder;
+            try {
+              // ISO-8601 strings are not safely ordered lexicographically when
+              // their fractional-second precision differs (for example,
+              // "...55Z" sorts after the newer "...55.123Z"). Compare instants
+              // so a legitimate newer lifecycle write is not rejected.
+              versionOrder = java.time.Instant.parse(incomingVersion)
+                  .compareTo(java.time.Instant.parse(existingVersion));
+            } catch (java.time.format.DateTimeParseException invalidVersion) {
+              throw new IllegalArgumentException(
+                  "Canonical version conflict: updatedAt must be a valid ISO-8601 instant.", invalidVersion);
+            }
             if (versionOrder < 0) {
               throw new IllegalArgumentException("Stale canonical write rejected for " + entityType + "/" + entityId + ".");
             }
