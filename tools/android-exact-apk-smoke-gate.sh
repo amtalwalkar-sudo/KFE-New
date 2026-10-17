@@ -518,37 +518,62 @@ adb shell settings put secure location_mode 0 || true
 sleep 3
 adb shell cmd location set-location-enabled true || true
 adb shell settings put secure location_mode 3 || true
-sleep 5
 # Exercise the boot-started collector before launching instrumentation. Starting
 # an instrumentation process can recreate the target app process and perturb the
 # very service whose autonomous BOOT_COMPLETED recovery is under test.
-# Parse the preferences XML on the runner, not in Android's remote shell;
-# adb shell does not preserve nested quoting for sed expressions containing spaces.
+# Parse preferences on the runner; remote-shell quoting for sed is unreliable.
 reboot_trip_id="$(adb shell run-as com.kanishka.pwa cat shared_prefs/kfe_native_gps.xml | grep -o 'gps-reboot-[0-9]*' | head -1 | tr -d '\r')"
 case "$reboot_trip_id" in
   gps-reboot-*) ;;
   *) capture_failure "reboot-active-trip-missing"; echo "Persisted GPS trip was not restored after reboot: $reboot_trip_id" >&2; exit 1 ;;
 esac
+# Do not inject synthetic locations until the boot receiver's foreground
+# service has actually registered a live callback for this exact persisted trip.
+# Previously the test injected immediately after BOOT_COMPLETED was observed;
+# the broadcast can precede asynchronous service startup, losing every fix.
+collector_ready=false
+for attempt in $(seq 1 45); do
+  gps_prefs="$(adb shell run-as com.kanishka.pwa cat shared_prefs/kfe_native_gps.xml 2>/dev/null || true)"
+  if printf '%s\n' "$gps_prefs" | grep -Fq "$reboot_trip_id" \
+      && printf '%s\n' "$gps_prefs" | grep -q 'name="activeCollectorReady" value="true"'; then
+    collector_ready=true
+    break
+  fi
+  sleep 1
+done
+if [ "$collector_ready" != true ]; then
+  capture_failure "reboot-gps-collector-not-ready"
+  echo "Boot receiver was seen but its GPS collector never became ready for $reboot_trip_id." >&2
+  adb shell run-as com.kanishka.pwa cat shared_prefs/kfe_native_gps.xml >&2 || true
+  adb shell dumpsys location >&2 || true
+  exit 1
+fi
 reboot_trace_file="files/kfe_gps_trace_${reboot_trip_id}.jsonl"
-# No GPS fix may have arrived before reboot preparation; treat a missing trace
-# file as an empty baseline, but require the post-boot injections to create/grow it.
+# Treat a missing trace as an empty baseline, then inject only after readiness.
 if adb shell run-as com.kanishka.pwa test -f "$reboot_trace_file"; then
   trace_before="$(adb shell run-as com.kanishka.pwa wc -l "$reboot_trace_file" | awk '{print $1}' | tr -d '\r')"
 else
   trace_before=0
 fi
-for attempt in 1 2 3; do
+trace_grew=false
+for attempt in 1 2 3 4 5; do
   inject_gps_fixes
-  sleep 3
+  sleep 2
+  if adb shell run-as com.kanishka.pwa test -f "$reboot_trace_file"; then
+    trace_after="$(adb shell run-as com.kanishka.pwa wc -l "$reboot_trace_file" | awk '{print $1}' | tr -d '\r')"
+  else
+    trace_after=0
+  fi
+  if [[ "$trace_before" =~ ^[0-9]+$ && "$trace_after" =~ ^[0-9]+$ ]] && [ "$trace_after" -gt "$trace_before" ]; then
+    trace_grew=true
+    break
+  fi
 done
-if adb shell run-as com.kanishka.pwa test -f "$reboot_trace_file"; then
-  trace_after="$(adb shell run-as com.kanishka.pwa wc -l "$reboot_trace_file" | awk '{print $1}' | tr -d '\r')"
-else
-  trace_after=0
-fi
-if ! [[ "$trace_before" =~ ^[0-9]+$ && "$trace_after" =~ ^[0-9]+$ ]] || [ "$trace_after" -le "$trace_before" ]; then
+if [ "$trace_grew" != true ]; then
   capture_failure "reboot-gps-trace-did-not-grow"
-  echo "Boot-resumed GPS collector did not persist injected fixes before instrumentation; before=$trace_before after=$trace_after" >&2
+  echo "Boot-resumed GPS collector did not persist injected fixes; before=$trace_before after=$trace_after." >&2
+  adb shell run-as com.kanishka.pwa cat shared_prefs/kfe_native_gps.xml >&2 || true
+  adb shell dumpsys location >&2 || true
   exit 1
 fi
 # Now attach instrumentation to validate canonical lifecycle/fare state and
