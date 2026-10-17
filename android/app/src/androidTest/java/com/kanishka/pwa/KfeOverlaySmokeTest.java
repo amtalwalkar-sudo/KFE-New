@@ -600,6 +600,18 @@ public class KfeOverlaySmokeTest {
     // the queued events; this test deliberately never launches MainActivity.
     assertSwipeTracksAndRetracts(service);
     assertEquals("START_RIDE", fieldValue(service, "actionStage"));
+
+    // A stale PWA snapshot with another trip ID must not roll back the durable
+    // native checkpoint after a simulated service/process restart boundary.
+    JSONObject staleState = new JSONObject(state.toString())
+        .put("overlayAction", "GO_TO_PICKUP")
+        .put("overlayTripId", "stale-pwa-trip-" + suffix);
+    KfeOverlayService.update(context, staleState.toString());
+    waitForOverlay();
+    service = waitForService();
+    assertEquals("START_RIDE", fieldValue(service, "actionStage"));
+    assertEquals("Native trip ID must survive stale PWA state.", fareTripId, fieldValue(service, "pendingTripId"));
+
     assertSwipeTracksAndRetracts(service);
     assertEquals("END_RIDE", fieldValue(service, "actionStage"));
     assertSwipeTracksAndRetracts(service);
