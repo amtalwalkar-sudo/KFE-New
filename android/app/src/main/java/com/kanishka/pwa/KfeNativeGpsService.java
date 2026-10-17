@@ -61,6 +61,9 @@ public class KfeNativeGpsService extends Service {
   private Location lastPassengerLocation;
   private double passengerDistanceMeters = 0d;
   private PowerManager.WakeLock locationWakeLock;
+  // startForeground must not be re-issued on provider-change broadcasts after boot;
+  // Android can reject that background re-promotion even when this service is already foreground.
+  private boolean foregroundPromoted;
   private volatile long lastLocationCallbackAt;
   private volatile int lastLocationCallbackCount;
   private volatile long lastLocationPersistedAt;
@@ -607,6 +610,7 @@ public class KfeNativeGpsService extends Service {
   }
 
   private boolean ensureForegroundLocationService() {
+    if (foregroundPromoted) return true;
     if (!hasLocationPermission()) {
       stopSelf();
       return false;
@@ -651,6 +655,7 @@ public class KfeNativeGpsService extends Service {
     } else {
       startForeground(NOTIFICATION_ID, notification);
     }
+    foregroundPromoted = true;
   }
 
   private void createChannel() {
