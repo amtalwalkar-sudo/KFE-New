@@ -36,18 +36,18 @@ install_apk_with_retry() {
 install_apk_with_retry android/app/build/outputs/apk/debug/app-debug.apk
 install_apk_with_retry android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 
-# On recent Android images adb-shell mkdir is denied under Android/data.
-# Create the app-scoped directory as the installed target app UID instead of
-# launching instrumentation just to initialize storage (which can hang on a
-# cold emulator before the test runner starts).
-timeout 30s adb shell run-as com.kanishka.pwa sh -c 'mkdir -p /sdcard/Android/data/com.kanishka.pwa/files'
-timeout 30s adb shell ls -ld /sdcard/Android/data/com.kanishka.pwa/files
+# Invoke mkdir directly through run-as. Passing "sh -c" through adb shell
+# splits the command string on some platform-tools versions and leaves mkdir
+# without its directory argument.
+APP_FILES_DIR=/sdcard/Android/data/com.kanishka.pwa/files
+timeout 30s adb shell run-as com.kanishka.pwa mkdir -p "$APP_FILES_DIR"
+timeout 30s adb shell ls -ld "$APP_FILES_DIR"
 
 # Use the small, separately published Alibag package to exercise a real extract.
-timeout 300s adb push work/area-alibag.tar /sdcard/Android/data/com.kanishka.pwa/files/valhalla-tiles.tar
-timeout 60s adb push work/trace-request-alibag.json /sdcard/Android/data/com.kanishka.pwa/files/valhalla-trace-request.json
-test "$(adb shell ls -l /sdcard/Android/data/com.kanishka.pwa/files/valhalla-tiles.tar | awk '{print $5}' | tr -d '\r')" -gt 0
-test "$(adb shell ls -l /sdcard/Android/data/com.kanishka.pwa/files/valhalla-trace-request.json | awk '{print $5}' | tr -d '\r')" -gt 0
+timeout 300s adb push work/area-alibag.tar "$APP_FILES_DIR/valhalla-tiles.tar"
+timeout 60s adb push work/trace-request-alibag.json "$APP_FILES_DIR/valhalla-trace-request.json"
+test "$(adb shell ls -l "$APP_FILES_DIR/valhalla-tiles.tar" | awk '{print $5}' | tr -d '\r')" -gt 0
+test "$(adb shell ls -l "$APP_FILES_DIR/valhalla-trace-request.json" | awk '{print $5}' | tr -d '\r')" -gt 0
 
 # Disable emulator-managed external network paths before invoking native Valhalla.
 adb shell svc wifi disable
