@@ -165,7 +165,7 @@ public class KfeNativeFullShiftAcceptanceTest {
               + "const text=document.body.innerText||'';"
               + "const skip=[...document.querySelectorAll('button')].find(b=>b.innerText.includes(\"Skip — I'll fill this later\")&&!b.disabled);"
               + "if(skip){skip.click();return 'SKIPPED';}"
-              + "return text.includes('KFE WORK')&&text.includes('START SHIFT')?'READY':'WAIT';"
+              + "return text.includes('KFE WORK')&&(text.includes('START SHIFT')||text.includes('ONLINE')||text.includes('END SHIFT'))?'READY':'WAIT';"
               + "})()"));
         if ("READY".equals(readiness)) break;
         SystemClock.sleep(500L);
@@ -186,7 +186,7 @@ public class KfeNativeFullShiftAcceptanceTest {
           + "const all=tripsReq.result||[];"
           + "const ids=[" + JSONObject.quote(tripA) + "," + JSONObject.quote(tripB) + "," + JSONObject.quote(cancelledTrip) + "];"
           + "const found=all.filter(x=>ids.includes(String(x.id||'')));"
-          + "root.dataset.nativeCatchup=JSON.stringify({shiftFound:!!shiftReq.result,tripIds:found.map(x=>String(x.id)),statuses:found.map(x=>String(x.status||'')),fares:found.map(x=>x.revenue==null?null:Number(x.revenue)),cancellation:found.filter(x=>String(x.id)===" + JSONObject.quote(cancelledTrip) + ").map(x=>({reason:x.cancelReason,fee:x.cancelledRevenue}))});"
+          + "root.dataset.nativeCatchup=JSON.stringify({shiftFound:!!shiftReq.result,tripIds:found.map(x=>String(x.id)),statuses:found.map(x=>String(x.status||'')),revenues:found.map(x=>x.revenue==null?null:Number(x.revenue)),shiftRevenue:shiftReq.result&&shiftReq.result.revenue!=null?Number(shiftReq.result.revenue):null,cancellation:found.filter(x=>String(x.id)===" + JSONObject.quote(cancelledTrip) + ").map(x=>({reason:x.cancelReason,fee:x.cancelledRevenue}))});"
           + "db.close();};"
           + "tx.onerror=()=>{root.dataset.nativeCatchup='ERROR_TX:'+String(tx.error);db.close();};"
           + "};"
@@ -216,12 +216,12 @@ public class KfeNativeFullShiftAcceptanceTest {
       assertTrue(ids.toString().contains(tripA));
       assertTrue(ids.toString().contains(tripB));
       assertTrue(ids.toString().contains(cancelledTrip));
-      JSONArray statuses = recovered.getJSONArray("statuses");
       assertEquals("COMPLETED", statusFor(recovered, tripA));
       assertEquals("COMPLETED", statusFor(recovered, tripB));
       assertEquals("CANCELLED", statusFor(recovered, cancelledTrip));
-      JSONArray fares = recovered.getJSONArray("fares");
-      assertEquals(3, fares.length());
+      assertEquals(250d, revenueFor(recovered, tripA), 0.001d);
+      assertEquals(150d, revenueFor(recovered, tripB), 0.001d);
+      assertEquals(420d, recovered.getDouble("shiftRevenue"), 0.001d);
       JSONArray cancellation = recovered.getJSONArray("cancellation");
       assertEquals(1, cancellation.length());
       assertEquals("PASSENGER", cancellation.getJSONObject(0).getString("reason"));
@@ -243,6 +243,15 @@ public class KfeNativeFullShiftAcceptanceTest {
       }
     }
     throw new AssertionError("Expected event to acknowledge for " + tripId + " / " + stage);
+  }
+
+  private static double revenueFor(JSONObject recovered, String tripId) throws Exception {
+    JSONArray ids = recovered.getJSONArray("tripIds");
+    JSONArray revenues = recovered.getJSONArray("revenues");
+    for (int i = 0; i < ids.length(); i++) {
+      if (tripId.equals(ids.getString(i))) return revenues.isNull(i) ? 0d : revenues.getDouble(i);
+    }
+    throw new AssertionError("PWA catch-up missing revenue for trip " + tripId);
   }
 
   private static String statusFor(JSONObject recovered, String tripId) throws Exception {
