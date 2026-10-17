@@ -641,6 +641,7 @@ public class KfeOverlaySmokeTest {
     service = waitForService();
     assertSwipeTracksAndRetracts(service);
     assertEquals("START_RIDE", fieldValue(service, "actionStage"));
+    assertEquals("Cancellation must target the trip opened by the native overlay.", cancelTripId, fieldValue(service, "pendingTripId"));
     final KfeOverlayService cancellationService = service;
     InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
       try {
@@ -661,6 +662,7 @@ public class KfeOverlaySmokeTest {
         android.widget.Button passenger = findButton(panel, "Passenger cancellation");
         assertNotNull("Driver-facing passenger cancellation option must be visible", passenger);
         passenger.performClick();
+        assertEquals("Passenger cancellation choice must reach native form state.", "PASSENGER", fieldValue(cancellationService, "cancelReason"));
         ((EditText) fieldValue(cancellationService, "formInput")).setText("20");
         android.widget.Button confirm = findButton(panel, "Confirm cancellation");
         assertNotNull("Driver-facing cancellation confirmation must be visible", confirm);
