@@ -17,6 +17,15 @@ assert.match(gate, /await NativeGate\.openStartupSetting/)
 assert.match(gate, /waitForForegroundReturn\(\)/)
 assert.match(gate, /permissionGateState\.status = 'ready'/)
 assert.match(gate, /findFirstMissingNativeCheck/)
+
+assert.match(gate, /const status = await NativeGate\.getStartupPermissionStatus\(\)/,
+  'each gate pass must query current Android state instead of relying on a cached startup snapshot')
+assert.match(gate, /await returned;\s*continue/,
+  'returning from Android Settings must restart the gate and re-read current state')
+assert.match(native, /checkSelfPermission\(getContext\(\), Manifest\.permission\.ACCESS_FINE_LOCATION\)/)
+assert.match(native, /checkSelfPermission\(getContext\(\), Manifest\.permission\.ACCESS_BACKGROUND_LOCATION\)/)
+assert.match(native, /locationManager\.isLocationEnabled\(\)/,
+  'Location Services must be checked from Android rather than inferred from permission grants')
 assert.match(gate, /persistConfirmedOemSettings/)
 assert.match(main, /await runStartupPermissionGate\(\)/)
 assert.ok(main.indexOf('await runStartupPermissionGate()') < main.indexOf('StartupService.startApplication()'), 'gate must finish before application startup')
