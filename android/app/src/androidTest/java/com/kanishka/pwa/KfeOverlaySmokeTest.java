@@ -606,10 +606,11 @@ public class KfeOverlaySmokeTest {
     assertEquals("ENTER_FARE", fieldValue(service, "actionStage"));
     assertEquals("FARE", fieldValue(service, "formMode"));
 
+    final KfeOverlayService fareService = service;
     InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
       try {
-        ((EditText) fieldValue(service, "formInput")).setText("250");
-        android.widget.Button save = findButton((android.view.ViewGroup) fieldValue(service, "formPanel"), "Save trip");
+        ((EditText) fieldValue(fareService, "formInput")).setText("250");
+        android.widget.Button save = findButton((android.view.ViewGroup) fieldValue(fareService, "formPanel"), "Save trip");
         assertNotNull("Driver-facing Save trip control must be visible", save);
         save.performClick();
       } catch (Exception e) { throw new AssertionError(e); }
