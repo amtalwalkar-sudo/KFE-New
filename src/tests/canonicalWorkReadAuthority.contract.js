@@ -37,7 +37,7 @@ assert.ok(service.includes('outcome?.accepted !== true'), 'native write acknowle
 assert.ok(service.includes('markCanonicalSyncPending'), 'a durable pending operation must be journaled before crossing the native bridge')
 assert.ok(service.includes('clearCanonicalSyncPending'), 'the pending journal must clear only after acknowledgement')
 assert.ok(service.includes('existingPending?.fingerprint === fingerprint'), 'retries must reuse the operation ID only for the same payload')
-assert.ok(repository.includes('current._nativeCanonicalSync.fingerprint !== fingerprint') === false, 'pending operation cleanup is guarded by operation identity and payload fingerprint')
+assert.ok(repository.includes('current._nativeCanonicalSync.fingerprint !== fingerprint'), 'pending operation cleanup is guarded by operation identity and payload fingerprint')
 assert.ok(repository.includes('Local canonical record changed before native mirror'), 'concurrent local edits must not be journaled against an older snapshot')
 
 assert.ok(service.includes('Native canonical ' + '${entityType}' + ' commit was not acknowledged.'))
