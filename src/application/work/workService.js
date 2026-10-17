@@ -19,10 +19,35 @@ import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.j
 const checkpoint = () => BackupService.requestLocalBackupCheckpoint()
 const nativeCanonicalAvailable = () => { try { return WorkRuntimePorts.canonicalWork.isAvailable() === true } catch (_) { return false } }
 const isAndroidRuntime = () => { try { return WorkRuntimePorts.platform.getPlatform() === 'android' } catch (_) { return nativeCanonicalAvailable() } }
+const stableCanonicalValue = value => {
+  if (Array.isArray(value)) return value.map(stableCanonicalValue)
+  if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map(key => [key, stableCanonicalValue(value[key])]))
+  return value
+}
+const withoutCanonicalSyncMetadata = record => {
+  const { _nativeCanonicalSync, ...canonicalRecord } = record || {}
+  return canonicalRecord
+}
 const mirrorCanonicalRecord = async (entityType, record) => {
   if (!record?.id || !nativeCanonicalAvailable()) return record
-  const outcome = await CanonicalWorkBoundary.putRecord({ operationId: CanonicalWorkBoundary.createOperationId(), entityType, record })
+  const canonicalRecord = withoutCanonicalSyncMetadata(record)
+  const fingerprint = JSON.stringify(stableCanonicalValue(canonicalRecord))
+  const existingPending = record?._nativeCanonicalSync
+  const operationId = existingPending?.operationId && existingPending?.fingerprint === fingerprint
+    ? existingPending.operationId
+    : CanonicalWorkBoundary.createOperationId()
+  // Persist the exact operation identity before crossing the native bridge. If the
+  // process dies or the acknowledgement is lost, recovery retries the same id;
+  // SQLite's operation ledger makes that retry idempotent.
+  await ShiftTripRepository.markCanonicalSyncPending({
+    entityType,
+    entityId: record.id,
+    operationId,
+    fingerprint,
+  })
+  const outcome = await CanonicalWorkBoundary.putRecord({ operationId, entityType, record: canonicalRecord })
   if (outcome?.accepted !== true) throw new Error(`Native canonical ${entityType} commit was not acknowledged.`)
+  await ShiftTripRepository.clearCanonicalSyncPending({ entityType, entityId: record.id, operationId })
   return record
 }
 const mirrorCanonicalTripById = async id => {
