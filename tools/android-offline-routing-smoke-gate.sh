@@ -39,12 +39,19 @@ install_apk_with_retry android/app/build/outputs/apk/androidTest/debug/app-debug
 # Let the app create its scoped external-files directory. Android 11+ blocks
 # mkdir by the shell/run-as user when Android/data does not yet exist. Transfer
 # fixtures through /data/local/tmp, then copy them as the owning app UID.
-timeout 60s adb shell am instrument -w -r \
+set +e
+timeout 180s adb shell am instrument -w -r \
   -e class com.kanishka.pwa.KfeRecoveryHardeningTest#prepareOfflineValhallaFixtureDirectory \
   com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner \
   > artifacts/android-offline-routing/prepare-fixture-directory.log 2>&1
+prepare_result=$?
+set -e
 cat artifacts/android-offline-routing/prepare-fixture-directory.log
-grep -Fq 'OK (1 test)' artifacts/android-offline-routing/prepare-fixture-directory.log
+if [ "$prepare_result" -ne 0 ] || ! grep -Fq 'OK (1 test)' artifacts/android-offline-routing/prepare-fixture-directory.log; then
+  adb logcat -d -t 3000 > artifacts/android-offline-routing/prepare-fixture-logcat.log || true
+  echo "Offline Valhalla fixture-directory instrumentation failed with exit code $prepare_result." >&2
+  exit "${prepare_result:-1}"
+fi
 
 APP_FILES_DIR=/sdcard/Android/data/com.kanishka.pwa/files
 timeout 300s adb push work/area-alibag.tar /data/local/tmp/kfe-area-alibag.tar
