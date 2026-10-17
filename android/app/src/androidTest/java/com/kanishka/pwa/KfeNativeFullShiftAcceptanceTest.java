@@ -88,9 +88,12 @@ public class KfeNativeFullShiftAcceptanceTest {
     prepareSnapshot(prefs, shiftId, cancelledTrip);
     setField(service, "pendingTripId", cancelledTrip);
     Thread.sleep(5L);
+    String cancellationPickupEvent =
+        KfeNativeWorkActionsPlugin.recordPendingAction(service, "GO_TO_PICKUP", cancelledTrip, "");
     assertTrue("The cancelled trip pickup state must persist.",
         (Boolean) invoke(service, "persistCanonicalTripStage",
-            new Class<?>[]{String.class, boolean.class}, "GOING_TO_PICKUP", false));
+            new Class<?>[]{String.class, boolean.class, String.class},
+            "GOING_TO_PICKUP", false, cancellationPickupEvent));
     JSONObject cancellation = new JSONObject().put("revenue", "20").put("reason", "PASSENGER");
     setField(service, "formMode", "CANCEL");
     setField(service, "formValue", "20");
