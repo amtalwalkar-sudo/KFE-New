@@ -55,7 +55,9 @@ prepare_result=$?
 set -e
 cat artifacts/android-offline-routing/fixture-directory.log
 test "$prepare_result" -eq 0
-grep -Eq '^INSTRUMENTATION_CODE: -1
+grep -Fq 'INSTRUMENTATION_CODE: -1' artifacts/android-offline-routing/fixture-directory.log
+grep -Fq 'OK (1 test)' artifacts/android-offline-routing/fixture-directory.log
+
 # Reuse the trace geometry already validated against this exact regional package by the HTTP smoke gate.
 timeout 60s adb push work/trace-request-alibag.json /sdcard/Android/data/com.kanishka.pwa/files/valhalla-trace-request.json
 test "$(adb shell ls -l /sdcard/Android/data/com.kanishka.pwa/files/valhalla-tiles.tar | awk '{print $5}' | tr -d '\r')" -gt 0
