@@ -717,18 +717,21 @@ public class KfeNativeFullShiftAcceptanceTest {
       String shiftId, String tripId) throws Exception {
     setField(service, "pendingTripId", tripId);
     Thread.sleep(5L);
+    String pickupEvent = KfeNativeWorkActionsPlugin.recordPendingAction(service, "GO_TO_PICKUP", tripId, "");
     assertTrue("Pickup stage must commit without PWA replay.",
         (Boolean) invoke(service, "persistCanonicalTripStage",
-            new Class<?>[]{String.class, boolean.class}, "GOING_TO_PICKUP", false));
+            new Class<?>[]{String.class, boolean.class, String.class}, "GOING_TO_PICKUP", false, pickupEvent));
     Thread.sleep(5L);
     setField(service, "tripStartAt", System.currentTimeMillis());
+    String rideStartEvent = KfeNativeWorkActionsPlugin.recordPendingAction(service, "START_RIDE", tripId, "");
     assertTrue("Passenger ride start must commit without PWA replay.",
         (Boolean) invoke(service, "persistCanonicalTripStage",
-            new Class<?>[]{String.class, boolean.class}, "RIDE_STARTED", true));
+            new Class<?>[]{String.class, boolean.class, String.class}, "RIDE_STARTED", true, rideStartEvent));
     Thread.sleep(5L);
+    String endRideEvent = KfeNativeWorkActionsPlugin.recordPendingAction(service, "END_RIDE", tripId, "");
     assertTrue("Trip completion must commit without PWA replay.",
         (Boolean) invoke(service, "persistCanonicalTripStage",
-            new Class<?>[]{String.class, boolean.class}, "COMPLETED", false));
+            new Class<?>[]{String.class, boolean.class, String.class}, "COMPLETED", false, endRideEvent));
   }
 
   private static void prepareSnapshot(SharedPreferences prefs, String shiftId, String tripId) throws Exception {
