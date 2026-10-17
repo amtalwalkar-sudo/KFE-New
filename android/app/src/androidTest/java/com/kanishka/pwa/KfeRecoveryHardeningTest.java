@@ -429,7 +429,9 @@ public class KfeRecoveryHardeningTest {
     assertTrue("The offline-routing test must run without an active internet-capable network.",
         capabilities == null || !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET));
 
-    File source = new File("/data/local/tmp/valhalla-tiles.tar");
+    File externalFiles = context.getExternalFilesDir(null);
+    assertNotNull("App-specific external files directory must be available for the CI fixture.", externalFiles);
+    File source = new File(externalFiles, "valhalla-tiles.tar");
     assertTrue("CI must push the actual region tile extract before the offline test.", source.isFile() && source.length() > 0);
     File mapDir = new File(context.getFilesDir(), "offline-maps");
     if (!mapDir.exists()) assertTrue("Unable to create offline map directory.", mapDir.mkdirs());
@@ -454,7 +456,7 @@ public class KfeRecoveryHardeningTest {
     // against this exact Alibag tile extract. Hand-picked city coordinates can
     // fall on disconnected/one-way edges and make this an input-fixture failure
     // rather than a meaningful offline-package test.
-    File routeRequestFile = new File("/data/local/tmp/valhalla-trace-request.json");
+    File routeRequestFile = new File(externalFiles, "valhalla-trace-request.json");
     assertTrue("CI must push the trace request validated against this regional extract.",
         routeRequestFile.isFile() && routeRequestFile.length() > 0);
     byte[] requestBytes = java.nio.file.Files.readAllBytes(routeRequestFile.toPath());
