@@ -502,7 +502,7 @@ public class KfeOverlayService extends Service {
     injectLifecycleFault("AFTER_CHECKPOINT");
     String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,eventStage,pendingTripId,"");
     injectLifecycleFault("AFTER_OUTBOX");
-    if(!persistCanonicalTripStage(canonicalStage,rideStarted))throw new IllegalStateException("Canonical lifecycle write was not committed.");
+    if(!persistCanonicalTripStage(canonicalStage,rideStarted,eventId))throw new IllegalStateException("Canonical lifecycle write was not committed.");
     injectLifecycleFault("AFTER_CANONICAL");
     return eventId;
   }
@@ -818,12 +818,17 @@ public class KfeOverlayService extends Service {
   }
 
   
-  private boolean persistCanonicalTripStage(String stage, boolean rideStarted){
+  private boolean persistCanonicalTripStage(String stage, boolean rideStarted, String eventId){
     try{
       JSONObject root=new JSONObject(getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(LAST_STATE_KEY,"{}"));
       JSONObject shift=root.optJSONObject("shift");
       if(shift==null||shift.optString("id","").isEmpty()||pendingTripId.isEmpty())return false;
       KfeCanonicalWorkStore store=KfeCanonicalWorkStore.get(this);
+      // The native event row is the durable identity for this lifecycle action.
+      // Reuse its creation time so a retry after commit/lost acknowledgement
+      // recreates the exact same canonical payload and operation ID.
+      String eventTimestamp=java.time.Instant.ofEpochMilli(
+          KfeNativeEventStore.get(this).createdAtMillis(eventId)).toString();
       JSONObject found=store.getRecord("TRIP",pendingTripId);
       JSONObject trip=found.optJSONObject("record");
       if(trip==null){
@@ -835,18 +840,18 @@ public class KfeOverlayService extends Service {
       if(!defaultOperator.isEmpty()&&!trip.has("operator"))trip.put("operator",defaultOperator);
       trip.put("status","COMPLETED".equals(stage)?"COMPLETED":"ACTIVE");
       trip.put("tripStage","COMPLETED".equals(stage)?"COMPLETED":stage);
-      if(!trip.has("createdAt"))trip.put("createdAt",new java.util.Date().toInstant().toString());
+      if(!trip.has("createdAt"))trip.put("createdAt",eventTimestamp);
       if(rideStarted){
         trip.put("tripStartAt",new java.util.Date(tripStartAt).toInstant().toString());
         if(!trip.has("rideStartLocation"))trip.put("rideStartLocationStatus","MISSING");
         trip.put("rideStartLocationEventAt",new java.util.Date(tripStartAt).toInstant().toString());
       }
       if("COMPLETED".equals(stage)){
-        if(!trip.has("tripEndAt")||trip.isNull("tripEndAt")||trip.optString("tripEndAt","").isEmpty())trip.put("tripEndAt",new java.util.Date().toInstant().toString());
+        if(!trip.has("tripEndAt")||trip.isNull("tripEndAt")||trip.optString("tripEndAt","").isEmpty())trip.put("tripEndAt",eventTimestamp);
         trip.put("tripEndLocationStatus",trip.has("tripEndLocation")&&!trip.isNull("tripEndLocation")?"CAPTURED":"MISSING");
       }
-      trip.put("updatedAt",new java.util.Date().toInstant().toString());
-      KfeCanonicalWorkStore.Outcome outcome=store.putRecord("native-trip-stage-"+pendingTripId+"-"+stage,"TRIP",trip);
+      trip.put("updatedAt",eventTimestamp);
+      KfeCanonicalWorkStore.Outcome outcome=store.putRecord("native-trip-stage-"+eventId,"TRIP",trip);
       if(!outcome.accepted)throw new IllegalStateException("Canonical trip lifecycle stage was not acknowledged.");
       return true;
     }catch(Exception error){Log.e("KFE-CANONICAL","Could not persist native trip stage",error);return false;}
