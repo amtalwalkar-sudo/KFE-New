@@ -443,5 +443,5 @@ if ! printf '%s\n' "$overlay_appop" | grep -qi 'allow'; then
   echo "SYSTEM_ALERT_WINDOW app-op was not allowed after reboot: $overlay_appop" >&2
   exit 1
 fi
-run_instrumentation com.kanishka.pwa.KfeOverlaySmokeTest native-overlay 19
+run_instrumentation com.kanishka.pwa.KfeOverlaySmokeTest native-overlay 20
 sha256sum "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
