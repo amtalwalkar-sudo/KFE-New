@@ -112,7 +112,7 @@ const makeHarness = ({ shifts = [canonicalShift], trips = [canonicalCompletedTri
     },
   }
   const h = makeHarness({ localShifts: [pendingShift], mirrorFailure: true })
-  await assert.rejects(recoverCanonicalWorkSnapshot(h), /simulated native write\\/ack interruption/)
+  await assert.rejects(recoverCanonicalWorkSnapshot(h), /simulated native write.*ack interruption/)
   assert.equal(h.getCanonicalShifts()[0].revenue, 275, 'failed native write must not partially update canonical state')
   assert.equal(h.getSyncCalls(), 0, 'do not sync away a journaled pending mutation after write failure')
   await recoverCanonicalWorkSnapshot(h)
