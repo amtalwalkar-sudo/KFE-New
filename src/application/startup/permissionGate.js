@@ -1,25 +1,29 @@
 import { reactive } from 'vue'
 import { Capacitor, registerPlugin } from '@capacitor/core'
+import { findFirstMissingNativeCheck } from './permissionStartupChecks.js'
 
 const NativeGate = registerPlugin('KfeNativeGps')
 const native = () => Capacitor?.isNativePlatform?.() === true
 const attempted = new Set()
 const runtimeRequested = new Set()
-const confirmedOemSettings = new Set()
 let activeRun = null
 let retryCurrent = null
 
 export const permissionGateState = reactive({ status: 'checking', current: null, message: 'KFE is checking the permissions needed to record a shift safely.', actionLabel: 'Open setting', error: null })
 
-const nativeChecks = [
-  { key: 'location', label: 'Precise location access', ok: s => s.fineLocationAllowed === true, request: 'location', setting: 'location', message: 'Allow precise location for KFE so trip distance can be recorded.' },
-  { key: 'backgroundLocation', label: 'Background location access', ok: s => s.backgroundLocationAllowed === true, setting: 'backgroundLocation', message: 'Set KFE location access to “Allow all the time” so an active ride can continue when the screen is off.' },
-  { key: 'locationServices', label: 'Phone location services', ok: s => s.locationServicesEnabled === true, setting: 'locationServices', message: 'Turn on Location on your phone, then return to KFE.' },
-  { key: 'notifications', label: 'KFE notifications', ok: s => s.notificationsAllowed === true, request: 'notifications', setting: 'notifications', message: 'Allow KFE notifications so persistent ride actions can be shown.' },
-  { key: 'overlay', label: 'KFE floating ride controls', ok: s => s.overlayAllowed === true, setting: 'overlay', message: 'Allow KFE to display over other apps so the floating ride controls can work.' },
-  { key: 'oemAutostart', label: 'Xiaomi background autostart', ok: s => s.oemBackgroundSettingsRequired !== true || confirmedOemSettings.has('oemAutostart'), setting: 'oemAutostart', manualConfirmation: true, message: 'In Xiaomi settings, enable Background autostart for KFE. Return here and confirm only after it is enabled.', actionLabel: 'I enabled autostart — check again' },
-  { key: 'oemBattery', label: 'Xiaomi battery restrictions', ok: s => s.oemBackgroundSettingsRequired !== true || confirmedOemSettings.has('oemBattery'), setting: 'oemBattery', manualConfirmation: true, message: 'Open KFE App info → Battery saver and choose No restrictions. MIUI does not expose a reliable status API, so confirm only after checking it.', actionLabel: 'I chose No restrictions — continue' }
-]
+const OEM_CONFIRMATIONS_KEY = 'kfe.startup.oemSettingsConfirmed.v1'
+
+function loadConfirmedOemSettings() {
+  try {
+    const stored = JSON.parse(globalThis.localStorage?.getItem(OEM_CONFIRMATIONS_KEY) || '[]')
+    return Array.isArray(stored) ? stored.filter(key => key === 'oemAutostart' || key === 'oemBattery') : []
+  } catch (_) { return [] }
+}
+const confirmedOemSettings = new Set(loadConfirmedOemSettings())
+function persistConfirmedOemSettings() {
+  try { globalThis.localStorage?.setItem(OEM_CONFIRMATIONS_KEY, JSON.stringify([...confirmedOemSettings])) } catch (_) {}
+}
+
 
 function waitForForegroundReturn() {
   return new Promise(resolve => {
@@ -46,7 +50,7 @@ function requestBrowserLocation() {
   })
 }
 async function getFirstMissing() {
-  if (native()) { const status = await NativeGate.getStartupPermissionStatus(); return nativeChecks.find(check => !check.ok(status)) || null }
+  if (native()) { const status = await NativeGate.getStartupPermissionStatus(); return findFirstMissingNativeCheck(status, confirmedOemSettings) }
   const state = await browserLocationPermission()
   if (state === 'denied') return { key: 'location', label: 'Location permission', setting: 'location', message: 'Allow location for this site in your browser or phone settings, then return to KFE.', actionLabel: 'Check again', browserDenied: true }
   if (state === 'prompt') return { key: 'location', label: 'Location permission', setting: 'location', message: 'Allow location when your browser asks so KFE can record trip distance.', actionLabel: 'Request location' }
@@ -55,7 +59,7 @@ async function getFirstMissing() {
 function waitForRetry() { return new Promise(resolve => { retryCurrent = resolve }) }
 export function retryStartupPermissionGate() {
   if (permissionGateState.current?.key) attempted.delete(permissionGateState.current.key)
-  if (permissionGateState.current?.manualConfirmation) confirmedOemSettings.add(permissionGateState.current.key)
+  if (permissionGateState.current?.manualConfirmation) { confirmedOemSettings.add(permissionGateState.current.key); persistConfirmedOemSettings() }
   const resolve = retryCurrent; retryCurrent = null
   if (resolve) resolve(); else if (!activeRun) void runStartupPermissionGate()
 }
