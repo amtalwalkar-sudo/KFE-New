@@ -450,12 +450,15 @@ public class KfeRecoveryHardeningTest {
       output.getFD().sync();
     }
 
-    JSONArray shape = new JSONArray()
-        .put(new JSONObject().put("lat", 18.6414).put("lon", 72.8722).put("time", 1792140000L))
-        .put(new JSONObject().put("lat", 18.6480).put("lon", 72.8660).put("time", 1792140060L))
-        .put(new JSONObject().put("lat", 18.6540).put("lon", 72.8600).put("time", 1792140120L));
-    JSONObject request = new JSONObject().put("shape", shape).put("shape_match", "map_snap")
-        .put("costing", "auto").put("units", "kilometers").put("shape_format", "geojson");
+    // Use the same route-derived encoded polyline that passed the HTTP smoke
+    // against this exact Alibag tile extract. Hand-picked city coordinates can
+    // fall on disconnected/one-way edges and make this an input-fixture failure
+    // rather than a meaningful offline-package test.
+    File routeRequestFile = new File("/data/local/tmp/valhalla-trace-request.json");
+    assertTrue("CI must push the trace request validated against this regional extract.",
+        routeRequestFile.isFile() && routeRequestFile.length() > 0);
+    byte[] requestBytes = java.nio.file.Files.readAllBytes(routeRequestFile.toPath());
+    JSONObject request = new JSONObject(new String(requestBytes, java.nio.charset.StandardCharsets.UTF_8));
     ValhallaConfigManager manager = new ValhallaConfigManager(context,
         new ValhallaFile(context, "valhalla-offline.json", mapDir),
         new Moshi.Builder().add(new KotlinJsonAdapterFactory()).build());
