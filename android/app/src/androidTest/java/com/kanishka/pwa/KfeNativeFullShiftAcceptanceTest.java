@@ -238,6 +238,79 @@ public class KfeNativeFullShiftAcceptanceTest {
       assertEquals(1, cancellation.length());
       assertEquals("PASSENGER", cancellation.getJSONObject(0).getString("reason"));
       assertEquals(20d, cancellation.getJSONObject(0).getDouble("fee"), 0.001d);
+
+      // Now simulate an old PWA IndexedDB snapshot arriving after the native
+      // canonical fare/status writes have committed. Reload the PWA so its real
+      // startup catch-up path must reconcile the stale local values again.
+      String seedStalePwa = "(function(){"
+          + "const root=document.documentElement;root.dataset.staleSeed='PENDING';"
+          + "const req=indexedDB.open('kanishka_kfe_canonical_db');"
+          + "req.onerror=()=>root.dataset.staleSeed='ERROR_OPEN';"
+          + "req.onsuccess=()=>{const db=req.result;"
+          + "if(!db.objectStoreNames.contains('trips')||!db.objectStoreNames.contains('shifts')){root.dataset.staleSeed='ERROR_SCHEMA';db.close();return;}"
+          + "const tx=db.transaction(['trips','shifts'],'readwrite');"
+          + "const oldAt='2026-10-15T00:00:00.000Z';"
+          + "const tripReq=tx.objectStore('trips').get(" + JSONObject.quote(tripA) + ");"
+          + "const shiftReq=tx.objectStore('shifts').get(" + JSONObject.quote(shiftId) + ");"
+          + "tripReq.onsuccess=()=>{const value=tripReq.result;if(!value){root.dataset.staleSeed='ERROR_TRIP_MISSING';return;}value.status='ACTIVE';value.revenue=1;value.updatedAt=oldAt;tx.objectStore('trips').put(value);};"
+          + "shiftReq.onsuccess=()=>{const value=shiftReq.result;if(!value){root.dataset.staleSeed='ERROR_SHIFT_MISSING';return;}value.status='ACTIVE';value.revenue=1;value.updatedAt=oldAt;tx.objectStore('shifts').put(value);};"
+          + "tx.oncomplete=()=>{root.dataset.staleSeed='DONE';db.close();};"
+          + "tx.onerror=()=>{root.dataset.staleSeed='ERROR_TX';db.close();};};return 'STARTED';})()";
+      evaluate(scenario, seedStalePwa);
+      String staleSeedResult = "";
+      long seedDeadline = SystemClock.uptimeMillis() + 15000L;
+      while (SystemClock.uptimeMillis() < seedDeadline) {
+        staleSeedResult = decodeJsString(evaluate(scenario,
+            "document.documentElement.dataset.staleSeed||'PENDING'"));
+        if (!"PENDING".equals(staleSeedResult)) break;
+        SystemClock.sleep(200L);
+      }
+      assertEquals("Test must inject stale shift and trip values into PWA IndexedDB.", "DONE", staleSeedResult);
+      evaluate(scenario, "location.reload();'RELOADING'");
+      readiness = "";
+      readyDeadline = SystemClock.uptimeMillis() + 90000L;
+      while (SystemClock.uptimeMillis() < readyDeadline) {
+        readiness = decodeJsString(evaluate(scenario,
+            "(function(){"
+              + "const text=document.body.innerText||'';"
+              + "const skip=[...document.querySelectorAll('button')].find(b=>b.innerText.includes(\"Skip — I'll fill this later\")&&!b.disabled);"
+              + "if(skip){skip.click();return 'SKIPPED';}"
+              + "return text.includes('KFE WORK')&&(text.includes('START SHIFT')||text.includes('ONLINE')||text.includes('END SHIFT'))?'READY':'WAIT';"
+              + "})()"));
+        if ("READY".equals(readiness)) break;
+        SystemClock.sleep(500L);
+      }
+      assertEquals("PWA must remount after the stale snapshot is seeded.", "READY", readiness);
+      JSONObject recoveredAfterStale = null;
+      long staleCatchupDeadline = SystemClock.uptimeMillis() + 90000L;
+      while (SystemClock.uptimeMillis() < staleCatchupDeadline) {
+        evaluate(scenario, query);
+        SystemClock.sleep(500L);
+        String value = decodeJsString(evaluate(scenario,
+            "document.documentElement.dataset.nativeCatchup||'PENDING'"));
+        if (value.startsWith("ERROR_")) throw new AssertionError("PWA stale-snapshot catch-up failed: " + value);
+        if (value.startsWith("{")) {
+          JSONObject candidate = new JSONObject(value);
+          JSONArray idsAfter = candidate.optJSONArray("tripIds");
+          if (candidate.optBoolean("shiftFound") && idsAfter != null && idsAfter.length() == 3
+              && Math.abs(candidate.optDouble("shiftRevenue", -1d) - 420d) < 0.001d) {
+            recoveredAfterStale = candidate;
+            break;
+          }
+        }
+      }
+      assertNotNull("Stale PWA snapshot must be replaced by canonical catch-up.", recoveredAfterStale);
+      assertEquals("COMPLETED", statusFor(recoveredAfterStale, tripA));
+      assertEquals(250d, revenueFor(recoveredAfterStale, tripA), 0.001d);
+      assertEquals(420d, recoveredAfterStale.getDouble("shiftRevenue"), 0.001d);
+      KfeCanonicalWorkStore canonicalAfterStale = KfeCanonicalWorkStore.get(context);
+      JSONObject nativeShiftAfterStale = canonicalAfterStale.getRecord("SHIFT", shiftId);
+      JSONObject nativeTripAfterStale = canonicalAfterStale.getRecord("TRIP", tripA);
+      assertEquals("Native canonical shift revenue must not be rolled back by stale PWA data.", 420d,
+          nativeShiftAfterStale.getJSONObject("record").getDouble("revenue"), 0.001d);
+      assertEquals("Native canonical trip status must not be rolled back by stale PWA data.", "COMPLETED",
+          nativeTripAfterStale.getJSONObject("record").getString("status"));
+      assertEquals(250d, nativeTripAfterStale.getJSONObject("record").getDouble("revenue"), 0.001d);
     } finally {
       try {
         String cleanup = "(function(){"
