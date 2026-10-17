@@ -44,10 +44,12 @@ install_apk_with_retry android/app/build/outputs/apk/debug/app-debug.apk
 install_apk_with_retry android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 # Use the smaller, separately published Alibag package so the on-device
 # test exercises a real region extract without exhausting emulator RAM/time.
-timeout 300s adb push work/area-alibag.tar /data/local/tmp/valhalla-tiles.tar
+# Stage inputs in app-specific external storage; app UIDs cannot reliably traverse /data/local/tmp.
+adb shell mkdir -p /sdcard/Android/data/com.kanishka.pwa/files
+timeout 300s adb push work/area-alibag.tar /sdcard/Android/data/com.kanishka.pwa/files/valhalla-tiles.tar
 # Reuse the trace geometry already validated against this exact regional package by the HTTP smoke gate.
-timeout 60s adb push work/trace-request-alibag.json /data/local/tmp/valhalla-trace-request.json
-test "$(adb shell ls -l /data/local/tmp/valhalla-tiles.tar | awk '{print $5}' | tr -d '\r')" -gt 0
+timeout 60s adb push work/trace-request-alibag.json /sdcard/Android/data/com.kanishka.pwa/files/valhalla-trace-request.json
+test "$(adb shell ls -l /sdcard/Android/data/com.kanishka.pwa/files/valhalla-tiles.tar | awk '{print $5}' | tr -d '\r')" -gt 0
 
 # Disable emulator-managed external network paths before invoking the native engine.
 adb shell svc wifi disable
