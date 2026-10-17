@@ -6,6 +6,8 @@ import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteOpenHelper;
 import android.os.SystemClock;
 import android.webkit.WebView;
 
@@ -137,6 +139,7 @@ public class KfeNativeFullShiftAcceptanceTest {
         .putString("nativeFullShiftCatchupFareTripA", fareTripA)
         .putString("nativeFullShiftCatchupFareTripB", fareTripB)
         .putString("nativeFullShiftCatchupCancelledTrip", cancelledTrip)
+        .remove(STATE_KEY)
         .commit();
   }
 
@@ -230,7 +233,50 @@ public class KfeNativeFullShiftAcceptanceTest {
       assertEquals("PASSENGER", cancellation.getJSONObject(0).getString("reason"));
       assertEquals(20d, cancellation.getJSONObject(0).getDouble("fee"), 0.001d);
     } finally {
+      try {
+        String cleanup = "(function(){"
+            + "const root=document.documentElement;"
+            + "const req=indexedDB.open('kanishka_kfe_canonical_db');"
+            + "req.onerror=()=>root.dataset.nativeCatchupCleanup='ERROR_OPEN';"
+            + "req.onsuccess=()=>{const db=req.result;"
+            + "if(!db.objectStoreNames.contains('trips')||!db.objectStoreNames.contains('shifts')){db.close();root.dataset.nativeCatchupCleanup='DONE';return;}"
+            + "const tx=db.transaction(['trips','shifts'],'readwrite');"
+            + "[" + JSONObject.quote(tripA) + "," + JSONObject.quote(tripB) + "," + JSONObject.quote(cancelledTrip) + "].forEach(id=>tx.objectStore('trips').delete(id));"
+            + "tx.objectStore('shifts').delete(" + JSONObject.quote(shiftId) + ");"
+            + "tx.oncomplete=()=>{root.dataset.nativeCatchupCleanup='DONE';db.close();};"
+            + "tx.onerror=()=>{root.dataset.nativeCatchupCleanup='ERROR_TX';db.close();};};return 'STARTED';})()";
+        evaluate(scenario, cleanup);
+        SystemClock.sleep(300L);
+      } catch (Exception ignored) { }
       scenario.close();
+      cleanupNativeRecords(context, shiftId, tripA, tripB, cancelledTrip);
+      prefs.edit().remove("nativeFullShiftCatchupShiftId")
+          .remove("nativeFullShiftCatchupFareTripA")
+          .remove("nativeFullShiftCatchupFareTripB")
+          .remove("nativeFullShiftCatchupCancelledTrip").commit();
+    }
+  }
+
+  private static void cleanupNativeRecords(Context context, String shiftId, String tripA,
+      String tripB, String cancelledTrip) throws Exception {
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    Method getter = SQLiteOpenHelper.class.getDeclaredMethod("getWritableDatabase");
+    getter.setAccessible(true);
+    SQLiteDatabase db = (SQLiteDatabase) getter.invoke(store);
+    db.beginTransaction();
+    try {
+      for (String id : new String[]{shiftId, tripA, tripB, cancelledTrip}) {
+        db.delete("canonical_audit", "entity_id=?", new String[]{id});
+        db.delete("canonical_operations", "entity_id=?", new String[]{id});
+        db.delete("canonical_records", "entity_id=?", new String[]{id});
+      }
+      db.setTransactionSuccessful();
+    } finally {
+      db.endTransaction();
+      store.close();
+      Field singleton = KfeCanonicalWorkStore.class.getDeclaredField("instance");
+      singleton.setAccessible(true);
+      singleton.set(null, null);
     }
   }
 
