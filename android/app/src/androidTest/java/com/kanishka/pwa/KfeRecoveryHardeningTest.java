@@ -440,7 +440,7 @@ public class KfeRecoveryHardeningTest {
 
     File externalFiles = context.getExternalFilesDir(null);
     assertNotNull("App-specific external files directory must be available for the CI fixture.", externalFiles);
-    File source = new File(externalFiles, "valhalla-tiles.tar");
+    File source = new File(context.getFilesDir(), "valhalla-tiles.tar");
     assertTrue("CI must push the actual region tile extract before the offline test.", source.isFile() && source.length() > 0);
     File mapDir = new File(context.getFilesDir(), "offline-maps");
     if (!mapDir.exists()) assertTrue("Unable to create offline map directory.", mapDir.mkdirs());
