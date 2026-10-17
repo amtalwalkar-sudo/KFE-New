@@ -6,42 +6,29 @@ const stableValue = value => {
   return value
 }
 const sameRecord = (left, right) => JSON.stringify(stableValue(left)) === JSON.stringify(stableValue(right))
-const versionOf = record => {
-  const value = Date.parse(record?.updatedAt || '')
-  return Number.isFinite(value) ? value : null
-}
 
+/**
+ * Reconcile the PWA cache with Android's native SQLite authority.
+ *
+ * Existing records from native SQLite are authoritative regardless of updatedAt:
+ * the PWA timestamp only describes the local cache/write timeline and cannot prove
+ * that a full-record snapshot includes later native overlay transitions. Promote a
+ * local record only when native has no record for that ID (for example, an
+ * interrupted first mirror). Then re-read SQLite and converge IndexedDB to it.
+ */
 const reconcileEntity = async (entityType, canonicalRecords, localRecords, mirrorRecord) => {
-  const canonicalById = new Map(canonicalRecords.filter(record => record?.id).map(record => [record.id, record]))
+  const canonicalIds = new Set(canonicalRecords.filter(record => record?.id).map(record => record.id))
   for (const local of localRecords.filter(record => record?.id)) {
-    const canonical = canonicalById.get(local.id)
-    if (!canonical) {
-      await mirrorRecord(entityType, local)
-      continue
-    }
-    const localVersion = versionOf(local)
-    const canonicalVersion = versionOf(canonical)
-    if (localVersion === null || canonicalVersion === null) {
-      if (!sameRecord(local, canonical)) {
-        throw new Error(`Canonical recovery conflict for ${entityType}/${local.id}: comparable updatedAt versions are required.`)
-      }
-      continue
-    }
-    if (localVersion > canonicalVersion) {
-      // This is an unacknowledged local write from an interrupted mirror. Retry
-      // it before applying the native snapshot back to IndexedDB.
-      await mirrorRecord(entityType, local)
-    } else if (localVersion === canonicalVersion && !sameRecord(local, canonical)) {
-      throw new Error(`Canonical recovery conflict for ${entityType}/${local.id}: different records share updatedAt.`)
-    }
+    if (canonicalIds.has(local.id)) continue
+    await mirrorRecord(entityType, local)
   }
 }
 
 /**
- * Reconcile interrupted IndexedDB-first writes without allowing an older native
- * snapshot to erase them. Native canonical records win unless IndexedDB contains
- * a demonstrably newer pending write, which must be acknowledged by native SQLite
- * before any snapshot is copied back to IndexedDB.
+ * Android native SQLite owns existing shift/trip lifecycle and fare state.
+ * Local-only records may be promoted to recover an interrupted first write, but a
+ * newer local updatedAt is never sufficient to replace an existing native record.
+ * Only a fresh native snapshot is copied back to IndexedDB.
  */
 export async function recoverCanonicalWorkSnapshot({
   readCanonical,
