@@ -45,6 +45,8 @@ install_apk_with_retry android/app/build/outputs/apk/androidTest/debug/app-debug
 # Use the smaller, separately published Alibag package so the on-device
 # test exercises a real region extract without exhausting emulator RAM/time.
 timeout 300s adb push work/area-alibag.tar /data/local/tmp/valhalla-tiles.tar
+# Reuse the trace geometry already validated against this exact regional package by the HTTP smoke gate.
+timeout 60s adb push work/trace-request-alibag.json /data/local/tmp/valhalla-trace-request.json
 test "$(adb shell ls -l /data/local/tmp/valhalla-tiles.tar | awk '{print $5}' | tr -d '\r')" -gt 0
 
 # Disable emulator-managed external network paths before invoking the native engine.
