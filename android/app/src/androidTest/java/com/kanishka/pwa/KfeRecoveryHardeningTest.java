@@ -465,7 +465,7 @@ public class KfeRecoveryHardeningTest {
     // against this exact Alibag tile extract. Hand-picked city coordinates can
     // fall on disconnected/one-way edges and make this an input-fixture failure
     // rather than a meaningful offline-package test.
-    File routeRequestFile = new File(externalFiles, "valhalla-trace-request.json");
+    File routeRequestFile = new File(context.getFilesDir(), "valhalla-trace-request.json");
     assertTrue("CI must push the trace request validated against this regional extract.",
         routeRequestFile.isFile() && routeRequestFile.length() > 0);
     byte[] requestBytes = java.nio.file.Files.readAllBytes(routeRequestFile.toPath());
