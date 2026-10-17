@@ -852,8 +852,15 @@ public class KfeOverlayService extends Service {
       if(candidate!=null&&tripId.equals(candidate.optString("id",""))){
         if(trip==null)trip=new JSONObject(candidate.toString());
         else {
+          // The native canonical record wins on every field it already owns.
+          // The persisted PWA snapshot may be stale (for example after a lost
+          // bridge acknowledgement), so it may only fill fields absent from
+          // the canonical record; it must never roll canonical values backward.
           java.util.Iterator<String> keys=candidate.keys();
-          while(keys.hasNext()){String key=keys.next();if(!candidate.isNull(key))trip.put(key,candidate.get(key));}
+          while(keys.hasNext()){
+            String key=keys.next();
+            if((!trip.has(key)||trip.isNull(key))&&!candidate.isNull(key))trip.put(key,candidate.get(key));
+          }
         }
       }
     }
