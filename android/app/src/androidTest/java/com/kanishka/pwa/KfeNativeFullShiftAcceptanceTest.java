@@ -181,6 +181,140 @@ public class KfeNativeFullShiftAcceptanceTest {
         !hasPendingEvent(events.pending(500), tripId, "GO_TO_PICKUP"));
   }
 
+  @Test public void prepareLifecycleProcessDeathAtBoundary() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    android.os.Bundle args = InstrumentationRegistry.getArguments();
+    String stage = args.getString("lifecycleStage", "");
+    String boundary = args.getString("lifecycleBoundary", "");
+    assertTrue("Unsupported lifecycle stage.", stage.equals("GO_TO_PICKUP") || stage.equals("START_RIDE") || stage.equals("END_RIDE"));
+    assertTrue("Unsupported lifecycle boundary.", boundary.equals("AFTER_CHECKPOINT") || boundary.equals("AFTER_OUTBOX") || boundary.equals("AFTER_CANONICAL"));
+
+    String suffix = Long.toString(System.currentTimeMillis());
+    String shiftId = "lifecycle-process-death-shift-" + suffix;
+    String tripId = "lifecycle-process-death-trip-" + suffix;
+    long startAt = stage.equals("GO_TO_PICKUP") ? 0L : System.currentTimeMillis() - 5000L;
+    SharedPreferences prefs = context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE);
+    prefs.edit()
+        .putString("lifecycleProcessDeathStage", stage)
+        .putString("lifecycleProcessDeathBoundary", boundary)
+        .putString("lifecycleProcessDeathShiftId", shiftId)
+        .putString("lifecycleProcessDeathTripId", tripId)
+        .putLong("lifecycleProcessDeathStartAt", startAt)
+        .putString("lifecycleProcessDeathPreEventId", "")
+        .putString("lifecycleProcessDeathReady", "")
+        .commit();
+
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    JSONObject shift = new JSONObject().put("id", shiftId).put("status", "ACTIVE")
+        .put("revenue", 0).put("updatedAt", java.time.Instant.now().toString());
+    assertTrue("Process-death fixture shift must commit.",
+        store.putRecord("lifecycle-process-death-shift-create-" + tripId, "SHIFT", shift).accepted);
+    prepareSnapshot(prefs, shiftId, tripId);
+
+    AttachedOverlayService service = new AttachedOverlayService();
+    service.attach(context);
+    setField(service, "actionStage", stage);
+    setField(service, "pendingTripId", tripId);
+    setField(service, "tripStartAt", startAt);
+    setField(service, "defaultOperator", "Uber");
+
+    KfeOverlayService.lifecycleFaultInjectorForTests = reached -> {
+      if (!boundary.equals(reached)) return;
+      String eventId = pendingEventIdFor(KfeNativeEventStore.get(context).pending(500), tripId, stage);
+      prefs.edit()
+          .putString("lifecycleProcessDeathPreEventId", eventId)
+          .putString("lifecycleProcessDeathReady", stage + "_" + boundary)
+          .commit();
+      android.util.Log.i("KFE_LIFECYCLE_DEATH", "READY_FOR_PROCESS_KILL stage=" + stage + " boundary=" + boundary);
+      // The CI shell must SIGKILL this process while it is parked at the exact
+      // production persistence boundary. Timeout prevents a broken harness hanging forever.
+      for (int i = 0; i < 90; i++) SystemClock.sleep(1000L);
+      throw new AssertionError("CI harness did not kill process at " + stage + "/" + boundary);
+    };
+    String canonicalStage = stage.equals("GO_TO_PICKUP") ? "GOING_TO_PICKUP"
+        : stage.equals("START_RIDE") ? "RIDE_STARTED" : "COMPLETED";
+    invoke(service, "persistLifecycleAction", new Class<?>[]{String.class, String.class, boolean.class},
+        stage, canonicalStage, stage.equals("START_RIDE"));
+    throw new AssertionError("Process-death preparation unexpectedly returned without reaching its kill boundary.");
+  }
+
+  @Test public void verifyLifecycleProcessDeathRecovery() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    SharedPreferences prefs = context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE);
+    String stage = prefs.getString("lifecycleProcessDeathStage", "");
+    String boundary = prefs.getString("lifecycleProcessDeathBoundary", "");
+    String shiftId = prefs.getString("lifecycleProcessDeathShiftId", "");
+    String tripId = prefs.getString("lifecycleProcessDeathTripId", "");
+    String preDeathEventId = prefs.getString("lifecycleProcessDeathPreEventId", "");
+    long startAt = prefs.getLong("lifecycleProcessDeathStartAt", 0L);
+    assertTrue("Harness must have killed the app at the requested boundary.",
+        (stage + "_" + boundary).equals(prefs.getString("lifecycleProcessDeathReady", "")));
+    assertTrue("Process-death fixture identity must survive app restart.", !shiftId.isEmpty() && !tripId.isEmpty());
+
+    String canonicalStage = stage.equals("GO_TO_PICKUP") ? "GOING_TO_PICKUP"
+        : stage.equals("START_RIDE") ? "RIDE_STARTED" : "COMPLETED";
+    KfeNativeEventStore events = KfeNativeEventStore.get(context);
+    String eventBeforeRetry = pendingEventIdFor(events.pending(500), tripId, stage);
+    if (boundary.equals("AFTER_CHECKPOINT")) {
+      assertEquals("A kill after checkpoint must precede outbox insertion.", "", eventBeforeRetry);
+      assertEquals("", preDeathEventId);
+    } else {
+      assertTrue("Outbox event must survive real process death.", !eventBeforeRetry.isEmpty());
+      assertEquals("Outbox event identity must survive real process death.", preDeathEventId, eventBeforeRetry);
+    }
+
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    JSONObject beforeRetry = store.getRecord("TRIP", tripId);
+    if (boundary.equals("AFTER_CANONICAL")) {
+      assertTrue("Canonical record committed before the kill must survive restart.", beforeRetry.optBoolean("found"));
+      assertEquals(canonicalStage, beforeRetry.getJSONObject("record").getString("tripStage"));
+    } else {
+      assertTrue("Canonical write must not appear before its boundary.", !beforeRetry.optBoolean("found"));
+    }
+
+    AttachedOverlayService recovered = new AttachedOverlayService();
+    recovered.attach(context);
+    invoke(recovered, "restoreNativeWorkflowCheckpoint", new Class<?>[]{});
+    assertEquals("Restart must restore the original trip identity.", tripId, getFieldString(recovered, "pendingTripId"));
+    assertEquals("Restart must restore the original lifecycle action.", stage, getFieldString(recovered, "actionStage"));
+    String retriedEventId = String.valueOf(invoke(recovered, "persistLifecycleAction",
+        new Class<?>[]{String.class, String.class, boolean.class}, stage, canonicalStage, stage.equals("START_RIDE")));
+    if (!preDeathEventId.isEmpty()) {
+      assertEquals("Retry after process death must reuse the same durable event ID.", preDeathEventId, retriedEventId);
+    }
+
+    JSONArray pendingAfterRetry = events.pending(500);
+    assertEquals("Recovery must leave one pending lifecycle event, with no duplicate or loss.",
+        1, countPendingEventsFor(pendingAfterRetry, tripId, stage));
+    assertEquals(retriedEventId, pendingEventIdFor(pendingAfterRetry, tripId, stage));
+    JSONObject canonical = KfeCanonicalWorkStore.get(context).getRecord("TRIP", tripId);
+    assertTrue("Canonical lifecycle record must exist after process-death retry.", canonical.optBoolean("found"));
+    JSONObject record = canonical.getJSONObject("record");
+    assertEquals(canonicalStage, record.getString("tripStage"));
+    assertEquals(stage.equals("END_RIDE") ? "COMPLETED" : "ACTIVE", record.getString("status"));
+    if (stage.equals("START_RIDE")) {
+      assertEquals("Ride-start timestamp must survive process death.",
+          new java.util.Date(startAt).toInstant().toString(), record.getString("tripStartAt"));
+    }
+
+    android.util.Log.i("KFE_LIFECYCLE_DEATH", "LIFECYCLE_PROCESS_DEATH_CASE_PASS stage=" + stage + " boundary=" + boundary);
+    cleanupNativeRecords(context, shiftId, tripId, "", "");
+    SQLiteOpenHelper eventStore = KfeNativeEventStore.get(context);
+    Method dbGetter = SQLiteOpenHelper.class.getDeclaredMethod("getWritableDatabase");
+    dbGetter.setAccessible(true);
+    SQLiteDatabase eventDb = (SQLiteDatabase) dbGetter.invoke(eventStore);
+    eventDb.delete("native_events", "trip_id=?", new String[]{tripId});
+    eventStore.close();
+    Field eventSingleton = KfeNativeEventStore.class.getDeclaredField("instance");
+    eventSingleton.setAccessible(true);
+    eventSingleton.set(null, null);
+    prefs.edit().remove(STATE_KEY)
+        .remove("lifecycleProcessDeathStage").remove("lifecycleProcessDeathBoundary")
+        .remove("lifecycleProcessDeathShiftId").remove("lifecycleProcessDeathTripId")
+        .remove("lifecycleProcessDeathStartAt").remove("lifecycleProcessDeathPreEventId")
+        .remove("lifecycleProcessDeathReady").commit();
+  }
+
   @Test public void lifecyclePersistenceRecoversAfterEveryCheckpointOutboxAndCanonicalBoundary() throws Exception {
     Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
     String suffix = Long.toString(System.currentTimeMillis());
