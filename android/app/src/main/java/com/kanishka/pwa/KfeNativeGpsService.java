@@ -624,6 +624,17 @@ public class KfeNativeGpsService extends Service {
           .commit();
       stopSelf();
       return false;
+    } catch (IllegalStateException error) {
+      // Some Android builds report background-start/provider-state restrictions
+      // as IllegalStateException rather than SecurityException. Keep the failure
+      // observable and preserve trip identity for a later provider-enabled retry.
+      Log.e("KfeNativeGpsService", "Foreground GPS service start is currently restricted.", error);
+      getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+          .putString("lastForegroundStartFailure", error.getClass().getSimpleName() + ": " + error.getMessage())
+          .putBoolean(ACTIVE_READY, false)
+          .commit();
+      stopSelf();
+      return false;
     }
   }
 
