@@ -73,8 +73,15 @@ public class KfeRecoveryHardeningTest {
 
     assertLostAckRetryIsIdempotent(store, fareAOperation, "TRIP", fareA);
     JSONObject reusedOperationWithDifferentPayload = new JSONObject(fareA.toString()).put("fare", 999);
-    assertRejectedWrite(store, fareAOperation, "TRIP", reusedOperationWithDifferentPayload,
-        "operationId was already used with a different payload");
+    try {
+      store.putRecord(fareAOperation, "TRIP", reusedOperationWithDifferentPayload);
+      fail("Expected operation-ID reuse with a changed payload to be rejected.");
+    } catch (IllegalArgumentException expected) {
+      assertTrue("Unexpected rejection: " + expected.getMessage(),
+          expected.getMessage().contains("operationId was already used with a different payload"));
+    }
+    assertTrue("Rejecting changed-payload replay must preserve the original operation outcome.",
+        store.getOperation(fareAOperation).getBoolean("found"));
     assertEquals("Rejected operation-ID reuse must not change the committed fare.", 250,
         store.getRecord("TRIP", tripA).getJSONObject("record").getInt("fare"));
     assertLostAckRetryIsIdempotent(store, fareBOperation, "TRIP", fareB);
