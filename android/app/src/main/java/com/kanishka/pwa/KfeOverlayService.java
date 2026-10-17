@@ -186,6 +186,14 @@ public class KfeOverlayService extends Service {
   }
 
   @Override public void onCreate(){super.onCreate();instance=this;
+    restoreNativeWorkflowCheckpoint();
+    createChannel();startForeground(NOTIFICATION_ID,buildNotification());foregroundHandler=new android.os.Handler(getMainLooper());foregroundHandler.post(foregroundCheck);
+    // Pending native events remain durable across process death. Do not force the
+    // main activity to the foreground; the PWA replays them when it next runs.
+  }
+  // Shared by normal service startup and instrumentation recovery tests so the
+  // test exercises the same persisted checkpoint restoration as process restart.
+  void restoreNativeWorkflowCheckpoint(){
     android.content.SharedPreferences saved=getSharedPreferences("kfe_overlay",MODE_PRIVATE);
     actionStage=saved.getString("actionStage","GO_TO_PICKUP");
     minimized=saved.getBoolean("minimized",false);
@@ -200,10 +208,8 @@ public class KfeOverlayService extends Service {
       // until applyState so a recovered acknowledgement cannot touch null views.
       acknowledgedEventNeedsRecovery=true;
     }
-    createChannel();startForeground(NOTIFICATION_ID,buildNotification());foregroundHandler=new android.os.Handler(getMainLooper());foregroundHandler.post(foregroundCheck);
-    // Pending native events remain durable across process death. Do not force the
-    // main activity to the foreground; the PWA replays them when it next runs.
   }
+
   @Override public int onStartCommand(Intent intent,int flags,int startId){
     if(intent==null){
       if(Settings.canDrawOverlays(this)){
