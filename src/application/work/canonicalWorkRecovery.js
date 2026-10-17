@@ -1,12 +1,3 @@
-const stableValue = value => {
-  if (Array.isArray(value)) return value.map(stableValue)
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(Object.keys(value).sort().map(key => [key, stableValue(value[key])]))
-  }
-  return value
-}
-const sameRecord = (left, right) => JSON.stringify(stableValue(left)) === JSON.stringify(stableValue(right))
-
 /**
  * Reconcile the PWA cache with Android's native SQLite authority.
  *
