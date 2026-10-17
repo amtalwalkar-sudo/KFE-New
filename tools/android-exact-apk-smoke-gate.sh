@@ -174,6 +174,8 @@ run_instrumentation com.kanishka.pwa.KfeWebViewStartupTest webview-startup 1
 # not double-count fares, and stale/equal-version snapshots must not overwrite
 # the canonical shift/trip projection.
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#canonicalWritesRemainIdempotentAfterLostAcknowledgementAndRejectStaleSnapshots canonical-persistence 1
+# Exercise real native overlay persistence helpers for two fares plus cancellation while no PWA event replay runs.
+run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest native-full-shift 1
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#gpsCollectorRecoversAfterServiceInterruption gps-service-recovery 1
 
 # Keep the instrumentation target alive while the shell injects process death.
