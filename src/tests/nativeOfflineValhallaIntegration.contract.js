@@ -53,7 +53,7 @@ assert.ok(mapReleaseWorkflow.includes('Verify installed Valhalla tiles with Andr
 assert.ok(mapReleaseScript.includes('KfeRecoveryHardeningTest#installedOfflineValhallaRoutesWithNetworkDisabled'), 'The actual mobile-engine offline route instrumentation must be invoked by CI.')
 assert.ok(mapReleaseWorkflow.includes('script: bash "$GITHUB_WORKSPACE/tools/android-offline-routing-smoke-gate.sh"'), 'The Android offline-routing workflow must invoke the dedicated Bash gate.')
 assert.ok(mapReleaseScript.includes('adb push work/area-alibag.tar /data/local/tmp/valhalla-tiles.tar'), 'CI must install an actual selectable regional tile package in the emulator test sandbox.')
-assert.ok(mapReleaseScript.includes('settings put global airplane_mode_on 1'), 'The mobile-engine route test must run with emulator networking disabled.')
+assert.ok(mapReleaseScript.includes('cmd connectivity airplane-mode enable'), 'The mobile-engine route test must disable emulator networking through ConnectivityService.')
 const recoveryTest = read('android/app/src/androidTest/java/com/kanishka/pwa/KfeRecoveryHardeningTest.java')
 assert.ok(recoveryTest.includes('new Valhalla(context,'), 'Offline routing must exercise the embedded native Valhalla engine.')
 assert.ok(recoveryTest.includes('usingTileExtract(tiles.getAbsolutePath(), null)'), 'Offline routing must use the locally installed tile extract rather than an online route.')
