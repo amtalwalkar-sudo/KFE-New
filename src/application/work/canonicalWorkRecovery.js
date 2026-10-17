@@ -19,7 +19,12 @@ const sameRecord = (left, right) => JSON.stringify(stableValue(left)) === JSON.s
 const reconcileEntity = async (entityType, canonicalRecords, localRecords, mirrorRecord) => {
   const canonicalIds = new Set(canonicalRecords.filter(record => record?.id).map(record => record.id))
   for (const local of localRecords.filter(record => record?.id)) {
-    if (canonicalIds.has(local.id)) continue
+    // Existing native records remain authoritative unless the PWA record carries
+    // an explicit durable pending-operation marker. That marker is written before
+    // the bridge call, so retrying it is intentional and idempotent—not a guess
+    // based on updatedAt. Unmarked stale PWA snapshots are never promoted.
+    const hasPendingNativeWrite = Boolean(local?._nativeCanonicalSync?.operationId && local?._nativeCanonicalSync?.fingerprint)
+    if (canonicalIds.has(local.id) && !hasPendingNativeWrite) continue
     await mirrorRecord(entityType, local)
   }
 }
