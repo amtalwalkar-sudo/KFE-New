@@ -19,8 +19,29 @@ if [ "$booted" != true ]; then
   echo "Android emulator did not finish system boot before offline-routing install." >&2
   exit 1
 fi
-timeout 300s adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-timeout 300s adb install -r android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+# These are test APKs installed only on this disposable CI emulator. Avoid
+# adb's streamed-install path: on slow hosted emulators it can hit Android's
+# package-integrity verification timeout even though the APK built successfully.
+# --no-streaming uses the classic push/install path; retry transient package
+# manager contention and preserve each failure in the job log.
+install_apk_with_retry() {
+  local apk="$1"
+  local attempt
+  for attempt in 1 2 3; do
+    echo "Installing $apk (attempt $attempt/3; non-streaming)"
+    if timeout 300s adb install --no-streaming -r "$apk"; then
+      return 0
+    fi
+    echo "APK install attempt $attempt failed; checking emulator/package manager before retry." >&2
+    adb shell getprop sys.boot_completed || true
+    adb shell dumpsys package | head -n 30 || true
+    sleep $((attempt * 5))
+  done
+  echo "APK installation failed after 3 attempts: $apk" >&2
+  return 1
+}
+install_apk_with_retry android/app/build/outputs/apk/debug/app-debug.apk
+install_apk_with_retry android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 # Use the smaller, separately published Alibag package so the on-device
 # test exercises a real region extract without exhausting emulator RAM/time.
 timeout 300s adb push work/area-alibag.tar /data/local/tmp/valhalla-tiles.tar
