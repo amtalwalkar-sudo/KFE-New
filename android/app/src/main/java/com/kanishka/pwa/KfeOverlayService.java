@@ -439,7 +439,7 @@ public class KfeOverlayService extends Service {
       if(pendingTripId.isEmpty()) pendingTripId=java.util.UUID.randomUUID().toString();
       // Persist the generated trip ID before writing either durable store. If
       // killed at any later boundary, a retry resumes this same logical trip.
-      persistNativeWorkflow();
+      if(!persistNativeWorkflow()){Toast.makeText(this,"Trip state could not be saved. Swipe again when storage is available.",Toast.LENGTH_LONG).show();return;}
       String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"GO_TO_PICKUP",pendingTripId,"");
       // Queue first: if the process dies before the canonical write, PWA replay
       // still has the durable intent. append() returns the same event on retry.
@@ -455,7 +455,7 @@ public class KfeOverlayService extends Service {
       if(pendingTripId.isEmpty()) return;
       // Preserve the original start instant across retries after process death.
       if(tripStartAt<=0L) tripStartAt=System.currentTimeMillis();
-      persistNativeWorkflow();
+      if(!persistNativeWorkflow()){Toast.makeText(this,"Trip state could not be saved. Swipe again when storage is available.",Toast.LENGTH_LONG).show();return;}
       String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"START_RIDE",pendingTripId,"");
       if(!persistCanonicalTripStage("RIDE_STARTED", true)){Toast.makeText(this,"Trip action is queued for recovery. Keep this trip open and retry when storage is available.",Toast.LENGTH_LONG).show();return;}
       actionStage="END_RIDE"; phaseStartAt=tripStartAt; phaseLabel="TRIP TIME";
@@ -518,7 +518,7 @@ public class KfeOverlayService extends Service {
     if("ENTER_FARE".equals(stage) || "CANCEL_RIDE".equals(stage)){ Log.i("KFE-SWIPE","stage transition "+stage+" -> GO_TO_PICKUP"); closeForm(); if("CANCEL_RIDE".equals(stage)){cancelFormPwaSynchronized=false;KfeNativeGpsService.stop(this,tripId);} actionStage="GO_TO_PICKUP"; pendingTripId=""; pendingFareTripId=""; tripStartAt=0L; phaseStartAt=System.currentTimeMillis(); phaseLabel="READY TIME"; persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); }
   }
 
-  private void persistNativeWorkflow(){
+  private boolean persistNativeWorkflow(){
     android.content.SharedPreferences prefs=getSharedPreferences("kfe_overlay",MODE_PRIVATE);
     android.content.SharedPreferences.Editor editor=prefs.edit()
       .putString("actionStage",actionStage)
@@ -547,7 +547,9 @@ public class KfeOverlayService extends Service {
     // This is the recovery checkpoint for lifecycle writes. apply() may defer
     // the disk write until after process death; commit() makes the checkpoint
     // durable before the next SQLite database is mutated.
-    if(!editor.commit()) Log.e("KFE-CANONICAL","Could not durably persist native workflow checkpoint");
+    boolean committed=editor.commit();
+    if(!committed) Log.e("KFE-CANONICAL","Could not durably persist native workflow checkpoint");
+    return committed;
   }
 
   private void hideIfKfeActivityForeground(){
