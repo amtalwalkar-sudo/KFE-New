@@ -9,12 +9,18 @@ import { calculateFuelQuantity, validateFuelEntry } from '../domain/work/fuel.js
 import { WorkService } from '../application/work/workService.js'
 import { WorkflowTimerService, WorkWorkflowSessionService } from '../application/work/workflowTimerService.js'
 import { getLiveMovementTracePlan } from '../application/work/liveMovementTrace.js'
+import { deriveLiveRevenue } from '../domain/work/liveRevenue.js'
+import { filterGpsTrace, routeTrace } from '../domain/movement/movementAccounting.js'
+assert.equal(deriveLiveRevenue([{status:'COMPLETED',revenue:250},{status:'COMPLETED',revenue:150}]),400)
 const workViewSource = fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8')
 assert.doesNotMatch(workViewSource, /from ['"][^'"]*\/infrastructure\//, 'Work view must not import infrastructure adapters directly.')
 assert.doesNotMatch(workViewSource, /from ['"]@capacitor\/core['"]/, 'Work view must not depend directly on Capacitor.')
 assert.match(workViewSource, /WorkRuntimePorts\.platform\.getPlatform\(\)/, 'Platform identity must arrive through an application-facing port.')
 
 assert.equal(typeof WorkService.getTripGpsDistanceKm, 'function')
+const workServiceSource = fs.readFileSync(path.join(process.cwd(), 'src/application/work/workService.js'), 'utf8')
+assert.match(workServiceSource, /getTripGpsDistanceKm[\s\S]*?filterGpsTrace\(snapshots\)/, 'Passenger-ride distance reads must use the filtered derived GPS trace.')
+assert.match(workServiceSource, /getTripDeadMovementDistanceKm[\s\S]*?filterGpsTrace\(snapshots\)/, 'Dead-movement distance reads must use the same filtered derived GPS trace.')
 const liveMovementFixture = WorkService.calculateLiveMovement([
   { latitude: 19, longitude: 72, accuracy: 5, speed: 10, capturedAt: '2026-10-01T08:00:00.000Z' },
   { latitude: 19.001, longitude: 72, accuracy: 5, speed: 10, capturedAt: '2026-10-01T08:00:20.000Z' },
@@ -22,6 +28,30 @@ const liveMovementFixture = WorkService.calculateLiveMovement([
 ])
 assert.equal(liveMovementFixture.points.length, 2, 'Live movement excludes GPS fixes worse than the canonical 80 m accuracy limit.')
 assert.ok(liveMovementFixture.distanceKm > 0, 'Live movement sums filtered GPS segments into a non-zero distance.')
+
+// GPS jitter/outlier regression: speed is supplied in m/s, so it must be converted
+// before stationary thresholds; stationary drift and impossible jumps cannot inflate KM.
+const noisyGpsTrace = [
+  { latitude: 19, longitude: 72, accuracy: 5, speed: 0, capturedAt: '2026-10-01T08:00:00.000Z' },
+  { latitude: 19.0001, longitude: 72, accuracy: 5, speed: 0, capturedAt: '2026-10-01T08:00:20.000Z' },
+  { latitude: 19.001, longitude: 72, accuracy: 5, speed: 10, capturedAt: '2026-10-01T08:00:40.000Z' },
+  { latitude: 19.2, longitude: 72, accuracy: 5, speed: 0, capturedAt: '2026-10-01T08:01:00.000Z' },
+  { latitude: 19.002, longitude: 72, accuracy: 120, speed: 10, capturedAt: '2026-10-01T08:01:20.000Z' },
+  { latitude: 19.0011, longitude: 72, accuracy: 5, speed: 10, capturedAt: '2026-10-01T08:01:20.000Z' },
+  { latitude: 19.002, longitude: 72, accuracy: 5, speed: 10, capturedAt: '2026-10-01T08:01:20.000Z' }
+]
+const filteredNoisyTrace = filterGpsTrace(noisyGpsTrace)
+assert.equal(filteredNoisyTrace.length, 3, 'Routing trace removes stationary jitter, poor-accuracy fixes, equal-time duplicates and implausible jumps.')
+assert.equal(filteredNoisyTrace[0].latitude, 19, 'The stationary anchor is preserved.')
+assert.equal(filteredNoisyTrace[1].latitude, 19.001, 'The first plausible movement point is retained.')
+assert.equal(filteredNoisyTrace[2].latitude, 19.0011, 'A zero-duration point cannot replace the last accepted point.')
+let routedPointCount = 0
+const filteredRoute = await routeTrace(noisyGpsTrace, { routeTrace: async points => {
+  routedPointCount = points.length
+  return { distanceKm: 1.2, geometry: { type: 'LineString', coordinates: [[72, 19], [72, 19.01]] }, method: 'TEST_MAP_MATCH', provider: 'test', provenance: { provider: 'valhalla' } }
+} })
+assert.equal(routedPointCount, 3, 'Valhalla receives the filtered derived trace, not noisy raw fixes.')
+assert.equal(filteredRoute.distanceKm, 1.2, 'A valid map-matched road distance is retained.')
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /liveMovementLabel = computed\(\(\) => store\.isOnline \? \(active\.value \? 'BUSINESS KM' : 'DEAD KM'\) : ''\)/, 'Live movement labels remain visible throughout an online shift, including between trips.')
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /const stateTimerLabel = computed\(\(\) =>/)
 assert.match(fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8'), /const stateTimer = computed\(\(\) =>/)
@@ -167,7 +197,8 @@ assert.match(workService, /void \(async \(\) => \{/)
 assert.match(workService, /native trace retained for recovery:[\s\S]*?finally \{\s*try \{ await WorkRuntimePorts\.nativeGps\.stop\(tripId\)/, 'A native trace import failure must not leave GPS tracking attached to a completed trip.')
 assert.match(workView, /pendingFare/)
 assert.doesNotMatch(workView, /OPTIONAL DETAILS/, 'Redundant optional-details heading stays removed from the Work flow.')
-assert.match(workView, /Trip fare.*optional/)
+assert.match(workView, /deriveLiveRevenue/)
+assert.match(workView, /REVENUE/)
 assert.match(workView, /tripToll/)
 assert.match(workView, /tripParking/)
 
@@ -187,14 +218,14 @@ assert.match(workView, /recoveredPendingFareId/)
 assert.match(workStore, /WorkService\.completeTrip\(\{ id: tripId \}\)/)
 assert.match(workView, /TRIP COMPLETED/)
 assert.match(workView, /stage === 'ENTER_FARE'/)
-assert.match(workView, /swipeProgress>=70/)
+assert.match(workView, /swipeProgress>=SWIPE_CONFIG\.commitThresholdPercent/)
 assert.doesNotMatch(workView, /swipe-copy"><span>\{\{ swipeProgress>=70 \? 'RELEASE' : 'SWIPE' \}\}<\/span>/, 'Temporary swipe hint text is absent.')
 assert.match(workView, /<strong>\{\{ actionLabel \}\}<\/strong>/, 'The current trip action label remains visible.')
 assert.match(workView, /class="done fare-save-action"[^>]*>\{\{ fareBusy \? 'SAVING…' : 'OK' \}\}<\/button>/, 'Fare keypad has one concise OK action.')
 assert.match(workView, /<template v-if="type === 'fare'">[\s\S]*?fare-save-action[\s\S]*?fareBusy \? 'SAVING…' : 'OK'[\s\S]*?<\/template>/, 'Fare keypad uses one concise OK action instead of a second long save label.')
 assert.match(workView, /\.form-fare \.kfe-work-number-pad__grid button\{min-height:31px/, 'Fare keypad keys use a compact height to fit the form in the viewport.')
 assert.doesNotMatch(workView, /notify\('Going to pickup\.'\)|notify\('Trip active\.'\)|notify\('Trip ended\. Add optional details or skip\.'\)/, 'Trip state transitions do not show redundant confirmation prompts.')
-assert.match(workView, /async function up\(event\)[\s\S]*const commit = swipeProgress\.value >= 70[\s\S]*if \(commit\) await doAction\(\)/, 'Swipe threshold and action transition remain unchanged.')
+assert.match(workView, /async function up\(event\)[\s\S]*const commit = swipeProgress\.value >= SWIPE_CONFIG\.commitThresholdPercent[\s\S]*if \(commit\) await doAction\(\)/, 'Swipe threshold and action transition remain aligned with the shared swipe configuration.')
 assert.doesNotMatch(workView, /fareTripId\.value=null;fareTrip\.value=null;fare\.value=''\;onMounted/)
 assert.deepEqual(validateShiftStartOdometer(100, 90), { valid: true, gapKm: 10 })
 assert.deepEqual(validateShiftStartOdometer(100, null), { valid: true, gapKm: 0 }, 'No prior odometer is not a zero-km baseline')
@@ -209,13 +240,13 @@ assert.equal(validateGapAllocation(180).valid, false)
 assert.equal(validateGapAllocation(180, 'PERSONAL').personalKm + validateGapAllocation(180, 'PERSONAL').deadKm, 180)
 assert.equal(validateGapAllocation(180, 'DEAD').personalKm + validateGapAllocation(180, 'DEAD').deadKm, 180)
 assert.deepEqual(validateGapAllocation(0), { valid: true, category: null, personalKm: 0, deadKm: 0 })
-assert.equal(validateEndShiftEntry({ closingOdometer: 100, startOdometer: 100, revenue: 0 }).valid, true)
-assert.equal(validateEndShiftEntry({ closingOdometer: 99, startOdometer: 100, revenue: 0 }).valid, false)
-assert.equal(validateEndShiftEntry({ closingOdometer: 601, startOdometer: 100, revenue: 0 }).requiresConfirmation, true)
-assert.equal(validateEndShiftEntry({ closingOdometer: 601, startOdometer: 100, revenue: 0 }).valid, false)
-assert.equal(validateEndShiftEntry({ closingOdometer: 600, startOdometer: 100, revenue: 0, confirmLargeDistance: true }).valid, true)
-assert.equal(validateEndShiftEntry({ closingOdometer: 600, startOdometer: 100, revenue: 0 }).distanceKm, 500)
-assert.equal(validateEndShiftEntry({ closingOdometer: 601, startOdometer: 100, revenue: 0 }).requiresConfirmation, true)
+assert.equal(validateEndShiftEntry({ closingOdometer: 100, startOdometer: 100 }).valid, true)
+assert.equal(validateEndShiftEntry({ closingOdometer: 99, startOdometer: 100 }).valid, false)
+assert.equal(validateEndShiftEntry({ closingOdometer: 601, startOdometer: 100 }).requiresConfirmation, true)
+assert.equal(validateEndShiftEntry({ closingOdometer: 601, startOdometer: 100 }).valid, false)
+assert.equal(validateEndShiftEntry({ closingOdometer: 600, startOdometer: 100, confirmLargeDistance: true }).valid, true)
+assert.equal(validateEndShiftEntry({ closingOdometer: 600, startOdometer: 100 }).distanceKm, 500)
+assert.equal(validateEndShiftEntry({ closingOdometer: 601, startOdometer: 100 }).requiresConfirmation, true)
 assert.deepEqual(WORK_TRIP_OPERATORS, ['Uber', 'One way', 'Rapido', 'Ola', 'Savaari'])
 assert.equal(validateTripOperator('Uber').valid, true)
 assert.equal(validateTripOperator('Unknown').valid, false)

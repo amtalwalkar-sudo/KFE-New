@@ -2,7 +2,7 @@
 
 ## Required storage separation
 
-KFE's standard offline road-routing package covers Mumbai, Pune, Nashik and Alibag, including connecting roads and a practical coverage margin. Routing should use local Valhalla data inside that coverage and online matching outside it when internet is available.
+KFE's native Android Admin Settings offers selectable offline road-routing packages for the full Mumbai–Pune–Nashik–Alibag corridor or individual Mumbai metro, Pune, Nashik, and Alibag areas. Routing must use the currently installed package only inside its published coverage bounds and use online matching outside coverage when internet is available.
 
 The following boundary is mandatory:
 

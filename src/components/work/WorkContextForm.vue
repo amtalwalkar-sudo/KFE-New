@@ -11,12 +11,6 @@ const props = defineProps({
   gap: { type: Object, default: () => ({}) },
   gapKm: { type: Number, default: 0 },
   endStage: { type: String, default: 'CLOSE' },
-  endMissing: { type: Array, default: () => [] },
-  endPreview: { type: Object, default: null },
-  endCompletedCount: { type: Number, default: 0 },
-  endShiftKm: { type: Number, default: 0 },
-  endReviewedTripKm: { type: Number, default: 0 },
-  endReviewedDeadKm: { type: Number, default: 0 },
   endReady: { type: Boolean, default: false },
   endBusy: { type: Boolean, default: false },
   endLargeDistanceKm: { type: Number, default: 0 },
@@ -31,18 +25,8 @@ const props = defineProps({
   startAck: { type: Boolean, default: false },
   gapChoice: { type: String, default: '' },
   closingOdo: { type: String, default: '' },
-  shiftRevenue: { type: String, default: '' },
-  reviewRevenue: { type: Object, default: () => ({}) },
-  reviewKm: { type: Object, default: () => ({}) },
-  reviewOperator: { type: Object, default: () => ({}) },
-  tollTreatment: { type: String, default: 'INCLUDED' },
-  parkingTreatment: { type: String, default: 'INCLUDED' },
   tripTollTreatment: { type: String, default: 'INCLUDED' },
   tripParkingTreatment: { type: String, default: 'INCLUDED' },
-  toll: { type: String, default: '' },
-  parking: { type: String, default: '' },
-  tripTollTotal: { type: Number, default: 0 },
-  tripParkingTotal: { type: Number, default: 0 },
   fare: { type: String, default: '' },
   tripToll: { type: String, default: '' },
   tripParking: { type: String, default: '' },
@@ -61,17 +45,9 @@ const emit = defineEmits([
   'update:start-ack',
   'update:gap-choice',
   'update:closing-odo',
-  'update:shift-revenue',
-  'update:review-revenue',
-  'update:review-km',
-  'update:review-operator',
-  'update:toll-treatment',
-  'update:parking-treatment',
   'update:large-distance-confirmed-for',
   'update:trip-toll-treatment',
   'update:trip-parking-treatment',
-  'update:toll',
-  'update:parking',
   'update:fare',
   'update:trip-toll',
   'update:trip-parking',
@@ -101,19 +77,8 @@ const activeNumeric = computed(() => {
     'fuel-price': props.fuelPrice,
     'fuel-amount': props.fuelAmount,
     'closing-odo': props.closingOdo,
-    'shift-revenue': props.shiftRevenue,
-    'shift-toll': props.toll,
-    'shift-parking': props.parking
   }
   if (name in map) return { name, value: map[name] == null ? '' : String(map[name]), decimal: name === 'fuel-price' }
-  if (name.startsWith('review-revenue:')) {
-    const id = name.slice(15)
-    return { name, value: props.reviewRevenue[id] == null ? '' : String(props.reviewRevenue[id]), decimal: false }
-  }
-  if (name.startsWith('review-km:')) {
-    const id = name.slice(10)
-    return { name, value: props.reviewKm[id] == null ? '' : String(props.reviewKm[id]), decimal: true }
-  }
   return null
 })
 const activeNumericDecimal = computed(() => activeNumeric.value?.decimal === true)
@@ -143,20 +108,8 @@ function emitNumeric(name, value) {
     'fuel-price': 'update:fuel-price',
     'fuel-amount': 'update:fuel-amount',
     'closing-odo': 'update:closing-odo',
-    'shift-revenue': 'update:shift-revenue',
-    'shift-toll': 'update:toll',
-    'shift-parking': 'update:parking'
   }
   if (events[name]) { emit(events[name], value); return }
-  if (name.startsWith('review-revenue:')) {
-    const id = name.slice(15)
-    emit('update:review-revenue', { ...props.reviewRevenue, [id]: value })
-    return
-  }
-  if (name.startsWith('review-km:')) {
-    const id = name.slice(10)
-    emit('update:review-km', { ...props.reviewKm, [id]: value })
-  }
 }
 const numericLabels = {
   'start-odo': 'Current odometer',
@@ -168,17 +121,12 @@ const numericLabels = {
   'fuel-price': 'Price / kg',
   'fuel-amount': 'Amount',
   'closing-odo': 'Closing odometer',
-  'shift-revenue': 'Total shift revenue',
-  'shift-toll': 'Additional toll',
-  'shift-parking': 'Additional parking'
 }
 const numericNext = {
   'fare': 'trip-toll',
   'trip-toll': 'trip-parking',
   'fuel-odo': 'fuel-price',
-  'fuel-price': 'fuel-amount',
-  'closing-odo': 'shift-revenue',
-  'shift-toll': 'shift-parking'
+  'fuel-price': 'fuel-amount'
 }
 const numericLabel = name => {
   if (numericLabels[name]) return numericLabels[name]
@@ -209,7 +157,7 @@ const numericPress = async token => {
     return
   }
   if (token === 'DONE') {
-    const finalFields = new Set(['fare', 'trip-parking', 'cancel-fare', 'shift-revenue', 'shift-parking'])
+    const finalFields = new Set(['fare', 'trip-parking', 'cancel-fare'])
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     suppressNumericFocus.value = true
     activeNumericField.value = null
@@ -220,13 +168,7 @@ const numericPress = async token => {
   emitNumeric(field.name, next)
 }
 
-const endTitle = computed(() => ({
-  CLOSE: 'Close shift',
-  RECONCILE: 'Reconciliation',
-  REVIEW: 'Shift review',
-  CONFIRM: 'Ready to end',
-  ENDED: 'Shift ended'
-}[props.endStage] || 'Close shift'))
+const endTitle = computed(() => props.endStage === 'ENDED' ? 'Shift ended' : 'Close shift')
 
 function chooseGap(choice) {
   emit('update:gap-choice', choice)
@@ -241,9 +183,6 @@ function submitForm() {
     : props.type === 'cancel' ? 'save-cancel'
     : props.type === 'fuel' ? 'save-fuel'
     : props.endStage === 'CLOSE' ? 'close-end'
-    : props.endStage === 'RECONCILE' ? 'continue-reconcile'
-    : props.endStage === 'REVIEW' ? 'review-complete'
-    : props.endStage === 'CONFIRM' ? 'finish-end'
     : 'finish-ended'
   emit('action', action)
 }
@@ -263,7 +202,7 @@ const updateMap = (name, map, id, value) => {
 
     <WorkFuelForm v-else-if="type === 'fuel'" :fuel-odo="fuelOdo" :fuel-price="fuelPrice" :fuel-amount="fuelAmount" :fuel-partial="fuelPartial" :fuel-qty="fuelQty" :fuel-busy="fuelBusy" @action="emit('action', $event)" @focus-numeric="activateNumeric" @update:fuel-partial="emit('update:fuel-partial', $event)" />
 
-    <WorkEndShiftForm v-else-if="type === 'end'" :end-title="endTitle" :end-stage="endStage" :end-missing="endMissing" :end-preview="endPreview" :end-completed-count="endCompletedCount" :end-shift-km="endShiftKm" :end-reviewed-trip-km="endReviewedTripKm" :end-reviewed-dead-km="endReviewedDeadKm" :end-ready="endReady" :end-busy="endBusy" :end-large-distance-km="endLargeDistanceKm" :large-distance-confirmed-for="largeDistanceConfirmedFor" :large-distance-identity="largeDistanceIdentity" :start-odo="startOdo" :closing-odo="closingOdo" :shift-revenue="shiftRevenue" :review-revenue="reviewRevenue" :review-km="reviewKm" :review-operator="reviewOperator" :toll-treatment="tollTreatment" :parking-treatment="parkingTreatment" :toll="toll" :parking="parking" :trip-toll-total="tripTollTotal" :trip-parking-total="tripParkingTotal" :money="money" @action="emit('action', $event)" @focus-numeric="activateNumeric" @update:toll-treatment="emit('update:toll-treatment', $event)" @update:parking-treatment="emit('update:parking-treatment', $event)" @update:large-distance-confirmed-for="emit('update:large-distance-confirmed-for', $event)" />
+    <WorkEndShiftForm v-else-if="type === 'end'" :end-title="endTitle" :end-stage="endStage" :end-busy="endBusy" :end-large-distance-km="endLargeDistanceKm" :large-distance-confirmed-for="largeDistanceConfirmedFor" :large-distance-identity="largeDistanceIdentity" :start-odo="startOdo" :closing-odo="closingOdo" @action="emit('action', $event)" @focus-numeric="activateNumeric" @update:large-distance-confirmed-for="emit('update:large-distance-confirmed-for', $event)" />
 
       <div v-if="activeNumeric" ref="numericPad" class="kfe-work-number-pad" aria-label="KFE intelligent numeric keypad">
         <div class="kfe-work-number-pad__display">

@@ -4,10 +4,13 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.ServiceInfo;
 import android.location.Location;
+import android.location.LocationManager;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.Build;
@@ -29,7 +32,9 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileOutputStream;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public class KfeNativeGpsService extends Service {
@@ -43,9 +48,12 @@ public class KfeNativeGpsService extends Service {
   private static final String ACTIVE_READY = "activeCollectorReady";
   private static final String CHANNEL_ID = "kfe_native_gps";
   private static final int NOTIFICATION_ID = 7110;
+  // Process-local truth prevents stale SharedPreferences from claiming GPS is live after process death.
+  private static volatile KfeNativeGpsService liveInstance;
 
   private FusedLocationProviderClient fused;
   private LocationCallback callback;
+  private BroadcastReceiver locationProviderReceiver;
   private String tripId;
   private String eventType = "PASSENGER_RIDE_TRACE";
   private String entityType = "TRIP";
@@ -53,7 +61,18 @@ public class KfeNativeGpsService extends Service {
   private Location lastPassengerLocation;
   private double passengerDistanceMeters = 0d;
   private PowerManager.WakeLock locationWakeLock;
+  // startForeground must not be re-issued on provider-change broadcasts after boot;
+  // Android can reject that background re-promotion even when this service is already foreground.
+  private boolean foregroundPromoted;
+  private volatile long lastLocationCallbackAt;
+  private volatile int lastLocationCallbackCount;
+  private volatile long lastLocationPersistedAt;
+  private volatile String lastLocationRejectReason = "";
   private final Set<String> seenKeys = new HashSet<>();
+  private final List<Location> filteredDistanceLocations = new ArrayList<>();
+  private static final long MAX_CONTIGUOUS_GAP_MS = 120000L;
+  private static final float MAX_ACCURACY_FOR_DISTANCE_METERS = 80f;
+  private static final float MAX_REASONABLE_SPEED_KMH = 180f;
 
   public static void start(Context context, String tripId, String eventType, String entityType) {
     // Never call startForegroundService unless the runtime location grant is
@@ -68,13 +87,45 @@ public class KfeNativeGpsService extends Service {
   }
 
   public static void resumePersisted(Context context) {
-    // Boot/package-replacement broadcasts are delivered even when no ride is
-    // active. Only revive an actually persisted ride with location permission.
-    String persisted = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(ACTIVE_TRIP, "");
-    if (persisted == null || persisted.trim().isEmpty() || !hasLocationPermission(context) || !hasBackgroundLocationPermission(context)) return;
+    // Keep the decision durable so a failed boot recovery can be distinguished
+    // from a receiver-delivery problem in instrumentation and field diagnostics.
+    android.content.SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    String persisted = prefs.getString(ACTIVE_TRIP, "");
+    if (persisted == null || persisted.trim().isEmpty()) {
+      recordResumeDecision(prefs, "SKIPPED_NO_ACTIVE_TRIP", null);
+      return;
+    }
+    // A persisted READY bit belongs to the previous service process. Clear it
+    // before any resume attempt so boot recovery cannot report a live collector
+    // unless this attempt actually registers a callback.
+    prefs.edit().putBoolean(ACTIVE_READY, false).commit();
+    if (!hasLocationPermission(context)) {
+      recordResumeDecision(prefs, "SKIPPED_NO_LOCATION_PERMISSION", null);
+      return;
+    }
+    if (!hasBackgroundLocationPermission(context)) {
+      recordResumeDecision(prefs, "SKIPPED_NO_BACKGROUND_LOCATION_PERMISSION", null);
+      return;
+    }
+    recordResumeDecision(prefs, "START_REQUESTED", null);
     Intent intent = new Intent(context, KfeNativeGpsService.class);
     intent.setAction("com.kanishka.pwa.NATIVE_GPS_RESUME");
-    androidx.core.content.ContextCompat.startForegroundService(context, intent);
+    try {
+      androidx.core.content.ContextCompat.startForegroundService(context, intent);
+    } catch (RuntimeException error) {
+      recordResumeDecision(prefs, "START_REQUEST_FAILED", error.getClass().getSimpleName() + ": " + error.getMessage());
+      throw error;
+    }
+  }
+
+  private static void recordResumeDecision(android.content.SharedPreferences prefs, String decision, String error) {
+    android.content.SharedPreferences.Editor edit = prefs.edit()
+        .putString("lastResumeDecision", decision)
+        .putLong("lastResumeAt", System.currentTimeMillis());
+    if (error == null) edit.remove("lastResumeError");
+    else edit.putString("lastResumeError", error);
+    edit.commit();
+    Log.i("KfeNativeGpsService", "Persisted GPS resume decision=" + decision + (error == null ? "" : " error=" + error));
   }
 
   public static void stop(Context context, String tripId) {
@@ -86,6 +137,12 @@ public class KfeNativeGpsService extends Service {
 
   @Override public void onCreate() {
     super.onCreate();
+    liveInstance = this;
+    // ACTIVE_READY describes a live callback in this service process, not a
+    // durable fact. Clear it on every service recreation so reboot/process
+    // recovery cannot mistake the previous process's readiness for a live GPS
+    // registration and race location-fix verification.
+    getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE_READY, false).commit();
     createChannel();
     // startForegroundService() has a strict promotion deadline. Promote the
     // service immediately on creation so lifecycle recovery cannot time out
@@ -95,6 +152,72 @@ public class KfeNativeGpsService extends Service {
       return;
     }
     fused = LocationServices.getFusedLocationProviderClient(this);
+    registerLocationProviderReceiver();
+  }
+
+  /**
+   * Android can accept a location callback while the provider is disabled during
+   * boot/unlock. Re-register when the user enables location again so a persisted
+   * active ride does not remain "ready" but silently receive no fixes.
+   */
+  private void registerLocationProviderReceiver() {
+    if (locationProviderReceiver != null) return;
+    locationProviderReceiver = new BroadcastReceiver() {
+      @Override public void onReceive(Context receiverContext, Intent intent) {
+        Log.i("KfeNativeGpsService", "Location provider state broadcast received: "
+            + (intent == null ? "UNKNOWN" : intent.getAction()));
+        android.content.SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        String activeId = prefs.getString(ACTIVE_TRIP, "");
+        if (activeId == null || activeId.trim().isEmpty()) return;
+
+        if (!isLocationProviderEnabled()) {
+          releaseLocationUpdates();
+          releaseLocationWakeLock();
+          prefs.edit().putBoolean(ACTIVE_READY, false).commit();
+          Log.w("KfeNativeGpsService", "Location provider disabled during active work; GPS gap remains visible until recording resumes.");
+          return;
+        }
+
+        // Provider state changed after boot. Recreate the callback rather than
+        // trusting a registration accepted while the provider was unavailable.
+        String activeEvent = prefs.getString(ACTIVE_EVENT, "PASSENGER_RIDE_TRACE");
+        String activeEntity = prefs.getString(ACTIVE_ENTITY, "TRIP");
+        releaseLocationUpdates();
+        releaseLocationWakeLock();
+        prefs.edit().putBoolean(ACTIVE_READY, false).commit();
+        if (!hasLocationPermission() || !hasBackgroundLocationPermission(KfeNativeGpsService.this)) return;
+        if (!ensureForegroundLocationService()) return;
+        Log.i("KfeNativeGpsService", "Location provider enabled; restarting persisted GPS collector for trip=" + activeId);
+        startTracking(activeId, activeEvent, activeEntity);
+      }
+    };
+    IntentFilter filter = new IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+      filter.addAction(LocationManager.MODE_CHANGED_ACTION);
+    }
+    if (Build.VERSION.SDK_INT >= 33) {
+      // Location-mode/provider-change broadcasts can be sent by privileged
+      // system components rather than the system UID. Export this narrowly
+      // filtered receiver so Android can deliver those broadcasts after boot.
+      // The handler only reacts to the current provider state and persisted
+      // active trip; a spoofed broadcast cannot supply a location or mutate data.
+      registerReceiver(locationProviderReceiver, filter, Context.RECEIVER_EXPORTED);
+    } else {
+      registerReceiver(locationProviderReceiver, filter);
+    }
+  }
+
+  private boolean isLocationProviderEnabled() {
+    LocationManager manager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+    if (manager == null) return false;
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return manager.isLocationEnabled();
+      return manager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+          || manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+    } catch (RuntimeException error) {
+      Log.w("KfeNativeGpsService", "Unable to inspect location-provider state.", error);
+      return false;
+    }
   }
 
   @Override public int onStartCommand(Intent intent, int flags, int startId) {
@@ -167,7 +290,9 @@ public class KfeNativeGpsService extends Service {
     if (!hasLocationPermission()) return;
     String requestedType = "DEAD_MOVEMENT_TRACE".equals(requestedEventType) ? "DEAD_MOVEMENT_TRACE" : "PASSENGER_RIDE_TRACE";
     String requestedEntity = "SHIFT".equals(requestedEntityType) ? "SHIFT" : "TRIP";
-    if (id.equals(tripId) && callback != null && requestedType.equals(eventType) && requestedEntity.equals(entityType)) return;
+    if (id.equals(tripId) && callback != null && requestedType.equals(eventType)
+        && requestedEntity.equals(entityType)
+        && getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(ACTIVE_READY, false)) return;
     // A trip starts with pickup/dead-movement telemetry and must switch to
     // passenger-ride telemetry when Start Trip is pressed. Restart the callback
     // for the same trip when its event type changes; otherwise all ride points
@@ -193,7 +318,11 @@ public class KfeNativeGpsService extends Service {
 
     callback = new LocationCallback() {
       @Override public void onLocationResult(LocationResult result) {
-        for (Location location : result.getLocations()) persistLocation(location);
+        lastLocationCallbackAt = System.currentTimeMillis();
+        lastLocationCallbackCount = result == null ? 0 : result.getLocations().size();
+        if (result != null) {
+          for (Location location : result.getLocations()) persistLocation(location);
+        }
       }
     };
 
@@ -202,26 +331,42 @@ public class KfeNativeGpsService extends Service {
     fused.requestLocationUpdates(request, requestedCallback, getMainLooper())
         .addOnSuccessListener(unused -> {
           if (id.equals(tripId) && callback == requestedCallback) {
-            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE_READY, true).apply();
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                .putBoolean(ACTIVE_READY, true)
+                .remove("lastLocationRegistrationFailure")
+                .commit();
+            Log.i("KfeNativeGpsService", "Native GPS callback registered for trip=" + id + " phase=" + eventType);
           }
         })
         .addOnFailureListener(error -> {
           Log.e("KfeNativeGpsService", "Unable to register native GPS updates.", error);
+          getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+              .putBoolean(ACTIVE_READY, false)
+              .putString("lastLocationRegistrationFailure", error.getClass().getSimpleName() + ": " + error.getMessage())
+              .commit();
           if (callback == requestedCallback) {
             releaseLocationUpdates();
             releaseLocationWakeLock();
-            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE_READY, false).apply();
           }
         });
   }
 
   private void persistLocation(Location location) {
-    if (location == null || traceFile == null) return;
-    if (!location.hasAccuracy() || location.getAccuracy() > 100f) return;
+    if (location == null || traceFile == null) {
+      lastLocationRejectReason = "NULL_LOCATION_OR_TRACE_FILE";
+      return;
+    }
+    if (!location.hasAccuracy() || location.getAccuracy() > 100f) {
+      lastLocationRejectReason = "ACCURACY_REJECTED:" + (location.hasAccuracy() ? location.getAccuracy() : "MISSING");
+      return;
+    }
 
     long timestamp = location.getTime() > 0 ? location.getTime() : System.currentTimeMillis();
     String key = eventType + "|" + timestamp + "|" + location.getLatitude() + "|" + location.getLongitude();
-    if (seenKeys.contains(key)) return;
+    if (seenKeys.contains(key)) {
+      lastLocationRejectReason = "DUPLICATE_FIX";
+      return;
+    }
 
     try {
       JSONObject point = new JSONObject();
@@ -245,12 +390,11 @@ public class KfeNativeGpsService extends Service {
         output.getFD().sync();
       }
       seenKeys.add(key);
+      lastLocationPersistedAt = System.currentTimeMillis();
+      lastLocationRejectReason = "";
       if ("PASSENGER_RIDE_TRACE".equals(eventType) || "DEAD_MOVEMENT_TRACE".equals(eventType)) {
-        if (lastPassengerLocation != null) passengerDistanceMeters += lastPassengerLocation.distanceTo(location);
-        lastPassengerLocation = new Location(location);
-        String distance = String.format(java.util.Locale.US, "%.1f km", passengerDistanceMeters / 1000d);
-        if ("DEAD_MOVEMENT_TRACE".equals(eventType)) KfeOverlayService.updateDeadKm(distance);
-        else KfeOverlayService.updateLiveKm(distance);
+        appendFilteredDistanceLocation(location);
+        refreshLiveDistanceReadout();
       }
     } catch (Exception error) {
       // Do not mark the point as seen when persistence fails. The next location
@@ -261,27 +405,69 @@ public class KfeNativeGpsService extends Service {
 
   private void loadSeenKeys() {
     seenKeys.clear();
+    filteredDistanceLocations.clear();
     lastPassengerLocation = null;
     passengerDistanceMeters = 0d;
-    if (traceFile == null || !traceFile.exists()) return;
+    if (traceFile == null || !traceFile.exists()) {
+      refreshLiveDistanceReadout();
+      return;
+    }
     try (BufferedReader reader = new BufferedReader(new FileReader(traceFile))) {
       String line;
       while ((line = reader.readLine()) != null) {
         try {
           JSONObject point = new JSONObject(line);
-          seenKeys.add(point.optString("eventType", "PASSENGER_RIDE_TRACE") + "|" + point.optLong("capturedAtEpoch", -1) + "|" + point.optDouble("latitude") + "|" + point.optDouble("longitude"));
-          // Rebuild the live distance from durable trace points for the active
-          // event type so service/process recovery does not reset the displayed KM.
-          if (eventType.equals(point.optString("eventType", ""))) {
+          String storedEvent = point.optString("eventType", "PASSENGER_RIDE_TRACE");
+          long timestamp = point.optLong("capturedAtEpoch", -1);
+          double latitude = point.optDouble("latitude", Double.NaN);
+          double longitude = point.optDouble("longitude", Double.NaN);
+          seenKeys.add(storedEvent + "|" + timestamp + "|" + latitude + "|" + longitude);
+          if (eventType.equals(storedEvent) && !Double.isNaN(latitude) && !Double.isInfinite(latitude) && !Double.isNaN(longitude) && !Double.isInfinite(longitude)) {
             Location distancePoint = new Location("KFE");
-            distancePoint.setLatitude(point.optDouble("latitude"));
-            distancePoint.setLongitude(point.optDouble("longitude"));
-            if (lastPassengerLocation != null) passengerDistanceMeters += lastPassengerLocation.distanceTo(distancePoint);
-            lastPassengerLocation = distancePoint;
+            distancePoint.setLatitude(latitude);
+            distancePoint.setLongitude(longitude);
+            if (timestamp > 0) distancePoint.setTime(timestamp);
+            if (point.has("accuracy") && !point.isNull("accuracy")) distancePoint.setAccuracy((float) point.optDouble("accuracy"));
+            if (point.has("speed") && !point.isNull("speed")) distancePoint.setSpeed((float) point.optDouble("speed"));
+            appendFilteredDistanceLocation(distancePoint);
           }
         } catch (Exception ignored) {}
       }
-    } catch (Exception ignored) {}
+    } catch (Exception error) {
+      Log.e("KfeNativeGpsService", "Unable to rebuild filtered GPS distance from durable trace.", error);
+    }
+    refreshLiveDistanceReadout();
+  }
+
+  private void appendFilteredDistanceLocation(Location location) {
+    if (location == null || !location.hasAccuracy() || location.getAccuracy() > MAX_ACCURACY_FOR_DISTANCE_METERS) return;
+    Location previous = filteredDistanceLocations.isEmpty() ? null : filteredDistanceLocations.get(filteredDistanceLocations.size() - 1);
+    float segmentMeters = 0f;
+    if (previous != null) {
+      long elapsedMs = location.getTime() - previous.getTime();
+      if (elapsedMs <= 0L) return;
+      float displacementMeters = previous.distanceTo(location);
+      if (displacementMeters < 1f) return;
+      if (location.hasSpeed() && location.getSpeed() * 3.6f > MAX_REASONABLE_SPEED_KMH) return;
+      if (elapsedMs <= MAX_CONTIGUOUS_GAP_MS) {
+        float measuredSpeedKmh = (displacementMeters / 1000f) / (elapsedMs / 3600000f);
+        if (measuredSpeedKmh > MAX_REASONABLE_SPEED_KMH) return;
+        segmentMeters = displacementMeters;
+      }
+      // Match the shared JS filter: only an explicitly stationary, short move is
+      // discarded as jitter. Missing speed is unknown, not stationary.
+      if (location.hasSpeed() && location.getSpeed() * 3.6f <= 2f && displacementMeters <= 30f) return;
+    }
+    // Incremental accounting avoids an O(n^2) full-trace rescan on every GPS fix.
+    passengerDistanceMeters += segmentMeters;
+    filteredDistanceLocations.add(new Location(location));
+    lastPassengerLocation = new Location(location);
+  }
+
+  private void refreshLiveDistanceReadout() {
+    String distance = String.format(java.util.Locale.US, "%.1f km", passengerDistanceMeters / 1000d);
+    if ("DEAD_MOVEMENT_TRACE".equals(eventType)) KfeOverlayService.updateDeadKm(distance);
+    else KfeOverlayService.updateLiveKm(distance);
   }
 
   private void releaseLocationUpdates() {
@@ -294,12 +480,42 @@ public class KfeNativeGpsService extends Service {
   static boolean isAnyPersistedTracking(Context context) {
     android.content.SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     String activeId = prefs.getString(ACTIVE_TRIP, "");
-    return activeId != null && !activeId.trim().isEmpty() && prefs.getBoolean(ACTIVE_READY, false);
+    KfeNativeGpsService service = liveInstance;
+    return service != null && activeId != null && !activeId.trim().isEmpty()
+      && activeId.equals(service.tripId) && service.callback != null && prefs.getBoolean(ACTIVE_READY, false);
   }
 
   static String persistedActiveTripId(Context context) {
     String id = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(ACTIVE_TRIP, "");
     return id == null ? "" : id;
+  }
+
+  static String persistedActiveEventType(Context context) {
+    String event = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(ACTIVE_EVENT, "");
+    return event == null ? "" : event;
+  }
+
+  static JSONObject diagnostics(Context context) {
+    android.content.SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    KfeNativeGpsService service = liveInstance;
+    JSONObject out = new JSONObject();
+    try {
+      out.put("activeTripId", prefs.getString(ACTIVE_TRIP, ""));
+      out.put("activeEventType", prefs.getString(ACTIVE_EVENT, ""));
+      out.put("activeEntityType", prefs.getString(ACTIVE_ENTITY, ""));
+      out.put("activeCollectorReady", prefs.getBoolean(ACTIVE_READY, false));
+      out.put("lastResumeDecision", prefs.getString("lastResumeDecision", ""));
+      out.put("lastResumeAt", prefs.getLong("lastResumeAt", 0L));
+      out.put("lastLocationRegistrationFailure", prefs.getString("lastLocationRegistrationFailure", ""));
+      out.put("liveServiceInstance", service != null);
+      out.put("serviceTripId", service == null ? "" : service.tripId);
+      out.put("callbackRegistered", service != null && service.callback != null);
+      out.put("lastLocationCallbackAt", service == null ? 0L : service.lastLocationCallbackAt);
+      out.put("lastLocationCallbackCount", service == null ? 0 : service.lastLocationCallbackCount);
+      out.put("lastLocationPersistedAt", service == null ? 0L : service.lastLocationPersistedAt);
+      out.put("lastLocationRejectReason", service == null ? "" : service.lastLocationRejectReason);
+    } catch (Exception ignored) {}
+    return out;
   }
 
   static boolean isPersistedTracking(Context context, String id, String requestedEventType, String requestedEntityType) {
@@ -309,8 +525,11 @@ public class KfeNativeGpsService extends Service {
     String activeEntity = prefs.getString(ACTIVE_ENTITY, "TRIP");
     String wantedEvent = "DEAD_MOVEMENT_TRACE".equals(requestedEventType) ? "DEAD_MOVEMENT_TRACE" : "PASSENGER_RIDE_TRACE";
     String wantedEntity = "SHIFT".equals(requestedEntityType) ? "SHIFT" : "TRIP";
-    return id != null && id.equals(activeId) && wantedEvent.equals(activeEvent) && wantedEntity.equals(activeEntity)
-      && prefs.getBoolean(ACTIVE_READY, false);
+    KfeNativeGpsService service = liveInstance;
+    return service != null && id != null && id.equals(activeId) && id.equals(service.tripId)
+      && wantedEvent.equals(activeEvent) && wantedEntity.equals(activeEntity)
+      && wantedEvent.equals(service.eventType) && wantedEntity.equals(service.entityType)
+      && service.callback != null && prefs.getBoolean(ACTIVE_READY, false);
   }
 
   static boolean shouldStopForTrip(String activeTripId, String requestedTripId) {
@@ -328,6 +547,7 @@ public class KfeNativeGpsService extends Service {
     lastPassengerLocation = null;
     passengerDistanceMeters = 0d;
     seenKeys.clear();
+    filteredDistanceLocations.clear();
     getSharedPreferences(PREFS, MODE_PRIVATE).edit().remove(ACTIVE_TRIP).remove(ACTIVE_EVENT).remove(ACTIVE_ENTITY).remove(ACTIVE_READY).apply();
   }
 
@@ -390,6 +610,7 @@ public class KfeNativeGpsService extends Service {
   }
 
   private boolean ensureForegroundLocationService() {
+    if (foregroundPromoted) return true;
     if (!hasLocationPermission()) {
       stopSelf();
       return false;
@@ -397,10 +618,25 @@ public class KfeNativeGpsService extends Service {
     try {
       startAsForeground();
       return true;
-    } catch (SecurityException ignored) {
-      // Android 14+ also enforces foreground-service eligibility at startForeground().
-      // Never let a missing runtime/FGS permission crash the process; the PWA can
-      // retry after the user grants location access and starts an eligible workflow.
+    } catch (SecurityException error) {
+      // Keep this failure visible: boot recovery can reach the receiver while
+      // Android still rejects promotion of the location foreground service.
+      Log.e("KfeNativeGpsService", "Unable to promote native GPS service to foreground.", error);
+      getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+          .putString("lastForegroundStartFailure", error.getClass().getSimpleName() + ": " + error.getMessage())
+          .putBoolean(ACTIVE_READY, false)
+          .commit();
+      stopSelf();
+      return false;
+    } catch (IllegalStateException error) {
+      // Some Android builds report background-start/provider-state restrictions
+      // as IllegalStateException rather than SecurityException. Keep the failure
+      // observable and preserve trip identity for a later provider-enabled retry.
+      Log.e("KfeNativeGpsService", "Foreground GPS service start is currently restricted.", error);
+      getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+          .putString("lastForegroundStartFailure", error.getClass().getSimpleName() + ": " + error.getMessage())
+          .putBoolean(ACTIVE_READY, false)
+          .commit();
       stopSelf();
       return false;
     }
@@ -419,6 +655,7 @@ public class KfeNativeGpsService extends Service {
     } else {
       startForeground(NOTIFICATION_ID, notification);
     }
+    foregroundPromoted = true;
   }
 
   private void createChannel() {
@@ -435,6 +672,11 @@ public class KfeNativeGpsService extends Service {
     releaseLocationUpdates();
     releaseLocationWakeLock();
     getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE_READY, false).apply();
+    if (locationProviderReceiver != null) {
+      try { unregisterReceiver(locationProviderReceiver); } catch (RuntimeException ignored) {}
+      locationProviderReceiver = null;
+    }
+    if (liveInstance == this) liveInstance = null;
     super.onDestroy();
   }
 

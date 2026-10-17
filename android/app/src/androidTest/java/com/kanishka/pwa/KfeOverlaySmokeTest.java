@@ -40,6 +40,74 @@ public class KfeOverlaySmokeTest {
     MainActivity.isResumed = true;
   }
 
+  @Test public void stalePwaSnapshotCannotResetNativeTripTimerAfterRecovery() throws Exception {
+    long authoritativeStart = System.currentTimeMillis() - 65000L;
+    context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE).edit()
+      .putString("actionStage", "END_RIDE")
+      .putString("pendingTripId", "timer-trip")
+      .putString("tripTimerTripId", "timer-trip")
+      .putLong("tripStartAt", authoritativeStart)
+      .putLong("phaseStartAt", authoritativeStart)
+      .putString("phaseLabel", "TRIP TIME").apply();
+    JSONObject staleState = new JSONObject()
+      .put("shift", new JSONObject().put("id", "timer-shift"))
+      .put("trip", new JSONObject().put("id", "timer-trip").put("status", "ACTIVE"))
+      .put("overlayAction", "START_RIDE")
+      .put("overlayTripId", "timer-trip")
+      .put("tripStartAt", 0L)
+      .put("phaseStartAt", 0L)
+      .put("phaseLabel", "STALE TIMER");
+    KfeOverlayService.update(context, staleState.toString());
+    waitForOverlay();
+    KfeOverlayService service = waitForService();
+    assertEquals("END_RIDE", fieldValue(service, "actionStage"));
+    assertEquals("timer-trip", fieldValue(service, "pendingTripId"));
+    assertEquals(authoritativeStart, ((Long) fieldValue(service, "tripStartAt")).longValue());
+    assertEquals(authoritativeStart, ((Long) fieldValue(service, "phaseStartAt")).longValue());
+    assertEquals("TRIP TIME", fieldValue(service, "phaseLabel"));
+    assertEquals(authoritativeStart,
+      context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE).getLong("tripStartAt", 0L));
+  }
+
+  @Test public void nativeGpsSwitchesFromPickupDeadKmToPassengerTripAndStopsByTripId() throws Exception {
+    String tripId = "gps-lifecycle-trip";
+    KfeNativeGpsService.start(context, tripId, KfeOverlayService.gpsEventForAction("GO_TO_PICKUP"), "TRIP");
+    long deadline = SystemClock.uptimeMillis() + 5000L;
+    while (SystemClock.uptimeMillis() < deadline
+        && !"DEAD_MOVEMENT_TRACE".equals(KfeNativeGpsService.persistedActiveEventType(context))) {
+      SystemClock.sleep(50L);
+    }
+    assertEquals("Pickup travel must be tracked as dead movement",
+      "DEAD_MOVEMENT_TRACE", KfeNativeGpsService.persistedActiveEventType(context));
+    KfeNativeGpsService.start(context, tripId, KfeOverlayService.gpsEventForAction("START_RIDE"), "TRIP");
+    deadline = SystemClock.uptimeMillis() + 5000L;
+    while (SystemClock.uptimeMillis() < deadline
+        && !"PASSENGER_RIDE_TRACE".equals(KfeNativeGpsService.persistedActiveEventType(context))) {
+      SystemClock.sleep(50L);
+    }
+    assertEquals("Start Trip must switch the same collector to passenger-trip telemetry",
+      "PASSENGER_RIDE_TRACE", KfeNativeGpsService.persistedActiveEventType(context));
+    KfeNativeGpsService.stop(context, tripId);
+    deadline = SystemClock.uptimeMillis() + 5000L;
+    while (SystemClock.uptimeMillis() < deadline
+        && !KfeNativeGpsService.persistedActiveTripId(context).isEmpty()) {
+      SystemClock.sleep(50L);
+    }
+    assertEquals("End Trip must stop its own collector", "",
+      KfeNativeGpsService.persistedActiveTripId(context));
+  }
+
+  @Test public void nativeOverlaySelectsKmFromDisplayedMovementPhase() {
+    assertEquals("Pickup phase must display dead-movement KM", "12.4 km",
+      KfeOverlayService.resolveMovementValue("START_RIDE", "12.4 km", "8.1 km"));
+    assertEquals("Pre-trip phase must display dead-movement KM", "3.2 km",
+      KfeOverlayService.resolveMovementValue("GO_TO_PICKUP", "3.2 km", "8.1 km"));
+    assertEquals("Passenger phase must display business KM", "8.1 km",
+      KfeOverlayService.resolveMovementValue("END_RIDE", "12.4 km", "8.1 km"));
+    assertEquals("Missing dead-movement estimate remains explicit", "—",
+      KfeOverlayService.resolveMovementValue("START_RIDE", null, "8.1 km"));
+  }
+
   @Test public void staleGpsStopCannotStopNewerTripCollector() {
     assertTrue(KfeNativeGpsService.shouldStopForTrip("trip-a", "trip-a"));
     assertTrue(!KfeNativeGpsService.shouldStopForTrip("trip-b", "trip-a"));
@@ -396,7 +464,8 @@ public class KfeOverlaySmokeTest {
     clearPending();
     JSONObject state = new JSONObject()
       .put("shift", new JSONObject().put("id", "fare-shift"))
-      .put("trip", JSONObject.NULL)
+      .put("trip", new JSONObject().put("id", "fare-trip").put("shiftId", "fare-shift")
+        .put("status", "COMPLETED").put("tripEndAt", "2026-10-15T19:00:00.000Z"))
       .put("overlayAction", "ENTER_FARE")
       .put("overlayTripId", "fare-trip")
       .put("pendingFareId", "fare-trip");
@@ -426,6 +495,14 @@ public class KfeOverlaySmokeTest {
     assertEquals("25", payload.getString("parking"));
     assertEquals("EXCLUDED", payload.getString("tollTreatment"));
     assertEquals("INCLUDED", payload.getString("parkingTreatment"));
+    JSONObject storedOutcome = KfeCanonicalWorkStore.get(context).getRecord("TRIP", "fare-trip");
+    assertTrue("Fare must commit to native canonical storage", storedOutcome.optBoolean("found", false));
+    JSONObject storedTrip = storedOutcome.getJSONObject("record");
+    assertEquals("COMPLETED", storedTrip.getString("status"));
+    assertEquals(450d, storedTrip.getDouble("revenue"), 0.001d);
+    assertEquals(0d, storedTrip.getDouble("toll"), 0.001d);
+    assertEquals(25d, storedTrip.getDouble("parking"), 0.001d);
+    assertEquals("EXCLUDED", storedTrip.getString("tollTreatment"));
   }
 
   @Test public void cancellationFormAllowsOptionalFeeAndPersistsPassengerReason() throws Exception {
@@ -454,6 +531,13 @@ public class KfeOverlaySmokeTest {
     JSONObject payload = new JSONObject(pendingValue().substring("CANCEL_RIDE|cancel-trip|".length()));
     assertEquals("", payload.getString("revenue"));
     assertEquals("PASSENGER", payload.getString("reason"));
+    JSONObject storedOutcome = KfeCanonicalWorkStore.get(context).getRecord("TRIP", "cancel-trip");
+    assertTrue("Cancellation must commit to native canonical storage", storedOutcome.optBoolean("found", false));
+    JSONObject storedTrip = storedOutcome.getJSONObject("record");
+    assertEquals("CANCELLED", storedTrip.getString("status"));
+    assertEquals("PASSENGER", storedTrip.getString("cancelReason"));
+    assertTrue("An omitted cancellation fee remains absent, not a fabricated amount",
+      storedTrip.isNull("cancelledRevenue"));
   }
 
   @Test public void fareDraftSurvivesNativeOverlayServiceRestart() throws Exception {
@@ -489,6 +573,125 @@ public class KfeOverlaySmokeTest {
     waitForOverlay();
     assertEquals("FARE", fieldValue(service, "formMode"));
     assertEquals("425", ((EditText) fieldValue(service, "formInput")).getText().toString());
+  }
+
+
+  @Test public void nativeOverlayCompletesFareAndCancellationUsingGesturesAndVisibleFormControlsWithoutPwaReplay() throws Exception {
+    clearPending();
+    String suffix = Long.toString(System.currentTimeMillis());
+    String shiftId = "overlay-full-shift-" + suffix;
+    String fareTripId = "overlay-fare-trip-" + suffix;
+    String cancelTripId = "overlay-cancel-trip-" + suffix;
+    String now = new java.util.Date().toInstant().toString();
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    assertTrue(store.putRecord("overlay-shift-" + suffix, "SHIFT",
+      new JSONObject().put("id", shiftId).put("status", "ACTIVE").put("revenue", 0).put("updatedAt", now)).accepted);
+
+    JSONObject state = new JSONObject()
+      .put("shift", new JSONObject().put("id", shiftId).put("status", "ACTIVE"))
+      .put("trip", JSONObject.NULL).put("overlayAction", "GO_TO_PICKUP")
+      .put("overlayTripId", fareTripId).put("revenue", "₹0");
+    KfeOverlayService.update(context, state.toString());
+    waitForOverlay();
+    KfeOverlayService service = waitForService();
+
+    // These swipes run the production touch handler. The native service advances
+    // each stage immediately and persists the lifecycle before the PWA replays
+    // the queued events; this test deliberately never launches MainActivity.
+    assertSwipeTracksAndRetracts(service);
+    assertEquals("START_RIDE", fieldValue(service, "actionStage"));
+
+    // A stale PWA snapshot with another trip ID must not roll back the durable
+    // native checkpoint after a simulated service/process restart boundary.
+    JSONObject staleState = new JSONObject(state.toString())
+        .put("overlayAction", "GO_TO_PICKUP")
+        .put("overlayTripId", "stale-pwa-trip-" + suffix);
+    KfeOverlayService.update(context, staleState.toString());
+    waitForOverlay();
+    service = waitForService();
+    assertEquals("START_RIDE", fieldValue(service, "actionStage"));
+    assertEquals("Native trip ID must survive stale PWA state.", fareTripId, fieldValue(service, "pendingTripId"));
+
+    assertSwipeTracksAndRetracts(service);
+    assertEquals("END_RIDE", fieldValue(service, "actionStage"));
+    assertSwipeTracksAndRetracts(service);
+    assertEquals("ENTER_FARE", fieldValue(service, "actionStage"));
+    assertEquals("FARE", fieldValue(service, "formMode"));
+
+    final KfeOverlayService fareService = service;
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+      try {
+        ((EditText) fieldValue(fareService, "formInput")).setText("250");
+        android.widget.Button save = findButton((android.view.ViewGroup) fieldValue(fareService, "formPanel"), "Save trip");
+        assertNotNull("Driver-facing Save trip control must be visible", save);
+        save.performClick();
+      } catch (Exception e) { throw new AssertionError(e); }
+    });
+    JSONObject fareRecord = store.getRecord("TRIP", fareTripId);
+    assertTrue("Visible fare form must commit a canonical trip without PWA replay", fareRecord.optBoolean("found", false));
+    assertEquals("COMPLETED", fareRecord.getJSONObject("record").getString("status"));
+    assertEquals(250d, fareRecord.getJSONObject("record").getDouble("revenue"), 0.001d);
+    assertEquals("GO_TO_PICKUP", fieldValue(service, "actionStage"));
+
+    // Start a second trip and open cancellation using the native overlay's
+    // visible RIDE CANCELLATION hit target. No PWA state transition is invoked.
+    state.put("overlayAction", "GO_TO_PICKUP").put("overlayTripId", cancelTripId);
+    KfeOverlayService.update(context, state.toString());
+    waitForOverlay();
+    service = waitForService();
+    assertSwipeTracksAndRetracts(service);
+    assertEquals("START_RIDE", fieldValue(service, "actionStage"));
+    assertEquals("Cancellation must target the trip opened by the native overlay.", cancelTripId, fieldValue(service, "pendingTripId"));
+    final KfeOverlayService cancellationService = service;
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+      try {
+        Field overlayField = KfeOverlayService.class.getDeclaredField("overlay");
+        overlayField.setAccessible(true);
+        android.view.View overlay = (android.view.View) overlayField.get(cancellationService);
+        long t = SystemClock.uptimeMillis();
+        float x = overlay.getWidth() - 30f * context.getResources().getDisplayMetrics().density;
+        float y = 80f * context.getResources().getDisplayMetrics().density;
+        overlay.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t, android.view.MotionEvent.ACTION_DOWN, x, y, 0));
+        overlay.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + 60, android.view.MotionEvent.ACTION_UP, x, y, 0));
+      } catch (Exception e) { throw new AssertionError(e); }
+    });
+    assertEquals("CANCEL", fieldValue(service, "formMode"));
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+      try {
+        android.view.ViewGroup panel = (android.view.ViewGroup) fieldValue(cancellationService, "formPanel");
+        android.widget.Button passenger = findButton(panel, "Passenger cancellation");
+        assertNotNull("Driver-facing passenger cancellation option must be visible", passenger);
+        passenger.performClick();
+        assertEquals("Passenger cancellation choice must reach native form state.", "PASSENGER", fieldValue(cancellationService, "cancelReason"));
+        ((EditText) fieldValue(cancellationService, "formInput")).setText("20");
+        android.widget.Button confirm = findButton(panel, "Confirm cancellation");
+        assertNotNull("Driver-facing cancellation confirmation must be visible", confirm);
+        confirm.performClick();
+      } catch (Exception e) { throw new AssertionError(e); }
+    });
+    JSONObject cancelledRecord = store.getRecord("TRIP", cancelTripId);
+    assertTrue("Visible cancellation form must commit a canonical trip without PWA replay", cancelledRecord.optBoolean("found", false));
+    assertEquals("CANCELLED", cancelledRecord.getJSONObject("record").getString("status"));
+    assertEquals("PASSENGER", cancelledRecord.getJSONObject("record").getString("cancelReason"));
+    assertEquals(20d, cancelledRecord.getJSONObject("record").getDouble("cancelledRevenue"), 0.001d);
+    JSONObject shiftRecord = store.getRecord("SHIFT", shiftId);
+    assertEquals("Native shift revenue must include the fare and cancellation fee exactly once.", 270d,
+      shiftRecord.getJSONObject("record").getDouble("revenue"), 0.001d);
+    assertEquals("GO_TO_PICKUP", fieldValue(service, "actionStage"));
+  }
+
+  private android.widget.Button findButton(android.view.ViewGroup parent, String label) {
+    for (int i = 0; i < parent.getChildCount(); i++) {
+      android.view.View child = parent.getChildAt(i);
+      if (child instanceof android.widget.Button && label.contentEquals(((android.widget.Button) child).getText())) {
+        return (android.widget.Button) child;
+      }
+      if (child instanceof android.view.ViewGroup) {
+        android.widget.Button found = findButton((android.view.ViewGroup) child, label);
+        if (found != null) return found;
+      }
+    }
+    return null;
   }
 
   private void setField(Object target, String name, Object value) throws Exception {

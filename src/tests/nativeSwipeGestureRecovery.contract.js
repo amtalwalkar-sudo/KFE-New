@@ -6,7 +6,7 @@ const gesture = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeS
 const store = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeNativeEventStore.java', 'utf8')
 
 assert.match(service, /progress=KfeSwipeGesture\.progress\(downProgress\*maxTravel\+dx,maxTravel\)/)
-assert.match(service, /KfeSwipeGesture\.hasMovedRight\(fx,dp\(8\)\)&&finalProgress>=0\.70f/)
+assert.match(service, /KfeSwipeGesture\.hasMovedRight\(fx,dp\(8\)\)&&finalProgress>=swipeCommitThresholdPercent\/100f/)
 assert.match(service, /Log\.d\("KFE-SWIPE","down stage=/)
 assert.match(service, /Log\.d\("KFE-SWIPE","move stage=/)
 assert.match(service, /KfePendingActionState\.matchesAwaitingEvent\(awaitingEventId,eventId\)/)
@@ -26,4 +26,18 @@ assert.match(gesture, /displacementX > Math\.max\(0f, movementSlop\)/)
 assert.match(gesture, /progress\(displacementX, maxTravel\) >= threshold/)
 assert.match(store, /status=\?/)
 assert.ok(service.includes('case MotionEvent.ACTION_CANCEL:') && service.includes('animateRetract();return true;'))
+
+assert.match(service, /durably queued GO_TO_PICKUP; native stage advanced to START_RIDE/)
+assert.match(service, /durably queued START_RIDE; native stage advanced to END_RIDE/)
+assert.match(service, /durably queued END_RIDE; native stage advanced to ENTER_FARE/)
+assert.match(service, /actionStage="START_RIDE"; pendingFareTripId=""/)
+assert.match(service, /if\(tripStartAt<=0L\) tripStartAt=System\.currentTimeMillis\(\)/)
+assert.match(service, /actionStage="END_RIDE"; phaseStartAt=tripStartAt/)
+assert.match(service, /actionStage="ENTER_FARE"; pendingFareTripId=pendingTripId/)
+assert.match(workView, /let nativeEventQueue = Promise\.resolve\(\)/)
+assert.match(workView, /nativeEventQueue\.then\(\(\) => processNativeEvent\(event\)\)/)
+assert.match(workView, /event => \{ void enqueueNativeEvent\(event\) \}/)
+// Keep the background queue contract adjacent to the original swipe/recovery assertions.
+console.log('KFE native background transition queue contract: PASS')
+
 console.log('KFE native swipe gesture and pending recovery contract: PASS')

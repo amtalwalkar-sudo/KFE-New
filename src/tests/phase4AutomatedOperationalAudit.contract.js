@@ -46,7 +46,7 @@ scenario('I5/J5', () => {
 scenario('A4/B3/B4/J2', () => {
   assert.equal(validateEndShiftEntry({ closingOdometer: 65002, startOdometer: 65000, revenue: 1 }).valid, true)
   assert.equal(validateEndShiftEntry({ closingOdometer: 64999, startOdometer: 65000, revenue: 1 }).valid, false)
-  assert.equal(validateEndShiftEntry({ closingOdometer: 65002, startOdometer: 65000, revenue: '' }).valid, false)
+  assert.equal(validateEndShiftEntry({ closingOdometer: 65002, startOdometer: 65000 }).valid, true)
   assert.equal(validateEndShiftEntry({ closingOdometer: 65000, startOdometer: 65000, revenue: 0 }).valid, true)
   assert.equal(validateEndShiftEntry({ closingOdometer: 65601, startOdometer: 65000, revenue: 1 }).requiresConfirmation, true)
   assert.equal(validateEndShiftEntry({ closingOdometer: 65601, startOdometer: 65000, revenue: 1, confirmLargeDistance: true }).valid, true)
@@ -175,7 +175,7 @@ scenario('K1/K2/K3/K4/K5/K6', () => {
   assert.match(work, /GO TO PICKUP/); assert.match(work, /START TRIP/); assert.match(work, /END TRIP/)
   assert.match(work, /CNG refuelling/); assert.match(work, /Current odometer/)
   assert.match(work, /Personal KM/); assert.match(work, /Dead KM/); assert.match(work, /CANCEL TRIP/)
-  assert.match(work, /Reconciliation/); assert.match(work, /SHIFT REVIEW/)
+  assert.doesNotMatch(work, /SHIFT REVIEW|Trip fares not entered|ALL REVENUE CAPTURED/, 'End Shift must not expose the old reconciliation/review stages.')
   assert.equal((work.match(/class="swipe(?:\s|")[^"]*"|class="[^"]*\sswipe(?:\s|")[^"]*"/g) || []).length, 1)
   assert.match(shell, /Kanishka Enterprises/); assert.match(shell, /header-gps/); assert.match(shell, /gpsState/)
   assert.doesNotMatch(shell, /Fleet ERP · KFE 2\.0/); assert.doesNotMatch(shell, /Local-first/)

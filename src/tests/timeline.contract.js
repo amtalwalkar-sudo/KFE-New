@@ -26,10 +26,11 @@ assert.ok(operational.includes("additionalOnly ? Number(shift.parking || 0) + tr
 assert.ok(operational.includes("const invalidTripKm = completed.some(trip =>"))
 assert.ok(operational.includes("businessKm: !Number.isFinite(businessKm)"))
 assert.ok(service.includes('record.shift.openingPersonalKm'))
-assert.ok(endShift.includes('revenue'))
+assert.match(endShift, /closingOdometer/)
+assert.doesNotMatch(endShift, /revenue|reconcileShiftRevenue|trips\s*=/, 'End Shift use case accepts odometer only; financial reconciliation remains in finance/read models.')
 assert.doesNotMatch(endShift, /calculateShiftRevenue/)
 assert.ok(cockpit.includes('PerformanceService.getDailyTargetSnapshot()'))
-assert.ok(cockpit.includes('shiftRevenue'))
+assert.doesNotMatch(cockpit, /shiftRevenue/, 'Work cockpit must not model shift revenue as a driver-facing top metric.')
 assert.ok(performanceService.includes('getDailyTargetSnapshot'))
 
 // Timeline must not fabricate mileage when a completed trip lacks authoritative trip KM.

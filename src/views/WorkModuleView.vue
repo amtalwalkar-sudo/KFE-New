@@ -8,7 +8,10 @@ import { WorkDraftService } from '../application/work/workDraftService.js'
 import { WorkflowTimerService, WorkWorkflowSessionService } from '../application/work/workflowTimerService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { WorkRuntimePorts } from '../application/work/workRuntimePorts.js'
+import { CanonicalWorkBoundary } from '../application/work/canonicalWorkBoundary.js'
 import { getLiveMovementTracePlan, matchesLiveMovementSession } from '../application/work/liveMovementTrace.js'
+import { deriveLiveRevenue } from '../application/work/liveRevenueReadModel.js'
+import { SWIPE_CONFIG } from '../application/work/swipeConfiguration.js'
 import { deriveWorkCockpitState, WORK_COCKPIT_STATES } from '../application/work/workCockpit.js'
 import WorkContextForm from '../components/work/WorkContextForm.vue'
 
@@ -60,15 +63,8 @@ const fuelBusy = ref(false)
 const endOpen = ref(false)
 const endStage = ref('CLOSE')
 const closingOdo = ref('')
-const shiftRevenue = ref('')
-const toll = ref('')
-const parking = ref('')
-const tollTreatment = ref('INCLUDED')
-const parkingTreatment = ref('INCLUDED')
 const endBusy = ref(false)
-const reviewRevenue = ref({})
-const reviewKm = ref({})
-const reviewOperator = ref({})
+const largeDistanceConfirmation = ref('')
 
 const target = ref(null)
 const targetAchieved = ref(0)
@@ -176,14 +172,13 @@ watch([fuelOdo, fuelPrice, fuelAmount, fuelFull], () => {
   if (!identity.parentId && !identity.workflowId) return
   saveDraft(identity, { fuelOdo: fuelOdo.value, fuelPrice: fuelPrice.value, fuelAmount: fuelAmount.value, fuelFull: fuelFull.value })
 })
-watch([closingOdo, shiftRevenue, toll, parking, tollTreatment, parkingTreatment, endStage, reviewRevenue, reviewKm, reviewOperator], () => {
+watch([closingOdo, endStage, largeDistanceConfirmation], () => {
   if (!endOpen.value || endStage.value === 'ENDED' || !store.shift?.id || restoringDrafts) return
   saveDraft(shiftDraftIdentity('work-end-shift', 'END_SHIFT'), {
-    endStage: endStage.value, closingOdo: closingOdo.value, shiftRevenue: shiftRevenue.value,
-    toll: toll.value, parking: parking.value, tollTreatment: tollTreatment.value, parkingTreatment: parkingTreatment.value,
-    reviewRevenue: reviewRevenue.value, reviewKm: reviewKm.value, reviewOperator: reviewOperator.value
+    endStage: endStage.value, closingOdo: closingOdo.value,
+    largeDistanceConfirmation: largeDistanceConfirmation.value
   })
-}, { deep: true })
+})
 
 const gap = computed(() => store.calculateGap(startOdo.value))
 const gapKm = computed(() => Number(gap.value?.gapKm || 0))
@@ -193,8 +188,7 @@ const targetProgress = computed(() => targetValue.value > 0
   : 0)
 
 const completed = computed(() => store.completedTrips.filter(t => t.status === 'COMPLETED'))
-const tripTollTotal = computed(() => completed.value.filter(t => t.shiftId === store.shift?.id).reduce((sum, trip) => sum + Math.max(0, Number(trip.toll) || 0), 0))
-const tripParkingTotal = computed(() => completed.value.filter(t => t.shiftId === store.shift?.id).reduce((sum, trip) => sum + Math.max(0, Number(trip.parking) || 0), 0))
+const liveRevenue = computed(() => deriveLiveRevenue(store.registeredTrips.filter(trip => trip.shiftId === store.shift?.id)))
 const pendingFare = computed(() => {
   if (fareTripId.value) {
     const selected = completed.value.find(t => t.id === fareTripId.value)
@@ -207,6 +201,17 @@ const pendingFare = computed(() => {
     .sort((a, b) => Date.parse(b.tripEndAt || b.updatedAt || '') - Date.parse(a.tripEndAt || a.updatedAt || ''))[0] || null
 })
 
+const pendingFareGpsGap = computed(() => {
+  const trip = pendingFare.value
+  const provenance = trip?.tripKmProvenance
+  if (trip?.tripKmAuthority !== 'GPS_TRACE_INCOMPLETE' && provenance?.qualityStatus !== 'INCOMPLETE') return null
+  const segments = Array.isArray(provenance?.incompleteKmSegments) ? provenance.incompleteKmSegments : []
+  return {
+    estimated: segments.filter(segment => segment.status === 'ESTIMATED').length,
+    unresolved: segments.filter(segment => segment.status !== 'ESTIMATED').length
+  }
+})
+
 const cockpit = computed(() => deriveWorkCockpitState({
   shift: store.shift,
   trip: store.trip,
@@ -214,7 +219,7 @@ const cockpit = computed(() => deriveWorkCockpitState({
   target: targetValue.value == null ? '—' : money(targetValue.value),
   targetProgress: targetProgress.value,
   liveKm: `${liveMovementKm.value.toFixed(1)} km`,
-  revenue: '₹0',
+  revenue: money(liveRevenue.value),
   asOf: clock.value
 }))
 
@@ -223,6 +228,10 @@ const active = computed(() => cockpit.value.state === WORK_COCKPIT_STATES.TRIP_A
 const liveMovementKm = ref(0)
 const liveMovementStatus = ref('WAITING FOR GPS')
 const liveMovementLabel = computed(() => store.isOnline ? (active.value ? 'BUSINESS KM' : 'DEAD KM') : '')
+const swipeStyle = computed(() => {
+  const color = cockpit.value.action === 'END_RIDE' ? SWIPE_CONFIG.endColor : cockpit.value.action === 'START_RIDE' ? SWIPE_CONFIG.startColor : SWIPE_CONFIG.pickupColor
+  return { '--swipe-action-color': color }
+})
 const actionLabel = computed(() => {
   if (cockpit.value.action === 'END_RIDE') return 'END TRIP'
   if (cockpit.value.action === 'START_RIDE') return 'START TRIP'
@@ -242,7 +251,7 @@ const tripTimer = computed(() => {
   return started ? formatElapsed(clock.value - started) : '00:00:00'
 })
 const stateTimerLabel = computed(() => {
-  if (endOpen.value) return 'SHIFT REVIEW TIME'
+  if (endOpen.value) return 'ENDING TIME'
   if (cancelOpen.value) return 'CANCELLATION TIME'
   if (fuelOpen.value) return 'FUEL ENTRY TIME'
   if (pendingFare.value) return 'FARE ENTRY TIME'
@@ -252,7 +261,7 @@ const stateTimerLabel = computed(() => {
 })
 const workflowStepKey = computed(() => {
   if (startOpen.value) return 'START_SHIFT'
-  if (endOpen.value) return 'SHIFT_REVIEW'
+  if (endOpen.value) return 'END_SHIFT'
   if (cancelOpen.value) return 'CANCELLATION'
   if (fuelOpen.value) return 'FUEL_ENTRY'
   if (pendingFare.value) return 'FARE_ENTRY'
@@ -359,44 +368,7 @@ async function refreshLiveMovementKm() {
   void MovementReconciliationQueue.reconcilePending()
 }
 
-const preview = computed(() => endOpen.value ? WorkService.reconcileShiftRevenue({
-  shiftRevenue: shiftRevenue.value,
-  trips: completed.value.map(t => ({
-    ...t,
-    revenue: reviewRevenue.value[t.id] ?? t.revenue,
-    tripKm: reviewKm.value[t.id] ?? t.tripKm,
-    operator: reviewOperator.value[t.id] ?? t.operator,
-    toll: t.toll,
-    parking: t.parking,
-    tollTreatment: t.tollTreatment,
-    parkingTreatment: t.parkingTreatment
-  })),
-  toll: toll.value,
-  parking: parking.value,
-  tollTreatment: tollTreatment.value,
-  parkingTreatment: parkingTreatment.value,
-  tollParkingCaptureMode: 'ADDITIONAL_ONLY',
-  tollParkingRevenueTreatment: tollTreatment.value
-}) : null)
-
-const missing = computed(() => completed.value.filter(t => reviewRevenue.value[t.id] === '' || reviewRevenue.value[t.id] == null))
-const endReady = computed(() =>
-  Boolean(closingOdo.value) &&
-  shiftRevenue.value !== '' &&
-  reviewedDeadKm.value >= -0.000001
-)
-const shiftKm = computed(() => Math.max(
-  0,
-  Number(closingOdo.value || store.lastKnownOdometer || store.startOdometer || 0) - Number(store.startOdometer || 0)
-))
-const tripKmForReview = trip => {
-  const edited = reviewKm.value[trip.id]
-  const raw = edited === '' || edited == null ? trip.tripKm : edited
-  const value = Number(raw)
-  return Number.isFinite(value) && value >= 0 ? value : 0
-}
-const reviewedTripKm = computed(() => completed.value.reduce((sum, trip) => sum + tripKmForReview(trip), 0))
-const reviewedDeadKm = computed(() => shiftKm.value - reviewedTripKm.value)
+const endReady = computed(() => closingOdo.value.trim() !== '')
 const fuelQty = computed(() => fuel.calculateQuantity(fuelPrice.value, fuelAmount.value))
 
 async function targetRefresh() {
@@ -416,9 +388,7 @@ async function syncOverlay() {
     return
   }
 
-  // Shift-end revenue is the ERP authority. Trip fares are optional supporting
-  // detail and must never become a competing overlay revenue total.
-  const revenue = money(store.shift?.revenue ?? 0)
+  // Revenue is derived from saved trip fares, not manual shift-end entry.
   // Mirror the same state-aware live movement estimate shown in Work.
   // The native overlay labels this value DEAD KM on the pickup leg and BUSINESS KM
   // once the passenger ride starts; do not substitute a passenger-only trace here.
@@ -428,6 +398,7 @@ async function syncOverlay() {
     trips = await WorkService.getTripsForShift(store.shift.id)
   } catch (_) {}
 
+  const revenue = money(deriveLiveRevenue(trips))
   const recoveredPendingFareId = pendingFare.value?.id || [...trips]
     .filter(t => t.status === 'COMPLETED' && t.revenue == null && t.fareDetailsSkipped !== true)
     .sort((a, b) => Date.parse(b.tripEndAt || b.updatedAt || '') - Date.parse(a.tripEndAt || a.updatedAt || ''))[0]?.id || ''
@@ -457,6 +428,10 @@ async function syncOverlay() {
     liveKm: state.liveKm,
     revenue: state.revenue,
     tripStartAt: state.tripStartAt,
+    phaseStartAt: stateTimerStartAt.value,
+    phaseLabel: stateTimerLabel.value,
+    defaultOperator: store.defaultOperator,
+    swipeConfig: SWIPE_CONFIG,
     overlayAction: state.pendingFareId && (!store.trip?.id || store.trip.status !== 'ACTIVE') ? 'ENTER_FARE' : state.action,
     overlayTripId: state.pendingFareId && (!store.trip?.id || store.trip.status !== 'ACTIVE') ? state.pendingFareId : state.tripId,
     pendingFareId: state.pendingFareId,
@@ -520,6 +495,8 @@ async function ensureDeadMovementCapture(entityType, entityId) {
       traceRunning = false
       return true
     }
+    // Android must not silently replace native background GPS with browser GPS.
+    if (nativeAndroid) return false
   }
   if (!isStillCurrentOwner()) return false
   if (previousSession) WorkRuntimePorts.movementTrace.reset()
@@ -600,7 +577,7 @@ async function startTrip() {
     if (nativeAndroid && store.trip?.id) {
       nativeTraceStarted = await WorkRuntimePorts.nativeGps.start(store.trip.id, 'PASSENGER_RIDE_TRACE', 'TRIP')
     }
-    if (!nativeTraceStarted && store.trip?.id) {
+    if (!nativeTraceStarted && !nativeAndroid && store.trip?.id) {
       traceRunning = WorkRuntimePorts.movementTrace.start({
         entityType: 'TRIP',
         entityId: store.trip.id,
@@ -664,7 +641,7 @@ async function endTrip() {
   }
 }
 
-async function saveFare(fromNative = false) {
+async function saveFare(fromNative = false, operationId = '') {
   if (fareBusy.value || !pendingFare.value) return false
   for (const [label, value] of [['Trip fare', fare.value], ['Toll', tripToll.value], ['Parking', tripParking.value]]) {
     if (value !== '' && (!Number.isFinite(Number(value)) || Number(value) < 0)) return fail(`${label} must be a non-negative number.`)
@@ -684,6 +661,18 @@ async function saveFare(fromNative = false) {
     const fareDraft = tripDraftIdentity('work-trip-details', 'ENTER_FARE', pendingFare.value.id)
     const result = await store.updateTrip(details)
     if (!result?.ok) { fail(result?.reason || 'Trip details could not be saved.'); return false }
+
+    // Android's native canonical record is authoritative for the overlay.
+    // Mirror the exact saved trip snapshot under the durable event ID so replay
+    // after an interrupted acknowledgement cannot count fare/toll/parking twice.
+    if (nativeAndroid) {
+      const savedTrip = { ...(pendingFare.value || {}), ...details, status: 'COMPLETED', updatedAt: new Date().toISOString() }
+      await CanonicalWorkBoundary.putRecord({
+        operationId: operationId || CanonicalWorkBoundary.createOperationId(),
+        entityType: 'TRIP',
+        record: savedTrip
+      })
+    }
 
     await clearCommittedDraft(fareDraft)
     fareTripId.value = null
@@ -743,7 +732,7 @@ async function openCancel() {
   message.value = ''
 }
 
-async function saveCancel(fromNative = false) {
+async function saveCancel(fromNative = false, operationId = '') {
   if (cancelBusy.value) return false
   if (!cancelReason.value.trim()) { fail('Cancellation reason is required.'); return false }
   if (!Number.isFinite(Number(cancelFare.value)) || Number(cancelFare.value) < 0) { fail('Cancellation fee must be a non-negative number.'); return false }
@@ -751,12 +740,30 @@ async function saveCancel(fromNative = false) {
   cancelBusy.value = true
   try {
     const cancellationDraft = tripDraftIdentity('work-cancellation', 'CANCEL_TRIP')
+    const cancelledTripSnapshot = store.trip ? { ...store.trip } : null
     const cancelledTripId = store.trip?.id
+    const cancellationReason = cancelReason.value.trim()
+    const cancellationRevenue = Number(cancelFare.value)
     const result = await store.cancelTrip({
-      reason: cancelReason.value.trim(),
+      reason: cancellationReason,
       revenue: cancelFare.value
     })
     if (!result?.ok) { fail(result?.reason || 'Cancellation could not be saved.'); return false }
+
+    if (nativeAndroid && cancelledTripSnapshot) {
+      await CanonicalWorkBoundary.putRecord({
+        operationId: operationId || CanonicalWorkBoundary.createOperationId(),
+        entityType: 'TRIP',
+        record: {
+          ...cancelledTripSnapshot,
+          status: 'CANCELLED',
+          cancelReason: cancellationReason,
+          cancelledRevenue: cancellationRevenue,
+          tripEndAt: cancelledTripSnapshot.tripEndAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      })
+    }
 
     // Cancellation ends this trip's movement window just like END TRIP.
     // Stop native capture and commit the dead-movement trace to canonical
@@ -825,9 +832,6 @@ async function handleContextAction(action) {
   if (action === 'save-fuel') { await saveFuel(); return }
   if (action === 'back-end') { backEndStage(); return }
   if (action === 'close-end') { closeShift(); return }
-  if (action === 'continue-reconcile') { continueReconcile(); return }
-  if (action === 'review-complete') { reviewDone(); return }
-  if (action === 'finish-end') { await finishEnd(); return }
   if (action === 'finish-ended') { finishEnded() }
 }
 
@@ -856,20 +860,6 @@ async function saveFuel() {
   }
 }
 
-function seedReview() {
-  const revenue = {}
-  const km = {}
-  const operators = {}
-  completed.value.forEach(t => {
-    revenue[t.id] = t.revenue ?? ''
-    km[t.id] = t.tripKm ?? ''
-    operators[t.id] = t.operator ?? store.defaultOperator
-  })
-  reviewRevenue.value = revenue
-  reviewKm.value = km
-  reviewOperator.value = operators
-}
-
 async function openEnd() {
   if (store.isTripActive) return fail('End the active Trip before going Offline.')
   
@@ -877,25 +867,13 @@ async function openEnd() {
   endOpen.value = true
   endStage.value = 'CLOSE'
   closingOdo.value = ''
-  shiftRevenue.value = ''
-  toll.value = ''
-  parking.value = ''
-  tollTreatment.value = 'INCLUDED'
-  parkingTreatment.value = 'INCLUDED'
-  seedReview()
+  largeDistanceConfirmation.value = ''
   restoringDrafts = true
   const draft = await restoreDraft(shiftDraftIdentity('work-end-shift', 'END_SHIFT'))
   if (draft?.values) {
     endStage.value = String(draft.values.endStage || 'CLOSE')
     closingOdo.value = String(draft.values.closingOdo ?? '')
-    shiftRevenue.value = String(draft.values.shiftRevenue ?? '')
-    toll.value = String(draft.values.toll ?? '')
-    parking.value = String(draft.values.parking ?? '')
-    tollTreatment.value = String(draft.values.tollTreatment || 'INCLUDED')
-    parkingTreatment.value = String(draft.values.parkingTreatment || 'INCLUDED')
-    reviewRevenue.value = draft.values.reviewRevenue || reviewRevenue.value
-    reviewKm.value = draft.values.reviewKm || reviewKm.value
-    reviewOperator.value = draft.values.reviewOperator || reviewOperator.value
+    largeDistanceConfirmation.value = String(draft.values.largeDistanceConfirmation || '')
   }
   restoringDrafts = false
   error.value = ''
@@ -908,33 +886,20 @@ function cancelEnd() {
 }
 
 function backEndStage() {
-  if (endStage.value === 'CONFIRM') { endStage.value = 'REVIEW'; return }
-  if (endStage.value === 'REVIEW') { endStage.value = 'RECONCILE'; return }
-  if (endStage.value === 'RECONCILE') { endStage.value = 'CLOSE'; return }
   cancelEnd()
 }
 
 function closeShift() {
-  if (!closingOdo.value) return fail('Closing odometer is required.')
-  if (shiftRevenue.value === '') return fail('Total shift revenue is required.')
+  if (!closingOdo.value.trim()) return fail('Closing odometer is required.')
   const closing = Number(closingOdo.value)
   const starting = Number(store.startOdometer)
   if (!Number.isFinite(closing) || closing < starting) return fail(`Closing odometer must be at least ${starting} km.`)
-  if (!Number.isFinite(Number(shiftRevenue.value)) || Number(shiftRevenue.value) < 0) return fail('Total shift revenue must be non-negative.')
-  seedReview()
-  endStage.value = 'RECONCILE'
+  if (largeDistanceKm.value > 500 && largeDistanceConfirmation.value !== largeDistanceIdentity.value) {
+    return fail('Confirm the closing odometer and total distance before ending the shift.')
+  }
+  void finishEnd()
 }
 
-function continueReconcile() {
-  // Trip fares are optional supporting detail. Shift-end revenue remains authoritative.
-  endStage.value = 'REVIEW'
-}
-
-function reviewDone() {
-  endStage.value = 'CONFIRM'
-}
-
-const largeDistanceConfirmation = ref('')
 const largeDistanceKm = computed(() => {
   const start = Number(store.shift?.startOdometer)
   const end = Number(closingOdo.value)
@@ -946,18 +911,10 @@ async function finishEnd() {
   if (endBusy.value || !endReady.value) return
   endBusy.value = true
   try {
-    if (reviewedDeadKm.value < -0.000001) return fail('Completed trip KM exceeds total shift KM. Correct the trip KM before ending the shift.')
     const endDraft = shiftDraftIdentity('work-end-shift', 'END_SHIFT')
-    const trips = completed.value.map(t => ({
-      id: t.id,
-      operator: reviewOperator.value[t.id] ?? t.operator,
-      tripKm: reviewKm.value[t.id] === '' || reviewKm.value[t.id] == null ? (t.tripKm ?? '') : reviewKm.value[t.id],
-      revenue: reviewRevenue.value[t.id] ?? t.revenue ?? ''
-    }))
     const endingShiftId = store.shift?.id
-    // Freeze and import the native shift trace before reconciliation reads
-    // canonical SHIFT snapshots. Never end the shift with dead-movement points
-    // stranded only in the app-private JSONL file.
+    // Preserve native GPS evidence before the shift is finalized. GPS movement
+    // accounting remains internal; it is not an end-of-shift driver workflow.
     if (nativeAndroid && endingShiftId) {
       await WorkRuntimePorts.nativeGps.stop(endingShiftId)
       try {
@@ -969,15 +926,7 @@ async function finishEnd() {
     }
     const result = await store.endShift({
       closingOdometer: closingOdo.value,
-      revenue: shiftRevenue.value,
-      toll: toll.value,
-      parking: parking.value,
-      tollTreatment: tollTreatment.value,
-      parkingTreatment: parkingTreatment.value,
-      tollParkingCaptureMode: 'ADDITIONAL_ONLY',
-      tollParkingRevenueTreatment: tollTreatment.value,
-      confirmLargeDistance: largeDistanceKm.value > 500 && largeDistanceConfirmation.value === largeDistanceIdentity.value,
-      trips
+      confirmLargeDistance: largeDistanceKm.value > 500 && largeDistanceConfirmation.value === largeDistanceIdentity.value
     })
     if (!result?.ok) {
       if (nativeAndroid && endingShiftId) await WorkRuntimePorts.nativeGps.start(endingShiftId, 'DEAD_MOVEMENT_TRACE', 'SHIFT')
@@ -991,6 +940,8 @@ async function finishEnd() {
     await clearCommittedDraft(endDraft)
     endStage.value = 'ENDED'
     notify('Shift ended.')
+  } catch (e) {
+    fail(e?.message || 'Shift could not be ended. Please retry.')
   } finally {
     endBusy.value = false
   }
@@ -999,7 +950,7 @@ async function finishEnd() {
 function finishEnded() {
   endOpen.value = false
   closingOdo.value = ''
-  shiftRevenue.value = ''
+  largeDistanceConfirmation.value = ''
   notify('Offline.')
 }
 
@@ -1028,7 +979,7 @@ function move(event) {
 async function up(event) {
   if (!swipe.value.down) return
   if (event?.pointerId != null && swipePointerId.value !== event.pointerId) return
-  const commit = swipeProgress.value >= 70
+  const commit = swipeProgress.value >= SWIPE_CONFIG.commitThresholdPercent
   swipe.value = { down: false, start: 0, offset: 0 }
   swipePointerId.value = null
   if (commit) await doAction()
@@ -1088,7 +1039,7 @@ const handleNativeAction = async event => {
       const payload = event?.input ? JSON.parse(String(event.input)) : {}
       cancelReason.value = payload.reason === 'PASSENGER' ? 'PASSENGER' : 'DRIVER'
       cancelFare.value = payload.revenue === '' || payload.revenue == null ? '' : String(payload.revenue)
-      return Boolean(await saveCancel(true))
+      return Boolean(await saveCancel(true, String(event?.eventId || '')))
     } catch (e) {
       fail(e?.message || 'Cancellation failed.')
       return false
@@ -1113,13 +1064,23 @@ const handleNativeAction = async event => {
       tripTollTreatment.value = 'INCLUDED'
       tripParkingTreatment.value = 'INCLUDED'
     }
-    return Boolean(await saveFare(true))
+    return Boolean(await saveFare(true, String(event?.eventId || '')))
   }
   return false
 }
 
-// Prevent a listener callback and a foreground replay from processing the
-// same durable native event concurrently. The event ID remains the idempotency key.
+// Serialize listener delivery and foreground replay through one FIFO queue.
+// Several overlay swipes can be queued while Android has suspended this WebView;
+// replay must apply GO_TO_PICKUP before START_RIDE and END_RIDE, never in parallel.
+let nativeEventQueue = Promise.resolve()
+function enqueueNativeEvent(event) {
+  const next = nativeEventQueue.then(() => processNativeEvent(event))
+  nativeEventQueue = next.catch(() => {})
+  return next
+}
+
+// Prevent duplicate delivery of one durable event while it is being processed.
+// The event ID remains the idempotency key.
 const nativeEventsInFlight = new Set()
 
 async function processNativeEvent(event) {
@@ -1164,7 +1125,7 @@ async function replayFailedNativeActions() {
     // Replay every still-pending event, not only events with a recorded write
     // failure. An interruption can happen after the Work commit but before the
     // failure counter is persisted; handlers must safely accept replays.
-    for (const event of pendingEvents) await processNativeEvent(event)
+    for (const event of pendingEvents) await enqueueNativeEvent(event)
   } finally {
     nativeReplayRunning = false
   }
@@ -1239,7 +1200,7 @@ onMounted(async () => {
     restoringDrafts = false
   } else if (savedForm?.form === 'end' && savedShiftMatches && store.isOnline && !store.isTripActive) {
     await openEnd()
-    if (savedForm.endStage && ['CLOSE', 'RECONCILE', 'REVIEW', 'CONFIRM'].includes(savedForm.endStage)) {
+    if (savedForm.endStage && ['CLOSE', 'ENDED'].includes(savedForm.endStage)) {
       endStage.value = savedForm.endStage
     }
   } else if (savedForm) {
@@ -1260,7 +1221,7 @@ onMounted(async () => {
 
   nativeActionListener = await WorkRuntimePorts.nativeWorkActions.addListener(
     'nativeWorkAction',
-    event => { void processNativeEvent(event) }
+    event => { void enqueueNativeEvent(event) }
   )
 
   // Replay every native event in durable creation order. Failed/unconfirmed
@@ -1322,6 +1283,7 @@ onBeforeUnmount(() => {
       <div class="work-live-metrics">
         <div class="live-km-readout" aria-live="polite"><span>{{ liveMovementLabel || 'LIVE KM' }}</span><strong>{{ liveMovementKm.toFixed(1) }} km</strong><small>{{ liveMovementStatus }}</small></div>
         <div class="trip-timer-block"><span class="timer-label">{{ stateTimerLabel }}</span><strong class="trip-timer" aria-live="polite">{{ active ? tripTimer : stateTimer }}</strong></div>
+        <div class="live-revenue-readout" aria-live="polite"><span>REVENUE</span><strong>{{ money(liveRevenue) }}</strong><small>Saved fares</small></div>
       </div>
     </section>
     <WorkContextForm
@@ -1343,12 +1305,6 @@ onBeforeUnmount(() => {
       v-if="endOpen"
       type="end"
       :end-stage="endStage"
-      :end-missing="missing"
-      :end-preview="preview"
-      :end-completed-count="completed.length"
-      :end-shift-km="shiftKm"
-      :end-reviewed-trip-km="reviewedTripKm"
-      :end-reviewed-dead-km="reviewedDeadKm"
       :end-ready="endReady"
       :end-busy="endBusy"
       :end-large-distance-km="largeDistanceKm"
@@ -1357,26 +1313,8 @@ onBeforeUnmount(() => {
       :money="money"
       :start-odo="String(store.startOdometer ?? '')"
       :closing-odo="closingOdo"
-      :shift-revenue="shiftRevenue"
-      :review-revenue="reviewRevenue"
-      :review-km="reviewKm"
-      :review-operator="reviewOperator"
-      :toll-treatment="tollTreatment"
-      :parking-treatment="parkingTreatment"
-      :toll="toll"
-      :parking="parking"
-      :trip-toll-total="tripTollTotal"
-      :trip-parking-total="tripParkingTotal"
       @update:closing-odo="closingOdo=$event"
-      @update:shift-revenue="shiftRevenue=$event"
-      @update:review-revenue="reviewRevenue=$event"
-      @update:review-km="reviewKm=$event"
-      @update:review-operator="reviewOperator=$event"
-      @update:toll-treatment="tollTreatment=$event"
-      @update:parking-treatment="parkingTreatment=$event"
       @update:large-distance-confirmed-for="largeDistanceConfirmation=$event"
-      @update:toll="toll=$event"
-      @update:parking="parking=$event"
       @action="handleContextAction"
     />
 
@@ -1394,9 +1332,9 @@ onBeforeUnmount(() => {
 
 
       <section v-if="!fuelOpen && !endOpen && !cancelOpen" class="action-instrument work-fixed-action">
-        <div ref="track" class="swipe trip-swipe" :class="{threshold:swipeProgress>=70,committing:busy,'semantic-go':cockpit.action==='GO_TO_PICKUP','semantic-start':cockpit.action==='START_RIDE','semantic-end':cockpit.action==='END_RIDE'}" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up">
+        <div ref="track" class="swipe trip-swipe" :class="{threshold:swipeProgress>=SWIPE_CONFIG.commitThresholdPercent,committing:busy,'semantic-go':cockpit.action==='GO_TO_PICKUP','semantic-start':cockpit.action==='START_RIDE','semantic-end':cockpit.action==='END_RIDE'}" :style="swipeStyle" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up">
           <div class="swipe-copy"><strong>{{ actionLabel }}</strong></div>
-          <button class="swipe-handle" type="button" :aria-label="actionLabel" :style="{ transform: `translateX(${swipe.offset}px)`, transition: swipe.down ? 'none' : 'transform 180ms ease-out' }" @keydown.enter.prevent="keyAction" @keydown.space.prevent="keyAction">→</button>
+          <button class="swipe-handle" type="button" :aria-label="actionLabel" :style="{ transform: `translateX(${swipe.offset}px)`, transition: swipe.down ? 'none' : `transform ${SWIPE_CONFIG.returnDurationMs}ms ease-out` }" @keydown.enter.prevent="keyAction" @keydown.space.prevent="keyAction">→</button>
         </div>
       </section>
     </template>
@@ -1410,6 +1348,16 @@ onBeforeUnmount(() => {
       @click="openCancel"
     >CANCEL TRIP</button>
 
+    <div
+      v-if="pendingFareGpsGap && !endOpen && !cancelOpen && !fuelOpen"
+      class="operational-state state-tone-warning gps-gap-warning"
+      role="status"
+      aria-live="polite"
+    >
+      <strong>INCOMPLETE GPS KM — THIS RIDE</strong>
+      <p>Recording was interrupted. Measured distance before and after the gap is retained; any Valhalla gap estimate is labelled as estimated. Unresolved kilometres remain flagged for later review.</p>
+      <small>{{ pendingFareGpsGap.estimated }} estimated gap(s) · {{ pendingFareGpsGap.unresolved }} unresolved gap(s)</small>
+    </div>
     <WorkContextForm
       v-if="pendingFare && !endOpen && !cancelOpen && !fuelOpen"
       type="fare"

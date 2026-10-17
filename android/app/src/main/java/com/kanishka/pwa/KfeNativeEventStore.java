@@ -29,15 +29,31 @@ final class KfeNativeEventStore extends SQLiteOpenHelper {
   @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) { }
 
   synchronized String append(String stage, String tripId, String input) {
+    String safeStage = stage == null ? "" : stage;
+    String safeTripId = tripId == null ? "" : tripId;
+    String safeInput = input == null ? "" : input;
+    SQLiteDatabase db = getWritableDatabase();
+
+    // A process may die after the event is durably appended but before the
+    // canonical record and workflow preferences advance. Retrying the same
+    // logical action must recover the existing event, including when PWA replay
+    // has already acknowledged it, rather than creating a second side effect.
+    try (Cursor existing = db.query("native_events", new String[]{"id"},
+        "stage=? AND trip_id=? AND COALESCE(input,'')=?",
+        new String[]{safeStage, safeTripId, safeInput}, null, null,
+        "created_at ASC, rowid ASC", "1")) {
+      if (existing.moveToFirst()) return existing.getString(0);
+    }
+
     String id = java.util.UUID.randomUUID().toString();
     ContentValues values = new ContentValues();
     values.put("id", id);
-    values.put("stage", stage == null ? "" : stage);
-    values.put("trip_id", tripId == null ? "" : tripId);
+    values.put("stage", safeStage);
+    values.put("trip_id", safeTripId);
     values.put("input", input);
     values.put("created_at", System.currentTimeMillis());
     values.put("status", "PENDING");
-    getWritableDatabase().insertOrThrow("native_events", null, values);
+    db.insertOrThrow("native_events", null, values);
     return id;
   }
 
