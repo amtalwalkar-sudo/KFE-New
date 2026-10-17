@@ -174,6 +174,23 @@ run_instrumentation com.kanishka.pwa.KfeWebViewStartupTest webview-startup 1
 # not double-count fares, and stale/equal-version snapshots must not overwrite
 # the canonical shift/trip projection.
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#canonicalWritesRemainIdempotentAfterLostAcknowledgementAndRejectStaleSnapshots canonical-persistence 1
+
+# Run the nine lifecycle interruption/retry combinations in the real Android gate.
+# Clear prior markers first, then require one explicit logcat result for every case.
+adb logcat -c
+run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#lifecyclePersistenceRecoversAfterEveryCheckpointOutboxAndCanonicalBoundary lifecycle-fault-recovery 1
+lifecycle_case_log="artifacts/android-golden/lifecycle-fault-cases.log"
+adb logcat -d -s KFE_LIFECYCLE_FAULT:I '*:S' > "$lifecycle_case_log"
+cat "$lifecycle_case_log"
+for lifecycle_stage in GO_TO_PICKUP START_RIDE END_RIDE; do
+  for lifecycle_boundary in AFTER_CHECKPOINT AFTER_OUTBOX AFTER_CANONICAL; do
+    if ! grep -Fq "LIFECYCLE_FAULT_CASE_PASS stage=$lifecycle_stage boundary=$lifecycle_boundary" "$lifecycle_case_log"; then
+      echo "Missing explicit lifecycle fault recovery result: stage=$lifecycle_stage boundary=$lifecycle_boundary" >&2
+      exit 1
+    fi
+    echo "VERIFIED_LIFECYCLE_FAULT_CASE stage=$lifecycle_stage boundary=$lifecycle_boundary"
+  done
+done
 # Exercise real native overlay persistence helpers for two fares plus cancellation while no PWA event replay runs.
 # Exercise native-only lifecycle/fare/cancellation commits while the PWA is not processing events.
 run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#nativeOnlyShiftPersistsMultipleFaresAndCancellationAcrossStoreReopen native-full-shift 1
