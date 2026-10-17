@@ -39,15 +39,17 @@ const mirrorCanonicalRecord = async (entityType, record) => {
   // Persist the exact operation identity before crossing the native bridge. If the
   // process dies or the acknowledgement is lost, recovery retries the same id;
   // SQLite's operation ledger makes that retry idempotent.
-  await ShiftTripRepository.markCanonicalSyncPending({
+  const journaled = await ShiftTripRepository.markCanonicalSyncPending({
     entityType,
     entityId: record.id,
     operationId,
     fingerprint,
+    record: canonicalRecord,
   })
+  if (!journaled) throw new Error(`Could not durably journal native canonical ${entityType} write.`)
   const outcome = await CanonicalWorkBoundary.putRecord({ operationId, entityType, record: canonicalRecord })
   if (outcome?.accepted !== true) throw new Error(`Native canonical ${entityType} commit was not acknowledged.`)
-  await ShiftTripRepository.clearCanonicalSyncPending({ entityType, entityId: record.id, operationId })
+  await ShiftTripRepository.clearCanonicalSyncPending({ entityType, entityId: record.id, operationId, fingerprint })
   return record
 }
 const mirrorCanonicalTripById = async id => {
