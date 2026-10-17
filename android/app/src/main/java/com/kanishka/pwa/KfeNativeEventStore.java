@@ -50,7 +50,7 @@ final class KfeNativeEventStore extends SQLiteOpenHelper {
     values.put("id", id);
     values.put("stage", safeStage);
     values.put("trip_id", safeTripId);
-    values.put("input", safeInput);
+    values.put("input", input);
     values.put("created_at", System.currentTimeMillis());
     values.put("status", "PENDING");
     db.insertOrThrow("native_events", null, values);
