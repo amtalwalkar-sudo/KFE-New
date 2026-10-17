@@ -277,6 +277,8 @@ public class KfeNativeFullShiftAcceptanceTest {
               new java.util.Date(startAt).toInstant().toString(), record.getString("tripStartAt"));
         }
 
+        System.out.println("LIFECYCLE_FAULT_CASE_PASS stage=" + eventStage + " boundary=" + boundary);
+
         // Remove only this fixture's canonical and outbox rows before the next
         // scenario so each injected boundary starts from an isolated state.
         cleanupNativeRecords(context, shiftId, tripId, "", "");
