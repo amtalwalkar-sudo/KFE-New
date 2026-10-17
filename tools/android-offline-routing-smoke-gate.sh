@@ -42,10 +42,79 @@ install_apk_with_retry() {
 }
 install_apk_with_retry android/app/build/outputs/apk/debug/app-debug.apk
 install_apk_with_retry android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+
+# Let Android create the app-scoped external directory under the target app UID.
+# Recent emulator images deny adb-shell mkdir under /sdcard/Android/data, even
+# though adb push can write to an existing app-owned directory.
+set +e
+timeout 90s adb shell am instrument -w -r \
+  -e class com.kanishka.pwa.KfeRecoveryHardeningTest#prepareOfflineValhallaFixtureDirectory \
+  com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner \
+  > artifacts/android-offline-routing/fixture-directory.log 2>&1
+prepare_result=$?
+set -e
+cat artifacts/android-offline-routing/fixture-directory.log
+test "$prepare_result" -eq 0
+grep -Eq '^INSTRUMENTATION_CODE: -1
+# Reuse the trace geometry already validated against this exact regional package by the HTTP smoke gate.
+timeout 60s adb push work/trace-request-alibag.json /sdcard/Android/data/com.kanishka.pwa/files/valhalla-trace-request.json
+test "$(adb shell ls -l /sdcard/Android/data/com.kanishka.pwa/files/valhalla-tiles.tar | awk '{print $5}' | tr -d '\r')" -gt 0
+
+# Disable emulator-managed external network paths before invoking the native engine.
+adb shell svc wifi disable
+adb shell svc data disable || true
+# Use ConnectivityService's supported shell command to toggle airplane mode.
+# Sending ACTION_AIRPLANE_MODE directly is denied on current Android emulator images.
+adb shell cmd connectivity airplane-mode enable
+sleep 3
+test "$(adb shell settings get global airplane_mode_on | tr -d '\r')" = "1"
+
+set +e
+# Valhalla must load the local tile extract and route with networking disabled; allow slow CI disks to finish.
+timeout 600s adb shell am instrument -w -r \
+  -e class com.kanishka.pwa.KfeRecoveryHardeningTest#installedOfflineValhallaRoutesWithNetworkDisabled \
+  com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner \
+  > artifacts/android-offline-routing/instrumentation.log 2>&1
+result=$?
+set -e
+cat artifacts/android-offline-routing/instrumentation.log
+test "$result" -eq 0
+grep -Eq '^INSTRUMENTATION_CODE: -1$' artifacts/android-offline-routing/instrumentation.log
+grep -Eq '^OK \(1 test\)$' artifacts/android-offline-routing/instrumentation.log
+! grep -Eq 'FAILURES!!!|Tests run: [0-9]+, Failures: [1-9]|shortMsg=Process crashed' artifacts/android-offline-routing/instrumentation.log
+ artifacts/android-offline-routing/fixture-directory.log
+grep -Eq '^OK \\(1 test\\)
+# Reuse the trace geometry already validated against this exact regional package by the HTTP smoke gate.
+timeout 60s adb push work/trace-request-alibag.json /sdcard/Android/data/com.kanishka.pwa/files/valhalla-trace-request.json
+test "$(adb shell ls -l /sdcard/Android/data/com.kanishka.pwa/files/valhalla-tiles.tar | awk '{print $5}' | tr -d '\r')" -gt 0
+
+# Disable emulator-managed external network paths before invoking the native engine.
+adb shell svc wifi disable
+adb shell svc data disable || true
+# Use ConnectivityService's supported shell command to toggle airplane mode.
+# Sending ACTION_AIRPLANE_MODE directly is denied on current Android emulator images.
+adb shell cmd connectivity airplane-mode enable
+sleep 3
+test "$(adb shell settings get global airplane_mode_on | tr -d '\r')" = "1"
+
+set +e
+# Valhalla must load the local tile extract and route with networking disabled; allow slow CI disks to finish.
+timeout 600s adb shell am instrument -w -r \
+  -e class com.kanishka.pwa.KfeRecoveryHardeningTest#installedOfflineValhallaRoutesWithNetworkDisabled \
+  com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner \
+  > artifacts/android-offline-routing/instrumentation.log 2>&1
+result=$?
+set -e
+cat artifacts/android-offline-routing/instrumentation.log
+test "$result" -eq 0
+grep -Eq '^INSTRUMENTATION_CODE: -1$' artifacts/android-offline-routing/instrumentation.log
+grep -Eq '^OK \(1 test\)$' artifacts/android-offline-routing/instrumentation.log
+! grep -Eq 'FAILURES!!!|Tests run: [0-9]+, Failures: [1-9]|shortMsg=Process crashed' artifacts/android-offline-routing/instrumentation.log
+ artifacts/android-offline-routing/fixture-directory.log
+
 # Use the smaller, separately published Alibag package so the on-device
 # test exercises a real region extract without exhausting emulator RAM/time.
-# Stage inputs in app-specific external storage; app UIDs cannot reliably traverse /data/local/tmp.
-adb shell mkdir -p /sdcard/Android/data/com.kanishka.pwa/files
+# The app-owned directory now exists before adb pushes the test fixtures.
 timeout 300s adb push work/area-alibag.tar /sdcard/Android/data/com.kanishka.pwa/files/valhalla-tiles.tar
 # Reuse the trace geometry already validated against this exact regional package by the HTTP smoke gate.
 timeout 60s adb push work/trace-request-alibag.json /sdcard/Android/data/com.kanishka.pwa/files/valhalla-trace-request.json
