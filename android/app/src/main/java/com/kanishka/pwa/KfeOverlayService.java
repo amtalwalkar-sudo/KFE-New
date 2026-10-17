@@ -859,7 +859,7 @@ public class KfeOverlayService extends Service {
           java.util.Iterator<String> keys=candidate.keys();
           while(keys.hasNext()){
             String key=keys.next();
-            if((!trip.has(key)||trip.isNull(key))&&!candidate.isNull(key))trip.put(key,candidate.get(key));
+            if(!trip.has(key)&&!candidate.isNull(key))trip.put(key,candidate.get(key));
           }
         }
       }
