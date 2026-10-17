@@ -333,7 +333,6 @@ export const ShiftTripRepository = {
       }
       request.onerror = () => { failure = request.error; try { tx.abort() } catch (_) {} }
       tx.oncomplete = () => {
-        if (updated) notifyCanonicalDataChanged({ stores: [storeName], reason: 'native-canonical:pending' })
         resolve(updated)
       }
       tx.onerror = () => reject(failure || tx.error || request.error || new Error('Could not persist pending native canonical operation.'))
@@ -361,7 +360,6 @@ export const ShiftTripRepository = {
       }
       request.onerror = () => { try { tx.abort() } catch (_) {} }
       tx.oncomplete = () => {
-        if (cleared) notifyCanonicalDataChanged({ stores: [storeName], reason: 'native-canonical:acknowledged' })
         resolve(cleared)
       }
       tx.onerror = () => reject(tx.error || request.error || new Error('Could not clear acknowledged native canonical operation.'))
