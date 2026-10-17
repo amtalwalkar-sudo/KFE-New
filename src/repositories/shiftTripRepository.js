@@ -312,41 +312,14 @@ export const ShiftTripRepository = {
       const shiftStore = tx.objectStore('shifts')
       const tripStore = tx.objectStore('trips')
       let conflict = null
+      // This method is called only after an Android-native canonical snapshot has
+      // been re-read following acknowledged first-time mirrors. SQLite is the
+      // authority for existing records: local updatedAt values are not comparable
+      // revision tokens across independent native/PWA writers. Always converge the
+      // IndexedDB cache to the authoritative snapshot instead of preserving a
+      // potentially newer-but-stale PWA snapshot.
       const queueRecord = (store, canonicalRecord, writeRecord = canonicalRecord) => {
-        if (!canonicalRecord?.id) return
-        const request = store.get(canonicalRecord.id)
-        request.onsuccess = () => {
-          const current = request.result
-          if (!current) {
-            store.put(writeRecord)
-            return
-          }
-          const order = compareRecordVersion(canonicalRecord, current)
-          if (order === null) {
-            if (!sameRecordValue(canonicalRecord, current)) {
-              conflict = new Error(`Canonical recovery conflict for ${canonicalRecord.id}: updatedAt versions are not comparable.`)
-              try { tx.abort() } catch (_) {}
-              return
-            }
-            if (!sameRecordValue(writeRecord, current)) store.put(writeRecord)
-            return
-          }
-          if (order < 0) return // Never replace a newer local write with an older snapshot.
-          if (order === 0) {
-            if (!sameRecordValue(canonicalRecord, current)) {
-              conflict = new Error(`Canonical recovery conflict for ${canonicalRecord.id}: different records share updatedAt.`)
-              try { tx.abort() } catch (_) {}
-              return
-            }
-            if (!sameRecordValue(writeRecord, current)) store.put(writeRecord)
-            return
-          }
-          store.put(writeRecord)
-        }
-        request.onerror = () => {
-          conflict = request.error || new Error('Canonical recovery record lookup failed.')
-          try { tx.abort() } catch (_) {}
-        }
+        if (canonicalRecord?.id) store.put(writeRecord)
       }
       const normalizedShifts = shifts.filter(record => record?.id).map(record => {
         const shiftTrips = trips.filter(trip => trip?.shiftId === record.id)
