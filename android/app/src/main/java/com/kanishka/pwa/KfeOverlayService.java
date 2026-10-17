@@ -55,6 +55,9 @@ public class KfeOverlayService extends Service {
   private static final int BUBBLE_DP=58;
   private static final int MINIMIZE_SWIPE_DP=48;
 
+  interface LifecycleFaultInjector { void afterBoundary(String boundary); }
+  static volatile LifecycleFaultInjector lifecycleFaultInjectorForTests;
+
   private WindowManager windowManager;
   private FrameLayout overlayRoot;
   private SwipeOverlayView overlay;
@@ -441,11 +444,9 @@ public class KfeOverlayService extends Service {
       if(pendingTripId.isEmpty()) pendingTripId=java.util.UUID.randomUUID().toString();
       // Persist the generated trip ID before writing either durable store. If
       // killed at any later boundary, a retry resumes this same logical trip.
-      if(!persistNativeWorkflow()){Toast.makeText(this,"Trip state could not be saved. Swipe again when storage is available.",Toast.LENGTH_LONG).show();return;}
-      String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"GO_TO_PICKUP",pendingTripId,"");
-      // Queue first: if the process dies before the canonical write, PWA replay
-      // still has the durable intent. append() returns the same event on retry.
-      if(!persistCanonicalTripStage("GOING_TO_PICKUP", false)){Toast.makeText(this,"Trip action is queued for recovery. Keep this trip open and retry when storage is available.",Toast.LENGTH_LONG).show();return;}
+      String eventId;
+      try { eventId=persistLifecycleAction("GO_TO_PICKUP","GOING_TO_PICKUP",false); }
+      catch(RuntimeException failure){Log.e("KFE-CANONICAL","GO_TO_PICKUP lifecycle persistence interrupted; retry is safe",failure);Toast.makeText(this,"Trip action is queued for recovery. Keep this trip open and retry when storage is available.",Toast.LENGTH_LONG).show();return;}
       phaseStartAt=System.currentTimeMillis(); phaseLabel="PICKUP TIME";
       actionStage="START_RIDE"; pendingFareTripId="";
       awaitingEventId=""; awaitingStage=""; awaitingTripId="";
@@ -457,9 +458,9 @@ public class KfeOverlayService extends Service {
       if(pendingTripId.isEmpty()) return;
       // Preserve the original start instant across retries after process death.
       if(tripStartAt<=0L) tripStartAt=System.currentTimeMillis();
-      if(!persistNativeWorkflow()){Toast.makeText(this,"Trip state could not be saved. Swipe again when storage is available.",Toast.LENGTH_LONG).show();return;}
-      String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"START_RIDE",pendingTripId,"");
-      if(!persistCanonicalTripStage("RIDE_STARTED", true)){Toast.makeText(this,"Trip action is queued for recovery. Keep this trip open and retry when storage is available.",Toast.LENGTH_LONG).show();return;}
+      String eventId;
+      try { eventId=persistLifecycleAction("START_RIDE","RIDE_STARTED",true); }
+      catch(RuntimeException failure){Log.e("KFE-CANONICAL","START_RIDE lifecycle persistence interrupted; retry is safe",failure);Toast.makeText(this,"Trip action is queued for recovery. Keep this trip open and retry when storage is available.",Toast.LENGTH_LONG).show();return;}
       actionStage="END_RIDE"; phaseStartAt=tripStartAt; phaseLabel="TRIP TIME";
       getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit()
         .putLong("tripStartAt",tripStartAt).putString("tripTimerTripId",pendingTripId).commit();
@@ -470,8 +471,9 @@ public class KfeOverlayService extends Service {
     }
     if("END_RIDE".equals(actionStage)){
       if(pendingTripId.isEmpty()) return;
-      String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"END_RIDE",pendingTripId,"");
-      if(!persistCanonicalTripStage("COMPLETED", false)){Toast.makeText(this,"Trip action is queued for recovery. Keep this trip open and retry when storage is available.",Toast.LENGTH_LONG).show();return;}
+      String eventId;
+      try { eventId=persistLifecycleAction("END_RIDE","COMPLETED",false); }
+      catch(RuntimeException failure){Log.e("KFE-CANONICAL","END_RIDE lifecycle persistence interrupted; retry is safe",failure);Toast.makeText(this,"Trip action is queued for recovery. Keep this trip open and retry when storage is available.",Toast.LENGTH_LONG).show();return;}
       actionStage="ENTER_FARE"; pendingFareTripId=pendingTripId; tripStartAt=0L; phaseStartAt=System.currentTimeMillis(); phaseLabel="FARE ENTRY TIME";
       getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().remove("tripStartAt").remove("tripTimerTripId").commit();
       awaitingEventId=""; awaitingStage=""; awaitingTripId="";
@@ -481,6 +483,23 @@ public class KfeOverlayService extends Service {
       Log.i("KFE-SWIPE","durably queued END_RIDE; native stage advanced to ENTER_FARE event="+shortEventId(eventId));
       KfeNativeWorkActionsPlugin.emitAction("END_RIDE",pendingTripId,"",eventId);
     }
+  }
+
+  // This is the same ordered persistence sequence used by all three native swipe
+  // transitions. The optional package-private injector lets instrumentation tests
+  // interrupt after each durable boundary and retry from persisted preferences.
+  private String persistLifecycleAction(String eventStage,String canonicalStage,boolean rideStarted){
+    if(!persistNativeWorkflow())throw new IllegalStateException("Native lifecycle checkpoint could not be committed.");
+    injectLifecycleFault("AFTER_CHECKPOINT");
+    String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,eventStage,pendingTripId,"");
+    injectLifecycleFault("AFTER_OUTBOX");
+    if(!persistCanonicalTripStage(canonicalStage,rideStarted))throw new IllegalStateException("Canonical lifecycle write was not committed.");
+    injectLifecycleFault("AFTER_CANONICAL");
+    return eventId;
+  }
+  private void injectLifecycleFault(String boundary){
+    LifecycleFaultInjector injector=lifecycleFaultInjectorForTests;
+    if(injector!=null)injector.afterBoundary(boundary);
   }
 
   private static String shortEventId(String id){ return id==null||id.isEmpty()?"none":id.substring(0,Math.min(8,id.length())); }
