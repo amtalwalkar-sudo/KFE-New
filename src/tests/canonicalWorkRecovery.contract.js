@@ -5,12 +5,14 @@ const canonicalShift = { id: 'shift-1', status: 'ACTIVE', revenue: 275, updatedA
 const canonicalCompletedTrip = { id: 'trip-1', shiftId: 'shift-1', status: 'COMPLETED', revenue: 250, updatedAt: '2026-10-15T10:00:00.000Z' }
 const canonicalCancelledTrip = { id: 'trip-2', shiftId: 'shift-1', status: 'CANCELLED', cancelledRevenue: 25, updatedAt: '2026-10-15T10:00:00.000Z' }
 
-const makeHarness = ({ shifts = [canonicalShift], trips = [canonicalCompletedTrip, canonicalCancelledTrip], localShifts, localTrips, mirrorFailure = false } = {}) => {
+const makeHarness = ({ shifts = [canonicalShift], trips = [canonicalCompletedTrip, canonicalCancelledTrip], localShifts, localTrips, mirrorFailure = false, loseAckAfterCommit = false } = {}) => {
   let canonicalShifts = shifts.map(record => ({ ...record }))
   let canonicalTrips = trips.map(record => ({ ...record }))
   let pwaShifts = (localShifts || shifts).map(record => ({ ...record }))
   let pwaTrips = (localTrips || trips).map(record => ({ ...record }))
   let failNextMirror = mirrorFailure
+  let loseNextAckAfterCommit = loseAckAfterCommit
+  const seenOperations = new Set()
   let mirrorCalls = 0
   let syncCalls = 0
   const readCanonical = async () => ({
@@ -20,14 +22,23 @@ const makeHarness = ({ shifts = [canonicalShift], trips = [canonicalCompletedTri
   const readLocal = async () => ({ shifts: pwaShifts.map(record => ({ ...record })), trips: pwaTrips.map(record => ({ ...record })) })
   const mirrorRecord = async (entityType, record) => {
     mirrorCalls++
+    const operationId = record?._nativeCanonicalSync?.operationId
+    if (operationId && seenOperations.has(operationId)) return
     if (failNextMirror) {
       failNextMirror = false
       throw new Error('simulated native write/ack interruption')
     }
+    const canonicalRecord = { ...record }
+    delete canonicalRecord._nativeCanonicalSync
     const records = entityType === 'SHIFT' ? canonicalShifts : canonicalTrips
     const index = records.findIndex(item => item.id === record.id)
-    if (index >= 0) records[index] = { ...record }
-    else records.push({ ...record })
+    if (index >= 0) records[index] = canonicalRecord
+    else records.push(canonicalRecord)
+    if (operationId) seenOperations.add(operationId)
+    if (operationId && loseNextAckAfterCommit) {
+      loseNextAckAfterCommit = false
+      throw new Error('simulated lost acknowledgement after native commit')
+    }
   }
   const syncCanonicalRecords = async ({ shifts: freshShifts, trips: freshTrips }) => {
     syncCalls++
@@ -84,6 +95,27 @@ const makeHarness = ({ shifts = [canonicalShift], trips = [canonicalCompletedTri
   assert.equal(h.getSyncCalls(), 1)
 }
 
+
+// An explicit durable pending-operation marker preserves a legitimate local
+// mutation, and a lost post-commit acknowledgement retries with the same ID.
+{
+  const pendingShift = {
+    ...canonicalShift,
+    revenue: 300,
+    updatedAt: '2026-10-15T10:30:00.000Z',
+    _nativeCanonicalSync: { operationId: 'op-shift-300', fingerprint: 'stable-payload-fingerprint' },
+  }
+  const h = makeHarness({ localShifts: [pendingShift], loseAckAfterCommit: true })
+  await assert.rejects(recoverCanonicalWorkSnapshot(h), /lost acknowledgement after native commit/)
+  assert.equal(h.getCanonicalShifts()[0].revenue, 300, 'native commit may succeed before the bridge acknowledgement is lost')
+  assert.equal(h.getSyncCalls(), 0, 'do not sync PWA before pending operation acknowledgement is recovered')
+  const recovered = await recoverCanonicalWorkSnapshot(h)
+  assert.equal(recovered.shifts.records[0].revenue, 300)
+  assert.equal(h.getPwaShifts()[0].revenue, 300)
+  assert.equal(h.getMirrorCalls(), 2, 'retry must use the same idempotent operation rather than lose the pending write')
+  assert.equal(h.getSyncCalls(), 1)
+}
+
 // A native write committed but its acknowledgement was lost. Retry remains safe:
 // an existing native record is never overwritten from a stale PWA snapshot.
 {
@@ -96,4 +128,4 @@ const makeHarness = ({ shifts = [canonicalShift], trips = [canonicalCompletedTri
   assert.equal(h.getMirrorCalls(), 0)
 }
 
-console.log('PASS: native canonical records win over stale PWA snapshots; local-only interrupted mirrors remain recoverable')
+console.log('PASS: stale PWA snapshots are rejected; journaled pending mirrors survive interrupted writes and lost acknowledgements')
