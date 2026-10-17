@@ -116,4 +116,34 @@ const makeHarness = ({ failFirstMirror = true } = {}) => {
   assert.equal(syncCalls, 1, 'recovery must sync only after re-reading canonical state')
 }
 
+
+{
+  // A newer native canonical projection must win when the PWA returns an older
+  // cached snapshot after native fare/cancellation work has already committed.
+  const canonicalShift = { id: 'shift-stale-pwa', status: 'ACTIVE', revenue: 420, updatedAt: '2026-10-15T10:02:00.000Z' }
+  const canonicalTrip = { id: 'trip-stale-pwa', shiftId: 'shift-stale-pwa', status: 'CANCELLED', cancelledRevenue: 20, cancelReason: 'PASSENGER', updatedAt: '2026-10-15T10:02:00.000Z' }
+  let localShifts = [{ id: canonicalShift.id, status: 'ACTIVE', revenue: 250, updatedAt: '2026-10-15T10:00:00.000Z' }]
+  let localTrips = [{ id: canonicalTrip.id, shiftId: canonicalShift.id, status: 'ACTIVE', updatedAt: '2026-10-15T10:00:00.000Z' }]
+  let syncCalls = 0
+  const harness = {
+    readCanonical: async () => ({ shifts: { records: [{ ...canonicalShift }] }, trips: { records: [{ ...canonicalTrip }] } }),
+    readLocal: async () => ({ shifts: localShifts.map(record => ({ ...record })), trips: localTrips.map(record => ({ ...record })) }),
+    mirrorRecord: async (_entityType, record) => {
+      throw new Error(`stale canonical write rejected for ${record.id}`)
+    },
+    syncCanonicalRecords: async ({ shifts, trips }) => {
+      syncCalls++
+      localShifts = shifts.map(record => ({ ...record }))
+      localTrips = trips.map(record => ({ ...record }))
+    },
+  }
+  const recovered = await recoverCanonicalWorkSnapshot(harness)
+  assert.equal(syncCalls, 1, 'stale PWA data must be replaced only after canonical re-read')
+  assert.equal(recovered.shifts.records[0].revenue, 420, 'newer native shift revenue must remain authoritative')
+  assert.equal(recovered.trips.records[0].status, 'CANCELLED', 'newer native cancellation must remain authoritative')
+  assert.equal(recovered.trips.records[0].cancelledRevenue, 20, 'native cancellation fee must not be lost')
+  assert.equal(localShifts[0].revenue, 420, 'PWA catch-up must converge to native revenue')
+  assert.equal(localTrips[0].status, 'CANCELLED', 'PWA catch-up must converge to native trip status')
+}
+
 console.log('PASS: canonical recovery retries interrupted mirrors, handles lost acknowledgements after commit, and rejects stale/equal-version conflicts')
