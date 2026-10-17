@@ -4,9 +4,7 @@ set -euo pipefail
 cd "${GITHUB_WORKSPACE:?GITHUB_WORKSPACE is required}"
 mkdir -p artifacts/android-offline-routing
 
-# android-emulator-runner can return from its boot helper while the emulator's
-# package manager is still starting on slow/loaded hosted runners. Wait for the
-# system boot property explicitly before installing either APK.
+# android-emulator-runner can return before Android has completed booting.
 timeout 300s adb wait-for-device
 booted=false
 for attempt in $(seq 1 150); do
@@ -19,20 +17,14 @@ if [ "$booted" != true ]; then
   echo "Android emulator did not finish system boot before offline-routing install." >&2
   exit 1
 fi
-# These are test APKs installed only on this disposable CI emulator. Avoid
-# adb's streamed-install path: on slow hosted emulators it can hit Android's
-# package-integrity verification timeout even though the APK built successfully.
-# --no-streaming uses the classic push/install path; retry transient package
-# manager contention and preserve each failure in the job log.
+
 install_apk_with_retry() {
   local apk="$1"
   local attempt
   for attempt in 1 2 3; do
     echo "Installing $apk (attempt $attempt/3; non-streaming)"
-    if timeout 300s adb install --no-streaming -r "$apk"; then
-      return 0
-    fi
-    echo "APK install attempt $attempt failed; checking emulator/package manager before retry." >&2
+    if timeout 300s adb install --no-streaming -r "$apk"; then return 0; fi
+    echo "APK install attempt $attempt failed; collecting emulator diagnostics." >&2
     adb shell getprop sys.boot_completed || true
     adb shell dumpsys package | head -n 30 || true
     sleep $((attempt * 5))
@@ -40,99 +32,31 @@ install_apk_with_retry() {
   echo "APK installation failed after 3 attempts: $apk" >&2
   return 1
 }
+
 install_apk_with_retry android/app/build/outputs/apk/debug/app-debug.apk
 install_apk_with_retry android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 
-# Let Android create the app-scoped external directory under the target app UID.
-# Recent emulator images deny adb-shell mkdir under /sdcard/Android/data, even
-# though adb push can write to an existing app-owned directory.
-set +e
-timeout 90s adb shell am instrument -w -r \
-  -e class com.kanishka.pwa.KfeRecoveryHardeningTest#prepareOfflineValhallaFixtureDirectory \
-  com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner \
-  > artifacts/android-offline-routing/fixture-directory.log 2>&1
-prepare_result=$?
-set -e
-cat artifacts/android-offline-routing/fixture-directory.log
-test "$prepare_result" -eq 0
-grep -Fq 'INSTRUMENTATION_CODE: -1' artifacts/android-offline-routing/fixture-directory.log
-grep -Fq 'OK (1 test)' artifacts/android-offline-routing/fixture-directory.log
+# On recent Android images adb-shell mkdir is denied under Android/data.
+# Create the app-scoped directory as the installed target app UID instead of
+# launching instrumentation just to initialize storage (which can hang on a
+# cold emulator before the test runner starts).
+timeout 30s adb shell run-as com.kanishka.pwa sh -c 'mkdir -p /sdcard/Android/data/com.kanishka.pwa/files'
+timeout 30s adb shell ls -ld /sdcard/Android/data/com.kanishka.pwa/files
 
-# Reuse the trace geometry already validated against this exact regional package by the HTTP smoke gate.
-timeout 60s adb push work/trace-request-alibag.json /sdcard/Android/data/com.kanishka.pwa/files/valhalla-trace-request.json
-test "$(adb shell ls -l /sdcard/Android/data/com.kanishka.pwa/files/valhalla-tiles.tar | awk '{print $5}' | tr -d '\r')" -gt 0
-
-# Disable emulator-managed external network paths before invoking the native engine.
-adb shell svc wifi disable
-adb shell svc data disable || true
-# Use ConnectivityService's supported shell command to toggle airplane mode.
-# Sending ACTION_AIRPLANE_MODE directly is denied on current Android emulator images.
-adb shell cmd connectivity airplane-mode enable
-sleep 3
-test "$(adb shell settings get global airplane_mode_on | tr -d '\r')" = "1"
-
-set +e
-# Valhalla must load the local tile extract and route with networking disabled; allow slow CI disks to finish.
-timeout 600s adb shell am instrument -w -r \
-  -e class com.kanishka.pwa.KfeRecoveryHardeningTest#installedOfflineValhallaRoutesWithNetworkDisabled \
-  com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner \
-  > artifacts/android-offline-routing/instrumentation.log 2>&1
-result=$?
-set -e
-cat artifacts/android-offline-routing/instrumentation.log
-test "$result" -eq 0
-grep -Eq '^INSTRUMENTATION_CODE: -1$' artifacts/android-offline-routing/instrumentation.log
-grep -Eq '^OK \(1 test\)$' artifacts/android-offline-routing/instrumentation.log
-! grep -Eq 'FAILURES!!!|Tests run: [0-9]+, Failures: [1-9]|shortMsg=Process crashed' artifacts/android-offline-routing/instrumentation.log
- artifacts/android-offline-routing/fixture-directory.log
-grep -Eq '^OK \\(1 test\\)
-# Reuse the trace geometry already validated against this exact regional package by the HTTP smoke gate.
-timeout 60s adb push work/trace-request-alibag.json /sdcard/Android/data/com.kanishka.pwa/files/valhalla-trace-request.json
-test "$(adb shell ls -l /sdcard/Android/data/com.kanishka.pwa/files/valhalla-tiles.tar | awk '{print $5}' | tr -d '\r')" -gt 0
-
-# Disable emulator-managed external network paths before invoking the native engine.
-adb shell svc wifi disable
-adb shell svc data disable || true
-# Use ConnectivityService's supported shell command to toggle airplane mode.
-# Sending ACTION_AIRPLANE_MODE directly is denied on current Android emulator images.
-adb shell cmd connectivity airplane-mode enable
-sleep 3
-test "$(adb shell settings get global airplane_mode_on | tr -d '\r')" = "1"
-
-set +e
-# Valhalla must load the local tile extract and route with networking disabled; allow slow CI disks to finish.
-timeout 600s adb shell am instrument -w -r \
-  -e class com.kanishka.pwa.KfeRecoveryHardeningTest#installedOfflineValhallaRoutesWithNetworkDisabled \
-  com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner \
-  > artifacts/android-offline-routing/instrumentation.log 2>&1
-result=$?
-set -e
-cat artifacts/android-offline-routing/instrumentation.log
-test "$result" -eq 0
-grep -Eq '^INSTRUMENTATION_CODE: -1$' artifacts/android-offline-routing/instrumentation.log
-grep -Eq '^OK \(1 test\)$' artifacts/android-offline-routing/instrumentation.log
-! grep -Eq 'FAILURES!!!|Tests run: [0-9]+, Failures: [1-9]|shortMsg=Process crashed' artifacts/android-offline-routing/instrumentation.log
- artifacts/android-offline-routing/fixture-directory.log
-
-# Use the smaller, separately published Alibag package so the on-device
-# test exercises a real region extract without exhausting emulator RAM/time.
-# The app-owned directory now exists before adb pushes the test fixtures.
+# Use the small, separately published Alibag package to exercise a real extract.
 timeout 300s adb push work/area-alibag.tar /sdcard/Android/data/com.kanishka.pwa/files/valhalla-tiles.tar
-# Reuse the trace geometry already validated against this exact regional package by the HTTP smoke gate.
 timeout 60s adb push work/trace-request-alibag.json /sdcard/Android/data/com.kanishka.pwa/files/valhalla-trace-request.json
 test "$(adb shell ls -l /sdcard/Android/data/com.kanishka.pwa/files/valhalla-tiles.tar | awk '{print $5}' | tr -d '\r')" -gt 0
+test "$(adb shell ls -l /sdcard/Android/data/com.kanishka.pwa/files/valhalla-trace-request.json | awk '{print $5}' | tr -d '\r')" -gt 0
 
-# Disable emulator-managed external network paths before invoking the native engine.
+# Disable emulator-managed external network paths before invoking native Valhalla.
 adb shell svc wifi disable
 adb shell svc data disable || true
-# Use ConnectivityService's supported shell command to toggle airplane mode.
-# Sending ACTION_AIRPLANE_MODE directly is denied on current Android emulator images.
 adb shell cmd connectivity airplane-mode enable
 sleep 3
 test "$(adb shell settings get global airplane_mode_on | tr -d '\r')" = "1"
 
 set +e
-# Valhalla must load the local tile extract and route with networking disabled; allow slow CI disks to finish.
 timeout 600s adb shell am instrument -w -r \
   -e class com.kanishka.pwa.KfeRecoveryHardeningTest#installedOfflineValhallaRoutesWithNetworkDisabled \
   com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner \
@@ -140,7 +64,11 @@ timeout 600s adb shell am instrument -w -r \
 result=$?
 set -e
 cat artifacts/android-offline-routing/instrumentation.log
-test "$result" -eq 0
-grep -Eq '^INSTRUMENTATION_CODE: -1$' artifacts/android-offline-routing/instrumentation.log
-grep -Eq '^OK \(1 test\)$' artifacts/android-offline-routing/instrumentation.log
+if [ "$result" -ne 0 ]; then
+  adb logcat -d -t 3000 > artifacts/android-offline-routing/failure-logcat.log || true
+  echo "Offline Valhalla instrumentation failed with exit code $result." >&2
+  exit "$result"
+fi
+grep -Fq 'INSTRUMENTATION_CODE: -1' artifacts/android-offline-routing/instrumentation.log
+grep -Fq 'OK (1 test)' artifacts/android-offline-routing/instrumentation.log
 ! grep -Eq 'FAILURES!!!|Tests run: [0-9]+, Failures: [1-9]|shortMsg=Process crashed' artifacts/android-offline-routing/instrumentation.log
