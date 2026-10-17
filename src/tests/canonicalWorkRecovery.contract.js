@@ -116,8 +116,8 @@ const makeHarness = ({ shifts = [canonicalShift], trips = [canonicalCompletedTri
   assert.equal(h.getSyncCalls(), 1)
 }
 
-// A native write committed but its acknowledgement was lost. Retry remains safe:
-// an existing native record is never overwritten from a stale PWA snapshot.
+// A stale PWA snapshot without a pending marker must never replay an old write
+// after native state has advanced.
 {
   const nativeShift = { ...canonicalShift, revenue: 275 }
   const staleLocal = { ...canonicalShift, revenue: 0, updatedAt: '2026-10-15T12:00:00.000Z' }
