@@ -305,33 +305,44 @@ export const ShiftTripRepository = {
   async getBusinessStartBaseline() { const [vehicles, settings] = await Promise.all([readAll('vehicles'), readAll('settings')]); const active = vehicles.filter(v => !v.deleted && !v.deletedAt && v.status !== 'Sold' && Number.isFinite(Number(v.openingOdometerKm))); const vehicle = active.sort((a, b) => String(a.id || '').localeCompare(String(b.id || '')))[0] || null; const setup = settings.find(item => item.settingKey === 'businessSetup' && !item.deleted && !item.deletedAt); const businessStartDate = setup?.values?.businessStartDate || null; return vehicle ? { businessStartDate, businessStartOdometer: Number(vehicle.openingOdometerKm) } : (businessStartDate ? { businessStartDate, businessStartOdometer: null } : null) },
   async getLastCompletedShift() { await ensureCanonicalReadBoundary(); const shifts = await readAll('shifts'); return shifts.filter(s => s.status === 'COMPLETED' && Number.isFinite(Number(s.endOdometer))).sort((a, b) => new Date(b.shiftEndAt || b.updatedAt) - new Date(a.shiftEndAt || a.updatedAt))[0] || null },
   async getLastCompletedTrip() { await ensureCanonicalReadBoundary(); const trips = await readAll('trips'); return trips.filter(t => t.status === 'COMPLETED' && t.operator).sort((a, b) => new Date(b.tripEndAt || b.updatedAt) - new Date(a.tripEndAt || a.updatedAt))[0] || null },
-  async markCanonicalSyncPending({ entityType, entityId, operationId, fingerprint } = {}) {
+  async markCanonicalSyncPending({ entityType, entityId, operationId, fingerprint, record } = {}) {
     const storeName = entityType === 'SHIFT' ? 'shifts' : entityType === 'TRIP' ? 'trips' : null
-    if (!storeName || !entityId || !operationId || !fingerprint) throw new Error('entityType, entityId, operationId and fingerprint are required.')
+    if (!storeName || !entityId || !operationId || !fingerprint || !record || record.id !== entityId) throw new Error('entityType, entityId, operationId, fingerprint and matching record are required.')
     const db = await initializeCanonicalStorage()
     return new Promise((resolve, reject) => {
       const tx = db.transaction([storeName], 'readwrite')
       let updated = null
+      let failure = null
       const store = tx.objectStore(storeName)
       const request = store.get(entityId)
       request.onsuccess = () => {
         const current = request.result
-        if (!current) return
+        if (!current) {
+          failure = new Error('Cannot journal a native mirror for a missing local canonical record.')
+          try { tx.abort() } catch (_) {}
+          return
+        }
+        const { _nativeCanonicalSync, ...currentPayload } = current
+        if (!sameRecordValue(currentPayload, record)) {
+          failure = new Error('Local canonical record changed before native mirror; retry with the latest snapshot.')
+          try { tx.abort() } catch (_) {}
+          return
+        }
         updated = { ...current, _nativeCanonicalSync: { operationId, fingerprint } }
         store.put(updated)
       }
-      request.onerror = () => { try { tx.abort() } catch (_) {} }
+      request.onerror = () => { failure = request.error; try { tx.abort() } catch (_) {} }
       tx.oncomplete = () => {
         if (updated) notifyCanonicalDataChanged({ stores: [storeName], reason: 'native-canonical:pending' })
         resolve(updated)
       }
-      tx.onerror = () => reject(tx.error || request.error || new Error('Could not persist pending native canonical operation.'))
-      tx.onabort = () => reject(tx.error || request.error || new Error('Pending native canonical operation aborted.'))
+      tx.onerror = () => reject(failure || tx.error || request.error || new Error('Could not persist pending native canonical operation.'))
+      tx.onabort = () => reject(failure || tx.error || request.error || new Error('Pending native canonical operation aborted.'))
     })
   },
-  async clearCanonicalSyncPending({ entityType, entityId, operationId } = {}) {
+  async clearCanonicalSyncPending({ entityType, entityId, operationId, fingerprint } = {}) {
     const storeName = entityType === 'SHIFT' ? 'shifts' : entityType === 'TRIP' ? 'trips' : null
-    if (!storeName || !entityId || !operationId) throw new Error('entityType, entityId and operationId are required.')
+    if (!storeName || !entityId || !operationId || !fingerprint) throw new Error('entityType, entityId, operationId and fingerprint are required.')
     const db = await initializeCanonicalStorage()
     return new Promise((resolve, reject) => {
       const tx = db.transaction([storeName], 'readwrite')
@@ -340,10 +351,12 @@ export const ShiftTripRepository = {
       const request = store.get(entityId)
       request.onsuccess = () => {
         const current = request.result
-        if (!current?._nativeCanonicalSync || current._nativeCanonicalSync.operationId !== operationId) return
-        const next = { ...current }
-        delete next._nativeCanonicalSync
-        store.put(next)
+        if (!current?._nativeCanonicalSync ||
+            current._nativeCanonicalSync.operationId !== operationId ||
+            current._nativeCanonicalSync.fingerprint !== fingerprint) return
+        const { _nativeCanonicalSync, ...currentPayload } = current
+        if (JSON.stringify(stableRecordValue(currentPayload)) !== fingerprint) return
+        store.put(currentPayload)
         cleared = true
       }
       request.onerror = () => { try { tx.abort() } catch (_) {} }
