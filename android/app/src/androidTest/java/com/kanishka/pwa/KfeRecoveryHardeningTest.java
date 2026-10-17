@@ -422,6 +422,15 @@ public class KfeRecoveryHardeningTest {
         () -> KfeNativeGpsService.isPersistedTracking(context, tripId, "PASSENGER_RIDE_TRACE", "TRIP"));
   }
 
+  @Test public void prepareOfflineValhallaFixtureDirectory() throws Exception {
+    File externalFiles = context.getExternalFilesDir(null);
+    assertNotNull("App-specific external files storage must be available for the CI fixture.", externalFiles);
+    if (!externalFiles.isDirectory()) {
+      assertTrue("Unable to create app-specific external files directory.", externalFiles.mkdirs());
+    }
+    assertTrue("App-specific external files directory was not created.", externalFiles.isDirectory());
+  }
+
   @Test public void installedOfflineValhallaRoutesWithNetworkDisabled() throws Exception {
     ConnectivityManager connectivity = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
     Network activeNetwork = connectivity == null ? null : connectivity.getActiveNetwork();
