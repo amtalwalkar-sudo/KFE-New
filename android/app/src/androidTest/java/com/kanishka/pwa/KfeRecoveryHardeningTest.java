@@ -72,6 +72,11 @@ public class KfeRecoveryHardeningTest {
         .put("revenue", 400).put("updatedAt", t2);
 
     assertLostAckRetryIsIdempotent(store, fareAOperation, "TRIP", fareA);
+    JSONObject reusedOperationWithDifferentPayload = new JSONObject(fareA.toString()).put("fare", 999);
+    assertRejectedWrite(store, fareAOperation, "TRIP", reusedOperationWithDifferentPayload,
+        "operationId was already used with a different payload");
+    assertEquals("Rejected operation-ID reuse must not change the committed fare.", 250,
+        store.getRecord("TRIP", tripA).getJSONObject("record").getInt("fare"));
     assertLostAckRetryIsIdempotent(store, fareBOperation, "TRIP", fareB);
     assertLostAckRetryIsIdempotent(store, shiftOperation, "SHIFT", shift);
 
