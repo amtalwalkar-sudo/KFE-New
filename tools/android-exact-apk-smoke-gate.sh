@@ -146,6 +146,93 @@ run_instrumentation() {
   fi
 }
 
+run_lifecycle_process_death_case() {
+  local stage="$1"
+  local boundary="$2"
+  local label="lifecycle-process-death-${stage,,}-${boundary,,}"
+  local prepare_log="artifacts/android-golden/${label}-prepare.log"
+  local ready=false
+  local pid_before=""
+  local pid_to_kill=""
+  local process_death_observed=false
+  adb logcat -c
+  # This test parks inside the production persistence sequence at the requested
+  # boundary. The only way forward is for this harness to kill the target process.
+  timeout 100s adb shell am instrument -w -r \
+    -e class com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#prepareLifecycleProcessDeathAtBoundary \
+    -e lifecycleStage "$stage" -e lifecycleBoundary "$boundary" \
+    com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner > "$prepare_log" 2>&1 &
+  local prepare_pid=$!
+  for attempt in $(seq 1 35); do
+    pid_before="$(adb shell pidof com.kanishka.pwa 2>/dev/null | tr -d '\r' | awk '{print $1}')"
+    if [ -n "$pid_before" ] && adb shell run-as com.kanishka.pwa grep -Fq "${stage}_${boundary}" shared_prefs/kfe_overlay.xml 2>/dev/null; then
+      ready=true
+      break
+    fi
+    if ! kill -0 "$prepare_pid" 2>/dev/null; then break; fi
+    sleep 1
+  done
+  if [ "$ready" != true ]; then
+    cat "$prepare_log" >&2 || true
+    capture_failure "${label}-not-ready"
+    kill "$prepare_pid" >/dev/null 2>&1 || true
+    echo "Lifecycle process-death preparation never reached ${stage}/${boundary}." >&2
+    return 1
+  fi
+  adb root >/dev/null 2>&1 || true
+  adb wait-for-device || true
+  if ! adb shell id 2>/dev/null | grep -q 'uid=0'; then
+    capture_failure "${label}-root-unavailable"
+    kill "$prepare_pid" >/dev/null 2>&1 || true
+    echo "Cannot inject an actual process kill for ${stage}/${boundary}: adb root unavailable." >&2
+    return 1
+  fi
+  pid_to_kill="$(adb shell pidof com.kanishka.pwa 2>/dev/null | tr -d '\r' | awk '{print $1}')"
+  if [ -z "$pid_to_kill" ]; then
+    capture_failure "${label}-pid-missing"
+    kill "$prepare_pid" >/dev/null 2>&1 || true
+    echo "Target process disappeared before kill at ${stage}/${boundary}." >&2
+    return 1
+  fi
+  adb shell kill -9 "$pid_to_kill" || {
+    capture_failure "${label}-kill-failed"
+    kill "$prepare_pid" >/dev/null 2>&1 || true
+    echo "SIGKILL failed at ${stage}/${boundary}." >&2
+    return 1
+  }
+  adb unroot >/dev/null 2>&1 || true
+  adb wait-for-device || true
+  wait "$prepare_pid" >/dev/null 2>&1 || true
+  for attempt in $(seq 1 25); do
+    local pid_after
+    pid_after="$(adb shell pidof com.kanishka.pwa 2>/dev/null | tr -d '\r' | awk '{print $1}')"
+    if [ -z "$pid_after" ] || [ "$pid_after" != "$pid_to_kill" ]; then
+      process_death_observed=true
+      break
+    fi
+    sleep 1
+  done
+  if [ "$process_death_observed" != true ]; then
+    capture_failure "${label}-kill-not-observed"
+    echo "Target PID did not change after SIGKILL at ${stage}/${boundary} (PID $pid_to_kill)." >&2
+    return 1
+  fi
+  # A fresh instrumentation invocation starts a new app process and checks the
+  # checkpoint, outbox event identity, canonical write, and exact retry outcome.
+  run_instrumentation \
+    com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#verifyLifecycleProcessDeathRecovery \
+    "${label}-verify" 1
+  local case_log="artifacts/android-golden/${label}-case.log"
+  adb logcat -d -s KFE_LIFECYCLE_DEATH:I '*:S' > "$case_log"
+  cat "$case_log"
+  if ! grep -Fq "LIFECYCLE_PROCESS_DEATH_CASE_PASS stage=$stage boundary=$boundary" "$case_log"; then
+    capture_failure "${label}-missing-pass-marker"
+    echo "Missing real process-death recovery marker at ${stage}/${boundary}." >&2
+    return 1
+  fi
+  echo "VERIFIED_LIFECYCLE_PROCESS_DEATH_CASE stage=$stage boundary=$boundary"
+}
+
 install_apk "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk" "production-apk"
 # Prove Android permits an in-place package replacement and preserves app-private data.
 adb_ready
@@ -191,6 +278,15 @@ for lifecycle_stage in GO_TO_PICKUP START_RIDE END_RIDE; do
     echo "VERIFIED_LIFECYCLE_FAULT_CASE stage=$lifecycle_stage boundary=$lifecycle_boundary"
   done
 done
+# Actual SIGKILL/restart at every production lifecycle boundary. Each case must
+# reach its boundary marker, lose the original app PID, restart in a new process,
+# retry the same logical action, and pass durable outbox/canonical assertions.
+for lifecycle_stage in GO_TO_PICKUP START_RIDE END_RIDE; do
+  for lifecycle_boundary in AFTER_CHECKPOINT AFTER_OUTBOX AFTER_CANONICAL; do
+    run_lifecycle_process_death_case "$lifecycle_stage" "$lifecycle_boundary"
+  done
+done
+
 # Exercise real native overlay persistence helpers for two fares plus cancellation while no PWA event replay runs.
 # Exercise native-only lifecycle/fare/cancellation commits while the PWA is not processing events.
 run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#nativeOnlyShiftPersistsMultipleFaresAndCancellationAcrossStoreReopen native-full-shift 1
