@@ -149,6 +149,27 @@ public class KfeNativeFullShiftAcceptanceTest {
         .commit();
   }
 
+  @Test public void lifecycleOutboxRetryReusesPendingAndAcknowledgedEventAcrossCrashBoundary() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    KfeNativeEventStore events = KfeNativeEventStore.get(context);
+    String tripId = "native-lifecycle-retry-" + System.currentTimeMillis();
+
+    // Simulate process death after outbox insertion but before canonical write:
+    // the next attempt must resolve to the same durable event, not append twice.
+    String first = events.append("GO_TO_PICKUP", tripId, "");
+    String retryBeforeReplay = events.append("GO_TO_PICKUP", tripId, "");
+    assertEquals("Retry must reuse the pending logical lifecycle event.", first, retryBeforeReplay);
+    assertPendingEvent(events.pending(500), tripId, "GO_TO_PICKUP");
+
+    // Also cover death after PWA has replayed/acknowledged the event but before
+    // the overlay persisted its next stage. Retrying must not create a new effect.
+    assertTrue("The first lifecycle event should acknowledge exactly once.", events.acknowledge(first));
+    String retryAfterReplay = events.append("GO_TO_PICKUP", tripId, "");
+    assertEquals("Acknowledged lifecycle events must remain idempotent on retry.", first, retryAfterReplay);
+    assertTrue("Retry must not recreate an acknowledged event as pending.",
+        !hasPendingEvent(events.pending(500), tripId, "GO_TO_PICKUP"));
+  }
+
   @Test public void reopeningPwaCatchesUpNativeCanonicalRecordsWithoutReplayingPendingEvents() throws Exception {
     Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
     SharedPreferences prefs = context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE);
@@ -450,6 +471,15 @@ public class KfeNativeFullShiftAcceptanceTest {
       if (record != null && shiftId.equals(record.optString("shiftId", ""))) count++;
     }
     return count;
+  }
+
+  private static boolean hasPendingEvent(JSONArray pending, String tripId, String stage) {
+    for (int i = 0; i < pending.length(); i++) {
+      JSONObject event = pending.optJSONObject(i);
+      if (event != null && tripId.equals(event.optString("tripId", ""))
+          && stage.equals(event.optString("stage", ""))) return true;
+    }
+    return false;
   }
 
   private static void assertPendingEvent(JSONArray pending, String tripId, String stage) {
