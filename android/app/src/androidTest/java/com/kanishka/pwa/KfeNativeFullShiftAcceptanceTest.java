@@ -43,8 +43,11 @@ public class KfeNativeFullShiftAcceptanceTest {
     JSONObject shift = new JSONObject()
         .put("id", shiftId)
         .put("status", "ACTIVE")
+        .put("operator", "Uber")
+        .put("startOdometer", 1000)
+        .put("shiftStartAt", "2026-10-17T00:00:00.000Z")
         .put("revenue", 0)
-        .put("updatedAt", "2026-01-01T00:00:00.000Z");
+        .put("updatedAt", "2026-10-17T00:00:00.000Z");
     assertTrue("The native shift fixture must commit.",
         store.putRecord("native-full-shift-create-" + suffix, "SHIFT", shift).accepted);
 
