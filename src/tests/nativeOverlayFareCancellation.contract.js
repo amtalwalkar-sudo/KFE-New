@@ -9,6 +9,8 @@ const overlay = read('android/app/src/main/java/com/kanishka/pwa/KfeOverlayServi
 const store = read('android/app/src/main/java/com/kanishka/pwa/KfeCanonicalWorkStore.java')
 const pwa = read('src/views/WorkModuleView.vue')
 const workActions = read('src/infrastructure/android/nativeWorkActions.js')
+const androidGate = read('tools/android-exact-apk-smoke-gate.sh')
+const nativeAcceptance = read('android/app/src/androidTest/java/com/kanishka/pwa/KfeNativeFullShiftAcceptanceTest.java')
 
 assert.match(overlay, /private void persistCanonicalTripForm\(String mode,String tripId,JSONObject input\)/)
 assert.match(overlay, /native-form-\"\+mode\+\"-\"\+tripId/)
@@ -37,4 +39,9 @@ assert.match(pwa, /saveFare\(true, String\(event\?\.eventId \|\| ''\)\)/)
 assert.match(pwa, /saveCancel\(true, String\(event\?\.eventId \|\| ''\)\)/)
 assert.match(workActions, /getPendingActions\(\)/)
 assert.match(workActions, /acknowledgeAction\(\{ eventId, stage, tripId \}\)/)
+
+assert.match(androidGate, /KfeNativeFullShiftAcceptanceTest native-full-shift 1/, 'The release smoke gate must execute the native-only full-shift instrumentation test.')
+assert.match(nativeAcceptance, /nativeOnlyShiftPersistsMultipleFaresAndCancellationAcrossStoreReopen/, 'Android instrumentation must exercise multiple native-only trips, fare submissions, cancellation and store reopen.')
+assert.match(nativeAcceptance, /KfeNativeEventStore\.get\(context\)\.pending\(100\)/, 'The test must verify that unacknowledged native events remain durable without PWA replay.')
+assert.match(nativeAcceptance, /Revenue must include both fares and the recorded cancellation fee/, 'The test must verify canonical revenue projection across fare and cancellation submissions.')
 console.log('PASS: native overlay fare/cancellation canonical commit and replay contract')
