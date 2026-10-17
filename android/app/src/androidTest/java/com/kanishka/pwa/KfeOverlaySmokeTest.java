@@ -575,6 +575,110 @@ public class KfeOverlaySmokeTest {
     assertEquals("425", ((EditText) fieldValue(service, "formInput")).getText().toString());
   }
 
+
+  @Test public void nativeOverlayCompletesFareAndCancellationUsingGesturesAndVisibleFormControlsWithoutPwaReplay() throws Exception {
+    clearPending();
+    String suffix = Long.toString(System.currentTimeMillis());
+    String shiftId = "overlay-full-shift-" + suffix;
+    String fareTripId = "overlay-fare-trip-" + suffix;
+    String cancelTripId = "overlay-cancel-trip-" + suffix;
+    String now = new java.util.Date().toInstant().toString();
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    assertTrue(store.putRecord("overlay-shift-" + suffix, "SHIFT",
+      new JSONObject().put("id", shiftId).put("status", "ACTIVE").put("revenue", 0).put("updatedAt", now)).accepted);
+
+    JSONObject state = new JSONObject()
+      .put("shift", new JSONObject().put("id", shiftId).put("status", "ACTIVE"))
+      .put("trip", JSONObject.NULL).put("overlayAction", "GO_TO_PICKUP")
+      .put("overlayTripId", fareTripId).put("revenue", "₹0");
+    KfeOverlayService.update(context, state.toString());
+    waitForOverlay();
+    KfeOverlayService service = waitForService();
+
+    // These swipes run the production touch handler. The native service advances
+    // each stage immediately and persists the lifecycle before the PWA replays
+    // the queued events; this test deliberately never launches MainActivity.
+    assertSwipeTracksAndRetracts(service);
+    assertEquals("START_RIDE", fieldValue(service, "actionStage"));
+    assertSwipeTracksAndRetracts(service);
+    assertEquals("END_RIDE", fieldValue(service, "actionStage"));
+    assertSwipeTracksAndRetracts(service);
+    assertEquals("ENTER_FARE", fieldValue(service, "actionStage"));
+    assertEquals("FARE", fieldValue(service, "formMode"));
+
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+      try {
+        ((EditText) fieldValue(service, "formInput")).setText("250");
+        android.widget.Button save = findButton((android.view.ViewGroup) fieldValue(service, "formPanel"), "Save trip");
+        assertNotNull("Driver-facing Save trip control must be visible", save);
+        save.performClick();
+      } catch (Exception e) { throw new AssertionError(e); }
+    });
+    JSONObject fareRecord = store.getRecord("TRIP", fareTripId);
+    assertTrue("Visible fare form must commit a canonical trip without PWA replay", fareRecord.optBoolean("found", false));
+    assertEquals("COMPLETED", fareRecord.getJSONObject("record").getString("status"));
+    assertEquals(250d, fareRecord.getJSONObject("record").getDouble("revenue"), 0.001d);
+    assertEquals("GO_TO_PICKUP", fieldValue(service, "actionStage"));
+
+    // Start a second trip and open cancellation using the native overlay's
+    // visible RIDE CANCELLATION hit target. No PWA state transition is invoked.
+    state.put("overlayAction", "GO_TO_PICKUP").put("overlayTripId", cancelTripId);
+    KfeOverlayService.update(context, state.toString());
+    waitForOverlay();
+    service = waitForService();
+    assertSwipeTracksAndRetracts(service);
+    assertEquals("START_RIDE", fieldValue(service, "actionStage"));
+    final KfeOverlayService cancellationService = service;
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+      try {
+        Field overlayField = KfeOverlayService.class.getDeclaredField("overlay");
+        overlayField.setAccessible(true);
+        android.view.View overlay = (android.view.View) overlayField.get(cancellationService);
+        long t = SystemClock.uptimeMillis();
+        float x = overlay.getWidth() - 30f * context.getResources().getDisplayMetrics().density;
+        float y = 80f * context.getResources().getDisplayMetrics().density;
+        overlay.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t, android.view.MotionEvent.ACTION_DOWN, x, y, 0));
+        overlay.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + 60, android.view.MotionEvent.ACTION_UP, x, y, 0));
+      } catch (Exception e) { throw new AssertionError(e); }
+    });
+    assertEquals("CANCEL", fieldValue(service, "formMode"));
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+      try {
+        android.view.ViewGroup panel = (android.view.ViewGroup) fieldValue(cancellationService, "formPanel");
+        android.widget.Button passenger = findButton(panel, "Passenger cancellation");
+        assertNotNull("Driver-facing passenger cancellation option must be visible", passenger);
+        passenger.performClick();
+        ((EditText) fieldValue(cancellationService, "formInput")).setText("20");
+        android.widget.Button confirm = findButton(panel, "Confirm cancellation");
+        assertNotNull("Driver-facing cancellation confirmation must be visible", confirm);
+        confirm.performClick();
+      } catch (Exception e) { throw new AssertionError(e); }
+    });
+    JSONObject cancelledRecord = store.getRecord("TRIP", cancelTripId);
+    assertTrue("Visible cancellation form must commit a canonical trip without PWA replay", cancelledRecord.optBoolean("found", false));
+    assertEquals("CANCELLED", cancelledRecord.getJSONObject("record").getString("status"));
+    assertEquals("PASSENGER", cancelledRecord.getJSONObject("record").getString("cancelReason"));
+    assertEquals(20d, cancelledRecord.getJSONObject("record").getDouble("cancelledRevenue"), 0.001d);
+    JSONObject shiftRecord = store.getRecord("SHIFT", shiftId);
+    assertEquals("Native shift revenue must include the fare and cancellation fee exactly once.", 270d,
+      shiftRecord.getJSONObject("record").getDouble("revenue"), 0.001d);
+    assertEquals("GO_TO_PICKUP", fieldValue(service, "actionStage"));
+  }
+
+  private android.widget.Button findButton(android.view.ViewGroup parent, String label) {
+    for (int i = 0; i < parent.getChildCount(); i++) {
+      android.view.View child = parent.getChildAt(i);
+      if (child instanceof android.widget.Button && label.contentEquals(((android.widget.Button) child).getText())) {
+        return (android.widget.Button) child;
+      }
+      if (child instanceof android.view.ViewGroup) {
+        android.widget.Button found = findButton((android.view.ViewGroup) child, label);
+        if (found != null) return found;
+      }
+    }
+    return null;
+  }
+
   private void setField(Object target, String name, Object value) throws Exception {
     Field field = target.getClass().getDeclaredField(name);
     field.setAccessible(true);
