@@ -172,12 +172,15 @@ run_lifecycle_process_death_case() {
     com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner > "$prepare_log" 2>&1 &
   local prepare_pid=$!
   for attempt in $(seq 1 35); do
-    pid_before="$(adb shell pidof com.kanishka.pwa 2>/dev/null | tr -d '\r' | awk '{print $1}')"
+    # ADB may return a transient nonzero status while its transport reconnects.
+    # Treat a failed PID probe as "not ready yet" and retry, not as a shell-fatal error.
+    pid_before="$(adb shell pidof com.kanishka.pwa 2>/dev/null | tr -d '\r' | awk '{print $1}' || true)"
     if [ -n "$pid_before" ] && adb shell run-as com.kanishka.pwa grep -Fq "${stage}_${boundary}" shared_prefs/kfe_overlay.xml 2>/dev/null; then
       ready=true
       break
     fi
     if ! kill -0 "$prepare_pid" 2>/dev/null; then break; fi
+    adb_ready || true
     sleep 1
   done
   if [ "$ready" != true ]; then
@@ -195,7 +198,7 @@ run_lifecycle_process_death_case() {
     echo "Cannot inject an actual process kill for ${stage}/${boundary}: adb root unavailable." >&2
     return 1
   fi
-  pid_to_kill="$(adb shell pidof com.kanishka.pwa 2>/dev/null | tr -d '\r' | awk '{print $1}')"
+  pid_to_kill="$(adb shell pidof com.kanishka.pwa 2>/dev/null | tr -d '\r' | awk '{print $1}' || true)"
   if [ -z "$pid_to_kill" ]; then
     capture_failure "${label}-pid-missing"
     kill "$prepare_pid" >/dev/null 2>&1 || true
@@ -213,7 +216,7 @@ run_lifecycle_process_death_case() {
   wait "$prepare_pid" >/dev/null 2>&1 || true
   for attempt in $(seq 1 25); do
     local pid_after
-    pid_after="$(adb shell pidof com.kanishka.pwa 2>/dev/null | tr -d '\r' | awk '{print $1}')"
+    pid_after="$(adb shell pidof com.kanishka.pwa 2>/dev/null | tr -d '\r' | awk '{print $1}' || true)"
     if [ -z "$pid_after" ] || [ "$pid_after" != "$pid_to_kill" ]; then
       process_death_observed=true
       break
