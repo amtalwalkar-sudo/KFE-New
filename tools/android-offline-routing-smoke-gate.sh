@@ -29,8 +29,9 @@ test "$(adb shell ls -l /data/local/tmp/valhalla-tiles.tar | awk '{print $5}' | 
 # Disable emulator-managed external network paths before invoking the native engine.
 adb shell svc wifi disable
 adb shell svc data disable || true
-adb shell settings put global airplane_mode_on 1
-adb shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true >/dev/null
+# Use ConnectivityService's supported shell command to toggle airplane mode.
+# Sending ACTION_AIRPLANE_MODE directly is denied on current Android emulator images.
+adb shell cmd connectivity airplane-mode enable
 sleep 3
 test "$(adb shell settings get global airplane_mode_on | tr -d '\r')" = "1"
 
