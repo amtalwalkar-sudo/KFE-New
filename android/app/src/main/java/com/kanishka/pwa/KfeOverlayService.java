@@ -290,22 +290,23 @@ public class KfeOverlayService extends Service {
       String incomingPhaseLabel=root.optString("phaseLabel",phaseLabel);
       long durablePhaseStartAt=durable.getLong("phaseStartAt",0L);
       String durablePhaseLabel=durable.getString("phaseLabel",phaseLabel);
-      boolean preserveDurablePhaseTimer=!durableTripId.isEmpty()&&durableTripId.equals(incomingTripId)
-        &&durablePhaseStartAt>0L&&("START_RIDE".equals(durableStage)||"END_RIDE".equals(durableStage)||"ENTER_FARE".equals(durableStage));
+      // Prefer a durable native lifecycle checkpoint over a stale PWA snapshot.
+      // This preserves the trip ID across process death between separate stores.
+      boolean preserveDurableTrip=awaitingEventId.isEmpty()&&!durableTripId.isEmpty()
+        &&("GO_TO_PICKUP".equals(durableStage)||"START_RIDE".equals(durableStage)
+          ||"END_RIDE".equals(durableStage)||"ENTER_FARE".equals(durableStage));
+      boolean preserveDurablePhaseTimer=preserveDurableTrip&&durablePhaseStartAt>0L
+        &&("START_RIDE".equals(durableStage)||"END_RIDE".equals(durableStage)||"ENTER_FARE".equals(durableStage));
       phaseStartAt=preserveDurablePhaseTimer?durablePhaseStartAt:incomingPhaseStartAt;
       phaseLabel=preserveDurablePhaseTimer?durablePhaseLabel:incomingPhaseLabel;
       String previousActionStage=actionStage;
       String nextActionStage=root.optString("overlayAction",actionStage);
-      boolean preserveActiveTrip=awaitingEventId.isEmpty()
-        && "END_RIDE".equals(durableStage)
-        && !durableTripId.isEmpty()
-        && durableTripId.equals(incomingTripId)
-        && durableTimerTripId.equals(durableTripId)
-        && durableTripStartAt>0L;
-      if(preserveActiveTrip){
-        actionStage="END_RIDE";
+      if(preserveDurableTrip){
+        actionStage=durableStage;
         pendingTripId=durableTripId;
-        tripStartAt=durableTripStartAt;
+        if(("END_RIDE".equals(durableStage)||"START_RIDE".equals(durableStage))&&durableTripStartAt>0L)
+          tripStartAt=durableTripStartAt;
+        else tripStartAt=root.optLong("tripStartAt",0L);
       }else{
         tripStartAt=root.optLong("tripStartAt",0L);
         if(awaitingEventId.isEmpty()) actionStage=nextActionStage;
@@ -317,7 +318,8 @@ public class KfeOverlayService extends Service {
           &&durableTimerTripId.equals(pendingTripId))tripStartAt=durableTripStartAt;
       }
       if(!actionStage.equals(previousActionStage) && !"ENTER_FARE".equals(actionStage)) animateRetract();
-      if(awaitingEventId.isEmpty()) pendingFareTripId=root.optString("pendingFareId","");
+      if(awaitingEventId.isEmpty()&&!preserveDurableTrip) pendingFareTripId=root.optString("pendingFareId","");
+      else if(preserveDurableTrip&&"ENTER_FARE".equals(durableStage)) pendingFareTripId=durableTripId;
       if(formMode!=null){
         if((("ENTER_FARE".equals(actionStage)||"END_RIDE".equals(actionStage))&&!"FARE".equals(formMode))||("CANCEL_RIDE".equals(actionStage)&&!"CANCEL".equals(formMode)))closeForm();
       }
