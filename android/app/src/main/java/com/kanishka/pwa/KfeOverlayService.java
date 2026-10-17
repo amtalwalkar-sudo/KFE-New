@@ -199,6 +199,9 @@ public class KfeOverlayService extends Service {
     minimized=saved.getBoolean("minimized",false);
     pendingTripId=saved.getString("pendingTripId","");
     pendingFareTripId=saved.getString("pendingFareTripId","");
+    tripStartAt=saved.getLong("tripStartAt",0L);
+    phaseStartAt=saved.getLong("phaseStartAt",0L);
+    phaseLabel=saved.getString("phaseLabel","TRIP TIME");
     deadKm=saved.getString("deadKm","—");
     awaitingEventId=saved.getString("awaitingEventId","");
     awaitingStage=saved.getString("awaitingStage","");
