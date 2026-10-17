@@ -155,7 +155,15 @@ run_lifecycle_process_death_case() {
   local pid_before=""
   local pid_to_kill=""
   local process_death_observed=false
-  adb logcat -c
+  # Instrumentation can briefly reset the emulator's adb transport. Re-establish
+  # the device before clearing logcat; a transient logcat-clear failure must not
+  # abort the entire gate before the actual process-death case even starts.
+  if ! adb_ready; then
+    capture_failure "${label}-adb-not-ready"
+    echo "ADB device was not ready before lifecycle process-death case ${stage}/${boundary}." >&2
+    return 1
+  fi
+  adb logcat -c >/dev/null 2>&1 || true
   # This test parks inside the production persistence sequence at the requested
   # boundary. The only way forward is for this harness to kill the target process.
   timeout 100s adb shell am instrument -w -r \
