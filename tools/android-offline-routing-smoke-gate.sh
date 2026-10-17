@@ -44,7 +44,7 @@ timeout 30s adb shell run-as com.kanishka.pwa mkdir -p "$APP_FILES_DIR"
 timeout 30s adb shell ls -ld "$APP_FILES_DIR"
 
 # Use the small, separately published Alibag package to exercise a real extract.
-timeout 300s adb push work/area-alibag.tar "$APP_FILES_DIR/valhalla-tiles.tar"
+timeout 300s adb push work/area-alibag.tar /sdcard/Android/data/com.kanishka.pwa/files/valhalla-tiles.tar
 timeout 60s adb push work/trace-request-alibag.json "$APP_FILES_DIR/valhalla-trace-request.json"
 test "$(adb shell ls -l "$APP_FILES_DIR/valhalla-tiles.tar" | awk '{print $5}' | tr -d '\r')" -gt 0
 test "$(adb shell ls -l "$APP_FILES_DIR/valhalla-trace-request.json" | awk '{print $5}' | tr -d '\r')" -gt 0
