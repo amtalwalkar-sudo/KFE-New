@@ -27,7 +27,16 @@ assert.match(manifest, /ACCESS_BACKGROUND_LOCATION/)
 assert.doesNotMatch(manifest, /SCHEDULE_EXACT_ALARM/)
 assert.match(manifest, /android:allowBackup="false"/)
 assert.match(manifest, /android:fullBackupOnly="false"/)
-assert.match(manifest, /<receiver[^>]+android:exported="false"/)
+const receiverDeclarations = [...manifest.matchAll(/<receiver\b[^>]*>/g)].map(match => match[0])
+const recoveryReceiver = receiverDeclarations.find(declaration => declaration.includes('KfeLifecycleRecoveryReceiver')) || ''
+assert.match(recoveryReceiver, /android:exported="true"/)
+const recoveryReceiverBlock = manifest.match(/<receiver\b(?=[^>]*KfeLifecycleRecoveryReceiver)[^>]*>[\s\S]*?<\/receiver>/)?.[0] || ''
+assert.match(recoveryReceiverBlock, /android.intent.action.BOOT_COMPLETED/)
+assert.match(recoveryReceiverBlock, /android.intent.action.MY_PACKAGE_REPLACED/)
+assert.equal((recoveryReceiverBlock.match(/<action\b/g) || []).length, 2,
+  'The exported lifecycle receiver must subscribe only to the two protected system lifecycle actions.')
+assert.equal(receiverDeclarations.filter(declaration => /android:exported="true"/.test(declaration) && !declaration.includes('KfeLifecycleRecoveryReceiver')).length, 0,
+  'Only the lifecycle receiver for protected system boot/package-replaced broadcasts may be exported.')
 assert.match(manifest, /<provider[^>]+android:exported="false"/)
 assert.match(manifest, /<service[^>]+android:exported="false"/)
 

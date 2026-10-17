@@ -40,6 +40,74 @@ public class KfeOverlaySmokeTest {
     MainActivity.isResumed = true;
   }
 
+  @Test public void stalePwaSnapshotCannotResetNativeTripTimerAfterRecovery() throws Exception {
+    long authoritativeStart = System.currentTimeMillis() - 65000L;
+    context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE).edit()
+      .putString("actionStage", "END_RIDE")
+      .putString("pendingTripId", "timer-trip")
+      .putString("tripTimerTripId", "timer-trip")
+      .putLong("tripStartAt", authoritativeStart)
+      .putLong("phaseStartAt", authoritativeStart)
+      .putString("phaseLabel", "TRIP TIME").apply();
+    JSONObject staleState = new JSONObject()
+      .put("shift", new JSONObject().put("id", "timer-shift"))
+      .put("trip", new JSONObject().put("id", "timer-trip").put("status", "ACTIVE"))
+      .put("overlayAction", "START_RIDE")
+      .put("overlayTripId", "timer-trip")
+      .put("tripStartAt", 0L)
+      .put("phaseStartAt", 0L)
+      .put("phaseLabel", "STALE TIMER");
+    KfeOverlayService.update(context, staleState.toString());
+    waitForOverlay();
+    KfeOverlayService service = waitForService();
+    assertEquals("END_RIDE", fieldValue(service, "actionStage"));
+    assertEquals("timer-trip", fieldValue(service, "pendingTripId"));
+    assertEquals(authoritativeStart, ((Long) fieldValue(service, "tripStartAt")).longValue());
+    assertEquals(authoritativeStart, ((Long) fieldValue(service, "phaseStartAt")).longValue());
+    assertEquals("TRIP TIME", fieldValue(service, "phaseLabel"));
+    assertEquals(authoritativeStart,
+      context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE).getLong("tripStartAt", 0L));
+  }
+
+  @Test public void nativeGpsSwitchesFromPickupDeadKmToPassengerTripAndStopsByTripId() throws Exception {
+    String tripId = "gps-lifecycle-trip";
+    KfeNativeGpsService.start(context, tripId, KfeOverlayService.gpsEventForAction("GO_TO_PICKUP"), "TRIP");
+    long deadline = SystemClock.uptimeMillis() + 5000L;
+    while (SystemClock.uptimeMillis() < deadline
+        && !"DEAD_MOVEMENT_TRACE".equals(KfeNativeGpsService.persistedActiveEventType(context))) {
+      SystemClock.sleep(50L);
+    }
+    assertEquals("Pickup travel must be tracked as dead movement",
+      "DEAD_MOVEMENT_TRACE", KfeNativeGpsService.persistedActiveEventType(context));
+    KfeNativeGpsService.start(context, tripId, KfeOverlayService.gpsEventForAction("START_RIDE"), "TRIP");
+    deadline = SystemClock.uptimeMillis() + 5000L;
+    while (SystemClock.uptimeMillis() < deadline
+        && !"PASSENGER_RIDE_TRACE".equals(KfeNativeGpsService.persistedActiveEventType(context))) {
+      SystemClock.sleep(50L);
+    }
+    assertEquals("Start Trip must switch the same collector to passenger-trip telemetry",
+      "PASSENGER_RIDE_TRACE", KfeNativeGpsService.persistedActiveEventType(context));
+    KfeNativeGpsService.stop(context, tripId);
+    deadline = SystemClock.uptimeMillis() + 5000L;
+    while (SystemClock.uptimeMillis() < deadline
+        && !KfeNativeGpsService.persistedActiveTripId(context).isEmpty()) {
+      SystemClock.sleep(50L);
+    }
+    assertEquals("End Trip must stop its own collector", "",
+      KfeNativeGpsService.persistedActiveTripId(context));
+  }
+
+  @Test public void nativeOverlaySelectsKmFromDisplayedMovementPhase() {
+    assertEquals("Pickup phase must display dead-movement KM", "12.4 km",
+      KfeOverlayService.resolveMovementValue("START_RIDE", "12.4 km", "8.1 km"));
+    assertEquals("Pre-trip phase must display dead-movement KM", "3.2 km",
+      KfeOverlayService.resolveMovementValue("GO_TO_PICKUP", "3.2 km", "8.1 km"));
+    assertEquals("Passenger phase must display business KM", "8.1 km",
+      KfeOverlayService.resolveMovementValue("END_RIDE", "12.4 km", "8.1 km"));
+    assertEquals("Missing dead-movement estimate remains explicit", "—",
+      KfeOverlayService.resolveMovementValue("START_RIDE", null, "8.1 km"));
+  }
+
   @Test public void staleGpsStopCannotStopNewerTripCollector() {
     assertTrue(KfeNativeGpsService.shouldStopForTrip("trip-a", "trip-a"));
     assertTrue(!KfeNativeGpsService.shouldStopForTrip("trip-b", "trip-a"));
@@ -396,7 +464,8 @@ public class KfeOverlaySmokeTest {
     clearPending();
     JSONObject state = new JSONObject()
       .put("shift", new JSONObject().put("id", "fare-shift"))
-      .put("trip", JSONObject.NULL)
+      .put("trip", new JSONObject().put("id", "fare-trip").put("shiftId", "fare-shift")
+        .put("status", "COMPLETED").put("tripEndAt", "2026-10-15T19:00:00.000Z"))
       .put("overlayAction", "ENTER_FARE")
       .put("overlayTripId", "fare-trip")
       .put("pendingFareId", "fare-trip");
@@ -426,6 +495,14 @@ public class KfeOverlaySmokeTest {
     assertEquals("25", payload.getString("parking"));
     assertEquals("EXCLUDED", payload.getString("tollTreatment"));
     assertEquals("INCLUDED", payload.getString("parkingTreatment"));
+    JSONObject storedOutcome = KfeCanonicalWorkStore.get(context).getRecord("TRIP", "fare-trip");
+    assertTrue("Fare must commit to native canonical storage", storedOutcome.optBoolean("found", false));
+    JSONObject storedTrip = storedOutcome.getJSONObject("record");
+    assertEquals("COMPLETED", storedTrip.getString("status"));
+    assertEquals(450d, storedTrip.getDouble("revenue"), 0.001d);
+    assertEquals(0d, storedTrip.getDouble("toll"), 0.001d);
+    assertEquals(25d, storedTrip.getDouble("parking"), 0.001d);
+    assertEquals("EXCLUDED", storedTrip.getString("tollTreatment"));
   }
 
   @Test public void cancellationFormAllowsOptionalFeeAndPersistsPassengerReason() throws Exception {
@@ -454,6 +531,13 @@ public class KfeOverlaySmokeTest {
     JSONObject payload = new JSONObject(pendingValue().substring("CANCEL_RIDE|cancel-trip|".length()));
     assertEquals("", payload.getString("revenue"));
     assertEquals("PASSENGER", payload.getString("reason"));
+    JSONObject storedOutcome = KfeCanonicalWorkStore.get(context).getRecord("TRIP", "cancel-trip");
+    assertTrue("Cancellation must commit to native canonical storage", storedOutcome.optBoolean("found", false));
+    JSONObject storedTrip = storedOutcome.getJSONObject("record");
+    assertEquals("CANCELLED", storedTrip.getString("status"));
+    assertEquals("PASSENGER", storedTrip.getString("cancelReason"));
+    assertTrue("An omitted cancellation fee remains absent, not a fabricated amount",
+      storedTrip.isNull("cancelledRevenue"));
   }
 
   @Test public void fareDraftSurvivesNativeOverlayServiceRestart() throws Exception {

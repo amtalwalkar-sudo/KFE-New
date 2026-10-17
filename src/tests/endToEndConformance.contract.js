@@ -101,8 +101,8 @@ assert.equal(canTransitionTrip(TRIP_STATES.COMPLETED, TRIP_STATES.COMPLETED), tr
 // 7. Calculation convergence / no native competing business authority.
 assertIncludes(dataContract, 'Shift.revenue', 'Canonical data contract must identify Shift revenue authority.')
 assertIncludes(dataContract, 'Trip.revenue', 'Trip revenue must remain supporting detail.')
-assertIncludes(workView, 'store.shift?.revenue', 'PWA overlay revenue must read authoritative Shift revenue.')
-assertIncludes(overlayLifecycle, 'Number(active.shift?.revenue)', 'Native overlay reconstruction must read authoritative Shift revenue.')
+assertIncludes(workView, 'deriveLiveRevenue(trips)', 'PWA live revenue must be derived from saved Trip fares.')
+assertIncludes(nativeOverlay, 'refreshCanonicalRevenue', 'Native overlay must derive the saved-fare total from canonical Trip records.')
 assertIncludes(workService, "tripKmAuthority: 'GPS_LINE_TRACE'", 'Native GPS results must be written through the canonical Trip update path.')
 assertIncludes(gpsContract, 'LocationRepository', 'Native GPS must converge into the canonical location repository.')
 assert.ok(!/const totalRevenue = trips\.reduce/.test(overlayLifecycle), 'Overlay must not calculate ERP revenue by summing Trip fares.')

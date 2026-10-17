@@ -1,4 +1,4 @@
-import { ShiftTripRepository } from '../../repositories/shiftTripRepository.js'
+import { ShiftTripRepository, configureCanonicalReadBoundary } from '../../repositories/shiftTripRepository.js'
 import { FuelRepository } from '../../repositories/fuelRepository.js'
 import { LocationRepository } from '../../repositories/locationRepository.js'
 import { captureLifecycleLocation } from './location.js'
@@ -11,10 +11,62 @@ import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } fro
 import { BackupService } from '../backup/backupService.js'
 import { MovementAccountingService, routeTrace, assessGpsTraceCompleteness, isUsableDistanceKm } from '../../domain/movement/movementAccounting.js'
 import { WorkRuntimePorts } from './workRuntimePorts.js'
+import { CanonicalWorkBoundary } from './canonicalWorkBoundary.js'
+import { recoverCanonicalWorkSnapshot } from './canonicalWorkRecovery.js'
 import { calculateTraceDistanceKm } from '../../domain/movement/traceDistance.js'
 import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
 
 const checkpoint = () => BackupService.requestLocalBackupCheckpoint()
+const nativeCanonicalAvailable = () => { try { return WorkRuntimePorts.canonicalWork.isAvailable() === true } catch (_) { return false } }
+const isAndroidRuntime = () => { try { return WorkRuntimePorts.platform.getPlatform() === 'android' } catch (_) { return nativeCanonicalAvailable() } }
+const mirrorCanonicalRecord = async (entityType, record) => {
+  if (!record?.id || !nativeCanonicalAvailable()) return record
+  const outcome = await CanonicalWorkBoundary.putRecord({ operationId: CanonicalWorkBoundary.createOperationId(), entityType, record })
+  if (outcome?.accepted !== true) throw new Error(`Native canonical ${entityType} commit was not acknowledged.`)
+  return record
+}
+const mirrorCanonicalTripById = async id => {
+  if (!id || !nativeCanonicalAvailable()) return null
+  const trips = await ShiftTripRepository.getAllTrips()
+  const record = trips.find(item => item.id === id)
+  if (record) await mirrorCanonicalRecord('TRIP', record)
+  return record || null
+}
+const mirrorCanonicalShiftByTripId = async id => {
+  const trip = await mirrorCanonicalTripById(id)
+  if (trip?.shiftId && nativeCanonicalAvailable()) {
+    const shift = (await ShiftTripRepository.getAllShifts()).find(item => item.id === trip.shiftId)
+    if (shift) await mirrorCanonicalRecord('SHIFT', shift)
+  }
+  return trip
+}
+
+let canonicalReadAttempt = null
+const reconcileCanonicalReads = () => {
+  if (!nativeCanonicalAvailable()) return Promise.resolve()
+  if (canonicalReadAttempt) return canonicalReadAttempt
+  canonicalReadAttempt = recoverCanonicalWorkSnapshot({
+    readCanonical: async () => {
+      const [shifts, trips] = await Promise.all([
+        WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'SHIFT', limit: 1000 }),
+        WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'TRIP', limit: 1000 }),
+      ])
+      return { shifts, trips }
+    },
+    readLocal: async () => {
+      const [shifts, trips] = await Promise.all([
+        ShiftTripRepository.getAllShifts({ skipCanonicalReadBoundary: true }),
+        ShiftTripRepository.getAllTrips({ skipCanonicalReadBoundary: true }),
+      ])
+      return { shifts, trips }
+    },
+    mirrorRecord: mirrorCanonicalRecord,
+    syncCanonicalRecords: records => ShiftTripRepository.syncCanonicalRecords(records),
+  }).finally(() => { canonicalReadAttempt = null })
+  return canonicalReadAttempt
+}
+configureCanonicalReadBoundary(reconcileCanonicalReads)
+
 let nativeGpsRecoveryAttempt = null
 
 export const WorkService = Object.freeze({
@@ -22,7 +74,11 @@ export const WorkService = Object.freeze({
   validateTripOperator(operator) { return validateTripOperator(operator) },
   validateTripCorrection(data) { return validateTripCorrection(data) },
   validateFuelEntry(data) { return validateFuelEntry(data) },
-  async getActiveState() { return ShiftTripRepository.getActive() },
+  async getActiveState() {
+    // The repository owns the single-flight canonical read boundary so startup,
+    // resume, history and calculation consumers cannot race independent recoveries.
+    return ShiftTripRepository.getActive()
+  },
   async getTripsForShift(shiftId) { return ShiftTripRepository.getTripsForShift(shiftId) },
   async getAllTrips() { return ShiftTripRepository.getAllTrips() },
   async getLastCompletedShift() { return ShiftTripRepository.getLastCompletedShift() },
@@ -115,12 +171,18 @@ export const WorkService = Object.freeze({
       return { reconciliationStatus: 'UNAVAILABLE', reason: error?.message || 'MOVEMENT_RECONCILIATION_FAILED', gpsTracePoints: gpsSnapshots.length }
     }
   },
-  async getTripGpsDistanceKm(tripId) { try { await WorkRuntimePorts.nativeGps.syncTrace(tripId) } catch (_) {} const snapshots = await LocationRepository.forEntity('TRIP', tripId); return calculateTraceDistanceKm(snapshots.filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')) },
+  async getTripGpsDistanceKm(tripId) {
+    try { await WorkRuntimePorts.nativeGps.syncTrace(tripId) } catch (_) {}
+    const snapshots = (await LocationRepository.forEntity('TRIP', tripId)).filter(point => point?.eventType === 'PASSENGER_RIDE_TRACE')
+    const filtered = MovementAccountingService.filterGpsTrace(snapshots)
+    return filtered.length >= 2 ? calculateTraceDistanceKm(filtered) : null
+  },
   async getTripDeadMovementDistanceKm(tripId) {
     try { await WorkRuntimePorts.nativeGps.syncTrace(tripId) } catch (_) {}
     const snapshots = (await LocationRepository.forEntity('TRIP', tripId)).filter(point => point?.eventType === 'DEAD_MOVEMENT_TRACE')
-    if (snapshots.length < 2) return null
-    const distanceKm = calculateTraceDistanceKm(snapshots)
+    const filtered = MovementAccountingService.filterGpsTrace(snapshots)
+    if (filtered.length < 2) return null
+    const distanceKm = calculateTraceDistanceKm(filtered)
     return Number.isFinite(Number(distanceKm)) ? Number(distanceKm) : null
   },
   calculateLiveMovement(points = []) { const filteredPoints = MovementAccountingService.filterGpsTrace(points); return { points: filteredPoints, distanceKm: calculateTraceDistanceKm(filteredPoints) } },
@@ -131,11 +193,11 @@ export const WorkService = Object.freeze({
   calculateFuelQuantity(pricePerKg, amount) { return calculateFuelQuantity({ pricePerKg, amount }) },
   calculateTraceDistanceKm(points = []) { return calculateTraceDistanceKm(points) },
   reconcileShiftRevenue(data) { return reconcileShiftRevenue(data) },
-  async startShift(data) { const result = await ShiftTripRepository.createShift(data); checkpoint(); return result },
+  async startShift(data) { const result = await ShiftTripRepository.createShift(data); await mirrorCanonicalRecord('SHIFT', result); checkpoint(); return result },
   async startTrip(data) {
     const validation = validateTripOperator(data?.operator)
     if (!validation.valid) return { ok: false, reason: validation.reason }
-    const result = await ShiftTripRepository.createTrip({ ...data, operator: validation.operator, tripStage: data?.tripStage || 'GOING_TO_PICKUP' }); checkpoint()
+    const result = await ShiftTripRepository.createTrip({ ...data, operator: validation.operator, tripStage: data?.tripStage || 'GOING_TO_PICKUP' }); await mirrorCanonicalRecord('TRIP', result); checkpoint()
     // GPS is telemetry/enrichment. Never block the authoritative trip transition on it.
     void WorkRuntimePorts.nativeGps.start(result.id, 'DEAD_MOVEMENT_TRACE', 'TRIP').catch(() => {})
     void captureLifecycleLocation({ entityType: 'TRIP', entityId: result.id, eventType: 'START' }).then(location => {
@@ -146,14 +208,35 @@ export const WorkService = Object.freeze({
   },
   async startRide(data) {
     const result = await ShiftTripRepository.setTripStage(data?.id, 'RIDE_STARTED')
+    if (result && typeof result === 'object') await mirrorCanonicalRecord('TRIP', result)
     checkpoint()
     if (!result || !data?.id) return result
+    // Record a fresh passenger-ride boundary separately from the pickup/dead-leg start.
+    // tripStartAt is the authoritative lifecycle transition time; capturedAt remains
+    // the actual GPS fix time, and rideStartLocationEventAt links the two explicitly.
+    void captureLifecycleLocation({ entityType: 'TRIP', entityId: data.id, eventType: 'RIDE_START' }).then(async location => {
+      if (!location) return
+      await ShiftTripRepository.setTripRideStartLocation(data.id, location, result.tripStartAt || null)
+      await mirrorCanonicalTripById(data.id)
+      checkpoint()
+    }).catch(error => console.warn('Passenger-ride start GPS fix unavailable; lifecycle timestamp retained:', error))
     // Android uses the native foreground trace. Browser/PWA builds do not have
     // that plugin, so fall back to the existing web movement-trace service.
     void WorkRuntimePorts.nativeGps.start(data.id, 'PASSENGER_RIDE_TRACE', 'TRIP').then(started => {
-      if (started) return
+      // Android background/screen-off collection is a native capability. If its
+      // service is unavailable, surface the native failure rather than silently
+      // substituting foreground browser geolocation and implying equivalent coverage.
+      if (started || isAndroidRuntime()) {
+        if (!started && isAndroidRuntime()) console.warn('Android native GPS did not start; browser tracking is not a background-equivalent fallback.')
+        return
+      }
+      // Browser/PWA collection is intentionally foreground-only and independent.
       WorkRuntimePorts.movementTrace.start({ entityType: 'TRIP', entityId: data.id, eventType: 'PASSENGER_RIDE_TRACE', profile: 'PASSENGER_RIDE' })
-    }).catch(() => {
+    }).catch(error => {
+      if (isAndroidRuntime()) {
+        console.warn('Android native GPS start failed; not substituting PWA tracking:', error)
+        return
+      }
       try { WorkRuntimePorts.movementTrace.start({ entityType: 'TRIP', entityId: data.id, eventType: 'PASSENGER_RIDE_TRACE', profile: 'PASSENGER_RIDE' }) } catch (_) {}
     })
     return result
@@ -161,7 +244,7 @@ export const WorkService = Object.freeze({
   async completeTrip(data) {
     // Commit the terminal state first. GPS is enrichment only: never hold the swipe
     // transition or the pending-fare form open while native trace synchronization runs.
-    const result = await ShiftTripRepository.completeTrip({ ...data }); checkpoint()
+    const result = await ShiftTripRepository.completeTrip({ ...data }); await mirrorCanonicalShiftByTripId(data?.id); checkpoint()
     const tripId = data?.id
     if (tripId) {
       void (async () => {
@@ -184,9 +267,15 @@ export const WorkService = Object.freeze({
           // The last persisted trace point may be stale by minutes/hours and must
           // never be mistaken for the actual trip endpoint.
           const endLocation = await captureLifecycleLocation({ entityType: 'TRIP', entityId: tripId, eventType: 'END' }).catch(() => null)
-          const finalTracePoint = snapshots.at(-1) || browserTracePoints.at(-1)
-          if (endLocation) await ShiftTripRepository.setTripEndLocation(tripId, endLocation)
-          else if (finalTracePoint) await ShiftTripRepository.setTripEndLocation(tripId, finalTracePoint)
+          if (endLocation) {
+            await ShiftTripRepository.setTripEndLocation(tripId, endLocation)
+            await mirrorCanonicalTripById(tripId)
+            checkpoint()
+          } else {
+            // _finishTrip persisted tripEndLocationStatus=MISSING with the terminal
+            // transition. Never relabel an older trace point as a fresh endpoint fix.
+            console.warn('Trip completed without a fresh endpoint GPS fix:', tripId)
+          }
 
           const active = await ShiftTripRepository.getActive()
           const shiftTrips = active.shift?.id ? await ShiftTripRepository.getTripsForShift(active.shift.id) : []
@@ -196,8 +285,132 @@ export const WorkService = Object.freeze({
             endAt: completedTrip?.tripEndAt || data?.tripEndAt
           })
           if (!traceQuality.complete) {
-            await ShiftTripRepository.invalidateGpsTripMovement({ id: tripId, reason: traceQuality.reason, traceQuality })
-            console.warn('Trip GPS distance withheld because trace coverage is incomplete:', tripId, traceQuality)
+            // Preserve measurable portions of the ride. A long interval is an
+            // evidence gap, not permission to count the straight line between fixes.
+            // Route continuous chunks independently, then try Valhalla on each gap
+            // endpoint pair. Any inferred gap distance remains explicitly estimated.
+            const split = MovementAccountingService.splitGpsTraceAtGaps(snapshots)
+            const router = WorkRuntimePorts.routing.createRouter()
+            let knownDistanceKm = 0
+            let estimatedGapDistanceKm = 0
+            let hasDistance = false
+            const knownTraceSegments = []
+            const incompleteKmSegments = split.gaps.map((gap, index) => ({
+              id: `GPS_GAP_${index + 1}`,
+              status: 'UNRESOLVED',
+              startAt: gap.startAt,
+              endAt: gap.endAt,
+              durationMs: gap.durationMs,
+              distanceKm: null,
+              method: null,
+              confidence: 'UNAVAILABLE',
+              from: { latitude: gap.from.latitude, longitude: gap.from.longitude },
+              to: { latitude: gap.to.latitude, longitude: gap.to.longitude },
+              routingProvenance: null
+            }))
+            if (!incompleteKmSegments.length) {
+              // Edge gaps and traces with too few trustworthy fixes still need
+              // a durable unresolved marker; never present "0 gaps" as complete.
+              incompleteKmSegments.push({
+                id: 'GPS_COVERAGE_GAP',
+                status: 'UNRESOLVED',
+                startAt: completedTrip?.tripStartAt || null,
+                endAt: completedTrip?.tripEndAt || data?.tripEndAt || null,
+                durationMs: null,
+                reason: traceQuality.reason,
+                distanceKm: null,
+                method: null,
+                confidence: 'UNAVAILABLE',
+                routingProvenance: null
+              })
+            }
+
+            for (let index = 0; index < split.segments.length; index += 1) {
+              const segment = split.segments[index]
+              if (segment.length < 2) continue
+              const routedSegment = await routeTrace(segment, router)
+              if (!isUsableDistanceKm(routedSegment.distanceKm) || (routedSegment.points?.length || 0) < 2) continue
+              knownDistanceKm += Number(routedSegment.distanceKm)
+              hasDistance = true
+              knownTraceSegments.push({
+                startAt: segment[0].capturedAt || segment[0].timestamp || null,
+                endAt: segment[segment.length - 1].capturedAt || segment[segment.length - 1].timestamp || null,
+                distanceKm: Number(routedSegment.distanceKm),
+                method: routedSegment.method,
+                confidence: routedSegment.confidence,
+                routingProvenance: routedSegment.provenance || null,
+                roadMatchedGeometry: routedSegment.roadMatchedGeometry || null,
+                traceGeometry: Array.isArray(routedSegment.traceGeometry) && routedSegment.traceGeometry.length
+                  ? routedSegment.traceGeometry
+                  : segment.map(point => [Number(point.longitude), Number(point.latitude)])
+              })
+            }
+
+            for (let index = 0; index < split.gaps.length; index += 1) {
+              const gap = split.gaps[index]
+              const from = gap.from
+              const to = gap.to
+              try {
+                // Deliberately call the router directly: routeTrace() falls back
+                // to straight-line Haversine, which is not evidence of road distance.
+                const estimate = typeof router?.routeTrace === 'function'
+                  ? await router.routeTrace([from, to])
+                  : null
+                const method = String(estimate?.method || '')
+                const routedGapKm = Number(estimate?.distanceKm)
+                const isRoadEstimate = /VALHALLA/i.test(method) &&
+                  estimate?.distanceKm != null && estimate.distanceKm !== '' &&
+                  Number.isFinite(routedGapKm) && routedGapKm >= 0
+                if (isRoadEstimate) {
+                  estimatedGapDistanceKm += routedGapKm
+                  hasDistance = true
+                  incompleteKmSegments[index] = {
+                    ...incompleteKmSegments[index],
+                    status: 'ESTIMATED',
+                    distanceKm: routedGapKm,
+                    method,
+                    confidence: estimate.confidence || 'ESTIMATED_ROAD_TRACE',
+                    routingProvenance: estimate.provenance || { provider: estimate.provider || 'VALHALLA' },
+                    routingGeometry: estimate.geometry?.type === 'LineString' ? estimate.geometry : null
+                  }
+                }
+              } catch (error) {
+                console.warn('Valhalla could not estimate an interrupted GPS interval:', tripId, gap.startAt, gap.endAt, error)
+              }
+            }
+
+            const incompleteKmSegmentsWithStatus = incompleteKmSegments
+            const unresolvedGapCount = incompleteKmSegmentsWithStatus.filter(segment => segment.status === 'UNRESOLVED').length
+            await ShiftTripRepository.enrichTripMovement({
+              id: tripId,
+              ...(hasDistance ? { tripKm: knownDistanceKm + estimatedGapDistanceKm } : {}),
+              tripKmAuthority: 'GPS_TRACE_INCOMPLETE',
+              tripKmProvenance: {
+                qualityStatus: 'INCOMPLETE',
+                gpsRecordingStatus: 'INCOMPLETE',
+                recordingGapDetected: true,
+                qualityReason: traceQuality.reason,
+                gpsTracePoints: split.points.length,
+                maxObservedGapMs: traceQuality.maxObservedGapMs ?? Math.max(0, ...split.gaps.map(gap => gap.durationMs)),
+                knownDistanceKm,
+                estimatedGapDistanceKm,
+                unresolvedGapCount,
+                incompleteKmSegments: incompleteKmSegmentsWithStatus,
+                knownTraceSegments,
+                checkedAt: new Date().toISOString(),
+                source: browserTracePoints.length > 0 ? 'BROWSER_GEOLOCATION' : 'ANDROID_NATIVE_GPS'
+              },
+              // A single LineString would visually invent a continuous path across
+              // the outage. Keep each observed chunk separately in provenance.
+              roadMatchedGeometry: null,
+              traceGeometry: []
+            })
+            console.warn('Trip saved with explicit incomplete-kilometre metadata:', tripId, {
+              reason: traceQuality.reason,
+              knownDistanceKm,
+              estimatedGapDistanceKm,
+              unresolvedGapCount
+            })
             return
           }
 
@@ -233,11 +446,11 @@ export const WorkService = Object.freeze({
               tripKmProvenance: {
                 method: 'HAVERSINE_TRACE_SUM',
                 confidence: 'ESTIMATED_TRACE',
-                gpsTracePoints: snapshots.length,
-                source: 'ANDROID_NATIVE_GPS'
+                gpsTracePoints: usableGpsPoints.length,
+                source: browserTracePoints.length > 0 ? 'BROWSER_GEOLOCATION' : 'ANDROID_NATIVE_GPS'
               },
               roadMatchedGeometry: null,
-              traceGeometry: snapshots.map(point => [Number(point.longitude), Number(point.latitude)])
+              traceGeometry: usableGpsPoints.map(point => [Number(point.longitude), Number(point.latitude)])
             })
           }
         } catch (error) {
@@ -254,6 +467,7 @@ export const WorkService = Object.freeze({
   },
   async cancelTrip(data) {
     const result = await ShiftTripRepository.cancelTrip(data)
+    await mirrorCanonicalShiftByTripId(data?.id)
     checkpoint()
     if (data?.id) {
       void (async () => {
@@ -279,7 +493,7 @@ export const WorkService = Object.freeze({
   async updateTrip(data) {
     const validation = validateTripCorrection(data)
     if (!validation.valid) return { ok: false, reason: validation.reason }
-    const result = await ShiftTripRepository.updateTrip({ ...data, ...validation }); checkpoint(); return result
+    const result = await ShiftTripRepository.updateTrip({ ...data, ...validation }); await mirrorCanonicalShiftByTripId(data?.id); checkpoint(); return result
   },
   async updateFuel(data) { const result = await FuelRepository.update(data.id, data); checkpoint(); return { ok: true, record: result } },
   async deleteFuel(id) { const result = await FuelRepository.remove(id); checkpoint(); return { ok: result } },
@@ -288,15 +502,12 @@ export const WorkService = Object.freeze({
     const active = await ShiftTripRepository.getActive()
     if (active.shift?.id) {
       const trips = await ShiftTripRepository.getTripsForShift(active.shift.id)
-      const corrections = new Map((data.trips || []).filter(item => item?.id).map(item => [item.id, item]))
-      const movementTrips = trips.map(trip => corrections.has(trip.id) ? { ...trip, ...corrections.get(trip.id), tripKm: corrections.get(trip.id).tripKm === '' ? trip.tripKm : corrections.get(trip.id).tripKm } : trip)
       let traceRecoveryError = null
       try {
-        // Import any remaining native files for this shift/trips before reading the
-        // canonical snapshot set. This closes the cancel/end-shift race without making
-        // GPS failure prevent the authoritative shift close.
+        // Import any remaining native traces before internal movement accounting.
+        // This remains background accounting, not a driver-facing reconciliation step.
         const owners = await WorkRuntimePorts.nativeGps.listTraceOwners()
-        const tripById = new Map(movementTrips.map(trip => [trip.id, trip]))
+        const tripById = new Map(trips.map(trip => [trip.id, trip]))
         for (const ownerId of owners) {
           const tripOwner = tripById.get(ownerId)
           if (ownerId !== active.shift.id && !tripOwner) continue
@@ -311,19 +522,18 @@ export const WorkService = Object.freeze({
         console.warn('Final shift GPS trace recovery incomplete; preserving source evidence:', error)
       }
       const shiftGpsSnapshots = await LocationRepository.forEntity('SHIFT', active.shift.id)
-      const tripGpsSnapshots = (await Promise.all(movementTrips.map(trip => LocationRepository.forEntity('TRIP', trip.id)))).flat()
+      const tripGpsSnapshots = (await Promise.all(trips.map(trip => LocationRepository.forEntity('TRIP', trip.id)))).flat()
       const gpsSnapshots = [...shiftGpsSnapshots, ...tripGpsSnapshots]
       try {
         if (traceRecoveryError) throw new Error('GPS_TRACE_RECOVERY_FAILED: ' + (traceRecoveryError?.message || 'Unknown trace recovery error'))
-        const reconciliation = await MovementAccountingService.reconcileShiftMovement({
-          trips: movementTrips,
+        completionData.movementReconciliation = await MovementAccountingService.reconcileShiftMovement({
+          trips,
           startOdometer: active.shift.startOdometer,
           endOdometer: data?.closingOdometer,
           router: WorkRuntimePorts.routing.createRouter(),
-          businessKmByTripId: Object.fromEntries(movementTrips.filter(item => item.tripKm != null && item.tripKm !== '' && Number.isFinite(Number(item.tripKm)) && Number(item.tripKm) >= 0).map(item => [item.id, Number(item.tripKm)])),
+          businessKmByTripId: Object.fromEntries(trips.filter(item => item.tripKm != null && item.tripKm !== '' && Number.isFinite(Number(item.tripKm)) && Number(item.tripKm) >= 0).map(item => [item.id, Number(item.tripKm)])),
           gpsSnapshots
         })
-        completionData.movementReconciliation = reconciliation
       } catch (error) {
         completionData.movementReconciliation = {
           reconciliationStatus: 'UNAVAILABLE',
@@ -337,7 +547,14 @@ export const WorkService = Object.freeze({
         }
       }
     }
-    const result = await completeEndShift(completionData); checkpoint(); return result
+    const result = await completeEndShift(completionData)
+    if (nativeCanonicalAvailable()) {
+      const closedShift = await ShiftTripRepository.getLastCompletedShift()
+      if (closedShift?.id === active.shift?.id) await mirrorCanonicalRecord('SHIFT', closedShift)
+      if (active.shift?.id) for (const trip of await ShiftTripRepository.getTripsForShift(active.shift.id)) await mirrorCanonicalRecord('TRIP', trip)
+    }
+    checkpoint()
+    return result
   },
   async recordFuel(data) {
     const result = await recordFuelEntry(data)

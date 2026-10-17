@@ -50,7 +50,6 @@ assert.match(movementTrace, /captureBoundary/)
 assert.match(workService, /WorkRuntimePorts\.movementTrace/)
 assert.match(workService, /WorkRuntimePorts\.movementTrace\.start\(\{ entityType: 'TRIP', entityId: data\.id, eventType: 'PASSENGER_RIDE_TRACE', profile: 'PASSENGER_RIDE' \}\)/)
 assert.match(workService, /WorkRuntimePorts\.movementTrace\.stop\(\{ captureFinal: true \}\)/)
-assert.match(workService, /const tripGpsSnapshots = \(await Promise\.all\(movementTrips\.map\(trip => LocationRepository\.forEntity\('TRIP', trip\.id\)\)\)\)\.flat\(\)/)
 assert.match(workService, /const gpsSnapshots = \[\.\.\.shiftGpsSnapshots, \.\.\.tripGpsSnapshots\]/)
 console.log('Browser PWA ride trace contract passed: Start Trip records a 20-second passenger trace, End Trip captures the final boundary, and shift reconciliation consumes trip trace evidence.')
 

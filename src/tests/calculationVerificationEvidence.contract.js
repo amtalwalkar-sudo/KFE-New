@@ -22,7 +22,7 @@ const evidence = {
   'CV-04': { calc:/gapKm/, ui:[work,/ODOMETER GAP|Personal KM|Dead KM/], e2e:/work.contract|boundaryRegression/ },
   'CV-05': { calc:/closingOdo|shiftKm/, ui:[work,/Closing odometer|Total shift KM/], e2e:/work.contract|boundaryRegression/ },
   'CV-06': { calc:/revenue/, ui:[performance,/ACTUAL PROFIT|Revenue/], e2e:/calculationAuthority|fah2RevenueReconciliation/ },
-  'CV-07': { calc:/tripRevenue|reconciliation/, ui:[work,/Trip fares not entered|ALL REVENUE CAPTURED/], e2e:/fah2RevenueReconciliation/ },
+  'CV-07': { calc:/tripRevenue|reconciliation/, ui:[timeline,/Fare|revenue|Authoritative Revenue/], e2e:/fah2RevenueReconciliation/ },
   'CV-08': { calc:/fuelQty|quantityKg/, ui:[work,/Quantity|Partial fill/], e2e:/erpFormCalculation|work.contract/ },
   'CV-09': { calc:/fuelCostPerKm|rollingCostPerKm/, ui:[performance,/Fuel trail|BREAK-EVEN/], e2e:/financialModel|calculationBoundary/ },
   'CV-10': { calc:/fuelCost|fuelQty/, ui:[performance,/Total spend|Quantity/], e2e:/financialModel|calculationBoundary/ },

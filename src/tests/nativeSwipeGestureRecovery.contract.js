@@ -6,7 +6,7 @@ const gesture = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeS
 const store = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeNativeEventStore.java', 'utf8')
 
 assert.match(service, /progress=KfeSwipeGesture\.progress\(downProgress\*maxTravel\+dx,maxTravel\)/)
-assert.match(service, /KfeSwipeGesture\.hasMovedRight\(fx,dp\(8\)\)&&finalProgress>=0\.70f/)
+assert.match(service, /KfeSwipeGesture\.hasMovedRight\(fx,dp\(8\)\)&&finalProgress>=swipeCommitThresholdPercent\/100f/)
 assert.match(service, /Log\.d\("KFE-SWIPE","down stage=/)
 assert.match(service, /Log\.d\("KFE-SWIPE","move stage=/)
 assert.match(service, /KfePendingActionState\.matchesAwaitingEvent\(awaitingEventId,eventId\)/)
@@ -31,7 +31,8 @@ assert.match(service, /durably queued GO_TO_PICKUP; native stage advanced to STA
 assert.match(service, /durably queued START_RIDE; native stage advanced to END_RIDE/)
 assert.match(service, /durably queued END_RIDE; native stage advanced to ENTER_FARE/)
 assert.match(service, /actionStage="START_RIDE"; pendingFareTripId=""/)
-assert.match(service, /actionStage="END_RIDE"; tripStartAt=System\.currentTimeMillis\(\)/)
+assert.match(service, /tripStartAt=rideStartedAt/)
+assert.match(service, /actionStage="END_RIDE"; phaseStartAt=tripStartAt/)
 assert.match(service, /actionStage="ENTER_FARE"; pendingFareTripId=pendingTripId/)
 assert.match(workView, /let nativeEventQueue = Promise\.resolve\(\)/)
 assert.match(workView, /nativeEventQueue\.then\(\(\) => processNativeEvent\(event\)\)/)

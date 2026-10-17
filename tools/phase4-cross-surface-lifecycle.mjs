@@ -128,15 +128,28 @@ try {
     assert(cancelled?.status === 'CANCELLED', 'Cancelled trip did not persist CANCELLED.')
     assert(completed?.shiftId === shiftId && cancelled?.shiftId === shiftId, 'Trip/shift association changed across lifecycle transitions.')
 
-    await ShiftTripRepository.completeShift({
-      id: shiftId,
-      endOdometer: 1100,
-      revenue: 800,
-      toll: 50,
-      parking: 20,
-      tollParkingRevenueTreatment: 'EXCLUDED',
-      trips: [{ id: completedTripId, revenue: 800, tripKm: 80 }],
+    // Seed the already-recorded financial authority independently of shift closure.
+    // End Shift itself commits only the closing odometer and lifecycle transition.
+    const financialDb = await openCanonicalDB()
+    await new Promise((resolve, reject) => {
+      const tx = financialDb.transaction(['shifts'], 'readwrite')
+      const shifts = tx.objectStore('shifts')
+      const request = shifts.get(shiftId)
+      request.onsuccess = () => {
+        const record = request.result
+        record.revenue = 800
+        record.toll = 50
+        record.parking = 20
+        record.tollParkingRevenueTreatment = 'EXCLUDED'
+        record.tollParkingCaptureMode = 'ADDITIONAL_ONLY'
+        shifts.put(record)
+      }
+      request.onerror = () => reject(request.error)
+      tx.oncomplete = resolve
+      tx.onerror = () => reject(tx.error)
+      tx.onabort = () => reject(tx.error || new Error('Financial authority fixture update aborted'))
     })
+    await ShiftTripRepository.completeShift({ id: shiftId, endOdometer: 1100 })
 
     const workAfterShift = await WorkService.getActiveState()
     assert(!workAfterShift.shift && !workAfterShift.trip, 'Work still exposed a completed shift as active.')
@@ -147,7 +160,7 @@ try {
     assert(completedEvent?.record.status === 'COMPLETED', 'Timeline status does not match completed repository state.')
     assert(cancelledEvent?.record.status === 'CANCELLED', 'Timeline status does not match cancelled repository state.')
     assert(timeline.rides === 1, 'Timeline counted a cancelled trip as a completed ride.')
-    assert(Number(timeline.authoritativeRevenue) === 800, 'Timeline authoritative revenue diverged from shift-end revenue.')
+    assert(Number(timeline.authoritativeRevenue) === 800, 'Timeline authoritative revenue changed during odometer-only shift closure.')
     assert(Number(timeline.businessKm) === 80, 'Timeline business KM counted cancelled-trip KM.')
 
     const snapshot = await PerformanceService.getSnapshot()

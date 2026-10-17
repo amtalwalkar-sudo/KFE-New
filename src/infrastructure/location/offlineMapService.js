@@ -12,15 +12,15 @@ async function plugin() {
 
 export const OfflineMapService = {
   regionId: REGION_ID,
-  async status() {
+  async status(regionId = REGION_ID) {
     const native = await plugin()
-    if (!native) return { supported: false, installed: false, regionId: REGION_ID, version: '', bytesInstalled: 0, bytesAvailable: null }
-    return native.getStatus()
+    if (!native) return { supported: false, installed: false, regionId, availableRegions: [], version: '', bytesInstalled: 0, bytesAvailable: null }
+    return native.getStatus({ regionId })
   },
-  async downloadUpdate() {
+  async downloadUpdate(regionId = REGION_ID) {
     const native = await plugin()
     if (!native) throw new Error('Offline Valhalla downloads require the KFE Android app.')
-    return native.downloadUpdate({ confirmed: true })
+    return native.downloadUpdate({ confirmed: true, regionId })
   },
   async addListener(eventName, listener) {
     const native = await plugin()
@@ -35,6 +35,6 @@ export const OfflineMapService = {
     const result = await native.traceRoute({ points })
     const raw = typeof result?.raw === 'string' ? JSON.parse(result.raw) : result?.raw
     if (!raw) return null
-    return { raw, provider: 'valhalla-mobile', regionId: REGION_ID }
+    return { raw, provider: 'valhalla-mobile', regionId: result.regionId || REGION_ID }
   }
 }

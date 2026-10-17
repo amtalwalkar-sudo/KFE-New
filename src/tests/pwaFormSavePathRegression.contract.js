@@ -64,9 +64,8 @@ assert.match(fuelRepo, /objectStore\('fuel_logs'\)/, 'Fuel save must write fuel_
 assert.match(fuelForm, /<form id="fuel-log-form"/, 'Fuel entry must use native form submission')
 assert.match(workView, /await store\.endShift\(\{/, 'End-shift reconciliation must use shift store')
 assert.match(endShift, /ShiftTripRepository\.completeShift\(/, 'End-shift finalization must reach canonical shift repository')
-assert.match(reconciliation, /@submit\.prevent="handleFinalCommit"/, 'Reconciliation must commit only on final submit')
-assert.match(workForm, /Additional shift toll/, 'Shift review must label toll as additional-only')
-assert.match(workForm, /Additional shift parking/, 'Shift review must label parking as additional-only')
+assert.doesNotMatch(workView, /ShiftReconciliationModal|handleFinalCommit|shiftRevenue|reviewRevenue/, 'Work must not launch shift-end revenue reconciliation.')
+assert.doesNotMatch(workForm, /Additional shift toll|Additional shift parking|Trip fares not entered/, 'End Shift form must not request financial reconciliation.')
 
 // 4. Draft recovery: drafts are separate from canonical records and clear only after commit/discard.
 assert.match(drafts, /tx\.objectStore\('form_drafts'\)\.put\(record\)/, 'Drafts must use a separate store')
@@ -75,7 +74,7 @@ assert.match(workView, /watch\(\[startOdo, startAck, gapChoice\]/, 'Shift-start 
 assert.match(workView, /watch\(\[fare, tripToll, tripParking, tripTollTreatment/, 'Trip details edits must be drafted')
 assert.match(workView, /watch\(\[cancelReason, cancelFare\]/, 'Cancellation edits must be drafted')
 assert.match(workView, /watch\(\[fuelOdo, fuelPrice, fuelAmount, fuelFull\]/, 'Fuel edits must be drafted')
-assert.match(workView, /watch\(\[closingOdo, shiftRevenue, toll, parking, tollTreatment, parkingTreatment, endStage/, 'End-shift edits must be drafted')
+assert.match(workView, /watch\(\[closingOdo, endStage, largeDistanceConfirmation\]/, 'Closing odometer and long-distance confirmation must be drafted')
 
 // 5. Backup, settings, calculation and read-model consumers.
 assert.match(settings, /props\.application\.exportBackup\(\)/, 'Settings export must use application boundary')
@@ -101,4 +100,4 @@ assert.match(timelineService, /ShiftTripRepository\.getAllShifts/, 'Timeline mus
 assert.ok(calculations.includes('PerformanceService'), 'Calculations view must use the calculation application boundary')
 
 console.log('PWA Form Save-Path Regression Contract: PASS')
-console.log(JSON.stringify({adminForms:adminKeys,workForms:['shift start','trip details/fare','cancellation','fuel','end-shift reconciliation'],otherForms:['first-run setup','cloud backup setup','settings backup/restore/reset','Admin backup/restore','calculations'],status:'source-level save-path and consumer checks passed'}))
+console.log(JSON.stringify({adminForms:adminKeys,workForms:['shift start','trip details/fare','cancellation','fuel','odometer-only end shift'],otherForms:['first-run setup','cloud backup setup','settings backup/restore/reset','Admin backup/restore','calculations'],status:'source-level save-path and consumer checks passed'}))
