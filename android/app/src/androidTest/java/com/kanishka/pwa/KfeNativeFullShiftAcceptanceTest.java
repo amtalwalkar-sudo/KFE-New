@@ -23,6 +23,7 @@ import org.junit.runner.RunWith;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.InvocationTargetException;
 
 /**
  * Exercises the production native persistence methods without starting a WebView
@@ -178,6 +179,145 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertEquals("Acknowledged lifecycle events must remain idempotent on retry.", first, retryAfterReplay);
     assertTrue("Retry must not recreate an acknowledged event as pending.",
         !hasPendingEvent(events.pending(500), tripId, "GO_TO_PICKUP"));
+  }
+
+  @Test public void lifecyclePersistenceRecoversAfterEveryCheckpointOutboxAndCanonicalBoundary() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    String suffix = Long.toString(System.currentTimeMillis());
+    String[] stages = {"GO_TO_PICKUP", "START_RIDE", "END_RIDE"};
+    String[] canonicalStages = {"GOING_TO_PICKUP", "RIDE_STARTED", "COMPLETED"};
+    String[] boundaries = {"AFTER_CHECKPOINT", "AFTER_OUTBOX", "AFTER_CANONICAL"};
+
+    for (int stageIndex = 0; stageIndex < stages.length; stageIndex++) {
+      for (String boundary : boundaries) {
+        String caseId = stages[stageIndex].toLowerCase() + "-" + boundary.toLowerCase();
+        String shiftId = "lifecycle-fault-shift-" + suffix + "-" + caseId;
+        String tripId = "lifecycle-fault-trip-" + suffix + "-" + caseId;
+        String eventStage = stages[stageIndex];
+        long startAt = System.currentTimeMillis() - 5000L;
+        SharedPreferences prefs = context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE);
+        KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+        JSONObject shift = new JSONObject()
+            .put("id", shiftId).put("status", "ACTIVE").put("revenue", 0)
+            .put("updatedAt", java.time.Instant.now().toString());
+        assertTrue("Fault fixture shift must commit.",
+            store.putRecord("lifecycle-fault-shift-create-" + tripId, "SHIFT", shift).accepted);
+
+        prepareSnapshot(prefs, shiftId, tripId);
+        AttachedOverlayService firstAttempt = new AttachedOverlayService();
+        firstAttempt.attach(context);
+        setField(firstAttempt, "actionStage", eventStage);
+        setField(firstAttempt, "pendingTripId", tripId);
+        setField(firstAttempt, "tripStartAt", stageIndex == 0 ? 0L : startAt);
+        setField(firstAttempt, "defaultOperator", "Uber");
+
+        final boolean[] injected = {false};
+        KfeOverlayService.lifecycleFaultInjectorForTests = reached -> {
+          if (!injected[0] && boundary.equals(reached)) {
+            injected[0] = true;
+            throw new IllegalStateException("INJECTED_" + boundary);
+          }
+        };
+        String eventIdBeforeRetry = "";
+        try {
+          try {
+            invoke(firstAttempt, "persistLifecycleAction",
+                new Class<?>[]{String.class, String.class, boolean.class},
+                eventStage, canonicalStages[stageIndex], stageIndex == 1);
+            throw new AssertionError("Expected injected interruption at " + boundary);
+          } catch (InvocationTargetException expected) {
+            assertTrue("Failure must be the requested injected interruption.",
+                expected.getCause() instanceof IllegalStateException
+                    && expected.getCause().getMessage().equals("INJECTED_" + boundary));
+          }
+        } finally {
+          KfeOverlayService.lifecycleFaultInjectorForTests = null;
+        }
+        assertTrue("Requested persistence boundary must have been reached.", injected[0]);
+
+        JSONArray eventsAfterFault = KfeNativeEventStore.get(context).pending(500);
+        eventIdBeforeRetry = pendingEventIdFor(eventsAfterFault, tripId, eventStage);
+        if ("AFTER_CHECKPOINT".equals(boundary)) {
+          assertEquals("Checkpoint failure must occur before outbox insertion.", "", eventIdBeforeRetry);
+        } else {
+          assertTrue("Outbox event must survive interruption at " + boundary, !eventIdBeforeRetry.isEmpty());
+        }
+
+        // Recreate the service and use the same checkpoint restoration method
+        // called from onCreate(), then retry the exact same logical action.
+        AttachedOverlayService recovered = new AttachedOverlayService();
+        recovered.attach(context);
+        invoke(recovered, "restoreNativeWorkflowCheckpoint", new Class<?>[]{});
+        assertEquals("Recovery must retain the original trip ID.", tripId,
+            getFieldString(recovered, "pendingTripId"));
+        assertEquals("Recovery must retain the lifecycle stage for retry.", eventStage,
+            getFieldString(recovered, "actionStage"));
+        String retriedEventId = String.valueOf(invoke(recovered, "persistLifecycleAction",
+            new Class<?>[]{String.class, String.class, boolean.class},
+            eventStage, canonicalStages[stageIndex], stageIndex == 1));
+        if (!eventIdBeforeRetry.isEmpty()) {
+          assertEquals("Retry must reuse the pre-crash outbox event.", eventIdBeforeRetry, retriedEventId);
+        }
+
+        JSONArray eventsAfterRetry = KfeNativeEventStore.get(context).pending(500);
+        assertEquals("Recovery must leave exactly one pending lifecycle event.",
+            1, countPendingEventsFor(eventsAfterRetry, tripId, eventStage));
+        assertEquals("Recovered event ID must be the sole pending event.",
+            retriedEventId, pendingEventIdFor(eventsAfterRetry, tripId, eventStage));
+
+        JSONObject canonical = KfeCanonicalWorkStore.get(context).getRecord("TRIP", tripId);
+        assertTrue("Canonical lifecycle record must exist after retry.", canonical.optBoolean("found"));
+        JSONObject record = canonical.getJSONObject("record");
+        assertEquals("Canonical lifecycle stage must converge after retry.",
+            canonicalStages[stageIndex], record.getString("tripStage"));
+        assertEquals("Canonical status must match the lifecycle stage.",
+            stageIndex == 2 ? "COMPLETED" : "ACTIVE", record.getString("status"));
+        if (stageIndex == 1) {
+          assertEquals("Ride-start timestamp must survive the interrupted write.",
+              new java.util.Date(startAt).toInstant().toString(), record.getString("tripStartAt"));
+        }
+
+        // Remove only this fixture's canonical and outbox rows before the next
+        // scenario so each injected boundary starts from an isolated state.
+        cleanupNativeRecords(context, shiftId, tripId, "", "");
+        SQLiteOpenHelper eventStore = KfeNativeEventStore.get(context);
+        Method dbGetter = SQLiteOpenHelper.class.getDeclaredMethod("getWritableDatabase");
+        dbGetter.setAccessible(true);
+        SQLiteDatabase eventDb = (SQLiteDatabase) dbGetter.invoke(eventStore);
+        eventDb.delete("native_events", "trip_id=?", new String[]{tripId});
+        eventStore.close();
+        Field eventSingleton = KfeNativeEventStore.class.getDeclaredField("instance");
+        eventSingleton.setAccessible(true);
+        eventSingleton.set(null, null);
+        prefs.edit().remove(STATE_KEY).commit();
+      }
+    }
+    KfeOverlayService.lifecycleFaultInjectorForTests = null;
+  }
+
+  private static String getFieldString(Object target, String name) throws Exception {
+    Field field = KfeOverlayService.class.getDeclaredField(name);
+    field.setAccessible(true);
+    return String.valueOf(field.get(target));
+  }
+
+  private static String pendingEventIdFor(JSONArray pending, String tripId, String stage) {
+    for (int i = 0; i < pending.length(); i++) {
+      JSONObject event = pending.optJSONObject(i);
+      if (event != null && tripId.equals(event.optString("tripId", ""))
+          && stage.equals(event.optString("stage", ""))) return event.optString("eventId", "");
+    }
+    return "";
+  }
+
+  private static int countPendingEventsFor(JSONArray pending, String tripId, String stage) {
+    int count = 0;
+    for (int i = 0; i < pending.length(); i++) {
+      JSONObject event = pending.optJSONObject(i);
+      if (event != null && tripId.equals(event.optString("tripId", ""))
+          && stage.equals(event.optString("stage", ""))) count++;
+    }
+    return count;
   }
 
   @Test public void reopeningPwaCatchesUpNativeCanonicalRecordsWithoutReplayingPendingEvents() throws Exception {
