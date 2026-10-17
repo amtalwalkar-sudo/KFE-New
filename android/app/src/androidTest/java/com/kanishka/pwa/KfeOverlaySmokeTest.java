@@ -639,6 +639,19 @@ public class KfeOverlaySmokeTest {
     KfeOverlayService.update(context, state.toString());
     waitForOverlay();
     service = waitForService();
+    // The overlay view already exists, so waitForOverlay() alone does not prove
+    // that the asynchronous ACTION_UPDATE has applied the second trip. Do not
+    // swipe until the native service has adopted the expected ID and stage.
+    long secondTripDeadline = SystemClock.uptimeMillis() + 5000L;
+    while (SystemClock.uptimeMillis() < secondTripDeadline
+        && (!cancelTripId.equals(fieldValue(service, "pendingTripId"))
+          || !"GO_TO_PICKUP".equals(fieldValue(service, "actionStage")))) {
+      SystemClock.sleep(50L);
+      service = waitForService();
+    }
+    assertEquals("Overlay must adopt the second trip before accepting its first swipe",
+      cancelTripId, fieldValue(service, "pendingTripId"));
+    assertEquals("Second trip must begin at pickup", "GO_TO_PICKUP", fieldValue(service, "actionStage"));
     assertSwipeTracksAndRetracts(service);
     assertEquals("START_RIDE", fieldValue(service, "actionStage"));
     assertEquals("Cancellation must target the trip opened by the native overlay.", cancelTripId, fieldValue(service, "pendingTripId"));
