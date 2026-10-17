@@ -70,6 +70,7 @@ public class KfeNativeFullShiftAcceptanceTest {
         new Class<?>[]{String.class, String.class, JSONObject.class}, "FARE", fareTripB, fareB);
 
     prepareSnapshot(prefs, shiftId, cancelledTrip);
+    setField(service, "pendingTripId", cancelledTrip);
     Thread.sleep(5L);
     assertTrue("The cancelled trip pickup state must persist.",
         (Boolean) invoke(service, "persistCanonicalTripStage",
@@ -128,6 +129,7 @@ public class KfeNativeFullShiftAcceptanceTest {
 
   private static void runTripStages(AttachedOverlayService service, SharedPreferences prefs,
       String shiftId, String tripId) throws Exception {
+    setField(service, "pendingTripId", tripId);
     Thread.sleep(5L);
     assertTrue("Pickup stage must commit without PWA replay.",
         (Boolean) invoke(service, "persistCanonicalTripStage",
