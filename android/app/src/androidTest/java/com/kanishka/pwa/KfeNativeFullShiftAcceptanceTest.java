@@ -63,20 +63,26 @@ public class KfeNativeFullShiftAcceptanceTest {
     JSONObject fareA = new JSONObject()
         .put("fare", "250").put("toll", "10").put("parking", "0")
         .put("tollTreatment", "INCLUDED").put("parkingTreatment", "INCLUDED");
-    KfeNativeEventStore.get(context).append("ENTER_FARE", fareTripA, fareA.toString());
-    Thread.sleep(5L);
-    invoke(service, "persistCanonicalTripForm",
-        new Class<?>[]{String.class, String.class, JSONObject.class}, "FARE", fareTripA, fareA);
+    // Exercise the same native submission method called by the overlay's Save button,
+    // including durable event creation, canonical commit, and post-commit workflow advance.
+    setField(service, "formMode", "FARE");
+    setField(service, "pendingFareTripId", fareTripA);
+    setField(service, "formValue", "250");
+    setField(service, "tollValue", "10");
+    setField(service, "parkingValue", "0");
+    invoke(service, "submitNumericForm", new Class<?>[]{});
 
     prepareSnapshot(prefs, shiftId, fareTripB);
     runTripStages(service, prefs, shiftId, fareTripB);
     JSONObject fareB = new JSONObject()
         .put("fare", "150").put("toll", "0").put("parking", "5")
         .put("tollTreatment", "INCLUDED").put("parkingTreatment", "INCLUDED");
-    KfeNativeEventStore.get(context).append("ENTER_FARE", fareTripB, fareB.toString());
-    Thread.sleep(5L);
-    invoke(service, "persistCanonicalTripForm",
-        new Class<?>[]{String.class, String.class, JSONObject.class}, "FARE", fareTripB, fareB);
+    setField(service, "formMode", "FARE");
+    setField(service, "pendingFareTripId", fareTripB);
+    setField(service, "formValue", "150");
+    setField(service, "tollValue", "0");
+    setField(service, "parkingValue", "5");
+    invoke(service, "submitNumericForm", new Class<?>[]{});
 
     prepareSnapshot(prefs, shiftId, cancelledTrip);
     setField(service, "pendingTripId", cancelledTrip);
@@ -85,10 +91,10 @@ public class KfeNativeFullShiftAcceptanceTest {
         (Boolean) invoke(service, "persistCanonicalTripStage",
             new Class<?>[]{String.class, boolean.class}, "GOING_TO_PICKUP", false));
     JSONObject cancellation = new JSONObject().put("revenue", "20").put("reason", "PASSENGER");
-    KfeNativeEventStore.get(context).append("CANCEL_RIDE", cancelledTrip, cancellation.toString());
-    Thread.sleep(5L);
-    invoke(service, "persistCanonicalTripForm",
-        new Class<?>[]{String.class, String.class, JSONObject.class}, "CANCEL", cancelledTrip, cancellation);
+    setField(service, "formMode", "CANCEL");
+    setField(service, "formValue", "20");
+    setField(service, "cancelReason", "PASSENGER");
+    invoke(service, "submitNumericForm", new Class<?>[]{});
 
     // Simulate an interrupted acknowledgement: the form's native commit exists,
     // while its durable transport event remains pending for later PWA catch-up.
