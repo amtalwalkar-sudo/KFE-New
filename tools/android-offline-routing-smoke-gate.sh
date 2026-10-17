@@ -53,13 +53,15 @@ if [ "$prepare_result" -ne 0 ] || ! grep -Fq 'OK (1 test)' artifacts/android-off
   exit "${prepare_result:-1}"
 fi
 
-APP_FILES_DIR=/sdcard/Android/data/com.kanishka.pwa/files
+# Keep fixture files in app-private internal storage. Android 11+ scoped
+# storage/SELinux may deny run-as writes into /sdcard/Android/data even when
+# the directory belongs to the app; the native routing test reads this location.
 timeout 300s adb push work/area-alibag.tar /data/local/tmp/kfe-area-alibag.tar
-timeout 60s adb shell run-as com.kanishka.pwa cp /data/local/tmp/kfe-area-alibag.tar "$APP_FILES_DIR/valhalla-tiles.tar"
+timeout 60s adb shell run-as com.kanishka.pwa cp /data/local/tmp/kfe-area-alibag.tar files/valhalla-tiles.tar
 timeout 300s adb push work/trace-request-alibag.json /data/local/tmp/kfe-trace-request-alibag.json
-timeout 60s adb shell run-as com.kanishka.pwa cp /data/local/tmp/kfe-trace-request-alibag.json "$APP_FILES_DIR/valhalla-trace-request.json"
-test "$(adb shell run-as com.kanishka.pwa wc -c "$APP_FILES_DIR/valhalla-tiles.tar" | awk '{print $1}' | tr -d '\r')" -gt 0
-test "$(adb shell run-as com.kanishka.pwa wc -c "$APP_FILES_DIR/valhalla-trace-request.json" | awk '{print $1}' | tr -d '\r')" -gt 0
+timeout 60s adb shell run-as com.kanishka.pwa cp /data/local/tmp/kfe-trace-request-alibag.json files/valhalla-trace-request.json
+test "$(adb shell run-as com.kanishka.pwa wc -c files/valhalla-tiles.tar | awk '{print $1}' | tr -d '\r')" -gt 0
+test "$(adb shell run-as com.kanishka.pwa wc -c files/valhalla-trace-request.json | awk '{print $1}' | tr -d '\r')" -gt 0
 
 # Disable emulator-managed external network paths before invoking native Valhalla.
 adb shell svc wifi disable
