@@ -107,11 +107,13 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertPendingEvent(pending, fareTripB, "ENTER_FARE");
     assertPendingEvent(pending, cancelledTrip, "CANCEL_RIDE");
 
-    // Retrying a deterministic native form operation must not duplicate or lose
-    // a fare. The native canonical operation ID is stable per form/trip.
-    Thread.sleep(5L);
+    // Retrying the same durable form event must replay the exact same canonical
+    // operation and payload, even after the acknowledgement boundary.
+    String fareAEventId = pendingEventIdFor(pending, fareTripA, "ENTER_FARE");
+    assertTrue("First fare must retain its durable event ID.", !fareAEventId.isEmpty());
     invoke(service, "persistCanonicalTripForm",
-        new Class<?>[]{String.class, String.class, JSONObject.class}, "FARE", fareTripA, fareA);
+        new Class<?>[]{String.class, String.class, JSONObject.class, String.class},
+        "FARE", fareTripA, fareA, fareAEventId);
 
     // Reopen the SQLite helper to verify committed state survives store/process
     // recreation without running PWA handlers or acknowledging queued events.
