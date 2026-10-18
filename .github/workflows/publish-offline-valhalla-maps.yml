@@ -225,12 +225,14 @@ jobs:
           build_area "mumbai-metro" "72.4,18.6,73.5,19.7" "work/trace-request-mumbai.json"
           build_area "pune" "73.3,18.1,74.2,19.0" "work/trace-request-pune.json"
           build_area "nashik" "73.1,19.4,74.2,20.4" "work/trace-request-nashik.json"
-          # Keep the Android instrumentation fixture tight around the validated Alibag route; the previous broad bbox loaded a much larger graph than this smoke needs.
-build_area "alibag" "72.72,18.50,73.05,18.80" "work/trace-request-alibag.json"
+          build_area "alibag" "72.4,18.2,73.3,19.0" "work/trace-request-alibag.json"
+          # Use a compact, dedicated package for Android instrumentation without
+          # reducing the coverage of the published Alibag area package.
+          build_area "alibag-android-smoke" "72.72,18.50,73.05,18.80" "work/trace-request-alibag.json"
 
-      # Exercise an actual selectable area package in Android. Alibag keeps the
-      # native-engine smoke bounded on memory-constrained emulator runners while
-      # still proving local tile routing with all network paths disabled.
+      # Exercise a compact Alibag fixture in Android. The published Alibag package
+      # retains full coverage; the dedicated fixture bounds native-engine work on
+      # memory-constrained emulator runners while proving offline routing.
       # This runs after the area packages are built and before catalog publication.
       - name: Setup Java for Android offline-routing instrumentation
         uses: actions/setup-java@v5
@@ -258,7 +260,7 @@ build_area "alibag" "72.72,18.50,73.05,18.80" "work/trace-request-alibag.json"
 
       - name: Verify installed Valhalla tiles with Android networking disabled
         uses: reactivecircus/android-emulator-runner@v2
-        timeout-minutes: 45
+        timeout-minutes: 60
         with:
           api-level: 34
           target: google_apis
@@ -312,7 +314,7 @@ build_area "alibag" "72.72,18.50,73.05,18.80" "work/trace-request-alibag.json"
           publish_entry "mumbai-metro" "Mumbai metro" "work/area-mumbai-metro.tar" '{"south":18.6,"north":19.7,"west":72.4,"east":73.5}' "offline-maps-mumbai-metro-${MAP_VERSION}.tar"
           publish_entry "pune" "Pune area" "work/area-pune.tar" '{"south":18.1,"north":19.0,"west":73.3,"east":74.2}' "offline-maps-pune-${MAP_VERSION}.tar"
           publish_entry "nashik" "Nashik area" "work/area-nashik.tar" '{"south":19.4,"north":20.4,"west":73.1,"east":74.2}' "offline-maps-nashik-${MAP_VERSION}.tar"
-          publish_entry "alibag" "Alibag area" "work/area-alibag.tar" '{"south":18.50,"north":18.80,"west":72.72,"east":73.05}' "offline-maps-alibag-${MAP_VERSION}.tar"
+          publish_entry "alibag" "Alibag area" "work/area-alibag.tar" '{"south":18.2,"north":19.0,"west":72.4,"east":73.3}' "offline-maps-alibag-${MAP_VERSION}.tar"
           jq -n --argjson schemaVersion 1 --argjson regions "$REGIONS" --arg attribution "$ATTRIBUTION" \
             '{schemaVersion:$schemaVersion,regions:$regions,attribution:$attribution}' > work/offline-maps-manifest.json
           printf '%s\n' "$ATTRIBUTION" > work/offline-maps-attribution.txt
