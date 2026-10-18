@@ -874,12 +874,13 @@ public class KfeOverlayService extends Service {
     JSONObject shift=foundShift.optJSONObject("record");
     if(shift==null)throw new IllegalStateException("Canonical shift is missing; revenue projection was not acknowledged.");
     shift.put("revenue",total);shift.put("liveFareRevenue",total);shift.put("revenueSource","TRIP_FARES");
-    String updatedAt=new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",java.util.Locale.US){{
-      setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
-    }}.format(new java.util.Date());
-    shift.put("updatedAt",updatedAt);
     String revision=(sourceUpdatedAt==null?"":sourceUpdatedAt).replaceAll("[^A-Za-z0-9]","");
-    KfeCanonicalWorkStore.Outcome outcome=store.putRecord("native-shift-revenue-"+shiftId+"-"+sourceTripId+"-"+revision,"SHIFT",shift);
+    // A replay of an older form event may recompute a newer aggregate. Keep the
+    // same event's payload deterministic, and include the aggregate in the
+    // operation ID so a changed total cannot collide with an earlier projection.
+    shift.put("updatedAt",sourceUpdatedAt==null?"":sourceUpdatedAt);
+    String totalRevision=java.math.BigDecimal.valueOf(total).stripTrailingZeros().toPlainString().replaceAll("[^A-Za-z0-9]","");
+    KfeCanonicalWorkStore.Outcome outcome=store.putRecord("native-shift-revenue-"+shiftId+"-"+sourceTripId+"-"+revision+"-"+totalRevision,"SHIFT",shift);
     if(!outcome.accepted)throw new IllegalStateException("Canonical shift revenue projection was not acknowledged.");
     revenue="₹"+String.format(java.util.Locale.US,"%.0f",total);if(overlay!=null)overlay.postInvalidate();
   }
