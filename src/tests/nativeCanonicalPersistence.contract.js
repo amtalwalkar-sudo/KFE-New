@@ -45,7 +45,10 @@ const transactionCommitIndex = store.indexOf('db.setTransactionSuccessful();', a
 assert.ok(recordWriteIndex >= 0 && operationWriteIndex > recordWriteIndex && auditWriteIndex > operationWriteIndex && transactionCommitIndex > auditWriteIndex, 'record, idempotency outcome and audit must commit in one ordered SQLite transaction')
 assert.ok(overlayService.includes('createdAtMillis(eventId)'), 'native lifecycle retries must derive timestamps from the durable outbox event')
 assert.ok(overlayService.includes('native-trip-stage-"+eventId'), 'each durable lifecycle event must have its own canonical operation ID')
-assert.ok(overlayService.includes('trip.put("updatedAt",eventTimestamp)'), 'lifecycle retry payload must preserve its original version timestamp')
+assert.ok(overlayService.includes('trip.put("updatedAt",eventTimestamp)'), 'lifecycle retry payload must preserve its original version timestamp');
+assert.ok(overlayService.includes('persistCanonicalTripForm("FARE",actionTripId,payload,eventId)'), 'fare canonical writes must use the durable outbox event ID');
+assert.ok(overlayService.includes('persistCanonicalTripForm("CANCEL",pendingTripId,input,eventId)'), 'cancellation canonical writes must use the durable outbox event ID');
+assert.ok(overlayService.includes('native-form-"+mode+"-"+eventId'), 'form retries must be idempotent per durable event, not per trip');
 assert.ok(read('android/app/src/main/java/com/kanishka/pwa/KfeNativeEventStore.java').includes('synchronized long createdAtMillis(String id)'), 'event store must expose the persisted timestamp for a lifecycle event')
 assert.match(plugin, /@CapacitorPlugin\(name = "KfeCanonicalWork"\)/)
 for (const method of ['putRecord', 'getRecord', 'listRecords', 'getOperation']) assert.ok(plugin.includes('public void ' + method + '('), 'Missing plugin method: ' + method)
