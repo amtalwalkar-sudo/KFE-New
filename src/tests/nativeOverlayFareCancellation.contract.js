@@ -12,7 +12,7 @@ const workActions = read('src/infrastructure/android/nativeWorkActions.js')
 const androidGate = read('tools/android-exact-apk-smoke-gate.sh')
 const nativeAcceptance = read('android/app/src/androidTest/java/com/kanishka/pwa/KfeNativeFullShiftAcceptanceTest.java')
 
-assert.match(overlay, /private void persistCanonicalTripForm\\(String mode,String tripId,JSONObject input,String eventId\\)/)
+assert.ok(overlay.includes('private void persistCanonicalTripForm(String mode,String tripId,JSONObject input,String eventId)'), 'Canonical form persistence must accept the durable event ID')
 assert.match(overlay, /native-form-\"\+mode\+\"-\"\+eventId/)
 assert.match(overlay, /canonical\.putRecord\(operationId,\"TRIP\",trip\)/)
 assert.match(overlay, /trip\.put\(\"status\",\"COMPLETED\"\)/)
