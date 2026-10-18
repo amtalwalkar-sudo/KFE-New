@@ -792,7 +792,7 @@ public class KfeOverlayService extends Service {
         // separate native event remains queued so the PWA's IndexedDB read model
         // catches up when its WebView next runs.
         String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"ENTER_FARE",actionTripId,payload.toString());
-        persistCanonicalTripForm("FARE",actionTripId,payload);
+        persistCanonicalTripForm("FARE",actionTripId,payload,eventId);
         KfeNativeWorkActionsPlugin.emitAction("ENTER_FARE",actionTripId,payload.toString(),eventId);
         finishNativeFormCommit();
       } catch(Exception error){
@@ -806,7 +806,7 @@ public class KfeOverlayService extends Service {
         input.put("revenue",formValue);
         input.put("reason",cancelReason);
         String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"CANCEL_RIDE",pendingTripId,input.toString());
-        persistCanonicalTripForm("CANCEL",pendingTripId,input);
+        persistCanonicalTripForm("CANCEL",pendingTripId,input,eventId);
         KfeNativeWorkActionsPlugin.emitAction("CANCEL_RIDE",pendingTripId,input.toString(),eventId);
         finishNativeFormCommit();
       }catch(Exception error){
@@ -884,7 +884,7 @@ public class KfeOverlayService extends Service {
     revenue="₹"+String.format(java.util.Locale.US,"%.0f",total);if(overlay!=null)overlay.postInvalidate();
   }
 
-  private void persistCanonicalTripForm(String mode,String tripId,JSONObject input) throws Exception {
+  private void persistCanonicalTripForm(String mode,String tripId,JSONObject input,String eventId) throws Exception {
     if(tripId==null||tripId.trim().isEmpty())throw new IllegalArgumentException("Trip ID is required.");
     JSONObject trip=null;
     KfeCanonicalWorkStore canonical=KfeCanonicalWorkStore.get(this);
@@ -910,10 +910,12 @@ public class KfeOverlayService extends Service {
       }
     }
     if(trip==null)throw new IllegalStateException("The last known trip record is unavailable; form was not marked saved.");
-    String operationId="native-form-"+mode+"-"+tripId;
+    if(eventId==null||eventId.trim().isEmpty())throw new IllegalArgumentException("Durable form event ID is required.");
+    String operationId="native-form-"+mode+"-"+eventId;
+    long eventTimestamp=KfeNativeEventStore.get(this).createdAtMillis(eventId);
     String now=new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",java.util.Locale.US){{
       setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
-    }}.format(new java.util.Date());
+    }}.format(new java.util.Date(eventTimestamp));
     if("FARE".equals(mode)){
       trip.put("status","COMPLETED");
       if(!input.optString("fare","").trim().isEmpty())trip.put("revenue",Double.parseDouble(input.optString("fare")));
