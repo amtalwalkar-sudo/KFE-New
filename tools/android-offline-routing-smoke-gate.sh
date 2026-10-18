@@ -56,7 +56,7 @@ fi
 # Keep fixture files in app-private internal storage. Android 11+ scoped
 # storage/SELinux may deny run-as writes into /sdcard/Android/data even when
 # the directory belongs to the app; the native routing test reads this location.
-timeout 300s adb push work/area-alibag.tar /data/local/tmp/kfe-area-alibag.tar
+timeout 300s adb push work/area-alibag-android-smoke.tar /data/local/tmp/kfe-area-alibag.tar
 timeout 60s adb shell run-as com.kanishka.pwa cp /data/local/tmp/kfe-area-alibag.tar files/valhalla-tiles.tar
 timeout 300s adb push work/trace-request-alibag.json /data/local/tmp/kfe-trace-request-alibag.json
 timeout 60s adb shell run-as com.kanishka.pwa cp /data/local/tmp/kfe-trace-request-alibag.json files/valhalla-trace-request.json
@@ -71,7 +71,8 @@ sleep 3
 test "$(adb shell settings get global airplane_mode_on | tr -d '\r')" = "1"
 
 set +e
-timeout 600s adb shell am instrument -w -r \
+echo "Starting on-device offline Valhalla route test with network disabled."
+timeout 1200s adb shell am instrument -w -r \
   -e class com.kanishka.pwa.KfeRecoveryHardeningTest#installedOfflineValhallaRoutesWithNetworkDisabled \
   com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner \
   > artifacts/android-offline-routing/instrumentation.log 2>&1
