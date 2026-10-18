@@ -19,11 +19,55 @@ import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.j
 const checkpoint = () => BackupService.requestLocalBackupCheckpoint()
 const nativeCanonicalAvailable = () => { try { return WorkRuntimePorts.canonicalWork.isAvailable() === true } catch (_) { return false } }
 const isAndroidRuntime = () => { try { return WorkRuntimePorts.platform.getPlatform() === 'android' } catch (_) { return nativeCanonicalAvailable() } }
+const stableCanonicalValue = value => {
+  if (Array.isArray(value)) return value.map(stableCanonicalValue)
+  if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map(key => [key, stableCanonicalValue(value[key])]))
+  return value
+}
+const withoutCanonicalSyncMetadata = record => {
+  const { _nativeCanonicalSync, ...canonicalRecord } = record || {}
+  return canonicalRecord
+}
 const mirrorCanonicalRecord = async (entityType, record) => {
   if (!record?.id || !nativeCanonicalAvailable()) return record
-  const outcome = await CanonicalWorkBoundary.putRecord({ operationId: CanonicalWorkBoundary.createOperationId(), entityType, record })
-  if (outcome?.accepted !== true) throw new Error(`Native canonical ${entityType} commit was not acknowledged.`)
-  return record
+  let candidate = record
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const canonicalRecord = withoutCanonicalSyncMetadata(candidate)
+    const fingerprint = JSON.stringify(stableCanonicalValue(canonicalRecord))
+    const existingPending = candidate?._nativeCanonicalSync
+    const operationId = existingPending?.operationId && existingPending?.fingerprint === fingerprint
+      ? existingPending.operationId
+      : CanonicalWorkBoundary.createOperationId()
+    // Persist the exact operation identity before crossing the native bridge. If the
+    // process dies or the acknowledgement is lost, recovery retries the same id;
+    // SQLite's operation ledger makes that retry idempotent.
+    try {
+      const journaled = await ShiftTripRepository.markCanonicalSyncPending({
+        entityType,
+        entityId: candidate.id,
+        operationId,
+        fingerprint,
+        record: canonicalRecord,
+      })
+      if (!journaled) throw new Error(`Could not durably journal native canonical ${entityType} write.`)
+    } catch (error) {
+      // A local mutation may race this mirror between its read and journal step.
+      // Re-read the actual IndexedDB payload and journal that snapshot instead of
+      // failing after the business mutation has already been saved locally.
+      if (!String(error?.message || '').includes('Local canonical record changed before native mirror') || attempt === 2) throw error
+      const latest = entityType === 'SHIFT'
+        ? await ShiftTripRepository.getAllShifts({ skipCanonicalReadBoundary: true })
+        : await ShiftTripRepository.getAllTrips({ skipCanonicalReadBoundary: true })
+      candidate = latest.find(item => item?.id === record.id)
+      if (!candidate) throw new Error(`Local canonical ${entityType} record disappeared before native mirror.`)
+      continue
+    }
+    const outcome = await CanonicalWorkBoundary.putRecord({ operationId, entityType, record: canonicalRecord })
+    if (outcome?.accepted !== true) throw new Error(`Native canonical ${entityType} commit was not acknowledged.`)
+    await ShiftTripRepository.clearCanonicalSyncPending({ entityType, entityId: candidate.id, operationId, fingerprint })
+    return candidate
+  }
+  throw new Error(`Native canonical ${entityType} mirror could not stabilize its local snapshot.`)
 }
 const mirrorCanonicalTripById = async id => {
   if (!id || !nativeCanonicalAvailable()) return null

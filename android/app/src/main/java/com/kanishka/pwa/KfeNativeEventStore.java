@@ -57,6 +57,15 @@ final class KfeNativeEventStore extends SQLiteOpenHelper {
     return id;
   }
 
+  synchronized long createdAtMillis(String id) {
+    if (id == null || id.trim().isEmpty()) throw new IllegalArgumentException("event ID is required.");
+    try (Cursor cursor = getReadableDatabase().query("native_events", new String[]{"created_at"},
+        "id=?", new String[]{id}, null, null, null, "1")) {
+      if (!cursor.moveToFirst()) throw new IllegalStateException("Native lifecycle event was not found: " + id);
+      return cursor.getLong(0);
+    }
+  }
+
   synchronized JSONArray pending(int limit) {
     JSONArray events = new JSONArray();
     try (Cursor cursor = getReadableDatabase().query("native_events",

@@ -1,149 +1,158 @@
 import assert from 'node:assert/strict'
 import { recoverCanonicalWorkSnapshot } from '../application/work/canonicalWorkRecovery.js'
 
-const oldRecord = { id: 'shift-1', status: 'ACTIVE', revenue: 250, updatedAt: '2026-10-15T10:00:00.000Z' }
-const newerRecord = { id: 'shift-1', status: 'COMPLETED', revenue: 400, updatedAt: '2026-10-15T10:01:00.000Z' }
-const trip = { id: 'trip-1', shiftId: 'shift-1', status: 'COMPLETED', revenue: 400, updatedAt: '2026-10-15T10:01:00.000Z' }
+const canonicalShift = { id: 'shift-1', status: 'ACTIVE', revenue: 275, updatedAt: '2026-10-15T10:00:00.000Z' }
+const canonicalCompletedTrip = { id: 'trip-1', shiftId: 'shift-1', status: 'COMPLETED', revenue: 250, updatedAt: '2026-10-15T10:00:00.000Z' }
+const canonicalCancelledTrip = { id: 'trip-2', shiftId: 'shift-1', status: 'CANCELLED', cancelledRevenue: 25, updatedAt: '2026-10-15T10:00:00.000Z' }
 
-const makeHarness = ({ failFirstMirror = true } = {}) => {
-  let canonicalShifts = [oldRecord]
-  let canonicalTrips = [trip]
-  let localShifts = [newerRecord]
-  let localTrips = [trip]
-  let failNextMirror = failFirstMirror
+const makeHarness = ({ shifts = [canonicalShift], trips = [canonicalCompletedTrip, canonicalCancelledTrip], localShifts, localTrips, mirrorFailure = false, loseAckAfterCommit = false } = {}) => {
+  let canonicalShifts = shifts.map(record => ({ ...record }))
+  let canonicalTrips = trips.map(record => ({ ...record }))
+  let pwaShifts = (localShifts || shifts).map(record => ({ ...record }))
+  let pwaTrips = (localTrips || trips).map(record => ({ ...record }))
+  let failNextMirror = mirrorFailure
+  let loseNextAckAfterCommit = loseAckAfterCommit
+  const seenOperations = new Set()
+  const mirrorOperationIds = []
+  let mirrorCalls = 0
   let syncCalls = 0
   const readCanonical = async () => ({
     shifts: { records: canonicalShifts.map(record => ({ ...record })) },
     trips: { records: canonicalTrips.map(record => ({ ...record })) },
   })
-  const readLocal = async () => ({ shifts: localShifts.map(record => ({ ...record })), trips: localTrips.map(record => ({ ...record })) })
+  const readLocal = async () => ({ shifts: pwaShifts.map(record => ({ ...record })), trips: pwaTrips.map(record => ({ ...record })) })
   const mirrorRecord = async (entityType, record) => {
+    mirrorCalls++
+    const operationId = record?._nativeCanonicalSync?.operationId
+    mirrorOperationIds.push(operationId || null)
+    if (operationId && seenOperations.has(operationId)) return
     if (failNextMirror) {
       failNextMirror = false
       throw new Error('simulated native write/ack interruption')
     }
+    const canonicalRecord = { ...record }
+    delete canonicalRecord._nativeCanonicalSync
     const records = entityType === 'SHIFT' ? canonicalShifts : canonicalTrips
     const index = records.findIndex(item => item.id === record.id)
-    if (index >= 0 && Date.parse(records[index].updatedAt) > Date.parse(record.updatedAt)) {
-      throw new Error('stale canonical write rejected')
+    if (index >= 0) records[index] = canonicalRecord
+    else records.push(canonicalRecord)
+    if (operationId) seenOperations.add(operationId)
+    if (operationId && loseNextAckAfterCommit) {
+      loseNextAckAfterCommit = false
+      throw new Error('simulated lost acknowledgement after native commit')
     }
-    if (index >= 0) records[index] = { ...record }
-    else records.push({ ...record })
   }
-  const syncCanonicalRecords = async ({ shifts, trips }) => {
+  const syncCanonicalRecords = async ({ shifts: freshShifts, trips: freshTrips }) => {
     syncCalls++
-    localShifts = shifts.map(record => ({ ...record }))
-    localTrips = trips.map(record => ({ ...record }))
+    // Model the required Android recovery contract: canonical snapshots replace
+    // PWA cache records even if a stale cache happens to have a later timestamp.
+    pwaShifts = freshShifts.map(record => ({ ...record }))
+    pwaTrips = freshTrips.map(record => ({ ...record }))
   }
-  return { readCanonical, readLocal, mirrorRecord, syncCanonicalRecords, getSyncCalls: () => syncCalls, getCanonicalShifts: () => canonicalShifts }
+  return {
+    readCanonical, readLocal, mirrorRecord, syncCanonicalRecords,
+    getCanonicalShifts: () => canonicalShifts,
+    getPwaShifts: () => pwaShifts,
+    getPwaTrips: () => pwaTrips,
+    getMirrorCalls: () => mirrorCalls,
+    getMirrorOperationIds: () => mirrorOperationIds,
+    getSyncCalls: () => syncCalls,
+  }
 }
 
+// A stale PWA snapshot with a later timestamp must not overwrite native trip
+// completion or reset the native revenue projection to zero.
 {
-  const h = makeHarness()
+  const staleShift = { ...canonicalShift, revenue: 0, updatedAt: '2026-10-15T10:30:00.000Z' }
+  const staleActiveTrip = { ...canonicalCompletedTrip, status: 'ACTIVE', revenue: null, updatedAt: '2026-10-15T10:30:00.000Z' }
+  const h = makeHarness({ localShifts: [staleShift], localTrips: [staleActiveTrip, canonicalCancelledTrip] })
+  const result = await recoverCanonicalWorkSnapshot(h)
+  assert.equal(h.getMirrorCalls(), 0, 'existing local records must never be promoted based on updatedAt')
+  assert.equal(h.getCanonicalShifts()[0].revenue, 275, 'canonical revenue must remain unchanged')
+  assert.equal(result.trips.records.find(record => record.id === 'trip-1').status, 'COMPLETED')
+  assert.equal(h.getPwaShifts()[0].revenue, 275, 'PWA cache must converge to canonical revenue')
+  assert.equal(h.getPwaTrips().find(record => record.id === 'trip-1').status, 'COMPLETED', 'PWA cache must converge to canonical lifecycle state')
+}
+
+// Equal timestamps with conflicting values are still resolved by native authority;
+// timestamps are not an identity/version token across independent writers.
+{
+  const conflict = { ...canonicalCancelledTrip, status: 'ACTIVE', cancelledRevenue: null }
+  const h = makeHarness({ localTrips: [canonicalCompletedTrip, conflict] })
+  await recoverCanonicalWorkSnapshot(h)
+  assert.equal(h.getPwaTrips().find(record => record.id === 'trip-2').status, 'CANCELLED')
+  assert.equal(h.getPwaTrips().find(record => record.id === 'trip-2').cancelledRevenue, 25)
+  assert.equal(h.getMirrorCalls(), 0)
+}
+
+// A local-only record may represent an interrupted first mirror. It is promoted,
+// but recovery must stop if the native write/ack fails and must not sync a snapshot.
+{
+  const localOnly = { id: 'shift-local-only', status: 'ACTIVE', revenue: 0, updatedAt: '2026-10-15T11:00:00.000Z' }
+  const h = makeHarness({ localShifts: [canonicalShift, localOnly], mirrorFailure: true })
   await assert.rejects(recoverCanonicalWorkSnapshot(h), /simulated native write\/ack interruption/)
-  assert.equal(h.getSyncCalls(), 0, 'failed or interrupted mirror must block snapshot sync')
-  assert.equal(h.getCanonicalShifts()[0].status, 'ACTIVE', 'failed mirror must not falsely acknowledge the newer record')
-  const result = await recoverCanonicalWorkSnapshot(h)
-  assert.equal(result.shifts.records[0].status, 'COMPLETED', 'retry must promote the newer local record after native acknowledgement')
-  assert.equal(h.getSyncCalls(), 1, 'successful retry must sync only after canonical re-read')
+  assert.equal(h.getSyncCalls(), 0, 'failed first mirror must block PWA snapshot synchronization')
+  assert.equal(h.getCanonicalShifts().some(record => record.id === localOnly.id), false)
+  await recoverCanonicalWorkSnapshot(h)
+  assert.equal(h.getCanonicalShifts().some(record => record.id === localOnly.id), true, 'retry should promote a local-only record')
+  assert.equal(h.getSyncCalls(), 1)
 }
 
-{
-  const h = makeHarness({ failFirstMirror: false })
-  // Simulate a stale snapshot arriving after a newer local write. The recovery
-  // flow must promote the local record before asking IndexedDB to sync the snapshot.
-  const result = await recoverCanonicalWorkSnapshot(h)
-  assert.equal(result.shifts.records[0].updatedAt, newerRecord.updatedAt)
-  assert.equal(h.getCanonicalShifts()[0].revenue, 400)
-}
 
+// A native write failure after the durable journal is created keeps the
+// legitimate local update pending; retry reuses the same operation ID and commits it.
 {
-  const h = makeHarness()
-  const equalVersionConflict = { ...newerRecord, status: 'ACTIVE' }
-  const originalReadLocal = h.readLocal
-  const originalReadCanonical = h.readCanonical
-  h.readCanonical = async () => {
-    const snapshot = await originalReadCanonical()
-    snapshot.shifts.records = [{ ...newerRecord }]
-    return snapshot
-  }
-  h.readLocal = async () => {
-    const local = await originalReadLocal()
-    local.shifts = [equalVersionConflict]
-    return local
-  }
-  await assert.rejects(recoverCanonicalWorkSnapshot(h), /different records share updatedAt/)
-  assert.equal(h.getSyncCalls(), 0, 'equal-version conflict must not be silently overwritten')
-}
-
-{
-  // Native SQLite commits the write, but the bridge response is lost. The first
-  // reconciliation must not sync a snapshot until the retry/re-read establishes
-  // the durable canonical result.
-  let canonicalShifts = [oldRecord]
-  let canonicalTrips = [trip]
-  let localShifts = [newerRecord]
-  let localTrips = [trip]
-  let loseAcknowledgementAfterCommit = true
-  let syncCalls = 0
-  const harness = {
-    readCanonical: async () => ({
-      shifts: { records: canonicalShifts.map(record => ({ ...record })) },
-      trips: { records: canonicalTrips.map(record => ({ ...record })) },
-    }),
-    readLocal: async () => ({ shifts: localShifts.map(record => ({ ...record })), trips: localTrips.map(record => ({ ...record })) }),
-    mirrorRecord: async (entityType, record) => {
-      const records = entityType === 'SHIFT' ? canonicalShifts : canonicalTrips
-      const index = records.findIndex(item => item.id === record.id)
-      if (index >= 0) records[index] = { ...record }
-      else records.push({ ...record })
-      if (loseAcknowledgementAfterCommit) {
-        loseAcknowledgementAfterCommit = false
-        throw new Error('simulated lost acknowledgement after native commit')
-      }
-    },
-    syncCanonicalRecords: async ({ shifts, trips }) => {
-      syncCalls++
-      localShifts = shifts.map(record => ({ ...record }))
-      localTrips = trips.map(record => ({ ...record }))
+  const pendingPayload = { ...canonicalShift, revenue: 300, updatedAt: '2026-10-15T10:30:00.000Z' }
+  const stablePayload = Object.fromEntries(Object.keys(pendingPayload).sort().map(key => [key, pendingPayload[key]]))
+  const pendingShift = {
+    ...pendingPayload,
+    _nativeCanonicalSync: {
+      operationId: 'op-shift-failed-write',
+      fingerprint: JSON.stringify(stablePayload),
     },
   }
-  await assert.rejects(recoverCanonicalWorkSnapshot(harness), /lost acknowledgement after native commit/)
-  assert.equal(canonicalShifts[0].revenue, 400, 'the native write may have committed despite a lost response')
-  assert.equal(syncCalls, 0, 'no snapshot may be copied back while the write outcome is ambiguous')
-  const recovered = await recoverCanonicalWorkSnapshot(harness)
-  assert.equal(recovered.shifts.records[0].revenue, 400, 'retry must converge to the committed canonical value')
-  assert.equal(syncCalls, 1, 'recovery must sync only after re-reading canonical state')
+  const h = makeHarness({ localShifts: [pendingShift], mirrorFailure: true })
+  await assert.rejects(recoverCanonicalWorkSnapshot(h), /simulated native write.*ack interruption/)
+  assert.equal(h.getCanonicalShifts()[0].revenue, 275, 'failed native write must not partially update canonical state')
+  assert.equal(h.getSyncCalls(), 0, 'do not sync away a journaled pending mutation after write failure')
+  await recoverCanonicalWorkSnapshot(h)
+  assert.equal(h.getCanonicalShifts()[0].revenue, 300, 'retry must commit the legitimate pending update')
+  assert.equal(h.getPwaShifts()[0].revenue, 300)
+  assert.deepEqual(h.getMirrorOperationIds(), ['op-shift-failed-write', 'op-shift-failed-write'], 'retry must reuse the journaled operation ID')
+  assert.equal(h.getSyncCalls(), 1)
 }
 
-
+// An explicit durable pending-operation marker preserves a legitimate local
+// mutation, and a lost post-commit acknowledgement retries with the same ID.
 {
-  // A newer native canonical projection must win when the PWA returns an older
-  // cached snapshot after native fare/cancellation work has already committed.
-  const canonicalShift = { id: 'shift-stale-pwa', status: 'ACTIVE', revenue: 420, updatedAt: '2026-10-15T10:02:00.000Z' }
-  const canonicalTrip = { id: 'trip-stale-pwa', shiftId: 'shift-stale-pwa', status: 'CANCELLED', cancelledRevenue: 20, cancelReason: 'PASSENGER', updatedAt: '2026-10-15T10:02:00.000Z' }
-  let localShifts = [{ id: canonicalShift.id, status: 'ACTIVE', revenue: 250, updatedAt: '2026-10-15T10:00:00.000Z' }]
-  let localTrips = [{ id: canonicalTrip.id, shiftId: canonicalShift.id, status: 'ACTIVE', updatedAt: '2026-10-15T10:00:00.000Z' }]
-  let syncCalls = 0
-  const harness = {
-    readCanonical: async () => ({ shifts: { records: [{ ...canonicalShift }] }, trips: { records: [{ ...canonicalTrip }] } }),
-    readLocal: async () => ({ shifts: localShifts.map(record => ({ ...record })), trips: localTrips.map(record => ({ ...record })) }),
-    mirrorRecord: async (_entityType, record) => {
-      throw new Error(`stale canonical write rejected for ${record.id}`)
-    },
-    syncCanonicalRecords: async ({ shifts, trips }) => {
-      syncCalls++
-      localShifts = shifts.map(record => ({ ...record }))
-      localTrips = trips.map(record => ({ ...record }))
-    },
+  const pendingShift = {
+    ...canonicalShift,
+    revenue: 300,
+    updatedAt: '2026-10-15T10:30:00.000Z',
+    _nativeCanonicalSync: { operationId: 'op-shift-300', fingerprint: 'stable-payload-fingerprint' },
   }
-  const recovered = await recoverCanonicalWorkSnapshot(harness)
-  assert.equal(syncCalls, 1, 'stale PWA data must be replaced only after canonical re-read')
-  assert.equal(recovered.shifts.records[0].revenue, 420, 'newer native shift revenue must remain authoritative')
-  assert.equal(recovered.trips.records[0].status, 'CANCELLED', 'newer native cancellation must remain authoritative')
-  assert.equal(recovered.trips.records[0].cancelledRevenue, 20, 'native cancellation fee must not be lost')
-  assert.equal(localShifts[0].revenue, 420, 'PWA catch-up must converge to native revenue')
-  assert.equal(localTrips[0].status, 'CANCELLED', 'PWA catch-up must converge to native trip status')
+  const h = makeHarness({ localShifts: [pendingShift], loseAckAfterCommit: true })
+  await assert.rejects(recoverCanonicalWorkSnapshot(h), /lost acknowledgement after native commit/)
+  assert.equal(h.getCanonicalShifts()[0].revenue, 300, 'native commit may succeed before the bridge acknowledgement is lost')
+  assert.equal(h.getSyncCalls(), 0, 'do not sync PWA before pending operation acknowledgement is recovered')
+  const recovered = await recoverCanonicalWorkSnapshot(h)
+  assert.equal(recovered.shifts.records[0].revenue, 300)
+  assert.equal(h.getPwaShifts()[0].revenue, 300)
+  assert.equal(h.getMirrorCalls(), 2, 'retry must use the same idempotent operation rather than lose the pending write')
+  assert.deepEqual(h.getMirrorOperationIds(), ['op-shift-300', 'op-shift-300'], 'lost acknowledgement retry must reuse the exact operation ID')
+  assert.equal(h.getSyncCalls(), 1)
 }
 
-console.log('PASS: canonical recovery retries interrupted mirrors, handles lost acknowledgements after commit, and rejects stale/equal-version conflicts')
+// A stale PWA snapshot without a pending marker must never replay an old write
+// after native state has advanced.
+{
+  const nativeShift = { ...canonicalShift, revenue: 275 }
+  const staleLocal = { ...canonicalShift, revenue: 0, updatedAt: '2026-10-15T12:00:00.000Z' }
+  const h = makeHarness({ shifts: [nativeShift], localShifts: [staleLocal] })
+  await recoverCanonicalWorkSnapshot(h)
+  assert.equal(h.getCanonicalShifts()[0].revenue, 275)
+  assert.equal(h.getPwaShifts()[0].revenue, 275)
+  assert.equal(h.getMirrorCalls(), 0)
+}
+
+console.log('PASS: stale PWA snapshots are rejected; journaled pending mirrors survive interrupted writes and lost acknowledgements')

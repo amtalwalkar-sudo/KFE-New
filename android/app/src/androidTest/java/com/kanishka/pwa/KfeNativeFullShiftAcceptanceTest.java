@@ -88,9 +88,12 @@ public class KfeNativeFullShiftAcceptanceTest {
     prepareSnapshot(prefs, shiftId, cancelledTrip);
     setField(service, "pendingTripId", cancelledTrip);
     Thread.sleep(5L);
+    String cancellationPickupEvent =
+        KfeNativeWorkActionsPlugin.recordPendingAction(service, "GO_TO_PICKUP", cancelledTrip, "");
     assertTrue("The cancelled trip pickup state must persist.",
         (Boolean) invoke(service, "persistCanonicalTripStage",
-            new Class<?>[]{String.class, boolean.class}, "GOING_TO_PICKUP", false));
+            new Class<?>[]{String.class, boolean.class, String.class},
+            "GOING_TO_PICKUP", false, cancellationPickupEvent));
     JSONObject cancellation = new JSONObject().put("revenue", "20").put("reason", "PASSENGER");
     setField(service, "formMode", "CANCEL");
     setField(service, "formValue", "20");
@@ -104,11 +107,13 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertPendingEvent(pending, fareTripB, "ENTER_FARE");
     assertPendingEvent(pending, cancelledTrip, "CANCEL_RIDE");
 
-    // Retrying a deterministic native form operation must not duplicate or lose
-    // a fare. The native canonical operation ID is stable per form/trip.
-    Thread.sleep(5L);
+    // Retrying the same durable form event must replay the exact same canonical
+    // operation and payload, even after the acknowledgement boundary.
+    String fareAEventId = pendingEventIdFor(pending, fareTripA, "ENTER_FARE");
+    assertTrue("First fare must retain its durable event ID.", !fareAEventId.isEmpty());
     invoke(service, "persistCanonicalTripForm",
-        new Class<?>[]{String.class, String.class, JSONObject.class}, "FARE", fareTripA, fareA);
+        new Class<?>[]{String.class, String.class, JSONObject.class, String.class},
+        "FARE", fareTripA, fareA, fareAEventId);
 
     // Reopen the SQLite helper to verify committed state survives store/process
     // recreation without running PWA handlers or acknowledging queued events.
@@ -717,18 +722,21 @@ public class KfeNativeFullShiftAcceptanceTest {
       String shiftId, String tripId) throws Exception {
     setField(service, "pendingTripId", tripId);
     Thread.sleep(5L);
+    String pickupEvent = KfeNativeWorkActionsPlugin.recordPendingAction(service, "GO_TO_PICKUP", tripId, "");
     assertTrue("Pickup stage must commit without PWA replay.",
         (Boolean) invoke(service, "persistCanonicalTripStage",
-            new Class<?>[]{String.class, boolean.class}, "GOING_TO_PICKUP", false));
+            new Class<?>[]{String.class, boolean.class, String.class}, "GOING_TO_PICKUP", false, pickupEvent));
     Thread.sleep(5L);
     setField(service, "tripStartAt", System.currentTimeMillis());
+    String rideStartEvent = KfeNativeWorkActionsPlugin.recordPendingAction(service, "START_RIDE", tripId, "");
     assertTrue("Passenger ride start must commit without PWA replay.",
         (Boolean) invoke(service, "persistCanonicalTripStage",
-            new Class<?>[]{String.class, boolean.class}, "RIDE_STARTED", true));
+            new Class<?>[]{String.class, boolean.class, String.class}, "RIDE_STARTED", true, rideStartEvent));
     Thread.sleep(5L);
+    String endRideEvent = KfeNativeWorkActionsPlugin.recordPendingAction(service, "END_RIDE", tripId, "");
     assertTrue("Trip completion must commit without PWA replay.",
         (Boolean) invoke(service, "persistCanonicalTripStage",
-            new Class<?>[]{String.class, boolean.class}, "COMPLETED", false));
+            new Class<?>[]{String.class, boolean.class, String.class}, "COMPLETED", false, endRideEvent));
   }
 
   private static void prepareSnapshot(SharedPreferences prefs, String shiftId, String tripId) throws Exception {

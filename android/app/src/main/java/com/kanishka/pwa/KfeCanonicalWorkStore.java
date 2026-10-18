@@ -84,6 +84,10 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
             throw new IllegalArgumentException("operationId was already used for a different command.");
           }
           JSONObject prior = new JSONObject(cursor.getString(4));
+          JSONObject priorRecord = prior.optJSONObject("record");
+          if (priorRecord == null || !jsonEquivalent(priorRecord, record)) {
+            throw new IllegalArgumentException("operationId was already used with a different payload.");
+          }
           db.setTransactionSuccessful();
           return new Outcome("ACCEPTED".equals(cursor.getString(3)), true, prior);
         }
