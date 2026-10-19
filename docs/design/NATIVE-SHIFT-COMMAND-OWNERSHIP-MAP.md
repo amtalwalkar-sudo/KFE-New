@@ -74,8 +74,8 @@ Do not quietly copy formulas into a second surface. If a native implementation i
 
 ## 4. Required pre-implementation checks
 
-- [ ] Trace every call site of `WorkService.startShift` and the odometer/gap validators; identify which code currently collects and persists allocation evidence.
-- [ ] Confirm whether validation is enforced again inside any authoritative persistence/native path; if not, design that enforcement before adding native start.
+- [x] Trace the Work view → Pinia `useShiftTripStore.startShift` → `WorkService.startShift` call chain. The store performs odometer and gap-allocation validation before invoking the service.
+- [ ] Confirm whether validation is enforced again inside any authoritative persistence/native path; the inspected typed native shift-command path does not exist yet, so the new native command must enforce it before commit.
 - [ ] Trace end-shift form inputs, high-distance confirmation and movement reconciliation failure behavior.
 - [ ] Verify canonical field mapping for Shift start/end, opening Personal KM/Dead KM, historical gap, reconciliation, duration, status and revenue.
 - [ ] Specify command ID persistence for start before a Shift exists and for end against an existing Shift; same-ID/same-payload retry must return the same outcome.
