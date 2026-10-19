@@ -167,7 +167,7 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertEquals("CANCELLED", savedBlankCancelled.getJSONObject("record").getString("status"));
     assertEquals("Blank cancellation fee must persist as numeric zero.", 0d,
         savedBlankCancelled.getJSONObject("record").getDouble("cancelledRevenue"), 0.001d);
-    assertEquals("Blank cancellation fee must not change derived revenue.",
+    assertEquals("Revenue must include both fares and the recorded cancellation fee; blank fee adds zero.",
         420d, savedShift.getJSONObject("record").getDouble("revenue"), 0.001d);
 
     JSONArray allTrips = store.listRecords("TRIP", 1000).getJSONArray("records");
