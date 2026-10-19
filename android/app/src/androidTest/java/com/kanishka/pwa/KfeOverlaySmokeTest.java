@@ -236,6 +236,10 @@ public class KfeOverlaySmokeTest {
         .put("overlayTripId", tripId);
       KfeOverlayService.update(context, state.toString());
       waitForOverlay();
+      // The service update is delivered through startForegroundService; make the
+      // exact shift/trip snapshot deterministic before fault injection starts.
+      context.getSharedPreferences("kfe_overlay", 0).edit()
+        .putString("lastOverlayState", state.toString()).commit();
       KfeOverlayService service = waitForService();
       setField(service, "actionStage", "GO_TO_PICKUP");
       setField(service, "pendingTripId", tripId);
