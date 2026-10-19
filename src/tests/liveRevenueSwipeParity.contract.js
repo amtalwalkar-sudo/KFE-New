@@ -5,6 +5,8 @@ import { SWIPE_CONFIG } from '../domain/work/swipeConfig.js'
 assert.equal(deriveLiveRevenue([{status:'COMPLETED',revenue:250},{status:'COMPLETED',revenue:150}]),400)
 assert.equal(deriveLiveRevenue([{status:'COMPLETED',revenue:250},{status:'CANCELLED',revenue:40,cancelledRevenue:40},{status:'ACTIVE',revenue:900},{status:'COMPLETED',revenue:null,fareDetailsSkipped:true}]),290)
 assert.equal(deriveLiveRevenue([{status:'COMPLETED',revenue:-1},{status:'COMPLETED',revenue:'invalid'}]),0)
+assert.equal(deriveLiveRevenue([{status:'COMPLETED',revenue:250},{status:'CANCELLED',cancelledRevenue:25},{status:'CANCELLED',cancelledRevenue:''},{status:'COMPLETED',revenue:900,deleted:true},{status:'CANCELLED',cancelledRevenue:700,deletedAt:'2026-01-01T00:00:00Z'}]),275, 'Revenue includes eligible completed fares and cancellation fees exactly once; blank fees and deleted trips contribute zero')
+assert.equal(deriveLiveRevenue([{status:'COMPLETED',revenue:500,fareDetailsSkipped:true},{status:'ACTIVE',revenue:900}]),0, 'Skipped fares and active trips do not contribute to shift revenue')
 assert.equal(SWIPE_CONFIG.commitThresholdPercent,70)
 assert.equal(SWIPE_CONFIG.returnDurationMs,220)
 assert.equal(SWIPE_CONFIG.pickupColor,'#78A2FF')
