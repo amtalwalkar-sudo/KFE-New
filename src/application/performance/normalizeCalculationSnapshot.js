@@ -105,7 +105,7 @@ export const normalizeCalculationSnapshot = snapshot => {
     if (shift.revenueSource === 'TRIP_FARES') return shift
     const previousRevenue = Number(shift.revenue)
     const hasLegacyRevenue = Number.isFinite(previousRevenue) && previousRevenue > 0
-    const shiftTrips = trips.filter(trip => trip.shiftId === shift.id)
+    const shiftTrips = shift.id == null ? [] : trips.filter(trip => trip.shiftId === shift.id)
     const revenue = deriveLiveRevenue(shiftTrips)
     return {
       ...shift,
