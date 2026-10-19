@@ -81,7 +81,7 @@ The scenario additionally verifies:
 - terminal replay is idempotent;
 - pending native actions are replayable and acknowledged only after canonical persistence;
 - native GPS is enrichment and cannot block authoritative lifecycle commits;
-- authoritative shift revenue remains the ERP revenue source;
+- persisted `Shift.revenue` remains the ERP reporting input, derived from eligible completed-trip fares plus cancellation fees;
 - a reload/restart reconstructs state from canonical persistence rather than the last rendered surface.
 
 ## Proof levels
