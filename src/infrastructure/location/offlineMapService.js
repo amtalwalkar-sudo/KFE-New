@@ -35,9 +35,14 @@ export const OfflineMapService = {
   async traceRoute(points) {
     const native = await plugin()
     if (!native) return null
-    const status = await native.getStatus()
-    if (!status.installed) return null
-    const result = await native.traceRoute({ points })
+    let result
+    try { result = await native.traceRoute({ points }) }
+    catch (error) {
+      // No matching downloaded region is a normal offline-routing miss; callers
+      // retain GPS evidence and may use the configured online/queued matcher.
+      if (/not installed|no downloaded offline map covers|outside the installed offline map coverage/i.test(String(error?.message || error))) return null
+      throw error
+    }
     const raw = typeof result?.raw === 'string' ? JSON.parse(result.raw) : result?.raw
     if (!raw) return null
     return { raw, provider: 'valhalla-mobile', regionId: result.regionId || REGION_ID }
