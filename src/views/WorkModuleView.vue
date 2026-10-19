@@ -14,6 +14,7 @@ import { deriveLiveRevenue } from '../application/work/liveRevenueReadModel.js'
 import { SWIPE_CONFIG } from '../application/work/swipeConfiguration.js'
 import { deriveWorkCockpitState, WORK_COCKPIT_STATES } from '../application/work/workCockpit.js'
 import WorkContextForm from '../components/work/WorkContextForm.vue'
+import WorkLiveMetrics from '../components/work/WorkLiveMetrics.vue'
 
 const store = useShiftTripStore()
 const fuel = useFuelStore()
@@ -1321,13 +1322,15 @@ onBeforeUnmount(() => {
       <span>Set Location permission to “Allow all the time” in Android app settings to resume GPS after a phone restart.</span>
       <button type="button" @click="openGpsPermissionSettings">Open settings</button>
     </div>
-    <section v-if="!fuelOpen && !pendingFare && (store.isOnline || cancelOpen || endOpen)" class="operational-state state-tone-info work-persistent-metrics" aria-label="Live distance and workflow timer">
-      <div class="work-live-metrics">
-        <div class="live-km-readout" aria-live="polite"><span>{{ liveMovementLabel || 'LIVE KM' }}</span><strong>{{ liveMovementKm.toFixed(1) }} km</strong><small>{{ liveMovementStatus }}</small></div>
-        <div class="trip-timer-block"><span class="timer-label">{{ stateTimerLabel }}</span><strong class="trip-timer" aria-live="polite">{{ active ? tripTimer : stateTimer }}</strong></div>
-        <div class="live-revenue-readout" aria-live="polite"><span>REVENUE</span><strong>{{ money(liveRevenue) }}</strong><small>Saved fares</small></div>
-      </div>
-    </section>
+    <WorkLiveMetrics
+      v-if="!fuelOpen && !pendingFare && (store.isOnline || cancelOpen || endOpen)"
+      :movement-label="liveMovementLabel || 'LIVE KM'"
+      :movement-km="liveMovementKm"
+      :movement-status="liveMovementStatus"
+      :timer-label="stateTimerLabel"
+      :timer-value="active ? tripTimer : stateTimer"
+      :revenue-value="money(liveRevenue)"
+    />
     <WorkContextForm
       v-show="!store.isOnline && startOpen"
       type="start"
