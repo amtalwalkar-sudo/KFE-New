@@ -53,5 +53,5 @@ export const deriveDailyTargetAchievement = ({
     }, 0)
 
   const finalizedShiftRevenue = amount(completedShiftRevenue)
-  return Math.max(0, (finalizedShiftRevenue ?? 0) + liveEnteredTripRevenue)
+  return Math.max(0, (finalizedShiftRevenue ?? 0) + liveTripRevenue)
 }
