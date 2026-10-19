@@ -186,7 +186,7 @@ Users enter source facts and contractual/source inputs. KFE derives values that 
 
 Manual input must not be provided for derived values such as ride duration, total vehicle KM, dead KM, fuel quantity when calculated from amount/price, EMI, interest/principal allocation, outstanding balance, financing outflow, renewal provision, maintenance provision, break-even revenue, or target calculations.
 
-Shift-end revenue is the explicit exception to any ride-level revenue detail: it is a user-entered source fact and is the ERP revenue authority.
+Trip fare and cancellation-fee entries are source facts; `Shift.revenue` is not a user-entered exception but the persisted projection of eligible completed-trip fares plus cancellation fees, derived by the canonical work revenue rule.
 
 ## 10. Ledger and location evidence boundary
 
