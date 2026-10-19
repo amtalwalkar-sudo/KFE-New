@@ -26,6 +26,8 @@ for (const field of ['shift', 'trips', 'completedTrips', 'revenue', 'businessKm'
 assert(service.includes("trip.status === 'COMPLETED'"), 'Business-KM reconstruction must use completed Trips')
 assert(service.includes('trip.tripKm'), 'Business KM must be reconstructed from Trip KM')
 assert(service.includes('shift.revenue'), 'ERP revenue must be reconstructed from authoritative Shift revenue')
+assert(service.includes('deriveLiveRevenue(trips)'), 'Legacy/unprojected Timeline records must use the shared trip-derived revenue rule')
+assert(service.includes('legacyRevenueMigrationStatus'), 'Timeline reconstruction must preserve legacy Shift values for migration review')
 assert(!service.includes('completedTrips.reduce((sum, trip) => sum + Number(trip.revenue || 0), 0)'), 'Operational reconstruction must not sum Trip revenue as ERP revenue authority')
 assert(service.includes('shift.endOdometer') && service.includes('shift.startOdometer'), 'Vehicle KM must use Shift odometer boundaries')
 assert(service.includes('vehicleKm - businessKm'), 'Dead KM must derive from vehicle KM minus business KM')
