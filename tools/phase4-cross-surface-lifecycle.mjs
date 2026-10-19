@@ -138,6 +138,9 @@ try {
       request.onsuccess = () => {
         const record = request.result
         record.revenue = 800
+        delete record.revenueSource
+        delete record.legacyRevenueSnapshot
+        delete record.legacyRevenueMigrationStatus
         record.toll = 50
         record.parking = 20
         record.tollParkingRevenueTreatment = 'EXCLUDED'
