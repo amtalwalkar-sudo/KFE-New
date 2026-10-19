@@ -47,6 +47,9 @@ assert(!canTransitionTrip(TRIP_STATES.CANCELLED, TRIP_STATES.COMPLETED), 'A canc
 
 assert(repository.includes("import { transitionTrip, transitionTripStage, TRIP_STATES } from '../domain/work/tripLifecycle.js'"), 'Canonical repository must use the shared Trip lifecycle')
 assert(repository.includes('transitionTrip(record, status, data)'), 'Trip completion/cancellation must use the shared transition function')
+assert(repository.includes("shift.revenue = deriveLiveRevenue(shiftTrips)"), 'Canonical Shift.revenue must be projected from eligible completed-trip fares and cancellation fees.')
+assert(repository.includes("db.transaction(['shifts', 'trips', 'pending_mutations', 'audit_history'], 'readwrite')"), 'Shift completion must project revenue from trips atomically with the canonical shift close.')
+assert(!repository.includes('if (hasSavedFare)'), 'A missing optional fare must not leave stale or manually entered Shift.revenue as authority.')
 assert(workService.includes('ShiftTripRepository.completeTrip'), 'Main app completion must use canonical Trip repository')
 assert(workService.includes('ShiftTripRepository.cancelTrip'), 'Main app cancellation must use canonical Trip repository')
 assert(repository.includes('async setTripStage'), 'Canonical repository must persist pickup/ride stage')
