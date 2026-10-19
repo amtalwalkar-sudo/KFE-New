@@ -28,7 +28,7 @@ function evaluateNode(node, input) {
   }
   if (Object.hasOwn(node, 'op')) {
     const { op } = node
-    if (op === 'notFinite') return !Number.isFinite(evaluateNode(node.value, input))
+    if (op === 'notFinite') {\n      const value = evaluateNode(node.value, input)\n      return value == null || value === '' || !Number.isFinite(Number(value))\n    }
     if (op === 'finiteAndPresent') {
       const value = evaluateNode(node.value, input)
       return value != null && value !== '' && Number.isFinite(Number(value))
