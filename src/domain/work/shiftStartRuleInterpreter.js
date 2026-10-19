@@ -1,7 +1,4 @@
-import fs from 'node:fs'
-
-const rulesPath = new URL('../../spec/work-domain/shift-start-rules.json', import.meta.url)
-const rules = JSON.parse(fs.readFileSync(rulesPath, 'utf8'))
+import rules from '../../../spec/work-domain/shift-start-rules.json' with { type: 'json' }
 
 function inputValue(name, input) {
   return Object.hasOwn(input, name) ? input[name] : undefined
@@ -28,7 +25,10 @@ function evaluateNode(node, input) {
   }
   if (Object.hasOwn(node, 'op')) {
     const { op } = node
-    if (op === 'notFinite') {\n      const value = evaluateNode(node.value, input)\n      return value == null || value === '' || !Number.isFinite(Number(value))\n    }
+    if (op === 'notFinite') {
+      const value = evaluateNode(node.value, input)
+      return value == null || value === '' || !Number.isFinite(Number(value))
+    }
     if (op === 'finiteAndPresent') {
       const value = evaluateNode(node.value, input)
       return value != null && value !== '' && Number.isFinite(Number(value))
