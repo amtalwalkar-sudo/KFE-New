@@ -5,13 +5,13 @@ const dateOf = value => { const date = value ? new Date(value) : null; return da
 const inRange = (value, range) => { const date = dateOf(value); return !!date && date >= range.from && date <= range.to }
 const amount = value => Number.isFinite(Number(value)) ? Number(value) : 0
 
-/** Shift-end revenue is the authoritative operational revenue record. Trip revenue is optional detail only. */
+/** Reporting reads Shift.revenue as the persisted projection of eligible completed-trip fares plus cancellation fees, derived by the canonical work revenue rule. */
 export const authoritativeShiftRevenue = (shifts, range) => live(shifts)
   .filter(shift => !!dateOf(shift.shiftEndAt) && inRange(shift.shiftEndAt, range))
   .reduce((total, shift) => total + amount(shift.revenue), 0)
 
 /**
- * Returns authoritative shift-end revenue by IST month.
+ * Returns the persisted trip-derived Shift revenue by IST month.
  * When asOf is supplied, the current/historical view is bounded by that
  * timestamp so future shifts cannot change a reconstructed target or report.
  */
