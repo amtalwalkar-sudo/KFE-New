@@ -1,6 +1,6 @@
 import { registerPlugin, Capacitor } from '@capacitor/core'
 
-const REGION_ID = 'mumbai-pune-nashik-alibag-v1'
+const REGION_ID = 'mumbai-metro'
 const isAndroidNative = () => Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android'
 let pluginPromise
 
@@ -27,12 +27,22 @@ export const OfflineMapService = {
     if (!native) return { remove: async () => {} }
     return native.addListener(eventName, listener)
   },
+  async remove(regionId) {
+    const native = await plugin()
+    if (!native) throw new Error('Offline Valhalla package management requires the KFE Android app.')
+    return native.removeRegion({ regionId })
+  },
   async traceRoute(points) {
     const native = await plugin()
     if (!native) return null
-    const status = await native.getStatus()
-    if (!status.installed) return null
-    const result = await native.traceRoute({ points })
+    let result
+    try { result = await native.traceRoute({ points }) }
+    catch (error) {
+      // No matching downloaded region is a normal offline-routing miss; callers
+      // retain GPS evidence and may use the configured online/queued matcher.
+      if (/not installed|no downloaded offline map covers|outside the installed offline map coverage/i.test(String(error?.message || error))) return null
+      throw error
+    }
     const raw = typeof result?.raw === 'string' ? JSON.parse(result.raw) : result?.raw
     if (!raw) return null
     return { raw, provider: 'valhalla-mobile', regionId: result.regionId || REGION_ID }

@@ -34,7 +34,7 @@ import java.util.TimeZone;
 
 @CapacitorPlugin(name = "KfeOfflineMaps")
 public class KfeOfflineMapsPlugin extends Plugin {
-    private static final String DEFAULT_REGION_ID = "mumbai-pune-nashik-alibag-v1";
+    private static final String DEFAULT_REGION_ID = "mumbai-metro";
     private static final String MANIFEST_URL = "https://github.com/amtalwalkar-sudo/KFE-New/releases/download/offline-maps/offline-maps-manifest.json";
     private static final ExecutorService DOWNLOAD_IO = Executors.newSingleThreadExecutor();
     private static final ExecutorService MATCH_IO = Executors.newSingleThreadExecutor();
@@ -42,18 +42,25 @@ public class KfeOfflineMapsPlugin extends Plugin {
     private final Object mapStateLock = new Object();
     private boolean mapUpdateInProgress = false;
     private File mapDir() { File f = new File(getContext().getFilesDir(), "offline-maps"); if (!f.exists()) f.mkdirs(); return f; }
-    private File tilesFile() { return new File(mapDir(), "valhalla-tiles.tar"); }
-    private File metadataFile() { return new File(mapDir(), "map-metadata.json"); }
+    private File regionDir(String regionId) {
+        String safeId = regionId == null ? "" : regionId.replaceAll("[^A-Za-z0-9._-]", "");
+        if (safeId.isEmpty()) throw new IllegalArgumentException("A valid offline region is required.");
+        File f = new File(new File(mapDir(), "regions"), safeId);
+        if (!f.exists()) f.mkdirs();
+        return f;
+    }
+    private File tilesFile(String regionId) { return new File(regionDir(regionId), "valhalla-tiles.tar"); }
+    private File metadataFile(String regionId) { return new File(regionDir(regionId), "map-metadata.json"); }
 
     @PluginMethod public void getStatus(PluginCall call) {
         STATUS_IO.execute(() -> {
             File statusManifest = new File(mapDir(), "status-manifest.json");
             try {
-                synchronized (mapStateLock) { if (!mapUpdateInProgress) recoverStagedMap(); }
-                File tiles = tilesFile(); File meta = metadataFile();
+                String requestedRegionId = call.getString("regionId", DEFAULT_REGION_ID);
+                synchronized (mapStateLock) { if (!mapUpdateInProgress) recoverStagedMap(requestedRegionId); }
+                File tiles = tilesFile(requestedRegionId); File meta = metadataFile(requestedRegionId);
                 JSONObject installedMetadata = meta.isFile() ? new JSONObject(readText(meta)) : new JSONObject();
                 String installedRegionId = installedMetadata.optString("regionId", "");
-                String requestedRegionId = call.getString("regionId", installedRegionId.isEmpty() ? DEFAULT_REGION_ID : installedRegionId);
                 JSObject out = new JSObject();
                 out.put("supported", true); out.put("regionId", requestedRegionId);
                 synchronized (mapStateLock) { out.put("updateInProgress", mapUpdateInProgress); }
@@ -89,7 +96,7 @@ public class KfeOfflineMapsPlugin extends Plugin {
                     out.put("manifestError", manifestError.getMessage() == null ? "Latest map version could not be checked. Connect to the internet and refresh." : manifestError.getMessage());
                     if (!out.has("availableRegions")) {
                         JSONArray knownRegions = new JSONArray();
-                        knownRegions.put(new JSONObject().put("regionId", DEFAULT_REGION_ID).put("region", "Mumbai · Pune · Nashik · Alibag"));
+                        knownRegions.put(new JSONObject().put("regionId", "mumbai-metro").put("region", "Mumbai metro").put("sizeBytes", 0).put("version", ""));
                         out.put("availableRegions", knownRegions);
                     }
                 } finally { statusManifest.delete(); }
@@ -106,11 +113,11 @@ public class KfeOfflineMapsPlugin extends Plugin {
             mapUpdateInProgress = true;
         }
         DOWNLOAD_IO.execute(() -> {
-            File stage = new File(mapDir(), "staging"); if (!stage.exists()) stage.mkdirs();
+            File stage = new File(regionDir(requestedRegionId), "staging"); if (!stage.exists()) stage.mkdirs();
             File part = new File(stage, "valhalla-tiles.tar.part");
             File manifestTemp = new File(stage, "manifest.json");
             try {
-                recoverStagedMap();
+                recoverStagedMap(requestedRegionId);
                 JSONObject catalog = fetchJson(MANIFEST_URL, manifestTemp);
                 JSONObject manifest = findRegionManifest(catalog, requestedRegionId);
                 if (manifest == null) throw new IllegalStateException("No published offline map package exists for the selected area.");
@@ -120,18 +127,18 @@ public class KfeOfflineMapsPlugin extends Plugin {
                 long expectedBytes = manifest.getLong("sizeBytes");
                 if (!packageUrl.startsWith("https://") || expectedBytes <= 0 || expectedHash.length() != 64) throw new IllegalStateException("The map manifest is incomplete or unsafe.");
                 long available = new StatFs(getContext().getFilesDir().getAbsolutePath()).getAvailableBytes();
-                long existingBytes = tilesFile().isFile() ? tilesFile().length() : 0;
+                long existingBytes = tilesFile(requestedRegionId).isFile() ? tilesFile(requestedRegionId).length() : 0;
                 long requiredBytes = expectedBytes + existingBytes + Math.max(64L * 1024 * 1024, expectedBytes / 10);
                 if (available < requiredBytes) throw new IllegalStateException("Not enough free storage for a safe map update. Required free space: " + requiredBytes + " bytes.");
-                downloadFile(packageUrl, part, expectedBytes, expectedHash);
+                downloadFile(packageUrl, part, expectedBytes, expectedHash, requestedRegionId);
                 JSONObject metadata = new JSONObject();
                 metadata.put("regionId", requestedRegionId); metadata.put("region", manifest.optString("region", requestedRegionId));
                 if (manifest.has("coverageBounds") && !manifest.isNull("coverageBounds")) metadata.put("coverageBounds", manifest.getJSONObject("coverageBounds"));
                 metadata.put("version", version); metadata.put("sha256", expectedHash); metadata.put("sizeBytes", expectedBytes);
                 SimpleDateFormat installedAtFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.ROOT); installedAtFormat.setTimeZone(TimeZone.getTimeZone("UTC")); metadata.put("installedAt", installedAtFormat.format(new Date())); metadata.put("engineVersion", manifest.optString("engineVersion", "0.6.4"));
                 File nextMeta = new File(stage, "map-metadata.json"); writeText(nextMeta, metadata.toString());
-                File active = tilesFile(); File old = new File(stage, "previous-tiles.tar");
-                File activeMeta = metadataFile(); File oldMeta = new File(stage, "previous-map-metadata.json");
+                File active = tilesFile(requestedRegionId); File old = new File(stage, "previous-tiles.tar");
+                File activeMeta = metadataFile(requestedRegionId); File oldMeta = new File(stage, "previous-map-metadata.json");
                 if (old.exists()) old.delete(); if (oldMeta.exists()) oldMeta.delete();
                 if (active.exists() && !active.renameTo(old)) throw new IllegalStateException("Unable to stage existing map safely.");
                 if (activeMeta.exists() && !activeMeta.renameTo(oldMeta)) { if (old.exists()) old.renameTo(active); throw new IllegalStateException("Unable to stage existing map metadata safely."); }
@@ -149,12 +156,38 @@ public class KfeOfflineMapsPlugin extends Plugin {
         JSObject response = new JSObject(); response.put("started", true); call.resolve(response);
     }
 
+    @PluginMethod public void removeRegion(PluginCall call) {
+        String regionId = call.getString("regionId", "");
+        if (regionId.trim().isEmpty()) { call.reject("Choose a downloaded region to remove."); return; }
+        synchronized (mapStateLock) {
+            if (mapUpdateInProgress) { call.reject("Wait for the map download/update to finish before removing a package."); return; }
+            File directory;
+            try { directory = regionDir(regionId); } catch (Exception e) { call.reject("Invalid region ID."); return; }
+            File root = new File(mapDir(), "regions").getAbsoluteFile();
+            if (!directory.getAbsolutePath().startsWith(root.getAbsolutePath() + File.separator)) { call.reject("Invalid region storage path."); return; }
+            File metadata = new File(directory, "map-metadata.json");
+            if (!metadata.isFile()) { call.reject("That offline region is not installed."); return; }
+            if (!deleteTree(directory)) { call.reject("Unable to remove the offline map package."); return; }
+        }
+        JSObject result = new JSObject(); result.put("removed", true); result.put("regionId", regionId); call.resolve(result);
+    }
+
+    private boolean deleteTree(File file) {
+        if (file.isDirectory()) {
+            File[] children = file.listFiles();
+            if (children != null) for (File child : children) if (!deleteTree(child)) return false;
+        }
+        return !file.exists() || file.delete();
+    }
+
     @PluginMethod public void traceRoute(PluginCall call) {
         JSArray points = call.getArray("points");
         if (points == null || points.length() < 2) { call.reject("At least two GPS points are required."); return; }
         MATCH_IO.execute(() -> {
             try {
-                File tiles = tilesFile(); File meta = metadataFile();
+                String regionId = findInstalledRegion(points);
+                if (regionId == null) throw new IllegalStateException("No downloaded offline map covers this GPS trace.");
+                File tiles = tilesFile(regionId); File meta = metadataFile(regionId);
                 if (!tiles.isFile() || tiles.length() == 0 || !meta.isFile()) throw new IllegalStateException("Offline Valhalla maps are not installed.");
                 JSONObject installed = new JSONObject(readText(meta));
                 JSONObject bounds = installed.optJSONObject("coverageBounds");
@@ -181,14 +214,39 @@ public class KfeOfflineMapsPlugin extends Plugin {
                 }
                 if (shape.length() < 2) throw new IllegalArgumentException("GPS trace has fewer than two valid points.");
                 JSONObject request = new JSONObject(); request.put("shape", shape); request.put("shape_match", "map_snap"); request.put("costing", "auto"); request.put("units", "kilometers"); request.put("shape_format", "geojson");
-                ValhallaConfigManager manager = new ValhallaConfigManager(getContext(), new ValhallaFile(getContext(), "valhalla-offline.json", mapDir()), new Moshi.Builder().add(new KotlinJsonAdapterFactory()).build());
+                ValhallaConfigManager manager = new ValhallaConfigManager(getContext(), new ValhallaFile(getContext(), "valhalla-offline.json", regionDir(regionId)), new Moshi.Builder().add(new KotlinJsonAdapterFactory()).build());
                 try (Valhalla engine = new Valhalla(getContext(), ValhallaConfigFactory.INSTANCE.usingTileExtract(tiles.getAbsolutePath(), null), manager)) {
                     String raw = engine.traceRouteRaw(request.toString());
-                    JSObject result = new JSObject(); result.put("raw", raw); result.put("provider", "valhalla-mobile"); result.put("regionId", installed.optString("regionId", DEFAULT_REGION_ID));
+                    JSObject result = new JSObject(); result.put("raw", raw); result.put("provider", "valhalla-mobile"); result.put("regionId", installed.optString("regionId", regionId));
                     call.resolve(result);
                 }
             } catch (Exception e) { call.reject("Offline Valhalla map matching failed; raw GPS evidence must be retained.", e); }
         });
+    }
+
+    private String findInstalledRegion(JSArray points) throws Exception {
+        File root = new File(mapDir(), "regions");
+        File[] regions = root.listFiles();
+        if (regions == null) return null;
+        for (File directory : regions) {
+            if (!directory.isDirectory()) continue;
+            File tiles = new File(directory, "valhalla-tiles.tar");
+            File meta = new File(directory, "map-metadata.json");
+            if (!tiles.isFile() || tiles.length() <= 0 || !meta.isFile()) continue;
+            JSONObject metadata = new JSONObject(readText(meta));
+            JSONObject bounds = metadata.optJSONObject("coverageBounds");
+            if (bounds == null) continue;
+            boolean covered = true;
+            for (int i = 0; i < points.length(); i++) {
+                JSONObject point = points.getJSONObject(i);
+                double lat = point.optDouble("latitude", Double.NaN), lon = point.optDouble("longitude", Double.NaN);
+                if (!Double.isFinite(lat) || !Double.isFinite(lon)) continue;
+                if (lat < bounds.optDouble("south", -90) || lat > bounds.optDouble("north", 90)
+                    || lon < bounds.optDouble("west", -180) || lon > bounds.optDouble("east", 180)) { covered = false; break; }
+            }
+            if (covered) return metadata.optString("regionId", directory.getName());
+        }
+        return null;
     }
 
     private JSONObject findRegionManifest(JSONObject catalog, String regionId) throws Exception {
@@ -217,9 +275,9 @@ public class KfeOfflineMapsPlugin extends Plugin {
         return result;
     }
 
-    private void recoverStagedMap() throws Exception {
-        File active = tilesFile(); File activeMeta = metadataFile();
-        File stage = new File(mapDir(), "staging");
+    private void recoverStagedMap(String regionId) throws Exception {
+        File active = tilesFile(regionId); File activeMeta = metadataFile(regionId);
+        File stage = new File(regionDir(regionId), "staging");
         File old = new File(stage, "previous-tiles.tar");
         File oldMeta = new File(stage, "previous-map-metadata.json");
         boolean activePairValid = active.isFile() && active.length() > 0 && activeMeta.isFile();
@@ -243,16 +301,26 @@ public class KfeOfflineMapsPlugin extends Plugin {
         HttpURLConnection c = (HttpURLConnection) new URL(address).openConnection(); c.setConnectTimeout(connectTimeout); c.setReadTimeout(readTimeout); c.setInstanceFollowRedirects(true); c.setRequestProperty("Accept", "application/json");
         try { if (c.getResponseCode() < 200 || c.getResponseCode() >= 300) throw new IllegalStateException("Map manifest unavailable (HTTP " + c.getResponseCode() + ")."); if (!"https".equalsIgnoreCase(c.getURL().getProtocol())) throw new IllegalStateException("Map manifest redirected to an insecure URL."); try (InputStream in = c.getInputStream(); OutputStream out = new FileOutputStream(temp)) { byte[] b = new byte[8192]; int n; while ((n=in.read(b))!=-1) out.write(b,0,n); } return new JSONObject(readText(temp)); } finally { c.disconnect(); }
     }
-    private void downloadFile(String address, File destination, long expectedBytes, String expectedHash) throws Exception {
+    private void downloadFile(String address, File destination, long expectedBytes, String expectedHash, String regionId) throws Exception {
         HttpURLConnection c = (HttpURLConnection) new URL(address).openConnection(); c.setConnectTimeout(20000); c.setReadTimeout(60000); c.setInstanceFollowRedirects(true);
         try {
             if (c.getResponseCode() < 200 || c.getResponseCode() >= 300) throw new IllegalStateException("Map package unavailable (HTTP " + c.getResponseCode() + ").");
             if (!"https".equalsIgnoreCase(c.getURL().getProtocol())) throw new IllegalStateException("Map package redirected to an insecure URL.");
             long contentLength = c.getContentLengthLong(); if (contentLength > 0 && contentLength != expectedBytes) throw new IllegalStateException("Map package size does not match its manifest.");
             MessageDigest digest = MessageDigest.getInstance("SHA-256"); long count = 0;
-            try (InputStream in = new BufferedInputStream(c.getInputStream()); OutputStream out = new FileOutputStream(destination)) {
-                byte[] b = new byte[64 * 1024]; int n;
-                while ((n=in.read(b))!=-1) { out.write(b,0,n); digest.update(b,0,n); count += n; JSObject progress = new JSObject(); progress.put("bytesDownloaded", count); progress.put("bytesTotal", expectedBytes); progress.put("percent", Math.min(99, (int)(count * 100 / expectedBytes))); notifyListeners("downloadProgress", progress); }
+            try (InputStream in = new BufferedInputStream(c.getInputStream()); FileOutputStream out = new FileOutputStream(destination)) {
+                byte[] b = new byte[64 * 1024]; int n; int lastPercent = -1;
+                while ((n=in.read(b))!=-1) {
+                    out.write(b,0,n); digest.update(b,0,n); count += n;
+                    int percent = Math.min(99, (int)(count * 100 / expectedBytes));
+                    if (percent != lastPercent) {
+                        JSObject progress = new JSObject(); progress.put("bytesDownloaded", count);
+                        progress.put("bytesTotal", expectedBytes); progress.put("percent", percent);
+                        progress.put("regionId", regionId); notifyListeners("downloadProgress", progress);
+                        lastPercent = percent;
+                    }
+                }
+                out.getFD().sync();
             }
             StringBuilder hash = new StringBuilder(); for (byte v : digest.digest()) hash.append(String.format(Locale.ROOT, "%02x", v));
             if (count != expectedBytes || !hash.toString().equals(expectedHash)) throw new IllegalStateException("Map package failed size or SHA-256 verification.");

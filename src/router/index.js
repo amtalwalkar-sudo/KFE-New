@@ -6,6 +6,7 @@ import AdminView from '../views/AdminView.vue'
 import TimelineView from '../views/TimelineView.vue'
 import BlankWorkspaceView from '../views/BlankWorkspaceView.vue'
 import AdminSettingsOnlyView from '../views/AdminSettingsOnlyView.vue'
+import OfflineMapsView from '../views/OfflineMapsView.vue'
 
 const routes = [
   { path: '/', name: 'Work', component: WorkModuleView },
@@ -14,6 +15,7 @@ const routes = [
   { path: '/timeline', name: 'Timeline', component: BlankWorkspaceView },
   { path: '/performance', name: 'Performance', component: BlankWorkspaceView, meta: { shell: { header: false } } },
   { path: '/admin', name: 'Admin', component: AdminSettingsOnlyView },
+  { path: '/offline-maps', name: 'OfflineMaps', component: OfflineMapsView },
 ]
 
 // Vite uses relative asset URLs so the same bundle works in Pages and Capacitor.
