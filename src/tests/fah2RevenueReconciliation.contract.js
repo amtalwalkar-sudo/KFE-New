@@ -19,7 +19,7 @@ assert.equal(matched.parking, 50)
 const mismatch = reconcileShiftRevenue({ shiftRevenue: 1001, trips: baseTrips })
 assert.equal(mismatch.reconciliationStatus, 'MISMATCH')
 assert.equal(mismatch.difference, 1)
-assert.equal(mismatch.reason, 'SHIFT_REVENUE_DOES_NOT_MATCH_TRIP_FARES')
+assert.equal(mismatch.reason, 'SHIFT_REVENUE_DOES_NOT_MATCH_TRIP_FARES_AND_CANCELLATIONS')
 
 const incomplete = reconcileShiftRevenue({ shiftRevenue: 1000, trips: [{ id: 't1', status: 'COMPLETED', revenue: 700 }, { id: 't2', status: 'COMPLETED', revenue: null }] })
 assert.equal(incomplete.reconciliationStatus, 'UNAVAILABLE')
