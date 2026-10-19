@@ -1,3 +1,8 @@
+/**
+ * Canonical shift-revenue projection shared by PWA repositories and parity tests.
+ * Only non-deleted completed fares and cancellation fees are eligible; skipped
+ * fare detail and blank/not-applicable cancellation fees contribute zero.
+ */
 const nonNegative = value => {
   if (value === null || value === undefined || value === '') return null
   const number = Number(value)
