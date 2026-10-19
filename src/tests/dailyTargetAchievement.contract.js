@@ -21,7 +21,7 @@ const trips = [
   { id: 'future', shiftId: 'active', status: 'COMPLETED', tripEndAt: '2026-10-01T19:00:00+05:30', revenue: 700, fareDetailsSkipped: false },
   { id: 'overnight-fare', shiftId: 'overnight', status: 'COMPLETED', tripEndAt: '2026-10-01T13:00:00+05:30', revenue: 80, fareDetailsSkipped: false },
   { id: 'closed-shift-detail', shiftId: 'closed', status: 'COMPLETED', tripEndAt: '2026-10-01T14:00:00+05:30', revenue: 9999, fareDetailsSkipped: false },
-  { id: 'active-cancel-fee', shiftId: 'active', status: 'CANCELLED', tripEndAt: '2026-10-01T15:30:00+05:30', revenue: 25, cancelledRevenue: 25 },
+  { id: 'active-cancel-fee', shiftId: 'active', status: 'CANCELLED', updatedAt: '2026-10-01T15:30:00+05:30', revenue: 25, cancelledRevenue: 25 },
   { id: 'blank-cancel-fee', shiftId: 'active', status: 'CANCELLED', tripEndAt: '2026-10-01T15:45:00+05:30', revenue: 0, cancelledRevenue: 0 },
   { id: 'deleted', shiftId: 'active', status: 'COMPLETED', tripEndAt: '2026-10-01T15:00:00+05:30', revenue: 600, fareDetailsSkipped: false, deleted: true },
 ]
