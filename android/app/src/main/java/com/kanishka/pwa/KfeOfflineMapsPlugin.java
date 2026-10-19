@@ -130,7 +130,7 @@ public class KfeOfflineMapsPlugin extends Plugin {
                 long existingBytes = tilesFile().isFile() ? tilesFile().length() : 0;
                 long requiredBytes = expectedBytes + existingBytes + Math.max(64L * 1024 * 1024, expectedBytes / 10);
                 if (available < requiredBytes) throw new IllegalStateException("Not enough free storage for a safe map update. Required free space: " + requiredBytes + " bytes.");
-                downloadFile(packageUrl, part, expectedBytes, expectedHash);
+                downloadFile(packageUrl, part, expectedBytes, expectedHash, requestedRegionId);
                 JSONObject metadata = new JSONObject();
                 metadata.put("regionId", requestedRegionId); metadata.put("region", manifest.optString("region", requestedRegionId));
                 if (manifest.has("coverageBounds") && !manifest.isNull("coverageBounds")) metadata.put("coverageBounds", manifest.getJSONObject("coverageBounds"));
@@ -301,7 +301,7 @@ public class KfeOfflineMapsPlugin extends Plugin {
         HttpURLConnection c = (HttpURLConnection) new URL(address).openConnection(); c.setConnectTimeout(connectTimeout); c.setReadTimeout(readTimeout); c.setInstanceFollowRedirects(true); c.setRequestProperty("Accept", "application/json");
         try { if (c.getResponseCode() < 200 || c.getResponseCode() >= 300) throw new IllegalStateException("Map manifest unavailable (HTTP " + c.getResponseCode() + ")."); if (!"https".equalsIgnoreCase(c.getURL().getProtocol())) throw new IllegalStateException("Map manifest redirected to an insecure URL."); try (InputStream in = c.getInputStream(); OutputStream out = new FileOutputStream(temp)) { byte[] b = new byte[8192]; int n; while ((n=in.read(b))!=-1) out.write(b,0,n); } return new JSONObject(readText(temp)); } finally { c.disconnect(); }
     }
-    private void downloadFile(String address, File destination, long expectedBytes, String expectedHash) throws Exception {
+    private void downloadFile(String address, File destination, long expectedBytes, String expectedHash, String regionId) throws Exception {
         HttpURLConnection c = (HttpURLConnection) new URL(address).openConnection(); c.setConnectTimeout(20000); c.setReadTimeout(60000); c.setInstanceFollowRedirects(true);
         try {
             if (c.getResponseCode() < 200 || c.getResponseCode() >= 300) throw new IllegalStateException("Map package unavailable (HTTP " + c.getResponseCode() + ").");
@@ -310,7 +310,7 @@ public class KfeOfflineMapsPlugin extends Plugin {
             MessageDigest digest = MessageDigest.getInstance("SHA-256"); long count = 0;
             try (InputStream in = new BufferedInputStream(c.getInputStream()); OutputStream out = new FileOutputStream(destination)) {
                 byte[] b = new byte[64 * 1024]; int n;
-                while ((n=in.read(b))!=-1) { out.write(b,0,n); digest.update(b,0,n); count += n; JSObject progress = new JSObject(); progress.put("bytesDownloaded", count); progress.put("bytesTotal", expectedBytes); progress.put("percent", Math.min(99, (int)(count * 100 / expectedBytes))); progress.put("regionId", requestedRegionId); notifyListeners("downloadProgress", progress); }
+                while ((n=in.read(b))!=-1) { out.write(b,0,n); digest.update(b,0,n); count += n; JSObject progress = new JSObject(); progress.put("bytesDownloaded", count); progress.put("bytesTotal", expectedBytes); progress.put("percent", Math.min(99, (int)(count * 100 / expectedBytes))); progress.put("regionId", regionId); notifyListeners("downloadProgress", progress); }
             }
             StringBuilder hash = new StringBuilder(); for (byte v : digest.digest()) hash.append(String.format(Locale.ROOT, "%02x", v));
             if (count != expectedBytes || !hash.toString().equals(expectedHash)) throw new IllegalStateException("Map package failed size or SHA-256 verification.");
