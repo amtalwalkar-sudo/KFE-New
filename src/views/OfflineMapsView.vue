@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { Capacitor } from '@capacitor/core'
 import { OfflineMapService } from '../infrastructure/location/offlineMapService.js'
 
 const regionIds = ['mumbai-metro', 'pune', 'nashik']
@@ -10,7 +11,7 @@ const error = ref('')
 const notice = ref('')
 const loading = ref(true)
 const listeners = []
-const isAndroid = typeof window !== 'undefined' && !!window.Capacitor?.isNativePlatform?.()
+const isAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android'
 
 const formatBytes = value => {
   const bytes = Number(value)
