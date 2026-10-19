@@ -35,6 +35,8 @@ assert.equal(cancelledOnly.tripRevenue, 100)
 
 const blankCancellation = reconcileShiftRevenue({ shiftRevenue: 0, trips: [{ id: 'cancelled-blank', status: 'CANCELLED', cancelledRevenue: '' }] })
 assert.equal(blankCancellation.reconciliationStatus, 'RECONCILED', 'Blank/not-applicable cancellation fee is ₹0.')
+const blankFeeWithPriorFare = reconcileShiftRevenue({ shiftRevenue: 0, trips: [{ id: 'cancelled-prior-fare', status: 'CANCELLED', cancelledRevenue: null, revenue: 300 }] })
+assert.equal(blankFeeWithPriorFare.reconciliationStatus, 'RECONCILED', 'An explicit blank cancellation fee must not reuse a prior fare.')
 
 
 const invalidRevenue = reconcileShiftRevenue({ shiftRevenue: 1000, trips: [{ id: 't1', status: 'COMPLETED', revenue: -1 }] })
