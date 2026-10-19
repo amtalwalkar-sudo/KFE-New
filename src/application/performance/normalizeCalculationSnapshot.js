@@ -104,18 +104,18 @@ export const normalizeCalculationSnapshot = snapshot => {
     // facts and preserve the former value separately for explicit migration.
     if (shift.revenueSource === 'TRIP_FARES') return shift
     const previousRevenue = Number(shift.revenue)
-    const hasLegacyRevenue = Number.isFinite(previousRevenue) && previousRevenue > 0
     const shiftTrips = shift.id == null ? [] : trips.filter(trip => trip.shiftId === shift.id)
     const revenue = deriveLiveRevenue(shiftTrips)
+    const hasLegacyMismatch = Number.isFinite(previousRevenue) && previousRevenue > 0 && Math.abs(previousRevenue - revenue) >= 0.005
     return {
       ...shift,
-      ...(hasLegacyRevenue && shift.legacyRevenueSnapshot == null
+      ...(hasLegacyMismatch && shift.legacyRevenueSnapshot == null
         ? { legacyRevenueSnapshot: previousRevenue, legacyRevenueMigrationStatus: 'REVIEW_REQUIRED' }
         : {}),
       revenue,
       liveFareRevenue: revenue,
       revenueSource: 'TRIP_FARES',
-      ...(hasLegacyRevenue ? { legacyRevenueMigrationStatus: shift.legacyRevenueMigrationStatus || 'REVIEW_REQUIRED' } : {}),
+      ...(hasLegacyMismatch ? { legacyRevenueMigrationStatus: shift.legacyRevenueMigrationStatus || 'REVIEW_REQUIRED' } : {}),
     }
   })
   return ({
