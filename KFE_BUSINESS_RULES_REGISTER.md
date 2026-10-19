@@ -638,7 +638,7 @@ This rule is the sole authoritative definition of how toll and parking interact 
 ### BR-11.1 — Customer-paid total and treatment
 
 - The canonical Shift revenue projection is the customer-paid total for the shift: eligible completed-trip fares plus cancellation fees; blank/not-applicable cancellation fees are ₹0.
-- Completed-trip fare entries are optional supporting detail. A trip does not require a fare entry to continue to the next trip or to end the shift.
+- Fare entry does not gate the next trip or shift closure. Only eligible saved completed-trip fares contribute; explicitly skipped fare detail contributes no fare, and blank/not-applicable cancellation fees contribute ₹0.
 - When toll/parking treatment is **INCLUDED**, the entered fare/revenue amount is the total paid by the customer, including the entered toll/parking amount.
 - When toll/parking treatment is **EXCLUDED**, the entered fare/revenue amount excludes the toll/parking amount that the driver/business paid separately.
 - Toll and parking remain actual expense records in either treatment.
