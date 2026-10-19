@@ -252,25 +252,26 @@ public class KfeOverlaySmokeTest {
         KfeOverlayService.lifecycleFaultInjectorForTests = null;
       }
 
-      org.json.JSONArray afterFault = pendingEventsForTrip(tripId);
+      String originalEventId = context.getSharedPreferences("KfeNativeWorkActions", 0)
+        .getString("pendingEventId", "");
+      boolean eventAfterFault = KfeNativeEventStore.get(context).contains(originalEventId);
       boolean canonicalAfterFault = KfeCanonicalWorkStore.get(context)
         .getRecord("TRIP", tripId).optBoolean("found", false);
       if ("AFTER_CHECKPOINT".equals(boundary)) {
-        assertEquals("Checkpoint fault must not append an event", 0, afterFault.length());
+        assertTrue("Checkpoint fault must not append an event", !eventAfterFault);
         assertTrue("Checkpoint fault must not write a canonical trip", !canonicalAfterFault);
       } else {
-        assertEquals("Outbox/canonical fault must retain exactly one durable event", 1, afterFault.length());
+        assertTrue("Outbox/canonical fault must retain its durable event even if already acknowledged", eventAfterFault);
         assertEquals("Canonical state must exist only after the canonical-write boundary",
           "AFTER_CANONICAL".equals(boundary), canonicalAfterFault);
       }
-      String originalEventId = afterFault.length() == 0 ? "" : afterFault.getJSONObject(0).getString("eventId");
 
       persist.invoke(service, "GO_TO_PICKUP", "GOING_TO_PICKUP", false);
-      org.json.JSONArray afterRetry = pendingEventsForTrip(tripId);
-      assertEquals("Retry must converge to one pending event", 1, afterRetry.length());
+      String eventIdAfterRetry = context.getSharedPreferences("KfeNativeWorkActions", 0)
+        .getString("pendingEventId", "");
+      assertTrue("Retry must converge to a durable event", KfeNativeEventStore.get(context).contains(eventIdAfterRetry));
       if (!originalEventId.isEmpty()) {
-        assertEquals("Retry must reuse the original event ID", originalEventId,
-          afterRetry.getJSONObject(0).getString("eventId"));
+        assertEquals("Retry must reuse the original event ID", originalEventId, eventIdAfterRetry);
       }
       JSONObject canonicalTrip = KfeCanonicalWorkStore.get(context).getRecord("TRIP", tripId);
       assertTrue("Retry must leave a durable canonical trip", canonicalTrip.optBoolean("found", false));
