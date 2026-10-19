@@ -175,6 +175,7 @@ public class KfeOverlaySmokeTest {
 
   @Test public void swipeAcceptsNearEdgeOfThumbAndLowerHitLane() throws Exception {
     clearPending();
+    seedCanonicalShift("edge-swipe-shift");
     JSONObject state = new JSONObject()
       .put("shift", new JSONObject().put("id", "edge-swipe-shift"))
       .put("trip", JSONObject.NULL)
@@ -193,6 +194,7 @@ public class KfeOverlaySmokeTest {
 
   @Test public void partiallyDisplacedHandleCanBeGrabbedAndCompleted() throws Exception {
     clearPending();
+    seedCanonicalShift("partial-handle-shift");
     JSONObject state = new JSONObject()
       .put("shift", new JSONObject().put("id", "partial-handle-shift"))
       .put("trip", JSONObject.NULL)
@@ -250,6 +252,7 @@ public class KfeOverlaySmokeTest {
 
   @Test public void goldenRideSwipeLoopPersistsPickupStartEndAndFareIdentity() throws Exception {
     clearPending();
+    seedCanonicalShift("golden-shift");
     KfeOverlayService service = waitForService();
     Field actionStage = KfeOverlayService.class.getDeclaredField("actionStage");
     Field pendingTripId = KfeOverlayService.class.getDeclaredField("pendingTripId");
@@ -329,6 +332,20 @@ public class KfeOverlaySmokeTest {
     assertTrue(KfeOverlayService.hasPersistedOverlayState(context));
     KfeOverlayService.clearPersistedOverlayState(context);
     assertTrue(!KfeOverlayService.hasPersistedOverlayState(context));
+  }
+
+  private void seedCanonicalShift(String shiftId) throws Exception {
+    JSONObject shift = new JSONObject().put("id", shiftId).put("status", "ACTIVE")
+      .put("revenue", 0).put("liveFareRevenue", 0)
+      .put("updatedAt", java.time.Instant.now().toString());
+    KfeCanonicalWorkStore.get(context).putRecord(
+      "test-active-shift-" + shiftId + "-" + java.util.UUID.randomUUID(), "SHIFT", shift);
+  }
+
+  private void seedCanonicalTrip(JSONObject trip) throws Exception {
+    if (!trip.has("updatedAt")) trip.put("updatedAt", java.time.Instant.now().toString());
+    KfeCanonicalWorkStore.get(context).putRecord(
+      "test-trip-seed-" + trip.optString("id") + "-" + java.util.UUID.randomUUID(), "TRIP", trip);
   }
 
   private KfeOverlayService waitForService() {
@@ -462,6 +479,10 @@ public class KfeOverlaySmokeTest {
 
   @Test public void fareFormSendsOptionalTollParkingAndTreatmentFlags() throws Exception {
     clearPending();
+    seedCanonicalShift("fare-shift");
+    seedCanonicalTrip(new JSONObject().put("id", "fare-trip").put("shiftId", "fare-shift")
+      .put("status", "COMPLETED").put("tripStage", "COMPLETED")
+      .put("tripEndAt", java.time.Instant.now().toString()));
     JSONObject state = new JSONObject()
       .put("shift", new JSONObject().put("id", "fare-shift"))
       .put("trip", new JSONObject().put("id", "fare-trip").put("shiftId", "fare-shift")
@@ -507,6 +528,9 @@ public class KfeOverlaySmokeTest {
 
   @Test public void cancellationFormAllowsOptionalFeeAndPersistsPassengerReason() throws Exception {
     clearPending();
+    seedCanonicalShift("cancel-shift");
+    seedCanonicalTrip(new JSONObject().put("id", "cancel-trip").put("shiftId", "cancel-shift")
+      .put("status", "ACTIVE").put("tripStage", "GOING_TO_PICKUP"));
     JSONObject state = new JSONObject()
       .put("shift", new JSONObject().put("id", "cancel-shift"))
       .put("trip", new JSONObject().put("id", "cancel-trip"))
