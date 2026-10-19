@@ -1,3 +1,4 @@
+import { deriveLiveRevenue } from './liveRevenue.js'
 const live = records => (records || []).filter(record => !record?.deletedAt && record?.deleted !== true)
 const money = value => Number.isFinite(Number(value)) ? Number(value) : NaN
 const nonNegativeMoney = value => { const n = money(value); return Number.isFinite(n) && n >= 0 ? n : 0 }
@@ -112,10 +113,9 @@ export function deriveFinancialRevenue({
 }
 
 /**
- * Shift-end revenue is authoritative customer-paid total. Completed-trip fares
- * are optional supporting detail; trip toll/parking treatment is independently
- * reflected in the financial revenue preview without becoming a second revenue
- * authority.
+ * Reconcile the persisted Shift projection against the canonical rule:
+ * eligible completed fares plus cancellation fees, excluding deleted records.
+ * A skipped/missing fare contributes zero and does not gate shift closure.
  */
 export function reconcileShiftRevenue({
   shiftRevenue, trips = [], toll = 0, parking = 0,
@@ -123,16 +123,22 @@ export function reconcileShiftRevenue({
   tollParkingRevenueTreatment = TOLL_PARKING_TREATMENTS.INCLUDED,
 } = {}) {
   const authoritativeRevenue = money(shiftRevenue)
+  const eligibleTrips = live(trips)
+  const tripRevenue = deriveLiveRevenue(eligibleTrips)
   const financial = deriveFinancialRevenue({
-    customerPaidTotal: authoritativeRevenue, trips, toll, parking,
+    customerPaidTotal: authoritativeRevenue, trips: eligibleTrips, toll, parking,
     tollTreatment, parkingTreatment, tollParkingCaptureMode, tollParkingRevenueTreatment,
   })
+  const completed = eligibleTrips.filter(trip => trip?.status === 'COMPLETED')
+  const priced = completed.filter(trip => trip.fareDetailsSkipped !== true && trip.revenue !== null && trip.revenue !== undefined && trip.revenue !== '')
+  const unpriced = completed.filter(trip => trip.fareDetailsSkipped !== true && (trip.revenue === null || trip.revenue === undefined || trip.revenue === ''))
   const common = {
     authoritativeRevenue: Number.isFinite(authoritativeRevenue) ? authoritativeRevenue : null,
     ...financial,
-    completedTrips: 0,
-    pricedTrips: 0,
-    unpricedTrips: 0,
+    completedTrips: completed.length,
+    pricedTrips: priced.length,
+    unpricedTrips: unpriced.length,
+    tripRevenue,
     additionalToll: nonNegativeMoney(toll),
     additionalParking: nonNegativeMoney(parking),
     tollParkingCaptureMode: financial.tollParkingCaptureMode,
@@ -140,26 +146,20 @@ export function reconcileShiftRevenue({
   if (!Number.isFinite(authoritativeRevenue) || authoritativeRevenue < 0) {
     return { ...common, reconciliationStatus: 'UNAVAILABLE', reason: 'SHIFT_REVENUE_REQUIRED', tripRevenue: null, difference: null }
   }
-
-  const completed = live(trips).filter(trip => trip?.status === 'COMPLETED')
-  if (!completed.length) {
-    return { ...common, reconciliationStatus: 'NOT_APPLICABLE', reason: 'NO_COMPLETED_TRIPS', tripRevenue: 0, difference: authoritativeRevenue }
-  }
-
-  const priced = completed.filter(trip => trip?.revenue !== null && trip?.revenue !== undefined && trip?.revenue !== '')
-  const unpricedTrips = completed.length - priced.length
-  const tripRevenue = priced.reduce((sum, trip) => {
-    const value = money(trip.revenue)
-    return sum + (Number.isFinite(value) && value >= 0 ? value : 0)
-  }, 0)
-  if (unpricedTrips > 0) {
-    return { ...common, reconciliationStatus: 'UNAVAILABLE', reason: 'INCOMPLETE_TRIP_REVENUE_DETAIL', tripRevenue, difference: null, completedTrips: completed.length, pricedTrips: priced.length, unpricedTrips }
-  }
-
   const invalid = priced.find(trip => !Number.isFinite(money(trip.revenue)) || money(trip.revenue) < 0)
-  if (invalid) return { ...common, reconciliationStatus: 'UNAVAILABLE', reason: 'INVALID_TRIP_REVENUE_DETAIL', tripRevenue: null, difference: null, completedTrips: completed.length, pricedTrips: priced.length, unpricedTrips: 0 }
-
+  if (invalid) return { ...common, reconciliationStatus: 'UNAVAILABLE', reason: 'INVALID_TRIP_REVENUE_DETAIL', tripRevenue: null, difference: null }
+  if (unpriced.length > 0) {
+    return { ...common, reconciliationStatus: 'UNAVAILABLE', reason: 'INCOMPLETE_TRIP_REVENUE_DETAIL', difference: null }
+  }
+  if (eligibleTrips.length === 0 && authoritativeRevenue === 0) {
+    return { ...common, reconciliationStatus: 'NOT_APPLICABLE', reason: 'NO_ELIGIBLE_TRIP_REVENUE', difference: 0 }
+  }
   const difference = authoritativeRevenue - tripRevenue
   const reconciled = Math.abs(difference) < 0.005
-  return { ...common, reconciliationStatus: reconciled ? 'RECONCILED' : 'MISMATCH', reason: reconciled ? null : 'SHIFT_REVENUE_DOES_NOT_MATCH_TRIP_FARES', tripRevenue, difference, completedTrips: completed.length, pricedTrips: priced.length, unpricedTrips: 0 }
+  return {
+    ...common,
+    reconciliationStatus: reconciled ? 'RECONCILED' : 'MISMATCH',
+    reason: reconciled ? null : 'SHIFT_REVENUE_DOES_NOT_MATCH_ELIGIBLE_TRIP_REVENUE',
+    difference,
+  }
 }
