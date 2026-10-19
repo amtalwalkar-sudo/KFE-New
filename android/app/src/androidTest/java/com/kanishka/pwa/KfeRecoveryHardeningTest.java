@@ -52,6 +52,23 @@ public class KfeRecoveryHardeningTest {
     context = InstrumentationRegistry.getInstrumentation().getTargetContext();
   }
 
+  @Test public void nativeEventQueueReadFailureMustNotMasqueradeAsSuccessfulEmptyRecovery() throws Exception {
+    KfeNativeEventStore store = KfeNativeEventStore.get(context);
+    KfeNativeEventStore.failPendingReadForTests = true;
+    try {
+      store.pending(100);
+      fail("A failed durable queue read must not return an empty array as successful recovery.");
+    } catch (IllegalStateException expected) {
+      assertTrue("Failure must explicitly identify incomplete recovery.",
+          expected.getMessage().contains("recovery is incomplete")
+              || expected.getMessage().contains("Injected native event queue read failure"));
+    } finally {
+      KfeNativeEventStore.failPendingReadForTests = false;
+    }
+    // Verify the queue remains readable after the injected fault is removed.
+    assertNotNull("The event queue must recover after the temporary read failure.", store.pending(100));
+  }
+
   @Test public void canonicalWritesRemainIdempotentAfterLostAcknowledgementAndRejectStaleSnapshots() throws Exception {
     KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
     String suffix = Long.toString(System.currentTimeMillis());
