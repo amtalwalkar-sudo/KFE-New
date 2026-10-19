@@ -69,9 +69,10 @@ final class KfeNativeEventStore extends SQLiteOpenHelper {
   }
 
   synchronized JSONArray pending(int limit) {
-    if (failPendingReadForTests) throw new IllegalStateException("Injected native event queue read failure.");
     JSONArray events = new JSONArray();
-    try (Cursor cursor = getReadableDatabase().query("native_events",
+    try {
+      if (failPendingReadForTests) throw new IllegalStateException("Injected native event queue read failure.");
+      try (Cursor cursor = getReadableDatabase().query("native_events",
         new String[]{"id", "stage", "trip_id", "input", "created_at", "attempts"},
         "status=?", new String[]{"PENDING"}, null, null, "created_at ASC, rowid ASC", Integer.toString(Math.max(1, Math.min(limit, 500))))) {
       while (cursor.moveToNext()) {
@@ -83,6 +84,7 @@ final class KfeNativeEventStore extends SQLiteOpenHelper {
         event.put("createdAt", cursor.getLong(4));
         event.put("attempts", cursor.getInt(5));
         events.put(event);
+      }
       }
     } catch (Exception error) {
       // An empty array means the durable queue was read successfully and has no
