@@ -26,7 +26,7 @@ for (const field of ['shift', 'trips', 'completedTrips', 'revenue', 'businessKm'
 assert(service.includes("trip.status === 'COMPLETED'"), 'Business-KM reconstruction must use completed Trips')
 assert(service.includes('trip.tripKm'), 'Business KM must be reconstructed from Trip KM')
 assert(service.includes('shift.revenue'), 'ERP revenue must be reconstructed from the canonical Shift revenue projection')
-assert(service.includes('deriveLiveRevenue'), 'Operational reconstruction must use the canonical eligible-fare plus cancellation-fee projection')
+assert(shiftRepo.includes('deriveLiveRevenue'), 'Canonical repository must project eligible fares plus cancellation fees before operational reconstruction')
 assert(service.includes('shift.endOdometer') && service.includes('shift.startOdometer'), 'Vehicle KM must use Shift odometer boundaries')
 assert(service.includes('vehicleKm - businessKm'), 'Dead KM must derive from vehicle KM minus business KM')
 assert(service.includes('FuelRepository.getAll'), 'Fuel reconstruction must consume canonical Fuel logs')
