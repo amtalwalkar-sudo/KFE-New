@@ -464,17 +464,17 @@ public class KfeRecoveryHardeningTest {
       output.getFD().sync();
     }
     JSONObject metadata = new JSONObject()
-        .put("regionId", "alibag")
+        .put("regionId", "mumbai-metro")
         .put("version", "ci-fixture")
-        .put("coverageBounds", new JSONObject().put("south", 18.2).put("north", 19.0)
-            .put("west", 72.4).put("east", 73.3));
+        .put("coverageBounds", new JSONObject().put("south", 18.6).put("north", 19.7)
+            .put("west", 72.4).put("east", 73.5));
     try (FileOutputStream output = new FileOutputStream(new File(mapDir, "map-metadata.json"))) {
       output.write(metadata.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
       output.getFD().sync();
     }
 
     // Use the same route-derived encoded polyline that passed the HTTP smoke
-    // against this exact Alibag tile extract. Hand-picked city coordinates can
+    // against this exact Mumbai metro tile extract. Hand-picked city coordinates can
     // fall on disconnected/one-way edges and make this an input-fixture failure
     // rather than a meaningful offline-package test.
     File routeRequestFile = new File(context.getFilesDir(), "valhalla-trace-request.json");
