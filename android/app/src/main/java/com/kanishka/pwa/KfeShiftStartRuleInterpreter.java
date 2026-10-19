@@ -55,7 +55,7 @@ public final class KfeShiftStartRuleInterpreter {
       while (keys.hasNext()) {
         String key = keys.next();
         Object value = eval(definition.getJSONObject(key), input);
-        result.put(key, value == null ? JSONObject.NULL : (value instanceof Double && !Double.isFinite((Double) value) ? JSONObject.NULL : value));
+        result.put(key, value == null ? JSONObject.NULL : (value instanceof Double && !isFinite((Double) value) ? JSONObject.NULL : value));
       }
       return result;
     }
@@ -67,7 +67,7 @@ public final class KfeShiftStartRuleInterpreter {
     String op = node.getString("op");
     if ("notFinite".equals(op)) {
       Object value = eval(node.getJSONObject("value"), input);
-      return value == null || !Double.isFinite(number(value));
+      return value == null || !isFinite(number(value));
     }
     if ("finiteAndPresent".equals(op)) {
       Object value = eval(node.getJSONObject("value"), input);
@@ -103,7 +103,7 @@ public final class KfeShiftStartRuleInterpreter {
     return value == JSONObject.NULL ? null : value;
   }
 
-  private static double number(Object value) {
+  private static boolean isFinite(double value) {\n    return !Double.isNaN(value) && !Double.isInfinite(value);\n  }\n\n  private static double number(Object value) {
     if (value == null || value == JSONObject.NULL || "".equals(value)) return Double.NaN;
     if (value instanceof Number) return ((Number) value).doubleValue();
     try { return Double.parseDouble(String.valueOf(value)); }
