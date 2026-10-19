@@ -89,8 +89,8 @@ export function deriveTollParkingExpenseTreatment({
 }
 
 /**
- * BR-11 financial treatment. Shift.revenue is the authoritative customer-paid
- * total. Included toll/parking are subtracted from financial revenue and are
+ * BR-11 financial treatment. The projected Shift.revenue is the canonical
+ * customer-paid total. Included toll/parking are subtracted from financial revenue and are
  * not deducted a second time as operating costs. Excluded expenses remain
  * actual operating expenses and are counted once.
  */
@@ -152,7 +152,7 @@ export function reconcileShiftRevenue({
   const completed = activeRecords.filter(trip => trip?.status === 'COMPLETED' && trip?.fareDetailsSkipped !== true)
   const cancelled = activeRecords.filter(trip => trip?.status === 'CANCELLED')
   if (!completed.length && !cancelled.length) {
-    return { ...common, reconciliationStatus: authoritativeRevenue === 0 ? 'RECONCILED' : 'MISMATCH', reason: authoritativeRevenue === 0 ? null : 'SHIFT_REVENUE_DOES_NOT_MATCH_TRIP_FARES', tripRevenue: 0, difference: authoritativeRevenue, completedTrips: 0, pricedTrips: 0, unpricedTrips: 0 }
+    return { ...common, reconciliationStatus: authoritativeRevenue === 0 ? 'RECONCILED' : 'MISMATCH', reason: authoritativeRevenue === 0 ? null : 'SHIFT_REVENUE_DOES_NOT_MATCH_TRIP_FARES_AND_CANCELLATIONS', tripRevenue: 0, difference: authoritativeRevenue, completedTrips: 0, pricedTrips: 0, unpricedTrips: 0 }
   }
 
   const priced = completed.filter(trip => trip?.revenue !== null && trip?.revenue !== undefined && trip?.revenue !== '')
