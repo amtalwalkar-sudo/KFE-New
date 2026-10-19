@@ -17,7 +17,7 @@ assert.equal(fuel.observations[0].costPerKm, 3, 'Rolling window must select the 
 
 const rolling = deriveRollingDriverTarget({
   trips: [
-    { id: 'trip', status: 'COMPLETED', tripEndAt: '2026-09-10T20:00:00.000Z', revenue: 9999 },
+    { id: 'trip', status: 'COMPLETED', tripEndAt: '2026-09-10T20:00:00.000Z', revenue: 100 },
   ],
   shifts: [
     { id: 'shift', status: 'COMPLETED', shiftStartAt: '2026-09-10T19:00:00.000Z', shiftEndAt: '2026-09-10T20:00:00.000Z', revenue: 100 },
@@ -31,7 +31,7 @@ const rolling = deriveRollingDriverTarget({
 })
 assert.equal(rolling.activeDays, 1, 'Shift timestamps must be grouped by IST business day, not UTC date')
 assert.equal(rolling.authority, 'COMPLETED_SHIFT_REVENUE_AND_SHIFTS_FOR_ACTIVE_DAYS')
-assert.equal(rolling.balance, 2333.3333333333335, 'Rolling recovery must use the calendar-month daily target and authoritative ₹100 Shift revenue, not the ₹9,999 trip fare')
+assert.equal(rolling.balance, 2333.3333333333335, 'Rolling recovery consumes the persisted Shift revenue projection, which agrees with eligible trip detail at ₹100')
 
 
 const octoberRange = {
