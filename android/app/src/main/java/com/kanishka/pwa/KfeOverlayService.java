@@ -818,12 +818,26 @@ public class KfeOverlayService extends Service {
   }
 
   
+  // Shift start/end are PWA-owned. A stale overlay snapshot must never authorize
+  // a new native trip transition after the canonical shift has ended.
+  private boolean isCanonicalShiftActive(KfeCanonicalWorkStore store,String shiftId) throws Exception {
+    if(shiftId==null||shiftId.trim().isEmpty())return false;
+    JSONObject found=store.getRecord("SHIFT",shiftId);
+    JSONObject canonicalShift=found.optJSONObject("record");
+    return found.optBoolean("found",false)&&canonicalShift!=null
+      &&"ACTIVE".equals(canonicalShift.optString("status",""));
+  }
+
   private boolean persistCanonicalTripStage(String stage, boolean rideStarted, String eventId){
     try{
       JSONObject root=new JSONObject(getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(LAST_STATE_KEY,"{}"));
       JSONObject shift=root.optJSONObject("shift");
       if(shift==null||shift.optString("id","").isEmpty()||pendingTripId.isEmpty())return false;
       KfeCanonicalWorkStore store=KfeCanonicalWorkStore.get(this);
+      if(!isCanonicalShiftActive(store,shift.optString("id",""))){
+        Log.w("KFE-CANONICAL","Refusing native trip transition because canonical shift is not active.");
+        return false;
+      }
       // The native event row is the durable identity for this lifecycle action.
       // Reuse its creation time so a retry after commit/lost acknowledgement
       // recreates the exact same canonical payload and operation ID.
@@ -927,6 +941,10 @@ public class KfeOverlayService extends Service {
     }
     if(trip==null)throw new IllegalStateException("The last known trip record is unavailable; form was not marked saved.");
     if(eventId==null||eventId.trim().isEmpty())throw new IllegalArgumentException("Durable form event ID is required.");
+    // The overlay can remain visible after a stale PWA snapshot. Re-check the
+    // canonical shift before committing fare/cancellation so shift end wins.
+    if(!isCanonicalShiftActive(canonical,trip.optString("shiftId","")))
+      throw new IllegalStateException("The canonical shift is no longer active; trip form was not committed.");
     String operationId="native-form-"+mode+"-"+eventId;
     long eventTimestamp=KfeNativeEventStore.get(this).createdAtMillis(eventId);
     String now=new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",java.util.Locale.US){{
