@@ -34,6 +34,43 @@ import java.lang.reflect.InvocationTargetException;
 public class KfeNativeFullShiftAcceptanceTest {
   private static final String STATE_KEY = "lastOverlayState";
 
+  @Test public void nativeShiftStartInterpreterMatchesSharedGoldenVectors() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    String source;
+    try (java.io.InputStream stream = context.getAssets().open("shift-start-golden-vectors.json");
+         java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream()) {
+      byte[] buffer = new byte[4096];
+      int count;
+      while ((count = stream.read(buffer)) != -1) bytes.write(buffer, 0, count);
+      source = bytes.toString("UTF-8");
+    }
+    JSONObject vectorFile = new JSONObject(source);
+    assertEquals("The native test must consume the versioned shared vector source.", 1,
+        vectorFile.getInt("schemaVersion"));
+    KfeShiftStartRuleInterpreter interpreter = new KfeShiftStartRuleInterpreter(context);
+    JSONArray cases = vectorFile.getJSONArray("cases");
+    for (int i = 0; i < cases.length(); i++) {
+      JSONObject vector = cases.getJSONObject(i);
+      JSONObject actual = interpreter.evaluate(vector.getString("rule"), vector.getJSONObject("input"));
+      JSONObject expected = vector.getJSONObject("expected");
+      java.util.Iterator<String> keys = expected.keys();
+      while (keys.hasNext()) {
+        String key = keys.next();
+        Object expectedValue = expected.get(key);
+        Object actualValue = actual.get(key);
+        if (expectedValue instanceof Number && actualValue instanceof Number) {
+          assertEquals(vector.getString("id") + " field " + key,
+              ((Number) expectedValue).doubleValue(), ((Number) actualValue).doubleValue(), 0.000001);
+        } else if (expectedValue == JSONObject.NULL) {
+          assertEquals(vector.getString("id") + " field " + key, JSONObject.NULL, actualValue);
+        } else {
+          assertEquals(vector.getString("id") + " field " + key, expectedValue, actualValue);
+        }
+      }
+    }
+  }
+
+
   @Test public void nativeOnlyShiftPersistsMultipleFaresAndCancellationAcrossStoreReopen() throws Exception {
     Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
     String suffix = Long.toString(System.currentTimeMillis());

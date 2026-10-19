@@ -1,55 +1,34 @@
-export function validateShiftStartOdometer(currentOdometer, previousOdometer = null) {
-  const current = Number(currentOdometer)
-  const previous = previousOdometer == null || previousOdometer === '' ? NaN : Number(previousOdometer)
+import { evaluateShiftStartRule } from './shiftStartRuleInterpreter.js'
 
-  if (!Number.isFinite(current) || current <= 0) {
-    return { valid: false, reason: 'Enter a valid current odometer.' }
-  }
-  if (!Number.isFinite(previous)) {
-    return { valid: true, gapKm: 0 }
-  }
-  if (current < previous) {
-    return { valid: false, reason: 'Current odometer cannot be lower than the last recorded odometer.' }
-  }
-  return { valid: true, gapKm: current - previous }
+const reasonMessages = {
+  INVALID_CURRENT_ODOMETER: 'Enter a valid current odometer.',
+  BELOW_PREVIOUS_ODOMETER: 'Current odometer cannot be lower than the last recorded odometer.',
+  BELOW_BUSINESS_START_ODOMETER: 'Current odometer cannot be lower than the business start odometer.',
+  GAP_ALLOCATION_REQUIRED: null
+}
+
+function preservePwaResult(result) {
+  if (!result.reasonCode) return result
+  const { reasonCode, ...fields } = result
+  const message = reasonMessages[reasonCode]
+  if (message) return { ...fields, reason: message }
+  return fields
+}
+
+export function validateShiftStartOdometer(currentOdometer, previousOdometer = null) {
+  return preservePwaResult(evaluateShiftStartRule('validateShiftStartOdometer', {
+    currentOdometer,
+    previousOdometer
+  }))
 }
 
 export function validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer = null) {
-  const current = Number(currentOdometer)
-  const businessStart = businessStartOdometer == null || businessStartOdometer === '' ? NaN : Number(businessStartOdometer)
-
-  if (!Number.isFinite(current) || current <= 0) {
-    return { valid: false, reason: 'Enter a valid current odometer.' }
-  }
-  if (Number.isFinite(businessStart) && current < businessStart) {
-    return { valid: false, reason: 'Current odometer cannot be lower than the business start odometer.' }
-  }
-
-  const historicalKm = Number.isFinite(businessStart) ? current - businessStart : 0
-  return {
-    valid: true,
-    gapKm: historicalKm,
-    historicalKm,
-    businessStartOdometer: Number.isFinite(businessStart) ? businessStart : null,
-    historicalOdometerGap: historicalKm > 0
-  }
+  return preservePwaResult(evaluateShiftStartRule('validateFirstDayShiftStartOdometer', {
+    currentOdometer,
+    businessStartOdometer
+  }))
 }
 
 export function validateGapAllocation(gapKm, category = null) {
-  const gap = gapKm == null || gapKm === '' ? NaN : Number(gapKm)
-  if (!Number.isFinite(gap) || gap < 0) {
-    return { valid: false, requiresGapAllocation: true, gapKm: gap }
-  }
-  if (gap === 0) {
-    return { valid: true, category: null, personalKm: 0, deadKm: 0 }
-  }
-  if (category !== 'PERSONAL' && category !== 'DEAD') {
-    return { valid: false, requiresGapAllocation: true, gapKm: gap }
-  }
-  return {
-    valid: true,
-    category,
-    personalKm: category === 'PERSONAL' ? gap : 0,
-    deadKm: category === 'DEAD' ? gap : 0
-  }
+  return preservePwaResult(evaluateShiftStartRule('validateGapAllocation', { gapKm, category }))
 }

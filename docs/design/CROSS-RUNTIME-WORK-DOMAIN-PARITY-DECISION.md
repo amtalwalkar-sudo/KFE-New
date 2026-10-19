@@ -65,3 +65,15 @@ The versioned source `spec/work-domain/shift-start-golden-vectors.json` and cont
 ### Next stage
 
 Evaluate a single-source rule representation/generation approach that can preserve current PWA API behavior while producing a native-compatible evaluator. Native tests must load the same versioned vector file from the repository source (through a build-time asset source path, not a manually copied duplicate). If a maintainable single-source evaluator cannot be demonstrated, stop and return with the trade-off for an explicit architecture decision.
+
+
+### Stage 2 — declarative source and dual-runtime vector consumer (in review)
+
+The branch `proof/single-source-shift-start-rules` introduces `spec/work-domain/shift-start-rules.json` as a declarative source for the three opening-odometer/gap-allocation rules. The PWA's existing exported functions now adapt this source while retaining their UI-facing reason strings. The Android build includes the same source directory as assets; a native interpreter consumes `shift-start-rules.json` and an instrumentation test reads the exact `shift-start-golden-vectors.json` asset from that directory.
+
+The initial native test compares every expected field in the 13 shared vectors. This is a proof-of-concept, not permission to add native lifecycle commands. Review and CI must verify the evaluator, build asset path, numeric-string form inputs, and compatibility behavior. If CI or review exposes a semantic mismatch, fix it here before extending the DSL to end-shift rules.
+
+
+### Stage 2 validation note — 2026-10-19
+
+The first replacement revision corrected the Java source's escaped line breaks. On commit `8f6c7c5933c6db1bdb44b4280625324d3364778d`, the KFE 2.0 single CI PWA/build-and-test job passed and the Android debug APK compiled successfully; the Android Exact APK Smoke Gate was still running at the latest check, so native instrumentation parity is not yet confirmed. The UI Isolation Gate correctly rejected the cross-layer diff because its required review markers were absent from the pull request body. The PR now explicitly documents the reviewed business/native impact and includes `[ui-impact-reviewed]` and `[native-impact-reviewed]`; a fresh PR revision is required to validate those acknowledgements through the gate. Keep Stage 2 in review and do not merge until the fresh UI gate and Android exact APK smoke/instrumentation pass.

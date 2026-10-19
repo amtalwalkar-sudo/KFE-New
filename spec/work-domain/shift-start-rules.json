@@ -1,0 +1,457 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Single maintained declarative source for shift-start odometer and gap-allocation rules. Evaluators interpret this AST; they must not reimplement rule formulas.",
+  "rules": {
+    "validateShiftStartOdometer": {
+      "inputs": [
+        "currentOdometer",
+        "previousOdometer"
+      ],
+      "expression": {
+        "if": {
+          "op": "or",
+          "args": [
+            {
+              "op": "notFinite",
+              "value": {
+                "input": "currentOdometer"
+              }
+            },
+            {
+              "op": "lte",
+              "left": {
+                "number": {
+                  "input": "currentOdometer"
+                }
+              },
+              "right": {
+                "const": 0
+              }
+            }
+          ]
+        },
+        "then": {
+          "object": {
+            "valid": {
+              "const": false
+            },
+            "reasonCode": {
+              "const": "INVALID_CURRENT_ODOMETER"
+            }
+          }
+        },
+        "else": {
+          "if": {
+            "op": "notFiniteOrMissing",
+            "value": {
+              "input": "previousOdometer"
+            }
+          },
+          "then": {
+            "object": {
+              "valid": {
+                "const": true
+              },
+              "gapKm": {
+                "const": 0
+              }
+            }
+          },
+          "else": {
+            "if": {
+              "op": "lt",
+              "left": {
+                "number": {
+                  "input": "currentOdometer"
+                }
+              },
+              "right": {
+                "number": {
+                  "input": "previousOdometer"
+                }
+              }
+            },
+            "then": {
+              "object": {
+                "valid": {
+                  "const": false
+                },
+                "reasonCode": {
+                  "const": "BELOW_PREVIOUS_ODOMETER"
+                }
+              }
+            },
+            "else": {
+              "object": {
+                "valid": {
+                  "const": true
+                },
+                "gapKm": {
+                  "op": "subtract",
+                  "left": {
+                    "number": {
+                      "input": "currentOdometer"
+                    }
+                  },
+                  "right": {
+                    "number": {
+                      "input": "previousOdometer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "validateFirstDayShiftStartOdometer": {
+      "inputs": [
+        "currentOdometer",
+        "businessStartOdometer"
+      ],
+      "expression": {
+        "if": {
+          "op": "or",
+          "args": [
+            {
+              "op": "notFinite",
+              "value": {
+                "input": "currentOdometer"
+              }
+            },
+            {
+              "op": "lte",
+              "left": {
+                "number": {
+                  "input": "currentOdometer"
+                }
+              },
+              "right": {
+                "const": 0
+              }
+            }
+          ]
+        },
+        "then": {
+          "object": {
+            "valid": {
+              "const": false
+            },
+            "reasonCode": {
+              "const": "INVALID_CURRENT_ODOMETER"
+            }
+          }
+        },
+        "else": {
+          "if": {
+            "op": "and",
+            "args": [
+              {
+                "op": "finiteAndPresent",
+                "value": {
+                  "input": "businessStartOdometer"
+                }
+              },
+              {
+                "op": "lt",
+                "left": {
+                  "number": {
+                    "input": "currentOdometer"
+                  }
+                },
+                "right": {
+                  "number": {
+                    "input": "businessStartOdometer"
+                  }
+                }
+              }
+            ]
+          },
+          "then": {
+            "object": {
+              "valid": {
+                "const": false
+              },
+              "reasonCode": {
+                "const": "BELOW_BUSINESS_START_ODOMETER"
+              }
+            }
+          },
+          "else": {
+            "object": {
+              "valid": {
+                "const": true
+              },
+              "gapKm": {
+                "if": {
+                  "op": "finiteAndPresent",
+                  "value": {
+                    "input": "businessStartOdometer"
+                  }
+                },
+                "then": {
+                  "op": "subtract",
+                  "left": {
+                    "number": {
+                      "input": "currentOdometer"
+                    }
+                  },
+                  "right": {
+                    "number": {
+                      "input": "businessStartOdometer"
+                    }
+                  }
+                },
+                "else": {
+                  "const": 0
+                }
+              },
+              "historicalKm": {
+                "if": {
+                  "op": "finiteAndPresent",
+                  "value": {
+                    "input": "businessStartOdometer"
+                  }
+                },
+                "then": {
+                  "op": "subtract",
+                  "left": {
+                    "number": {
+                      "input": "currentOdometer"
+                    }
+                  },
+                  "right": {
+                    "number": {
+                      "input": "businessStartOdometer"
+                    }
+                  }
+                },
+                "else": {
+                  "const": 0
+                }
+              },
+              "businessStartOdometer": {
+                "if": {
+                  "op": "finiteAndPresent",
+                  "value": {
+                    "input": "businessStartOdometer"
+                  }
+                },
+                "then": {
+                  "number": {
+                    "input": "businessStartOdometer"
+                  }
+                },
+                "else": {
+                  "const": null
+                }
+              },
+              "historicalOdometerGap": {
+                "op": "gt",
+                "left": {
+                  "if": {
+                    "op": "finiteAndPresent",
+                    "value": {
+                      "input": "businessStartOdometer"
+                    }
+                  },
+                  "then": {
+                    "op": "subtract",
+                    "left": {
+                      "number": {
+                        "input": "currentOdometer"
+                      }
+                    },
+                    "right": {
+                      "number": {
+                        "input": "businessStartOdometer"
+                      }
+                    }
+                  },
+                  "else": {
+                    "const": 0
+                  }
+                },
+                "right": {
+                  "const": 0
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "validateGapAllocation": {
+      "inputs": [
+        "gapKm",
+        "category"
+      ],
+      "expression": {
+        "if": {
+          "op": "or",
+          "args": [
+            {
+              "op": "notFiniteOrMissing",
+              "value": {
+                "input": "gapKm"
+              }
+            },
+            {
+              "op": "lt",
+              "left": {
+                "number": {
+                  "input": "gapKm"
+                }
+              },
+              "right": {
+                "const": 0
+              }
+            }
+          ]
+        },
+        "then": {
+          "object": {
+            "valid": {
+              "const": false
+            },
+            "requiresGapAllocation": {
+              "const": true
+            },
+            "gapKm": {
+              "number": {
+                "input": "gapKm"
+              }
+            },
+            "reasonCode": {
+              "const": "GAP_ALLOCATION_REQUIRED"
+            }
+          }
+        },
+        "else": {
+          "if": {
+            "op": "eq",
+            "left": {
+              "number": {
+                "input": "gapKm"
+              }
+            },
+            "right": {
+              "const": 0
+            }
+          },
+          "then": {
+            "object": {
+              "valid": {
+                "const": true
+              },
+              "category": {
+                "const": null
+              },
+              "personalKm": {
+                "const": 0
+              },
+              "deadKm": {
+                "const": 0
+              }
+            }
+          },
+          "else": {
+            "if": {
+              "op": "not",
+              "value": {
+                "op": "or",
+                "args": [
+                  {
+                    "op": "eq",
+                    "left": {
+                      "input": "category"
+                    },
+                    "right": {
+                      "const": "PERSONAL"
+                    }
+                  },
+                  {
+                    "op": "eq",
+                    "left": {
+                      "input": "category"
+                    },
+                    "right": {
+                      "const": "DEAD"
+                    }
+                  }
+                ]
+              }
+            },
+            "then": {
+              "object": {
+                "valid": {
+                  "const": false
+                },
+                "requiresGapAllocation": {
+                  "const": true
+                },
+                "gapKm": {
+                  "number": {
+                    "input": "gapKm"
+                  }
+                },
+                "reasonCode": {
+                  "const": "GAP_ALLOCATION_REQUIRED"
+                }
+              }
+            },
+            "else": {
+              "object": {
+                "valid": {
+                  "const": true
+                },
+                "category": {
+                  "input": "category"
+                },
+                "personalKm": {
+                  "if": {
+                    "op": "eq",
+                    "left": {
+                      "input": "category"
+                    },
+                    "right": {
+                      "const": "PERSONAL"
+                    }
+                  },
+                  "then": {
+                    "number": {
+                      "input": "gapKm"
+                    }
+                  },
+                  "else": {
+                    "const": 0
+                  }
+                },
+                "deadKm": {
+                  "if": {
+                    "op": "eq",
+                    "left": {
+                      "input": "category"
+                    },
+                    "right": {
+                      "const": "DEAD"
+                    }
+                  },
+                  "then": {
+                    "number": {
+                      "input": "gapKm"
+                    }
+                  },
+                  "else": {
+                    "const": 0
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -30,4 +30,21 @@ for (const vector of vectors.cases) {
   assert.ok(evaluators[vector.rule], `Unknown rule in vector ${vector.id}`)
   assert.deepEqual(normalize(evaluators[vector.rule](vector.input)), vector.expected, `Shared shift-start vector failed: ${vector.id}`)
 }
-console.log(`Shared shift-start golden vectors passed: ${vectors.cases.length}`)
+
+assert.deepEqual(
+  normalize(validateShiftStartOdometer('120', '100')),
+  { valid: true, gapKm: 20 },
+  'The shared rule source must preserve numeric-string PWA form inputs.'
+)
+assert.deepEqual(
+  normalize(validateFirstDayShiftStartOdometer('125', '100')),
+  { valid: true, gapKm: 25, historicalKm: 25, businessStartOdometer: 100, historicalOdometerGap: true },
+  'The shared rule source must normalize numeric-string historical baselines.'
+)
+assert.deepEqual(
+  normalize(validateGapAllocation(null, null)),
+  { valid: false, requiresGapAllocation: true, gapKm: Number.NaN, reasonCode: 'GAP_ALLOCATION_REQUIRED' },
+  'Missing gap distance must remain invalid rather than being coerced to zero.'
+)
+
+console.log(`Shared shift-start golden vectors passed: ${vectors.cases.length} plus runtime input edge cases`)
