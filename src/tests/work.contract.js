@@ -12,6 +12,9 @@ import { getLiveMovementTracePlan } from '../application/work/liveMovementTrace.
 import { deriveLiveRevenue } from '../domain/work/liveRevenue.js'
 import { filterGpsTrace, routeTrace } from '../domain/movement/movementAccounting.js'
 assert.equal(deriveLiveRevenue([{status:'COMPLETED',revenue:250},{status:'COMPLETED',revenue:150}]),400)
+assert.equal(deriveLiveRevenue([{status:'COMPLETED',revenue:250},{status:'CANCELLED',cancelledRevenue:75}]),325, 'Shift revenue projection includes eligible completed-trip fares plus cancellation fees.')
+assert.equal(deriveLiveRevenue([{status:'CANCELLED',cancelledRevenue:''},{status:'CANCELLED',cancelledRevenue:null}]),0, 'Blank and not-applicable cancellation fees contribute ₹0.')
+assert.equal(deriveLiveRevenue([{status:'COMPLETED',revenue:999,fareDetailsSkipped:true},{status:'CANCELLED',cancelledRevenue:25}]),25, 'Skipped completed-trip fare detail is excluded while cancellation fees remain eligible.')
 const workViewSource = fs.readFileSync(path.join(process.cwd(), 'src/views/WorkModuleView.vue'), 'utf8')
 assert.doesNotMatch(workViewSource, /from ['"][^'"]*\/infrastructure\//, 'Work view must not import infrastructure adapters directly.')
 assert.doesNotMatch(workViewSource, /from ['"]@capacitor\/core['"]/, 'Work view must not depend directly on Capacitor.')
