@@ -43,7 +43,7 @@ const expectedRevenue = snapshot.trips
   .filter(trip => revenueShiftIds.has(trip.shiftId) && !trip.deletedAt && trip.deleted !== true)
   .reduce((sum, trip) => {
     if (trip.status === 'COMPLETED' && trip.fareDetailsSkipped !== true) return sum + Number(trip.revenue || 0)
-    if (trip.status === 'CANCELLED') return sum + Number(trip.cancelledRevenue ?? trip.revenue ?? 0)
+    if (trip.status === 'CANCELLED') return sum + Number(Object.prototype.hasOwnProperty.call(trip, 'cancelledRevenue') ? (trip.cancelledRevenue ?? 0) : (trip.revenue ?? 0))
     return sum
   }, 0)
 const expectedFuelLogs = snapshot.fuel_logs.filter(log => inRange(log.capturedAt))
