@@ -51,7 +51,8 @@ assert.equal(fareReconciliation.reconciliationStatus, 'UNAVAILABLE')
 assert.equal(fareReconciliation.unpricedTrips, 1)
 const shiftRepo = source('src/repositories/shiftTripRepository.js')
 assert.match(shiftRepo, /db\.transaction\(\['shifts', 'pending_mutations', 'audit_history'\], 'readwrite'\)/)
-assert.doesNotMatch(shiftRepo.slice(shiftRepo.indexOf('async completeShift(data)'), shiftRepo.indexOf('async createTrip(data)')), /shift\.revenueReconciliation\s*=|shift\.revenue\s*=|data\.trips/, 'Shift completion persists odometer/lifecycle only; financial data is preserved.')
+assert.match(shiftRepo.slice(shiftRepo.indexOf('async completeShift(data)'), shiftRepo.indexOf('async createTrip(data)')), /shift\.revenue\s*=\s*deriveLiveRevenue\(shiftTrips\)/, 'Shift completion atomically projects revenue from canonical trip fares and cancellation fees.')
+assert.match(shiftRepo.slice(shiftRepo.indexOf('async completeShift(data)'), shiftRepo.indexOf('async createTrip(data)')), /db\.transaction\(\['shifts', 'trips', 'pending_mutations', 'audit_history'\], 'readwrite'\)/, 'Shift closure reads trip details in the same canonical transaction.')
 
 // Odometer remainder with no trustworthy segment evidence must stay UNCLASSIFIED, not be silently called dead KM.
 const movement = await MovementAccountingService.reconcileShiftMovement({ trips: [], startOdometer: 100, endOdometer: 200 })
