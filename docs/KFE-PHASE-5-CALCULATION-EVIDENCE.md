@@ -43,7 +43,7 @@ Reverse trace:
 3. Indicative results cannot become authoritative inputs.
 4. Daily break-even allocates the authoritative monthly break-even; it is not a second cost-build formula.
 5. Driver Target remains separate from actual revenue and actual profit.
-6. Trip fare is supporting detail; completed shift-end revenue is the ERP revenue authority.
+6. Eligible completed-trip fares plus cancellation fees are the source facts for the persisted trip-derived `Shift.revenue` projection; shift-end is not a competing revenue authority.
 7. Provision balances and actual settlements remain distinct.
 8. Forecast exposes calculated and effective values separately.
 9. Open-period calculations respect the selected as-of boundary.
