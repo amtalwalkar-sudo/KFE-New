@@ -44,7 +44,8 @@ export const OperationalRecordService = {
     const terminal = terminalTrips(trips)
     const storedRevenue = Number.isFinite(Number(shift.revenue)) ? Number(shift.revenue) : 0
     const revenue = shift.revenueSource === 'TRIP_FARES' ? storedRevenue : deriveLiveRevenue(trips)
-    const legacyRevenue = shift.revenueSource !== 'TRIP_FARES' && storedRevenue > 0
+    const legacyMismatch = shift.revenueSource !== 'TRIP_FARES' && storedRevenue > 0 && Math.abs(storedRevenue - revenue) >= 0.005
+    const legacyRevenue = legacyMismatch
       ? { legacyRevenueSnapshot: shift.legacyRevenueSnapshot ?? storedRevenue, legacyRevenueMigrationStatus: shift.legacyRevenueMigrationStatus || 'REVIEW_REQUIRED' }
       : {}
     const readShift = shift.revenueSource === 'TRIP_FARES'
