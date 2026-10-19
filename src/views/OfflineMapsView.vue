@@ -120,7 +120,7 @@ onUnmounted(async () => { for (const handle of listeners) await handle?.remove?.
           <h2>{{ region.region }}</h2>
           <p class="sub">{{ region.regionId }}</p>
         </div>
-        <span class="status" :class="{ ready: region.status?.installed }">{{ region.status?.installed ? 'Downloaded' : 'Not downloaded' }}</span>
+        <span class="status" :class="{ ready: region.status?.installed }">{{ region.status?.installed ? (region.status?.manifestAvailable && region.status?.latestVersion !== region.status?.installedVersion ? 'Update available' : 'Downloaded') : 'Not downloaded' }}</span>
       </div>
 
       <div class="facts">
