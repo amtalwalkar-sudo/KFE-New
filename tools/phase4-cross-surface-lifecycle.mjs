@@ -128,8 +128,8 @@ try {
     assert(cancelled?.status === 'CANCELLED', 'Cancelled trip did not persist CANCELLED.')
     assert(completed?.shiftId === shiftId && cancelled?.shiftId === shiftId, 'Trip/shift association changed across lifecycle transitions.')
 
-    // Seed the already-recorded financial authority independently of shift closure.
-    // End Shift itself commits only the closing odometer and lifecycle transition.
+    // Seed a stale legacy total to prove shift closure recomputes revenue from linked trip facts.
+    // The old value must be preserved for migration review, but never remain authoritative.
     const financialDb = await openCanonicalDB()
     await new Promise((resolve, reject) => {
       const tx = financialDb.transaction(['shifts'], 'readwrite')
@@ -160,13 +160,13 @@ try {
     assert(completedEvent?.record.status === 'COMPLETED', 'Timeline status does not match completed repository state.')
     assert(cancelledEvent?.record.status === 'CANCELLED', 'Timeline status does not match cancelled repository state.')
     assert(timeline.rides === 1, 'Timeline counted a cancelled trip as a completed ride.')
-    assert(Number(timeline.authoritativeRevenue) === 800, 'Timeline authoritative revenue changed during odometer-only shift closure.')
+    assert(Number(timeline.authoritativeRevenue) === 1100, 'Timeline revenue must include completed fare plus cancellation fee after shift closure.')
     assert(Number(timeline.businessKm) === 80, 'Timeline business KM counted cancelled-trip KM.')
 
     const snapshot = await PerformanceService.getSnapshot()
     const range = istDayRange(today)
     const metrics = PerformanceService.getMetrics(snapshot, range)
-    assert(Number(metrics.revenue) === 800, 'Performance revenue diverged from shift authority.')
+    assert(Number(metrics.revenue) === 1100, 'Performance revenue must match the trip-derived Shift projection.')
     assert(Number(metrics.vehicleKm) === 100, 'Performance vehicle KM diverged from opening/closing odometer.')
     assert(Number(metrics.businessKm) === 80, 'Performance business KM counted cancelled-trip KM.')
     assert(Number(metrics.counts?.trips) === 1, 'Performance trip count included a cancelled trip.')
@@ -182,6 +182,8 @@ try {
     const persistedCompleted = persisted.trips.find(trip => trip.id === completedTripId)
     const persistedCancelled = persisted.trips.find(trip => trip.id === cancelledTripId)
     assert(persisted.shift?.status === 'COMPLETED' && persisted.shift.endOdometer === 1100, 'Canonical shift lifecycle state is incorrect.')
+    assert(persisted.shift.revenue === 1100 && persisted.shift.revenueSource === 'TRIP_FARES', 'Shift closure must persist the canonical trip-derived revenue projection.')
+    assert(persisted.shift.legacyRevenueSnapshot === 800 && persisted.shift.legacyRevenueMigrationStatus === 'REVIEW_REQUIRED', 'A mismatched legacy revenue value must be preserved separately for migration review.')
     assert(persistedCompleted?.status === 'COMPLETED' && persistedCompleted.tripKm === 80 && persistedCompleted.revenue === 800, 'Canonical completed trip state is incorrect.')
     assert(persistedCancelled?.status === 'CANCELLED' && persistedCancelled.cancelledRevenue === 300, 'Canonical cancelled trip state is incorrect.')
 
