@@ -1,11 +1,13 @@
 /**
- * Reconcile the PWA cache with Android's native SQLite authority.
+ * Reconcile the PWA cache with Android's durable canonical SQLite snapshot.
  *
- * Existing records from native SQLite are authoritative regardless of updatedAt:
- * the PWA timestamp only describes the local cache/write timeline and cannot prove
- * that a full-record snapshot includes later native overlay transitions. Promote a
- * local record only when native has no record for that ID (for example, an
- * interrupted first mirror). Then re-read SQLite and converge IndexedDB to it.
+ * PWA commands own shift start/end; native overlay commands own trip execution and
+ * fare/cancellation while the WebView is unavailable. Both write paths converge
+ * through this durable record boundary. Existing canonical records are authoritative
+ * regardless of local updatedAt: a PWA timestamp cannot prove that a full-record
+ * snapshot includes a later native overlay transition. Promote a local record only
+ * when native has no record for that ID (for example, an interrupted first mirror),
+ * then re-read SQLite and converge IndexedDB to it.
  */
 const reconcileEntity = async (entityType, canonicalRecords, localRecords, mirrorRecord) => {
   const canonicalIds = new Set(canonicalRecords.filter(record => record?.id).map(record => record.id))
@@ -21,10 +23,12 @@ const reconcileEntity = async (entityType, canonicalRecords, localRecords, mirro
 }
 
 /**
- * Android native SQLite owns existing shift/trip lifecycle and fare state.
- * Local-only records may be promoted to recover an interrupted first write, but a
- * newer local updatedAt is never sufficient to replace an existing native record.
- * Only a fresh native snapshot is copied back to IndexedDB.
+ * SQLite is the durable cross-surface record authority, not permission for the
+ * native overlay to start/end shifts. PWA-originated shift lifecycle writes and
+ * native trip/fare/cancellation writes are reconciled with the same stale-snapshot
+ * rule. Local-only records may be promoted to recover an interrupted first write,
+ * but a newer local updatedAt is never sufficient to replace an existing canonical
+ * record. Only a fresh native snapshot is copied back to IndexedDB.
  */
 export async function recoverCanonicalWorkSnapshot({
   readCanonical,
