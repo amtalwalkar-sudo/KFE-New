@@ -56,3 +56,5 @@ assert.match(fs.readFileSync(new URL('../repositories/shiftTripRepository.js',im
 console.log('PASS: live revenue model and shared swipe configuration')
 
 assert.equal(deriveLiveRevenue([{status:'CANCELLED',revenue:99,cancelledRevenue:null}]),0, 'Explicit blank/null cancellation fee must not fall back to legacy revenue')
+
+assert.equal(deriveLiveRevenue([{status:'COMPLETED',revenue:'250'},{status:'CANCELLED',cancelledRevenue:'25'}]),275, 'Numeric string values normalize consistently for legacy/imported records')
