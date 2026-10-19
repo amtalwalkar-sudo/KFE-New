@@ -498,6 +498,14 @@ public class KfeOverlayService extends Service {
   // transitions. The optional package-private injector lets instrumentation tests
   // interrupt after each durable boundary and retry from persisted preferences.
   private String persistLifecycleAction(String eventStage,String canonicalStage,boolean rideStarted){
+    JSONObject savedState;
+    try{
+      savedState=new JSONObject(getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(LAST_STATE_KEY,"{}"));
+      JSONObject savedShift=savedState.optJSONObject("shift");
+      if(savedShift==null||!isCanonicalShiftActive(KfeCanonicalWorkStore.get(this),savedShift.optString("id","")))
+        throw new IllegalStateException("The canonical shift is no longer active.");
+    }catch(RuntimeException error){throw error;}
+    catch(Exception error){throw new IllegalStateException("Could not verify canonical shift ownership.",error);}
     if(!persistNativeWorkflow())throw new IllegalStateException("Native lifecycle checkpoint could not be committed.");
     injectLifecycleFault("AFTER_CHECKPOINT");
     String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,eventStage,pendingTripId,"");
@@ -778,6 +786,19 @@ public class KfeOverlayService extends Service {
       try{if(!Double.isFinite(Double.parseDouble(parkingValue))||Double.parseDouble(parkingValue)<0)return;}catch(Exception e){return;}
     }
     if("CANCEL".equals(formMode)&&cancelReason.isEmpty())return;
+    try{
+      JSONObject canonicalTripResult=KfeCanonicalWorkStore.get(this).getRecord("TRIP",actionTripId);
+      JSONObject canonicalTrip=canonicalTripResult.optJSONObject("record");
+      if(!canonicalTripResult.optBoolean("found",false)||canonicalTrip==null
+          ||!isCanonicalShiftActive(KfeCanonicalWorkStore.get(this),canonicalTrip.optString("shiftId",""))){
+        Toast.makeText(this,"This shift has ended. Reopen Work to refresh the overlay.",Toast.LENGTH_LONG).show();
+        return;
+      }
+    }catch(Exception error){
+      Log.e("KFE-CANONICAL","Could not verify active shift before native form submission.",error);
+      Toast.makeText(this,"Could not verify the active shift. Nothing was saved; retry after Work refreshes.",Toast.LENGTH_LONG).show();
+      return;
+    }
     formSubmitting=true;
     if("FARE".equals(formMode)){
       try {
