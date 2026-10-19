@@ -255,6 +255,16 @@ assert.equal(validateGapAllocation(180, 'PERSONAL').personalKm + validateGapAllo
 assert.equal(validateGapAllocation(180, 'DEAD').personalKm + validateGapAllocation(180, 'DEAD').deadKm, 180)
 assert.deepEqual(validateGapAllocation(0), { valid: true, category: null, personalKm: 0, deadKm: 0 })
 assert.equal(validateEndShiftEntry({ closingOdometer: 100, startOdometer: 100 }).valid, true)
+for (const closingOdometer of [null, undefined, '', '   ']) {
+  assert.deepEqual(validateEndShiftEntry({ closingOdometer, startOdometer: 100 }), {
+    valid: false,
+    reason: 'CLOSING_ODOMETER_REQUIRED'
+  }, `Missing closing odometer must be rejected: ${String(closingOdometer)}`)
+}
+assert.deepEqual(validateEndShiftEntry({ closingOdometer: 'not-a-number', startOdometer: 100 }), {
+  valid: false,
+  reason: 'CLOSING_ODOMETER_REQUIRED'
+})
 assert.equal(validateEndShiftEntry({ closingOdometer: 99, startOdometer: 100 }).valid, false)
 assert.equal(validateEndShiftEntry({ closingOdometer: 601, startOdometer: 100 }).requiresConfirmation, true)
 assert.equal(validateEndShiftEntry({ closingOdometer: 601, startOdometer: 100 }).valid, false)
