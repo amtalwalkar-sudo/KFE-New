@@ -57,14 +57,14 @@ fi
 # the real Offline Maps screen, not copied into the app by the test harness.
 timeout 300s adb push work/trace-request-mumbai.json /data/local/tmp/kfe-trace-request-mumbai.json
 timeout 60s adb shell run-as com.kanishka.pwa sh -c 'mkdir -p files && cp /data/local/tmp/kfe-trace-request-mumbai.json files/valhalla-trace-request.json'
-test "$(adb shell run-as com.kanishka.pwa wc -c files/valhalla-trace-request.json | awk '{print $1}' | tr -d '\\r')" -gt 0
+test "$(adb shell run-as com.kanishka.pwa wc -c files/valhalla-trace-request.json | awk '{print $1}' | tr -d '\r')" -gt 0
 
 # Exercise the actual user-facing download button while networking is available.
 set +e
 echo "Starting actual UI-driven Mumbai offline map download and integrity verification."
-timeout 1500s adb shell am instrument -w -r \\
-  -e class com.kanishka.pwa.KfeRecoveryHardeningTest#downloadOfflineMapThroughUserFacingScreen \\
-  com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner \\
+timeout 1500s adb shell am instrument -w -r \
+  -e class com.kanishka.pwa.KfeRecoveryHardeningTest#downloadOfflineMapThroughUserFacingScreen \
+  com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner \
   > artifacts/android-offline-routing/ui-download-instrumentation.log 2>&1
 download_result=$?
 set -e
