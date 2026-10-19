@@ -1,0 +1,178 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Shared golden vectors for shift-start odometer and gap allocation. Expected reason codes are runtime-neutral; UI-facing reason strings are not part of this contract.",
+  "cases": [
+    {
+      "id": "previous-odometer-positive-gap",
+      "rule": "validateShiftStartOdometer",
+      "input": {
+        "currentOdometer": 120,
+        "previousOdometer": 100
+      },
+      "expected": {
+        "valid": true,
+        "gapKm": 20
+      }
+    },
+    {
+      "id": "previous-odometer-equal",
+      "rule": "validateShiftStartOdometer",
+      "input": {
+        "currentOdometer": 100,
+        "previousOdometer": 100
+      },
+      "expected": {
+        "valid": true,
+        "gapKm": 0
+      }
+    },
+    {
+      "id": "previous-odometer-missing",
+      "rule": "validateShiftStartOdometer",
+      "input": {
+        "currentOdometer": 120,
+        "previousOdometer": null
+      },
+      "expected": {
+        "valid": true,
+        "gapKm": 0
+      }
+    },
+    {
+      "id": "current-odometer-zero",
+      "rule": "validateShiftStartOdometer",
+      "input": {
+        "currentOdometer": 0,
+        "previousOdometer": 100
+      },
+      "expected": {
+        "valid": false,
+        "reasonCode": "INVALID_CURRENT_ODOMETER"
+      }
+    },
+    {
+      "id": "current-below-previous",
+      "rule": "validateShiftStartOdometer",
+      "input": {
+        "currentOdometer": 99,
+        "previousOdometer": 100
+      },
+      "expected": {
+        "valid": false,
+        "reasonCode": "BELOW_PREVIOUS_ODOMETER"
+      }
+    },
+    {
+      "id": "first-day-historical-gap",
+      "rule": "validateFirstDayShiftStartOdometer",
+      "input": {
+        "currentOdometer": 125,
+        "businessStartOdometer": 100
+      },
+      "expected": {
+        "valid": true,
+        "gapKm": 25,
+        "historicalKm": 25,
+        "businessStartOdometer": 100,
+        "historicalOdometerGap": true
+      }
+    },
+    {
+      "id": "first-day-no-baseline",
+      "rule": "validateFirstDayShiftStartOdometer",
+      "input": {
+        "currentOdometer": 125,
+        "businessStartOdometer": null
+      },
+      "expected": {
+        "valid": true,
+        "gapKm": 0,
+        "historicalKm": 0,
+        "businessStartOdometer": null,
+        "historicalOdometerGap": false
+      }
+    },
+    {
+      "id": "first-day-current-below-business-start",
+      "rule": "validateFirstDayShiftStartOdometer",
+      "input": {
+        "currentOdometer": 99,
+        "businessStartOdometer": 100
+      },
+      "expected": {
+        "valid": false,
+        "reasonCode": "BELOW_BUSINESS_START_ODOMETER"
+      }
+    },
+    {
+      "id": "zero-gap-needs-no-allocation",
+      "rule": "validateGapAllocation",
+      "input": {
+        "gapKm": 0,
+        "category": null
+      },
+      "expected": {
+        "valid": true,
+        "category": null,
+        "personalKm": 0,
+        "deadKm": 0
+      }
+    },
+    {
+      "id": "positive-gap-personal",
+      "rule": "validateGapAllocation",
+      "input": {
+        "gapKm": 12.5,
+        "category": "PERSONAL"
+      },
+      "expected": {
+        "valid": true,
+        "category": "PERSONAL",
+        "personalKm": 12.5,
+        "deadKm": 0
+      }
+    },
+    {
+      "id": "positive-gap-dead",
+      "rule": "validateGapAllocation",
+      "input": {
+        "gapKm": 12.5,
+        "category": "DEAD"
+      },
+      "expected": {
+        "valid": true,
+        "category": "DEAD",
+        "personalKm": 0,
+        "deadKm": 12.5
+      }
+    },
+    {
+      "id": "positive-gap-missing-category",
+      "rule": "validateGapAllocation",
+      "input": {
+        "gapKm": 5,
+        "category": null
+      },
+      "expected": {
+        "valid": false,
+        "requiresGapAllocation": true,
+        "gapKm": 5,
+        "reasonCode": "GAP_ALLOCATION_REQUIRED"
+      }
+    },
+    {
+      "id": "negative-gap-invalid",
+      "rule": "validateGapAllocation",
+      "input": {
+        "gapKm": -1,
+        "category": "PERSONAL"
+      },
+      "expected": {
+        "valid": false,
+        "requiresGapAllocation": true,
+        "gapKm": -1,
+        "reasonCode": "GAP_ALLOCATION_REQUIRED"
+      }
+    }
+  ]
+}
