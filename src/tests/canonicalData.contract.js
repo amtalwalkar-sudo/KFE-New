@@ -34,6 +34,17 @@ assert.match(canonicalDoc, /Business calendar dates.*IST dates/)
 assert.match(canonicalDoc, /must not be compared by passing UTC-midnight conversions/)
 assert.match(breakEvenSource, /istDateKey/)
 assert.match(targetSource, /applicableDriverTarget/)
+const revenueProjection = normalizeCalculationSnapshot({
+  shifts: [{ id: 'legacy-shift', status: 'COMPLETED', revenue: 500, shiftEndAt: '2026-09-10T10:00:00+05:30' }],
+  trips: [
+    { id: 'fare', shiftId: 'legacy-shift', status: 'COMPLETED', revenue: 250 },
+    { id: 'cancel', shiftId: 'legacy-shift', status: 'CANCELLED', cancelledRevenue: 25 },
+    { id: 'deleted-fare', shiftId: 'legacy-shift', status: 'COMPLETED', revenue: 999, deleted: true },
+  ],
+})
+assert.equal(revenueProjection.shifts[0].revenue, 275, 'Reporting normalization must derive legacy revenue from eligible fares plus cancellation fees')
+assert.equal(revenueProjection.shifts[0].legacyRevenueSnapshot, 500, 'Legacy Shift total must be preserved for migration review')
+assert.equal(revenueProjection.shifts[0].legacyRevenueMigrationStatus, 'REVIEW_REQUIRED')
 const normalized = normalizeCalculationSnapshot({
   shifts: [{ id: 's1', start_odometer: '1000', end_odometer: '1200', shift_start_at: '2026-09-10T08:00:00+05:30', shift_end_at: '2026-09-10T18:00:00+05:30' }],
   trips: [{ id: 't1', trip_start_at: '2026-09-10T09:00:00+05:30', trip_end_at: '2026-09-10T10:00:00+05:30', trip_km: '18.4', fare: '327', status: 'COMPLETED', tripKmAuthority: 'OCR', revenueAuthority: 'OCR', tripKmProvenance: 'OCR', revenueProvenance: 'OCR' }],
