@@ -38,7 +38,14 @@ const inRange = value => {
 const roundMoney = value => Math.round((value + Number.EPSILON) * 100) / 100
 const expectedVehicleKm = snapshot.shifts.reduce((sum, shift) => sum + shift.endOdometer - shift.startOdometer, 0)
 const expectedBusinessKm = snapshot.trips.reduce((sum, trip) => sum + Number(trip.tripKm), 0)
-const expectedRevenue = snapshot.shifts.filter(shift => inRange(shift.shiftEndAt)).reduce((sum, shift) => sum + Number(shift.revenue || 0), 0)
+const revenueShiftIds = new Set(snapshot.shifts.filter(shift => inRange(shift.shiftEndAt)).map(shift => shift.id))
+const expectedRevenue = snapshot.trips
+  .filter(trip => revenueShiftIds.has(trip.shiftId) && !trip.deletedAt && trip.deleted !== true)
+  .reduce((sum, trip) => {
+    if (trip.status === 'COMPLETED' && trip.fareDetailsSkipped !== true) return sum + Number(trip.revenue || 0)
+    if (trip.status === 'CANCELLED') return sum + Number(trip.cancelledRevenue ?? trip.revenue ?? 0)
+    return sum
+  }, 0)
 const expectedFuelLogs = snapshot.fuel_logs.filter(log => inRange(log.capturedAt))
 const expectedFuelCost = expectedFuelLogs.reduce((sum, log) => sum + Number(log.amount || 0), 0)
 const expectedFuelQuantity = expectedFuelLogs.reduce((sum, log) => sum + Number(log.quantityKg || 0), 0)
@@ -57,7 +64,7 @@ assert.equal(metrics.businessKm, expectedBusinessKm, 'business KM must reconcile
 assert.equal(metrics.deadKm, 0, 'without a saved movement reconciliation, the remainder must not be promoted to dead KM')
 assert.equal(metrics.unclassifiedKm, expectedVehicleKm - expectedBusinessKm, 'unreconciled vehicle KM remains unclassified')
 assert.equal(metrics.businessKmIntegrityStatus, 'COMPLETE')
-assert.equal(metrics.revenue, expectedRevenue, 'authoritative revenue must reconcile to shift-end revenue only')
+assert.equal(metrics.revenue, expectedRevenue, 'reported revenue must reconcile to eligible trip fares plus cancellation fees')
 assert.equal(metrics.financialRevenue, expectedFinancialRevenue, 'included toll/parking must be removed from financial revenue exactly once')
 assert.equal(metrics.fuelCost, expectedFuelCost, 'fuel spend must reconcile to selected-period fuel logs')
 assert.equal(metrics.fuelQty, expectedFuelQuantity, 'fuel quantity must reconcile to raw selected-period quantities')
