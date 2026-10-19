@@ -32,6 +32,8 @@ assert.equal(missingFareMismatch.difference, 300)
 const noTrips = reconcileShiftRevenue({ shiftRevenue: 0, trips: [] })
 assert.equal(noTrips.reconciliationStatus, 'NOT_APPLICABLE')
 assert.equal(noTrips.reason, 'NO_ELIGIBLE_TRIP_REVENUE')
+const missingShiftProjection = reconcileShiftRevenue({ trips: [] })
+assert.equal(missingShiftProjection.reconciliationStatus, 'UNAVAILABLE', 'Missing persisted projection must not be interpreted as an explicit zero')
 
 const cancelledOnly = reconcileShiftRevenue({ shiftRevenue: 100, trips: [{ id: 't1', status: 'CANCELLED', cancelledRevenue: 100, revenue: 100 }] })
 assert.equal(cancelledOnly.reconciliationStatus, 'RECONCILED')
