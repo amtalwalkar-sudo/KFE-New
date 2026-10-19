@@ -320,6 +320,31 @@ jobs:
             gh release create offline-maps --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
               --title "KFE Offline Maps" \
               --notes "Selectable regional Valhalla tile packages for KFE. Catalog: offline-maps-manifest.json. © OpenStreetMap contributors; ODbL applies."
+          # Remove legacy Alibag and broad-corridor assets so they cannot remain
+          # directly downloadable after the catalog is narrowed to three areas.
+          legacy_assets="$(gh release view offline-maps --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -E '^offline-maps-(alibag-.*|[0-9]{8}-[0-9]+)\\.tar            work/offline-maps-mumbai-metro-${{ steps.package.outputs.map_version }}.tar \
+            work/offline-maps-pune-${{ steps.package.outputs.map_version }}.tar \
+            work/offline-maps-nashik-${{ steps.package.outputs.map_version }}.tar \
+            work/offline-maps-manifest.json work/offline-maps-attribution.txt
+          echo "Published the catalog and three checksummed area packages."
+
+      - name: Upload build evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kfe-offline-valhalla-map-build-evidence
+          path: |
+            work/offline-maps-manifest.json
+            work/offline-maps-attribution.txt
+            work/result-*.json
+          if-no-files-found: warn
+          retention-days: 14
+ || true)"
+          while IFS= read -r asset; do
+            [ -n "$asset" ] || continue
+            echo "Removing unsupported offline map asset: $asset"
+            gh release delete-asset offline-maps "$asset" --repo "$GITHUB_REPOSITORY" --yes
+          done <<< "$legacy_assets"
           gh release upload offline-maps --repo "$GITHUB_REPOSITORY" --clobber \
             work/offline-maps-mumbai-metro-${{ steps.package.outputs.map_version }}.tar \
             work/offline-maps-pune-${{ steps.package.outputs.map_version }}.tar \
