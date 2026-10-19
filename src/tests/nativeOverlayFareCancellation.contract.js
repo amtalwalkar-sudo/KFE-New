@@ -23,6 +23,8 @@ assert.match(overlay, /finishNativeFormCommit\(\)/)
 assert.match(store, /operationId was already used for a different command/)
 assert.ok(overlay.includes('!trip.optString("deletedAt","").trim().isEmpty()||trip.optBoolean("deleted",false)'), 'Native revenue projection excludes soft-deleted trips like PWA calculation')
 assert.ok(overlay.includes('revenueValue.trim().isEmpty()?0d:Double.parseDouble(revenueValue)'), 'Blank native cancellation fee persists as numeric zero')
+assert.ok(overlay.includes('(trip.has("deletedAt")&&!trip.isNull("deletedAt"))'), 'Native aggregation excludes only genuinely soft-deleted records, not explicit null deletion timestamps')
+assert.ok(overlay.includes('trip.has("cancelledRevenue")?trip.opt("cancelledRevenue"):trip.opt("revenue")'), 'Explicit null cancellation fee does not fall back to unrelated legacy revenue')
 assert.ok(overlay.includes('trip.put("cancelledRevenue",cancellationFee)'), 'Native cancellation fee persists in canonical cancellation field')
 
 const fareBranch = overlay.slice(overlay.indexOf('if("FARE".equals(formMode)){', overlay.indexOf('private void submitNumericForm')), overlay.indexOf('}else if("CANCEL".equals(formMode)){', overlay.indexOf('private void submitNumericForm')))
