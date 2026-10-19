@@ -18,6 +18,7 @@ const normalize = result => {
     if (Object.hasOwn(result, key)) normalized[key] = result[key]
   }
   if (result.reason) normalized.reasonCode = reasonCodes.get(result.reason) || 'GAP_ALLOCATION_REQUIRED'
+  else if (result.valid === false && result.requiresGapAllocation) normalized.reasonCode = 'GAP_ALLOCATION_REQUIRED'
   return normalized
 }
 const evaluators = {
