@@ -1,10 +1,11 @@
 <script setup>
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import WorkFuelForm from './WorkFuelForm.vue'
 import WorkStartShiftForm from './WorkStartShiftForm.vue'
 import WorkFareForm from './WorkFareForm.vue'
 import WorkCancellationForm from './WorkCancellationForm.vue'
 import WorkEndShiftForm from './WorkEndShiftForm.vue'
+import WorkNumericKeypad from './WorkNumericKeypad.vue'
 
 const props = defineProps({
   type: { type: String, required: true },
@@ -62,7 +63,6 @@ const emit = defineEmits([
 
 
 const activeNumericField = ref(null)
-const numericPad = ref(null)
 const suppressNumericFocus = ref(false)
 const activeNumeric = computed(() => {
   const name = activeNumericField.value
@@ -81,7 +81,6 @@ const activeNumeric = computed(() => {
   if (name in map) return { name, value: map[name] == null ? '' : String(map[name]), decimal: name === 'fuel-price' }
   return null
 })
-const activeNumericDecimal = computed(() => activeNumeric.value?.decimal === true)
 onMounted(() => {
   // The fare keypad is rendered in-flow and the compact fare layout is sized
   // to fit the viewport. Do not auto-scroll the whole page on form open.
@@ -110,62 +109,6 @@ function emitNumeric(name, value) {
     'closing-odo': 'update:closing-odo',
   }
   if (events[name]) { emit(events[name], value); return }
-}
-const numericLabels = {
-  'start-odo': 'Current odometer',
-  fare: 'Trip fare',
-  'trip-toll': 'Toll',
-  'trip-parking': 'Parking',
-  'cancel-fare': 'Cancellation fee',
-  'fuel-odo': 'Odometer',
-  'fuel-price': 'Price / kg',
-  'fuel-amount': 'Amount',
-  'closing-odo': 'Closing odometer',
-}
-const numericNext = {
-  'fare': 'trip-toll',
-  'trip-toll': 'trip-parking',
-  'fuel-odo': 'fuel-price',
-  'fuel-price': 'fuel-amount'
-}
-const numericLabel = name => {
-  if (numericLabels[name]) return numericLabels[name]
-  if (name.startsWith('review-revenue:')) return 'Trip revenue'
-  if (name.startsWith('review-km:')) return 'Trip KM'
-  return name.replace(/[-:]/g, ' ')
-}
-const numericPress = async token => {
-  const field = activeNumeric.value
-  if (!field || typeof field !== 'object') {
-    activeNumericField.value = null
-    return
-  }
-  let next = field.value
-  if (token === 'CLEAR') next = ''
-  else if (token === 'BACK') next = next.slice(0, -1)
-  else if (token === '.' && (!field?.decimal || next.includes('.'))) return
-  else if (token === '.' && next === '') next = '0.'
-  else if (token !== 'DONE' && token !== 'NEXT') next = next === '0' ? token : next + token
-
-  if (token === 'NEXT') {
-    const nextName = numericNext[field.name]
-    if (nextName) {
-      activeNumericField.value = nextName
-      return
-    }
-    activeNumericField.value = null
-    return
-  }
-  if (token === 'DONE') {
-    const finalFields = new Set(['fare', 'trip-parking', 'cancel-fare'])
-    if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
-    suppressNumericFocus.value = true
-    activeNumericField.value = null
-    await nextTick()
-    if (finalFields.has(field.name)) submitForm()
-    return
-  }
-  emitNumeric(field.name, next)
 }
 
 const endTitle = computed(() => props.endStage === 'ENDED' ? 'Shift ended' : 'Close shift')
@@ -204,26 +147,16 @@ const updateMap = (name, map, id, value) => {
 
     <WorkEndShiftForm v-else-if="type === 'end'" :end-title="endTitle" :end-stage="endStage" :end-busy="endBusy" :end-large-distance-km="endLargeDistanceKm" :large-distance-confirmed-for="largeDistanceConfirmedFor" :large-distance-identity="largeDistanceIdentity" :start-odo="startOdo" :closing-odo="closingOdo" @action="emit('action', $event)" @focus-numeric="activateNumeric" @update:large-distance-confirmed-for="emit('update:large-distance-confirmed-for', $event)" />
 
-      <div v-if="activeNumeric" ref="numericPad" class="kfe-work-number-pad" aria-label="KFE intelligent numeric keypad">
-        <div class="kfe-work-number-pad__display">
-          <span>{{ numericLabel(activeNumeric.name) }}</span>
-          <strong>{{ activeNumeric.value || '0' }}</strong>
-        </div>
-        <div class="kfe-work-number-pad__grid">
-          <button v-for="key in ['1','2','3','4','5','6','7','8','9','CLEAR','0','BACK']" :key="key" type="button" @click="numericPress(key)">{{ key === 'CLEAR' ? 'CLR' : key === 'BACK' ? '⌫' : key }}</button>
-        </div>
-        <div class="kfe-work-number-pad__actions" :class="{ 'fare-keypad-actions': type === 'fare' }">
-          <button v-if="activeNumericDecimal" type="button" class="decimal-key" @click="numericPress('.')">.</button>
-          <span v-else-if="type !== 'fare'"></span>
-          <template v-if="type === 'fare'">
-            <button type="button" class="done fare-save-action" :disabled="fareBusy" @click="submitForm">{{ fareBusy ? 'SAVING…' : 'OK' }}</button>
-          </template>
-          <template v-else>
-            <button v-if="numericNext[activeNumeric.name]" type="button" @click="numericPress('NEXT')">NEXT →</button>
-            <button type="button" class="done" @click="numericPress('DONE')">DONE</button>
-          </template>
-        </div>
-      </div>
+    <WorkNumericKeypad
+      :active-numeric="activeNumeric"
+      :type="type"
+      :fare-busy="fareBusy"
+      @update-value="emitNumeric($event.name, $event.value)"
+      @focus-field="activeNumericField = $event"
+      @dismiss="dismissNumeric"
+      @suppress-focus="suppressNumericFocus = true"
+      @submit="submitForm"
+    />
   </section>
 </template>
 
