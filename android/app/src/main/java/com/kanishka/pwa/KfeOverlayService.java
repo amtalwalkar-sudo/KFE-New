@@ -443,11 +443,11 @@ public class KfeOverlayService extends Service {
   }
 
   private void triggerAction(){
-    // The SQLite queue is the durable hand-off. Advance the native cockpit
-    // immediately after the action is committed to that queue so a suspended
-    // WebView cannot leave the overlay stuck on "WAITING FOR APP". When Work
-    // resumes, it replays these events in creation order and persists each
-    // canonical business transition using the same event IDs.
+    // SQLite is the durable hand-off and native trip state is committed before
+    // dispatch. Advance the overlay only after that canonical write succeeds so a
+    // suspended WebView cannot block offline trip execution. When Work resumes it
+    // reconciles an already-committed trip state and acknowledges this same event;
+    // it only runs the legacy action handler if the native commit never completed.
     if(!awaitingEventId.isEmpty()) return;
     if("GO_TO_PICKUP".equals(actionStage)){
       if(pendingTripId.isEmpty()) pendingTripId=java.util.UUID.randomUUID().toString();
