@@ -88,7 +88,7 @@ For fuel, a qualified full-tank interval is authoritative only when the fuel rec
 | Cash movement | explicit cash settlements plus known financing payments | `CASH_MOVEMENT` | `financialFactModel` | ₹ / selected period | No inferred cash balance from revenue/expense |
 
 
-**Authority identifier:** `SHIFT_END_REVENUE` is the canonical ownership marker for operational revenue. `AUTHORITATIVE_MONTHLY_BREAK_EVEN` remains the ownership marker for monthly break-even.
+**Authority identifier:** `TRIP_DERIVED_SHIFT_REVENUE` is the canonical ownership marker for operational revenue. The `Shift.revenue` field stores this projection; shift-end is not its source. `AUTHORITATIVE_MONTHLY_BREAK_EVEN` remains the ownership marker for monthly break-even.
 
 ## Period rules
 
@@ -233,7 +233,7 @@ Use an isolated deterministic fixture unless a row specifies a different vector.
 |---|---:|
 | Shift opening / closing odometer | 1,000 km / 1,100 km |
 | Valid completed trip distances | 30 km + 42 km |
-| Completed shift-end revenue | ₹2,400 |
+| Persisted trip-derived Shift revenue | ₹2,400 |
 | Fuel actual | ₹600 |
 | Toll / parking | ₹100 / ₹50 |
 | Actual maintenance invoice | ₹300 |
