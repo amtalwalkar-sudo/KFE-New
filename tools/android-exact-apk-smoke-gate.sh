@@ -3,6 +3,8 @@ set -euo pipefail
 
 cd "$GITHUB_WORKSPACE"
 mkdir -p artifacts/android-golden
+ADB_BIN="$(type -P adb)"
+test -n "$ADB_BIN" || { echo "ADB executable was not found on PATH." >&2; exit 1; }
 
 # Bound every ordinary ADB call. Instrumentation invocations below have their own
 # longer explicit timeout; unbounded transport/device commands must never hang CI.
@@ -11,7 +13,7 @@ adb() {
   if [[ "${1:-}" == "wait-for-device" ]]; then
     limit="${KFE_ADB_WAIT_TIMEOUT_SECONDS:-15}"
   fi
-  timeout --foreground "${limit}s" command adb "$@"
+  timeout --foreground "${limit}s" "$ADB_BIN" "$@"
 }
 
 adb_ready() {
