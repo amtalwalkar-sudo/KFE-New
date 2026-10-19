@@ -1,6 +1,10 @@
 const LARGE_DISTANCE_WARNING_KM = 500
 
 export function validateEndShiftEntry({ closingOdometer, startOdometer, confirmLargeDistance = false }) {
+  if (closingOdometer == null || String(closingOdometer).trim() === '') {
+    return { valid: false, reason: 'CLOSING_ODOMETER_REQUIRED' }
+  }
+
   const odometer = Number(closingOdometer)
   const start = Number(startOdometer)
 
