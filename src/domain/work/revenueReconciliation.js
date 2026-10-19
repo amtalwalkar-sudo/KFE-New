@@ -122,7 +122,8 @@ export function reconcileShiftRevenue({
   tollTreatment, parkingTreatment, tollParkingCaptureMode,
   tollParkingRevenueTreatment = TOLL_PARKING_TREATMENTS.INCLUDED,
 } = {}) {
-  const authoritativeRevenue = money(shiftRevenue)
+  const hasPersistedShiftRevenue = shiftRevenue !== null && shiftRevenue !== undefined && shiftRevenue !== ''
+  const authoritativeRevenue = hasPersistedShiftRevenue ? money(shiftRevenue) : NaN
   const eligibleTrips = live(trips)
   const tripRevenue = deriveLiveRevenue(eligibleTrips)
   const financial = deriveFinancialRevenue({
