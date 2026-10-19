@@ -100,7 +100,10 @@ assert.equal(canTransitionTrip(TRIP_STATES.COMPLETED, TRIP_STATES.COMPLETED), tr
 
 // 7. Calculation convergence / no native competing business authority.
 assertIncludes(dataContract, 'Shift.revenue', 'Canonical data contract must identify Shift revenue authority.')
-assertIncludes(dataContract, 'Trip.revenue', 'Trip revenue must remain supporting detail.')
+assertIncludes(dataContract, 'Trip.revenue', 'Trip fare detail must feed the canonical Shift projection.')
+assertIncludes(dataContract, 'eligible trip records', 'Revenue authority must be derived from eligible canonical trip records.')
+assertIncludes(dataContract, 'cancellation fees', 'Cancellation fees must be included in trip-derived Shift revenue.')
+assertIncludes(dataContract, 'TRIP_DERIVED_SHIFT_REVENUE', 'Revenue authority identifier must not imply shift-end manual entry.')
 assertIncludes(workView, 'deriveLiveRevenue(trips)', 'PWA live revenue must be derived from saved Trip fares.')
 assertIncludes(nativeOverlay, 'refreshCanonicalRevenue', 'Native overlay must derive the saved-fare total from canonical Trip records.')
 assertIncludes(workService, "tripKmAuthority: 'GPS_LINE_TRACE'", 'Native GPS results must be written through the canonical Trip update path.')
