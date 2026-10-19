@@ -67,8 +67,9 @@ export const ShiftTripRepository = {
   async completeShift(data) { await ensureCanonicalReadBoundary();
     const db = await initializeCanonicalStorage()
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(['shifts', 'pending_mutations', 'audit_history'], 'readwrite')
+      const tx = db.transaction(['shifts', 'trips', 'pending_mutations', 'audit_history'], 'readwrite')
       const shifts = tx.objectStore('shifts')
+      const trips = tx.objectStore('trips')
       const mutations = tx.objectStore('pending_mutations')
       const audit = tx.objectStore('audit_history')
       const request = shifts.get(data.id)
@@ -84,22 +85,31 @@ export const ShiftTripRepository = {
           reject(new Error('Shift is not active.'))
           return
         }
-        try {
-          const now = new Date().toISOString()
-          const normalized = normalizeShiftInput(data)
-          shift.endOdometer = requireFinite(normalized.endOdometer, 'endOdometer')
-          if (shift.endOdometer < shift.startOdometer) throw new Error('endOdometer cannot be less than startOdometer.')
-          shift.totalDistance = shift.endOdometer - shift.startOdometer
-          if (data.movementReconciliation) shift.movementReconciliation = data.movementReconciliation
-          shift.shiftEndAt = now
-          shift.shiftDurationMs = Math.max(0, Date.parse(now) - Date.parse(shift.shiftStartAt || now))
-          shift.status = 'COMPLETED'
-          shift.updatedAt = now
-          shifts.put(shift)
-          saveMutation(mutations, audit, shift.id, 'SHIFT', 'UPDATE', shift, now)
-        } catch (error) {
+        const tripsRequest = trips.getAll()
+        tripsRequest.onsuccess = () => {
+          try {
+            const now = new Date().toISOString()
+            const normalized = normalizeShiftInput(data)
+            shift.endOdometer = requireFinite(normalized.endOdometer, 'endOdometer')
+            if (shift.endOdometer < shift.startOdometer) throw new Error('endOdometer cannot be less than startOdometer.')
+            shift.totalDistance = shift.endOdometer - shift.startOdometer
+            if (data.movementReconciliation) shift.movementReconciliation = data.movementReconciliation
+            const shiftTrips = (tripsRequest.result || []).filter(trip => trip.shiftId === shift.id)
+            applyShiftRevenueProjection(shift, shiftTrips)
+            shift.shiftEndAt = now
+            shift.shiftDurationMs = Math.max(0, Date.parse(now) - Date.parse(shift.shiftStartAt || now))
+            shift.status = 'COMPLETED'
+            shift.updatedAt = now
+            shifts.put(shift)
+            saveMutation(mutations, audit, shift.id, 'SHIFT', 'UPDATE', shift, now)
+          } catch (error) {
+            try { tx.abort() } catch (_) {}
+            reject(error)
+          }
+        }
+        tripsRequest.onerror = () => {
           try { tx.abort() } catch (_) {}
-          reject(error)
+          reject(tripsRequest.error || new Error('Shift trip lookup failed.'))
         }
       }
       request.onerror = () => reject(request.error || new Error('Active shift lookup failed.'))
