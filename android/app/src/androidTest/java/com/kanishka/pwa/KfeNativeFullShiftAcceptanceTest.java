@@ -185,6 +185,82 @@ public class KfeNativeFullShiftAcceptanceTest {
         .commit();
   }
 
+  @Test public void formOutboxSurvivesCanonicalRefusalAndSameEventRetriesWithoutDuplicateFare() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    String suffix = Long.toString(System.currentTimeMillis());
+    String shiftId = "form-outbox-shift-" + suffix;
+    String tripId = "form-outbox-trip-" + suffix;
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    JSONObject shift = new JSONObject()
+        .put("id", shiftId).put("status", "ACTIVE").put("revenue", 0)
+        .put("updatedAt", "2020-01-01T00:00:00.000Z");
+    JSONObject trip = new JSONObject()
+        .put("id", tripId).put("shiftId", shiftId).put("status", "ACTIVE")
+        .put("tripStage", "COMPLETED").put("updatedAt", "2020-01-01T00:00:00.000Z");
+    assertTrue("Initial active shift must commit.",
+        store.putRecord("form-outbox-shift-create-" + suffix, "SHIFT", shift).accepted);
+    assertTrue("Initial trip must commit.",
+        store.putRecord("form-outbox-trip-create-" + suffix, "TRIP", trip).accepted);
+
+    AttachedOverlayService service = new AttachedOverlayService();
+    service.attach(context);
+    SharedPreferences prefs = context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE);
+    prepareSnapshot(prefs, shiftId, tripId);
+    JSONObject payload = new JSONObject()
+        .put("fare", "275").put("toll", "0").put("parking", "0")
+        .put("tollTreatment", "INCLUDED").put("parkingTreatment", "INCLUDED");
+    String eventId = KfeNativeWorkActionsPlugin.recordPendingAction(
+        context, "ENTER_FARE", tripId, payload.toString());
+    assertTrue("The form transport event must be durably queued before canonical write.",
+        KfeNativeEventStore.get(context).contains(eventId));
+
+    // Model a concurrent shift-end winning after the outbox append but before
+    // the form's canonical write. The native form must fail closed and remain retryable.
+    JSONObject endedShift = new JSONObject(shift.toString())
+        .put("status", "ENDED").put("updatedAt", "2099-01-01T00:00:00.000Z");
+    assertTrue("Concurrent shift end must commit.",
+        store.putRecord("form-outbox-shift-end-" + suffix, "SHIFT", endedShift).accepted);
+    try {
+      invoke(service, "persistCanonicalTripForm",
+          new Class<?>[]{String.class, String.class, JSONObject.class, String.class},
+          "FARE", tripId, payload, eventId);
+      throw new AssertionError("Form must not commit after canonical shift end.");
+    } catch (InvocationTargetException expected) {
+      assertTrue("Canonical shift-end refusal must be explicit.",
+          expected.getCause() instanceof IllegalStateException
+              && expected.getCause().getMessage().contains("shift is no longer active"));
+    }
+    JSONObject refusedTrip = KfeCanonicalWorkStore.get(context).getRecord("TRIP", tripId);
+    assertEquals("Failed form must not mutate the canonical trip.", "ACTIVE",
+        refusedTrip.getJSONObject("record").getString("status"));
+    assertTrue("Failed canonical write must not lose the durable outbox event.",
+        KfeNativeEventStore.get(context).contains(eventId));
+    assertPendingEvent(KfeNativeEventStore.get(context).pending(500), tripId, "ENTER_FARE");
+
+    // After authoritative shift state is restored by recovery, retry with the
+    // exact same event ID. A second replay must be idempotent across lost ack.
+    JSONObject restoredShift = new JSONObject(endedShift.toString())
+        .put("status", "ACTIVE").put("updatedAt", "2100-01-01T00:00:00.000Z");
+    assertTrue("Recovered active shift must commit.",
+        KfeCanonicalWorkStore.get(context).putRecord(
+            "form-outbox-shift-restore-" + suffix, "SHIFT", restoredShift).accepted);
+    invoke(service, "persistCanonicalTripForm",
+        new Class<?>[]{String.class, String.class, JSONObject.class, String.class},
+        "FARE", tripId, payload, eventId);
+    invoke(service, "persistCanonicalTripForm",
+        new Class<?>[]{String.class, String.class, JSONObject.class, String.class},
+        "FARE", tripId, payload, eventId);
+
+    JSONObject savedTrip = KfeCanonicalWorkStore.get(context).getRecord("TRIP", tripId);
+    JSONObject savedShift = KfeCanonicalWorkStore.get(context).getRecord("SHIFT", shiftId);
+    assertEquals("Retried fare must be canonical once.", "COMPLETED",
+        savedTrip.getJSONObject("record").getString("status"));
+    assertEquals(275d, savedTrip.getJSONObject("record").getDouble("revenue"), 0.001d);
+    assertEquals("Retry must derive revenue from the canonical fare without duplication.", 275d,
+        savedShift.getJSONObject("record").getDouble("revenue"), 0.001d);
+    assertPendingEvent(KfeNativeEventStore.get(context).pending(500), tripId, "ENTER_FARE");
+  }
+
   @Test public void lifecycleOutboxRetryReusesPendingAndAcknowledgedEventAcrossCrashBoundary() throws Exception {
     Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
     KfeNativeEventStore events = KfeNativeEventStore.get(context);
