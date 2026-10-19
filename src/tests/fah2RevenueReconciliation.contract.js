@@ -26,11 +26,16 @@ assert.equal(incomplete.reconciliationStatus, 'UNAVAILABLE')
 assert.equal(incomplete.reason, 'INCOMPLETE_TRIP_REVENUE_DETAIL')
 
 const noTrips = reconcileShiftRevenue({ shiftRevenue: 0, trips: [] })
-assert.equal(noTrips.reconciliationStatus, 'NOT_APPLICABLE')
-assert.equal(noTrips.reason, 'NO_COMPLETED_TRIPS')
+assert.equal(noTrips.reconciliationStatus, 'RECONCILED')
+assert.equal(noTrips.tripRevenue, 0)
 
-const cancelledOnly = reconcileShiftRevenue({ shiftRevenue: 0, trips: [{ id: 't1', status: 'CANCELLED', revenue: 100 }] })
-assert.equal(cancelledOnly.reconciliationStatus, 'NOT_APPLICABLE')
+const cancelledOnly = reconcileShiftRevenue({ shiftRevenue: 100, trips: [{ id: 'cancelled', status: 'CANCELLED', cancelledRevenue: 100 }] })
+assert.equal(cancelledOnly.reconciliationStatus, 'RECONCILED', 'Cancellation fees are included in derived Shift.revenue.')
+assert.equal(cancelledOnly.tripRevenue, 100)
+
+const blankCancellation = reconcileShiftRevenue({ shiftRevenue: 0, trips: [{ id: 'cancelled-blank', status: 'CANCELLED', cancelledRevenue: '' }] })
+assert.equal(blankCancellation.reconciliationStatus, 'RECONCILED', 'Blank/not-applicable cancellation fee is ₹0.')
+
 
 const invalidRevenue = reconcileShiftRevenue({ shiftRevenue: 1000, trips: [{ id: 't1', status: 'COMPLETED', revenue: -1 }] })
 assert.equal(invalidRevenue.reconciliationStatus, 'UNAVAILABLE')
@@ -65,4 +70,4 @@ assert.equal(excludedMetrics.parking, 5)
 assert.equal(excludedMetrics.runningCost, 55, 'Legacy aggregate toll is not added to trip toll twice')
 assert.equal(excludedMetrics.operatingProfit, 445)
 
-console.log('FAH-2 revenue reconciliation contract passed: shift-end revenue authority, optional trip detail, toll/parking inclusion without double counting, and end-shift revenue validation.')
+console.log('FAH-2 revenue reconciliation contract passed: derived trip-fare plus cancellation-fee authority, blank cancellation fee ₹0, toll/parking inclusion without double counting, and end-shift odometer validation.')
