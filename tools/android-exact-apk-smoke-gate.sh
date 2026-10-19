@@ -273,6 +273,9 @@ run_instrumentation com.kanishka.pwa.KfeWebViewStartupTest webview-startup 1
 # the canonical shift/trip projection.
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#canonicalWritesRemainIdempotentAfterLostAcknowledgementAndRejectStaleSnapshots canonical-persistence 1
 
+# A failed SQLite pending-queue read must reject recovery rather than resolve as an empty queue.
+run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#nativeEventQueueReadFailureMustNotMasqueradeAsSuccessfulEmptyRecovery native-queue-read-failure 1
+
 # Run the nine lifecycle interruption/retry combinations in the real Android gate.
 # Clear prior markers first, then require one explicit logcat result for every case.
 adb logcat -c
