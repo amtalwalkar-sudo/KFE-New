@@ -40,9 +40,9 @@ export const deriveDailyTargetAchievement = ({
   const liveTripRevenue = live(trips)
     .filter(trip => activeShiftIds.has(trip.shiftId))
     .filter(trip => trip?.status === 'CANCELLED' || (trip?.status === 'COMPLETED' && trip?.fareDetailsSkipped !== true))
-    .filter(trip => inRange(trip.tripEndAt, range))
+    .filter(trip => inRange(trip.status === 'CANCELLED' ? (trip.cancelledAt || trip.updatedAt || trip.tripEndAt) : trip.tripEndAt, range))
     .filter(trip => {
-      const ended = dateOf(trip.tripEndAt)
+      const ended = dateOf(trip.status === 'CANCELLED' ? (trip.cancelledAt || trip.updatedAt || trip.tripEndAt) : trip.tripEndAt)
       return !!ended && ended <= now
     })
     .reduce((total, trip) => {
