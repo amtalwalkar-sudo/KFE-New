@@ -157,6 +157,52 @@ if (requestedStyleFiles.length) {
   console.log('')
 }
 
+// Vue-template hook ownership check. A component-template edit can affect
+// styles in global CSS even when the changed file contains no <style> block.
+function extractMarkupTokens(source) {
+  const template = source.match(/<template\\b[^>]*>([\\s\\S]*?)<\\/template>/i)?.[1] ?? ''
+  const tokens = new Set()
+  for (const match of template.matchAll(/\\bclass\\s*=\\s*["']([^"']+)["']/g)) {
+    for (const token of match[1].split(/\\s+/)) if (/^[A-Za-z_][\\w-]*$/.test(token)) tokens.add('.' + token)
+  }
+  for (const match of template.matchAll(/:class\\s*=\\s*["']([^"']+)["']/g)) {
+    for (const literal of match[1].matchAll(/["']([A-Za-z_][\\w-]*)["']/g)) tokens.add('.' + literal[1])
+    for (const key of match[1].matchAll(/(?:^|[{,]\\s*)([A-Za-z_][\\w-]*)\\s*:/g)) tokens.add('.' + key[1])
+  }
+  return tokens
+}
+const markupTokensByFile = new Map()
+for (const file of files.filter(file => file.endsWith('.vue'))) {
+  const rel = normalize(path.relative(ROOT, file))
+  markupTokensByFile.set(rel, extractMarkupTokens(await readFile(file, 'utf8')))
+}
+const globalStyleTokensByFile = new Map([...styleByFile].map(([file, selectors]) => [
+  file, new Set([...selectors].flatMap(selector => [...selectorTokens(selector)])),
+]))
+const requestedVueFiles = requested.filter(file => markupTokensByFile.has(file))
+if (requestedVueFiles.length) {
+  console.log('COMPONENT MARKUP / GLOBAL STYLE HOOK OWNERSHIP CHECK')
+  let reported = 0
+  for (const requestedFile of requestedVueFiles) {
+    const tokens = markupTokensByFile.get(requestedFile)
+    for (const token of tokens) {
+      const otherComponents = [...markupTokensByFile]
+        .filter(([file, otherTokens]) => file !== requestedFile && otherTokens.has(token))
+        .map(([file]) => file)
+      const globalOwners = [...globalStyleTokensByFile]
+        .filter(([, styleTokens]) => styleTokens.has(token))
+        .map(([file]) => file)
+      if (!otherComponents.length && !globalOwners.length) continue
+      reported += 1
+      console.log(`🟡 ${requestedFile}: ${token}; shared by ${otherComponents.length ? otherComponents.join(', ') : 'no other Vue templates'}; global style sources: ${globalOwners.length ? globalOwners.join(', ') : 'none found'}`)
+    }
+  }
+  if (!reported) console.log('🟢 No shared template hooks or global style owners found for the requested Vue component(s).')
+  console.log('Review these as potential impact paths; shared design-system hooks may be intentional and should be explicitly documented.')
+  console.log('This is a static ownership report, not a guarantee of pixel-level invariance; visual/interaction regression tests remain required.')
+  console.log('')
+}
+
 if (!impacted.length) {
   console.log('🟢 ISOLATED: no local import dependents were found.')
   process.exit(0)
