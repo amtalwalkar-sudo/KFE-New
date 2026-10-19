@@ -453,6 +453,13 @@ public class KfeRecoveryHardeningTest {
     android.webkit.WebView webView = main.getBridge().getWebView();
     assertNotNull("KFE WebView must be available for the real user-facing download.", webView);
 
+    String pageReady = "waiting";
+    long pageDeadline = SystemClock.uptimeMillis() + 120000L;
+    while (SystemClock.uptimeMillis() < pageDeadline && !"ready".equals(pageReady)) {
+      pageReady = evaluateJavascriptSync(webView, "document.querySelector('#app h1') ? 'ready' : 'waiting'");
+      if (!"ready".equals(pageReady)) SystemClock.sleep(500L);
+    }
+    assertEquals("KFE must finish rendering its initial screen before navigating to Offline Maps.", "ready", pageReady);
     evaluateJavascriptSync(webView, "location.hash = '#/offline-maps'; 'navigated'");
     String clickResult = "waiting";
     long uiDeadline = SystemClock.uptimeMillis() + 180000L;
