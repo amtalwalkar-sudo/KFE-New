@@ -82,17 +82,17 @@ scenario('A5/H3/D2/F5/J1', () => {
   assert.equal(validateFuelEntry({ odometer: -1, pricePerKg: 82, amount: 410 }).valid, false)
 })
 
-// H1/H2/H5 — shift revenue remains authoritative; trip fare is supporting detail.
+// H1/H2/H5 — persisted Shift revenue must reconcile to eligible fares plus cancellation fees.
 scenario('A2/H1/H2/H5', () => {
   const reconciliation = reconcileShiftRevenue({
-    shiftRevenue: 500,
-    trips: [{ status: 'COMPLETED', revenue: 300 }, { status: 'COMPLETED', revenue: 200 }, { status: 'CANCELLED', revenue: 500 }],
+    shiftRevenue: 1000,
+    trips: [{ status: 'COMPLETED', revenue: 300 }, { status: 'COMPLETED', revenue: 200 }, { status: 'CANCELLED', revenue: 500, cancelledRevenue: 500 }],
     toll: 50,
     tollParkingRevenueTreatment: TOLL_PARKING_TREATMENTS.INCLUDED
   })
   assert.equal(reconciliation.reconciliationStatus, 'RECONCILED')
-  assert.equal(reconciliation.financialRevenue, 450)
-  assert.equal(reconciliation.authoritativeRevenue, 500)
+  assert.equal(reconciliation.financialRevenue, 950)
+  assert.equal(reconciliation.authoritativeRevenue, 1000)
   const incomplete = reconcileShiftRevenue({ shiftRevenue: 500, trips: [{ status: 'COMPLETED', revenue: null }] })
   assert.equal(incomplete.reconciliationStatus, 'UNAVAILABLE')
   assert.equal(incomplete.reason, 'INCOMPLETE_TRIP_REVENUE_DETAIL')
