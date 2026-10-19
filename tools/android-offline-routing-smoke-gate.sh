@@ -53,16 +53,27 @@ if [ "$prepare_result" -ne 0 ] || ! grep -Fq 'OK (1 test)' artifacts/android-off
   exit "${prepare_result:-1}"
 fi
 
-# Keep fixture files in app-private internal storage. Android 11+ scoped
-# storage/SELinux may deny run-as writes into /sdcard/Android/data even when
-# the directory belongs to the app; the native routing test reads this location.
-# Use the same Mumbai metro package that is published to users.
-timeout 300s adb push work/area-mumbai-metro.tar /data/local/tmp/kfe-area-mumbai.tar
-timeout 60s adb shell run-as com.kanishka.pwa sh -c 'mkdir -p files && cp /data/local/tmp/kfe-area-mumbai.tar files/valhalla-tiles.tar'
+# Stage only the route request fixture. The tile package must be obtained through
+# the real Offline Maps screen, not copied into the app by the test harness.
 timeout 300s adb push work/trace-request-mumbai.json /data/local/tmp/kfe-trace-request-mumbai.json
 timeout 60s adb shell run-as com.kanishka.pwa sh -c 'mkdir -p files && cp /data/local/tmp/kfe-trace-request-mumbai.json files/valhalla-trace-request.json'
-test "$(adb shell run-as com.kanishka.pwa wc -c files/valhalla-tiles.tar | awk '{print $1}' | tr -d '\r')" -gt 0
-test "$(adb shell run-as com.kanishka.pwa wc -c files/valhalla-trace-request.json | awk '{print $1}' | tr -d '\r')" -gt 0
+test "$(adb shell run-as com.kanishka.pwa wc -c files/valhalla-trace-request.json | awk '{print $1}' | tr -d '\\r')" -gt 0
+
+# Exercise the actual user-facing download button while networking is available.
+set +e
+echo "Starting actual UI-driven Mumbai offline map download and integrity verification."
+timeout 1500s adb shell am instrument -w -r \\
+  -e class com.kanishka.pwa.KfeRecoveryHardeningTest#downloadOfflineMapThroughUserFacingScreen \\
+  com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner \\
+  > artifacts/android-offline-routing/ui-download-instrumentation.log 2>&1
+download_result=$?
+set -e
+cat artifacts/android-offline-routing/ui-download-instrumentation.log
+if [ "$download_result" -ne 0 ] || ! grep -Fq 'OK (1 test)' artifacts/android-offline-routing/ui-download-instrumentation.log; then
+  adb logcat -d -t 4000 > artifacts/android-offline-routing/ui-download-failure-logcat.log || true
+  echo "UI-driven offline map download failed with exit code $download_result." >&2
+  exit "${download_result:-1}"
+fi
 
 # Disable emulator-managed external network paths before invoking native Valhalla.
 adb shell svc wifi disable
