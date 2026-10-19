@@ -1,7 +1,7 @@
 # KFE Cross-Surface Ownership Audit — 2026-10-19
 
 **Status:** SUPPORTING / SOURCE AUDIT EVIDENCE — NOT A NEW AUTHORITY  
-**Repository baseline:** `main` after keypad extraction merge `dfbed771d5c5c0b61b2fd2cb3fecca4d96a0b14a`  
+**Repository baseline:** `main` after form outbox SQLite-failure test merge `75913c6eec79aec1f44f7d733ae701fb708c0e11`  
 **Scope:** Trace the native Android overlay's lifecycle, fare, and cancellation persistence boundaries against the PWA Work command path. This is source-level analysis, not a physical-device acceptance claim.
 
 ## Governing authorities
@@ -53,20 +53,20 @@ The code therefore has two persistence surfaces with different roles: native SQL
 
 ## Risks to verify — not yet classified as confirmed defects
 
-1. **Outbox-before-canonical failure window:** form actions are queued before `persistCanonicalTripForm(...)` completes. Inject a canonical write failure after the outbox append and prove that replay cannot falsely report a committed form or create divergent business state. Verify retry uses the same event/operation identity.
+1. **Outbox-before-canonical failure window — focused storage-failure case covered:** Android instrumentation test `formOutboxSurvivesInjectedCanonicalSqliteWriteFailureAndRetriesIdempotently()` injects a real SQLite abort after `ENTER_FARE` is durably queued. It asserts the canonical Trip remains unchanged, the event remains pending, and retrying the same event twice after removing the fault produces one fare and one revenue contribution. The test passed in PR #309 CI. This covers a deterministic SQLite insert failure; it does not prove every process-death/crash boundary or that PWA replay can never falsely report success.
 2. **Lost acknowledgement after native commit:** kill/suspend the WebView after native commit but before PWA acknowledgement; replay must update the PWA representation once and retain the same Trip identity.
 3. **Concurrent/stale PWA snapshot:** deliver an older PWA snapshot after a newer native canonical Trip write; canonical fields and revenue must not regress.
 4. **Revenue projection convergence:** after fare/cancellation retries, compare native Shift revenue with the shared revenue derivation and PWA result. Cancelled trips with explicit blank/null cancellation fee must contribute ₹0, not fall back to a previous fare.
 5. **Shift ownership boundary:** start/end remain PWA-owned. Native trip/fare/cancellation work must reject a stale overlay snapshot after the canonical shift is ended.
-6. **Full shift while PWA closed:** current source comments explicitly assign shift start/end to the PWA. The required product behavior that the overlay can durably complete an entire shift while the PWA is closed is therefore not proven by this source trace and needs a separate explicit design/acceptance decision and end-to-end test; do not claim it is supported merely because trips/fare/cancellation work natively.
+6. **Full shift while PWA closed — confirmed capability gap:** `KfeOverlayPlugin.java` exposes overlay lifecycle/visibility and form callbacks but no native start-shift or end-shift command. `androidOverlayLifecycle.js` returns no overlay state when `WorkService.getActiveState()` has no active shift, and the overlay is hidden in that case. `KfeOverlayService.java` explicitly says shift start/end are PWA-owned, while the frozen requirement `docs/requirements/NATIVE_OVERLAY_FULL_SHIFT_WORKFLOW.md` requires an entire shift to progress without opening the PWA. Therefore the current overlay cannot initiate a shift when none is active and has no native end-shift/reconciliation flow. This is a concrete source-level mismatch, not just an untested assumption. Implement a native-capable shift command path with the same odometer/gap validation, canonical financial projection, reconciliation and closure invariants; then prove it with an end-to-end test while the PWA remains closed. Do not bypass the existing lifecycle authority or create a second domain implementation.
 
 ## Next implementation sequence
 
-1. Add/extend deterministic failure-injection tests for the outbox-before-canonical window and lost-ack replay. Keep this a narrowly scoped recovery test change first.
-2. Run native instrumentation plus PWA contract/production CI; fix any failures before touching ownership code.
-3. Use those tests to refactor toward one explicit canonical command contract with native capability adapters and PWA projection/replay, preserving native offline operation and all existing idempotency/stale-write protections.
-4. Separately decide and test how PWA-owned shift start/end reconcile with the requirement for overlay-only full-shift completion while the PWA is closed.
-5. Return to UI form-shell decoupling after the persistence contract is verified; presentation extraction must not change command ownership.
+1. Extend recovery coverage only where a specific missing boundary remains; PR #309 now covers an injected SQLite form-write failure and retry, while existing tests cover lifecycle checkpoint/outbox/canonical boundaries and stale-PWA catch-up.
+2. Define the explicit canonical command contract and native capability adapter before moving business writes; retain native SQLite transactions, deterministic operation/event identity, stale-write rejection, durable outbox and lost-ack recovery.
+3. Resolve the confirmed full-shift gap by making native shift start/end and required odometer/gap/reconciliation gates available without the PWA, reusing domain rules rather than duplicating them.
+4. Add an end-to-end acceptance test that starts, operates, and ends a shift with the PWA closed, then opens the PWA and verifies exact state/revenue reconciliation. CI is necessary but physical-device/background/reboot acceptance remains separate.
+5. Resume UI shell/form/button decoupling after the command/persistence contract is executable; presentation changes must not alter command ownership.
 
 ## Verification limits
 
