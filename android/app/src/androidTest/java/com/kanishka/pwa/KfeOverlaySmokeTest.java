@@ -243,7 +243,7 @@ public class KfeOverlaySmokeTest {
       };
       try {
         persist.invoke(service, "GO_TO_PICKUP", "GOING_TO_PICKUP", false);
-        fail("Expected lifecycle fault at " + boundary);
+        throw new AssertionError("Expected lifecycle fault at " + boundary);
       } catch (java.lang.reflect.InvocationTargetException expected) {
         assertTrue("Unexpected injected fault: " + expected.getCause(),
           expected.getCause() instanceof RuntimeException
