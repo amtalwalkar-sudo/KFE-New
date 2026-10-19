@@ -61,7 +61,7 @@ Authoritative driver/master-data input. Administrative deletion is soft deletion
 
 Operational boundary for vehicle movement and shift lifecycle. `Shift.startOdometer` and `Shift.endOdometer` are authoritative for vehicle KM.
 
-**Revenue authority:** `Shift.revenue`, entered/confirmed at shift completion, is the authoritative ERP revenue input for the shift. It is the value used by performance, target, break-even and reporting calculations that require operational revenue.
+**Revenue authority:** `Shift.revenue` is a canonical projection of eligible saved fares on completed Trips plus cancellation fees. It is recomputed from canonical Trips during shift completion and is used by performance, target, break-even and reporting calculations. A separately entered shift-end total is not an alternate authority.
 
 `Shift.toll` and `Shift.parking` represent additional shift-level actual expenses only for records marked `tollParkingCaptureMode: 'ADDITIONAL_ONLY'`; they must not duplicate expenses already recorded against Trips. New Work-created shifts use this mode. Legacy shifts without the mode retain aggregate compatibility and must not have trip-level amounts added twice. `Shift.tollTreatment` and `Shift.parkingTreatment` independently retain Included/Excluded treatment. The legacy `Shift.tollParkingRevenueTreatment` remains readable as a fallback for historical records without independent treatment fields.
 
@@ -71,13 +71,13 @@ A Shift cannot be administratively deleted through the normal Admin repository. 
 
 Ride-level operational detail linked to a Shift through `shiftId`. Completed `tripKm` is the authoritative business-KM input.
 
-`Trip.revenue` is **optional supporting/detail data only**. It must never override or replace shift-end revenue in ERP revenue calculations. Missing trip fare detail never blocks the next pickup or shift closure. Its provenance may be retained for audit and ride-level display.
+`Trip.revenue` is the source detail for eligible completed-trip fares in the `Shift.revenue` projection. Fare detail explicitly skipped is excluded; pending/missing fare detail is not fabricated as a fare. Missing optional detail never blocks the next pickup or shift closure. Its provenance may be retained for audit and ride-level display.
 
 `Trip.toll` and `Trip.parking` are optional trip-associated actual expense details captured after a completed trip. They retain the Trip identity and completion timestamp for reconciliation and monthly expense-ledger display. `Trip.tollTreatment` and `Trip.parkingTreatment` independently retain Included/Excluded treatment for their respective actual expense records. Legacy `Shift.toll` and `Shift.parking` values remain readable for historical records; current Work capture must not duplicate the same expense in both places.
 
 Ride cancellation is an operational status/outcome, not deletion. Trip history is retained.
 
-Cancellation-fee detail defaults to numeric `0` when blank or not applicable. An explicitly entered zero is also stored as numeric `0`. Cancelled-trip amounts are supporting-only and never replace authoritative `Shift.revenue`.
+Cancellation-fee detail defaults to numeric `0` when blank or not applicable. An explicitly entered zero is also stored as numeric `0`. Cancellation fees are included in the `Shift.revenue` projection while the Trip remains classified as `CANCELLED`, not `COMPLETED`.
 
 ### Odometer
 
@@ -125,8 +125,8 @@ Canonical writes that support mutation/audit coupling write the canonical record
 
 | Concept | Authority | Derived result |
 |---|---|---|
-| Shift revenue | completed Shift `revenue` | reporting-period revenue |
-| Trip revenue | supporting-only `Trip.revenue` | ride detail/display only; never blocks shift closure |
+| Shift revenue | completed Shift `revenue`, derived from eligible completed-trip fares plus cancellation fees | reporting-period revenue |
+| Trip fare / cancellation fee | canonical Trip `revenue` / `cancelledRevenue` | source detail for the Shift revenue projection; cancellation stays a distinct outcome |
 | Trip toll/parking | `Trip.toll` / `Trip.parking` plus legacy shift-level values | actual expense ledger and BR-11 treatment |
 | Vehicle KM | Shift start/end odometer | `vehicleKm` |
 | Business KM | completed Trip `tripKm` | `businessKm` |
@@ -186,7 +186,7 @@ Users enter source facts and contractual/source inputs. KFE derives values that 
 
 Manual input must not be provided for derived values such as ride duration, total vehicle KM, dead KM, fuel quantity when calculated from amount/price, EMI, interest/principal allocation, outstanding balance, financing outflow, renewal provision, maintenance provision, break-even revenue, or target calculations.
 
-Shift-end revenue is the explicit exception to any ride-level revenue detail: it is a user-entered source fact and is the ERP revenue authority.
+Shift revenue is not manually entered at shift end: it is derived from eligible completed-trip fares plus cancellation fees, with blank/not-applicable cancellation fees counted as ₹0.
 
 ## 10. Ledger and location evidence boundary
 

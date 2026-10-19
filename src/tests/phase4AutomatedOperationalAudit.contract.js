@@ -82,11 +82,11 @@ scenario('A5/H3/D2/F5/J1', () => {
   assert.equal(validateFuelEntry({ odometer: -1, pricePerKg: 82, amount: 410 }).valid, false)
 })
 
-// H1/H2/H5 — shift revenue remains authoritative; trip fare is supporting detail.
+// H1/H2/H5 — Shift.revenue projection must match eligible trip fares plus cancellation fees.
 scenario('A2/H1/H2/H5', () => {
   const reconciliation = reconcileShiftRevenue({
     shiftRevenue: 500,
-    trips: [{ status: 'COMPLETED', revenue: 300 }, { status: 'COMPLETED', revenue: 200 }, { status: 'CANCELLED', revenue: 500 }],
+    trips: [{ status: 'COMPLETED', revenue: 300 }, { status: 'COMPLETED', revenue: 200 }, { status: 'CANCELLED', cancelledRevenue: 0 }],
     toll: 50,
     tollParkingRevenueTreatment: TOLL_PARKING_TREATMENTS.INCLUDED
   })

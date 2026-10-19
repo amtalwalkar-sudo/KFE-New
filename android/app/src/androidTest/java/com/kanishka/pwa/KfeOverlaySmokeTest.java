@@ -638,8 +638,8 @@ public class KfeOverlaySmokeTest {
     JSONObject storedTrip = storedOutcome.getJSONObject("record");
     assertEquals("CANCELLED", storedTrip.getString("status"));
     assertEquals("PASSENGER", storedTrip.getString("cancelReason"));
-    assertTrue("An omitted cancellation fee remains absent, not a fabricated amount",
-      storedTrip.isNull("cancelledRevenue"));
+    assertEquals("An omitted cancellation fee is canonical zero, not a fabricated prior fare",
+      0d, storedTrip.getDouble("cancelledRevenue"), 0.001d);
   }
 
   @Test public void fareDraftSurvivesNativeOverlayServiceRestart() throws Exception {

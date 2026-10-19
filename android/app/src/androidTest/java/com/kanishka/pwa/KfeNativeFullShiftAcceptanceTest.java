@@ -41,6 +41,7 @@ public class KfeNativeFullShiftAcceptanceTest {
     String fareTripA = "native-full-fare-a-" + suffix;
     String fareTripB = "native-full-fare-b-" + suffix;
     String cancelledTrip = "native-full-cancel-" + suffix;
+    String blankCancelledTrip = "native-full-cancel-blank-" + suffix;
 
     KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
     JSONObject shift = new JSONObject()
@@ -100,12 +101,25 @@ public class KfeNativeFullShiftAcceptanceTest {
     setField(service, "cancelReason", "PASSENGER");
     invoke(service, "submitNumericForm", new Class<?>[]{});
 
+    // A blank/not-applicable cancellation fee is a real numeric-zero business fact.
+    prepareSnapshot(prefs, shiftId, blankCancelledTrip);
+    setField(service, "pendingTripId", blankCancelledTrip);
+    String blankPickupEvent = KfeNativeWorkActionsPlugin.recordPendingAction(service, "GO_TO_PICKUP", blankCancelledTrip, "");
+    assertTrue("Blank-fee cancellation pickup state must persist.",
+        (Boolean) invoke(service, "persistCanonicalTripStage",
+            new Class<?>[]{String.class, boolean.class, String.class}, "GOING_TO_PICKUP", false, blankPickupEvent));
+    setField(service, "formMode", "CANCEL");
+    setField(service, "formValue", "");
+    setField(service, "cancelReason", "PASSENGER");
+    invoke(service, "submitNumericForm", new Class<?>[]{});
+
     // Simulate an interrupted acknowledgement: the form's native commit exists,
     // while its durable transport event remains pending for later PWA catch-up.
     JSONArray pending = KfeNativeEventStore.get(context).pending(100);
     assertPendingEvent(pending, fareTripA, "ENTER_FARE");
     assertPendingEvent(pending, fareTripB, "ENTER_FARE");
     assertPendingEvent(pending, cancelledTrip, "CANCEL_RIDE");
+    assertPendingEvent(pending, blankCancelledTrip, "CANCEL_RIDE");
 
     // Retrying the same durable form event must replay the exact same canonical
     // operation and payload, even after the acknowledgement boundary.
@@ -126,10 +140,12 @@ public class KfeNativeFullShiftAcceptanceTest {
     JSONObject savedA = store.getRecord("TRIP", fareTripA);
     JSONObject savedB = store.getRecord("TRIP", fareTripB);
     JSONObject savedCancelled = store.getRecord("TRIP", cancelledTrip);
+    JSONObject savedBlankCancelled = store.getRecord("TRIP", blankCancelledTrip);
     JSONObject savedShift = store.getRecord("SHIFT", shiftId);
     assertTrue("First fare record must be committed natively.", savedA.optBoolean("found"));
     assertTrue("Second fare record must be committed natively.", savedB.optBoolean("found"));
     assertTrue("Cancellation record must be committed natively.", savedCancelled.optBoolean("found"));
+    assertTrue("Blank-fee cancellation record must be committed natively.", savedBlankCancelled.optBoolean("found"));
     assertTrue("Shift financial projection must be committed natively.", savedShift.optBoolean("found"));
     assertEquals(250d, savedA.getJSONObject("record").getDouble("revenue"), 0.001d);
     assertEquals(150d, savedB.getJSONObject("record").getDouble("revenue"), 0.001d);
@@ -148,14 +164,18 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertEquals("CANCELLED", savedCancelled.getJSONObject("record").getString("status"));
     assertEquals("PASSENGER", savedCancelled.getJSONObject("record").getString("cancelReason"));
     assertEquals(20d, savedCancelled.getJSONObject("record").getDouble("cancelledRevenue"), 0.001d);
-    assertEquals("Revenue must include both fares and the recorded cancellation fee.",
+    assertEquals("CANCELLED", savedBlankCancelled.getJSONObject("record").getString("status"));
+    assertEquals("Blank cancellation fee must persist as numeric zero.", 0d,
+        savedBlankCancelled.getJSONObject("record").getDouble("cancelledRevenue"), 0.001d);
+    assertEquals("Revenue must include both fares and the recorded cancellation fee; blank fee adds zero.",
         420d, savedShift.getJSONObject("record").getDouble("revenue"), 0.001d);
 
     JSONArray allTrips = store.listRecords("TRIP", 1000).getJSONArray("records");
-    assertEquals("Retry must not create a duplicate canonical trip.", 3, countShiftTrips(allTrips, shiftId));
+    assertEquals("Retry must not create a duplicate canonical trip.", 4, countShiftTrips(allTrips, shiftId));
     assertPendingEvent(KfeNativeEventStore.get(context).pending(100), fareTripA, "ENTER_FARE");
     assertPendingEvent(KfeNativeEventStore.get(context).pending(100), fareTripB, "ENTER_FARE");
     assertPendingEvent(KfeNativeEventStore.get(context).pending(100), cancelledTrip, "CANCEL_RIDE");
+    assertPendingEvent(KfeNativeEventStore.get(context).pending(100), blankCancelledTrip, "CANCEL_RIDE");
     prefs.edit()
         .putString("nativeFullShiftCatchupShiftId", shiftId)
         .putString("nativeFullShiftCatchupFareTripA", fareTripA)
