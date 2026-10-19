@@ -49,6 +49,14 @@ android {
     }
 }
 
+android {
+    sourceSets {
+        main {
+            assets.srcDir(rootProject.file("../spec/work-domain"))
+        }
+    }
+}
+
 repositories {
     flatDir { dirs 'libs' }
 }
