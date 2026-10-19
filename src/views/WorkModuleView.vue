@@ -8,7 +8,6 @@ import { WorkDraftService } from '../application/work/workDraftService.js'
 import { WorkflowTimerService, WorkWorkflowSessionService } from '../application/work/workflowTimerService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { WorkRuntimePorts } from '../application/work/workRuntimePorts.js'
-import { CanonicalWorkBoundary } from '../application/work/canonicalWorkBoundary.js'
 import { getLiveMovementTracePlan, matchesLiveMovementSession } from '../application/work/liveMovementTrace.js'
 import { deriveLiveRevenue } from '../application/work/liveRevenueReadModel.js'
 import { SWIPE_CONFIG } from '../application/work/swipeConfiguration.js'
@@ -659,20 +658,8 @@ async function saveFare(fromNative = false, operationId = '') {
       parkingTreatment: tripParkingTreatment.value
     }
     const fareDraft = tripDraftIdentity('work-trip-details', 'ENTER_FARE', pendingFare.value.id)
-    const result = await store.updateTrip(details)
+    const result = await store.updateTrip(details, { canonicalOperationId: operationId || '' })
     if (!result?.ok) { fail(result?.reason || 'Trip details could not be saved.'); return false }
-
-    // Android's native canonical record is authoritative for the overlay.
-    // Mirror the exact saved trip snapshot under the durable event ID so replay
-    // after an interrupted acknowledgement cannot count fare/toll/parking twice.
-    if (nativeAndroid) {
-      const savedTrip = { ...(pendingFare.value || {}), ...details, status: 'COMPLETED', updatedAt: new Date().toISOString() }
-      await CanonicalWorkBoundary.putRecord({
-        operationId: operationId || CanonicalWorkBoundary.createOperationId(),
-        entityType: 'TRIP',
-        record: savedTrip
-      })
-    }
 
     await clearCommittedDraft(fareDraft)
     fareTripId.value = null
@@ -747,23 +734,8 @@ async function saveCancel(fromNative = false, operationId = '') {
     const result = await store.cancelTrip({
       reason: cancellationReason,
       revenue: cancellationRevenue
-    })
+    }, { canonicalOperationId: operationId || '' })
     if (!result?.ok) { fail(result?.reason || 'Cancellation could not be saved.'); return false }
-
-    if (nativeAndroid && cancelledTripSnapshot) {
-      await CanonicalWorkBoundary.putRecord({
-        operationId: operationId || CanonicalWorkBoundary.createOperationId(),
-        entityType: 'TRIP',
-        record: {
-          ...cancelledTripSnapshot,
-          status: 'CANCELLED',
-          cancelReason: cancellationReason,
-          cancelledRevenue: cancellationRevenue,
-          tripEndAt: cancelledTripSnapshot.tripEndAt || new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      })
-    }
 
     // Cancellation ends this trip's movement window just like END TRIP.
     // Stop native capture and commit the dead-movement trace to canonical
