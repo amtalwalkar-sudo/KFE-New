@@ -24,5 +24,8 @@ assert.match(toolText, /process\.exitCode = 1/)
 assert.match(toolText, /extractSelectors/)
 assert.match(toolText, /GLOBAL CSS CASCADE CHECK/)
 assert.match(toolText, /selectorTokens/)
+assert.match(toolText, /extractMarkupTokens/)
+assert.match(toolText, /COMPONENT MARKUP \/ GLOBAL STYLE HOOK OWNERSHIP CHECK/)
+assert.match(toolText, /visual\/interaction regression tests remain required/)
 
 console.log('Presentation impact contract passed: presentation changes have a permanent dependency-warning guard.')
