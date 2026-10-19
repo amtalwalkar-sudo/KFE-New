@@ -78,8 +78,8 @@ fi
 # Prove the verified package survives the app process being stopped before
 # network is disabled and the native engine is exercised.
 adb shell am force-stop com.kanishka.pwa
-test "$(adb shell run-as com.kanishka.pwa wc -c files/offline-maps/regions/mumbai-metro/valhalla-tiles.tar | awk '{print $1}' | tr -d '\\r')" -gt 0
-test "$(adb shell run-as com.kanishka.pwa wc -c files/offline-maps/regions/mumbai-metro/map-metadata.json | awk '{print $1}' | tr -d '\\r')" -gt 0
+test "$(adb shell run-as com.kanishka.pwa wc -c files/offline-maps/regions/mumbai-metro/valhalla-tiles.tar | awk '{print $1}' | tr -d '\r')" -gt 0
+test "$(adb shell run-as com.kanishka.pwa wc -c files/offline-maps/regions/mumbai-metro/map-metadata.json | awk '{print $1}' | tr -d '\r')" -gt 0
 
 # Disable emulator-managed external network paths before invoking native Valhalla.
 adb shell svc wifi disable
