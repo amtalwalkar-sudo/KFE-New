@@ -456,7 +456,7 @@ public class KfeRecoveryHardeningTest {
     String pageReady = "waiting";
     long pageDeadline = SystemClock.uptimeMillis() + 120000L;
     while (SystemClock.uptimeMillis() < pageDeadline && !"ready".equals(pageReady)) {
-      pageReady = evaluateJavascriptSync(webView, "document.querySelector('#app h1') ? 'ready' : 'waiting'");
+      pageReady = evaluateJavascriptSync(webView, "document.querySelector('.work-header') ? 'ready' : 'waiting'");
       if (!"ready".equals(pageReady)) SystemClock.sleep(500L);
     }
     assertEquals("KFE must finish rendering its initial screen before navigating to Offline Maps.", "ready", pageReady);
