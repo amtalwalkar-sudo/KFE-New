@@ -148,9 +148,7 @@ export function reconcileShiftRevenue({
   }
   const invalid = priced.find(trip => !Number.isFinite(money(trip.revenue)) || money(trip.revenue) < 0)
   if (invalid) return { ...common, reconciliationStatus: 'UNAVAILABLE', reason: 'INVALID_TRIP_REVENUE_DETAIL', tripRevenue: null, difference: null }
-  if (unpriced.length > 0) {
-    return { ...common, reconciliationStatus: 'UNAVAILABLE', reason: 'INCOMPLETE_TRIP_REVENUE_DETAIL', difference: null }
-  }
+  // Missing fare details remain visible through unpricedTrips; their revenue contribution is zero.
   if (eligibleTrips.length === 0 && authoritativeRevenue === 0) {
     return { ...common, reconciliationStatus: 'NOT_APPLICABLE', reason: 'NO_ELIGIBLE_TRIP_REVENUE', difference: 0 }
   }
