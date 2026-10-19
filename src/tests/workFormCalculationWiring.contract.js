@@ -50,7 +50,7 @@ const fareReconciliation = reconcileShiftRevenue({ shiftRevenue: 500, trips: [{ 
 assert.equal(fareReconciliation.reconciliationStatus, 'UNAVAILABLE')
 assert.equal(fareReconciliation.unpricedTrips, 1)
 const shiftRepo = source('src/repositories/shiftTripRepository.js')
-assert.match(shiftRepo, /db\.transaction\(\['shifts', 'pending_mutations', 'audit_history'\], 'readwrite'\)/)
+assert.match(shiftRepo, /db\.transaction\(\['shifts', 'trips', 'pending_mutations', 'audit_history'\], 'readwrite'\)/, 'Shift revenue projection is transactionally coupled to canonical trip reads.')
 assert.match(shiftRepo.slice(shiftRepo.indexOf('async completeShift(data)'), shiftRepo.indexOf('async createTrip(data)')), /shift\.revenue\s*=\s*deriveLiveRevenue\(shiftTrips\)/, 'Shift completion atomically projects revenue from canonical trip fares and cancellation fees.')
 assert.match(shiftRepo.slice(shiftRepo.indexOf('async completeShift(data)'), shiftRepo.indexOf('async createTrip(data)')), /db\.transaction\(\['shifts', 'trips', 'pending_mutations', 'audit_history'\], 'readwrite'\)/, 'Shift closure reads trip details in the same canonical transaction.')
 
