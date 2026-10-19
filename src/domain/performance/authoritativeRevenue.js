@@ -5,7 +5,7 @@ const dateOf = value => { const date = value ? new Date(value) : null; return da
 const inRange = (value, range) => { const date = dateOf(value); return !!date && date >= range.from && date <= range.to }
 const amount = value => Number.isFinite(Number(value)) ? Number(value) : 0
 
-/** Shift-end revenue is the authoritative operational revenue record. Trip revenue is optional detail only. */
+/** Sum the canonical Shift.revenue projection, which is derived from eligible completed-trip fares plus cancellation fees under BR-11. Financial treatment is applied by the authoritative financial-revenue calculation. */
 export const authoritativeShiftRevenue = (shifts, range) => live(shifts)
   .filter(shift => !!dateOf(shift.shiftEndAt) && inRange(shift.shiftEndAt, range))
   .reduce((total, shift) => total + amount(shift.revenue), 0)

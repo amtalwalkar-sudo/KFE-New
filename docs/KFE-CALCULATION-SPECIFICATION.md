@@ -35,22 +35,36 @@ The result must reconcile with authoritative vehicle movement. A negative result
 
 ## 3. Revenue
 
-### Reporting-period revenue
+### Canonical customer-paid Shift revenue
 
-`revenue = sum(completedShift.revenue)`
+`shift.revenue = sum(eligible completed-trip fares) + sum(cancellation fees)`
 
-The completed Shift's confirmed end-of-shift revenue is the single ERP revenue authority. Completed-trip fares are supporting detail only and are used for reconciliation/display; they do not override Shift revenue.
+`Shift.revenue` is a canonical projection derived from eligible saved fares on completed Trips plus cancellation fees on cancelled Trips. It is not an independently entered shift total and must be recomputed from canonical Trip records at shift completion.
 
-Included records:
-- completed shifts with a valid shift-end revenue value.
+Rules:
+- Only live, eligible Trips contribute; soft-deleted Trips do not contribute.
+- Only completed Trips with saved fare details contribute completed-trip fare.
+- A completed Trip explicitly marked as having skipped fare details contributes ₹0.
+- Cancellation fees remain cancellation outcomes, not completed-ride fares.
+- A blank, null, or not-applicable cancellation fee contributes ₹0. If the canonical cancellation-fee field is present but blank, an earlier pre-cancellation fare must not be reused as the fee.
+- Reconciliation verifies the Shift projection against its eligible canonical Trip facts; it does not create a competing revenue authority.
 
-Trip records remain important for ride history, business KM and reconciliation, but `Trip.revenue` is not an ERP revenue authority.
+### Financial Revenue and reporting-period aggregation
+
+The canonical `shift.revenue` projection represents the customer-paid total. Financial Revenue is derived from that total using the independently recorded toll/parking treatment:
+
+- **INCLUDED:** `financialRevenue = shift.revenue - includedToll - includedParking`.
+- **EXCLUDED:** customer-paid total remains Financial Revenue; excluded toll/parking remain actual operating expenses and are counted once in operating profit.
+- Included toll/parking must not be deducted a second time as operating expenses after being removed from Financial Revenue.
+- Reporting-period Financial Revenue is aggregated from eligible completed shifts using this treatment. Do not reinterpret `shift.revenue` itself as a manually entered shift-end total.
+
+The domain calculation and BR-11 in `KFE_BUSINESS_RULES_REGISTER.md` remain authoritative for financial treatment.
 
 ## 4. Actual operating cost
 
-`operatingCost = fuel + toll + parking + actualMaintenance`
+`operatingCost = fuel + excludedToll + excludedParking + actualMaintenance`
 
-Where each component is the actual recorded amount for the reporting period.
+Only actual operating costs not already removed from Financial Revenue are deducted here. Toll and parking records remain recorded regardless of treatment, but INCLUDED toll/parking are pass-through amounts already subtracted from Financial Revenue and MUST NOT be deducted again as operating costs. EXCLUDED toll/parking remain actual operating expenses and are counted once.
 
 ### Fuel actual
 
@@ -72,9 +86,9 @@ Actual maintenance remains separate from maintenance provision.
 
 ## 5. Operating profit
 
-`operatingProfit = revenue - operatingCost`
+`operatingProfit = financialRevenue - operatingCost`
 
-This is the actual operating-performance result before scheduled financing and planning provisions.
+Here, `financialRevenue` is derived from the canonical customer-paid `Shift.revenue` projection under BR-11: subtract INCLUDED toll/parking; do not subtract EXCLUDED toll/parking from revenue, because those remain in operating costs. This is the actual operating-performance result before scheduled financing and planning provisions.
 
 Provisions are not deducted here. Performance's separate frozen headline Actual P/L may subtract the full scheduled EMI for the selected period; that management view must remain explicitly distinguished from Operating Profit and Available Cash.
 
