@@ -218,6 +218,67 @@ public class KfeOverlaySmokeTest {
       "GO_TO_PICKUP|partial-handle-trip|", pendingValue());
   }
 
+  @Test public void lifecyclePersistenceBoundariesRetryWithoutDuplicateEventOrTrip() throws Exception {
+    java.lang.reflect.Method persist = KfeOverlayService.class.getDeclaredMethod(
+      "persistLifecycleAction", String.class, String.class, boolean.class);
+    persist.setAccessible(true);
+    for (String boundary : new String[]{"AFTER_CHECKPOINT", "AFTER_OUTBOX", "AFTER_CANONICAL"}) {
+      String suffix = boundary.toLowerCase(java.util.Locale.US) + "-" + java.util.UUID.randomUUID();
+      String shiftId = "fault-shift-" + suffix;
+      String tripId = "fault-trip-" + suffix;
+      seedCanonicalShift(shiftId);
+      JSONObject state = new JSONObject()
+        .put("shift", new JSONObject().put("id", shiftId).put("status", "ACTIVE"))
+        .put("trip", JSONObject.NULL)
+        .put("overlayAction", "GO_TO_PICKUP")
+        .put("overlayTripId", tripId);
+      KfeOverlayService.update(context, state.toString());
+      waitForOverlay();
+      KfeOverlayService service = waitForService();
+      setField(service, "actionStage", "GO_TO_PICKUP");
+      setField(service, "pendingTripId", tripId);
+
+      KfeOverlayService.lifecycleFaultInjectorForTests = reached -> {
+        if (boundary.equals(reached)) throw new RuntimeException("Injected " + boundary);
+      };
+      try {
+        persist.invoke(service, "GO_TO_PICKUP", "GOING_TO_PICKUP", false);
+        fail("Expected lifecycle fault at " + boundary);
+      } catch (java.lang.reflect.InvocationTargetException expected) {
+        assertTrue("Unexpected injected fault: " + expected.getCause(),
+          expected.getCause() instanceof RuntimeException
+            && expected.getCause().getMessage().contains(boundary));
+      } finally {
+        KfeOverlayService.lifecycleFaultInjectorForTests = null;
+      }
+
+      org.json.JSONArray afterFault = pendingEventsForTrip(tripId);
+      boolean canonicalAfterFault = KfeCanonicalWorkStore.get(context)
+        .getRecord("TRIP", tripId).optBoolean("found", false);
+      if ("AFTER_CHECKPOINT".equals(boundary)) {
+        assertEquals("Checkpoint fault must not append an event", 0, afterFault.length());
+        assertTrue("Checkpoint fault must not write a canonical trip", !canonicalAfterFault);
+      } else {
+        assertEquals("Outbox/canonical fault must retain exactly one durable event", 1, afterFault.length());
+        assertEquals("Canonical state must exist only after the canonical-write boundary",
+          "AFTER_CANONICAL".equals(boundary), canonicalAfterFault);
+      }
+      String originalEventId = afterFault.length() == 0 ? "" : afterFault.getJSONObject(0).getString("eventId");
+
+      persist.invoke(service, "GO_TO_PICKUP", "GOING_TO_PICKUP", false);
+      org.json.JSONArray afterRetry = pendingEventsForTrip(tripId);
+      assertEquals("Retry must converge to one pending event", 1, afterRetry.length());
+      if (!originalEventId.isEmpty()) {
+        assertEquals("Retry must reuse the original event ID", originalEventId,
+          afterRetry.getJSONObject(0).getString("eventId"));
+      }
+      JSONObject canonicalTrip = KfeCanonicalWorkStore.get(context).getRecord("TRIP", tripId);
+      assertTrue("Retry must leave a durable canonical trip", canonicalTrip.optBoolean("found", false));
+      assertEquals("ACTIVE", canonicalTrip.getJSONObject("record").getString("status"));
+      assertEquals("GOING_TO_PICKUP", canonicalTrip.getJSONObject("record").getString("tripStage"));
+    }
+  }
+
   @Test public void failedNativeActionCanRecoverByAcknowledgingSameDurableEvent() throws Exception {
     clearPending();
     JSONObject state = new JSONObject()
@@ -419,6 +480,16 @@ public class KfeOverlaySmokeTest {
     Field progressField = overlay.getClass().getDeclaredField("progress");
     progressField.setAccessible(true);
     assertTrue("Completed overlay swipe must retract its handle", progressField.getFloat(overlay) < 0.05f);
+  }
+
+  private org.json.JSONArray pendingEventsForTrip(String tripId) throws Exception {
+    org.json.JSONArray all = KfeNativeEventStore.get(context).pending(100);
+    org.json.JSONArray matches = new org.json.JSONArray();
+    for (int i = 0; i < all.length(); i++) {
+      org.json.JSONObject event = all.getJSONObject(i);
+      if (tripId.equals(event.optString("tripId", ""))) matches.put(event);
+    }
+    return matches;
   }
 
   private int pendingEventCount(String eventId) throws Exception {
