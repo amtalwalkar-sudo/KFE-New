@@ -443,6 +443,40 @@ public class KfeRecoveryHardeningTest {
     assertTrue("App-specific external files directory was not created.", externalFiles.isDirectory());
   }
 
+  @Test public void downloadOfflineMapThroughUserFacingScreen() throws Exception {
+    android.content.Intent launch = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
+    assertNotNull("KFE launch intent must be available for the real UI download test.", launch);
+    launch.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+    android.app.Activity activity = InstrumentationRegistry.getInstrumentation().startActivitySync(launch);
+    assertTrue("The offline map screen must run inside MainActivity.", activity instanceof MainActivity);
+    MainActivity main = (MainActivity) activity;
+    android.webkit.WebView webView = main.getBridge().getWebView();
+    assertNotNull("KFE WebView must be available for the real user-facing download.", webView);
+
+    evaluateJavascriptSync(webView, "location.hash = '#/offline-maps'; 'navigated'");
+    String clickResult = "waiting";
+    long uiDeadline = SystemClock.uptimeMillis() + 180000L;
+    while (SystemClock.uptimeMillis() < uiDeadline && !"clicked".equals(clickResult)) {
+      clickResult = evaluateJavascriptSync(webView,
+          "(()=>{const card=[...document.querySelectorAll('.region-card')].find(x=>x.querySelector('h2')?.textContent.includes('Mumbai'));"
+          + "const button=card?.querySelector('button.primary');if(!button)return 'waiting';"
+          + "if(button.disabled)return 'disabled';button.click();return 'clicked'})()");
+      if (!"clicked".equals(clickResult)) SystemClock.sleep(1000L);
+    }
+    assertEquals("The real Offline Maps screen must expose an enabled Mumbai Download map button.", "clicked", clickResult);
+
+    File regionDir = new File(new File(new File(context.getFilesDir(), "offline-maps"), "regions"), "mumbai-metro");
+    File tiles = new File(regionDir, "valhalla-tiles.tar");
+    File metadataFile = new File(regionDir, "map-metadata.json");
+    await("actual UI-triggered regional download and verified installation", 1200000L,
+        () -> tiles.isFile() && tiles.length() > 0 && metadataFile.isFile());
+    JSONObject metadata = new JSONObject(new String(java.nio.file.Files.readAllBytes(metadataFile.toPath()),
+        java.nio.charset.StandardCharsets.UTF_8));
+    assertEquals("Installed size must match the package bytes.", tiles.length(), metadata.getLong("sizeBytes"));
+    assertEquals("Installed package must be recorded under the selected region.", "mumbai-metro", metadata.getString("regionId"));
+    assertEquals("Installed checksum must match the verified tile package.", sha256(tiles), metadata.getString("sha256"));
+  }
+
   @Test public void installedOfflineValhallaRoutesWithNetworkDisabled() throws Exception {
     ConnectivityManager connectivity = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
     Network activeNetwork = connectivity == null ? null : connectivity.getActiveNetwork();
@@ -450,40 +484,22 @@ public class KfeRecoveryHardeningTest {
     assertTrue("The offline-routing test must run without an active internet-capable network.",
         capabilities == null || !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET));
 
-    File externalFiles = context.getExternalFilesDir(null);
-    assertNotNull("App-specific external files directory must be available for the CI fixture.", externalFiles);
-    File source = new File(context.getFilesDir(), "valhalla-tiles.tar");
-    assertTrue("CI must push the actual region tile extract before the offline test.", source.isFile() && source.length() > 0);
-    File mapDir = new File(context.getFilesDir(), "offline-maps");
-    if (!mapDir.exists()) assertTrue("Unable to create offline map directory.", mapDir.mkdirs());
-    File tiles = new File(mapDir, "valhalla-tiles.tar");
-    try (InputStream input = new FileInputStream(source); FileOutputStream output = new FileOutputStream(tiles)) {
-      byte[] buffer = new byte[1024 * 1024];
-      int read;
-      while ((read = input.read(buffer)) >= 0) if (read > 0) output.write(buffer, 0, read);
-      output.getFD().sync();
-    }
-    JSONObject metadata = new JSONObject()
-        .put("regionId", "mumbai-metro")
-        .put("version", "ci-fixture")
-        .put("coverageBounds", new JSONObject().put("south", 18.6).put("north", 19.7)
-            .put("west", 72.4).put("east", 73.5));
-    try (FileOutputStream output = new FileOutputStream(new File(mapDir, "map-metadata.json"))) {
-      output.write(metadata.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
-      output.getFD().sync();
-    }
+    File regionDir = new File(new File(new File(context.getFilesDir(), "offline-maps"), "regions"), "mumbai-metro");
+    File tiles = new File(regionDir, "valhalla-tiles.tar");
+    File metadataFile = new File(regionDir, "map-metadata.json");
+    assertTrue("The real UI download must persist tiles in app-private regional storage.", tiles.isFile() && tiles.length() > 0);
+    assertTrue("The real UI download must persist installation metadata.", metadataFile.isFile());
+    JSONObject metadata = new JSONObject(new String(java.nio.file.Files.readAllBytes(metadataFile.toPath()),
+        java.nio.charset.StandardCharsets.UTF_8));
+    assertEquals("The installed package checksum must remain valid after network loss.", sha256(tiles), metadata.getString("sha256"));
 
-    // Use the same route-derived encoded polyline that passed the HTTP smoke
-    // against this exact Mumbai metro tile extract. Hand-picked city coordinates can
-    // fall on disconnected/one-way edges and make this an input-fixture failure
-    // rather than a meaningful offline-package test.
     File routeRequestFile = new File(context.getFilesDir(), "valhalla-trace-request.json");
-    assertTrue("CI must push the trace request validated against this regional extract.",
+    assertTrue("CI must stage a route request validated against the published Mumbai metro extract.",
         routeRequestFile.isFile() && routeRequestFile.length() > 0);
-    byte[] requestBytes = java.nio.file.Files.readAllBytes(routeRequestFile.toPath());
-    JSONObject request = new JSONObject(new String(requestBytes, java.nio.charset.StandardCharsets.UTF_8));
+    JSONObject request = new JSONObject(new String(java.nio.file.Files.readAllBytes(routeRequestFile.toPath()),
+        java.nio.charset.StandardCharsets.UTF_8));
     ValhallaConfigManager manager = new ValhallaConfigManager(context,
-        new ValhallaFile(context, "valhalla-offline.json", mapDir),
+        new ValhallaFile(context, "valhalla-offline.json", regionDir),
         new Moshi.Builder().add(new KotlinJsonAdapterFactory()).build());
     String raw;
     try (Valhalla engine = new Valhalla(context,
@@ -492,10 +508,31 @@ public class KfeRecoveryHardeningTest {
     }
     JSONObject response = new JSONObject(raw);
     JSONObject trip = response.optJSONObject("trip");
-    assertNotNull("On-device Valhalla must return a trip response: " + raw, trip);
+    assertNotNull("On-device Valhalla must return a trip response with networking disabled: " + raw, trip);
     JSONObject summary = trip.optJSONObject("summary");
-    assertNotNull("On-device Valhalla must return a route summary: " + raw, summary);
+    assertNotNull("On-device Valhalla must return a route summary with networking disabled: " + raw, summary);
     assertTrue("Offline route must have a positive road distance: " + raw, summary.optDouble("length", 0) > 0);
+  }
+
+  private String evaluateJavascriptSync(android.webkit.WebView webView, String script) throws Exception {
+    java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+    java.util.concurrent.atomic.AtomicReference<String> result = new java.util.concurrent.atomic.AtomicReference<>();
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(
+        () -> webView.evaluateJavascript(script, value -> { result.set(value == null ? "" : value.replace("\\\"", "")); latch.countDown(); }));
+    assertTrue("WebView JavaScript evaluation timed out.", latch.await(15, java.util.concurrent.TimeUnit.SECONDS));
+    return result.get();
+  }
+
+  private String sha256(File file) throws Exception {
+    java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+    try (InputStream input = new FileInputStream(file)) {
+      byte[] buffer = new byte[65536];
+      int count;
+      while ((count = input.read(buffer)) != -1) if (count > 0) digest.update(buffer, 0, count);
+    }
+    StringBuilder value = new StringBuilder();
+    for (byte b : digest.digest()) value.append(String.format(Locale.ROOT, "%02x", b));
+    return value.toString();
   }
 
   private interface Check { boolean ready(); }
