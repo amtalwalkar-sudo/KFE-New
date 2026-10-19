@@ -307,7 +307,9 @@ public class KfeNativeFullShiftAcceptanceTest {
             "FARE", tripId, payload, eventId);
         throw new AssertionError("Injected SQLite failure must prevent the form from being marked committed.");
       } catch (InvocationTargetException expected) {
-        assertNotNull("The injected storage failure must propagate to the form caller.", expected.getCause());
+        assertTrue("The form must surface the injected SQLite failure, not report a successful save.",
+            expected.getCause() instanceof android.database.sqlite.SQLiteException
+                && String.valueOf(expected.getCause().getMessage()).contains("INJECTED_CANONICAL_FORM_WRITE_FAILURE"));
       }
       JSONObject unchanged = KfeCanonicalWorkStore.get(context).getRecord("TRIP", tripId);
       assertEquals("Canonical trip must remain unchanged after the failed transaction.", "ACTIVE",
