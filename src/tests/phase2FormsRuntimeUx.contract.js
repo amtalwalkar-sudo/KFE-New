@@ -39,7 +39,7 @@ assert.ok(admin.includes('formErrors.value=e.validation'),'Admin service validat
 assert.ok(admin.includes('function onSourceFieldChange') && admin.includes('clearFieldError(change)'),'Correcting an Admin field must preserve its value and clear its stale validation error')
 assert.ok(workForm.includes("if (token === 'NEXT')"),'Work keypad NEXT must advance only when a successor field is declared')
 assert.ok(workForm.includes("if (token === 'DONE')"),'Work keypad DONE must close the keypad rather than advance')
-assert.ok(workForm.includes('if (finalFields.has(field.name)) emit('submit')'),'Work keypad Done may submit only declared final fields')
+assert.ok(workForm.includes("if (finalFields.has(field.name)) emit('submit')"),'Work keypad Done may submit only declared final fields')
 assert.ok(admin.includes(':busy="saving"'),'Admin form must lock controls while save is in flight')
 assert.ok(admin.includes("label('vehicle',x)"),'Vehicle relationship options must be human-readable')
 assert.ok(admin.includes("label('driver',x)"),'Driver relationship options must be human-readable')
