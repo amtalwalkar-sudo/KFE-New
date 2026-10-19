@@ -1,3 +1,4 @@
+import { deriveLiveRevenue } from '../../domain/work/liveRevenue.js'
 const finiteNumber = value => value != null && value !== '' && Number.isFinite(Number(value))
 const first = (...values) => values.find(value => value != null && value !== '')
 
@@ -95,9 +96,31 @@ const normalizeBreakEvenInput = record => {
 }
 const normalizeSettlement = record => normalizeRecord(record, { settledOn: ['paidOn','paymentDate','payment_date'] }, ['amount'])
 
-export const normalizeCalculationSnapshot = snapshot => ({
-  shifts: (snapshot?.shifts || []).map(normalizeShift).filter(Boolean),
-  trips: (snapshot?.trips || []).map(normalizeTrip).filter(Boolean),
+export const normalizeCalculationSnapshot = snapshot => {
+  const trips = (snapshot?.trips || []).map(normalizeTrip).filter(Boolean)
+  const shifts = (snapshot?.shifts || []).map(normalizeShift).filter(Boolean).map(shift => {
+    // Existing records without a projection marker may still carry the former
+    // manually-entered Shift total. Rebuild the report value from canonical trip
+    // facts and preserve the former value separately for explicit migration.
+    if (shift.revenueSource === 'TRIP_FARES') return shift
+    const previousRevenue = Number(shift.revenue)
+    const hasLegacyRevenue = Number.isFinite(previousRevenue) && previousRevenue > 0
+    const shiftTrips = trips.filter(trip => trip.shiftId === shift.id)
+    const revenue = deriveLiveRevenue(shiftTrips)
+    return {
+      ...shift,
+      ...(hasLegacyRevenue && shift.legacyRevenueSnapshot == null
+        ? { legacyRevenueSnapshot: previousRevenue, legacyRevenueMigrationStatus: 'REVIEW_REQUIRED' }
+        : {}),
+      revenue,
+      liveFareRevenue: revenue,
+      revenueSource: 'TRIP_FARES',
+      ...(hasLegacyRevenue ? { legacyRevenueMigrationStatus: shift.legacyRevenueMigrationStatus || 'REVIEW_REQUIRED' } : {}),
+    }
+  })
+  return ({
+  shifts,
+  trips,
   fuelLogs: (snapshot?.fuelLogs || []).map(normalizeFuel).filter(Boolean),
   vehicles: snapshot?.vehicles || [],
   drivers: snapshot?.drivers || [],
@@ -117,4 +140,5 @@ export const normalizeCalculationSnapshot = snapshot => ({
   payables: snapshot?.payables || [],
   cashTransactions: snapshot?.cashTransactions || [],
   compliancePayments: snapshot?.compliancePayments || [],
-})
+  })
+}
