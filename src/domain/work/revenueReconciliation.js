@@ -2,7 +2,7 @@ const live = records => (records || []).filter(record => !record?.deletedAt && r
 const money = value => Number.isFinite(Number(value)) ? Number(value) : NaN
 const nonNegativeMoney = value => { const n = money(value); return Number.isFinite(n) && n >= 0 ? n : 0 }
 const cancellationFee = trip => {
-  const value = trip?.cancelledRevenue ?? trip?.revenue
+  const value = trip && Object.prototype.hasOwnProperty.call(trip, 'cancelledRevenue') ? trip.cancelledRevenue : trip?.revenue
   if (value === null || value === undefined || value === '') return 0
   const amount = money(value)
   return Number.isFinite(amount) && amount >= 0 ? amount : NaN
