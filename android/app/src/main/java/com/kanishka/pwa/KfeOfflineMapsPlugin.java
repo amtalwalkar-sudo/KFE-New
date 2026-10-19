@@ -127,7 +127,7 @@ public class KfeOfflineMapsPlugin extends Plugin {
                 long expectedBytes = manifest.getLong("sizeBytes");
                 if (!packageUrl.startsWith("https://") || expectedBytes <= 0 || expectedHash.length() != 64) throw new IllegalStateException("The map manifest is incomplete or unsafe.");
                 long available = new StatFs(getContext().getFilesDir().getAbsolutePath()).getAvailableBytes();
-                long existingBytes = tilesFile().isFile() ? tilesFile().length() : 0;
+                long existingBytes = tilesFile(requestedRegionId).isFile() ? tilesFile(requestedRegionId).length() : 0;
                 long requiredBytes = expectedBytes + existingBytes + Math.max(64L * 1024 * 1024, expectedBytes / 10);
                 if (available < requiredBytes) throw new IllegalStateException("Not enough free storage for a safe map update. Required free space: " + requiredBytes + " bytes.");
                 downloadFile(packageUrl, part, expectedBytes, expectedHash, requestedRegionId);
