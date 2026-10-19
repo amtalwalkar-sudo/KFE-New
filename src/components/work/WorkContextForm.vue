@@ -110,29 +110,6 @@ function emitNumeric(name, value) {
   }
   if (events[name]) { emit(events[name], value); return }
 }
-const numericLabels = {
-  'start-odo': 'Current odometer',
-  fare: 'Trip fare',
-  'trip-toll': 'Toll',
-  'trip-parking': 'Parking',
-  'cancel-fare': 'Cancellation fee',
-  'fuel-odo': 'Odometer',
-  'fuel-price': 'Price / kg',
-  'fuel-amount': 'Amount',
-  'closing-odo': 'Closing odometer',
-}
-const numericNext = {
-  'fare': 'trip-toll',
-  'trip-toll': 'trip-parking',
-  'fuel-odo': 'fuel-price',
-  'fuel-price': 'fuel-amount'
-}
-const numericLabel = name => {
-  if (numericLabels[name]) return numericLabels[name]
-  if (name.startsWith('review-revenue:')) return 'Trip revenue'
-  if (name.startsWith('review-km:')) return 'Trip KM'
-  return name.replace(/[-:]/g, ' ')
-}
 
 const endTitle = computed(() => props.endStage === 'ENDED' ? 'Shift ended' : 'Close shift')
 
