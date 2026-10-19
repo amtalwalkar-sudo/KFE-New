@@ -83,9 +83,15 @@ public class KfeNativeWorkActionsPlugin extends Plugin {
 
   @com.getcapacitor.PluginMethod
   public void getPendingActions(PluginCall call) {
-    JSObject result = new JSObject();
-    result.put("events", KfeNativeEventStore.get(getContext()).pending(100));
-    call.resolve(result);
+    try {
+      JSObject result = new JSObject();
+      result.put("events", KfeNativeEventStore.get(getContext()).pending(100));
+      call.resolve(result);
+    } catch (RuntimeException error) {
+      // Do not resolve an empty queue when SQLite failed: PWA recovery must
+      // remain visibly unsuccessful so the durable events can be retried.
+      call.reject("Unable to read pending native lifecycle events; recovery is incomplete.", error);
+    }
   }
 
   @com.getcapacitor.PluginMethod
