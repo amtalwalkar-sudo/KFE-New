@@ -743,10 +743,10 @@ async function saveCancel(fromNative = false, operationId = '') {
     const cancelledTripSnapshot = store.trip ? { ...store.trip } : null
     const cancelledTripId = store.trip?.id
     const cancellationReason = cancelReason.value.trim()
-    const cancellationRevenue = Number(cancelFare.value)
+    const cancellationRevenue = cancelFare.value == null || String(cancelFare.value).trim() === '' ? 0 : Number(cancelFare.value)
     const result = await store.cancelTrip({
       reason: cancellationReason,
-      revenue: cancelFare.value
+      revenue: cancellationRevenue
     })
     if (!result?.ok) { fail(result?.reason || 'Cancellation could not be saved.'); return false }
 
