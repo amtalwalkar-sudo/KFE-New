@@ -33,7 +33,7 @@ const allocation = { emi:5000*(15000/50000), maintenance:5000*(10000/50000), com
 near(vehicleKm, 100, 'CV-01 vehicle KM')
 near(businessKm, 72, 'CV-02 business KM')
 near(deadKm, 28, 'CV-03 dead KM')
-near(revenue, 2400, 'CV-06 authoritative revenue')
+near(revenue, 2400, 'CV-06 trip-derived Shift revenue')
 near(operatingCost, 1050, 'CV-19 operating cost')
 near(operatingProfit, 1350, 'CV-20 operating profit')
 near(actualPL, 1050, 'CV-21 actual P/L')
