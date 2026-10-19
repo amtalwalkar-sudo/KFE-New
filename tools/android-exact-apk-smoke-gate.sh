@@ -317,6 +317,8 @@ done
 # Exercise real native overlay persistence helpers for two fares plus cancellation while no PWA event replay runs.
 # Exercise native-only lifecycle/fare/cancellation commits while the PWA is not processing events.
 run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#nativeOnlyShiftPersistsMultipleFaresAndCancellationAcrossStoreReopen native-full-shift 1
+# Consume the same versioned 13-case shift-start vectors on Android, not merely compile the instrumentation test.
+run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#nativeShiftStartInterpreterMatchesSharedGoldenVectors shift-start-rule-parity 1
 # Reopen the PWA with the synthetic queue events already acknowledged; canonical SQLite must catch it up independently.
 run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#reopeningPwaCatchesUpNativeCanonicalRecordsWithoutReplayingPendingEvents native-pwa-catch-up 1
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#gpsCollectorRecoversAfterServiceInterruption gps-service-recovery 1
