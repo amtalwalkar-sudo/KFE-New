@@ -30,9 +30,9 @@ export function deriveFinancialFactModel({ snapshot = {}, metrics = {}, range = 
       direction: 'IN',
       amount: revenue,
       occurredOn: range?.to?.toISOString?.() || null,
-      sourceType: 'SHIFT_END_REVENUE',
+      sourceType: 'TRIP_DERIVED_SHIFT_REVENUE',
       evidenceStatus: 'AUTHORITATIVE',
-      metadata: { authority: 'SHIFT_END_REVENUE' },
+      metadata: { authority: 'TRIP_DERIVED_SHIFT_REVENUE' },
     }))
   }
 
