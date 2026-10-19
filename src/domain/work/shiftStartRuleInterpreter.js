@@ -7,8 +7,8 @@ function inputValue(name, input) {
   return Object.hasOwn(input, name) ? input[name] : undefined
 }
 
-function numeric(value, { missingAsNaN = false } = {}) {
-  if (missingAsNaN && (value == null || value === '')) return Number.NaN
+function numeric(value) {
+  if (value == null || value === '') return Number.NaN
   return Number(value)
 }
 
@@ -17,15 +17,14 @@ function evaluateNode(node, input) {
   if (Object.hasOwn(node, 'input')) return inputValue(node.input, input)
   if (Object.hasOwn(node, 'number')) {
     const source = node.number
-    if (Object.hasOwn(source, 'input')) return numeric(inputValue(source.input, input), { missingAsNaN: source.missingAsNaN === true })
+    if (Object.hasOwn(source, 'input')) return numeric(inputValue(source.input, input))
     return numeric(evaluateNode(source, input))
   }
   if (Object.hasOwn(node, 'object')) {
     return Object.fromEntries(Object.entries(node.object).map(([key, value]) => [key, evaluateNode(value, input)]))
   }
   if (Object.hasOwn(node, 'if')) {
-    const branch = node.if
-    return evaluateNode(evaluateNode(branch.condition ?? branch, input) ? branch.then : branch.else, input)
+    return evaluateNode(evaluateNode(node.if, input) ? node.then : node.else, input)
   }
   if (Object.hasOwn(node, 'op')) {
     const { op } = node
