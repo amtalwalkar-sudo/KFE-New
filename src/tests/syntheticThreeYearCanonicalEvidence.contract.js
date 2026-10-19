@@ -330,7 +330,7 @@ try {
       { id: 'service-surplus-prior', shiftStartAt: '2024-06-14T08:00:00+05:30', shiftEndAt: '2024-06-14T18:00:00+05:30', status: 'COMPLETED', startOdometer: 1000, endOdometer: 1100, revenue: 2500 },
       { id: 'service-surplus-current', shiftStartAt: '2024-06-15T08:00:00+05:30', status: 'ACTIVE', startOdometer: 1100, endOdometer: 1100 },
     ],
-    trips: [], fuelLogs: [], maintenance: [], compliance: [], loans: [], loanPayments: [], prepayments: [],
+    trips: [{ id: 'service-surplus-fare', shiftId: 'service-surplus-prior', status: 'COMPLETED', tripEndAt: '2024-06-14T12:00:00+05:30', revenue: 2500 }], fuelLogs: [], maintenance: [], compliance: [], loans: [], loanPayments: [], prepayments: [],
     breakEvenInputs: [],
     driverTargets: [{ effectiveFrom: '2024-06-01', effectiveUntil: '2024-06-30', targetRevenue: 30000, active: true }],
   }, { from: new Date('2024-06-14T18:30:00.000Z'), to: new Date('2024-06-15T18:29:59.999Z') })
