@@ -54,3 +54,14 @@ CI proves software-level behavior only. Physical-device background, screen-off, 
 ## Scope boundary
 
 This document is a supporting design gate, not a new business-rule authority. The business meaning remains in `KFE_BUSINESS_RULES_REGISTER.md`; formulas remain governed by `docs/KFE-CALCULATION-SPECIFICATION.md`; persisted fields and lifecycle semantics remain governed by their existing authoritative contracts.
+## Proof-of-concept progress log
+
+### Stage 1 — shared PWA baseline vectors
+
+The versioned source `spec/work-domain/shift-start-golden-vectors.json` and contract `src/tests/shiftStartGoldenVectors.contract.js` establish deterministic baseline cases for previous-odometer validation, first-day historical gap, and PERSONAL/DEAD gap allocation. The suite is registered in `src/tests/runAllContracts.js`.
+
+**This stage is not cross-runtime parity.** At this stage the vectors are consumed by the PWA contract only; no native evaluator is claimed or implied. The parity gate remains closed until the same source vectors are consumed by a native implementation and the build/test gates prove the native and PWA results match. Production lifecycle commands must not be added before that evidence exists.
+
+### Next stage
+
+Evaluate a single-source rule representation/generation approach that can preserve current PWA API behavior while producing a native-compatible evaluator. Native tests must load the same versioned vector file from the repository source (through a build-time asset source path, not a manually copied duplicate). If a maintainable single-source evaluator cannot be demonstrated, stop and return with the trade-off for an explicit architecture decision.

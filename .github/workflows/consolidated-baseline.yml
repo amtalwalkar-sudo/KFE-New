@@ -186,6 +186,8 @@ jobs:
     # Cross-platform release gate: every PR and main deployment validates the same production web bundle inside Capacitor Android.
     if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.run_android_release_gate == true)
     runs-on: ubuntu-latest
+    # Bound emulator setup, instrumentation, and artifact collection so a wedged ADB session cannot consume the runner's six-hour default.
+    timeout-minutes: 120
 
     steps:
       - name: Checkout Repository
@@ -307,6 +309,7 @@ jobs:
           fi
 
       - name: Android Exact APK Smoke Gate
+        timeout-minutes: 105
         uses: reactivecircus/android-emulator-runner@v2
         env:
           KFE_ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android/keystore/kfe-release.jks
