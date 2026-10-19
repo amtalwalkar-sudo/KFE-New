@@ -47,9 +47,6 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
-}
-
-android {
     sourceSets {
         main {
             assets.srcDir(rootProject.file("../spec/work-domain"))
