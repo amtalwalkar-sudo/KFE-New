@@ -175,6 +175,7 @@ public class KfeOverlaySmokeTest {
 
   @Test public void swipeAcceptsNearEdgeOfThumbAndLowerHitLane() throws Exception {
     clearPending();
+    seedCanonicalShift("edge-swipe-shift");
     JSONObject state = new JSONObject()
       .put("shift", new JSONObject().put("id", "edge-swipe-shift"))
       .put("trip", JSONObject.NULL)
@@ -193,6 +194,7 @@ public class KfeOverlaySmokeTest {
 
   @Test public void partiallyDisplacedHandleCanBeGrabbedAndCompleted() throws Exception {
     clearPending();
+    seedCanonicalShift("partial-handle-shift");
     JSONObject state = new JSONObject()
       .put("shift", new JSONObject().put("id", "partial-handle-shift"))
       .put("trip", JSONObject.NULL)
@@ -214,6 +216,74 @@ public class KfeOverlaySmokeTest {
     assertTrue("Recovered swipe must continue tracking from the displaced thumb", intermediate > 0.05f);
     assertEquals("A displaced handle must still complete the pickup action",
       "GO_TO_PICKUP|partial-handle-trip|", pendingValue());
+  }
+
+  @Test public void lifecyclePersistenceBoundariesRetryWithoutDuplicateEventOrTrip() throws Exception {
+    java.lang.reflect.Method persist = KfeOverlayService.class.getDeclaredMethod(
+      "persistLifecycleAction", String.class, String.class, boolean.class);
+    persist.setAccessible(true);
+    for (String boundary : new String[]{"AFTER_CHECKPOINT", "AFTER_OUTBOX", "AFTER_CANONICAL"}) {
+      String suffix = boundary.toLowerCase(java.util.Locale.US) + "-" + java.util.UUID.randomUUID();
+      String shiftId = "fault-shift-" + suffix;
+      String tripId = "fault-trip-" + suffix;
+      context.getSharedPreferences("kfe_native_work_actions", 0).edit()
+        .remove("pendingEventId").remove("pending").commit();
+      seedCanonicalShift(shiftId);
+      JSONObject state = new JSONObject()
+        .put("shift", new JSONObject().put("id", shiftId).put("status", "ACTIVE"))
+        .put("trip", JSONObject.NULL)
+        .put("overlayAction", "GO_TO_PICKUP")
+        .put("overlayTripId", tripId);
+      KfeOverlayService.update(context, state.toString());
+      waitForOverlay();
+      // The service update is delivered through startForegroundService; make the
+      // exact shift/trip snapshot deterministic before fault injection starts.
+      context.getSharedPreferences("kfe_overlay", 0).edit()
+        .putString("lastOverlayState", state.toString()).commit();
+      KfeOverlayService service = waitForService();
+      setField(service, "actionStage", "GO_TO_PICKUP");
+      setField(service, "pendingTripId", tripId);
+
+      KfeOverlayService.lifecycleFaultInjectorForTests = reached -> {
+        if (boundary.equals(reached)) throw new RuntimeException("Injected " + boundary);
+      };
+      try {
+        persist.invoke(service, "GO_TO_PICKUP", "GOING_TO_PICKUP", false);
+        throw new AssertionError("Expected lifecycle fault at " + boundary);
+      } catch (java.lang.reflect.InvocationTargetException expected) {
+        assertTrue("Unexpected injected fault: " + expected.getCause(),
+          expected.getCause() instanceof RuntimeException
+            && expected.getCause().getMessage().contains(boundary));
+      } finally {
+        KfeOverlayService.lifecycleFaultInjectorForTests = null;
+      }
+
+      String originalEventId = context.getSharedPreferences("kfe_native_work_actions", 0)
+        .getString("pendingEventId", "");
+      boolean eventAfterFault = KfeNativeEventStore.get(context).contains(originalEventId);
+      boolean canonicalAfterFault = KfeCanonicalWorkStore.get(context)
+        .getRecord("TRIP", tripId).optBoolean("found", false);
+      if ("AFTER_CHECKPOINT".equals(boundary)) {
+        assertTrue("Checkpoint fault must not append an event", !eventAfterFault);
+        assertTrue("Checkpoint fault must not write a canonical trip", !canonicalAfterFault);
+      } else {
+        assertTrue("Outbox/canonical fault must retain its durable event even if already acknowledged", eventAfterFault);
+        assertEquals("Canonical state must exist only after the canonical-write boundary",
+          "AFTER_CANONICAL".equals(boundary), canonicalAfterFault);
+      }
+
+      persist.invoke(service, "GO_TO_PICKUP", "GOING_TO_PICKUP", false);
+      String eventIdAfterRetry = context.getSharedPreferences("kfe_native_work_actions", 0)
+        .getString("pendingEventId", "");
+      assertTrue("Retry must converge to a durable event", KfeNativeEventStore.get(context).contains(eventIdAfterRetry));
+      if (!originalEventId.isEmpty()) {
+        assertEquals("Retry must reuse the original event ID", originalEventId, eventIdAfterRetry);
+      }
+      JSONObject canonicalTrip = KfeCanonicalWorkStore.get(context).getRecord("TRIP", tripId);
+      assertTrue("Retry must leave a durable canonical trip", canonicalTrip.optBoolean("found", false));
+      assertEquals("ACTIVE", canonicalTrip.getJSONObject("record").getString("status"));
+      assertEquals("GOING_TO_PICKUP", canonicalTrip.getJSONObject("record").getString("tripStage"));
+    }
   }
 
   @Test public void failedNativeActionCanRecoverByAcknowledgingSameDurableEvent() throws Exception {
@@ -250,6 +320,7 @@ public class KfeOverlaySmokeTest {
 
   @Test public void goldenRideSwipeLoopPersistsPickupStartEndAndFareIdentity() throws Exception {
     clearPending();
+    seedCanonicalShift("golden-shift");
     KfeOverlayService service = waitForService();
     Field actionStage = KfeOverlayService.class.getDeclaredField("actionStage");
     Field pendingTripId = KfeOverlayService.class.getDeclaredField("pendingTripId");
@@ -331,6 +402,20 @@ public class KfeOverlaySmokeTest {
     assertTrue(!KfeOverlayService.hasPersistedOverlayState(context));
   }
 
+  private void seedCanonicalShift(String shiftId) throws Exception {
+    JSONObject shift = new JSONObject().put("id", shiftId).put("status", "ACTIVE")
+      .put("revenue", 0).put("liveFareRevenue", 0)
+      .put("updatedAt", java.time.Instant.now().toString());
+    KfeCanonicalWorkStore.get(context).putRecord(
+      "test-active-shift-" + shiftId + "-" + java.util.UUID.randomUUID(), "SHIFT", shift);
+  }
+
+  private void seedCanonicalTrip(JSONObject trip) throws Exception {
+    if (!trip.has("updatedAt")) trip.put("updatedAt", java.time.Instant.now().toString());
+    KfeCanonicalWorkStore.get(context).putRecord(
+      "test-trip-seed-" + trip.optString("id") + "-" + java.util.UUID.randomUUID(), "TRIP", trip);
+  }
+
   private KfeOverlayService waitForService() {
     long deadline = SystemClock.uptimeMillis() + 5000L;
     while (SystemClock.uptimeMillis() < deadline) {
@@ -404,6 +489,16 @@ public class KfeOverlaySmokeTest {
     assertTrue("Completed overlay swipe must retract its handle", progressField.getFloat(overlay) < 0.05f);
   }
 
+  private org.json.JSONArray pendingEventsForTrip(String tripId) throws Exception {
+    org.json.JSONArray all = KfeNativeEventStore.get(context).pending(100);
+    org.json.JSONArray matches = new org.json.JSONArray();
+    for (int i = 0; i < all.length(); i++) {
+      org.json.JSONObject event = all.getJSONObject(i);
+      if (tripId.equals(event.optString("tripId", ""))) matches.put(event);
+    }
+    return matches;
+  }
+
   private int pendingEventCount(String eventId) throws Exception {
     org.json.JSONArray events = KfeNativeEventStore.get(context).pending(100);
     int count = 0;
@@ -462,6 +557,10 @@ public class KfeOverlaySmokeTest {
 
   @Test public void fareFormSendsOptionalTollParkingAndTreatmentFlags() throws Exception {
     clearPending();
+    seedCanonicalShift("fare-shift");
+    seedCanonicalTrip(new JSONObject().put("id", "fare-trip").put("shiftId", "fare-shift")
+      .put("status", "COMPLETED").put("tripStage", "COMPLETED")
+      .put("tripEndAt", java.time.Instant.now().toString()));
     JSONObject state = new JSONObject()
       .put("shift", new JSONObject().put("id", "fare-shift"))
       .put("trip", new JSONObject().put("id", "fare-trip").put("shiftId", "fare-shift")
@@ -507,6 +606,9 @@ public class KfeOverlaySmokeTest {
 
   @Test public void cancellationFormAllowsOptionalFeeAndPersistsPassengerReason() throws Exception {
     clearPending();
+    seedCanonicalShift("cancel-shift");
+    seedCanonicalTrip(new JSONObject().put("id", "cancel-trip").put("shiftId", "cancel-shift")
+      .put("status", "ACTIVE").put("tripStage", "GOING_TO_PICKUP"));
     JSONObject state = new JSONObject()
       .put("shift", new JSONObject().put("id", "cancel-shift"))
       .put("trip", new JSONObject().put("id", "cancel-trip"))

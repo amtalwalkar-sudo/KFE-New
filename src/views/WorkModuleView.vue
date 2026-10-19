@@ -995,6 +995,45 @@ function keyAction() {
   if (!busy.value) void doAction()
 }
 
+// Native overlay trip commands may already be committed to canonical SQLite
+// while the PWA was closed. On replay, converge the PWA read model and acknowledge
+// the same event instead of running a second business transition with a new ID.
+// Return null on read failure so the event remains pending rather than risking a
+// duplicate write; return false only when the native canonical commit is absent.
+const syncAlreadyCommittedNativeTripAction = async (stage, tripId) => {
+  if (!nativeAndroid || !tripId) return false
+  const supportedStages = ['GO_TO_PICKUP', 'START_RIDE', 'END_RIDE', 'ENTER_FARE', 'CANCEL_RIDE']
+  if (!supportedStages.includes(stage)) return false
+  try {
+    const trips = await WorkService.getAllTrips()
+    const trip = trips.find(item => item?.id === tripId)
+    if (!trip) return false
+    let committed = false
+    // The queue may contain several unacknowledged stages for one trip. A
+    // later canonical stage proves the earlier command committed too; do not
+    // replay GO_TO_PICKUP/START_RIDE against a trip already completed offline.
+    if (stage === 'GO_TO_PICKUP') {
+      committed = ['ACTIVE', 'COMPLETED', 'CANCELLED'].includes(trip.status)
+    } else if (stage === 'START_RIDE') {
+      committed = (trip.status === 'ACTIVE' && trip.tripStage === 'RIDE_STARTED') ||
+        trip.status === 'COMPLETED' || trip.status === 'CANCELLED'
+    } else if (stage === 'END_RIDE') {
+      committed = trip.status === 'COMPLETED' && trip.tripStage === 'COMPLETED'
+    } else if (stage === 'ENTER_FARE') {
+      committed = trip.status === 'COMPLETED' &&
+        (typeof trip.fareDetailsSkipped === 'boolean' || Object.prototype.hasOwnProperty.call(trip, 'revenueAuthority'))
+    } else if (stage === 'CANCEL_RIDE') {
+      committed = trip.status === 'CANCELLED'
+    }
+    if (!committed) return false
+    await store.refresh()
+    return true
+  } catch (error) {
+    console.warn('Native canonical action read failed; leaving original event pending:', stage, tripId, error)
+    return null
+  }
+}
+
 const handleNativeAction = async event => {
   const stage = String(event?.stage || '')
   const eventTripId = String(event?.tripId || '')
@@ -1011,6 +1050,9 @@ const handleNativeAction = async event => {
     await openCancel()
     return true
   }
+  const nativeCommit = await syncAlreadyCommittedNativeTripAction(stage, eventTripId)
+  if (nativeCommit === true) return true
+  if (nativeCommit === null) return false
   if (stage === 'GO_TO_PICKUP') {
     // An acknowledgement may be lost after the canonical write. Treat a replay
     // for the already-created trip as success instead of attempting a second trip.

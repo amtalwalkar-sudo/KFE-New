@@ -443,11 +443,11 @@ public class KfeOverlayService extends Service {
   }
 
   private void triggerAction(){
-    // The SQLite queue is the durable hand-off. Advance the native cockpit
-    // immediately after the action is committed to that queue so a suspended
-    // WebView cannot leave the overlay stuck on "WAITING FOR APP". When Work
-    // resumes, it replays these events in creation order and persists each
-    // canonical business transition using the same event IDs.
+    // SQLite is the durable hand-off and native trip state is committed before
+    // dispatch. Advance the overlay only after that canonical write succeeds so a
+    // suspended WebView cannot block offline trip execution. When Work resumes it
+    // reconciles an already-committed trip state and acknowledges this same event;
+    // it only runs the legacy action handler if the native commit never completed.
     if(!awaitingEventId.isEmpty()) return;
     if("GO_TO_PICKUP".equals(actionStage)){
       if(pendingTripId.isEmpty()) pendingTripId=java.util.UUID.randomUUID().toString();
@@ -498,6 +498,14 @@ public class KfeOverlayService extends Service {
   // transitions. The optional package-private injector lets instrumentation tests
   // interrupt after each durable boundary and retry from persisted preferences.
   private String persistLifecycleAction(String eventStage,String canonicalStage,boolean rideStarted){
+    JSONObject savedState;
+    try{
+      savedState=new JSONObject(getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(LAST_STATE_KEY,"{}"));
+      JSONObject savedShift=savedState.optJSONObject("shift");
+      if(savedShift==null||!isCanonicalShiftActive(KfeCanonicalWorkStore.get(this),savedShift.optString("id","")))
+        throw new IllegalStateException("The canonical shift is no longer active.");
+    }catch(RuntimeException error){throw error;}
+    catch(Exception error){throw new IllegalStateException("Could not verify canonical shift ownership.",error);}
     if(!persistNativeWorkflow())throw new IllegalStateException("Native lifecycle checkpoint could not be committed.");
     injectLifecycleFault("AFTER_CHECKPOINT");
     String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,eventStage,pendingTripId,"");
@@ -778,6 +786,19 @@ public class KfeOverlayService extends Service {
       try{if(!Double.isFinite(Double.parseDouble(parkingValue))||Double.parseDouble(parkingValue)<0)return;}catch(Exception e){return;}
     }
     if("CANCEL".equals(formMode)&&cancelReason.isEmpty())return;
+    try{
+      JSONObject canonicalTripResult=KfeCanonicalWorkStore.get(this).getRecord("TRIP",actionTripId);
+      JSONObject canonicalTrip=canonicalTripResult.optJSONObject("record");
+      if(!canonicalTripResult.optBoolean("found",false)||canonicalTrip==null
+          ||!isCanonicalShiftActive(KfeCanonicalWorkStore.get(this),canonicalTrip.optString("shiftId",""))){
+        Toast.makeText(this,"This shift has ended. Reopen Work to refresh the overlay.",Toast.LENGTH_LONG).show();
+        return;
+      }
+    }catch(Exception error){
+      Log.e("KFE-CANONICAL","Could not verify active shift before native form submission.",error);
+      Toast.makeText(this,"Could not verify the active shift. Nothing was saved; retry after Work refreshes.",Toast.LENGTH_LONG).show();
+      return;
+    }
     formSubmitting=true;
     if("FARE".equals(formMode)){
       try {
@@ -818,12 +839,26 @@ public class KfeOverlayService extends Service {
   }
 
   
+  // Shift start/end are PWA-owned. A stale overlay snapshot must never authorize
+  // a new native trip transition after the canonical shift has ended.
+  private boolean isCanonicalShiftActive(KfeCanonicalWorkStore store,String shiftId) throws Exception {
+    if(shiftId==null||shiftId.trim().isEmpty())return false;
+    JSONObject found=store.getRecord("SHIFT",shiftId);
+    JSONObject canonicalShift=found.optJSONObject("record");
+    return found.optBoolean("found",false)&&canonicalShift!=null
+      &&"ACTIVE".equals(canonicalShift.optString("status",""));
+  }
+
   private boolean persistCanonicalTripStage(String stage, boolean rideStarted, String eventId){
     try{
       JSONObject root=new JSONObject(getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(LAST_STATE_KEY,"{}"));
       JSONObject shift=root.optJSONObject("shift");
       if(shift==null||shift.optString("id","").isEmpty()||pendingTripId.isEmpty())return false;
       KfeCanonicalWorkStore store=KfeCanonicalWorkStore.get(this);
+      if(!isCanonicalShiftActive(store,shift.optString("id",""))){
+        Log.w("KFE-CANONICAL","Refusing native trip transition because canonical shift is not active.");
+        return false;
+      }
       // The native event row is the durable identity for this lifecycle action.
       // Reuse its creation time so a retry after commit/lost acknowledgement
       // recreates the exact same canonical payload and operation ID.
@@ -927,6 +962,10 @@ public class KfeOverlayService extends Service {
     }
     if(trip==null)throw new IllegalStateException("The last known trip record is unavailable; form was not marked saved.");
     if(eventId==null||eventId.trim().isEmpty())throw new IllegalArgumentException("Durable form event ID is required.");
+    // The overlay can remain visible after a stale PWA snapshot. Re-check the
+    // canonical shift before committing fare/cancellation so shift end wins.
+    if(!isCanonicalShiftActive(canonical,trip.optString("shiftId","")))
+      throw new IllegalStateException("The canonical shift is no longer active; trip form was not committed.");
     String operationId="native-form-"+mode+"-"+eventId;
     long eventTimestamp=KfeNativeEventStore.get(this).createdAtMillis(eventId);
     String now=new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",java.util.Locale.US){{

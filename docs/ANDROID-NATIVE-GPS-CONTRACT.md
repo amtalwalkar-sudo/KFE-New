@@ -6,7 +6,7 @@ Physical-device acceptance remains required before the Android background-GPS au
 
 ## Authority
 
-For Android APK builds, the native location foreground service is the authoritative collector while a passenger ride is running. The browser/PWA geolocation path remains active and unchanged for browser deployments and as a supplementary path on Android.
+For Android APK builds, the native location foreground service is the authoritative collector while a passenger ride is running. The browser/PWA geolocation path remains active and unchanged for browser deployments. On Android, native owns collection and durable raw trace persistence; the PWA owns filtering, distance calculation, route enrichment, and authoritative movement reconciliation.
 
 ## Runtime contract
 
@@ -18,7 +18,7 @@ For Android APK builds, the native location foreground service is the authoritat
 6. When KFE resumes or completes/cancels the ride, `NativeGpsService` imports the durable native trace into the canonical `LocationRepository` as `PASSENGER_RIDE_TRACE`.
 7. Import is idempotent against existing browser/native snapshots.
 8. After successful import, the native trace file is cleared.
-9. Ride line-KM is calculated from the complete persisted trace using the existing Haversine trace-distance implementation.
+9. Native code must not calculate or publish authoritative movement distance. The main PWA domain layer filters the complete persisted trace and calculates provisional line-KM using the shared trace-distance implementation; native overlay displays the value supplied by the PWA and may be stale while the PWA is suspended.
 10. The final ride stores `tripKmAuthority: GPS_LINE_TRACE` and records the trace-point count/source in provenance.
 11. The browser/PWA location path remains available and is not replaced by the Android implementation.
 12. Network loss does not discard native GPS points because collection and persistence are local; synchronization/reconciliation occurs when KFE is available again.

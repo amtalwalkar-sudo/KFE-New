@@ -85,6 +85,14 @@ final class KfeNativeEventStore extends SQLiteOpenHelper {
     return events;
   }
 
+  synchronized boolean contains(String id) {
+    if (id == null || id.trim().isEmpty()) return false;
+    try (Cursor cursor = getReadableDatabase().query(
+        "native_events", new String[]{"id"}, "id=?", new String[]{id}, null, null, null, "1")) {
+      return cursor.moveToFirst();
+    }
+  }
+
   synchronized boolean isAcknowledged(String id) {
     if (id == null || id.trim().isEmpty()) return false;
     try (Cursor cursor = getReadableDatabase().query("native_events", new String[]{"status"}, "id=?", new String[]{id}, null, null, null, "1")) {

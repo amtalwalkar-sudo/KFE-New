@@ -32,9 +32,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileOutputStream;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 public class KfeNativeGpsService extends Service {
@@ -58,8 +56,6 @@ public class KfeNativeGpsService extends Service {
   private String eventType = "PASSENGER_RIDE_TRACE";
   private String entityType = "TRIP";
   private File traceFile;
-  private Location lastPassengerLocation;
-  private double passengerDistanceMeters = 0d;
   private PowerManager.WakeLock locationWakeLock;
   // startForeground must not be re-issued on provider-change broadcasts after boot;
   // Android can reject that background re-promotion even when this service is already foreground.
@@ -69,10 +65,6 @@ public class KfeNativeGpsService extends Service {
   private volatile long lastLocationPersistedAt;
   private volatile String lastLocationRejectReason = "";
   private final Set<String> seenKeys = new HashSet<>();
-  private final List<Location> filteredDistanceLocations = new ArrayList<>();
-  private static final long MAX_CONTIGUOUS_GAP_MS = 120000L;
-  private static final float MAX_ACCURACY_FOR_DISTANCE_METERS = 80f;
-  private static final float MAX_REASONABLE_SPEED_KMH = 180f;
 
   public static void start(Context context, String tripId, String eventType, String entityType) {
     // Never call startForegroundService unless the runtime location grant is
@@ -392,10 +384,6 @@ public class KfeNativeGpsService extends Service {
       seenKeys.add(key);
       lastLocationPersistedAt = System.currentTimeMillis();
       lastLocationRejectReason = "";
-      if ("PASSENGER_RIDE_TRACE".equals(eventType) || "DEAD_MOVEMENT_TRACE".equals(eventType)) {
-        appendFilteredDistanceLocation(location);
-        refreshLiveDistanceReadout();
-      }
     } catch (Exception error) {
       // Do not mark the point as seen when persistence fails. The next location
       // callback can retry the same evidence instead of silently losing it.
@@ -405,13 +393,7 @@ public class KfeNativeGpsService extends Service {
 
   private void loadSeenKeys() {
     seenKeys.clear();
-    filteredDistanceLocations.clear();
-    lastPassengerLocation = null;
-    passengerDistanceMeters = 0d;
-    if (traceFile == null || !traceFile.exists()) {
-      refreshLiveDistanceReadout();
-      return;
-    }
+    if (traceFile == null || !traceFile.exists()) return;
     try (BufferedReader reader = new BufferedReader(new FileReader(traceFile))) {
       String line;
       while ((line = reader.readLine()) != null) {
@@ -422,52 +404,12 @@ public class KfeNativeGpsService extends Service {
           double latitude = point.optDouble("latitude", Double.NaN);
           double longitude = point.optDouble("longitude", Double.NaN);
           seenKeys.add(storedEvent + "|" + timestamp + "|" + latitude + "|" + longitude);
-          if (eventType.equals(storedEvent) && !Double.isNaN(latitude) && !Double.isInfinite(latitude) && !Double.isNaN(longitude) && !Double.isInfinite(longitude)) {
-            Location distancePoint = new Location("KFE");
-            distancePoint.setLatitude(latitude);
-            distancePoint.setLongitude(longitude);
-            if (timestamp > 0) distancePoint.setTime(timestamp);
-            if (point.has("accuracy") && !point.isNull("accuracy")) distancePoint.setAccuracy((float) point.optDouble("accuracy"));
-            if (point.has("speed") && !point.isNull("speed")) distancePoint.setSpeed((float) point.optDouble("speed"));
-            appendFilteredDistanceLocation(distancePoint);
-          }
+
         } catch (Exception ignored) {}
       }
     } catch (Exception error) {
-      Log.e("KfeNativeGpsService", "Unable to rebuild filtered GPS distance from durable trace.", error);
+      Log.e("KfeNativeGpsService", "Unable to rebuild native GPS dedupe keys from durable trace.", error);
     }
-    refreshLiveDistanceReadout();
-  }
-
-  private void appendFilteredDistanceLocation(Location location) {
-    if (location == null || !location.hasAccuracy() || location.getAccuracy() > MAX_ACCURACY_FOR_DISTANCE_METERS) return;
-    Location previous = filteredDistanceLocations.isEmpty() ? null : filteredDistanceLocations.get(filteredDistanceLocations.size() - 1);
-    float segmentMeters = 0f;
-    if (previous != null) {
-      long elapsedMs = location.getTime() - previous.getTime();
-      if (elapsedMs <= 0L) return;
-      float displacementMeters = previous.distanceTo(location);
-      if (displacementMeters < 1f) return;
-      if (location.hasSpeed() && location.getSpeed() * 3.6f > MAX_REASONABLE_SPEED_KMH) return;
-      if (elapsedMs <= MAX_CONTIGUOUS_GAP_MS) {
-        float measuredSpeedKmh = (displacementMeters / 1000f) / (elapsedMs / 3600000f);
-        if (measuredSpeedKmh > MAX_REASONABLE_SPEED_KMH) return;
-        segmentMeters = displacementMeters;
-      }
-      // Match the shared JS filter: only an explicitly stationary, short move is
-      // discarded as jitter. Missing speed is unknown, not stationary.
-      if (location.hasSpeed() && location.getSpeed() * 3.6f <= 2f && displacementMeters <= 30f) return;
-    }
-    // Incremental accounting avoids an O(n^2) full-trace rescan on every GPS fix.
-    passengerDistanceMeters += segmentMeters;
-    filteredDistanceLocations.add(new Location(location));
-    lastPassengerLocation = new Location(location);
-  }
-
-  private void refreshLiveDistanceReadout() {
-    String distance = String.format(java.util.Locale.US, "%.1f km", passengerDistanceMeters / 1000d);
-    if ("DEAD_MOVEMENT_TRACE".equals(eventType)) KfeOverlayService.updateDeadKm(distance);
-    else KfeOverlayService.updateLiveKm(distance);
   }
 
   private void releaseLocationUpdates() {
@@ -544,10 +486,7 @@ public class KfeNativeGpsService extends Service {
     tripId = null;
     eventType = "PASSENGER_RIDE_TRACE";
     traceFile = null;
-    lastPassengerLocation = null;
-    passengerDistanceMeters = 0d;
     seenKeys.clear();
-    filteredDistanceLocations.clear();
     getSharedPreferences(PREFS, MODE_PRIVATE).edit().remove(ACTIVE_TRIP).remove(ACTIVE_EVENT).remove(ACTIVE_ENTITY).remove(ACTIVE_READY).apply();
   }
 
