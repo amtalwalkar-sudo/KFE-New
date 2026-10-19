@@ -33,8 +33,8 @@ assert(service.includes('FuelRepository.getAll'), 'Fuel reconstruction must cons
 
 assert(!service.includes('expenseTotal'), 'Operational service must not create a generic expense authority')
 assert(!service.includes('saveOperationalTotal'), 'Operational aggregate must not be persisted as a competing authority')
-assert(canonical.includes('Shift.revenue') && canonical.includes('authoritative ERP revenue input'), 'Canonical revenue authority must remain Shift-end revenue')
-assert(canonical.includes('Trip.revenue') && canonical.includes('supporting/detail data only'), 'Canonical Trip revenue must remain supporting-only detail')
+assert(canonical.includes('Shift.revenue') && canonical.includes('persisted projection derived exclusively from eligible trip records'), 'Canonical Shift revenue must be the persisted trip-derived projection')
+assert(canonical.includes('Trip.revenue') && canonical.includes('fare detail for an eligible completed trip'), 'Canonical completed-trip fare detail must feed the Shift projection')
 assert(canonical.includes('Shift.startOdometer') && canonical.includes('Shift.endOdometer'), 'Canonical odometer authority must remain Shift boundaries')
 
 assert(fuelRepo.includes('isFullTank'), 'Fuel full-tank state must remain persisted')
