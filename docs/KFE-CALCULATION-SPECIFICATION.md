@@ -37,14 +37,16 @@ The result must reconcile with authoritative vehicle movement. A negative result
 
 ### Reporting-period revenue
 
-`revenue = sum(completedShift.revenue)`
+`shift.revenue = deriveLiveRevenue(tripsForShift)`
 
-The completed Shift's confirmed end-of-shift revenue is the single ERP revenue authority. Completed-trip fares are supporting detail only and are used for reconciliation/display; they do not override Shift revenue.
+The canonical projection is the sum of non-deleted completed-trip fares where `fareDetailsSkipped !== true`, plus non-deleted cancellation fees for cancelled trips. A blank/not-applicable cancellation fee and a skipped/missing fare contribute ₹0. The projection is persisted on `Shift.revenue`; shift-end does not accept a competing manual revenue total.
 
-Included records:
-- completed shifts with a valid shift-end revenue value.
+`reportingRevenue = sum(completedShift.revenue)`
 
-Trip records remain important for ride history, business KM and reconciliation, but `Trip.revenue` is not an ERP revenue authority.
+Included reporting records:
+- completed shifts with a persisted canonical trip-derived revenue projection.
+
+Trip records are the source facts for revenue as well as ride history and business KM; reporting reads the persisted Shift projection rather than repeating the formula.
 
 ## 4. Actual operating cost
 
