@@ -920,7 +920,7 @@ public class KfeOverlayService extends Service {
         if(tripInstant.isAfter(projectionInstant))projectionInstant=tripInstant;
       }
     }
-    if(!"TRIP_FARES".equals(shift.optString("revenueSource",""))&&(!shift.has("legacyRevenueSnapshot")||shift.isNull("legacyRevenueSnapshot"))){double legacyRevenue=shift.optDouble("revenue",0d);if(Double.isFinite(legacyRevenue)&&legacyRevenue>0d){shift.put("legacyRevenueSnapshot",legacyRevenue);shift.put("legacyRevenueMigrationStatus","REVIEW_REQUIRED");}}
+    if(!"TRIP_FARES".equals(shift.optString("revenueSource",""))&&(!shift.has("legacyRevenueSnapshot")||shift.isNull("legacyRevenueSnapshot"))){double legacyRevenue=shift.optDouble("revenue",0d);if(Double.isFinite(legacyRevenue)&&legacyRevenue>0d&&Math.abs(legacyRevenue-total)>=0.005d){shift.put("legacyRevenueSnapshot",legacyRevenue);shift.put("legacyRevenueMigrationStatus","REVIEW_REQUIRED");}}
     shift.put("revenue",total);shift.put("liveFareRevenue",total);shift.put("revenueSource","TRIP_FARES");
     // A replay of an older form event may recompute a newer aggregate. The
     // projection timestamp follows the newest canonical shift/trip version,
