@@ -261,6 +261,54 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertPendingEvent(KfeNativeEventStore.get(context).pending(500), tripId, "ENTER_FARE");
   }
 
+  @Test public void staleOverlaySnapshotCannotOverwriteExistingCanonicalTripFieldsDuringFareSave() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    String suffix = Long.toString(System.currentTimeMillis());
+    String shiftId = "stale-overlay-shift-" + suffix;
+    String tripId = "stale-overlay-trip-" + suffix;
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    JSONObject shift = new JSONObject()
+        .put("id", shiftId).put("status", "ACTIVE").put("revenue", 0)
+        .put("updatedAt", "2026-01-01T00:00:00.000Z");
+    JSONObject canonicalTrip = new JSONObject()
+        .put("id", tripId).put("shiftId", shiftId).put("status", "ACTIVE")
+        .put("tripStage", "COMPLETED").put("distanceKm", 12.5d)
+        .put("pickupAddress", "Canonical pickup").put("updatedAt", "2026-01-01T00:00:00.000Z");
+    assertTrue("Active shift fixture must commit.",
+        store.putRecord("stale-overlay-shift-create-" + suffix, "SHIFT", shift).accepted);
+    assertTrue("Canonical trip fixture must commit.",
+        store.putRecord("stale-overlay-trip-create-" + suffix, "TRIP", canonicalTrip).accepted);
+
+    // Deliberately seed an older PWA snapshot with conflicting values. It may
+    // fill fields absent from native canonical storage, but cannot roll back
+    // values already owned by the native canonical record.
+    JSONObject staleShift = new JSONObject().put("id", shiftId).put("status", "ENDED");
+    JSONObject staleTrip = new JSONObject()
+        .put("id", tripId).put("shiftId", "wrong-shift-" + suffix)
+        .put("status", "CANCELLED").put("distanceKm", 999d)
+        .put("pickupAddress", "Stale pickup").put("oldPwaOnlyField", "preserve-if-absent");
+    context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE).edit()
+        .putString(STATE_KEY, new JSONObject().put("shift", staleShift).put("trip", staleTrip).toString())
+        .commit();
+
+    String eventId = KfeNativeWorkActionsPlugin.recordPendingAction(
+        context, "ENTER_FARE", tripId, "{\"fare\":\"275\",\"toll\":\"0\",\"parking\":\"0\"}");
+    AttachedOverlayService service = new AttachedOverlayService();
+    service.attach(context);
+    invoke(service, "persistCanonicalTripForm",
+        new Class<?>[]{String.class, String.class, JSONObject.class, String.class},
+        "FARE", tripId, new JSONObject().put("fare", "275").put("toll", "0").put("parking", "0"), eventId);
+
+    JSONObject saved = KfeCanonicalWorkStore.get(context).getRecord("TRIP", tripId).getJSONObject("record");
+    assertEquals("Canonical shift association must win over stale snapshot.", shiftId, saved.getString("shiftId"));
+    assertEquals("Fare save must preserve canonical distance.", 12.5d, saved.getDouble("distanceKm"), 0.001d);
+    assertEquals("Fare save must preserve canonical pickup.", "Canonical pickup", saved.getString("pickupAddress"));
+    assertEquals("A snapshot-only field can be carried forward without overriding canonical fields.",
+        "preserve-if-absent", saved.getString("oldPwaOnlyField"));
+    assertEquals("Fare save still applies the submitted fare.", 275d, saved.getDouble("revenue"), 0.001d);
+    assertEquals("Native fare remains the canonical trip status.", "COMPLETED", saved.getString("status"));
+  }
+
   @Test public void lifecycleOutboxRetryReusesPendingAndAcknowledgedEventAcrossCrashBoundary() throws Exception {
     Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
     KfeNativeEventStore events = KfeNativeEventStore.get(context);
