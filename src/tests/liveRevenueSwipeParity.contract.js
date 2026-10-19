@@ -52,4 +52,5 @@ assert.match(fs.readFileSync(new URL('../repositories/shiftTripRepository.js',im
 assert.match(overlay,/legacyRevenueMigrationStatus/, 'Native projection must preserve legacy totals for explicit migration review')
 assert.match(fs.readFileSync(new URL('../repositories/shiftTripRepository.js',import.meta.url),'utf8'),/shift\.revenueSource = 'TRIP_FARES'/)
 assert.match(fs.readFileSync(new URL('../repositories/shiftTripRepository.js',import.meta.url),'utf8'),/async _finishTrip[\s\S]*?applyShiftRevenueProjection\(shift, shiftTrips\)/, 'Trip completion must use the shared revenue projection helper')
+assert.match(fs.readFileSync(new URL('../repositories/shiftTripRepository.js',import.meta.url),'utf8'),/async completeShift\(data\)[\s\S]*?applyShiftRevenueProjection\(shift, shiftTrips\)/, 'Shift closure must reproject revenue atomically from all linked trips')
 console.log('PASS: live revenue model and shared swipe configuration')
