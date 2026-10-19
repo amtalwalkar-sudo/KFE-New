@@ -309,8 +309,17 @@ public class KfeOfflineMapsPlugin extends Plugin {
             long contentLength = c.getContentLengthLong(); if (contentLength > 0 && contentLength != expectedBytes) throw new IllegalStateException("Map package size does not match its manifest.");
             MessageDigest digest = MessageDigest.getInstance("SHA-256"); long count = 0;
             try (InputStream in = new BufferedInputStream(c.getInputStream()); FileOutputStream out = new FileOutputStream(destination)) {
-                byte[] b = new byte[64 * 1024]; int n;
-                while ((n=in.read(b))!=-1) { out.write(b,0,n); digest.update(b,0,n); count += n; JSObject progress = new JSObject(); progress.put("bytesDownloaded", count); progress.put("bytesTotal", expectedBytes); progress.put("percent", Math.min(99, (int)(count * 100 / expectedBytes))); progress.put("regionId", regionId); notifyListeners("downloadProgress", progress); }
+                byte[] b = new byte[64 * 1024]; int n; int lastPercent = -1;
+                while ((n=in.read(b))!=-1) {
+                    out.write(b,0,n); digest.update(b,0,n); count += n;
+                    int percent = Math.min(99, (int)(count * 100 / expectedBytes));
+                    if (percent != lastPercent) {
+                        JSObject progress = new JSObject(); progress.put("bytesDownloaded", count);
+                        progress.put("bytesTotal", expectedBytes); progress.put("percent", percent);
+                        progress.put("regionId", regionId); notifyListeners("downloadProgress", progress);
+                        lastPercent = percent;
+                    }
+                }
                 out.getFD().sync();
             }
             StringBuilder hash = new StringBuilder(); for (byte v : digest.digest()) hash.append(String.format(Locale.ROOT, "%02x", v));
