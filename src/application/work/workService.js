@@ -28,7 +28,7 @@ const withoutCanonicalSyncMetadata = record => {
   const { _nativeCanonicalSync, ...canonicalRecord } = record || {}
   return canonicalRecord
 }
-const mirrorCanonicalRecord = async (entityType, record) => {
+const mirrorCanonicalRecord = async (entityType, record, requestedOperationId = '') => {
   if (!record?.id || !nativeCanonicalAvailable()) return record
   let candidate = record
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -37,7 +37,7 @@ const mirrorCanonicalRecord = async (entityType, record) => {
     const existingPending = candidate?._nativeCanonicalSync
     const operationId = existingPending?.operationId && existingPending?.fingerprint === fingerprint
       ? existingPending.operationId
-      : CanonicalWorkBoundary.createOperationId()
+      : (requestedOperationId || CanonicalWorkBoundary.createOperationId())
     // Persist the exact operation identity before crossing the native bridge. If the
     // process dies or the acknowledgement is lost, recovery retries the same id;
     // SQLite's operation ledger makes that retry idempotent.
@@ -69,15 +69,15 @@ const mirrorCanonicalRecord = async (entityType, record) => {
   }
   throw new Error(`Native canonical ${entityType} mirror could not stabilize its local snapshot.`)
 }
-const mirrorCanonicalTripById = async id => {
+const mirrorCanonicalTripById = async (id, requestedOperationId = '') => {
   if (!id || !nativeCanonicalAvailable()) return null
   const trips = await ShiftTripRepository.getAllTrips()
   const record = trips.find(item => item.id === id)
-  if (record) await mirrorCanonicalRecord('TRIP', record)
+  if (record) await mirrorCanonicalRecord('TRIP', record, requestedOperationId)
   return record || null
 }
-const mirrorCanonicalShiftByTripId = async id => {
-  const trip = await mirrorCanonicalTripById(id)
+const mirrorCanonicalShiftByTripId = async (id, requestedOperationId = '') => {
+  const trip = await mirrorCanonicalTripById(id, requestedOperationId)
   if (trip?.shiftId && nativeCanonicalAvailable()) {
     const shift = (await ShiftTripRepository.getAllShifts()).find(item => item.id === trip.shiftId)
     if (shift) await mirrorCanonicalRecord('SHIFT', shift)
@@ -509,9 +509,9 @@ export const WorkService = Object.freeze({
     }
     return result
   },
-  async cancelTrip(data) {
+  async cancelTrip(data, { canonicalOperationId = '' } = {}) {
     const result = await ShiftTripRepository.cancelTrip(data)
-    await mirrorCanonicalShiftByTripId(data?.id)
+    await mirrorCanonicalShiftByTripId(data?.id, canonicalOperationId)
     checkpoint()
     if (data?.id) {
       void (async () => {
@@ -534,10 +534,10 @@ export const WorkService = Object.freeze({
     }
     return result
   },
-  async updateTrip(data) {
+  async updateTrip(data, { canonicalOperationId = '' } = {}) {
     const validation = validateTripCorrection(data)
     if (!validation.valid) return { ok: false, reason: validation.reason }
-    const result = await ShiftTripRepository.updateTrip({ ...data, ...validation }); await mirrorCanonicalShiftByTripId(data?.id); checkpoint(); return result
+    const result = await ShiftTripRepository.updateTrip({ ...data, ...validation }); await mirrorCanonicalShiftByTripId(data?.id, canonicalOperationId); checkpoint(); return result
   },
   async updateFuel(data) { const result = await FuelRepository.update(data.id, data); checkpoint(); return { ok: true, record: result } },
   async deleteFuel(id) { const result = await FuelRepository.remove(id); checkpoint(); return { ok: result } },
