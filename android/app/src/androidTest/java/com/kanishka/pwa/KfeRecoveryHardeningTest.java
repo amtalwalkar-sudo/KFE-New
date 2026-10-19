@@ -480,7 +480,7 @@ public class KfeRecoveryHardeningTest {
     while (SystemClock.uptimeMillis() < installDeadline) {
       if (tiles.isFile() && tiles.length() > 0 && metadataFile.isFile()) { installed = true; break; }
       String uiError = evaluateJavascriptSync(webView,
-          "document.querySelector('[role=alert]')?.textContent || ''");
+          "document.querySelector('.offline-maps-page [role=alert]')?.textContent || ''");
       if (uiError != null && !uiError.trim().isEmpty()) fail("Offline Maps UI reported a download error: " + uiError);
       SystemClock.sleep(1000L);
     }
