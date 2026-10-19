@@ -70,6 +70,7 @@ assert.ok(mapReleaseScript.includes('KfeRecoveryHardeningTest#downloadOfflineMap
 assert.ok(mapReleaseScript.includes('ui-download-instrumentation.log') && mapReleaseScript.includes('OK (1 test)'), 'CI must fail if the UI-driven download or its integrity verification fails.')
 assert.ok(mapReleaseScript.includes('cmd connectivity airplane-mode enable'), 'The mobile-engine route test must disable emulator networking through ConnectivityService.')
 assert.ok(mapReleaseScript.indexOf('downloadOfflineMapThroughUserFacingScreen') < mapReleaseScript.indexOf('cmd connectivity airplane-mode enable'), 'The UI download must complete before the test disables networking.')
+assert.ok(mapReleaseScript.includes('am force-stop com.kanishka.pwa') && mapReleaseScript.includes('files/offline-maps/regions/mumbai-metro/valhalla-tiles.tar'), 'CI must prove the UI-downloaded regional package persists after the app process is stopped.')
 const recoveryTest = read('android/app/src/androidTest/java/com/kanishka/pwa/KfeRecoveryHardeningTest.java')
 assert.ok(recoveryTest.includes('new Valhalla(context,'), 'Offline routing must exercise the embedded native Valhalla engine.')
 assert.ok(recoveryTest.includes('usingTileExtract(tiles.getAbsolutePath(), null)'), 'Offline routing must use the locally installed tile extract rather than an online route.')
