@@ -18,15 +18,15 @@ const atomic = async (stores, writer) => {
 const saveMutation = (mutationStore, auditStore, entityId, entityType, action, payload, createdAt) => writeMutationAndAudit(mutationStore, auditStore, { entityId, entityType, action, payload, createdAt })
 const readAll = async storeName => { const db = await initializeCanonicalStorage(); return new Promise((resolve, reject) => { const tx = db.transaction([storeName], 'readonly'); const request = tx.objectStore(storeName).getAll(); request.onsuccess = () => resolve(request.result || []); request.onerror = () => reject(request.error || new Error(`${storeName} query failed.`)) }) }
 const applyShiftRevenueProjection = (shift, shiftTrips) => {
+  const revenue = deriveLiveRevenue(shiftTrips)
   if (shift.revenueSource !== 'TRIP_FARES' && shift.legacyRevenueSnapshot == null) {
     const legacyRevenue = Number(shift.revenue)
-    if (Number.isFinite(legacyRevenue) && legacyRevenue > 0) {
-      // Preserve the old value for explicit migration review, never as revenue authority.
+    if (Number.isFinite(legacyRevenue) && legacyRevenue > 0 && Math.abs(legacyRevenue - revenue) >= 0.005) {
+      // Preserve the old value only when trip facts cannot reconstruct it.
       shift.legacyRevenueSnapshot = legacyRevenue
       shift.legacyRevenueMigrationStatus = 'REVIEW_REQUIRED'
     }
   }
-  const revenue = deriveLiveRevenue(shiftTrips)
   shift.revenue = revenue
   shift.liveFareRevenue = revenue
   shift.revenueSource = 'TRIP_FARES'
