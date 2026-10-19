@@ -58,9 +58,9 @@ fi
 # the directory belongs to the app; the native routing test reads this location.
 # Use the same Mumbai metro package that is published to users.
 timeout 300s adb push work/area-mumbai-metro.tar /data/local/tmp/kfe-area-mumbai.tar
-timeout 60s adb shell run-as com.kanishka.pwa cp /data/local/tmp/kfe-area-mumbai.tar files/valhalla-tiles.tar
+timeout 60s adb shell run-as com.kanishka.pwa sh -c 'mkdir -p files && cp /data/local/tmp/kfe-area-mumbai.tar files/valhalla-tiles.tar'
 timeout 300s adb push work/trace-request-mumbai.json /data/local/tmp/kfe-trace-request-mumbai.json
-timeout 60s adb shell run-as com.kanishka.pwa cp /data/local/tmp/kfe-trace-request-mumbai.json files/valhalla-trace-request.json
+timeout 60s adb shell run-as com.kanishka.pwa sh -c 'mkdir -p files && cp /data/local/tmp/kfe-trace-request-mumbai.json files/valhalla-trace-request.json'
 test "$(adb shell run-as com.kanishka.pwa wc -c files/valhalla-tiles.tar | awk '{print $1}' | tr -d '\r')" -gt 0
 test "$(adb shell run-as com.kanishka.pwa wc -c files/valhalla-trace-request.json | awk '{print $1}' | tr -d '\r')" -gt 0
 
