@@ -33,6 +33,10 @@ Working branch: `audit/trip-derived-revenue-contract`
 
 - Native revenue aggregation treated a JSON `deletedAt: null` value as a non-empty string, potentially excluding a live trip from the projection. The check now excludes only a genuinely non-null deletion timestamp or an explicit deleted flag.
 - A cancellation record with an explicitly present but null cancellation-fee field could fall back to the generic `revenue` field. The JS and native projections now distinguish an absent legacy field from an explicit blank/null fee; explicit blank/null contributes ₹0.
+- Native revenue aggregation previously accepted only JSON numeric objects while the PWA also normalized numeric strings. Native projection now uses numeric parsing for legacy/imported values, matching the JS rule.
+- Active-shift target progress used nullish fallback for cancellation fees, so an explicit null fee could fall back to generic trip revenue. It now distinguishes an absent legacy fee field from an explicit blank/null fee.
+- Reconciliation previously returned `UNAVAILABLE` solely because a completed trip fare was missing, despite the frozen rule that missing fare contributes ₹0. It now compares the projection using zero contribution and exposes `unpricedTrips` as quality information.
+- `WorkModuleView.vue` directly wrote canonical native records after `WorkService` had already mirrored trip and Shift records, creating a second storage path. The view now passes the durable operation identity to the application/store path; direct canonical writes were removed from the presentation layer.
 - PWA cancellation submission now normalizes a blank fee to numeric zero before sending it to the store.
 - Revenue documentation previously described shift-end revenue as the authority. Core data, calculation, lifecycle, business-rule, form-save-path and conformance documents now describe the trip-derived Shift projection. The authority identifier was updated to `TRIP_DERIVED_SHIFT_REVENUE`.
 
