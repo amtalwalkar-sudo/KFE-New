@@ -21,7 +21,7 @@ assert.match(serviceSource, /AUTHORITATIVE_MONTHLY_BREAK_EVEN/)
 assert.match(serviceSource, /deriveRollingDriverTarget/)
 
 const snapshot = {
-  trips: [{ id:'t1', status:'COMPLETED', tripStartAt:'2026-09-10T09:00:00Z', tripEndAt:'2026-09-10T12:00:00Z', tripKm:150, revenue:1 }],
+  trips: [{ id:'t1', status:'COMPLETED', tripStartAt:'2026-09-10T09:00:00Z', tripEndAt:'2026-09-10T12:00:00Z', tripKm:150, revenue:1000 }],
   shifts: [{ id:'s1', shiftStartAt:'2026-09-10T08:00:00Z', shiftEndAt:'2026-09-10T18:00:00Z', startOdometer:1000, endOdometer:1200, toll:100, parking:50, tollParkingRevenueTreatment:'EXCLUDED', tollParkingCaptureMode:'ADDITIONAL_ONLY', revenue:1000 }],
   fuelLogs: [
     { capturedAt:'2026-09-04T18:00:00Z', odometer:600, quantityKg:10, amount:2000, isFullTank:true, vehicleId:'v1' },
