@@ -3,6 +3,17 @@ set -euo pipefail
 
 cd "$GITHUB_WORKSPACE"
 mkdir -p artifacts/android-golden
+
+# Bound every ordinary ADB call. Instrumentation invocations below have their own
+# longer explicit timeout; unbounded transport/device commands must never hang CI.
+adb() {
+  local limit="${KFE_ADB_COMMAND_TIMEOUT_SECONDS:-30}"
+  if [[ "${1:-}" == "wait-for-device" ]]; then
+    limit="${KFE_ADB_WAIT_TIMEOUT_SECONDS:-15}"
+  fi
+  timeout --foreground "${limit}s" command adb "$@"
+}
+
 adb_ready() {
   for _ in 1 2 3 4 5 6 7 8 9 10; do
     if adb wait-for-device && [ "$(adb get-state 2>/dev/null || true)" = "device" ]; then return 0; fi
