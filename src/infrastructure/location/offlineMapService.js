@@ -1,6 +1,6 @@
 import { registerPlugin, Capacitor } from '@capacitor/core'
 
-const REGION_ID = 'mumbai-pune-nashik-alibag-v1'
+const REGION_ID = 'mumbai-metro'
 const isAndroidNative = () => Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android'
 let pluginPromise
 
@@ -26,6 +26,11 @@ export const OfflineMapService = {
     const native = await plugin()
     if (!native) return { remove: async () => {} }
     return native.addListener(eventName, listener)
+  },
+  async remove(regionId) {
+    const native = await plugin()
+    if (!native) throw new Error('Offline Valhalla package management requires the KFE Android app.')
+    return native.removeRegion({ regionId })
   },
   async traceRoute(points) {
     const native = await plugin()
