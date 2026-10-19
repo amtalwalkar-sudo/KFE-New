@@ -36,6 +36,15 @@ install_apk_with_retry() {
 install_apk_with_retry android/app/build/outputs/apk/debug/app-debug.apk
 install_apk_with_retry android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 
+# Satisfy Android startup permission gates in the emulator so the UI test can
+# reach Offline Maps without interactive system dialogs.
+adb shell pm grant com.kanishka.pwa android.permission.ACCESS_COARSE_LOCATION || true
+adb shell pm grant com.kanishka.pwa android.permission.ACCESS_FINE_LOCATION || true
+adb shell pm grant com.kanishka.pwa android.permission.ACCESS_BACKGROUND_LOCATION || true
+adb shell pm grant com.kanishka.pwa android.permission.POST_NOTIFICATIONS || true
+adb shell appops set com.kanishka.pwa SYSTEM_ALERT_WINDOW allow
+adb shell settings put secure location_mode 3
+
 # Let the app create its scoped external-files directory. Android 11+ blocks
 # mkdir by the shell/run-as user when Android/data does not yet exist. Transfer
 # fixtures through /data/local/tmp, then copy them as the owning app UID.
