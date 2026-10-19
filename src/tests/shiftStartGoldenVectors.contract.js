@@ -43,7 +43,7 @@ assert.deepEqual(
 )
 assert.deepEqual(
   normalize(validateGapAllocation(null, null)),
-  { valid: false, requiresGapAllocation: true, gapKm: null, reasonCode: 'GAP_ALLOCATION_REQUIRED' },
+  { valid: false, requiresGapAllocation: true, gapKm: Number.NaN, reasonCode: 'GAP_ALLOCATION_REQUIRED' },
   'Missing gap distance must remain invalid rather than being coerced to zero.'
 )
 
