@@ -475,8 +475,16 @@ public class KfeRecoveryHardeningTest {
     File regionDir = new File(new File(new File(context.getFilesDir(), "offline-maps"), "regions"), "mumbai-metro");
     File tiles = new File(regionDir, "valhalla-tiles.tar");
     File metadataFile = new File(regionDir, "map-metadata.json");
-    await("actual UI-triggered regional download and verified installation", 1200000L,
-        () -> tiles.isFile() && tiles.length() > 0 && metadataFile.isFile());
+    boolean installed = false;
+    long installDeadline = SystemClock.uptimeMillis() + 1200000L;
+    while (SystemClock.uptimeMillis() < installDeadline) {
+      if (tiles.isFile() && tiles.length() > 0 && metadataFile.isFile()) { installed = true; break; }
+      String uiError = evaluateJavascriptSync(webView,
+          "document.querySelector('[role=alert]')?.textContent || ''");
+      if (uiError != null && !uiError.trim().isEmpty()) fail("Offline Maps UI reported a download error: " + uiError);
+      SystemClock.sleep(1000L);
+    }
+    assertTrue("The actual UI-triggered regional download must finish and install verified tiles before timeout.", installed);
     JSONObject metadata = new JSONObject(new String(java.nio.file.Files.readAllBytes(metadataFile.toPath()),
         java.nio.charset.StandardCharsets.UTF_8));
     assertEquals("Installed size must match the package bytes.", tiles.length(), metadata.getLong("sizeBytes"));
