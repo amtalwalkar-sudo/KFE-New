@@ -12,12 +12,11 @@ const inRange = (value, range) => {
 /**
  * Driver target progress has a deliberate live-shift rule separate from financial
  * reporting authority:
- * - completed shifts contribute only their authoritative shift-end revenue;
- * - during an active shift, a completed trip contributes only when its fare was
- *   explicitly saved (not skipped) and its completion falls inside the target day;
- * - skipped/missing trip fares contribute nothing until shift close, when the
- *   driver's per-trip corrections or single shift total are persisted as Shift.revenue.
- * Trip fares never replace or get added to a completed shift's authoritative total.
+ * - completed shifts contribute their persisted trip-derived Shift revenue;
+ * - during an active shift, eligible completed fares and recorded cancellation fees
+ *   contribute when their terminal event falls inside the target day;
+ * - skipped/missing trip fares contribute zero. Cancellation fees default to zero when blank.
+ * Active-trip contributions never get added again to a completed shift's projection.
  */
 export const deriveDailyTargetAchievement = ({
   shifts = [],
@@ -38,17 +37,19 @@ export const deriveDailyTargetAchievement = ({
     .map(shift => shift.id)
     .filter(Boolean))
 
-  const liveEnteredTripRevenue = live(trips)
-    .filter(trip => trip?.status === 'COMPLETED' && activeShiftIds.has(trip.shiftId))
-    .filter(trip => trip?.fareDetailsSkipped !== true && trip?.revenue !== null && trip?.revenue !== undefined && trip?.revenue !== '')
+  const liveTripRevenue = live(trips)
+    .filter(trip => activeShiftIds.has(trip.shiftId))
+    .filter(trip => trip?.status === 'CANCELLED' || (trip?.status === 'COMPLETED' && trip?.fareDetailsSkipped !== true))
     .filter(trip => inRange(trip.tripEndAt, range))
     .filter(trip => {
       const ended = dateOf(trip.tripEndAt)
       return !!ended && ended <= now
     })
     .reduce((total, trip) => {
-      const fare = amount(trip.revenue)
-      return fare !== null && fare >= 0 ? total + fare : total
+      const recordedAmount = trip.status === 'CANCELLED'
+        ? amount(trip.cancelledRevenue ?? trip.revenue)
+        : amount(trip.revenue)
+      return recordedAmount !== null && recordedAmount >= 0 ? total + recordedAmount : total
     }, 0)
 
   const finalizedShiftRevenue = amount(completedShiftRevenue)
