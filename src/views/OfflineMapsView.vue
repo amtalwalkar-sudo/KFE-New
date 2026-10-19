@@ -133,6 +133,7 @@ onUnmounted(async () => { for (const handle of listeners) await handle?.remove?.
 
       <p v-if="region.status?.installed" class="installed-note">Saved locally · {{ formatBytes(region.status.bytesInstalled) }} · installed {{ region.status.installedAt || 'date unavailable' }}</p>
       <p v-if="region.status?.manifestError" class="sub">{{ region.status.manifestError }}</p>
+      <p v-if="region.status?.manifestAvailable && Number(region.status?.bytesAvailable) < Number(region.status?.bytesRequiredForUpdate)" class="sub storage-warning">Not enough free space for a safe download/update. Free up at least {{ formatBytes(Number(region.status.bytesRequiredForUpdate) - Number(region.status.bytesAvailable)) }} and refresh.</p>
       <p v-if="region.status?.installed && region.status?.latestVersion === region.status?.installedVersion" class="sub">This package is up to date.</p>
 
       <div v-if="busyRegion === region.regionId" class="progress-wrap" role="status" :aria-label="`Downloading ${region.region}`">
