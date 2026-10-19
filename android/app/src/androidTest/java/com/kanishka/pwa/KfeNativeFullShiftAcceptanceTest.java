@@ -261,6 +261,91 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertPendingEvent(KfeNativeEventStore.get(context).pending(500), tripId, "ENTER_FARE");
   }
 
+  @Test public void formOutboxSurvivesInjectedCanonicalSqliteWriteFailureAndRetriesIdempotently() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    String suffix = Long.toString(System.currentTimeMillis());
+    String shiftId = "form-sql-failure-shift-" + suffix;
+    String tripId = "form-sql-failure-trip-" + suffix;
+    String triggerName = "inject_form_write_failure_" + suffix;
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    JSONObject shift = new JSONObject()
+        .put("id", shiftId).put("status", "ACTIVE").put("revenue", 0)
+        .put("updatedAt", "2026-01-01T00:00:00.000Z");
+    JSONObject trip = new JSONObject()
+        .put("id", tripId).put("shiftId", shiftId).put("status", "ACTIVE")
+        .put("tripStage", "COMPLETED").put("updatedAt", "2026-01-01T00:00:00.000Z");
+    assertTrue("Initial shift must commit.",
+        store.putRecord("form-sql-failure-shift-create-" + suffix, "SHIFT", shift).accepted);
+    assertTrue("Initial trip must commit.",
+        store.putRecord("form-sql-failure-trip-create-" + suffix, "TRIP", trip).accepted);
+
+    JSONObject payload = new JSONObject()
+        .put("fare", "275").put("toll", "0").put("parking", "0")
+        .put("tollTreatment", "INCLUDED").put("parkingTreatment", "INCLUDED");
+    String eventId = KfeNativeWorkActionsPlugin.recordPendingAction(
+        context, "ENTER_FARE", tripId, payload.toString());
+    assertTrue("Durable outbox event must exist before canonical write begins.",
+        KfeNativeEventStore.get(context).contains(eventId));
+
+    // Force SQLite itself to reject the canonical trip insert after the durable
+    // form event has been queued. This exercises a storage failure, not merely
+    // a business-rule refusal such as an already-ended shift.
+    Method dbGetter = SQLiteOpenHelper.class.getDeclaredMethod("getWritableDatabase");
+    dbGetter.setAccessible(true);
+    SQLiteDatabase db = (SQLiteDatabase) dbGetter.invoke(store);
+    db.execSQL("CREATE TRIGGER " + triggerName
+        + " BEFORE INSERT ON canonical_records WHEN NEW.entity_id='" + tripId + "'"
+        + " BEGIN SELECT RAISE(ABORT, 'INJECTED_CANONICAL_FORM_WRITE_FAILURE'); END");
+
+    AttachedOverlayService service = new AttachedOverlayService();
+    service.attach(context);
+    prepareSnapshot(context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE), shiftId, tripId);
+    try {
+      try {
+        invoke(service, "persistCanonicalTripForm",
+            new Class<?>[]{String.class, String.class, JSONObject.class, String.class},
+            "FARE", tripId, payload, eventId);
+        throw new AssertionError("Injected SQLite failure must prevent the form from being marked committed.");
+      } catch (InvocationTargetException expected) {
+        assertNotNull("The injected storage failure must propagate to the form caller.", expected.getCause());
+      }
+      JSONObject unchanged = KfeCanonicalWorkStore.get(context).getRecord("TRIP", tripId);
+      assertEquals("Canonical trip must remain unchanged after the failed transaction.", "ACTIVE",
+          unchanged.getJSONObject("record").getString("status"));
+      assertTrue("Failed canonical write must retain its durable event for retry.",
+          KfeNativeEventStore.get(context).contains(eventId));
+      assertPendingEvent(KfeNativeEventStore.get(context).pending(500), tripId, "ENTER_FARE");
+    } finally {
+      db.execSQL("DROP TRIGGER IF EXISTS " + triggerName);
+    }
+
+    // Retry the exact same durable command after storage recovers. Repeating it
+    // must not create a second fare or duplicate the shift revenue projection.
+    invoke(service, "persistCanonicalTripForm",
+        new Class<?>[]{String.class, String.class, JSONObject.class, String.class},
+        "FARE", tripId, payload, eventId);
+    invoke(service, "persistCanonicalTripForm",
+        new Class<?>[]{String.class, String.class, JSONObject.class, String.class},
+        "FARE", tripId, payload, eventId);
+    JSONObject savedTrip = KfeCanonicalWorkStore.get(context).getRecord("TRIP", tripId);
+    JSONObject savedShift = KfeCanonicalWorkStore.get(context).getRecord("SHIFT", shiftId);
+    assertEquals("Successful retry must commit the trip once.", "COMPLETED",
+        savedTrip.getJSONObject("record").getString("status"));
+    assertEquals(275d, savedTrip.getJSONObject("record").getDouble("revenue"), 0.001d);
+    assertEquals("Revenue projection must not double-count the retry.", 275d,
+        savedShift.getJSONObject("record").getDouble("revenue"), 0.001d);
+    assertPendingEvent(KfeNativeEventStore.get(context).pending(500), tripId, "ENTER_FARE");
+
+    cleanupNativeRecords(context, shiftId, tripId, "", "");
+    SQLiteOpenHelper eventStore = KfeNativeEventStore.get(context);
+    SQLiteDatabase eventDb = (SQLiteDatabase) dbGetter.invoke(eventStore);
+    eventDb.delete("native_events", "trip_id=?", new String[]{tripId});
+    eventStore.close();
+    Field eventSingleton = KfeNativeEventStore.class.getDeclaredField("instance");
+    eventSingleton.setAccessible(true);
+    eventSingleton.set(null, null);
+  }
+
   @Test public void staleOverlaySnapshotCannotOverwriteExistingCanonicalTripFieldsDuringFareSave() throws Exception {
     Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
     String suffix = Long.toString(System.currentTimeMillis());
