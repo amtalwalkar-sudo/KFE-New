@@ -226,6 +226,8 @@ public class KfeOverlaySmokeTest {
       String suffix = boundary.toLowerCase(java.util.Locale.US) + "-" + java.util.UUID.randomUUID();
       String shiftId = "fault-shift-" + suffix;
       String tripId = "fault-trip-" + suffix;
+      context.getSharedPreferences("kfe_native_work_actions", 0).edit()
+        .remove("pendingEventId").remove("pending").commit();
       seedCanonicalShift(shiftId);
       JSONObject state = new JSONObject()
         .put("shift", new JSONObject().put("id", shiftId).put("status", "ACTIVE"))
