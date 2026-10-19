@@ -49,4 +49,4 @@ assert.equal(deriveDailyTargetAchievement({
   range, asOf: new Date('2026-10-01T08:30:00+05:30'), completedShiftRevenue: 25,
 }), 25, 'future trip completions cannot increase progress')
 
-console.log('Daily target achievement: PASS — entered fares count during active shifts; skipped fares wait for shift-end authority; closed shifts are never double-counted.')
+console.log('Daily target achievement: PASS — eligible recorded fares and cancellation fees feed the persisted Shift projection; skipped fares contribute zero; closed shifts are never double-counted.')
