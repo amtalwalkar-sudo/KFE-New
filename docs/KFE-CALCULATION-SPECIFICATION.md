@@ -62,9 +62,9 @@ The domain calculation and BR-11 in `KFE_BUSINESS_RULES_REGISTER.md` remain auth
 
 ## 4. Actual operating cost
 
-`operatingCost = fuel + toll + parking + actualMaintenance`
+`operatingCost = fuel + excludedToll + excludedParking + actualMaintenance`
 
-Where each component is the actual recorded amount for the reporting period.
+Only actual operating costs not already removed from Financial Revenue are deducted here. Toll and parking records remain recorded regardless of treatment, but INCLUDED toll/parking are pass-through amounts already subtracted from Financial Revenue and MUST NOT be deducted again as operating costs. EXCLUDED toll/parking remain actual operating expenses and are counted once.
 
 ### Fuel actual
 
@@ -86,9 +86,9 @@ Actual maintenance remains separate from maintenance provision.
 
 ## 5. Operating profit
 
-`operatingProfit = revenue - operatingCost`
+`operatingProfit = financialRevenue - operatingCost`
 
-This is the actual operating-performance result before scheduled financing and planning provisions.
+Here, `financialRevenue` is derived from the canonical customer-paid `Shift.revenue` projection under BR-11: subtract INCLUDED toll/parking; do not subtract EXCLUDED toll/parking from revenue, because those remain in operating costs. This is the actual operating-performance result before scheduled financing and planning provisions.
 
 Provisions are not deducted here. Performance's separate frozen headline Actual P/L may subtract the full scheduled EMI for the selected period; that management view must remain explicitly distinguished from Operating Profit and Available Cash.
 
