@@ -160,14 +160,14 @@ if (requestedStyleFiles.length) {
 // Vue-template hook ownership check. A component-template edit can affect
 // styles in global CSS even when the changed file contains no <style> block.
 function extractMarkupTokens(source) {
-  const template = source.match(/<template\\b[^>]*>([\\s\\S]*?)<\\/template>/i)?.[1] ?? ''
+  const template = source.match(/<template\b[^>]*>([\s\S]*?)<\/template>/i)?.[1] ?? ''
   const tokens = new Set()
-  for (const match of template.matchAll(/\\bclass\\s*=\\s*["']([^"']+)["']/g)) {
-    for (const token of match[1].split(/\\s+/)) if (/^[A-Za-z_][\\w-]*$/.test(token)) tokens.add('.' + token)
+  for (const match of template.matchAll(/\bclass\s*=\s*["']([^"']+)["']/g)) {
+    for (const token of match[1].split(/\s+/)) if (/^[A-Za-z_][\w-]*$/.test(token)) tokens.add('.' + token)
   }
-  for (const match of template.matchAll(/:class\\s*=\\s*["']([^"']+)["']/g)) {
-    for (const literal of match[1].matchAll(/["']([A-Za-z_][\\w-]*)["']/g)) tokens.add('.' + literal[1])
-    for (const key of match[1].matchAll(/(?:^|[{,]\\s*)([A-Za-z_][\\w-]*)\\s*:/g)) tokens.add('.' + key[1])
+  for (const match of template.matchAll(/:class\s*=\s*["']([^"']+)["']/g)) {
+    for (const literal of match[1].matchAll(/["']([A-Za-z_][\w-]*)["']/g)) tokens.add('.' + literal[1])
+    for (const key of match[1].matchAll(/(?:^|[{,]\s*)([A-Za-z_][\w-]*)\s*:/g)) tokens.add('.' + key[1])
   }
   return tokens
 }
@@ -194,7 +194,7 @@ if (requestedVueFiles.length) {
         .map(([file]) => file)
       if (!otherComponents.length && !globalOwners.length) continue
       reported += 1
-      console.log(`🟡 ${requestedFile}: ${token}; shared by ${otherComponents.length ? otherComponents.join(', ') : 'no other Vue templates'}; global style sources: ${globalOwners.length ? globalOwners.join(', ') : 'none found'}`)
+      console.log('🟡 ' + requestedFile + ': ' + token + '; shared by ' + (otherComponents.length ? otherComponents.join(', ') : 'no other Vue templates') + '; global style sources: ' + (globalOwners.length ? globalOwners.join(', ') : 'none found'))
     }
   }
   if (!reported) console.log('🟢 No shared template hooks or global style owners found for the requested Vue component(s).')
