@@ -32,7 +32,6 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileOutputStream;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -487,9 +486,7 @@ public class KfeNativeGpsService extends Service {
     tripId = null;
     eventType = "PASSENGER_RIDE_TRACE";
     traceFile = null;
-    lastPassengerLocation = null;
     seenKeys.clear();
-    filteredDistanceLocations.clear();
     getSharedPreferences(PREFS, MODE_PRIVATE).edit().remove(ACTIVE_TRIP).remove(ACTIVE_EVENT).remove(ACTIVE_ENTITY).remove(ACTIVE_READY).apply();
   }
 
