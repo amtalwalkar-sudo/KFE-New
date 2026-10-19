@@ -252,7 +252,7 @@ public class KfeOverlaySmokeTest {
         KfeOverlayService.lifecycleFaultInjectorForTests = null;
       }
 
-      String originalEventId = context.getSharedPreferences("KfeNativeWorkActions", 0)
+      String originalEventId = context.getSharedPreferences("kfe_native_work_actions", 0)
         .getString("pendingEventId", "");
       boolean eventAfterFault = KfeNativeEventStore.get(context).contains(originalEventId);
       boolean canonicalAfterFault = KfeCanonicalWorkStore.get(context)
@@ -267,7 +267,7 @@ public class KfeOverlaySmokeTest {
       }
 
       persist.invoke(service, "GO_TO_PICKUP", "GOING_TO_PICKUP", false);
-      String eventIdAfterRetry = context.getSharedPreferences("KfeNativeWorkActions", 0)
+      String eventIdAfterRetry = context.getSharedPreferences("kfe_native_work_actions", 0)
         .getString("pendingEventId", "");
       assertTrue("Retry must converge to a durable event", KfeNativeEventStore.get(context).contains(eventIdAfterRetry));
       if (!originalEventId.isEmpty()) {
