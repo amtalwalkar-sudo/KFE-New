@@ -64,7 +64,7 @@ While a canonical trip is in PICKUP / READY FOR TRIP:
 - Go to Pickup and cancellation are available according to the current Work command contract.
 - Cancellation records the existing canonical Trip as cancelled; it does not create a second trip.
 - A blank/not-applicable cancellation fee defaults to numeric `0`; an explicitly entered zero is also stored as numeric `0`.
-- Blank cancellation-fee detail must not create an independent revenue record. Cancelled-trip amounts remain supporting-only and never replace authoritative shift revenue.
+- A recorded cancellation fee is included once in the persisted trip-derived `Shift.revenue`; blank/not-applicable fee is numeric `0`. The same canonical projection is used by PWA, Android overlay, storage recovery, and reporting.
 
 Once the trip enters TRIP ACTIVE, cancellation is no longer an available operational command.
 
@@ -74,7 +74,7 @@ End Trip commits the canonical trip-completion transition.
 
 The completion/fare workflow must appear as the immediate next operational context and remain recoverable until its authoritative outcome is resolved.
 
-Trip-level fare detail remains optional supporting detail where the canonical data contract defines shift-level revenue as the ERP revenue authority. The driver may save or explicitly skip the fare detail. Skipping preserves the completed Trip and does not create fare/revenue detail; missing optional fare detail must not block the next pickup or shift closure. The fare form must not create a competing revenue authority.
+Completed-trip fare detail is optional; eligible recorded fares and cancellation fees are summed into the persisted `Shift.revenue` projection by the canonical revenue calculation. Explicitly skipped/missing fare detail contributes `0` and never blocks the next pickup or shift closure. The fare form records trip facts; it does not calculate or independently own shift revenue.
 
 ## 8. End shift / reconciliation
 
@@ -82,7 +82,7 @@ End Shift is available only when the current lifecycle permits closure.
 
 Closure proceeds through END SHIFT → RECONCILIATION → SHIFT REVIEW → SHIFT ENDED.
 
-Reconciliation is derived from canonical persisted records. A reconstructed total is a read representation, not a replacement persisted authority. It must distinguish missing optional trip-level fare detail from missing authoritative shift-level revenue; missing fare detail alone is not a closure gate.
+Reconciliation is derived from canonical persisted trip records. `Shift.revenue` is recalculated from eligible completed-trip fares plus cancellation fees; it is not manually entered at shift end. Reconciliation may flag incomplete trip details, but missing optional fare detail alone is not a closure gate.
 
 ## 9. PWA / Android overlay parity
 
