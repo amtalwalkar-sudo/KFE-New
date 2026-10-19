@@ -518,7 +518,7 @@ public class KfeRecoveryHardeningTest {
     java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
     java.util.concurrent.atomic.AtomicReference<String> result = new java.util.concurrent.atomic.AtomicReference<>();
     InstrumentationRegistry.getInstrumentation().runOnMainSync(
-        () -> webView.evaluateJavascript(script, value -> { result.set(value == null ? "" : value.replace("\\\"", "")); latch.countDown(); }));
+        () -> webView.evaluateJavascript(script, value -> { result.set(value == null ? "" : (value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"") ? value.substring(1, value.length() - 1) : value)); latch.countDown(); }));
     assertTrue("WebView JavaScript evaluation timed out.", latch.await(15, java.util.concurrent.TimeUnit.SECONDS));
     return result.get();
   }
