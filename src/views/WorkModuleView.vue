@@ -1009,10 +1009,14 @@ const syncAlreadyCommittedNativeTripAction = async (stage, tripId) => {
     const trip = trips.find(item => item?.id === tripId)
     if (!trip) return false
     let committed = false
+    // The queue may contain several unacknowledged stages for one trip. A
+    // later canonical stage proves the earlier command committed too; do not
+    // replay GO_TO_PICKUP/START_RIDE against a trip already completed offline.
     if (stage === 'GO_TO_PICKUP') {
-      committed = trip.status === 'ACTIVE' && ['PICKUP', 'GOING_TO_PICKUP'].includes(trip.tripStage)
+      committed = ['ACTIVE', 'COMPLETED', 'CANCELLED'].includes(trip.status)
     } else if (stage === 'START_RIDE') {
-      committed = trip.status === 'ACTIVE' && trip.tripStage === 'RIDE_STARTED'
+      committed = (trip.status === 'ACTIVE' && trip.tripStage === 'RIDE_STARTED') ||
+        trip.status === 'COMPLETED' || trip.status === 'CANCELLED'
     } else if (stage === 'END_RIDE') {
       committed = trip.status === 'COMPLETED' && trip.tripStage === 'COMPLETED'
     } else if (stage === 'ENTER_FARE') {
