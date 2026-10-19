@@ -21,7 +21,10 @@ const normalize = result => {
   for (const key of ['valid','gapKm','historicalKm','businessStartOdometer','historicalOdometerGap','requiresGapAllocation','category','personalKm','deadKm','closingOdometer','distanceKm','requiresConfirmation']) {
     if (Object.hasOwn(result, key)) normalized[key] = result[key]
   }
-  if (result.reason) normalized.reasonCode = reasonCodes.get(result.reason) || 'GAP_ALLOCATION_REQUIRED'
+  if (result.reason) {
+    normalized.reasonCode = reasonCodes.get(result.reason)
+      || (result.reason.includes('above shift opening') ? 'LARGE_DISTANCE_CONFIRMATION_REQUIRED' : 'GAP_ALLOCATION_REQUIRED')
+  }
   else if (result.valid === false && result.requiresGapAllocation) normalized.reasonCode = 'GAP_ALLOCATION_REQUIRED'
   return normalized
 }
@@ -46,6 +49,17 @@ assert.deepEqual(
   { valid: true, gapKm: 25, historicalKm: 25, businessStartOdometer: 100, historicalOdometerGap: true },
   'The shared rule source must normalize numeric-string historical baselines.'
 )
+assert.deepEqual(
+  normalize(validateEndShiftEntry({ closingOdometer: '120', startOdometer: '100' })),
+  { valid: true, closingOdometer: 120, distanceKm: 20 },
+  'The shared shift-end rule must preserve numeric-string PWA form inputs.'
+)
+assert.deepEqual(
+  normalize(validateEndShiftEntry({ closingOdometer: '   ', startOdometer: 100 })),
+  { valid: false, reasonCode: 'CLOSING_ODOMETER_REQUIRED' },
+  'Whitespace-only closing odometer input must remain invalid after numeric normalization.'
+)
+
 assert.deepEqual(
   normalize(validateGapAllocation(null, null)),
   { valid: false, requiresGapAllocation: true, gapKm: Number.NaN, reasonCode: 'GAP_ALLOCATION_REQUIRED' },
