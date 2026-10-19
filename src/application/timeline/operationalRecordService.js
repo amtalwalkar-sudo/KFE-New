@@ -1,3 +1,4 @@
+import { deriveLiveRevenue } from '../../domain/work/liveRevenue.js'
 import { ShiftTripRepository } from '../../repositories/shiftTripRepository.js'
 import { FuelRepository } from '../../repositories/fuelRepository.js'
 
@@ -41,7 +42,14 @@ export const OperationalRecordService = {
     ])
     const completed = completedTrips(trips)
     const terminal = terminalTrips(trips)
-    const revenue = Number.isFinite(Number(shift.revenue)) ? Number(shift.revenue) : 0
+    const storedRevenue = Number.isFinite(Number(shift.revenue)) ? Number(shift.revenue) : 0
+    const revenue = shift.revenueSource === 'TRIP_FARES' ? storedRevenue : deriveLiveRevenue(trips)
+    const legacyRevenue = shift.revenueSource !== 'TRIP_FARES' && storedRevenue > 0
+      ? { legacyRevenueSnapshot: shift.legacyRevenueSnapshot ?? storedRevenue, legacyRevenueMigrationStatus: shift.legacyRevenueMigrationStatus || 'REVIEW_REQUIRED' }
+      : {}
+    const readShift = shift.revenueSource === 'TRIP_FARES'
+      ? shift
+      : { ...shift, ...legacyRevenue, revenue, liveFareRevenue: revenue, revenueSource: 'TRIP_FARES' }
     // Shift-level and trip-level toll/parking are both canonical cost records.
     // Keep the Timeline read model aligned with Performance: both are included.
     const tripToll = tripAmount(terminal, 'toll')
@@ -85,7 +93,7 @@ export const OperationalRecordService = {
     const fuelCost = relevantFuel.reduce((sum, log) => sum + Number(log.amount || 0), 0)
 
     return {
-      shift,
+      shift: readShift,
       trips,
       completedTrips: completed,
       revenue,
