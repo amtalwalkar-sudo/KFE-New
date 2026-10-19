@@ -911,7 +911,7 @@ public class KfeOverlayService extends Service {
       if("COMPLETED".equals(trip.optString("status"))&&!trip.optBoolean("fareDetailsSkipped",false)){
         Object v=trip.opt("revenue");if(v instanceof Number&&((Number)v).doubleValue()>=0d)total+=((Number)v).doubleValue();
       }else if("CANCELLED".equals(trip.optString("status"))){
-        Object v=trip.has("cancelledRevenue")&&!trip.isNull("cancelledRevenue")?trip.opt("cancelledRevenue"):trip.opt("revenue");
+        Object v=trip.has("cancelledRevenue")?trip.opt("cancelledRevenue"):trip.opt("revenue");
         if(v instanceof Number&&((Number)v).doubleValue()>=0d)total+=((Number)v).doubleValue();
       }
       String tripUpdatedAt=trip.optString("updatedAt","");
