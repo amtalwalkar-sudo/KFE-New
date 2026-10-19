@@ -43,6 +43,8 @@ assert.match(service,/WorkRuntimePorts\.canonicalWork\.listRecords\(\{ entityTyp
 assert.match(service,/ShiftTripRepository\.syncCanonicalRecords/)
 assert.match(fs.readFileSync(new URL('../repositories/shiftTripRepository.js',import.meta.url),'utf8'),/async syncCanonicalRecords/)
 assert.match(fs.readFileSync(new URL('../repositories/shiftTripRepository.js',import.meta.url),'utf8'),/shift\.revenue = deriveLiveRevenue\(shiftTrips\)/)
+assert.match(fs.readFileSync(new URL('../repositories/shiftTripRepository.js',import.meta.url),'utf8'),/shift\.revenueReconciliation = reconcileShiftRevenue\(/, 'Trip completion must persist revenue reconciliation from the same derived projection')
+assert.match(fs.readFileSync(new URL('../repositories/shiftTripRepository.js',import.meta.url),'utf8'),/revenueReconciliation: reconcileShiftRevenue\(/, 'Canonical recovery must restore the revenue projection and reconciliation together')
 assert.match(fs.readFileSync(new URL('../repositories/shiftTripRepository.js',import.meta.url),'utf8'),/revenueSource: 'TRIP_FARES'/)
 assert.match(fs.readFileSync(new URL('../repositories/shiftTripRepository.js',import.meta.url),'utf8'),/async _finishTrip[\s\S]*?deriveLiveRevenue\(shiftTrips\)/)
 console.log('PASS: live revenue model and shared swipe configuration')
