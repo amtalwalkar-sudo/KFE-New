@@ -47,7 +47,7 @@ export const deriveDailyTargetAchievement = ({
     })
     .reduce((total, trip) => {
       const recordedAmount = trip.status === 'CANCELLED'
-        ? amount(trip.cancelledRevenue ?? trip.revenue)
+        ? amount(Object.prototype.hasOwnProperty.call(trip, 'cancelledRevenue') ? trip.cancelledRevenue : trip.revenue)
         : amount(trip.revenue)
       return recordedAmount !== null && recordedAmount >= 0 ? total + recordedAmount : total
     }, 0)
