@@ -909,10 +909,10 @@ public class KfeOverlayService extends Service {
     if(records!=null)for(int i=0;i<records.length();i++){
       JSONObject trip=records.optJSONObject(i); if(trip==null||!shiftId.equals(trip.optString("shiftId",""))||(trip.has("deletedAt")&&!trip.isNull("deletedAt"))||trip.optBoolean("deleted",false))continue;
       if("COMPLETED".equals(trip.optString("status"))&&!trip.optBoolean("fareDetailsSkipped",false)){
-        Object v=trip.opt("revenue");if(v instanceof Number&&((Number)v).doubleValue()>=0d)total+=((Number)v).doubleValue();
+        double fareAmount=trip.optDouble("revenue",Double.NaN);if(Double.isFinite(fareAmount)&&fareAmount>=0d)total+=fareAmount;
       }else if("CANCELLED".equals(trip.optString("status"))){
-        Object v=trip.has("cancelledRevenue")?trip.opt("cancelledRevenue"):trip.opt("revenue");
-        if(v instanceof Number&&((Number)v).doubleValue()>=0d)total+=((Number)v).doubleValue();
+        double cancellationFee=trip.has("cancelledRevenue")?trip.optDouble("cancelledRevenue",0d):trip.optDouble("revenue",0d);
+        if(Double.isFinite(cancellationFee)&&cancellationFee>=0d)total+=cancellationFee;
       }
       String tripUpdatedAt=trip.optString("updatedAt","");
       if(!tripUpdatedAt.isEmpty()){
