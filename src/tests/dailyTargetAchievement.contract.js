@@ -21,21 +21,24 @@ const trips = [
   { id: 'future', shiftId: 'active', status: 'COMPLETED', tripEndAt: '2026-10-01T19:00:00+05:30', revenue: 700, fareDetailsSkipped: false },
   { id: 'overnight-fare', shiftId: 'overnight', status: 'COMPLETED', tripEndAt: '2026-10-01T13:00:00+05:30', revenue: 80, fareDetailsSkipped: false },
   { id: 'closed-shift-detail', shiftId: 'closed', status: 'COMPLETED', tripEndAt: '2026-10-01T14:00:00+05:30', revenue: 9999, fareDetailsSkipped: false },
+  { id: 'active-cancel-fee', shiftId: 'active', status: 'CANCELLED', tripEndAt: '2026-10-01T15:30:00+05:30', revenue: 25, cancelledRevenue: 25 },
+  { id: 'blank-cancel-fee', shiftId: 'active', status: 'CANCELLED', tripEndAt: '2026-10-01T15:45:00+05:30', revenue: 0, cancelledRevenue: 0 },
   { id: 'deleted', shiftId: 'active', status: 'COMPLETED', tripEndAt: '2026-10-01T15:00:00+05:30', revenue: 600, fareDetailsSkipped: false, deleted: true },
 ]
 
 assert.equal(deriveDailyTargetAchievement({
   shifts, trips, range, asOf, completedShiftRevenue: 500,
-}), 700, 'completed shift authority plus only explicitly entered fares in active shifts')
+}), 725, 'completed Shift projection plus eligible active-shift fares and cancellation fees; blank fees contribute zero')
 
 assert.equal(deriveDailyTargetAchievement({
   shifts: [{ id: 'active', status: 'ACTIVE', shiftStartAt: '2026-10-01T08:00:00+05:30' }],
   trips: [
     { shiftId: 'active', status: 'COMPLETED', tripEndAt: '2026-10-01T09:00:00+05:30', revenue: 120, fareDetailsSkipped: false },
     { shiftId: 'active', status: 'COMPLETED', tripEndAt: '2026-10-01T10:00:00+05:30', revenue: null, fareDetailsSkipped: true },
+    { shiftId: 'active', status: 'CANCELLED', tripEndAt: '2026-10-01T10:30:00+05:30', cancelledRevenue: 15 },
   ],
   range, asOf, completedShiftRevenue: 0,
-}), 120, 'skipped fare is not achieved until shift-end total is persisted')
+}), 135, 'skipped fare contributes zero while a recorded cancellation fee contributes once')
 
 assert.equal(deriveDailyTargetAchievement({
   shifts: [{ id: 'closed', status: 'COMPLETED', shiftEndAt: '2026-10-01T17:00:00+05:30' }],
