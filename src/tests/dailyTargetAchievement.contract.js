@@ -52,4 +52,10 @@ assert.equal(deriveDailyTargetAchievement({
   range, asOf: new Date('2026-10-01T08:30:00+05:30'), completedShiftRevenue: 25,
 }), 25, 'future trip completions cannot increase progress')
 
+assert.equal(deriveDailyTargetAchievement({
+  shifts: [{ id: 'active', status: 'ACTIVE', shiftStartAt: '2026-10-01T08:00:00+05:30' }],
+  trips: [{ shiftId: 'active', status: 'CANCELLED', updatedAt: '2026-10-01T10:30:00+05:30', revenue: 99, cancelledRevenue: null }],
+  range, asOf, completedShiftRevenue: 0,
+}), 0, 'an explicit blank cancellation fee must not fall back to generic legacy revenue')
+
 console.log('Daily target achievement: PASS — eligible recorded fares and cancellation fees feed the persisted Shift projection; skipped fares contribute zero; closed shifts are never double-counted.')
