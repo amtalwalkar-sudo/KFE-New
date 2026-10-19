@@ -64,4 +64,7 @@ Working branch: `audit/trip-derived-revenue-contract`
 - 2026-10-19: Recorded trip-derived revenue as the financial authority and updated core docs.
 - 2026-10-19: Added regression coverage for ₹250 + ₹25, blank/skipped fees and deleted records; corrected native deleted-record and explicit-null cancellation handling.
 - 2026-10-19: Updated the calculation authority label and conformance assertions to avoid implying shift-end manual revenue entry.
+- 2026-10-19: Removed direct native canonical writes from WorkModuleView; durable operation identity now travels through the Work store/application boundary.
+- 2026-10-19: Corrected native numeric amount normalization and active-shift cancellation-fee handling; missing fare detail now contributes zero in reconciliation.
+- 2026-10-19: Full test suite and CI remain pending; no merge decision has been made.
 - 2026-10-19: Full tests/CI have **not** yet run. Local clone was unavailable in this environment; run repository CI after static review is complete.
