@@ -97,9 +97,6 @@ jobs:
           cat > work/trace-nashik.json <<'JSON'
           {"shape":[{"type":"break","lat":19.9975,"lon":73.7898},{"type":"via","lat":20.0050,"lon":73.7800},{"type":"break","lat":20.0120,"lon":73.7720}],"shape_match":"walk_or_snap","trace_options":{"search_radius":100,"gps_accuracy":100},"costing":"auto","units":"kilometers","shape_format":"geojson"}
           JSON
-          cat > work/trace-alibag.json <<'JSON'
-          {"shape":[{"type":"break","lat":18.6414,"lon":72.8722},{"type":"via","lat":18.6480,"lon":72.8660},{"type":"break","lat":18.6540,"lon":72.8600}],"shape_match":"walk_or_snap","trace_options":{"search_radius":100,"gps_accuracy":100},"costing":"auto","units":"kilometers","shape_format":"geojson"}
-          JSON
           # Local route-seed requests below verify connected routable roads in each city.
           # Long inter-city requests are intentionally excluded from this smoke gate: the
           # clipped regional graph can return Valhalla internal error 499 for valid city
@@ -159,7 +156,7 @@ jobs:
           # Trace the exact geometry returned by Valhalla's own route endpoint.
           # This isolates trace_route HTTP/response behavior from guessed GPS points
           # that may lie off-road or on disconnected edges in the regional extract.
-          for city in mumbai pune nashik alibag; do
+          for city in mumbai pune nashik; do
             seed="work/trace-$city.json"
             first="$(jq -c '.shape[0] | {lat,lon,type:"break"}' "$seed")"
             last="$(jq -c '.shape[-1] | {lat,lon,type:"break"}' "$seed")"
@@ -180,8 +177,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # The full corridor package is already built and smoke-tested. Build four
-          # independently downloadable area packages from the verified OSM extract.
+          # The regional build above is used only for CI smoke tests. Build exactly three
+          # independently downloadable offline area packages from the verified OSM extract.
           build_area() {
             local id="$1" bbox="$2" request="$3"
             rm -rf work/tiles work/valhalla_tiles.tar work/valhalla.json work/region.osm.pbf
@@ -225,15 +222,9 @@ jobs:
           build_area "mumbai-metro" "72.4,18.6,73.5,19.7" "work/trace-request-mumbai.json"
           build_area "pune" "73.3,18.1,74.2,19.0" "work/trace-request-pune.json"
           build_area "nashik" "73.1,19.4,74.2,20.4" "work/trace-request-nashik.json"
-          build_area "alibag" "72.4,18.2,73.3,19.0" "work/trace-request-alibag.json"
-          # Use a compact, dedicated package for Android instrumentation without
-          # reducing the coverage of the published Alibag area package.
-          build_area "alibag-android-smoke" "72.72,18.50,73.05,18.80" "work/trace-request-alibag.json"
 
-      # Exercise a compact Alibag fixture in Android. The published Alibag package
-      # retains full coverage; the dedicated fixture bounds native-engine work on
-      # memory-constrained emulator runners while proving offline routing.
-      # This runs after the area packages are built and before catalog publication.
+      # Exercise the published Mumbai metro package in Android with networking disabled.
+      # Mumbai, Pune, and Nashik are the only selectable offline areas.
       - name: Setup Java for Android offline-routing instrumentation
         uses: actions/setup-java@v5
         with:
@@ -310,11 +301,9 @@ jobs:
             REGIONS="$(jq -cn --argjson existing "$REGIONS" --argjson entry "$entry" '$existing + [$entry]')"
             echo "Prepared $id: $size bytes; SHA-256 $sha"
           }
-          publish_entry "mumbai-pune-nashik-alibag-v1" "Mumbai · Pune · Nashik · Alibag corridor" "work/offline-maps.tar" '{"south":17.0,"north":21.2,"west":71.8,"east":75.2}' "offline-maps-${MAP_VERSION}.tar"
           publish_entry "mumbai-metro" "Mumbai metro" "work/area-mumbai-metro.tar" '{"south":18.6,"north":19.7,"west":72.4,"east":73.5}' "offline-maps-mumbai-metro-${MAP_VERSION}.tar"
           publish_entry "pune" "Pune area" "work/area-pune.tar" '{"south":18.1,"north":19.0,"west":73.3,"east":74.2}' "offline-maps-pune-${MAP_VERSION}.tar"
           publish_entry "nashik" "Nashik area" "work/area-nashik.tar" '{"south":19.4,"north":20.4,"west":73.1,"east":74.2}' "offline-maps-nashik-${MAP_VERSION}.tar"
-          publish_entry "alibag" "Alibag area" "work/area-alibag.tar" '{"south":18.2,"north":19.0,"west":72.4,"east":73.3}' "offline-maps-alibag-${MAP_VERSION}.tar"
           jq -n --argjson schemaVersion 1 --argjson regions "$REGIONS" --arg attribution "$ATTRIBUTION" \
             '{schemaVersion:$schemaVersion,regions:$regions,attribution:$attribution}' > work/offline-maps-manifest.json
           printf '%s\n' "$ATTRIBUTION" > work/offline-maps-attribution.txt
@@ -332,13 +321,11 @@ jobs:
               --title "KFE Offline Maps" \
               --notes "Selectable regional Valhalla tile packages for KFE. Catalog: offline-maps-manifest.json. © OpenStreetMap contributors; ODbL applies."
           gh release upload offline-maps --repo "$GITHUB_REPOSITORY" --clobber \
-            work/offline-maps-${{ steps.package.outputs.map_version }}.tar \
             work/offline-maps-mumbai-metro-${{ steps.package.outputs.map_version }}.tar \
             work/offline-maps-pune-${{ steps.package.outputs.map_version }}.tar \
             work/offline-maps-nashik-${{ steps.package.outputs.map_version }}.tar \
-            work/offline-maps-alibag-${{ steps.package.outputs.map_version }}.tar \
             work/offline-maps-manifest.json work/offline-maps-attribution.txt
-          echo "Published the catalog and five checksummed area packages."
+          echo "Published the catalog and three checksummed area packages."
 
       - name: Upload build evidence
         if: always()
