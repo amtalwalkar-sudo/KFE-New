@@ -50,8 +50,9 @@ const fareReconciliation = reconcileShiftRevenue({ shiftRevenue: 500, trips: [{ 
 assert.equal(fareReconciliation.reconciliationStatus, 'UNAVAILABLE')
 assert.equal(fareReconciliation.unpricedTrips, 1)
 const shiftRepo = source('src/repositories/shiftTripRepository.js')
-assert.match(shiftRepo, /db\.transaction\(\['shifts', 'pending_mutations', 'audit_history'\], 'readwrite'\)/)
-assert.doesNotMatch(shiftRepo.slice(shiftRepo.indexOf('async completeShift(data)'), shiftRepo.indexOf('async createTrip(data)')), /shift\.revenueReconciliation\s*=|shift\.revenue\s*=|data\.trips/, 'Shift completion persists odometer/lifecycle only; financial data is preserved.')
+assert.match(shiftRepo, /db\.transaction\(\['shifts', 'trips', 'pending_mutations', 'audit_history'\], 'readwrite'\)/)
+assert.match(shiftRepo.slice(shiftRepo.indexOf('async completeShift(data)'), shiftRepo.indexOf('async createTrip(data)')), /applyShiftRevenueProjection\(shift, shiftTrips\)/, 'Shift completion must atomically rederive revenue from canonical linked trips')
+assert.doesNotMatch(shiftRepo.slice(shiftRepo.indexOf('async completeShift(data)'), shiftRepo.indexOf('async createTrip(data)')), /data\.revenue/, 'Shift completion must not accept a competing manual revenue total')
 
 // Odometer remainder with no trustworthy segment evidence must stay UNCLASSIFIED, not be silently called dead KM.
 const movement = await MovementAccountingService.reconcileShiftMovement({ trips: [], startOdometer: 100, endOdometer: 200 })
