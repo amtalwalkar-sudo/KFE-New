@@ -13,6 +13,8 @@ final class KfeNativeEventStore extends SQLiteOpenHelper {
   private static final String DB_NAME = "kfe_native_events.db";
   private static final int DB_VERSION = 1;
   private static volatile KfeNativeEventStore instance;
+  // Narrow failure seam for instrumentation: a failed queue read must be visible to callers.
+  static volatile boolean failPendingReadForTests;
 
   static synchronized KfeNativeEventStore get(Context context) {
     if (instance == null) instance = new KfeNativeEventStore(context.getApplicationContext());
@@ -68,7 +70,9 @@ final class KfeNativeEventStore extends SQLiteOpenHelper {
 
   synchronized JSONArray pending(int limit) {
     JSONArray events = new JSONArray();
-    try (Cursor cursor = getReadableDatabase().query("native_events",
+    try {
+      if (failPendingReadForTests) throw new IllegalStateException("Injected native event queue read failure.");
+      try (Cursor cursor = getReadableDatabase().query("native_events",
         new String[]{"id", "stage", "trip_id", "input", "created_at", "attempts"},
         "status=?", new String[]{"PENDING"}, null, null, "created_at ASC, rowid ASC", Integer.toString(Math.max(1, Math.min(limit, 500))))) {
       while (cursor.moveToNext()) {
@@ -81,7 +85,12 @@ final class KfeNativeEventStore extends SQLiteOpenHelper {
         event.put("attempts", cursor.getInt(5));
         events.put(event);
       }
-    } catch (Exception ignored) { }
+      }
+    } catch (Exception error) {
+      // An empty array means the durable queue was read successfully and has no
+      // pending events. Never conflate that state with a storage/query failure.
+      throw new IllegalStateException("Unable to read pending native lifecycle events; recovery is incomplete.", error);
+    }
     return events;
   }
 
