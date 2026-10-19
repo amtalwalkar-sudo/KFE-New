@@ -38,7 +38,7 @@ A concept may have multiple technical layers (domain, application, persistence, 
 | Calendar/time semantics | src/domain/time/ist.js + consuming domain services | PWA/overlay displays |
 | Shift/odometer/end-shift | src/domain/work/shift.js + src/domain/work/endShift.js → src/application/work/workService.js → src/repositories/shiftTripRepository.js | Work UI, overlay |
 | Trip lifecycle | src/domain/work/tripLifecycle.js is the lifecycle authority; WorkService orchestrates and ShiftTripRepository persists | Work UI, overlay, notifications |
-| Revenue | shifts.revenue is authoritative; src/domain/performance/authoritativeRevenue.js reads it; src/domain/work/revenueReconciliation.js reconciles supporting trip fares | Work, Timeline, Performance, overlay |
+| Revenue | src/domain/work/liveRevenue.js is the calculation authority; repositories persist its eligible completed-fare plus cancellation-fee projection in shifts.revenue; src/domain/performance/authoritativeRevenue.js reads that projection | Work, Timeline, Performance, overlay |
 | Fuel | src/domain/work/fuel.js + src/repositories/fuelRepository.js | Work/Admin/Performance |
 | Finance/loans | src/domain/finance/loanEngine.js + finance application/read-model adapters | Admin/Performance |
 | Break-even/economics | src/domain/performance/authoritativeBreakEven.js + performanceEngineV2.js | Performance/targets |
@@ -414,9 +414,10 @@ No parallel business calculation may contradict this rule set.
 
 ## 5. Revenue
 
-- ERP revenue is the confirmed revenue on the completed Shift at shift completion.
-- Completed-trip fares are supporting detail and must reconcile to Shift revenue when present; they do not override the Shift revenue authority.
-- Cancelled/unvalidated trips do not become completed ride revenue or override Shift revenue.
+- ERP `Shift.revenue` is a persisted projection of eligible non-deleted completed-trip fares plus non-deleted cancellation fees.
+- A completed trip with skipped/missing fare detail contributes ₹0; it does not block the next trip or shift closure.
+- A blank/not-applicable cancellation fee is stored as numeric ₹0; a recorded cancellation fee contributes exactly once for a `CANCELLED` trip.
+- PWA, Android overlay, storage recovery, and reports consume the same derived Shift projection; shift-end must not replace it with a manually entered total.
 - Revenue is actual recorded business revenue, not a target or provision.
 
 ## 6. Expenses
@@ -637,8 +638,8 @@ This rule is the sole authoritative definition of how toll and parking interact 
 
 ### BR-11.1 — Customer-paid total and treatment
 
-- Shift-end revenue remains the authoritative **customer-paid total** for the shift.
-- Completed-trip fare entries are optional supporting detail. A trip does not require a fare entry to continue to the next trip or to end the shift.
+- `Shift.revenue` is the derived gross recorded revenue: eligible completed-trip fares plus recorded cancellation fees. It is not independently entered at shift end.
+- Completed-trip fare entries are optional; a skipped/missing fare contributes ₹0 and does not block the next trip or shift closure.
 - When toll/parking treatment is **INCLUDED**, the entered fare/revenue amount is the total paid by the customer, including the entered toll/parking amount.
 - When toll/parking treatment is **EXCLUDED**, the entered fare/revenue amount excludes the toll/parking amount that the driver/business paid separately.
 - Toll and parking remain actual expense records in either treatment.
@@ -690,11 +691,11 @@ The monthly ledger is an expense ledger, not a second revenue authority.
 
 ### BR-11.5 — Authority and reconciliation
 
-- `shifts.revenue` remains the authoritative customer-paid shift total.
-- The canonical financial calculation derives Financial Revenue from the authoritative shift total and the shift's toll/parking treatment.
-- Trip fare detail may reconcile to the customer-paid shift total when complete, but it does not replace shift-end revenue authority.
-- Missing optional trip fare detail produces an unavailable reconciliation result; it MUST NOT become a shift-end gate.
-- Cancellation remains a separate lifecycle; cancelled-trip revenue is supporting-only and is not completed-trip revenue.
+- `shifts.revenue` is the persisted projection of eligible completed-trip fares plus cancellation fees and is the gross operational revenue input consumed by reporting.
+- The canonical financial calculation derives Financial Revenue from that persisted projection and the shift's toll/parking treatment.
+- Reconciliation compares the persisted projection with the same eligible trip-fare-plus-cancellation-fee rule; it must not count a cancellation fee twice or omit it.
+- Missing/skipped optional trip fare detail contributes ₹0 and MUST NOT become a shift-end gate.
+- Cancellation fees are revenue for `CANCELLED` trips, not completed-trip fares; blank/not-applicable fee is numeric ₹0.
 - Included toll/parking MUST NOT be double-counted.
 - Excluded toll/parking MUST remain actual expenses and MUST be counted once.
 
