@@ -66,7 +66,10 @@ fi
 # Stage only the route request fixture. The tile package must be obtained through
 # the real Offline Maps screen, not copied into the app by the test harness.
 timeout 300s adb push work/trace-request-mumbai.json /data/local/tmp/kfe-trace-request-mumbai.json
-timeout 60s adb shell run-as com.kanishka.pwa sh -c 'mkdir -p files && cp /data/local/tmp/kfe-trace-request-mumbai.json files/valhalla-trace-request.json'
+# Avoid shell -c quoting across adb's remote-shell boundary: issue each run-as
+# operation separately so Android receives unambiguous arguments.
+timeout 60s adb shell run-as com.kanishka.pwa mkdir -p files
+timeout 60s adb shell run-as com.kanishka.pwa cp /data/local/tmp/kfe-trace-request-mumbai.json files/valhalla-trace-request.json
 test "$(adb shell run-as com.kanishka.pwa wc -c files/valhalla-trace-request.json | awk '{print $1}' | tr -d '\r')" -gt 0
 
 # Exercise the actual user-facing download button while networking is available.
