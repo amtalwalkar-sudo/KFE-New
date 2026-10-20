@@ -137,7 +137,8 @@ const runCompletion = async (tripId, gapMode) => {
 try {
   ShiftTripRepository.completeTrip = async ({ id, tripEndAt }) => {
     storedTrip = { ...storedTrip, id, status: 'COMPLETED', tripEndAt }
-    return { ...storedTrip }
+    storedTripJson = JSON.stringify(storedTrip)
+    return JSON.parse(storedTripJson)
   }
   ShiftTripRepository.getActive = async () => ({ shift: { id: storedShiftId } })
   ShiftTripRepository.getTripsForShift = async shiftId => shiftId === storedShiftId
