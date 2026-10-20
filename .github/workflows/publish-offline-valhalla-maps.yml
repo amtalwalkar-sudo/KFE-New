@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/publish-offline-valhalla-maps.yml"
       - "tools/android-offline-routing-smoke-gate.sh"
+      - "tools/verify-online-valhalla-fallback.mjs"
       - "android/app/src/androidTest/java/com/kanishka/pwa/KfeRecoveryHardeningTest.java"
       - "android/app/src/androidTest/java/com/kanishka/pwa/KfeNativeFullShiftAcceptanceTest.java"
       - "android/app/src/main/java/com/kanishka/pwa/Valhalla*"
@@ -244,6 +245,8 @@ jobs:
         run: |
           set -euo pipefail
           npm ci
+          echo "Verify live online Valhalla fallback after a simulated offline coverage miss."
+          node tools/verify-online-valhalla-fallback.mjs
           npm run build
           npx cap sync android
           cd android
