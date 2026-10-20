@@ -99,24 +99,46 @@ timeout 60s adb shell run-as com.kanishka.pwa mkdir -p files
 timeout 60s adb shell run-as com.kanishka.pwa cp /data/local/tmp/kfe-trace-request-mumbai.json files/valhalla-trace-request.json
 test "$(adb shell run-as com.kanishka.pwa wc -c files/valhalla-trace-request.json | awk '{print $1}' | tr -d '\r')" -gt 0
 
-# Warm the real app before instrumentation. On a cold emulator, Chromium WebView
-# initialization can take longer than AndroidX startActivitySync's fixed 45s
-# idle deadline. Launch asynchronously and wait until MainActivity is resumed
-# so the UI test measures map download behaviour rather than cold WebView startup.
+# Warm the real app before instrumentation. On this hosted emulator the
+# framework has occasionally entered a system_server / Google Play services crash
+# loop after boot. Do not skip the UI test: capture diagnostics, perform one
+# controlled reboot, and retry the same visible-screen acceptance once.
+launch_and_wait_for_main_activity() {
+  local attempt
+  timeout 30s adb shell am start -n com.kanishka.pwa/.MainActivity || true
+  for attempt in $(seq 1 45); do
+    if timeout 12s adb shell dumpsys activity activities 2>/dev/null | grep -q 'mResumedActivity.*com.kanishka.pwa/.MainActivity'; then
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
 echo "Warming MainActivity/WebView before UI-driven offline map download."
-timeout 30s adb shell am start -n com.kanishka.pwa/.MainActivity
-ui_ready=false
-for attempt in $(seq 1 90); do
-  if adb shell dumpsys activity activities 2>/dev/null | grep -q 'mResumedActivity.*com.kanishka.pwa/.MainActivity'; then
-    ui_ready=true
-    break
+if ! launch_and_wait_for_main_activity; then
+  adb logcat -d -t 5000 > artifacts/android-offline-routing/ui-startup-timeout-logcat.log || true
+  timeout 30s adb shell dumpsys activity activities > artifacts/android-offline-routing/ui-startup-timeout-activities.txt 2>&1 || true
+  timeout 30s adb shell dumpsys meminfo > artifacts/android-offline-routing/ui-startup-timeout-meminfo.txt 2>&1 || true
+  echo "MainActivity did not resume; collected framework diagnostics and attempting one controlled emulator reboot." >&2
+  timeout 30s adb reboot || true
+  timeout 300s adb wait-for-device
+  recovered=false
+  for attempt in $(seq 1 150); do
+    state="$(timeout 15s adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r' || true)"
+    if [ "$state" = "1" ] && package_service_ready; then recovered=true; break; fi
+    sleep 2
+  done
+  if [ "$recovered" != true ]; then
+    adb logcat -d -t 5000 > artifacts/android-offline-routing/ui-startup-reboot-failure-logcat.log || true
+    echo "Android framework did not recover after the controlled reboot; refusing to treat this as a passing UI acceptance." >&2
+    exit 1
   fi
-  sleep 2
-done
-if [ "$ui_ready" != true ]; then
-  adb logcat -d -t 4000 > artifacts/android-offline-routing/ui-startup-timeout-logcat.log || true
-  echo "MainActivity did not reach resumed state before the UI-download test." >&2
-  exit 1
+  if ! launch_and_wait_for_main_activity; then
+    adb logcat -d -t 5000 > artifacts/android-offline-routing/ui-startup-retry-failure-logcat.log || true
+    timeout 30s adb shell dumpsys activity activities > artifacts/android-offline-routing/ui-startup-retry-activities.txt 2>&1 || true
+    echo "MainActivity still did not resume after one controlled reboot; refusing to run a false UI acceptance." >&2
+    exit 1
+  fi
 fi
 
 # Exercise the actual user-facing download button while networking is available.
