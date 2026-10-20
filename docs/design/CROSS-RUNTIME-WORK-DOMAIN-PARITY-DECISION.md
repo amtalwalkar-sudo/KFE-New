@@ -54,27 +54,35 @@ CI proves software-level behavior only. Physical-device background, screen-off, 
 ## Scope boundary
 
 This document is a supporting design gate, not a new business-rule authority. The business meaning remains in `KFE_BUSINESS_RULES_REGISTER.md`; formulas remain governed by `docs/KFE-CALCULATION-SPECIFICATION.md`; persisted fields and lifecycle semantics remain governed by their existing authoritative contracts.
-## Proof-of-concept progress log
+## Cross-runtime proof and lifecycle progress log
 
-### Stage 1 — shared PWA baseline vectors
+### Stage 1 — shared PWA baseline vectors (historical)
 
-The versioned source `spec/work-domain/shift-start-golden-vectors.json` and contract `src/tests/shiftStartGoldenVectors.contract.js` establish deterministic baseline cases for previous-odometer validation, first-day historical gap, and PERSONAL/DEAD gap allocation. The suite is registered in `src/tests/runAllContracts.js`.
+The versioned source `spec/work-domain/shift-start-golden-vectors.json` and contract `src/tests/shiftStartGoldenVectors.contract.js` first established PWA contract coverage for previous-odometer validation, first-day historical gap, and PERSONAL/DEAD gap allocation. This was a PWA-only baseline and did not, by itself, establish cross-runtime parity.
 
-**This stage is not cross-runtime parity.** At this stage the vectors are consumed by the PWA contract only; no native evaluator is claimed or implied. The parity gate remains closed until the same source vectors are consumed by a native implementation and the build/test gates prove the native and PWA results match. Production lifecycle commands must not be added before that evidence exists.
+### Stage 2 — declarative source and dual-runtime shift-start vectors (completed)
 
-### Next stage
+Merged in [PR #315](https://github.com/amtalwalkar-sudo/KFE-New/pull/315), main commit `9600be706d0be0b5c0b682069a44349045731d57`.
 
-Evaluate a single-source rule representation/generation approach that can preserve current PWA API behavior while producing a native-compatible evaluator. Native tests must load the same versioned vector file from the repository source (through a build-time asset source path, not a manually copied duplicate). If a maintainable single-source evaluator cannot be demonstrated, stop and return with the trade-off for an explicit architecture decision.
+The maintained source `spec/work-domain/shift-start-rules.json` defines the shift-start odometer and gap-allocation rules. The PWA adapter retains its public reason strings; Android loads the same source as an asset and interprets it through `KfeShiftStartRuleInterpreter`. Native instrumentation reads the shared versioned vector file and compares the expected output fields. The 13 shared shift-start vectors passed in CI. This proves the narrow rule-evaluator slice only; it does not establish native lifecycle command ownership or full-shift completion while the PWA is closed.
 
+### Stage 3 — shared shift-end odometer validation (completed)
 
-### Stage 2 — declarative source and dual-runtime vector consumer (completed 2026-10-19)
+Merged in [PR #317](https://github.com/amtalwalkar-sudo/KFE-New/pull/317), main commit `53c1fa0794f09bfd7726d3334ff1eb342f268c14`.
 
-Merged in PR [#315](https://github.com/amtalwalkar-sudo/KFE-New/pull/315), main commit `9600be706d0be0b5c0b682069a44349045731d57`.
+The declarative source and shared vector suite now cover missing, blank, nonnumeric and negative closing readings; closing below opening; zero distance; the exact 500 km boundary; over-boundary confirmation and confirmed acceptance; and absent versus explicitly null/blank start baselines. The PWA adapter preserves the existing result shape and user-facing reasons. Android instrumentation consumes the same vector asset. The KFE 2.0 CI, Android release gate, UI Isolation and Governance gates passed on the PR revision.
 
-The maintained source `spec/work-domain/shift-start-rules.json` defines the three opening-odometer/gap-allocation rules. The PWA's existing exported functions adapt this source while retaining their UI-facing reason strings. The Android build consumes the same source directory as assets; the native interpreter reads `shift-start-rules.json`, and instrumentation tests read the exact `shift-start-golden-vectors.json` asset from that directory.
+### Stage 4 — typed native shift lifecycle commands (next; not implemented)
 
-The native instrumentation test compares every expected field in the 13 shared vectors. On the merged revision, PWA/build-and-test, UI Isolation, Governance, and Android release-gate checks passed. The Android release gate required a retry after an unrelated lifecycle-persistence test failed on its first attempt; the successful retry and final gate run passed. This establishes the narrow shift-start rule-evaluator proof of concept only. It does not establish native shift lifecycle command ownership or full-shift completion while the PWA is closed.
+The remaining blocker is production ownership: the overlay can persist trip lifecycle and fare/cancellation records while the PWA is closed, but it does not yet own a complete shift start/end lifecycle. Implement typed native `SHIFT_START` and `SHIFT_END` commands incrementally, without bypassing the shared rules or weakening current recovery guarantees.
 
-### Stage 3 — extend the single source to shift-end validation (in progress)
+Acceptance criteria for this stage:
 
-Before adding production native `SHIFT_END` command behavior, extend the declarative rule language and shared vectors to cover closing-odometer required/invalid handling, lower-than-opening rejection, the 500 km confirmation boundary, and explicit confirmation. Preserve the public PWA validation shape and reason strings through an adapter, and have the Android instrumentation test consume the same versioned vectors. Confirm exact handling of absent/null/blank start odometer values before changing that behavior. The source, PWA adapter, native interpreter and vector tests are being updated together on branch `proof/shared-shift-end-rules`; CI must verify that PWA and Android evaluate every vector identically before merge.
+1. `SHIFT_START` validates the opening odometer, prior/business-start baseline, historical gap and required PERSONAL/DEAD allocation at the native command boundary using the shared rule source.
+2. `SHIFT_END` verifies the canonical active Shift, refuses closure while any Trip remains active, applies shared closing-odometer and large-distance rules, and atomically derives final revenue/reconciliation from eligible canonical completed-trip fares and cancellation fees. Blank/not-applicable cancellation fees contribute ₹0.
+3. Each command has a stable operation ID and typed result; canonical Shift mutation, operation outcome and audit row commit in one SQLite transaction.
+4. Repeated commands, process death, lost acknowledgement, injected SQLite failure and retry do not duplicate Shifts, audit side effects or revenue.
+5. Native-only completion is reconciled into PWA IndexedDB on next open without replaying already committed effects.
+6. A full-shift acceptance test starts a shift, completes trips and fare/cancellation entry, then ends the shift with the PWA/WebView closed; reopening the PWA verifies exact Shift/Trip state, odometers, revenue, reconciliation and absence of duplicates.
+
+Keep the work split into reviewable PRs (typed command/storage boundary first, overlay integration next, then end-to-end acceptance) and preserve one open PR at a time. CI proves software behavior only; physical-device background, screen-off, process-death and reboot acceptance remains mandatory.
