@@ -15,6 +15,8 @@ on:
     paths:
       - ".github/workflows/publish-offline-valhalla-maps.yml"
       - "tools/android-offline-routing-smoke-gate.sh"
+      - "tools/verify-online-valhalla-fallback.mjs"
+      - "src/infrastructure/location/valhallaRoutingAdapter.js"
       - "android/app/src/androidTest/java/com/kanishka/pwa/KfeRecoveryHardeningTest.java"
       - "android/app/src/androidTest/java/com/kanishka/pwa/KfeNativeFullShiftAcceptanceTest.java"
       - "android/app/src/main/java/com/kanishka/pwa/Valhalla*"
