@@ -58,8 +58,9 @@ set -e
 cat artifacts/android-offline-routing/prepare-fixture-directory.log
 if [ "$prepare_result" -ne 0 ] || ! grep -Fq 'OK (1 test)' artifacts/android-offline-routing/prepare-fixture-directory.log; then
   adb logcat -d -t 3000 > artifacts/android-offline-routing/prepare-fixture-logcat.log || true
-  echo "Offline Valhalla fixture-directory instrumentation failed with exit code $prepare_result." >&2
-  exit "${prepare_result:-1}"
+  echo "Offline Valhalla fixture-directory instrumentation failed with exit code $prepare_result or missing JUnit success marker." >&2
+  if [ "$prepare_result" -ne 0 ]; then exit "$prepare_result"; fi
+  exit 1
 fi
 
 # Stage only the route request fixture. The tile package must be obtained through
@@ -80,8 +81,9 @@ set -e
 cat artifacts/android-offline-routing/ui-download-instrumentation.log
 if [ "$download_result" -ne 0 ] || ! grep -Fq 'OK (1 test)' artifacts/android-offline-routing/ui-download-instrumentation.log; then
   adb logcat -d -t 4000 > artifacts/android-offline-routing/ui-download-failure-logcat.log || true
-  echo "UI-driven offline map download failed with exit code $download_result." >&2
-  exit "${download_result:-1}"
+  echo "UI-driven offline map download failed with exit code $download_result or missing JUnit success marker." >&2
+  if [ "$download_result" -ne 0 ]; then exit "$download_result"; fi
+  exit 1
 fi
 
 # Prove the verified package survives the app process being stopped before
