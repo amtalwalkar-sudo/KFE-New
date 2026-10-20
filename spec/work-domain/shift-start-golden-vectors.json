@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "purpose": "Shared golden vectors for shift-start odometer and gap allocation. Expected reason codes are runtime-neutral; UI-facing reason strings are not part of this contract.",
+  "purpose": "Shared golden vectors for shift-start and shift-end odometer validation and gap allocation. Expected reason codes are runtime-neutral; UI-facing reason strings are not part of this contract.",
   "cases": [
     {
       "id": "previous-odometer-positive-gap",
@@ -172,6 +172,158 @@
         "requiresGapAllocation": true,
         "gapKm": -1,
         "reasonCode": "GAP_ALLOCATION_REQUIRED"
+      }
+    },
+    {
+      "id": "end-shift-closing-odometer-missing",
+      "rule": "validateEndShiftEntry",
+      "input": {
+        "closingOdometer": null,
+        "startOdometer": 100
+      },
+      "expected": {
+        "valid": false,
+        "reasonCode": "CLOSING_ODOMETER_REQUIRED"
+      }
+    },
+    {
+      "id": "end-shift-closing-odometer-blank",
+      "rule": "validateEndShiftEntry",
+      "input": {
+        "closingOdometer": "   ",
+        "startOdometer": 100
+      },
+      "expected": {
+        "valid": false,
+        "reasonCode": "CLOSING_ODOMETER_REQUIRED"
+      }
+    },
+    {
+      "id": "end-shift-closing-odometer-nonnumeric",
+      "rule": "validateEndShiftEntry",
+      "input": {
+        "closingOdometer": "not-a-number",
+        "startOdometer": 100
+      },
+      "expected": {
+        "valid": false,
+        "reasonCode": "CLOSING_ODOMETER_REQUIRED"
+      }
+    },
+    {
+      "id": "end-shift-closing-odometer-negative",
+      "rule": "validateEndShiftEntry",
+      "input": {
+        "closingOdometer": -1,
+        "startOdometer": 100
+      },
+      "expected": {
+        "valid": false,
+        "reasonCode": "CLOSING_ODOMETER_REQUIRED"
+      }
+    },
+    {
+      "id": "end-shift-closing-below-start",
+      "rule": "validateEndShiftEntry",
+      "input": {
+        "closingOdometer": 99,
+        "startOdometer": 100
+      },
+      "expected": {
+        "valid": false,
+        "reasonCode": "CLOSING_ODOMETER_BELOW_START"
+      }
+    },
+    {
+      "id": "end-shift-equal-odometer",
+      "rule": "validateEndShiftEntry",
+      "input": {
+        "closingOdometer": 100,
+        "startOdometer": 100
+      },
+      "expected": {
+        "valid": true,
+        "closingOdometer": 100,
+        "distanceKm": 0
+      }
+    },
+    {
+      "id": "end-shift-exactly-500-km",
+      "rule": "validateEndShiftEntry",
+      "input": {
+        "closingOdometer": 600,
+        "startOdometer": 100
+      },
+      "expected": {
+        "valid": true,
+        "closingOdometer": 600,
+        "distanceKm": 500
+      }
+    },
+    {
+      "id": "end-shift-over-500-needs-confirmation",
+      "rule": "validateEndShiftEntry",
+      "input": {
+        "closingOdometer": 601,
+        "startOdometer": 100
+      },
+      "expected": {
+        "valid": false,
+        "requiresConfirmation": true,
+        "distanceKm": 501,
+        "reasonCode": "LARGE_DISTANCE_CONFIRMATION_REQUIRED"
+      }
+    },
+    {
+      "id": "end-shift-over-500-confirmed",
+      "rule": "validateEndShiftEntry",
+      "input": {
+        "closingOdometer": 601,
+        "startOdometer": 100,
+        "confirmLargeDistance": true
+      },
+      "expected": {
+        "valid": true,
+        "closingOdometer": 601,
+        "distanceKm": 501
+      }
+    },
+    {
+      "id": "end-shift-missing-start-baseline",
+      "rule": "validateEndShiftEntry",
+      "input": {
+        "closingOdometer": 120
+      },
+      "expected": {
+        "valid": true,
+        "closingOdometer": 120,
+        "distanceKm": null
+      }
+    },
+    {
+      "id": "end-shift-null-start-baseline-coerces-zero",
+      "rule": "validateEndShiftEntry",
+      "input": {
+        "closingOdometer": 120,
+        "startOdometer": null
+      },
+      "expected": {
+        "valid": true,
+        "closingOdometer": 120,
+        "distanceKm": 120
+      }
+    },
+    {
+      "id": "end-shift-blank-start-baseline-coerces-zero",
+      "rule": "validateEndShiftEntry",
+      "input": {
+        "closingOdometer": 120,
+        "startOdometer": "   "
+      },
+      "expected": {
+        "valid": true,
+        "closingOdometer": 120,
+        "distanceKm": 120
       }
     }
   ]

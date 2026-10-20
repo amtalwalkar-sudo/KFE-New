@@ -37,7 +37,18 @@ public final class KfeShiftStartRuleInterpreter {
 
   public JSONObject evaluate(String ruleName, JSONObject input) throws JSONException {
     if (!rules.has(ruleName)) throw new IllegalArgumentException("Unknown shift-start rule: " + ruleName);
-    return (JSONObject) eval(rules.getJSONObject(ruleName).getJSONObject("expression"), input);
+    JSONObject normalizedInput = input;
+    if ("validateEndShiftEntry".equals(ruleName) && input.has("startOdometer")) {
+      Object baseline = input.get("startOdometer");
+      if (baseline == JSONObject.NULL
+          || (baseline instanceof String && ((String) baseline).trim().isEmpty())) {
+        // Match the legacy PWA Number(null)/Number('') behavior for an explicitly
+        // supplied empty baseline, while a genuinely absent baseline stays absent.
+        normalizedInput = new JSONObject(input.toString());
+        normalizedInput.put("startOdometer", 0);
+      }
+    }
+    return (JSONObject) eval(rules.getJSONObject(ruleName).getJSONObject("expression"), normalizedInput);
   }
 
   private Object eval(JSONObject node, JSONObject input) throws JSONException {

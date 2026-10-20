@@ -1,30 +1,39 @@
+import { evaluateShiftStartRule } from './shiftStartRuleInterpreter.js'
+
 const LARGE_DISTANCE_WARNING_KM = 500
 
-export function validateEndShiftEntry({ closingOdometer, startOdometer, confirmLargeDistance = false }) {
-  if (closingOdometer == null || String(closingOdometer).trim() === '') {
-    return { valid: false, reason: 'CLOSING_ODOMETER_REQUIRED' }
+function preservePwaResult(result) {
+  if (!result.reasonCode) return result
+  const { reasonCode, ...fields } = result
+  if (reasonCode === 'CLOSING_ODOMETER_REQUIRED') {
+    return { ...fields, reason: 'CLOSING_ODOMETER_REQUIRED' }
   }
-
-  const odometer = Number(closingOdometer)
-  const start = Number(startOdometer)
-
-  if (!Number.isFinite(odometer) || odometer < 0) return { valid: false, reason: 'CLOSING_ODOMETER_REQUIRED' }
-
-  if (Number.isFinite(start) && odometer < start) {
-    return { valid: false, reason: 'Closing odometer cannot be lower than the shift opening odometer.' }
+  if (reasonCode === 'CLOSING_ODOMETER_BELOW_START') {
+    return { ...fields, reason: 'Closing odometer cannot be lower than the shift opening odometer.' }
   }
-
-  const distance = Number.isFinite(start) ? odometer - start : null
-  if (distance != null && distance > LARGE_DISTANCE_WARNING_KM && !confirmLargeDistance) {
+  if (reasonCode === 'LARGE_DISTANCE_CONFIRMATION_REQUIRED') {
     return {
-      valid: false,
-      requiresConfirmation: true,
-      distanceKm: distance,
-      reason: `Closing odometer is ${distance} km above shift opening. Confirm this unusually high daily distance before ending the Shift.`
+      ...fields,
+      reason: `Closing odometer is ${fields.distanceKm} km above shift opening. Confirm this unusually high daily distance before ending the Shift.`
     }
   }
+  return { ...fields, reason: reasonCode }
+}
 
-  return { valid: true, closingOdometer: odometer, distanceKm: distance }
+export function validateEndShiftEntry({ closingOdometer, startOdometer, confirmLargeDistance = false }) {
+  // Preserve the legacy Number(null)/Number('') baseline semantics while keeping
+  // an absent baseline (undefined) distinct from an explicit zero baseline.
+  const normalizedStart = startOdometer === null || (typeof startOdometer === 'string' && startOdometer.trim() === '')
+    ? 0
+    : startOdometer
+  const normalizedClosing = closingOdometer == null || (typeof closingOdometer === 'string' && closingOdometer.trim() === '')
+    ? null
+    : closingOdometer
+  return preservePwaResult(evaluateShiftStartRule('validateEndShiftEntry', {
+    closingOdometer: normalizedClosing,
+    startOdometer: normalizedStart,
+    confirmLargeDistance
+  }))
 }
 
 export { LARGE_DISTANCE_WARNING_KM }

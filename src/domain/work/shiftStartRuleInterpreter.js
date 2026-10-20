@@ -5,7 +5,7 @@ function inputValue(name, input) {
 }
 
 function numeric(value) {
-  if (value == null || value === '') return Number.NaN
+  if (value == null || (typeof value === 'string' && value.trim() === '')) return Number.NaN
   return Number(value)
 }
 
@@ -27,11 +27,11 @@ function evaluateNode(node, input) {
     const { op } = node
     if (op === 'notFinite') {
       const value = evaluateNode(node.value, input)
-      return value == null || value === '' || !Number.isFinite(Number(value))
+      return value == null || (typeof value === 'string' && value.trim() === '') || !Number.isFinite(Number(value))
     }
     if (op === 'finiteAndPresent') {
       const value = evaluateNode(node.value, input)
-      return value != null && value !== '' && Number.isFinite(Number(value))
+      return value != null && !(typeof value === 'string' && value.trim() === '') && Number.isFinite(Number(value))
     }
     if (op === 'notFiniteOrMissing') {
       const value = evaluateNode(node.value, input)

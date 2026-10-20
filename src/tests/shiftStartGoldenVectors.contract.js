@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { validateShiftStartOdometer, validateFirstDayShiftStartOdometer, validateGapAllocation } from '../domain/work/shift.js'
+import { validateEndShiftEntry } from '../domain/work/endShift.js'
 
 const vectorPath = 'spec/work-domain/shift-start-golden-vectors.json'
 const vectors = JSON.parse(fs.readFileSync(vectorPath, 'utf8'))
@@ -9,26 +10,33 @@ assert.ok(Array.isArray(vectors.cases) && vectors.cases.length >= 10, 'The share
 
 const reasonCodes = new Map([
   ['Enter a valid current odometer.', 'INVALID_CURRENT_ODOMETER'],
+  ['CLOSING_ODOMETER_REQUIRED', 'CLOSING_ODOMETER_REQUIRED'],
+  ['Closing odometer cannot be lower than the shift opening odometer.', 'CLOSING_ODOMETER_BELOW_START'],
   ['Current odometer cannot be lower than the last recorded odometer.', 'BELOW_PREVIOUS_ODOMETER'],
-  ['Current odometer cannot be lower than the business start odometer.', 'BELOW_BUSINESS_START_ODOMETER']
+  ['Current odometer cannot be lower than the business start odometer.', 'BELOW_BUSINESS_START_ODOMETER'],
+  ['Closing odometer is unusually high above shift opening. Confirm this unusually high daily distance before ending the Shift.', 'LARGE_DISTANCE_CONFIRMATION_REQUIRED']
 ])
 const normalize = result => {
   const normalized = {}
-  for (const key of ['valid','gapKm','historicalKm','businessStartOdometer','historicalOdometerGap','requiresGapAllocation','category','personalKm','deadKm']) {
+  for (const key of ['valid','gapKm','historicalKm','businessStartOdometer','historicalOdometerGap','requiresGapAllocation','category','personalKm','deadKm','closingOdometer','distanceKm','requiresConfirmation']) {
     if (Object.hasOwn(result, key)) normalized[key] = result[key]
   }
-  if (result.reason) normalized.reasonCode = reasonCodes.get(result.reason) || 'GAP_ALLOCATION_REQUIRED'
+  if (result.reason) {
+    normalized.reasonCode = reasonCodes.get(result.reason)
+      || (result.reason.includes('above shift opening') ? 'LARGE_DISTANCE_CONFIRMATION_REQUIRED' : 'GAP_ALLOCATION_REQUIRED')
+  }
   else if (result.valid === false && result.requiresGapAllocation) normalized.reasonCode = 'GAP_ALLOCATION_REQUIRED'
   return normalized
 }
 const evaluators = {
   validateShiftStartOdometer: input => validateShiftStartOdometer(input.currentOdometer, input.previousOdometer),
   validateFirstDayShiftStartOdometer: input => validateFirstDayShiftStartOdometer(input.currentOdometer, input.businessStartOdometer),
-  validateGapAllocation: input => validateGapAllocation(input.gapKm, input.category)
+  validateGapAllocation: input => validateGapAllocation(input.gapKm, input.category),
+  validateEndShiftEntry: input => validateEndShiftEntry(input)
 }
 for (const vector of vectors.cases) {
   assert.ok(evaluators[vector.rule], `Unknown rule in vector ${vector.id}`)
-  assert.deepEqual(normalize(evaluators[vector.rule](vector.input)), vector.expected, `Shared shift-start vector failed: ${vector.id}`)
+  assert.deepEqual(normalize(evaluators[vector.rule](vector.input)), vector.expected, `Shared work-domain vector failed: ${vector.id}`)
 }
 
 assert.deepEqual(
@@ -42,9 +50,20 @@ assert.deepEqual(
   'The shared rule source must normalize numeric-string historical baselines.'
 )
 assert.deepEqual(
+  normalize(validateEndShiftEntry({ closingOdometer: '120', startOdometer: '100' })),
+  { valid: true, closingOdometer: 120, distanceKm: 20 },
+  'The shared shift-end rule must preserve numeric-string PWA form inputs.'
+)
+assert.deepEqual(
+  normalize(validateEndShiftEntry({ closingOdometer: '   ', startOdometer: 100 })),
+  { valid: false, reasonCode: 'CLOSING_ODOMETER_REQUIRED' },
+  'Whitespace-only closing odometer input must remain invalid after numeric normalization.'
+)
+
+assert.deepEqual(
   normalize(validateGapAllocation(null, null)),
   { valid: false, requiresGapAllocation: true, gapKm: Number.NaN, reasonCode: 'GAP_ALLOCATION_REQUIRED' },
   'Missing gap distance must remain invalid rather than being coerced to zero.'
 )
 
-console.log(`Shared shift-start golden vectors passed: ${vectors.cases.length} plus runtime input edge cases`)
+console.log(`Shared work-domain golden vectors passed: ${vectors.cases.length} plus runtime input edge cases`)

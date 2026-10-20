@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "purpose": "Single maintained declarative source for shift-start odometer and gap-allocation rules. Evaluators interpret this AST; they must not reimplement rule formulas.",
+  "purpose": "Single maintained declarative source for shared shift-start and shift-end odometer rules and gap allocation. Evaluators interpret this AST; they must not reimplement rule formulas.",
   "rules": {
     "validateShiftStartOdometer": {
       "inputs": [
@@ -445,6 +445,199 @@
                   },
                   "else": {
                     "const": 0
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "validateEndShiftEntry": {
+      "inputs": [
+        "closingOdometer",
+        "startOdometer",
+        "confirmLargeDistance"
+      ],
+      "expression": {
+        "if": {
+          "op": "or",
+          "args": [
+            {
+              "op": "notFiniteOrMissing",
+              "value": {
+                "input": "closingOdometer"
+              }
+            },
+            {
+              "op": "lt",
+              "left": {
+                "number": {
+                  "input": "closingOdometer"
+                }
+              },
+              "right": {
+                "const": 0
+              }
+            }
+          ]
+        },
+        "then": {
+          "object": {
+            "valid": {
+              "const": false
+            },
+            "reasonCode": {
+              "const": "CLOSING_ODOMETER_REQUIRED"
+            }
+          }
+        },
+        "else": {
+          "if": {
+            "op": "and",
+            "args": [
+              {
+                "op": "finiteAndPresent",
+                "value": {
+                  "input": "startOdometer"
+                }
+              },
+              {
+                "op": "lt",
+                "left": {
+                  "number": {
+                    "input": "closingOdometer"
+                  }
+                },
+                "right": {
+                  "number": {
+                    "input": "startOdometer"
+                  }
+                }
+              }
+            ]
+          },
+          "then": {
+            "object": {
+              "valid": {
+                "const": false
+              },
+              "reasonCode": {
+                "const": "CLOSING_ODOMETER_BELOW_START"
+              }
+            }
+          },
+          "else": {
+            "if": {
+              "op": "and",
+              "args": [
+                {
+                  "op": "gt",
+                  "left": {
+                    "if": {
+                      "op": "finiteAndPresent",
+                      "value": {
+                        "input": "startOdometer"
+                      }
+                    },
+                    "then": {
+                      "op": "subtract",
+                      "left": {
+                        "number": {
+                          "input": "closingOdometer"
+                        }
+                      },
+                      "right": {
+                        "number": {
+                          "input": "startOdometer"
+                        }
+                      }
+                    },
+                    "else": {
+                      "const": null
+                    }
+                  },
+                  "right": {
+                    "const": 500
+                  }
+                },
+                {
+                  "op": "not",
+                  "value": {
+                    "input": "confirmLargeDistance"
+                  }
+                }
+              ]
+            },
+            "then": {
+              "object": {
+                "valid": {
+                  "const": false
+                },
+                "requiresConfirmation": {
+                  "const": true
+                },
+                "distanceKm": {
+                  "if": {
+                    "op": "finiteAndPresent",
+                    "value": {
+                      "input": "startOdometer"
+                    }
+                  },
+                  "then": {
+                    "op": "subtract",
+                    "left": {
+                      "number": {
+                        "input": "closingOdometer"
+                      }
+                    },
+                    "right": {
+                      "number": {
+                        "input": "startOdometer"
+                      }
+                    }
+                  },
+                  "else": {
+                    "const": null
+                  }
+                },
+                "reasonCode": {
+                  "const": "LARGE_DISTANCE_CONFIRMATION_REQUIRED"
+                }
+              }
+            },
+            "else": {
+              "object": {
+                "valid": {
+                  "const": true
+                },
+                "closingOdometer": {
+                  "number": {
+                    "input": "closingOdometer"
+                  }
+                },
+                "distanceKm": {
+                  "if": {
+                    "op": "finiteAndPresent",
+                    "value": {
+                      "input": "startOdometer"
+                    }
+                  },
+                  "then": {
+                    "op": "subtract",
+                    "left": {
+                      "number": {
+                        "input": "closingOdometer"
+                      }
+                    },
+                    "right": {
+                      "number": {
+                        "input": "startOdometer"
+                      }
+                    }
+                  },
+                  "else": {
+                    "const": null
                   }
                 }
               }
