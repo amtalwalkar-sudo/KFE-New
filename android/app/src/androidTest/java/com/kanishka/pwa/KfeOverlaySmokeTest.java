@@ -679,6 +679,8 @@ public class KfeOverlaySmokeTest {
 
 
   @Test public void nativeOverlayCompletesFareAndCancellationUsingGesturesAndVisibleFormControlsWithoutPwaReplay() throws Exception {
+    // This invocation runs after the PWA is force-stopped. Prevent WebView creation in this process.
+    android.webkit.WebView.disableWebView();
     clearPending();
     String suffix = Long.toString(System.currentTimeMillis());
     String shiftId = "overlay-full-shift-" + suffix;
@@ -793,6 +795,53 @@ public class KfeOverlaySmokeTest {
     assertEquals("Native shift revenue must include the fare and cancellation fee exactly once.", 270d,
       shiftRecord.getJSONObject("record").getDouble("revenue"), 0.001d);
     assertEquals("GO_TO_PICKUP", fieldValue(service, "actionStage"));
+
+    // Retry both exact native form operations after their visible Save/Confirm clicks.
+    org.json.JSONArray pending = KfeNativeEventStore.get(context).pending(500);
+    String fareEventId = "";
+    String cancelEventId = "";
+    for (int i = 0; i < pending.length(); i++) {
+      JSONObject event = pending.optJSONObject(i);
+      if (event == null) continue;
+      String tripId = event.optString("tripId", "");
+      String stage = event.optString("stage", "");
+      if (fareTripId.equals(tripId) && "ENTER_FARE".equals(stage)) fareEventId = event.optString("eventId", "");
+      if (cancelTripId.equals(tripId) && "CANCEL_RIDE".equals(stage)) cancelEventId = event.optString("eventId", "");
+    }
+    assertTrue("Visible fare form must leave a durable retry identity.", !fareEventId.isEmpty());
+    assertTrue("Visible cancellation form must leave a durable retry identity.", !cancelEventId.isEmpty());
+    java.lang.reflect.Method persistForm = KfeOverlayService.class.getDeclaredMethod(
+        "persistCanonicalTripForm", String.class, String.class, JSONObject.class, String.class);
+    persistForm.setAccessible(true);
+    persistForm.invoke(service, "FARE", fareTripId,
+        new JSONObject().put("fare", "250").put("toll", "0").put("parking", "0")
+            .put("tollTreatment", "INCLUDED").put("parkingTreatment", "INCLUDED"), fareEventId);
+    persistForm.invoke(service, "CANCEL", cancelTripId,
+        new JSONObject().put("revenue", "20").put("reason", "PASSENGER"), cancelEventId);
+
+    store.close();
+    Field singleton = KfeCanonicalWorkStore.class.getDeclaredField("instance");
+    singleton.setAccessible(true);
+    singleton.set(null, null);
+    store = KfeCanonicalWorkStore.get(context);
+    JSONObject reopenedShift = store.getRecord("SHIFT", shiftId).getJSONObject("record");
+    assertEquals("Shift revenue must remain exactly once after native store reopen.", 270d,
+        reopenedShift.getDouble("revenue"), 0.001d);
+    assertEquals("Exactly two unique trip records must survive store reopen.", 2,
+        countTripsForShift(store.listRecords("TRIP", 1000).getJSONArray("records"), shiftId));
+    assertEquals("Fare remains durable after reopen.", 250d,
+        store.getRecord("TRIP", fareTripId).getJSONObject("record").getDouble("revenue"), 0.001d);
+    assertEquals("Cancellation fee remains durable after reopen.", 20d,
+        store.getRecord("TRIP", cancelTripId).getJSONObject("record").getDouble("cancelledRevenue"), 0.001d);
+  }
+
+  private int countTripsForShift(org.json.JSONArray records, String shiftId) {
+    int count = 0;
+    for (int i = 0; i < records.length(); i++) {
+      JSONObject record = records.optJSONObject(i);
+      if (record != null && shiftId.equals(record.optString("shiftId", ""))) count++;
+    }
+    return count;
   }
 
   private android.widget.Button findButton(android.view.ViewGroup parent, String label) {
