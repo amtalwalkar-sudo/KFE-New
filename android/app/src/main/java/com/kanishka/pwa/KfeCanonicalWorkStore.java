@@ -170,6 +170,176 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
   }
 
 
+  /**
+   * Commits a native overlay fare/cancellation and the authoritative shift
+   * revenue projection in one transaction. This deliberately implements only
+   * the stable native command invariants; richer domain rules remain in the PWA.
+   */
+  synchronized Outcome commitTripForm(String operationId, String mode, JSONObject trip) throws Exception {
+    if (empty(operationId)) throw new IllegalArgumentException("operationId is required.");
+    if (!"FARE".equals(mode) && !"CANCEL".equals(mode)) throw new IllegalArgumentException("Unsupported trip form mode.");
+    if (trip == null || empty(trip.optString("id", "")) || empty(trip.optString("shiftId", ""))) {
+      throw new IllegalArgumentException("Trip and shift identity are required.");
+    }
+    String tripId = trip.optString("id", "");
+    String shiftId = trip.optString("shiftId", "");
+    if ("FARE".equals(mode) && !"COMPLETED".equals(trip.optString("status", ""))) {
+      throw new IllegalArgumentException("Fare submission requires a completed trip.");
+    }
+    if ("CANCEL".equals(mode) && !"CANCELLED".equals(trip.optString("status", ""))) {
+      throw new IllegalArgumentException("Cancellation submission requires a cancelled trip.");
+    }
+    if ("FARE".equals(mode)) {
+      boolean skipped = trip.optBoolean("fareDetailsSkipped", false);
+      Object fare = trip.opt("revenue");
+      if (!skipped && (!(fare instanceof Number) || !Double.isFinite(((Number) fare).doubleValue())
+          || ((Number) fare).doubleValue() < 0d)) {
+        throw new IllegalArgumentException("A valid non-negative fare or skipped-fare flag is required.");
+      }
+      if (skipped && !(fare == null || fare == JSONObject.NULL || (fare instanceof Number && ((Number) fare).doubleValue() == 0d))) {
+        throw new IllegalArgumentException("Skipped fare details must not contribute revenue.");
+      }
+    } else {
+      Object fee = trip.has("cancelledRevenue") ? trip.opt("cancelledRevenue") : JSONObject.NULL;
+      if (fee != JSONObject.NULL && (!(fee instanceof Number) || !Double.isFinite(((Number) fee).doubleValue())
+          || ((Number) fee).doubleValue() < 0d)) {
+        throw new IllegalArgumentException("Cancellation fee must be blank/not applicable or a non-negative number.");
+      }
+      if (fee == JSONObject.NULL) trip.put("cancelledRevenue", 0d);
+    }
+    String tripPayload = trip.toString();
+    JSONObject commandPayload = new JSONObject().put("mode", mode).put("trip", trip);
+    String now = timestampNow();
+    SQLiteDatabase db = getWritableDatabase();
+    db.beginTransaction();
+    try {
+      try (Cursor prior = db.query("canonical_operations",
+          new String[]{"command", "entity_type", "entity_id", "status", "result_json"},
+          "operation_id=?", new String[]{operationId}, null, null, null, "1")) {
+        if (prior.moveToFirst()) {
+          JSONObject previous = new JSONObject(prior.getString(4));
+          JSONObject previousTrip = previous.optJSONObject("trip");
+          if (!"SUBMIT_TRIP_FORM".equals(prior.getString(0)) || !"TRIP".equals(prior.getString(1))
+              || !tripId.equals(prior.getString(2)) || previousTrip == null
+              || !jsonEquivalent(previousTrip, trip)
+              || !mode.equals(previous.optString("mode", ""))) {
+            throw new IllegalArgumentException("operationId was already used for a different trip form.");
+          }
+          db.setTransactionSuccessful();
+          return new Outcome("ACCEPTED".equals(prior.getString(3)), true, previous);
+        }
+      }
+
+      JSONObject existingTrip;
+      try (Cursor current = db.query("canonical_records", new String[]{"payload"},
+          "entity_type='TRIP' AND entity_id=?", new String[]{tripId}, null, null, null, "1")) {
+        if (!current.moveToFirst()) throw new IllegalArgumentException("Canonical trip does not exist.");
+        existingTrip = new JSONObject(current.getString(0));
+      }
+      if (!shiftId.equals(existingTrip.optString("shiftId", ""))) {
+        throw new IllegalArgumentException("Trip shift identity cannot change during form submission.");
+      }
+      String oldTripVersion = existingTrip.optString("updatedAt", "");
+      String newTripVersion = trip.optString("updatedAt", "");
+      if (empty(oldTripVersion) || empty(newTripVersion)) {
+        throw new IllegalArgumentException("Trip updatedAt is required for a canonical form commit.");
+      }
+      if (!jsonEquivalent(existingTrip, trip)) {
+        int order = java.time.Instant.parse(newTripVersion).compareTo(java.time.Instant.parse(oldTripVersion));
+        if (order <= 0) throw new IllegalArgumentException("Stale or conflicting canonical trip form rejected.");
+      }
+
+      JSONObject shift;
+      try (Cursor currentShift = db.query("canonical_records", new String[]{"payload"},
+          "entity_type='SHIFT' AND entity_id=?", new String[]{shiftId}, null, null, null, "1")) {
+        if (!currentShift.moveToFirst()) throw new IllegalArgumentException("Canonical shift does not exist.");
+        shift = new JSONObject(currentShift.getString(0));
+      }
+      if (!"ACTIVE".equals(shift.optString("status", ""))) {
+        throw new IllegalArgumentException("The canonical shift is no longer active.");
+      }
+
+      ContentValues tripValues = new ContentValues();
+      tripValues.put("entity_type", "TRIP");
+      tripValues.put("entity_id", tripId);
+      tripValues.put("payload", tripPayload);
+      tripValues.put("updated_at", now);
+      db.insertWithOnConflict("canonical_records", null, tripValues, SQLiteDatabase.CONFLICT_REPLACE);
+
+      double revenue = 0d;
+      java.time.Instant latest = java.time.Instant.parse(newTripVersion);
+      String oldShiftVersion = shift.optString("updatedAt", "");
+      if (!empty(oldShiftVersion)) {
+        java.time.Instant shiftInstant = java.time.Instant.parse(oldShiftVersion);
+        if (shiftInstant.isAfter(latest)) latest = shiftInstant;
+      }
+      try (Cursor trips = db.query("canonical_records", new String[]{"payload"},
+          "entity_type='TRIP'", null, null, null, null)) {
+        while (trips.moveToNext()) {
+          JSONObject item = new JSONObject(trips.getString(0));
+          if (!shiftId.equals(item.optString("shiftId", ""))
+              || item.has("deletedAt") && !item.isNull("deletedAt")
+              || item.optBoolean("deleted", false)) continue;
+          String status = item.optString("status", "");
+          if ("COMPLETED".equals(status) && !item.optBoolean("fareDetailsSkipped", false)) {
+            Object amount = item.opt("revenue");
+            if (amount instanceof Number && Double.isFinite(((Number) amount).doubleValue())
+                && ((Number) amount).doubleValue() >= 0d) revenue += ((Number) amount).doubleValue();
+          } else if ("CANCELLED".equals(status)) {
+            Object amount = item.has("cancelledRevenue") ? item.opt("cancelledRevenue") : item.opt("revenue");
+            if (amount instanceof Number && Double.isFinite(((Number) amount).doubleValue())
+                && ((Number) amount).doubleValue() >= 0d) revenue += ((Number) amount).doubleValue();
+          }
+          String itemVersion = item.optString("updatedAt", "");
+          if (!empty(itemVersion)) {
+            java.time.Instant itemInstant = java.time.Instant.parse(itemVersion);
+            if (itemInstant.isAfter(latest)) latest = itemInstant;
+          }
+        }
+      }
+      java.time.Instant nowInstant = java.time.Instant.parse(now);
+      if (!nowInstant.isAfter(latest)) latest = latest.plusMillis(1);
+      String shiftUpdatedAt = latest.toString();
+      shift.put("revenue", revenue);
+      shift.put("liveFareRevenue", revenue);
+      shift.put("revenueSource", "TRIP_FARES");
+      shift.put("updatedAt", shiftUpdatedAt);
+      ContentValues shiftValues = new ContentValues();
+      shiftValues.put("entity_type", "SHIFT");
+      shiftValues.put("entity_id", shiftId);
+      shiftValues.put("payload", shift.toString());
+      shiftValues.put("updated_at", now);
+      db.insertWithOnConflict("canonical_records", null, shiftValues, SQLiteDatabase.CONFLICT_REPLACE);
+
+      JSONObject result = new JSONObject().put("operationId", operationId).put("mode", mode)
+          .put("tripId", tripId).put("shiftId", shiftId).put("trip", trip)
+          .put("shift", shift).put("revenue", revenue).put("committedAt", now);
+      ContentValues operation = new ContentValues();
+      operation.put("operation_id", operationId);
+      operation.put("command", "SUBMIT_TRIP_FORM");
+      operation.put("entity_type", "TRIP");
+      operation.put("entity_id", tripId);
+      operation.put("status", "ACCEPTED");
+      operation.put("result_json", result.toString());
+      operation.put("created_at", now);
+      db.insertOrThrow("canonical_operations", null, operation);
+      ContentValues audit = new ContentValues();
+      audit.put("operation_id", operationId);
+      audit.put("entity_type", "TRIP");
+      audit.put("entity_id", tripId);
+      audit.put("action", "SUBMIT_TRIP_FORM_" + mode);
+      audit.put("payload", commandPayload.toString());
+      audit.put("created_at", now);
+      db.insertOrThrow("canonical_audit", null, audit);
+
+      db.setTransactionSuccessful();
+      return new Outcome(true, false, result);
+    } finally {
+      db.endTransaction();
+    }
+  }
+
+
   synchronized JSONObject migrateLegacySnapshot(String migrationId, JSONObject snapshot) throws Exception {
     if (empty(migrationId)) throw new IllegalArgumentException("migrationId is required.");
     if (snapshot == null || !(snapshot.opt("entities") instanceof JSONObject)) {
