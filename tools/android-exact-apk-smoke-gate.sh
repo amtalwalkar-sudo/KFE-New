@@ -328,6 +328,7 @@ run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#nativeShif
 run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#reopeningPwaCatchesUpNativeCanonicalRecordsWithoutReplayingPendingEvents native-pwa-catch-up 1
 # Persisted native trace must retain outage timestamps; PWA domain contracts verify the explicit incomplete-km flag.
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#persistedNativeTraceRetainsOutageGapForDomainFlagging gps-gap-persistence 1
+run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#businessGpsGapFlagsSurviveCanonicalSqliteCloseAndReopen gps-gap-sqlite-reopen 1
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#gpsCollectorRecoversAfterServiceInterruption gps-service-recovery 1
 
 # Keep the instrumentation target alive while the shell injects process death.
