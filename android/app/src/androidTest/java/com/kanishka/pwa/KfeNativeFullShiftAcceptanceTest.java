@@ -45,7 +45,7 @@ public class KfeNativeFullShiftAcceptanceTest {
         new JSONObject().put("id", shiftId).put("status", "ACTIVE")
             .put("revenue", 0).put("updatedAt", earlier)).accepted);
     assertTrue(store.putRecord("atomic-form-trip-create-" + suffix, "TRIP",
-        new JSONObject().put("id", tripId).put("shiftId", shiftId).put("status", "ACTIVE")
+        new JSONObject().put("id", tripId).put("shiftId", shiftId).put("status", "COMPLETED")
             .put("updatedAt", earlier)).accepted);
 
     JSONObject fareTrip = new JSONObject().put("id", tripId).put("shiftId", shiftId)
@@ -68,7 +68,7 @@ public class KfeNativeFullShiftAcceptanceTest {
 
     String skippedTripId = "atomic-form-skipped-trip-" + suffix;
     assertTrue(store.putRecord("atomic-form-skipped-create-" + suffix, "TRIP",
-        new JSONObject().put("id", skippedTripId).put("shiftId", shiftId).put("status", "ACTIVE")
+        new JSONObject().put("id", skippedTripId).put("shiftId", shiftId).put("status", "COMPLETED")
             .put("updatedAt", earlier)).accepted);
     JSONObject skippedFareTrip = new JSONObject().put("id", skippedTripId).put("shiftId", shiftId)
         .put("status", "COMPLETED").put("revenue", JSONObject.NULL).put("fareDetailsSkipped", true)
