@@ -322,6 +322,10 @@ run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#nativeTrip
 run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#formOutboxSurvivesCanonicalRefusalAndSameEventRetriesWithoutDuplicateFare native-form-refusal-retry 1
 run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#formOutboxSurvivesInjectedCanonicalSqliteWriteFailureAndRetriesIdempotently native-form-sqlite-failure-retry 1
 run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#nativeOnlyShiftPersistsMultipleFaresAndCancellationAcrossStoreReopen native-full-shift 1
+# Make the target process's WebView unusable, force-stop the PWA, and run a
+# separate native-only end-to-end fare/cancellation/shift-reopen/idempotency test.
+adb shell am force-stop com.kanishka.pwa
+run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#nativeOverlayCompletesShiftWithWebViewUnavailableAndNoDuplicateRevenue native-webview-unavailable-full-shift 1
 # Consume the same versioned 13-case shift-start vectors on Android, not merely compile the instrumentation test.
 run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#nativeShiftStartInterpreterMatchesSharedGoldenVectors shift-start-rule-parity 1
 # Reopen the PWA with the synthetic queue events already acknowledged; canonical SQLite must catch it up independently.
