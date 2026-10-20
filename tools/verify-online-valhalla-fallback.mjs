@@ -10,7 +10,19 @@ OfflineMapService.traceRoute = async () => {
 globalThis.__KFE_VALHALLA_ENDPOINT__ =
   process.env.KFE_VALHALLA_ENDPOINT || 'https://valhalla1.openstreetmap.de'
 
-const adapter = new ValhallaRoutingAdapter({ timeoutMs: 25000 })
+const liveFetch = async (...args) => {
+  const response = await fetch(...args)
+  if (!response.ok) {
+    const diagnostic = await response.clone().text().catch(() => '')
+    console.error('Live Valhalla response diagnostic:', JSON.stringify({
+      status: response.status,
+      endpoint: args[0],
+      body: diagnostic.slice(0, 2000)
+    }))
+  }
+  return response
+}
+const adapter = new ValhallaRoutingAdapter({ timeoutMs: 25000, fetchImpl: liveFetch })
 const result = await adapter.routeTrace([
   { latitude: 40.7484, longitude: -73.9857, capturedAt: '2026-10-20T10:00:00Z' },
   { latitude: 40.7527, longitude: -73.9772, capturedAt: '2026-10-20T10:00:20Z' },
