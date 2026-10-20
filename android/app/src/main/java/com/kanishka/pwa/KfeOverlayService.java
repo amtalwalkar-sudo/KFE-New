@@ -891,50 +891,6 @@ public class KfeOverlayService extends Service {
       return true;
     }catch(Exception error){Log.e("KFE-CANONICAL","Could not persist native trip stage",error);return false;}
   }
-  private void refreshCanonicalRevenue(String shiftId,String sourceTripId,String sourceUpdatedAt) throws Exception {
-    if(shiftId==null||shiftId.isEmpty())throw new IllegalArgumentException("Shift ID is required for revenue projection.");
-    org.json.JSONArray records=KfeCanonicalWorkStore.get(this).listRecords("TRIP",1000).optJSONArray("records");
-    double total=0d;
-    java.time.Instant projectionInstant=sourceUpdatedAt==null||sourceUpdatedAt.isEmpty()
-      ?java.time.Instant.EPOCH:java.time.Instant.parse(sourceUpdatedAt);
-    KfeCanonicalWorkStore store=KfeCanonicalWorkStore.get(this);
-    JSONObject foundShift=store.getRecord("SHIFT",shiftId);
-    JSONObject shift=foundShift.optJSONObject("record");
-    if(shift==null)throw new IllegalStateException("Canonical shift is missing; revenue projection was not acknowledged.");
-    String existingShiftUpdatedAt=shift.optString("updatedAt","");
-    if(!existingShiftUpdatedAt.isEmpty()){
-      java.time.Instant existingInstant=java.time.Instant.parse(existingShiftUpdatedAt);
-      if(existingInstant.isAfter(projectionInstant))projectionInstant=existingInstant;
-    }
-    if(records!=null)for(int i=0;i<records.length();i++){
-      JSONObject trip=records.optJSONObject(i); if(trip==null||!shiftId.equals(trip.optString("shiftId",""))||(trip.has("deletedAt")&&!trip.isNull("deletedAt"))||trip.optBoolean("deleted",false))continue;
-      if("COMPLETED".equals(trip.optString("status"))&&!trip.optBoolean("fareDetailsSkipped",false)){
-        Object v=trip.opt("revenue");if(v instanceof Number&&((Number)v).doubleValue()>=0d)total+=((Number)v).doubleValue();
-      }else if("CANCELLED".equals(trip.optString("status"))){
-        Object v=trip.has("cancelledRevenue")?trip.opt("cancelledRevenue"):trip.opt("revenue");
-        if(v instanceof Number&&((Number)v).doubleValue()>=0d)total+=((Number)v).doubleValue();
-      }
-      String tripUpdatedAt=trip.optString("updatedAt","");
-      if(!tripUpdatedAt.isEmpty()){
-        java.time.Instant tripInstant=java.time.Instant.parse(tripUpdatedAt);
-        if(tripInstant.isAfter(projectionInstant))projectionInstant=tripInstant;
-      }
-    }
-    shift.put("revenue",total);shift.put("liveFareRevenue",total);shift.put("revenueSource","TRIP_FARES");
-    // A replay of an older form event may recompute a newer aggregate. The
-    // projection timestamp follows the newest canonical shift/trip version,
-    // not the triggering event's timestamp, so replay cannot look like a stale
-    // shift write. For a given canonical state, this timestamp and payload stay
-    // deterministic across retries.
-    String projectionUpdatedAt=projectionInstant.toString();
-    String revision=projectionUpdatedAt.replaceAll("[^A-Za-z0-9]","");
-    shift.put("updatedAt",projectionUpdatedAt);
-    String totalRevision=java.math.BigDecimal.valueOf(total).stripTrailingZeros().toPlainString().replaceAll("[^A-Za-z0-9]","");
-    KfeCanonicalWorkStore.Outcome outcome=store.putRecord("native-shift-revenue-"+shiftId+"-"+sourceTripId+"-"+revision+"-"+totalRevision,"SHIFT",shift);
-    if(!outcome.accepted)throw new IllegalStateException("Canonical shift revenue projection was not acknowledged.");
-    revenue="₹"+String.format(java.util.Locale.US,"%.0f",total);if(overlay!=null)overlay.postInvalidate();
-  }
-
   private void persistCanonicalTripForm(String mode,String tripId,JSONObject input,String eventId) throws Exception {
     if(tripId==null||tripId.trim().isEmpty())throw new IllegalArgumentException("Trip ID is required.");
     JSONObject trip=null;
