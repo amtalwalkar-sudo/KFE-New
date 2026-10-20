@@ -226,9 +226,10 @@ public class KfeNativeFullShiftAcceptanceTest {
         270d, savedShift.getDouble("revenue"), 0.001d);
     assertEquals("One canonical fare and one cancellation only.", 2,
         countShiftTrips(store.listRecords("TRIP", 1000).getJSONArray("records"), shiftId));
-    assertTrue("Both operations must retain durable outcomes.",
-        store.getOperation("native-form-FARE-" + fareEventId).optBoolean("found", false)
-            || store.getOperation("native-form-CANCEL-" + cancelEventId).optBoolean("found", false));
+    assertTrue("Fare operation outcome must survive store reopen.",
+        store.getOperation("native-form-FARE-" + fareEventId).optBoolean("found", false));
+    assertTrue("Cancellation operation outcome must survive store reopen.",
+        store.getOperation("native-form-CANCEL-" + cancelEventId).optBoolean("found", false));
     assertPendingEvent(KfeNativeEventStore.get(context).pending(500), fareTripId, "ENTER_FARE");
     assertPendingEvent(KfeNativeEventStore.get(context).pending(500), cancelTripId, "CANCEL_RIDE");
   }
