@@ -145,6 +145,94 @@ public class KfeNativeFullShiftAcceptanceTest {
   }
 
 
+  @Test public void nativeOverlayCompletesShiftWithWebViewUnavailableAndNoDuplicateRevenue() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    // Fail closed if any code in this test process tries to create a WebView.
+    // This test deliberately does not launch MainActivity or invoke PWA replay.
+    WebView.disableWebView();
+    String suffix = Long.toString(System.currentTimeMillis());
+    String shiftId = "webview-off-shift-" + suffix;
+    String fareTripId = "webview-off-fare-" + suffix;
+    String cancelTripId = "webview-off-cancel-" + suffix;
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    JSONObject shift = new JSONObject().put("id", shiftId).put("status", "ACTIVE")
+        .put("revenue", 0).put("updatedAt", java.time.Instant.now().toString());
+    assertTrue("Active shift fixture must commit natively.",
+        store.putRecord("webview-off-shift-create-" + suffix, "SHIFT", shift).accepted);
+
+    AttachedOverlayService service = new AttachedOverlayService();
+    service.attach(context);
+    setField(service, "defaultOperator", "Uber");
+    SharedPreferences prefs = context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE);
+
+    prepareSnapshot(prefs, shiftId, fareTripId);
+    runTripStages(service, prefs, shiftId, fareTripId);
+    setField(service, "formMode", "FARE");
+    setField(service, "pendingFareTripId", fareTripId);
+    setField(service, "formValue", "250");
+    setField(service, "tollValue", "0");
+    setField(service, "parkingValue", "0");
+    invoke(service, "submitNumericForm", new Class<?>[]{});
+
+    prepareSnapshot(prefs, shiftId, cancelTripId);
+    setField(service, "pendingTripId", cancelTripId);
+    String pickupEvent = KfeNativeWorkActionsPlugin.recordPendingAction(service, "GO_TO_PICKUP", cancelTripId, "");
+    assertTrue("Cancellation trip state must commit while WebView is disabled.",
+        (Boolean) invoke(service, "persistCanonicalTripStage",
+            new Class<?>[]{String.class, boolean.class, String.class},
+            "GOING_TO_PICKUP", false, pickupEvent));
+    setField(service, "formMode", "CANCEL");
+    setField(service, "formValue", "20");
+    setField(service, "cancelReason", "PASSENGER");
+    invoke(service, "submitNumericForm", new Class<?>[]{});
+
+    JSONArray pending = KfeNativeEventStore.get(context).pending(500);
+    String fareEventId = pendingEventIdFor(pending, fareTripId, "ENTER_FARE");
+    String cancelEventId = pendingEventIdFor(pending, cancelTripId, "CANCEL_RIDE");
+    assertTrue("Fare must have a durable outbox event.", !fareEventId.isEmpty());
+    assertTrue("Cancellation must have a durable outbox event.", !cancelEventId.isEmpty());
+
+    // Simulate a lost acknowledgement by retrying the exact same fare and cancellation event IDs.
+    JSONObject farePayload = new JSONObject().put("fare", "250").put("toll", "0").put("parking", "0")
+        .put("tollTreatment", "INCLUDED").put("parkingTreatment", "INCLUDED");
+    JSONObject cancelPayload = new JSONObject().put("revenue", "20").put("reason", "PASSENGER");
+    invoke(service, "persistCanonicalTripForm",
+        new Class<?>[]{String.class, String.class, JSONObject.class, String.class},
+        "FARE", fareTripId, farePayload, fareEventId);
+    invoke(service, "persistCanonicalTripForm",
+        new Class<?>[]{String.class, String.class, JSONObject.class, String.class},
+        "CANCEL", cancelTripId, cancelPayload, cancelEventId);
+
+    // End the shift only after its native forms are durably committed.
+    JSONObject endedShift = new JSONObject(store.getRecord("SHIFT", shiftId).getJSONObject("record").toString())
+        .put("status", "ENDED").put("updatedAt", java.time.Instant.now().plusSeconds(2).toString());
+    assertTrue("Native shift end must persist after the forms.",
+        store.putRecord("webview-off-shift-end-" + suffix, "SHIFT", endedShift).accepted);
+
+    store.close();
+    Field singleton = KfeCanonicalWorkStore.class.getDeclaredField("instance");
+    singleton.setAccessible(true);
+    singleton.set(null, null);
+    store = KfeCanonicalWorkStore.get(context);
+    JSONObject savedShift = store.getRecord("SHIFT", shiftId).getJSONObject("record");
+    JSONObject savedFare = store.getRecord("TRIP", fareTripId).getJSONObject("record");
+    JSONObject savedCancel = store.getRecord("TRIP", cancelTripId).getJSONObject("record");
+    assertEquals("ENDED", savedShift.getString("status"));
+    assertEquals("COMPLETED", savedFare.getString("status"));
+    assertEquals("CANCELLED", savedCancel.getString("status"));
+    assertEquals(250d, savedFare.getDouble("revenue"), 0.001d);
+    assertEquals(20d, savedCancel.getDouble("cancelledRevenue"), 0.001d);
+    assertEquals("Fare plus cancellation fee must be projected exactly once after store reopen.",
+        270d, savedShift.getDouble("revenue"), 0.001d);
+    assertEquals("One canonical fare and one cancellation only.", 2,
+        countShiftTrips(store.listRecords("TRIP", 1000).getJSONArray("records"), shiftId));
+    assertTrue("Both operations must retain durable outcomes.",
+        store.getOperation("native-form-FARE-" + fareEventId).optBoolean("found", false)
+            || store.getOperation("native-form-CANCEL-" + cancelEventId).optBoolean("found", false));
+    assertPendingEvent(KfeNativeEventStore.get(context).pending(500), fareTripId, "ENTER_FARE");
+    assertPendingEvent(KfeNativeEventStore.get(context).pending(500), cancelTripId, "CANCEL_RIDE");
+  }
+
   @Test public void nativeOnlyShiftPersistsMultipleFaresAndCancellationAcrossStoreReopen() throws Exception {
     Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
     String suffix = Long.toString(System.currentTimeMillis());
