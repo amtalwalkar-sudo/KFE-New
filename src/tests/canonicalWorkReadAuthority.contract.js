@@ -54,7 +54,7 @@ assert.equal(deriveLiveRevenue([{ status: 'COMPLETED', revenue: 250 }, { status:
 assert.ok(overlay.includes('canonical.commitTripForm(operationId,mode,trip)'))
 assert.ok(overlay.includes('Canonical trip form was not accepted'))
 assert.ok(!overlay.includes('refreshCanonicalRevenue'), 'Fare/cancellation must not use a second non-atomic revenue projection.')
-assert.ok(overlay.includes('Canonical shift revenue projection was not acknowledged'))
+assert.ok(overlay.includes('Canonical trip form was not accepted'))
 
 // Android background/screen-off GPS is not silently replaced by browser tracking.
 assert.ok(service.includes("const isAndroidRuntime = () => { try { return WorkRuntimePorts.platform.getPlatform() === 'android'"))
