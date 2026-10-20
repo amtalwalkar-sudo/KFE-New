@@ -23,10 +23,12 @@ const liveFetch = async (...args) => {
   return response
 }
 const adapter = new ValhallaRoutingAdapter({ timeoutMs: 25000, fetchImpl: liveFetch })
+// Use a short northbound trace near Mumbai's Western Express Highway and omit
+// timestamps: this probe validates road matching, not GPS cadence or speed.
 const result = await adapter.routeTrace([
-  { latitude: 19.0760, longitude: 72.8777, capturedAt: '2026-10-20T10:00:00Z' },
-  { latitude: 19.0850, longitude: 72.8697, capturedAt: '2026-10-20T10:00:20Z' },
-  { latitude: 19.0930, longitude: 72.8610, capturedAt: '2026-10-20T10:00:40Z' }
+  { latitude: 19.1190, longitude: 72.8690 },
+  { latitude: 19.1230, longitude: 72.8690 },
+  { latitude: 19.1270, longitude: 72.8690 }
 ])
 
 assert.ok(result, 'Online Valhalla must return a route after the offline coverage miss.')
