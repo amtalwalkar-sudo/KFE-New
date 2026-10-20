@@ -210,6 +210,61 @@ public class KfeRecoveryHardeningTest {
     }
   }
 
+  @Test public void businessGpsGapFlagsSurviveCanonicalSqliteCloseAndReopen() throws Exception {
+    String suffix = Long.toString(System.currentTimeMillis());
+    String shiftId = "gps-gap-domain-shift-" + suffix;
+    String tripId = "gps-gap-domain-trip-" + suffix;
+    String now = java.time.Instant.now().toString();
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    JSONObject provenance = new JSONObject()
+        .put("gpsRecordingStatus", "INCOMPLETE")
+        .put("recordingGapDetected", true)
+        .put("knownDistanceKm", 2.5d)
+        .put("estimatedGapDistanceKm", 0d)
+        .put("unresolvedGapCount", 1)
+        .put("knownTraceSegments", new JSONArray()
+            .put(new JSONObject().put("startAt", "2026-10-16T10:00:00.000Z")
+                .put("endAt", "2026-10-16T10:01:00.000Z").put("distanceKm", 1.25d))
+            .put(new JSONObject().put("startAt", "2026-10-16T10:11:00.000Z")
+                .put("endAt", "2026-10-16T10:12:00.000Z").put("distanceKm", 1.25d)))
+        .put("incompleteKmSegments", new JSONArray()
+            .put(new JSONObject().put("status", "UNRESOLVED").put("distanceKm", JSONObject.NULL)
+                .put("method", "UNRESOLVED_GPS_OUTAGE")));
+    JSONObject calculatedTrip = new JSONObject()
+        .put("id", tripId).put("shiftId", shiftId).put("status", "COMPLETED")
+        .put("tripKm", 2.5d).put("tripKmAuthority", "GPS_TRACE_INCOMPLETE")
+        .put("tripKmProvenance", provenance).put("roadMatchedGeometry", JSONObject.NULL)
+        .put("traceGeometry", new JSONArray()).put("updatedAt", now);
+    String operationId = "gps-gap-domain-operation-" + suffix;
+    assertTrue("The calculated incomplete-GPS trip must commit to canonical SQLite.",
+        store.putRecord(operationId, "TRIP", calculatedTrip).accepted);
+
+    // Force the real SQLite helper to close and recreate, rather than checking a
+    // second read through the same cached helper instance.
+    store.close();
+    java.lang.reflect.Field singleton = KfeCanonicalWorkStore.class.getDeclaredField("instance");
+    singleton.setAccessible(true);
+    singleton.set(null, null);
+    KfeCanonicalWorkStore reopened = KfeCanonicalWorkStore.get(context);
+    JSONObject read = reopened.getRecord("TRIP", tripId);
+    assertTrue("The trip must exist after canonical SQLite close/reopen.", read.getBoolean("found"));
+    JSONObject durable = read.getJSONObject("record");
+    assertEquals("GPS_TRACE_INCOMPLETE", durable.getString("tripKmAuthority"));
+    assertEquals(2.5d, durable.getDouble("tripKm"), 0.000001d);
+    JSONObject durableProvenance = durable.getJSONObject("tripKmProvenance");
+    assertEquals("INCOMPLETE", durableProvenance.getString("gpsRecordingStatus"));
+    assertTrue(durableProvenance.getBoolean("recordingGapDetected"));
+    assertEquals(2.5d, durableProvenance.getDouble("knownDistanceKm"), 0.000001d);
+    assertEquals(0d, durableProvenance.getDouble("estimatedGapDistanceKm"), 0.000001d);
+    assertEquals(1, durableProvenance.getInt("unresolvedGapCount"));
+    assertEquals(2, durableProvenance.getJSONArray("knownTraceSegments").length());
+    assertEquals("UNRESOLVED",
+        durableProvenance.getJSONArray("incompleteKmSegments").getJSONObject(0).getString("status"));
+    assertTrue(durableProvenance.getJSONArray("incompleteKmSegments").getJSONObject(0).isNull("distanceKm"));
+    assertTrue(durable.isNull("roadMatchedGeometry"));
+    assertEquals(0, durable.getJSONArray("traceGeometry").length());
+  }
+
   @Test public void prepareGpsCollectorForProcessDeath() throws Exception {
     String suffix = Long.toString(System.currentTimeMillis());
     String tripId = "gps-process-death-" + suffix;
