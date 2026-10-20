@@ -133,6 +133,34 @@ if ! launch_and_wait_for_main_activity; then
     echo "Android framework did not recover after the controlled reboot; refusing to treat this as a passing UI acceptance." >&2
     exit 1
   fi
+  # Some hosted-emulator framework failures reset the package database across
+  # reboot. Never assume installed APKs survived: verify the target and runner,
+  # reinstall from the exact build outputs if needed, and restore test fixtures.
+  if ! timeout 20s adb shell pm path com.kanishka.pwa 2>/dev/null | grep -q '^package:'; then
+    echo "KFE app package is absent after emulator recovery; reinstalling the exact build APKs."
+    install_apk_with_retry android/app/build/outputs/apk/debug/app-debug.apk
+    install_apk_with_retry android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+    adb shell pm grant com.kanishka.pwa android.permission.ACCESS_COARSE_LOCATION || true
+    adb shell pm grant com.kanishka.pwa android.permission.ACCESS_FINE_LOCATION || true
+    adb shell pm grant com.kanishka.pwa android.permission.ACCESS_BACKGROUND_LOCATION || true
+    adb shell pm grant com.kanishka.pwa android.permission.POST_NOTIFICATIONS || true
+    adb shell appops set com.kanishka.pwa SYSTEM_ALERT_WINDOW allow
+    adb shell settings put secure location_mode 3
+    set +e
+    timeout 180s adb shell am instrument -w -r \\
+      -e class com.kanishka.pwa.KfeRecoveryHardeningTest#prepareOfflineValhallaFixtureDirectory \\
+      com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner \\
+      > artifacts/android-offline-routing/prepare-fixture-after-reboot.log 2>&1
+    prepare_result=$?
+    set -e
+    cat artifacts/android-offline-routing/prepare-fixture-after-reboot.log
+    if [ "$prepare_result" -ne 0 ] || ! grep -Fq 'OK (1 test)' artifacts/android-offline-routing/prepare-fixture-after-reboot.log; then
+      echo "Could not restore offline fixture directory after emulator package reset." >&2
+      exit 1
+    fi
+    timeout 300s adb push work/trace-request-mumbai.json /data/local/tmp/kfe-trace-request-mumbai.json
+    timeout 60s adb shell run-as com.kanishka.pwa cp /data/local/tmp/kfe-trace-request-mumbai.json files/valhalla-trace-request.json
+  fi
   if ! launch_and_wait_for_main_activity; then
     adb logcat -d -t 5000 > artifacts/android-offline-routing/ui-startup-retry-failure-logcat.log || true
     timeout 30s adb shell dumpsys activity activities > artifacts/android-offline-routing/ui-startup-retry-activities.txt 2>&1 || true
