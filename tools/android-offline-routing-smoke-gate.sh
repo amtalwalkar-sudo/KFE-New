@@ -38,7 +38,7 @@ install_apk_with_retry() {
 # failed with "Broken pipe" / "Can't find service: package". Probe framework
 # health explicitly and allow one controlled reboot before touching the APKs.
 package_service_ready() {
-  timeout 20s adb shell cmd package list packages >/dev/null 2>&1
+  timeout 20s adb shell cmd package list packages 2>&1 | grep -q '^package:'
 }
 if ! package_service_ready; then
   echo "Emulator reports boot complete but PackageManager is unavailable; collecting diagnostics before one reboot."
