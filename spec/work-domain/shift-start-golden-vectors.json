@@ -299,6 +299,32 @@
         "closingOdometer": 120,
         "distanceKm": null
       }
+    },
+    {
+      "id": "end-shift-null-start-baseline-coerces-zero",
+      "rule": "validateEndShiftEntry",
+      "input": {
+        "closingOdometer": 120,
+        "startOdometer": null
+      },
+      "expected": {
+        "valid": true,
+        "closingOdometer": 120,
+        "distanceKm": 120
+      }
+    },
+    {
+      "id": "end-shift-blank-start-baseline-coerces-zero",
+      "rule": "validateEndShiftEntry",
+      "input": {
+        "closingOdometer": 120,
+        "startOdometer": "   "
+      },
+      "expected": {
+        "valid": true,
+        "closingOdometer": 120,
+        "distanceKm": 120
+      }
     }
   ]
 }
