@@ -147,9 +147,9 @@ if ! launch_and_wait_for_main_activity; then
     adb shell appops set com.kanishka.pwa SYSTEM_ALERT_WINDOW allow
     adb shell settings put secure location_mode 3
     set +e
-    timeout 180s adb shell am instrument -w -r \\
-      -e class com.kanishka.pwa.KfeRecoveryHardeningTest#prepareOfflineValhallaFixtureDirectory \\
-      com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner \\
+    timeout 180s adb shell am instrument -w -r \
+      -e class com.kanishka.pwa.KfeRecoveryHardeningTest#prepareOfflineValhallaFixtureDirectory \
+      com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner \
       > artifacts/android-offline-routing/prepare-fixture-after-reboot.log 2>&1
     prepare_result=$?
     set -e
