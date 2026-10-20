@@ -24,9 +24,9 @@ const liveFetch = async (...args) => {
 }
 const adapter = new ValhallaRoutingAdapter({ timeoutMs: 25000, fetchImpl: liveFetch })
 const result = await adapter.routeTrace([
-  { latitude: 40.7484, longitude: -73.9857, capturedAt: '2026-10-20T10:00:00Z' },
-  { latitude: 40.7527, longitude: -73.9772, capturedAt: '2026-10-20T10:00:20Z' },
-  { latitude: 40.7580, longitude: -73.9855, capturedAt: '2026-10-20T10:00:40Z' }
+  { latitude: 19.0760, longitude: 72.8777, capturedAt: '2026-10-20T10:00:00Z' },
+  { latitude: 19.0850, longitude: 72.8697, capturedAt: '2026-10-20T10:00:20Z' },
+  { latitude: 19.0930, longitude: 72.8610, capturedAt: '2026-10-20T10:00:40Z' }
 ])
 
 assert.ok(result, 'Online Valhalla must return a route after the offline coverage miss.')
