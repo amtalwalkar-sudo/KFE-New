@@ -7,6 +7,7 @@ on:
       - ".github/workflows/publish-offline-valhalla-maps.yml"
       - "tools/android-offline-routing-smoke-gate.sh"
       - "android/app/src/androidTest/java/com/kanishka/pwa/KfeRecoveryHardeningTest.java"
+      - "android/app/src/androidTest/java/com/kanishka/pwa/KfeNativeFullShiftAcceptanceTest.java"
       - "android/app/src/main/java/com/kanishka/pwa/Valhalla*"
   pull_request:
     branches: [main, fix/native-overlay-background-transitions]
@@ -14,6 +15,7 @@ on:
       - ".github/workflows/publish-offline-valhalla-maps.yml"
       - "tools/android-offline-routing-smoke-gate.sh"
       - "android/app/src/androidTest/java/com/kanishka/pwa/KfeRecoveryHardeningTest.java"
+      - "android/app/src/androidTest/java/com/kanishka/pwa/KfeNativeFullShiftAcceptanceTest.java"
       - "android/app/src/main/java/com/kanishka/pwa/Valhalla*"
   workflow_dispatch:
 
