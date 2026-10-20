@@ -176,6 +176,40 @@ public class KfeRecoveryHardeningTest {
     await("GPS collector cleanup", 8000L, () -> KfeNativeGpsService.persistedActiveTripId(context).isEmpty());
   }
 
+  @Test public void persistedNativeTraceRetainsOutageGapForDomainFlagging() throws Exception {
+    String tripId = "gps-gap-persist-" + System.currentTimeMillis();
+    File traceFile = new File(context.getFilesDir(), "kfe_gps_trace_" + tripId + ".jsonl");
+    long start = System.currentTimeMillis() - 12L * 60L * 1000L;
+    try {
+      try (FileOutputStream output = new FileOutputStream(traceFile)) {
+        for (int minute : new int[]{0, 1, 11, 12}) {
+          long capturedAt = start + minute * 60L * 1000L;
+          JSONObject point = new JSONObject()
+              .put("entityType", "TRIP")
+              .put("entityId", tripId)
+              .put("eventType", "PASSENGER_RIDE_TRACE")
+              .put("latitude", 19.01)
+              .put("longitude", 72.85 + minute * 0.01)
+              .put("accuracy", 8)
+              .put("capturedAt", java.time.Instant.ofEpochMilli(capturedAt).toString())
+              .put("capturedAtEpoch", capturedAt);
+          output.write((point.toString() + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+        output.getFD().sync();
+      }
+      JSONArray persisted = new JSONArray(KfeNativeGpsService.readTrace(context, tripId));
+      assertEquals("All durable GPS fixes around the simulated service outage must survive trace reload.", 4, persisted.length());
+      long beforeGap = persisted.getJSONObject(1).getLong("capturedAtEpoch");
+      long afterGap = persisted.getJSONObject(2).getLong("capturedAtEpoch");
+      assertEquals("The ten-minute recording outage must remain visible in persisted timestamps.",
+          10L * 60L * 1000L, afterGap - beforeGap);
+      // The PWA's gpsGapAccounting and savedRideGpsGapPipeline contracts assert
+      // that this durable timestamp gap becomes an explicit unresolved/incomplete-km flag.
+    } finally {
+      traceFile.delete();
+    }
+  }
+
   @Test public void prepareGpsCollectorForProcessDeath() throws Exception {
     String suffix = Long.toString(System.currentTimeMillis());
     String tripId = "gps-process-death-" + suffix;
