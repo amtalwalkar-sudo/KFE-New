@@ -976,7 +976,7 @@ public class KfeOverlayService extends Service {
       if(!input.optString("fare","").trim().isEmpty())trip.put("revenue",Double.parseDouble(input.optString("fare")));
       else trip.put("revenue",JSONObject.NULL);
       trip.put("fareDetailsSkipped",input.optString("fare","").trim().isEmpty());
-      trip.put("revenueAuthority","SUPPORTING_ONLY");
+      trip.remove("revenueAuthority");
       trip.put("toll",input.optString("toll","").trim().isEmpty()?0d:Double.parseDouble(input.optString("toll")));
       trip.put("parking",input.optString("parking","").trim().isEmpty()?0d:Double.parseDouble(input.optString("parking")));
       trip.put("tollTreatment",input.optString("tollTreatment","INCLUDED"));
@@ -989,9 +989,11 @@ public class KfeOverlayService extends Service {
     }else throw new IllegalArgumentException("Unsupported native form mode.");
     if(trip.isNull("tripEndAt")||trip.optString("tripEndAt","").isEmpty())trip.put("tripEndAt",now);
     trip.put("updatedAt",now);
-    KfeCanonicalWorkStore.Outcome outcome=canonical.putRecord(operationId,"TRIP",trip);
+    KfeCanonicalWorkStore.Outcome outcome=canonical.commitTripForm(operationId,mode,trip);
     if(!outcome.accepted)throw new IllegalStateException("Canonical trip form was not accepted.");
-    refreshCanonicalRevenue(trip.optString("shiftId",""),tripId,trip.optString("updatedAt",""));
+    // The trip and derived Shift.revenue are committed in the same SQLite transaction.
+    revenue="₹"+String.format(java.util.Locale.US,"%.0f",outcome.result.optDouble("revenue",0d));
+    if(overlay!=null)overlay.postInvalidate();
   }
 
   private void finishNativeFormCommit(){
