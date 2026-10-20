@@ -3,6 +3,7 @@ import { WorkService } from '../application/work/workService.js'
 import { configureWorkRuntimePorts } from '../application/work/workRuntimePorts.js'
 import { ShiftTripRepository } from '../repositories/shiftTripRepository.js'
 import { LocationRepository } from '../repositories/locationRepository.js'
+import { setActiveDataSource } from '../utils/indexedDB.js'
 
 const originals = {
   completeTrip: ShiftTripRepository.completeTrip,
@@ -180,3 +181,73 @@ try {
   ShiftTripRepository.enrichTripMovement = originals.enrichTripMovement
   LocationRepository.forEntity = originals.forEntity
 }
+
+
+// Exercise the real IndexedDB-backed repository after the mocked unit scenarios above.
+// This is intentionally a separate phase: it commits through WorkService's real
+// business calculation, closes the active database connection, reopens it, and
+// asserts the durable domain-level GPS gap flag rather than a JSON fixture.
+const runActualIndexedDbPersistenceBoundary = async () => {
+  const suffix = `gps-gap-indexeddb-${Date.now()}`
+  const shiftId = `shift-${suffix}`
+  const tripId = `trip-${suffix}`
+  const tripStartAt = new Date(t0).toISOString()
+  const tripEndAt = new Date(t0 + 12 * 60000).toISOString()
+  storedShiftId = shiftId
+  routeGapMode = 'unresolved'
+  snapshots = [
+    point(0, 72.8500),
+    point(1, 72.8600),
+    point(11, 72.9500),
+    point(12, 72.9600)
+  ].map(item => ({ ...item, entityId: tripId }))
+
+  await ShiftTripRepository.createShift({ id: shiftId, startOdometer: 0, shiftStartAt: tripStartAt })
+  await ShiftTripRepository.createTrip({ id: tripId, shiftId, tripStartAt, tripStage: 'RIDE_STARTED' })
+  for (const gpsPoint of snapshots) {
+    await LocationRepository.recordTracePoint({
+      entityType: 'TRIP', entityId: tripId, eventType: 'PASSENGER_RIDE_TRACE',
+      latitude: gpsPoint.latitude, longitude: gpsPoint.longitude,
+      accuracy: gpsPoint.accuracy, speed: gpsPoint.speed, capturedAt: gpsPoint.capturedAt
+    })
+  }
+
+  await WorkService.completeTrip({ id: tripId, tripEndAt })
+  let enriched = null
+  const deadline = Date.now() + 8000
+  while (Date.now() < deadline) {
+    const records = await ShiftTripRepository.getTripsForShift(shiftId)
+    enriched = records.find(item => item.id === tripId) || null
+    if (enriched?.tripKmAuthority === 'GPS_TRACE_INCOMPLETE'
+        && enriched?.tripKmProvenance?.recordingGapDetected === true) break
+    await new Promise(resolve => setTimeout(resolve, 25))
+  }
+  assert.ok(enriched, 'The completed trip must be persisted in the real IndexedDB trips store.')
+  assert.equal(enriched.status, 'COMPLETED')
+  assert.equal(enriched.tripKmAuthority, 'GPS_TRACE_INCOMPLETE',
+    'The actual business calculation must mark the trip kilometres incomplete when the GPS trace has an outage.')
+  assert.equal(enriched.tripKmProvenance.gpsRecordingStatus, 'INCOMPLETE')
+  assert.equal(enriched.tripKmProvenance.recordingGapDetected, true)
+  assert.equal(enriched.tripKmProvenance.knownTraceSegments.length, 2)
+  assert.equal(enriched.tripKmProvenance.unresolvedGapCount, 1)
+  assert.equal(enriched.tripKmProvenance.estimatedGapDistanceKm, 0)
+  assert.equal(enriched.roadMatchedGeometry, null)
+  assert.deepEqual(enriched.traceGeometry, [])
+
+  // Close every cached IndexedDB connection and reopen the canonical database,
+  // which makes this a real storage lifecycle boundary rather than JSON cloning.
+  setActiveDataSource('canonical')
+  const afterReopen = (await ShiftTripRepository.getTripsForShift(shiftId)).find(item => item.id === tripId)
+  assert.ok(afterReopen, 'The trip must be present after reopening canonical IndexedDB.')
+  assert.equal(afterReopen.tripKmAuthority, 'GPS_TRACE_INCOMPLETE')
+  assert.equal(afterReopen.tripKmProvenance.gpsRecordingStatus, 'INCOMPLETE')
+  assert.equal(afterReopen.tripKmProvenance.recordingGapDetected, true)
+  assert.equal(afterReopen.tripKmProvenance.knownTraceSegments.length, 2)
+  assert.equal(afterReopen.tripKmProvenance.unresolvedGapCount, 1)
+  assert.equal(afterReopen.tripKmProvenance.estimatedGapDistanceKm, 0)
+  assert.equal(afterReopen.roadMatchedGeometry, null)
+  assert.deepEqual(afterReopen.traceGeometry, [])
+  console.log('PASS: actual IndexedDB business calculation and close/reopen preserve GPS gap flags and unresolved-distance accounting.')
+}
+
+await runActualIndexedDbPersistenceBoundary()
