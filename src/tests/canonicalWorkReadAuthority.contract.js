@@ -51,8 +51,8 @@ assert.ok(store.includes('registeredTrips.value = await WorkService.getTripsForS
 assert.ok(view.includes('deriveLiveRevenue(store.registeredTrips.filter'))
 assert.ok(revenue.includes('deriveLiveRevenue'))
 assert.equal(deriveLiveRevenue([{ status: 'COMPLETED', revenue: 250 }, { status: 'COMPLETED', revenue: 150 }]), 400)
-assert.ok(overlay.includes('canonical.commitTripForm(operationId,formMode,trip)'))
-assert.ok(overlay.includes('Canonical trip form transaction was not acknowledged'))
+assert.ok(overlay.includes('canonical.commitTripForm(operationId,mode,trip)'))
+assert.ok(overlay.includes('Canonical trip form was not accepted'))
 assert.ok(!overlay.includes('refreshCanonicalRevenue'), 'Fare/cancellation must not use a second non-atomic revenue projection.')
 assert.ok(overlay.includes('Canonical shift revenue projection was not acknowledged'))
 
