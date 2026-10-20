@@ -306,7 +306,7 @@ public class KfeNativeFullShiftAcceptanceTest {
         .put("id", shiftId).put("status", "ACTIVE").put("revenue", 0)
         .put("updatedAt", "2020-01-01T00:00:00.000Z");
     JSONObject trip = new JSONObject()
-        .put("id", tripId).put("shiftId", shiftId).put("status", "ACTIVE")
+        .put("id", tripId).put("shiftId", shiftId).put("status", "COMPLETED")
         .put("tripStage", "COMPLETED").put("updatedAt", "2020-01-01T00:00:00.000Z");
     assertTrue("Initial active shift must commit.",
         store.putRecord("form-outbox-shift-create-" + suffix, "SHIFT", shift).accepted);
@@ -342,7 +342,7 @@ public class KfeNativeFullShiftAcceptanceTest {
               && expected.getCause().getMessage().contains("shift is no longer active"));
     }
     JSONObject refusedTrip = KfeCanonicalWorkStore.get(context).getRecord("TRIP", tripId);
-    assertEquals("Failed form must not mutate the canonical trip.", "ACTIVE",
+    assertEquals("Failed form must not mutate the canonical trip.", "COMPLETED",
         refusedTrip.getJSONObject("record").getString("status"));
     assertTrue("Failed canonical write must not lose the durable outbox event.",
         KfeNativeEventStore.get(context).contains(eventId));
@@ -383,7 +383,7 @@ public class KfeNativeFullShiftAcceptanceTest {
         .put("id", shiftId).put("status", "ACTIVE").put("revenue", 0)
         .put("updatedAt", "2026-01-01T00:00:00.000Z");
     JSONObject trip = new JSONObject()
-        .put("id", tripId).put("shiftId", shiftId).put("status", "ACTIVE")
+        .put("id", tripId).put("shiftId", shiftId).put("status", "COMPLETED")
         .put("tripStage", "COMPLETED").put("updatedAt", "2026-01-01T00:00:00.000Z");
     assertTrue("Initial shift must commit.",
         store.putRecord("form-sql-failure-shift-create-" + suffix, "SHIFT", shift).accepted);
@@ -423,7 +423,7 @@ public class KfeNativeFullShiftAcceptanceTest {
                 && String.valueOf(expected.getCause().getMessage()).contains("INJECTED_CANONICAL_FORM_WRITE_FAILURE"));
       }
       JSONObject unchanged = KfeCanonicalWorkStore.get(context).getRecord("TRIP", tripId);
-      assertEquals("Canonical trip must remain unchanged after the failed transaction.", "ACTIVE",
+      assertEquals("Canonical trip must remain unchanged after the failed transaction.", "COMPLETED",
           unchanged.getJSONObject("record").getString("status"));
       assertTrue("Failed canonical write must retain its durable event for retry.",
           KfeNativeEventStore.get(context).contains(eventId));
