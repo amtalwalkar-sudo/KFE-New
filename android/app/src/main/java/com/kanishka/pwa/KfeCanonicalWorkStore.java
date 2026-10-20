@@ -190,6 +190,9 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       throw new IllegalArgumentException("Cancellation submission requires a cancelled trip.");
     }
     if ("FARE".equals(mode)) {
+      if (!(trip.opt("fareDetailsSkipped") instanceof Boolean)) {
+        throw new IllegalArgumentException("fareDetailsSkipped must be explicitly true or false.");
+      }
       boolean skipped = trip.optBoolean("fareDetailsSkipped", false);
       Object fare = trip.opt("revenue");
       if (!skipped && (!(fare instanceof Number) || !Double.isFinite(((Number) fare).doubleValue())
@@ -200,6 +203,9 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
         throw new IllegalArgumentException("Skipped fare details must not contribute revenue.");
       }
     } else {
+      if (empty(trip.optString("cancelReason", ""))) {
+        throw new IllegalArgumentException("Cancellation reason is required.");
+      }
       Object fee = trip.has("cancelledRevenue") ? trip.opt("cancelledRevenue") : JSONObject.NULL;
       if (fee != JSONObject.NULL && (!(fee instanceof Number) || !Double.isFinite(((Number) fee).doubleValue())
           || ((Number) fee).doubleValue() < 0d)) {
