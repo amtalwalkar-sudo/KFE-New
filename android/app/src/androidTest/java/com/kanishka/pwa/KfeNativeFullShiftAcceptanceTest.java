@@ -78,6 +78,34 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertTrue("Skipped fare details are still a completed trip.", skipped.accepted);
     assertEquals("Skipped fare details must contribute zero to authoritative shift revenue.", 450d,
         store.getRecord("SHIFT", shiftId).getJSONObject("record").getDouble("revenue"), 0.001d);
+
+    String blankCancelId = "atomic-form-blank-cancel-" + suffix;
+    assertTrue(store.putRecord("atomic-form-blank-cancel-create-" + suffix, "TRIP",
+        new JSONObject().put("id", blankCancelId).put("shiftId", shiftId).put("status", "ACTIVE")
+            .put("updatedAt", earlier)).accepted);
+    JSONObject blankCancellation = new JSONObject().put("id", blankCancelId).put("shiftId", shiftId)
+        .put("status", "CANCELLED").put("cancelReason", "PASSENGER")
+        .put("cancelledRevenue", JSONObject.NULL)
+        .put("updatedAt", java.time.Instant.now().plusMillis(3000).toString());
+    KfeCanonicalWorkStore.Outcome blankCancel = store.commitTripForm(
+        "atomic-form-blank-cancel-submit-" + suffix, "CANCEL", blankCancellation);
+    assertTrue("Blank/not-applicable cancellation fee must be accepted.", blankCancel.accepted);
+    assertEquals("Blank cancellation fees must contribute ₹0.", 450d,
+        store.getRecord("SHIFT", shiftId).getJSONObject("record").getDouble("revenue"), 0.001d);
+    assertEquals(0d, store.getRecord("TRIP", blankCancelId).getJSONObject("record").getDouble("cancelledRevenue"), 0.001d);
+
+    String paidCancelId = "atomic-form-paid-cancel-" + suffix;
+    assertTrue(store.putRecord("atomic-form-paid-cancel-create-" + suffix, "TRIP",
+        new JSONObject().put("id", paidCancelId).put("shiftId", shiftId).put("status", "ACTIVE")
+            .put("updatedAt", earlier)).accepted);
+    JSONObject paidCancellation = new JSONObject().put("id", paidCancelId).put("shiftId", shiftId)
+        .put("status", "CANCELLED").put("cancelReason", "PASSENGER").put("cancelledRevenue", 20d)
+        .put("updatedAt", java.time.Instant.now().plusMillis(4000).toString());
+    KfeCanonicalWorkStore.Outcome paidCancel = store.commitTripForm(
+        "atomic-form-paid-cancel-submit-" + suffix, "CANCEL", paidCancellation);
+    assertTrue("A valid cancellation fee must be accepted.", paidCancel.accepted);
+    assertEquals("Shift revenue must include the cancellation fee exactly once.", 470d,
+        store.getRecord("SHIFT", shiftId).getJSONObject("record").getDouble("revenue"), 0.001d);
   }
 
   @Test public void nativeShiftStartInterpreterMatchesSharedGoldenVectors() throws Exception {
