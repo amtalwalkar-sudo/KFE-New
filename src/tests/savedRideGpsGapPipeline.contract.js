@@ -13,6 +13,7 @@ const originals = {
 }
 
 let storedTrip
+let storedTripJson = null
 let storedShiftId
 let snapshots
 let routeGapMode = 'unresolved'
@@ -103,6 +104,7 @@ const runCompletion = async (tripId, gapMode) => {
     point(11, 72.9500),
     point(12, 72.9600)
   ].map(item => ({ ...item, entityId: tripId }))
+  storedTripJson = JSON.stringify(storedTrip) // persistence boundary: only serialized canonical data survives reload
   enrichmentPromise = new Promise(resolve => { resolveEnrichment = resolve })
 
   const result = await WorkService.completeTrip({ id: tripId, tripEndAt: storedTrip.tripEndAt })
@@ -122,6 +124,8 @@ const runCompletion = async (tripId, gapMode) => {
   const reloaded = (await ShiftTripRepository.getTripsForShift(storedShiftId)).find(item => item.id === tripId)
   assert.ok(reloaded, 'Completed ride must still be readable after enrichment.')
   assert.equal(reloaded.tripKmAuthority, 'GPS_TRACE_INCOMPLETE')
+  assert.equal(JSON.parse(JSON.stringify(reloaded)).tripKmAuthority, 'GPS_TRACE_INCOMPLETE',
+    'Incomplete-kilometre authority must survive canonical JSON serialization and reload.')
   assert.equal(reloaded.tripKmProvenance.gpsRecordingStatus, 'INCOMPLETE')
   assert.equal(reloaded.tripKmProvenance.recordingGapDetected, true)
   assert.equal(reloaded.tripKmProvenance.knownTraceSegments.length, 2)
@@ -136,10 +140,13 @@ try {
     return { ...storedTrip }
   }
   ShiftTripRepository.getActive = async () => ({ shift: { id: storedShiftId } })
-  ShiftTripRepository.getTripsForShift = async shiftId => shiftId === storedShiftId ? [{ ...storedTrip }] : []
+  ShiftTripRepository.getTripsForShift = async shiftId => shiftId === storedShiftId
+    ? [JSON.parse(storedTripJson || JSON.stringify(storedTrip))]
+    : []
   ShiftTripRepository.enrichTripMovement = async payload => {
     storedTrip = { ...storedTrip, ...payload }
-    resolveEnrichment({ ...storedTrip })
+    storedTripJson = JSON.stringify(storedTrip)
+    resolveEnrichment(JSON.parse(storedTripJson))
     return true
   }
   LocationRepository.forEntity = async (entityType, entityId) =>
