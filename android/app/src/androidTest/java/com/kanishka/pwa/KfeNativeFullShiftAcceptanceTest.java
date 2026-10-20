@@ -34,6 +34,39 @@ import java.lang.reflect.InvocationTargetException;
 public class KfeNativeFullShiftAcceptanceTest {
   private static final String STATE_KEY = "lastOverlayState";
 
+  @Test public void nativeTripFormCommitsRevenueAtomicallyAndRetriesIdempotently() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    String suffix = Long.toString(System.currentTimeMillis());
+    String shiftId = "atomic-form-shift-" + suffix;
+    String tripId = "atomic-form-trip-" + suffix;
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    String earlier = "2026-10-19T00:00:00.000Z";
+    assertTrue(store.putRecord("atomic-form-shift-create-" + suffix, "SHIFT",
+        new JSONObject().put("id", shiftId).put("status", "ACTIVE")
+            .put("revenue", 0).put("updatedAt", earlier)).accepted);
+    assertTrue(store.putRecord("atomic-form-trip-create-" + suffix, "TRIP",
+        new JSONObject().put("id", tripId).put("shiftId", shiftId).put("status", "ACTIVE")
+            .put("updatedAt", earlier)).accepted);
+
+    JSONObject fareTrip = new JSONObject().put("id", tripId).put("shiftId", shiftId)
+        .put("status", "COMPLETED").put("revenue", 450d).put("fareDetailsSkipped", false)
+        .put("updatedAt", java.time.Instant.now().plusMillis(1000).toString());
+    String operationId = "atomic-form-submit-" + suffix;
+    KfeCanonicalWorkStore.Outcome first = store.commitTripForm(operationId, "FARE", fareTrip);
+    assertTrue("First command must be accepted.", first.accepted);
+    assertTrue("First command must not be classified as a retry.", !first.duplicate);
+    assertEquals(450d, store.getRecord("SHIFT", shiftId).getJSONObject("record").getDouble("revenue"), 0.001d);
+
+    KfeCanonicalWorkStore.Outcome retry = store.commitTripForm(operationId, "FARE", new JSONObject(fareTrip.toString()));
+    assertTrue("Retry must return an accepted outcome.", retry.accepted);
+    assertTrue("Retry must be idempotent.", retry.duplicate);
+    assertEquals(450d, store.getRecord("SHIFT", shiftId).getJSONObject("record").getDouble("revenue"), 0.001d);
+    JSONObject savedOperation = store.getOperation(operationId);
+    assertTrue("Durable operation outcome must exist.", savedOperation.optBoolean("found", false));
+    assertEquals("SUBMIT_TRIP_FORM", savedOperation.getString("command"));
+    assertEquals(450d, savedOperation.getJSONObject("outcome").getDouble("revenue"), 0.001d);
+  }
+
   @Test public void nativeShiftStartInterpreterMatchesSharedGoldenVectors() throws Exception {
     Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
     String source;
