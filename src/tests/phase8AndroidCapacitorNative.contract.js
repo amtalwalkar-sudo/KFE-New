@@ -17,11 +17,11 @@ assert.match(overlay, /canonicalTripResult[\s\S]*?isCanonicalShiftActive\(KfeCan
 const nativeTripStageWriter = overlay.slice(overlay.indexOf('private boolean persistCanonicalTripStage'), overlay.indexOf('private void persistCanonicalTripForm'))
 assert.match(nativeTripStageWriter, /store.putRecord\("native-trip-stage-"\+eventId,"TRIP",trip\)/)
 const canonicalStore = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeCanonicalWorkStore.java', 'utf8')
-assert.match(overlay, /canonical\.commitTripForm\(operationId,formMode,trip\)/)
+assert.match(overlay, /canonical\.commitTripForm\(operationId,mode,trip\)/)
 assert.doesNotMatch(overlay, /refreshCanonicalRevenue/, 'Native fare/cancellation must not perform a second revenue write.')
 assert.match(canonicalStore, /Outcome commitTripForm\(String operationId, String mode, JSONObject trip\)/)
 assert.match(canonicalStore, /db\.beginTransaction\(\)/)
-assert.match(canonicalStore, /shift\.put\("revenueSource","TRIP_FARES"\)/)
+assert.match(canonicalStore, /shift\.put\("revenueSource",\s*"TRIP_FARES"\)/)
 assert.doesNotMatch(canonicalStore, /shift\.put\("(?:status|startOdometer|endOdometer|startedAt|endedAt)"/,
   'Atomic revenue projection must not mutate PWA-owned shift lifecycle or odometer fields.')
 
