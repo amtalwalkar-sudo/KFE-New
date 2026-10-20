@@ -29,7 +29,7 @@ assert.ok(store.includes('canonical_audit'))
 assert.ok(store.includes('shift.put("revenueSource", "TRIP_FARES")'))
 
 const fareBranch = overlay.slice(overlay.indexOf('if("FARE".equals(formMode)){', overlay.indexOf('private void submitNumericForm')), overlay.indexOf('}else if("CANCEL".equals(formMode)){', overlay.indexOf('private void submitNumericForm')))
-const cancelBranch = overlay.slice(overlay.indexOf('}else if("CANCEL".equals(formMode)){', overlay.indexOf('private void submitNumericForm')), overlay.indexOf('\n  }\n\n  // Shift start/end are PWA-owned.', overlay.indexOf('private void submitNumericForm')))
+const cancelBranch = overlay.slice(overlay.indexOf('}else if("CANCEL".equals(formMode)){', overlay.indexOf('private void submitNumericForm')), overlay.indexOf('  // Shift start/end are PWA-owned.', overlay.indexOf('private void submitNumericForm')))
 assert.ok(fareBranch.indexOf('persistCanonicalTripForm("FARE"') >= 0)
 assert.ok(fareBranch.indexOf('recordPendingAction') < fareBranch.indexOf('persistCanonicalTripForm("FARE"'), 'Durable fare event must exist before canonical commit')
 assert.ok(cancelBranch.indexOf('persistCanonicalTripForm("CANCEL"') >= 0)
