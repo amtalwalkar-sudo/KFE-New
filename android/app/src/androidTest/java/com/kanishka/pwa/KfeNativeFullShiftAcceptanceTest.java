@@ -65,6 +65,19 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertTrue("Durable operation outcome must exist.", savedOperation.optBoolean("found", false));
     assertEquals("SUBMIT_TRIP_FORM", savedOperation.getString("command"));
     assertEquals(450d, savedOperation.getJSONObject("outcome").getDouble("revenue"), 0.001d);
+
+    String skippedTripId = "atomic-form-skipped-trip-" + suffix;
+    assertTrue(store.putRecord("atomic-form-skipped-create-" + suffix, "TRIP",
+        new JSONObject().put("id", skippedTripId).put("shiftId", shiftId).put("status", "ACTIVE")
+            .put("updatedAt", earlier)).accepted);
+    JSONObject skippedFareTrip = new JSONObject().put("id", skippedTripId).put("shiftId", shiftId)
+        .put("status", "COMPLETED").put("revenue", JSONObject.NULL).put("fareDetailsSkipped", true)
+        .put("updatedAt", java.time.Instant.now().plusMillis(2000).toString());
+    KfeCanonicalWorkStore.Outcome skipped = store.commitTripForm(
+        "atomic-form-skipped-submit-" + suffix, "FARE", skippedFareTrip);
+    assertTrue("Skipped fare details are still a completed trip.", skipped.accepted);
+    assertEquals("Skipped fare details must contribute zero to authoritative shift revenue.", 450d,
+        store.getRecord("SHIFT", shiftId).getJSONObject("record").getDouble("revenue"), 0.001d);
   }
 
   @Test public void nativeShiftStartInterpreterMatchesSharedGoldenVectors() throws Exception {
