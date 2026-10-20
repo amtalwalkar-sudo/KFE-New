@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process'
 
 const suites = [
+  'headlessFareDomain.contract.js',
   'canonicalWorkReadAuthority.contract.js',
   'tripBoundaryGpsIntegrity.contract.js',
   'canonicalWorkRecovery.contract.js',
