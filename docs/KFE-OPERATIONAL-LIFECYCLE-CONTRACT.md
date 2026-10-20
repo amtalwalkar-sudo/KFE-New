@@ -64,7 +64,7 @@ While a canonical trip is in PICKUP / READY FOR TRIP:
 - Go to Pickup and cancellation are available according to the current Work command contract.
 - Cancellation records the existing canonical Trip as cancelled; it does not create a second trip.
 - A blank/not-applicable cancellation fee defaults to numeric `0`; an explicitly entered zero is also stored as numeric `0`.
-- Blank cancellation-fee detail must not create an independent revenue record. Cancelled-trip amounts remain supporting-only and never replace authoritative shift revenue.
+- A blank or not-applicable cancellation fee is normalized to numeric `0`; eligible cancellation fees on cancelled Trips contribute to canonical `Shift.revenue` alongside eligible completed-trip fares. The fee is part of the canonical Trip outcome, not a separate competing revenue authority.
 
 Once the trip enters TRIP ACTIVE, cancellation is no longer an available operational command.
 
@@ -74,7 +74,7 @@ End Trip commits the canonical trip-completion transition.
 
 The completion/fare workflow must appear as the immediate next operational context and remain recoverable until its authoritative outcome is resolved.
 
-Trip-level fare detail remains optional supporting detail where the canonical data contract defines shift-level revenue as the ERP revenue authority. The driver may save or explicitly skip the fare detail. Skipping preserves the completed Trip and does not create fare/revenue detail; missing optional fare detail must not block the next pickup or shift closure. The fare form must not create a competing revenue authority.
+Eligible saved fare detail on completed Trips contributes to the canonical `Shift.revenue` projection. The driver may save or explicitly skip fare detail. Skipping preserves the completed Trip and contributes ₹0 for that fare; missing optional fare detail must not block the next pickup or shift closure. The fare form must not create a competing revenue authority.
 
 ## 8. End shift / reconciliation
 
