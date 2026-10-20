@@ -14,12 +14,16 @@ const nativeEventStore = fs.readFileSync('android/app/src/main/java/com/kanishka
 assert.match(overlay, /private boolean isCanonicalShiftActive\(KfeCanonicalWorkStore store,String shiftId\)[\s\S]*?"ACTIVE".equals\(canonicalShift.optString\("status",""\)\)/)
 assert.match(overlay, /private String persistLifecycleAction\([\s\S]*?isCanonicalShiftActive\(KfeCanonicalWorkStore.get\(this\),savedShift.optString\("id",""\)\)/)
 assert.match(overlay, /canonicalTripResult[\s\S]*?isCanonicalShiftActive\(KfeCanonicalWorkStore.get\(this\),canonicalTrip.optString\("shiftId",""\)\)/)
-const nativeTripStageWriter = overlay.slice(overlay.indexOf('private boolean persistCanonicalTripStage'), overlay.indexOf('private void refreshCanonicalRevenue'))
+const nativeTripStageWriter = overlay.slice(overlay.indexOf('private boolean persistCanonicalTripStage'), overlay.indexOf('private void persistCanonicalTripForm'))
 assert.match(nativeTripStageWriter, /store.putRecord\("native-trip-stage-"\+eventId,"TRIP",trip\)/)
-const nativeRevenueProjection = overlay.slice(overlay.indexOf('private void refreshCanonicalRevenue'), overlay.indexOf('private void persistCanonicalTripForm'))
-assert.match(nativeRevenueProjection, /putRecord\("native-shift-revenue-"[^;]*,"SHIFT",shift\)/)
-assert.doesNotMatch(nativeRevenueProjection, /shift.put\("(?:status|startOdometer|endOdometer|startedAt|endedAt)"/,
-  'Native revenue projection must not mutate PWA-owned shift lifecycle or odometer fields.')
+const canonicalStore = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeCanonicalWorkStore.java', 'utf8')
+assert.match(overlay, /canonical\.commitTripForm\(operationId,formMode,trip\)/)
+assert.doesNotMatch(overlay, /refreshCanonicalRevenue/, 'Native fare/cancellation must not perform a second revenue write.')
+assert.match(canonicalStore, /Outcome commitTripForm\(String operationId, String mode, JSONObject trip\)/)
+assert.match(canonicalStore, /db\.beginTransaction\(\)/)
+assert.match(canonicalStore, /shift\.put\("revenueSource","TRIP_FARES"\)/)
+assert.doesNotMatch(canonicalStore, /shift\.put\("(?:status|startOdometer|endOdometer|startedAt|endedAt)"/,
+  'Atomic revenue projection must not mutate PWA-owned shift lifecycle or odometer fields.')
 
 const secureStorage = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeSecureStoragePlugin.java', 'utf8')
 const gradle = fs.readFileSync('android/app/build.gradle', 'utf8')
