@@ -33,6 +33,33 @@ install_apk_with_retry() {
   return 1
 }
 
+# A boot-complete property is not sufficient: this emulator previously lost
+# system_server/package-manager services after a very slow boot, so adb install
+# failed with "Broken pipe" / "Can't find service: package". Probe framework
+# health explicitly and allow one controlled reboot before touching the APKs.
+package_service_ready() {
+  timeout 20s adb shell cmd package list packages >/dev/null 2>&1
+}
+if ! package_service_ready; then
+  echo "Emulator reports boot complete but PackageManager is unavailable; collecting diagnostics before one reboot."
+  adb logcat -d -t 5000 > artifacts/android-offline-routing/package-service-unavailable-logcat.log || true
+  adb shell getprop > artifacts/android-offline-routing/package-service-unavailable-properties.txt || true
+  timeout 30s adb reboot || true
+  timeout 300s adb wait-for-device
+  rebooted=false
+  for attempt in $(seq 1 150); do
+    state="$(timeout 15s adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r' || true)"
+    if [ "$state" = "1" ] && package_service_ready; then rebooted=true; break; fi
+    sleep 2
+  done
+  if [ "$rebooted" != true ]; then
+    adb logcat -d -t 5000 > artifacts/android-offline-routing/package-service-reboot-failure-logcat.log || true
+    echo "PackageManager remained unavailable after the one recovery reboot; refusing to misclassify this as an app/test failure." >&2
+    exit 1
+  fi
+  echo "PackageManager recovered after controlled emulator reboot."
+fi
+
 install_apk_with_retry android/app/build/outputs/apk/debug/app-debug.apk
 install_apk_with_retry android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 
