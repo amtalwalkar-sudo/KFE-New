@@ -8,6 +8,10 @@ KFE does not need a headless JavaScript runtime merely to persist ordinary nativ
 
 This is the pragmatic split between **simple accumulation** and **complex business rules**. It is not permission for the PWA to repair an accepted fare later: ordinary accepted commands must already be financially correct when committed.
 
+## Financial authority (explicit decision)
+
+**Option A is the authority for KFE:** `Shift.revenue` is derived from eligible completed-trip fares plus cancellation fees. Completed trips with `fareDetailsSkipped=true` contribute ₹0. Blank or not-applicable cancellation fees are normalized to ₹0; valid non-negative cancellation fees are included once. This rule applies to the canonical SQLite transaction, PWA projections/reporting, native overlay, and tests. Reopening the PWA is not a repair step for an accepted native submission.
+
 ## Implemented in this branch
 
 - `KfeCanonicalWorkStore.commitTripForm(operationId, mode, trip)` commits the trip form, derived `Shift.revenue` / `liveFareRevenue`, durable operation outcome and audit row in one SQLite transaction.
