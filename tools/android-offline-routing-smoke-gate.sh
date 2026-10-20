@@ -72,6 +72,26 @@ timeout 60s adb shell run-as com.kanishka.pwa mkdir -p files
 timeout 60s adb shell run-as com.kanishka.pwa cp /data/local/tmp/kfe-trace-request-mumbai.json files/valhalla-trace-request.json
 test "$(adb shell run-as com.kanishka.pwa wc -c files/valhalla-trace-request.json | awk '{print $1}' | tr -d '\r')" -gt 0
 
+# Warm the real app before instrumentation. On a cold emulator, Chromium WebView
+# initialization can take longer than AndroidX startActivitySync's fixed 45s
+# idle deadline. Launch asynchronously and wait until MainActivity is resumed
+# so the UI test measures map download behaviour rather than cold WebView startup.
+echo "Warming MainActivity/WebView before UI-driven offline map download."
+timeout 30s adb shell am start -n com.kanishka.pwa/.MainActivity
+ui_ready=false
+for attempt in $(seq 1 90); do
+  if adb shell dumpsys activity activities 2>/dev/null | grep -q 'mResumedActivity.*com.kanishka.pwa/.MainActivity'; then
+    ui_ready=true
+    break
+  fi
+  sleep 2
+done
+if [ "$ui_ready" != true ]; then
+  adb logcat -d -t 4000 > artifacts/android-offline-routing/ui-startup-timeout-logcat.log || true
+  echo "MainActivity did not reach resumed state before the UI-download test." >&2
+  exit 1
+fi
+
 # Exercise the actual user-facing download button while networking is available.
 set +e
 echo "Starting actual UI-driven Mumbai offline map download and integrity verification."
