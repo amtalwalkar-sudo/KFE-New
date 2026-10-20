@@ -245,6 +245,13 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       if (!shiftId.equals(existingTrip.optString("shiftId", ""))) {
         throw new IllegalArgumentException("Trip shift identity cannot change during form submission.");
       }
+      String existingStatus = existingTrip.optString("status", "");
+      if ("FARE".equals(mode) && !"COMPLETED".equals(existingStatus)) {
+        throw new IllegalArgumentException("Fare submission requires the canonical trip to be completed.");
+      }
+      if ("CANCEL".equals(mode) && !"ACTIVE".equals(existingStatus)) {
+        throw new IllegalArgumentException("Cancellation requires a non-terminal active trip.");
+      }
       String oldTripVersion = existingTrip.optString("updatedAt", "");
       String newTripVersion = trip.optString("updatedAt", "");
       if (empty(oldTripVersion) || empty(newTripVersion)) {
