@@ -452,12 +452,15 @@ public class KfeRecoveryHardeningTest {
   }
 
   @Test public void prepareOfflineValhallaFixtureDirectory() throws Exception {
-    File externalFiles = context.getExternalFilesDir(null);
-    assertNotNull("App-specific external files storage must be available for the CI fixture.", externalFiles);
-    if (!externalFiles.isDirectory()) {
-      assertTrue("Unable to create app-specific external files directory.", externalFiles.mkdirs());
+    // The route request fixture is copied into context.getFilesDir() by the CI
+    // harness. Use the same app-private storage root: emulators may not mount
+    // app-specific external storage, and offline tiles must not depend on it.
+    File appPrivateFiles = context.getFilesDir();
+    assertNotNull("App-private files storage must be available for the CI fixture.", appPrivateFiles);
+    if (!appPrivateFiles.isDirectory()) {
+      assertTrue("Unable to create app-private files directory.", appPrivateFiles.mkdirs());
     }
-    assertTrue("App-specific external files directory was not created.", externalFiles.isDirectory());
+    assertTrue("App-private files directory was not created.", appPrivateFiles.isDirectory());
   }
 
   @Test public void downloadOfflineMapThroughUserFacingScreen() throws Exception {
