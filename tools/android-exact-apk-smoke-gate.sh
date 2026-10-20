@@ -326,6 +326,8 @@ run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#nativeOnly
 run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#nativeShiftStartInterpreterMatchesSharedGoldenVectors shift-start-rule-parity 1
 # Reopen the PWA with the synthetic queue events already acknowledged; canonical SQLite must catch it up independently.
 run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#reopeningPwaCatchesUpNativeCanonicalRecordsWithoutReplayingPendingEvents native-pwa-catch-up 1
+# Persisted native trace must retain outage timestamps; PWA domain contracts verify the explicit incomplete-km flag.
+run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#persistedNativeTraceRetainsOutageGapForDomainFlagging gps-gap-persistence 1
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#gpsCollectorRecoversAfterServiceInterruption gps-service-recovery 1
 
 # Keep the instrumentation target alive while the shell injects process death.
