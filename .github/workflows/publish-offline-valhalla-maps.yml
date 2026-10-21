@@ -260,21 +260,23 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         timeout-minutes: 60
         with:
-          api-level: 34
+          # API 30 retains scoped-storage behavior while avoiding the repeatedly
+          # wedged API 34 hosted image seen in run #296 before MainActivity resumed.
+          api-level: 30
           target: google_apis
           arch: x86_64
           profile: pixel_2
           # Give Android enough CPU/RAM to complete framework startup reliably.
           # This AVD is created fresh for each job, so wiping user data again only
           # adds cold-boot work and increases the chance of PackageManager failure.
-          cores: 4
-          ram-size: 4096M
+          cores: 2
+          ram-size: 3072M
           heap-size: 512M
           emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect
           # Avoid the action's post-boot settings calls: on a slow boot they have
           # failed with Broken pipe before our own health checks could recover.
           disable-animations: false
-          emulator-boot-timeout: 1200
+          emulator-boot-timeout: 900
           script: bash "$GITHUB_WORKSPACE/tools/android-offline-routing-smoke-gate.sh"
 
       - name: Upload Android offline-routing evidence
