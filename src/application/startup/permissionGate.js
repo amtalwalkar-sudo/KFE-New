@@ -2,7 +2,7 @@ import { reactive } from 'vue'
 import { Capacitor, registerPlugin } from '@capacitor/core'
 import { findFirstMissingNativeCheck } from './permissionStartupChecks.js'
 
-const NativeGate = registerPlugin('KfeNativeGps')
+const NativeGate = registerPlugin('KfeNativeSystem')
 const native = () => Capacitor?.isNativePlatform?.() === true
 const attempted = new Set()
 const runtimeRequested = new Set()
