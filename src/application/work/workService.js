@@ -198,20 +198,17 @@ export const WorkService = Object.freeze({
   async previewMovementReconciliation({ shiftId, closingOdometer, trips = [] }) {
     const shift = await ShiftTripRepository.getActive()
     if (!shift?.shift?.id || shift.shift.id !== shiftId) return { reconciliationStatus: 'UNAVAILABLE', reason: 'ACTIVE_SHIFT_NOT_FOUND' }
-    const shiftGpsSnapshots = await LocationRepository.forEntity('SHIFT', shiftId)
-    const tripGpsSnapshots = (await Promise.all(trips.map(trip => LocationRepository.forEntity('TRIP', trip.id)))).flat()
-    const gpsSnapshots = [...shiftGpsSnapshots, ...tripGpsSnapshots]
     try {
       return await MovementAccountingService.reconcileShiftMovement({
         trips,
         startOdometer: shift.shift.startOdometer,
         endOdometer: closingOdometer,
-        router: WorkRuntimePorts.routing.createRouter(),
+        router: null,
         businessKmByTripId: Object.fromEntries(trips.filter(item => item.tripKm != null && item.tripKm !== '' && Number.isFinite(Number(item.tripKm)) && Number(item.tripKm) >= 0).map(item => [item.id, Number(item.tripKm)])),
-        gpsSnapshots
+        gpsSnapshots: []
       })
     } catch (error) {
-      return { reconciliationStatus: 'UNAVAILABLE', reason: error?.message || 'MOVEMENT_RECONCILIATION_FAILED', gpsTracePoints: gpsSnapshots.length }
+      return { reconciliationStatus: 'UNAVAILABLE', reason: error?.message || 'MOVEMENT_RECONCILIATION_FAILED', gpsTracePoints: 0 }
     }
   },
   async getTripGpsDistanceKm(tripId) {
@@ -246,14 +243,10 @@ export const WorkService = Object.freeze({
     const result = await ShiftTripRepository.setTripStage(data?.id, 'RIDE_STARTED')
     if (result && typeof result === 'object') await mirrorCanonicalRecord('TRIP', result)
     checkpoint()
-    if (!result || !data?.id) return result
     return result
   },
   async completeTrip(data) {
-    // Commit the terminal state first. The endpoint GPS snapshot is best-effort
-    // enrichment and never delays the swipe transition or pending-fare form.
     const result = await ShiftTripRepository.completeTrip({ ...data }); await mirrorCanonicalShiftByTripId(data?.id); checkpoint()
-    const tripId = data?.id
     return result
   },
   async cancelTrip(data) {
