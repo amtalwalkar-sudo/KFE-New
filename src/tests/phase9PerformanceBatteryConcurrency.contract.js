@@ -15,7 +15,9 @@ for (const file of [
   'src/services/locationService.js',
   'android/app/src/main/java/com/kanishka/pwa/KfeNativeGpsService.java'
 ]) assert.equal(fs.existsSync(file), false, 'GPS tracking code must not consume background CPU or battery: ' + file)
-assert.doesNotMatch(manifest, /ACCESS_FINE_LOCATION|ACCESS_COARSE_LOCATION|FOREGROUND_SERVICE_LOCATION/)
+assert.match(manifest, /ACCESS_FINE_LOCATION/)
+assert.match(manifest, /ACCESS_COARSE_LOCATION/)
+assert.doesNotMatch(manifest, /ACCESS_BACKGROUND_LOCATION|FOREGROUND_SERVICE_LOCATION/)
 
 assert.match(backup, /checkpointTimer !== null/)
 assert.match(backup, /setTimeout\(async \(\) =>/)
