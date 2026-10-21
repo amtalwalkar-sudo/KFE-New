@@ -10,7 +10,7 @@
 - The native overlay captures its own trip-boundary snapshots while the PWA is closed. The PWA uses the same canonical trip record and mirrors completed snapshot writes across surfaces.
 - Snapshot capture is best-effort and does not block or roll back durable trip-stage, fare, or cancellation commits. If a fix cannot be obtained, the trip remains usable and the snapshot stays marked missing.
 - GPS status UI, continuous GPS collector/recovery service, trace reconciliation queue, Offline Maps screen, offline tile-management plugin, online/offline Valhalla adapter, and map-publishing workflow are removed.
-- Android keeps only foreground fine/coarse location permissions needed for one-shot fixes. Background location permission, location foreground services, Play Services location, Valhalla libraries, and their dependencies are removed.
+- Android keeps foreground fine/coarse location permissions and the location foreground-service permission needed to request a single GPS fix while the native overlay is operating with the PWA closed. The existing overlay foreground service activates the location type only during a one-shot request and returns to its normal type afterward; it does not start a watch or trace collector. Background location permission, continuous GPS services, Play Services location, Valhalla libraries, and their dependencies are removed.
 - Startup checks ensure location permission and phone Location are available; they do not start tracking or a background location service.
 
 ## Data and business-rule safety

@@ -13,6 +13,7 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <application
@@ -29,7 +30,7 @@
         <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.fileprovider" android:exported="false" android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
-        <service android:name=".KfeOverlayService" android:enabled="true" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="specialUse">
+        <service android:name=".KfeOverlayService" android:enabled="true" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="specialUse|location">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="driver_overlay_for_active_fleet_workflow" />
         </service>
         <receiver android:name=".KfeLifecycleRecoveryReceiver" android:enabled="true" android:exported="true">
