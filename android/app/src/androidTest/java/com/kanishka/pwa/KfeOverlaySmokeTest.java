@@ -21,6 +21,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 
 @RunWith(AndroidJUnit4.class)
 public class KfeOverlaySmokeTest {
@@ -763,7 +764,20 @@ public class KfeOverlaySmokeTest {
       try {
         android.view.ViewGroup panel = (android.view.ViewGroup) fieldValue(cancellationService, "formPanel");
         android.widget.Button passenger = findButton(panel, "Passenger cancellation");
+        android.widget.Button driver = findButton(panel, "Driver cancellation");
         assertNotNull("Driver-facing passenger cancellation option must be visible", passenger);
+        assertNotNull("Driver-facing driver cancellation option must be visible", driver);
+        Field reasonPanelField = KfeOverlayService.class.getDeclaredField("cancelReasonPanel");
+        reasonPanelField.setAccessible(true);
+        Object reasonPanel = reasonPanelField.get(cancellationService);
+        assertNotNull("Named cancellation reason panel must be present.", reasonPanel);
+        assertEquals("Reason selector must remain a child of the form panel.", panel, ((android.view.View) reasonPanel).getParent());
+        assertEquals("Reason buttons must belong to the named selector.", reasonPanel, passenger.getParent());
+        assertEquals("Reason buttons must belong to the named selector.", reasonPanel, driver.getParent());
+        Method restoreCancelDraft = KfeOverlayService.class.getDeclaredMethod("applyCancelDraft", JSONObject.class);
+        restoreCancelDraft.setAccessible(true);
+        restoreCancelDraft.invoke(cancellationService, new JSONObject().put("cancelReason", "DRIVER").put("cancelFare", ""));
+        assertTrue("Restored driver reason must be highlighted.", driver.getAlpha() > passenger.getAlpha());
         passenger.performClick();
         assertEquals("Passenger cancellation choice must reach native form state.", "PASSENGER", fieldValue(cancellationService, "cancelReason"));
         ((EditText) fieldValue(cancellationService, "formInput")).setText("20");

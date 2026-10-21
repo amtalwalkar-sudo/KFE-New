@@ -105,6 +105,7 @@ public class KfeOverlayService extends Service {
   private String awaitingTripId="";
   private long lastPendingRecoveryLogAt=0L;
   private LinearLayout formPanel;
+  private LinearLayout cancelReasonPanel;
   private android.os.Handler foregroundHandler;
   private final Runnable foregroundCheck=new Runnable(){
     @Override public void run(){
@@ -341,11 +342,21 @@ public class KfeOverlayService extends Service {
     if(draft==null)return;
     cancelReason=draft.optString("cancelReason","");formValue=draft.optString("cancelFare","");
     if(formInput!=null)formInput.setText(formValue);
-    if(formPanel!=null&&formPanel.getChildCount()>2){
-      android.view.ViewGroup reasons=(android.view.ViewGroup)formPanel.getChildAt(2);
-      for(int i=0;i<reasons.getChildCount();i++){View child=reasons.getChildAt(i);String label=String.valueOf(((Button)child).getText());child.setAlpha((cancelReason.equals("PASSENGER")&&label.contains("Passenger"))||(cancelReason.equals("DRIVER")&&label.contains("Driver"))?1f:0.55f);}
-    }
+    restoreCancelReasonSelection();
     persistNativeForm();
+  }
+
+  private void restoreCancelReasonSelection(){
+    LinearLayout reasons=cancelReasonPanel;
+    if(reasons==null)return;
+    for(int i=0;i<reasons.getChildCount();i++){
+      View child=reasons.getChildAt(i);
+      if(!(child instanceof Button))continue;
+      String label=String.valueOf(((Button)child).getText());
+      boolean selected=("PASSENGER".equals(cancelReason)&&label.contains("Passenger"))
+          ||("DRIVER".equals(cancelReason)&&label.contains("Driver"));
+      child.setAlpha(selected?1f:0.55f);
+    }
   }
 
   private void restorePersistedFormIfNeeded(){
@@ -374,10 +385,7 @@ public class KfeOverlayService extends Service {
     if(parkingTreatmentInput!=null){parkingTreatmentInput.setChecked(savedParkingExcluded);parkingTreatmentInput.setVisibility(parkingExpanded?View.VISIBLE:View.GONE);}
     if(tollToggle!=null)tollToggle.setText(tollExpanded?"− Toll":"+ Toll");
     if(parkingToggle!=null)parkingToggle.setText(parkingExpanded?"− Parking":"+ Parking");
-    if("CANCEL".equals(mode)&&formPanel!=null&&formPanel.getChildCount()>2){
-      android.view.ViewGroup reasons=(android.view.ViewGroup)formPanel.getChildAt(2);
-      for(int i=0;i<reasons.getChildCount();i++){View child=reasons.getChildAt(i);String label=String.valueOf(((Button)child).getText());child.setAlpha((cancelReason.equals("PASSENGER")&&label.contains("Passenger"))||(cancelReason.equals("DRIVER")&&label.contains("Driver"))?1f:0.55f);}
-    }
+    if("CANCEL".equals(mode))restoreCancelReasonSelection();
     persistNativeForm();
   }
 
@@ -620,6 +628,7 @@ public class KfeOverlayService extends Service {
     params.height="FARE".equals(mode)?dp(420):dp(310);
     if(windowManager!=null)windowManager.updateViewLayout(overlayRoot,params);
 
+    cancelReasonPanel=null;
     formPanel=new LinearLayout(this);formPanel.setOrientation(LinearLayout.VERTICAL);formPanel.setPadding(dp(14),dp(8),dp(14),dp(8));
     formPanel.setBackground(new ColorDrawable(dark()?Color.rgb(22,29,37):Color.WHITE));
     formPanel.setElevation(dp(8));
@@ -630,6 +639,7 @@ public class KfeOverlayService extends Service {
 
     if("CANCEL".equals(mode)){
       final LinearLayout reasons=new LinearLayout(this); reasons.setOrientation(LinearLayout.HORIZONTAL); reasons.setGravity(Gravity.CENTER);
+      cancelReasonPanel=reasons;
       String[] choices={"PASSENGER","DRIVER"};
       for(String choice:choices){
         final String selectedChoice=choice;
@@ -997,7 +1007,7 @@ public class KfeOverlayService extends Service {
   private void closeForm(){closeForm(true);}
   private void closeForm(boolean clearDraft){
     if(formPanel!=null&&overlayRoot!=null)overlayRoot.removeView(formPanel);
-    formPanel=null;formMode=null;formValue="";tollValue="";parkingValue="";formSubmitting=false;formInput=null;tollInput=null;parkingInput=null;tollTreatmentInput=null;parkingTreatmentInput=null;tollToggle=null;parkingToggle=null;if(clearDraft)KfeNativeTripFormDraftStore.clear(getSharedPreferences("kfe_overlay",MODE_PRIVATE));
+    formPanel=null;cancelReasonPanel=null;formMode=null;formValue="";tollValue="";parkingValue="";formSubmitting=false;formInput=null;tollInput=null;parkingInput=null;tollTreatmentInput=null;parkingTreatmentInput=null;tollToggle=null;parkingToggle=null;if(clearDraft)KfeNativeTripFormDraftStore.clear(getSharedPreferences("kfe_overlay",MODE_PRIVATE));
     if(params!=null){params.height=dp(COLLAPSED_TOTAL_DP);params.flags=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;params.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING;if(windowManager!=null&&overlayRoot!=null)windowManager.updateViewLayout(overlayRoot,params);}
     if(overlay!=null)overlay.invalidate();
   }
