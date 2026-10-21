@@ -821,6 +821,113 @@ public class KfeOverlaySmokeTest {
     return true;
   }
 
+  @Test public void minimizedOverlayBubbleCanBeDraggedDockedAndRestoredWithoutLosingTripState() throws Exception {
+    if (android.os.Build.VERSION.SDK_INT >= 23) {
+      assertTrue("SYSTEM_ALERT_WINDOW must be granted by CI", Settings.canDrawOverlays(context));
+    }
+    String tripId = "bubble-trip-" + System.currentTimeMillis();
+    JSONObject state = new JSONObject()
+      .put("shift", new JSONObject().put("id", "bubble-shift"))
+      .put("trip", new JSONObject().put("id", tripId).put("status", "ACTIVE"))
+      .put("overlayAction", "START_RIDE")
+      .put("overlayTripId", tripId)
+      .put("tripStartAt", System.currentTimeMillis() - 5000L);
+    context.startService(new Intent(context, KfeOverlayService.class)
+      .setAction(KfeOverlayService.ACTION_UPDATE)
+      .putExtra(KfeOverlayService.EXTRA_STATE, state.toString()));
+
+    KfeOverlayService service = waitForService();
+    long deadline = SystemClock.uptimeMillis() + 5000L;
+    while (SystemClock.uptimeMillis() < deadline && fieldValue(service, "overlay") == null) {
+      SystemClock.sleep(50L);
+    }
+    android.view.View overlay = (android.view.View) fieldValue(service, "overlay");
+    assertNotNull("The real overlay view must exist before minimizing", overlay);
+
+    context.startService(new Intent(context, KfeOverlayService.class).setAction(KfeOverlayService.ACTION_MINIMIZE));
+    deadline = SystemClock.uptimeMillis() + 3000L;
+    while (SystemClock.uptimeMillis() < deadline && !((Boolean) fieldValue(service, "minimized"))) {
+      SystemClock.sleep(25L);
+    }
+    assertTrue("Minimize action must retain the visible overlay as a bubble", (Boolean) fieldValue(service, "minimized"));
+
+    float density = context.getResources().getDisplayMetrics().density;
+    int bubblePx = Math.round(58f * density);
+    int screenWidth = context.getResources().getDisplayMetrics().widthPixels;
+    android.view.WindowManager windowManager = (android.view.WindowManager) fieldValue(service, "windowManager");
+    android.view.WindowManager.LayoutParams params = (android.view.WindowManager.LayoutParams) fieldValue(service, "params");
+    android.view.View root = (android.view.View) fieldValue(service, "overlayRoot");
+    assertNotNull("Bubble must keep its WindowManager root attached", root);
+    assertTrue("Bubble root must remain attached to the Android window", root.isAttachedToWindow());
+    assertEquals("Bubble width must use the compact bubble size", bubblePx, params.width);
+    assertEquals("Bubble height must use the compact bubble size", bubblePx, params.height);
+
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+      try {
+        params.x = Math.min(screenWidth - bubblePx - 1, screenWidth / 2 + Math.round(20f * density));
+        params.y = Math.round(160f * density);
+        windowManager.updateViewLayout(root, params);
+        context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE).edit()
+          .putInt("x", params.x).putInt("y", params.y).apply();
+      } catch (Exception e) { throw new AssertionError(e); }
+    });
+    int initialX = params.x;
+    int initialY = params.y;
+    float localX = bubblePx / 2f;
+    float localY = bubblePx / 2f;
+    float startRawX = initialX + localX;
+    float startRawY = initialY + localY;
+    float endRawX = screenWidth - 2f;
+    float endRawY = startRawY + Math.round(20f * density);
+    long downTime = SystemClock.uptimeMillis();
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+      android.view.MotionEvent down = android.view.MotionEvent.obtain(downTime, downTime,
+        android.view.MotionEvent.ACTION_DOWN, startRawX, startRawY, 0);
+      down.offsetLocation(-initialX, -initialY);
+      overlay.onTouchEvent(down);
+      down.recycle();
+      android.view.MotionEvent move = android.view.MotionEvent.obtain(downTime, downTime + 80,
+        android.view.MotionEvent.ACTION_MOVE, endRawX, endRawY, 0);
+      move.offsetLocation(-initialX, -initialY);
+      overlay.onTouchEvent(move);
+      move.recycle();
+      android.view.MotionEvent up = android.view.MotionEvent.obtain(downTime, downTime + 120,
+        android.view.MotionEvent.ACTION_UP, endRawX, endRawY, 0);
+      up.offsetLocation(-initialX, -initialY);
+      overlay.onTouchEvent(up);
+      up.recycle();
+    });
+    assertEquals("Dragged bubble must dock to the right edge", Math.max(0, screenWidth - bubblePx), params.x);
+    assertTrue("Dragging must not expand or discard the active workflow", (Boolean) fieldValue(service, "minimized"));
+    assertEquals("Active trip identity must survive bubble dragging", tripId, fieldValue(service, "pendingTripId"));
+
+    int dockedX = params.x;
+    int dockedY = params.y;
+    float tapRawX = dockedX + localX;
+    float tapRawY = dockedY + localY;
+    long tapTime = SystemClock.uptimeMillis();
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+      android.view.MotionEvent down = android.view.MotionEvent.obtain(tapTime, tapTime,
+        android.view.MotionEvent.ACTION_DOWN, tapRawX, tapRawY, 0);
+      down.offsetLocation(-dockedX, -dockedY);
+      overlay.onTouchEvent(down);
+      down.recycle();
+      android.view.MotionEvent up = android.view.MotionEvent.obtain(tapTime, tapTime + 60,
+        android.view.MotionEvent.ACTION_UP, tapRawX, tapRawY, 0);
+      up.offsetLocation(-dockedX, -dockedY);
+      overlay.onTouchEvent(up);
+      up.recycle();
+    });
+    assertTrue("Tapping the bubble must restore the expanded overlay", !(Boolean) fieldValue(service, "minimized"));
+    assertEquals("Expanded overlay must return to full width", android.view.WindowManager.LayoutParams.MATCH_PARENT, params.width);
+    assertEquals("Expanded overlay must restore its normal height", Math.round(158f * density), params.height);
+    assertTrue("Restored overlay must remain attached", root.isAttachedToWindow());
+    assertEquals("Restoring must preserve the same active trip", tripId, fieldValue(service, "pendingTripId"));
+    assertEquals("Restoring must preserve the current action stage", "START_RIDE", fieldValue(service, "actionStage"));
+    assertTrue("Bubble state must be durably cleared after restore",
+      !context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE).getBoolean("minimized", true));
+  }
+
   @Test public void exactApkCanStartNativeOverlaySmoke() throws Exception {
     if (android.os.Build.VERSION.SDK_INT >= 23) assertTrue("SYSTEM_ALERT_WINDOW must be granted by CI", Settings.canDrawOverlays(context));
     JSONObject state = new JSONObject()
