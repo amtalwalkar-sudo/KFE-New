@@ -9,7 +9,7 @@ const runtimeRequested = new Set()
 let activeRun = null
 let retryCurrent = null
 
-export const permissionGateState = reactive({ status: 'checking', current: null, message: 'KFE is checking the permissions needed to record a shift safely.', actionLabel: 'Open setting', error: null })
+export const permissionGateState = reactive({ status: 'checking', current: null, message: 'KFE is checking the settings needed for the floating work controls.', actionLabel: 'Open setting', error: null })
 
 const OEM_CONFIRMATIONS_KEY = 'kfe.startup.oemSettingsConfirmed.v1'
 
@@ -38,22 +38,11 @@ function waitForForegroundReturn() {
   })
 }
 
-async function browserLocationPermission() {
-  if (!globalThis.navigator?.geolocation) return 'denied'
-  try { if (navigator.permissions?.query) { const result = await navigator.permissions.query({ name: 'geolocation' }); return result.state } } catch (_) {}
-  return 'prompt'
-}
-function requestBrowserLocation() {
-  return new Promise(resolve => {
-    if (!navigator?.geolocation) { resolve(false); return }
-    navigator.geolocation.getCurrentPosition(() => resolve(true), error => resolve(error?.code !== 1), { enableHighAccuracy: false, maximumAge: 0, timeout: 8000 })
-  })
-}
 async function getFirstMissing() {
-  if (native()) { const status = await NativeGate.getStartupPermissionStatus(); return findFirstMissingNativeCheck(status, confirmedOemSettings) }
-  const state = await browserLocationPermission()
-  if (state === 'denied') return { key: 'location', label: 'Location permission', setting: 'location', message: 'Allow location so KFE can save trip start/end coordinates and GPS fix timestamps locally, including offline.', actionLabel: 'Check again', browserDenied: true }
-  if (state === 'prompt') return { key: 'location', label: 'Location permission', setting: 'location', message: 'Allow location when your browser asks so KFE can save trip start/end coordinates and GPS fix timestamps locally, including offline.', actionLabel: 'Request location' }
+  if (native()) {
+    const status = await NativeGate.getStartupPermissionStatus()
+    return findFirstMissingNativeCheck(status, confirmedOemSettings)
+  }
   return null
 }
 function waitForRetry() { return new Promise(resolve => { retryCurrent = resolve }) }
@@ -76,7 +65,6 @@ export function runStartupPermissionGate() {
       permissionGateState.current = missing; permissionGateState.message = missing.message; permissionGateState.actionLabel = missing.actionLabel || 'Open setting'
       if (!attempted.has(missing.key)) {
         attempted.add(missing.key)
-        if (!native() && missing.key === 'location' && !missing.browserDenied) { permissionGateState.status = 'checking'; await requestBrowserLocation(); continue }
         if (native() && missing.request && !runtimeRequested.has(missing.key)) { runtimeRequested.add(missing.key); permissionGateState.status = 'checking'; try { await NativeGate.requestStartupPermission({ permission: missing.request }) } catch (_) {} continue }
         if (native()) {
           permissionGateState.status = 'checking'; const returned = waitForForegroundReturn()
