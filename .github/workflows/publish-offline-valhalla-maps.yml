@@ -1,39 +1,20 @@
 name: Publish KFE Offline Valhalla Maps
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/publish-offline-valhalla-maps.yml"
-      - "tools/android-offline-routing-smoke-gate.sh"
-      - "tools/verify-online-valhalla-fallback.mjs"
-      - "android/app/src/androidTest/java/com/kanishka/pwa/KfeRecoveryHardeningTest.java"
-      - "android/app/src/androidTest/java/com/kanishka/pwa/KfeNativeFullShiftAcceptanceTest.java"
-      - "android/app/src/main/java/com/kanishka/pwa/Valhalla*"
-  pull_request:
-    branches: [main, fix/native-overlay-background-transitions]
-    paths:
-      - ".github/workflows/publish-offline-valhalla-maps.yml"
-      - "tools/android-offline-routing-smoke-gate.sh"
-      - "tools/verify-online-valhalla-fallback.mjs"
-      - "src/infrastructure/location/valhallaRoutingAdapter.js"
-      - "android/app/src/androidTest/java/com/kanishka/pwa/KfeRecoveryHardeningTest.java"
-      - "android/app/src/androidTest/java/com/kanishka/pwa/KfeNativeFullShiftAcceptanceTest.java"
-      - "android/app/src/main/java/com/kanishka/pwa/Valhalla*"
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  # PR builds are serialized per PR, while main publication is isolated and never cancelled.
+  # Manual-only while the Offline Maps runtime UI is dormant; never build or publish tiles on push/PR.
   group: ${{ github.event_name == 'pull_request' && format('kfe-offline-valhalla-map-release-pr-{0}', github.event.pull_request.number) || 'kfe-offline-valhalla-map-release-main' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build-and-publish-region:
-    # Pull requests run the full build and HTTP smoke tests, but never publish.
-    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+        # Explicit manual dispatch is required to reactivate offline map packaging.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:

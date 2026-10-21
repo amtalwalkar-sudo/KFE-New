@@ -1,3 +1,15 @@
+# Active product boundary — 2026-10-21
+
+**This note supersedes the continuous-trace and route-enrichment requirements below for the active application runtime.**
+
+- The active product records **one-shot GPS snapshots** at trip creation, Start Trip, and End Trip (including cancellation/end states), with latitude, longitude, accuracy when available, and the device GPS fix timestamp.
+- Snapshots are saved locally. GPS-provider acquisition does not require internet; a fix may take longer when offline. Foreground precise/coarse location permission and enabled device Location Services are required.
+- The PWA lifecycle and native Android overlay each capture boundary snapshots so the overlay can complete a trip while the PWA is closed.
+- Continuous GPS watches/foreground trace collection, trace auto-resume, Valhalla map matching, dead/business-kilometre calculations, GPS-gap UI, and the Offline Maps screen are **not active product behaviour**. Their source assets remain dormant for possible future reactivation.
+- Acceptance is based on boundary snapshot persistence and timestamps—not background trace continuity, routing, or live kilometre displays.
+
+---
+
 # Android Native Ride GPS Contract
 
 **Status:** SUPPORTING NATIVE IMPLEMENTATION CONTRACT — subordinate to docs/KFE-OPERATIONAL-LIFECYCLE-CONTRACT.md and docs/KFE-CANONICAL-DATA-CONTRACT.md.

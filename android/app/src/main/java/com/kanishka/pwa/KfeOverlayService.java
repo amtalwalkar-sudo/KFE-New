@@ -399,7 +399,7 @@ public class KfeOverlayService extends Service {
     persistNativeForm();
   }
 
-  private void onCancelSaved(){formSubmitting=false;closeForm();actionStage="GO_TO_PICKUP";pendingTripId="";pendingFareTripId="";tripStartAt=0L;phaseStartAt=System.currentTimeMillis();phaseLabel="READY TIME";awaitingEventId="";awaitingStage="";awaitingTripId="";persistNativeWorkflow();if(overlay!=null)overlay.invalidate();}
+  private void onCancelSaved(){formSubmitting=false;closeForm();captureOneShotTripBoundary(pendingTripId, "tripEndLocation");actionStage="GO_TO_PICKUP";pendingTripId="";pendingFareTripId="";tripStartAt=0L;phaseStartAt=System.currentTimeMillis();phaseLabel="READY TIME";awaitingEventId="";awaitingStage="";awaitingTripId="";persistNativeWorkflow();if(overlay!=null)overlay.invalidate();}
 
   private void onFareSaved(){
     formSubmitting=false;
@@ -854,7 +854,7 @@ public class KfeOverlayService extends Service {
     try{
       if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.R){
         CancellationSignal cancellation=new CancellationSignal();
-        handler.postDelayed(cancellation::cancel,8000L);
+        handler.postDelayed(cancellation::cancel,30000L);
         manager.getCurrentLocation(LocationManager.GPS_PROVIDER,cancellation,getMainExecutor(),location->{
           if(location==null){Log.w("KFE-GPS","No GPS fix for one-shot "+field+" snapshot.");return;}
           persistOneShotTripLocation(tripId,field,location);
@@ -870,7 +870,7 @@ public class KfeOverlayService extends Service {
           @Override public void onProviderDisabled(String provider){}
           @SuppressWarnings("deprecation") @Override public void onStatusChanged(String provider,int status,android.os.Bundle extras){}
         };
-        handler.postDelayed(()->{try{manager.removeUpdates(listener[0]);}catch(Exception ignored){}},8000L);
+        handler.postDelayed(()->{try{manager.removeUpdates(listener[0]);}catch(Exception ignored){}},30000L);
         manager.requestSingleUpdate(LocationManager.GPS_PROVIDER,listener[0],Looper.getMainLooper());
       }
     }catch(Exception error){Log.w("KFE-GPS","One-shot "+field+" snapshot request failed.",error);}

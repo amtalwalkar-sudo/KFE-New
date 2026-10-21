@@ -1,3 +1,5 @@
+> **Superseded active-runtime scope (2026-10-21):** This audit describes the earlier continuous live-kilometre/Valhalla design. The active product now records one-shot trip-boundary GPS snapshots only; continuous tracking, route matching, dead/business-km UI, and Offline Maps are dormant. Use the active boundary note at the top of `docs/ANDROID-NATIVE-GPS-CONTRACT.md` as the current acceptance contract.
+
 # Work Live KM, GPS and Routing — Layer 1 Audit
 
 **Status:** Offline-first/incremental-routing implementation added on `fix/offline-incremental-gps-routing`; CI and physical-device acceptance pending  
