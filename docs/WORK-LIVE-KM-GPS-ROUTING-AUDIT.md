@@ -1,3 +1,5 @@
+> **Superseded 2026-10-22:** GPS capture/tracking and Valhalla routing have been removed from the active KFE runtime. This document is retained as historical audit context only; do not use it as an implementation or release contract.
+
 > **Active runtime clarification (2026-10-21):** this historical audit describes an earlier live-kilometre/Valhalla design. The active requirement is one-shot trip-boundary GPS snapshots only. Continuous tracking, routing, dead/business-kilometre calculations, GPS-gap UI, and the Offline Maps screen are dormant; use the active contract in `docs/ANDROID-NATIVE-GPS-CONTRACT.md` for acceptance.
 
 # Work Live KM, GPS and Routing — Layer 1 Audit
