@@ -33,6 +33,33 @@ install_apk_with_retry() {
   return 1
 }
 
+# A boot-complete property is not sufficient: this emulator previously lost
+# system_server/package-manager services after a very slow boot, so adb install
+# failed with "Broken pipe" / "Can't find service: package". Probe framework
+# health explicitly and allow one controlled reboot before touching the APKs.
+package_service_ready() {
+  timeout 20s adb shell cmd package list packages 2>&1 | grep -q '^package:'
+}
+if ! package_service_ready; then
+  echo "Emulator reports boot complete but PackageManager is unavailable; collecting diagnostics before one reboot."
+  adb logcat -d -t 5000 > artifacts/android-offline-routing/package-service-unavailable-logcat.log || true
+  adb shell getprop > artifacts/android-offline-routing/package-service-unavailable-properties.txt || true
+  timeout 30s adb reboot || true
+  timeout 300s adb wait-for-device
+  rebooted=false
+  for attempt in $(seq 1 150); do
+    state="$(timeout 15s adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r' || true)"
+    if [ "$state" = "1" ] && package_service_ready; then rebooted=true; break; fi
+    sleep 2
+  done
+  if [ "$rebooted" != true ]; then
+    adb logcat -d -t 5000 > artifacts/android-offline-routing/package-service-reboot-failure-logcat.log || true
+    echo "PackageManager remained unavailable after the one recovery reboot; refusing to misclassify this as an app/test failure." >&2
+    exit 1
+  fi
+  echo "PackageManager recovered after controlled emulator reboot."
+fi
+
 install_apk_with_retry android/app/build/outputs/apk/debug/app-debug.apk
 install_apk_with_retry android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 
@@ -58,15 +85,105 @@ set -e
 cat artifacts/android-offline-routing/prepare-fixture-directory.log
 if [ "$prepare_result" -ne 0 ] || ! grep -Fq 'OK (1 test)' artifacts/android-offline-routing/prepare-fixture-directory.log; then
   adb logcat -d -t 3000 > artifacts/android-offline-routing/prepare-fixture-logcat.log || true
-  echo "Offline Valhalla fixture-directory instrumentation failed with exit code $prepare_result." >&2
-  exit "${prepare_result:-1}"
+  echo "Offline Valhalla fixture-directory instrumentation failed with exit code $prepare_result or missing JUnit success marker." >&2
+  if [ "$prepare_result" -ne 0 ]; then exit "$prepare_result"; fi
+  exit 1
 fi
 
 # Stage only the route request fixture. The tile package must be obtained through
 # the real Offline Maps screen, not copied into the app by the test harness.
 timeout 300s adb push work/trace-request-mumbai.json /data/local/tmp/kfe-trace-request-mumbai.json
-timeout 60s adb shell run-as com.kanishka.pwa sh -c 'mkdir -p files && cp /data/local/tmp/kfe-trace-request-mumbai.json files/valhalla-trace-request.json'
+# Avoid shell -c quoting across adb's remote-shell boundary: issue each run-as
+# operation separately so Android receives unambiguous arguments.
+timeout 60s adb shell run-as com.kanishka.pwa mkdir -p files
+timeout 60s adb shell run-as com.kanishka.pwa cp /data/local/tmp/kfe-trace-request-mumbai.json files/valhalla-trace-request.json
 test "$(adb shell run-as com.kanishka.pwa wc -c files/valhalla-trace-request.json | awk '{print $1}' | tr -d '\r')" -gt 0
+
+# Warm the real app before instrumentation. On this hosted emulator the
+# framework has occasionally entered a system_server / Google Play services crash
+# loop after boot. Do not skip the UI test: capture diagnostics, perform one
+# controlled reboot, and retry the same visible-screen acceptance once.
+launch_and_wait_for_main_activity() {
+  local attempt activity_state
+  timeout 30s adb shell am start -n com.kanishka.pwa/.MainActivity || true
+  for attempt in $(seq 1 45); do
+    # dumpsys output differs by Android release: API 30 reports
+    # "ResumedActivity:" / "topResumedActivity=", while newer releases
+    # may report "mResumedActivity". Accept only a resumed KFE MainActivity,
+    # not merely a task that still exists in the activity history.
+    activity_state="$(timeout 12s adb shell dumpsys activity activities 2>/dev/null || true)"
+    if printf '%s\n' "$activity_state" | grep -Eq '(mResumedActivity|ResumedActivity|topResumedActivity).*com\.kanishka\.pwa/(\.MainActivity|com\.kanishka\.pwa\.MainActivity)'; then
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
+echo "Warming MainActivity/WebView before UI-driven offline map download."
+if ! launch_and_wait_for_main_activity; then
+  adb logcat -d -t 5000 > artifacts/android-offline-routing/ui-startup-timeout-logcat.log || true
+  timeout 30s adb shell dumpsys activity activities > artifacts/android-offline-routing/ui-startup-timeout-activities.txt 2>&1 || true
+  timeout 30s adb shell dumpsys meminfo > artifacts/android-offline-routing/ui-startup-timeout-meminfo.txt 2>&1 || true
+  echo "MainActivity did not resume; collected framework diagnostics and attempting one controlled emulator reboot." >&2
+  timeout 30s adb reboot || true
+  timeout 300s adb wait-for-device
+  recovered=false
+  for attempt in $(seq 1 150); do
+    state="$(timeout 15s adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r' || true)"
+    if [ "$state" = "1" ] && package_service_ready; then recovered=true; break; fi
+    sleep 2
+  done
+  if [ "$recovered" != true ]; then
+    adb logcat -d -t 5000 > artifacts/android-offline-routing/ui-startup-reboot-failure-logcat.log || true
+    echo "Android framework did not recover after the controlled reboot; refusing to treat this as a passing UI acceptance." >&2
+    exit 1
+  fi
+  # Some hosted-emulator framework failures reset the package database across
+  # reboot. Never assume installed APKs survived: verify the target and runner,
+  # reinstall from the exact build outputs if needed, and restore test fixtures.
+  app_package_present=false
+  if timeout 20s adb shell pm path com.kanishka.pwa 2>/dev/null | grep -q '^package:'; then
+    app_package_present=true
+  fi
+  # pm path alone is insufficient: a partially reset PackageManager can report
+  # an installed APK while resolve-activity cannot find MainActivity (the exact
+  # Error type 3 seen in run 293). Require the launch target itself to resolve.
+  app_activity_resolves=false
+  if timeout 20s adb shell cmd package resolve-activity --brief com.kanishka.pwa/.MainActivity 2>/dev/null | grep -Fq 'com.kanishka.pwa/.MainActivity'; then
+    app_activity_resolves=true
+  fi
+  if [ "$app_package_present" != true ] || [ "$app_activity_resolves" != true ]; then
+    echo "KFE package or MainActivity is absent from PackageManager after recovery; reinstalling exact build APKs."
+    install_apk_with_retry android/app/build/outputs/apk/debug/app-debug.apk
+    install_apk_with_retry android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+    adb shell pm grant com.kanishka.pwa android.permission.ACCESS_COARSE_LOCATION || true
+    adb shell pm grant com.kanishka.pwa android.permission.ACCESS_FINE_LOCATION || true
+    adb shell pm grant com.kanishka.pwa android.permission.ACCESS_BACKGROUND_LOCATION || true
+    adb shell pm grant com.kanishka.pwa android.permission.POST_NOTIFICATIONS || true
+    adb shell appops set com.kanishka.pwa SYSTEM_ALERT_WINDOW allow
+    adb shell settings put secure location_mode 3
+    set +e
+    timeout 180s adb shell am instrument -w -r \
+      -e class com.kanishka.pwa.KfeRecoveryHardeningTest#prepareOfflineValhallaFixtureDirectory \
+      com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner \
+      > artifacts/android-offline-routing/prepare-fixture-after-reboot.log 2>&1
+    prepare_result=$?
+    set -e
+    cat artifacts/android-offline-routing/prepare-fixture-after-reboot.log
+    if [ "$prepare_result" -ne 0 ] || ! grep -Fq 'OK (1 test)' artifacts/android-offline-routing/prepare-fixture-after-reboot.log; then
+      echo "Could not restore offline fixture directory after emulator package reset." >&2
+      exit 1
+    fi
+    timeout 300s adb push work/trace-request-mumbai.json /data/local/tmp/kfe-trace-request-mumbai.json
+    timeout 60s adb shell run-as com.kanishka.pwa cp /data/local/tmp/kfe-trace-request-mumbai.json files/valhalla-trace-request.json
+  fi
+  if ! launch_and_wait_for_main_activity; then
+    adb logcat -d -t 5000 > artifacts/android-offline-routing/ui-startup-retry-failure-logcat.log || true
+    timeout 30s adb shell dumpsys activity activities > artifacts/android-offline-routing/ui-startup-retry-activities.txt 2>&1 || true
+    echo "MainActivity still did not resume after one controlled reboot; refusing to run a false UI acceptance." >&2
+    exit 1
+  fi
+fi
 
 # Exercise the actual user-facing download button while networking is available.
 set +e
@@ -80,8 +197,9 @@ set -e
 cat artifacts/android-offline-routing/ui-download-instrumentation.log
 if [ "$download_result" -ne 0 ] || ! grep -Fq 'OK (1 test)' artifacts/android-offline-routing/ui-download-instrumentation.log; then
   adb logcat -d -t 4000 > artifacts/android-offline-routing/ui-download-failure-logcat.log || true
-  echo "UI-driven offline map download failed with exit code $download_result." >&2
-  exit "${download_result:-1}"
+  echo "UI-driven offline map download failed with exit code $download_result or missing JUnit success marker." >&2
+  if [ "$download_result" -ne 0 ]; then exit "$download_result"; fi
+  exit 1
 fi
 
 # Prove the verified package survives the app process being stopped before

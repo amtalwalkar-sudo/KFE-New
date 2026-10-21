@@ -7,6 +7,11 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.Manifest;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.content.Intent;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -15,6 +20,10 @@ import android.graphics.RectF;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.PixelFormat;
 import android.os.IBinder;
+import android.os.Build;
+import android.os.CancellationSignal;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.provider.Settings;
 import android.text.Editable;
@@ -73,8 +82,7 @@ public class KfeOverlayService extends Service {
   private boolean tollExpanded=false;
   private boolean parkingExpanded=false;
   private String theme="dark";
-  private String target="—", rides="0", liveKm="0.0 km", revenue="₹0", pendingTripId="", pendingFareTripId="", cancellationRevenue="₹0";
-  private String deadKm="—", gpsStatus="GPS status unavailable";
+  private String target="—", rides="0", revenue="₹0", pendingTripId="", pendingFareTripId="", cancellationRevenue="₹0";
   private long tripStartAt=0L;
   private long phaseStartAt=0L;
   private String phaseLabel="TRIP TIME";
@@ -110,44 +118,9 @@ public class KfeOverlayService extends Service {
     }
   };
 
-  static void updateLiveKm(String value){
-    KfeOverlayService current=instance;
-    if(current==null)return;
-    current.liveKm=value==null?"0.0 km":value;
-    if(current.overlay!=null)current.overlay.postInvalidate();
-  }
-
-  static void updateDeadKm(String value){
-    KfeOverlayService current=instance;
-    if(current==null)return;
-    current.deadKm=value==null?"—":value;
-    current.getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putString("deadKm",current.deadKm).apply();
-    if(current.overlay!=null)current.overlay.postInvalidate();
-  }
-
   static String resolveFareActionTripId(String pendingFareTripId, String currentTripId){
     if(pendingFareTripId!=null&&!pendingFareTripId.isEmpty())return pendingFareTripId;
     return currentTripId==null?"":currentTripId;
-  }
-
-  static String gpsEventForAction(String stage){
-    if("GO_TO_PICKUP".equals(stage))return "DEAD_MOVEMENT_TRACE";
-    if("START_RIDE".equals(stage))return "PASSENGER_RIDE_TRACE";
-    return "";
-  }
-
-  static String resolveMovementLabel(String stage){
-    if("GO_TO_PICKUP".equals(stage)||"START_RIDE".equals(stage))return "DEAD KM";
-    if("END_RIDE".equals(stage))return "BUSINESS KM";
-    return "LIVE KM";
-  }
-
-  static String resolveMovementValue(String stage, String deadMovementKm, String businessKm){
-    // START_RIDE is the pickup phase (the next swipe starts the passenger leg).
-    // Select by the displayed phase, not by whichever collector updated last.
-    if("GO_TO_PICKUP".equals(stage)||"START_RIDE".equals(stage))
-      return deadMovementKm==null?"—":deadMovementKm;
-    return businessKm==null?"0.0 km":businessKm;
   }
 
   static String resolveActionLabel(String stage){
@@ -202,7 +175,6 @@ public class KfeOverlayService extends Service {
     tripStartAt=saved.getLong("tripStartAt",0L);
     phaseStartAt=saved.getLong("phaseStartAt",0L);
     phaseLabel=saved.getString("phaseLabel","TRIP TIME");
-    deadKm=saved.getString("deadKm","—");
     awaitingEventId=saved.getString("awaitingEventId","");
     awaitingStage=saved.getString("awaitingStage","");
     awaitingTripId=saved.getString("awaitingTripId","");
@@ -284,12 +256,9 @@ public class KfeOverlayService extends Service {
       target=root.optString("target","—");
       targetProgress=Math.max(0,Math.min(100,root.optInt("targetProgress",0)));
       rides=root.optString("rides","0");
-      liveKm=root.optString("liveKm","0.0 km");
       defaultOperator=root.optString("defaultOperator",defaultOperator);
       JSONObject swipeConfig=root.optJSONObject("swipeConfig");
       if(swipeConfig!=null){ swipeCommitThresholdPercent=Math.max(50,Math.min(95,swipeConfig.optInt("commitThresholdPercent",70))); swipeReturnDurationMs=Math.max(80,Math.min(500,swipeConfig.optInt("returnDurationMs",220))); try{swipePickupColor=Color.parseColor(swipeConfig.optString("pickupColor","#78A2FF"));swipeStartColor=Color.parseColor(swipeConfig.optString("startColor","#62D18A"));swipeEndColor=Color.parseColor(swipeConfig.optString("endColor","#FF8585"));}catch(Exception ignored){} }
-      deadKm=root.optString("deadKm",root.optString("deadMovementKm","—"));
-      gpsStatus=root.optString("gpsStatus",root.optBoolean("gpsTracking",false)?"GPS active":"GPS status unavailable");
       revenue=root.optString("revenue","₹0");
       cancellationRevenue=root.optString("cancellationRevenue","₹0");
       String incomingTripId=root.optString("overlayTripId",trip==null?"":trip.optString("id",""));
@@ -412,7 +381,7 @@ public class KfeOverlayService extends Service {
     persistNativeForm();
   }
 
-  private void onCancelSaved(){formSubmitting=false;closeForm();KfeNativeGpsService.stop(this,pendingTripId);actionStage="GO_TO_PICKUP";pendingTripId="";pendingFareTripId="";tripStartAt=0L;phaseStartAt=System.currentTimeMillis();phaseLabel="READY TIME";awaitingEventId="";awaitingStage="";awaitingTripId="";persistNativeWorkflow();if(overlay!=null)overlay.invalidate();}
+  private void onCancelSaved(){formSubmitting=false;closeForm();captureOneShotTripBoundary(pendingTripId, "tripEndLocation");actionStage="GO_TO_PICKUP";pendingTripId="";pendingFareTripId="";tripStartAt=0L;phaseStartAt=System.currentTimeMillis();phaseLabel="READY TIME";awaitingEventId="";awaitingStage="";awaitingTripId="";persistNativeWorkflow();if(overlay!=null)overlay.invalidate();}
 
   private void onFareSaved(){
     formSubmitting=false;
@@ -456,10 +425,11 @@ public class KfeOverlayService extends Service {
       String eventId;
       try { eventId=persistLifecycleAction("GO_TO_PICKUP","GOING_TO_PICKUP",false); }
       catch(RuntimeException failure){Log.e("KFE-CANONICAL","GO_TO_PICKUP lifecycle persistence interrupted; retry is safe",failure);Toast.makeText(this,"Trip action is queued for recovery. Keep this trip open and retry when storage is available.",Toast.LENGTH_LONG).show();return;}
+      captureOneShotTripBoundary(pendingTripId, "tripStartLocation");
       phaseStartAt=System.currentTimeMillis(); phaseLabel="PICKUP TIME";
       actionStage="START_RIDE"; pendingFareTripId="";
       awaitingEventId=""; awaitingStage=""; awaitingTripId="";
-      persistNativeWorkflow(); KfeNativeGpsService.start(this,pendingTripId,gpsEventForAction("GO_TO_PICKUP"),"TRIP"); animateRetract(); overlay.invalidate();
+      persistNativeWorkflow();  animateRetract(); overlay.invalidate();
       Log.i("KFE-SWIPE","durably queued GO_TO_PICKUP; native stage advanced to START_RIDE event="+shortEventId(eventId));
       KfeNativeWorkActionsPlugin.emitAction("GO_TO_PICKUP",pendingTripId,"",eventId); return;
     }
@@ -470,11 +440,12 @@ public class KfeOverlayService extends Service {
       String eventId;
       try { eventId=persistLifecycleAction("START_RIDE","RIDE_STARTED",true); }
       catch(RuntimeException failure){Log.e("KFE-CANONICAL","START_RIDE lifecycle persistence interrupted; retry is safe",failure);Toast.makeText(this,"Trip action is queued for recovery. Keep this trip open and retry when storage is available.",Toast.LENGTH_LONG).show();return;}
+      captureOneShotTripBoundary(pendingTripId, "rideStartLocation");
       actionStage="END_RIDE"; phaseStartAt=tripStartAt; phaseLabel="TRIP TIME";
       getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit()
         .putLong("tripStartAt",tripStartAt).putString("tripTimerTripId",pendingTripId).commit();
       awaitingEventId=""; awaitingStage=""; awaitingTripId="";
-      persistNativeWorkflow(); KfeNativeGpsService.start(this,pendingTripId,gpsEventForAction("START_RIDE"),"TRIP"); animateRetract(); overlay.invalidate();
+      persistNativeWorkflow();  animateRetract(); overlay.invalidate();
       Log.i("KFE-SWIPE","durably queued START_RIDE; native stage advanced to END_RIDE event="+shortEventId(eventId));
       KfeNativeWorkActionsPlugin.emitAction("START_RIDE",pendingTripId,"",eventId); return;
     }
@@ -483,10 +454,11 @@ public class KfeOverlayService extends Service {
       String eventId;
       try { eventId=persistLifecycleAction("END_RIDE","COMPLETED",false); }
       catch(RuntimeException failure){Log.e("KFE-CANONICAL","END_RIDE lifecycle persistence interrupted; retry is safe",failure);Toast.makeText(this,"Trip action is queued for recovery. Keep this trip open and retry when storage is available.",Toast.LENGTH_LONG).show();return;}
+      captureOneShotTripBoundary(pendingTripId, "tripEndLocation");
       actionStage="ENTER_FARE"; pendingFareTripId=pendingTripId; tripStartAt=0L; phaseStartAt=System.currentTimeMillis(); phaseLabel="FARE ENTRY TIME";
       getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().remove("tripStartAt").remove("tripTimerTripId").commit();
       awaitingEventId=""; awaitingStage=""; awaitingTripId="";
-      persistNativeWorkflow(); KfeNativeGpsService.stop(this,pendingTripId);
+      persistNativeWorkflow(); 
       if(!minimized && !"FARE".equals(formMode)) openFareForm();
       animateRetract(); if(overlay!=null)overlay.invalidate();
       Log.i("KFE-SWIPE","durably queued END_RIDE; native stage advanced to ENTER_FARE event="+shortEventId(eventId));
@@ -549,11 +521,11 @@ public class KfeOverlayService extends Service {
     }
     Log.i("KFE-SWIPE","acknowledged event="+shortEventId(eventId)+" stage="+stage+" trip="+shortEventId(tripId));
     awaitingEventId=""; awaitingStage=""; awaitingTripId="";
-    if("GO_TO_PICKUP".equals(stage)){ actionStage="START_RIDE"; pendingFareTripId=""; Log.i("KFE-SWIPE","stage transition GO_TO_PICKUP -> START_RIDE"); persistNativeWorkflow(); KfeNativeGpsService.start(this,pendingTripId,gpsEventForAction("GO_TO_PICKUP"),"TRIP"); animateRetract(); if(overlay!=null)overlay.invalidate(); return; }
-    if("START_RIDE".equals(stage)){ actionStage="END_RIDE"; Log.i("KFE-SWIPE","stage transition START_RIDE -> END_RIDE"); persistNativeWorkflow(); KfeNativeGpsService.start(this,pendingTripId,gpsEventForAction("START_RIDE"),"TRIP"); animateRetract(); if(overlay!=null)overlay.invalidate(); return; }
-    if("END_RIDE".equals(stage)){ pendingFareTripId=tripId; pendingTripId=tripId; actionStage="ENTER_FARE"; Log.i("KFE-SWIPE","stage transition END_RIDE -> ENTER_FARE"); persistNativeWorkflow(); KfeNativeGpsService.stop(this,tripId); if(!minimized&&!"FARE".equals(formMode)){if("FARE".equals(getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString("formMode","")))restorePersistedFormIfNeeded();else openFareForm();} if(overlay!=null)overlay.invalidate(); return; }
+    if("GO_TO_PICKUP".equals(stage)){ actionStage="START_RIDE"; pendingFareTripId=""; Log.i("KFE-SWIPE","stage transition GO_TO_PICKUP -> START_RIDE"); persistNativeWorkflow();  animateRetract(); if(overlay!=null)overlay.invalidate(); return; }
+    if("START_RIDE".equals(stage)){ actionStage="END_RIDE"; Log.i("KFE-SWIPE","stage transition START_RIDE -> END_RIDE"); persistNativeWorkflow();  animateRetract(); if(overlay!=null)overlay.invalidate(); return; }
+    if("END_RIDE".equals(stage)){ pendingFareTripId=tripId; pendingTripId=tripId; actionStage="ENTER_FARE"; Log.i("KFE-SWIPE","stage transition END_RIDE -> ENTER_FARE"); persistNativeWorkflow();  if(!minimized&&!"FARE".equals(formMode)){if("FARE".equals(getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString("formMode","")))restorePersistedFormIfNeeded();else openFareForm();} if(overlay!=null)overlay.invalidate(); return; }
     if("OPEN_CANCEL_FORM".equals(stage)){ persistNativeWorkflow(); if(overlay!=null)overlay.invalidate(); return; }
-    if("ENTER_FARE".equals(stage) || "CANCEL_RIDE".equals(stage)){ Log.i("KFE-SWIPE","stage transition "+stage+" -> GO_TO_PICKUP"); closeForm(); if("CANCEL_RIDE".equals(stage)){cancelFormPwaSynchronized=false;KfeNativeGpsService.stop(this,tripId);} actionStage="GO_TO_PICKUP"; pendingTripId=""; pendingFareTripId=""; tripStartAt=0L; phaseStartAt=System.currentTimeMillis(); phaseLabel="READY TIME"; persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); }
+    if("ENTER_FARE".equals(stage) || "CANCEL_RIDE".equals(stage)){ Log.i("KFE-SWIPE","stage transition "+stage+" -> GO_TO_PICKUP"); closeForm(); if("CANCEL_RIDE".equals(stage)){cancelFormPwaSynchronized=false;} actionStage="GO_TO_PICKUP"; pendingTripId=""; pendingFareTripId=""; tripStartAt=0L; phaseStartAt=System.currentTimeMillis(); phaseLabel="READY TIME"; persistNativeWorkflow(); animateRetract(); if(overlay!=null)overlay.invalidate(); }
   }
 
   private boolean persistNativeWorkflow(){
@@ -849,6 +821,70 @@ public class KfeOverlayService extends Service {
       &&"ACTIVE".equals(canonicalShift.optString("status",""));
   }
 
+  // A one-shot GPS_PROVIDER fix at each trip boundary. No watch or background
+  // location service is started, and GPS_PROVIDER does not need internet access.
+  private void captureOneShotTripBoundary(String tripId, String field){
+    if(tripId==null||tripId.trim().isEmpty())return;
+    if(!"tripStartLocation".equals(field)&&!"rideStartLocation".equals(field)&&!"tripEndLocation".equals(field))return;
+    if(ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED
+        &&ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_COARSE_LOCATION)!=PackageManager.PERMISSION_GRANTED){
+      Log.w("KFE-GPS","One-shot "+field+" snapshot skipped: location permission is not granted.");return;
+    }
+    LocationManager manager=(LocationManager)getSystemService(Context.LOCATION_SERVICE);
+    if(manager==null){Log.w("KFE-GPS","One-shot "+field+" snapshot skipped: LocationManager unavailable.");return;}
+    Handler handler=new Handler(Looper.getMainLooper());
+    try{
+      if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.R){
+        CancellationSignal cancellation=new CancellationSignal();
+        handler.postDelayed(cancellation::cancel,30000L);
+        manager.getCurrentLocation(LocationManager.GPS_PROVIDER,cancellation,getMainExecutor(),location->{
+          if(location==null){Log.w("KFE-GPS","No GPS fix for one-shot "+field+" snapshot.");return;}
+          persistOneShotTripLocation(tripId,field,location);
+        });
+      }else{
+        final LocationListener[] listener=new LocationListener[1];
+        listener[0]=new LocationListener(){
+          @Override public void onLocationChanged(Location location){
+            try{manager.removeUpdates(this);}catch(Exception ignored){}
+            persistOneShotTripLocation(tripId,field,location);
+          }
+          @Override public void onProviderEnabled(String provider){}
+          @Override public void onProviderDisabled(String provider){}
+          @SuppressWarnings("deprecation") @Override public void onStatusChanged(String provider,int status,android.os.Bundle extras){}
+        };
+        handler.postDelayed(()->{try{manager.removeUpdates(listener[0]);}catch(Exception ignored){}},30000L);
+        manager.requestSingleUpdate(LocationManager.GPS_PROVIDER,listener[0],Looper.getMainLooper());
+      }
+    }catch(Exception error){Log.w("KFE-GPS","One-shot "+field+" snapshot request failed.",error);}
+  }
+
+  private void persistOneShotTripLocation(String tripId,String field,Location location){
+    try{
+      KfeCanonicalWorkStore store=KfeCanonicalWorkStore.get(this);
+      JSONObject found=store.getRecord("TRIP",tripId);
+      JSONObject trip=found.optJSONObject("record");
+      if(!found.optBoolean("found",false)||trip==null)return;
+      JSONObject snapshot=new JSONObject();
+      snapshot.put("latitude",location.getLatitude());
+      snapshot.put("longitude",location.getLongitude());
+      snapshot.put("accuracy",location.hasAccuracy()?location.getAccuracy():JSONObject.NULL);
+      long fixTime=location.getTime()>0L?location.getTime():System.currentTimeMillis();
+      snapshot.put("capturedAt",java.time.Instant.ofEpochMilli(fixTime).toString());
+      snapshot.put("placeName",JSONObject.NULL);
+      trip.put(field,snapshot);
+      if("rideStartLocation".equals(field)){
+        trip.put("rideStartLocationStatus","CAPTURED");
+        trip.put("rideStartLocationEventAt",trip.optString("tripStartAt",""));
+      }else if("tripEndLocation".equals(field)){
+        trip.put("tripEndLocationStatus","CAPTURED");
+      }
+      trip.put("updatedAt",java.time.Instant.now().toString());
+      KfeCanonicalWorkStore.Outcome outcome=store.putRecord("native-trip-location-"+java.util.UUID.randomUUID().toString(),"TRIP",trip);
+      if(!outcome.accepted)throw new IllegalStateException("Native one-shot GPS snapshot was not accepted.");
+      Log.i("KFE-GPS","Saved one-shot "+field+" snapshot for trip "+tripId+" at "+snapshot.optString("capturedAt",""));
+    }catch(Exception error){Log.w("KFE-GPS","Unable to persist one-shot "+field+" snapshot for trip "+tripId,error);}
+  }
+
   private boolean persistCanonicalTripStage(String stage, boolean rideStarted, String eventId){
     try{
       JSONObject root=new JSONObject(getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(LAST_STATE_KEY,"{}"));
@@ -891,50 +927,6 @@ public class KfeOverlayService extends Service {
       return true;
     }catch(Exception error){Log.e("KFE-CANONICAL","Could not persist native trip stage",error);return false;}
   }
-  private void refreshCanonicalRevenue(String shiftId,String sourceTripId,String sourceUpdatedAt) throws Exception {
-    if(shiftId==null||shiftId.isEmpty())throw new IllegalArgumentException("Shift ID is required for revenue projection.");
-    org.json.JSONArray records=KfeCanonicalWorkStore.get(this).listRecords("TRIP",1000).optJSONArray("records");
-    double total=0d;
-    java.time.Instant projectionInstant=sourceUpdatedAt==null||sourceUpdatedAt.isEmpty()
-      ?java.time.Instant.EPOCH:java.time.Instant.parse(sourceUpdatedAt);
-    KfeCanonicalWorkStore store=KfeCanonicalWorkStore.get(this);
-    JSONObject foundShift=store.getRecord("SHIFT",shiftId);
-    JSONObject shift=foundShift.optJSONObject("record");
-    if(shift==null)throw new IllegalStateException("Canonical shift is missing; revenue projection was not acknowledged.");
-    String existingShiftUpdatedAt=shift.optString("updatedAt","");
-    if(!existingShiftUpdatedAt.isEmpty()){
-      java.time.Instant existingInstant=java.time.Instant.parse(existingShiftUpdatedAt);
-      if(existingInstant.isAfter(projectionInstant))projectionInstant=existingInstant;
-    }
-    if(records!=null)for(int i=0;i<records.length();i++){
-      JSONObject trip=records.optJSONObject(i); if(trip==null||!shiftId.equals(trip.optString("shiftId",""))||(trip.has("deletedAt")&&!trip.isNull("deletedAt"))||trip.optBoolean("deleted",false))continue;
-      if("COMPLETED".equals(trip.optString("status"))&&!trip.optBoolean("fareDetailsSkipped",false)){
-        Object v=trip.opt("revenue");if(v instanceof Number&&((Number)v).doubleValue()>=0d)total+=((Number)v).doubleValue();
-      }else if("CANCELLED".equals(trip.optString("status"))){
-        Object v=trip.has("cancelledRevenue")?trip.opt("cancelledRevenue"):trip.opt("revenue");
-        if(v instanceof Number&&((Number)v).doubleValue()>=0d)total+=((Number)v).doubleValue();
-      }
-      String tripUpdatedAt=trip.optString("updatedAt","");
-      if(!tripUpdatedAt.isEmpty()){
-        java.time.Instant tripInstant=java.time.Instant.parse(tripUpdatedAt);
-        if(tripInstant.isAfter(projectionInstant))projectionInstant=tripInstant;
-      }
-    }
-    shift.put("revenue",total);shift.put("liveFareRevenue",total);shift.put("revenueSource","TRIP_FARES");
-    // A replay of an older form event may recompute a newer aggregate. The
-    // projection timestamp follows the newest canonical shift/trip version,
-    // not the triggering event's timestamp, so replay cannot look like a stale
-    // shift write. For a given canonical state, this timestamp and payload stay
-    // deterministic across retries.
-    String projectionUpdatedAt=projectionInstant.toString();
-    String revision=projectionUpdatedAt.replaceAll("[^A-Za-z0-9]","");
-    shift.put("updatedAt",projectionUpdatedAt);
-    String totalRevision=java.math.BigDecimal.valueOf(total).stripTrailingZeros().toPlainString().replaceAll("[^A-Za-z0-9]","");
-    KfeCanonicalWorkStore.Outcome outcome=store.putRecord("native-shift-revenue-"+shiftId+"-"+sourceTripId+"-"+revision+"-"+totalRevision,"SHIFT",shift);
-    if(!outcome.accepted)throw new IllegalStateException("Canonical shift revenue projection was not acknowledged.");
-    revenue="₹"+String.format(java.util.Locale.US,"%.0f",total);if(overlay!=null)overlay.postInvalidate();
-  }
-
   private void persistCanonicalTripForm(String mode,String tripId,JSONObject input,String eventId) throws Exception {
     if(tripId==null||tripId.trim().isEmpty())throw new IllegalArgumentException("Trip ID is required.");
     JSONObject trip=null;
@@ -976,7 +968,7 @@ public class KfeOverlayService extends Service {
       if(!input.optString("fare","").trim().isEmpty())trip.put("revenue",Double.parseDouble(input.optString("fare")));
       else trip.put("revenue",JSONObject.NULL);
       trip.put("fareDetailsSkipped",input.optString("fare","").trim().isEmpty());
-      trip.put("revenueAuthority","SUPPORTING_ONLY");
+      trip.remove("revenueAuthority");
       trip.put("toll",input.optString("toll","").trim().isEmpty()?0d:Double.parseDouble(input.optString("toll")));
       trip.put("parking",input.optString("parking","").trim().isEmpty()?0d:Double.parseDouble(input.optString("parking")));
       trip.put("tollTreatment",input.optString("tollTreatment","INCLUDED"));
@@ -989,14 +981,17 @@ public class KfeOverlayService extends Service {
     }else throw new IllegalArgumentException("Unsupported native form mode.");
     if(trip.isNull("tripEndAt")||trip.optString("tripEndAt","").isEmpty())trip.put("tripEndAt",now);
     trip.put("updatedAt",now);
-    KfeCanonicalWorkStore.Outcome outcome=canonical.putRecord(operationId,"TRIP",trip);
+    KfeCanonicalWorkStore.Outcome outcome=canonical.commitTripForm(operationId,mode,trip);
     if(!outcome.accepted)throw new IllegalStateException("Canonical trip form was not accepted.");
-    refreshCanonicalRevenue(trip.optString("shiftId",""),tripId,trip.optString("updatedAt",""));
+    // The trip and derived Shift.revenue are committed in the same SQLite transaction.
+    revenue="₹"+String.format(java.util.Locale.US,"%.0f",outcome.result.optDouble("revenue",0d));
+    if(overlay!=null)overlay.postInvalidate();
   }
 
   private void finishNativeFormCommit(){
     formSubmitting=false;
-    if("CANCEL".equals(formMode))KfeNativeGpsService.stop(this,pendingTripId);
+    // Close both form types after the canonical SQLite transaction succeeds.
+    // Leaving FARE attached swallows the next trip's cancellation tap.
     closeForm();
     actionStage="GO_TO_PICKUP";
     pendingTripId="";
@@ -1008,7 +1003,6 @@ public class KfeOverlayService extends Service {
     animateRetract();
     if(overlay!=null)overlay.invalidate();
   }
-
   private void closeForm(){closeForm(true);}
   private void closeForm(boolean clearDraft){
     if(formPanel!=null&&overlayRoot!=null)overlayRoot.removeView(formPanel);
@@ -1084,16 +1078,12 @@ public class KfeOverlayService extends Service {
       rect.set(8,barTop,w-8,barTop+barH);c.drawRoundRect(rect,dp(22),dp(22),paint);paint.clearShadowLayer();
       paint.setColor(Color.argb(55,Color.red(a),Color.green(a),Color.blue(a)));
       rect.set(8,barTop,(w-8)*progress+8,barTop+barH);c.drawRoundRect(rect,dp(22),dp(22),paint);
-      // Target, live distance, trip timer and revenue remain the compact primary metrics.
-      float[] cols={.14f,.38f,.62f,.86f};
-      String[] labels={"TARGET",resolveMovementLabel(actionStage),phaseLabel,"REVENUE"};
-      String movementValue=resolveMovementValue(actionStage,deadKm,liveKm);
-      String[] values={target,movementValue,formatPhaseTime(),revenue};
-      for(int i=0;i<4;i++){text(9,mutedColor(),true);center(c,labels[i],w*cols[i],barTop+dp(23));text(15,i==0?targetColor():(i==1?a:textColor()),true);center(c,values[i],w*cols[i],barTop+dp(44));}
+      // One-shot trip endpoint snapshots do not imply continuous GPS tracking.
+      float[] cols={.18f,.50f,.82f};
+      String[] labels={"TARGET",phaseLabel,"REVENUE"};
+      String[] values={target,formatPhaseTime(),revenue};
+      for(int i=0;i<3;i++){text(9,mutedColor(),true);center(c,labels[i],w*cols[i],barTop+dp(23));text(15,i==0?targetColor():textColor(),true);center(c,values[i],w*cols[i],barTop+dp(44));}
       if("END_RIDE".equals(actionStage)||"START_RIDE".equals(actionStage)||phaseStartAt>0L) postInvalidateDelayed(1000);
-      boolean gpsActive=KfeNativeGpsService.isAnyPersistedTracking(KfeOverlayService.this);
-      text(9,gpsActive?(dark()?Color.rgb(98,209,138):Color.rgb(22,128,60)):mutedColor(),true);
-      center(c,gpsActive?"GPS ●":"GPS ○",w*.20f,barTop+dp(62));
       if("CANCELLED".equals(actionStage)){
         text(11,a,true);center(c,"CANCELLED · "+cancellationRevenue,w*.50f,barTop+dp(77));
         text(10,mutedColor(),false);center(c,"Same trip · cancellation recorded",w*.50f,barTop+dp(95));

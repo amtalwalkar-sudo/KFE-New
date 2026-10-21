@@ -29,6 +29,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.Ignore;
 import org.junit.runner.RunWith;
 
 import java.io.File;
@@ -155,6 +156,7 @@ public class KfeRecoveryHardeningTest {
     }
   }
 
+  @Ignore("Continuous GPS trace collection and Valhalla routing are dormant; active contract is one-shot offline trip-boundary snapshots.")
   @Test public void gpsCollectorRecoversAfterServiceInterruption() throws Exception {
     String tripId = "gps-service-recovery-" + System.currentTimeMillis();
     KfeNativeGpsService.start(context, tripId, "PASSENGER_RIDE_TRACE", "TRIP");
@@ -176,6 +178,98 @@ public class KfeRecoveryHardeningTest {
     await("GPS collector cleanup", 8000L, () -> KfeNativeGpsService.persistedActiveTripId(context).isEmpty());
   }
 
+  @Ignore("Continuous GPS trace collection and Valhalla routing are dormant; active contract is one-shot offline trip-boundary snapshots.")
+  @Test public void persistedNativeTraceRetainsOutageGapForDomainFlagging() throws Exception {
+    String tripId = "gps-gap-persist-" + System.currentTimeMillis();
+    File traceFile = new File(context.getFilesDir(), "kfe_gps_trace_" + tripId + ".jsonl");
+    long start = System.currentTimeMillis() - 12L * 60L * 1000L;
+    try {
+      try (FileOutputStream output = new FileOutputStream(traceFile)) {
+        for (int minute : new int[]{0, 1, 11, 12}) {
+          long capturedAt = start + minute * 60L * 1000L;
+          JSONObject point = new JSONObject()
+              .put("entityType", "TRIP")
+              .put("entityId", tripId)
+              .put("eventType", "PASSENGER_RIDE_TRACE")
+              .put("latitude", 19.01)
+              .put("longitude", 72.85 + minute * 0.01)
+              .put("accuracy", 8)
+              .put("capturedAt", java.time.Instant.ofEpochMilli(capturedAt).toString())
+              .put("capturedAtEpoch", capturedAt);
+          output.write((point.toString() + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+        output.getFD().sync();
+      }
+      JSONArray persisted = new JSONArray(KfeNativeGpsService.readTrace(context, tripId));
+      assertEquals("All durable GPS fixes around the simulated service outage must survive trace reload.", 4, persisted.length());
+      long beforeGap = persisted.getJSONObject(1).getLong("capturedAtEpoch");
+      long afterGap = persisted.getJSONObject(2).getLong("capturedAtEpoch");
+      assertEquals("The ten-minute recording outage must remain visible in persisted timestamps.",
+          10L * 60L * 1000L, afterGap - beforeGap);
+      // The PWA's gpsGapAccounting and savedRideGpsGapPipeline contracts assert
+      // that this durable timestamp gap becomes an explicit unresolved/incomplete-km flag.
+    } finally {
+      traceFile.delete();
+    }
+  }
+
+  @Ignore("Continuous GPS trace collection and Valhalla routing are dormant; active contract is one-shot offline trip-boundary snapshots.")
+  @Test public void businessGpsGapFlagsSurviveCanonicalSqliteCloseAndReopen() throws Exception {
+    String suffix = Long.toString(System.currentTimeMillis());
+    String shiftId = "gps-gap-domain-shift-" + suffix;
+    String tripId = "gps-gap-domain-trip-" + suffix;
+    String now = java.time.Instant.now().toString();
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    JSONObject provenance = new JSONObject()
+        .put("gpsRecordingStatus", "INCOMPLETE")
+        .put("recordingGapDetected", true)
+        .put("knownDistanceKm", 2.5d)
+        .put("estimatedGapDistanceKm", 0d)
+        .put("unresolvedGapCount", 1)
+        .put("knownTraceSegments", new JSONArray()
+            .put(new JSONObject().put("startAt", "2026-10-16T10:00:00.000Z")
+                .put("endAt", "2026-10-16T10:01:00.000Z").put("distanceKm", 1.25d))
+            .put(new JSONObject().put("startAt", "2026-10-16T10:11:00.000Z")
+                .put("endAt", "2026-10-16T10:12:00.000Z").put("distanceKm", 1.25d)))
+        .put("incompleteKmSegments", new JSONArray()
+            .put(new JSONObject().put("status", "UNRESOLVED").put("distanceKm", JSONObject.NULL)
+                .put("method", "UNRESOLVED_GPS_OUTAGE")));
+    JSONObject calculatedTrip = new JSONObject()
+        .put("id", tripId).put("shiftId", shiftId).put("status", "COMPLETED")
+        .put("tripKm", 2.5d).put("tripKmAuthority", "GPS_TRACE_INCOMPLETE")
+        .put("tripKmProvenance", provenance).put("roadMatchedGeometry", JSONObject.NULL)
+        .put("traceGeometry", new JSONArray()).put("updatedAt", now);
+    String operationId = "gps-gap-domain-operation-" + suffix;
+    assertTrue("The calculated incomplete-GPS trip must commit to canonical SQLite.",
+        store.putRecord(operationId, "TRIP", calculatedTrip).accepted);
+
+    // Force the real SQLite helper to close and recreate, rather than checking a
+    // second read through the same cached helper instance.
+    store.close();
+    java.lang.reflect.Field singleton = KfeCanonicalWorkStore.class.getDeclaredField("instance");
+    singleton.setAccessible(true);
+    singleton.set(null, null);
+    KfeCanonicalWorkStore reopened = KfeCanonicalWorkStore.get(context);
+    JSONObject read = reopened.getRecord("TRIP", tripId);
+    assertTrue("The trip must exist after canonical SQLite close/reopen.", read.getBoolean("found"));
+    JSONObject durable = read.getJSONObject("record");
+    assertEquals("GPS_TRACE_INCOMPLETE", durable.getString("tripKmAuthority"));
+    assertEquals(2.5d, durable.getDouble("tripKm"), 0.000001d);
+    JSONObject durableProvenance = durable.getJSONObject("tripKmProvenance");
+    assertEquals("INCOMPLETE", durableProvenance.getString("gpsRecordingStatus"));
+    assertTrue(durableProvenance.getBoolean("recordingGapDetected"));
+    assertEquals(2.5d, durableProvenance.getDouble("knownDistanceKm"), 0.000001d);
+    assertEquals(0d, durableProvenance.getDouble("estimatedGapDistanceKm"), 0.000001d);
+    assertEquals(1, durableProvenance.getInt("unresolvedGapCount"));
+    assertEquals(2, durableProvenance.getJSONArray("knownTraceSegments").length());
+    assertEquals("UNRESOLVED",
+        durableProvenance.getJSONArray("incompleteKmSegments").getJSONObject(0).getString("status"));
+    assertTrue(durableProvenance.getJSONArray("incompleteKmSegments").getJSONObject(0).isNull("distanceKm"));
+    assertTrue(durable.isNull("roadMatchedGeometry"));
+    assertEquals(0, durable.getJSONArray("traceGeometry").length());
+  }
+
+  @Ignore("Continuous GPS trace collection and Valhalla routing are dormant; active contract is one-shot offline trip-boundary snapshots.")
   @Test public void prepareGpsCollectorForProcessDeath() throws Exception {
     String suffix = Long.toString(System.currentTimeMillis());
     String tripId = "gps-process-death-" + suffix;
@@ -206,6 +300,7 @@ public class KfeRecoveryHardeningTest {
     SystemClock.sleep(30000L);
   }
 
+  @Ignore("Continuous GPS trace collection and Valhalla routing are dormant; active contract is one-shot offline trip-boundary snapshots.")
   @Test public void verifyGpsCollectorAfterProcessDeath() throws Exception {
     String tripId = context.getSharedPreferences("kfe_native_gps", Context.MODE_PRIVATE)
         .getString("activeTripId", "");
@@ -264,6 +359,7 @@ public class KfeRecoveryHardeningTest {
         store.getOperation("recovery-process-death-trip-op-b-" + suffix).optBoolean("found", false));
   }
 
+  @Ignore("Continuous GPS trace collection and Valhalla routing are dormant; active contract is one-shot offline trip-boundary snapshots.")
   @Test public void prepareGpsCollectorForScreenOff() throws Exception {
     String tripId = "gps-screen-off-" + System.currentTimeMillis();
     startPersistentGps(tripId);
@@ -271,6 +367,7 @@ public class KfeRecoveryHardeningTest {
     rememberTraceCount("screenOff", tripId);
   }
 
+  @Ignore("Continuous GPS trace collection and Valhalla routing are dormant; active contract is one-shot offline trip-boundary snapshots.")
   @Test public void verifyGpsCollectorAfterScreenOff() throws Exception {
     String tripId = "gps-screen-off-" + System.currentTimeMillis();
     startPersistentGps(tripId);
@@ -285,6 +382,7 @@ public class KfeRecoveryHardeningTest {
     assertLifecycleFixture("screenOff", tripId);
   }
 
+  @Ignore("Continuous GPS trace collection and Valhalla routing are dormant; active contract is one-shot offline trip-boundary snapshots.")
   @Test public void prepareGpsCollectorForReboot() throws Exception {
     String tripId = "gps-reboot-" + System.currentTimeMillis();
     startPersistentGps(tripId);
@@ -294,6 +392,7 @@ public class KfeRecoveryHardeningTest {
         .putLong("rebootTestPreparedAt", System.currentTimeMillis()).commit();
   }
 
+  @Ignore("Continuous GPS trace collection and Valhalla routing are dormant; active contract is one-shot offline trip-boundary snapshots.")
   @Test public void verifyGpsCollectorAfterReboot() throws Exception {
     String tripId = context.getSharedPreferences("kfe_native_gps", Context.MODE_PRIVATE)
         .getString("activeTripId", "");
@@ -345,6 +444,7 @@ public class KfeRecoveryHardeningTest {
     assertLifecycleFixture("reboot", tripId);
   }
 
+  @Ignore("Continuous GPS trace collection and Valhalla routing are dormant; active contract is one-shot offline trip-boundary snapshots.")
   @Test public void cleanupRecoveredGpsCollector() throws Exception {
     String tripId = KfeNativeGpsService.persistedActiveTripId(context);
     if (tripId.startsWith("gps-process-death-") || tripId.startsWith("gps-screen-off-") || tripId.startsWith("gps-reboot-")) {
@@ -451,15 +551,20 @@ public class KfeRecoveryHardeningTest {
         () -> KfeNativeGpsService.isPersistedTracking(context, tripId, "PASSENGER_RIDE_TRACE", "TRIP"));
   }
 
+  @Ignore("Continuous GPS trace collection and Valhalla routing are dormant; active contract is one-shot offline trip-boundary snapshots.")
   @Test public void prepareOfflineValhallaFixtureDirectory() throws Exception {
-    File externalFiles = context.getExternalFilesDir(null);
-    assertNotNull("App-specific external files storage must be available for the CI fixture.", externalFiles);
-    if (!externalFiles.isDirectory()) {
-      assertTrue("Unable to create app-specific external files directory.", externalFiles.mkdirs());
+    // The route request fixture is copied into context.getFilesDir() by the CI
+    // harness. Use the same app-private storage root: emulators may not mount
+    // app-specific external storage, and offline tiles must not depend on it.
+    File appPrivateFiles = context.getFilesDir();
+    assertNotNull("App-private files storage must be available for the CI fixture.", appPrivateFiles);
+    if (!appPrivateFiles.isDirectory()) {
+      assertTrue("Unable to create app-private files directory.", appPrivateFiles.mkdirs());
     }
-    assertTrue("App-specific external files directory was not created.", externalFiles.isDirectory());
+    assertTrue("App-private files directory was not created.", appPrivateFiles.isDirectory());
   }
 
+  @Ignore("Continuous GPS trace collection and Valhalla routing are dormant; active contract is one-shot offline trip-boundary snapshots.")
   @Test public void downloadOfflineMapThroughUserFacingScreen() throws Exception {
     android.content.Intent launch = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
     assertNotNull("KFE launch intent must be available for the real UI download test.", launch);
@@ -509,6 +614,7 @@ public class KfeRecoveryHardeningTest {
     assertEquals("Installed checksum must match the verified tile package.", sha256(tiles), metadata.getString("sha256"));
   }
 
+  @Ignore("Continuous GPS trace collection and Valhalla routing are dormant; active contract is one-shot offline trip-boundary snapshots.")
   @Test public void installedOfflineValhallaRoutesWithNetworkDisabled() throws Exception {
     ConnectivityManager connectivity = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
     Network activeNetwork = connectivity == null ? null : connectivity.getActiveNetwork();

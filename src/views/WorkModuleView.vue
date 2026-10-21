@@ -3,13 +3,11 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useShiftTripStore } from '../stores/shiftTrip.js'
 import { useFuelStore } from '../stores/fuel.js'
 import { WorkService } from '../application/work/workService.js'
-import { MovementReconciliationQueue } from '../application/work/movementReconciliationQueue.js'
 import { WorkDraftService } from '../application/work/workDraftService.js'
 import { WorkflowTimerService, WorkWorkflowSessionService } from '../application/work/workflowTimerService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { WorkRuntimePorts } from '../application/work/workRuntimePorts.js'
 import { CanonicalWorkBoundary } from '../application/work/canonicalWorkBoundary.js'
-import { getLiveMovementTracePlan, matchesLiveMovementSession } from '../application/work/liveMovementTrace.js'
 import { deriveLiveRevenue } from '../application/work/liveRevenueReadModel.js'
 import { SWIPE_CONFIG } from '../application/work/swipeConfiguration.js'
 import { deriveWorkCockpitState, WORK_COCKPIT_STATES } from '../application/work/workCockpit.js'
@@ -19,7 +17,6 @@ import WorkLiveMetrics from '../components/work/WorkLiveMetrics.vue'
 const store = useShiftTripStore()
 const fuel = useFuelStore()
 const nativeAndroid = WorkRuntimePorts.platform.getPlatform() === 'android'
-const backgroundLocationPermission = ref(null)
 const startWorkflowId = ref('')
 const fuelWorkflowId = ref('')
 let restoringDrafts = false
@@ -75,19 +72,9 @@ const swipe = ref({ down: false, start: 0, offset: 0 })
 const swipePointerId = ref(null)
 
 let timer = null
-let liveKmRefreshTimer = null
 const refreshClock = () => { clock.value = Date.now() }
-let traceRunning = false
 let nativeActionListener = null
 
-const refreshBackgroundLocationPermission = async () => {
-  if (!nativeAndroid) return
-  backgroundLocationPermission.value = await WorkRuntimePorts.nativeGps.getPermissionStatus()
-}
-const openGpsPermissionSettings = async () => { await WorkRuntimePorts.nativeGps.openAppSettings() }
-const refreshGpsPermissionOnResume = () => {
-  if (document.visibilityState === 'visible') void refreshBackgroundLocationPermission()
-}
 
 const money = value => Number.isFinite(Number(value))
   ? '₹' + Math.round(Number(value)).toLocaleString('en-IN')
@@ -202,33 +189,18 @@ const pendingFare = computed(() => {
     .sort((a, b) => Date.parse(b.tripEndAt || b.updatedAt || '') - Date.parse(a.tripEndAt || a.updatedAt || ''))[0] || null
 })
 
-const pendingFareGpsGap = computed(() => {
-  const trip = pendingFare.value
-  const provenance = trip?.tripKmProvenance
-  if (trip?.tripKmAuthority !== 'GPS_TRACE_INCOMPLETE' && provenance?.qualityStatus !== 'INCOMPLETE') return null
-  const segments = Array.isArray(provenance?.incompleteKmSegments) ? provenance.incompleteKmSegments : []
-  return {
-    estimated: segments.filter(segment => segment.status === 'ESTIMATED').length,
-    unresolved: segments.filter(segment => segment.status !== 'ESTIMATED').length
-  }
-})
-
 const cockpit = computed(() => deriveWorkCockpitState({
   shift: store.shift,
   trip: store.trip,
   pendingFareId: pendingFare.value?.id || '',
   target: targetValue.value == null ? '—' : money(targetValue.value),
   targetProgress: targetProgress.value,
-  liveKm: `${liveMovementKm.value.toFixed(1)} km`,
   revenue: money(liveRevenue.value),
   asOf: clock.value
 }))
 
 const ready = computed(() => cockpit.value.state === WORK_COCKPIT_STATES.READY_FOR_TRIP || cockpit.value.state === WORK_COCKPIT_STATES.GOING_TO_PICKUP)
 const active = computed(() => cockpit.value.state === WORK_COCKPIT_STATES.TRIP_ACTIVE)
-const liveMovementKm = ref(0)
-const liveMovementStatus = ref('WAITING FOR GPS')
-const liveMovementLabel = computed(() => store.isOnline ? (active.value ? 'BUSINESS KM' : 'DEAD KM') : '')
 const swipeStyle = computed(() => {
   const color = cockpit.value.action === 'END_RIDE' ? SWIPE_CONFIG.endColor : cockpit.value.action === 'START_RIDE' ? SWIPE_CONFIG.startColor : SWIPE_CONFIG.pickupColor
   return { '--swipe-action-color': color }
@@ -301,73 +273,6 @@ const stateTimerStartAt = computed(() => {
 })
 const stateTimer = computed(() => formatElapsed(clock.value - stateTimerStartAt.value))
 
-async function refreshLiveMovementKm() {
-  // Keep shift-level dead KM visible between trips as well as during pickup.
-  void MovementReconciliationQueue.reconcilePending()
-  const currentTrip = store.trip
-  if (!store.isOnline || !store.shift?.id) {
-    liveMovementKm.value = 0
-    liveMovementStatus.value = 'WAITING FOR GPS'
-    return
-  }
-  if (!currentTrip?.id) {
-    // Online/waiting is intentionally GPS-silent to conserve battery.
-    liveMovementKm.value = 0
-    liveMovementStatus.value = 'WAITING FOR PICKUP'
-    return
-  }
-
-  // A trip is still dead movement until Start Trip commits RIDE_STARTED.
-  // Use the canonical event label rather than treating every active trip as a ride.
-  const tracePlan = getLiveMovementTracePlan({ shiftId: store.shift.id, trip: currentTrip })
-  const traceOwnerId = tracePlan.entityId
-  let tracePoints = []
-
-  if (nativeAndroid) {
-    try {
-      tracePoints = (await WorkRuntimePorts.nativeGps.readTrace(traceOwnerId))
-        .filter(point => point?.eventType === tracePlan.eventType)
-    } catch (_) {}
-  }
-
-  if (tracePoints.length < 2) {
-    const session = WorkRuntimePorts.movementTrace.getActiveSession()
-    if (matchesLiveMovementSession(session, tracePlan)) {
-      tracePoints = WorkRuntimePorts.movementTrace.getPoints()
-    }
-  }
-
-  const movement = WorkService.calculateLiveMovement(tracePoints)
-  if (movement.points.length < 2) {
-    // A temporary GPS gap must not make the live readout jump to zero.
-    // Keep the last measured value, but make its stale/provisional status explicit.
-    liveMovementStatus.value = liveMovementKm.value > 0
-      ? 'GPS SIGNAL GAP · LAST ESTIMATE'
-      : 'ACQUIRING GPS'
-    return
-  }
-
-  // GPS is local telemetry: this estimate remains available with Wi-Fi and mobile
-  // data disabled. Network routing is an optional enrichment, never a prerequisite.
-  liveMovementKm.value = movement.distanceKm
-  liveMovementStatus.value = 'LIVE GPS ESTIMATE · PROVISIONAL'
-
-  // The queue tries local Valhalla while offline and only enables HTTP fallback
-  // when connected. GPS remains the immediate display path if no road match is ready.
-  const matched = await MovementReconciliationQueue.matchLiveTrace(
-    tracePlan.entityType,
-    tracePlan.entityId,
-    movement.points
-  )
-  if (matched) {
-    liveMovementKm.value = matched.distanceKm
-    liveMovementStatus.value = Number(matched.liveGpsTailKm) > 0
-      ? 'ROAD MATCH + LIVE GPS TAIL'
-      : 'PROVISIONAL ROAD MATCH'
-  }
-  // Pending traces are also eligible for local-only matching without internet.
-  void MovementReconciliationQueue.reconcilePending()
-}
 
 const endReady = computed(() => closingOdo.value.trim() !== '')
 const fuelQty = computed(() => fuel.calculateQuantity(fuelPrice.value, fuelAmount.value))
@@ -390,10 +295,6 @@ async function syncOverlay() {
   }
 
   // Revenue is derived from saved trip fares, not manual shift-end entry.
-  // Mirror the same state-aware live movement estimate shown in Work.
-  // The native overlay labels this value DEAD KM on the pickup leg and BUSINESS KM
-  // once the passenger ride starts; do not substitute a passenger-only trace here.
-  const liveKm = `${liveMovementKm.value.toFixed(1)} km`
   let trips = []
   try {
     trips = await WorkService.getTripsForShift(store.shift.id)
@@ -411,7 +312,6 @@ async function syncOverlay() {
     pendingFareId: recoveredPendingFareId,
     target: targetValue.value == null ? '—' : money(targetValue.value),
     targetProgress: targetProgress.value,
-    liveKm,
     revenue
   })
 
@@ -426,7 +326,6 @@ async function syncOverlay() {
     target: state.target,
     targetProgress: state.targetProgress,
     rides: String(trips.length),
-    liveKm: state.liveKm,
     revenue: state.revenue,
     tripStartAt: state.tripStartAt,
     phaseStartAt: stateTimerStartAt.value,
@@ -467,48 +366,6 @@ function setStartGapChoice(choice) {
   gapChoice.value = choice
 }
 
-async function ensureDeadMovementCapture(entityType, entityId) {
-  if (!entityId) return false
-  const isStillCurrentOwner = () => entityType === 'SHIFT'
-    ? store.shift?.id === entityId && !store.trip?.id
-    : store.trip?.id === entityId && store.trip?.status === 'ACTIVE'
-  const previousSession = WorkRuntimePorts.movementTrace.getActiveSession()
-  if (nativeAndroid) {
-    const nativeStarted = await WorkRuntimePorts.nativeGps.start(entityId, 'DEAD_MOVEMENT_TRACE', entityType).catch(() => false)
-    // A slow service-start acknowledgement must not switch capture back to an
-    // older owner after the driver has already moved to another workflow state.
-    if (!isStillCurrentOwner()) {
-      const currentTrip = store.trip
-      if (currentTrip?.id && currentTrip.status === 'ACTIVE' &&
-          ['PICKUP', 'GOING_TO_PICKUP', 'RIDE_STARTED'].includes(currentTrip.tripStage)) {
-        const eventType = currentTrip.tripStage === 'RIDE_STARTED' ? 'PASSENGER_RIDE_TRACE' : 'DEAD_MOVEMENT_TRACE'
-        void WorkRuntimePorts.nativeGps.start(currentTrip.id, eventType, 'TRIP').catch(() => {})
-      } else {
-        // The driver may have finished/cancelled the trip while Android was
-        // acknowledging service startup. Do not fall back to shift-owned GPS:
-        // online/waiting is intentionally GPS-silent.
-        void WorkRuntimePorts.nativeGps.stop(entityId).catch(() => {})
-      }
-      return false
-    }
-    if (nativeStarted) {
-      if (previousSession) WorkRuntimePorts.movementTrace.reset()
-      traceRunning = false
-      return true
-    }
-    // Android must not silently replace native background GPS with browser GPS.
-    if (nativeAndroid) return false
-  }
-  if (!isStillCurrentOwner()) return false
-  if (previousSession) WorkRuntimePorts.movementTrace.reset()
-  traceRunning = WorkRuntimePorts.movementTrace.start({
-    entityType,
-    entityId,
-    eventType: 'DEAD_MOVEMENT_TRACE',
-    profile: 'DEAD_LEG'
-  })
-  return traceRunning
-}
 
 async function submitStart() {
   if (startBusy.value) return
@@ -540,8 +397,6 @@ async function submitStart() {
 
 async function goPickup(nativeTripId = '') {
   if (busy.value || !store.isOnline || store.isTripActive) return false
-  liveMovementKm.value = 0
-  liveMovementStatus.value = 'ACQUIRING GPS'
   busy.value = true
   try {
     // Do not collect location while the driver is online but waiting for a ride.
@@ -553,7 +408,6 @@ async function goPickup(nativeTripId = '') {
     }
     // A pickup is dead movement owned by this trip. Isolating its trace keeps the
     // live dead-KM readout from inheriting all movement accumulated earlier in the shift.
-    void ensureDeadMovementCapture('TRIP', store.trip?.id).catch(error => console.warn('Pickup GPS capture unavailable:', error))
     await syncOverlay()
     // Keep state transitions silent; the cockpit/action label reflects the new state.
     return true
@@ -564,28 +418,10 @@ async function goPickup(nativeTripId = '') {
 
 async function startTrip() {
   if (busy.value || !ready.value) return false
-  liveMovementKm.value = 0
-  liveMovementStatus.value = 'ACQUIRING GPS'
   busy.value = true
   try {
     const result = await store.startRide()
     if (!result?.ok) { fail(result?.reason || 'Trip could not be started.'); return false }
-    if (traceRunning) {
-      WorkRuntimePorts.movementTrace.reset()
-      traceRunning = false
-    }
-    let nativeTraceStarted = false
-    if (nativeAndroid && store.trip?.id) {
-      nativeTraceStarted = await WorkRuntimePorts.nativeGps.start(store.trip.id, 'PASSENGER_RIDE_TRACE', 'TRIP')
-    }
-    if (!nativeTraceStarted && !nativeAndroid && store.trip?.id) {
-      traceRunning = WorkRuntimePorts.movementTrace.start({
-        entityType: 'TRIP',
-        entityId: store.trip.id,
-        eventType: 'PASSENGER_RIDE_TRACE',
-        profile: 'PASSENGER_RIDE'
-      })
-    }
     await syncOverlay()
     // Keep state transitions silent; the cockpit/action label reflects the new state.
     return true
@@ -600,21 +436,6 @@ async function endTrip() {
   try {
     const tripId = store.trip.id
     if (!await store.endTrip()) { fail('Trip could not be completed.'); return false }
-    // Commit completed native ride evidence asynchronously. GPS import is
-    // best-effort enrichment and must never hold the fare form or native-action
-    // acknowledgement open while telemetry is synchronized.
-    if (nativeAndroid) {
-      void (async () => {
-        await WorkRuntimePorts.nativeGps.stop(tripId)
-        try {
-          await WorkRuntimePorts.nativeGps.syncTrace(tripId, { entityType: 'TRIP' })
-        } catch (error) {
-          console.warn('Completed trip GPS sync deferred; native trace retained for recovery:', tripId, error)
-        }
-      })().catch(error => console.warn('Completed trip GPS stop deferred; native trace retained for recovery:', tripId, error))
-    }
-    if (traceRunning) WorkRuntimePorts.movementTrace.reset()
-    traceRunning = false
     fareTripId.value = tripId
     restoringDrafts = true
     fare.value = ''
@@ -766,19 +587,6 @@ async function saveCancel(fromNative = false, operationId = '') {
       })
     }
 
-    // Cancellation ends this trip's movement window just like END TRIP.
-    // Stop native capture and commit the dead-movement trace to canonical
-    // trip locations; waiting online must remain GPS-silent.
-    if (nativeAndroid && cancelledTripId) {
-      await WorkRuntimePorts.nativeGps.stop(cancelledTripId)
-      try {
-        await WorkRuntimePorts.nativeGps.syncTrace(cancelledTripId, { entityType: 'TRIP' })
-      } catch (traceError) {
-        console.warn('Cancelled trip GPS sync deferred; native trace retained for recovery:', cancelledTripId, traceError)
-      }
-    }
-    if (traceRunning) WorkRuntimePorts.movementTrace.reset()
-    traceRunning = false
     await clearCommittedDraft(cancellationDraft)
     cancelOpen.value = false
     if (!fromNative) await WorkRuntimePorts.androidOverlay.cancelSaved().catch(() => {})
@@ -914,29 +722,12 @@ async function finishEnd() {
   try {
     const endDraft = shiftDraftIdentity('work-end-shift', 'END_SHIFT')
     const endingShiftId = store.shift?.id
-    // Preserve native GPS evidence before the shift is finalized. GPS movement
-    // accounting remains internal; it is not an end-of-shift driver workflow.
-    if (nativeAndroid && endingShiftId) {
-      await WorkRuntimePorts.nativeGps.stop(endingShiftId)
-      try {
-        await WorkRuntimePorts.nativeGps.syncTrace(endingShiftId, { entityType: 'SHIFT' })
-      } catch (traceError) {
-        await WorkRuntimePorts.nativeGps.start(endingShiftId, 'DEAD_MOVEMENT_TRACE', 'SHIFT')
-        throw new Error('Shift GPS trace could not be saved locally. Tracking was restarted; retry ending the shift.')
-      }
-    }
     const result = await store.endShift({
       closingOdometer: closingOdo.value,
       confirmLargeDistance: largeDistanceKm.value > 500 && largeDistanceConfirmation.value === largeDistanceIdentity.value
     })
     if (!result?.ok) {
-      if (nativeAndroid && endingShiftId) await WorkRuntimePorts.nativeGps.start(endingShiftId, 'DEAD_MOVEMENT_TRACE', 'SHIFT')
       return fail(result.reason)
-    }
-    if (nativeAndroid && endingShiftId) await WorkRuntimePorts.nativeGps.stop(endingShiftId)
-    if (traceRunning) {
-      WorkRuntimePorts.movementTrace.reset()
-      traceRunning = false
     }
     await clearCommittedDraft(endDraft)
     endStage.value = 'ENDED'
@@ -1175,8 +966,6 @@ async function replayFailedNativeActions() {
 }
 
 onMounted(async () => {
-  void refreshBackgroundLocationPermission()
-  document.addEventListener('visibilitychange', refreshGpsPermissionOnResume)
   document.addEventListener('visibilitychange', syncOverlay)
   document.addEventListener('visibilitychange', replayFailedNativeActions)
   window.addEventListener('pageshow', replayFailedNativeActions)
@@ -1187,23 +976,6 @@ onMounted(async () => {
   nativeReplayTimer = setInterval(() => { void replayFailedNativeActions() }, 5000)
   await store.initialize()
   await fuel.refresh().catch(() => {})
-  await WorkService.recoverNativeGpsTraces().catch(error => console.warn('KFE native GPS trace recovery deferred:', error))
-  // Restore movement capture only for an explicit, still-active pickup or ride.
-  // Online/waiting after shift start, trip completion, or cancellation is GPS-silent.
-  const savedTrace = WorkRuntimePorts.movementTrace.getActiveSession()
-  const recoveryPlan = getLiveMovementTracePlan({ shiftId: store.shift?.id, trip: store.trip })
-  const resumableMovementStage = store.trip?.status === 'ACTIVE' &&
-    ['PICKUP', 'GOING_TO_PICKUP', 'RIDE_STARTED'].includes(store.trip?.tripStage)
-  if (store.isOnline && resumableMovementStage && savedTrace &&
-      matchesLiveMovementSession(savedTrace, recoveryPlan)) {
-    traceRunning = await WorkRuntimePorts.movementTrace.resumePersisted(savedTrace)
-  }
-  // Recovery is state/stage-gated, never merely shift-online-gated.
-  // An active pickup resumes dead-movement capture; a started ride resumes
-  // passenger capture. Waiting after shift start/completion/cancellation stays GPS-silent.
-  if (store.isOnline && nativeAndroid && resumableMovementStage && recoveryPlan.entityType === 'TRIP') {
-    await WorkRuntimePorts.nativeGps.start(recoveryPlan.entityId, recoveryPlan.eventType, 'TRIP')
-  }
   startWorkflowId.value = (await WorkDraftService.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || WorkDraftService.newWorkflowId()
   fuelWorkflowId.value = (await WorkDraftService.latestWorkflow('work-fuel', 'RECORD_FUEL'))?.workflowId || WorkDraftService.newWorkflowId()
   await targetRefresh()
@@ -1259,8 +1031,6 @@ onMounted(async () => {
   document.addEventListener('visibilitychange', refreshClock)
   window.addEventListener('pageshow', refreshClock)
   window.addEventListener('focus', refreshClock)
-  void refreshLiveMovementKm()
-  liveKmRefreshTimer = setInterval(() => { void refreshLiveMovementKm().then(() => syncOverlay()).catch(() => {}) }, 3000)
 
   nativeActionListener = await WorkRuntimePorts.nativeWorkActions.addListener(
     'nativeWorkAction',
@@ -1287,7 +1057,6 @@ watch(cancelOpen, () => { void syncOverlay() })
 
 
 onBeforeUnmount(() => {
-  document.removeEventListener('visibilitychange', refreshGpsPermissionOnResume)
   document.removeEventListener('visibilitychange', syncOverlay)
   document.removeEventListener('visibilitychange', replayFailedNativeActions)
   window.removeEventListener('pageshow', replayFailedNativeActions)
@@ -1298,8 +1067,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('pageshow', refreshClock)
   window.removeEventListener('focus', refreshClock)
   if (timer) clearInterval(timer)
-  if (liveKmRefreshTimer) clearInterval(liveKmRefreshTimer)
-  if (traceRunning) WorkRuntimePorts.movementTrace.pause()
   nativeActionListener?.remove?.()
   void WorkRuntimePorts.androidOverlay.hide().catch(() => {})
 })
@@ -1318,15 +1085,8 @@ onBeforeUnmount(() => {
   </header>
 
   <main class="work-main contextual-form-shell">
-    <div v-if="nativeAndroid && backgroundLocationPermission?.supported && !backgroundLocationPermission.backgroundLocationAllowed" class="gps-recovery-warning" role="status">
-      <span>Set Location permission to “Allow all the time” in Android app settings to resume GPS after a phone restart.</span>
-      <button type="button" @click="openGpsPermissionSettings">Open settings</button>
-    </div>
     <WorkLiveMetrics
       v-if="!fuelOpen && !pendingFare && (store.isOnline || cancelOpen || endOpen)"
-      :movement-label="liveMovementLabel || 'LIVE KM'"
-      :movement-km="liveMovementKm"
-      :movement-status="liveMovementStatus"
       :timer-label="stateTimerLabel"
       :timer-value="active ? tripTimer : stateTimer"
       :revenue-value="money(liveRevenue)"
@@ -1393,16 +1153,6 @@ onBeforeUnmount(() => {
       @click="openCancel"
     >CANCEL TRIP</button>
 
-    <div
-      v-if="pendingFareGpsGap && !endOpen && !cancelOpen && !fuelOpen"
-      class="operational-state state-tone-warning gps-gap-warning"
-      role="status"
-      aria-live="polite"
-    >
-      <strong>INCOMPLETE GPS KM — THIS RIDE</strong>
-      <p>Recording was interrupted. Measured distance before and after the gap is retained; any Valhalla gap estimate is labelled as estimated. Unresolved kilometres remain flagged for later review.</p>
-      <small>{{ pendingFareGpsGap.estimated }} estimated gap(s) · {{ pendingFareGpsGap.unresolved }} unresolved gap(s)</small>
-    </div>
     <WorkContextForm
       v-if="pendingFare && !endOpen && !cancelOpen && !fuelOpen"
       type="fare"

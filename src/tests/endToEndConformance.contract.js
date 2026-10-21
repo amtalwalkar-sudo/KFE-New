@@ -102,8 +102,10 @@ assert.equal(canTransitionTrip(TRIP_STATES.COMPLETED, TRIP_STATES.COMPLETED), tr
 assertIncludes(dataContract, 'Shift.revenue', 'Canonical data contract must identify Shift revenue authority.')
 assertIncludes(dataContract, 'Trip.revenue', 'Trip revenue must remain supporting detail.')
 assertIncludes(workView, 'deriveLiveRevenue(trips)', 'PWA live revenue must be derived from saved Trip fares.')
-assertIncludes(nativeOverlay, 'refreshCanonicalRevenue', 'Native overlay must derive the saved-fare total from canonical Trip records.')
-assertIncludes(workService, "tripKmAuthority: 'GPS_LINE_TRACE'", 'Native GPS results must be written through the canonical Trip update path.')
+assertIncludes(nativeOverlay, 'canonical.commitTripForm(operationId,mode,trip)', 'Native fare/cancellation must commit the canonical Trip and Shift.revenue projection atomically.')
+assertIncludes(readRepo('android/app/src/main/java/com/kanishka/pwa/KfeCanonicalWorkStore.java'), 'double revenue = 0d;', 'Canonical native store must derive revenue from canonical Trip records in the same transaction.')
+assertIncludes(workService, "eventType: 'RIDE_START'", 'Start Trip records the passenger-ride boundary snapshot.')
+assertIncludes(workService, "eventType: 'END'", 'End Trip records the endpoint snapshot.')
 assertIncludes(gpsContract, 'LocationRepository', 'Native GPS must converge into the canonical location repository.')
 assert.ok(!/const totalRevenue = trips\.reduce/.test(overlayLifecycle), 'Overlay must not calculate ERP revenue by summing Trip fares.')
 

@@ -38,11 +38,9 @@ assert.doesNotMatch(capacitorSettings, /capacitor-local-notifications/)
 
 // Android foreground-service notices remain, separate from Work actions.
 assert.match(manifest, /android\.permission\.FOREGROUND_SERVICE/)
-assert.match(manifest, /android\.permission\.FOREGROUND_SERVICE_LOCATION/)
+assert.doesNotMatch(manifest, /FOREGROUND_SERVICE_LOCATION|ACCESS_BACKGROUND_LOCATION|\.KfeNativeGpsService/)
 assert.match(manifest, /android\.permission\.FOREGROUND_SERVICE_SPECIAL_USE/)
 assert.match(manifest, /android\.permission\.POST_NOTIFICATIONS/)
-assert.match(gpsService, /private static final int NOTIFICATION_ID = 7110/)
-assert.match(gpsService, /startForeground\(/)
 assert.match(overlayService, /startForeground\(NOTIFICATION_ID,buildNotification\(\)\)/)
 assert.match(overlayService, /KFE driver controls are active in the background/)
 assert.doesNotMatch(overlayService, /refreshPersistentNotification/)

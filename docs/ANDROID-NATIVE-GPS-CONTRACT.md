@@ -1,3 +1,16 @@
+# Android Trip-Boundary GPS Contract
+
+**Active scope (2026-10-21): one-shot GPS snapshots only.** This section supersedes older continuous-trace requirements in this document.
+
+- Capture one GPS fix and its device fix timestamp at passenger-trip start and trip end; retain a separate pickup-start snapshot where that workflow boundary is recorded.
+- Persist latitude, longitude, accuracy when available, and `capturedAt` locally. GPS-provider capture does not require internet. A fix may take longer offline and requires Android Location Services plus foreground precise/coarse location permission.
+- Cancellation is a terminal trip boundary and receives the same one-shot endpoint snapshot.
+- Never start a continuous watch, background GPS trace collector, trace auto-resume, route matching, or kilometre calculation for this feature.
+- The PWA and Android overlay capture snapshots without blocking trip transitions or fare/cancellation forms. A missing fix must not prevent a trip from completing; saved lifecycle timestamps remain authoritative.
+- Physical-device acceptance verifies offline start/end fixes, timestamps, persistence after reopening the app, and overlay operation with the PWA closed.
+
+---
+
 # Android Native Ride GPS Contract
 
 **Status:** SUPPORTING NATIVE IMPLEMENTATION CONTRACT — subordinate to docs/KFE-OPERATIONAL-LIFECYCLE-CONTRACT.md and docs/KFE-CANONICAL-DATA-CONTRACT.md.

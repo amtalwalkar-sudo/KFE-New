@@ -28,11 +28,20 @@ const tryOfflineTrace = async points => {
   }
 }
 
-const toShape = (points) => points.map((point) => {
-  const capturedAt = point.capturedAt || point.timestamp
-  const milliseconds = capturedAt ? new Date(capturedAt).getTime() : NaN
-  return { lat: Number(point.latitude), lon: Number(point.longitude), ...(Number.isFinite(milliseconds) ? { time: Math.floor(milliseconds / 1000) } : {}) }
-}).filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lon))
+const toShape = (points) => {
+  const validPoints = points.map((point) => {
+    const capturedAt = point.capturedAt || point.timestamp
+    const milliseconds = capturedAt ? new Date(capturedAt).getTime() : NaN
+    return { lat: Number(point.latitude), lon: Number(point.longitude), ...(Number.isFinite(milliseconds) ? { time: Math.floor(milliseconds / 1000) } : {}) }
+  }).filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lon))
+  // Valhalla trace_route requires explicit shape-point types: break at the
+  // start/end and via for intermediate fixes. Omitting type can return HTTP
+  // 400 / error 442 ("No path could be found") even for valid road traces.
+  return validPoints.map((point, index) => ({
+    ...point,
+    type: index === 0 || index === validPoints.length - 1 ? 'break' : 'via'
+  }))
+}
 
 const endpointFromRuntime = () => {
   try {

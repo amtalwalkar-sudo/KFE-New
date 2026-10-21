@@ -1,34 +1,21 @@
 name: Publish KFE Offline Valhalla Maps
 
+# Dormant feature: keep package generation available for an explicit manual run,
+# but do not build/download/publish routing tiles as part of push or PR CI.
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/publish-offline-valhalla-maps.yml"
-      - "tools/android-offline-routing-smoke-gate.sh"
-      - "android/app/src/androidTest/java/com/kanishka/pwa/KfeRecoveryHardeningTest.java"
-      - "android/app/src/main/java/com/kanishka/pwa/Valhalla*"
-  pull_request:
-    branches: [main, fix/native-overlay-background-transitions]
-    paths:
-      - ".github/workflows/publish-offline-valhalla-maps.yml"
-      - "tools/android-offline-routing-smoke-gate.sh"
-      - "android/app/src/androidTest/java/com/kanishka/pwa/KfeRecoveryHardeningTest.java"
-      - "android/app/src/main/java/com/kanishka/pwa/Valhalla*"
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  # PR builds are serialized per PR, while main publication is isolated and never cancelled.
-  group: ${{ github.event_name == 'pull_request' && format('kfe-offline-valhalla-map-release-pr-{0}', github.event.pull_request.number) || 'kfe-offline-valhalla-map-release-main' }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: kfe-offline-valhalla-map-release-manual
+  cancel-in-progress: false
 
 jobs:
   build-and-publish-region:
-    # Pull requests run the full build and HTTP smoke tests, but never publish.
-    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    # Only explicit manual dispatch may run dormant map packaging.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
@@ -242,6 +229,8 @@ jobs:
         run: |
           set -euo pipefail
           npm ci
+          echo "Verify live online Valhalla fallback after a simulated offline coverage miss."
+          node tools/verify-online-valhalla-fallback.mjs
           npm run build
           npx cap sync android
           cd android
@@ -253,15 +242,23 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         timeout-minutes: 60
         with:
-          api-level: 34
-          target: google_apis
+          # This acceptance covers WebView download UI and native offline routing,
+          # not Google Play Services. Use the AOSP image to avoid hosted GMS/FontsProvider
+          # crash loops that repeatedly killed MainActivity during prior runs.
+          api-level: 30
+          target: default
           arch: x86_64
           profile: pixel_2
-          cores: 4
+          # Give Android enough CPU/RAM to complete framework startup reliably.
+          # This AVD is created fresh for each job, so wiping user data again only
+          # adds cold-boot work and increases the chance of PackageManager failure.
+          cores: 2
           ram-size: 3072M
-          heap-size: 768M
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
-          disable-animations: true
+          heap-size: 512M
+          emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect
+          # Avoid the action's post-boot settings calls: on a slow boot they have
+          # failed with Broken pipe before our own health checks could recover.
+          disable-animations: false
           emulator-boot-timeout: 900
           script: bash "$GITHUB_WORKSPACE/tools/android-offline-routing-smoke-gate.sh"
 

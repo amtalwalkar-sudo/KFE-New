@@ -24,7 +24,7 @@ assert.match(sw, /kfe-outbox-retry/)
 assert.match(sw, /kfe-daily-cloud-backup/)
 assert.doesNotMatch(sw, /localhost|127\.0\.0\.1|192\.168\.|10\.0\.2\.2/)
 
-assert.match(androidManifest, /ACCESS_BACKGROUND_LOCATION/)
+assert.doesNotMatch(androidManifest, /ACCESS_BACKGROUND_LOCATION|FOREGROUND_SERVICE_LOCATION|\.KfeNativeGpsService/)
 assert.doesNotMatch(androidManifest, /android:debuggable="true"/)
 assert.match(androidManifest, /android:allowBackup="false"/)
 

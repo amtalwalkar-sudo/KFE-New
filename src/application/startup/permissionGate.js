@@ -52,8 +52,8 @@ function requestBrowserLocation() {
 async function getFirstMissing() {
   if (native()) { const status = await NativeGate.getStartupPermissionStatus(); return findFirstMissingNativeCheck(status, confirmedOemSettings) }
   const state = await browserLocationPermission()
-  if (state === 'denied') return { key: 'location', label: 'Location permission', setting: 'location', message: 'Allow location for this site in your browser or phone settings, then return to KFE.', actionLabel: 'Check again', browserDenied: true }
-  if (state === 'prompt') return { key: 'location', label: 'Location permission', setting: 'location', message: 'Allow location when your browser asks so KFE can record trip distance.', actionLabel: 'Request location' }
+  if (state === 'denied') return { key: 'location', label: 'Location permission', setting: 'location', message: 'Allow location so KFE can save trip start/end coordinates and GPS fix timestamps locally, including offline.', actionLabel: 'Check again', browserDenied: true }
+  if (state === 'prompt') return { key: 'location', label: 'Location permission', setting: 'location', message: 'Allow location when your browser asks so KFE can save trip start/end coordinates and GPS fix timestamps locally, including offline.', actionLabel: 'Request location' }
   return null
 }
 function waitForRetry() { return new Promise(resolve => { retryCurrent = resolve }) }

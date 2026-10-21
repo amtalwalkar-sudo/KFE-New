@@ -6,7 +6,6 @@ import {
   checkGps,
   getGpsState,
   getGpsStateLabel,
-  startGpsStatusMonitoring,
   subscribeGpsStatus
 } from '../../application/location/gpsStatusService.js'
 
@@ -16,7 +15,7 @@ let unsubscribeGps = null
 
 onMounted(() => {
   unsubscribeGps = subscribeGpsStatus(next => { gpsState.value = next })
-  startGpsStatusMonitoring()
+  void checkGps()
 })
 
 onBeforeUnmount(() => {

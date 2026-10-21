@@ -24,14 +24,7 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(KfeCanonicalWorkPlugin.class);
     registerPlugin(KfeOverlayPlugin.class);
     registerPlugin(KfeNativeGpsPlugin.class);
-    registerPlugin(KfeOfflineMapsPlugin.class);
     super.onCreate(savedInstanceState);
-    // Reconcile native foreground services after Android recreates the app process.
-    try {
-      KfeNativeGpsService.resumePersisted(this);
-    } catch (RuntimeException error) {
-      android.util.Log.e("KfeMainActivity", "Unable to resume persisted GPS after app recreation.", error);
-    }
     try {
       KfeOverlayService.resumePersisted(this);
     } catch (RuntimeException error) {

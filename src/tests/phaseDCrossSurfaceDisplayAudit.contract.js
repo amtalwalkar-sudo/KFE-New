@@ -20,8 +20,8 @@ const surfaces = { admin, performance, timeline, work, overlay, performanceServi
 const figures = [
   { id: 'D-01 Revenue', canonical: [/authoritativeRevenue/, /shifts\.revenue/], displays: { timeline: [/authoritativeRevenue/, /Authoritative Revenue/], performance: [/m\.value\.revenue/, /Financial revenue/], work: [/closingOdo/, /Closing odometer/] } },
   { id: 'D-02 Vehicle KM', canonical: [/vehicleKm/], displays: { performance: [/m\.value\.vehicleKm/, /Vehicle KM/] } },
-  { id: 'D-03 Business KM', canonical: [/businessKm/], displays: { timeline: [/businessKm/], performance: [/businessKm/, /Business KM/], work: [/liveMovementLabel/, /BUSINESS KM/] } },
-  { id: 'D-04 Dead KM', canonical: [/deadKm/], displays: { performance: [/deadKm/, /Dead KM/], work: [/liveMovementLabel/, /DEAD KM/] } },
+  { id: 'D-03 Business KM', canonical: [/businessKm/], displays: { timeline: [/businessKm/], performance: [/businessKm/, /Business KM/] } },
+  { id: 'D-04 Dead KM', canonical: [/deadKm/], displays: { performance: [/deadKm/, /Dead KM/] } },
   { id: 'D-05 Fuel', canonical: [/fuelQty/, /fuelCost/], displays: { timeline: [/fuelQuantityKg/, /fuelCost/, /CNG Refuelling/], performance: [/fuelQty/, /fuelCost/, /Fuel economy/], work: [/fuelQty/, /fuelPrice/, /fuelAmount/, /Partial fill/] } },
   { id: 'D-06 Operating Cost', canonical: [/actualOperatingCost/], displays: { performance: [/actualOperatingCost/, /Operating cost/] } },
   { id: 'D-07 Operating Profit', canonical: [/operatingProfit/], displays: { performance: [/actualOperatingCost/, /Actual profit \/ loss/] } },
