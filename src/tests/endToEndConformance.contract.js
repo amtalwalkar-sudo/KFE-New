@@ -121,7 +121,7 @@ assertIncludes(matrix, '### Level B — Android emulator', 'Matrix must define L
 assertIncludes(matrix, '### Level C — Physical Android device', 'Matrix must define Level C proof.')
 
 // 9. Proof levels are explicitly separated.
-assertIncludes(gpsContract, 'Physical acceptance gate', 'Native GPS cannot be declared device-validated from source tests alone.')
+assertIncludes(gpsContract, 'Physical-device acceptance', 'Native GPS cannot be declared device-validated from source tests alone.')
 assertIncludes(matrix, 'A passing repository or emulator gate does **not** substitute for Level C evidence.', 'Release evidence must distinguish physical-device acceptance.')
 
 // 10. Golden Ride is one deterministic scenario, not disconnected screenshots.
