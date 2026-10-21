@@ -106,7 +106,9 @@ assertIncludes(nativeOverlay, 'canonical.commitTripForm(operationId,mode,trip)',
 assertIncludes(readRepo('android/app/src/main/java/com/kanishka/pwa/KfeCanonicalWorkStore.java'), 'double revenue = 0d;', 'Canonical native store must derive revenue from canonical Trip records in the same transaction.')
 assertIncludes(workService, "eventType: 'RIDE_START'", 'Start Trip records the passenger-ride boundary snapshot.')
 assertIncludes(workService, "eventType: 'END'", 'End Trip records the endpoint snapshot.')
-assertIncludes(gpsContract, 'LocationRepository', 'Native GPS must converge into the canonical location repository.')
+assertIncludes(gpsContract, 'one-shot GPS snapshots only', 'GPS contract must identify the active snapshot-only scope.')
+assertIncludes(gpsContract, 'Never start a continuous watch', 'GPS contract must prohibit continuous trace collection.')
+assert.ok(!nativeOverlay.includes('KfeNativeGpsService.start(') && !nativeOverlay.includes('KfeNativeGpsService.stop('), 'Active native overlay must not start or stop the retired continuous GPS trace service.')
 assert.ok(!/const totalRevenue = trips\.reduce/.test(overlayLifecycle), 'Overlay must not calculate ERP revenue by summing Trip fares.')
 
 // 8. Requirement → implementation → test → evidence coverage.
@@ -119,7 +121,7 @@ assertIncludes(matrix, '### Level B — Android emulator', 'Matrix must define L
 assertIncludes(matrix, '### Level C — Physical Android device', 'Matrix must define Level C proof.')
 
 // 9. Proof levels are explicitly separated.
-assertIncludes(gpsContract, 'Physical acceptance gate', 'Native GPS cannot be declared device-validated from source tests alone.')
+assertIncludes(gpsContract, 'Physical-device acceptance', 'Native GPS cannot be declared device-validated from source tests alone.')
 assertIncludes(matrix, 'A passing repository or emulator gate does **not** substitute for Level C evidence.', 'Release evidence must distinguish physical-device acceptance.')
 
 // 10. Golden Ride is one deterministic scenario, not disconnected screenshots.
