@@ -61,57 +61,27 @@ try {
     const started = await ShiftTripRepository.setTripStage(trip.id, 'RIDE_STARTED')
     if (!started) throw new Error('Trip stage did not persist')
     await ShiftTripRepository.completeTrip({ id: trip.id, tripEndAt: at(-2400000), tripKm: 40, revenue: 500 })
-    // Exercise the real saved-ride completion/enrichment pipeline with an internal
-    // GPS outage. All four points are persisted in IndexedDB, but the middle interval
-    // is deliberately missing. A deterministic router refuses to estimate that gap.
-    const noOp = async () => true
-    configureWorkRuntimePorts({
-      movementTrace: { start: noOp, reset: noOp, getActiveSession: () => null, getPoints: () => [], stop: async () => [], resumePersisted: noOp, pause: noOp, getDistanceKm: () => 0 },
-      nativeGps: { start: noOp, stop: noOp, readTrace: async () => [], syncTrace: async () => ({ imported: 0 }), getPermissionStatus: async () => ({ granted: true }), openAppSettings: noOp, listTraceOwners: async () => [] },
-      nativeWorkActions: { clearPendingAction: noOp, addListener: () => ({ remove() {} }), consumePendingActions: async () => [], consumePendingAction: async () => null, acknowledgeAction: async () => ({ acknowledged: true }), recordActionFailure: noOp },
-      canonicalWork: { putRecord: async input => ({ accepted: true, outcome: { record: input.record } }), getRecord: async () => ({ found: false }), listRecords: async () => ({ records: [], count: 0 }), getOperation: async () => ({ found: false }), isAvailable: () => false },
-      androidOverlay: { hide: noOp, update: noOp, prepare: noOp, fareSaved: noOp, cancelSaved: noOp },
-      routing: { createRouter: () => ({ routeTrace: async () => null }) },
-      platform: { getPlatform: () => 'web' },
-    })
+    // The active GPS contract is a one-shot endpoint snapshot, not a continuous
+    // trace or route-enrichment pipeline. The browser test context supplies a
+    // deterministic offline-capable geolocation fix for this completed trip.
     const gapStartAt = at(-900000)
     const gapEndAt = at(-300000)
     const gapTrip = await ShiftTripRepository.createTrip({ shiftId: shift.id, operator: 'Uber', tripStartAt: gapStartAt, tripKm: 0, revenue: 350 })
-    if (!await ShiftTripRepository.setTripStage(gapTrip.id, 'RIDE_STARTED')) throw new Error('Gap-test ride did not enter passenger-ride phase')
-    const gapPoints = [
-      { latitude: 19.0100, longitude: 72.8500, accuracy: 8, speed: 8, capturedAt: at(-895000) },
-      { latitude: 19.0200, longitude: 72.8600, accuracy: 8, speed: 8, capturedAt: at(-840000) },
-      { latitude: 19.0700, longitude: 72.9100, accuracy: 8, speed: 8, capturedAt: at(-360000) },
-      { latitude: 19.0800, longitude: 72.9200, accuracy: 8, speed: 8, capturedAt: at(-305000) },
-    ]
-    for (const point of gapPoints) {
-      await LocationRepository.recordTracePoint({ entityType: 'TRIP', entityId: gapTrip.id, eventType: 'PASSENGER_RIDE_TRACE', ...point })
+    if (!await ShiftTripRepository.setTripStage(gapTrip.id, 'RIDE_STARTED')) throw new Error('Snapshot-test ride did not enter passenger-ride phase')
+    await WorkService.completeTrip({ id: gapTrip.id, tripEndAt: gapEndAt, revenue: 350 })
+    let savedGapTrip = null
+    const snapshotDeadline = Date.now() + 15000
+    while (Date.now() < snapshotDeadline) {
+      savedGapTrip = (await ShiftTripRepository.getTripsForShift(shift.id)).find(item => item.id === gapTrip.id)
+      if (savedGapTrip?.tripEndLocation?.capturedAt) break
+      await new Promise(resolve => setTimeout(resolve, 100))
     }
-    let resolveGapEnrichment
-    const gapEnrichmentDone = new Promise(resolve => { resolveGapEnrichment = resolve })
-    const originalEnrichTripMovement = ShiftTripRepository.enrichTripMovement
-    ShiftTripRepository.enrichTripMovement = async function (record) {
-      const saved = await originalEnrichTripMovement.call(ShiftTripRepository, record)
-      if (record.id === gapTrip.id) resolveGapEnrichment(record)
-      return saved
-    }
-    try {
-      await WorkService.completeTrip({ id: gapTrip.id, tripEndAt: gapEndAt, revenue: 350 })
-      await Promise.race([
-        gapEnrichmentDone,
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Saved-ride GPS enrichment did not finish within 15 seconds')), 15000)),
-      ])
-    } finally {
-      ShiftTripRepository.enrichTripMovement = originalEnrichTripMovement
-    }
-    const savedGapTrip = (await ShiftTripRepository.getTripsForShift(shift.id)).find(item => item.id === gapTrip.id)
-    const gapProvenance = savedGapTrip?.tripKmProvenance
-    if (savedGapTrip?.tripKmAuthority !== 'GPS_TRACE_INCOMPLETE') throw new Error('Saved ride did not persist GPS_TRACE_INCOMPLETE authority')
-    if (gapProvenance?.gpsRecordingStatus !== 'INCOMPLETE' || gapProvenance?.recordingGapDetected !== true) throw new Error('Saved ride did not persist its incomplete-recording marker')
-    if (gapProvenance?.incompleteKmSegments?.length !== 1 || gapProvenance.incompleteKmSegments[0].status !== 'UNRESOLVED') throw new Error('Unroutable GPS outage must remain an unresolved segment')
-    if (!(gapProvenance.knownDistanceKm > 0) || gapProvenance.estimatedGapDistanceKm !== 0 || gapProvenance.unresolvedGapCount !== 1) throw new Error('Known ride sections and unresolved gap accounting diverged')
-    if (!(savedGapTrip.tripKm > 0 && savedGapTrip.tripKm < 5)) throw new Error('Saved trip KM appears to include the straight-line outage chord')
-    if (savedGapTrip.roadMatchedGeometry !== null || (savedGapTrip.traceGeometry || []).length !== 0) throw new Error('Saved ride must not draw a continuous route across the GPS outage')
+    const endpoint = savedGapTrip?.tripEndLocation
+    if (!endpoint || !Number.isFinite(Number(endpoint.latitude)) || !Number.isFinite(Number(endpoint.longitude))) throw new Error('Completed ride did not persist its one-shot GPS endpoint coordinates')
+    if (!Number.isFinite(Date.parse(endpoint.capturedAt))) throw new Error('Completed ride endpoint is missing its actual GPS fix timestamp')
+    const tracePoints = await LocationRepository.forEntity('TRIP', gapTrip.id)
+    if (tracePoints.some(point => point.eventType === 'PASSENGER_RIDE_TRACE')) throw new Error('Active workflow unexpectedly persisted a continuous passenger GPS trace')
+    if (savedGapTrip.tripKm !== 0) throw new Error('Boundary GPS snapshot must not alter manually entered trip kilometres')
 
     const movementReconciliation = {
       reconciliationStatus: 'RECONCILED',
