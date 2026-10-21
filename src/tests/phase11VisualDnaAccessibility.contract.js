@@ -3,7 +3,6 @@ import fs from 'node:fs'
 
 const css = fs.readFileSync('src/styles/kfe-ui.css','utf8')
 const shell = fs.readFileSync('src/components/shell/KfeShell.vue','utf8')
-const gps = fs.readFileSync('src/application/location/gpsStatusService.js','utf8')
 const dna = fs.readFileSync('docs/UI-UX-SHELL-CONTRACT.md','utf8')
 
 for (const token of ['--kfe-ui-bg','--kfe-ui-surface','--kfe-ui-text','--kfe-ui-border','--kfe-ui-accent','--kfe-success','--kfe-warning','--kfe-danger','--kfe-touch','--kfe-space-1','--kfe-space-2','--kfe-space-3','--kfe-space-4','--kfe-space-5','--kfe-space-6','--kfe-space-7']) {
@@ -24,12 +23,6 @@ assert.match(shell,/aria-label="Work"/)
 assert.match(shell,/aria-label="Timeline"/)
 assert.match(shell,/aria-label="Performance"/)
 assert.match(shell,/aria-label="Admin"/)
-assert.match(gps,/getCurrentPosition/)
-assert.doesNotMatch(gps,/watchPosition/)
-assert.match(gps,/enableHighAccuracy:\s*false/)
-assert.doesNotMatch(gps,/setInterval|refreshTimer|60000/)
-assert.match(shell,/void checkGps\(\)/)
-assert.doesNotMatch(shell,/startGpsStatusMonitoring/)
-assert.match(shell,/gpsStatusService\.js/)
+assert.doesNotMatch(shell,/header-gps|gpsStatusService|checkGps|gpsState/)
 
 console.log('KFE Phase 11 Visual DNA, accessibility, responsive and shell contract: PASS')

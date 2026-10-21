@@ -6,10 +6,8 @@ const exists = path => fs.existsSync(path)
 
 const manifest = read('android/app/src/main/AndroidManifest.xml')
 const mainActivity = read('android/app/src/main/java/com/kanishka/pwa/MainActivity.java')
-const gpsService = read('android/app/src/main/java/com/kanishka/pwa/KfeNativeGpsService.java')
 const overlayService = read('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java')
 const actionsPlugin = read('android/app/src/main/java/com/kanishka/pwa/KfeNativeWorkActionsPlugin.java')
-const gpsPlugin = read('android/app/src/main/java/com/kanishka/pwa/KfeNativeGpsPlugin.java')
 const workView = read('src/views/WorkModuleView.vue')
 const adminView = read('src/views/AdminView.vue')
 const workPorts = read('src/application/work/workRuntimePorts.js')
@@ -36,15 +34,17 @@ assert.doesNotMatch(gradle, /capacitor-local-notifications/)
 assert.doesNotMatch(capacitorBuildGradle, /capacitor-local-notifications/)
 assert.doesNotMatch(capacitorSettings, /capacitor-local-notifications/)
 
-// Android foreground-service notices remain, separate from Work actions.
+// The overlay foreground service remains for durable Work controls; GPS services are removed.
 assert.match(manifest, /android\.permission\.FOREGROUND_SERVICE/)
-assert.doesNotMatch(manifest, /FOREGROUND_SERVICE_LOCATION|ACCESS_BACKGROUND_LOCATION|\.KfeNativeGpsService/)
+assert.doesNotMatch(manifest, /FOREGROUND_SERVICE_LOCATION|ACCESS_FINE_LOCATION|ACCESS_COARSE_LOCATION|ACCESS_BACKGROUND_LOCATION|\.KfeNativeGpsService/)
+assert.equal(exists('android/app/src/main/java/com/kanishka/pwa/KfeNativeGpsService.java'), false)
+assert.equal(exists('android/app/src/main/java/com/kanishka/pwa/KfeNativeGpsPlugin.java'), false)
 assert.match(manifest, /android\.permission\.FOREGROUND_SERVICE_SPECIAL_USE/)
 assert.match(manifest, /android\.permission\.POST_NOTIFICATIONS/)
 assert.match(overlayService, /startForeground\(NOTIFICATION_ID,buildNotification\(\)\)/)
 assert.match(overlayService, /KFE driver controls are active in the background/)
 assert.doesNotMatch(overlayService, /refreshPersistentNotification/)
-assert.doesNotMatch(overlayService, /GOING TO PICKUP|PICKUP IN PROGRESS|TRIP ACTIVE|TRIP COMPLETED|gpsIndicator|Dead KM|Trips/)
+assert.doesNotMatch(overlayService, /GOING TO PICKUP|PICKUP IN PROGRESS|TRIP ACTIVE|TRIP COMPLETED|gpsIndicator|Dead KM|Trips|captureOneShotTripBoundary|persistOneShotTripLocation/)
 
 // Overlay actions retain their own durable bridge and do not route through notifications.
 assert.match(mainActivity, /registerPlugin\(KfeNativeWorkActionsPlugin\.class\)/)
@@ -74,6 +74,5 @@ assert.match(workView, /removeEventListener\('visibilitychange', replayFailedNat
 assert.match(workView, /window\.addEventListener\('pageshow', replayFailedNativeActions\)/)
 assert.match(workView, /window\.removeEventListener\('pageshow', replayFailedNativeActions\)/)
 assert.doesNotMatch(overlayLifecycle, /notificationPhase/)
-assert.doesNotMatch(gpsPlugin, /kfe_ride_actions/)
 
 console.log('KFE native Work action separation contract: PASS')

@@ -125,17 +125,6 @@ scenario('I2', () => {
   assert.equal(day3.gapKm, 1)
 })
 
-// J6/G2/G3/G4 — GPS state machine and degraded operation are validated by source contract.
-scenario('G2/G3/G4', () => {
-  const gps = read('services/locationService.js')
-  assert.match(gps, /setState\(state\)/)
-  assert.match(gps, /WAITING/)
-  assert.match(gps, /TRIP_ACTIVE/)
-  assert.match(gps, /runHandlerSafely/)
-  assert.match(gps, /handler failed; cadence will continue/)
-  assert.match(gps, /resolve\(null\)/)
-})
-
 // C/D/E/F — canonical convergence and persistence/recovery wiring.
 scenario('C1/C2/C3/C4/C5/D1/D2/E1/E2/E3/F1/F2/F4/F5', () => {
   assertSource('repositories/shiftTripRepository.js', 'transitionTrip(record, status, data)', 'Trip transitions must use canonical lifecycle')
@@ -177,7 +166,7 @@ scenario('K1/K2/K3/K4/K5/K6', () => {
   assert.match(work, /Personal KM/); assert.match(work, /Dead KM/); assert.match(work, /CANCEL TRIP/)
   assert.doesNotMatch(work, /SHIFT REVIEW|Trip fares not entered|ALL REVENUE CAPTURED/, 'End Shift must not expose the old reconciliation/review stages.')
   assert.equal((work.match(/class="swipe(?:\s|")[^"]*"|class="[^"]*\sswipe(?:\s|")[^"]*"/g) || []).length, 1)
-  assert.match(shell, /Kanishka Enterprises/); assert.match(shell, /header-gps/); assert.match(shell, /gpsState/)
+  assert.match(shell, /Kanishka Enterprises/); assert.doesNotMatch(shell, /header-gps|gpsState|checkGps/)
   assert.doesNotMatch(shell, /Fleet ERP · KFE 2\.0/); assert.doesNotMatch(shell, /Local-first/)
   assert.match(overlay, /ACTION_UPDATE/); assert.match(overlay, /START_RIDE/); assert.match(overlay, /END_RIDE/)
 })
@@ -264,7 +253,6 @@ const deviceOnly = [
   'C4/C5 real Android overlay/background/bubble/minimize/reopen',
   'F2 force-stop/process death and native resume behavior',
   'F3 lock/unlock',
-  'G1/G2/G3/G4 real Android GPS hardware and permission prompts',
   'real touch/gesture behavior and device-specific rendering',
 ]
 console.log(`DEFERRED_DEVICE_GATE: ${deviceOnly.join(' | ')}`)

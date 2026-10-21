@@ -19,7 +19,6 @@ for (const pattern of [/from\s+['"][^'"]*\/domain\//, /from\s+['"][^'"]*\/reposi
   if (pattern.test(shellScript)) violations.push('Shell boundary violation: ' + pattern)
 }
 assert.match(shell, /route\.meta\?\.shell/)
-assert.match(shell, /gpsStatusService\.js/)
 
 // 3B — Shared UI primitives cannot depend on screen/domain/application layers.
 for (const file of readFiles(path.join(srcRoot, 'components/ui'))) {
