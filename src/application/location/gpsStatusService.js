@@ -1,7 +1,6 @@
 const listeners = new Set()
 
 let state = 'checking'
-let refreshTimer = null
 
 const labels = {
   connected: 'GPS connected',
@@ -68,19 +67,4 @@ export async function checkGps({ requestPermission = false } = {}) {
       { enableHighAccuracy: false, maximumAge: 30000, timeout: 10000 }
     )
   })
-}
-
-export function startGpsStatusMonitoring() {
-  if (refreshTimer !== null) return stopGpsStatusMonitoring
-
-  void checkGps()
-  refreshTimer = window.setInterval(() => { void checkGps() }, 60000)
-  return stopGpsStatusMonitoring
-}
-
-export function stopGpsStatusMonitoring() {
-  if (refreshTimer !== null) {
-    window.clearInterval(refreshTimer)
-    refreshTimer = null
-  }
 }
