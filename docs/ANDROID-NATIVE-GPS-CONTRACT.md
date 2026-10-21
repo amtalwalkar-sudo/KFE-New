@@ -1,3 +1,5 @@
+> **Superseded 2026-10-22:** GPS capture/tracking and Valhalla routing have been removed from the active KFE runtime. This document is retained as historical audit context only; do not use it as an implementation or release contract.
+
 # Android Trip-Boundary GPS Contract
 
 **Active scope (2026-10-21): one-shot GPS snapshots only.** This contract supersedes older continuous-trace requirements.

@@ -10,7 +10,6 @@ import { BackupService } from '../application/backup/backupService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { getKfeReferenceNow, istDateKey } from '../domain/time/ist.js'
 import { deriveLoanPosition, calculatePrepaymentEstimate, paymentAllocationPreview } from '../domain/finance/loanEngine.js'
-import { OfflineMapService } from '../infrastructure/location/offlineMapService.js'
 import CalculationsView from './CalculationsView.vue'
 
 const items=[
@@ -27,7 +26,7 @@ const items=[
  {key:'maintenanceRate',category:'TARGET',title:'Maintenance per KM',icon:'KM'}
 ]
 const categories=[...new Set(items.map(x=>x.category))]
-const settingsMenu=[{key:'backup',title:'Backup & Restore',icon:'↥'},{key:'application',title:'Application Settings',icon:'⚙'},{key:'reset',title:'Data Reset',icon:'⚠'}]
+
 const selected=ref(null),settingsOpen=ref(false),settingsSelected=ref('backup'),masterSelected=ref(null)
 const records=ref([]),all=ref({vehicle:[],driver:[],loan:[],compliance:[],maintenance:[],driverTarget:[],breakEvenInputs:[],loanPayment:[],prepayment:[],settlement:[]})
 const performanceSnapshot=ref(null),loading=ref(false),saving=ref(false),error=ref(''),notice=ref('')
@@ -83,12 +82,6 @@ const settlementFields=[
  {key:'referenceNumber',label:'Payment reference',type:'text',section:'Payment reference'},
  {key:'notes',label:'Notes',type:'textarea',section:'Additional context'}
 ]
-const offlineMapStatus=ref({supported:false,installed:false,manifestAvailable:false,regionId:OfflineMapService.regionId,version:'',latestVersion:'',bytesInstalled:0,bytesRequired:0,bytesRequiredForUpdate:0,bytesAvailable:null,mapAttribution:'© OpenStreetMap contributors'})
-const selectedOfflineMapRegionId=ref(OfflineMapService.regionId)
-const offlineMapBusy=ref(false),offlineMapProgress=ref(0),offlineMapError=ref(''),offlineMapNotice=ref('')
-const formatBytes=value=>{const n=Number(value);if(!Number.isFinite(n)||n<0)return '—';return n>=1024**3?`${(n/1024**3).toFixed(2)} GB`:`${(n/1024**2).toFixed(0)} MB`}
-async function refreshOfflineMapStatus(){try{offlineMapStatus.value=await OfflineMapService.status(selectedOfflineMapRegionId.value);offlineMapError.value=''}catch(e){offlineMapError.value=e?.message||'Unable to read offline map status.'}}
-async function startOfflineMapDownload(){if(offlineMapBusy.value)return;offlineMapBusy.value=true;offlineMapProgress.value=0;offlineMapError.value='';offlineMapNotice.value='';let handles=[];try{handles.push(await OfflineMapService.addListener('downloadProgress',event=>{offlineMapProgress.value=Number(event?.percent)||0}));handles.push(await OfflineMapService.addListener('downloadComplete',async event=>{offlineMapBusy.value=false;offlineMapProgress.value=100;offlineMapNotice.value=`Offline maps updated to version ${event?.version||'latest'}.`;await refreshOfflineMapStatus();for(const h of handles)await h.remove?.()}));handles.push(await OfflineMapService.addListener('downloadFailed',async event=>{offlineMapBusy.value=false;offlineMapError.value=event?.message||'Offline map download failed.';for(const h of handles)await h.remove?.()}));await OfflineMapService.downloadUpdate(selectedOfflineMapRegionId.value)}catch(e){offlineMapBusy.value=false;offlineMapError.value=e?.message||'Offline map download could not start.';for(const h of handles)await h.remove?.()}}
 const money=v=>Number.isFinite(Number(v))?'₹'+Number(v).toLocaleString('en-IN',{maximumFractionDigits:2}):'—'
 const clone=v=>structuredClone(toRaw(v))
 const live=xs=>(xs||[]).filter(x=>!x?.deletedAt&&!x?.deleted)
@@ -188,7 +181,7 @@ function backMasterList(){clearMessages();masterSelected.value=null;formOpen.val
 function masterFieldValue(field,record){const v=record?.values?.[field.key];if(v===undefined||v===null||v==='')return '—';if(field.type==='checkbox')return v?'Yes':'No';if(field.type==='select'){if(field.key==='vehicleId')return label('vehicle',all.value.vehicle.find(x=>x.id===v));if(field.key==='driverId')return label('driver',all.value.driver.find(x=>x.id===v));const opts=field.options||[];const found=opts.find(x=>x?.value===v);return found?.label||v}return String(v)}
 function back(){selected.value=null;settingsOpen.value=false;formOpen.value=false;editing.value=null;draft.value={};closeAction();clearMessages()}
 function openSettings(){clearMessages();selected.value=null;settingsOpen.value=true}
-function chooseSetting(key){settingsSelected.value=key;clearMessages();if(key==='application')void refreshOfflineMapStatus()}
+function chooseSetting(key){settingsSelected.value=key;clearMessages()}
 function add(){clearMessages();formErrors.value={};editing.value=null;draft.value=Object.fromEntries((currentDefinition.value?.fields||[]).map(field=>[field.key,field.defaultValue]));formOpen.value=true}
 function edit(record){formErrors.value={};editing.value=record.id;draft.value=clone(record.values||{});formOpen.value=true}
 function updateDraft(v){draft.value={...v}}
@@ -241,7 +234,7 @@ async function recordPrepayment(){if(!prepaymentEstimate.value?.available||!prep
 async function remove(record){if(!confirm('Delete this record? Related records may prevent deletion.'))return;clearMessages();loading.value=true;try{await AdminService.remove(selected.value,record.id);notice.value='Record deleted.';await load()}catch(e){error.value=e.message||'Delete failed.'}finally{loading.value=false}}
 async function resetData(){if(!confirm('Reset all KFE data? Create a backup first if needed.'))return;if(!confirm('Final confirmation: permanently delete all current KFE records?'))return;loading.value=true;clearMessages();try{await BackupService.resetData();notice.value='All canonical KFE data has been reset.'}catch(e){error.value=e.message||'Data reset failed.'}finally{loading.value=false}}
 async function load(){loading.value=true;error.value='';try{for(const k of Object.keys(all.value))all.value[k]=await AdminService.list(k);records.value=selected.value&&!['prepayment','driverTarget','maintenanceRate','ledger','calculations'].includes(selected.value)?await AdminService.list(selected.value):[];performanceSnapshot.value=await PerformanceService.getSnapshot()}catch(e){error.value=e.message||'Unable to load Admin data.'}finally{loading.value=false}}
-onMounted(()=>{load();void refreshOfflineMapStatus()})
+onMounted(()=>{load()})
 </script>
 
 <template>
@@ -271,13 +264,7 @@ onMounted(()=>{load();void refreshOfflineMapStatus()})
 </template>
 
 <template v-else-if="settingsOpen">
-<section class="settings-screen"><div class="settings-menu"><button v-for="item in settingsMenu" :key="item.key" class="settings-item" :class="{active:settingsSelected===item.key}" @click="chooseSetting(item.key)"><span>{{item.icon}}</span><strong>{{item.title}}</strong><span>›</span></button></div><section v-if="settingsSelected==='backup'" class="settings-panel"><h2>Backup &amp; Restore</h2><BackupRestorePanel/></section><section v-else-if="settingsSelected==='application'" class="settings-panel"><h2>Application Settings</h2>
-<label class="offline-map-region-picker">Offline coverage area<select v-model="selectedOfflineMapRegionId" :disabled="offlineMapBusy" @change="refreshOfflineMapStatus"><option v-for="region in (offlineMapStatus.availableRegions||[])" :key="region.regionId" :value="region.regionId">{{region.region}} · {{formatBytes(region.sizeBytes)}}</option><option v-if="!(offlineMapStatus.availableRegions||[]).length" :value="OfflineMapService.regionId">Mumbai · Pune · Nashik · Alibag</option></select></label>
-<div class="settings-option-row offline-map-option"><div><strong>Download / Update Offline Maps</strong><small>Standard road coverage: Mumbai, Pune, Nashik and Alibag, including connecting roads. Map files stay in native app storage and are excluded from business backups.</small><small v-if="offlineMapStatus.installed">Selected area installed · version {{offlineMapStatus.installedVersion||offlineMapStatus.version||'unknown'}} · {{formatBytes(offlineMapStatus.bytesInstalled)}}</small><small v-else-if="offlineMapStatus.installedRegionId">Another area is installed ({{offlineMapStatus.installedRegion||offlineMapStatus.installedRegionId}}); this area's package replaces it only after verification.</small><small v-else>No offline road map is installed on this phone.</small><small v-if="offlineMapStatus.manifestAvailable">Latest version {{offlineMapStatus.latestVersion}} · Download size {{formatBytes(offlineMapStatus.bytesRequired)}}</small><small v-if="offlineMapStatus.manifestAvailable">Free space required for safe download/update: {{formatBytes(offlineMapStatus.bytesRequiredForUpdate)}}</small><small v-if="offlineMapStatus.bytesAvailable!==null">Available app storage: {{formatBytes(offlineMapStatus.bytesAvailable)}}</small><small v-if="offlineMapStatus.manifestError">{{offlineMapStatus.manifestError}}</small><small>© OpenStreetMap contributors · {{offlineMapStatus.mapAttribution||'ODbL map data'}}</small></div><button class="primary" type="button" :disabled="offlineMapBusy||!offlineMapStatus.supported||(!offlineMapStatus.manifestAvailable&&!offlineMapStatus.installed)" @click="startOfflineMapDownload">{{offlineMapBusy?'Downloading…':offlineMapStatus.installed?'Update maps':'Download maps'}}</button></div>
-<div v-if="offlineMapBusy" class="offline-map-progress" role="status" aria-live="polite"><div class="offline-map-progress-track"><div class="offline-map-progress-fill" :style="{width:offlineMapProgress+'%'}"></div></div><small>{{offlineMapProgress}}% · Download and checksum verification</small></div>
-<p v-if="!offlineMapStatus.supported" class="rule-note">Map downloads and local matching are available only in the native Android app. This browser session cannot install the native engine.</p>
-<p v-if="offlineMapError" class="message error">{{offlineMapError}}</p><p v-if="offlineMapNotice" class="message notice">✓ {{offlineMapNotice}}</p><p class="rule-note">Downloads are verified before activation. Failed updates leave the previous installed map intact. GPS evidence and business records are not deleted when maps are updated or removed.</p>
-<button type="button" class="secondary-button" :disabled="offlineMapBusy" @click="refreshOfflineMapStatus">Refresh map status</button></section><section v-else class="settings-panel"><h2>Data Reset</h2><p>This permanently clears canonical KFE business records.</p><button class="danger-button" :disabled="loading" @click="resetData">Reset all data</button></section></section>
+<section class="settings-screen"><div class="settings-menu"><button v-for="item in settingsMenu" :key="item.key" class="settings-item" :class="{active:settingsSelected===item.key}" @click="chooseSetting(item.key)"><span>{{item.icon}}</span><strong>{{item.title}}</strong><span>›</span></button></div><section v-if="settingsSelected==='backup'" class="settings-panel"><h2>Backup &amp; Restore</h2><BackupRestorePanel/></section><section v-else class="settings-panel"><h2>Data Reset</h2><p>This permanently clears canonical KFE business records.</p><button class="danger-button" :disabled="loading" @click="resetData">Reset all data</button></section></section>
 </template>
 
 <template v-else-if="selected==='calculations'">

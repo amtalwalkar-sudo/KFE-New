@@ -21,10 +21,8 @@ const overlayLifecycle = read('infrastructure/android/androidOverlayLifecycle.js
 const nativeOverlay = readRepo('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java')
 const nativeWorkActions = readRepo('android/app/src/main/java/com/kanishka/pwa/KfeNativeWorkActionsPlugin.java')
 const nativeEvents = readRepo('android/app/src/main/java/com/kanishka/pwa/KfeNativeEventStore.java')
-const nativeGps = readRepo('android/app/src/main/java/com/kanishka/pwa/KfeNativeGpsService.java')
 const lifecycleContract = readRepo('docs/KFE-OPERATIONAL-LIFECYCLE-CONTRACT.md')
 const dataContract = readRepo('docs/KFE-CANONICAL-DATA-CONTRACT.md')
-const gpsContract = readRepo('docs/ANDROID-NATIVE-GPS-CONTRACT.md')
 const authorityMap = readRepo('KFE-AUTHORITY-MAP.md')
 const matrix = readRepo('docs/KFE-END-TO-END-CONFORMANCE-MATRIX.md')
 const runAll = read('tests/runAllContracts.js')
@@ -71,7 +69,6 @@ assert.equal(deriveWorkCockpitState({ shift, trip }).state, WORK_COCKPIT_STATES.
 trip = transitionTrip(trip, TRIP_STATES.COMPLETED, {
   tripEndAt: '2026-10-03T08:30:00.000Z',
   tripKm: 12.4,
-  tripKmAuthority: 'GPS_ESTIMATE'
 })
 assert.equal(trip.id, 'trip-1')
 assert.equal(trip.status, TRIP_STATES.COMPLETED)
@@ -92,7 +89,6 @@ assertIncludes(nativeOverlay, 'awaitingEventId', 'Native overlay must retain com
 assertIncludes(nativeOverlay, 'awaitingTripId', 'Native overlay must retain Trip identity while waiting.')
 assertIncludes(nativeOverlay, 'pendingFareTripId', 'Fare recovery must retain the completed Trip identity.')
 assertIncludes(nativeOverlay, 'if("END_RIDE".equals(stage)){ pendingFareTripId=tripId;', 'END TRIP acknowledgement must bind fare to the same Trip ID.')
-assertIncludes(nativeGps, 'activeTripId.equals(requestedTripId)', 'Native GPS stop must reject a stale command for another active Trip.')
 assertIncludes(repository, 'transitionTrip(record, status, data)', 'Terminal Trip transitions must use the canonical lifecycle function.')
 assert.equal(canTransitionTrip(TRIP_STATES.COMPLETED, TRIP_STATES.CANCELLED), false)
 assert.equal(canTransitionTrip(TRIP_STATES.CANCELLED, TRIP_STATES.COMPLETED), false)
@@ -104,24 +100,23 @@ assertIncludes(dataContract, 'Trip.revenue', 'Trip revenue must remain supportin
 assertIncludes(workView, 'deriveLiveRevenue(trips)', 'PWA live revenue must be derived from saved Trip fares.')
 assertIncludes(nativeOverlay, 'canonical.commitTripForm(operationId,mode,trip)', 'Native fare/cancellation must commit the canonical Trip and Shift.revenue projection atomically.')
 assertIncludes(readRepo('android/app/src/main/java/com/kanishka/pwa/KfeCanonicalWorkStore.java'), 'double revenue = 0d;', 'Canonical native store must derive revenue from canonical Trip records in the same transaction.')
-assertIncludes(workService, "eventType: 'RIDE_START'", 'Start Trip records the passenger-ride boundary snapshot.')
-assertIncludes(workService, "eventType: 'END'", 'End Trip records the endpoint snapshot.')
-assertIncludes(gpsContract, 'one-shot GPS snapshots only', 'GPS contract must identify the active snapshot-only scope.')
-assertIncludes(gpsContract, 'Never start a continuous watch', 'GPS contract must prohibit continuous trace collection.')
-assert.ok(!nativeOverlay.includes('KfeNativeGpsService.start(') && !nativeOverlay.includes('KfeNativeGpsService.stop('), 'Active native overlay must not start or stop the retired continuous GPS trace service.')
+assertIncludes(workService, 'ShiftTripRepository.setTripStage', 'Start Trip must persist its canonical stage.')
+assertIncludes(workService, 'ShiftTripRepository.completeTrip', 'End Trip must persist its canonical terminal state.')
+assert.match(workService, /captureTripBoundaryLocation/, 'PWA trip start/end must request one-shot snapshots.')
+assert.match(nativeOverlay, /captureOneShotTripBoundary/, 'Native overlay must capture one-shot snapshots without PWA replay.')
+assert.doesNotMatch(workService + nativeOverlay, /captureLifecycleLocation|KfeNativeGpsService|ValhallaRoutingAdapter|routeTrace|requestLocationUpdates/, 'Continuous GPS and routing must be absent from lifecycle paths.')
 assert.ok(!/const totalRevenue = trips\.reduce/.test(overlayLifecycle), 'Overlay must not calculate ERP revenue by summing Trip fares.')
 
 // 8. Requirement → implementation → test → evidence coverage.
 assertIncludes(authorityMap, 'KFE-OPERATIONAL-LIFECYCLE-CONTRACT.md', 'Authority map must expose lifecycle authority.')
 assertIncludes(authorityMap, 'KFE-CANONICAL-DATA-CONTRACT.md', 'Authority map must expose canonical data authority.')
 assertIncludes(authorityMap, 'KFE_WORK_COCKPIT_BASELINE.md', 'Authority map must expose Work presentation authority.')
-assertIncludes(authorityMap, 'ANDROID-NATIVE-GPS-CONTRACT.md', 'Authority map must expose native GPS implementation boundary.')
+assertIncludes(readRepo('docs/GPS-VALHALLA-REMOVAL.md'), 'GPS tracking and Valhalla removal', 'Current architecture decision must record GPS/Valhalla removal.')
 assertIncludes(matrix, '### Level A — Repository/CI', 'Matrix must define Level A proof.')
 assertIncludes(matrix, '### Level B — Android emulator', 'Matrix must define Level B proof.')
 assertIncludes(matrix, '### Level C — Physical Android device', 'Matrix must define Level C proof.')
 
 // 9. Proof levels are explicitly separated.
-assertIncludes(gpsContract, 'Physical-device acceptance', 'Native GPS cannot be declared device-validated from source tests alone.')
 assertIncludes(matrix, 'A passing repository or emulator gate does **not** substitute for Level C evidence.', 'Release evidence must distinguish physical-device acceptance.')
 
 // 10. Golden Ride is one deterministic scenario, not disconnected screenshots.
@@ -150,7 +145,7 @@ console.log('✓ 2/11 Canonical command/repository path is enforced')
 console.log('✓ 3/11 PWA ↔ Android parity is source-gated')
 console.log('✓ 4/11 Golden Ride reaches the full operational lifecycle')
 console.log('✓ 5/11 Restart/interruption recovery is durable and replayable')
-console.log('✓ 6/11 Trip/event/GPS identity invariants are enforced')
+console.log('✓ 6/11 Trip/event identity invariants are enforced')
 console.log('✓ 7/11 Calculation authority remains canonical')
 console.log('✓ 8/11 Requirement-to-evidence coverage is explicit')
 console.log('✓ 9/11 Repository/emulator/physical proof levels are separated')

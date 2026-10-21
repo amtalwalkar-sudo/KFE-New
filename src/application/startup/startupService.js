@@ -62,7 +62,7 @@ export const initializeApplication = async () => {
   DiagnosticService.checkpoint('First-render infrastructure ready')
   void (async () => {
     try {
-      // One-shot trip-boundary GPS snapshots are saved immediately by the work
+      // Trip lifecycle and canonical work records are persisted by the work
       // lifecycle; startup does not collect or recover continuous movement traces.
       await BackupService.maybeDailyLocalBackup()
       DiagnosticService.checkpoint('Local backup lifecycle scheduled')

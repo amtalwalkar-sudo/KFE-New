@@ -1,10 +1,7 @@
 const requiredMethods = Object.freeze({
-  movementTrace: ['start', 'reset', 'getActiveSession', 'getPoints', 'stop', 'resumePersisted', 'pause', 'getDistanceKm'],
-  nativeGps: ['start', 'stop', 'readTrace', 'syncTrace', 'getPermissionStatus', 'openAppSettings', 'listTraceOwners'],
   nativeWorkActions: ['clearPendingAction', 'addListener', 'consumePendingActions', 'consumePendingAction', 'acknowledgeAction', 'recordActionFailure'],
   canonicalWork: ['putRecord', 'getRecord', 'listRecords', 'getOperation', 'isAvailable'],
   androidOverlay: ['hide', 'update', 'prepare', 'fareSaved', 'cancelSaved'],
-  routing: ['createRouter'],
   platform: ['getPlatform'],
 })
 
@@ -32,11 +29,8 @@ const createPortProxy = group => new Proxy(Object.create(null), {
 })
 
 export const WorkRuntimePorts = Object.freeze({
-  movementTrace: createPortProxy('movementTrace'),
-  nativeGps: createPortProxy('nativeGps'),
   nativeWorkActions: createPortProxy('nativeWorkActions'),
   canonicalWork: createPortProxy('canonicalWork'),
   androidOverlay: createPortProxy('androidOverlay'),
-  routing: createPortProxy('routing'),
   platform: createPortProxy('platform'),
 })

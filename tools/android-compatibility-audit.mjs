@@ -152,7 +152,7 @@ try {
     assert(after && after.y >= -2 && after.y < resizedHeight, profile.name + ': focused input is inaccessible after keyboard-like resize')
     evidence.push({ id: 'KEYBOARD.' + profile.name, result: 'PASS', before, after: { inputY: after.y, inputHeight: after.height } })
 
-    // 5/7/9: permission and GPS/network state transitions must not crash the app.
+    // 5/7/9: permission and network state transitions must not crash the app.
     await context.grantPermissions([])
     await page.reload({ waitUntil: 'domcontentloaded' })
     await page.locator('.work-canonical').waitFor()
@@ -160,8 +160,8 @@ try {
     await page.waitForTimeout(300)
     await context.setOffline(false)
     await page.waitForTimeout(300)
-    assert(errors.length === 0, profile.name + ': browser/runtime errors during GPS/permission/network transitions: ' + errors.join(' | '))
-    evidence.push({ id: 'ENV.' + profile.name, result: 'PASS', checks: ['geolocation-permission-revocation', 'offline-online-transition', 'no-runtime-errors'] })
+    assert(errors.length === 0, profile.name + ': browser/runtime errors during permission/network transitions: ' + errors.join(' | '))
+    evidence.push({ id: 'ENV.' + profile.name, result: 'PASS', checks: ['permission-revocation', 'offline-online-transition', 'no-runtime-errors'] })
 
     // 6: visibility/background-like transition must not create duplicate persisted shifts.
     await deleteDb(page)

@@ -1,28 +1,6 @@
 <script setup>
-import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import DiagnosticBubble from '../DiagnosticBubble.vue'
-import {
-  checkGps,
-  getGpsState,
-  getGpsStateLabel,
-  subscribeGpsStatus
-} from '../../application/location/gpsStatusService.js'
-
 const route = useRoute()
-const gpsState = ref(getGpsState())
-let unsubscribeGps = null
-
-onMounted(() => {
-  unsubscribeGps = subscribeGpsStatus(next => { gpsState.value = next })
-  void checkGps()
-})
-
-onBeforeUnmount(() => {
-  unsubscribeGps?.()
-})
-
-const refreshGps = () => checkGps({ requestPermission: true })
 </script>
 
 <template>
@@ -33,29 +11,7 @@ const refreshGps = () => checkGps({ requestPermission: true })
         <div class="brand-mark" aria-hidden="true">K</div>
         <div class="brand-copy"><strong>Kanishka Enterprises</strong></div>
       </div>
-      <button
-        class="header-gps"
-        :class="`is-${gpsState}`"
-        type="button"
-        :title="getGpsStateLabel()"
-        :aria-label="getGpsStateLabel()"
-        @click="refreshGps"
-      >
-        <svg class="gps-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <template v-if="gpsState === 'checking'">
-            <circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.8" />
-            <circle cx="12" cy="12" r="2.2" fill="currentColor" />
-          </template>
-          <template v-else-if="gpsState === 'connected'">
-            <path d="M12 3.2c-3.6 0-6.5 2.9-6.5 6.5 0 4.7 6.5 11.1 6.5 11.1s6.5-6.4 6.5-11.1c0-3.6-2.9-6.5-6.5-6.5Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/>
-            <circle cx="12" cy="9.7" r="2.2" fill="currentColor"/>
-          </template>
-          <template v-else>
-            <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8" />
-            <path d="M12 8v5M12 16.5v.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-          </template>
-        </svg>
-      </button>
+
     </header>
     <main id="main-content" class="content-scroll-area" tabindex="-1"><slot /></main>
     <DiagnosticBubble />

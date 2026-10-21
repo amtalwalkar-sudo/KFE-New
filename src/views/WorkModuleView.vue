@@ -399,15 +399,11 @@ async function goPickup(nativeTripId = '') {
   if (busy.value || !store.isOnline || store.isTripActive) return false
   busy.value = true
   try {
-    // Do not collect location while the driver is online but waiting for a ride.
-    // Start dead-movement GPS only after the driver explicitly begins Going to Pickup.
     const result = await store.beginPickup(operator.value || store.defaultOperator, nativeTripId || null)
     if (!result?.ok) {
       fail(result?.reason || 'Could not start pickup.')
       return false
     }
-    // A pickup is dead movement owned by this trip. Isolating its trace keeps the
-    // live dead-KM readout from inheriting all movement accumulated earlier in the shift.
     await syncOverlay()
     // Keep state transitions silent; the cockpit/action label reflects the new state.
     return true

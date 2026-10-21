@@ -6,8 +6,7 @@ const read = file => fs.readFileSync(file, 'utf8')
 const manifest = read('android/app/src/main/AndroidManifest.xml')
 const overlayPlugin = read('android/app/src/main/java/com/kanishka/pwa/KfeOverlayPlugin.java')
 const nativeActions = read('android/app/src/main/java/com/kanishka/pwa/KfeNativeWorkActionsPlugin.java')
-const nativeGpsPlugin = read('android/app/src/main/java/com/kanishka/pwa/KfeNativeGpsPlugin.java')
-const nativeGpsService = read('android/app/src/main/java/com/kanishka/pwa/KfeNativeGpsService.java')
+const nativeSystemPlugin = read('android/app/src/main/java/com/kanishka/pwa/KfeNativeSystemPlugin.java')
 const secureStorage = read('android/app/src/main/java/com/kanishka/pwa/KfeSecureStoragePlugin.java')
 const overlay = read('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java')
 const activity = read('android/app/src/main/java/com/kanishka/pwa/MainActivity.java')
@@ -17,12 +16,12 @@ for (const permission of [
   'android.permission.POST_NOTIFICATIONS',
   'android.permission.FOREGROUND_SERVICE',
   'android.permission.FOREGROUND_SERVICE_SPECIAL_USE',
-  'android.permission.ACCESS_FINE_LOCATION',
-  'android.permission.ACCESS_COARSE_LOCATION',
   'android.permission.SYSTEM_ALERT_WINDOW'
 ]) assert.match(manifest, new RegExp(permission.replaceAll('.', '\\.')))
 
-assert.doesNotMatch(manifest, /ACCESS_BACKGROUND_LOCATION|FOREGROUND_SERVICE_LOCATION|\.KfeNativeGpsService/)
+assert.match(manifest, /FOREGROUND_SERVICE_LOCATION/)
+assert.match(manifest, /foregroundServiceType="specialUse\|location"/)
+assert.doesNotMatch(manifest, /ACCESS_BACKGROUND_LOCATION|\.KfeNativeGpsService/)
 assert.doesNotMatch(manifest, /SCHEDULE_EXACT_ALARM/)
 assert.match(manifest, /android:allowBackup="false"/)
 assert.match(manifest, /android:fullBackupOnly="false"/)
@@ -42,6 +41,7 @@ assert.match(manifest, /<service[^>]+android:exported="false"/)
 assert.match(activity, /registerPlugin\(KfeSecureStoragePlugin\.class\)/)
 assert.match(activity, /registerPlugin\(KfeNativeWorkActionsPlugin\.class\)/)
 assert.match(activity, /registerPlugin\(KfeOverlayPlugin\.class\)/)
+assert.match(activity, /registerPlugin\(KfeNativeSystemPlugin\.class\)/)
 
 assert.match(overlayPlugin, /Settings\.canDrawOverlays/)
 assert.match(overlayPlugin, /ACTION_MANAGE_OVERLAY_PERMISSION/)
@@ -51,11 +51,14 @@ assert.match(overlay, /START_NOT_STICKY/)
 assert.match(androidOverlayLifecycle, /if \(!permission\.granted\)/)
 assert.match(androidOverlayLifecycle, /AndroidOverlay\.hide\(\)/)
 
-assert.match(nativeGpsPlugin, /POST_NOTIFICATIONS/)
-assert.match(nativeGpsPlugin, /requestPermissionForAlias\("notifications", call, "startupNotificationsPermissionCallback"\)/)
-assert.match(nativeGpsPlugin, /@PermissionCallback/)
-assert.match(nativeGpsPlugin, /areNotificationsEnabled\(\)/)
-assert.match(nativeGpsService, /startForeground\(/)
+assert.match(nativeSystemPlugin, /POST_NOTIFICATIONS/)
+assert.match(nativeSystemPlugin, /requestPermissionForAlias\("notifications", call, "startupNotificationsPermissionCallback"\)/)
+assert.match(nativeSystemPlugin, /@PermissionCallback/)
+assert.match(nativeSystemPlugin, /areNotificationsEnabled\(\)/)
+assert.match(nativeSystemPlugin, /ACCESS_FINE_LOCATION/)
+assert.match(nativeSystemPlugin, /ACCESS_COARSE_LOCATION/)
+assert.doesNotMatch(nativeSystemPlugin, /ACCESS_BACKGROUND_LOCATION|KfeNativeGpsService/)
+assert.match(activity, /registerPlugin\(KfeTripBoundaryLocationPlugin\.class\)/)
 assert.match(overlay, /startForeground\(NOTIFICATION_ID,buildNotification\(\)\)/)
 assert.doesNotMatch(nativeActions, /RemoteInput|AlarmManager|NotificationCompat\.Action/)
 assert.equal(fs.existsSync('android/app/src/main/java/com/kanishka/pwa/KfeRideNotificationsPlugin.java'), false)
