@@ -28,15 +28,31 @@ const installedCount = computed(() => regions.value.filter(x => x.status?.instal
 async function refresh() {
   loading.value = true
   error.value = ''
+  // Render all region cards immediately; don't hide the download controls
+  // behind a Promise.all barrier while native status/network checks run.
+  regions.value = regionIds.map(regionId => ({
+    regionId,
+    status: null,
+    region: regionLabel(regionId),
+    checking: true
+  }))
   try {
-    const result = await Promise.all(regionIds.map(async regionId => {
-      try { return { regionId, status: await OfflineMapService.status(regionId) } }
-      catch (e) { return { regionId, status: null, error: e?.message || 'Status unavailable' } }
-    }))
-    regions.value = result.map(item => ({
-      ...item,
-      region: item.status?.region || item.status?.availableRegions?.find(x => x.regionId === item.regionId)?.region || regionLabel(item.regionId)
-    }))
+    // Native status uses a shared temporary manifest file, so serialize these
+    // checks to avoid concurrent calls racing while reading/deleting it.
+    for (const regionId of regionIds) {
+      let item
+      try {
+        item = { regionId, status: await OfflineMapService.status(regionId) }
+      } catch (e) {
+        item = { regionId, status: null, error: e?.message || 'Status unavailable' }
+      }
+      const status = item.status
+      regions.value = regions.value.map(current => current.regionId === regionId ? ({
+        ...item,
+        region: status?.region || status?.availableRegions?.find(x => x.regionId === regionId)?.region || regionLabel(regionId),
+        checking: false
+      }) : current)
+    }
   } catch (e) {
     error.value = e?.message || 'Could not read offline map status.'
   } finally { loading.value = false }
@@ -132,6 +148,8 @@ onUnmounted(async () => { for (const handle of listeners) await handle?.remove?.
       </div>
 
       <p v-if="region.status?.installed" class="installed-note">Saved locally · {{ formatBytes(region.status.bytesInstalled) }} · installed {{ region.status.installedAt || 'date unavailable' }}</p>
+      <p v-if="region.checking" class="sub" role="status">Checking package catalog and phone storage…</p>
+      <p v-if="region.error" class="sub">{{ region.error }}. Refresh status to retry.</p>
       <p v-if="region.status?.manifestError" class="sub">{{ region.status.manifestError }}</p>
       <p v-if="region.status?.manifestAvailable && Number(region.status?.bytesAvailable) < Number(region.status?.bytesRequiredForUpdate)" class="sub storage-warning">Not enough free space for a safe download/update. Free up at least {{ formatBytes(Number(region.status.bytesRequiredForUpdate) - Number(region.status.bytesAvailable)) }} and refresh.</p>
       <p v-if="region.status?.installed && region.status?.latestVersion === region.status?.installedVersion" class="sub">This package is up to date.</p>
@@ -142,7 +160,7 @@ onUnmounted(async () => { for (const handle of listeners) await handle?.remove?.
       </div>
 
       <div class="actions">
-        <button class="primary" :disabled="!isAndroid || loading || !!busyRegion || !region.status?.manifestAvailable || Number(region.status?.bytesAvailable) < Number(region.status?.bytesRequiredForUpdate) || (region.status?.installed && region.status?.installedVersion === region.status?.latestVersion)" @click="download(region)">
+        <button class="primary" :disabled="!isAndroid || region.checking || !region.status || !!busyRegion || !region.status?.manifestAvailable || Number(region.status?.bytesAvailable) < Number(region.status?.bytesRequiredForUpdate) || (region.status?.installed && region.status?.installedVersion === region.status?.latestVersion)" @click="download(region)">
           {{ region.status?.installed ? 'Update package' : 'Download map' }}
         </button>
         <button v-if="region.status?.installed" class="secondary" :disabled="!!busyRegion" @click="remove(region)">Remove download</button>
