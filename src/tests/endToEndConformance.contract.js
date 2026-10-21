@@ -106,7 +106,9 @@ assertIncludes(nativeOverlay, 'canonical.commitTripForm(operationId,mode,trip)',
 assertIncludes(readRepo('android/app/src/main/java/com/kanishka/pwa/KfeCanonicalWorkStore.java'), 'double revenue = 0d;', 'Canonical native store must derive revenue from canonical Trip records in the same transaction.')
 assertIncludes(workService, "eventType: 'RIDE_START'", 'Start Trip records the passenger-ride boundary snapshot.')
 assertIncludes(workService, "eventType: 'END'", 'End Trip records the endpoint snapshot.')
-assertIncludes(gpsContract, 'LocationRepository', 'Native GPS must converge into the canonical location repository.')
+assertIncludes(gpsContract, 'one-shot GPS snapshots only', 'GPS contract must identify the active snapshot-only scope.')
+assertIncludes(gpsContract, 'Never start a continuous watch', 'GPS contract must prohibit continuous trace collection.')
+assert.ok(!/KfeNativeGpsService\\.(start|stop)\\(/.test(nativeOverlay), 'Active native overlay must not start or stop the retired continuous GPS trace service.')
 assert.ok(!/const totalRevenue = trips\.reduce/.test(overlayLifecycle), 'Overlay must not calculate ERP revenue by summing Trip fares.')
 
 // 8. Requirement → implementation → test → evidence coverage.
