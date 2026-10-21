@@ -3,7 +3,6 @@ import { createPinia } from 'pinia'
 import { installWorkRuntimeAdapter } from './infrastructure/work/workRuntimeAdapter.js'
 import App from './App.vue'
 import router from './router'
-import './styles/offline-maps.css'
 import './styles/kfe-ui.css'
 import './styles/forms.css'
 import './styles/work-cockpit-hud.css'
@@ -52,7 +51,6 @@ void (async () => {
       { configureAndroidOverlayLifecycle },
       { StartupService },
       { runStartupPermissionGate },
-      { WorkService },
       { startKfeThemeController },
       { Capacitor },
       { default: formSystem }
@@ -67,7 +65,6 @@ void (async () => {
       import('./infrastructure/android/androidOverlayLifecycle.js'),
       import('./application/startup/startupService.js'),
       import('./application/startup/permissionGate.js'),
-      import('./application/work/workService.js'),
       import('./presentation/theme/kfeThemeController.js'),
       import('@capacitor/core'),
       import('./presentation/forms/universalFormSystem.js').then(module => ({ default: module }))
@@ -75,7 +72,6 @@ void (async () => {
 
     BackupConfig.configureBackupConfig(createBackupConfigAdapter())
     CloudBackupLifecycle.configureCloudBackupScheduler(createCloudBackupScheduler())
-    CloudBackupLifecycle.configureBeforeCloudBackup(() => WorkService.recoverNativeGpsTraces())
     configureLocationProvider(captureCurrentLocation)
     StartupService.configureStartupPlatform(PlatformStartup)
     configureAndroidOverlayLifecycle()

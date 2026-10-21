@@ -25,12 +25,6 @@ public class KfeLifecycleRecoveryReceiver extends BroadcastReceiver {
         .commit();
 
     try {
-      KfeNativeGpsService.resumePersisted(context);
-    } catch (RuntimeException error) {
-      Log.e(TAG, "Unable to request persisted GPS recovery.", error);
-    }
-
-    try {
       KfeOverlayService.resumePersisted(context);
     } catch (RuntimeException error) {
       Log.e(TAG, "Unable to request persisted overlay recovery.", error);

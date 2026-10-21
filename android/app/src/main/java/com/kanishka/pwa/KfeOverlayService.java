@@ -73,7 +73,7 @@ public class KfeOverlayService extends Service {
   private boolean tollExpanded=false;
   private boolean parkingExpanded=false;
   private String theme="dark";
-  private String target="—", rides="0", liveKm="0.0 km", revenue="₹0", pendingTripId="", pendingFareTripId="", cancellationRevenue="₹0";
+  private String target="—", rides="0", revenue="₹0", pendingTripId="", pendingFareTripId="", cancellationRevenue="₹0";
   private String deadKm="—", gpsStatus="GPS status unavailable";
   private long tripStartAt=0L;
   private long phaseStartAt=0L;
@@ -110,13 +110,6 @@ public class KfeOverlayService extends Service {
     }
   };
 
-  static void updateLiveKm(String value){
-    KfeOverlayService current=instance;
-    if(current==null)return;
-    current.liveKm=value==null?"0.0 km":value;
-    if(current.overlay!=null)current.overlay.postInvalidate();
-  }
-
   static void updateDeadKm(String value){
     KfeOverlayService current=instance;
     if(current==null)return;
@@ -134,20 +127,6 @@ public class KfeOverlayService extends Service {
     if("GO_TO_PICKUP".equals(stage))return "DEAD_MOVEMENT_TRACE";
     if("START_RIDE".equals(stage))return "PASSENGER_RIDE_TRACE";
     return "";
-  }
-
-  static String resolveMovementLabel(String stage){
-    if("GO_TO_PICKUP".equals(stage)||"START_RIDE".equals(stage))return "DEAD KM";
-    if("END_RIDE".equals(stage))return "BUSINESS KM";
-    return "LIVE KM";
-  }
-
-  static String resolveMovementValue(String stage, String deadMovementKm, String businessKm){
-    // START_RIDE is the pickup phase (the next swipe starts the passenger leg).
-    // Select by the displayed phase, not by whichever collector updated last.
-    if("GO_TO_PICKUP".equals(stage)||"START_RIDE".equals(stage))
-      return deadMovementKm==null?"—":deadMovementKm;
-    return businessKm==null?"0.0 km":businessKm;
   }
 
   static String resolveActionLabel(String stage){
@@ -284,7 +263,6 @@ public class KfeOverlayService extends Service {
       target=root.optString("target","—");
       targetProgress=Math.max(0,Math.min(100,root.optInt("targetProgress",0)));
       rides=root.optString("rides","0");
-      liveKm=root.optString("liveKm","0.0 km");
       defaultOperator=root.optString("defaultOperator",defaultOperator);
       JSONObject swipeConfig=root.optJSONObject("swipeConfig");
       if(swipeConfig!=null){ swipeCommitThresholdPercent=Math.max(50,Math.min(95,swipeConfig.optInt("commitThresholdPercent",70))); swipeReturnDurationMs=Math.max(80,Math.min(500,swipeConfig.optInt("returnDurationMs",220))); try{swipePickupColor=Color.parseColor(swipeConfig.optString("pickupColor","#78A2FF"));swipeStartColor=Color.parseColor(swipeConfig.optString("startColor","#62D18A"));swipeEndColor=Color.parseColor(swipeConfig.optString("endColor","#FF8585"));}catch(Exception ignored){} }
@@ -1042,16 +1020,12 @@ public class KfeOverlayService extends Service {
       rect.set(8,barTop,w-8,barTop+barH);c.drawRoundRect(rect,dp(22),dp(22),paint);paint.clearShadowLayer();
       paint.setColor(Color.argb(55,Color.red(a),Color.green(a),Color.blue(a)));
       rect.set(8,barTop,(w-8)*progress+8,barTop+barH);c.drawRoundRect(rect,dp(22),dp(22),paint);
-      // Target, live distance, trip timer and revenue remain the compact primary metrics.
-      float[] cols={.14f,.38f,.62f,.86f};
-      String[] labels={"TARGET",resolveMovementLabel(actionStage),phaseLabel,"REVENUE"};
-      String movementValue=resolveMovementValue(actionStage,deadKm,liveKm);
-      String[] values={target,movementValue,formatPhaseTime(),revenue};
-      for(int i=0;i<4;i++){text(9,mutedColor(),true);center(c,labels[i],w*cols[i],barTop+dp(23));text(15,i==0?targetColor():(i==1?a:textColor()),true);center(c,values[i],w*cols[i],barTop+dp(44));}
+      // One-shot trip endpoint snapshots do not imply continuous GPS tracking.
+      float[] cols={.18f,.50f,.82f};
+      String[] labels={"TARGET",phaseLabel,"REVENUE"};
+      String[] values={target,formatPhaseTime(),revenue};
+      for(int i=0;i<3;i++){text(9,mutedColor(),true);center(c,labels[i],w*cols[i],barTop+dp(23));text(15,i==0?targetColor():textColor(),true);center(c,values[i],w*cols[i],barTop+dp(44));}
       if("END_RIDE".equals(actionStage)||"START_RIDE".equals(actionStage)||phaseStartAt>0L) postInvalidateDelayed(1000);
-      boolean gpsActive=KfeNativeGpsService.isAnyPersistedTracking(KfeOverlayService.this);
-      text(9,gpsActive?(dark()?Color.rgb(98,209,138):Color.rgb(22,128,60)):mutedColor(),true);
-      center(c,gpsActive?"GPS ●":"GPS ○",w*.20f,barTop+dp(62));
       if("CANCELLED".equals(actionStage)){
         text(11,a,true);center(c,"CANCELLED · "+cancellationRevenue,w*.50f,barTop+dp(77));
         text(10,mutedColor(),false);center(c,"Same trip · cancellation recorded",w*.50f,barTop+dp(95));
