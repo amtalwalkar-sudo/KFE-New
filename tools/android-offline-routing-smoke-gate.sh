@@ -104,10 +104,15 @@ test "$(adb shell run-as com.kanishka.pwa wc -c files/valhalla-trace-request.jso
 # loop after boot. Do not skip the UI test: capture diagnostics, perform one
 # controlled reboot, and retry the same visible-screen acceptance once.
 launch_and_wait_for_main_activity() {
-  local attempt
+  local attempt activity_state
   timeout 30s adb shell am start -n com.kanishka.pwa/.MainActivity || true
   for attempt in $(seq 1 45); do
-    if timeout 12s adb shell dumpsys activity activities 2>/dev/null | grep -q 'mResumedActivity.*com.kanishka.pwa/.MainActivity'; then
+    # dumpsys output differs by Android release: API 30 reports
+    # "ResumedActivity:" / "topResumedActivity=", while newer releases
+    # may report "mResumedActivity". Accept only a resumed KFE MainActivity,
+    # not merely a task that still exists in the activity history.
+    activity_state="$(timeout 12s adb shell dumpsys activity activities 2>/dev/null || true)"
+    if printf '%s\n' "$activity_state" | grep -Eq '(mResumedActivity|ResumedActivity|topResumedActivity).*com\.kanishka\.pwa/(\.MainActivity|com\.kanishka\.pwa\.MainActivity)'; then
       return 0
     fi
     sleep 2
