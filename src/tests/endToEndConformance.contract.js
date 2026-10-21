@@ -108,7 +108,7 @@ assertIncludes(workService, "eventType: 'RIDE_START'", 'Start Trip records the p
 assertIncludes(workService, "eventType: 'END'", 'End Trip records the endpoint snapshot.')
 assertIncludes(gpsContract, 'one-shot GPS snapshots only', 'GPS contract must identify the active snapshot-only scope.')
 assertIncludes(gpsContract, 'Never start a continuous watch', 'GPS contract must prohibit continuous trace collection.')
-assert.ok(!/KfeNativeGpsService\\.(start|stop)\\(/.test(nativeOverlay), 'Active native overlay must not start or stop the retired continuous GPS trace service.')
+assert.ok(!nativeOverlay.includes('KfeNativeGpsService.start(') && !nativeOverlay.includes('KfeNativeGpsService.stop('), 'Active native overlay must not start or stop the retired continuous GPS trace service.')
 assert.ok(!/const totalRevenue = trips\.reduce/.test(overlayLifecycle), 'Overlay must not calculate ERP revenue by summing Trip fares.')
 
 // 8. Requirement → implementation → test → evidence coverage.
