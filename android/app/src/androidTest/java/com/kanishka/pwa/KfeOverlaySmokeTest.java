@@ -21,6 +21,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 
 @RunWith(AndroidJUnit4.class)
 public class KfeOverlaySmokeTest {
