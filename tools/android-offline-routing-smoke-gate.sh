@@ -136,8 +136,19 @@ if ! launch_and_wait_for_main_activity; then
   # Some hosted-emulator framework failures reset the package database across
   # reboot. Never assume installed APKs survived: verify the target and runner,
   # reinstall from the exact build outputs if needed, and restore test fixtures.
-  if ! timeout 20s adb shell pm path com.kanishka.pwa 2>/dev/null | grep -q '^package:'; then
-    echo "KFE app package is absent after emulator recovery; reinstalling the exact build APKs."
+  app_package_present=false
+  if timeout 20s adb shell pm path com.kanishka.pwa 2>/dev/null | grep -q '^package:'; then
+    app_package_present=true
+  fi
+  # pm path alone is insufficient: a partially reset PackageManager can report
+  # an installed APK while resolve-activity cannot find MainActivity (the exact
+  # Error type 3 seen in run 293). Require the launch target itself to resolve.
+  app_activity_resolves=false
+  if timeout 20s adb shell cmd package resolve-activity --brief com.kanishka.pwa/.MainActivity 2>/dev/null | grep -Fq 'com.kanishka.pwa/.MainActivity'; then
+    app_activity_resolves=true
+  fi
+  if [ "$app_package_present" != true ] || [ "$app_activity_resolves" != true ]; then
+    echo "KFE package or MainActivity is absent from PackageManager after recovery; reinstalling exact build APKs."
     install_apk_with_retry android/app/build/outputs/apk/debug/app-debug.apk
     install_apk_with_retry android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
     adb shell pm grant com.kanishka.pwa android.permission.ACCESS_COARSE_LOCATION || true
