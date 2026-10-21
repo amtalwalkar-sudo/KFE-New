@@ -766,12 +766,13 @@ public class KfeOverlaySmokeTest {
         android.widget.Button driver = findButton(panel, "Driver cancellation");
         assertNotNull("Driver-facing passenger cancellation option must be visible", passenger);
         assertNotNull("Driver-facing driver cancellation option must be visible", driver);
-        assertEquals("Reason restoration must use the named reason panel, not a positional form child.",
-            panel.findViewWithTag("unused"), null);
         Field reasonPanelField = KfeOverlayService.class.getDeclaredField("cancelReasonPanel");
         reasonPanelField.setAccessible(true);
-        assertEquals("Named cancellation reason panel must point at the reason selector.",
-            panel.getChildAt(2), reasonPanelField.get(cancellationService));
+        Object reasonPanel = reasonPanelField.get(cancellationService);
+        assertNotNull("Named cancellation reason panel must be present.", reasonPanel);
+        assertEquals("Reason selector must remain a child of the form panel.", panel, ((android.view.View) reasonPanel).getParent());
+        assertEquals("Reason buttons must belong to the named selector.", reasonPanel, passenger.getParent());
+        assertEquals("Reason buttons must belong to the named selector.", reasonPanel, driver.getParent());
         Method restoreCancelDraft = KfeOverlayService.class.getDeclaredMethod("applyCancelDraft", JSONObject.class);
         restoreCancelDraft.setAccessible(true);
         restoreCancelDraft.invoke(cancellationService, new JSONObject().put("cancelReason", "DRIVER").put("cancelFare", ""));
