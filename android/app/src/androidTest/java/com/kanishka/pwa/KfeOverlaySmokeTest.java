@@ -636,6 +636,15 @@ public class KfeOverlaySmokeTest {
     assertTrue(KfeNativeTripFormRules.isValidCancellationReason("DRIVER"));
     assertTrue(!KfeNativeTripFormRules.isValidCancellationReason(""));
     assertTrue(!KfeNativeTripFormRules.isValidCancellationReason("UNKNOWN"));
+    JSONObject fareCommand=KfeNativeTripFormRules.buildFarePayload(" 425 "," 12.5 ","",true,false);
+    assertEquals("425",fareCommand.getString("fare"));
+    assertEquals("12.5",fareCommand.getString("toll"));
+    assertEquals("",fareCommand.getString("parking"));
+    assertEquals("EXCLUDED",fareCommand.getString("tollTreatment"));
+    assertEquals("INCLUDED",fareCommand.getString("parkingTreatment"));
+    JSONObject cancellationCommand=KfeNativeTripFormRules.buildCancellationPayload(" 0 ","PASSENGER");
+    assertEquals("0",cancellationCommand.getString("revenue"));
+    assertEquals("PASSENGER",cancellationCommand.getString("reason"));
 
     // This invocation runs after the PWA is force-stopped. Prevent WebView creation in this process.
     android.webkit.WebView.disableWebView();
