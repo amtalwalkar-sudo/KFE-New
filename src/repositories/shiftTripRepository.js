@@ -114,13 +114,7 @@ export const ShiftTripRepository = {
       tx.onabort = () => reject(tx.error || new Error('Atomic shift completion aborted.'))
     })
   },
-  async createTrip(data) { await ensureCanonicalReadBoundary(); const normalized = normalizeTripInput(data); if (!normalized.shiftId) throw new Error('shiftId is required for a Trip.'); const now = new Date().toISOString(); const record = { id: normalized.id || generateUUID(), shiftId: normalized.shiftId, operator: normalized.operator, tripStartAt: normalized.tripStartAt || null, tripEndAt: null, status: 'ACTIVE', tripStartLocation: normalized.tripStartLocation || null, tripEndLocation: null, tripKm: normalized.tripKm ?? null, tripKmAuthority: normalized.tripKm !== undefined ? 'MANUAL' : 'ESTIMATE', tripKmProvenance: normalized.tripKmProvenance ?? null, tripStage: normalized.tripStage || 'GOING_TO_PICKUP', toll: normalized.toll ?? 0, parking: normalized.parking ?? 0, tollTreatment: normalized.tollTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED', parkingTreatment: normalized.parkingTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED', revenue: normalized.revenue ?? null, revenueAuthority: normalized.revenue !== undefined ? 'SUPPORTING_ONLY' : 'SUPPORTING_ONLY', revenueProvenance: normalized.revenueProvenance ?? null, fareDetailsSkipped: false, cancelledRevenue: null, cancelReason: null, createdAt: now, updatedAt: now }; await atomic(['trips'], (_, m, a) => { _.objectStore('trips').put(record); saveMutation(m, a, record.id, 'TRIP', 'CREATE', record, now) }); return record },
-  async setTripStartLocation(id, location) {
-    return this._setTripLocation(id, location, 'tripStartLocation')
-  },
-  async setTripRideStartLocation(id, location, lifecycleAt = null) {
-    return this._setTripLocation(id, location, 'rideStartLocation', lifecycleAt)
-  },
+  async createTrip(data) { await ensureCanonicalReadBoundary(); const normalized = normalizeTripInput(data); if (!normalized.shiftId) throw new Error('shiftId is required for a Trip.'); const now = new Date().toISOString(); const record = { id: normalized.id || generateUUID(), shiftId: normalized.shiftId, operator: normalized.operator, tripStartAt: normalized.tripStartAt || null, tripEndAt: null, status: 'ACTIVE', tripKm: normalized.tripKm ?? null, tripKmAuthority: normalized.tripKm !== undefined ? 'MANUAL' : 'ESTIMATE', tripKmProvenance: normalized.tripKmProvenance ?? null, tripStage: normalized.tripStage || 'GOING_TO_PICKUP', toll: normalized.toll ?? 0, parking: normalized.parking ?? 0, tollTreatment: normalized.tollTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED', parkingTreatment: normalized.parkingTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED', revenue: normalized.revenue ?? null, revenueAuthority: normalized.revenue !== undefined ? 'SUPPORTING_ONLY' : 'SUPPORTING_ONLY', revenueProvenance: normalized.revenueProvenance ?? null, fareDetailsSkipped: false, cancelledRevenue: null, cancelReason: null, createdAt: now, updatedAt: now }; await atomic(['trips'], (_, m, a) => { _.objectStore('trips').put(record); saveMutation(m, a, record.id, 'TRIP', 'CREATE', record, now) }); return record },
   async setTripStage(id, stage) { await ensureCanonicalReadBoundary();
     if (!id || !stage) return false
     const db = await initializeCanonicalStorage(); const now = new Date().toISOString()
@@ -132,127 +126,13 @@ export const ShiftTripRepository = {
       tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: ['trips'], reason: 'trip:stage' }); resolve(updatedTrip || true) }; tx.onerror = () => reject(tx.error || new Error('Trip stage update failed.')); tx.onabort = () => reject(tx.error || new Error('Trip stage update aborted.'))
     })
   },
-  async updateTripLocationPlaceName(id, eventType, placeName) {
-    if (!id || !placeName) return false
-    const db = await initializeCanonicalStorage(); const now = new Date().toISOString()
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(['trips', 'pending_mutations', 'audit_history'], 'readwrite')
-      const trips = tx.objectStore('trips'); const mutations = tx.objectStore('pending_mutations'); const audit = tx.objectStore('audit_history')
-      const request = trips.get(id)
-      request.onsuccess = () => {
-        const trip = request.result
-        if (!trip) { try { tx.abort() } catch (_) {}; resolve(false); return }
-        const key = eventType === 'START' ? 'tripStartLocation' : eventType === 'END' || eventType === 'CANCELLED' ? 'tripEndLocation' : null
-        if (!key || !trip[key]) { try { tx.abort() } catch (_) {}; resolve(false); return }
-        trip[key] = { ...trip[key], placeName: String(placeName).trim() }
-        trip.updatedAt = now
-        trips.put(trip)
-        writeMutationAndAudit(mutations, audit, { entityId: trip.id, entityType: 'TRIP', action: 'UPDATE', payload: trip, createdAt: now })
-      }
-      request.onerror = () => reject(request.error || new Error('Trip lookup failed.'))
-      tx.oncomplete = () => resolve(true); tx.onerror = () => reject(tx.error || new Error('Trip place-name update failed.')); tx.onabort = () => reject(tx.error || new Error('Trip place-name update aborted.'))
-    })
-  },
-  async setTripEndLocation(id, location) {
-    return this._setTripLocation(id, location, 'tripEndLocation')
-  },
-  async _setTripLocation(id, location, field, lifecycleAt = null) { await ensureCanonicalReadBoundary();
-    if (!id || !location) return false
-    const db = await initializeCanonicalStorage()
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(['trips', 'pending_mutations', 'audit_history'], 'readwrite')
-      const trips = tx.objectStore('trips'); const mutations = tx.objectStore('pending_mutations'); const audit = tx.objectStore('audit_history')
-      const request = trips.get(id)
-      request.onsuccess = () => {
-        const record = request.result
-        if (!record || (['tripStartLocation', 'rideStartLocation'].includes(field) && record.status !== 'ACTIVE')) { try { tx.abort() } catch (_) {}; resolve(false); return }
-        const normalized = { latitude: Number(location.latitude), longitude: Number(location.longitude), accuracy: location.accuracy == null ? null : Number(location.accuracy), placeName: location.placeName || null, capturedAt: location.capturedAt || new Date().toISOString() }
-        if (!Number.isFinite(normalized.latitude) || !Number.isFinite(normalized.longitude)) { try { tx.abort() } catch (_) {}; resolve(false); return }
-        record[field] = normalized
-        if (field === 'rideStartLocation') { record.rideStartLocationEventAt = lifecycleAt || record.tripStartAt || null; record.rideStartLocationStatus = 'CAPTURED' }
-        if (field === 'tripEndLocation') record.tripEndLocationStatus = 'CAPTURED'
-        record.updatedAt = new Date().toISOString()
-        trips.put(record)
-        saveMutation(mutations, audit, record.id, 'TRIP', 'UPDATE', record, record.updatedAt)
-      }
-      request.onerror = () => reject(request.error || new Error('Trip location lookup failed.'))
-      tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: ['trips'], reason: 'trip:location' }); resolve(true) }
-      tx.onerror = () => reject(tx.error || new Error('Trip location update failed.'))
-      tx.onabort = () => { if (tx.error) reject(tx.error) }
-    })
-  },
   async completeTrip(data) { return this._finishTrip(data, 'COMPLETED') },
   async cancelTrip(data) { return this._finishTrip(data, 'CANCELLED') },
   async _finishTrip(data, status) { await ensureCanonicalReadBoundary();
     const db = await initializeCanonicalStorage(); return new Promise((resolve, reject) => {
       const tx = db.transaction(['shifts', 'trips', 'pending_mutations', 'audit_history'], 'readwrite'); const shifts = tx.objectStore('shifts'); const trips = tx.objectStore('trips'); const mutations = tx.objectStore('pending_mutations'); const audit = tx.objectStore('audit_history'); const request = trips.get(data.id)
-      request.onsuccess = () => { const record = request.result; if (!record) { reject(new Error('Trip not found.')); try { tx.abort() } catch (_) {}; return }; if (record.status === status && TERMINAL_STATES.has(status)) { resolve(true); try { tx.abort() } catch (_) {}; return }; if (record.status !== 'ACTIVE') { reject(new Error('Trip is not active.')); try { tx.abort() } catch (_) {}; return }; const now = new Date().toISOString(); const next = transitionTrip(record, status, data); next.tripEndAt = data.tripEndAt || record.tripEndAt || now; next.tripEndLocation = data.tripEndLocation || record.tripEndLocation || null; next.tripEndLocationStatus = next.tripEndLocation ? 'CAPTURED' : 'MISSING'; next.updatedAt = now; trips.put(next); saveMutation(mutations, audit, next.id, 'TRIP', 'UPDATE', next, now); const shiftRequest = shifts.get(next.shiftId); shiftRequest.onsuccess = () => { const shift = shiftRequest.result; if (!shift) return; const allTripsRequest = trips.getAll(); allTripsRequest.onsuccess = () => { const shiftTrips = allTripsRequest.result.filter(trip => trip.shiftId === shift.id); shift.revenue = deriveLiveRevenue(shiftTrips); shift.liveFareRevenue = shift.revenue; shift.revenueSource = 'TRIP_FARES'; shift.updatedAt = now; shifts.put(shift); saveMutation(mutations, audit, shift.id, 'SHIFT', 'UPDATE', shift, now) }; allTripsRequest.onerror = () => { try { tx.abort() } catch (_) {} } }; shiftRequest.onerror = () => { try { tx.abort() } catch (_) {} } }
+      request.onsuccess = () => { const record = request.result; if (!record) { reject(new Error('Trip not found.')); try { tx.abort() } catch (_) {}; return }; if (record.status === status && TERMINAL_STATES.has(status)) { resolve(true); try { tx.abort() } catch (_) {}; return }; if (record.status !== 'ACTIVE') { reject(new Error('Trip is not active.')); try { tx.abort() } catch (_) {}; return }; const now = new Date().toISOString(); const next = transitionTrip(record, status, data); next.tripEndAt = data.tripEndAt || record.tripEndAt || now; next.updatedAt = now; trips.put(next); saveMutation(mutations, audit, next.id, 'TRIP', 'UPDATE', next, now); const shiftRequest = shifts.get(next.shiftId); shiftRequest.onsuccess = () => { const shift = shiftRequest.result; if (!shift) return; const allTripsRequest = trips.getAll(); allTripsRequest.onsuccess = () => { const shiftTrips = allTripsRequest.result.filter(trip => trip.shiftId === shift.id); shift.revenue = deriveLiveRevenue(shiftTrips); shift.liveFareRevenue = shift.revenue; shift.revenueSource = 'TRIP_FARES'; shift.updatedAt = now; shifts.put(shift); saveMutation(mutations, audit, shift.id, 'SHIFT', 'UPDATE', shift, now) }; allTripsRequest.onerror = () => { try { tx.abort() } catch (_) {} } }; shiftRequest.onerror = () => { try { tx.abort() } catch (_) {} } }
       request.onerror = () => reject(request.error); tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: ['trips'], reason: `trip:${status}` }); resolve(true) }; tx.onerror = () => reject(tx.error || new Error('Trip update failed.')); tx.onabort = () => reject(tx.error || new Error('Trip update aborted.'))
-    })
-  },
-  async enrichTripMovement(data) { await ensureCanonicalReadBoundary();
-    const db = await initializeCanonicalStorage(); return new Promise((resolve, reject) => {
-      const tx = db.transaction(['trips', 'pending_mutations', 'audit_history'], 'readwrite')
-      const trips = tx.objectStore('trips'); const mutations = tx.objectStore('pending_mutations'); const audit = tx.objectStore('audit_history')
-      const request = trips.get(data.id)
-      request.onsuccess = () => {
-        const record = request.result
-        if (!record || record.status !== 'COMPLETED') { try { tx.abort() } catch (_) {}; resolve(false); return }
-        const now = new Date().toISOString()
-        if (data.tripKm !== undefined && Number.isFinite(Number(data.tripKm)) && Number(data.tripKm) >= 0) record.tripKm = Number(data.tripKm)
-        if (data.tripKmAuthority) record.tripKmAuthority = data.tripKmAuthority
-        if (data.tripKmProvenance !== undefined) record.tripKmProvenance = data.tripKmProvenance
-        if (data.roadMatchedGeometry !== undefined) record.roadMatchedGeometry = data.roadMatchedGeometry
-        if (data.traceGeometry !== undefined) record.traceGeometry = data.traceGeometry
-        record.updatedAt = now
-        trips.put(record)
-        saveMutation(mutations, audit, record.id, 'TRIP', 'UPDATE', record, now)
-      }
-      request.onerror = () => reject(request.error || new Error('Trip enrichment lookup failed.'))
-      tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: ['trips'], reason: 'trip:movement-enrichment' }); resolve(true) }
-      tx.onerror = () => reject(tx.error || new Error('Trip enrichment failed.'))
-      tx.onabort = () => reject(tx.error || new Error('Trip enrichment aborted.'))
-    })
-  },
-  async invalidateGpsTripMovement({ id, reason, traceQuality = {} } = {}) {
-    const db = await initializeCanonicalStorage()
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(['trips', 'pending_mutations', 'audit_history'], 'readwrite')
-      const trips = tx.objectStore('trips')
-      const mutations = tx.objectStore('pending_mutations')
-      const audit = tx.objectStore('audit_history')
-      const request = trips.get(id)
-      request.onsuccess = () => {
-        const record = request.result
-        if (!record || record.status !== 'COMPLETED' || !['GPS_LINE_TRACE', 'VALHALLA_ROAD_TRACE'].includes(record.tripKmAuthority)) {
-          try { tx.abort() } catch (_) {}
-          resolve(false)
-          return
-        }
-        const now = new Date().toISOString()
-        record.tripKm = null
-        record.tripKmAuthority = 'GPS_TRACE_INCOMPLETE'
-        record.tripKmProvenance = {
-          ...(record.tripKmProvenance || {}),
-          qualityStatus: 'INCOMPLETE',
-          qualityReason: reason || traceQuality.reason || 'GPS_TRACE_COVERAGE_UNVERIFIED',
-          gpsTracePoints: traceQuality.pointCount ?? record.tripKmProvenance?.gpsTracePoints ?? null,
-          maxObservedGapMs: traceQuality.maxObservedGapMs ?? null,
-          checkedAt: now
-        }
-        record.roadMatchedGeometry = null
-        record.traceGeometry = []
-        record.updatedAt = now
-        trips.put(record)
-        saveMutation(mutations, audit, record.id, 'TRIP', 'UPDATE', record, now)
-      }
-      request.onerror = () => reject(request.error || new Error('Trip GPS quality invalidation lookup failed.'))
-      tx.oncomplete = () => {
-        notifyCanonicalDataChanged({ stores: ['trips'], reason: 'trip:gps-trace-incomplete' })
-        resolve(true)
-      }
-      tx.onerror = () => reject(tx.error || new Error('Trip GPS quality invalidation failed.'))
-      tx.onabort = () => { if (tx.error) reject(tx.error); else resolve(false) }
     })
   },
   async updateTrip(data) { await ensureCanonicalReadBoundary();
