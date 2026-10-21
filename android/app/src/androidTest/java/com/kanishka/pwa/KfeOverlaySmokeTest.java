@@ -2,6 +2,7 @@ package com.kanishka.pwa;
 
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
@@ -645,6 +646,24 @@ public class KfeOverlaySmokeTest {
     JSONObject cancellationCommand=KfeNativeTripFormRules.buildCancellationPayload(" 0 ","PASSENGER");
     assertEquals("0",cancellationCommand.getString("revenue"));
     assertEquals("PASSENGER",cancellationCommand.getString("reason"));
+
+    android.content.SharedPreferences draftPrefs=context.getSharedPreferences("native-form-draft-boundary-test",Context.MODE_PRIVATE);
+    draftPrefs.edit().clear().commit();
+    KfeNativeTripFormDraftStore.save(draftPrefs,new KfeNativeTripFormDraftStore.Draft(
+        "FARE","425","12.5","", "PASSENGER",true,true,false,true,false));
+    KfeNativeTripFormDraftStore.Draft restoredDraft=KfeNativeTripFormDraftStore.load(draftPrefs);
+    assertEquals("FARE",restoredDraft.mode);
+    assertEquals("425",restoredDraft.fare);
+    assertEquals("12.5",restoredDraft.toll);
+    assertEquals("",restoredDraft.parking);
+    assertEquals("PASSENGER",restoredDraft.reason);
+    assertTrue(restoredDraft.cancelFormPwaSynchronized);
+    assertTrue(restoredDraft.tollExpanded);
+    assertTrue(restoredDraft.tollExcluded);
+    assertFalse(restoredDraft.parkingExpanded);
+    KfeNativeTripFormDraftStore.clear(draftPrefs);
+    assertFalse("Clearing a submitted/dismissed form must remove its saved draft.",draftPrefs.contains("formMode"));
+    draftPrefs.edit().clear().commit();
 
     // This invocation runs after the PWA is force-stopped. Prevent WebView creation in this process.
     android.webkit.WebView.disableWebView();
