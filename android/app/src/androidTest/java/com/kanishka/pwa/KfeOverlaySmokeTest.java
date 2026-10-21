@@ -623,6 +623,20 @@ public class KfeOverlaySmokeTest {
 
 
   @Test public void nativeOverlayCompletesFareAndCancellationUsingGesturesAndVisibleFormControlsWithoutPwaReplay() throws Exception {
+    // These domain rules are independently testable from the form widgets.
+    assertTrue(KfeNativeTripFormRules.isValidOptionalAmount(""));
+    assertTrue(KfeNativeTripFormRules.isValidOptionalAmount("  "));
+    assertTrue(KfeNativeTripFormRules.isValidOptionalAmount("0"));
+    assertTrue(KfeNativeTripFormRules.isValidOptionalAmount("1.25"));
+    assertTrue(!KfeNativeTripFormRules.isValidOptionalAmount("-0.01"));
+    assertTrue(!KfeNativeTripFormRules.isValidOptionalAmount("NaN"));
+    assertTrue(!KfeNativeTripFormRules.isValidOptionalAmount("Infinity"));
+    assertTrue(!KfeNativeTripFormRules.isValidOptionalAmount("abc"));
+    assertTrue(KfeNativeTripFormRules.isValidCancellationReason("PASSENGER"));
+    assertTrue(KfeNativeTripFormRules.isValidCancellationReason("DRIVER"));
+    assertTrue(!KfeNativeTripFormRules.isValidCancellationReason(""));
+    assertTrue(!KfeNativeTripFormRules.isValidCancellationReason("UNKNOWN"));
+
     // This invocation runs after the PWA is force-stopped. Prevent WebView creation in this process.
     android.webkit.WebView.disableWebView();
     clearPending();

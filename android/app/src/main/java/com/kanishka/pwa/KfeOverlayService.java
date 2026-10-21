@@ -748,16 +748,11 @@ public class KfeOverlayService extends Service {
     if(parkingInput!=null)parkingValue=parkingInput.getText().toString().trim();
     String actionTripId="FARE".equals(formMode)?resolveFareActionTripId(pendingFareTripId,pendingTripId):pendingTripId;
     if(formSubmitting||!awaitingEventId.isEmpty()||actionTripId.isEmpty())return;
-    if(!formValue.isEmpty()){
-      try{if(!Double.isFinite(Double.parseDouble(formValue))||Double.parseDouble(formValue)<0)return;}catch(Exception e){return;}
-    }
-    if(!tollValue.isEmpty()){
-      try{if(!Double.isFinite(Double.parseDouble(tollValue))||Double.parseDouble(tollValue)<0)return;}catch(Exception e){return;}
-    }
-    if(!parkingValue.isEmpty()){
-      try{if(!Double.isFinite(Double.parseDouble(parkingValue))||Double.parseDouble(parkingValue)<0)return;}catch(Exception e){return;}
-    }
-    if("CANCEL".equals(formMode)&&cancelReason.isEmpty())return;
+    // Validation is a domain rule, not part of the overlay presentation.
+    if(!KfeNativeTripFormRules.isValidOptionalAmount(formValue)
+        ||!KfeNativeTripFormRules.isValidOptionalAmount(tollValue)
+        ||!KfeNativeTripFormRules.isValidOptionalAmount(parkingValue))return;
+    if("CANCEL".equals(formMode)&&!KfeNativeTripFormRules.isValidCancellationReason(cancelReason))return;
     try{
       JSONObject canonicalTripResult=KfeCanonicalWorkStore.get(this).getRecord("TRIP",actionTripId);
       JSONObject canonicalTrip=canonicalTripResult.optJSONObject("record");
