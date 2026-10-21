@@ -1,15 +1,12 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { WorkService } from '../application/work/workService.js'
-import { MovementTraceService } from '../infrastructure/location/movementTraceService.js'
 
 export const useShiftTripStore = defineStore('shiftTrip', () => {
   const shift = ref(null)
   const trip = ref(null)
   const registeredTrips = ref([])
   const completedTrips = ref([])
-  const lifecycleLocations = ref([])
-  const tripLocations = ref([])
   const lastKnownOdometer = ref(null)
   const businessStartBaseline = ref(null)
   const firstKfeDay = ref(false)
@@ -24,18 +21,6 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
   const headerShiftStatus = computed(() => isShiftActive.value ? 'ONLINE' : 'OFFLINE')
   const headerTripStatus = computed(() => isTripActive.value ? 'ON' : 'OFF')
   const startOdometer = computed(() => shift.value?.startOdometer ?? lastKnownOdometer.value)
-
-  const loadLifecycleLocations = async () => {
-    lifecycleLocations.value = shift.value ? await WorkService.getLocations('SHIFT', shift.value.id) : []
-    tripLocations.value = trip.value ? await WorkService.getLocations('TRIP', trip.value.id) : []
-  }
-  const loadEntityLocations = async (entityType, entityId) => {
-    if (entityType === 'SHIFT') lifecycleLocations.value = await WorkService.getLocations('SHIFT', entityId)
-    if (entityType === 'TRIP') tripLocations.value = await WorkService.getLocations('TRIP', entityId)
-  }
-  const captureAndRefreshLocation = ({ entityType, entityId, eventType }) => {
-    void WorkService.captureLocation({ entityType, entityId, eventType }).then(() => loadEntityLocations(entityType, entityId)).catch(() => {})
-  }
 
   const refresh = async () => {
     const active = await WorkService.getActiveState()
@@ -54,7 +39,6 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     firstKfeDay.value = !previous && !shift.value
     const previousTrip = await WorkService.getLastCompletedTrip()
     if (previousTrip?.operator && operators.includes(previousTrip.operator)) defaultOperator.value = previousTrip.operator
-    await loadLifecycleLocations()
     initialized.value = true
   }
 
@@ -79,7 +63,6 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     void refresh().catch(() => {
       shift.value = record
     })
-    captureAndRefreshLocation({ entityType: 'SHIFT', entityId: record.id, eventType: 'ONLINE' })
     return { ok: true }
   }
 
@@ -93,7 +76,6 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     trip.value = record
     defaultOperator.value = selected
     registeredTrips.value = [...registeredTrips.value, record]
-    await loadEntityLocations('TRIP', record.id)
     return { ok: true, trip: record }
   }
 
@@ -103,7 +85,6 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     const ok = await WorkService.startRide({ id: tripId })
     if (!ok) return { ok: false, reason: 'Ride could not be started.' }
     if (ok && typeof ok === 'object') { trip.value = ok; registeredTrips.value = registeredTrips.value.map(item => item.id === tripId ? ok : item) } else { trip.value = { ...trip.value, tripStage: 'RIDE_STARTED', tripStartAt: trip.value?.tripStartAt || new Date().toISOString() } }
-    void loadEntityLocations('TRIP', tripId).catch(() => {})
     return { ok: true, trip: trip.value }
   }
 
@@ -129,7 +110,6 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     registeredTrips.value = registeredTrips.value.map(item => item.id === tripId ? completed : item)
     if (!registeredTrips.value.some(item => item.id === tripId)) registeredTrips.value = [...registeredTrips.value, completed]
     completedTrips.value = [...completedTrips.value.filter(item => item.id !== tripId), completed]
-    MovementTraceService.reset()
 
     // Refresh for canonical enrichment in the background; do not block END TRIP.
     void refresh().catch(() => {})
@@ -141,10 +121,8 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     if (!String(reason || '').trim()) return { ok: false, reason: 'Cancellation reason is required.' }
     const tripId = trip.value.id
     const result = await WorkService.cancelTrip({ id: tripId, reason, revenue })
-    MovementTraceService.reset()
     if (result?.ok === false) return result
     await refresh()
-    void WorkService.captureLocation({ entityType: 'TRIP', entityId: tripId, eventType: 'CANCELLED' }).then(() => loadEntityLocations('TRIP', tripId)).catch(() => {})
     return { ok: true }
   }
 
@@ -162,9 +140,8 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     const result = await WorkService.endShift({ shiftId, ...data })
     if (!result.ok) return result
     await refresh()
-    captureAndRefreshLocation({ entityType: 'SHIFT', entityId: shiftId, eventType: 'OFFLINE' })
     return result
   }
 
-  return { shift, trip, registeredTrips, completedTrips, lifecycleLocations, tripLocations, operators, defaultOperator, lastKnownOdometer, businessStartBaseline, firstKfeDay, startOdometer, isShiftActive, isTripActive, isOnline, isFinancialDayActive, headerShiftStatus, headerTripStatus, initialize, refresh, calculateGap, startShift, beginPickup, startRide, startTrip, endTrip, cancelTrip, updateTrip, endShift }
+  return { shift, trip, registeredTrips, completedTrips, operators, defaultOperator, lastKnownOdometer, businessStartBaseline, firstKfeDay, startOdometer, isShiftActive, isTripActive, isOnline, isFinancialDayActive, headerShiftStatus, headerTripStatus, initialize, refresh, calculateGap, startShift, beginPickup, startRide, startTrip, endTrip, cancelTrip, updateTrip, endShift }
 })
