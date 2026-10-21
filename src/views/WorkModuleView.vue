@@ -189,17 +189,6 @@ const pendingFare = computed(() => {
     .sort((a, b) => Date.parse(b.tripEndAt || b.updatedAt || '') - Date.parse(a.tripEndAt || a.updatedAt || ''))[0] || null
 })
 
-const pendingFareGpsGap = computed(() => {
-  const trip = pendingFare.value
-  const provenance = trip?.tripKmProvenance
-  if (trip?.tripKmAuthority !== 'GPS_TRACE_INCOMPLETE' && provenance?.qualityStatus !== 'INCOMPLETE') return null
-  const segments = Array.isArray(provenance?.incompleteKmSegments) ? provenance.incompleteKmSegments : []
-  return {
-    estimated: segments.filter(segment => segment.status === 'ESTIMATED').length,
-    unresolved: segments.filter(segment => segment.status !== 'ESTIMATED').length
-  }
-})
-
 const cockpit = computed(() => deriveWorkCockpitState({
   shift: store.shift,
   trip: store.trip,
@@ -1164,16 +1153,6 @@ onBeforeUnmount(() => {
       @click="openCancel"
     >CANCEL TRIP</button>
 
-    <div
-      v-if="pendingFareGpsGap && !endOpen && !cancelOpen && !fuelOpen"
-      class="operational-state state-tone-warning gps-gap-warning"
-      role="status"
-      aria-live="polite"
-    >
-      <strong>INCOMPLETE GPS KM — THIS RIDE</strong>
-      <p>Recording was interrupted. Measured distance before and after the gap is retained; any Valhalla gap estimate is labelled as estimated. Unresolved kilometres remain flagged for later review.</p>
-      <small>{{ pendingFareGpsGap.estimated }} estimated gap(s) · {{ pendingFareGpsGap.unresolved }} unresolved gap(s)</small>
-    </div>
     <WorkContextForm
       v-if="pendingFare && !endOpen && !cancelOpen && !fuelOpen"
       type="fare"
