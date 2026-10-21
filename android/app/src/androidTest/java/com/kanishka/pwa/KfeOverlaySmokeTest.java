@@ -683,9 +683,18 @@ public class KfeOverlaySmokeTest {
     Field singleton = KfeCanonicalWorkStore.class.getDeclaredField("instance");
     singleton.setAccessible(true);
     singleton.set(null, null);
-    JSONObject reopened = KfeCanonicalWorkStore.get(context).getRecord("TRIP", tripId).getJSONObject("record");
+    KfeCanonicalWorkStore reopenedStore = KfeCanonicalWorkStore.get(context);
+    JSONObject reopened = reopenedStore.getRecord("TRIP", tripId).getJSONObject("record");
     assertEquals("Start fix timestamp must survive native store reopen.", startAt, reopened.getJSONObject("tripStartLocation").getString("capturedAt"));
     assertEquals("End fix timestamp must survive native store reopen.", endAt, reopened.getJSONObject("tripEndLocation").getString("capturedAt"));
+
+    // Do not leak an ACTIVE shift into the following instrumentation cases.
+    JSONObject completedTrip = new JSONObject(reopened.toString())
+      .put("status", "COMPLETED").put("updatedAt", java.time.Instant.now().toString());
+    reopenedStore.putRecord("test-complete-trip-" + tripId + "-" + java.util.UUID.randomUUID(), "TRIP", completedTrip);
+    JSONObject completedShift = reopenedStore.getRecord("SHIFT", shiftId).getJSONObject("record");
+    completedShift.put("status", "COMPLETED").put("updatedAt", java.time.Instant.now().toString());
+    reopenedStore.putRecord("test-complete-shift-" + shiftId + "-" + java.util.UUID.randomUUID(), "SHIFT", completedShift);
   }
 
   @Test public void nativeOverlayCompletesFareAndCancellationUsingGesturesAndVisibleFormControlsWithoutPwaReplay() throws Exception {
