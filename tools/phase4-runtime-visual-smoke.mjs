@@ -20,7 +20,12 @@ try{
  const page=await context.newPage(),errors=[],failed=[]
  await page.goto(base,{waitUntil:'domcontentloaded',timeout:30000})
  await page.evaluate(async()=>{
-   const db=await new Promise((resolve,reject)=>{const req=indexedDB.open('kanishka_kfe_canonical_db');req.onupgradeneeded=()=>{};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})
+   // Use the application's canonical schema initializer before writing fixtures.
+   // Opening an unversioned database first can create an incomplete DB with only
+   // the settings store, making later transactions fail for shifts/trips.
+   const { initializeCanonicalStorage } = await import('/src/utils/indexedDB.js')
+   await initializeCanonicalStorage()
+   const db=await new Promise((resolve,reject)=>{const req=indexedDB.open('kanishka_kfe_canonical_db');req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})
    await new Promise((resolve,reject)=>{const tx=db.transaction('settings','readwrite');tx.objectStore('settings').put({id:'kfe-first-run-setup',settingKey:'firstRunSetup',values:{version:1,status:'completed',steps:{},completedAt:new Date().toISOString()},createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)})
    db.close()
  })
