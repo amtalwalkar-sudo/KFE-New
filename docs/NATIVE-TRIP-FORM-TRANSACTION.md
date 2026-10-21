@@ -30,3 +30,9 @@ This is the pragmatic split between **simple accumulation** and **complex busine
 - The durable native outbox/checkpoint recovery remains in place. A queued transport event is not itself proof of a canonical commit.
 - The canonical database remains `kfe_canonical_work.db`; no second SQLite store is introduced.
 - Regression protection must continue to run Android instrumentation for fare/cancellation submission with WebView unavailable, retry after commit/lost acknowledgement, PWA catch-up, and process-death recovery. GPS acceptance is governed separately by docs/ANDROID-NATIVE-GPS-CONTRACT.md and is limited to one-shot trip-boundary snapshots; continuous screen-off trace collection and restart trace recovery are not part of the active GPS scope.
+
+## Native form command construction boundary
+
+- The native overlay reads current widget/draft values and invokes `KfeNativeTripFormRules` to build the bounded fare or cancellation payload. The helper owns trimming/null normalization and the explicit INCLUDED/EXCLUDED treatment values; it does not access Android views or commit data.
+- `KfeOverlayService` remains responsible for active-shift verification, durable event identity/queueing, canonical SQLite commit, and reporting the outcome. Payload construction extraction must not move or split that transaction.
+- The WebView-disabled full-shift instrumentation acceptance checks payload values and treatment mapping before continuing through the real native submission workflow.

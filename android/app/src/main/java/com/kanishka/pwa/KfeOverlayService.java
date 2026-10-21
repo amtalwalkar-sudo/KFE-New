@@ -769,12 +769,10 @@ public class KfeOverlayService extends Service {
     formSubmitting=true;
     if("FARE".equals(formMode)){
       try {
-        JSONObject payload=new JSONObject();
-        payload.put("fare",formValue);
-        payload.put("toll",tollValue);
-        payload.put("parking",parkingValue);
-        payload.put("tollTreatment",tollTreatmentInput!=null&&tollTreatmentInput.isChecked()?"EXCLUDED":"INCLUDED");
-        payload.put("parkingTreatment",parkingTreatmentInput!=null&&parkingTreatmentInput.isChecked()?"EXCLUDED":"INCLUDED");
+        JSONObject payload=KfeNativeTripFormRules.buildFarePayload(
+          formValue,tollValue,parkingValue,
+          tollTreatmentInput!=null&&tollTreatmentInput.isChecked(),
+          parkingTreatmentInput!=null&&parkingTreatmentInput.isChecked());
         // Commit the business record before reporting success to the overlay.
         // The deterministic operation ID makes process-death/retry safe; the
         // separate native event remains queued so the PWA's IndexedDB read model
@@ -790,9 +788,7 @@ public class KfeOverlayService extends Service {
       return;
     }else if("CANCEL".equals(formMode)){
       try{
-        JSONObject input=new JSONObject();
-        input.put("revenue",formValue);
-        input.put("reason",cancelReason);
+        JSONObject input=KfeNativeTripFormRules.buildCancellationPayload(formValue,cancelReason);
         String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"CANCEL_RIDE",pendingTripId,input.toString());
         persistCanonicalTripForm("CANCEL",pendingTripId,input,eventId);
         KfeNativeWorkActionsPlugin.emitAction("CANCEL_RIDE",pendingTripId,input.toString(),eventId);
