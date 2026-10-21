@@ -16,14 +16,13 @@ const androidOverlayLifecycle = read('src/infrastructure/android/androidOverlayL
 for (const permission of [
   'android.permission.POST_NOTIFICATIONS',
   'android.permission.FOREGROUND_SERVICE',
-  'android.permission.FOREGROUND_SERVICE_LOCATION',
   'android.permission.FOREGROUND_SERVICE_SPECIAL_USE',
   'android.permission.ACCESS_FINE_LOCATION',
   'android.permission.ACCESS_COARSE_LOCATION',
   'android.permission.SYSTEM_ALERT_WINDOW'
 ]) assert.match(manifest, new RegExp(permission.replaceAll('.', '\\.')))
 
-assert.match(manifest, /ACCESS_BACKGROUND_LOCATION/)
+assert.doesNotMatch(manifest, /ACCESS_BACKGROUND_LOCATION|FOREGROUND_SERVICE_LOCATION|\.KfeNativeGpsService/)
 assert.doesNotMatch(manifest, /SCHEDULE_EXACT_ALARM/)
 assert.match(manifest, /android:allowBackup="false"/)
 assert.match(manifest, /android:fullBackupOnly="false"/)
