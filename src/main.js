@@ -43,10 +43,8 @@ void (async () => {
     const [
       { BackupConfig },
       { CloudBackupLifecycle },
-      { configureLocationProvider },
       { createBackupConfigAdapter },
       { createCloudBackupScheduler },
-      { captureCurrentLocation },
       { PlatformStartup },
       { configureAndroidOverlayLifecycle },
       { StartupService },
@@ -57,10 +55,8 @@ void (async () => {
     ] = await Promise.all([
       import('./application/backup/backupConfig.js'),
       import('./application/backup/cloudBackupLifecycle.js'),
-      import('./application/work/locationProvider.js'),
       import('./infrastructure/backup/backupConfigAdapter.js'),
       import('./infrastructure/backup/cloudBackupScheduler.js'),
-      import('./infrastructure/location/currentLocation.js'),
       import('./infrastructure/startup/platformStartup.js'),
       import('./infrastructure/android/androidOverlayLifecycle.js'),
       import('./application/startup/startupService.js'),
@@ -72,7 +68,6 @@ void (async () => {
 
     BackupConfig.configureBackupConfig(createBackupConfigAdapter())
     CloudBackupLifecycle.configureCloudBackupScheduler(createCloudBackupScheduler())
-    configureLocationProvider(captureCurrentLocation)
     StartupService.configureStartupPlatform(PlatformStartup)
     configureAndroidOverlayLifecycle()
 
