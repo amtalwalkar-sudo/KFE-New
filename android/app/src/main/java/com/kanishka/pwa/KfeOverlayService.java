@@ -844,12 +844,9 @@ public class KfeOverlayService extends Service {
       if(!trip.has("createdAt"))trip.put("createdAt",eventTimestamp);
       if(rideStarted){
         trip.put("tripStartAt",new java.util.Date(tripStartAt).toInstant().toString());
-        if(!trip.has("rideStartLocation"))trip.put("rideStartLocationStatus","MISSING");
-        trip.put("rideStartLocationEventAt",new java.util.Date(tripStartAt).toInstant().toString());
       }
       if("COMPLETED".equals(stage)){
         if(!trip.has("tripEndAt")||trip.isNull("tripEndAt")||trip.optString("tripEndAt","").isEmpty())trip.put("tripEndAt",eventTimestamp);
-        trip.put("tripEndLocationStatus",trip.has("tripEndLocation")&&!trip.isNull("tripEndLocation")?"CAPTURED":"MISSING");
       }
       trip.put("updatedAt",eventTimestamp);
       KfeCanonicalWorkStore.Outcome outcome=store.putRecord("native-trip-stage-"+eventId,"TRIP",trip);
@@ -956,7 +953,7 @@ public class KfeOverlayService extends Service {
   @Override public IBinder onBind(Intent intent){return null;}
   private Notification buildNotification(){
     // This notice exists for the Android foreground-service lifecycle only.
-    // Keep it quiet and independent of Work stage, GPS readings, and dead KM.
+    // Keep it quiet and independent of Work stage and kilometre accounting.
     String title="KFE background service";
     String text="KFE driver controls are active in the background.";
     Intent openApp=new Intent(this,MainActivity.class);
@@ -1008,7 +1005,7 @@ public class KfeOverlayService extends Service {
       rect.set(8,barTop,w-8,barTop+barH);c.drawRoundRect(rect,dp(22),dp(22),paint);paint.clearShadowLayer();
       paint.setColor(Color.argb(55,Color.red(a),Color.green(a),Color.blue(a)));
       rect.set(8,barTop,(w-8)*progress+8,barTop+barH);c.drawRoundRect(rect,dp(22),dp(22),paint);
-      // One-shot trip endpoint snapshots do not imply continuous GPS tracking.
+      // Trip lifecycle transitions do not require location access.
       float[] cols={.18f,.50f,.82f};
       String[] labels={"TARGET",phaseLabel,"REVENUE"};
       String[] values={target,formatPhaseTime(),revenue};
