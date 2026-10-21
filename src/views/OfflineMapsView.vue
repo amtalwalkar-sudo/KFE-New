@@ -28,8 +28,6 @@ const installedCount = computed(() => regions.value.filter(x => x.status?.instal
 async function refresh() {
   loading.value = true
   error.value = ''
-  // Render all region cards immediately; don't hide the download controls
-  // behind a Promise.all barrier while native status/network checks run.
   regions.value = regionIds.map(regionId => ({
     regionId,
     status: null,
@@ -59,8 +57,12 @@ async function refresh() {
 }
 
 async function download(region) {
+  if (!isAndroid) {
+    error.value = 'Map downloads require the installed Android KFE app.'
+    return
+  }
   if (!region.status?.manifestAvailable) {
-    error.value = region.status?.manifestError || 'Latest package information is unavailable. Connect to the internet and refresh.'
+    error.value = region.status?.manifestError || 'The regional package catalog is unavailable. Connect to the internet, then tap Refresh status and try again.'
     return
   }
   if (Number(region.status.bytesAvailable) < Number(region.status.bytesRequiredForUpdate)) {
@@ -150,7 +152,7 @@ onUnmounted(async () => { for (const handle of listeners) await handle?.remove?.
       <p v-if="region.status?.installed" class="installed-note">Saved locally · {{ formatBytes(region.status.bytesInstalled) }} · installed {{ region.status.installedAt || 'date unavailable' }}</p>
       <p v-if="region.checking" class="sub" role="status">Checking package catalog and phone storage…</p>
       <p v-if="region.error" class="sub">{{ region.error }}. Refresh status to retry.</p>
-      <p v-if="region.status?.manifestError" class="sub">{{ region.status.manifestError }}</p>
+      <p v-if="region.status?.manifestError" class="sub">Package catalog unavailable: {{ region.status.manifestError }}. The download button remains available to explain the issue; refresh after reconnecting.</p>
       <p v-if="region.status?.manifestAvailable && Number(region.status?.bytesAvailable) < Number(region.status?.bytesRequiredForUpdate)" class="sub storage-warning">Not enough free space for a safe download/update. Free up at least {{ formatBytes(Number(region.status.bytesRequiredForUpdate) - Number(region.status.bytesAvailable)) }} and refresh.</p>
       <p v-if="region.status?.installed && region.status?.latestVersion === region.status?.installedVersion" class="sub">This package is up to date.</p>
 
@@ -160,8 +162,8 @@ onUnmounted(async () => { for (const handle of listeners) await handle?.remove?.
       </div>
 
       <div class="actions">
-        <button class="primary" :disabled="!isAndroid || region.checking || !region.status || !!busyRegion || !region.status?.manifestAvailable || Number(region.status?.bytesAvailable) < Number(region.status?.bytesRequiredForUpdate) || (region.status?.installed && region.status?.installedVersion === region.status?.latestVersion)" @click="download(region)">
-          {{ region.status?.installed ? 'Update package' : 'Download map' }}
+        <button class="primary" :disabled="region.checking || !region.status || !!busyRegion || (region.status?.manifestAvailable && Number(region.status?.bytesAvailable) < Number(region.status?.bytesRequiredForUpdate)) || (region.status?.installed && region.status?.manifestAvailable && region.status?.installedVersion === region.status?.latestVersion)" @click="download(region)">
+          {{ region.status?.installed ? (region.status?.manifestAvailable && region.status?.installedVersion === region.status?.latestVersion ? 'Already downloaded' : 'Update offline map') : 'Download offline map' }}
         </button>
         <button v-if="region.status?.installed" class="secondary" :disabled="!!busyRegion" @click="remove(region)">Remove download</button>
       </div>
@@ -175,5 +177,3 @@ onUnmounted(async () => { for (const handle of listeners) await handle?.remove?.
     </footer>
   </main>
 </template>
-
-
