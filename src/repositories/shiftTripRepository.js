@@ -129,6 +129,7 @@ export const ShiftTripRepository = {
       request.onsuccess = () => {
         const record = request.result
         if (!record) { try { tx.abort() } catch (_) {}; resolve(false); return }
+        if (record[field]) return
         const now = new Date().toISOString()
         record[field] = {
           latitude, longitude,

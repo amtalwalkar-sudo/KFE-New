@@ -864,6 +864,7 @@ public class KfeOverlayService extends Service {
       JSONObject found=store.getRecord("TRIP",tripId);
       JSONObject trip=found.optJSONObject("record");
       if(!found.optBoolean("found",false)||trip==null)return;
+      if(trip.has(field)&&!trip.isNull(field))return;
       JSONObject snapshot=new JSONObject();
       snapshot.put("latitude",location.getLatitude());
       snapshot.put("longitude",location.getLongitude());
@@ -878,7 +879,7 @@ public class KfeOverlayService extends Service {
         trip.put("tripEndLocationStatus","CAPTURED");
       }
       trip.put("updatedAt",java.time.Instant.now().toString());
-      KfeCanonicalWorkStore.Outcome outcome=store.putRecord("native-trip-location-"+java.util.UUID.randomUUID().toString(),"TRIP",trip);
+      KfeCanonicalWorkStore.Outcome outcome=store.putRecord("native-trip-location-"+tripId+"-"+field,"TRIP",trip);
       if(!outcome.accepted)throw new IllegalStateException("Native one-shot GPS snapshot was not accepted.");
       Log.i("KFE-GPS","Saved one-shot "+field+" snapshot for trip "+tripId+" at "+snapshot.optString("capturedAt",""));
     }catch(Exception error){Log.w("KFE-GPS","Unable to persist one-shot "+field+" snapshot for trip "+tripId,error);}
