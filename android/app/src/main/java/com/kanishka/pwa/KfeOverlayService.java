@@ -833,6 +833,7 @@ public class KfeOverlayService extends Service {
     }
     LocationManager manager=(LocationManager)getSystemService(Context.LOCATION_SERVICE);
     if(manager==null){Log.w("KFE-GPS","One-shot "+field+" snapshot skipped: LocationManager unavailable.");return;}
+    try{if(!manager.isProviderEnabled(LocationManager.GPS_PROVIDER)){Log.w("KFE-GPS","GPS_PROVIDER is disabled; one-shot snapshot cannot be captured offline.");return;}}catch(Exception error){Log.w("KFE-GPS","Unable to verify GPS_PROVIDER state.",error);return;}
     Handler handler=new Handler(Looper.getMainLooper());
     try{
       if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.R){

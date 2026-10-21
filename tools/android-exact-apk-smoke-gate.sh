@@ -332,9 +332,19 @@ adb shell svc wifi disable || true
 adb shell svc data disable || true
 adb shell settings put global airplane_mode_on 1
 adb shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true >/dev/null 2>&1 || true
-adb shell cmd location set-location-enabled true || adb shell settings put secure location_mode 3
-adb emu geo fix 72.85 19.01
+adb shell settings put secure location_mode 3 || true
+adb shell cmd location set-location-enabled true || true
+sleep 2
+(
+  for _ in $(seq 1 20); do
+    emu_geo_fix 72.85 19.01 || true
+    sleep 1
+  done
+) &
+GPS_FEED_PID=$!
 run_instrumentation com.kanishka.pwa.KfeOverlaySmokeTest#nativeTripBoundarySnapshotPersistsOfflineAndIsIdempotent native-one-shot-gps-offline 1
+kill "$GPS_FEED_PID" >/dev/null 2>&1 || true
+wait "$GPS_FEED_PID" >/dev/null 2>&1 || true
 adb shell settings put global airplane_mode_on 0
 adb shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false >/dev/null 2>&1 || true
 adb shell svc wifi enable || true

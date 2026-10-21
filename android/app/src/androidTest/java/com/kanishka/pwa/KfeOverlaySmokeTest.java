@@ -7,6 +7,7 @@ import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
 import android.content.Intent;
+import android.location.LocationManager;
 import android.os.SystemClock;
 import android.provider.Settings;
 import android.widget.EditText;
@@ -638,6 +639,9 @@ public class KfeOverlaySmokeTest {
     capture.setAccessible(true);
 
     KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    LocationManager locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+    assertNotNull("Android location manager must exist for the offline GPS test.", locationManager);
+    assertTrue("GPS_PROVIDER must remain enabled with networking disabled.", locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER));
     capture.invoke(service, tripId, "tripStartLocation");
     JSONObject startSnapshot = null;
     long deadline = SystemClock.uptimeMillis() + 15000L;
