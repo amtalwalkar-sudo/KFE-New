@@ -1,7 +1,6 @@
 import { ShiftTripRepository, configureCanonicalReadBoundary } from '../../repositories/shiftTripRepository.js'
 import { FuelRepository } from '../../repositories/fuelRepository.js'
 import { LocationRepository } from '../../repositories/locationRepository.js'
-import { captureLifecycleLocation } from './location.js'
 import { completeEndShift } from './endShift.js'
 import { recordFuelEntry } from './fuel.js'
 import { validateShiftStartOdometer, validateFirstDayShiftStartOdometer, validateGapAllocation } from '../../domain/work/shift.js'
@@ -230,7 +229,6 @@ export const WorkService = Object.freeze({
     return Number.isFinite(Number(distanceKm)) ? Number(distanceKm) : null
   },
   calculateLiveMovement(points = []) { const filteredPoints = MovementAccountingService.filterGpsTrace(points); return { points: filteredPoints, distanceKm: calculateTraceDistanceKm(filteredPoints) } },
-  async captureLocation(data) { const result = await captureLifecycleLocation(data); checkpoint(); return result },
   validateShiftStartOdometer(currentOdometer, previousOdometer) { return validateShiftStartOdometer(currentOdometer, previousOdometer) },
   validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer) { return validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer) },
   validateGapAllocation(gapKm, category) { return validateGapAllocation(gapKm, category) },
@@ -242,10 +240,6 @@ export const WorkService = Object.freeze({
     const validation = validateTripOperator(data?.operator)
     if (!validation.valid) return { ok: false, reason: validation.reason }
     const result = await ShiftTripRepository.createTrip({ ...data, operator: validation.operator, tripStage: data?.tripStage || 'GOING_TO_PICKUP' }); await mirrorCanonicalRecord('TRIP', result); checkpoint()
-    void captureLifecycleLocation({ entityType: 'TRIP', entityId: result.id, eventType: 'START' }).then(location => {
-      if (location) return ShiftTripRepository.setTripStartLocation(result.id, location)
-      return null
-    }).catch(() => {})
     return result
   },
   async startRide(data) {
@@ -253,15 +247,6 @@ export const WorkService = Object.freeze({
     if (result && typeof result === 'object') await mirrorCanonicalRecord('TRIP', result)
     checkpoint()
     if (!result || !data?.id) return result
-    // Record a fresh passenger-ride boundary separately from the pickup/dead-leg start.
-    // tripStartAt is the authoritative lifecycle transition time; capturedAt remains
-    // the actual GPS fix time, and rideStartLocationEventAt links the two explicitly.
-    void captureLifecycleLocation({ entityType: 'TRIP', entityId: data.id, eventType: 'RIDE_START' }).then(async location => {
-      if (!location) return
-      await ShiftTripRepository.setTripRideStartLocation(data.id, location, result.tripStartAt || null)
-      await mirrorCanonicalTripById(data.id)
-      checkpoint()
-    }).catch(error => console.warn('Passenger-ride start GPS fix unavailable; lifecycle timestamp retained:', error))
     return result
   },
   async completeTrip(data) {
@@ -269,37 +254,12 @@ export const WorkService = Object.freeze({
     // enrichment and never delays the swipe transition or pending-fare form.
     const result = await ShiftTripRepository.completeTrip({ ...data }); await mirrorCanonicalShiftByTripId(data?.id); checkpoint()
     const tripId = data?.id
-    // Capture the trip endpoint as a one-shot local GPS snapshot with its fix timestamp.
-    if (tripId) {
-      void captureLifecycleLocation({ entityType: 'TRIP', entityId: tripId, eventType: 'END' })
-        .then(async location => {
-          if (!location) {
-            console.warn('Trip completed without a fresh endpoint GPS fix:', tripId)
-            return
-          }
-          await ShiftTripRepository.setTripEndLocation(tripId, location)
-          await mirrorCanonicalTripById(tripId)
-          checkpoint()
-        })
-        .catch(error => console.warn('Trip endpoint GPS snapshot could not be saved:', tripId, error))
-    }
     return result
   },
   async cancelTrip(data) {
     const result = await ShiftTripRepository.cancelTrip(data)
     await mirrorCanonicalShiftByTripId(data?.id)
     checkpoint()
-    const tripId = data?.id
-    if (tripId) {
-      void captureLifecycleLocation({ entityType: 'TRIP', entityId: tripId, eventType: 'CANCELLED' })
-        .then(async location => {
-          if (!location) return
-          await ShiftTripRepository.setTripEndLocation(tripId, location)
-          await mirrorCanonicalTripById(tripId)
-          checkpoint()
-        })
-        .catch(error => console.warn('Cancelled trip endpoint GPS snapshot could not be saved:', tripId, error))
-    }
     return result
   },
   async updateTrip(data) {
