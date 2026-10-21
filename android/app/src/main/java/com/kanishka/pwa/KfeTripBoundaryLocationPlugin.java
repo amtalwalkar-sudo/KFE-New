@@ -1,0 +1,110 @@
+package com.kanishka.pwa;
+
+import android.Manifest;
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.os.Build;
+import android.os.CancellationSignal;
+import android.os.Handler;
+import android.os.Looper;
+
+import androidx.core.content.ContextCompat;
+
+import com.getcapacitor.JSObject;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginCall;
+import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
+
+import java.time.Instant;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+@CapacitorPlugin(
+  name = "KfeTripBoundaryLocation",
+  permissions = {
+    @Permission(alias = "location", strings = { Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION })
+  }
+)
+public class KfeTripBoundaryLocationPlugin extends Plugin {
+  @com.getcapacitor.PluginMethod
+  public void captureCurrentLocation(PluginCall call) {
+    if (!hasFineLocationPermission()) {
+      requestPermissionForAlias("location", call, "tripBoundaryLocationPermissionCallback");
+      return;
+    }
+    captureOneFix(call);
+  }
+
+  @PermissionCallback
+  private void tripBoundaryLocationPermissionCallback(PluginCall call) {
+    if (!hasFineLocationPermission()) {
+      call.reject("Precise location permission is required to capture the trip boundary.");
+      return;
+    }
+    captureOneFix(call);
+  }
+
+  private boolean hasFineLocationPermission() {
+    return ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+  }
+
+  private void captureOneFix(PluginCall call) {
+    LocationManager manager = (LocationManager) getContext().getSystemService(Context.LOCATION_SERVICE);
+    if (manager == null) { call.reject("Android location provider is unavailable."); return; }
+    Handler handler = new Handler(Looper.getMainLooper());
+    AtomicBoolean finished = new AtomicBoolean(false);
+    Runnable timeout = () -> {
+      if (!finished.compareAndSet(false, true)) return;
+      call.reject("No GPS fix was available for this trip boundary.");
+    };
+    handler.postDelayed(timeout, 20000L);
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        CancellationSignal cancellation = new CancellationSignal();
+        handler.postDelayed(cancellation::cancel, 20000L);
+        manager.getCurrentLocation(LocationManager.GPS_PROVIDER, cancellation, getActivity().getMainExecutor(), location -> {
+          if (!finished.compareAndSet(false, true)) return;
+          handler.removeCallbacks(timeout);
+          if (location == null) { call.reject("No GPS fix was available for this trip boundary."); return; }
+          call.resolve(toSnapshot(location));
+        });
+      } else {
+        final LocationListener[] listener = new LocationListener[1];
+        listener[0] = new LocationListener() {
+          @Override public void onLocationChanged(Location location) {
+            if (!finished.compareAndSet(false, true)) return;
+            handler.removeCallbacks(timeout);
+            try { manager.removeUpdates(this); } catch (Exception ignored) {}
+            call.resolve(toSnapshot(location));
+          }
+          @Override public void onProviderEnabled(String provider) {}
+          @Override public void onProviderDisabled(String provider) {}
+          @SuppressWarnings("deprecation") @Override public void onStatusChanged(String provider, int status, android.os.Bundle extras) {}
+        };
+        manager.requestSingleUpdate(LocationManager.GPS_PROVIDER, listener[0], Looper.getMainLooper());
+        handler.postDelayed(() -> {
+          if (!finished.compareAndSet(false, true)) return;
+          try { manager.removeUpdates(listener[0]); } catch (Exception ignored) {}
+        }, 20000L);
+      }
+    } catch (Exception error) {
+      if (finished.compareAndSet(false, true)) {
+        handler.removeCallbacks(timeout);
+        call.reject("Could not capture a one-shot GPS fix.", error);
+      }
+    }
+  }
+
+  private JSObject toSnapshot(Location location) {
+    JSObject result = new JSObject();
+    result.put("latitude", location.getLatitude());
+    result.put("longitude", location.getLongitude());
+    result.put("accuracy", location.hasAccuracy() ? location.getAccuracy() : JSObject.NULL);
+    result.put("capturedAt", Instant.ofEpochMilli(location.getTime() > 0L ? location.getTime() : System.currentTimeMillis()).toString());
+    return result;
+  }
+}

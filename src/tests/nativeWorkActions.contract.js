@@ -36,7 +36,9 @@ assert.doesNotMatch(capacitorSettings, /capacitor-local-notifications/)
 
 // The overlay foreground service remains for durable Work controls; GPS services are removed.
 assert.match(manifest, /android\.permission\.FOREGROUND_SERVICE/)
-assert.doesNotMatch(manifest, /FOREGROUND_SERVICE_LOCATION|ACCESS_FINE_LOCATION|ACCESS_COARSE_LOCATION|ACCESS_BACKGROUND_LOCATION|\.KfeNativeGpsService/)
+assert.match(manifest, /ACCESS_FINE_LOCATION/)
+assert.match(manifest, /ACCESS_COARSE_LOCATION/)
+assert.doesNotMatch(manifest, /FOREGROUND_SERVICE_LOCATION|ACCESS_BACKGROUND_LOCATION|\.KfeNativeGpsService/)
 assert.equal(exists('android/app/src/main/java/com/kanishka/pwa/KfeNativeGpsService.java'), false)
 assert.equal(exists('android/app/src/main/java/com/kanishka/pwa/KfeNativeGpsPlugin.java'), false)
 assert.match(manifest, /android\.permission\.FOREGROUND_SERVICE_SPECIAL_USE/)

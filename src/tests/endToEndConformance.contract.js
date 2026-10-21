@@ -102,7 +102,9 @@ assertIncludes(nativeOverlay, 'canonical.commitTripForm(operationId,mode,trip)',
 assertIncludes(readRepo('android/app/src/main/java/com/kanishka/pwa/KfeCanonicalWorkStore.java'), 'double revenue = 0d;', 'Canonical native store must derive revenue from canonical Trip records in the same transaction.')
 assertIncludes(workService, 'ShiftTripRepository.setTripStage', 'Start Trip must persist its canonical stage.')
 assertIncludes(workService, 'ShiftTripRepository.completeTrip', 'End Trip must persist its canonical terminal state.')
-assert.doesNotMatch(workService + nativeOverlay, /captureLifecycleLocation|captureOneShotTripBoundary|KfeNativeGpsService|ValhallaRoutingAdapter|routeTrace/, 'GPS and routing must be absent from lifecycle paths.')
+assert.match(workService, /captureTripBoundaryLocation/, 'PWA trip start/end must request one-shot snapshots.')
+assert.match(nativeOverlay, /captureOneShotTripBoundary/, 'Native overlay must capture one-shot snapshots without PWA replay.')
+assert.doesNotMatch(workService + nativeOverlay, /captureLifecycleLocation|KfeNativeGpsService|ValhallaRoutingAdapter|routeTrace|requestLocationUpdates/, 'Continuous GPS and routing must be absent from lifecycle paths.')
 assert.ok(!/const totalRevenue = trips\.reduce/.test(overlayLifecycle), 'Overlay must not calculate ERP revenue by summing Trip fares.')
 
 // 8. Requirement → implementation → test → evidence coverage.

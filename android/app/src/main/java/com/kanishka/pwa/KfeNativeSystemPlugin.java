@@ -22,7 +22,8 @@ import com.getcapacitor.JSObject;
 @CapacitorPlugin(
   name = "KfeNativeSystem",
   permissions = {
-    @Permission(alias = "notifications", strings = { Manifest.permission.POST_NOTIFICATIONS })
+    @Permission(alias = "notifications", strings = { Manifest.permission.POST_NOTIFICATIONS }),
+    @Permission(alias = "location", strings = { Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION })
   }
 )
 public class KfeNativeSystemPlugin extends Plugin {
@@ -37,6 +38,10 @@ public class KfeNativeSystemPlugin extends Plugin {
         if (channel != null && channel.getImportance() == NotificationManager.IMPORTANCE_NONE) notifications = false;
       }
     }
+    boolean location = ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+    android.location.LocationManager locationManager = (android.location.LocationManager) getContext().getSystemService(android.content.Context.LOCATION_SERVICE);
+    boolean locationServicesEnabled = false;
+    try { if (locationManager != null) locationServicesEnabled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P ? locationManager.isLocationEnabled() : locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER); } catch (Exception ignored) {}
     boolean overlay = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(getContext());
     PowerManager powerManager = (PowerManager) getContext().getSystemService(android.content.Context.POWER_SERVICE);
     boolean batteryOptimizationExempt = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || (powerManager != null && powerManager.isIgnoringBatteryOptimizations(getContext().getPackageName()));
@@ -45,6 +50,9 @@ public class KfeNativeSystemPlugin extends Plugin {
     JSObject result = new JSObject();
     result.put("supported", true);
     result.put("notificationsAllowed", notifications);
+    result.put("locationAllowed", location);
+    result.put("fineLocationAllowed", location);
+    result.put("locationServicesEnabled", locationServicesEnabled);
     result.put("overlayAllowed", overlay);
     result.put("batteryOptimizationExempt", batteryOptimizationExempt);
     result.put("oemBackgroundSettingsRequired", xiaomiOem);
@@ -54,6 +62,11 @@ public class KfeNativeSystemPlugin extends Plugin {
   @com.getcapacitor.PluginMethod
   public void requestStartupPermission(PluginCall call) {
     String permission = call.getString("permission", "");
+    if ("location".equals(permission)) {
+      if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) { call.resolve(); return; }
+      requestPermissionForAlias("location", call, "startupLocationPermissionCallback");
+      return;
+    }
     if ("notifications".equals(permission)) {
       if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || ContextCompat.checkSelfPermission(getContext(), Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
         call.resolve();
@@ -68,12 +81,21 @@ public class KfeNativeSystemPlugin extends Plugin {
   @PermissionCallback
   private void startupNotificationsPermissionCallback(PluginCall call) { call.resolve(); }
 
+  @PermissionCallback
+  private void startupLocationPermissionCallback(PluginCall call) { call.resolve(); }
+
   @com.getcapacitor.PluginMethod
   public void openStartupSetting(PluginCall call) {
     String setting = call.getString("setting", "");
     try {
       Intent intent;
       switch (setting) {
+        case "locationServices":
+          intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+          break;
+        case "location":
+          intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getContext().getPackageName()));
+          break;
         case "overlay":
           intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getContext().getPackageName()));
           break;

@@ -8,6 +8,7 @@ import { calculateRollingFuelCostPerKm } from '../../domain/math/fuel.js'
 import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } from '../../domain/work/trip.js'
 import { BackupService } from '../backup/backupService.js'
 import { WorkRuntimePorts } from './workRuntimePorts.js'
+import { captureTripBoundaryLocation } from './tripBoundaryLocation.js'
 import { CanonicalWorkBoundary } from './canonicalWorkBoundary.js'
 import { recoverCanonicalWorkSnapshot } from './canonicalWorkRecovery.js'
 import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
@@ -107,6 +108,20 @@ const reconcileCanonicalReads = () => {
 }
 configureCanonicalReadBoundary(reconcileCanonicalReads)
 
+const captureAndPersistTripBoundary = (tripId, field) => {
+  if (!tripId || !['tripStartLocation', 'tripEndLocation'].includes(field)) return
+  void (async () => {
+    const existing = (await ShiftTripRepository.getAllTrips()).find(item => item.id === tripId)
+    if (!existing || existing[field]) return
+    const location = await captureTripBoundaryLocation()
+    if (!location) return
+    const saved = field === 'tripStartLocation'
+      ? await ShiftTripRepository.setTripStartLocation(tripId, location)
+      : await ShiftTripRepository.setTripEndLocation(tripId, location)
+    if (saved) { await mirrorCanonicalTripById(tripId); checkpoint() }
+  })().catch(error => console.warn('Trip boundary GPS snapshot could not be saved:', tripId, field, error))
+}
+
 export const WorkService = Object.freeze({
   getTripOperators() { return WORK_TRIP_OPERATORS },
   validateTripOperator(operator) { return validateTripOperator(operator) },
@@ -143,6 +158,7 @@ export const WorkService = Object.freeze({
     const validation = validateTripOperator(data?.operator)
     if (!validation.valid) return { ok: false, reason: validation.reason }
     const result = await ShiftTripRepository.createTrip({ ...data, operator: validation.operator, tripStage: data?.tripStage || 'GOING_TO_PICKUP' }); await mirrorCanonicalRecord('TRIP', result); checkpoint()
+    captureAndPersistTripBoundary(result.id, 'tripStartLocation')
     return result
   },
   async startRide(data) {
@@ -153,12 +169,14 @@ export const WorkService = Object.freeze({
   },
   async completeTrip(data) {
     const result = await ShiftTripRepository.completeTrip({ ...data }); await mirrorCanonicalShiftByTripId(data?.id); checkpoint()
+    captureAndPersistTripBoundary(data?.id, 'tripEndLocation')
     return result
   },
   async cancelTrip(data) {
     const result = await ShiftTripRepository.cancelTrip(data)
     await mirrorCanonicalShiftByTripId(data?.id)
     checkpoint()
+    captureAndPersistTripBoundary(data?.id, 'tripEndLocation')
     return result
   },
   async updateTrip(data) {

@@ -56,5 +56,7 @@ assert.ok(!overlay.includes('refreshCanonicalRevenue'), 'Fare/cancellation must 
 assert.ok(overlay.includes('Canonical trip form was not accepted'))
 
 assert.ok(service.includes('ShiftTripRepository.createTrip') && service.includes('ShiftTripRepository.setTripStage') && service.includes('ShiftTripRepository.completeTrip') && service.includes('ShiftTripRepository.cancelTrip'), 'PWA lifecycle remains on canonical repository paths')
-assert.doesNotMatch(service + view + overlay, /nativeGps|MovementTraceService|captureLifecycleLocation|ValhallaRoutingAdapter|routeTrace/)
+assert.match(service, /captureTripBoundaryLocation/)
+assert.match(overlay, /captureOneShotTripBoundary/)
+assert.doesNotMatch(service + view + overlay, /nativeGps|MovementTraceService|captureLifecycleLocation|ValhallaRoutingAdapter|routeTrace|requestLocationUpdates/)
 console.log('PASS: canonical read/write recovery, revenue read-model wiring, and GPS-free native/PWA lifecycle')

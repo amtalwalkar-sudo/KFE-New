@@ -24,6 +24,7 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(KfeCanonicalWorkPlugin.class);
     registerPlugin(KfeOverlayPlugin.class);
     registerPlugin(KfeNativeSystemPlugin.class);
+    registerPlugin(KfeTripBoundaryLocationPlugin.class);
     super.onCreate(savedInstanceState);
     try {
       KfeOverlayService.resumePersisted(this);
