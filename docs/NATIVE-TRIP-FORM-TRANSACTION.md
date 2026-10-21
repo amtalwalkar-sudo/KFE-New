@@ -20,6 +20,7 @@ This is the pragmatic split between **simple accumulation** and **complex busine
 - Repeated use of the same operation ID and identical payload returns the durable prior result without applying the command again. Reuse with a different command/payload is rejected.
 - `KfeOverlayService.persistCanonicalTripForm` now calls this single transaction instead of committing the trip and revenue projection in separate transactions. The old `SUPPORTING_ONLY` trip revenue-authority marker is removed because trip fares are inputs to the authoritative shift projection.
 - Native form amount and cancellation-reason validation lives in the Android-independent `KfeNativeTripFormRules` helper, so presentation changes do not own the validation policy; canonical store validation remains the final persistence boundary.
+- Blank optional amounts remain valid; negative, malformed, and non-finite amounts are rejected before command creation, and the canonical SQLite transaction independently enforces persistence-critical amount invariants.
 - Android instrumentation exercises atomic fare projection and idempotent retry. Full-shift acceptance exercises multiple fares, cancellation fees, blank cancellation fees, replay and store reopen; the release gate also verifies native-only operation with WebView unavailable.
 
 ## Deliberate limits and acceptance gates
