@@ -329,7 +329,7 @@ run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#reopeningP
 # Valhalla/offline-map acceptance are intentionally dormant. The active GPS contract
 # is one-shot trip-boundary snapshots; no trace collector or routing UI is required.
 
-run_instrumentation com.kanishka.pwa.KfeOverlaySmokeTest native-overlay 17
+run_instrumentation com.kanishka.pwa.KfeOverlaySmokeTest native-overlay 18
 
 # Run the WebView-disabled acceptances last so disabling WebView cannot affect
 # any earlier PWA catch-up or lifecycle/recovery test in this instrumentation process.
