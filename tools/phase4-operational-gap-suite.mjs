@@ -447,7 +447,7 @@ try {
       Object.defineProperty(navigator, 'geolocation', { configurable: true, value: original })
     }
   })
-  assert.equal(unavailableSnapshot, null, 'Unavailable one-shot GPS should degrade to a missing snapshot without blocking work')
+  assert(unavailableSnapshot === null, 'Unavailable one-shot GPS should degrade to a missing snapshot without blocking work')
 
   // G4: app startup and permission restoration must not capture location by themselves.
   const boundarySnapshotKeys = async () => page.evaluate(async () => {
@@ -462,10 +462,10 @@ try {
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.locator('.work-canonical').waitFor({ state: 'attached' })
   const afterBoundarySnapshots = await boundarySnapshotKeys()
-  assert.deepEqual(afterBoundarySnapshots, beforeBoundarySnapshots, 'Startup must not create GPS snapshots outside trip boundaries')
+  assert(JSON.stringify(afterBoundarySnapshots) === JSON.stringify(beforeBoundarySnapshots), 'Startup must not create GPS snapshots outside trip boundaries')
   if (errors.length) throw new Error('Browser runtime errors:\\n' + errors.join('\\n'))
 
-  console.log('PASS Phase 4 operational gap suite: D5 Admin→Work master-data consumption, H4 maintenance/loan/target reconciliation, I5/J5 Business Start Date boundaries, F1 browser lifecycle continuity, A5 offline fuel access, D2 offline PWA continuity, F5 network recovery, G2 permission denial, G3 GPS unavailable, and G4 permission restoration without duplicate GPS snapshots.')
+  console.log('PASS Phase 4 operational gap suite: D5 Admin→Work master-data consumption, H4 maintenance/loan/target reconciliation, I5/J5 Business Start Date boundaries, F1 browser lifecycle continuity, A5 offline fuel access, D2 offline PWA continuity, F5 network recovery, G2 no startup location gate, G3 safe one-shot GPS failure, and G4 no startup snapshots.')
 } catch (error) {
   throw new Error(error.message + '\\n' + output)
 } finally {
