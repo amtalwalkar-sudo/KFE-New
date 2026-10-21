@@ -315,12 +315,11 @@ public class KfeOverlayService extends Service {
   }
 
   private void persistNativeForm(){
-    getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit()
-      .putString("formMode",formMode==null?"":formMode)
-      .putString("formValue",formValue).putString("tollValue",tollValue).putString("parkingValue",parkingValue)
-      .putString("cancelReason",cancelReason).putBoolean("cancelFormPwaSynchronized",cancelFormPwaSynchronized).putBoolean("tollExpanded",tollExpanded).putBoolean("parkingExpanded",parkingExpanded)
-      .putBoolean("tollExcluded",tollTreatmentInput!=null&&tollTreatmentInput.isChecked())
-      .putBoolean("parkingExcluded",parkingTreatmentInput!=null&&parkingTreatmentInput.isChecked()).apply();
+    KfeNativeTripFormDraftStore.save(getSharedPreferences("kfe_overlay",MODE_PRIVATE),
+        new KfeNativeTripFormDraftStore.Draft(formMode,formValue,tollValue,parkingValue,cancelReason,
+            cancelFormPwaSynchronized,tollExpanded,parkingExpanded,
+            tollTreatmentInput!=null&&tollTreatmentInput.isChecked(),
+            parkingTreatmentInput!=null&&parkingTreatmentInput.isChecked()));
   }
 
   private void applyFareDraft(JSONObject draft){
@@ -352,16 +351,17 @@ public class KfeOverlayService extends Service {
   private void restorePersistedFormIfNeeded(){
     if(formMode!=null||minimized)return;
     android.content.SharedPreferences saved=getSharedPreferences("kfe_overlay",MODE_PRIVATE);
-    String mode=saved.getString("formMode","");
-    String savedFare=saved.getString("formValue","");
-    String savedToll=saved.getString("tollValue","");
-    String savedParking=saved.getString("parkingValue","");
-    String savedReason=saved.getString("cancelReason","");
-    cancelFormPwaSynchronized=saved.getBoolean("cancelFormPwaSynchronized",false);
-    boolean savedTollExpanded=saved.getBoolean("tollExpanded",false);
-    boolean savedParkingExpanded=saved.getBoolean("parkingExpanded",false);
-    boolean savedTollExcluded=saved.getBoolean("tollExcluded",false);
-    boolean savedParkingExcluded=saved.getBoolean("parkingExcluded",false);
+    KfeNativeTripFormDraftStore.Draft draft=KfeNativeTripFormDraftStore.load(saved);
+    String mode=draft.mode;
+    String savedFare=draft.fare;
+    String savedToll=draft.toll;
+    String savedParking=draft.parking;
+    String savedReason=draft.reason;
+    cancelFormPwaSynchronized=draft.cancelFormPwaSynchronized;
+    boolean savedTollExpanded=draft.tollExpanded;
+    boolean savedParkingExpanded=draft.parkingExpanded;
+    boolean savedTollExcluded=draft.tollExcluded;
+    boolean savedParkingExcluded=draft.parkingExcluded;
     if("FARE".equals(mode)&&"ENTER_FARE".equals(actionStage))openFareForm();
     else if("CANCEL".equals(mode)&&"START_RIDE".equals(actionStage))openCancelForm();
     else return;
@@ -997,7 +997,7 @@ public class KfeOverlayService extends Service {
   private void closeForm(){closeForm(true);}
   private void closeForm(boolean clearDraft){
     if(formPanel!=null&&overlayRoot!=null)overlayRoot.removeView(formPanel);
-    formPanel=null;formMode=null;formValue="";tollValue="";parkingValue="";formSubmitting=false;formInput=null;tollInput=null;parkingInput=null;tollTreatmentInput=null;parkingTreatmentInput=null;tollToggle=null;parkingToggle=null;if(clearDraft)getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().remove("formMode").remove("formValue").remove("tollValue").remove("parkingValue").remove("cancelReason").remove("cancelFormPwaSynchronized").remove("tollExpanded").remove("parkingExpanded").remove("tollExcluded").remove("parkingExcluded").apply();
+    formPanel=null;formMode=null;formValue="";tollValue="";parkingValue="";formSubmitting=false;formInput=null;tollInput=null;parkingInput=null;tollTreatmentInput=null;parkingTreatmentInput=null;tollToggle=null;parkingToggle=null;if(clearDraft)KfeNativeTripFormDraftStore.clear(getSharedPreferences("kfe_overlay",MODE_PRIVATE));
     if(params!=null){params.height=dp(COLLAPSED_TOTAL_DP);params.flags=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;params.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING;if(windowManager!=null&&overlayRoot!=null)windowManager.updateViewLayout(overlayRoot,params);}
     if(overlay!=null)overlay.invalidate();
   }
