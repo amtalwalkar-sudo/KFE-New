@@ -990,7 +990,8 @@ public class KfeOverlayService extends Service {
 
   private void finishNativeFormCommit(){
     formSubmitting=false;
-    if("CANCEL".equals(formMode))
+    // Close both form types after the canonical SQLite transaction succeeds.
+    // Leaving FARE attached swallows the next trip's cancellation tap.
     closeForm();
     actionStage="GO_TO_PICKUP";
     pendingTripId="";
@@ -1002,7 +1003,6 @@ public class KfeOverlayService extends Service {
     animateRetract();
     if(overlay!=null)overlay.invalidate();
   }
-
   private void closeForm(){closeForm(true);}
   private void closeForm(boolean clearDraft){
     if(formPanel!=null&&overlayRoot!=null)overlayRoot.removeView(formPanel);
