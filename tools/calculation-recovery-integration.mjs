@@ -23,7 +23,7 @@ try {
   }
   if (!ready) throw new Error(`Vite dev server did not start.\n${serverOutput}`)
   browser = await chromium.launch({ headless: true })
-  const context = await browser.newContext({ permissions: ['geolocation'], geolocation: { latitude: 19.01, longitude: 72.85, accuracy: 5 } })
+  const context = await browser.newContext()
   const page = await context.newPage()
   const pageErrors = []
   page.on('pageerror', error => pageErrors.push(error.stack || error.message))
@@ -31,10 +31,9 @@ try {
   await page.waitForFunction(() => document.readyState === 'complete', undefined, { timeout: 15000 })
 
   const result = await page.evaluate(async () => {
-    const [{ initializeCanonicalStorage }, { ShiftTripRepository }, { LocationRepository }, { WorkService }, { configureWorkRuntimePorts }, { FuelRepository }, { recordFuelEntry }, { completeEndShift }, { OperationalRecordService }, { PerformanceRepository }, { derivePerformance }, { BackupService }] = await Promise.all([
+    const [{ initializeCanonicalStorage }, { ShiftTripRepository }, { WorkService }, { configureWorkRuntimePorts }, { FuelRepository }, { recordFuelEntry }, { completeEndShift }, { OperationalRecordService }, { PerformanceRepository }, { derivePerformance }, { BackupService }] = await Promise.all([
       import('/src/utils/indexedDB.js'),
       import('/src/repositories/shiftTripRepository.js'),
-      import('/src/repositories/locationRepository.js'),
       import('/src/application/work/workService.js'),
       import('/src/application/work/workRuntimePorts.js'),
       import('/src/repositories/fuelRepository.js'),
@@ -61,27 +60,13 @@ try {
     const started = await ShiftTripRepository.setTripStage(trip.id, 'RIDE_STARTED')
     if (!started) throw new Error('Trip stage did not persist')
     await ShiftTripRepository.completeTrip({ id: trip.id, tripEndAt: at(-2400000), tripKm: 40, revenue: 500 })
-    // The active GPS contract is a one-shot endpoint snapshot, not a continuous
-    // trace or route-enrichment pipeline. The browser test context supplies a
-    // deterministic offline-capable geolocation fix for this completed trip.
     const gapStartAt = at(-900000)
     const gapEndAt = at(-300000)
     const gapTrip = await ShiftTripRepository.createTrip({ shiftId: shift.id, operator: 'Uber', tripStartAt: gapStartAt, tripKm: 0, revenue: 350 })
     if (!await ShiftTripRepository.setTripStage(gapTrip.id, 'RIDE_STARTED')) throw new Error('Snapshot-test ride did not enter passenger-ride phase')
     await WorkService.completeTrip({ id: gapTrip.id, tripEndAt: gapEndAt, revenue: 350 })
-    let savedGapTrip = null
-    const snapshotDeadline = Date.now() + 15000
-    while (Date.now() < snapshotDeadline) {
-      savedGapTrip = (await ShiftTripRepository.getTripsForShift(shift.id)).find(item => item.id === gapTrip.id)
-      if (savedGapTrip?.tripEndLocation?.capturedAt) break
-      await new Promise(resolve => setTimeout(resolve, 100))
-    }
-    const endpoint = savedGapTrip?.tripEndLocation
-    if (!endpoint || !Number.isFinite(Number(endpoint.latitude)) || !Number.isFinite(Number(endpoint.longitude))) throw new Error('Completed ride did not persist its one-shot GPS endpoint coordinates')
-    if (!Number.isFinite(Date.parse(endpoint.capturedAt))) throw new Error('Completed ride endpoint is missing its actual GPS fix timestamp')
-    const tracePoints = await LocationRepository.forEntity('TRIP', gapTrip.id)
-    if (tracePoints.some(point => point.eventType === 'PASSENGER_RIDE_TRACE')) throw new Error('Active workflow unexpectedly persisted a continuous passenger GPS trace')
-    if (savedGapTrip.tripKm !== 0) throw new Error('Boundary GPS snapshot must not alter manually entered trip kilometres')
+    const savedGapTrip = (await ShiftTripRepository.getTripsForShift(shift.id)).find(item => item.id === gapTrip.id)
+    if (!savedGapTrip || savedGapTrip.tripKm !== 0) throw new Error('GPS-free completion must preserve the manually entered trip kilometre value')
 
     const movementReconciliation = {
       reconciliationStatus: 'RECONCILED',
@@ -140,12 +125,7 @@ try {
     const restoredFuel = (await FuelRepository.getAll()).find(item => item.id === fuel.record.id)
     const restoredGapTrip = (await ShiftTripRepository.getTripsForShift(shift.id)).find(item => item.id === gapTrip.id)
     if (!restoredShift || !restoredFuel || restoredFuel.amount !== 375) throw new Error('Cloud-restore path did not restore canonical shift and edited fuel records')
-    const restoredEndpoint = restoredGapTrip?.tripEndLocation
-    if (!restoredEndpoint || restoredEndpoint.capturedAt !== endpoint.capturedAt ||
-        Number(restoredEndpoint.latitude) !== Number(endpoint.latitude) ||
-        Number(restoredEndpoint.longitude) !== Number(endpoint.longitude)) {
-      throw new Error('Cloud restore lost the saved ride GPS endpoint coordinates or fix timestamp')
-    }
+    if (!restoredGapTrip || restoredGapTrip.tripKm !== 0) throw new Error('Cloud restore did not preserve the GPS-free trip and its manually entered kilometre value')
     const restoredOperational = await OperationalRecordService.reconstructShift(shift.id)
     if (restoredOperational.fuelCost !== 375 || restoredOperational.unclassifiedKm !== 20) throw new Error('Downstream read model did not consume restored canonical records')
     return {
@@ -157,14 +137,7 @@ try {
       canonicalChangeInvalidation: changeObserved,
       timelineAndPerformanceMovementAgreement: true,
       cloudRestoreAndDownstreamRecalculation: true,
-      savedRideGpsSnapshot: {
-        capturedAt: endpoint.capturedAt,
-        latitude: endpoint.latitude,
-        longitude: endpoint.longitude,
-        metadataSurvivesRestore: restoredEndpoint.capturedAt === endpoint.capturedAt &&
-          Number(restoredEndpoint.latitude) === Number(endpoint.latitude) &&
-          Number(restoredEndpoint.longitude) === Number(endpoint.longitude),
-      },
+      gpsFreeTripCompletionAndRestore: restoredGapTrip.tripKm === 0,
     }
   })
   assert.equal(result.fareClearPersisted, true)
@@ -172,10 +145,7 @@ try {
   assert.equal(result.canonicalChangeInvalidation, true)
   assert.equal(result.timelineAndPerformanceMovementAgreement, true)
   assert.equal(result.cloudRestoreAndDownstreamRecalculation, true)
-  assert.ok(Number.isFinite(Date.parse(result.savedRideGpsSnapshot.capturedAt)))
-  assert.ok(Number.isFinite(Number(result.savedRideGpsSnapshot.latitude)))
-  assert.ok(Number.isFinite(Number(result.savedRideGpsSnapshot.longitude)))
-  assert.equal(result.savedRideGpsSnapshot.metadataSurvivesRestore, true)
+  assert.equal(result.gpsFreeTripCompletionAndRestore, true)
   if (pageErrors.length) throw new Error(`Browser errors during canonical integration test:\n${pageErrors.join('\n\n')}`)
   console.log('Canonical persistence/calculation/restore integration: PASS')
   console.log(JSON.stringify(result))
