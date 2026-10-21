@@ -1,12 +1,13 @@
-# Active product boundary — 2026-10-21
+# Android Trip-Boundary GPS Contract
 
-**This note supersedes the continuous-trace and route-enrichment requirements below for the active application runtime.**
+**Active scope (2026-10-21): one-shot GPS snapshots only.** This section supersedes older continuous-trace requirements in this document.
 
-- The active product records **one-shot GPS snapshots** at trip creation, Start Trip, and End Trip (including cancellation/end states), with latitude, longitude, accuracy when available, and the device GPS fix timestamp.
-- Snapshots are saved locally. GPS-provider acquisition does not require internet; a fix may take longer when offline. Foreground precise/coarse location permission and enabled device Location Services are required.
-- The PWA lifecycle and native Android overlay each capture boundary snapshots so the overlay can complete a trip while the PWA is closed.
-- Continuous GPS watches/foreground trace collection, trace auto-resume, Valhalla map matching, dead/business-kilometre calculations, GPS-gap UI, and the Offline Maps screen are **not active product behaviour**. Their source assets remain dormant for possible future reactivation.
-- Acceptance is based on boundary snapshot persistence and timestamps—not background trace continuity, routing, or live kilometre displays.
+- Capture one GPS fix and its device fix timestamp at passenger-trip start and trip end; retain a separate pickup-start snapshot where that workflow boundary is recorded.
+- Persist latitude, longitude, accuracy when available, and `capturedAt` locally. GPS-provider capture does not require internet. A fix may take longer offline and requires Android Location Services plus foreground precise/coarse location permission.
+- Cancellation is a terminal trip boundary and receives the same one-shot endpoint snapshot.
+- Never start a continuous watch, background GPS trace collector, trace auto-resume, route matching, or kilometre calculation for this feature.
+- The PWA and Android overlay capture snapshots without blocking trip transitions or fare/cancellation forms. A missing fix must not prevent a trip from completing; saved lifecycle timestamps remain authoritative.
+- Physical-device acceptance verifies offline start/end fixes, timestamps, persistence after reopening the app, and overlay operation with the PWA closed.
 
 ---
 

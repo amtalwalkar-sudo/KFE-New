@@ -289,6 +289,17 @@ export const WorkService = Object.freeze({
     const result = await ShiftTripRepository.cancelTrip(data)
     await mirrorCanonicalShiftByTripId(data?.id)
     checkpoint()
+    const tripId = data?.id
+    if (tripId) {
+      void captureLifecycleLocation({ entityType: 'TRIP', entityId: tripId, eventType: 'CANCELLED' })
+        .then(async location => {
+          if (!location) return
+          await ShiftTripRepository.setTripEndLocation(tripId, location)
+          await mirrorCanonicalTripById(tripId)
+          checkpoint()
+        })
+        .catch(error => console.warn('Cancelled trip endpoint GPS snapshot could not be saved:', tripId, error))
+    }
     return result
   },
   async updateTrip(data) {

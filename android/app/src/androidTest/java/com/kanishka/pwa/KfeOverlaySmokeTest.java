@@ -69,66 +69,10 @@ public class KfeOverlaySmokeTest {
       context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE).getLong("tripStartAt", 0L));
   }
 
-  @Test public void nativeGpsSwitchesFromPickupDeadKmToPassengerTripAndStopsByTripId() throws Exception {
-    String tripId = "gps-lifecycle-trip";
-    KfeNativeGpsService.start(context, tripId, KfeOverlayService.gpsEventForAction("GO_TO_PICKUP"), "TRIP");
-    long deadline = SystemClock.uptimeMillis() + 5000L;
-    while (SystemClock.uptimeMillis() < deadline
-        && !"DEAD_MOVEMENT_TRACE".equals(KfeNativeGpsService.persistedActiveEventType(context))) {
-      SystemClock.sleep(50L);
-    }
-    assertEquals("Pickup travel must be tracked as dead movement",
-      "DEAD_MOVEMENT_TRACE", KfeNativeGpsService.persistedActiveEventType(context));
-    KfeNativeGpsService.start(context, tripId, KfeOverlayService.gpsEventForAction("START_RIDE"), "TRIP");
-    deadline = SystemClock.uptimeMillis() + 5000L;
-    while (SystemClock.uptimeMillis() < deadline
-        && !"PASSENGER_RIDE_TRACE".equals(KfeNativeGpsService.persistedActiveEventType(context))) {
-      SystemClock.sleep(50L);
-    }
-    assertEquals("Start Trip must switch the same collector to passenger-trip telemetry",
-      "PASSENGER_RIDE_TRACE", KfeNativeGpsService.persistedActiveEventType(context));
-    KfeNativeGpsService.stop(context, tripId);
-    deadline = SystemClock.uptimeMillis() + 5000L;
-    while (SystemClock.uptimeMillis() < deadline
-        && !KfeNativeGpsService.persistedActiveTripId(context).isEmpty()) {
-      SystemClock.sleep(50L);
-    }
-    assertEquals("End Trip must stop its own collector", "",
-      KfeNativeGpsService.persistedActiveTripId(context));
-  }
-
-  @Test public void nativeOverlaySelectsKmFromDisplayedMovementPhase() {
-    assertEquals("Pickup phase must display dead-movement KM", "12.4 km",
-      KfeOverlayService.resolveMovementValue("START_RIDE", "12.4 km", "8.1 km"));
-    assertEquals("Pre-trip phase must display dead-movement KM", "3.2 km",
-      KfeOverlayService.resolveMovementValue("GO_TO_PICKUP", "3.2 km", "8.1 km"));
-    assertEquals("Passenger phase must display business KM", "8.1 km",
-      KfeOverlayService.resolveMovementValue("END_RIDE", "12.4 km", "8.1 km"));
-    assertEquals("Missing dead-movement estimate remains explicit", "—",
-      KfeOverlayService.resolveMovementValue("START_RIDE", null, "8.1 km"));
-  }
-
-  @Test public void staleGpsStopCannotStopNewerTripCollector() {
-    assertTrue(KfeNativeGpsService.shouldStopForTrip("trip-a", "trip-a"));
-    assertTrue(!KfeNativeGpsService.shouldStopForTrip("trip-b", "trip-a"));
-    assertTrue(!KfeNativeGpsService.shouldStopForTrip("trip-b", ""));
-  }
-
   @Test public void fareSubmissionKeepsCompletedTripIdentityAcrossNextPickup() {
     assertEquals("completed-trip", KfeOverlayService.resolveFareActionTripId("completed-trip", "next-active-trip"));
     assertEquals("current-trip", KfeOverlayService.resolveFareActionTripId("", "current-trip"));
     assertEquals("", KfeOverlayService.resolveFareActionTripId("", null));
-  }
-
-  @Test public void overlayUsesOneStateAwareLiveKmLabel() {
-    assertEquals("DEAD KM", KfeOverlayService.resolveMovementLabel("GO_TO_PICKUP"));
-    assertEquals("DEAD KM", KfeOverlayService.resolveMovementLabel("START_RIDE"));
-    assertEquals("BUSINESS KM", KfeOverlayService.resolveMovementLabel("END_RIDE"));
-    assertEquals("LIVE KM", KfeOverlayService.resolveMovementLabel("ENTER_FARE"));
-    assertEquals("GO TO PICKUP", KfeOverlayService.resolveActionLabel("GO_TO_PICKUP"));
-    assertEquals("START RIDE", KfeOverlayService.resolveActionLabel("START_RIDE"));
-    assertEquals("END RIDE", KfeOverlayService.resolveActionLabel("END_RIDE"));
-    assertEquals("", KfeOverlayService.resolveActionLabel("ENTER_FARE"));
   }
 
   @Test public void swipeWhileAwaitingAcknowledgementCannotCreateDuplicateDurableEvent() throws Exception {

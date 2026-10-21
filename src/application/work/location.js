@@ -1,5 +1,4 @@
 import { LocationRepository } from '../../repositories/locationRepository.js'
-import { ShiftTripRepository } from '../../repositories/shiftTripRepository.js'
 
 const uniqueParts = parts => [...new Set(parts.filter(Boolean).map(value => String(value).trim()).filter(Boolean))]
 const GEOCODER_TIMEOUT_MS = 5000
@@ -79,16 +78,9 @@ export async function captureLifecycleLocation({ entityType, entityId, eventType
           placeName: null
         })
       } catch (_) { resolve(null); return }
-      // Coordinates are authoritative and are persisted immediately. Reverse geocoding
-      // is enrichment only, so a slow/offline geocoder must never block a trip boundary.
+      // Local coordinates and the GPS fix timestamp are the complete snapshot.
+      // No reverse-geocoder request is made, so this path is offline-first.
       resolve(record)
-      void getNativePlaceName({ latitude, longitude }).then(async placeName => {
-        if (placeName && record?.id) {
-          await LocationRepository.updatePlaceName(record.id, placeName)
-          if (entityType === 'TRIP' && (eventType === 'START' || eventType === 'END' || eventType === 'CANCELLED')) await ShiftTripRepository.updateTripLocationPlaceName(entityId, eventType, placeName)
-        }
-        return null
-      }).catch(() => {})
     }, () => resolve(null), {
       enableHighAccuracy: true,
       maximumAge: eventType === 'RIDE_START' || eventType === 'END' ? 0 : 30000,

@@ -83,7 +83,6 @@ public class KfeOverlayService extends Service {
   private boolean parkingExpanded=false;
   private String theme="dark";
   private String target="—", rides="0", revenue="₹0", pendingTripId="", pendingFareTripId="", cancellationRevenue="₹0";
-  private String deadKm="—", gpsStatus="GPS status unavailable";
   private long tripStartAt=0L;
   private long phaseStartAt=0L;
   private String phaseLabel="TRIP TIME";
@@ -119,23 +118,9 @@ public class KfeOverlayService extends Service {
     }
   };
 
-  static void updateDeadKm(String value){
-    KfeOverlayService current=instance;
-    if(current==null)return;
-    current.deadKm=value==null?"—":value;
-    current.getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().putString("deadKm",current.deadKm).apply();
-    if(current.overlay!=null)current.overlay.postInvalidate();
-  }
-
   static String resolveFareActionTripId(String pendingFareTripId, String currentTripId){
     if(pendingFareTripId!=null&&!pendingFareTripId.isEmpty())return pendingFareTripId;
     return currentTripId==null?"":currentTripId;
-  }
-
-  static String gpsEventForAction(String stage){
-    if("GO_TO_PICKUP".equals(stage))return "DEAD_MOVEMENT_TRACE";
-    if("START_RIDE".equals(stage))return "PASSENGER_RIDE_TRACE";
-    return "";
   }
 
   static String resolveActionLabel(String stage){
@@ -190,7 +175,6 @@ public class KfeOverlayService extends Service {
     tripStartAt=saved.getLong("tripStartAt",0L);
     phaseStartAt=saved.getLong("phaseStartAt",0L);
     phaseLabel=saved.getString("phaseLabel","TRIP TIME");
-    deadKm=saved.getString("deadKm","—");
     awaitingEventId=saved.getString("awaitingEventId","");
     awaitingStage=saved.getString("awaitingStage","");
     awaitingTripId=saved.getString("awaitingTripId","");
@@ -275,8 +259,6 @@ public class KfeOverlayService extends Service {
       defaultOperator=root.optString("defaultOperator",defaultOperator);
       JSONObject swipeConfig=root.optJSONObject("swipeConfig");
       if(swipeConfig!=null){ swipeCommitThresholdPercent=Math.max(50,Math.min(95,swipeConfig.optInt("commitThresholdPercent",70))); swipeReturnDurationMs=Math.max(80,Math.min(500,swipeConfig.optInt("returnDurationMs",220))); try{swipePickupColor=Color.parseColor(swipeConfig.optString("pickupColor","#78A2FF"));swipeStartColor=Color.parseColor(swipeConfig.optString("startColor","#62D18A"));swipeEndColor=Color.parseColor(swipeConfig.optString("endColor","#FF8585"));}catch(Exception ignored){} }
-      deadKm=root.optString("deadKm",root.optString("deadMovementKm","—"));
-      gpsStatus=root.optString("gpsStatus",root.optBoolean("gpsTracking",false)?"GPS active":"GPS status unavailable");
       revenue=root.optString("revenue","₹0");
       cancellationRevenue=root.optString("cancellationRevenue","₹0");
       String incomingTripId=root.optString("overlayTripId",trip==null?"":trip.optString("id",""));

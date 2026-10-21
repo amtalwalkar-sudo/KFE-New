@@ -1,5 +1,7 @@
 name: Publish KFE Offline Valhalla Maps
 
+# Dormant feature: keep package generation available for an explicit manual run,
+# but do not build/download/publish routing tiles as part of push or PR CI.
 on:
   workflow_dispatch:
 
@@ -7,13 +9,12 @@ permissions:
   contents: write
 
 concurrency:
-  # Manual-only while the Offline Maps runtime UI is dormant; never build or publish tiles on push/PR.
-  group: ${{ github.event_name == 'pull_request' && format('kfe-offline-valhalla-map-release-pr-{0}', github.event.pull_request.number) || 'kfe-offline-valhalla-map-release-main' }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: kfe-offline-valhalla-map-release-manual
+  cancel-in-progress: false
 
 jobs:
   build-and-publish-region:
-        # Explicit manual dispatch is required to reactivate offline map packaging.
+    # Only explicit manual dispatch may run dormant map packaging.
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 360
