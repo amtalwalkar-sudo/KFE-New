@@ -150,9 +150,6 @@ export const MovementReconciliationQueue = Object.freeze({
   getPendingIds() { return readQueue() }
 })
 
-// The trace itself is persisted locally; queue reconciliation on startup and when
-// connectivity returns. Neither listener is required for GPS capture to continue.
-if (typeof window !== 'undefined') {
-  window.addEventListener('online', () => { lastLiveMatchAt = new Map(); void MovementReconciliationQueue.reconcilePending({ force: true }) })
-  void MovementReconciliationQueue.reconcilePending()
-}
+// Trace reconciliation is intentionally dormant while the product records only
+// one-shot trip-boundary snapshots. Keep the queue implementation available for
+// a future explicitly enabled movement-accounting feature.
