@@ -827,6 +827,7 @@ public class KfeOverlayService extends Service {
   private void captureOneShotTripBoundary(String tripId, String field){
     if(tripId==null||tripId.trim().isEmpty())return;
     if(!"tripStartLocation".equals(field)&&!"tripEndLocation".equals(field))return;
+    try { JSONObject prior=KfeCanonicalWorkStore.get(this).getRecord("TRIP",tripId); JSONObject priorTrip=prior.optJSONObject("record"); if(prior.optBoolean("found",false)&&priorTrip!=null&&priorTrip.has(field)&&!priorTrip.isNull(field))return; } catch(Exception error) { Log.w("KFE-GPS","Unable to check prior trip-boundary snapshot",error); }
     if(ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED){
       Log.w("KFE-GPS","One-shot "+field+" snapshot skipped: location permission is not granted.");return;
     }

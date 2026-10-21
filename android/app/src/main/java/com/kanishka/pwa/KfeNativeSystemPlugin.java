@@ -41,7 +41,7 @@ public class KfeNativeSystemPlugin extends Plugin {
     boolean location = ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     android.location.LocationManager locationManager = (android.location.LocationManager) getContext().getSystemService(android.content.Context.LOCATION_SERVICE);
     boolean locationServicesEnabled = false;
-    try { if (locationManager != null) locationServicesEnabled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P ? locationManager.isLocationEnabled() : locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER); } catch (Exception ignored) {}
+    try { if (locationManager != null) locationServicesEnabled = locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER); } catch (Exception ignored) {}
     boolean overlay = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(getContext());
     PowerManager powerManager = (PowerManager) getContext().getSystemService(android.content.Context.POWER_SERVICE);
     boolean batteryOptimizationExempt = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || (powerManager != null && powerManager.isIgnoringBatteryOptimizations(getContext().getPackageName()));

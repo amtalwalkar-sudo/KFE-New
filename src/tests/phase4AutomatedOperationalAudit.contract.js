@@ -253,7 +253,7 @@ const deviceOnly = [
   'C4/C5 real Android overlay/background/bubble/minimize/reopen',
   'F2 force-stop/process death and native resume behavior',
   'F3 lock/unlock',
-  'one-shot Android GPS start/end fixes with networking disabled and real permission prompts',
+  'physical-device confirmation of one-shot GPS start/end fixes with networking disabled and real permission prompts',
   'real touch/gesture behavior and device-specific rendering',
 ]
 console.log(`DEFERRED_DEVICE_GATE: ${deviceOnly.join(' | ')}`)

@@ -624,6 +624,66 @@ public class KfeOverlaySmokeTest {
   }
 
 
+  @Test public void nativeTripBoundarySnapshotPersistsOfflineAndIsIdempotent() throws Exception {
+    String shiftId = "offline-gps-shift-" + System.currentTimeMillis();
+    String tripId = "offline-gps-trip-" + System.currentTimeMillis();
+    seedCanonicalShift(shiftId);
+    seedCanonicalTrip(new JSONObject()
+      .put("id", tripId).put("shiftId", shiftId).put("status", "ACTIVE")
+      .put("tripStage", "GOING_TO_PICKUP")
+      .put("tripStartLocation", JSONObject.NULL).put("tripEndLocation", JSONObject.NULL)
+      .put("tripStartLocationStatus", "MISSING").put("tripEndLocationStatus", "MISSING"));
+    KfeOverlayService service = waitForService();
+    Method capture = KfeOverlayService.class.getDeclaredMethod("captureOneShotTripBoundary", String.class, String.class);
+    capture.setAccessible(true);
+
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    capture.invoke(service, tripId, "tripStartLocation");
+    JSONObject startSnapshot = null;
+    long deadline = SystemClock.uptimeMillis() + 15000L;
+    while (SystemClock.uptimeMillis() < deadline) {
+      JSONObject found = store.getRecord("TRIP", tripId);
+      JSONObject trip = found.optJSONObject("record");
+      if (trip != null) startSnapshot = trip.optJSONObject("tripStartLocation");
+      if (found.optBoolean("found", false) && startSnapshot != null && !startSnapshot.optString("capturedAt", "").isEmpty()) break;
+      SystemClock.sleep(100L);
+    }
+    assertNotNull("Native overlay must capture a GPS start fix with networking disabled.", startSnapshot);
+    String startAt = startSnapshot.getString("capturedAt");
+    assertTrue(Double.isFinite(startSnapshot.getDouble("latitude")));
+    assertTrue(Double.isFinite(startSnapshot.getDouble("longitude")));
+    java.time.Instant.parse(startAt);
+
+    // A repeated lifecycle callback must not replace the first durable fix.
+    capture.invoke(service, tripId, "tripStartLocation");
+    JSONObject afterRetry = store.getRecord("TRIP", tripId).getJSONObject("record").getJSONObject("tripStartLocation");
+    assertEquals(startAt, afterRetry.getString("capturedAt"));
+
+    capture.invoke(service, tripId, "tripEndLocation");
+    JSONObject endSnapshot = null;
+    deadline = SystemClock.uptimeMillis() + 15000L;
+    while (SystemClock.uptimeMillis() < deadline) {
+      JSONObject found = store.getRecord("TRIP", tripId);
+      JSONObject trip = found.optJSONObject("record");
+      if (trip != null) endSnapshot = trip.optJSONObject("tripEndLocation");
+      if (found.optBoolean("found", false) && endSnapshot != null && !endSnapshot.optString("capturedAt", "").isEmpty()) break;
+      SystemClock.sleep(100L);
+    }
+    assertNotNull("Native overlay must capture a GPS end fix with networking disabled.", endSnapshot);
+    String endAt = endSnapshot.getString("capturedAt");
+    assertTrue(Double.isFinite(endSnapshot.getDouble("latitude")));
+    assertTrue(Double.isFinite(endSnapshot.getDouble("longitude")));
+    java.time.Instant.parse(endAt);
+
+    store.close();
+    Field singleton = KfeCanonicalWorkStore.class.getDeclaredField("instance");
+    singleton.setAccessible(true);
+    singleton.set(null, null);
+    JSONObject reopened = KfeCanonicalWorkStore.get(context).getRecord("TRIP", tripId).getJSONObject("record");
+    assertEquals("Start fix timestamp must survive native store reopen.", startAt, reopened.getJSONObject("tripStartLocation").getString("capturedAt"));
+    assertEquals("End fix timestamp must survive native store reopen.", endAt, reopened.getJSONObject("tripEndLocation").getString("capturedAt"));
+  }
+
   @Test public void nativeOverlayCompletesFareAndCancellationUsingGesturesAndVisibleFormControlsWithoutPwaReplay() throws Exception {
     // These domain rules are independently testable from the form widgets.
     assertTrue(KfeNativeTripFormRules.isValidOptionalAmount(""));

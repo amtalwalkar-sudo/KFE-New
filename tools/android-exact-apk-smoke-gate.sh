@@ -326,10 +326,21 @@ run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#nativeShif
 # Reopen the PWA with the synthetic queue events already acknowledged; canonical SQLite must catch it up independently.
 run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#reopeningPwaCatchesUpNativeCanonicalRecordsWithoutReplayingPendingEvents native-pwa-catch-up 1
 # Continuous GPS, process-death trace resume, screen-off/reboot collection, and
-# Valhalla/offline-map acceptance are intentionally dormant. The active GPS contract
-# is one-shot trip-boundary snapshots; no trace collector or routing UI is required.
+# Valhalla/offline-map acceptance are intentionally dormant. Verify the native one-shot
+# GPS_PROVIDER path while networking is disabled, then restore connectivity for the suite.
+adb shell svc wifi disable || true
+adb shell svc data disable || true
+adb shell settings put global airplane_mode_on 1
+adb shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true >/dev/null 2>&1 || true
+adb shell cmd location set-location-enabled true || adb shell settings put secure location_mode 3
+adb emu geo fix 72.85 19.01
+run_instrumentation com.kanishka.pwa.KfeOverlaySmokeTest#nativeTripBoundarySnapshotPersistsOfflineAndIsIdempotent native-one-shot-gps-offline 1
+adb shell settings put global airplane_mode_on 0
+adb shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false >/dev/null 2>&1 || true
+adb shell svc wifi enable || true
+adb shell svc data enable || true
 
-run_instrumentation com.kanishka.pwa.KfeOverlaySmokeTest native-overlay 18
+run_instrumentation com.kanishka.pwa.KfeOverlaySmokeTest native-overlay 19
 
 # Run the WebView-disabled acceptances last so disabling WebView cannot affect
 # any earlier PWA catch-up or lifecycle/recovery test in this instrumentation process.
