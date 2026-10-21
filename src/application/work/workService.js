@@ -7,7 +7,6 @@ import { calculateFuelQuantity, validateFuelEntry } from '../../domain/work/fuel
 import { calculateRollingFuelCostPerKm } from '../../domain/math/fuel.js'
 import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } from '../../domain/work/trip.js'
 import { BackupService } from '../backup/backupService.js'
-import { MovementAccountingService } from '../../domain/movement/movementAccounting.js'
 import { WorkRuntimePorts } from './workRuntimePorts.js'
 import { CanonicalWorkBoundary } from './canonicalWorkBoundary.js'
 import { recoverCanonicalWorkSnapshot } from './canonicalWorkRecovery.js'
@@ -133,22 +132,6 @@ export const WorkService = Object.freeze({
   async getFuelMetrics() {
     await ShiftTripRepository.getPrimaryVehicleId()
     return calculateRollingFuelCostPerKm(await FuelRepository.getAll())
-  },
-  async previewMovementReconciliation({ shiftId, closingOdometer, trips = [] }) {
-    const shift = await ShiftTripRepository.getActive()
-    if (!shift?.shift?.id || shift.shift.id !== shiftId) return { reconciliationStatus: 'UNAVAILABLE', reason: 'ACTIVE_SHIFT_NOT_FOUND' }
-    try {
-      return await MovementAccountingService.reconcileShiftMovement({
-        trips,
-        startOdometer: shift.shift.startOdometer,
-        endOdometer: closingOdometer,
-        router: null,
-        businessKmByTripId: Object.fromEntries(trips.filter(item => item.tripKm != null && item.tripKm !== '' && Number.isFinite(Number(item.tripKm)) && Number(item.tripKm) >= 0).map(item => [item.id, Number(item.tripKm)])),
-        gpsSnapshots: []
-      })
-    } catch (error) {
-      return { reconciliationStatus: 'UNAVAILABLE', reason: error?.message || 'MOVEMENT_RECONCILIATION_FAILED', gpsTracePoints: 0 }
-    }
   },
   validateShiftStartOdometer(currentOdometer, previousOdometer) { return validateShiftStartOdometer(currentOdometer, previousOdometer) },
   validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer) { return validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer) },
