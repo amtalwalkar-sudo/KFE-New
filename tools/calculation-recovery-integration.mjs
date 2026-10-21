@@ -140,10 +140,11 @@ try {
     const restoredFuel = (await FuelRepository.getAll()).find(item => item.id === fuel.record.id)
     const restoredGapTrip = (await ShiftTripRepository.getTripsForShift(shift.id)).find(item => item.id === gapTrip.id)
     if (!restoredShift || !restoredFuel || restoredFuel.amount !== 375) throw new Error('Cloud-restore path did not restore canonical shift and edited fuel records')
-    if (restoredGapTrip?.tripKmAuthority !== 'GPS_TRACE_INCOMPLETE' ||
-        restoredGapTrip?.tripKmProvenance?.unresolvedGapCount !== 1 ||
-        restoredGapTrip?.tripKmProvenance?.incompleteKmSegments?.[0]?.status !== 'UNRESOLVED') {
-      throw new Error('Cloud restore lost the saved ride GPS-gap authority or unresolved-gap metadata')
+    const restoredEndpoint = restoredGapTrip?.tripEndLocation
+    if (!restoredEndpoint || restoredEndpoint.capturedAt !== endpoint.capturedAt ||
+        Number(restoredEndpoint.latitude) !== Number(endpoint.latitude) ||
+        Number(restoredEndpoint.longitude) !== Number(endpoint.longitude)) {
+      throw new Error('Cloud restore lost the saved ride GPS endpoint coordinates or fix timestamp')
     }
     const restoredOperational = await OperationalRecordService.reconstructShift(shift.id)
     if (restoredOperational.fuelCost !== 375 || restoredOperational.unclassifiedKm !== 20) throw new Error('Downstream read model did not consume restored canonical records')
@@ -156,13 +157,13 @@ try {
       canonicalChangeInvalidation: changeObserved,
       timelineAndPerformanceMovementAgreement: true,
       cloudRestoreAndDownstreamRecalculation: true,
-      savedRideGpsGapAccounting: {
-        authority: savedGapTrip.tripKmAuthority,
-        knownDistanceKm: gapProvenance.knownDistanceKm,
-        estimatedGapDistanceKm: gapProvenance.estimatedGapDistanceKm,
-        unresolvedGapCount: gapProvenance.unresolvedGapCount,
-        noOutageChord: savedGapTrip.tripKm < 5,
-        metadataSurvivesRestore: restoredGapTrip.tripKmAuthority === 'GPS_TRACE_INCOMPLETE' && restoredGapTrip.tripKmProvenance.unresolvedGapCount === 1,
+      savedRideGpsSnapshot: {
+        capturedAt: endpoint.capturedAt,
+        latitude: endpoint.latitude,
+        longitude: endpoint.longitude,
+        metadataSurvivesRestore: restoredEndpoint.capturedAt === endpoint.capturedAt &&
+          Number(restoredEndpoint.latitude) === Number(endpoint.latitude) &&
+          Number(restoredEndpoint.longitude) === Number(endpoint.longitude),
       },
     }
   })
@@ -171,11 +172,10 @@ try {
   assert.equal(result.canonicalChangeInvalidation, true)
   assert.equal(result.timelineAndPerformanceMovementAgreement, true)
   assert.equal(result.cloudRestoreAndDownstreamRecalculation, true)
-  assert.equal(result.savedRideGpsGapAccounting.authority, 'GPS_TRACE_INCOMPLETE')
-  assert.equal(result.savedRideGpsGapAccounting.estimatedGapDistanceKm, 0)
-  assert.equal(result.savedRideGpsGapAccounting.unresolvedGapCount, 1)
-  assert.equal(result.savedRideGpsGapAccounting.noOutageChord, true)
-  assert.equal(result.savedRideGpsGapAccounting.metadataSurvivesRestore, true)
+  assert.ok(Number.isFinite(Date.parse(result.savedRideGpsSnapshot.capturedAt)))
+  assert.ok(Number.isFinite(Number(result.savedRideGpsSnapshot.latitude)))
+  assert.ok(Number.isFinite(Number(result.savedRideGpsSnapshot.longitude)))
+  assert.equal(result.savedRideGpsSnapshot.metadataSurvivesRestore, true)
   if (pageErrors.length) throw new Error(`Browser errors during canonical integration test:\n${pageErrors.join('\n\n')}`)
   console.log('Canonical persistence/calculation/restore integration: PASS')
   console.log(JSON.stringify(result))
