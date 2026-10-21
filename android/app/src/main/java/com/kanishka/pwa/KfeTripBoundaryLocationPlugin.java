@@ -61,9 +61,9 @@ public class KfeTripBoundaryLocationPlugin extends Plugin {
       if (!finished.compareAndSet(false, true)) return;
       call.reject("No GPS fix was available for this trip boundary.");
     };
-    handler.postDelayed(timeout, 20000L);
     try {
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        handler.postDelayed(timeout, 20000L);
         CancellationSignal cancellation = new CancellationSignal();
         handler.postDelayed(cancellation::cancel, 20000L);
         manager.getCurrentLocation(LocationManager.GPS_PROVIDER, cancellation, getActivity().getMainExecutor(), location -> {
@@ -74,10 +74,15 @@ public class KfeTripBoundaryLocationPlugin extends Plugin {
         });
       } else {
         final LocationListener[] listener = new LocationListener[1];
+        final Runnable singleUpdateTimeout = () -> {
+          if (!finished.compareAndSet(false, true)) return;
+          try { manager.removeUpdates(listener[0]); } catch (Exception ignored) {}
+          call.reject("No GPS fix was available for this trip boundary.");
+        };
         listener[0] = new LocationListener() {
           @Override public void onLocationChanged(Location location) {
             if (!finished.compareAndSet(false, true)) return;
-            handler.removeCallbacks(timeout);
+            handler.removeCallbacks(singleUpdateTimeout);
             try { manager.removeUpdates(this); } catch (Exception ignored) {}
             call.resolve(toSnapshot(location));
           }
@@ -85,11 +90,8 @@ public class KfeTripBoundaryLocationPlugin extends Plugin {
           @Override public void onProviderDisabled(String provider) {}
           @SuppressWarnings("deprecation") @Override public void onStatusChanged(String provider, int status, android.os.Bundle extras) {}
         };
+        handler.postDelayed(singleUpdateTimeout, 20000L);
         manager.requestSingleUpdate(LocationManager.GPS_PROVIDER, listener[0], Looper.getMainLooper());
-        handler.postDelayed(() -> {
-          if (!finished.compareAndSet(false, true)) return;
-          try { manager.removeUpdates(listener[0]); } catch (Exception ignored) {}
-        }, 20000L);
       }
     } catch (Exception error) {
       if (finished.compareAndSet(false, true)) {

@@ -43,36 +43,6 @@ try {
     reducedMotion: 'reduce',
   })
 
-  await context.addInitScript(() => {
-    const mode = sessionStorage.getItem('__phase4_gps_mode') || 'connected'
-    const originalPermissions = navigator.permissions
-    if (originalPermissions?.query) {
-      navigator.permissions.query = async descriptor => {
-        if (descriptor?.name === 'geolocation') {
-          return {
-            state: mode === 'denied' ? 'denied' : 'granted',
-            onchange: null,
-          }
-        }
-        return originalPermissions.query.call(originalPermissions, descriptor)
-      }
-    }
-    navigator.geolocation.getCurrentPosition = (success, failure) => {
-      if (mode === 'unavailable') {
-        failure({ code: 2, message: 'Position unavailable' })
-        return
-      }
-      if (mode === 'denied') {
-        failure({ code: 1, message: 'Permission denied' })
-        return
-      }
-      success({
-        coords: { latitude: 19.076, longitude: 72.8777, accuracy: 20 },
-        timestamp: Date.now(),
-      })
-    }
-  })
-
   const page = await context.newPage()
   const errors = []
   page.on('pageerror', error => errors.push(error.stack || error.message))
@@ -458,68 +428,41 @@ try {
   })
   assert(recoveredShiftState?.id === offlineShiftState.id && recoveredShiftState.status === 'ACTIVE', 'F5 network recovery did not preserve the canonical shift')
 
-  // G2: a denied browser location permission now blocks app startup by design.
+  // G2: browser location permission is requested only for a trip boundary, not at startup.
   await page.goto(base, { waitUntil: 'domcontentloaded' })
   await page.locator('.work-canonical').waitFor({ state: 'attached' })
-  await page.evaluate(() => sessionStorage.setItem('__phase4_gps_mode', 'denied'))
-  await page.reload({ waitUntil: 'domcontentloaded' })
-  await page.locator('.kfe-permission-gate').waitFor({ state: 'visible' })
-  await page.getByRole('button', { name: 'Check again' }).waitFor({ state: 'visible' })
-  assert(await page.locator('.work-canonical').count() === 0, 'G2 denied location permission did not block startup')
-  const gps = page.locator('button.header-gps')
+  assert(await page.locator('button.header-gps').count() === 0, 'GPS status UI should be removed with continuous tracking')
+  assert(await page.locator('.kfe-permission-gate').count() === 0, 'Denied or unrequested browser location must not block non-GPS work surfaces')
 
-  // G3: a position provider failure is surfaced as degraded/unavailable GPS.
-  await page.evaluate(() => sessionStorage.setItem('__phase4_gps_mode', 'unavailable'))
+  // G3: a one-shot provider failure is a missing snapshot, not a blocked lifecycle.
+  const unavailableSnapshot = await page.evaluate(async () => {
+    const original = navigator.geolocation
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: {
+      getCurrentPosition(_success, failure) { failure({ code: 2, message: 'simulated offline GPS unavailable' }) }
+    } })
+    try {
+      const { captureTripBoundaryLocation } = await import('/src/application/work/tripBoundaryLocation.js')
+      return await captureTripBoundaryLocation()
+    } finally {
+      Object.defineProperty(navigator, 'geolocation', { configurable: true, value: original })
+    }
+  })
+  assert.equal(unavailableSnapshot, null, 'Unavailable one-shot GPS should degrade to a missing snapshot without blocking work')
+
+  // G4: app startup and permission restoration must not capture location by themselves.
+  const boundarySnapshotKeys = async () => page.evaluate(async () => {
+    const { ShiftTripRepository } = await import('/src/repositories/shiftTripRepository.js')
+    const trips = await ShiftTripRepository.getAllTrips()
+    return trips.flatMap(trip => [
+      ['tripStartLocation', trip.tripStartLocation],
+      ['tripEndLocation', trip.tripEndLocation]
+    ].filter(([, snapshot]) => snapshot?.capturedAt).map(([field, snapshot]) => [trip.id, field, snapshot.capturedAt].join('|'))).sort()
+  })
+  const beforeBoundarySnapshots = await boundarySnapshotKeys()
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.locator('.work-canonical').waitFor({ state: 'attached' })
-  await gps.waitFor({ state: 'attached' })
-  assert(await gps.getAttribute('aria-label') === 'GPS unavailable', 'G3 unavailable GPS state was not surfaced')
-
-  // G4: restoring permission returns to connected GPS without creating a GPS snapshot.
-  const beforeSnapshots = await page.evaluate(async () => {
-    const db = await new Promise((resolve, reject) => {
-      const request = indexedDB.open('kanishka_kfe_canonical_db', 16)
-      request.onsuccess = () => resolve(request.result)
-      request.onerror = () => reject(request.error)
-    })
-    const records = await new Promise((resolve, reject) => {
-      const tx = db.transaction('gps_snapshots', 'readonly')
-      const request = tx.objectStore('gps_snapshots').getAll()
-      request.onsuccess = () => resolve(request.result || [])
-      request.onerror = () => reject(request.error)
-    })
-    db.close()
-    return records
-  })
-  await page.evaluate(() => sessionStorage.setItem('__phase4_gps_mode', 'connected'))
-  await page.reload({ waitUntil: 'domcontentloaded' })
-  await page.locator('.work-canonical').waitFor({ state: 'attached' })
-  await gps.waitFor({ state: 'attached' })
-  assert(await gps.getAttribute('aria-label') === 'GPS connected', 'G4 GPS permission restoration did not recover')
-  const afterSnapshots = await page.evaluate(async () => {
-    const db = await new Promise((resolve, reject) => {
-      const request = indexedDB.open('kanishka_kfe_canonical_db', 16)
-      request.onsuccess = () => resolve(request.result)
-      request.onerror = () => reject(request.error)
-    })
-    const records = await new Promise((resolve, reject) => {
-      const tx = db.transaction('gps_snapshots', 'readonly')
-      const request = tx.objectStore('gps_snapshots').getAll()
-      request.onsuccess = () => resolve(request.result || [])
-      request.onerror = () => reject(request.error)
-    })
-    db.close()
-    return records
-  })
-  // A restoration may legitimately cause a fresh status sample, but two samples
-  // for the same lifecycle event/location are duplicates. Compare only the newly
-  // created records and ignore capturedAt so timestamp differences do not hide a duplicate.
-  const snapshotKey = record => [record.entityType, record.entityId, record.eventType, record.latitude, record.longitude].join('|')
-  const beforeKeys = new Set(beforeSnapshots.map(snapshotKey))
-  const newSnapshots = afterSnapshots.filter(record => !beforeKeys.has(snapshotKey(record)))
-  const newSnapshotKeys = newSnapshots.map(snapshotKey)
-  assert(new Set(newSnapshotKeys).size === newSnapshotKeys.length, 'G4 GPS status restoration created duplicate GPS snapshots')
-
+  const afterBoundarySnapshots = await boundarySnapshotKeys()
+  assert.deepEqual(afterBoundarySnapshots, beforeBoundarySnapshots, 'Startup must not create GPS snapshots outside trip boundaries')
   if (errors.length) throw new Error('Browser runtime errors:\\n' + errors.join('\\n'))
 
   console.log('PASS Phase 4 operational gap suite: D5 Admin→Work master-data consumption, H4 maintenance/loan/target reconciliation, I5/J5 Business Start Date boundaries, F1 browser lifecycle continuity, A5 offline fuel access, D2 offline PWA continuity, F5 network recovery, G2 permission denial, G3 GPS unavailable, and G4 permission restoration without duplicate GPS snapshots.')
