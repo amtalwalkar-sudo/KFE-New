@@ -65,9 +65,9 @@ assert.ok(overlayService.includes('persistCanonicalTripForm("CANCEL",pendingTrip
 assert.ok(overlayService.includes('native-form-"+mode+"-"+eventId'), 'form retries must be idempotent per durable event, not per trip');
 assert.ok(read('android/app/src/main/java/com/kanishka/pwa/KfeNativeEventStore.java').includes('synchronized long createdAtMillis(String id)'), 'event store must expose the persisted timestamp for a lifecycle event')
 assert.match(plugin, /@CapacitorPlugin\(name = "KfeCanonicalWork"\)/)
-for (const method of ['putRecord', 'getRecord', 'listRecords', 'getOperation']) assert.ok(plugin.includes('public void ' + method + '('), 'Missing plugin method: ' + method)
-for (const method of ['putRecord', 'getRecord', 'listRecords', 'getOperation']) assert.ok(bridge.includes('async ' + method + '('), 'Missing bridge method: ' + method)
-assert.match(ports, /canonicalWork: \['putRecord', 'getRecord', 'listRecords', 'getOperation', 'isAvailable'\]/)
+for (const method of ['putRecord', 'persistTripBoundarySnapshot', 'getRecord', 'listRecords', 'getOperation']) assert.ok(plugin.includes('public void ' + method + '('), 'Missing plugin method: ' + method)
+for (const method of ['putRecord', 'persistTripBoundarySnapshot', 'getRecord', 'listRecords', 'getOperation']) assert.ok(bridge.includes('async ' + method + '('), 'Missing bridge method: ' + method)
+assert.match(ports, /canonicalWork: \['putRecord', 'persistTripBoundarySnapshot', 'getRecord', 'listRecords', 'getOperation', 'isAvailable'\]/)
 assert.match(adapter, /canonicalWork: NativeCanonicalWorkService/)
 assert.match(activity, /registerPlugin\(KfeCanonicalWorkPlugin\.class\)/)
 console.log('PASS: native canonical persistence boundary contract')
