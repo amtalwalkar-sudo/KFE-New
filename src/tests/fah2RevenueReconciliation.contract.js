@@ -37,6 +37,9 @@ const blankCancellation = reconcileShiftRevenue({ shiftRevenue: 0, trips: [{ id:
 assert.equal(blankCancellation.reconciliationStatus, 'RECONCILED', 'Blank/not-applicable cancellation fee is ₹0.')
 const blankFeeWithPriorFare = reconcileShiftRevenue({ shiftRevenue: 0, trips: [{ id: 'cancelled-prior-fare', status: 'CANCELLED', cancelledRevenue: null, revenue: 300 }] })
 assert.equal(blankFeeWithPriorFare.reconciliationStatus, 'RECONCILED', 'An explicit blank cancellation fee must not reuse a prior fare.')
+const missingFeeWithPriorFare = reconcileShiftRevenue({ shiftRevenue: 0, trips: [{ id: 'cancelled-missing-fee', status: 'CANCELLED', revenue: 300 }] })
+assert.equal(missingFeeWithPriorFare.reconciliationStatus, 'RECONCILED', 'A legacy cancelled record without a fee field must also contribute ₹0, not its prior fare.')
+assert.equal(missingFeeWithPriorFare.tripRevenue, 0)
 
 
 const invalidRevenue = reconcileShiftRevenue({ shiftRevenue: 1000, trips: [{ id: 't1', status: 'COMPLETED', revenue: -1 }] })
