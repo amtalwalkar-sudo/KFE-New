@@ -11,6 +11,14 @@ const browserStoreFor = entityType => {
   return store
 }
 const operationRecord = (operationId, entityType, entityId, outcome, createdAt) => ({ id: operationId, command: 'PUT_RECORD', entityType, entityId, status: 'ACCEPTED', outcome, createdAt })
+const canonicalize = value => {
+  if (Array.isArray(value)) return value.map(canonicalize)
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonicalize(value[key])]))
+  }
+  return value
+}
+const jsonEquivalent = (left, right) => JSON.stringify(canonicalize(left)) === JSON.stringify(canonicalize(right))
 
 export const BrowserCanonicalWorkService = Object.freeze({
   async putRecord({ operationId, entityType, record } = {}) {
@@ -28,6 +36,7 @@ export const BrowserCanonicalWorkService = Object.freeze({
           if (existingOperation.result) {
             const previous = existingOperation.result
             if (previous.command !== 'PUT_RECORD' || previous.entityType !== entityType || previous.entityId !== entityId) throw new Error('operationId was already used for a different command.')
+            if (!previous.outcome?.record || !jsonEquivalent(previous.outcome.record, record)) throw new Error('operationId was already used with a different payload.')
             outcome = { accepted: previous.status === 'ACCEPTED', duplicate: true, outcome: previous.outcome }
             return
           }
