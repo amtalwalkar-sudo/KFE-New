@@ -284,6 +284,86 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
   }
 
   /**
+   * Persists a locality label onto an already captured trip boundary. This is
+   * metadata-only: it never changes business updatedAt, GPS coordinates, or
+   * fare/cancellation fields. The operation and audit row commit atomically.
+   */
+  synchronized Outcome updateTripBoundaryPlaceName(String operationId, String tripId,
+      String field, String placeName) throws Exception {
+    if (empty(operationId) || empty(tripId)) throw new IllegalArgumentException("operationId and tripId are required.");
+    if (!"tripStartLocation".equals(field) && !"tripEndLocation".equals(field)) {
+      throw new IllegalArgumentException("Unsupported trip-boundary place-name field.");
+    }
+    if (empty(placeName) || !placeName.equals(placeName.trim())) {
+      throw new IllegalArgumentException("placeName must be a non-empty trimmed locality label.");
+    }
+    String now = timestampNow();
+    SQLiteDatabase db = getWritableDatabase();
+    db.beginTransaction();
+    try {
+      try (Cursor prior = db.query("canonical_operations",
+          new String[]{"command", "entity_type", "entity_id", "status", "result_json"},
+          "operation_id=?", new String[]{operationId}, null, null, null, "1")) {
+        if (prior.moveToFirst()) {
+          JSONObject previous = new JSONObject(prior.getString(4));
+          if (!"UPDATE_TRIP_BOUNDARY_PLACE_NAME".equals(prior.getString(0))
+              || !"TRIP".equals(prior.getString(1)) || !tripId.equals(prior.getString(2))
+              || !field.equals(previous.optString("field", ""))
+              || !placeName.equals(previous.optString("placeName", ""))) {
+            throw new IllegalArgumentException("operationId was already used for a different trip-boundary label.");
+          }
+          db.setTransactionSuccessful();
+          return new Outcome("ACCEPTED".equals(prior.getString(3)), true, previous);
+        }
+      }
+      JSONObject trip;
+      try (Cursor current = db.query("canonical_records", new String[]{"payload"},
+          "entity_type='TRIP' AND entity_id=?", new String[]{tripId}, null, null, null, "1")) {
+        if (!current.moveToFirst()) throw new IllegalArgumentException("Canonical trip does not exist for boundary label.");
+        trip = new JSONObject(current.getString(0));
+      }
+      JSONObject snapshot = trip.optJSONObject(field);
+      if (snapshot == null || !snapshot.has("latitude") || !snapshot.has("longitude")
+          || !snapshot.has("capturedAt")) {
+        throw new IllegalArgumentException("A durable GPS boundary snapshot is required before adding its locality label.");
+      }
+      snapshot.put("placeName", placeName);
+      // Intentionally leave the canonical business updatedAt unchanged.
+      ContentValues recordValues = new ContentValues();
+      recordValues.put("entity_type", "TRIP");
+      recordValues.put("entity_id", tripId);
+      recordValues.put("payload", trip.toString());
+      recordValues.put("updated_at", now);
+      db.insertWithOnConflict("canonical_records", null, recordValues, SQLiteDatabase.CONFLICT_REPLACE);
+
+      JSONObject result = new JSONObject().put("operationId", operationId)
+          .put("entityType", "TRIP").put("entityId", tripId).put("field", field)
+          .put("placeName", placeName).put("record", trip).put("committedAt", now);
+      ContentValues operation = new ContentValues();
+      operation.put("operation_id", operationId);
+      operation.put("command", "UPDATE_TRIP_BOUNDARY_PLACE_NAME");
+      operation.put("entity_type", "TRIP");
+      operation.put("entity_id", tripId);
+      operation.put("status", "ACCEPTED");
+      operation.put("result_json", result.toString());
+      operation.put("created_at", now);
+      db.insertOrThrow("canonical_operations", null, operation);
+      ContentValues audit = new ContentValues();
+      audit.put("operation_id", operationId);
+      audit.put("entity_type", "TRIP");
+      audit.put("entity_id", tripId);
+      audit.put("action", "UPDATE_TRIP_BOUNDARY_PLACE_NAME");
+      audit.put("payload", new JSONObject().put("field", field).put("placeName", placeName).toString());
+      audit.put("created_at", now);
+      db.insertOrThrow("canonical_audit", null, audit);
+      db.setTransactionSuccessful();
+      return new Outcome(true, false, result);
+    } finally {
+      db.endTransaction();
+    }
+  }
+
+  /**
    * Commits a native overlay fare/cancellation and the authoritative shift
    * revenue projection in one transaction. This deliberately implements only
    * the stable native command invariants; richer domain rules remain in the PWA.
