@@ -98,6 +98,9 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertTrue("Blank/not-applicable cancellation fee must be accepted.", blankCancel.accepted);
     assertEquals("Blank cancellation fees must contribute ₹0, and legacy cancelled records must not fall back to prior fares.", 450d,
         store.getRecord("SHIFT", shiftId).getJSONObject("record").getDouble("revenue"), 0.001d);
+    JSONObject legacyCancelledRecord = store.getRecord("TRIP", legacyBlankCancelId).getJSONObject("record");
+    assertEquals(999d, legacyCancelledRecord.getDouble("revenue"), 0.001d);
+    assertTrue("Legacy missing fee remains absent; revenue projection must interpret it as ₹0.", !legacyCancelledRecord.has("cancelledRevenue"));
     assertEquals(0d, store.getRecord("TRIP", blankCancelId).getJSONObject("record").getDouble("cancelledRevenue"), 0.001d);
 
     String paidCancelId = "atomic-form-paid-cancel-" + suffix;
