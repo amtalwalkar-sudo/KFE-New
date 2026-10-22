@@ -930,29 +930,25 @@ public class KfeOverlayService extends Service {
 
   private void persistOneShotTripLocation(String tripId,String field,Location location){
     try{
-      KfeCanonicalWorkStore store=KfeCanonicalWorkStore.get(this);
-      JSONObject found=store.getRecord("TRIP",tripId);
-      JSONObject trip=found.optJSONObject("record");
-      if(!found.optBoolean("found",false)||trip==null)return;
-      if(trip.has(field)&&!trip.isNull(field))return;
+      if(location==null)return;
+      long fixTime=location.getTime();
+      if(fixTime<=0L){Log.w("KFE-GPS","One-shot "+field+" snapshot skipped: GPS fix has no valid provider timestamp.");return;}
       JSONObject snapshot=new JSONObject();
       snapshot.put("latitude",location.getLatitude());
       snapshot.put("longitude",location.getLongitude());
       snapshot.put("accuracy",location.hasAccuracy()?location.getAccuracy():JSONObject.NULL);
-      long fixTime=location.getTime();
-      if(fixTime<=0L){Log.w("KFE-GPS","One-shot "+field+" snapshot skipped: GPS fix has no valid provider timestamp.");return;}
       snapshot.put("capturedAt",java.time.Instant.ofEpochMilli(fixTime).toString());
       snapshot.put("placeName",JSONObject.NULL);
-      trip.put(field,snapshot);
-      if("tripStartLocation".equals(field)){
-        trip.put("tripStartLocationStatus","CAPTURED");
-      }else if("tripEndLocation".equals(field)){
-        trip.put("tripEndLocationStatus","CAPTURED");
-      }
-      trip.put("updatedAt",java.time.Instant.now().toString());
-      KfeCanonicalWorkStore.Outcome outcome=store.putRecord("native-trip-location-"+tripId+"-"+field,"TRIP",trip);
+      // Merge into the latest SQLite record atomically. A delayed GPS callback
+      // must not write a stale whole-trip payload over a fare/cancellation.
+      String operationId="native-trip-boundary-v2-"+tripId+"-"+field;
+      KfeCanonicalWorkStore.Outcome outcome=KfeCanonicalWorkStore.get(this)
+          .persistTripBoundarySnapshot(operationId,tripId,field,snapshot);
       if(!outcome.accepted)throw new IllegalStateException("Native one-shot GPS snapshot was not accepted.");
-      Log.i("KFE-GPS","Saved one-shot "+field+" snapshot for trip "+tripId+" at "+snapshot.optString("capturedAt",""));
+      JSONObject savedTrip=outcome.result.optJSONObject("record");
+      JSONObject savedSnapshot=savedTrip==null?null:savedTrip.optJSONObject(field);
+      String savedAt=savedSnapshot==null?"":savedSnapshot.optString("capturedAt","");
+      Log.i("KFE-GPS","Saved/retained one-shot "+field+" snapshot for trip "+tripId+" at "+savedAt);
     }catch(Exception error){Log.w("KFE-GPS","Unable to persist one-shot "+field+" snapshot for trip "+tripId,error);}
   }
 

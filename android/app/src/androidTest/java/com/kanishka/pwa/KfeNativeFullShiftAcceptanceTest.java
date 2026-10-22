@@ -34,6 +34,62 @@ import java.lang.reflect.InvocationTargetException;
 public class KfeNativeFullShiftAcceptanceTest {
   private static final String STATE_KEY = "lastOverlayState";
 
+  @Test public void oneShotBoundarySnapshotMergePreservesFareAndDoesNotAdvanceBusinessVersion() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    String suffix = Long.toString(System.currentTimeMillis());
+    String shiftId = "boundary-merge-shift-" + suffix;
+    String tripBeforeGps = "boundary-merge-gps-first-" + suffix;
+    String tripAfterFare = "boundary-merge-fare-first-" + suffix;
+    String earlier = "2026-10-19T00:00:00.000Z";
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    assertTrue(store.putRecord("boundary-merge-shift-create-" + suffix, "SHIFT",
+        new JSONObject().put("id", shiftId).put("status", "ACTIVE").put("revenue", 0).put("updatedAt", earlier)).accepted);
+    assertTrue(store.putRecord("boundary-merge-gps-first-create-" + suffix, "TRIP",
+        new JSONObject().put("id", tripBeforeGps).put("shiftId", shiftId).put("status", "COMPLETED")
+            .put("updatedAt", earlier)).accepted);
+
+    JSONObject startSnapshot = new JSONObject().put("latitude", 19.0760d).put("longitude", 72.8777d)
+        .put("accuracy", 8.0d).put("capturedAt", "2026-10-22T08:00:00.000Z");
+    KfeCanonicalWorkStore.Outcome gpsFirst = store.persistTripBoundarySnapshot(
+        "boundary-merge-gps-first-op-" + suffix, tripBeforeGps, "tripStartLocation", startSnapshot);
+    assertTrue(gpsFirst.accepted);
+    assertEquals("Metadata-only GPS must preserve the trip business version.", earlier,
+        store.getRecord("TRIP", tripBeforeGps).getJSONObject("record").getString("updatedAt"));
+
+    JSONObject fareAfterGps = new JSONObject(store.getRecord("TRIP", tripBeforeGps).getJSONObject("record").toString())
+        .put("revenue", 250d).put("fareDetailsSkipped", false)
+        .put("updatedAt", java.time.Instant.now().plusSeconds(30).toString());
+    assertTrue(store.commitTripForm("boundary-merge-gps-first-fare-" + suffix, "FARE", fareAfterGps).accepted);
+    JSONObject tripWithFareAndStart = store.getRecord("TRIP", tripBeforeGps).getJSONObject("record");
+    assertEquals(250d, tripWithFareAndStart.getDouble("revenue"), 0.001d);
+    assertEquals("CAPTURED", tripWithFareAndStart.getString("tripStartLocationStatus"));
+    assertEquals(19.0760d, tripWithFareAndStart.getJSONObject("tripStartLocation").getDouble("latitude"), 0.000001d);
+
+    assertTrue(store.putRecord("boundary-merge-fare-first-create-" + suffix, "TRIP",
+        new JSONObject().put("id", tripAfterFare).put("shiftId", shiftId).put("status", "COMPLETED")
+            .put("updatedAt", earlier)).accepted);
+    JSONObject fareBeforeGps = new JSONObject(store.getRecord("TRIP", tripAfterFare).getJSONObject("record").toString())
+        .put("revenue", 150d).put("fareDetailsSkipped", false)
+        .put("updatedAt", java.time.Instant.now().plusSeconds(60).toString());
+    assertTrue(store.commitTripForm("boundary-merge-fare-first-fare-" + suffix, "FARE", fareBeforeGps).accepted);
+    String fareVersion = store.getRecord("TRIP", tripAfterFare).getJSONObject("record").getString("updatedAt");
+
+    JSONObject endSnapshot = new JSONObject().put("latitude", 19.0800d).put("longitude", 72.8800d)
+        .put("accuracy", 6.0d).put("capturedAt", "2026-10-22T08:01:00.000Z");
+    String endOperationId = "boundary-merge-fare-first-op-" + suffix;
+    KfeCanonicalWorkStore.Outcome gpsAfterFare = store.persistTripBoundarySnapshot(
+        endOperationId, tripAfterFare, "tripEndLocation", endSnapshot);
+    assertTrue(gpsAfterFare.accepted);
+    JSONObject finalTrip = store.getRecord("TRIP", tripAfterFare).getJSONObject("record");
+    assertEquals("A late GPS callback must preserve the fare form version.", fareVersion, finalTrip.getString("updatedAt"));
+    assertEquals(150d, finalTrip.getDouble("revenue"), 0.001d);
+    assertEquals("CAPTURED", finalTrip.getString("tripEndLocationStatus"));
+    KfeCanonicalWorkStore.Outcome retry = store.persistTripBoundarySnapshot(endOperationId, tripAfterFare, "tripEndLocation", endSnapshot);
+    assertTrue("The same boundary operation must be accepted.", retry.accepted);
+    assertTrue("A repeated boundary operation must be identified as a retry.", retry.duplicate);
+    assertEquals(400d, store.getRecord("SHIFT", shiftId).getJSONObject("record").getDouble("revenue"), 0.001d);
+  }
+
   @Test public void nativeTripFormCommitsRevenueAtomicallyAndRetriesIdempotently() throws Exception {
     Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
     String suffix = Long.toString(System.currentTimeMillis());
