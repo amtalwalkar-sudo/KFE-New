@@ -3,7 +3,8 @@ import fs from 'node:fs'
 
 const workService = fs.readFileSync('src/application/work/workService.js', 'utf8')
 const locationRepository = fs.readFileSync('src/repositories/locationRepository.js', 'utf8')
-const geocoder = fs.readFileSync('src/services/locationNameService.js', 'utf8')
+const eventLocationService = fs.readFileSync('src/application/location/eventLocationService.js', 'utf8')
+const geocoder = fs.readFileSync('src/application/location/locationNameService.js', 'utf8')
 
 for (const hook of [
   "captureAndPersistEventLocation('SHIFT', result.id, 'SHIFT_START')",
@@ -11,12 +12,12 @@ for (const hook of [
   "captureAndPersistEventLocation('FUEL', result.record.id, 'FUEL_ENTRY')"
 ]) assert.ok(workService.includes(hook), `Missing async location hook: ${hook}`)
 
-assert.match(workService, /const captureAndPersistEventLocation = \(entityType, entityId, eventType\) =>/)
-assert.match(workService, /void \(async \(\) => \{/,
+assert.match(workService, /EventLocationService\.captureForEvent\(entityType, entityId, eventType\)/)
+assert.match(eventLocationService, /void \(async \(\) => \{/,
   'GPS capture must run fire-and-forget, outside the authoritative work transition')
-assert.match(workService, /await LocationRepository\.record\(/,
+assert.match(eventLocationService, /await LocationRepository\.record\(/,
   'coordinates must be persisted locally before reverse geocoding')
-assert.match(workService, /await resolveLocationName\(location, locationNameResolver\)/,
+assert.match(eventLocationService, /await resolveLocationName\(location, locationNameResolver\)/,
   'reverse geocoding must be a follow-up enrichment')
 assert.match(locationRepository, /capturedAt: capturedAt \|\| now/,
   'location snapshot must retain the provider timestamp when supplied')
