@@ -62,6 +62,7 @@ assert.doesNotMatch(shell, /gpsStatusService|header-gps|refreshGps|gpsState/)
 assert.doesNotMatch(store, /MovementTraceService|lifecycleLocations|tripLocations|captureLocation|loadEntityLocations/)
 assert.match(overlay, /captureOneShotTripBoundary/)
 assert.match(overlay, /persistOneShotTripLocation/)
+// A trip record is created before pickup; tripStartLocation must represent the actual RIDE_STARTED boundary.
 const pwaTripCreation = workService.slice(workService.indexOf('async startTrip(data)'), workService.indexOf('async startRide(data)'))
 const pwaRideStart = workService.slice(workService.indexOf('async startRide(data)'), workService.indexOf('async completeTrip(data)'))
 assert.doesNotMatch(pwaTripCreation, /tripStartLocation/, 'The start snapshot must not be captured when only heading to pickup.')
