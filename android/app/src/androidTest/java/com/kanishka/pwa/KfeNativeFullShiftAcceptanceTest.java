@@ -79,6 +79,12 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertEquals("Skipped fare details must contribute zero to authoritative shift revenue.", 450d,
         store.getRecord("SHIFT", shiftId).getJSONObject("record").getDouble("revenue"), 0.001d);
 
+    // Legacy cancelled trips without a fee field must not fall back to an old trip fare.
+    String legacyBlankCancelId = "atomic-form-legacy-blank-cancel-" + suffix;
+    assertTrue(store.putRecord("atomic-form-legacy-blank-cancel-create-" + suffix, "TRIP",
+        new JSONObject().put("id", legacyBlankCancelId).put("shiftId", shiftId).put("status", "CANCELLED")
+            .put("revenue", 999d).put("cancelReason", "PASSENGER").put("updatedAt", earlier)).accepted);
+
     String blankCancelId = "atomic-form-blank-cancel-" + suffix;
     assertTrue(store.putRecord("atomic-form-blank-cancel-create-" + suffix, "TRIP",
         new JSONObject().put("id", blankCancelId).put("shiftId", shiftId).put("status", "ACTIVE")
@@ -90,8 +96,11 @@ public class KfeNativeFullShiftAcceptanceTest {
     KfeCanonicalWorkStore.Outcome blankCancel = store.commitTripForm(
         "atomic-form-blank-cancel-submit-" + suffix, "CANCEL", blankCancellation);
     assertTrue("Blank/not-applicable cancellation fee must be accepted.", blankCancel.accepted);
-    assertEquals("Blank cancellation fees must contribute ₹0.", 450d,
+    assertEquals("Blank cancellation fees must contribute ₹0, and legacy cancelled records must not fall back to prior fares.", 450d,
         store.getRecord("SHIFT", shiftId).getJSONObject("record").getDouble("revenue"), 0.001d);
+    JSONObject legacyCancelledRecord = store.getRecord("TRIP", legacyBlankCancelId).getJSONObject("record");
+    assertEquals(999d, legacyCancelledRecord.getDouble("revenue"), 0.001d);
+    assertTrue("Legacy missing fee remains absent; revenue projection must interpret it as ₹0.", !legacyCancelledRecord.has("cancelledRevenue"));
     assertEquals(0d, store.getRecord("TRIP", blankCancelId).getJSONObject("record").getDouble("cancelledRevenue"), 0.001d);
 
     String paidCancelId = "atomic-form-paid-cancel-" + suffix;
