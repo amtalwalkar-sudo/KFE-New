@@ -33,7 +33,9 @@ export const EventLocationService = {
       CanonicalWorkBoundary.listEventLocationSnapshots().catch(() => []),
     ])
     const byId = new Map()
-    for (const item of [...local, ...native.filter(item => item.entityType === entityType && item.entityId === entityId)]) {
+    const snapshots = [...local, ...native.filter(item => item.entityType === entityType && item.entityId === entityId)]
+      .sort((a, b) => Date.parse(a.updatedAt || a.createdAt || 0) - Date.parse(b.updatedAt || b.createdAt || 0))
+    for (const item of snapshots) {
       if (item?.id) byId.set(item.id, { ...byId.get(item.id), ...item })
     }
     return [...byId.values()].sort((a, b) => new Date(a.capturedAt) - new Date(b.capturedAt))
