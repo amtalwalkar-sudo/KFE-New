@@ -9,6 +9,7 @@ const nativeStore = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/
 const nativePlugin = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeCanonicalWorkPlugin.java', 'utf8')
 const nativeAdapter = fs.readFileSync('src/infrastructure/android/nativeCanonicalWork.js', 'utf8')
 const canonicalBoundary = fs.readFileSync('src/application/work/canonicalWorkBoundary.js', 'utf8')
+const browserCanonical = fs.readFileSync('src/infrastructure/work/browserCanonicalWork.js', 'utf8')
 
 assert.match(timeline, /void resolveTimelineLocationLabels\(data\.value\)\.catch\(\(\) => \{\}\)/,
   'timeline location enrichment must not delay rendering')
@@ -29,6 +30,8 @@ assert.match(eventLocationService, /CanonicalWorkBoundary\.updateTripBoundaryPla
   'event location service must delegate trip label persistence to canonical boundary')
 assert.match(nativeAdapter, /NativeCanonicalWork\.updateTripBoundaryPlaceName/,
   'Android adapter must invoke native durable metadata update')
+assert.match(browserCanonical, /async updateTripBoundaryPlaceName\(/, 'browser PWA must persist locality labels in its canonical trip store')
+assert.match(canonicalBoundary, /BrowserCanonicalWorkService\.updateTripBoundaryPlaceName/, 'application boundary must persist locality labels outside native Android too')
 assert.match(canonicalBoundary, /WorkRuntimePorts\.canonicalWork\.updateTripBoundaryPlaceName/,
   'application boundary must use the canonical runtime port')
 assert.match(nativePlugin, /updateTripBoundaryPlaceName\(PluginCall call\)/,
