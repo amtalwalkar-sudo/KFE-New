@@ -687,6 +687,7 @@ public class KfeOverlaySmokeTest {
 
   @Test public void shiftAndFuelEventLocationsSurviveNativeReloadAndLabelEnrichment() throws Exception {
     KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    String eventAt = java.time.Instant.now().minusSeconds(60).toString();
     String now = java.time.Instant.now().toString();
     String[][] cases = new String[][] {{"SHIFT", "SHIFT_START"}, {"FUEL", "FUEL_ENTRY"}};
     java.util.List<String> ids = new java.util.ArrayList<>();
@@ -695,7 +696,7 @@ public class KfeOverlaySmokeTest {
       ids.add(id);
       JSONObject snapshot = new JSONObject().put("id", id).put("entityType", item[0])
         .put("entityId", item[0].toLowerCase(java.util.Locale.US) + "-" + java.util.UUID.randomUUID())
-        .put("eventType", item[1]).put("latitude", 19.0486).put("longitude", 73.0694)
+        .put("eventType", item[1]).put("eventAt", eventAt).put("latitude", 19.0486).put("longitude", 73.0694)
         .put("accuracy", 8.0).put("capturedAt", now).put("createdAt", now).put("updatedAt", now);
       KfeCanonicalWorkStore.Outcome created = store.putRecord("event-location-create-" + id, "GPS_SNAPSHOT", snapshot);
       assertTrue("Event location coordinates must be committed to native canonical storage", created.accepted);
@@ -720,6 +721,7 @@ public class KfeOverlaySmokeTest {
       assertEquals(19.0486, afterReload.getDouble("latitude"), 0.00001);
       assertEquals(73.0694, afterReload.getDouble("longitude"), 0.00001);
       assertEquals(now, afterReload.getString("capturedAt"));
+      assertEquals("Business event time must remain distinct from the GPS fix time", eventAt, afterReload.getString("eventAt"));
       assertEquals(cases[i][1], afterReload.getString("eventType"));
       assertEquals(cases[i][0], afterReload.getString("entityType"));
     }
