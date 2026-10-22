@@ -95,7 +95,7 @@ const resolveTimelineLocationLabels = async summary => {
       for (const [side, location] of [['start', record.tripStartLocation], ['end', record.tripEndLocation]]) {
         if (location?.placeName) { next[`${record.id}:${side}`] = location.placeName; continue }
         if (location?.latitude == null || location?.longitude == null) continue
-        jobs.push((async () => { const name = await EventLocationService.resolveLabel(location); if (name) next[`${record.id}:${side}`] = name })())
+        jobs.push((async () => { const name = await EventLocationService.resolveLabel(location); if (name) { next[`${record.id}:${side}`] = name; await EventLocationService.persistTripBoundaryLabel(record.id, side === 'start' ? 'tripStartLocation' : 'tripEndLocation', name) } })())
       }
     } else if (event.type === 'FUEL') {
       jobs.push((async () => {
