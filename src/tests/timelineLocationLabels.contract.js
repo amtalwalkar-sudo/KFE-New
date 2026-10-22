@@ -5,6 +5,10 @@ const timeline = fs.readFileSync('src/views/TimelineView.vue', 'utf8')
 const locationService = fs.readFileSync('src/application/location/locationNameService.js', 'utf8')
 const eventLocationService = fs.readFileSync('src/application/location/eventLocationService.js', 'utf8')
 const locationRepository = fs.readFileSync('src/repositories/locationRepository.js', 'utf8')
+const nativeStore = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeCanonicalWorkStore.java', 'utf8')
+const nativePlugin = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeCanonicalWorkPlugin.java', 'utf8')
+const nativeAdapter = fs.readFileSync('src/infrastructure/android/nativeCanonicalWork.js', 'utf8')
+const canonicalBoundary = fs.readFileSync('src/application/work/canonicalWorkBoundary.js', 'utf8')
 
 assert.match(timeline, /void resolveTimelineLocationLabels\(data\.value\)\.catch\(\(\) => \{\}\)/,
   'timeline location enrichment must not delay rendering')
@@ -19,6 +23,22 @@ assert.match(locationService, /p\.suburb \|\| p\.neighbourhood \|\| p\.neighborh
 assert.doesNotMatch(locationService, /return \[p\.name, p\.street/,
   'the visible formatter must not construct street-address labels')
 assert.match(eventLocationService, /LocationRepository\.updatePlaceName\(snapshotId, placeName\)/)
+assert.match(timeline, /EventLocationService\.persistTripBoundaryLabel\(record\.id, side === 'start' \? 'tripStartLocation' : 'tripEndLocation', name\)/,
+  'resolved trip labels must be persisted through the application boundary')
+assert.match(eventLocationService, /CanonicalWorkBoundary\.updateTripBoundaryPlaceName/,
+  'event location service must delegate trip label persistence to canonical boundary')
+assert.match(nativeAdapter, /NativeCanonicalWork\.updateTripBoundaryPlaceName/,
+  'Android adapter must invoke native durable metadata update')
+assert.match(canonicalBoundary, /WorkRuntimePorts\.canonicalWork\.updateTripBoundaryPlaceName/,
+  'application boundary must use the canonical runtime port')
+assert.match(nativePlugin, /updateTripBoundaryPlaceName\(PluginCall call\)/,
+  'Capacitor plugin must expose the native metadata operation')
+assert.match(nativeStore, /UPDATE_TRIP_BOUNDARY_PLACE_NAME/,
+  'native storage must record an idempotent metadata operation')
+assert.match(nativeStore, /A durable GPS boundary snapshot is required before adding its locality label/,
+  'metadata update must not fabricate missing coordinates')
+assert.match(nativeStore, /Intentionally leave the canonical business updatedAt unchanged/,
+  'metadata enrichment must not mutate business version or fare workflow')
 assert.match(locationRepository, /notifyCanonicalDataChanged\(\{ stores: \['gps_snapshots', 'trips'\], reason: 'gps-place-name-enriched' \}\)/)
 
 console.log('PASS: timeline locality enrichment is shared, persisted, and non-blocking')
