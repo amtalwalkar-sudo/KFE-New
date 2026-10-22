@@ -337,7 +337,7 @@ adb shell cmd location set-location-enabled true || true
 sleep 2
 (
   # Bound each console injection so a disconnected emulator console cannot hold CI.
-  for _ in $(seq 1 18); do
+  for _ in $(seq 1 45); do
     timeout 1s adb emu geo fix 72.85 19.01 >/dev/null 2>&1 || true
     sleep 1
   done

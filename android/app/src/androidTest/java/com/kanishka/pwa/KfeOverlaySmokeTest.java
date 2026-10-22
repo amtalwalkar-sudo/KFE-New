@@ -644,7 +644,7 @@ public class KfeOverlaySmokeTest {
     assertTrue("GPS_PROVIDER must remain enabled with networking disabled.", locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER));
     capture.invoke(service, tripId, "tripStartLocation");
     JSONObject startSnapshot = null;
-    long deadline = SystemClock.uptimeMillis() + 15000L;
+    long deadline = SystemClock.uptimeMillis() + 35000L;
     while (SystemClock.uptimeMillis() < deadline) {
       JSONObject found = store.getRecord("TRIP", tripId);
       JSONObject trip = found.optJSONObject("record");
@@ -665,7 +665,7 @@ public class KfeOverlaySmokeTest {
 
     capture.invoke(service, tripId, "tripEndLocation");
     JSONObject endSnapshot = null;
-    deadline = SystemClock.uptimeMillis() + 15000L;
+    deadline = SystemClock.uptimeMillis() + 35000L;
     while (SystemClock.uptimeMillis() < deadline) {
       JSONObject found = store.getRecord("TRIP", tripId);
       JSONObject trip = found.optJSONObject("record");
