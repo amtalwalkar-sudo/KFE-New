@@ -2,14 +2,16 @@ import { Capacitor, registerPlugin } from '@capacitor/core'
 
 const NativeTripBoundaryLocation = registerPlugin('KfeTripBoundaryLocation')
 
-const normalize = value => {
+export const normalizeTripBoundaryLocation = value => {
   const latitude = Number(value?.latitude)
   const longitude = Number(value?.longitude)
   if (!Number.isFinite(latitude) || Math.abs(latitude) > 90 || !Number.isFinite(longitude) || Math.abs(longitude) > 180) return null
   const accuracy = value?.accuracy == null || value.accuracy === '' ? null : Number(value.accuracy)
-  const timestamp = value?.capturedAt || value?.timestamp
-  const capturedAt = timestamp ? new Date(timestamp).toISOString() : null
-  return { latitude, longitude, accuracy: Number.isFinite(accuracy) ? accuracy : null, capturedAt: capturedAt || new Date().toISOString(), placeName: null }
+  const timestamp = value?.capturedAt ?? value?.timestamp
+  if (timestamp == null || timestamp === '') return null
+  const fixDate = new Date(timestamp)
+  if (!Number.isFinite(fixDate.getTime()) || fixDate.getTime() <= 0) return null
+  return { latitude, longitude, accuracy: Number.isFinite(accuracy) ? accuracy : null, capturedAt: fixDate.toISOString(), placeName: null }
 }
 
 /**
@@ -20,16 +22,16 @@ const normalize = value => {
 export async function captureTripBoundaryLocation() {
   try {
     if (Capacitor.isNativePlatform()) {
-      return normalize(await NativeTripBoundaryLocation.captureCurrentLocation())
+      return normalizeTripBoundaryLocation(await NativeTripBoundaryLocation.captureCurrentLocation())
     }
     if (typeof navigator === 'undefined' || !navigator.geolocation) return null
     return await new Promise(resolve => {
       navigator.geolocation.getCurrentPosition(
-        position => resolve(normalize({
+        position => resolve(normalizeTripBoundaryLocation({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
           accuracy: position.coords.accuracy,
-          capturedAt: position.timestamp || Date.now()
+          capturedAt: position.timestamp
         })),
         () => resolve(null),
         { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }

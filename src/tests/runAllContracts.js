@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process'
 
 const suites = [
   'gpsValhallaRemoval.contract.js',
+  'tripBoundaryTimestamp.contract.js',
   'canonicalWorkReadAuthority.contract.js',
   
   'canonicalWorkRecovery.contract.js',
