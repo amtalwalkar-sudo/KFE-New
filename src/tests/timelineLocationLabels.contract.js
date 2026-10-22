@@ -45,7 +45,7 @@ assert.match(nativeStore, /JSONObject getRecord\(String entityType, String entit
   'a fresh application read must reload the persisted canonical trip after metadata enrichment')
 assert.match(nativeStore, /db\.insertWithOnConflict\("canonical_records", null, recordValues, SQLiteDatabase\.CONFLICT_REPLACE\)/,
   'resolved labels must be written to durable canonical storage, not only Timeline component state')
-assert.match(nativeStore, /prior\.optString\("placeName", ""\)/,
+assert.match(nativeStore, /previous\\.optString\\("placeName", ""\\)/,
   'replayed metadata operations must be checked against their original label for idempotency')
 assert.match(locationRepository, /notifyCanonicalDataChanged\(\{ stores: \['gps_snapshots', 'trips'\], reason: 'gps-place-name-enriched' \}\)/)
 
