@@ -219,7 +219,12 @@ public class KfeOverlaySmokeTest {
           "AFTER_CANONICAL".equals(boundary), canonicalAfterFault);
       }
 
-      persist.invoke(service, "GO_TO_PICKUP", "GOING_TO_PICKUP", false);
+      try {
+        persist.invoke(service, "GO_TO_PICKUP", "GOING_TO_PICKUP", false);
+      } catch (java.lang.reflect.InvocationTargetException retryFailure) {
+        throw new AssertionError("Lifecycle retry failed at boundary " + boundary
+          + " for trip " + tripId + ": " + retryFailure.getCause(), retryFailure.getCause());
+      }
       String eventIdAfterRetry = context.getSharedPreferences("kfe_native_work_actions", 0)
         .getString("pendingEventId", "");
       assertTrue("Retry must converge to a durable event", KfeNativeEventStore.get(context).contains(eventIdAfterRetry));
