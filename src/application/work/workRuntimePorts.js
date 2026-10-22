@@ -1,6 +1,6 @@
 const requiredMethods = Object.freeze({
   nativeWorkActions: ['clearPendingAction', 'addListener', 'consumePendingActions', 'consumePendingAction', 'acknowledgeAction', 'recordActionFailure'],
-  canonicalWork: ['putRecord', 'getRecord', 'listRecords', 'getOperation', 'isAvailable'],
+  canonicalWork: ['putRecord', 'persistTripBoundarySnapshot', 'getRecord', 'listRecords', 'getOperation', 'isAvailable'],
   androidOverlay: ['hide', 'update', 'prepare', 'fareSaved', 'cancelSaved'],
   platform: ['getPlatform'],
 })

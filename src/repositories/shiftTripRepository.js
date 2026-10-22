@@ -146,7 +146,8 @@ export const ShiftTripRepository = {
           capturedAt: fixDate.toISOString()
         }
         record[field + 'Status'] = 'CAPTURED'
-        record.updatedAt = now
+        // GPS is optional metadata, not a business transition. Keep the
+        // canonical trip version stable so a late fix cannot stale a fare form.
         trips.put(record)
         saveMutation(mutations, audit, record.id, 'TRIP', 'UPDATE', record, now)
       }

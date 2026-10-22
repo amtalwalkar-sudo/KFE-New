@@ -15,6 +15,18 @@ export const CanonicalWorkBoundary = Object.freeze({
     if (WorkRuntimePorts.canonicalWork.isAvailable()) return WorkRuntimePorts.canonicalWork.putRecord(normalized)
     return BrowserCanonicalWorkService.putRecord(normalized)
   },
+  async persistTripBoundarySnapshot(input) {
+    const normalized = {
+      operationId: requireText(input?.operationId, 'operationId'),
+      tripId: requireText(input?.tripId, 'tripId'),
+      field: requireText(input?.field, 'field'),
+      snapshot: input?.snapshot,
+    }
+    if (!['tripStartLocation', 'tripEndLocation'].includes(normalized.field)) throw new Error('Unsupported trip-boundary snapshot field.')
+    if (!normalized.snapshot || typeof normalized.snapshot !== 'object' || Array.isArray(normalized.snapshot)) throw new Error('snapshot must be an object.')
+    if (!WorkRuntimePorts.canonicalWork.isAvailable()) throw new Error('Dedicated trip-boundary persistence is available only with native canonical storage.')
+    return WorkRuntimePorts.canonicalWork.persistTripBoundarySnapshot(normalized)
+  },
   async getRecord(input) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.getRecord(input) : BrowserCanonicalWorkService.getRecord(input) },
   async listRecords(input) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.listRecords(input) : BrowserCanonicalWorkService.listRecords(input) },
   async getOperation(operationId) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.getOperation(operationId) : BrowserCanonicalWorkService.getOperation(operationId) },

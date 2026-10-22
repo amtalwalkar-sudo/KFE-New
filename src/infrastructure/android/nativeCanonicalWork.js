@@ -14,6 +14,17 @@ export const NativeCanonicalWorkService = Object.freeze({
     if (result?.accepted !== true || !result?.outcome?.record) throw new Error('Canonical persistence did not confirm the record commit.')
     return result
   },
+  async persistTripBoundarySnapshot({ operationId, tripId, field, snapshot } = {}) {
+    requireNative()
+    if (!operationId || !tripId || !['tripStartLocation', 'tripEndLocation'].includes(field) || !snapshot) {
+      throw new Error('operationId, tripId, a supported boundary field and snapshot are required.')
+    }
+    const result = await NativeCanonicalWork.persistTripBoundarySnapshot({ operationId, tripId, field, snapshot })
+    if (result?.accepted !== true || !result?.outcome?.record?.[field]) {
+      throw new Error('Native canonical boundary snapshot was not durably acknowledged.')
+    }
+    return result
+  },
   async migrateLegacySnapshot({ migrationId, snapshot } = {}) {
     requireNative()
     if (!migrationId || !snapshot?.entities) throw new Error('migrationId and snapshot.entities are required.')
