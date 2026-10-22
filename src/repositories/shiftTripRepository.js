@@ -130,12 +130,20 @@ export const ShiftTripRepository = {
         const record = request.result
         if (!record) { try { tx.abort() } catch (_) {}; resolve(false); return }
         if (record[field]) return
+        const fixDate = new Date(location.capturedAt)
+        if (!Number.isFinite(fixDate.getTime()) || fixDate.getTime() <= 0) {
+          // Coordinates without the provider's actual fix timestamp are not a
+          // valid trip-boundary snapshot. Never fabricate one from save time.
+          resolve(false)
+          return
+        }
         const now = new Date().toISOString()
+        const accuracyValue = location.accuracy == null || location.accuracy === '' ? null : Number(location.accuracy)
         record[field] = {
           latitude, longitude,
-          accuracy: location.accuracy == null || location.accuracy === '' ? null : Number(location.accuracy),
+          accuracy: Number.isFinite(accuracyValue) && accuracyValue >= 0 ? accuracyValue : null,
           placeName: null,
-          capturedAt: location.capturedAt || now
+          capturedAt: fixDate.toISOString()
         }
         record[field + 'Status'] = 'CAPTURED'
         record.updatedAt = now

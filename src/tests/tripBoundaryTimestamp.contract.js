@@ -10,6 +10,11 @@ assert.equal(normalizeTripBoundaryLocation({ latitude: 19.076, longitude: 72.877
 assert.equal(normalizeTripBoundaryLocation({ latitude: 19.076, longitude: 72.8777, capturedAt: 'not-a-date' }), null, 'an invalid fix timestamp must make the snapshot unavailable')
 assert.equal(normalizeTripBoundaryLocation({ latitude: 19.076, longitude: 72.8777, capturedAt: 0 }), null, 'a non-positive fix timestamp must not be treated as a real GPS fix time')
 
+const repository = fs.readFileSync('src/repositories/shiftTripRepository.js', 'utf8')
+assert.doesNotMatch(repository, /capturedAt:\s*location\.capturedAt\s*\|\|\s*now/, 'repository must never fabricate a GPS fix timestamp')
+assert.match(repository, /const fixDate = new Date\(location\.capturedAt\)/, 'repository must validate the actual provider timestamp')
+assert.match(repository, /fixDate\.getTime\(\) <= 0/, 'repository must reject missing or non-positive fix timestamps')
+
 const plugin = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeTripBoundaryLocationPlugin.java', 'utf8')
 assert.match(plugin, /if \(location == null \|\| location\.getTime\(\) <= 0L\) return null;/, 'native snapshot must reject a missing provider timestamp')
 assert.doesNotMatch(plugin, /location\.getTime\(\) > 0L \? location\.getTime\(\) : System\.currentTimeMillis\(\)/, 'native snapshot must never replace fix time with current time')
