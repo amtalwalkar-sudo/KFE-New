@@ -158,13 +158,15 @@ export const WorkService = Object.freeze({
     const validation = validateTripOperator(data?.operator)
     if (!validation.valid) return { ok: false, reason: validation.reason }
     const result = await ShiftTripRepository.createTrip({ ...data, operator: validation.operator, tripStage: data?.tripStage || 'GOING_TO_PICKUP' }); await mirrorCanonicalRecord('TRIP', result); checkpoint()
-    captureAndPersistTripBoundary(result.id, 'tripStartLocation')
     return result
   },
   async startRide(data) {
     const result = await ShiftTripRepository.setTripStage(data?.id, 'RIDE_STARTED')
     if (result && typeof result === 'object') await mirrorCanonicalRecord('TRIP', result)
     checkpoint()
+    if (result && typeof result === 'object' && result.tripStage === 'RIDE_STARTED') {
+      captureAndPersistTripBoundary(result.id, 'tripStartLocation')
+    }
     return result
   },
   async completeTrip(data) {
