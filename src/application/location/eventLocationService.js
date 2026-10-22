@@ -7,7 +7,7 @@ const locationNameResolver = new PhotonLocationNameAdapter()
 
 export const EventLocationService = {
   // Optional enrichment. Call only after the authoritative business record is saved.
-  captureForEvent(entityType, entityId, eventType) {
+  captureForEvent(entityType, entityId, eventType, eventAt = null) {
     if (!entityType || !entityId || !eventType) return
     void (async () => {
       const existing = await this.forEntity(entityType, entityId)
@@ -16,7 +16,7 @@ export const EventLocationService = {
       const location = await captureTripBoundaryLocation()
       if (!location) return
       const snapshot = await LocationRepository.record({
-        entityType, entityId, eventType,
+        entityType, entityId, eventType, eventAt,
         latitude: location.latitude,
         longitude: location.longitude,
         accuracy: location.accuracy,
