@@ -625,6 +625,59 @@ public class KfeOverlaySmokeTest {
   }
 
 
+  @Test public void tripLocalityLabelSurvivesNativeReloadAndStalePwaSynchronization() throws Exception {
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    String tripId = "locality-reload-" + java.util.UUID.randomUUID();
+    String shiftId = "locality-shift-" + java.util.UUID.randomUUID();
+    String now = java.time.Instant.now().toString();
+    JSONObject trip = new JSONObject().put("id", tripId).put("shiftId", shiftId)
+      .put("status", "ACTIVE").put("tripStage", "START_RIDE")
+      .put("createdAt", now).put("updatedAt", now);
+    assertTrue("Canonical trip seed must commit",
+      store.putRecord("locality-seed-" + tripId, "TRIP", trip).accepted);
+
+    JSONObject snapshot = new JSONObject().put("latitude", 19.1197).put("longitude", 72.8468)
+      .put("accuracy", 12.0).put("capturedAt", now);
+    assertTrue("GPS snapshot must commit before its locality label",
+      store.persistTripBoundarySnapshot("locality-gps-" + tripId, tripId, "tripStartLocation", snapshot).accepted);
+
+    String labelOperation = "locality-label-" + tripId;
+    KfeCanonicalWorkStore.Outcome labelWrite = store.updateTripBoundaryPlaceName(
+      labelOperation, tripId, "tripStartLocation", "Andheri East, Mumbai");
+    assertTrue("Locality metadata write must be accepted", labelWrite.accepted);
+    assertTrue("Retrying the same operation must be idempotent",
+      store.updateTripBoundaryPlaceName(labelOperation, tripId, "tripStartLocation", "Andheri East, Mumbai").duplicate);
+
+    // Simulate a newer PWA mirror that has the business record but lacks the
+    // native-only boundary snapshot/locality metadata.
+    JSONObject staleMirror = new JSONObject().put("id", tripId).put("shiftId", shiftId)
+      .put("status", "ACTIVE").put("tripStage", "START_RIDE")
+      .put("createdAt", now).put("updatedAt", java.time.Instant.now().plusSeconds(3).toString());
+    assertTrue("PWA mirror must synchronize without dropping native metadata",
+      store.putRecord("locality-mirror-" + tripId, "TRIP", staleMirror).accepted);
+
+    JSONObject beforeReload = store.getRecord("TRIP", tripId).optJSONObject("record");
+    assertNotNull("Canonical trip must be readable before reload", beforeReload);
+    assertEquals("Andheri East, Mumbai",
+      beforeReload.getJSONObject("tripStartLocation").getString("placeName"));
+    assertEquals(19.1197, beforeReload.getJSONObject("tripStartLocation").getDouble("latitude"), 0.00001);
+    assertEquals(now, beforeReload.getJSONObject("tripStartLocation").getString("capturedAt"));
+
+    // Close and reopen the actual SQLite helper so this checks the durable
+    // storage boundary rather than only an in-memory object or serialized fixture.
+    store.close();
+    java.lang.reflect.Field instance = KfeCanonicalWorkStore.class.getDeclaredField("instance");
+    instance.setAccessible(true);
+    instance.set(null, null);
+    KfeCanonicalWorkStore reopened = KfeCanonicalWorkStore.get(context);
+    JSONObject afterReload = reopened.getRecord("TRIP", tripId).optJSONObject("record");
+    assertNotNull("Canonical trip must reload from SQLite", afterReload);
+    assertEquals("Andheri East, Mumbai",
+      afterReload.getJSONObject("tripStartLocation").getString("placeName"));
+    assertEquals(19.1197, afterReload.getJSONObject("tripStartLocation").getDouble("latitude"), 0.00001);
+    assertEquals(now, afterReload.getJSONObject("tripStartLocation").getString("capturedAt"));
+  }
+
   @Test public void nativeTripBoundarySnapshotPersistsOfflineAndIsIdempotent() throws Exception {
     String shiftId = "offline-gps-shift-" + System.currentTimeMillis();
     String tripId = "offline-gps-trip-" + System.currentTimeMillis();
