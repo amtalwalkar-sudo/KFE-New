@@ -70,7 +70,9 @@ public class KfeTripBoundaryLocationPlugin extends Plugin {
           if (!finished.compareAndSet(false, true)) return;
           handler.removeCallbacks(timeout);
           if (location == null) { call.reject("No GPS fix was available for this trip boundary."); return; }
-          call.resolve(toSnapshot(location));
+          JSObject snapshot = toSnapshot(location);
+          if (snapshot == null) { call.reject("GPS fix did not provide a valid provider timestamp."); return; }
+          call.resolve(snapshot);
         });
       } else {
         final LocationListener[] listener = new LocationListener[1];
@@ -84,7 +86,9 @@ public class KfeTripBoundaryLocationPlugin extends Plugin {
             if (!finished.compareAndSet(false, true)) return;
             handler.removeCallbacks(singleUpdateTimeout);
             try { manager.removeUpdates(this); } catch (Exception ignored) {}
-            call.resolve(toSnapshot(location));
+            JSObject snapshot = toSnapshot(location);
+            if (snapshot == null) { call.reject("GPS fix did not provide a valid provider timestamp."); return; }
+            call.resolve(snapshot);
           }
           @Override public void onProviderEnabled(String provider) {}
           @Override public void onProviderDisabled(String provider) {}
@@ -102,11 +106,12 @@ public class KfeTripBoundaryLocationPlugin extends Plugin {
   }
 
   private JSObject toSnapshot(Location location) {
+    if (location == null || location.getTime() <= 0L) return null;
     JSObject result = new JSObject();
     result.put("latitude", location.getLatitude());
     result.put("longitude", location.getLongitude());
     result.put("accuracy", location.hasAccuracy() ? location.getAccuracy() : JSObject.NULL);
-    result.put("capturedAt", Instant.ofEpochMilli(location.getTime() > 0L ? location.getTime() : System.currentTimeMillis()).toString());
+    result.put("capturedAt", Instant.ofEpochMilli(location.getTime()).toString());
     return result;
   }
 }

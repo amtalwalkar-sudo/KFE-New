@@ -7,7 +7,7 @@
 ## Capture and persistence
 
 - Capture a one-shot GPS fix and its device fix timestamp at passenger-trip start and trip end; retain a separate pickup-start snapshot where that workflow boundary is recorded.
-- Persist latitude, longitude, accuracy when available, and `capturedAt` locally. GPS-provider capture does not require internet. A fix may take longer offline and requires Android Location Services plus foreground precise/coarse location permission.
+- Persist latitude, longitude, accuracy when available, and the GPS provider's actual fix timestamp as `capturedAt` locally. Never substitute the current wall-clock time when a fix timestamp is absent or invalid; treat that snapshot as unavailable. GPS-provider capture does not require internet. A fix may take longer offline and requires Android Location Services plus foreground precise/coarse location permission.
 - Cancellation is a terminal trip boundary and receives the same one-shot endpoint snapshot.
 - Never start a continuous watch, background GPS trace collector, trace auto-resume, route matching, Valhalla routing, or kilometre calculation for this feature.
 - The PWA and Android overlay capture snapshots without blocking trip transitions or fare/cancellation forms. A missing fix must not prevent a trip from completing; saved lifecycle timestamps remain authoritative.
