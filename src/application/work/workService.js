@@ -9,8 +9,7 @@ import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } fro
 import { BackupService } from '../backup/backupService.js'
 import { WorkRuntimePorts } from './workRuntimePorts.js'
 import { captureTripBoundaryLocation } from './tripBoundaryLocation.js'
-import { LocationRepository } from '../../repositories/locationRepository.js'
-import { PhotonLocationNameAdapter, resolveLocationName } from '../../services/locationNameService.js'
+import { EventLocationService } from '../location/eventLocationService.js'
 import { CanonicalWorkBoundary } from './canonicalWorkBoundary.js'
 import { recoverCanonicalWorkSnapshot } from './canonicalWorkRecovery.js'
 import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
@@ -110,30 +109,7 @@ const reconcileCanonicalReads = () => {
 }
 configureCanonicalReadBoundary(reconcileCanonicalReads)
 
-const locationNameResolver = new PhotonLocationNameAdapter()
-
-// One-shot event snapshots are optional enrichment. Persist the event first in
-// its business record; then capture/persist GPS and resolve the locality without
-// holding any swipe, save, or shift transition open.
-const captureAndPersistEventLocation = (entityType, entityId, eventType) => {
-  if (!entityType || !entityId || !eventType) return
-  void (async () => {
-    const existing = await LocationRepository.forEntity(entityType, entityId)
-    if (existing.some(item => item.eventType === eventType)) return
-    const location = await captureTripBoundaryLocation()
-    if (!location) return
-    const snapshot = await LocationRepository.record({
-      entityType, entityId, eventType,
-      latitude: location.latitude,
-      longitude: location.longitude,
-      accuracy: location.accuracy,
-      capturedAt: location.capturedAt,
-    })
-    const placeName = await resolveLocationName(location, locationNameResolver)
-    if (placeName) await LocationRepository.updatePlaceName(snapshot.id, placeName)
-    checkpoint()
-  })().catch(error => console.warn('Optional event GPS enrichment failed:', entityType, entityId, eventType, error))
-}
+const captureAndPersistEventLocation = (entityType, entityId, eventType) => EventLocationService.captureForEvent(entityType, entityId, eventType)
 
 const captureAndPersistTripBoundary = (tripId, field) => {
   if (!tripId || !['tripStartLocation', 'tripEndLocation'].includes(field)) return
