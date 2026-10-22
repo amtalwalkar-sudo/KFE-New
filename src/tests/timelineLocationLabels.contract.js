@@ -15,6 +15,14 @@ assert.match(timeline, /void resolveTimelineLocationLabels\(data\.value\)\.catch
   'timeline location enrichment must not delay rendering')
 assert.match(timeline, /EventLocationService\.resolveLabel\(location\)/,
   'trip boundary labels should use the application service')
+assert.match(timeline, /shiftBoundaryLocation\(data, 'SHIFT_START'\)/,
+  'Timeline should show the resolved shift-start locality label')
+assert.match(timeline, /shiftBoundaryLocation\(data, 'SHIFT_END'\)/,
+  'Timeline should show the resolved shift-end locality label')
+assert.match(eventLocationService, /CanonicalWorkBoundary\.listEventLocationSnapshots\(\)/,
+  'Timeline enrichment should recover snapshots from native canonical storage')
+assert.match(eventLocationService, /CanonicalWorkBoundary\.persistEventLocationSnapshot/,
+  'captured shift/fuel locations should be durably mirrored into native canonical storage')
 assert.match(timeline, /locationLabelFor\('FUEL', event\.record\.id, 'FUEL_ENTRY'\)/,
   'fuel timeline should show its resolved locality label')
 assert.match(timeline, /EventLocationService\.persistLabel\(snapshot\.id, name\)/,
