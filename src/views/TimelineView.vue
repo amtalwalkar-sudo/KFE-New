@@ -125,6 +125,14 @@ const resolveTimelineLocationLabels = async summary => {
   await Promise.allSettled(jobs)
   locationLabels.value = next
 }
+const shiftBoundaryLocation = (summary, eventType) => {
+  const shifts = (summary?.shifts || []).map(item => item.shift).filter(shift => shift?.id)
+    .sort((a, b) => String(a.shiftStartAt || '').localeCompare(String(b.shiftStartAt || '')))
+  const shift = eventType === 'SHIFT_START'
+    ? shifts[0]
+    : [...shifts].reverse().find(item => item.shiftEndAt)
+  return shift ? locationLabelFor('SHIFT', shift.id, eventType) : ''
+}
 const duration = trip => { const start = timestamp(trip?.tripStartAt); const end = timestamp(trip?.tripEndAt); if (!start || !end) return '—'; const n = end.getTime() - start.getTime(); return Number.isFinite(n) && n >= 0 ? `${Math.round(n/60000)} min` : '—' }
 const shiftLabel = summary => { const starts=(summary?.shifts||[]).map(x=>x.shift.shiftStartAt).filter(Boolean).sort(); const ends=(summary?.shifts||[]).map(x=>x.shift.shiftEndAt).filter(Boolean).sort(); return starts.length ? `${time(starts[0])} → ${ends.length===starts.length ? time(ends[ends.length-1]) : 'Active'}` : '—' }
 const load = async () => { loading.value=true; error.value=''; try { if(period.value==='day') data.value=await TimelineService.getDay(anchor.value); else if(period.value==='personal') data.value=await TimelineService.getPersonal(range.value); else if(period.value==='week') data.value=await TimelineService.getWeek(range.value); else data.value=await TimelineService.getMonth(range.value); void resolveTimelineLocationLabels(data.value).catch(() => {}) } catch(e) { error.value=e?.message||'Unable to load timeline.'; data.value=null } finally { loading.value=false } }
@@ -170,7 +178,7 @@ onMounted(load)
     <p v-if="loading" class="state">Loading timeline…</p><p v-else-if="error" class="state error">{{error}}</p>
 
     <template v-else-if="period==='day' && data">
-      <section class="day-snapshot"><div><span>Shift</span><strong>{{shiftLabel(data)}}</strong></div><div><span>Authoritative Revenue</span><strong>{{money(data.authoritativeRevenue)}}</strong></div><div><span>Target</span><strong>{{money(data.target?.target)}}</strong></div><div><span>Rides</span><strong>{{data.rides}}</strong></div><div><span>Fuel</span><strong>{{kg(data.fuelQuantityKg)}} / {{money(data.fuelCost)}}</strong></div><div><span>Toll</span><strong>{{money(data.toll)}}</strong></div><div><span>Parking</span><strong>{{money(data.parking)}}</strong></div></section>
+      <section class="day-snapshot"><div><span>Shift</span><strong>{{shiftLabel(data)}}</strong><small v-if="shiftBoundaryLocation(data, 'SHIFT_START')">Start · {{shiftBoundaryLocation(data, 'SHIFT_START')}}</small><small v-if="shiftBoundaryLocation(data, 'SHIFT_END')">End · {{shiftBoundaryLocation(data, 'SHIFT_END')}}</small></div><div><span>Authoritative Revenue</span><strong>{{money(data.authoritativeRevenue)}}</strong></div><div><span>Target</span><strong>{{money(data.target?.target)}}</strong></div><div><span>Rides</span><strong>{{data.rides}}</strong></div><div><span>Fuel</span><strong>{{kg(data.fuelQuantityKg)}} / {{money(data.fuelCost)}}</strong></div><div><span>Toll</span><strong>{{money(data.toll)}}</strong></div><div><span>Parking</span><strong>{{money(data.parking)}}</strong></div></section>
       <div v-if="!data.events.length" class="state">No ride or fuel events recorded for this day.</div>
       <div v-for="event in data.events" :key="`${event.type}-${event.id}`">
         <article v-if="event.type==='TRIP'" class="event" :class="{ 'event--cancelled': event.record.status==='CANCELLED' }"><time>{{time(event.record.tripStartAt)}}</time><div><div class="top"><strong>{{event.record.operator}}</strong><small>{{event.record.status==='CANCELLED' ? 'Cancelled' : '✓ Completed'}}</small></div><div class="route">{{route(event.record)}}</div><div class="meta">{{event.record.status==='CANCELLED' ? (event.record.cancelledRevenue==null||event.record.cancelledRevenue===''?'Cancellation fee —':'Cancellation fee '+money(event.record.cancelledRevenue)) : (event.record.revenue==null||event.record.revenue===''?'Fare —':money(event.record.revenue))}} · {{km(event.record.tripKm)}} · {{duration(event.record)}}</div><small v-if="event.record.status==='CANCELLED' && event.record.cancelReason" class="cancelled-reason">{{event.record.cancelReason}}</small></div><button class="edit" @click="openEdit(event.record)" aria-label="Edit trip">✎</button></article>
