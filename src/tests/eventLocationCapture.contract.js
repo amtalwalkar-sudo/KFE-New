@@ -21,8 +21,8 @@ assert.match(eventLocationService, /await resolveLocationName\(location, locatio
   'reverse geocoding must be a follow-up enrichment')
 assert.match(locationRepository, /capturedAt: capturedAt \|\| now/,
   'location snapshot must retain the provider timestamp when supplied')
-assert.match(geocoder, /p\.street/,
-  'the formatter may inspect street fields only to exclude them from visible labels')
+assert.match(geocoder, /Display area\/locality names only/,
+  'the formatter must explicitly define locality-only visible labels')
 assert.doesNotMatch(geocoder, /return \[p\.name, p\.street/,
   'street addresses must not be used as visible location labels')
 
