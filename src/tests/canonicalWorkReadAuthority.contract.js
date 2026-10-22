@@ -65,5 +65,14 @@ assert.ok(endShiftImplementation.includes('getAllShifts({ skipCanonicalReadBound
 assert.ok(!endShiftImplementation.includes('getLastCompletedShift()'), 'end-shift must not reconcile a stale native ACTIVE snapshot before mirroring COMPLETED')
 assert.ok(endShiftImplementation.indexOf("await mirrorCanonicalRecord('SHIFT', closedShift)") < endShiftImplementation.indexOf('getTripsForShift(active.shift.id, { skipCanonicalReadBoundary: true })'), 'the completed shift must reach native canonical storage before further local trip reads')
 assert.ok(endShiftImplementation.includes('if (result?.ok && active.shift?.id && nativeCanonicalAvailable())'), 'native completion mirroring must run only after a successful PWA shift completion')
+assert.ok(endShiftImplementation.includes('CanonicalWorkBoundary.createOperationId()'), 'native mirror identity must be created before the local shift-completion transaction')
+assert.ok(endShiftImplementation.includes('canonicalSyncOperationId } : {})'), 'the same native operation identity must flow into the shift-completion transaction')
 
-console.log('PASS: canonical read/write recovery, end-shift mirror ordering, revenue read-model wiring, and GPS-free native/PWA lifecycle')
+const completeShiftImplementation = repository.slice(repository.indexOf('async completeShift(data)'), repository.indexOf('async createTrip(data)'))
+assert.ok(completeShiftImplementation.includes('const canonicalSyncOperationId = String(data.canonicalSyncOperationId || \'\').trim()'), 'native shift completion must accept the pre-created mirror identity')
+assert.ok(completeShiftImplementation.includes('_nativeCanonicalSync: {'), 'the completed shift must carry a durable pending native-mirror marker')
+assert.ok(completeShiftImplementation.includes('fingerprint: JSON.stringify(stableRecordValue(shift))'), 'the pending marker must fingerprint the exact completed business payload')
+assert.ok(completeShiftImplementation.indexOf('const writeRecord = canonicalSyncOperationId') < completeShiftImplementation.indexOf('shifts.put(writeRecord)'), 'the pending mirror marker must be written in the same transaction as shift completion')
+assert.ok(completeShiftImplementation.includes("saveMutation(mutations, audit, shift.id, 'SHIFT', 'UPDATE', shift, now)"), 'audit/mutation payload must not leak internal mirror metadata')
+
+console.log('PASS: canonical read/write recovery, atomic end-shift mirror journaling, end-shift mirror ordering, revenue read-model wiring, and GPS-free native/PWA lifecycle')

@@ -212,7 +212,16 @@ export const WorkService = Object.freeze({
   async deleteFuel(id) { const result = await FuelRepository.remove(id); checkpoint(); return { ok: result } },
   async endShift(data) {
     const active = await ShiftTripRepository.getActive()
-    const completionData = { ...data }
+    // Create the native mirror identity before the local completion transaction.
+    // The repository stores this identity with the COMPLETED shift atomically,
+    // so a process death immediately after the IndexedDB commit remains recoverable.
+    const canonicalSyncOperationId = nativeCanonicalAvailable()
+      ? CanonicalWorkBoundary.createOperationId()
+      : null
+    const completionData = {
+      ...data,
+      ...(canonicalSyncOperationId ? { canonicalSyncOperationId } : {})
+    }
     const result = await completeEndShift(completionData)
     if (result?.ok && active.shift?.id && nativeCanonicalAvailable()) {
       // Do not cross the canonical read/recovery boundary between the local

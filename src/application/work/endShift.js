@@ -1,7 +1,7 @@
 import { validateEndShiftEntry } from '../../domain/work/endShift.js'
 import { ShiftTripRepository } from '../../repositories/shiftTripRepository.js'
 
-export async function completeEndShift({ shiftId, closingOdometer, confirmLargeDistance = false, movementReconciliation = null }) {
+export async function completeEndShift({ shiftId, closingOdometer, confirmLargeDistance = false, movementReconciliation = null, canonicalSyncOperationId = null }) {
   const active = await ShiftTripRepository.getActive()
   if (!active.shift || active.shift.id !== shiftId) return { ok: false, reason: 'Active shift not found.' }
   if (active.trip) return { ok: false, reason: 'ACTIVE_TRIP_IN_PROGRESS' }
@@ -22,7 +22,8 @@ export async function completeEndShift({ shiftId, closingOdometer, confirmLargeD
     await ShiftTripRepository.completeShift({
       id: shiftId,
       endOdometer: validation.closingOdometer,
-      movementReconciliation
+      movementReconciliation,
+      canonicalSyncOperationId
     })
     return { ok: true, endOdometer: validation.closingOdometer, distanceKm: validation.distanceKm }
   } catch (error) {
