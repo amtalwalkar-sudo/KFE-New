@@ -25,6 +25,17 @@ export const NativeCanonicalWorkService = Object.freeze({
     }
     return result
   },
+  async updateTripBoundaryPlaceName({ operationId, tripId, field, placeName } = {}) {
+    requireNative()
+    if (!operationId || !tripId || !['tripStartLocation', 'tripEndLocation'].includes(field) || !String(placeName || '').trim()) {
+      throw new Error('operationId, tripId, a supported boundary field and placeName are required.')
+    }
+    const result = await NativeCanonicalWork.updateTripBoundaryPlaceName({ operationId, tripId, field, placeName: String(placeName).trim() })
+    if (result?.accepted !== true || !result?.outcome?.record?.[field]?.placeName) {
+      throw new Error('Native canonical boundary label was not durably acknowledged.')
+    }
+    return result
+  },
   async migrateLegacySnapshot({ migrationId, snapshot } = {}) {
     requireNative()
     if (!migrationId || !snapshot?.entities) throw new Error('migrationId and snapshot.entities are required.')
