@@ -76,12 +76,14 @@ const workService = fs.readFileSync('src/application/work/workService.js', 'utf8
 // A replay of a native action already present in SQLite must refresh the PWA
 // read model and acknowledge the original event, not execute a second transition.
 assert.match(workView, /syncAlreadyCommittedNativeTripAction/)
-assert.match(workView, /const nativeCommit = await syncAlreadyCommittedNativeTripAction\(stage, eventTripId\)/)
+assert.match(workView, /const nativeCommit = await syncAlreadyCommittedNativeTripAction\(stage, eventTripId, String\(event\?\.eventId \|\| ''\)\)/)
 assert.match(workView, /if \(nativeCommit === true\) return true/)
 assert.match(workView, /if \(nativeCommit === null\) return false/)
 assert.match(workView, /Native canonical action read failed; leaving original event pending/)
 assert.match(workView, /await store\.refresh\(\)/)
-assert.match(workView, /typeof trip\.fareDetailsSkipped === 'boolean'/)
+assert.match(workView, /hasCommittedNativeTripForm/)
+assert.match(workView, /CanonicalWorkBoundary\.getOperation\(operationId\)/)
+assert.doesNotMatch(workView, /typeof trip\.fareDetailsSkipped === 'boolean'/, 'A default fareDetailsSkipped flag must not prove that a fare form commit succeeded.')
 assert.match(workView, /trip\.status === 'CANCELLED'/)
 assert.match(workView, /\['ACTIVE', 'COMPLETED', 'CANCELLED'\]\.includes\(trip\.status\)/)
 assert.match(workView, /trip\.status === 'COMPLETED' \|\| trip\.status === 'CANCELLED'/)
