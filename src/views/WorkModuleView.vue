@@ -8,6 +8,7 @@ import { WorkflowTimerService, WorkWorkflowSessionService } from '../application
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { WorkRuntimePorts } from '../application/work/workRuntimePorts.js'
 import { CanonicalWorkBoundary } from '../application/work/canonicalWorkBoundary.js'
+import { isAcceptedNativeTripFormOperation } from '../application/work/nativeTripFormRecovery.js'
 import { deriveLiveRevenue } from '../application/work/liveRevenueReadModel.js'
 import { SWIPE_CONFIG } from '../application/work/swipeConfiguration.js'
 import { deriveWorkCockpitState, WORK_COCKPIT_STATES } from '../application/work/workCockpit.js'
