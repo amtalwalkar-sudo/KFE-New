@@ -35,8 +35,8 @@ export const CanonicalWorkBoundary = Object.freeze({
       placeName: requireText(input?.placeName, 'placeName'),
     }
     if (!['tripStartLocation', 'tripEndLocation'].includes(normalized.field)) throw new Error('Unsupported trip-boundary place-name field.')
-    if (!WorkRuntimePorts.canonicalWork.isAvailable()) throw new Error('Durable trip-boundary labels require native canonical storage.')
-    return WorkRuntimePorts.canonicalWork.updateTripBoundaryPlaceName(normalized)
+    if (WorkRuntimePorts.canonicalWork.isAvailable()) return WorkRuntimePorts.canonicalWork.updateTripBoundaryPlaceName(normalized)
+    return BrowserCanonicalWorkService.updateTripBoundaryPlaceName(normalized)
   },
   async getRecord(input) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.getRecord(input) : BrowserCanonicalWorkService.getRecord(input) },
   async listRecords(input) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.listRecords(input) : BrowserCanonicalWorkService.listRecords(input) },
