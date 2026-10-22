@@ -106,7 +106,7 @@ public class KfeTripBoundaryLocationPlugin extends Plugin {
     result.put("latitude", location.getLatitude());
     result.put("longitude", location.getLongitude());
     result.put("accuracy", location.hasAccuracy() ? location.getAccuracy() : JSObject.NULL);
-    result.put("capturedAt", Instant.ofEpochMilli(location.getTime() > 0L ? location.getTime() : System.currentTimeMillis()).toString());
+    result.put("capturedAt", location.getTime() > 0L ? Instant.ofEpochMilli(location.getTime()).toString() : JSObject.NULL);
     return result;
   }
 }
