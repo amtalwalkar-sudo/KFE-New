@@ -38,6 +38,23 @@ export const CanonicalWorkBoundary = Object.freeze({
     if (WorkRuntimePorts.canonicalWork.isAvailable()) return WorkRuntimePorts.canonicalWork.updateTripBoundaryPlaceName(normalized)
     return BrowserCanonicalWorkService.updateTripBoundaryPlaceName(normalized)
   },
+  async persistEventLocationSnapshot(snapshot) {
+    if (!snapshot?.id || !snapshot?.entityType || !snapshot?.entityId || !snapshot?.eventType) {
+      throw new Error('A complete event location snapshot is required.')
+    }
+    if (!WorkRuntimePorts.canonicalWork.isAvailable()) return { accepted: true, native: false }
+    const record = { ...snapshot, updatedAt: snapshot.updatedAt || snapshot.createdAt || new Date().toISOString() }
+    return WorkRuntimePorts.canonicalWork.putRecord({
+      operationId: `gps-snapshot-${snapshot.id}-${record.updatedAt}`,
+      entityType: 'GPS_SNAPSHOT',
+      record,
+    })
+  },
+  async listEventLocationSnapshots() {
+    if (!WorkRuntimePorts.canonicalWork.isAvailable()) return []
+    const result = await WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'GPS_SNAPSHOT', limit: 1000 })
+    return Array.isArray(result?.records) ? result.records : []
+  },
   async getRecord(input) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.getRecord(input) : BrowserCanonicalWorkService.getRecord(input) },
   async listRecords(input) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.listRecords(input) : BrowserCanonicalWorkService.listRecords(input) },
   async getOperation(operationId) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.getOperation(operationId) : BrowserCanonicalWorkService.getOperation(operationId) },
