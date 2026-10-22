@@ -84,7 +84,10 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
           }
           JSONObject prior = new JSONObject(cursor.getString(4));
           JSONObject priorRecord = prior.optJSONObject("record");
-          if (priorRecord == null || !jsonEquivalent(priorRecord, record)) {
+          boolean sameRecord = priorRecord != null && ("TRIP".equals(entityType)
+              ? jsonEquivalent(withoutTripBoundarySnapshots(priorRecord), withoutTripBoundarySnapshots(record))
+              : jsonEquivalent(priorRecord, record));
+          if (!sameRecord) {
             throw new IllegalArgumentException("operationId was already used with a different payload.");
           }
           db.setTransactionSuccessful();

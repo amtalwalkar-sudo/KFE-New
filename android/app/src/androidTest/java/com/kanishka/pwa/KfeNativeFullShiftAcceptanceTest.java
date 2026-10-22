@@ -55,6 +55,11 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertTrue(gpsFirst.accepted);
     assertEquals("Metadata-only GPS must preserve the trip business version.", earlier,
         store.getRecord("TRIP", tripBeforeGps).getJSONObject("record").getString("updatedAt"));
+    KfeCanonicalWorkStore.Outcome lifecycleReplayAfterGps = store.putRecord(
+        "boundary-merge-gps-first-create-" + suffix, "TRIP",
+        new JSONObject(store.getRecord("TRIP", tripBeforeGps).getJSONObject("record").toString()));
+    assertTrue("A lifecycle retry must remain accepted after optional GPS metadata is added.", lifecycleReplayAfterGps.accepted);
+    assertTrue("A lifecycle retry must remain idempotent after optional GPS metadata is added.", lifecycleReplayAfterGps.duplicate);
 
     JSONObject fareAfterGps = new JSONObject(store.getRecord("TRIP", tripBeforeGps).getJSONObject("record").toString())
         .put("revenue", 250d).put("fareDetailsSkipped", false)
