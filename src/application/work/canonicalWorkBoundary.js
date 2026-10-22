@@ -27,6 +27,17 @@ export const CanonicalWorkBoundary = Object.freeze({
     if (!WorkRuntimePorts.canonicalWork.isAvailable()) throw new Error('Dedicated trip-boundary persistence is available only with native canonical storage.')
     return WorkRuntimePorts.canonicalWork.persistTripBoundarySnapshot(normalized)
   },
+  async updateTripBoundaryPlaceName(input) {
+    const normalized = {
+      operationId: requireText(input?.operationId, 'operationId'),
+      tripId: requireText(input?.tripId, 'tripId'),
+      field: requireText(input?.field, 'field'),
+      placeName: requireText(input?.placeName, 'placeName'),
+    }
+    if (!['tripStartLocation', 'tripEndLocation'].includes(normalized.field)) throw new Error('Unsupported trip-boundary place-name field.')
+    if (!WorkRuntimePorts.canonicalWork.isAvailable()) throw new Error('Durable trip-boundary labels require native canonical storage.')
+    return WorkRuntimePorts.canonicalWork.updateTripBoundaryPlaceName(normalized)
+  },
   async getRecord(input) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.getRecord(input) : BrowserCanonicalWorkService.getRecord(input) },
   async listRecords(input) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.listRecords(input) : BrowserCanonicalWorkService.listRecords(input) },
   async getOperation(operationId) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.getOperation(operationId) : BrowserCanonicalWorkService.getOperation(operationId) },
