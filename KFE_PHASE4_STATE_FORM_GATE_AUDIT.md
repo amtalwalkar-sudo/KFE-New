@@ -17,11 +17,11 @@ The audit must distinguish:
 | K3 | Shift active | Work cockpit | Shift is active after K1 gate | Trip-level operational detail | Trip fields become shift-start gates |
 | K4 | Shift active → Start Trip | Trip-start flow | Trip lifecycle rules | Trip odometer/GPS where supported | Trip start requires shift-end fields |
 | K5 | Active trip → Complete Trip | End-trip flow | Valid trip lifecycle transition | Trip KM / fare detail where optional | Completion is blocked solely because optional trip detail was not entered |
-| K6 | Completed trip → fare/revenue detail | Fare form only when applicable to completed-trip workflow | No trip fare may replace shift revenue authority | Trip fare/details | Cancelled trip is treated as completed revenue |
+| K6 | Completed trip → fare/revenue detail | Fare form only when applicable to completed-trip workflow | Canonical `Shift.revenue` is derived from eligible completed-trip fares plus cancellation fees; blank/not-applicable cancellation fees are ₹0 | Trip fare/details where applicable | Cancelled trip is treated as completed revenue or a manual total overrides the derived projection |
 | K7 | Pickup → Cancel Trip | Cancellation flow | Cancellation permitted only in pickup state | Cancellation details where applicable | Cancelled trip forced through normal completion/fare path |
 | K8 | Cancelled trip → persisted state | Cancellation confirmation/result | Canonical trip becomes cancelled once | — | Completed-trip revenue created by cancellation |
 | K9 | Any active trip → Offline / End Shift | End-shift attempt | **Blocked while an active ride exists** | — | Shift closes prematurely |
-| K10 | Online → Offline / End Shift | End-shift form | Valid shift + **authoritative closing odometer + compulsory shift-end revenue** | Toll / parking when applicable | Optional toll/parking blocks shift closure |
+| K10 | Online → Offline / End Shift | End-shift form | Valid shift + **authoritative closing odometer**; `Shift.revenue` remains derived from eligible trip fares plus cancellation fees | Toll / parking when applicable | Optional toll/parking blocks shift closure or a manually entered shift-end total replaces the derived revenue projection |
 | K11 | End-shift form → Back | Return to active shift | No authoritative end write | — | Back ends the shift |
 | K12 | Valid end-shift form → OK | End shift | All compulsory end-shift fields valid | Optional expenses | Driver must press Offline again after OK |
 | K13 | Trip / shift expense | Toll / parking entry | Actual applicable expense only | **Toll and parking are optional** | Empty optional expense becomes a gate |
@@ -47,9 +47,9 @@ The existing business-rule authority remains:
 
 - **Shift start:** authoritative start odometer.
 - **Shift end:** authoritative closing odometer.
-- **Shift end revenue:** compulsory and authoritative.
+- **Shift revenue:** canonical derived projection of eligible completed-trip fares plus cancellation fees; blank/not-applicable cancellation fees count as ₹0. Shift end must not create a competing manual revenue authority.
 - **Trip odometer:** optional operational detail.
-- **Trip fare/revenue:** optional supporting detail where the trip workflow permits it; it does not override shift revenue.
+- **Trip fare/revenue:** eligible completed-trip fare is an input to the canonical shift revenue projection; cancellation fees are included separately under the same rule.
 - **Cancellation:** separate lifecycle path; cancelled/unvalidated trips do not become completed-trip revenue.
 - **Toll / parking:** optional actual expense records when applicable; absence does not by itself block a valid shift transition.
 
