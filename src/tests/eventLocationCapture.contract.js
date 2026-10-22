@@ -23,6 +23,14 @@ assert.match(locationRepository, /GPS snapshot requires the location provider fi
   'GPS snapshots must reject missing provider timestamps rather than substitute event wall-clock time')
 assert.match(locationRepository, /capturedAt: new Date\(fixTimestamp\)\.toISOString\(\)/,
   'GPS snapshot must persist the normalized provider fix timestamp')
+assert.match(eventLocationService, /CanonicalWorkBoundary\.persistEventLocationSnapshot/,
+  'event location snapshots must be mirrored into native canonical storage')
+assert.match(eventLocationService, /CanonicalWorkBoundary\.listEventLocationSnapshots/,
+  'timeline reads must be able to recover event snapshots from native canonical storage')
+assert.match(eventLocationService, /await this\.persistNativeSnapshot\(local\)/,
+  'locality label enrichment must be mirrored durably to native storage')
+assert.match(locationRepository, /id = null/,
+  'the same event snapshot identity must be shared across browser and native stores')
 assert.match(geocoder, /Display area\/locality names only/,
   'the formatter must explicitly define locality-only visible labels')
 assert.doesNotMatch(geocoder, /return \[p\.name, p\.street/,
