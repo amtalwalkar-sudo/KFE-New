@@ -989,7 +989,21 @@ public class KfeOverlaySmokeTest {
     android.view.WindowManager.LayoutParams params = (android.view.WindowManager.LayoutParams) fieldValue(service, "params");
     android.view.View root = (android.view.View) fieldValue(service, "overlayRoot");
     assertNotNull("Bubble must keep its WindowManager root attached", root);
-    assertTrue("Bubble root must remain attached to the Android window", root.isAttachedToWindow());
+    // ACTION_MINIMIZE is delivered through the service main thread. Wait for
+    // the WindowManager attachment state to settle instead of racing that UI
+    // transition from the instrumentation thread; still fail if it never attaches.
+    long attachedDeadline = SystemClock.uptimeMillis() + 1500L;
+    while (SystemClock.uptimeMillis() < attachedDeadline) {
+      final boolean[] attached = {false};
+      InstrumentationRegistry.getInstrumentation().runOnMainSync(() ->
+        attached[0] = root.isAttachedToWindow());
+      if (attached[0]) break;
+      SystemClock.sleep(25L);
+    }
+    final boolean[] rootAttached = {false};
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(() ->
+      rootAttached[0] = root.isAttachedToWindow());
+    assertTrue("Bubble root must remain attached to the Android window", rootAttached[0]);
     assertEquals("Bubble width must use the compact bubble size", bubblePx, params.width);
     assertEquals("Bubble height must use the compact bubble size", bubblePx, params.height);
 
