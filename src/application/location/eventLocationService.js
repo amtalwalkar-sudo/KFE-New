@@ -1,4 +1,5 @@
 import { LocationRepository } from '../../repositories/locationRepository.js'
+import { CanonicalWorkBoundary } from '../work/canonicalWorkBoundary.js'
 import { captureTripBoundaryLocation } from '../work/tripBoundaryLocation.js'
 import { PhotonLocationNameAdapter, resolveLocationName } from './locationNameService.js'
 
@@ -32,5 +33,11 @@ export const EventLocationService = {
   },
   async persistLabel(snapshotId, placeName) {
     return LocationRepository.updatePlaceName(snapshotId, placeName)
+  },
+  async persistTripBoundaryLabel(tripId, field, placeName) {
+    return CanonicalWorkBoundary.updateTripBoundaryPlaceName({
+      operationId: CanonicalWorkBoundary.createOperationId(),
+      tripId, field, placeName,
+    })
   }
 }
