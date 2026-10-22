@@ -1,6 +1,6 @@
 # GPS tracking and Valhalla removal
 
-**Status:** focused removal is implemented on branch `remove/gps-valhalla-runtime`; automated CI and release-gate verification are pending.
+**Status:** merged to `main` in commit `0d5ba16865482fd5be4280c46f0102380119a534` (PR #330). The merged-commit contract suite, production PWA build, Android release/emulator acceptance gate, deployed runtime verification, UI isolation gate, and governance gate passed.
 
 ## Active runtime behavior
 
@@ -21,12 +21,12 @@
 - KFE's revenue authority remains eligible completed-trip fares plus cancellation fees; blank/not-applicable cancellation fees remain ₹0. GPS removal must not alter this rule.
 - Shift odometer readings and manual gap allocation remain independent of GPS. No GPS or Valhalla result becomes kilometre or revenue authority.
 
-## Verification required before merge
+## Verification completed for the merged change
 
-1. Run the complete contract suite and production PWA build.
-2. Run Android debug/release compilation and native overlay acceptance, including fare/cancellation durability with WebView disabled.
-3. Verify start/end coordinates and fix timestamps persist and survive reload/backup with networking disabled.
-4. Run UI isolation and governance gates.
-5. Inspect all CI failures and confirm all checks on the exact PR head before merge.
+1. The contract suite and production PWA build passed on the merged commit.
+2. Android build and exact-APK emulator acceptance passed, including the native overlay acceptance suite.
+3. Offline one-shot trip-boundary snapshot persistence/restore integration passed; the Android release gate passed.
+4. UI isolation, governance, and deployed runtime verification passed.
+5. The post-merge `KFE 2.0 single CI` run completed successfully on merge commit `0d5ba16865482fd5be4280c46f0102380119a534`.
 
 The older GPS/Valhalla design documents are marked superseded and retained only as historical audit context.
