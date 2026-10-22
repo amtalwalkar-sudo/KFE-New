@@ -39,6 +39,14 @@ assert.match(nativeStore, /A durable GPS boundary snapshot is required before ad
   'metadata update must not fabricate missing coordinates')
 assert.match(nativeStore, /Intentionally leave the canonical business updatedAt unchanged/,
   'metadata enrichment must not mutate business version or fare workflow')
+assert.match(nativeStore, /incoming\.put\(field, existing\.get\(field\)\)/,
+  'a stale PWA mirror must retain the native snapshot and its resolved label during synchronization')
+assert.match(nativeStore, /JSONObject getRecord\(String entityType, String entityId\)/,
+  'a fresh application read must reload the persisted canonical trip after metadata enrichment')
+assert.match(nativeStore, /db\.insertWithOnConflict\("canonical_records", null, recordValues, SQLiteDatabase\.CONFLICT_REPLACE\)/,
+  'resolved labels must be written to durable canonical storage, not only Timeline component state')
+assert.match(nativeStore, /prior\.optString\("placeName", ""\)/,
+  'replayed metadata operations must be checked against their original label for idempotency')
 assert.match(locationRepository, /notifyCanonicalDataChanged\(\{ stores: \['gps_snapshots', 'trips'\], reason: 'gps-place-name-enriched' \}\)/)
 
 console.log('PASS: timeline locality enrichment is shared, persisted, and non-blocking')
