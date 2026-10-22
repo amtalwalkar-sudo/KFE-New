@@ -12,7 +12,7 @@ for (const hook of [
   "captureAndPersistEventLocation('FUEL', result.record.id, 'FUEL_ENTRY', result.record.createdAt || result.record.capturedAt)"
 ]) assert.ok(workService.includes(hook), `Missing async location hook: ${hook}`)
 
-assert.match(workService, /EventLocationService\.captureForEvent\(entityType, entityId, eventType\)/)
+assert.match(workService, /EventLocationService\.captureForEvent\(entityType, entityId, eventType, eventAt\)/)
 assert.match(eventLocationService, /void \(async \(\) => \{/,
   'GPS capture must run fire-and-forget, outside the authoritative work transition')
 assert.match(workService, /captureAndPersistEventLocation\('FUEL', result\.record\.id, 'FUEL_ENTRY', result\.record\.createdAt \|\| result\.record\.capturedAt\)/,
