@@ -12,7 +12,7 @@ const manifest = fs.readFileSync('android/app/src/main/AndroidManifest.xml', 'ut
 for (const key of ['notifications', 'overlay', 'oemAutostart', 'oemBattery']) {
   assert.ok(checks.includes("key: '" + key + "'"), 'startup gate checks ' + key)
 }
-for (const key of ['location', 'locationServices']) assert.ok(checks.includes("key: '" + key + "'"), 'one-shot trip snapshot prerequisite ' + key)
+for (const key of ['location', 'locationServices']) assert.doesNotMatch(checks, new RegExp("key: '\\s*" + key + "'"), key + ' must not block startup; trip workflow must work when a GPS fix is unavailable')
 assert.doesNotMatch(checks, /key: 'backgroundLocation'/)
 assert.match(manifest, /ACCESS_FINE_LOCATION/)
 assert.match(manifest, /ACCESS_COARSE_LOCATION/)
@@ -37,6 +37,7 @@ assert.match(app, /permissionGateState\.status !== 'ready'/)
 const ready = { notificationsAllowed: true, overlayAllowed: true, locationAllowed: true, locationServicesEnabled: true, oemBackgroundSettingsRequired: true }
 const oem = new Set(['oemAutostart', 'oemBattery'])
 assert.equal(findFirstMissingNativeCheck(ready, oem), null)
+assert.equal(findFirstMissingNativeCheck({ ...ready, locationAllowed: false, locationServicesEnabled: false }, oem), null, 'Missing location permission or disabled GPS must not block the work app; boundary snapshots are best-effort.')
 assert.equal(findFirstMissingNativeCheck({ ...ready, notificationsAllowed: false }, oem)?.key, 'notifications')
 assert.equal(findFirstMissingNativeCheck({ ...ready, overlayAllowed: false }, oem)?.key, 'overlay')
 assert.equal(findFirstMissingNativeCheck(ready, new Set())?.key, 'oemAutostart')
