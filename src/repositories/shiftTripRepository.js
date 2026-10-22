@@ -93,7 +93,21 @@ export const ShiftTripRepository = {
             shift.shiftDurationMs = Math.max(0, Date.parse(now) - Date.parse(shift.shiftStartAt || now))
             shift.status = 'COMPLETED'
             shift.updatedAt = now
-            shifts.put(shift)
+            // On Android, the native mirror's operation ID and exact payload
+            // fingerprint must be durable in the same transaction as COMPLETED.
+            // Otherwise a process death before mirrorCanonicalRecord journals
+            // the write can let recovery restore the stale native ACTIVE record.
+            const canonicalSyncOperationId = String(data.canonicalSyncOperationId || '').trim()
+            const writeRecord = canonicalSyncOperationId
+              ? {
+                  ...shift,
+                  _nativeCanonicalSync: {
+                    operationId: canonicalSyncOperationId,
+                    fingerprint: JSON.stringify(stableRecordValue(shift))
+                  }
+                }
+              : shift
+            shifts.put(writeRecord)
             saveMutation(mutations, audit, shift.id, 'SHIFT', 'UPDATE', shift, now)
           } catch (error) {
             try { tx.abort() } catch (_) {}
