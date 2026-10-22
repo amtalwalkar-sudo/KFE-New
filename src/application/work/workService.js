@@ -9,6 +9,8 @@ import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } fro
 import { BackupService } from '../backup/backupService.js'
 import { WorkRuntimePorts } from './workRuntimePorts.js'
 import { captureTripBoundaryLocation } from './tripBoundaryLocation.js'
+import { LocationRepository } from '../../repositories/locationRepository.js'
+import { PhotonLocationNameAdapter, resolveLocationName } from '../../services/locationNameService.js'
 import { CanonicalWorkBoundary } from './canonicalWorkBoundary.js'
 import { recoverCanonicalWorkSnapshot } from './canonicalWorkRecovery.js'
 import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
@@ -108,6 +110,31 @@ const reconcileCanonicalReads = () => {
 }
 configureCanonicalReadBoundary(reconcileCanonicalReads)
 
+const locationNameResolver = new PhotonLocationNameAdapter()
+
+// One-shot event snapshots are optional enrichment. Persist the event first in
+// its business record; then capture/persist GPS and resolve the locality without
+// holding any swipe, save, or shift transition open.
+const captureAndPersistEventLocation = (entityType, entityId, eventType) => {
+  if (!entityType || !entityId || !eventType) return
+  void (async () => {
+    const existing = await LocationRepository.forEntity(entityType, entityId)
+    if (existing.some(item => item.eventType === eventType)) return
+    const location = await captureTripBoundaryLocation()
+    if (!location) return
+    const snapshot = await LocationRepository.record({
+      entityType, entityId, eventType,
+      latitude: location.latitude,
+      longitude: location.longitude,
+      accuracy: location.accuracy,
+      capturedAt: location.capturedAt,
+    })
+    const placeName = await resolveLocationName(location, locationNameResolver)
+    if (placeName) await LocationRepository.updatePlaceName(snapshot.id, placeName)
+    checkpoint()
+  })().catch(error => console.warn('Optional event GPS enrichment failed:', entityType, entityId, eventType, error))
+}
+
 const captureAndPersistTripBoundary = (tripId, field) => {
   if (!tripId || !['tripStartLocation', 'tripEndLocation'].includes(field)) return
   void (async () => {
@@ -175,7 +202,7 @@ export const WorkService = Object.freeze({
   validateGapAllocation(gapKm, category) { return validateGapAllocation(gapKm, category) },
   calculateFuelQuantity(pricePerKg, amount) { return calculateFuelQuantity({ pricePerKg, amount }) },
   reconcileShiftRevenue(data) { return reconcileShiftRevenue(data) },
-  async startShift(data) { const result = await ShiftTripRepository.createShift(data); await mirrorCanonicalRecord('SHIFT', result); checkpoint(); return result },
+  async startShift(data) { const result = await ShiftTripRepository.createShift(data); await mirrorCanonicalRecord('SHIFT', result); checkpoint(); captureAndPersistEventLocation('SHIFT', result.id, 'SHIFT_START'); return result },
   async startTrip(data) {
     const validation = validateTripOperator(data?.operator)
     if (!validation.valid) return { ok: false, reason: validation.reason }
@@ -238,6 +265,7 @@ export const WorkService = Object.freeze({
       for (const trip of localTrips) await mirrorCanonicalRecord('TRIP', trip)
     }
     checkpoint()
+    if (result?.ok && active.shift?.id) captureAndPersistEventLocation('SHIFT', active.shift.id, 'SHIFT_END')
     return result
   },
   async recordFuel(data) {
@@ -245,6 +273,7 @@ export const WorkService = Object.freeze({
     // Fuel persistence is the user-visible commit. Local backup is best-effort
     // follow-up work and must not hold the form open after the record is saved.
     void Promise.resolve().then(() => checkpoint()).catch(() => {})
+    if (result?.ok && result.record?.id) captureAndPersistEventLocation('FUEL', result.record.id, 'FUEL_ENTRY')
     return result
   },
 })
