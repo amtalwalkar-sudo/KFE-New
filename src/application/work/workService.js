@@ -109,7 +109,7 @@ const reconcileCanonicalReads = () => {
 }
 configureCanonicalReadBoundary(reconcileCanonicalReads)
 
-const captureAndPersistEventLocation = (entityType, entityId, eventType) => EventLocationService.captureForEvent(entityType, entityId, eventType)
+const captureAndPersistEventLocation = (entityType, entityId, eventType, eventAt) => EventLocationService.captureForEvent(entityType, entityId, eventType, eventAt)
 
 const captureAndPersistTripBoundary = (tripId, field) => {
   if (!tripId || !['tripStartLocation', 'tripEndLocation'].includes(field)) return
@@ -178,7 +178,7 @@ export const WorkService = Object.freeze({
   validateGapAllocation(gapKm, category) { return validateGapAllocation(gapKm, category) },
   calculateFuelQuantity(pricePerKg, amount) { return calculateFuelQuantity({ pricePerKg, amount }) },
   reconcileShiftRevenue(data) { return reconcileShiftRevenue(data) },
-  async startShift(data) { const result = await ShiftTripRepository.createShift(data); await mirrorCanonicalRecord('SHIFT', result); checkpoint(); captureAndPersistEventLocation('SHIFT', result.id, 'SHIFT_START'); return result },
+  async startShift(data) { const result = await ShiftTripRepository.createShift(data); await mirrorCanonicalRecord('SHIFT', result); checkpoint(); captureAndPersistEventLocation('SHIFT', result.id, 'SHIFT_START', result.shiftStartAt || result.createdAt); return result },
   async startTrip(data) {
     const validation = validateTripOperator(data?.operator)
     if (!validation.valid) return { ok: false, reason: validation.reason }
@@ -241,7 +241,7 @@ export const WorkService = Object.freeze({
       for (const trip of localTrips) await mirrorCanonicalRecord('TRIP', trip)
     }
     checkpoint()
-    if (result?.ok && active.shift?.id) captureAndPersistEventLocation('SHIFT', active.shift.id, 'SHIFT_END')
+    if (result?.ok && active.shift?.id) captureAndPersistEventLocation('SHIFT', active.shift.id, 'SHIFT_END', result.shiftEndAt || result.updatedAt)
     return result
   },
   async recordFuel(data) {
@@ -249,7 +249,7 @@ export const WorkService = Object.freeze({
     // Fuel persistence is the user-visible commit. Local backup is best-effort
     // follow-up work and must not hold the form open after the record is saved.
     void Promise.resolve().then(() => checkpoint()).catch(() => {})
-    if (result?.ok && result.record?.id) captureAndPersistEventLocation('FUEL', result.record.id, 'FUEL_ENTRY')
+    if (result?.ok && result.record?.id) captureAndPersistEventLocation('FUEL', result.record.id, 'FUEL_ENTRY', result.record.createdAt || result.record.capturedAt)
     return result
   },
 })
