@@ -19,8 +19,10 @@ assert.match(eventLocationService, /await LocationRepository\.record\(/,
   'coordinates must be persisted locally before reverse geocoding')
 assert.match(eventLocationService, /await resolveLocationName\(location, locationNameResolver\)/,
   'reverse geocoding must be a follow-up enrichment')
-assert.match(locationRepository, /capturedAt: capturedAt \|\| now/,
-  'location snapshot must retain the provider timestamp when supplied')
+assert.match(locationRepository, /GPS snapshot requires the location provider fix timestamp/,
+  'GPS snapshots must reject missing provider timestamps rather than substitute event wall-clock time')
+assert.match(locationRepository, /capturedAt: new Date\(fixTimestamp\)\.toISOString\(\)/,
+  'GPS snapshot must persist the normalized provider fix timestamp')
 assert.match(geocoder, /Display area\/locality names only/,
   'the formatter must explicitly define locality-only visible labels')
 assert.doesNotMatch(geocoder, /return \[p\.name, p\.street/,
