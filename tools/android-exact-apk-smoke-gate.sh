@@ -336,9 +336,16 @@ adb shell settings put secure location_mode 3 || true
 adb shell cmd location set-location-enabled true || true
 sleep 2
 (
-  # Bound each console injection so a disconnected emulator console cannot hold CI.
+  # Keep supplying fresh, changing GPS fixes throughout the offline capture test.
+  # Android's getCurrentLocation may return null when the emulator keeps replaying
+  # an identical cached coordinate; vary the fix so both event boundaries receive
+  # a new provider timestamp without enabling network connectivity.
+  fixes=("72.8500 19.0100" "72.8510 19.0110" "72.8520 19.0120" "72.8530 19.0130" "72.8540 19.0140")
+  index=0
   for _ in $(seq 1 45); do
-    timeout 1s adb emu geo fix 72.85 19.01 >/dev/null 2>&1 || true
+    read -r longitude latitude <<< "${fixes[$((index % ${#fixes[@]}))]}"
+    timeout 1s adb emu geo fix "$longitude" "$latitude" >/dev/null 2>&1 || true
+    index=$((index + 1))
     sleep 1
   done
 ) &
