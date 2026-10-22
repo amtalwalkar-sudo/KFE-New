@@ -66,7 +66,7 @@ assert.ok(overlayService.includes('native-form-"+mode+"-"+eventId'), 'form retri
 assert.ok(read('android/app/src/main/java/com/kanishka/pwa/KfeNativeEventStore.java').includes('synchronized long createdAtMillis(String id)'), 'event store must expose the persisted timestamp for a lifecycle event')
 assert.match(plugin, /@CapacitorPlugin\(name = "KfeCanonicalWork"\)/)
 for (const method of ['putRecord', 'persistTripBoundarySnapshot', 'updateTripBoundaryPlaceName', 'getRecord', 'listRecords', 'getOperation']) assert.ok(plugin.includes('public void ' + method + '('), 'Missing plugin method: ' + method)
-for (const method of ['putRecord', 'persistTripBoundarySnapshot', 'getRecord', 'listRecords', 'getOperation']) assert.ok(bridge.includes('async ' + method + '('), 'Missing bridge method: ' + method)
+for (const method of ['putRecord', 'persistTripBoundarySnapshot', 'updateTripBoundaryPlaceName', 'getRecord', 'listRecords', 'getOperation']) assert.ok(bridge.includes('async ' + method + '('), 'Missing bridge method: ' + method)
 assert.match(ports, /canonicalWork: \['putRecord', 'persistTripBoundarySnapshot', 'updateTripBoundaryPlaceName', 'getRecord', 'listRecords', 'getOperation', 'isAvailable'\]/)
 assert.match(adapter, /canonicalWork: NativeCanonicalWorkService/)
 assert.match(activity, /registerPlugin\(KfeCanonicalWorkPlugin\.class\)/)
