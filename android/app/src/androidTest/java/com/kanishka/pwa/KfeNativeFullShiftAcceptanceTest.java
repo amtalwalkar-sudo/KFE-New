@@ -65,6 +65,16 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertEquals("CAPTURED", tripWithFareAndStart.getString("tripStartLocationStatus"));
     assertEquals(19.0760d, tripWithFareAndStart.getJSONObject("tripStartLocation").getDouble("latitude"), 0.000001d);
 
+    JSONObject staleMirror = new JSONObject(tripWithFareAndStart.toString());
+    staleMirror.remove("tripStartLocation");
+    staleMirror.remove("tripStartLocationStatus");
+    staleMirror.put("updatedAt", java.time.Instant.now().plusSeconds(40).toString());
+    assertTrue(store.putRecord("boundary-merge-stale-mirror-" + suffix, "TRIP", staleMirror).accepted);
+    JSONObject afterStaleMirror = store.getRecord("TRIP", tripBeforeGps).getJSONObject("record");
+    assertEquals("A newer business mirror must retain the native boundary snapshot.", 19.0760d,
+        afterStaleMirror.getJSONObject("tripStartLocation").getDouble("latitude"), 0.000001d);
+    assertEquals(250d, afterStaleMirror.getDouble("revenue"), 0.001d);
+
     assertTrue(store.putRecord("boundary-merge-fare-first-create-" + suffix, "TRIP",
         new JSONObject().put("id", tripAfterFare).put("shiftId", shiftId).put("status", "COMPLETED")
             .put("updatedAt", earlier)).accepted);

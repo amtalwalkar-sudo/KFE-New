@@ -68,7 +68,6 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     if (record == null) throw new IllegalArgumentException("record is required.");
     String entityId = record.optString("id", "");
     if (empty(entityId)) throw new IllegalArgumentException("record.id is required.");
-    String payload = record.toString();
     String now = timestampNow();
     SQLiteDatabase db = getWritableDatabase();
     db.beginTransaction();
@@ -92,6 +91,16 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
           return new Outcome("ACCEPTED".equals(cursor.getString(3)), true, prior);
         }
       }
+
+      // A delayed PWA full-record mirror may be newer in business fields but
+      // stale in optional GPS metadata. Existing native boundary snapshots win.
+      if ("TRIP".equals(entityType)) {
+        try (Cursor current = db.query("canonical_records", new String[]{"payload"},
+            "entity_type='TRIP' AND entity_id=?", new String[]{entityId}, null, null, null, "1")) {
+          if (current.moveToFirst()) preserveTripBoundaryMetadata(new JSONObject(current.getString(0)), record);
+        }
+      }
+      String payload = record.toString();
 
       // Android SQLite is authoritative for lifecycle/fare records. Never let a
       // delayed mirror replace a newer canonical payload. ISO-8601 updatedAt
@@ -314,8 +323,6 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       }
       if (fee == JSONObject.NULL) trip.put("cancelledRevenue", 0d);
     }
-    String tripPayload = trip.toString();
-    JSONObject commandPayload = new JSONObject().put("mode", mode).put("trip", trip);
     String now = timestampNow();
     SQLiteDatabase db = getWritableDatabase();
     db.beginTransaction();
@@ -346,6 +353,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       if (!shiftId.equals(existingTrip.optString("shiftId", ""))) {
         throw new IllegalArgumentException("Trip shift identity cannot change during form submission.");
       }
+      preserveTripBoundaryMetadata(existingTrip, trip);
       String existingStatus = existingTrip.optString("status", "");
       if ("FARE".equals(mode) && !"COMPLETED".equals(existingStatus)) {
         throw new IllegalArgumentException("Fare submission requires the canonical trip to be completed.");
@@ -373,6 +381,8 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
         throw new IllegalArgumentException("The canonical shift is no longer active.");
       }
 
+      String tripPayload = trip.toString();
+      JSONObject commandPayload = new JSONObject().put("mode", mode).put("trip", trip);
       ContentValues tripValues = new ContentValues();
       tripValues.put("entity_type", "TRIP");
       tripValues.put("entity_id", tripId);
@@ -619,6 +629,17 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
           .put("entityType", cursor.getString(1)).put("entityId", cursor.getString(2))
           .put("status", cursor.getString(3)).put("outcome", new JSONObject(cursor.getString(4)))
           .put("createdAt", cursor.getString(5));
+    }
+  }
+
+  private static void preserveTripBoundaryMetadata(JSONObject existing, JSONObject incoming) throws JSONException {
+    if (existing == null || incoming == null) return;
+    for (String field : new String[]{"tripStartLocation", "tripEndLocation"}) {
+      if (existing.has(field) && !existing.isNull(field)) {
+        incoming.put(field, existing.get(field));
+        String statusField = "tripStartLocation".equals(field) ? "tripStartLocationStatus" : "tripEndLocationStatus";
+        if (existing.has(statusField) && !existing.isNull(statusField)) incoming.put(statusField, existing.get(statusField));
+      }
     }
   }
 
