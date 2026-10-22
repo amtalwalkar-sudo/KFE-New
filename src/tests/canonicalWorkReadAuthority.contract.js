@@ -59,4 +59,11 @@ assert.ok(service.includes('ShiftTripRepository.createTrip') && service.includes
 assert.match(service, /captureTripBoundaryLocation/)
 assert.match(overlay, /captureOneShotTripBoundary/)
 assert.doesNotMatch(service + view + overlay, /nativeGps|MovementTraceService|captureLifecycleLocation|ValhallaRoutingAdapter|routeTrace|requestLocationUpdates/)
-console.log('PASS: canonical read/write recovery, revenue read-model wiring, and GPS-free native/PWA lifecycle')
+
+const endShiftImplementation = service.slice(service.indexOf('async endShift(data)'), service.indexOf('async recordFuel(data)'))
+assert.ok(endShiftImplementation.includes('getAllShifts({ skipCanonicalReadBoundary: true })'), 'end-shift native mirroring must read the just-completed local shift without triggering recovery')
+assert.ok(!endShiftImplementation.includes('getLastCompletedShift()'), 'end-shift must not reconcile a stale native ACTIVE snapshot before mirroring COMPLETED')
+assert.ok(endShiftImplementation.indexOf("await mirrorCanonicalRecord('SHIFT', closedShift)") < endShiftImplementation.indexOf('getTripsForShift(active.shift.id, { skipCanonicalReadBoundary: true })'), 'the completed shift must reach native canonical storage before further local trip reads')
+assert.ok(endShiftImplementation.includes('if (result?.ok && active.shift?.id && nativeCanonicalAvailable())'), 'native completion mirroring must run only after a successful PWA shift completion')
+
+console.log('PASS: canonical read/write recovery, end-shift mirror ordering, revenue read-model wiring, and GPS-free native/PWA lifecycle')
