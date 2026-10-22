@@ -788,18 +788,38 @@ function keyAction() {
 // the same event instead of running a second business transition with a new ID.
 // Return null on read failure so the event remains pending rather than risking a
 // duplicate write; return false only when the native canonical commit is absent.
-const syncAlreadyCommittedNativeTripAction = async (stage, tripId) => {
+const hasCommittedNativeTripForm = async (mode, eventId, tripId) => {
+  if (!eventId || !tripId) return false
+  // Native overlay form commits use the atomic SUBMIT_TRIP_FORM command. The
+  // PWA's durable event replay uses eventId for its PUT_RECORD fallback.
+  // Check the operation ledger rather than inferring a fare commit from the
+  // trip's COMPLETED status or its default fareDetailsSkipped=false field.
+  for (const operationId of [`native-form-${mode}-${eventId}`, eventId]) {
+    const operation = await CanonicalWorkBoundary.getOperation(operationId)
+    if (isAcceptedNativeTripFormOperation(operation, mode, tripId)) return true
+  }
+  return false
+}
+
+const syncAlreadyCommittedNativeTripAction = async (stage, tripId, eventId = '') => {
   if (!nativeAndroid || !tripId) return false
   const supportedStages = ['GO_TO_PICKUP', 'START_RIDE', 'END_RIDE', 'ENTER_FARE', 'CANCEL_RIDE']
   if (!supportedStages.includes(stage)) return false
   try {
+    if (stage === 'ENTER_FARE' || stage === 'CANCEL_RIDE') {
+      const mode = stage === 'ENTER_FARE' ? 'FARE' : 'CANCEL'
+      if (await hasCommittedNativeTripForm(mode, eventId, tripId)) {
+        await store.refresh()
+        return true
+      }
+    }
     const trips = await WorkService.getAllTrips()
     const trip = trips.find(item => item?.id === tripId)
     if (!trip) return false
     let committed = false
-    // The queue may contain several unacknowledged stages for one trip. A
-    // later canonical stage proves the earlier command committed too; do not
-    // replay GO_TO_PICKUP/START_RIDE against a trip already completed offline.
+    // The queue may contain several unacknowledged lifecycle stages for one
+    // trip. A later canonical stage proves the earlier command committed too;
+    // form commands require their own durable operation record.
     if (stage === 'GO_TO_PICKUP') {
       committed = ['ACTIVE', 'COMPLETED', 'CANCELLED'].includes(trip.status)
     } else if (stage === 'START_RIDE') {
@@ -807,11 +827,6 @@ const syncAlreadyCommittedNativeTripAction = async (stage, tripId) => {
         trip.status === 'COMPLETED' || trip.status === 'CANCELLED'
     } else if (stage === 'END_RIDE') {
       committed = trip.status === 'COMPLETED' && trip.tripStage === 'COMPLETED'
-    } else if (stage === 'ENTER_FARE') {
-      committed = trip.status === 'COMPLETED' &&
-        (typeof trip.fareDetailsSkipped === 'boolean' || Object.prototype.hasOwnProperty.call(trip, 'revenueAuthority'))
-    } else if (stage === 'CANCEL_RIDE') {
-      committed = trip.status === 'CANCELLED'
     }
     if (!committed) return false
     await store.refresh()
@@ -838,7 +853,7 @@ const handleNativeAction = async event => {
     await openCancel()
     return true
   }
-  const nativeCommit = await syncAlreadyCommittedNativeTripAction(stage, eventTripId)
+  const nativeCommit = await syncAlreadyCommittedNativeTripAction(stage, eventTripId, String(event?.eventId || ''))
   if (nativeCommit === true) return true
   if (nativeCommit === null) return false
   if (stage === 'GO_TO_PICKUP') {
