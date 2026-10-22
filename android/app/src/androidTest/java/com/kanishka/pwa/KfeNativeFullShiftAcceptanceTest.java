@@ -87,6 +87,14 @@ public class KfeNativeFullShiftAcceptanceTest {
     KfeCanonicalWorkStore.Outcome retry = store.persistTripBoundarySnapshot(endOperationId, tripAfterFare, "tripEndLocation", endSnapshot);
     assertTrue("The same boundary operation must be accepted.", retry.accepted);
     assertTrue("A repeated boundary operation must be identified as a retry.", retry.duplicate);
+    boolean changedSnapshotRejected = false;
+    try {
+      store.persistTripBoundarySnapshot(endOperationId, tripAfterFare, "tripEndLocation",
+          new JSONObject(endSnapshot.toString()).put("latitude", 19.0810d));
+    } catch (IllegalArgumentException expected) {
+      changedSnapshotRejected = true;
+    }
+    assertTrue("A durable boundary operation ID must not be reusable with a changed snapshot.", changedSnapshotRejected);
     assertEquals(400d, store.getRecord("SHIFT", shiftId).getJSONObject("record").getDouble("revenue"), 0.001d);
   }
 
