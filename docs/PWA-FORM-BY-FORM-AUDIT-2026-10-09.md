@@ -1,5 +1,7 @@
 # PWA Form-by-Form Audit — 2026-10-09
 
+> **Revenue-authority update (2026-10-22):** This form audit is a historical snapshot dated 2026-10-09 and predates the financial decision recorded on 2026-10-19. Any statement below that describes shift-end revenue as the authority or trip fares as supporting-only is superseded. The current rule is that canonical `Shift.revenue` derives from eligible completed-trip fares plus cancellation fees, with blank/not-applicable cancellation fees counted as ₹0. See `KFE_BUSINESS_RULES_REGISTER.md` and `docs/NATIVE-TRIP-FORM-TRANSACTION.md` for the current contract.
+
 **Scope:** Current main at 931d8bb18c6337dbe8b229298e7abc24dc9ea25a. This is the current form inventory, save-path trace, and verification record. Draft-recovery fixes are already present on main; this audit update does not change product behavior. The goal is to trace every active PWA form/action from UI entry through validation and persistence to calculation/read-model consumers, and to separate confirmed findings from items requiring runtime proof.
 
 **Authority:** `KFE_BUSINESS_RULES_REGISTER.md`, `KFE-AUTHORITY-MAP.md`, `docs/KFE-CANONICAL-DATA-CONTRACT.md`, `docs/KFE-UNIVERSAL-FORM-STANDARD.md`, `docs/KFE-UNIVERSAL-FORM-ACTION-RECOVERY-RULES-FROZEN.md`, and `docs/ADMIN-REBUILD-FROZEN-INVENTORY.md`.
