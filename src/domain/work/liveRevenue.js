@@ -8,10 +8,9 @@ export const deriveLiveRevenue = (trips = []) => (Array.isArray(trips) ? trips :
   .reduce((total, trip) => {
     if (trip.status === 'COMPLETED' && trip.fareDetailsSkipped !== true) return total + (nonNegative(trip.revenue) ?? 0)
     if (trip.status === 'CANCELLED') {
-      // Presence of cancelledRevenue is authoritative even when null/blank: do not
-      // resurrect a pre-cancellation fare as a cancellation fee.
-      const fee = Object.prototype.hasOwnProperty.call(trip, 'cancelledRevenue') ? trip.cancelledRevenue : trip.revenue
-      return total + (nonNegative(fee) ?? 0)
+      // Cancellation revenue is only the cancellation fee. Missing, blank, or
+      // not-applicable fees are ₹0; never reuse a pre-cancellation trip fare.
+      return total + (nonNegative(trip.cancelledRevenue) ?? 0)
     }
     return total
   }, 0)
