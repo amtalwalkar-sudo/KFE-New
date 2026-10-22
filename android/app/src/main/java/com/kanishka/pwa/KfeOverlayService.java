@@ -939,7 +939,8 @@ public class KfeOverlayService extends Service {
       snapshot.put("latitude",location.getLatitude());
       snapshot.put("longitude",location.getLongitude());
       snapshot.put("accuracy",location.hasAccuracy()?location.getAccuracy():JSONObject.NULL);
-      long fixTime=location.getTime()>0L?location.getTime():System.currentTimeMillis();
+      long fixTime=location.getTime();
+      if(fixTime<=0L){Log.w("KFE-GPS","One-shot "+field+" snapshot skipped: GPS fix has no valid provider timestamp.");return;}
       snapshot.put("capturedAt",java.time.Instant.ofEpochMilli(fixTime).toString());
       snapshot.put("placeName",JSONObject.NULL);
       trip.put(field,snapshot);
