@@ -299,7 +299,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
             if (amount instanceof Number && Double.isFinite(((Number) amount).doubleValue())
                 && ((Number) amount).doubleValue() >= 0d) revenue += ((Number) amount).doubleValue();
           } else if ("CANCELLED".equals(status)) {
-            Object amount = item.has("cancelledRevenue") ? item.opt("cancelledRevenue") : item.opt("revenue");
+            Object amount = item.has("cancelledRevenue") ? item.opt("cancelledRevenue") : JSONObject.NULL;
             if (amount instanceof Number && Double.isFinite(((Number) amount).doubleValue())
                 && ((Number) amount).doubleValue() >= 0d) revenue += ((Number) amount).doubleValue();
           }
