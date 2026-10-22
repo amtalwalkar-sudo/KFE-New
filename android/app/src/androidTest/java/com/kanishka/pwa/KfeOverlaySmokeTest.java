@@ -647,6 +647,8 @@ public class KfeOverlaySmokeTest {
     assertTrue("Locality metadata write must be accepted", labelWrite.accepted);
     assertTrue("Retrying the same operation must be idempotent",
       store.updateTripBoundaryPlaceName(labelOperation, tripId, "tripStartLocation", "Andheri East, Mumbai").duplicate);
+    JSONObject immediatelyAfterLabel = store.getRecord("TRIP", tripId).optJSONObject("record");
+    assertEquals("Metadata enrichment must not advance the business version", now, immediatelyAfterLabel.getString("updatedAt"));
 
     // Simulate a newer PWA mirror that has the business record but lacks the
     // native-only boundary snapshot/locality metadata.
