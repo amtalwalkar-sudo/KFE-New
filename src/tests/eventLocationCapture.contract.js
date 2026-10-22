@@ -15,6 +15,10 @@ for (const hook of [
 assert.match(workService, /EventLocationService\.captureForEvent\(entityType, entityId, eventType\)/)
 assert.match(eventLocationService, /void \(async \(\) => \{/,
   'GPS capture must run fire-and-forget, outside the authoritative work transition')
+assert.match(workService, /captureAndPersistEventLocation\('FUEL', result\.record\.id, 'FUEL_ENTRY', result\.record\.createdAt \|\| result\.record\.capturedAt\)/,
+  'fuel location snapshots must retain the fuel event timestamp')
+assert.match(locationRepository, /eventAt: eventAt == null/,
+  'the business event timestamp must remain separate from the provider fix timestamp')
 assert.match(eventLocationService, /await LocationRepository\.record\(/,
   'coordinates must be persisted locally before reverse geocoding')
 assert.match(eventLocationService, /await resolveLocationName\(location, locationNameResolver\)/,
