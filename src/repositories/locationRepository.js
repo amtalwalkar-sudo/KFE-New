@@ -59,5 +59,15 @@ export const LocationRepository = {
       tx.onabort = () => reject(tx.error || new Error('GPS trace persistence aborted.'))
     })
   },
+  async getById(id) {
+    if (!id) return null
+    const db = await initializeCanonicalStorage()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('gps_snapshots', 'readonly')
+      const request = tx.objectStore('gps_snapshots').get(id)
+      request.onsuccess = () => resolve(request.result || null)
+      request.onerror = () => reject(request.error || new Error('GPS snapshot lookup failed.'))
+    })
+  },
   async forEntity(entityType, entityId) { const db = await initializeCanonicalStorage(); return new Promise((resolve, reject) => { const tx = db.transaction('gps_snapshots', 'readonly'); const request = tx.objectStore('gps_snapshots').index('entityId').getAll(entityId); request.onsuccess = () => resolve((request.result || []).filter(item => item.entityType === entityType).sort((a, b) => new Date(a.capturedAt) - new Date(b.capturedAt))); request.onerror = () => reject(request.error || new Error('GPS snapshot query failed.')) }) }
 }
