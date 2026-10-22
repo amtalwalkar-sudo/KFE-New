@@ -682,35 +682,42 @@ public class KfeOverlaySmokeTest {
 
   @Test public void shiftAndFuelEventLocationsSurviveNativeReloadAndLabelEnrichment() throws Exception {
     KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
-    String id = "event-location-" + java.util.UUID.randomUUID();
-    String entityId = "shift-or-fuel-" + java.util.UUID.randomUUID();
     String now = java.time.Instant.now().toString();
-    JSONObject snapshot = new JSONObject().put("id", id).put("entityType", "FUEL")
-      .put("entityId", entityId).put("eventType", "FUEL_ENTRY")
-      .put("latitude", 19.0486).put("longitude", 73.0694).put("accuracy", 8.0)
-      .put("capturedAt", now).put("createdAt", now).put("updatedAt", now);
-    KfeCanonicalWorkStore.Outcome created = store.putRecord("event-location-create-" + id, "GPS_SNAPSHOT", snapshot);
-    assertTrue("Event location coordinates must be committed to native canonical storage", created.accepted);
-    assertTrue("Retry of the same snapshot operation must be idempotent",
-      store.putRecord("event-location-create-" + id, "GPS_SNAPSHOT", snapshot).duplicate);
+    String[][] cases = new String[][] {{"SHIFT", "SHIFT_START"}, {"FUEL", "FUEL_ENTRY"}};
+    java.util.List<String> ids = new java.util.ArrayList<>();
+    for (String[] item : cases) {
+      String id = "event-location-" + java.util.UUID.randomUUID();
+      ids.add(id);
+      JSONObject snapshot = new JSONObject().put("id", id).put("entityType", item[0])
+        .put("entityId", item[0].toLowerCase(java.util.Locale.US) + "-" + java.util.UUID.randomUUID())
+        .put("eventType", item[1]).put("latitude", 19.0486).put("longitude", 73.0694)
+        .put("accuracy", 8.0).put("capturedAt", now).put("createdAt", now).put("updatedAt", now);
+      KfeCanonicalWorkStore.Outcome created = store.putRecord("event-location-create-" + id, "GPS_SNAPSHOT", snapshot);
+      assertTrue("Event location coordinates must be committed to native canonical storage", created.accepted);
+      assertTrue("Retry of the same snapshot operation must be idempotent",
+        store.putRecord("event-location-create-" + id, "GPS_SNAPSHOT", snapshot).duplicate);
 
-    String enrichedAt = java.time.Instant.now().plusMillis(50).toString();
-    JSONObject enriched = new JSONObject(snapshot.toString()).put("placeName", "Kharghar, Navi Mumbai")
-      .put("updatedAt", enrichedAt);
-    assertTrue("Locality label should enrich the existing durable event snapshot",
-      store.putRecord("event-location-label-" + id, "GPS_SNAPSHOT", enriched).accepted);
+      String enrichedAt = java.time.Instant.now().plusMillis(50).toString();
+      JSONObject enriched = new JSONObject(snapshot.toString()).put("placeName", "Kharghar, Navi Mumbai")
+        .put("updatedAt", enrichedAt);
+      assertTrue("Locality label should enrich the existing durable event snapshot",
+        store.putRecord("event-location-label-" + id, "GPS_SNAPSHOT", enriched).accepted);
+    }
     store.close();
     java.lang.reflect.Field instance = KfeCanonicalWorkStore.class.getDeclaredField("instance");
     instance.setAccessible(true);
     instance.set(null, null);
     KfeCanonicalWorkStore reopened = KfeCanonicalWorkStore.get(context);
-    JSONObject afterReload = reopened.getRecord("GPS_SNAPSHOT", id).optJSONObject("record");
-    assertNotNull("Event location must reload from SQLite", afterReload);
-    assertEquals("Kharghar, Navi Mumbai", afterReload.getString("placeName"));
-    assertEquals(19.0486, afterReload.getDouble("latitude"), 0.00001);
-    assertEquals(73.0694, afterReload.getDouble("longitude"), 0.00001);
-    assertEquals(now, afterReload.getString("capturedAt"));
-    assertEquals("FUEL_ENTRY", afterReload.getString("eventType"));
+    for (int i = 0; i < cases.length; i++) {
+      JSONObject afterReload = reopened.getRecord("GPS_SNAPSHOT", ids.get(i)).optJSONObject("record");
+      assertNotNull("Event location must reload from SQLite", afterReload);
+      assertEquals("Kharghar, Navi Mumbai", afterReload.getString("placeName"));
+      assertEquals(19.0486, afterReload.getDouble("latitude"), 0.00001);
+      assertEquals(73.0694, afterReload.getDouble("longitude"), 0.00001);
+      assertEquals(now, afterReload.getString("capturedAt"));
+      assertEquals(cases[i][1], afterReload.getString("eventType"));
+      assertEquals(cases[i][0], afterReload.getString("entityType"));
+    }
   }
 
   @Test public void nativeTripBoundarySnapshotPersistsOfflineAndIsIdempotent() throws Exception {
