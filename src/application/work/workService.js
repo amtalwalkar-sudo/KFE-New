@@ -217,7 +217,7 @@ export const WorkService = Object.freeze({
     if (result?.ok && active.shift?.id && nativeCanonicalAvailable()) {
       // Do not cross the canonical read/recovery boundary between the local
       // completion commit and its native mirror. Native SQLite still contains
-      // ACTIVE at this point; getLastCompletedShift() would reconcile that
+      // ACTIVE at this point; a completed-shift lookup would reconcile that
       // stale native snapshot back into IndexedDB before we can mirror COMPLETED.
       const localShifts = await ShiftTripRepository.getAllShifts({ skipCanonicalReadBoundary: true })
       const closedShift = localShifts.find(shift => shift.id === active.shift.id && shift.status === 'COMPLETED')
