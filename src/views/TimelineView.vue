@@ -4,8 +4,7 @@ import { WorkService } from '../application/work/workService.js'
 import { TimelineService } from '../application/timeline/timelineService.js'
 import { FormDraftService } from '../application/forms/formDraftService.js'
 import { useFuelStore } from '../stores/fuel.js'
-import { LocationRepository } from '../repositories/locationRepository.js'
-import { PhotonLocationNameAdapter, resolveLocationName } from '../services/locationNameService.js'
+import { EventLocationService } from '../application/location/eventLocationService.js'
 import { getKfeReferenceNow, istDateKey, istDayRange, istMonthRange, istParts } from '../domain/time/ist.js'
 
 const fuelStore = useFuelStore()
@@ -88,7 +87,6 @@ const dateTime = value => { const date = timestamp(value); return date ? date.to
 const route = trip => `${trip.tripStartLocation?.placeName || locationLabels.value[`${trip.id}:start`] || trip.tripStartLocation?.address || trip.tripStartLocation?.name || 'Pickup'} → ${trip.tripEndLocation?.placeName || locationLabels.value[`${trip.id}:end`] || trip.tripEndLocation?.address || trip.tripEndLocation?.name || 'Drop'}`
 const locationLabelFor = (entityType, entityId, eventType) => locationLabels.value[`${entityType}:${entityId}:${eventType}`] || ''
 const resolveTimelineLocationLabels = async summary => {
-  const resolver = new PhotonLocationNameAdapter()
   const next = { ...locationLabels.value }
   const jobs = []
   for (const event of summary?.events || []) {
@@ -97,17 +95,17 @@ const resolveTimelineLocationLabels = async summary => {
       for (const [side, location] of [['start', record.tripStartLocation], ['end', record.tripEndLocation]]) {
         if (location?.placeName) { next[`${record.id}:${side}`] = location.placeName; continue }
         if (location?.latitude == null || location?.longitude == null) continue
-        jobs.push((async () => { const name = await resolveLocationName(location, resolver); if (name) next[`${record.id}:${side}`] = name })())
+        jobs.push((async () => { const name = await EventLocationService.resolveLabel(location); if (name) next[`${record.id}:${side}`] = name })())
       }
     } else if (event.type === 'FUEL') {
       jobs.push((async () => {
-        const snapshots = await LocationRepository.forEntity('FUEL', record.id)
+        const snapshots = await EventLocationService.forEntity('FUEL', record.id)
         const snapshot = snapshots.find(item => item.eventType === 'FUEL_ENTRY')
         if (!snapshot) return
         const key = `FUEL:${record.id}:FUEL_ENTRY`
         if (snapshot.placeName) { next[key] = snapshot.placeName; return }
-        const name = await resolveLocationName(snapshot, resolver)
-        if (name) { next[key] = name; await LocationRepository.updatePlaceName(snapshot.id, name) }
+        const name = await EventLocationService.resolveLabel(snapshot)
+        if (name) { next[key] = name; await EventLocationService.persistLabel(snapshot.id, name) }
       })())
     }
   }
@@ -115,12 +113,12 @@ const resolveTimelineLocationLabels = async summary => {
     const shift = item.shift
     if (!shift?.id) continue
     jobs.push((async () => {
-      const snapshots = await LocationRepository.forEntity('SHIFT', shift.id)
+      const snapshots = await EventLocationService.forEntity('SHIFT', shift.id)
       for (const snapshot of snapshots) {
         const key = `SHIFT:${shift.id}:${snapshot.eventType}`
         if (snapshot.placeName) { next[key] = snapshot.placeName; continue }
-        const name = await resolveLocationName(snapshot, resolver)
-        if (name) { next[key] = name; await LocationRepository.updatePlaceName(snapshot.id, name) }
+        const name = await EventLocationService.resolveLabel(snapshot)
+        if (name) { next[key] = name; await EventLocationService.persistLabel(snapshot.id, name) }
       }
     })())
   }
