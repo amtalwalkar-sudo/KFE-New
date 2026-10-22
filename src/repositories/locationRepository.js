@@ -7,7 +7,9 @@ export const normalizeNullableGpsNumber = value => value == null || value === ''
 
 export const LocationRepository = {
   async record({ entityType, entityId, eventType, latitude, longitude, accuracy = null, capturedAt, placeName = null }) {
-    const db = await initializeCanonicalStorage(); const now = new Date().toISOString(); const record = { id: generateUUID(), entityType, entityId, eventType, latitude: Number(latitude), longitude: Number(longitude), accuracy: normalizeNullableGpsNumber(accuracy), placeName: placeName || null, capturedAt: capturedAt || now, createdAt: now }
+    const fixTimestamp = capturedAt == null || capturedAt === '' ? NaN : Date.parse(capturedAt)
+    if (!Number.isFinite(fixTimestamp) || fixTimestamp <= 0) throw new TypeError('GPS snapshot requires the location provider fix timestamp; event wall-clock time is not a substitute.')
+    const db = await initializeCanonicalStorage(); const now = new Date().toISOString(); const record = { id: generateUUID(), entityType, entityId, eventType, latitude: Number(latitude), longitude: Number(longitude), accuracy: normalizeNullableGpsNumber(accuracy), placeName: placeName || null, capturedAt: new Date(fixTimestamp).toISOString(), createdAt: now }
     return new Promise((resolve, reject) => {
       const tx = db.transaction(['gps_snapshots', 'pending_mutations', 'audit_history'], 'readwrite')
       try { tx.objectStore('gps_snapshots').put(record); writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: record.id, entityType: 'GPS_SNAPSHOT', action: 'CREATE', payload: record, createdAt: now }) } catch (error) { try { tx.abort() } catch (_) {}; reject(error); return }
