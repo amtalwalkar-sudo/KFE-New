@@ -84,6 +84,13 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertEquals("A late GPS callback must preserve the fare form version.", fareVersion, finalTrip.getString("updatedAt"));
     assertEquals(150d, finalTrip.getDouble("revenue"), 0.001d);
     assertEquals("CAPTURED", finalTrip.getString("tripEndLocationStatus"));
+    KfeCanonicalWorkStore.Outcome formRetryAfterGps = store.commitTripForm(
+        "boundary-merge-fare-first-fare-" + suffix, "FARE", new JSONObject(finalTrip.toString()));
+    assertTrue("Fare replay after a late GPS snapshot must remain accepted.", formRetryAfterGps.accepted);
+    assertTrue("Fare replay after a late GPS snapshot must remain idempotent.", formRetryAfterGps.duplicate);
+    JSONObject afterFormReplay = store.getRecord("TRIP", tripAfterFare).getJSONObject("record");
+    assertEquals(150d, afterFormReplay.getDouble("revenue"), 0.001d);
+    assertEquals("CAPTURED", afterFormReplay.getString("tripEndLocationStatus"));
     KfeCanonicalWorkStore.Outcome retry = store.persistTripBoundarySnapshot(endOperationId, tripAfterFare, "tripEndLocation", endSnapshot);
     assertTrue("The same boundary operation must be accepted.", retry.accepted);
     assertTrue("A repeated boundary operation must be identified as a retry.", retry.duplicate);
