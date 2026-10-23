@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { ActivityTimelineService } from '../application/timeline/activityTimelineService.js'
-const { eligibleRevenue, isWithinPeriod, pickupDurationMs, rideDurationMs, validFullTankIntervals } = ActivityTimelineService
+const { buildPeriodRange, eligibleRevenue, isWithinPeriod, pickupDurationMs, rideDurationMs, validFullTankIntervals } = ActivityTimelineService
 
 const iso = value => new Date(value).toISOString()
 const completed = {
@@ -48,3 +48,21 @@ assert.equal(isWithinPeriod('2026-10-23T00:00:00Z',periodRange),true,'period inc
 assert.equal(isWithinPeriod('2026-10-24T00:00:00Z',periodRange),true,'period includes its exact end boundary')
 assert.equal(isWithinPeriod('2026-10-22T23:59:59.999Z',periodRange),false,'period excludes events before its start')
 assert.equal(isWithinPeriod('2026-10-24T00:00:00.001Z',periodRange),false,'period excludes events after its end')
+
+const istToday = buildPeriodRange('today','2026-10-23')
+assert.equal(istToday.from.toISOString(),'2026-10-22T18:30:00.000Z','Today starts at midnight Asia/Kolkata')
+assert.equal(istToday.to.toISOString(),'2026-10-23T18:29:59.999Z','Today ends at the Asia/Kolkata day boundary')
+assert.equal(isWithinPeriod(istToday.from,istToday),true,'Today includes its exact local start boundary')
+assert.equal(isWithinPeriod(new Date(istToday.from.getTime()-1),istToday),false,'Today excludes the previous local day')
+assert.equal(isWithinPeriod(istToday.to,istToday),true,'Today includes its exact local end boundary')
+assert.equal(isWithinPeriod(new Date(istToday.to.getTime()+1),istToday),false,'Today excludes the next local day')
+
+const istWeek = buildPeriodRange('week','2026-10-23')
+assert.equal(istWeek.from.toISOString(),'2026-10-18T18:30:00.000Z','Week starts Monday midnight Asia/Kolkata')
+assert.equal(istWeek.to.toISOString(),'2026-10-25T18:29:59.999Z','Week ends Sunday Asia/Kolkata')
+
+const istMonth = buildPeriodRange('month','2026-10-23',new Date('2026-11-01T00:00:00Z'))
+assert.equal(istMonth.from.toISOString(),'2026-09-30T18:30:00.000Z','Month starts on local first day')
+assert.equal(istMonth.to.toISOString(),'2026-10-31T18:29:59.999Z','Past month includes its final local day')
+const allEnd = new Date('2026-10-23T12:00:00Z')
+assert.equal(buildPeriodRange('all','2026-10-23',allEnd).to.getTime(),allEnd.getTime(),'All history ends at the requested as-of time')
