@@ -8,6 +8,7 @@ const geocoder = fs.readFileSync('src/application/location/locationNameService.j
 
 for (const hook of [
   "captureAndPersistEventLocation('SHIFT', result.id, 'SHIFT_START', result.shiftStartAt || result.createdAt)",
+  "captureAndPersistEventLocation('TRIP', result.id, 'PICKUP_START', result.createdAt || result.tripStartAt)",
   "captureAndPersistEventLocation('SHIFT', active.shift.id, 'SHIFT_END', completedShift?.shiftEndAt || null)",
   "captureAndPersistEventLocation('FUEL', result.record.id, 'FUEL_ENTRY', result.record.createdAt || result.record.capturedAt)"
 ]) assert.ok(workService.includes(hook), `Missing async location hook: ${hook}`)
