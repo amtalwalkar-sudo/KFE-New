@@ -8,9 +8,9 @@ const timestamp = value => {
   const date = new Date(value)
   return Number.isFinite(date.getTime()) ? date.getTime() : null
 }
-const eventTime = trip => timestamp(trip?.createdAt || trip?.tripStartAt || trip?.tripEndAt)
+const eventTime = trip => timestamp(trip?.tripStartAt || trip?.createdAt || trip?.tripEndAt)
 const fuelTime = fuel => timestamp(fuel?.capturedAt || fuel?.createdAt)
-const inRange = (value, range) => {
+export const isWithinPeriod = (value, range) => {
   const time = timestamp(value)
   return time != null && (!range || (time >= range.from.getTime() && time <= range.to.getTime()))
 }
@@ -89,9 +89,9 @@ export const ActivityTimelineService = Object.freeze({
       FuelRepository.getAll(),
       ShiftTripRepository.getAllShifts()
     ])
-    const trips = allTrips.filter(isTerminalTrip).filter(trip => inRange(eventTime(trip), range))
+    const trips = allTrips.filter(isTerminalTrip).filter(trip => isWithinPeriod(eventTime(trip), range))
       .sort((a,b)=>(eventTime(b)||0)-(eventTime(a)||0))
-    const fuel = allFuel.filter(row => inRange(fuelTime(row), range))
+    const fuel = allFuel.filter(row => isWithinPeriod(fuelTime(row), range))
       .sort((a,b)=>(fuelTime(b)||0)-(fuelTime(a)||0))
     const tripHoursMs = trips.reduce((sum,trip)=>sum+(rideDurationMs(trip)??0),0)
     const pickupHoursMs = trips.reduce((sum,trip)=>sum+(pickupDurationMs(trip)??0),0)
@@ -99,12 +99,12 @@ export const ActivityTimelineService = Object.freeze({
     const timedRevenue = timedTrips.reduce((sum,trip)=>sum+eligibleRevenue(trip),0)
     // Use the selected period's end-time intervals, while allowing the prior full-tank
     // reading to serve as a baseline. Existing fuel records remain the sole data source.
-    const intervals = validFullTankIntervals(allFuel).filter(item => inRange(item.at, range))
+    const intervals = validFullTankIntervals(allFuel).filter(item => isWithinPeriod(item.at, range))
     const distance = intervals.reduce((sum,item)=>sum+item.km,0)
     const fuelCost = intervals.reduce((sum,item)=>sum+item.cost,0)
     const quantityKg = intervals.reduce((sum,item)=>sum+item.quantityKg,0)
     const locationTripIds = [...new Set(trips.map(trip=>trip.id))]
-    const shiftIds = new Set(allShifts.filter(shift => inRange(shift.shiftStartAt || shift.createdAt, range)).map(shift=>shift.id))
+    const shiftIds = new Set(allShifts.filter(shift => isWithinPeriod(shift.shiftStartAt || shift.createdAt, range)).map(shift=>shift.id))
     return {
       range, trips, fuel, shifts: allShifts.filter(shift=>shiftIds.has(shift.id)),
       metrics: {
