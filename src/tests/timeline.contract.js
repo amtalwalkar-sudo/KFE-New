@@ -6,6 +6,9 @@ const service = fs.readFileSync('src/application/timeline/timelineService.js', '
 const operational = fs.readFileSync('src/application/timeline/operationalRecordService.js', 'utf8')
 const endShift = fs.readFileSync('src/application/work/endShift.js', 'utf8')
 const cockpit = fs.readFileSync('src/views/WorkModuleView.vue', 'utf8')
+const nativeTimelineView = fs.readFileSync('src/views/ActivityTimelineView.vue', 'utf8')
+const router = fs.readFileSync('src/router/index.js', 'utf8')
+const shell = fs.readFileSync('src/components/shell/KfeShell.vue', 'utf8')
 const performanceService = fs.readFileSync('src/application/performance/performanceService.js', 'utf8')
 
 for (const text of ['TimelineService', 'Day', 'Personal', 'Week', 'Month', 'Authoritative Revenue', 'Target', 'Fare —', 'const timestamp = value =>', 'numeric < 1e12 ? numeric * 1000 : numeric', 'const duration = trip =>']) {
@@ -39,6 +42,12 @@ assert.ok(operational.includes('const reconciliation = shift.movementReconciliat
 assert.ok(operational.includes("? segmentTotal('DEAD')"))
 assert.ok(operational.includes("movementReconciliationStatus: reconciliation?.reconciliationStatus || 'LEGACY_UNRECONCILED'"))
 assert.ok(operational.includes('remaining odometer distance is not automatically proven to be dead KM'))
+
+// The Android/WebView build must expose the production Activity Timeline, not only the legacy TimelineView.
+assert.ok(router.includes("path: '/timeline', name: 'Timeline', component: ActivityTimelineView"), 'the native route must mount ActivityTimelineView')
+assert.ok(shell.includes('to="/timeline"') && shell.includes('aria-label="Timeline"'), 'Timeline must be reachable from the primary navigation in the APK')
+assert.ok(nativeTimelineView.includes('ActivityTimelineService.get'), 'the visible Timeline must read authoritative activity records')
+assert.ok(nativeTimelineView.includes("period = ref('today')") && nativeTimelineView.includes("period.value==='all'"), 'the visible Timeline must expose current-day and retained-history views')
 
 console.log('KFE Timeline contract tests: PASS')
 
