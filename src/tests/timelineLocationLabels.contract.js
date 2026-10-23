@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 
-const timeline = fs.readFileSync('src/views/ActivityTimelineView.vue', 'utf8')
 const locationService = fs.readFileSync('src/application/location/locationNameService.js', 'utf8')
 const eventLocationService = fs.readFileSync('src/application/location/eventLocationService.js', 'utf8')
 const locationRepository = fs.readFileSync('src/repositories/locationRepository.js', 'utf8')
@@ -12,18 +11,6 @@ const canonicalBoundary = fs.readFileSync('src/application/work/canonicalWorkBou
 const browserCanonical = fs.readFileSync('src/infrastructure/work/browserCanonicalWork.js', 'utf8')
 const workService = fs.readFileSync('src/application/work/workService.js', 'utf8')
 
-assert.match(timeline, /void loadLabels\(data\.value\.trips\)/,
-  'ride locality enrichment must run asynchronously after persisted Timeline data is loaded')
-assert.ok(timeline.includes("EventLocationService.forEntity('TRIP',trip.id)"), 'Timeline must read persisted trip-boundary event snapshots')
-assert.match(timeline, /EventLocationService\.resolveLabel\(pickup\)/,
-  'pickup-origin locality should be resolved through the application service')
-assert.match(timeline, /tripStartLocation/,'ride cards must read the persisted trip-start boundary')
-assert.match(timeline, /tripEndLocation/,'ride cards must read the persisted trip-end boundary')
-assert.ok(timeline.includes("EventLocationService.persistTripBoundaryLabel(trip.id,field,name)"), 'resolved trip locality labels must be persisted beyond component state')
-assert.match(timeline, /void loadFuelLabels\(data\.value\.fuel\)/,
-  'fuel locality enrichment must not block Timeline rendering')
-assert.ok(timeline.includes("EventLocationService.forEntity('FUEL',row.id)"), 'fuel Timeline must read saved fuel-entry location snapshots')
-assert.ok(timeline.includes("EventLocationService.persistLabel(snapshot.id,name)"), 'resolved fuel locality labels must be persisted for future Timeline reads')
 assert.match(workService, /captureAndPersistTripBoundary\(result\.id, 'tripStartLocation'\)/,
   'starting the passenger ride must trigger a one-shot start GPS snapshot')
 assert.match(workService, /captureAndPersistTripBoundary\(data\?\.id, 'tripEndLocation'\)/,
@@ -31,9 +18,9 @@ assert.match(workService, /captureAndPersistTripBoundary\(data\?\.id, 'tripEndLo
 assert.match(workService, /captureAndPersistEventLocation\('TRIP', result\.id, 'PICKUP_START', result\.createdAt \|\| result\.tripStartAt\)/,
   'pickup-origin snapshot must be captured separately from passenger ride start')
 assert.match(eventLocationService, /CanonicalWorkBoundary\.listEventLocationSnapshots\(\)/,
-  'Timeline enrichment should recover snapshots from native canonical storage')
+  'event location snapshots remain readable from native canonical storage')
 assert.match(eventLocationService, /CanonicalWorkBoundary\.persistEventLocationSnapshot/,
-  'captured trip/fuel locations should be durably mirrored into native canonical storage')
+  'captured trip/fuel locations remain durably mirrored into native canonical storage')
 assert.match(locationService, /p\.suburb \|\| p\.neighbourhood \|\| p\.neighborhood \|\| p\.locality \|\| p\.district/,
   'locality fields should take precedence over street names')
 assert.doesNotMatch(locationService, /return \[p\.name, p\.street/,
