@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { eligibleRevenue, pickupDurationMs, rideDurationMs, validFullTankIntervals } from '../application/timeline/activityTimelineService.js'
+import { eligibleRevenue, isWithinPeriod, pickupDurationMs, rideDurationMs, validFullTankIntervals } from '../application/timeline/activityTimelineService.js'
 
 const iso = value => new Date(value).toISOString()
 const completed = {
@@ -39,3 +39,9 @@ assert.equal(intervals[0].mileageKmPerKg,200/12,'mileage uses interval distance 
 assert.equal(intervals[0].costPerKm,3,'cost per km uses interval cost divided by interval distance')
 
 console.log('Activity timeline pickup, cancellation, skipped-fare and full/partial fuel contracts passed.')
+
+const periodRange={from:new Date('2026-10-23T00:00:00Z'),to:new Date('2026-10-24T00:00:00Z')}
+assert.equal(isWithinPeriod('2026-10-23T00:00:00Z',periodRange),true,'period includes its exact start boundary')
+assert.equal(isWithinPeriod('2026-10-24T00:00:00Z',periodRange),true,'period includes its exact end boundary')
+assert.equal(isWithinPeriod('2026-10-22T23:59:59.999Z',periodRange),false,'period excludes events before its start')
+assert.equal(isWithinPeriod('2026-10-24T00:00:00.001Z',periodRange),false,'period excludes events after its end')
