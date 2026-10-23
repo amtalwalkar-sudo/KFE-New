@@ -1,0 +1,178 @@
+<script setup>
+import { computed, onMounted, ref, watch } from 'vue'
+import { ActivityTimelineService } from '../application/timeline/activityTimelineService.js'
+import { EventLocationService } from '../application/location/eventLocationService.js'
+import { getKfeReferenceNow, istDayRange, istParts } from '../domain/time/ist.js'
+
+const period = ref('today')
+const tab = ref('rides')
+const anchor = ref(getKfeReferenceNow())
+const data = ref(null)
+const loading = ref(true)
+const error = ref('')
+const labels = ref({})
+const dateAtNoon = value => {
+  const p=istParts(value)
+  return p ? new Date(Date.UTC(p.year,p.month-1,p.day,12)) : new Date(value)
+}
+const mondayOf = value => {
+  const d=dateAtNoon(value)
+  return new Date(d.getTime()-((d.getUTCDay()+6)%7)*86400000)
+}
+const rangeLabel = computed(()=>{
+  const fmt=opts=>new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',...opts})
+  if(period.value==='all') return 'All history'
+  if(period.value==='today') return fmt({weekday:'long',day:'numeric',month:'short',year:'numeric'}).format(anchor.value)
+  if(period.value==='month') return fmt({month:'long',year:'numeric'}).format(anchor.value)
+  const start=mondayOf(anchor.value), end=new Date(start.getTime()+6*86400000)
+  return `${fmt({day:'numeric',month:'short'}).format(start)} – ${fmt({day:'numeric',month:'short',year:'numeric'}).format(end)}`
+})
+const money=value=>value==null||!Number.isFinite(Number(value))?'Not enough data':`₹${Number(value).toLocaleString('en-IN',{maximumFractionDigits:2})}`
+const km=value=>value==null||!Number.isFinite(Number(value))?'Not enough data':`${Number(value).toFixed(1)} km`
+const kg=value=>value==null||!Number.isFinite(Number(value))?'Not enough data':`${Number(value).toFixed(2)} kg`
+const stamp=value=>{
+  if(value==null||value==='')return null
+  const n=typeof value==='number'?value:Number(/^\d+(?:\.\d+)?$/.test(String(value).trim())?value:NaN)
+  const d=Number.isFinite(n)?new Date(n<1e12?n*1000:n):new Date(value)
+  return Number.isFinite(d.getTime())?d:null
+}
+const time=value=>{const d=stamp(value);return d?d.toLocaleTimeString('en-IN',{timeZone:'Asia/Kolkata',hour:'numeric',minute:'2-digit'}):'Time unavailable'}
+const dateTime=value=>{const d=stamp(value);return d?d.toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'}):'Time unavailable'}
+const duration=(start,end)=>{
+  const a=stamp(start),b=stamp(end)
+  if(!a||!b||b<a)return 'Not recorded'
+  const mins=Math.round((b-a)/60000)
+  return mins>=60?`${Math.floor(mins/60)}h ${mins%60}m`:`${mins} min`
+}
+const tripPickupEnd=trip=>trip.tripStartAt|| (trip.status==='CANCELLED'?trip.tripEndAt:null)
+const tripRideStart=trip=>trip.tripStartAt||(trip.status==='CANCELLED'?trip.createdAt:null)
+const pickupDuration=trip=>duration(trip.createdAt,tripPickupEnd(trip))
+const rideDuration=trip=>duration(tripRideStart(trip),trip.tripEndAt)
+const route=trip=>`${labels.value[`${trip.id}:pickup`]||trip.tripStartLocation?.placeName||'Location unavailable'} → ${trip.tripEndLocation?.placeName||'Location unavailable'}`
+const loadLabels=async rows=>{
+  const next={...labels.value}
+  await Promise.allSettled(rows.map(async trip=>{
+    if(next[`${trip.id}:pickup`])return
+    const snapshots=await EventLocationService.forEntity('TRIP',trip.id)
+    const pickup=snapshots.find(item=>item.eventType==='PICKUP_START')
+    if(!pickup)return
+    let name=pickup.placeName
+    if(!name) name=await EventLocationService.resolveLabel(pickup)
+    if(name){
+      next[`${trip.id}:pickup`]=name
+      if(!pickup.placeName) await EventLocationService.persistLabel(pickup.id,name)
+    }
+  }))
+  labels.value=next
+}
+const load=async()=>{
+  loading.value=true;error.value=''
+  try{
+    data.value=await ActivityTimelineService.get({period:period.value,anchor:anchor.value})
+    void loadLabels(data.value.trips)
+  }catch(e){data.value=null;error.value=e?.message||'Unable to load activity timeline.'}
+  finally{loading.value=false}
+}
+const selectPeriod=value=>{period.value=value;void load()}
+const move=amount=>{
+  const d=dateAtNoon(anchor.value)
+  if(period.value==='week')d.setUTCDate(d.getUTCDate()+amount*7)
+  else if(period.value==='month')d.setUTCMonth(d.getUTCMonth()+amount)
+  else d.setUTCDate(d.getUTCDate()+amount)
+  anchor.value=d;void load()
+}
+const tripFare=trip=>{
+  if(trip.status==='CANCELLED')return trip.cancelledRevenue==null||trip.cancelledRevenue===''?'₹0 cancellation fee':money(trip.cancelledRevenue)
+  if(trip.fareDetailsSkipped===true)return 'Fare skipped · ₹0'
+  return trip.revenue==null||trip.revenue===''?'Fare unavailable':money(trip.revenue)
+}
+const fuelSummary=row=>`${kg(row.quantityKg)} · ${money(row.amount)}`
+watch(tab,()=>{})
+onMounted(load)
+</script>
+
+<template>
+  <main class="activity-timeline">
+    <header class="page-head">
+      <div><p class="eyebrow">ACTIVITY</p><h1>Timeline</h1><p class="range-label">{{rangeLabel}}</p></div>
+      <button class="today-button" @click="anchor=getKfeReferenceNow();period='today';load()">Today</button>
+    </header>
+    <nav class="period-tabs" aria-label="Timeline duration">
+      <button v-for="item in [{id:'today',label:'Today'},{id:'week',label:'Week'},{id:'month',label:'Month'},{id:'all',label:'All'}]" :key="item.id" :class="{active:period===item.id}" @click="selectPeriod(item.id)">{{item.label}}</button>
+    </nav>
+    <nav class="record-tabs" aria-label="Activity type">
+      <button :class="{active:tab==='rides'}" @click="tab='rides'"><span>Rides</span><small>{{data?.trips?.length??0}}</small></button>
+      <button :class="{active:tab==='fuel'}" @click="tab='fuel'"><span>Fuel</span><small>{{data?.fuel?.length??0}}</small></button>
+    </nav>
+    <p v-if="loading" class="state">Loading timeline…</p>
+    <p v-else-if="error" class="state error">{{error}}</p>
+    <template v-else-if="data">
+      <section v-if="tab==='rides'" class="metric-grid" aria-label="Ride summaries">
+        <article class="metric"><span>Trip Hours</span><strong>{{data.metrics.tripHours.toFixed(1)}} h</strong></article>
+        <article class="metric"><span>Average Fare per Hour</span><strong>{{money(data.metrics.averageFarePerHour)}}</strong></article>
+        <article class="metric"><span>Total Pickup Travel Time</span><strong>{{Math.floor(data.metrics.totalPickupTravelMinutes/60)}}h {{Math.round(data.metrics.totalPickupTravelMinutes%60)}}m</strong></article>
+      </section>
+      <section v-else class="metric-grid" aria-label="Fuel summaries">
+        <article class="metric"><span>Average Cost per km</span><strong>{{data.metrics.averageCostPerKm==null?'Not enough data':money(data.metrics.averageCostPerKm)}}</strong></article>
+        <article class="metric"><span>Average Mileage</span><strong>{{data.metrics.averageMileageKmPerKg==null?'Not enough data':`${data.metrics.averageMileageKmPerKg.toFixed(2)} km/kg`}}</strong></article>
+      </section>
+      <section v-if="tab==='rides'" class="event-list">
+        <p v-if="!data.trips.length" class="empty">No rides recorded for this period.</p>
+        <article v-for="trip in data.trips" :key="trip.id" class="activity-card" :class="{'cancelled':trip.status==='CANCELLED'}">
+          <div class="event-top"><div><span class="event-date">{{dateTime(trip.createdAt||trip.tripStartAt)}}</span><h2>{{trip.status==='CANCELLED'?'Cancelled ride':'Ride'}}</h2></div><span class="status">{{trip.status==='CANCELLED'?'Cancelled':'Completed'}}</span></div>
+          <div class="route"><span class="route-dot"></span><span>{{route(trip)}}</span></div>
+          <div class="details"><span><small>{{trip.status==='CANCELLED'?'Cancellation fee':'Fare'}}</small><strong>{{tripFare(trip)}}</strong></span><span><small>Ride duration</small><strong>{{rideDuration(trip)}}</strong></span><span><small>Pickup travel</small><strong>{{pickupDuration(trip)}}</strong></span></div>
+          <p v-if="trip.fareDetailsSkipped===true" class="note">Fare details were skipped; revenue contribution is ₹0.</p>
+          <p v-if="trip.status==='CANCELLED'&&trip.cancelReason" class="note">Reason: {{trip.cancelReason}}</p>
+        </article>
+      </section>
+      <section v-else class="event-list">
+        <p v-if="!data.fuel.length" class="empty">No fuel entries recorded for this period.</p>
+        <article v-for="row in data.fuel" :key="row.id" class="activity-card fuel-card">
+          <div class="event-top"><div><span class="event-date">{{dateTime(row.capturedAt||row.createdAt)}}</span><h2>CNG refuelling</h2></div><span class="status">{{row.isFullTank===true?'Full tank':'Partial fill'}}</span></div>
+          <div class="details"><span><small>Amount paid</small><strong>{{money(row.amount)}}</strong></span><span><small>Fuel quantity</small><strong>{{kg(row.quantityKg)}}</strong></span><span><small>Odometer</small><strong>{{km(row.odometer)}}</strong></span></div>
+        </article>
+      </section>
+    </template>
+  </main>
+</template>
+
+<style scoped>
+.activity-timeline{max-width:760px;margin:0 auto;padding:20px 16px 36px;color:var(--text-primary,#17202a)}
+.page-head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:20px}
+.eyebrow{font-size:11px;letter-spacing:.14em;font-weight:800;color:var(--text-muted,#6b7280);margin:0 0 5px}
+h1{font-size:27px;line-height:1.15;margin:0;font-weight:750;letter-spacing:-.03em}
+.range-label{margin:7px 0 0;color:var(--text-muted,#687385);font-size:13px}
+button{font:inherit;cursor:pointer}
+.today-button{border:1px solid var(--border-subtle,#dfe4ea);border-radius:12px;background:var(--surface,#fff);padding:9px 13px;font-weight:650}
+.period-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;background:var(--surface-muted,#f1f4f7);padding:5px;border-radius:15px;margin-bottom:12px}
+.period-tabs button{border:0;border-radius:11px;padding:10px 5px;background:transparent;color:var(--text-secondary,#596273);font-weight:650}
+.period-tabs button.active{background:var(--surface,#fff);color:var(--text-primary,#17202a);box-shadow:0 1px 4px #17202a14}
+.record-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.record-tabs button{display:flex;justify-content:center;align-items:center;gap:8px;border:1px solid var(--border-subtle,#e1e6ec);border-radius:13px;background:var(--surface,#fff);padding:12px;font-weight:700;color:var(--text-secondary,#596273)}
+.record-tabs button.active{border-color:var(--accent,#3b6d8c);background:var(--accent-soft,#edf5fa);color:var(--text-primary,#17202a)}
+.record-tabs small{border-radius:20px;background:#0000000c;padding:2px 7px;font-size:11px}
+.metric-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:18px}
+.metric{border:1px solid var(--border-subtle,#e2e7ed);border-radius:16px;padding:14px;background:var(--surface,#fff);min-width:0}
+.metric:last-child:nth-child(odd){grid-column:1/-1}
+.metric span{display:block;color:var(--text-muted,#697586);font-size:12px;line-height:1.35;margin-bottom:9px}
+.metric strong{font-size:clamp(18px,4.8vw,23px);letter-spacing:-.03em;overflow-wrap:anywhere}
+.event-list{display:grid;gap:11px}
+.activity-card{background:var(--surface,#fff);border:1px solid var(--border-subtle,#e1e6ec);border-radius:17px;padding:15px;box-shadow:0 2px 9px #15253608}
+.activity-card.cancelled{border-left:3px solid var(--warning,#c68a35)}
+.event-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:13px}
+.event-date{font-size:12px;color:var(--text-muted,#707a88)}
+h2{font-size:16px;margin:4px 0 0;font-weight:720}
+.status{font-size:11px;font-weight:700;color:var(--text-secondary,#5e6875);background:var(--surface-muted,#f0f3f6);border-radius:99px;padding:5px 8px;white-space:nowrap}
+.route{display:flex;align-items:center;gap:10px;font-size:13px;line-height:1.5;margin:4px 0 15px}
+.route-dot{width:8px;height:8px;border-radius:50%;background:var(--accent,#3b6d8c);flex:none;box-shadow:0 0 0 4px var(--accent-soft,#edf5fa)}
+.details{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding-top:12px;border-top:1px solid var(--border-subtle,#e9edf1)}
+.details span{min-width:0}
+.details small{display:block;font-size:11px;color:var(--text-muted,#707a88);margin-bottom:5px}
+.details strong{font-size:13px;display:block;overflow-wrap:anywhere}
+.note{font-size:12px;color:var(--text-muted,#687385);margin:10px 0 0}
+.empty,.state{padding:24px 16px;text-align:center;color:var(--text-muted,#697586);background:var(--surface-muted,#f4f6f8);border-radius:15px;font-size:14px}
+.error{color:var(--danger,#b42318)}
+@media(min-width:600px){.activity-timeline{padding-top:28px}.metric-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.metric:last-child:nth-child(odd){grid-column:auto}}
+@media(max-width:380px){.details{grid-template-columns:1fr 1fr}.details span:last-child{grid-column:1/-1}}
+</style>
