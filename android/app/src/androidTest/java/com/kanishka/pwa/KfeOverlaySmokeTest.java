@@ -182,9 +182,21 @@ public class KfeOverlaySmokeTest {
         .put("overlayAction", "GO_TO_PICKUP")
         .put("overlayTripId", tripId);
       KfeOverlayService.update(context, state.toString());
+      // An existing overlay can already have non-zero dimensions from @Before,
+      // so waitForOverlay() alone does not prove this UPDATE intent was applied.
+      // Wait for the service to persist this exact fixture before mutating its
+      // checkpoint or injecting faults; otherwise a late prior UPDATE can race
+      // the retry and make the canonical-trip assertion nondeterministic.
+      long stateDeadline = SystemClock.uptimeMillis() + 5000L;
+      while (SystemClock.uptimeMillis() < stateDeadline
+          && !state.toString().equals(context.getSharedPreferences("kfe_overlay", 0)
+              .getString("lastOverlayState", ""))) {
+        SystemClock.sleep(25L);
+      }
+      assertEquals("Overlay service must apply the current lifecycle fixture before fault injection",
+        state.toString(), context.getSharedPreferences("kfe_overlay", 0).getString("lastOverlayState", ""));
       waitForOverlay();
-      // The service update is delivered through startForegroundService; make the
-      // exact shift/trip snapshot deterministic before fault injection starts.
+      // Keep the exact shift/trip snapshot deterministic before fault injection.
       context.getSharedPreferences("kfe_overlay", 0).edit()
         .putString("lastOverlayState", state.toString()).commit();
       KfeOverlayService service = waitForService();
