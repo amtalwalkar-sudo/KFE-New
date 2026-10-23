@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
-import { eligibleRevenue, isWithinPeriod, pickupDurationMs, rideDurationMs, validFullTankIntervals } from '../application/timeline/activityTimelineService.js'
+import { ActivityTimelineService } from '../application/timeline/activityTimelineService.js'
+const { eligibleRevenue, isWithinPeriod, pickupDurationMs, rideDurationMs, validFullTankIntervals } = ActivityTimelineService
 
 const iso = value => new Date(value).toISOString()
 const completed = {
