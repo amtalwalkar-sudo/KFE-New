@@ -68,6 +68,9 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     if (record == null) throw new IllegalArgumentException("record is required.");
     String entityId = record.optString("id", "");
     if (empty(entityId)) throw new IllegalArgumentException("record.id is required.");
+    // Keep the caller's exact operation payload for durable idempotent retries.
+    // The canonical SHIFT payload may be reconciled with a native-derived projection below.
+    JSONObject operationRecord = new JSONObject(record.toString());
     String now = timestampNow();
     SQLiteDatabase db = getWritableDatabase();
     db.beginTransaction();
@@ -85,8 +88,8 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
           JSONObject prior = new JSONObject(cursor.getString(4));
           JSONObject priorRecord = prior.optJSONObject("record");
           boolean sameRecord = priorRecord != null && ("TRIP".equals(entityType)
-              ? jsonEquivalent(withoutTripBoundarySnapshots(priorRecord), withoutTripBoundarySnapshots(record))
-              : jsonEquivalent(priorRecord, record));
+              ? jsonEquivalent(withoutTripBoundarySnapshots(priorRecord), withoutTripBoundarySnapshots(operationRecord))
+              : jsonEquivalent(priorRecord, operationRecord));
           if (!sameRecord) {
             throw new IllegalArgumentException("operationId was already used with a different payload.");
           }
@@ -131,10 +134,23 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
               throw new IllegalArgumentException(
                   "Canonical version conflict: updatedAt must be a valid ISO-8601 instant.", invalidVersion);
             }
-            if (versionOrder < 0) {
+            // Shift completion is a monotonic lifecycle transition. A prior trip write may
+            // have advanced the native shift's version solely to record its derived revenue
+            // projection, making the PWA's durable COMPLETED snapshot look stale. Accept only
+            // ACTIVE -> COMPLETED in that case, preserve native-derived revenue, and advance
+            // the canonical version. All other stale/equal-version writes still fail closed.
+            boolean completesActiveShift = "SHIFT".equals(entityType)
+                && "ACTIVE".equals(existingRecord.optString("status", ""))
+                && "COMPLETED".equals(record.optString("status", ""));
+            if (versionOrder <= 0 && completesActiveShift) {
+              for (String field : new String[]{"revenue", "liveFareRevenue", "revenueSource"}) {
+                if (existingRecord.has(field)) record.put(field, existingRecord.get(field));
+              }
+              record.put("updatedAt", java.time.Instant.parse(existingVersion).plusMillis(1).toString());
+              payload = record.toString();
+            } else if (versionOrder < 0) {
               throw new IllegalArgumentException("Stale canonical write rejected for " + entityType + "/" + entityId + ".");
-            }
-            if (versionOrder == 0) {
+            } else if (versionOrder == 0) {
               throw new IllegalArgumentException("Canonical version conflict: different payloads share updatedAt for " + entityType + "/" + entityId + ".");
             }
           }
@@ -159,7 +175,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       result.put("entityType", entityType);
       result.put("entityId", entityId);
       result.put("committedAt", now);
-      result.put("record", record);
+      result.put("record", operationRecord);
 
       ContentValues operationValues = new ContentValues();
       operationValues.put("operation_id", operationId);
