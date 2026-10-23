@@ -10,7 +10,10 @@ const settingsRepository = await read('../repositories/persistentSettingsReposit
 const backupRepository = await read('../repositories/backupRepository.js')
 const settingsUi = await read('../components/KfeSettingsView.vue')
 
-assert.match(router, /path: '\/timeline', name: 'Timeline', component: BlankWorkspaceView/)
+assert.match(router, /path: '\/timeline', name: 'Timeline', component: ActivityTimelineView/)
+const activityTimeline = await read('../views/ActivityTimelineView.vue')
+assert.match(activityTimeline, /Total Pickup Travel Time/)
+assert.match(activityTimeline, /Average Fare per Hour/)
 assert.match(router, /path: '\/performance', name: 'Performance', component: BlankWorkspaceView/)
 assert.match(router, /path: '\/', name: 'Work', component: WorkModuleView/)
 assert.match(router, /path: '\/admin', name: 'Admin', component: AdminSettingsOnlyView/)
