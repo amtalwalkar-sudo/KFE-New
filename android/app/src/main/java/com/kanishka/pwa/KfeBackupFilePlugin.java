@@ -3,6 +3,7 @@ package com.kanishka.pwa;
 import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
+// AndroidX result type used by Capacitor's @ActivityCallback bridge.
 import androidx.activity.result.ActivityResult;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
