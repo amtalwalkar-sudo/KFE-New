@@ -8,6 +8,7 @@ const suites = [
   'tripBoundaryTimestamp.contract.js',
   'canonicalWorkReadAuthority.contract.js',
   'tripCompletionCanonicalReadRace.contract.js',
+  'overlayLifecycleOwnershipAndRuntimeError.contract.js',
   
   'canonicalWorkRecovery.contract.js',
   'liveRevenueSwipeParity.contract.js',
