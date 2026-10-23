@@ -1,6 +1,5 @@
 import { ShiftTripRepository } from '../../repositories/shiftTripRepository.js'
 import { FuelRepository } from '../../repositories/fuelRepository.js'
-import { calculateRollingFuelCostPerKm } from '../../domain/math/fuel.js'
 import { istDayRange, istMonthRange } from '../../domain/time/ist.js'
 
 const timestamp = value => {
@@ -84,10 +83,9 @@ export const ActivityTimelineService = Object.freeze({
     if (!range) range = {from:new Date(0),to:new Date()}
     if (!range) throw new Error('Invalid timeline date.')
 
-    const [allTrips, allFuel, allShifts] = await Promise.all([
+    const [allTrips, allFuel] = await Promise.all([
       ShiftTripRepository.getAllTrips(),
-      FuelRepository.getAll(),
-      ShiftTripRepository.getAllShifts()
+      FuelRepository.getAll()
     ])
     const trips = allTrips.filter(isTerminalTrip).filter(trip => isWithinPeriod(eventTime(trip), range))
       .sort((a,b)=>(eventTime(b)||0)-(eventTime(a)||0))
@@ -104,9 +102,8 @@ export const ActivityTimelineService = Object.freeze({
     const fuelCost = intervals.reduce((sum,item)=>sum+item.cost,0)
     const quantityKg = intervals.reduce((sum,item)=>sum+item.quantityKg,0)
     const locationTripIds = [...new Set(trips.map(trip=>trip.id))]
-    const shiftIds = new Set(allShifts.filter(shift => isWithinPeriod(shift.shiftStartAt || shift.createdAt, range)).map(shift=>shift.id))
     return {
-      range, trips, fuel, shifts: allShifts.filter(shift=>shiftIds.has(shift.id)),
+      range, trips, fuel,
       metrics: {
         tripHours: tripHoursMs/3600000,
         averageFarePerHour: tripHoursMs>0 ? timedRevenue/(tripHoursMs/3600000) : null,
