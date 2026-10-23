@@ -143,9 +143,23 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
             boolean completesActiveShift = "SHIFT".equals(entityType)
                 && "ACTIVE".equals(existingRecord.optString("status", ""))
                 && "COMPLETED".equals(record.optString("status", ""));
-            if (versionOrder <= 0 && completesActiveShift) {
+            // A native trip write can advance the ACTIVE shift version while
+            // projecting eligible trip fares. If the PWA then mirrors its
+            // same-version shift snapshot, accept it only when every non-version,
+            // non-projection field is identical. Keep native revenue and advance
+            // the version; unrelated same-version payload conflicts still fail closed.
+            boolean activeShiftProjectionCollision = versionOrder == 0
+                && "SHIFT".equals(entityType)
+                && "ACTIVE".equals(existingRecord.optString("status", ""))
+                && "ACTIVE".equals(record.optString("status", ""))
+                && existingRecord.has("revenue")
+                && existingRecord.has("liveFareRevenue")
+                && "TRIP_FARES".equals(existingRecord.optString("revenueSource", ""))
+                && sameShiftExceptRevenueProjection(existingRecord, record);
+            if ((versionOrder <= 0 && completesActiveShift) || activeShiftProjectionCollision) {
               for (String field : new String[]{"revenue", "liveFareRevenue", "revenueSource"}) {
                 if (existingRecord.has(field)) record.put(field, existingRecord.get(field));
+                else record.remove(field);
               }
               record.put("updatedAt", java.time.Instant.parse(existingVersion).plusMillis(1).toString());
               payload = record.toString();
@@ -852,6 +866,16 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       return Double.compare(((Number) left).doubleValue(), ((Number) right).doubleValue()) == 0;
     }
     return left.equals(right);
+  }
+
+  private static boolean sameShiftExceptRevenueProjection(JSONObject left, JSONObject right) throws JSONException {
+    JSONObject a = new JSONObject(left.toString());
+    JSONObject b = new JSONObject(right.toString());
+    for (String field : new String[]{"updatedAt", "revenue", "liveFareRevenue", "revenueSource"}) {
+      a.remove(field);
+      b.remove(field);
+    }
+    return jsonEquivalent(a, b);
   }
 
   private static String timestampNow() {

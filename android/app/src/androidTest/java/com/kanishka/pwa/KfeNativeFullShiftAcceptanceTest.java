@@ -34,6 +34,53 @@ import java.lang.reflect.InvocationTargetException;
 public class KfeNativeFullShiftAcceptanceTest {
   private static final String STATE_KEY = "lastOverlayState";
 
+  @Test public void activeShiftSameVersionRevenueProjectionMirrorIsReconciledButOtherConflictsAreRejected() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    String suffix = Long.toString(System.currentTimeMillis());
+    String shiftId = "active-projection-collision-shift-" + suffix;
+    String tripId = "active-projection-collision-trip-" + suffix;
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    String shiftStart = "2026-10-19T00:00:00.000Z";
+    String tripVersion = "2026-10-19T00:00:10.000Z";
+    assertTrue(store.putRecord("active-projection-collision-shift-create-" + suffix, "SHIFT",
+        new JSONObject().put("id", shiftId).put("status", "ACTIVE")
+            .put("startOdometer", 1000).put("revenue", 0).put("updatedAt", shiftStart)).accepted);
+    assertTrue(store.putRecord("active-projection-collision-trip-create-" + suffix, "TRIP",
+        new JSONObject().put("id", tripId).put("shiftId", shiftId).put("status", "COMPLETED")
+            .put("revenue", 250d).put("fareDetailsSkipped", false).put("updatedAt", tripVersion)).accepted);
+
+    JSONObject projected = store.getRecord("SHIFT", shiftId).getJSONObject("record");
+    assertEquals(250d, projected.getDouble("revenue"), 0.001d);
+    assertEquals("TRIP_FARES", projected.getString("revenueSource"));
+    String projectedVersion = projected.getString("updatedAt");
+
+    // Simulate the PWA's same-version full shift mirror with stale revenue fields.
+    JSONObject pwaMirror = new JSONObject(projected.toString())
+        .put("revenue", 0d).put("liveFareRevenue", 0d).put("revenueSource", "TRIP_FARES")
+        .put("updatedAt", projectedVersion);
+    KfeCanonicalWorkStore.Outcome reconciled = store.putRecord(
+        "active-projection-collision-pwa-mirror-" + suffix, "SHIFT", pwaMirror);
+    assertTrue("A projection-only same-version ACTIVE shift mirror should be reconciled.", reconciled.accepted);
+    JSONObject after = store.getRecord("SHIFT", shiftId).getJSONObject("record");
+    assertEquals(250d, after.getDouble("revenue"), 0.001d);
+    assertEquals(250d, after.getDouble("liveFareRevenue"), 0.001d);
+    assertEquals("TRIP_FARES", after.getString("revenueSource"));
+    assertTrue(java.time.Instant.parse(after.getString("updatedAt"))
+        .isAfter(java.time.Instant.parse(projectedVersion)));
+
+    // A different business field at the same version is not a projection-only collision.
+    JSONObject unrelatedConflict = new JSONObject(after.toString())
+        .put("startOdometer", 999).put("updatedAt", after.getString("updatedAt"));
+    boolean rejected = false;
+    try {
+      store.putRecord("active-projection-collision-unrelated-" + suffix, "SHIFT", unrelatedConflict);
+    } catch (IllegalArgumentException expected) {
+      rejected = expected.getMessage().contains("Canonical version conflict");
+    }
+    assertTrue("Unrelated same-version ACTIVE shift conflicts must remain rejected.", rejected);
+    assertEquals(1000d, store.getRecord("SHIFT", shiftId).getJSONObject("record").getDouble("startOdometer"), 0.001d);
+  }
+
   @Test public void oneShotBoundarySnapshotMergePreservesFareAndDoesNotAdvanceBusinessVersion() throws Exception {
     Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
     String suffix = Long.toString(System.currentTimeMillis());
