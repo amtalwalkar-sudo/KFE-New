@@ -257,7 +257,6 @@ try {
   assert.equal(loanCanonical.actualPaid, 500)
   assert.equal(loanCanonical.schedule.reduce((sum, row) => sum + row.paidAmount, 0), 500)
 
-  const view = fs.readFileSync(path.join(root, 'src/views/PerformanceView.vue'), 'utf8')
   assert.match(view, /Maintenance payments ahead of provision/)
   assert.match(view, /Compliance payments ahead of provision/)
   assert.match(view, /money\(m\.value\.maintenanceProvisionBalance\)/)
