@@ -20,6 +20,7 @@ public class MainActivity extends BridgeActivity {
   @Override
   public void onCreate(android.os.Bundle savedInstanceState) {
     registerPlugin(KfeSecureStoragePlugin.class);
+    registerPlugin(KfeBackupFilePlugin.class);
     registerPlugin(KfeNativeWorkActionsPlugin.class);
     registerPlugin(KfeCanonicalWorkPlugin.class);
     registerPlugin(KfeOverlayPlugin.class);
