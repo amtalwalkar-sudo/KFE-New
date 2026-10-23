@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 
-const timeline = fs.readFileSync('src/views/TimelineView.vue', 'utf8')
+const timeline = fs.readFileSync('src/views/ActivityTimelineView.vue', 'utf8')
 const locationService = fs.readFileSync('src/application/location/locationNameService.js', 'utf8')
 const eventLocationService = fs.readFileSync('src/application/location/eventLocationService.js', 'utf8')
 const locationRepository = fs.readFileSync('src/repositories/locationRepository.js', 'utf8')
@@ -10,34 +10,37 @@ const nativePlugin = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa
 const nativeAdapter = fs.readFileSync('src/infrastructure/android/nativeCanonicalWork.js', 'utf8')
 const canonicalBoundary = fs.readFileSync('src/application/work/canonicalWorkBoundary.js', 'utf8')
 const browserCanonical = fs.readFileSync('src/infrastructure/work/browserCanonicalWork.js', 'utf8')
+const workService = fs.readFileSync('src/application/work/workService.js', 'utf8')
 
-assert.match(timeline, /void resolveTimelineLocationLabels\(data\.value\)\.catch\(\(\) => \{\}\)/,
-  'timeline location enrichment must not delay rendering')
-assert.match(timeline, /EventLocationService\.resolveLabel\(location\)/,
-  'trip boundary labels should use the application service')
-assert.match(timeline, /shiftBoundaryLocation\(data, 'SHIFT_START'\)/,
-  'Timeline should show the resolved shift-start locality label')
-assert.match(timeline, /v-for="item in data\.shifts"/, 'Timeline must render locality labels for every shift, not only the first and last shift')
-assert.match(timeline, /const route = trip => .*Location pending.*Location pending/, 'ride routes must not fall back to street-address fields while locality labels are pending')
-assert.match(timeline, /shiftBoundaryLocation\(data, 'SHIFT_END'\)/,
-  'Timeline should show the resolved shift-end locality label')
+assert.match(timeline, /void loadLabels\(data\.value\.trips\)/,
+  'ride locality enrichment must run asynchronously after persisted Timeline data is loaded')
+assert.ok(timeline.includes("EventLocationService.forEntity('TRIP',trip.id)"), 'Timeline must read persisted trip-boundary event snapshots')
+assert.match(timeline, /EventLocationService\.resolveLabel\(pickup\)/,
+  'pickup-origin locality should be resolved through the application service')
+assert.match(timeline, /tripStartLocation/,'ride cards must read the persisted trip-start boundary')
+assert.match(timeline, /tripEndLocation/,'ride cards must read the persisted trip-end boundary')
+assert.ok(timeline.includes("EventLocationService.persistTripBoundaryLabel(trip.id,field,name)"), 'resolved trip locality labels must be persisted beyond component state')
+assert.match(timeline, /void loadFuelLabels\(data\.value\.fuel\)/,
+  'fuel locality enrichment must not block Timeline rendering')
+assert.ok(timeline.includes("EventLocationService.forEntity('FUEL',row.id)"), 'fuel Timeline must read saved fuel-entry location snapshots')
+assert.ok(timeline.includes("EventLocationService.persistLabel(snapshot.id,name)"), 'resolved fuel locality labels must be persisted for future Timeline reads')
+assert.match(workService, /captureAndPersistTripBoundary\(result\.id, 'tripStartLocation'\)/,
+  'starting the passenger ride must trigger a one-shot start GPS snapshot')
+assert.match(workService, /captureAndPersistTripBoundary\(data\?\.id, 'tripEndLocation'\)/,
+  'completing or cancelling a ride must trigger a one-shot end GPS snapshot')
+assert.match(workService, /captureAndPersistEventLocation\('TRIP', result\.id, 'PICKUP_START', result\.createdAt \|\| result\.tripStartAt\)/,
+  'pickup-origin snapshot must be captured separately from passenger ride start')
 assert.match(eventLocationService, /CanonicalWorkBoundary\.listEventLocationSnapshots\(\)/,
   'Timeline enrichment should recover snapshots from native canonical storage')
 assert.match(eventLocationService, /CanonicalWorkBoundary\.persistEventLocationSnapshot/,
-  'captured shift/fuel locations should be durably mirrored into native canonical storage')
-assert.match(timeline, /locationLabelFor\('FUEL', event\.record\.id, 'FUEL_ENTRY'\)/,
-  'fuel timeline should show its resolved locality label')
-assert.match(timeline, /EventLocationService\.persistLabel\(snapshot\.id, name\)/,
-  'resolved names should be persisted for future timeline reads')
+  'captured trip/fuel locations should be durably mirrored into native canonical storage')
 assert.match(locationService, /p\.suburb \|\| p\.neighbourhood \|\| p\.neighborhood \|\| p\.locality \|\| p\.district/,
   'locality fields should take precedence over street names')
 assert.doesNotMatch(locationService, /return \[p\.name, p\.street/,
   'the visible formatter must not construct street-address labels')
 assert.match(eventLocationService, /LocationRepository\.updatePlaceName\(snapshotId, placeName\)/)
-assert.match(timeline, /EventLocationService\.persistTripBoundaryLabel\(record\.id, side === 'start' \? 'tripStartLocation' : 'tripEndLocation', name\)/,
-  'resolved trip labels must be persisted through the application boundary')
 assert.match(eventLocationService, /CanonicalWorkBoundary\.updateTripBoundaryPlaceName/,
-  'event location service must delegate trip label persistence to canonical boundary')
+  'trip locality persistence must go through the canonical application boundary')
 assert.match(nativeAdapter, /NativeCanonicalWork\.updateTripBoundaryPlaceName/,
   'Android adapter must invoke native durable metadata update')
 assert.match(browserCanonical, /async updateTripBoundaryPlaceName\(/, 'browser PWA must persist locality labels in its canonical trip store')
@@ -62,4 +65,4 @@ assert.match(nativeStore, /previous\.optString\("placeName", ""\)/,
   'replayed metadata operations must be checked against their original label for idempotency')
 assert.match(locationRepository, /notifyCanonicalDataChanged\(\{ stores: \['gps_snapshots', 'trips'\], reason: 'gps-place-name-enriched' \}\)/)
 
-console.log('PASS: timeline locality enrichment is shared, persisted, and non-blocking')
+console.log('PASS: Activity Timeline ride/fuel locality enrichment is shared, persisted, and non-blocking')

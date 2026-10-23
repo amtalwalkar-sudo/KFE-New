@@ -147,6 +147,12 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       recordValues.put("payload", payload);
       recordValues.put("updated_at", now);
       db.insertWithOnConflict("canonical_records", null, recordValues, SQLiteDatabase.CONFLICT_REPLACE);
+      // A PWA TRIP mirror is also the authoritative input for the native
+      // shift-revenue projection. Keep this derived write inside the same
+      // SQLite transaction so a follow-up full SHIFT mirror cannot race it.
+      if ("TRIP".equals(entityType)) {
+        refreshShiftRevenueProjection(db, record.optString("shiftId", ""), now);
+      }
 
       JSONObject result = new JSONObject();
       result.put("operationId", operationId);
@@ -187,6 +193,75 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
    * Keep trip.updatedAt unchanged: a late GPS callback must not stale a durable
    * fare/cancellation event or overwrite a newer business payload.
    */
+  /**
+   * Rebuild the shift revenue projection whenever a canonical trip mirror
+   * changes. This is the native counterpart of the PWA's deriveLiveRevenue
+   * read model and runs atomically with the trip write.
+   */
+  private void refreshShiftRevenueProjection(SQLiteDatabase db, String shiftId, String now) throws Exception {
+    if (empty(shiftId)) return;
+    JSONObject shift = null;
+    try (Cursor cursor = db.query("canonical_records", new String[]{"payload"},
+        "entity_type='SHIFT' AND entity_id=?", new String[]{shiftId}, null, null, null, "1")) {
+      if (cursor.moveToFirst()) shift = new JSONObject(cursor.getString(0));
+    }
+    if (shift == null) return;
+
+    double revenue = 0d;
+    java.time.Instant latest = java.time.Instant.parse(now);
+    String shiftVersion = shift.optString("updatedAt", "");
+    if (!empty(shiftVersion)) {
+      java.time.Instant version = java.time.Instant.parse(shiftVersion);
+      if (version.isAfter(latest)) latest = version;
+    }
+    try (Cursor trips = db.query("canonical_records", new String[]{"payload"},
+        "entity_type='TRIP'", null, null, null, null)) {
+      while (trips.moveToNext()) {
+        JSONObject item = new JSONObject(trips.getString(0));
+        if (!shiftId.equals(item.optString("shiftId", ""))
+            || (item.has("deletedAt") && !item.isNull("deletedAt"))
+            || item.optBoolean("deleted", false)) continue;
+        String status = item.optString("status", "");
+        if ("COMPLETED".equals(status) && !item.optBoolean("fareDetailsSkipped", false)) {
+          Object amount = item.opt("revenue");
+          if (amount instanceof Number && Double.isFinite(((Number) amount).doubleValue())
+              && ((Number) amount).doubleValue() >= 0d) revenue += ((Number) amount).doubleValue();
+        } else if ("CANCELLED".equals(status)) {
+          Object amount = item.opt("cancelledRevenue");
+          if (amount instanceof Number && Double.isFinite(((Number) amount).doubleValue())
+              && ((Number) amount).doubleValue() >= 0d) revenue += ((Number) amount).doubleValue();
+        }
+        String itemVersion = item.optString("updatedAt", "");
+        if (!empty(itemVersion)) {
+          java.time.Instant version = java.time.Instant.parse(itemVersion);
+          if (version.isAfter(latest)) latest = version;
+        }
+      }
+    }
+
+    Object currentRevenue = shift.opt("revenue");
+    Object currentLiveRevenue = shift.opt("liveFareRevenue");
+    boolean projectionMatches = currentRevenue instanceof Number
+        && currentLiveRevenue instanceof Number
+        && Math.abs(((Number) currentRevenue).doubleValue() - revenue) < 1e-9
+        && Math.abs(((Number) currentLiveRevenue).doubleValue() - revenue) < 1e-9
+        && "TRIP_FARES".equals(shift.optString("revenueSource", ""));
+    if (projectionMatches) return;
+
+    // Strictly advance the native shift version beyond every contributing
+    // record, avoiding same-millisecond PWA/native updatedAt collisions.
+    shift.put("revenue", revenue);
+    shift.put("liveFareRevenue", revenue);
+    shift.put("revenueSource", "TRIP_FARES");
+    shift.put("updatedAt", latest.plusMillis(1).toString());
+    ContentValues values = new ContentValues();
+    values.put("entity_type", "SHIFT");
+    values.put("entity_id", shiftId);
+    values.put("payload", shift.toString());
+    values.put("updated_at", now);
+    db.insertWithOnConflict("canonical_records", null, values, SQLiteDatabase.CONFLICT_REPLACE);
+  }
+
   synchronized Outcome persistTripBoundarySnapshot(String operationId, String tripId,
       String field, JSONObject snapshot) throws Exception {
     if (empty(operationId) || empty(tripId)) throw new IllegalArgumentException("operationId and tripId are required.");

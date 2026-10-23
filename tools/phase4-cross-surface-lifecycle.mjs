@@ -194,13 +194,12 @@ try {
     }
   })
 
-  // Timeline and Performance are intentionally blank presentation workspaces
-  // while their domain services/read models remain covered above. Verify the
-  // current product scope instead of requiring retired UI components to mount.
+  // Timeline now has a dedicated read-only presentation backed by persisted records.
+  // Verify the actual route mounts it; domain lifecycle assertions above remain canonical.
   await page.goto(base + 'timeline', { waitUntil: 'domcontentloaded', timeout: 30000 })
-  const timelineWorkspace = page.locator('.kfe-blank-workspace')
+  const timelineWorkspace = page.locator('.activity-timeline')
   await timelineWorkspace.waitFor({ state: 'visible', timeout: 30000 })
-  assert(await page.locator('.timeline').count() === 0, 'Timeline unexpectedly mounted retired presentation during the blank-workspace phase.')
+  assert(await page.locator('.kfe-blank-workspace').count() === 0, 'Timeline route still renders the retired blank workspace.')
 
   await page.goto(base + 'performance', { waitUntil: 'domcontentloaded', timeout: 30000 })
   const performanceWorkspace = page.locator('.kfe-blank-workspace')
