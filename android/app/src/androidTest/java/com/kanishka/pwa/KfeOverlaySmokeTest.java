@@ -669,8 +669,11 @@ public class KfeOverlaySmokeTest {
       java.time.Instant.parse(canonical.getString("updatedAt"))
         .isAfter(java.time.Instant.parse(projected.getString("updatedAt"))));
 
+    JSONObject exactRetryPayload = new JSONObject().put("id", shiftId).put("status", "COMPLETED")
+      .put("updatedAt", oldVersion).put("endOdometer", 1200).put("revenue", 0)
+      .put("liveFareRevenue", 0).put("revenueSource", "TRIP_FARES");
     KfeCanonicalWorkStore.Outcome retry = store.putRecord(
-      "projection-end-shift-" + shiftId, "SHIFT", completedShift);
+      "projection-end-shift-" + shiftId, "SHIFT", exactRetryPayload);
     assertTrue("Retry of the same completion operation must be idempotent", retry.duplicate);
     assertEquals("COMPLETED", store.getRecord("SHIFT", shiftId).getJSONObject("record").getString("status"));
   }
