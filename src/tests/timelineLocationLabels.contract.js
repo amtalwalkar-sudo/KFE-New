@@ -17,6 +17,8 @@ assert.match(timeline, /EventLocationService\.resolveLabel\(location\)/,
   'trip boundary labels should use the application service')
 assert.match(timeline, /shiftBoundaryLocation\(data, 'SHIFT_START'\)/,
   'Timeline should show the resolved shift-start locality label')
+assert.match(timeline, /v-for="item in data\.shifts"/, 'Timeline must render locality labels for every shift, not only the first and last shift')
+assert.match(timeline, /const route = trip => .*Location pending.*Location pending/, 'ride routes must not fall back to street-address fields while locality labels are pending')
 assert.match(timeline, /shiftBoundaryLocation\(data, 'SHIFT_END'\)/,
   'Timeline should show the resolved shift-end locality label')
 assert.match(eventLocationService, /CanonicalWorkBoundary\.listEventLocationSnapshots\(\)/,
