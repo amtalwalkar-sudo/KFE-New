@@ -5,7 +5,7 @@ if (!base) throw new Error('KFE_RUNTIME_BASE_URL is required')
 
 const routes = [
   { path: '/', selector: '.work-canonical', label: 'Work' },
-  { path: '/timeline', selector: '.kfe-blank-workspace', label: 'Timeline workspace' },
+  { path: '/timeline', selector: '.activity-timeline', label: 'Activity Timeline' },
   { path: '/performance', selector: '.kfe-blank-workspace', label: 'Performance workspace' },
   { path: '/admin', selector: '.kfe-settings-page', label: 'Admin settings' },
 ]
@@ -39,9 +39,12 @@ const waitForSurface = async (page, route, phase) => {
     return !!node && node.children.length > 0 && document.readyState === 'complete'
   }, route.selector, { timeout: 45000 })
   if (route.path === '/timeline' || route.path === '/performance') {
-    const retired = route.path === '/timeline' ? '.timeline' : '.performance-page'
-    if (await page.locator(retired).count()) {
+    const retired = route.path === '/performance' ? '.performance-page' : null
+    if (retired && await page.locator(retired).count()) {
       throw new Error(`${route.label}: retired screen ${retired} must not render`)
+    }
+    if (route.path === '/timeline' && await page.locator('.kfe-blank-workspace').count()) {
+      throw new Error('Activity Timeline: retired blank workspace must not render')
     }
   }
   if (route.path === '/admin' && await page.locator('.admin-page').count()) {
