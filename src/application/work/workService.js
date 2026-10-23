@@ -69,7 +69,7 @@ const mirrorCanonicalRecord = async (entityType, record) => {
 }
 const mirrorCanonicalTripById = async id => {
   if (!id || !nativeCanonicalAvailable()) return null
-  const trips = await ShiftTripRepository.getAllTrips()
+  const trips = await ShiftTripRepository.getAllTrips({ skipCanonicalReadBoundary: true })
   const record = trips.find(item => item.id === id)
   if (record) await mirrorCanonicalRecord('TRIP', record)
   return record || null
