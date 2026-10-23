@@ -30,7 +30,7 @@ const eligibleRevenue = trip => {
 const pickupDurationMs = trip => {
   if (!isTerminalTrip(trip)) return null
   // Passenger pickup ends when ride starts. If cancelled before pickup, use cancellation/end time.
-  const end = timestamp(trip.tripStartAt) ?? timestamp(trip.tripEndAt)
+  const end = timestamp(trip.tripStartAt) ?? (trip.status === 'CANCELLED' ? timestamp(trip.tripEndAt) : null)
   return finiteDurationMs(trip.createdAt, end)
 }
 const rideDurationMs = trip => {
