@@ -219,7 +219,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       while (trips.moveToNext()) {
         JSONObject item = new JSONObject(trips.getString(0));
         if (!shiftId.equals(item.optString("shiftId", ""))
-            || !empty(item.optString("deletedAt", ""))
+            || (item.has("deletedAt") && !item.isNull("deletedAt"))
             || item.optBoolean("deleted", false)) continue;
         String status = item.optString("status", "");
         if ("COMPLETED".equals(status) && !item.optBoolean("fareDetailsSkipped", false)) {
