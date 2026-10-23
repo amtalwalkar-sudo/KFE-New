@@ -1,8 +1,8 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ActivityTimelineService } from '../application/timeline/activityTimelineService.js'
 import { EventLocationService } from '../application/location/eventLocationService.js'
-import { getKfeReferenceNow, istDayRange, istParts } from '../domain/time/ist.js'
+import { getKfeReferenceNow, istParts } from '../domain/time/ist.js'
 
 const period = ref('today')
 const tab = ref('rides')
@@ -11,6 +11,7 @@ const data = ref(null)
 const loading = ref(true)
 const error = ref('')
 const labels = ref({})
+const fuelLabels = ref({})
 const dateAtNoon = value => {
   const p=istParts(value)
   return p ? new Date(Date.UTC(p.year,p.month-1,p.day,12)) : new Date(value)
@@ -75,11 +76,25 @@ const loadLabels=async rows=>{
   }))
   labels.value=next
 }
+const loadFuelLabels=async rows=>{
+  const next={...fuelLabels.value}
+  await Promise.allSettled(rows.map(async row=>{
+    if(next[row.id])return
+    const snapshots=await EventLocationService.forEntity('FUEL',row.id)
+    const snapshot=snapshots.find(item=>item.eventType==='FUEL_ENTRY')
+    if(!snapshot)return
+    let name=snapshot.placeName
+    if(!name)name=await EventLocationService.resolveLabel(snapshot)
+    if(name){next[row.id]=name;if(!snapshot.placeName)await EventLocationService.persistLabel(snapshot.id,name)}
+  }))
+  fuelLabels.value=next
+}
 const load=async()=>{
   loading.value=true;error.value=''
   try{
     data.value=await ActivityTimelineService.get({period:period.value,anchor:anchor.value})
     void loadLabels(data.value.trips)
+    void loadFuelLabels(data.value.fuel)
   }catch(e){data.value=null;error.value=e?.message||'Unable to load activity timeline.'}
   finally{loading.value=false}
 }
@@ -96,8 +111,6 @@ const tripFare=trip=>{
   if(trip.fareDetailsSkipped===true)return 'Fare skipped · ₹0'
   return trip.revenue==null||trip.revenue===''?'Fare unavailable':money(trip.revenue)
 }
-const fuelSummary=row=>`${kg(row.quantityKg)} · ${money(row.amount)}`
-watch(tab,()=>{})
 onMounted(load)
 </script>
 
@@ -129,7 +142,7 @@ onMounted(load)
       <section v-if="tab==='rides'" class="event-list">
         <p v-if="!data.trips.length" class="empty">No rides recorded for this period.</p>
         <article v-for="trip in data.trips" :key="trip.id" class="activity-card" :class="{'cancelled':trip.status==='CANCELLED'}">
-          <div class="event-top"><div><span class="event-date">{{dateTime(trip.createdAt||trip.tripStartAt)}}</span><h2>{{trip.status==='CANCELLED'?'Cancelled ride':'Ride'}}</h2></div><span class="status">{{trip.status==='CANCELLED'?'Cancelled':'Completed'}}</span></div>
+          <div class="event-top"><div><span class="event-date">{{dateTime(trip.tripStartAt||trip.createdAt)}}</span><h2>{{trip.status==='CANCELLED'?'Cancelled ride':'Ride'}}</h2></div><span class="status">{{trip.status==='CANCELLED'?'Cancelled':'Completed'}}</span></div>
           <div class="route"><span class="route-dot"></span><span>{{route(trip)}}</span></div>
           <p v-if="labels[`${trip.id}:pickup`]" class="note">Pickup journey started near {{labels[`${trip.id}:pickup`]}}</p>
           <div class="details"><span><small>{{trip.status==='CANCELLED'?'Cancellation fee':'Fare'}}</small><strong>{{tripFare(trip)}}</strong></span><span><small>Ride duration</small><strong>{{rideDuration(trip)}}</strong></span><span><small>Pickup travel</small><strong>{{pickupDuration(trip)}}</strong></span></div>
@@ -141,6 +154,7 @@ onMounted(load)
         <p v-if="!data.fuel.length" class="empty">No fuel entries recorded for this period.</p>
         <article v-for="row in data.fuel" :key="row.id" class="activity-card fuel-card">
           <div class="event-top"><div><span class="event-date">{{dateTime(row.capturedAt||row.createdAt)}}</span><h2>CNG refuelling</h2></div><span class="status">{{row.isFullTank===true?'Full tank':'Partial fill'}}</span></div>
+          <p v-if="fuelLabels[row.id]" class="note">{{fuelLabels[row.id]}}</p>
           <div class="details"><span><small>Amount paid</small><strong>{{money(row.amount)}}</strong></span><span><small>Fuel quantity</small><strong>{{kg(row.quantityKg)}}</strong></span><span><small>Odometer</small><strong>{{km(row.odometer)}}</strong></span></div>
         </article>
       </section>
