@@ -7,6 +7,7 @@ const suites = [
   'timelineLocationLabels.contract.js',
   'tripBoundaryTimestamp.contract.js',
   'canonicalWorkReadAuthority.contract.js',
+  'tripCompletionCanonicalReadRace.contract.js',
   
   'canonicalWorkRecovery.contract.js',
   'liveRevenueSwipeParity.contract.js',
