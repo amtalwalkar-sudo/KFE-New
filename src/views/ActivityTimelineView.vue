@@ -48,19 +48,29 @@ const tripPickupEnd=trip=>trip.tripStartAt|| (trip.status==='CANCELLED'?trip.tri
 const tripRideStart=trip=>trip.tripStartAt||(trip.status==='CANCELLED'?trip.createdAt:null)
 const pickupDuration=trip=>duration(trip.createdAt,tripPickupEnd(trip))
 const rideDuration=trip=>duration(tripRideStart(trip),trip.tripEndAt)
-const route=trip=>`${labels.value[`${trip.id}:pickup`]||trip.tripStartLocation?.placeName||'Location unavailable'} → ${trip.tripEndLocation?.placeName||'Location unavailable'}`
+const route=trip=>`${labels.value[`${trip.id}:from`]||trip.tripStartLocation?.placeName||'Location unavailable'} → ${labels.value[`${trip.id}:to`]||trip.tripEndLocation?.placeName||'Location unavailable'}`
 const loadLabels=async rows=>{
   const next={...labels.value}
   await Promise.allSettled(rows.map(async trip=>{
-    if(next[`${trip.id}:pickup`])return
     const snapshots=await EventLocationService.forEntity('TRIP',trip.id)
     const pickup=snapshots.find(item=>item.eventType==='PICKUP_START')
-    if(!pickup)return
-    let name=pickup.placeName
-    if(!name) name=await EventLocationService.resolveLabel(pickup)
-    if(name){
-      next[`${trip.id}:pickup`]=name
-      if(!pickup.placeName) await EventLocationService.persistLabel(pickup.id,name)
+    if(pickup&&!next[`${trip.id}:pickup`]){
+      let name=pickup.placeName
+      if(!name) name=await EventLocationService.resolveLabel(pickup)
+      if(name){
+        next[`${trip.id}:pickup`]=name
+        if(!pickup.placeName) await EventLocationService.persistLabel(pickup.id,name)
+      }
+    }
+    for(const [side,field] of [['from','tripStartLocation'],['to','tripEndLocation']]){
+      const location=trip[field]
+      if(next[`${trip.id}:${side}`]||location?.placeName){if(location?.placeName)next[`${trip.id}:${side}`]=location.placeName;continue}
+      if(location?.latitude==null||location?.longitude==null)continue
+      const name=await EventLocationService.resolveLabel(location)
+      if(name){
+        next[`${trip.id}:${side}`]=name
+        await EventLocationService.persistTripBoundaryLabel(trip.id,field,name)
+      }
     }
   }))
   labels.value=next
@@ -121,6 +131,7 @@ onMounted(load)
         <article v-for="trip in data.trips" :key="trip.id" class="activity-card" :class="{'cancelled':trip.status==='CANCELLED'}">
           <div class="event-top"><div><span class="event-date">{{dateTime(trip.createdAt||trip.tripStartAt)}}</span><h2>{{trip.status==='CANCELLED'?'Cancelled ride':'Ride'}}</h2></div><span class="status">{{trip.status==='CANCELLED'?'Cancelled':'Completed'}}</span></div>
           <div class="route"><span class="route-dot"></span><span>{{route(trip)}}</span></div>
+          <p v-if="labels[`${trip.id}:pickup`]" class="note">Pickup journey started near {{labels[`${trip.id}:pickup`]}}</p>
           <div class="details"><span><small>{{trip.status==='CANCELLED'?'Cancellation fee':'Fare'}}</small><strong>{{tripFare(trip)}}</strong></span><span><small>Ride duration</small><strong>{{rideDuration(trip)}}</strong></span><span><small>Pickup travel</small><strong>{{pickupDuration(trip)}}</strong></span></div>
           <p v-if="trip.fareDetailsSkipped===true" class="note">Fare details were skipped; revenue contribution is ₹0.</p>
           <p v-if="trip.status==='CANCELLED'&&trip.cancelReason" class="note">Reason: {{trip.cancelReason}}</p>
