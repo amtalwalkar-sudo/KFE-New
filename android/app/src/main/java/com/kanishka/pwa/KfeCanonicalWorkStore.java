@@ -152,6 +152,9 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
                 && "SHIFT".equals(entityType)
                 && "ACTIVE".equals(existingRecord.optString("status", ""))
                 && "ACTIVE".equals(record.optString("status", ""))
+                && existingRecord.has("revenue")
+                && existingRecord.has("liveFareRevenue")
+                && "TRIP_FARES".equals(existingRecord.optString("revenueSource", ""))
                 && sameShiftExceptRevenueProjection(existingRecord, record);
             if ((versionOrder <= 0 && completesActiveShift) || activeShiftProjectionCollision) {
               for (String field : new String[]{"revenue", "liveFareRevenue", "revenueSource"}) {
