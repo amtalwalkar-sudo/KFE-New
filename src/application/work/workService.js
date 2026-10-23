@@ -183,6 +183,9 @@ export const WorkService = Object.freeze({
     const validation = validateTripOperator(data?.operator)
     if (!validation.valid) return { ok: false, reason: validation.reason }
     const result = await ShiftTripRepository.createTrip({ ...data, operator: validation.operator, tripStage: data?.tripStage || 'GOING_TO_PICKUP' }); await mirrorCanonicalRecord('TRIP', result); checkpoint()
+    // Pickup journey origin is optional metadata captured after the canonical trip record commits.
+    // It never delays the user's pickup workflow and uses the same offline-capable one-shot GPS path.
+    if (result?.id) captureAndPersistEventLocation('TRIP', result.id, 'PICKUP_START', result.createdAt || result.tripStartAt)
     return result
   },
   async startRide(data) {
