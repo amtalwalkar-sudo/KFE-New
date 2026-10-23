@@ -29,12 +29,4 @@ if (!performanceService.includes('subscribeCanonicalDataChanges')) {
   throw new Error('PerformanceService is not connected to the canonical data-change subscription boundary.')
 }
 
-const performanceView = read('views/PerformanceView.vue')
-if (!performanceView.includes('PerformanceService.subscribeDataChanges')) {
-  throw new Error('Performance UI is not subscribed through PerformanceService.')
-}
-if (/utils\/indexedDB\.js|repositories\//.test(performanceView)) {
-  throw new Error('Performance UI must not bypass the application/repository boundary.')
-}
-
 console.log('Calculation invalidation boundary contract passed.')

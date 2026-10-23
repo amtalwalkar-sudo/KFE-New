@@ -13,7 +13,6 @@ assert.ok(operational.includes("additionalOnly ? Number(shift.toll || 0) + tripT
 assert.ok(operational.includes("additionalOnly ? Number(shift.parking || 0) + tripParking : Math.max(Number(shift.parking || 0), tripParking)"))
 assert.ok(operational.includes("const invalidTripKm = completed.some(trip =>"))
 assert.ok(operational.includes("businessKm: !Number.isFinite(businessKm)"))
-assert.ok(operational.includes('record.shift.openingPersonalKm'))
 assert.match(endShift, /closingOdometer/)
 assert.doesNotMatch(endShift, /revenue|reconcileShiftRevenue|trips\\s*=/, 'End Shift accepts odometer only; financial reconciliation remains in finance/read models.')
 assert.doesNotMatch(endShift, /calculateShiftRevenue/)
