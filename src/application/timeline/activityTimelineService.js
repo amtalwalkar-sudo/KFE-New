@@ -1,5 +1,5 @@
 import { ShiftTripRepository } from '../../repositories/shiftTripRepository.js'
-import { FuelRepository } from '../../repositories/fuelRepository.js'
+import { WorkService } from '../work/workService.js'
 import { istDayRange, istMonthRange } from '../../domain/time/ist.js'
 
 const timestamp = value => {
@@ -85,15 +85,16 @@ export const ActivityTimelineService = Object.freeze({
 
     const [allTrips, allFuel] = await Promise.all([
       ShiftTripRepository.getAllTrips(),
-      FuelRepository.getAll()
+      WorkService.getFuelLogs()
     ])
     const trips = allTrips.filter(isTerminalTrip).filter(trip => isWithinPeriod(eventTime(trip), range))
       .sort((a,b)=>(eventTime(b)||0)-(eventTime(a)||0))
     const fuel = allFuel.filter(row => isWithinPeriod(fuelTime(row), range))
       .sort((a,b)=>(fuelTime(b)||0)-(fuelTime(a)||0))
-    const tripHoursMs = trips.reduce((sum,trip)=>sum+(rideDurationMs(trip)??0),0)
-    const pickupHoursMs = trips.reduce((sum,trip)=>sum+(pickupDurationMs(trip)??0),0)
     const timedTrips = trips.filter(trip=>rideDurationMs(trip)!=null)
+    const pickupTrips = trips.filter(trip=>pickupDurationMs(trip)!=null)
+    const tripHoursMs = timedTrips.reduce((sum,trip)=>sum+rideDurationMs(trip),0)
+    const pickupHoursMs = pickupTrips.reduce((sum,trip)=>sum+pickupDurationMs(trip),0)
     const timedRevenue = timedTrips.reduce((sum,trip)=>sum+eligibleRevenue(trip),0)
     // Use the selected period's end-time intervals, while allowing the prior full-tank
     // reading to serve as a baseline. Existing fuel records remain the sole data source.
@@ -106,8 +107,10 @@ export const ActivityTimelineService = Object.freeze({
       range, trips, fuel,
       metrics: {
         tripHours: tripHoursMs/3600000,
+        tripDurationCount: timedTrips.length,
         averageFarePerHour: tripHoursMs>0 ? timedRevenue/(tripHoursMs/3600000) : null,
         totalPickupTravelMinutes: pickupHoursMs/60000,
+        pickupIntervals: pickupTrips.length,
         averageCostPerKm: distance>0 ? fuelCost/distance : null,
         averageMileageKmPerKg: quantityKg>0 ? distance/quantityKg : null,
         fuelIntervals: intervals.length,
