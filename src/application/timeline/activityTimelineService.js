@@ -67,21 +67,32 @@ const validFullTankIntervals = logs => {
   return intervals.sort((a,b)=>a.at-b.at)
 }
 
+export const buildPeriodRange = (period, anchor, now = new Date()) => {
+  if (period === 'today') {
+    const range = istDayRange(anchor)
+    if (!range) throw new Error('Invalid timeline date.')
+    return range
+  }
+  if (period === 'month') {
+    const range = istMonthRange(anchor, now)
+    if (!range) throw new Error('Invalid timeline date.')
+    return range
+  }
+  if (period === 'week') {
+    const dayRange = istDayRange(anchor)
+    if (!dayRange) throw new Error('Invalid timeline date.')
+    const day = new Date(dayRange.from.getTime() + 12*60*60*1000)
+    const monday = new Date(day.getTime() - ((day.getUTCDay()+6)%7)*86400000)
+    const sunday = new Date(monday.getTime()+6*86400000)
+    return {from:istDayRange(monday).from,to:istDayRange(sunday).to}
+  }
+  if (period === 'all') return {from:new Date(0),to:new Date(now)}
+  throw new Error('Unknown timeline period.')
+}
+
 export const ActivityTimelineService = Object.freeze({
   async get({ period, anchor }) {
-    let range = null
-    if (period === 'today') range = istDayRange(anchor)
-    else if (period === 'month') range = istMonthRange(anchor, new Date())
-    else if (period === 'week') {
-      const dayRange = istDayRange(anchor)
-      if (!dayRange) throw new Error('Invalid timeline date.')
-      const day = new Date(dayRange.from.getTime() + 12*60*60*1000)
-      const monday = new Date(day.getTime() - ((day.getUTCDay()+6)%7)*86400000)
-      const sunday = new Date(monday.getTime()+6*86400000)
-      range = {from:istDayRange(monday).from,to:istDayRange(sunday).to}
-    } else if (period !== 'all') throw new Error('Unknown timeline period.')
-    if (!range) range = {from:new Date(0),to:new Date()}
-    if (!range) throw new Error('Invalid timeline date.')
+    const range = buildPeriodRange(period, anchor)
 
     const [allTrips, allFuel] = await Promise.all([
       ShiftTripRepository.getAllTrips(),
@@ -119,5 +130,5 @@ export const ActivityTimelineService = Object.freeze({
     }
   },
   // Exported pure helpers make edge-case behavior directly contract-testable.
-  pickupDurationMs, rideDurationMs, eligibleRevenue, validFullTankIntervals, isWithinPeriod,
+  pickupDurationMs, rideDurationMs, eligibleRevenue, validFullTankIntervals, isWithinPeriod, buildPeriodRange,
 })
