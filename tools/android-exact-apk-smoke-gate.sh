@@ -358,7 +358,7 @@ adb shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false >
 adb shell svc wifi enable || true
 adb shell svc data enable || true
 
-run_instrumentation com.kanishka.pwa.KfeOverlaySmokeTest native-overlay 21
+run_instrumentation com.kanishka.pwa.KfeOverlaySmokeTest native-overlay 22
 
 # Run the WebView-disabled acceptances last so disabling WebView cannot affect
 # any earlier PWA catch-up or lifecycle/recovery test in this instrumentation process.

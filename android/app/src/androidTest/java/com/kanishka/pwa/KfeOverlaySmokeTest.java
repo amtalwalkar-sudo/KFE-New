@@ -630,6 +630,54 @@ public class KfeOverlaySmokeTest {
   }
 
 
+  @Test public void completedShiftAdvancesPastNativeRevenueProjectionWithoutLosingRevenue() throws Exception {
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    String shiftId = "projection-complete-" + java.util.UUID.randomUUID();
+    String tripId = "projection-trip-" + java.util.UUID.randomUUID();
+    String oldVersion = java.time.Instant.now().minusSeconds(30).toString();
+    JSONObject activeShift = new JSONObject().put("id", shiftId).put("status", "ACTIVE")
+      .put("updatedAt", oldVersion).put("revenue", 0).put("liveFareRevenue", 0)
+      .put("revenueSource", "TRIP_FARES");
+    assertTrue("Active shift seed must commit",
+      store.putRecord("projection-seed-" + shiftId, "SHIFT", activeShift).accepted);
+
+    JSONObject trip = new JSONObject().put("id", tripId).put("shiftId", shiftId)
+      .put("status", "COMPLETED").put("fareDetailsSkipped", false).put("revenue", 250)
+      .put("updatedAt", java.time.Instant.now().toString());
+    assertTrue("Completed trip must commit and refresh native revenue",
+      store.putRecord("projection-trip-write-" + tripId, "TRIP", trip).accepted);
+    JSONObject projected = store.getRecord("SHIFT", shiftId).getJSONObject("record");
+    assertEquals(250d, projected.getDouble("revenue"), 0.001d);
+    assertTrue("Trip projection must advance the native shift version",
+      java.time.Instant.parse(projected.getString("updatedAt")).isAfter(java.time.Instant.parse(oldVersion)));
+
+    // This models the PWA's durable completion snapshot created before its mirror
+    // crosses the bridge. It is older than the native projection version.
+    JSONObject completedShift = new JSONObject().put("id", shiftId).put("status", "COMPLETED")
+      .put("updatedAt", oldVersion).put("endOdometer", 1200).put("revenue", 0)
+      .put("liveFareRevenue", 0).put("revenueSource", "TRIP_FARES");
+    KfeCanonicalWorkStore.Outcome completed = store.putRecord(
+      "projection-end-shift-" + shiftId, "SHIFT", completedShift);
+    assertTrue("ACTIVE -> COMPLETED must not fail on a version advanced by derived revenue", completed.accepted);
+    JSONObject canonical = store.getRecord("SHIFT", shiftId).getJSONObject("record");
+    assertEquals("COMPLETED", canonical.getString("status"));
+    assertEquals(1200, canonical.getInt("endOdometer"));
+    assertEquals("Trip fare must remain authoritative through shift completion", 250d,
+      canonical.getDouble("revenue"), 0.001d);
+    assertEquals(250d, canonical.getDouble("liveFareRevenue"), 0.001d);
+    assertTrue("Completed shift version must advance past the projection",
+      java.time.Instant.parse(canonical.getString("updatedAt"))
+        .isAfter(java.time.Instant.parse(projected.getString("updatedAt"))));
+
+    JSONObject exactRetryPayload = new JSONObject().put("id", shiftId).put("status", "COMPLETED")
+      .put("updatedAt", oldVersion).put("endOdometer", 1200).put("revenue", 0)
+      .put("liveFareRevenue", 0).put("revenueSource", "TRIP_FARES");
+    KfeCanonicalWorkStore.Outcome retry = store.putRecord(
+      "projection-end-shift-" + shiftId, "SHIFT", exactRetryPayload);
+    assertTrue("Retry of the same completion operation must be idempotent", retry.duplicate);
+    assertEquals("COMPLETED", store.getRecord("SHIFT", shiftId).getJSONObject("record").getString("status"));
+  }
+
   @Test public void tripLocalityLabelSurvivesNativeReloadAndStalePwaSynchronization() throws Exception {
     KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
     String tripId = "locality-reload-" + java.util.UUID.randomUUID();
