@@ -132,9 +132,9 @@ onMounted(load)
     <p v-else-if="error" class="state error">{{error}}</p>
     <template v-else-if="data">
       <section v-if="tab==='rides'" class="metric-grid" aria-label="Ride summaries">
-        <article class="metric"><span>Trip Hours</span><strong>{{data.metrics.tripDurationCount?`${data.metrics.tripHours.toFixed(1)} h`:'Not enough data'}}</strong></article>
+        <article class="metric"><span>Trip Hours</span><strong>{{data.metrics.tripDurationCount ? data.metrics.tripHours.toFixed(1) + ' h' : 'Not enough data'}}</strong></article>
         <article class="metric"><span>Average Fare per Hour</span><strong>{{money(data.metrics.averageFarePerHour)}}</strong></article>
-        <article class="metric"><span>Total Pickup Travel Time</span><strong>{{data.metrics.pickupIntervals?`${Math.floor(data.metrics.totalPickupTravelMinutes/60)}h ${Math.round(data.metrics.totalPickupTravelMinutes%60)}m`:'Not enough data'}}</strong></article>
+        <article class="metric"><span>Total Pickup Travel Time</span><strong>{{data.metrics.pickupIntervals ? Math.floor(data.metrics.totalPickupTravelMinutes/60) + 'h ' + Math.round(data.metrics.totalPickupTravelMinutes%60) + 'm' : 'Not enough data'}}</strong></article>
       </section>
       <section v-else class="metric-grid" aria-label="Fuel summaries">
         <article class="metric"><span>Average Cost per km</span><strong>{{data.metrics.averageCostPerKm==null?'Not enough data':money(data.metrics.averageCostPerKm)}}</strong></article>
