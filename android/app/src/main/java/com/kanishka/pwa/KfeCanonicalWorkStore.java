@@ -116,8 +116,9 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
           "entity_type=? AND entity_id=?", new String[]{entityType, entityId}, null, null, null, "1")) {
         if (existing.moveToFirst()) {
           String existingPayload = existing.getString(0);
-          if (!jsonEquivalent(new JSONObject(payload), new JSONObject(existingPayload))) {
-            String existingVersion = new JSONObject(existingPayload).optString("updatedAt", "");
+          JSONObject existingRecord = new JSONObject(existingPayload);
+          if (!jsonEquivalent(new JSONObject(payload), existingRecord)) {
+            String existingVersion = existingRecord.optString("updatedAt", "");
             String incomingVersion = record.optString("updatedAt", "");
             if (empty(existingVersion) || empty(incomingVersion)) {
               throw new IllegalArgumentException("Canonical version conflict: updatedAt is required to replace an existing record.");
@@ -175,7 +176,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       result.put("entityType", entityType);
       result.put("entityId", entityId);
       result.put("committedAt", now);
-      result.put("record", operationRecord);
+      result.put("record", "SHIFT".equals(entityType) ? operationRecord : record);
 
       ContentValues operationValues = new ContentValues();
       operationValues.put("operation_id", operationId);
