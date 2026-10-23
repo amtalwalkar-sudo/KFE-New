@@ -9,6 +9,7 @@ import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } fro
 import { BackupService } from '../backup/backupService.js'
 import { WorkRuntimePorts } from './workRuntimePorts.js'
 import { captureTripBoundaryLocation } from './tripBoundaryLocation.js'
+import { EventLocationService } from '../location/eventLocationService.js'
 import { CanonicalWorkBoundary } from './canonicalWorkBoundary.js'
 import { recoverCanonicalWorkSnapshot } from './canonicalWorkRecovery.js'
 import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
@@ -108,6 +109,8 @@ const reconcileCanonicalReads = () => {
 }
 configureCanonicalReadBoundary(reconcileCanonicalReads)
 
+const captureAndPersistEventLocation = (entityType, entityId, eventType, eventAt) => EventLocationService.captureForEvent(entityType, entityId, eventType, eventAt)
+
 const captureAndPersistTripBoundary = (tripId, field) => {
   if (!tripId || !['tripStartLocation', 'tripEndLocation'].includes(field)) return
   void (async () => {
@@ -175,7 +178,7 @@ export const WorkService = Object.freeze({
   validateGapAllocation(gapKm, category) { return validateGapAllocation(gapKm, category) },
   calculateFuelQuantity(pricePerKg, amount) { return calculateFuelQuantity({ pricePerKg, amount }) },
   reconcileShiftRevenue(data) { return reconcileShiftRevenue(data) },
-  async startShift(data) { const result = await ShiftTripRepository.createShift(data); await mirrorCanonicalRecord('SHIFT', result); checkpoint(); return result },
+  async startShift(data) { const result = await ShiftTripRepository.createShift(data); await mirrorCanonicalRecord('SHIFT', result); checkpoint(); captureAndPersistEventLocation('SHIFT', result.id, 'SHIFT_START', result.shiftStartAt || result.createdAt); return result },
   async startTrip(data) {
     const validation = validateTripOperator(data?.operator)
     if (!validation.valid) return { ok: false, reason: validation.reason }
@@ -223,6 +226,7 @@ export const WorkService = Object.freeze({
       ...(canonicalSyncOperationId ? { canonicalSyncOperationId } : {})
     }
     const result = await completeEndShift(completionData)
+    let completedShift = null
     if (result?.ok && active.shift?.id && nativeCanonicalAvailable()) {
       // Do not cross the canonical read/recovery boundary between the local
       // completion commit and its native mirror. Native SQLite still contains
@@ -231,6 +235,7 @@ export const WorkService = Object.freeze({
       const localShifts = await ShiftTripRepository.getAllShifts({ skipCanonicalReadBoundary: true })
       const closedShift = localShifts.find(shift => shift.id === active.shift.id && shift.status === 'COMPLETED')
       if (!closedShift) throw new Error('Completed shift was not found after the end-shift commit.')
+      completedShift = closedShift
       await mirrorCanonicalRecord('SHIFT', closedShift)
       // The shift is now authoritative in native storage. Mirror trip records
       // from the same local snapshot without an intervening recovery read.
@@ -238,6 +243,10 @@ export const WorkService = Object.freeze({
       for (const trip of localTrips) await mirrorCanonicalRecord('TRIP', trip)
     }
     checkpoint()
+    if (result?.ok && active.shift?.id) {
+      if (!completedShift) completedShift = (await ShiftTripRepository.getAllShifts({ skipCanonicalReadBoundary: true })).find(shift => shift.id === active.shift.id && shift.status === 'COMPLETED') || null
+      captureAndPersistEventLocation('SHIFT', active.shift.id, 'SHIFT_END', completedShift?.shiftEndAt || null)
+    }
     return result
   },
   async recordFuel(data) {
@@ -245,6 +254,7 @@ export const WorkService = Object.freeze({
     // Fuel persistence is the user-visible commit. Local backup is best-effort
     // follow-up work and must not hold the form open after the record is saved.
     void Promise.resolve().then(() => checkpoint()).catch(() => {})
+    if (result?.ok && result.record?.id) captureAndPersistEventLocation('FUEL', result.record.id, 'FUEL_ENTRY', result.record.createdAt || result.record.capturedAt)
     return result
   },
 })

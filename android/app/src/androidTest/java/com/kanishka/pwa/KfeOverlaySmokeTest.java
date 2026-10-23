@@ -219,7 +219,12 @@ public class KfeOverlaySmokeTest {
           "AFTER_CANONICAL".equals(boundary), canonicalAfterFault);
       }
 
-      persist.invoke(service, "GO_TO_PICKUP", "GOING_TO_PICKUP", false);
+      try {
+        persist.invoke(service, "GO_TO_PICKUP", "GOING_TO_PICKUP", false);
+      } catch (java.lang.reflect.InvocationTargetException retryFailure) {
+        throw new AssertionError("Lifecycle retry failed at boundary " + boundary
+          + " for trip " + tripId + ": " + retryFailure.getCause(), retryFailure.getCause());
+      }
       String eventIdAfterRetry = context.getSharedPreferences("kfe_native_work_actions", 0)
         .getString("pendingEventId", "");
       assertTrue("Retry must converge to a durable event", KfeNativeEventStore.get(context).contains(eventIdAfterRetry));
@@ -625,6 +630,103 @@ public class KfeOverlaySmokeTest {
   }
 
 
+  @Test public void tripLocalityLabelSurvivesNativeReloadAndStalePwaSynchronization() throws Exception {
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    String tripId = "locality-reload-" + java.util.UUID.randomUUID();
+    String shiftId = "locality-shift-" + java.util.UUID.randomUUID();
+    String now = java.time.Instant.now().toString();
+    JSONObject trip = new JSONObject().put("id", tripId).put("shiftId", shiftId)
+      .put("status", "ACTIVE").put("tripStage", "START_RIDE")
+      .put("createdAt", now).put("updatedAt", now);
+    assertTrue("Canonical trip seed must commit",
+      store.putRecord("locality-seed-" + tripId, "TRIP", trip).accepted);
+
+    JSONObject snapshot = new JSONObject().put("latitude", 19.1197).put("longitude", 72.8468)
+      .put("accuracy", 12.0).put("capturedAt", now);
+    assertTrue("GPS snapshot must commit before its locality label",
+      store.persistTripBoundarySnapshot("locality-gps-" + tripId, tripId, "tripStartLocation", snapshot).accepted);
+
+    String labelOperation = "locality-label-" + tripId;
+    KfeCanonicalWorkStore.Outcome labelWrite = store.updateTripBoundaryPlaceName(
+      labelOperation, tripId, "tripStartLocation", "Andheri East, Mumbai");
+    assertTrue("Locality metadata write must be accepted", labelWrite.accepted);
+    assertTrue("Retrying the same operation must be idempotent",
+      store.updateTripBoundaryPlaceName(labelOperation, tripId, "tripStartLocation", "Andheri East, Mumbai").duplicate);
+    JSONObject immediatelyAfterLabel = store.getRecord("TRIP", tripId).optJSONObject("record");
+    assertEquals("Metadata enrichment must not advance the business version", now, immediatelyAfterLabel.getString("updatedAt"));
+
+    // Simulate a newer PWA mirror that has the business record but lacks the
+    // native-only boundary snapshot/locality metadata.
+    JSONObject staleMirror = new JSONObject().put("id", tripId).put("shiftId", shiftId)
+      .put("status", "ACTIVE").put("tripStage", "START_RIDE")
+      .put("createdAt", now).put("updatedAt", java.time.Instant.now().plusSeconds(3).toString());
+    assertTrue("PWA mirror must synchronize without dropping native metadata",
+      store.putRecord("locality-mirror-" + tripId, "TRIP", staleMirror).accepted);
+
+    JSONObject beforeReload = store.getRecord("TRIP", tripId).optJSONObject("record");
+    assertNotNull("Canonical trip must be readable before reload", beforeReload);
+    assertEquals("Andheri East, Mumbai",
+      beforeReload.getJSONObject("tripStartLocation").getString("placeName"));
+    assertEquals(19.1197, beforeReload.getJSONObject("tripStartLocation").getDouble("latitude"), 0.00001);
+    assertEquals(now, beforeReload.getJSONObject("tripStartLocation").getString("capturedAt"));
+
+    // Close and reopen the actual SQLite helper so this checks the durable
+    // storage boundary rather than only an in-memory object or serialized fixture.
+    store.close();
+    java.lang.reflect.Field instance = KfeCanonicalWorkStore.class.getDeclaredField("instance");
+    instance.setAccessible(true);
+    instance.set(null, null);
+    KfeCanonicalWorkStore reopened = KfeCanonicalWorkStore.get(context);
+    JSONObject afterReload = reopened.getRecord("TRIP", tripId).optJSONObject("record");
+    assertNotNull("Canonical trip must reload from SQLite", afterReload);
+    assertEquals("Andheri East, Mumbai",
+      afterReload.getJSONObject("tripStartLocation").getString("placeName"));
+    assertEquals(19.1197, afterReload.getJSONObject("tripStartLocation").getDouble("latitude"), 0.00001);
+    assertEquals(now, afterReload.getJSONObject("tripStartLocation").getString("capturedAt"));
+  }
+
+  @Test public void shiftAndFuelEventLocationsSurviveNativeReloadAndLabelEnrichment() throws Exception {
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    String eventAt = java.time.Instant.now().minusSeconds(60).toString();
+    String now = java.time.Instant.now().toString();
+    String[][] cases = new String[][] {{"SHIFT", "SHIFT_START"}, {"FUEL", "FUEL_ENTRY"}};
+    java.util.List<String> ids = new java.util.ArrayList<>();
+    for (String[] item : cases) {
+      String id = "event-location-" + java.util.UUID.randomUUID();
+      ids.add(id);
+      JSONObject snapshot = new JSONObject().put("id", id).put("entityType", item[0])
+        .put("entityId", item[0].toLowerCase(java.util.Locale.US) + "-" + java.util.UUID.randomUUID())
+        .put("eventType", item[1]).put("eventAt", eventAt).put("latitude", 19.0486).put("longitude", 73.0694)
+        .put("accuracy", 8.0).put("capturedAt", now).put("createdAt", now).put("updatedAt", now);
+      KfeCanonicalWorkStore.Outcome created = store.putRecord("event-location-create-" + id, "GPS_SNAPSHOT", snapshot);
+      assertTrue("Event location coordinates must be committed to native canonical storage", created.accepted);
+      assertTrue("Retry of the same snapshot operation must be idempotent",
+        store.putRecord("event-location-create-" + id, "GPS_SNAPSHOT", snapshot).duplicate);
+
+      String enrichedAt = java.time.Instant.now().plusMillis(50).toString();
+      JSONObject enriched = new JSONObject(snapshot.toString()).put("placeName", "Kharghar, Navi Mumbai")
+        .put("updatedAt", enrichedAt);
+      assertTrue("Locality label should enrich the existing durable event snapshot",
+        store.putRecord("event-location-label-" + id, "GPS_SNAPSHOT", enriched).accepted);
+    }
+    store.close();
+    java.lang.reflect.Field instance = KfeCanonicalWorkStore.class.getDeclaredField("instance");
+    instance.setAccessible(true);
+    instance.set(null, null);
+    KfeCanonicalWorkStore reopened = KfeCanonicalWorkStore.get(context);
+    for (int i = 0; i < cases.length; i++) {
+      JSONObject afterReload = reopened.getRecord("GPS_SNAPSHOT", ids.get(i)).optJSONObject("record");
+      assertNotNull("Event location must reload from SQLite", afterReload);
+      assertEquals("Kharghar, Navi Mumbai", afterReload.getString("placeName"));
+      assertEquals(19.0486, afterReload.getDouble("latitude"), 0.00001);
+      assertEquals(73.0694, afterReload.getDouble("longitude"), 0.00001);
+      assertEquals(now, afterReload.getString("capturedAt"));
+      assertEquals("Business event time must remain distinct from the GPS fix time", eventAt, afterReload.getString("eventAt"));
+      assertEquals(cases[i][1], afterReload.getString("eventType"));
+      assertEquals(cases[i][0], afterReload.getString("entityType"));
+    }
+  }
+
   @Test public void nativeTripBoundarySnapshotPersistsOfflineAndIsIdempotent() throws Exception {
     String shiftId = "offline-gps-shift-" + System.currentTimeMillis();
     String tripId = "offline-gps-trip-" + System.currentTimeMillis();
@@ -989,7 +1091,21 @@ public class KfeOverlaySmokeTest {
     android.view.WindowManager.LayoutParams params = (android.view.WindowManager.LayoutParams) fieldValue(service, "params");
     android.view.View root = (android.view.View) fieldValue(service, "overlayRoot");
     assertNotNull("Bubble must keep its WindowManager root attached", root);
-    assertTrue("Bubble root must remain attached to the Android window", root.isAttachedToWindow());
+    // ACTION_MINIMIZE is delivered through the service main thread. Wait for
+    // the WindowManager attachment state to settle instead of racing that UI
+    // transition from the instrumentation thread; still fail if it never attaches.
+    long attachedDeadline = SystemClock.uptimeMillis() + 1500L;
+    while (SystemClock.uptimeMillis() < attachedDeadline) {
+      final boolean[] attached = {false};
+      InstrumentationRegistry.getInstrumentation().runOnMainSync(() ->
+        attached[0] = root.isAttachedToWindow());
+      if (attached[0]) break;
+      SystemClock.sleep(25L);
+    }
+    final boolean[] rootAttached = {false};
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(() ->
+      rootAttached[0] = root.isAttachedToWindow());
+    assertTrue("Bubble root must remain attached to the Android window", rootAttached[0]);
     assertEquals("Bubble width must use the compact bubble size", bubblePx, params.width);
     assertEquals("Bubble height must use the compact bubble size", bubblePx, params.height);
 

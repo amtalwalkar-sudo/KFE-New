@@ -986,6 +986,17 @@ public class KfeOverlayService extends Service {
         if(!trip.has("tripEndAt")||trip.isNull("tripEndAt")||trip.optString("tripEndAt","").isEmpty())trip.put("tripEndAt",eventTimestamp);
       }
       trip.put("updatedAt",eventTimestamp);
+      // If the canonical write committed but its acknowledgement was lost, a retry
+      // may reconstruct the same lifecycle transition from the already-updated row.
+      // Recognize only the exact event timestamp + target stage/status as committed.
+      JSONObject latest=store.getRecord("TRIP",pendingTripId);
+      JSONObject latestTrip=latest.optJSONObject("record");
+      if(latest.optBoolean("found",false)&&latestTrip!=null
+          &&stage.equals(latestTrip.optString("tripStage",""))
+          &&("COMPLETED".equals(stage)?"COMPLETED":"ACTIVE").equals(latestTrip.optString("status",""))
+          &&eventTimestamp.equals(latestTrip.optString("updatedAt",""))){
+        return true;
+      }
       KfeCanonicalWorkStore.Outcome outcome=store.putRecord("native-trip-stage-"+eventId,"TRIP",trip);
       if(!outcome.accepted)throw new IllegalStateException("Canonical trip lifecycle stage was not acknowledged.");
       return true;

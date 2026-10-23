@@ -4,12 +4,14 @@ import { WorkService } from '../application/work/workService.js'
 import { TimelineService } from '../application/timeline/timelineService.js'
 import { FormDraftService } from '../application/forms/formDraftService.js'
 import { useFuelStore } from '../stores/fuel.js'
+import { EventLocationService } from '../application/location/eventLocationService.js'
 import { getKfeReferenceNow, istDateKey, istDayRange, istMonthRange, istParts } from '../domain/time/ist.js'
 
 const fuelStore = useFuelStore()
 const period = ref('day')
 const anchor = ref(getKfeReferenceNow())
 const data = ref(null)
+const locationLabels = ref({})
 const loading = ref(true)
 const error = ref('')
 const editing = ref(null)
@@ -82,10 +84,59 @@ const timestamp = value => {
 }
 const time = value => { const date = timestamp(value); return date ? date.toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit',timeZone:'Asia/Kolkata'}) : '—' }
 const dateTime = value => { const date = timestamp(value); return date ? date.toLocaleString('en-IN',{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit',timeZone:'Asia/Kolkata'}) : '—' }
-const route = trip => `${trip.tripStartLocation?.placeName || trip.tripStartLocation?.address || trip.tripStartLocation?.name || 'Pickup'} → ${trip.tripEndLocation?.placeName || trip.tripEndLocation?.address || trip.tripEndLocation?.name || 'Drop'}`
+const route = trip => `${trip.tripStartLocation?.placeName || locationLabels.value[`${trip.id}:start`] || 'Location pending'} → ${trip.tripEndLocation?.placeName || locationLabels.value[`${trip.id}:end`] || 'Location pending'}`
+const locationLabelFor = (entityType, entityId, eventType) => locationLabels.value[`${entityType}:${entityId}:${eventType}`] || ''
+const resolveTimelineLocationLabels = async summary => {
+  const next = { ...locationLabels.value }
+  const jobs = []
+  for (const event of summary?.events || []) {
+    const record = event.record || {}
+    if (event.type === 'TRIP') {
+      for (const [side, location] of [['start', record.tripStartLocation], ['end', record.tripEndLocation]]) {
+        if (location?.placeName) { next[`${record.id}:${side}`] = location.placeName; continue }
+        if (location?.latitude == null || location?.longitude == null) continue
+        jobs.push((async () => { const name = await EventLocationService.resolveLabel(location); if (name) { next[`${record.id}:${side}`] = name; await EventLocationService.persistTripBoundaryLabel(record.id, side === 'start' ? 'tripStartLocation' : 'tripEndLocation', name) } })())
+      }
+    } else if (event.type === 'FUEL') {
+      jobs.push((async () => {
+        const snapshots = await EventLocationService.forEntity('FUEL', record.id)
+        const snapshot = snapshots.find(item => item.eventType === 'FUEL_ENTRY')
+        if (!snapshot) return
+        const key = `FUEL:${record.id}:FUEL_ENTRY`
+        if (snapshot.placeName) { next[key] = snapshot.placeName; return }
+        const name = await EventLocationService.resolveLabel(snapshot)
+        if (name) { next[key] = name; await EventLocationService.persistLabel(snapshot.id, name) }
+      })())
+    }
+  }
+  for (const item of summary?.shifts || []) {
+    const shift = item.shift
+    if (!shift?.id) continue
+    jobs.push((async () => {
+      const snapshots = await EventLocationService.forEntity('SHIFT', shift.id)
+      for (const snapshot of snapshots) {
+        const key = `SHIFT:${shift.id}:${snapshot.eventType}`
+        if (snapshot.placeName) { next[key] = snapshot.placeName; continue }
+        const name = await EventLocationService.resolveLabel(snapshot)
+        if (name) { next[key] = name; await EventLocationService.persistLabel(snapshot.id, name) }
+      }
+    })())
+  }
+  await Promise.allSettled(jobs)
+  locationLabels.value = next
+}
+const shiftLocation = (shift, eventType) => shift?.id ? locationLabelFor('SHIFT', shift.id, eventType) || 'Location pending' : 'Location pending'
+const shiftBoundaryLocation = (summary, eventType) => {
+  const shifts = (summary?.shifts || []).map(item => item.shift).filter(shift => shift?.id)
+    .sort((a, b) => String(a.shiftStartAt || '').localeCompare(String(b.shiftStartAt || '')))
+  const shift = eventType === 'SHIFT_START'
+    ? shifts[0]
+    : [...shifts].reverse().find(item => item.shiftEndAt)
+  return shift ? locationLabelFor('SHIFT', shift.id, eventType) : ''
+}
 const duration = trip => { const start = timestamp(trip?.tripStartAt); const end = timestamp(trip?.tripEndAt); if (!start || !end) return '—'; const n = end.getTime() - start.getTime(); return Number.isFinite(n) && n >= 0 ? `${Math.round(n/60000)} min` : '—' }
 const shiftLabel = summary => { const starts=(summary?.shifts||[]).map(x=>x.shift.shiftStartAt).filter(Boolean).sort(); const ends=(summary?.shifts||[]).map(x=>x.shift.shiftEndAt).filter(Boolean).sort(); return starts.length ? `${time(starts[0])} → ${ends.length===starts.length ? time(ends[ends.length-1]) : 'Active'}` : '—' }
-const load = async () => { loading.value=true; error.value=''; try { if(period.value==='day') data.value=await TimelineService.getDay(anchor.value); else if(period.value==='personal') data.value=await TimelineService.getPersonal(range.value); else if(period.value==='week') data.value=await TimelineService.getWeek(range.value); else data.value=await TimelineService.getMonth(range.value) } catch(e) { error.value=e?.message||'Unable to load timeline.'; data.value=null } finally { loading.value=false } }
+const load = async () => { loading.value=true; error.value=''; try { if(period.value==='day') data.value=await TimelineService.getDay(anchor.value); else if(period.value==='personal') data.value=await TimelineService.getPersonal(range.value); else if(period.value==='week') data.value=await TimelineService.getWeek(range.value); else data.value=await TimelineService.getMonth(range.value); void resolveTimelineLocationLabels(data.value).catch(() => {}) } catch(e) { error.value=e?.message||'Unable to load timeline.'; data.value=null } finally { loading.value=false } }
 const move = amount => { const d=dayAtNoon(anchor.value); if(period.value==='month') d.setUTCMonth(d.getUTCMonth()+amount); else if(period.value==='week') d.setUTCDate(d.getUTCDate()+amount*7); else d.setUTCDate(d.getUTCDate()+amount); anchor.value=d; void load() }
 const choosePeriod = next => { period.value=next; void load() }
 const today = () => { anchor.value=getKfeReferenceNow(); period.value='day'; void load() }
@@ -128,11 +179,21 @@ onMounted(load)
     <p v-if="loading" class="state">Loading timeline…</p><p v-else-if="error" class="state error">{{error}}</p>
 
     <template v-else-if="period==='day' && data">
-      <section class="day-snapshot"><div><span>Shift</span><strong>{{shiftLabel(data)}}</strong></div><div><span>Authoritative Revenue</span><strong>{{money(data.authoritativeRevenue)}}</strong></div><div><span>Target</span><strong>{{money(data.target?.target)}}</strong></div><div><span>Rides</span><strong>{{data.rides}}</strong></div><div><span>Fuel</span><strong>{{kg(data.fuelQuantityKg)}} / {{money(data.fuelCost)}}</strong></div><div><span>Toll</span><strong>{{money(data.toll)}}</strong></div><div><span>Parking</span><strong>{{money(data.parking)}}</strong></div></section>
+      <section class="day-snapshot"><div><span>Shift</span><strong>{{shiftLabel(data)}}</strong><small v-if="shiftBoundaryLocation(data, 'SHIFT_START')">Start · {{shiftBoundaryLocation(data, 'SHIFT_START')}}</small><small v-if="shiftBoundaryLocation(data, 'SHIFT_END')">End · {{shiftBoundaryLocation(data, 'SHIFT_END')}}</small></div><div><span>Authoritative Revenue</span><strong>{{money(data.authoritativeRevenue)}}</strong></div><div><span>Target</span><strong>{{money(data.target?.target)}}</strong></div><div><span>Rides</span><strong>{{data.rides}}</strong></div><div><span>Fuel</span><strong>{{kg(data.fuelQuantityKg)}} / {{money(data.fuelCost)}}</strong></div><div><span>Toll</span><strong>{{money(data.toll)}}</strong></div><div><span>Parking</span><strong>{{money(data.parking)}}</strong></div></section>
+      <section v-if="data.shifts?.length" class="shift-location-list" aria-label="Shift start and end locations">
+        <article v-for="item in data.shifts" :key="`shift-location-${item.shift.id}`" class="event shift-location">
+          <time>{{dateTime(item.shift.shiftStartAt)}}</time>
+          <div>
+            <div class="top"><strong>Shift locations</strong><small>{{item.shift.shiftEndAt ? 'Completed' : 'Active'}}</small></div>
+            <small>Start · {{shiftLocation(item.shift, 'SHIFT_START')}}</small>
+            <small>End · {{item.shift.shiftEndAt ? shiftLocation(item.shift, 'SHIFT_END') : 'Not ended'}}</small>
+          </div>
+        </article>
+      </section>
       <div v-if="!data.events.length" class="state">No ride or fuel events recorded for this day.</div>
       <div v-for="event in data.events" :key="`${event.type}-${event.id}`">
         <article v-if="event.type==='TRIP'" class="event" :class="{ 'event--cancelled': event.record.status==='CANCELLED' }"><time>{{time(event.record.tripStartAt)}}</time><div><div class="top"><strong>{{event.record.operator}}</strong><small>{{event.record.status==='CANCELLED' ? 'Cancelled' : '✓ Completed'}}</small></div><div class="route">{{route(event.record)}}</div><div class="meta">{{event.record.status==='CANCELLED' ? (event.record.cancelledRevenue==null||event.record.cancelledRevenue===''?'Cancellation fee —':'Cancellation fee '+money(event.record.cancelledRevenue)) : (event.record.revenue==null||event.record.revenue===''?'Fare —':money(event.record.revenue))}} · {{km(event.record.tripKm)}} · {{duration(event.record)}}</div><small v-if="event.record.status==='CANCELLED' && event.record.cancelReason" class="cancelled-reason">{{event.record.cancelReason}}</small></div><button class="edit" @click="openEdit(event.record)" aria-label="Edit trip">✎</button></article>
-        <article v-else class="event fuel"><time>{{time(event.record.capturedAt||event.record.createdAt)}}</time><div><div class="top"><strong>⛽ CNG Refuelling</strong><small>{{event.record.isFullTank!==false?'Full tank':'Partial fill'}}</small></div><div class="meta">{{kg(event.record.quantityKg)}} · {{money(event.record.amount)}} · ₹{{Number(event.record.pricePerKg).toFixed(2)}}/kg</div></div><div class="actions"><button class="edit" @click="openFuelEdit(event.record)" aria-label="Edit fuel entry">✎</button><button class="delete" @click="deleteFuel(event.record)" aria-label="Delete fuel entry">⌫</button></div></article>
+        <article v-else class="event fuel"><time>{{time(event.record.capturedAt||event.record.createdAt)}}</time><div><div class="top"><strong>⛽ CNG Refuelling</strong><small>{{event.record.isFullTank!==false?'Full tank':'Partial fill'}}</small></div><div class="meta">{{kg(event.record.quantityKg)}} · {{money(event.record.amount)}} · ₹{{Number(event.record.pricePerKg).toFixed(2)}}/kg</div><small v-if="locationLabelFor('FUEL', event.record.id, 'FUEL_ENTRY')">{{locationLabelFor('FUEL', event.record.id, 'FUEL_ENTRY')}}</small><small v-else class="location-pending">Location pending</small></div><div class="actions"><button class="edit" @click="openFuelEdit(event.record)" aria-label="Edit fuel entry">✎</button><button class="delete" @click="deleteFuel(event.record)" aria-label="Delete fuel entry">⌫</button></div></article>
       </div>
     </template>
 
