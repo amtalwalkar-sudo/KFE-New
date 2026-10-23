@@ -119,5 +119,5 @@ export const ActivityTimelineService = Object.freeze({
     }
   },
   // Exported pure helpers make edge-case behavior directly contract-testable.
-  pickupDurationMs, rideDurationMs, eligibleRevenue, validFullTankIntervals,
+  pickupDurationMs, rideDurationMs, eligibleRevenue, validFullTankIntervals, isWithinPeriod,
 })
