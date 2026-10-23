@@ -24,6 +24,8 @@ const skippedFare={...completed,id:'skipped',fareDetailsSkipped:true,revenue:999
 assert.equal(eligibleRevenue(skippedFare),0,'skipped fare remains zero for reporting')
 assert.equal(pickupDurationMs({...completed,tripStartAt:null}),null,'missing pickup arrival time is not estimated')
 assert.equal(rideDurationMs({...completed,tripEndAt:null}),null,'missing end timestamp is not estimated')
+assert.equal(pickupDurationMs({...completed,tripStartAt:iso('2026-10-23T02:59:00Z')}),null,'negative pickup intervals are rejected')
+assert.equal(rideDurationMs({...completed,tripEndAt:iso('2026-10-23T03:19:00Z')}),null,'negative ride intervals are rejected')
 assert.equal(eligibleRevenue({...cancelledBeforePickup,cancelledRevenue:''}),0,'blank cancellation fee remains zero')
 
 const logs=[
