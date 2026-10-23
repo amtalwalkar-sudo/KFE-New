@@ -14,19 +14,19 @@ const workService = fs.readFileSync('src/application/work/workService.js', 'utf8
 
 assert.match(timeline, /void loadLabels\(data\.value\.trips\)/,
   'ride locality enrichment must run asynchronously after persisted Timeline data is loaded')
-assert.match(timeline, /EventLocationService\\.forEntity\\('TRIP',\\s*trip\\.id\)/,
+assert.match(timeline, /EventLocationService\.forEntity\('TRIP',\s*trip\.id\)/,
   'Timeline must read persisted trip-boundary event snapshots')
 assert.match(timeline, /EventLocationService\.resolveLabel\(pickup\)/,
   'pickup-origin locality should be resolved through the application service')
 assert.match(timeline, /tripStartLocation/,'ride cards must read the persisted trip-start boundary')
 assert.match(timeline, /tripEndLocation/,'ride cards must read the persisted trip-end boundary')
-assert.match(timeline, /EventLocationService\\.persistTripBoundaryLabel\\(trip\\.id,\\s*field,\\s*name\\)/,
+assert.match(timeline, /EventLocationService\.persistTripBoundaryLabel\(trip\.id,\s*field,\s*name\)/,
   'resolved trip locality labels must be persisted beyond component state')
 assert.match(timeline, /void loadFuelLabels\(data\.value\.fuel\)/,
   'fuel locality enrichment must not block Timeline rendering')
-assert.match(timeline, /EventLocationService\\.forEntity\\('FUEL',\\s*row\\.id\)/,
+assert.match(timeline, /EventLocationService\.forEntity\('FUEL',\s*row\.id\)/,
   'fuel Timeline must read the saved fuel-entry location snapshot')
-assert.match(timeline, /EventLocationService\\.persistLabel\\(snapshot\\.id,\\s*name\\)/,
+assert.match(timeline, /EventLocationService\.persistLabel\(snapshot\.id,\s*name\)/,
   'resolved fuel locality labels must be persisted for future Timeline reads')
 assert.match(workService, /captureAndPersistTripBoundary\(result\.id, 'tripStartLocation'\)/,
   'starting the passenger ride must trigger a one-shot start GPS snapshot')
