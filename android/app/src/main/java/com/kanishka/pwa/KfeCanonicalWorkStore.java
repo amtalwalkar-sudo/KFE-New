@@ -148,7 +148,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
             // same-version shift snapshot, accept it only when every non-version,
             // non-projection field is identical. Keep native revenue and advance
             // the version; unrelated same-version payload conflicts still fail closed.
-            boolean activeShiftProjectionCollision = versionOrder == 0
+            boolean activeShiftProjectionCollision = versionOrder <= 0
                 && "SHIFT".equals(entityType)
                 && "ACTIVE".equals(existingRecord.optString("status", ""))
                 && "ACTIVE".equals(record.optString("status", ""))
