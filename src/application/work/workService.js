@@ -74,14 +74,9 @@ const mirrorCanonicalTripById = async id => {
   if (record) await mirrorCanonicalRecord('TRIP', record)
   return record || null
 }
-const mirrorCanonicalShiftByTripId = async id => {
-  const trip = await mirrorCanonicalTripById(id)
-  if (trip?.shiftId && nativeCanonicalAvailable()) {
-    const shift = (await ShiftTripRepository.getAllShifts()).find(item => item.id === trip.shiftId)
-    if (shift) await mirrorCanonicalRecord('SHIFT', shift)
-  }
-  return trip
-}
+// Native putRecord now updates the shift's derived revenue projection atomically
+// with each canonical trip mirror. Do not send a second full SHIFT snapshot here:
+// it can race that projection and collide on updatedAt.
 
 let canonicalReadAttempt = null
 const reconcileCanonicalReads = () => {
@@ -198,13 +193,13 @@ export const WorkService = Object.freeze({
     return result
   },
   async completeTrip(data) {
-    const result = await ShiftTripRepository.completeTrip({ ...data }); await mirrorCanonicalShiftByTripId(data?.id); checkpoint()
+    const result = await ShiftTripRepository.completeTrip({ ...data }); await mirrorCanonicalTripById(data?.id); checkpoint()
     captureAndPersistTripBoundary(data?.id, 'tripEndLocation')
     return result
   },
   async cancelTrip(data) {
     const result = await ShiftTripRepository.cancelTrip(data)
-    await mirrorCanonicalShiftByTripId(data?.id)
+    await mirrorCanonicalTripById(data?.id)
     checkpoint()
     captureAndPersistTripBoundary(data?.id, 'tripEndLocation')
     return result
@@ -212,7 +207,7 @@ export const WorkService = Object.freeze({
   async updateTrip(data) {
     const validation = validateTripCorrection(data)
     if (!validation.valid) return { ok: false, reason: validation.reason }
-    const result = await ShiftTripRepository.updateTrip({ ...data, ...validation }); await mirrorCanonicalShiftByTripId(data?.id); checkpoint(); return result
+    const result = await ShiftTripRepository.updateTrip({ ...data, ...validation }); await mirrorCanonicalTripById(data?.id); checkpoint(); return result
   },
   async updateFuel(data) { const result = await FuelRepository.update(data.id, data); checkpoint(); return { ok: true, record: result } },
   async deleteFuel(id) { const result = await FuelRepository.remove(id); checkpoint(); return { ok: result } },
