@@ -23,7 +23,7 @@ const ensureFirstRunComplete = async page => {
   try { await setup.waitFor({ state: 'visible', timeout: 3000 }) } catch (_) { return }
   const end = Date.now() + 30000
   while (Date.now() < end) {
-    if (await page.locator('.work-canonical,.kfe-blank-workspace,.kfe-settings-page').count()) return
+    if (await page.locator('.work-canonical,.activity-timeline,.kfe-blank-workspace,.kfe-settings-page').count()) return
     const skip = page.getByRole('button', { name: /Skip — I'll fill this later/ })
     if (await skip.count()) { await skip.click(); await page.waitForTimeout(150); continue }
     await page.waitForTimeout(150)
@@ -37,8 +37,8 @@ try {
   browser = await chromium.launch({ headless: true })
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, geolocation: { latitude: 19.076, longitude: 72.8777, accuracy: 20 }, permissions: ['geolocation'] })
 
-  // Work remains the operational surface; Timeline and Performance intentionally
-  // remain blank, and Admin exposes only the canonical Settings workspace.
+  // Work remains the operational surface; Timeline reads persisted ride/fuel activity,
+  // Performance remains intentionally blank, and Admin exposes canonical Settings.
   await route(page, '', '.work-canonical', 'Work')
   await wait(async () => (await page.locator('body').innerText()).includes('START SHIFT'), 'Work ready')
   if (await page.locator('.kfe-runtime-error').count()) throw new Error('Work runtime error')
@@ -46,9 +46,10 @@ try {
   if (!workText.includes('KFE WORK') || !workText.includes('START SHIFT')) throw new Error('Work UI missing required operational controls')
   if (await page.locator('html').evaluate(el => el.scrollWidth > window.innerWidth + 1)) throw new Error('Work has horizontal viewport overflow')
 
-  await route(page, 'timeline', '.kfe-blank-workspace', 'Timeline')
-  if (await page.locator('.timeline').count() !== 0) throw new Error('Timeline unexpectedly mounted the retired presentation')
-  if (await page.locator('.kfe-blank-workspace').count() !== 1) throw new Error('Timeline blank workspace must be unique')
+  await route(page, 'timeline', '.activity-timeline', 'Timeline')
+  await page.locator('.activity-timeline').waitFor({ state: 'visible' })
+  if (await page.locator('.kfe-blank-workspace').count() !== 0) throw new Error('Timeline rendered the retired blank workspace')
+  if (!(await page.locator('.activity-timeline h1').innerText()).includes('Timeline')) throw new Error('Timeline heading is missing')
 
   await route(page, 'performance', '.kfe-blank-workspace', 'Performance')
   if (await page.locator('.performance-page').count() !== 0) throw new Error('Performance unexpectedly mounted the retired presentation')
@@ -60,16 +61,16 @@ try {
   if (await page.locator('.admin-page').count() !== 0) throw new Error('Admin unexpectedly mounted the retired admin presentation')
   if (await page.locator('html').evaluate(el => el.scrollWidth > window.innerWidth + 1)) throw new Error('Admin has horizontal viewport overflow')
 
-  // Confirm direct-route navigation also preserves the frozen workspace surfaces.
+  // Confirm navigation opens the persisted Timeline and keeps Performance intentionally blank.
   await page.getByRole('link', { name: 'Timeline', exact: true }).click()
-  await page.locator('.kfe-blank-workspace').waitFor({ state: 'visible' })
-  if (await page.locator('.timeline').count() !== 0) throw new Error('Timeline navigation mounted retired presentation')
+  await page.locator('.activity-timeline').waitFor({ state: 'visible' })
+  if (await page.locator('.kfe-blank-workspace').count() !== 0) throw new Error('Timeline navigation rendered the retired blank workspace')
   await page.getByRole('link', { name: 'Performance', exact: true }).click()
   await page.locator('.kfe-blank-workspace').waitFor({ state: 'visible' })
   if (await page.locator('.performance-page').count() !== 0) throw new Error('Performance navigation mounted retired presentation')
 
   console.log('Calculation matrix rendered UI smoke: PASS')
-  console.log(JSON.stringify({ assertions: 14, routes: ['work', 'timeline', 'performance', 'admin'], performanceAndTimeline: 'intentionally blank', admin: 'canonical Settings only' }))
+  console.log(JSON.stringify({ assertions: 14, routes: ['work', 'timeline', 'performance', 'admin'], timeline: 'persisted read-only activity', performance: 'intentionally blank', admin: 'canonical Settings only' }))
 } finally {
   await browser?.close()
   if (preview?.pid) { try { process.kill(-preview.pid, 'SIGTERM') } catch (_) {} }
