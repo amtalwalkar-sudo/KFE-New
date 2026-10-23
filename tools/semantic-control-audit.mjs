@@ -379,10 +379,14 @@ try {
   }
 
   await page.goto(new URL('timeline', base).href, { waitUntil: 'domcontentloaded' })
-  await page.locator('.kfe-blank-workspace-surface').waitFor({ state: 'attached' })
-  assert(await page.locator('.kfe-blank-workspace').isVisible(), 'Timeline blank workspace is not visible')
-  assert(await page.locator('.timeline, .period, .slider').count() === 0, 'Timeline unexpectedly rendered retired data/period controls')
-  evidence.push({ id: 'TIMELINE.INTENTIONALLY_BLANK', result: 'PASS', expected: 'blank workspace with no retired timeline controls' })
+  const timeline = page.locator('.activity-timeline')
+  await timeline.waitFor({ state: 'visible', timeout: 30000 })
+  assert(await page.locator('.kfe-blank-workspace').count() === 0, 'Timeline must not render the retired blank workspace')
+  assert(await timeline.getByRole('heading', { name: 'Timeline', exact: true }).count() === 1, 'Activity Timeline heading is missing')
+  assert(await timeline.getByRole('tab', { name: /Rides/i }).count() === 1, 'Timeline Rides tab is missing')
+  assert(await timeline.getByRole('tab', { name: /Fuel/i }).count() === 1, 'Timeline Fuel tab is missing')
+  assert(await timeline.getByText(/Today|Week|Month|All/i).count() > 0, 'Timeline period filters are missing')
+  evidence.push({ id: 'TIMELINE.PERSISTED_ACTIVITY_VIEW', result: 'PASS', expected: 'read-only activity view with ride/fuel tabs and period filters' })
 
   await page.goto(new URL('performance', base).href, { waitUntil: 'domcontentloaded' })
   await page.locator('.kfe-blank-workspace-surface').waitFor({ state: 'attached' })
