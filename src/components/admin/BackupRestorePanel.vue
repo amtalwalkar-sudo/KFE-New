@@ -11,7 +11,23 @@ const setCloudEnabled=event=>{cloudConfig.value={...cloudConfig.value,enabled:ev
 const setCloudToken=event=>{cloudConfig.value={...cloudConfig.value,accessToken:event.target.value}}
 const pendingRestore = ref(null); const loading = ref(false); const error = ref(''); const notice = ref(''); const cloudNeedsReauth = ref(false)
 const refresh = async () => { error.value=''; try { const local=await BackupService.getLocalBackup(); status.value=local?{savedAt:local.savedAt,...BackupService.getBackupSummary(local.backup)}:null; cloudConfig.value=await BackupConfig.getBackupConfiguration() } catch(e){error.value=e.message||'Unable to read backup status.'} }
-const create=async()=>{loading.value=true;error.value='';notice.value='';try{const backup=await BackupService.createBackup();await BackupService.saveLocalBackup(backup);downloadBackupText(BackupService.serializeBackup(backup),`kfe-backup-${backup.exportedAt.replace(/[:.]/g, '-')}.json`);notice.value=`Backup created: ${BackupService.getBackupSummary(backup).totalRecords} records.`;await refresh()}catch(e){error.value=e.message||'Backup creation failed.'}finally{loading.value=false}}
+const withTimeout = (promise, milliseconds, message) => new Promise((resolve, reject) => {
+  const timer = setTimeout(() => reject(new Error(message)), milliseconds)
+  Promise.resolve(promise).then(value => { clearTimeout(timer); resolve(value) }, failure => { clearTimeout(timer); reject(failure) })
+})
+const create=async()=>{
+  loading.value=true;error.value='';notice.value=''
+  try {
+    const backup=await withTimeout(BackupService.createBackup(),15000,'Backup is taking too long while reading KFE records. Please retry; no export was confirmed.')
+    await withTimeout(BackupService.saveLocalBackup(backup),10000,'The recovery copy could not be saved in time. Check device storage and retry.')
+    const serialized=BackupService.serializeBackup(backup)
+    await withTimeout(downloadBackupText(serialized,`kfe-backup-${backup.exportedAt.replace(/[:.]/g, '-')}.json`),60000,'The file save did not finish. Choose a destination and confirm the save, then retry.')
+    notice.value=`Backup created: ${BackupService.getBackupSummary(backup).totalRecords} records. JSON export requested successfully.`
+    await refresh()
+  } catch(e) {
+    error.value=e.message||'Backup creation failed. No downloadable file was confirmed.'
+  } finally { loading.value=false }
+}
 const chooseRestoreFile=()=>fileInput.value?.click()
 const onFile=async event=>{const file=event.target.files?.[0];event.target.value='';if(!file)return;error.value='';notice.value='';try{const backup=BackupService.readBackupText(await readBackupFileText(file));pendingRestore.value={backup,summary:BackupService.getBackupSummary(backup),name:file.name}}catch(e){pendingRestore.value=null;error.value=e.message||'Backup file validation failed.'}}
 const confirmRestore=async()=>{if(!pendingRestore.value)return;if(!confirm(`Restore ${pendingRestore.value.summary.totalRecords} records from ${pendingRestore.value.name}? This replaces the current KFE dataset.`))return;loading.value=true;error.value='';notice.value='';try{const summary=await BackupService.restoreBackup(pendingRestore.value.backup);pendingRestore.value=null;notice.value=`Restore completed: ${summary.totalRecords} records restored.`;await refresh()}catch(e){error.value=e.message||'Restore failed. The canonical transaction was rolled back if persistence failed.'}finally{loading.value=false}}
