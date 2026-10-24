@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 
 const service = fs.readFileSync(new URL('../application/work/workService.js', import.meta.url), 'utf8')
+const store = fs.readFileSync(new URL('../../android/app/src/main/java/com/kanishka/pwa/KfeCanonicalWorkStore.java', import.meta.url), 'utf8')
+const plugin = fs.readFileSync(new URL('../../android/app/src/main/java/com/kanishka/pwa/KfeCanonicalWorkPlugin.java', import.meta.url), 'utf8')
 const commit = service.slice(service.indexOf('const commitNativeFirst'), service.indexOf('const findNativeRecord'))
 assert.ok(commit.indexOf('await CanonicalWorkBoundary.putRecord') < commit.indexOf('await ShiftTripRepository.syncCanonicalRecords'), 'native acknowledgement must precede IndexedDB refresh')
 assert.ok(commit.includes('result?.accepted !== true || !result?.outcome?.record'), 'unacknowledged native commits must fail closed')
