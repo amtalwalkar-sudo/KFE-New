@@ -44,8 +44,8 @@ assert.ok(service.includes("return await commitPreparedCreateIntent('TRIP', reco
 
 assert.ok(store.includes('"entity_type=? AND intent_key=?"'), 'intent lookup must include completed intents, not only pending intents')
 assert.ok(service.includes("if (intent.status !== 'COMPLETED')"), 'retry after intent completion must reuse the completed intent instead of creating again')
-assert.ok(svc.includes('operationId: intent.operationId, entityType, record: intent.record, expectAbsent: true'), 'crash recovery must replay the exact persisted operation and record')
-assert.ok(svc.includes('Completed intents are retained as idempotency keys'), 'completed intent retention must protect lost final acknowledgements')
+assert.ok(service.includes('operationId: intent.operationId, entityType, record: intent.record, expectAbsent: true'), 'crash recovery must replay the exact persisted operation and record')
+assert.ok(service.includes('Completed intents are retained as idempotency keys'), 'completed intent retention must protect lost final acknowledgements')
 
 assert.ok(service.includes('data?.createIntentKey || data?.idempotencyKey'), 'create intent must use a durable caller-owned submission token')
 assert.ok(shiftTrip.includes('createIntentKey = \'\'') && shiftTrip.includes('createIntentKey: createIntentKey'), 'shift and trip stores must pass create intent tokens into WorkService')
