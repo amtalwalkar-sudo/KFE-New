@@ -9,6 +9,14 @@ const requireText = (value, name) => {
 
 /** Shared application boundary for native canonical writes and browser canonical records. */
 export const CanonicalWorkBoundary = Object.freeze({
+  async prepareCreateIntent(input) {
+    if (!WorkRuntimePorts.canonicalWork.isAvailable()) throw new Error('Durable create intents require native canonical storage.')
+    return WorkRuntimePorts.canonicalWork.prepareCreateIntent(input)
+  },
+  async completeCreateIntent(intentId) {
+    if (!WorkRuntimePorts.canonicalWork.isAvailable()) throw new Error('Durable create intents require native canonical storage.')
+    return WorkRuntimePorts.canonicalWork.completeCreateIntent(intentId)
+  },
   async putRecord(input) {
     const normalized = {
       operationId: requireText(input?.operationId, 'operationId'),

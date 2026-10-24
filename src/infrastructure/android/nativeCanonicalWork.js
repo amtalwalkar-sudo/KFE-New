@@ -7,6 +7,20 @@ const requireNative = () => {
 }
 
 export const NativeCanonicalWorkService = Object.freeze({
+  async prepareCreateIntent({ entityType, intentKey, record } = {}) {
+    requireNative()
+    if (!entityType || !intentKey || !record?.id) throw new Error('entityType, intentKey and record.id are required.')
+    const intent = await NativeCanonicalWork.prepareCreateIntent({ entityType, intentKey, record })
+    if (!intent?.intentId || !intent?.operationId || !intent?.record?.id) throw new Error('Native create intent was not durably acknowledged.')
+    return intent
+  },
+  async completeCreateIntent(intentId) {
+    requireNative()
+    if (!intentId) throw new Error('intentId is required.')
+    const result = await NativeCanonicalWork.completeCreateIntent({ intentId })
+    if (result?.completed !== true) throw new Error('Native create intent completion was not acknowledged.')
+    return result
+  },
   async putRecord({ operationId, entityType, record, expectedUpdatedAt = null, expectAbsent = false } = {}) {
     requireNative()
     if (!operationId || !entityType || !record?.id) throw new Error('operationId, entityType and record.id are required.')
