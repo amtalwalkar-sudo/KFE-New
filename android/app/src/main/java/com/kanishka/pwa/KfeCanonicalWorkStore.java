@@ -79,13 +79,17 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     try {
       try (Cursor cursor = db.query("canonical_create_intents",
           new String[]{"intent_id", "operation_id", "record_json"},
-          "entity_type=? AND intent_key=? AND status='PENDING'",
+          "entity_type=? AND intent_key=?",
           new String[]{entityType, intentKey}, null, null, "created_at ASC", "1")) {
         if (cursor.moveToFirst()) {
           JSONObject existing = new JSONObject();
           existing.put("intentId", cursor.getString(0));
           existing.put("operationId", cursor.getString(1));
           existing.put("record", new JSONObject(cursor.getString(2)));
+          try (Cursor state = db.query("canonical_create_intents", new String[]{"status"},
+              "intent_id=?", new String[]{cursor.getString(0)}, null, null, null, "1")) {
+            if (state.moveToFirst()) existing.put("status", state.getString(0));
+          }
           existing.put("reused", true);
           db.setTransactionSuccessful();
           return existing;

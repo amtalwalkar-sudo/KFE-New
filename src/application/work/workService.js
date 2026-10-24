@@ -128,12 +128,17 @@ const commitPreparedCreateIntent = async (entityType, proposedRecord, data) => {
   const intent = await CanonicalWorkBoundary.prepareCreateIntent({
     entityType, intentKey: stableCreateIntentKey(entityType, data), record: proposedRecord,
   })
-  const result = await CanonicalWorkBoundary.putRecord({
-    operationId: intent.operationId, entityType, record: intent.record, expectAbsent: true,
-  })
-  if (result?.accepted !== true || !result?.outcome?.record) throw new Error(`Native canonical ${entityType} create was not acknowledged.`)
-  // A process death before this point leaves a PENDING SQLite intent; retry reuses its id and operation.
-  await CanonicalWorkBoundary.completeCreateIntent(intent.intentId)
+  if (intent.status !== 'COMPLETED') {
+    const result = await CanonicalWorkBoundary.putRecord({
+      operationId: intent.operationId, entityType, record: intent.record, expectAbsent: true,
+    })
+    if (result?.accepted !== true || !result?.outcome?.record) throw new Error(`Native canonical ${entityType} create was not acknowledged.`)
+    // If the process dies after record commit but before this marker, retry replays
+    // the same operation id and SQLite returns the existing outcome without a duplicate.
+    await CanonicalWorkBoundary.completeCreateIntent(intent.intentId)
+  }
+  // Completed intents are retained as idempotency keys so a lost final acknowledgement
+  // cannot turn a user retry into a second shift or trip.
   const snapshot = await readNativeWorkSnapshot()
   await ShiftTripRepository.syncCanonicalRecords(snapshot)
   return intent.record

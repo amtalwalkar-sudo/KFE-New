@@ -37,3 +37,8 @@ assert.ok(service.indexOf('CanonicalWorkBoundary.prepareCreateIntent') < service
 assert.ok(service.includes('await CanonicalWorkBoundary.completeCreateIntent(intent.intentId)'), 'intent completes only after native record acknowledgement')
 assert.ok(service.includes("return await commitPreparedCreateIntent('SHIFT', record, data)"), 'Start Shift must use crash-recoverable create intent')
 assert.ok(service.includes("return await commitPreparedCreateIntent('TRIP', record, tripData)"), 'Start Trip must use crash-recoverable create intent')
+
+assert.ok(store.includes('"entity_type=? AND intent_key=?"'), 'intent lookup must include completed intents, not only pending intents')
+assert.ok(svc.includes("if (intent.status !== 'COMPLETED')"), 'retry after intent completion must reuse the completed intent instead of creating again')
+assert.ok(svc.includes('operationId: intent.operationId, entityType, record: intent.record, expectAbsent: true'), 'crash recovery must replay the exact persisted operation and record')
+assert.ok(svc.includes('Completed intents are retained as idempotency keys'), 'completed intent retention must protect lost final acknowledgements')
