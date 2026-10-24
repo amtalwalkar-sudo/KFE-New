@@ -138,11 +138,10 @@ scenario('C1/C2/C3/C4/C5/D1/D2/E1/E2/E3/F1/F2/F4/F5', () => {
   assertSource('../android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java', 'START_RIDE', 'Overlay exposes canonical ride state')
 })
 
-// G5 — location-event UI contract: place-name layer must remain preferred where resolved.
+// G5 — location capture is covered by locationNameService and eventLocationCapture contracts.
 scenario('G5', () => {
   const workView = read('views/WorkModuleView.vue') + '\n' + read('components/work/WorkContextForm.vue')
   assert.ok(/place|location/i.test(workView), 'Driver-facing Work view must retain location presentation surface')
-  assertSource('views/TimelineView.vue', 'location', 'Timeline must retain location event presentation')
 })
 
 // J1/J2/J3/J5/J6/J7 — defensive boundaries.

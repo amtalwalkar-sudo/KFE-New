@@ -16,9 +16,6 @@ const adminForm = read('../components/admin/AdminSourceForm.vue')
 const definitions = read('../application/admin/adminFormDefinitions.js')
 const performanceRepo = read('../repositories/performanceRepository.js')
 const performance = read('../application/performance/performanceService.js')
-const timeline = read('../application/timeline/timelineService.js')
-const timelineView = read('../views/TimelineView.vue')
-const performanceView = read('../views/PerformanceView.vue')
 const reconciliation = read('../components/ShiftReconciliationModal.vue')
 const endShift = read('../application/work/endShift.js')
 
@@ -60,10 +57,6 @@ assertHas(performanceRepo, /'shifts', 'trips', 'fuel_logs', 'vehicles'/, 'Perfor
 assertHas(performanceRepo, /filter\(record => record\?\.settingKey === 'businessSetup'/, 'Business Setup snapshot must ignore deleted records')
 assertHas(performanceRepo, /sort\(\(a, b\) => String\(b\.updatedAt/, 'Business Setup snapshot must use the latest saved source record')
 assertHas(performance, /normalizeCalculationSnapshot\(snapshot\)/, 'Performance must normalize the canonical snapshot before calculation')
-assertHas(timeline, /ShiftTripRepository\.getAllShifts/, 'Timeline must read through its application repository/service boundary')
-assertHas(timelineView, /Authoritative Revenue/, 'Timeline must display authoritative revenue')
-assertHas(performanceView, /performanceHeadlineActualProfit/, 'Performance must display calculated actual P/L')
-assertHas(performanceView, /performanceHeadlineProvisionalProfit/, 'Performance must display calculated provisional P/L')
 
 assert.ok(work.includes("if (action === 'back-start') { startOpen.value = false; return }"), 'Start Shift back/cancel must not submit')
 assert.ok(work.includes("if (action === 'back-cancel') { cancelOpen.value = false; return }"), 'Cancellation back/cancel must not submit')
@@ -81,6 +74,6 @@ console.log('Form Integrity E2E Contract: PASS')
 console.log(JSON.stringify({
   chains: ['Work Start Shift','Trip Fare/Skip','Cancellation','Fuel','End Shift/Reconciliation','Admin Source Records'],
   persistence: 'canonical IndexedDB + mutation/audit coupling',
-  downstream: 'Performance snapshot -> calculation engine -> Timeline/Performance displays',
+  downstream: 'Canonical Performance snapshot -> calculation engine',
   status: 'source-level end-to-end wiring verified'
 }))

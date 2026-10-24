@@ -4,7 +4,6 @@ import fs from 'node:fs'
 const read = path => fs.readFileSync(new URL(path, import.meta.url), 'utf8')
 const adminForm = read('../components/admin/AdminSourceForm.vue')
 const adminView = read('../views/AdminView.vue')
-const timeline = read('../views/TimelineView.vue')
 const workView = read('../views/WorkModuleView.vue')
 const drafts = read('../repositories/formDraftRepository.js')
 
@@ -26,11 +25,7 @@ check('Admin draft clearing is tied to successful parent save', () => {
   assert.match(adminView, /clearCommittedDraft|clearFormDraft|confirmedDiscard/, 'Admin parent must clear a draft only after save success or confirmed discard')
   assert.match(adminView, /await\s+AdminService\.save/, 'Admin parent must await canonical save completion before clearing draft')
 })
-check('Timeline trip and fuel edits survive dismissal and restart', () => {
-  assert.match(timeline, /FormDraftService|WorkDraftService|FormDraftRepository/, 'Timeline editors must use the shared draft boundary')
-  assert.match(timeline, /watch\(|saveDraft|saveFormDraft/, 'Timeline editor changes must persist drafts')
-  assert.doesNotMatch(timeline, /@click\.self="editing=null"/, 'Backdrop must not silently discard an unfinished trip edit')
-})
+
 check('Work draft writes cannot race commit-time clearing', () => {
   assert.doesNotMatch(workView, /void saveDraft\(/, 'Draft writes must be serialized/awaitable, not fire-and-forget')
   assert.match(workView, /flushDraft|awaitDraftWrites|draftWriteQueue|serializeDraft/, 'Commit must wait for pending draft writes before clearing')

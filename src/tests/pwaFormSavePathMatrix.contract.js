@@ -16,8 +16,6 @@ const shiftStore = read('../stores/shiftTrip.js')
 const shiftRepo = read('../repositories/shiftTripRepository.js')
 const fuelService = read('../application/work/fuel.js')
 const fuelRepo = read('../repositories/fuelRepository.js')
-const timeline = read('../views/TimelineView.vue')
-const timelineService = read('../application/timeline/timelineService.js')
 const performanceRepo = read('../repositories/performanceRepository.js')
 const performanceService = read('../application/performance/performanceService.js')
 const calculations = read('../views/CalculationsView.vue')
@@ -29,7 +27,7 @@ const draftRepo = read('../repositories/formDraftRepository.js')
 const match = (source, pattern, message) => assert.match(source, pattern, message)
 
 // Router inventory: route-level PWA surfaces are the source of truth.
-for (const [path, view] of [['/', 'WorkModuleView'], ['/timeline', 'ActivityTimelineView'], ['/performance', 'BlankWorkspaceView'], ['/admin', 'AdminSettingsOnlyView']]) {
+for (const [path, view] of [['/', 'WorkModuleView'], ['/timeline', 'BlankWorkspaceView'], ['/performance', 'BlankWorkspaceView'], ['/admin', 'AdminSettingsOnlyView']]) {
   assert.match(router, new RegExp('path:\\s*[\'"]' + path.replace('/', '\\/') + '[\'"][^}]*component:\\s*' + view), 'Missing active route ' + path + ' -> ' + view)
 }
 assert.doesNotMatch(router, /VehicleModuleRole|MaintenanceModuleRole|LoanModuleRole|ComplianceModuleView|AuthoritativeRecordFormRole/, 'Legacy module forms must not silently become active routes')
@@ -61,13 +59,6 @@ match(fuelRepo, /objectStore\('fuel_logs'\)|objectStore\(\s*'fuel_logs'\s*\)/, '
 match(work, /await store\.endShift\(\{/, 'End Shift must use shift store')
 match(shiftRepo, /completeShift/, 'End Shift must persist through shift repository')
 assert.doesNotMatch(workForm, /Additional shift toll|Additional shift parking|Trip fares not entered|Shift review/, 'End Shift must not present revenue/toll/parking reconciliation.')
-
-// Timeline editors: both need stable record identity, queued drafts, and canonical update paths.
-match(timeline, /FormDraftService/, 'Timeline must use the shared IndexedDB draft service')
-match(timeline, /tripDraftIdentity\s*=\s*tripId/, 'Timeline trip draft must be tied to a trip identity')
-match(timeline, /fuelDraftIdentity\s*=\s*fuelId/, 'Timeline fuel draft must be tied to a fuel record identity')
-match(timeline, /TimelineService\./, 'Timeline must use the application service')
-match(timelineService, /ShiftTripRepository|FuelRepository/, 'Timeline service must reach canonical operational repositories')
 
 // Calculation consumers must read canonical snapshots instead of making UI-owned financial values authoritative.
 match(performanceRepo, /'shifts', 'trips', 'fuel_logs', 'vehicles'/, 'Performance snapshot must read canonical operating records')

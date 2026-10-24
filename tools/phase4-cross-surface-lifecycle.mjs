@@ -38,7 +38,7 @@ try {
     const { setActiveDataSource, openCanonicalDB } = await import('/src/utils/indexedDB.js')
     const { ShiftTripRepository } = await import('/src/repositories/shiftTripRepository.js')
     const { WorkService } = await import('/src/application/work/workService.js')
-    const { TimelineService } = await import('/src/application/timeline/timelineService.js')
+    const { OperationalRecordService } = await import('/src/application/timeline/operationalRecordService.js')
     const { PerformanceService } = await import('/src/application/performance/performanceService.js')
     const { AdminRepository } = await import('/src/repositories/adminRepository.js')
     const { istDayRange } = await import('/src/domain/time/ist.js')
@@ -53,7 +53,7 @@ try {
     const dayRange = istDayRange(today)
     assert(dayRange, 'Unable to construct the current IST day range.')
     // Keep the fixture safely inside the requested IST day. Using "now - 6h" can
-    // cross the IST day boundary on CI, causing TimelineService.getDay(today)
+    // cross the IST day boundary on CI, causing OperationalRecordService.reconstructShift(shiftId)
     // to exclude an otherwise correctly persisted completed shift.
     const start = new Date(dayRange.from.getTime() + 2 * 60 * 60 * 1000)
     const end = new Date(dayRange.from.getTime() + 6 * 60 * 60 * 1000)
@@ -88,8 +88,8 @@ try {
     assert(workWhileActive.shift?.id === shiftId, 'Work lost the active shift identity.')
     assert(workWhileActive.trip?.id === completedTripId, 'Work did not expose the active trip identity.')
 
-    const timelineWhileActive = await TimelineService.getDay(today)
-    assert(!timelineWhileActive.events.some(event => event.id === completedTripId), 'Timeline exposed an ACTIVE trip as a terminal event.')
+    const timelineWhileActive = await OperationalRecordService.reconstructShift(shiftId)
+    assert(!timelineWhileActive.completedTrips.some(trip => trip.id === completedTripId), 'Timeline exposed an ACTIVE trip as a terminal event.')
 
     await WorkService.completeTrip({
       id: completedTripId,
@@ -154,13 +154,13 @@ try {
     const workAfterShift = await WorkService.getActiveState()
     assert(!workAfterShift.shift && !workAfterShift.trip, 'Work still exposed a completed shift as active.')
 
-    const timeline = await TimelineService.getDay(today)
-    const completedEvent = timeline.events.find(event => event.id === completedTripId)
-    const cancelledEvent = timeline.events.find(event => event.id === cancelledTripId)
-    assert(completedEvent?.record.status === 'COMPLETED', 'Timeline status does not match completed repository state.')
-    assert(cancelledEvent?.record.status === 'CANCELLED', 'Timeline status does not match cancelled repository state.')
-    assert(timeline.rides === 1, 'Timeline counted a cancelled trip as a completed ride.')
-    assert(Number(timeline.authoritativeRevenue) === 1100, 'Timeline must expose completed fare plus cancellation fee after shift closure.')
+    const timeline = await OperationalRecordService.reconstructShift(shiftId)
+    const completedEvent = timeline.trips.find(trip => trip.id === completedTripId)
+    const cancelledEvent = timeline.trips.find(trip => trip.id === cancelledTripId)
+    assert(completedEvent?.status === 'COMPLETED', 'Timeline status does not match completed repository state.')
+    assert(cancelledEvent?.status === 'CANCELLED', 'Timeline status does not match cancelled repository state.')
+    assert(timeline.completedTrips.length === 1, 'Timeline counted a cancelled trip as a completed ride.')
+    assert(Number(timeline.revenue) === 1100, 'Timeline must expose completed fare plus cancellation fee after shift closure.')
     assert(Number(timeline.businessKm) === 80, 'Timeline business KM counted cancelled-trip KM.')
 
     const snapshot = await PerformanceService.getSnapshot()
@@ -189,22 +189,19 @@ try {
       shift: { id: persisted.shift.id, status: persisted.shift.status, startOdometer: persisted.shift.startOdometer, endOdometer: persisted.shift.endOdometer, revenue: persisted.shift.revenue },
       completedTrip: { id: persistedCompleted.id, status: persistedCompleted.status, tripKm: persistedCompleted.tripKm, revenue: persistedCompleted.revenue },
       cancelledTrip: { id: persistedCancelled.id, status: persistedCancelled.status, cancelledRevenue: persistedCancelled.cancelledRevenue },
-      timeline: { rides: timeline.rides, authoritativeRevenue: timeline.authoritativeRevenue, businessKm: timeline.businessKm },
+      operationalRecord: { completedTrips: timeline.completedTrips.length, revenue: timeline.revenue, businessKm: timeline.businessKm },
       performance: { revenue: metrics.revenue, vehicleKm: metrics.vehicleKm, businessKm: metrics.businessKm, trips: metrics.counts?.trips },
     }
   })
 
-  // Timeline now has a dedicated read-only presentation backed by persisted records.
-  // Verify the actual route mounts it; domain lifecycle assertions above remain canonical.
-  await page.goto(base + 'timeline', { waitUntil: 'domcontentloaded', timeout: 30000 })
-  const timelineWorkspace = page.locator('.activity-timeline')
-  await timelineWorkspace.waitFor({ state: 'visible', timeout: 30000 })
-  assert(await page.locator('.kfe-blank-workspace').count() === 0, 'Timeline route still renders the retired blank workspace.')
-
-  await page.goto(base + 'performance', { waitUntil: 'domcontentloaded', timeout: 30000 })
-  const performanceWorkspace = page.locator('.kfe-blank-workspace')
-  await performanceWorkspace.waitFor({ state: 'visible', timeout: 30000 })
-  assert(await page.locator('.performance-page').count() === 0, 'Performance unexpectedly mounted retired presentation during the blank-workspace phase.')
+  // Both destinations remain blank; the canonical lifecycle assertions above use shared services.
+  for (const path of ['timeline', 'performance']) {
+    await page.goto(base + path, { waitUntil: 'domcontentloaded', timeout: 30000 })
+    await page.locator('.kfe-blank-workspace').waitFor({ state: 'visible', timeout: 30000 })
+    assert(await page.locator('.activity-timeline, .performance-page').count() === 0, path + ' must not mount retired screen presentation.')
+    await page.locator('.bottom-nav').waitFor({ state: 'visible', timeout: 10000 })
+    for (const label of ['Timeline', 'Performance']) assert(await page.locator('.bottom-nav').getByText(label, { exact: true }).count(), 'Bottom navigation must retain ' + label)
+  }
 
   console.log('PASS Phase 4 Item 4 Cross-surface lifecycle:', JSON.stringify(evidence))
 } catch (error) {

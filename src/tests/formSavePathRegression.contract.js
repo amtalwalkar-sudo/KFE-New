@@ -15,7 +15,6 @@ const fuelModal = read('../components/CngFuelModal.vue')
 const fuelService = read('../application/work/fuel.js')
 const fuelRepo = read('../repositories/fuelRepository.js')
 const performanceService = read('../application/performance/performanceService.js')
-const timelineService = read('../application/timeline/timelineService.js')
 const universal = read('../presentation/forms/universalFormSystem.js')
 
 const adminKeys = [
@@ -53,7 +52,6 @@ assert.match(workView, /fuelPartial = computed/, 'Partial-fill state must be der
 
 // Saved source facts must feed the existing calculation/read-model consumers.
 assert.match(performanceService, /AdminRepository|PerformanceRepository|driverTarget|breakEvenInputs/, 'Performance must consume persisted source facts/read models')
-assert.match(timelineService, /PerformanceService|PerformanceRepository|ShiftTripRepository/, 'Timeline must consume canonical operational/read-model data')
 
 // Keyboard behavior is a shared form contract, not a cosmetic hint.
 assert.match(universal, /function handleEnter/, 'Shared form runtime must implement Enter/Next/Done navigation')

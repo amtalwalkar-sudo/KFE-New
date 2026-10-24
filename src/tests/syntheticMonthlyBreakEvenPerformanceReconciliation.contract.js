@@ -3,7 +3,6 @@ import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { PerformanceService } from '../application/performance/performanceService.js'
-import { getPerformanceOutlookDisplay } from '../application/performance/performancePresentation.js'
 import { istDayRange, istMonthRange } from '../domain/time/ist.js'
 
 // This is a deliberately fully specified synthetic vector, separate from the
@@ -139,23 +138,9 @@ for (let startDay = 1; startDay <= 31; startDay += 7) {
 assert.ok(Math.abs(weeklyActual - expected.actualProfitInr) < 0.02, 'weekly actual P/L rollups must reconcile to October')
 assert.ok(Math.abs(weeklyProvisional - expected.provisionalProfitInr) < 0.02, 'weekly provisional P/L rollups must reconcile to October')
 
-// The presentation adapter and the actual Vue bindings must expose the same
-// canonical numbers and currency formatting used by the Performance screen.
-const outlook = getPerformanceOutlookDisplay(metrics)
 const money = value => `₹${Math.round(Number(value)).toLocaleString('en-IN')}`
-assert.equal(outlook.breakEven, expected.monthlyBreakEvenInr)
-assert.equal(outlook.breakEvenStatus, 'AUTHORITATIVE')
-assert.equal(money(outlook.breakEven), '₹43,584')
 assert.equal(money(metrics.performanceHeadlineActualProfit), '₹-12,604')
 assert.equal(money(metrics.performanceHeadlineProvisionalProfit), '₹-25,024')
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const view = fs.readFileSync(path.join(root, 'src/views/PerformanceView.vue'), 'utf8')
-assert.match(view, /value:money\(breakEven\.value\)/, 'Performance break-even headline must render the presentation adapter value')
-assert.match(view, /\{\{ money\(breakEven\) \}\}/, 'Performance break-even focus card must render the same value')
-assert.match(view, /value:money\(actualProfit\.value\)/, 'Performance actual P/L detail must use canonical actual P/L')
-assert.match(view, /value:money\(indicativeProfit\.value\)/, 'Performance provisional P/L detail must use canonical provisional P/L')
-assert.match(view, /\{\{ money\(actualProfit\) \}\}/, 'Performance actual P/L card must render canonical actual P/L')
-assert.match(view, /\{\{ money\(indicativeProfit\) \}\}/, 'Performance provisional P/L card must render canonical provisional P/L')
 
 console.log('Fully specified synthetic EMI-inclusive break-even and Performance reconciliation: PASS')
