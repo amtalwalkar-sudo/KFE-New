@@ -43,6 +43,7 @@ public class KfeCreateIntentRecoveryTest {
         .put("updatedAt", "2026-10-24T12:00:05.000Z");
 
     // Simulate process death after journaling but before the canonical write.
+    store.close();
     JSONObject retryBeforeCommit = store.prepareCreateIntent("TRIP", intentKey, retryProposal);
     assertTrue("Retry before commit must reuse the pending intent.", retryBeforeCommit.getBoolean("reused"));
     assertEquals(first.getString("intentId"), retryBeforeCommit.getString("intentId"));
