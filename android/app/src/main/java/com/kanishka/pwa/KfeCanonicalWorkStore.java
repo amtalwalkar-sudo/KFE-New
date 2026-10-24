@@ -104,7 +104,8 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       db.insertOrThrow("canonical_create_intents", null, values);
       JSONObject result = new JSONObject();
       result.put("intentId", intentId); result.put("operationId", operationId);
-      result.put("record", new JSONObject(proposedRecord.toString())); result.put("reused", false);
+      result.put("record", new JSONObject(proposedRecord.toString()));
+      result.put("status", "PENDING"); result.put("reused", false);
       db.setTransactionSuccessful();
       return result;
     } finally { db.endTransaction(); }

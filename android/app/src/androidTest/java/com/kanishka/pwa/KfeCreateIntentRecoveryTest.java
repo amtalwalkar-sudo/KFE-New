@@ -30,15 +30,10 @@ public class KfeCreateIntentRecoveryTest {
 
     JSONObject first = store.prepareCreateIntent("TRIP", intentKey, firstProposal);
     assertFalse("First request must create a new pending intent.", first.getBoolean("reused"));
+    assertEquals("PENDING", first.getString("status"));
     JSONObject durableRecord = first.getJSONObject("record");
     String durableRecordId = durableRecord.getString("id");
     String durableOperationId = first.getString("operationId");
-
-    // Simulate the native write succeeding but the app/process losing its acknowledgement
-    // before it can mark the intent complete.
-    KfeCanonicalWorkStore.Outcome committed = store.putRecord(
-        durableOperationId, "TRIP", durableRecord, null, true);
-    assertTrue(committed.accepted);
 
     JSONObject retryProposal = new JSONObject()
         .put("id", "trip-proposal-b-" + suffix)
@@ -46,6 +41,20 @@ public class KfeCreateIntentRecoveryTest {
         .put("status", "ACTIVE")
         .put("createdAt", "2026-10-24T12:00:05.000Z")
         .put("updatedAt", "2026-10-24T12:00:05.000Z");
+
+    // Simulate process death after journaling but before the canonical write.
+    JSONObject retryBeforeCommit = store.prepareCreateIntent("TRIP", intentKey, retryProposal);
+    assertTrue("Retry before commit must reuse the pending intent.", retryBeforeCommit.getBoolean("reused"));
+    assertEquals(first.getString("intentId"), retryBeforeCommit.getString("intentId"));
+    assertEquals(durableOperationId, retryBeforeCommit.getString("operationId"));
+    assertEquals(durableRecordId, retryBeforeCommit.getJSONObject("record").getString("id"));
+
+    // Simulate the native write succeeding but the app/process losing its acknowledgement
+    // before it can mark the intent complete.
+    KfeCanonicalWorkStore.Outcome committed = store.putRecord(
+        durableOperationId, "TRIP", durableRecord, null, true);
+    assertTrue(committed.accepted);
+
     JSONObject retry = store.prepareCreateIntent("TRIP", intentKey, retryProposal);
     assertTrue("Retry must recover the still-pending intent.", retry.getBoolean("reused"));
     assertEquals(first.getString("intentId"), retry.getString("intentId"));
