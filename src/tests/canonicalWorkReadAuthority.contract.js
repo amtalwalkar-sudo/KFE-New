@@ -70,8 +70,8 @@ assert.doesNotMatch(service + view + overlay, /nativeGps|MovementTraceService|ca
 
 const endShiftImplementation = service.slice(service.indexOf('async endShift(data)'), service.indexOf('async recordFuel(data)'))
 assert.ok(endShiftImplementation.includes('readNativeWorkSnapshot()'), 'Android shift closure must prepare from SQLite canonical records')
-assert.ok(endShiftImplementation.includes("await commitNativeFirst('SHIFT', completedShift)"), 'Android shift closure must commit to SQLite before refreshing IndexedDB')
-assert.ok(endShiftImplementation.indexOf("await commitNativeFirst('SHIFT', completedShift)") < endShiftImplementation.indexOf('checkpoint()'), 'shift closure must be committed before post-commit work')
+assert.ok(endShiftImplementation.includes("await commitNativeFirst('SHIFT', completedShift, { expectedUpdatedAt: shift.updatedAt })"), 'Android shift closure must commit to SQLite before refreshing IndexedDB')
+assert.ok(endShiftImplementation.indexOf("await commitNativeFirst('SHIFT', completedShift, { expectedUpdatedAt: shift.updatedAt })") < endShiftImplementation.indexOf('checkpoint()'), 'shift closure must be committed before post-commit work')
 assert.ok(endShiftImplementation.includes("if (activeTrip) return { ok: false, reason: 'ACTIVE_TRIP_IN_PROGRESS' }"), 'native shift closure must refuse to close while a canonical trip is active')
 assert.ok(service.includes("const record = createNativeShiftRecord(data); await commitNativeFirst('SHIFT', record)"), 'Android shift creation must commit native first')
 assert.ok(service.includes("const record = createNativeTripRecord(tripData); await commitNativeFirst('TRIP', record)"), 'Android trip creation must commit native first')

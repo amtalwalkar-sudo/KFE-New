@@ -52,7 +52,7 @@ assert.match(firstRun, /CloudBackupLifecycle\.backupToConfiguredCloud\(\)/, 'Clo
 // 3. Work shift/trip/cancellation/fuel/end-shift forms.
 assert.match(workView, /await store\.startShift\(startOdo\.value,/, 'Start Shift must use shift store')
 assert.match(shiftStore, /const startShift = async/, 'Shift store must own Start Shift transition')
-assert.match(workService, /async startShift\(data\).*createNativeShiftRecord\(data\).*commitNativeFirst\('SHIFT', record\)/, 'Start Shift must commit to native canonical storage before refreshing IndexedDB')
+assert.ok(workService.includes('createNativeShiftRecord(data); await commitNativeFirst(\'SHIFT\', record, { expectAbsent: true })'), 'Start Shift must commit to native canonical storage before refreshing IndexedDB')
 assert.match(shiftRepo, /createShift\(data\)/, 'Shift repository must create canonical shift')
 assert.match(workView, /await store\.updateTrip\(details\)/, 'Trip details/fare save must update the existing trip')
 assert.match(workView, /await store\.cancelTrip\(\{/, 'Cancellation must use canonical trip lifecycle')
