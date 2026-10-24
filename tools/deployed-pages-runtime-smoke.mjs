@@ -37,7 +37,8 @@ const waitForSurface = async (page, route, phase) => {
   await page.waitForFunction(selector => {
     const node = document.querySelector(selector)
     return !!node && node.children.length > 0 && document.readyState === 'complete'
-  }, route.selector, { timeout:   if (route.path === '/timeline' || route.path === '/performance') {
+  }, route.selector, { timeout: 45000 })
+  if (route.path === '/timeline' || route.path === '/performance') {
     const retired = route.path === '/timeline' ? '.activity-timeline' : '.performance-page'
     if (await page.locator(retired).count()) {
       throw new Error(`${route.label}: retired screen ${retired} must not render`)
@@ -45,8 +46,6 @@ const waitForSurface = async (page, route, phase) => {
     if (!(await page.locator('.kfe-blank-workspace').count())) {
       throw new Error(`${route.label}: expected the intentionally blank workspace to render`)
     }
-  }
-   }
   }
   if (route.path === '/admin' && await page.locator('.admin-page').count()) {
     throw new Error('Admin: retired admin page must not render; expected Settings-only view')
