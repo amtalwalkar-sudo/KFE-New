@@ -19,6 +19,7 @@ const store = useShiftTripStore()
 const fuel = useFuelStore()
 const nativeAndroid = WorkRuntimePorts.platform.getPlatform() === 'android'
 const startWorkflowId = ref('')
+const tripCreateWorkflowId = ref('')
 const fuelWorkflowId = ref('')
 let restoringDrafts = false
 let workflowTimerReady = false
@@ -97,6 +98,9 @@ const tripDraftIdentity = (formId, step, tripId = store.trip?.id, shiftId = stor
 })
 const shiftDraftIdentity = (formId, step, shiftId = store.shift?.id) => ({
   formId, workflowStep: step, parentType: 'SHIFT', parentId: shiftId
+})
+const tripCreateDraftIdentity = () => ({
+  formId: 'work-start-trip', workflowStep: 'START_TRIP', parentType: 'SHIFT', parentId: store.shift?.id
 })
 const startDraftIdentity = () => ({
   formId: 'work-start-shift', workflowStep: 'START_SHIFT', parentType: 'WORKFLOW',
@@ -377,7 +381,9 @@ async function submitStart() {
 
   startBusy.value = true
   try {
-    const result = await store.startShift(startOdo.value, gapKm.value ? { category: gapChoice.value } : null)
+    // Persist the workflow token before any native write so a process restart can retry the same create intent.
+    await WorkDraftService.save(startDraftIdentity(), { startOdo: startOdo.value, startAck: startAck.value, gapChoice: gapChoice.value, createIntentKey: startWorkflowId.value })
+    const result = await store.startShift(startOdo.value, gapKm.value ? { category: gapChoice.value } : null, startWorkflowId.value)
     if (!result?.ok) return fail(result?.reason || 'Could not start the shift.')
     await clearCommittedDraft(startDraftIdentity())
     startWorkflowId.value = WorkDraftService.newWorkflowId()
@@ -400,12 +406,25 @@ async function goPickup(nativeTripId = '') {
   if (busy.value || !store.isOnline || store.isTripActive) return false
   busy.value = true
   try {
-    const result = await store.beginPickup(operator.value || store.defaultOperator, nativeTripId || null)
+    let createIntentKey = nativeTripId ? `native-trip:${nativeTripId}` : ''
+    if (!createIntentKey) {
+      const identity = tripCreateDraftIdentity()
+      const draft = await restoreDraft(identity)
+      createIntentKey = String(draft?.values?.createIntentKey || tripCreateWorkflowId.value || WorkDraftService.newWorkflowId())
+      tripCreateWorkflowId.value = createIntentKey
+      // Fail closed if the retry token cannot be made durable before the native create.
+      await WorkDraftService.save(identity, { createIntentKey })
+    }
+    const result = await store.beginPickup(operator.value || store.defaultOperator, nativeTripId || null, createIntentKey)
     if (!result?.ok) {
       fail(result?.reason || 'Could not start pickup.')
       return false
     }
     await syncOverlay()
+    if (!nativeTripId) {
+      await WorkDraftService.clear(tripCreateDraftIdentity(), { committed: true })
+      tripCreateWorkflowId.value = ''
+    }
     // Keep state transitions silent; the cockpit/action label reflects the new state.
     return true
   } finally {

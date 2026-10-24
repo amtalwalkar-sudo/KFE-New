@@ -42,3 +42,9 @@ assert.ok(store.includes('"entity_type=? AND intent_key=?"'), 'intent lookup mus
 assert.ok(svc.includes("if (intent.status !== 'COMPLETED')"), 'retry after intent completion must reuse the completed intent instead of creating again')
 assert.ok(svc.includes('operationId: intent.operationId, entityType, record: intent.record, expectAbsent: true'), 'crash recovery must replay the exact persisted operation and record')
 assert.ok(svc.includes('Completed intents are retained as idempotency keys'), 'completed intent retention must protect lost final acknowledgements')
+
+assert.ok(service.includes('data?.createIntentKey || data?.idempotencyKey'), 'create intent must use a durable caller-owned submission token')
+assert.ok(store.includes('createIntentKey = \'\'') && store.includes('createIntentKey: createIntentKey'), 'shift and trip stores must pass create intent tokens into WorkService')
+assert.ok(view.includes('WorkDraftService.save(startDraftIdentity()') && view.includes('startWorkflowId.value)'), 'shift create token must be durably stored before submission')
+assert.ok(view.includes('WorkDraftService.save(identity, { createIntentKey })'), 'trip create token must be durably stored before submission')
+assert.ok(androidTest.includes('Retry after the final acknowledgement is lost must reuse the completed intent'), 'instrumentation must cover retry after completion acknowledgement loss')

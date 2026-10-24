@@ -60,9 +60,17 @@ public class KfeCreateIntentRecoveryTest {
 
     JSONObject completed = store.completeCreateIntent(retry.getString("intentId"));
     assertTrue(completed.getBoolean("completed"));
-    JSONObject nextIntent = store.prepareCreateIntent("TRIP", intentKey, retryProposal);
-    assertFalse("A completed intent must not suppress a later legitimate create.", nextIntent.getBoolean("reused"));
-    assertTrue("A new create after completion must receive a new identity.",
+    JSONObject completedRetry = store.prepareCreateIntent("TRIP", intentKey, retryProposal);
+    assertTrue("Retry after the final acknowledgement is lost must reuse the completed intent.", completedRetry.getBoolean("reused"));
+    assertEquals("COMPLETED", completedRetry.getString("status"));
+    assertEquals(first.getString("intentId"), completedRetry.getString("intentId"));
+    assertEquals(durableOperationId, completedRetry.getString("operationId"));
+    assertEquals(durableRecordId, completedRetry.getJSONObject("record").getString("id"));
+
+    // A genuinely new user submission has a fresh durable token and may create a new Trip.
+    JSONObject nextIntent = store.prepareCreateIntent("TRIP", intentKey + "-new-submission", retryProposal);
+    assertFalse("A new submission token must create a new intent.", nextIntent.getBoolean("reused"));
+    assertTrue("A new create must receive a new identity.",
         !durableRecordId.equals(nextIntent.getJSONObject("record").getString("id")));
   }
 }

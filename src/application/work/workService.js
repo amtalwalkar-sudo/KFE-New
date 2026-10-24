@@ -123,7 +123,12 @@ const stableIntentValue = value => {
   if (!value || typeof value !== 'object') return value
   return Object.fromEntries(Object.keys(value).sort().filter(key => !['createdAt', 'updatedAt'].includes(key)).map(key => [key, stableIntentValue(value[key])]))
 }
-const stableCreateIntentKey = (entityType, data) => JSON.stringify({ entityType, input: stableIntentValue(data || {}) })
+const stableCreateIntentKey = (entityType, data) => {
+  const explicitKey = data?.createIntentKey || data?.idempotencyKey
+  return explicitKey
+    ? JSON.stringify({ entityType, createIntentKey: String(explicitKey) })
+    : JSON.stringify({ entityType, input: stableIntentValue(data || {}) })
+}
 const commitPreparedCreateIntent = async (entityType, proposedRecord, data) => {
   const intent = await CanonicalWorkBoundary.prepareCreateIntent({
     entityType, intentKey: stableCreateIntentKey(entityType, data), record: proposedRecord,
