@@ -18,7 +18,7 @@ assert.match(router,/path: '\/timeline', name: 'Timeline', component: BlankWorks
 assert.match(router,/path: '\/performance', name: 'Performance', component: BlankWorkspaceView/,'Performance route must render the blank workspace')
 assert.ok(smoke.includes("route('performance','.kfe-blank-workspace'"),'Performance must use the intentionally blank workspace surface')
 assert.ok(smoke.includes("route('admin','.kfe-settings-page'"),'Admin must use the canonical Settings surface')
-assert.ok(smoke.includes("page.locator('.kfe-blank-workspace').count()===0"),'Timeline smoke must guard against the retired blank workspace')
+assert.ok(smoke.includes("page.locator('.activity-timeline, .performance-page').count()===0"),'Blank destinations must guard against retired screen presentation')
 assert.ok(smoke.includes("page.locator('.performance-page').count()===0"),'Performance smoke must guard against the retired presentation')
 assert.match(smoke,/route\('timeline','\.kfe-blank-workspace'/,'Timeline must use the intentionally blank workspace surface')
 assert.match(smoke,/route\('performance','\.kfe-blank-workspace'/,'Performance must use the intentionally blank workspace surface')
