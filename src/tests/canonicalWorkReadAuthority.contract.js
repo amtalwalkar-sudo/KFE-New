@@ -80,4 +80,4 @@ assert.ok(service.includes('await commitNativeFirst(\'TRIP\', next)'), 'Android 
 assert.ok(service.includes('await ShiftTripRepository.syncCanonicalRecords(snapshot)'), 'IndexedDB must refresh after native write acknowledgement')
 assert.ok(service.includes('const operationId = `pwa-\u0024{entityType.toLowerCase()}-\u0024{record.id}-\u0024{record.updatedAt}`'), 'operation id must be deterministic for the same record version')
 
-console.log('PASS: canonical read/write recovery, atomic end-shift mirror journaling, end-shift mirror ordering, revenue read-model wiring, and GPS-free native/PWA lifecycle')
+console.log('PASS: canonical read/write recovery, native-first Android lifecycle ordering, revenue read-model wiring, and GPS-free native/PWA lifecycle')
