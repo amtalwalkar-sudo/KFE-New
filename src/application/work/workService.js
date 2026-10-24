@@ -121,7 +121,7 @@ const readNativeWorkSnapshot = async () => {
 const stableIntentValue = value => {
   if (Array.isArray(value)) return value.map(stableIntentValue)
   if (!value || typeof value !== 'object') return value
-  return Object.fromEntries(Object.keys(value).sort().filter(key => !['id', 'createdAt', 'updatedAt', 'shiftStartAt', 'tripStartAt'].includes(key)).map(key => [key, stableIntentValue(value[key])]))
+  return Object.fromEntries(Object.keys(value).sort().filter(key => !['createdAt', 'updatedAt'].includes(key)).map(key => [key, stableIntentValue(value[key])]))
 }
 const stableCreateIntentKey = (entityType, data) => JSON.stringify({ entityType, input: stableIntentValue(data || {}) })
 const commitPreparedCreateIntent = async (entityType, proposedRecord, data) => {
