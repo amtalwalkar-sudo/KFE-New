@@ -22,7 +22,7 @@ import java.security.MessageDigest;
  */
 final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
   private static final String DB_NAME = "kfe_canonical_work.db";
-  private static final int DB_VERSION = 2;
+  private static final int DB_VERSION = 3;
   private static volatile KfeCanonicalWorkStore instance;
 
   static synchronized KfeCanonicalWorkStore get(Context context) {
@@ -39,6 +39,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     db.execSQL("CREATE TABLE canonical_audit (id INTEGER PRIMARY KEY AUTOINCREMENT, operation_id TEXT NOT NULL UNIQUE, entity_type TEXT NOT NULL, entity_id TEXT NOT NULL, action TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL)");
     db.execSQL("CREATE TABLE canonical_migrations (migration_id TEXT PRIMARY KEY, snapshot_hash TEXT NOT NULL, record_count INTEGER NOT NULL, verified INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, verified_at TEXT)");
     db.execSQL("CREATE TABLE canonical_migration_items (migration_id TEXT NOT NULL, entity_type TEXT NOT NULL, entity_id TEXT NOT NULL, payload_hash TEXT NOT NULL, PRIMARY KEY(migration_id, entity_type, entity_id))");
+    createIntentTable(db);
   }
 
   @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
@@ -46,6 +47,12 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       db.execSQL("CREATE TABLE IF NOT EXISTS canonical_migrations (migration_id TEXT PRIMARY KEY, snapshot_hash TEXT NOT NULL, record_count INTEGER NOT NULL, verified INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, verified_at TEXT)");
       db.execSQL("CREATE TABLE IF NOT EXISTS canonical_migration_items (migration_id TEXT NOT NULL, entity_type TEXT NOT NULL, entity_id TEXT NOT NULL, payload_hash TEXT NOT NULL, PRIMARY KEY(migration_id, entity_type, entity_id))");
     }
+    if (oldVersion < 3) createIntentTable(db);
+  }
+
+  private static void createIntentTable(SQLiteDatabase db) {
+    db.execSQL("CREATE TABLE IF NOT EXISTS canonical_create_intents (intent_id TEXT PRIMARY KEY, entity_type TEXT NOT NULL, intent_key TEXT NOT NULL, operation_id TEXT NOT NULL UNIQUE, record_json TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)");
+    db.execSQL("CREATE INDEX IF NOT EXISTS canonical_create_intents_pending ON canonical_create_intents(entity_type, intent_key, status)");
   }
 
   static final class Outcome {
@@ -60,6 +67,61 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       out.put("accepted", accepted); out.put("duplicate", duplicate); out.put("outcome", result);
       return out;
     }
+  }
+
+  synchronized JSONObject prepareCreateIntent(String entityType, String intentKey, JSONObject proposedRecord) throws Exception {
+    if (empty(entityType) || empty(intentKey) || proposedRecord == null || empty(proposedRecord.optString("id", ""))) {
+      throw new IllegalArgumentException("entityType, intentKey and proposedRecord.id are required.");
+    }
+    String now = timestampNow();
+    SQLiteDatabase db = getWritableDatabase();
+    db.beginTransaction();
+    try {
+      try (Cursor cursor = db.query("canonical_create_intents",
+          new String[]{"intent_id", "operation_id", "record_json"},
+          "entity_type=? AND intent_key=? AND status='PENDING'",
+          new String[]{entityType, intentKey}, null, null, "created_at ASC", "1")) {
+        if (cursor.moveToFirst()) {
+          JSONObject existing = new JSONObject();
+          existing.put("intentId", cursor.getString(0));
+          existing.put("operationId", cursor.getString(1));
+          existing.put("record", new JSONObject(cursor.getString(2)));
+          existing.put("reused", true);
+          db.setTransactionSuccessful();
+          return existing;
+        }
+      }
+      String intentId = entityType + ":" + sha256(intentKey) + ":" + java.util.UUID.randomUUID().toString();
+      String operationId = "create-" + entityType.toLowerCase(java.util.Locale.US) + "-" + proposedRecord.optString("id");
+      ContentValues values = new ContentValues();
+      values.put("intent_id", intentId); values.put("entity_type", entityType); values.put("intent_key", intentKey);
+      values.put("operation_id", operationId); values.put("record_json", proposedRecord.toString());
+      values.put("status", "PENDING"); values.put("created_at", now); values.put("updated_at", now);
+      db.insertOrThrow("canonical_create_intents", null, values);
+      JSONObject result = new JSONObject();
+      result.put("intentId", intentId); result.put("operationId", operationId);
+      result.put("record", new JSONObject(proposedRecord.toString())); result.put("reused", false);
+      db.setTransactionSuccessful();
+      return result;
+    } finally { db.endTransaction(); }
+  }
+
+  synchronized JSONObject completeCreateIntent(String intentId) throws Exception {
+    if (empty(intentId)) throw new IllegalArgumentException("intentId is required.");
+    SQLiteDatabase db = getWritableDatabase();
+    db.beginTransaction();
+    try {
+      ContentValues values = new ContentValues(); values.put("status", "COMPLETED"); values.put("updated_at", timestampNow());
+      int updated = db.update("canonical_create_intents", values, "intent_id=? AND status='PENDING'", new String[]{intentId});
+      if (updated == 0) {
+        try (Cursor cursor = db.query("canonical_create_intents", new String[]{"status"}, "intent_id=?", new String[]{intentId}, null, null, null, "1")) {
+          if (!cursor.moveToFirst()) throw new IllegalArgumentException("Create intent not found: " + intentId);
+          if (!"COMPLETED".equals(cursor.getString(0))) throw new IllegalArgumentException("Create intent could not be completed: " + intentId);
+        }
+      }
+      JSONObject result = new JSONObject(); result.put("intentId", intentId); result.put("completed", true);
+      db.setTransactionSuccessful(); return result;
+    } finally { db.endTransaction(); }
   }
 
   synchronized Outcome putRecord(String operationId, String entityType, JSONObject record) throws Exception {
