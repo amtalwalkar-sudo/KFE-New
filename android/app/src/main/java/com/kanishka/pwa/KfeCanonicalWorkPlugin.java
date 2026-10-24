@@ -11,12 +11,38 @@ import org.json.JSONObject;
 @CapacitorPlugin(name = "KfeCanonicalWork")
 public class KfeCanonicalWorkPlugin extends Plugin {
   @com.getcapacitor.PluginMethod
+  public void prepareCreateIntent(PluginCall call) {
+    try {
+      JSONObject intent = KfeCanonicalWorkStore.get(getContext()).prepareCreateIntent(
+          call.getString("entityType", ""), call.getString("intentKey", ""), call.getObject("record"));
+      call.resolve(new JSObject(intent.toString()));
+    } catch (IllegalArgumentException error) {
+      call.reject(error.getMessage(), "CANONICAL_CREATE_INTENT_REJECTED");
+    } catch (Exception error) {
+      call.reject("Canonical create intent could not be journaled.", "CANONICAL_CREATE_INTENT_FAILED", error);
+    }
+  }
+
+  @com.getcapacitor.PluginMethod
+  public void completeCreateIntent(PluginCall call) {
+    try {
+      JSONObject result = KfeCanonicalWorkStore.get(getContext()).completeCreateIntent(call.getString("intentId", ""));
+      call.resolve(new JSObject(result.toString()));
+    } catch (Exception error) {
+      call.reject("Canonical create intent completion failed.", "CANONICAL_CREATE_INTENT_COMPLETE_FAILED", error);
+    }
+  }
+
+  @com.getcapacitor.PluginMethod
   public void putRecord(PluginCall call) {
     String operationId = call.getString("operationId", "");
     String entityType = call.getString("entityType", "");
     JSObject record = call.getObject("record");
+    String expectedUpdatedAt = call.getString("expectedUpdatedAt", null);
+    boolean expectAbsent = call.getBoolean("expectAbsent", false);
     try {
-      KfeCanonicalWorkStore.Outcome outcome = KfeCanonicalWorkStore.get(getContext()).putRecord(operationId, entityType, record);
+      KfeCanonicalWorkStore.Outcome outcome = KfeCanonicalWorkStore.get(getContext())
+          .putRecord(operationId, entityType, record, expectedUpdatedAt, expectAbsent);
       call.resolve(new JSObject(outcome.toJson().toString()));
     } catch (IllegalArgumentException error) {
       call.reject(error.getMessage(), "CANONICAL_COMMAND_REJECTED");

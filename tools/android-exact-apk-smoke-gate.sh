@@ -285,6 +285,9 @@ run_instrumentation com.kanishka.pwa.KfeWebViewStartupTest webview-startup 1
 # the canonical shift/trip projection.
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#canonicalWritesRemainIdempotentAfterLostAcknowledgementAndRejectStaleSnapshots canonical-persistence 1
 
+# Crash/retry proof for Start Shift/Start Trip create intents, including lost acknowledgements before and after commit.
+run_instrumentation com.kanishka.pwa.KfeCreateIntentRecoveryTest create-intent-crash-retry 2
+
 # A failed SQLite pending-queue read must reject recovery rather than resolve as an empty queue.
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#nativeEventQueueReadFailureMustNotMasqueradeAsSuccessfulEmptyRecovery native-queue-read-failure 1
 
