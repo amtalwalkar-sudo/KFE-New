@@ -382,6 +382,7 @@ async function submitStart() {
   startBusy.value = true
   try {
     // Persist the workflow token before any native write so a process restart can retry the same create intent.
+    await draftWriteQueue
     await WorkDraftService.save(startDraftIdentity(), { startOdo: startOdo.value, startAck: startAck.value, gapChoice: gapChoice.value, createIntentKey: startWorkflowId.value })
     const result = await store.startShift(startOdo.value, gapKm.value ? { category: gapChoice.value } : null, startWorkflowId.value)
     if (!result?.ok) return fail(result?.reason || 'Could not start the shift.')
@@ -422,7 +423,7 @@ async function goPickup(nativeTripId = '') {
     }
     await syncOverlay()
     if (!nativeTripId) {
-      await WorkDraftService.clear(tripCreateDraftIdentity(), { committed: true })
+      try { await WorkDraftService.clear(tripCreateDraftIdentity(), { committed: true }) } catch (_) { /* canonical Trip is already committed; draft cleanup is recoverable */ }
       tripCreateWorkflowId.value = ''
     }
     // Keep state transitions silent; the cockpit/action label reflects the new state.
