@@ -118,6 +118,26 @@ const readNativeWorkSnapshot = async () => {
   ])
   return { shifts: shiftResult.records || [], trips: tripResult.records || [] }
 }
+const stableIntentValue = value => {
+  if (Array.isArray(value)) return value.map(stableIntentValue)
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(Object.keys(value).sort().filter(key => !['id', 'createdAt', 'updatedAt', 'shiftStartAt', 'tripStartAt'].includes(key)).map(key => [key, stableIntentValue(value[key])]))
+}
+const stableCreateIntentKey = (entityType, data) => JSON.stringify({ entityType, input: stableIntentValue(data || {}) })
+const commitPreparedCreateIntent = async (entityType, proposedRecord, data) => {
+  const intent = await CanonicalWorkBoundary.prepareCreateIntent({
+    entityType, intentKey: stableCreateIntentKey(entityType, data), record: proposedRecord,
+  })
+  const result = await CanonicalWorkBoundary.putRecord({
+    operationId: intent.operationId, entityType, record: intent.record, expectAbsent: true,
+  })
+  if (result?.accepted !== true || !result?.outcome?.record) throw new Error(`Native canonical ${entityType} create was not acknowledged.`)
+  // A process death before this point leaves a PENDING SQLite intent; retry reuses its id and operation.
+  await CanonicalWorkBoundary.completeCreateIntent(intent.intentId)
+  const snapshot = await readNativeWorkSnapshot()
+  await ShiftTripRepository.syncCanonicalRecords(snapshot)
+  return intent.record
+}
 const commitNativeFirst = async (entityType, record, { expectedUpdatedAt = null, expectAbsent = false } = {}) => {
   if (!nativeCanonicalAvailable()) throw new Error('Native-first lifecycle writes require Android canonical storage.')
   const operationId = `pwa-${entityType.toLowerCase()}-${record.id}-${record.updatedAt}`
@@ -263,11 +283,11 @@ export const WorkService = Object.freeze({
   validateGapAllocation(gapKm, category) { return validateGapAllocation(gapKm, category) },
   calculateFuelQuantity(pricePerKg, amount) { return calculateFuelQuantity({ pricePerKg, amount }) },
   reconcileShiftRevenue(data) { return reconcileShiftRevenue(data) },
-  async startShift(data) { const result = nativeCanonicalAvailable() ? await (async () => { const record = createNativeShiftRecord(data); await commitNativeFirst('SHIFT', record, { expectAbsent: true }); return record })() : await ShiftTripRepository.createShift(data); if (!nativeCanonicalAvailable()) await mirrorCanonicalRecord('SHIFT', result); checkpoint(); captureAndPersistEventLocation('SHIFT', result.id, 'SHIFT_START', result.shiftStartAt || result.createdAt); return result },
+  async startShift(data) { const result = nativeCanonicalAvailable() ? await (async () => { const record = createNativeShiftRecord(data); return await commitPreparedCreateIntent('SHIFT', record, data) })() : await ShiftTripRepository.createShift(data); if (!nativeCanonicalAvailable()) await mirrorCanonicalRecord('SHIFT', result); checkpoint(); captureAndPersistEventLocation('SHIFT', result.id, 'SHIFT_START', result.shiftStartAt || result.createdAt); return result },
   async startTrip(data) {
     const validation = validateTripOperator(data?.operator)
     if (!validation.valid) return { ok: false, reason: validation.reason }
-    const tripData = { ...data, operator: validation.operator, tripStage: data?.tripStage || 'GOING_TO_PICKUP' }; const result = nativeCanonicalAvailable() ? await (async () => { const record = createNativeTripRecord(tripData); await commitNativeFirst('TRIP', record, { expectAbsent: true }); return record })() : await ShiftTripRepository.createTrip(tripData); if (!nativeCanonicalAvailable()) await mirrorCanonicalRecord('TRIP', result); checkpoint()
+    const tripData = { ...data, operator: validation.operator, tripStage: data?.tripStage || 'GOING_TO_PICKUP' }; const result = nativeCanonicalAvailable() ? await (async () => { const record = createNativeTripRecord(tripData); return await commitPreparedCreateIntent('TRIP', record, tripData) })() : await ShiftTripRepository.createTrip(tripData); if (!nativeCanonicalAvailable()) await mirrorCanonicalRecord('TRIP', result); checkpoint()
     // Pickup journey origin is optional metadata captured after the canonical trip record commits.
     // It never delays the user's pickup workflow and uses the same offline-capable one-shot GPS path.
     if (result?.id) captureAndPersistEventLocation('TRIP', result.id, 'PICKUP_START', result.createdAt || result.tripStartAt)
