@@ -154,7 +154,7 @@ try {
     const workAfterShift = await WorkService.getActiveState()
     assert(!workAfterShift.shift && !workAfterShift.trip, 'Work still exposed a completed shift as active.')
 
-    const timeline = await TimelineService.getDay(today)
+    const timeline = await OperationalRecordService.reconstructShift(shiftId)
     const completedEvent = timeline.trips.find(trip => trip.id === completedTripId)
     const cancelledEvent = timeline.trips.find(trip => trip.id === cancelledTripId)
     assert(completedEvent?.status === 'COMPLETED', 'Timeline status does not match completed repository state.')
@@ -189,7 +189,7 @@ try {
       shift: { id: persisted.shift.id, status: persisted.shift.status, startOdometer: persisted.shift.startOdometer, endOdometer: persisted.shift.endOdometer, revenue: persisted.shift.revenue },
       completedTrip: { id: persistedCompleted.id, status: persistedCompleted.status, tripKm: persistedCompleted.tripKm, revenue: persistedCompleted.revenue },
       cancelledTrip: { id: persistedCancelled.id, status: persistedCancelled.status, cancelledRevenue: persistedCancelled.cancelledRevenue },
-      timeline: { rides: timeline.rides, authoritativeRevenue: timeline.authoritativeRevenue, businessKm: timeline.businessKm },
+      operationalRecord: { completedTrips: timeline.completedTrips.length, revenue: timeline.revenue, businessKm: timeline.businessKm },
       performance: { revenue: metrics.revenue, vehicleKm: metrics.vehicleKm, businessKm: metrics.businessKm, trips: metrics.counts?.trips },
     }
   })
