@@ -76,7 +76,7 @@ assert.ok(endShiftImplementation.includes("if (activeTrip) return { ok: false, r
 assert.ok(service.includes("const record = createNativeShiftRecord(data); await commitNativeFirst('SHIFT', record, { expectAbsent: true })"), 'Android shift creation must commit native first')
 assert.ok(service.includes("const record = createNativeTripRecord(tripData); await commitNativeFirst('TRIP', record, { expectAbsent: true })"), 'Android trip creation must commit native first')
 assert.ok(service.includes("transitionTripStage(trip, 'RIDE_STARTED'"), 'Android ride-stage transition must be prepared from native canonical state')
-assert.ok(service.includes(\"await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt })\"), 'Android trip lifecycle changes must commit native first')
+assert.ok(service.includes("await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt })"), 'Android trip lifecycle changes must commit native first')
 assert.ok(service.includes('await ShiftTripRepository.syncCanonicalRecords(snapshot)'), 'IndexedDB must refresh after native write acknowledgement')
 assert.ok(service.includes('const operationId = `pwa-\u0024{entityType.toLowerCase()}-\u0024{record.id}-\u0024{record.updatedAt}`'), 'operation id must be deterministic for the same record version')
 
