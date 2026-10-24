@@ -13,6 +13,10 @@ import { EventLocationService } from '../location/eventLocationService.js'
 import { CanonicalWorkBoundary } from './canonicalWorkBoundary.js'
 import { recoverCanonicalWorkSnapshot } from './canonicalWorkRecovery.js'
 import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
+import { normalizeShiftInput, normalizeTripInput } from '../../domain/canonicalNormalization.js'
+import { transitionTrip, transitionTripStage } from '../../domain/work/tripLifecycle.js'
+import { deriveLiveRevenue } from '../../domain/work/liveRevenue.js'
+import { validateEndShiftEntry } from '../../domain/work/endShift.js'
 
 const checkpoint = () => BackupService.requestLocalBackupCheckpoint()
 const nativeCanonicalAvailable = () => { try { return WorkRuntimePorts.canonicalWork.isAvailable() === true } catch (_) { return false } }
@@ -102,7 +106,88 @@ const reconcileCanonicalReads = () => {
   }).finally(() => { canonicalReadAttempt = null })
   return canonicalReadAttempt
 }
+
 configureCanonicalReadBoundary(reconcileCanonicalReads)
+
+// Android lifecycle writes commit to SQLite before touching the IndexedDB read model.
+// The entity/version operation key makes a retry of the same payload idempotent.
+const readNativeWorkSnapshot = async () => {
+  const [shiftResult, tripResult] = await Promise.all([
+    WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'SHIFT', limit: 1000 }),
+    WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'TRIP', limit: 1000 }),
+  ])
+  return { shifts: shiftResult.records || [], trips: tripResult.records || [] }
+}
+const commitNativeFirst = async (entityType, record) => {
+  if (!nativeCanonicalAvailable()) throw new Error('Native-first lifecycle writes require Android canonical storage.')
+  const operationId = `pwa-${entityType.toLowerCase()}-${record.id}-${record.updatedAt}`
+  const result = await CanonicalWorkBoundary.putRecord({ operationId, entityType, record })
+  if (result?.accepted !== true || !result?.outcome?.record) {
+    throw new Error(`Native canonical ${entityType} commit was not acknowledged.`)
+  }
+  // This refresh is deliberately after the durable native acknowledgement.
+  const snapshot = await readNativeWorkSnapshot()
+  await ShiftTripRepository.syncCanonicalRecords(snapshot)
+  return snapshot
+}
+const findNativeRecord = async (entityType, id) => {
+  const snapshot = await readNativeWorkSnapshot()
+  return (entityType === 'SHIFT' ? snapshot.shifts : snapshot.trips).find(record => record.id === id) || null
+}
+const createNativeShiftRecord = data => {
+  const normalized = normalizeShiftInput(data)
+  const now = new Date().toISOString()
+  const startOdometer = Number(normalized.startOdometer)
+  if (!Number.isFinite(startOdometer)) throw new Error('startOdometer must be a finite number.')
+  return {
+    id: normalized.id || CanonicalWorkBoundary.createOperationId(), startOdometer,
+    openingPersonalKm: Number(normalized.openingPersonalKm || 0),
+    openingDeadKm: Number(normalized.openingDeadKm || 0),
+    openingPersonalToll: Number(normalized.openingPersonalToll || 0),
+    openingPersonalParking: Number(normalized.openingPersonalParking || 0),
+    openingBaselineType: normalized.openingBaselineType || 'POST_KFE_GAP',
+    historicalOdometerGapKm: Number(normalized.historicalOdometerGapKm || 0),
+    businessStartDate: normalized.businessStartDate || null,
+    businessStartOdometer: Number.isFinite(Number(normalized.businessStartOdometer)) ? Number(normalized.businessStartOdometer) : null,
+    endOdometer: null, totalDistance: 0, revenue: 0, toll: 0, parking: 0,
+    tollParkingRevenueTreatment: 'INCLUDED', tollParkingCaptureMode: 'ADDITIONAL_ONLY',
+    tollTreatment: normalized.tollTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED',
+    parkingTreatment: normalized.parkingTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED',
+    shiftStartAt: normalized.shiftStartAt || now, shiftEndAt: null, status: 'ACTIVE',
+    createdAt: now, updatedAt: now,
+  }
+}
+const createNativeTripRecord = data => {
+  const normalized = normalizeTripInput(data)
+  if (!normalized.shiftId) throw new Error('shiftId is required for a Trip.')
+  const now = new Date().toISOString()
+  return {
+    id: normalized.id || CanonicalWorkBoundary.createOperationId(), shiftId: normalized.shiftId,
+    operator: normalized.operator, tripStartAt: normalized.tripStartAt || null, tripEndAt: null,
+    status: 'ACTIVE', tripKm: normalized.tripKm ?? null,
+    tripKmAuthority: normalized.tripKm !== undefined ? 'MANUAL' : 'ESTIMATE',
+    tripKmProvenance: normalized.tripKmProvenance ?? null,
+    tripStartLocation: null, tripEndLocation: null,
+    tripStartLocationStatus: 'MISSING', tripEndLocationStatus: 'MISSING',
+    tripStage: normalized.tripStage || 'GOING_TO_PICKUP',
+    toll: normalized.toll ?? 0, parking: normalized.parking ?? 0,
+    tollTreatment: normalized.tollTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED',
+    parkingTreatment: normalized.parkingTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED',
+    revenue: normalized.revenue ?? null, revenueAuthority: 'SUPPORTING_ONLY',
+    revenueProvenance: normalized.revenueProvenance ?? null, fareDetailsSkipped: false,
+    cancelledRevenue: null, cancelReason: null, createdAt: now, updatedAt: now,
+  }
+}
+const correctNativeTrip = (trip, data, now) => {
+  const normalized = normalizeTripInput(data)
+  const next = { ...trip }
+  if (normalized.operator !== undefined) next.operator = normalized.operator
+  if (normalized.tripKm !== undefined) { next.tripKm = normalized.tripKm; next.tripKmAuthority = 'MANUAL'; if (normalized.tripKmProvenance !== undefined) next.tripKmProvenance = normalized.tripKmProvenance }
+  if (normalized.revenue !== undefined) { next.revenue = normalized.revenue; if (next.status === 'CANCELLED') next.cancelledRevenue = normalized.revenue; next.revenueAuthority = 'SUPPORTING_ONLY'; if (normalized.revenueProvenance !== undefined) next.revenueProvenance = normalized.revenueProvenance }
+  for (const field of ['toll', 'parking', 'tollTreatment', 'parkingTreatment', 'cancelReason', 'fareDetailsSkipped']) if (normalized[field] !== undefined) next[field] = normalized[field]
+  next.updatedAt = now
+  return next
+}
 
 const captureAndPersistEventLocation = (entityType, entityId, eventType, eventAt) => EventLocationService.captureForEvent(entityType, entityId, eventType, eventAt)
 
@@ -173,19 +258,19 @@ export const WorkService = Object.freeze({
   validateGapAllocation(gapKm, category) { return validateGapAllocation(gapKm, category) },
   calculateFuelQuantity(pricePerKg, amount) { return calculateFuelQuantity({ pricePerKg, amount }) },
   reconcileShiftRevenue(data) { return reconcileShiftRevenue(data) },
-  async startShift(data) { const result = await ShiftTripRepository.createShift(data); await mirrorCanonicalRecord('SHIFT', result); checkpoint(); captureAndPersistEventLocation('SHIFT', result.id, 'SHIFT_START', result.shiftStartAt || result.createdAt); return result },
+  async startShift(data) { const result = nativeCanonicalAvailable() ? await (async () => { const record = createNativeShiftRecord(data); await commitNativeFirst('SHIFT', record); return record })() : await ShiftTripRepository.createShift(data); if (!nativeCanonicalAvailable()) await mirrorCanonicalRecord('SHIFT', result); checkpoint(); captureAndPersistEventLocation('SHIFT', result.id, 'SHIFT_START', result.shiftStartAt || result.createdAt); return result },
   async startTrip(data) {
     const validation = validateTripOperator(data?.operator)
     if (!validation.valid) return { ok: false, reason: validation.reason }
-    const result = await ShiftTripRepository.createTrip({ ...data, operator: validation.operator, tripStage: data?.tripStage || 'GOING_TO_PICKUP' }); await mirrorCanonicalRecord('TRIP', result); checkpoint()
+    const tripData = { ...data, operator: validation.operator, tripStage: data?.tripStage || 'GOING_TO_PICKUP' }; const result = nativeCanonicalAvailable() ? await (async () => { const record = createNativeTripRecord(tripData); await commitNativeFirst('TRIP', record); return record })() : await ShiftTripRepository.createTrip(tripData); if (!nativeCanonicalAvailable()) await mirrorCanonicalRecord('TRIP', result); checkpoint()
     // Pickup journey origin is optional metadata captured after the canonical trip record commits.
     // It never delays the user's pickup workflow and uses the same offline-capable one-shot GPS path.
     if (result?.id) captureAndPersistEventLocation('TRIP', result.id, 'PICKUP_START', result.createdAt || result.tripStartAt)
     return result
   },
   async startRide(data) {
-    const result = await ShiftTripRepository.setTripStage(data?.id, 'RIDE_STARTED')
-    if (result && typeof result === 'object') await mirrorCanonicalRecord('TRIP', result)
+    const result = nativeCanonicalAvailable() ? await (async () => { const trip = await findNativeRecord('TRIP', data?.id); if (!trip) return false; let next; try { next = transitionTripStage(trip, 'RIDE_STARTED', { at: new Date().toISOString() }) } catch (_) { return false }; next.updatedAt = new Date().toISOString(); await commitNativeFirst('TRIP', next); return next })() : await ShiftTripRepository.setTripStage(data?.id, 'RIDE_STARTED')
+    if (!nativeCanonicalAvailable() && result && typeof result === 'object') await mirrorCanonicalRecord('TRIP', result)
     checkpoint()
     if (result && typeof result === 'object' && result.tripStage === 'RIDE_STARTED') {
       captureAndPersistTripBoundary(result.id, 'tripStartLocation')
@@ -193,13 +278,13 @@ export const WorkService = Object.freeze({
     return result
   },
   async completeTrip(data) {
-    const result = await ShiftTripRepository.completeTrip({ ...data }); await mirrorCanonicalTripById(data?.id); checkpoint()
+    const result = nativeCanonicalAvailable() ? await (async () => { const trip = await findNativeRecord('TRIP', data?.id); if (!trip) throw new Error('Trip not found.'); const now = new Date().toISOString(); const next = transitionTrip(trip, 'COMPLETED', data); next.tripEndAt = data.tripEndAt || trip.tripEndAt || now; next.updatedAt = now; await commitNativeFirst('TRIP', next); return true })() : await ShiftTripRepository.completeTrip({ ...data }); if (!nativeCanonicalAvailable()) await mirrorCanonicalTripById(data?.id); checkpoint()
     captureAndPersistTripBoundary(data?.id, 'tripEndLocation')
     return result
   },
   async cancelTrip(data) {
-    const result = await ShiftTripRepository.cancelTrip(data)
-    await mirrorCanonicalTripById(data?.id)
+    const result = nativeCanonicalAvailable() ? await (async () => { const trip = await findNativeRecord('TRIP', data?.id); if (!trip) throw new Error('Trip not found.'); const now = new Date().toISOString(); const next = transitionTrip(trip, 'CANCELLED', data); next.tripEndAt = data.tripEndAt || trip.tripEndAt || now; next.updatedAt = now; await commitNativeFirst('TRIP', next); return true })() : await ShiftTripRepository.cancelTrip(data)
+    if (!nativeCanonicalAvailable()) await mirrorCanonicalTripById(data?.id)
     checkpoint()
     captureAndPersistTripBoundary(data?.id, 'tripEndLocation')
     return result
@@ -207,42 +292,59 @@ export const WorkService = Object.freeze({
   async updateTrip(data) {
     const validation = validateTripCorrection(data)
     if (!validation.valid) return { ok: false, reason: validation.reason }
-    const result = await ShiftTripRepository.updateTrip({ ...data, ...validation }); await mirrorCanonicalTripById(data?.id); checkpoint(); return result
+    const correction = { ...data, ...validation }; const result = nativeCanonicalAvailable() ? await (async () => { const trip = await findNativeRecord('TRIP', data?.id); if (!trip) throw new Error('Trip not found.'); if (!['COMPLETED', 'CANCELLED'].includes(trip.status)) throw new Error('Only completed or cancelled trips can be corrected.'); const next = correctNativeTrip(trip, correction, new Date().toISOString()); await commitNativeFirst('TRIP', next); return true })() : await ShiftTripRepository.updateTrip(correction); if (!nativeCanonicalAvailable()) await mirrorCanonicalTripById(data?.id); checkpoint(); return result
   },
   async updateFuel(data) { const result = await FuelRepository.update(data.id, data); checkpoint(); return { ok: true, record: result } },
   async deleteFuel(id) { const result = await FuelRepository.remove(id); checkpoint(); return { ok: result } },
   async endShift(data) {
+    if (nativeCanonicalAvailable()) {
+      const snapshot = await readNativeWorkSnapshot()
+      const shift = snapshot.shifts.find(item => item.id === data?.shiftId && item.status === 'ACTIVE')
+      if (!shift) return { ok: false, reason: 'Active shift not found.' }
+      const activeTrip = snapshot.trips.find(item => item.shiftId === shift.id && item.status === 'ACTIVE')
+      if (activeTrip) return { ok: false, reason: 'ACTIVE_TRIP_IN_PROGRESS' }
+      const validation = validateEndShiftEntry({
+        closingOdometer: data?.closingOdometer,
+        startOdometer: shift.startOdometer,
+        confirmLargeDistance: data?.confirmLargeDistance,
+      })
+      if (!validation.valid) return {
+        ok: false, reason: validation.reason,
+        requiresConfirmation: validation.requiresConfirmation,
+        distanceKm: validation.distanceKm,
+      }
+      const now = new Date().toISOString()
+      const shiftTrips = snapshot.trips.filter(trip => trip.shiftId === shift.id)
+      const revenue = deriveLiveRevenue(shiftTrips)
+      const completedShift = {
+        ...shift,
+        revenue, liveFareRevenue: revenue, revenueSource: 'TRIP_FARES',
+        revenueReconciliation: reconcileShiftRevenue({
+          shiftRevenue: revenue, trips: shiftTrips, toll: shift.toll, parking: shift.parking,
+          tollTreatment: shift.tollTreatment, parkingTreatment: shift.parkingTreatment,
+          tollParkingCaptureMode: shift.tollParkingCaptureMode,
+          tollParkingRevenueTreatment: shift.tollParkingRevenueTreatment,
+        }),
+        endOdometer: validation.closingOdometer,
+        totalDistance: validation.closingOdometer - Number(shift.startOdometer),
+        ...(data?.movementReconciliation ? { movementReconciliation: data.movementReconciliation } : {}),
+        shiftEndAt: now,
+        shiftDurationMs: Math.max(0, Date.parse(now) - Date.parse(shift.shiftStartAt || now)),
+        status: 'COMPLETED', updatedAt: now,
+      }
+      // Commit terminal state to SQLite before refreshing the IndexedDB read model.
+      await commitNativeFirst('SHIFT', completedShift)
+      checkpoint()
+      captureAndPersistEventLocation('SHIFT', shift.id, 'SHIFT_END', now)
+      return { ok: true, endOdometer: validation.closingOdometer, distanceKm: validation.distanceKm }
+    }
+
     const active = await ShiftTripRepository.getActive()
-    // Create the native mirror identity before the local completion transaction.
-    // The repository stores this identity with the COMPLETED shift atomically,
-    // so a process death immediately after the IndexedDB commit remains recoverable.
-    const canonicalSyncOperationId = nativeCanonicalAvailable()
-      ? CanonicalWorkBoundary.createOperationId()
-      : null
-    const completionData = {
-      ...data,
-      ...(canonicalSyncOperationId ? { canonicalSyncOperationId } : {})
-    }
-    const result = await completeEndShift(completionData)
-    let completedShift = null
-    if (result?.ok && active.shift?.id && nativeCanonicalAvailable()) {
-      // Do not cross the canonical read/recovery boundary between the local
-      // completion commit and its native mirror. Native SQLite still contains
-      // ACTIVE at this point; a completed-shift lookup would reconcile that
-      // stale native snapshot back into IndexedDB before we can mirror COMPLETED.
-      const localShifts = await ShiftTripRepository.getAllShifts({ skipCanonicalReadBoundary: true })
-      const closedShift = localShifts.find(shift => shift.id === active.shift.id && shift.status === 'COMPLETED')
-      if (!closedShift) throw new Error('Completed shift was not found after the end-shift commit.')
-      completedShift = closedShift
-      await mirrorCanonicalRecord('SHIFT', closedShift)
-      // The shift is now authoritative in native storage. Mirror trip records
-      // from the same local snapshot without an intervening recovery read.
-      const localTrips = await ShiftTripRepository.getTripsForShift(active.shift.id, { skipCanonicalReadBoundary: true })
-      for (const trip of localTrips) await mirrorCanonicalRecord('TRIP', trip)
-    }
+    const result = await completeEndShift(data)
     checkpoint()
     if (result?.ok && active.shift?.id) {
-      if (!completedShift) completedShift = (await ShiftTripRepository.getAllShifts({ skipCanonicalReadBoundary: true })).find(shift => shift.id === active.shift.id && shift.status === 'COMPLETED') || null
+      const localShifts = await ShiftTripRepository.getAllShifts({ skipCanonicalReadBoundary: true })
+      const completedShift = localShifts.find(shift => shift.id === active.shift.id && shift.status === 'COMPLETED') || null
       captureAndPersistEventLocation('SHIFT', active.shift.id, 'SHIFT_END', completedShift?.shiftEndAt || null)
     }
     return result
