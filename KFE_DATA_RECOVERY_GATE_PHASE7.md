@@ -1,7 +1,7 @@
 # KFE Data / Recovery Gate — Phase 7
 
 **Date:** 2026-09-26  
-**Status:** COMPLETE / CLOSED — NON-DEVICE AUTOMATED PASS
+**Status:** HISTORICAL AUTOMATED PASS — REOPENED FOR LOSS-PROTECTING RESTORE ACCEPTANCE
 
 ## Scope
 
@@ -19,8 +19,9 @@ Phase 7 verifies that KFE can preserve, validate, restore and reset canonical bu
    - Restore input is validated before mutation.
    - Restore is canonical-only and opens the canonical database explicitly.
    - Records are cloned before insertion.
-   - Clear-and-repopulate is committed through one IndexedDB read/write transaction with explicit error and abort handling.
-   - A successful restore creates a fresh local backup checkpoint.
+   - Historical behavior: clear-and-repopulate was committed through one IndexedDB read/write transaction with explicit error and abort handling.
+   - This proves transaction handling for the former replacement behavior only; it does **not** satisfy the later accepted loss-protecting restore/reconciliation policy in `docs/KFE-PHASE-2-PERSISTENCE-CONTRACT.md` §15. Restore acceptance is reopened until merge/reconciliation, conflict handling, current-record preservation, interruption recovery, and post-restore verification are tested.
+   - A successful restore previously created a fresh local backup checkpoint; this alone does not prove a recoverable checkpoint is independently available or that current data survives restore.
 
 3. **Canonical / synthetic isolation**
    - Canonical and synthetic databases have distinct physical database names.
@@ -52,6 +53,6 @@ This is the non-device Phase 7 gate. It does not claim physical Android reinstal
 
 ## Exit decision
 
-**PHASE 7 PASS — COMPLETE / CLOSED.**
+**Historical Phase 7 automated checks passed for their original scope. Current restore acceptance is OPEN** for the loss-protecting reconciliation requirement; the old pass must not be represented as proof that the revised restore policy is implemented.
 
-**Next:** Phase 8 — Security / Permissions Gate.
+**Next:** Resume restore acceptance after implementing and testing the loss-protecting reconciliation policy. Historical security/permissions gate evidence remains separate.
