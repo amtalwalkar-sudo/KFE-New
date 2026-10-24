@@ -37,7 +37,7 @@ assert.ok(store.includes('existing.put("record", new JSONObject(cursor.getString
 assert.ok(store.includes('values.put("status", "COMPLETED")'), 'intent completion must be durable after native record acknowledgement')
 assert.ok(plugin.includes('prepareCreateIntent') && plugin.includes('completeCreateIntent'), 'native bridge must expose durable intent lifecycle')
 assert.ok(service.includes('CanonicalWorkBoundary.prepareCreateIntent'), 'PWA create must persist intent before canonical record commit')
-assert.ok(service.indexOf('CanonicalWorkBoundary.prepareCreateIntent') < service.indexOf('CanonicalWorkBoundary.putRecord({\n    operationId: intent.operationId'), 'intent journal must precede record write')
+assert.ok(service.indexOf('const intent = await CanonicalWorkBoundary.prepareCreateIntent') < service.indexOf('const result = await CanonicalWorkBoundary.putRecord({'), 'intent journal must precede record write')
 assert.ok(service.includes('await CanonicalWorkBoundary.completeCreateIntent(intent.intentId)'), 'intent completes only after native record acknowledgement')
 assert.ok(service.includes("return await commitPreparedCreateIntent('SHIFT', record, data)"), 'Start Shift must use crash-recoverable create intent')
 assert.ok(service.includes("return await commitPreparedCreateIntent('TRIP', record, tripData)"), 'Start Trip must use crash-recoverable create intent')
