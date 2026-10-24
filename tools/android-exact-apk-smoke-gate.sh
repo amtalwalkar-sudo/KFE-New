@@ -342,7 +342,7 @@ sleep 2
   # a new provider timestamp without enabling network connectivity.
   fixes=("72.8500 19.0100" "72.8510 19.0110" "72.8520 19.0120" "72.8530 19.0130" "72.8540 19.0140")
   index=0
-  for _ in $(seq 1 45); do
+  while true; do
     read -r longitude latitude <<< "${fixes[$((index % ${#fixes[@]}))]}"
     timeout 1s adb emu geo fix "$longitude" "$latitude" >/dev/null 2>&1 || true
     index=$((index + 1))
