@@ -55,6 +55,9 @@ public class KfeCreateIntentRecoveryTest {
         durableOperationId, "TRIP", durableRecord, null, true);
     assertTrue(committed.accepted);
 
+    // Close the SQLiteOpenHelper and reopen it on the retry path. This verifies
+    // that the intent and original record identity survive storage/process teardown.
+    store.close();
     JSONObject retry = store.prepareCreateIntent("TRIP", intentKey, retryProposal);
     assertTrue("Retry must recover the still-pending intent.", retry.getBoolean("reused"));
     assertEquals(first.getString("intentId"), retry.getString("intentId"));
@@ -82,4 +85,37 @@ public class KfeCreateIntentRecoveryTest {
     assertTrue("A new create must receive a new identity.",
         !durableRecordId.equals(nextIntent.getJSONObject("record").getString("id")));
   }
+  @Test public void shiftCreateIntentAlsoSurvivesRestartAndReusesRecordIdentity() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    String suffix = Long.toString(System.currentTimeMillis());
+    String intentKey = "crash-retry-shift-" + suffix;
+    JSONObject proposal = new JSONObject()
+        .put("id", "shift-proposal-a-" + suffix)
+        .put("startOdometer", 12000)
+        .put("status", "ACTIVE")
+        .put("createdAt", "2026-10-24T12:00:00.000Z")
+        .put("updatedAt", "2026-10-24T12:00:00.000Z");
+    JSONObject first = store.prepareCreateIntent("SHIFT", intentKey, proposal);
+    String recordId = first.getJSONObject("record").getString("id");
+    String operationId = first.getString("operationId");
+    KfeCanonicalWorkStore.Outcome commit = store.putRecord(operationId, "SHIFT", first.getJSONObject("record"), null, true);
+    assertTrue(commit.accepted);
+
+    // Simulate process/database teardown after the native commit but before intent completion.
+    store.close();
+    JSONObject retry = store.prepareCreateIntent("SHIFT", intentKey,
+        new JSONObject().put("id", "shift-proposal-b-" + suffix).put("startOdometer", 12000)
+            .put("status", "ACTIVE").put("createdAt", "2026-10-24T12:00:05.000Z")
+            .put("updatedAt", "2026-10-24T12:00:05.000Z"));
+    assertTrue(retry.getBoolean("reused"));
+    assertEquals(recordId, retry.getJSONObject("record").getString("id"));
+    assertEquals(operationId, retry.getString("operationId"));
+    KfeCanonicalWorkStore.Outcome replay = store.putRecord(
+        retry.getString("operationId"), "SHIFT", retry.getJSONObject("record"), null, true);
+    assertTrue(replay.accepted);
+    assertTrue(replay.duplicate);
+    assertEquals(recordId, store.getRecord("SHIFT", recordId).getJSONObject("record").getString("id"));
+  }
+
 }
