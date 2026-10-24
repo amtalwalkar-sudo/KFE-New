@@ -81,5 +81,6 @@ assert.ok(store.includes('expectedUpdatedAt != null && !expectedUpdatedAt.equals
 assert.ok(plugin.includes('putRecord(operationId, entityType, record, expectedUpdatedAt, expectAbsent)'), 'native plugin must forward compare-and-set expectations')
 
 assert.ok(store.includes('CREATE TABLE IF NOT EXISTS canonical_create_intents'), 'native SQLite schema must include durable create-intent journal')
-assert.ok(store.includes("status='PENDING'"), 'native create-intent lookup must reuse pending intent after process death')
+assert.ok(store.includes('"entity_type=? AND intent_key=?"'), 'native create-intent lookup must reuse the same intent after process death')
+assert.ok(store.includes('existing.put("status", state.getString(0))'), 'native create-intent lookup must return the durable status')
 assert.ok(store.includes('existing.put("operationId", cursor.getString(1))'), 'native retry must reuse original operation id')

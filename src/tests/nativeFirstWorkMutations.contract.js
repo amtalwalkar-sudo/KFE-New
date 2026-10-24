@@ -28,7 +28,8 @@ assert.ok(endShift.indexOf("await commitNativeFirst('SHIFT', completedShift)") <
 console.log('PASS: native-first PWA lifecycle commit ordering')
 
 assert.ok(store.includes('CREATE TABLE IF NOT EXISTS canonical_create_intents'), 'SQLite must persist create intents across process death')
-assert.ok(store.includes("entity_type=? AND intent_key=? AND status='PENDING'"), 'retry must find the prior pending create intent')
+assert.ok(store.includes('"entity_type=? AND intent_key=?"'), 'retry must find a prior create intent regardless of whether completion acknowledgement was recorded')
+assert.ok(store.includes('existing.put("status", state.getString(0))'), 'retry must observe durable intent status and skip replay for completed intents')
 assert.ok(store.includes('existing.put("record", new JSONObject(cursor.getString(2)))'), 'retry must reuse the original record identity and payload')
 assert.ok(store.includes('values.put("status", "COMPLETED")'), 'intent completion must be durable after native record acknowledgement')
 assert.ok(plugin.includes('prepareCreateIntent') && plugin.includes('completeCreateIntent'), 'native bridge must expose durable intent lifecycle')
