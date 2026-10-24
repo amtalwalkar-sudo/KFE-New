@@ -157,3 +157,24 @@ Do not describe this as “same database” or “fully synchronized” until th
 - a deliberately retained multi-store design has a formally specified, durable, deterministic synchronization protocol that meets every acceptance scenario above and is verified under offline, process-death, retry, stale-write, and conflicting-write conditions.
 
 A mirror, cached snapshot, or passing unit/CI contract by itself is insufficient. Keep this gate open until the PWA-closed overlay-write → PWA-reopen-offline read scenario and the reverse direction pass on the target Android device with duplicate/lost-update checks.
+
+### Audited implementation path matrix (2026-10-24)
+
+| Path | Current behavior found in source | Acceptance status |
+|---|---|---|
+| Native overlay trip-stage transitions | `KfeOverlayService` persists lifecycle outcomes through `KfeCanonicalWorkStore` and durable native events; native action does not depend on the PWA replay handler to commit the transition. | Automated native persistence coverage exists; device verification pending. |
+| Native overlay fare/cancellation | `KfeOverlayService.persistCanonicalTripForm` uses the atomic native `commitTripForm` path and the durable event ID. | Automated transaction/retry coverage exists; device verification pending. |
+| PWA shift/trip writes | `WorkService` calls `ShiftTripRepository` mutation methods first, then `mirrorCanonicalRecord` / `mirrorCanonicalTripById`; the repository writes IndexedDB transactions and journals pending native mirrors. | **Not native-first; not one atomic authority.** |
+| PWA read/recovery | `shiftTripRepository` calls `ensureCanonicalReadBoundary`; `WorkService` reconciles native SQLite with IndexedDB and then syncs a fresh native snapshot to IndexedDB. | Guarded recovery exists; still two physical stores. |
+| PWA reopen after native-only work | `KfeNativeFullShiftAcceptanceTest.reopeningPwaCatchesUpNativeCanonicalRecordsWithoutReplayingPendingEvents` launches `MainActivity`, checks IndexedDB for native shift/trip/fare/cancellation data, injects stale cache state, reloads, and checks convergence. | Valuable emulator/instrumentation coverage; it does not prove both surfaces write to one physical store or prove physical-phone/offline acceptance. |
+| Cross-store crash window | Local IndexedDB commit can succeed before native SQLite acknowledgement. A durable `_nativeCanonicalSync` marker supports retry; failed acknowledgement blocks snapshot sync. | Recoverable by design, but still a multi-store distributed-commit problem. |
+| Shift start/end ownership | PWA owns shift start/end; native overlay must not implement an independent shift-end workflow. PWA shift lifecycle still reaches native storage through mirror/recovery. | Keep ownership; include shift transitions in native-first boundary design. |
+| Fuel and other PWA-only records | Fuel repository is separate IndexedDB persistence and is not currently part of the overlay's trip/fare command surface. | Scope separately; do not accidentally regress it during lifecycle/fare cutover. |
+
+### Required implementation direction
+
+On Android, the native SQLite canonical store must be the authority for the overlapping shift/trip/fare/cancellation domain. The PWA must issue validated canonical commands through the native bridge and consume the acknowledged native result; IndexedDB may remain a derived cache or staging/recovery aid, but it must not be the first authoritative commit for an acknowledged Android lifecycle/fare mutation. The standalone browser PWA may retain its browser IndexedDB adapter.
+
+This requires a controlled migration of the PWA WorkService/repository mutation boundary—not a second ad-hoc mirror, and not a superficial change to the save indicator. Cover shift start/end, trip creation, pickup/ride transitions, trip completion/cancellation, fare/skipped-fare submission, and trip corrections. Keep existing PWA-owned shift start/end business ownership. Use stable operation IDs, atomic native record/operation/audit commits, explicit acknowledgement, and idempotent retry. Refresh the derived PWA cache only from an acknowledged native snapshot. Preserve the current native overlay command path and avoid creating a second financial/revenue authority.
+
+Before implementation, add a regression test that fails against the current local-first mutation order. After implementation, run the full contract suite, Android exact-APK instrumentation and the native-only-overlay → PWA-reopen-offline plus PWA-write → overlay-read acceptance flows. Physical-device verification remains a separate required gate.
