@@ -180,6 +180,8 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
               throw new IllegalArgumentException("Canonical version conflict: different payloads share updatedAt for " + entityType + "/" + entityId + ".");
             }
           }
+        } else if (expectedUpdatedAt != null) {
+          throw new IllegalArgumentException("Canonical version conflict: expected record is missing for " + entityType + "/" + entityId + ".");
         }
       }
 
