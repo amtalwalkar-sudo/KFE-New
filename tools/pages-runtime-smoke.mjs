@@ -118,11 +118,17 @@ try {
       }
       await finishSetupIfEnabled(page)
       if (route.path === '/performance' || route.path === '/timeline') {
-        if (await page.locator('header.top-bar').count()) throw new Error('Performance route must honor its frozen header-hidden shell setting after hard refresh')
+        if (await page.locator('header.top-bar').count()) throw new Error('Blank Timeline/Performance routes must honor their frozen header-hidden shell setting after hard refresh')
       } else {
         await page.locator('header.top-bar').waitFor({ state: 'visible', timeout: 15000 })
       }
       await page.locator(route.selector).waitFor({ state: 'visible', timeout: 20000 })
+      await page.locator('.bottom-nav').waitFor({ state: 'visible', timeout: 10000 })
+      if (route.path === '/timeline' || route.path === '/performance') {
+        for (const label of ['Timeline', 'Performance']) {
+          if (!(await page.locator('.bottom-nav').getByText(label, { exact: true }).count())) throw new Error('Bottom navigation must retain ' + label + ' after hard refresh')
+        }
+      }
       await page.waitForFunction(selector => {
         const node = document.querySelector(selector)
         return !!node && node.children.length > 0 && document.readyState === 'complete'
