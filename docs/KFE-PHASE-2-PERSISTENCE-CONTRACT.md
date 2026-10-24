@@ -142,3 +142,18 @@ The earlier Phase 7 clear-and-repopulate test proves only that the former replac
 These requirements define expected behavior; they do not claim the current implementation already satisfies it. Each must be mapped to existing contracts/tests and classified as covered, partial, missing, or contradicted before code changes. Add tests for genuine gaps rather than duplicating existing coverage. Android overlay/PWA persistence changes additionally require the exact-APK Android release gate and physical-device verification; mark the device result NOT DEVICE-VERIFIED when that check has not been run.
 
 The question of whether a shift may close with required fare work still pending is not changed by this supplement. The existing lifecycle rule remains: missing **optional** fare detail alone does not block the next pickup or shift closure; any distinction between optional/skipped fare and genuinely required unresolved work must follow the business rules and be decided explicitly, not inferred by the persistence layer.
+
+
+### Critical acceptance gate — same offline source of truth
+
+This is the primary product requirement and a release blocker, not a secondary persistence enhancement.
+
+The intended user-visible behavior is one KFE dataset shared by the native Android overlay and the PWA, with either interface able to read and mutate it offline. In particular, with the PWA/WebView closed and airplane mode enabled, the overlay must durably save a trip/fare; reopening the PWA offline must show that exact trip and fare with the same IDs and derived totals. PWA-originated changes must likewise become visible to the overlay. This must survive process death/restart and retries.
+
+**Current audited status: PARTIAL — NOT YET ACCEPTED.** The native persistence tracker explicitly says Android SQLite is authoritative for acknowledged Android lifecycle/fare records, while Android-hosted PWA IndexedDB remains a staging/read cache. WorkService performs guarded write-through and recovery with a durable pending marker and native acknowledgement; this is not a single physical database or a cross-store atomic transaction. The native boundary and overlay write path exist, and CI/instrumentation coverage is reported, but the tracker explicitly says the migration/cutover is not complete and physical-device acceptance remains pending.
+
+Do not describe this as “same database” or “fully synchronized” until the architecture/code audit establishes one of these verified designs:
+- both interfaces directly use the same native-backed canonical repository for all relevant business reads and writes; or
+- a deliberately retained multi-store design has a formally specified, durable, deterministic synchronization protocol that meets every acceptance scenario above and is verified under offline, process-death, retry, stale-write, and conflicting-write conditions.
+
+A mirror, cached snapshot, or passing unit/CI contract by itself is insufficient. Keep this gate open until the PWA-closed overlay-write → PWA-reopen-offline read scenario and the reverse direction pass on the target Android device with duplicate/lost-update checks.
