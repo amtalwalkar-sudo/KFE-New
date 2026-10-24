@@ -18,7 +18,7 @@ assert.match(store, /migrationId was already used with a different source snapsh
 assert.match(store, /Migration conflict: native record differs/)
 assert.match(store, /verifyLegacyMigration\(String migrationId\)/)
 assert.match(store, /expectedPayloadHash\.equals\(sha256\(record\.getString\(0\)\)\)/)
-assert.match(store, /DB_VERSION = 2/)
+assert.match(store, /DB_VERSION = 3/)
 assert.match(store, /if \(oldVersion < 2\)/)
 for (const method of ['migrateLegacySnapshot', 'verifyLegacyMigration', 'getMigration']) {
   assert.ok(plugin.includes('public void ' + method + '('), 'Missing native migration method: ' + method)
