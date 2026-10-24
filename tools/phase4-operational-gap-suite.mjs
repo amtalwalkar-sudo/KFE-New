@@ -409,9 +409,10 @@ try {
 
   // F5: restore connectivity and verify the same canonical shift survives recovery/reload.
   await context.setOffline(false)
-  await route('timeline', '.activity-timeline', 'Activity Timeline')
-  await page.locator('.activity-timeline').waitFor({ state: 'visible', timeout: 30000 })
-  assert(await page.locator('.kfe-blank-workspace').count() === 0, 'Timeline route rendered the retired blank workspace.')
+  await route('timeline', '.kfe-blank-workspace', 'Blank Timeline workspace')
+  await page.locator('.kfe-blank-workspace').waitFor({ state: 'visible', timeout: 30000 })
+  assert(await page.locator('.activity-timeline, .performance-page').count() === 0, 'Timeline route mounted retired presentation.')
+  for (const label of ['Timeline', 'Performance']) assert(await page.locator('.bottom-nav').getByText(label, { exact: true }).count(), 'Bottom navigation must retain ' + label)
   const recoveredShiftState = await page.evaluate(async () => {
     const db = await new Promise((resolve, reject) => {
       const request = indexedDB.open('kanishka_kfe_canonical_db', 16)
