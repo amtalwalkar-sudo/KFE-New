@@ -12,7 +12,7 @@ import './styles/admin-workspace.css'
 installWorkRuntimeAdapter()
 
 const app = createApp(App)
-app.config.errorHandler = (err) => {
+app.config.errorHandler = (err, instance, info) => {
   console.error('Vue Runtime Error:', err)
   const root = document.getElementById('app')
   if (!root) return
@@ -22,8 +22,14 @@ app.config.errorHandler = (err) => {
   const heading = document.createElement('h2')
   heading.textContent = 'KFE could not render this screen'
   const details = document.createElement('pre')
-  details.textContent = err?.message || String(err)
-  details.style.cssText = 'background:#fee2e2;padding:12px;border-radius:6px;overflow:auto;white-space:pre-wrap'
+  const componentName = instance?.$options?.name || instance?.$?.type?.name || 'unknown component'
+  details.textContent = [
+    `Error: ${err?.message || String(err)}`,
+    `Component: ${componentName}`,
+    `Vue error phase: ${info || 'unknown'}`,
+    err?.stack ? `Stack:\n${err.stack}` : ''
+  ].filter(Boolean).join('\n\n')
+  details.style.cssText = 'background:#fee2e2;padding:12px;border-radius:6px;overflow:auto;white-space:pre-wrap;max-height:65vh'
   box.append(heading, details)
   root.append(box)
 }
