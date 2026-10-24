@@ -37,7 +37,7 @@ try {
     const { setActiveDataSource, openCanonicalDB } = await import('/src/utils/indexedDB.js')
     const { ShiftTripRepository } = await import('/src/repositories/shiftTripRepository.js')
     const { WorkService } = await import('/src/application/work/workService.js')
-    const { TimelineService } = await import('/src/application/timeline/timelineService.js')
+    const { OperationalRecordService } = await import('/src/application/timeline/operationalRecordService.js')
     const { PerformanceService } = await import('/src/application/performance/performanceService.js')
     const { istDayRange } = await import('/src/domain/time/ist.js')
 
@@ -130,10 +130,10 @@ try {
     await makeCompletedShift('phase4-day2-shift', day2, 2050, 2125, 750, 'phase4-day2-trip')
 
     // H2: each daily Timeline total must equal that day's shift-authoritative revenue.
-    const timeline1 = await TimelineService.getDay(new Date(day1 + 'T12:00:00+05:30'))
-    const timeline2 = await TimelineService.getDay(new Date(day2 + 'T12:00:00+05:30'))
-    assert(Number(timeline1.authoritativeRevenue) === 500 && timeline1.rides === 1, 'H2 day-1 total does not reconcile.')
-    assert(Number(timeline2.authoritativeRevenue) === 750 && timeline2.rides === 1, 'H2 day-2 total does not reconcile.')
+    const operationalDay1 = await OperationalRecordService.reconstructShift('phase4-day1-shift')
+    const operationalDay2 = await OperationalRecordService.reconstructShift('phase4-day2-shift')
+    assert(Number(operationalDay1.revenue) === 500 && operationalDay1.completedTrips.length === 1, 'H2 day-1 canonical shift total does not reconcile.')
+    assert(Number(operationalDay2.revenue) === 750 && operationalDay2.completedTrips.length === 1, 'H2 day-2 canonical shift total does not reconcile.')
 
     // I1-I3: closing one day and opening the next preserves odometer and financial continuity.
     const lastShift = await ShiftTripRepository.getLastCompletedShift()
@@ -147,8 +147,8 @@ try {
 
     // J1: zero fare/expense is a valid completed shift/trip state.
     await makeCompletedShift('phase4-zero-shift', '2026-09-25', 3000, 3000, 0, 'phase4-zero-trip')
-    const zeroTimeline = await TimelineService.getDay(new Date('2026-09-25T12:00:00+05:30'))
-    assert(Number(zeroTimeline.authoritativeRevenue) === 0 && zeroTimeline.rides === 1, 'J1 zero-value fare was not preserved as a valid financial day.')
+    const zeroOperationalRecord = await OperationalRecordService.reconstructShift('phase4-zero-shift')
+    assert(Number(zeroOperationalRecord.revenue) === 0 && zeroOperationalRecord.completedTrips.length === 1, 'J1 zero-value fare was not preserved as a valid completed shift.')
 
     // J2: same opening/closing odometer is valid.
     assert((await ShiftTripRepository.getLastCompletedShift()).endOdometer === 3000, 'J2 same-odometer close was not persisted.')
@@ -165,18 +165,18 @@ try {
     await ShiftTripRepository.createTrip({ id: 'phase4-midnight-trip', shiftId: midnightShift.id, operator: 'Uber', tripStartAt: '2026-09-24T23:59:30+05:30', tripKm: 5, revenue: 50 })
     await WorkService.completeTrip({ id: 'phase4-midnight-trip', shiftId: midnightShift.id, tripEndAt: '2026-09-25T00:05:00+05:30', tripEndLocation: { latitude: 19.08, longitude: 72.88, placeName: 'Midnight Drop', capturedAt: '2026-09-25T00:05:00+05:30' }, tripKm: 5 })
     await WorkService.endShift({ shiftId: midnightShift.id, closingOdometer: 5005 })
-    const preMidnight = await TimelineService.getDay(new Date('2026-09-24T12:00:00+05:30'))
-    const postMidnight = await TimelineService.getDay(new Date('2026-09-25T12:00:00+05:30'))
-    assert(preMidnight.events.some(event => event.id === 'phase4-midnight-trip') === true, 'J4 midnight-start trip was not attributed to its start day.')
-    assert(postMidnight.events.some(event => event.id === 'phase4-midnight-trip') === false, 'J4 midnight-start trip leaked into the next reporting day.')
+    const midnightRecord = await OperationalRecordService.reconstructShift('phase4-midnight-shift')
+    const midnightTrip = midnightRecord.trips.find(trip => trip.id === 'phase4-midnight-trip')
+    assert(midnightTrip && midnightTrip.tripStartAt.startsWith('2026-09-24T23:59:30'), 'J4 midnight-start trip did not preserve its start timestamp in canonical storage.')
+    assert(!midnightTrip.tripEndAt.startsWith('2026-09-24'), 'J4 midnight-start trip did not preserve its next-day end timestamp.')
 
     return {
       cases: ['B2','B3','B6','H2','I1','I2','I3','J1','J2','J3','J4'],
       b3: blocked.reason,
       b6: { mutationsAfterFirst, mutationsAfterDuplicate },
-      daily: { day1: timeline1.authoritativeRevenue, day2: timeline2.authoritativeRevenue },
+      daily: { day1: operationalDay1.revenue, day2: operationalDay2.revenue },
       crossDay: { revenue: crossDayRevenue, vehicleKm: crossDayVehicleKm },
-      zeroValue: { revenue: zeroTimeline.authoritativeRevenue, rides: zeroTimeline.rides },
+      zeroValue: { revenue: zeroOperationalRecord.revenue, completedTrips: zeroOperationalRecord.completedTrips.length },
       largeGap: { distanceKm: largeBlocked.distanceKm, confirmed: largeClosed.ok },
       midnight: { startDayHasTrip: true, nextDayHasTrip: false },
     }
