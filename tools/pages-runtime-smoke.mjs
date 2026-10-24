@@ -88,7 +88,7 @@ try {
 
       await finishSetupIfEnabled(page)
       if (route.path === '/performance' || route.path === '/timeline') {
-        if (await page.locator('header.top-bar').count()) throw new Error('Performance route must honor its frozen header-hidden shell setting')
+        if (await page.locator('header.top-bar').count()) throw new Error('Blank Timeline/Performance routes must honor their frozen header-hidden shell setting')
       } else {
         await page.locator('header.top-bar').waitFor({ state: 'visible', timeout: 15000 })
       }
@@ -117,7 +117,7 @@ try {
         throw new Error(`${route.label}: unexpected hard-refresh response: ${refreshedResponse?.status()}`)
       }
       await finishSetupIfEnabled(page)
-      if (route.path === '/performance') {
+      if (route.path === '/performance' || route.path === '/timeline') {
         if (await page.locator('header.top-bar').count()) throw new Error('Performance route must honor its frozen header-hidden shell setting after hard refresh')
       } else {
         await page.locator('header.top-bar').waitFor({ state: 'visible', timeout: 15000 })
