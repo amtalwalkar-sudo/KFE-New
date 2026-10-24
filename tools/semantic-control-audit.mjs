@@ -365,11 +365,11 @@ try {
   assert(state.shifts.length === 1 && state.shifts[0].status === 'COMPLETED' && Number(state.shifts[0].endOdometer) === 1100 && Number(state.shifts[0].revenue) === 0, 'FORMS.END_SHIFT must commit only closing odometer/lifecycle, viewport-safe')
   evidence.push({ id: 'FORMS.END_SHIFT_SEQUENCE', result: 'PASS', expected: 'closing odometer -> durable shift end, no revenue/date reconciliation stages' })
 
-  // Route contract: Timeline is a persisted read-only activity view; Performance remains intentionally blank.
-  // Admin is Settings-only; do not reintroduce retired data-entry/period-control screens.
+  // Route contract: Timeline and Performance intentionally render blank workspaces;
+  // their bottom-navigation entries remain available. Admin stays Settings-only.
   for (const [label, path, selector] of [
     ['NAV.WORK', '/', '.work-canonical'],
-    ['NAV.TIMELINE', '/timeline', '.activity-timeline'],
+    ['NAV.TIMELINE', '/timeline', '.kfe-blank-workspace'],
     ['NAV.PERFORMANCE', '/performance', '.kfe-blank-workspace'],
     ['NAV.ADMIN', '/admin', '.kfe-settings-page'],
   ]) {
@@ -378,21 +378,16 @@ try {
     evidence.push({ id: label, result: 'PASS', expected: 'route renders the current frozen module', persisted: { route: path } })
   }
 
-  await page.goto(new URL('timeline', base).href, { waitUntil: 'domcontentloaded' })
-  const timeline = page.locator('.activity-timeline')
-  await timeline.waitFor({ state: 'visible', timeout: 30000 })
-  assert(await page.locator('.kfe-blank-workspace').count() === 0, 'Timeline must not render the retired blank workspace')
-  assert(await timeline.getByRole('heading', { name: 'Timeline', exact: true }).count() === 1, 'Activity Timeline heading is missing')
-  assert(await timeline.getByRole('button', { name: /Rides/i }).count() === 1, 'Timeline Rides tab is missing')
-  assert(await timeline.getByRole('button', { name: /Fuel/i }).count() === 1, 'Timeline Fuel tab is missing')
-  assert(await timeline.locator('.period-tabs').getByRole('button', { name: /Today|Week|Month|All/i }).count() >= 4, 'Timeline period filters are missing')
-  evidence.push({ id: 'TIMELINE.PERSISTED_ACTIVITY_VIEW', result: 'PASS', expected: 'read-only activity view with ride/fuel tabs and period filters' })
-
-  await page.goto(new URL('performance', base).href, { waitUntil: 'domcontentloaded' })
-  await page.locator('.kfe-blank-workspace-surface').waitFor({ state: 'attached' })
-  assert(await page.locator('.kfe-blank-workspace').isVisible(), 'Performance blank workspace is not visible')
-  assert(await page.locator('.performance-page, .pp-period, .pp-period-nav').count() === 0, 'Performance unexpectedly rendered retired metrics/period controls')
-  evidence.push({ id: 'PERFORMANCE.INTENTIONALLY_BLANK', result: 'PASS', expected: 'blank workspace with no retired performance controls' })
+  for (const [label, path] of [['TIMELINE', 'timeline'], ['PERFORMANCE', 'performance']]) {
+    await page.goto(new URL(path, base).href, { waitUntil: 'domcontentloaded' })
+    await page.locator('.kfe-blank-workspace-surface').waitFor({ state: 'attached', timeout: 30000 })
+    assert(await page.locator('.kfe-blank-workspace').isVisible(), label + ' blank workspace is not visible')
+    assert(await page.locator('.activity-timeline, .performance-page, .pp-period, .pp-period-nav').count() === 0,
+      label + ' unexpectedly rendered a retired screen or presentation control')
+    assert(await page.getByRole('navigation').getByRole('link', { name: label === 'TIMELINE' ? 'Timeline' : 'Performance', exact: true }).count() === 1,
+      label + ' bottom-navigation entry is missing')
+    evidence.push({ id: label + '.INTENTIONALLY_BLANK', result: 'PASS', expected: 'blank workspace; bottom-navigation entry retained; retired screen absent' })
+  }
 
   await page.goto(new URL('admin', base).href, { waitUntil: 'domcontentloaded' })
   const settings = page.locator('.kfe-settings-page')
