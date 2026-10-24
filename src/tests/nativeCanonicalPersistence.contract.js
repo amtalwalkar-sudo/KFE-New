@@ -76,3 +76,6 @@ assert.match(ports, /canonicalWork: \['putRecord', 'persistTripBoundarySnapshot'
 assert.match(adapter, /canonicalWork: NativeCanonicalWorkService/)
 assert.match(activity, /registerPlugin\(KfeCanonicalWorkPlugin\.class\)/)
 console.log('PASS: native canonical persistence boundary contract')
+
+assert.ok(store.includes('expectedUpdatedAt != null && !expectedUpdatedAt.equals(existingRecord.optString("updatedAt", ""))'), 'native canonical writes must atomically reject stale base versions')
+assert.ok(plugin.includes('putRecord(operationId, entityType, record, expectedUpdatedAt, expectAbsent)'), 'native plugin must forward compare-and-set expectations')

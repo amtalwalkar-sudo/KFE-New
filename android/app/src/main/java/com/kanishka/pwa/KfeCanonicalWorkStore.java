@@ -63,6 +63,11 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
   }
 
   synchronized Outcome putRecord(String operationId, String entityType, JSONObject record) throws Exception {
+    return putRecord(operationId, entityType, record, null, false);
+  }
+
+  synchronized Outcome putRecord(String operationId, String entityType, JSONObject record,
+      String expectedUpdatedAt, boolean expectAbsent) throws Exception {
     if (empty(operationId)) throw new IllegalArgumentException("operationId is required.");
     if (empty(entityType)) throw new IllegalArgumentException("entityType is required.");
     if (record == null) throw new IllegalArgumentException("record is required.");
@@ -117,6 +122,12 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
         if (existing.moveToFirst()) {
           String existingPayload = existing.getString(0);
           JSONObject existingRecord = new JSONObject(existingPayload);
+          if (expectAbsent) {
+            throw new IllegalArgumentException("Canonical create conflict: record already exists for " + entityType + "/" + entityId + ".");
+          }
+          if (expectedUpdatedAt != null && !expectedUpdatedAt.equals(existingRecord.optString("updatedAt", ""))) {
+            throw new IllegalArgumentException("Canonical version conflict: expected version changed for " + entityType + "/" + entityId + ".");
+          }
           if (!jsonEquivalent(new JSONObject(payload), existingRecord)) {
             String existingVersion = existingRecord.optString("updatedAt", "");
             String incomingVersion = record.optString("updatedAt", "");

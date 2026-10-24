@@ -15,8 +15,11 @@ public class KfeCanonicalWorkPlugin extends Plugin {
     String operationId = call.getString("operationId", "");
     String entityType = call.getString("entityType", "");
     JSObject record = call.getObject("record");
+    String expectedUpdatedAt = call.getString("expectedUpdatedAt", null);
+    boolean expectAbsent = call.getBoolean("expectAbsent", false);
     try {
-      KfeCanonicalWorkStore.Outcome outcome = KfeCanonicalWorkStore.get(getContext()).putRecord(operationId, entityType, record);
+      KfeCanonicalWorkStore.Outcome outcome = KfeCanonicalWorkStore.get(getContext())
+          .putRecord(operationId, entityType, record, expectedUpdatedAt, expectAbsent);
       call.resolve(new JSObject(outcome.toJson().toString()));
     } catch (IllegalArgumentException error) {
       call.reject(error.getMessage(), "CANONICAL_COMMAND_REJECTED");

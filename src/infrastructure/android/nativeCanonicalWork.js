@@ -7,10 +7,10 @@ const requireNative = () => {
 }
 
 export const NativeCanonicalWorkService = Object.freeze({
-  async putRecord({ operationId, entityType, record } = {}) {
+  async putRecord({ operationId, entityType, record, expectedUpdatedAt = null, expectAbsent = false } = {}) {
     requireNative()
     if (!operationId || !entityType || !record?.id) throw new Error('operationId, entityType and record.id are required.')
-    const result = await NativeCanonicalWork.putRecord({ operationId, entityType, record })
+    const result = await NativeCanonicalWork.putRecord({ operationId, entityType, record, expectedUpdatedAt, expectAbsent })
     if (result?.accepted !== true || !result?.outcome?.record) throw new Error('Canonical persistence did not confirm the record commit.')
     return result
   },
