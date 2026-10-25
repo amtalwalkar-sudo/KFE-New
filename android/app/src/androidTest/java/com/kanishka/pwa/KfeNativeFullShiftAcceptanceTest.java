@@ -287,7 +287,7 @@ public class KfeNativeFullShiftAcceptanceTest {
   }
 
 
-  @Test public void nativeOverlayCompletesShiftWithWebViewUnavailableAndNoDuplicateRevenue() throws Exception {
+  @Test public void nativeOverlayPersistsTripFormsWithWebViewUnavailableWithoutEndingShift() throws Exception {
     Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
     // Fail closed if any code in this test process tries to create a WebView.
     // This test deliberately does not launch MainActivity or invoke PWA replay.
@@ -345,11 +345,8 @@ public class KfeNativeFullShiftAcceptanceTest {
         new Class<?>[]{String.class, String.class, JSONObject.class, String.class},
         "CANCEL", cancelTripId, cancelPayload, cancelEventId);
 
-    // End the shift only after its native forms are durably committed.
-    JSONObject endedShift = new JSONObject(store.getRecord("SHIFT", shiftId).getJSONObject("record").toString())
-        .put("status", "ENDED").put("updatedAt", java.time.Instant.now().plusSeconds(2).toString());
-    assertTrue("Native shift end must persist after the forms.",
-        store.putRecord("webview-off-shift-end-" + suffix, "SHIFT", endedShift).accepted);
+    // The native overlay owns trip stages and trip forms, not shift closure.
+    // With the WebView unavailable, the active shift must remain active; PWA owns END_SHIFT.
 
     store.close();
     Field singleton = KfeCanonicalWorkStore.class.getDeclaredField("instance");
@@ -359,7 +356,7 @@ public class KfeNativeFullShiftAcceptanceTest {
     JSONObject savedShift = store.getRecord("SHIFT", shiftId).getJSONObject("record");
     JSONObject savedFare = store.getRecord("TRIP", fareTripId).getJSONObject("record");
     JSONObject savedCancel = store.getRecord("TRIP", cancelTripId).getJSONObject("record");
-    assertEquals("ENDED", savedShift.getString("status"));
+    assertEquals("Native trip operations must not end the PWA-owned shift.", "ACTIVE", savedShift.getString("status"));
     assertEquals("COMPLETED", savedFare.getString("status"));
     assertEquals("CANCELLED", savedCancel.getString("status"));
     assertEquals(250d, savedFare.getDouble("revenue"), 0.001d);
