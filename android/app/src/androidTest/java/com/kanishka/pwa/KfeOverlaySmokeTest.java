@@ -796,6 +796,15 @@ public class KfeOverlaySmokeTest {
       .put("tripStage", "GOING_TO_PICKUP")
       .put("tripStartLocation", JSONObject.NULL).put("tripEndLocation", JSONObject.NULL)
       .put("tripStartLocationStatus", "MISSING").put("tripEndLocationStatus", "MISSING"));
+    // Start through the supported show action with canonical shift state.
+    // A bare/null-intent start must now fail closed when no resumable canonical
+    // shift exists, so this test must not depend on the old implicit service.
+    JSONObject overlayState = new JSONObject()
+      .put("shift", new JSONObject().put("id", shiftId).put("status", "ACTIVE").put("revenue", 0d))
+      .put("trip", new JSONObject().put("id", tripId).put("shiftId", shiftId)
+        .put("status", "ACTIVE").put("tripStage", "GOING_TO_PICKUP"))
+      .put("overlayAction", "GO_TO_PICKUP").put("overlayTripId", tripId);
+    KfeOverlayService.show(context, overlayState.toString());
     KfeOverlayService service = waitForService();
     Method capture = KfeOverlayService.class.getDeclaredMethod("captureOneShotTripBoundary", String.class, String.class);
     capture.setAccessible(true);
