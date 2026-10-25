@@ -62,13 +62,17 @@ public class KfeNativeWorkActionsPlugin extends Plugin {
   }
 
   static void beginResetBarrier(Context context, String resetId) {
-    context.getSharedPreferences(PREFS, 0).edit().putString("resetBarrierId", resetId).commit();
+    if (!context.getSharedPreferences(PREFS, 0).edit().putString("resetBarrierId", resetId).commit()) {
+      throw new IllegalStateException("Native reset event barrier could not be durably recorded.");
+    }
   }
 
   static void releaseResetBarrier(Context context, String resetId) {
     android.content.SharedPreferences prefs = context.getSharedPreferences(PREFS, 0);
     if (resetId.equals(prefs.getString("resetBarrierId", ""))) {
-      prefs.edit().remove("resetBarrierId").commit();
+      if (!prefs.edit().remove("resetBarrierId").commit()) {
+        throw new IllegalStateException("Native reset event barrier could not be durably released.");
+      }
     }
   }
 
