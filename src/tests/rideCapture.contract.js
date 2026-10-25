@@ -8,6 +8,7 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8')
 const service = read('services/rideCaptureService.js')
 const adapter = read('services/adapters/rideCaptureAdapter.js')
 const repository = read('repositories/shiftTripRepository.js')
+const canonicalWorkRecords = read('domain/work/canonicalWorkRecords.js')
 const contract = fs.readFileSync(path.join(root, '..', 'docs', 'KFE-CANONICAL-DATA-CONTRACT.md'), 'utf8')
 
 console.log('--- Running KFE Phase 3 Ride Capture Contract Tests ---')
@@ -40,9 +41,9 @@ assert(!service.includes('createRideRecord'), 'No competing Ride persistence aut
 assert(!service.includes('ride_capture'), 'No competing Ride persistence store may be introduced')
 
 // Existing canonical Trip lineage and mutation/audit guarantees remain in force.
-assert(repository.includes('shiftId: normalized.shiftId'), 'Canonical Trip must retain shift relationship')
-assert(repository.includes('tripKmAuthority'), 'Trip distance authority boundary missing')
-assert(repository.includes('revenueAuthority'), 'Trip revenue authority boundary missing')
+assert(canonicalWorkRecords.includes('shiftId: normalized.shiftId'), 'Canonical Trip must retain shift relationship')
+assert(canonicalWorkRecords.includes('tripKmAuthority'), 'Trip distance authority boundary missing')
+assert(canonicalWorkRecords.includes('revenueAuthority'), 'Trip revenue authority boundary missing')
 assert(repository.includes("saveMutation(m, a, record.id, 'TRIP', 'CREATE', record, now)"), 'Trip creation must retain mutation/audit lineage')
 assert(contract.includes('provenance'), 'Canonical contract must retain provenance boundary')
 
