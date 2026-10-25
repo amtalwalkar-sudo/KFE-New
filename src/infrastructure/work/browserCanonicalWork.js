@@ -136,7 +136,7 @@ export const BrowserCanonicalWorkService = Object.freeze({
             const previousRecord = previous.outcome?.record
             const samePayload = previousRecord && (entityType === 'TRIP'
               ? jsonEquivalent(withoutTripBoundarySnapshots(previousRecord), withoutTripBoundarySnapshots(record))
-              : jsonEquivalent(previousRecord, record))
+              : jsonEquivalent(previous.outcome.record, record))
             if (!samePayload) throw new Error('operationId was already used with a different payload.')
             outcome = { accepted: previous.status === 'ACCEPTED', duplicate: true, outcome: previous.outcome }
             return
