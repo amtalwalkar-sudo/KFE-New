@@ -59,4 +59,11 @@ assert.match(androidGate, /KfeNativeFullShiftAcceptanceTest#reopeningPwaCatchesU
 assert.match(nativeAcceptance, /nativeOnlyShiftPersistsMultipleFaresAndCancellationAcrossStoreReopen/, 'Android instrumentation must exercise multiple native-only trips, fare submissions, cancellation and store reopen.')
 assert.match(nativeAcceptance, /KfeNativeEventStore\.get\(context\)\.pending\(100\)/, 'The test must verify that unacknowledged native events remain durable without PWA replay.')
 assert.match(nativeAcceptance, /Revenue must include both fares and the recorded cancellation fee/, 'The test must verify canonical revenue projection across fare and cancellation submissions.')
+
+const nativeOnlyFlowStart = nativeAcceptance.indexOf('public void nativeOverlayPersistsTripFormsWithWebViewUnavailableWithoutEndingShift')
+const nativeOnlyFlowEnd = nativeAcceptance.indexOf('  @Test', nativeOnlyFlowStart + 10)
+assert.ok(nativeOnlyFlowStart >= 0 && nativeOnlyFlowEnd > nativeOnlyFlowStart, 'Native-only trip workflow must have a dedicated ownership regression test.')
+const nativeOnlyFlow = nativeAcceptance.slice(nativeOnlyFlowStart, nativeOnlyFlowEnd)
+assert.doesNotMatch(nativeOnlyFlow, /put\("status",\s*"ENDED"\)/, 'Native-only trip operations must not implement or simulate shift end.')
+assert.match(nativeOnlyFlow, /Native trip operations must not end the PWA-owned shift/)
 console.log('PASS: native overlay fare/cancellation canonical commit and replay contract')
