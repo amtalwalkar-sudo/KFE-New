@@ -51,6 +51,10 @@ export const initializeApplication = async () => {
   try {
     await platform.initializeStorage()
     DiagnosticService.checkpoint('Storage initialized')
+    // A pending reset must finish before stale outbox/create-intent work can replay.
+    DiagnosticService.waiting('Reset recovery', 'Checking for an interrupted cross-store reset.')
+    await BackupService.recoverPendingReset()
+    DiagnosticService.checkpoint('Reset recovery complete')
     DiagnosticService.waiting('Mutation recovery', 'Recovering stale canonical SYNCING mutations.')
     await MutationRepository.recoverStaleSyncing()
     DiagnosticService.checkpoint('Mutation recovery complete')

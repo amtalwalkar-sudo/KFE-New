@@ -7,6 +7,42 @@ const DATA_SOURCE_KEY = 'kfe:active-data-source'
 const DATA_SOURCE_CHANGE_EVENT = 'kfe:data-source-changed'
 const CANONICAL_DB_CHANGE_EVENT = 'kfe:canonical-data-changed'
 const CANONICAL_DB_CHANNEL = 'kfe-canonical-db-changes'
+const CANONICAL_RESET_BARRIER_KEY = 'kfe:canonical-reset-pending'
+let resetWritePermission = null
+
+export const setCanonicalResetBarrier = resetId => {
+  if (!resetId) throw new Error('A reset ID is required to enable the canonical mutation barrier.')
+  if (typeof localStorage === 'undefined') throw new Error('Durable canonical mutation barrier storage is unavailable.')
+  localStorage.setItem(CANONICAL_RESET_BARRIER_KEY, resetId)
+}
+export const getCanonicalResetBarrier = () => typeof localStorage === 'undefined' ? null : localStorage.getItem(CANONICAL_RESET_BARRIER_KEY)
+export const clearCanonicalResetBarrier = resetId => {
+  if (typeof localStorage === 'undefined') throw new Error('Canonical mutation barrier storage is unavailable.')
+  if (localStorage.getItem(CANONICAL_RESET_BARRIER_KEY) === resetId) localStorage.removeItem(CANONICAL_RESET_BARRIER_KEY)
+}
+export const withCanonicalResetWritePermission = (resetId, callback) => {
+  if (typeof callback !== 'function' || !resetId || typeof localStorage === 'undefined' || localStorage.getItem(CANONICAL_RESET_BARRIER_KEY) !== resetId) throw new Error('Canonical reset write permission is not authorized.')
+  const previous = resetWritePermission
+  resetWritePermission = resetId
+  try { return callback() } finally { resetWritePermission = previous }
+}
+
+const guardCanonicalDatabase = db => new Proxy(db, {
+  get(target, property) {
+    if (property === 'transaction') return (storeNames, mode, options) => {
+      if (mode === 'readwrite' && typeof localStorage !== 'undefined') {
+        const pendingReset = localStorage.getItem(CANONICAL_RESET_BARRIER_KEY)
+        if (pendingReset && resetWritePermission !== pendingReset) throw new Error(`Canonical mutation blocked while reset ${pendingReset} is pending.`)
+      } else if (mode === 'readwrite' && typeof localStorage === 'undefined') {
+        throw new Error('Canonical mutation blocked because reset barrier state cannot be checked.')
+      }
+      if (mode === undefined) return target.transaction(storeNames)
+      return options === undefined ? target.transaction(storeNames, mode) : target.transaction(storeNames, mode, options)
+    }
+    const value = Reflect.get(target, property, target)
+    return typeof value === 'function' ? value.bind(target) : value
+  }
+})
 
 const dbInstances = new Map()
 const initializationPromises = new Map()
@@ -86,7 +122,7 @@ const openDatabase = name => new Promise((resolve, reject) => {
 const initializeDatabase = async name => {
   if (dbInstances.has(name)) return dbInstances.get(name)
   if (initializationPromises.has(name)) return initializationPromises.get(name)
-  const initializationPromise = openDatabase(name).then(db => { const dbInstance = db; dbInstances.set(name, dbInstance); return dbInstance }).finally(() => initializationPromises.delete(name))
+  const initializationPromise = openDatabase(name).then(db => { const dbInstance = name === CANONICAL_DB_NAME ? guardCanonicalDatabase(db) : db; dbInstances.set(name, dbInstance); return dbInstance }).finally(() => initializationPromises.delete(name))
   initializationPromises.set(name, initializationPromise)
   return initializationPromise
 }

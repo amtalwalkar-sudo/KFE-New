@@ -105,7 +105,12 @@ const run = async page => page.evaluate(async () => {
 
   const backupRepo = createBackupRepository(['fuel_logs'])
   const snapshot = await backupRepo.readCanonicalSnapshot()
-  await backupRepo.resetCanonicalData()
+  const resetId = 'phase4-recovery-reset'
+  backupRepo.setCanonicalResetBarrier(resetId)
+  await backupRepo.resetCanonicalData({ resetId })
+  const resetVerification = await backupRepo.verifyCanonicalReset()
+  if (!resetVerification.ok) throw new Error('Canonical reset left records in resettable stores.')
+  backupRepo.clearCanonicalResetBarrier(resetId)
   if ((await count('fuel_logs')) !== 0) throw new Error('Canonical reset did not clear the fuel state.')
   await backupRepo.restoreCanonicalSnapshot(snapshot)
   const restored = await FuelRepository.getAll()
