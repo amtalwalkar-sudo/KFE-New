@@ -1,10 +1,18 @@
 import { WorkRuntimePorts } from './workRuntimePorts.js'
 import { BrowserCanonicalWorkService } from '../../infrastructure/work/browserCanonicalWork.js'
 import { generateUUID } from '../../utils/uuid.js'
+import { assertLifecycleStorageAvailable } from './lifecycleStorageGuard.js'
 
 const requireText = (value, name) => {
   if (typeof value !== 'string' || !value.trim()) throw new Error(`${name} is required.`)
   return value.trim()
+}
+
+const nativeCanonicalAvailable = () => { try { return WorkRuntimePorts.canonicalWork.isAvailable() === true } catch (_) { return false } }
+const requireCanonicalWriteRoute = () => {
+  let platform = null
+  try { platform = WorkRuntimePorts.platform.getPlatform() } catch (_) {}
+  return assertLifecycleStorageAvailable({ platform, nativeAvailable: nativeCanonicalAvailable() })
 }
 
 /** Shared application boundary for native canonical writes and browser canonical records. */
@@ -26,7 +34,8 @@ export const CanonicalWorkBoundary = Object.freeze({
       expectAbsent: input?.expectAbsent === true,
     }
     if (!normalized.record || typeof normalized.record !== 'object' || Array.isArray(normalized.record)) throw new Error('record must be an object.')
-    if (WorkRuntimePorts.canonicalWork.isAvailable()) return WorkRuntimePorts.canonicalWork.putRecord(normalized)
+    const nativeAvailable = requireCanonicalWriteRoute()
+    if (nativeAvailable) return WorkRuntimePorts.canonicalWork.putRecord(normalized)
     return BrowserCanonicalWorkService.putRecord(normalized)
   },
   async persistTripBoundarySnapshot(input) {
@@ -49,7 +58,8 @@ export const CanonicalWorkBoundary = Object.freeze({
       placeName: requireText(input?.placeName, 'placeName'),
     }
     if (!['tripStartLocation', 'tripEndLocation'].includes(normalized.field)) throw new Error('Unsupported trip-boundary place-name field.')
-    if (WorkRuntimePorts.canonicalWork.isAvailable()) return WorkRuntimePorts.canonicalWork.updateTripBoundaryPlaceName(normalized)
+    const nativeAvailable = requireCanonicalWriteRoute()
+    if (nativeAvailable) return WorkRuntimePorts.canonicalWork.updateTripBoundaryPlaceName(normalized)
     return BrowserCanonicalWorkService.updateTripBoundaryPlaceName(normalized)
   },
   async persistEventLocationSnapshot(snapshot) {
