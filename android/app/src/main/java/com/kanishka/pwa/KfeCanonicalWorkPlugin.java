@@ -121,9 +121,16 @@ public class KfeCanonicalWorkPlugin extends Plugin {
 
   @com.getcapacitor.PluginMethod
   public void beginCanonicalReset(PluginCall call) {
+    String resetId = call.getString("resetId", "");
     try {
-      JSONObject result = KfeCanonicalWorkStore.get(getContext()).beginReset(call.getString("resetId", ""));
+      KfeNativeWorkActionsPlugin.beginResetBarrier(getContext(), resetId);
+      JSONObject result = KfeCanonicalWorkStore.get(getContext()).beginReset(resetId);
       call.resolve(new JSObject(result.toString()));
+    } catch (IllegalStateException error) {
+      if (error.getMessage() != null && error.getMessage().toLowerCase(java.util.Locale.US).contains("active shift")) {
+        KfeNativeWorkActionsPlugin.releaseResetBarrier(getContext(), resetId);
+      }
+      call.reject(error.getMessage(), "CANONICAL_RESET_REJECTED", error);
     } catch (IllegalArgumentException error) {
       call.reject(error.getMessage(), "CANONICAL_RESET_REJECTED");
     } catch (Exception error) {
@@ -133,8 +140,10 @@ public class KfeCanonicalWorkPlugin extends Plugin {
 
   @com.getcapacitor.PluginMethod
   public void clearCanonicalReset(PluginCall call) {
+    String resetId = call.getString("resetId", "");
     try {
-      JSONObject result = KfeCanonicalWorkStore.get(getContext()).clearForReset(call.getString("resetId", ""));
+      KfeNativeWorkActionsPlugin.cancelPendingForReset(getContext(), resetId);
+      JSONObject result = KfeCanonicalWorkStore.get(getContext()).clearForReset(resetId);
       call.resolve(new JSObject(result.toString()));
     } catch (IllegalArgumentException error) {
       call.reject(error.getMessage(), "CANONICAL_RESET_REJECTED");
@@ -152,6 +161,23 @@ public class KfeCanonicalWorkPlugin extends Plugin {
       call.reject(error.getMessage(), "CANONICAL_RESET_REJECTED");
     } catch (Exception error) {
       call.reject("Canonical reset protocol operation failed.", "CANONICAL_RESET_FAILED", error);
+    }
+  }
+
+  @com.getcapacitor.PluginMethod
+  public void releaseCanonicalReset(PluginCall call) {
+    String resetId = call.getString("resetId", "");
+    try {
+      JSONObject state = KfeCanonicalWorkStore.get(getContext()).getResetState();
+      if (state.optBoolean("found") && resetId.equals(state.optString("resetId"))
+          && !"COMPLETE".equals(state.optString("state"))) {
+        throw new IllegalStateException("Native reset cannot release its event barrier before completion.");
+      }
+      KfeNativeWorkActionsPlugin.releaseResetBarrier(getContext(), resetId);
+      JSONObject result = new JSONObject().put("resetId", resetId).put("released", true);
+      call.resolve(new JSObject(result.toString()));
+    } catch (Exception error) {
+      call.reject("Native reset event barrier could not be released.", "CANONICAL_RESET_RELEASE_FAILED", error);
     }
   }
 
