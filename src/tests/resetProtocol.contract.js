@@ -9,9 +9,9 @@ const nativeStore = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/
 const nativePlugin = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeCanonicalWorkPlugin.java', 'utf8')
 const instrumentation = fs.readFileSync('android/app/src/androidTest/java/com/kanishka/pwa/KfeCanonicalResetProtocolTest.java', 'utf8')
 
-assert.match(backupService, /await createBackup\(\)[\s\S]*await saveLocalBackup\(checkpoint\)[\s\S]*await verifyResetCheckpoint\(checkpoint\)/,
-  'Reset must durably create and verify a checkpoint before destructive work.')
-assert.match(backupService, /setCanonicalResetBarrier\(resetId\)[\s\S]*saveResetJournal\([\s\S]*state: 'PREPARED'/,
+assert.match(backupService, /setCanonicalResetBarrier\(resetId\)[\s\S]*state: 'CHECKPOINTING'[\s\S]*await createBackup\(\)[\s\S]*saveResetCheckpoint\(resetId, checkpoint\)[\s\S]*verifyResetCheckpoint\(checkpoint, resetId\)/,
+  'Reset must block writes before taking and verifying its durable checkpoint.')
+assert.match(backupService, /setCanonicalResetBarrier\(resetId\)[\s\S]*saveResetJournal\([\s\S]*state: 'CHECKPOINTING'/,
   'Reset must establish a synchronous mutation barrier and durable reset journal before either store is cleared.')
 assert.match(backupService, /await NativeCanonicalWorkService\.beginCanonicalReset\(resetId\)/,
   'Native reset intent must be durable before native canonical records are cleared.')
@@ -27,8 +27,10 @@ assert.match(indexedDb, /Canonical mutation blocked while reset/,
   'New canonical read-write transactions must be blocked while reset is pending.')
 assert.match(indexedDb, /withCanonicalResetWritePermission/,
   'Only the matching reset ID can create the privileged browser clear transaction.')
-assert.match(backupRepository, /resetStores = \[\.\.\.new Set\(\[\.\.\.stores, 'form_drafts'\]\)\]/,
-  'Reset must clear canonical settings to restore factory defaults and clear drafts.')
+assert.match(backupRepository, /resetStores = \[\.\.\.new Set\(\[\.\.\.stores, 'form_drafts', 'canonical_operations'\]\)\]/,
+  'Reset must clear settings, drafts, and the browser canonical operation ledger.')
+assert.match(backupRepository, /async verifyCanonicalReset\(\)/, 'Reset verifies every canonical store, not only exportable backup stores.')
+assert.match(backupService, /assertNoActiveShift\(checkpoint\)/, 'Browser-side active shifts must block reset even if the native mirror is stale.')
 assert.match(startup, /await BackupService\.recoverPendingReset\(\)[\s\S]*await MutationRepository\.recoverStaleSyncing\(\)/,
   'Pending reset recovery must precede stale mutation replay at startup.')
 assert.match(nativeStore, /canonical_reset_state[\s\S]*CANCELLED_BY_RESET/,
