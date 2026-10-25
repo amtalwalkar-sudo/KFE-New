@@ -1,4 +1,6 @@
 import { createBackupRepository } from '../../repositories/backupRepository.js'
+import { NativeCanonicalWorkService } from '../../infrastructure/android/nativeCanonicalWork.js'
+import { setCanonicalResetBarrier, getCanonicalResetBarrier, clearCanonicalResetBarrier } from '../../utils/indexedDB.js'
 import { CANONICAL_DB_VERSION } from '../../constants/canonicalDatabase.js'
 export const BACKUP_FORMAT = 'KFE_BACKUP'
 export const BACKUP_FORMAT_VERSION = 4
@@ -48,7 +50,129 @@ export const getBackupSummary = backup => { const valid = validateBackup(backup)
 export const saveLocalBackup = async backup => { const valid = validateBackup(backup); await backupRepository.saveLocalBackup(valid); return true }
 export const getLocalBackup = async () => backupRepository.getLocalBackup()
 export const restoreBackup = async input => { const backup = validateBackup(input); const merge = await backupRepository.restoreCanonicalSnapshot(backup.stores, { sourceExportedAt: backup.exportedAt }); await saveLocalBackup(await createBackup()); return { ...getBackupSummary(backup), merge } }
-export const resetData = async () => { await backupRepository.resetCanonicalData(); return { ok: true } }
+const RESET_TERMINAL_STATES = new Set(['COMPLETE', 'ABORTED'])
+
+const verifyResetCheckpoint = async checkpoint => {
+  const saved = await getLocalBackup()
+  if (!saved?.backup || saved.backup.exportedAt !== checkpoint.exportedAt) {
+    throw new Error('Reset stopped before deletion because the recovery checkpoint could not be verified.')
+  }
+  const expectedCounts = getBackupSummary(checkpoint).counts
+  const savedCounts = getBackupSummary(saved.backup).counts
+  if (JSON.stringify(expectedCounts) !== JSON.stringify(savedCounts)) {
+    throw new Error('Reset stopped before deletion because the recovery checkpoint record counts do not match.')
+  }
+}
+
+const continueReset = async resetId => {
+  let journal = await backupRepository.getResetJournal()
+  if (!journal || journal.id !== 'current' || journal.resetId !== resetId) {
+    throw new Error('Reset recovery journal is missing or does not match the pending reset ID.')
+  }
+  if (RESET_TERMINAL_STATES.has(journal.state)) {
+    if (journal.state === 'COMPLETE') clearCanonicalResetBarrier(resetId)
+    return { ok: journal.state === 'COMPLETE', resetId, state: journal.state }
+  }
+  const nativeAvailable = NativeCanonicalWorkService.isAvailable()
+  if (journal.nativeRequired && !nativeAvailable) {
+    throw new Error('Reset recovery is blocked because the native canonical store is unavailable.')
+  }
+
+  try {
+    if (nativeAvailable) {
+      const nativeState = await NativeCanonicalWorkService.getCanonicalResetState()
+      if (!nativeState?.found || nativeState.resetId !== resetId) {
+        await NativeCanonicalWorkService.beginCanonicalReset(resetId)
+      }
+    }
+
+    // Repeat this idempotent clear on recovery even if the journal update was
+    // interrupted after the IndexedDB transaction committed.
+    await backupRepository.resetCanonicalData({ resetId })
+    journal = { ...journal, state: 'BROWSER_CLEARED' }
+    await backupRepository.saveResetJournal(journal)
+
+    if (nativeAvailable) {
+      await NativeCanonicalWorkService.clearCanonicalReset(resetId)
+      journal = { ...journal, state: 'NATIVE_CLEARED' }
+      await backupRepository.saveResetJournal(journal)
+      await NativeCanonicalWorkService.completeCanonicalReset(resetId)
+      const nativeState = await NativeCanonicalWorkService.getCanonicalResetState()
+      if (nativeState?.found !== true || nativeState.resetId !== resetId || nativeState.state !== 'COMPLETE') {
+        throw new Error('Native canonical reset could not be verified.')
+      }
+    }
+
+    const after = await createBackup()
+    if (getBackupSummary(after).totalRecords !== 0) {
+      throw new Error('Browser canonical reset verification failed; recoverable records remain.')
+    }
+    journal = { ...journal, state: 'COMPLETE', completedAt: new Date().toISOString() }
+    await backupRepository.saveResetJournal(journal)
+    clearCanonicalResetBarrier(resetId)
+    return { ok: true, resetId, state: 'COMPLETE' }
+  } catch (error) {
+    // Keep the barrier and journal intact on uncertain outcomes. Startup retries
+    // the same reset ID before normal mutation replay is allowed.
+    throw error
+  }
+}
+
+export const resetData = async () => {
+  const checkpoint = await createBackup()
+  await saveLocalBackup(checkpoint)
+  await verifyResetCheckpoint(checkpoint)
+
+  const resetId = globalThis.crypto?.randomUUID?.() || `reset-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const nativeRequired = NativeCanonicalWorkService.isAvailable()
+  setCanonicalResetBarrier(resetId)
+  await backupRepository.saveResetJournal({
+    id: 'current',
+    resetId,
+    state: 'PREPARED',
+    nativeRequired,
+    checkpointExportedAt: checkpoint.exportedAt,
+    startedAt: new Date().toISOString(),
+  })
+  try {
+    return await continueReset(resetId)
+  } catch (error) {
+    if (/blocked while a shift is active/i.test(error?.message || '')) {
+      await backupRepository.saveResetJournal({ id: 'current', resetId, state: 'ABORTED', nativeRequired, reason: 'ACTIVE_SHIFT', checkpointExportedAt: checkpoint.exportedAt })
+      clearCanonicalResetBarrier(resetId)
+    }
+    throw error
+  }
+}
+
+export const recoverPendingReset = async () => {
+  let journal = await backupRepository.getResetJournal()
+  const barrierId = getCanonicalResetBarrier()
+  if (!journal && barrierId) {
+    const checkpoint = await getLocalBackup()
+    if (!checkpoint?.backup) throw new Error('Reset barrier exists but its recovery checkpoint is missing; startup is blocked.')
+    journal = {
+      id: 'current',
+      resetId: barrierId,
+      state: 'PREPARED',
+      nativeRequired: NativeCanonicalWorkService.isAvailable(),
+      checkpointExportedAt: checkpoint.backup.exportedAt,
+      recoveredJournalAfterCrash: true,
+    }
+    await backupRepository.saveResetJournal(journal)
+  }
+  if (!journal || RESET_TERMINAL_STATES.has(journal.state)) {
+    if (journal?.state === 'COMPLETE' && barrierId === journal.resetId) clearCanonicalResetBarrier(journal.resetId)
+    return { recovered: false, state: journal?.state || null }
+  }
+  if (barrierId !== journal.resetId) setCanonicalResetBarrier(journal.resetId)
+  const checkpoint = await getLocalBackup()
+  if (!checkpoint?.backup || checkpoint.backup.exportedAt !== journal.checkpointExportedAt) {
+    throw new Error('Pending reset cannot resume because its verified recovery checkpoint is missing or changed.')
+  }
+  const result = await continueReset(journal.resetId)
+  return { recovered: true, ...result }
+}
 export const readBackupText = input => validateBackup(input)
 export const requestLocalBackupCheckpoint = () => { checkpointRequested = true; if (checkpointTimer !== null) return; checkpointTimer = setTimeout(async () => { checkpointTimer = null; if (checkpointRunning || !checkpointRequested) return; checkpointRequested = false; checkpointRunning = true; try { await saveLocalBackup(await createBackup()) } catch (error) { console.warn('KFE local backup checkpoint failed:', error) } finally { checkpointRunning = false } }, 250) }
 export const maybeDailyLocalBackup = async () => { const current = await getLocalBackup(); if (!current || Date.now() - Date.parse(current.savedAt) >= 24 * 60 * 60 * 1000) { const backup = await createBackup(); await saveLocalBackup(backup); return getBackupSummary(backup) } return getBackupSummary(current.backup) }
