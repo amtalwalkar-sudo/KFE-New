@@ -32,7 +32,7 @@ assert.ok(createShift.includes("shifts.getAll()"), 'Shift creation must check ac
 assert.ok(createShift.includes("shift.status === 'ACTIVE'"), 'Shift creation must reject a second active shift')
 assert.ok(createShift.includes("intents.get(intentId)") && createShift.includes('priorIntent.record'),
   'Retrying the same shift create intent must return its original record identity')
-assert.ok(createShift.includes("intents.add({ id: intentId, entityType: 'SHIFT', intentKey: intentKey || null, record: proposed"),
+assert.ok(createShift.includes("const intent = { id: intentId, entityType: 'SHIFT', intentKey: intentKey || null, record: proposed") && createShift.includes('intents.add(intent)'),
   'Shift create intent must be durable in canonical_operations before acknowledgement')
 
 const createTrip = repository.slice(repository.indexOf('async createTrip('), repository.indexOf('async setTripStartLocation('))
