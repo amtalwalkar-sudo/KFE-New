@@ -15,13 +15,32 @@ final class KfeNativeEventStore extends SQLiteOpenHelper {
   private static volatile KfeNativeEventStore instance;
   // Narrow failure seam for instrumentation: a failed queue read must be visible to callers.
   static volatile boolean failPendingReadForTests;
+  private final Context appContext;
 
   static synchronized KfeNativeEventStore get(Context context) {
     if (instance == null) instance = new KfeNativeEventStore(context.getApplicationContext());
     return instance;
   }
 
-  private KfeNativeEventStore(Context context) { super(context, DB_NAME, null, DB_VERSION); }
+  private KfeNativeEventStore(Context context) { this(context, DB_NAME); }
+
+  KfeNativeEventStore(Context context, String databaseName) {
+    super(context, databaseName, null, DB_VERSION);
+    appContext = context.getApplicationContext();
+  }
+
+  private void assertNoPendingReset() {
+    if (KfeNativeWorkActionsPlugin.isResetBarrierActive(appContext)) {
+      throw new IllegalStateException("Native lifecycle event blocked while reset is pending.");
+    }
+    try {
+      JSONObject reset = KfeCanonicalWorkStore.get(appContext).getResetState();
+      if (reset.optBoolean("found") && !"COMPLETE".equals(reset.optString("state"))) {
+        throw new IllegalStateException("Native lifecycle event blocked while reset is pending.");
+      }
+    } catch (IllegalStateException error) { throw error; }
+    catch (Exception error) { throw new IllegalStateException("Unable to verify reset state; native event recovery is blocked.", error); }
+  }
 
   @Override public void onCreate(SQLiteDatabase db) {
     db.execSQL("CREATE TABLE native_events (id TEXT PRIMARY KEY, stage TEXT NOT NULL, trip_id TEXT NOT NULL, input TEXT, created_at INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'PENDING', attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT)");
@@ -31,6 +50,7 @@ final class KfeNativeEventStore extends SQLiteOpenHelper {
   @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) { }
 
   synchronized String append(String stage, String tripId, String input) {
+    assertNoPendingReset();
     String safeStage = stage == null ? "" : stage;
     String safeTripId = tripId == null ? "" : tripId;
     String safeInput = input == null ? "" : input;
@@ -69,6 +89,7 @@ final class KfeNativeEventStore extends SQLiteOpenHelper {
   }
 
   synchronized JSONArray pending(int limit) {
+    assertNoPendingReset();
     JSONArray events = new JSONArray();
     try {
       if (failPendingReadForTests) throw new IllegalStateException("Injected native event queue read failure.");
@@ -102,6 +123,21 @@ final class KfeNativeEventStore extends SQLiteOpenHelper {
     }
   }
 
+  synchronized boolean isPending(String id) {
+    if (id == null || id.trim().isEmpty()) return false;
+    try (Cursor cursor = getReadableDatabase().query("native_events", new String[]{"status"}, "id=?", new String[]{id}, null, null, null, "1")) {
+      return cursor.moveToFirst() && "PENDING".equals(cursor.getString(0));
+    }
+  }
+
+  synchronized void cancelPendingForReset(String resetId) {
+    if (resetId == null || resetId.trim().isEmpty()) throw new IllegalArgumentException("resetId is required.");
+    ContentValues values = new ContentValues();
+    values.put("status", "CANCELLED_BY_RESET");
+    values.put("last_error", "Invalidated by canonical reset " + resetId);
+    getWritableDatabase().update("native_events", values, "status='PENDING'", null);
+  }
+
   synchronized boolean isAcknowledged(String id) {
     if (id == null || id.trim().isEmpty()) return false;
     try (Cursor cursor = getReadableDatabase().query("native_events", new String[]{"status"}, "id=?", new String[]{id}, null, null, null, "1")) {
@@ -110,6 +146,7 @@ final class KfeNativeEventStore extends SQLiteOpenHelper {
   }
 
   synchronized boolean acknowledge(String id) {
+    assertNoPendingReset();
     if (id == null || id.trim().isEmpty()) return false;
     ContentValues values = new ContentValues();
     values.put("status", "ACKNOWLEDGED");
@@ -118,6 +155,7 @@ final class KfeNativeEventStore extends SQLiteOpenHelper {
   }
 
   synchronized void recordFailure(String id, String error) {
+    assertNoPendingReset();
     if (id == null || id.trim().isEmpty()) return;
     getWritableDatabase().execSQL("UPDATE native_events SET attempts=attempts+1, last_error=? WHERE id=? AND status='PENDING'",
         new Object[]{error == null ? "Processing failed" : error, id});
