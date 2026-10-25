@@ -35,7 +35,6 @@ public class KfeOverlaySmokeTest {
     SystemClock.sleep(300L);
     KfeOverlayService.instance = null;
     context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE).edit().clear().apply();
-    context.startService(new Intent(context, KfeOverlayService.class));
   }
 
   @After public void tearDown() {
@@ -285,7 +284,6 @@ public class KfeOverlaySmokeTest {
   @Test public void goldenRideSwipeLoopPersistsPickupStartEndAndFareIdentity() throws Exception {
     clearPending();
     seedCanonicalShift("golden-shift");
-    KfeOverlayService service = waitForService();
     Field actionStage = KfeOverlayService.class.getDeclaredField("actionStage");
     Field pendingTripId = KfeOverlayService.class.getDeclaredField("pendingTripId");
     Field pendingFareTripId = KfeOverlayService.class.getDeclaredField("pendingFareTripId");
@@ -306,7 +304,7 @@ public class KfeOverlaySmokeTest {
     state.put("overlayAction", "GO_TO_PICKUP");
     updateWithCanonicalShift(state);
     waitForOverlay();
-    service = waitForService();
+    KfeOverlayService service = waitForService();
     actionStage.set(service, "GO_TO_PICKUP");
     pendingTripId.set(service, "trip-a");
     assertSwipeTracksAndRetracts(service);
@@ -341,11 +339,21 @@ public class KfeOverlaySmokeTest {
 
   @Test public void pendingActionSurvivesOverlayServiceRecreationUntilExplicitClear() throws Exception {
     clearPending();
+    seedCanonicalShift("pending-replay-shift");
+    JSONObject state = new JSONObject()
+      .put("shift", new JSONObject().put("id", "pending-replay-shift"))
+      .put("trip", new JSONObject().put("id", "trip-replay"))
+      .put("overlayAction", "END_RIDE")
+      .put("overlayTripId", "trip-replay");
+    updateWithCanonicalShift(state);
+    waitForOverlay();
+    waitForService();
     KfeNativeWorkActionsPlugin.recordPendingAction(context, "END_RIDE", "trip-replay", "");
     assertEquals("END_RIDE|trip-replay|", pendingValue());
     context.stopService(new Intent(context, KfeOverlayService.class));
     SystemClock.sleep(300);
-    context.startService(new Intent(context, KfeOverlayService.class));
+    KfeOverlayService.instance = null;
+    KfeOverlayService.resumePersisted(context);
     waitForService();
     assertEquals("END_RIDE|trip-replay|", pendingValue());
     clearPending();
