@@ -132,8 +132,8 @@ export const ShiftTripRepository = {
       tx.onabort = () => reject(tx.error || new Error('Atomic shift completion aborted.'))
     })
   },
-  async createTrip(data) {
-    await ensureCanonicalReadBoundary()
+  async createTrip(data) { await ensureCanonicalReadBoundary();
+
     const now = new Date().toISOString()
     const record = createCanonicalTripRecord(data, { createId: generateUUID, now })
     const db = await initializeCanonicalStorage()
