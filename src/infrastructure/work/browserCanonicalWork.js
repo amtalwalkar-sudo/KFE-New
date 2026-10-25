@@ -38,7 +38,7 @@ const sameShiftExceptRevenueProjection = (left, right) => {
   return jsonEquivalent(a, b)
 }
 const parseCanonicalInstant = (value, field) => {
-  if (typeof value !== 'string' || !/^\\d{4}-\\d{2}-\\d{2}T.*(?:Z|[+-]\\d{2}:\\d{2})$/.test(value)) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(value)) {
     throw new Error(`Canonical version conflict: ${field} must be a valid ISO-8601 instant.`)
   }
   const parsed = Date.parse(value)
