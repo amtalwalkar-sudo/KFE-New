@@ -243,6 +243,9 @@ export const recoverPendingReset = async () => {
     return { recovered: false, state: 'ABORTED' }
   }
   if (!journal || RESET_TERMINAL_STATES.has(journal.state)) {
+    if (journal && barrierId && barrierId !== journal.resetId) {
+      throw new Error('Reset barrier ID does not match the durable reset journal; startup is blocked.')
+    }
     if (journal && barrierId === journal.resetId) clearCanonicalResetBarrier(journal.resetId)
     if (journal?.state === 'COMPLETE' && journal.nativeRequired && nativeAvailable) {
       await NativeCanonicalWorkService.releaseCanonicalReset(journal.resetId)
