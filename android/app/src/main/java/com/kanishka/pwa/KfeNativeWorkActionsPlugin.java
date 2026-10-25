@@ -78,8 +78,12 @@ public class KfeNativeWorkActionsPlugin extends Plugin {
 
   static void cancelPendingForReset(Context context, String resetId) {
     KfeNativeEventStore.get(context).cancelPendingForReset(resetId);
-    context.getSharedPreferences(PREFS, 0).edit().remove(PENDING_KEY).remove("pendingEventId").commit();
-    context.getSharedPreferences(LEGACY_PREFS, 0).edit().remove(PENDING_KEY).remove("pendingEventId").commit();
+    if (!context.getSharedPreferences(PREFS, 0).edit().remove(PENDING_KEY).remove("pendingEventId").commit()) {
+      throw new IllegalStateException("Native pending-action handoff could not be cleared for reset.");
+    }
+    if (!context.getSharedPreferences(LEGACY_PREFS, 0).edit().remove(PENDING_KEY).remove("pendingEventId").commit()) {
+      throw new IllegalStateException("Legacy pending-action handoff could not be cleared for reset.");
+    }
   }
 
   static String recordPendingAction(Context context, String stage, String tripId, String input) {
