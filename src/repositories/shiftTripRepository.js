@@ -132,7 +132,52 @@ export const ShiftTripRepository = {
       tx.onabort = () => reject(tx.error || new Error('Atomic shift completion aborted.'))
     })
   },
-  async createTrip(data) { await ensureCanonicalReadBoundary(); const now = new Date().toISOString(); const record = createCanonicalTripRecord(data, { createId: generateUUID, now }); await atomic(['trips'], (_, m, a) => { _.objectStore('trips').put(record); saveMutation(m, a, record.id, 'TRIP', 'CREATE', record, now) }); return record },
+  async createTrip(data) {
+    await ensureCanonicalReadBoundary()
+    const now = new Date().toISOString()
+    const record = createCanonicalTripRecord(data, { createId: generateUUID, now })
+    const db = await initializeCanonicalStorage()
+    return new Promise((resolve, reject) => {
+      // One read-write transaction serializes validation with creation, so the
+      // parent shift cannot end and a second active trip cannot race this write.
+      const tx = db.transaction(['shifts', 'trips', 'pending_mutations', 'audit_history'], 'readwrite')
+      const shifts = tx.objectStore('shifts')
+      const trips = tx.objectStore('trips')
+      const shiftRequest = shifts.get(record.shiftId)
+      const tripsRequest = trips.getAll()
+      let result = null
+      let validationError = null
+      let ready = 0
+      const validateAndWrite = () => {
+        if (++ready !== 2) return
+        const shift = shiftRequest.result
+        if (!shift || shift.status !== 'ACTIVE') {
+          validationError = new Error('Cannot create a trip without an active parent shift.')
+          try { tx.abort() } catch (_) {}
+          return
+        }
+        const hasActiveTrip = tripsRequest.result.some(trip => trip.shiftId === record.shiftId && trip.status === 'ACTIVE')
+        if (hasActiveTrip) {
+          validationError = new Error('Cannot create another trip while this shift already has an active trip.')
+          try { tx.abort() } catch (_) {}
+          return
+        }
+        trips.put(record)
+        saveMutation(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), record.id, 'TRIP', 'CREATE', record, now)
+        result = record
+      }
+      shiftRequest.onsuccess = validateAndWrite
+      tripsRequest.onsuccess = validateAndWrite
+      shiftRequest.onerror = () => { validationError = shiftRequest.error || new Error('Unable to validate parent shift.'); try { tx.abort() } catch (_) {} }
+      tripsRequest.onerror = () => { validationError = tripsRequest.error || new Error('Unable to validate active trips.'); try { tx.abort() } catch (_) {} }
+      tx.oncomplete = () => {
+        notifyCanonicalDataChanged({ stores: ['shifts', 'trips'], reason: 'shift-trip:create' })
+        resolve(result)
+      }
+      tx.onerror = () => reject(validationError || tx.error || new Error('Trip creation transaction failed.'))
+      tx.onabort = () => reject(validationError || tx.error || new Error('Trip creation transaction aborted.'))
+    })
+  },
   async setTripStartLocation(id, location) { return this._setTripLocation(id, location, 'tripStartLocation') },
   async setTripEndLocation(id, location) { return this._setTripLocation(id, location, 'tripEndLocation') },
   async _setTripLocation(id, location, field) { await ensureCanonicalReadBoundary();
