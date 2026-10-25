@@ -11,7 +11,7 @@ assert.match(backupService, /export const restoreBackup = async input => \{ cons
 assert.match(backupService, /await backupRepository\.restoreCanonicalSnapshot\(backup\.stores, \{ sourceExportedAt: backup\.exportedAt \}\)/, 'Restore must preserve source provenance while merging the backup with current records.')
 assert.match(backupService, /saveLocalBackup\(await createBackup\(\)\)/, 'The post-restore checkpoint must include the merged current and imported records.')
 assert.match(backupService, /await saveLocalBackup\(await createBackup\(\)\)/, 'The saved local recovery checkpoint must reflect the merged dataset.')
-assert.match(backupService, /export const resetData = async \(\) => \{ await backupRepository\.resetCanonicalData\(\)/)
+assert.match(backupService, /const runResetData = async \(\) => \{[\s\S]*await recoverPendingReset\(\)[\s\S]*backupRepository\.resetCanonicalData\(\{ resetId \}\)/, 'Reset recovery must run before the idempotent cross-store clear phase.')
 assert.match(backupService, /export const maybeDailyLocalBackup = async/)
 assert.match(backupService, /Date\.now\(\) - Date\.parse\(current\.savedAt\) >= 24 \* 60 \* 60 \* 1000/)
 
