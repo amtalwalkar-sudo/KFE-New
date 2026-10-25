@@ -132,7 +132,7 @@ const continueReset = async resetId => {
   }
 }
 
-export const resetData = async () => {
+const runResetData = async () => {
   await recoverPendingReset()
   const resetId = globalThis.crypto?.randomUUID?.() || `reset-${Date.now()}-${Math.random().toString(36).slice(2)}`
   const nativeRequired = NativeCanonicalWorkService.isAvailable()
@@ -179,6 +179,13 @@ export const resetData = async () => {
     }
     throw error
   }
+}
+
+let activeResetAttempt = null
+export const resetData = () => {
+  if (activeResetAttempt) return activeResetAttempt
+  activeResetAttempt = runResetData().finally(() => { activeResetAttempt = null })
+  return activeResetAttempt
 }
 
 export const recoverPendingReset = async () => {
