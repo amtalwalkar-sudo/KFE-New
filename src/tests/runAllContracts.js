@@ -6,7 +6,7 @@ const suites = [
   'eventLocationCapture.contract.js',
   'timelineLocationLabels.contract.js',
   'tripBoundaryTimestamp.contract.js',
-  'canonicalWorkReadAuthority.contract.js','browserCanonicalWriteContract.contract.js','canonicalWorkRecordFactory.contract.js','nativeFirstWorkMutations.contract.js',
+  'canonicalWorkReadAuthority.contract.js','browserCanonicalWriteContract.contract.js','canonicalWorkRecordFactory.contract.js','lifecycleStorageGuard.contract.js','nativeFirstWorkMutations.contract.js',
   'overlayLifecycleOwnershipAndRuntimeError.contract.js',
   'tripCompletionCanonicalReadRace.contract.js',
   
