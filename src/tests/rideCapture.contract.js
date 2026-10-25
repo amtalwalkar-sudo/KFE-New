@@ -44,7 +44,7 @@ assert(!service.includes('ride_capture'), 'No competing Ride persistence store m
 assert(canonicalWorkRecords.includes('shiftId: normalized.shiftId'), 'Canonical Trip must retain shift relationship')
 assert(canonicalWorkRecords.includes('tripKmAuthority'), 'Trip distance authority boundary missing')
 assert(canonicalWorkRecords.includes('revenueAuthority'), 'Trip revenue authority boundary missing')
-assert(repository.includes("saveMutation(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), record.id, 'TRIP', 'CREATE', record, now)"), 'Trip creation must retain mutation/audit lineage')
+assert(repository.includes("saveMutation(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), proposed.id, 'TRIP', 'CREATE', proposed, now)"), 'Trip creation must retain mutation/audit lineage')
 assert(contract.includes('provenance'), 'Canonical contract must retain provenance boundary')
 
 // Duration is a derived presentation value when timestamps are available; it is not a second business authority.
