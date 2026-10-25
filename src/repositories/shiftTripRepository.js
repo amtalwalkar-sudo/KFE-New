@@ -43,7 +43,56 @@ export const configureCanonicalReadBoundary = boundary => {
 }
 
 export const ShiftTripRepository = {
-  async createShift(data) { await ensureCanonicalReadBoundary(); const now = new Date().toISOString(); const record = createCanonicalShiftRecord(data, { createId: generateUUID, now }); await atomic(['shifts'], (_, m, a) => { _.objectStore('shifts').put(record); saveMutation(m, a, record.id, 'SHIFT', 'CREATE', record, now) }); return record },
+  async createShift(data) {
+    await ensureCanonicalReadBoundary()
+    const now = new Date().toISOString()
+    const proposed = createCanonicalShiftRecord(data, { createId: generateUUID, now })
+    const intentKey = String(data?.createIntentKey || data?.idempotencyKey || '').trim()
+    const intentId = intentKey ? `create-intent:SHIFT:${intentKey}` : `create-intent:SHIFT:record:${proposed.id}`
+    const db = await initializeCanonicalStorage()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['shifts', 'canonical_operations', 'pending_mutations', 'audit_history'], 'readwrite')
+      const shifts = tx.objectStore('shifts')
+      const intents = tx.objectStore('canonical_operations')
+      const intentRequest = intents.get(intentId)
+      let result = null
+      let failure = null
+      intentRequest.onsuccess = () => {
+        const priorIntent = intentRequest.result
+        if (priorIntent) {
+          if (intentKey && priorIntent.intentKey !== intentKey) {
+            failure = new Error('Shift create-intent key collision; refusing to reuse a different workflow.')
+            try { tx.abort() } catch (_) {}
+            return
+          }
+          result = priorIntent.record
+          return
+        }
+        const activeRequest = shifts.getAll()
+        activeRequest.onsuccess = () => {
+          const active = (activeRequest.result || []).find(shift => shift.status === 'ACTIVE')
+          if (active) {
+            failure = new Error('Cannot start another shift while a shift is already active.')
+            try { tx.abort() } catch (_) {}
+            return
+          }
+          const intent = { id: intentId, entityType: 'SHIFT', intentKey: intentKey || null, record: proposed, status: 'COMPLETED', createdAt: now }
+          intents.add(intent)
+          shifts.add(proposed)
+          saveMutation(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), proposed.id, 'SHIFT', 'CREATE', proposed, now)
+          result = proposed
+        }
+        activeRequest.onerror = () => { failure = activeRequest.error || new Error('Unable to validate active shifts.'); try { tx.abort() } catch (_) {} }
+      }
+      intentRequest.onerror = () => { failure = intentRequest.error || new Error('Unable to read durable shift create intent.'); try { tx.abort() } catch (_) {} }
+      tx.oncomplete = () => {
+        notifyCanonicalDataChanged({ stores: ['shifts'], reason: 'shift-trip:create-shift' })
+        resolve(result)
+      }
+      tx.onerror = () => reject(failure || tx.error || new Error('Shift creation transaction failed.'))
+      tx.onabort = () => reject(failure || tx.error || new Error('Shift creation transaction aborted.'))
+    })
+  },
   async completeShift(data) { await ensureCanonicalReadBoundary();
     const db = await initializeCanonicalStorage()
     return new Promise((resolve, reject) => {
@@ -132,50 +181,65 @@ export const ShiftTripRepository = {
       tx.onabort = () => reject(tx.error || new Error('Atomic shift completion aborted.'))
     })
   },
-  async createTrip(data) { await ensureCanonicalReadBoundary();
-
+  async createTrip(data) {
+    await ensureCanonicalReadBoundary()
     const now = new Date().toISOString()
-    const record = createCanonicalTripRecord(data, { createId: generateUUID, now })
+    const proposed = createCanonicalTripRecord(data, { createId: generateUUID, now })
+    const intentKey = String(data?.createIntentKey || data?.idempotencyKey || '').trim()
+    const intentId = intentKey ? `create-intent:TRIP:${intentKey}` : `create-intent:TRIP:record:${proposed.id}`
     const db = await initializeCanonicalStorage()
     return new Promise((resolve, reject) => {
-      // One read-write transaction serializes validation with creation, so the
-      // parent shift cannot end and a second active trip cannot race this write.
-      const tx = db.transaction(['shifts', 'trips', 'pending_mutations', 'audit_history'], 'readwrite')
+      const tx = db.transaction(['shifts', 'trips', 'canonical_operations', 'pending_mutations', 'audit_history'], 'readwrite')
       const shifts = tx.objectStore('shifts')
       const trips = tx.objectStore('trips')
-      const shiftRequest = shifts.get(record.shiftId)
-      const tripsRequest = trips.getAll()
+      const intents = tx.objectStore('canonical_operations')
+      const intentRequest = intents.get(intentId)
       let result = null
-      let validationError = null
-      let ready = 0
-      const validateAndWrite = () => {
-        if (++ready !== 2) return
-        const shift = shiftRequest.result
-        if (!shift || shift.status !== 'ACTIVE') {
-          validationError = new Error('Cannot create a trip without an active parent shift.')
-          try { tx.abort() } catch (_) {}
+      let failure = null
+      intentRequest.onsuccess = () => {
+        const priorIntent = intentRequest.result
+        if (priorIntent) {
+          if (intentKey && priorIntent.intentKey !== intentKey) {
+            failure = new Error('Trip create-intent key collision; refusing to reuse a different workflow.')
+            try { tx.abort() } catch (_) {}
+            return
+          }
+          result = priorIntent.record
           return
         }
-        const hasActiveTrip = tripsRequest.result.some(trip => trip.shiftId === record.shiftId && trip.status === 'ACTIVE')
-        if (hasActiveTrip) {
-          validationError = new Error('Cannot create another trip while this shift already has an active trip.')
-          try { tx.abort() } catch (_) {}
-          return
+        const shiftRequest = shifts.get(proposed.shiftId)
+        const tripsRequest = trips.getAll()
+        let ready = 0
+        const validateAndWrite = () => {
+          if (++ready !== 2) return
+          const shift = shiftRequest.result
+          if (!shift || shift.status !== 'ACTIVE') {
+            failure = new Error('Cannot create a trip without an active parent shift.')
+            try { tx.abort() } catch (_) {}
+            return
+          }
+          if ((tripsRequest.result || []).some(trip => trip.shiftId === proposed.shiftId && trip.status === 'ACTIVE')) {
+            failure = new Error('Cannot create another trip while this shift already has an active trip.')
+            try { tx.abort() } catch (_) {}
+            return
+          }
+          intents.add({ id: intentId, entityType: 'TRIP', intentKey: intentKey || null, record: proposed, status: 'COMPLETED', createdAt: now })
+          trips.add(proposed)
+          saveMutation(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), proposed.id, 'TRIP', 'CREATE', proposed, now)
+          result = proposed
         }
-        trips.put(record)
-        saveMutation(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), record.id, 'TRIP', 'CREATE', record, now)
-        result = record
+        shiftRequest.onsuccess = validateAndWrite
+        tripsRequest.onsuccess = validateAndWrite
+        shiftRequest.onerror = () => { failure = shiftRequest.error || new Error('Unable to validate parent shift.'); try { tx.abort() } catch (_) {} }
+        tripsRequest.onerror = () => { failure = tripsRequest.error || new Error('Unable to validate active trips.'); try { tx.abort() } catch (_) {} }
       }
-      shiftRequest.onsuccess = validateAndWrite
-      tripsRequest.onsuccess = validateAndWrite
-      shiftRequest.onerror = () => { validationError = shiftRequest.error || new Error('Unable to validate parent shift.'); try { tx.abort() } catch (_) {} }
-      tripsRequest.onerror = () => { validationError = tripsRequest.error || new Error('Unable to validate active trips.'); try { tx.abort() } catch (_) {} }
+      intentRequest.onerror = () => { failure = intentRequest.error || new Error('Unable to read durable trip create intent.'); try { tx.abort() } catch (_) {} }
       tx.oncomplete = () => {
         notifyCanonicalDataChanged({ stores: ['shifts', 'trips'], reason: 'shift-trip:create' })
         resolve(result)
       }
-      tx.onerror = () => reject(validationError || tx.error || new Error('Trip creation transaction failed.'))
-      tx.onabort = () => reject(validationError || tx.error || new Error('Trip creation transaction aborted.'))
+      tx.onerror = () => reject(failure || tx.error || new Error('Trip creation transaction failed.'))
+      tx.onabort = () => reject(failure || tx.error || new Error('Trip creation transaction aborted.'))
     })
   },
   async setTripStartLocation(id, location) { return this._setTripLocation(id, location, 'tripStartLocation') },
