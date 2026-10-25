@@ -323,6 +323,8 @@ run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#nativeTrip
 # Prove the durable outbox retries after canonical refusal and an injected SQLite failure without duplicate revenue.
 run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#formOutboxSurvivesCanonicalRefusalAndSameEventRetriesWithoutDuplicateFare native-form-refusal-retry 1
 run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#formOutboxSurvivesInjectedCanonicalSqliteWriteFailureAndRetriesIdempotently native-form-sqlite-failure-retry 1
+# Prove a completed trip with pending fare survives store teardown after outbox append and resumes by the same trip/event IDs.
+run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#interruptedFareSaveResumesCompletedTripAfterStoreReopenWithoutDuplicateRevenue native-interrupted-fare-recovery 1
 run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#nativeOnlyShiftPersistsMultipleFaresAndCancellationAcrossStoreReopen native-full-shift 1
 # Consume the same versioned 13-case shift-start vectors on Android, not merely compile the instrumentation test.
 run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#nativeShiftStartInterpreterMatchesSharedGoldenVectors shift-start-rule-parity 1
