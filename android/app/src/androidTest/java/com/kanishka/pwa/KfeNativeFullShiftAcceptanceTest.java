@@ -1361,4 +1361,90 @@ public class KfeNativeFullShiftAcceptanceTest {
   private static final class AttachedOverlayService extends KfeOverlayService {
     void attach(Context context) { attachBaseContext(context); }
   }
+  @Test public void interruptedFareSaveResumesCompletedTripAfterStoreReopenWithoutDuplicateRevenue() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    String suffix = Long.toString(System.currentTimeMillis());
+    String shiftId = "interrupted-fare-shift-" + suffix;
+    String tripId = "interrupted-fare-trip-" + suffix;
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    String now = java.time.Instant.now().toString();
+    JSONObject shift = new JSONObject().put("id", shiftId).put("status", "ACTIVE")
+        .put("revenue", 0d).put("updatedAt", now);
+    JSONObject completedTrip = new JSONObject().put("id", tripId).put("shiftId", shiftId)
+        .put("status", "COMPLETED").put("tripStage", "COMPLETED")
+        .put("fareDetailsSkipped", false).put("updatedAt", now);
+    assertTrue("Active shift must be durable before the fare workflow.", 
+        store.putRecord("interrupted-fare-shift-create-" + suffix, "SHIFT", shift).accepted);
+    assertTrue("Trip completion must survive independently of the fare save.",
+        store.putRecord("interrupted-fare-trip-complete-" + suffix, "TRIP", completedTrip).accepted);
+
+    JSONObject payload = new JSONObject().put("fare", "275").put("toll", "0").put("parking", "0")
+        .put("tollTreatment", "INCLUDED").put("parkingTreatment", "INCLUDED");
+    String eventId = KfeNativeWorkActionsPlugin.recordPendingAction(
+        context, "ENTER_FARE", tripId, payload.toString());
+    assertTrue("Fare intent must be durably queued before canonical fare commit.",
+        KfeNativeEventStore.get(context).contains(eventId));
+    assertPendingEvent(KfeNativeEventStore.get(context).pending(500), tripId, "ENTER_FARE");
+
+    JSONObject beforeInterruption = store.getRecord("TRIP", tripId).getJSONObject("record");
+    assertEquals("Trip remains completed while fare entry is pending.", "COMPLETED",
+        beforeInterruption.getString("status"));
+    assertTrue("Uncommitted fare must not be written onto the completed trip.",
+        !beforeInterruption.has("revenue") || beforeInterruption.isNull("revenue"));
+    assertEquals("Uncommitted fare must not increase shift revenue.", 0d,
+        store.getRecord("SHIFT", shiftId).getJSONObject("record").getDouble("revenue"), 0.001d);
+
+    // Model process teardown after durable ENTER_FARE outbox append but before
+    // canonical fare commit. Reopen both SQLite stores and recover by the same
+    // event ID, exactly as the restarted overlay/PWA bridge must do.
+    store.close();
+    Field canonicalSingleton = KfeCanonicalWorkStore.class.getDeclaredField("instance");
+    canonicalSingleton.setAccessible(true);
+    canonicalSingleton.set(null, null);
+    KfeNativeEventStore eventStore = KfeNativeEventStore.get(context);
+    eventStore.close();
+    Field eventSingleton = KfeNativeEventStore.class.getDeclaredField("instance");
+    eventSingleton.setAccessible(true);
+    eventSingleton.set(null, null);
+
+    store = KfeCanonicalWorkStore.get(context);
+    eventStore = KfeNativeEventStore.get(context);
+    assertEquals("The original completed trip ID must survive the interruption.", tripId,
+        store.getRecord("TRIP", tripId).getJSONObject("record").getString("id"));
+    assertPendingEvent(eventStore.pending(500), tripId, "ENTER_FARE");
+    assertEquals("Outbox event identity must survive the interruption.", eventId,
+        pendingEventIdFor(eventStore.pending(500), tripId, "ENTER_FARE"));
+
+    AttachedOverlayService recovered = new AttachedOverlayService();
+    recovered.attach(context);
+    prepareSnapshot(context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE), shiftId, tripId);
+    invoke(recovered, "persistCanonicalTripForm",
+        new Class<?>[]{String.class, String.class, JSONObject.class, String.class},
+        "FARE", tripId, payload, eventId);
+    invoke(recovered, "persistCanonicalTripForm",
+        new Class<?>[]{String.class, String.class, JSONObject.class, String.class},
+        "FARE", tripId, payload, eventId);
+
+    JSONObject savedTrip = store.getRecord("TRIP", tripId).getJSONObject("record");
+    JSONObject savedShift = store.getRecord("SHIFT", shiftId).getJSONObject("record");
+    assertEquals("Fare recovery must not change the completed lifecycle state.", "COMPLETED",
+        savedTrip.getString("status"));
+    assertEquals("Recovered fare must attach to the original trip.", tripId, savedTrip.getString("id"));
+    assertEquals(275d, savedTrip.getDouble("revenue"), 0.001d);
+    assertEquals("Recovered fare must be projected exactly once.", 275d, savedShift.getDouble("revenue"), 0.001d);
+    assertEquals("Retry must not create another trip.", 1,
+        countShiftTrips(store.listRecords("TRIP", 1000).getJSONArray("records"), shiftId));
+    assertTrue("The same event must resolve to a durable canonical operation.",
+        store.getOperation("native-form-FARE-" + eventId).optBoolean("found", false));
+    assertPendingEvent(eventStore.pending(500), tripId, "ENTER_FARE");
+
+    cleanupNativeRecords(context, shiftId, tripId, "", "");
+    Method dbGetter = SQLiteOpenHelper.class.getDeclaredMethod("getWritableDatabase");
+    dbGetter.setAccessible(true);
+    SQLiteDatabase eventDb = (SQLiteDatabase) dbGetter.invoke(eventStore);
+    eventDb.delete("native_events", "trip_id=?", new String[]{tripId});
+    eventStore.close();
+    eventSingleton.set(null, null);
+  }
+
 }
