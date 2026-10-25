@@ -332,7 +332,13 @@ jobs:
           disable-linux-hw-accel: false
           disable-animations: true
           enable-hw-keyboard: false
-          script: bash "$GITHUB_WORKSPACE/tools/android-exact-apk-smoke-gate.sh"
+          script: |
+            # The emulator has no physical GNSS receiver. Feed deterministic GPS_PROVIDER fixes
+            # throughout instrumentation so each one-shot trip boundary can receive a fresh fix.
+            (while true; do adb emu geo fix 73.0694 19.0486; sleep 2; done) &
+            LOCATION_FEED_PID=$!
+            trap 'kill "$LOCATION_FEED_PID" 2>/dev/null || true' EXIT
+            bash "$GITHUB_WORKSPACE/tools/android-exact-apk-smoke-gate.sh"
 
       - name: Upload Android instrumentation logs
         if: always()
