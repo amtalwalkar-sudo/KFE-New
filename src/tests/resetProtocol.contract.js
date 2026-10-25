@@ -34,6 +34,7 @@ assert.match(backupRepository, /resetStores = \[\.\.\.new Set\(\[\.\.\.stores, '
   'Reset must clear settings, drafts, and the browser canonical operation ledger.')
 assert.match(backupRepository, /async verifyCanonicalReset\(\)/, 'Reset verifies every canonical store, not only exportable backup stores.')
 assert.match(backupService, /assertNoActiveShift\(checkpoint\)/, 'Browser-side active shifts must block reset even if the native mirror is stale.')
+assert.match(backupService, /setActiveDataSource\('canonical'\)/, 'Reset must restore the default canonical data-source preference.')
 assert.match(startup, /await BackupService\.recoverPendingReset\(\)[\s\S]*await MutationRepository\.recoverStaleSyncing\(\)/,
   'Pending reset recovery must precede stale mutation replay at startup.')
 assert.match(nativeStore, /canonical_reset_state[\s\S]*CANCELLED_BY_RESET/,
