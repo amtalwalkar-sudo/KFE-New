@@ -640,6 +640,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
    * the stable native command invariants; richer domain rules remain in the PWA.
    */
   synchronized Outcome commitTripForm(String operationId, String mode, JSONObject trip) throws Exception {
+    assertNoPendingReset();
     if (empty(operationId)) throw new IllegalArgumentException("operationId is required.");
     if (!"FARE".equals(mode) && !"CANCEL".equals(mode)) throw new IllegalArgumentException("Unsupported trip form mode.");
     if (trip == null || empty(trip.optString("id", "")) || empty(trip.optString("shiftId", ""))) {
@@ -895,6 +896,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
   }
 
   synchronized JSONObject verifyLegacyMigration(String migrationId) throws Exception {
+    assertNoPendingReset();
     if (empty(migrationId)) throw new IllegalArgumentException("migrationId is required.");
     SQLiteDatabase db = getWritableDatabase();
     db.beginTransaction();
