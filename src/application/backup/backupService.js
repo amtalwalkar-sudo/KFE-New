@@ -96,16 +96,20 @@ const continueReset = async resetId => {
       await NativeCanonicalWorkService.clearCanonicalReset(resetId)
       journal = { ...journal, state: 'NATIVE_CLEARED' }
       await backupRepository.saveResetJournal(journal)
-      await NativeCanonicalWorkService.completeCanonicalReset(resetId)
-      const nativeState = await NativeCanonicalWorkService.getCanonicalResetState()
-      if (nativeState?.found !== true || nativeState.resetId !== resetId || nativeState.state !== 'COMPLETE') {
-        throw new Error('Native canonical reset could not be verified.')
-      }
     }
 
     const after = await createBackup()
     if (getBackupSummary(after).totalRecords !== 0) {
       throw new Error('Browser canonical reset verification failed; recoverable records remain.')
+    }
+
+    // Keep native writes blocked until the browser store has also been verified.
+    if (nativeAvailable) {
+      await NativeCanonicalWorkService.completeCanonicalReset(resetId)
+      const nativeState = await NativeCanonicalWorkService.getCanonicalResetState()
+      if (nativeState?.found !== true || nativeState.resetId !== resetId || nativeState.state !== 'COMPLETE') {
+        throw new Error('Native canonical reset could not be verified.')
+      }
     }
     journal = { ...journal, state: 'COMPLETE', completedAt: new Date().toISOString() }
     await backupRepository.saveResetJournal(journal)
