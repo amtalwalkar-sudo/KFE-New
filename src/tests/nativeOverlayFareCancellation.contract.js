@@ -66,7 +66,7 @@ assert.ok(nativeOnlyFlowStart >= 0 && nativeOnlyFlowEnd > nativeOnlyFlowStart, '
 const nativeOnlyFlow = nativeAcceptance.slice(nativeOnlyFlowStart, nativeOnlyFlowEnd)
 assert.doesNotMatch(nativeOnlyFlow, /put\("status",\s*"ENDED"\)/, 'Native-only trip operations must not implement or simulate shift end.')
 assert.match(nativeOnlyFlow, /Native trip operations must not end the PWA-owned shift/)
-assert.match(overlay, /formInjector\\.afterBoundary\\("AFTER_FARE_OUTBOX"\\)/, 'Fare submission must expose the durable outbox-before-canonical-commit interruption boundary for process-death testing.')
+assert.ok(overlay.includes('formInjector.afterBoundary("AFTER_FARE_OUTBOX")'), 'Fare submission must expose the durable outbox-before-canonical-commit interruption boundary for process-death testing.')
 assert.match(nativeAcceptance, /prepareFareSaveProcessDeathAtOutboxBoundary/, 'Android instrumentation must prepare a fare process-death case at the durable outbox boundary.')
 assert.match(nativeAcceptance, /verifyFareSaveProcessDeathRecovery/, 'Android instrumentation must verify fare recovery in a fresh process after SIGKILL.')
 assert.match(androidGate, /run_fare_process_death_case/, 'The exact APK smoke gate must kill and restart the app between fare outbox insertion and canonical commit.')
