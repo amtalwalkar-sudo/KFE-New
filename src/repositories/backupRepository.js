@@ -1,7 +1,7 @@
 import { openCanonicalDB, notifyCanonicalDataChanged, withCanonicalResetWritePermission, setCanonicalResetBarrier, getCanonicalResetBarrier, clearCanonicalResetBarrier, setActiveDataSource } from '../utils/indexedDB.js'
 
 export const LOCAL_BACKUP_DB_NAME = 'kanishka_kfe_local_backup_db'
-export const LOCAL_BACKUP_DB_VERSION = 2
+export const LOCAL_BACKUP_DB_VERSION = 3
 export const LOCAL_BACKUP_ID = 'current'
 
 const openLocalBackupDB = () => new Promise((resolve, reject) => {
@@ -10,6 +10,7 @@ const openLocalBackupDB = () => new Promise((resolve, reject) => {
     const db = event.target.result
     if (!db.objectStoreNames.contains('snapshots')) db.createObjectStore('snapshots', { keyPath: 'id' })
     if (!db.objectStoreNames.contains('reset_journal')) db.createObjectStore('reset_journal', { keyPath: 'id' })
+    if (!db.objectStoreNames.contains('restore_journal')) db.createObjectStore('restore_journal', { keyPath: 'id' })
   }
   request.onsuccess = () => resolve(request.result)
   request.onerror = () => reject(request.error || new Error('Local backup storage could not be opened.'))
@@ -233,6 +234,44 @@ export const createBackupRepository = stores => Object.freeze({
       const request = tx.objectStore('reset_journal').get('current')
       request.onsuccess = () => { const result = request.result || null; db.close(); resolve(result) }
       request.onerror = () => { db.close(); reject(request.error || new Error('Reset journal lookup failed.')) }
+    })
+  },
+
+  async saveRestoreJournal(journal) {
+    if (!journal?.id || !journal?.restoreId || !journal?.backup) throw new Error('Restore journal requires a restore ID and validated backup.')
+    const db = await openLocalBackupDB()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('restore_journal', 'readwrite')
+      tx.objectStore('restore_journal').put({ ...journal, updatedAt: new Date().toISOString() })
+      tx.oncomplete = () => { db.close(); resolve(true) }
+      tx.onerror = () => { db.close(); reject(tx.error || new Error('Restore journal write failed.')) }
+      tx.onabort = () => { db.close(); reject(tx.error || new Error('Restore journal write aborted.')) }
+    })
+  },
+
+  async getRestoreJournal() {
+    const db = await openLocalBackupDB()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('restore_journal', 'readonly')
+      const request = tx.objectStore('restore_journal').get('current')
+      request.onsuccess = () => { const result = request.result || null; db.close(); resolve(result) }
+      request.onerror = () => { db.close(); reject(request.error || new Error('Restore journal lookup failed.')) }
+    })
+  },
+
+  async clearRestoreJournal(restoreId) {
+    if (!restoreId) throw new Error('Restore ID is required to clear the journal.')
+    const db = await openLocalBackupDB()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('restore_journal', 'readwrite')
+      const store = tx.objectStore('restore_journal')
+      const request = store.get('current')
+      request.onsuccess = () => {
+        if (request.result && request.result.restoreId === restoreId) store.delete('current')
+      }
+      tx.oncomplete = () => { db.close(); resolve(true) }
+      tx.onerror = () => { db.close(); reject(tx.error || new Error('Restore journal clear failed.')) }
+      tx.onabort = () => { db.close(); reject(tx.error || new Error('Restore journal clear aborted.')) }
     })
   },
 
