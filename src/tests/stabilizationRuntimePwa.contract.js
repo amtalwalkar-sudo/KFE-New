@@ -45,7 +45,7 @@ for (const relative of writers) {
   assert.match(source, /pending_mutations/)
   assert.match(source, /audit_history/)
 }
-assert.match(backupRepository, /import \{ openCanonicalDB, notifyCanonicalDataChanged, withCanonicalResetWritePermission \} from '..\/utils\/indexedDB\.js'/)
+assert.match(backupRepository, /import \{ openCanonicalDB, notifyCanonicalDataChanged, withCanonicalResetWritePermission, setCanonicalResetBarrier, getCanonicalResetBarrier, clearCanonicalResetBarrier, setActiveDataSource \} from '..\/utils\/indexedDB\.js'/)
 assert.doesNotMatch(backupRepository, /initializeCanonicalStorage\(/)
 assert.match(backupRepository, /restoreCanonicalSnapshot\(snapshot, \{ sourceExportedAt = null \} = \{\}\) \{[\s\S]*const db = await openCanonicalDB\(\)/)
 assert.match(backupRepository, /resetCanonicalData\(\{ resetId \} = \{\}\) \{[\s\S]*const db = await openCanonicalDB\(\)/)
