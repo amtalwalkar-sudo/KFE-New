@@ -109,8 +109,7 @@ export const serializeBackup = backup => JSON.stringify(validateBackup(backup), 
 export const getBackupSummary = backup => { const valid = validateBackup(backup); const counts = Object.fromEntries(CANONICAL_BACKUP_STORES.map(store => [store, valid.stores[store].length])); return { exportedAt: valid.exportedAt, totalRecords: Object.values(counts).reduce((sum, count) => sum + count, 0), counts } }
 export const saveLocalBackup = async backup => { const valid = validateBackup(backup); await backupRepository.saveLocalBackup(valid); return true }
 export const getLocalBackup = async () => backupRepository.getLocalBackup()
-export const restoreBackup = async input => {
-  const backup = validateBackup(input)
+const applyRestoreBackup = async backup => {
   const beforeNative = await readNativeWorkSnapshot()
   const nativeMerge = await mergeBackupWorkIntoNative(backup, beforeNative)
   const afterNative = await readNativeWorkSnapshot()
@@ -118,8 +117,35 @@ export const restoreBackup = async input => {
     sourceExportedAt: backup.exportedAt,
     authoritativeRecords: afterNative,
   })
+  // The restore journal remains durable until both stores have converged and the
+  // resulting merged snapshot has been checkpointed successfully.
   await saveLocalBackup(await createBackup())
   return { ...getBackupSummary(backup), merge: { ...merge, native: nativeMerge } }
+}
+
+export const restoreBackup = async input => {
+  const backup = validateBackup(input)
+  const existing = await backupRepository.getRestoreJournal()
+  if (existing?.backup && serializeBackup(existing.backup) !== serializeBackup(backup)) {
+    throw new Error('A different restore is pending recovery. Reopen KFE and let the pending restore finish before starting another restore.')
+  }
+  const restoreId = existing?.restoreId || globalThis.crypto?.randomUUID?.() || `restore-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  await backupRepository.saveRestoreJournal({ id: 'current', restoreId, state: 'APPLYING', backup })
+  const result = await applyRestoreBackup(backup)
+  await backupRepository.clearRestoreJournal(restoreId)
+  return result
+}
+
+export const recoverPendingRestore = async () => {
+  const journal = await backupRepository.getRestoreJournal()
+  if (!journal) return { recovered: false, state: null }
+  if (journal.id !== 'current' || !journal.restoreId || !journal.backup) {
+    throw new Error('Pending restore journal is invalid; startup is blocked to protect recoverable data.')
+  }
+  const backup = validateBackup(journal.backup)
+  const result = await applyRestoreBackup(backup)
+  await backupRepository.clearRestoreJournal(journal.restoreId)
+  return { recovered: true, restoreId: journal.restoreId, ...result }
 }
 const RESET_TERMINAL_STATES = new Set(['COMPLETE', 'ABORTED'])
 
@@ -360,4 +386,4 @@ export const registerCloudBackupProvider = provider => { if (!provider || typeof
 export const getCloudBackupProviderName = () => cloudProvider?.name || null
 export const backupToCloud = async backup => { if (!cloudProvider) throw new Error('No cloud backup provider is configured.'); return cloudProvider.upload(validateBackup(backup)) }
 export const restoreFromCloud = async () => { if (!cloudProvider) throw new Error('No cloud backup provider is configured.'); const backup = validateBackup(await cloudProvider.download()); return restoreBackup(backup) }
-export const BackupService = Object.freeze({ createBackup, validateBackup, serializeBackup, getBackupSummary, saveLocalBackup, getLocalBackup, restoreBackup, resetData, recoverPendingReset, readBackupText, requestLocalBackupCheckpoint, maybeDailyLocalBackup, registerCloudBackupProvider, getCloudBackupProviderName, backupToCloud, restoreFromCloud })
+export const BackupService = Object.freeze({ createBackup, validateBackup, serializeBackup, getBackupSummary, saveLocalBackup, getLocalBackup, restoreBackup, recoverPendingRestore, resetData, recoverPendingReset, readBackupText, requestLocalBackupCheckpoint, maybeDailyLocalBackup, registerCloudBackupProvider, getCloudBackupProviderName, backupToCloud, restoreFromCloud })
