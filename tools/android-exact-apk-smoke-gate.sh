@@ -257,6 +257,87 @@ run_lifecycle_process_death_case() {
   echo "VERIFIED_LIFECYCLE_PROCESS_DEATH_CASE stage=$stage boundary=$boundary"
 }
 
+run_fare_process_death_case() {
+  local label="fare-save-process-death-after-outbox"
+  local prepare_log="artifacts/android-golden/${label}-prepare.log"
+  local ready=false
+  local pid_to_kill=""
+  local process_death_observed=false
+  adb_ready
+  adb logcat -c >/dev/null 2>&1 || true
+  timeout 100s adb shell am instrument -w -r \
+    -e class com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#prepareFareSaveProcessDeathAtOutboxBoundary \
+    com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner > "$prepare_log" 2>&1 &
+  local prepare_pid=$!
+  for attempt in $(seq 1 35); do
+    pid_to_kill="$(adb shell pidof com.kanishka.pwa 2>/dev/null | tr -d '\r' | awk '{print $1}' || true)"
+    if [ -n "$pid_to_kill" ] && adb shell run-as com.kanishka.pwa grep -Fq "AFTER_FARE_OUTBOX" shared_prefs/kfe_overlay.xml 2>/dev/null; then
+      ready=true
+      break
+    fi
+    if ! kill -0 "$prepare_pid" 2>/dev/null; then break; fi
+    adb_ready || true
+    sleep 1
+  done
+  if [ "$ready" != true ]; then
+    cat "$prepare_log" >&2 || true
+    capture_failure "${label}-not-ready"
+    kill "$prepare_pid" >/dev/null 2>&1 || true
+    echo "Fare-save process-death preparation never reached AFTER_FARE_OUTBOX." >&2
+    return 1
+  fi
+  adb root >/dev/null 2>&1 || true
+  adb wait-for-device || true
+  if ! adb shell id 2>/dev/null | grep -q 'uid=0'; then
+    capture_failure "${label}-root-unavailable"
+    kill "$prepare_pid" >/dev/null 2>&1 || true
+    echo "Cannot inject an actual process kill at the fare outbox boundary: adb root unavailable." >&2
+    return 1
+  fi
+  pid_to_kill="$(adb shell pidof com.kanishka.pwa 2>/dev/null | tr -d '\r' | awk '{print $1}' || true)"
+  if [ -z "$pid_to_kill" ]; then
+    capture_failure "${label}-pid-missing"
+    kill "$prepare_pid" >/dev/null 2>&1 || true
+    echo "Target app process disappeared before fare-save kill." >&2
+    return 1
+  fi
+  adb shell kill -9 "$pid_to_kill" || {
+    capture_failure "${label}-kill-failed"
+    kill "$prepare_pid" >/dev/null 2>&1 || true
+    echo "SIGKILL failed at the fare outbox boundary." >&2
+    return 1
+  }
+  adb unroot >/dev/null 2>&1 || true
+  adb wait-for-device || true
+  wait "$prepare_pid" >/dev/null 2>&1 || true
+  for attempt in $(seq 1 25); do
+    local pid_after
+    pid_after="$(adb shell pidof com.kanishka.pwa 2>/dev/null | tr -d '\r' | awk '{print $1}' || true)"
+    if [ -z "$pid_after" ] || [ "$pid_after" != "$pid_to_kill" ]; then
+      process_death_observed=true
+      break
+    fi
+    sleep 1
+  done
+  if [ "$process_death_observed" != true ]; then
+    capture_failure "${label}-kill-not-observed"
+    echo "Target PID did not change after fare-save SIGKILL (PID $pid_to_kill)." >&2
+    return 1
+  fi
+  run_instrumentation \
+    com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#verifyFareSaveProcessDeathRecovery \
+    "${label}-verify" 1
+  local case_log="artifacts/android-golden/${label}-case.log"
+  adb logcat -d -s KFE_FARE_DEATH:I '*:S' > "$case_log"
+  cat "$case_log"
+  if ! grep -Fq "FARE_PROCESS_DEATH_CASE_PASS" "$case_log"; then
+    capture_failure "${label}-missing-pass-marker"
+    echo "Missing fare process-death recovery pass marker." >&2
+    return 1
+  fi
+  echo "VERIFIED_FARE_SAVE_PROCESS_DEATH_CASE boundary=AFTER_FARE_OUTBOX"
+}
+
 install_apk "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk" "production-apk"
 # Prove Android permits an in-place package replacement and preserves app-private data.
 adb_ready
@@ -315,6 +396,9 @@ for lifecycle_stage in GO_TO_PICKUP START_RIDE END_RIDE; do
     run_lifecycle_process_death_case "$lifecycle_stage" "$lifecycle_boundary"
   done
 done
+
+# Actual SIGKILL after durable ENTER_FARE outbox insertion but before canonical fare commit.
+run_fare_process_death_case
 
 # Exercise real native overlay persistence helpers for two fares plus cancellation while no PWA event replay runs.
 # Exercise native-only lifecycle/fare/cancellation commits while the PWA is not processing events.
