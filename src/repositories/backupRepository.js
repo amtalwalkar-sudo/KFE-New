@@ -14,6 +14,83 @@ const openLocalBackupDB = () => new Promise((resolve, reject) => {
   request.onerror = () => reject(request.error || new Error('Local backup storage could not be opened.'))
 })
 
+
+const canonicalizeBackupValue = value => {
+  if (Array.isArray(value)) return value.map(canonicalizeBackupValue)
+  if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonicalizeBackupValue(value[key])]))
+  return value
+}
+const sameBackupValue = (left, right) => JSON.stringify(canonicalizeBackupValue(left)) === JSON.stringify(canonicalizeBackupValue(right))
+const backupKey = (storeName, record) => storeName === 'financial_period_snapshots' ? record?.periodKey : record?.id
+const stableHash = value => {
+  let hash = 2166136261
+  for (let index = 0; index < value.length; index++) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0')
+}
+
+/**
+ * Loss-protecting restore policy: union records by their canonical key, dedupe
+ * identical records, keep the current value for same-key conflicts, and archive
+ * the imported conflicting payload as a durable audit entry.
+ */
+export const mergeCanonicalBackupSnapshot = (currentSnapshot, incomingSnapshot, { sourceExportedAt = null } = {}) => {
+  const snapshot = {}
+  const addedRecordsByStore = {}
+  const conflictArchives = []
+  let added = 0, duplicates = 0, conflicts = 0
+  for (const storeName of Object.keys(incomingSnapshot || {})) {
+    const current = [...(currentSnapshot?.[storeName] || [])].map(record => structuredClone(record))
+    const byKey = new Map(current.map((record, index) => [backupKey(storeName, record), index]))
+    const additions = []
+    for (const imported of incomingSnapshot[storeName] || []) {
+      const key = backupKey(storeName, imported)
+      if (!byKey.has(key)) {
+        const copy = structuredClone(imported)
+        byKey.set(key, current.length)
+        current.push(copy)
+        additions.push(copy)
+        added++
+        continue
+      }
+      const existing = current[byKey.get(key)]
+      if (sameBackupValue(existing, imported)) {
+        duplicates++
+        continue
+      }
+      conflicts++
+      const importedPayload = JSON.stringify(canonicalizeBackupValue(imported))
+      const conflictId = `restore-conflict:${storeName}:${stableHash(JSON.stringify([storeName, key, importedPayload]))}`
+      conflictArchives.push({
+        id: conflictId,
+        entityType: storeName,
+        entityId: String(key),
+        action: 'RESTORE_CONFLICT_ARCHIVE',
+        source: 'BACKUP_RESTORE',
+        sourceExportedAt,
+        payload: structuredClone(imported),
+        createdAt: new Date().toISOString(),
+      })
+    }
+    snapshot[storeName] = current
+    addedRecordsByStore[storeName] = additions
+  }
+  if (snapshot.audit_history) {
+    const auditIds = new Set(snapshot.audit_history.map(record => record.id))
+    const additions = addedRecordsByStore.audit_history || (addedRecordsByStore.audit_history = [])
+    for (const archive of conflictArchives) {
+      if (auditIds.has(archive.id)) continue
+      auditIds.add(archive.id)
+      snapshot.audit_history.push(archive)
+      additions.push(archive)
+      added++
+    }
+  }
+  return { snapshot, addedRecordsByStore, added, duplicates, conflicts, archivedConflicts: conflictArchives.length }
+}
+
 export const createBackupRepository = stores => Object.freeze({
   async readCanonicalSnapshot() {
     const db = await openCanonicalDB()
@@ -37,20 +114,44 @@ export const createBackupRepository = stores => Object.freeze({
     })
   },
 
-  async restoreCanonicalSnapshot(snapshot) {
+  async restoreCanonicalSnapshot(snapshot, { sourceExportedAt = null } = {}) {
     const db = await openCanonicalDB()
-    await new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
       const tx = db.transaction(stores, 'readwrite')
-      try {
-        for (const storeName of stores) {
-          const store = tx.objectStore(storeName)
-          store.clear()
-          for (const record of snapshot[storeName] || []) store.add(structuredClone(record))
+      const currentSnapshot = {}
+      let remaining = stores.length
+      let settled = false
+      const fail = error => { if (settled) return; settled = true; try { tx.abort() } catch (_) {}; reject(error) }
+      for (const storeName of stores) {
+        const request = tx.objectStore(storeName).getAll()
+        request.onsuccess = () => {
+          currentSnapshot[storeName] = request.result || []
+          remaining--
+          if (remaining !== 0 || settled) return
+          try {
+            const merged = mergeCanonicalBackupSnapshot(currentSnapshot, snapshot, { sourceExportedAt })
+            for (const storeName of stores) {
+              const store = tx.objectStore(storeName)
+              for (const record of merged.addedRecordsByStore[storeName] || []) store.add(structuredClone(record))
+            }
+            tx.__kfeRestoreSummary = {
+              added: merged.added,
+              duplicates: merged.duplicates,
+              conflicts: merged.conflicts,
+              archivedConflicts: merged.archivedConflicts,
+            }
+          } catch (error) { fail(error) }
         }
-      } catch (error) { try { tx.abort() } catch (_) {}; reject(error); return }
-      tx.oncomplete = () => { notifyCanonicalDataChanged({ stores, reason: 'backup:restore' }); resolve() }
-      tx.onerror = () => reject(tx.error || new Error('KFE restore transaction failed.'))
-      tx.onabort = () => reject(tx.error || new Error('KFE restore transaction aborted.'))
+        request.onerror = () => fail(request.error || new Error(`Restore merge read failed for ${storeName}.`))
+      }
+      tx.oncomplete = () => {
+        if (settled) return
+        settled = true
+        notifyCanonicalDataChanged({ stores, reason: 'backup:restore-merge' })
+        resolve(tx.__kfeRestoreSummary || { added: 0, duplicates: 0, conflicts: 0, archivedConflicts: 0 })
+      }
+      tx.onerror = () => fail(tx.error || new Error('KFE restore transaction failed.'))
+      tx.onabort = () => { if (!settled) { settled = true; reject(tx.error || new Error('KFE restore transaction aborted.')) } }
     })
   },
 
