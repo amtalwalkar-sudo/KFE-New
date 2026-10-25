@@ -56,6 +56,22 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
 
   private static void createResetTable(SQLiteDatabase db) {
     db.execSQL("CREATE TABLE IF NOT EXISTS canonical_reset_state (singleton_id INTEGER PRIMARY KEY CHECK(singleton_id=1), reset_id TEXT NOT NULL, state TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)");
+    db.execSQL("CREATE TABLE IF NOT EXISTS canonical_reset_invalidated_operations (operation_id TEXT PRIMARY KEY, reset_id TEXT NOT NULL, invalidated_at TEXT NOT NULL)");
+    db.execSQL("CREATE TABLE IF NOT EXISTS canonical_reset_invalidated_migrations (migration_id TEXT PRIMARY KEY, reset_id TEXT NOT NULL, invalidated_at TEXT NOT NULL)");
+  }
+
+  private static void assertOperationNotInvalidated(SQLiteDatabase db, String operationId) {
+    try (Cursor cursor = db.query("canonical_reset_invalidated_operations", new String[]{"reset_id"},
+        "operation_id=?", new String[]{operationId}, null, null, null, "1")) {
+      if (cursor.moveToFirst()) throw new IllegalStateException("Canonical operation was invalidated by reset " + cursor.getString(0) + ".");
+    }
+  }
+
+  private static void assertMigrationNotInvalidated(SQLiteDatabase db, String migrationId) {
+    try (Cursor cursor = db.query("canonical_reset_invalidated_migrations", new String[]{"reset_id"},
+        "migration_id=?", new String[]{migrationId}, null, null, null, "1")) {
+      if (cursor.moveToFirst()) throw new IllegalStateException("Canonical migration was invalidated by reset " + cursor.getString(0) + ".");
+    }
   }
 
   private void assertNoPendingReset() {
@@ -102,6 +118,10 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
         try (Cursor active = db.query("canonical_records", new String[]{"payload"}, "entity_type='SHIFT'", null, null, null, null)) {
           while (active.moveToNext()) if ("ACTIVE".equalsIgnoreCase(new JSONObject(active.getString(0)).optString("status", ""))) throw new IllegalStateException("Reset is blocked while a shift is active.");
         }
+        String invalidatedAt = timestampNow();
+        db.execSQL("INSERT OR IGNORE INTO canonical_reset_invalidated_operations(operation_id, reset_id, invalidated_at) SELECT operation_id, ?, ? FROM canonical_operations", new Object[]{resetId, invalidatedAt});
+        db.execSQL("INSERT OR IGNORE INTO canonical_reset_invalidated_operations(operation_id, reset_id, invalidated_at) SELECT operation_id, ?, ? FROM canonical_create_intents", new Object[]{resetId, invalidatedAt});
+        db.execSQL("INSERT OR IGNORE INTO canonical_reset_invalidated_migrations(migration_id, reset_id, invalidated_at) SELECT migration_id, ?, ? FROM canonical_migrations", new Object[]{resetId, invalidatedAt});
         db.delete("canonical_records", null, null); db.delete("canonical_operations", null, null); db.delete("canonical_audit", null, null);
         db.delete("canonical_migrations", null, null); db.delete("canonical_migration_items", null, null);
         ContentValues cancelled = new ContentValues(); cancelled.put("status", "CANCELLED_BY_RESET"); cancelled.put("updated_at", timestampNow());
@@ -230,6 +250,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     SQLiteDatabase db = getWritableDatabase();
     db.beginTransaction();
     try {
+      assertOperationNotInvalidated(db, operationId);
       try (Cursor cursor = db.query("canonical_operations",
           new String[]{"command", "entity_type", "entity_id", "status", "result_json"},
           "operation_id=?", new String[]{operationId}, null, null, null, "1")) {
@@ -489,6 +510,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     SQLiteDatabase db = getWritableDatabase();
     db.beginTransaction();
     try {
+      assertOperationNotInvalidated(db, operationId);
       try (Cursor prior = db.query("canonical_operations",
           new String[]{"command", "entity_type", "entity_id", "status", "result_json"},
           "operation_id=?", new String[]{operationId}, null, null, null, "1")) {
@@ -572,6 +594,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     SQLiteDatabase db = getWritableDatabase();
     db.beginTransaction();
     try {
+      assertOperationNotInvalidated(db, operationId);
       try (Cursor prior = db.query("canonical_operations",
           new String[]{"command", "entity_type", "entity_id", "status", "result_json"},
           "operation_id=?", new String[]{operationId}, null, null, null, "1")) {
@@ -682,6 +705,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     SQLiteDatabase db = getWritableDatabase();
     db.beginTransaction();
     try {
+      assertOperationNotInvalidated(db, operationId);
       try (Cursor prior = db.query("canonical_operations",
           new String[]{"command", "entity_type", "entity_id", "status", "result_json"},
           "operation_id=?", new String[]{operationId}, null, null, null, "1")) {
@@ -831,6 +855,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     SQLiteDatabase db = getWritableDatabase();
     db.beginTransaction();
     try {
+      assertMigrationNotInvalidated(db, migrationId);
       try (Cursor cursor = db.query("canonical_migrations", new String[]{"snapshot_hash", "record_count", "verified"},
           "migration_id=?", new String[]{migrationId}, null, null, null, "1")) {
         if (cursor.moveToFirst()) {
