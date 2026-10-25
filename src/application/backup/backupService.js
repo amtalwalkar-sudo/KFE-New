@@ -43,12 +43,6 @@ export const validateBackup = input => {
   }
   return backup
 }
-const restoreOperationHash = value => {
-  let hash = 2166136261
-  for (let index = 0; index < value.length; index++) { hash ^= value.charCodeAt(index); hash = Math.imul(hash, 16777619) }
-  return (hash >>> 0).toString(16).padStart(8, '0')
-}
-
 const readNativeWorkSnapshot = async () => {
   if (!NativeCanonicalWorkService.isAvailable()) return null
   const [shifts, trips] = await Promise.all([
@@ -66,7 +60,7 @@ const mergeBackupWorkIntoNative = async (backup, nativeSnapshot) => {
   let added = 0
   for (const [storeName, entityType] of [['shifts', 'SHIFT'], ['trips', 'TRIP']]) {
     for (const record of merged.addedRecordsByStore[storeName] || []) {
-      const operationId = `backup-restore-${restoreOperationHash([backup.exportedAt, entityType, record.id].join('|'))}`
+      const operationId = `backup-restore:${backup.exportedAt}:${entityType}:${record.id}`
       try {
         await NativeCanonicalWorkService.putRecord({ operationId, entityType, record, expectAbsent: true })
         added++
