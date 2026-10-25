@@ -34,6 +34,7 @@ assert.doesNotMatch(workUnmountCleanup, /androidOverlay\.hide\(/,
   'Unmounting the Work view must not hide the overlay; only canonical shift lifecycle may end overlay visibility.')
 assert.match(appEntry, /configureAndroidOverlayLifecycle\(\)/,
   'Application-level lifecycle must remain responsible for overlay visibility while the Work view is unmounted.')
+assert.match(appEntry, /import \{ configureAndroidOverlayLifecycle \} from '\.\/infrastructure\/android\/androidOverlayLifecycle\.js'/, 'The global overlay lifecycle module must remain wired into the app entry point.')
 const syncStart = workView.indexOf('async function syncOverlay()')
 const syncEnd = workView.indexOf('async function openStart()', syncStart)
 const sync = workView.slice(syncStart, syncEnd)
