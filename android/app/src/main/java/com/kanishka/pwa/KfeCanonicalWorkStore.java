@@ -30,7 +30,9 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     return instance;
   }
 
-  private KfeCanonicalWorkStore(Context context) { super(context, DB_NAME, null, DB_VERSION); }
+  private KfeCanonicalWorkStore(Context context) { this(context, DB_NAME); }
+
+  KfeCanonicalWorkStore(Context context, String databaseName) { super(context, databaseName, null, DB_VERSION); }
 
   @Override public void onCreate(SQLiteDatabase db) {
     db.execSQL("CREATE TABLE canonical_records (entity_type TEXT NOT NULL, entity_id TEXT NOT NULL, payload TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY(entity_type, entity_id))");
