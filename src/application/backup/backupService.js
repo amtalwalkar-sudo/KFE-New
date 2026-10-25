@@ -47,7 +47,7 @@ export const serializeBackup = backup => JSON.stringify(validateBackup(backup), 
 export const getBackupSummary = backup => { const valid = validateBackup(backup); const counts = Object.fromEntries(CANONICAL_BACKUP_STORES.map(store => [store, valid.stores[store].length])); return { exportedAt: valid.exportedAt, totalRecords: Object.values(counts).reduce((sum, count) => sum + count, 0), counts } }
 export const saveLocalBackup = async backup => { const valid = validateBackup(backup); await backupRepository.saveLocalBackup(valid); return true }
 export const getLocalBackup = async () => backupRepository.getLocalBackup()
-export const restoreBackup = async input => { const backup = validateBackup(input); await backupRepository.restoreCanonicalSnapshot(backup.stores); await saveLocalBackup(backup); return getBackupSummary(backup) }
+export const restoreBackup = async input => { const backup = validateBackup(input); const merge = await backupRepository.restoreCanonicalSnapshot(backup.stores, { sourceExportedAt: backup.exportedAt }); await saveLocalBackup(backup); return { ...getBackupSummary(backup), merge } }
 export const resetData = async () => { await backupRepository.resetCanonicalData(); return { ok: true } }
 export const readBackupText = input => validateBackup(input)
 export const requestLocalBackupCheckpoint = () => { checkpointRequested = true; if (checkpointTimer !== null) return; checkpointTimer = setTimeout(async () => { checkpointTimer = null; if (checkpointRunning || !checkpointRequested) return; checkpointRequested = false; checkpointRunning = true; try { await saveLocalBackup(await createBackup()) } catch (error) { console.warn('KFE local backup checkpoint failed:', error) } finally { checkpointRunning = false } }, 250) }
@@ -59,5 +59,5 @@ let cloudProvider = null
 export const registerCloudBackupProvider = provider => { if (!provider || typeof provider.upload !== 'function' || typeof provider.download !== 'function') throw new Error('Cloud backup provider must expose upload() and download().'); cloudProvider = provider; return provider.name || 'Cloud' }
 export const getCloudBackupProviderName = () => cloudProvider?.name || null
 export const backupToCloud = async backup => { if (!cloudProvider) throw new Error('No cloud backup provider is configured.'); return cloudProvider.upload(validateBackup(backup)) }
-export const restoreFromCloud = async () => { if (!cloudProvider) throw new Error('No cloud backup provider is configured.'); const backup = validateBackup(await cloudProvider.download()); await restoreBackup(backup); return getBackupSummary(backup) }
+export const restoreFromCloud = async () => { if (!cloudProvider) throw new Error('No cloud backup provider is configured.'); const backup = validateBackup(await cloudProvider.download()); return restoreBackup(backup) }
 export const BackupService = Object.freeze({ createBackup, validateBackup, serializeBackup, getBackupSummary, saveLocalBackup, getLocalBackup, restoreBackup, resetData, readBackupText, requestLocalBackupCheckpoint, maybeDailyLocalBackup, registerCloudBackupProvider, getCloudBackupProviderName, backupToCloud, restoreFromCloud })
