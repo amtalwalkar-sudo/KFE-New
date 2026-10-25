@@ -20,42 +20,179 @@ const canonicalize = value => {
 }
 const jsonEquivalent = (left, right) => JSON.stringify(canonicalize(left)) === JSON.stringify(canonicalize(right))
 
+
+const withoutTripBoundarySnapshots = trip => {
+  const copy = { ...trip }
+  delete copy.tripStartLocation
+  delete copy.tripEndLocation
+  delete copy.tripStartLocationStatus
+  delete copy.tripEndLocationStatus
+  return copy
+}
+const sameShiftExceptRevenueProjection = (left, right) => {
+  const a = { ...left }, b = { ...right }
+  for (const field of ['updatedAt', 'revenue', 'liveFareRevenue', 'revenueSource']) {
+    delete a[field]
+    delete b[field]
+  }
+  return jsonEquivalent(a, b)
+}
+const parseCanonicalInstant = (value, field) => {
+  if (typeof value !== 'string' || !/^\\d{4}-\\d{2}-\\d{2}T.*(?:Z|[+-]\\d{2}:\\d{2})$/.test(value)) {
+    throw new Error(`Canonical version conflict: ${field} must be a valid ISO-8601 instant.`)
+  }
+  const parsed = Date.parse(value)
+  if (!Number.isFinite(parsed)) throw new Error(`Canonical version conflict: ${field} must be a valid ISO-8601 instant.`)
+  return parsed
+}
+// Mirrors the native store's compare-and-set and narrowly-scoped lifecycle exceptions.
+// This helper is called only from the IndexedDB read-write transaction's request callbacks.
+export const assertBrowserCanonicalWriteAllowed = ({ entityType, existingRecord, record, expectedUpdatedAt = null, expectAbsent = false }) => {
+  if (!existingRecord) {
+    if (expectedUpdatedAt != null) throw new Error(`Canonical version conflict: expected record is missing for ${entityType}/${record.id}.`)
+    return record
+  }
+  if (expectAbsent) throw new Error(`Canonical create conflict: record already exists for ${entityType}/${record.id}.`)
+  if (expectedUpdatedAt != null && expectedUpdatedAt !== (existingRecord.updatedAt || '')) {
+    throw new Error(`Canonical version conflict: expected version changed for ${entityType}/${record.id}.`)
+  }
+  if (jsonEquivalent(record, existingRecord)) return record
+  const existingVersion = existingRecord.updatedAt || ''
+  const incomingVersion = record.updatedAt || ''
+  if (!existingVersion || !incomingVersion) throw new Error('Canonical version conflict: updatedAt is required to replace an existing record.')
+  const versionOrder = Math.sign(parseCanonicalInstant(incomingVersion, 'updatedAt') - parseCanonicalInstant(existingVersion, 'existing updatedAt'))
+  const completesActiveShift = entityType === 'SHIFT' && existingRecord.status === 'ACTIVE' && record.status === 'COMPLETED'
+  const activeShiftProjectionCollision = versionOrder <= 0
+    && entityType === 'SHIFT'
+    && existingRecord.status === 'ACTIVE'
+    && record.status === 'ACTIVE'
+    && Object.hasOwn(existingRecord, 'revenue')
+    && Object.hasOwn(existingRecord, 'liveFareRevenue')
+    && existingRecord.revenueSource === 'TRIP_FARES'
+    && sameShiftExceptRevenueProjection(existingRecord, record)
+  if ((versionOrder <= 0 && completesActiveShift) || activeShiftProjectionCollision) {
+    const reconciled = { ...record }
+    for (const field of ['revenue', 'liveFareRevenue', 'revenueSource']) {
+      if (Object.hasOwn(existingRecord, field)) reconciled[field] = existingRecord[field]
+      else delete reconciled[field]
+    }
+    reconciled.updatedAt = new Date(parseCanonicalInstant(existingVersion, 'existing updatedAt') + 1).toISOString()
+    return reconciled
+  }
+  if (versionOrder < 0) throw new Error(`Stale canonical write rejected for ${entityType}/${record.id}.`)
+  if (versionOrder === 0) throw new Error(`Canonical version conflict: different payloads share updatedAt for ${entityType}/${record.id}.`)
+  return record
+}
+const preserveTripBoundaryMetadata = (existing, incoming) => {
+  for (const field of ['tripStartLocation', 'tripEndLocation', 'tripStartLocationStatus', 'tripEndLocationStatus']) {
+    if (Object.hasOwn(existing, field)) incoming[field] = structuredClone(existing[field])
+  }
+}
+const refreshBrowserShiftRevenueProjection = (shift, trips, committedAt) => {
+  if (!shift) return null
+  let revenue = 0
+  let latest = parseCanonicalInstant(committedAt, 'committedAt')
+  if (shift.updatedAt) latest = Math.max(latest, parseCanonicalInstant(shift.updatedAt, 'shift updatedAt'))
+  for (const trip of trips || []) {
+    if (trip.shiftId !== shift.id || (Object.hasOwn(trip, 'deletedAt') && trip.deletedAt != null) || trip.deleted === true) continue
+    if (trip.status === 'COMPLETED' && trip.fareDetailsSkipped !== true && typeof trip.revenue === 'number' && Number.isFinite(trip.revenue) && trip.revenue >= 0) revenue += trip.revenue
+    else if (trip.status === 'CANCELLED' && typeof trip.cancelledRevenue === 'number' && Number.isFinite(trip.cancelledRevenue) && trip.cancelledRevenue >= 0) revenue += trip.cancelledRevenue
+    if (trip.updatedAt) latest = Math.max(latest, parseCanonicalInstant(trip.updatedAt, 'trip updatedAt'))
+  }
+  const matches = typeof shift.revenue === 'number' && typeof shift.liveFareRevenue === 'number'
+    && Math.abs(shift.revenue - revenue) < 1e-9 && Math.abs(shift.liveFareRevenue - revenue) < 1e-9
+    && shift.revenueSource === 'TRIP_FARES'
+  if (matches) return null
+  return { ...shift, revenue, liveFareRevenue: revenue, revenueSource: 'TRIP_FARES', updatedAt: new Date(latest + 1).toISOString() }
+}
+
 export const BrowserCanonicalWorkService = Object.freeze({
-  async putRecord({ operationId, entityType, record } = {}) {
+  async putRecord({ operationId, entityType, record, expectedUpdatedAt = null, expectAbsent = false } = {}) {
     const db = await initializeCanonicalStorage()
     const storeName = browserStoreFor(requireText(entityType, 'entityType'))
     const entityId = requireText(record?.id, 'record.id')
     const id = requireText(operationId, 'operationId')
+    if (expectedUpdatedAt != null && (typeof expectedUpdatedAt !== 'string' || !expectedUpdatedAt.trim())) throw new Error('expectedUpdatedAt must be a non-empty timestamp or null.')
+    const expectedVersion = expectedUpdatedAt == null ? null : expectedUpdatedAt.trim()
+    const stores = entityType === 'TRIP'
+      ? [storeName, 'shifts', 'canonical_operations', 'audit_history']
+      : [storeName, 'canonical_operations', 'audit_history']
     return new Promise((resolve, reject) => {
-      const tx = db.transaction([storeName, 'canonical_operations', 'audit_history'], 'readwrite')
+      const tx = db.transaction(stores, 'readwrite')
       const records = tx.objectStore(storeName), operations = tx.objectStore('canonical_operations'), audit = tx.objectStore('audit_history')
       let outcome = null
+      let failure = null
+      const abortWith = error => {
+        if (failure) return
+        failure = error instanceof Error ? error : new Error(String(error))
+        try { tx.abort() } catch (_) {}
+      }
       const existingOperation = operations.get(id)
       existingOperation.onsuccess = () => {
         try {
           if (existingOperation.result) {
             const previous = existingOperation.result
             if (previous.command !== 'PUT_RECORD' || previous.entityType !== entityType || previous.entityId !== entityId) throw new Error('operationId was already used for a different command.')
-            if (!previous.outcome?.record || !jsonEquivalent(previous.outcome.record, record)) throw new Error('operationId was already used with a different payload.')
+            const previousRecord = previous.outcome?.record
+            const samePayload = previousRecord && (entityType === 'TRIP'
+              ? jsonEquivalent(withoutTripBoundarySnapshots(previousRecord), withoutTripBoundarySnapshots(record))
+              : jsonEquivalent(previousRecord, record))
+            if (!samePayload) throw new Error('operationId was already used with a different payload.')
             outcome = { accepted: previous.status === 'ACCEPTED', duplicate: true, outcome: previous.outcome }
             return
           }
-          const committedAt = new Date().toISOString(), savedRecord = structuredClone(record)
-          records.put(savedRecord)
-          const result = { operationId: id, entityType, entityId, committedAt, record: savedRecord }
-          operations.add(operationRecord(id, entityType, entityId, result, committedAt))
-          audit.add({ id: `canonical-operation:${id}`, mutationId: id, entityId, entityType, action: 'PUT_RECORD', payload: savedRecord, createdAt: committedAt })
-          outcome = { accepted: true, duplicate: false, outcome: result }
-        } catch (error) { try { tx.abort() } catch (_) {}; reject(error) }
+          const currentRequest = records.get(entityId)
+          currentRequest.onsuccess = () => {
+            try {
+              const existing = currentRequest.result || null
+              const incoming = structuredClone(record)
+              if (entityType === 'TRIP' && existing) preserveTripBoundaryMetadata(existing, incoming)
+              const savedRecord = assertBrowserCanonicalWriteAllowed({
+                entityType, existingRecord: existing, record: incoming,
+                expectedUpdatedAt: expectedVersion, expectAbsent: expectAbsent === true,
+              })
+              const committedAt = new Date().toISOString()
+              records.put(savedRecord)
+              const finishWrite = () => {
+                try {
+                  const resultRecord = entityType === 'SHIFT' ? structuredClone(record) : structuredClone(savedRecord)
+                  const result = { operationId: id, entityType, entityId, committedAt, record: resultRecord }
+                  operations.add(operationRecord(id, entityType, entityId, result, committedAt))
+                  audit.add({ id: `canonical-operation:${id}`, mutationId: id, entityId, entityType, action: 'PUT_RECORD', payload: structuredClone(savedRecord), createdAt: committedAt })
+                  outcome = { accepted: true, duplicate: false, outcome: result }
+                } catch (error) { abortWith(error) }
+              }
+              if (entityType !== 'TRIP' || !savedRecord.shiftId) { finishWrite(); return }
+              const shifts = tx.objectStore('shifts')
+              const shiftRequest = shifts.get(savedRecord.shiftId)
+              const tripsRequest = records.getAll()
+              let shiftReady = false, tripsReady = false, shift = null, trips = []
+              const maybeProject = () => {
+                if (!shiftReady || !tripsReady || failure) return
+                try {
+                  const projected = refreshBrowserShiftRevenueProjection(shift, trips, committedAt)
+                  if (projected) shifts.put(projected)
+                  finishWrite()
+                } catch (error) { abortWith(error) }
+              }
+              shiftRequest.onsuccess = () => { shift = shiftRequest.result || null; shiftReady = true; maybeProject() }
+              shiftRequest.onerror = () => abortWith(shiftRequest.error || new Error('Canonical shift projection lookup failed.'))
+              tripsRequest.onsuccess = () => { trips = tripsRequest.result || []; tripsReady = true; maybeProject() }
+              tripsRequest.onerror = () => abortWith(tripsRequest.error || new Error('Canonical trip projection scan failed.'))
+            } catch (error) { abortWith(error) }
+          }
+          currentRequest.onerror = () => abortWith(currentRequest.error || new Error('Canonical record lookup failed.'))
+        } catch (error) { abortWith(error) }
       }
-      existingOperation.onerror = () => { try { tx.abort() } catch (_) {}; reject(existingOperation.error || new Error('Canonical operation lookup failed.')) }
+      existingOperation.onerror = () => abortWith(existingOperation.error || new Error('Canonical operation lookup failed.'))
       tx.oncomplete = () => {
+        if (failure) { reject(failure); return }
         if (!outcome) { reject(new Error('Canonical persistence completed without an operation outcome.')); return }
-        if (!outcome.duplicate) notifyCanonicalDataChanged({ stores: [storeName], reason: 'canonical-work:put-record' })
+        if (!outcome.duplicate) notifyCanonicalDataChanged({ stores: entityType === 'TRIP' ? ['trips', 'shifts'] : [storeName], reason: 'canonical-work:put-record' })
         resolve(outcome)
       }
-      tx.onerror = () => reject(tx.error || new Error('Canonical Work transaction failed.'))
-      tx.onabort = () => reject(tx.error || new Error('Canonical Work transaction aborted.'))
+      tx.onerror = () => reject(failure || tx.error || new Error('Canonical Work transaction failed.'))
+      tx.onabort = () => reject(failure || tx.error || new Error('Canonical Work transaction aborted.'))
     })
   },
   async updateTripBoundaryPlaceName({ operationId, tripId, field, placeName } = {}) {
