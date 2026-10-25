@@ -120,6 +120,54 @@ public class KfeCanonicalWorkPlugin extends Plugin {
   }
 
   @com.getcapacitor.PluginMethod
+  public void beginCanonicalReset(PluginCall call) {
+    try {
+      JSONObject result = KfeCanonicalWorkStore.get(getContext()).beginReset(call.getString("resetId", ""));
+      call.resolve(new JSObject(result.toString()));
+    } catch (IllegalArgumentException error) {
+      call.reject(error.getMessage(), "CANONICAL_RESET_REJECTED");
+    } catch (Exception error) {
+      call.reject("Canonical reset protocol operation failed.", "CANONICAL_RESET_FAILED", error);
+    }
+  }
+
+  @com.getcapacitor.PluginMethod
+  public void clearCanonicalReset(PluginCall call) {
+    try {
+      JSONObject result = KfeCanonicalWorkStore.get(getContext()).clearForReset(call.getString("resetId", ""));
+      call.resolve(new JSObject(result.toString()));
+    } catch (IllegalArgumentException error) {
+      call.reject(error.getMessage(), "CANONICAL_RESET_REJECTED");
+    } catch (Exception error) {
+      call.reject("Canonical reset protocol operation failed.", "CANONICAL_RESET_FAILED", error);
+    }
+  }
+
+  @com.getcapacitor.PluginMethod
+  public void completeCanonicalReset(PluginCall call) {
+    try {
+      JSONObject result = KfeCanonicalWorkStore.get(getContext()).completeReset(call.getString("resetId", ""));
+      call.resolve(new JSObject(result.toString()));
+    } catch (IllegalArgumentException error) {
+      call.reject(error.getMessage(), "CANONICAL_RESET_REJECTED");
+    } catch (Exception error) {
+      call.reject("Canonical reset protocol operation failed.", "CANONICAL_RESET_FAILED", error);
+    }
+  }
+
+  @com.getcapacitor.PluginMethod
+  public void getCanonicalResetState(PluginCall call) {
+    try {
+      JSONObject result = KfeCanonicalWorkStore.get(getContext()).getResetState(call.getString("resetId", ""));
+      call.resolve(new JSObject(result.toString()));
+    } catch (IllegalArgumentException error) {
+      call.reject(error.getMessage(), "CANONICAL_RESET_REJECTED");
+    } catch (Exception error) {
+      call.reject("Canonical reset protocol operation failed.", "CANONICAL_RESET_FAILED", error);
+    }
+  }
+
+  @com.getcapacitor.PluginMethod
   public void getRecord(PluginCall call) {
     try {
       JSONObject result = KfeCanonicalWorkStore.get(getContext()).getRecord(call.getString("entityType", ""), call.getString("entityId", ""));
