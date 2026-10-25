@@ -136,28 +136,63 @@ export const createBackupRepository = stores => Object.freeze({
           remaining--
           if (remaining !== 0 || settled) return
           try {
-            // On Android, SQLite is authoritative for overlay work records. Merge
-            // its current SHIFT/TRIP records with the browser snapshot before the
-            // imported backup so a stale backup cannot replace native truth.
+            // On Android, SQLite is authoritative for SHIFT/TRIP. Reconcile the
+            // browser mirror against it first; archive any same-ID browser payload
+            // that differs, then apply the imported backup using the loss-protecting
+            // union policy. Native records are put transactionally into IndexedDB
+            // so native-only records are not accidentally omitted from the mirror.
             const authoritativeSnapshot = { ...currentSnapshot }
-            if (Array.isArray(authoritativeRecords?.shifts)) authoritativeSnapshot.shifts = authoritativeRecords.shifts
-            if (Array.isArray(authoritativeRecords?.trips)) authoritativeSnapshot.trips = authoritativeRecords.trips
-            const combinedIncoming = Object.fromEntries(stores.map(name => [name, [
-              ...(currentSnapshot[name] || []),
-              ...(name === 'shifts' ? (authoritativeRecords?.shifts || []) : []),
-              ...(name === 'trips' ? (authoritativeRecords?.trips || []) : []),
-              ...(snapshot[name] || []),
-            ]]))
-            const merged = mergeCanonicalBackupSnapshot(authoritativeSnapshot, combinedIncoming, { sourceExportedAt })
+            const nativeConflictArchives = []
+            let nativeMirrorAdded = 0
+            for (const storeName of ['shifts', 'trips']) {
+              if (!Array.isArray(authoritativeRecords?.[storeName])) continue
+              const nativeRecords = authoritativeRecords[storeName].map(record => structuredClone(record))
+              const nativeByKey = new Map(nativeRecords.map(record => [backupKey(storeName, record), record]))
+              const browserOnly = []
+              for (const browserRecord of currentSnapshot[storeName] || []) {
+                const key = backupKey(storeName, browserRecord)
+                if (!nativeByKey.has(key)) {
+                  browserOnly.push(structuredClone(browserRecord))
+                  continue
+                }
+                const nativeRecord = nativeByKey.get(key)
+                if (sameBackupValue(nativeRecord, browserRecord)) continue
+                const importedPayload = JSON.stringify(canonicalizeBackupValue(browserRecord))
+                const conflictId = `restore-conflict:${storeName}:${stableHash(JSON.stringify([storeName, key, importedPayload]))}`
+                nativeConflictArchives.push({
+                  id: conflictId, entityType: storeName, entityId: String(key),
+                  action: 'RESTORE_CONFLICT_ARCHIVE', source: 'BACKUP_RESTORE',
+                  sourceExportedAt, payload: structuredClone(browserRecord), createdAt: new Date().toISOString(),
+                })
+              }
+              nativeMirrorAdded += nativeRecords.filter(record =>
+                !(currentSnapshot[storeName] || []).some(existing => backupKey(storeName, existing) === backupKey(storeName, record))
+              ).length
+              authoritativeSnapshot[storeName] = [...nativeRecords, ...browserOnly]
+            }
+            if (authoritativeSnapshot.audit_history) {
+              const auditIds = new Set(authoritativeSnapshot.audit_history.map(record => record.id))
+              for (const archive of nativeConflictArchives) {
+                if (auditIds.has(archive.id)) continue
+                auditIds.add(archive.id)
+                authoritativeSnapshot.audit_history.push(archive)
+              }
+            }
+            const merged = mergeCanonicalBackupSnapshot(authoritativeSnapshot, snapshot, { sourceExportedAt })
             for (const storeName of stores) {
               const store = tx.objectStore(storeName)
+              if (['shifts', 'trips'].includes(storeName) && Array.isArray(authoritativeRecords?.[storeName])) {
+                for (const record of authoritativeSnapshot[storeName]) store.put(structuredClone(record))
+              }
               for (const record of merged.addedRecordsByStore[storeName] || []) store.add(structuredClone(record))
             }
+            const currentAuditIds = new Set((currentSnapshot.audit_history || []).map(record => record.id))
+            const nativeArchivesAdded = nativeConflictArchives.filter(record => !currentAuditIds.has(record.id)).length
             restoreSummary = {
-              added: merged.added,
+              added: merged.added + nativeMirrorAdded + nativeArchivesAdded,
               duplicates: merged.duplicates,
-              conflicts: merged.conflicts,
-              archivedConflicts: merged.archivedConflicts,
+              conflicts: merged.conflicts + nativeConflictArchives.length,
+              archivedConflicts: merged.archivedConflicts + nativeArchivesAdded,
             }
           } catch (error) { fail(error) }
         }
