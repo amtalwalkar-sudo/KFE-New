@@ -1,7 +1,12 @@
 import { registerPlugin, Capacitor } from '@capacitor/core'
+import { getCanonicalResetBarrier } from '../../utils/indexedDB.js'
 
 const NativeCanonicalWork = registerPlugin('KfeCanonicalWork')
 const native = () => Capacitor?.isNativePlatform?.() === true
+const assertNoResetInProgress = () => {
+  const resetId = getCanonicalResetBarrier()
+  if (resetId) throw new Error(`Native canonical mutation blocked while reset ${resetId} is pending.`)
+}
 const requireNative = () => {
   if (!native()) throw new Error('Native canonical persistence is available only on Android.')
 }
@@ -27,6 +32,7 @@ export const NativeCanonicalWorkService = Object.freeze({
     return NativeCanonicalWork.getCanonicalResetState({})
   },
   async prepareCreateIntent({ entityType, intentKey, record } = {}) {
+    assertNoResetInProgress()
     requireNative()
     if (!entityType || !intentKey || !record?.id) throw new Error('entityType, intentKey and record.id are required.')
     const intent = await NativeCanonicalWork.prepareCreateIntent({ entityType, intentKey, record })
@@ -34,6 +40,7 @@ export const NativeCanonicalWorkService = Object.freeze({
     return intent
   },
   async completeCreateIntent(intentId) {
+    assertNoResetInProgress()
     requireNative()
     if (!intentId) throw new Error('intentId is required.')
     const result = await NativeCanonicalWork.completeCreateIntent({ intentId })
@@ -41,6 +48,7 @@ export const NativeCanonicalWorkService = Object.freeze({
     return result
   },
   async putRecord({ operationId, entityType, record, expectedUpdatedAt = null, expectAbsent = false } = {}) {
+    assertNoResetInProgress()
     requireNative()
     if (!operationId || !entityType || !record?.id) throw new Error('operationId, entityType and record.id are required.')
     const result = await NativeCanonicalWork.putRecord({ operationId, entityType, record, expectedUpdatedAt, expectAbsent })
@@ -48,6 +56,7 @@ export const NativeCanonicalWorkService = Object.freeze({
     return result
   },
   async persistTripBoundarySnapshot({ operationId, tripId, field, snapshot } = {}) {
+    assertNoResetInProgress()
     requireNative()
     if (!operationId || !tripId || !['tripStartLocation', 'tripEndLocation'].includes(field) || !snapshot) {
       throw new Error('operationId, tripId, a supported boundary field and snapshot are required.')
@@ -59,6 +68,7 @@ export const NativeCanonicalWorkService = Object.freeze({
     return result
   },
   async updateTripBoundaryPlaceName({ operationId, tripId, field, placeName } = {}) {
+    assertNoResetInProgress()
     requireNative()
     if (!operationId || !tripId || !['tripStartLocation', 'tripEndLocation'].includes(field) || !String(placeName || '').trim()) {
       throw new Error('operationId, tripId, a supported boundary field and placeName are required.')
@@ -70,11 +80,13 @@ export const NativeCanonicalWorkService = Object.freeze({
     return result
   },
   async migrateLegacySnapshot({ migrationId, snapshot } = {}) {
+    assertNoResetInProgress()
     requireNative()
     if (!migrationId || !snapshot?.entities) throw new Error('migrationId and snapshot.entities are required.')
     return NativeCanonicalWork.migrateLegacySnapshot({ migrationId, snapshot })
   },
   async verifyLegacyMigration(migrationId) {
+    assertNoResetInProgress()
     requireNative()
     if (!migrationId) throw new Error('migrationId is required.')
     const result = await NativeCanonicalWork.verifyLegacyMigration({ migrationId })
