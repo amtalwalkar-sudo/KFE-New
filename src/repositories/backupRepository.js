@@ -99,7 +99,6 @@ export const createBackupRepository = stores => Object.freeze({
       const result = {}
       let remaining = stores.length
       let settled = false
-      let restoreSummary = null
       const fail = error => { if (settled) return; settled = true; try { tx.abort() } catch (_) {}; reject(error) }
       for (const storeName of stores) {
         const request = tx.objectStore(storeName).getAll()
@@ -122,6 +121,7 @@ export const createBackupRepository = stores => Object.freeze({
       const currentSnapshot = {}
       let remaining = stores.length
       let settled = false
+      let restoreSummary = null
       const fail = error => { if (settled) return; settled = true; try { tx.abort() } catch (_) {}; reject(error) }
       for (const storeName of stores) {
         const request = tx.objectStore(storeName).getAll()
