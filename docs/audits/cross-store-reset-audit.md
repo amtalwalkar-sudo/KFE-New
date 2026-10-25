@@ -1,35 +1,32 @@
-# Cross-store Reset Data audit (initial)
+# Cross-store Reset Data audit
 
-Status: audit in progress; no reset implementation is considered safe or complete yet.
+Status: implementation is in the dedicated draft PR #373. The reset protocol is not considered merge-ready until the current contract suite, production build, Android instrumentation/exact-APK, governance, and UI-isolation gates pass.
 
-## Confirmed current behavior
+## Audited persistence surfaces
 
-- `src/repositories/backupRepository.js` implements `resetCanonicalData()` by opening IndexedDB and clearing selected browser stores in one IndexedDB transaction.
-- That method excludes the `settings` store and includes `form_drafts`; this conflicts with the requested factory-default settings behavior.
-- The reset method does not create and verify a pre-reset checkpoint before clearing.
-- `src/application/backup/backupService.js` exposes `resetData()` as a thin wrapper around this browser-only operation.
-- `android/app/src/main/java/com/kanishka/pwa/KfeCanonicalWorkPlugin.java` has no reset/recovery protocol methods in the current main version.
-- `KfeCanonicalWorkStore.java` owns SQLite canonical records plus durable operation, audit, migration, and create-intent tables. Reset must account for these tables and prevent stale create intents/retries from recreating cleared records.
-- `src/application/startup/startupService.js` runs storage initialization and pending-mutation recovery before normal startup completes. An unfinished reset must be resolved before reconciliation or mutation recovery can replay stale work.
-- Local recovery snapshots live in a separate IndexedDB database (`kanishka_kfe_local_backup_db`), so they can be retained independently of canonical-store clearing; checkpoint creation and verification must finish before destructive steps.
+- Browser canonical IndexedDB contains business stores, the settings store, form drafts, pending mutations, and a canonical operation ledger. The export backup's 21 stores do not include every internal operational store, so reset verification must check the internal ledger and drafts separately.
+- Rolling local recovery snapshots live in a separate IndexedDB database, `kanishka_kfe_local_backup_db`. A reset-specific checkpoint is stored under its reset ID so it does not overwrite the rolling backup or an earlier checkpoint.
+- Native SQLite `KfeCanonicalWorkStore` owns canonical records, operation outcomes, audit rows, migration state/items, and create intents. Clearing only records would leave retry paths able to resurrect old data.
+- Native lifecycle events are stored in a separate SQLite database (`KfeNativeEventStore`) and mirrored into SharedPreferences for a compatibility handoff. They are an additional replay path and must be invalidated/blocked during reset, not ignored because they are transport state.
+- Startup normally recovers stale pending mutations. Reset recovery now runs before that replay step.
+- Persistent app settings are stored in IndexedDB's `settings` store; session-scoped data-source selection and synthetic date context are maintained in sessionStorage.
 
-## Required invariants
+## Required invariants and current implementation
 
-1. Never start reset while a native SQLite SHIFT is ACTIVE; browser-only state is insufficient.
-2. A verified recoverable checkpoint must exist before any destructive operation.
-3. A durable reset ID/state must be idempotent and discoverable after process death.
-4. A pending reset blocks canonical mutations, create-intent completion/replay, startup reconciliation, and pending-mutation replay until recovery finishes.
-5. Both native SQLite and browser IndexedDB must reach the intended reset state before success is acknowledged.
-6. Business stores and user settings are reset to factory defaults; reset metadata and recovery facilities remain durable; exported/local recovery backups remain available.
-7. On ambiguous state or failed verification, fail closed and preserve recovery data rather than report success.
+1. **Active shift protection:** check the browser snapshot and authoritative native SQLite SHIFT records before clearing. The reset must be aborted if either side reports an ACTIVE shift.
+2. **Verified checkpoint:** enable the canonical write barrier, write a reset journal in the separate backup database, create a reset-ID-scoped backup checkpoint, and verify its timestamp/counts before native reset begins.
+3. **Durable cross-store state:** browser reset journal and native `canonical_reset_state` use the same reset ID and resumable phases. Native state is retained across process death.
+4. **Mutation barrier:** canonical IndexedDB read-write transactions are intercepted while a reset marker exists. Native canonical write methods check SQLite reset state and their JS bridge checks the browser barrier. Native lifecycle event appends/replay are blocked by a durable SharedPreferences reset barrier.
+5. **No stale replay:** clear browser pending mutations and canonical operation ledger; cancel native create intents; invalidate pending native lifecycle events and clear both current and legacy SharedPreferences handoffs before native records are cleared.
+6. **Factory defaults:** clear business/settings stores, drafts, and internal browser canonical operations; reset the session data source to canonical defaults. The separate reset journal and reset-specific recovery checkpoint are preserved.
+7. **Idempotent recovery:** each clear phase can be repeated with the same reset ID. Startup resumes pending reset before mutation replay; uncertain state or missing/changed checkpoint fails closed.
+8. **Verified success:** browser exportable stores and internal canonical stores are checked empty; native reset completion is verified before the journal is marked complete and barriers are released.
 
-## Implementation and validation plan
+## Implementation and validation still required
 
-- Finish inventory of settings keys/defaults, IndexedDB stores, native record types and replay paths.
-- Add a native SQLite reset journal and transactional active-shift guard; define durable phase transitions and idempotent recovery.
-- Add a browser reset barrier and startup gate that recovers an unfinished reset before mutation/reconciliation.
-- Coordinate native/browser phases through the native plugin/runtime adapter; verify both stores after clearing.
-- Add contract and Android instrumentation coverage for active-shift blocking, retries/process-death at each phase, stale create intents/outbox replay, factory settings, and retained recovery.
-- Run full contract suite, production build, Android exact-APK and required governance/UI gates. Physical offline-phone verification remains the final post-merge gate.
+- Run and review the complete `npm test` contract suite and production PWA build on the latest PR commit.
+- Run/review native Android instrumentation and the exact-APK gate, including process-death/retry phases and native event cancellation.
+- Review UI-isolation and governance results and fix every failure before marking the draft PR ready.
+- Physical-phone verification remains a post-merge gate: with network disabled, verify reset/checkpoint behavior and that no old trip, shift, fare, pending mutation, create intent, or native lifecycle event reappears after reload/restart.
 
-Do not reuse the closed browser-only PR #371 as an implementation base. Start from current main.
+Do not reuse the closed browser-only PR #371 as an implementation base.
