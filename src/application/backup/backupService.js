@@ -43,13 +43,40 @@ export const validateBackup = input => {
   }
   return backup
 }
+const readAllNativeWorkRecords = async entityType => {
+  const pageSize = 1000
+  const records = []
+  let offset = 0
+  let expectedTotal = null
+  do {
+    const page = await NativeCanonicalWorkService.listRecords({ entityType, limit: pageSize, offset })
+    if (!Number.isInteger(page.totalCount) || page.totalCount < 0 || page.offset !== offset) {
+      throw new Error(`Native ${entityType} backup pagination returned invalid count/offset metadata.`)
+    }
+    if (expectedTotal === null) expectedTotal = page.totalCount
+    else if (page.totalCount !== expectedTotal) {
+      throw new Error(`Native ${entityType} records changed during backup; retry after the current operation finishes.`)
+    }
+    if (page.records.length === 0 && offset < expectedTotal) {
+      throw new Error(`Native ${entityType} backup stopped at ${offset} of ${expectedTotal} records; no partial backup was accepted.`)
+    }
+    records.push(...page.records)
+    offset += page.records.length
+    if (records.length > expectedTotal) throw new Error(`Native ${entityType} backup pagination returned duplicate/extra records.`)
+  } while (offset < expectedTotal)
+  if (records.length !== expectedTotal) {
+    throw new Error(`Native ${entityType} backup is incomplete: expected ${expectedTotal}, read ${records.length}.`)
+  }
+  return records
+}
+
 const readNativeWorkSnapshot = async () => {
   if (!NativeCanonicalWorkService.isAvailable()) return null
   const [shifts, trips] = await Promise.all([
-    NativeCanonicalWorkService.listRecords({ entityType: 'SHIFT', limit: 1000 }),
-    NativeCanonicalWorkService.listRecords({ entityType: 'TRIP', limit: 1000 }),
+    readAllNativeWorkRecords('SHIFT'),
+    readAllNativeWorkRecords('TRIP'),
   ])
-  return { shifts: shifts.records, trips: trips.records }
+  return { shifts, trips }
 }
 
 const mergeBackupWorkIntoNative = async (backup, nativeSnapshot) => {
