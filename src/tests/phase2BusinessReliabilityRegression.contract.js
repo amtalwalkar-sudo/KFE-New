@@ -25,16 +25,29 @@ assert.ok(shiftWrite > activeTripGuard, 'Active-trip validation must happen befo
 assert.ok(completeShift.includes('Cannot complete a shift while a trip is active.'), 'Rejection must explain the recovery action')
 
 
+const createShift = repository.slice(repository.indexOf('async createShift('), repository.indexOf('async completeShift('))
+assert.ok(createShift.includes("db.transaction(['shifts', 'canonical_operations', 'pending_mutations', 'audit_history'], 'readwrite')"),
+  'Shift creation must commit the shift and its durable create intent in one transaction')
+assert.ok(createShift.includes("shifts.getAll()"), 'Shift creation must check active shifts inside the write transaction')
+assert.ok(createShift.includes("shift.status === 'ACTIVE'"), 'Shift creation must reject a second active shift')
+assert.ok(createShift.includes("intents.get(intentId)") && createShift.includes('priorIntent.record'),
+  'Retrying the same shift create intent must return its original record identity')
+assert.ok(createShift.includes("intents.add({ id: intentId, entityType: 'SHIFT', intentKey: intentKey || null, record: proposed"),
+  'Shift create intent must be durable in canonical_operations before acknowledgement')
+
 const createTrip = repository.slice(repository.indexOf('async createTrip('), repository.indexOf('async setTripStartLocation('))
-assert.ok(createTrip.includes("db.transaction(['shifts', 'trips', 'pending_mutations', 'audit_history'], 'readwrite')"),
-  'Trip creation must validate and write inside one transaction covering shifts and trips')
-assert.ok(createTrip.includes('shifts.get(record.shiftId)'), 'Trip creation must read the canonical parent shift in its write transaction')
+assert.ok(createTrip.includes("db.transaction(['shifts', 'trips', 'canonical_operations', 'pending_mutations', 'audit_history'], 'readwrite')"),
+  'Trip creation must validate and write the trip plus its durable create intent atomically')
+assert.ok(createTrip.includes('shifts.get(proposed.shiftId)'), 'Trip creation must read the canonical parent shift in its write transaction')
 assert.ok(createTrip.includes('trips.getAll()'), 'Trip creation must inspect existing trips in its write transaction')
 assert.ok(createTrip.includes("shift.status !== 'ACTIVE'"), 'Trip creation must reject missing or inactive parent shifts')
-assert.ok(createTrip.includes("trip.shiftId === record.shiftId && trip.status === 'ACTIVE'"), 'Trip creation must reject a second active trip for the same shift')
-assert.ok(createTrip.indexOf('hasActiveTrip') < createTrip.indexOf('trips.put(record)'), 'Active-trip validation must happen before the trip write')
-assert.ok(createTrip.indexOf('shift.status !==') < createTrip.indexOf('trips.put(record)'), 'Parent-shift validation must happen before the trip write')
-
+assert.ok(createTrip.includes("trip.shiftId === proposed.shiftId && trip.status === 'ACTIVE'"), 'Trip creation must reject a second active trip for the same shift')
+assert.ok(createTrip.indexOf("trip.shiftId === proposed.shiftId && trip.status === 'ACTIVE'") < createTrip.indexOf('trips.add(proposed)'), 'Active-trip validation must happen before the trip write')
+assert.ok(createTrip.indexOf("shift.status !== 'ACTIVE'") < createTrip.indexOf('trips.add(proposed)'), 'Parent-shift validation must happen before the trip write')
+assert.ok(createTrip.includes("intents.get(intentId)") && createTrip.includes('priorIntent.record'),
+  'Retrying the same trip create intent must return its original record identity')
+assert.ok(createTrip.includes("intents.add({ id: intentId, entityType: 'TRIP', intentKey: intentKey || null, record: proposed"),
+  'Trip create intent must be durable in canonical_operations before acknowledgement')
 
 const workService = fs.readFileSync(path.join(root, 'src/application/work/workService.js'), 'utf8')
 const workView = fs.readFileSync(path.join(root, 'src/views/WorkModuleView.vue'), 'utf8')
