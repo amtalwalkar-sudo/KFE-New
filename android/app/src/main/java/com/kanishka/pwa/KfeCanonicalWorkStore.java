@@ -456,6 +456,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
 
   synchronized Outcome persistTripBoundarySnapshot(String operationId, String tripId,
       String field, JSONObject snapshot) throws Exception {
+    assertNoPendingReset();
     if (empty(operationId) || empty(tripId)) throw new IllegalArgumentException("operationId and tripId are required.");
     if (!"tripStartLocation".equals(field) && !"tripEndLocation".equals(field)) {
       throw new IllegalArgumentException("Unsupported trip-boundary snapshot field.");
@@ -557,6 +558,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
    */
   synchronized Outcome updateTripBoundaryPlaceName(String operationId, String tripId,
       String field, String placeName) throws Exception {
+    assertNoPendingReset();
     if (empty(operationId) || empty(tripId)) throw new IllegalArgumentException("operationId and tripId are required.");
     if (!"tripStartLocation".equals(field) && !"tripEndLocation".equals(field)) {
       throw new IllegalArgumentException("Unsupported trip-boundary place-name field.");
