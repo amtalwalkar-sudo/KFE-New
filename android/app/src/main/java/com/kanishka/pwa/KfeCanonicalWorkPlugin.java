@@ -169,9 +169,9 @@ public class KfeCanonicalWorkPlugin extends Plugin {
     String resetId = call.getString("resetId", "");
     try {
       JSONObject state = KfeCanonicalWorkStore.get(getContext()).getResetState();
-      if (state.optBoolean("found") && resetId.equals(state.optString("resetId"))
-          && !"COMPLETE".equals(state.optString("state"))) {
-        throw new IllegalStateException("Native reset cannot release its event barrier before completion.");
+      if (!state.optBoolean("found") || !resetId.equals(state.optString("resetId"))
+          || !"COMPLETE".equals(state.optString("state"))) {
+        throw new IllegalStateException("Native reset cannot release its event barrier before verified completion.");
       }
       KfeNativeWorkActionsPlugin.releaseResetBarrier(getContext(), resetId);
       JSONObject result = new JSONObject().put("resetId", resetId).put("released", true);
