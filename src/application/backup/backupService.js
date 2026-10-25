@@ -123,7 +123,7 @@ const applyRestoreBackup = async backup => {
   return { ...getBackupSummary(backup), merge: { ...merge, native: nativeMerge } }
 }
 
-export const restoreBackup = async input => {
+const runRestoreBackup = async input => {
   const backup = validateBackup(input)
   const existing = await backupRepository.getRestoreJournal()
   if (existing?.backup && serializeBackup(existing.backup) !== serializeBackup(backup)) {
@@ -134,6 +134,13 @@ export const restoreBackup = async input => {
   const result = await applyRestoreBackup(backup)
   await backupRepository.clearRestoreJournal(restoreId)
   return result
+}
+
+let activeRestoreAttempt = null
+export const restoreBackup = input => {
+  if (activeRestoreAttempt) return Promise.reject(new Error('A backup restore is already running. Wait for it to finish before starting another restore.'))
+  activeRestoreAttempt = runRestoreBackup(input).finally(() => { activeRestoreAttempt = null })
+  return activeRestoreAttempt
 }
 
 export const recoverPendingRestore = async () => {
