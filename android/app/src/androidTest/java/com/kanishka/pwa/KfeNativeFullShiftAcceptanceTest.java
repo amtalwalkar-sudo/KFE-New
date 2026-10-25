@@ -35,6 +35,61 @@ import java.lang.reflect.InvocationTargetException;
 public class KfeNativeFullShiftAcceptanceTest {
   private static final String STATE_KEY = "lastOverlayState";
 
+  @Test public void durableCreateIntentReusesIdentityAfterLostAcknowledgementAndAllowsNextCreate() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    String suffix = Long.toString(System.currentTimeMillis());
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    String intentKey = "create-retry-shift-" + suffix;
+    JSONObject proposed = new JSONObject()
+        .put("id", "create-retry-shift-record-" + suffix)
+        .put("status", "ACTIVE")
+        .put("startOdometer", 1234)
+        .put("updatedAt", "2026-10-25T10:00:00.000Z");
+
+    JSONObject prepared = store.prepareCreateIntent("SHIFT", intentKey, proposed);
+    assertEquals("PENDING", prepared.getString("status"));
+    String intentId = prepared.getString("intentId");
+    String operationId = prepared.getString("operationId");
+    String recordId = prepared.getJSONObject("record").getString("id");
+
+    // Simulate the UI losing the create acknowledgement and preparing again with
+    // a newly generated candidate record. The durable workflow key must win.
+    JSONObject retryCandidate = new JSONObject(proposed.toString())
+        .put("id", "must-not-be-created-" + suffix);
+    JSONObject retried = store.prepareCreateIntent("SHIFT", intentKey, retryCandidate);
+    assertTrue("Retry must report reuse of the durable intent.", retried.getBoolean("reused"));
+    assertEquals(intentId, retried.getString("intentId"));
+    assertEquals(operationId, retried.getString("operationId"));
+    assertEquals(recordId, retried.getJSONObject("record").getString("id"));
+    assertEquals("PENDING", retried.getString("status"));
+
+    KfeCanonicalWorkStore.Outcome firstCommit = store.putRecord(
+        operationId, "SHIFT", prepared.getJSONObject("record"), null, true);
+    assertTrue("First create must commit.", firstCommit.accepted);
+    KfeCanonicalWorkStore.Outcome replayCommit = store.putRecord(
+        operationId, "SHIFT", retried.getJSONObject("record"), null, true);
+    assertTrue("Lost-ack retry must be accepted.", replayCommit.accepted);
+    assertTrue("Lost-ack retry must be idempotent.", replayCommit.duplicate);
+    store.completeCreateIntent(intentId);
+
+    // A fresh lookup after completion must still resolve the original identity.
+    JSONObject completedRetry = store.prepareCreateIntent("SHIFT", intentKey, retryCandidate);
+    assertEquals("COMPLETED", completedRetry.getString("status"));
+    assertEquals(recordId, completedRetry.getJSONObject("record").getString("id"));
+    assertEquals(operationId, completedRetry.getString("operationId"));
+    assertTrue(store.getRecord("SHIFT", recordId).optBoolean("found", false));
+
+    // A genuinely new user action gets a new intent, even when the business
+    // payload is otherwise identical; stable payload hashing alone is unsafe.
+    String nextIntentKey = "create-next-shift-" + suffix;
+    JSONObject nextCandidate = new JSONObject(proposed.toString())
+        .put("id", "create-next-shift-record-" + suffix);
+    JSONObject next = store.prepareCreateIntent("SHIFT", nextIntentKey, nextCandidate);
+    assertFalse("A new workflow key must not reuse the previous completed intent.", next.getBoolean("reused"));
+    assertFalse("A new user action must have a different record identity.", recordId.equals(next.getJSONObject("record").getString("id")));
+    assertFalse("A new user action must have a different operation identity.", operationId.equals(next.getString("operationId")));
+  }
+
   @Test public void activeShiftStaleRevenueProjectionMirrorIsReconciledButOtherStaleWritesAreRejected() throws Exception {
     Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
     String suffix = Long.toString(System.currentTimeMillis());
