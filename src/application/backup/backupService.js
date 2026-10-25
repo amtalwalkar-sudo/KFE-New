@@ -124,6 +124,7 @@ const applyRestoreBackup = async backup => {
 }
 
 const runRestoreBackup = async input => {
+  if (backupRepository.getCanonicalResetBarrier()) throw new Error('Backup restore is blocked while a canonical reset is pending.')
   const backup = validateBackup(input)
   const existing = await backupRepository.getRestoreJournal()
   if (existing?.backup && serializeBackup(existing.backup) !== serializeBackup(backup)) {
@@ -248,7 +249,9 @@ const continueReset = async resetId => {
 }
 
 const runResetData = async () => {
+  if (activeRestoreAttempt) throw new Error('Data reset is blocked while a backup restore is running.')
   await recoverPendingReset()
+  await recoverPendingRestore()
   const resetId = globalThis.crypto?.randomUUID?.() || `reset-${Date.now()}-${Math.random().toString(36).slice(2)}`
   const nativeRequired = NativeCanonicalWorkService.isAvailable()
   backupRepository.setCanonicalResetBarrier(resetId)
