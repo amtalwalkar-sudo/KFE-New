@@ -135,10 +135,12 @@ run_instrumentation() {
   local label="$2"
   local expected_count="$3"
   local log_file="artifacts/android-golden/${label}-instrumentation.log"
+  local started_epoch="$SECONDS"
+  echo "ANDROID_INSTRUMENTATION_START label=$label test=$test_class expected_count=$expected_count timeout_seconds=180"
   if ! timeout 180s adb shell am instrument -w -r -e class "$test_class" com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner > "$log_file" 2>&1; then
     cat "$log_file"
     capture_failure "$label"
-    echo "ANDROID INSTRUMENTATION FAILED OR TIMED OUT (180s): $label" >&2
+    echo "ANDROID INSTRUMENTATION FAILED OR TIMED OUT (180s): $label elapsed_seconds=$((SECONDS - started_epoch))" >&2
     return 1
   fi
   cat "$log_file"
@@ -157,9 +159,11 @@ run_instrumentation() {
     echo "ANDROID INSTRUMENTATION REPORTED A FAILURE: $label" >&2
     return 1
   fi
+  echo "ANDROID_INSTRUMENTATION_PASS label=$label test=$test_class elapsed_seconds=$((SECONDS - started_epoch))"
 }
 
 run_lifecycle_process_death_case() {
+  echo "ANDROID_PROCESS_DEATH_CASE_START type=lifecycle label=${label:-pending} stage=${stage:-none} boundary=${boundary:-none} entity_type=${entity_type:-none}"
   local stage="$1"
   local boundary="$2"
   local label="lifecycle-process-death-${stage,,}-${boundary,,}"
@@ -258,6 +262,7 @@ run_lifecycle_process_death_case() {
 }
 
 run_fare_process_death_case() {
+  echo "ANDROID_PROCESS_DEATH_CASE_START type=fare-save label=${label:-pending} stage=${stage:-none} boundary=${boundary:-none} entity_type=${entity_type:-none}"
   local label="fare-save-process-death-after-outbox"
   local prepare_log="artifacts/android-golden/${label}-prepare.log"
   local ready=false
@@ -339,6 +344,7 @@ run_fare_process_death_case() {
 }
 
 run_create_intent_process_death_case() {
+  echo "ANDROID_PROCESS_DEATH_CASE_START type=create-intent label=${label:-pending} stage=${stage:-none} boundary=${boundary:-none} entity_type=${entity_type:-none}"
   local entity_type="$1"
   local boundary="$2"
   local label="create-intent-process-death-${entity_type,,}-${boundary,,}"
