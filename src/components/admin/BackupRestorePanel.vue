@@ -3,7 +3,8 @@ import { onMounted, ref } from 'vue'
 import { BackupService } from '../../application/backup/backupService.js'
 import { BackupConfig } from '../../application/backup/backupConfig.js'
 import { CloudBackupLifecycle } from '../../application/backup/cloudBackupLifecycle.js'
-import { downloadBackupText, readBackupFileText } from '../../presentation/backup/backupFileAdapter.js'
+import { downloadBackupText, readBackupFileText, chooseBackupFileText } from '../../presentation/backup/backupFileAdapter.js'
+import { Capacitor } from '@capacitor/core'
 
 const fileInput = ref(null); const status = ref(null); const cloudConfig = ref({ enabled:false, path:'/Apps/KFE/kfe-latest-backup.json', accessToken:'', hasAccessToken:false, lastCloudBackupAt:null, lastCloudBackupAttemptAt:null, lastCloudBackupError:null, automaticBackupMode:'FOREGROUND_WHEN_APP_OPEN' });
 const tokenInput=ref(null)
@@ -28,7 +29,18 @@ const create=async()=>{
     error.value=e.message||'Backup creation failed. No downloadable file was confirmed.'
   } finally { loading.value=false }
 }
-const chooseRestoreFile=()=>fileInput.value?.click()
+const chooseRestoreFile=async()=>{
+  if(!Capacitor.isNativePlatform()){fileInput.value?.click();return}
+  loading.value=true;error.value='';notice.value=''
+  try{
+    const selected=await chooseBackupFileText()
+    if(!selected)return
+    const backup=BackupService.readBackupText(selected.text)
+    pendingRestore.value={backup,summary:BackupService.getBackupSummary(backup),name:selected.name}
+  }catch(e){
+    if(!/cancelled/i.test(e.message||''))error.value=e.message||'Unable to open the selected backup file.'
+  }finally{loading.value=false}
+}
 const onFile=async event=>{const file=event.target.files?.[0];event.target.value='';if(!file)return;error.value='';notice.value='';try{const backup=BackupService.readBackupText(await readBackupFileText(file));pendingRestore.value={backup,summary:BackupService.getBackupSummary(backup),name:file.name}}catch(e){pendingRestore.value=null;error.value=e.message||'Backup file validation failed.'}}
 const confirmRestore=async()=>{if(!pendingRestore.value)return;if(!confirm(`Restore ${pendingRestore.value.summary.totalRecords} records from ${pendingRestore.value.name}? KFE keeps current records, adds missing backup records, and archives conflicting backup versions.`))return;loading.value=true;error.value='';notice.value='';try{const summary=await BackupService.restoreBackup(pendingRestore.value.backup);pendingRestore.value=null;notice.value=`Restore merge completed: ${summary.merge?.added || 0} records added (including conflict archives), ${summary.merge?.duplicates || 0} identical records skipped, ${summary.merge?.conflicts || 0} conflicts archived. Current records were preserved.`;await refresh()}catch(e){error.value=e.message||'Restore failed. The canonical transaction was rolled back if persistence failed.'}finally{loading.value=false}}
 const restoreLocal=async()=>{const local=await BackupService.getLocalBackup();if(!local){error.value='No local backup is available.';return}pendingRestore.value={backup:local.backup,summary:BackupService.getBackupSummary(local.backup),name:'Latest local backup'}}
