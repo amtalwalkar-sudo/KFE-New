@@ -1,6 +1,6 @@
 import { createBackupRepository } from '../../repositories/backupRepository.js'
 import { NativeCanonicalWorkService } from '../../infrastructure/android/nativeCanonicalWork.js'
-import { setCanonicalResetBarrier, getCanonicalResetBarrier, clearCanonicalResetBarrier } from '../../utils/indexedDB.js'
+import { setCanonicalResetBarrier, getCanonicalResetBarrier, clearCanonicalResetBarrier, setActiveDataSource } from '../../utils/indexedDB.js'
 import { CANONICAL_DB_VERSION } from '../../constants/canonicalDatabase.js'
 export const BACKUP_FORMAT = 'KFE_BACKUP'
 export const BACKUP_FORMAT_VERSION = 4
@@ -120,6 +120,8 @@ const continueReset = async resetId => {
         throw new Error('Native canonical reset could not be verified.')
       }
     }
+    // Reset session-scoped preferences to the canonical production source as well.
+    setActiveDataSource('canonical')
     journal = { ...journal, state: 'COMPLETE', completedAt: new Date().toISOString() }
     await backupRepository.saveResetJournal(journal)
     clearCanonicalResetBarrier(resetId)
