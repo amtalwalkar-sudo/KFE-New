@@ -368,7 +368,7 @@ run_instrumentation com.kanishka.pwa.KfeOverlaySmokeTest native-overlay 22
 # Run the WebView-disabled acceptances last so disabling WebView cannot affect
 # any earlier PWA catch-up or lifecycle/recovery test in this instrumentation process.
 adb shell am force-stop com.kanishka.pwa
-run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#nativeOverlayCompletesShiftWithWebViewUnavailableAndNoDuplicateRevenue native-webview-unavailable-full-shift 1
+run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#nativeOverlayPersistsTripFormsWithWebViewUnavailableWithoutEndingShift native-webview-unavailable-full-shift 1
 adb shell am force-stop com.kanishka.pwa
 run_instrumentation com.kanishka.pwa.KfeOverlaySmokeTest#nativeOverlayCompletesFareAndCancellationUsingGesturesAndVisibleFormControlsWithoutPwaReplay native-webview-unavailable-visible-overlay 1
 sha256sum "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk"
