@@ -41,7 +41,7 @@ assert.match(nativeStore, /canonical_reset_state[\s\S]*CANCELLED_BY_RESET/,
 assert.match(nativeStore, /assertNoPendingReset\(\)/,
   'Native canonical write paths must enforce the reset barrier.')
 assert.match(nativeEvents, /cancelPendingForReset\(String resetId\)/, 'Reset must invalidate queued native lifecycle events.')
-assert.match(nativeActions, /beginResetBarrier[\s\S]*cancelPendingForReset[\s\S]*releaseResetBarrier/, 'Native lifecycle events must remain blocked through the reset protocol.')
+assert.match(nativeActions, /beginResetBarrier[\s\S]*releaseResetBarrier[\s\S]*cancelPendingForReset/, 'Native lifecycle events must remain blocked through the reset protocol.')
 assert.match(nativeAdapter, /assertNoResetInProgress\(\)/, 'Native bridge writes must honor the browser reset barrier until release.')
 for (const method of ['beginCanonicalReset', 'clearCanonicalReset', 'completeCanonicalReset', 'releaseCanonicalReset', 'getCanonicalResetState']) {
   assert.ok(nativePlugin.includes(method), `Native plugin must expose ${method}.`)
