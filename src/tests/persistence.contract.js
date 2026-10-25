@@ -57,6 +57,12 @@ for (const source of [admin, shiftTrip, fuel, odo]) {
   assert(source.includes('tx.onabort'), 'Transaction abort handling missing')
 }
 
+const saveSettingBody = admin.slice(admin.indexOf('async saveSetting('), admin.indexOf('async list('))
+assert(saveSettingBody.includes('tx.oncomplete'), 'Settings save acknowledgement must wait for the read-write transaction commit')
+assert(saveSettingBody.includes('tx.onerror'), 'Settings save must reject transaction errors')
+assert(saveSettingBody.includes('tx.onabort'), 'Settings save must reject aborted transactions')
+assert(!/request\.onsuccess\s*=\s*\(\)\s*=>\s*resolve\(\)/.test(saveSettingBody), 'Settings save must not acknowledge durability on request success before transaction completion')
+
 assert(admin.includes('record.deletedAt = now'), 'Soft deletion timestamp missing')
 assert(admin.includes('record.deleted = true'), 'Soft deletion marker missing')
 assert(admin.includes('records.filter(record => !isDeleted(record)'), 'Active query must exclude deleted records')
