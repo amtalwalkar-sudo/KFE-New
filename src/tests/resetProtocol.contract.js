@@ -7,6 +7,9 @@ const indexedDb = fs.readFileSync('src/utils/indexedDB.js', 'utf8')
 const startup = fs.readFileSync('src/application/startup/startupService.js', 'utf8')
 const nativeStore = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeCanonicalWorkStore.java', 'utf8')
 const nativePlugin = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeCanonicalWorkPlugin.java', 'utf8')
+const nativeEvents = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeNativeEventStore.java', 'utf8')
+const nativeActions = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeNativeWorkActionsPlugin.java', 'utf8')
+const nativeAdapter = fs.readFileSync('src/infrastructure/android/nativeCanonicalWork.js', 'utf8')
 const instrumentation = fs.readFileSync('android/app/src/androidTest/java/com/kanishka/pwa/KfeCanonicalResetProtocolTest.java', 'utf8')
 
 assert.match(backupService, /setCanonicalResetBarrier\(resetId\)[\s\S]*state: 'CHECKPOINTING'[\s\S]*await createBackup\(\)[\s\S]*saveResetCheckpoint\(resetId, checkpoint\)[\s\S]*verifyResetCheckpoint\(checkpoint, resetId\)/,
@@ -37,7 +40,10 @@ assert.match(nativeStore, /canonical_reset_state[\s\S]*CANCELLED_BY_RESET/,
   'Native reset state is durable and old create intents are cancelled.')
 assert.match(nativeStore, /assertNoPendingReset\(\)/,
   'Native canonical write paths must enforce the reset barrier.')
-for (const method of ['beginCanonicalReset', 'clearCanonicalReset', 'completeCanonicalReset', 'getCanonicalResetState']) {
+assert.match(nativeEvents, /cancelPendingForReset\(String resetId\)/, 'Reset must invalidate queued native lifecycle events.')
+assert.match(nativeActions, /beginResetBarrier[\s\S]*cancelPendingForReset[\s\S]*releaseResetBarrier/, 'Native lifecycle events must remain blocked through the reset protocol.')
+assert.match(nativeAdapter, /assertNoResetInProgress\(\)/, 'Native bridge writes must honor the browser reset barrier until release.')
+for (const method of ['beginCanonicalReset', 'clearCanonicalReset', 'completeCanonicalReset', 'releaseCanonicalReset', 'getCanonicalResetState']) {
   assert.ok(nativePlugin.includes(method), `Native plugin must expose ${method}.`)
 }
 assert.match(instrumentation, /active canonical shift[\s\S]*Simulate process death[\s\S]*Create intents must be blocked[\s\S]*completeReset/,
