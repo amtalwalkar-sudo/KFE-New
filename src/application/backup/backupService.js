@@ -123,6 +123,7 @@ const continueReset = async resetId => {
     journal = { ...journal, state: 'COMPLETE', completedAt: new Date().toISOString() }
     await backupRepository.saveResetJournal(journal)
     clearCanonicalResetBarrier(resetId)
+    if (nativeAvailable) await NativeCanonicalWorkService.releaseCanonicalReset(resetId)
     return { ok: true, resetId, state: 'COMPLETE' }
   } catch (error) {
     // Keep the barrier and journal intact on uncertain outcomes. Startup retries
@@ -236,6 +237,9 @@ export const recoverPendingReset = async () => {
   }
   if (!journal || RESET_TERMINAL_STATES.has(journal.state)) {
     if (journal && barrierId === journal.resetId) clearCanonicalResetBarrier(journal.resetId)
+    if (journal?.state === 'COMPLETE' && journal.nativeRequired && nativeAvailable) {
+      await NativeCanonicalWorkService.releaseCanonicalReset(journal.resetId)
+    }
     return { recovered: false, state: journal?.state || null }
   }
   if (barrierId !== journal.resetId) setCanonicalResetBarrier(journal.resetId)
