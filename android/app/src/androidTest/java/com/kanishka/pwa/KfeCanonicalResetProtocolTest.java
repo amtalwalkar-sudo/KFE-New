@@ -24,7 +24,13 @@ public class KfeCanonicalResetProtocolTest {
     String shiftId = "reset-test-shift-" + suffix;
     String resetId = "reset-test-" + suffix;
     KfeCanonicalWorkStore store = new KfeCanonicalWorkStore(context, databaseName);
+    String eventDatabaseName = "kfe_native_event_reset_test_" + suffix + ".db";
+    KfeNativeEventStore eventStore = new KfeNativeEventStore(context, eventDatabaseName);
     try {
+      String eventId = eventStore.append("RESET_TEST", "reset-test-trip-" + suffix, "pending");
+      eventStore.cancelPendingForReset(resetId);
+      assertFalse("Pending native lifecycle events must be invalidated by reset.", eventStore.isPending(eventId));
+      assertEquals("Cancelled native lifecycle events must not be replayed.", 0, eventStore.pending(100).length());
       JSONObject activeShift = new JSONObject()
           .put("id", shiftId).put("status", "ACTIVE")
           .put("updatedAt", "2026-10-25T10:00:00.000Z");
@@ -66,7 +72,9 @@ public class KfeCanonicalResetProtocolTest {
       assertEquals("CLEARED", store.clearForReset(resetId).getString("state"));
     } finally {
       try { store.close(); } catch (Exception ignored) {}
+      try { eventStore.close(); } catch (Exception ignored) {}
       context.deleteDatabase(databaseName);
+      context.deleteDatabase(eventDatabaseName);
     }
   }
 }
