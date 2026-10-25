@@ -4,6 +4,7 @@ import fs from 'node:fs'
 const backupService = fs.readFileSync('src/application/backup/backupService.js', 'utf8')
 const backupRepository = fs.readFileSync('src/repositories/backupRepository.js', 'utf8')
 const indexedDb = fs.readFileSync('src/utils/indexedDB.js', 'utf8')
+const startup = fs.readFileSync('src/application/startup/startupService.js', 'utf8')
 
 assert.match(backupService, /export const createBackup = async/)
 assert.match(backupService, /export const serializeBackup = backup => JSON\.stringify\(validateBackup\(backup\)/)
@@ -13,7 +14,7 @@ assert.match(backupService, /saveLocalBackup\(await createBackup\(\)\)/, 'The po
 assert.match(backupService, /await saveLocalBackup\(await createBackup\(\)\)/, 'The saved local recovery checkpoint must reflect the merged dataset.')
 assert.match(backupService, /const runResetData = async \(\) => \{[\s\S]*await recoverPendingReset\(\)/, 'A new reset request must recover any previous reset before starting.')
 assert.match(backupService, /await backupRepository\.resetCanonicalData\(\{ resetId \}\)/, 'The cross-store reset must use its durable reset ID.')
-assert.match(backupService, /await BackupService\.recoverPendingReset\(\)[\s\S]*await MutationRepository\.recoverStaleSyncing\(\)/, 'Startup must recover reset before replaying mutations.')
+assert.match(startup, /await BackupService\.recoverPendingReset\(\)[\s\S]*await MutationRepository\.recoverStaleSyncing\(\)/, 'Startup must recover reset before replaying mutations.')
 assert.match(backupService, /export const maybeDailyLocalBackup = async/)
 assert.match(backupService, /Date\.now\(\) - Date\.parse\(current\.savedAt\) >= 24 \* 60 \* 60 \* 1000/)
 
