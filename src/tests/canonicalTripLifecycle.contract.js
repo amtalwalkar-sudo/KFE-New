@@ -6,6 +6,7 @@ import { canTransitionTrip, canTransitionTripStage, TRIP_STATES, transitionTrip,
 const assert = (condition, message) => { if (!condition) throw new Error(message) }
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const repository = fs.readFileSync(path.join(root, 'repositories', 'shiftTripRepository.js'), 'utf8')
+const canonicalWorkRecords = fs.readFileSync(path.join(root, 'domain', 'work', 'canonicalWorkRecords.js'), 'utf8')
 const workService = fs.readFileSync(path.join(root, 'application', 'work', 'workService.js'), 'utf8')
 const workView = fs.readFileSync(path.join(root, 'views', 'WorkModuleView.vue'), 'utf8') + '\n' + ['WorkContextForm.vue','WorkStartShiftForm.vue','WorkFareForm.vue','WorkCancellationForm.vue','WorkFuelForm.vue','WorkEndShiftForm.vue'].map(name => fs.readFileSync(path.join(root, 'components', 'work', name), 'utf8')).join('\n')
 const overlay = fs.readFileSync(path.join(root, '..', 'android', 'app', 'src', 'main', 'java', 'com', 'kanishka', 'pwa', 'KfeOverlayService.java'), 'utf8')
@@ -55,7 +56,8 @@ assert(workService.includes('ShiftTripRepository.cancelTrip'), 'Main app cancell
 assert(repository.includes('async setTripStage'), 'Canonical repository must persist pickup/ride stage')
 assert(repository.includes('transitionTripStage(trip, stage, { at: now })'), 'Repository must enforce the canonical trip-stage transition')
 assert(!repository.includes('trip.tripStage = String(stage)'), 'Repository must not persist arbitrary trip-stage values')
-assert(repository.includes("tripStage: normalized.tripStage || 'GOING_TO_PICKUP'"), 'Repository must retain explicit persisted pickup stage authority')
+assert(canonicalWorkRecords.includes("tripStage: normalized.tripStage || 'GOING_TO_PICKUP'"), 'Shared canonical record factory must retain explicit persisted pickup stage authority')
+assert(repository.includes('createCanonicalTripRecord(data'), 'Repository must use the shared canonical Trip record factory')
 
 assert(workService.includes('async startRide'), 'Work service must expose canonical START_RIDE stage transition')
 assert(workView.includes('GO TO PICKUP') && workView.includes('START TRIP') && workView.includes('END TRIP'), 'Work cockpit must expose the three frozen swipe states')

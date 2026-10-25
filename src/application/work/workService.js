@@ -16,6 +16,7 @@ import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.j
 import { normalizeShiftInput, normalizeTripInput } from '../../domain/canonicalNormalization.js'
 import { transitionTrip, transitionTripStage } from '../../domain/work/tripLifecycle.js'
 import { deriveLiveRevenue } from '../../domain/work/liveRevenue.js'
+import { createCanonicalShiftRecord, createCanonicalTripRecord } from '../../domain/work/canonicalWorkRecords.js'
 import { validateEndShiftEntry } from '../../domain/work/endShift.js'
 
 const checkpoint = () => BackupService.requestLocalBackupCheckpoint()
@@ -169,50 +170,12 @@ const findNativeRecord = async (entityType, id) => {
   const snapshot = await readNativeWorkSnapshot()
   return (entityType === 'SHIFT' ? snapshot.shifts : snapshot.trips).find(record => record.id === id) || null
 }
-const createNativeShiftRecord = data => {
-  const normalized = normalizeShiftInput(data)
-  const now = new Date().toISOString()
-  const startOdometer = Number(normalized.startOdometer)
-  if (!Number.isFinite(startOdometer)) throw new Error('startOdometer must be a finite number.')
-  return {
-    id: normalized.id || CanonicalWorkBoundary.createOperationId(), startOdometer,
-    openingPersonalKm: Number(normalized.openingPersonalKm || 0),
-    openingDeadKm: Number(normalized.openingDeadKm || 0),
-    openingPersonalToll: Number(normalized.openingPersonalToll || 0),
-    openingPersonalParking: Number(normalized.openingPersonalParking || 0),
-    openingBaselineType: normalized.openingBaselineType || 'POST_KFE_GAP',
-    historicalOdometerGapKm: Number(normalized.historicalOdometerGapKm || 0),
-    businessStartDate: normalized.businessStartDate || null,
-    businessStartOdometer: Number.isFinite(Number(normalized.businessStartOdometer)) ? Number(normalized.businessStartOdometer) : null,
-    endOdometer: null, totalDistance: 0, revenue: 0, toll: 0, parking: 0,
-    tollParkingRevenueTreatment: 'INCLUDED', tollParkingCaptureMode: 'ADDITIONAL_ONLY',
-    tollTreatment: normalized.tollTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED',
-    parkingTreatment: normalized.parkingTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED',
-    shiftStartAt: normalized.shiftStartAt || now, shiftEndAt: null, status: 'ACTIVE',
-    createdAt: now, updatedAt: now,
-  }
-}
-const createNativeTripRecord = data => {
-  const normalized = normalizeTripInput(data)
-  if (!normalized.shiftId) throw new Error('shiftId is required for a Trip.')
-  const now = new Date().toISOString()
-  return {
-    id: normalized.id || CanonicalWorkBoundary.createOperationId(), shiftId: normalized.shiftId,
-    operator: normalized.operator, tripStartAt: normalized.tripStartAt || null, tripEndAt: null,
-    status: 'ACTIVE', tripKm: normalized.tripKm ?? null,
-    tripKmAuthority: normalized.tripKm !== undefined ? 'MANUAL' : 'ESTIMATE',
-    tripKmProvenance: normalized.tripKmProvenance ?? null,
-    tripStartLocation: null, tripEndLocation: null,
-    tripStartLocationStatus: 'MISSING', tripEndLocationStatus: 'MISSING',
-    tripStage: normalized.tripStage || 'GOING_TO_PICKUP',
-    toll: normalized.toll ?? 0, parking: normalized.parking ?? 0,
-    tollTreatment: normalized.tollTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED',
-    parkingTreatment: normalized.parkingTreatment || normalized.tollParkingRevenueTreatment || 'INCLUDED',
-    revenue: normalized.revenue ?? null, revenueAuthority: 'SUPPORTING_ONLY',
-    revenueProvenance: normalized.revenueProvenance ?? null, fareDetailsSkipped: false,
-    cancelledRevenue: null, cancelReason: null, createdAt: now, updatedAt: now,
-  }
-}
+const createNativeShiftRecord = data => createCanonicalShiftRecord(data, {
+  createId: () => CanonicalWorkBoundary.createOperationId(),
+})
+const createNativeTripRecord = data => createCanonicalTripRecord(data, {
+  createId: () => CanonicalWorkBoundary.createOperationId(),
+})
 const correctNativeTrip = (trip, data, now) => {
   const normalized = normalizeTripInput(data)
   const next = { ...trip }
