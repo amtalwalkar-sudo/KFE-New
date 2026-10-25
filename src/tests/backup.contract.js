@@ -58,6 +58,16 @@ assert.match(backupSource, /restoreCanonicalSnapshot\(backup\.stores, \{ sourceE
 assert.match(backupSource, /saveLocalBackup\(await createBackup\(\)\)/, 'Local recovery checkpoint after restore must contain merged current + backup data')
 assert.match(fs.readFileSync('src/components/admin/BackupRestorePanel.vue', 'utf8'), /Current records were preserved/, 'Restore status must explain the loss-protecting merge policy')
 assert.doesNotMatch(fs.readFileSync('src/components/admin/BackupRestorePanel.vue', 'utf8'), /This replaces the current KFE dataset/, 'Restore confirmation must not claim that current records are replaced.')
+const resetRepositorySource = fs.readFileSync('src/repositories/backupRepository.js', 'utf8')
+const resetMethodSource = resetRepositorySource.slice(resetRepositorySource.indexOf('async resetCanonicalData'), resetRepositorySource.indexOf('async saveLocalBackup'))
+assert.match(resetMethodSource, /db\.transaction\(resetStores, 'readwrite'\)/, 'Reset guard and clear must share one IndexedDB write transaction.')
+assert.match(resetMethodSource, /objectStore\('shifts'\)\.getAll\(\)/, 'Reset must verify shift state transactionally.')
+assert.match(resetMethodSource, /shift\?\.status === 'ACTIVE'/, 'Reset must refuse to clear an active shift.')
+assert.match(resetMethodSource, /const resetStores = \[\.\.\.new Set\(\[\.\.\.stores, 'form_drafts'\]\)\]/, 'Reset must restore saved settings to factory defaults and clear unfinished drafts.')
+assert.match(resetMethodSource, /Cannot reset KFE data while a shift is active/, 'Active shift reset refusal must be actionable.')
+const backupServiceSource = fs.readFileSync('src/application/backup/backupService.js', 'utf8')
+assert.match(backupServiceSource, /resetData = async \(\) => \{ const checkpoint = await createBackup\(\); await saveLocalBackup\(checkpoint\); await backupRepository\.resetCanonicalData\(\)/, 'Reset must save a complete local recovery checkpoint before clearing canonical data.')
+assert.match(fs.readFileSync('src/views/AdminView.vue', 'utf8'), /A local recovery checkpoint will be saved automatically first/, 'Reset confirmation must explain automatic recovery protection.')
 
 const backupFileAdapterSource = fs.readFileSync('src/presentation/backup/backupFileAdapter.js', 'utf8'); assert.match(backupFileAdapterSource, /setTimeout\(\(\) => URL\.revokeObjectURL\(url\), 1000\)/, 'Blob URL revocation is deferred so mobile browsers can start the backup download.');
 const nativeBackupPluginSource = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeBackupFilePlugin.java', 'utf8'); assert.match(nativeBackupPluginSource, /Intent\.ACTION_CREATE_DOCUMENT/, 'Android export opens a system save-file picker instead of relying on WebView blob downloads.'); assert.match(nativeBackupPluginSource, /openOutputStream\(destination, "wt"\)/, 'Android export writes the JSON bytes to the user-selected destination.'); assert.match(fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/MainActivity.java', 'utf8'), /registerPlugin\(KfeBackupFilePlugin\.class\)/, 'Native backup file plugin is registered in MainActivity.');
