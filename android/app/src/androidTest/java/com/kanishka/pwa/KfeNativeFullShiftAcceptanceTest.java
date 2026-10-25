@@ -1619,4 +1619,55 @@ public class KfeNativeFullShiftAcceptanceTest {
     KfeOverlayService.instance = null;
   }
 
+
+
+  @Test public void persistedOverlayRestoresWhenCanonicalShiftIsActive() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    context.stopService(new android.content.Intent(context, KfeOverlayService.class));
+    SystemClock.sleep(250L);
+    KfeOverlayService.instance = null;
+
+    SharedPreferences prefs = context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE);
+    prefs.edit().clear().commit();
+    String suffix = Long.toString(System.currentTimeMillis());
+    String shiftId = "active-overlay-resume-shift-" + suffix;
+    String now = java.time.Instant.now().toString();
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    assertTrue("Active shift must be durably canonical before resume.",
+        store.putRecord("active-overlay-resume-create-" + suffix, "SHIFT",
+            new JSONObject().put("id", shiftId).put("status", "ACTIVE")
+                .put("revenue", 0d).put("updatedAt", now)).accepted);
+
+    JSONObject state = new JSONObject()
+        .put("shift", new JSONObject().put("id", shiftId).put("status", "ACTIVE"))
+        .put("trip", JSONObject.NULL)
+        .put("overlayAction", "GO_TO_PICKUP")
+        .put("overlayTripId", "active-overlay-resume-trip-" + suffix);
+    assertTrue("A valid resumable overlay snapshot must be durably saved.",
+        prefs.edit().putString(STATE_KEY, state.toString()).commit());
+
+    try {
+      KfeOverlayService.resumePersisted(context);
+      long deadline = SystemClock.uptimeMillis() + 10000L;
+      Object overlay = null;
+      while (SystemClock.uptimeMillis() < deadline) {
+        KfeOverlayService service = KfeOverlayService.instance;
+        if (service != null) {
+          Field overlayField = KfeOverlayService.class.getDeclaredField("overlay");
+          overlayField.setAccessible(true);
+          overlay = overlayField.get(service);
+          if (overlay != null) break;
+        }
+        SystemClock.sleep(100L);
+      }
+      assertNotNull("A canonically active shift must restore its native overlay.", overlay);
+      assertTrue("Successful restore must retain the resumable snapshot.",
+          KfeOverlayService.hasPersistedOverlayState(context));
+    } finally {
+      context.stopService(new android.content.Intent(context, KfeOverlayService.class));
+      SystemClock.sleep(250L);
+      KfeOverlayService.instance = null;
+      KfeOverlayService.clearPersistedOverlayState(context);
+    }
+  }
 }
