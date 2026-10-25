@@ -790,6 +790,8 @@ public class KfeOverlayService extends Service {
         // separate native event remains queued so the PWA's IndexedDB read model
         // catches up when its WebView next runs.
         String eventId=KfeNativeWorkActionsPlugin.recordPendingAction(this,"ENTER_FARE",actionTripId,payload.toString());
+        LifecycleFaultInjector formInjector=lifecycleFaultInjectorForTests;
+        if(formInjector!=null)formInjector.afterBoundary("AFTER_FARE_OUTBOX");
         persistCanonicalTripForm("FARE",actionTripId,payload,eventId);
         KfeNativeWorkActionsPlugin.emitAction("ENTER_FARE",actionTripId,payload.toString(),eventId);
         finishNativeFormCommit();
