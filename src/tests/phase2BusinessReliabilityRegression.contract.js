@@ -35,4 +35,42 @@ assert.ok(createTrip.includes("trip.shiftId === record.shiftId && trip.status ==
 assert.ok(createTrip.indexOf('hasActiveTrip') < createTrip.indexOf('trips.put(record)'), 'Active-trip validation must happen before the trip write')
 assert.ok(createTrip.indexOf('shift.status !==') < createTrip.indexOf('trips.put(record)'), 'Parent-shift validation must happen before the trip write')
 
+
+const workService = fs.readFileSync(path.join(root, 'src/application/work/workService.js'), 'utf8')
+const workView = fs.readFileSync(path.join(root, 'src/views/WorkModuleView.vue'), 'utf8')
+assert.ok(workService.includes('const explicitKey = data?.createIntentKey || data?.idempotencyKey'),
+  'Native create retries must prefer a durable user-action key over generated record timestamps/IDs')
+assert.ok(workService.includes("commitPreparedCreateIntent('SHIFT', record, data)"),
+  'Android shift creation must pass through the durable SQLite create-intent journal')
+assert.ok(workService.includes("commitPreparedCreateIntent('TRIP', record, tripData)"),
+  'Android trip creation must pass through the durable SQLite create-intent journal')
+
+const submitStart = workView.slice(workView.indexOf('async function submitStart()'), workView.indexOf('async function goPickup('))
+assert.ok(submitStart.indexOf('await WorkDraftService.save(startDraftIdentity()') >= 0,
+  'Shift create intent must be durably drafted before starting the shift')
+assert.ok(submitStart.indexOf('await WorkDraftService.save(startDraftIdentity()') < submitStart.indexOf('store.startShift('),
+  'Shift create intent must be saved before the canonical create request')
+assert.ok(submitStart.includes('createIntentKey: startWorkflowId.value') && submitStart.includes('store.startShift('),
+  'Shift retries must submit the same workflow token that was saved locally')
+
+const goPickup = workView.slice(workView.indexOf('async function goPickup('), workView.indexOf('async function startTrip()'))
+assert.ok(goPickup.indexOf('await WorkDraftService.save(identity, { createIntentKey })') >= 0,
+  'Trip create intent must be durably drafted before starting pickup')
+assert.ok(goPickup.indexOf('await WorkDraftService.save(identity, { createIntentKey })') < goPickup.indexOf('store.beginPickup('),
+  'Trip create intent must be saved before the canonical create request')
+assert.ok(goPickup.includes('store.beginPickup(operator.value || store.defaultOperator, nativeTripId || null, createIntentKey)'),
+  'Trip retries must submit the same workflow token that was saved locally')
+
+const endTrip = workView.slice(workView.indexOf('async function endTrip()'), workView.indexOf('async function saveFare('))
+assert.ok(endTrip.indexOf('const tripId = store.trip.id') < endTrip.indexOf('store.endTrip()'),
+  'Trip completion must capture the target trip identity before closing it')
+assert.ok(endTrip.includes('fareTripId.value = tripId') && endTrip.includes("tripDraftIdentity('work-trip-details', 'ENTER_FARE', tripId)"),
+  'Fare recovery must remain bound to the exact trip that was just completed')
+const pendingFare = workView.slice(workView.indexOf('const pendingFare = computed('), workView.indexOf('const cockpit = computed('))
+assert.ok(pendingFare.includes('t.revenue == null && t.fareDetailsSkipped !== true'),
+  'Recovery must find completed trips with pending fare details without reopening explicitly skipped fares')
+const saveFare = workView.slice(workView.indexOf('async function saveFare('), workView.indexOf('async function skipTripDetails('))
+assert.ok(saveFare.includes('id: pendingFare.value.id') && saveFare.includes("tripDraftIdentity('work-trip-details', 'ENTER_FARE', pendingFare.value.id)"),
+  'Fare submission and draft cleanup must use the same recovered trip identity')
+
 console.log('Phase 2 business reliability regression: PASS (negative odometer rejected; active-trip shift closure blocked; trip creation atomically validates shift and trip state).')
