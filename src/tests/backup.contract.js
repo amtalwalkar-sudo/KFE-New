@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { BACKUP_FORMAT, BACKUP_FORMAT_VERSION, CANONICAL_BACKUP_STORES, BackupService } from '../application/backup/backupService.js'
 import { createDropboxBackupProvider, DROPBOX_DEFAULT_BACKUP_PATH } from '../infrastructure/backup/dropboxBackupProvider.js'
+import { mergeCanonicalBackupSnapshot } from '../repositories/backupRepository.js'
 const emptyStores = Object.fromEntries(CANONICAL_BACKUP_STORES.map(store => [store, []]))
 const emptyCounts = Object.fromEntries(CANONICAL_BACKUP_STORES.map(store => [store, 0]))
 const valid = { format: BACKUP_FORMAT, formatVersion: BACKUP_FORMAT_VERSION, source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: 13 }, exportedAt: '2026-09-16T00:00:00.000Z', stores: emptyStores }
@@ -16,6 +17,30 @@ const missingStore = structuredClone(emptyStores); delete missingStore.settings;
 const duplicate = structuredClone(valid); duplicate.stores.vehicles = [{ id: 'x' }, { id: 'x' }]; assert.throws(() => BackupService.validateBackup(duplicate), /duplicate id/)
 const badId = structuredClone(valid); badId.stores.vehicles = [{ id: '' }]; assert.throws(() => BackupService.validateBackup(badId), /invalid record/)
 assert.equal(typeof BackupService.serializeBackup(withRecord), 'string'); assert.deepEqual(BackupService.validateBackup(BackupService.serializeBackup(withRecord)), withRecord)
+
+const currentMergeSnapshot = structuredClone(emptyStores)
+currentMergeSnapshot.shifts = [
+  { id: 'shift-current', status: 'ACTIVE', updatedAt: '2026-10-20T10:00:00.000Z' },
+  { id: 'shift-conflict', status: 'ACTIVE', revenue: 75, updatedAt: '2026-10-20T11:00:00.000Z' },
+]
+const importedMergeSnapshot = structuredClone(emptyStores)
+importedMergeSnapshot.shifts = [
+  { id: 'shift-current', status: 'ACTIVE', updatedAt: '2026-10-20T10:00:00.000Z' },
+  { id: 'shift-conflict', status: 'COMPLETED', revenue: 500, updatedAt: '2026-10-19T11:00:00.000Z' },
+  { id: 'shift-from-backup', status: 'COMPLETED', revenue: 120, updatedAt: '2026-10-19T09:00:00.000Z' },
+]
+importedMergeSnapshot.trips = [{ id: 'trip-from-backup', shiftId: 'shift-from-backup', status: 'COMPLETED', revenue: 120 }]
+const mergedBackup = mergeCanonicalBackupSnapshot(currentMergeSnapshot, importedMergeSnapshot, { sourceExportedAt: valid.exportedAt })
+assert.equal(mergedBackup.snapshot.shifts.find(record => record.id === 'shift-conflict').status, 'ACTIVE', 'restore must not replace an existing same-ID record with older/conflicting backup data')
+assert.ok(mergedBackup.snapshot.shifts.some(record => record.id === 'shift-from-backup'), 'restore must add backup-only records')
+assert.ok(mergedBackup.snapshot.trips.some(record => record.id === 'trip-from-backup'), 'restore must merge related trip history')
+assert.equal(mergedBackup.conflicts, 1)
+assert.equal(mergedBackup.archivedConflicts, 1)
+assert.ok(mergedBackup.snapshot.audit_history.some(record => record.action === 'RESTORE_CONFLICT_ARCHIVE' && record.entityId === 'shift-conflict' && record.payload.status === 'COMPLETED'), 'conflicting backup payload must remain recoverable in durable audit history')
+const repeatedMerge = mergeCanonicalBackupSnapshot(mergedBackup.snapshot, importedMergeSnapshot, { sourceExportedAt: valid.exportedAt })
+assert.equal(repeatedMerge.added, 0, 'repeating the same restore must not duplicate imported records or conflict archives')
+assert.equal(repeatedMerge.snapshot.audit_history.filter(record => record.action === 'RESTORE_CONFLICT_ARCHIVE').length, 1, 'repeated restore must dedupe conflict archive records')
+
 const PRE_FA4_BACKUP_STORES = ['shifts','fuel_logs','odoGaps','pending_mutations','days','trips','gps_snapshots','movement_artifacts','vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history']
 const legacyV1Stores = Object.fromEntries([...PRE_FA4_BACKUP_STORES.filter(store => store !== 'audit_history').slice(0, 11).map(store => [store, []]), ['driver_collected_data', []], ...PRE_FA4_BACKUP_STORES.filter(store => store !== 'audit_history').slice(11).map(store => [store, []])])
 const legacyV1 = { format: BACKUP_FORMAT, formatVersion: 1, source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: 8 }, exportedAt: valid.exportedAt, stores: legacyV1Stores }; const migratedV1 = BackupService.validateBackup(legacyV1); assert.equal(migratedV1.formatVersion, BACKUP_FORMAT_VERSION); assert.equal(migratedV1.source.dbVersion, 16); assert.equal('driver_collected_data' in migratedV1.stores, false); assert.deepEqual(migratedV1.stores.audit_history, [])
