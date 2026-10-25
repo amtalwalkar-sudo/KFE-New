@@ -452,7 +452,8 @@ run_instrumentation com.kanishka.pwa.KfeWebViewStartupTest webview-startup 1
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#canonicalWritesRemainIdempotentAfterLostAcknowledgementAndRejectStaleSnapshots canonical-persistence 1
 
 # Crash/retry proof for Start Shift/Start Trip create intents, including lost acknowledgements before and after commit.
-run_instrumentation com.kanishka.pwa.KfeCreateIntentRecoveryTest create-intent-crash-retry 2
+run_instrumentation com.kanishka.pwa.KfeCreateIntentRecoveryTest#pendingCreateIntentReusesIdentityAndOperationAfterLostAcknowledgement create-intent-trip-crash-retry 1
+run_instrumentation com.kanishka.pwa.KfeCreateIntentRecoveryTest#shiftCreateIntentAlsoSurvivesRestartAndReusesRecordIdentity create-intent-shift-crash-retry 1
 # Actual SIGKILL after intent journaling and after canonical commit-before-intent completion.
 run_create_intent_process_death_case SHIFT AFTER_INTENT
 run_create_intent_process_death_case TRIP AFTER_CANONICAL
