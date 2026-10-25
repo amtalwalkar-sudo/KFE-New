@@ -1150,6 +1150,7 @@ public class KfeOverlaySmokeTest {
       .put("overlayAction", "START_RIDE")
       .put("overlayTripId", tripId)
       .put("tripStartAt", System.currentTimeMillis() - 5000L);
+    seedCanonicalShift("bubble-shift");
     context.startService(new Intent(context, KfeOverlayService.class)
       .setAction(KfeOverlayService.ACTION_UPDATE)
       .putExtra(KfeOverlayService.EXTRA_STATE, state.toString()));
@@ -1272,6 +1273,7 @@ public class KfeOverlaySmokeTest {
       .put("revenue", "₹0")
       .put("overlayAction", "GO_TO_PICKUP")
       .put("overlayTripId", "");
+    seedCanonicalShift("smoke-shift");
     Intent update = new Intent(context, KfeOverlayService.class)
       .setAction(KfeOverlayService.ACTION_UPDATE)
       .putExtra(KfeOverlayService.EXTRA_STATE, state.toString());
