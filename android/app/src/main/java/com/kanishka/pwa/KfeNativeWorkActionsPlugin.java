@@ -93,7 +93,7 @@ public class KfeNativeWorkActionsPlugin extends Plugin {
     android.content.SharedPreferences prefs = getContext().getSharedPreferences(PREFS, 0);
     String pending = prefs.getString(PENDING_KEY, "");
     String eventId = prefs.getString("pendingEventId", "");
-    if (!eventId.isEmpty() && !KfeNativeEventStore.get(getContext()).isPending(eventId)) {
+    if (isResetBarrierActive(getContext()) || (!eventId.isEmpty() && !KfeNativeEventStore.get(getContext()).isPending(eventId))) {
       prefs.edit().remove(PENDING_KEY).remove("pendingEventId").apply();
       pending = "";
     }
