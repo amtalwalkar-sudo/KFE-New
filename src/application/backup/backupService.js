@@ -123,7 +123,7 @@ const continueReset = async resetId => {
     backupRepository.resetSessionPreferencesToDefaults()
     journal = { ...journal, state: 'COMPLETE', completedAt: new Date().toISOString() }
     await backupRepository.saveResetJournal(journal)
-    clearCanonicalResetBarrier(resetId)
+    backupRepository.clearCanonicalResetBarrier(resetId)
     if (nativeAvailable) await NativeCanonicalWorkService.releaseCanonicalReset(resetId)
     return { ok: true, resetId, state: 'COMPLETE' }
   } catch (error) {
@@ -167,7 +167,7 @@ const runResetData = async () => {
       id: 'current', resetId, state: 'ABORTED', nativeRequired,
       reason: /active shift/i.test(error?.message || '') ? 'ACTIVE_SHIFT' : 'CHECKPOINT_FAILED',
     })
-    clearCanonicalResetBarrier(resetId)
+    backupRepository.clearCanonicalResetBarrier(resetId)
     throw error
   }
 
@@ -176,7 +176,7 @@ const runResetData = async () => {
   } catch (error) {
     if (/blocked while a shift is active/i.test(error?.message || '')) {
       await backupRepository.saveResetJournal({ id: 'current', resetId, state: 'ABORTED', nativeRequired, reason: 'ACTIVE_SHIFT', checkpointExportedAt: checkpoint.exportedAt })
-      clearCanonicalResetBarrier(resetId)
+      backupRepository.clearCanonicalResetBarrier(resetId)
     }
     throw error
   }
@@ -221,7 +221,7 @@ export const recoverPendingReset = async () => {
       // A crash before the checkpoint was committed cannot have reached either
       // destructive clear phase, so safely release this abandoned preparation.
       await backupRepository.saveResetJournal({ id: 'current', resetId: barrierId, state: 'ABORTED', nativeRequired: nativeAvailable, reason: 'CHECKPOINT_NOT_CREATED' })
-      clearCanonicalResetBarrier(barrierId)
+      backupRepository.clearCanonicalResetBarrier(barrierId)
       return { recovered: false, state: 'ABORTED' }
     }
     journal = {
@@ -240,20 +240,20 @@ export const recoverPendingReset = async () => {
       throw new Error('Native reset began before the checkpointing phase completed; startup is blocked for manual recovery.')
     }
     await backupRepository.saveResetJournal({ ...journal, state: 'ABORTED', reason: 'CHECKPOINT_INTERRUPTED' })
-    if (getCanonicalResetBarrier() === journal.resetId) clearCanonicalResetBarrier(journal.resetId)
+    if (backupRepository.getCanonicalResetBarrier() === journal.resetId) backupRepository.clearCanonicalResetBarrier(journal.resetId)
     return { recovered: false, state: 'ABORTED' }
   }
   if (!journal || RESET_TERMINAL_STATES.has(journal.state)) {
     if (journal && barrierId && barrierId !== journal.resetId) {
       throw new Error('Reset barrier ID does not match the durable reset journal; startup is blocked.')
     }
-    if (journal && barrierId === journal.resetId) clearCanonicalResetBarrier(journal.resetId)
+    if (journal && barrierId === journal.resetId) backupRepository.clearCanonicalResetBarrier(journal.resetId)
     if (journal?.state === 'COMPLETE' && journal.nativeRequired && nativeAvailable) {
       await NativeCanonicalWorkService.releaseCanonicalReset(journal.resetId)
     }
     return { recovered: false, state: journal?.state || null }
   }
-  if (barrierId !== journal.resetId) setCanonicalResetBarrier(journal.resetId)
+  if (barrierId !== journal.resetId) backupRepository.setCanonicalResetBarrier(journal.resetId)
   const checkpoint = await backupRepository.getResetCheckpoint(journal.resetId)
   if (!checkpoint?.backup || checkpoint.backup.exportedAt !== journal.checkpointExportedAt) {
     throw new Error('Pending reset cannot resume because its verified recovery checkpoint is missing or changed.')
