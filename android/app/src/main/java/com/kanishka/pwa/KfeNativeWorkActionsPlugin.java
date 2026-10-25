@@ -57,6 +57,27 @@ public class KfeNativeWorkActionsPlugin extends Plugin {
     plugin.notifyListeners("nativeWorkAction", data);
   }
 
+  static boolean isResetBarrierActive(Context context) {
+    return !context.getSharedPreferences(PREFS, 0).getString("resetBarrierId", "").isEmpty();
+  }
+
+  static void beginResetBarrier(Context context, String resetId) {
+    context.getSharedPreferences(PREFS, 0).edit().putString("resetBarrierId", resetId).commit();
+  }
+
+  static void releaseResetBarrier(Context context, String resetId) {
+    android.content.SharedPreferences prefs = context.getSharedPreferences(PREFS, 0);
+    if (resetId.equals(prefs.getString("resetBarrierId", ""))) {
+      prefs.edit().remove("resetBarrierId").commit();
+    }
+  }
+
+  static void cancelPendingForReset(Context context, String resetId) {
+    KfeNativeEventStore.get(context).cancelPendingForReset(resetId);
+    context.getSharedPreferences(PREFS, 0).edit().remove(PENDING_KEY).remove("pendingEventId").commit();
+    context.getSharedPreferences(LEGACY_PREFS, 0).edit().remove(PENDING_KEY).remove("pendingEventId").commit();
+  }
+
   static String recordPendingAction(Context context, String stage, String tripId, String input) {
     // The SQLite event log is the durable bridge between overlay controls and
     // Work. It is intentionally independent of Android notifications.
@@ -69,7 +90,13 @@ public class KfeNativeWorkActionsPlugin extends Plugin {
 
   @com.getcapacitor.PluginMethod
   public void getPendingAction(PluginCall call) {
-    String pending = getContext().getSharedPreferences(PREFS, 0).getString(PENDING_KEY, "");
+    android.content.SharedPreferences prefs = getContext().getSharedPreferences(PREFS, 0);
+    String pending = prefs.getString(PENDING_KEY, "");
+    String eventId = prefs.getString("pendingEventId", "");
+    if (!eventId.isEmpty() && !KfeNativeEventStore.get(getContext()).isPending(eventId)) {
+      prefs.edit().remove(PENDING_KEY).remove("pendingEventId").apply();
+      pending = "";
+    }
     JSObject result = new JSObject();
     result.put("pending", pending);
     call.resolve(result);
