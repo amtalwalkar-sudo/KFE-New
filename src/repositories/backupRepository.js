@@ -119,7 +119,7 @@ export const createBackupRepository = stores => Object.freeze({
     })
   },
 
-  async restoreCanonicalSnapshot(snapshot, { sourceExportedAt = null } = {}) {
+  async restoreCanonicalSnapshot(snapshot, { sourceExportedAt = null, authoritativeRecords = null } = {}) {
     const db = await openCanonicalDB()
     return new Promise((resolve, reject) => {
       const tx = db.transaction(stores, 'readwrite')
@@ -135,7 +135,19 @@ export const createBackupRepository = stores => Object.freeze({
           remaining--
           if (remaining !== 0 || settled) return
           try {
-            const merged = mergeCanonicalBackupSnapshot(currentSnapshot, snapshot, { sourceExportedAt })
+            // On Android, SQLite is authoritative for overlay work records. Merge
+            // its current SHIFT/TRIP records with the browser snapshot before the
+            // imported backup so a stale backup cannot replace native truth.
+            const authoritativeSnapshot = { ...currentSnapshot }
+            if (Array.isArray(authoritativeRecords?.shifts)) authoritativeSnapshot.shifts = authoritativeRecords.shifts
+            if (Array.isArray(authoritativeRecords?.trips)) authoritativeSnapshot.trips = authoritativeRecords.trips
+            const combinedIncoming = Object.fromEntries(stores.map(name => [name, [
+              ...(currentSnapshot[name] || []),
+              ...(name === 'shifts' ? (authoritativeRecords?.shifts || []) : []),
+              ...(name === 'trips' ? (authoritativeRecords?.trips || []) : []),
+              ...(snapshot[name] || []),
+            ]]))
+            const merged = mergeCanonicalBackupSnapshot(authoritativeSnapshot, combinedIncoming, { sourceExportedAt })
             for (const storeName of stores) {
               const store = tx.objectStore(storeName)
               for (const record of merged.addedRecordsByStore[storeName] || []) store.add(structuredClone(record))
