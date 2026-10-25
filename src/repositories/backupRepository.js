@@ -162,7 +162,7 @@ export const createBackupRepository = stores => Object.freeze({
     const db = await openCanonicalDB()
     // Reset means factory defaults: clear persisted preferences as well as business
     // records. The reset journal and recovery checkpoint live in the separate backup DB.
-    const resetStores = [...new Set([...stores, 'form_drafts'])]
+    const resetStores = [...new Set([...stores, 'form_drafts', 'canonical_operations'])]
     await new Promise((resolve, reject) => {
       let tx
       try {
@@ -172,6 +172,29 @@ export const createBackupRepository = stores => Object.freeze({
       tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: resetStores, reason: 'data:reset' }); resolve() }
       tx.onerror = () => reject(tx.error || new Error('KFE data reset transaction failed.'))
       tx.onabort = () => reject(tx.error || new Error('KFE data reset transaction aborted.'))
+    })
+  },
+
+  async verifyCanonicalReset() {
+    const resetStores = [...new Set([...stores, 'form_drafts', 'canonical_operations'])]
+    const db = await openCanonicalDB()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(resetStores, 'readonly')
+      const counts = {}
+      let remaining = resetStores.length
+      let settled = false
+      const finish = () => {
+        if (settled || remaining !== 0) return
+        settled = true
+        resolve({ ok: Object.values(counts).every(count => count === 0), counts })
+      }
+      for (const storeName of resetStores) {
+        const request = tx.objectStore(storeName).count()
+        request.onsuccess = () => { counts[storeName] = request.result; remaining -= 1; finish() }
+        request.onerror = () => { if (!settled) { settled = true; reject(request.error || new Error(`Reset verification read failed for ${storeName}.`)) } }
+      }
+      tx.onerror = () => { if (!settled) { settled = true; reject(tx.error || new Error('Reset verification transaction failed.')) } }
+      tx.onabort = () => { if (!settled) { settled = true; reject(tx.error || new Error('Reset verification transaction aborted.')) } }
     })
   },
 
