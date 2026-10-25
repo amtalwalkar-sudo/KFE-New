@@ -991,14 +991,27 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
   }
 
   synchronized JSONObject listRecords(String entityType, int requestedLimit) throws JSONException {
+    return listRecords(entityType, requestedLimit, 0);
+  }
+
+  synchronized JSONObject listRecords(String entityType, int requestedLimit, int requestedOffset) throws JSONException {
     if (empty(entityType)) throw new IllegalArgumentException("entityType is required.");
     int limit = Math.max(1, Math.min(requestedLimit, 1000));
+    int offset = Math.max(0, requestedOffset);
     JSONArray records = new JSONArray();
-    try (Cursor cursor = getReadableDatabase().query("canonical_records", new String[]{"payload", "updated_at"},
-        "entity_type=?", new String[]{entityType}, null, null, "updated_at ASC, entity_id ASC", Integer.toString(limit))) {
+    SQLiteDatabase database = getReadableDatabase();
+    long totalCount = 0;
+    try (Cursor countCursor = database.rawQuery(
+        "SELECT COUNT(*) FROM canonical_records WHERE entity_type=?", new String[]{entityType})) {
+      if (countCursor.moveToFirst()) totalCount = countCursor.getLong(0);
+    }
+    try (Cursor cursor = database.query("canonical_records", new String[]{"payload", "updated_at"},
+        "entity_type=?", new String[]{entityType}, null, null, "updated_at ASC, entity_id ASC",
+        limit + " OFFSET " + offset)) {
       while (cursor.moveToNext()) records.put(new JSONObject(cursor.getString(0)));
     }
-    return new JSONObject().put("entityType", entityType).put("records", records).put("count", records.length());
+    return new JSONObject().put("entityType", entityType).put("records", records)
+        .put("count", records.length()).put("totalCount", totalCount).put("offset", offset).put("limit", limit);
   }
 
   synchronized JSONObject getOperation(String operationId) throws JSONException {
