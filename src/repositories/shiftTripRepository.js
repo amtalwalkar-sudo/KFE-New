@@ -71,6 +71,9 @@ export const ShiftTripRepository = {
             const now = new Date().toISOString()
             const normalized = normalizeShiftInput(data)
             const shiftTrips = tripsRequest.result.filter(trip => trip.shiftId === shift.id)
+            if (shiftTrips.some(trip => trip.status === 'ACTIVE')) {
+              throw new Error('Cannot complete a shift while a trip is active. Complete or cancel the trip first.')
+            }
             // Financial authority is a canonical projection of eligible saved trip
             // fares and cancellation fees; never preserve a manually-entered shift total.
             shift.revenue = deriveLiveRevenue(shiftTrips)
