@@ -51,6 +51,11 @@ assert.match(nativeOverlayService, /isCanonicalActiveShiftState\(context,\s*save
   'Persisted overlay resume must consult canonical SQLite shift status, not trust a stale snapshot ID.')
 assert.match(nativeOverlayService, /restorePersistedOverlayIfCanonicalShiftActive\(\)/,
   'Sticky-service null-intent and explicit-resume paths must use the same canonical shift guard.')
+const persistedResumeStart = nativeOverlayService.indexOf('public static void resumePersisted(Context context)')
+const persistedResumeEnd = nativeOverlayService.indexOf('@Override public void onCreate()', persistedResumeStart)
+const persistedResume = nativeOverlayService.slice(persistedResumeStart, persistedResumeEnd)
+assert.ok(persistedResume.indexOf('isCanonicalActiveShiftState(context,saved)') < persistedResume.indexOf('ContextCompat.startForegroundService(context,i)'),
+  'Persisted overlay must be canonical-validated before starting the foreground service.')
 assert.match(nativeAcceptance, /persistedOverlayCannotResumeAfterPwaOwnedShiftEnd/,
   'Android instrumentation must prove an ended canonical shift cannot restore a stale overlay.')
 assert.match(androidGate, /KfeNativeFullShiftAcceptanceTest#persistedOverlayCannotResumeAfterPwaOwnedShiftEnd overlay-stale-resume 1/,
