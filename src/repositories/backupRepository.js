@@ -156,7 +156,20 @@ export const createBackupRepository = stores => Object.freeze({
               for (const browserRecord of currentSnapshot[storeName] || []) {
                 const key = backupKey(storeName, browserRecord)
                 if (!nativeByKey.has(key)) {
-                  browserOnly.push(structuredClone(browserRecord))
+                  const competingActiveShift = storeName === 'shifts'
+                    && String(browserRecord?.status || '').toUpperCase() === 'ACTIVE'
+                    && nativeRecords.some(record => String(record?.status || '').toUpperCase() === 'ACTIVE' && record.id !== browserRecord.id)
+                  if (competingActiveShift) {
+                    const importedPayload = JSON.stringify(canonicalizeBackupValue(browserRecord))
+                    const conflictId = `restore-conflict:${storeName}:${stableHash(JSON.stringify([storeName, key, importedPayload]))}`
+                    nativeConflictArchives.push({
+                      id: conflictId, entityType: storeName, entityId: String(key),
+                      action: 'RESTORE_CONFLICT_ARCHIVE', source: 'BACKUP_RESTORE',
+                      sourceExportedAt, payload: structuredClone(browserRecord), createdAt: new Date().toISOString(),
+                    })
+                  } else {
+                    browserOnly.push(structuredClone(browserRecord))
+                  }
                   continue
                 }
                 const nativeRecord = nativeByKey.get(key)
