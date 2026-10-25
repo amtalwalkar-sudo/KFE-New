@@ -5,6 +5,9 @@ const read = path => fs.readFileSync(new URL(path, import.meta.url), 'utf8')
 const workView = read('../views/WorkModuleView.vue')
 const overlayLifecycle = read('../infrastructure/android/androidOverlayLifecycle.js')
 const appEntry = read('../main.js')
+const nativeOverlayService = read('../../android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java')
+const nativeAcceptance = read('../../android/app/src/androidTest/java/com/kanishka/pwa/KfeNativeFullShiftAcceptanceTest.java')
+const androidGate = read('../../tools/android-exact-apk-smoke-gate.sh')
 
 // Shift start/end remain PWA-owned. Starting the shift prepares the overlay;
 // ending it is a PWA store command, and the online-state watcher reconciles
@@ -43,6 +46,15 @@ assert.match(overlayLifecycle, /if \(!active\?\.shift\?\.id\) return null/)
 assert.match(overlayLifecycle, /if \(state\) await AndroidOverlay\.show\(state\)\s*else await AndroidOverlay\.hide\(\)/)
 assert.match(overlayLifecycle, /if \(state\) await AndroidOverlay\.update\(state\)\s*else await AndroidOverlay\.hide\(\)/,
   'Background overlay restoration must hide rather than revive an overlay when no active shift exists.')
+
+assert.match(nativeOverlayService, /isCanonicalActiveShiftState\(context,\s*saved\)/,
+  'Persisted overlay resume must consult canonical SQLite shift status, not trust a stale snapshot ID.')
+assert.match(nativeOverlayService, /restorePersistedOverlayIfCanonicalShiftActive\(\)/,
+  'Sticky-service null-intent and explicit-resume paths must use the same canonical shift guard.')
+assert.match(nativeAcceptance, /persistedOverlayCannotResumeAfterPwaOwnedShiftEnd/,
+  'Android instrumentation must prove an ended canonical shift cannot restore a stale overlay.')
+assert.match(androidGate, /KfeNativeFullShiftAcceptanceTest#persistedOverlayCannotResumeAfterPwaOwnedShiftEnd overlay-stale-resume 1/,
+  'The exact APK smoke gate must execute stale-overlay resume protection.')
 
 // A Vue render/runtime exception currently becomes a full-screen error because
 // main.js replaces the #app tree. Preserve the diagnostic stack/component
