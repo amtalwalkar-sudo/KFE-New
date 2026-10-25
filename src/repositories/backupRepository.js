@@ -49,7 +49,10 @@ export const mergeCanonicalBackupSnapshot = (currentSnapshot, incomingSnapshot, 
     const additions = []
     for (const imported of incomingSnapshot[storeName] || []) {
       const key = backupKey(storeName, imported)
-      if (!byKey.has(key)) {
+      const competingActiveShift = storeName === 'shifts'
+        && String(imported?.status || '').toUpperCase() === 'ACTIVE'
+        && current.some(existing => String(existing?.status || '').toUpperCase() === 'ACTIVE' && existing.id !== imported.id)
+      if (!byKey.has(key) && !competingActiveShift) {
         const copy = structuredClone(imported)
         byKey.set(key, current.length)
         current.push(copy)
@@ -57,11 +60,12 @@ export const mergeCanonicalBackupSnapshot = (currentSnapshot, incomingSnapshot, 
         added++
         continue
       }
-      const existing = current[byKey.get(key)]
-      if (sameBackupValue(existing, imported)) {
+      if (byKey.has(key) && sameBackupValue(current[byKey.get(key)], imported)) {
         duplicates++
         continue
       }
+      // Never restore a second ACTIVE shift under a different ID. Archive it
+      // just like a same-ID payload conflict so no operational state is lost.
       conflicts++
       const importedPayload = JSON.stringify(canonicalizeBackupValue(imported))
       const conflictId = `restore-conflict:${storeName}:${stableHash(JSON.stringify([storeName, key, importedPayload]))}`
