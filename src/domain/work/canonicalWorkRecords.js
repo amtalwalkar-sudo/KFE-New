@@ -19,6 +19,7 @@ export const createCanonicalShiftRecord = (data, { createId, now = new Date().to
   const normalized = normalizeShiftInput(data)
   const makeId = requireCreateId(createId)
   const startOdometer = requireFinite(normalized.startOdometer, 'startOdometer')
+  if (startOdometer < 0) throw new Error('startOdometer cannot be negative.')
   return {
     id: normalized.id || makeId(),
     startOdometer,
