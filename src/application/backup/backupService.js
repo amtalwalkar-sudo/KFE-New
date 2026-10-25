@@ -204,7 +204,17 @@ export const recoverPendingReset = async () => {
   }
   if (!journal && barrierId) {
     const checkpoint = await backupRepository.getResetCheckpoint(barrierId)
-    if (!checkpoint?.backup) throw new Error('Reset barrier exists but its recovery checkpoint is missing; startup is blocked.')
+    if (!checkpoint?.backup) {
+      const nativeState = nativeAvailable ? await NativeCanonicalWorkService.getCanonicalResetState() : null
+      if (nativeState?.found && nativeState.resetId === barrierId && nativeState.state !== 'COMPLETE') {
+        throw new Error('Reset barrier and native reset are pending but the verified recovery checkpoint is missing; startup is blocked.')
+      }
+      // A crash before the checkpoint was committed cannot have reached either
+      // destructive clear phase, so safely release this abandoned preparation.
+      await backupRepository.saveResetJournal({ id: 'current', resetId: barrierId, state: 'ABORTED', nativeRequired: nativeAvailable, reason: 'CHECKPOINT_NOT_CREATED' })
+      clearCanonicalResetBarrier(barrierId)
+      return { recovered: false, state: 'ABORTED' }
+    }
     journal = {
       id: 'current',
       resetId: barrierId,
@@ -214,6 +224,15 @@ export const recoverPendingReset = async () => {
       recoveredJournalAfterCrash: true,
     }
     await backupRepository.saveResetJournal(journal)
+  }
+  if (journal?.state === 'CHECKPOINTING') {
+    const nativeState = nativeAvailable ? await NativeCanonicalWorkService.getCanonicalResetState() : null
+    if (nativeState?.found && nativeState.resetId === journal.resetId && nativeState.state !== 'COMPLETE') {
+      throw new Error('Native reset began before the checkpointing phase completed; startup is blocked for manual recovery.')
+    }
+    await backupRepository.saveResetJournal({ ...journal, state: 'ABORTED', reason: 'CHECKPOINT_INTERRUPTED' })
+    if (getCanonicalResetBarrier() === journal.resetId) clearCanonicalResetBarrier(journal.resetId)
+    return { recovered: false, state: 'ABORTED' }
   }
   if (!journal || RESET_TERMINAL_STATES.has(journal.state)) {
     if (journal && barrierId === journal.resetId) clearCanonicalResetBarrier(journal.resetId)
