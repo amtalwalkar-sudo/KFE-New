@@ -152,10 +152,52 @@ public class KfeOverlayService extends Service {
   static void clearPersistedOverlayState(Context context){
     context.getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().remove(LAST_STATE_KEY).apply();
   }
+  private static boolean isCanonicalActiveShiftState(Context context,String raw) throws Exception {
+    if(!isResumableState(raw))return false;
+    JSONObject state=new JSONObject(raw);
+    JSONObject shift=state.optJSONObject("shift");
+    String shiftId=shift==null?"":shift.optString("id","");
+    if(shiftId.isEmpty())return false;
+    JSONObject result=KfeCanonicalWorkStore.get(context).getRecord("SHIFT",shiftId);
+    JSONObject record=result.optJSONObject("record");
+    return result.optBoolean("found",false)&&record!=null&&"ACTIVE".equals(record.optString("status",""));
+  }
+  private boolean restorePersistedOverlayIfCanonicalShiftActive(){
+    String saved=getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(LAST_STATE_KEY,"");
+    if(saved.isEmpty())return false;
+    try{
+      if(!isCanonicalActiveShiftState(this,saved)){
+        clearPersistedOverlayState(this);
+        return false;
+      }
+      ensureOverlay();
+      applyState(saved);
+      return true;
+    }catch(Exception error){
+      // Unknown canonical state is not proof that a shift is active. Keep the
+      // durable snapshot/checkpoint for recovery, but do not show a stale overlay.
+      Log.e("KFE-OVERLAY","Cannot verify canonical shift before overlay restore.",error);
+      return false;
+    }
+  }
   public static void resumePersisted(Context context){
-    // Boot recovery must not resurrect an ended shift from a stale snapshot,
-    // or start a foreground overlay service when no active shift was persisted.
+    // Boot/activity recovery must not resurrect an ended shift from a stale
+    // presentation snapshot. SQLite remains authoritative for shift status.
     if(!Settings.canDrawOverlays(context)||!hasPersistedOverlayState(context))return;
+    String saved=context.getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(LAST_STATE_KEY,"");
+    try{
+      if(!isCanonicalActiveShiftState(context,saved)){
+        clearPersistedOverlayState(context);
+        context.stopService(new Intent(context,KfeOverlayService.class));
+        return;
+      }
+    }catch(Exception error){
+      // Preserve the snapshot for recovery, but fail closed on visibility until
+      // canonical shift status can be verified.
+      android.util.Log.e("KFE-OVERLAY","Cannot verify canonical shift before persisted resume.",error);
+      context.stopService(new Intent(context,KfeOverlayService.class));
+      return;
+    }
     Intent i=new Intent(context,KfeOverlayService.class);
     i.setAction("com.kanishka.pwa.KFE_OVERLAY_RESUME");
     ContextCompat.startForegroundService(context,i);
@@ -190,28 +232,21 @@ public class KfeOverlayService extends Service {
 
   @Override public int onStartCommand(Intent intent,int flags,int startId){
     if(intent==null){
-      if(Settings.canDrawOverlays(this)){
-        String saved=getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(LAST_STATE_KEY,"");
-        if(!saved.isEmpty()){ensureOverlay();applyState(saved);}
-      }
-      return START_STICKY;
+      if(Settings.canDrawOverlays(this)&&restorePersistedOverlayIfCanonicalShiftActive())return START_STICKY;
+      removeOverlay(true);stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return START_NOT_STICKY;
     }
     String action=intent.getAction();
     // An explicit restart may arrive with an Intent whose action is null. Restore
     // the last valid shift snapshot so the overlay and any persisted form draft
     // are reattached instead of leaving the foreground service invisible.
     if(action==null){
-      if(Settings.canDrawOverlays(this)){
-        String saved=getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(LAST_STATE_KEY,"");
-        if(!saved.isEmpty()){ensureOverlay();applyState(saved);}
-      }
-      return START_STICKY;
+      if(Settings.canDrawOverlays(this)&&restorePersistedOverlayIfCanonicalShiftActive())return START_STICKY;
+      removeOverlay(true);stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return START_NOT_STICKY;
     }
     if ("com.kanishka.pwa.KFE_OVERLAY_RESUME".equals(action)) {
       if (!Settings.canDrawOverlays(this)) return START_NOT_STICKY;
-      String saved=getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(LAST_STATE_KEY,"");
-      if (!saved.isEmpty()) { ensureOverlay(); applyState(saved); }
-      return START_STICKY;
+      if(restorePersistedOverlayIfCanonicalShiftActive())return START_STICKY;
+      removeOverlay(true);stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return START_NOT_STICKY;
     }
     if(ACTION_HIDE.equals(action)){clearPersistedOverlayState(this);removeOverlay();stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return START_NOT_STICKY;}
     if(ACTION_MINIMIZE.equals(action)){minimizeToBubble();return START_STICKY;}

@@ -451,6 +451,10 @@ adb shell appops set com.kanishka.pwa android:system_alert_window allow
 adb shell appops set com.kanishka.pwa android:camera allow || true
 adb shell am force-stop com.kanishka.pwa
 run_instrumentation com.kanishka.pwa.KfeWebViewStartupTest webview-startup 1
+# Stale overlay snapshots must not resume after the PWA has canonically ended the shift.
+run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#persistedOverlayCannotResumeAfterPwaOwnedShiftEnd overlay-stale-resume 1
+# Positive control: an active canonical shift must still restore its persisted overlay.
+run_instrumentation com.kanishka.pwa.KfeNativeFullShiftAcceptanceTest#persistedOverlayRestoresWhenCanonicalShiftIsActive overlay-active-resume 1
 
 # Failure-oriented native persistence checks: a lost bridge acknowledgement must
 # not double-count fares, and stale/equal-version snapshots must not overwrite
