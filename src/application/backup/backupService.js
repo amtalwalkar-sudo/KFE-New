@@ -52,8 +52,8 @@ export const getLocalBackup = async () => backupRepository.getLocalBackup()
 export const restoreBackup = async input => { const backup = validateBackup(input); const merge = await backupRepository.restoreCanonicalSnapshot(backup.stores, { sourceExportedAt: backup.exportedAt }); await saveLocalBackup(await createBackup()); return { ...getBackupSummary(backup), merge } }
 const RESET_TERMINAL_STATES = new Set(['COMPLETE', 'ABORTED'])
 
-const verifyResetCheckpoint = async checkpoint => {
-  const saved = await getLocalBackup()
+const verifyResetCheckpoint = async (checkpoint, resetId) => {
+  const saved = await backupRepository.getResetCheckpoint(resetId)
   if (!saved?.backup || saved.backup.exportedAt !== checkpoint.exportedAt) {
     throw new Error('Reset stopped before deletion because the recovery checkpoint could not be verified.')
   }
@@ -123,11 +123,11 @@ const continueReset = async resetId => {
 }
 
 export const resetData = async () => {
+  await recoverPendingReset()
   const checkpoint = await createBackup()
-  await saveLocalBackup(checkpoint)
-  await verifyResetCheckpoint(checkpoint)
-
   const resetId = globalThis.crypto?.randomUUID?.() || `reset-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  await backupRepository.saveResetCheckpoint(resetId, checkpoint)
+  await verifyResetCheckpoint(checkpoint, resetId)
   const nativeRequired = NativeCanonicalWorkService.isAvailable()
   setCanonicalResetBarrier(resetId)
   await backupRepository.saveResetJournal({
@@ -158,7 +158,7 @@ export const recoverPendingReset = async () => {
   if (!journal && !barrierId && nativeAvailable) {
     const nativeState = await NativeCanonicalWorkService.getCanonicalResetState()
     if (nativeState?.found && nativeState.state !== 'COMPLETE') {
-      const checkpoint = await getLocalBackup()
+      const checkpoint = await backupRepository.getResetCheckpoint(nativeState.resetId)
       if (!checkpoint?.backup) throw new Error('Native reset is pending but its browser recovery checkpoint is missing; startup is blocked.')
       journal = {
         id: 'current',
@@ -172,7 +172,7 @@ export const recoverPendingReset = async () => {
     }
   }
   if (!journal && barrierId) {
-    const checkpoint = await getLocalBackup()
+    const checkpoint = await backupRepository.getResetCheckpoint(barrierId)
     if (!checkpoint?.backup) throw new Error('Reset barrier exists but its recovery checkpoint is missing; startup is blocked.')
     journal = {
       id: 'current',
@@ -189,7 +189,7 @@ export const recoverPendingReset = async () => {
     return { recovered: false, state: journal?.state || null }
   }
   if (barrierId !== journal.resetId) setCanonicalResetBarrier(journal.resetId)
-  const checkpoint = await getLocalBackup()
+  const checkpoint = await backupRepository.getResetCheckpoint(journal.resetId)
   if (!checkpoint?.backup || checkpoint.backup.exportedAt !== journal.checkpointExportedAt) {
     throw new Error('Pending reset cannot resume because its verified recovery checkpoint is missing or changed.')
   }
