@@ -70,5 +70,6 @@ assert.ok(overlay.includes('formInjector.afterBoundary("AFTER_FARE_OUTBOX")'), '
 assert.match(nativeAcceptance, /prepareFareSaveProcessDeathAtOutboxBoundary/, 'Android instrumentation must prepare a fare process-death case at the durable outbox boundary.')
 assert.match(nativeAcceptance, /verifyFareSaveProcessDeathRecovery/, 'Android instrumentation must verify fare recovery in a fresh process after SIGKILL.')
 assert.match(androidGate, /run_fare_process_death_case/, 'The exact APK smoke gate must kill and restart the app between fare outbox insertion and canonical commit.')
+assert.match(androidGate, /FARE_PROCESS_DEATH_CASE_PASS/, 'The exact APK smoke gate must require an explicit fare recovery pass marker after process restart.')
 
 console.log('PASS: native overlay fare/cancellation canonical commit and replay contract')
