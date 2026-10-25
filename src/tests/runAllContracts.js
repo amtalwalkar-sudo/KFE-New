@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process'
 
 const suites = [
+  'phase2BusinessReliabilityRegression.contract.js',
   'gpsValhallaRemoval.contract.js',
   'locationNameService.contract.js',
   'eventLocationCapture.contract.js',
