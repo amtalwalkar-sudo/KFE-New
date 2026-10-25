@@ -1444,4 +1444,124 @@ public class KfeNativeFullShiftAcceptanceTest {
     eventSingleton.set(null, null);
   }
 
+
+  @Test public void prepareFareSaveProcessDeathAtOutboxBoundary() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    SharedPreferences prefs = context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE);
+    String suffix = Long.toString(System.currentTimeMillis());
+    String shiftId = "fare-process-death-shift-" + suffix;
+    String tripId = "fare-process-death-trip-" + suffix;
+    prefs.edit()
+        .putString("fareProcessDeathShiftId", shiftId)
+        .putString("fareProcessDeathTripId", tripId)
+        .putString("fareProcessDeathEventId", "")
+        .putString("fareProcessDeathReady", "")
+        .commit();
+
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    String now = java.time.Instant.now().toString();
+    assertTrue("Active shift fixture must commit before interrupted fare submission.",
+        store.putRecord("fare-process-death-shift-create-" + suffix, "SHIFT",
+            new JSONObject().put("id", shiftId).put("status", "ACTIVE")
+                .put("revenue", 0d).put("updatedAt", now)).accepted);
+    assertTrue("Completed trip must be durable before fare submission.",
+        store.putRecord("fare-process-death-trip-complete-" + suffix, "TRIP",
+            new JSONObject().put("id", tripId).put("shiftId", shiftId)
+                .put("status", "COMPLETED").put("tripStage", "COMPLETED")
+                .put("fareDetailsSkipped", false).put("updatedAt", now)).accepted);
+
+    prepareSnapshot(prefs, shiftId, tripId);
+    AttachedOverlayService service = new AttachedOverlayService();
+    service.attach(context);
+    setField(service, "pendingTripId", tripId);
+    setField(service, "pendingFareTripId", tripId);
+    setField(service, "formMode", "FARE");
+    setField(service, "formValue", "250");
+    setField(service, "tollValue", "0");
+    setField(service, "parkingValue", "0");
+
+    KfeOverlayService.lifecycleFaultInjectorForTests = boundary -> {
+      if (!"AFTER_FARE_OUTBOX".equals(boundary)) return;
+      String eventId = pendingEventIdFor(KfeNativeEventStore.get(context).pending(500), tripId, "ENTER_FARE");
+      prefs.edit()
+          .putString("fareProcessDeathEventId", eventId)
+          .putString("fareProcessDeathReady", "AFTER_FARE_OUTBOX")
+          .commit();
+      android.util.Log.i("KFE_FARE_DEATH", "READY_FOR_PROCESS_KILL tripId=" + tripId + " eventId=" + eventId);
+      // The smoke-gate harness must SIGKILL the target app while the fare intent
+      // is durable but before commitTripForm can change the canonical trip/revenue.
+      for (int i = 0; i < 90; i++) SystemClock.sleep(1000L);
+      throw new IllegalStateException("CI harness did not kill the app at AFTER_FARE_OUTBOX");
+    };
+    invoke(service, "submitNumericForm", new Class<?>[]{});
+    throw new AssertionError("Fare process-death preparation returned without reaching its kill boundary.");
+  }
+
+  @Test public void verifyFareSaveProcessDeathRecovery() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    SharedPreferences prefs = context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE);
+    String shiftId = prefs.getString("fareProcessDeathShiftId", "");
+    String tripId = prefs.getString("fareProcessDeathTripId", "");
+    String eventId = prefs.getString("fareProcessDeathEventId", "");
+    assertEquals("Harness must kill the app after durable fare outbox insertion.", "AFTER_FARE_OUTBOX",
+        prefs.getString("fareProcessDeathReady", ""));
+    assertTrue("Shift and trip identities must survive process death.", !shiftId.isEmpty() && !tripId.isEmpty());
+    assertTrue("The original fare event identity must survive process death.", !eventId.isEmpty());
+
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    KfeNativeEventStore events = KfeNativeEventStore.get(context);
+    JSONArray pendingBeforeRetry = events.pending(500);
+    assertEquals("Fare outbox event must remain pending after process death.", eventId,
+        pendingEventIdFor(pendingBeforeRetry, tripId, "ENTER_FARE"));
+    JSONObject tripBeforeRetry = store.getRecord("TRIP", tripId).getJSONObject("record");
+    assertEquals("Trip completion must survive without being rolled back by a lost fare save.",
+        "COMPLETED", tripBeforeRetry.getString("status"));
+    assertTrue("Fare must remain pending until its canonical commit is confirmed.",
+        !tripBeforeRetry.has("revenue") || tripBeforeRetry.isNull("revenue"));
+    assertEquals("Pending fare must not affect revenue before recovery.", 0d,
+        store.getRecord("SHIFT", shiftId).getJSONObject("record").getDouble("revenue"), 0.001d);
+
+    JSONObject payload = new JSONObject().put("fare", "250").put("toll", "0").put("parking", "0")
+        .put("tollTreatment", "INCLUDED").put("parkingTreatment", "INCLUDED");
+    AttachedOverlayService recovered = new AttachedOverlayService();
+    recovered.attach(context);
+    prepareSnapshot(prefs, shiftId, tripId);
+    invoke(recovered, "persistCanonicalTripForm",
+        new Class<?>[]{String.class, String.class, JSONObject.class, String.class},
+        "FARE", tripId, payload, eventId);
+    invoke(recovered, "persistCanonicalTripForm",
+        new Class<?>[]{String.class, String.class, JSONObject.class, String.class},
+        "FARE", tripId, payload, eventId);
+
+    JSONObject savedTrip = store.getRecord("TRIP", tripId).getJSONObject("record");
+    JSONObject savedShift = store.getRecord("SHIFT", shiftId).getJSONObject("record");
+    assertEquals("Recovered fare must keep the same completed trip.", tripId, savedTrip.getString("id"));
+    assertEquals("Recovered fare must not revert completed lifecycle state.", "COMPLETED",
+        savedTrip.getString("status"));
+    assertEquals(250d, savedTrip.getDouble("revenue"), 0.001d);
+    assertEquals("Fare must project exactly once after duplicate recovery attempts.", 250d,
+        savedShift.getDouble("revenue"), 0.001d);
+    assertEquals("Recovery must not create a second trip.", 1,
+        countShiftTrips(store.listRecords("TRIP", 1000).getJSONArray("records"), shiftId));
+    assertTrue("The durable canonical fare operation must survive retry.",
+        store.getOperation("native-form-FARE-" + eventId).optBoolean("found", false));
+    assertEquals("Recovery must reuse the original pending event.", eventId,
+        pendingEventIdFor(events.pending(500), tripId, "ENTER_FARE"));
+
+    android.util.Log.i("KFE_FARE_DEATH", "FARE_PROCESS_DEATH_CASE_PASS tripId=" + tripId + " eventId=" + eventId);
+    cleanupNativeRecords(context, shiftId, tripId, "", "");
+    SQLiteOpenHelper eventStore = KfeNativeEventStore.get(context);
+    Method dbGetter = SQLiteOpenHelper.class.getDeclaredMethod("getWritableDatabase");
+    dbGetter.setAccessible(true);
+    SQLiteDatabase eventDb = (SQLiteDatabase) dbGetter.invoke(eventStore);
+    eventDb.delete("native_events", "trip_id=?", new String[]{tripId});
+    eventStore.close();
+    Field eventSingleton = KfeNativeEventStore.class.getDeclaredField("instance");
+    eventSingleton.setAccessible(true);
+    eventSingleton.set(null, null);
+    prefs.edit().remove(STATE_KEY)
+        .remove("fareProcessDeathShiftId").remove("fareProcessDeathTripId")
+        .remove("fareProcessDeathEventId").remove("fareProcessDeathReady").commit();
+  }
+
 }
