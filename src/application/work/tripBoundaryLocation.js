@@ -11,7 +11,10 @@ export const normalizeTripBoundaryLocation = value => {
   if (timestamp == null || timestamp === '') return null
   const fixDate = new Date(timestamp)
   if (!Number.isFinite(fixDate.getTime()) || fixDate.getTime() <= 0) return null
-  return { latitude, longitude, accuracy: Number.isFinite(accuracy) ? accuracy : null, capturedAt: fixDate.toISOString(), placeName: null }
+  // Provider accuracy is a radius in metres; negative values are corrupt metadata,
+  // not a usable accuracy estimate. Keep the fix but mark accuracy unknown.
+  const normalizedAccuracy = Number.isFinite(accuracy) && accuracy >= 0 ? accuracy : null
+  return { latitude, longitude, accuracy: normalizedAccuracy, capturedAt: fixDate.toISOString(), placeName: null }
 }
 
 /**
