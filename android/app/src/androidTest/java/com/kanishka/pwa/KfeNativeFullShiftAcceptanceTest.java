@@ -5,6 +5,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.database.sqlite.SQLiteDatabase;
@@ -34,6 +35,40 @@ import java.lang.reflect.InvocationTargetException;
 @RunWith(AndroidJUnit4.class)
 public class KfeNativeFullShiftAcceptanceTest {
   private static final String STATE_KEY = "lastOverlayState";
+
+  @Test public void nativeRecordListPaginationReturnsEveryRecordBeyondTheFirstThousand() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    String entityType = "BACKUP_PAGE_TEST_" + System.currentTimeMillis();
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    SQLiteDatabase database = store.getWritableDatabase();
+    database.beginTransaction();
+    try {
+      for (int index = 0; index < 1005; index++) {
+        String id = "page-record-" + index;
+        JSONObject payload = new JSONObject().put("id", id).put("updatedAt", String.format(java.util.Locale.US, "2026-10-01T00:%02d:%02d.000Z", index / 60, index % 60));
+        ContentValues values = new ContentValues();
+        values.put("entity_type", entityType);
+        values.put("entity_id", id);
+        values.put("payload", payload.toString());
+        values.put("updated_at", payload.getString("updatedAt"));
+        assertTrue("Fixture row insert must succeed.", database.insertOrThrow("canonical_records", null, values) >= 0);
+      }
+      database.setTransactionSuccessful();
+    } finally {
+      database.endTransaction();
+    }
+    try {
+      JSONObject first = store.listRecords(entityType, 1000, 0);
+      JSONObject second = store.listRecords(entityType, 1000, 1000);
+      assertEquals(1005, first.getLong("totalCount"));
+      assertEquals(1000, first.getJSONArray("records").length());
+      assertEquals(5, second.getJSONArray("records").length());
+      assertEquals(1000, second.getInt("offset"));
+      assertEquals(1005, first.getJSONArray("records").length() + second.getJSONArray("records").length());
+    } finally {
+      database.delete("canonical_records", "entity_type=?", new String[]{entityType});
+    }
+  }
 
   @Test public void durableCreateIntentReusesIdentityAfterLostAcknowledgementAndAllowsNextCreate() throws Exception {
     Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
