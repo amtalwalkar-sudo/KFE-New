@@ -179,6 +179,10 @@ export const createBackupRepository = stores => Object.freeze({
               }
             }
             const merged = mergeCanonicalBackupSnapshot(authoritativeSnapshot, snapshot, { sourceExportedAt })
+            const currentAuditIds = new Set((currentSnapshot.audit_history || []).map(record => record.id))
+            const nativeArchiveAdds = nativeConflictArchives.filter((record, index, all) =>
+              !currentAuditIds.has(record.id) && all.findIndex(candidate => candidate.id === record.id) === index
+            )
             for (const storeName of stores) {
               const store = tx.objectStore(storeName)
               if (['shifts', 'trips'].includes(storeName) && Array.isArray(authoritativeRecords?.[storeName])) {
@@ -186,8 +190,9 @@ export const createBackupRepository = stores => Object.freeze({
               }
               for (const record of merged.addedRecordsByStore[storeName] || []) store.add(structuredClone(record))
             }
-            const currentAuditIds = new Set((currentSnapshot.audit_history || []).map(record => record.id))
-            const nativeArchivesAdded = nativeConflictArchives.filter(record => !currentAuditIds.has(record.id)).length
+            const auditStore = tx.objectStore('audit_history')
+            for (const archive of nativeArchiveAdds) auditStore.add(structuredClone(archive))
+            const nativeArchivesAdded = nativeArchiveAdds.length
             restoreSummary = {
               added: merged.added + nativeMirrorAdded + nativeArchivesAdded,
               duplicates: merged.duplicates,
