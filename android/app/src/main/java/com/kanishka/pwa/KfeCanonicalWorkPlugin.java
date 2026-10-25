@@ -184,7 +184,7 @@ public class KfeCanonicalWorkPlugin extends Plugin {
   @com.getcapacitor.PluginMethod
   public void getCanonicalResetState(PluginCall call) {
     try {
-      JSONObject result = KfeCanonicalWorkStore.get(getContext()).getResetState(call.getString("resetId", ""));
+      JSONObject result = KfeCanonicalWorkStore.get(getContext()).getResetState();
       call.resolve(new JSObject(result.toString()));
     } catch (IllegalArgumentException error) {
       call.reject(error.getMessage(), "CANONICAL_RESET_REJECTED");
