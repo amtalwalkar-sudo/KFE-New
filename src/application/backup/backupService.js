@@ -152,6 +152,25 @@ export const resetData = async () => {
 export const recoverPendingReset = async () => {
   let journal = await backupRepository.getResetJournal()
   const barrierId = getCanonicalResetBarrier()
+  const nativeAvailable = NativeCanonicalWorkService.isAvailable()
+  // Recover even if the browser marker/journal was interrupted but SQLite has
+  // a durable pending reset. Never resume destructive work without its checkpoint.
+  if (!journal && !barrierId && nativeAvailable) {
+    const nativeState = await NativeCanonicalWorkService.getCanonicalResetState()
+    if (nativeState?.found && nativeState.state !== 'COMPLETE') {
+      const checkpoint = await getLocalBackup()
+      if (!checkpoint?.backup) throw new Error('Native reset is pending but its browser recovery checkpoint is missing; startup is blocked.')
+      journal = {
+        id: 'current',
+        resetId: nativeState.resetId,
+        state: nativeState.state === 'CLEARED' ? 'NATIVE_CLEARED' : 'PREPARED',
+        nativeRequired: true,
+        checkpointExportedAt: checkpoint.backup.exportedAt,
+        recoveredJournalAfterCrash: true,
+      }
+      await backupRepository.saveResetJournal(journal)
+    }
+  }
   if (!journal && barrierId) {
     const checkpoint = await getLocalBackup()
     if (!checkpoint?.backup) throw new Error('Reset barrier exists but its recovery checkpoint is missing; startup is blocked.')
@@ -159,14 +178,14 @@ export const recoverPendingReset = async () => {
       id: 'current',
       resetId: barrierId,
       state: 'PREPARED',
-      nativeRequired: NativeCanonicalWorkService.isAvailable(),
+      nativeRequired: nativeAvailable,
       checkpointExportedAt: checkpoint.backup.exportedAt,
       recoveredJournalAfterCrash: true,
     }
     await backupRepository.saveResetJournal(journal)
   }
   if (!journal || RESET_TERMINAL_STATES.has(journal.state)) {
-    if (journal?.state === 'COMPLETE' && barrierId === journal.resetId) clearCanonicalResetBarrier(journal.resetId)
+    if (journal && barrierId === journal.resetId) clearCanonicalResetBarrier(journal.resetId)
     return { recovered: false, state: journal?.state || null }
   }
   if (barrierId !== journal.resetId) setCanonicalResetBarrier(journal.resetId)
