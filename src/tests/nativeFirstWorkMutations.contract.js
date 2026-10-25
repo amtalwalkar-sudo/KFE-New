@@ -23,7 +23,9 @@ for (const [method, nextMethod] of [
   const start = service.indexOf(method)
   const body = service.slice(start, service.indexOf(nextMethod, start + method.length))
   assert.ok(start >= 0 && body.length > 0, `missing lifecycle method ${method}`)
-  assert.ok(body.includes('nativeCanonicalAvailable()'), `${method} must use native-first behavior on Android`)
+  assert.ok(body.includes('requireLifecycleStorage()'), `${method} must reject unsafe Android fallback before mutation`)
+  assert.ok(body.includes('nativeAvailable'), `${method} must use the captured storage availability decision`)
+  assert.ok(!body.includes('nativeCanonicalAvailable()'), `${method} must not re-check availability and race into a different write path`)
 }
 const endShift = service.slice(service.indexOf('async endShift(data)'), service.indexOf('async recordFuel(data)'))
 assert.ok(endShift.includes('const activeTrip = snapshot.trips.find'), 'shift close must check native active-trip state')
