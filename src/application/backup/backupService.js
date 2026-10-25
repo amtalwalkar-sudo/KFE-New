@@ -52,6 +52,11 @@ export const getLocalBackup = async () => backupRepository.getLocalBackup()
 export const restoreBackup = async input => { const backup = validateBackup(input); const merge = await backupRepository.restoreCanonicalSnapshot(backup.stores, { sourceExportedAt: backup.exportedAt }); await saveLocalBackup(await createBackup()); return { ...getBackupSummary(backup), merge } }
 const RESET_TERMINAL_STATES = new Set(['COMPLETE', 'ABORTED'])
 
+const assertNoActiveShift = checkpoint => {
+  const activeShift = (checkpoint?.stores?.shifts || []).find(shift => String(shift?.status || '').toUpperCase() === 'ACTIVE')
+  if (activeShift) throw new Error('Reset is blocked while a shift is active; end it through the PWA workflow first.')
+}
+
 const verifyResetCheckpoint = async (checkpoint, resetId) => {
   const saved = await backupRepository.getResetCheckpoint(resetId)
   if (!saved?.backup || saved.backup.exportedAt !== checkpoint.exportedAt) {
@@ -102,6 +107,10 @@ const continueReset = async resetId => {
     if (getBackupSummary(after).totalRecords !== 0) {
       throw new Error('Browser canonical reset verification failed; recoverable records remain.')
     }
+    const canonicalVerification = await backupRepository.verifyCanonicalReset()
+    if (canonicalVerification.ok !== true) {
+      throw new Error('Browser canonical reset verification failed; records remain in one or more canonical stores.')
+    }
 
     // Keep native writes blocked until the browser store has also been verified.
     if (nativeAvailable) {
@@ -124,20 +133,42 @@ const continueReset = async resetId => {
 
 export const resetData = async () => {
   await recoverPendingReset()
-  const checkpoint = await createBackup()
   const resetId = globalThis.crypto?.randomUUID?.() || `reset-${Date.now()}-${Math.random().toString(36).slice(2)}`
-  await backupRepository.saveResetCheckpoint(resetId, checkpoint)
-  await verifyResetCheckpoint(checkpoint, resetId)
   const nativeRequired = NativeCanonicalWorkService.isAvailable()
   setCanonicalResetBarrier(resetId)
   await backupRepository.saveResetJournal({
     id: 'current',
     resetId,
-    state: 'PREPARED',
+    state: 'CHECKPOINTING',
     nativeRequired,
-    checkpointExportedAt: checkpoint.exportedAt,
     startedAt: new Date().toISOString(),
   })
+
+  let checkpoint
+  try {
+    // Freeze new canonical writes before taking the checkpoint so it represents
+    // the complete pre-reset dataset rather than a moving target.
+    checkpoint = await createBackup()
+    assertNoActiveShift(checkpoint)
+    await backupRepository.saveResetCheckpoint(resetId, checkpoint)
+    await verifyResetCheckpoint(checkpoint, resetId)
+    await backupRepository.saveResetJournal({
+      id: 'current',
+      resetId,
+      state: 'PREPARED',
+      nativeRequired,
+      checkpointExportedAt: checkpoint.exportedAt,
+      startedAt: new Date().toISOString(),
+    })
+  } catch (error) {
+    await backupRepository.saveResetJournal({
+      id: 'current', resetId, state: 'ABORTED', nativeRequired,
+      reason: /active shift/i.test(error?.message || '') ? 'ACTIVE_SHIFT' : 'CHECKPOINT_FAILED',
+    })
+    clearCanonicalResetBarrier(resetId)
+    throw error
+  }
+
   try {
     return await continueReset(resetId)
   } catch (error) {
