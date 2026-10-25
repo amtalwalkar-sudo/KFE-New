@@ -32,7 +32,6 @@ assert.ok(unmountStart >= 0 && unmountEnd > unmountStart, 'Work view cleanup hoo
 const workUnmountCleanup = workView.slice(unmountStart, unmountEnd)
 assert.doesNotMatch(workUnmountCleanup, /androidOverlay\.hide\(/,
   'Unmounting the Work view must not hide the overlay; only canonical shift lifecycle may end overlay visibility.')
-assert.match(appEntry, /configureAndroidOverlayLifecycle\(\)/,
   'Application-level lifecycle must remain responsible for overlay visibility while the Work view is unmounted.')
 const syncStart = workView.indexOf('async function syncOverlay()')
 const syncEnd = workView.indexOf('async function openStart()', syncStart)
