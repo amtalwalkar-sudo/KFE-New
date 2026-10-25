@@ -41,6 +41,7 @@ assert.match(nativeStore, /canonical_reset_state[\s\S]*CANCELLED_BY_RESET/,
   'Native reset state is durable and old create intents are cancelled.')
 assert.match(nativeStore, /assertNoPendingReset\(\)/,
   'Native canonical write paths must enforce the reset barrier.')
+assert.match(nativeStore, /canonical_reset_invalidated_operations[\s\S]*assertOperationNotInvalidated/, 'Old native operation IDs must be tombstoned rather than replayed as new writes.')
 assert.match(nativeEvents, /cancelPendingForReset\(String resetId\)/, 'Reset must invalidate queued native lifecycle events.')
 assert.match(nativeActions, /beginResetBarrier[\s\S]*releaseResetBarrier[\s\S]*cancelPendingForReset/, 'Native lifecycle events must remain blocked through the reset protocol.')
 assert.match(nativeAdapter, /assertNoResetInProgress\(\)/, 'Native bridge writes must honor the browser reset barrier until release.')
