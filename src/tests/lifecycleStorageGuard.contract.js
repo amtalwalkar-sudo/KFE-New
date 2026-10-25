@@ -38,4 +38,22 @@ for (const [method, nextMethod] of [
   assert.doesNotMatch(body, /nativeCanonicalAvailable\(\)/, `${method} must use one captured availability result and avoid a fallback race`)
 }
 
+const boundary = fs.readFileSync(new URL('../application/work/canonicalWorkBoundary.js', import.meta.url), 'utf8')
+assert.match(boundary, /const requireCanonicalWriteRoute = \(\) => \{[\s\S]*?return assertLifecycleStorageAvailable\(\{ platform, nativeAvailable: nativeCanonicalAvailable\(\) \}\)/,
+  'canonical write boundary must apply the same Android fail-closed policy')
+for (const [method, nextMethod, nativeCall, browserCall] of [
+  ['async putRecord(input)', 'async persistTripBoundarySnapshot(input)', 'WorkRuntimePorts\\.canonicalWork\\.putRecord\\(normalized\\)', 'BrowserCanonicalWorkService\\.putRecord\\(normalized\\)'],
+  ['async updateTripBoundaryPlaceName(input)', 'async persistEventLocationSnapshot(snapshot)', 'WorkRuntimePorts\\.canonicalWork\\.updateTripBoundaryPlaceName\\(normalized\\)', 'BrowserCanonicalWorkService\\.updateTripBoundaryPlaceName\\(normalized\\)'],
+]) {
+  const start = boundary.indexOf(method)
+  const end = boundary.indexOf(nextMethod, start + method.length)
+  assert.ok(start >= 0 && end > start, `missing canonical write boundary method ${method}`)
+  const body = boundary.slice(start, end)
+  assert.match(body, /const nativeAvailable = requireCanonicalWriteRoute\(\)/, `${method} must select a safe route before writing`)
+  assert.match(body, new RegExp(`if \\(nativeAvailable\\) return ${nativeCall}`), `${method} must use native canonical storage when available`)
+  assert.match(body, new RegExp(`return ${browserCall}`), `${method} must preserve browser-only PWA writes`)
+  assert.doesNotMatch(body, /WorkRuntimePorts\.canonicalWork\.isAvailable\(\)/, `${method} must not bypass the runtime guard`)
+}
+
+console.log('Canonical write boundary contract: Android never falls back to browser business-record writes; web PWA remains supported.')
 console.log('Lifecycle storage guard contract: Android fails closed when canonical SQLite is unavailable; web PWA remains supported.')
