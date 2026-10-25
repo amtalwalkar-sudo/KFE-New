@@ -73,7 +73,15 @@ const mergeBackupWorkIntoNative = async (backup, nativeSnapshot) => {
       } catch (error) {
         // A process death/lost acknowledgement may occur after SQLite commits.
         // Verify the same record identity before deciding whether retry is safe.
-        const verified = await NativeCanonicalWorkService.getRecord({ entityType, entityId: record.id })
+        const [verified, operation] = await Promise.all([
+          NativeCanonicalWorkService.getRecord({ entityType, entityId: record.id }),
+          NativeCanonicalWorkService.getOperation(operationId),
+        ])
+        const sameCommittedOperation = operation?.found === true
+          && operation.command === 'PUT_RECORD'
+          && operation.entityType === entityType
+          && operation.entityId === record.id
+        if (sameCommittedOperation) continue
         if (!verified?.found) throw new Error(`Native restore stopped at ${entityType}/${record.id}; retry the same backup to resume safely. ${error?.message || ''}`)
         if (JSON.stringify(verified.record) !== JSON.stringify(record)) {
           throw new Error(`Native restore found a conflicting canonical ${entityType}/${record.id}; current data was preserved. Retry after reviewing the conflict.`)
