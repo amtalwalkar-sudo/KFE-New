@@ -8,7 +8,7 @@ const startup = fs.readFileSync('src/application/startup/startupService.js', 'ut
 
 assert.match(backupService, /export const createBackup = async/)
 assert.match(backupService, /export const serializeBackup = backup => JSON\.stringify\(validateBackup\(backup\)/)
-assert.match(backupService, /export const restoreBackup = async input => \{ const backup = validateBackup\(input\)/)
+assert.match(backupService, /export const restoreBackup = async input => \{[\s\S]*const backup = validateBackup\(input\)/, 'Restore validates input before journaling and applying it.'); assert.match(backupService, /export const recoverPendingRestore = async/); assert.match(backupService, /saveRestoreJournal\(\{ id: 'current', restoreId, state: 'APPLYING', backup \}\)/, 'A durable restore journal precedes cross-store writes.')
 assert.match(backupService, /await backupRepository\.restoreCanonicalSnapshot\(backup\.stores, \{ sourceExportedAt: backup\.exportedAt \}\)/, 'Restore must preserve source provenance while merging the backup with current records.')
 assert.match(backupService, /saveLocalBackup\(await createBackup\(\)\)/, 'The post-restore checkpoint must include the merged current and imported records.')
 assert.match(backupService, /await saveLocalBackup\(await createBackup\(\)\)/, 'The saved local recovery checkpoint must reflect the merged dataset.')
