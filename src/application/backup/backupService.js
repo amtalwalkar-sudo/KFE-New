@@ -1,4 +1,4 @@
-import { createBackupRepository } from '../../repositories/backupRepository.js'
+import { createBackupRepository, mergeCanonicalBackupSnapshot } from '../../repositories/backupRepository.js'
 import { NativeCanonicalWorkService } from '../../infrastructure/android/nativeCanonicalWork.js'
 import { CANONICAL_DB_VERSION } from '../../constants/canonicalDatabase.js'
 export const BACKUP_FORMAT = 'KFE_BACKUP'
@@ -43,12 +43,76 @@ export const validateBackup = input => {
   }
   return backup
 }
-export const createBackup = async () => validateBackup({ format: BACKUP_FORMAT, formatVersion: BACKUP_FORMAT_VERSION, source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: CANONICAL_DB_VERSION }, exportedAt: new Date().toISOString(), stores: await backupRepository.readCanonicalSnapshot() })
+const restoreOperationHash = value => {
+  let hash = 2166136261
+  for (let index = 0; index < value.length; index++) { hash ^= value.charCodeAt(index); hash = Math.imul(hash, 16777619) }
+  return (hash >>> 0).toString(16).padStart(8, '0')
+}
+
+const readNativeWorkSnapshot = async () => {
+  if (!NativeCanonicalWorkService.isAvailable()) return null
+  const [shifts, trips] = await Promise.all([
+    NativeCanonicalWorkService.listRecords({ entityType: 'SHIFT', limit: 1000 }),
+    NativeCanonicalWorkService.listRecords({ entityType: 'TRIP', limit: 1000 }),
+  ])
+  return { shifts: shifts.records, trips: trips.records }
+}
+
+const mergeBackupWorkIntoNative = async (backup, nativeSnapshot) => {
+  if (!nativeSnapshot) return { added: 0, duplicates: 0, conflicts: 0 }
+  const current = { shifts: nativeSnapshot.shifts || [], trips: nativeSnapshot.trips || [] }
+  const incoming = { shifts: backup.stores.shifts || [], trips: backup.stores.trips || [] }
+  const merged = mergeCanonicalBackupSnapshot(current, incoming, { sourceExportedAt: backup.exportedAt })
+  let added = 0
+  for (const [storeName, entityType] of [['shifts', 'SHIFT'], ['trips', 'TRIP']]) {
+    for (const record of merged.addedRecordsByStore[storeName] || []) {
+      const operationId = `backup-restore-${restoreOperationHash([backup.exportedAt, entityType, record.id].join('|'))}`
+      try {
+        await NativeCanonicalWorkService.putRecord({ operationId, entityType, record, expectAbsent: true })
+        added++
+      } catch (error) {
+        // A process death/lost acknowledgement may occur after SQLite commits.
+        // Verify the same record identity before deciding whether retry is safe.
+        const verified = await NativeCanonicalWorkService.getRecord({ entityType, entityId: record.id })
+        if (!verified?.found) throw new Error(`Native restore stopped at ${entityType}/${record.id}; retry the same backup to resume safely. ${error?.message || ''}`)
+        if (JSON.stringify(verified.record) !== JSON.stringify(record)) {
+          throw new Error(`Native restore found a conflicting canonical ${entityType}/${record.id}; current data was preserved. Retry after reviewing the conflict.`)
+        }
+      }
+    }
+  }
+  return { added, duplicates: merged.duplicates, conflicts: merged.conflicts }
+}
+
+export const createBackup = async () => {
+  const exportedAt = new Date().toISOString()
+  const browserSnapshot = await backupRepository.readCanonicalSnapshot()
+  const nativeSnapshot = await readNativeWorkSnapshot()
+  let stores = browserSnapshot
+  if (nativeSnapshot) {
+    // Native SQLite records are authoritative on Android. Preserve browser-only
+    // history while making sure native-only work records are included in export.
+    const current = { ...browserSnapshot, shifts: nativeSnapshot.shifts, trips: nativeSnapshot.trips }
+    stores = mergeCanonicalBackupSnapshot(current, browserSnapshot, { sourceExportedAt: exportedAt }).snapshot
+  }
+  return validateBackup({ format: BACKUP_FORMAT, formatVersion: BACKUP_FORMAT_VERSION, source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: CANONICAL_DB_VERSION }, exportedAt, stores })
+}
 export const serializeBackup = backup => JSON.stringify(validateBackup(backup), null, 2)
 export const getBackupSummary = backup => { const valid = validateBackup(backup); const counts = Object.fromEntries(CANONICAL_BACKUP_STORES.map(store => [store, valid.stores[store].length])); return { exportedAt: valid.exportedAt, totalRecords: Object.values(counts).reduce((sum, count) => sum + count, 0), counts } }
 export const saveLocalBackup = async backup => { const valid = validateBackup(backup); await backupRepository.saveLocalBackup(valid); return true }
 export const getLocalBackup = async () => backupRepository.getLocalBackup()
-export const restoreBackup = async input => { const backup = validateBackup(input); const merge = await backupRepository.restoreCanonicalSnapshot(backup.stores, { sourceExportedAt: backup.exportedAt }); await saveLocalBackup(await createBackup()); return { ...getBackupSummary(backup), merge } }
+export const restoreBackup = async input => {
+  const backup = validateBackup(input)
+  const beforeNative = await readNativeWorkSnapshot()
+  const nativeMerge = await mergeBackupWorkIntoNative(backup, beforeNative)
+  const afterNative = await readNativeWorkSnapshot()
+  const merge = await backupRepository.restoreCanonicalSnapshot(backup.stores, {
+    sourceExportedAt: backup.exportedAt,
+    authoritativeRecords: afterNative,
+  })
+  await saveLocalBackup(await createBackup())
+  return { ...getBackupSummary(backup), merge: { ...merge, native: nativeMerge } }
+}
 const RESET_TERMINAL_STATES = new Set(['COMPLETE', 'ABORTED'])
 
 const assertNoActiveShift = checkpoint => {
