@@ -27,6 +27,11 @@ export const NativeCanonicalWorkService = Object.freeze({
     if (!resetId) throw new Error('resetId is required.')
     return NativeCanonicalWork.completeCanonicalReset({ resetId })
   },
+  async releaseCanonicalReset(resetId) {
+    requireNative()
+    if (!resetId) throw new Error('resetId is required.')
+    return NativeCanonicalWork.releaseCanonicalReset({ resetId })
+  },
   async getCanonicalResetState() {
     requireNative()
     return NativeCanonicalWork.getCanonicalResetState({})
