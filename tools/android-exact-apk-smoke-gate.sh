@@ -163,10 +163,10 @@ run_instrumentation() {
 }
 
 run_lifecycle_process_death_case() {
-  echo "ANDROID_PROCESS_DEATH_CASE_START type=lifecycle label=${label:-pending} stage=${stage:-none} boundary=${boundary:-none} entity_type=${entity_type:-none}"
   local stage="$1"
   local boundary="$2"
   local label="lifecycle-process-death-${stage,,}-${boundary,,}"
+  echo "ANDROID_PROCESS_DEATH_CASE_START type=lifecycle stage=$stage boundary=$boundary label=$label"
   local prepare_log="artifacts/android-golden/${label}-prepare.log"
   local ready=false
   local pid_before=""
@@ -262,8 +262,8 @@ run_lifecycle_process_death_case() {
 }
 
 run_fare_process_death_case() {
-  echo "ANDROID_PROCESS_DEATH_CASE_START type=fare-save label=${label:-pending} stage=${stage:-none} boundary=${boundary:-none} entity_type=${entity_type:-none}"
   local label="fare-save-process-death-after-outbox"
+  echo "ANDROID_PROCESS_DEATH_CASE_START type=fare-save label=$label boundary=AFTER_FARE_OUTBOX"
   local prepare_log="artifacts/android-golden/${label}-prepare.log"
   local ready=false
   local pid_to_kill=""
@@ -344,10 +344,10 @@ run_fare_process_death_case() {
 }
 
 run_create_intent_process_death_case() {
-  echo "ANDROID_PROCESS_DEATH_CASE_START type=create-intent label=${label:-pending} stage=${stage:-none} boundary=${boundary:-none} entity_type=${entity_type:-none}"
   local entity_type="$1"
   local boundary="$2"
   local label="create-intent-process-death-${entity_type,,}-${boundary,,}"
+  echo "ANDROID_PROCESS_DEATH_CASE_START type=create-intent entity_type=$entity_type boundary=$boundary label=$label"
   local prepare_log="artifacts/android-golden/${label}-prepare.log"
   local ready_marker="${entity_type}_${boundary}"
   local ready=false
