@@ -47,7 +47,7 @@ for (const relative of writers) {
 }
 assert.match(backupRepository, /import \{ openCanonicalDB, notifyCanonicalDataChanged \} from '..\/utils\/indexedDB\.js'/)
 assert.doesNotMatch(backupRepository, /initializeCanonicalStorage\(/)
-assert.match(backupRepository, /restoreCanonicalSnapshot\(snapshot\) \{[\s\S]*const db = await openCanonicalDB\(\)/)
+assert.match(backupRepository, /restoreCanonicalSnapshot\(snapshot, \{ sourceExportedAt = null \} = \{\}\) \{[\s\S]*const db = await openCanonicalDB\(\)/)
 assert.match(backupRepository, /resetCanonicalData\(\) \{[\s\S]*const db = await openCanonicalDB\(\)/)
 assert.match(backupService, /source: \{ dbName: 'kanishka_kfe_canonical_db', dbVersion: CANONICAL_DB_VERSION \}/)
 assert.match(mutation, /canonical synchronization queue/)
