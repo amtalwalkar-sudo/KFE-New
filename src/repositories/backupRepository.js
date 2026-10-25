@@ -217,4 +217,27 @@ export const createBackupRepository = stores => Object.freeze({
       request.onerror = () => { db.close(); reject(request.error || new Error('Local backup lookup failed.')) }
     })
   },
+
+  async saveResetCheckpoint(resetId, backup) {
+    if (!resetId || !backup) throw new Error('Reset ID and checkpoint backup are required.')
+    const db = await openLocalBackupDB()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('snapshots', 'readwrite')
+      tx.objectStore('snapshots').put({ id: `reset:${resetId}`, savedAt: new Date().toISOString(), backup })
+      tx.oncomplete = () => { db.close(); resolve(true) }
+      tx.onerror = () => { db.close(); reject(tx.error || new Error('Reset checkpoint write failed.')) }
+      tx.onabort = () => { db.close(); reject(tx.error || new Error('Reset checkpoint write aborted.')) }
+    })
+  },
+
+  async getResetCheckpoint(resetId) {
+    if (!resetId) throw new Error('Reset ID is required.')
+    const db = await openLocalBackupDB()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('snapshots', 'readonly')
+      const request = tx.objectStore('snapshots').get(`reset:${resetId}`)
+      request.onsuccess = () => { db.close(); resolve(request.result || null) }
+      request.onerror = () => { db.close(); reject(request.error || new Error('Reset checkpoint lookup failed.')) }
+    })
+  },
 })
