@@ -25,6 +25,13 @@ assert.doesNotMatch(finish, /androidOverlay\.(?:endShift|completeEndShift)\(/,
   'PWA must own shift end; native shift-end actions are intentionally absent.')
 
 assert.match(workView, /watch\(\(\) => store\.isOnline, \(\) => \{ void syncOverlay\(\) \}\)/)
+
+const unmountStart = workView.indexOf('onBeforeUnmount(() => {')
+const unmountEnd = workView.indexOf('\n})', unmountStart)
+assert.ok(unmountStart >= 0 && unmountEnd > unmountStart, 'Work view cleanup hook must remain identifiable.')
+const workUnmountCleanup = workView.slice(unmountStart, unmountEnd)
+assert.doesNotMatch(workUnmountCleanup, /androidOverlay\.hide\(/,
+  'Unmounting the Work view must not hide the overlay; only canonical shift lifecycle may end overlay visibility.')
 const syncStart = workView.indexOf('async function syncOverlay()')
 const syncEnd = workView.indexOf('async function openStart()', syncStart)
 const sync = workView.slice(syncStart, syncEnd)

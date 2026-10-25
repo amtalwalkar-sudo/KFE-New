@@ -1100,7 +1100,9 @@ onBeforeUnmount(() => {
   window.removeEventListener('focus', refreshClock)
   if (timer) clearInterval(timer)
   nativeActionListener?.remove?.()
-  void WorkRuntimePorts.androidOverlay.hide().catch(() => {})
+  // Overlay visibility follows canonical shift state, not this component's
+  // mount lifetime. The PWA may navigate away or close while the active shift
+  // continues in the native overlay.
 })
 </script>
 
