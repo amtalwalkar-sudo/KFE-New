@@ -7,6 +7,25 @@ const requireNative = () => {
 }
 
 export const NativeCanonicalWorkService = Object.freeze({
+  async beginCanonicalReset(resetId) {
+    requireNative()
+    if (!resetId) throw new Error('resetId is required.')
+    return NativeCanonicalWork.beginCanonicalReset({ resetId })
+  },
+  async clearCanonicalReset(resetId) {
+    requireNative()
+    if (!resetId) throw new Error('resetId is required.')
+    return NativeCanonicalWork.clearCanonicalReset({ resetId })
+  },
+  async completeCanonicalReset(resetId) {
+    requireNative()
+    if (!resetId) throw new Error('resetId is required.')
+    return NativeCanonicalWork.completeCanonicalReset({ resetId })
+  },
+  async getCanonicalResetState() {
+    requireNative()
+    return NativeCanonicalWork.getCanonicalResetState({})
+  },
   async prepareCreateIntent({ entityType, intentKey, record } = {}) {
     requireNative()
     if (!entityType || !intentKey || !record?.id) throw new Error('entityType, intentKey and record.id are required.')
