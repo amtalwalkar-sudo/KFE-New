@@ -1,7 +1,7 @@
-import { openCanonicalDB, notifyCanonicalDataChanged } from '../utils/indexedDB.js'
+import { openCanonicalDB, notifyCanonicalDataChanged, withCanonicalResetWritePermission } from '../utils/indexedDB.js'
 
 export const LOCAL_BACKUP_DB_NAME = 'kanishka_kfe_local_backup_db'
-export const LOCAL_BACKUP_DB_VERSION = 1
+export const LOCAL_BACKUP_DB_VERSION = 2
 export const LOCAL_BACKUP_ID = 'current'
 
 const openLocalBackupDB = () => new Promise((resolve, reject) => {
@@ -9,6 +9,7 @@ const openLocalBackupDB = () => new Promise((resolve, reject) => {
   request.onupgradeneeded = event => {
     const db = event.target.result
     if (!db.objectStoreNames.contains('snapshots')) db.createObjectStore('snapshots', { keyPath: 'id' })
+    if (!db.objectStoreNames.contains('reset_journal')) db.createObjectStore('reset_journal', { keyPath: 'id' })
   }
   request.onsuccess = () => resolve(request.result)
   request.onerror = () => reject(request.error || new Error('Local backup storage could not be opened.'))
@@ -156,20 +157,43 @@ export const createBackupRepository = stores => Object.freeze({
     })
   },
 
-  async resetCanonicalData() {
+  async resetCanonicalData({ resetId } = {}) {
+    if (!resetId) throw new Error('A durable reset ID is required.')
     const db = await openCanonicalDB()
-    // The settings store is configuration, not business activity. Compliance/EMI
-    // defaults and other saved configuration must survive a business-data reset.
-    // Unfinished form drafts are operational state and should be cleared.
-    const resetStores = [...new Set([...stores.filter(storeName => storeName !== 'settings'), 'form_drafts'])]
+    // Reset means factory defaults: clear persisted preferences as well as business
+    // records. The reset journal and recovery checkpoint live in the separate backup DB.
+    const resetStores = [...new Set([...stores, 'form_drafts'])]
     await new Promise((resolve, reject) => {
-      const tx = db.transaction(resetStores, 'readwrite')
+      let tx
       try {
+        tx = withCanonicalResetWritePermission(resetId, () => db.transaction(resetStores, 'readwrite'))
         for (const storeName of resetStores) tx.objectStore(storeName).clear()
-      } catch (error) { try { tx.abort() } catch (_) {}; reject(error); return }
+      } catch (error) { try { tx?.abort() } catch (_) {}; reject(error); return }
       tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: resetStores, reason: 'data:reset' }); resolve() }
       tx.onerror = () => reject(tx.error || new Error('KFE data reset transaction failed.'))
       tx.onabort = () => reject(tx.error || new Error('KFE data reset transaction aborted.'))
+    })
+  },
+
+  async saveResetJournal(journal) {
+    if (!journal?.id || !journal?.state) throw new Error('Reset journal requires id and state.')
+    const db = await openLocalBackupDB()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('reset_journal', 'readwrite')
+      tx.objectStore('reset_journal').put({ ...journal, updatedAt: new Date().toISOString() })
+      tx.oncomplete = () => { db.close(); resolve(true) }
+      tx.onerror = () => { db.close(); reject(tx.error || new Error('Reset journal write failed.')) }
+      tx.onabort = () => { db.close(); reject(tx.error || new Error('Reset journal write aborted.')) }
+    })
+  },
+
+  async getResetJournal() {
+    const db = await openLocalBackupDB()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('reset_journal', 'readonly')
+      const request = tx.objectStore('reset_journal').get('current')
+      request.onsuccess = () => { const result = request.result || null; db.close(); resolve(result) }
+      request.onerror = () => { db.close(); reject(request.error || new Error('Reset journal lookup failed.')) }
     })
   },
 
