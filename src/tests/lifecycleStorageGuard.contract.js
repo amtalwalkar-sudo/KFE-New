@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { assertLifecycleStorageAvailable } from '../application/work/lifecycleStorageGuard.js'
+import { configureWorkRuntimePorts } from '../application/work/workRuntimePorts.js'
+import { CanonicalWorkBoundary } from '../application/work/canonicalWorkBoundary.js'
 
 assert.equal(assertLifecycleStorageAvailable({ platform: 'android', nativeAvailable: true }), true,
   'Android lifecycle operations may proceed when canonical SQLite is available')
@@ -55,5 +57,28 @@ for (const [method, nextMethod, nativeCall, browserCall] of [
   assert.doesNotMatch(body, /WorkRuntimePorts\.canonicalWork\.isAvailable\(\)/, `${method} must not bypass the runtime guard`)
 }
 
+const noop = async () => ({})
+configureWorkRuntimePorts({
+  nativeWorkActions: {
+    clearPendingAction: noop, addListener: noop, consumePendingActions: noop,
+    consumePendingAction: noop, acknowledgeAction: noop, recordActionFailure: noop,
+  },
+  canonicalWork: {
+    putRecord: noop, persistTripBoundarySnapshot: noop, updateTripBoundaryPlaceName: noop,
+    getRecord: noop, listRecords: noop, getOperation: noop, isAvailable: () => false,
+  },
+  androidOverlay: { hide: noop, update: noop, prepare: noop, fareSaved: noop, cancelSaved: noop },
+  platform: { getPlatform: () => 'android' },
+})
+await assert.rejects(
+  CanonicalWorkBoundary.putRecord({ operationId: 'op-1', entityType: 'TRIP', record: { id: 'trip-1', shiftId: 'shift-1' } }),
+  /Android canonical SQLite storage is unavailable/,
+  'direct canonical record writes must fail closed in Android instead of reaching IndexedDB',
+)
+await assert.rejects(
+  CanonicalWorkBoundary.updateTripBoundaryPlaceName({ operationId: 'op-2', tripId: 'trip-1', field: 'tripStartLocation', placeName: 'Test area' }),
+  /Android canonical SQLite storage is unavailable/,
+  'trip-boundary metadata writes must also fail closed in Android instead of reaching IndexedDB',
+)
 console.log('Canonical write boundary contract: Android never falls back to browser business-record writes; web PWA remains supported.')
 console.log('Lifecycle storage guard contract: Android fails closed when canonical SQLite is unavailable; web PWA remains supported.')
