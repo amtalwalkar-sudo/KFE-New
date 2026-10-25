@@ -15,7 +15,7 @@ assert.equal(assertLifecycleStorageAvailable({ platform: 'web', nativeAvailable:
   'a browser runtime with an available canonical adapter may use it')
 assert.throws(
   () => assertLifecycleStorageAvailable({ platform: null, nativeAvailable: false }),
-  /Cannot verify canonical lifecycle storage/,
+  /Cannot verify canonical write storage/,
   'unknown runtime must not silently fall back to browser-only business records',
 )
 
