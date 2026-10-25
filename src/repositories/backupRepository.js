@@ -99,6 +99,7 @@ export const createBackupRepository = stores => Object.freeze({
       const result = {}
       let remaining = stores.length
       let settled = false
+      let restoreSummary = null
       const fail = error => { if (settled) return; settled = true; try { tx.abort() } catch (_) {}; reject(error) }
       for (const storeName of stores) {
         const request = tx.objectStore(storeName).getAll()
@@ -134,7 +135,7 @@ export const createBackupRepository = stores => Object.freeze({
               const store = tx.objectStore(storeName)
               for (const record of merged.addedRecordsByStore[storeName] || []) store.add(structuredClone(record))
             }
-            tx.__kfeRestoreSummary = {
+            restoreSummary = {
               added: merged.added,
               duplicates: merged.duplicates,
               conflicts: merged.conflicts,
@@ -148,7 +149,7 @@ export const createBackupRepository = stores => Object.freeze({
         if (settled) return
         settled = true
         notifyCanonicalDataChanged({ stores, reason: 'backup:restore-merge' })
-        resolve(tx.__kfeRestoreSummary || { added: 0, duplicates: 0, conflicts: 0, archivedConflicts: 0 })
+        resolve(restoreSummary || { added: 0, duplicates: 0, conflicts: 0, archivedConflicts: 0 })
       }
       tx.onerror = () => fail(tx.error || new Error('KFE restore transaction failed.'))
       tx.onabort = () => { if (!settled) { settled = true; reject(tx.error || new Error('KFE restore transaction aborted.')) } }
