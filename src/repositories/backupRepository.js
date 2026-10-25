@@ -1,4 +1,4 @@
-import { openCanonicalDB, notifyCanonicalDataChanged, withCanonicalResetWritePermission } from '../utils/indexedDB.js'
+import { openCanonicalDB, notifyCanonicalDataChanged, withCanonicalResetWritePermission, setCanonicalResetBarrier, getCanonicalResetBarrier, clearCanonicalResetBarrier, setActiveDataSource } from '../utils/indexedDB.js'
 
 export const LOCAL_BACKUP_DB_NAME = 'kanishka_kfe_local_backup_db'
 export const LOCAL_BACKUP_DB_VERSION = 2
@@ -93,6 +93,10 @@ export const mergeCanonicalBackupSnapshot = (currentSnapshot, incomingSnapshot, 
 }
 
 export const createBackupRepository = stores => Object.freeze({
+  setCanonicalResetBarrier(resetId) { return setCanonicalResetBarrier(resetId) },
+  getCanonicalResetBarrier() { return getCanonicalResetBarrier() },
+  clearCanonicalResetBarrier(resetId) { return clearCanonicalResetBarrier(resetId) },
+  resetSessionPreferencesToDefaults() { return setActiveDataSource('canonical') },
   async readCanonicalSnapshot() {
     const db = await openCanonicalDB()
     return new Promise((resolve, reject) => {
