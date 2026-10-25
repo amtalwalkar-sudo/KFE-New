@@ -15,6 +15,7 @@ export const setCanonicalResetBarrier = resetId => {
   if (typeof localStorage === 'undefined') throw new Error('Durable canonical mutation barrier storage is unavailable.')
   localStorage.setItem(CANONICAL_RESET_BARRIER_KEY, resetId)
 }
+export const getCanonicalResetBarrier = () => typeof localStorage === 'undefined' ? null : localStorage.getItem(CANONICAL_RESET_BARRIER_KEY)
 export const clearCanonicalResetBarrier = resetId => {
   if (typeof localStorage === 'undefined') throw new Error('Canonical mutation barrier storage is unavailable.')
   if (localStorage.getItem(CANONICAL_RESET_BARRIER_KEY) === resetId) localStorage.removeItem(CANONICAL_RESET_BARRIER_KEY)
