@@ -338,6 +338,91 @@ run_fare_process_death_case() {
   echo "VERIFIED_FARE_SAVE_PROCESS_DEATH_CASE boundary=AFTER_FARE_OUTBOX"
 }
 
+run_create_intent_process_death_case() {
+  local entity_type="$1"
+  local boundary="$2"
+  local label="create-intent-process-death-${entity_type,,}-${boundary,,}"
+  local prepare_log="artifacts/android-golden/${label}-prepare.log"
+  local ready_marker="${entity_type}_${boundary}"
+  local ready=false
+  local pid_to_kill=""
+  local process_death_observed=false
+  adb_ready
+  adb logcat -c >/dev/null 2>&1 || true
+  timeout 100s adb shell am instrument -w -r \
+    -e class com.kanishka.pwa.KfeCreateIntentRecoveryTest#prepareCreateIntentProcessDeathAtDurableBoundary \
+    -e createEntityType "$entity_type" -e createBoundary "$boundary" \
+    com.kanishka.pwa.test/androidx.test.runner.AndroidJUnitRunner > "$prepare_log" 2>&1 &
+  local prepare_pid=$!
+  for attempt in $(seq 1 35); do
+    pid_to_kill="$(adb shell pidof com.kanishka.pwa 2>/dev/null | tr -d '\r' | awk '{print $1}' || true)"
+    if [ -n "$pid_to_kill" ] && adb shell run-as com.kanishka.pwa grep -Fq "$ready_marker" shared_prefs/kfe_overlay.xml 2>/dev/null; then
+      ready=true
+      break
+    fi
+    if ! kill -0 "$prepare_pid" 2>/dev/null; then break; fi
+    adb_ready || true
+    sleep 1
+  done
+  if [ "$ready" != true ]; then
+    cat "$prepare_log" >&2 || true
+    capture_failure "${label}-not-ready"
+    kill "$prepare_pid" >/dev/null 2>&1 || true
+    echo "Create-intent process-death preparation never reached $ready_marker." >&2
+    return 1
+  fi
+  adb root >/dev/null 2>&1 || true
+  adb wait-for-device || true
+  if ! adb shell id 2>/dev/null | grep -q 'uid=0'; then
+    capture_failure "${label}-root-unavailable"
+    kill "$prepare_pid" >/dev/null 2>&1 || true
+    echo "Cannot inject an actual process kill for create intent $entity_type/$boundary: adb root unavailable." >&2
+    return 1
+  fi
+  pid_to_kill="$(adb shell pidof com.kanishka.pwa 2>/dev/null | tr -d '\r' | awk '{print $1}' || true)"
+  if [ -z "$pid_to_kill" ]; then
+    capture_failure "${label}-pid-missing"
+    kill "$prepare_pid" >/dev/null 2>&1 || true
+    echo "Target app process disappeared before create-intent kill." >&2
+    return 1
+  fi
+  adb shell kill -9 "$pid_to_kill" || {
+    capture_failure "${label}-kill-failed"
+    kill "$prepare_pid" >/dev/null 2>&1 || true
+    echo "SIGKILL failed for create intent $entity_type/$boundary." >&2
+    return 1
+  }
+  adb unroot >/dev/null 2>&1 || true
+  adb wait-for-device || true
+  wait "$prepare_pid" >/dev/null 2>&1 || true
+  for attempt in $(seq 1 25); do
+    local pid_after
+    pid_after="$(adb shell pidof com.kanishka.pwa 2>/dev/null | tr -d '\r' | awk '{print $1}' || true)"
+    if [ -z "$pid_after" ] || [ "$pid_after" != "$pid_to_kill" ]; then
+      process_death_observed=true
+      break
+    fi
+    sleep 1
+  done
+  if [ "$process_death_observed" != true ]; then
+    capture_failure "${label}-kill-not-observed"
+    echo "Target PID did not change after create-intent SIGKILL (PID $pid_to_kill)." >&2
+    return 1
+  fi
+  run_instrumentation \
+    com.kanishka.pwa.KfeCreateIntentRecoveryTest#verifyCreateIntentProcessDeathRecovery \
+    "${label}-verify" 1
+  local case_log="artifacts/android-golden/${label}-case.log"
+  adb logcat -d -s KFE_CREATE_INTENT_DEATH:I '*:S' > "$case_log"
+  cat "$case_log"
+  if ! grep -Fq "CREATE_INTENT_PROCESS_DEATH_CASE_PASS entityType=$entity_type boundary=$boundary" "$case_log"; then
+    capture_failure "${label}-missing-pass-marker"
+    echo "Missing create-intent process-death recovery pass marker for $entity_type/$boundary." >&2
+    return 1
+  fi
+  echo "VERIFIED_CREATE_INTENT_PROCESS_DEATH_CASE entityType=$entity_type boundary=$boundary"
+}
+
 install_apk "$GITHUB_WORKSPACE/artifacts/android-golden/app-debug.apk" "production-apk"
 # Prove Android permits an in-place package replacement and preserves app-private data.
 adb_ready
@@ -368,6 +453,9 @@ run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#canonicalWritesRem
 
 # Crash/retry proof for Start Shift/Start Trip create intents, including lost acknowledgements before and after commit.
 run_instrumentation com.kanishka.pwa.KfeCreateIntentRecoveryTest create-intent-crash-retry 2
+# Actual SIGKILL after intent journaling and after canonical commit-before-intent completion.
+run_create_intent_process_death_case SHIFT AFTER_INTENT
+run_create_intent_process_death_case TRIP AFTER_CANONICAL
 
 # A failed SQLite pending-queue read must reject recovery rather than resolve as an empty queue.
 run_instrumentation com.kanishka.pwa.KfeRecoveryHardeningTest#nativeEventQueueReadFailureMustNotMasqueradeAsSuccessfulEmptyRecovery native-queue-read-failure 1
