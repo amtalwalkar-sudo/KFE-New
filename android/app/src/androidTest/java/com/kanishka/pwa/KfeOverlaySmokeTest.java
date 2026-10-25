@@ -60,7 +60,7 @@ public class KfeOverlaySmokeTest {
       .put("tripStartAt", 0L)
       .put("phaseStartAt", 0L)
       .put("phaseLabel", "STALE TIMER");
-    KfeOverlayService.update(context, staleState.toString());
+    updateWithCanonicalShift(staleState);
     waitForOverlay();
     KfeOverlayService service = waitForService();
     assertEquals("END_RIDE", fieldValue(service, "actionStage"));
@@ -85,7 +85,7 @@ public class KfeOverlaySmokeTest {
       .put("trip", JSONObject.NULL)
       .put("overlayAction", "GO_TO_PICKUP")
       .put("overlayTripId", "awaiting-trip");
-    KfeOverlayService.update(context, state.toString());
+    updateWithCanonicalShift(state);
     waitForOverlay();
     KfeOverlayService service = waitForService();
     String eventId = KfeNativeWorkActionsPlugin.recordPendingAction(context, "GO_TO_PICKUP", "awaiting-trip", "");
@@ -107,7 +107,7 @@ public class KfeOverlaySmokeTest {
       .put("trip", JSONObject.NULL)
       .put("overlayAction", "GO_TO_PICKUP")
       .put("overlayTripId", "progress-trip");
-    KfeOverlayService.update(context, state.toString());
+    updateWithCanonicalShift(state);
     waitForOverlay();
     KfeOverlayService service = waitForService();
     setField(service, "actionStage", "GO_TO_PICKUP");
@@ -128,7 +128,7 @@ public class KfeOverlaySmokeTest {
       .put("trip", JSONObject.NULL)
       .put("overlayAction", "GO_TO_PICKUP")
       .put("overlayTripId", "edge-swipe-trip");
-    KfeOverlayService.update(context, state.toString());
+    updateWithCanonicalShift(state);
     waitForOverlay();
     KfeOverlayService service = waitForService();
     setField(service, "actionStage", "GO_TO_PICKUP");
@@ -147,7 +147,7 @@ public class KfeOverlaySmokeTest {
       .put("trip", JSONObject.NULL)
       .put("overlayAction", "GO_TO_PICKUP")
       .put("overlayTripId", "partial-handle-trip");
-    KfeOverlayService.update(context, state.toString());
+    updateWithCanonicalShift(state);
     waitForOverlay();
     KfeOverlayService service = waitForService();
     setField(service, "actionStage", "GO_TO_PICKUP");
@@ -181,7 +181,7 @@ public class KfeOverlaySmokeTest {
         .put("trip", JSONObject.NULL)
         .put("overlayAction", "GO_TO_PICKUP")
         .put("overlayTripId", tripId);
-      KfeOverlayService.update(context, state.toString());
+      updateWithCanonicalShift(state);
       // An existing overlay can already have non-zero dimensions from @Before,
       // so waitForOverlay() alone does not prove this UPDATE intent was applied.
       // Wait for the service to persist this exact fixture before mutating its
@@ -257,7 +257,7 @@ public class KfeOverlaySmokeTest {
       .put("trip", JSONObject.NULL)
       .put("overlayAction", "GO_TO_PICKUP")
       .put("overlayTripId", "recover-trip");
-    KfeOverlayService.update(context, state.toString());
+    updateWithCanonicalShift(state);
     waitForOverlay();
     KfeOverlayService service = waitForService();
     int pendingBefore = KfeNativeEventStore.get(context).pending(100).length();
@@ -304,7 +304,7 @@ public class KfeOverlaySmokeTest {
       .put("overlayTripId", "trip-a");
 
     state.put("overlayAction", "GO_TO_PICKUP");
-    KfeOverlayService.update(context, state.toString());
+    updateWithCanonicalShift(state);
     waitForOverlay();
     service = waitForService();
     actionStage.set(service, "GO_TO_PICKUP");
@@ -313,7 +313,7 @@ public class KfeOverlaySmokeTest {
     assertEquals("GO_TO_PICKUP|trip-a|", pendingValue());
     acknowledgePending("GO_TO_PICKUP", "trip-a");
     state.put("overlayAction", "START_RIDE");
-    KfeOverlayService.update(context, state.toString());
+    updateWithCanonicalShift(state);
     waitForOverlay();
     service = waitForService();
     actionStage.set(service, "START_RIDE");
@@ -322,7 +322,7 @@ public class KfeOverlaySmokeTest {
     assertEquals("START_RIDE|trip-a|", pendingValue());
     acknowledgePending("START_RIDE", "trip-a");
     state.put("overlayAction", "END_RIDE");
-    KfeOverlayService.update(context, state.toString());
+    updateWithCanonicalShift(state);
     waitForOverlay();
     service = waitForService();
     actionStage.set(service, "END_RIDE");
@@ -364,6 +364,22 @@ public class KfeOverlaySmokeTest {
     assertTrue(KfeOverlayService.hasPersistedOverlayState(context));
     KfeOverlayService.clearPersistedOverlayState(context);
     assertTrue(!KfeOverlayService.hasPersistedOverlayState(context));
+  }
+
+  private void updateWithCanonicalShift(JSONObject state) throws Exception {
+    JSONObject shift = state.optJSONObject("shift");
+    String shiftId = shift == null ? "" : shift.optString("id", "");
+    if (!shiftId.isEmpty()) {
+      JSONObject existing = KfeCanonicalWorkStore.get(context).getRecord("SHIFT", shiftId);
+      if (!existing.optBoolean("found", false)) {
+        seedCanonicalShift(shiftId);
+      } else {
+        String status = existing.optJSONObject("record") == null
+          ? "" : existing.getJSONObject("record").optString("status", "");
+        assertEquals("Overlay test fixtures may only restore against a canonically active shift.", "ACTIVE", status);
+      }
+    }
+    KfeOverlayService.update(context, state.toString());
   }
 
   private void seedCanonicalShift(String shiftId) throws Exception {
@@ -498,7 +514,7 @@ public class KfeOverlaySmokeTest {
       .put("trip", new JSONObject().put("id", "form-trip"))
       .put("overlayAction", "END_RIDE")
       .put("overlayTripId", "form-trip");
-    KfeOverlayService.update(context, state.toString());
+    updateWithCanonicalShift(state);
     waitForOverlay();
     KfeOverlayService service = waitForService();
     setField(service, "actionStage", "END_RIDE");
@@ -532,7 +548,7 @@ public class KfeOverlaySmokeTest {
       .put("overlayAction", "ENTER_FARE")
       .put("overlayTripId", "fare-trip")
       .put("pendingFareId", "fare-trip");
-    KfeOverlayService.update(context, state.toString());
+    updateWithCanonicalShift(state);
     waitForOverlay();
     KfeOverlayService service = waitForService();
     setField(service, "pendingFareTripId", "fare-trip");
@@ -578,7 +594,7 @@ public class KfeOverlaySmokeTest {
       .put("trip", new JSONObject().put("id", "cancel-trip"))
       .put("overlayAction", "START_RIDE")
       .put("overlayTripId", "cancel-trip");
-    KfeOverlayService.update(context, state.toString());
+    updateWithCanonicalShift(state);
     waitForOverlay();
     KfeOverlayService service = waitForService();
     setField(service, "pendingTripId", "cancel-trip");
@@ -614,7 +630,7 @@ public class KfeOverlaySmokeTest {
       .put("overlayAction", "ENTER_FARE")
       .put("overlayTripId", "recovery-trip")
       .put("pendingFareId", "recovery-trip");
-    KfeOverlayService.update(context, state.toString());
+    updateWithCanonicalShift(state);
     waitForOverlay();
     KfeOverlayService service = waitForService();
     final KfeOverlayService initialService = service;
@@ -928,7 +944,7 @@ public class KfeOverlaySmokeTest {
       .put("shift", new JSONObject().put("id", shiftId).put("status", "ACTIVE"))
       .put("trip", JSONObject.NULL).put("overlayAction", "GO_TO_PICKUP")
       .put("overlayTripId", fareTripId).put("revenue", "₹0");
-    KfeOverlayService.update(context, state.toString());
+    updateWithCanonicalShift(state);
     waitForOverlay();
     KfeOverlayService service = waitForService();
 
@@ -943,7 +959,7 @@ public class KfeOverlaySmokeTest {
     JSONObject staleState = new JSONObject(state.toString())
         .put("overlayAction", "GO_TO_PICKUP")
         .put("overlayTripId", "stale-pwa-trip-" + suffix);
-    KfeOverlayService.update(context, staleState.toString());
+    updateWithCanonicalShift(staleState);
     waitForOverlay();
     service = waitForService();
     assertEquals("START_RIDE", fieldValue(service, "actionStage"));
@@ -973,7 +989,7 @@ public class KfeOverlaySmokeTest {
     // Start a second trip and open cancellation using the native overlay's
     // visible RIDE CANCELLATION hit target. No PWA state transition is invoked.
     state.put("overlayAction", "GO_TO_PICKUP").put("overlayTripId", cancelTripId);
-    KfeOverlayService.update(context, state.toString());
+    updateWithCanonicalShift(state);
     waitForOverlay();
     service = waitForService();
     // The overlay view already exists, so waitForOverlay() alone does not prove
