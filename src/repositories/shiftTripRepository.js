@@ -43,8 +43,7 @@ export const configureCanonicalReadBoundary = boundary => {
 }
 
 export const ShiftTripRepository = {
-  async createShift(data) {
-    await ensureCanonicalReadBoundary()
+  async createShift(data) { await ensureCanonicalReadBoundary();
     const now = new Date().toISOString()
     const proposed = createCanonicalShiftRecord(data, { createId: generateUUID, now })
     const intentKey = String(data?.createIntentKey || data?.idempotencyKey || '').trim()
@@ -181,8 +180,7 @@ export const ShiftTripRepository = {
       tx.onabort = () => reject(tx.error || new Error('Atomic shift completion aborted.'))
     })
   },
-  async createTrip(data) {
-    await ensureCanonicalReadBoundary()
+  async createTrip(data) { await ensureCanonicalReadBoundary();
     const now = new Date().toISOString()
     const proposed = createCanonicalTripRecord(data, { createId: generateUUID, now })
     const intentKey = String(data?.createIntentKey || data?.idempotencyKey || '').trim()
