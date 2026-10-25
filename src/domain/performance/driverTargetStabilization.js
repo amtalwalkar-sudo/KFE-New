@@ -47,7 +47,8 @@ const baseDailyFor = (record, applicableBreakEven = null, day = null) => {
 
 export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTargets = [], from, to, applicableBreakEven = null, monthlyBreakEvenByMonth = {} } = {}) {
   const start = dateOf(from), end = dateOf(to)
-  if (!start || !end || end < start) return { available: false, reason: 'INVALID_PERIOD', balanceBefore: null, currentDailyTarget: null, periodBaseTarget: null }
+  const startKey = keyOf(start), endKey = keyOf(end)
+  if (!start || !end || end < start || !startKey || !endKey || endKey < startKey) return { available: false, reason: 'INVALID_PERIOD', balanceBefore: null, currentDailyTarget: null, periodBaseTarget: null }
   // Shift.revenue is the authoritative finalized revenue source. Trip fares are
   // supporting detail and must never be substituted for the shift total.
   const byDay = new Map()
@@ -72,7 +73,9 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
   let historyMissingMonth = null
   for (const dayKey of allActiveDays) {
     const day = dateOf(dayKey)
-    if (!day || day >= start) break
+    // Business periods are IST calendar days. Compare date keys rather than
+    // midnight-UTC Date objects against timestamp-valued period boundaries.
+    if (!day || dayKey >= startKey) break
     const record = latestForDay(driverTargets, day)
     if (!record) continue
     const priorMonthKey = istMonthKey(day)
@@ -87,10 +90,7 @@ export function deriveRollingDriverTarget({ trips = [], shifts = [], driverTarge
     }
     if (byDay.has(dayKey)) balance += baseDaily - byDay.get(dayKey)
   }
-  const currentDays = allActiveDays.filter(k => {
-    const day = dateOf(k)
-    return day && day >= start && day <= end
-  })
+  const currentDays = allActiveDays.filter(k => k >= startKey && k <= endKey)
   let currentDailyTarget = null
   let currentBaseDaily = null
   let currentPeriodBaseTarget = null
