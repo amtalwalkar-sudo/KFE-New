@@ -207,8 +207,13 @@ export const createBackupRepository = stores => Object.freeze({
               }
               for (const record of merged.addedRecordsByStore[storeName] || []) store.add(structuredClone(record))
             }
-            const auditStore = tx.objectStore('audit_history')
-            for (const archive of nativeArchiveAdds) auditStore.add(structuredClone(archive))
+            if (nativeArchiveAdds.length && !stores.includes('audit_history')) {
+              throw new Error('Restore conflict preservation requires the audit_history store in the canonical transaction.')
+            }
+            if (stores.includes('audit_history')) {
+              const auditStore = tx.objectStore('audit_history')
+              for (const archive of nativeArchiveAdds) auditStore.add(structuredClone(archive))
+            }
             const nativeArchivesAdded = nativeArchiveAdds.length
             restoreSummary = {
               added: merged.added + nativeMirrorAdded + nativeArchivesAdded,
