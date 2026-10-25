@@ -22,7 +22,7 @@ import java.security.MessageDigest;
  */
 final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
   private static final String DB_NAME = "kfe_canonical_work.db";
-  private static final int DB_VERSION = 3;
+  private static final int DB_VERSION = 4;
   private static volatile KfeCanonicalWorkStore instance;
 
   static synchronized KfeCanonicalWorkStore get(Context context) {
@@ -40,6 +40,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     db.execSQL("CREATE TABLE canonical_migrations (migration_id TEXT PRIMARY KEY, snapshot_hash TEXT NOT NULL, record_count INTEGER NOT NULL, verified INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, verified_at TEXT)");
     db.execSQL("CREATE TABLE canonical_migration_items (migration_id TEXT NOT NULL, entity_type TEXT NOT NULL, entity_id TEXT NOT NULL, payload_hash TEXT NOT NULL, PRIMARY KEY(migration_id, entity_type, entity_id))");
     createIntentTable(db);
+    createResetTable(db);
   }
 
   @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
@@ -48,6 +49,83 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       db.execSQL("CREATE TABLE IF NOT EXISTS canonical_migration_items (migration_id TEXT NOT NULL, entity_type TEXT NOT NULL, entity_id TEXT NOT NULL, payload_hash TEXT NOT NULL, PRIMARY KEY(migration_id, entity_type, entity_id))");
     }
     if (oldVersion < 3) createIntentTable(db);
+    if (oldVersion < 4) createResetTable(db);
+  }
+
+  private static void createResetTable(SQLiteDatabase db) {
+    db.execSQL("CREATE TABLE IF NOT EXISTS canonical_reset_state (singleton_id INTEGER PRIMARY KEY CHECK(singleton_id=1), reset_id TEXT NOT NULL, state TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)");
+  }
+
+  private void assertNoPendingReset() {
+    try (Cursor cursor = getReadableDatabase().query("canonical_reset_state", new String[]{"reset_id", "state"}, "singleton_id=1", null, null, null, null, "1")) {
+      if (cursor.moveToFirst() && !"COMPLETE".equals(cursor.getString(1))) {
+        throw new IllegalStateException("Canonical reset " + cursor.getString(0) + " is pending; mutations are blocked until recovery completes.");
+      }
+    }
+  }
+
+  synchronized JSONObject beginReset(String resetId) throws Exception {
+    if (empty(resetId)) throw new IllegalArgumentException("resetId is required.");
+    SQLiteDatabase db = getWritableDatabase(); db.beginTransaction();
+    try {
+      try (Cursor current = db.query("canonical_reset_state", new String[]{"reset_id", "state"}, "singleton_id=1", null, null, null, null, "1")) {
+        if (current.moveToFirst()) {
+          String priorId = current.getString(0), state = current.getString(1);
+          if (!resetId.equals(priorId) && !"COMPLETE".equals(state)) throw new IllegalStateException("Another canonical reset is pending: " + priorId);
+          if (resetId.equals(priorId)) {
+            JSONObject prior = new JSONObject().put("resetId", priorId).put("state", state).put("reused", true);
+            db.setTransactionSuccessful(); return prior;
+          }
+        }
+      }
+      try (Cursor active = db.query("canonical_records", new String[]{"payload"}, "entity_type='SHIFT'", null, null, null, null)) {
+        while (active.moveToNext()) if ("ACTIVE".equalsIgnoreCase(new JSONObject(active.getString(0)).optString("status", ""))) throw new IllegalStateException("Reset is blocked while a shift is active; end the shift through the PWA workflow first.");
+      }
+      String now = timestampNow(); ContentValues values = new ContentValues();
+      values.put("singleton_id", 1); values.put("reset_id", resetId); values.put("state", "PREPARED"); values.put("created_at", now); values.put("updated_at", now);
+      db.insertWithOnConflict("canonical_reset_state", null, values, SQLiteDatabase.CONFLICT_REPLACE);
+      db.setTransactionSuccessful(); return new JSONObject().put("resetId", resetId).put("state", "PREPARED").put("reused", false);
+    } finally { db.endTransaction(); }
+  }
+
+  synchronized JSONObject clearForReset(String resetId) throws Exception {
+    SQLiteDatabase db = getWritableDatabase(); db.beginTransaction();
+    try {
+      String state = null;
+      try (Cursor cursor = db.query("canonical_reset_state", new String[]{"state", "reset_id"}, "singleton_id=1", null, null, null, null, "1")) {
+        if (cursor.moveToFirst() && resetId.equals(cursor.getString(1))) state = cursor.getString(0);
+      }
+      if (state == null) throw new IllegalStateException("Canonical reset intent is missing or does not match.");
+      if (!"COMPLETE".equals(state) && !"CLEARED".equals(state)) {
+        try (Cursor active = db.query("canonical_records", new String[]{"payload"}, "entity_type='SHIFT'", null, null, null, null)) {
+          while (active.moveToNext()) if ("ACTIVE".equalsIgnoreCase(new JSONObject(active.getString(0)).optString("status", ""))) throw new IllegalStateException("Reset is blocked while a shift is active.");
+        }
+        db.delete("canonical_records", null, null); db.delete("canonical_operations", null, null); db.delete("canonical_audit", null, null);
+        db.delete("canonical_migrations", null, null); db.delete("canonical_migration_items", null, null);
+        ContentValues cancelled = new ContentValues(); cancelled.put("status", "CANCELLED_BY_RESET"); cancelled.put("updated_at", timestampNow());
+        db.update("canonical_create_intents", cancelled, "status!='CANCELLED_BY_RESET'", null);
+        ContentValues phase = new ContentValues(); phase.put("state", "CLEARED"); phase.put("updated_at", timestampNow());
+        db.update("canonical_reset_state", phase, "singleton_id=1 AND reset_id=?", new String[]{resetId});
+      }
+      db.setTransactionSuccessful(); return new JSONObject().put("resetId", resetId).put("state", "CLEARED");
+    } finally { db.endTransaction(); }
+  }
+
+  synchronized JSONObject completeReset(String resetId) throws Exception {
+    SQLiteDatabase db = getWritableDatabase(); db.beginTransaction();
+    try {
+      ContentValues values = new ContentValues(); values.put("state", "COMPLETE"); values.put("updated_at", timestampNow());
+      int changed = db.update("canonical_reset_state", values, "singleton_id=1 AND reset_id=? AND state IN ('CLEARED','COMPLETE')", new String[]{resetId});
+      if (changed != 1) throw new IllegalStateException("Canonical reset cannot complete before native data is cleared.");
+      db.setTransactionSuccessful(); return new JSONObject().put("resetId", resetId).put("state", "COMPLETE");
+    } finally { db.endTransaction(); }
+  }
+
+  synchronized JSONObject getResetState() throws Exception {
+    try (Cursor cursor = getReadableDatabase().query("canonical_reset_state", new String[]{"reset_id", "state", "created_at", "updated_at"}, "singleton_id=1", null, null, null, null, "1")) {
+      if (!cursor.moveToFirst()) return new JSONObject().put("found", false);
+      return new JSONObject().put("found", true).put("resetId", cursor.getString(0)).put("state", cursor.getString(1)).put("createdAt", cursor.getString(2)).put("updatedAt", cursor.getString(3));
+    }
   }
 
   private static void createIntentTable(SQLiteDatabase db) {
@@ -70,6 +148,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
   }
 
   synchronized JSONObject prepareCreateIntent(String entityType, String intentKey, JSONObject proposedRecord) throws Exception {
+    assertNoPendingReset();
     if (empty(entityType) || empty(intentKey) || proposedRecord == null || empty(proposedRecord.optString("id", ""))) {
       throw new IllegalArgumentException("entityType, intentKey and proposedRecord.id are required.");
     }
@@ -112,6 +191,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
   }
 
   synchronized JSONObject completeCreateIntent(String intentId) throws Exception {
+    assertNoPendingReset();
     if (empty(intentId)) throw new IllegalArgumentException("intentId is required.");
     SQLiteDatabase db = getWritableDatabase();
     db.beginTransaction();
@@ -135,6 +215,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
 
   synchronized Outcome putRecord(String operationId, String entityType, JSONObject record,
       String expectedUpdatedAt, boolean expectAbsent) throws Exception {
+    assertNoPendingReset();
     if (empty(operationId)) throw new IllegalArgumentException("operationId is required.");
     if (empty(entityType)) throw new IllegalArgumentException("entityType is required.");
     if (record == null) throw new IllegalArgumentException("record is required.");
@@ -734,6 +815,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
 
 
   synchronized JSONObject migrateLegacySnapshot(String migrationId, JSONObject snapshot) throws Exception {
+    assertNoPendingReset();
     if (empty(migrationId)) throw new IllegalArgumentException("migrationId is required.");
     if (snapshot == null || !(snapshot.opt("entities") instanceof JSONObject)) {
       throw new IllegalArgumentException("snapshot.entities is required.");
