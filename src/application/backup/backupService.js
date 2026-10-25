@@ -124,7 +124,16 @@ const continueReset = async resetId => {
     journal = { ...journal, state: 'COMPLETE', completedAt: new Date().toISOString() }
     await backupRepository.saveResetJournal(journal)
     backupRepository.clearCanonicalResetBarrier(resetId)
-    if (nativeAvailable) await NativeCanonicalWorkService.releaseCanonicalReset(resetId)
+    if (nativeAvailable) {
+      try {
+        await NativeCanonicalWorkService.releaseCanonicalReset(resetId)
+      } catch (error) {
+        // If native release acknowledgement is uncertain, restore the browser
+        // barrier so neither interface can mutate while reset completion is unclear.
+        backupRepository.setCanonicalResetBarrier(resetId)
+        throw error
+      }
+    }
     return { ok: true, resetId, state: 'COMPLETE' }
   } catch (error) {
     // Keep the barrier and journal intact on uncertain outcomes. Startup retries
@@ -247,9 +256,16 @@ export const recoverPendingReset = async () => {
     if (journal && barrierId && barrierId !== journal.resetId) {
       throw new Error('Reset barrier ID does not match the durable reset journal; startup is blocked.')
     }
-    if (journal && barrierId === journal.resetId) backupRepository.clearCanonicalResetBarrier(journal.resetId)
     if (journal?.state === 'COMPLETE' && journal.nativeRequired && nativeAvailable) {
-      await NativeCanonicalWorkService.releaseCanonicalReset(journal.resetId)
+      if (barrierId === journal.resetId) backupRepository.clearCanonicalResetBarrier(journal.resetId)
+      try {
+        await NativeCanonicalWorkService.releaseCanonicalReset(journal.resetId)
+      } catch (error) {
+        backupRepository.setCanonicalResetBarrier(journal.resetId)
+        throw error
+      }
+    } else if (journal && barrierId === journal.resetId) {
+      backupRepository.clearCanonicalResetBarrier(journal.resetId)
     }
     return { recovered: false, state: journal?.state || null }
   }
