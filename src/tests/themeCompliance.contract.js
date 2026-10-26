@@ -14,13 +14,15 @@ const adminView = await readFile(new URL('../views/AdminView.vue', import.meta.u
 const canonicalCss = await readFile(new URL('../styles/kfe-ui.css', import.meta.url), 'utf8')
 assert.equal(pkg.scripts['ui:theme-audit'], 'node tools/theme-compliance-audit.mjs')
 assert.match(runner, /themeCompliance.contract.js/)
-assert.match(controller, /dataset\.kfeTheme='night'/)
-assert.match(controller, /dataset\.kfeThemeMode='dark'/)
-assert.match(controller, /localStorage\.setItem\(STORAGE_KEY,'dark'\)/)
-assert.doesNotMatch(controller, /'auto','light','dark'/)
-// Application Settings intentionally has no theme selector or ride-notification toggle.
-assert.doesNotMatch(adminView, /theme-selector|Dark theme enabled|☀ Light|◐ Auto|chooseTheme/)
-assert.doesNotMatch(adminView, /chooseNotifications|notificationsEnabled|Control KFE ride and system action notifications/)
+assert.match(controller, /VALID_MODES=new Set\\(\\['auto','light','dark'\\]\\)/)
+assert.match(controller, /root\\.dataset\\.kfeTheme=resolved/)
+assert.match(controller, /localStorage\\.setItem\\(STORAGE_KEY,selected\\)/)
+assert.match(adminView, /☀ Light/)
+assert.match(adminView, /☾ Dark/)
+assert.match(adminView, /◐ Auto/)
+assert.match(adminView, /chooseTheme/)
+assert.match(adminView, /chooseNotifications/)
+assert.match(adminView, /Control KFE ride and system action notifications/)
 assert.match(canonicalCss, /--kfe-muted-text:#B8C2CD/)
 assert.match(canonicalCss, /color-scheme:dark/)
 
@@ -28,4 +30,4 @@ const result = spawnSync(process.execPath, [tool.pathname], { encoding: 'utf8' }
 assert.equal(result.status, 0, result.stdout + result.stderr)
 assert.match(result.stdout, /THEME COMPLIANCE AUDIT: PASS/)
 
-console.log('Theme compliance contract: PASS — canonical theme is enforced across the PWA presentation layer.')
+console.log('Theme compliance contract: PASS — Light/Dark/Auto themes and notification settings are available through canonical application settings.')
