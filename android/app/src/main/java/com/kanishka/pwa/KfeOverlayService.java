@@ -146,9 +146,9 @@ public class KfeOverlayService extends Service {
     try{return new JSONArray(context.getSharedPreferences("kfe_overlay",Context.MODE_PRIVATE).getString(PENDING_GPS_KEY,"[]")).length();}
     catch(Exception ignored){return 0;}
   }
-  static void queueEventLocationCapture(Context context,String tripId,String eventType){
-    if(tripId==null||tripId.trim().isEmpty()||eventType==null)return;
-    if(!"TRIP_START".equals(eventType)&&!"TRIP_END".equals(eventType)&&!"PICKUP_START".equals(eventType)&&!"TRIP_CANCELLED".equals(eventType))return;
+  static boolean queueEventLocationCapture(Context context,String tripId,String eventType){
+    if(tripId==null||tripId.trim().isEmpty()||eventType==null)return false;
+    if(!"TRIP_START".equals(eventType)&&!"TRIP_END".equals(eventType)&&!"PICKUP_START".equals(eventType)&&!"TRIP_CANCELLED".equals(eventType))return false;
     try{
       android.content.SharedPreferences prefs=context.getSharedPreferences("kfe_overlay",Context.MODE_PRIVATE);
       JSONArray items=new JSONArray(prefs.getString(PENDING_GPS_KEY,"[]"));
@@ -161,7 +161,8 @@ public class KfeOverlayService extends Service {
       boolean background=Build.VERSION.SDK_INT<Build.VERSION_CODES.Q||ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_BACKGROUND_LOCATION)==PackageManager.PERMISSION_GRANTED;
       if(fine&&background)retryPendingLocations(context);
       else Log.i("KFE-GPS","Event "+key+" durably queued; background capture is disabled until required permissions are granted.");
-    }catch(Exception error){Log.e("KFE-GPS","Could not queue PWA event GPS capture.",error);}
+      return true;
+    }catch(Exception error){Log.e("KFE-GPS","Could not queue PWA event GPS capture.",error);return false;}
   }
   public static void hide(Context context){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_HIDE);context.startService(i);}
   public static boolean isResumableState(String raw){
