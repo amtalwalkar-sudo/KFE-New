@@ -77,8 +77,9 @@ export const ActivityTimelineReadService = Object.freeze({
           fareLabel: fare.label,
           fareValue: fare.value,
           fareState: fare.state,
-          pickupArea: locality(trip.tripStartLocation?.placeName),
-          dropArea: locality(trip.tripEndLocation?.placeName),
+          pickupArea: validTime(trip.tripStartAt) != null ? locality(trip.tripStartLocation?.placeName) : 'Location unavailable',
+          // A cancelled trip's end GPS fix is a cancellation location, not a passenger drop-off.
+          dropArea: trip.status === 'COMPLETED' ? locality(trip.tripEndLocation?.placeName) : 'Location unavailable',
         }
       })
       .sort((a, b) => Date.parse(b.timeAt) - Date.parse(a.timeAt))
