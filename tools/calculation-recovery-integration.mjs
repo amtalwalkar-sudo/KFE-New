@@ -149,8 +149,11 @@ try {
     const restoredShift = (await ShiftTripRepository.getAllShifts()).find(item => item.id === shift.id)
     const restoredFuel = (await FuelRepository.getAll()).find(item => item.id === fuel.record.id)
     const restoredGapTrip = (await ShiftTripRepository.getTripsForShift(shift.id)).find(item => item.id === gapTrip.id)
+    const restoredTripSnapshots = await LocationRepository.forEntity('TRIP', gapTrip.id)
+    const restoredStartSnapshot = restoredTripSnapshots.find(item => item.eventType === 'TRIP_START')
+    const restoredEndSnapshot = restoredTripSnapshots.find(item => item.eventType === 'TRIP_END')
     if (!restoredShift || !restoredFuel || restoredFuel.amount !== 375) throw new Error('Cloud-restore path did not restore canonical shift and edited fuel records')
-    if (!restoredGapTrip || restoredGapTrip.tripKm !== 0 || restoredGapTrip.tripStartLocation?.capturedAt !== startSnapshot.capturedAt || restoredGapTrip.tripEndLocation?.capturedAt !== endSnapshot.capturedAt) throw new Error('Cloud restore did not preserve trip boundary snapshots and manually entered kilometres')
+    if (!restoredGapTrip || restoredGapTrip.tripKm !== 0 || restoredStartSnapshot?.capturedAt !== startSnapshot.capturedAt || restoredEndSnapshot?.capturedAt !== endSnapshot.capturedAt) throw new Error('Cloud restore did not preserve shared GPS snapshots and manually entered kilometres')
     const restoredOperational = await OperationalRecordService.reconstructShift(shift.id)
     if (restoredOperational.fuelCost !== 375 || restoredOperational.unclassifiedKm !== 20) throw new Error('Downstream read model did not consume restored canonical records')
     return {
@@ -162,7 +165,7 @@ try {
       canonicalChangeInvalidation: changeObserved,
       timelineAndPerformanceMovementAgreement: true,
       cloudRestoreAndDownstreamRecalculation: true,
-      tripBoundarySnapshotsSurviveOfflineAndRestore: restoredGapTrip.tripKm === 0 && restoredGapTrip.tripStartLocation?.capturedAt === startSnapshot.capturedAt && restoredGapTrip.tripEndLocation?.capturedAt === endSnapshot.capturedAt,
+      tripBoundarySnapshotsSurviveOfflineAndRestore: restoredGapTrip.tripKm === 0 && restoredStartSnapshot?.capturedAt === startSnapshot.capturedAt && restoredEndSnapshot?.capturedAt === endSnapshot.capturedAt,
     }
   })
   assert.equal(result.fareClearPersisted, true)
