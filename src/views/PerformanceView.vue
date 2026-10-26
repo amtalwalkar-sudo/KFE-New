@@ -1,8 +1,6 @@
 <script setup>
 import { onMounted, onUnmounted, ref, watch } from 'vue'
-import { PerformanceService } from '../application/performance/performanceService.js'
-import { getKfeReferenceNow, reportingRangeFor } from '../domain/time/ist.js'
-import { derivePhaseOnePerformanceOverview } from '../domain/performance/phaseOneOverview.js'
+import { PhaseOnePerformanceService } from '../application/performance/phaseOnePerformanceService.js'
 import '../styles/performance.css'
 
 const period = ref('DAY')
@@ -29,12 +27,7 @@ const load = async () => {
   loading.value = true
   error.value = ''
   try {
-    const now = getKfeReferenceNow()
-    const range = reportingRangeFor(period.value, now)
-    if (!range?.from || !range?.to || range.to < range.from) throw new Error('Could not resolve the selected IST reporting period.')
-    const snapshot = await PerformanceService.getSnapshot()
-    const metrics = PerformanceService.getMetrics(snapshot, range)
-    const result = derivePhaseOnePerformanceOverview(snapshot, range, metrics)
+    const result = await PhaseOnePerformanceService.getOverview(period.value)
     if (version === requestVersion) overview.value = result
   } catch (cause) {
     if (version === requestVersion) error.value = cause?.message || 'Performance could not be loaded.'
@@ -45,7 +38,7 @@ const load = async () => {
 watch(period, () => { void load() })
 onMounted(() => {
   void load()
-  unsubscribe = PerformanceService.subscribeDataChanges(() => { void load() })
+  unsubscribe = PhaseOnePerformanceService.subscribeDataChanges(() => { void load() })
 })
 onUnmounted(() => {
   requestVersion += 1
