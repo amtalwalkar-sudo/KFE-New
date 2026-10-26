@@ -2,6 +2,9 @@ package com.kanishka.pwa;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
+import android.provider.Settings;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
@@ -101,6 +104,19 @@ public class KfeTripBoundaryLocationPlugin extends Plugin {
     KfeOverlayService.retryPendingLocations(getContext());
     call.resolve();
   }
+  @com.getcapacitor.PluginMethod
+  public void openBackgroundLocationSettings(PluginCall call) {
+    try {
+      Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+        Uri.fromParts("package", getContext().getPackageName(), null));
+      intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+      getContext().startActivity(intent);
+      call.resolve();
+    } catch (Exception error) {
+      call.reject("Could not open Android app permission settings.", error);
+    }
+  }
+
   @com.getcapacitor.PluginMethod
   public void queueEventLocationCapture(PluginCall call) {
     String entityType = call.getString("entityType", "TRIP");
