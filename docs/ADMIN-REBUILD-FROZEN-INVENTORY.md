@@ -15,16 +15,22 @@
 - Do not add operational Shift, Trip, refuelling-log, generic Expense, or other operational-authority forms to Admin. The existing one-time fuel-baseline prerequisite remains a distinct Diagnostics → Calculations setup flow and writes through `CalculationsService`; it is not a replacement for Work refuelling capture.
 - Derived values (EMI, quantities where calculated, KM totals, provisions, break-even and target results) remain calculated by their existing authoritative paths, not typed as duplicate facts.
 
-## Existing Admin navigation headings
+## Approved Admin navigation — scope amendment (2026-10-27)
 
-- Diagnostics → Calculations
-- Business Setup → Business Setup, Vehicle, Driver
-- Vehicle Records → Compliance, Maintenance
-- Finance → Loan, Prepayments, Ledger
-- Target → Driver Monthly Target, Maintenance per KM
-- Settings → Backup & Restore, Application Settings, Data Reset
+The approved visible Admin navigation is now:
 
-Current source also exposes Loan Payments and Payments/Settlements as record actions within their parent records; preserve these entry flows and headings.
+- **Business Setup** → Business Setup, Vehicle, Driver
+- **Vehicle Records** → Compliance, Maintenance
+- **Finance** → Loan
+- **Settings** → Backup & Restore, Application Settings, Data Reset
+
+Loan Payments/EMIs, Prepayments, repayment history, and the amortization schedule belong within the Loan workspace. Payments/Settlements for maintenance and compliance belong within their relevant parent records.
+
+Ledger is not a visible Admin menu item. Diagnostics/Calculations and Target are not top-level Admin menu sections under this approved navigation.
+
+**Scope boundary:** this is a navigation/workflow placement amendment, not deletion of canonical records, historical data, business rules, calculation engines, or their contracts. Removing a menu entry must not silently delete underlying capabilities or data. Any decision to delete or retire an underlying feature requires a separate explicit scope decision and appropriate data/contract review.
+
+The previous navigation inventory is superseded by this approved scope amendment. The Admin Extensibility and Stability Contract defines how future changes may extend this structure without silently destabilising existing features.
 
 ## Business-owned input inventory (reconciled against `adminFormDefinitions.js`)
 
