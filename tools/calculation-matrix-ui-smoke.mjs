@@ -53,7 +53,7 @@ try {
   for (const label of ['Timeline', 'Performance']) if (!(await page.locator('.bottom-nav').getByText(label, { exact: true }).count())) throw new Error('Bottom navigation is missing ' + label)
 
   await route(page, 'performance', '.performance-page', 'Performance')
-  if (await page.locator('.performance-page').count() !== 0) throw new Error('Performance unexpectedly mounted the retired presentation')
+  if (await page.locator('.performance-page').count() !== 1) throw new Error('Performance did not mount')
   if (await page.locator('header.top-bar').count() !== 0) throw new Error('Performance route unexpectedly displays the shell header')
   if (await page.locator('.performance-page').count() !== 1) throw new Error('Performance page must be unique')
 
