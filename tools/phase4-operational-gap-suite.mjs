@@ -418,17 +418,18 @@ try {
 
   // F5: restore connectivity and verify the same canonical shift survives recovery/reload.
   await context.setOffline(false)
-  // F5 recovery also guards the rebuilt read-only Timeline contract: Timeline is live,
-  // while Performance intentionally remains blank. Do not assert the retired blank
-  // Timeline behavior here; it would mask regressions in the current reporting route.
+  // F5 recovery also guards the read-only reporting routes: both Timeline and Performance
+  // must mount their current projections without mutating canonical operational state.
   await route('timeline', '.activity-timeline-page', 'Timeline')
   await page.locator('.activity-timeline-page').waitFor({ state: 'visible', timeout: 30000 })
   assert(await page.getByText('Average fuel cost/km', { exact: true }).count() === 1, 'Timeline fuel cost/km header is missing')
   assert(await page.getByText('Total amount refilled', { exact: true }).count() === 1, 'Timeline refilled amount header is missing')
   assert(await page.locator('.performance-page').count() === 0, 'Timeline mounted retired Performance presentation.')
-  await route('performance', '.kfe-blank-workspace', 'Blank Performance workspace')
-  await page.locator('.kfe-blank-workspace').waitFor({ state: 'visible', timeout: 30000 })
-  assert(await page.locator('.activity-timeline-page, .performance-page').count() === 0, 'Performance route mounted a retired presentation.')
+  await route('performance', '.performance-page', 'Performance dashboard')
+  await page.locator('.performance-page').waitFor({ state: 'visible', timeout: 30000 })
+  assert(await page.locator('.performance-page').count() === 1, 'Performance dashboard did not render.')
+  assert(await page.getByRole('heading', { name: 'Performance' }).count() === 1, 'Performance title is missing.')
+  assert(await page.getByRole('combobox', { name: 'Performance period' }).count() === 1, 'Performance period filter is missing.')
   for (const label of ['Timeline', 'Performance']) assert(await page.locator('.bottom-nav').getByText(label, { exact: true }).count(), 'Bottom navigation must retain ' + label)
   const recoveredShiftState = await page.evaluate(async () => {
     const db = await new Promise((resolve, reject) => {
