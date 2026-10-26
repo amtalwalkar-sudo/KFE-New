@@ -64,7 +64,7 @@ assert.doesNotMatch(admin, /OfflineMapService|offline-map-region-picker|Download
 assert.doesNotMatch(ports + adapter, /movementTrace|nativeGps|routing|ValhallaRoutingAdapter|MovementTraceService|NativeGpsService/)
 assert.doesNotMatch(shell, /gpsStatusService|header-gps|refreshGps|gpsState/)
 assert.doesNotMatch(store, /MovementTraceService|lifecycleLocations|tripLocations|captureLocation|loadEntityLocations/)
-assert.match(overlay, /captureOneShotTripBoundary/)
+assert.match(overlay, /captureOneShotEventLocation/)
 assert.match(overlay, /persistOneShotTripLocation/)
 assert.match(overlay, /putRecord\(operationId,"GPS_SNAPSHOT",snapshot\)/, 'Native overlay must persist the same GPS_SNAPSHOT event model as the PWA.')
 assert.doesNotMatch(overlay, /persistTripBoundarySnapshot\(/, 'Native overlay must not write a second location copy into the TRIP record.')
@@ -76,7 +76,7 @@ assert.match(pwaRideStart, /captureAndPersistEventLocation\('TRIP', result\.id, 
 const nativePickupTransition = overlay.slice(overlay.indexOf('if("GO_TO_PICKUP".equals(actionStage)){'), overlay.indexOf('if("START_RIDE".equals(actionStage)){'))
 const nativeRideStart = overlay.slice(overlay.indexOf('if("START_RIDE".equals(actionStage)){'), overlay.indexOf('if("END_RIDE".equals(actionStage)){'))
 assert.doesNotMatch(nativePickupTransition, /tripStartLocation/, 'Native start snapshot must not be captured while going to pickup.')
-assert.match(nativeRideStart, /captureOneShotTripBoundary\(pendingTripId, "TRIP_START"\)/, 'Native start snapshot must be captured on the durable START_RIDE transition.')
+assert.match(nativeRideStart, /captureOneShotEventLocation\(pendingTripId, "TRIP_START"\)/, 'Native start snapshot must be captured on the durable START_RIDE transition.')
 assert.doesNotMatch(overlay, /requestLocationUpdates|startLocationUpdates|ValhallaRoutingAdapter|routeTrace/)
 
 console.log('GPS tracking and Valhalla removal contract: PASS — one-shot trip-boundary snapshots remain; continuous tracking and routing are absent.')
