@@ -1,7 +1,7 @@
 # Admin Extensibility and Stability Contract
 
-**Status:** Supporting architectural contract  
-**Scope:** KFE Admin navigation, feature workflows, forms, calculations, and presentation  
+**Status:** Supporting architectural contract
+**Scope:** KFE Admin navigation, feature workflows, forms, calculations, and presentation
 **Purpose:** Allow Admin to grow over time without destabilising existing, working features.
 
 This document records engineering constraints for extending Admin. It does not claim that the current code already satisfies them; implementation must begin with an audit and demonstrate compliance with tests.
