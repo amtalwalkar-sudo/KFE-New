@@ -21,7 +21,8 @@ for (const permission of [
 
 assert.match(manifest, /FOREGROUND_SERVICE_LOCATION/)
 assert.match(manifest, /foregroundServiceType="specialUse\|location"/)
-assert.doesNotMatch(manifest, /ACCESS_BACKGROUND_LOCATION|\.KfeNativeGpsService/)
+assert.match(manifest, /ACCESS_BACKGROUND_LOCATION/)
+assert.doesNotMatch(manifest, /\.KfeNativeGpsService/)
 assert.doesNotMatch(manifest, /SCHEDULE_EXACT_ALARM/)
 assert.match(manifest, /android:allowBackup="false"/)
 assert.match(manifest, /android:fullBackupOnly="false"/)
