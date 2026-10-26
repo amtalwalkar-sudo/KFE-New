@@ -82,6 +82,7 @@ void (async () => {
     if (typeof formSystem === 'object') void formSystem
 
     let retryCloudBackupOnStartup = null
+    let reconcilePersistedTripLocations = () => {}
     if (!window.__KFE_STARTUP_LIFECYCLE_BOUND__) {
       window.__KFE_STARTUP_LIFECYCLE_BOUND__ = true
       // Dropbox backup requires the application data/credential context. The
@@ -94,7 +95,7 @@ void (async () => {
           if (result?.status === 'failed') console.warn('KFE automatic Dropbox backup needs attention:', result.error)
         }).catch(error => console.warn('KFE automatic Dropbox backup retry failed:', error))
       }
-      const reconcilePersistedTripLocations = () => {
+      reconcilePersistedTripLocations = () => {
         if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
         void import('./application/location/eventLocationService.js')
           .then(({ EventLocationService }) => EventLocationService.reconcilePersistedTripLocations())
