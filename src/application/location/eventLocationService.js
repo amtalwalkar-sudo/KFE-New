@@ -123,7 +123,13 @@ export const EventLocationService = {
     }
     const native = await CanonicalWorkBoundary.listEventLocationSnapshots().catch(() => [])
     const record = native.find(item => item.id === snapshotId)
-    if (record) await this.persistNativeSnapshot({ ...record, placeName: String(placeName).trim(), updatedAt: new Date().toISOString() })
+    if (record) {
+      const persisted = await this.persistNativeSnapshot({ ...record, placeName: String(placeName).trim(), updatedAt: new Date().toISOString() })
+      if (persisted) {
+        const { notifyCanonicalDataChanged } = await import('../../utils/indexedDB.js')
+        notifyCanonicalDataChanged({ stores: ['gps_snapshots'], reason: 'native-gps-place-name-enriched' })
+      }
+    }
     return updated
   },
   async persistTripBoundaryLabel(tripId, field, placeName) {
