@@ -5,6 +5,9 @@ const indicator = fs.readFileSync('src/components/shell/GpsStatusIndicator.vue',
 const shell = fs.readFileSync('src/components/shell/KfeShell.vue', 'utf8')
 const plugin = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeTripBoundaryLocationPlugin.java', 'utf8')
 const manifest = fs.readFileSync('android/app/src/main/AndroidManifest.xml', 'utf8')
+const overlayService = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java', 'utf8')
+const workService = fs.readFileSync('src/application/work/workService.js', 'utf8')
+const eventLocationService = fs.readFileSync('src/application/location/eventLocationService.js', 'utf8')
 
 assert.match(shell, /import GpsStatusIndicator from '\.\/GpsStatusIndicator\.vue'/,
   'the GPS status indicator must be mounted in the shared application header')
