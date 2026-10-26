@@ -120,7 +120,7 @@ onUnmounted(() => {
       </div>
       <p class="activity-timeline-footnote">Cost/km uses consecutive recorded full-tank odometer readings. Partial refills count toward total fuel spending but do not create a mileage interval.</p>
       <div v-if="!loading && !error && snapshot.fuelLogs.length === 0" class="activity-timeline-empty">No fuel records recorded for this period.</div>
-      <ol v-else class="activity-timeline-list">
+      <ol v-else-if="!error" class="activity-timeline-list">
         <li v-for="fuel in snapshot.fuelLogs" :key="fuel.id" class="activity-timeline-record">
           <div class="activity-timeline-record-top">
             <strong>{{ dateTime(fuel.timeAt) }}</strong>
