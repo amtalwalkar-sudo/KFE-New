@@ -319,6 +319,10 @@ public class KfeOverlayService extends Service {
       if(shift==null||shift.optString("id","").isEmpty()){
         clearPersistedOverlayState(this);
         removeOverlay();
+        if(hasPendingEventLocations()&&hasBackgroundLocationPermission()){
+          retryPendingEventLocations();
+          return;
+        }
         stopForeground(STOP_FOREGROUND_REMOVE);
         stopSelf();
         return;
