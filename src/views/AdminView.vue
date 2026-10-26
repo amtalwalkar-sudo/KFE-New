@@ -12,7 +12,7 @@ import { getKfeReferenceNow, istDateKey } from '../domain/time/ist.js'
 import { deriveLoanPosition, calculatePrepaymentEstimate, paymentAllocationPreview } from '../domain/finance/loanEngine.js'
 import CalculationsView from './CalculationsView.vue'
 import { getKfeThemeSettings, setKfeThemeMode } from '../presentation/theme/kfeThemeController.js'
-import { ApplicationSettingsService } from '../application/settings/applicationSettingsService.js'
+import { ApplicationSettingsService } from '../presentation/settings/settingsPreferenceService.js'
 
 const items=[
  {key:'businessSetup',category:'Business Setup',title:'Business Setup',icon:'⌂'},
