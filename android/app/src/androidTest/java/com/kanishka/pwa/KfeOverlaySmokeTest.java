@@ -812,6 +812,24 @@ public class KfeOverlaySmokeTest {
   }
 
   @Test public void nativeTripBoundarySnapshotPersistsOfflineAndIsIdempotent() throws Exception {
+    // This is the positive-path capture test: explicitly grant the same runtime
+    // permissions required by production before asking the service for a fix.
+    // Permission-denial behavior is covered separately; a test must not depend
+    // on emulator image defaults for dangerous permissions.
+    android.app.UiAutomation automation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+    automation.grantRuntimePermission(context.getPackageName(), android.Manifest.permission.ACCESS_FINE_LOCATION);
+    automation.grantRuntimePermission(context.getPackageName(), android.Manifest.permission.ACCESS_COARSE_LOCATION);
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+      automation.grantRuntimePermission(context.getPackageName(), android.Manifest.permission.ACCESS_BACKGROUND_LOCATION);
+    }
+    assertEquals("Precise location permission must be granted for the positive GPS smoke test.",
+      android.content.pm.PackageManager.PERMISSION_GRANTED,
+      androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION));
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+      assertEquals("Background location permission must be granted for the positive GPS smoke test.",
+        android.content.pm.PackageManager.PERMISSION_GRANTED,
+        androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION));
+    }
     String shiftId = "offline-gps-shift-" + System.currentTimeMillis();
     String tripId = "offline-gps-trip-" + System.currentTimeMillis();
     String tripStartAt = java.time.Instant.now().minusSeconds(30).toString();
