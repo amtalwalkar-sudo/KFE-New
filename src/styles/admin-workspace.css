@@ -376,3 +376,13 @@
 }
 
 /* Impact review: Admin namespace only; semantic palette and responsive layout are intentionally isolated here. */
+
+.admin-page .application-setting{display:grid;gap:8px;padding:16px 0;border-bottom:1px solid var(--admin-border)}
+.admin-page .application-setting:last-child{border-bottom:0}
+.admin-page .application-setting p{margin:0;color:var(--admin-muted);line-height:1.45}
+.admin-page .theme-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.admin-page .theme-options button{min-height:48px;border:1px solid var(--admin-border);border-radius:12px;background:var(--admin-panel);color:inherit;font-weight:750}
+.admin-page .theme-options button.active{border-color:var(--kfe-ui-accent);background:var(--kfe-accent-soft);box-shadow:inset 0 0 0 1px var(--kfe-ui-accent)}
+.admin-page .notification-toggle{display:flex;align-items:center;gap:10px;min-height:48px;font-weight:700}
+.admin-page .notification-toggle input{width:22px;height:22px;min-height:22px;accent-color:var(--kfe-ui-accent)}
+@media(max-width:420px){.admin-page .theme-options{grid-template-columns:1fr}}
