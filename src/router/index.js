@@ -3,7 +3,7 @@ import { Capacitor } from '@capacitor/core'
 import WorkModuleView from '../views/WorkModuleView.vue'
 import ActivityTimelineView from '../views/ActivityTimelineView.vue'
 import PerformanceView from '../views/PerformanceView.vue'
-import AdminSettingsOnlyView from '../views/AdminSettingsOnlyView.vue'
+import AdminView from '../views/AdminView.vue'
 
 const routes = [
   { path: '/', name: 'Work', component: WorkModuleView },
@@ -11,7 +11,8 @@ const routes = [
   { path: '/timeline', name: 'Timeline', component: ActivityTimelineView, meta: { shell: { header: false } } },
   // Performance is a read-only projection of saved operational records.
   { path: '/performance', name: 'Performance', component: PerformanceView, meta: { shell: { header: false } } },
-  { path: '/admin', name: 'Admin', component: AdminSettingsOnlyView },
+  // Admin owns business master data, financial records, planning inputs, and settings.
+  { path: '/admin', name: 'Admin', component: AdminView },
 ]
 
 // Vite uses relative asset URLs so the same bundle works in Pages and Capacitor.
