@@ -90,10 +90,12 @@ export const EventLocationService = {
         for (const boundary of [
           { field: 'tripStartLocation', eventType: 'TRIP_START', eventAt: trip.tripStartAt },
           { field: 'tripEndLocation', eventType: 'TRIP_END', eventAt: trip.tripEndAt },
+          { field: null, eventType: 'PICKUP_START', eventAt: trip.createdAt || trip.tripStartAt },
+          { field: null, eventType: 'TRIP_CANCELLED', eventAt: trip.tripEndAt },
         ]) {
           const key = `${trip.id}:${boundary.eventType}`
           let snapshot = byEvent.get(key)
-          const legacy = trip[boundary.field]
+          const legacy = boundary.field ? trip[boundary.field] : null
           // Reuse the original fix for old records; never take a new GPS reading
           // just to repair a missing locality label.
           const latitude = legacy?.latitude == null || legacy.latitude === '' ? NaN : Number(legacy.latitude)
