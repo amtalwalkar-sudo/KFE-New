@@ -1,7 +1,7 @@
 # KFE 2.0 — Universal Form Standards
 
 **Status:** Living architectural contract  
-**Scope:** All KFE PWA business forms and interactive form controls, including driver-facing Work forms and Admin master-data, configuration, and financial record forms  
+**Scope:** All KFE PWA business forms and interactive form controls, including driver-facing Work forms and Admin master-data, configuration, and financial record forms
 **Authority:** This document is the editable source of truth for KFE form architecture, resilience, recovery, and UI standards.
 
 ## 1. Permanent hierarchy
