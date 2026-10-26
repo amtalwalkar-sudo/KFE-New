@@ -132,10 +132,4 @@ export const EventLocationService = {
     }
     return updated
   },
-  async persistTripBoundaryLabel(tripId, field, placeName) {
-    return CanonicalWorkBoundary.updateTripBoundaryPlaceName({
-      operationId: CanonicalWorkBoundary.createOperationId(),
-      tripId, field, placeName,
-    })
-  }
 }
