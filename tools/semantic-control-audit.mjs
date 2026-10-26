@@ -198,7 +198,7 @@ try {
   evidence.push({ id: 'WORK.SAVE_TRIP_DETAILS', result: 'PASS', expected: 'optional fare/toll/parking persist on completed trip', persisted: { trips: state.trips.length, status: state.trips[0].status, revenue: state.trips[0].revenue, toll: state.trips[0].toll, parking: state.trips[0].parking } })
 
   // Contract 6: OFFLINE -> End Shift persists the closing odometer only; trip fare
-  // remains on its completed trip record. Timeline is intentionally blank; canonical data stays persisted.
+  // remains on its completed trip record and appears in the read-only Timeline.
   await page.getByRole('button', { name: 'ONLINE', exact: true }).click()
   assert(await page.getByRole('button', { name: 'ONLINE', exact: true }).getAttribute('aria-pressed') === 'true', 'End Shift opened by leaving the online shift state')
   assert(await page.locator('.end-gate').isVisible(), 'End Shift form did not open contextually inside Work')
@@ -210,12 +210,14 @@ try {
   assert(state.trips.length === 1 && Number(state.trips[0].revenue) === 800, 'END SHIFT must preserve the separately saved trip fare')
   assert(state.trips.length === 1 && Number(state.trips[0].revenue) === 800, 'END SHIFT trip linkage contract failed')
   await page.goto(new URL('timeline', base).href, { waitUntil: 'domcontentloaded' })
-  await page.locator('.kfe-blank-workspace').waitFor({ state: 'visible' })
-  assert(await page.locator('.activity-timeline').count() === 0, 'Timeline must remain blank after shift closure')
+  await page.locator('.activity-timeline-page').waitFor({ state: 'visible', timeout: 30000 })
+  await page.getByText('Completed', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
+  await page.getByText('₹800', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
+  assert(await page.locator('.activity-timeline-page').count() === 1, 'Timeline did not render the completed ride after shift closure')
   await page.goto(new URL('performance', base).href, { waitUntil: 'domcontentloaded' })
   await page.locator('.kfe-blank-workspace').waitFor({ state: 'visible' })
   assert(await page.locator('.performance-page').count() === 0, 'Performance must remain intentionally blank')
-  evidence.push({ id: 'WORK.END_SHIFT', result: 'PASS', expected: 'COMPLETED shift/revenue persist while Timeline and Performance remain blank', persisted: { shiftStatus: state.shifts[0].status, endOdometer: state.shifts[0].endOdometer, revenue: state.shifts[0].revenue } })
+  evidence.push({ id: 'WORK.END_SHIFT', result: 'PASS', expected: 'COMPLETED shift/revenue persist; read-only Timeline shows the fare and Performance remains blank', persisted: { shiftStatus: state.shifts[0].status, endOdometer: state.shifts[0].endOdometer, revenue: state.shifts[0].revenue } })
 
   // Contract 7: Back from start-shift gate must not write a shift.
   await reset(page)
@@ -261,9 +263,12 @@ try {
   state = await db(page, ['trips'])
   assert(state.trips.length === 1 && state.trips[0].status === 'CANCELLED', 'CANCEL TRIP contract failed')
   await page.goto(new URL('timeline', base).href, { waitUntil: 'domcontentloaded' })
-  await page.locator('.kfe-blank-workspace').waitFor({ state: 'visible' })
-  assert(await page.locator('.activity-timeline').count() === 0, 'Timeline must remain blank after cancellation')
-  evidence.push({ id: 'WORK.CANCEL_TRIP', result: 'PASS', expected: 'CANCELLED trip persists canonically while Timeline remains blank', persisted: { trips: state.trips.length, status: state.trips[0]?.status } })
+  await page.locator('.activity-timeline-page').waitFor({ state: 'visible', timeout: 30000 })
+  await page.getByText('Cancelled', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
+  await page.getByText('Cancellation fee', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
+  await page.getByText('₹250', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
+  assert(await page.locator('.activity-timeline-page').count() === 1, 'Timeline did not render the cancelled trip')
+  evidence.push({ id: 'WORK.CANCEL_TRIP', result: 'PASS', expected: 'CANCELLED trip and cancellation fee persist canonically and appear in read-only Timeline', persisted: { trips: state.trips.length, status: state.trips[0]?.status } })
 
   // Forms Contract: every Work contextual input surface must preserve its state
   // context, use the KFE-owned intelligent numeric input surface, keep controls in the viewport, and
@@ -365,31 +370,31 @@ try {
   assert(state.shifts.length === 1 && state.shifts[0].status === 'COMPLETED' && Number(state.shifts[0].endOdometer) === 1100 && Number(state.shifts[0].revenue) === 0, 'FORMS.END_SHIFT must commit only closing odometer/lifecycle, viewport-safe')
   evidence.push({ id: 'FORMS.END_SHIFT_SEQUENCE', result: 'PASS', expected: 'closing odometer -> durable shift end, no revenue/date reconciliation stages' })
 
-  // Route contract: Timeline and Performance intentionally render blank workspaces;
-  // their bottom-navigation entries remain available. Admin stays Settings-only.
-  for (const [label, path, selector] of [
-    ['NAV.WORK', '/', '.work-canonical'],
-    ['NAV.TIMELINE', '/timeline', '.kfe-blank-workspace'],
-    ['NAV.PERFORMANCE', '/performance', '.kfe-blank-workspace'],
-    ['NAV.ADMIN', '/admin', '.kfe-settings-page'],
-  ]) {
-    await page.goto(new URL(path, base).href, { waitUntil: 'domcontentloaded', timeout: 30000 })
-    await page.locator(selector).waitFor({ state: 'attached', timeout: 30000 })
-    evidence.push({ id: label, result: 'PASS', expected: 'route renders the current frozen module', persisted: { route: path } })
-  }
+  // Route contract: Timeline is read-only reporting; Performance intentionally remains blank.
+  await page.goto(new URL('/', base).href, { waitUntil: 'domcontentloaded', timeout: 30000 })
+  await page.locator('.work-canonical').waitFor({ state: 'visible', timeout: 30000 })
+  assert(await page.getByRole('navigation').getByRole('link', { name: 'Work', exact: true }).count() === 1, 'Work bottom-navigation entry is missing')
+  evidence.push({ id: 'NAV.WORK', result: 'PASS', expected: 'canonical Work route and navigation entry retained', persisted: { route: '/' } })
 
-  for (const [label, path] of [['TIMELINE', 'timeline'], ['PERFORMANCE', 'performance']]) {
-    await page.goto(new URL(path, base).href, { waitUntil: 'domcontentloaded' })
-    await page.locator('.kfe-blank-workspace-surface').waitFor({ state: 'attached', timeout: 30000 })
-    assert(await page.locator('.kfe-blank-workspace').isVisible(), label + ' blank workspace is not visible')
-    assert(await page.locator('.activity-timeline, .performance-page, .pp-period, .pp-period-nav').count() === 0,
-      label + ' unexpectedly rendered a retired screen or presentation control')
-    assert(await page.getByRole('navigation').getByRole('link', { name: label === 'TIMELINE' ? 'Timeline' : 'Performance', exact: true }).count() === 1,
-      label + ' bottom-navigation entry is missing')
-    evidence.push({ id: label + '.INTENTIONALLY_BLANK', result: 'PASS', expected: 'blank workspace; bottom-navigation entry retained; retired screen absent' })
-  }
+  await page.goto(new URL('timeline', base).href, { waitUntil: 'domcontentloaded', timeout: 30000 })
+  await page.locator('.activity-timeline-page').waitFor({ state: 'visible', timeout: 30000 })
+  await page.getByText('Average fuel cost/km', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
+  await page.getByText('Total amount refilled', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
+  assert(await page.locator('.performance-page').count() === 0, 'Timeline mounted retired Performance presentation')
+  assert(await page.getByRole('navigation').getByRole('link', { name: 'Timeline', exact: true }).count() === 1, 'Timeline bottom-navigation entry is missing')
+  evidence.push({ id: 'NAV.TIMELINE', result: 'PASS', expected: 'live read-only Timeline with fuel metrics and navigation entry retained', persisted: { route: '/timeline' } })
 
-  await page.goto(new URL('admin', base).href, { waitUntil: 'domcontentloaded' })
+  await page.goto(new URL('performance', base).href, { waitUntil: 'domcontentloaded', timeout: 30000 })
+  await page.locator('.kfe-blank-workspace-surface').waitFor({ state: 'attached', timeout: 30000 })
+  await page.locator('.kfe-blank-workspace').waitFor({ state: 'visible', timeout: 30000 })
+  assert(await page.locator('.activity-timeline-page, .performance-page, .pp-period, .pp-period-nav').count() === 0, 'Performance unexpectedly rendered a retired screen')
+  assert(await page.getByRole('navigation').getByRole('link', { name: 'Performance', exact: true }).count() === 1, 'Performance bottom-navigation entry is missing')
+  evidence.push({ id: 'NAV.PERFORMANCE', result: 'PASS', expected: 'intentionally blank Performance workspace with navigation entry retained', persisted: { route: '/performance' } })
+
+  await page.goto(new URL('admin', base).href, { waitUntil: 'domcontentloaded', timeout: 30000 })
+  await page.locator('.kfe-settings-page').waitFor({ state: 'visible', timeout: 30000 })
+  evidence.push({ id: 'NAV.ADMIN', result: 'PASS', expected: 'canonical Settings-only Admin route', persisted: { route: '/admin' } })
+
   const settings = page.locator('.kfe-settings-page')
   await settings.waitFor({ state: 'visible', timeout: 30000 })
   assert(await settings.getByRole('heading', { name: 'Settings', exact: true }).count() === 1, 'Admin Settings heading did not render')
