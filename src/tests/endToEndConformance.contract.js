@@ -102,7 +102,7 @@ assertIncludes(nativeOverlay, 'canonical.commitTripForm(operationId,mode,trip)',
 assertIncludes(readRepo('android/app/src/main/java/com/kanishka/pwa/KfeCanonicalWorkStore.java'), 'double revenue = 0d;', 'Canonical native store must derive revenue from canonical Trip records in the same transaction.')
 assertIncludes(workService, 'ShiftTripRepository.setTripStage', 'Start Trip must persist its canonical stage.')
 assertIncludes(workService, 'ShiftTripRepository.completeTrip', 'End Trip must persist its canonical terminal state.')
-assert.match(workService, /captureTripBoundaryLocation/, 'PWA trip start/end must request one-shot snapshots.')
+assert.match(workService, /captureAndPersistEventLocation\('TRIP'/, 'PWA trip start/end must use the shared event-location service.')
 assert.match(nativeOverlay, /captureOneShotEventLocation/, 'Native overlay must capture one-shot event snapshots without PWA replay.')
 assert.match(nativeOverlay, /putRecord\(operationId,"GPS_SNAPSHOT",snapshot\)/, 'Native overlay must write to the shared GPS_SNAPSHOT authority.')
 assert.doesNotMatch(workService + nativeOverlay, /captureLifecycleLocation|KfeNativeGpsService|ValhallaRoutingAdapter|routeTrace|requestLocationUpdates/, 'Continuous GPS and routing must be absent from lifecycle paths.')
