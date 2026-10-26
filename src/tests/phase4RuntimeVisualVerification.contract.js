@@ -11,6 +11,7 @@ const deployedSmoke=readFileSync('tools/deployed-pages-runtime-smoke.mjs','utf8'
 const pagesSmoke=readFileSync('tools/pages-runtime-smoke.mjs','utf8')
 const crossSurfaceSmoke=readFileSync('tools/phase4-cross-surface-lifecycle.mjs','utf8')
 const calculationSmoke=readFileSync('tools/calculation-matrix-ui-smoke.mjs','utf8')
+const semanticAudit=readFileSync('tools/semantic-control-audit.mjs','utf8')
 const pagesWorkflow=readFileSync('.github/workflows/consolidated-baseline.yml','utf8')
 
 for(const route of ['.work-canonical','.activity-timeline-page','.kfe-blank-workspace','.kfe-settings-page']) assert.ok(smoke.includes(route),'Phase 4 smoke must cover '+route)
@@ -27,6 +28,9 @@ assert.ok(calculationSmoke.includes("route(page, 'timeline', '.activity-timeline
 assert.ok(calculationSmoke.includes("Average fuel cost/km") && calculationSmoke.includes("Total amount refilled"),'Calculation matrix smoke must verify both Timeline fuel summary headers')
 assert.ok(calculationSmoke.includes("route(page, 'performance', '.kfe-blank-workspace', 'Performance')"),'Calculation matrix smoke must preserve blank Performance')
 assert.doesNotMatch(calculationSmoke,/route\(page, 'timeline', '\.kfe-blank-workspace'/,'Calculation matrix smoke must not expect Timeline to be blank')
+assert.ok(semanticAudit.includes("page.locator('.activity-timeline-page')"),'Semantic audit must verify the live Timeline route')
+assert.ok(semanticAudit.includes("Timeline did not render the cancelled trip") && semanticAudit.includes("Timeline did not render the completed ride after shift closure"),'Semantic audit must verify completed and cancelled Timeline records')
+assert.doesNotMatch(semanticAudit,/Timeline must remain blank|Timeline and Performance intentionally render blank/,'Semantic audit must not retain the retired blank-Timeline assumption')
 assert.ok(smoke.includes("route('performance','.kfe-blank-workspace'"),'Performance must use the intentionally blank workspace surface')
 assert.ok(smoke.includes("route('admin','.kfe-settings-page'"),'Admin must use the canonical Settings surface')
 assert.ok(smoke.includes("page.locator('.activity-timeline-page').count()===1"),'Timeline smoke must verify the live Timeline surface')
