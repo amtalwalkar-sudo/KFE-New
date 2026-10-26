@@ -1,11 +1,7 @@
-import { ApplicationSettingsService } from '../application/settings/applicationSettingsService.js'
 let LocalNotifications = null
 let initialized = false
 let activeTripStartedAt = null
 let durationMinutes = null
-let initializeAction = null
-const notificationsEnabled = () => ApplicationSettingsService.getNotificationsEnabled()
-const cancelNativeNotifications = async () => { const plugin = await loadPlugin(); if (!plugin) return; try { await plugin.cancel({ notifications: [{ id: SHIFT_NOTIFICATION_ID }, { id: DURATION_NOTIFICATION_ID }] }) } catch (error) { console.warn('Unable to clear KFE notifications.', error) } }
 
 const SHIFT_NOTIFICATION_ID = 7101
 const DURATION_NOTIFICATION_ID = 7102
@@ -22,8 +18,7 @@ const requestDurationInput = () => { if (typeof window !== 'undefined') window.d
 
 export const TripNotificationService = {
   async initialize(onAction) {
-    initializeAction = onAction
-    if (!notificationsEnabled() || initialized) return
+    if (initialized) return
     const plugin = await loadPlugin(); if (!plugin) return
     try {
       await plugin.requestPermissions()
@@ -33,9 +28,9 @@ export const TripNotificationService = {
       initialized = true
     } catch (error) { console.warn('Trip notification setup failed; KFE screen remains the fallback.', error) }
   },
-  async setDuration(value) { const plugin = await loadPlugin(); if (!notificationsEnabled() || !plugin || !activeTripStartedAt) return false; const minutes = parseDuration(value); if (!minutes) return false; durationMinutes = minutes; await scheduleDurationNotification(plugin, activeTripStartedAt, minutes); return true },
-  async showReady() { const plugin = await loadPlugin(); if (!notificationsEnabled() || !plugin) return; activeTripStartedAt = null; durationMinutes = null; try { await cancelDurationNotification(plugin); await plugin.schedule({ notifications: [{ id: SHIFT_NOTIFICATION_ID, title: 'KFE — Shift Active', body: 'Ready for next trip', actionTypeId: 'KFE_TRIP_CONTROL', ongoing: true, autoCancel: false }] }) } catch (error) { console.warn('Unable to show Shift notification.', error) } },
-  async showTripActive(startedAt) { const plugin = await loadPlugin(); if (!notificationsEnabled() || !plugin) return; activeTripStartedAt = startedAt; durationMinutes = null; try { await cancelDurationNotification(plugin); await plugin.schedule({ notifications: [{ id: SHIFT_NOTIFICATION_ID, title: 'KFE — Trip Active', body: `Started ${new Date(startedAt).toLocaleTimeString()}`, actionTypeId: 'KFE_TRIP_CONTROL', ongoing: true, autoCancel: false }] }); const startedMs = new Date(startedAt).getTime(); const dueMs = Number.isFinite(startedMs) ? startedMs + DURATION_DELAY_MS : Date.now() + DURATION_DELAY_MS; await scheduleDurationNotification(plugin, startedAt, null, new Date(Math.max(Date.now(), dueMs))) } catch (error) { console.warn('Unable to show Trip notification.', error) } },
+  async setDuration(value) { const plugin = await loadPlugin(); if (!plugin || !activeTripStartedAt) return false; const minutes = parseDuration(value); if (!minutes) return false; durationMinutes = minutes; await scheduleDurationNotification(plugin, activeTripStartedAt, minutes); return true },
+  async showReady() { const plugin = await loadPlugin(); if (!plugin) return; activeTripStartedAt = null; durationMinutes = null; try { await cancelDurationNotification(plugin); await plugin.schedule({ notifications: [{ id: SHIFT_NOTIFICATION_ID, title: 'KFE — Shift Active', body: 'Ready for next trip', actionTypeId: 'KFE_TRIP_CONTROL', ongoing: true, autoCancel: false }] }) } catch (error) { console.warn('Unable to show Shift notification.', error) } },
+  async showTripActive(startedAt) { const plugin = await loadPlugin(); if (!plugin) return; activeTripStartedAt = startedAt; durationMinutes = null; try { await cancelDurationNotification(plugin); await plugin.schedule({ notifications: [{ id: SHIFT_NOTIFICATION_ID, title: 'KFE — Trip Active', body: `Started ${new Date(startedAt).toLocaleTimeString()}`, actionTypeId: 'KFE_TRIP_CONTROL', ongoing: true, autoCancel: false }] }); const startedMs = new Date(startedAt).getTime(); const dueMs = Number.isFinite(startedMs) ? startedMs + DURATION_DELAY_MS : Date.now() + DURATION_DELAY_MS; await scheduleDurationNotification(plugin, startedAt, null, new Date(Math.max(Date.now(), dueMs))) } catch (error) { console.warn('Unable to show Trip notification.', error) } },
   async clear() {
     activeTripStartedAt = null
     durationMinutes = null
@@ -63,11 +58,4 @@ export const TripNotificationService = {
       }
     })()
   }
-}
-
-if (typeof window !== 'undefined') {
-  window.addEventListener('kfe:notification-preference-changed', event => {
-    if (event?.detail?.enabled === false) void cancelNativeNotifications()
-    else if (event?.detail?.enabled === true && initializeAction) void TripNotificationService.initialize(initializeAction)
-  })
 }
