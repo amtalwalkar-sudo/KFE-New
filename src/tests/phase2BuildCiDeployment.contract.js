@@ -28,7 +28,7 @@ assert.match(workflow, /enable_first_run_setup:/, 'launch setup must be explicit
 assert.match(workflow, /VITE_ENABLE_FIRST_RUN_SETUP:/, 'first-run setup must be controlled by a build-time launch flag')
 assert.match(workflow, /android-release-gate:/, 'canonical CI must retain the Android emulator gate')
 assert.match(workflow, /github\.event_name == 'pull_request'.*github\.event_name == 'push'.*refs\/heads\/main/, 'Android release verification must run for every PR and main push')
-assert.match(workflow, /needs: build-and-test/, 'deployment must depend on successful validation')
+assert.match(workflow, /needs: \\[detect-changes, build-and-test\\]/, 'deployment must depend on change classification and successful app validation')
 assert.ok(!existsSync('.github/workflows/deploy-pages.yml'), 'duplicate Pages deployment workflow must remain removed')
 
 console.log('Phase 2 build/CI/deployment contract passed')
