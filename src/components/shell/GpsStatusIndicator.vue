@@ -71,6 +71,7 @@ async function enableBackgroundCapture() {
   }
 }
 
+let statusRefreshInterval = null
 function onVisibilityChange() {
   if (document.visibilityState === 'visible') void refresh()
 }
@@ -78,10 +79,14 @@ onMounted(() => {
   void refresh()
   window.addEventListener('focus', refresh)
   document.addEventListener('visibilitychange', onVisibilityChange)
+  statusRefreshInterval = window.setInterval(() => {
+    if (open.value && document.visibilityState === 'visible') void refresh()
+  }, 5000)
 })
 onBeforeUnmount(() => {
   window.removeEventListener('focus', refresh)
   document.removeEventListener('visibilitychange', onVisibilityChange)
+  if (statusRefreshInterval != null) window.clearInterval(statusRefreshInterval)
 })
 </script>
 
