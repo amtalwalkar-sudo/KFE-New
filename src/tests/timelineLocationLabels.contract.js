@@ -32,5 +32,5 @@ assert.doesNotMatch(workService, /captureAndPersistTripBoundary|persistTripBound
 assert.doesNotMatch(workService, /updateTripBoundaryPlaceName/, 'trip boundary labels must not use a separate metadata pathway')
 assert.match(locationRepository, /notifyCanonicalDataChanged\(\{ stores: \['gps_snapshots', 'trips'\], reason: 'gps-place-name-enriched' \}\)/)
 
-assert.match(nativeStore, /GPS_SNAPSHOT/, 'native canonical storage must support the shared event snapshot entity')
+assert.match(fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java', 'utf8'), /putRecord\(operationId,"GPS_SNAPSHOT",snapshot\)/, 'native overlay must write locality metadata through the shared GPS snapshot entity')
 console.log('PASS: Activity Timeline ride/fuel locality enrichment uses the shared event snapshot pathway')
