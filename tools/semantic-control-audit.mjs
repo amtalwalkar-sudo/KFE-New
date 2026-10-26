@@ -212,7 +212,7 @@ try {
   await page.goto(new URL('timeline', base).href, { waitUntil: 'domcontentloaded' })
   await page.locator('.activity-timeline-page').waitFor({ state: 'visible', timeout: 30000 })
   await page.getByText('Completed', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
-  await page.getByText('₹800', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
+  await page.getByText('₹800.00', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
   assert(await page.locator('.activity-timeline-page').count() === 1, 'Timeline did not render the completed ride after shift closure')
   await page.goto(new URL('performance', base).href, { waitUntil: 'domcontentloaded' })
   await page.locator('.kfe-blank-workspace').waitFor({ state: 'visible' })
@@ -266,7 +266,7 @@ try {
   await page.locator('.activity-timeline-page').waitFor({ state: 'visible', timeout: 30000 })
   await page.getByText('Cancelled', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
   await page.getByText('Cancellation fee', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
-  await page.getByText('₹250', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
+  await page.getByText('₹250.00', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
   assert(await page.locator('.activity-timeline-page').count() === 1, 'Timeline did not render the cancelled trip')
   evidence.push({ id: 'WORK.CANCEL_TRIP', result: 'PASS', expected: 'CANCELLED trip and cancellation fee persist canonically and appear in read-only Timeline', persisted: { trips: state.trips.length, status: state.trips[0]?.status } })
 
