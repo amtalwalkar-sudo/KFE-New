@@ -2,7 +2,7 @@
  * Frozen Visual DNA -> tokens -> shared/global UI -> screens -> build/runtime.
  * No screen/component-local style blocks are used for presentation.
  */
-/* KFE Visual DNA — one fixed dark theme for consistent contrast and readability. */
+/* KFE canonical theme tokens: dark defaults with a semantic light override selected by the theme controller. */
 :root{
   --kfe-ui-bg:#10151B;
   --kfe-ui-surface:#171E26;
