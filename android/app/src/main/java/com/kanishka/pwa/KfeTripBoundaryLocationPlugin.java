@@ -74,6 +74,7 @@ public class KfeTripBoundaryLocationPlugin extends Plugin {
   @com.getcapacitor.PluginMethod
   public void requestBackgroundLocationPermission(PluginCall call) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+      KfeOverlayService.retryPendingLocations(getContext());
       call.resolve();
       return;
     }
@@ -82,6 +83,7 @@ public class KfeTripBoundaryLocationPlugin extends Plugin {
       return;
     }
     if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+      KfeOverlayService.retryPendingLocations(getContext());
       call.resolve();
       return;
     }
