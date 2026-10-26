@@ -20,9 +20,12 @@ const items=[
  {key:'driver',category:'Business Setup',title:'Driver',icon:'👤'},
  {key:'compliance',category:'Vehicle Records',title:'Compliance',icon:'✓'},
  {key:'maintenance',category:'Vehicle Records',title:'Maintenance',icon:'🔧'},
- {key:'loan',category:'Finance',title:'Loan',icon:'₹'}
+ {key:'loan',category:'Finance',title:'Loan',icon:'₹'},
+ {key:'settingsBackup',category:'Settings',title:'Backup & Restore',icon:'↥'},
+ {key:'settingsApplication',category:'Settings',title:'Application Settings',icon:'⚙'},
+ {key:'settingsReset',category:'Settings',title:'Data Reset',icon:'⌫'}
 ]
-const categories=['Business Setup','Vehicle Records','Finance']
+const categories=['Business Setup','Vehicle Records','Finance','Settings']
 const settingsMenu=[
  {key:'backup',title:'Backup & Restore',icon:'↥'},
  {key:'application',title:'Application Settings',icon:'⚙'},
@@ -181,7 +184,7 @@ function chooseTheme(mode){themeMode.value=setKfeThemeMode(mode);clearMessages()
 function chooseNotifications(enabled){notificationsEnabled.value=ApplicationSettingsService.setNotificationsEnabled(enabled);clearMessages()}
 function clearMessages(){error.value='';notice.value=''}
 function closeAction(){actionKey.value=null;actionRecord.value=null;actionDraft.value={};paymentCalculated.value=false;paymentConfirmed.value=false}
-function openItem(key){clearMessages();settingsOpen.value=false;selected.value=key;masterSelected.value=null;formOpen.value=false;editing.value=null;draft.value={};closeAction();if(key==='prepayment')resetPrepayment();if(key==='driverTarget')resetTarget();if(key==='maintenanceRate')resetMaintenanceRate();load()}
+function openItem(key){if(key.startsWith('settings')){clearMessages();selected.value=null;settingsOpen.value=true;settingsSelected.value=key==='settingsBackup'?'backup':key==='settingsApplication'?'application':'reset';return}clearMessages();settingsOpen.value=false;selected.value=key;masterSelected.value=null;formOpen.value=false;editing.value=null;draft.value={};closeAction();if(key==='prepayment')resetPrepayment();if(key==='driverTarget')resetTarget();if(key==='maintenanceRate')resetMaintenanceRate();load()}
 function openMasterRecord(record){clearMessages();masterSelected.value=record.id;formOpen.value=false;editing.value=null;draft.value={}}
 function backMasterList(){clearMessages();masterSelected.value=null;formOpen.value=false;editing.value=null;draft.value={}}
 function masterFieldValue(field,record){const v=record?.values?.[field.key];if(v===undefined||v===null||v==='')return '—';if(field.type==='checkbox')return v?'Yes':'No';if(field.type==='select'){if(field.key==='vehicleId')return label('vehicle',all.value.vehicle.find(x=>x.id===v));if(field.key==='driverId')return label('driver',all.value.driver.find(x=>x.id===v));const opts=field.options||[];const found=opts.find(x=>x?.value===v);return found?.label||v}return String(v)}
@@ -254,7 +257,7 @@ onMounted(()=>{load()})
     <div class="admin-hero-kicker">ADMINISTRATION</div>
     <h1>Business control centre</h1>
     <p>Manage the source records and planning inputs behind KFE calculations. Changes are validated and saved through the authoritative Admin service.</p>
-    <div class="admin-hero-foot"><span><strong>{{items.length}}</strong> sections and workspaces</span><button type="button" class="admin-hero-settings" @click="openSettings">Settings <span aria-hidden="true">↗</span></button></div>
+    <div class="admin-hero-foot"><span><strong>{{categories.length}}</strong> Admin sections</span><button type="button" class="admin-hero-settings" @click="openSettings">Settings <span aria-hidden="true">↗</span></button></div>
   </header>
   <div class="admin-workspace">
     <section v-for="group in groupedItems" :key="group.category" class="admin-category">
