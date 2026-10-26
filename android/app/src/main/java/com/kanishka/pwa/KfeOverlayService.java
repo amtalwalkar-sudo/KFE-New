@@ -426,7 +426,7 @@ public class KfeOverlayService extends Service {
     persistNativeForm();
   }
 
-  private void onCancelSaved(){formSubmitting=false;closeForm();captureOneShotTripBoundary(pendingTripId, "TRIP_END");actionStage="GO_TO_PICKUP";pendingTripId="";pendingFareTripId="";tripStartAt=0L;phaseStartAt=System.currentTimeMillis();phaseLabel="READY TIME";awaitingEventId="";awaitingStage="";awaitingTripId="";persistNativeWorkflow();if(overlay!=null)overlay.invalidate();}
+  private void onCancelSaved(){formSubmitting=false;closeForm();captureOneShotEventLocation(pendingTripId, "TRIP_END");actionStage="GO_TO_PICKUP";pendingTripId="";pendingFareTripId="";tripStartAt=0L;phaseStartAt=System.currentTimeMillis();phaseLabel="READY TIME";awaitingEventId="";awaitingStage="";awaitingTripId="";persistNativeWorkflow();if(overlay!=null)overlay.invalidate();}
 
   private void onFareSaved(){
     formSubmitting=false;
@@ -485,7 +485,7 @@ public class KfeOverlayService extends Service {
       try { eventId=persistLifecycleAction("START_RIDE","RIDE_STARTED",true); }
       catch(RuntimeException failure){Log.e("KFE-CANONICAL","START_RIDE lifecycle persistence interrupted; retry is safe",failure);Toast.makeText(this,"Trip action is queued for recovery. Keep this trip open and retry when storage is available.",Toast.LENGTH_LONG).show();return;}
       
-      captureOneShotTripBoundary(pendingTripId, "TRIP_START");
+      captureOneShotEventLocation(pendingTripId, "TRIP_START");
       actionStage="END_RIDE"; phaseStartAt=tripStartAt; phaseLabel="TRIP TIME";
       getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit()
         .putLong("tripStartAt",tripStartAt).putString("tripTimerTripId",pendingTripId).commit();
@@ -499,7 +499,7 @@ public class KfeOverlayService extends Service {
       String eventId;
       try { eventId=persistLifecycleAction("END_RIDE","COMPLETED",false); }
       catch(RuntimeException failure){Log.e("KFE-CANONICAL","END_RIDE lifecycle persistence interrupted; retry is safe",failure);Toast.makeText(this,"Trip action is queued for recovery. Keep this trip open and retry when storage is available.",Toast.LENGTH_LONG).show();return;}
-      captureOneShotTripBoundary(pendingTripId, "TRIP_END");
+      captureOneShotEventLocation(pendingTripId, "TRIP_END");
       actionStage="ENTER_FARE"; pendingFareTripId=pendingTripId; tripStartAt=0L; phaseStartAt=System.currentTimeMillis(); phaseLabel="FARE ENTRY TIME";
       getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().remove("tripStartAt").remove("tripTimerTripId").commit();
       awaitingEventId=""; awaitingStage=""; awaitingTripId="";
@@ -886,7 +886,7 @@ public class KfeOverlayService extends Service {
   // This temporarily activates the location FGS type for one fix only. No watch,
   // trace collector, or location request remains active after the fix/timeout.
   // Native overlay writes the same GPS_SNAPSHOT event model as the PWA path.
-  private void captureOneShotTripBoundary(String tripId, String eventType){
+  private void captureOneShotEventLocation(String tripId, String eventType){
     if(tripId==null||tripId.trim().isEmpty())return;
     if(!"TRIP_START".equals(eventType)&&!"TRIP_END".equals(eventType))return;
     try{
@@ -926,7 +926,7 @@ public class KfeOverlayService extends Service {
           if(!finished.compareAndSet(false,true))return;
           handler.removeCallbacks(timeout);
           if(location==null)Log.w("KFE-GPS","No GPS fix for one-shot "+field+" snapshot.");
-          else persistOneShotTripLocation(tripId,field,location);
+          else persistOneShotTripLocation(tripId,eventType,location);
           restoreOverlayForegroundType();
         });
       }catch(Exception error){
@@ -951,7 +951,7 @@ public class KfeOverlayService extends Service {
           if(!finished.compareAndSet(false,true))return;
           handler.removeCallbacks(timeout);
           try{manager.removeUpdates(this);}catch(Exception ignored){}
-          persistOneShotTripLocation(tripId,field,location);
+          persistOneShotTripLocation(tripId,eventType,location);
           restoreOverlayForegroundType();
         }
         @Override public void onProviderEnabled(String provider){}
