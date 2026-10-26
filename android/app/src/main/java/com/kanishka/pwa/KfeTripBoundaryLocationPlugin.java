@@ -54,6 +54,24 @@ public class KfeTripBoundaryLocationPlugin extends Plugin {
   }
 
   @com.getcapacitor.PluginMethod
+  public void requestLocationPermissions(PluginCall call) {
+    if (hasFineLocationPermission()) {
+      call.resolve();
+      return;
+    }
+    requestPermissionForAlias("location", call, "locationPermissionCallback");
+  }
+
+  @PermissionCallback
+  private void locationPermissionCallback(PluginCall call) {
+    if (!hasFineLocationPermission()) {
+      call.reject("Precise location permission was not granted.");
+      return;
+    }
+    call.resolve();
+  }
+
+  @com.getcapacitor.PluginMethod
   public void requestBackgroundLocationPermission(PluginCall call) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
       call.resolve();
