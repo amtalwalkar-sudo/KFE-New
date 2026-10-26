@@ -900,10 +900,10 @@ public class KfeOverlayService extends Service {
       }
     }catch(Exception error){Log.w("KFE-GPS","Unable to check prior event-location snapshot",error);}
     if(ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED){
-      Log.w("KFE-GPS","One-shot "+field+" snapshot skipped: precise location permission is not granted.");return;
+      Log.w("KFE-GPS","One-shot "+eventType+" snapshot skipped: precise location permission is not granted.");return;
     }
     LocationManager manager=(LocationManager)getSystemService(Context.LOCATION_SERVICE);
-    if(manager==null){Log.w("KFE-GPS","One-shot "+field+" snapshot skipped: LocationManager unavailable.");return;}
+    if(manager==null){Log.w("KFE-GPS","One-shot "+eventType+" snapshot skipped: LocationManager unavailable.");return;}
     try{
       if(!manager.isProviderEnabled(LocationManager.GPS_PROVIDER)){
         Log.w("KFE-GPS","GPS_PROVIDER is disabled; one-shot snapshot cannot be captured offline.");return;
@@ -918,15 +918,15 @@ public class KfeOverlayService extends Service {
         if(!finished.compareAndSet(false,true))return;
         cancellation.cancel();
         restoreOverlayForegroundType();
-        Log.w("KFE-GPS","Timed out waiting for one-shot "+field+" GPS fix.");
+        Log.w("KFE-GPS","Timed out waiting for one-shot "+eventType+" GPS fix.");
       };
       handler.postDelayed(timeout,30000L);
       try{
         manager.getCurrentLocation(LocationManager.GPS_PROVIDER,cancellation,getMainExecutor(),location->{
           if(!finished.compareAndSet(false,true))return;
           handler.removeCallbacks(timeout);
-          if(location==null)Log.w("KFE-GPS","No GPS fix for one-shot "+field+" snapshot.");
-          else persistOneShotTripLocation(tripId,eventType,location);
+          if(location==null)Log.w("KFE-GPS","No GPS fix for one-shot "+eventType+" snapshot.");
+          else persistOneShotEventLocation(tripId,eventType,location);
           restoreOverlayForegroundType();
         });
       }catch(Exception error){
@@ -934,7 +934,7 @@ public class KfeOverlayService extends Service {
           handler.removeCallbacks(timeout);
           cancellation.cancel();
           restoreOverlayForegroundType();
-          Log.w("KFE-GPS","One-shot "+field+" snapshot request failed.",error);
+          Log.w("KFE-GPS","One-shot "+eventType+" snapshot request failed.",error);
         }
       }
     }else{
@@ -944,14 +944,14 @@ public class KfeOverlayService extends Service {
         if(!finished.compareAndSet(false,true))return;
         try{manager.removeUpdates(listener[0]);}catch(Exception ignored){}
         restoreOverlayForegroundType();
-        Log.w("KFE-GPS","Timed out waiting for one-shot "+field+" GPS fix.");
+        Log.w("KFE-GPS","Timed out waiting for one-shot "+eventType+" GPS fix.");
       };
       listener[0]=new LocationListener(){
         @Override public void onLocationChanged(Location location){
           if(!finished.compareAndSet(false,true))return;
           handler.removeCallbacks(timeout);
           try{manager.removeUpdates(this);}catch(Exception ignored){}
-          persistOneShotTripLocation(tripId,eventType,location);
+          persistOneShotEventLocation(tripId,eventType,location);
           restoreOverlayForegroundType();
         }
         @Override public void onProviderEnabled(String provider){}
@@ -965,13 +965,13 @@ public class KfeOverlayService extends Service {
           handler.removeCallbacks(timeout);
           try{manager.removeUpdates(listener[0]);}catch(Exception ignored){}
           restoreOverlayForegroundType();
-          Log.w("KFE-GPS","One-shot "+field+" snapshot request failed.",error);
+          Log.w("KFE-GPS","One-shot "+eventType+" snapshot request failed.",error);
         }
       }
     }
   }
 
-  private void persistOneShotTripLocation(String tripId,String eventType,Location location){
+  private void persistOneShotEventLocation(String tripId,String eventType,Location location){
     try{
       if(location==null)return;
       long fixTime=location.getTime();
