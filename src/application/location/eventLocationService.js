@@ -32,6 +32,7 @@ export const EventLocationService = {
       const location = await captureTripBoundaryLocation()
       if (!location) return
       const snapshot = await LocationRepository.record({
+        id: entityType === 'TRIP' ? `native-event-location-${entityId}-${eventType}` : `event-location-${entityType}-${entityId}-${eventType}`,
         entityType, entityId, eventType, eventAt,
         latitude: location.latitude,
         longitude: location.longitude,
