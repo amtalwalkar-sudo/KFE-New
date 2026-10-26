@@ -194,7 +194,7 @@ try {
     }
   })
 
-  // The canonical lifecycle assertions above use shared services; the Timeline route must now render its read-only projection while Performance stays blank.
+  // The canonical lifecycle assertions above use shared services; Timeline and Performance routes must render their read-only projections.
   for (const path of ['timeline', 'performance']) {
     await page.goto(base + path, { waitUntil: 'domcontentloaded', timeout: 30000 })
     if (path === 'timeline') {
@@ -203,8 +203,10 @@ try {
       assert(await page.getByText('Total amount refilled', { exact: true }).count() === 1, 'Timeline must render the period fuel expenditure summary.')
       assert(await page.locator('.performance-page').count() === 0, 'Timeline must not mount Performance presentation.')
     } else {
-      await page.locator('.kfe-blank-workspace').waitFor({ state: 'visible', timeout: 30000 })
-      assert(await page.locator('.activity-timeline-page, .performance-page').count() === 0, 'Performance must remain intentionally blank.')
+      await page.locator('.performance-page').waitFor({ state: 'visible', timeout: 30000 })
+      assert(await page.locator('.performance-page').count() === 1, 'Performance dashboard must render.')
+      assert(await page.getByRole('heading', { name: 'Performance' }).count() === 1, 'Performance title must render.')
+      assert(await page.getByRole('combobox', { name: 'Performance period' }).count() === 1, 'Performance period filter must render.')
     }
     await page.locator('.bottom-nav').waitFor({ state: 'visible', timeout: 10000 })
     for (const label of ['Timeline', 'Performance']) assert(await page.locator('.bottom-nav').getByText(label, { exact: true }).count(), 'Bottom navigation must retain ' + label)
