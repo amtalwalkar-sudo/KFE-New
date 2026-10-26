@@ -57,7 +57,7 @@ try {
   if (await page.locator('header.top-bar').count() !== 0) throw new Error('Performance route unexpectedly displays the shell header')
   if (await page.locator('.performance-page').count() !== 1) throw new Error('Performance page must be unique')
 
-  await route(page, 'admin', '.kfe-settings-page', 'Admin')
+  await route(page, 'admin', '.admin-page', 'Admin')
   await wait(async () => (await page.locator('body').innerText()).includes('Backup & restore'), 'Admin Settings ready')
   if (await page.locator('.admin-page').count() !== 0) throw new Error('Admin unexpectedly mounted the retired admin presentation')
   if (await page.locator('html').evaluate(el => el.scrollWidth > window.innerWidth + 1)) throw new Error('Admin has horizontal viewport overflow')
