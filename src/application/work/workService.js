@@ -257,7 +257,7 @@ export const WorkService = Object.freeze({
     const result = nativeAvailable ? await (async () => { const trip = await findNativeRecord('TRIP', data?.id); if (!trip) throw new Error('Trip not found.'); const now = new Date().toISOString(); const next = transitionTrip(trip, 'CANCELLED', data); next.tripEndAt = data.tripEndAt || trip.tripEndAt || now; next.updatedAt = nextCanonicalTimestamp(trip.updatedAt); await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt }); return true })() : await ShiftTripRepository.cancelTrip(data)
     if (!nativeAvailable) await mirrorCanonicalTripById(data?.id)
     checkpoint()
-    captureAndPersistEventLocation('TRIP', data?.id, 'TRIP_END', data?.tripEndAt || new Date().toISOString())
+    captureAndPersistEventLocation('TRIP', data?.id, 'TRIP_CANCELLED', data?.tripEndAt || new Date().toISOString())
     return result
   },
   async updateTrip(data) {
