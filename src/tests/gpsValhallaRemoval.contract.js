@@ -65,7 +65,7 @@ assert.doesNotMatch(ports + adapter, /movementTrace|nativeGps|routing|ValhallaRo
 assert.doesNotMatch(shell, /gpsStatusService|header-gps|refreshGps|gpsState/)
 assert.doesNotMatch(store, /MovementTraceService|lifecycleLocations|tripLocations|captureLocation|loadEntityLocations/)
 assert.match(overlay, /captureOneShotEventLocation/)
-assert.match(overlay, /persistOneShotTripLocation/)
+assert.match(overlay, /persistOneShotEventLocation/)
 assert.match(overlay, /putRecord\(operationId,"GPS_SNAPSHOT",snapshot\)/, 'Native overlay must persist the same GPS_SNAPSHOT event model as the PWA.')
 assert.doesNotMatch(overlay, /persistTripBoundarySnapshot\(/, 'Native overlay must not write a second location copy into the TRIP record.')
 // A trip record is created before pickup; tripStartLocation must represent the actual RIDE_STARTED boundary.
