@@ -40,6 +40,8 @@ assert.doesNotMatch(service, /ShiftTripRepository\.(create|update|remove|complet
 assert.doesNotMatch(view, /captureTripBoundaryLocation|resolveLocationName|EventLocationService/, 'viewing Timeline must not capture GPS or geocode')
 assert.match(view, /Average fuel cost\/km/)
 assert.match(view, /Total amount refilled/)
+assert.match(service, /pickupArea: validTime\(trip\.tripStartAt\) != null \? locality\(trip\.tripStartLocation\?\.placeName\) : 'Location unavailable'/, 'pre-pickup cancellations must not claim the cancellation GPS as a pickup')
+assert.match(service, /dropArea: trip\.status === 'COMPLETED' \? locality\(trip\.tripEndLocation\?\.placeName\) : 'Location unavailable'/, 'cancelled trips must not claim a cancellation GPS fix as a passenger drop-off')
 assert.match(service, /Location unavailable/)
 assert.match(router, /path: '\/timeline', name: 'Timeline', component: ActivityTimelineView/)
 assert.match(router, /path: '\/performance', name: 'Performance', component: BlankWorkspaceView/)
