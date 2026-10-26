@@ -14,7 +14,7 @@ const calculationSmoke=readFileSync('tools/calculation-matrix-ui-smoke.mjs','utf
 const semanticAudit=readFileSync('tools/semantic-control-audit.mjs','utf8')
 const pagesWorkflow=readFileSync('.github/workflows/consolidated-baseline.yml','utf8')
 
-for(const route of ['.work-canonical','.activity-timeline-page','.performance-page','.kfe-settings-page']) assert.ok(smoke.includes(route),'Phase 4 smoke must cover '+route)
+for(const route of ['.work-canonical','.activity-timeline-page','.performance-page','.admin-page']) assert.ok(smoke.includes(route),'Phase 4 smoke must cover '+route)
 assert.ok(smoke.includes("route('timeline','.activity-timeline-page'"),'Timeline runtime smoke must verify the live Timeline surface')
 assert.ok(smoke.includes("route('performance','.performance-page'"),'Performance must use the live read-only Performance surface')
 assert.ok(smoke.includes("['Timeline','Performance']"),'Timeline and Performance must retain their bottom navigation entries')
