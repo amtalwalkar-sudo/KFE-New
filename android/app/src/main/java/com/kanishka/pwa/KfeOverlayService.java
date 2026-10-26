@@ -959,15 +959,22 @@ public class KfeOverlayService extends Service {
       for(int i=0;i<items.length();i++){
         JSONObject item=items.optJSONObject(i);if(item==null)continue;
         String tripId=item.optString("tripId",""),eventType=item.optString("eventType","");
-        if(!tripId.isEmpty()&&!eventType.isEmpty())captureOneShotEventLocation(tripId,eventType);
+        if(!tripId.isEmpty()&&!eventType.isEmpty()){captureOneShotEventLocation(tripId,eventType);break;}
       }
     }catch(Exception error){Log.e("KFE-GPS","Pending event location retry failed.",error);}
     schedulePendingGpsRetry();
   }
   private void finishPendingGpsAttempt(String tripId,String eventType,boolean saved){
     gpsCaptureInFlight.remove(gpsEventKey(tripId,eventType));
-    if(saved)removePendingEventLocation(tripId,eventType);
-    else schedulePendingGpsRetry();
+    if(saved){
+      removePendingEventLocation(tripId,eventType);
+      if(hasPendingEventLocations()){
+        Handler handler=foregroundHandler!=null?foregroundHandler:new Handler(Looper.getMainLooper());
+        handler.removeCallbacks(pendingGpsRetry);handler.postDelayed(pendingGpsRetry,1000L);
+      }else if(overlay==null&&!hasPersistedOverlayState(this)){
+        stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();
+      }
+    }else schedulePendingGpsRetry();
   }
 
   // A high-accuracy one-shot request is retried until the first valid fix is
