@@ -35,6 +35,6 @@ The same audit is included in `npm test` through `themeCompliance.contract.js`.
 
 ## Runtime coverage
 
-The existing Phase 4 runtime visual verification checks theme changes through the canonical `kfe.visual.theme.mode` setting and verifies that the shared `--kfe-ui-bg` token changes between resolved modes. Application Settings also exposes a Notifications toggle; native trip notifications honor its `kfe.notifications.enabled` preference and cancel active KFE notifications when disabled.
+The existing Phase 4 runtime visual verification checks theme changes through the canonical `kfe.visual.theme.mode` setting and verifies that the shared `--kfe-ui-bg` token changes between resolved modes. Application Settings also exposes a persisted Notifications preference through `ApplicationSettingsService`. This preference is kept separate from the native Work action bridge; it does not reintroduce the retired ride-notification feature.
 
 **Conclusion:** future theme changes are now governed as a PWA-wide presentation concern rather than as independent screen palettes.
