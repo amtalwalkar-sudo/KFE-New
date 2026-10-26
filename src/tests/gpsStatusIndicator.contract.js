@@ -21,6 +21,7 @@ assert.match(indicator, /Enable background GPS/,
   'the permission action must be user-facing')
 assert.match(plugin, /ACCESS_BACKGROUND_LOCATION/,
   'native permission checks must include Android background location')
+assert.match(plugin, /openBackgroundLocationSettings/, 'Android versions requiring Settings must have a user-triggered permission fallback')
 assert.match(plugin, /backgroundCaptureAllowed/,
   'the native status response must expose whether background capture is allowed')
 assert.match(plugin, /Background location permission was not granted\. Background GPS capture remains disabled\./,
