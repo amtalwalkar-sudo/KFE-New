@@ -5,12 +5,12 @@ export function calculateFuelQuantityKg(amountRupees, pricePerKg) {
   return amount / price
 }
 
-const timestamp = row => row?.capturedAt || row?.createdAt || null
+const timestamp = row => {\n  const capturedAt = row?.capturedAt\n  if (capturedAt && Number.isFinite(new Date(capturedAt).getTime())) return capturedAt\n  const createdAt = row?.createdAt\n  return createdAt && Number.isFinite(new Date(createdAt).getTime()) ? createdAt : null\n}
 const validFuel = row => {
   const at = timestamp(row)
   const date = at ? new Date(at) : null
   return Boolean(row && date && Number.isFinite(date.getTime())
-    && Number.isFinite(Number(row.odometer)) && Number(row.odometer) >= 0
+    && row.odometer !== null && row.odometer !== undefined && row.odometer !== ''\n    && Number.isFinite(Number(row.odometer)) && Number(row.odometer) >= 0
     && Number.isFinite(Number(row.amount ?? row.totalCost)) && Number(row.amount ?? row.totalCost) > 0)
 }
 const fullTank = row => row?.isFullTank === true
