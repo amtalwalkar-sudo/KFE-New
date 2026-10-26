@@ -20,4 +20,19 @@ const loanPayment=getAdminFormDefinition('loanPayment')
 assert.equal(validateAdminForm(loanPayment,{loanId:'l1',paidOn:'2026-09-01',amount:100}).valid,true)
 const maintenance=getAdminFormDefinition('maintenance')
 assert.equal(validateAdminForm(maintenance,{vehicleId:'v1',performedOn:'2026-09-01',maintenanceType:'Service',validityType:'KM based',cost:100}).valid,false)
+const adminView = await (await import('node:fs/promises')).readFile(new URL('../views/AdminView.vue', import.meta.url), 'utf8')
+const menu = adminView.match(/const items=\[([\s\S]*?)\n\]/)?.[1] || ''
+assert.deepEqual([...menu.matchAll(/category:'([^']+)'/g)].map(x=>x[1]), [
+  'BUSINESS SETUP','BUSINESS SETUP','BUSINESS SETUP',
+  'VEHICLE RECORDS','VEHICLE RECORDS',
+  'FINANCE','FINANCE','FINANCE','SETTINGS'
+])
+assert.doesNotMatch(menu, /DIAGNOSTICS|TARGET|driverTarget|maintenanceRate|calculations/,
+  'Diagnostics and Target must not appear as Admin top-level menu items')
+assert.match(menu, /key:'settings',category:'SETTINGS'/,
+  'Settings must be a first-class top-level Admin section')
+assert.match(adminView, /if\(key==='settings'\)\{openSettings\(\);return\}/,
+  'Settings menu entry must open the existing settings workflow')
+assert.match(adminView, /<AdminSourceForm/,
+  'Existing feature forms remain wired through the shared AdminSourceForm')
 console.log('Admin contract passed: only Admin-owned master, vehicle, finance and planning forms are exposed; operational Work/Timeline entries are excluded.')
