@@ -41,7 +41,7 @@
   gap: 9px;
   min-width: 0;
   padding: 16px 14px;
-  border: 1px solid var(--kfe-border, #303d49);
+  border: 1px solid var(--kfe-ui-border);
   border-radius: 14px;
   background: var(--kfe-ui-surface);
 }
