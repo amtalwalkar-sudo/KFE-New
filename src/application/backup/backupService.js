@@ -1,4 +1,4 @@
-import { createBackupRepository } from '../../repositories/backupRepository.js'
+import { createBackupRepository, mergeCanonicalBackupSnapshot } from '../../repositories/backupRepository.js'
 import { NativeCanonicalWorkService } from '../../infrastructure/android/nativeCanonicalWork.js'
 import { CANONICAL_DB_VERSION } from '../../constants/canonicalDatabase.js'
 export const BACKUP_FORMAT = 'KFE_BACKUP'
@@ -43,12 +43,139 @@ export const validateBackup = input => {
   }
   return backup
 }
-export const createBackup = async () => validateBackup({ format: BACKUP_FORMAT, formatVersion: BACKUP_FORMAT_VERSION, source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: CANONICAL_DB_VERSION }, exportedAt: new Date().toISOString(), stores: await backupRepository.readCanonicalSnapshot() })
+const readAllNativeWorkRecords = async entityType => {
+  const pageSize = 1000
+  const records = []
+  let offset = 0
+  let expectedTotal = null
+  do {
+    const page = await NativeCanonicalWorkService.listRecords({ entityType, limit: pageSize, offset })
+    if (!Number.isInteger(page.totalCount) || page.totalCount < 0 || page.offset !== offset) {
+      throw new Error(`Native ${entityType} backup pagination returned invalid count/offset metadata.`)
+    }
+    if (expectedTotal === null) expectedTotal = page.totalCount
+    else if (page.totalCount !== expectedTotal) {
+      throw new Error(`Native ${entityType} records changed during backup; retry after the current operation finishes.`)
+    }
+    if (page.records.length === 0 && offset < expectedTotal) {
+      throw new Error(`Native ${entityType} backup stopped at ${offset} of ${expectedTotal} records; no partial backup was accepted.`)
+    }
+    records.push(...page.records)
+    offset += page.records.length
+    if (records.length > expectedTotal) throw new Error(`Native ${entityType} backup pagination returned duplicate/extra records.`)
+  } while (offset < expectedTotal)
+  if (records.length !== expectedTotal) {
+    throw new Error(`Native ${entityType} backup is incomplete: expected ${expectedTotal}, read ${records.length}.`)
+  }
+  return records
+}
+
+const readNativeWorkSnapshot = async () => {
+  if (!NativeCanonicalWorkService.isAvailable()) return null
+  const [shifts, trips] = await Promise.all([
+    readAllNativeWorkRecords('SHIFT'),
+    readAllNativeWorkRecords('TRIP'),
+  ])
+  return { shifts, trips }
+}
+
+const mergeBackupWorkIntoNative = async (backup, nativeSnapshot) => {
+  if (!nativeSnapshot) return { added: 0, duplicates: 0, conflicts: 0 }
+  const current = { shifts: nativeSnapshot.shifts || [], trips: nativeSnapshot.trips || [] }
+  const incoming = { shifts: backup.stores.shifts || [], trips: backup.stores.trips || [] }
+  const merged = mergeCanonicalBackupSnapshot(current, incoming, { sourceExportedAt: backup.exportedAt })
+  let added = 0
+  for (const [storeName, entityType] of [['shifts', 'SHIFT'], ['trips', 'TRIP']]) {
+    for (const record of merged.addedRecordsByStore[storeName] || []) {
+      const operationId = `backup-restore:${backup.exportedAt}:${entityType}:${record.id}`
+      try {
+        await NativeCanonicalWorkService.putRecord({ operationId, entityType, record, expectAbsent: true })
+        added++
+      } catch (error) {
+        // A process death/lost acknowledgement may occur after SQLite commits.
+        // Verify the same record identity before deciding whether retry is safe.
+        const [verified, operation] = await Promise.all([
+          NativeCanonicalWorkService.getRecord({ entityType, entityId: record.id }),
+          NativeCanonicalWorkService.getOperation(operationId),
+        ])
+        const sameCommittedOperation = operation?.found === true
+          && operation.command === 'PUT_RECORD'
+          && operation.entityType === entityType
+          && operation.entityId === record.id
+        if (sameCommittedOperation) continue
+        if (!verified?.found) throw new Error(`Native restore stopped at ${entityType}/${record.id}; retry the same backup to resume safely. ${error?.message || ''}`)
+        if (JSON.stringify(verified.record) !== JSON.stringify(record)) {
+          throw new Error(`Native restore found a conflicting canonical ${entityType}/${record.id}; current data was preserved. Retry after reviewing the conflict.`)
+        }
+      }
+    }
+  }
+  return { added, duplicates: merged.duplicates, conflicts: merged.conflicts }
+}
+
+export const createBackup = async () => {
+  const exportedAt = new Date().toISOString()
+  const browserSnapshot = await backupRepository.readCanonicalSnapshot()
+  const nativeSnapshot = await readNativeWorkSnapshot()
+  let stores = browserSnapshot
+  if (nativeSnapshot) {
+    // Native SQLite records are authoritative on Android. Preserve browser-only
+    // history while making sure native-only work records are included in export.
+    const current = { ...browserSnapshot, shifts: nativeSnapshot.shifts, trips: nativeSnapshot.trips }
+    stores = mergeCanonicalBackupSnapshot(current, browserSnapshot, { sourceExportedAt: exportedAt }).snapshot
+  }
+  return validateBackup({ format: BACKUP_FORMAT, formatVersion: BACKUP_FORMAT_VERSION, source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: CANONICAL_DB_VERSION }, exportedAt, stores })
+}
 export const serializeBackup = backup => JSON.stringify(validateBackup(backup), null, 2)
 export const getBackupSummary = backup => { const valid = validateBackup(backup); const counts = Object.fromEntries(CANONICAL_BACKUP_STORES.map(store => [store, valid.stores[store].length])); return { exportedAt: valid.exportedAt, totalRecords: Object.values(counts).reduce((sum, count) => sum + count, 0), counts } }
 export const saveLocalBackup = async backup => { const valid = validateBackup(backup); await backupRepository.saveLocalBackup(valid); return true }
 export const getLocalBackup = async () => backupRepository.getLocalBackup()
-export const restoreBackup = async input => { const backup = validateBackup(input); const merge = await backupRepository.restoreCanonicalSnapshot(backup.stores, { sourceExportedAt: backup.exportedAt }); await saveLocalBackup(await createBackup()); return { ...getBackupSummary(backup), merge } }
+const applyRestoreBackup = async backup => {
+  const beforeNative = await readNativeWorkSnapshot()
+  const nativeMerge = await mergeBackupWorkIntoNative(backup, beforeNative)
+  const afterNative = await readNativeWorkSnapshot()
+  const merge = await backupRepository.restoreCanonicalSnapshot(backup.stores, {
+    sourceExportedAt: backup.exportedAt,
+    authoritativeRecords: afterNative,
+  })
+  // The restore journal remains durable until both stores have converged and the
+  // resulting merged snapshot has been checkpointed successfully.
+  await saveLocalBackup(await createBackup())
+  return { ...getBackupSummary(backup), merge: { ...merge, native: nativeMerge } }
+}
+
+const runRestoreBackup = async input => {
+  if (backupRepository.getCanonicalResetBarrier()) throw new Error('Backup restore is blocked while a canonical reset is pending.')
+  const backup = validateBackup(input)
+  const existing = await backupRepository.getRestoreJournal()
+  if (existing?.backup && serializeBackup(existing.backup) !== serializeBackup(backup)) {
+    throw new Error('A different restore is pending recovery. Reopen KFE and let the pending restore finish before starting another restore.')
+  }
+  const restoreId = existing?.restoreId || globalThis.crypto?.randomUUID?.() || `restore-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  await backupRepository.saveRestoreJournal({ id: 'current', restoreId, state: 'APPLYING', backup })
+  const result = await applyRestoreBackup(backup)
+  await backupRepository.clearRestoreJournal(restoreId)
+  return result
+}
+
+let activeRestoreAttempt = null
+export const restoreBackup = input => {
+  if (activeRestoreAttempt) return Promise.reject(new Error('A backup restore is already running. Wait for it to finish before starting another restore.'))
+  activeRestoreAttempt = runRestoreBackup(input).finally(() => { activeRestoreAttempt = null })
+  return activeRestoreAttempt
+}
+
+export const recoverPendingRestore = async () => {
+  const journal = await backupRepository.getRestoreJournal()
+  if (!journal) return { recovered: false, state: null }
+  if (journal.id !== 'current' || !journal.restoreId || !journal.backup) {
+    throw new Error('Pending restore journal is invalid; startup is blocked to protect recoverable data.')
+  }
+  const backup = validateBackup(journal.backup)
+  const result = await applyRestoreBackup(backup)
+  await backupRepository.clearRestoreJournal(journal.restoreId)
+  return { recovered: true, restoreId: journal.restoreId, ...result }
+}
 const RESET_TERMINAL_STATES = new Set(['COMPLETE', 'ABORTED'])
 
 const assertNoActiveShift = checkpoint => {
@@ -143,7 +270,9 @@ const continueReset = async resetId => {
 }
 
 const runResetData = async () => {
+  if (activeRestoreAttempt) throw new Error('Data reset is blocked while a backup restore is running.')
   await recoverPendingReset()
+  await recoverPendingRestore()
   const resetId = globalThis.crypto?.randomUUID?.() || `reset-${Date.now()}-${Math.random().toString(36).slice(2)}`
   const nativeRequired = NativeCanonicalWorkService.isAvailable()
   backupRepository.setCanonicalResetBarrier(resetId)
@@ -288,4 +417,4 @@ export const registerCloudBackupProvider = provider => { if (!provider || typeof
 export const getCloudBackupProviderName = () => cloudProvider?.name || null
 export const backupToCloud = async backup => { if (!cloudProvider) throw new Error('No cloud backup provider is configured.'); return cloudProvider.upload(validateBackup(backup)) }
 export const restoreFromCloud = async () => { if (!cloudProvider) throw new Error('No cloud backup provider is configured.'); const backup = validateBackup(await cloudProvider.download()); return restoreBackup(backup) }
-export const BackupService = Object.freeze({ createBackup, validateBackup, serializeBackup, getBackupSummary, saveLocalBackup, getLocalBackup, restoreBackup, resetData, recoverPendingReset, readBackupText, requestLocalBackupCheckpoint, maybeDailyLocalBackup, registerCloudBackupProvider, getCloudBackupProviderName, backupToCloud, restoreFromCloud })
+export const BackupService = Object.freeze({ createBackup, validateBackup, serializeBackup, getBackupSummary, saveLocalBackup, getLocalBackup, restoreBackup, recoverPendingRestore, resetData, recoverPendingReset, readBackupText, requestLocalBackupCheckpoint, maybeDailyLocalBackup, registerCloudBackupProvider, getCloudBackupProviderName, backupToCloud, restoreFromCloud })

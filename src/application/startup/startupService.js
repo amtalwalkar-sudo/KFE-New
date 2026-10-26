@@ -55,6 +55,11 @@ export const initializeApplication = async () => {
     DiagnosticService.waiting('Reset recovery', 'Checking for an interrupted cross-store reset.')
     await BackupService.recoverPendingReset()
     DiagnosticService.checkpoint('Reset recovery complete')
+    // A restore journal may represent a process death between SQLite and
+    // IndexedDB. Finish the same idempotent restore before replaying mutations.
+    DiagnosticService.waiting('Backup restore recovery', 'Resuming an interrupted offline backup restore if needed.')
+    await BackupService.recoverPendingRestore()
+    DiagnosticService.checkpoint('Backup restore recovery complete')
     DiagnosticService.waiting('Mutation recovery', 'Recovering stale canonical SYNCING mutations.')
     await MutationRepository.recoverStaleSyncing()
     DiagnosticService.checkpoint('Mutation recovery complete')

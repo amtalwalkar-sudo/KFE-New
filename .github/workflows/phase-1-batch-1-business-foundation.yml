@@ -30,7 +30,8 @@ permissions:
 
 jobs:
   batch-1:
-    if: github.event_name == 'push' || github.head_ref == 'audit/phase-1-batch-1-business-foundation'
+    # The workflow path filter already limits execution to business-foundation inputs; run it on every matching PR branch so the required audit cannot silently skip feature branches.
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     name: Batch 1 — Business Foundation
     runs-on: ubuntu-latest
     steps:

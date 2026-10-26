@@ -108,11 +108,18 @@ export const NativeCanonicalWorkService = Object.freeze({
     if (!entityType || !entityId) throw new Error('entityType and entityId are required.')
     return NativeCanonicalWork.getRecord({ entityType, entityId })
   },
-  async listRecords({ entityType, limit = 500 } = {}) {
+  async listRecords({ entityType, limit = 500, offset = 0 } = {}) {
     requireNative()
     if (!entityType) throw new Error('entityType is required.')
-    const result = await NativeCanonicalWork.listRecords({ entityType, limit })
-    return { entityType, records: Array.isArray(result?.records) ? result.records : [], count: Number(result?.count) || 0 }
+    const result = await NativeCanonicalWork.listRecords({ entityType, limit, offset })
+    return {
+      entityType,
+      records: Array.isArray(result?.records) ? result.records : [],
+      count: Number(result?.count) || 0,
+      totalCount: Number(result?.totalCount ?? result?.count) || 0,
+      offset: Number(result?.offset ?? offset) || 0,
+      limit: Number(result?.limit ?? limit) || limit,
+    }
   },
   async getOperation(operationId) {
     requireNative()

@@ -373,6 +373,15 @@ try {
     'D2 offline canonical trip mutation was not persisted'
   )
 
+  // Finish the D2 fixture before the independent F1 lifecycle scenario. Leaving
+  // this trip active would correctly trigger the single-active-trip invariant and
+  // make F1 accidentally test fixture leakage rather than page lifecycle recovery.
+  await page.evaluate(async () => {
+    const repo = window.__phase4ShiftTripRepository.ShiftTripRepository
+    const completed = await repo.completeTrip({ id: 'phase4-d2-offline-trip' })
+    if (!completed) throw new Error('D2 fixture trip could not be completed before the next lifecycle scenario')
+  })
+
   // D2 intentionally keeps the browser offline only for the canonical mutation check.
   // Do not navigate to a lazily loaded route here: offline route-chunk loading would
   // test the bundler/cache strategy rather than canonical mutation persistence.

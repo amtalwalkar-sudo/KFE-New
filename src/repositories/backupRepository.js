@@ -1,7 +1,7 @@
 import { openCanonicalDB, notifyCanonicalDataChanged, withCanonicalResetWritePermission, setCanonicalResetBarrier, getCanonicalResetBarrier, clearCanonicalResetBarrier, setActiveDataSource } from '../utils/indexedDB.js'
 
 export const LOCAL_BACKUP_DB_NAME = 'kanishka_kfe_local_backup_db'
-export const LOCAL_BACKUP_DB_VERSION = 2
+export const LOCAL_BACKUP_DB_VERSION = 3
 export const LOCAL_BACKUP_ID = 'current'
 
 const openLocalBackupDB = () => new Promise((resolve, reject) => {
@@ -10,6 +10,7 @@ const openLocalBackupDB = () => new Promise((resolve, reject) => {
     const db = event.target.result
     if (!db.objectStoreNames.contains('snapshots')) db.createObjectStore('snapshots', { keyPath: 'id' })
     if (!db.objectStoreNames.contains('reset_journal')) db.createObjectStore('reset_journal', { keyPath: 'id' })
+    if (!db.objectStoreNames.contains('restore_journal')) db.createObjectStore('restore_journal', { keyPath: 'id' })
   }
   request.onsuccess = () => resolve(request.result)
   request.onerror = () => reject(request.error || new Error('Local backup storage could not be opened.'))
@@ -48,7 +49,10 @@ export const mergeCanonicalBackupSnapshot = (currentSnapshot, incomingSnapshot, 
     const additions = []
     for (const imported of incomingSnapshot[storeName] || []) {
       const key = backupKey(storeName, imported)
-      if (!byKey.has(key)) {
+      const competingActiveShift = storeName === 'shifts'
+        && String(imported?.status || '').toUpperCase() === 'ACTIVE'
+        && current.some(existing => String(existing?.status || '').toUpperCase() === 'ACTIVE' && existing.id !== imported.id)
+      if (!byKey.has(key) && !competingActiveShift) {
         const copy = structuredClone(imported)
         byKey.set(key, current.length)
         current.push(copy)
@@ -56,11 +60,12 @@ export const mergeCanonicalBackupSnapshot = (currentSnapshot, incomingSnapshot, 
         added++
         continue
       }
-      const existing = current[byKey.get(key)]
-      if (sameBackupValue(existing, imported)) {
+      if (byKey.has(key) && sameBackupValue(current[byKey.get(key)], imported)) {
         duplicates++
         continue
       }
+      // Never restore a second ACTIVE shift under a different ID. Archive it
+      // just like a same-ID payload conflict so no operational state is lost.
       conflicts++
       const importedPayload = JSON.stringify(canonicalizeBackupValue(imported))
       const conflictId = `restore-conflict:${storeName}:${stableHash(JSON.stringify([storeName, key, importedPayload]))}`
@@ -119,7 +124,7 @@ export const createBackupRepository = stores => Object.freeze({
     })
   },
 
-  async restoreCanonicalSnapshot(snapshot, { sourceExportedAt = null } = {}) {
+  async restoreCanonicalSnapshot(snapshot, { sourceExportedAt = null, authoritativeRecords = null } = {}) {
     const db = await openCanonicalDB()
     return new Promise((resolve, reject) => {
       const tx = db.transaction(stores, 'readwrite')
@@ -135,16 +140,86 @@ export const createBackupRepository = stores => Object.freeze({
           remaining--
           if (remaining !== 0 || settled) return
           try {
-            const merged = mergeCanonicalBackupSnapshot(currentSnapshot, snapshot, { sourceExportedAt })
+            // On Android, SQLite is authoritative for SHIFT/TRIP. Reconcile the
+            // browser mirror against it first; archive any same-ID browser payload
+            // that differs, then apply the imported backup using the loss-protecting
+            // union policy. Native records are put transactionally into IndexedDB
+            // so native-only records are not accidentally omitted from the mirror.
+            const authoritativeSnapshot = { ...currentSnapshot }
+            const nativeConflictArchives = []
+            let nativeMirrorAdded = 0
+            for (const storeName of ['shifts', 'trips']) {
+              if (!Array.isArray(authoritativeRecords?.[storeName])) continue
+              const nativeRecords = authoritativeRecords[storeName].map(record => structuredClone(record))
+              const nativeByKey = new Map(nativeRecords.map(record => [backupKey(storeName, record), record]))
+              const browserOnly = []
+              for (const browserRecord of currentSnapshot[storeName] || []) {
+                const key = backupKey(storeName, browserRecord)
+                if (!nativeByKey.has(key)) {
+                  const competingActiveShift = storeName === 'shifts'
+                    && String(browserRecord?.status || '').toUpperCase() === 'ACTIVE'
+                    && nativeRecords.some(record => String(record?.status || '').toUpperCase() === 'ACTIVE' && record.id !== browserRecord.id)
+                  if (competingActiveShift) {
+                    const importedPayload = JSON.stringify(canonicalizeBackupValue(browserRecord))
+                    const conflictId = `restore-conflict:${storeName}:${stableHash(JSON.stringify([storeName, key, importedPayload]))}`
+                    nativeConflictArchives.push({
+                      id: conflictId, entityType: storeName, entityId: String(key),
+                      action: 'RESTORE_CONFLICT_ARCHIVE', source: 'BACKUP_RESTORE',
+                      sourceExportedAt, payload: structuredClone(browserRecord), createdAt: new Date().toISOString(),
+                    })
+                  } else {
+                    browserOnly.push(structuredClone(browserRecord))
+                  }
+                  continue
+                }
+                const nativeRecord = nativeByKey.get(key)
+                if (sameBackupValue(nativeRecord, browserRecord)) continue
+                const importedPayload = JSON.stringify(canonicalizeBackupValue(browserRecord))
+                const conflictId = `restore-conflict:${storeName}:${stableHash(JSON.stringify([storeName, key, importedPayload]))}`
+                nativeConflictArchives.push({
+                  id: conflictId, entityType: storeName, entityId: String(key),
+                  action: 'RESTORE_CONFLICT_ARCHIVE', source: 'BACKUP_RESTORE',
+                  sourceExportedAt, payload: structuredClone(browserRecord), createdAt: new Date().toISOString(),
+                })
+              }
+              nativeMirrorAdded += nativeRecords.filter(record =>
+                !(currentSnapshot[storeName] || []).some(existing => backupKey(storeName, existing) === backupKey(storeName, record))
+              ).length
+              authoritativeSnapshot[storeName] = [...nativeRecords, ...browserOnly]
+            }
+            if (authoritativeSnapshot.audit_history) {
+              const auditIds = new Set(authoritativeSnapshot.audit_history.map(record => record.id))
+              for (const archive of nativeConflictArchives) {
+                if (auditIds.has(archive.id)) continue
+                auditIds.add(archive.id)
+                authoritativeSnapshot.audit_history.push(archive)
+              }
+            }
+            const merged = mergeCanonicalBackupSnapshot(authoritativeSnapshot, snapshot, { sourceExportedAt })
+            const currentAuditIds = new Set((currentSnapshot.audit_history || []).map(record => record.id))
+            const nativeArchiveAdds = nativeConflictArchives.filter((record, index, all) =>
+              !currentAuditIds.has(record.id) && all.findIndex(candidate => candidate.id === record.id) === index
+            )
             for (const storeName of stores) {
               const store = tx.objectStore(storeName)
+              if (['shifts', 'trips'].includes(storeName) && Array.isArray(authoritativeRecords?.[storeName])) {
+                for (const record of authoritativeSnapshot[storeName]) store.put(structuredClone(record))
+              }
               for (const record of merged.addedRecordsByStore[storeName] || []) store.add(structuredClone(record))
             }
+            if (nativeArchiveAdds.length && !stores.includes('audit_history')) {
+              throw new Error('Restore conflict preservation requires the audit_history store in the canonical transaction.')
+            }
+            if (stores.includes('audit_history')) {
+              const auditStore = tx.objectStore('audit_history')
+              for (const archive of nativeArchiveAdds) auditStore.add(structuredClone(archive))
+            }
+            const nativeArchivesAdded = nativeArchiveAdds.length
             restoreSummary = {
-              added: merged.added,
+              added: merged.added + nativeMirrorAdded + nativeArchivesAdded,
               duplicates: merged.duplicates,
-              conflicts: merged.conflicts,
-              archivedConflicts: merged.archivedConflicts,
+              conflicts: merged.conflicts + nativeConflictArchives.length,
+              archivedConflicts: merged.archivedConflicts + nativeArchivesAdded,
             }
           } catch (error) { fail(error) }
         }
@@ -221,6 +296,44 @@ export const createBackupRepository = stores => Object.freeze({
       const request = tx.objectStore('reset_journal').get('current')
       request.onsuccess = () => { const result = request.result || null; db.close(); resolve(result) }
       request.onerror = () => { db.close(); reject(request.error || new Error('Reset journal lookup failed.')) }
+    })
+  },
+
+  async saveRestoreJournal(journal) {
+    if (!journal?.id || !journal?.restoreId || !journal?.backup) throw new Error('Restore journal requires a restore ID and validated backup.')
+    const db = await openLocalBackupDB()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('restore_journal', 'readwrite')
+      tx.objectStore('restore_journal').put({ ...journal, updatedAt: new Date().toISOString() })
+      tx.oncomplete = () => { db.close(); resolve(true) }
+      tx.onerror = () => { db.close(); reject(tx.error || new Error('Restore journal write failed.')) }
+      tx.onabort = () => { db.close(); reject(tx.error || new Error('Restore journal write aborted.')) }
+    })
+  },
+
+  async getRestoreJournal() {
+    const db = await openLocalBackupDB()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('restore_journal', 'readonly')
+      const request = tx.objectStore('restore_journal').get('current')
+      request.onsuccess = () => { const result = request.result || null; db.close(); resolve(result) }
+      request.onerror = () => { db.close(); reject(request.error || new Error('Restore journal lookup failed.')) }
+    })
+  },
+
+  async clearRestoreJournal(restoreId) {
+    if (!restoreId) throw new Error('Restore ID is required to clear the journal.')
+    const db = await openLocalBackupDB()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('restore_journal', 'readwrite')
+      const store = tx.objectStore('restore_journal')
+      const request = store.get('current')
+      request.onsuccess = () => {
+        if (request.result && request.result.restoreId === restoreId) store.delete('current')
+      }
+      tx.oncomplete = () => { db.close(); resolve(true) }
+      tx.onerror = () => { db.close(); reject(tx.error || new Error('Restore journal clear failed.')) }
+      tx.onabort = () => { db.close(); reject(tx.error || new Error('Restore journal clear aborted.')) }
     })
   },
 

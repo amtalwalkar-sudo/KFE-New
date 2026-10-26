@@ -207,7 +207,7 @@ public class KfeCanonicalWorkPlugin extends Plugin {
   public void listRecords(PluginCall call) {
     try {
       JSONObject result = KfeCanonicalWorkStore.get(getContext()).listRecords(
-          call.getString("entityType", ""), call.getInt("limit", 500));
+          call.getString("entityType", ""), call.getInt("limit", 500), call.getInt("offset", 0));
       call.resolve(new JSObject(result.toString()));
     } catch (Exception error) {
       call.reject("Canonical record list failed.", "CANONICAL_QUERY_FAILED", error);

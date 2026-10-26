@@ -26,4 +26,13 @@ export const downloadBackupText = async (serializedBackup, filename) => {
   return { method: 'browser-download' }
 }
 
+export const chooseBackupFileText = async () => {
+  if (!Capacitor.isNativePlatform()) return null
+  const selected = await NativeBackupFile.open()
+  if (selected?.opened !== true || typeof selected.content !== 'string') {
+    throw new Error('Android did not confirm that the backup file was read.')
+  }
+  return { name: selected.filename || 'KFE-backup.json', text: selected.content }
+}
+
 export const readBackupFileText = file => file.text()

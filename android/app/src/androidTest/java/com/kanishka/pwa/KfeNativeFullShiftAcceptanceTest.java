@@ -5,6 +5,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.database.sqlite.SQLiteDatabase;
@@ -34,6 +35,95 @@ import java.lang.reflect.InvocationTargetException;
 @RunWith(AndroidJUnit4.class)
 public class KfeNativeFullShiftAcceptanceTest {
   private static final String STATE_KEY = "lastOverlayState";
+
+  @Test public void nativeRecordListPaginationReturnsEveryRecordBeyondTheFirstThousand() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    String entityType = "BACKUP_PAGE_TEST_" + System.currentTimeMillis();
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    SQLiteDatabase database = store.getWritableDatabase();
+    database.beginTransaction();
+    try {
+      for (int index = 0; index < 1005; index++) {
+        String id = "page-record-" + index;
+        JSONObject payload = new JSONObject().put("id", id).put("updatedAt", String.format(java.util.Locale.US, "2026-10-01T00:%02d:%02d.000Z", index / 60, index % 60));
+        ContentValues values = new ContentValues();
+        values.put("entity_type", entityType);
+        values.put("entity_id", id);
+        values.put("payload", payload.toString());
+        values.put("updated_at", payload.getString("updatedAt"));
+        assertTrue("Fixture row insert must succeed.", database.insertOrThrow("canonical_records", null, values) >= 0);
+      }
+      database.setTransactionSuccessful();
+    } finally {
+      database.endTransaction();
+    }
+    try {
+      JSONObject first = store.listRecords(entityType, 1000, 0);
+      JSONObject second = store.listRecords(entityType, 1000, 1000);
+      assertEquals(1005, first.getLong("totalCount"));
+      assertEquals(1000, first.getJSONArray("records").length());
+      assertEquals(5, second.getJSONArray("records").length());
+      assertEquals(1000, second.getInt("offset"));
+      assertEquals(1005, first.getJSONArray("records").length() + second.getJSONArray("records").length());
+    } finally {
+      database.delete("canonical_records", "entity_type=?", new String[]{entityType});
+    }
+  }
+
+  @Test public void durableCreateIntentReusesIdentityAfterLostAcknowledgementAndAllowsNextCreate() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    String suffix = Long.toString(System.currentTimeMillis());
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    String intentKey = "create-retry-shift-" + suffix;
+    JSONObject proposed = new JSONObject()
+        .put("id", "create-retry-shift-record-" + suffix)
+        .put("status", "ACTIVE")
+        .put("startOdometer", 1234)
+        .put("updatedAt", "2026-10-25T10:00:00.000Z");
+
+    JSONObject prepared = store.prepareCreateIntent("SHIFT", intentKey, proposed);
+    assertEquals("PENDING", prepared.getString("status"));
+    String intentId = prepared.getString("intentId");
+    String operationId = prepared.getString("operationId");
+    String recordId = prepared.getJSONObject("record").getString("id");
+
+    // Simulate the UI losing the create acknowledgement and preparing again with
+    // a newly generated candidate record. The durable workflow key must win.
+    JSONObject retryCandidate = new JSONObject(proposed.toString())
+        .put("id", "must-not-be-created-" + suffix);
+    JSONObject retried = store.prepareCreateIntent("SHIFT", intentKey, retryCandidate);
+    assertTrue("Retry must report reuse of the durable intent.", retried.getBoolean("reused"));
+    assertEquals(intentId, retried.getString("intentId"));
+    assertEquals(operationId, retried.getString("operationId"));
+    assertEquals(recordId, retried.getJSONObject("record").getString("id"));
+    assertEquals("PENDING", retried.getString("status"));
+
+    KfeCanonicalWorkStore.Outcome firstCommit = store.putRecord(
+        operationId, "SHIFT", prepared.getJSONObject("record"), null, true);
+    assertTrue("First create must commit.", firstCommit.accepted);
+    KfeCanonicalWorkStore.Outcome replayCommit = store.putRecord(
+        operationId, "SHIFT", retried.getJSONObject("record"), null, true);
+    assertTrue("Lost-ack retry must be accepted.", replayCommit.accepted);
+    assertTrue("Lost-ack retry must be idempotent.", replayCommit.duplicate);
+    store.completeCreateIntent(intentId);
+
+    // A fresh lookup after completion must still resolve the original identity.
+    JSONObject completedRetry = store.prepareCreateIntent("SHIFT", intentKey, retryCandidate);
+    assertEquals("COMPLETED", completedRetry.getString("status"));
+    assertEquals(recordId, completedRetry.getJSONObject("record").getString("id"));
+    assertEquals(operationId, completedRetry.getString("operationId"));
+    assertTrue(store.getRecord("SHIFT", recordId).optBoolean("found", false));
+
+    // A genuinely new user action gets a new intent, even when the business
+    // payload is otherwise identical; stable payload hashing alone is unsafe.
+    String nextIntentKey = "create-next-shift-" + suffix;
+    JSONObject nextCandidate = new JSONObject(proposed.toString())
+        .put("id", "create-next-shift-record-" + suffix);
+    JSONObject next = store.prepareCreateIntent("SHIFT", nextIntentKey, nextCandidate);
+    assertFalse("A new workflow key must not reuse the previous completed intent.", next.getBoolean("reused"));
+    assertFalse("A new user action must have a different record identity.", recordId.equals(next.getJSONObject("record").getString("id")));
+    assertFalse("A new user action must have a different operation identity.", operationId.equals(next.getString("operationId")));
+  }
 
   @Test public void activeShiftStaleRevenueProjectionMirrorIsReconciledButOtherStaleWritesAreRejected() throws Exception {
     Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();

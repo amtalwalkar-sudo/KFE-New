@@ -14,8 +14,8 @@ console.log('--- Running KFE Phase 4 Operational Records Contract Tests ---')
 
 const rideCaptureTest = read('tests/rideCapture.contract.js')
 assert(shiftRepo.includes("saveMutation = (mutationStore, auditStore, entityId, entityType, action"), 'Canonical Trip mutation helper missing')
-assert(shiftRepo.includes("saveMutation(m, a, record.id, 'TRIP', 'CREATE', record, now)"), 'Trip creation must retain mutation/audit lineage')
-assert(rideCaptureTest.includes("saveMutation(m, a, record.id, 'TRIP', 'CREATE', record, now)"), 'Ride Capture contract must verify the repository mutation call actually used')
+assert(shiftRepo.includes("saveMutation(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), proposed.id, 'TRIP', 'CREATE', proposed, now)"), 'Trip creation must retain mutation/audit lineage')
+assert(rideCaptureTest.includes("saveMutation(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), proposed.id, 'TRIP', 'CREATE', proposed, now)"), 'Ride Capture contract must verify the repository mutation call actually used')
 
 for (const method of ['startShift(data)', 'completeShift(data)', 'recordFuel(data)', 'reconstructShift(shiftId)']) assert(service.includes(method), `Operational service method missing: ${method}`)
 assert(service.includes('ShiftTripRepository.createShift'), 'Shift creation must use canonical Shift repository')
