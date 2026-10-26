@@ -38,7 +38,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, geolocation: { latitude: 19.076, longitude: 72.8777, accuracy: 20 }, permissions: ['geolocation'] })
 
   // Work remains the operational surface; Timeline and Performance are read-only reporting,
-  // and Admin exposes canonical Settings.
+  // and Admin exposes the approved four-section workspace.
   await route(page, '', '.work-canonical', 'Work')
   await wait(async () => (await page.locator('body').innerText()).includes('START SHIFT'), 'Work ready')
   if (await page.locator('.kfe-runtime-error').count()) throw new Error('Work runtime error')
@@ -72,7 +72,7 @@ try {
   if (await page.locator('.performance-page').count() !== 1) throw new Error('Performance navigation failed')
 
   console.log('Calculation matrix rendered UI smoke: PASS')
-  console.log(JSON.stringify({ assertions: 16, routes: ['work', 'timeline', 'performance', 'admin'], timeline: 'read-only reporting route', performance: 'read-only dashboard', timelineFuelHeaders: ['Average fuel cost/km', 'Total amount refilled'], bottomNavigation: ['Timeline', 'Performance'], admin: 'canonical Settings only' }))
+  console.log(JSON.stringify({ assertions: 16, routes: ['work', 'timeline', 'performance', 'admin'], timeline: 'read-only reporting route', performance: 'read-only dashboard', timelineFuelHeaders: ['Average fuel cost/km', 'Total amount refilled'], bottomNavigation: ['Timeline', 'Performance'], admin: 'four-section Admin workspace' }))
 } finally {
   await browser?.close()
   if (preview?.pid) { try { process.kill(-preview.pid, 'SIGTERM') } catch (_) {} }
