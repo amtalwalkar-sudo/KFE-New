@@ -36,3 +36,8 @@ assert.match(adminView, /key:'application',title:'Application Settings'/)
 assert.match(adminView, /key:'backup',title:'Backup & Restore'/)
 assert.match(adminView, /key:'reset',title:'Data Reset'/)
 console.log('Admin contract passed: only Admin-owned master, vehicle, finance and planning forms are exposed; operational Work/Timeline entries are excluded.')
+
+assert.match(adminView, /loanAmortizationSchedule/)
+assert.match(adminView, /View.*amortization schedule/)
+assert.match(adminView, /paymentState:fullyPaid\?'Paid'/)
+assert.match(adminView, /remainingScheduledAmount>1/)
