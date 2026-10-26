@@ -902,6 +902,11 @@ public class KfeOverlayService extends Service {
     if(ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED){
       Log.w("KFE-GPS","One-shot "+eventType+" snapshot skipped: precise location permission is not granted.");return;
     }
+    if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.Q
+      && ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_BACKGROUND_LOCATION)!=PackageManager.PERMISSION_GRANTED){
+      Log.w("KFE-GPS","Background "+eventType+" GPS capture skipped: background location permission is not granted; no background location request was started.");
+      return;
+    }
     LocationManager manager=(LocationManager)getSystemService(Context.LOCATION_SERVICE);
     if(manager==null){Log.w("KFE-GPS","One-shot "+eventType+" snapshot skipped: LocationManager unavailable.");return;}
     try{
