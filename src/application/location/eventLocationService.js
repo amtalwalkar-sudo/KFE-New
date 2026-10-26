@@ -2,8 +2,10 @@ import { LocationRepository } from '../../repositories/locationRepository.js'
 import { CanonicalWorkBoundary } from '../work/canonicalWorkBoundary.js'
 import { captureTripBoundaryLocation } from '../work/tripBoundaryLocation.js'
 import { PhotonLocationNameAdapter, resolveLocationName } from './locationNameService.js'
+import { ShiftTripRepository } from '../../repositories/shiftTripRepository.js'
 
 const locationNameResolver = new PhotonLocationNameAdapter()
+let locationReconcileAttempt = null
 
 export const EventLocationService = {
   // Optional enrichment. Call only after the authoritative business record is saved.
@@ -72,6 +74,45 @@ export const EventLocationService = {
   },
   async resolveLabel(location) {
     return resolveLocationName(location, locationNameResolver)
+  },
+  async reconcilePersistedTripLocations() {
+    if (locationReconcileAttempt) return locationReconcileAttempt
+    locationReconcileAttempt = (async () => {
+      const trips = await ShiftTripRepository.getAllTrips()
+      const snapshots = await this.forEntities('TRIP', trips.map(trip => trip?.id))
+      const byEvent = new Map(snapshots.map(snapshot => [`${snapshot.entityId}:${snapshot.eventType}`, snapshot]))
+      for (const trip of trips) {
+        if (!trip?.id) continue
+        for (const boundary of [
+          { field: 'tripStartLocation', eventType: 'TRIP_START', eventAt: trip.tripStartAt },
+          { field: 'tripEndLocation', eventType: 'TRIP_END', eventAt: trip.tripEndAt },
+        ]) {
+          const key = `${trip.id}:${boundary.eventType}`
+          let snapshot = byEvent.get(key)
+          const legacy = trip[boundary.field]
+          // Reuse the original fix for old records; never take a new GPS reading
+          // just to repair a missing locality label.
+          if (!snapshot && legacy && Number.isFinite(Number(legacy.latitude))
+            && Number.isFinite(Number(legacy.longitude)) && legacy.capturedAt) {
+            snapshot = await LocationRepository.record({
+              id: `legacy-trip-location-${trip.id}-${boundary.eventType}`,
+              entityType: 'TRIP', entityId: trip.id, eventType: boundary.eventType,
+              eventAt: boundary.eventAt || null,
+              latitude: legacy.latitude, longitude: legacy.longitude,
+              accuracy: legacy.accuracy, capturedAt: legacy.capturedAt,
+              placeName: legacy.placeName || null,
+            })
+            await this.persistNativeSnapshot(snapshot)
+            byEvent.set(key, snapshot)
+          }
+          if (!snapshot || String(snapshot.placeName || '').trim() || globalThis.navigator?.onLine === false) continue
+          const placeName = await resolveLocationName(snapshot, locationNameResolver)
+          if (placeName) await this.persistLabel(snapshot.id, placeName)
+        }
+      }
+      return { migrated: true, tripCount: trips.length }
+    })().finally(() => { locationReconcileAttempt = null })
+    return locationReconcileAttempt
   },
   async persistLabel(snapshotId, placeName) {
     const updated = await LocationRepository.updatePlaceName(snapshotId, placeName)
