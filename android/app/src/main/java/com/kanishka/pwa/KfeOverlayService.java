@@ -1242,7 +1242,7 @@ public class KfeOverlayService extends Service {
   private boolean dark(){return true;}
   private void removeOverlay(){removeOverlay(false);}
   private void removeOverlay(boolean preserveFormDraft){closeForm(!preserveFormDraft);if(windowManager!=null&&overlayRoot!=null){try{windowManager.removeView(overlayRoot);}catch(Exception ignored){}}overlayRoot=null;overlay=null;}
-  @Override public void onDestroy(){if(foregroundHandler!=null)foregroundHandler.removeCallbacks(foregroundCheck);removeOverlay(true);if(instance==this)instance=null;super.onDestroy();}
+  @Override public void onDestroy(){if(foregroundHandler!=null){foregroundHandler.removeCallbacks(foregroundCheck);foregroundHandler.removeCallbacks(pendingGpsRetry);}removeOverlay(true);if(instance==this)instance=null;super.onDestroy();}
   @Override public IBinder onBind(Intent intent){return null;}
   private Notification buildNotification(){
     // This notice exists for the Android foreground-service lifecycle only.
