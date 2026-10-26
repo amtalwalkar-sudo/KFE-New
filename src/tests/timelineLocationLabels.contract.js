@@ -11,11 +11,11 @@ const canonicalBoundary = fs.readFileSync('src/application/work/canonicalWorkBou
 const browserCanonical = fs.readFileSync('src/infrastructure/work/browserCanonicalWork.js', 'utf8')
 const workService = fs.readFileSync('src/application/work/workService.js', 'utf8')
 
-assert.match(workService, /captureAndPersistEventLocation\\('TRIP', result\\.id, 'TRIP_START'/,
+assert.ok(workService.includes("captureAndPersistEventLocation('TRIP', result.id, 'TRIP_START'"),
   'starting the passenger ride must use the shared event-location pathway')
-assert.match(workService, /captureAndPersistEventLocation\\('TRIP', data\\?\\.id, 'TRIP_END'/,
+assert.ok(workService.includes("captureAndPersistEventLocation('TRIP', data?.id, 'TRIP_END'"),
   'ending the passenger ride must use the shared event-location pathway')
-assert.match(workService, /captureAndPersistEventLocation\\('TRIP', result\\.id, 'PICKUP_START'/,
+assert.ok(workService.includes("captureAndPersistEventLocation('TRIP', result.id, 'PICKUP_START'"),
   'pickup-origin snapshot remains a distinct event in the same pathway')
 assert.match(eventLocationService, /CanonicalWorkBoundary\.listEventLocationSnapshots\(\)/,
   'event location snapshots remain readable from native canonical storage')
