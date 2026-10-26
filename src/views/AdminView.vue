@@ -265,7 +265,7 @@ onMounted(()=>{load()})
       <div class="admin-category-grid">
         <button v-for="item in group.items" :key="item.key" type="button" class="admin-item" @click="openItem(item.key)">
           <span class="admin-item-icon" aria-hidden="true">{{item.icon}}</span>
-          <span class="admin-item-copy"><strong>{{item.title}}</strong><small>{{item.key==='businessSetup'?'Set the business start boundary':item.key==='vehicle'?'Vehicle identity and lifecycle':item.key==='driver'?'Driver identity and assignment':item.key==='compliance'?'Validity and compliance cost':item.key==='maintenance'?'Authoritative actual maintenance':'Loan terms, payments, prepayments and repayment schedule'}}</small></span>
+          <span class="admin-item-copy"><strong>{{item.title}}</strong><small>{{item.key==='businessSetup'?'Set the business start boundary':item.key==='vehicle'?'Vehicle identity and lifecycle':item.key==='driver'?'Driver identity and assignment':item.key==='compliance'?'Validity and compliance cost':item.key==='maintenance'?'Authoritative actual maintenance':item.key==='settingsBackup'?'Export, restore and protect KFE data':item.key==='settingsApplication'?'Theme and notification preferences':item.key==='settingsReset'?'Reset business data with recovery safeguards':'Loan terms, payments, prepayments and repayment schedule'}}</small></span>
           <span class="admin-item-arrow" aria-hidden="true">›</span>
         </button>
       </div>
