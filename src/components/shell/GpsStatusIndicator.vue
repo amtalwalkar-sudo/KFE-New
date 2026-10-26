@@ -123,23 +123,23 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .gps-status{position:relative;display:flex;align-items:center}
-.gps-status__trigger{position:relative;display:grid;place-items:center;width:42px;height:42px;border:1px solid var(--kfe-border, #45515d);border-radius:50%;background:var(--kfe-surface, #1d2935);color:var(--kfe-text, #fff);cursor:pointer}
+.gps-status__trigger{position:relative;display:grid;place-items:center;width:42px;height:42px;border:1px solid var(--kfe-border, var(--kfe-base-border));border-radius:50%;background:var(--kfe-surface, var(--kfe-base-surface));color:var(--kfe-text, #fff);cursor:pointer}
 .gps-status__trigger svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.gps-status__dot{position:absolute;right:2px;bottom:2px;width:9px;height:9px;border:2px solid var(--kfe-surface, #1d2935);border-radius:50%;background:#d97706}
-.gps-status__trigger--ready .gps-status__dot{background:#16a34a}
-.gps-status__trigger--permission .gps-status__dot,.gps-status__trigger--background-permission .gps-status__dot,.gps-status__trigger--browser .gps-status__dot{background:#dc2626}
-.gps-status__trigger--waiting .gps-status__dot{background:#d97706}
-.gps-status__panel{position:absolute;z-index:1000;top:calc(100% + 10px);right:0;width:min(320px,calc(100vw - 32px));padding:16px;border:1px solid var(--kfe-border,#45515d);border-radius:14px;background:var(--kfe-surface,#1d2935);color:var(--kfe-text,#fff);box-shadow:0 12px 36px #0005}
+.gps-status__dot{position:absolute;right:2px;bottom:2px;width:9px;height:9px;border:2px solid var(--kfe-surface, var(--kfe-base-surface));border-radius:50%;background:var(--kfe-warning,var(--kfe-base-accent))}
+.gps-status__trigger--ready .gps-status__dot{background:var(--kfe-base-success)}
+.gps-status__trigger--permission .gps-status__dot,.gps-status__trigger--background-permission .gps-status__dot,.gps-status__trigger--browser .gps-status__dot{background:var(--kfe-base-danger)}
+.gps-status__trigger--waiting .gps-status__dot{background:var(--kfe-warning,var(--kfe-base-accent))}
+.gps-status__panel{position:absolute;z-index:1000;top:calc(100% + 10px);right:0;width:min(320px,calc(100vw - 32px));padding:16px;border:1px solid var(--kfe-border,var(--kfe-base-border));border-radius:14px;background:var(--kfe-surface,var(--kfe-base-surface));color:var(--kfe-text,#fff);box-shadow:0 12px 36px color-mix(in srgb,var(--kfe-ui-text) 32%,transparent)}
 .gps-status__title{font-size:15px;font-weight:700}
 .gps-status__state{margin:8px 0 12px;font-weight:600}
-.gps-status__state[data-state=ready]{color:#16a34a}
-.gps-status__state[data-state=permission],.gps-status__state[data-state=background-permission],.gps-status__state[data-state=unavailable],.gps-status__state[data-state=browser]{color:#dc2626}
+.gps-status__state[data-state=ready]{color:var(--kfe-base-success)}
+.gps-status__state[data-state=permission],.gps-status__state[data-state=background-permission],.gps-status__state[data-state=unavailable],.gps-status__state[data-state=browser]{color:var(--kfe-base-danger)}
 .gps-status__details{display:grid;gap:8px;margin:0;padding:0;list-style:none;font-size:13px}
 .gps-status__details li{display:flex;justify-content:space-between;gap:12px}
 .gps-status__details strong{font-weight:600;text-align:right}
 .gps-status__hint,.gps-status__error{font-size:12px;line-height:1.45}
-.gps-status__error{color:#dc2626}
-.gps-status__action,.gps-status__close{width:100%;min-height:40px;margin-top:10px;border:1px solid var(--kfe-border,#45515d);border-radius:9px;background:transparent;color:inherit;font:inherit;cursor:pointer}
-.gps-status__action{background:var(--kfe-accent,#2563eb);border-color:transparent;color:#fff}
+.gps-status__error{color:var(--kfe-base-danger)}
+.gps-status__action,.gps-status__close{width:100%;min-height:40px;margin-top:10px;border:1px solid var(--kfe-border,var(--kfe-base-border));border-radius:9px;background:transparent;color:inherit;font:inherit;cursor:pointer}
+.gps-status__action{background:var(--kfe-accent,var(--kfe-base-accent));border-color:transparent;color:var(--kfe-ui-on-accent,var(--kfe-base-text))}
 .gps-status__action:disabled{opacity:.65;cursor:wait}
 </style>
