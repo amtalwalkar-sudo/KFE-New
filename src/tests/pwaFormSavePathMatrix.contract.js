@@ -27,7 +27,7 @@ const draftRepo = read('../repositories/formDraftRepository.js')
 const match = (source, pattern, message) => assert.match(source, pattern, message)
 
 // Router inventory: route-level PWA surfaces are the source of truth.
-for (const [path, view] of [['/', 'WorkModuleView'], ['/timeline', 'ActivityTimelineView'], ['/performance', 'PerformanceView'], ['/admin', 'AdminSettingsOnlyView']]) {
+for (const [path, view] of [['/', 'WorkModuleView'], ['/timeline', 'ActivityTimelineView'], ['/performance', 'PerformanceView'], ['/admin', 'AdminView']]) {
   assert.match(router, new RegExp('path:\\s*[\'"]' + path.replace('/', '\\/') + '[\'"][^}]*component:\\s*' + view), 'Missing active route ' + path + ' -> ' + view)
 }
 assert.doesNotMatch(router, /VehicleModuleRole|MaintenanceModuleRole|LoanModuleRole|ComplianceModuleView|AuthoritativeRecordFormRole/, 'Legacy module forms must not silently become active routes')
