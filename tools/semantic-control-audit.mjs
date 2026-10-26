@@ -215,9 +215,10 @@ try {
   await page.getByText('₹800.00', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
   assert(await page.locator('.activity-timeline-page').count() === 1, 'Timeline did not render the completed ride after shift closure')
   await page.goto(new URL('performance', base).href, { waitUntil: 'domcontentloaded' })
-  await page.locator('.kfe-blank-workspace').waitFor({ state: 'visible' })
-  assert(await page.locator('.performance-page').count() === 0, 'Performance must remain intentionally blank')
-  evidence.push({ id: 'WORK.END_SHIFT', result: 'PASS', expected: 'COMPLETED shift/revenue persist; read-only Timeline shows the fare and Performance remains blank', persisted: { shiftStatus: state.shifts[0].status, endOdometer: state.shifts[0].endOdometer, revenue: state.shifts[0].revenue } })
+  await page.locator('.performance-page').waitFor({ state: 'visible', timeout: 30000 })
+  assert(await page.locator('.performance-page').count() === 1, 'Performance dashboard did not render after shift closure')
+  assert(await page.getByRole('heading', { name: 'Performance' }).count() === 1, 'Performance title missing after shift closure')
+  evidence.push({ id: 'WORK.END_SHIFT', result: 'PASS', expected: 'COMPLETED shift/revenue persist; read-only Timeline and Performance projections render', persisted: { shiftStatus: state.shifts[0].status, endOdometer: state.shifts[0].endOdometer, revenue: state.shifts[0].revenue } })
 
   // Contract 7: Back from start-shift gate must not write a shift.
   await reset(page)
@@ -370,7 +371,7 @@ try {
   assert(state.shifts.length === 1 && state.shifts[0].status === 'COMPLETED' && Number(state.shifts[0].endOdometer) === 1100 && Number(state.shifts[0].revenue) === 0, 'FORMS.END_SHIFT must commit only closing odometer/lifecycle, viewport-safe')
   evidence.push({ id: 'FORMS.END_SHIFT_SEQUENCE', result: 'PASS', expected: 'closing odometer -> durable shift end, no revenue/date reconciliation stages' })
 
-  // Route contract: Timeline is read-only reporting; Performance intentionally remains blank.
+  // Route contract: Timeline and Performance are read-only reporting projections.
   await page.goto(new URL('/', base).href, { waitUntil: 'domcontentloaded', timeout: 30000 })
   await page.locator('.work-canonical').waitFor({ state: 'visible', timeout: 30000 })
   assert(await page.getByRole('navigation').getByRole('link', { name: 'Work', exact: true }).count() === 1, 'Work bottom-navigation entry is missing')
@@ -385,11 +386,12 @@ try {
   evidence.push({ id: 'NAV.TIMELINE', result: 'PASS', expected: 'live read-only Timeline with fuel metrics and navigation entry retained', persisted: { route: '/timeline' } })
 
   await page.goto(new URL('performance', base).href, { waitUntil: 'domcontentloaded', timeout: 30000 })
-  await page.locator('.kfe-blank-workspace-surface').waitFor({ state: 'attached', timeout: 30000 })
-  await page.locator('.kfe-blank-workspace').waitFor({ state: 'visible', timeout: 30000 })
-  assert(await page.locator('.activity-timeline-page, .performance-page, .pp-period, .pp-period-nav').count() === 0, 'Performance unexpectedly rendered a retired screen')
+  await page.locator('.performance-page').waitFor({ state: 'visible', timeout: 30000 })
+  assert(await page.locator('.performance-page').count() === 1, 'Performance dashboard did not render')
+  assert(await page.getByRole('heading', { name: 'Performance' }).count() === 1, 'Performance title is missing')
+  assert(await page.getByRole('combobox', { name: 'Performance period' }).count() === 1, 'Performance period filter is missing')
   assert(await page.getByRole('navigation').getByRole('link', { name: 'Performance', exact: true }).count() === 1, 'Performance bottom-navigation entry is missing')
-  evidence.push({ id: 'NAV.PERFORMANCE', result: 'PASS', expected: 'intentionally blank Performance workspace with navigation entry retained', persisted: { route: '/performance' } })
+  evidence.push({ id: 'NAV.PERFORMANCE', result: 'PASS', expected: 'live read-only Performance dashboard with navigation entry retained', persisted: { route: '/performance' } })
 
   await page.goto(new URL('admin', base).href, { waitUntil: 'domcontentloaded', timeout: 30000 })
   await page.locator('.kfe-settings-page').waitFor({ state: 'visible', timeout: 30000 })
