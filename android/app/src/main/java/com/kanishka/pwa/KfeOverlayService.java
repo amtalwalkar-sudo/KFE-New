@@ -1083,6 +1083,7 @@ public class KfeOverlayService extends Service {
       if(location==null)return false;
       long fixTime=location.getTime();
       if(fixTime<=0L){Log.w("KFE-GPS","Event GPS snapshot skipped: GPS fix has no valid provider timestamp.");return false;}
+      if(!location.hasAccuracy()||!Float.isFinite(location.getAccuracy())||location.getAccuracy()<0f){Log.w("KFE-GPS","Event GPS snapshot skipped: provider fix has no valid accuracy.");return false;}
       String snapshotId="native-event-location-"+tripId+"-"+eventType;
       String now=java.time.Instant.now().toString();
       JSONObject tripResult=KfeCanonicalWorkStore.get(this).getRecord("TRIP",tripId);
