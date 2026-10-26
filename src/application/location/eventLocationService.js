@@ -12,7 +12,17 @@ export const EventLocationService = {
     void (async () => {
       const existing = await this.forEntity(entityType, entityId)
       const prior = existing.find(item => item.eventType === eventType)
-      if (prior) { await this.persistNativeSnapshot(prior); return }
+      if (prior) {
+        await this.persistNativeSnapshot(prior)
+        // A previous capture may have succeeded while reverse geocoding was
+        // unavailable. Retry enrichment from its persisted coordinates; never
+        // take a second GPS fix for the same event.
+        if (!String(prior.placeName || '').trim()) {
+          const placeName = await resolveLocationName(prior, locationNameResolver)
+          if (placeName) await this.persistLabel(prior.id, placeName)
+        }
+        return
+      }
       const location = await captureTripBoundaryLocation()
       if (!location) return
       const snapshot = await LocationRepository.record({
@@ -28,13 +38,22 @@ export const EventLocationService = {
     })().catch(error => console.warn('Optional event GPS enrichment failed:', entityType, entityId, eventType, error))
   },
   async forEntity(entityType, entityId) {
-    const [local, native] = await Promise.all([
-      LocationRepository.forEntity(entityType, entityId),
+    const snapshots = await this.forEntities(entityType, [entityId])
+    return snapshots
+  },
+  async forEntities(entityType, entityIds = []) {
+    const ids = [...new Set((entityIds || []).filter(Boolean))]
+    if (!entityType || !ids.length) return []
+    const [localGroups, native] = await Promise.all([
+      Promise.all(ids.map(id => LocationRepository.forEntity(entityType, id))),
       CanonicalWorkBoundary.listEventLocationSnapshots().catch(() => []),
     ])
+    const allowed = new Set(ids)
     const byId = new Map()
-    const snapshots = [...local, ...native.filter(item => item.entityType === entityType && item.entityId === entityId)]
-      .sort((a, b) => Date.parse(a.updatedAt || a.createdAt || 0) - Date.parse(b.updatedAt || b.createdAt || 0))
+    const snapshots = [
+      ...localGroups.flat(),
+      ...native.filter(item => item.entityType === entityType && allowed.has(item.entityId)),
+    ].sort((a, b) => Date.parse(a.updatedAt || a.createdAt || 0) - Date.parse(b.updatedAt || b.createdAt || 0))
     for (const item of snapshots) {
       if (item?.id) byId.set(item.id, { ...byId.get(item.id), ...item })
     }
