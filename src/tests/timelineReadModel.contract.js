@@ -48,6 +48,6 @@ assert.match(service, /dropArea: trip\.status === 'COMPLETED' \? locality\(dropN
 assert.match(service, /EventLocationService\.forEntities\('TRIP'/, 'Timeline reads persisted trip locations through the shared event-location service')
 assert.match(service, /Location unavailable/)
 assert.match(router, /path: '\/timeline', name: 'Timeline', component: ActivityTimelineView/)
-assert.match(router, /path: '\/performance', name: 'Performance', component: BlankWorkspaceView/)
+assert.match(router, /path: '\/performance', name: 'Performance', component: PerformanceView/)
 
 console.log('Timeline read-only architecture and period fuel calculation contract: PASS')
