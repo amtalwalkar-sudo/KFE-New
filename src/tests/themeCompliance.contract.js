@@ -32,4 +32,4 @@ const result = spawnSync(process.execPath, [tool.pathname], { encoding: 'utf8' }
 assert.equal(result.status, 0, result.stdout + result.stderr)
 assert.match(result.stdout, /THEME COMPLIANCE AUDIT: PASS/)
 
-console.log('Theme compliance contract: PASS — Light/Dark/Auto themes and notification settings are available through canonical application settings.')
+console.log('Theme compliance contract: PASS — Light/Dark/Auto themes and a persisted app-notification preference are available through application settings.')
