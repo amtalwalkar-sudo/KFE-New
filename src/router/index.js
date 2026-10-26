@@ -2,16 +2,15 @@ import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router
 import { Capacitor } from '@capacitor/core'
 import WorkModuleView from '../views/WorkModuleView.vue'
 import ActivityTimelineView from '../views/ActivityTimelineView.vue'
-import AdminView from '../views/AdminView.vue'
-import BlankWorkspaceView from '../views/BlankWorkspaceView.vue'
+import PerformanceView from '../views/PerformanceView.vue'
 import AdminSettingsOnlyView from '../views/AdminSettingsOnlyView.vue'
 
 const routes = [
   { path: '/', name: 'Work', component: WorkModuleView },
   // Timeline is a read-only projection of canonical operational records.
   { path: '/timeline', name: 'Timeline', component: ActivityTimelineView, meta: { shell: { header: false } } },
-  // Performance remains intentionally blank until its separate rebuild is approved.
-  { path: '/performance', name: 'Performance', component: BlankWorkspaceView, meta: { shell: { header: false } } },
+  // Performance is a read-only projection of saved operational records.
+  { path: '/performance', name: 'Performance', component: PerformanceView, meta: { shell: { header: false } } },
   { path: '/admin', name: 'Admin', component: AdminSettingsOnlyView },
 ]
 
