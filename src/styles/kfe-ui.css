@@ -2,7 +2,7 @@
  * Frozen Visual DNA -> tokens -> shared/global UI -> screens -> build/runtime.
  * No screen/component-local style blocks are used for presentation.
  */
-/* KFE Visual DNA — one fixed dark theme for consistent contrast and readability. */
+/* KFE canonical theme tokens: dark defaults with a semantic light override selected by the theme controller. */
 :root{
   --kfe-ui-bg:#10151B;
   --kfe-ui-surface:#171E26;
@@ -46,6 +46,38 @@
   --kfe-motion-standard:180ms;
   color-scheme:dark;
 }
+:root[data-kfe-theme="light"]{
+  --kfe-ui-bg:#F5F7FA;
+  --kfe-ui-surface:#FFFFFF;
+  --kfe-ui-surface-2:#EAF0F6;
+  --kfe-ui-text:#17212B;
+  --kfe-muted-text:#536273;
+  --kfe-ui-muted:#59697A;
+  --kfe-ui-border:#CBD5E1;
+  --kfe-ui-accent:#245FC7;
+  --kfe-accent:#245FC7;
+  --kfe-accent-soft:#DCE8FB;
+  --kfe-success:#187746;
+  --kfe-warning:#8A5B00;
+  --kfe-danger:#B42332;
+  --kfe-info:#245FC7;
+  --kfe-on-accent:#FFFFFF;
+  --kfe-ui-on-accent:#FFFFFF;
+  --kfe-ui-muted-strong:#536273;
+  --kfe-ui-focus:#245FC7;
+  --kfe-ui-input-bg:#FFFFFF;
+  --kfe-ui-input-border:#94A3B8;
+  --kfe-danger-readable:#B42332;
+  --kfe-success-readable:#187746;
+  --kfe-ui-shadow:0 8px 24px rgba(15,23,42,.09);
+  --kfe-shadow:var(--kfe-ui-shadow);
+  --kfe-ui-overlay:rgba(245,247,250,.97);
+  color-scheme:light;
+}
+:root[data-kfe-theme="light"] .kfe-primary-action,
+:root[data-kfe-theme="light"] .primary,
+:root[data-kfe-theme="light"] .kfe-action-primary{color:#FFFFFF}
+:root[data-kfe-theme="light"] .kfe-skip-link{color:#FFFFFF;background:#17212B}
 :root[data-kfe-theme="night"],:root[data-kfe-theme="dark"]{color-scheme:dark}
 
 *,*::before,*::after{box-sizing:border-box}

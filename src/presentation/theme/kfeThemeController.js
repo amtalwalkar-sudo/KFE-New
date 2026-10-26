@@ -1,46 +1,53 @@
 const STORAGE_KEY='kfe.visual.theme.mode'
-const SCHEDULE_KEY='kfe.visual.theme.schedule'
+const VALID_MODES=new Set(['auto','light','dark'])
+let mediaQuery=null
+let mediaListener=null
 
-const fixedSettings={mode:'dark',schedule:{dayStart:'06:00',nightStart:'19:00'}}
-
-function persistDarkPreference(){
+function readMode(){
   try{
-    localStorage.setItem(STORAGE_KEY,'dark')
-    localStorage.removeItem(SCHEDULE_KEY)
-  }catch(_){}
+    const stored=localStorage.getItem(STORAGE_KEY)
+    return VALID_MODES.has(stored)?stored:'auto'
+  }catch(_){return 'auto'}
 }
-
-export function applyKfeTheme(){
-  persistDarkPreference()
+function resolvedMode(mode){
+  if(mode==='light'||mode==='dark')return mode
+  return typeof window!=='undefined'&&window.matchMedia?.('(prefers-color-scheme: light)').matches?'light':'dark'
+}
+export function applyKfeTheme(mode=readMode()){
+  const selected=VALID_MODES.has(mode)?mode:'auto'
+  const resolved=resolvedMode(selected)
   const root=document.documentElement
-  root.dataset.kfeTheme='night'
-  root.dataset.kfeThemeMode='dark'
-  root.style.colorScheme='dark'
-  return 'night'
+  root.dataset.kfeTheme=resolved
+  root.dataset.kfeThemeMode=selected
+  root.style.colorScheme=resolved
+  return selected
 }
-
-// Compatibility API: requests for light/auto are intentionally normalized to dark.
-export function setKfeThemeMode(_mode){
-  return applyKfeTheme()
+export function setKfeThemeMode(mode){
+  const selected=VALID_MODES.has(mode)?mode:'auto'
+  try{localStorage.setItem(STORAGE_KEY,selected)}catch(_){}
+  return applyKfeTheme(selected)
 }
-
-// Theme scheduling is retired; the app always uses the readable dark palette.
 export function setKfeThemeSchedule(_schedule){
-  return applyKfeTheme()
+  return setKfeThemeMode('auto')
 }
-
 export function getKfeThemeSettings(){
-  return {mode:fixedSettings.mode,schedule:{...fixedSettings.schedule}}
+  const mode=readMode()
+  return {mode,resolved:resolvedMode(mode)}
 }
-
 export function startKfeThemeController(){
   applyKfeTheme()
+  if(typeof window!=='undefined'&&window.matchMedia){
+    mediaQuery=window.matchMedia('(prefers-color-scheme: light)')
+    mediaListener=()=>{if(readMode()==='auto')applyKfeTheme('auto')}
+    mediaQuery.addEventListener?.('change',mediaListener)
+  }
   const onVisibility=()=>{if(document.visibilityState==='visible')applyKfeTheme()}
-  const onStorage=event=>{if(event.key===STORAGE_KEY||event.key===SCHEDULE_KEY)applyKfeTheme()}
+  const onStorage=event=>{if(event.key===STORAGE_KEY)applyKfeTheme()}
   document.addEventListener('visibilitychange',onVisibility)
   window.addEventListener('storage',onStorage)
   return ()=>{
     document.removeEventListener('visibilitychange',onVisibility)
     window.removeEventListener('storage',onStorage)
+    if(mediaQuery&&mediaListener)mediaQuery.removeEventListener?.('change',mediaListener)
   }
 }

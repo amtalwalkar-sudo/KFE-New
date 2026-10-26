@@ -16,7 +16,7 @@ The active shell no longer imports the glassmorphic layer. Form, finance, Work, 
 
 ## Theme rule
 
-Light/day and dark/night are resolved by `src/presentation/theme/kfeThemeController.js` and applied to the root document. Shared presentation styles consume the canonical `--kfe-ui-*`, semantic status, spacing, radius, and sizing tokens.
+The approved Application Settings control supports **Light**, **Dark**, and **Auto**. `src/presentation/theme/kfeThemeController.js` persists the selected mode in `kfe.visual.theme.mode`; Auto follows the device's `prefers-color-scheme` and responds to changes. The controller writes the resolved light/dark state to the root document, and shared presentation styles consume the canonical `--kfe-ui-*`, semantic status, spacing, radius, and sizing tokens. The canonical stylesheet owns both palettes; individual screens must not define their own theme.
 
 Business rules, calculations, persistence, repositories, Work state transitions, form submission semantics, frozen swipe mechanics, and native Android behavior are outside this audit and were not changed.
 
@@ -25,7 +25,7 @@ Business rules, calculations, persistence, repositories, Work state transitions,
 `npm run ui:theme-audit` now checks:
 1. canonical theme stylesheet imports;
 2. absence of competing palette imports/files;
-3. canonical day/night token definitions;
+3. canonical light/dark token definitions and supported mode resolution;
 4. fixed non-semantic colour literals in CSS;
 5. fixed RGB/RGBA palettes outside the canonical theme;
 6. component-local `<style>` blocks;
@@ -35,6 +35,6 @@ The same audit is included in `npm test` through `themeCompliance.contract.js`.
 
 ## Runtime coverage
 
-The existing Phase 4 runtime visual verification already checks light/dark theme switching through the canonical `kfe.visual.theme.mode` setting and verifies that the shared `--kfe-ui-bg` token changes between modes.
+The existing Phase 4 runtime visual verification checks theme changes through the canonical `kfe.visual.theme.mode` setting and verifies that the shared `--kfe-ui-bg` token changes between resolved modes. Application Settings also exposes a persisted Notifications preference through `ApplicationSettingsService`. This preference is kept separate from the native Work action bridge; it does not reintroduce the retired ride-notification feature.
 
 **Conclusion:** future theme changes are now governed as a PWA-wide presentation concern rather than as independent screen palettes.

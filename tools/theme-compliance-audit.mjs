@@ -30,8 +30,8 @@ const canonical = await readFile(new URL('../src/styles/kfe-ui.css', import.meta
 for (const token of ['--kfe-ui-bg','--kfe-ui-surface','--kfe-ui-text','--kfe-ui-border','--kfe-ui-accent','--kfe-success','--kfe-warning','--kfe-danger']) {
   if (!canonical.includes(token)) failures.push('canonical theme token missing: ' + token)
 }
-if (!canonical.includes('--kfe-ui-bg:#10151B') || !/color-scheme:dark/.test(canonical)) failures.push('canonical stylesheet must default to the fixed dark palette')
-if (/data-kfe-theme="(?:day|light|dusk)"/.test(canonical)) failures.push('canonical stylesheet must not expose light/day/dusk theme states')
+if (!canonical.includes('--kfe-ui-bg:#10151B') || !/data-kfe-theme="light"/.test(canonical) || !canonical.includes('--kfe-ui-bg:#F5F7FA')) failures.push('canonical stylesheet must define both dark and light semantic palettes')
+if (/data-kfe-theme="(?:day|dusk)"/.test(canonical)) failures.push('canonical stylesheet must not expose light/day/dusk theme states')
 
 async function walk(dir) {
   const entries = await readdir(dir, { withFileTypes: true })

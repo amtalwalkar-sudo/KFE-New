@@ -23,7 +23,7 @@ const ensureFirstRunComplete = async page => {
   try { await setup.waitFor({ state: 'visible', timeout: 3000 }) } catch (_) { return }
   const end = Date.now() + 30000
   while (Date.now() < end) {
-    if (await page.locator('.work-canonical,.activity-timeline-page,.performance-page,.kfe-settings-page').count()) return
+    if (await page.locator('.work-canonical,.activity-timeline-page,.performance-page,.admin-page').count()) return
     const skip = page.getByRole('button', { name: /Skip — I'll fill this later/ })
     if (await skip.count()) { await skip.click(); await page.waitForTimeout(150); continue }
     await page.waitForTimeout(150)
@@ -38,7 +38,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, geolocation: { latitude: 19.076, longitude: 72.8777, accuracy: 20 }, permissions: ['geolocation'] })
 
   // Work remains the operational surface; Timeline and Performance are read-only reporting,
-  // and Admin exposes canonical Settings.
+  // and Admin exposes the approved four-section workspace.
   await route(page, '', '.work-canonical', 'Work')
   await wait(async () => (await page.locator('body').innerText()).includes('START SHIFT'), 'Work ready')
   if (await page.locator('.kfe-runtime-error').count()) throw new Error('Work runtime error')
@@ -57,9 +57,9 @@ try {
   if (await page.locator('header.top-bar').count() !== 0) throw new Error('Performance route unexpectedly displays the shell header')
   if (await page.locator('.performance-page').count() !== 1) throw new Error('Performance page must be unique')
 
-  await route(page, 'admin', '.kfe-settings-page', 'Admin')
-  await wait(async () => (await page.locator('body').innerText()).includes('Backup & restore'), 'Admin Settings ready')
-  if (await page.locator('.admin-page').count() !== 0) throw new Error('Admin unexpectedly mounted the retired admin presentation')
+  await route(page, 'admin', '.admin-page', 'Admin')
+  await wait(async () => (await page.locator('body').innerText()).includes('Backup & Restore'), 'Admin Settings ready')
+  if (await page.locator('.admin-page').count() !== 1) throw new Error('Admin workspace did not mount')
   if (await page.locator('html').evaluate(el => el.scrollWidth > window.innerWidth + 1)) throw new Error('Admin has horizontal viewport overflow')
 
   // Confirm navigation keeps Timeline and Performance live/read-only.
@@ -72,7 +72,7 @@ try {
   if (await page.locator('.performance-page').count() !== 1) throw new Error('Performance navigation failed')
 
   console.log('Calculation matrix rendered UI smoke: PASS')
-  console.log(JSON.stringify({ assertions: 16, routes: ['work', 'timeline', 'performance', 'admin'], timeline: 'read-only reporting route', performance: 'read-only dashboard', timelineFuelHeaders: ['Average fuel cost/km', 'Total amount refilled'], bottomNavigation: ['Timeline', 'Performance'], admin: 'canonical Settings only' }))
+  console.log(JSON.stringify({ assertions: 16, routes: ['work', 'timeline', 'performance', 'admin'], timeline: 'read-only reporting route', performance: 'read-only dashboard', timelineFuelHeaders: ['Average fuel cost/km', 'Total amount refilled'], bottomNavigation: ['Timeline', 'Performance'], admin: 'four-section Admin workspace' }))
 } finally {
   await browser?.close()
   if (preview?.pid) { try { process.kill(-preview.pid, 'SIGTERM') } catch (_) {} }

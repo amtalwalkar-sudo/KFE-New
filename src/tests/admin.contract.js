@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import assert from 'node:assert/strict'
 import { ADMIN_FORM_KEYS, getAdminFormDefinition } from '../application/admin/adminFormDefinitions.js'
 import { validateAdminForm } from '../application/admin/universalFormRules.js'
@@ -20,4 +21,23 @@ const loanPayment=getAdminFormDefinition('loanPayment')
 assert.equal(validateAdminForm(loanPayment,{loanId:'l1',paidOn:'2026-09-01',amount:100}).valid,true)
 const maintenance=getAdminFormDefinition('maintenance')
 assert.equal(validateAdminForm(maintenance,{vehicleId:'v1',performedOn:'2026-09-01',maintenanceType:'Service',validityType:'KM based',cost:100}).valid,false)
+const adminView = await readFile(new URL('../views/AdminView.vue', import.meta.url), 'utf8')
+const menuStart = adminView.indexOf('const items=[')
+const menuEnd = adminView.indexOf('\n]', menuStart)
+const menu = adminView.slice(menuStart, menuEnd)
+const visibleKeys = menu.split("{key:'").slice(1).map(entry => entry.split("'")[0])
+assert.deepEqual(visibleKeys, ['businessSetup','vehicle','driver','compliance','maintenance','loan','settingsBackup','settingsApplication','settingsReset'])
+assert.match(menu, /category:'Business Setup'/)
+assert.match(menu, /category:'Vehicle Records'/)
+assert.match(menu, /category:'Finance'/)
+assert.match(menu, /category:'Settings'/)
+assert.doesNotMatch(menu, /key:'(?:prepayment|ledger|calculations|driverTarget|maintenanceRate)'/)
+assert.match(adminView, /key:'application',title:'Application Settings'/)
+assert.match(adminView, /key:'backup',title:'Backup & Restore'/)
+assert.match(adminView, /key:'reset',title:'Data Reset'/)
 console.log('Admin contract passed: only Admin-owned master, vehicle, finance and planning forms are exposed; operational Work/Timeline entries are excluded.')
+
+assert.match(adminView, /loanAmortizationSchedule/)
+assert.match(adminView, /View.*amortization schedule/)
+assert.match(adminView, /paymentState:fullyPaid\?'Paid'/)
+assert.match(adminView, /remainingScheduledAmount>1/)

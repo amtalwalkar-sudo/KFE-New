@@ -7,7 +7,7 @@ const routes = [
   { path: '/', selector: '.work-canonical', label: 'Work' },
   { path: '/timeline', selector: '.activity-timeline-page', label: 'Timeline' },
   { path: '/performance', selector: '.performance-page', label: 'Performance' },
-  { path: '/admin', selector: '.kfe-settings-page', label: 'Admin settings' },
+  { path: '/admin', selector: '.admin-page', label: 'Admin workspace' },
 ]
 
 const finishSetupIfEnabled = async page => {
@@ -60,8 +60,8 @@ const waitForSurface = async (page, route, phase) => {
       throw new Error('Performance: period filter is missing')
     }
   }
-  if (route.path === '/admin' && await page.locator('.admin-page').count()) {
-    throw new Error('Admin: retired admin page must not render; expected Settings-only view')
+  if (route.path === '/admin' && await page.locator('.admin-page').count() !== 1) {
+    throw new Error('Admin: full Admin workspace did not render')
   }
 }
 
