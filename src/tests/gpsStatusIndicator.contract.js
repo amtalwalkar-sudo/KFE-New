@@ -37,6 +37,6 @@ assert.match(overlayService, /TRIP_CANCELLED/,
   'native overlay must queue cancellation location separately from drop-off')
 assert.match(eventLocationService, /queueTripBoundaryEventLocation/,
   'the PWA event pathway must use native durable background queueing')
-assert.match(workService, /captureAndPersistEventLocation\\('TRIP', data\\?\\.id, 'TRIP_CANCELLED'/,
+assert.match(workService, /captureAndPersistEventLocation\('TRIP', data\?\.id, 'TRIP_CANCELLED'/,
   'cancellation must be recorded as its own location event')
 console.log('PASS: GPS header status and explicit background-location permission gate are wired')
