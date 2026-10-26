@@ -8,7 +8,6 @@ import { calculateRollingFuelCostPerKm } from '../../domain/math/fuel.js'
 import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } from '../../domain/work/trip.js'
 import { BackupService } from '../backup/backupService.js'
 import { WorkRuntimePorts } from './workRuntimePorts.js'
-import { captureTripBoundaryLocation } from './tripBoundaryLocation.js'
 import { EventLocationService } from '../location/eventLocationService.js'
 import { CanonicalWorkBoundary } from './canonicalWorkBoundary.js'
 import { recoverCanonicalWorkSnapshot } from './canonicalWorkRecovery.js'
@@ -194,41 +193,6 @@ const correctNativeTrip = (trip, data, now) => {
 
 const captureAndPersistEventLocation = (entityType, entityId, eventType, eventAt) => EventLocationService.captureForEvent(entityType, entityId, eventType, eventAt)
 
-const captureAndPersistTripBoundary = (tripId, field) => {
-  if (!tripId || !['tripStartLocation', 'tripEndLocation'].includes(field)) return
-  void (async () => {
-    const existing = (await ShiftTripRepository.getAllTrips()).find(item => item.id === tripId)
-    if (!existing || existing[field]) return
-    const location = await captureTripBoundaryLocation()
-    if (!location) return
-    if (nativeCanonicalAvailable()) {
-      try {
-        const outcome = await CanonicalWorkBoundary.persistTripBoundarySnapshot({
-          operationId: `native-trip-boundary-v2-${tripId}-${field}`,
-          tripId,
-          field,
-          snapshot: location,
-        })
-        if (outcome?.accepted !== true || !outcome?.outcome?.record?.[field]) {
-          throw new Error('Native canonical boundary snapshot was not durably acknowledged.')
-        }
-      } catch (error) {
-        // SQLite is authoritative on Android. If a native overlay captured the
-        // same boundary concurrently, converge the PWA cache to that durable
-        // snapshot instead of trying to mirror a full, version-bumped trip.
-        await ShiftTripRepository.getAllTrips()
-        throw error
-      }
-      await ShiftTripRepository.getAllTrips()
-      checkpoint()
-      return
-    }
-    const saved = field === 'tripStartLocation'
-      ? await ShiftTripRepository.setTripStartLocation(tripId, location)
-      : await ShiftTripRepository.setTripEndLocation(tripId, location)
-    if (saved) checkpoint()
-  })().catch(error => console.warn('Trip boundary GPS snapshot could not be saved:', tripId, field, error))
-}
 
 export const WorkService = Object.freeze({
   getTripOperators() { return WORK_TRIP_OPERATORS },
@@ -278,14 +242,14 @@ export const WorkService = Object.freeze({
     if (!nativeAvailable && result && typeof result === 'object') await mirrorCanonicalRecord('TRIP', result)
     checkpoint()
     if (result && typeof result === 'object' && result.tripStage === 'RIDE_STARTED') {
-      captureAndPersistTripBoundary(result.id, 'tripStartLocation')
+      captureAndPersistEventLocation('TRIP', result.id, 'TRIP_START', result.tripStartAt || new Date().toISOString())
     }
     return result
   },
   async completeTrip(data) {
     const nativeAvailable = requireLifecycleStorage()
     const result = nativeAvailable ? await (async () => { const trip = await findNativeRecord('TRIP', data?.id); if (!trip) throw new Error('Trip not found.'); const now = new Date().toISOString(); const next = transitionTrip(trip, 'COMPLETED', data); next.tripEndAt = data.tripEndAt || trip.tripEndAt || now; next.updatedAt = nextCanonicalTimestamp(trip.updatedAt); await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt }); return true })() : await ShiftTripRepository.completeTrip({ ...data }); if (!nativeAvailable) await mirrorCanonicalTripById(data?.id); checkpoint()
-    captureAndPersistTripBoundary(data?.id, 'tripEndLocation')
+    captureAndPersistEventLocation('TRIP', data?.id, 'TRIP_END', data?.tripEndAt || new Date().toISOString())
     return result
   },
   async cancelTrip(data) {
