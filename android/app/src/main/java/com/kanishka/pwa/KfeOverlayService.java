@@ -924,16 +924,17 @@ public class KfeOverlayService extends Service {
   // Each event is journaled in app-private storage before a location request.
   // The original event identity survives timeout, process death, and retry.
   private static String gpsEventKey(String tripId,String eventType){return tripId+"::"+eventType;}
-  private synchronized void enqueuePendingEventLocation(String tripId,String eventType){
+  private synchronized boolean enqueuePendingEventLocation(String tripId,String eventType){
     try{
       android.content.SharedPreferences prefs=getSharedPreferences("kfe_overlay",MODE_PRIVATE);
       JSONArray items=new JSONArray(prefs.getString(PENDING_GPS_KEY,"[]"));
       String key=gpsEventKey(tripId,eventType);
-      for(int i=0;i<items.length();i++){JSONObject item=items.optJSONObject(i);if(item!=null&&key.equals(item.optString("key","")))return;}
+      for(int i=0;i<items.length();i++){JSONObject item=items.optJSONObject(i);if(item!=null&&key.equals(item.optString("key","")))return true;}
       JSONObject item=new JSONObject();item.put("key",key);item.put("tripId",tripId);item.put("eventType",eventType);item.put("queuedAt",java.time.Instant.now().toString());items.put(item);
       if(!prefs.edit().putString(PENDING_GPS_KEY,items.toString()).commit())throw new IllegalStateException("Pending GPS event journal was not committed.");
       Log.i("KFE-GPS","Durably queued event location "+key);
-    }catch(Exception error){Log.e("KFE-GPS","Could not durably queue event GPS capture.",error);}
+      return true;
+    }catch(Exception error){Log.e("KFE-GPS","Could not durably queue event GPS capture.",error);return false;}
   }
   private synchronized void removePendingEventLocation(String tripId,String eventType){
     try{
@@ -991,7 +992,7 @@ public class KfeOverlayService extends Service {
   private void captureOneShotEventLocation(String tripId,String eventType){
     if(tripId==null||tripId.trim().isEmpty())return;
     if(!"TRIP_START".equals(eventType)&&!"TRIP_END".equals(eventType)&&!"PICKUP_START".equals(eventType)&&!"TRIP_CANCELLED".equals(eventType))return;
-    enqueuePendingEventLocation(tripId,eventType);
+    if(!enqueuePendingEventLocation(tripId,eventType))return;
     try{
       JSONObject existing=KfeCanonicalWorkStore.get(this).listRecords("GPS_SNAPSHOT",1000);
       JSONArray records=existing.optJSONArray("records");
