@@ -386,3 +386,17 @@
 .admin-page .notification-toggle{display:flex;align-items:center;gap:10px;min-height:48px;font-weight:700}
 .admin-page .notification-toggle input{width:22px;height:22px;min-height:22px;accent-color:var(--kfe-ui-accent)}
 @media(max-width:420px){.admin-page .theme-options{grid-template-columns:1fr}}
+
+
+/* Loan schedule: keep all columns readable on narrow phones without shrinking amounts. */
+.admin-page .loan-amortization{display:grid;gap:0;margin-top:12px;overflow-x:auto;border:1px solid var(--admin-border);border-radius:12px;background:var(--admin-panel)}
+.admin-page .loan-amortization-row{display:grid;grid-template-columns:minmax(128px,1.25fr) minmax(100px,1fr) minmax(100px,1fr) minmax(110px,1fr) minmax(100px,.9fr);align-items:center;gap:12px;min-width:650px;padding:11px 12px;border-bottom:1px solid var(--admin-border);font-size:.85rem}
+.admin-page .loan-amortization-row:last-of-type{border-bottom:0}
+.admin-page .loan-amortization-row>span{min-width:0;overflow-wrap:anywhere}
+.admin-page .loan-amortization-row small{display:block;margin-top:3px;color:var(--admin-muted);font-size:.78rem}
+.admin-page .loan-amortization-heading{position:sticky;top:0;background:var(--admin-panel-strong);font-weight:800}
+.admin-page .schedule-state{font-weight:750}
+.admin-page .schedule-state-paid{color:var(--kfe-success)}
+.admin-page .schedule-state-overdue,.admin-page .schedule-state-due{color:var(--kfe-danger)}
+.admin-page .schedule-state-partially-paid{color:var(--kfe-ui-accent)}
+.admin-page .loan-amortization .rule-note{margin:10px;min-width:620px}
