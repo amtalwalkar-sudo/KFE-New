@@ -1,6 +1,6 @@
 import { LocationRepository } from '../../repositories/locationRepository.js'
 import { CanonicalWorkBoundary } from '../work/canonicalWorkBoundary.js'
-import { captureTripBoundaryLocation } from '../work/tripBoundaryLocation.js'
+import { captureTripBoundaryLocation, queueTripBoundaryEventLocation } from '../work/tripBoundaryLocation.js'
 import { PhotonLocationNameAdapter, resolveLocationName } from './locationNameService.js'
 import { ShiftTripRepository } from '../../repositories/shiftTripRepository.js'
 
@@ -25,6 +25,10 @@ export const EventLocationService = {
         }
         return
       }
+      // On Android, queue the event in native durable storage first. The native
+      // service retries only when precise + background permissions are granted;
+      // it survives WebView reloads and keeps the original event identity.
+      if (await queueTripBoundaryEventLocation(entityType, entityId, eventType, eventAt)) return
       const location = await captureTripBoundaryLocation()
       if (!location) return
       const snapshot = await LocationRepository.record({
