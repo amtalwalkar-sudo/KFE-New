@@ -426,7 +426,7 @@ public class KfeOverlayService extends Service {
     persistNativeForm();
   }
 
-  private void onCancelSaved(){formSubmitting=false;closeForm();captureOneShotTripBoundary(pendingTripId, "tripEndLocation");actionStage="GO_TO_PICKUP";pendingTripId="";pendingFareTripId="";tripStartAt=0L;phaseStartAt=System.currentTimeMillis();phaseLabel="READY TIME";awaitingEventId="";awaitingStage="";awaitingTripId="";persistNativeWorkflow();if(overlay!=null)overlay.invalidate();}
+  private void onCancelSaved(){formSubmitting=false;closeForm();captureOneShotTripBoundary(pendingTripId, "TRIP_END");actionStage="GO_TO_PICKUP";pendingTripId="";pendingFareTripId="";tripStartAt=0L;phaseStartAt=System.currentTimeMillis();phaseLabel="READY TIME";awaitingEventId="";awaitingStage="";awaitingTripId="";persistNativeWorkflow();if(overlay!=null)overlay.invalidate();}
 
   private void onFareSaved(){
     formSubmitting=false;
@@ -485,7 +485,7 @@ public class KfeOverlayService extends Service {
       try { eventId=persistLifecycleAction("START_RIDE","RIDE_STARTED",true); }
       catch(RuntimeException failure){Log.e("KFE-CANONICAL","START_RIDE lifecycle persistence interrupted; retry is safe",failure);Toast.makeText(this,"Trip action is queued for recovery. Keep this trip open and retry when storage is available.",Toast.LENGTH_LONG).show();return;}
       
-      captureOneShotTripBoundary(pendingTripId, "tripStartLocation");
+      captureOneShotTripBoundary(pendingTripId, "TRIP_START");
       actionStage="END_RIDE"; phaseStartAt=tripStartAt; phaseLabel="TRIP TIME";
       getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit()
         .putLong("tripStartAt",tripStartAt).putString("tripTimerTripId",pendingTripId).commit();
@@ -499,7 +499,7 @@ public class KfeOverlayService extends Service {
       String eventId;
       try { eventId=persistLifecycleAction("END_RIDE","COMPLETED",false); }
       catch(RuntimeException failure){Log.e("KFE-CANONICAL","END_RIDE lifecycle persistence interrupted; retry is safe",failure);Toast.makeText(this,"Trip action is queued for recovery. Keep this trip open and retry when storage is available.",Toast.LENGTH_LONG).show();return;}
-      captureOneShotTripBoundary(pendingTripId, "tripEndLocation");
+      captureOneShotTripBoundary(pendingTripId, "TRIP_END");
       actionStage="ENTER_FARE"; pendingFareTripId=pendingTripId; tripStartAt=0L; phaseStartAt=System.currentTimeMillis(); phaseLabel="FARE ENTRY TIME";
       getSharedPreferences("kfe_overlay",MODE_PRIVATE).edit().remove("tripStartAt").remove("tripTimerTripId").commit();
       awaitingEventId=""; awaitingStage=""; awaitingTripId="";
@@ -885,14 +885,20 @@ public class KfeOverlayService extends Service {
 
   // This temporarily activates the location FGS type for one fix only. No watch,
   // trace collector, or location request remains active after the fix/timeout.
-  private void captureOneShotTripBoundary(String tripId, String field){
+  // Native overlay writes the same GPS_SNAPSHOT event model as the PWA path.
+  private void captureOneShotTripBoundary(String tripId, String eventType){
     if(tripId==null||tripId.trim().isEmpty())return;
-    if(!"tripStartLocation".equals(field)&&!"tripEndLocation".equals(field))return;
+    if(!"TRIP_START".equals(eventType)&&!"TRIP_END".equals(eventType))return;
     try{
-      JSONObject prior=KfeCanonicalWorkStore.get(this).getRecord("TRIP",tripId);
-      JSONObject priorTrip=prior.optJSONObject("record");
-      if(prior.optBoolean("found",false)&&priorTrip!=null&&priorTrip.has(field)&&!priorTrip.isNull(field))return;
-    }catch(Exception error){Log.w("KFE-GPS","Unable to check prior trip-boundary snapshot",error);}
+      JSONObject existing=KfeCanonicalWorkStore.get(this).listRecords("GPS_SNAPSHOT",1000);
+      org.json.JSONArray records=existing.optJSONArray("records");
+      if(records!=null)for(int i=0;i<records.length();i++){
+        JSONObject snapshot=records.optJSONObject(i);
+        if(snapshot!=null&&"TRIP".equals(snapshot.optString("entityType",""))
+          &&tripId.equals(snapshot.optString("entityId",""))
+          &&eventType.equals(snapshot.optString("eventType","")))return;
+      }
+    }catch(Exception error){Log.w("KFE-GPS","Unable to check prior event-location snapshot",error);}
     if(ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED){
       Log.w("KFE-GPS","One-shot "+field+" snapshot skipped: precise location permission is not granted.");return;
     }
@@ -965,28 +971,39 @@ public class KfeOverlayService extends Service {
     }
   }
 
-  private void persistOneShotTripLocation(String tripId,String field,Location location){
+  private void persistOneShotTripLocation(String tripId,String eventType,Location location){
     try{
       if(location==null)return;
       long fixTime=location.getTime();
-      if(fixTime<=0L){Log.w("KFE-GPS","One-shot "+field+" snapshot skipped: GPS fix has no valid provider timestamp.");return;}
+      if(fixTime<=0L){Log.w("KFE-GPS","One-shot "+eventType+" snapshot skipped: GPS fix has no valid provider timestamp.");return;}
+      String snapshotId="native-event-location-"+tripId+"-"+eventType;
+      String now=java.time.Instant.now().toString();
+      JSONObject tripResult=KfeCanonicalWorkStore.get(this).getRecord("TRIP",tripId);
+      JSONObject trip=tripResult.optJSONObject("record");
+      String eventAt=trip==null?"":trip.optString("TRIP_START".equals(eventType)?"tripStartAt":"tripEndAt","");
       JSONObject snapshot=new JSONObject();
+      snapshot.put("id",snapshotId);
+      snapshot.put("entityType","TRIP");
+      snapshot.put("entityId",tripId);
+      snapshot.put("eventType",eventType);
+      snapshot.put("eventAt",eventAt.isEmpty()?JSONObject.NULL:eventAt);
       snapshot.put("latitude",location.getLatitude());
       snapshot.put("longitude",location.getLongitude());
       snapshot.put("accuracy",location.hasAccuracy()?location.getAccuracy():JSONObject.NULL);
       snapshot.put("capturedAt",java.time.Instant.ofEpochMilli(fixTime).toString());
       snapshot.put("placeName",JSONObject.NULL);
-      // Merge into the latest SQLite record atomically. A delayed GPS callback
-      // must not write a stale whole-trip payload over a fare/cancellation.
-      String operationId="native-trip-boundary-v2-"+tripId+"-"+field;
+      snapshot.put("createdAt",now);
+      snapshot.put("updatedAt",now);
+      // Persist the GPS_SNAPSHOT entity, not a second location copy on TRIP.
+      // The shared EventLocationService can later enrich this exact snapshot.
+      String operationId="native-gps-snapshot-"+tripId+"-"+eventType+"-"+fixTime;
       KfeCanonicalWorkStore.Outcome outcome=KfeCanonicalWorkStore.get(this)
-          .persistTripBoundarySnapshot(operationId,tripId,field,snapshot);
-      if(!outcome.accepted)throw new IllegalStateException("Native one-shot GPS snapshot was not accepted.");
-      JSONObject savedTrip=outcome.result.optJSONObject("record");
-      JSONObject savedSnapshot=savedTrip==null?null:savedTrip.optJSONObject(field);
-      String savedAt=savedSnapshot==null?"":savedSnapshot.optString("capturedAt","");
-      Log.i("KFE-GPS","Saved/retained one-shot "+field+" snapshot for trip "+tripId+" at "+savedAt);
-    }catch(Exception error){Log.w("KFE-GPS","Unable to persist one-shot "+field+" snapshot for trip "+tripId,error);}
+          .putRecord(operationId,"GPS_SNAPSHOT",snapshot);
+      if(!outcome.accepted)throw new IllegalStateException("Native one-shot event GPS snapshot was not accepted.");
+      JSONObject saved=outcome.result.optJSONObject("record");
+      String savedAt=saved==null?"":saved.optString("capturedAt","");
+      Log.i("KFE-GPS","Saved/retained one-shot "+eventType+" event snapshot for trip "+tripId+" at "+savedAt);
+    }catch(Exception error){Log.w("KFE-GPS","Unable to persist one-shot "+eventType+" event snapshot for trip "+tripId,error);}
   }
 
   private boolean persistCanonicalTripStage(String stage, boolean rideStarted, String eventId){
