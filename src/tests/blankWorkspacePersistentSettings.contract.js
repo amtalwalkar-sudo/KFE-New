@@ -10,9 +10,7 @@ const settingsRepository = await read('../repositories/persistentSettingsReposit
 const backupRepository = await read('../repositories/backupRepository.js')
 const settingsUi = await read('../components/KfeSettingsView.vue')
 
-assert.match(router, /path: '\/timeline', name: 'Timeline', component: BlankWorkspaceView/)
-assert.match(router, /path: '\/performance', name: 'Performance', component: BlankWorkspaceView/)
-assert.doesNotMatch(router, /ActivityTimelineView|PerformanceView/)
+assert.match(router, /path: '\/timeline', name: 'Timeline', component: ActivityTimelineView/)
 assert.match(router, /path: '\/performance', name: 'Performance', component: BlankWorkspaceView/)
 assert.match(router, /path: '\/', name: 'Work', component: WorkModuleView/)
 assert.match(router, /path: '\/admin', name: 'Admin', component: AdminSettingsOnlyView/)
@@ -30,5 +28,4 @@ assert.match(settingsUi, /settings\/preferences will return to factory defaults/
 assert.match(settingsUi, /recovery checkpoint will be retained/i)
 assert.doesNotMatch(settingsUi, /Saved configuration defaults will remain|Saved settings and defaults are retained/)
 assert.match(settingsUi, /Reset business data/)
-
-console.log('Blank workspace and persistent settings contract: PASS')
+console.log('Timeline route and persistent settings contract: PASS')
