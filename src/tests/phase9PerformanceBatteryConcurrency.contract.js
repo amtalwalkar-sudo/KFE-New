@@ -19,7 +19,7 @@ assert.match(manifest, /ACCESS_FINE_LOCATION/)
 assert.match(manifest, /ACCESS_COARSE_LOCATION/)
 assert.match(manifest, /FOREGROUND_SERVICE_LOCATION/)
 assert.match(manifest, /foregroundServiceType="specialUse\|location"/)
-assert.doesNotMatch(manifest, /ACCESS_BACKGROUND_LOCATION/)
+assert.match(manifest, /ACCESS_BACKGROUND_LOCATION/)
 
 assert.match(backup, /checkpointTimer !== null/)
 assert.match(backup, /setTimeout\(async \(\) =>/)
