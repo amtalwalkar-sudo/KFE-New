@@ -40,7 +40,7 @@ assert.doesNotMatch(service, /ShiftTripRepository\.(create|update|remove|complet
 assert.doesNotMatch(view, /captureTripBoundaryLocation|resolveLocationName|EventLocationService/, 'viewing Timeline must not capture GPS or geocode')
 assert.match(view, /Average fuel cost\/km/)
 assert.match(view, /Total amount refilled/)
-assert.match(view, /Location unavailable/)
+assert.match(service, /Location unavailable/)
 assert.match(router, /path: '\/timeline', name: 'Timeline', component: ActivityTimelineView/)
 assert.match(router, /path: '\/performance', name: 'Performance', component: BlankWorkspaceView/)
 
