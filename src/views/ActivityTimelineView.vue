@@ -88,7 +88,7 @@ onUnmounted(() => {
         <span>{{ snapshot.rides.length }} records</span>
       </div>
       <div v-if="!loading && !error && snapshot.rides.length === 0" class="activity-timeline-empty">No rides recorded for this period.</div>
-      <ol v-else class="activity-timeline-list">
+      <ol v-else-if="!error" class="activity-timeline-list">
         <li v-for="ride in snapshot.rides" :key="ride.id" class="activity-timeline-record">
           <div class="activity-timeline-record-top">
             <strong>{{ ride.timeLabel }} · {{ dateTime(ride.timeAt) }}</strong>
