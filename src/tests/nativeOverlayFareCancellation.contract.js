@@ -23,7 +23,7 @@ assert.match(overlay, /trip\.put\(\"cancelReason\"/)
 assert.ok(overlay.includes('long fixTime=location.getTime();'), 'Trip-boundary snapshot must use the provider fix timestamp.')
 assert.ok(!overlay.includes('long fixTime=location.getTime()>0L?location.getTime():System.currentTimeMillis();'), 'Missing provider time must not be replaced by capture time.')
 assert.ok(overlay.includes('if(fixTime<=0L){Log.w("KFE-GPS","One-shot "+field+" snapshot skipped: GPS fix has no valid provider timestamp.");return;}'), 'A missing provider fix timestamp must skip the optional snapshot without blocking the trip workflow.')
-assert.match(overlay, /if\("START_RIDE"\.equals\(actionStage\)\)\{[\s\S]*?captureOneShotTripBoundary\(pendingTripId, "tripStartLocation"\)/, 'Native start GPS must be captured at the actual ride-start transition.');
+assert.match(overlay, /if\("START_RIDE"\.equals\(actionStage\)\)\{[\s\S]*?captureOneShotEventLocation\(pendingTripId, "TRIP_START"\)/, 'Native start GPS must be captured at the actual ride-start transition through the shared event pathway.');
 assert.match(overlay, /finishNativeFormCommit\(\)/)
 assert.ok(store.includes('operationId was already used for a different trip form'))
 assert.ok(store.includes('Outcome commitTripForm(String operationId, String mode, JSONObject trip)'))
