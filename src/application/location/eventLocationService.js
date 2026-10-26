@@ -111,7 +111,12 @@ export const EventLocationService = {
               continue
             }
           }
-          if (!snapshot || String(snapshot.placeName || '').trim() || globalThis.navigator?.onLine === false) continue
+          if (!snapshot) continue
+          // Reconcile a local-only snapshot to native canonical storage after
+          // interrupted mirroring, and safely replay the same idempotent write
+          // when the native store already owns it.
+          await this.persistNativeSnapshot(snapshot)
+          if (String(snapshot.placeName || '').trim() || globalThis.navigator?.onLine === false) continue
           const placeName = await resolveLocationName(snapshot, locationNameResolver)
           if (placeName) await this.persistLabel(snapshot.id, placeName)
         }
