@@ -43,6 +43,12 @@ async function refresh() {
   }
 }
 
+async function openAndroidPermissionSettings() {
+  try { await NativeGps.openBackgroundLocationSettings() } catch (e) {
+    error.value = e?.message || 'Could not open Android permission settings.'
+  }
+}
+
 async function enableBackgroundCapture() {
   if (!isNative || busy.value) return
   busy.value = true
@@ -109,6 +115,12 @@ onBeforeUnmount(() => {
       </ul>
       <p v-if="!isNative" class="gps-status__hint">Open KFE in its Android app to use permission-gated background GPS capture.</p>
       <p v-if="error" class="gps-status__error" role="alert">{{ error }}</p>
+      <button
+        v-if="isNative && status.fineGranted && !status.backgroundGranted"
+        class="gps-status__action"
+        type="button"
+        @click="openAndroidPermissionSettings"
+      >Open Android permission settings</button>
       <button
         v-if="isNative && (!status.fineGranted || !status.backgroundGranted)"
         class="gps-status__action"
