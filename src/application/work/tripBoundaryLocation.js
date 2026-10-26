@@ -22,6 +22,16 @@ export const normalizeTripBoundaryLocation = value => {
  * trace collector, background service, reverse geocoder, or routing request.
  * GPS_PROVIDER / browser geolocation can obtain a fix without internet access.
  */
+export async function queueTripBoundaryEventLocation(entityType, entityId, eventType, eventAt = null) {
+  if (!Capacitor.isNativePlatform() || !entityType || !entityId || !eventType) return false
+  try {
+    await NativeTripBoundaryLocation.queueEventLocationCapture({ entityType, entityId, eventType, eventAt })
+    return true
+  } catch (_) {
+    return false
+  }
+}
+
 export async function captureTripBoundaryLocation() {
   try {
     if (Capacitor.isNativePlatform()) {
