@@ -13,6 +13,7 @@ assert.match(shell, /import GpsStatusIndicator from '\.\/GpsStatusIndicator\.vue
   'the GPS status indicator must be mounted in the shared application header')
 assert.match(shell, /<GpsStatusIndicator \/>/,
   'the GPS status indicator must be visible from the shared shell')
+assert.match(indicator, /window\.setInterval/, 'pending GPS status must refresh while the panel is open')
 assert.match(indicator, /getLocationStatus/,
   'the status display must read the Android permission/provider state')
 assert.match(indicator, /requestBackgroundLocationPermission/,
