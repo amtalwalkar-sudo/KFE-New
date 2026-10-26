@@ -13,13 +13,16 @@ const status = ref({
   coarseGranted: false,
   backgroundGranted: false,
   gpsEnabled: false,
+  pendingCount: 0,
 })
 
 const state = computed(() => {
   if (status.value.checking) return { key: 'checking', label: 'Checking GPS permissions', icon: '…' }
   if (!isNative) return { key: 'browser', label: 'Background GPS is unavailable in this browser', icon: '!' }
   if (!status.value.fineGranted) return { key: 'permission', label: 'Precise location permission required', icon: '!' }
-  if (!status.value.backgroundGranted) return { key: 'background-permission', label: 'Background location permission required', icon: '!' }
+  if (!status.value.backgroundGranted) return { key: 'background-permission', label: status.value.pendingCount ? 'Background permission required · event locations pending' : 'Background location permission required', icon: '!' }
+  if (status.value.pendingCount > 0 && !status.value.gpsEnabled) return { key: 'waiting', label: 'Event locations pending · GPS unavailable', icon: '…' }
+  if (status.value.pendingCount > 0) return { key: 'waiting', label: 'Retrying ' + status.value.pendingCount + ' pending event location' + (status.value.pendingCount === 1 ? '' : 's'), icon: '…' }
   if (!status.value.gpsEnabled) return { key: 'unavailable', label: 'GPS is switched off or unavailable', icon: '!' }
   return { key: 'ready', label: 'GPS permissions ready for background capture', icon: '✓' }
 })
@@ -30,9 +33,9 @@ async function refresh() {
   try {
     if (isNative && typeof NativeGps.getLocationStatus === 'function') {
       const result = await NativeGps.getLocationStatus()
-      status.value = { checking: false, ...result }
+      status.value = { checking: false, pendingCount: 0, ...result }
     } else {
-      status.value = { checking: false, fineGranted: false, coarseGranted: false, backgroundGranted: false, gpsEnabled: false }
+      status.value = { checking: false, fineGranted: false, coarseGranted: false, backgroundGranted: false, gpsEnabled: false, pendingCount: 0 }
     }
   } catch (e) {
     status.value.checking = false
@@ -102,6 +105,7 @@ onBeforeUnmount(() => {
         <li><span>Precise location</span><strong>{{ status.fineGranted ? 'Granted' : 'Not granted' }}</strong></li>
         <li><span>Background location</span><strong>{{ status.backgroundGranted ? 'Granted' : 'Not granted' }}</strong></li>
         <li><span>GPS provider</span><strong>{{ status.gpsEnabled ? 'Available' : 'Unavailable / unknown' }}</strong></li>
+        <li><span>Pending event locations</span><strong>{{ status.pendingCount || 0 }}</strong></li>
       </ul>
       <p v-if="!isNative" class="gps-status__hint">Open KFE in its Android app to use permission-gated background GPS capture.</p>
       <p v-if="error" class="gps-status__error" role="alert">{{ error }}</p>
@@ -124,6 +128,7 @@ onBeforeUnmount(() => {
 .gps-status__dot{position:absolute;right:2px;bottom:2px;width:9px;height:9px;border:2px solid var(--kfe-surface, #1d2935);border-radius:50%;background:#d97706}
 .gps-status__trigger--ready .gps-status__dot{background:#16a34a}
 .gps-status__trigger--permission .gps-status__dot,.gps-status__trigger--background-permission .gps-status__dot,.gps-status__trigger--browser .gps-status__dot{background:#dc2626}
+.gps-status__trigger--waiting .gps-status__dot{background:#d97706}
 .gps-status__panel{position:absolute;z-index:1000;top:calc(100% + 10px);right:0;width:min(320px,calc(100vw - 32px));padding:16px;border:1px solid var(--kfe-border,#45515d);border-radius:14px;background:var(--kfe-surface,#1d2935);color:var(--kfe-text,#fff);box-shadow:0 12px 36px #0005}
 .gps-status__title{font-size:15px;font-weight:700}
 .gps-status__state{margin:8px 0 12px;font-weight:600}
