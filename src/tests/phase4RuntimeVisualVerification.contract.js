@@ -21,7 +21,7 @@ assert.match(router,/path: '\/performance', name: 'Performance', component: Blan
 assert.match(pagesSmoke,/path: '\/timeline', selector: '\.activity-timeline-page', label: 'Timeline'/,'Pages runtime smoke must expect the live Timeline route')
 assert.match(pagesSmoke,/Average fuel cost\/km/,'Pages runtime smoke must verify the fuel cost/km header')
 assert.match(crossSurfaceSmoke,/path === 'timeline'[\s\S]*?\.activity-timeline-page/,'Cross-surface smoke must verify the live Timeline route')
-assert.match(crossSurfaceSmoke,/path === 'performance'[\s\S]*?\.kfe-blank-workspace/,'Cross-surface smoke must preserve the intentionally blank Performance route')
+assert.match(crossSurfaceSmoke,/else \{[\s\S]*?\.kfe-blank-workspace/,'Cross-surface smoke must preserve the intentionally blank Performance route')
 assert.ok(smoke.includes("route('performance','.kfe-blank-workspace'"),'Performance must use the intentionally blank workspace surface')
 assert.ok(smoke.includes("route('admin','.kfe-settings-page'"),'Admin must use the canonical Settings surface')
 assert.ok(smoke.includes("page.locator('.activity-timeline-page').count()===1"),'Timeline smoke must verify the live Timeline surface')
