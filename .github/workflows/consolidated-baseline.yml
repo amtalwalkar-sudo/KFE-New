@@ -26,7 +26,80 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  detect-changes:
+    name: Detect change impact
+    runs-on: ubuntu-latest
+    outputs:
+      app_changed: ${{ steps.classify.outputs.app_changed }}
+      android_changed: ${{ steps.classify.outputs.android_changed }}
+      docs_only: ${{ steps.classify.outputs.docs_only }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Classify changed paths
+        id: classify
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+          RUN_ANDROID_GATE: ${{ inputs.run_android_release_gate }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            git diff --name-only "$PR_BASE_SHA...$HEAD_SHA" > /tmp/kfe-changed-files.txt
+          elif [[ "$EVENT_NAME" == "push" ]]; then
+            if [[ -z "$PUSH_BEFORE_SHA" || "$PUSH_BEFORE_SHA" =~ ^0+$ ]]; then
+              echo "Initial/unknown push base; conservatively run all gates."
+              echo "app_changed=true" >> "$GITHUB_OUTPUT"
+              echo "android_changed=true" >> "$GITHUB_OUTPUT"
+              echo "docs_only=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            git diff --name-only "$PUSH_BEFORE_SHA" "$HEAD_SHA" > /tmp/kfe-changed-files.txt
+          else
+            # Manual dispatch always runs the app suite; native verification is opt-in.
+            echo "app_changed=true" >> "$GITHUB_OUTPUT"
+            if [[ "$RUN_ANDROID_GATE" == "true" ]]; then
+              echo "android_changed=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "android_changed=false" >> "$GITHUB_OUTPUT"
+            fi
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          app_changed=false
+          android_changed=false
+          docs_only=true
+          while IFS= read -r file; do
+            [[ -n "$file" ]] || continue
+            if [[ "$file" != docs/* || "$file" != *.md ]]; then
+              docs_only=false
+              app_changed=true
+            fi
+            case "$file" in
+              android/*|capacitor.config.*|package.json|package-lock.json|vite.config.*|tools/android-*|.github/workflows/*)
+                android_changed=true
+                ;;
+            esac
+          done < /tmp/kfe-changed-files.txt
+          if [[ ! -s /tmp/kfe-changed-files.txt ]]; then
+            app_changed=true
+            docs_only=false
+          fi
+          printf 'Changed paths:\n'
+          cat /tmp/kfe-changed-files.txt
+          echo "app_changed=$app_changed" >> "$GITHUB_OUTPUT"
+          echo "android_changed=$android_changed" >> "$GITHUB_OUTPUT"
+          echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
+          echo "Classification: app=$app_changed android=$android_changed docs_only=$docs_only"
+
   build-and-test:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.app_changed == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -136,7 +209,7 @@ jobs:
 
   deploy:
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    needs: build-and-test
+    needs: [detect-changes, build-and-test]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -183,8 +256,9 @@ jobs:
           if-no-files-found: warn
 
   android-release-gate:
-    # Cross-platform release gate: every PR and main deployment validates the same production web bundle inside Capacitor Android.
-    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.run_android_release_gate == true)
+    # Run emulator verification only when native packaging/dependencies/workflow infrastructure may be affected.
+    needs: detect-changes
+    if: needs.detect-changes.outputs.android_changed == 'true'
     runs-on: ubuntu-latest
     # Bound emulator setup, instrumentation, and artifact collection so a wedged ADB session cannot consume the runner's six-hour default.
     timeout-minutes: 120

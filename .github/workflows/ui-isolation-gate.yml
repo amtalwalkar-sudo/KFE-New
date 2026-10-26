@@ -9,7 +9,78 @@ permissions:
   contents: read
 
 jobs:
+  detect-changes:
+    name: Detect change impact
+    runs-on: ubuntu-latest
+    outputs:
+      app_changed: ${{ steps.classify.outputs.app_changed }}
+      docs_only: ${{ steps.classify.outputs.docs_only }}
+    steps:
+      - name: Check out pull request
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Classify changed paths
+        id: classify
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git diff --name-only "$BASE_SHA...$HEAD_SHA" > /tmp/kfe-changed-files.txt
+          app_changed=false
+          docs_only=true
+          while IFS= read -r file; do
+            [[ -n "$file" ]] || continue
+            if [[ "$file" != docs/* || "$file" != *.md ]]; then
+              docs_only=false
+              app_changed=true
+            fi
+          done < /tmp/kfe-changed-files.txt
+          if [[ ! -s /tmp/kfe-changed-files.txt ]]; then
+            app_changed=true
+            docs_only=false
+          fi
+          echo "app_changed=$app_changed" >> "$GITHUB_OUTPUT"
+          echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
+          echo "Classified app_changed=$app_changed docs_only=$docs_only"
+
+  docs-policy-check:
+    name: Documentation policy check
+    needs: detect-changes
+    if: needs.detect-changes.outputs.docs_only == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out pull request
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate documentation-only diff
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mapfile -t changed_files < <(git diff --name-only "$BASE_SHA...$HEAD_SHA")
+          test "${#changed_files[@]}" -gt 0
+          for file in "${changed_files[@]}"; do
+            [[ "$file" == docs/*.md && "$file" == *.md ]] || {
+              echo "::error::Unexpected non-documentation path in docs-only change: $file"
+              exit 1
+            }
+            test -s "$file" || {
+              echo "::error::Documentation file is empty or missing: $file"
+              exit 1
+            }
+          done
+          git diff --check "$BASE_SHA...$HEAD_SHA"
+          echo "Documentation-only change passed path, non-empty-file, and whitespace checks."
+
   ui-isolation-gate:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.app_changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Check out pull request
