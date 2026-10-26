@@ -64,7 +64,7 @@ assert.ok(!overlay.includes('refreshCanonicalRevenue'), 'Fare/cancellation must 
 assert.ok(overlay.includes('Canonical trip form was not accepted'))
 
 assert.ok(service.includes('ShiftTripRepository.createTrip') && service.includes('ShiftTripRepository.setTripStage') && service.includes('ShiftTripRepository.completeTrip') && service.includes('ShiftTripRepository.cancelTrip'), 'PWA lifecycle remains on canonical repository paths')
-assert.match(service, /captureTripBoundaryLocation/)
+assert.match(service, /captureAndPersistEventLocation\('TRIP'/, 'PWA trip lifecycle must use the shared event-location pathway.')
 assert.match(overlay, /captureOneShotEventLocation/, 'Native overlay location capture must use the shared event pathway.')
 assert.doesNotMatch(service + view + overlay, /nativeGps|MovementTraceService|captureLifecycleLocation|ValhallaRoutingAdapter|routeTrace|requestLocationUpdates/)
 
