@@ -45,7 +45,7 @@ const finishSetupIfEnabled = async page => {
 
 const routes = [
   { path: '/', selector: '.work-canonical', label: 'Work' },
-  { path: '/timeline', selector: '.kfe-blank-workspace', label: 'blank Timeline' },
+  { path: '/timeline', selector: '.activity-timeline-page', label: 'Timeline' },
   { path: '/performance', selector: '.kfe-blank-workspace', label: 'blank Performance' },
   { path: '/admin', selector: '.kfe-settings-page', label: 'Admin Settings' },
 ]
@@ -88,11 +88,15 @@ try {
 
       await finishSetupIfEnabled(page)
       if (route.path === '/performance' || route.path === '/timeline') {
-        if (await page.locator('header.top-bar').count()) throw new Error('Blank Timeline/Performance routes must honor their frozen header-hidden shell setting')
+        if (await page.locator('header.top-bar').count()) throw new Error('Timeline/Performance routes must honor their frozen header-hidden shell setting')
       } else {
         await page.locator('header.top-bar').waitFor({ state: 'visible', timeout: 15000 })
       }
       await page.locator(route.selector).waitFor({ state: 'visible', timeout: 20000 })
+      if (route.path === '/timeline') {
+        await page.getByText('Average fuel cost/km', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
+        await page.getByText('Total amount refilled', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
+      }
       await page.locator('.bottom-nav').waitFor({ state: 'visible', timeout: 10000 })
       if (route.path === '/timeline' || route.path === '/performance') {
         for (const label of ['Timeline', 'Performance']) {
@@ -118,11 +122,15 @@ try {
       }
       await finishSetupIfEnabled(page)
       if (route.path === '/performance' || route.path === '/timeline') {
-        if (await page.locator('header.top-bar').count()) throw new Error('Blank Timeline/Performance routes must honor their frozen header-hidden shell setting after hard refresh')
+        if (await page.locator('header.top-bar').count()) throw new Error('Timeline/Performance routes must honor their frozen header-hidden shell setting after hard refresh')
       } else {
         await page.locator('header.top-bar').waitFor({ state: 'visible', timeout: 15000 })
       }
       await page.locator(route.selector).waitFor({ state: 'visible', timeout: 20000 })
+      if (route.path === '/timeline') {
+        await page.getByText('Average fuel cost/km', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
+        await page.getByText('Total amount refilled', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
+      }
       await page.locator('.bottom-nav').waitFor({ state: 'visible', timeout: 10000 })
       if (route.path === '/timeline' || route.path === '/performance') {
         for (const label of ['Timeline', 'Performance']) {

@@ -5,11 +5,17 @@ export function calculateFuelQuantityKg(amountRupees, pricePerKg) {
   return amount / price
 }
 
-const timestamp = row => row?.capturedAt || row?.createdAt || null
+const timestamp = row => {
+  const capturedAt = row?.capturedAt
+  if (capturedAt && Number.isFinite(new Date(capturedAt).getTime())) return capturedAt
+  const createdAt = row?.createdAt
+  return createdAt && Number.isFinite(new Date(createdAt).getTime()) ? createdAt : null
+}
 const validFuel = row => {
   const at = timestamp(row)
   const date = at ? new Date(at) : null
   return Boolean(row && date && Number.isFinite(date.getTime())
+    && row.odometer !== null && row.odometer !== undefined && row.odometer !== ''
     && Number.isFinite(Number(row.odometer)) && Number(row.odometer) >= 0
     && Number.isFinite(Number(row.amount ?? row.totalCost)) && Number(row.amount ?? row.totalCost) > 0)
 }
@@ -83,5 +89,42 @@ export function calculateRollingFuelCostPerKm(logs = [], windowSize = 10) {
     completedIntervals: intervals.length,
     baselineFullTank: fullTankRecords[0] || null,
     latestFullTank: fullTankRecords.at(-1) || null
+  }
+}
+
+/**
+ * Derive Timeline fuel headers in the domain calculation layer.
+ * The cost/km interval is attributed to the later full-tank fill, using the
+ * existing fuel-accounting rule. All records are supplied so a previous full
+ * tank can act as the baseline even when it falls before the selected period.
+ * Partial fills count toward period expenditure, but never create a mileage
+ * interval by themselves.
+ */
+export function calculateFuelPeriodSummary(logs = [], range) {
+  const from = range?.from instanceof Date ? range.from.getTime() : new Date(range?.from).getTime()
+  const to = range?.to instanceof Date ? range.to.getTime() : new Date(range?.to).getTime()
+  if (!Number.isFinite(from) || !Number.isFinite(to) || to < from) {
+    return { totalFuelAmount: 0, averageCostPerKm: null, intervalKm: 0, intervalCount: 0 }
+  }
+
+  const rows = Array.isArray(logs) ? logs : []
+  const inPeriod = rows.filter(row => {
+    const at = timestamp(row)
+    const ms = at ? new Date(at).getTime() : NaN
+    const amount = Number(row?.amount ?? row?.totalCost)
+    return Number.isFinite(ms) && ms >= from && ms <= to && Number.isFinite(amount) && amount > 0
+  })
+  const totalFuelAmount = inPeriod.reduce((sum, row) => sum + Number(row.amount ?? row.totalCost), 0)
+  const intervals = calculateRollingFuelCostPerKm(rows, Math.max(1, rows.length)).observations.filter(interval => {
+    const ms = new Date(interval.capturedAt).getTime()
+    return Number.isFinite(ms) && ms >= from && ms <= to
+  })
+  const intervalKm = intervals.reduce((sum, interval) => sum + interval.km, 0)
+  const intervalCost = intervals.reduce((sum, interval) => sum + interval.cost, 0)
+  return {
+    totalFuelAmount,
+    averageCostPerKm: intervalKm > 0 ? intervalCost / intervalKm : null,
+    intervalKm,
+    intervalCount: intervals.length,
   }
 }

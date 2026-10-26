@@ -5,7 +5,7 @@ if (!base) throw new Error('KFE_RUNTIME_BASE_URL is required')
 
 const routes = [
   { path: '/', selector: '.work-canonical', label: 'Work' },
-  { path: '/timeline', selector: '.kfe-blank-workspace', label: 'Timeline blank workspace' },
+  { path: '/timeline', selector: '.activity-timeline-page', label: 'Timeline' },
   { path: '/performance', selector: '.kfe-blank-workspace', label: 'Performance workspace' },
   { path: '/admin', selector: '.kfe-settings-page', label: 'Admin settings' },
 ]
@@ -38,13 +38,23 @@ const waitForSurface = async (page, route, phase) => {
     const node = document.querySelector(selector)
     return !!node && node.children.length > 0 && document.readyState === 'complete'
   }, route.selector, { timeout: 45000 })
-  if (route.path === '/timeline' || route.path === '/performance') {
-    const retired = route.path === '/timeline' ? '.activity-timeline' : '.performance-page'
-    if (await page.locator(retired).count()) {
-      throw new Error(`${route.label}: retired screen ${retired} must not render`)
+  if (route.path === '/timeline') {
+    if (!(await page.getByText('Average fuel cost/km', { exact: true }).count())) {
+      throw new Error('Timeline: fuel cost/km summary header is missing')
+    }
+    if (!(await page.getByText('Total amount refilled', { exact: true }).count())) {
+      throw new Error('Timeline: period fuel expenditure header is missing')
+    }
+    if (await page.locator('.performance-page').count()) {
+      throw new Error('Timeline: Performance presentation must not render')
+    }
+  }
+  if (route.path === '/performance') {
+    if (await page.locator('.activity-timeline-page, .performance-page').count()) {
+      throw new Error('Performance must remain intentionally blank')
     }
     if (!(await page.locator('.kfe-blank-workspace').count())) {
-      throw new Error(`${route.label}: expected the intentionally blank workspace to render`)
+      throw new Error('Performance: expected the intentionally blank workspace to render')
     }
   }
   if (route.path === '/admin' && await page.locator('.admin-page').count()) {
