@@ -99,3 +99,54 @@ Not presentation-only; requires explicit design review and targeted tests:
 If a proposed UI change appears to require a business-rule or persistence change, stop and describe that dependency first. Get explicit approval for the behaviour change, document it separately, and add its own tests. Do not smuggle it into a visual redesign.
 
 **Success criterion:** the UI may look substantially different while the same established business operations, records, calculations, offline behaviour, and recovery guarantees continue to work.
+
+
+## Performance dashboard: metric and presentation contract
+
+The Performance menu must be designed as an extensible, read-only reporting surface. Once a metric's business meaning and calculation are finalized, its calculation contract must remain independent of how the metric is presented.
+
+### Required separation
+
+Keep these responsibilities separate:
+
+1. **Data and calculation layer:** obtains canonical records through the established application/reporting services and calculates values using explicit business rules and reporting-period boundaries.
+2. **Metric contract/definition layer:** gives each metric a stable identifier and defines its meaning, value, unit, formatter, availability/missing-data semantics, explanatory text, and other presentation-neutral metadata as appropriate.
+3. **Presentation layer:** decides how metrics appear, including cards, charts, tables, grouping, ordering, emphasis, labels used for display, colours, typography, spacing, and responsive layout.
+
+The exact module boundaries must follow the repository's actual architecture and be introduced incrementally. Do not create a registry or abstraction merely for its own sake; it must reduce coupling and have tests.
+
+### Presentation changes must not change metric meaning
+
+- A presentation-only redesign may change a metric's card into a chart, change its size or style, move it between sections, reorder it, or replace the dashboard layout.
+- Such changes must not change the metric's formula, source records, authoritative service, reporting period, currency/unit, inclusion rules, or missing-data meaning.
+- Presentation components must not independently calculate financial or operational metrics, query persistence directly, or create a competing source of truth.
+- The Performance view must continue to use the established application/reporting service and its existing period-selection and data-change wiring unless a separately reviewed contract change is approved.
+- The dashboard remains read-only. Viewing, filtering, sorting, or rendering must not mutate canonical operational records.
+
+### Adding or finalizing a metric
+
+Before a new metric is considered finalized:
+
+1. Define its business meaning and formula, including the records and statuses included or excluded.
+2. Define period attribution and boundary behaviour, units, rounding, and how unavailable, missing, pending, or invalid source data is represented.
+3. Implement the calculation in the appropriate domain/application reporting layer, not in the view.
+4. Add targeted tests for the formula, boundary cases, missing data, and relevant operational states.
+5. Expose the result through a stable metric contract that presentation components can consume without knowing how the value was calculated.
+6. Add the metric to the chosen section/layout independently of its calculation.
+7. Verify that existing metrics and their results remain unchanged.
+
+A new metric may require new source data or business logic. That is a calculation/data-contract change, not a presentation-only change; review and test it separately before displaying it.
+
+### Presentation redesign acceptance criteria
+
+- Existing metric IDs and meanings remain stable unless an explicitly reviewed metric-contract change is approved.
+- Replacing or rearranging presentation components does not change calculated values for the same input snapshot and reporting period.
+- Metric calculations can be tested without mounting UI components.
+- Presentation components can be tested with supplied metric results without accessing canonical storage.
+- Missing or unavailable values are not silently converted to zero, estimates, or fabricated values.
+- The selected reporting period is applied consistently by the established reporting service; UI components must not invent their own period logic.
+- The existing loading, error, subscription/data-refresh, and stale-response protections remain intact.
+- Automated regression tests demonstrate that presentation-only changes preserve metric outputs and existing Performance wiring.
+- Relevant production build and CI gates pass. Physical-device verification is recorded separately and must not be claimed unless actually performed.
+
+**Performance success criterion:** after a metric is finalized, its presentation can be redesigned independently; adding a metric does not require redesigning the whole page; and neither operation silently changes financial meaning, reporting semantics, canonical persistence, or existing operational behaviour.
