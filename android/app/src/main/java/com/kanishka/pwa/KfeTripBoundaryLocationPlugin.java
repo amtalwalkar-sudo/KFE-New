@@ -26,10 +26,59 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @CapacitorPlugin(
   name = "KfeTripBoundaryLocation",
   permissions = {
-    @Permission(alias = "location", strings = { Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION })
+    @Permission(alias = "location", strings = { Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION }),
+    @Permission(alias = "backgroundLocation", strings = { Manifest.permission.ACCESS_BACKGROUND_LOCATION })
   }
 )
 public class KfeTripBoundaryLocationPlugin extends Plugin {
+  @com.getcapacitor.PluginMethod
+  public void getLocationStatus(PluginCall call) {
+    Context context = getContext();
+    boolean fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+    boolean coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+    boolean background = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+      || ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED;
+    LocationManager manager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+    boolean gpsEnabled = false;
+    if (manager != null) {
+      try { gpsEnabled = manager.isProviderEnabled(LocationManager.GPS_PROVIDER); }
+      catch (Exception ignored) {}
+    }
+    JSObject status = new JSObject();
+    status.put("fineGranted", fine);
+    status.put("coarseGranted", coarse);
+    status.put("backgroundGranted", background);
+    status.put("gpsEnabled", gpsEnabled);
+    status.put("backgroundCaptureAllowed", fine && background);
+    call.resolve(status);
+  }
+
+  @com.getcapacitor.PluginMethod
+  public void requestBackgroundLocationPermission(PluginCall call) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+      call.resolve();
+      return;
+    }
+    if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+      call.reject("Grant precise location permission before enabling background GPS.");
+      return;
+    }
+    if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+      call.resolve();
+      return;
+    }
+    requestPermissionForAlias("backgroundLocation", call, "backgroundLocationPermissionCallback");
+  }
+
+  @PermissionCallback
+  private void backgroundLocationPermissionCallback(PluginCall call) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+      && ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+      call.reject("Background location permission was not granted. Background GPS capture remains disabled.");
+      return;
+    }
+    call.resolve();
+  }
   @com.getcapacitor.PluginMethod
   public void captureCurrentLocation(PluginCall call) {
     if (!hasFineLocationPermission()) {
