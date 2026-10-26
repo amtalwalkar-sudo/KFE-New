@@ -4,14 +4,20 @@ import fs from 'node:fs'
 const router = fs.readFileSync('src/router/index.js', 'utf8')
 const shell = fs.readFileSync('src/components/shell/KfeShell.vue', 'utf8')
 const performanceView = fs.readFileSync('src/views/PerformanceView.vue', 'utf8')
+const performanceService = fs.readFileSync('src/application/performance/phaseOnePerformanceService.js', 'utf8')
 const performanceStyles = fs.readFileSync('src/styles/performance.css', 'utf8')
+
 assert.match(router, /path: '\/timeline', name: 'Timeline', component: ActivityTimelineView/)
 assert.match(router, /path: '\/performance', name: 'Performance', component: PerformanceView/)
 assert.match(router, /import PerformanceView from '\.\.\/views\/PerformanceView\.vue'/)
-for (const label of ['Work', 'Timeline', 'Performance', 'Admin']) assert.ok(shell.includes(`aria-label="${label}"`) || shell.includes(`<span>${label}</span>`), `bottom navigation retains ${label}`)
+for (const label of ['Work', 'Timeline', 'Performance', 'Admin']) {
+  assert.ok(shell.includes(`aria-label="${label}"`) || shell.includes(`<span>${label}</span>`), `bottom navigation retains ${label}`)
+}
 assert.match(performanceView, /PhaseOnePerformanceService\.getOverview\(period\.value\)/)
-assert.match(performanceView, /PhaseOnePerformanceService\.subscribeDataChanges/
-assert.match(performanceView, /subscribeDataChanges/)
+assert.match(performanceView, /PhaseOnePerformanceService\.subscribeDataChanges/)
+assert.match(performanceService, /PerformanceService\.getSnapshot\(\)/)
+assert.match(performanceService, /PerformanceService\.getMetrics\(snapshot, range\)/)
+assert.match(performanceService, /derivePhaseOnePerformanceOverview\(snapshot, range, metrics\)/)
 assert.match(performanceView, /Income after fuel/)
 assert.match(performanceView, /Fare income/)
 assert.match(performanceView, /Cancellation fees/)
