@@ -31,6 +31,7 @@ assert.match(manifest, /uses-permission android:name="android\.permission\.ACCES
   'the Android manifest must declare the permission required for background location')
 assert.match(overlayService, /pendingEventGpsCaptures\.v1/,
   'pending event locations must survive WebView reloads and process death')
+assert.match(overlayService, /Discarded pending GPS request for missing trip/, 'a reset/deleted trip must not receive a later orphan GPS snapshot')
 assert.match(overlayService, /schedulePendingGpsRetry/,
   'failed fixes must be retried while required permissions remain granted')
 assert.match(overlayService, /PICKUP_START/,
