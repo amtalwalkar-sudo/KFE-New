@@ -1,0 +1,61 @@
+.performance-page {
+  width: min(100%, 980px);
+  margin: 0 auto;
+  padding: 24px 16px 104px;
+  color: var(--kfe-text, var(--text-primary, #f5f7fa));
+  box-sizing: border-box;
+}
+.performance-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.performance-eyebrow {
+  margin: 0 0 6px;
+  color: var(--kfe-muted, #8e9aa8);
+  font-size: .72rem;
+  font-weight: 750;
+  letter-spacing: .11em;
+}
+.performance-heading h1 { margin: 0; font-size: clamp(1.65rem, 6vw, 2.1rem); line-height: 1.15; }
+.performance-description { margin: 8px 0 0; color: var(--kfe-muted, #8e9aa8); font-size: .92rem; }
+.performance-period { display: grid; gap: 6px; min-width: 116px; color: var(--kfe-muted, #8e9aa8); font-size: .78rem; }
+.performance-period select {
+  min-height: 42px;
+  max-width: 150px;
+  padding: 8px 10px;
+  border: 1px solid var(--kfe-border, #394653);
+  border-radius: 10px;
+  background: var(--kfe-surface, #1d2935);
+  color: inherit;
+  font: inherit;
+}
+.performance-period-note, .performance-footnote { color: var(--kfe-muted, #8e9aa8); font-size: .8rem; line-height: 1.5; }
+.performance-period-note { margin: 0 0 14px; }
+.performance-metric-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.performance-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-width: 0;
+  padding: 16px 14px;
+  border: 1px solid var(--kfe-border, #303d49);
+  border-radius: 14px;
+  background: var(--kfe-surface, #1d2935);
+}
+.performance-metric > span { color: var(--kfe-muted, #aab4c0); font-size: .8rem; line-height: 1.35; }
+.performance-metric strong { font-size: clamp(1.05rem, 4vw, 1.45rem); line-height: 1.25; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.performance-metric small { color: var(--kfe-muted, #8e9aa8); font-size: .72rem; line-height: 1.45; }
+.performance-metric-highlight { border-color: var(--kfe-accent, #648ce8); }
+.performance-message { padding: 14px; border-radius: 12px; background: var(--kfe-surface, #1d2935); }
+.performance-error { color: var(--kfe-danger, #ff8a8a); }
+.performance-footnote { margin: 16px 2px 0; }
+@media (max-width: 360px) {
+  .performance-page { padding: 18px 12px 100px; }
+  .performance-heading { flex-direction: column; }
+  .performance-period { width: 100%; }
+  .performance-period select { max-width: none; width: 100%; }
+  .performance-metric-grid { grid-template-columns: minmax(0, 1fr); }
+}
