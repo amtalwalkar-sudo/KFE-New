@@ -10,6 +10,8 @@ const nativeAdapter = fs.readFileSync('src/infrastructure/android/nativeCanonica
 const canonicalBoundary = fs.readFileSync('src/application/work/canonicalWorkBoundary.js', 'utf8')
 const browserCanonical = fs.readFileSync('src/infrastructure/work/browserCanonicalWork.js', 'utf8')
 const workService = fs.readFileSync('src/application/work/workService.js', 'utf8')
+const timelineView = fs.readFileSync('src/views/ActivityTimelineView.vue', 'utf8')
+const timelineReadService = fs.readFileSync('src/application/timeline/activityTimelineReadService.js', 'utf8')
 
 assert.ok(workService.includes("captureAndPersistEventLocation('TRIP', result.id, 'TRIP_START'"),
   'starting the passenger ride must use the shared event-location pathway')
@@ -31,6 +33,17 @@ assert.match(eventLocationService, /forEntities\(entityType, entityIds = \[\]\)/
 assert.doesNotMatch(workService, /captureAndPersistTripBoundary|persistTripBoundarySnapshot/, 'trip boundaries must not use a separate persistence pathway')
 assert.doesNotMatch(workService, /updateTripBoundaryPlaceName/, 'trip boundary labels must not use a separate metadata pathway')
 assert.match(locationRepository, /notifyCanonicalDataChanged\(\{ stores: \['gps_snapshots', 'trips'\], reason: 'gps-place-name-enriched' \}\)/)
+assert.match(timelineReadService, /EventLocationService\.forEntities\('TRIP', trips\.map\(trip => trip\?\.id\)\)/,
+  'Timeline must read shared persisted GPS snapshots for its ride records')
+assert.match(timelineView, /<span>Pickup area<\/span><strong>\{\{ ride\.pickupArea \}\}<\/strong>/,
+  'the user-facing ride row must render the pickup locality')
+assert.match(timelineView, /<span>Drop area<\/span><strong>\{\{ ride\.dropArea \}\}<\/strong>/,
+  'the user-facing ride row must render the drop locality')
+assert.match(timelineView, /subscribeDataChanges\(\(\) => \{ void load\(\) \}\)/,
+  'Timeline must reload when a persisted locality label is enriched')
+assert.match(timelineView, /onMounted\(\(\) => \{\s*void load\(\)/,
+  'Timeline must load the locality read model when mounted')
+
 
 assert.match(fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java', 'utf8'), /putRecord\(operationId,"GPS_SNAPSHOT",snapshot\)/, 'native overlay must write locality metadata through the shared GPS snapshot entity')
 console.log('PASS: Activity Timeline ride/fuel locality enrichment uses the shared event snapshot pathway')
