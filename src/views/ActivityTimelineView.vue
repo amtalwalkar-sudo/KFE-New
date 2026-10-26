@@ -2,7 +2,6 @@
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import '../styles/activity-timeline.css'
 import { ActivityTimelineReadService } from '../application/timeline/activityTimelineReadService.js'
-import { subscribeCanonicalDataChanges } from '../repositories/canonicalDataChangeRepository.js'
 
 const period = ref('TODAY')
 const snapshot = ref({ rides: [], fuelLogs: [], fuelSummary: null, range: null })
@@ -53,7 +52,7 @@ const load = async () => {
 watch(period, () => { void load() })
 onMounted(() => {
   void load()
-  unsubscribe = subscribeCanonicalDataChanges(() => { void load() })
+  unsubscribe = ActivityTimelineReadService.subscribeDataChanges(() => { void load() })
 })
 onUnmounted(() => {
   requestVersion += 1
