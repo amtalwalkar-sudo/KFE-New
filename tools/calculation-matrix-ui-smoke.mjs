@@ -59,7 +59,7 @@ try {
 
   await route(page, 'admin', '.admin-page', 'Admin')
   await wait(async () => (await page.locator('body').innerText()).includes('Backup & Restore'), 'Admin Settings ready')
-  if (await page.locator('.admin-page').count() !== 0) throw new Error('Admin unexpectedly mounted the retired admin presentation')
+  if (await page.locator('.admin-page').count() !== 1) throw new Error('Admin workspace did not mount')
   if (await page.locator('html').evaluate(el => el.scrollWidth > window.innerWidth + 1)) throw new Error('Admin has horizontal viewport overflow')
 
   // Confirm navigation keeps Timeline and Performance live/read-only.
