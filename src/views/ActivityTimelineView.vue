@@ -1,0 +1,138 @@
+<script setup>
+import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { ActivityTimelineReadService } from '../application/timeline/activityTimelineReadService.js'
+import { subscribeCanonicalDataChanges } from '../repositories/canonicalDataChangeRepository.js'
+
+const period = ref('TODAY')
+const snapshot = ref({ rides: [], fuelLogs: [], fuelSummary: null, range: null })
+const loading = ref(false)
+const error = ref('')
+let requestVersion = 0
+let unsubscribe = null
+
+const money = value => value == null || !Number.isFinite(Number(value))
+  ? 'Unavailable'
+  : new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(value))
+const costPerKm = value => value == null || !Number.isFinite(Number(value))
+  ? 'Unavailable'
+  : `${money(value)}/km`
+const dateTime = value => {
+  if (!value || !Number.isFinite(new Date(value).getTime())) return 'Date unavailable'
+  return new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: true,
+  }).format(new Date(value))
+}
+const duration = value => {
+  if (value == null || !Number.isFinite(Number(value)) || Number(value) < 0) return 'Unavailable'
+  const totalMinutes = Math.floor(Number(value) / 60000)
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  return hours ? `${hours}h ${minutes}m` : `${minutes}m`
+}
+const fareText = ride => {
+  if (ride.fareState === 'skipped') return 'Fare skipped'
+  if (ride.fareState === 'pending') return 'Fare pending'
+  if (ride.fareState === 'unavailable') return 'Not recorded'
+  return money(ride.fareValue)
+}
+const load = async () => {
+  const version = ++requestVersion
+  loading.value = true
+  error.value = ''
+  try {
+    const result = await ActivityTimelineReadService.getTimeline({ period: period.value })
+    if (version === requestVersion) snapshot.value = result
+  } catch (cause) {
+    if (version === requestVersion) error.value = cause?.message || 'Timeline could not be loaded.'
+  } finally {
+    if (version === requestVersion) loading.value = false
+  }
+}
+watch(period, () => { void load() })
+onMounted(() => {
+  void load()
+  unsubscribe = subscribeCanonicalDataChanges(() => { void load() })
+})
+onUnmounted(() => {
+  requestVersion += 1
+  if (typeof unsubscribe === 'function') unsubscribe()
+})
+</script>
+
+<template>
+  <section class="activity-timeline-page" aria-labelledby="activity-timeline-title">
+    <header class="activity-timeline-heading">
+      <div>
+        <p class="activity-timeline-eyebrow">READ-ONLY RECORDS</p>
+        <h1 id="activity-timeline-title">Timeline</h1>
+        <p class="activity-timeline-description">Your rides and CNG refills for the selected period.</p>
+      </div>
+      <label class="activity-timeline-filter">
+        <span>Period</span>
+        <select v-model="period" aria-label="Timeline period">
+          <option value="TODAY">Today</option>
+          <option value="WEEK">This week</option>
+          <option value="MONTH">This month</option>
+        </select>
+      </label>
+    </header>
+
+    <p v-if="error" class="activity-timeline-message activity-timeline-error" role="alert">{{ error }}</p>
+    <p v-else-if="loading && !snapshot.range" class="activity-timeline-message" role="status">Loading timeline…</p>
+
+    <section class="activity-timeline-section" aria-labelledby="timeline-rides-heading">
+      <div class="activity-timeline-section-heading">
+        <h2 id="timeline-rides-heading">Rides</h2>
+        <span>{{ snapshot.rides.length }} records</span>
+      </div>
+      <div v-if="!loading && !error && snapshot.rides.length === 0" class="activity-timeline-empty">No rides recorded for this period.</div>
+      <ol v-else class="activity-timeline-list">
+        <li v-for="ride in snapshot.rides" :key="ride.id" class="activity-timeline-record">
+          <div class="activity-timeline-record-top">
+            <strong>{{ ride.timeLabel }} · {{ dateTime(ride.timeAt) }}</strong>
+            <span class="activity-timeline-status" :class="{ 'is-cancelled': ride.status === 'CANCELLED' }">{{ ride.statusLabel }}</span>
+          </div>
+          <div class="activity-timeline-record-grid">
+            <div><span>Duration</span><strong>{{ duration(ride.durationMs) }}</strong></div>
+            <div><span>{{ ride.fareLabel }}</span><strong>{{ fareText(ride) }}</strong></div>
+            <div><span>Pickup area</span><strong>{{ ride.pickupArea }}</strong></div>
+            <div><span>Drop area</span><strong>{{ ride.dropArea }}</strong></div>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <section class="activity-timeline-section" aria-labelledby="timeline-fuel-heading">
+      <div class="activity-timeline-section-heading">
+        <h2 id="timeline-fuel-heading">Fuel</h2>
+        <span>{{ snapshot.fuelLogs.length }} records</span>
+      </div>
+      <div class="activity-timeline-summary" aria-label="Fuel summary">
+        <article class="activity-timeline-metric">
+          <span>Average fuel cost/km</span>
+          <strong>{{ costPerKm(snapshot.fuelSummary?.averageCostPerKm) }}</strong>
+        </article>
+        <article class="activity-timeline-metric">
+          <span>Total amount refilled</span>
+          <strong>{{ money(snapshot.fuelSummary?.totalFuelAmount) }}</strong>
+        </article>
+      </div>
+      <p class="activity-timeline-footnote">Cost/km uses consecutive recorded full-tank odometer readings. Partial refills count toward total fuel spending but do not create a mileage interval.</p>
+      <div v-if="!loading && !error && snapshot.fuelLogs.length === 0" class="activity-timeline-empty">No fuel records recorded for this period.</div>
+      <ol v-else class="activity-timeline-list">
+        <li v-for="fuel in snapshot.fuelLogs" :key="fuel.id" class="activity-timeline-record">
+          <div class="activity-timeline-record-top">
+            <strong>{{ dateTime(fuel.timeAt) }}</strong>
+            <span class="activity-timeline-status">{{ fuel.isFullTank ? 'Full tank' : 'Partial fill' }}</span>
+          </div>
+          <div class="activity-timeline-record-grid">
+            <div><span>Amount paid</span><strong>{{ money(fuel.amount) }}</strong></div>
+            <div><span>Quantity</span><strong>{{ fuel.quantityKg == null ? 'Unavailable' : `${fuel.quantityKg.toFixed(2)} kg` }}</strong></div>
+            <div><span>Odometer</span><strong>{{ fuel.odometer == null ? 'Unavailable' : `${fuel.odometer.toLocaleString('en-IN')} km` }}</strong></div>
+          </div>
+        </li>
+      </ol>
+    </section>
+  </section>
+</template>
