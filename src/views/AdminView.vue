@@ -13,7 +13,6 @@ import { deriveLoanPosition, calculatePrepaymentEstimate, paymentAllocationPrevi
 import CalculationsView from './CalculationsView.vue'
 
 const items=[
- {key:'calculations',category:'DIAGNOSTICS',title:'Calculations',icon:'∑'},
  {key:'businessSetup',category:'BUSINESS SETUP',title:'Business Setup',icon:'⌂'},
  {key:'vehicle',category:'BUSINESS SETUP',title:'Vehicle',icon:'🚗'},
  {key:'driver',category:'BUSINESS SETUP',title:'Driver',icon:'👤'},
@@ -22,8 +21,7 @@ const items=[
  {key:'loan',category:'FINANCE',title:'Loan',icon:'₹'},
  {key:'prepayment',category:'FINANCE',title:'Prepayments',icon:'↘'},
  {key:'ledger',category:'FINANCE',title:'Ledger',icon:'▤'},
- {key:'driverTarget',category:'TARGET',title:'Driver Monthly Target',icon:'🎯'},
- {key:'maintenanceRate',category:'TARGET',title:'Maintenance per KM',icon:'KM'}
+ {key:'settings',category:'SETTINGS',title:'Settings',icon:'⚙'}
 ]
 const categories=[...new Set(items.map(x=>x.category))]
 
@@ -175,7 +173,7 @@ const driverNames=computed(()=>Object.fromEntries(all.value.driver.map(x=>[x.id,
 const groupedItems=computed(()=>categories.map(category=>({category,items:items.filter(x=>x.category===category)})))
 function clearMessages(){error.value='';notice.value=''}
 function closeAction(){actionKey.value=null;actionRecord.value=null;actionDraft.value={};paymentCalculated.value=false;paymentConfirmed.value=false}
-function openItem(key){clearMessages();settingsOpen.value=false;selected.value=key;masterSelected.value=null;formOpen.value=false;editing.value=null;draft.value={};closeAction();if(key==='prepayment')resetPrepayment();if(key==='driverTarget')resetTarget();if(key==='maintenanceRate')resetMaintenanceRate();load()}
+function openItem(key){if(key==='settings'){openSettings();return}clearMessages();settingsOpen.value=false;selected.value=key;masterSelected.value=null;formOpen.value=false;editing.value=null;draft.value={};closeAction();if(key==='prepayment')resetPrepayment();if(key==='driverTarget')resetTarget();if(key==='maintenanceRate')resetMaintenanceRate();load()}
 function openMasterRecord(record){clearMessages();masterSelected.value=record.id;formOpen.value=false;editing.value=null;draft.value={}}
 function backMasterList(){clearMessages();masterSelected.value=null;formOpen.value=false;editing.value=null;draft.value={}}
 function masterFieldValue(field,record){const v=record?.values?.[field.key];if(v===undefined||v===null||v==='')return '—';if(field.type==='checkbox')return v?'Yes':'No';if(field.type==='select'){if(field.key==='vehicleId')return label('vehicle',all.value.vehicle.find(x=>x.id===v));if(field.key==='driverId')return label('driver',all.value.driver.find(x=>x.id===v));const opts=field.options||[];const found=opts.find(x=>x?.value===v);return found?.label||v}return String(v)}
@@ -255,7 +253,7 @@ onMounted(()=>{load()})
       <div class="admin-category-grid">
         <button v-for="item in group.items" :key="item.key" type="button" class="admin-item" @click="openItem(item.key)">
           <span class="admin-item-icon" aria-hidden="true">{{item.icon}}</span>
-          <span class="admin-item-copy"><strong>{{item.title}}</strong><small>{{item.key==='calculations'?'Inspect calculation outputs':item.key==='businessSetup'?'Set the business start boundary':item.key==='vehicle'?'Vehicle identity and lifecycle':item.key==='driver'?'Driver identity and assignment':item.key==='compliance'?'Validity and compliance cost':item.key==='maintenance'?'Authoritative actual maintenance':item.key==='loan'?'Loan terms and position':item.key==='prepayment'?'Calculate and record prepayment':item.key==='ledger'?'Read-only finance history':item.key==='driverTarget'?'Monthly driver take-home target':'Effective maintenance provision rate'}}</small></span>
+          <span class="admin-item-copy"><strong>{{item.title}}</strong><small>{{item.key==='businessSetup'?'Set the business start boundary':item.key==='vehicle'?'Vehicle identity and lifecycle':item.key==='driver'?'Driver identity and assignment':item.key==='compliance'?'Validity and compliance cost':item.key==='maintenance'?'Authoritative actual maintenance':item.key==='loan'?'Loan terms and position':item.key==='prepayment'?'Calculate and record prepayment':item.key==='ledger'?'Read-only finance history':'Backup, restore, application settings and data reset'}}</small></span>
           <span class="admin-item-arrow" aria-hidden="true">›</span>
         </button>
       </div>
