@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted, onUnmounted, ref, watch } from 'vue'
+import '../styles/activity-timeline.css'
 import { ActivityTimelineReadService } from '../application/timeline/activityTimelineReadService.js'
 import { subscribeCanonicalDataChanges } from '../repositories/canonicalDataChangeRepository.js'
 
