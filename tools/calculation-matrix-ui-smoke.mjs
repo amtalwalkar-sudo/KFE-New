@@ -62,7 +62,7 @@ try {
   if (await page.locator('.admin-page').count() !== 0) throw new Error('Admin unexpectedly mounted the retired admin presentation')
   if (await page.locator('html').evaluate(el => el.scrollWidth > window.innerWidth + 1)) throw new Error('Admin has horizontal viewport overflow')
 
-  // Confirm navigation keeps Timeline live/read-only and Performance intentionally blank.
+  // Confirm navigation keeps Timeline and Performance live/read-only.
   await page.getByRole('link', { name: 'Timeline', exact: true }).click()
   await page.locator('.activity-timeline-page').waitFor({ state: 'visible' })
   await wait(async () => (await page.getByText('Average fuel cost/km', { exact: true }).count()) === 1, 'Timeline navigation render')
