@@ -50,6 +50,7 @@ public class KfeTripBoundaryLocationPlugin extends Plugin {
     status.put("backgroundGranted", background);
     status.put("gpsEnabled", gpsEnabled);
     status.put("backgroundCaptureAllowed", fine && background);
+    status.put("pendingCount", KfeOverlayService.pendingEventLocationCount(context));
     call.resolve(status);
   }
 
