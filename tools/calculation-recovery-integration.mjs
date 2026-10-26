@@ -30,7 +30,7 @@ try {
   await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 30000 })
   await page.waitForFunction(() => document.readyState === 'complete', undefined, { timeout: 15000 })
   await page.evaluate(async () => Promise.all([
-    import('/src/utils/indexedDB.js'), import('/src/repositories/shiftTripRepository.js'), import('/src/application/work/workService.js'), import('/src/application/location/eventLocationService.js'),
+    import('/src/utils/indexedDB.js'), import('/src/repositories/shiftTripRepository.js'), import('/src/application/work/workService.js'), import('/src/repositories/locationRepository.js'),
     import('/src/application/work/workRuntimePorts.js'), import('/src/repositories/fuelRepository.js'), import('/src/application/work/fuel.js'),
     import('/src/application/work/endShift.js'), import('/src/application/timeline/operationalRecordService.js'), import('/src/repositories/performanceRepository.js'),
     import('/src/domain/performance/performanceEngineV2.js'), import('/src/application/backup/backupService.js')
@@ -38,11 +38,11 @@ try {
   await context.setOffline(true)
 
   const result = await page.evaluate(async () => {
-    const [{ initializeCanonicalStorage }, { ShiftTripRepository }, { WorkService }, { EventLocationService }, { configureWorkRuntimePorts }, { FuelRepository }, { recordFuelEntry }, { completeEndShift }, { OperationalRecordService }, { PerformanceRepository }, { derivePerformance }, { BackupService }] = await Promise.all([
+    const [{ initializeCanonicalStorage }, { ShiftTripRepository }, { WorkService }, { LocationRepository }, { configureWorkRuntimePorts }, { FuelRepository }, { recordFuelEntry }, { completeEndShift }, { OperationalRecordService }, { PerformanceRepository }, { derivePerformance }, { BackupService }] = await Promise.all([
       import('/src/utils/indexedDB.js'),
       import('/src/repositories/shiftTripRepository.js'),
       import('/src/application/work/workService.js'),
-      import('/src/application/location/eventLocationService.js'),
+      import('/src/repositories/locationRepository.js'),
       import('/src/application/work/workRuntimePorts.js'),
       import('/src/repositories/fuelRepository.js'),
       import('/src/application/work/fuel.js'),
@@ -79,7 +79,7 @@ try {
     const snapshotDeadline = Date.now() + 15000
     while (Date.now() < snapshotDeadline) {
       savedGapTrip = (await ShiftTripRepository.getTripsForShift(shift.id)).find(item => item.id === gapTrip.id)
-      tripSnapshots = await EventLocationService.forEntity('TRIP', gapTrip.id)
+      tripSnapshots = await LocationRepository.forEntity('TRIP', gapTrip.id)
       const events = new Set(tripSnapshots.map(item => item.eventType))
       if (events.has('TRIP_START') && events.has('TRIP_END')) break
       await new Promise(resolve => setTimeout(resolve, 100))
