@@ -46,6 +46,7 @@ import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 
 import org.json.JSONObject;
+import org.json.JSONArray;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class KfeOverlayService extends Service {
@@ -57,10 +58,12 @@ public class KfeOverlayService extends Service {
   static final String ACTION_MINIMIZE="com.kanishka.pwa.KFE_OVERLAY_MINIMIZE";
   static final String ACTION_FARE_SAVED="com.kanishka.pwa.KFE_OVERLAY_FARE_SAVED";
   static final String ACTION_CANCEL_SAVED="com.kanishka.pwa.KFE_OVERLAY_CANCEL_SAVED";
+  static final String ACTION_RETRY_PENDING_GPS="com.kanishka.pwa.KFE_RETRY_PENDING_GPS";
   static final String EXTRA_STATE="state";
   private static final String CHANNEL_ID="kfe_overlay";
   private static final int NOTIFICATION_ID=4201;
   private static final String LAST_STATE_KEY="lastOverlayState";
+  private static final String PENDING_GPS_KEY="pendingEventGpsCaptures.v1";
   private static final int BAR_DP=82;
   private static final int COLLAPSED_TOTAL_DP=158;
   private static final int BUBBLE_DP=58;
@@ -109,6 +112,8 @@ public class KfeOverlayService extends Service {
   private LinearLayout formPanel;
   private LinearLayout cancelReasonPanel;
   private android.os.Handler foregroundHandler;
+  private final java.util.Set<String> gpsCaptureInFlight=java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+  private final Runnable pendingGpsRetry=()->retryPendingEventLocations();
   private final Runnable foregroundCheck=new Runnable(){
     @Override public void run(){
       hideIfKfeActivityForeground();
@@ -136,6 +141,7 @@ public class KfeOverlayService extends Service {
   public static void prepare(Context context){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_PREPARE);ContextCompat.startForegroundService(context,i);}
   public static void show(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_SHOW);i.putExtra(EXTRA_STATE,state==null?"{}":state);ContextCompat.startForegroundService(context,i);}
   public static void update(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_UPDATE);i.putExtra(EXTRA_STATE,state==null?"{}":state);ContextCompat.startForegroundService(context,i);}
+  static void retryPendingLocations(Context context){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_RETRY_PENDING_GPS);ContextCompat.startForegroundService(context,i);}
   public static void hide(Context context){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_HIDE);context.startService(i);}
   public static boolean isResumableState(String raw){
     if(raw==null||raw.trim().isEmpty())return false;
@@ -232,10 +238,15 @@ public class KfeOverlayService extends Service {
 
   @Override public int onStartCommand(Intent intent,int flags,int startId){
     if(intent==null){
+      if(hasPendingEventLocations() && hasBackgroundLocationPermission()){retryPendingEventLocations();return START_STICKY;}
       if(Settings.canDrawOverlays(this)&&restorePersistedOverlayIfCanonicalShiftActive())return START_STICKY;
       removeOverlay(true);stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return START_NOT_STICKY;
     }
     String action=intent.getAction();
+    if(ACTION_RETRY_PENDING_GPS.equals(action)){
+      if(!hasPendingEventLocations() || !hasBackgroundLocationPermission()){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return START_NOT_STICKY;}
+      retryPendingEventLocations();return START_STICKY;
+    }
     // An explicit restart may arrive with an Intent whose action is null. Restore
     // the last valid shift snapshot so the overlay and any persisted form draft
     // are reattached instead of leaving the foreground service invisible.
@@ -883,64 +894,116 @@ public class KfeOverlayService extends Service {
     catch(Exception error){Log.w("KFE-GPS","Could not restore the normal overlay foreground type after a one-shot fix.",error);}
   }
 
-  // This temporarily activates the location FGS type for one fix only. No watch,
-  // trace collector, or location request remains active after the fix/timeout.
-  // Native overlay writes the same GPS_SNAPSHOT event model as the PWA path.
-  private void captureOneShotEventLocation(String tripId, String eventType){
+  // Each event is journaled in app-private storage before a location request.
+  // The original event identity survives timeout, process death, and retry.
+  private static String gpsEventKey(String tripId,String eventType){return tripId+"::"+eventType;}
+  private synchronized void enqueuePendingEventLocation(String tripId,String eventType){
+    try{
+      android.content.SharedPreferences prefs=getSharedPreferences("kfe_overlay",MODE_PRIVATE);
+      JSONArray items=new JSONArray(prefs.getString(PENDING_GPS_KEY,"[]"));
+      String key=gpsEventKey(tripId,eventType);
+      for(int i=0;i<items.length();i++){JSONObject item=items.optJSONObject(i);if(item!=null&&key.equals(item.optString("key","")))return;}
+      JSONObject item=new JSONObject();item.put("key",key);item.put("tripId",tripId);item.put("eventType",eventType);item.put("queuedAt",java.time.Instant.now().toString());items.put(item);
+      if(!prefs.edit().putString(PENDING_GPS_KEY,items.toString()).commit())throw new IllegalStateException("Pending GPS event journal was not committed.");
+      Log.i("KFE-GPS","Durably queued event location "+key);
+    }catch(Exception error){Log.e("KFE-GPS","Could not durably queue event GPS capture.",error);}
+  }
+  private synchronized void removePendingEventLocation(String tripId,String eventType){
+    try{
+      android.content.SharedPreferences prefs=getSharedPreferences("kfe_overlay",MODE_PRIVATE);
+      JSONArray current=new JSONArray(prefs.getString(PENDING_GPS_KEY,"[]")), next=new JSONArray();
+      String key=gpsEventKey(tripId,eventType);
+      for(int i=0;i<current.length();i++){JSONObject item=current.optJSONObject(i);if(item!=null&&!key.equals(item.optString("key","")))next.put(item);}
+      prefs.edit().putString(PENDING_GPS_KEY,next.toString()).commit();
+    }catch(Exception error){Log.e("KFE-GPS","Could not update pending GPS event journal.",error);}
+  }
+  private boolean hasPendingEventLocations(){
+    try{return new JSONArray(getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(PENDING_GPS_KEY,"[]")).length()>0;}
+    catch(Exception ignored){return false;}
+  }
+  private boolean hasBackgroundLocationPermission(){
+    if(ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)return false;
+    return Build.VERSION.SDK_INT<Build.VERSION_CODES.Q || ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_BACKGROUND_LOCATION)==PackageManager.PERMISSION_GRANTED;
+  }
+  private void schedulePendingGpsRetry(){
+    if(!hasPendingEventLocations()||!hasBackgroundLocationPermission())return;
+    Handler handler=foregroundHandler!=null?foregroundHandler:new Handler(Looper.getMainLooper());
+    handler.removeCallbacks(pendingGpsRetry);
+    handler.postDelayed(pendingGpsRetry,30000L);
+  }
+  private void retryPendingEventLocations(){
+    if(!hasPendingEventLocations())return;
+    // Permission is a hard gate: never start a background location request until
+    // both precise and background location permissions are granted.
+    if(!hasBackgroundLocationPermission())return;
+    try{
+      JSONArray items=new JSONArray(getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(PENDING_GPS_KEY,"[]"));
+      for(int i=0;i<items.length();i++){
+        JSONObject item=items.optJSONObject(i);if(item==null)continue;
+        String tripId=item.optString("tripId",""),eventType=item.optString("eventType","");
+        if(!tripId.isEmpty()&&!eventType.isEmpty())captureOneShotEventLocation(tripId,eventType);
+      }
+    }catch(Exception error){Log.e("KFE-GPS","Pending event location retry failed.",error);}
+    schedulePendingGpsRetry();
+  }
+  private void finishPendingGpsAttempt(String tripId,String eventType,boolean saved){
+    gpsCaptureInFlight.remove(gpsEventKey(tripId,eventType));
+    if(saved)removePendingEventLocation(tripId,eventType);
+    else schedulePendingGpsRetry();
+  }
+
+  // A high-accuracy one-shot request is retried until the first valid fix is
+  // durably written. It is not a movement trace and does not use the network.
+  private void captureOneShotEventLocation(String tripId,String eventType){
     if(tripId==null||tripId.trim().isEmpty())return;
-    if(!"TRIP_START".equals(eventType)&&!"TRIP_END".equals(eventType))return;
+    if(!"TRIP_START".equals(eventType)&&!"TRIP_END".equals(eventType)&&!"PICKUP_START".equals(eventType)&&!"TRIP_CANCELLED".equals(eventType))return;
+    enqueuePendingEventLocation(tripId,eventType);
     try{
       JSONObject existing=KfeCanonicalWorkStore.get(this).listRecords("GPS_SNAPSHOT",1000);
-      org.json.JSONArray records=existing.optJSONArray("records");
+      JSONArray records=existing.optJSONArray("records");
       if(records!=null)for(int i=0;i<records.length();i++){
         JSONObject snapshot=records.optJSONObject(i);
         if(snapshot!=null&&"TRIP".equals(snapshot.optString("entityType",""))
           &&tripId.equals(snapshot.optString("entityId",""))
-          &&eventType.equals(snapshot.optString("eventType","")))return;
+          &&eventType.equals(snapshot.optString("eventType",""))){removePendingEventLocation(tripId,eventType);return;}
       }
     }catch(Exception error){Log.w("KFE-GPS","Unable to check prior event-location snapshot",error);}
-    if(ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED){
-      Log.w("KFE-GPS","One-shot "+eventType+" snapshot skipped: precise location permission is not granted.");return;
-    }
-    if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.Q
-      && ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_BACKGROUND_LOCATION)!=PackageManager.PERMISSION_GRANTED){
-      Log.w("KFE-GPS","Background "+eventType+" GPS capture skipped: background location permission is not granted; no background location request was started.");
+    if(!hasBackgroundLocationPermission()){
+      Log.w("KFE-GPS","Background "+eventType+" GPS capture is pending; required precise/background permissions are not granted. No location request was started.");
       return;
     }
+    String key=gpsEventKey(tripId,eventType);
+    if(!gpsCaptureInFlight.add(key))return;
     LocationManager manager=(LocationManager)getSystemService(Context.LOCATION_SERVICE);
-    if(manager==null){Log.w("KFE-GPS","One-shot "+eventType+" snapshot skipped: LocationManager unavailable.");return;}
+    if(manager==null){finishPendingGpsAttempt(tripId,eventType,false);return;}
     try{
       if(!manager.isProviderEnabled(LocationManager.GPS_PROVIDER)){
-        Log.w("KFE-GPS","GPS_PROVIDER is disabled; one-shot snapshot cannot be captured offline.");return;
+        Log.w("KFE-GPS","GPS_PROVIDER is disabled; event remains durably pending.");
+        finishPendingGpsAttempt(tripId,eventType,false);return;
       }
-    }catch(Exception error){Log.w("KFE-GPS","Unable to verify GPS_PROVIDER state.",error);return;}
-    if(!activateOneShotLocationForeground())return;
+    }catch(Exception error){Log.w("KFE-GPS","Unable to verify GPS_PROVIDER state.",error);finishPendingGpsAttempt(tripId,eventType,false);return;}
+    if(!activateOneShotLocationForeground()){finishPendingGpsAttempt(tripId,eventType,false);return;}
     Handler handler=new Handler(Looper.getMainLooper());
     if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.R){
       CancellationSignal cancellation=new CancellationSignal();
       AtomicBoolean finished=new AtomicBoolean(false);
       Runnable timeout=()->{
         if(!finished.compareAndSet(false,true))return;
-        cancellation.cancel();
-        restoreOverlayForegroundType();
-        Log.w("KFE-GPS","Timed out waiting for one-shot "+eventType+" GPS fix.");
+        cancellation.cancel();restoreOverlayForegroundType();
+        Log.w("KFE-GPS","Timed out waiting for event GPS fix; durable request remains pending.");
+        finishPendingGpsAttempt(tripId,eventType,false);
       };
       handler.postDelayed(timeout,30000L);
       try{
         manager.getCurrentLocation(LocationManager.GPS_PROVIDER,cancellation,getMainExecutor(),location->{
           if(!finished.compareAndSet(false,true))return;
           handler.removeCallbacks(timeout);
-          if(location==null)Log.w("KFE-GPS","No GPS fix for one-shot "+eventType+" snapshot.");
-          else persistOneShotEventLocation(tripId,eventType,location);
+          boolean saved=location!=null&&persistOneShotEventLocation(tripId,eventType,location);
           restoreOverlayForegroundType();
+          finishPendingGpsAttempt(tripId,eventType,saved);
         });
       }catch(Exception error){
-        if(finished.compareAndSet(false,true)){
-          handler.removeCallbacks(timeout);
-          cancellation.cancel();
-          restoreOverlayForegroundType();
-          Log.w("KFE-GPS","One-shot "+eventType+" snapshot request failed.",error);
-        }
+        if(finished.compareAndSet(false,true)){handler.removeCallbacks(timeout);cancellation.cancel();restoreOverlayForegroundType();finishPendingGpsAttempt(tripId,eventType,false);Log.w("KFE-GPS","Event GPS request failed.",error);}
       }
     }else{
       AtomicBoolean finished=new AtomicBoolean(false);
@@ -948,16 +1011,15 @@ public class KfeOverlayService extends Service {
       Runnable timeout=()->{
         if(!finished.compareAndSet(false,true))return;
         try{manager.removeUpdates(listener[0]);}catch(Exception ignored){}
-        restoreOverlayForegroundType();
-        Log.w("KFE-GPS","Timed out waiting for one-shot "+eventType+" GPS fix.");
+        restoreOverlayForegroundType();finishPendingGpsAttempt(tripId,eventType,false);
+        Log.w("KFE-GPS","Timed out waiting for event GPS fix; durable request remains pending.");
       };
       listener[0]=new LocationListener(){
         @Override public void onLocationChanged(Location location){
           if(!finished.compareAndSet(false,true))return;
-          handler.removeCallbacks(timeout);
-          try{manager.removeUpdates(this);}catch(Exception ignored){}
-          persistOneShotEventLocation(tripId,eventType,location);
-          restoreOverlayForegroundType();
+          handler.removeCallbacks(timeout);try{manager.removeUpdates(this);}catch(Exception ignored){}
+          boolean saved=persistOneShotEventLocation(tripId,eventType,location);
+          restoreOverlayForegroundType();finishPendingGpsAttempt(tripId,eventType,saved);
         }
         @Override public void onProviderEnabled(String provider){}
         @Override public void onProviderDisabled(String provider){}
@@ -965,50 +1027,40 @@ public class KfeOverlayService extends Service {
       };
       handler.postDelayed(timeout,30000L);
       try{manager.requestSingleUpdate(LocationManager.GPS_PROVIDER,listener[0],Looper.getMainLooper());}
-      catch(Exception error){
-        if(finished.compareAndSet(false,true)){
-          handler.removeCallbacks(timeout);
-          try{manager.removeUpdates(listener[0]);}catch(Exception ignored){}
-          restoreOverlayForegroundType();
-          Log.w("KFE-GPS","One-shot "+eventType+" snapshot request failed.",error);
-        }
-      }
+      catch(Exception error){if(finished.compareAndSet(false,true)){handler.removeCallbacks(timeout);try{manager.removeUpdates(listener[0]);}catch(Exception ignored){}restoreOverlayForegroundType();finishPendingGpsAttempt(tripId,eventType,false);Log.w("KFE-GPS","Event GPS request failed.",error);}}
     }
   }
 
-  private void persistOneShotEventLocation(String tripId,String eventType,Location location){
+  private boolean persistOneShotEventLocation(String tripId,String eventType,Location location){
     try{
-      if(location==null)return;
+      if(location==null)return false;
       long fixTime=location.getTime();
-      if(fixTime<=0L){Log.w("KFE-GPS","One-shot "+eventType+" snapshot skipped: GPS fix has no valid provider timestamp.");return;}
+      if(fixTime<=0L){Log.w("KFE-GPS","Event GPS snapshot skipped: GPS fix has no valid provider timestamp.");return false;}
       String snapshotId="native-event-location-"+tripId+"-"+eventType;
       String now=java.time.Instant.now().toString();
       JSONObject tripResult=KfeCanonicalWorkStore.get(this).getRecord("TRIP",tripId);
       JSONObject trip=tripResult.optJSONObject("record");
-      String eventAt=trip==null?"":trip.optString("TRIP_START".equals(eventType)?"tripStartAt":"tripEndAt","");
+      String eventAt="";
+      if(trip!=null){
+        if("TRIP_START".equals(eventType))eventAt=trip.optString("tripStartAt","");
+        else if("PICKUP_START".equals(eventType))eventAt=trip.optString("createdAt",trip.optString("tripStartAt",""));
+        else eventAt=trip.optString("tripEndAt","");
+      }
       JSONObject snapshot=new JSONObject();
-      snapshot.put("id",snapshotId);
-      snapshot.put("entityType","TRIP");
-      snapshot.put("entityId",tripId);
-      snapshot.put("eventType",eventType);
-      snapshot.put("eventAt",eventAt.isEmpty()?JSONObject.NULL:eventAt);
-      snapshot.put("latitude",location.getLatitude());
-      snapshot.put("longitude",location.getLongitude());
+      snapshot.put("id",snapshotId);snapshot.put("entityType","TRIP");snapshot.put("entityId",tripId);
+      snapshot.put("eventType",eventType);snapshot.put("eventAt",eventAt.isEmpty()?JSONObject.NULL:eventAt);
+      snapshot.put("latitude",location.getLatitude());snapshot.put("longitude",location.getLongitude());
       snapshot.put("accuracy",location.hasAccuracy()?location.getAccuracy():JSONObject.NULL);
       snapshot.put("capturedAt",java.time.Instant.ofEpochMilli(fixTime).toString());
-      snapshot.put("placeName",JSONObject.NULL);
-      snapshot.put("createdAt",now);
-      snapshot.put("updatedAt",now);
-      // Persist the GPS_SNAPSHOT entity, not a second location copy on TRIP.
-      // The shared EventLocationService can later enrich this exact snapshot.
+      snapshot.put("placeName",JSONObject.NULL);snapshot.put("createdAt",now);snapshot.put("updatedAt",now);
       String operationId="native-gps-snapshot-"+tripId+"-"+eventType+"-"+fixTime;
-      KfeCanonicalWorkStore.Outcome outcome=KfeCanonicalWorkStore.get(this)
-          .putRecord(operationId,"GPS_SNAPSHOT",snapshot);
-      if(!outcome.accepted)throw new IllegalStateException("Native one-shot event GPS snapshot was not accepted.");
+      KfeCanonicalWorkStore.Outcome outcome=KfeCanonicalWorkStore.get(this).putRecord(operationId,"GPS_SNAPSHOT",snapshot);
+      if(!outcome.accepted)throw new IllegalStateException("Native event GPS snapshot was not accepted.");
       JSONObject saved=outcome.result.optJSONObject("record");
       String savedAt=saved==null?"":saved.optString("capturedAt","");
-      Log.i("KFE-GPS","Saved/retained one-shot "+eventType+" event snapshot for trip "+tripId+" at "+savedAt);
-    }catch(Exception error){Log.w("KFE-GPS","Unable to persist one-shot "+eventType+" event snapshot for trip "+tripId,error);}
+      Log.i("KFE-GPS","Durably saved event GPS snapshot "+eventType+" for trip "+tripId+" at "+savedAt);
+      return true;
+    }catch(Exception error){Log.w("KFE-GPS","Unable to persist event GPS snapshot for trip "+tripId,error);return false;}
   }
 
   private boolean persistCanonicalTripStage(String stage, boolean rideStarted, String eventId){
