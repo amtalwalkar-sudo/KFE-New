@@ -1,9 +1,10 @@
+import { ApplicationSettingsService } from '../application/settings/applicationSettingsService.js'
 let LocalNotifications = null
 let initialized = false
 let activeTripStartedAt = null
 let durationMinutes = null
 let initializeAction = null
-const notificationsEnabled = () => { try { return localStorage.getItem('kfe.notifications.enabled') !== 'false' } catch (_) { return true } }
+const notificationsEnabled = () => ApplicationSettingsService.getNotificationsEnabled()
 const cancelNativeNotifications = async () => { const plugin = await loadPlugin(); if (!plugin) return; try { await plugin.cancel({ notifications: [{ id: SHIFT_NOTIFICATION_ID }, { id: DURATION_NOTIFICATION_ID }] }) } catch (error) { console.warn('Unable to clear KFE notifications.', error) } }
 
 const SHIFT_NOTIFICATION_ID = 7101
