@@ -1003,6 +1003,18 @@ public class KfeOverlayService extends Service {
           &&eventType.equals(snapshot.optString("eventType",""))){removePendingEventLocation(tripId,eventType);return;}
       }
     }catch(Exception error){Log.w("KFE-GPS","Unable to check prior event-location snapshot",error);}
+    try{
+      JSONObject canonicalTrip=KfeCanonicalWorkStore.get(this).getRecord("TRIP",tripId);
+      if(!canonicalTrip.optBoolean("found",false)||canonicalTrip.optJSONObject("record")==null){
+        removePendingEventLocation(tripId,eventType);
+        Log.w("KFE-GPS","Discarded pending GPS request for missing trip "+tripId+"; no orphan snapshot will be written.");
+        return;
+      }
+    }catch(Exception error){
+      Log.w("KFE-GPS","Canonical trip could not be verified; pending GPS request remains queued.",error);
+      schedulePendingGpsRetry();
+      return;
+    }
     if(!hasBackgroundLocationPermission()){
       Log.w("KFE-GPS","Background "+eventType+" GPS capture is pending; required precise/background permissions are not granted. No location request was started.");
       return;
