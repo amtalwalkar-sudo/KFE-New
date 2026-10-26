@@ -9,8 +9,8 @@ assert.match(router, /path: '\/timeline', name: 'Timeline', component: ActivityT
 assert.match(router, /path: '\/performance', name: 'Performance', component: PerformanceView/)
 assert.match(router, /import PerformanceView from '\.\.\/views\/PerformanceView\.vue'/)
 for (const label of ['Work', 'Timeline', 'Performance', 'Admin']) assert.ok(shell.includes(`aria-label="${label}"`) || shell.includes(`<span>${label}</span>`), `bottom navigation retains ${label}`)
-assert.match(performanceView, /PerformanceService\.getSnapshot\(\)/)
-assert.match(performanceView, /PerformanceService\.getMetrics\(snapshot, range\)/)
+assert.match(performanceView, /PhaseOnePerformanceService\.getOverview\(period\.value\)/)
+assert.match(performanceView, /PhaseOnePerformanceService\.subscribeDataChanges/
 assert.match(performanceView, /subscribeDataChanges/)
 assert.match(performanceView, /Income after fuel/)
 assert.match(performanceView, /Fare income/)
