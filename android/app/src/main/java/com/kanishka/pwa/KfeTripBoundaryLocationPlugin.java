@@ -115,7 +115,10 @@ public class KfeTripBoundaryLocationPlugin extends Plugin {
       call.reject("Unsupported trip GPS event type.");
       return;
     }
-    KfeOverlayService.queueEventLocationCapture(getContext(), entityId, eventType);
+    if (!KfeOverlayService.queueEventLocationCapture(getContext(), entityId, eventType)) {
+      call.reject("The event GPS request could not be durably queued.");
+      return;
+    }
     call.resolve();
   }
 
