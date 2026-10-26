@@ -812,81 +812,112 @@ public class KfeOverlaySmokeTest {
   }
 
   @Test public void nativeTripBoundarySnapshotPersistsOfflineAndIsIdempotent() throws Exception {
+    // This is the positive-path capture test: explicitly grant the same runtime
+    // permissions required by production before asking the service for a fix.
+    // Permission-denial behavior is covered separately; a test must not depend
+    // on emulator image defaults for dangerous permissions.
+    android.app.UiAutomation automation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+    automation.grantRuntimePermission(context.getPackageName(), android.Manifest.permission.ACCESS_FINE_LOCATION);
+    automation.grantRuntimePermission(context.getPackageName(), android.Manifest.permission.ACCESS_COARSE_LOCATION);
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+      automation.grantRuntimePermission(context.getPackageName(), android.Manifest.permission.ACCESS_BACKGROUND_LOCATION);
+    }
+    assertEquals("Precise location permission must be granted for the positive GPS smoke test.",
+      android.content.pm.PackageManager.PERMISSION_GRANTED,
+      androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION));
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+      assertEquals("Background location permission must be granted for the positive GPS smoke test.",
+        android.content.pm.PackageManager.PERMISSION_GRANTED,
+        androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION));
+    }
     String shiftId = "offline-gps-shift-" + System.currentTimeMillis();
     String tripId = "offline-gps-trip-" + System.currentTimeMillis();
+    String tripStartAt = java.time.Instant.now().minusSeconds(30).toString();
+    String tripEndAt = java.time.Instant.now().toString();
     seedCanonicalShift(shiftId);
     seedCanonicalTrip(new JSONObject()
       .put("id", tripId).put("shiftId", shiftId).put("status", "ACTIVE")
       .put("tripStage", "GOING_TO_PICKUP")
-      .put("tripStartLocation", JSONObject.NULL).put("tripEndLocation", JSONObject.NULL)
-      .put("tripStartLocationStatus", "MISSING").put("tripEndLocationStatus", "MISSING"));
-    // Start through the supported show action with canonical shift state.
-    // A bare/null-intent start must now fail closed when no resumable canonical
-    // shift exists, so this test must not depend on the old implicit service.
+      .put("tripStartAt", tripStartAt).put("tripEndAt", tripEndAt));
+
+    // Exercise the current unified event-location pathway. Timeline and PWA
+    // consume GPS_SNAPSHOT records; legacy tripStartLocation/tripEndLocation
+    // fields are no longer written by the native overlay.
     JSONObject overlayState = new JSONObject()
       .put("shift", new JSONObject().put("id", shiftId).put("status", "ACTIVE").put("revenue", 0d))
       .put("trip", new JSONObject().put("id", tripId).put("shiftId", shiftId)
-        .put("status", "ACTIVE").put("tripStage", "GOING_TO_PICKUP"))
+        .put("status", "ACTIVE").put("tripStage", "GOING_TO_PICKUP")
+        .put("tripStartAt", tripStartAt).put("tripEndAt", tripEndAt))
       .put("overlayAction", "GO_TO_PICKUP").put("overlayTripId", tripId);
     KfeOverlayService.show(context, overlayState.toString());
     KfeOverlayService service = waitForService();
-    Method capture = KfeOverlayService.class.getDeclaredMethod("captureOneShotTripBoundary", String.class, String.class);
+    Method capture = KfeOverlayService.class.getDeclaredMethod(
+      "captureOneShotEventLocation", String.class, String.class);
     capture.setAccessible(true);
 
     KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
     LocationManager locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
     assertNotNull("Android location manager must exist for the offline GPS test.", locationManager);
-    assertTrue("GPS_PROVIDER must remain enabled with networking disabled.", locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER));
-    capture.invoke(service, tripId, "tripStartLocation");
-    JSONObject startSnapshot = null;
-    // The service waits up to 30 seconds for a one-shot fix; allow five more seconds for the canonical store read.
+    assertTrue("GPS_PROVIDER must remain enabled with networking disabled.",
+      locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER));
+
     final long gpsFixWaitMillis = 35000L;
-    long deadline = SystemClock.uptimeMillis() + gpsFixWaitMillis;
-    while (SystemClock.uptimeMillis() < deadline) {
-      JSONObject found = store.getRecord("TRIP", tripId);
-      JSONObject trip = found.optJSONObject("record");
-      if (trip != null) startSnapshot = trip.optJSONObject("tripStartLocation");
-      if (found.optBoolean("found", false) && startSnapshot != null && !startSnapshot.optString("capturedAt", "").isEmpty()) break;
-      SystemClock.sleep(100L);
-    }
-    assertNotNull("Native overlay must capture a GPS start fix with networking disabled.", startSnapshot);
-    String startAt = startSnapshot.getString("capturedAt");
-    assertTrue(Double.isFinite(startSnapshot.getDouble("latitude")));
-    assertTrue(Double.isFinite(startSnapshot.getDouble("longitude")));
-    java.time.Instant.parse(startAt);
+    String[] eventTypes = new String[] {"TRIP_START", "TRIP_END"};
+    String[] capturedAtValues = new String[eventTypes.length];
+    for (int eventIndex = 0; eventIndex < eventTypes.length; eventIndex++) {
+      String eventType = eventTypes[eventIndex];
+      String snapshotId = "native-event-location-" + tripId + "-" + eventType;
+      capture.invoke(service, tripId, eventType);
 
-    // A repeated lifecycle callback must not replace the first durable fix.
-    capture.invoke(service, tripId, "tripStartLocation");
-    JSONObject afterRetry = store.getRecord("TRIP", tripId).getJSONObject("record").getJSONObject("tripStartLocation");
-    assertEquals(startAt, afterRetry.getString("capturedAt"));
+      JSONObject snapshot = null;
+      long deadline = SystemClock.uptimeMillis() + gpsFixWaitMillis;
+      while (SystemClock.uptimeMillis() < deadline) {
+        JSONObject found = store.getRecord("GPS_SNAPSHOT", snapshotId);
+        snapshot = found.optJSONObject("record");
+        if (found.optBoolean("found", false) && snapshot != null
+            && !snapshot.optString("capturedAt", "").isEmpty()) break;
+        SystemClock.sleep(100L);
+      }
+      assertNotNull("Native overlay must persist " + eventType
+        + " as a canonical GPS_SNAPSHOT with networking disabled.", snapshot);
+      assertEquals("TRIP", snapshot.getString("entityType"));
+      assertEquals(tripId, snapshot.getString("entityId"));
+      assertEquals(eventType, snapshot.getString("eventType"));
+      assertTrue(Double.isFinite(snapshot.getDouble("latitude")));
+      assertTrue(Double.isFinite(snapshot.getDouble("longitude")));
+      java.time.Instant.parse(snapshot.getString("capturedAt"));
+      capturedAtValues[eventIndex] = snapshot.getString("capturedAt");
 
-    capture.invoke(service, tripId, "tripEndLocation");
-    JSONObject endSnapshot = null;
-    deadline = SystemClock.uptimeMillis() + gpsFixWaitMillis;
-    while (SystemClock.uptimeMillis() < deadline) {
-      JSONObject found = store.getRecord("TRIP", tripId);
-      JSONObject trip = found.optJSONObject("record");
-      if (trip != null) endSnapshot = trip.optJSONObject("tripEndLocation");
-      if (found.optBoolean("found", false) && endSnapshot != null && !endSnapshot.optString("capturedAt", "").isEmpty()) break;
-      SystemClock.sleep(100L);
+      // A repeated lifecycle callback must preserve the first durable fix and
+      // must not append a second GPS_SNAPSHOT for the same trip event.
+      capture.invoke(service, tripId, eventType);
+      JSONObject afterRetry = store.getRecord("GPS_SNAPSHOT", snapshotId).getJSONObject("record");
+      assertEquals(capturedAtValues[eventIndex], afterRetry.getString("capturedAt"));
+      org.json.JSONArray allSnapshots = store.listRecords("GPS_SNAPSHOT", 1000).getJSONArray("records");
+      int matchingCount = 0;
+      for (int i = 0; i < allSnapshots.length(); i++) {
+        JSONObject candidate = allSnapshots.optJSONObject(i);
+        if (candidate != null && tripId.equals(candidate.optString("entityId", ""))
+            && eventType.equals(candidate.optString("eventType", ""))) matchingCount++;
+      }
+      assertEquals("Repeated event capture must be idempotent.", 1, matchingCount);
     }
-    assertNotNull("Native overlay must capture a GPS end fix with networking disabled.", endSnapshot);
-    String endAt = endSnapshot.getString("capturedAt");
-    assertTrue(Double.isFinite(endSnapshot.getDouble("latitude")));
-    assertTrue(Double.isFinite(endSnapshot.getDouble("longitude")));
-    java.time.Instant.parse(endAt);
 
     store.close();
     Field singleton = KfeCanonicalWorkStore.class.getDeclaredField("instance");
     singleton.setAccessible(true);
     singleton.set(null, null);
     KfeCanonicalWorkStore reopenedStore = KfeCanonicalWorkStore.get(context);
-    JSONObject reopened = reopenedStore.getRecord("TRIP", tripId).getJSONObject("record");
-    assertEquals("Start fix timestamp must survive native store reopen.", startAt, reopened.getJSONObject("tripStartLocation").getString("capturedAt"));
-    assertEquals("End fix timestamp must survive native store reopen.", endAt, reopened.getJSONObject("tripEndLocation").getString("capturedAt"));
+    for (int i = 0; i < eventTypes.length; i++) {
+      String snapshotId = "native-event-location-" + tripId + "-" + eventTypes[i];
+      JSONObject reopenedSnapshot = reopenedStore.getRecord("GPS_SNAPSHOT", snapshotId).getJSONObject("record");
+      assertEquals("GPS snapshot timestamp must survive native store reopen.",
+        capturedAtValues[i], reopenedSnapshot.getString("capturedAt"));
+      assertEquals(eventTypes[i], reopenedSnapshot.getString("eventType"));
+    }
 
     // Do not leak an ACTIVE shift into the following instrumentation cases.
-    JSONObject completedTrip = new JSONObject(reopened.toString())
+    JSONObject completedTrip = new JSONObject(reopenedStore.getRecord("TRIP", tripId).getJSONObject("record").toString())
       .put("status", "COMPLETED").put("updatedAt", java.time.Instant.now().toString());
     reopenedStore.putRecord("test-complete-trip-" + tripId + "-" + java.util.UUID.randomUUID(), "TRIP", completedTrip);
     JSONObject completedShift = reopenedStore.getRecord("SHIFT", shiftId).getJSONObject("record");
