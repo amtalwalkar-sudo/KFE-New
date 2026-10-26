@@ -142,6 +142,10 @@ public class KfeOverlayService extends Service {
   public static void show(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_SHOW);i.putExtra(EXTRA_STATE,state==null?"{}":state);ContextCompat.startForegroundService(context,i);}
   public static void update(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_UPDATE);i.putExtra(EXTRA_STATE,state==null?"{}":state);ContextCompat.startForegroundService(context,i);}
   static void retryPendingLocations(Context context){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_RETRY_PENDING_GPS);ContextCompat.startForegroundService(context,i);}
+  static int pendingEventLocationCount(Context context){
+    try{return new JSONArray(context.getSharedPreferences("kfe_overlay",Context.MODE_PRIVATE).getString(PENDING_GPS_KEY,"[]")).length();}
+    catch(Exception ignored){return 0;}
+  }
   static void queueEventLocationCapture(Context context,String tripId,String eventType){
     if(tripId==null||tripId.trim().isEmpty()||eventType==null)return;
     if(!"TRIP_START".equals(eventType)&&!"TRIP_END".equals(eventType)&&!"PICKUP_START".equals(eventType)&&!"TRIP_CANCELLED".equals(eventType))return;
