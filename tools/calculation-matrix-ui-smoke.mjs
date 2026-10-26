@@ -23,7 +23,7 @@ const ensureFirstRunComplete = async page => {
   try { await setup.waitFor({ state: 'visible', timeout: 3000 }) } catch (_) { return }
   const end = Date.now() + 30000
   while (Date.now() < end) {
-    if (await page.locator('.work-canonical,.activity-timeline-page,.performance-page,.kfe-settings-page').count()) return
+    if (await page.locator('.work-canonical,.activity-timeline-page,.performance-page,.admin-page').count()) return
     const skip = page.getByRole('button', { name: /Skip — I'll fill this later/ })
     if (await skip.count()) { await skip.click(); await page.waitForTimeout(150); continue }
     await page.waitForTimeout(150)
