@@ -38,6 +38,7 @@ assert.match(overlayService, /PICKUP_START/,
   'native overlay must queue pickup-origin location')
 assert.match(overlayService, /TRIP_CANCELLED/,
   'native overlay must queue cancellation location separately from drop-off')
+assert.match(eventLocationService, /id: entityType === 'TRIP'/, 'PWA fallback and native retry must use one stable event snapshot identity')
 assert.match(eventLocationService, /queueTripBoundaryEventLocation/,
   'the PWA event pathway must use native durable background queueing')
 assert.match(workService, /captureAndPersistEventLocation\('TRIP', data\?\.id, 'TRIP_CANCELLED'/,
