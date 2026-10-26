@@ -97,6 +97,7 @@ public class KfeTripBoundaryLocationPlugin extends Plugin {
       call.reject("Background location permission was not granted. Background GPS capture remains disabled.");
       return;
     }
+    KfeOverlayService.retryPendingLocations(getContext());
     call.resolve();
   }
   @com.getcapacitor.PluginMethod
