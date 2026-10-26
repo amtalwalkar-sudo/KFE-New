@@ -1,5 +1,6 @@
 import { ShiftTripRepository } from '../../repositories/shiftTripRepository.js'
 import { FuelRepository } from '../../repositories/fuelRepository.js'
+import { subscribeCanonicalDataChanges } from '../../repositories/canonicalDataChangeRepository.js'
 import { calculateFuelPeriodSummary } from '../../domain/math/fuel.js'
 import { getKfeReferenceNow, reportingRangeFor } from '../../domain/time/ist.js'
 
@@ -45,6 +46,9 @@ const farePresentation = trip => {
  * GPS capture, reverse geocoding, or separate business database are used here.
  */
 export const ActivityTimelineReadService = Object.freeze({
+  subscribeDataChanges(callback) {
+    return subscribeCanonicalDataChanges(callback)
+  },
   async getTimeline({ period = 'TODAY', now = getKfeReferenceNow() } = {}) {
     const reportingPeriod = PERIODS[period] || PERIODS.TODAY
     const range = reportingRangeFor(reportingPeriod, now)
