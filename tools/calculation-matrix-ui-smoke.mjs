@@ -23,7 +23,7 @@ const ensureFirstRunComplete = async page => {
   try { await setup.waitFor({ state: 'visible', timeout: 3000 }) } catch (_) { return }
   const end = Date.now() + 30000
   while (Date.now() < end) {
-    if (await page.locator('.work-canonical,.activity-timeline,.kfe-blank-workspace,.kfe-settings-page').count()) return
+    if (await page.locator('.work-canonical,.activity-timeline-page,.kfe-blank-workspace,.kfe-settings-page').count()) return
     const skip = page.getByRole('button', { name: /Skip — I'll fill this later/ })
     if (await skip.count()) { await skip.click(); await page.waitForTimeout(150); continue }
     await page.waitForTimeout(150)
@@ -37,7 +37,7 @@ try {
   browser = await chromium.launch({ headless: true })
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, geolocation: { latitude: 19.076, longitude: 72.8777, accuracy: 20 }, permissions: ['geolocation'] })
 
-  // Work remains the operational surface; Timeline and Performance are intentionally blank,
+  // Work remains the operational surface; Timeline is read-only reporting, Performance is intentionally blank,
   // and Admin exposes canonical Settings.
   await route(page, '', '.work-canonical', 'Work')
   await wait(async () => (await page.locator('body').innerText()).includes('START SHIFT'), 'Work ready')
@@ -46,8 +46,10 @@ try {
   if (!workText.includes('KFE WORK') || !workText.includes('START SHIFT')) throw new Error('Work UI missing required operational controls')
   if (await page.locator('html').evaluate(el => el.scrollWidth > window.innerWidth + 1)) throw new Error('Work has horizontal viewport overflow')
 
-  await route(page, 'timeline', '.kfe-blank-workspace', 'Timeline')
-  if (await page.locator('.activity-timeline, .performance-page').count() !== 0) throw new Error('Timeline mounted retired presentation')
+  await route(page, 'timeline', '.activity-timeline-page', 'Timeline')
+  await wait(async () => (await page.getByText('Average fuel cost/km', { exact: true }).count()) === 1, 'Timeline fuel cost/km summary')
+  if (await page.getByText('Total amount refilled', { exact: true }).count() !== 1) throw new Error('Timeline fuel spending summary is missing')
+  if (await page.locator('.performance-page').count() !== 0) throw new Error('Timeline mounted retired Performance presentation')
   for (const label of ['Timeline', 'Performance']) if (!(await page.locator('.bottom-nav').getByText(label, { exact: true }).count())) throw new Error('Bottom navigation is missing ' + label)
 
   await route(page, 'performance', '.kfe-blank-workspace', 'Performance')
@@ -60,16 +62,17 @@ try {
   if (await page.locator('.admin-page').count() !== 0) throw new Error('Admin unexpectedly mounted the retired admin presentation')
   if (await page.locator('html').evaluate(el => el.scrollWidth > window.innerWidth + 1)) throw new Error('Admin has horizontal viewport overflow')
 
-  // Confirm navigation keeps both destinations blank.
+  // Confirm navigation keeps Timeline live/read-only and Performance intentionally blank.
   await page.getByRole('link', { name: 'Timeline', exact: true }).click()
-  await page.locator('.kfe-blank-workspace').waitFor({ state: 'visible' })
-  if (await page.locator('.activity-timeline, .performance-page').count() !== 0) throw new Error('Timeline navigation mounted retired presentation')
+  await page.locator('.activity-timeline-page').waitFor({ state: 'visible' })
+  await wait(async () => (await page.getByText('Average fuel cost/km', { exact: true }).count()) === 1, 'Timeline navigation render')
+  if (await page.locator('.performance-page').count() !== 0) throw new Error('Timeline navigation mounted retired Performance presentation')
   await page.getByRole('link', { name: 'Performance', exact: true }).click()
   await page.locator('.kfe-blank-workspace').waitFor({ state: 'visible' })
   if (await page.locator('.performance-page').count() !== 0) throw new Error('Performance navigation mounted retired presentation')
 
   console.log('Calculation matrix rendered UI smoke: PASS')
-  console.log(JSON.stringify({ assertions: 14, routes: ['work', 'timeline', 'performance', 'admin'], timeline: 'intentionally blank', performance: 'intentionally blank', bottomNavigation: ['Timeline', 'Performance'], admin: 'canonical Settings only' }))
+  console.log(JSON.stringify({ assertions: 16, routes: ['work', 'timeline', 'performance', 'admin'], timeline: 'read-only reporting route', performance: 'intentionally blank', timelineFuelHeaders: ['Average fuel cost/km', 'Total amount refilled'], bottomNavigation: ['Timeline', 'Performance'], admin: 'canonical Settings only' }))
 } finally {
   await browser?.close()
   if (preview?.pid) { try { process.kill(-preview.pid, 'SIGTERM') } catch (_) {} }
