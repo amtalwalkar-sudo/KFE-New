@@ -42,6 +42,7 @@ try {
       import('/src/utils/indexedDB.js'),
       import('/src/repositories/shiftTripRepository.js'),
       import('/src/application/work/workService.js'),
+      import('/src/application/location/eventLocationService.js'),
       import('/src/application/work/workRuntimePorts.js'),
       import('/src/repositories/fuelRepository.js'),
       import('/src/application/work/fuel.js'),
