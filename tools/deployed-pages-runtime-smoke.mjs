@@ -6,7 +6,7 @@ if (!base) throw new Error('KFE_RUNTIME_BASE_URL is required')
 const routes = [
   { path: '/', selector: '.work-canonical', label: 'Work' },
   { path: '/timeline', selector: '.activity-timeline-page', label: 'Timeline' },
-  { path: '/performance', selector: '.kfe-blank-workspace', label: 'Performance workspace' },
+  { path: '/performance', selector: '.performance-page', label: 'Performance' },
   { path: '/admin', selector: '.kfe-settings-page', label: 'Admin settings' },
 ]
 
@@ -50,11 +50,14 @@ const waitForSurface = async (page, route, phase) => {
     }
   }
   if (route.path === '/performance') {
-    if (await page.locator('.activity-timeline-page, .performance-page').count()) {
-      throw new Error('Performance must remain intentionally blank')
+    if (await page.locator('.performance-page').count() !== 1) {
+      throw new Error('Performance: expected the read-only dashboard to render')
     }
-    if (!(await page.locator('.kfe-blank-workspace').count())) {
-      throw new Error('Performance: expected the intentionally blank workspace to render')
+    if (!(await page.getByRole('heading', { name: 'Performance' }).count())) {
+      throw new Error('Performance: title is missing')
+    }
+    if (!(await page.getByRole('combobox', { name: 'Performance period' }).count())) {
+      throw new Error('Performance: period filter is missing')
     }
   }
   if (route.path === '/admin' && await page.locator('.admin-page').count()) {
