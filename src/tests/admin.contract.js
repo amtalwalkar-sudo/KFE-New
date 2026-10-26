@@ -22,8 +22,10 @@ assert.equal(validateAdminForm(loanPayment,{loanId:'l1',paidOn:'2026-09-01',amou
 const maintenance=getAdminFormDefinition('maintenance')
 assert.equal(validateAdminForm(maintenance,{vehicleId:'v1',performedOn:'2026-09-01',maintenanceType:'Service',validityType:'KM based',cost:100}).valid,false)
 const adminView = await readFile(new URL('../views/AdminView.vue', import.meta.url), 'utf8')
-const menu = adminView.match(/const items=\\[([\\s\\S]*?)\\n\\]/)?.[1] || ''
-const visibleKeys = [...menu.matchAll(/\\{key:'([^']+)'/g)].map(match => match[1])
+const menuStart = adminView.indexOf('const items=[')
+const menuEnd = adminView.indexOf('\n]', menuStart)
+const menu = adminView.slice(menuStart, menuEnd)
+const visibleKeys = menu.split("{key:'").slice(1).map(entry => entry.split("'")[0])
 assert.deepEqual(visibleKeys, ['businessSetup','vehicle','driver','compliance','maintenance','loan'])
 assert.match(menu, /category:'Business Setup'/)
 assert.match(menu, /category:'Vehicle Records'/)
