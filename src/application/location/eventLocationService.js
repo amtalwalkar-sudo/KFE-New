@@ -92,18 +92,24 @@ export const EventLocationService = {
           const legacy = trip[boundary.field]
           // Reuse the original fix for old records; never take a new GPS reading
           // just to repair a missing locality label.
-          if (!snapshot && legacy && Number.isFinite(Number(legacy.latitude))
-            && Number.isFinite(Number(legacy.longitude)) && legacy.capturedAt) {
-            snapshot = await LocationRepository.record({
-              id: `legacy-trip-location-${trip.id}-${boundary.eventType}`,
-              entityType: 'TRIP', entityId: trip.id, eventType: boundary.eventType,
-              eventAt: boundary.eventAt || null,
-              latitude: legacy.latitude, longitude: legacy.longitude,
-              accuracy: legacy.accuracy, capturedAt: legacy.capturedAt,
-              placeName: legacy.placeName || null,
-            })
-            await this.persistNativeSnapshot(snapshot)
-            byEvent.set(key, snapshot)
+          const latitude = legacy?.latitude == null || legacy.latitude === '' ? NaN : Number(legacy.latitude)
+          const longitude = legacy?.longitude == null || legacy.longitude === '' ? NaN : Number(legacy.longitude)
+          if (!snapshot && legacy && Number.isFinite(latitude) && Math.abs(latitude) <= 90
+            && Number.isFinite(longitude) && Math.abs(longitude) <= 180 && legacy.capturedAt) {
+            try {
+              snapshot = await LocationRepository.record({
+                id: `legacy-trip-location-${trip.id}-${boundary.eventType}`,
+                entityType: 'TRIP', entityId: trip.id, eventType: boundary.eventType,
+                eventAt: boundary.eventAt || null,
+                latitude, longitude, accuracy: legacy.accuracy,
+                capturedAt: legacy.capturedAt, placeName: legacy.placeName || null,
+              })
+              await this.persistNativeSnapshot(snapshot)
+              byEvent.set(key, snapshot)
+            } catch (error) {
+              console.warn('Legacy trip GPS snapshot could not be migrated:', trip.id, boundary.eventType, error)
+              continue
+            }
           }
           if (!snapshot || String(snapshot.placeName || '').trim() || globalThis.navigator?.onLine === false) continue
           const placeName = await resolveLocationName(snapshot, locationNameResolver)
