@@ -30,7 +30,7 @@ try {
   await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 30000 })
   await page.waitForFunction(() => document.readyState === 'complete', undefined, { timeout: 15000 })
   await page.evaluate(async () => Promise.all([
-    import('/src/utils/indexedDB.js'), import('/src/repositories/shiftTripRepository.js'), import('/src/application/work/workService.js'),
+    import('/src/utils/indexedDB.js'), import('/src/repositories/shiftTripRepository.js'), import('/src/application/work/workService.js'), import('/src/repositories/locationRepository.js'),
     import('/src/application/work/workRuntimePorts.js'), import('/src/repositories/fuelRepository.js'), import('/src/application/work/fuel.js'),
     import('/src/application/work/endShift.js'), import('/src/application/timeline/operationalRecordService.js'), import('/src/repositories/performanceRepository.js'),
     import('/src/domain/performance/performanceEngineV2.js'), import('/src/application/backup/backupService.js')
@@ -38,10 +38,11 @@ try {
   await context.setOffline(true)
 
   const result = await page.evaluate(async () => {
-    const [{ initializeCanonicalStorage }, { ShiftTripRepository }, { WorkService }, { configureWorkRuntimePorts }, { FuelRepository }, { recordFuelEntry }, { completeEndShift }, { OperationalRecordService }, { PerformanceRepository }, { derivePerformance }, { BackupService }] = await Promise.all([
+    const [{ initializeCanonicalStorage }, { ShiftTripRepository }, { WorkService }, { LocationRepository }, { configureWorkRuntimePorts }, { FuelRepository }, { recordFuelEntry }, { completeEndShift }, { OperationalRecordService }, { PerformanceRepository }, { derivePerformance }, { BackupService }] = await Promise.all([
       import('/src/utils/indexedDB.js'),
       import('/src/repositories/shiftTripRepository.js'),
       import('/src/application/work/workService.js'),
+      import('/src/repositories/locationRepository.js'),
       import('/src/application/work/workRuntimePorts.js'),
       import('/src/repositories/fuelRepository.js'),
       import('/src/application/work/fuel.js'),
@@ -74,17 +75,22 @@ try {
     if (!await WorkService.startRide({ id: gapTrip.id })) throw new Error('Snapshot-test ride did not enter passenger-ride phase')
     await WorkService.completeTrip({ id: gapTrip.id, tripEndAt: gapEndAt, revenue: 350 })
     let savedGapTrip = null
+    let tripSnapshots = []
     const snapshotDeadline = Date.now() + 15000
     while (Date.now() < snapshotDeadline) {
       savedGapTrip = (await ShiftTripRepository.getTripsForShift(shift.id)).find(item => item.id === gapTrip.id)
-      if (savedGapTrip?.tripStartLocation?.capturedAt && savedGapTrip?.tripEndLocation?.capturedAt) break
+      tripSnapshots = await LocationRepository.forEntity('TRIP', gapTrip.id)
+      const events = new Set(tripSnapshots.map(item => item.eventType))
+      if (events.has('TRIP_START') && events.has('TRIP_END')) break
       await new Promise(resolve => setTimeout(resolve, 100))
     }
-    const startSnapshot = savedGapTrip?.tripStartLocation, endSnapshot = savedGapTrip?.tripEndLocation
+    const startSnapshot = tripSnapshots.find(item => item.eventType === 'TRIP_START')
+    const endSnapshot = tripSnapshots.find(item => item.eventType === 'TRIP_END')
     if (!savedGapTrip || savedGapTrip.tripKm !== 0) throw new Error('GPS snapshots must preserve manually entered trip kilometres')
     for (const [label, snapshot] of [['start', startSnapshot], ['end', endSnapshot]]) {
-      if (!snapshot || !Number.isFinite(Number(snapshot.latitude)) || !Number.isFinite(Number(snapshot.longitude))) throw new Error('Trip ' + label + ' location did not persist while networking was disabled')
+      if (!snapshot || !Number.isFinite(Number(snapshot.latitude)) || !Number.isFinite(Number(snapshot.longitude))) throw new Error('Trip ' + label + ' GPS_SNAPSHOT did not persist while networking was disabled')
       if (!Number.isFinite(Date.parse(snapshot.capturedAt))) throw new Error('Trip ' + label + ' snapshot is missing its GPS fix timestamp')
+      if (!Number.isFinite(Date.parse(snapshot.eventAt))) throw new Error('Trip ' + label + ' snapshot is missing its operational event timestamp')
     }
 
     const movementReconciliation = {
@@ -143,8 +149,11 @@ try {
     const restoredShift = (await ShiftTripRepository.getAllShifts()).find(item => item.id === shift.id)
     const restoredFuel = (await FuelRepository.getAll()).find(item => item.id === fuel.record.id)
     const restoredGapTrip = (await ShiftTripRepository.getTripsForShift(shift.id)).find(item => item.id === gapTrip.id)
+    const restoredTripSnapshots = await LocationRepository.forEntity('TRIP', gapTrip.id)
+    const restoredStartSnapshot = restoredTripSnapshots.find(item => item.eventType === 'TRIP_START')
+    const restoredEndSnapshot = restoredTripSnapshots.find(item => item.eventType === 'TRIP_END')
     if (!restoredShift || !restoredFuel || restoredFuel.amount !== 375) throw new Error('Cloud-restore path did not restore canonical shift and edited fuel records')
-    if (!restoredGapTrip || restoredGapTrip.tripKm !== 0 || restoredGapTrip.tripStartLocation?.capturedAt !== startSnapshot.capturedAt || restoredGapTrip.tripEndLocation?.capturedAt !== endSnapshot.capturedAt) throw new Error('Cloud restore did not preserve trip boundary snapshots and manually entered kilometres')
+    if (!restoredGapTrip || restoredGapTrip.tripKm !== 0 || restoredStartSnapshot?.capturedAt !== startSnapshot.capturedAt || restoredEndSnapshot?.capturedAt !== endSnapshot.capturedAt) throw new Error('Cloud restore did not preserve shared GPS snapshots and manually entered kilometres')
     const restoredOperational = await OperationalRecordService.reconstructShift(shift.id)
     if (restoredOperational.fuelCost !== 375 || restoredOperational.unclassifiedKm !== 20) throw new Error('Downstream read model did not consume restored canonical records')
     return {
@@ -156,7 +165,7 @@ try {
       canonicalChangeInvalidation: changeObserved,
       timelineAndPerformanceMovementAgreement: true,
       cloudRestoreAndDownstreamRecalculation: true,
-      tripBoundarySnapshotsSurviveOfflineAndRestore: restoredGapTrip.tripKm === 0 && restoredGapTrip.tripStartLocation?.capturedAt === startSnapshot.capturedAt && restoredGapTrip.tripEndLocation?.capturedAt === endSnapshot.capturedAt,
+      tripBoundarySnapshotsSurviveOfflineAndRestore: restoredGapTrip.tripKm === 0 && restoredStartSnapshot?.capturedAt === startSnapshot.capturedAt && restoredEndSnapshot?.capturedAt === endSnapshot.capturedAt,
     }
   })
   assert.equal(result.fareClearPersisted, true)

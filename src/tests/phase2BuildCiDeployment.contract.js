@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 
 const workflow = readFileSync('.github/workflows/consolidated-baseline.yml', 'utf8')
+const androidSmokeGate = readFileSync('tools/android-exact-apk-smoke-gate.sh', 'utf8')
 const packageJson = JSON.parse(readFileSync('package.json', 'utf8'))
 
 assert.equal(packageJson.type, 'module', 'package must explicitly declare ESM for contract/test scripts')
@@ -32,5 +33,9 @@ assert.match(workflow, /if: needs\.detect-changes\.outputs\.app_changed == 'true
 assert.match(workflow, /docs-policy-check|Documentation policy check|docs_only/, 'CI must retain a lightweight documentation-only validation path')
 assert.match(workflow, /needs: \[detect-changes, build-and-test\]/, 'deployment must depend on change classification and successful app validation')
 assert.ok(!existsSync('.github/workflows/deploy-pages.yml'), 'duplicate Pages deployment workflow must remain removed')
+assert.match(androidSmokeGate, /trap cleanup_background_jobs EXIT/, 'Android smoke gate must clean up background helpers on every exit path')
+assert.match(androidSmokeGate, /kill "\$GPS_FEED_PID"/, 'Android smoke gate must stop the GPS feeder after instrumentation failures')
+assert.match(androidSmokeGate, /timeout 180s adb shell am instrument/, 'Android instrumentation must have a hard timeout')
+
 
 console.log('Phase 2 build/CI/deployment contract passed')

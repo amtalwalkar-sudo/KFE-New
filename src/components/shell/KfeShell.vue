@@ -1,5 +1,6 @@
 <script setup>
 import { useRoute } from 'vue-router'
+import GpsStatusIndicator from './GpsStatusIndicator.vue'
 const route = useRoute()
 </script>
 
@@ -11,7 +12,7 @@ const route = useRoute()
         <div class="brand-mark" aria-hidden="true">K</div>
         <div class="brand-copy"><strong>Kanishka Enterprises</strong></div>
       </div>
-
+      <GpsStatusIndicator />
     </header>
     <main id="main-content" class="content-scroll-area" tabindex="-1"><slot /></main>
     <DiagnosticBubble />

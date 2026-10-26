@@ -3,6 +3,28 @@ set -euo pipefail
 
 cd "$GITHUB_WORKSPACE"
 mkdir -p artifacts/android-golden
+
+# Background helpers must never outlive the smoke-gate script. In particular,
+# an instrumentation failure during the offline GPS case used to skip the
+# explicit feeder kill below, leaving an endless ADB loop running while the
+# emulator action tried to tear down the device. That made a failed test look
+# like a hung CI job and delayed artifact collection.
+GPS_FEED_PID=""
+cleanup_background_jobs() {
+  local status=$?
+  trap - EXIT INT TERM
+  if [[ -n "${GPS_FEED_PID:-}" ]] && kill -0 "$GPS_FEED_PID" 2>/dev/null; then
+    kill "$GPS_FEED_PID" >/dev/null 2>&1 || true
+    # The feeder itself bounds each ADB command; this wait is only for its
+    # one-second loop to exit and is intentionally non-fatal on test failure.
+    wait "$GPS_FEED_PID" >/dev/null 2>&1 || true
+  fi
+  exit "$status"
+}
+trap cleanup_background_jobs EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 ADB_BIN="$(type -P adb)"
 test -n "$ADB_BIN" || { echo "ADB executable was not found on PATH." >&2; exit 1; }
 

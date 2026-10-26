@@ -13,7 +13,8 @@ export const normalizeTripBoundaryLocation = value => {
   if (!Number.isFinite(fixDate.getTime()) || fixDate.getTime() <= 0) return null
   // Provider accuracy is a radius in metres; negative values are corrupt metadata,
   // not a usable accuracy estimate. Keep the fix but mark accuracy unknown.
-  const normalizedAccuracy = Number.isFinite(accuracy) && accuracy >= 0 ? accuracy : null
+  if (!Number.isFinite(accuracy) || accuracy < 0) return null
+  const normalizedAccuracy = accuracy
   return { latitude, longitude, accuracy: normalizedAccuracy, capturedAt: fixDate.toISOString(), placeName: null }
 }
 
@@ -22,6 +23,16 @@ export const normalizeTripBoundaryLocation = value => {
  * trace collector, background service, reverse geocoder, or routing request.
  * GPS_PROVIDER / browser geolocation can obtain a fix without internet access.
  */
+export async function queueTripBoundaryEventLocation(entityType, entityId, eventType, eventAt = null) {
+  if (!Capacitor.isNativePlatform() || !entityType || !entityId || !eventType) return false
+  try {
+    await NativeTripBoundaryLocation.queueEventLocationCapture({ entityType, entityId, eventType, eventAt })
+    return true
+  } catch (_) {
+    return false
+  }
+}
+
 export async function captureTripBoundaryLocation() {
   try {
     if (Capacitor.isNativePlatform()) {

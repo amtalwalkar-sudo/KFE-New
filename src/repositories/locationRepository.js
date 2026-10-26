@@ -13,7 +13,7 @@ export const LocationRepository = {
     return new Promise((resolve, reject) => {
       const tx = db.transaction(['gps_snapshots', 'pending_mutations', 'audit_history'], 'readwrite')
       try { tx.objectStore('gps_snapshots').put(record); writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: record.id, entityType: 'GPS_SNAPSHOT', action: 'CREATE', payload: record, createdAt: now }) } catch (error) { try { tx.abort() } catch (_) {}; reject(error); return }
-      tx.oncomplete = () => resolve(record); tx.onerror = () => reject(tx.error || new Error('GPS snapshot persistence failed.')); tx.onabort = () => reject(tx.error || new Error('GPS snapshot persistence aborted.'))
+      tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: ['gps_snapshots'], reason: 'gps-snapshot-created' }); resolve(record) }; tx.onerror = () => reject(tx.error || new Error('GPS snapshot persistence failed.')); tx.onabort = () => reject(tx.error || new Error('GPS snapshot persistence aborted.'))
     })
   },
   async updatePlaceName(id, placeName) {

@@ -9,6 +9,8 @@ const geocoder = fs.readFileSync('src/application/location/locationNameService.j
 for (const hook of [
   "captureAndPersistEventLocation('SHIFT', result.id, 'SHIFT_START', result.shiftStartAt || result.createdAt)",
   "captureAndPersistEventLocation('TRIP', result.id, 'PICKUP_START', result.createdAt || result.tripStartAt)",
+  "captureAndPersistEventLocation('TRIP', result.id, 'TRIP_START', result.tripStartAt || new Date().toISOString())",
+  "captureAndPersistEventLocation('TRIP', data?.id, 'TRIP_END', data?.tripEndAt || new Date().toISOString())",
   "captureAndPersistEventLocation('SHIFT', active.shift.id, 'SHIFT_END', completedShift?.shiftEndAt || null)",
   "captureAndPersistEventLocation('FUEL', result.record.id, 'FUEL_ENTRY', result.record.createdAt || result.record.capturedAt)"
 ]) assert.ok(workService.includes(hook), `Missing async location hook: ${hook}`)
@@ -41,4 +43,13 @@ assert.match(geocoder, /Display area\/locality names only/,
 assert.doesNotMatch(geocoder, /return \[p\.name, p\.street/,
   'street addresses must not be used as visible location labels')
 
-console.log('PASS: shift/fuel location capture is optional, async, and persisted before geocoding')
+assert.match(workService, /captureAndPersistEventLocation\('TRIP', result\.id, 'TRIP_START'/, 'passenger ride start must use the shared event-location pathway')
+assert.match(workService, /captureAndPersistEventLocation\('TRIP', data\?\.id, 'TRIP_END'/, 'passenger ride end must use the shared event-location pathway')
+assert.match(eventLocationService, /if \(!String\(prior\.placeName \|\| ''\)\.trim\(\)\)/, 'existing snapshots without locality labels must retry enrichment without recapturing GPS')
+assert.match(eventLocationService, /async reconcilePersistedTripLocations\(\)/, 'startup reconciliation must migrate old trip-boundary snapshots into the shared event model')
+assert.match(eventLocationService, /legacy-trip-location-/, 'legacy migration must use a stable identity and avoid duplicate snapshots')
+assert.match(eventLocationService, /resolveLocationName\(snapshot, locationNameResolver\)/, 'persisted snapshots without locality labels must be enriched without another GPS capture')
+assert.match(locationRepository, /gps-snapshot-created/, 'creating a GPS snapshot must notify subscribed read models')
+const appEntry = fs.readFileSync('src/main.js', 'utf8')
+assert.match(appEntry, /EventLocationService\.reconcilePersistedTripLocations\(\)/, 'location migration/enrichment must run outside the read-only Timeline')
+console.log('PASS: all work-event locations use one optional, async, persisted-before-geocoding pathway')

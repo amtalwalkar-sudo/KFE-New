@@ -3,6 +3,7 @@ import { FuelRepository } from '../../repositories/fuelRepository.js'
 import { subscribeCanonicalDataChanges } from '../../repositories/canonicalDataChangeRepository.js'
 import { calculateFuelPeriodSummary } from '../../domain/math/fuel.js'
 import { getKfeReferenceNow, reportingRangeFor } from '../../domain/time/ist.js'
+import { EventLocationService } from '../location/eventLocationService.js'
 
 const PERIODS = Object.freeze({
   TODAY: 'DAY',
@@ -60,13 +61,28 @@ export const ActivityTimelineReadService = Object.freeze({
       ShiftTripRepository.getAllTrips(),
       FuelRepository.getAll(),
     ])
+    const trips = Array.isArray(allTrips) ? allTrips : []
+    const tripLocations = await EventLocationService.forEntities('TRIP', trips.map(trip => trip?.id))
+    const locationsByTrip = new Map()
+    for (const snapshot of tripLocations) {
+      if (!snapshot?.entityId) continue
+      const current = locationsByTrip.get(snapshot.entityId) || {}
+      if (snapshot.eventType === 'TRIP_START') current.start = snapshot
+      if (snapshot.eventType === 'TRIP_END') current.end = snapshot
+      locationsByTrip.set(snapshot.entityId, current)
+    }
 
-    const rides = (Array.isArray(allTrips) ? allTrips : [])
+    const rides = trips
       .filter(trip => trip?.status === 'COMPLETED' || trip?.status === 'CANCELLED')
       .map(trip => ({ trip, time: tripPeriodTime(trip) }))
       .filter(item => inRange(item.time, range))
       .map(({ trip, time }) => {
         const fare = farePresentation(trip)
+        const locations = locationsByTrip.get(trip.id) || {}
+        // New records use the shared GPS_SNAPSHOT event pathway. Legacy trip-boundary
+        // labels remain a read-only fallback so historical records are not hidden.
+        const pickupName = locations.start?.placeName || trip.tripStartLocation?.placeName
+        const dropName = locations.end?.placeName || trip.tripEndLocation?.placeName
         return {
           id: trip.id,
           status: trip.status,
@@ -77,9 +93,9 @@ export const ActivityTimelineReadService = Object.freeze({
           fareLabel: fare.label,
           fareValue: fare.value,
           fareState: fare.state,
-          pickupArea: validTime(trip.tripStartAt) != null ? locality(trip.tripStartLocation?.placeName) : 'Location unavailable',
+          pickupArea: validTime(trip.tripStartAt) != null ? locality(pickupName) : 'Location unavailable',
           // A cancelled trip's end GPS fix is a cancellation location, not a passenger drop-off.
-          dropArea: trip.status === 'COMPLETED' ? locality(trip.tripEndLocation?.placeName) : 'Location unavailable',
+          dropArea: trip.status === 'COMPLETED' ? locality(dropName) : 'Location unavailable',
         }
       })
       .sort((a, b) => Date.parse(b.timeAt) - Date.parse(a.timeAt))

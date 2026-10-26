@@ -26,7 +26,8 @@ assert.doesNotMatch(sw, /localhost|127\.0\.0\.1|192\.168\.|10\.0\.2\.2/)
 
 assert.match(androidManifest, /FOREGROUND_SERVICE_LOCATION/)
 assert.match(androidManifest, /foregroundServiceType="specialUse\|location"/)
-assert.doesNotMatch(androidManifest, /ACCESS_BACKGROUND_LOCATION|\.KfeNativeGpsService/)
+assert.match(androidManifest, /ACCESS_BACKGROUND_LOCATION/)
+assert.doesNotMatch(androidManifest, /\.KfeNativeGpsService/)
 assert.doesNotMatch(androidManifest, /android:debuggable="true"/)
 assert.match(androidManifest, /android:allowBackup="false"/)
 

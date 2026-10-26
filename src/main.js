@@ -82,6 +82,7 @@ void (async () => {
     if (typeof formSystem === 'object') void formSystem
 
     let retryCloudBackupOnStartup = null
+    let reconcilePersistedTripLocations = () => {}
     if (!window.__KFE_STARTUP_LIFECYCLE_BOUND__) {
       window.__KFE_STARTUP_LIFECYCLE_BOUND__ = true
       // Dropbox backup requires the application data/credential context. The
@@ -94,10 +95,19 @@ void (async () => {
           if (result?.status === 'failed') console.warn('KFE automatic Dropbox backup needs attention:', result.error)
         }).catch(error => console.warn('KFE automatic Dropbox backup retry failed:', error))
       }
+      reconcilePersistedTripLocations = () => {
+        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+        void import('./application/location/eventLocationService.js')
+          .then(({ EventLocationService }) => EventLocationService.reconcilePersistedTripLocations())
+          .catch(error => console.warn('KFE saved trip-location reconciliation deferred:', error))
+      }
       retryCloudBackupOnStartup = retryCloudBackup
       window.addEventListener('online', retryCloudBackup)
+      window.addEventListener('online', reconcilePersistedTripLocations)
       window.addEventListener('pageshow', retryCloudBackup)
+      window.addEventListener('pageshow', reconcilePersistedTripLocations)
       document.addEventListener('visibilitychange', retryCloudBackup)
+      document.addEventListener('visibilitychange', reconcilePersistedTripLocations)
       // A foreground-only retry is intentional. It avoids promising an Android
       // background upload that cannot read the WebView's canonical IndexedDB.
       window.setInterval(retryCloudBackup, 6 * 60 * 60 * 1000)
@@ -114,6 +124,7 @@ void (async () => {
     void StartupService.startApplication().then(() => {
       window.__KFE_STARTUP_READY__ = true
       retryCloudBackupOnStartup?.()
+      reconcilePersistedTripLocations()
     }).catch(error => {
       window.__KFE_STARTUP_ERROR__ = error?.message || String(error)
       console.error('KFE application startup failed:', error)
