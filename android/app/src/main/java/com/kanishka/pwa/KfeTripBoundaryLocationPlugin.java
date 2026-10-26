@@ -101,6 +101,24 @@ public class KfeTripBoundaryLocationPlugin extends Plugin {
     call.resolve();
   }
   @com.getcapacitor.PluginMethod
+  public void queueEventLocationCapture(PluginCall call) {
+    String entityType = call.getString("entityType", "TRIP");
+    String entityId = call.getString("entityId", "");
+    String eventType = call.getString("eventType", "");
+    if (!"TRIP".equals(entityType) || entityId == null || entityId.trim().isEmpty()) {
+      call.reject("A valid trip event is required for background GPS capture.");
+      return;
+    }
+    if (!"TRIP_START".equals(eventType) && !"TRIP_END".equals(eventType)
+      && !"PICKUP_START".equals(eventType) && !"TRIP_CANCELLED".equals(eventType)) {
+      call.reject("Unsupported trip GPS event type.");
+      return;
+    }
+    KfeOverlayService.queueEventLocationCapture(getContext(), entityId, eventType);
+    call.resolve();
+  }
+
+  @com.getcapacitor.PluginMethod
   public void captureCurrentLocation(PluginCall call) {
     if (!hasFineLocationPermission()) {
       requestPermissionForAlias("location", call, "tripBoundaryLocationPermissionCallback");
