@@ -27,4 +27,16 @@ assert.match(plugin, /Background location permission was not granted\. Backgroun
   'denied background permission must be treated as disabled, not bypassed')
 assert.match(manifest, /uses-permission android:name="android\.permission\.ACCESS_BACKGROUND_LOCATION"/,
   'the Android manifest must declare the permission required for background location')
+assert.match(overlayService, /pendingEventGpsCaptures\\.v1/,
+  'pending event locations must survive WebView reloads and process death')
+assert.match(overlayService, /schedulePendingGpsRetry/,
+  'failed fixes must be retried while required permissions remain granted')
+assert.match(overlayService, /PICKUP_START/,
+  'native overlay must queue pickup-origin location')
+assert.match(overlayService, /TRIP_CANCELLED/,
+  'native overlay must queue cancellation location separately from drop-off')
+assert.match(eventLocationService, /queueTripBoundaryEventLocation/,
+  'the PWA event pathway must use native durable background queueing')
+assert.match(workService, /captureAndPersistEventLocation\\('TRIP', data\\?\\.id, 'TRIP_CANCELLED'/,
+  'cancellation must be recorded as its own location event')
 console.log('PASS: GPS header status and explicit background-location permission gate are wired')
