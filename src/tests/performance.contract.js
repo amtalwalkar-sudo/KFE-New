@@ -189,6 +189,8 @@ const provisionSnapshot = {
   ],
 }
 const provisionMetrics = derivePerformance(provisionSnapshot, range, previousRange(range))
+assert.equal(Object.hasOwn(provisionMetrics, 'complianceProvisionById'), false, 'per-record compliance provision UI wiring must be removed')
+assert.equal(Object.hasOwn(provisionMetrics, 'complianceProvisionBalance'), false, 'cumulative compliance balance must not be exposed')
 near(provisionMetrics.maintenanceProvision, 600, 'maintenance provision must use applicable KM x rate')
 near(provisionMetrics.maintenanceProvisionBalance, 0, 'maintenance provision pool must not become negative')
 near(provisionMetrics.maintenanceProvisionExcessPayments, 100, 'maintenance overpayment must remain separately visible')
