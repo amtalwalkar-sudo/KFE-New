@@ -22,6 +22,16 @@ const assertForbidden = (dirs, patterns, label) => {
 
 assertForbidden(['views', 'components', 'stores', 'presentation'], [ /from\s+['"][^'"]*\/repositories\//, /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/ ], 'Presentation/state must not access persistence directly')
 assertForbidden(['views', 'components', 'presentation'], [ /from\s+['"][^'"]*\/domain\/performance\//, /from\s+['"][^'"]*\/domain\/work\//, /from\s+['"][^'"]*\/domain\/math\//, /from\s+['"][^'"]*\/domain\/movement\// ], 'Presentation must not orchestrate domain logic directly')
+
+// Admin screens must consume financial calculations and reference-time helpers
+// through the application boundary, not import domain engines themselves.
+const adminViewPath = path.join(root, 'views/AdminView.vue')
+if (fs.existsSync(adminViewPath)) {
+  const adminView = fs.readFileSync(adminViewPath, 'utf8')
+  if (/from\\s+['\"][^'\"]*\\/domain\\/(?:finance|time)\\//.test(adminView)) {
+    violations.push('AdminView.vue must use application read-model services instead of importing finance/time domain modules directly.')
+  }
+}
 const workViewPath = path.join(root, 'views/WorkModuleView.vue')
 if (fs.existsSync(workViewPath)) {
   const workView = fs.readFileSync(workViewPath, 'utf8')
@@ -44,7 +54,7 @@ if (fs.existsSync(appPath)) {
   if (/ShellService|BackupService|CloudBackupLifecycle|initializeCanonicalStorage|indexedDB|serviceWorker/i.test(app)) violations.push('App.vue still owns application/infrastructure startup concerns.')
 }
 
-const legacyPaths = ['views/DashboardView.vue','presentation/shell/shells/current/CurrentShell.vue','stores/workCycle.js','stores/performanceStore.js','stores/records.js','stores/recordsStore.js','stores/offlineQueue.js','stores/offlineQueueStore.js','stores/index.js','services/syncEngine.js','usecases']
+const legacyPaths = ['views/DashboardView.vue','presentation/shell','stores/workCycle.js','stores/performanceStore.js','stores/records.js','stores/recordsStore.js','stores/offlineQueue.js','stores/offlineQueueStore.js','stores/index.js','services/syncEngine.js','usecases']
 for (const relativePath of legacyPaths) if (fs.existsSync(path.join(root, relativePath))) violations.push(`Legacy duplicate path still exists: ${relativePath}`)
 
 const obsoleteAndroidPaths = ['android/app/src/main/java/com/kanishka/pwa/FloatingWidgetService.java','android/app/src/main/res/layout/layout_floating_widget.xml']
