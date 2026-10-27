@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref, toRaw } from 'vue'
 import AdminSourceForm from '../components/admin/AdminSourceForm.vue'
+import AdminShell from '../components/admin/AdminShell.vue'
 import BackupRestorePanel from '../components/admin/BackupRestorePanel.vue'
 import FinanceLedgerPanel from '../components/admin/FinanceLedgerPanel.vue'
 import { ADMIN_FORM_DEFINITIONS } from '../application/admin/adminFormDefinitions.js'
@@ -258,9 +259,14 @@ onMounted(()=>{load()})
 </script>
 
 <template>
-<section class="admin-page" aria-label="Admin">
-<button v-if="selected||settingsOpen" class="back-button" @click="back">‹ Back</button>
-<button class="settings-icon-button" :class="{active:settingsOpen}" @click="settingsOpen?settingsOpen=false:openSettings()" aria-label="Settings">⚙</button>
+<AdminShell
+  :show-back="Boolean(selected || settingsOpen)"
+  :title="settingsOpen ? 'Settings' : selected ? (currentItem?.title || 'Admin') : 'Admin'"
+  :settings-open="settingsOpen"
+  @back="back"
+  @toggle-settings="settingsOpen ? settingsOpen=false : openSettings()"
+>
+
 
 <template v-if="!selected&&!settingsOpen">
   <header class="admin-hero">
@@ -372,5 +378,5 @@ onMounted(()=>{load()})
 </template>
 </section>
 </template>
-</section>
+</AdminShell>
 </template>
