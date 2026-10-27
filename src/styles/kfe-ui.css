@@ -2196,3 +2196,5 @@ table th,table td{border-color:var(--kfe-ui-border)}
 @media(prefers-reduced-motion:reduce){
   .admin-item,.settings-item{transition:none}
 }
+
+.settings-context{margin:.4rem 0 .9rem;color:var(--kfe-text-muted);font-size:.8rem;line-height:1.5;max-width:68ch}
