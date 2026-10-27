@@ -132,25 +132,26 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.admin-source-form{display:grid;gap:1rem;width:100%;max-width:820px;margin-inline:auto;color:var(--kfe-text)}
-.source-form-heading{display:grid;grid-template-columns:1fr auto;gap:.35rem .8rem;padding:.2rem .1rem .85rem;border-bottom:1px solid var(--kfe-border)}
+.admin-source-form{display:grid;gap:.85rem;width:100%;max-width:960px;margin-inline:auto;color:var(--kfe-text);min-width:0}
+.source-form-heading{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.35rem .8rem;padding:.15rem .1rem .7rem;border-bottom:1px solid var(--kfe-border)}
 .source-kicker{font-size:.66rem;letter-spacing:.14em;font-weight:900;color:var(--kfe-text-muted)}
 .source-form-heading h2{font-size:1.12rem;line-height:1.25;margin:.25rem 0 0;font-weight:900}
 .source-form-heading p{grid-column:1/-1;font-size:.82rem;line-height:1.45;color:var(--kfe-text-muted);margin:0}
 .source-required{font-size:.74rem;color:var(--kfe-text-muted);align-self:center}.source-required b,.source-field-label b{color:var(--kfe-danger)}
-.source-form-section{min-width:0;border:1px solid var(--kfe-border);background:var(--kfe-surface);border-radius:18px;padding:1rem}
-.source-section-heading{display:flex;align-items:center;gap:.7rem;margin-bottom:1rem}
-.source-section-index{display:grid;place-items:center;width:37px;height:37px;border-radius:12px;background:var(--kfe-surface-raised,var(--kfe-bg));font-size:.74rem;font-weight:900;color:var(--kfe-text-muted)}
+.source-form-section{min-width:0;border:1px solid var(--kfe-border);background:var(--kfe-surface);border-radius:16px;padding:.9rem}
+.source-section-heading{display:flex;align-items:center;gap:.65rem;margin-bottom:.8rem}
+.source-section-index{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border-radius:10px;background:var(--kfe-surface-raised,var(--kfe-bg));font-size:.72rem;font-weight:900;color:var(--kfe-text-muted)}
 .source-section-heading h3{font-size:.91rem;font-weight:850;margin:0}.source-section-heading p{font-size:.72rem;color:var(--kfe-text-muted);margin:.15rem 0 0}
-.source-field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem .85rem}
-.source-field{display:grid;align-content:start;gap:.4rem;min-width:0}.source-field-wide{grid-column:1/-1}
+.source-field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem .75rem}
+.source-field{display:grid;align-content:start;gap:.35rem;min-width:0}.source-field-wide{grid-column:1/-1}
 .source-field-label{font-size:.79rem;line-height:1.35;font-weight:800}.source-field-help{font-size:.72rem;line-height:1.4;color:var(--kfe-text-muted)}
-.source-field input:not([type=checkbox]),.source-field select,.source-field textarea{box-sizing:border-box;width:100%;min-width:0;min-height:52px;border:1px solid var(--kfe-border-strong);border-radius:12px;background:var(--kfe-surface-raised,var(--kfe-bg));color:var(--kfe-text);padding:.72rem .8rem;font:inherit;font-size:.93rem;outline:none}
-.source-field textarea{min-height:92px;resize:vertical}.source-field input:focus,.source-field select:focus,.source-field textarea:focus{border-color:var(--kfe-accent,var(--kfe-text));box-shadow:0 0 0 3px color-mix(in srgb,var(--kfe-accent,var(--kfe-text)) 17%,transparent)}
+.source-field input:not([type=checkbox]),.source-field select,.source-field textarea{box-sizing:border-box;width:100%;min-width:0;min-height:48px;border:1px solid var(--kfe-border-strong);border-radius:11px;background:var(--kfe-surface-raised,var(--kfe-bg));color:var(--kfe-text);padding:.65rem .75rem;font:inherit;font-size:.93rem;outline:none}
+.source-field textarea{min-height:84px;resize:vertical}.source-field input:focus,.source-field select:focus,.source-field textarea:focus{border-color:var(--kfe-accent,var(--kfe-text));box-shadow:0 0 0 3px color-mix(in srgb,var(--kfe-accent,var(--kfe-text)) 17%,transparent)}
 .source-field-invalid input,.source-field-invalid select,.source-field-invalid textarea{border-color:var(--kfe-danger)}.source-field-error{color:var(--kfe-danger);font-size:.73rem;font-weight:700}
-.source-toggle{display:flex;align-items:center;gap:.7rem;min-height:52px;font-size:.86rem;font-weight:750}.source-toggle input{width:22px;height:22px;accent-color:var(--kfe-accent,var(--kfe-text))}
-.source-form-actions{position:sticky;bottom:0;display:grid;grid-template-columns:1fr 1.3fr;gap:.7rem;padding:.8rem 0 max(.4rem,env(safe-area-inset-bottom));background:var(--kfe-bg);border-top:1px solid var(--kfe-border);z-index:2}
-.source-form-actions button{min-height:50px;border-radius:13px;padding:.7rem 1rem;font:inherit;font-weight:850;cursor:pointer}.source-cancel{background:var(--kfe-surface);border:1px solid var(--kfe-border-strong);color:var(--kfe-text)}.source-save{display:flex;align-items:center;justify-content:center;gap:.6rem;background:var(--kfe-text);border:1px solid var(--kfe-text);color:var(--kfe-on-accent,#fff)}.source-form-actions button:disabled{opacity:.55}
-@media(max-width:600px){.source-form-section{padding:.8rem}.source-field-grid{grid-template-columns:minmax(0,1fr)}.source-field-wide{grid-column:auto}.source-form-actions{grid-template-columns:1fr 1.2fr}}
+.source-toggle{display:flex;align-items:center;gap:.7rem;min-height:48px;font-size:.86rem;font-weight:750}.source-toggle input{width:22px;height:22px;accent-color:var(--kfe-accent,var(--kfe-text))}
+.source-form-actions{position:sticky;bottom:0;display:grid;grid-template-columns:1fr 1.3fr;gap:.7rem;padding:.65rem 0 max(.45rem,env(safe-area-inset-bottom));background:var(--kfe-bg);border-top:1px solid var(--kfe-border);z-index:2}
+.source-form-actions button{min-height:48px;border-radius:12px;padding:.65rem 1rem;font:inherit;font-weight:850;cursor:pointer}.source-cancel{background:var(--kfe-surface);border:1px solid var(--kfe-border-strong);color:var(--kfe-text)}.source-save{display:flex;align-items:center;justify-content:center;gap:.6rem;background:var(--kfe-text);border:1px solid var(--kfe-text);color:var(--kfe-on-accent,#fff)}.source-form-actions button:disabled{opacity:.55}
+@media(max-width:600px){.admin-source-form{gap:.7rem}.source-form-section{padding:.75rem;border-radius:14px}.source-field-grid{grid-template-columns:minmax(0,1fr);gap:.7rem}.source-field-wide{grid-column:auto}.source-form-actions{grid-template-columns:1fr 1.2fr;gap:.55rem}.source-form-actions button{padding:.6rem .7rem}}
+@media(max-height:560px) and (orientation:landscape){.source-form-actions{position:static}}
 @media(prefers-reduced-motion:reduce){.admin-source-form *{transition:none!important}}
 </style>
