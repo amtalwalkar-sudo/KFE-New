@@ -34,7 +34,7 @@ assert.ok(!form.includes('openEditor') && !form.includes('editorRef') && !form.i
 assert.ok(!form.includes('function handleEnter('),'Admin form must support keyboard next-field navigation')
 assert.ok(form.includes("emit('submit', collect())"),'Admin form must submit the complete draft')
 assert.ok(form.includes(':aria-invalid="!!errors[field.key]"'),'Admin validation errors must be associated with invalid controls')
-assert.ok(form.includes('admin-error-'),'Admin field errors must have stable accessible descriptions')
+assert.ok(form.includes('const errorId = field => `${formInstanceId}-error-${field.key}`'),'Admin field errors must have unique stable accessible descriptions')
 assert.ok(admin.includes('formErrors.value=e.validation'),'Admin service validation errors must reach the active form')
 assert.ok(admin.includes('function onSourceFieldChange') && admin.includes('clearFieldError(change)'),'Correcting an Admin field must preserve its value and clear its stale validation error')
 assert.ok(workForm.includes("if (token === 'NEXT')"),'Work keypad NEXT must advance only when a successor field is declared')
