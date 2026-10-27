@@ -31,12 +31,34 @@ const expandedLoanSchedules=ref({})
 const prepaymentDraft=ref({loanId:'',paidOn:AdminReadModelService.dateKey(AdminReadModelService.referenceNow()),amount:0,reason:'',notes:''}),prepaymentCalculated=ref(false),prepaymentConfirmed=ref(false)
 const targetDraft=ref({driverId:'',month:AdminReadModelService.dateKey(AdminReadModelService.referenceNow()).slice(0,7),desiredDriverProfit:0,nonWorkingDates:'',targetHours:'',targetKm:''})
 const maintenanceRateDraft=ref({rate:'',changeDate:AdminReadModelService.dateKey(AdminReadModelService.referenceNow())})
-const buildDraftIdentity = (formId, parentId = null, workflowStep = 'EDIT') => ({
-  formId: 'admin-' + formId, workflowStep,
-  parentType: parentId ? 'ADMIN_RECORD' : 'WORKFLOW',
-  parentId: parentId || null,
-  workflowId: parentId ? null : 'admin-' + formId
-})
+const draftWorkflowIds = ref({})
+const draftWorkflowResolutions = new Map()
+const draftWorkflowKey = (formId, workflowStep, parentId = null) => [formId, workflowStep, parentId || ''].join(':')
+async function beginDraftWorkflow(formId, workflowStep, parentId = null) {
+  const key = draftWorkflowKey(formId, workflowStep, parentId)
+  const pending = draftWorkflowResolutions.get(key)
+  if (pending) return pending
+  const resolution = (async () => {
+    const parentType = parentId ? 'ADMIN_RECORD' : 'WORKFLOW'
+    const existing = await FormDraftService.latestWorkflow('admin-' + formId, workflowStep, parentType, parentId)
+    const workflowId = existing?.workflowId || FormDraftService.newWorkflowId()
+    draftWorkflowIds.value = { ...draftWorkflowIds.value, [key]: workflowId }
+    return workflowId
+  })()
+  draftWorkflowResolutions.set(key, resolution)
+  try { return await resolution }
+  finally { if (draftWorkflowResolutions.get(key) === resolution) draftWorkflowResolutions.delete(key) }
+}
+const buildDraftIdentity = (formId, parentId = null, workflowStep = 'EDIT') => {
+  const workflowId = draftWorkflowIds.value[draftWorkflowKey(formId, workflowStep, parentId)]
+  if (!workflowId) return null
+  return {
+    formId: 'admin-' + formId, workflowStep,
+    parentType: parentId ? 'ADMIN_RECORD' : 'WORKFLOW',
+    parentId: parentId || null,
+    workflowId
+  }
+}
 const sourceFormDraftIdentity = computed(() => buildDraftIdentity(selected.value || 'source', editing.value, editing.value !== null ? 'EDIT' : 'CREATE'))
 const targetFormDraftIdentity = computed(() => buildDraftIdentity('driver-target', null, 'EDIT_TARGET'))
 const maintenanceRateFormDraftIdentity = computed(() => buildDraftIdentity('maintenance-rate', null, 'EDIT_RATE'))
@@ -160,18 +182,46 @@ function readNotificationsPreference(){return ApplicationSettingsService.getNoti
 function chooseNotifications(enabled){notificationsEnabled.value=ApplicationSettingsService.setNotificationsEnabled(enabled);clearMessages()}
 function clearMessages(){error.value='';notice.value=''}
 function closeAction(){actionKey.value=null;actionRecord.value=null;actionDraft.value={};paymentCalculated.value=false;paymentConfirmed.value=false}
-function openItem(key){if(isAdminSettingsItem(key)){clearMessages();selected.value=null;settingsOpen.value=true;settingsSelected.value=getAdminSettingsKey(key);return}clearMessages();settingsOpen.value=false;selected.value=key;masterSelected.value=null;formOpen.value=false;editing.value=null;draft.value={};closeAction();if(key==='prepayment')resetPrepayment();if(key==='driverTarget')resetTarget();if(key==='maintenanceRate')resetMaintenanceRate();load()}
+async function openItem(key){
+  if(isAdminSettingsItem(key)){clearMessages();selected.value=null;settingsOpen.value=true;settingsSelected.value=getAdminSettingsKey(key);return}
+  clearMessages()
+  if(key==='prepayment')await beginDraftWorkflow('prepayment','PREPAYMENT')
+  if(key==='driverTarget')await beginDraftWorkflow('driver-target','EDIT_TARGET')
+  if(key==='maintenanceRate')await beginDraftWorkflow('maintenance-rate','EDIT_RATE')
+  settingsOpen.value=false;selected.value=key;masterSelected.value=null;formOpen.value=false;editing.value=null;draft.value={};closeAction()
+  if(key==='prepayment')resetPrepayment()
+  if(key==='driverTarget')resetTarget()
+  if(key==='maintenanceRate')resetMaintenanceRate()
+  load()
+}
 function openMasterRecord(record){clearMessages();masterSelected.value=record.id;formOpen.value=false;editing.value=null;draft.value={}}
 function backMasterList(){clearMessages();masterSelected.value=null;formOpen.value=false;editing.value=null;draft.value={}}
 function masterFieldValue(field,record){const v=record?.values?.[field.key];if(v===undefined||v===null||v==='')return '—';if(field.type==='checkbox')return v?'Yes':'No';if(field.type==='select'){if(field.key==='vehicleId')return label('vehicle',all.value.vehicle.find(x=>x.id===v));if(field.key==='driverId')return label('driver',all.value.driver.find(x=>x.id===v));const opts=field.options||[];const found=opts.find(x=>x?.value===v);return found?.label||v}return String(v)}
 function back(){selected.value=null;settingsOpen.value=false;formOpen.value=false;editing.value=null;draft.value={};closeAction();clearMessages()}
 function openSettings(){clearMessages();selected.value=null;settingsOpen.value=true}
-function openLoanPrepayment(record){openItem('prepayment');selectPrepaymentLoan(record.id)}
+async function openLoanPrepayment(record){await openItem('prepayment');selectPrepaymentLoan(record.id)}
 function chooseSetting(key){settingsSelected.value=key;clearMessages()}
-function add(){clearMessages();formErrors.value={};editing.value=null;draft.value=Object.fromEntries((currentDefinition.value?.fields||[]).map(field=>[field.key,field.defaultValue]));formOpen.value=true}
-function edit(record){formErrors.value={};editing.value=record.id;draft.value=clone(record.values||{});formOpen.value=true}
+async function add(){
+  if(saving.value)return
+  clearMessages();formErrors.value={}
+  await beginDraftWorkflow(selected.value||'source','CREATE')
+  editing.value=null;draft.value=Object.fromEntries((currentDefinition.value?.fields||[]).map(field=>[field.key,field.defaultValue]));formOpen.value=true
+}
+async function edit(record){
+  if(saving.value)return
+  formErrors.value={}
+  await beginDraftWorkflow(selected.value||'source','EDIT',record.id)
+  editing.value=record.id;draft.value=clone(record.values||{});formOpen.value=true
+}
 function updateDraft(v){draft.value={...v}}
-function openAction(kind,record){actionKey.value=kind;actionRecord.value=record;paymentCalculated.value=false;paymentConfirmed.value=false;const f=entityFinancial(record);actionDraft.value=kind==='loanPayment'?{loanId:record.id,paidOn:AdminReadModelService.dateKey(AdminReadModelService.referenceNow()),amount:Math.max(0,Number(f?.overdue||f?.emi||0)),notes:''}:{settledOn:AdminReadModelService.dateKey(AdminReadModelService.referenceNow()),amount:Math.max(0,Number(f?.remaining||0)),paymentMethod:'Cash',referenceNumber:'',notes:''}}
+async function openAction(kind,record){
+  const formId=kind==='loanPayment'?'loan-payment-'+record.id:'settlement-'+record.id
+  const workflowStep=kind==='loanPayment'?'LOAN_PAYMENT':'SETTLEMENT'
+  await beginDraftWorkflow(formId,workflowStep,record.id)
+  actionKey.value=kind;actionRecord.value=record;paymentCalculated.value=false;paymentConfirmed.value=false
+  const f=entityFinancial(record)
+  actionDraft.value=kind==='loanPayment'?{loanId:record.id,paidOn:AdminReadModelService.dateKey(AdminReadModelService.referenceNow()),amount:Math.max(0,Number(f?.overdue||f?.emi||0)),notes:''}:{settledOn:AdminReadModelService.dateKey(AdminReadModelService.referenceNow()),amount:Math.max(0,Number(f?.remaining||0)),paymentMethod:'Cash',referenceNumber:'',notes:''}
+}
 const loanPaymentPreview=computed(()=>{if(actionKey.value!=='loanPayment'||!actionRecord.value||!paymentCalculated.value)return null;const loan=live(performanceSnapshot.value?.loans).find(x=>x.id===actionRecord.value.id)||actionRecord.value;return AdminReadModelService.previewPaymentAllocation({loan,payments:live(performanceSnapshot.value?.loanPayments),prepayments:live(performanceSnapshot.value?.prepayments),amount:Number(actionDraft.value.amount)||0,paidOn:actionDraft.value.paidOn})})
 function resetPrepayment(){prepaymentDraft.value={loanId:'',paidOn:AdminReadModelService.dateKey(AdminReadModelService.referenceNow()),amount:0,reason:'',notes:''};prepaymentCalculated.value=false;prepaymentConfirmed.value=false}
 function selectPrepaymentLoan(id){const loan=all.value.loan.find(x=>x.id===id);const p=loan?AdminReadModelService.getLoanPosition({loan,payments:live(performanceSnapshot.value?.loanPayments),prepayments:live(performanceSnapshot.value?.prepayments),asOf:AdminReadModelService.referenceNow()}):null;prepaymentDraft.value={...prepaymentDraft.value,loanId:id,amount:Math.max(0,Number(p?.outstandingPrincipal||0))};prepaymentCalculated.value=false;prepaymentConfirmed.value=false}
@@ -197,11 +247,11 @@ function syncTargetFromSelection(){
 }
 function resetMaintenanceRate(){maintenanceRateDraft.value={rate:currentMaintenanceRate.value?.values?.maintenanceProvisionPerKm??'',changeDate:AdminReadModelService.dateKey(AdminReadModelService.referenceNow()),notes:String(currentMaintenanceRate.value?.values?.notes||'')}}
 function monthStart(m){return (m||currentMonth.value)+'-01'}
-async function saveTarget(){clearMessages();loading.value=true;try{if(!targetDraft.value.driverId||Number(targetDraft.value.desiredDriverProfit)<0)throw new Error('Driver and monthly target are required.');await AdminService.save('driverTarget',{driverId:targetDraft.value.driverId,effectiveFrom:monthStart(targetDraft.value.month),desiredDriverProfit:Number(targetDraft.value.desiredDriverProfit),nonWorkingDates:String(targetDraft.value.nonWorkingDates||''),active:targetDraft.value.active!==false,notes:String(targetDraft.value.notes||'')});await clearFormDraft(targetFormDraftIdentity.value);notice.value='Monthly driver target saved.';await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Unable to save target.'}finally{loading.value=false}}
-async function saveMaintenanceRate(){clearMessages();loading.value=true;try{const rate=Number(maintenanceRateDraft.value.rate);if(!Number.isFinite(rate)||rate<0)throw new Error('Maintenance per KM must be zero or greater.');await AdminService.save('breakEvenInputs',{effectiveFrom:maintenanceRateDraft.value.changeDate,maintenanceProvisionPerKm:rate,notes:String(maintenanceRateDraft.value.notes||'')});await clearFormDraft(maintenanceRateFormDraftIdentity.value);notice.value='Maintenance per KM rate saved.';await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Unable to save rate.'}finally{loading.value=false}}
+async function saveTarget(){if(loading.value)return;clearMessages();loading.value=true;try{if(!targetDraft.value.driverId||Number(targetDraft.value.desiredDriverProfit)<0)throw new Error('Driver and monthly target are required.');await AdminService.save('driverTarget',{driverId:targetDraft.value.driverId,effectiveFrom:monthStart(targetDraft.value.month),desiredDriverProfit:Number(targetDraft.value.desiredDriverProfit),nonWorkingDates:String(targetDraft.value.nonWorkingDates||''),active:targetDraft.value.active!==false,notes:String(targetDraft.value.notes||'')});await clearFormDraft(targetFormDraftIdentity.value);notice.value='Monthly driver target saved.';await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Unable to save target.'}finally{loading.value=false}}
+async function saveMaintenanceRate(){if(loading.value)return;clearMessages();loading.value=true;try{const rate=Number(maintenanceRateDraft.value.rate);if(!Number.isFinite(rate)||rate<0)throw new Error('Maintenance per KM must be zero or greater.');await AdminService.save('breakEvenInputs',{effectiveFrom:maintenanceRateDraft.value.changeDate,maintenanceProvisionPerKm:rate,notes:String(maintenanceRateDraft.value.notes||'')});await clearFormDraft(maintenanceRateFormDraftIdentity.value);notice.value='Maintenance per KM rate saved.';await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Unable to save rate.'}finally{loading.value=false}}
 function clearFieldError({key}){if(!(key in formErrors.value))return;const next={...formErrors.value};delete next[key];formErrors.value=next}
 function onSourceFieldChange(change){draft.value={...draft.value,[change.key]:change.value};clearFieldError(change)}
-async function save(values){clearMessages();formErrors.value={};saving.value=true;try{
+async function save(values){if(saving.value)return;clearMessages();formErrors.value={};saving.value=true;try{
   const id=editing.value
   const draftIdentity = sourceFormDraftIdentity.value
   const sourceType=selected.value==='maintenance'?'Maintenance':'Compliance'
@@ -214,9 +264,9 @@ async function save(values){clearMessages();formErrors.value={};saving.value=tru
    // Never synthesize a payment merely because a source record was saved.
    notice.value=(id!==null?'Record updated.':'Record created.');formOpen.value=false;editing.value=null;await load()
 }catch(e){formErrors.value=e.validation&&typeof e.validation==='object'?e.validation:{};error.value=e.validation?Object.values(e.validation).flat().join(' '):e.message||'Save failed.'}finally{saving.value=false}}
-async function saveLoanPayment(){clearMessages();loading.value=true;try{await AdminService.save('loanPayment',{...actionDraft.value,amount:Number(actionDraft.value.amount)});await clearFormDraft(actionFormDraftIdentity.value);notice.value='Loan payment recorded.';closeAction();await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Payment failed.'}finally{loading.value=false}}
-async function saveSourcePayment(){clearMessages();loading.value=true;try{await AdminService.save('settlement',{settlementType:'Payment',sourceType:selected.value==='maintenance'?'Maintenance':'Compliance',sourceId:actionRecord.value.id,settledOn:actionDraft.value.settledOn,amount:Number(actionDraft.value.amount),paymentMethod:actionDraft.value.paymentMethod,referenceNumber:String(actionDraft.value.referenceNumber||''),notes:String(actionDraft.value.notes||'')});await clearFormDraft(actionFormDraftIdentity.value);notice.value='Payment recorded.';closeAction();await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Payment failed.'}finally{loading.value=false}}
-async function recordPrepayment(){if(!prepaymentEstimate.value?.available||!prepaymentConfirmed.value)return;clearMessages();loading.value=true;try{await AdminService.save('prepayment',{loanId:prepaymentDraft.value.loanId,paidOn:prepaymentDraft.value.paidOn,amount:prepaymentEstimate.value.appliedAmount,reason:String(prepaymentDraft.value.reason||''),notes:String(prepaymentDraft.value.notes||'')});await clearFormDraft(prepaymentFormDraftIdentity.value);notice.value='Prepayment recorded.';resetPrepayment();await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Prepayment failed.'}finally{loading.value=false}}
+async function saveLoanPayment(){if(loading.value)return;clearMessages();loading.value=true;try{await AdminService.save('loanPayment',{...actionDraft.value,amount:Number(actionDraft.value.amount)});await clearFormDraft(actionFormDraftIdentity.value);notice.value='Loan payment recorded.';closeAction();await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Payment failed.'}finally{loading.value=false}}
+async function saveSourcePayment(){if(loading.value)return;clearMessages();loading.value=true;try{await AdminService.save('settlement',{settlementType:'Payment',sourceType:selected.value==='maintenance'?'Maintenance':'Compliance',sourceId:actionRecord.value.id,settledOn:actionDraft.value.settledOn,amount:Number(actionDraft.value.amount),paymentMethod:actionDraft.value.paymentMethod,referenceNumber:String(actionDraft.value.referenceNumber||''),notes:String(actionDraft.value.notes||'')});await clearFormDraft(actionFormDraftIdentity.value);notice.value='Payment recorded.';closeAction();await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Payment failed.'}finally{loading.value=false}}
+async function recordPrepayment(){if(loading.value||!prepaymentEstimate.value?.available||!prepaymentConfirmed.value)return;clearMessages();loading.value=true;try{await AdminService.save('prepayment',{loanId:prepaymentDraft.value.loanId,paidOn:prepaymentDraft.value.paidOn,amount:prepaymentEstimate.value.appliedAmount,reason:String(prepaymentDraft.value.reason||''),notes:String(prepaymentDraft.value.notes||'')});await clearFormDraft(prepaymentFormDraftIdentity.value);notice.value='Prepayment recorded.';resetPrepayment();await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Prepayment failed.'}finally{loading.value=false}}
 async function remove(record){if(!confirm('Delete this record? Related records may prevent deletion.'))return;clearMessages();loading.value=true;try{await AdminService.remove(selected.value,record.id);notice.value='Record deleted.';await load()}catch(e){error.value=e.message||'Delete failed.'}finally{loading.value=false}}
 async function resetData(){if(!confirm('Reset all KFE data? Business records will be erased and application preferences restored to defaults. A recovery checkpoint will be retained.'))return;if(!confirm('Final confirmation: erase all current KFE business records and reset application preferences to defaults? A recovery checkpoint will be retained.'))return;loading.value=true;clearMessages();try{await BackupService.resetData();const defaults=ApplicationSettingsService.resetPreferences();notificationsEnabled.value=defaults.notificationsEnabled;notice.value='All canonical KFE data has been reset. Application preferences restored to defaults.'}catch(e){error.value=e.message||'Data reset failed.'}finally{loading.value=false}}
 async function load(){loading.value=true;error.value='';try{for(const k of Object.keys(all.value))all.value[k]=await AdminService.list(k);records.value=selected.value&&!['prepayment','driverTarget','maintenanceRate','ledger','calculations'].includes(selected.value)?await AdminService.list(selected.value):[];performanceSnapshot.value=await PerformanceService.getSnapshot()}catch(e){error.value=e.message||'Unable to load Admin data.'}finally{loading.value=false}}
