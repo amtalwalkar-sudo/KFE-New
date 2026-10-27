@@ -238,10 +238,49 @@ export const AdminRepository = {
     const db = await initializeCanonicalStorage(); const storeName = storeFor(formKey); const now = new Date().toISOString()
     await assertSourceHasNoSettlements(db, formKey, id)
     return new Promise((resolve, reject) => {
-      const tx = db.transaction([storeName, 'pending_mutations', 'audit_history'], 'readwrite'); const store = tx.objectStore(storeName); const request = store.get(id)
-      request.onsuccess = () => { const record = request.result; if (!record) { try { tx.abort() } catch (_) {}; reject(new Error(`Cannot delete missing ${formKey} record.`)); return }; record.deletedAt = now; record.updatedAt = now; record.deleted = true; store.put(record); writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: id, entityType: formKey, action: 'DELETE', payload: { id, formKey, deletedAt: now }, createdAt: now }) }
-      request.onerror = () => { try { tx.abort() } catch (_) {}; reject(request.error || new Error(`Failed to read ${formKey} for deletion.`)) }
-      tx.oncomplete = () => { if (getActiveDataSource() === 'canonical') notifyCanonicalDataChanged({ stores: [storeName], reason: 'admin:DELETE' }); resolve(true) }; tx.onerror = () => reject(tx.error || new Error(`Failed to delete ${formKey}.`)); tx.onabort = () => reject(tx.error || new Error(`Delete ${formKey} aborted.`))
+      const sourceType = settlementSourceType[formKey]
+      const stores = [storeName, 'pending_mutations', 'audit_history', ...(sourceType ? ['settlements'] : [])]
+      const tx = db.transaction([...new Set(stores)], 'readwrite')
+      const store = tx.objectStore(storeName)
+      let settled = false
+      const fail = error => {
+        if (settled) return
+        settled = true
+        try { tx.abort() } catch (_) {}
+        reject(error)
+      }
+      const request = store.get(id)
+      request.onsuccess = () => {
+        const record = request.result
+        if (!record) { fail(new Error(`Cannot delete missing ${formKey} record.`)); return }
+        const deleteRecord = () => {
+          if (settled) return
+          try {
+            record.deletedAt = now
+            record.updatedAt = now
+            record.deleted = true
+            store.put(record)
+            writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: id, entityType: formKey, action: 'DELETE', payload: { id, formKey, deletedAt: now }, createdAt: now })
+          } catch (error) { fail(error) }
+        }
+        if (!sourceType) { deleteRecord(); return }
+        const settlementsRequest = tx.objectStore('settlements').getAll()
+        settlementsRequest.onsuccess = () => {
+          const linked = (settlementsRequest.result || []).filter(item => !isDeleted(item) && item.sourceId === id && String(item.sourceType || '') === sourceType && String(item.direction || 'OUT').toUpperCase() === 'OUT')
+          if (linked.length) { fail(new Error(`Cannot delete this ${formKey}: existing payment settlements are linked to it.`)); return }
+          deleteRecord()
+        }
+        settlementsRequest.onerror = () => fail(settlementsRequest.error || new Error('Failed to verify linked settlements before deletion.'))
+      }
+      request.onerror = () => fail(request.error || new Error(`Failed to read ${formKey} for deletion.`))
+      tx.oncomplete = () => {
+        if (settled) return
+        settled = true
+        if (getActiveDataSource() === 'canonical') notifyCanonicalDataChanged({ stores: [storeName], reason: 'admin:DELETE' })
+        resolve(true)
+      }
+      tx.onerror = () => fail(tx.error || new Error(`Failed to delete ${formKey}.`))
+      tx.onabort = () => fail(tx.error || new Error(`Delete ${formKey} aborted.`))
     })
   },
 }
