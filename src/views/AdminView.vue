@@ -41,7 +41,7 @@ async function beginDraftWorkflow(formId, workflowStep, parentId = null) {
   const resolution = (async () => {
     const parentType = parentId ? 'ADMIN_RECORD' : 'WORKFLOW'
     const existing = await FormDraftService.latestWorkflow('admin-' + formId, workflowStep, parentType, parentId)
-    const workflowId = existing?.workflowId || FormDraftService.newWorkflowId()
+    const workflowId = parentId ? null : (existing?.workflowId || FormDraftService.newWorkflowId())
     draftWorkflowIds.value = { ...draftWorkflowIds.value, [key]: workflowId }
     return workflowId
   })()
@@ -51,7 +51,7 @@ async function beginDraftWorkflow(formId, workflowStep, parentId = null) {
 }
 const buildDraftIdentity = (formId, parentId = null, workflowStep = 'EDIT') => {
   const workflowId = draftWorkflowIds.value[draftWorkflowKey(formId, workflowStep, parentId)]
-  if (!workflowId) return null
+  if (!workflowId && !parentId) return null
   return {
     formId: 'admin-' + formId, workflowStep,
     parentType: parentId ? 'ADMIN_RECORD' : 'WORKFLOW',
