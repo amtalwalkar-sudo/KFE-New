@@ -76,8 +76,8 @@ export const FormDraftRepository = Object.freeze({
       request.onsuccess = () => {
         const record = (request.result || [])
           .filter(item => item.formId === formId && item.workflowStep === workflowStep &&
-            item.parentType === String(parentType).toUpperCase() && item.workflowId &&
-            (parentId ? item.parentId === String(parentId) : !item.parentId))
+            item.parentType === String(parentType).toUpperCase() &&
+            (parentId ? item.parentId === String(parentId) : Boolean(item.workflowId) && !item.parentId))
           .sort((a, b) => Date.parse(b.updatedAt || '') - Date.parse(a.updatedAt || ''))[0]
         resolve(record || null)
       }
