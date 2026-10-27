@@ -1,11 +1,28 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
+import { formDraftIdentity } from '../repositories/formDraftRepository.js'
+import { FormDraftService } from '../application/forms/formDraftService.js'
 
 const read = path => fs.readFileSync(new URL(path, import.meta.url), 'utf8')
 const adminView = read('../views/AdminView.vue')
 const adminForm = read('../components/admin/AdminSourceForm.vue')
 const draftRepository = read('../repositories/formDraftRepository.js')
 const draftService = read('../application/forms/formDraftService.js')
+
+const workflowIdA = FormDraftService.newWorkflowId()
+const workflowIdB = FormDraftService.newWorkflowId()
+assert.ok(workflowIdA && workflowIdB, 'New Admin workflows must receive non-empty workflow IDs.')
+assert.notEqual(workflowIdA, workflowIdB, 'Separate new-record attempts must never share draft identity.')
+const createDraftA = formDraftIdentity({ formId: 'admin-vehicle', workflowStep: 'CREATE', parentType: 'WORKFLOW', workflowId: workflowIdA })
+const createDraftB = formDraftIdentity({ formId: 'admin-vehicle', workflowStep: 'CREATE', parentType: 'WORKFLOW', workflowId: workflowIdB })
+const resumedDraftA = formDraftIdentity({ formId: 'admin-vehicle', workflowStep: 'CREATE', parentType: 'WORKFLOW', workflowId: workflowIdA })
+assert.notEqual(createDraftA.id, createDraftB.id, 'Different workflow IDs must isolate drafts for the same Admin form.')
+assert.equal(createDraftA.id, resumedDraftA.id, 'Reload/resume must preserve the existing workflow identity.')
+assert.notEqual(
+  formDraftIdentity({ formId: 'admin-loan-payment-loan-1', workflowStep: 'LOAN_PAYMENT', parentType: 'ADMIN_RECORD', parentId: 'loan-1' }).id,
+  formDraftIdentity({ formId: 'admin-loan-payment-loan-2', workflowStep: 'LOAN_PAYMENT', parentType: 'ADMIN_RECORD', parentId: 'loan-2' }).id,
+  'Parent-scoped actions must not leak drafts across records.',
+)
 
 assert.match(adminView, /FormDraftService\.newWorkflowId\(\)/, 'Each new Admin workflow needs a fresh workflow ID.')
 assert.match(adminView, /FormDraftService\.latestWorkflow\('admin-' \+ formId, workflowStep, parentType, parentId\)/, 'Admin must resume a matching unfinished workflow after reload.')
