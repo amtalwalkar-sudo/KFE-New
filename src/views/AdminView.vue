@@ -225,7 +225,7 @@ function onActionFieldChange({key,value}){actionDraft.value={...actionDraft.valu
 function submitTargetForm(values){targetDraft.value={...targetDraft.value,...values};saveTarget()}
 function submitMaintenanceRateForm(values){maintenanceRateDraft.value={...maintenanceRateDraft.value,...values};saveMaintenanceRate()}
 function submitPrepaymentForm(values){prepaymentDraft.value={...prepaymentDraft.value,...values};prepaymentCalculated.value=true}
-function submitActionForm(values){actionDraft.value={...actionDraft.value,...values};if(actionKey.value==='loanPayment')paymentCalculated.value=true;else saveSourcePayment()}
+function submitActionForm(values){actionDraft.value={...actionDraft.value,...values};if(actionKey.value==='loanPayment'){paymentCalculated.value=true;paymentConfirmed.value=false}else saveSourcePayment()}
 function syncTargetFromSelection(){
   const current=currentTarget.value
   targetDraft.value={...targetDraft.value,desiredDriverProfit:current?.values?.desiredDriverProfit??0,nonWorkingDates:Array.isArray(current?.values?.nonWorkingDates)?current.values.nonWorkingDates.join('\n'):String(current?.values?.nonWorkingDates||'')}
