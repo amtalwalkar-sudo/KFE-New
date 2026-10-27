@@ -28,7 +28,7 @@ assert.deepEqual(ADMIN_NAVIGATION_ITEMS.map(item => item.key), ['businessSetup',
 assert.deepEqual(ADMIN_NAVIGATION_ITEMS.map(item => item.category), ['Business Setup','Business Setup','Business Setup','Vehicle Records','Vehicle Records','Finance','Settings','Settings','Settings'])
 assert.deepEqual(ADMIN_SETTINGS_MENU.map(item => item.key), ['backup','application','reset'])
 assert.doesNotMatch(ADMIN_NAVIGATION_ITEMS.map(item => item.key).join(','), /prepayment|ledger|calculations|driverTarget|maintenanceRate/)
-assert.match(adminView, /getAdminSettingsKey\\(key\\)/)
+assert.match(adminView, /getAdminSettingsKey\(key\)/)
 assert.match(adminView, /Before resetting, create a phone backup JSON file and keep it somewhere you control/)
 assert.match(adminView, /private recovery checkpoint[\s\S]*not a substitute for your own exported backup/)
 console.log('Admin contract passed: only Admin-owned master, vehicle, finance and planning forms are exposed; operational Work/Timeline entries are excluded.')
