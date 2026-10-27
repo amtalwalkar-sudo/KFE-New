@@ -2,9 +2,27 @@
 export const UNIVERSAL_FORM_RULES={trimText:true,rejectUnknownFields:true,requiredFieldsMustBePresent:true,numbersMustBeFinite:true,numbersMustRespectBounds:true,datesMustBeValid:true,selectValuesMustBeAllowed:true,validateBeforeSave:true};
 const blank=v=>v===undefined||v===null||String(v).trim()==='';
 const dateValue=v=>Date.parse(v);
+function isValidCalendarDateTime(value,type){
+  if(typeof value!=='string')return false;
+  const pattern=type==='date'
+    ? /^(\d{4})-(\d{2})-(\d{2})$/
+    : /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/;
+  const match=pattern.exec(value);
+  if(!match)return false;
+  const year=Number(match[1]),month=Number(match[2]),day=Number(match[3]);
+  if(month<1||month>12||day<1)return false;
+  const leap=year%4===0&&(year%100!==0||year%400===0);
+  const daysInMonth=[31,leap?29:28,31,30,31,30,31,31,30,31,30,31][month-1];
+  if(day>daysInMonth)return false;
+  if(type==='datetime-local'){
+    const hour=Number(match[4]),minute=Number(match[5]),second=match[6]===undefined?0:Number(match[6]);
+    if(hour>23||minute>59||second>59)return false;
+  }
+  return true;
+}
 const optionValue=option=>option&&typeof option==='object'&&'value' in option?option.value:option;
 export function normalizeFormValues(definition,values={}){const out={};for(const f of definition.fields??[]){let v=values[f.key];if(v===undefined&&f.defaultValue!==undefined)v=f.defaultValue;if(['text','textarea','select'].includes(f.type)&&typeof v==='string'&&UNIVERSAL_FORM_RULES.trimText)v=v.trim();if(f.type==='number'&&!blank(v))v=Number(v);if(f.type==='checkbox'){if(typeof v==='string')v=['true','1','yes','on'].includes(v.trim().toLowerCase());else v=Boolean(v)};out[f.key]=v}return out}
-export function validateAdminForm(definition,values={},context={}){const errors={},normalized=normalizeFormValues(definition,values),allowed=new Set((definition.fields??[]).map(f=>f.key));if(UNIVERSAL_FORM_RULES.rejectUnknownFields)for(const k of Object.keys(values))if(!allowed.has(k))errors[k]='Unknown field is not permitted.';const relaxed=new Set(context.relaxRequired??[]);for(const f of definition.fields??[]){const v=normalized[f.key];if(f.required&&!relaxed.has(f.key)&&blank(v)){errors[f.key]=`${f.label} is required.`;continue}if(blank(v))continue;if(f.type==='number'&&!Number.isFinite(v))errors[f.key]=`${f.label} must be a valid number.`;else if(f.type==='number'&&f.exclusiveMin&&f.min!==undefined&&v<=f.min)errors[f.key]=`${f.label} must be greater than ${f.min}.`;else if(f.type==='number'&&f.min!==undefined&&v<f.min)errors[f.key]=`${f.label} must be at least ${f.min}.`;else if(f.type==='number'&&f.max!==undefined&&v>f.max)errors[f.key]=`${f.label} must be at most ${f.max}.`;if(['date','datetime-local'].includes(f.type)&&Number.isNaN(dateValue(v)))errors[f.key]=`${f.label} must be a valid date/time.`;if(f.type==='select'&&f.options?.length&&!f.options.some(option=>optionValue(option)===v))errors[f.key]=`${f.label} has an invalid selection.`}
+export function validateAdminForm(definition,values={},context={}){const errors={},normalized=normalizeFormValues(definition,values),allowed=new Set((definition.fields??[]).map(f=>f.key));if(UNIVERSAL_FORM_RULES.rejectUnknownFields)for(const k of Object.keys(values))if(!allowed.has(k))errors[k]='Unknown field is not permitted.';const relaxed=new Set(context.relaxRequired??[]);for(const f of definition.fields??[]){const v=normalized[f.key];if(f.required&&!relaxed.has(f.key)&&blank(v)){errors[f.key]=`${f.label} is required.`;continue}if(blank(v))continue;if(f.type==='number'&&!Number.isFinite(v))errors[f.key]=`${f.label} must be a valid number.`;else if(f.type==='number'&&f.exclusiveMin&&f.min!==undefined&&v<=f.min)errors[f.key]=`${f.label} must be greater than ${f.min}.`;else if(f.type==='number'&&f.min!==undefined&&v<f.min)errors[f.key]=`${f.label} must be at least ${f.min}.`;else if(f.type==='number'&&f.max!==undefined&&v>f.max)errors[f.key]=`${f.label} must be at most ${f.max}.`;if(['date','datetime-local'].includes(f.type)&&!isValidCalendarDateTime(v,f.type))errors[f.key]=`${f.label} must be a valid date/time.`;if(f.type==='select'&&f.options?.length&&!f.options.some(option=>optionValue(option)===v))errors[f.key]=`${f.label} has an invalid selection.`}
 if(definition.key==='vehicle'&&normalized.status==='Sold'&&blank(normalized.saleDate))errors.saleDate='Sale date is required when vehicle status is Sold.';
 if(definition.key==='vehicle'&&normalized.status==='Sold'&&blank(normalized.sellPrice))errors.sellPrice='Sell price is required when vehicle status is Sold.';
 if(definition.key==='vehicle'&&normalized.saleDate&&normalized.status!=='Sold')errors.saleDate='Sale date is only valid for a Sold vehicle.';
