@@ -44,7 +44,12 @@ function changed(field, raw) {
   emit('field-change', { key: field.key, value: nextValue })
   if (restoringDraft || !props.draftIdentity) return
   const values = { ...collect(), [field.key]: nextValue }
-  draftWriteQueue = draftWriteQueue.then(() => FormDraftService.save(props.draftIdentity, values))
+  // Enqueue every write immediately in the shared service queue. A parent may
+  // commit through an external action button, so it must not overtake a draft
+  // write that is still waiting behind this component's local promise chain.
+  const write = FormDraftService.save(props.draftIdentity, values)
+  draftWriteQueue = Promise.all([draftWriteQueue, write])
+    .then(() => null)
     .catch(error => { emit('draft-error', error); return null })
 }
 async function restoreDraft() {
