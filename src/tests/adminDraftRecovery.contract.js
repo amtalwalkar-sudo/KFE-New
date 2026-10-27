@@ -35,6 +35,9 @@ assert.match(adminForm, /const formElement = ref\(null\)/, 'Admin form focus mus
 assert.match(adminForm, /formElement\.value\?\.querySelector\(/, 'Autofocus must not select a different Admin form.')
 assert.doesNotMatch(adminForm, /document\.querySelector\('\.admin-source-form'\)/, 'Global document lookup can focus the wrong form.')
 assert.match(adminForm, /if \(props\.busy \|\| submitting\) return/, 'Repeated form submissions must be blocked while saving.')
+assert.match(adminForm, /const write = FormDraftService\.save\(props\.draftIdentity, values\)/, 'Each draft write must enter the shared serialized queue immediately.')
+assert.match(draftService, /const result = mutationQueue\.then\(operation\)/, 'Draft writes and clears must share one ordered mutation queue.')
+assert.match(adminForm, /Promise\.all\(\[draftWriteQueue, write\]\)/, 'Form submission must await every queued draft write.')
 for (const fn of ['saveTarget','saveMaintenanceRate','saveLoanPayment','saveSourcePayment']) {
   assert.match(adminView, new RegExp('async function ' + fn + '\\(\\)\\{if\\(loading\\.value\\)return;'), fn + ' must reject duplicate in-flight submits.')
 }
