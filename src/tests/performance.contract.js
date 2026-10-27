@@ -192,7 +192,7 @@ const provisionMetrics = derivePerformance(provisionSnapshot, range, previousRan
 near(provisionMetrics.maintenanceProvision, 600, 'maintenance provision must use applicable KM x rate')
 near(provisionMetrics.maintenanceProvisionBalance, 0, 'maintenance provision pool must not become negative')
 near(provisionMetrics.maintenanceProvisionExcessPayments, 100, 'maintenance overpayment must remain separately visible')
-near(provisionMetrics.complianceProvisionById.c1, 24000 / 365, 'compliance provision must accrue across every calendar day in the validity/report overlap')
+near(provisionMetrics.renewalProvision, 24000 / 365, 'compliance provision must continue accruing for the selected validity/report overlap')
 
 // Maintenance provision remains a rolling pool; compliance's cumulative bucket is not exposed.
 const rolloverSnapshot = {
