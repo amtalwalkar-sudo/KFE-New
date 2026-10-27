@@ -2143,3 +2143,56 @@ table th,table td{border-color:var(--kfe-ui-border)}
   .source-form-actions{position:static;bottom:auto}
   .settings-screen{grid-template-columns:minmax(150px,.6fr) minmax(0,1.4fr)}
 }
+
+
+/* Admin final UX pass: clear context, compact scanning, consistent controls and safe action placement. */
+.admin-hero p{max-width:62ch;line-height:1.5}
+.admin-category-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.admin-category-count{display:inline-grid;place-items:center;min-width:26px;min-height:26px;padding:0 6px;border:1px solid var(--kfe-border);border-radius:999px;color:var(--kfe-text-muted);font-size:.72rem;font-weight:800;font-variant-numeric:tabular-nums}
+.admin-item,.settings-item{min-width:0;transition:border-color .15s ease,background-color .15s ease}
+.admin-item:hover,.settings-item:hover{border-color:var(--kfe-border-strong);background:var(--kfe-surface-muted,var(--kfe-surface))}
+.admin-item:active,.settings-item:active{transform:translateY(1px)}
+.admin-item-copy{min-width:0}
+.admin-item-copy strong,.admin-item-copy small{display:block;overflow-wrap:anywhere}
+.detail-intro{margin:-5px 0 14px;color:var(--kfe-text-muted);font-size:.82rem;line-height:1.5;max-width:70ch}
+.detail-actions{gap:8px;flex-wrap:wrap}
+.detail-actions button{min-height:44px}
+.record-card{min-width:0}
+.record-top{align-items:flex-start}
+.record-top>div{min-width:0;overflow-wrap:anywhere}
+.record-top>div strong{line-height:1.35;overflow-wrap:anywhere}
+.record-top>div span{margin-top:3px;font-variant-numeric:tabular-nums}
+.record-footer{align-items:center}
+.record-footer .text-button{min-height:40px;color:var(--kfe-danger)}
+.metric-grid>div{min-width:0;padding:8px;border:1px solid var(--kfe-border);border-radius:10px;background:var(--kfe-surface-muted,var(--kfe-surface))}
+.metric-grid strong{overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.history-inline{overflow-wrap:anywhere}
+.settings-item{min-height:54px}
+.settings-panel>p{line-height:1.5}
+.source-form-section{min-width:0}
+.source-field{min-width:0}
+.source-field-label{line-height:1.35}
+.source-field-help,.source-field-error{line-height:1.45;overflow-wrap:anywhere}
+.source-field :is(input,select,textarea){font-size:16px;max-width:100%;min-width:0}
+.source-form-saving{margin:0;padding:8px 10px;border-radius:8px;background:color-mix(in srgb,var(--kfe-primary) 10%,var(--kfe-surface));color:var(--kfe-text);font-size:.8rem}
+.source-form-actions{display:flex;gap:8px}
+.source-form-actions :is(button){min-width:110px;min-height:44px}
+.admin-page :where(button,a,input,select,textarea){touch-action:manipulation}
+@media(max-width:560px){
+  .admin-category{padding:10px}
+  .admin-item{min-height:60px}
+  .detail-intro{font-size:.78rem;margin-top:-3px}
+  .detail-actions{display:grid;grid-template-columns:minmax(0,1fr)}
+  .detail-actions button{width:100%}
+  .record-top{gap:8px}
+  .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .source-form-actions{position:sticky;z-index:5;bottom:calc(var(--kfe-nav-height,68px) + env(safe-area-inset-bottom,0px));margin:0 -2px;padding:10px 2px calc(8px + env(safe-area-inset-bottom,0px));background:color-mix(in srgb,var(--kfe-ui-surface) 94%,transparent);backdrop-filter:blur(8px);border-top:1px solid var(--kfe-ui-border)}
+  .source-form-actions button{flex:1;min-width:0}
+}
+@media(max-height:560px) and (orientation:landscape){
+  .source-form-actions{position:static;bottom:auto;backdrop-filter:none}
+  .detail-screen{padding-bottom:calc(var(--kfe-nav-height,56px) + env(safe-area-inset-bottom,0px) + 8px)}
+}
+@media(prefers-reduced-motion:reduce){
+  .admin-item,.settings-item{transition:none}
+}
