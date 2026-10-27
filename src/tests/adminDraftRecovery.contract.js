@@ -12,7 +12,7 @@ assert.match(adminView, /FormDraftService\.latestWorkflow\('admin-' \+ formId, w
 assert.match(adminView, /draftWorkflowKey = \(formId, workflowStep, parentId = null\)/, 'Workflow IDs must be scoped by form, step and parent.')
 assert.match(adminView, /workflowId\s*\n\s*\}/, 'Every active Admin draft identity must include its workflow ID.')
 assert.match(draftRepository, /async latestWorkflow\(formId, workflowStep, parentType = 'WORKFLOW', parentId = null\)/, 'Workflow lookup must support parent-scoped actions.')
-assert.match(draftRepository, /parentId \\? item\\.parentId === String\\(parentId\\) : Boolean\\(item\\.workflowId\\) && !item\\.parentId/, 'Parent-scoped workflow lookup must not cross record boundaries.')
+assert.match(draftRepository, /parentId \? item\.parentId === String\(parentId\) : Boolean\(item\.workflowId\) && !item\.parentId/, 'Parent-scoped workflow lookup must not cross record boundaries.')
 assert.match(draftService, /latestWorkflow: \(formId, step, parentType, parentId = null\)/, 'The application draft service must forward parent scope.')
 assert.match(adminForm, /const formElement = ref\(null\)/, 'Admin form focus must be local to its own instance.')
 assert.match(adminForm, /formElement\.value\?\.querySelector\(/, 'Autofocus must not select a different Admin form.')
