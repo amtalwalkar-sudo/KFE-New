@@ -8,6 +8,7 @@ const adminView = read('../views/AdminView.vue')
 const adminForm = read('../components/admin/AdminSourceForm.vue')
 const draftRepository = read('../repositories/formDraftRepository.js')
 const draftService = read('../application/forms/formDraftService.js')
+const adminService = read('../application/admin/adminService.js')
 
 const workflowIdA = FormDraftService.newWorkflowId()
 const workflowIdB = FormDraftService.newWorkflowId()
@@ -24,7 +25,7 @@ assert.notEqual(
   'Parent-scoped actions must not leak drafts across records.',
 )
 
-assert.match(adminView, /FormDraftService\.newWorkflowId\(\)/, 'Each new Admin workflow needs a fresh workflow ID.')
+assert.match(adminView, /FormDraftService\.newWorkflowId\(\)/, 'Each new parentless Admin workflow needs a fresh workflow ID.')
 assert.match(adminView, /FormDraftService\.latestWorkflow\('admin-' \+ formId, workflowStep, parentType, parentId\)/, 'Admin must resume a matching unfinished workflow after reload.')
 assert.match(adminView, /draftWorkflowKey = \(formId, workflowStep, parentId = null\)/, 'Workflow IDs must be scoped by form, step and parent.')
 assert.match(adminView, /workflowId\s*\n\s*\}/, 'Every active Admin draft identity must include its workflow ID.')
@@ -42,5 +43,10 @@ for (const fn of ['saveTarget','saveMaintenanceRate','saveLoanPayment','saveSour
   assert.match(adminView, new RegExp('async function ' + fn + '\\(\\)\\{if\\(loading\\.value\\)return;'), fn + ' must reject duplicate in-flight submits.')
 }
 assert.match(adminView, /async function save\(values\)\{if\(saving\.value\)return;/, 'Create/edit commits must reject duplicate in-flight submits.')
+const adminSave = adminService.slice(adminService.indexOf('async save('), adminService.indexOf('async remove('))
+assert.ok(adminSave.indexOf('validateAdminForm') < adminSave.indexOf('await AdminRepository.save'), 'Admin validation must precede canonical persistence.')
+assert.ok(adminSave.indexOf('await AdminRepository.save') < adminSave.indexOf('checkpoint()'), 'The local checkpoint request must follow the confirmed canonical write.')
+assert.ok(adminSave.indexOf('checkpoint()') < adminSave.indexOf('return saved'), 'Admin must not acknowledge save before the canonical repository result exists.')
+assert.match(adminView, /const saved=await AdminService\.save\(selected\.value,payload,id\)\s*await clearFormDraft\(draftIdentity\)/, 'Create/edit drafts may clear only after the awaited canonical save.')
 assert.match(adminView, /async function recordPrepayment\(\)\{if\(loading\.value\|\|!prepaymentEstimate\.value\?\.available/, 'Prepayment commits must reject duplicate in-flight submits.')
 console.log('Admin draft recovery contract passed: unique workflow identities, reload recovery, parent isolation, local focus and duplicate-submit guards.')
