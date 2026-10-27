@@ -182,7 +182,6 @@ assert.equal(allocation.totalAllocation, 2500)
 assert.equal(allocation.availableAfterAllocations, 2500)
 assert.equal(allocation.allocationCoverage, 0.5)
 
-// Actual payment clears the corresponding accumulated provision bucket.
 const provisionSnapshot = {
   shifts: [{ id:'p1', shiftStartAt:'2026-09-10T08:00:00Z', shiftEndAt:'2026-09-10T18:00:00Z', startOdometer:1000, endOdometer:1100, revenue:5000 }],
   trips: [], fuelLogs: [], maintenance: [],
@@ -196,12 +195,10 @@ const provisionSnapshot = {
 const beforePayments = derivePerformance({ ...provisionSnapshot, settlements: [] }, range)
 assert.equal(beforePayments.maintenanceProvisionAccumulated, 200)
 assert.equal(beforePayments.maintenanceProvisionBalance, 200)
-assert.equal(beforePayments.complianceProvisionAccumulatedById.c1, 1100)
-assert.equal(beforePayments.complianceProvisionBalancesById.c1, 1100)
+assert.equal(Object.hasOwn(beforePayments, 'complianceProvisionBalance'), false)
 const afterPayments = derivePerformance(provisionSnapshot, range)
 assert.equal(afterPayments.maintenanceProvisionBalance, 0)
-assert.equal(afterPayments.complianceProvisionBalancesById.c1, 0)
-assert.equal(afterPayments.complianceProvisionBalance, 0)
+assert.equal(Object.hasOwn(afterPayments, 'complianceProvisionBalance'), false)
 
 // Pre-business loan burden is outside the business period and is recovered
 // only from the business-start boundary onward.
