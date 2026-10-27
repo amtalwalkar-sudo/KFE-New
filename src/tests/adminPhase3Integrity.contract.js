@@ -16,6 +16,10 @@ assert.match(saveSource, /const request = tx\.objectStore\('settlements'\)\.getA
   'Payment limits must use settlement rows read inside the canonical write transaction')
 assert.match(saveSource, /for \(const check of relationChecks\)[\s\S]*isDeleted\(parent\)/,
   'Referenced parent existence and soft-delete state must be rechecked in the write transaction')
+assert.match(saveSource, /if \(existingId\)[\s\S]*isDeleted\(currentRecord\)/,
+  'A stale form must not recreate a record that was deleted while it remained open')
+assert.match(saveSource, /currentRecord\.updatedAt[\s\S]*existingRaw\?\.updatedAt/,
+  'Concurrent edits must reject a stale version instead of overwriting newer canonical data')
 assert.match(saveSource, /if \(alreadyPaid \+ Number\(values\.amount\) > sourceAmount \+ 0\.005\)/,
   'Concurrent linked payments must not exceed the authoritative source amount')
 assert.match(saveSource, /if \(Number\.isFinite\(Number\(record\.cost\)\) && paid > Number\(record\.cost\) \+ 0\.005\)/,
