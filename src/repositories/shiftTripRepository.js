@@ -26,7 +26,12 @@ const stableRecordValue = value => {
   return value
 }
 const sameRecordValue = (left, right) => JSON.stringify(stableRecordValue(left)) === JSON.stringify(stableRecordValue(right))
-const isEligibleVehicle = vehicle => !vehicle?.deleted && !vehicle?.deletedAt && vehicle?.active !== false && !['SOLD', 'RETIRED', 'TRANSFERRED', 'INACTIVE'].includes(String(vehicle?.status || vehicle?.lifecycle_status || '').toUpperCase())
+const terminalVehicleStates = new Set(['SOLD', 'RETIRED', 'TRANSFERRED', 'INACTIVE'])
+const vehicleLifecycleStates = vehicle => [vehicle?.status, vehicle?.lifecycle_status]
+  .filter(value => value !== null && value !== undefined)
+  .map(value => String(value).trim().toUpperCase())
+  .filter(Boolean)
+const isEligibleVehicle = vehicle => !vehicle?.deleted && !vehicle?.deletedAt && vehicle?.active !== false && !vehicleLifecycleStates(vehicle).some(status => terminalVehicleStates.has(status))
 const hasValidOpeningOdometer = vehicle => vehicle?.openingOdometerKm !== null && vehicle?.openingOdometerKm !== undefined && String(vehicle.openingOdometerKm).trim() !== '' && Number.isFinite(Number(vehicle.openingOdometerKm)) && Number(vehicle.openingOdometerKm) >= 0
 const compareRecordVersion = (left, right) => {
   const a = Date.parse(left?.updatedAt || '')
