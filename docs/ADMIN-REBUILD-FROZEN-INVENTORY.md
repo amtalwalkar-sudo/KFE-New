@@ -137,8 +137,12 @@ Legacy `vehicle.expiryDate` values from older records are preserved during unrel
 
 ### Settings
 - Backup & Restore: Enable daily backup, Dropbox access token, backup/restore actions and confirmation.
-- Application Settings: Light/Dark/Auto theme and Notifications toggle.
+- Application Settings: fixed Dark theme and Notifications toggle.
 - Data Reset: destructive reset action with explicit confirmation.
+
+### Theme scope amendment (2026-10-27)
+
+KFE uses **Dark theme only**. Light and Auto selection controls are removed; the runtime forces and persists `dark`, including migrating older stored `light` or `auto` values to `dark`. Device appearance preferences must not change the app palette. This amendment supersedes earlier theme-mode options.
 
 ## Rebuild acceptance gates
 
