@@ -11,6 +11,10 @@ const emit = defineEmits(['submit', 'cancel', 'field-change', 'draft-restored', 
 let draftWriteQueue = Promise.resolve()
 let restoringDraft = false
 let submitting = false
+let formInstanceCounter = 0
+const formInstanceId = `admin-source-form-${++formInstanceCounter}`
+const helpId = field => `${formInstanceId}-help-${field.key}`
+const errorId = field => `${formInstanceId}-error-${field.key}`
 const formElement = ref(null)
 watch(() => props.busy, busy => { if (!busy) submitting = false })
 const fields = computed(() => (props.fields || []).filter(f => f && !f.hidden))
@@ -119,9 +123,9 @@ onMounted(async () => {
 </script>
 
 <template>
-  <form ref="formElement" class="admin-source-form" data-form-type="admin-source-record" aria-label="Admin source record entry" :aria-busy="busy" novalidate @submit.prevent="submitForm">
+  <form ref="formElement" class="admin-source-form" data-form-type="admin-source-record" :aria-labelledby="`${formInstanceId}-title`" :aria-busy="busy" novalidate @submit.prevent="submitForm">
     <header class="source-form-heading">
-      <div><span class="source-kicker">BUSINESS RECORD</span><h2>Record details</h2></div>
+      <div><span class="source-kicker">BUSINESS RECORD</span><h2 :id="`${formInstanceId}-title`">Record details</h2></div>
       <span v-if="requiredCount" class="source-required"><b>*</b> Required</span>
       <p>Enter source facts only. Calculated values are handled by KFE.</p>
     </header>
@@ -130,8 +134,8 @@ onMounted(async () => {
       <div class="source-field-grid">
         <label v-for="field in section.fields" :key="field.key" class="source-field" :class="{ 'source-field-wide': field.wide || field.type === 'textarea', 'source-field-invalid': errors[field.key] }">
           <span class="source-field-label">{{ field.label }} <b v-if="field.required">*</b></span>
-          <small v-if="field.help" :id="`admin-help-${field.key}`" class="source-field-help">{{ field.help }}</small>
-          <select v-if="field.type === 'select'" :value="value(field)"  :required="field.required" :disabled="busy" :aria-invalid="!!errors[field.key]" :aria-describedby="[field.help ? `admin-help-${field.key}` : null, errors[field.key] ? `admin-error-${field.key}` : null].filter(Boolean).join(' ') || undefined" @change="changed(field, $event.target.value)">
+          <small v-if="field.help" :id="helpId(field)" class="source-field-help">{{ field.help }}</small>
+          <select v-if="field.type === 'select'" :value="value(field)"  :required="field.required" :disabled="busy" :aria-invalid="!!errors[field.key]" :aria-describedby="[field.help ? helpId(field) : null, errors[field.key] ? errorId(field) : null].filter(Boolean).join(' ') || undefined" @change="changed(field, $event.target.value)">
             <option value="">Choose {{ field.label.toLowerCase() }}</option>
             <option v-for="option in options(field)" :key="String(option.value)" :value="option.value">{{ option.label }}</option>
           </select>
@@ -142,6 +146,7 @@ onMounted(async () => {
         </label>
       </div>
     </section>
+    <p v-if="busy" class="source-form-saving" role="status" aria-live="polite">Saving your changes…</p>
     <footer v-if="showActions" class="source-form-actions">
       <button type="button" class="source-cancel" :disabled="busy" @click="cancelForm">Cancel</button>
       <button type="submit" class="source-save" :disabled="busy">{{ busy ? 'Saving…' : submitLabel }} <span aria-hidden="true">→</span></button>
