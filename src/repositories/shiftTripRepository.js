@@ -27,6 +27,7 @@ const stableRecordValue = value => {
 }
 const sameRecordValue = (left, right) => JSON.stringify(stableRecordValue(left)) === JSON.stringify(stableRecordValue(right))
 const isEligibleVehicle = vehicle => !vehicle?.deleted && !vehicle?.deletedAt && vehicle?.active !== false && !['SOLD', 'RETIRED', 'TRANSFERRED', 'INACTIVE'].includes(String(vehicle?.status || vehicle?.lifecycle_status || '').toUpperCase())
+const hasValidOpeningOdometer = vehicle => vehicle?.openingOdometerKm !== null && vehicle?.openingOdometerKm !== undefined && String(vehicle.openingOdometerKm).trim() !== '' && Number.isFinite(Number(vehicle.openingOdometerKm)) && Number(vehicle.openingOdometerKm) >= 0
 const compareRecordVersion = (left, right) => {
   const a = Date.parse(left?.updatedAt || '')
   const b = Date.parse(right?.updatedAt || '')
@@ -374,7 +375,7 @@ export const ShiftTripRepository = {
     }
     return vehicle.id
   },
-  async getBusinessStartBaseline() { const [vehicles, settings] = await Promise.all([readAll('vehicles'), readAll('settings')]); const active = vehicles.filter(v => isEligibleVehicle(v) && Number.isFinite(Number(v.openingOdometerKm))); const vehicle = active.sort((a, b) => String(a.id || '').localeCompare(String(b.id || '')))[0] || null; const setup = settings.find(item => item.settingKey === 'businessSetup' && !item.deleted && !item.deletedAt); const businessStartDate = setup?.values?.businessStartDate || null; return vehicle ? { businessStartDate, businessStartOdometer: Number(vehicle.openingOdometerKm) } : (businessStartDate ? { businessStartDate, businessStartOdometer: null } : null) },
+  async getBusinessStartBaseline() { const [vehicles, settings] = await Promise.all([readAll('vehicles'), readAll('settings')]); const active = vehicles.filter(v => isEligibleVehicle(v) && hasValidOpeningOdometer(v)); const vehicle = active.sort((a, b) => String(a.id || '').localeCompare(String(b.id || '')))[0] || null; const setup = settings.find(item => item.settingKey === 'businessSetup' && !item.deleted && !item.deletedAt); const businessStartDate = setup?.values?.businessStartDate || null; return vehicle ? { businessStartDate, businessStartOdometer: Number(vehicle.openingOdometerKm) } : (businessStartDate ? { businessStartDate, businessStartOdometer: null } : null) },
   async getLastCompletedShift() { await ensureCanonicalReadBoundary(); const shifts = await readAll('shifts'); return shifts.filter(s => s.status === 'COMPLETED' && Number.isFinite(Number(s.endOdometer))).sort((a, b) => new Date(b.shiftEndAt || b.updatedAt) - new Date(a.shiftEndAt || a.updatedAt))[0] || null },
   async getLastCompletedTrip() { await ensureCanonicalReadBoundary(); const trips = await readAll('trips'); return trips.filter(t => t.status === 'COMPLETED' && t.operator).sort((a, b) => new Date(b.tripEndAt || b.updatedAt) - new Date(a.tripEndAt || a.updatedAt))[0] || null },
   async markCanonicalSyncPending({ entityType, entityId, operationId, fingerprint, record } = {}) {
