@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import assert from 'node:assert/strict'
 import { ADMIN_FORM_KEYS, getAdminFormDefinition } from '../application/admin/adminFormDefinitions.js'
 import { validateAdminForm } from '../application/admin/universalFormRules.js'
+import { ADMIN_NAVIGATION_CATEGORIES, ADMIN_NAVIGATION_ITEMS, ADMIN_SETTINGS_MENU } from '../presentation/admin/adminNavigation.js'
 
 assert.deepEqual(ADMIN_FORM_KEYS,['businessSetup','vehicle','driver','compliance','maintenance','loan','loanPayment','prepayment','settlement','driverTarget','breakEvenInputs'])
 const businessSetup=getAdminFormDefinition('businessSetup')
@@ -22,19 +23,12 @@ assert.equal(validateAdminForm(loanPayment,{loanId:'l1',paidOn:'2026-09-01',amou
 const maintenance=getAdminFormDefinition('maintenance')
 assert.equal(validateAdminForm(maintenance,{vehicleId:'v1',performedOn:'2026-09-01',maintenanceType:'Service',validityType:'KM based',cost:100}).valid,false)
 const adminView = await readFile(new URL('../views/AdminView.vue', import.meta.url), 'utf8')
-const menuStart = adminView.indexOf('const items=[')
-const menuEnd = adminView.indexOf('\n]', menuStart)
-const menu = adminView.slice(menuStart, menuEnd)
-const visibleKeys = menu.split("{key:'").slice(1).map(entry => entry.split("'")[0])
-assert.deepEqual(visibleKeys, ['businessSetup','vehicle','driver','compliance','maintenance','loan','settingsBackup','settingsApplication','settingsReset'])
-assert.match(menu, /category:'Business Setup'/)
-assert.match(menu, /category:'Vehicle Records'/)
-assert.match(menu, /category:'Finance'/)
-assert.match(menu, /category:'Settings'/)
-assert.doesNotMatch(menu, /key:'(?:prepayment|ledger|calculations|driverTarget|maintenanceRate)'/)
-assert.match(adminView, /key:'application',title:'Application Settings'/)
-assert.match(adminView, /key:'backup',title:'Backup & Restore'/)
-assert.match(adminView, /key:'reset',title:'Data Reset'/)
+assert.deepEqual(ADMIN_NAVIGATION_CATEGORIES, ['Business Setup', 'Vehicle Records', 'Finance', 'Settings'])
+assert.deepEqual(ADMIN_NAVIGATION_ITEMS.map(item => item.key), ['businessSetup','vehicle','driver','compliance','maintenance','loan','settingsBackup','settingsApplication','settingsReset'])
+assert.deepEqual(ADMIN_NAVIGATION_ITEMS.map(item => item.category), ['Business Setup','Business Setup','Business Setup','Vehicle Records','Vehicle Records','Finance','Settings','Settings','Settings'])
+assert.deepEqual(ADMIN_SETTINGS_MENU.map(item => item.key), ['backup','application','reset'])
+assert.doesNotMatch(ADMIN_NAVIGATION_ITEMS.map(item => item.key).join(','), /prepayment|ledger|calculations|driverTarget|maintenanceRate/)
+assert.match(adminView, /getAdminSettingsKey\(key\)/)
 assert.match(adminView, /Before resetting, create a phone backup JSON file and keep it somewhere you control/)
 assert.match(adminView, /private recovery checkpoint[\s\S]*not a substitute for your own exported backup/)
 console.log('Admin contract passed: only Admin-owned master, vehicle, finance and planning forms are exposed; operational Work/Timeline entries are excluded.')

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { FormDraftService } from '../../application/forms/formDraftService.js'
 const props = defineProps({
   fields: { type: Array, required: true }, modelValue: { type: Object, default: () => ({}) },
@@ -10,6 +10,12 @@ const props = defineProps({
 const emit = defineEmits(['submit', 'cancel', 'field-change', 'draft-restored', 'draft-error'])
 let draftWriteQueue = Promise.resolve()
 let restoringDraft = false
+let submitting = false
+const formInstanceId = `admin-source-form-${Math.random().toString(36).slice(2, 10)}`
+const helpId = field => `${formInstanceId}-help-${field.key}`
+const errorId = field => `${formInstanceId}-error-${field.key}`
+const formElement = ref(null)
+watch(() => props.busy, busy => { if (!busy) submitting = false })
 const fields = computed(() => (props.fields || []).filter(f => f && !f.hidden))
 const sections = computed(() => {
   const groups = []
@@ -41,7 +47,12 @@ function changed(field, raw) {
   emit('field-change', { key: field.key, value: nextValue })
   if (restoringDraft || !props.draftIdentity) return
   const values = { ...collect(), [field.key]: nextValue }
-  draftWriteQueue = draftWriteQueue.then(() => FormDraftService.save(props.draftIdentity, values))
+  // Enqueue every write immediately in the shared service queue. A parent may
+  // commit through an external action button, so it must not overtake a draft
+  // write that is still waiting behind this component's local promise chain.
+  const write = FormDraftService.save(props.draftIdentity, values)
+  draftWriteQueue = Promise.all([draftWriteQueue, write])
+    .then(() => null)
     .catch(error => { emit('draft-error', error); return null })
 }
 async function restoreDraft() {
@@ -59,9 +70,19 @@ async function restoreDraft() {
   finally { restoringDraft = false }
 }
 async function submitForm() {
-  await draftWriteQueue
-  await nextTick()
-  emit('submit', collect())
+  if (props.busy || submitting) return
+  submitting = true
+  try {
+    await draftWriteQueue
+    await nextTick()
+    if (props.busy) return
+    emit('submit', collect())
+    await nextTick()
+  } catch (error) {
+    emit('draft-error', error)
+  } finally {
+    if (!props.busy) submitting = false
+  }
 }
 async function cancelForm() {
   if (props.draftIdentity) {
@@ -95,15 +116,15 @@ onMounted(async () => {
   await restoreDraft()
   if (props.autoOpenFirst) {
     await nextTick()
-    document.querySelector('.admin-source-form')?.querySelector('input:not([type="checkbox"]),select,textarea')?.focus()
+    formElement.value?.querySelector('input:not([type="checkbox"]),select,textarea')?.focus()
   }
 })
 </script>
 
 <template>
-  <form class="admin-source-form" data-form-type="admin-source-record" aria-label="Admin source record entry" novalidate @submit.prevent="submitForm">
+  <form ref="formElement" class="admin-source-form" data-form-type="admin-source-record" aria-label="Admin source record entry" :aria-labelledby="`${formInstanceId}-title`" :aria-busy="busy" novalidate @submit.prevent="submitForm">
     <header class="source-form-heading">
-      <div><span class="source-kicker">BUSINESS RECORD</span><h2>Record details</h2></div>
+      <div><span class="source-kicker">BUSINESS RECORD</span><h2 :id="`${formInstanceId}-title`">Record details</h2></div>
       <span v-if="requiredCount" class="source-required"><b>*</b> Required</span>
       <p>Enter source facts only. Calculated values are handled by KFE.</p>
     </header>
@@ -112,18 +133,19 @@ onMounted(async () => {
       <div class="source-field-grid">
         <label v-for="field in section.fields" :key="field.key" class="source-field" :class="{ 'source-field-wide': field.wide || field.type === 'textarea', 'source-field-invalid': errors[field.key] }">
           <span class="source-field-label">{{ field.label }} <b v-if="field.required">*</b></span>
-          <small v-if="field.help" class="source-field-help">{{ field.help }}</small>
-          <select v-if="field.type === 'select'" :value="value(field)"  :required="field.required" :disabled="busy" :aria-invalid="!!errors[field.key]" :aria-describedby="errors[field.key] ? `admin-error-${field.key}` : undefined" @change="changed(field, $event.target.value)">
+          <small v-if="field.help" :id="helpId(field)" class="source-field-help">{{ field.help }}</small>
+          <select v-if="field.type === 'select'" :value="value(field)"  :required="field.required" :disabled="busy" :aria-invalid="!!errors[field.key]" :aria-describedby="[field.help ? helpId(field) : null, errors[field.key] ? errorId(field) : null].filter(Boolean).join(' ') || undefined" @change="changed(field, $event.target.value)">
             <option value="">Choose {{ field.label.toLowerCase() }}</option>
             <option v-for="option in options(field)" :key="String(option.value)" :value="option.value">{{ option.label }}</option>
           </select>
-          <textarea v-else-if="field.type === 'textarea'" :value="value(field)" :required="field.required" :disabled="busy" :aria-invalid="!!errors[field.key]" :aria-describedby="errors[field.key] ? `admin-error-${field.key}` : undefined" :placeholder="field.placeholder || 'Add details (optional)'" rows="3" @input="changed(field, $event.target.value)"></textarea>
-          <span v-else-if="field.type === 'checkbox'" class="source-toggle"><input type="checkbox" :checked="!!value(field)" :disabled="busy" :aria-invalid="!!errors[field.key]" :aria-describedby="errors[field.key] ? `admin-error-${field.key}` : undefined" @change="changed(field, $event.target.checked)"><span>{{ field.toggleLabel || field.label }}</span></span>
-          <input v-else :value="value(field)" :type="inputType(field)" :inputmode="field.type === 'number' ? (field.step && Number(field.step) % 1 !== 0 ? 'decimal' : 'numeric') : field.inputMode" :min="field.min" :max="field.max" :step="field.step" :required="field.required" :disabled="busy" :aria-invalid="!!errors[field.key]" :aria-describedby="errors[field.key] ? `admin-error-${field.key}` : undefined" :placeholder="field.placeholder || (field.type === 'number' ? '0' : '')" :autocomplete="field.type === 'number' ? 'off' : 'on'" :enterkeyhint="enterKeyHint(field)" @input="changed(field, $event.target.value)">
-          <small v-if="errors[field.key]" :id="`admin-error-${field.key}`" class="source-field-error" role="alert">{{ Array.isArray(errors[field.key]) ? errors[field.key].join(' ') : errors[field.key] }}</small>
+          <textarea v-else-if="field.type === 'textarea'" :value="value(field)" :required="field.required" :disabled="busy" :aria-invalid="!!errors[field.key]" :aria-describedby="[field.help ? helpId(field) : null, errors[field.key] ? errorId(field) : null].filter(Boolean).join(' ') || undefined" :placeholder="field.placeholder || 'Add details (optional)'" rows="3" @input="changed(field, $event.target.value)"></textarea>
+          <span v-else-if="field.type === 'checkbox'" class="source-toggle"><input type="checkbox" :checked="!!value(field)" :disabled="busy" :aria-invalid="!!errors[field.key]" :aria-describedby="[field.help ? helpId(field) : null, errors[field.key] ? errorId(field) : null].filter(Boolean).join(' ') || undefined" @change="changed(field, $event.target.checked)"><span>{{ field.toggleLabel || field.label }}</span></span>
+          <input v-else :value="value(field)" :type="inputType(field)" :inputmode="field.type === 'number' ? (field.step && Number(field.step) % 1 !== 0 ? 'decimal' : 'numeric') : field.inputMode" :min="field.min" :max="field.max" :step="field.step" :required="field.required" :disabled="busy" :aria-invalid="!!errors[field.key]" :aria-describedby="[field.help ? helpId(field) : null, errors[field.key] ? errorId(field) : null].filter(Boolean).join(' ') || undefined" :placeholder="field.placeholder || (field.type === 'number' ? '0' : '')" :autocomplete="field.type === 'number' ? 'off' : 'on'" :enterkeyhint="enterKeyHint(field)" @input="changed(field, $event.target.value)">
+          <small v-if="errors[field.key]" :id="errorId(field)" class="source-field-error" role="alert" aria-live="assertive">{{ Array.isArray(errors[field.key]) ? errors[field.key].join(' ') : errors[field.key] }}</small>
         </label>
       </div>
     </section>
+    <p v-if="busy" class="source-form-saving" role="status" aria-live="polite">Saving your changes…</p>
     <footer v-if="showActions" class="source-form-actions">
       <button type="button" class="source-cancel" :disabled="busy" @click="cancelForm">Cancel</button>
       <button type="submit" class="source-save" :disabled="busy">{{ busy ? 'Saving…' : submitLabel }} <span aria-hidden="true">→</span></button>
