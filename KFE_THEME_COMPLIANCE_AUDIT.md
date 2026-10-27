@@ -16,7 +16,7 @@ The active shell no longer imports the glassmorphic layer. Form, finance, Work, 
 
 ## Theme rule
 
-The approved Application Settings control supports **Light**, **Dark**, and **Auto**. `src/presentation/theme/kfeThemeController.js` persists the selected mode in `kfe.visual.theme.mode`; Auto follows the device's `prefers-color-scheme` and responds to changes. The controller writes the resolved light/dark state to the root document, and shared presentation styles consume the canonical `--kfe-ui-*`, semantic status, spacing, radius, and sizing tokens. The canonical stylesheet owns both palettes; individual screens must not define their own theme.
+KFE supports **Dark theme only**. `src/presentation/theme/kfeThemeController.js` forces and persists `dark` in `kfe.visual.theme.mode`, migrating any legacy `light` or `auto` preference to `dark`. Device `prefers-color-scheme` must not affect the app palette. Shared presentation styles consume the canonical `--kfe-ui-*`, semantic status, spacing, radius, and sizing tokens; the canonical stylesheet owns the dark palette and individual screens must not define their own theme.
 
 Business rules, calculations, persistence, repositories, Work state transitions, form submission semantics, frozen swipe mechanics, and native Android behavior are outside this audit and were not changed.
 
