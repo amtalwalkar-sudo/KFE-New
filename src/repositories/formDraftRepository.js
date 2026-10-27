@@ -68,7 +68,7 @@ export const FormDraftRepository = Object.freeze({
     })
   },
 
-  async latestWorkflow(formId, workflowStep, parentType = 'WORKFLOW') {
+  async latestWorkflow(formId, workflowStep, parentType = 'WORKFLOW', parentId = null) {
     const db = await initializeCanonicalStorage()
     return new Promise((resolve, reject) => {
       const tx = db.transaction(['form_drafts'], 'readonly')
@@ -76,7 +76,8 @@ export const FormDraftRepository = Object.freeze({
       request.onsuccess = () => {
         const record = (request.result || [])
           .filter(item => item.formId === formId && item.workflowStep === workflowStep &&
-            item.parentType === String(parentType).toUpperCase() && item.workflowId && !item.parentId)
+            item.parentType === String(parentType).toUpperCase() && item.workflowId &&
+            (parentId ? item.parentId === String(parentId) : !item.parentId))
           .sort((a, b) => Date.parse(b.updatedAt || '') - Date.parse(a.updatedAt || ''))[0]
         resolve(record || null)
       }
