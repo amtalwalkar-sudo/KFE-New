@@ -28,7 +28,7 @@ assertForbidden(['views', 'components', 'presentation'], [ /from\s+['"][^'"]*\/d
 const adminViewPath = path.join(root, 'views/AdminView.vue')
 if (fs.existsSync(adminViewPath)) {
   const adminView = fs.readFileSync(adminViewPath, 'utf8')
-  if (/from\\s+['\"][^'\"]*\\/domain\\/(?:finance|time)\\//.test(adminView)) {
+  if (/from\s+['"][^'"]*\/domain\/(?:finance|time)\//.test(adminView)) {
     violations.push('AdminView.vue must use application read-model services instead of importing finance/time domain modules directly.')
   }
 }
