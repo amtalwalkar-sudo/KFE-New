@@ -386,3 +386,77 @@ onMounted(()=>{load()})
 </template>
 </AdminShell>
 </template>
+
+<style scoped>
+
+/* Cohesive Admin redesign styles are scoped to this view to avoid global theme impact. */
+:deep(.admin-page) { max-width:1440px; padding:clamp(12px,2vw,26px); }
+:deep(.admin-page) .admin-shell-bar { display:flex; align-items:center; gap:12px; padding:0 0 16px; margin-bottom:8px; border-bottom:1px solid var(--admin-border); }
+:deep(.admin-page) .admin-shell-context { flex:1; min-width:0; }
+:deep(.admin-page) .admin-shell-context > span { font-size:.68rem; letter-spacing:.14em; font-weight:800; color:var(--admin-muted); }
+:deep(.admin-page) .admin-shell-context > strong { display:block; font-size:1.08rem; line-height:1.25; margin-top:3px; }
+:deep(.admin-page) .admin-hero { border-radius:18px; padding:clamp(18px,2.4vw,30px); margin-bottom:14px; }
+:deep(.admin-page) .admin-hero h1 { font-size:clamp(1.55rem,3vw,2.35rem); max-width:820px; }
+:deep(.admin-page) .admin-hero p { max-width:850px; }
+:deep(.admin-page) .admin-home-tools, :deep(.admin-page) .admin-list-tools { display:flex; align-items:center; gap:12px; justify-content:space-between; margin:0 0 14px; }
+:deep(.admin-page) .admin-search-field { display:flex; align-items:center; gap:10px; min-width:0; flex:1; min-height:48px; padding:0 14px; border:1px solid var(--kfe-ui-input-border); border-radius:13px; background:var(--kfe-ui-input-bg); color:var(--kfe-ui-muted); }
+:deep(.admin-page) .admin-search-field > span { font-size:1.45rem; line-height:1; }
+:deep(.admin-page) .admin-search-field input { width:100%; min-width:0; min-height:44px; padding:8px 0; border:0; outline:0; box-shadow:none; background:transparent; color:var(--kfe-ui-text); }
+:deep(.admin-page) .admin-search-field input:focus { outline:0; box-shadow:none; }
+:deep(.admin-page) .admin-search-field:focus-within { border-color:var(--kfe-ui-accent); box-shadow:0 0 0 3px color-mix(in srgb,var(--kfe-ui-accent) 18%,transparent); }
+:deep(.admin-page) .admin-search-hint { flex:0 0 auto; font-size:.78rem; color:var(--admin-muted); font-weight:700; white-space:nowrap; }
+:deep(.admin-page) .admin-workspace { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; gap:14px; }
+:deep(.admin-page) .admin-category { padding:16px; border-radius:16px; }
+:deep(.admin-page) .admin-category-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+:deep(.admin-page) .admin-category-grid { display:grid; gap:8px; }
+:deep(.admin-page) .admin-item { min-height:72px; grid-template-columns:42px minmax(0,1fr) 16px; padding:11px; }
+:deep(.admin-page) .admin-item-copy strong { font-size:.94rem; }
+:deep(.admin-page) .admin-item-copy small { font-size:.8rem; line-height:1.42; }
+:deep(.admin-page) .detail-screen { max-width:1120px; margin-inline:auto; }
+:deep(.admin-page) .detail-intro { max-width:820px; margin:0 0 18px; color:var(--admin-muted); line-height:1.55; }
+:deep(.admin-page) .detail-actions { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:0 0 14px; }
+:deep(.admin-page) .detail-actions .primary { min-width:150px; }
+:deep(.admin-page) .record-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; gap:12px; }
+:deep(.admin-page) .record-card { min-width:0; padding:16px; }
+:deep(.admin-page) .record-top { gap:12px; }
+:deep(.admin-page) .record-top > div { min-width:0; }
+:deep(.admin-page) .record-top strong { overflow-wrap:anywhere; }
+:deep(.admin-page) .clean-card { padding:clamp(14px,1.6vw,20px); }
+:deep(.admin-page) .source-form-section { padding:16px; }
+:deep(.admin-page) .source-field-grid { gap:14px; }
+:deep(.admin-page) .source-field { min-width:0; }
+:deep(.admin-page) .source-field input:not([type=checkbox]), :deep(.admin-page) .source-field select, :deep(.admin-page) .source-field textarea { min-height:46px; border-radius:11px; }
+:deep(.admin-page) .source-field textarea { min-height:100px; }
+:deep(.admin-page) .source-form-actions { position:sticky; bottom:calc(env(safe-area-inset-bottom) + 8px); z-index:5; padding:10px; border:1px solid var(--admin-border); border-radius:14px; background:color-mix(in srgb,var(--kfe-ui-surface) 94%,transparent); backdrop-filter:blur(14px); box-shadow:0 8px 24px color-mix(in srgb,var(--kfe-ui-bg) 72%,transparent); }
+:deep(.admin-page) .source-form-actions button { min-height:46px; }
+:deep(.admin-page) .master-fields { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+:deep(.admin-page) .master-field { min-width:0; }
+:deep(.admin-page) .master-field strong { overflow-wrap:anywhere; }
+:deep(.admin-page) .settings-screen { gap:14px; align-items:start; }
+:deep(.admin-page) .settings-menu { position:sticky; top:8px; }
+:deep(.admin-page) .settings-item { min-height:52px; }
+:deep(.admin-page) .message { margin:12px 0; }
+:deep(.admin-page) .empty { line-height:1.5; }
+@media (min-width:1100px) {
+ :deep(.admin-page) .admin-workspace, :deep(.admin-page) .record-list { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ :deep(.admin-page) .settings-screen { grid-template-columns:minmax(220px,.72fr) minmax(0,2fr); }
+}
+@media (max-width:760px) {
+ :deep(.admin-page) { padding:10px 10px max(20px,env(safe-area-inset-bottom)); }
+ :deep(.admin-page) .admin-home-tools, :deep(.admin-page) .admin-list-tools { align-items:stretch; flex-direction:column; gap:7px; }
+ :deep(.admin-page) .admin-search-hint { padding-left:2px; }
+ :deep(.admin-page) .admin-workspace, :deep(.admin-page) .record-list { grid-template-columns:minmax(0,1fr); }
+ :deep(.admin-page) .admin-item { min-height:68px; }
+ :deep(.admin-page) .detail-actions { display:grid; grid-template-columns:minmax(0,1fr); }
+ :deep(.admin-page) .detail-actions button { width:100%; }
+ :deep(.admin-page) .master-fields, :deep(.admin-page) .metric-grid, :deep(.admin-page) .source-field-grid { grid-template-columns:minmax(0,1fr); }
+ :deep(.admin-page) .source-field-wide { grid-column:auto; }
+ :deep(.admin-page) .settings-menu { position:static; }
+ :deep(.admin-page) .source-form-actions { bottom:calc(env(safe-area-inset-bottom) + 4px); }
+}
+@media (min-width:761px) {
+ :deep(.admin-page) .source-field-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ :deep(.admin-page) .source-field-wide { grid-column:1 / -1; }
+}
+
+</style>
