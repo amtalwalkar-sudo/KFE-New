@@ -131,7 +131,6 @@ const complianceRevenueSummary = record => {
   const days = Object.keys(byDay).length
   return { total, days, average: days ? total / days : 0 }
 }
-const provisionPct = (provision, cost) => cost > 0 ? Math.min(100, Math.max(0, (provision / cost) * 100)) : 0
 const currentDefinition=computed(()=>currentItem.value?ADMIN_FORM_DEFINITIONS[currentItem.value.key]:null)
 const activeDefinition=computed(()=>{if(!currentDefinition.value)return null;const d=clone(currentDefinition.value);for(const f of d.fields||[]){if(f.key==='vehicleId')f.options=all.value.vehicle.map(x=>({value:x.id,label:label('vehicle',x)}));if(f.key==='driverId')f.options=all.value.driver.map(x=>({value:x.id,label:label('driver',x)}));if(f.key==='loanId')f.options=all.value.loan.map(x=>({value:x.id,label:label('loan',x)}))}return d})
 const sourcePayments=id=>live(performanceSnapshot.value?.settlements).filter(x=>x.sourceId===id&&String(x.direction||(x.settlementType==='Receipt'?'IN':'OUT')).toUpperCase()==='OUT')
