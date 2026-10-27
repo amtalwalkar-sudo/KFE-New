@@ -77,16 +77,21 @@ for (const key of ADMIN_FORM_KEYS) {
       assert.ok(missing.errors[field.key], key + '.' + field.key + ': required error must name field')
     }
     if (['date','datetime-local'].includes(field.type)) {
-      const invalidDate = validateAdminForm(definition, { ...values, [field.key]: 'not-a-date' })
+      const withDate = value => ({
+        ...values,
+        [field.key]: value,
+        ...(key === 'vehicle' && field.key === 'saleDate' ? { status: 'Sold', sellPrice: 1 } : {})
+      })
+      const invalidDate = validateAdminForm(definition, withDate('not-a-date'))
       assert.equal(invalidDate.valid, false, key + '.' + field.key + ': invalid date must be rejected')
-      const impossibleDate = validateAdminForm(definition, { ...values, [field.key]: field.type === 'date' ? '2024-02-31' : '2024-02-31T12:00' })
+      const impossibleDate = validateAdminForm(definition, withDate(field.type === 'date' ? '2024-02-31' : '2024-02-31T12:00'))
       assert.equal(impossibleDate.valid, false, key + '.' + field.key + ': impossible calendar dates must be rejected')
-      const invalidLeapDay = validateAdminForm(definition, { ...values, [field.key]: field.type === 'date' ? '2023-02-29' : '2023-02-29T12:00' })
+      const invalidLeapDay = validateAdminForm(definition, withDate(field.type === 'date' ? '2023-02-29' : '2023-02-29T12:00'))
       assert.equal(invalidLeapDay.valid, false, key + '.' + field.key + ': non-leap-year February 29 must be rejected')
-      const validLeapDay = validateAdminForm(definition, { ...values, [field.key]: field.type === 'date' ? '2024-02-29' : '2024-02-29T12:00' })
+      const validLeapDay = validateAdminForm(definition, withDate(field.type === 'date' ? '2024-02-29' : '2024-02-29T12:00'))
       assert.equal(validLeapDay.valid, true, key + '.' + field.key + ': valid leap day must be accepted')
       if (field.type === 'datetime-local') {
-        const invalidTime = validateAdminForm(definition, { ...values, [field.key]: '2024-02-29T24:00' })
+        const invalidTime = validateAdminForm(definition, withDate('2024-02-29T24:00'))
         assert.equal(invalidTime.valid, false, key + '.' + field.key + ': out-of-range clock time must be rejected')
       }
     }
