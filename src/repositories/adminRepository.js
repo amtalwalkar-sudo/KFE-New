@@ -151,9 +151,10 @@ export const AdminRepository = {
       if (sourceStore) stores.add(sourceStore)
       if (formKey === 'settlement' || formKey === 'maintenance' || formKey === 'compliance') stores.add('settlements')
       const tx = db.transaction([...stores], 'readwrite')
-      let remaining = relationChecks.length + (sourceStore ? 1 : 0) + (stores.has('settlements') ? 1 : 0)
+      let remaining = relationChecks.length + (sourceStore ? 1 : 0) + (stores.has('settlements') ? 1 : 0) + (existingId ? 1 : 0)
       let settled = false
       let sourceRecord = null
+      let currentRecord = null
       let settlementRows = []
       const parentRecords = new Map()
       const fail = error => {
@@ -165,6 +166,10 @@ export const AdminRepository = {
       const commit = () => {
         if (remaining > 0 || settled) return
         try {
+          if (existingId) {
+            if (!currentRecord || isDeleted(currentRecord)) throw new Error(`Cannot update missing or deleted ${formKey} record.`)
+            if (String(currentRecord.updatedAt || '') !== String(existingRaw?.updatedAt || '')) throw new Error(`This ${formKey} record changed after the form was opened. Reload it before saving to avoid overwriting newer data.`)
+          }
           for (const check of relationChecks) {
             const parent = parentRecords.get(check.field)
             if (!parent || isDeleted(parent)) throw new Error(`${check.field} references a missing or deleted canonical record.`)
@@ -185,6 +190,11 @@ export const AdminRepository = {
           tx.objectStore(storeName).put(record)
           writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: record.id, entityType: formKey, action, payload: record, createdAt: now })
         } catch (error) { fail(error) }
+      }
+      if (existingId) {
+        const request = tx.objectStore(storeName).get(existingId)
+        request.onsuccess = () => { currentRecord = request.result; remaining--; commit() }
+        request.onerror = () => fail(request.error || new Error(`Failed to verify existing ${formKey} record.`))
       }
       for (const check of relationChecks) {
         const request = tx.objectStore(check.store).get(check.id)
