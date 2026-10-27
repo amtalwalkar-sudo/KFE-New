@@ -11,8 +11,7 @@ const emit = defineEmits(['submit', 'cancel', 'field-change', 'draft-restored', 
 let draftWriteQueue = Promise.resolve()
 let restoringDraft = false
 let submitting = false
-let formInstanceCounter = 0
-const formInstanceId = `admin-source-form-${++formInstanceCounter}`
+const formInstanceId = `admin-source-form-${Math.random().toString(36).slice(2, 10)}`
 const helpId = field => `${formInstanceId}-help-${field.key}`
 const errorId = field => `${formInstanceId}-error-${field.key}`
 const formElement = ref(null)
