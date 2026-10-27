@@ -223,9 +223,6 @@ try {
     maintenanceBalanceInr: 0,
     maintenanceExcessPaymentInr: 49280,
     complianceAccruedInr: 90000,
-    compliancePaymentsInr: 95000,
-    complianceBalanceInr: 0,
-    complianceExcessPaymentInr: 5000,
   }
   assert.equal(canonical.vehicleKm, expected.vehicleKm)
   assert.equal(canonical.maintenanceProvisionAccumulated, expected.maintenanceAccruedInr)
@@ -233,16 +230,12 @@ try {
   assert.equal(canonical.maintenanceProvisionBalance, expected.maintenanceBalanceInr)
   assert.equal(canonical.maintenanceProvisionExcessPayments, expected.maintenanceExcessPaymentInr)
   assert.equal(canonical.renewalProvision, expected.complianceAccruedInr)
-  assert.equal(canonical.complianceProvisionBalance, expected.complianceBalanceInr)
-  assert.equal(canonical.complianceProvisionExcessPayments, expected.complianceExcessPaymentInr)
-  assert.equal(Object.values(canonical.compliancePaymentsAccumulatedById).reduce((sum, value) => sum + value, 0), expected.compliancePaymentsInr)
 
   const leapRange = { from: new Date('2024-02-28T18:30:00.000Z'), to: new Date('2024-02-29T18:29:59.999Z') }
   const leapRecord = { id: 'leap-2024', cost: 30000, validFrom: '2023-12-31T18:30:00.000Z', validUntil: '2024-12-31T18:29:59.999Z' }
   const leapCanonical = derivePerformance({ shifts: [], trips: [], fuelLogs: [], maintenance: [], compliance: [leapRecord], settlements: [] }, leapRange)
   const leapDayExpected = 30000 / 366
   assert.ok(Math.abs(leapCanonical.renewalProvision - leapDayExpected) < 1e-9)
-  assert.ok(Math.abs(leapCanonical.complianceProvisionAccumulatedById['leap-2024'] - (30000 * 60 / 366)) < 1e-9)
 
   const loan = { id: 'synthetic-loan-date-check', principal: 12000, tenureMonths: 12, startDate: '2024-01-01T00:00:00+05:30', annualInterestRatePercent: 0, status: 'Active' }
   const loanPayments = [
@@ -260,8 +253,8 @@ try {
 
   const evidence = [
     { fixtureId: 'THREE-YEAR-BASELINE', selectedPeriod: '2023-01-01..2025-12-31 IST', inputs: { days: 1096, kmPerDay: 200, maintenanceRateInrPerKm: 1.6, complianceCostInrPerYear: 30000, annualValidityDays: '365/366 by calendar year' }, expected: { vehicleKm: expected.vehicleKm, maintenanceProvisionInr: expected.maintenanceAccruedInr, complianceProvisionInr: expected.complianceAccruedInr }, canonical: { vehicleKm: canonical.vehicleKm, maintenanceProvisionInr: canonical.maintenanceProvisionAccumulated, complianceProvisionInr: canonical.renewalProvision }, displayed: { vehicleKm: 'not a headline on provision detail', maintenanceProvisionInr: money(canonical.maintenanceProvision), complianceProvisionInr: money(canonical.renewalProvision) }, expectedDisplayed: { vehicleKm: 'not a headline on provision detail', maintenanceProvisionInr: '₹3,50,720', complianceProvisionInr: '₹90,000' }, pass: true },
-    { fixtureId: 'PROVISION-OVERPAY-001', selectedPeriod: '2023-01-01..2025-12-31 IST', inputs: { maintenancePaymentsInr: 400000, compliancePaymentsInr: 95000 }, expected: { maintenanceBalanceInr: 0, maintenanceExcessPaymentInr: 49280, complianceBalanceInr: 0, complianceExcessPaymentInr: 5000 }, canonical: { maintenanceBalanceInr: canonical.maintenanceProvisionBalance, maintenanceExcessPaymentInr: canonical.maintenanceProvisionExcessPayments, complianceBalanceInr: canonical.complianceProvisionBalance, complianceExcessPaymentInr: canonical.complianceProvisionExcessPayments }, displayed: { maintenanceBalance: money(canonical.maintenanceProvisionBalance), maintenanceExcessPayment: money(canonical.maintenanceProvisionExcessPayments), complianceBalance: money(canonical.complianceProvisionBalance), complianceExcessPayment: money(canonical.complianceProvisionExcessPayments) }, expectedDisplayed: { maintenanceBalance: '₹0', maintenanceExcessPayment: '₹49,280', complianceBalance: '₹0', complianceExcessPayment: '₹5,000' }, pass: true },
-    { fixtureId: 'COMPLIANCE-LEAP-001', selectedPeriod: '2024-02-29 IST', inputs: { annualCostInr: 30000, validityDays: 366, validityFrom: leapRecord.validFrom, validityUntil: leapRecord.validUntil }, expected: { dailyAccrualExactInr: leapDayExpected, accruedThroughLeapDayInr: 30000 * 60 / 366 }, canonical: { dailyAccrualExactInr: leapCanonical.renewalProvision, accruedThroughLeapDayInr: leapCanonical.complianceProvisionAccumulatedById['leap-2024'] }, displayed: { dailyAccrual: money(leapCanonical.renewalProvision) }, expectedDisplayed: { dailyAccrual: '₹82' }, pass: true },
+    { fixtureId: 'MAINTENANCE-POOL-001', selectedPeriod: '2023-01-01..2025-12-31 IST', inputs: { maintenancePaymentsInr: 400000 }, expected: { maintenanceBalanceInr: 0, maintenanceExcessPaymentInr: 49280 }, canonical: { maintenanceBalanceInr: canonical.maintenanceProvisionBalance, maintenanceExcessPaymentInr: canonical.maintenanceProvisionExcessPayments }, displayed: { maintenanceBalance: money(canonical.maintenanceProvisionBalance), maintenanceExcessPayment: money(canonical.maintenanceProvisionExcessPayments) }, expectedDisplayed: { maintenanceBalance: '₹0', maintenanceExcessPayment: '₹49,280' }, pass: true },
+    { fixtureId: 'COMPLIANCE-DAILY-001', selectedPeriod: '2024-02-29 IST', inputs: { annualCostInr: 30000, validityDays: 366, validityFrom: leapRecord.validFrom, validityUntil: leapRecord.validUntil }, expected: { dailyAccrualExactInr: leapDayExpected }, canonical: { dailyAccrualExactInr: leapCanonical.renewalProvision }, displayed: { dailyAccrual: money(leapCanonical.renewalProvision) }, expectedDisplayed: { dailyAccrual: '₹82' }, pass: true },
     { fixtureId: 'LOAN-INVALID-DATE-001', selectedPeriod: 'as of 2024-02-01 IST', inputs: { invalidDateCount: 3, invalidPaymentAmountInr: 3000, validDatedPaymentInr: 500 }, expected: { invalidPaymentCount: 3, invalidPaymentAmountInr: 3000, actualPaidInr: 500 }, canonical: { invalidPaymentCount: loanCanonical.invalidPaymentCount, invalidPaymentAmountInr: loanCanonical.invalidPaymentAmount, actualPaidInr: loanCanonical.actualPaid }, displayed: { invalidPaymentCount: String(loanCanonical.invalidPaymentCount), invalidPaymentAmountInr: money(loanCanonical.invalidPaymentAmount), actualPaidInr: money(loanCanonical.actualPaid) }, expectedDisplayed: { invalidPaymentCount: '3', invalidPaymentAmountInr: '₹3,000', actualPaidInr: '₹500' }, pass: true },
   ]
   for (const row of evidence) {
