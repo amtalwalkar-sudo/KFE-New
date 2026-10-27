@@ -1,16 +1,16 @@
 /* Admin workspace redesign — layout only. Domain services, record fields and save flows remain owned by AdminView/AdminService. */
 .admin-page {
-  --admin-border: color-mix(in srgb, CanvasText 13%, transparent);
-  --admin-muted: color-mix(in srgb, CanvasText 66%, transparent);
-  --admin-panel: color-mix(in srgb, Canvas 96%, CanvasText 4%);
-  --admin-panel-strong: color-mix(in srgb, Canvas 91%, CanvasText 9%);
+  --admin-border: color-mix(in srgb, var(--kfe-ui-text) 13%, transparent);
+  --admin-muted: color-mix(in srgb, var(--kfe-ui-text) 66%, transparent);
+  --admin-panel: color-mix(in srgb, var(--kfe-ui-bg) 96%, var(--kfe-ui-text) 4%);
+  --admin-panel-strong: color-mix(in srgb, var(--kfe-ui-bg) 91%, var(--kfe-ui-text) 9%);
   box-sizing: border-box;
   width: 100%;
   max-width: 1480px;
   min-width: 0;
   margin-inline: auto;
   padding: clamp(12px, 2.5vw, 32px);
-  color: CanvasText;
+  color: var(--kfe-ui-text);
   position: relative;
 }
 .admin-page *, .admin-page *::before, .admin-page *::after { box-sizing: border-box; }
@@ -74,13 +74,13 @@
   border-top: 1px solid var(--admin-border);
 }
 .admin-page .admin-hero-foot > span { color: var(--admin-muted); font-size: .9rem; }
-.admin-page .admin-hero-foot strong { color: CanvasText; font-size: 1.1rem; }
+.admin-page .admin-hero-foot strong { color: var(--kfe-ui-text); font-size: 1.1rem; }
 .admin-page .admin-hero-settings {
   min-height: 42px;
   border: 1px solid var(--admin-border);
   border-radius: 12px;
   padding: 9px 14px;
-  background: Canvas;
+  background: var(--kfe-ui-bg);
   color: inherit;
   font-weight: 700;
 }
@@ -127,7 +127,7 @@
   padding: 12px;
   border: 1px solid var(--admin-border);
   border-radius: 15px;
-  background: Canvas;
+  background: var(--kfe-ui-bg);
   color: inherit;
   text-align: left;
   cursor: pointer;
@@ -135,12 +135,12 @@
 }
 .admin-page .admin-item:hover,
 .admin-page .admin-item:focus-visible {
-  border-color: color-mix(in srgb, CanvasText 34%, transparent);
+  border-color: color-mix(in srgb, var(--kfe-ui-text) 34%, transparent);
   background: var(--admin-panel-strong);
 }
 .admin-page .admin-item:active { transform: scale(.995); }
 .admin-page .admin-item:focus-visible,
-.admin-page button:focus-visible { outline: 3px solid color-mix(in srgb, Highlight 68%, transparent); outline-offset: 2px; }
+.admin-page button:focus-visible { outline: 3px solid color-mix(in srgb, var(--kfe-ui-accent) 68%, transparent); outline-offset: 2px; }
 .admin-page .admin-item-icon {
   display: grid;
   width: 44px;
@@ -232,7 +232,7 @@
   padding: 13px;
   border: 1px solid var(--admin-border);
   border-radius: 12px;
-  background: Canvas;
+  background: var(--kfe-ui-bg);
 }
 .admin-page .master-field span,
 .admin-page .metric-grid span { color: var(--admin-muted); font-size: .8rem; line-height: 1.35; }
@@ -259,8 +259,8 @@
 .admin-page .settings-option-row > div { display: grid; gap: 5px; }
 .admin-page .settings-option-row small { color: var(--admin-muted); line-height: 1.45; }
 .admin-page .theme-selector { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
-.admin-page .theme-selector button { min-height: 42px; padding: 8px 12px; border: 1px solid var(--admin-border); border-radius: 11px; background: Canvas; color: inherit; }
-.admin-page .theme-selector button.active { border-color: CanvasText; background: var(--admin-panel-strong); font-weight: 750; }
+.admin-page .theme-selector button { min-height: 42px; padding: 8px 12px; border: 1px solid var(--admin-border); border-radius: 11px; background: var(--kfe-ui-bg); color: inherit; }
+.admin-page .theme-selector button.active { border-color: var(--kfe-ui-text); background: var(--admin-panel-strong); font-weight: 750; }
 .admin-page .admin-source-form { min-width: 0; }
 .admin-page .source-form-heading { position: relative; padding: 0 0 16px; border-bottom: 1px solid var(--admin-border); margin-bottom: 18px; }
 .admin-page .source-form-heading h2 { margin: 5px 0 8px; font-size: 1.35rem; }
@@ -286,14 +286,14 @@
   padding: 11px 12px;
   border: 1px solid var(--admin-border);
   border-radius: 11px;
-  background: Canvas;
-  color: CanvasText;
+  background: var(--kfe-ui-bg);
+  color: var(--kfe-ui-text);
   font-size: 16px;
 }
 .admin-page .source-field textarea { min-height: 90px; resize: vertical; }
 .admin-page .source-field input:focus,
 .admin-page .source-field select:focus,
-.admin-page .source-field textarea:focus { outline: 2px solid Highlight; outline-offset: 1px; }
+.admin-page .source-field textarea:focus { outline: 2px solid var(--kfe-ui-accent); outline-offset: 1px; }
 .admin-page .source-field-invalid input,
 .admin-page .source-field-invalid select,
 .admin-page .source-field-invalid textarea { border-color: var(--kfe-danger); }
@@ -307,8 +307,8 @@
   font-weight: 750;
   cursor: pointer;
 }
-.admin-page .primary { border: 1px solid color-mix(in srgb, Highlight 75%, CanvasText); background: Highlight; color: HighlightText; }
-.admin-page .secondary { border: 1px solid var(--admin-border); background: Canvas; color: inherit; }
+.admin-page .primary { border: 1px solid color-mix(in srgb, var(--kfe-ui-accent) 75%, var(--kfe-ui-text)); background: var(--kfe-ui-accent); color: var(--kfe-ui-accent)Text; }
+.admin-page .secondary { border: 1px solid var(--admin-border); background: var(--kfe-ui-bg); color: inherit; }
 .admin-page .danger-button { border: 1px solid var(--kfe-danger); background: var(--kfe-danger); color: white; }
 .admin-page .wide { width: 100%; }
 .admin-page .rule-note,
@@ -327,7 +327,7 @@
 .admin-page .provision-total > div:first-child span { color: var(--admin-muted); }
 .admin-page .provision-total > div:first-child strong { font-size: 1.35rem; }
 .admin-page .provision-bar { height: 7px; overflow: hidden; border-radius: 999px; background: var(--admin-panel-strong); }
-.admin-page .provision-bar span { display: block; height: 100%; border-radius: inherit; background: Highlight; }
+.admin-page .provision-bar span { display: block; height: 100%; border-radius: inherit; background: var(--kfe-ui-accent); }
 .admin-page .history-card { margin-top: 16px; }
 .admin-page .history-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--admin-border); }
 .admin-page .history-row:last-child { border-bottom: 0; }
@@ -400,3 +400,177 @@
 .admin-page .schedule-state-overdue,.admin-page .schedule-state-due{color:var(--kfe-danger)}
 .admin-page .schedule-state-partially-paid{color:var(--kfe-ui-accent)}
 .admin-page .loan-amortization .rule-note{margin:10px;min-width:620px}
+
+
+/* Admin visual refinement — presentation only; preserve all existing actions, records and workflows. */
+.admin-page {
+  --admin-border: var(--kfe-ui-border);
+  --admin-muted: var(--kfe-text-muted);
+  --admin-panel: var(--kfe-ui-surface);
+  --admin-panel-strong: var(--kfe-ui-surface-2);
+  padding: clamp(10px, 1.6vw, 22px) clamp(10px, 2vw, 24px);
+}
+.admin-page .admin-hero {
+  padding: clamp(18px, 2.6vw, 30px);
+  border-radius: 20px;
+  margin-bottom: 16px;
+  background: linear-gradient(128deg, var(--kfe-ui-surface-2), var(--kfe-ui-surface) 72%);
+}
+.admin-page .admin-hero h1 {
+  max-width: 720px;
+  text-wrap: balance;
+  margin: 7px 0 9px;
+  font-size: clamp(1.65rem, 3.2vw, 2.4rem);
+  line-height: 1.12;
+  letter-spacing: -.035em;
+}
+.admin-page .admin-hero p {
+  max-width: 720px;
+  font-size: .94rem;
+  line-height: 1.55;
+}
+.admin-page .admin-hero-foot {
+  margin-top: 17px;
+  padding-top: 13px;
+}
+.admin-page .admin-workspace { gap: 14px; }
+.admin-page .admin-category {
+  padding: clamp(12px, 1.4vw, 17px);
+  border-radius: 17px;
+  border-color: color-mix(in srgb, var(--kfe-ui-border) 88%, transparent);
+  background: color-mix(in srgb, var(--kfe-ui-surface) 94%, var(--kfe-ui-bg));
+}
+.admin-page .admin-category-heading { margin-bottom: 11px; }
+.admin-page .admin-category-count {
+  min-width: 26px;
+  height: 26px;
+  border-radius: 8px;
+}
+.admin-page .admin-category-grid { gap: 8px; }
+.admin-page .admin-item {
+  min-height: 66px;
+  grid-template-columns: 40px minmax(0, 1fr) 18px;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 13px;
+  border-color: var(--kfe-ui-border);
+  background: var(--kfe-ui-bg);
+}
+.admin-page .admin-item:hover,
+.admin-page .admin-item:focus-visible {
+  border-color: var(--kfe-ui-accent);
+  background: var(--kfe-accent-soft);
+}
+.admin-page .admin-item-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: var(--kfe-ui-surface-2);
+  font-size: 1rem;
+}
+.admin-page .admin-item-copy { gap: 4px; }
+.admin-page .admin-item-copy strong { font-size: .9rem; line-height: 1.3; }
+.admin-page .admin-item-copy small { font-size: .75rem; line-height: 1.4; color: var(--kfe-muted-text); }
+.admin-page .detail-screen { max-width: 1040px; }
+.admin-page .detail-title {
+  gap: 12px;
+  margin-bottom: 17px;
+  padding: 12px 0 16px;
+}
+.admin-page .detail-title h1 {
+  font-size: clamp(1.5rem, 2.8vw, 2.05rem);
+  letter-spacing: -.025em;
+}
+.admin-page .clean-card,
+.admin-page .history-card,
+.admin-page .settings-panel,
+.admin-page .settings-menu {
+  border-radius: 16px;
+  border-color: var(--kfe-ui-border);
+  background: var(--kfe-ui-surface);
+}
+.admin-page .record-card {
+  border-color: var(--kfe-ui-border);
+  border-radius: 14px;
+  background: var(--kfe-ui-surface);
+}
+.admin-page .master-field,
+.admin-page .metric-grid > div {
+  border-radius: 12px;
+  border-color: var(--kfe-ui-border);
+  background: var(--kfe-ui-surface-2);
+}
+.admin-page .primary,
+.admin-page .secondary,
+.admin-page .danger-button,
+.admin-page .settings-toggle {
+  min-height: 46px;
+  border-radius: 12px;
+  font-weight: 750;
+}
+.admin-page .primary {
+  background: var(--kfe-ui-accent);
+  border-color: var(--kfe-ui-accent);
+  color: var(--kfe-ui-on-accent);
+}
+.admin-page .secondary {
+  border-color: var(--kfe-ui-border);
+  background: var(--kfe-ui-surface-2);
+  color: var(--kfe-ui-text);
+}
+.admin-page .source-form-section {
+  border-color: var(--kfe-ui-border);
+  border-radius: 14px;
+  background: var(--kfe-ui-surface);
+}
+.admin-page .source-section-index {
+  background: var(--kfe-ui-surface-2);
+  color: var(--kfe-ui-muted);
+}
+.admin-page .source-field input:not([type=checkbox]),
+.admin-page .source-field select,
+.admin-page .source-field textarea {
+  border-color: var(--kfe-ui-input-border);
+  background: var(--kfe-ui-input-bg);
+  color: var(--kfe-ui-text);
+}
+.admin-page .source-field input::placeholder,
+.admin-page .source-field textarea::placeholder { color: var(--kfe-ui-muted); opacity: 1; }
+.admin-page .source-field input:focus,
+.admin-page .source-field select:focus,
+.admin-page .source-field textarea:focus {
+  border-color: var(--kfe-ui-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--kfe-ui-accent) 20%, transparent);
+}
+.admin-page .settings-item.active {
+  border-color: var(--kfe-ui-accent);
+  background: var(--kfe-accent-soft);
+}
+.admin-page .message { border-radius: 12px; }
+.admin-page .empty {
+  padding: 24px 16px;
+  border: 1px dashed var(--kfe-ui-border);
+  border-radius: 14px;
+  color: var(--kfe-muted-text);
+  text-align: center;
+}
+@media (min-width: 1200px) {
+  .admin-page .admin-workspace { gap: 16px; }
+  .admin-page .admin-category-grid { gap: 9px; }
+}
+@media (max-width: 760px) {
+  .admin-page { padding: 10px 10px max(18px, env(safe-area-inset-bottom)); }
+  .admin-page .admin-hero { padding: 18px 16px; border-radius: 17px; }
+  .admin-page .admin-hero h1 { font-size: clamp(1.45rem, 6.4vw, 1.9rem); }
+  .admin-page .admin-hero p { font-size: .88rem; }
+  .admin-page .admin-category { padding: 12px; }
+  .admin-page .admin-item { min-height: 64px; }
+  .admin-page .admin-item-copy small { font-size: .77rem; }
+  .admin-page .detail-screen { max-width: none; }
+}
+@media (max-width: 380px) {
+  .admin-page .admin-hero { padding: 16px 13px; }
+  .admin-page .admin-item { grid-template-columns: 34px minmax(0, 1fr) 14px; gap: 8px; padding: 9px; }
+  .admin-page .admin-item-icon { width: 34px; height: 34px; }
+  .admin-page .admin-item-copy small { font-size: .74rem; }
+}
