@@ -418,6 +418,7 @@
 }
 .admin-page .admin-hero h1 {
   max-width: 720px;
+  text-wrap: balance;
   margin: 7px 0 9px;
   font-size: clamp(1.65rem, 3.2vw, 2.4rem);
   line-height: 1.12;
