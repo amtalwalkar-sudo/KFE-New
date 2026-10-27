@@ -54,7 +54,7 @@ assert.ok(admin.includes('Total maintenance paid'), 'Actual payment history/summ
 
 // Guard the release constraints with existing Phase 2–4 contracts and the dark-only responsive shell.
 assert.ok(drafts.includes('FormDraftService.newWorkflowId()'))
-assert.ok(drafts.includes('await clearFormDraft(draftIdentity)'))
+assert.ok(admin.includes('await clearFormDraft(draftIdentity)'), 'Canonical Admin saves must clear the matching draft only after persistence succeeds.')
 assert.ok(integrity.includes('transaction'))
 assert.ok(usability.includes('color-scheme:dark'))
 assert.ok(css.includes('@media(max-width:700px)'))
