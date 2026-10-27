@@ -8,7 +8,8 @@ const validValue = field => {
   if (field.defaultValue !== undefined) return field.defaultValue
   if (field.type === 'checkbox') return false
   if (field.type === 'text' || field.type === 'textarea') return ' Test value '
-  if (field.type === 'date' || field.type === 'datetime-local') return date
+  if (field.type === 'date') return date
+  if (field.type === 'datetime-local') return date + 'T12:00'
   if (field.type === 'number') return field.exclusiveMin && field.min !== undefined ? field.min + 1 : (field.min ?? 1)
   if (field.type === 'select') {
     const option = field.options?.[0]
@@ -78,6 +79,16 @@ for (const key of ADMIN_FORM_KEYS) {
     if (['date','datetime-local'].includes(field.type)) {
       const invalidDate = validateAdminForm(definition, { ...values, [field.key]: 'not-a-date' })
       assert.equal(invalidDate.valid, false, key + '.' + field.key + ': invalid date must be rejected')
+      const impossibleDate = validateAdminForm(definition, { ...values, [field.key]: field.type === 'date' ? '2024-02-31' : '2024-02-31T12:00' })
+      assert.equal(impossibleDate.valid, false, key + '.' + field.key + ': impossible calendar dates must be rejected')
+      const invalidLeapDay = validateAdminForm(definition, { ...values, [field.key]: field.type === 'date' ? '2023-02-29' : '2023-02-29T12:00' })
+      assert.equal(invalidLeapDay.valid, false, key + '.' + field.key + ': non-leap-year February 29 must be rejected')
+      const validLeapDay = validateAdminForm(definition, { ...values, [field.key]: field.type === 'date' ? '2024-02-29' : '2024-02-29T12:00' })
+      assert.equal(validLeapDay.valid, true, key + '.' + field.key + ': valid leap day must be accepted')
+      if (field.type === 'datetime-local') {
+        const invalidTime = validateAdminForm(definition, { ...values, [field.key]: '2024-02-29T24:00' })
+        assert.equal(invalidTime.valid, false, key + '.' + field.key + ': out-of-range clock time must be rejected')
+      }
     }
     if (field.type === 'number') {
       const invalidNumber = validateAdminForm(definition, { ...values, [field.key]: 'not-a-number' })
