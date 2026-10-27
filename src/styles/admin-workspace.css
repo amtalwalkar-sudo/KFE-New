@@ -613,7 +613,7 @@
 .admin-page .source-field { min-width:0; }
 .admin-page .source-field input:not([type=checkbox]),.admin-page .source-field select,.admin-page .source-field textarea { min-height:46px; border-radius:11px; }
 .admin-page .source-field textarea { min-height:100px; }
-.admin-page .source-form-actions { position:sticky; bottom:calc(env(safe-area-inset-bottom) + 8px); z-index:5; padding:10px; border:1px solid var(--admin-border); border-radius:14px; background:color-mix(in srgb,var(--kfe-ui-surface) 94%,transparent); backdrop-filter:blur(14px); box-shadow:0 8px 24px #0003; }
+.admin-page .source-form-actions { position:sticky; bottom:calc(env(safe-area-inset-bottom) + 8px); z-index:5; padding:10px; border:1px solid var(--admin-border); border-radius:14px; background:color-mix(in srgb,var(--kfe-ui-surface) 94%,transparent); backdrop-filter:blur(14px); box-shadow:0 8px 24px color-mix(in srgb,var(--kfe-ui-bg) 72%,transparent); }
 .admin-page .source-form-actions button { min-height:46px; }
 .admin-page .master-fields { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
 .admin-page .master-field { min-width:0; }
