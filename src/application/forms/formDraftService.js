@@ -14,6 +14,6 @@ export const FormDraftService = Object.freeze({
   get: identity => FormDraftRepository.get(identity),
   save: (identity, values) => enqueue(() => FormDraftRepository.save(identity, values)),
   clear: (identity, options) => enqueue(() => FormDraftRepository.clear(identity, options)),
-  latestWorkflow: (formId, step, parentType) => FormDraftRepository.latestWorkflow(formId, step, parentType),
+  latestWorkflow: (formId, step, parentType, parentId = null) => FormDraftRepository.latestWorkflow(formId, step, parentType, parentId),
   newWorkflowId: () => FormDraftRepository.newWorkflowId()
 })
