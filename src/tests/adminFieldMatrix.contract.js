@@ -94,6 +94,10 @@ for (const key of ADMIN_FORM_KEYS) {
       assert.equal(invalidLeapDay.valid, false, key + '.' + field.key + ': non-leap-year February 29 must be rejected')
       const validLeapDay = validateAdminForm(definition, withDate(field.type === 'date' ? '2024-02-29' : '2024-02-29T12:00'))
       assert.equal(validLeapDay.valid, true, key + '.' + field.key + ': valid leap day must be accepted')
+      const invalidCenturyLeapDay = validateAdminForm(definition, withDate(field.type === 'date' ? '1900-02-29' : '1900-02-29T12:00'))
+      assert.equal(invalidCenturyLeapDay.valid, false, key + '.' + field.key + ': century year not divisible by 400 must not be treated as leap year')
+      const validCenturyLeapDay = validateAdminForm(definition, withDate(field.type === 'date' ? '2000-02-29' : '2000-02-29T12:00'))
+      assert.equal(validCenturyLeapDay.valid, true, key + '.' + field.key + ': century year divisible by 400 must be treated as leap year')
       if (field.type === 'datetime-local') {
         const invalidTime = validateAdminForm(definition, withDate('2024-02-29T24:00'))
         assert.equal(invalidTime.valid, false, key + '.' + field.key + ': out-of-range clock time must be rejected')
