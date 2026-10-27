@@ -16,7 +16,7 @@ export const ApplicationSettingsService = Object.freeze({
     return value
   },
   resetPreferences() {
-    const themeMode = setKfeThemeMode('auto')
+    const themeMode = setKfeThemeMode('dark')
     try { localStorage.removeItem(NOTIFICATIONS_KEY) } catch (_) {}
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('kfe:notification-preference-changed', { detail: { enabled: true } }))
