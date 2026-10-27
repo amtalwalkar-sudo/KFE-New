@@ -80,7 +80,11 @@ for (const key of ADMIN_FORM_KEYS) {
       const withDate = value => ({
         ...values,
         [field.key]: value,
-        ...(key === 'vehicle' && field.key === 'saleDate' ? { status: 'Sold', sellPrice: 1 } : {})
+        ...(key === 'vehicle' && field.key === 'saleDate' ? { status: 'Sold', sellPrice: 1 } : {}),
+        ...(key === 'compliance' && field.key === 'validUntil' ? { validFrom: '2024-02-28' } : {}),
+        ...(key === 'driver' && field.key === 'licenseExpiry' ? { joinedOn: '2024-02-28' } : {}),
+        ...(key === 'driverTarget' && field.key === 'effectiveUntil' ? { effectiveFrom: '2024-02-28' } : {}),
+        ...(key === 'breakEvenInputs' && field.key === 'effectiveUntil' ? { effectiveFrom: '2024-02-28' } : {})
       })
       const invalidDate = validateAdminForm(definition, withDate('not-a-date'))
       assert.equal(invalidDate.valid, false, key + '.' + field.key + ': invalid date must be rejected')
