@@ -45,7 +45,7 @@ const leapDay = derivePerformance({
   compliance: [leapRecord],
 }, leapRange)
 assert.ok(Math.abs(leapDay.renewalProvision - (30000 / 366)) < 1e-9, 'Feb 29 IST must accrue one of 366 validity days')
-assert.ok(Math.abs(leapDay.complianceProvisionAccumulatedById['compliance-2024'] - (30000 * 60 / 366)) < 1e-9, 'as-of Feb 29 includes 60 IST calendar days from Jan 1')
+assert.equal(Object.hasOwn(leapDay, 'complianceProvisionAccumulatedById'), false, 'cumulative compliance provision must not be exposed by the performance engine')
 const fullLeapYear = derivePerformance({
   shifts: [], trips: [], fuelLogs: [], maintenance: [], settlements: [],
   compliance: [leapRecord],
@@ -60,6 +60,6 @@ for (const invalidRecord of [
 ]) {
   const invalid = derivePerformance({ shifts: [], trips: [], fuelLogs: [], maintenance: [], compliance: [invalidRecord], settlements: [] }, range)
   assert.ok(Number.isNaN(invalid.renewalProvision), `invalid compliance record ${invalidRecord.id} must not silently become zero provision`)
-  assert.ok(Number.isNaN(invalid.complianceProvisionAccumulatedById[invalidRecord.id]), `invalid compliance record ${invalidRecord.id} must retain unavailable accumulated evidence`)
+  assert.equal(Object.hasOwn(invalid, 'complianceProvisionAccumulatedById'), false, `invalid compliance record ${invalidRecord.id} must not expose cumulative provision wiring`)
 }
-console.log('Maintenance provision evidence and balance contract: PASS')
+console.log('Maintenance provision evidence contract: PASS')
