@@ -6,7 +6,7 @@ import { createBackupConfigAdapter } from '../infrastructure/backup/backupConfig
 
 BackupConfig.configureBackupConfig(createBackupConfigAdapter())
 const backupPanelSource = fs.readFileSync('src/components/admin/BackupRestorePanel.vue', 'utf8');
-assert.match(backupPanelSource, /class="connected"[\s\S]*Save settings[\s\S]*@click="saveCloudConfig"/, 'Connected Dropbox settings must have a save action after the enabled toggle changes.')
+assert.match(backupPanelSource, /class="connected"[\s\S]*@click="saveCloudConfig"[^>]*>Save settings/, 'Connected Dropbox settings must have a save action after the enabled toggle changes.')
 const secureStoreSource = fs.readFileSync('src/infrastructure/security/secureSecretStore.js', 'utf8'); const nativeSecureStoreSource = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeSecureStoragePlugin.java', 'utf8'); assert.match(nativeSecureStoreSource, /AndroidKeyStore/); assert.match(nativeSecureStoreSource, /\.commit\(\)/, 'Native secure credentials must be durably committed before the save operation resolves.'); assert.match(secureStoreSource, /subtle\.generateKey/); assert.match(secureStoreSource, /indexedDB/); assert.match(secureStoreSource, /AES-GCM/);
 await BackupConfig.clearBackupConfiguration()
 let config = await BackupConfig.getBackupConfiguration()
