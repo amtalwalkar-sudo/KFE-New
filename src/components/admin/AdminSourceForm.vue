@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { FormDraftService } from '../../application/forms/formDraftService.js'
 const props = defineProps({
   fields: { type: Array, required: true }, modelValue: { type: Object, default: () => ({}) },
@@ -10,6 +10,9 @@ const props = defineProps({
 const emit = defineEmits(['submit', 'cancel', 'field-change', 'draft-restored', 'draft-error'])
 let draftWriteQueue = Promise.resolve()
 let restoringDraft = false
+let submitting = false
+const formElement = ref(null)
+watch(() => props.busy, busy => { if (!busy) submitting = false })
 const fields = computed(() => (props.fields || []).filter(f => f && !f.hidden))
 const sections = computed(() => {
   const groups = []
@@ -59,9 +62,19 @@ async function restoreDraft() {
   finally { restoringDraft = false }
 }
 async function submitForm() {
-  await draftWriteQueue
-  await nextTick()
-  emit('submit', collect())
+  if (props.busy || submitting) return
+  submitting = true
+  try {
+    await draftWriteQueue
+    await nextTick()
+    if (props.busy) return
+    emit('submit', collect())
+    await nextTick()
+  } catch (error) {
+    emit('draft-error', error)
+  } finally {
+    if (!props.busy) submitting = false
+  }
 }
 async function cancelForm() {
   if (props.draftIdentity) {
@@ -95,13 +108,13 @@ onMounted(async () => {
   await restoreDraft()
   if (props.autoOpenFirst) {
     await nextTick()
-    document.querySelector('.admin-source-form')?.querySelector('input:not([type="checkbox"]),select,textarea')?.focus()
+    formElement.value?.querySelector('input:not([type="checkbox"]),select,textarea')?.focus()
   }
 })
 </script>
 
 <template>
-  <form class="admin-source-form" data-form-type="admin-source-record" aria-label="Admin source record entry" novalidate @submit.prevent="submitForm">
+  <form ref="formElement" class="admin-source-form" data-form-type="admin-source-record" aria-label="Admin source record entry" novalidate @submit.prevent="submitForm">
     <header class="source-form-heading">
       <div><span class="source-kicker">BUSINESS RECORD</span><h2>Record details</h2></div>
       <span v-if="requiredCount" class="source-required"><b>*</b> Required</span>
