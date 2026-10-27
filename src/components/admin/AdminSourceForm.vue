@@ -122,7 +122,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <form ref="formElement" class="admin-source-form" data-form-type="admin-source-record" :aria-labelledby="`${formInstanceId}-title`" :aria-busy="busy" novalidate @submit.prevent="submitForm">
+  <form ref="formElement" class="admin-source-form" data-form-type="admin-source-record" aria-label="Admin source record entry" :aria-labelledby="`${formInstanceId}-title`" :aria-busy="busy" novalidate @submit.prevent="submitForm">
     <header class="source-form-heading">
       <div><span class="source-kicker">BUSINESS RECORD</span><h2 :id="`${formInstanceId}-title`">Record details</h2></div>
       <span v-if="requiredCount" class="source-required"><b>*</b> Required</span>
