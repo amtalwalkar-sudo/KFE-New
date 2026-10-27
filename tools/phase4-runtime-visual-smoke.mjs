@@ -93,13 +93,16 @@ try{
  await page.getByRole('button',{name:'Close fuel form'}).click();
  await page.locator('.work-context-form.form-fuel').waitFor({state:'detached'});
  console.log('Work numeric keypad behavioral check PASS — NEXT advances and non-terminal DONE closes the keypad without submitting.');
- // 4D canonical theme: verify Light, Dark, and Auto apply the resolved root palette.
- await page.evaluate(()=>localStorage.setItem('kfe.visual.theme.mode','light'));await page.reload({waitUntil:'domcontentloaded'});await wait(async()=>await page.locator('html').getAttribute('data-kfe-theme')==='light','Light preference applied');const lightTheme=await page.evaluate(()=>({mode:document.documentElement.dataset.kfeThemeMode,bg:getComputedStyle(document.documentElement).getPropertyValue('--kfe-ui-bg').trim(),scheme:getComputedStyle(document.documentElement).colorScheme}));
- assert(lightTheme.mode==='light','Light mode must persist on the root document');assert(lightTheme.scheme==='light','Light mode must set the light colour scheme');
- await page.evaluate(()=>localStorage.setItem('kfe.visual.theme.mode','dark'));await page.reload({waitUntil:'domcontentloaded'});await wait(async()=>await page.locator('html').getAttribute('data-kfe-theme')==='dark','Dark preference applied');const darkTheme=await page.evaluate(()=>({mode:document.documentElement.dataset.kfeThemeMode,bg:getComputedStyle(document.documentElement).getPropertyValue('--kfe-ui-bg').trim(),scheme:getComputedStyle(document.documentElement).colorScheme}));
- assert(darkTheme.mode==='dark'&&darkTheme.scheme==='dark','Dark mode must persist and set the dark colour scheme');assert(darkTheme.bg!==lightTheme.bg,'Light and Dark modes must resolve to distinct canonical backgrounds');
- await page.evaluate(()=>localStorage.setItem('kfe.visual.theme.mode','auto'));await page.reload({waitUntil:'domcontentloaded'});const expectedAuto=await page.evaluate(()=>matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');await wait(async()=>await page.locator('html').getAttribute('data-kfe-theme')===expectedAuto,'Auto preference follows device appearance');const autoTheme=await page.evaluate(()=>({mode:document.documentElement.dataset.kfeThemeMode,resolved:document.documentElement.dataset.kfeTheme,scheme:getComputedStyle(document.documentElement).colorScheme}));
- assert(autoTheme.mode==='auto','Auto mode must remain selected');assert(autoTheme.resolved===expectedAuto,'Auto mode must follow the device appearance preference');assert(autoTheme.scheme===expectedAuto,'Auto mode must set the matching colour scheme');
+ // 4D canonical theme: legacy Light/Auto preferences must be coerced to Dark-only.
+ for(const legacyMode of ['light','auto','dark']){
+   await page.evaluate(mode=>localStorage.setItem('kfe.visual.theme.mode',mode),legacyMode);
+   await page.reload({waitUntil:'domcontentloaded'});
+   await wait(async()=>await page.locator('html').getAttribute('data-kfe-theme')==='dark','Dark-only theme enforced for '+legacyMode);
+   const theme=await page.evaluate(()=>({mode:document.documentElement.dataset.kfeThemeMode,bg:getComputedStyle(document.documentElement).getPropertyValue('--kfe-ui-bg').trim(),scheme:getComputedStyle(document.documentElement).colorScheme,stored:localStorage.getItem('kfe.visual.theme.mode')}));
+   assert(theme.mode==='dark'&&theme.scheme==='dark'&&theme.stored==='dark','KFE must persist and enforce dark-only theme for prior preference '+legacyMode+': '+JSON.stringify(theme));
+   assert(theme.bg==='#10151B','Dark-only theme must retain the canonical dark background: '+JSON.stringify(theme));
+ }
+ console.log('Dark-only theme behavioral check PASS — legacy Light/Auto settings are migrated to persisted Dark.');
  const unnamed=await page.evaluate(()=>[...document.querySelectorAll('button,a,[role="button"]')].filter(e=>{const s=getComputedStyle(e);return s.display!=='none'&&s.visibility!=='hidden'&&e.getClientRects().length}).filter(e=>!(e.textContent||'').trim()&&!e.getAttribute('aria-label')&&!e.getAttribute('title')).map(e=>e.outerHTML.slice(0,180))); assert(unnamed.length===0,'unnamed visible interactive elements: '+JSON.stringify(unnamed.slice(0,10)));
  await page.setViewportSize({width:1280,height:800});await route('','.work-canonical','Work desktop');await page.screenshot({path:'artifacts/phase4-runtime/work-desktop.png',fullPage:true});
  const dbs=await page.evaluate(async()=>indexedDB.databases? (await indexedDB.databases()).map(x=>x.name).filter(Boolean):[]); assert(dbs.includes('kanishka_kfe_canonical_db'),'canonical DB missing at runtime');assert(!dbs.includes('kanishka_kfe_synthetic_db'),'synthetic DB created during canonical startup');
