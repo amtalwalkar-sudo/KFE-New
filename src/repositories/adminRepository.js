@@ -139,10 +139,77 @@ export const AdminRepository = {
     const record = formKey === 'shift' ? { ...existingRaw, ...structuredClone(persistedValues), id: existingRaw.id, createdAt: existingRaw.createdAt, updatedAt: new Date().toISOString() } : toStoredRecord(formKey, persistedValues, existingRaw)
     const now = record.updatedAt; const action = existing ? 'UPDATE' : 'CREATE'
     return new Promise((resolve, reject) => {
-      const stores = [storeName, 'pending_mutations', 'audit_history']
-      const tx = db.transaction(stores, 'readwrite')
-      try { tx.objectStore(storeName).put(record); writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: record.id, entityType: formKey, action, payload: record, createdAt: now }) } catch (error) { try { tx.abort() } catch (_) {}; reject(error); return }
-      tx.oncomplete = () => { if (getActiveDataSource() === 'canonical') notifyCanonicalDataChanged({ stores: [storeName], reason: `admin:${action}` }); resolve(toFormRecord(formKey, record)) }; tx.onerror = () => reject(tx.error || new Error(`Failed to save ${formKey}.`)); tx.onabort = () => reject(tx.error || new Error(`Save ${formKey} aborted.`))
+      const stores = new Set([storeName, 'pending_mutations', 'audit_history'])
+      const relationChecks = []
+      for (const [field, relatedStore] of relationshipStore[formKey] || []) {
+        if (relatedStore && values[field]) {
+          stores.add(relatedStore)
+          relationChecks.push({ kind: 'parent', field, store: relatedStore, id: values[field] })
+        }
+      }
+      const sourceStore = formKey === 'settlement' ? settlementSourceStore[values.sourceType] : null
+      if (sourceStore) stores.add(sourceStore)
+      if (formKey === 'settlement' || formKey === 'maintenance' || formKey === 'compliance') stores.add('settlements')
+      const tx = db.transaction([...stores], 'readwrite')
+      let remaining = relationChecks.length + (sourceStore ? 1 : 0) + (stores.has('settlements') ? 1 : 0)
+      let settled = false
+      let sourceRecord = null
+      let settlementRows = []
+      const parentRecords = new Map()
+      const fail = error => {
+        if (settled) return
+        settled = true
+        try { tx.abort() } catch (_) {}
+        reject(error)
+      }
+      const commit = () => {
+        if (remaining > 0 || settled) return
+        try {
+          for (const check of relationChecks) {
+            const parent = parentRecords.get(check.field)
+            if (!parent || isDeleted(parent)) throw new Error(`${check.field} references a missing or deleted canonical record.`)
+          }
+          if (formKey === 'settlement') {
+            if (!sourceRecord || isDeleted(sourceRecord)) throw new Error('Settlement source record does not exist or has been deleted.')
+            const sourceAmount = Number(sourceRecord.cost ?? sourceRecord.acquisitionValue ?? (sourceStore === 'shifts' ? sourceRecord.revenue : NaN))
+            if (!Number.isFinite(sourceAmount) || sourceAmount <= 0) throw new Error('Settlement source record does not contain an authoritative positive amount.')
+            if (settlementDirection(values.settlementType) !== 'OUT') throw new Error('Only payment settlements are allowed for maintenance and compliance records.')
+            const alreadyPaid = settlementRows.filter(item => !isDeleted(item) && item.sourceId === values.sourceId && String(item.direction || 'OUT').toUpperCase() === 'OUT' && item.id !== (values.id || '')).reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
+            if (alreadyPaid + Number(values.amount) > sourceAmount + 0.005) throw new Error(`Payment would exceed the linked source amount. Already paid: ₹${alreadyPaid.toFixed(2)}.`)
+          }
+          if (formKey === 'maintenance' || formKey === 'compliance') {
+            const sourceType = settlementSourceType[formKey]
+            const paid = settlementRows.filter(item => !isDeleted(item) && item.sourceId === record.id && String(item.sourceType || '') === sourceType && String(item.direction || 'OUT').toUpperCase() === 'OUT').reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
+            if (Number.isFinite(Number(record.cost)) && paid > Number(record.cost) + 0.005) throw new Error(`Cannot reduce this ${formKey} amount below the already-paid amount. Already paid: ₹${paid.toFixed(2)}.`)
+          }
+          tx.objectStore(storeName).put(record)
+          writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: record.id, entityType: formKey, action, payload: record, createdAt: now })
+        } catch (error) { fail(error) }
+      }
+      for (const check of relationChecks) {
+        const request = tx.objectStore(check.store).get(check.id)
+        request.onsuccess = () => { parentRecords.set(check.field, request.result); remaining--; commit() }
+        request.onerror = () => fail(request.error || new Error(`Failed to verify ${check.field} relationship.`))
+      }
+      if (sourceStore) {
+        const request = tx.objectStore(sourceStore).get(values.sourceId)
+        request.onsuccess = () => { sourceRecord = request.result; remaining--; commit() }
+        request.onerror = () => fail(request.error || new Error('Failed to verify settlement source.'))
+      }
+      if (stores.has('settlements')) {
+        const request = tx.objectStore('settlements').getAll()
+        request.onsuccess = () => { settlementRows = request.result || []; remaining--; commit() }
+        request.onerror = () => fail(request.error || new Error('Failed to verify settlement integrity.'))
+      }
+      commit()
+      tx.oncomplete = () => {
+        if (settled) return
+        settled = true
+        if (getActiveDataSource() === 'canonical') notifyCanonicalDataChanged({ stores: [storeName], reason: `admin:${action}` })
+        resolve(toFormRecord(formKey, record))
+      }
+      tx.onerror = () => fail(tx.error || new Error(`Failed to save ${formKey}.`))
+      tx.onabort = () => fail(tx.error || new Error(`Save ${formKey} aborted.`))
     })
   },
   async correctLoan(values, correctionReason, existingId) {
