@@ -35,6 +35,8 @@ assert.doesNotMatch(menu, /key:'(?:prepayment|ledger|calculations|driverTarget|m
 assert.match(adminView, /key:'application',title:'Application Settings'/)
 assert.match(adminView, /key:'backup',title:'Backup & Restore'/)
 assert.match(adminView, /key:'reset',title:'Data Reset'/)
+assert.match(adminView, /Before resetting, create a phone backup JSON file and keep it somewhere you control/)
+assert.match(adminView, /private recovery checkpoint[\s\S]*not a substitute for your own exported backup/)
 console.log('Admin contract passed: only Admin-owned master, vehicle, finance and planning forms are exposed; operational Work/Timeline entries are excluded.')
 
 assert.match(adminView, /loanAmortizationSchedule/)
