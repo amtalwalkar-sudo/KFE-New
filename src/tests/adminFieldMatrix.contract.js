@@ -77,15 +77,20 @@ for (const key of ADMIN_FORM_KEYS) {
       assert.ok(missing.errors[field.key], key + '.' + field.key + ': required error must name field')
     }
     if (['date','datetime-local'].includes(field.type)) {
-      const withDate = value => ({
-        ...values,
-        [field.key]: value,
-        ...(key === 'vehicle' && field.key === 'saleDate' ? { status: 'Sold', sellPrice: 1 } : {}),
-        ...(key === 'compliance' && field.key === 'validUntil' ? { validFrom: '2024-02-28' } : {}),
-        ...(key === 'driver' && field.key === 'licenseExpiry' ? { joinedOn: '2024-02-28' } : {}),
-        ...(key === 'driverTarget' && field.key === 'effectiveUntil' ? { effectiveFrom: '2024-02-28' } : {}),
-        ...(key === 'breakEvenInputs' && field.key === 'effectiveUntil' ? { effectiveFrom: '2024-02-28' } : {})
-      })
+      const withDate = value => {
+        // Keep cross-field start dates earlier than the date under test, including
+        // the 1900/2000 Gregorian century leap-year boundary vectors.
+        const anchorDate = String(value).slice(0, 4) + '-02-28'
+        return {
+          ...values,
+          [field.key]: value,
+          ...(key === 'vehicle' && field.key === 'saleDate' ? { status: 'Sold', sellPrice: 1 } : {}),
+          ...(key === 'compliance' && field.key === 'validUntil' ? { validFrom: anchorDate } : {}),
+          ...(key === 'driver' && field.key === 'licenseExpiry' ? { joinedOn: anchorDate } : {}),
+          ...(key === 'driverTarget' && field.key === 'effectiveUntil' ? { effectiveFrom: anchorDate } : {}),
+          ...(key === 'breakEvenInputs' && field.key === 'effectiveUntil' ? { effectiveFrom: anchorDate } : {})
+        }
+      }
       const invalidDate = validateAdminForm(definition, withDate('not-a-date'))
       assert.equal(invalidDate.valid, false, key + '.' + field.key + ': invalid date must be rejected')
       const impossibleDate = validateAdminForm(definition, withDate(field.type === 'date' ? '2024-02-31' : '2024-02-31T12:00'))
