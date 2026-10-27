@@ -182,14 +182,14 @@ function readNotificationsPreference(){return ApplicationSettingsService.getNoti
 function chooseNotifications(enabled){notificationsEnabled.value=ApplicationSettingsService.setNotificationsEnabled(enabled);clearMessages()}
 function clearMessages(){error.value='';notice.value=''}
 function closeAction(){actionKey.value=null;actionRecord.value=null;actionDraft.value={};paymentCalculated.value=false;paymentConfirmed.value=false}
-async function openItem(key){
+async function openItem(key, options = {}){
   if(isAdminSettingsItem(key)){clearMessages();selected.value=null;settingsOpen.value=true;settingsSelected.value=getAdminSettingsKey(key);return}
   clearMessages()
   if(key==='prepayment')await beginDraftWorkflow('prepayment','PREPAYMENT')
   if(key==='driverTarget')await beginDraftWorkflow('driver-target','EDIT_TARGET')
   if(key==='maintenanceRate')await beginDraftWorkflow('maintenance-rate','EDIT_RATE')
   settingsOpen.value=false;selected.value=key;masterSelected.value=null;formOpen.value=false;editing.value=null;draft.value={};closeAction()
-  if(key==='prepayment')resetPrepayment()
+  if(key==='prepayment'){resetPrepayment();if(options.loanId)selectPrepaymentLoan(options.loanId)}
   if(key==='driverTarget')resetTarget()
   if(key==='maintenanceRate')resetMaintenanceRate()
   load()
@@ -199,7 +199,7 @@ function backMasterList(){clearMessages();masterSelected.value=null;formOpen.val
 function masterFieldValue(field,record){const v=record?.values?.[field.key];if(v===undefined||v===null||v==='')return '—';if(field.type==='checkbox')return v?'Yes':'No';if(field.type==='select'){if(field.key==='vehicleId')return label('vehicle',all.value.vehicle.find(x=>x.id===v));if(field.key==='driverId')return label('driver',all.value.driver.find(x=>x.id===v));const opts=field.options||[];const found=opts.find(x=>x?.value===v);return found?.label||v}return String(v)}
 function back(){selected.value=null;settingsOpen.value=false;formOpen.value=false;editing.value=null;draft.value={};closeAction();clearMessages()}
 function openSettings(){clearMessages();selected.value=null;settingsOpen.value=true}
-async function openLoanPrepayment(record){await openItem('prepayment');selectPrepaymentLoan(record.id)}
+function openLoanPrepayment(record){return openItem('prepayment',{loanId:record.id})}
 function chooseSetting(key){settingsSelected.value=key;clearMessages()}
 async function add(){
   if(saving.value)return
