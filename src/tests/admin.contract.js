@@ -43,3 +43,10 @@ assert.match(adminView, /loanAmortizationSchedule/)
 assert.match(adminView, /View.*amortization schedule/)
 assert.match(adminView, /paymentState:fullyPaid\?'Paid'/)
 assert.match(adminView, /remainingScheduledAmount>1/)
+assert.match(adminView, /function onActionFieldChange\(\{key,value\}\)[\s\S]*paymentCalculated\.value=false;paymentConfirmed\.value=false/,
+  'Changing a loan payment date or amount must invalidate both its preview and prior confirmation.')
+assert.match(adminView, /@click="paymentCalculated=true;paymentConfirmed=false">Calculate payment/,
+  'Recalculating a loan payment must require a fresh explicit confirmation even if the amount did not change.')
+assert.match(adminView, /function submitActionForm\(values\)[\s\S]*paymentCalculated\.value=true;paymentConfirmed\.value=false/,
+  'Keyboard/form submission that recalculates a loan payment must also clear prior confirmation.')
+

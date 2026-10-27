@@ -8,7 +8,8 @@ const validValue = field => {
   if (field.defaultValue !== undefined) return field.defaultValue
   if (field.type === 'checkbox') return false
   if (field.type === 'text' || field.type === 'textarea') return ' Test value '
-  if (field.type === 'date' || field.type === 'datetime-local') return date
+  if (field.type === 'date') return date
+  if (field.type === 'datetime-local') return date + 'T12:00'
   if (field.type === 'number') return field.exclusiveMin && field.min !== undefined ? field.min + 1 : (field.min ?? 1)
   if (field.type === 'select') {
     const option = field.options?.[0]
@@ -76,8 +77,36 @@ for (const key of ADMIN_FORM_KEYS) {
       assert.ok(missing.errors[field.key], key + '.' + field.key + ': required error must name field')
     }
     if (['date','datetime-local'].includes(field.type)) {
-      const invalidDate = validateAdminForm(definition, { ...values, [field.key]: 'not-a-date' })
+      const withDate = value => {
+        // Keep cross-field start dates earlier than the date under test, including
+        // the 1900/2000 Gregorian century leap-year boundary vectors.
+        const anchorDate = String(value).slice(0, 4) + '-02-28'
+        return {
+          ...values,
+          [field.key]: value,
+          ...(key === 'vehicle' && field.key === 'saleDate' ? { status: 'Sold', sellPrice: 1 } : {}),
+          ...(key === 'compliance' && field.key === 'validUntil' ? { validFrom: anchorDate } : {}),
+          ...(key === 'driver' && field.key === 'licenseExpiry' ? { joinedOn: anchorDate } : {}),
+          ...(key === 'driverTarget' && field.key === 'effectiveUntil' ? { effectiveFrom: anchorDate } : {}),
+          ...(key === 'breakEvenInputs' && field.key === 'effectiveUntil' ? { effectiveFrom: anchorDate } : {})
+        }
+      }
+      const invalidDate = validateAdminForm(definition, withDate('not-a-date'))
       assert.equal(invalidDate.valid, false, key + '.' + field.key + ': invalid date must be rejected')
+      const impossibleDate = validateAdminForm(definition, withDate(field.type === 'date' ? '2024-02-31' : '2024-02-31T12:00'))
+      assert.equal(impossibleDate.valid, false, key + '.' + field.key + ': impossible calendar dates must be rejected')
+      const invalidLeapDay = validateAdminForm(definition, withDate(field.type === 'date' ? '2023-02-29' : '2023-02-29T12:00'))
+      assert.equal(invalidLeapDay.valid, false, key + '.' + field.key + ': non-leap-year February 29 must be rejected')
+      const validLeapDay = validateAdminForm(definition, withDate(field.type === 'date' ? '2024-02-29' : '2024-02-29T12:00'))
+      assert.equal(validLeapDay.valid, true, key + '.' + field.key + ': valid leap day must be accepted')
+      const invalidCenturyLeapDay = validateAdminForm(definition, withDate(field.type === 'date' ? '1900-02-29' : '1900-02-29T12:00'))
+      assert.equal(invalidCenturyLeapDay.valid, false, key + '.' + field.key + ': century year not divisible by 400 must not be treated as leap year')
+      const validCenturyLeapDay = validateAdminForm(definition, withDate(field.type === 'date' ? '2000-02-29' : '2000-02-29T12:00'))
+      assert.equal(validCenturyLeapDay.valid, true, key + '.' + field.key + ': century year divisible by 400 must be treated as leap year')
+      if (field.type === 'datetime-local') {
+        const invalidTime = validateAdminForm(definition, withDate('2024-02-29T24:00'))
+        assert.equal(invalidTime.valid, false, key + '.' + field.key + ': out-of-range clock time must be rejected')
+      }
     }
     if (field.type === 'number') {
       const invalidNumber = validateAdminForm(definition, { ...values, [field.key]: 'not-a-number' })
