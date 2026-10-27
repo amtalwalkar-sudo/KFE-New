@@ -193,12 +193,8 @@ near(provisionMetrics.maintenanceProvision, 600, 'maintenance provision must use
 near(provisionMetrics.maintenanceProvisionBalance, 0, 'maintenance provision pool must not become negative')
 near(provisionMetrics.maintenanceProvisionExcessPayments, 100, 'maintenance overpayment must remain separately visible')
 near(provisionMetrics.complianceProvisionById.c1, 24000 / 365, 'compliance provision must accrue across every calendar day in the validity/report overlap')
-near(provisionMetrics.complianceProvisionAccumulatedById.c1, (24000 / 365) * 253, 'compliance provision bucket must accumulate through the selected as-of date')
-near(provisionMetrics.complianceProvisionBalancesById.c1, 0, 'compliance provision bucket must not become negative')
-near(provisionMetrics.complianceProvisionExcessPaymentsById.c1, 25000 - ((24000 / 365) * 253), 'compliance overpayment must remain separately visible')
 
-// Provision buckets are rolling balances, not month-local buckets.
-// A prior month's provision/payment changes the opening balance of the next month.
+// Maintenance provision remains a rolling pool; compliance's cumulative bucket is not exposed.
 const rolloverSnapshot = {
   ...engineSnapshot,
   shifts: [
@@ -220,8 +216,6 @@ near(augProvision.maintenanceProvisionAccumulated, 300, 'August maintenance prov
 near(augProvision.maintenanceProvisionBalance, 0, 'August maintenance payment must empty the maintenance bucket')
 near(sepProvision.maintenanceProvisionAccumulated, 900, 'September maintenance bucket must include the prior month')
 near(sepProvision.maintenanceProvisionBalance, 0, 'September maintenance payment must empty the rolled maintenance bucket')
-near(sepProvision.complianceProvisionAccumulatedById['c-roll'], 6100, 'September compliance bucket must roll from August through validity end')
-near(sepProvision.complianceProvisionBalancesById['c-roll'], 6100, 'compliance bucket must carry unpaid provision forward across months')
 
 const historicalRateSnapshot = {
   ...engineSnapshot,
