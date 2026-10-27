@@ -1,46 +1,36 @@
 const STORAGE_KEY='kfe.visual.theme.mode'
-const VALID_MODES=new Set(['auto','light','dark'])
-let mediaQuery=null
-let mediaListener=null
 
 function readMode(){
-  try{
-    const stored=localStorage.getItem(STORAGE_KEY)
-    return VALID_MODES.has(stored)?stored:'auto'
-  }catch(_){return 'auto'}
+  try {
+    if (localStorage.getItem(STORAGE_KEY) !== 'dark') localStorage.setItem(STORAGE_KEY, 'dark')
+  } catch (_) {}
+  return 'dark'
 }
-function resolvedMode(mode){
-  if(mode==='light'||mode==='dark')return mode
-  return typeof window!=='undefined'&&window.matchMedia?.('(prefers-color-scheme: light)').matches?'light':'dark'
-}
-export function applyKfeTheme(mode=readMode()){
-  const selected=VALID_MODES.has(mode)?mode:'auto'
-  const resolved=resolvedMode(selected)
+
+export function applyKfeTheme(){
+  readMode()
   const root=document.documentElement
-  root.dataset.kfeTheme=resolved
-  root.dataset.kfeThemeMode=selected
-  root.style.colorScheme=resolved
-  return selected
+  root.dataset.kfeTheme='dark'
+  root.dataset.kfeThemeMode='dark'
+  root.style.colorScheme='dark'
+  return 'dark'
 }
-export function setKfeThemeMode(mode){
-  const selected=VALID_MODES.has(mode)?mode:'auto'
-  try{localStorage.setItem(STORAGE_KEY,selected)}catch(_){}
-  return applyKfeTheme(selected)
+
+export function setKfeThemeMode(_mode){
+  try { localStorage.setItem(STORAGE_KEY, 'dark') } catch (_) {}
+  return applyKfeTheme()
 }
+
 export function setKfeThemeSchedule(_schedule){
-  return setKfeThemeMode('auto')
+  return setKfeThemeMode('dark')
 }
+
 export function getKfeThemeSettings(){
-  const mode=readMode()
-  return {mode,resolved:resolvedMode(mode)}
+  return {mode:'dark',resolved:'dark'}
 }
+
 export function startKfeThemeController(){
   applyKfeTheme()
-  if(typeof window!=='undefined'&&window.matchMedia){
-    mediaQuery=window.matchMedia('(prefers-color-scheme: light)')
-    mediaListener=()=>{if(readMode()==='auto')applyKfeTheme('auto')}
-    mediaQuery.addEventListener?.('change',mediaListener)
-  }
   const onVisibility=()=>{if(document.visibilityState==='visible')applyKfeTheme()}
   const onStorage=event=>{if(event.key===STORAGE_KEY)applyKfeTheme()}
   document.addEventListener('visibilitychange',onVisibility)
@@ -48,6 +38,5 @@ export function startKfeThemeController(){
   return ()=>{
     document.removeEventListener('visibilitychange',onVisibility)
     window.removeEventListener('storage',onStorage)
-    if(mediaQuery&&mediaListener)mediaQuery.removeEventListener?.('change',mediaListener)
   }
 }
