@@ -130,7 +130,8 @@ export const EventLocationService = {
     const snapshots = await this.forEntities(entityType, [entityId])
     return snapshots
   },
-  async forEntities(entityType, entityIds = [], knownNativeSnapshots = null) {
+  async forEntities(entityType, entityIds = []) {
+    const knownNativeSnapshots = arguments.length > 2 ? arguments[2] : null
     const ids = [...new Set((entityIds || []).filter(Boolean))]
     if (!entityType || !ids.length) return []
     const [localGroups, native] = await Promise.all([
