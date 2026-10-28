@@ -277,12 +277,9 @@ onMounted(()=>{load()})
 >
 
 
-<template v-if="!selected">
-  <header class="admin-hero">
-    <div class="admin-hero-kicker">ADMINISTRATION</div>
-    <h1>Business control centre</h1>
-    <p>Manage the source records and planning inputs behind KFE calculations. Changes are validated and saved through the authoritative Admin service.</p>
-    <div class="admin-hero-foot"><span><strong>{{categories.length}}</strong> Admin sections</span><button type="button" class="admin-hero-settings" @click="openSettings">Settings <span aria-hidden="true">↗</span></button></div>
+<template v-if="!selected&&!settingsOpen">
+  <header class="admin-home-heading">
+    <h1>Admin workspace</h1>
   </header>
   <div class="admin-home-tools"><label class="admin-search-field"><span aria-hidden="true">⌕</span><input v-model="adminSearch" type="search" placeholder="Find an Admin area…" aria-label="Search Admin areas"></label><span class="admin-search-hint">{{visibleGroupedItems.reduce((count,group)=>count+group.items.length,0)}} of {{items.length}} destinations</span></div>
   <div v-if="!visibleGroupedItems.length" class="empty admin-no-results">No Admin areas match “{{adminSearch}}”. Try a different search.</div>
@@ -300,7 +297,7 @@ onMounted(()=>{load()})
   </div>
 </template>
 
-<template v-if="settingsOpen">
+<template v-else-if="settingsOpen">
 <section class="settings-screen"><nav class="settings-menu" aria-label="Admin settings sections"><button v-for="item in settingsMenu" :key="item.key" class="settings-item" :class="{active:settingsSelected===item.key}" @click="chooseSetting(item.key)"><span>{{item.icon}}</span><strong>{{item.title}}</strong><span>›</span></button></nav><section v-if="settingsSelected==='backup'" class="settings-panel"><h2>Backup &amp; Restore</h2><p class="settings-context">Export a copy before making major changes. After a restore, check the resulting records and any reported conflicts.</p><BackupRestorePanel/></section><section v-else-if="settingsSelected==='application'" class="settings-panel"><h2>Application Settings</h2><p class="settings-context">These preferences affect the KFE app experience; the dark theme is fixed.</p><div class="application-setting"><strong>Appearance</strong><p>Dark theme is always enabled in KFE.</p></div><div class="application-setting"><strong>Notifications</strong><p>Save your preference for KFE app notifications. Native Work action controls remain independent.</p><label class="notification-toggle"><input type="checkbox" :checked="notificationsEnabled" @change="chooseNotifications($event.target.checked)"><span>Enable notifications</span></label></div></section><section v-else class="settings-panel"><h2>Data Reset</h2><p class="settings-context">Use this only when you intentionally want to start with an empty business workspace.</p><p>This permanently clears canonical KFE business records.</p><p class="reset-safety-note">Before resetting, create a phone backup JSON file and keep it somewhere you control. KFE retains a private recovery checkpoint, but that internal copy is not a substitute for your own exported backup.</p><button class="danger-button" :disabled="loading" @click="resetData">Reset all data</button></section></section>
 </template>
 
