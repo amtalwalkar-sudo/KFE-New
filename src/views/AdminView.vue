@@ -277,7 +277,7 @@ onMounted(()=>{load()})
 >
 
 
-<template v-if="!selected&&!settingsOpen">
+<template v-if="!selected">
   <header class="admin-hero">
     <div class="admin-hero-kicker">ADMINISTRATION</div>
     <h1>Business control centre</h1>
@@ -300,7 +300,7 @@ onMounted(()=>{load()})
   </div>
 </template>
 
-<template v-else-if="settingsOpen">
+<template v-if="settingsOpen">
 <section class="settings-screen"><nav class="settings-menu" aria-label="Admin settings sections"><button v-for="item in settingsMenu" :key="item.key" class="settings-item" :class="{active:settingsSelected===item.key}" @click="chooseSetting(item.key)"><span>{{item.icon}}</span><strong>{{item.title}}</strong><span>›</span></button></nav><section v-if="settingsSelected==='backup'" class="settings-panel"><h2>Backup &amp; Restore</h2><p class="settings-context">Export a copy before making major changes. After a restore, check the resulting records and any reported conflicts.</p><BackupRestorePanel/></section><section v-else-if="settingsSelected==='application'" class="settings-panel"><h2>Application Settings</h2><p class="settings-context">These preferences affect the KFE app experience; the dark theme is fixed.</p><div class="application-setting"><strong>Appearance</strong><p>Dark theme is always enabled in KFE.</p></div><div class="application-setting"><strong>Notifications</strong><p>Save your preference for KFE app notifications. Native Work action controls remain independent.</p><label class="notification-toggle"><input type="checkbox" :checked="notificationsEnabled" @change="chooseNotifications($event.target.checked)"><span>Enable notifications</span></label></div></section><section v-else class="settings-panel"><h2>Data Reset</h2><p class="settings-context">Use this only when you intentionally want to start with an empty business workspace.</p><p>This permanently clears canonical KFE business records.</p><p class="reset-safety-note">Before resetting, create a phone backup JSON file and keep it somewhere you control. KFE retains a private recovery checkpoint, but that internal copy is not a substitute for your own exported backup.</p><button class="danger-button" :disabled="loading" @click="resetData">Reset all data</button></section></section>
 </template>
 
@@ -308,7 +308,7 @@ onMounted(()=>{load()})
 <CalculationsView/>
 </template>
 
-<template v-else>
+<template v-else-if="selected">
 <section class="detail-screen" :aria-busy="loading" aria-labelledby="admin-detail-title"><div class="detail-title"><span class="item-icon" aria-hidden="true">{{currentItem.icon}}</span><div><div class="category-label">{{currentItem.category}}</div><h1 id="admin-detail-title">{{currentItem.title}}</h1></div></div><p class="detail-intro">{{selected==='businessSetup'?'Set the business start date used by KFE planning.':selected==='vehicle'?'Maintain the vehicle identity and lifecycle details used across KFE.':selected==='driver'?'Manage driver identity and assignment details.':selected==='compliance'?'Track compliance validity, costs, payments, and supporting records.':selected==='maintenance'?'Record actual maintenance costs and payments. The effective-dated per-kilometre rate is managed separately.':selected==='loan'?'Manage loan terms, actual EMI payments, prepayments, and repayment history.':selected==='driverTarget'?'Set the driver-entered monthly profit target and review its history.':selected==='maintenanceRate'?'Maintain the effective-dated maintenance rate used by planning calculations.':selected==='prepayment'?'Review the calculated effect before confirming a loan prepayment.':'Review and manage the selected Admin records.'}}</p><p v-if="error" class="message error" role="alert" aria-live="assertive">{{error}}</p><p v-if="notice" class="message notice" role="status" aria-live="polite">✓ {{notice}}</p>
 
 <template v-if="selected==='driverTarget'">
