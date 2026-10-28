@@ -192,7 +192,6 @@ function openMasterRecord(record){clearMessages();masterSelected.value=record.id
 function backMasterList(){clearMessages();masterSelected.value=null;formOpen.value=false;editing.value=null;draft.value={}}
 function masterFieldValue(field,record){const v=record?.values?.[field.key];if(v===undefined||v===null||v==='')return '—';if(field.type==='checkbox')return v?'Yes':'No';if(field.type==='select'){if(field.key==='vehicleId')return label('vehicle',all.value.vehicle.find(x=>x.id===v));if(field.key==='driverId')return label('driver',all.value.driver.find(x=>x.id===v));const opts=field.options||[];const found=opts.find(x=>x?.value===v);return found?.label||v}return String(v)}
 function back(){selected.value=null;settingsOpen.value=false;formOpen.value=false;editing.value=null;draft.value={};closeAction();clearMessages()}
-function openSettings(){clearMessages();selected.value=null;settingsOpen.value=true}
 function openLoanPrepayment(record){return openItem('prepayment',{loanId:record.id})}
 function chooseSetting(key){settingsSelected.value=key;clearMessages()}
 async function add(){
@@ -307,9 +306,7 @@ onBeforeUnmount(()=>{
 <AdminShell
   :show-back="Boolean(selected || settingsOpen)"
   :title="settingsOpen ? 'Settings' : selected ? (currentItem?.title || 'Admin') : 'Admin'"
-  :settings-open="settingsOpen"
   @back="back"
-  @toggle-settings="settingsOpen ? settingsOpen=false : openSettings()"
 >
 
 
