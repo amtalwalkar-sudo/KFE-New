@@ -4,6 +4,7 @@ import android.content.Context;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.work.BackoffPolicy;
 import androidx.work.Constraints;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.NetworkType;
@@ -36,6 +37,9 @@ public final class KfeLocationNameWorker extends Worker {
   private static final String UNIQUE_WORK = "kfe-location-name-enrichment";
   private static final int BATCH_SIZE = 20;
   private static final int MAX_RETRIES = 5;
+  private static final long[] LOCALITY_RETRY_DELAYS_MS = {
+      60_000L, 5 * 60_000L, 30 * 60_000L, 2 * 60 * 60_000L, 12 * 60 * 60_000L
+  };
   private static final String ENDPOINT = "https://photon.komoot.io/reverse";
 
   public KfeLocationNameWorker(@NonNull Context context, @NonNull WorkerParameters params) {
@@ -43,23 +47,27 @@ public final class KfeLocationNameWorker extends Worker {
   }
 
   public static void enqueue(@NonNull Context context) {
-    enqueue(context, ExistingWorkPolicy.KEEP);
+    enqueue(context, ExistingWorkPolicy.KEEP, 0L);
   }
 
   private static void enqueue(@NonNull Context context, @NonNull ExistingWorkPolicy policy) {
+    enqueue(context, policy, 0L);
+  }
+
+  private static void enqueue(@NonNull Context context, @NonNull ExistingWorkPolicy policy, long delayMs) {
     Constraints constraints = new Constraints.Builder()
         .setRequiredNetworkType(NetworkType.CONNECTED)
         .build();
-    OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(KfeLocationNameWorker.class)
+    OneTimeWorkRequest.Builder builder = new OneTimeWorkRequest.Builder(KfeLocationNameWorker.class)
         .setConstraints(constraints)
-        .setBackoffCriteria(androidx.work.BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
-        .build();
+        .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS);
+    if (delayMs > 0L) builder.setInitialDelay(delayMs, TimeUnit.MILLISECONDS);
     WorkManager.getInstance(context.getApplicationContext())
-        .enqueueUniqueWork(UNIQUE_WORK, policy, request);
+        .enqueueUniqueWork(UNIQUE_WORK, policy, builder.build());
   }
 
-  private static void enqueueContinuation(@NonNull Context context) {
-    enqueue(context, ExistingWorkPolicy.APPEND_OR_REPLACE);
+  private static void enqueueContinuation(@NonNull Context context, long delayMs) {
+    enqueue(context, ExistingWorkPolicy.APPEND_OR_REPLACE, Math.max(0L, delayMs));
   }
 
   private boolean hasValidatedInternet() {
@@ -68,7 +76,7 @@ public final class KfeLocationNameWorker extends Worker {
 
   @NonNull @Override public Result doWork() {
     if (getRunAttemptCount() >= MAX_RETRIES) {
-      Log.w(TAG, "Stopped after bounded reverse-geocoding retries; saved coordinates remain available.");
+      Log.w(TAG, "Stopped after bounded transport retries; saved coordinates remain available.");
       return Result.failure();
     }
 
@@ -79,25 +87,48 @@ public final class KfeLocationNameWorker extends Worker {
       if (records == null || records.length() == 0) return Result.success();
 
       int processed = 0;
-      boolean hasMorePending = false;
+      boolean hasMoreDue = false;
+      long earliestRetryAt = Long.MAX_VALUE;
+      long now = System.currentTimeMillis();
       KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(getApplicationContext());
+
       for (int i = 0; i < records.length(); i++) {
         JSONObject snapshot = records.optJSONObject(i);
-        if (snapshot == null || !snapshot.optString("placeName", "").trim().isEmpty()) continue;
-        if (snapshot.has("geocodeAttemptedAt") && !snapshot.isNull("geocodeAttemptedAt")) continue;
+        if (!hasUnresolvedLocality(snapshot)) continue;
         double lat = snapshot.optDouble("latitude", Double.NaN);
         double lon = snapshot.optDouble("longitude", Double.NaN);
-        if (!Double.isFinite(lat) || Math.abs(lat) > 90 || !Double.isFinite(lon) || Math.abs(lon) > 180) continue;
+        if (!validCoordinates(lat, lon)) continue;
 
+        long nextAttemptAt = nextAttemptAt(snapshot);
+        if (nextAttemptAt > now) {
+          earliestRetryAt = Math.min(earliestRetryAt, nextAttemptAt);
+          continue;
+        }
         if (processed >= BATCH_SIZE) {
-          hasMorePending = true;
+          hasMoreDue = true;
           break;
         }
+
         // Keep requests gentle toward the public geocoder when several saved events are pending.
         if (processed > 0) Thread.sleep(250L);
         String label = reverseGeocode(lat, lon);
-        snapshot.put("geocodeAttemptedAt", Instant.now().toString());
-        if (label != null && !label.trim().isEmpty()) snapshot.put("placeName", label);
+        long attemptedAt = System.currentTimeMillis();
+        int attempts = Math.max(0, snapshot.optInt("geocodeAttemptCount", 0)) + 1;
+        snapshot.put("geocodeAttemptedAt", Instant.ofEpochMilli(attemptedAt).toString());
+        snapshot.put("geocodeLastAttemptAt", Instant.ofEpochMilli(attemptedAt).toString());
+        snapshot.put("geocodeAttemptCount", attempts);
+        if (label != null && !label.trim().isEmpty()) {
+          snapshot.put("placeName", label.trim());
+          snapshot.remove("geocodeNextAttemptAt");
+        } else {
+          // A valid HTTP response with no usable locality is not success. Keep it
+          // retryable with persisted backoff so a later network/geocoder recovery
+          // can enrich the same snapshot without changing its GPS evidence.
+          long delay = LOCALITY_RETRY_DELAYS_MS[Math.min(attempts - 1, LOCALITY_RETRY_DELAYS_MS.length - 1)];
+          long retryAt = attemptedAt + delay;
+          snapshot.put("geocodeNextAttemptAt", Instant.ofEpochMilli(retryAt).toString());
+          earliestRetryAt = Math.min(earliestRetryAt, retryAt);
+        }
         snapshot.put("updatedAt", Instant.now().toString());
         KfeCanonicalWorkStore.Outcome outcome = store.putRecord(
             "gps-locality-" + snapshot.optString("id") + "-" + UUID.randomUUID(),
@@ -106,7 +137,11 @@ public final class KfeLocationNameWorker extends Worker {
         processed++;
       }
 
-      if (hasMorePending) enqueueContinuation(getApplicationContext());
+      if (hasMoreDue) {
+        enqueueContinuation(getApplicationContext(), 0L);
+      } else if (earliestRetryAt != Long.MAX_VALUE) {
+        enqueueContinuation(getApplicationContext(), Math.max(1L, earliestRetryAt - System.currentTimeMillis()));
+      }
       return Result.success();
     } catch (IOException error) {
       Log.w(TAG, "Reverse geocoding temporarily failed; WorkManager will retry with backoff.", error);
@@ -115,6 +150,34 @@ public final class KfeLocationNameWorker extends Worker {
       Log.e(TAG, "Saved GPS locality enrichment failed safely.", error);
       return Result.retry();
     }
+  }
+
+  private static boolean hasUnresolvedLocality(JSONObject snapshot) {
+    return snapshot != null && snapshot.optString("placeName", "").trim().isEmpty();
+  }
+
+  private static boolean validCoordinates(double latitude, double longitude) {
+    return Double.isFinite(latitude) && Math.abs(latitude) <= 90
+        && Double.isFinite(longitude) && Math.abs(longitude) <= 180;
+  }
+
+  private static long nextAttemptAt(JSONObject snapshot) {
+    String rawNext = snapshot.optString("geocodeNextAttemptAt", "");
+    if (!rawNext.isEmpty() && !"null".equalsIgnoreCase(rawNext)) {
+      try { return Instant.parse(rawNext).toEpochMilli(); }
+      catch (Exception ignored) { /* malformed legacy retry metadata is retried safely */ }
+    }
+    // Older builds wrote geocodeAttemptedAt and then permanently skipped that
+    // record. Treat that field as history, not terminal completion.
+    String legacyAttempt = snapshot.optString("geocodeAttemptedAt", "");
+    if (!legacyAttempt.isEmpty() && snapshot.optInt("geocodeAttemptCount", 0) <= 0) {
+      try {
+        return Instant.parse(legacyAttempt).toEpochMilli() + LOCALITY_RETRY_DELAYS_MS[0];
+      } catch (Exception ignored) {
+        return 0L;
+      }
+    }
+    return 0L;
   }
 
   private String reverseGeocode(double latitude, double longitude) throws IOException {
@@ -137,8 +200,8 @@ public final class KfeLocationNameWorker extends Worker {
         JSONObject payload = new JSONObject(body.toString());
         JSONArray features = payload.optJSONArray("features");
         if (features == null || features.length() == 0) return null;
-        JSONObject properties = features.optJSONObject(0) == null ? new JSONObject()
-            : features.optJSONObject(0).optJSONObject("properties");
+        JSONObject feature = features.optJSONObject(0);
+        JSONObject properties = feature == null ? null : feature.optJSONObject("properties");
         if (properties == null) return null;
         String locality = first(properties, "suburb", "neighbourhood", "neighborhood", "locality", "district", "county", "city_district");
         String city = first(properties, "city", "town", "village", "municipality");
