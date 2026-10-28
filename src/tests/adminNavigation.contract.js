@@ -59,4 +59,8 @@ assert.match(adminView, /<header class="admin-home-heading">\s*<h1>Admin workspa
 assert.doesNotMatch(adminView, /admin-hero-settings|Business control centre|Changes are validated and saved through the authoritative Admin service/)
 assert.match(adminView, /<template v-else-if="selected">\s*<section class="detail-screen"/)
 assert.doesNotMatch(adminView, /from ['"][^'"]*\/domain\/(?:finance|time)\//)
+assert.match(adminView, /window\\.addEventListener\\('popstate', handleAdminPopState\\)/)
+assert.match(adminView, /if \\(selected\\.value \\|\\| settingsOpen\\.value\\) back\\(\\)/)
+assert.match(adminView, /window\\.history\\.pushState\\([\\s\\S]*kfeAdminDetail: true/)
+assert.match(adminView, /window\\.removeEventListener\\('popstate', handleAdminPopState\\)/)
 console.log('Admin navigation contract: PASS — approved four categories/nine entries and settings routing are fixed.')
