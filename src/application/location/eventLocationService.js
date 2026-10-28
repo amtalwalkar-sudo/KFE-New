@@ -6,6 +6,65 @@ import { ShiftTripRepository } from '../../repositories/shiftTripRepository.js'
 
 const locationNameResolver = new PhotonLocationNameAdapter()
 let locationReconcileAttempt = null
+let locationRetryTimer = null
+const LOCATION_RETRY_KEY = 'kfe:location-name-retry:v1'
+const LOCATION_RETRY_DELAYS = [60_000, 5 * 60_000, 30 * 60_000, 2 * 60 * 60_000, 12 * 60 * 60_000]
+
+const readLocationRetryState = () => {
+  try {
+    const value = globalThis.localStorage?.getItem(LOCATION_RETRY_KEY)
+    const parsed = value ? JSON.parse(value) : {}
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+  } catch (_) { return {} }
+}
+const writeLocationRetryState = state => {
+  try { globalThis.localStorage?.setItem(LOCATION_RETRY_KEY, JSON.stringify(state)) } catch (_) {}
+}
+const scheduleNextLocationRetry = () => {
+  if (locationRetryTimer != null || typeof globalThis.setTimeout !== 'function') return
+  const state = readLocationRetryState()
+  const next = Object.values(state).map(item => Number(item?.nextAttemptAt)).filter(value => Number.isFinite(value) && value > Date.now()).sort((a, b) => a - b)[0]
+  if (!next) return
+  locationRetryTimer = globalThis.setTimeout(() => {
+    locationRetryTimer = null
+    if (globalThis.navigator?.onLine === false) return
+    void EventLocationService.reconcilePersistedTripLocations().catch(error => console.warn('Scheduled GPS locality retry deferred:', error))
+  }, Math.max(1, next - Date.now()))
+}
+const clearLocationRetry = snapshotId => {
+  if (!snapshotId) return
+  const state = readLocationRetryState()
+  if (!(snapshotId in state)) return
+  delete state[snapshotId]
+  writeLocationRetryState(state)
+  if (locationRetryTimer != null && typeof globalThis.clearTimeout === 'function') {
+    globalThis.clearTimeout(locationRetryTimer)
+    locationRetryTimer = null
+  }
+  scheduleNextLocationRetry()
+}
+const resolveLocationNameWithRetry = async (snapshot, resolver) => {
+  if (globalThis.navigator?.onLine === false || !snapshot?.id) return null
+  const state = readLocationRetryState()
+  const retry = state[snapshot.id]
+  if (retry && (Number(retry.attempts) > LOCATION_RETRY_DELAYS.length || Number(retry.nextAttemptAt) > Date.now())) {
+    scheduleNextLocationRetry()
+    return null
+  }
+  const placeName = await resolveLocationName(snapshot, resolver)
+  if (placeName) {
+    clearLocationRetry(snapshot.id)
+    return placeName
+  }
+  const attempts = Math.max(0, Number(retry?.attempts) || 0) + 1
+  state[snapshot.id] = {
+    attempts,
+    nextAttemptAt: attempts <= LOCATION_RETRY_DELAYS.length ? Date.now() + LOCATION_RETRY_DELAYS[attempts - 1] : null,
+  }
+  writeLocationRetryState(state)
+  scheduleNextLocationRetry()
+  return null
+}
 
 export const EventLocationService = {
   // Optional enrichment. Call only after the authoritative business record is saved.
@@ -20,7 +79,7 @@ export const EventLocationService = {
         // unavailable. Retry enrichment from its persisted coordinates; never
         // take a second GPS fix for the same event.
         if (!String(prior.placeName || '').trim()) {
-          const placeName = await resolveLocationName(prior, locationNameResolver)
+          const placeName = await resolveLocationNameWithRetry(prior, locationNameResolver)
           if (placeName) await this.persistLabel(prior.id, placeName)
         }
         return
@@ -40,7 +99,7 @@ export const EventLocationService = {
         capturedAt: location.capturedAt,
       })
       await this.persistNativeSnapshot(snapshot)
-      const placeName = await resolveLocationName(location, locationNameResolver)
+      const placeName = await resolveLocationNameWithRetry(snapshot, locationNameResolver)
       if (placeName) await this.persistLabel(snapshot.id, placeName)
     })().catch(error => console.warn('Optional event GPS enrichment failed:', entityType, entityId, eventType, error))
   },
@@ -124,7 +183,7 @@ export const EventLocationService = {
           // when the native store already owns it.
           await this.persistNativeSnapshot(snapshot)
           if (String(snapshot.placeName || '').trim() || globalThis.navigator?.onLine === false) continue
-          const placeName = await resolveLocationName(snapshot, locationNameResolver)
+          const placeName = await resolveLocationNameWithRetry(snapshot, locationNameResolver)
           if (placeName) await this.persistLabel(snapshot.id, placeName)
         }
       }
@@ -133,6 +192,7 @@ export const EventLocationService = {
     return locationReconcileAttempt
   },
   async persistLabel(snapshotId, placeName) {
+    clearLocationRetry(snapshotId)
     const updated = await LocationRepository.updatePlaceName(snapshotId, placeName)
     const local = await LocationRepository.getById(snapshotId).catch(() => null)
     if (local) {
