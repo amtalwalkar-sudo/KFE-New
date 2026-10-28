@@ -1049,7 +1049,8 @@ public class KfeOverlayService extends Service {
         JSONObject snapshot=records.optJSONObject(i);
         if(snapshot!=null&&"TRIP".equals(snapshot.optString("entityType",""))
           &&tripId.equals(snapshot.optString("entityId",""))
-          &&eventType.equals(snapshot.optString("eventType",""))){finishPendingGpsAttempt(tripId,eventType,true);return;}
+          &&eventType.equals(snapshot.optString("eventType",""))
+          &&isValidPersistedEventGpsSnapshot(snapshot)){finishPendingGpsAttempt(tripId,eventType,true);return;}
       }
     }catch(Exception error){Log.w("KFE-GPS","Unable to check prior event-location snapshot",error);}
     try{
@@ -1127,6 +1128,16 @@ public class KfeOverlayService extends Service {
       try{manager.requestSingleUpdate(LocationManager.GPS_PROVIDER,listener[0],Looper.getMainLooper());}
       catch(Exception error){if(finished.compareAndSet(false,true)){handler.removeCallbacks(timeout);try{manager.removeUpdates(listener[0]);}catch(Exception ignored){}restoreOverlayForegroundType();finishPendingGpsAttempt(tripId,eventType,false);Log.w("KFE-GPS","Event GPS request failed.",error);}}
     }
+  }
+
+  private static boolean isValidPersistedEventGpsSnapshot(JSONObject snapshot){
+    if(snapshot==null)return false;
+    double latitude=snapshot.optDouble("latitude",Double.NaN);
+    double longitude=snapshot.optDouble("longitude",Double.NaN);
+    String capturedAt=snapshot.optString("capturedAt","");
+    return Double.isFinite(latitude)&&Math.abs(latitude)<=90d
+      &&Double.isFinite(longitude)&&Math.abs(longitude)<=180d
+      &&!capturedAt.trim().isEmpty()&&!"null".equalsIgnoreCase(capturedAt.trim());
   }
 
   private boolean persistOneShotEventLocation(String tripId,String eventType,Location location){

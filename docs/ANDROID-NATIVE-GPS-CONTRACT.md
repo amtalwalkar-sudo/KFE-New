@@ -18,3 +18,12 @@
 
 This feature does not collect continuous location traces, calculate distance, categorize kilometres, match routes, call Valhalla, or automatically resume GPS recording after reboot. Continuous trace, screen-off trace collection, routing and distance-reconciliation acceptance requirements are out of scope and must not be used as release criteria for this snapshot contract.
 
+
+
+## Persisted snapshot validation and locality enrichment (2026-10-29)
+
+- A pending one-shot event is complete only when its canonical `GPS_SNAPSHOT` contains valid latitude/longitude bounds and a non-empty provider `capturedAt`. An incomplete matching row must not clear the durable pending request; a later permission-gated one-shot attempt may repair that same event identity.
+- Reverse geocoding is optional enrichment of an already-persisted snapshot. It must never change latitude, longitude, `capturedAt`, or the business `eventAt` timestamp.
+- A missing/empty Photon locality result is a retryable outcome, not a completed enrichment. Persist `geocodeAttemptCount`, `geocodeLastAttemptAt`, and `geocodeNextAttemptAt` on the snapshot, and use delayed network-constrained WorkManager work with a 1-minute, 5-minute, 30-minute, 2-hour, then 12-hour capped retry cadence. Existing records with only `geocodeAttemptedAt` are legacy retry candidates.
+- Display only locality/city/state values actually returned by the geocoder. If no usable name exists, retain the coordinates for offline display; never infer or fabricate an area name.
+- Device audit must compare each ride ID and event type against the native `GPS_SNAPSHOT` rows. Distinguish (1) no snapshot, (2) snapshot with invalid/missing coordinates or provider timestamp, (3) valid coordinates with no locality label, and (4) valid coordinates and locality label. Do not repair business rows or rewrite event timestamps as part of the audit.
