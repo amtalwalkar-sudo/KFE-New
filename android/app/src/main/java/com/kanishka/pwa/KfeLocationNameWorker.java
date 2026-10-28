@@ -102,6 +102,8 @@ public final class KfeLocationNameWorker extends Worker {
           hasMorePending = true;
           break;
         }
+        // Keep requests gentle toward the public geocoder when several saved events are pending.
+        if (processed > 0) Thread.sleep(250L);
         String label = reverseGeocode(lat, lon);
         snapshot.put("geocodeAttemptedAt", Instant.now().toString());
         if (label != null && !label.trim().isEmpty()) snapshot.put("placeName", label);
