@@ -72,3 +72,22 @@
 .admin-page .admin-record-form-screen { display:block; width:100%; min-width:0; max-width:960px; margin-inline:auto; }
 .admin-page .admin-record-form-screen > .admin-source-form { width:100%; min-width:0; max-width:100%; }
 .admin-page .admin-record-form-screen .detail-actions { display:flex; justify-content:flex-start; margin-bottom:12px; }
+
+
+/* On compact/mobile viewports, form actions must follow the fields in document
+   flow. Sticky actions were covering focused inputs and textarea content on
+   Android when the visual viewport changed during date/input focus. */
+@media (max-width:760px) {
+  .admin-page .source-form-actions {
+    position:static !important;
+    bottom:auto;
+    margin-top:.25rem;
+    padding:12px 0 max(16px,env(safe-area-inset-bottom));
+    border:0;
+    border-top:1px solid var(--admin-border);
+    border-radius:0;
+    background:var(--kfe-ui-bg,var(--kfe-bg));
+    backdrop-filter:none;
+    box-shadow:none;
+  }
+}
