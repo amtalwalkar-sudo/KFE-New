@@ -396,7 +396,8 @@ try {
   await page.goto(new URL('admin', base).href, { waitUntil: 'domcontentloaded', timeout: 30000 })
   const admin = page.locator('.admin-page')
   await admin.waitFor({ state: 'visible', timeout: 30000 })
-  assert(await admin.getByRole('heading', { name: 'Business control centre', exact: true }).count() === 1, 'Admin workspace heading did not render')
+  assert(await admin.getByRole('heading', { name: 'Admin workspace', exact: true }).count() === 1, 'Admin workspace heading did not render')
+  assert(await admin.getByRole('button', { name: 'Settings', exact: true }).count() === 0, 'Admin must expose Settings only through the header gear icon')
   assert(await admin.locator('.admin-category').count() === 4, 'Admin must expose exactly four top-level sections')
   for (const section of ['Business Setup', 'Vehicle Records', 'Finance', 'Settings']) {
     assert(await admin.getByText(section, { exact: true }).count() >= 1, 'Admin section missing: ' + section)
