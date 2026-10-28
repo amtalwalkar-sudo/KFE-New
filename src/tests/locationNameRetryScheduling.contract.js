@@ -20,8 +20,8 @@ assert.match(eventLocations, /resolveLocationNameWithRetry\(snapshot, locationNa
 
 assert.match(worker, /setRequiredNetworkType\(NetworkType\.CONNECTED\)/,
   'Android enrichment must wait for network connectivity')
-assert.match(worker, /setBackoffCriteria\(androidx\.work\.BackoffPolicy\.EXPONENTIAL, 30, TimeUnit\.SECONDS\)/,
-  'Android retries must back off rather than loop')
+assert.match(worker, /setBackoffCriteria\(BackoffPolicy\.EXPONENTIAL, 30, TimeUnit\.SECONDS\)/,
+  'Android transport retries must back off rather than loop')
 assert.match(worker, /MAX_RETRIES = 5/,
   'Android background retries must be bounded')
 assert.match(worker, /geocodeAttemptCount/,
@@ -36,7 +36,7 @@ assert.match(worker, /Older builds wrote geocodeAttemptedAt and then permanently
   'legacy snapshots marked attempted without a locality must become retryable')
 assert.match(worker, /snapshot\.put\("geocodeAttemptedAt", Instant\.ofEpochMilli\(attemptedAt\)\.toString\(\)\)/,
   'the attempt timestamp remains diagnostic history, not a completion flag')
-assert.match(worker, /snapshot\.put\("placeName", label\)/,
+assert.match(worker, /snapshot\.put\("placeName", label\.trim\(\)\)/,
   'the worker should enrich the saved snapshot label')
 assert.doesNotMatch(worker, /latitude\"\s*,\s*location|capturedAt\"\s*,\s*Instant\.now/,
   'reverse geocoding must not replace saved coordinates or capture timestamps')
