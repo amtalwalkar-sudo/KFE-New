@@ -3,6 +3,7 @@ import { CanonicalWorkBoundary } from '../work/canonicalWorkBoundary.js'
 import { captureTripBoundaryLocation, queueTripBoundaryEventLocation } from '../work/tripBoundaryLocation.js'
 import { PhotonLocationNameAdapter, resolveLocationName } from './locationNameService.js'
 import { ShiftTripRepository } from '../../repositories/shiftTripRepository.js'
+import { ConnectivityService } from '../../infrastructure/connectivity/connectivityService.js'
 
 const locationNameResolver = new PhotonLocationNameAdapter()
 let locationReconcileAttempt = null
@@ -27,7 +28,7 @@ const scheduleNextLocationRetry = () => {
   if (!next) return
   locationRetryTimer = globalThis.setTimeout(() => {
     locationRetryTimer = null
-    if (globalThis.navigator?.onLine === false) return
+    if (!ConnectivityService.isNetworkAvailable()) return
     void EventLocationService.reconcilePersistedTripLocations().catch(error => console.warn('Scheduled GPS locality retry deferred:', error))
   }, Math.max(1, next - Date.now()))
 }
@@ -44,7 +45,7 @@ const clearLocationRetry = snapshotId => {
   scheduleNextLocationRetry()
 }
 const resolveLocationNameWithRetry = async (snapshot, resolver) => {
-  if (globalThis.navigator?.onLine === false || !snapshot?.id) return null
+  if (!ConnectivityService.isNetworkAvailable() || !snapshot?.id) return null
   const state = readLocationRetryState()
   const retry = state[snapshot.id]
   if (retry && (Number(retry.attempts) > LOCATION_RETRY_DELAYS.length || Number(retry.nextAttemptAt) > Date.now())) {
@@ -182,7 +183,7 @@ export const EventLocationService = {
           // interrupted mirroring, and safely replay the same idempotent write
           // when the native store already owns it.
           await this.persistNativeSnapshot(snapshot)
-          if (String(snapshot.placeName || '').trim() || globalThis.navigator?.onLine === false) continue
+          if (String(snapshot.placeName || '').trim() || !ConnectivityService.isNetworkAvailable()) continue
           const placeName = await resolveLocationNameWithRetry(snapshot, locationNameResolver)
           if (placeName) await this.persistLabel(snapshot.id, placeName)
         }
@@ -211,3 +212,24 @@ export const EventLocationService = {
     return updated
   },
 }
+
+// Connectivity changes wake the persisted enrichment queue. Coordinates and
+// business event timestamps have already been saved and never depend on this.
+ConnectivityService.subscribe((status, reason) => {
+  if (!status.networkAvailable || !['online', 'resume', 'foreground'].includes(reason)) return
+  const retries = readLocationRetryState()
+  let changed = false
+  for (const retry of Object.values(retries)) {
+    if (retry && Number(retry.attempts) <= LOCATION_RETRY_DELAYS.length) {
+      retry.nextAttemptAt = Date.now()
+      changed = true
+    }
+  }
+  if (changed) writeLocationRetryState(retries)
+  if (locationRetryTimer != null && typeof globalThis.clearTimeout === 'function') {
+    globalThis.clearTimeout(locationRetryTimer)
+    locationRetryTimer = null
+  }
+  void EventLocationService.reconcilePersistedTripLocations()
+    .catch(error => console.warn('Connectivity-triggered GPS locality enrichment deferred:', error))
+}, { emitCurrent: false })
