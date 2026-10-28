@@ -8,6 +8,8 @@ import { ConnectivityService } from '../../infrastructure/connectivity/connectiv
 const locationNameResolver = new PhotonLocationNameAdapter()
 let locationReconcileAttempt = null
 let locationRetryTimer = null
+let lastLifecycleReconcileAt = 0
+const LOCATION_LIFECYCLE_RECONCILE_THROTTLE_MS = 60_000
 const LOCATION_RETRY_KEY = 'kfe:location-name-retry:v1'
 const LOCATION_RETRY_DELAYS = [60_000, 5 * 60_000, 30 * 60_000, 2 * 60 * 60_000, 12 * 60 * 60_000]
 
@@ -21,6 +23,9 @@ const readLocationRetryState = () => {
 const writeLocationRetryState = state => {
   try { globalThis.localStorage?.setItem(LOCATION_RETRY_KEY, JSON.stringify(state)) } catch (_) {}
 }
+const NATIVE_SYNC_FIELDS = ['entityType', 'entityId', 'eventType', 'eventAt', 'latitude', 'longitude', 'accuracy', 'capturedAt', 'placeName']
+const nativeSnapshotMatches = (snapshot, nativeSnapshot) => Boolean(nativeSnapshot) &&
+  NATIVE_SYNC_FIELDS.every(field => String(snapshot?.[field] ?? '') === String(nativeSnapshot?.[field] ?? ''))
 const scheduleNextLocationRetry = () => {
   if (locationRetryTimer != null || typeof globalThis.setTimeout !== 'function') return
   const state = readLocationRetryState()
@@ -108,12 +113,12 @@ export const EventLocationService = {
     const snapshots = await this.forEntities(entityType, [entityId])
     return snapshots
   },
-  async forEntities(entityType, entityIds = []) {
+  async forEntities(entityType, entityIds = [], knownNativeSnapshots = null) {
     const ids = [...new Set((entityIds || []).filter(Boolean))]
     if (!entityType || !ids.length) return []
     const [localGroups, native] = await Promise.all([
       Promise.all(ids.map(id => LocationRepository.forEntity(entityType, id))),
-      CanonicalWorkBoundary.listEventLocationSnapshots().catch(() => []),
+      knownNativeSnapshots ? Promise.resolve(knownNativeSnapshots) : CanonicalWorkBoundary.listEventLocationSnapshots().catch(() => []),
     ])
     const allowed = new Set(ids)
     const byId = new Map()
@@ -143,8 +148,12 @@ export const EventLocationService = {
   async reconcilePersistedTripLocations() {
     if (locationReconcileAttempt) return locationReconcileAttempt
     locationReconcileAttempt = (async () => {
-      const trips = await ShiftTripRepository.getAllTrips()
-      const snapshots = await this.forEntities('TRIP', trips.map(trip => trip?.id))
+      const [trips, nativeSnapshots] = await Promise.all([
+        ShiftTripRepository.getAllTrips(),
+        CanonicalWorkBoundary.listEventLocationSnapshots().catch(() => []),
+      ])
+      const nativeById = new Map(nativeSnapshots.filter(item => item?.id).map(item => [item.id, item]))
+      const snapshots = await this.forEntities('TRIP', trips.map(trip => trip?.id), nativeSnapshots)
       const byEvent = new Map(snapshots.map(snapshot => [`${snapshot.entityId}:${snapshot.eventType}`, snapshot]))
       for (const trip of trips) {
         if (!trip?.id) continue
@@ -171,7 +180,7 @@ export const EventLocationService = {
                 latitude, longitude, accuracy: legacy.accuracy,
                 capturedAt: legacy.capturedAt, placeName: legacy.placeName || null,
               })
-              await this.persistNativeSnapshot(snapshot)
+              if (await this.persistNativeSnapshot(snapshot)) nativeById.set(snapshot.id, snapshot)
               byEvent.set(key, snapshot)
             } catch (error) {
               console.warn('Legacy trip GPS snapshot could not be migrated:', trip.id, boundary.eventType, error)
@@ -179,10 +188,12 @@ export const EventLocationService = {
             }
           }
           if (!snapshot) continue
-          // Reconcile a local-only snapshot to native canonical storage after
-          // interrupted mirroring, and safely replay the same idempotent write
-          // when the native store already owns it.
-          await this.persistNativeSnapshot(snapshot)
+          // Only mirror missing or materially different records. A routine
+          // foreground/resume reconciliation must not rewrite every saved fix.
+          const nativeSnapshot = nativeById.get(snapshot.id)
+          if (!nativeSnapshotMatches(snapshot, nativeSnapshot)) {
+            if (await this.persistNativeSnapshot(snapshot)) nativeById.set(snapshot.id, { ...snapshot, updatedAt: snapshot.updatedAt || snapshot.createdAt || new Date().toISOString() })
+          }
           if (String(snapshot.placeName || '').trim() || !ConnectivityService.isNetworkAvailable()) continue
           const placeName = await resolveLocationNameWithRetry(snapshot, locationNameResolver)
           if (placeName) await this.persistLabel(snapshot.id, placeName)
@@ -217,19 +228,13 @@ export const EventLocationService = {
 // business event timestamps have already been saved and never depend on this.
 ConnectivityService.subscribe((status, reason) => {
   if (!status.networkAvailable || !['online', 'resume', 'foreground'].includes(reason)) return
-  const retries = readLocationRetryState()
-  let changed = false
-  for (const retry of Object.values(retries)) {
-    if (retry && Number(retry.attempts) <= LOCATION_RETRY_DELAYS.length) {
-      retry.nextAttemptAt = Date.now()
-      changed = true
-    }
-  }
-  if (changed) writeLocationRetryState(retries)
-  if (locationRetryTimer != null && typeof globalThis.clearTimeout === 'function') {
-    globalThis.clearTimeout(locationRetryTimer)
-    locationRetryTimer = null
-  }
+  const now = Date.now()
+  // WebView can emit resume and visibility changes back-to-back. Keep online
+  // recovery immediate, but coalesce lifecycle-only reconciliation bursts.
+  if (reason !== 'online' && now - lastLifecycleReconcileAt < LOCATION_LIFECYCLE_RECONCILE_THROTTLE_MS) return
+  lastLifecycleReconcileAt = now
+  // Do not reset persisted retry deadlines on resume/visibility. Reconciliation
+  // only retries due items; the existing one-shot timer owns future deadlines.
   void EventLocationService.reconcilePersistedTripLocations()
     .catch(error => console.warn('Connectivity-triggered GPS locality enrichment deferred:', error))
 }, { emitCurrent: false })
