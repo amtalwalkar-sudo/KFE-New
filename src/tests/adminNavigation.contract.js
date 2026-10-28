@@ -80,4 +80,8 @@ assert.match(adminSourceForm, /@media\(max-width:360px\)\{\.source-form-actions\
 assert.match(adminSourceForm, /overflow-wrap:anywhere/)
 
 
+
+assert.match(adminLayoutCss, /@media \(max-width:760px\)\s*\{\s*\.admin-page \.source-form-actions\s*\{\s*position:static !important;/)
+assert.match(adminLayoutCss, /\.admin-page \.source-form-actions\s*\{[\s\S]*?backdrop-filter:none;\s*box-shadow:none;/)
+
 console.log('Admin navigation contract: PASS — approved four categories/nine entries and settings routing are fixed.')
