@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, toRaw, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, toRaw, watch } from 'vue'
 import AdminSourceForm from '../components/admin/AdminSourceForm.vue'
 import '../components/admin/admin-redesign.css'
 import AdminShell from '../components/admin/AdminShell.vue'
@@ -269,6 +269,13 @@ let stopAdminBackStateWatch = null
 function handleAdminPopState() {
   if (selected.value || settingsOpen.value) back()
 }
+function resetAdminViewport() {
+  // KFE scrolls inside the shell's main region, not the document body.
+  // Reset both so restored scroll from another menu cannot hide the Admin header.
+  window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  const shellScrollArea = document.querySelector('.content-scroll-area')
+  shellScrollArea?.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+}
 onMounted(()=>{
   load()
   window.addEventListener('popstate', handleAdminPopState)
@@ -282,10 +289,17 @@ onMounted(()=>{
     }
   })
 })
+// All Admin destinations share the same shell. Reset its scroll position after
+// navigation so every menu opens with the full Administration bar visible.
+const stopAdminViewportWatch = watch([selected, settingsOpen, masterSelected], async () => {
+  await nextTick()
+  requestAnimationFrame(resetAdminViewport)
+}, { flush: 'post' })
 onBeforeUnmount(()=>{
   window.removeEventListener('popstate', handleAdminPopState)
   stopAdminBackStateWatch?.()
   stopAdminBackStateWatch = null
+  stopAdminViewportWatch()
 })
 </script>
 
