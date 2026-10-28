@@ -40,6 +40,28 @@ export const LocationRepository = {
       tx.onabort = () => { if (tx.error) reject(tx.error) }
     })
   },
+  async updateLocalityResolution(id, metadata) {
+    if (!id || !metadata || typeof metadata !== 'object') return false
+    const db = await initializeCanonicalStorage()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['gps_snapshots', 'pending_mutations', 'audit_history'], 'readwrite')
+      const snapshots = tx.objectStore('gps_snapshots')
+      const request = snapshots.get(id)
+      request.onsuccess = () => {
+        const record = request.result
+        if (!record) { try { tx.abort() } catch (_) {}; resolve(false); return }
+        Object.assign(record, metadata, { updatedAt: new Date().toISOString() })
+        snapshots.put(record)
+        writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), {
+          entityId: record.id, entityType: 'GPS_SNAPSHOT', action: 'UPDATE', payload: record, createdAt: record.updatedAt
+        })
+      }
+      request.onerror = () => reject(request.error || new Error('GPS locality state lookup failed.'))
+      tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: ['gps_snapshots', 'trips'], reason: 'gps-locality-state-updated' }); resolve(true) }
+      tx.onerror = () => reject(tx.error || new Error('GPS locality state update failed.'))
+      tx.onabort = () => { if (tx.error) reject(tx.error) }
+    })
+  },
   async recordTracePoint({ entityType, entityId, eventType = 'MOVEMENT_TRACE', latitude, longitude, accuracy = null, speed = null, bearing = null, capturedAt }) {
     const db = await initializeCanonicalStorage()
     const now = new Date().toISOString()
