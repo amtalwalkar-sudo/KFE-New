@@ -75,4 +75,12 @@ assert.match(eventLocations, /LOCATION_RECONCILIATION_KEY, 'complete'/,
 assert.match(locationRepository, /async all\(\)/,
   'local snapshot reconciliation must support one-pass indexed reads')
 
+assert.match(worker, /FALLBACK_ENDPOINT/, 'Photon fallback remains configured')
+assert.match(worker, /BuildConfig.KFE_MAPPLS_GEOCODER_GATEWAY/, 'native Mappls credentials are held behind a gateway')
+assert.match(worker, /kfe_locality_cache_v2:/, 'native locality cache survives process restarts')
+assert.match(worker, /localityResolutionState/, 'native snapshots persist locality resolution state')
+assert.match(gradle, /KFE_MAPPLS_GEOCODER_GATEWAY/, 'Android build accepts a gateway URL without an API secret')
+assert.match(eventLocations, /resolveLocationNameDetailed/, 'PWA and native use the shared locality resolution contract')
+assert.match(eventLocations, /updateLocalityResolution/, 'resolution state is persisted to canonical GPS snapshots')
+
 console.log('PASS: GPS locality enrichment is connectivity-driven, persisted, bounded, and battery-conscious')
