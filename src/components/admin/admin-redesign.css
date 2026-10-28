@@ -67,3 +67,8 @@
  .admin-page .source-field-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
  .admin-page .source-field-wide { grid-column:1 / -1; }
 }
+
+/* Record entry is a dedicated full-width Admin state, not a side panel beside the list. */
+.admin-page .admin-record-form-screen { display:block; width:100%; min-width:0; max-width:960px; margin-inline:auto; }
+.admin-page .admin-record-form-screen > .admin-source-form { width:100%; min-width:0; max-width:100%; }
+.admin-page .admin-record-form-screen .detail-actions { display:flex; justify-content:flex-start; margin-bottom:12px; }
