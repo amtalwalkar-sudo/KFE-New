@@ -7,7 +7,7 @@ const propertiesOf = p => p?.features?.[0]?.properties || p?.result?.address || 
 const formatProperties = p => {
   if (!p || typeof p !== 'object') return null
   const parts=[]
-  for (const v of [p.suburb||p.neighbourhood||p.neighborhood||p.locality||p.district||p.county||p.city_district||p.area||p.subDistrict,p.city||p.town||p.village||p.municipality||p.cityName,p.state||p.stateName]) {
+  for (const v of [p.suburb || p.neighbourhood || p.neighborhood || p.locality || p.district || p.county || p.city_district || p.area || p.subDistrict,p.city || p.town || p.village || p.municipality || p.cityName,p.state || p.stateName]) {
     const s=typeof v==='string'?v.trim():''
     if(s&&!parts.some(x=>x.toLowerCase()===s.toLowerCase())) parts.push(s)
   }
