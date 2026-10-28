@@ -23,7 +23,7 @@ const readLocationRetryState = () => {
 const writeLocationRetryState = state => {
   try { globalThis.localStorage?.setItem(LOCATION_RETRY_KEY, JSON.stringify(state)) } catch (_) {}
 }
-const NATIVE_SYNC_FIELDS = ['entityType', 'entityId', 'eventType', 'eventAt', 'latitude', 'longitude', 'accuracy', 'capturedAt', 'placeName']
+const NATIVE_SYNC_FIELDS = ['entityType', 'entityId', 'eventType', 'eventAt', 'latitude', 'longitude', 'accuracy', 'capturedAt', 'placeName', 'localityResolutionState', 'localityResolvedAt', 'localityProvider', 'localityAttemptCount', 'localityNextAttemptAt', 'localityLastError']
 const nativeSnapshotMatches = (snapshot, nativeSnapshot) => Boolean(nativeSnapshot) &&
   NATIVE_SYNC_FIELDS.every(field => String(snapshot?.[field] ?? '') === String(nativeSnapshot?.[field] ?? ''))
 const LOCATION_RECONCILIATION_KEY = 'kfe:trip-location-reconciliation:v1'
@@ -279,7 +279,6 @@ export const EventLocationService = {
   },
   async persistLabel(snapshotId, placeName) {
     clearLocationRetry(snapshotId)
-    await this.persistResolutionState(snapshotId, { localityResolutionState: 'RESOLVED', localityResolvedAt: new Date().toISOString(), localityProvider: 'resolved', localityNextAttemptAt: null, localityLastError: null })
     const updated = await LocationRepository.updatePlaceName(snapshotId, placeName)
     const local = await LocationRepository.getById(snapshotId).catch(() => null)
     if (local) {
