@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref, toRaw } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, toRaw, watch } from 'vue'
 import AdminSourceForm from '../components/admin/AdminSourceForm.vue'
 import '../components/admin/admin-redesign.css'
 import AdminShell from '../components/admin/AdminShell.vue'
@@ -264,7 +264,29 @@ async function recordPrepayment(){if(loading.value||!prepaymentEstimate.value?.a
 async function remove(record){if(!confirm('Delete this record? Related records may prevent deletion.'))return;clearMessages();loading.value=true;try{await AdminService.remove(selected.value,record.id);notice.value='Record deleted.';await load()}catch(e){error.value=e.message||'Delete failed.'}finally{loading.value=false}}
 async function resetData(){if(!confirm('Reset all KFE data? Business records will be erased and application preferences restored to defaults. A recovery checkpoint will be retained.'))return;if(!confirm('Final confirmation: erase all current KFE business records and reset application preferences to defaults? A recovery checkpoint will be retained.'))return;loading.value=true;clearMessages();try{await BackupService.resetData();const defaults=ApplicationSettingsService.resetPreferences();notificationsEnabled.value=defaults.notificationsEnabled;notice.value='All canonical KFE data has been reset. Application preferences restored to defaults.'}catch(e){error.value=e.message||'Data reset failed.'}finally{loading.value=false}}
 async function load(){loading.value=true;error.value='';try{for(const k of Object.keys(all.value))all.value[k]=await AdminService.list(k);records.value=selected.value&&!['prepayment','driverTarget','maintenanceRate','ledger','calculations'].includes(selected.value)?await AdminService.list(selected.value):[];performanceSnapshot.value=await PerformanceService.getSnapshot()}catch(e){error.value=e.message||'Unable to load Admin data.'}finally{loading.value=false}}
-onMounted(()=>{load()})
+// The Android system Back button must unwind Admin's in-view selection before the WebView exits.
+let stopAdminBackStateWatch = null
+function handleAdminPopState() {
+  if (selected.value || settingsOpen.value) back()
+}
+onMounted(()=>{
+  load()
+  window.addEventListener('popstate', handleAdminPopState)
+  stopAdminBackStateWatch = watch([selected, settingsOpen], ([section, settings]) => {
+    if (section || settings) {
+      window.history.pushState(
+        { ...(window.history.state && typeof window.history.state === 'object' ? window.history.state : {}), kfeAdminDetail: true },
+        '',
+        window.location.href
+      )
+    }
+  })
+})
+onBeforeUnmount(()=>{
+  window.removeEventListener('popstate', handleAdminPopState)
+  stopAdminBackStateWatch?.()
+  stopAdminBackStateWatch = null
+})
 </script>
 
 <template>
