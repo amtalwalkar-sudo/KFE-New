@@ -7,14 +7,14 @@ const store = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeCan
 const activity = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/MainActivity.java', 'utf8')
 const gradle = fs.readFileSync('android/app/build.gradle', 'utf8')
 
-assert.match(eventLocations, /window|globalThis\.navigator\?\.onLine === false/,
-  'offline app paths must defer reverse geocoding rather than polling')
+assert.match(eventLocations, /ConnectivityService\.isNetworkAvailable\(\)/,
+  'offline app paths must use the shared connectivity service rather than polling')
 assert.match(eventLocations, /LOCATION_RETRY_DELAYS = \[60_000, 5 \* 60_000, 30 \* 60_000, 2 \* 60 \* 60_000, 12 \* 60 \* 60_000\]/,
   'browser retries must use bounded exponential-style delays')
 assert.match(eventLocations, /localStorage\?\.setItem\(LOCATION_RETRY_KEY/,
   'retry state must survive WebView reloads and app restarts')
 assert.match(eventLocations, /globalThis\.setTimeout\(\(\) =>/,
-  'retry scheduling must use one-shot timers rather than polling')
+  'feature-specific retry scheduling must use one-shot timers rather than polling')
 assert.match(eventLocations, /resolveLocationNameWithRetry\(snapshot, locationNameResolver\)/,
   'persisted unresolved coordinates must use the bounded retry pathway')
 
