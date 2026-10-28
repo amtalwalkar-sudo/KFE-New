@@ -28,6 +28,12 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(KfeTripBoundaryLocationPlugin.class);
     super.onCreate(savedInstanceState);
     try {
+      // Re-enqueue persisted unresolved snapshots after app/process recreation.
+      KfeLocationNameWorker.enqueue(this);
+    } catch (RuntimeException error) {
+      android.util.Log.w("KfeMainActivity", "Unable to queue saved GPS locality enrichment; startup reconciliation remains available.", error);
+    }
+    try {
       KfeOverlayService.resumePersisted(this);
     } catch (RuntimeException error) {
       android.util.Log.e("KfeMainActivity", "Unable to resume persisted overlay after app recreation.", error);
