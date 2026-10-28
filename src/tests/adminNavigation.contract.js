@@ -89,7 +89,7 @@ console.log('Admin navigation contract: PASS — approved four categories/nine e
 const adminShell = await readFile(new URL('../components/admin/AdminShell.vue', import.meta.url), 'utf8')
 assert.doesNotMatch(adminShell, /settings-icon-button|toggle-settings|aria-label="Toggle Admin settings"/,
   'the duplicate header Settings gear must be removed')
-assert.match(adminView, /category: 'Settings'/,
-  'the Settings category remains available in the main Admin menu')
-assert.match(adminView, /settingsBackup|settingsApplication|settingsReset/,
-  'the three Settings destinations remain in the main Admin menu')
+assert.equal(ADMIN_NAVIGATION_ITEMS.filter(item => item.category === 'Settings').length, 3,
+  'all three Settings destinations remain in the main Admin menu')
+assert.deepEqual(ADMIN_NAVIGATION_ITEMS.filter(item => item.category === 'Settings').map(item => item.key),
+  ['settingsBackup', 'settingsApplication', 'settingsReset'])
