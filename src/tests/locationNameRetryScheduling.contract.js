@@ -24,8 +24,18 @@ assert.match(worker, /setBackoffCriteria\(androidx\.work\.BackoffPolicy\.EXPONEN
   'Android retries must back off rather than loop')
 assert.match(worker, /MAX_RETRIES = 5/,
   'Android background retries must be bounded')
-assert.match(worker, /geocodeAttemptedAt/,
-  'a successful lookup with no locality must not cause an endless queue loop')
+assert.match(worker, /geocodeAttemptCount/,
+  'each locality lookup attempt must be counted durably')
+assert.match(worker, /geocodeNextAttemptAt/,
+  'empty locality responses must persist a future retry deadline instead of becoming terminal')
+assert.match(worker, /LOCALITY_RETRY_DELAYS_MS = \{/,
+  'native locality retries must use bounded backoff intervals')
+assert.match(worker, /enqueueContinuation\(getApplicationContext\(\), Math\.max\(1L, earliestRetryAt - System\.currentTimeMillis\(\)\)\)/,
+  'the worker must schedule the next due enrichment attempt without polling')
+assert.match(worker, /Older builds wrote geocodeAttemptedAt and then permanently skipped that/,
+  'legacy snapshots marked attempted without a locality must become retryable')
+assert.match(worker, /snapshot\.put\("geocodeAttemptedAt", Instant\.ofEpochMilli\(attemptedAt\)\.toString\(\)\)/,
+  'the attempt timestamp remains diagnostic history, not a completion flag')
 assert.match(worker, /snapshot\.put\("placeName", label\)/,
   'the worker should enrich the saved snapshot label')
 assert.doesNotMatch(worker, /latitude\"\s*,\s*location|capturedAt\"\s*,\s*Instant\.now/,
@@ -46,6 +56,10 @@ assert.match(mainActivity, /KfeOverlayService\.onPwaActivityResumed\(\)/,
   'overlay minimization must be triggered by the Android activity lifecycle')
 assert.match(overlay, /GPS_RETRY_DELAYS_MS=\{30_000L,60_000L,2\*60_000L,5\*60_000L,15\*60_000L,30\*60_000L\}/,
   'failed GPS fixes must back off to a 30-minute cap without dropping the durable request')
+assert.match(overlay, /isValidPersistedEventGpsSnapshot\(snapshot\)/,
+  'an existing malformed GPS snapshot must not silently satisfy a pending event capture')
+assert.match(overlay, /Double\.isFinite\(latitude\).*Double\.isFinite\(longitude\)/s,
+  'persisted event coordinates must be validated before treating capture as complete')
 assert.match(overlay, /recordPendingGpsFailure\(tripId,eventType\)/,
   'failed GPS attempts must persist their retry deadline')
 assert.match(overlay, /item\.put\("nextAttemptAt",now\+delay\)/,
