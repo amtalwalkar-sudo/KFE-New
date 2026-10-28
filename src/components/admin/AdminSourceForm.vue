@@ -154,7 +154,7 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.admin-source-form{display:grid;gap:.85rem;width:100%;max-width:960px;margin-inline:auto;color:var(--kfe-text);min-width:0}
+.admin-source-form{display:grid;gap:.85rem;box-sizing:border-box;width:100%;max-width:960px;margin-inline:auto;color:var(--kfe-text);min-width:0;overflow-wrap:anywhere}
 .source-form-heading{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.35rem .8rem;padding:.15rem .1rem .7rem;border-bottom:1px solid var(--kfe-border)}
 .source-kicker{font-size:.66rem;letter-spacing:.14em;font-weight:900;color:var(--kfe-text-muted)}
 .source-form-heading h2{font-size:1.12rem;line-height:1.25;margin:.25rem 0 0;font-weight:900}
@@ -171,9 +171,10 @@ onMounted(async () => {
 .source-field textarea{min-height:84px;resize:vertical}.source-field input:focus,.source-field select:focus,.source-field textarea:focus{border-color:var(--kfe-accent,var(--kfe-text));box-shadow:0 0 0 3px color-mix(in srgb,var(--kfe-accent,var(--kfe-text)) 17%,transparent)}
 .source-field-invalid input,.source-field-invalid select,.source-field-invalid textarea{border-color:var(--kfe-danger)}.source-field-error{color:var(--kfe-danger);font-size:.73rem;font-weight:700}
 .source-toggle{display:flex;align-items:center;gap:.7rem;min-height:48px;font-size:.86rem;font-weight:750}.source-toggle input{width:22px;height:22px;accent-color:var(--kfe-accent,var(--kfe-text))}
-.source-form-actions{position:sticky;bottom:0;display:grid;grid-template-columns:1fr 1.3fr;gap:.7rem;padding:.65rem 0 max(.45rem,env(safe-area-inset-bottom));background:var(--kfe-bg);border-top:1px solid var(--kfe-border);z-index:2}
+.source-form-actions{position:sticky;bottom:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:.7rem;padding:.65rem 0 max(.45rem,env(safe-area-inset-bottom));background:var(--kfe-bg);border-top:1px solid var(--kfe-border);z-index:2;min-width:0}.source-form-actions button{box-sizing:border-box;min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere;line-height:1.2}
 .source-form-actions button{min-height:48px;border-radius:12px;padding:.65rem 1rem;font:inherit;font-weight:850;cursor:pointer}.source-cancel{background:var(--kfe-surface);border:1px solid var(--kfe-border-strong);color:var(--kfe-text)}.source-save{display:flex;align-items:center;justify-content:center;gap:.6rem;background:var(--kfe-text);border:1px solid var(--kfe-text);color:var(--kfe-on-accent,#fff)}.source-form-actions button:disabled{opacity:.55}
-@media(max-width:600px){.admin-source-form{gap:.7rem}.source-form-section{padding:.75rem;border-radius:14px}.source-field-grid{grid-template-columns:minmax(0,1fr);gap:.7rem}.source-field-wide{grid-column:auto}.source-form-actions{grid-template-columns:1fr 1.2fr;gap:.55rem}.source-form-actions button{padding:.6rem .7rem}}
+@media(max-width:600px){.admin-source-form{gap:.7rem}.source-form-section{padding:.75rem;border-radius:14px}.source-field-grid{grid-template-columns:minmax(0,1fr);gap:.7rem}.source-field-wide{grid-column:auto}.source-form-actions{grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:.5rem}.source-form-actions button{padding:.6rem .5rem;font-size:clamp(.78rem,3.5vw,.95rem)}}
+@media(max-width:360px){.source-form-actions{grid-template-columns:minmax(0,1fr);gap:.45rem}.source-form-actions button{width:100%;min-height:44px}}
 @media(max-height:560px) and (orientation:landscape){.source-form-actions{position:static}}
 @media(prefers-reduced-motion:reduce){.admin-source-form *{transition:none!important}}
 </style>
