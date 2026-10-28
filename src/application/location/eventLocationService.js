@@ -168,8 +168,10 @@ export const EventLocationService = {
     if (locationReconcileAttempt) return locationReconcileAttempt
     locationReconcileAttempt = (async () => {
       const migrationComplete = globalThis.localStorage?.getItem(LOCATION_RECONCILIATION_KEY) === 'complete'
-      const [nativeSnapshots, trips] = await Promise.all([
+      const nativeAvailable = CanonicalWorkBoundary.isNativeAvailable()
+      const [nativeSnapshots, localSnapshots, trips] = await Promise.all([
         CanonicalWorkBoundary.listEventLocationSnapshots().catch(() => []),
+        LocationRepository.all().catch(() => []),
         migrationComplete ? Promise.resolve([]) : ShiftTripRepository.getAllTrips(),
       ])
       const nativeById = new Map(nativeSnapshots.filter(item => item?.id).map(item => [item.id, item]))
@@ -181,14 +183,18 @@ export const EventLocationService = {
         // Local-only writes are explicitly journaled and fetched by ID, avoiding
         // a full trip scan and per-trip IndexedDB reads on every lifecycle event.
         const byId = new Map(nativeSnapshots.filter(item => item?.entityType === 'TRIP').map(item => [item.id, item]))
-        for (const snapshotId of readPendingNativeMirrorIds()) {
-          try {
-            const local = await LocationRepository.getById(snapshotId)
-            if (local?.entityType === 'TRIP') byId.set(snapshotId, { ...(byId.get(snapshotId) || {}), ...local })
-            else if (!local) setPendingNativeMirror(snapshotId, false)
-          } catch (_) {
-            // Keep the durable mirror retry ID if local storage is temporarily unavailable.
+        const pendingMirrorIds = new Set(readPendingNativeMirrorIds())
+        for (const local of localSnapshots) {
+          if (local?.entityType !== 'TRIP' || !local.id) continue
+          const native = byId.get(local.id)
+          const localUpdatedAt = Date.parse(local.updatedAt || local.createdAt || 0) || 0
+          const nativeUpdatedAt = Date.parse(native?.updatedAt || native?.createdAt || 0) || 0
+          if (!native || pendingMirrorIds.has(local.id) || localUpdatedAt > nativeUpdatedAt) {
+            byId.set(local.id, { ...(native || {}), ...local })
           }
+        }
+        for (const snapshotId of pendingMirrorIds) {
+          if (!localSnapshots.some(item => item?.id === snapshotId)) setPendingNativeMirror(snapshotId, false)
         }
         snapshots = [...byId.values()]
       } else {
@@ -238,7 +244,7 @@ export const EventLocationService = {
         // Only mirror missing or materially different records. A routine
         // foreground/resume reconciliation must not rewrite every saved fix.
         const nativeSnapshot = nativeById.get(snapshot.id)
-        if (!nativeSnapshotMatches(snapshot, nativeSnapshot)) {
+        if (nativeAvailable && !nativeSnapshotMatches(snapshot, nativeSnapshot)) {
           if (await this.persistNativeSnapshot(snapshot)) {
             nativeById.set(snapshot.id, { ...snapshot, updatedAt: snapshot.updatedAt || snapshot.createdAt || new Date().toISOString() })
           }
