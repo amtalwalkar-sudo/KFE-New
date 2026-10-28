@@ -9,6 +9,7 @@ public class MainActivity extends BridgeActivity {
   public void onResume() {
     super.onResume();
     isResumed = true;
+    KfeOverlayService.onPwaActivityResumed();
   }
 
   @Override
