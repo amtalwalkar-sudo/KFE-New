@@ -49,6 +49,7 @@ assert.deepEqual(groups.map(group => [group.category, group.items.map(item => it
 assert.equal(groups.reduce((count, group) => count + group.items.length, 0), 9)
 
 const adminView = await readFile(new URL('../views/AdminView.vue', import.meta.url), 'utf8')
+const adminLayoutCss = await readFile(new URL('../components/admin/admin-redesign.css', import.meta.url), 'utf8')
 assert.match(adminView, /groupAdminNavigationItems\(items,categories\)/)
 assert.match(adminView, /isAdminSettingsItem\(key\)/)
 assert.match(adminView, /getAdminSettingsKey\(key\)/)
@@ -63,4 +64,11 @@ assert.ok(adminView.includes("window.addEventListener('popstate', handleAdminPop
 assert.ok(adminView.includes('if (selected.value || settingsOpen.value) back()'))
 assert.ok(adminView.includes('kfeAdminDetail: true'))
 assert.ok(adminView.includes("window.removeEventListener('popstate', handleAdminPopState)"))
+assert.match(adminView, /watch\(\[selected, settingsOpen, masterSelected\]/)
+assert.match(adminView, /document\.querySelector\('\.content-scroll-area'\)/)
+assert.match(adminView, /shellScrollArea\?\.scrollTo\(\{ top: 0, left: 0, behavior: 'auto' \}\)/)
+assert.match(adminView, /stopAdminViewportWatch\(\)/)
+assert.match(adminLayoutCss, /\.admin-page \.admin-shell-bar \{ position:sticky; top:0; z-index:20;/)
+assert.match(adminLayoutCss, /\.admin-page \{ box-sizing:border-box; width:100%; min-width:0; min-height:100%;/)
+
 console.log('Admin navigation contract: PASS — approved four categories/nine entries and settings routing are fixed.')
