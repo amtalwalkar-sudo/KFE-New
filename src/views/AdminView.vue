@@ -382,10 +382,13 @@ onBeforeUnmount(()=>{
 </template>
 
 <template v-else-if="masterMode">
-<div v-if="!masterSelected">
+<div v-if="!masterSelected && formOpen" class="admin-record-form-screen">
+  <div class="detail-actions"><button class="secondary" type="button" @click="formOpen=false;editing=null">‹ Cancel and return to list</button></div>
+  <AdminSourceForm :fields="activeDefinition?.fields||[]" :model-value="draft" :draft-identity="sourceFormDraftIdentity" :busy="saving" :auto-open-first="editing===null" :errors="formErrors" @field-change="onSourceFieldChange" @submit="save" @cancel="formOpen=false;editing=null" :submit-label="editing!==null?'Update record':'Save record'" @draft-error="onDraftError"/>
+</div>
+<div v-else-if="!masterSelected">
   <div class="admin-list-tools"><label class="admin-search-field"><span aria-hidden="true">⌕</span><input v-model="recordSearch" type="search" :placeholder="'Search '+currentItem.title.toLowerCase()+' records…'" :aria-label="'Search '+currentItem.title+' records'"></label><span class="admin-search-hint">{{filteredRecords.length}} {{filteredRecords.length===1?'record':'records'}}<template v-if="recordSearch"> found</template></span></div>
   <div class="detail-actions"><button class="primary" @click="add">＋ Create {{currentDefinition?.createLabel||currentItem.title}}</button></div>
-  <div v-if="formOpen"><AdminSourceForm :fields="activeDefinition?.fields||[]" :model-value="draft" :draft-identity="sourceFormDraftIdentity" :busy="saving" :auto-open-first="editing===null" :errors="formErrors" @field-change="onSourceFieldChange" @submit="save" @cancel="formOpen=false;editing=null" :submit-label="editing!==null?'Update record':'Save record'" @draft-error="onDraftError"/></div>
   <div v-if="loading&&!records.length" class="empty">Loading…</div>
   <div v-else-if="filteredRecords.length" class="record-list">
     <button v-for="record in filteredRecords" :key="record.id" class="clean-card master-list-row" @click="openMasterRecord(record)">
