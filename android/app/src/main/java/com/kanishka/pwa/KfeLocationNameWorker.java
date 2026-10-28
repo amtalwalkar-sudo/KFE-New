@@ -1,9 +1,6 @@
 package com.kanishka.pwa;
 
 import android.content.Context;
-import android.net.ConnectivityManager;
-import android.net.Network;
-import android.net.NetworkCapabilities;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -66,13 +63,7 @@ public final class KfeLocationNameWorker extends Worker {
   }
 
   private boolean hasValidatedInternet() {
-    ConnectivityManager manager = (ConnectivityManager) getApplicationContext().getSystemService(Context.CONNECTIVITY_SERVICE);
-    if (manager == null) return false;
-    Network active = manager.getActiveNetwork();
-    if (active == null) return false;
-    NetworkCapabilities capabilities = manager.getNetworkCapabilities(active);
-    return capabilities != null && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-        && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+    return KfeConnectivityService.hasValidatedInternet(getApplicationContext());
   }
 
   @NonNull @Override public Result doWork() {
