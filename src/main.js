@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { installWorkRuntimeAdapter } from './infrastructure/work/workRuntimeAdapter.js'
+import { ConnectivityService } from './infrastructure/connectivity/connectivityService.js'
 import App from './App.vue'
 import router from './router'
 import './styles/kfe-ui.css'
@@ -102,8 +103,9 @@ void (async () => {
           .catch(error => console.warn('KFE saved trip-location reconciliation deferred:', error))
       }
       retryCloudBackupOnStartup = retryCloudBackup
-      window.addEventListener('online', retryCloudBackup)
-      window.addEventListener('online', reconcilePersistedTripLocations)
+      ConnectivityService.subscribe((status, reason) => {
+        if (status.networkAvailable && reason === 'online') retryCloudBackup()
+      }, { emitCurrent: false })
       window.addEventListener('pageshow', retryCloudBackup)
       window.addEventListener('pageshow', reconcilePersistedTripLocations)
       document.addEventListener('visibilitychange', retryCloudBackup)

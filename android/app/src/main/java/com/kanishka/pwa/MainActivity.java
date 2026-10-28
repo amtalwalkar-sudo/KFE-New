@@ -9,6 +9,7 @@ public class MainActivity extends BridgeActivity {
   public void onResume() {
     super.onResume();
     isResumed = true;
+    KfeOverlayService.onPwaActivityResumed();
   }
 
   @Override
@@ -27,6 +28,12 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(KfeNativeSystemPlugin.class);
     registerPlugin(KfeTripBoundaryLocationPlugin.class);
     super.onCreate(savedInstanceState);
+    try {
+      // Re-enqueue persisted unresolved snapshots after app/process recreation.
+      KfeLocationNameWorker.enqueue(this);
+    } catch (RuntimeException error) {
+      android.util.Log.w("KfeMainActivity", "Unable to queue saved GPS locality enrichment; startup reconciliation remains available.", error);
+    }
     try {
       KfeOverlayService.resumePersisted(this);
     } catch (RuntimeException error) {

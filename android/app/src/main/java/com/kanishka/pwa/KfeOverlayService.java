@@ -108,23 +108,12 @@ public class KfeOverlayService extends Service {
   private String awaitingEventId="";
   private String awaitingStage="";
   private String awaitingTripId="";
-  private long lastPendingRecoveryLogAt=0L;
   private LinearLayout formPanel;
   private LinearLayout cancelReasonPanel;
   private android.os.Handler foregroundHandler;
   private final java.util.Set<String> gpsCaptureInFlight=java.util.Collections.synchronizedSet(new java.util.HashSet<>());
   private final Runnable pendingGpsRetry=()->retryPendingEventLocations();
-  private final Runnable foregroundCheck=new Runnable(){
-    @Override public void run(){
-      hideIfKfeActivityForeground();
-      if(!awaitingEventId.isEmpty() && System.currentTimeMillis()-lastPendingRecoveryLogAt>=15000L){
-        lastPendingRecoveryLogAt=System.currentTimeMillis();
-        Log.w("KFE-SWIPE","pending-action recovery required event="+shortEventId(awaitingEventId)+" stage="+awaitingStage+" trip="+shortEventId(awaitingTripId)+" action remains locked; durable queue replay/ack required");
-        if(overlay!=null)overlay.postInvalidate();
-      }
-      if(foregroundHandler!=null) foregroundHandler.postDelayed(this,500L);
-    }
-  };
+  private static final long[] GPS_RETRY_DELAYS_MS={30_000L,60_000L,2*60_000L,5*60_000L,15*60_000L,30*60_000L};
 
   static String resolveFareActionTripId(String pendingFareTripId, String currentTripId){
     if(pendingFareTripId!=null&&!pendingFareTripId.isEmpty())return pendingFareTripId;
@@ -155,7 +144,7 @@ public class KfeOverlayService extends Service {
       String key=gpsEventKey(tripId,eventType);
       boolean found=false;
       for(int i=0;i<items.length();i++){JSONObject item=items.optJSONObject(i);if(item!=null&&key.equals(item.optString("key",""))){found=true;break;}}
-      if(!found){JSONObject item=new JSONObject();item.put("key",key);item.put("tripId",tripId);item.put("eventType",eventType);item.put("queuedAt",java.time.Instant.now().toString());items.put(item);}
+      if(!found){JSONObject item=new JSONObject();item.put("key",key);item.put("tripId",tripId);item.put("eventType",eventType);item.put("queuedAt",java.time.Instant.now().toString());item.put("retryAttempts",0);item.put("nextAttemptAt",0L);items.put(item);}
       if(!prefs.edit().putString(PENDING_GPS_KEY,items.toString()).commit())throw new IllegalStateException("Pending GPS event journal was not committed.");
       boolean fine=ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED;
       boolean background=Build.VERSION.SDK_INT<Build.VERSION_CODES.Q||ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_BACKGROUND_LOCATION)==PackageManager.PERMISSION_GRANTED;
@@ -233,7 +222,7 @@ public class KfeOverlayService extends Service {
 
   @Override public void onCreate(){super.onCreate();instance=this;
     restoreNativeWorkflowCheckpoint();
-    createChannel();startOverlayForeground(false);foregroundHandler=new android.os.Handler(getMainLooper());foregroundHandler.post(foregroundCheck);
+    createChannel();startOverlayForeground(false);foregroundHandler=new android.os.Handler(getMainLooper());
     // Pending native events remain durable across process death. Do not force the
     // main activity to the foreground; the PWA replays them when it next runs.
   }
@@ -251,10 +240,13 @@ public class KfeOverlayService extends Service {
     awaitingEventId=saved.getString("awaitingEventId","");
     awaitingStage=saved.getString("awaitingStage","");
     awaitingTripId=saved.getString("awaitingTripId","");
-    if(!awaitingEventId.isEmpty() && KfeNativeEventStore.get(this).isAcknowledged(awaitingEventId)){
-      // The overlay root is not attached until onStartCommand. Defer UI work
-      // until applyState so a recovered acknowledgement cannot touch null views.
-      acknowledgedEventNeedsRecovery=true;
+    if(!awaitingEventId.isEmpty()){
+      Log.w("KFE-SWIPE","pending-action recovery required event="+shortEventId(awaitingEventId)+" stage="+awaitingStage+" trip="+shortEventId(awaitingTripId)+" action remains locked; durable queue replay/ack required");
+      if(KfeNativeEventStore.get(this).isAcknowledged(awaitingEventId)){
+        // The overlay root is not attached until onStartCommand. Defer UI work
+        // until applyState so a recovered acknowledgement cannot touch null views.
+        acknowledgedEventNeedsRecovery=true;
+      }
     }
   }
 
@@ -386,6 +378,7 @@ public class KfeOverlayService extends Service {
       if("CANCEL".equals(formMode)&&"START_RIDE".equals(actionStage)&&cancelFormPwaSynchronized&&!root.optBoolean("cancelOpen",false)&&!"CANCEL_RIDE".equals(awaitingStage)){closeForm();cancelFormPwaSynchronized=false;}
       if(acknowledgedEventNeedsRecovery){acknowledgedEventNeedsRecovery=false;onEventAcknowledged(awaitingEventId,awaitingStage,awaitingTripId);}
       overlay.invalidate();
+      hideIfKfeActivityForeground();
     }catch(Exception ignored){ overlay.invalidate(); }
   }
 
@@ -643,6 +636,13 @@ public class KfeOverlayService extends Service {
     boolean committed=editor.commit();
     if(!committed) Log.e("KFE-CANONICAL","Could not durably persist native workflow checkpoint");
     return committed;
+  }
+
+  public static void onPwaActivityResumed(){
+    KfeOverlayService service=instance;
+    if(service!=null&&service.foregroundHandler!=null){
+      service.foregroundHandler.post(service::hideIfKfeActivityForeground);
+    }
   }
 
   private void hideIfKfeActivityForeground(){
@@ -930,7 +930,7 @@ public class KfeOverlayService extends Service {
       JSONArray items=new JSONArray(prefs.getString(PENDING_GPS_KEY,"[]"));
       String key=gpsEventKey(tripId,eventType);
       for(int i=0;i<items.length();i++){JSONObject item=items.optJSONObject(i);if(item!=null&&key.equals(item.optString("key","")))return true;}
-      JSONObject item=new JSONObject();item.put("key",key);item.put("tripId",tripId);item.put("eventType",eventType);item.put("queuedAt",java.time.Instant.now().toString());items.put(item);
+      JSONObject item=new JSONObject();item.put("key",key);item.put("tripId",tripId);item.put("eventType",eventType);item.put("queuedAt",java.time.Instant.now().toString());item.put("retryAttempts",0);item.put("nextAttemptAt",0L);items.put(item);
       if(!prefs.edit().putString(PENDING_GPS_KEY,items.toString()).commit())throw new IllegalStateException("Pending GPS event journal was not committed.");
       Log.i("KFE-GPS","Durably queued event location "+key);
       return true;
@@ -953,11 +953,50 @@ public class KfeOverlayService extends Service {
     if(ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)return false;
     return Build.VERSION.SDK_INT<Build.VERSION_CODES.Q || ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_BACKGROUND_LOCATION)==PackageManager.PERMISSION_GRANTED;
   }
-  private void schedulePendingGpsRetry(){
+  private void scheduleNextPendingGpsSoon(){
     if(!hasPendingEventLocations()||!hasBackgroundLocationPermission())return;
     Handler handler=foregroundHandler!=null?foregroundHandler:new Handler(Looper.getMainLooper());
     handler.removeCallbacks(pendingGpsRetry);
-    handler.postDelayed(pendingGpsRetry,30000L);
+    handler.postDelayed(pendingGpsRetry,1000L);
+  }
+  private void schedulePendingGpsRetry(){
+    if(!hasPendingEventLocations()||!hasBackgroundLocationPermission())return;
+    long now=System.currentTimeMillis(),next=Long.MAX_VALUE;
+    try{
+      JSONArray items=new JSONArray(getSharedPreferences("kfe_overlay",Context.MODE_PRIVATE).getString(PENDING_GPS_KEY,"[]"));
+      for(int i=0;i<items.length();i++){
+        JSONObject item=items.optJSONObject(i);if(item==null)continue;
+        String key=item.optString("key","");
+        if(gpsCaptureInFlight.contains(key))continue;
+        long due=item.optLong("nextAttemptAt",0L);
+        if(due<=0L)due=now;
+        if(due<next)next=due;
+      }
+    }catch(Exception error){Log.w("KFE-GPS","Could not calculate next durable GPS retry.",error);return;}
+    if(next==Long.MAX_VALUE)return;
+    Handler handler=foregroundHandler!=null?foregroundHandler:new Handler(Looper.getMainLooper());
+    handler.removeCallbacks(pendingGpsRetry);
+    handler.postDelayed(pendingGpsRetry,Math.max(1000L,next-now));
+  }
+  private void recordPendingGpsFailure(String tripId,String eventType){
+    try{
+      android.content.SharedPreferences prefs=getSharedPreferences("kfe_overlay",MODE_PRIVATE);
+      JSONArray current=new JSONArray(prefs.getString(PENDING_GPS_KEY,"[]")),next=new JSONArray();
+      String key=gpsEventKey(tripId,eventType);
+      long now=System.currentTimeMillis();
+      for(int i=0;i<current.length();i++){
+        JSONObject item=current.optJSONObject(i);if(item==null)continue;
+        if(key.equals(item.optString("key",""))){
+          int attempts=Math.max(0,item.optInt("retryAttempts",0))+1;
+          long delay=GPS_RETRY_DELAYS_MS[Math.min(attempts-1,GPS_RETRY_DELAYS_MS.length-1)];
+          item.put("retryAttempts",attempts);
+          item.put("nextAttemptAt",now+delay);
+        }
+        next.put(item);
+      }
+      if(!prefs.edit().putString(PENDING_GPS_KEY,next.toString()).commit())
+        Log.e("KFE-GPS","Could not persist GPS retry backoff; event remains queued.");
+    }catch(Exception error){Log.e("KFE-GPS","Could not persist GPS retry backoff.",error);}
   }
   private void retryPendingEventLocations(){
     if(!hasPendingEventLocations())return;
@@ -965,26 +1004,36 @@ public class KfeOverlayService extends Service {
     // both precise and background location permissions are granted.
     if(!hasBackgroundLocationPermission())return;
     try{
-      JSONArray items=new JSONArray(getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(PENDING_GPS_KEY,"[]"));
+      JSONArray items=new JSONArray(getSharedPreferences("kfe_overlay",Context.MODE_PRIVATE).getString(PENDING_GPS_KEY,"[]"));
+      long now=System.currentTimeMillis(),earliest=Long.MAX_VALUE;
+      JSONObject selected=null;
       for(int i=0;i<items.length();i++){
         JSONObject item=items.optJSONObject(i);if(item==null)continue;
-        String tripId=item.optString("tripId",""),eventType=item.optString("eventType","");
-        if(!tripId.isEmpty()&&!eventType.isEmpty()){captureOneShotEventLocation(tripId,eventType);break;}
+        String key=item.optString("key","");
+        if(gpsCaptureInFlight.contains(key))continue;
+        long due=item.optLong("nextAttemptAt",0L);if(due<=0L)due=now;
+        if(due<earliest)earliest=due;
+        if(due<=now&&(selected==null||due<selected.optLong("nextAttemptAt",0L)))selected=item;
       }
+      if(selected!=null){
+        String tripId=selected.optString("tripId",""),eventType=selected.optString("eventType","");
+        if(!tripId.isEmpty()&&!eventType.isEmpty()){captureOneShotEventLocation(tripId,eventType);return;}
+      }
+      if(earliest!=Long.MAX_VALUE)schedulePendingGpsRetry();
     }catch(Exception error){Log.e("KFE-GPS","Pending event location retry failed.",error);}
-    schedulePendingGpsRetry();
   }
   private void finishPendingGpsAttempt(String tripId,String eventType,boolean saved){
     gpsCaptureInFlight.remove(gpsEventKey(tripId,eventType));
     if(saved){
       removePendingEventLocation(tripId,eventType);
-      if(hasPendingEventLocations()){
-        Handler handler=foregroundHandler!=null?foregroundHandler:new Handler(Looper.getMainLooper());
-        handler.removeCallbacks(pendingGpsRetry);handler.postDelayed(pendingGpsRetry,1000L);
-      }else if(overlay==null&&!hasPersistedOverlayState(this)){
+      if(hasPendingEventLocations())scheduleNextPendingGpsSoon();
+      else if(overlay==null&&!hasPersistedOverlayState(this)){
         stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();
       }
-    }else schedulePendingGpsRetry();
+    }else{
+      recordPendingGpsFailure(tripId,eventType);
+      schedulePendingGpsRetry();
+    }
   }
 
   // A high-accuracy one-shot request is retried until the first valid fix is
@@ -1000,18 +1049,20 @@ public class KfeOverlayService extends Service {
         JSONObject snapshot=records.optJSONObject(i);
         if(snapshot!=null&&"TRIP".equals(snapshot.optString("entityType",""))
           &&tripId.equals(snapshot.optString("entityId",""))
-          &&eventType.equals(snapshot.optString("eventType",""))){removePendingEventLocation(tripId,eventType);return;}
+          &&eventType.equals(snapshot.optString("eventType",""))){finishPendingGpsAttempt(tripId,eventType,true);return;}
       }
     }catch(Exception error){Log.w("KFE-GPS","Unable to check prior event-location snapshot",error);}
     try{
       JSONObject canonicalTrip=KfeCanonicalWorkStore.get(this).getRecord("TRIP",tripId);
       if(!canonicalTrip.optBoolean("found",false)||canonicalTrip.optJSONObject("record")==null){
         removePendingEventLocation(tripId,eventType);
+        scheduleNextPendingGpsSoon();
         Log.w("KFE-GPS","Discarded pending GPS request for missing trip "+tripId+"; no orphan snapshot will be written.");
         return;
       }
     }catch(Exception error){
       Log.w("KFE-GPS","Canonical trip could not be verified; pending GPS request remains queued.",error);
+      recordPendingGpsFailure(tripId,eventType);
       schedulePendingGpsRetry();
       return;
     }
@@ -1256,7 +1307,7 @@ public class KfeOverlayService extends Service {
   private boolean dark(){return true;}
   private void removeOverlay(){removeOverlay(false);}
   private void removeOverlay(boolean preserveFormDraft){closeForm(!preserveFormDraft);if(windowManager!=null&&overlayRoot!=null){try{windowManager.removeView(overlayRoot);}catch(Exception ignored){}}overlayRoot=null;overlay=null;}
-  @Override public void onDestroy(){if(foregroundHandler!=null){foregroundHandler.removeCallbacks(foregroundCheck);foregroundHandler.removeCallbacks(pendingGpsRetry);}removeOverlay(true);if(instance==this)instance=null;super.onDestroy();}
+  @Override public void onDestroy(){if(foregroundHandler!=null)foregroundHandler.removeCallbacks(pendingGpsRetry);removeOverlay(true);if(instance==this)instance=null;super.onDestroy();}
   @Override public IBinder onBind(Intent intent){return null;}
   private Notification buildNotification(){
     // This notice exists for the Android foreground-service lifecycle only.

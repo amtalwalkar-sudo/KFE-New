@@ -35,6 +35,10 @@ assert.doesNotMatch(workService, /updateTripBoundaryPlaceName/, 'trip boundary l
 assert.match(locationRepository, /notifyCanonicalDataChanged\(\{ stores: \['gps_snapshots', 'trips'\], reason: 'gps-place-name-enriched' \}\)/)
 assert.match(timelineReadService, /EventLocationService\.forEntities\('TRIP', trips\.map\(trip => trip\?\.id\)\)/,
   'Timeline must read shared persisted GPS snapshots for its ride records')
+assert.match(timelineReadService, /const locationLabel = snapshot =>/,
+  'Timeline must show saved coordinates when locality enrichment is missing')
+assert.match(timelineReadService, /GPS \$\{latitude\.toFixed\(5\)\}, \$\{longitude\.toFixed\(5\)\}/,
+  'coordinate fallback must be human-readable and must not require internet')
 assert.match(timelineView, /<span>Pickup area<\/span><strong>\{\{ ride\.pickupArea \}\}<\/strong>/,
   'the user-facing ride row must render the pickup locality')
 assert.match(timelineView, /<span>Drop area<\/span><strong>\{\{ ride\.dropArea \}\}<\/strong>/,

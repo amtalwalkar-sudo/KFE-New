@@ -17,6 +17,7 @@ const requireCanonicalWriteRoute = () => {
 
 /** Shared application boundary for native canonical writes and browser canonical records. */
 export const CanonicalWorkBoundary = Object.freeze({
+  isNativeAvailable() { return nativeCanonicalAvailable() },
   async prepareCreateIntent(input) {
     if (!WorkRuntimePorts.canonicalWork.isAvailable()) throw new Error('Durable create intents require native canonical storage.')
     return WorkRuntimePorts.canonicalWork.prepareCreateIntent(input)

@@ -24,6 +24,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
   private static final String DB_NAME = "kfe_canonical_work.db";
   private static final int DB_VERSION = 4;
   private static volatile KfeCanonicalWorkStore instance;
+  private final Context appContext;
 
   static synchronized KfeCanonicalWorkStore get(Context context) {
     if (instance == null) instance = new KfeCanonicalWorkStore(context.getApplicationContext());
@@ -32,7 +33,10 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
 
   private KfeCanonicalWorkStore(Context context) { this(context, DB_NAME); }
 
-  KfeCanonicalWorkStore(Context context, String databaseName) { super(context, databaseName, null, DB_VERSION); }
+  KfeCanonicalWorkStore(Context context, String databaseName) {
+    super(context.getApplicationContext(), databaseName, null, DB_VERSION);
+    this.appContext = context.getApplicationContext();
+  }
 
   @Override public void onCreate(SQLiteDatabase db) {
     db.execSQL("CREATE TABLE canonical_records (entity_type TEXT NOT NULL, entity_id TEXT NOT NULL, payload TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY(entity_type, entity_id))");
@@ -247,6 +251,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     // The canonical SHIFT payload may be reconciled with a native-derived projection below.
     JSONObject operationRecord = new JSONObject(record.toString());
     String now = timestampNow();
+    boolean[] scheduleLocationNameEnrichment = new boolean[]{false};
     SQLiteDatabase db = getWritableDatabase();
     db.beginTransaction();
     try {
@@ -396,9 +401,16 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       db.insertOrThrow("canonical_audit", null, auditValues);
 
       db.setTransactionSuccessful();
+      scheduleLocationNameEnrichment[0] = "GPS_SNAPSHOT".equals(entityType)
+          && (record.isNull("placeName") || empty(record.optString("placeName", "")))
+          && !record.has("geocodeAttemptedAt");
       return new Outcome(true, false, result);
     } finally {
       db.endTransaction();
+      if (scheduleLocationNameEnrichment[0]) {
+        try { KfeLocationNameWorker.enqueue(appContext); }
+        catch (RuntimeException error) { android.util.Log.w("KfeCanonicalWork", "Unable to enqueue locality enrichment; startup reconciliation will retry.", error); }
+      }
     }
   }
 
