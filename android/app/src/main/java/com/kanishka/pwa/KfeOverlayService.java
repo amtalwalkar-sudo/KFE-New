@@ -240,10 +240,13 @@ public class KfeOverlayService extends Service {
     awaitingEventId=saved.getString("awaitingEventId","");
     awaitingStage=saved.getString("awaitingStage","");
     awaitingTripId=saved.getString("awaitingTripId","");
-    if(!awaitingEventId.isEmpty() && KfeNativeEventStore.get(this).isAcknowledged(awaitingEventId)){
-      // The overlay root is not attached until onStartCommand. Defer UI work
-      // until applyState so a recovered acknowledgement cannot touch null views.
-      acknowledgedEventNeedsRecovery=true;
+    if(!awaitingEventId.isEmpty()){
+      Log.w("KFE-SWIPE","pending-action recovery required event="+shortEventId(awaitingEventId)+" stage="+awaitingStage+" trip="+shortEventId(awaitingTripId)+" action remains locked; durable queue replay/ack required");
+      if(KfeNativeEventStore.get(this).isAcknowledged(awaitingEventId)){
+        // The overlay root is not attached until onStartCommand. Defer UI work
+        // until applyState so a recovered acknowledgement cannot touch null views.
+        acknowledgedEventNeedsRecovery=true;
+      }
     }
   }
 
