@@ -42,6 +42,7 @@ public final class KfeLocationNameWorker extends Worker {
   };
   private static final String FALLBACK_ENDPOINT = "https://photon.komoot.io/reverse";
   private static final String CACHE_PREFIX = "kfe_locality_cache_v2:";
+  private String lastResolvedProvider = "unknown";
 
   public KfeLocationNameWorker(@NonNull Context context, @NonNull WorkerParameters params) {
     super(context, params);
@@ -124,7 +125,7 @@ public final class KfeLocationNameWorker extends Worker {
           snapshot.put("placeName", label.trim());
           snapshot.put("localityResolutionState", "RESOLVED");
           snapshot.put("localityResolvedAt", Instant.ofEpochMilli(attemptedAt).toString());
-          snapshot.put("localityProvider", BuildConfig.KFE_MAPPLS_GEOCODER_GATEWAY.isEmpty() ? "photon" : "mappls-gateway-or-photon");
+          snapshot.put("localityProvider", lastResolvedProvider);
           snapshot.put("localityLastError", JSONObject.NULL);
           snapshot.put("localityNextAttemptAt", JSONObject.NULL);
           snapshot.remove("geocodeNextAttemptAt");
@@ -195,14 +196,14 @@ public final class KfeLocationNameWorker extends Worker {
     String key = String.format(java.util.Locale.US, "%.5f:%.5f", latitude, longitude);
     android.content.SharedPreferences cache = getApplicationContext().getSharedPreferences("kfe_locality_cache", Context.MODE_PRIVATE);
     String cached = cache.getString(CACHE_PREFIX + key, null);
-    if (cached != null && !cached.trim().isEmpty()) return cached;
+    if (cached != null && !cached.trim().isEmpty()) { lastResolvedProvider = "cache"; return cached; }
     String label = null;
     String gateway = BuildConfig.KFE_MAPPLS_GEOCODER_GATEWAY == null ? "" : BuildConfig.KFE_MAPPLS_GEOCODER_GATEWAY.trim();
     if (!gateway.isEmpty()) {
-      try { label = requestProvider(gateway, latitude, longitude); }
+      try { label = requestProvider(gateway, latitude, longitude); if (label != null && !label.trim().isEmpty()) lastResolvedProvider = "mappls-gateway"; }
       catch (IOException error) { Log.w(TAG, "Mappls gateway unavailable; trying Photon fallback.", error); }
     }
-    if (label == null || label.trim().isEmpty()) label = requestProvider(FALLBACK_ENDPOINT, latitude, longitude);
+    if (label == null || label.trim().isEmpty()) { label = requestProvider(FALLBACK_ENDPOINT, latitude, longitude); if (label != null && !label.trim().isEmpty()) lastResolvedProvider = "photon"; }
     if (label != null && !label.trim().isEmpty()) cache.edit().putString(CACHE_PREFIX + key, label.trim()).apply();
     return label;
   }
