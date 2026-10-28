@@ -26,6 +26,14 @@ const locality = value => {
   const label = typeof value === 'string' ? value.trim() : ''
   return label || 'Location unavailable'
 }
+const locationLabel = snapshot => {
+  const placeName = typeof snapshot?.placeName === 'string' ? snapshot.placeName.trim() : ''
+  if (placeName) return placeName
+  const latitude = Number(snapshot?.latitude)
+  const longitude = Number(snapshot?.longitude)
+  if (!Number.isFinite(latitude) || Math.abs(latitude) > 90 || !Number.isFinite(longitude) || Math.abs(longitude) > 180) return 'Location unavailable'
+  return `GPS ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
+}
 const durationMs = trip => {
   const start = validTime(trip?.tripStartAt)
   const end = validTime(trip?.tripEndAt)
@@ -81,8 +89,12 @@ export const ActivityTimelineReadService = Object.freeze({
         const locations = locationsByTrip.get(trip.id) || {}
         // New records use the shared GPS_SNAPSHOT event pathway. Legacy trip-boundary
         // labels remain a read-only fallback so historical records are not hidden.
-        const pickupName = locations.start?.placeName || trip.tripStartLocation?.placeName
-        const dropName = locations.end?.placeName || trip.tripEndLocation?.placeName
+        const pickupName = locationLabel(locations.start) !== 'Location unavailable'
+          ? locationLabel(locations.start)
+          : locationLabel(trip.tripStartLocation)
+        const dropName = locationLabel(locations.end) !== 'Location unavailable'
+          ? locationLabel(locations.end)
+          : locationLabel(trip.tripEndLocation)
         return {
           id: trip.id,
           status: trip.status,
@@ -93,9 +105,9 @@ export const ActivityTimelineReadService = Object.freeze({
           fareLabel: fare.label,
           fareValue: fare.value,
           fareState: fare.state,
-          pickupArea: validTime(trip.tripStartAt) != null ? locality(pickupName) : 'Location unavailable',
+          pickupArea: validTime(trip.tripStartAt) != null ? pickupName : 'Location unavailable',
           // A cancelled trip's end GPS fix is a cancellation location, not a passenger drop-off.
-          dropArea: trip.status === 'COMPLETED' ? locality(dropName) : 'Location unavailable',
+          dropArea: trip.status === 'COMPLETED' ? dropName : 'Location unavailable',
         }
       })
       .sort((a, b) => Date.parse(b.timeAt) - Date.parse(a.timeAt))
