@@ -927,7 +927,7 @@ public class KfeOverlayService extends Service {
       JSONArray items=new JSONArray(prefs.getString(PENDING_GPS_KEY,"[]"));
       String key=gpsEventKey(tripId,eventType);
       for(int i=0;i<items.length();i++){JSONObject item=items.optJSONObject(i);if(item!=null&&key.equals(item.optString("key","")))return true;}
-      JSONObject item=new JSONObject();item.put("key",key);item.put("tripId",tripId);item.put("eventType",eventType);item.put("queuedAt",java.time.Instant.now().toString());items.put(item);
+      JSONObject item=new JSONObject();item.put("key",key);item.put("tripId",tripId);item.put("eventType",eventType);item.put("queuedAt",java.time.Instant.now().toString());item.put("retryAttempts",0);item.put("nextAttemptAt",0L);items.put(item);
       if(!prefs.edit().putString(PENDING_GPS_KEY,items.toString()).commit())throw new IllegalStateException("Pending GPS event journal was not committed.");
       Log.i("KFE-GPS","Durably queued event location "+key);
       return true;
