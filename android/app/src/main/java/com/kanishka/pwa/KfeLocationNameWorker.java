@@ -4,7 +4,6 @@ import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
-import android.net.NetworkInfo;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -66,6 +65,16 @@ public final class KfeLocationNameWorker extends Worker {
     enqueue(context, ExistingWorkPolicy.APPEND_OR_REPLACE);
   }
 
+  private boolean hasValidatedInternet() {
+    ConnectivityManager manager = (ConnectivityManager) getApplicationContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+    if (manager == null) return false;
+    Network active = manager.getActiveNetwork();
+    if (active == null) return false;
+    NetworkCapabilities capabilities = manager.getNetworkCapabilities(active);
+    return capabilities != null && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+  }
+
   @NonNull @Override public Result doWork() {
     if (getRunAttemptCount() >= MAX_RETRIES) {
       Log.w(TAG, "Stopped after bounded reverse-geocoding retries; saved coordinates remain available.");
@@ -73,6 +82,7 @@ public final class KfeLocationNameWorker extends Worker {
     }
 
     try {
+      if (!hasValidatedInternet()) return Result.retry();
       JSONObject listed = KfeCanonicalWorkStore.get(getApplicationContext()).listRecords("GPS_SNAPSHOT", 1000);
       JSONArray records = listed.optJSONArray("records");
       if (records == null || records.length() == 0) return Result.success();
