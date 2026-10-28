@@ -4,6 +4,7 @@ const photonEndpoint = () => { try { return globalThis.__KFE_REVERSE_GEOCODER_EN
 const CACHE_KEY = 'kfe:locality-cache:v2'
 const keyFor = l => { const lat=Number(l?.latitude), lon=Number(l?.longitude); return Number.isFinite(lat)&&Math.abs(lat)<=90&&Number.isFinite(lon)&&Math.abs(lon)<=180 ? lat.toFixed(5)+':'+lon.toFixed(5) : null }
 const propertiesOf = p => p?.features?.[0]?.properties || p?.result?.address || p?.address || p?.result || p
+// Display area/locality names only. Never use a POI name or street as the visible label.
 const formatProperties = p => {
   if (!p || typeof p !== 'object') return null
   const parts=[]
@@ -14,7 +15,7 @@ const formatProperties = p => {
   return parts.join(', ')||null
 }
 const fetchLabel = async (endpoint,l,fetchImpl) => {
-  if(!endpoint||typeof fetchImpl!=='function') return null
+  if(!keyFor(l)||!endpoint||typeof fetchImpl!=='function') return null
   const sep=endpoint.includes('?')?'&':'?'
   const response=await fetchImpl(endpoint.replace(/\/$/,'')+sep+'lat='+encodeURIComponent(Number(l.latitude))+'&lon='+encodeURIComponent(Number(l.longitude)),{headers:{Accept:'application/json'}})
   if(!response.ok){const e=new Error('Reverse geocoder HTTP '+response.status);e.status=response.status;throw e}
