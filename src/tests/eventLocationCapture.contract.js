@@ -48,7 +48,7 @@ assert.match(workService, /captureAndPersistEventLocation\('TRIP', data\?\.id, '
 assert.match(eventLocationService, /if \(!String\(prior\.placeName \|\| ''\)\.trim\(\)\)/, 'existing snapshots without locality labels must retry enrichment without recapturing GPS')
 assert.match(eventLocationService, /async reconcilePersistedTripLocations\(\)/, 'startup reconciliation must migrate old trip-boundary snapshots into the shared event model')
 assert.match(eventLocationService, /legacy-trip-location-/, 'legacy migration must use a stable identity and avoid duplicate snapshots')
-assert.match(eventLocationService, /resolveLocationName\(snapshot, locationNameResolver\)/, 'persisted snapshots without locality labels must be enriched without another GPS capture')
+assert.match(eventLocationService, /resolveLocationNameWithRetry\(snapshot, locationNameResolver\)/, 'persisted snapshots without locality labels must be enriched without another GPS capture')
 assert.match(locationRepository, /gps-snapshot-created/, 'creating a GPS snapshot must notify subscribed read models')
 const appEntry = fs.readFileSync('src/main.js', 'utf8')
 assert.match(appEntry, /EventLocationService\.reconcilePersistedTripLocations\(\)/, 'location migration/enrichment must run outside the read-only Timeline')
