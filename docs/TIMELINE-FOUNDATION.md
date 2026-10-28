@@ -21,3 +21,11 @@ Timeline must never create, edit, correct, or silently reinterpret source record
 Break handling is part of the Work domain/application contract and may appear in Timeline when represented by an authoritative event. Timeline remains read-only for business authority; corrections are submitted through canonical application services and audited. It must not invent Break events or accounting effects.
 
 Tax Reserve is permanently excluded from KFE 2.0 and is not a Timeline concept.
+
+
+## GPS locality resolution contract
+GPS capture and event timestamps remain authoritative and independent from locality lookup. Timeline remains a read-only projection; it never geocodes or mutates snapshots.
+
+The shared application contract is `LocalityResolutionService`. It validates coordinates, normalizes locality/city/state labels, caches positive results by five-decimal coordinate key, and tries a configured first-party Mappls gateway before Photon fallback. Mappls credentials must remain server-side. Configure `VITE_MAPPLS_GEOCODER_GATEWAY_ENDPOINT` for the PWA and `KFE_MAPPLS_GEOCODER_GATEWAY` at Android build time with a gateway URL returning either normalized `{ locality, city, state }` fields or a compatible geocoder response. With no gateway configured, Photon remains operational; the app does not claim Mappls has resolved a location.
+
+Unresolved snapshots persist `localityResolutionState`, `localityAttemptCount`, `localityNextAttemptAt`, and `localityLastError`. Successful resolutions persist `localityResolvedAt` and `localityProvider`. Android positive cache entries are stored in app-private SharedPreferences; PWA cache entries are stored in localStorage. Existing valid historical coordinates remain eligible for enrichment and are never replaced by a new GPS fix. Timeline shows saved coordinates and a pending/retry message until a locality is actually resolved.
