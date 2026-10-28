@@ -40,25 +40,25 @@ assert.match(gradle, /androidx\.work:work-runtime:2\.10\.1/,
 const overlay = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java', 'utf8')
 const mainActivity = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/MainActivity.java', 'utf8')
 const locationRepository = fs.readFileSync('src/repositories/locationRepository.js', 'utf8')
-assert.doesNotMatch(overlay, /foregroundCheck|postDelayed\\(this,\\s*500L\\)/,
+assert.doesNotMatch(overlay, /foregroundCheck|postDelayed\(this,\s*500L\)/,
   'overlay visibility must be lifecycle-driven rather than checked every 500 ms')
-assert.match(mainActivity, /KfeOverlayService\\.onPwaActivityResumed\\(\\)/,
+assert.match(mainActivity, /KfeOverlayService\.onPwaActivityResumed\(\)/,
   'overlay minimization must be triggered by the Android activity lifecycle')
-assert.match(overlay, /GPS_RETRY_DELAYS_MS=\\{30_000L,60_000L,2\\*60_000L,5\\*60_000L,15\\*60_000L,30\\*60_000L\\}/,
+assert.match(overlay, /GPS_RETRY_DELAYS_MS=\{30_000L,60_000L,2\*60_000L,5\*60_000L,15\*60_000L,30\*60_000L\}/,
   'failed GPS fixes must back off to a 30-minute cap without dropping the durable request')
-assert.match(overlay, /recordPendingGpsFailure\\(tripId,eventType\\)/,
+assert.match(overlay, /recordPendingGpsFailure\(tripId,eventType\)/,
   'failed GPS attempts must persist their retry deadline')
-assert.match(overlay, /item\\.put\\("nextAttemptAt",now\\+delay\\)/,
+assert.match(overlay, /item\.put\("nextAttemptAt",now\+delay\)/,
   'GPS retry deadlines must survive service and process restarts')
-assert.match(eventLocations, /nativeSnapshotMatches\\(snapshot, nativeSnapshot\\)/,
+assert.match(eventLocations, /nativeSnapshotMatches\(snapshot, nativeSnapshot\)/,
   'reconciliation must avoid rewriting unchanged native snapshots')
-assert.match(eventLocations, /LocationRepository\\.all\\(\\)/,
+assert.match(eventLocations, /LocationRepository\.all\(\)/,
   'post-migration reconciliation must read snapshots in one pass rather than querying each trip')
-assert.doesNotMatch(eventLocations, /retry\\.nextAttemptAt = Date\\.now\\(\\)/,
+assert.doesNotMatch(eventLocations, /retry\.nextAttemptAt = Date\.now\(\)/,
   'resume and visibility events must not bypass persisted locality retry backoff')
 assert.match(eventLocations, /LOCATION_RECONCILIATION_KEY, 'complete'/,
   'legacy trip-boundary migration must be marked complete before later passes become incremental')
-assert.match(locationRepository, /async all\\(\\)/,
+assert.match(locationRepository, /async all\(\)/,
   'local snapshot reconciliation must support one-pass indexed reads')
 
 console.log('PASS: GPS locality enrichment is connectivity-driven, persisted, bounded, and battery-conscious')
