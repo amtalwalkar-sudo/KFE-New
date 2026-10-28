@@ -53,7 +53,7 @@ const adminLayoutCss = await readFile(new URL('../components/admin/admin-redesig
 assert.match(adminView, /groupAdminNavigationItems\(items,categories\)/)
 assert.match(adminView, /isAdminSettingsItem\(key\)/)
 assert.match(adminView, /getAdminSettingsKey\(key\)/)
-// The home workspace and Settings are exclusive views; the header gear is the only Settings entry point.
+// The home workspace and Settings are exclusive views; Settings is reached through its main-menu category, not a duplicate header icon.
 assert.match(adminView, /<template v-if="!selected&&!settingsOpen">/)
 assert.match(adminView, /<template v-else-if="settingsOpen">/)
 assert.match(adminView, /<header class="admin-home-heading">\s*<h1>Admin workspace<\/h1>\s*<\/header>/)
@@ -85,3 +85,11 @@ assert.match(adminLayoutCss, /@media \(max-width:760px\)\s*\{\s*\.admin-page \.s
 assert.match(adminLayoutCss, /\.admin-page \.source-form-actions\s*\{[\s\S]*?backdrop-filter:none;\s*box-shadow:none;/)
 
 console.log('Admin navigation contract: PASS — approved four categories/nine entries and settings routing are fixed.')
+
+const adminShell = await readFile(new URL('../components/admin/AdminShell.vue', import.meta.url), 'utf8')
+assert.doesNotMatch(adminShell, /settings-icon-button|toggle-settings|aria-label="Toggle Admin settings"/,
+  'the duplicate header Settings gear must be removed')
+assert.equal(ADMIN_NAVIGATION_ITEMS.filter(item => item.category === 'Settings').length, 3,
+  'all three Settings destinations remain in the main Admin menu')
+assert.deepEqual(ADMIN_NAVIGATION_ITEMS.filter(item => item.category === 'Settings').map(item => item.key),
+  ['settingsBackup', 'settingsApplication', 'settingsReset'])

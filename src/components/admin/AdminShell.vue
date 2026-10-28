@@ -2,9 +2,8 @@
 defineProps({
   showBack: { type: Boolean, default: false },
   title: { type: String, default: 'Admin' },
-  settingsOpen: { type: Boolean, default: false }
 })
-defineEmits(['back', 'toggle-settings'])
+defineEmits(['back'])
 </script>
 
 <template>
@@ -16,14 +15,6 @@ defineEmits(['back', 'toggle-settings'])
         <span>ADMINISTRATION</span>
         <strong>{{ title }}</strong>
       </div>
-      <button
-        type="button"
-        class="settings-icon-button"
-        :class="{ active: settingsOpen }"
-        :aria-expanded="settingsOpen"
-        aria-label="Toggle Admin settings"
-        @click="$emit('toggle-settings')"
-      >⚙</button>
     </header>
     <slot />
   </section>
