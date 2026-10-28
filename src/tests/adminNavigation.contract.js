@@ -70,5 +70,14 @@ assert.match(adminView, /shellScrollArea\?\.scrollTo\(\{ top: 0, left: 0, behavi
 assert.match(adminView, /stopAdminViewportWatch\(\)/)
 assert.match(adminLayoutCss, /\.admin-page \.admin-shell-bar \{ position:sticky; top:0; z-index:20;/)
 assert.match(adminLayoutCss, /\.admin-page \{ box-sizing:border-box; width:100%; min-width:0; min-height:100%;/)
+const adminSourceForm = await readFile(new URL('../components/admin/AdminSourceForm.vue', import.meta.url), 'utf8')
+assert.match(adminView, /v-if="!masterSelected && formOpen" class="admin-record-form-screen"/)
+assert.match(adminView, /v-if="formOpen" class="admin-record-form-screen"/)
+assert.match(adminView, /Cancel and return to list/)
+assert.match(adminLayoutCss, /\.admin-page \.admin-record-form-screen \{ display:block; width:100%; min-width:0;/)
+assert.match(adminSourceForm, /grid-template-columns:minmax\(0,\.85fr\) minmax\(0,1\.15fr\)/)
+assert.match(adminSourceForm, /@media\(max-width:360px\)\{\.source-form-actions\{grid-template-columns:minmax\(0,1fr\)/)
+assert.match(adminSourceForm, /overflow-wrap:anywhere/)
+
 
 console.log('Admin navigation contract: PASS — approved four categories/nine entries and settings routing are fixed.')
