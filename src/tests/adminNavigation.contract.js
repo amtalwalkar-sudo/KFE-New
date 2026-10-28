@@ -52,14 +52,11 @@ const adminView = await readFile(new URL('../views/AdminView.vue', import.meta.u
 assert.match(adminView, /groupAdminNavigationItems\(items,categories\)/)
 assert.match(adminView, /isAdminSettingsItem\(key\)/)
 assert.match(adminView, /getAdminSettingsKey\(key\)/)
-// Opening Settings must not unmount/hide the Admin workspace; otherwise the entire
-// Admin navigation appears to disappear behind a settings-only screen.
+// The home workspace and Settings are exclusive views; the header gear is the only Settings entry point.
 assert.match(adminView, /<template v-if="!selected&&!settingsOpen">/)
 assert.match(adminView, /<template v-else-if="settingsOpen">/)
-assert.match(adminView, /<header class="admin-home-heading">\\s*<h1>Admin workspace<\\/h1>\\s*<\\/header>/)
+assert.match(adminView, /<header class="admin-home-heading">\s*<h1>Admin workspace<\/h1>\s*<\/header>/)
 assert.doesNotMatch(adminView, /admin-hero-settings|Business control centre|Changes are validated and saved through the authoritative Admin service/)
-
-assert.match(adminView, /<template v-if="settingsOpen">/)
 assert.match(adminView, /<template v-else-if="selected">\s*<section class="detail-screen"/)
 assert.doesNotMatch(adminView, /from ['"][^'"]*\/domain\/(?:finance|time)\//)
 console.log('Admin navigation contract: PASS — approved four categories/nine entries and settings routing are fixed.')
