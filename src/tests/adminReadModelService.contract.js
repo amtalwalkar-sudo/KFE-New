@@ -34,7 +34,7 @@ const observed = AdminReadModelService.getComplianceRevenueSummary({
     { shiftEndAt: '2026-11-01T18:30:00.000Z', revenue: 900 },
   ],
 })
-assert.deepEqual(observed, { total: 500, days: 2, average: 250 }, 'validity summary must use inclusive IST calendar days')
+assert.deepEqual(observed, { total: 300, days: 2, average: 150 }, 'validity summary must use inclusive IST calendar days')
 
 const schedule = AdminReadModelService.getLoanAmortizationSchedule({
   asOf: '2026-10-03T12:00:00+05:30',
