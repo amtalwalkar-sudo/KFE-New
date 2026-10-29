@@ -56,7 +56,7 @@ const appEntry = fs.readFileSync('src/main.js', 'utf8')
 assert.match(appEntry, /EventLocationService\.reconcilePersistedTripLocations\(\)/, 'location migration/enrichment must run outside the read-only Timeline')
 console.log('PASS: all work-event locations use one optional, async, persisted-before-geocoding pathway')
 
-assert.match(nativeBoundaryPlugin, /"SHIFT_START".equals(eventType)[\s\S]*"SHIFT_END".equals(eventType)/,
+assert.ok(nativeBoundaryPlugin.includes('"SHIFT_START".equals(eventType)') && nativeBoundaryPlugin.includes('"SHIFT_END".equals(eventType)'),
   'shift start and end must use the permission-gated native GPS retry queue')
 assert.match(nativeOverlay, /queueEventLocationCapture\(Context context,String entityType,String entityId,String eventType,String eventAt\)/,
   'native event GPS queue must preserve the generic event identity and timestamp')
