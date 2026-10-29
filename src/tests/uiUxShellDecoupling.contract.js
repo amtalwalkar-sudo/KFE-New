@@ -64,8 +64,8 @@ assert.doesNotMatch(shell, /indexedDB|localStorage|useShiftTripStore|WorkService
 assert.doesNotMatch(shell, /from ['"][^'"]*(?:\/domain\/|\/repositories\/|\/infrastructure\/)/)
 
 
-const adminView = readFileSync('src/views/AdminView.vue', 'utf8')
-const calculationsView = readFileSync('src/views/CalculationsView.vue', 'utf8')
+const adminView = await readFile(new URL('../views/AdminView.vue', import.meta.url), 'utf8')
+const calculationsView = await readFile(new URL('../views/CalculationsView.vue', import.meta.url), 'utf8')
 assert.match(adminView, /AdminReadModelService\.getLoanAmortizationSchedule/, 'Admin loan schedule status must come from the application read model')
 assert.match(adminView, /AdminReadModelService\.getLoanFinancialSummary/, 'Admin loan financial summary must come from the application read model')
 assert.match(adminView, /AdminReadModelService\.getComplianceRevenueSummary/, 'compliance validity context must be an application projection')
