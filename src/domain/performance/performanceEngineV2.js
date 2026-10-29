@@ -238,10 +238,9 @@ export function derivePerformance(s, r, p = previousRange(r)) {
   const maintenanceProvisionAccumulated = maintenanceProvisionThrough(S, s?.breakEvenInputs || [], r?.to)
   const maintenancePayments = live(s?.settlements).filter(x => String(x.sourceType || '') === 'Maintenance' && String(x.direction || 'OUT').toUpperCase() === 'OUT' && inR(x.settledOn || x.paidOn || x.createdAt, r)).reduce((sum, x) => sum + n(x.amount), 0)
   const maintenancePaymentsAccumulated = live(s?.settlements).filter(x => String(x.sourceType || '') === 'Maintenance' && String(x.direction || 'OUT').toUpperCase() === 'OUT' && d(x.settledOn || x.paidOn || x.createdAt) && d(x.settledOn || x.paidOn || x.createdAt) <= r.to).reduce((sum, x) => sum + n(x.amount), 0)
-  // A settlement can exceed the provision accrued so far; the provision
-  // bucket is cleared by the actual payment and must not become negative.
-  const maintenanceProvisionBalance = Number.isFinite(maintenanceProvisionAccumulated) ? Math.max(0, maintenanceProvisionAccumulated - maintenancePaymentsAccumulated) : NaN
-  const maintenanceProvisionExcessPayments = Number.isFinite(maintenanceProvisionAccumulated) ? Math.max(0, maintenancePaymentsAccumulated - maintenanceProvisionAccumulated) : NaN
+  // BR-10A: keep the provision balance signed. Overpayment is a negative
+  // authoritative balance, not a zero-clamped bucket plus a side ledger.
+  const maintenanceProvisionBalance = Number.isFinite(maintenanceProvisionAccumulated) ? maintenanceProvisionAccumulated - maintenancePaymentsAccumulated : NaN
   const historicalMaintenanceRecoveryMonthly = calculateHistoricalMaintenanceRecovery({ vehicles: s?.vehicles || [], businessStartDate: s?.businessSetup?.businessStartDate, asOf: r?.to })
   const prevMaintenanceProvision = maintenanceProvisionForShifts(S, s?.breakEvenInputs || [], p)
   const previousMaintenancePayments = live(s?.settlements).filter(x => String(x.sourceType || '') === 'Maintenance' && String(x.direction || 'OUT').toUpperCase() === 'OUT' && inR(x.settledOn || x.paidOn || x.createdAt, p)).reduce((sum, x) => sum + n(x.amount), 0)
