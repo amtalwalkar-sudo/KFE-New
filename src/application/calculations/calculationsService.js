@@ -8,7 +8,7 @@ export const CalculationsService = Object.freeze({
   fuelQuantityKg(amount, pricePerKg) { return calculateFuelQuantityKg(amount, pricePerKg) },
   async recordFuelBaseline({ odometer, pricePerKg, amount, isFullTank = true }) {
     const values = { odometer: Number(odometer), pricePerKg: Number(pricePerKg), amount: Number(amount) }
-    if (!Object.values(values).every(Number.isFinite) || values.amount <= 0 || values.pricePerKg <= 0) {
+    if (!Object.values(values).every(Number.isFinite) || values.odometer < 0 || values.amount <= 0 || values.pricePerKg <= 0) {
       throw new Error('Odometer, price/kg and amount are required.')
     }
     return FuelRepository.create({
