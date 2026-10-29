@@ -52,40 +52,6 @@ public class KfeCanonicalWorkPlugin extends Plugin {
   }
 
   @com.getcapacitor.PluginMethod
-  public void persistTripBoundarySnapshot(PluginCall call) {
-    String operationId = call.getString("operationId", "");
-    String tripId = call.getString("tripId", "");
-    String field = call.getString("field", "");
-    JSObject snapshot = call.getObject("snapshot");
-    try {
-      KfeCanonicalWorkStore.Outcome outcome = KfeCanonicalWorkStore.get(getContext())
-          .persistTripBoundarySnapshot(operationId, tripId, field, snapshot);
-      call.resolve(new JSObject(outcome.toJson().toString()));
-    } catch (IllegalArgumentException error) {
-      call.reject(error.getMessage(), "CANONICAL_BOUNDARY_SNAPSHOT_REJECTED");
-    } catch (Exception error) {
-      call.reject("Canonical trip-boundary snapshot commit failed.", "CANONICAL_BOUNDARY_SNAPSHOT_FAILED", error);
-    }
-  }
-
-  @com.getcapacitor.PluginMethod
-  public void updateTripBoundaryPlaceName(PluginCall call) {
-    String operationId = call.getString("operationId", "");
-    String tripId = call.getString("tripId", "");
-    String field = call.getString("field", "");
-    String placeName = call.getString("placeName", "");
-    try {
-      KfeCanonicalWorkStore.Outcome outcome = KfeCanonicalWorkStore.get(getContext())
-          .updateTripBoundaryPlaceName(operationId, tripId, field, placeName);
-      call.resolve(new JSObject(outcome.toJson().toString()));
-    } catch (IllegalArgumentException error) {
-      call.reject(error.getMessage(), "CANONICAL_BOUNDARY_LABEL_REJECTED");
-    } catch (Exception error) {
-      call.reject("Canonical trip-boundary label update failed.", "CANONICAL_BOUNDARY_LABEL_FAILED", error);
-    }
-  }
-
-  @com.getcapacitor.PluginMethod
   public void migrateLegacySnapshot(PluginCall call) {
     try {
       String migrationId = call.getString("migrationId", "");
