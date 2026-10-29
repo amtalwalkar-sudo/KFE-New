@@ -123,13 +123,11 @@ public class KfeTripBoundaryLocationPlugin extends Plugin {
     String entityId = call.getString("entityId", "");
     String eventType = call.getString("eventType", "");
     String eventAt = call.getString("eventAt", "");
-    boolean tripEvent = "TRIP".equals(entityType)
-      && ("TRIP_START".equals(eventType) || "TRIP_END".equals(eventType)
-        || "PICKUP_START".equals(eventType) || "TRIP_CANCELLED".equals(eventType));
-    boolean shiftEvent = "SHIFT".equals(entityType)
-      && ("SHIFT_START".equals(eventType) || "SHIFT_END".equals(eventType));
-    if ((!tripEvent && !shiftEvent) || entityId == null || entityId.trim().isEmpty()) {
-      call.reject("A valid trip or shift event is required for background GPS capture.");
+    boolean rideEvent = "TRIP".equals(entityType)
+      && ("PICKUP_START".equals(eventType) || "TRIP_CANCELLED".equals(eventType)
+        || "TRIP_START".equals(eventType) || "TRIP_END".equals(eventType));
+    if (!rideEvent || entityId == null || entityId.trim().isEmpty()) {
+      call.reject("One of the four ride events is required for GPS capture.");
       return;
     }
     if (!KfeOverlayService.queueEventLocationCapture(getContext(), entityType, entityId, eventType, eventAt)) {
