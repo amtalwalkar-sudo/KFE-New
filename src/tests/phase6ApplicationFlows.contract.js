@@ -11,6 +11,8 @@ const admin = read('src/views/AdminView.vue')
 const timelineRead = read('src/application/timeline/activityTimelineReadService.js')
 const locationService = read('src/application/location/eventLocationService.js')
 const locationNames = read('src/application/location/locationNameService.js')
+const businessRules = read('KFE_BUSINESS_RULES_REGISTER.md')
+const complianceView = read('src/components/ComplianceModuleView.vue')
 
 for (const path of [
   'src/application/work/workService.js',
@@ -35,6 +37,9 @@ assert.match(work, /PerformanceService/)
 assert.match(timeline, /ActivityTimelineReadService/)
 assert.match(performance, /PhaseOnePerformanceService/)
 assert.match(admin, /AdminService/)
+assert.match(businessRules, /The only cumulative provision buckets are:\\s*1\\. EMI\\s*2\\. Maintenance/)
+assert.match(businessRules, /not a cumulative provision bucket/)
+assert.doesNotMatch(complianceView, /complianceProvisionAccumulated|cumulative provision|provision balance/i, 'Compliance UI must not reintroduce cumulative provision presentation')
 assert.match(admin, /AdminReadModelService/)
 for (const [name, source] of [['Work', work], ['Timeline', timeline], ['Performance', performance], ['Admin', admin]]) {
   assert.doesNotMatch(source, /indexedDB|objectStore\s*\(/, `${name} view must not own persistence`)
