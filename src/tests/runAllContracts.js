@@ -8,6 +8,7 @@ const suites = [
   'eventLocationCapture.contract.js',
   'phase6ApplicationFlows.contract.js',
   'timelineLocationLabels.contract.js',
+  'locationNameService.contract.js',
   'sharedConnectivityService.contract.js',
   'tripBoundaryTimestamp.contract.js',
   'canonicalWorkReadAuthority.contract.js','browserCanonicalWriteContract.contract.js','canonicalWorkRecordFactory.contract.js','lifecycleStorageGuard.contract.js','nativeFirstWorkMutations.contract.js',
