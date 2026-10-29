@@ -161,8 +161,9 @@ public class KfeOverlayService extends Service {
     }catch(Exception error){Log.e("KFE-GPS","Could not queue PWA event GPS capture.",error);return false;}
   }
   private static boolean isSupportedEventLocationType(String entityType,String eventType){
-    if("TRIP".equals(entityType))return "TRIP_START".equals(eventType)||"TRIP_END".equals(eventType)||"PICKUP_START".equals(eventType)||"TRIP_CANCELLED".equals(eventType);
-    return "SHIFT".equals(entityType)&&("SHIFT_START".equals(eventType)||"SHIFT_END".equals(eventType));
+    return "TRIP".equals(entityType)
+      && ("PICKUP_START".equals(eventType)||"TRIP_CANCELLED".equals(eventType)
+        ||"TRIP_START".equals(eventType)||"TRIP_END".equals(eventType));
   }
   private static String eventLocationSnapshotId(String entityType,String entityId,String eventType){
     return "TRIP".equals(entityType)?"native-event-location-"+entityId+"-"+eventType:"native-event-location-"+entityType+"-"+entityId+"-"+eventType;
