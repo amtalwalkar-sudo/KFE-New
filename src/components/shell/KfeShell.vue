@@ -1,7 +1,11 @@
 <script setup>
+import { onBeforeUnmount, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import GpsStatusIndicator from './GpsStatusIndicator.vue'
 const route = useRoute()
+const scrollMainToTop = () => document.getElementById('main-content')?.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+onMounted(() => window.addEventListener('kfe:shell-scroll-top', scrollMainToTop))
+onBeforeUnmount(() => window.removeEventListener('kfe:shell-scroll-top', scrollMainToTop))
 </script>
 
 <template>
