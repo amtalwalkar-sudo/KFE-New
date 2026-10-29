@@ -66,8 +66,16 @@ assert.match(overlay, /item\.put\("nextAttemptAt",now\+delay\)/,
   'GPS retry deadlines must survive service and process restarts')
 assert.match(eventLocations, /nativeSnapshotMatches\(snapshot, nativeSnapshot\)/,
   'reconciliation must avoid rewriting unchanged native snapshots')
-assert.match(eventLocations, /LocationRepository\.all\(\)/,
-  'post-migration reconciliation must read snapshots in one pass rather than querying each trip')
+assert.match(eventLocations, /LOCATION_ENRICHMENT_QUEUE_KEY/,
+  'unresolved GPS locality IDs must be journaled durably across offline periods and restarts')
+assert.match(eventLocations, /LOCATION_INCREMENTAL_INDEX_KEY/,
+  'existing unresolved snapshots must be indexed once before ID-only reconciliation begins')
+assert.match(eventLocations, /LocationRepository\.getById\(id\)/,
+  'normal reconciliation must fetch only locally journaled snapshot IDs')
+assert.match(eventLocations, /CanonicalWorkBoundary\.getEventLocationSnapshot\(id\)/,
+  'normal reconciliation must fetch native snapshots by queued ID rather than list the entire index')
+assert.doesNotMatch(eventLocations, /LocationRepository\.all\(\)/,
+  'routine reconciliation must not read every local GPS snapshot')
 assert.doesNotMatch(eventLocations, /retry\.nextAttemptAt = Date\.now\(\)/,
   'resume and visibility events must not bypass persisted locality retry backoff')
 assert.match(eventLocations, /LOCATION_RECONCILIATION_KEY, 'complete'/,
