@@ -306,22 +306,25 @@ Independent expected values derived from that fixture:
 
 | Rows | Calculation | UI | E2E |
 |---|---|---|---|
-| CV-01–CV-30 | PASS | PASS | PASS |
+| CV-01–CV-30 | Historical PASS recorded on CI #2520 / old commit | NOT PROVEN on current head | NOT PROVEN on current head |
 
-**Release rule:** all 30 rows now have explicit evidence in all three columns. This matrix does not claim native physical-device verification.
+**Current-head rule:** historical row results are retained as evidence only. They do not establish current calculation, rendered-UI, or persisted end-to-end correctness. The current PR adds the omitted matrix/traceability contracts to the canonical runner; the new CI result must be recorded before sign-off.
 ## Source-level audit findings — resolved / remaining
 
 1. **Resolved — conflicting distance helpers.** `src/domain/math/odometer.js` is now a compatibility re-export of the canonical implementation in `src/domain/math/distance.js`. The canonical helper rejects non-numeric, negative, and reversed odometer readings. The new matrix contract also asserts negative-reading rejection.
 2. **Resolved — silent invalid-to-zero aggregation.** `src/domain/math/calculations.js` now returns `null` when an aggregate contains a malformed, null/undefined, or blank amount instead of silently converting it to zero. `src/domain/math/totals.js` now routes to that canonical helper. Empty/non-array input retains the existing zero result. The matrix contract asserts both valid aggregation and malformed-value rejection.
 3. **Verified by current CI run 2520:** the calculation matrix contract passed and the complete KFE Foundation Contract Test suite reported **73/73 passed, 0 failed** on commit `2854abf3c54243c2ebb93e3f44d439115fa9330c`.
 4. **UI values use different display precision intentionally.** `PerformanceView.vue` has whole-rupee and two-decimal formatters plus separate numeric formatting. The matrix contract now asserts canonical metric bindings and visible labels across Performance, Work, Timeline, Admin Break-even, and Admin Finance. This is source/UI-contract evidence, not yet a rendered-browser sign-off.
-5. **Rendered UI/e2e evidence remains the next verification layer.** The source contract proves that the screens bind to the canonical metrics, but it does not prove a browser-rendered value against seeded persisted data. Those gates remain NOT PROVEN until automated browser assertions are added and executed.
+5. **Rendered UI/e2e evidence remains NOT PROVEN.** Source contracts do not prove a browser-rendered value against seeded persisted data. The older CI #2506/#2520 evidence is historical and is not current-head proof.
+6. **BR-10A conflict found and corrected in PR #412.** The maintenance and EMI engines previously clamped overpaid provision buckets at zero and exposed separate excess-payment ledgers. The authoritative rule requires a signed negative balance and prohibits a parallel additional-requirement ledger. Both engines and regression contracts now follow the signed-balance rule.
+7. **Machine-readable calculation targets corrected.** Maintenance, currency and loan targets now point to existing canonical implementation files; the previous maintenance/currency paths did not exist and the loan target pointed at the general performance engine rather than the loan engine.
+8. **Calculation evidence contracts were not all executed.** The matrix, calculation-evidence and Phase 5 traceability suites are now registered in the canonical runner; current CI is required to validate them.
 
 ## Current sign-off
 
 | Gate | Required evidence | Status |
 |---|---|---|
-| Calculation verified | Independent vectors + edge/adversarial tests pass against canonical implementation on identified commit | **PASS — run 2520, 73/73 contracts passed; matrix contract passed** |
+| Calculation verified | Independent vectors + edge/adversarial tests pass against canonical implementation on current commit | **PENDING — historical PASS on run 2520 / old commit only; PR #412 rerun required** |
 | UI verified | Browser/UI assertions for every consuming screen, correct values/labels/units/evidence state/period/rounding | **NOT PROVEN — current evidence is source/UI-contract assertions, not rendered-browser assertions** |
 | End-to-end verified | Automated persisted-input → calculation → rendered UI flow, including reload/period boundary and reconciliation where applicable | **NOT PROVEN — current contracts include calculation/application flows but not complete row-by-row rendered UI verification** |
 | Physical phone testing | Explicitly excluded from this work | **OUT OF SCOPE** |
