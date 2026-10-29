@@ -98,7 +98,7 @@ const later = '2026-04-01'
   const onTimePayment = { id: 'p1', loanId: loan.id, amount: emi, paidOn: due, status: 'PAID' }
   const position = deriveLoanPosition({ loan, payments: [onTimePayment], prepayments: [], asOf: due })
   const estimate = calculatePrepaymentEstimate({ loan, payments: [onTimePayment], prepayments: [], amount: 50000, paidOn: due })
-  assert.equal(estimate.available, true); assert.equal(estimate.appliedAmount, 50000); assert.equal(estimate.outstandingAfter, position.outstandingPrincipal - 50000); assert.equal(estimate.effect, 'REDUCE_TENURE_KEEP_EMI'); assert.equal(estimate.prepaymentCharge, 0)
+  assert.equal(estimate.available, true); assert.equal(estimate.appliedAmount, 50000); assert.equal(estimate.outstandingAfter, position.outstandingPrincipal - 50000); assert.equal(estimate.effect, 'REDUCE_TENURE_KEEP_EMI'); assert.equal(estimate.prepaymentCharge, 0); assert.equal(estimate.remainingAfter, estimate.outstandingAfter); assert.ok(estimate.reducedMonths >= 0); assert.ok(Number.isFinite(estimate.interestRemainingAfter))
   const after = deriveLoanPosition({ loan, payments: [onTimePayment], prepayments: [{ id: 'pp1', loanId: loan.id, amount: 50000, paidOn: due, status: 'Applied' }], asOf: due })
   assert.equal(after.actualPrepayment, 50000); assert.equal(after.actualFinancingOutflow, emi + 50000); assert.equal(after.outstandingPrincipal, estimate.outstandingAfter)
 }
