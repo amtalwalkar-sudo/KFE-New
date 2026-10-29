@@ -70,7 +70,29 @@ const loanAmortizationRows = ({ schedule = [], asOf = getKfeReferenceNow() } = {
   })
 }
 
+const effectiveDriverTarget = ({ records = [], driverId, month } = {}) => {
+  if (!driverId || !month) return null
+  const boundary = String(month).length === 7 ? `${month}-01` : String(month)
+  return live(records)
+    .filter(record => {
+      const values = record.values || record
+      return values.driverId === driverId && String(values.effectiveFrom || '') <= boundary
+    })
+    .sort((a, b) => String((b.values || b).effectiveFrom || '').localeCompare(String((a.values || a).effectiveFrom || ''))
+      || String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))[0] || null
+}
+
+const effectiveMaintenanceRate = ({ records = [], asOf = getKfeReferenceNow() } = {}) => {
+  const boundary = istDateKey(asOf)
+  if (!boundary) return null
+  return live(records)
+    .filter(record => String((record.values || record).effectiveFrom || '') <= boundary)
+    .sort((a, b) => String((b.values || b).effectiveFrom || '').localeCompare(String((a.values || a).effectiveFrom || '')))[0] || null
+}
+
 export const AdminReadModelService = Object.freeze({
+  getEffectiveDriverTarget(input) { return effectiveDriverTarget(input) },
+  getEffectiveMaintenanceRate(input) { return effectiveMaintenanceRate(input) },
   getSourceFinancialPosition(input) { return sourcePaymentPosition(input) },
   getComplianceRevenueSummary(input) { return observedRevenueDuringValidity(input) },
   getLoanFinancialSummary(input) { return loanFinancialSummary(input) },
