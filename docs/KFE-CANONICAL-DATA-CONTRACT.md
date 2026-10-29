@@ -35,8 +35,8 @@ Compatibility aliases belong only at normalization boundaries. Canonical domain 
 
 KFE has one canonical business/data model and one logical operational state. It does not have one physical database shared by the browser and native Android runtimes.
 
-- Browser/PWA commands commit through the IndexedDB-backed repository path.
-- Native Android overlay commands made while the WebView is inactive commit durably to native SQLite first; the PWA's IndexedDB representation is synchronized/reconciled when the WebView is active.
+- Browser-only commands commit through the IndexedDB-backed repository path.
+- On Android, Work and native overlay commands commit durably to native SQLite first; the PWA's IndexedDB representation is synchronized/reconciled as a projection when the WebView is active.
 - The runtime-specific durable commit is the authority for that command. A UI, queue enqueue, or projection update alone is not proof of commit.
 - Stable record and operation identities, idempotent replay, stale-write rejection, and canonical reconstruction are required for convergence.
 - The stores are platform persistence adapters/projections of the same logical model; neither may define separate business rules or independently invent a competing business outcome.
