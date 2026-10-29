@@ -43,4 +43,11 @@ assert.match(eventLocationService, /queueTripBoundaryEventLocation/,
   'the PWA event pathway must use native durable background queueing')
 assert.match(workService, /captureAndPersistEventLocation\('TRIP', data\?\.id, 'TRIP_CANCELLED'/,
   'cancellation must be recorded as its own location event')
+assert.match(indicator, /position:fixed/, 'GPS status panel must escape narrow header containing blocks on Android')
+assert.match(indicator, /width:min.*360px,calc.*100vw - 24px/, 'GPS panel must use a readable width constrained to the viewport')
+assert.match(indicator, /max-height:calc.*100dvh/, 'GPS panel height must fit within the visible viewport')
+assert.match(indicator, /overflow-y:auto/, 'GPS panel content must scroll vertically when it exceeds available height')
+assert.match(indicator, /overflow-wrap:normal/, 'GPS panel must preserve normal word wrapping')
+assert.match(indicator, /word-break:normal/, 'GPS panel must not break every word into narrow columns')
+assert.match(indicator, /gps-status__close/, 'GPS panel must retain a visible close action')
 console.log('PASS: GPS header status and explicit background-location permission gate are wired')
