@@ -204,7 +204,9 @@ export const EventLocationService = {
       const [nativeSnapshots, localSnapshots, trips] = await Promise.all([
         nativeIndexPromise,
         migrationComplete
-          ? Promise.all(incrementalIds.map(id => LocationRepository.getById(id).catch(() => null))).then(rows => rows.filter(Boolean))
+          ? incrementalIndexSeeded
+            ? Promise.all(incrementalIds.map(id => LocationRepository.getById(id).catch(() => null))).then(rows => rows.filter(Boolean))
+            : LocationRepository.all().catch(() => [])
           : Promise.resolve([]),
         migrationComplete ? Promise.resolve([]) : ShiftTripRepository.getAllTrips(),
       ])
@@ -296,7 +298,7 @@ export const EventLocationService = {
       if (!incrementalIndexSeeded && nativeIndexReadSucceeded && migrationSucceeded) {
         // Seed every existing unresolved native snapshot exactly once, including
         // non-trip events. Subsequent reconciliations operate on queued IDs only.
-        for (const snapshot of nativeSnapshots) {
+        for (const snapshot of [...nativeSnapshots, ...localSnapshots]) {
           if (snapshot?.id && !String(snapshot.placeName || '').trim()) setPendingEnrichment(snapshot.id, true)
         }
         for (const snapshot of snapshots) {

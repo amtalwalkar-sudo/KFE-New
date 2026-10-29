@@ -74,8 +74,10 @@ assert.match(eventLocations, /LocationRepository\.getById\(id\)/,
   'normal reconciliation must fetch only locally journaled snapshot IDs')
 assert.match(eventLocations, /CanonicalWorkBoundary\.getEventLocationSnapshot\(id\)/,
   'normal reconciliation must fetch native snapshots by queued ID rather than list the entire index')
-assert.doesNotMatch(eventLocations, /LocationRepository\.all\(\)/,
-  'routine reconciliation must not read every local GPS snapshot')
+assert.match(eventLocations, /incrementalIndexSeeded[\s\S]*LocationRepository\.all\(\)/,
+  'a full local snapshot scan is permitted only for the one-time upgrade seed')
+assert.match(eventLocations, /incrementalIndexSeeded[\s\S]*LocationRepository\.getById\(id\)/,
+  'after seeding, normal reconciliation must fetch only locally journaled snapshot IDs')
 assert.doesNotMatch(eventLocations, /retry\.nextAttemptAt = Date\.now\(\)/,
   'resume and visibility events must not bypass persisted locality retry backoff')
 assert.match(eventLocations, /LOCATION_RECONCILIATION_KEY, 'complete'/,
