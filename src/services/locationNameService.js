@@ -1,1 +1,0 @@
-export { PhotonLocationNameAdapter, MapplsGatewayLocationNameAdapter, LocalityResolutionService, resolveLocationName, resolveLocationNameDetailed, localityResolutionCacheKey } from '../application/location/locationNameService.js'
