@@ -4,63 +4,30 @@ import fs from 'node:fs'
 const workService = fs.readFileSync('src/application/work/workService.js', 'utf8')
 const locationRepository = fs.readFileSync('src/repositories/locationRepository.js', 'utf8')
 const eventLocationService = fs.readFileSync('src/application/location/eventLocationService.js', 'utf8')
-const geocoder = fs.readFileSync('src/application/location/locationNameService.js', 'utf8')
-const nativeBoundaryPlugin = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeTripBoundaryLocationPlugin.java', 'utf8')
+const boundary = fs.readFileSync('src/application/work/tripBoundaryLocation.js', 'utf8')
+const nativePlugin = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeTripBoundaryLocationPlugin.java', 'utf8')
 const nativeOverlay = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java', 'utf8')
 
-for (const hook of [
-  "captureAndPersistEventLocation('SHIFT', result.id, 'SHIFT_START', result.shiftStartAt || result.createdAt)",
-  "captureAndPersistEventLocation('TRIP', result.id, 'PICKUP_START', result.createdAt || result.tripStartAt)",
-  "captureAndPersistEventLocation('TRIP', result.id, 'TRIP_START', result.tripStartAt || new Date().toISOString())",
-  "captureAndPersistEventLocation('TRIP', data?.id, 'TRIP_END', data?.tripEndAt || new Date().toISOString())",
-  "captureAndPersistEventLocation('SHIFT', active.shift.id, 'SHIFT_END', completedShift?.shiftEndAt || null)",
-  "captureAndPersistEventLocation('FUEL', result.record.id, 'FUEL_ENTRY', result.record.createdAt || result.record.capturedAt)"
-]) assert.ok(workService.includes(hook), `Missing async location hook: ${hook}`)
-
-assert.match(workService, /EventLocationService\.captureForEvent\(entityType, entityId, eventType, eventAt\)/)
-assert.match(eventLocationService, /void \(async \(\) => \{/,
-  'GPS capture must run fire-and-forget, outside the authoritative work transition')
-assert.match(workService, /captureAndPersistEventLocation\('FUEL', result\.record\.id, 'FUEL_ENTRY', result\.record\.createdAt \|\| result\.record\.capturedAt\)/,
-  'fuel location snapshots must retain the fuel event timestamp')
-assert.match(locationRepository, /eventAt: eventAt == null/,
-  'the business event timestamp must remain separate from the provider fix timestamp')
-assert.match(eventLocationService, /await LocationRepository\.record\(/,
-  'coordinates must be persisted locally before reverse geocoding')
-assert.match(eventLocationService, /if \(!String\(snapshot\.placeName \|\| ''\)\.trim\(\)\) setPendingEnrichment\(snapshot\.id, true\)/,
-  'event capture queues unresolved coordinates without issuing a locality network request')
-assert.doesNotMatch(eventLocationService.slice(eventLocationService.indexOf('captureForEvent('), eventLocationService.indexOf('async forEntity(')), /resolveLocationNameDetailed|resolveLocationName\(/,
-  'event capture must not reverse geocode automatically')
-assert.match(locationRepository, /GPS snapshot requires the location provider fix timestamp/,
-  'GPS snapshots must reject missing provider timestamps rather than substitute event wall-clock time')
-assert.match(locationRepository, /capturedAt: new Date\(fixTimestamp\)\.toISOString\(\)/,
-  'GPS snapshot must persist the normalized provider fix timestamp')
-assert.match(eventLocationService, /CanonicalWorkBoundary\.persistEventLocationSnapshot/,
-  'event location snapshots must be mirrored into native canonical storage')
-assert.match(eventLocationService, /CanonicalWorkBoundary\.listEventLocationSnapshots/,
-  'timeline reads must be able to recover event snapshots from native canonical storage')
-assert.match(eventLocationService, /await this\.persistNativeSnapshot\(local\)/,
-  'locality label enrichment must be mirrored durably to native storage')
-assert.match(locationRepository, /id = null/,
-  'the same event snapshot identity must be shared across browser and native stores')
-assert.match(geocoder, /Display area\/locality names only/,
-  'the formatter must explicitly define locality-only visible labels')
-assert.doesNotMatch(geocoder, /return \[p\.name, p\.street/,
-  'street addresses must not be used as visible location labels')
-
-assert.match(workService, /captureAndPersistEventLocation\('TRIP', result\.id, 'TRIP_START'/, 'passenger ride start must use the shared event-location pathway')
-assert.match(workService, /captureAndPersistEventLocation\('TRIP', data\?\.id, 'TRIP_END'/, 'passenger ride end must use the shared event-location pathway')
-assert.match(eventLocationService, /if \(!String\(prior\.placeName \|\| ''\)\.trim\(\)\) setPendingEnrichment\(prior\.id, true\)/, 'existing snapshots without locality labels remain queued for manual enrichment without recapturing GPS')
-assert.match(eventLocationService, /async reconcilePersistedTripLocations\(\)/, 'startup reconciliation must migrate old trip-boundary snapshots into the shared event model')
-assert.match(eventLocationService, /legacy-trip-location-/, 'legacy migration must use a stable identity and avoid duplicate snapshots')
-assert.match(eventLocationService, /async refreshUnresolvedLocationNames\(/, 'persisted snapshots are reverse-geocoded only from the explicit manual refresh path')
-assert.match(locationRepository, /gps-snapshot-created/, 'creating a GPS snapshot must notify subscribed read models')
-const appEntry = fs.readFileSync('src/main.js', 'utf8')
-assert.doesNotMatch(appEntry, /reconcilePersistedTripLocations|KfeLocationNameWorker/, 'app startup and lifecycle events must not trigger locality reconciliation or geocoding')
-console.log('PASS: all work-event locations use one optional, async, persisted-before-geocoding pathway')
-
-assert.ok(nativeBoundaryPlugin.includes('"SHIFT_START".equals(eventType)') && nativeBoundaryPlugin.includes('"SHIFT_END".equals(eventType)'),
-  'shift start and end must use the permission-gated native GPS retry queue')
-assert.match(nativeOverlay, /queueEventLocationCapture\(Context context,String entityType,String entityId,String eventType,String eventAt\)/,
-  'native event GPS queue must preserve the generic event identity and timestamp')
-assert.match(nativeOverlay, /eventLocationSnapshotId\(entityType,entityId,eventType\)/,
-  'native retries must persist GPS snapshots under a stable entity/event identity')
+for (const event of ['PICKUP_START', 'TRIP_CANCELLED', 'TRIP_START', 'TRIP_END']) {
+  assert.ok(eventLocationService.includes(`'${event}'`), `missing supported ride event ${event}`)
+  assert.ok(nativePlugin.includes(`"${event}".equals(eventType)`), `native queue must accept ${event}`)
+  assert.ok(workService.includes(`captureAndPersistEventLocation('TRIP'`), 'ride workflow must use the shared capture entry point')
+}
+assert.match(workService, /captureAndPersistEventLocation\('TRIP', result\.id, 'PICKUP_START'/)
+assert.match(workService, /captureAndPersistEventLocation\('TRIP', result\.id, 'TRIP_START'/)
+assert.match(workService, /captureAndPersistEventLocation\('TRIP', data\?\.id, 'TRIP_END'/)
+assert.match(workService, /captureAndPersistEventLocation\('TRIP', data\?\.id, 'TRIP_CANCELLED'/)
+assert.doesNotMatch(workService, /captureAndPersistEventLocation\('(SHIFT|FUEL)'/, 'GPS capture is limited to the four ride events')
+assert.match(eventLocationService, /queueTripBoundaryEventLocation\(entityType, entityId, eventType, eventAt\)/)
+assert.match(eventLocationService, /captureTripBoundaryLocation\(\)/)
+assert.match(eventLocationService, /LocationRepository\.record\(/)
+assert.match(locationRepository, /GPS snapshot requires the location provider fix timestamp/)
+assert.match(locationRepository, /capturedAt: new Date\(fixTimestamp\)\.toISOString\(\)/)
+assert.match(eventLocationService, /CanonicalWorkBoundary\.persistEventLocationSnapshot/)
+assert.match(eventLocationService, /CanonicalWorkBoundary\.listEventLocationSnapshots/)
+assert.doesNotMatch(eventLocationService, /LocalityResolutionService|resolveLocationName|ConnectivityService|LOCATION_ENRICHMENT|LOCATION_RECONCILIATION|reconcilePersistedTripLocations|refreshUnresolvedLocationNames/)
+assert.match(boundary, /maximumAge: 0/)
+assert.match(nativeOverlay, /queueEventLocationCapture\(Context context,String entityType,String entityId,String eventType,String eventAt\)/)
+assert.match(nativeOverlay, /eventLocationSnapshotId\(entityType,entityId,eventType\)/)
+assert.match(nativePlugin, /backgroundCaptureAllowed/)
+console.log('PASS: four ride events use one offline-first one-shot GPS snapshot pathway')
