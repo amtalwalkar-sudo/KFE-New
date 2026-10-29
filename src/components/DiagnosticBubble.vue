@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { DiagnosticService } from '../infrastructure/diagnostics/diagnosticService.js'
+import { DiagnosticService } from '../application/diagnostics/diagnosticService.js'
 
 const open = ref(false)
 const snapshot = ref(DiagnosticService.snapshot())
