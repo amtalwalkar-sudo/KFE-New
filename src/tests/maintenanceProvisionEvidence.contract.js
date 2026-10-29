@@ -30,8 +30,8 @@ const maintenanceOverpaid = derivePerformance({
 }, range)
 assert.equal(maintenanceOverpaid.maintenanceProvisionAccumulated, 400)
 assert.equal(maintenanceOverpaid.maintenancePaymentsAccumulated, 500)
-assert.equal(maintenanceOverpaid.maintenanceProvisionBalance, 0, 'payments above accrued provision must not create a negative bucket')
-assert.equal(maintenanceOverpaid.maintenanceProvisionExcessPayments, 100, 'overpayment must remain visible as a separate amount')
+assert.equal(maintenanceOverpaid.maintenanceProvisionBalance, -100, 'overpayment must remain as a negative authoritative bucket')
+assert.equal(Object.hasOwn(maintenanceOverpaid, 'maintenanceProvisionExcessPayments'), false, 'overpayment must not create a parallel side ledger')
 
 const leapRange = { from: new Date('2024-02-28T18:30:00.000Z'), to: new Date('2024-02-29T18:29:59.999Z') }
 const leapRecord = {
