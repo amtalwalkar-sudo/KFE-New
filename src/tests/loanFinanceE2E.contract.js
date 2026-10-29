@@ -52,8 +52,8 @@ const later = '2026-04-01'
   assert.equal(position.actualPaid, amount)
   assert.equal(position.schedule[0].paidAmount, amount, 'saved advance payment must be reflected in installment allocation')
   assert.ok(position.schedule[0].dueDate > earlyPaidOn, 'regression must cover payment before the EMI due date')
-  assert.ok(position.provisionBalance >= 0, 'advance EMI payments must not drive the accrued provision bucket negative')
-  assert.ok(position.paymentsAheadOfAccrual > 0, 'advance payment above accrued EMI provision is reported separately')
+  assert.ok(position.provisionBalance < 0, 'advance EMI payment must remain a negative authoritative provision balance')
+  assert.equal(Object.hasOwn(position, 'paymentsAheadOfAccrual'), false, 'advance EMI must not create a parallel additional-requirement ledger')
 }
 {
   const beforeLoanStart = paymentAllocationPreview({ loan, amount: 1000, paidOn: '2025-12-31' })
