@@ -21,7 +21,7 @@ const assertForbidden = (dirs, patterns, label) => {
 }
 
 assertForbidden(['views', 'components', 'stores', 'presentation'], [ /from\s+['"][^'"]*\/repositories\//, /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/ ], 'Presentation/state must not access persistence directly')
-assertForbidden(['views', 'components', 'presentation'], [ /from\s+['"][^'"]*\/domain\/performance\//, /from\s+['"][^'"]*\/domain\/work\//, /from\s+['"][^'"]*\/domain\/math\//, /from\s+['"][^'"]*\/domain\/movement\// ], 'Presentation must not orchestrate domain logic directly')
+assertForbidden(['views', 'components', 'presentation'], [ /from\s+['"][^'"]*\/domain\/(?:performance|work|math|movement|time)\// ], 'Presentation must not orchestrate domain logic directly')
 
 // Admin screens must consume financial calculations and reference-time helpers
 // through the application boundary, not import domain engines themselves.
@@ -49,7 +49,7 @@ assertForbidden(['views', 'components', 'presentation', 'application', 'infrastr
 assertForbidden(['views', 'components', 'presentation', 'application'], [ /['"][^'"]*\bjs\/app\.js['"]/ ], 'Current architecture must not reference removed legacy js application')
 
 const adminViewForShell = fs.readFileSync(path.join(root, 'views/AdminView.vue'), 'utf8')
-if (/querySelector\\(\\s*['\"]\\.content-scroll-area/.test(adminViewForShell)) violations.push('AdminView must emit shell viewport intent instead of querying shell DOM internals.')
+if (/querySelector\(\s*['\"]\.content-scroll-area/.test(adminViewForShell)) violations.push('AdminView must emit shell viewport intent instead of querying shell DOM internals.')
 
 const appPath = path.join(root, 'App.vue')
 if (fs.existsSync(appPath)) {
