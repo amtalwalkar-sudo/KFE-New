@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process'
 const suites = [
   'performancePhaseOneOverview.contract.js',
   'workDraftController.contract.js',
+  'nativeWorkActionController.contract.js',
   'phase2BusinessReliabilityRegression.contract.js',
   'gpsValhallaRemoval.contract.js',
   'gpsStatusIndicator.contract.js',
