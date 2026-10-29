@@ -146,6 +146,7 @@ onBeforeUnmount(() => {
 .gps-status__trigger--ready .gps-status__dot{background:var(--kfe-base-success)}
 .gps-status__trigger--permission .gps-status__dot,.gps-status__trigger--background-permission .gps-status__dot,.gps-status__trigger--browser .gps-status__dot{background:var(--kfe-base-danger)}
 .gps-status__trigger--waiting .gps-status__dot{background:var(--kfe-warning,var(--kfe-base-accent))}
+/* Viewport-level overlay avoids inheriting the header's narrow containing block on mobile. */
 .gps-status__panel{position:fixed;z-index:1200;top:calc(var(--kfe-safe-top,env(safe-area-inset-top,0px)) + 68px);right:max(12px,env(safe-area-inset-right,0px));width:min(360px,calc(100vw - 24px));max-width:calc(100vw - 24px);max-height:calc(100dvh - var(--kfe-safe-top,env(safe-area-inset-top,0px)) - var(--kfe-safe-bottom,env(safe-area-inset-bottom,0px)) - 148px);min-width:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;padding:16px;border:1px solid var(--kfe-border,var(--kfe-base-border));border-radius:14px;background:var(--kfe-surface,var(--kfe-base-surface));color:var(--kfe-text,var(--kfe-base-text));box-shadow:0 12px 36px color-mix(in srgb,var(--kfe-ui-text) 32%,transparent);overflow-wrap:normal;word-break:normal}
 .gps-status__title{font-size:15px;font-weight:700;overflow-wrap:normal;word-break:normal}
 .gps-status__state{margin:8px 0 12px;font-weight:600;line-height:1.4;overflow-wrap:anywhere;word-break:normal}
