@@ -223,7 +223,7 @@ try {
   // Contract 7: Back from start-shift gate must not write a shift.
   await reset(page)
   await page.getByRole('button', { name: 'START SHIFT', exact: true }).click()
-  await page.getByRole('button', { name: /Back/ }).click()
+  await page.locator('.admin-shell-bar .back-button').click()
   state = await db(page, ['shifts'])
   assert(state.shifts.length === 0, 'START SHIFT Back created a mutation')
   evidence.push({ id: 'WORK.START_SHIFT_BACK', result: 'PASS', expected: 'no shift mutation', persisted: { shifts: state.shifts.length } })
@@ -415,7 +415,7 @@ try {
   assert(await settings.getByText('Dropbox', { exact: true }).count() === 1, 'Admin Dropbox connection section missing')
   assert(await settings.getByLabel('Dropbox access token', { exact: true }).count() === 1, 'Admin Dropbox token configuration missing')
   // Settings destinations are separate Admin workspace entries, not duplicate cards inside Settings.
-  await page.getByRole('button', { name: /Back/ }).click()
+  await page.locator('.admin-shell-bar .back-button').click()
   await page.locator('.admin-page').getByRole('button', { name: /Application Settings/ }).click()
   const applicationSettings = page.locator('.admin-page')
   await applicationSettings.getByRole('heading', { name: 'Application Settings', exact: true }).waitFor({ state: 'visible', timeout: 30000 })
@@ -429,7 +429,7 @@ try {
   assert(await page.evaluate(() => localStorage.getItem('kfe.notifications.enabled')) === 'false', 'Notification preference did not persist when disabled')
   await notificationToggle.check()
   assert(await page.evaluate(() => localStorage.getItem('kfe.notifications.enabled')) === 'true', 'Notification preference did not persist when enabled')
-  await page.getByRole('button', { name: /Back/ }).click()
+  await page.locator('.admin-shell-bar .back-button').click()
   await page.locator('.admin-page').getByRole('button', { name: /Data Reset/ }).click()
   const dataReset = page.locator('.admin-page')
   await dataReset.getByRole('heading', { name: 'Data Reset', exact: true }).waitFor({ state: 'visible', timeout: 30000 })
