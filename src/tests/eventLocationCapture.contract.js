@@ -27,6 +27,8 @@ assert.match(eventLocationService, /CanonicalWorkBoundary\.persistEventLocationS
 assert.match(eventLocationService, /CanonicalWorkBoundary\.listEventLocationSnapshots/)
 assert.doesNotMatch(eventLocationService, /LocalityResolutionService|resolveLocationName|ConnectivityService|LOCATION_ENRICHMENT|LOCATION_RECONCILIATION|reconcilePersistedTripLocations|refreshUnresolvedLocationNames/)
 assert.match(boundary, /maximumAge: 0/)
+assert.match(boundary, /accuracy !== null && \(!Number\.isFinite\(accuracy\) \|\| accuracy < 0\)/, 'accuracy may be absent but invalid supplied values are rejected')
+assert.doesNotMatch(boundary, /captureCurrentLocation/, 'Android must not have a second direct GPS capture pathway')
 assert.match(nativeOverlay, /queueEventLocationCapture\(Context context,String entityType,String entityId,String eventType,String eventAt\)/)
 assert.match(nativeOverlay, /eventLocationSnapshotId\(entityType,entityId,eventType\)/)
 assert.match(nativePlugin, /backgroundCaptureAllowed/)
