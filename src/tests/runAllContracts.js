@@ -6,6 +6,7 @@ const suites = [
   'gpsValhallaRemoval.contract.js',
   'gpsStatusIndicator.contract.js',
   'eventLocationCapture.contract.js',
+  'phase6ApplicationFlows.contract.js',
   'timelineLocationLabels.contract.js',
   'sharedConnectivityService.contract.js',
   'tripBoundaryTimestamp.contract.js',
