@@ -3,8 +3,7 @@ import { onMounted, ref } from 'vue'
 import { BackupService } from '../../application/backup/backupService.js'
 import { BackupConfig } from '../../application/backup/backupConfig.js'
 import { CloudBackupLifecycle } from '../../application/backup/cloudBackupLifecycle.js'
-import { downloadBackupText, readBackupFileText, chooseBackupFileText } from '../../presentation/backup/backupFileAdapter.js'
-import { Capacitor } from '@capacitor/core'
+import { isNativeBackupFilePlatform, downloadBackupText, readBackupFileText, chooseBackupFileText } from '../../application/backup/backupFileService.js'
 
 const fileInput = ref(null); const status = ref(null); const cloudConfig = ref({ enabled:false, path:'/Apps/KFE/kfe-latest-backup.json', accessToken:'', hasAccessToken:false, lastCloudBackupAt:null, lastCloudBackupAttemptAt:null, lastCloudBackupError:null, automaticBackupMode:'FOREGROUND_WHEN_APP_OPEN' });
 const tokenInput=ref(null)
@@ -30,7 +29,7 @@ const create=async()=>{
   } finally { loading.value=false }
 }
 const chooseRestoreFile=async()=>{
-  if(!Capacitor.isNativePlatform()){fileInput.value?.click();return}
+  if(!isNativeBackupFilePlatform()){fileInput.value?.click();return}
   loading.value=true;error.value='';notice.value=''
   try{
     const selected=await chooseBackupFileText()
