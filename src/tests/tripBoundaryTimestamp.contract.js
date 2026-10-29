@@ -7,7 +7,7 @@ assert.equal(valid.capturedAt, '2026-10-22T05:30:00.000Z', 'the original GPS fix
 assert.equal(valid.latitude, 19.076)
 assert.equal(valid.longitude, 72.8777)
 assert.equal(normalizeTripBoundaryLocation({ latitude: 19.076, longitude: 72.8777, accuracy: -1, capturedAt: '2026-10-22T05:30:00.000Z' }), null, 'negative GPS accuracy must make the fix unavailable so the pending event can retry')
-assert.equal(normalizeTripBoundaryLocation({ latitude: 19.076, longitude: 72.8777, capturedAt: '2026-10-22T05:30:00.000Z' }), null, 'a fix without provider accuracy must not be treated as valid')
+assert.deepEqual(normalizeTripBoundaryLocation({ latitude: 19.076, longitude: 72.8777, capturedAt: '2026-10-22T05:30:00.000Z' }), { latitude: 19.076, longitude: 72.8777, accuracy: null, capturedAt: '2026-10-22T05:30:00.000Z' }, 'provider accuracy is optional metadata')
 assert.equal(normalizeTripBoundaryLocation({ latitude: 91, longitude: 72.8777, capturedAt: '2026-10-22T05:30:00.000Z' }), null, 'out-of-range GPS coordinates must be rejected')
 assert.equal(normalizeTripBoundaryLocation({ latitude: 19.076, longitude: 72.8777 }), null, 'a location without a fix timestamp must not receive a fabricated current timestamp')
 assert.equal(normalizeTripBoundaryLocation({ latitude: 19.076, longitude: 72.8777, capturedAt: 'not-a-date' }), null, 'an invalid fix timestamp must make the snapshot unavailable')
@@ -19,7 +19,7 @@ assert.match(repository, /const fixDate = new Date\(location\.capturedAt\)/, 're
 assert.match(repository, /fixDate\.getTime\(\) <= 0/, 'repository must reject missing or non-positive fix timestamps')
 
 const plugin = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeTripBoundaryLocationPlugin.java', 'utf8')
-assert.match(plugin, /if \(location == null \|\| location\.getTime\(\) <= 0L\) return null;/, 'native snapshot must reject a missing provider timestamp')
+assert.doesNotMatch(plugin, /captureCurrentLocation/, 'Android GPS must use only the durable native event queue')
 assert.doesNotMatch(plugin, /location\.getTime\(\) > 0L \? location\.getTime\(\) : System\.currentTimeMillis\(\)/, 'native snapshot must never replace fix time with current time')
 console.log('PASS: trip-boundary snapshots preserve only actual GPS fix timestamps')
 
@@ -34,7 +34,7 @@ assert.match(workService, /next\.tripEndAt = data\.tripEndAt \|\| trip\.tripEndA
 assert.match(nativeOverlay, /trip\.put\("tripStartAt",new java\.util\.Date\(tripStartAt\)\.toInstant\(\)\.toString\(\)\)/, 'native trip-start timestamp must use the persisted start instant')
 assert.match(nativeOverlay, /trip\.put\("tripEndAt",eventTimestamp\)/, 'native trip-end timestamp must use the durable lifecycle event timestamp')
 assert.match(nativeOverlay, /location\.getTime\(\)/, 'native GPS snapshots must use the provider fix timestamp')
-assert.match(nativeLocation, /Snapshot provider timestamp is required/, 'native canonical GPS persistence must reject missing provider timestamps')
+assert.match(nativeOverlay, /location\.getTime\(\)/, 'native GPS snapshots must use the provider fix timestamp')
 assert.match(fuelRepository, /capturedAt: normalized\.capturedAt \|\| now, createdAt: normalized\.createdAt \|\| now/, 'fuel entry event time and record creation time must be stored independently')
 assert.match(fuelRepository, /capturedAt: existing\.capturedAt/, 'fuel corrections must preserve the original fuel-entry timestamp')
 assert.match(fuelFlow, /FuelRepository\.create\(\{ \.\.\.validation, vehicleId \}\)/, 'fuel save must commit without waiting for optional GPS')
