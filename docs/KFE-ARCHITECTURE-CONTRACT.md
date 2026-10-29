@@ -38,7 +38,11 @@ Repository Contracts
     ↓
 Persistence / Infrastructure
     ↓
-ONE AUTHORITATIVE LOCAL DATABASE
+Runtime persistence adapter
+    ├─ Browser PWA: IndexedDB
+    └─ Android native operational commit: SQLite
+
+ONE LOGICAL CANONICAL STATE — DURABLE PLATFORM STORES MUST CONVERGE
 ```
 
 External providers sit behind infrastructure adapters.
@@ -98,9 +102,13 @@ Derived values must be reconstructable from authoritative persisted records wher
 ## 6. Persistence boundary
 
 - Local KFE data is authoritative and local-first.
+- KFE has one **logical canonical state and business/data contract**, not one physical database shared across browser and Android runtimes.
+- In browser/PWA operation, IndexedDB is the local durable commit store. For native Android overlay operations while the WebView is inactive, native SQLite is the durable commit store; IndexedDB is synchronized as the PWA projection.
+- A command is not committed merely because a UI or queue accepted it: the runtime's authoritative durable commit must be acknowledged before success is surfaced.
+- Cross-runtime replay uses stable record/event/operation identity, idempotency checks, stale-write protection, and explicit convergence. Neither store may independently redefine business meaning or calculate a competing result.
 - Business/domain/application layers must not depend directly on a particular cloud/backup provider.
-- Persistence is accessed through repository contracts.
-- Backup/restore and sync operate against the authoritative persisted model rather than becoming alternate business-data authorities.
+- Persistence is accessed through repository/canonical-command contracts.
+- Backup/restore and sync operate against the logical canonical model rather than becoming alternate business-data authorities.
 - Raw authoritative records remain recoverable.
 
 ## 7. Provider independence
