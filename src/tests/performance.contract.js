@@ -196,7 +196,7 @@ near(provisionMetrics.maintenanceProvisionBalance, -100, 'maintenance overpaymen
 assert.equal(Object.hasOwn(provisionMetrics, 'maintenanceProvisionExcessPayments'), false, 'maintenance overpayment must not create a parallel side ledger')
 near(provisionMetrics.renewalProvision, 24000 / 365, 'compliance provision must continue accruing for the selected validity/report overlap')
 
-// Maintenance provision remains a rolling pool; compliance's cumulative bucket is not exposed.
+// Maintenance provision is a signed rolling bucket; compliance's cumulative bucket is not exposed.
 const rolloverSnapshot = {
   ...engineSnapshot,
   shifts: [
