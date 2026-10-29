@@ -1,0 +1,50 @@
+import assert from 'node:assert/strict'
+import { AdminReadModelService } from '../application/admin/adminReadModelService.js'
+
+const position = AdminReadModelService.getSourceFinancialPosition({
+  record: { id: 'compliance-1', values: { cost: 1000 } },
+  payments: [
+    { id: 'p1', sourceId: 'compliance-1', amount: 250, direction: 'OUT' },
+    { id: 'p2', sourceId: 'compliance-1', amount: 100, settlementType: 'Receipt' },
+    { id: 'p3', sourceId: 'other', amount: 500, direction: 'OUT' },
+    { id: 'p4', sourceId: 'compliance-1', amount: 50, direction: 'OUT', deletedAt: '2026-10-01' },
+  ],
+})
+assert.deepEqual(position, { available: true, cost: 1000, paid: 250, remaining: 750 })
+
+const overpaid = AdminReadModelService.getSourceFinancialPosition({
+  record: { id: 'maintenance-1', values: { cost: 100 } },
+  payments: [{ sourceId: 'maintenance-1', amount: 125, direction: 'OUT' }],
+})
+assert.deepEqual(overpaid, { available: true, cost: 100, paid: 125, remaining: -25 }, 'overpayment must remain visible, not be silently clamped')
+
+const invalid = AdminReadModelService.getSourceFinancialPosition({
+  record: { id: 'bad', values: { cost: 100 } },
+  payments: [{ sourceId: 'bad', amount: 'invalid', direction: 'OUT' }],
+})
+assert.equal(invalid.available, false, 'malformed payment data must not silently become zero')
+
+const observed = AdminReadModelService.getComplianceRevenueSummary({
+  record: { values: { validFrom: '2026-10-30', validUntil: '2026-10-31' } },
+  asOf: '2026-10-31T18:29:59.999Z',
+  shifts: [
+    { shiftEndAt: '2026-10-29T18:30:00.000Z', revenue: 100 },
+    { shiftEndAt: '2026-10-30T18:30:00.000Z', revenue: 200 },
+    { shiftEndAt: '2026-10-31T18:30:00.000Z', revenue: 300 },
+    { shiftEndAt: '2026-11-01T18:30:00.000Z', revenue: 900 },
+  ],
+})
+assert.deepEqual(observed, { total: 500, days: 2, average: 250 }, 'validity summary must use inclusive IST calendar days')
+
+const schedule = AdminReadModelService.getLoanAmortizationSchedule({
+  asOf: '2026-10-03T12:00:00+05:30',
+  schedule: [
+    { id: 'paid', dueDate: '2026-10-01T18:30:00.000Z', originalEmiAmount: 1000, scheduledInterestPaid: 500, scheduledPrincipalPaid: 499.5 },
+    { id: 'overdue', dueDate: '2026-10-01T18:30:00.000Z', originalEmiAmount: 1000, scheduledInterestPaid: 0, scheduledPrincipalPaid: 0 },
+    { id: 'due', dueDate: '2026-10-03T18:30:00.000Z', originalEmiAmount: 1000, scheduledInterestPaid: 0, scheduledPrincipalPaid: 0 },
+    { id: 'upcoming', dueDate: '2026-10-04T18:30:00.000Z', originalEmiAmount: 1000, scheduledInterestPaid: 0, scheduledPrincipalPaid: 0 },
+  ],
+})
+assert.deepEqual(schedule.map(row => row.paymentState), ['Paid', 'Overdue', 'Due', 'Upcoming'])
+assert.equal(schedule[0].remainingScheduledAmount, 0.5)
+console.log('Admin read-model projection contract: PASS')
