@@ -34,6 +34,7 @@ assert.match(workService, /next\.tripEndAt = data\.tripEndAt \|\| trip\.tripEndA
 assert.match(nativeOverlay, /trip\.put\("tripStartAt",new java\.util\.Date\(tripStartAt\)\.toInstant\(\)\.toString\(\)\)/, 'native trip-start timestamp must use the persisted start instant')
 assert.match(nativeOverlay, /trip\.put\("tripEndAt",eventTimestamp\)/, 'native trip-end timestamp must use the durable lifecycle event timestamp')
 assert.match(nativeOverlay, /location\.getTime\(\)/, 'native GPS snapshots must use the provider fix timestamp')
+assert.doesNotMatch(nativeOverlay, /!location\.hasAccuracy\(\)/, 'missing accuracy metadata must not discard an otherwise valid GPS fix')
 assert.match(nativeOverlay, /location\.getTime\(\)/, 'native GPS snapshots must use the provider fix timestamp')
 assert.match(fuelRepository, /capturedAt: normalized\.capturedAt \|\| now, createdAt: normalized\.createdAt \|\| now/, 'fuel entry event time and record creation time must be stored independently')
 assert.match(fuelRepository, /capturedAt: existing\.capturedAt/, 'fuel corrections must preserve the original fuel-entry timestamp')
