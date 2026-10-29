@@ -26,8 +26,10 @@ assert.match(locationRepository, /eventAt: eventAt == null/,
   'the business event timestamp must remain separate from the provider fix timestamp')
 assert.match(eventLocationService, /await LocationRepository\.record\(/,
   'coordinates must be persisted locally before reverse geocoding')
-assert.match(eventLocationService, /await resolveLocationNameWithRetry\(snapshot, locationNameResolver\)/,
-  'reverse geocoding must be a follow-up enrichment')
+assert.match(eventLocationService, /if \(!String\(snapshot\.placeName \|\| ''\)\.trim\(\)\) setPendingEnrichment\(snapshot\.id, true\)/,
+  'event capture queues unresolved coordinates without issuing a locality network request')
+assert.doesNotMatch(eventLocationService.slice(eventLocationService.indexOf('captureForEvent('), eventLocationService.indexOf('async forEntity(')), /resolveLocationNameDetailed|resolveLocationName\(/,
+  'event capture must not reverse geocode automatically')
 assert.match(locationRepository, /GPS snapshot requires the location provider fix timestamp/,
   'GPS snapshots must reject missing provider timestamps rather than substitute event wall-clock time')
 assert.match(locationRepository, /capturedAt: new Date\(fixTimestamp\)\.toISOString\(\)/,
@@ -47,13 +49,13 @@ assert.doesNotMatch(geocoder, /return \[p\.name, p\.street/,
 
 assert.match(workService, /captureAndPersistEventLocation\('TRIP', result\.id, 'TRIP_START'/, 'passenger ride start must use the shared event-location pathway')
 assert.match(workService, /captureAndPersistEventLocation\('TRIP', data\?\.id, 'TRIP_END'/, 'passenger ride end must use the shared event-location pathway')
-assert.match(eventLocationService, /if \(!String\(prior\.placeName \|\| ''\)\.trim\(\)\)/, 'existing snapshots without locality labels must retry enrichment without recapturing GPS')
+assert.match(eventLocationService, /if \(!String\(prior\.placeName \|\| ''\)\.trim\(\)\) setPendingEnrichment\(prior\.id, true\)/, 'existing snapshots without locality labels remain queued for manual enrichment without recapturing GPS')
 assert.match(eventLocationService, /async reconcilePersistedTripLocations\(\)/, 'startup reconciliation must migrate old trip-boundary snapshots into the shared event model')
 assert.match(eventLocationService, /legacy-trip-location-/, 'legacy migration must use a stable identity and avoid duplicate snapshots')
-assert.match(eventLocationService, /resolveLocationNameWithRetry\(snapshot, locationNameResolver\)/, 'persisted snapshots without locality labels must be enriched without another GPS capture')
+assert.match(eventLocationService, /async refreshUnresolvedLocationNames\(/, 'persisted snapshots are reverse-geocoded only from the explicit manual refresh path')
 assert.match(locationRepository, /gps-snapshot-created/, 'creating a GPS snapshot must notify subscribed read models')
 const appEntry = fs.readFileSync('src/main.js', 'utf8')
-assert.match(appEntry, /EventLocationService\.reconcilePersistedTripLocations\(\)/, 'location migration/enrichment must run outside the read-only Timeline')
+assert.doesNotMatch(appEntry, /reconcilePersistedTripLocations|KfeLocationNameWorker/, 'app startup and lifecycle events must not trigger locality reconciliation or geocoding')
 console.log('PASS: all work-event locations use one optional, async, persisted-before-geocoding pathway')
 
 assert.ok(nativeBoundaryPlugin.includes('"SHIFT_START".equals(eventType)') && nativeBoundaryPlugin.includes('"SHIFT_END".equals(eventType)'),
