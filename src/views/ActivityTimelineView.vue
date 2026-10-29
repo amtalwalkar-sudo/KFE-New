@@ -67,16 +67,22 @@ const refreshLocationNames = async () => {
     const rideIds = snapshot.value.rides.map(ride => ride.id).filter(Boolean)
     const locations = await EventLocationService.forEntities('TRIP', rideIds)
     const seen = new Set()
+    let resolvedCount = 0
+    let attemptedCount = 0
     for (const location of locations) {
       const key = `${Number(location.latitude).toFixed(5)}:${Number(location.longitude).toFixed(5)}`
       if (seen.has(key)) continue
       seen.add(key)
-      await resolveLocationNameDetailed(location, undefined, { forceRefresh: true })
+      attemptedCount += 1
+      const resolution = await resolveLocationNameDetailed(location, undefined, { forceRefresh: true })
+      if (resolution?.placeName) resolvedCount += 1
     }
     await load()
-    refreshMessage.value = locations.length
-      ? 'Area names refreshed. Saved ride GPS snapshots remain unchanged.'
-      : 'No saved GPS snapshots are available to resolve yet.'
+    refreshMessage.value = attemptedCount === 0
+      ? 'No saved GPS snapshots are available to resolve yet.'
+      : resolvedCount > 0
+        ? `Resolved ${resolvedCount} of ${attemptedCount} area names. Saved ride GPS snapshots remain unchanged.`
+        : 'No area names could be resolved. Saved GPS snapshots are retained; pull down again when online.'
   } catch (cause) {
     refreshMessage.value = cause?.message || 'Area names could not be refreshed. Saved GPS snapshots are retained.'
   } finally {
