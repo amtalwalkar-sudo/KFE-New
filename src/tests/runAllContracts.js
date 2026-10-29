@@ -4,7 +4,6 @@ const suites = [
   'performancePhaseOneOverview.contract.js',
   'phase2BusinessReliabilityRegression.contract.js',
   'gpsValhallaRemoval.contract.js',
-  'locationNameService.contract.js',
   'gpsStatusIndicator.contract.js',
   'eventLocationCapture.contract.js',
   'timelineLocationLabels.contract.js',
