@@ -363,7 +363,9 @@ ConnectivityService.subscribe((status, reason) => {
     // An explicit offline->online transition is a recovery opportunity: make
     // queued retries due now rather than waiting out a stale offline backoff.
     const retryState = readLocationRetryState()
-    for (const item of Object.values(retryState)) item.nextAttemptAt = 0
+    for (const item of Object.values(retryState)) {
+      if (item && typeof item === 'object') item.nextAttemptAt = 0
+    }
     writeLocationRetryState(retryState)
     if (locationRetryTimer != null && typeof globalThis.clearTimeout === 'function') {
       globalThis.clearTimeout(locationRetryTimer)
