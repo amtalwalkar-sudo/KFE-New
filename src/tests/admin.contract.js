@@ -35,7 +35,8 @@ console.log('Admin contract passed: only Admin-owned master, vehicle, finance an
 
 assert.match(adminView, /loanAmortizationSchedule/)
 assert.match(adminView, /View.*amortization schedule/)
-assert.match(adminView, /paymentState:fullyPaid\?'Paid'/)
+const adminReadModel = await readFile(new URL('../application/admin/adminReadModelService.js', import.meta.url), 'utf8')
+assert.match(adminReadModel, /paymentState:\s*fullyPaid\s*\?\s*'Paid'/)
 assert.match(adminView, /remainingScheduledAmount>1/)
 assert.match(adminView, /function onActionFieldChange\(\{key,value\}\)[\s\S]*paymentCalculated\.value=false;paymentConfirmed\.value=false/,
   'Changing a loan payment date or amount must invalidate both its preview and prior confirmation.')
