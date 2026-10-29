@@ -125,7 +125,7 @@ const loanSchedule=record=>loanPosition(record).overdue||[]
 const loanAmortizationSchedule=record=>AdminReadModelService.getLoanAmortizationSchedule({schedule:loanPosition(record).schedule||[],asOf:AdminReadModelService.referenceNow()})
 function toggleLoanSchedule(loanId){expandedLoanSchedules.value={...expandedLoanSchedules.value,[loanId]:!expandedLoanSchedules.value[loanId]}}
 const currentMonth=computed(()=>AdminReadModelService.dateKey(AdminReadModelService.referenceNow()).slice(0,7))
-const currentMaintenanceRate=computed(()=>{const now=AdminReadModelService.dateKey(AdminReadModelService.referenceNow());return live(all.value.breakEvenInputs).filter(x=>String(x.values?.effectiveFrom||'')<=now).sort((a,b)=>String(b.values?.effectiveFrom||'').localeCompare(String(a.values?.effectiveFrom||'')))[0]||null})
+const currentMaintenanceRate=computed(()=>AdminReadModelService.getEffectiveMaintenanceRate({records:all.value.breakEvenInputs,asOf:AdminReadModelService.referenceNow()}))
 const targetHistory=computed(()=>live(all.value.driverTarget).sort((a,b)=>String(b.values?.effectiveFrom||'').localeCompare(String(a.values?.effectiveFrom||''))))
 const currentTarget=computed(()=>{
   const driverId=targetDraft.value.driverId
