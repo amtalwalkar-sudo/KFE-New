@@ -51,7 +51,8 @@ When two documents appear to define the same responsibility, the authority liste
 - KFE_DATA_RECOVERY_GATE_PHASE7.md — recovery gate/evidence.
 - KFE_OPERATIONAL_AUDIT_PHASE4.md — operational audit/evidence.
 - KFE_OPERATIONAL_REAUDIT_PHASE6.md — operational re-audit/evidence.
-- docs/KFE-ARCHITECTURE-IMPLEMENTATION-AUDIT-2026-10-30.md — current implementation audit findings and open risks; supporting evidence only.
+- docs/KFE-ARCHITECTURE-IMPLEMENTATION-AUDIT-2026-10-30.md — focused implementation audit findings and open risks; supporting evidence only.
+- docs/KFE-END-TO-END-ARCHITECTURE-UI-BUSINESS-CALCULATION-AUDIT-2026-10-30.md — consolidated five-area audit evidence; supporting evidence only.
 - KFE_PHASE4_AUTOMATED_AUDIT.md — automated audit/evidence.
 - KFE_PHASE4_STATE_FORM_GATE_AUDIT.md — state/form audit/evidence.
 - docs/PRELAUNCH-SOURCE-RECONCILIATION-2026-10-02.md — reconciliation evidence.
