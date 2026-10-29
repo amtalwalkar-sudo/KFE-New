@@ -2,11 +2,17 @@
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import '../styles/activity-timeline.css'
 import { ActivityTimelineReadService } from '../application/timeline/activityTimelineReadService.js'
+import { EventLocationService } from '../application/location/eventLocationService.js'
+import { resolveLocationNameDetailed } from '../application/location/locationNameService.js'
 
 const period = ref('TODAY')
 const snapshot = ref({ rides: [], fuelLogs: [], fuelSummary: null, range: null })
 const loading = ref(false)
 const error = ref('')
+const refreshMessage = ref('')
+const refreshing = ref(false)
+let pullStartY = null
+let pullStartedAtTop = false
 let requestVersion = 0
 let unsubscribe = null
 
@@ -49,6 +55,45 @@ const load = async () => {
     if (version === requestVersion) loading.value = false
   }
 }
+const refreshLocationNames = async () => {
+  if (refreshing.value) return
+  refreshMessage.value = ''
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    refreshMessage.value = 'Offline — saved GPS snapshots are retained. Pull down again when online.'
+    return
+  }
+  refreshing.value = true
+  try {
+    const rideIds = snapshot.value.rides.map(ride => ride.id).filter(Boolean)
+    const locations = await EventLocationService.forEntities('TRIP', rideIds)
+    const seen = new Set()
+    for (const location of locations) {
+      const key = `${Number(location.latitude).toFixed(5)}:${Number(location.longitude).toFixed(5)}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      await resolveLocationNameDetailed(location, undefined, { forceRefresh: true })
+    }
+    await load()
+    refreshMessage.value = locations.length
+      ? 'Area names refreshed. Saved ride GPS snapshots remain unchanged.'
+      : 'No saved GPS snapshots are available to resolve yet.'
+  } catch (cause) {
+    refreshMessage.value = cause?.message || 'Area names could not be refreshed. Saved GPS snapshots are retained.'
+  } finally {
+    refreshing.value = false
+  }
+}
+const onTouchStart = event => {
+  pullStartY = event.touches?.[0]?.clientY ?? null
+  pullStartedAtTop = (typeof window === 'undefined' || window.scrollY <= 0)
+}
+const onTouchEnd = event => {
+  const endY = event.changedTouches?.[0]?.clientY
+  const shouldRefresh = pullStartedAtTop && pullStartY != null && Number.isFinite(endY) && endY - pullStartY >= 80
+  pullStartY = null
+  pullStartedAtTop = false
+  if (shouldRefresh) void refreshLocationNames()
+}
 watch(period, () => { void load() })
 onMounted(() => {
   void load()
@@ -61,7 +106,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <section class="activity-timeline-page" aria-labelledby="activity-timeline-title">
+  <section class="activity-timeline-page" aria-labelledby="activity-timeline-title" @touchstart.passive="onTouchStart" @touchend.passive="onTouchEnd">
     <header class="activity-timeline-heading">
       <div>
         <p class="activity-timeline-eyebrow">READ-ONLY RECORDS</p>
@@ -80,7 +125,7 @@ onUnmounted(() => {
       </div>
     </header>
 
-    <p v-if="error" class="activity-timeline-message activity-timeline-error" role="alert">{{ error }}</p>
+    <p v-if="refreshing" class="activity-timeline-message" role="status">Refreshing area names…</p>\n    <p v-else-if="refreshMessage" class="activity-timeline-message" role="status">{{ refreshMessage }}</p>\n    <p v-if="error" class="activity-timeline-message activity-timeline-error" role="alert">{{ error }}</p>
     <p v-else-if="loading && !snapshot.range" class="activity-timeline-message" role="status">Loading timeline…</p>
 
     <section class="activity-timeline-section" aria-labelledby="timeline-rides-heading">
