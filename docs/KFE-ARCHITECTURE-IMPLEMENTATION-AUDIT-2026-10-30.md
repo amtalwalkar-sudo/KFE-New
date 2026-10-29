@@ -45,7 +45,7 @@ This report records findings from source inspection and the corrective changes m
 
 The PWA repositories persist to IndexedDB; the Android overlay uses native SQLite through `KfeCanonicalWorkStore`. Event GPS reads can combine local repository snapshots with native snapshots through `EventLocationService` / `CanonicalWorkBoundary`.
 
-This is a deliberate cross-runtime integration boundary, but it is not literal single-database storage. The architecture claim must therefore be understood as one logical business authority with platform persistence/projection adapters, not one physical database. Convergence, precedence, replay, duplicate prevention, and failure recovery remain integration requirements. Do not remove either persistence path as a cosmetic simplification: the Android overlay must continue to work while the PWA WebView is inactive.
+This is a deliberate cross-runtime integration boundary, not literal single-database storage. During this run, the architecture and canonical-data authorities were clarified to state that KFE has one logical canonical model: browser-only commands commit through IndexedDB, while Android Work/overlay commands commit through native SQLite and synchronize the PWA IndexedDB projection. Convergence, precedence, replay, duplicate prevention, and failure recovery remain integration requirements. Do not remove either persistence path as a cosmetic simplification: the Android overlay must continue to work while the PWA WebView is inactive.
 
 ### KFE-AUD-OPEN-002 — Full-shift operation while PWA is closed remains a source-level gap
 
