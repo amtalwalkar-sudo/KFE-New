@@ -7,7 +7,6 @@ import { FormDraftService } from '../application/forms/formDraftService.js'
 import { ADMIN_FORM_DEFINITIONS } from '../application/admin/adminFormDefinitions.js'
 import AdminSourceForm from '../components/admin/AdminSourceForm.vue'
 import { CalculationsService } from '../application/calculations/calculationsService.js'
-import { getKfeReferenceNow, reportingRangeFor } from '../domain/time/ist.js'
 
 const loading=ref(false), saving=ref(false), error=ref(''), notice=ref('')
 const snapshot=ref(null), metrics=ref(null), setupStatus=ref(null)
@@ -62,7 +61,7 @@ const resolvedCount=computed(()=>Math.max(0,(setupStatus.value?.steps||[]).filte
 const totalInputs=computed(()=>inputItems.value.length)
 const calculationDraftIdentity = computed(() => ({ formId: 'calculations-' + (openId.value || 'input'), workflowStep: 'EDIT_INPUT', parentType: 'WORKFLOW', workflowId: 'calculations-' + (openId.value || 'input') }))
 
-function rangeFor(p){return reportingRangeFor(p,getKfeReferenceNow())}
+function rangeFor(p){return CalculationsService.reportingRange(p)}
 async function load(){
   loading.value=true;error.value=''
   try{
@@ -120,7 +119,7 @@ async function saveFuel(values){
   }catch(e){error.value=e.message||'Unable to save the fuel entry.'}
   finally{saving.value=false}
 }
-const fuelQuantity=computed(()=>{const p=Number(fuelDraft.value.pricePerKg),a=Number(fuelDraft.value.amount);return p>0&&a>0?(a/p).toFixed(2):'—'})
+const fuelQuantity=computed(()=>{const quantity=CalculationsService.fuelQuantityKg(fuelDraft.value.amount,fuelDraft.value.pricePerKg);return Number.isFinite(quantity)?quantity.toFixed(2):'—'})
 onMounted(load)
 </script>
 
