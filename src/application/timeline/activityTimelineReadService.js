@@ -22,10 +22,6 @@ const tripPeriodTime = trip => {
 }
 const recordTime = record => validTime(record?.capturedAt) ?? validTime(record?.createdAt)
 const inRange = (time, range) => time != null && time >= range.from.getTime() && time <= range.to.getTime()
-const locality = value => {
-  const label = typeof value === 'string' ? value.trim() : ''
-  return label || 'Location unavailable'
-}
 const locationLabel = snapshot => {
   const latitude = Number(snapshot?.latitude)
   const longitude = Number(snapshot?.longitude)
