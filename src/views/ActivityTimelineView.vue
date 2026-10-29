@@ -131,7 +131,9 @@ onUnmounted(() => {
       </div>
     </header>
 
-    <p v-if="refreshing" class="activity-timeline-message" role="status">Refreshing area names…</p>\n    <p v-else-if="refreshMessage" class="activity-timeline-message" role="status">{{ refreshMessage }}</p>\n    <p v-if="error" class="activity-timeline-message activity-timeline-error" role="alert">{{ error }}</p>
+    <p v-if="refreshing" class="activity-timeline-message" role="status">Refreshing area names…</p>
+    <p v-else-if="refreshMessage" class="activity-timeline-message" role="status">{{ refreshMessage }}</p>
+    <p v-if="error" class="activity-timeline-message activity-timeline-error" role="alert">{{ error }}</p>
     <p v-else-if="loading && !snapshot.range" class="activity-timeline-message" role="status">Loading timeline…</p>
 
     <section class="activity-timeline-section" aria-labelledby="timeline-rides-heading">
