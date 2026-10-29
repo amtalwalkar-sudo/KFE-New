@@ -52,10 +52,10 @@ async function enableBackgroundCapture() {
   busy.value = true
   error.value = ''
   try {
-    let current = await NativeGps.getLocationStatus()
+    let current = await GpsPermissionService.getStatus()
     if (!current.fineGranted) {
       await GpsPermissionService.requestForegroundPermissions()
-      current = await NativeGps.getLocationStatus()
+      current = await GpsPermissionService.getStatus()
     }
     if (current.fineGranted && !current.backgroundGranted) {
       await GpsPermissionService.requestBackgroundPermission()
