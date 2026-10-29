@@ -482,13 +482,14 @@ A provision is not an actual expense merely because KFE calculates it.
 
 ## 11. Provision buckets
 
-The primary provision buckets are:
+The only cumulative provision buckets are:
 
 1. EMI
 2. Maintenance
-3. Compliance
 
-Rules:
+Compliance/renewal remains a date-and-validity-based planning concern under §10. It is not a cumulative provision bucket. KFE must not calculate, persist, aggregate, or display a cumulative Compliance provision/balance, including per-compliance-record accumulated balances. Actual compliance payments remain actual transactions and must not be converted into a cumulative provision bucket.
+
+Rules for the two supported cumulative buckets (EMI and Maintenance):
 
 - Required provisions accumulate continuously according to their applicable rules.
 - Actual payment reduces the relevant bucket.
@@ -625,6 +626,7 @@ Provision buckets are allowed to become negative.
 - Zero = exactly covered.
 - **Negative balance = shortfall/recovery required.**
 - A negative bucket is a valid authoritative derived state and must remain visible/reconstructable across Performance, Timeline, Finance and other read-model surfaces.
+- This rule applies only to EMI and Maintenance provision buckets; it does not authorize a cumulative Compliance provision bucket.
 - KFE must not replace a negative bucket with zero, hide it, or create a separate “additional requirement” ledger.
 
 This rule explicitly controls overpayment/under-provision cases: if actual payments exceed provision accrued, the resulting negative balance is authoritative.
