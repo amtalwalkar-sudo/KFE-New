@@ -7,23 +7,9 @@ import { ConnectivityService } from '../../infrastructure/connectivity/connectiv
 
 const locationNameResolver = new LocalityResolutionService()
 let locationReconcileAttempt = null
-let locationRetryTimer = null
+let locationManualRefreshAttempt = null
 let pendingEnrichmentCache = null
-let lastLifecycleReconcileAt = 0
-const LOCATION_LIFECYCLE_RECONCILE_THROTTLE_MS = 60_000
-const LOCATION_RETRY_KEY = 'kfe:location-name-retry:v1'
-const LOCATION_RETRY_DELAYS = [60_000, 5 * 60_000, 30 * 60_000, 2 * 60 * 60_000, 12 * 60 * 60_000]
-
-const readLocationRetryState = () => {
-  try {
-    const value = globalThis.localStorage?.getItem(LOCATION_RETRY_KEY)
-    const parsed = value ? JSON.parse(value) : {}
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
-  } catch (_) { return {} }
-}
-const writeLocationRetryState = state => {
-  try { globalThis.localStorage?.setItem(LOCATION_RETRY_KEY, JSON.stringify(state)) } catch (_) {}
-}
+const MAX_MANUAL_LOCALITY_BATCH = 20
 const NATIVE_SYNC_FIELDS = ['entityType', 'entityId', 'eventType', 'eventAt', 'latitude', 'longitude', 'accuracy', 'capturedAt', 'placeName', 'localityResolutionState', 'localityResolvedAt', 'localityProvider', 'localityAttemptCount', 'localityNextAttemptAt', 'localityLastError']
 const nativeSnapshotMatches = (snapshot, nativeSnapshot) => Boolean(nativeSnapshot) &&
   NATIVE_SYNC_FIELDS.every(field => String(snapshot?.[field] ?? '') === String(nativeSnapshot?.[field] ?? ''))
@@ -65,54 +51,7 @@ const setPendingEnrichment = (snapshotId, pending) => {
   try { globalThis.localStorage?.setItem(LOCATION_ENRICHMENT_QUEUE_KEY, JSON.stringify([...ids])) }
   catch (_) { pendingEnrichmentCache = null }
 }
-const scheduleNextLocationRetry = () => {
-  if (locationRetryTimer != null || typeof globalThis.setTimeout !== 'function') return
-  const state = readLocationRetryState()
-  const next = Object.values(state).map(item => Number(item?.nextAttemptAt)).filter(value => Number.isFinite(value) && value > Date.now()).sort((a, b) => a - b)[0]
-  if (!next) return
-  locationRetryTimer = globalThis.setTimeout(() => {
-    locationRetryTimer = null
-    if (!ConnectivityService.isNetworkAvailable()) return
-    void EventLocationService.reconcilePersistedTripLocations().catch(error => console.warn('Scheduled GPS locality retry deferred:', error))
-  }, Math.max(1, next - Date.now()))
-}
-const clearLocationRetry = snapshotId => {
-  if (!snapshotId) return
-  const state = readLocationRetryState()
-  if (!(snapshotId in state)) return
-  delete state[snapshotId]
-  writeLocationRetryState(state)
-  if (locationRetryTimer != null && typeof globalThis.clearTimeout === 'function') {
-    globalThis.clearTimeout(locationRetryTimer)
-    locationRetryTimer = null
-  }
-  scheduleNextLocationRetry()
-}
-const resolveLocationNameWithRetry = async (snapshot, resolver) => {
-  if (!ConnectivityService.isNetworkAvailable() || !snapshot?.id) return null
-  const state = readLocationRetryState()
-  const retry = state[snapshot.id]
-  if (retry && Number(retry.nextAttemptAt) > Date.now()) {
-    scheduleNextLocationRetry()
-    return null
-  }
-  const result = await resolveLocationNameDetailed(snapshot, resolver)
-  const placeName = result.placeName
-  const attempts = Math.max(0, Number(retry?.attempts) || 0) + 1
-  if (placeName) {
-    clearLocationRetry(snapshot.id)
-    await EventLocationService.persistResolutionState(snapshot.id, { localityResolutionState: 'RESOLVED', localityResolvedAt: new Date().toISOString(), localityProvider: result.provider || 'unknown', localityAttemptCount: attempts, localityNextAttemptAt: null, localityLastError: null })
-    return placeName
-  }
-  // Never abandon an unresolved coordinate. After the backoff ladder is
-  // exhausted, keep retrying at the longest interval until a provider resolves it.
-  const retryDelay = LOCATION_RETRY_DELAYS[Math.min(attempts - 1, LOCATION_RETRY_DELAYS.length - 1)]
-  state[snapshot.id] = { attempts, nextAttemptAt: Date.now() + retryDelay }
-  writeLocationRetryState(state)
-  await EventLocationService.persistResolutionState(snapshot.id, { localityResolutionState: 'RETRY_SCHEDULED', localityResolvedAt: null, localityProvider: null, localityAttemptCount: attempts, localityNextAttemptAt: new Date(state[snapshot.id].nextAttemptAt).toISOString(), localityLastError: result.error || 'NO_LOCALITY_MATCH' })
-  scheduleNextLocationRetry()
-  return null
-}
+
 
 export const EventLocationService = {
   // Optional enrichment. Call only after the authoritative business record is saved.
@@ -123,14 +62,9 @@ export const EventLocationService = {
       const prior = existing.find(item => item.eventType === eventType)
       if (prior) {
         await this.persistNativeSnapshot(prior)
-        // A previous capture may have succeeded while reverse geocoding was
-        // unavailable. Retry enrichment from its persisted coordinates; never
-        // take a second GPS fix for the same event.
-        if (!String(prior.placeName || '').trim()) {
-          setPendingEnrichment(prior.id, true)
-          const placeName = await resolveLocationNameWithRetry(prior, locationNameResolver)
-          if (placeName) await this.persistLabel(prior.id, placeName)
-        }
+        // Area-name lookup is manual-only. Preserve the saved coordinates in the
+        // durable queue without making a network request during event capture.
+        if (!String(prior.placeName || '').trim()) setPendingEnrichment(prior.id, true)
         return
       }
       // On Android, queue the event in native durable storage first. The native
@@ -148,9 +82,7 @@ export const EventLocationService = {
         capturedAt: location.capturedAt,
       })
       await this.persistNativeSnapshot(snapshot)
-      setPendingEnrichment(snapshot.id, true)
-      const placeName = await resolveLocationNameWithRetry(snapshot, locationNameResolver)
-      if (placeName) await this.persistLabel(snapshot.id, placeName)
+      if (!String(snapshot.placeName || '').trim()) setPendingEnrichment(snapshot.id, true)
     })().catch(error => console.warn('Optional event GPS enrichment failed:', entityType, entityId, eventType, error))
   },
   async forEntity(entityType, entityId) {
@@ -200,10 +132,7 @@ export const EventLocationService = {
       const nativeAvailable = CanonicalWorkBoundary.isNativeAvailable()
       const pendingMirrorIds = migrationComplete ? readPendingNativeMirrorIds() : []
       const pendingEnrichmentIds = migrationComplete ? readPendingEnrichmentIds() : []
-      // Include retry journal IDs as a recovery source for app versions that
-      // previously dropped queue entries after exhausting the retry ladder.
-      const pendingRetryIds = migrationComplete ? Object.keys(readLocationRetryState()) : []
-      const incrementalIds = [...new Set([...pendingMirrorIds, ...pendingEnrichmentIds, ...pendingRetryIds])]
+      const incrementalIds = [...new Set([...pendingMirrorIds, ...pendingEnrichmentIds])]
       const needsNativeIndex = !migrationComplete || !incrementalIndexSeeded
       let nativeIndexReadSucceeded = !needsNativeIndex
       const nativeIndexPromise = needsNativeIndex
@@ -295,9 +224,8 @@ export const EventLocationService = {
             nativeById.set(snapshot.id, { ...snapshot, updatedAt: snapshot.updatedAt || snapshot.createdAt || new Date().toISOString() })
           }
         }
-        if (String(snapshot.placeName || '').trim() || !ConnectivityService.isNetworkAvailable()) continue
-        const placeName = await resolveLocationNameWithRetry(snapshot, locationNameResolver)
-        if (placeName) await this.persistLabel(snapshot.id, placeName)
+        // Reconciliation is local-only: it never initiates locality network requests.
+        // Reverse geocoding is available exclusively through the explicit manual refresh action.
       }
 
       if (!migrationComplete && migrationSucceeded) {
@@ -318,6 +246,48 @@ export const EventLocationService = {
     })().finally(() => { locationReconcileAttempt = null })
     return locationReconcileAttempt
   },
+  async refreshUnresolvedLocationNames({ limit = MAX_MANUAL_LOCALITY_BATCH } = {}) {
+    if (locationManualRefreshAttempt) return locationManualRefreshAttempt
+    locationManualRefreshAttempt = (async () => {
+      // Run local migration/index repair first. This method performs no network I/O.
+      await this.reconcilePersistedTripLocations()
+      if (!ConnectivityService.isNetworkAvailable()) {
+        return { online: false, attempted: 0, updated: 0, unresolved: readPendingEnrichmentIds().length, remaining: readPendingEnrichmentIds().length }
+      }
+      const batchLimit = Math.max(1, Math.min(MAX_MANUAL_LOCALITY_BATCH, Math.floor(Number(limit) || MAX_MANUAL_LOCALITY_BATCH)))
+      const ids = readPendingEnrichmentIds().slice(0, batchLimit)
+      let attempted = 0
+      let updated = 0
+      let unresolved = 0
+      for (const id of ids) {
+        let snapshot = await LocationRepository.getById(id).catch(() => null)
+        if (!snapshot) snapshot = await CanonicalWorkBoundary.getEventLocationSnapshot(id).catch(() => null)
+        if (!snapshot?.id) {
+          setPendingEnrichment(id, false)
+          continue
+        }
+        if (String(snapshot.placeName || '').trim()) {
+          setPendingEnrichment(id, false)
+          continue
+        }
+        attempted += 1
+        try {
+          const result = await resolveLocationNameDetailed(snapshot, locationNameResolver)
+          if (String(result.placeName || '').trim()) {
+            await this.persistLabel(id, result.placeName)
+            updated += 1
+          } else {
+            unresolved += 1
+          }
+        } catch (error) {
+          unresolved += 1
+          console.warn('Manual locality lookup failed; saved coordinates remain available:', id, error)
+        }
+      }
+      return { online: true, attempted, updated, unresolved, remaining: readPendingEnrichmentIds().length }
+    })().finally(() => { locationManualRefreshAttempt = null })
+    return locationManualRefreshAttempt
+  },
   async persistResolutionState(snapshotId, metadata) {
     if (!snapshotId || !metadata) return false
     const updated = await LocationRepository.updateLocalityResolution(snapshotId, metadata).catch(() => false)
@@ -330,7 +300,6 @@ export const EventLocationService = {
     return updated
   },
   async persistLabel(snapshotId, placeName) {
-    clearLocationRetry(snapshotId)
     setPendingEnrichment(snapshotId, false)
     const updated = await LocationRepository.updatePlaceName(snapshotId, placeName)
     const local = await LocationRepository.getById(snapshotId).catch(() => null)
@@ -349,31 +318,3 @@ export const EventLocationService = {
     return updated
   },
 }
-
-// Connectivity changes wake the persisted enrichment queue. Coordinates and
-// business event timestamps have already been saved and never depend on this.
-ConnectivityService.subscribe((status, reason) => {
-  if (!status.networkAvailable || !['online', 'resume', 'foreground'].includes(reason)) return
-  const now = Date.now()
-  // WebView can emit resume and visibility changes back-to-back. Keep online
-  // recovery immediate, but coalesce lifecycle-only reconciliation bursts.
-  if (reason !== 'online' && now - lastLifecycleReconcileAt < LOCATION_LIFECYCLE_RECONCILE_THROTTLE_MS) return
-  lastLifecycleReconcileAt = now
-  if (reason === 'online') {
-    // An explicit offline->online transition is a recovery opportunity: make
-    // queued retries due now rather than waiting out a stale offline backoff.
-    const retryState = readLocationRetryState()
-    for (const item of Object.values(retryState)) {
-      if (item && typeof item === 'object') item.nextAttemptAt = 0
-    }
-    writeLocationRetryState(retryState)
-    if (locationRetryTimer != null && typeof globalThis.clearTimeout === 'function') {
-      globalThis.clearTimeout(locationRetryTimer)
-      locationRetryTimer = null
-    }
-  }
-  // Resume/foreground does not reset backoff. Online recovery is immediate;
-  // otherwise the one-shot timer owns future deadlines.
-  void EventLocationService.reconcilePersistedTripLocations()
-    .catch(error => console.warn('Connectivity-triggered GPS locality enrichment deferred:', error))
-}, { emitCurrent: false })
