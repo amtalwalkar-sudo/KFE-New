@@ -27,8 +27,6 @@ const locality = value => {
   return label || 'Location unavailable'
 }
 const locationLabel = snapshot => {
-  const placeName = typeof snapshot?.placeName === 'string' ? snapshot.placeName.trim() : ''
-  if (placeName) return placeName
   const latitude = Number(snapshot?.latitude)
   const longitude = Number(snapshot?.longitude)
   if (!Number.isFinite(latitude) || Math.abs(latitude) > 90 || !Number.isFinite(longitude) || Math.abs(longitude) > 180) return 'Location unavailable'
