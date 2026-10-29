@@ -48,6 +48,9 @@ assertForbidden(['application'], [ /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/
 assertForbidden(['views', 'components', 'presentation', 'application', 'infrastructure'], [ /from\s+['"][^'"]*\/services\// ], 'Canonical runtime must not depend on legacy src/services')
 assertForbidden(['views', 'components', 'presentation', 'application'], [ /['"][^'"]*\bjs\/app\.js['"]/ ], 'Current architecture must not reference removed legacy js application')
 
+const adminViewForShell = fs.readFileSync(path.join(root, 'views/AdminView.vue'), 'utf8')
+if (/querySelector\\(\\s*['\"]\\.content-scroll-area/.test(adminViewForShell)) violations.push('AdminView must emit shell viewport intent instead of querying shell DOM internals.')
+
 const appPath = path.join(root, 'App.vue')
 if (fs.existsSync(appPath)) {
   const app = fs.readFileSync(appPath, 'utf8')
