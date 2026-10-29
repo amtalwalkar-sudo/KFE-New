@@ -51,18 +51,31 @@ assert.match(timelineView, /onMounted\(\(\) => \{\s*void load\(\)/,
 
 assert.match(fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java', 'utf8'), /putRecord\(operationId,"GPS_SNAPSHOT",snapshot\)/, 'native overlay must write locality metadata through the shared GPS snapshot entity')
 assert.match(timelineReadService, /pickupAreaResolution:/, 'read-only Timeline exposes saved locality state')
-assert.match(timelineView, /Area lookup will retry/, 'Timeline communicates unresolved locality enrichment')
+assert.match(timelineView, /Pull down to resolve area name/, 'Timeline tells users how to manually resolve an area name')
 assert.match(locationService, /LocalityResolutionService/, 'location service exposes a shared provider-independent resolver')
 
-assert.doesNotMatch(eventLocationService, /retry && Number\(retry\.attempts\) > LOCATION_RETRY_DELAYS\.length/,
-  'unresolved locality records must never be permanently abandoned after a fixed number of retries')
-assert.match(eventLocationService, /LOCATION_RETRY_DELAYS\[Math\.min\(attempts - 1, LOCATION_RETRY_DELAYS\.length - 1\)\]/,
-  'retry backoff must cap at the longest interval while continuing indefinitely')
-assert.match(eventLocationService, /pendingRetryIds = migrationComplete \? Object\.keys\(readLocationRetryState\(\)\) : \[\]/,
-  'persisted retry journal must recover records dropped from older enrichment queues')
-assert.match(eventLocationService, /if \(reason === 'online'\)[\s\S]*item\.nextAttemptAt = 0/,
-  'a real offline-to-online transition must wake retries immediately instead of waiting on stale backoff')
-assert.match(eventLocationService, /localityNextAttemptAt: new Date\(state\[snapshot\.id\]\.nextAttemptAt\)\.toISOString\(\)/,
-  'the next retry deadline must remain persisted for observability and lifecycle recovery')
+// Locality lookup must be user-initiated only. GPS event capture and durable
+// persistence remain independent from internet-based reverse geocoding.
+assert.doesNotMatch(eventLocationService, /LOCATION_RETRY_KEY|LOCATION_RETRY_DELAYS|locationRetryTimer|scheduleNextLocationRetry|resolveLocationNameWithRetry|ConnectivityService\.subscribe|setTimeout/,
+  'automatic locality retry timers, retry journals, and connectivity/lifecycle triggers must not exist')
+assert.doesNotMatch(eventLocationService, /localityNextAttemptAt|localityAttemptCount|localityLastError|persistResolutionState/,
+  'automatic locality retry metadata writers and deadlines must be removed')
+const capturePath = eventLocationService.slice(eventLocationService.indexOf('captureForEvent('), eventLocationService.indexOf('async forEntity('))
+assert.doesNotMatch(capturePath, /resolveLocationNameDetailed|resolveLocationName\(/,
+  'event capture must persist coordinates and queue enrichment without issuing locality network requests')
+assert.match(eventLocationService, /async refreshUnresolvedLocationNames\(/,
+  'the explicit manual refresh service owns locality resolution')
+assert.match(eventLocationService, /if \(!ConnectivityService\.isNetworkAvailable\(\)\)/,
+  'manual refresh must skip network requests while offline')
+assert.match(eventLocationService, /const result = await resolveLocationNameDetailed\(snapshot, locationNameResolver\)/,
+  'reverse geocoding is invoked only from the explicit manual refresh path')
+assert.match(timelineView, /@touchstart\.passive="handleTouchStart"/,
+  'Timeline supports page pull-down-to-refresh')
+assert.match(timelineView, /@touchend\.passive="handleTouchEnd"/,
+  'Timeline triggers refresh when the pull gesture is released')
+assert.match(timelineView, /EventLocationService\.refreshUnresolvedLocationNames\(\)/,
+  'Timeline pull-down and refresh control use the manual-only resolver')
+assert.match(timelineView, /aria-label="Refresh area names"/,
+  'an accessible manual refresh control is available as an alternative to the gesture')
 
 console.log('PASS: Activity Timeline ride/fuel locality enrichment uses the shared event snapshot pathway')
