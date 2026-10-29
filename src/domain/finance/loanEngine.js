@@ -279,7 +279,27 @@ export function calculatePrepaymentEstimate({ loan, payments = [], prepayments =
   const requestedPaise = Math.max(0, rupeesToPaise(amount))
   const outstandingPaise = rupeesToPaise(position.outstandingPrincipal)
   const appliedPaise = Math.min(requestedPaise, outstandingPaise)
-  return { available: true, requestedAmount: paiseToRupees(requestedPaise), appliedAmount: paiseToRupees(appliedPaise), outstandingBefore: position.outstandingPrincipal, outstandingAfter: paiseToRupees(outstandingPaise - appliedPaise), closesLoan: appliedPaise >= outstandingPaise, effect: appliedPaise >= outstandingPaise ? 'CLOSE_LOAN' : 'REDUCE_TENURE_KEEP_EMI', prepaymentCharge: 0 }
+  const appliedAmount = paiseToRupees(appliedPaise)
+  const previewRecord = { id: `prepayment-preview:${loan.id}:${paidOn}`, loanId: loan.id, paidOn, amount: appliedAmount, status: 'Applied' }
+  const afterPosition = deriveLoanPosition({ loan, payments, prepayments: [...prepayments, previewRecord], asOf: paidOn })
+  const beforeParts = istCalendarParts(position.scheduledFinalDate)
+  const afterParts = istCalendarParts(afterPosition.scheduledFinalDate)
+  const beforeMonth = beforeParts ? beforeParts.year * 12 + beforeParts.month - 1 : null
+  const afterMonth = afterParts ? afterParts.year * 12 + afterParts.month - 1 : null
+  const reducedMonths = beforeMonth == null || afterMonth == null ? 0 : Math.max(0, beforeMonth - afterMonth)
+  return {
+    available: true,
+    requestedAmount: paiseToRupees(requestedPaise),
+    appliedAmount,
+    outstandingBefore: position.outstandingPrincipal,
+    outstandingAfter: paiseToRupees(outstandingPaise - appliedPaise),
+    remainingAfter: afterPosition.outstandingPrincipal,
+    interestRemainingAfter: afterPosition.remainingInterest,
+    reducedMonths,
+    closesLoan: appliedPaise >= outstandingPaise,
+    effect: appliedPaise >= outstandingPaise ? 'CLOSE_LOAN' : 'REDUCE_TENURE_KEEP_EMI',
+    prepaymentCharge: 0,
+  }
 }
 
 const calendarRecoverySerial = value => {
