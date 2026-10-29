@@ -106,13 +106,14 @@ const settlementFields=[
  {key:'referenceNumber',label:'Payment reference',type:'text',section:'Payment reference'},
  {key:'notes',label:'Notes',type:'textarea',section:'Additional context'}
 ]
-const money=v=>Number.isFinite(Number(v))?'₹'+Number(v).toLocaleString('en-IN',{maximumFractionDigits:2}):'—'
+const money=v=>v===null||v===undefined||v===''?'—':Number.isFinite(Number(v))?'₹'+Number(v).toLocaleString('en-IN',{maximumFractionDigits:2}):'—'
 const clone=v=>structuredClone(toRaw(v))
 const live=xs=>(xs||[]).filter(x=>!x?.deletedAt&&!x?.deleted)
 function label(key,record){const v=record?.values||record||{};if(key==='businessSetup')return v.businessStartDate ? `Business start · ${v.businessStartDate}` : 'Business Setup';if(key==='vehicle')return [v.registrationNumber,v.make,v.model].filter(Boolean).join(' · ')||record?.id;if(key==='driver')return v.name||record?.id;if(key==='loan')return [v.lender,v.accountReference].filter(Boolean).join(' · ')||record?.id;if(key==='compliance')return v.complianceType||record?.id;if(key==='maintenance')return v.maintenanceType||record?.id;return record?.id||'—'}
 const currentItem=computed(()=>items.find(x=>x.key===selected.value)||(selected.value==='prepayment'?{key:'prepayment',category:'Finance',title:'Loan Prepayment',icon:'↘'}:null))
 const masterMode=computed(()=>['vehicle','driver','compliance'].includes(selected.value))
 const masterRecord=computed(()=>masterSelected.value?records.value.find(x=>x.id===masterSelected.value)||null:null)
+const complianceRevenueSummary=computed(()=>AdminReadModelService.getComplianceRevenueSummary({record:masterRecord.value,shifts:performanceSnapshot.value?.shifts,asOf:AdminReadModelService.referenceNow()}))
 const currentDefinition=computed(()=>currentItem.value?ADMIN_FORM_DEFINITIONS[currentItem.value.key]:null)
 const activeDefinition=computed(()=>{if(!currentDefinition.value)return null;const d=clone(currentDefinition.value);for(const f of d.fields||[]){if(f.key==='vehicleId')f.options=all.value.vehicle.map(x=>({value:x.id,label:label('vehicle',x)}));if(f.key==='driverId')f.options=all.value.driver.map(x=>({value:x.id,label:label('driver',x)}));if(f.key==='loanId')f.options=all.value.loan.map(x=>({value:x.id,label:label('loan',x)}))}return d})
 const sourcePayments=id=>live(performanceSnapshot.value?.settlements).filter(x=>x.sourceId===id&&String(x.direction||(x.settlementType==='Receipt'?'IN':'OUT')).toUpperCase()==='OUT')
@@ -371,7 +372,7 @@ onBeforeUnmount(()=>{
   </section>
   <section v-if="selected==='compliance'" class="clean-card">
     <div class="metric-grid"><div><span>Cost</span><strong>{{money(masterRecord?.values?.cost)}}</strong></div><div><span>Paid</span><strong>{{money(entityFinancial(masterRecord)?.paid)}}</strong></div><div><span>Remaining cost</span><strong>{{money(entityFinancial(masterRecord)?.remaining)}}</strong></div></div>
-    <div class="calculation-box"><div class="metric-grid"><div><span>Revenue observed</span><strong>{{money(AdminReadModelService.getComplianceRevenueSummary({record:masterRecord,shifts:performanceSnapshot?.shifts,asOf:AdminReadModelService.referenceNow()}).total)}}</strong></div><div><span>Revenue days</span><strong>{{AdminReadModelService.getComplianceRevenueSummary({record:masterRecord,shifts:performanceSnapshot?.shifts,asOf:AdminReadModelService.referenceNow()}).days}}</strong></div><div><span>Average revenue / day</span><strong>{{money(AdminReadModelService.getComplianceRevenueSummary({record:masterRecord,shifts:performanceSnapshot?.shifts,asOf:AdminReadModelService.referenceNow()}).average)}}</strong></div></div></div>
+    <div class="calculation-box"><div class="metric-grid"><div><span>Revenue observed</span><strong>{{money(complianceRevenueSummary.total)}}</strong></div><div><span>Revenue days</span><strong>{{complianceRevenueSummary.days}}</strong></div><div><span>Average revenue / day</span><strong>{{money(complianceRevenueSummary.average)}}</strong></div></div></div>
     <button class="secondary wide" @click="openAction('settlement',masterRecord)">Record payment</button>
     <div v-if="sourceHistory(masterRecord).length" class="history-inline"><span>Payment history</span><small v-for="x in sourceHistory(masterRecord).slice(0,5)" :key="x.id">{{x.settledOn?.slice(0,10)}} · {{money(x.amount)}}</small></div>
     <div v-if="actionRecord?.id===masterRecord.id&&actionKey==='settlement'" class="calculation-box"><AdminSourceForm :fields="settlementFields" :model-value="actionDraft" :draft-identity="actionFormDraftIdentity" :busy="loading" :show-actions="false" @field-change="onActionFieldChange" @submit="submitActionForm" @draft-error="onDraftError"/><button class="primary wide" :disabled="Number(actionDraft.amount)<=0||loading" @click="saveSourcePayment">Confirm &amp; record payment</button></div>
