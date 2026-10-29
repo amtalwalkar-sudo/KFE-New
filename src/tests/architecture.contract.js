@@ -20,7 +20,7 @@ const assertForbidden = (dirs, patterns, label) => {
   }
 }
 
-assertForbidden(['views', 'components', 'stores', 'presentation'], [ /from\s+['"][^'"]*\/repositories\//, /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/ ], 'Presentation/state must not access persistence directly')
+assertForbidden(['views', 'components', 'stores', 'presentation'], [ /from\s+['"][^'"]*\/repositories\//, /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/, /from\s+['"][^'"]*\/infrastructure\// ], 'Presentation/state must not access persistence or infrastructure directly')
 assertForbidden(['views', 'components', 'presentation'], [ /from\s+['"][^'"]*\/domain\/(?:performance|work|math|movement|time)\// ], 'Presentation must not orchestrate domain logic directly')
 
 // Admin screens must consume financial calculations and reference-time helpers
