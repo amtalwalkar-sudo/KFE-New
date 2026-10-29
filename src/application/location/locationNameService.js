@@ -56,3 +56,12 @@ export const resolveLocationNameDetailed=async(l,resolver=defaultResolver)=>{
 }
 export const resolveLocationName=async(l,resolver=defaultResolver)=>(await resolveLocationNameDetailed(l,resolver)).placeName
 export const localityResolutionCacheKey=keyFor
+
+export const getCachedLocationName = l => {
+  const key = keyFor(l)
+  if (!key) return null
+  try {
+    const entry = JSON.parse(globalThis.localStorage?.getItem(CACHE_KEY) || '{}')?.[key]
+    return typeof entry?.placeName === 'string' && entry.placeName.trim() ? entry.placeName.trim() : null
+  } catch { return null }
+}
