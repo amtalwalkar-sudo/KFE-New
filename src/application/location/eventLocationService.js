@@ -1,7 +1,7 @@
 import { LocationRepository } from '../../repositories/locationRepository.js'
 import { CanonicalWorkBoundary } from '../work/canonicalWorkBoundary.js'
 import { captureTripBoundaryLocation, queueTripBoundaryEventLocation } from '../work/tripBoundaryLocation.js'
-import { LocalityResolutionService, resolveLocationNameDetailed, resolveLocationName } from './locationNameService.js'
+import { LocalityResolutionService, resolveLocationNameDetailed } from './locationNameService.js'
 import { ShiftTripRepository } from '../../repositories/shiftTripRepository.js'
 import { ConnectivityService } from '../../infrastructure/connectivity/connectivityService.js'
 
@@ -120,9 +120,6 @@ export const EventLocationService = {
       console.warn('Native event GPS snapshot mirror failed:', snapshot.entityType, snapshot.entityId, snapshot.eventType, error)
       return false
     }
-  },
-  async resolveLabel(location) {
-    return resolveLocationName(location, locationNameResolver)
   },
   async reconcilePersistedTripLocations() {
     if (locationReconcileAttempt) return locationReconcileAttempt
@@ -251,9 +248,6 @@ export const EventLocationService = {
     locationManualRefreshAttempt = (async () => {
       // Run local migration/index repair first. This method performs no network I/O.
       await this.reconcilePersistedTripLocations()
-      if (!ConnectivityService.isNetworkAvailable()) {
-        return { online: false, attempted: 0, updated: 0, unresolved: readPendingEnrichmentIds().length, remaining: readPendingEnrichmentIds().length }
-      }
       // Discover records written by native GPS capture since the last UI visit.
       // This full inventory runs only after an explicit user refresh.
       const [nativeSnapshots, localSnapshots] = await Promise.all([
@@ -269,6 +263,9 @@ export const EventLocationService = {
         if (!prior || itemTime >= priorTime) known.set(item.id, { ...prior, ...item })
       }
       for (const item of known.values()) setPendingEnrichment(item.id, !String(item.placeName || '').trim())
+      if (!ConnectivityService.isNetworkAvailable()) {
+        return { online: false, attempted: 0, updated: 0, unresolved: readPendingEnrichmentIds().length, remaining: readPendingEnrichmentIds().length }
+      }
       const batchLimit = Math.max(1, Math.min(MAX_MANUAL_LOCALITY_BATCH, Math.floor(Number(limit) || MAX_MANUAL_LOCALITY_BATCH)))
       const ids = readPendingEnrichmentIds().slice(0, batchLimit)
       let attempted = 0
