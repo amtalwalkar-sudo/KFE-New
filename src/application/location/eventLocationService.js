@@ -231,14 +231,6 @@ export const EventLocationService = {
           if (!localSnapshots.some(item => item?.id === snapshotId)) setPendingNativeMirror(snapshotId, false)
         }
         snapshots = [...byId.values()]
-        // Upgrade existing installations once: seed unresolved native snapshots
-        // into the durable queue, then use ID lookups for all later passes.
-        if (!incrementalIndexSeeded && nativeIndexReadSucceeded) {
-          for (const snapshot of nativeSnapshots) {
-            if (snapshot?.id && !String(snapshot.placeName || '').trim()) setPendingEnrichment(snapshot.id, true)
-          }
-          try { globalThis.localStorage?.setItem(LOCATION_INCREMENTAL_INDEX_KEY, 'complete') } catch (_) {}
-        }
       } else {
         // The legacy migration is a one-time full scan. Do not mark it complete
         // if a legacy snapshot failed to migrate; a later startup can safely retry.
@@ -302,6 +294,14 @@ export const EventLocationService = {
         try { globalThis.localStorage?.setItem(LOCATION_RECONCILIATION_KEY, 'complete') } catch (_) {}
       }
       if (!incrementalIndexSeeded && nativeIndexReadSucceeded && migrationSucceeded) {
+        // Seed every existing unresolved native snapshot exactly once, including
+        // non-trip events. Subsequent reconciliations operate on queued IDs only.
+        for (const snapshot of nativeSnapshots) {
+          if (snapshot?.id && !String(snapshot.placeName || '').trim()) setPendingEnrichment(snapshot.id, true)
+        }
+        for (const snapshot of snapshots) {
+          if (snapshot?.id && !String(snapshot.placeName || '').trim()) setPendingEnrichment(snapshot.id, true)
+        }
         try { globalThis.localStorage?.setItem(LOCATION_INCREMENTAL_INDEX_KEY, 'complete') } catch (_) {}
       }
       return { migrated: !migrationComplete, tripCount: trips.length, snapshotCount: snapshots.length }
