@@ -8,6 +8,7 @@ import { ConnectivityService } from '../../infrastructure/connectivity/connectiv
 const locationNameResolver = new LocalityResolutionService()
 let locationReconcileAttempt = null
 let locationRetryTimer = null
+let pendingEnrichmentCache = null
 let lastLifecycleReconcileAt = 0
 const LOCATION_LIFECYCLE_RECONCILE_THROTTLE_MS = 60_000
 const LOCATION_RETRY_KEY = 'kfe:location-name-retry:v1'
@@ -46,19 +47,23 @@ const setPendingNativeMirror = (snapshotId, pending) => {
   } catch (_) {}
 }
 const readPendingEnrichmentIds = () => {
+  if (pendingEnrichmentCache instanceof Set) return [...pendingEnrichmentCache]
   try {
     const parsed = JSON.parse(globalThis.localStorage?.getItem(LOCATION_ENRICHMENT_QUEUE_KEY) || '[]')
-    return Array.isArray(parsed) ? [...new Set(parsed.filter(id => typeof id === 'string' && id))] : []
-  } catch (_) { return [] }
+    pendingEnrichmentCache = new Set(Array.isArray(parsed) ? parsed.filter(id => typeof id === 'string' && id) : [])
+  } catch (_) { pendingEnrichmentCache = new Set() }
+  return [...pendingEnrichmentCache]
 }
 const setPendingEnrichment = (snapshotId, pending) => {
   if (!snapshotId) return
-  try {
-    const ids = new Set(readPendingEnrichmentIds())
-    if (pending) ids.add(snapshotId)
-    else ids.delete(snapshotId)
-    globalThis.localStorage?.setItem(LOCATION_ENRICHMENT_QUEUE_KEY, JSON.stringify([...ids]))
-  } catch (_) {}
+  const ids = new Set(readPendingEnrichmentIds())
+  const alreadyPending = ids.has(snapshotId)
+  if (alreadyPending === pending) return
+  if (pending) ids.add(snapshotId)
+  else ids.delete(snapshotId)
+  pendingEnrichmentCache = ids
+  try { globalThis.localStorage?.setItem(LOCATION_ENRICHMENT_QUEUE_KEY, JSON.stringify([...ids])) }
+  catch (_) { pendingEnrichmentCache = null }
 }
 const scheduleNextLocationRetry = () => {
   if (locationRetryTimer != null || typeof globalThis.setTimeout !== 'function') return
@@ -87,7 +92,11 @@ const resolveLocationNameWithRetry = async (snapshot, resolver) => {
   if (!ConnectivityService.isNetworkAvailable() || !snapshot?.id) return null
   const state = readLocationRetryState()
   const retry = state[snapshot.id]
-  if (retry && (Number(retry.attempts) > LOCATION_RETRY_DELAYS.length || Number(retry.nextAttemptAt) > Date.now())) {
+  if (retry && Number(retry.attempts) > LOCATION_RETRY_DELAYS.length) {
+    setPendingEnrichment(snapshot.id, false)
+    return null
+  }
+  if (retry && Number(retry.nextAttemptAt) > Date.now()) {
     scheduleNextLocationRetry()
     return null
   }
