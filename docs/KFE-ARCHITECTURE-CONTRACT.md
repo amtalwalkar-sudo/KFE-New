@@ -103,7 +103,7 @@ Derived values must be reconstructable from authoritative persisted records wher
 
 - Local KFE data is authoritative and local-first.
 - KFE has one **logical canonical state and business/data contract**, not one physical database shared across browser and Android runtimes.
-- In browser/PWA operation, IndexedDB is the local durable commit store. For native Android overlay operations while the WebView is inactive, native SQLite is the durable commit store; IndexedDB is synchronized as the PWA projection.
+- In browser-only operation, IndexedDB is the local durable commit store. On Android, Work and overlay commands use native SQLite as the durable commit authority; IndexedDB is synchronized as the PWA projection/read model.
 - A command is not committed merely because a UI or queue accepted it: the runtime's authoritative durable commit must be acknowledged before success is surfaced.
 - Cross-runtime replay uses stable record/event/operation identity, idempotency checks, stale-write protection, and explicit convergence. Neither store may independently redefine business meaning or calculate a competing result.
 - Business/domain/application layers must not depend directly on a particular cloud/backup provider.
