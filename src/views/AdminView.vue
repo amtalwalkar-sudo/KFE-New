@@ -136,7 +136,6 @@ const complianceRevenueSummary = record => {
 const currentDefinition=computed(()=>currentItem.value?ADMIN_FORM_DEFINITIONS[currentItem.value.key]:null)
 const activeDefinition=computed(()=>{if(!currentDefinition.value)return null;const d=clone(currentDefinition.value);for(const f of d.fields||[]){if(f.key==='vehicleId')f.options=all.value.vehicle.map(x=>({value:x.id,label:label('vehicle',x)}));if(f.key==='driverId')f.options=all.value.driver.map(x=>({value:x.id,label:label('driver',x)}));if(f.key==='loanId')f.options=all.value.loan.map(x=>({value:x.id,label:label('loan',x)}))}return d})
 const sourcePayments=id=>live(performanceSnapshot.value?.settlements).filter(x=>x.sourceId===id&&String(x.direction||(x.settlementType==='Receipt'?'IN':'OUT')).toUpperCase()==='OUT')
-const sumPayments=id=>sourcePayments(id).reduce((s,x)=>s+(Number(x.amount)||0),0)
 const entityFinancial=record=>{if(!record)return null;if(selected.value==='loan'){const loan=live(performanceSnapshot.value?.loans).find(x=>x.id===record.id)||record;const p=AdminReadModelService.getLoanPosition({loan,payments:live(performanceSnapshot.value?.loanPayments),prepayments:live(performanceSnapshot.value?.prepayments),asOf:AdminReadModelService.referenceNow()});return {principal:Number(loan.principal)||0,paid:p.actualPaid||0,prepaid:p.actualPrepayment||0,remaining:p.outstandingPrincipal||0,emi:p.emi||0,pending:Math.max(0,(p.scheduledDue||0)-(p.actualPaid||0)),overdue:p.totalOverdue||0}}if(selected.value==='maintenance'||selected.value==='compliance'){const v=record.values||record,paid=sumPayments(record.id);const result={cost:Number(v.cost)||0,paid,remaining:(Number(v.cost)||0)-paid};return result}return null}
 const loanHistory=record=>{const s=performanceSnapshot.value||{};return [...live(s.loanPayments).filter(x=>x.loanId===record.id).map(x=>({kind:'EMI payment',date:x.paidOn,amount:Number(x.amount)||0})),...live(s.prepayments).filter(x=>x.loanId===record.id).map(x=>({kind:'Prepayment',date:x.paidOn,amount:Number(x.amount)||0}))].sort((a,b)=>String(b.date).localeCompare(String(a.date)))}
 const sourceHistory=record=>sourcePayments(record.id).sort((a,b)=>String(b.settledOn||'').localeCompare(String(a.settledOn||'')))
@@ -271,8 +270,7 @@ function resetAdminViewport() {
   // KFE scrolls inside the shell's main region, not the document body.
   // Reset both so restored scroll from another menu cannot hide the Admin header.
   window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
-  const shellScrollArea = document.querySelector('.content-scroll-area')
-  shellScrollArea?.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  window.dispatchEvent(new Event('kfe:shell-scroll-top'))
 }
 onMounted(()=>{
   load()
@@ -402,7 +400,7 @@ onBeforeUnmount(()=>{
   </section>
   <section v-if="selected==='compliance'" class="clean-card">
     <div class="metric-grid"><div><span>Cost</span><strong>{{money(masterRecord?.values?.cost)}}</strong></div><div><span>Paid</span><strong>{{money(entityFinancial(masterRecord)?.paid)}}</strong></div><div><span>Remaining cost</span><strong>{{money(entityFinancial(masterRecord)?.remaining)}}</strong></div></div>
-    <div class="calculation-box"><div class="metric-grid"><div><span>Revenue observed</span><strong>{{money(complianceRevenueSummary(masterRecord).total)}}</strong></div><div><span>Revenue days</span><strong>{{complianceRevenueSummary(masterRecord).days}}</strong></div><div><span>Average revenue / day</span><strong>{{money(complianceRevenueSummary(masterRecord).average)}}</strong></div></div></div>
+    <div class="calculation-box"><div class="metric-grid"><div><span>Revenue observed</span><strong>{{money(AdminReadModelService.getComplianceRevenueSummary({record:masterRecord,shifts:performanceSnapshot?.shifts,asOf:AdminReadModelService.referenceNow()}).total)}}</strong></div><div><span>Revenue days</span><strong>{{AdminReadModelService.getComplianceRevenueSummary({record:masterRecord,shifts:performanceSnapshot?.shifts,asOf:AdminReadModelService.referenceNow()}).days}}</strong></div><div><span>Average revenue / day</span><strong>{{money(AdminReadModelService.getComplianceRevenueSummary({record:masterRecord,shifts:performanceSnapshot?.shifts,asOf:AdminReadModelService.referenceNow()}).average)}}</strong></div></div></div>
     <button class="secondary wide" @click="openAction('settlement',masterRecord)">Record payment</button>
     <div v-if="sourceHistory(masterRecord).length" class="history-inline"><span>Payment history</span><small v-for="x in sourceHistory(masterRecord).slice(0,5)" :key="x.id">{{x.settledOn?.slice(0,10)}} · {{money(x.amount)}}</small></div>
     <div v-if="actionRecord?.id===masterRecord.id&&actionKey==='settlement'" class="calculation-box"><AdminSourceForm :fields="settlementFields" :model-value="actionDraft" :draft-identity="actionFormDraftIdentity" :busy="loading" :show-actions="false" @field-change="onActionFieldChange" @submit="submitActionForm" @draft-error="onDraftError"/><button class="primary wide" :disabled="Number(actionDraft.amount)<=0||loading" @click="saveSourcePayment">Confirm &amp; record payment</button></div>
