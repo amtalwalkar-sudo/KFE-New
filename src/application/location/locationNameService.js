@@ -45,14 +45,19 @@ export class LocalityResolutionService {
         return {placeName,state:'RESOLVED',provider:name,cacheHit:false}
       }catch(e){lastError=e}
     }
-    return {placeName:null,state:'RETRY_SCHEDULED',provider:null,cacheHit:false,error:lastError?.status===429?'RATE_LIMITED':lastError?'PROVIDER_UNAVAILABLE':'NO_LOCALITY_MATCH'}
+    // A manual refresh that cannot confirm a label must not leave an old label looking current.
+    if (forceRefresh && this.cacheEnabled && cache[key]) {
+      delete cache[key]
+      try { globalThis.localStorage?.setItem(CACHE_KEY, JSON.stringify(cache)) } catch {}
+    }
+    return {placeName:null,state:lastError?.status===429?'RATE_LIMITED':lastError?'PROVIDER_UNAVAILABLE':'NO_LOCALITY_MATCH',provider:null,cacheHit:false,error:lastError?.status===429?'RATE_LIMITED':lastError?'PROVIDER_UNAVAILABLE':'NO_LOCALITY_MATCH'}
   }
   async resolve(l){return (await this.resolveDetailed(l)).placeName}
 }
 const defaultResolver=new LocalityResolutionService()
 export const resolveLocationNameDetailed=async(l,resolver=defaultResolver,options={})=>{
-  try{if(resolver?.resolveDetailed)return await resolver.resolveDetailed(l,options);const placeName=resolver?.resolve?await resolver.resolve(l):null;return {placeName:placeName||null,state:placeName?'RESOLVED':'RETRY_SCHEDULED',provider:null,cacheHit:false}}
-  catch(e){console.warn('Location name resolution unavailable; coordinates remain authoritative.',e);return {placeName:null,state:'RETRY_SCHEDULED',provider:null,cacheHit:false,error:'PROVIDER_UNAVAILABLE'}}
+  try{if(resolver?.resolveDetailed)return await resolver.resolveDetailed(l,options);const placeName=resolver?.resolve?await resolver.resolve(l):null;return {placeName:placeName||null,state:placeName?'RESOLVED':'NO_LOCALITY_MATCH',provider:null,cacheHit:false}}
+  catch(e){console.warn('Location name resolution unavailable; coordinates remain authoritative.',e);return {placeName:null,state:'PROVIDER_UNAVAILABLE',provider:null,cacheHit:false,error:'PROVIDER_UNAVAILABLE'}}
 }
 export const resolveLocationName=async(l,resolver=defaultResolver)=>(await resolveLocationNameDetailed(l,resolver)).placeName
 export const localityResolutionCacheKey=keyFor
