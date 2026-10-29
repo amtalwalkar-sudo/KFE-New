@@ -10,6 +10,7 @@ const performance = read('src/views/PerformanceView.vue')
 const admin = read('src/views/AdminView.vue')
 const timelineRead = read('src/application/timeline/activityTimelineReadService.js')
 const locationService = read('src/application/location/eventLocationService.js')
+const locationNames = read('src/application/location/locationNameService.js')
 
 for (const path of [
   'src/application/work/workService.js',
@@ -51,6 +52,8 @@ assert.match(timeline, /refreshLocationNames/)
 assert.match(timeline, /navigator\.onLine/)
 assert.match(locationService, /const RIDE_EVENTS = new Set\(\['PICKUP_START', 'TRIP_CANCELLED', 'TRIP_START', 'TRIP_END'\]\)/)
 assert.doesNotMatch(locationService, /setInterval|setTimeout\s*\(/, 'GPS capture service must not poll or retry automatically')
+assert.doesNotMatch(locationNames, /RETRY_SCHEDULED/, 'locality lookup must not claim an automatic retry is scheduled')
+assert.match(locationNames, /if \(forceRefresh && this\.cacheEnabled && cache\[key\]\)/, 'failed manual refresh must invalidate stale cached locality labels')
 
 // Presentation uses service/domain results rather than becoming a competing
 // business-rule owner for calculations.
