@@ -191,7 +191,8 @@ public class KfeNativeFullShiftAcceptanceTest {
     JSONObject pickup = new JSONObject().put("id", "gps-first-pickup-" + suffix)
         .put("entityType", "TRIP").put("entityId", gpsFirstTrip).put("eventType", "PICKUP_START")
         .put("eventAt", eventAt).put("latitude", 19.0760d).put("longitude", 72.8777d)
-        .put("accuracy", JSONObject.NULL).put("capturedAt", capturedAt);
+        .put("accuracy", JSONObject.NULL).put("capturedAt", capturedAt)
+        .put("createdAt", capturedAt).put("updatedAt", capturedAt);
     assertTrue(store.putRecord("gps-first-snapshot-op-" + suffix, "GPS_SNAPSHOT", pickup).accepted);
     assertEquals("GPS writes must not advance the trip business version", initialVersion,
         store.getRecord("TRIP", gpsFirstTrip).getJSONObject("record").getString("updatedAt"));
@@ -214,7 +215,8 @@ public class KfeNativeFullShiftAcceptanceTest {
     JSONObject drop = new JSONObject().put("id", "fare-first-drop-" + suffix)
         .put("entityType", "TRIP").put("entityId", fareFirstTrip).put("eventType", "TRIP_END")
         .put("eventAt", eventAt).put("latitude", 19.0800d).put("longitude", 72.8800d)
-        .put("accuracy", 6.0d).put("capturedAt", capturedAt);
+        .put("accuracy", 6.0d).put("capturedAt", capturedAt)
+        .put("createdAt", capturedAt).put("updatedAt", capturedAt);
     String dropOperation = "fare-first-drop-op-" + suffix;
     assertTrue(store.putRecord(dropOperation, "GPS_SNAPSHOT", drop).accepted);
     assertEquals("A GPS snapshot must not alter fare or trip version", fareVersion,
