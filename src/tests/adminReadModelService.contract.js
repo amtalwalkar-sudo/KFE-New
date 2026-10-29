@@ -70,4 +70,7 @@ const effectiveRate = AdminReadModelService.getEffectiveMaintenanceRate({
 })
 assert.equal(effectiveRate.id, 'new-rate', 'maintenance rate selection must respect the IST as-of date')
 
+const loanSummary = AdminReadModelService.getLoanFinancialSummary({loan:{principal:100000},position:{actualPaid:2000,actualPrepayment:0,outstandingPrincipal:98000,emi:5000,scheduledDue:2500,totalOverdue:0,provisionBalance:-500}})
+assert.equal(loanSummary.provisionBalance, -500, 'Admin loan summary must preserve a negative EMI provision balance')
+
 console.log('Admin read-model projection contract: PASS')
