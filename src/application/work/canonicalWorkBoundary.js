@@ -80,6 +80,12 @@ export const CanonicalWorkBoundary = Object.freeze({
     const result = await WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'GPS_SNAPSHOT', limit: 1000 })
     return Array.isArray(result?.records) ? result.records : []
   },
+  async getEventLocationSnapshot(snapshotId) {
+    if (!snapshotId || !WorkRuntimePorts.canonicalWork.isAvailable()) return null
+    const result = await WorkRuntimePorts.canonicalWork.getRecord({ entityType: 'GPS_SNAPSHOT', entityId: snapshotId })
+    if (!result || result.found === false) return null
+    return result.record || result
+  },
   async getRecord(input) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.getRecord(input) : BrowserCanonicalWorkService.getRecord(input) },
   async listRecords(input) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.listRecords(input) : BrowserCanonicalWorkService.listRecords(input) },
   async getOperation(operationId) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.getOperation(operationId) : BrowserCanonicalWorkService.getOperation(operationId) },

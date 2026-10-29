@@ -122,16 +122,17 @@ public class KfeTripBoundaryLocationPlugin extends Plugin {
     String entityType = call.getString("entityType", "TRIP");
     String entityId = call.getString("entityId", "");
     String eventType = call.getString("eventType", "");
-    if (!"TRIP".equals(entityType) || entityId == null || entityId.trim().isEmpty()) {
-      call.reject("A valid trip event is required for background GPS capture.");
+    String eventAt = call.getString("eventAt", "");
+    boolean tripEvent = "TRIP".equals(entityType)
+      && ("TRIP_START".equals(eventType) || "TRIP_END".equals(eventType)
+        || "PICKUP_START".equals(eventType) || "TRIP_CANCELLED".equals(eventType));
+    boolean shiftEvent = "SHIFT".equals(entityType)
+      && ("SHIFT_START".equals(eventType) || "SHIFT_END".equals(eventType));
+    if ((!tripEvent && !shiftEvent) || entityId == null || entityId.trim().isEmpty()) {
+      call.reject("A valid trip or shift event is required for background GPS capture.");
       return;
     }
-    if (!"TRIP_START".equals(eventType) && !"TRIP_END".equals(eventType)
-      && !"PICKUP_START".equals(eventType) && !"TRIP_CANCELLED".equals(eventType)) {
-      call.reject("Unsupported trip GPS event type.");
-      return;
-    }
-    if (!KfeOverlayService.queueEventLocationCapture(getContext(), entityId, eventType)) {
+    if (!KfeOverlayService.queueEventLocationCapture(getContext(), entityType, entityId, eventType, eventAt)) {
       call.reject("The event GPS request could not be durably queued.");
       return;
     }

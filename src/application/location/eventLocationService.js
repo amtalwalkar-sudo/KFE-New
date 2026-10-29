@@ -8,6 +8,7 @@ import { ConnectivityService } from '../../infrastructure/connectivity/connectiv
 const locationNameResolver = new LocalityResolutionService()
 let locationReconcileAttempt = null
 let locationRetryTimer = null
+let pendingEnrichmentCache = null
 let lastLifecycleReconcileAt = 0
 const LOCATION_LIFECYCLE_RECONCILE_THROTTLE_MS = 60_000
 const LOCATION_RETRY_KEY = 'kfe:location-name-retry:v1'
@@ -27,6 +28,8 @@ const NATIVE_SYNC_FIELDS = ['entityType', 'entityId', 'eventType', 'eventAt', 'l
 const nativeSnapshotMatches = (snapshot, nativeSnapshot) => Boolean(nativeSnapshot) &&
   NATIVE_SYNC_FIELDS.every(field => String(snapshot?.[field] ?? '') === String(nativeSnapshot?.[field] ?? ''))
 const LOCATION_RECONCILIATION_KEY = 'kfe:trip-location-reconciliation:v1'
+const LOCATION_ENRICHMENT_QUEUE_KEY = 'kfe:location-enrichment-queue:v1'
+const LOCATION_INCREMENTAL_INDEX_KEY = 'kfe:location-enrichment-index:v1'
 const NATIVE_MIRROR_RETRY_KEY = 'kfe:native-location-mirror-retry:v1'
 const readPendingNativeMirrorIds = () => {
   try {
@@ -42,6 +45,25 @@ const setPendingNativeMirror = (snapshotId, pending) => {
     else ids.delete(snapshotId)
     globalThis.localStorage?.setItem(NATIVE_MIRROR_RETRY_KEY, JSON.stringify([...ids]))
   } catch (_) {}
+}
+const readPendingEnrichmentIds = () => {
+  if (pendingEnrichmentCache instanceof Set) return [...pendingEnrichmentCache]
+  try {
+    const parsed = JSON.parse(globalThis.localStorage?.getItem(LOCATION_ENRICHMENT_QUEUE_KEY) || '[]')
+    pendingEnrichmentCache = new Set(Array.isArray(parsed) ? parsed.filter(id => typeof id === 'string' && id) : [])
+  } catch (_) { pendingEnrichmentCache = new Set() }
+  return [...pendingEnrichmentCache]
+}
+const setPendingEnrichment = (snapshotId, pending) => {
+  if (!snapshotId) return
+  const ids = new Set(readPendingEnrichmentIds())
+  const alreadyPending = ids.has(snapshotId)
+  if (alreadyPending === pending) return
+  if (pending) ids.add(snapshotId)
+  else ids.delete(snapshotId)
+  pendingEnrichmentCache = ids
+  try { globalThis.localStorage?.setItem(LOCATION_ENRICHMENT_QUEUE_KEY, JSON.stringify([...ids])) }
+  catch (_) { pendingEnrichmentCache = null }
 }
 const scheduleNextLocationRetry = () => {
   if (locationRetryTimer != null || typeof globalThis.setTimeout !== 'function') return
@@ -70,7 +92,11 @@ const resolveLocationNameWithRetry = async (snapshot, resolver) => {
   if (!ConnectivityService.isNetworkAvailable() || !snapshot?.id) return null
   const state = readLocationRetryState()
   const retry = state[snapshot.id]
-  if (retry && (Number(retry.attempts) > LOCATION_RETRY_DELAYS.length || Number(retry.nextAttemptAt) > Date.now())) {
+  if (retry && Number(retry.attempts) > LOCATION_RETRY_DELAYS.length) {
+    setPendingEnrichment(snapshot.id, false)
+    return null
+  }
+  if (retry && Number(retry.nextAttemptAt) > Date.now()) {
     scheduleNextLocationRetry()
     return null
   }
@@ -105,6 +131,7 @@ export const EventLocationService = {
         // unavailable. Retry enrichment from its persisted coordinates; never
         // take a second GPS fix for the same event.
         if (!String(prior.placeName || '').trim()) {
+          setPendingEnrichment(prior.id, true)
           const placeName = await resolveLocationNameWithRetry(prior, locationNameResolver)
           if (placeName) await this.persistLabel(prior.id, placeName)
         }
@@ -125,6 +152,7 @@ export const EventLocationService = {
         capturedAt: location.capturedAt,
       })
       await this.persistNativeSnapshot(snapshot)
+      setPendingEnrichment(snapshot.id, true)
       const placeName = await resolveLocationNameWithRetry(snapshot, locationNameResolver)
       if (placeName) await this.persistLabel(snapshot.id, placeName)
     })().catch(error => console.warn('Optional event GPS enrichment failed:', entityType, entityId, eventType, error))
@@ -172,10 +200,23 @@ export const EventLocationService = {
     if (locationReconcileAttempt) return locationReconcileAttempt
     locationReconcileAttempt = (async () => {
       const migrationComplete = globalThis.localStorage?.getItem(LOCATION_RECONCILIATION_KEY) === 'complete'
+      const incrementalIndexSeeded = globalThis.localStorage?.getItem(LOCATION_INCREMENTAL_INDEX_KEY) === 'complete'
       const nativeAvailable = CanonicalWorkBoundary.isNativeAvailable()
+      const pendingMirrorIds = migrationComplete ? readPendingNativeMirrorIds() : []
+      const pendingEnrichmentIds = migrationComplete ? readPendingEnrichmentIds() : []
+      const incrementalIds = [...new Set([...pendingMirrorIds, ...pendingEnrichmentIds])]
+      const needsNativeIndex = !migrationComplete || !incrementalIndexSeeded
+      let nativeIndexReadSucceeded = !needsNativeIndex
+      const nativeIndexPromise = needsNativeIndex
+        ? CanonicalWorkBoundary.listEventLocationSnapshots().then(rows => { nativeIndexReadSucceeded = true; return rows }).catch(() => [])
+        : Promise.all(incrementalIds.map(id => CanonicalWorkBoundary.getEventLocationSnapshot(id).catch(() => null))).then(rows => rows.filter(Boolean))
       const [nativeSnapshots, localSnapshots, trips] = await Promise.all([
-        CanonicalWorkBoundary.listEventLocationSnapshots().catch(() => []),
-        LocationRepository.all().catch(() => []),
+        nativeIndexPromise,
+        migrationComplete
+          ? incrementalIndexSeeded
+            ? Promise.all(incrementalIds.map(id => LocationRepository.getById(id).catch(() => null))).then(rows => rows.filter(Boolean))
+            : LocationRepository.all().catch(() => [])
+          : Promise.resolve([]),
         migrationComplete ? Promise.resolve([]) : ShiftTripRepository.getAllTrips(),
       ])
       const nativeById = new Map(nativeSnapshots.filter(item => item?.id).map(item => [item.id, item]))
@@ -183,17 +224,17 @@ export const EventLocationService = {
       let migrationSucceeded = true
 
       if (migrationComplete) {
-        // Normal foreground/resume passes read the native snapshot index only.
-        // Local-only writes are explicitly journaled and fetched by ID, avoiding
-        // a full trip scan and per-trip IndexedDB reads on every lifecycle event.
-        const byId = new Map(nativeSnapshots.filter(item => item?.entityType === 'TRIP').map(item => [item.id, item]))
-        const pendingMirrorIds = new Set(readPendingNativeMirrorIds())
+        // After the one-time seed, reconcile only IDs in the durable enrichment
+        // and native-mirror journals. Do not scan every IndexedDB GPS snapshot
+        // or list every native snapshot on each foreground/resume event.
+        const byId = new Map(nativeSnapshots.filter(item => item?.id).map(item => [item.id, item]))
+        const pendingMirrorSet = new Set(pendingMirrorIds)
         for (const local of localSnapshots) {
-          if (local?.entityType !== 'TRIP' || !local.id) continue
+          if (!local?.id) continue
           const native = byId.get(local.id)
           const localUpdatedAt = Date.parse(local.updatedAt || local.createdAt || 0) || 0
           const nativeUpdatedAt = Date.parse(native?.updatedAt || native?.createdAt || 0) || 0
-          if (!native || pendingMirrorIds.has(local.id) || localUpdatedAt > nativeUpdatedAt) {
+          if (!native || pendingMirrorSet.has(local.id) || localUpdatedAt > nativeUpdatedAt) {
             byId.set(local.id, { ...(native || {}), ...local })
           }
         }
@@ -245,6 +286,8 @@ export const EventLocationService = {
 
       for (const snapshot of snapshots) {
         if (!snapshot?.id) continue
+        if (String(snapshot.placeName || '').trim()) setPendingEnrichment(snapshot.id, false)
+        else setPendingEnrichment(snapshot.id, true)
         // Only mirror missing or materially different records. A routine
         // foreground/resume reconciliation must not rewrite every saved fix.
         const nativeSnapshot = nativeById.get(snapshot.id)
@@ -261,6 +304,17 @@ export const EventLocationService = {
       if (!migrationComplete && migrationSucceeded) {
         try { globalThis.localStorage?.setItem(LOCATION_RECONCILIATION_KEY, 'complete') } catch (_) {}
       }
+      if (!incrementalIndexSeeded && nativeIndexReadSucceeded && migrationSucceeded) {
+        // Seed every existing unresolved native snapshot exactly once, including
+        // non-trip events. Subsequent reconciliations operate on queued IDs only.
+        for (const snapshot of [...nativeSnapshots, ...localSnapshots]) {
+          if (snapshot?.id && !String(snapshot.placeName || '').trim()) setPendingEnrichment(snapshot.id, true)
+        }
+        for (const snapshot of snapshots) {
+          if (snapshot?.id && !String(snapshot.placeName || '').trim()) setPendingEnrichment(snapshot.id, true)
+        }
+        try { globalThis.localStorage?.setItem(LOCATION_INCREMENTAL_INDEX_KEY, 'complete') } catch (_) {}
+      }
       return { migrated: !migrationComplete, tripCount: trips.length, snapshotCount: snapshots.length }
     })().finally(() => { locationReconcileAttempt = null })
     return locationReconcileAttempt
@@ -271,22 +325,21 @@ export const EventLocationService = {
     const local = await LocationRepository.getById(snapshotId).catch(() => null)
     if (local) await this.persistNativeSnapshot(local)
     else {
-      const native = await CanonicalWorkBoundary.listEventLocationSnapshots().catch(() => [])
-      const record = native.find(item => item.id === snapshotId)
+      const record = await CanonicalWorkBoundary.getEventLocationSnapshot(snapshotId).catch(() => null)
       if (record) await this.persistNativeSnapshot({ ...record, ...metadata, updatedAt: new Date().toISOString() })
     }
     return updated
   },
   async persistLabel(snapshotId, placeName) {
     clearLocationRetry(snapshotId)
+    setPendingEnrichment(snapshotId, false)
     const updated = await LocationRepository.updatePlaceName(snapshotId, placeName)
     const local = await LocationRepository.getById(snapshotId).catch(() => null)
     if (local) {
       await this.persistNativeSnapshot(local)
       return updated
     }
-    const native = await CanonicalWorkBoundary.listEventLocationSnapshots().catch(() => [])
-    const record = native.find(item => item.id === snapshotId)
+    const record = await CanonicalWorkBoundary.getEventLocationSnapshot(snapshotId).catch(() => null)
     if (record) {
       const persisted = await this.persistNativeSnapshot({ ...record, placeName: String(placeName).trim(), updatedAt: new Date().toISOString() })
       if (persisted) {

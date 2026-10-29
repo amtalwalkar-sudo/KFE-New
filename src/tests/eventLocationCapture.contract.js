@@ -5,6 +5,8 @@ const workService = fs.readFileSync('src/application/work/workService.js', 'utf8
 const locationRepository = fs.readFileSync('src/repositories/locationRepository.js', 'utf8')
 const eventLocationService = fs.readFileSync('src/application/location/eventLocationService.js', 'utf8')
 const geocoder = fs.readFileSync('src/application/location/locationNameService.js', 'utf8')
+const nativeBoundaryPlugin = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeTripBoundaryLocationPlugin.java', 'utf8')
+const nativeOverlay = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java', 'utf8')
 
 for (const hook of [
   "captureAndPersistEventLocation('SHIFT', result.id, 'SHIFT_START', result.shiftStartAt || result.createdAt)",
@@ -53,3 +55,10 @@ assert.match(locationRepository, /gps-snapshot-created/, 'creating a GPS snapsho
 const appEntry = fs.readFileSync('src/main.js', 'utf8')
 assert.match(appEntry, /EventLocationService\.reconcilePersistedTripLocations\(\)/, 'location migration/enrichment must run outside the read-only Timeline')
 console.log('PASS: all work-event locations use one optional, async, persisted-before-geocoding pathway')
+
+assert.ok(nativeBoundaryPlugin.includes('"SHIFT_START".equals(eventType)') && nativeBoundaryPlugin.includes('"SHIFT_END".equals(eventType)'),
+  'shift start and end must use the permission-gated native GPS retry queue')
+assert.match(nativeOverlay, /queueEventLocationCapture\(Context context,String entityType,String entityId,String eventType,String eventAt\)/,
+  'native event GPS queue must preserve the generic event identity and timestamp')
+assert.match(nativeOverlay, /eventLocationSnapshotId\(entityType,entityId,eventType\)/,
+  'native retries must persist GPS snapshots under a stable entity/event identity')
