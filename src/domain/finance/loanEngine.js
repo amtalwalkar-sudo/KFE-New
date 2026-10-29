@@ -238,11 +238,9 @@ export function deriveLoanPosition({ loan, payments = [], prepayments = [], asOf
     const paidOn = dateOf(payment.paidOn)
     return payment.loanId === loan.id && String(payment.status || '').toLowerCase() === 'applied' && paidOn && paidOn <= effectiveAsOf
   }).reduce((sum, payment) => sum + rupeesToPaise(payment.amount), 0)
-  // An actual payment can be ahead of accrued EMI provision (for example,
-  // an advance EMI). Keep the provision bucket non-negative and expose the
-  // amount paid ahead of accrual separately rather than hiding it as a deficit.
-  const loanProvisionBalancePaise = Math.max(0, provisionAccumulatedPaise - actualPaidPaise)
-  const paymentsAheadOfAccrualPaise = Math.max(0, actualPaidPaise - provisionAccumulatedPaise)
+  // BR-10A: preserve a signed EMI provision balance. An advance payment
+  // creates a negative balance (recovery/overpayment), not a side ledger.
+  const loanProvisionBalancePaise = provisionAccumulatedPaise - actualPaidPaise
   const scheduledInterestPaise = obligations.filter(row => dateOf(row.dueDate) <= effectiveAsOf).reduce((sum, row) => sum + rupeesToPaise(row.originalInterestComponent), 0)
   const scheduledPrincipalPaise = obligations.filter(row => dateOf(row.dueDate) <= effectiveAsOf).reduce((sum, row) => sum + rupeesToPaise(row.originalPrincipalComponent), 0)
   const paidPrincipalPaise = obligations.reduce((sum, row) => sum + rupeesToPaise(row.scheduledPrincipalPaid), 0)
@@ -267,7 +265,6 @@ export function deriveLoanPosition({ loan, payments = [], prepayments = [], asOf
     actualFinancingOutflow: paiseToRupees(actualPaidPaise + actualPrepaymentPaise),
     provisionAccumulated: paiseToRupees(provisionAccumulatedPaise),
     provisionBalance: paiseToRupees(loanProvisionBalancePaise),
-    paymentsAheadOfAccrual: paiseToRupees(paymentsAheadOfAccrualPaise),
     outstandingPrincipal: paiseToRupees(outstandingPrincipalPaise),
     remainingInterest: paiseToRupees(totalRemainingInterestPaise),
     scheduledFinalDate: schedule.at(-1)?.dueDate || null,
