@@ -4,6 +4,7 @@ import { subscribeCanonicalDataChanges } from '../../repositories/canonicalDataC
 import { calculateFuelPeriodSummary } from '../../domain/math/fuel.js'
 import { getKfeReferenceNow, reportingRangeFor } from '../../domain/time/ist.js'
 import { EventLocationService } from '../location/eventLocationService.js'
+import { getCachedLocationName } from '../location/locationNameService.js'
 
 const PERIODS = Object.freeze({
   TODAY: 'DAY',
@@ -26,7 +27,7 @@ const locationLabel = snapshot => {
   const latitude = Number(snapshot?.latitude)
   const longitude = Number(snapshot?.longitude)
   if (!Number.isFinite(latitude) || Math.abs(latitude) > 90 || !Number.isFinite(longitude) || Math.abs(longitude) > 180) return 'Location unavailable'
-  return `GPS ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
+  return getCachedLocationName(snapshot) || 'Location unavailable'
 }
 const durationMs = trip => {
   const start = validTime(trip?.tripStartAt)
@@ -45,8 +46,8 @@ const farePresentation = trip => {
 }
 
 /**
- * Read-only Timeline projection over existing record authorities. No writes,
- * GPS capture, reverse geocoding, or separate business database are used here.
+ * Read-only Timeline projection over ride/fuel authorities and saved GPS snapshots.
+ * Locality labels are cache-only here; network resolution is explicitly user-triggered.
  */
 export const ActivityTimelineReadService = Object.freeze({
   subscribeDataChanges(callback) {
