@@ -110,7 +110,6 @@ async function saveFuel(values){
   saving.value=true;error.value='';notice.value=''
   try{
     const odometer=Number(values.odometer), pricePerKg=Number(values.pricePerKg), amount=Number(values.amount)
-    if(!Number.isFinite(odometer)||odometer<0||!Number.isFinite(pricePerKg)||pricePerKg<=0||!Number.isFinite(amount)||amount<=0)throw new Error('Enter a valid odometer, a price/kg greater than zero, and a positive amount.')
     await CalculationsService.recordFuelBaseline({odometer,pricePerKg,amount,isFullTank:!Boolean(values.isPartialTank)})
     await FormDraftService.clear(calculationDraftIdentity.value, { committed: true })
     notice.value='Fuel entry saved. Rechecking calculations…'
