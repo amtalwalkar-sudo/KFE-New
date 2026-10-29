@@ -41,8 +41,8 @@ const schedule = AdminReadModelService.getLoanAmortizationSchedule({
   schedule: [
     { id: 'paid', dueDate: '2026-10-01T18:30:00.000Z', originalEmiAmount: 1000, scheduledInterestPaid: 500, scheduledPrincipalPaid: 499.5 },
     { id: 'overdue', dueDate: '2026-10-01T18:30:00.000Z', originalEmiAmount: 1000, scheduledInterestPaid: 0, scheduledPrincipalPaid: 0 },
-    { id: 'due', dueDate: '2026-10-03T18:30:00.000Z', originalEmiAmount: 1000, scheduledInterestPaid: 0, scheduledPrincipalPaid: 0 },
-    { id: 'upcoming', dueDate: '2026-10-04T18:30:00.000Z', originalEmiAmount: 1000, scheduledInterestPaid: 0, scheduledPrincipalPaid: 0 },
+    { id: 'due', dueDate: '2026-10-02T18:30:00.000Z', originalEmiAmount: 1000, scheduledInterestPaid: 0, scheduledPrincipalPaid: 0 },
+    { id: 'upcoming', dueDate: '2026-10-03T18:30:00.000Z', originalEmiAmount: 1000, scheduledInterestPaid: 0, scheduledPrincipalPaid: 0 },
   ],
 })
 assert.deepEqual(schedule.map(row => row.paymentState), ['Paid', 'Overdue', 'Due', 'Upcoming'])
