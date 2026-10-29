@@ -89,9 +89,17 @@ const refreshLocationNames = async () => {
     refreshing.value = false
   }
 }
+const atTop = () => typeof window === 'undefined'
+  || Math.max(window.scrollY || 0, document.documentElement?.scrollTop || 0) <= 0
+const resetPull = () => { pullStartY = null; pullStartedAtTop = false }
 const onTouchStart = event => {
-  pullStartY = event.touches?.[0]?.clientY ?? null
-  pullStartedAtTop = (typeof window === 'undefined' || window.scrollY <= 0)
+  if (refreshing.value || !atTop() || event.touches?.length !== 1
+    || event.target?.closest?.('button, select, input, textarea, a')) {
+    resetPull()
+    return
+  }
+  pullStartY = event.touches[0].clientY
+  pullStartedAtTop = true
 }
 const onTouchEnd = event => {
   const endY = event.changedTouches?.[0]?.clientY
@@ -112,7 +120,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <section class="activity-timeline-page" aria-labelledby="activity-timeline-title" @touchstart.passive="onTouchStart" @touchend.passive="onTouchEnd">
+  <section class="activity-timeline-page" aria-labelledby="activity-timeline-title" @touchstart.passive="onTouchStart" @touchend.passive="onTouchEnd" @touchcancel.passive="resetPull">
     <header class="activity-timeline-heading">
       <div>
         <p class="activity-timeline-eyebrow">READ-ONLY RECORDS</p>
@@ -131,6 +139,7 @@ onUnmounted(() => {
       </div>
     </header>
 
+    <p class="activity-timeline-description activity-timeline-refresh-hint">Pull down from the top to refresh area names when online.</p>
     <p v-if="refreshing" class="activity-timeline-message" role="status">Refreshing area names…</p>
     <p v-else-if="refreshMessage" class="activity-timeline-message" role="status">{{ refreshMessage }}</p>
     <p v-if="error" class="activity-timeline-message activity-timeline-error" role="alert">{{ error }}</p>
