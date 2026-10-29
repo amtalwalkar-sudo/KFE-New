@@ -223,7 +223,7 @@ try {
   // Contract 7: Back from start-shift gate must not write a shift.
   await reset(page)
   await page.getByRole('button', { name: 'START SHIFT', exact: true }).click()
-  await page.locator('.admin-shell-bar .back-button').click()
+  await page.getByRole('button', { name: 'Back', exact: true }).click()
   state = await db(page, ['shifts'])
   assert(state.shifts.length === 0, 'START SHIFT Back created a mutation')
   evidence.push({ id: 'WORK.START_SHIFT_BACK', result: 'PASS', expected: 'no shift mutation', persisted: { shifts: state.shifts.length } })
