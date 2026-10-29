@@ -13,4 +13,4 @@ GPS capture is local and does not require internet. Android stores event request
 
 The browser PWA uses one-shot browser geolocation and local snapshot persistence. Android uses the native durable event queue. These are platform adapters for the same four-event snapshot contract, not competing writers during normal Android operation.
 
-Display a saved locality only if it is already trustworthy and attached to that snapshot; otherwise show coordinates when valid, or “Location unavailable”. Never reuse legacy trip fields or infer an area name. Physical-device verification must test all four events offline, permission denial, app/service reopening, stable event identity, and that ride timestamps/fares remain unchanged.
+Display only validated coordinates, or “Location unavailable”. Do not display stored area names, reuse legacy trip fields, or infer an area name. Physical-device verification must test all four events offline, permission denial, app/service reopening, stable event identity, and that ride timestamps/fares remain unchanged.
