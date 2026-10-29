@@ -28,7 +28,7 @@ assert.ok(form.includes('role="status" aria-live="polite">Saving your changes…
 assert.ok(!form.includes('`admin-help-${field.key}`'))
 assert.ok(!form.includes('`admin-error-${field.key}`'))
 assert.ok(admin.includes('class="detail-intro"'))
-assert.ok(admin.includes('aria-label="Admin settings sections"'))
+assert.equal(admin.includes('aria-label="Admin settings sections"'), false, 'Settings detail must not repeat destination navigation cards.')
 assert.ok(admin.includes('class="settings-context"'))
 assert.ok(admin.includes(':aria-label="`Edit ${label(selected,record)}`"'))
 assert.ok(css.includes('.source-form-actions{position:sticky'))
