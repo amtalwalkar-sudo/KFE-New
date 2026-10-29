@@ -1,7 +1,19 @@
 import { spawnSync } from 'node:child_process'
+import fs from 'node:fs'
 
 const suites = [
   'performancePhaseOneOverview.contract.js',
+  'dailyRevenueAllocation.contract.js',
+  'driverTargetStabilization.contract.js',
+  'driverTargetStabilization.implementation.contract.js',
+  'monthlyVehicleKmBreakEven.contract.js',
+  'phase0SourceOfTruth.contract.js',
+  'phase1BusinessFoundation.contract.js',
+  'phase8CapacitorAndroidNative.contract.js',
+  'phase10HardeningRelease.contract.js',
+  'phaseBLifecycleRecovery.contract.js',
+  'phaseDCrossSurfaceDisplayAudit.contract.js',
+
   'adminReadModelService.contract.js',
   'workDraftController.contract.js',
   'nativeWorkActionController.contract.js',
@@ -25,6 +37,13 @@ const suites = [
   'nativeCanonicalMigration.contract.js',
   'startupPermissionGate.contract.js',   'blankWorkspacePersistentSettings.contract.js', 'blankTimelinePerformance.contract.js', 'timelineReadModel.contract.js', 'formSavePathRegression.contract.js',   'universalFormDraftRecoveryRegression.contract.js',  'pwaFormSavePathMatrix.contract.js',  'pwaFormSavePathRegression.contract.js','endToEndConformance.contract.js',  'authorityMap.contract.js','architecture.contract.js','maintenanceProvisionEvidence.contract.js','dailyRevenueAllocationEvidence.contract.js','syntheticThreeYearCanonicalEvidence.contract.js','syntheticMonthlyBreakEvenPerformanceReconciliation.contract.js','phase3ArchitectureGuardrails.contract.js','phase4RuntimeVisualVerification.contract.js','phase4AutomatedOperationalAudit.contract.js','offlineSync.contract.js','shiftStartGoldenVectors.contract.js','work.contract.js','workFormCalculationWiring.contract.js','calculationRecoveryIntegration.contract.js','performance.contract.js','performanceDiagnostics.contract.js','driverTarget.contract.js','targetBreakEvenAuthorityRegression.contract.js','operatingKmForecast.contract.js','financialModel.contract.js','fah2RevenueReconciliation.contract.js','tollParkingFinancialTreatment.contract.js','fah3FinancialFactModel.contract.js','fah4HistoricalIntegrity.contract.js','financeAuthority.contract.js','loanFinanceE2E.contract.js','admin.contract.js','adminNavigation.contract.js','adminFieldMatrix.contract.js','adminFiveIntegrity.contract.js','adminPhase3Integrity.contract.js','adminPhase4Usability.contract.js','adminPhase5ReleaseReadiness.contract.js','calculationsSmartInputs.contract.js','shell.contract.js','ui.contract.js','backup.contract.js','resetProtocol.contract.js','backupConfig.contract.js','erpFormCalculation.contract.js',  'formIntegrityE2E.contract.js','formDraftRecovery.contract.js','adminDraftRecovery.contract.js','phase1FormsTechnical.contract.js','phase2FormsRuntimeUx.contract.js','phase2BusinessRuleDefects.contract.js','auditMutation.contract.js','integrity.contract.js','canonicalData.contract.js','persistence.contract.js','phase4PersistenceDataIsolation.contract.js','rideCapture.contract.js','operationalRecords.contract.js','phase5CalculationPerformance.contract.js','phase7CanonicalSyntheticIsolation.contract.js','phase7DataRecovery.contract.js','phase11VisualDnaAccessibility.contract.js','phase11ControlledPilot.contract.js','phase8AndroidCapacitorNative.contract.js','phase8SecurityPermissions.contract.js','phase9ProductionConfiguration.contract.js','calculationBoundary.confirmed.contract.js','calculationBoundary.adversarial.contract.js','boundaryRegression.contract.js','calculationAuthority.contract.js','calculationArithmetic.contract.js','calculationVerificationMatrix.contract.js','calculationVerificationEvidence.contract.js','phase5CalculationTraceability.contract.js','formulaHardening.contract.js','calculationInvalidation.contract.js','phase7CapacitorAndroid.contract.js','phase8BackupRestore.contract.js','phase12FinalReleaseReadiness.contract.js','phase9PerformanceBatteryConcurrency.contract.js','phase9CloudBackupSync.contract.js','phase9PerformanceEconomics.contract.js','presentationImpact.contract.js','uiUxShellDecoupling.contract.js','uiIsolationGate.contract.js','nativeSwipeVisualParity.contract.js','themeCompliance.contract.js','nativeWorkActions.contract.js','nativeTripFormRecovery.contract.js','nativeSwipeGestureRecovery.contract.js', 'timeline.contract.js','syntheticData.contract.js','syntheticPerformance.contract.js','septemberBreakEvenTarget.contract.js','stabilizationRuntimePwa.contract.js','phase2BuildCiDeployment.contract.js','phase3StartupPwaLifecycle.contract.js','phase12FinalReleaseAudit.contract.js','canonicalTripLifecycle.contract.js','dailyTargetAchievement.contract.js','phaseCFinancialFinalization.contract.js','prelaunchInPlaceUpgrade.contract.js','prelaunchProductionReadiness.contract.js'
 ]
+const registered = new Set(suites)
+const discovered = fs.readdirSync('src/tests').filter(name => name.endsWith('.contract.js'))
+const missingSuites = discovered.filter(name => !registered.has(name))
+if (missingSuites.length) {
+  process.stderr.write(`Unregistered contract suites: ${missingSuites.join(', ')}\\n`)
+  process.exit(1)
+}
 const results=[]
 for(const suite of suites){const startedAt=Date.now();const result=spawnSync(process.execPath,[`src/tests/${suite}`],{encoding:'utf8',stdio:['ignore','pipe','pipe']});const output=[result.stdout,result.stderr].filter(Boolean).join('');const passed=result.status===0;results.push({suite,passed,status:result.status,signal:result.signal,output,durationMs:Date.now()-startedAt});process.stdout.write(`\n=== ${passed?'PASS':'FAIL'}: ${suite} ===\n`);if(output)process.stdout.write(output.endsWith('\n')?output:`${output}\n`)}
 const failures=results.filter(r=>!r.passed);process.stdout.write(`\n=== CONTRACT FAILURE INVENTORY ===\nSuites: ${results.length}\nPassed: ${results.length-failures.length}\nFailed: ${failures.length}\n`);for(const f of failures)process.stdout.write(`- ${f.suite} (exit=${f.status??'null'}, signal=${f.signal??'none'})\n`);if(failures.length)process.exitCode=1;else process.stdout.write('\nALL CONTRACT SUITES PASSED\n')
