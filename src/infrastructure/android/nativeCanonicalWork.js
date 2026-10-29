@@ -60,30 +60,6 @@ export const NativeCanonicalWorkService = Object.freeze({
     if (result?.accepted !== true || !result?.outcome?.record) throw new Error('Canonical persistence did not confirm the record commit.')
     return result
   },
-  async persistTripBoundarySnapshot({ operationId, tripId, field, snapshot } = {}) {
-    assertNoResetInProgress()
-    requireNative()
-    if (!operationId || !tripId || !['tripStartLocation', 'tripEndLocation'].includes(field) || !snapshot) {
-      throw new Error('operationId, tripId, a supported boundary field and snapshot are required.')
-    }
-    const result = await NativeCanonicalWork.persistTripBoundarySnapshot({ operationId, tripId, field, snapshot })
-    if (result?.accepted !== true || !result?.outcome?.record?.[field]) {
-      throw new Error('Native canonical boundary snapshot was not durably acknowledged.')
-    }
-    return result
-  },
-  async updateTripBoundaryPlaceName({ operationId, tripId, field, placeName } = {}) {
-    assertNoResetInProgress()
-    requireNative()
-    if (!operationId || !tripId || !['tripStartLocation', 'tripEndLocation'].includes(field) || !String(placeName || '').trim()) {
-      throw new Error('operationId, tripId, a supported boundary field and placeName are required.')
-    }
-    const result = await NativeCanonicalWork.updateTripBoundaryPlaceName({ operationId, tripId, field, placeName: String(placeName).trim() })
-    if (result?.accepted !== true || !result?.outcome?.record?.[field]?.placeName) {
-      throw new Error('Native canonical boundary label was not durably acknowledged.')
-    }
-    return result
-  },
   async migrateLegacySnapshot({ migrationId, snapshot } = {}) {
     assertNoResetInProgress()
     requireNative()
