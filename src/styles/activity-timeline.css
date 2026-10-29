@@ -1,3 +1,10 @@
+.activity-timeline-actions{display:flex;align-items:flex-end;gap:10px}
+.activity-timeline-refresh{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:46px;padding:8px 12px;border:1px solid var(--kfe-ui-border);border-radius:var(--kfe-radius-md);background:var(--kfe-ui-surface);color:var(--kfe-ui-text);font:inherit;font-size:.82rem;font-weight:750;white-space:nowrap}
+.activity-timeline-refresh:disabled{opacity:.65}
+.activity-timeline-refresh span{font-size:1.2rem;line-height:1}
+.activity-timeline-refresh .is-spinning{animation:activity-timeline-spin 1s linear infinite}
+.activity-timeline-pull-status{margin-top:-12px;padding:10px 14px;border-radius:var(--kfe-radius-md);background:var(--kfe-ui-surface);color:var(--kfe-muted-text);text-align:center;font-size:.82rem}
+@keyframes activity-timeline-spin{to{transform:rotate(360deg)}}
 .activity-timeline-page{max-width:920px;margin:0 auto;padding:20px 16px 28px;display:grid;gap:20px;color:var(--kfe-ui-text)}
 .activity-timeline-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
 .activity-timeline-eyebrow{margin:0 0 5px;color:var(--kfe-muted-text);font-size:.72rem;font-weight:850;letter-spacing:.12em}
@@ -25,4 +32,4 @@
 .activity-timeline-footnote{margin:0;color:var(--kfe-muted-text);font-size:.78rem;line-height:1.5}
 .activity-timeline-empty,.activity-timeline-message{padding:20px;border:1px dashed var(--kfe-ui-border);border-radius:var(--kfe-radius-md);color:var(--kfe-muted-text);text-align:center}
 .activity-timeline-error{color:var(--kfe-danger)}
-@media(max-width:480px){.activity-timeline-page{padding:16px 12px 24px}.activity-timeline-heading{align-items:stretch;flex-direction:column}.activity-timeline-filter{max-width:none}.activity-timeline-record{padding:12px}.activity-timeline-record-top{flex-direction:column}.activity-timeline-summary{grid-template-columns:1fr}.activity-timeline-metric strong{font-size:1.05rem}}
+@media(max-width:480px){.activity-timeline-page{padding:16px 12px 24px}.activity-timeline-heading{align-items:stretch;flex-direction:column}.activity-timeline-actions{align-items:stretch}.activity-timeline-filter{max-width:none;flex:1}.activity-timeline-refresh{align-self:end}.activity-timeline-record{padding:12px}.activity-timeline-record-top{flex-direction:column}.activity-timeline-summary{grid-template-columns:1fr}.activity-timeline-metric strong{font-size:1.05rem}}

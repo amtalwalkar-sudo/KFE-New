@@ -251,7 +251,6 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     // The canonical SHIFT payload may be reconciled with a native-derived projection below.
     JSONObject operationRecord = new JSONObject(record.toString());
     String now = timestampNow();
-    boolean[] scheduleLocationNameEnrichment = new boolean[]{false};
     SQLiteDatabase db = getWritableDatabase();
     db.beginTransaction();
     try {
@@ -401,16 +400,9 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       db.insertOrThrow("canonical_audit", null, auditValues);
 
       db.setTransactionSuccessful();
-      scheduleLocationNameEnrichment[0] = "GPS_SNAPSHOT".equals(entityType)
-          && (record.isNull("placeName") || empty(record.optString("placeName", "")))
-          && !record.has("geocodeAttemptedAt");
       return new Outcome(true, false, result);
     } finally {
       db.endTransaction();
-      if (scheduleLocationNameEnrichment[0]) {
-        try { KfeLocationNameWorker.enqueue(appContext); }
-        catch (RuntimeException error) { android.util.Log.w("KfeCanonicalWork", "Unable to enqueue locality enrichment; startup reconciliation will retry.", error); }
-      }
     }
   }
 
