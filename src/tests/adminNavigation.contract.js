@@ -56,6 +56,11 @@ assert.match(adminView, /getAdminSettingsKey\(key\)/)
 // The home workspace and Settings are exclusive views; Settings is reached through its main-menu category, not a duplicate header icon.
 assert.match(adminView, /<template v-if="!selected&&!settingsOpen">/)
 assert.match(adminView, /<template v-else-if="settingsOpen">/)
+// The Settings detail screen opens its selected destination directly; it must not repeat the three destination cards above the content.
+assert.doesNotMatch(adminView, /<nav class="settings-menu"/)
+assert.match(adminView, /<section v-if="settingsSelected==='backup'" class="settings-panel">[\s\S]*?<BackupRestorePanel\/>/)
+assert.match(adminView, /v-else-if="settingsSelected==='application'" class="settings-panel"/)
+assert.match(adminView, /<h2>Data Reset<\/h2>[\s\S]*?@click="resetData"/)
 assert.match(adminView, /<header class="admin-home-heading">\s*<h1>Admin workspace<\/h1>\s*<\/header>/)
 assert.doesNotMatch(adminView, /admin-hero-settings|Business control centre|Changes are validated and saved through the authoritative Admin service/)
 assert.match(adminView, /<template v-else-if="selected">\s*<section class="detail-screen"/)
