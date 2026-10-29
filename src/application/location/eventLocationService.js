@@ -1,11 +1,11 @@
 import { LocationRepository } from '../../repositories/locationRepository.js'
 import { CanonicalWorkBoundary } from '../work/canonicalWorkBoundary.js'
 import { captureTripBoundaryLocation, queueTripBoundaryEventLocation } from '../work/tripBoundaryLocation.js'
-import { PhotonLocationNameAdapter, resolveLocationName } from './locationNameService.js'
+import { LocalityResolutionService, resolveLocationNameDetailed, resolveLocationName } from './locationNameService.js'
 import { ShiftTripRepository } from '../../repositories/shiftTripRepository.js'
 import { ConnectivityService } from '../../infrastructure/connectivity/connectivityService.js'
 
-const locationNameResolver = new PhotonLocationNameAdapter()
+const locationNameResolver = new LocalityResolutionService()
 let locationReconcileAttempt = null
 let locationRetryTimer = null
 let lastLifecycleReconcileAt = 0
@@ -23,7 +23,7 @@ const readLocationRetryState = () => {
 const writeLocationRetryState = state => {
   try { globalThis.localStorage?.setItem(LOCATION_RETRY_KEY, JSON.stringify(state)) } catch (_) {}
 }
-const NATIVE_SYNC_FIELDS = ['entityType', 'entityId', 'eventType', 'eventAt', 'latitude', 'longitude', 'accuracy', 'capturedAt', 'placeName']
+const NATIVE_SYNC_FIELDS = ['entityType', 'entityId', 'eventType', 'eventAt', 'latitude', 'longitude', 'accuracy', 'capturedAt', 'placeName', 'localityResolutionState', 'localityResolvedAt', 'localityProvider', 'localityAttemptCount', 'localityNextAttemptAt', 'localityLastError']
 const nativeSnapshotMatches = (snapshot, nativeSnapshot) => Boolean(nativeSnapshot) &&
   NATIVE_SYNC_FIELDS.every(field => String(snapshot?.[field] ?? '') === String(nativeSnapshot?.[field] ?? ''))
 const LOCATION_RECONCILIATION_KEY = 'kfe:trip-location-reconciliation:v1'
@@ -74,17 +74,20 @@ const resolveLocationNameWithRetry = async (snapshot, resolver) => {
     scheduleNextLocationRetry()
     return null
   }
-  const placeName = await resolveLocationName(snapshot, resolver)
+  const result = await resolveLocationNameDetailed(snapshot, resolver)
+  const placeName = result.placeName
+  const attempts = Math.max(0, Number(retry?.attempts) || 0) + 1
   if (placeName) {
     clearLocationRetry(snapshot.id)
+    await EventLocationService.persistResolutionState(snapshot.id, { localityResolutionState: 'RESOLVED', localityResolvedAt: new Date().toISOString(), localityProvider: result.provider || 'unknown', localityAttemptCount: attempts, localityNextAttemptAt: null, localityLastError: null })
     return placeName
   }
-  const attempts = Math.max(0, Number(retry?.attempts) || 0) + 1
   state[snapshot.id] = {
     attempts,
     nextAttemptAt: attempts <= LOCATION_RETRY_DELAYS.length ? Date.now() + LOCATION_RETRY_DELAYS[attempts - 1] : null,
   }
   writeLocationRetryState(state)
+  await EventLocationService.persistResolutionState(snapshot.id, { localityResolutionState: 'RETRY_SCHEDULED', localityResolvedAt: null, localityProvider: null, localityAttemptCount: attempts, localityNextAttemptAt: attempts <= LOCATION_RETRY_DELAYS.length ? new Date(state[snapshot.id].nextAttemptAt).toISOString() : null, localityLastError: result.error || 'NO_LOCALITY_MATCH' })
   scheduleNextLocationRetry()
   return null
 }
@@ -261,6 +264,18 @@ export const EventLocationService = {
       return { migrated: !migrationComplete, tripCount: trips.length, snapshotCount: snapshots.length }
     })().finally(() => { locationReconcileAttempt = null })
     return locationReconcileAttempt
+  },
+  async persistResolutionState(snapshotId, metadata) {
+    if (!snapshotId || !metadata) return false
+    const updated = await LocationRepository.updateLocalityResolution(snapshotId, metadata).catch(() => false)
+    const local = await LocationRepository.getById(snapshotId).catch(() => null)
+    if (local) await this.persistNativeSnapshot(local)
+    else {
+      const native = await CanonicalWorkBoundary.listEventLocationSnapshots().catch(() => [])
+      const record = native.find(item => item.id === snapshotId)
+      if (record) await this.persistNativeSnapshot({ ...record, ...metadata, updatedAt: new Date().toISOString() })
+    }
+    return updated
   },
   async persistLabel(snapshotId, placeName) {
     clearLocationRetry(snapshotId)

@@ -106,6 +106,8 @@ export const ActivityTimelineReadService = Object.freeze({
           fareValue: fare.value,
           fareState: fare.state,
           pickupArea: validTime(trip.tripStartAt) != null ? pickupName : 'Location unavailable',
+          pickupAreaResolution: locations.start?.placeName ? 'RESOLVED' : locations.start?.localityResolutionState || 'PENDING',
+          dropAreaResolution: locations.end?.placeName ? 'RESOLVED' : locations.end?.localityResolutionState || 'PENDING',
           // A cancelled trip's end GPS fix is a cancellation location, not a passenger drop-off.
           dropArea: trip.status === 'COMPLETED' ? dropName : 'Location unavailable',
         }

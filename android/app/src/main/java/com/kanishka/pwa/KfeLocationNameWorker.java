@@ -40,7 +40,9 @@ public final class KfeLocationNameWorker extends Worker {
   private static final long[] LOCALITY_RETRY_DELAYS_MS = {
       60_000L, 5 * 60_000L, 30 * 60_000L, 2 * 60 * 60_000L, 12 * 60 * 60_000L
   };
-  private static final String ENDPOINT = "https://photon.komoot.io/reverse";
+  private static final String FALLBACK_ENDPOINT = "https://photon.komoot.io/reverse";
+  private static final String CACHE_PREFIX = "kfe_locality_cache_v2:";
+  private String lastResolvedProvider = "unknown";
 
   public KfeLocationNameWorker(@NonNull Context context, @NonNull WorkerParameters params) {
     super(context, params);
@@ -117,8 +119,15 @@ public final class KfeLocationNameWorker extends Worker {
         snapshot.put("geocodeAttemptedAt", Instant.ofEpochMilli(attemptedAt).toString());
         snapshot.put("geocodeLastAttemptAt", Instant.ofEpochMilli(attemptedAt).toString());
         snapshot.put("geocodeAttemptCount", attempts);
+        snapshot.put("localityAttemptCount", attempts);
+        snapshot.put("localityLastAttemptAt", Instant.ofEpochMilli(attemptedAt).toString());
         if (label != null && !label.trim().isEmpty()) {
           snapshot.put("placeName", label.trim());
+          snapshot.put("localityResolutionState", "RESOLVED");
+          snapshot.put("localityResolvedAt", Instant.ofEpochMilli(attemptedAt).toString());
+          snapshot.put("localityProvider", lastResolvedProvider);
+          snapshot.put("localityLastError", JSONObject.NULL);
+          snapshot.put("localityNextAttemptAt", JSONObject.NULL);
           snapshot.remove("geocodeNextAttemptAt");
         } else {
           // A valid HTTP response with no usable locality is not success. Keep it
@@ -126,6 +135,9 @@ public final class KfeLocationNameWorker extends Worker {
           // can enrich the same snapshot without changing its GPS evidence.
           long delay = LOCALITY_RETRY_DELAYS_MS[Math.min(attempts - 1, LOCALITY_RETRY_DELAYS_MS.length - 1)];
           long retryAt = attemptedAt + delay;
+          snapshot.put("localityResolutionState", "RETRY_SCHEDULED");
+          snapshot.put("localityLastError", "NO_LOCALITY_MATCH_OR_PROVIDER_UNAVAILABLE");
+          snapshot.put("localityNextAttemptAt", Instant.ofEpochMilli(retryAt).toString());
           snapshot.put("geocodeNextAttemptAt", Instant.ofEpochMilli(retryAt).toString());
           earliestRetryAt = Math.min(earliestRetryAt, retryAt);
         }
@@ -181,42 +193,52 @@ public final class KfeLocationNameWorker extends Worker {
   }
 
   private String reverseGeocode(double latitude, double longitude) throws IOException {
-    String query = "?lat=" + URLEncoder.encode(Double.toString(latitude), StandardCharsets.UTF_8.name())
+    String key = String.format(java.util.Locale.US, "%.5f:%.5f", latitude, longitude);
+    android.content.SharedPreferences cache = getApplicationContext().getSharedPreferences("kfe_locality_cache", Context.MODE_PRIVATE);
+    String cached = cache.getString(CACHE_PREFIX + key, null);
+    if (cached != null && !cached.trim().isEmpty()) { lastResolvedProvider = "cache"; return cached; }
+    String label = null;
+    String gateway = BuildConfig.KFE_MAPPLS_GEOCODER_GATEWAY == null ? "" : BuildConfig.KFE_MAPPLS_GEOCODER_GATEWAY.trim();
+    if (!gateway.isEmpty()) {
+      try { label = requestProvider(gateway, latitude, longitude); if (label != null && !label.trim().isEmpty()) lastResolvedProvider = "mappls-gateway"; }
+      catch (IOException error) { Log.w(TAG, "Mappls gateway unavailable; trying Photon fallback.", error); }
+    }
+    if (label == null || label.trim().isEmpty()) { label = requestProvider(FALLBACK_ENDPOINT, latitude, longitude); if (label != null && !label.trim().isEmpty()) lastResolvedProvider = "photon"; }
+    if (label != null && !label.trim().isEmpty()) cache.edit().putString(CACHE_PREFIX + key, label.trim()).apply();
+    return label;
+  }
+
+  private String requestProvider(String endpoint, double latitude, double longitude) throws IOException {
+    String sep = endpoint.contains("?") ? "&" : "?";
+    String query = sep + "lat=" + URLEncoder.encode(Double.toString(latitude), StandardCharsets.UTF_8.name())
         + "&lon=" + URLEncoder.encode(Double.toString(longitude), StandardCharsets.UTF_8.name());
-    HttpURLConnection connection = (HttpURLConnection) new URL(ENDPOINT + query).openConnection();
-    connection.setRequestMethod("GET");
-    connection.setConnectTimeout(5000);
-    connection.setReadTimeout(5000);
-    connection.setUseCaches(true);
+    HttpURLConnection connection = (HttpURLConnection) new URL(endpoint.replaceAll("/$", "") + query).openConnection();
+    connection.setRequestMethod("GET"); connection.setConnectTimeout(5000); connection.setReadTimeout(5000);
+    connection.setRequestProperty("Accept", "application/json"); connection.setUseCaches(true);
     try {
       int status = connection.getResponseCode();
       if (status == 429 || status >= 500) throw new IOException("Reverse geocoder returned HTTP " + status);
       if (status < 200 || status >= 300) return null;
-      try (InputStream input = connection.getInputStream();
-           BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
-        StringBuilder body = new StringBuilder();
-        String line;
+      try (InputStream input = connection.getInputStream(); BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
+        StringBuilder body = new StringBuilder(); String line;
         while ((line = reader.readLine()) != null) body.append(line);
         JSONObject payload = new JSONObject(body.toString());
+        JSONObject properties = null;
         JSONArray features = payload.optJSONArray("features");
-        if (features == null || features.length() == 0) return null;
-        JSONObject feature = features.optJSONObject(0);
-        JSONObject properties = feature == null ? null : feature.optJSONObject("properties");
-        if (properties == null) return null;
-        String locality = first(properties, "suburb", "neighbourhood", "neighborhood", "locality", "district", "county", "city_district");
-        String city = first(properties, "city", "town", "village", "municipality");
-        String state = first(properties, "state");
-        StringBuilder label = new StringBuilder();
-        appendDistinct(label, locality);
-        appendDistinct(label, city);
-        appendDistinct(label, state);
+        if (features != null && features.length() > 0) {
+          JSONObject feature = features.optJSONObject(0);
+          properties = feature == null ? null : feature.optJSONObject("properties");
+        }
+        if (properties == null) properties = payload.optJSONObject("address");
+        if (properties == null) properties = payload.optJSONObject("result");
+        if (properties == null) properties = payload;
+        String locality = first(properties, "suburb", "neighbourhood", "neighborhood", "locality", "district", "county", "city_district", "area", "subDistrict");
+        String city = first(properties, "city", "town", "village", "municipality", "cityName");
+        String state = first(properties, "state", "stateName");
+        StringBuilder label = new StringBuilder(); appendDistinct(label, locality); appendDistinct(label, city); appendDistinct(label, state);
         return label.length() == 0 ? null : label.toString();
-      } catch (org.json.JSONException parseError) {
-        throw new IOException("Reverse geocoder returned an unreadable response.", parseError);
-      }
-    } finally {
-      connection.disconnect();
-    }
+      } catch (org.json.JSONException error) { throw new IOException("Reverse geocoder returned an unreadable response.", error); }
+    } finally { connection.disconnect(); }
   }
 
   private static String first(JSONObject object, String... keys) {

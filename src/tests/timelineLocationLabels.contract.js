@@ -50,4 +50,8 @@ assert.match(timelineView, /onMounted\(\(\) => \{\s*void load\(\)/,
 
 
 assert.match(fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java', 'utf8'), /putRecord\(operationId,"GPS_SNAPSHOT",snapshot\)/, 'native overlay must write locality metadata through the shared GPS snapshot entity')
+assert.match(timelineReadService, /pickupAreaResolution:/, 'read-only Timeline exposes saved locality state')
+assert.match(timelineView, /Area lookup will retry/, 'Timeline communicates unresolved locality enrichment')
+assert.match(locationService, /LocalityResolutionService/, 'location service exposes a shared provider-independent resolver')
+
 console.log('PASS: Activity Timeline ride/fuel locality enrichment uses the shared event snapshot pathway')

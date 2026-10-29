@@ -96,8 +96,8 @@ onUnmounted(() => {
           <div class="activity-timeline-record-grid">
             <div><span>Duration</span><strong>{{ duration(ride.durationMs) }}</strong></div>
             <div><span>{{ ride.fareLabel }}</span><strong>{{ fareText(ride) }}</strong></div>
-            <div><span>Pickup area</span><strong>{{ ride.pickupArea }}</strong></div>
-            <div><span>Drop area</span><strong>{{ ride.dropArea }}</strong></div>
+            <div><span>Pickup area</span><strong>{{ ride.pickupArea }}</strong><small v-if="ride.pickupArea.startsWith('GPS ') && ride.pickupAreaResolution !== 'RESOLVED'">{{ ride.pickupAreaResolution === 'RETRY_SCHEDULED' ? 'Area lookup will retry' : 'Area lookup pending' }}</small></div>
+            <div><span>Drop area</span><strong>{{ ride.dropArea }}</strong><small v-if="ride.dropArea.startsWith('GPS ') && ride.dropAreaResolution !== 'RESOLVED'">{{ ride.dropAreaResolution === 'RETRY_SCHEDULED' ? 'Area lookup will retry' : 'Area lookup pending' }}</small></div>
           </div>
         </li>
       </ol>

@@ -1,6 +1,9 @@
 apply plugin: 'com.android.application'
 
+def localityGatewayEndpoint = System.getenv('KFE_MAPPLS_GEOCODER_GATEWAY') ?: ''
+
 android {
+    buildFeatures { buildConfig true }
     namespace = "com.kanishka.pwa"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
@@ -9,6 +12,8 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 5
         versionName "2.1.1"
+        // Gateway URL only; Mappls API credentials must remain server-side.
+        buildConfigField "String", "KFE_MAPPLS_GEOCODER_GATEWAY", "\"${localityGatewayEndpoint.replace('\\', '\\\\').replace('"', '\\\"')}\""
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
