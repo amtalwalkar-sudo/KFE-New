@@ -92,10 +92,6 @@ const resolveLocationNameWithRetry = async (snapshot, resolver) => {
   if (!ConnectivityService.isNetworkAvailable() || !snapshot?.id) return null
   const state = readLocationRetryState()
   const retry = state[snapshot.id]
-  if (retry && Number(retry.attempts) > LOCATION_RETRY_DELAYS.length) {
-    setPendingEnrichment(snapshot.id, false)
-    return null
-  }
   if (retry && Number(retry.nextAttemptAt) > Date.now()) {
     scheduleNextLocationRetry()
     return null
@@ -108,12 +104,12 @@ const resolveLocationNameWithRetry = async (snapshot, resolver) => {
     await EventLocationService.persistResolutionState(snapshot.id, { localityResolutionState: 'RESOLVED', localityResolvedAt: new Date().toISOString(), localityProvider: result.provider || 'unknown', localityAttemptCount: attempts, localityNextAttemptAt: null, localityLastError: null })
     return placeName
   }
-  state[snapshot.id] = {
-    attempts,
-    nextAttemptAt: attempts <= LOCATION_RETRY_DELAYS.length ? Date.now() + LOCATION_RETRY_DELAYS[attempts - 1] : null,
-  }
+  // Never abandon an unresolved coordinate. After the backoff ladder is
+  // exhausted, keep retrying at the longest interval until a provider resolves it.
+  const retryDelay = LOCATION_RETRY_DELAYS[Math.min(attempts - 1, LOCATION_RETRY_DELAYS.length - 1)]
+  state[snapshot.id] = { attempts, nextAttemptAt: Date.now() + retryDelay }
   writeLocationRetryState(state)
-  await EventLocationService.persistResolutionState(snapshot.id, { localityResolutionState: 'RETRY_SCHEDULED', localityResolvedAt: null, localityProvider: null, localityAttemptCount: attempts, localityNextAttemptAt: attempts <= LOCATION_RETRY_DELAYS.length ? new Date(state[snapshot.id].nextAttemptAt).toISOString() : null, localityLastError: result.error || 'NO_LOCALITY_MATCH' })
+  await EventLocationService.persistResolutionState(snapshot.id, { localityResolutionState: 'RETRY_SCHEDULED', localityResolvedAt: null, localityProvider: null, localityAttemptCount: attempts, localityNextAttemptAt: new Date(state[snapshot.id].nextAttemptAt).toISOString(), localityLastError: result.error || 'NO_LOCALITY_MATCH' })
   scheduleNextLocationRetry()
   return null
 }
@@ -204,7 +200,10 @@ export const EventLocationService = {
       const nativeAvailable = CanonicalWorkBoundary.isNativeAvailable()
       const pendingMirrorIds = migrationComplete ? readPendingNativeMirrorIds() : []
       const pendingEnrichmentIds = migrationComplete ? readPendingEnrichmentIds() : []
-      const incrementalIds = [...new Set([...pendingMirrorIds, ...pendingEnrichmentIds])]
+      // Include retry journal IDs as a recovery source for app versions that
+      // previously dropped queue entries after exhausting the retry ladder.
+      const pendingRetryIds = migrationComplete ? Object.keys(readLocationRetryState()) : []
+      const incrementalIds = [...new Set([...pendingMirrorIds, ...pendingEnrichmentIds, ...pendingRetryIds])]
       const needsNativeIndex = !migrationComplete || !incrementalIndexSeeded
       let nativeIndexReadSucceeded = !needsNativeIndex
       const nativeIndexPromise = needsNativeIndex
@@ -360,8 +359,19 @@ ConnectivityService.subscribe((status, reason) => {
   // recovery immediate, but coalesce lifecycle-only reconciliation bursts.
   if (reason !== 'online' && now - lastLifecycleReconcileAt < LOCATION_LIFECYCLE_RECONCILE_THROTTLE_MS) return
   lastLifecycleReconcileAt = now
-  // Do not reset persisted retry deadlines on resume/visibility. Reconciliation
-  // only retries due items; the existing one-shot timer owns future deadlines.
+  if (reason === 'online') {
+    // An explicit offline->online transition is a recovery opportunity: make
+    // queued retries due now rather than waiting out a stale offline backoff.
+    const retryState = readLocationRetryState()
+    for (const item of Object.values(retryState)) item.nextAttemptAt = 0
+    writeLocationRetryState(retryState)
+    if (locationRetryTimer != null && typeof globalThis.clearTimeout === 'function') {
+      globalThis.clearTimeout(locationRetryTimer)
+      locationRetryTimer = null
+    }
+  }
+  // Resume/foreground does not reset backoff. Online recovery is immediate;
+  // otherwise the one-shot timer owns future deadlines.
   void EventLocationService.reconcilePersistedTripLocations()
     .catch(error => console.warn('Connectivity-triggered GPS locality enrichment deferred:', error))
 }, { emitCurrent: false })
