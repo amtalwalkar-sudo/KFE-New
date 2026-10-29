@@ -27,6 +27,22 @@ for (const file of files(['views', 'components', 'presentation'])) {
   for (const pattern of forbidden) if (pattern.test(text)) violations.push(`Presentation financial arithmetic: ${path.relative(root, file)} matches ${pattern}`)
 }
 
+// Screen projections must delegate financial arithmetic to application/domain owners.
+const adminView = source('views/AdminView.vue')
+const calculationsView = source('views/CalculationsView.vue')
+for (const [name, text] of [['AdminView.vue', adminView], ['CalculationsView.vue', calculationsView]]) {
+  for (const pattern of [
+    /const\\s+sumPayments\\s*=/,
+    /const\\s+complianceRevenueSummary\\s*=/,
+    /const\\s+loanAmortizationSchedule\\s*=.*?\\.map\\(row\\s*=>/,
+    /scheduledInterestPaid\\s*\\)\\s*\\+\\s*Math\\.max/,
+    /originalEmiAmount\\s*\\)\\s*-\\s*paid/,
+    /amount\\s*\\/\\s*pricePerKg/,
+    /from ['\"][^'\"]*\\/domain\\/time\\//,
+  ]) if (pattern.test(text)) violations.push(`Presentation calculation ownership: ${name} matches ${pattern}`)
+}
+if (/querySelector\\(\\s*['\"]\\.content-scroll-area/.test(adminView)) violations.push('AdminView must not query shell-owned scroll DOM.')
+
 // Canonical target aliases are allowed only in normalization. Domain code must
 // consume desiredDriverProfit and never reinterpret legacy target authorities.
 for (const file of files(['domain'])) {
