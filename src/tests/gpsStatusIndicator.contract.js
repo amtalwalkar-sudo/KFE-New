@@ -15,9 +15,11 @@ assert.match(shell, /import GpsStatusIndicator from '\.\/GpsStatusIndicator\.vue
   'the GPS status indicator must be mounted in the shared application header')
 assert.match(shell, /<GpsStatusIndicator \/>/,
   'the GPS status indicator must be visible from the shared shell')
-assert.match(indicator, /window\.setInterval/, 'pending GPS status must refresh while the panel is open')
+assert.doesNotMatch(indicator, /setInterval|setTimeout/, 'GPS status must not run a periodic polling loop')
+assert.match(indicator, /GpsPermissionService/, 'GPS status UI must use the application permission service')
+assert.doesNotMatch(indicator, /@capacitor|registerPlugin|NativeGps/, 'GPS status UI must not own native plugin access')
 assert.match(gpsService, /GpsStatusAdapter/, 'application permission service must delegate to the native adapter')
-assert.match(gpsAdapter, /registerPlugin\\('KfeTripBoundaryLocation'\\)/, 'native GPS plugin registration belongs to infrastructure')
+assert.match(gpsAdapter, /registerPlugin\('KfeTripBoundaryLocation'\)/, 'native GPS plugin registration belongs to infrastructure')
 assert.match(indicator, /getStatus/,
 
   'the status display must read the Android permission/provider state')
