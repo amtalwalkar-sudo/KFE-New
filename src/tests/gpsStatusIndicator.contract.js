@@ -8,15 +8,20 @@ const manifest = fs.readFileSync('android/app/src/main/AndroidManifest.xml', 'ut
 const overlayService = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java', 'utf8')
 const workService = fs.readFileSync('src/application/work/workService.js', 'utf8')
 const eventLocationService = fs.readFileSync('src/application/location/eventLocationService.js', 'utf8')
+const gpsService = fs.readFileSync('src/application/location/gpsPermissionService.js', 'utf8')
+const gpsAdapter = fs.readFileSync('src/infrastructure/android/gpsStatusAdapter.js', 'utf8')
 
 assert.match(shell, /import GpsStatusIndicator from '\.\/GpsStatusIndicator\.vue'/,
   'the GPS status indicator must be mounted in the shared application header')
 assert.match(shell, /<GpsStatusIndicator \/>/,
   'the GPS status indicator must be visible from the shared shell')
 assert.match(indicator, /window\.setInterval/, 'pending GPS status must refresh while the panel is open')
-assert.match(indicator, /getLocationStatus/,
+assert.match(gpsService, /GpsStatusAdapter/, 'application permission service must delegate to the native adapter')
+assert.match(gpsAdapter, /registerPlugin\\('KfeTripBoundaryLocation'\\)/, 'native GPS plugin registration belongs to infrastructure')
+assert.match(indicator, /getStatus/,
+
   'the status display must read the Android permission/provider state')
-assert.match(indicator, /requestBackgroundLocationPermission/,
+assert.match(indicator, /requestBackgroundPermission/,
   'background location permission must only be requested from the explicit user action')
 assert.match(indicator, /Enable background GPS/,
   'the permission action must be user-facing')
