@@ -18,14 +18,30 @@ External / UI / OCR / import / legacy shape
                   ↓
           CANONICAL ENTITY
                   ↓
-             REPOSITORY
+             REPOSITORY / COMMAND CONTRACT
                   ↓
-          LOCAL PERSISTENCE
+        RUNTIME DURABLE COMMIT STORE
+          ├─ Browser/PWA: IndexedDB
+          └─ Native Android: SQLite
                   ↓
      mutation + audit + notification
+                  ↓
+     idempotent cross-runtime convergence
 ```
 
 Compatibility aliases belong only at normalization boundaries. Canonical domain logic uses canonical names and semantics.
+
+## 1.1 One logical authority across platform stores
+
+KFE has one canonical business/data model and one logical operational state. It does not have one physical database shared by the browser and native Android runtimes.
+
+- Browser/PWA commands commit through the IndexedDB-backed repository path.
+- Native Android overlay commands made while the WebView is inactive commit durably to native SQLite first; the PWA's IndexedDB representation is synchronized/reconciled when the WebView is active.
+- The runtime-specific durable commit is the authority for that command. A UI, queue enqueue, or projection update alone is not proof of commit.
+- Stable record and operation identities, idempotent replay, stale-write rejection, and canonical reconstruction are required for convergence.
+- The stores are platform persistence adapters/projections of the same logical model; neither may define separate business rules or independently invent a competing business outcome.
+- This is a replicated cross-runtime boundary, not zero coupling. Its convergence and recovery behavior must be tested at the repository, emulator, and physical-device proof levels as applicable.
+
 
 ## 2. Identity and time
 
