@@ -60,7 +60,7 @@ assert.match(overlay, /isValidPersistedEventGpsSnapshot\(snapshot\)/,
   'an existing malformed GPS snapshot must not silently satisfy a pending event capture')
 assert.match(overlay, /Double\.isFinite\(latitude\).*Double\.isFinite\(longitude\)/s,
   'persisted event coordinates must be validated before treating capture as complete')
-assert.match(overlay, /recordPendingGpsFailure\(tripId,eventType\)/,
+assert.match(overlay, /recordPendingGpsFailure\(entityType,entityId,eventType\)/,
   'failed GPS attempts must persist their retry deadline')
 assert.match(overlay, /item\.put\("nextAttemptAt",now\+delay\)/,
   'GPS retry deadlines must survive service and process restarts')

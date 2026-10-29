@@ -1076,7 +1076,9 @@ public class KfeOverlayService extends Service {
       JSONObject canonicalRecord=KfeCanonicalWorkStore.get(this).getRecord(entityType,entityId);
       if(!canonicalRecord.optBoolean("found",false)||canonicalRecord.optJSONObject("record")==null){
         removePendingEventLocation(entityType,entityId,eventType);scheduleNextPendingGpsSoon();
-        Log.w("KFE-GPS","Discarded pending GPS request for missing "+entityType+" record "+entityId+"; no orphan snapshot will be written.");return;
+        if("TRIP".equals(entityType))Log.w("KFE-GPS","Discarded pending GPS request for missing trip "+entityId+"; no orphan snapshot will be written.");
+        else Log.w("KFE-GPS","Discarded pending GPS request for missing "+entityType+" record "+entityId+"; no orphan snapshot will be written.");
+        return;
       }
     }catch(Exception error){
       Log.w("KFE-GPS","Canonical "+entityType+" record could not be verified; pending GPS request remains queued.",error);
