@@ -54,4 +54,15 @@ assert.match(timelineReadService, /pickupAreaResolution:/, 'read-only Timeline e
 assert.match(timelineView, /Area lookup will retry/, 'Timeline communicates unresolved locality enrichment')
 assert.match(locationService, /LocalityResolutionService/, 'location service exposes a shared provider-independent resolver')
 
+assert.doesNotMatch(eventLocationService, /retry && Number\(retry\.attempts\) > LOCATION_RETRY_DELAYS\.length/,
+  'unresolved locality records must never be permanently abandoned after a fixed number of retries')
+assert.match(eventLocationService, /LOCATION_RETRY_DELAYS\[Math\.min\(attempts - 1, LOCATION_RETRY_DELAYS\.length - 1\)\]/,
+  'retry backoff must cap at the longest interval while continuing indefinitely')
+assert.match(eventLocationService, /pendingRetryIds = migrationComplete \? Object\.keys\(readLocationRetryState\(\)\) : \[\]/,
+  'persisted retry journal must recover records dropped from older enrichment queues')
+assert.match(eventLocationService, /if \(reason === 'online'\)[\s\S]*item\.nextAttemptAt = 0/,
+  'a real offline-to-online transition must wake retries immediately instead of waiting on stale backoff')
+assert.match(eventLocationService, /localityNextAttemptAt: new Date\(state\[snapshot\.id\]\.nextAttemptAt\)\.toISOString\(\)/,
+  'the next retry deadline must remain persisted for observability and lifecycle recovery')
+
 console.log('PASS: Activity Timeline ride/fuel locality enrichment uses the shared event snapshot pathway')
