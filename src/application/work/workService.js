@@ -225,7 +225,7 @@ export const WorkService = Object.freeze({
   validateGapAllocation(gapKm, category) { return validateGapAllocation(gapKm, category) },
   calculateFuelQuantity(pricePerKg, amount) { return calculateFuelQuantity({ pricePerKg, amount }) },
   reconcileShiftRevenue(data) { return reconcileShiftRevenue(data) },
-  async startShift(data) { const nativeAvailable = requireLifecycleStorage(); const result = nativeAvailable ? await (async () => { const record = createNativeShiftRecord(data); return await commitPreparedCreateIntent('SHIFT', record, data) })() : await ShiftTripRepository.createShift(data); if (!nativeAvailable) await mirrorCanonicalRecord('SHIFT', result); checkpoint(); captureAndPersistEventLocation('SHIFT', result.id, 'SHIFT_START', result.shiftStartAt || result.createdAt); return result },
+  async startShift(data) { const nativeAvailable = requireLifecycleStorage(); const result = nativeAvailable ? await (async () => { const record = createNativeShiftRecord(data); return await commitPreparedCreateIntent('SHIFT', record, data) })() : await ShiftTripRepository.createShift(data); if (!nativeAvailable) await mirrorCanonicalRecord('SHIFT', result); checkpoint(); return result },
   async startTrip(data) {
     const nativeAvailable = requireLifecycleStorage()
     const validation = validateTripOperator(data?.operator)
@@ -308,7 +308,6 @@ export const WorkService = Object.freeze({
       // Commit terminal state to SQLite before refreshing the IndexedDB read model.
       await commitNativeFirst('SHIFT', completedShift, { expectedUpdatedAt: shift.updatedAt })
       checkpoint()
-      captureAndPersistEventLocation('SHIFT', shift.id, 'SHIFT_END', now)
       return { ok: true, endOdometer: validation.closingOdometer, distanceKm: validation.distanceKm }
     }
 
@@ -318,7 +317,6 @@ export const WorkService = Object.freeze({
     if (result?.ok && active.shift?.id) {
       const localShifts = await ShiftTripRepository.getAllShifts({ skipCanonicalReadBoundary: true })
       const completedShift = localShifts.find(shift => shift.id === active.shift.id && shift.status === 'COMPLETED') || null
-      captureAndPersistEventLocation('SHIFT', active.shift.id, 'SHIFT_END', completedShift?.shiftEndAt || null)
     }
     return result
   },
@@ -327,7 +325,6 @@ export const WorkService = Object.freeze({
     // Fuel persistence is the user-visible commit. Local backup is best-effort
     // follow-up work and must not hold the form open after the record is saved.
     void Promise.resolve().then(() => checkpoint()).catch(() => {})
-    if (result?.ok && result.record?.id) captureAndPersistEventLocation('FUEL', result.record.id, 'FUEL_ENTRY', result.record.createdAt || result.record.capturedAt)
     return result
   },
 })
