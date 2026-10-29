@@ -140,8 +140,9 @@ scenario('C1/C2/C3/C4/C5/D1/D2/E1/E2/E3/F1/F2/F4/F5', () => {
 
 // G5 — location capture is covered by locationNameService and eventLocationCapture contracts.
 scenario('G5', () => {
-  const workView = read('views/WorkModuleView.vue') + '\n' + read('components/work/WorkContextForm.vue')
-  assert.ok(/place|location/i.test(workView), 'Driver-facing Work view must retain location presentation surface')
+  const timeline = read('views/ActivityTimelineView.vue')
+  assert.match(timeline, /Pickup area|pickupArea/i, 'Timeline must retain the driver-facing pickup locality presentation surface')
+  assert.match(timeline, /Drop area|dropArea/i, 'Timeline must retain the driver-facing drop locality presentation surface')
 })
 
 // J1/J2/J3/J5/J6/J7 — defensive boundaries.
