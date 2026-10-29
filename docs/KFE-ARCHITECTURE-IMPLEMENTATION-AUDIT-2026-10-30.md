@@ -49,13 +49,15 @@ The PWA repositories persist to IndexedDB; the Android overlay uses native SQLit
 
 This is a deliberate cross-runtime integration boundary, not literal single-database storage. During this run, the architecture and canonical-data authorities were clarified to state that KFE has one logical canonical model: browser-only commands commit through IndexedDB, while Android Work/overlay commands commit through native SQLite and synchronize the PWA IndexedDB projection. Convergence, precedence, replay, duplicate prevention, and failure recovery remain integration requirements. Do not remove either persistence path as a cosmetic simplification: the Android overlay must continue to work while the PWA WebView is inactive.
 
-### KFE-AUD-OPEN-002 — Full-shift operation while PWA is closed remains a source-level gap
+### KFE-AUD-OPEN-002 — Shift lifecycle ownership is clarified; no overlay shift actions are required
 
-The native overlay service explicitly treats shift start/end as PWA-owned, while `docs/requirements/NATIVE_OVERLAY_FULL_SHIFT_WORKFLOW.md` requires a complete shift workflow without reopening the PWA. This mismatch is recorded in the 2026-10-19 cross-surface audit and remains outside the safe scope of the GPS/location corrections in this run. It needs a dedicated command-boundary implementation that reuses the existing domain lifecycle and odometer/reconciliation rules; a second native business implementation is not acceptable.
+**Resolution:** The requirement has been corrected to match the driver's intended workflow. The main PWA owns shift start and shift end, including opening/closing odometer entry. The native overlay operates ride stages and ride submissions only within an already-active shift. It must not start or close shifts. The revised `docs/requirements/NATIVE_OVERLAY_FULL_SHIFT_WORKFLOW.md` now states this explicitly and replaces the contradictory “complete shift without reopening PWA” wording. Native overlay acceptance therefore covers multiple rides and recovery while the PWA is suspended, not shift creation or closure.
 
-### KFE-AUD-OPEN-003 — Work presentation is not fully decoupled from workflow orchestration
+### KFE-AUD-OPEN-003 — Work form state remains partly presentation-owned
 
-`WorkModuleView.vue` owns substantial transient workflow/form state and dispatches commands through the Work store/services. Some form-level numeric checks are duplicated for immediate user feedback. The durable/business authority remains in the domain/application/store path, but this source is not a fully thin presentation adapter. Any further extraction must preserve the frozen workflow and recovery behavior and be proven by Golden Ride/replay contracts; do not perform a broad rewrite without those tests.
+**Correction in this run:** Serialized draft persistence now lives in `src/application/work/workDraftController.js`; durable native action FIFO delivery, duplicate suppression, acknowledgement, failure recording, and foreground replay now live in `src/application/work/nativeWorkActionController.js`. `WorkModuleView.vue` delegates those responsibilities instead of implementing them inline. Focused contracts cover serialized draft writes, committed-draft non-resurrection, FIFO native event replay, and acknowledgement failure behavior.
+
+**Remaining:** Form field state, modal visibility, validation feedback, and some workflow-specific UI transitions still live in the view. The durable business authority remains in the domain/application/store path. This is a material reduction in view-owned orchestration, but not a claim that the view is now fully thin; further extraction must preserve the frozen form and recovery behavior.
 
 ### KFE-AUD-OPEN-004 — Physical-device GPS acceptance is still outstanding
 
@@ -63,7 +65,7 @@ Repository CI cannot prove real-device location permission behavior, screen-off/
 
 ## Current conclusion
 
-- **Single-source-of-truth governance:** the authoritative documents define distinct ownership, but the four corrections above were necessary because enforcement and supporting text had drifted.
-- **Contradictions:** confirmed and corrected in the Phase 6 contract wiring, locality retry semantics, GPS contract, and cumulative Compliance provision rule.
-- **Uncoupling:** **not complete**. Native/PWA persistence convergence, full-shift native capability, and the Work view's orchestration responsibilities remain explicit risks.
-- **Release status:** do not merge until CI for the final branch head is green. Physical-device acceptance remains pending regardless of CI.
+- **Single-source-of-truth governance:** authoritative documents now distinguish the PWA shift lifecycle from native ride lifecycle and define one logical canonical model across platform-specific stores.
+- **Contradictions:** confirmed and corrected in Phase 6 contract wiring, locality retry semantics, GPS ownership, cumulative Compliance provision rules, and the previously contradictory overlay shift-ownership requirement.
+- **Uncoupling:** improved by moving durable draft lifecycle and native event replay/acknowledgement into application controllers. Some form state remains in the view. Native/PWA physical-store convergence continues to be guarded by journaled idempotent writes and canonical recovery contracts; physical integration evidence remains required.
+- **Release status:** do not merge until CI for the final branch head is green. Physical-device GPS and overlay acceptance remain pending regardless of CI.
