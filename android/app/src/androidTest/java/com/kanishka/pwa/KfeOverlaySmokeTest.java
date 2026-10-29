@@ -1273,4 +1273,18 @@ public class KfeOverlaySmokeTest {
     assertNotNull("Native overlay service instance must exist", KfeOverlayService.instance);
     assertNotNull("Native overlay view must be created while MainActivity is not visible", overlay);
   }
+
+  @Test public void gpsSnapshotEventTypeAllowlistContainsOnlyFourRideBoundaries() throws Exception {
+    Method supported = KfeOverlayService.class.getDeclaredMethod(
+      "isSupportedEventLocationType", String.class, String.class);
+    supported.setAccessible(true);
+    for (String event : new String[]{"PICKUP_START", "TRIP_CANCELLED", "TRIP_START", "TRIP_END"}) {
+      assertTrue("Ride event must support a durable GPS snapshot: " + event,
+        ((Boolean) supported.invoke(null, "TRIP", event)).booleanValue());
+    }
+    assertFalse("Shift events must not capture GPS through the ride snapshot path",
+      ((Boolean) supported.invoke(null, "SHIFT", "SHIFT_START")).booleanValue());
+    assertFalse("Unknown event types must not capture GPS",
+      ((Boolean) supported.invoke(null, "TRIP", "UNKNOWN")).booleanValue());
+  }
 }
