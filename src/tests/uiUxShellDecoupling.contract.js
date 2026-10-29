@@ -63,4 +63,17 @@ assert.match(shell, /<router-link/)
 assert.doesNotMatch(shell, /indexedDB|localStorage|useShiftTripStore|WorkService|PerformanceService|LoanService|calculateProfit|calculateEmi/i)
 assert.doesNotMatch(shell, /from ['"][^'"]*(?:\/domain\/|\/repositories\/|\/infrastructure\/)/)
 
+
+const adminView = readFileSync('src/views/AdminView.vue', 'utf8')
+const calculationsView = readFileSync('src/views/CalculationsView.vue', 'utf8')
+assert.match(adminView, /AdminReadModelService\.getLoanAmortizationSchedule/, 'Admin loan schedule status must come from the application read model')
+assert.match(adminView, /AdminReadModelService\.getLoanFinancialSummary/, 'Admin loan financial summary must come from the application read model')
+assert.match(adminView, /AdminReadModelService\.getComplianceRevenueSummary/, 'compliance validity context must be an application projection')
+assert.match(adminView, /EMI provision balance/, 'signed EMI provision balance must be visible in Admin Finance')
+assert.match(adminView, /Maintenance provision balance/, 'signed maintenance provision balance must be visible in Admin planning')
+assert.match(adminView, /kfe:shell-scroll-top/, 'Admin screen must request viewport reset through a shell event')
+assert.doesNotMatch(adminView, /querySelector\(\s*['"]\.content-scroll-area/, 'Admin screen must not query shell-owned DOM')
+assert.match(calculationsView, /CalculationsService\.fuelQuantityKg/, 'fuel quantity must be delegated to the application calculation service')
+assert.doesNotMatch(calculationsView, /amount\s*\/\s*pricePerKg|domain\/time\/ist/, 'Calculations screen must not duplicate the fuel formula or domain time logic')
+
 console.log('UI/UX shell decoupling contract: PASS — one authority, obsolete rules removed, shell boundary checked, impact-warning workflow retained.')
