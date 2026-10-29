@@ -6,7 +6,7 @@ import { istDayRange, istMonthRange } from '../domain/time/ist.js'
 
 const read = path => fs.readFileSync(new URL(path, import.meta.url), 'utf8')
 const performance = read('../views/PerformanceView.vue')
-const timeline = read('../views/TimelineView.vue')
+const timeline = read('../views/ActivityTimelineView.vue')
 const work = read('../views/WorkModuleView.vue')
 const breakEvenAdmin = read('../components/admin/AdminBreakEven.vue')
 const financeAdmin = read('../components/admin/AdminFinanceView.vue')
