@@ -4,6 +4,7 @@ import { useShiftTripStore } from '../stores/shiftTrip.js'
 import { useFuelStore } from '../stores/fuel.js'
 import { WorkService } from '../application/work/workService.js'
 import { WorkDraftService } from '../application/work/workDraftService.js'
+import { createWorkDraftController } from '../application/work/workDraftController.js'
 import { WorkflowTimerService, WorkWorkflowSessionService } from '../application/work/workflowTimerService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { WorkRuntimePorts } from '../application/work/workRuntimePorts.js'
@@ -109,35 +110,14 @@ const startDraftIdentity = () => ({
 const fuelDraftIdentity = () => store.shift?.id
   ? shiftDraftIdentity('work-fuel', 'RECORD_FUEL')
   : { formId: 'work-fuel', workflowStep: 'RECORD_FUEL', parentType: 'WORKFLOW', workflowId: fuelWorkflowId.value }
-const restoreDraft = async identity => {
-  try { return await WorkDraftService.get(identity) } catch (_) { return null }
-}
-let draftWriteQueue = Promise.resolve()
-const committedDraftKeys = new Set()
-const draftIdentityKey = identity => JSON.stringify([
-  identity?.formId, identity?.workflowStep, identity?.parentType,
-  identity?.parentId || null, identity?.ownerId || null, identity?.workflowId || null
-])
-const saveDraft = (identity, values) => {
-  if (restoringDrafts || committedDraftKeys.has(draftIdentityKey(identity))) return draftWriteQueue
-  draftWriteQueue = draftWriteQueue.then(() => WorkDraftService.save(identity, values)).catch(() => {
-    fail('Draft could not be saved locally. Keep this form open and retry.')
-    return null
-  })
-  return draftWriteQueue
-}
-const clearCommittedDraft = async (identity, { quiet = false } = {}) => {
-  const key = draftIdentityKey(identity)
-  committedDraftKeys.add(key)
-  await draftWriteQueue
-  try { await WorkDraftService.clear(identity, { committed: true }) }
-  catch (_) {
-    // A draft-cleanup failure must not overwrite the authoritative commit
-    // confirmation or make a saved fuel record look unsaved. The draft is never
-    // auto-submitted; a later open still requires explicit user confirmation.
-    if (!quiet) fail('The record was saved, but its temporary draft could not be cleared. Do not replay it; reopen the record and verify the saved value.')
-  }
-}
+const draftController = createWorkDraftController({
+  service: WorkDraftService,
+  isRestoring: () => restoringDrafts,
+  onFailure: fail,
+})
+const restoreDraft = draftController.restore
+const saveDraft = draftController.save
+const clearCommittedDraft = draftController.clearCommitted
 
 watch([startOdo, startAck, gapChoice], () => {
   if (!startOpen.value || !startWorkflowId.value || restoringDrafts) return
