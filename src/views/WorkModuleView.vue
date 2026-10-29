@@ -5,6 +5,7 @@ import { useFuelStore } from '../stores/fuel.js'
 import { WorkService } from '../application/work/workService.js'
 import { WorkDraftService } from '../application/work/workDraftService.js'
 import { createWorkDraftController } from '../application/work/workDraftController.js'
+import { createNativeWorkActionController } from '../application/work/nativeWorkActionController.js'
 import { WorkflowTimerService, WorkWorkflowSessionService } from '../application/work/workflowTimerService.js'
 import { PerformanceService } from '../application/performance/performanceService.js'
 import { WorkRuntimePorts } from '../application/work/workRuntimePorts.js'
@@ -25,7 +26,6 @@ const fuelWorkflowId = ref('')
 let restoringDrafts = false
 let workflowTimerReady = false
 let nativeReplayTimer = null
-let nativeReplayRunning = false
 
 const startOdo = ref('')
 const startAck = ref(false)
@@ -915,67 +915,16 @@ const handleNativeAction = async event => {
   return false
 }
 
-// Serialize listener delivery and foreground replay through one FIFO queue.
-// Several overlay swipes can be queued while Android has suspended this WebView;
-// replay must apply GO_TO_PICKUP before START_RIDE and END_RIDE, never in parallel.
-let nativeEventQueue = Promise.resolve()
-function enqueueNativeEvent(event) {
-  const next = nativeEventQueue.then(() => processNativeEvent(event))
-  nativeEventQueue = next.catch(() => {})
-  return next
-}
-
-// Prevent duplicate delivery of one durable event while it is being processed.
-// The event ID remains the idempotency key.
-const nativeEventsInFlight = new Set()
-
-async function processNativeEvent(event) {
-  const eventId = String(event?.eventId || '')
-  if (eventId && nativeEventsInFlight.has(eventId)) return false
-  if (eventId) nativeEventsInFlight.add(eventId)
-  try {
-    const saved = await handleNativeAction(event)
-    if (saved && eventId) {
-      const acknowledged = await WorkRuntimePorts.nativeWorkActions.acknowledgeAction(
-        eventId, String(event?.stage || ''), String(event?.tripId || '')
-      )
-      // A successful Work write is not a completed native transition until its
-      // durable event is acknowledged. Keep the original event retryable if the
-      // acknowledgement bridge fails; the handlers above are idempotent by ID.
-      if (!acknowledged) {
-        await WorkRuntimePorts.nativeWorkActions.recordActionFailure(
-          eventId, 'Work saved the action but native acknowledgement failed'
-        )
-        return false
-      }
-    } else if (!saved && eventId) {
-      await WorkRuntimePorts.nativeWorkActions.recordActionFailure(eventId, 'Work did not confirm the action was saved')
-    }
-    return saved
-  } catch (error) {
-    if (eventId) await WorkRuntimePorts.nativeWorkActions.recordActionFailure(eventId, error?.message || error)
-    return false
-  } finally {
-    if (eventId) nativeEventsInFlight.delete(eventId)
-  }
-}
-
-// A failed durable event remains pending under its original ID. Retry it when
-// Android brings the already-mounted Work view back to the foreground; never
-// synthesize a replacement action or append another event.
-async function replayFailedNativeActions() {
-  if (document.visibilityState !== 'visible' || nativeReplayRunning) return
-  nativeReplayRunning = true
-  try {
-    const pendingEvents = await WorkRuntimePorts.nativeWorkActions.consumePendingActions()
-    // Replay every still-pending event, not only events with a recorded write
-    // failure. An interruption can happen after the Work commit but before the
-    // failure counter is persisted; handlers must safely accept replays.
-    for (const event of pendingEvents) await enqueueNativeEvent(event)
-  } finally {
-    nativeReplayRunning = false
-  }
-}
+// The application controller owns FIFO delivery, duplicate suppression,
+// durable acknowledgement, failure recording, and foreground replay.
+const nativeActionController = createNativeWorkActionController({
+  actions: WorkRuntimePorts.nativeWorkActions,
+  handleAction: handleNativeAction,
+  isVisible: () => document.visibilityState === 'visible',
+})
+const enqueueNativeEvent = nativeActionController.enqueue
+const processNativeEvent = nativeActionController.process
+const replayFailedNativeActions = nativeActionController.replay
 
 onMounted(async () => {
   document.addEventListener('visibilitychange', syncOverlay)
