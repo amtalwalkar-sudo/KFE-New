@@ -9,7 +9,7 @@ import {
   calculatePrepaymentEstimate,
   paymentAllocationPreview,
 } from '../../domain/finance/loanEngine.js'
-import { getKfeReferenceNow, istDateKey } from '../../domain/time/ist.js'
+import { getKfeReferenceNow, istDateKey, reportingRangeFor } from '../../domain/time/ist.js'
 
 const live = rows => (Array.isArray(rows) ? rows : []).filter(row => !row?.deletedAt && row?.deleted !== true)
 const finiteAmount = value => value == null || String(value).trim() === '' || !Number.isFinite(Number(value)) ? null : Number(value)
@@ -54,6 +54,7 @@ const loanFinancialSummary = ({ loan, position } = {}) => ({
   emi: finiteAmount(position?.emi) ?? 0,
   pending: Math.max(0, (finiteAmount(position?.scheduledDue) ?? 0) - (finiteAmount(position?.actualPaid) ?? 0)),
   overdue: finiteAmount(position?.totalOverdue) ?? 0,
+  provisionBalance: finiteAmount(position?.provisionBalance) ?? 0,
 })
 
 const loanAmortizationRows = ({ schedule = [], asOf = getKfeReferenceNow() } = {}) => {
@@ -97,6 +98,7 @@ export const AdminReadModelService = Object.freeze({
   getComplianceRevenueSummary(input) { return observedRevenueDuringValidity(input) },
   getLoanFinancialSummary(input) { return loanFinancialSummary(input) },
   getLoanAmortizationSchedule(input) { return loanAmortizationRows(input) },
+  currentMonthRange() { return reportingRangeFor('MONTH', getKfeReferenceNow()) },
   referenceNow() {
     return getKfeReferenceNow()
   },
