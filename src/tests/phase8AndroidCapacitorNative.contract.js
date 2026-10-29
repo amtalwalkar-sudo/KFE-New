@@ -75,6 +75,7 @@ assert.match(cockpit, /action: 'END_RIDE'/)
 assert.match(cockpit, /action: 'START_RIDE'/)
 assert.match(fs.readFileSync('src/views/WorkModuleView.vue', 'utf8'), /overlayAction: state\.pendingFareId/)
 const workView = fs.readFileSync('src/views/WorkModuleView.vue', 'utf8')
+const nativeActionController = fs.readFileSync('src/application/work/nativeWorkActionController.js', 'utf8')
 const workService = fs.readFileSync('src/application/work/workService.js', 'utf8')
 // A replay of a native action already present in SQLite must refresh the PWA
 // read model and acknowledge the original event, not execute a second transition.
