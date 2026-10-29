@@ -2,16 +2,11 @@
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import '../styles/activity-timeline.css'
 import { ActivityTimelineReadService } from '../application/timeline/activityTimelineReadService.js'
-import { EventLocationService } from '../application/location/eventLocationService.js'
 
 const period = ref('TODAY')
 const snapshot = ref({ rides: [], fuelLogs: [], fuelSummary: null, range: null })
 const loading = ref(false)
 const error = ref('')
-const refreshingLocations = ref(false)
-const refreshMessage = ref('')
-const pullDistance = ref(0)
-let touchStartY = null
 let requestVersion = 0
 let unsubscribe = null
 
@@ -54,57 +49,6 @@ const load = async () => {
     if (version === requestVersion) loading.value = false
   }
 }
-const refreshLocationNames = async () => {
-  if (refreshingLocations.value) return
-  refreshingLocations.value = true
-  refreshMessage.value = ''
-  try {
-    const result = await EventLocationService.refreshUnresolvedLocationNames()
-    await load()
-    if (!result.online) {
-      refreshMessage.value = 'Offline — saved coordinates are unchanged. Connect and pull down to try again.'
-    } else if (result.updated > 0) {
-      refreshMessage.value = `Updated ${result.updated} area name${result.updated === 1 ? '' : 's'}.${result.remaining ? ` ${result.remaining} still unresolved; pull down to try again.` : ' All available area names are resolved.'}`
-    } else if (result.remaining === 0) {
-      refreshMessage.value = 'No unresolved area names.'
-    } else if (result.attempted === 0) {
-      refreshMessage.value = `No saved coordinates were ready to resolve. ${result.remaining} remain queued.`
-    } else {
-      refreshMessage.value = `No new area names found. ${result.remaining} remain queued; pull down to try again later.`
-    }
-  } catch (cause) {
-    refreshMessage.value = cause?.message || 'Area names could not be refreshed. Saved coordinates are unchanged.'
-  } finally {
-    refreshingLocations.value = false
-    pullDistance.value = 0
-    touchStartY = null
-  }
-}
-const atTop = () => Math.max(window.scrollY || 0, document.documentElement?.scrollTop || 0) <= 0
-const handleTouchStart = event => {
-  if (refreshingLocations.value || !atTop() || event.touches?.length !== 1) {
-    touchStartY = null
-    return
-  }
-  if (event.target?.closest?.('button, select, input, textarea, a')) {
-    touchStartY = null
-    return
-  }
-  touchStartY = event.touches[0].clientY
-}
-const handleTouchMove = event => {
-  if (touchStartY == null || refreshingLocations.value || !atTop() || event.touches?.length !== 1) return
-  pullDistance.value = Math.max(0, Math.min(96, event.touches[0].clientY - touchStartY))
-}
-const resetPull = () => {
-  touchStartY = null
-  pullDistance.value = 0
-}
-const handleTouchEnd = () => {
-  const shouldRefresh = pullDistance.value >= 72 && touchStartY != null
-  resetPull()
-  if (shouldRefresh) void refreshLocationNames()
-}
 watch(period, () => { void load() })
 onMounted(() => {
   void load()
@@ -117,7 +61,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <section class="activity-timeline-page" aria-labelledby="activity-timeline-title" :aria-busy="refreshingLocations" @touchstart.passive="handleTouchStart" @touchmove.passive="handleTouchMove" @touchend.passive="handleTouchEnd" @touchcancel.passive="resetPull">
+  <section class="activity-timeline-page" aria-labelledby="activity-timeline-title">
     <header class="activity-timeline-heading">
       <div>
         <p class="activity-timeline-eyebrow">READ-ONLY RECORDS</p>
@@ -125,10 +69,6 @@ onUnmounted(() => {
         <p class="activity-timeline-description">Your rides and CNG refills for the selected period.</p>
       </div>
       <div class="activity-timeline-actions">
-        <button class="activity-timeline-refresh" type="button" :disabled="refreshingLocations" aria-label="Refresh area names" @click="refreshLocationNames">
-          <span aria-hidden="true" :class="{ 'is-spinning': refreshingLocations }">↻</span>
-          {{ refreshingLocations ? 'Refreshing…' : 'Refresh areas' }}
-        </button>
         <label class="activity-timeline-filter">
         <span>Period</span>
         <select v-model="period" aria-label="Timeline period">
@@ -140,10 +80,6 @@ onUnmounted(() => {
       </div>
     </header>
 
-    <div v-if="pullDistance > 0 || refreshingLocations" class="activity-timeline-pull-status" role="status" aria-live="polite">
-      {{ refreshingLocations ? 'Refreshing saved coordinates into area names…' : pullDistance >= 72 ? 'Release to refresh area names' : 'Pull down to refresh area names' }}
-    </div>
-    <p v-if="refreshMessage" class="activity-timeline-message" role="status">{{ refreshMessage }}</p>
     <p v-if="error" class="activity-timeline-message activity-timeline-error" role="alert">{{ error }}</p>
     <p v-else-if="loading && !snapshot.range" class="activity-timeline-message" role="status">Loading timeline…</p>
 
@@ -162,8 +98,8 @@ onUnmounted(() => {
           <div class="activity-timeline-record-grid">
             <div><span>Duration</span><strong>{{ duration(ride.durationMs) }}</strong></div>
             <div><span>{{ ride.fareLabel }}</span><strong>{{ fareText(ride) }}</strong></div>
-            <div><span>Pickup area</span><strong>{{ ride.pickupArea }}</strong><small v-if="ride.pickupArea.startsWith('GPS ') && ride.pickupAreaResolution !== 'RESOLVED'">Pull down to resolve area name</small></div>
-            <div><span>Drop area</span><strong>{{ ride.dropArea }}</strong><small v-if="ride.dropArea.startsWith('GPS ') && ride.dropAreaResolution !== 'RESOLVED'">Pull down to resolve area name</small></div>
+            <div><span>Pickup area</span><strong>{{ ride.pickupArea }}</strong></div>
+            <div><span>Drop area</span><strong>{{ ride.dropArea }}</strong></div>
           </div>
         </li>
       </ol>
