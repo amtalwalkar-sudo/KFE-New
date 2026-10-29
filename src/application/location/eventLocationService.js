@@ -10,7 +10,7 @@ let locationReconcileAttempt = null
 let locationManualRefreshAttempt = null
 let pendingEnrichmentCache = null
 const MAX_MANUAL_LOCALITY_BATCH = 20
-const NATIVE_SYNC_FIELDS = ['entityType', 'entityId', 'eventType', 'eventAt', 'latitude', 'longitude', 'accuracy', 'capturedAt', 'placeName', 'localityResolutionState', 'localityResolvedAt', 'localityProvider', 'localityAttemptCount', 'localityNextAttemptAt', 'localityLastError']
+const NATIVE_SYNC_FIELDS = ['entityType', 'entityId', 'eventType', 'eventAt', 'latitude', 'longitude', 'accuracy', 'capturedAt', 'placeName', 'localityResolutionState']
 const nativeSnapshotMatches = (snapshot, nativeSnapshot) => Boolean(nativeSnapshot) &&
   NATIVE_SYNC_FIELDS.every(field => String(snapshot?.[field] ?? '') === String(nativeSnapshot?.[field] ?? ''))
 const LOCATION_RECONCILIATION_KEY = 'kfe:trip-location-reconciliation:v1'
@@ -254,6 +254,21 @@ export const EventLocationService = {
       if (!ConnectivityService.isNetworkAvailable()) {
         return { online: false, attempted: 0, updated: 0, unresolved: readPendingEnrichmentIds().length, remaining: readPendingEnrichmentIds().length }
       }
+      // Discover records written by native GPS capture since the last UI visit.
+      // This full inventory runs only after an explicit user refresh.
+      const [nativeSnapshots, localSnapshots] = await Promise.all([
+        CanonicalWorkBoundary.listEventLocationSnapshots().catch(() => []),
+        LocationRepository.all().catch(() => []),
+      ])
+      const known = new Map()
+      for (const item of [...nativeSnapshots, ...localSnapshots]) {
+        if (!item?.id) continue
+        const prior = known.get(item.id)
+        const priorTime = Date.parse(prior?.updatedAt || prior?.createdAt || 0) || 0
+        const itemTime = Date.parse(item.updatedAt || item.createdAt || 0) || 0
+        if (!prior || itemTime >= priorTime) known.set(item.id, { ...prior, ...item })
+      }
+      for (const item of known.values()) setPendingEnrichment(item.id, !String(item.placeName || '').trim())
       const batchLimit = Math.max(1, Math.min(MAX_MANUAL_LOCALITY_BATCH, Math.floor(Number(limit) || MAX_MANUAL_LOCALITY_BATCH)))
       const ids = readPendingEnrichmentIds().slice(0, batchLimit)
       let attempted = 0
@@ -287,17 +302,6 @@ export const EventLocationService = {
       return { online: true, attempted, updated, unresolved, remaining: readPendingEnrichmentIds().length }
     })().finally(() => { locationManualRefreshAttempt = null })
     return locationManualRefreshAttempt
-  },
-  async persistResolutionState(snapshotId, metadata) {
-    if (!snapshotId || !metadata) return false
-    const updated = await LocationRepository.updateLocalityResolution(snapshotId, metadata).catch(() => false)
-    const local = await LocationRepository.getById(snapshotId).catch(() => null)
-    if (local) await this.persistNativeSnapshot(local)
-    else {
-      const record = await CanonicalWorkBoundary.getEventLocationSnapshot(snapshotId).catch(() => null)
-      if (record) await this.persistNativeSnapshot({ ...record, ...metadata, updatedAt: new Date().toISOString() })
-    }
-    return updated
   },
   async persistLabel(snapshotId, placeName) {
     setPendingEnrichment(snapshotId, false)
