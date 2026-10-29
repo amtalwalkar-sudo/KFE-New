@@ -5,6 +5,8 @@
 **Branch under correction:** `fix/simple-four-event-gps-capture`  
 **Scope:** Source-of-truth governance, application-flow contracts, GPS/location ownership, Compliance provision rule consistency, and cross-runtime ownership risks.
 
+Cross-layer review acknowledgement is recorded in PR #412; that acknowledgement is governance evidence only and does not substitute for passing CI or physical-device acceptance.
+
 This report records findings from source inspection and the corrective changes made during this run. It does not replace `KFE-AUTHORITY-MAP.md`, `KFE_BUSINESS_RULES_REGISTER.md`, the architecture contract, canonical data contract, calculation specification, or UI/shell contract.
 
 ## Confirmed findings and corrections
