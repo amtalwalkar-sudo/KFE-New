@@ -20,7 +20,7 @@ const assertForbidden = (dirs, patterns, label) => {
   }
 }
 
-assertForbidden(['views', 'components', 'stores', 'presentation'], [ /from\s+['"][^'"]*\/repositories\//, /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/, /from\s+['"][^'"]*\/infrastructure\// ], 'Presentation/state must not access persistence or infrastructure directly')
+assertForbidden(['views', 'components', 'stores', 'presentation'], [ /from\s+['"][^'"]*\/repositories\//, /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/, /from\s+['"][^'"]*\/infrastructure\//, /from\s+['"]@capacitor\// ], 'Presentation/state must not access persistence or infrastructure directly')
 assertForbidden(['views', 'components', 'presentation'], [ /from\s+['"][^'"]*\/domain\/(?:performance|work|math|movement|time)\// ], 'Presentation must not orchestrate domain logic directly')
 
 // Admin screens must consume financial calculations and reference-time helpers
@@ -44,7 +44,7 @@ if (fs.existsSync(workServicePath)) {
 }
 
 assertForbidden(['domain'], [ /from\s+['"][^'"]*\/repositories\//, /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/, /from\s+['"][^'"]*\/application\//, /from\s+['"][^'"]*\/infrastructure\//, /from\s+['"][^'"]*\/presentation\// ], 'Domain must remain independent of outer layers')
-assertForbidden(['application'], [ /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/ ], 'Application must not depend directly on raw IndexedDB')
+assertForbidden(['application'], [ /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/, /from\s+['"][^'"]*\/presentation\// ], 'Application must not depend on raw persistence or presentation')
 assertForbidden(['views', 'components', 'presentation', 'application', 'infrastructure'], [ /from\s+['"][^'"]*\/services\// ], 'Canonical runtime must not depend on legacy src/services')
 assertForbidden(['views', 'components', 'presentation', 'application'], [ /['"][^'"]*\bjs\/app\.js['"]/ ], 'Current architecture must not reference removed legacy js application')
 
