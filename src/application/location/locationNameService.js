@@ -32,10 +32,10 @@ export class PhotonLocationNameAdapter {
 /** Shared locality contract. Mappls credentials stay server-side; Photon is fallback. */
 export class LocalityResolutionService {
   constructor({primary=new MapplsGatewayLocationNameAdapter(),fallback=new PhotonLocationNameAdapter(),cacheEnabled=true}={}){this.primary=primary;this.fallback=fallback;this.cacheEnabled=cacheEnabled}
-  async resolveDetailed(l){
+  async resolveDetailed(l,{forceRefresh=false}={}){
     const key=keyFor(l);if(!key)return {placeName:null,state:'INVALID_COORDINATES',provider:null,cacheHit:false}
     let cache={};try{cache=JSON.parse(globalThis.localStorage?.getItem(CACHE_KEY)||'{}')||{}}catch{}
-    if(this.cacheEnabled&&cache[key]?.placeName)return {placeName:cache[key].placeName,state:'RESOLVED',provider:cache[key].provider||'cache',cacheHit:true}
+    if(this.cacheEnabled&&!forceRefresh&&cache[key]?.placeName)return {placeName:cache[key].placeName,state:'RESOLVED',provider:cache[key].provider||'cache',cacheHit:true}
     let lastError=null
     for(const [name,provider] of [['mappls-gateway',this.primary],['photon',this.fallback]]){
       if(!provider||(name==='mappls-gateway'&&!provider.endpoint))continue
@@ -50,8 +50,8 @@ export class LocalityResolutionService {
   async resolve(l){return (await this.resolveDetailed(l)).placeName}
 }
 const defaultResolver=new LocalityResolutionService()
-export const resolveLocationNameDetailed=async(l,resolver=defaultResolver)=>{
-  try{if(resolver?.resolveDetailed)return await resolver.resolveDetailed(l);const placeName=resolver?.resolve?await resolver.resolve(l):null;return {placeName:placeName||null,state:placeName?'RESOLVED':'RETRY_SCHEDULED',provider:null,cacheHit:false}}
+export const resolveLocationNameDetailed=async(l,resolver=defaultResolver,options={})=>{
+  try{if(resolver?.resolveDetailed)return await resolver.resolveDetailed(l,options);const placeName=resolver?.resolve?await resolver.resolve(l):null;return {placeName:placeName||null,state:placeName?'RESOLVED':'RETRY_SCHEDULED',provider:null,cacheHit:false}}
   catch(e){console.warn('Location name resolution unavailable; coordinates remain authoritative.',e);return {placeName:null,state:'RETRY_SCHEDULED',provider:null,cacheHit:false,error:'PROVIDER_UNAVAILABLE'}}
 }
 export const resolveLocationName=async(l,resolver=defaultResolver)=>(await resolveLocationNameDetailed(l,resolver)).placeName
