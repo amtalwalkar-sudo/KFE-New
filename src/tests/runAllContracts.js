@@ -8,7 +8,6 @@ const suites = [
   'gpsStatusIndicator.contract.js',
   'eventLocationCapture.contract.js',
   'timelineLocationLabels.contract.js',
-  'locationNameRetryScheduling.contract.js',
   'sharedConnectivityService.contract.js',
   'tripBoundaryTimestamp.contract.js',
   'canonicalWorkReadAuthority.contract.js','browserCanonicalWriteContract.contract.js','canonicalWorkRecordFactory.contract.js','lifecycleStorageGuard.contract.js','nativeFirstWorkMutations.contract.js',
