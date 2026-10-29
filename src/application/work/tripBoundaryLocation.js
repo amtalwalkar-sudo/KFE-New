@@ -34,22 +34,18 @@ export async function queueTripBoundaryEventLocation(entityType, entityId, event
 }
 
 export async function captureTripBoundaryLocation() {
+  // Android capture has one authoritative path: the durable native event queue.
+  // This one-shot fallback is only for browser PWA environments.
+  if (Capacitor.isNativePlatform()) return null
   try {
-    if (Capacitor.isNativePlatform()) {
-      return normalizeTripBoundaryLocation(await NativeTripBoundaryLocation.captureCurrentLocation())
-    }
     if (typeof navigator === 'undefined' || !navigator.geolocation) return null
-    return await new Promise(resolve => {
-      navigator.geolocation.getCurrentPosition(
-        position => resolve(normalizeTripBoundaryLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-          capturedAt: position.timestamp
-        })),
-        () => resolve(null),
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
-      )
-    })
+    return await new Promise(resolve => navigator.geolocation.getCurrentPosition(
+      position => resolve(normalizeTripBoundaryLocation({
+        latitude: position.coords.latitude, longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy, capturedAt: position.timestamp
+      })),
+      () => resolve(null),
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+    ))
   } catch (_) { return null }
 }
