@@ -31,5 +31,7 @@ assert.match(boundary, /accuracy !== null && \(!Number\.isFinite\(accuracy\) \|\
 assert.doesNotMatch(boundary, /captureCurrentLocation/, 'Android must not have a second direct GPS capture pathway')
 assert.match(nativeOverlay, /queueEventLocationCapture\(Context context,String entityType,String entityId,String eventType,String eventAt\)/)
 assert.match(nativeOverlay, /eventLocationSnapshotId\(entityType,entityId,eventType\)/)
+assert.match(nativeOverlay, /return \"TRIP\"\.equals\(entityType\)[\s\S]*?\"TRIP_END\"\.equals\(eventType\)/, 'native queue must reject non-ride GPS event types')
+assert.doesNotMatch(nativeOverlay.slice(nativeOverlay.indexOf('private static boolean isSupportedEventLocationType'), nativeOverlay.indexOf('private static String eventLocationSnapshotId')), /SHIFT_START|SHIFT_END/)
 assert.match(nativePlugin, /backgroundCaptureAllowed/)
 console.log('PASS: four ride events use one offline-first one-shot GPS snapshot pathway')
