@@ -113,44 +113,15 @@ function label(key,record){const v=record?.values||record||{};if(key==='business
 const currentItem=computed(()=>items.find(x=>x.key===selected.value)||(selected.value==='prepayment'?{key:'prepayment',category:'Finance',title:'Loan Prepayment',icon:'↘'}:null))
 const masterMode=computed(()=>['vehicle','driver','compliance'].includes(selected.value))
 const masterRecord=computed(()=>masterSelected.value?records.value.find(x=>x.id===masterSelected.value)||null:null)
-const complianceRevenueSummary = record => {
-  if (!record || !performanceSnapshot.value) return { total: 0, days: 0, average: 0 }
-  const v = record.values || record
-  const from = new Date(v.validFrom)
-  const until = new Date(v.validUntil)
-  const now = AdminReadModelService.referenceNow()
-  if (Number.isNaN(from.getTime()) || Number.isNaN(until.getTime()) || from > until) return { total: 0, days: 0, average: 0 }
-  const to = new Date(Math.min(until.getTime(), now.getTime()))
-  if (to < from) return { total: 0, days: 0, average: 0 }
-  const byDay = {}
-  for (const shift of live(performanceSnapshot.value.shifts)) {
-    const date = new Date(shift.shiftEndAt || shift.shiftStartAt)
-    if (Number.isNaN(date.getTime()) || date < from || date > to) continue
-    const key = date.toISOString().slice(0, 10)
-    byDay[key] = (byDay[key] || 0) + (Number(shift.revenue) || 0)
-  }
-  const total = Object.values(byDay).reduce((sum, value) => sum + value, 0)
-  const days = Object.keys(byDay).length
-  return { total, days, average: days ? total / days : 0 }
-}
 const currentDefinition=computed(()=>currentItem.value?ADMIN_FORM_DEFINITIONS[currentItem.value.key]:null)
 const activeDefinition=computed(()=>{if(!currentDefinition.value)return null;const d=clone(currentDefinition.value);for(const f of d.fields||[]){if(f.key==='vehicleId')f.options=all.value.vehicle.map(x=>({value:x.id,label:label('vehicle',x)}));if(f.key==='driverId')f.options=all.value.driver.map(x=>({value:x.id,label:label('driver',x)}));if(f.key==='loanId')f.options=all.value.loan.map(x=>({value:x.id,label:label('loan',x)}))}return d})
 const sourcePayments=id=>live(performanceSnapshot.value?.settlements).filter(x=>x.sourceId===id&&String(x.direction||(x.settlementType==='Receipt'?'IN':'OUT')).toUpperCase()==='OUT')
-const entityFinancial=record=>{if(!record)return null;if(selected.value==='loan'){const loan=live(performanceSnapshot.value?.loans).find(x=>x.id===record.id)||record;const p=AdminReadModelService.getLoanPosition({loan,payments:live(performanceSnapshot.value?.loanPayments),prepayments:live(performanceSnapshot.value?.prepayments),asOf:AdminReadModelService.referenceNow()});return {principal:Number(loan.principal)||0,paid:p.actualPaid||0,prepaid:p.actualPrepayment||0,remaining:p.outstandingPrincipal||0,emi:p.emi||0,pending:Math.max(0,(p.scheduledDue||0)-(p.actualPaid||0)),overdue:p.totalOverdue||0}}if(selected.value==='maintenance'||selected.value==='compliance'){const v=record.values||record,paid=sumPayments(record.id);const result={cost:Number(v.cost)||0,paid,remaining:(Number(v.cost)||0)-paid};return result}return null}
+const entityFinancial=record=>{if(!record)return null;if(selected.value==='loan'){const loan=live(performanceSnapshot.value?.loans).find(x=>x.id===record.id)||record;const position=AdminReadModelService.getLoanPosition({loan,payments:live(performanceSnapshot.value?.loanPayments),prepayments:live(performanceSnapshot.value?.prepayments),asOf:AdminReadModelService.referenceNow()});return AdminReadModelService.getLoanFinancialSummary({loan,position})}if(selected.value==='maintenance'||selected.value==='compliance')return AdminReadModelService.getSourceFinancialPosition({record,payments:performanceSnapshot.value?.settlements});return null}
 const loanHistory=record=>{const s=performanceSnapshot.value||{};return [...live(s.loanPayments).filter(x=>x.loanId===record.id).map(x=>({kind:'EMI payment',date:x.paidOn,amount:Number(x.amount)||0})),...live(s.prepayments).filter(x=>x.loanId===record.id).map(x=>({kind:'Prepayment',date:x.paidOn,amount:Number(x.amount)||0}))].sort((a,b)=>String(b.date).localeCompare(String(a.date)))}
 const sourceHistory=record=>sourcePayments(record.id).sort((a,b)=>String(b.settledOn||'').localeCompare(String(a.settledOn||'')))
 const loanPosition=record=>{const loan=live(performanceSnapshot.value?.loans).find(x=>x.id===record.id)||record;return AdminReadModelService.getLoanPosition({loan,payments:live(performanceSnapshot.value?.loanPayments),prepayments:live(performanceSnapshot.value?.prepayments),asOf:AdminReadModelService.referenceNow()})}
 const loanSchedule=record=>loanPosition(record).overdue||[]
-const loanAmortizationSchedule=record=>(loanPosition(record).schedule||[]).map(row=>{
-  const paid=Math.max(0,Number(row.scheduledInterestPaid)||0)+Math.max(0,Number(row.scheduledPrincipalPaid)||0)
-  const due=Math.max(0,(Number(row.originalEmiAmount)||0)-paid)
-  const fullyPaid=due<=1
-  const dueDate=AdminReadModelService.dateKey(new Date(row.dueDate))
-  const today=AdminReadModelService.dateKey(AdminReadModelService.referenceNow())
-  const isPastDue=dueDate<today
-  const isDue=dueDate<=today
-  return {...row,dueDateKey:dueDate,paidScheduledAmount:paid,remainingScheduledAmount:due,paymentState:fullyPaid?'Paid':isPastDue?'Overdue':paid>0?'Partially paid':isDue?'Due':'Upcoming'}
-})
+const loanAmortizationSchedule=record=>AdminReadModelService.getLoanAmortizationSchedule({schedule:loanPosition(record).schedule||[],asOf:AdminReadModelService.referenceNow()})
 function toggleLoanSchedule(loanId){expandedLoanSchedules.value={...expandedLoanSchedules.value,[loanId]:!expandedLoanSchedules.value[loanId]}}
 const currentMonth=computed(()=>AdminReadModelService.dateKey(AdminReadModelService.referenceNow()).slice(0,7))
 const currentMaintenanceRate=computed(()=>{const now=AdminReadModelService.dateKey(AdminReadModelService.referenceNow());return live(all.value.breakEvenInputs).filter(x=>String(x.values?.effectiveFrom||'')<=now).sort((a,b)=>String(b.values?.effectiveFrom||'').localeCompare(String(a.values?.effectiveFrom||'')))[0]||null})
