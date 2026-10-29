@@ -195,61 +195,6 @@ export const BrowserCanonicalWorkService = Object.freeze({
       tx.onabort = () => reject(failure || tx.error || new Error('Canonical Work transaction aborted.'))
     })
   },
-  async updateTripBoundaryPlaceName({ operationId, tripId, field, placeName } = {}) {
-    const db = await initializeCanonicalStorage()
-    const id = requireText(operationId, 'operationId')
-    const entityId = requireText(tripId, 'tripId')
-    const boundaryField = requireText(field, 'field')
-    const label = requireText(placeName, 'placeName')
-    if (!['tripStartLocation', 'tripEndLocation'].includes(boundaryField)) throw new Error('Unsupported trip-boundary place-name field.')
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(['trips', 'canonical_operations', 'audit_history'], 'readwrite')
-      const records = tx.objectStore('trips'), operations = tx.objectStore('canonical_operations'), audit = tx.objectStore('audit_history')
-      let outcome = null
-      const existingOperation = operations.get(id)
-      existingOperation.onsuccess = () => {
-        try {
-          if (existingOperation.result) {
-            const previous = existingOperation.result
-            if (previous.command !== 'UPDATE_TRIP_BOUNDARY_PLACE_NAME' || previous.entityId !== entityId
-              || previous.outcome?.field !== boundaryField || previous.outcome?.placeName !== label) {
-              throw new Error('operationId was already used for a different trip-boundary label.')
-            }
-            outcome = { accepted: previous.status === 'ACCEPTED', duplicate: true, outcome: previous.outcome }
-            return
-          }
-          const request = records.get(entityId)
-          request.onsuccess = () => {
-            try {
-              const trip = request.result
-              if (!trip) throw new Error('Canonical trip does not exist for boundary label.')
-              const snapshot = trip[boundaryField]
-              if (!snapshot || snapshot.latitude == null || snapshot.longitude == null || !snapshot.capturedAt) {
-                throw new Error('A durable GPS boundary snapshot is required before adding its locality label.')
-              }
-              snapshot.placeName = label
-              // Keep the business updatedAt unchanged; this is metadata enrichment only.
-              records.put(trip)
-              const committedAt = new Date().toISOString()
-              const result = { operationId: id, entityType: 'TRIP', entityId, field: boundaryField, placeName: label, record: structuredClone(trip), committedAt }
-              operations.add({ id, command: 'UPDATE_TRIP_BOUNDARY_PLACE_NAME', entityType: 'TRIP', entityId, status: 'ACCEPTED', outcome: result, createdAt: committedAt })
-              audit.add({ id: `canonical-operation:${id}`, mutationId: id, entityId, entityType: 'TRIP', action: 'UPDATE_TRIP_BOUNDARY_PLACE_NAME', payload: { field: boundaryField, placeName: label }, createdAt: committedAt })
-              outcome = { accepted: true, duplicate: false, outcome: result }
-            } catch (error) { try { tx.abort() } catch (_) {}; reject(error) }
-          }
-          request.onerror = () => { try { tx.abort() } catch (_) {}; reject(request.error || new Error('Canonical trip lookup failed.')) }
-        } catch (error) { try { tx.abort() } catch (_) {}; reject(error) }
-      }
-      existingOperation.onerror = () => { try { tx.abort() } catch (_) {}; reject(existingOperation.error || new Error('Canonical operation lookup failed.')) }
-      tx.oncomplete = () => {
-        if (!outcome) { reject(new Error('Canonical locality update completed without an operation outcome.')); return }
-        if (!outcome.duplicate) notifyCanonicalDataChanged({ stores: ['trips'], reason: 'canonical-work:trip-boundary-place-name' })
-        resolve(outcome)
-      }
-      tx.onerror = () => reject(tx.error || new Error('Canonical locality update failed.'))
-      tx.onabort = () => reject(tx.error || new Error('Canonical locality update aborted.'))
-    })
-  },
   async getRecord({ entityType, entityId } = {}) {
     const db = await initializeCanonicalStorage(), storeName = browserStoreFor(requireText(entityType, 'entityType')), id = requireText(entityId, 'entityId')
     return new Promise((resolve, reject) => {
