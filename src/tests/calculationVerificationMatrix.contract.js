@@ -84,10 +84,11 @@ for (const [id, patterns] of Object.entries(uiAssertions)) for (const pattern of
 
 const secondary = [
   [work, 'CV-04', [/gapKm/, /Personal/, /Dead/]],
-  [work, 'CV-08', [/fuelPrice/, /fuelAmount/, /fuelFull|fuelPartial/]], [timeline, 'CV-07', [/tripKm/, /revenue/, /Authoritative Revenue/]],
+  [work, 'CV-08', [/fuelPrice/, /fuelAmount/, /fuelFull|fuelPartial/]], [timeline, 'CV-07', [/fare/i, /duration/i]],
   [timeline, 'CV-08', [/pricePerKg/, /amount/, /isFullTank/]], [breakEvenAdmin, 'CV-23', [/breakEvenPaise/, /Break-even/]],
   [financeAdmin, 'CV-20', [/costsPaise/, /Profit/]], [financeAdmin, 'CV-23', [/breakEvenPaise/, /Break-even/]],
 ]
 for (const [source, id, patterns] of secondary) for (const pattern of patterns) assert.match(source, pattern, `${id} consumer UI/source binding missing`)
+assert.doesNotMatch(timeline, /tripKm|rideDistance|distancePerRide/i, 'Timeline must not invent ride-distance metrics when ride distance is not recorded')
 
 console.log('KFE Calculation Verification Matrix contract: PASS')
