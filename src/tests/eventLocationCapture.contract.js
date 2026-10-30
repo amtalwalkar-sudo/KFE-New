@@ -25,6 +25,8 @@ assert.match(eventLocationService, /WorkRuntimePorts\.tripBoundaryLocation\.queu
 assert.match(eventLocationService, /WorkRuntimePorts\.tripBoundaryLocation\.captureOneShotLocation/)
 assert.match(eventLocationService, /captureOneShotLocation\(eventAt\)/)
 assert.match(locationAdapter, /Date\.parse\(location\.capturedAt\) >= eventTime/)
+assert.match(locationAdapter, /Number\.isFinite\(eventTime\) && eventTime > 0/)
+assert.match(nativeOverlay, /if\(eventAt==null\|\|eventAt\.trim\(\)\.isEmpty\(\)\)return false/)
 assert.match(eventLocationService, /LocationRepository\.record\(/)
 assert.match(locationRepository, /GPS snapshot requires the location provider fix timestamp/)
 assert.match(locationRepository, /capturedAt: new Date\(fixTimestamp\)\.toISOString\(\)/)
