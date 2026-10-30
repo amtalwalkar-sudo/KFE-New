@@ -1,7 +1,7 @@
-import { Capacitor, registerPlugin } from '@capacitor/core'
+import { Capacitor, NativePlugins } from '../capacitor/nativePluginRegistry.js'
 import { initializeCanonicalStorage } from '../../utils/indexedDB.js'
 
-const NativeGate = registerPlugin('KfeNativeSystem')
+const NativeGate = NativePlugins.system
 
 const getWebAppBase = () => {
   if (typeof window === 'undefined') return '/'
