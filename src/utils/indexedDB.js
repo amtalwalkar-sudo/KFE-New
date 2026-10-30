@@ -62,10 +62,26 @@ export const notifyCanonicalDataChanged = ({ stores = [], reason = 'mutation' } 
 
 export const subscribeCanonicalDataChanges = callback => {
   if (typeof window === 'undefined') return () => {}
-  const handler = event => callback(event.detail || {})
+  // notifyCanonicalDataChanged publishes to both the same-tab DOM event and
+  // BroadcastChannel. Deduplicate the echo so a single mutation cannot launch
+  // two overlapping snapshot reads/recalculations in the same tab.
+  const seen = new Set()
+  const seenOrder = []
+  const deliver = detail => {
+    const payload = detail || {}
+    const key = payload.changedAt ? `${payload.changedAt}:${payload.reason || ''}:${[...(payload.stores || [])].sort().join(',')}` : null
+    if (key && seen.has(key)) return
+    if (key) {
+      seen.add(key)
+      seenOrder.push(key)
+      if (seenOrder.length > 128) seen.delete(seenOrder.shift())
+    }
+    callback(payload)
+  }
+  const handler = event => deliver(event.detail || {})
   window.addEventListener(CANONICAL_DB_CHANGE_EVENT, handler)
   const channel = getChangeChannel()
-  const channelHandler = event => callback(event.data || {})
+  const channelHandler = event => deliver(event.data || {})
   channel?.addEventListener('message', channelHandler)
   return () => {
     window.removeEventListener(CANONICAL_DB_CHANGE_EVENT, handler)
