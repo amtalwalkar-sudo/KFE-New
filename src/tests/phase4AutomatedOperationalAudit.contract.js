@@ -5,8 +5,7 @@ import { validateEndShiftEntry } from '../domain/work/endShift.js'
 import { validateTripCorrection } from '../domain/work/trip.js'
 import { TRIP_STATES, canTransitionTrip, transitionTrip } from '../domain/work/tripLifecycle.js'
 import { calculateFuelQuantity, validateFuelEntry } from '../domain/work/fuel.js'
-import { deriveFinancialRevenue, reconcileShiftRevenue } from '../domain/work/revenueReconciliation.js'
-import { TOLL_PARKING_TREATMENTS } from '../domain/work/revenueReconciliation.js'
+import { deriveLiveRevenue } from '../domain/work/liveRevenue.js'
 import { buildMutationRecord, buildAuditRecord } from '../repositories/mutationRepository.js'
 
 const root = new URL('../', import.meta.url)
@@ -54,7 +53,7 @@ scenario('A4/B3/B4/J2', () => {
 // A/B/E — one canonical trip identity, completion/cancellation, optional fare detail and idempotent terminal replay.
 scenario('A2/A3/B5/E1/E2/E3/J7', () => {
   let trip = { id: 'audit-trip-1', shiftId: 'audit-shift-1', status: TRIP_STATES.ACTIVE, revenue: null }
-  const completed = transitionTrip(trip, TRIP_STATES.COMPLETED, { tripEndAt: '2026-09-25T08:00:00.000Z', tripKm: 12.5 })
+  const completed = transitionTrip(trip, TRIP_STATES.COMPLETED, { tripEndAt: '2026-09-25T08:00:00.000Z' })
   const priced = { ...completed, revenue: 250, revenueAuthority: 'SUPPORTING_ONLY' }
   assert.equal(priced.id, trip.id)
   assert.equal(priced.status, TRIP_STATES.COMPLETED)
@@ -63,7 +62,7 @@ scenario('A2/A3/B5/E1/E2/E3/J7', () => {
   const replay = transitionTrip(priced, TRIP_STATES.COMPLETED)
   assert.equal(replay.id, trip.id)
   assert.equal(replay.status, TRIP_STATES.COMPLETED)
-  assert.equal(validateTripCorrection({ operator: 'Uber', tripKm: '12.5', revenue: '250' }).valid, true)
+  assert.equal(validateTripCorrection({ operator: 'Uber', revenue: '250' }).valid, true)
   const cancelled = transitionTrip(trip, TRIP_STATES.CANCELLED, { reason: 'DRIVER_MISTAKE', revenue: 0 })
   assert.equal(cancelled.status, TRIP_STATES.CANCELLED)
   assert.equal(cancelled.revenue, 0)
@@ -81,30 +80,12 @@ scenario('A5/H3/D2/F5/J1', () => {
   assert.equal(validateFuelEntry({ odometer: -1, pricePerKg: 82, amount: 410 }).valid, false)
 })
 
-// H1/H2/H5 — Shift.revenue projection must match eligible trip fares plus cancellation fees.
+// H1/H2/H5 — Shift revenue is the simple projection of recorded fares and cancellation fees.
 scenario('A2/H1/H2/H5', () => {
-  const reconciliation = reconcileShiftRevenue({
-    shiftRevenue: 500,
-    trips: [{ status: 'COMPLETED', revenue: 300 }, { status: 'COMPLETED', revenue: 200 }, { status: 'CANCELLED', cancelledRevenue: 0 }],
-    toll: 50,
-    tollParkingRevenueTreatment: TOLL_PARKING_TREATMENTS.INCLUDED
-  })
-  assert.equal(reconciliation.reconciliationStatus, 'RECONCILED')
-  assert.equal(reconciliation.financialRevenue, 450)
-  assert.equal(reconciliation.authoritativeRevenue, 500)
-  const incomplete = reconcileShiftRevenue({ shiftRevenue: 500, trips: [{ status: 'COMPLETED', revenue: null }] })
-  assert.equal(incomplete.reconciliationStatus, 'UNAVAILABLE')
-  assert.equal(incomplete.reason, 'INCOMPLETE_TRIP_REVENUE_DETAIL')
+  const revenue = deriveLiveRevenue([{ status: 'COMPLETED', revenue: 300 }, { status: 'COMPLETED', revenue: 200 }, { status: 'CANCELLED', cancelledRevenue: 0 }])
+  assert.equal(revenue, 500)
+  assert.equal(deriveLiveRevenue([{ status: 'COMPLETED', revenue: null }]), 0)
 })
-scenario('H1/BR-11', () => {
-  const included = deriveFinancialRevenue({ customerPaidTotal: 500, toll: 50, parking: 25, tollParkingRevenueTreatment: 'INCLUDED' })
-  const excluded = deriveFinancialRevenue({ customerPaidTotal: 500, toll: 50, parking: 25, tollParkingRevenueTreatment: 'EXCLUDED' })
-  assert.equal(included.financialRevenue, 425)
-  assert.equal(included.excludedActualExpense, 0)
-  assert.equal(excluded.financialRevenue, 500)
-  assert.equal(excluded.excludedActualExpense, 75)
-})
-
 // I/J — IST day boundaries are deterministic and preserve calendar ownership at midnight.
 scenario('I1/I3/I4/J4', () => {
   const beforeMidnight = new Date('2026-09-24T18:29:59.999Z')
