@@ -36,4 +36,6 @@ assert.doesNotMatch(nativeOverlay.slice(nativeOverlay.indexOf('private static bo
 assert.match(nativePlugin, /backgroundCaptureAllowed/)
 assert.match(nativeOverlay, /isEventGpsFixAtOrAfter\(eventAt,fixTime\)/, 'Native GPS must reject cached fixes from before the event timestamp.')
 assert.match(nativeOverlay, /provider fix predates or cannot be compared with the ride event/)
+assert.match(nativeOverlay, /isValidPersistedEventGpsSnapshot\(JSONObject snapshot\)/, 'Previously stored snapshots must also be checked against their event timestamp.')
+assert.match(nativeOverlay, /isEventGpsFixAtOrAfter\(eventAt,java\.time\.Instant\.parse\(capturedAt\)\.toEpochMilli\(\)\)/)
 console.log('PASS: four ride events use one offline-first one-shot GPS snapshot pathway')
