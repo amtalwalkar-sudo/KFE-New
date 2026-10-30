@@ -14,10 +14,13 @@ Object.defineProperty(globalThis, 'localStorage', {
 })
 
 try {
-  const cacheKey = 'kfe:locality-cache:v4'
+  const cacheKey = 'kfe:locality-cache:v5'
   const legacyCoordinateKey = '19.07500:72.87700'
   values.set('kfe:locality-cache:v2', JSON.stringify({
     [legacyCoordinateKey]: { placeName: 'Legacy incorrect area', provider: 'old-provider', resolvedAt: '2026-10-28T00:00:00.000Z' },
+  }))
+  values.set('kfe:locality-cache:v4', JSON.stringify({
+    [legacyCoordinateKey]: { placeName: 'Stale v4 incorrect area', provider: 'old-provider', resolvedAt: '2026-10-30T12:00:00.000Z' },
   }))
   values.set('kfe:locality-cache:v3', JSON.stringify({
     [legacyCoordinateKey]: { placeName: 'Stale v3 incorrect area', provider: 'old-provider', resolvedAt: '2026-10-30T00:00:00.000Z' },
