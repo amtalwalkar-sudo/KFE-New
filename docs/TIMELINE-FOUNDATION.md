@@ -1,9 +1,29 @@
-# KFE 2.0 Timeline Foundation
+# KFE Timeline Foundation
 
-Timeline is a read-only projection over authoritative Work and ERP records. It does not create or correct business data. Reporting periods use the correct event boundary, and ordering is deterministic by authoritative occurrence time and stable event identity.
+**Role:** Read-only reporting projection. Timeline must not create, correct, or mutate ride/fuel business records.
 
-## Ride GPS
+## Ride GPS source of truth
 
-The only ride GPS events are `PICKUP_START`, `TRIP_CANCELLED`, `TRIP_START`, and `TRIP_END`. Timeline reads their persisted snapshots and never captures GPS, geocodes, or mutates a snapshot. Timeline shows validated GPS coordinates only; it does not display area names. Legacy trip-level location fields are not a display fallback because they may be stale or inaccurate.
+Timeline reads persisted event-time GPS snapshots from the four ride events only:
 
-GPS snapshots preserve provider `capturedAt` independently from business `eventAt`. Capture is offline-first and one-shot; continuous tracking, internet-based locality resolution, and automatic retries for area names are out of scope.
+- `PICKUP_START`: driver swipes to go to pickup.
+- `TRIP_CANCELLED`: driver cancels the ride.
+- `TRIP_START`: driver starts the ride.
+- `TRIP_END`: driver ends the ride.
+
+A snapshot preserves the provider fix timestamp (`capturedAt`) separately from the ride-event timestamp (`eventAt`). Neither timestamp may replace or rewrite the other. GPS capture is one-shot and offline-capable; no continuous tracking or route/distance calculation is permitted.
+
+## Locality labels
+
+Locality lookup is a separate presentation-only operation. It may run only when the user explicitly pulls down Timeline to refresh while online. There are no automatic locality retries, polling, background connectivity checks, or queued locality-resolution jobs.
+
+- Show only a locality label returned by the resolver for the saved coordinates.
+- If no reliable label is returned, show `Location unavailable`.
+- Never use raw coordinates, legacy trip-level location fields, or guessed/fabricated names as a locality label.
+- A failed manual refresh must not leave a stale cached label appearing verified.
+- A cancellation snapshot is not a passenger drop-off location.
+- Locality lookup must not mutate ride records, GPS snapshots, fares, or timestamps.
+
+## Scope guard
+
+Do not add new Timeline features or recalculate unrelated business metrics under this contract. Keep this document subordinate to `KFE_BUSINESS_RULES_REGISTER.md`, `docs/KFE-ARCHITECTURE-CONTRACT.md`, and `docs/ANDROID-NATIVE-GPS-CONTRACT.md`.
