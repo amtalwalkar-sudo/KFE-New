@@ -31,7 +31,7 @@ Do not add forecasting, targets, break-even models, provisions, profitability mo
 - Shift start and shift end remain PWA-owned.
 - The native overlay can perform ride actions only within an active shift.
 - A cancellation remains a cancellation and must not be represented as a completed ride.
-- Fare and cancellation fee remain distinct recorded facts. Recorded shift revenue includes eligible completed-trip fares and recorded cancellation fees; a missing cancellation fee contributes zero.
+- Fare and cancellation fee remain distinct recorded facts. Trip revenue is supporting detail; Shift revenue is the canonical projection of eligible completed-trip fares and recorded cancellation fees. A missing cancellation fee contributes zero.
 
 ## 4. GPS event snapshots
 
