@@ -11,8 +11,12 @@ export const PhaseOnePerformanceService = Object.freeze({
     if (!range?.from || !range?.to || range.to < range.from) {
       throw new Error('Performance reporting period could not be resolved.')
     }
+    console.info('KFE PERF DEBUG snapshot:start')
     const snapshot = await PerformanceService.getSnapshot()
+    console.info('KFE PERF DEBUG snapshot:done')
+    console.info('KFE PERF DEBUG period-metrics:start')
     const metrics = PerformanceService.getMetrics(snapshot, range)
+    console.info('KFE PERF DEBUG period-metrics:done')
     const asOf = new Date(now)
     // Loan and maintenance balances are derived as-of `to` from their complete
     // canonical histories; the range start controls period metrics only. Keep it
@@ -20,6 +24,7 @@ export const PhaseOnePerformanceService = Object.freeze({
     // of unrelated daily performance calculations just to display a balance.
     const balanceFrom = range.from <= asOf ? range.from : asOf
     const balanceMetrics = PerformanceService.getMetrics(snapshot, { from: balanceFrom, to: asOf })
+    console.info('KFE PERF DEBUG balance-metrics:done')
     return {
       ...derivePhaseOnePerformanceOverview(snapshot, range, metrics),
       // Cumulative signed buckets as of now; do not subtract these again from Phase 1 income-after-fuel.
