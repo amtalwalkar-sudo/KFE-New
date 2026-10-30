@@ -14,7 +14,9 @@ export const PhaseOnePerformanceService = Object.freeze({
     const snapshot = await PerformanceService.getSnapshot()
     const metrics = PerformanceService.getMetrics(snapshot, range)
     const asOf = new Date(now)
-    const balanceFrom = range.from <= asOf ? range.from : asOf
+    // These are cumulative balances, not selected-period metrics. Start at the beginning
+    // of the available record horizon; getMetrics applies the configured Business Start Date.
+    const balanceFrom = new Date(0)
     const balanceMetrics = PerformanceService.getMetrics(snapshot, { from: balanceFrom, to: asOf })
     return {
       ...derivePhaseOnePerformanceOverview(snapshot, range, metrics),
