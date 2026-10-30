@@ -1,7 +1,7 @@
-import { Capacitor, registerPlugin } from '@capacitor/core'
-
-const NativeTripBoundaryLocation = registerPlugin('KfeTripBoundaryLocation')
-
+/**
+ * Pure validation for a single provider fix. Platform acquisition and native
+ * plugin access belong to infrastructure adapters.
+ */
 export const normalizeTripBoundaryLocation = value => {
   const latitude = Number(value?.latitude)
   const longitude = Number(value?.longitude)
@@ -11,39 +11,6 @@ export const normalizeTripBoundaryLocation = value => {
   if (timestamp == null || timestamp === '') return null
   const fixDate = new Date(timestamp)
   if (!Number.isFinite(fixDate.getTime()) || fixDate.getTime() <= 0) return null
-  // Accuracy is optional metadata; reject it only when a supplied value is invalid.
   if (accuracy !== null && (!Number.isFinite(accuracy) || accuracy < 0)) return null
   return { latitude, longitude, accuracy, capturedAt: fixDate.toISOString() }
-}
-
-/**
- * Capture exactly one GPS fix at a trip boundary. This does not start a watch,
- * trace collector, background service, reverse geocoder, or routing request.
- * GPS_PROVIDER / browser geolocation can obtain a fix without internet access.
- */
-export async function queueTripBoundaryEventLocation(entityType, entityId, eventType, eventAt = null) {
-  if (!Capacitor.isNativePlatform() || !entityType || !entityId || !eventType) return false
-  try {
-    await NativeTripBoundaryLocation.queueEventLocationCapture({ entityType, entityId, eventType, eventAt })
-    return true
-  } catch (_) {
-    return false
-  }
-}
-
-export async function captureTripBoundaryLocation() {
-  // Android capture has one authoritative path: the durable native event queue.
-  // This one-shot fallback is only for browser PWA environments.
-  if (Capacitor.isNativePlatform()) return null
-  try {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) return null
-    return await new Promise(resolve => navigator.geolocation.getCurrentPosition(
-      position => resolve(normalizeTripBoundaryLocation({
-        latitude: position.coords.latitude, longitude: position.coords.longitude,
-        accuracy: position.coords.accuracy, capturedAt: position.timestamp
-      })),
-      () => resolve(null),
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
-    ))
-  } catch (_) { return null }
 }
