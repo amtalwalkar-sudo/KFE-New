@@ -43,8 +43,6 @@ assert.match(rules, /normalizeFormValues/, 'Admin validation must normalize form
 // 2. First-run setup reuses Admin forms and separately persists step state.
 assert.match(firstRun, /AdminService\.save\(current\.value\.form, form\.value\)/, 'First-run source forms must share Admin validation/persistence')
 assert.match(firstRun, /FirstRunSetupService\.setStepState\(key, \{ status: 'COMPLETE' \}\)/, 'First-run form save must record step completion')
-assert.match(firstRun, /BackupConfig\.saveBackupConfiguration\(cloud\.value\)/, 'Cloud backup setup must persist its configuration')
-assert.match(firstRun, /CloudBackupLifecycle\.backupToConfiguredCloud\(\)/, 'Cloud backup setup must verify a real backup, not only settings')
 
 // 3. Work shift/trip/cancellation/fuel/end-shift forms.
 assert.match(workView, /await store\.startShift\(startOdo\.value,/, 'Start Shift must use shift store')

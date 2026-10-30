@@ -18,7 +18,7 @@ assert.match(performanceView, /onMounted\(\(\) => \{[\s\S]*?void load\(\)/, 'Per
 assert.match(performanceView, /watch\(period, \(\) => \{ void load\(\{ force: true \}\) \}\)/, 'Changing the reporting period must reload the selected period')
 assert.doesNotMatch(performanceView, /PhaseOnePerformanceService\.subscribeDataChanges/, 'Performance must not start overlapping IndexedDB reads from cross-tab echoes')
 assert.match(performanceService, /PerformanceRepository\.getSnapshot\(\)/)
-assert.match(performanceService, /calculateFuelPeriodSummary\(fuelLogs, range\)/)
+assert.match(performanceService, /calculateFuelPeriodSummary\(live\(snapshot\.fuelLogs\), effectiveRange\)/)
 assert.match(performanceService, /incomeAfterFuel: recordedRevenue - fuelSummary\.totalFuelAmount/)
 assert.doesNotMatch(performanceService, /import\s*\{\s*PerformanceService\s*\}|DriverTargetService|deriveOperatingKmForecast|deriveFinanceAwarePerformance/)
 assert.match(performanceView, /Income after fuel/)

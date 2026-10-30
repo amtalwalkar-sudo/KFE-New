@@ -59,7 +59,8 @@ match(shiftRepo, /completeShift/, 'End Shift must persist through shift reposito
 assert.doesNotMatch(workForm, /Additional shift toll|Additional shift parking|Trip fares not entered|Shift review/, 'End Shift must not present revenue/toll/parking reconciliation.')
 
 // Calculation consumers must read canonical snapshots instead of making UI-owned financial values authoritative.
-match(performanceRepo, /'shifts', 'trips', 'fuel_logs', 'vehicles'/, 'Performance snapshot must read canonical operating records')
+match(performanceRepo, /PERFORMANCE_STORES = Object\.freeze\(\['shifts', 'trips', 'fuel_logs', 'settings'\]\)/, 'Basic Performance must read only rides, fuel, and the business-start boundary')
+match(performanceRepo, /settingKey === 'businessSetup'/, 'Business start boundary must be read from saved setup')
 match(performanceService, /PerformanceRepository\.getSnapshot\(\)/, 'Basic Performance must read saved canonical records')
 match(performanceService, /calculateFuelPeriodSummary/, 'Basic Performance must use recorded fuel facts')
 assert.doesNotMatch(performanceService, /driverTarget|breakEvenInputs|amortization|forecast|provision/i)

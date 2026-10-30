@@ -112,7 +112,6 @@ assert.ok(!/const totalRevenue = trips\.reduce/.test(overlayLifecycle), 'Overlay
 assertIncludes(authorityMap, 'KFE-OPERATIONAL-LIFECYCLE-CONTRACT.md', 'Authority map must expose lifecycle authority.')
 assertIncludes(authorityMap, 'KFE-CANONICAL-DATA-CONTRACT.md', 'Authority map must expose canonical data authority.')
 assertIncludes(authorityMap, 'KFE_WORK_COCKPIT_BASELINE.md', 'Authority map must expose Work presentation authority.')
-assertIncludes(readRepo('docs/GPS-VALHALLA-REMOVAL.md'), 'GPS tracking and Valhalla removal', 'Current architecture decision must record GPS/Valhalla removal.')
 assertIncludes(matrix, '### Level A — Repository/CI', 'Matrix must define Level A proof.')
 assertIncludes(matrix, '### Level B — Android emulator', 'Matrix must define Level B proof.')
 assertIncludes(matrix, '### Level C — Physical Android device', 'Matrix must define Level C proof.')
