@@ -19,12 +19,12 @@ assert.match(platform, /registration\.waiting\.postMessage\(\{ type: 'kfe:activa
 assert.match(platform, /registration\.update\(\)\.catch/)
 
 assert.match(db, /CANONICAL_DB_NAME\s*=\s*'kanishka_kfe_canonical_db'/)
-assert.match(db, /SYNTHETIC_DB_NAME\s*=\s*'kanishka_kfe_synthetic_db'/)
+assert.doesNotMatch(db, /SYNTHETIC_DB_NAME|setActiveDataSource|initializeSyntheticStorage/)
 assert.match(db, /const getActiveSource = \(\) =>/)
-assert.match(db, /const dbNameFor = source => source === 'synthetic' \? SYNTHETIC_DB_NAME : CANONICAL_DB_NAME/)
+assert.match(db, /indexedDB\.open\(name, CANONICAL_DB_VERSION\)/)
 assert.match(db, /export const initializeActiveStorage = async \(\{ dataSource \} = \{\}\) => initializeDatabase\(dbNameFor\(dataSource \|\| getActiveSource\(\)\)\)/)
 assert.match(db, /export const initializeCanonicalStorage = initializeActiveStorage/)
-assert.match(db, /export const openCanonicalDB = \(\) => initializeCanonicalStorage\(\{ dataSource: 'canonical' \}\)/)
+assert.match(db, /export const openCanonicalDB = initializeCanonicalStorage/)
 
 const odo = db.slice(db.indexOf('export const getLastOdometer'))
 assert.match(odo, /initializeCanonicalStorage\(\)/)
@@ -45,7 +45,7 @@ for (const relative of writers) {
   assert.match(source, /pending_mutations/)
   assert.match(source, /audit_history/)
 }
-assert.match(backupRepository, /import \{ openCanonicalDB, notifyCanonicalDataChanged, withCanonicalResetWritePermission, setCanonicalResetBarrier, getCanonicalResetBarrier, clearCanonicalResetBarrier, setActiveDataSource \} from '..\/utils\/indexedDB\.js'/)
+assert.match(backupRepository, /import \{ openCanonicalDB, notifyCanonicalDataChanged, withCanonicalResetWritePermission, setCanonicalResetBarrier, getCanonicalResetBarrier, clearCanonicalResetBarrier \} from '..\/utils\/indexedDB\.js'/)
 assert.doesNotMatch(backupRepository, /initializeCanonicalStorage\(/)
 assert.match(backupRepository, /restoreCanonicalSnapshot\(snapshot, \{ sourceExportedAt = null, authoritativeRecords = null \} = \{\}\) \{[\s\S]*const db = await openCanonicalDB\(\)/)
 assert.match(backupRepository, /resetCanonicalData\(\{ resetId \} = \{\}\) \{[\s\S]*const db = await openCanonicalDB\(\)/)
