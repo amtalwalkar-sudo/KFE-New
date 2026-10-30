@@ -3,7 +3,7 @@
 **Status:** AUTHORITATIVE
 **Purpose:** Single human-readable authority for KFE ownership, boundaries, data authority, replaceability and implementation constraints.
 
-This document consolidates the accepted architectural principles from the Master Blueprint and architecture/data/ownership/field-level boundary work. It does not define business meaning or formulas. Business meaning belongs to `KFE_BUSINESS_RULES_REGISTER.md`; arithmetic/formula mechanics belong to `docs/KFE-CALCULATION-SPECIFICATION.md`.
+This document defines architecture and ownership boundaries. Product scope and business meaning belong to `KFE_BUSINESS_RULES_REGISTER.md`. `docs/KFE-CALCULATION-SPECIFICATION.md` covers only the small set of recorded-data calculations used by basic Performance; no broader financial model is in scope.
 
 ## 1. Governing architecture rule
 
@@ -73,13 +73,13 @@ External providers sit behind infrastructure adapters.
 
 No layer may silently assume ownership already assigned to another layer.
 
-## 4. Calculation authority
+## 4. Basic Performance calculation boundary
 
-- Business calculations exist in one authoritative domain calculation path.
-- Presentation must consume calculated/read-model values rather than reproduce formulas.
-- Application coordinates calculations but does not redefine business arithmetic.
+- Only the explicitly supported calculations in `docs/KFE-CALCULATION-SPECIFICATION.md` are in scope.
+- Presentation consumes the basic Performance read model rather than reproducing formulas.
+- Application coordinates these simple calculations and does not introduce additional financial models.
 - Provider adapters never calculate KFE business meaning.
-- Machine-readable calculation metadata may exist for tooling, but it must agree with the human-readable calculation specification.
+- The machine-readable registry may describe only the same supported basic metrics.
 
 ## 5. Data authority
 
