@@ -7,8 +7,11 @@ const PERFORMANCE_STORES = Object.freeze([
 ])
 
 const readSnapshot = async () => {
+  console.info('KFE PERF DEBUG db-open:start')
   const db = await initializeCanonicalStorage()
+  console.info('KFE PERF DEBUG db-open:done')
   return new Promise((resolve, reject) => {
+    console.info('KFE PERF DEBUG transaction:start', db.name, [...PERFORMANCE_STORES].filter(name => !db.objectStoreNames.contains(name)))
     const tx = db.transaction([...PERFORMANCE_STORES], 'readonly')
     const result = {}
     for (const storeName of PERFORMANCE_STORES) {
@@ -19,7 +22,7 @@ const readSnapshot = async () => {
         reject(request.error || new Error(`${storeName} query failed.`))
       }
     }
-    tx.oncomplete = () => resolve(result)
+    tx.oncomplete = () => { console.info('KFE PERF DEBUG transaction:done'); resolve(result) }
     tx.onerror = () => reject(tx.error || new Error('Performance snapshot transaction failed.'))
     tx.onabort = () => reject(tx.error || new Error('Performance snapshot transaction aborted.'))
   })
