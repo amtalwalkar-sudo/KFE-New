@@ -10,6 +10,8 @@ import {
   paymentAllocationPreview,
 } from '../../domain/finance/loanEngine.js'
 import { getKfeReferenceNow, istDateKey, reportingRangeFor } from '../../domain/time/ist.js'
+import { getApplicableDriverTarget } from '../../domain/performance/driverTarget.js'
+import { getApplicableMaintenanceRateRecord } from '../../domain/performance/maintenanceRate.js'
 
 const live = rows => (Array.isArray(rows) ? rows : []).filter(row => !row?.deletedAt && row?.deleted !== true)
 const finiteAmount = value => value == null || String(value).trim() === '' || !Number.isFinite(Number(value)) ? null : Number(value)
@@ -73,22 +75,16 @@ const loanAmortizationRows = ({ schedule = [], asOf = getKfeReferenceNow() } = {
 
 const effectiveDriverTarget = ({ records = [], driverId, month } = {}) => {
   if (!driverId || !month) return null
-  const boundary = String(month).length === 7 ? `${month}-01` : String(month)
-  return live(records)
-    .filter(record => {
-      const values = record.values || record
-      return values.driverId === driverId && String(values.effectiveFrom || '') <= boundary
-    })
-    .sort((a, b) => String((b.values || b).effectiveFrom || '').localeCompare(String((a.values || a).effectiveFrom || ''))
-      || String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))[0] || null
+  const boundary = String(month).length === 7 ? `${month}-01` : month
+  const candidates = live(records).filter(record => (record.values || record).driverId === driverId)
+  const selected = getApplicableDriverTarget(candidates.map(record => ({ ...record, ...(record.values || {}) })), boundary)
+  return selected ? candidates.find(record => record.id === selected.id) || null : null
 }
 
 const effectiveMaintenanceRate = ({ records = [], asOf = getKfeReferenceNow() } = {}) => {
-  const boundary = istDateKey(asOf)
-  if (!boundary) return null
-  return live(records)
-    .filter(record => String((record.values || record).effectiveFrom || '') <= boundary)
-    .sort((a, b) => String((b.values || b).effectiveFrom || '').localeCompare(String((a.values || a).effectiveFrom || '')))[0] || null
+  const candidates = live(records)
+  const selected = getApplicableMaintenanceRateRecord(candidates.map(record => ({ ...record, ...(record.values || {}) })), asOf)
+  return selected ? candidates.find(record => record.id === selected.id) || null : null
 }
 
 export const AdminReadModelService = Object.freeze({
