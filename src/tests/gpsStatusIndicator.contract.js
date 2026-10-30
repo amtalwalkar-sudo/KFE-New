@@ -10,6 +10,7 @@ const workService = fs.readFileSync('src/application/work/workService.js', 'utf8
 const eventLocationService = fs.readFileSync('src/application/location/eventLocationService.js', 'utf8')
 const gpsService = fs.readFileSync('src/application/location/gpsPermissionService.js', 'utf8')
 const gpsAdapter = fs.readFileSync('src/infrastructure/android/gpsStatusAdapter.js', 'utf8')
+const nativePluginRegistry = fs.readFileSync('src/infrastructure/capacitor/nativePluginRegistry.js', 'utf8')
 
 assert.match(shell, /import GpsStatusIndicator from '\.\/GpsStatusIndicator\.vue'/,
   'the GPS status indicator must be mounted in the shared application header')
@@ -19,7 +20,8 @@ assert.doesNotMatch(indicator, /setInterval|setTimeout/, 'GPS status must not ru
 assert.match(indicator, /GpsPermissionService/, 'GPS status UI must use the application permission service')
 assert.doesNotMatch(indicator, /@capacitor|registerPlugin|NativeGps/, 'GPS status UI must not own native plugin access')
 assert.match(gpsService, /WorkRuntimePorts\.gpsPermissions/, 'application permission service must delegate to the native adapter')
-assert.match(gpsAdapter, /registerPlugin\('KfeTripBoundaryLocation'\)/, 'native GPS plugin registration belongs to infrastructure')
+assert.match(gpsAdapter, /NativePlugins\.tripBoundaryLocation/)
+assert.match(nativePluginRegistry, /registerPlugin\('KfeTripBoundaryLocation'\)/, 'native GPS plugin registration belongs to the shared infrastructure registry')
 assert.match(indicator, /getStatus/,
 
   'the status display must read the Android permission/provider state')
