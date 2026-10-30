@@ -87,6 +87,29 @@ assert.equal(
   'Dadar Parsi Colony, Mumbai, Maharashtra',
   'a verified sub-locality may be shown with city/state context',
 )
+const wrongCoordinates = new PhotonLocationNameAdapter({
+  endpoint: 'mock://photon',
+  fetchImpl: async () => ({ ok: true, json: async () => ({ features: [{ geometry: { coordinates: [72.851, 19.107] }, properties: {
+    suburb: 'Dadar Parsi Colony', city: 'Mumbai', state: 'Maharashtra'
+  } }] }) }),
+})
+assert.equal(
+  await wrongCoordinates.resolve({ latitude: 19.025, longitude: 72.842, accuracy: 10 }),
+  null,
+  'a plausible locality attached to a geographically distant provider result must be rejected',
+)
+const photonNearby = new PhotonLocationNameAdapter({
+  endpoint: 'mock://photon',
+  fetchImpl: async () => ({ ok: true, json: async () => ({ features: [{ geometry: { coordinates: [72.842, 19.025] }, properties: {
+    suburb: 'Dadar Parsi Colony', city: 'Mumbai', state: 'Maharashtra'
+  } }] }) }),
+})
+assert.equal(
+  await photonNearby.resolve({ latitude: 19.025, longitude: 72.842, accuracy: 10 }),
+  'Dadar Parsi Colony, Mumbai, Maharashtra',
+  'a locality with provider coordinates matching the saved GPS fix may be shown',
+)
+
 const broadOnly = new PhotonLocationNameAdapter({
   endpoint: 'mock://photon',
   fetchImpl: async () => ({ ok: true, json: async () => ({ features: [{ properties: {
