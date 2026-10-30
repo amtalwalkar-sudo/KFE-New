@@ -28,7 +28,7 @@ assert.ok(calculationSmoke.includes("route(page, 'timeline', '.activity-timeline
 assert.ok(calculationSmoke.includes("Average fuel cost/km") && calculationSmoke.includes("Total amount refilled"),'Calculation matrix smoke must verify both Timeline fuel summary headers')
 assert.ok(calculationSmoke.includes("route(page, 'performance', '.performance-page', 'Performance')"),'Calculation matrix smoke must verify read-only Performance')
 assert.ok(smoke.includes("negative maintenance provision balance"), 'Rendered calculation smoke must verify signed EMI balances from seeded canonical records')
-assert.ok(smoke.includes("negative maintenance provision balance"), 'Rendered calculation smoke must verify signed maintenance balances from seeded canonical records')
+assert.ok(smoke.includes("Cumulative provision balances"), 'Rendered Performance smoke must verify the cumulative provision section is present')
 assert.ok(smoke.includes("rendered negative EMI balance in Admin Finance"), 'Rendered Admin Finance smoke must verify the signed EMI balance')
 assert.ok(smoke.includes("canonical amortization schedule"), 'Rendered Admin Finance smoke must verify the canonical amortization schedule')
 assert.doesNotMatch(calculationSmoke,/route\(page, 'timeline', '\.performance-page'/,'Calculation matrix smoke must not expect Timeline to be blank')
