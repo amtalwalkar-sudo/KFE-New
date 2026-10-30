@@ -1,6 +1,6 @@
-import { Capacitor, registerPlugin } from '@capacitor/core'
+import { Capacitor, NativePlugins } from '../capacitor/nativePluginRegistry.js'
 
-const NativeGps = registerPlugin('KfeTripBoundaryLocation')
+const NativeGps = NativePlugins.tripBoundaryLocation
 
 export const GpsStatusAdapter = Object.freeze({
   isNativePlatform() { return Capacitor.isNativePlatform() },
