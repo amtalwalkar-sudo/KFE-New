@@ -4,6 +4,8 @@ const suites = [
   'performancePhaseOneOverview.contract.js',
 
   'adminReadModelService.contract.js',
+  'monthlyVehicleKmBreakEven.contract.js',
+  'phaseBLifecycleRecovery.contract.js',
   'workDraftController.contract.js',
   'nativeWorkActionController.contract.js',
   'phase2BusinessReliabilityRegression.contract.js',
