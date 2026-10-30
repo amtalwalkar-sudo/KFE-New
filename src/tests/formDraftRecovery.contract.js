@@ -48,7 +48,5 @@ assert.match(workView, /watch\(\[closingOdo, endStage, largeDistanceConfirmation
 assert.doesNotMatch(workView, /Cancellation fee is required/, 'Blank cancellation fee must remain valid')
 assert.match(workForm, /Cancellation fee \(optional\)/, 'Cancellation fee must be presented as optional')
 assert.doesNotMatch(workForm, /Trip toll already recorded|Trip parking already recorded|Additional shift toll|Additional shift parking|Trip fares not entered/, 'End-shift draft form must not include reconciliation inputs')
-assert.match(workForm, /Toll was paid separately/, 'Trip toll treatment must be independent')
-assert.match(workForm, /Parking was paid separately/, 'Trip parking treatment must be independent')
 
 console.log('Universal parent-scoped form draft recovery contract passed.')

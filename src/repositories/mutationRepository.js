@@ -1,7 +1,7 @@
 import { openCanonicalDB } from '../utils/indexedDB.js'
 
 // MutationRepository is the single canonical synchronization queue.
-// Its sync lifecycle methods intentionally operate on canonical storage only.
+// These sync lifecycle methods intentionally operate on canonical storage only.
 import { generateUUID } from '../utils/uuid.js'
 
 export const MUTATION_VERSION = 1
