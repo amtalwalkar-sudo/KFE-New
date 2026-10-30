@@ -29,7 +29,7 @@ async function refresh() {
   status.value.checking = true
   error.value = ''
   try {
-    if (isNative && typeof NativeGps.getLocationStatus === 'function') {
+    if (isNative && typeof GpsPermissionService.getStatus === 'function') {
       const result = await GpsPermissionService.getStatus()
       status.value = { checking: false, pendingCount: 0, ...result }
     } else {
