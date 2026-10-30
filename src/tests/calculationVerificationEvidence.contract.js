@@ -10,6 +10,7 @@ const admin = read('../views/AdminView.vue')
 const breakEven = read('../components/admin/AdminBreakEven.vue')
 const finance = read('../components/admin/AdminFinanceView.vue')
 const loanEngine = read('../domain/finance/loanEngine.js')
+const performanceEngine = read('../domain/performance/performanceEngineV2.js')
 const periodSnapshot = read('../domain/finance/periodSnapshot.js')
 
 const ids = Array.from({ length: 30 }, (_, i) => `CV-${String(i + 1).padStart(2, '0')}`)
