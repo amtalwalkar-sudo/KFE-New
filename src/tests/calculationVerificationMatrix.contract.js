@@ -70,14 +70,13 @@ assert.equal(month.to.toISOString(), '2026-10-31T18:29:59.999Z')
 for (const token of ['ACTUAL', 'OBLIGATION', 'PROVISION', 'VARIANCE']) assert.ok(matrix.includes(token), `CV-29 missing financial basis ${token}`)
 
 // Phase 1 Performance intentionally exposes only recorded fare and fuel metrics.
-for (const pattern of [/overview\\.fareIncome/, /overview\\.completedRides/, /overview\\.cancellationFees/, /overview\\.fuelSpending/, /overview\\.fuelCostPerKm/, /overview\\.incomeAfterFuel/]) assert.match(performance, pattern, 'Phase 1 Performance UI binding missing')
+for (const field of ['overview.fareIncome','overview.completedRides','overview.cancellationFees','overview.fuelSpending','overview.fuelCostPerKm','overview.incomeAfterFuel']) assert.ok(performance.includes(field), 'Phase 1 Performance UI binding missing: ' + field)
 assert.match(performance, /Maintenance, EMI and other costs are not included in Phase 1/)
 assert.doesNotMatch(performance, /maintenanceProvision|loanProvision|driverTargetSurplusCredit|vehicleKm/, 'Future calculation layers must not be falsely claimed as current Performance UI')
 
 const secondary = [
   [work, 'CV-04', [/gapKm/, /Personal/, /Dead/]],
   [work, 'CV-08', [/fuelPrice/, /fuelAmount/, /fuelFull|fuelPartial/]], [timeline, 'CV-07', [/fare/i, /duration/i]],
-  [work, 'CV-08', [/fuelPrice/, /fuelAmount/, /fuelFull|fuelPartial/]],
 ]
 for (const [source, id, patterns] of secondary) for (const pattern of patterns) assert.match(source, pattern, `${id} consumer UI/source binding missing`)
 assert.doesNotMatch(timeline, /tripKm|rideDistance|distancePerRide/i, 'Timeline must not invent ride-distance metrics when ride distance is not recorded')
