@@ -1,7 +1,7 @@
 const PHOTON = 'https://photon.komoot.io/reverse'
 const gateway = () => { try { return globalThis.__KFE_MAPPLS_GEOCODER_GATEWAY__ || import.meta.env?.VITE_MAPPLS_GEOCODER_GATEWAY_ENDPOINT || '' } catch { return globalThis.__KFE_MAPPLS_GEOCODER_GATEWAY__ || '' } }
 const photonEndpoint = () => { try { return globalThis.__KFE_REVERSE_GEOCODER_ENDPOINT__ || import.meta.env?.VITE_REVERSE_GEOCODER_ENDPOINT || PHOTON } catch { return globalThis.__KFE_REVERSE_GEOCODER_ENDPOINT__ || PHOTON } }
-const CACHE_KEY = 'kfe:locality-cache:v2'
+const CACHE_KEY = 'kfe:locality-cache:v3'
 const keyFor = l => { const lat=Number(l?.latitude), lon=Number(l?.longitude); return Number.isFinite(lat)&&Math.abs(lat)<=90&&Number.isFinite(lon)&&Math.abs(lon)<=180 ? lat.toFixed(5)+':'+lon.toFixed(5) : null }
 const propertiesOf = p => p?.features?.[0]?.properties || p?.result?.address || p?.address || p?.result || p
 // Display area/locality names only. Never use a POI name or street as the visible label.
