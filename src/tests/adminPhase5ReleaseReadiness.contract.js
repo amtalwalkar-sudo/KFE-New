@@ -46,6 +46,7 @@ for (const token of ['complianceProvisionAccumulatedById', 'complianceProvisionB
   assert.equal(admin.includes(token), false, 'Cumulative Compliance provision UI/wiring must stay absent: ' + token)
 }
 assert.ok(admin.includes('maintenanceProvisionPerKm'), 'Approved effective-dated per-kilometre rate input must remain.')
+assert.match(admin, /Maintenance provision balance/, 'BR-10A signed Maintenance bucket must remain visible')
 assert.ok(admin.includes('Total maintenance paid'), 'Actual payment history/summary must remain.')
 
 // Guard the release constraints with existing Phase 2–4 contracts and the dark-only responsive shell.
