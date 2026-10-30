@@ -40,6 +40,8 @@ The five audit passes have been performed against the PR branch and corrective c
 
 ### Corrections in this PR
 - `AdminView.vue` directly queried the shell's `.content-scroll-area` element. It now emits a shell viewport intent; the shell owns the scroll-container lookup and operation.
+- GPS status, diagnostic, and backup UI components previously reached into native/platform providers directly. They now call application-facing services; native GPS and backup file plugins are isolated in infrastructure adapters. The obsolete five-second GPS status polling loop was removed; status refresh is event-driven (panel open, focus, visibility, or explicit action).
+- Removed the unreachable legacy Finance Ledger panel from Admin; the approved Admin navigation remains Business Setup, Vehicle Records, Finance, and Settings.
 - Admin presentation previously calculated source payment balances, compliance-validity revenue summaries, loan schedule status, and prepayment tenure/interest impact. These projections now use application read models or the canonical loan domain engine.
 - `CalculationsView.vue` previously imported domain time utilities and repeated the fuel quantity formula. Reporting-period and fuel-quantity access now go through `CalculationsService`, which delegates to the domain formula.
 - Admin's effective driver-target and maintenance-rate selection now goes through the Admin read-model service rather than reimplementing effective-date selection in the Vue screen.
@@ -113,6 +115,8 @@ The domain engines now preserve the signed balance (`accumulated provision - act
 | KFE-E2E-02 | Architecture | Calculation metadata referenced stale/non-existent implementation paths | Corrected; CI pending |
 | KFE-E2E-03 | Test governance | Ten existing contract suites were not registered | Registered all suites; dynamic omission guard added |
 | KFE-E2E-04 | Shell | Admin view queried shell-owned scroll DOM | Replaced with shell viewport event |
+| KFE-E2E-11 | Platform boundaries | GPS status, diagnostics and backup components directly accessed native/infrastructure providers; GPS status polled every 5 seconds | Application services and infrastructure adapters added; status polling removed |
+| KFE-E2E-12 | Admin UI | Unreachable legacy Ledger screen remained in Admin source despite no approved Ledger navigation | Removed obsolete component and branch |
 | KFE-E2E-05 | UI/calculations | Admin and Calculations views contained domain-derived arithmetic/projections | Moved to application/domain owners; focused tests added |
 | KFE-E2E-06 | Business rules | EMI and Maintenance provision buckets were zero-clamped contrary to BR-10A | Corrected to signed balances; side ledgers removed |
 | KFE-E2E-07 | Calculation traceability | Calculation evidence contracts were stale/unregistered | Paths corrected; suites registered |
