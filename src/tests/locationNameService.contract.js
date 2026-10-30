@@ -63,7 +63,7 @@ try {
     primary: { endpoint: 'mock://primary', resolve: async () => { throw new Error('network unavailable') } },
     fallback: { resolve: async () => { throw new Error('network unavailable') } },
   })
-  const failed = await offlineStyleFailure.resolveDetailed({ latitude: 19.076, longitude: 72.8777 }, { forceRefresh: true })
+  const failed = await offlineStyleFailure.resolveDetailed({ latitude: 19.076, longitude: 72.8777, accuracy: 10 }, { forceRefresh: true })
   assert.equal(failed.placeName, null)
   assert.equal(failed.state, 'PROVIDER_UNAVAILABLE')
   assert.doesNotMatch(JSON.stringify(failed), /RETRY_SCHEDULED/,
