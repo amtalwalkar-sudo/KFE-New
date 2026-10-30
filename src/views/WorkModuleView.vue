@@ -987,7 +987,6 @@ onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', handleClockVisibility)
   window.removeEventListener('pageshow', handleClockVisibility)
   window.removeEventListener('focus', handleClockVisibility)
-  if (timer) clearInterval(timer)
   nativeActionListener?.remove?.()
   // Overlay visibility follows canonical shift state, not this component's
   // mount lifetime. The PWA may navigate away or close while the active shift
