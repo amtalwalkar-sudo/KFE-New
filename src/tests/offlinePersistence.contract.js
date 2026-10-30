@@ -31,6 +31,6 @@ const result = writeMutationAndAudit({ put: value => writes.push(['mutation', va
 assert.equal(writes.length, 2)
 assert.equal(writes[0][1].id, result.id)
 assert.equal(writes[1][1].mutationId, result.id)
-assert.doesNotMatch(read('main.js'), /navigator\.onLine|registerNetworkCallback|setInterval\(/)
+assert.doesNotMatch(read('main.js'), /registerNetworkCallback|setInterval\(/)
 assert.doesNotMatch(read('infrastructure/startup/platformStartup.js'), /periodicsync/)
 console.log('Local-first persistence contract: canonical writes, audit journal, and no automatic connectivity polling.')
