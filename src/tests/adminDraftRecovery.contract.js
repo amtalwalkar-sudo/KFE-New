@@ -19,8 +19,6 @@ const createDraftB = formDraftIdentity({ formId: 'admin-vehicle', workflowStep: 
 const resumedDraftA = formDraftIdentity({ formId: 'admin-vehicle', workflowStep: 'CREATE', parentType: 'WORKFLOW', workflowId: workflowIdA })
 assert.notEqual(createDraftA.id, createDraftB.id, 'Different workflow IDs must isolate drafts for the same Admin form.')
 assert.equal(createDraftA.id, resumedDraftA.id, 'Reload/resume must preserve the existing workflow identity.')
-assert.notEqual(
-)
 
 assert.match(adminView, /FormDraftService\.newWorkflowId\(\)/, 'Each new parentless Admin workflow needs a fresh workflow ID.')
 assert.match(adminView, /FormDraftService\.latestWorkflow\('admin-' \+ formId, workflowStep, parentType, parentId\)/, 'Admin must resume a matching unfinished workflow after reload.')

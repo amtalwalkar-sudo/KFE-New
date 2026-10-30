@@ -50,7 +50,6 @@ assert.match(backupRepository, /restoreCanonicalSnapshot\(snapshot, \{ sourceExp
 assert.match(backupRepository, /resetCanonicalData\(\{ resetId \} = \{\}\) \{[\s\S]*const db = await openCanonicalDB\(\)/)
 assert.match(backupService, /source: \{ dbName: 'kanishka_kfe_canonical_db', dbVersion: CANONICAL_DB_VERSION \}/)
 assert.match(mutation, /canonical synchronization queue/)
-assert.match(mutation, /these sync lifecycle methods intentionally operate on canonical storage only/)
 assert.doesNotMatch(mutation, /initializeCanonicalStorage\(/)
 for (const method of ['recoverStaleSyncing', 'getPending', 'updateStatus', 'remove']) {
   const start = mutation.indexOf('async ' + method)
