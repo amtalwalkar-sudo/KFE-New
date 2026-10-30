@@ -86,7 +86,7 @@ assert.match(shiftTripRepo, /vehicle\?\.active !== false/, 'Explicit inactive fl
 assert.match(shiftTripRepo, /const liveVehicle = isEligibleVehicle/, 'Primary vehicle selection must use the shared vehicle eligibility rule')
 assert.match(shiftTripRepo, /const hasValidOpeningOdometer = vehicle =>[^\n]*openingOdometerKm !== null[^\n]*openingOdometerKm !== undefined[^\n]*Number\.isFinite\(Number\(vehicle\.openingOdometerKm\)\)/, 'Business-start baseline must reject null, blank, non-finite, and negative opening odometers while accepting zero')
 assert.match(shiftTripRepo, /vehicles\.filter\(v => isEligibleVehicle\(v\) && hasValidOpeningOdometer\(v\)\)/, 'Business-start baseline must apply both shared lifecycle eligibility and valid opening odometer rules')
-assert.match(perfEngine, /String\(b\.updatedAt \|\| b\.createdAt \|\| b\.id \|\| ''\)/, 'Maintenance rate selection must tie-break identical effective dates deterministically')
+assert.match(maintenanceRate, /String\\(b\\.updatedAt \\|\\| b\\.createdAt \\|\\| b\\.id \\|\\| ''\\)/, 'Maintenance rate selection must tie-break identical effective dates deterministically')
 assert.doesNotMatch(adminForm, /v-model(?:\.[\\w-]+)?=/, 'Admin form controls must not use Vue v-model for native entry')
 assert.doesNotMatch(adminForm, /userEditing/, 'Admin form must not rely on an editing flag that can be reset by parent synchronization')
 assert.ok(adminForm.includes('function changed(field, raw)'), 'Admin form native controls must write through explicit field events')
