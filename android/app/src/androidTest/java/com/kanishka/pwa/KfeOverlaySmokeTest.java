@@ -882,7 +882,7 @@ public class KfeOverlaySmokeTest {
     assertTrue(KfeNativeTripFormRules.isValidCancellationReason("DRIVER"));
     assertTrue(!KfeNativeTripFormRules.isValidCancellationReason(""));
     assertTrue(!KfeNativeTripFormRules.isValidCancellationReason("UNKNOWN"));
-    JSONObject fareCommand=KfeNativeTripFormRules.buildFarePayload(" 425 "," 12.5 ","",true,false);
+    JSONObject fareCommand=KfeNativeTripFormRules.buildFarePayload(" 425 "," 12.5 ","");
     assertEquals("425",fareCommand.getString("fare"));
     assertEquals("12.5",fareCommand.getString("toll"));
     assertEquals("",fareCommand.getString("parking"));
@@ -895,7 +895,7 @@ public class KfeOverlaySmokeTest {
     android.content.SharedPreferences draftPrefs=context.getSharedPreferences("native-form-draft-boundary-test",Context.MODE_PRIVATE);
     draftPrefs.edit().clear().commit();
     KfeNativeTripFormDraftStore.save(draftPrefs,new KfeNativeTripFormDraftStore.Draft(
-        "FARE","425","12.5","", "PASSENGER",true,true,false,true,false));
+        "FARE","425","12.5","", "PASSENGER",true,true,false));
     KfeNativeTripFormDraftStore.Draft restoredDraft=KfeNativeTripFormDraftStore.load(draftPrefs);
     assertEquals("FARE",restoredDraft.mode);
     assertEquals("425",restoredDraft.fare);
