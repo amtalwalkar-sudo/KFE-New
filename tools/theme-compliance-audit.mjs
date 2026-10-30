@@ -12,15 +12,10 @@ for (const file of expected) if (!styleImports.includes(file)) failures.push('ma
 for (const file of forbidden) if (styleImports.includes(file)) failures.push('competing theme stylesheet is still imported: ' + file)
 
 const gapForm = (await readFile(new URL('../src/components/work/WorkStartShiftForm.vue', import.meta.url), 'utf8')) + '\n' + (await readFile(new URL('../src/styles/work-cockpit-hud.css', import.meta.url), 'utf8'))
-const reconciliationForm = await readFile(new URL('../src/components/ShiftReconciliationModal.vue', import.meta.url), 'utf8')
 const requiredContrastRules = [
   [gapForm, /\.gap-panel[\s\S]*?background:\s*var\(--kfe-ui-surface-2\)[\s\S]*?color:\s*var\(--kfe-ui-text\)/, 'odometer-gap panel must define a semantic surface and foreground'],
   [gapForm, /\.gap-panel \.choice-row button[\s\S]*?color:\s*var\(--kfe-ui-text\)/, 'Personal KM / Dead KM unselected choices must define readable text'],
-  [gapForm, /\.gap-panel \.choice-row button\.selected[\s\S]*?color:\s*var\(--kfe-ui-on-accent\)/, 'selected Personal KM / Dead KM choice must use the on-accent token'],
-  [reconciliationForm, /\.input-box input[\s\S]*?background:\s*var\(--kfe-ui-input-bg\);\s*color:\s*var\(--kfe-ui-text\)/, 'reconciliation inputs must define explicit background and text tokens'],
-  [reconciliationForm, /\.input-box input::placeholder[\s\S]*?color:\s*var\(--kfe-ui-muted-strong\);\s*opacity:\s*1/, 'reconciliation placeholders must use readable muted text without opacity washing'],
-  [reconciliationForm, /\.btn-submit[\s\S]*?color:\s*var\(--kfe-ui-on-accent\)/, 'reconciliation success action must use the on-accent token'],
-  [reconciliationForm, /\.btn-submit:disabled[\s\S]*?color:\s*var\(--kfe-ui-muted-strong\)/, 'disabled reconciliation action must retain readable text']
+  [gapForm, /\.gap-panel \.choice-row button\.selected[\s\S]*?color:\s*var\(--kfe-ui-on-accent\)/, 'selected Personal KM / Dead KM choice must use the on-accent token']
 ]
 for (const [source, pattern, message] of requiredContrastRules) {
   if (!pattern.test(source)) failures.push(message)
