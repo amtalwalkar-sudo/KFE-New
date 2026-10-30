@@ -39,7 +39,7 @@ for (const [name, text] of [['AdminView.vue', adminView], ['CalculationsView.vue
     /originalEmiAmount\s*\)\s*-\s*paid/,
     /amount\s*\/\s*pricePerKg/,
     /from ['"][^'"]*\/domain\/time\//,
-  ]) if (pattern.test(text)) violations.push(\`Presentation calculation ownership: \${name} matches \${pattern}\`)
+  ]) if (pattern.test(text)) violations.push('Presentation calculation ownership: ' + name + ' matches ' + pattern)
 }
 if (/querySelector\(\s*['"]\.content-scroll-area/.test(adminView)) violations.push('AdminView must not query shell-owned scroll DOM.')
 
