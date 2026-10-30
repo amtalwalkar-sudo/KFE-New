@@ -7,6 +7,7 @@ const requiredMethods = Object.freeze({
   androidOverlay: ['hide', 'update', 'prepare', 'fareSaved', 'cancelSaved'],
   platform: ['getPlatform', 'getStartupPermissionStatus', 'requestStartupPermission', 'openStartupSetting'],
   tripBoundaryLocation: ['queueEventLocationCapture', 'captureOneShotLocation'],
+  locationNames: ['resolveLocationNameDetailed', 'resolveLocationName', 'localityResolutionCacheKey', 'getCachedLocationName'],
 })
 
 let configuredPorts = null
@@ -41,4 +42,5 @@ export const WorkRuntimePorts = Object.freeze({
   androidOverlay: createPortProxy('androidOverlay'),
   platform: createPortProxy('platform'),
   tripBoundaryLocation: createPortProxy('tripBoundaryLocation'),
+  locationNames: createPortProxy('locationNames'),
 })
