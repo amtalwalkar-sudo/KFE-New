@@ -18,7 +18,7 @@ const fuelService = read('../application/work/fuel.js')
 const fuelRepo = read('../repositories/fuelRepository.js')
 const performanceRepo = read('../repositories/performanceRepository.js')
 const performanceService = read('../application/performance/phaseOnePerformanceService.js')
-const settings = read('../components/KfeSettingsView.vue')
+const settings = read('../views/AdminView.vue') + '\n' + read('../components/admin/BackupRestorePanel.vue')
 const drafts = read('../application/forms/formDraftService.js')
 const draftRepo = read('../repositories/formDraftRepository.js')
 
@@ -64,7 +64,9 @@ match(performanceRepo, /settingKey === 'businessSetup'/, 'Business start boundar
 match(performanceService, /PerformanceRepository\.getSnapshot\(\)/, 'Basic Performance must read saved canonical records')
 match(performanceService, /calculateFuelPeriodSummary/, 'Basic Performance must use recorded fuel facts')
 assert.doesNotMatch(performanceService, /driverTarget|breakEvenInputs|amortization|forecast|provision/i)
-match(settings, /exportBackup\(\)|restoreBackup\(payload\)|resetAllData\(\)/, 'Settings operations must use application backup/reset boundary')
+match(settings, /BackupService\.createBackup\(\)/, 'Phone backup must use BackupService')
+match(settings, /BackupService\.restoreBackup\(pendingRestore\.value\.backup\)/, 'Restore must use BackupService')
+match(settings, /BackupService\.resetData\(\)/, 'Data reset must use BackupService')
 
 // Draft storage must remain separate from canonical operational records and enforce commit/discard clearing.
 match(drafts, /FormDraftRepository\.(get|save|clear)/, 'Shared draft service must delegate to the draft repository')
