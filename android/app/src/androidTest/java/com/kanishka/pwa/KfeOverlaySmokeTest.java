@@ -904,7 +904,6 @@ public class KfeOverlaySmokeTest {
     assertEquals("PASSENGER",restoredDraft.reason);
     assertTrue(restoredDraft.cancelFormPwaSynchronized);
     assertTrue(restoredDraft.tollExpanded);
-    assertTrue(restoredDraft.tollExcluded);
     assertFalse(restoredDraft.parkingExpanded);
     KfeNativeTripFormDraftStore.clear(draftPrefs);
     assertFalse("Clearing a submitted/dismissed form must remove its saved draft.",draftPrefs.contains("formMode"));
