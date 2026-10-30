@@ -32,7 +32,7 @@ Do not restore dormant or historical features because a test, document, componen
 
 **KFE_BUSINESS_RULES_REGISTER.md is the sole authoritative source for KFE business meaning and business-rule definitions.**
 
-- `KFE_LAUNCH_MASTER_PLAN.md` is the sole roadmap authority for phase sequence and launch gates.
+- KFE_LAUNCH_MASTER_PLAN.md — only document that defines phase sequence and launch gates.
 - `KFE-AUTHORITY-MAP.md` is the governance index.
 - `docs/KFE-ARCHITECTURE-CONTRACT.md` owns architecture and layer boundaries.
 - `docs/KFE-CANONICAL-DATA-CONTRACT.md` owns stored facts, relationships, and data preservation.
