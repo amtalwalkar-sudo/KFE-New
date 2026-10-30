@@ -18,7 +18,7 @@ const suites = [
   'nativeCanonicalPersistence.contract.js',
   'adminNavigation.contract.js',
   'backup.contract.js',
-].join('\n');
+];
 
 const results = suites.map(suite => {
   const result = spawnSync(process.execPath, [`src/tests/${suite}`], { cwd: root, encoding: 'utf8' })
