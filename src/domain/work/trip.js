@@ -14,13 +14,6 @@ export function validateTripCorrection(data = {}) {
     if (!operator.valid) return operator
     result.operator = operator.operator
   }
-  if (data.tripKm !== undefined && data.tripKm !== '') {
-    const tripKm = Number(data.tripKm)
-    if (!Number.isFinite(tripKm) || tripKm < 0) return { valid: false, reason: 'Trip KM must be a non-negative number.' }
-    result.tripKm = tripKm
-    result.tripKmAuthority = 'MANUAL'
-    result.tripKmProvenance = { method: 'MANUAL_CORRECTION', source: 'WORK_TRIP_CORRECTION' }
-  }
   if (data.revenue !== undefined) {
     if (data.revenue === '' || data.revenue === null) {
       // Explicitly clearing a previously saved fare is different from omitting
