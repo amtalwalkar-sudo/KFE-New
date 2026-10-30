@@ -56,6 +56,7 @@ const effectiveTarget = AdminReadModelService.getEffectiveDriverTarget({
     { id: 'current', values: { driverId: 'driver-1', effectiveFrom: '2026-09-01', desiredDriverProfit: 12000 } },
     { id: 'other-driver', values: { driverId: 'driver-2', effectiveFrom: '2026-10-01', desiredDriverProfit: 20000 } },
     { id: 'future', values: { driverId: 'driver-1', effectiveFrom: '2026-11-01', desiredDriverProfit: 30000 } },
+    { id: 'inactive', active: false, values: { driverId: 'driver-1', effectiveFrom: '2026-10-01', desiredDriverProfit: 40000 } },
   ],
 })
 assert.equal(effectiveTarget.id, 'current', 'target selection must respect driver identity and effective date')
@@ -66,6 +67,7 @@ const effectiveRate = AdminReadModelService.getEffectiveMaintenanceRate({
     { id: 'old-rate', values: { effectiveFrom: '2026-08-01', maintenanceProvisionPerKm: 1.5 } },
     { id: 'new-rate', values: { effectiveFrom: '2026-10-01', maintenanceProvisionPerKm: 2 } },
     { id: 'future-rate', values: { effectiveFrom: '2026-11-01', maintenanceProvisionPerKm: 3 } },
+    { id: 'expired-rate', values: { effectiveFrom: '2026-10-01', effectiveUntil: '2026-10-15', maintenanceProvisionPerKm: 4 } },
   ],
 })
 assert.equal(effectiveRate.id, 'new-rate', 'maintenance rate selection must respect the IST as-of date')
