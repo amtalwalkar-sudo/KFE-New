@@ -1,11 +1,6 @@
-import { openCanonicalDB, getActiveDataSource } from '../utils/indexedDB.js'
+import { openCanonicalDB } from '../utils/indexedDB.js'
 
-// MutationRepository is the canonical synchronization queue.
-// Business repositories may persist business records in either physical data source,
-// but mutation/audit records are canonical-only. Synthetic-mode business writes must
-// never become sync candidates or cross into the canonical database.
-// these sync lifecycle methods intentionally operate on canonical storage only; the active
-// synthetic data source is consulted only at the business-write boundary above.
+// MutationRepository is the single canonical synchronization queue.
 import { generateUUID } from '../utils/uuid.js'
 
 export const MUTATION_VERSION = 1
@@ -34,10 +29,6 @@ export const buildAuditRecord = ({ mutationId, entityId, entityType, action, pay
 })
 
 export const writeMutationAndAudit = (mutationStore, auditStore, args) => {
-  // Synthetic data is deliberately non-syncable. The business record remains in
-  // the active synthetic DB transaction, while the canonical mutation/audit queue
-  // remains untouched. Canonical mode keeps the existing atomic queue behavior.
-  if (getActiveDataSource() !== 'canonical') return null
   const mutation = buildMutationRecord(args)
   mutationStore.put(mutation)
   auditStore.put(buildAuditRecord({ ...args, mutationId: mutation.id }))
