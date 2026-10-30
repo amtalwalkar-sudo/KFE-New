@@ -1,5 +1,5 @@
 import { Capacitor, registerPlugin } from '@capacitor/core'
-import { normalizeTripBoundaryLocation } from '../../application/work/tripBoundaryLocation.js'
+import { normalizeTripBoundaryLocation } from '../../domain/location/tripBoundaryLocation.js'
 
 const NativeTripBoundaryLocation = registerPlugin('KfeTripBoundaryLocation')
 
