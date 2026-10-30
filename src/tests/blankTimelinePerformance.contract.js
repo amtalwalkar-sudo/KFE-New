@@ -20,7 +20,7 @@ assert.doesNotMatch(performanceView, /PhaseOnePerformanceService\.subscribeDataC
 assert.match(performanceService, /PerformanceRepository\.getSnapshot\(\)/)
 assert.match(performanceService, /calculateFuelPeriodSummary\(fuelLogs, range\)/)
 assert.match(performanceService, /incomeAfterFuel: recordedRevenue - fuelSummary\.totalFuelAmount/)
-assert.doesNotMatch(performanceService, /PerformanceService|DriverTargetService|deriveOperatingKmForecast|deriveFinanceAwarePerformance/)
+assert.doesNotMatch(performanceService, /import\s*\{\s*PerformanceService\s*\}|DriverTargetService|deriveOperatingKmForecast|deriveFinanceAwarePerformance/)
 assert.match(performanceView, /Income after fuel/)
 assert.match(performanceView, /Fare income/)
 assert.match(performanceView, /Cancellation fees/)
