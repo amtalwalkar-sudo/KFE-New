@@ -26,7 +26,7 @@ A cloud service must not be required to create, read, update, calculate, or reta
 
 ## 3. Canonical persistence
 
-Every canonical persisted entity uses its stable client-generated UUID as the IndexedDB key path `id`. Existing IDs survive updates and future migration/backup/sync operations.
+Every canonical persisted entity uses its stable client-generated UUID as the IndexedDB key path `id`. Existing IDs survive updates and backup/restore operations.
 
 Canonical stores remain those established by Phase 1. Supporting stores remain infrastructure/supporting records and cannot become replacement business authorities.
 
@@ -52,7 +52,7 @@ Transaction lifecycle errors (`error`/`abort`) must reject the operation.
 
 Mutation records are durable local queue records with their own UUID, affected `entityId`, action, payload, status, retry count, version, and creation time. Audit records have their own UUID and retain the mutation relationship.
 
-Pending mutation ordering is deterministic by creation time and UUID. Sync processing is not part of Phase 2, but the persistence shape must remain compatible with the later sync phase.
+Pending mutation ordering is deterministic by creation time and UUID. The journal is local persistence and recovery infrastructure only; remote synchronization is not part of the current product scope.
 
 ## 7. Soft deletion
 
@@ -80,7 +80,7 @@ Persistence failure must remain observable; no silent in-memory-only success pat
 
 ## 11. Provider boundary
 
-Phase 2 persistence must not import or require Supabase, Firebase, Google Drive, OCR/AI providers, or other external providers. Provider selection remains replaceable at later integration boundaries.
+Phase 2 persistence must not import or require Supabase, Firebase, Google Drive, OCR/AI providers, or other external providers. External provider integrations are outside the current product scope.
 
 ## 12. Phase 2 exit condition
 
