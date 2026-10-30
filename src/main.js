@@ -97,6 +97,7 @@ void (async () => {
     await runStartupPermissionGate()
     void StartupService.startApplication().then(() => {
       window.__KFE_STARTUP_READY__ = true
+      retryDropboxBackup()
     }).catch(error => {
       window.__KFE_STARTUP_ERROR__ = error?.message || String(error)
       console.error('KFE application startup failed:', error)
