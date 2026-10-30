@@ -31,7 +31,7 @@ Anything outside these five capabilities is out of product scope. Do not restore
 |---|---|---|
 | Governance / authority map | KFE-AUTHORITY-MAP.md | This index only |\n| Stable functional baseline | KFE_STABLE_FUNCTIONAL_BASELINE.md | Top-level stable starting-point record; references domain authorities and does not duplicate them |
 | Business meaning and business rules | KFE_BUSINESS_RULES_REGISTER.md | Rule meaning, invariants, business semantics |
-| Arithmetic and formulas | docs/KFE-CALCULATION-SPECIFICATION.md | Formula mechanics; subordinate to business meaning |
+| Basic Performance calculations | docs/KFE-CALCULATION-SPECIFICATION.md | Only recorded revenue, fuel spending, full-tank fuel cost/km, and income after fuel |
 | Architecture / ownership / layer boundaries | docs/KFE-ARCHITECTURE-CONTRACT.md | Responsibility and implementation boundaries |
 | Canonical domain/data model | docs/KFE-CANONICAL-DATA-CONTRACT.md | Entities, fields, relationships, source-of-truth data |
 | Operational lifecycle/state machine | docs/KFE-OPERATIONAL-LIFECYCLE-CONTRACT.md | Shift/trip/cancellation/reconciliation transitions across surfaces |
@@ -47,14 +47,6 @@ Anything outside these five capabilities is out of product scope. Do not restore
 
 ### Business / calculation evidence
 - docs/KFE-BUSINESS-RULES-AUDIT-EVIDENCE.md — consolidated business-rule audit, re-audit, and defect evidence.
-- docs/CALCULATION-AUTHORITY-MATRIX.md — calculation traceability/evidence.
-- docs/DRIVER-TARGET-AUTHORITATIVE-AUDIT-2026-09-16.md — Driver Target audit/evidence.
-- docs/DRIVER-TARGET-IMPLEMENTATION-BOUNDARY.md — Driver Target implementation boundary.
-- docs/DRIVER-TARGET-STABILIZATION-REGRESSION.md — regression/evidence.
-- docs/OPERATING-KM-FORECAST.md — operating-KM forecast implementation/reference.
-- docs/PROFIT_TARGET_RECOVERY_AUDIT.md — profit/target/recovery audit.
-- docs/KFE-FINANCE-FREEZE-2026-09-17.md — frozen finance implementation supplement.
-- docs/KFE-PHASE-5-CALCULATION-EVIDENCE.md — consolidated calculation integration and traceability evidence.
 
 ### Data / persistence / operational evidence
 - docs/KFE-PHASE-2-PERSISTENCE-CONTRACT.md — persistence implementation/evidence under canonical data contract.
