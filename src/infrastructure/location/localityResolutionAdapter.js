@@ -2,6 +2,11 @@ const PHOTON = 'https://photon.komoot.io/reverse'
 const gateway = () => { try { return globalThis.__KFE_MAPPLS_GEOCODER_GATEWAY__ || import.meta.env?.VITE_MAPPLS_GEOCODER_GATEWAY_ENDPOINT || '' } catch { return globalThis.__KFE_MAPPLS_GEOCODER_GATEWAY__ || '' } }
 const photonEndpoint = () => { try { return globalThis.__KFE_REVERSE_GEOCODER_ENDPOINT__ || import.meta.env?.VITE_REVERSE_GEOCODER_ENDPOINT || PHOTON } catch { return globalThis.__KFE_REVERSE_GEOCODER_ENDPOINT__ || PHOTON } }
 const CACHE_KEY = 'kfe:locality-cache:v3'
+const MAX_LOCALITY_ACCURACY_METERS = 150
+const hasReliableAccuracy = location => {
+  const accuracy = Number(location?.accuracy)
+  return Number.isFinite(accuracy) && accuracy >= 0 && accuracy <= MAX_LOCALITY_ACCURACY_METERS
+}
 const keyFor = l => { const lat=Number(l?.latitude), lon=Number(l?.longitude); return Number.isFinite(lat)&&Math.abs(lat)<=90&&Number.isFinite(lon)&&Math.abs(lon)<=180 ? lat.toFixed(5)+':'+lon.toFixed(5) : null }
 const propertiesOf = p => p?.features?.[0]?.properties || p?.result?.address || p?.address || p?.result || p
 // Display area/locality names only. Never use a POI name or street as the visible label.
@@ -39,6 +44,10 @@ export class LocalityResolutionService {
   constructor({primary=new MapplsGatewayLocationNameAdapter(),fallback=new PhotonLocationNameAdapter(),cacheEnabled=true}={}){this.primary=primary;this.fallback=fallback;this.cacheEnabled=cacheEnabled}
   async resolveDetailed(l,{forceRefresh=false}={}){
     const key=keyFor(l);if(!key)return {placeName:null,state:'INVALID_COORDINATES',provider:null,cacheHit:false}
+    // A precise-looking locality label is unsafe when the source GPS fix is
+    // too coarse to distinguish nearby Mumbai neighbourhoods. Keep the raw
+    // event snapshot, but do not query or display a locality for weak fixes.
+    if(!hasReliableAccuracy(l))return {placeName:null,state:'LOW_ACCURACY',provider:null,cacheHit:false}
     let cache={};try{cache=JSON.parse(globalThis.localStorage?.getItem(CACHE_KEY)||'{}')||{}}catch{}
     if(this.cacheEnabled&&!forceRefresh&&cache[key]?.placeName)return {placeName:cache[key].placeName,state:'RESOLVED',provider:cache[key].provider||'cache',cacheHit:true}
     let lastError=null
@@ -68,6 +77,7 @@ export const resolveLocationName=async(l,resolver=defaultResolver)=>(await resol
 export const localityResolutionCacheKey=keyFor
 
 export const getCachedLocationName = l => {
+  if (!hasReliableAccuracy(l)) return null
   const key = keyFor(l)
   if (!key) return null
   try {
