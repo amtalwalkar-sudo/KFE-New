@@ -101,7 +101,23 @@ onUnmounted(() => {
           <small>Fare income + cancellation fees − fuel spending</small>
         </article>
       </section>
-      <p class="performance-footnote">Income after fuel is an operating summary, not net profit. Maintenance, EMI and other costs are not included in Phase 1.</p>
+      <section class="performance-provisions" aria-labelledby="performance-provisions-title">
+        <h2 id="performance-provisions-title">Cumulative provision balances</h2>
+        <p class="performance-period-note">Signed balances as of {{ new Date(overview.provisionBalances.asOf).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) }}. Negative means payments exceed provision accrued; the balance is not clamped to zero.</p>
+        <div class="performance-metric-grid" aria-label="Cumulative provision balances">
+          <article class="performance-metric">
+            <span>EMI provision balance</span>
+            <strong>{{ overview.provisionBalances.emi.available ? money(overview.provisionBalances.emi.balance) : 'Unavailable' }}</strong>
+            <small>{{ overview.provisionBalances.emi.available ? 'Accumulated EMI provision less actual EMI payments' : 'No complete active loan calculation is available' }}</small>
+          </article>
+          <article class="performance-metric">
+            <span>Maintenance provision balance</span>
+            <strong>{{ overview.provisionBalances.maintenance.available ? money(overview.provisionBalances.maintenance.balance) : 'Unavailable' }}</strong>
+            <small>{{ overview.provisionBalances.maintenance.available ? 'Accumulated maintenance provision less actual maintenance payments' : 'A valid maintenance-rate history is required' }}</small>
+          </article>
+        </div>
+      </section>
+      <p class="performance-footnote">Income after fuel remains a Phase 1 operating summary, not net profit. The signed provision balances are shown separately and are not subtracted a second time from that figure.</p>
     </template>
   </section>
 </template>
