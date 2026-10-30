@@ -1,5 +1,5 @@
 import { createBackupRepository, mergeCanonicalBackupSnapshot } from '../../repositories/backupRepository.js'
-import { NativeCanonicalWorkService } from '../../infrastructure/android/nativeCanonicalWork.js'
+import { WorkRuntimePorts } from '../work/workRuntimePorts.js'
 import { CANONICAL_DB_VERSION } from '../../constants/canonicalDatabase.js'
 export const BACKUP_FORMAT = 'KFE_BACKUP'
 export const BACKUP_FORMAT_VERSION = 4
@@ -49,7 +49,7 @@ const readAllNativeWorkRecords = async entityType => {
   let offset = 0
   let expectedTotal = null
   do {
-    const page = await NativeCanonicalWorkService.listRecords({ entityType, limit: pageSize, offset })
+    const page = await WorkRuntimePorts.canonicalWork.listRecords({ entityType, limit: pageSize, offset })
     if (!Number.isInteger(page.totalCount) || page.totalCount < 0 || page.offset !== offset) {
       throw new Error(`Native ${entityType} backup pagination returned invalid count/offset metadata.`)
     }
@@ -71,7 +71,7 @@ const readAllNativeWorkRecords = async entityType => {
 }
 
 const readNativeWorkSnapshot = async () => {
-  if (!NativeCanonicalWorkService.isAvailable()) return null
+  if (!WorkRuntimePorts.canonicalWork.isAvailable()) return null
   const [shifts, trips] = await Promise.all([
     readAllNativeWorkRecords('SHIFT'),
     readAllNativeWorkRecords('TRIP'),
@@ -89,14 +89,14 @@ const mergeBackupWorkIntoNative = async (backup, nativeSnapshot) => {
     for (const record of merged.addedRecordsByStore[storeName] || []) {
       const operationId = `backup-restore:${backup.exportedAt}:${entityType}:${record.id}`
       try {
-        await NativeCanonicalWorkService.putRecord({ operationId, entityType, record, expectAbsent: true })
+        await WorkRuntimePorts.canonicalWork.putRecord({ operationId, entityType, record, expectAbsent: true })
         added++
       } catch (error) {
         // A process death/lost acknowledgement may occur after SQLite commits.
         // Verify the same record identity before deciding whether retry is safe.
         const [verified, operation] = await Promise.all([
-          NativeCanonicalWorkService.getRecord({ entityType, entityId: record.id }),
-          NativeCanonicalWorkService.getOperation(operationId),
+          WorkRuntimePorts.canonicalWork.getRecord({ entityType, entityId: record.id }),
+          WorkRuntimePorts.canonicalWork.getOperation(operationId),
         ])
         const sameCommittedOperation = operation?.found === true
           && operation.command === 'PUT_RECORD'
@@ -204,16 +204,16 @@ const continueReset = async resetId => {
     if (journal.state === 'COMPLETE') backupRepository.clearCanonicalResetBarrier(resetId)
     return { ok: journal.state === 'COMPLETE', resetId, state: journal.state }
   }
-  const nativeAvailable = NativeCanonicalWorkService.isAvailable()
+  const nativeAvailable = WorkRuntimePorts.canonicalWork.isAvailable()
   if (journal.nativeRequired && !nativeAvailable) {
     throw new Error('Reset recovery is blocked because the native canonical store is unavailable.')
   }
 
   try {
     if (nativeAvailable) {
-      const nativeState = await NativeCanonicalWorkService.getCanonicalResetState()
+      const nativeState = await WorkRuntimePorts.canonicalWork.getCanonicalResetState()
       if (!nativeState?.found || nativeState.resetId !== resetId) {
-        await NativeCanonicalWorkService.beginCanonicalReset(resetId)
+        await WorkRuntimePorts.canonicalWork.beginCanonicalReset(resetId)
       }
     }
 
@@ -224,7 +224,7 @@ const continueReset = async resetId => {
     await backupRepository.saveResetJournal(journal)
 
     if (nativeAvailable) {
-      await NativeCanonicalWorkService.clearCanonicalReset(resetId)
+      await WorkRuntimePorts.canonicalWork.clearCanonicalReset(resetId)
       journal = { ...journal, state: 'NATIVE_CLEARED' }
       await backupRepository.saveResetJournal(journal)
     }
@@ -240,8 +240,8 @@ const continueReset = async resetId => {
 
     // Keep native writes blocked until the browser store has also been verified.
     if (nativeAvailable) {
-      await NativeCanonicalWorkService.completeCanonicalReset(resetId)
-      const nativeState = await NativeCanonicalWorkService.getCanonicalResetState()
+      await WorkRuntimePorts.canonicalWork.completeCanonicalReset(resetId)
+      const nativeState = await WorkRuntimePorts.canonicalWork.getCanonicalResetState()
       if (nativeState?.found !== true || nativeState.resetId !== resetId || nativeState.state !== 'COMPLETE') {
         throw new Error('Native canonical reset could not be verified.')
       }
@@ -253,7 +253,7 @@ const continueReset = async resetId => {
     backupRepository.clearCanonicalResetBarrier(resetId)
     if (nativeAvailable) {
       try {
-        await NativeCanonicalWorkService.releaseCanonicalReset(resetId)
+        await WorkRuntimePorts.canonicalWork.releaseCanonicalReset(resetId)
       } catch (error) {
         // If native release acknowledgement is uncertain, restore the browser
         // barrier so neither interface can mutate while reset completion is unclear.
@@ -274,7 +274,7 @@ const runResetData = async () => {
   await recoverPendingReset()
   await recoverPendingRestore()
   const resetId = globalThis.crypto?.randomUUID?.() || `reset-${Date.now()}-${Math.random().toString(36).slice(2)}`
-  const nativeRequired = NativeCanonicalWorkService.isAvailable()
+  const nativeRequired = WorkRuntimePorts.canonicalWork.isAvailable()
   backupRepository.setCanonicalResetBarrier(resetId)
   await backupRepository.saveResetJournal({
     id: 'current',
@@ -330,11 +330,11 @@ export const resetData = () => {
 export const recoverPendingReset = async () => {
   let journal = await backupRepository.getResetJournal()
   const barrierId = backupRepository.getCanonicalResetBarrier()
-  const nativeAvailable = NativeCanonicalWorkService.isAvailable()
+  const nativeAvailable = WorkRuntimePorts.canonicalWork.isAvailable()
   // Recover even if the browser marker/journal was interrupted but SQLite has
   // a durable pending reset. Never resume destructive work without its checkpoint.
   if (!journal && !barrierId && nativeAvailable) {
-    const nativeState = await NativeCanonicalWorkService.getCanonicalResetState()
+    const nativeState = await WorkRuntimePorts.canonicalWork.getCanonicalResetState()
     if (nativeState?.found && nativeState.state !== 'COMPLETE') {
       const checkpoint = await backupRepository.getResetCheckpoint(nativeState.resetId)
       if (!checkpoint?.backup) throw new Error('Native reset is pending but its browser recovery checkpoint is missing; startup is blocked.')
@@ -352,7 +352,7 @@ export const recoverPendingReset = async () => {
   if (!journal && barrierId) {
     const checkpoint = await backupRepository.getResetCheckpoint(barrierId)
     if (!checkpoint?.backup) {
-      const nativeState = nativeAvailable ? await NativeCanonicalWorkService.getCanonicalResetState() : null
+      const nativeState = nativeAvailable ? await WorkRuntimePorts.canonicalWork.getCanonicalResetState() : null
       if (nativeState?.found && nativeState.resetId === barrierId && nativeState.state !== 'COMPLETE') {
         throw new Error('Reset barrier and native reset are pending but the verified recovery checkpoint is missing; startup is blocked.')
       }
@@ -373,7 +373,7 @@ export const recoverPendingReset = async () => {
     await backupRepository.saveResetJournal(journal)
   }
   if (journal?.state === 'CHECKPOINTING') {
-    const nativeState = nativeAvailable ? await NativeCanonicalWorkService.getCanonicalResetState() : null
+    const nativeState = nativeAvailable ? await WorkRuntimePorts.canonicalWork.getCanonicalResetState() : null
     if (nativeState?.found && nativeState.resetId === journal.resetId && nativeState.state !== 'COMPLETE') {
       throw new Error('Native reset began before the checkpointing phase completed; startup is blocked for manual recovery.')
     }
@@ -388,7 +388,7 @@ export const recoverPendingReset = async () => {
     if (journal?.state === 'COMPLETE' && journal.nativeRequired && nativeAvailable) {
       if (barrierId === journal.resetId) backupRepository.clearCanonicalResetBarrier(journal.resetId)
       try {
-        await NativeCanonicalWorkService.releaseCanonicalReset(journal.resetId)
+        await WorkRuntimePorts.canonicalWork.releaseCanonicalReset(journal.resetId)
       } catch (error) {
         backupRepository.setCanonicalResetBarrier(journal.resetId)
         throw error
