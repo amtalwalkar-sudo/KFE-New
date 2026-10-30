@@ -1,22 +1,23 @@
-# Performance Screen Foundation
+# Performance Foundation
 
-The primary Status destination has been replaced by Performance while retaining the existing KFE shell.
+**Scope:** This document covers only the basic read-only Performance screen.
 
-## Foundation boundaries
-- Performance is the active driver-centric Performance + Financial interpretation surface.
-- Presentation reads authoritative repository facts through the application read-model boundary.
-- Missing or incomplete inputs remain unavailable; they are not converted to zero or invented values.
-- Personal-use data remains separated from business performance.
-- Today’s Target remains separate from ERP accounting.
-- The old Status component and Status application wiring are removed.
-- Work presentation wiring is intentionally absent while the Work domain/application capability remains available for a future clean rebuild.
+## Supported summary
 
-## Current foundation
-- Today’s Position brief
-- Revenue / Running Cost / Balance core strip
-- Performance, Cost, Time and Intelligence containers
-- Inline expansion for detail
-- Contextual Why
-- Expandable history/context
-- Offline and unavailable-data states
-- Authoritative freshness marker
+- Recorded revenue from completed ride fares plus saved cancellation fees.
+- Completed ride count.
+- Recorded fuel spending, including partial refills.
+- Fuel cost/km from consecutive valid full-tank odometer readings only.
+- Income after fuel = recorded revenue − recorded fuel spending.
+
+## Exclusions
+
+No targets, forecasts, break-even models, provisions, profitability projections, loan amortization, maintenance projections, or other derived financial models.
+
+## Ownership
+
+- Read saved canonical records through `PerformanceRepository`.
+- Keep calculation logic in the application/domain layer, not in the view.
+- Performance is read-only and must not mutate rides, shifts, fuel records, or Admin forms.
+- Timeline and Performance may share saved source facts but do not own a second persistence authority.
+- Any new calculation requires an explicit user request and an update to the business-rule register first.
