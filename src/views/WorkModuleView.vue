@@ -23,7 +23,6 @@ const tripCreateWorkflowId = ref('')
 const fuelWorkflowId = ref('')
 let restoringDrafts = false
 let workflowTimerReady = false
-let nativeReplayTimer = null
 
 const startOdo = ref('')
 const startAck = ref(false)
@@ -70,6 +69,22 @@ const swipePointerId = ref(null)
 
 let timer = null
 const refreshClock = () => { clock.value = Date.now() }
+const startClock = () => {
+  if (timer !== null) return
+  timer = window.setInterval(refreshClock, 1000)
+}
+const stopClock = () => {
+  if (timer !== null) window.clearInterval(timer)
+  timer = null
+}
+const handleClockVisibility = () => {
+  if (document.visibilityState === 'visible') {
+    refreshClock()
+    startClock()
+  } else {
+    stopClock()
+  }
+}
 let nativeActionListener = null
 
 
@@ -885,10 +900,6 @@ onMounted(async () => {
   document.addEventListener('visibilitychange', replayFailedNativeActions)
   window.addEventListener('pageshow', replayFailedNativeActions)
   window.addEventListener('focus', replayFailedNativeActions)
-  // A transient bridge/WebView failure must not leave the native swipe locked
-  // indefinitely while Work remains visible. Reuse the same durable event IDs;
-  // processNativeEvent serializes per-ID work and acknowledges only confirmed saves.
-  nativeReplayTimer = setInterval(() => { void replayFailedNativeActions() }, 5000)
   await store.initialize()
   await fuel.refresh().catch(() => {})
   startWorkflowId.value = (await draftController.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || draftController.newWorkflowId()
@@ -938,11 +949,10 @@ onMounted(async () => {
 
   // Wall-clock time is authoritative. Background throttling may delay interval callbacks,
   // so refresh immediately whenever Android/WebView returns to the foreground.
-  refreshClock()
-  timer = setInterval(refreshClock, 1000)
-  document.addEventListener('visibilitychange', refreshClock)
-  window.addEventListener('pageshow', refreshClock)
-  window.addEventListener('focus', refreshClock)
+  handleClockVisibility()
+  document.addEventListener('visibilitychange', handleClockVisibility)
+  window.addEventListener('pageshow', handleClockVisibility)
+  window.addEventListener('focus', handleClockVisibility)
 
   nativeActionListener = await WorkRuntimePorts.nativeWorkActions.addListener(
     'nativeWorkAction',
@@ -973,11 +983,10 @@ onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', replayFailedNativeActions)
   window.removeEventListener('pageshow', replayFailedNativeActions)
   window.removeEventListener('focus', replayFailedNativeActions)
-  if (nativeReplayTimer) clearInterval(nativeReplayTimer)
-  nativeReplayTimer = null
-  document.removeEventListener('visibilitychange', refreshClock)
-  window.removeEventListener('pageshow', refreshClock)
-  window.removeEventListener('focus', refreshClock)
+  stopClock()
+  document.removeEventListener('visibilitychange', handleClockVisibility)
+  window.removeEventListener('pageshow', handleClockVisibility)
+  window.removeEventListener('focus', handleClockVisibility)
   if (timer) clearInterval(timer)
   nativeActionListener?.remove?.()
   // Overlay visibility follows canonical shift state, not this component's
