@@ -126,7 +126,9 @@ assert.match(catchUpView, /const replayFailedNativeActions = nativeActionControl
 assert.match(nativeActionController, /const replay = async \(\) => \{[\s\S]*?consumePendingActions\(\)[\s\S]*?for \(const event of pending\) await enqueue\(event\)/)
 assert.match(nativeActionController, /const process = async event => \{[\s\S]*?actions\.acknowledgeAction\([\s\S]*?if \(!acknowledged\)/)
 assert.match(nativeActionController, /actions\.recordActionFailure\(eventId, 'Work saved the action but native acknowledgement failed'/)
-assert.match(catchUpView, /nativeReplayTimer = setInterval\(\(\) => \{ void replayFailedNativeActions\(\) \}, 5000\)/)
+assert.match(catchUpView, /document\.addEventListener\('visibilitychange', replayFailedNativeActions\)/)
+assert.match(catchUpView, /window\.addEventListener\('pageshow', replayFailedNativeActions\)/)
+assert.doesNotMatch(catchUpView, /nativeReplayTimer|setInterval\(\(\) => \{ void replayFailedNativeActions/)
 console.log('PWA catch-up contract passed: durable pending events replay sequentially under their original IDs, acknowledgement failures remain retryable, and foreground retries continue.')
 
 console.log('KFE Phase 8 Android/Capacitor native architecture contract: PASS')
