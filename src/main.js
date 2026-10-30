@@ -2,7 +2,8 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { installWorkRuntimeAdapter } from './infrastructure/work/workRuntimeAdapter.js'
 import App from './App.vue'
-import router from './router'
+import { createKfeRouter } from './router'
+import { WorkRuntimePorts } from './application/work/workRuntimePorts.js'
 import './styles/kfe-ui.css'
 import './styles/forms.css'
 import './styles/work-cockpit-hud.css'
@@ -10,6 +11,7 @@ import './styles/kfe-base-shell.css'
 import './styles/admin-workspace.css'
 
 installWorkRuntimeAdapter()
+const router = createKfeRouter({ isNativePlatform: WorkRuntimePorts.platform.getPlatform() !== 'web' })
 
 const app = createApp(App)
 app.config.errorHandler = (err, instance, info) => {
