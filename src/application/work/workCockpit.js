@@ -9,9 +9,9 @@ export const WORK_COCKPIT_STATES = Object.freeze({
 
 export const deriveWorkCockpitState = ({
   shift, trip,
-  target = '—', targetProgress = 0, revenue = '₹0', pendingFareId = '', asOf = Date.now()
+  revenue = '₹0', pendingFareId = '', asOf = Date.now()
 } = {}) => {
-  const base = { target, targetProgress: Number(targetProgress) || 0, revenue, pendingFareId: pendingFareId || '' }
+  const base = { revenue, pendingFareId: pendingFareId || '' }
   const shiftStartAt = Date.parse(shift?.shiftStartAt || '') || 0
   const shiftEndAt = Date.parse(shift?.shiftEndAt || '') || 0
   const shiftDurationMs = shiftStartAt ? Math.max(0, (shiftEndAt || Number(asOf) || Date.now()) - shiftStartAt) : 0
