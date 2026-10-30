@@ -80,7 +80,7 @@ assert.match(router, /path: '\/timeline'/, 'Timeline is an active route and must
 assert.match(router, /path: '\/performance'/, 'Performance is an active route and must remain in the route inventory')
 assert.match(router, /path: '\/admin'/, 'Admin is an active route and must remain in the route inventory')
 assert.doesNotMatch(router, /VehicleModuleView|MaintenanceModuleView|LoanModuleView|ComplianceModuleView|KfeFinancialModuleView/, 'Secondary legacy module components are not direct routes in the current PWA router')
-assert.match(performanceRepo, /'shifts', 'trips', 'fuel_logs', 'vehicles'/, 'Performance snapshot must include operational and vehicle records')
+assert.match(performanceRepo, /PERFORMANCE_STORES = Object\.freeze\(\['shifts', 'trips', 'fuel_logs', 'settings'\]\)/, 'Basic Performance must read only rides, fuel, and business-start boundary facts')
 assert.match(performanceService, /PerformanceRepository\.getSnapshot\(\)/, 'Basic Performance must read saved canonical records')
 assert.match(performanceService, /calculateFuelPeriodSummary/, 'Basic Performance must summarize saved fuel facts')
 assert.doesNotMatch(performanceService, /driverTarget|breakEvenInputs|amortization|forecast|provision/i)

@@ -87,7 +87,7 @@ onMounted(refresh)
     <p v-if="error" class="error">{{ error }}</p>
     <p v-if="notice" class="notice">{{ notice }}</p>
     <div class="status">
-      <div><strong>Private recovery copy</strong><small>Stored inside the app for interrupted-operation recovery.</small></div>
+      <div><strong>KFE private recovery copy</strong><small>Stored inside the app for interrupted-operation recovery.</small></div>
       <span v-if="status">{{ status.totalRecords }} records · {{ status.savedAt }}</span>
       <span v-else>No recovery copy created yet.</span>
     </div>
