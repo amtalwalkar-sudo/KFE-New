@@ -48,7 +48,7 @@ for(const token of ['CNG refuelling','persisted shift/trip/fuel records produce 
 assert.match(smoke,/kanishka_kfe_canonical_db/)
 assert.match(smoke,/kanishka_kfe_synthetic_db/)
 assert.match(db,/CANONICAL_DB_NAME = 'kanishka_kfe_canonical_db'/)
-assert.match(db,/SYNTHETIC_DB_NAME = 'kanishka_kfe_synthetic_db'/)
+assert.doesNotMatch(db, /SYNTHETIC_DB_NAME|setActiveDataSource|initializeSyntheticStorage/)
 assert.match(theme,/root\.dataset\.kfeTheme='dark'/)
 assert.match(theme,/root\.dataset\.kfeThemeMode='dark'/)
 assert.match(theme,/localStorage\.setItem\(STORAGE_KEY, 'dark'\)/)
