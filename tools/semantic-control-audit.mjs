@@ -156,7 +156,13 @@ try {
   await enterKfeNumber('Current vehicle odometer', '1000')
   await page.getByRole('checkbox', { name: /current vehicle odometer/i }).waitFor({ state: 'visible' }); await page.getByRole('checkbox', { name: /current vehicle odometer/i }).check()
   await page.getByRole('button', { name: 'CONFIRM & GO ONLINE', exact: true }).click()
-  await page.getByRole('button', { name: 'GO TO PICKUP', exact: true }).waitFor({ state: 'visible', timeout: 10000 })
+  try {
+    await page.locator('.work-fixed-action .swipe-handle[aria-label="GO TO PICKUP"]').waitFor({ state: 'visible', timeout: 10000 })
+  } catch (error) {
+    const diagnostics = await page.locator('body').innerText().catch(() => '')
+    await page.screenshot({ path: 'artifacts/semantic-control-audit/start-shift-failure.png', fullPage: true }).catch(() => {})
+    throw new Error('START SHIFT did not expose GO TO PICKUP after confirmation. Visible Work state: ' + diagnostics.slice(0, 3000) + '\\n' + error.message)
+  }
   let state = await db(page, ['shifts'])
   assert(state.shifts.length === 1 && state.shifts[0].status === 'ACTIVE' && Number(state.shifts[0].startOdometer) === 1000, 'START SHIFT contract failed')
   evidence.push({ id: 'WORK.START_SHIFT', result: 'PASS', expected: 'one ACTIVE shift at 1000 km', persisted: { shifts: state.shifts.length, status: state.shifts[0]?.status, startOdometer: state.shifts[0]?.startOdometer } })
