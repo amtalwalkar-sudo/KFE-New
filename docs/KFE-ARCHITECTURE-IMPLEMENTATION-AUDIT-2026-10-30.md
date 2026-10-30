@@ -17,7 +17,7 @@ This report records findings from source inspection and the corrective changes m
 
 **Correction:** Repointed the contract to the actual Work, Timeline, Performance, and Admin views/services and registered it in the canonical runner. The contract checks that presentation views do not own IndexedDB persistence, Timeline stays cache-only during normal reads, locality resolution is user-triggered, and GPS remains limited to four ride events.
 
-**Verification:** Latest CI must pass on the resulting commit before this correction is marked verified.
+**Verification:** Current PR head `877ed29d7358072a0e978768b9250594948ecca6` passed KFE 2.0 single CI run `41084522888`; the Phase 6 application-flow contract is included in the 134-suite runner.
 
 ### KFE-AUD-002 — Manual-only locality resolution had misleading retry state
 
@@ -25,7 +25,7 @@ This report records findings from source inspection and the corrective changes m
 
 **Correction:** Removed the misleading retry state. Failed forced refreshes now invalidate the cached label for that coordinate. The Timeline read model continues to show only a cached resolved locality or “Location unavailable”; network resolution remains explicit user action.
 
-**Verification:** The Phase 6 contract now asserts that automatic-retry state is absent and stale cache invalidation is present. Latest CI is the required executable proof.
+**Verification:** The Phase 6 contract asserts that automatic-retry state is absent and stale cache invalidation is present; current-head CI run `41084522888` passed.
 
 ### KFE-AUD-003 — GPS contract contradicted the approved Timeline refresh behavior
 
@@ -39,7 +39,7 @@ This report records findings from source inspection and the corrective changes m
 
 **Correction:** The authoritative register now lists only EMI and Maintenance as cumulative provision buckets. Compliance remains a date/validity-based planning concern; actual compliance payments remain actual transactions. The supporting calculation matrix was clarified so renewal planning and daily cash-reservation guidance cannot be misread as a cumulative Compliance bucket.
 
-**Verification:** Existing calculation evidence asserts that the performance engine does not expose `complianceProvisionAccumulatedById`; the Phase 6 contract also guards the authority text and Compliance view. Latest CI is required.
+**Verification:** Existing calculation evidence asserts that the performance engine does not expose `complianceProvisionAccumulatedById`; the Phase 6 contract also guards the authority text and Compliance view. Current-head CI run `41084522888` passed.
 
 ## Remaining architecture risks — not silently marked complete
 
@@ -65,7 +65,8 @@ Repository CI cannot prove real-device location permission behavior, screen-off/
 
 ## Current conclusion
 
-- **Single-source-of-truth governance:** authoritative documents now distinguish the PWA shift lifecycle from native ride lifecycle and define one logical canonical model across platform-specific stores.
-- **Contradictions:** confirmed and corrected in Phase 6 contract wiring, locality retry semantics, GPS ownership, cumulative Compliance provision rules, and the previously contradictory overlay shift-ownership requirement.
+- **Single-source-of-truth governance:** authoritative documents distinguish the PWA shift lifecycle from native ride lifecycle and define one logical canonical model across platform-specific stores.
+- **Contradictions:** corrected in Phase 6 contract wiring, locality retry semantics, GPS ownership, cumulative Compliance provision rules, and overlay shift ownership.
+- **CI verification:** current PR head `877ed29d7358072a0e978768b9250594948ecca6` passed KFE 2.0 single CI run `41084522888`, UI Isolation Gate run `41084523013`, Phase 0 run `41084522702`, and Phase 1 run `41084522756`. The main CI reports 134/134 contract suites passing and successful rendered Phase 4 canonical fixture checks.
 - **Uncoupling:** improved by moving durable draft lifecycle and native event replay/acknowledgement into application controllers. Some form state remains in the view. Native/PWA physical-store convergence continues to be guarded by journaled idempotent writes and canonical recovery contracts; physical integration evidence remains required.
-- **Release status:** do not merge until CI for the final branch head is green. Physical-device GPS and overlay acceptance remain pending regardless of CI.
+- **Release status:** CI is green, but release sign-off remains incomplete until physical-device GPS/overlay acceptance and cross-runtime persistence recovery are verified. PR remains open and unmerged.
