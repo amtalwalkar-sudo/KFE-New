@@ -17,9 +17,7 @@ const shiftRepo = read('../repositories/shiftTripRepository.js')
 const fuelService = read('../application/work/fuel.js')
 const fuelRepo = read('../repositories/fuelRepository.js')
 const performanceRepo = read('../repositories/performanceRepository.js')
-const performanceService = read('../application/performance/performanceService.js')
-const calculations = read('../views/CalculationsView.vue')
-const calculationsService = read('../application/calculations/calculationsService.js')
+const performanceService = read('../application/performance/phaseOnePerformanceService.js')
 const settings = read('../components/KfeSettingsView.vue')
 const drafts = read('../application/forms/formDraftService.js')
 const draftRepo = read('../repositories/formDraftRepository.js')
@@ -33,7 +31,7 @@ for (const [path, view] of [['/', 'WorkModuleView'], ['/timeline', 'ActivityTime
 assert.doesNotMatch(router, /VehicleModuleRole|MaintenanceModuleRole|LoanModuleRole|ComplianceModuleView|AuthoritativeRecordFormRole/, 'Legacy module forms must not silently become active routes')
 
 // Admin matrix: each declared source form must be present and flow through validation into its canonical store.
-const adminKeys = ['businessSetup','vehicle','driver','compliance','maintenance','loan','loanPayment','prepayment','settlement','driverTarget','breakEvenInputs']
+const adminKeys = ['businessSetup','vehicle','driver','compliance','maintenance','loan']
 for (const key of adminKeys) {
   assert.match(definitions, new RegExp('^\\s*' + key + '\\s*:', 'm'), 'Missing Admin form definition ' + key)
 }
@@ -62,9 +60,9 @@ assert.doesNotMatch(workForm, /Additional shift toll|Additional shift parking|Tr
 
 // Calculation consumers must read canonical snapshots instead of making UI-owned financial values authoritative.
 match(performanceRepo, /'shifts', 'trips', 'fuel_logs', 'vehicles'/, 'Performance snapshot must read canonical operating records')
-match(performanceService, /normalizeCalculationSnapshot\(snapshot\)/, 'Performance must normalize canonical data before calculations')
-match(calculations, /CalculationsService\./, 'Calculations view must use calculation service')
-match(calculationsService, /FuelRepository\.create\(\{[\s\S]*quantityKg: calculateFuelQuantityKg\(values\.amount, values\.pricePerKg\)/, 'Manual fuel baseline must persist quantity from the canonical domain formula')
+match(performanceService, /PerformanceRepository\.getSnapshot\(\)/, 'Basic Performance must read saved canonical records')
+match(performanceService, /calculateFuelPeriodSummary/, 'Basic Performance must use recorded fuel facts')
+assert.doesNotMatch(performanceService, /driverTarget|breakEvenInputs|amortization|forecast|provision/i)
 match(settings, /exportBackup\(\)|restoreBackup\(payload\)|resetAllData\(\)/, 'Settings operations must use application backup/reset boundary')
 
 // Draft storage must remain separate from canonical operational records and enforce commit/discard clearing.
