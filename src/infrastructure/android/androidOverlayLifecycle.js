@@ -8,7 +8,6 @@ let visibleHandler = null
 let blurHandler = null
 let focusHandler = null
 let showing = false
-let updateTimer = null
 
 const activeOverlayState = async () => {
   const active = await WorkService.getActiveState()
@@ -72,29 +71,7 @@ const showOverlayIfNeeded = async () => {
   }
 }
 
-const updateOverlayIfNeeded = async () => {
-  if (document.visibilityState === 'visible') return
-  try {
-    const permission = await AndroidOverlay.canDrawOverlays()
-    if (!permission.granted) { await AndroidOverlay.hide(); return }
-    const state = await activeOverlayState()
-    if (state) await AndroidOverlay.update(state)
-    else await AndroidOverlay.hide()
-  } catch (_) {}
-}
-
-const startUpdates = () => {
-  if (updateTimer !== null) return
-  updateTimer = window.setInterval(() => { void updateOverlayIfNeeded() }, 2000)
-}
-
-const stopUpdates = () => {
-  if (updateTimer !== null) window.clearInterval(updateTimer)
-  updateTimer = null
-}
-
 const hideOverlay = () => {
-  stopUpdates()
   void AndroidOverlay.hide().catch(() => {})
 }
 
@@ -111,12 +88,10 @@ export const configureAndroidOverlayLifecycle = () => {
     const activeElement = document.activeElement
     if (activeElement && typeof activeElement.blur === 'function') activeElement.blur()
     void showOverlayIfNeeded()
-    startUpdates()
   }
 
   visibleHandler = () => {
     if (document.visibilityState !== 'visible') return
-    stopUpdates()
     collapseOverlayToBubble()
   }
 
