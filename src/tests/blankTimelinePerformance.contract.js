@@ -14,7 +14,9 @@ for (const label of ['Work', 'Timeline', 'Performance', 'Admin']) {
   assert.ok(shell.includes(`aria-label="${label}"`) || shell.includes(`<span>${label}</span>`), `bottom navigation retains ${label}`)
 }
 assert.match(performanceView, /PhaseOnePerformanceService\.getOverview\(period\.value\)/)
-assert.match(performanceView, /PhaseOnePerformanceService\.subscribeDataChanges/)
+assert.match(performanceView, /onMounted\(\(\) => \{[\s\S]*?void load\(\)/, 'Performance must load a fresh canonical snapshot when entered')
+assert.match(performanceView, /watch\(period, \(\) => \{ void load\(\{ force: true \}\) \}\)/, 'Changing the reporting period must reload the selected period')
+assert.doesNotMatch(performanceView, /PhaseOnePerformanceService\.subscribeDataChanges/, 'Performance must not start overlapping IndexedDB reads from cross-tab echoes')
 assert.match(performanceService, /PerformanceService\.getSnapshot\(\)/)
 assert.match(performanceService, /PerformanceService\.getMetrics\(snapshot, range\)/)
 assert.match(performanceService, /derivePhaseOnePerformanceOverview\(snapshot, range, metrics\)/)
