@@ -20,7 +20,7 @@ assert.match(performanceView, /watch\(period, \(\) => \{ void load\(\{ force: tr
 assert.doesNotMatch(performanceView, /PhaseOnePerformanceService\.subscribeDataChanges/, 'Performance must not start overlapping IndexedDB reads from cross-tab echoes')
 assert.match(performanceService, /PerformanceRepository\.getSnapshot\(\)/)
 assert.match(performanceService, /calculateFuelPeriodSummary\(live\(snapshot\.fuelLogs\), effectiveRange\)/)
-assert.match(performanceOverview, /incomeAfterFuel = recordedRevenue - fuelSpending/)
+assert.match(performanceOverview, /incomeAfterFuel: recordedRevenue - fuelSpending/)
 assert.doesNotMatch(performanceService, /import\s*\{\s*PerformanceService\s*\}|DriverTargetService|deriveOperatingKmForecast|deriveFinanceAwarePerformance/)
 assert.match(performanceView, /Income after fuel/)
 assert.match(performanceView, /Fare income/)

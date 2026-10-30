@@ -77,6 +77,6 @@ assert(mutation.includes('structuredClone(payload)'), 'Mutation payload cloning 
 assert(mutation.includes('buildAuditRecord'), 'Audit coupling missing')
 
 for (const forbidden of ['supabase','firebase','@google/genai','google drive']) assert(!db.toLowerCase().includes(forbidden), `Local DB provider coupling found: ${forbidden}`)
-assert(contract.includes('Cloud backup and multi-device synchronization are later phases'), 'Cloud/sync must remain later-phase work')
+assert(contract.includes('Remote synchronization is not part of the current product scope'), 'Remote synchronization must remain out of scope')
 
 console.log('✅ Phase 2 Local-First Persistence Contract Tests Passed Successfully!')
