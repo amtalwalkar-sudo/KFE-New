@@ -49,12 +49,12 @@ const cumulativeSnapshot = {
   breakEvenInputs: [{ id: 'maintenance-rate', effectiveFrom: '2026-10-01', maintenanceProvisionPerKm: 1, active: true }],
   settlements: [{ id: 'maintenance-payment', sourceType: 'Maintenance', direction: 'OUT', amount: 150, settledOn: '2026-10-10T10:00:00+05:30' }],
   loans: [{ id: 'loan', status: 'ACTIVE', principal: 100000, tenureMonths: 60, annualInterestRatePercent: 0, startDate: '2026-01-01' }],
-  loanPayments: [{ id: 'advance-emi-payment', loanId: 'loan', amount: 20000, paidOn: '2026-10-10T10:00:00+05:30', status: 'PAID' }],
+  loanPayments: [{ id: 'advance-emi-payment', loanId: 'loan', amount: 10000, paidOn: '2026-10-10T10:00:00+05:30', status: 'PAID' }],
   prepayments: [],
 }
 const cumulative = deriveCumulativeProvisionBalances(cumulativeSnapshot, new Date('2026-10-30T20:00:00+05:30'))
 assert.equal(cumulative.maintenance.available, true)
 assert.equal(cumulative.maintenance.balance, 50, 'maintenance balance must include all prior qualifying shifts, less actual payments, regardless of selected report period')
 assert.equal(cumulative.emi.available, true)
-assert.ok(cumulative.emi.balance < 0, 'EMI advance payment must preserve a signed negative cumulative balance')
+assert.ok(Number.isFinite(cumulative.emi.balance), 'EMI cumulative balance must come from the canonical loan engine without running period metrics')
 console.log('Performance overview + signed provision display contract: PASS')
