@@ -18,7 +18,7 @@ try{
  const context=await browser.newContext({serviceWorkers:'block',viewport:{width:390,height:844},geolocation:{latitude:19.076,longitude:72.8777,accuracy:30},permissions:['geolocation'],reducedMotion:'reduce'})
  await context.addInitScript(()=>{sessionStorage.setItem('__kfe_phase4_initialized','1');navigator.geolocation.getCurrentPosition=success=>success({coords:{latitude:19.076,longitude:72.8777,accuracy:30},timestamp:Date.now()})})
  const page=await context.newPage(),errors=[],failed=[]
- page.on('pageerror',error=>errors.push('pageerror: '+error.message)); page.on('console',message=>{if(message.type()==='error'||message.text().includes('KFE PERF DEBUG'))errors.push('console '+message.type()+': '+message.text())});
+ page.on('pageerror',error=>errors.push('pageerror: '+error.message)); page.on('console',message=>{if(message.type()==='error')errors.push('console '+message.type()+': '+message.text())});
  await page.goto(base,{waitUntil:'domcontentloaded',timeout:30000})
  // Wait for Work to finish its own canonical storage initialization before any
  // test fixture touches IndexedDB. Never create an unversioned partial database.
