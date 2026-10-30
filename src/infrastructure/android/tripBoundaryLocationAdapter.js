@@ -1,7 +1,7 @@
-import { Capacitor, registerPlugin } from '@capacitor/core'
+import { Capacitor, NativePlugins } from '../capacitor/nativePluginRegistry.js'
 import { normalizeTripBoundaryLocation } from '../../domain/location/tripBoundaryLocation.js'
 
-const NativeTripBoundaryLocation = registerPlugin('KfeTripBoundaryLocation')
+const NativeTripBoundaryLocation = NativePlugins.tripBoundaryLocation
 
 export const TripBoundaryLocationAdapter = Object.freeze({
   async queueEventLocationCapture(entityType, entityId, eventType, eventAt = null) {
