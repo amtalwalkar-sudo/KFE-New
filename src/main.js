@@ -70,15 +70,20 @@ void (async () => {
       { BackupConfig },
       { CloudBackupLifecycle },
       { createBackupConfigAdapter },
-      { createCloudBackupScheduler }
+      { createCloudBackupScheduler },
+      { configureBackupFileAdapter },
+      { createBackupFileAdapter }
     ] = await Promise.all([
       import('./application/backup/backupConfig.js'),
       import('./application/backup/cloudBackupLifecycle.js'),
       import('./infrastructure/backup/backupConfigAdapter.js'),
-      import('./infrastructure/backup/cloudBackupScheduler.js')
+      import('./infrastructure/backup/cloudBackupScheduler.js'),
+      import('./application/backup/backupFileService.js'),
+      import('./infrastructure/backup/backupFileAdapter.js')
     ])
     BackupConfig.configureBackupConfig(createBackupConfigAdapter())
     CloudBackupLifecycle.configureCloudBackupScheduler(createCloudBackupScheduler())
+    configureBackupFileAdapter(createBackupFileAdapter())
     const retryDropboxBackup = () => {
       if (document.visibilityState === 'hidden' || navigator.onLine === false) return
       void CloudBackupLifecycle.maybeDailyCloudBackup().then(result => {
