@@ -22,6 +22,8 @@ assert.match(workService, /captureAndPersistEventLocation\('TRIP', data\?\.id, '
 assert.doesNotMatch(workService, /captureAndPersistEventLocation\('(SHIFT|FUEL)'/, 'GPS capture is limited to the four ride events')
 assert.match(eventLocationService, /WorkRuntimePorts\.tripBoundaryLocation\.queueEventLocationCapture/)
 assert.match(eventLocationService, /WorkRuntimePorts\.tripBoundaryLocation\.captureOneShotLocation/)
+assert.match(eventLocationService, /captureOneShotLocation\(eventAt\)/)
+assert.match(locationAdapter, /Date\.parse\(location\.capturedAt\) >= eventTime/)
 assert.match(eventLocationService, /LocationRepository\.record\(/)
 assert.match(locationRepository, /GPS snapshot requires the location provider fix timestamp/)
 assert.match(locationRepository, /capturedAt: new Date\(fixTimestamp\)\.toISOString\(\)/)
