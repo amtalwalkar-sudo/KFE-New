@@ -172,7 +172,7 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertEquals(1000d, store.getRecord("SHIFT", shiftId).getJSONObject("record").getDouble("startOdometer"), 0.001d);
   }
 
-  @Test public void nativeGpsCaptureRejectsProviderFixesThatPreDateTheRideEvent() {
+  @Test public void nativeGpsCaptureRejectsProviderFixesThatPreDateTheRideEvent() throws Exception {
     long eventAt = System.currentTimeMillis();
     assertFalse("A cached fix from before the swipe must not be attached to the event.",
         KfeOverlayService.isEventGpsFixAtOrAfter(java.time.Instant.ofEpochMilli(eventAt).toString(), eventAt - 1L));
