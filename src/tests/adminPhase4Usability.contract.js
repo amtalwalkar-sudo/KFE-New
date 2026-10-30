@@ -6,7 +6,7 @@ const admin = read('src/views/AdminView.vue')
 const form = read('src/components/admin/AdminSourceForm.vue')
 const css = read('src/styles/kfe-ui.css')
 
-// Remove cumulative provision aggregation/display while retaining the approved effective-dated rate input.
+// Remove cumulative Compliance provision aggregation/display while retaining signed EMI and Maintenance buckets.
 for (const token of ['complianceProvisionAccumulatedById', 'complianceProvisionBalance', 'Compliance provision balance', 'Cumulative Compliance provision']) {
   assert.equal(admin.includes(token), false, `Cumulative Compliance provision wiring/UI must remain removed: ${token}`)
 }
