@@ -1,6 +1,6 @@
-import { Capacitor, registerPlugin } from '@capacitor/core'
+import { Capacitor, NativePlugins } from '../capacitor/nativePluginRegistry.js'
 
-const NativeBackupFile = registerPlugin('KfeBackupFile')
+const NativeBackupFile = NativePlugins.backupFile
 
 export const createBackupFileAdapter = () => Object.freeze({
   isNativePlatform: () => Capacitor.isNativePlatform(),
