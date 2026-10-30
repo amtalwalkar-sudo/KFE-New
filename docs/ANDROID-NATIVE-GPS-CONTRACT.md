@@ -21,6 +21,8 @@ The native GPS collector never reverse-geocodes and never performs network reque
 - Offline refresh leaves saved GPS snapshots intact and reports that locality lookup needs an online manual refresh.
 - A resolved locality is display-only cached enrichment; it must never modify ride business records, event timestamps, or GPS snapshots.
 - Timeline shows a locality only when the resolver returns a valid area/locality label. Otherwise it shows “Location unavailable”.
+- A provider result is accepted only when it includes coordinates within the saved GPS fix's accuracy-aware proximity bound (100–300 metres). A locality name without verifiable nearby result coordinates is rejected.
+- Locality cache keys use the current quality-contract version; older cached labels are ignored rather than carried forward.
 - Never present raw coordinates as an area name, reuse legacy trip-location fields, or infer/fabricate a locality.
 - Pickup is sourced only from `PICKUP_START`; a completed trip's drop area is sourced only from `TRIP_END`. A cancellation snapshot must never be presented as a passenger drop-off.
 
