@@ -1,5 +1,4 @@
 import { WorkRuntimePorts } from './workRuntimePorts.js'
-import { BrowserCanonicalWorkService } from '../../infrastructure/work/browserCanonicalWork.js'
 import { generateUUID } from '../../utils/uuid.js'
 import { assertLifecycleStorageAvailable } from './lifecycleStorageGuard.js'
 
@@ -37,7 +36,7 @@ export const CanonicalWorkBoundary = Object.freeze({
     if (!normalized.record || typeof normalized.record !== 'object' || Array.isArray(normalized.record)) throw new Error('record must be an object.')
     const nativeAvailable = requireCanonicalWriteRoute()
     if (nativeAvailable) return WorkRuntimePorts.canonicalWork.putRecord(normalized)
-    return BrowserCanonicalWorkService.putRecord(normalized)
+    return WorkRuntimePorts.browserCanonicalWork.putRecord(normalized)
   },
   async persistEventLocationSnapshot(snapshot) {
     if (!snapshot?.id || !snapshot?.entityType || !snapshot?.entityId || !snapshot?.eventType) {
@@ -62,8 +61,8 @@ export const CanonicalWorkBoundary = Object.freeze({
     if (!result || result.found === false) return null
     return result.record || result
   },
-  async getRecord(input) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.getRecord(input) : BrowserCanonicalWorkService.getRecord(input) },
-  async listRecords(input) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.listRecords(input) : BrowserCanonicalWorkService.listRecords(input) },
-  async getOperation(operationId) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.getOperation(operationId) : BrowserCanonicalWorkService.getOperation(operationId) },
+  async getRecord(input) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.getRecord(input) : WorkRuntimePorts.browserCanonicalWork.getRecord(input) },
+  async listRecords(input) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.listRecords(input) : WorkRuntimePorts.browserCanonicalWork.listRecords(input) },
+  async getOperation(operationId) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.getOperation(operationId) : WorkRuntimePorts.browserCanonicalWork.getOperation(operationId) },
   createOperationId() { return generateUUID() },
 })
