@@ -9,7 +9,7 @@ const suites = [
   'workDraftController.contract.js',
   'nativeWorkActionController.contract.js',
   'phase2BusinessReliabilityRegression.contract.js',
-  'gpsValhallaRemoval.contract.js',
+  'eventGpsOnly.contract.js',
   'gpsStatusIndicator.contract.js',
   'eventLocationCapture.contract.js',
   'phase6ApplicationFlows.contract.js',
