@@ -13,6 +13,18 @@ This document is an index, not a replacement for the domain authorities listed b
 
 When two documents appear to define the same responsibility, the authority listed here wins. Supporting, phase, freeze, audit, traceability, defect, and evidence documents may explain or prove an authority but may not override it.
 
+## Product scope boundary — enforce before any future work
+
+KFE contains only these product capabilities:
+
+1. Ride and shift workflow. Shift start/end and driver setup are owned by the PWA main app; the native Android overlay handles ride actions during an active shift.
+2. Timeline: read-only ride and fuel history, including the four offline-capable event-time GPS snapshots and explicitly manual-only locality refresh.
+3. Basic Performance: recorded shift revenue, completed rides, cancellation fees, recorded fuel spending, fuel cost/km from valid consecutive full-tank odometer readings, and income after fuel. Income after fuel includes cancellation fees. Do not add forecasts, targets, break-even models, provisions, profitability models, or unrelated financial calculations.
+4. Basic Admin: the existing essential forms and their saved records. Forms store source data; they must not grow into a separate calculations or planning product.
+5. Capacitor + PWA: the PWA owns shared UI and workflows; Capacitor/native Android owns Android-specific capabilities, including the ride overlay and native GPS collection.
+
+Anything outside these five capabilities is out of product scope. Do not restore it from historical phase notes, audit files, old calculation specifications, unused screens, or tests. Remove obsolete code, wiring, tests, and documentation when no longer needed by the five capabilities. Preserve existing business records and required form data while removing obsolete derived features. Do not introduce replacement features without an explicit request.
+
 ## 2. Canonical human-readable authorities
 
 | Responsibility | Sole authority | Boundary |
