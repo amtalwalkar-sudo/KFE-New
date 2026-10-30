@@ -74,7 +74,8 @@ assert.doesNotMatch(plugin, /persistTripBoundarySnapshot|updateTripBoundaryPlace
 for (const method of ['putRecord', 'getRecord', 'listRecords', 'getOperation']) assert.ok(bridge.includes('async ' + method + '('), 'Missing bridge method: ' + method)
 assert.doesNotMatch(bridge, /persistTripBoundarySnapshot|updateTripBoundaryPlaceName/)
 assert.match(ports, /canonicalWork: \['putRecord', 'getRecord', 'listRecords', 'getOperation', 'isAvailable'\]/)
-assert.match(adapter, /canonicalWork: NativeCanonicalWorkService/)\nassert.match(adapter, /browserCanonicalWork: BrowserCanonicalWorkService/)
+assert.match(adapter, /canonicalWork: NativeCanonicalWorkService/)
+assert.match(adapter, /browserCanonicalWork: BrowserCanonicalWorkService/)
 assert.match(activity, /registerPlugin\(KfeCanonicalWorkPlugin\.class\)/)
 console.log('PASS: native canonical persistence boundary contract')
 
