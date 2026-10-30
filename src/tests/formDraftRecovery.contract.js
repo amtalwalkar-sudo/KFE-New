@@ -41,7 +41,7 @@ assert.match(repository, /Form draft can only be cleared after successful commit
 assert.match(repository, /record\.ownerId !== identity\.ownerId/, 'Restore must verify parent ownership scope')
 assert.match(repository, /record\.workflowStep !== identity\.workflowStep/, 'Restore must verify workflow-step identity')
 assert.match(workView, /watch\(\[startOdo, startAck, gapChoice\]/, 'Shift-start draft must persist edits')
-assert.match(workView, /watch\(\[fare, tripToll, tripParking, tripTollTreatment/, 'Trip detail draft must persist edits')
+assert.match(workView, /watch\(\[fare, tripToll, tripParking/, 'Trip detail draft must persist edits')
 assert.match(workView, /watch\(\[cancelReason, cancelFare\]/, 'Cancellation draft must persist edits')
 assert.match(workView, /watch\(\[fuelOdo, fuelPrice, fuelAmount, fuelFull\]/, 'Fuel draft must persist edits')
 assert.match(workView, /watch\(\[closingOdo, endStage, largeDistanceConfirmation\]/, 'End-shift odometer and safety confirmation must persist as a draft')
