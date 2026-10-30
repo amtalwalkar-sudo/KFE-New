@@ -76,4 +76,13 @@ assert.doesNotMatch(adminView, /querySelector\(\s*['"]\.content-scroll-area/, 'A
 assert.match(calculationsView, /CalculationsService\.fuelQuantityKg/, 'fuel quantity must be delegated to the application calculation service')
 assert.doesNotMatch(calculationsView, /amount\s*\/\s*pricePerKg|domain\/time\/ist/, 'Calculations screen must not duplicate the fuel formula or domain time logic')
 
-console.log('UI/UX shell decoupling contract: PASS — one authority, obsolete rules removed, shell boundary checked, impact-warning workflow retained.')
+const workView = await readFile(new URL('../views/WorkModuleView.vue', import.meta.url), 'utf8')
+assert.doesNotMatch(workView, /from ['\"][^'\"]*(?:\/domain\/|\/repositories\/|\/infrastructure\/)/, 'Work view must not bypass application boundaries into domain, repositories, or infrastructure')
+assert.doesNotMatch(workView, /indexedDB|localStorage|\.transaction\(\s*\[/, 'Work view must not own direct durable persistence')
+assert.match(workView, /store\.beginPickup\(/, 'Pickup creation must route through the application-backed Work store')
+assert.match(workView, /store\.startRide\(/, 'Trip start must route through the application-backed Work store')
+assert.match(workView, /store\.endTrip\(/, 'Trip completion must route through the application-backed Work store')
+assert.match(workView, /createWorkDraftController\(/, 'Durable draft persistence must remain in its application controller')
+assert.match(workView, /createNativeWorkActionController\(/, 'Native action replay and acknowledgement must remain in its application controller')
+
+console.log('UI/UX shell decoupling contract: PASS — one authority, shell boundary checked, Work commands routed through application-backed store/controllers, impact-warning workflow retained.')
