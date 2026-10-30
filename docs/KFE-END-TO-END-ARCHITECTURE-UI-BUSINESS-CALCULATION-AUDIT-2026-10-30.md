@@ -92,7 +92,7 @@ The domain engines now preserve the signed balance (`accumulated provision - act
 
 ### Remaining proof
 - The historical CI #2506/#2520 calculation evidence belongs to an older commit and is not current-head proof.
-- The calculation matrix explicitly records rendered UI and persisted-input-to-rendered-output E2E as NOT PROVEN until current browser assertions are run.
+- The calculation matrix still records advanced/future calculation UI as NOT PROVEN. The Phase 4 Playwright smoke now seeds canonical shift, trip, GPS and fuel records, then asserts the rendered Phase 1 Fare income, Fuel spending, Completed rides, and Income after fuel values and the explicit exclusion of Maintenance/EMI. This does not prove advanced Finance/Admin calculations or every persisted-input UI path.
 - The new calculation matrix, calculation evidence, and Phase 5 traceability contracts are now included in the canonical runner; current CI must establish whether they pass together.
 
 ## 5. Cross-layer verification and release evidence
@@ -105,7 +105,7 @@ The domain engines now preserve the signed balance (`accumulated provision - act
 
 ### Required final evidence
 1. Current PR head SHA and a fully green CI run, including all registered contracts, PWA build, Android build and emulator smoke gates.
-2. Rendered browser assertions for seeded canonical inputs → domain/application calculation → displayed values, units, period and evidence state.
+2. Current-head Playwright assertions for seeded canonical inputs → domain/application calculation → rendered Phase 1 Performance values. Additional Finance/Admin signed-balance and advanced calculation surfaces still require dedicated rendered assertions.
 3. Android emulator evidence for native overlay and persistence/replay boundaries.
 4. Physical-device acceptance for offline four-event GPS capture, permissions, screen-off/background behavior, restart/reopen recovery, and PWA shift start/end.
 
@@ -123,7 +123,7 @@ The domain engines now preserve the signed balance (`accumulated provision - act
 | KFE-E2E-05 | UI/calculations | Admin and Calculations views contained domain-derived arithmetic/projections | Moved to application/domain owners; focused tests added |
 | KFE-E2E-06 | Business rules | EMI and Maintenance provision buckets were zero-clamped contrary to BR-10A | Corrected to signed balances; side ledgers removed |
 | KFE-E2E-07 | Calculation traceability | Calculation evidence contracts made unsupported Phase 1 UI claims and contained stale Timeline paths | Paths and UI-scope assertions corrected; rendered advanced UI remains NOT PROVEN |
-| KFE-E2E-08 | Cross-layer UI | Current rendered UI and persisted E2E proof incomplete | Open — browser verification required |
+| KFE-E2E-08 | Cross-layer UI | Phase 1 rendered Performance values were not asserted from persisted canonical inputs | Playwright assertions added for fare income, completed rides, fuel spending and income after fuel; advanced Finance/Admin UI calculations remain open |
 | KFE-E2E-09 | Native runtime | Physical-device offline GPS and restart acceptance not available from repository CI | Open — device acceptance required |
 | KFE-E2E-10 | UI uncoupling | Work view still owns some transient workflow state/transitions | Partially extracted; further separation remains open |
 
