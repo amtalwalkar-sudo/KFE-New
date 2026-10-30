@@ -65,17 +65,10 @@ assert.doesNotMatch(shell, /from ['"][^'"]*(?:\/domain\/|\/repositories\/|\/infr
 
 
 const adminView = await readFile(new URL('../views/AdminView.vue', import.meta.url), 'utf8')
-const calculationsView = await readFile(new URL('../views/CalculationsView.vue', import.meta.url), 'utf8')
-assert.match(adminView, /AdminReadModelService\.getLoanAmortizationSchedule/, 'Admin loan schedule status must come from the application read model')
-assert.match(adminView, /AdminReadModelService\.getLoanFinancialSummary/, 'Admin loan financial summary must come from the application read model')
-assert.match(adminView, /AdminReadModelService\.getComplianceRevenueSummary/, 'compliance validity context must be an application projection')
-assert.match(adminView, /EMI provision balance/, 'signed EMI provision balance must be visible in Admin Finance')
-assert.match(adminView, /Maintenance provision balance/, 'signed maintenance provision balance must be visible in Admin planning')
+assert.doesNotMatch(adminView, /AdminReadModelService|PerformanceService|driverTarget|maintenanceRate|prepayment|amortization|break.?even|provision/i)
+assert.doesNotMatch(adminView, /CalculationsView|CalculationsService/, 'Retired calculations screen must not be wired into Admin')
 assert.match(adminView, /kfe:shell-scroll-top/, 'Admin screen must request viewport reset through a shell event')
 assert.doesNotMatch(adminView, /querySelector\(\s*['"]\.content-scroll-area/, 'Admin screen must not query shell-owned DOM')
-assert.match(calculationsView, /CalculationsService\.fuelQuantityKg/, 'fuel quantity must be delegated to the application calculation service')
-assert.doesNotMatch(calculationsView, /amount\s*\/\s*pricePerKg|domain\/time\/ist/, 'Calculations screen must not duplicate the fuel formula or domain time logic')
-
 const workView = await readFile(new URL('../views/WorkModuleView.vue', import.meta.url), 'utf8')
 assert.doesNotMatch(workView, /from ['\"][^'\"]*(?:\/domain\/|\/repositories\/|\/infrastructure\/)/, 'Work view must not bypass application boundaries into domain, repositories, or infrastructure')
 assert.doesNotMatch(workView, /indexedDB|localStorage|\.transaction\(\s*\[/, 'Work view must not own direct durable persistence')
