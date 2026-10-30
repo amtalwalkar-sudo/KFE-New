@@ -3,7 +3,7 @@ import { CALCULATION_STATUS } from './calculationAuthority.js'
 import { deriveAuthoritativeBreakEven } from './authoritativeBreakEven.js'
 import { deriveOperatingKmForecast } from './operatingKmForecast.js'
 import { deriveLoanPosition, calculatePreBusinessLoanRecovery, calculatePreBusinessLoanRecoveryForRange } from '../finance/loanEngine.js'
-import { calculateHistoricalMaintenanceRecovery, calculateHistoricalMaintenanceRecoveryForRange } from './performanceEngineV2.js'
+import { calculateHistoricalMaintenanceRecovery, calculateHistoricalMaintenanceRecoveryForRange, deriveCumulativeMaintenanceProvisionBalance } from './performanceEngineV2.js'
 import { istMonthRange, istDateKey } from '../time/ist.js'
 
 const live = records => (records || []).filter(record => !record?.deletedAt && record?.deleted !== true)
@@ -52,6 +52,47 @@ export const scheduledEmiAccruedForRange = (schedule, range, amountField = 'orig
     total+=amount*((overlapTo-overlapFrom)/(due-start))
   }
   return Math.round(total*100)/100
+}
+
+/**
+ * Derive signed cumulative provision balances directly from canonical history.
+ * This intentionally avoids running period metrics/rolling target calculations
+ * over the full loan history just to render two as-of balances.
+ */
+export function deriveCumulativeProvisionBalances(snapshot, asOf = new Date()) {
+  const currentAsOf = dateOf(asOf) || new Date()
+  const loanRecords = live(snapshot?.loans)
+  const paymentRecords = live(snapshot?.loanPayments)
+  const prepaymentRecords = live(snapshot?.prepayments)
+  const candidateLoans = loanRecords
+    .filter(loan => { const status = String(loan.status || '').toUpperCase(); return !status || status === 'ACTIVE' })
+    .filter(loan => !dateOf(loan.startDate) || dateOf(loan.startDate) <= currentAsOf)
+  const validLoans = candidateLoans
+    .filter(loan => loan?.principal != null && String(loan.principal).trim() !== '' && Number.isFinite(Number(loan.principal)) && Number(loan.principal) > 0)
+    .filter(loan => loan?.tenureMonths != null && String(loan.tenureMonths).trim() !== '' && Number.isFinite(Number(loan.tenureMonths)) && Number(loan.tenureMonths) > 0)
+    .filter(loan => loan?.annualInterestRatePercent != null && String(loan.annualInterestRatePercent).trim() !== '' && Number.isFinite(Number(loan.annualInterestRatePercent)) && Number(loan.annualInterestRatePercent) >= 0)
+    .filter(loan => dateOf(loan.startDate))
+  const activeLoan = candidateLoans.length === 1 && validLoans.length === 1 ? validLoans[0] : null
+  const finance = activeLoan
+    ? deriveLoanPosition({ loan: activeLoan, payments: paymentRecords, prepayments: prepaymentRecords, asOf: currentAsOf })
+    : null
+  const maintenance = deriveCumulativeMaintenanceProvisionBalance({
+    shifts: snapshot?.shifts || [],
+    breakEvenInputs: snapshot?.breakEvenInputs || [],
+    settlements: snapshot?.settlements || [],
+    asOf: currentAsOf,
+  })
+  return {
+    asOf: currentAsOf.toISOString(),
+    emi: {
+      available: !!finance && Number.isFinite(finance.provisionBalance),
+      balance: finance?.provisionBalance ?? NaN,
+    },
+    maintenance: {
+      available: maintenance.available && Number.isFinite(maintenance.balance),
+      balance: maintenance.balance,
+    },
+  }
 }
 
 export function deriveFinanceAwarePerformance(snapshot, range, previousPeriod) {
