@@ -117,6 +117,11 @@ const draftController = createWorkDraftController({
 })
 const restoreDraft = draftController.restore
 const saveDraft = draftController.save
+const saveDraftBeforeCommit = async (identity, values) => {
+  const saved = await saveDraft(identity, values)
+  if (!saved) throw new Error('The recovery token could not be saved locally. No business change was submitted; retry when local storage is available.')
+  return saved
+}
 const clearCommittedDraft = draftController.clearCommitted
 
 watch([startOdo, startAck, gapChoice], () => {
@@ -362,7 +367,7 @@ async function submitStart() {
   startBusy.value = true
   try {
     // Persist the workflow token before any native write so a process restart can retry the same create intent.
-    await saveDraft(startDraftIdentity(), { startOdo: startOdo.value, startAck: startAck.value, gapChoice: gapChoice.value, createIntentKey: startWorkflowId.value })
+    await saveDraftBeforeCommit(startDraftIdentity(), { startOdo: startOdo.value, startAck: startAck.value, gapChoice: gapChoice.value, createIntentKey: startWorkflowId.value })
     const result = await store.startShift(startOdo.value, gapKm.value ? { category: gapChoice.value } : null, startWorkflowId.value)
     if (!result?.ok) return fail(result?.reason || 'Could not start the shift.')
     await clearCommittedDraft(startDraftIdentity())
@@ -393,7 +398,7 @@ async function goPickup(nativeTripId = '') {
       createIntentKey = String(draft?.values?.createIntentKey || tripCreateWorkflowId.value || WorkDraftService.newWorkflowId())
       tripCreateWorkflowId.value = createIntentKey
       // Fail closed if the retry token cannot be made durable before the native create.
-      await saveDraft(identity, { createIntentKey })
+      await saveDraftBeforeCommit(identity, { createIntentKey })
     }
     const result = await store.beginPickup(operator.value || store.defaultOperator, nativeTripId || null, createIntentKey)
     if (!result?.ok) {
