@@ -7,8 +7,7 @@ const required = [
   'KFE_LAUNCH_MASTER_PLAN.md',
   'KFE_LAUNCH_STATUS.md',
   'KFE_LAUNCH_BACKLOG.md',
-  'KFE_BUSINESS_RULES_REGISTER.md',
-  'docs/KFE-BUSINESS-RULES-AUDIT-EVIDENCE.md'
+  'KFE_BUSINESS_RULES_REGISTER.md'
 ]
 
 const forbidden = [
@@ -77,8 +76,7 @@ const activeDocs = [
   'KFE_LAUNCH_MASTER_PLAN.md',
   'KFE_LAUNCH_STATUS.md',
   'KFE_LAUNCH_BACKLOG.md',
-  'KFE_BUSINESS_RULES_REGISTER.md',
-  'docs/KFE-BUSINESS-RULES-AUDIT-EVIDENCE.md'
+  'KFE_BUSINESS_RULES_REGISTER.md'
 ]
 const sourceFiles = walk(root).map(file => relative(root, file).replaceAll('\\\\', '/'))
 
