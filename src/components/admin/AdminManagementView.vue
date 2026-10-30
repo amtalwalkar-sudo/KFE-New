@@ -1,2 +1,0 @@
-<template><section class="kfe-admin-section"><h2>Management</h2></section><template v-for="group in groups" :key="group.title"><section class="kfe-admin-section"><h2>{{group.title}}</h2><div class="kfe-admin-list"><button v-for="item in group.items" :key="item" type="button" @click="$emit('open',item)"><span>{{item}}</span><span>›</span></button></div></section></template><section class="kfe-admin-section"><h2>Settings</h2></section></template>
-<script setup>defineProps({groups:{type:Array,default:()=>[]}});defineEmits(['open'])</script>
