@@ -1,10 +1,6 @@
 import { CANONICAL_DB_VERSION } from '../constants/canonicalDatabase.js'
 
 const CANONICAL_DB_NAME = 'kanishka_kfe_canonical_db'
-const SYNTHETIC_DB_NAME = 'kanishka_kfe_synthetic_db'
-const SYNTHETIC_DB_VERSION = 15
-const DATA_SOURCE_KEY = 'kfe:active-data-source'
-const DATA_SOURCE_CHANGE_EVENT = 'kfe:data-source-changed'
 const CANONICAL_DB_CHANGE_EVENT = 'kfe:canonical-data-changed'
 const CANONICAL_DB_CHANNEL = 'kfe-canonical-db-changes'
 const CANONICAL_RESET_BARRIER_KEY = 'kfe:canonical-reset-pending'
@@ -95,14 +91,8 @@ const createSimpleStore = (db, name, indexes = []) => {
   indexes.forEach(index => store.createIndex(index, index, { unique: false }))
 }
 
-const getActiveSource = () => typeof sessionStorage === 'undefined' ? 'canonical' : (sessionStorage.getItem(DATA_SOURCE_KEY) === 'synthetic' ? 'synthetic' : 'canonical')
-// The default storage API follows the active data source. The explicitly named
-// openCanonicalDB API is reserved for canonical-only synchronization work.
-const dbNameFor = source => source === 'synthetic' ? SYNTHETIC_DB_NAME : CANONICAL_DB_NAME
-const dbVersionFor = name => name === SYNTHETIC_DB_NAME ? SYNTHETIC_DB_VERSION : CANONICAL_DB_VERSION
-
 const openDatabase = name => new Promise((resolve, reject) => {
-  const request = indexedDB.open(name, dbVersionFor(name))
+  const request = indexedDB.open(name, CANONICAL_DB_VERSION)
   request.onupgradeneeded = e => {
     const db = e.target.result
     if (!db.objectStoreNames.contains('shifts')) { const store = db.createObjectStore('shifts', { keyPath: 'id' }); store.createIndex('shiftEndAt', 'shiftEndAt', { unique: false }) }
@@ -118,7 +108,7 @@ const openDatabase = name => new Promise((resolve, reject) => {
     createSimpleStore(db, 'loans', ['status', 'startDate']); createSimpleStore(db, 'loan_payments', ['loanId', 'paidOn', 'status']); createSimpleStore(db, 'prepayments', ['loanId', 'paidOn'])
     createSimpleStore(db, 'driver_targets', ['driverId', 'effectiveFrom', 'active']); createSimpleStore(db, 'break_even_inputs', ['effectiveFrom'])
     createSimpleStore(db, 'form_drafts', ['formId', 'parentId', 'ownerId', 'updatedAt']); createSimpleStore(db, 'canonical_operations', ['entityType', 'createdAt']); createSimpleStore(db, 'settings', ['settingKey', 'updatedAt']); createSimpleStore(db, 'audit_history', ['entityId', 'entityType', 'action', 'createdAt']); createSimpleStore(db, 'settlements', ['settlementType', 'sourceType', 'sourceId', 'settledOn'])
-    if (name === CANONICAL_DB_NAME && !db.objectStoreNames.contains('financial_period_snapshots')) { const store = db.createObjectStore('financial_period_snapshots', { keyPath: 'periodKey' }); store.createIndex('closedAt', 'closedAt', { unique: false }) }
+    if (!db.objectStoreNames.contains('financial_period_snapshots')) { const store = db.createObjectStore('financial_period_snapshots', { keyPath: 'periodKey' }); store.createIndex('closedAt', 'closedAt', { unique: false }) }
     if (db.objectStoreNames.contains('driver_collected_data')) db.deleteObjectStore('driver_collected_data')
     if (db.objectStoreNames.contains('admin_records')) db.deleteObjectStore('admin_records')
     if (db.objectStoreNames.contains('financial_inputs')) db.deleteObjectStore('financial_inputs')
@@ -138,28 +128,12 @@ const openDatabase = name => new Promise((resolve, reject) => {
 const initializeDatabase = async name => {
   if (dbInstances.has(name)) return dbInstances.get(name)
   if (initializationPromises.has(name)) return initializationPromises.get(name)
-  const initializationPromise = openDatabase(name).then(db => { const dbInstance = name === CANONICAL_DB_NAME ? guardCanonicalDatabase(db) : db; dbInstances.set(name, dbInstance); return dbInstance }).finally(() => initializationPromises.delete(name))
+  const initializationPromise = openDatabase(name).then(db => { const dbInstance = guardCanonicalDatabase(db); dbInstances.set(name, dbInstance); return dbInstance }).finally(() => initializationPromises.delete(name))
   initializationPromises.set(name, initializationPromise)
   return initializationPromise
 }
-export const setActiveDataSource = source => {
-  if (!['canonical','synthetic'].includes(source)) throw new Error('Invalid KFE data source.')
-  if (typeof sessionStorage !== 'undefined') {
-    sessionStorage.setItem(DATA_SOURCE_KEY, source)
-    if (source === 'canonical') sessionStorage.removeItem('kfe:synthetic-date-context')
-  }
-  for (const db of dbInstances.values()) { try { db.close() } catch (_) {} }
-  dbInstances.clear(); initializationPromises.clear()
-  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(DATA_SOURCE_CHANGE_EVENT, { detail: { dataSource: source } }))
-  return source
-}
-export const getActiveDataSource = () => getActiveSource()
-export const initializeActiveStorage = async ({ dataSource } = {}) => initializeDatabase(dbNameFor(dataSource || getActiveSource()))
-// Backward-compatible name retained because repository callers use this API; it is
-// intentionally active-source aware, despite the historical function name.
-export const initializeCanonicalStorage = initializeActiveStorage
-export const initializeSyntheticStorage = async () => initializeDatabase(SYNTHETIC_DB_NAME)
-export const openCanonicalDB = () => initializeCanonicalStorage({ dataSource: 'canonical' })
+export const initializeCanonicalStorage = async () => initializeDatabase(CANONICAL_DB_NAME)
+export const openCanonicalDB = initializeCanonicalStorage
 
 export const getLastOdometer = async () => {
   const db = await initializeCanonicalStorage()
@@ -172,4 +146,4 @@ export const getLastOdometer = async () => {
   })
 }
 
-export { CANONICAL_DB_NAME, SYNTHETIC_DB_NAME, CANONICAL_DB_VERSION, SYNTHETIC_DB_VERSION, CANONICAL_DB_CHANGE_EVENT, CANONICAL_DB_CHANNEL, DATA_SOURCE_KEY, DATA_SOURCE_CHANGE_EVENT }
+export { CANONICAL_DB_NAME, CANONICAL_DB_VERSION, CANONICAL_DB_CHANGE_EVENT, CANONICAL_DB_CHANNEL }
