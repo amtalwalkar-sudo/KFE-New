@@ -850,8 +850,7 @@ public class KfeOverlayService extends Service {
     formSubmitting=true;
     if("FARE".equals(formMode)){
       try {
-        JSONObject payload=KfeNativeTripFormRules.buildFarePayload(
-          formValue,tollValue,parkingValue,
+        JSONObject payload=KfeNativeTripFormRules.buildFarePayload(formValue,tollValue,parkingValue);
         // Commit the business record before reporting success to the overlay.
         // The deterministic operation ID makes process-death/retry safe; the
         // separate native event remains queued so the PWA's IndexedDB read model
