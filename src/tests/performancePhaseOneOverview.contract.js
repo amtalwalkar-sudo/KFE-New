@@ -10,10 +10,11 @@ const snapshot = {
     { id: 'cancel-fee', shiftId: 'today', status: 'CANCELLED', tripStartAt: '2026-10-26T10:00:00+05:30', cancelledAt: '2026-10-26T10:02:00+05:30', cancelledRevenue: 250 },
   ],
 }
-const metrics = { revenue: 1250, fuelCost: 300, fuelCostPerKm: 2.5, fuelCostPerKmSource: 'FULL_TANK_INTERVAL', authority: { revenue: 'SAVED_SHIFT_REVENUE' } }
+const metrics = { fuelCost: 300, fuelCostPerKm: 2.5, fuelCostPerKmSource: 'FULL_TANK_INTERVAL', authority: { revenue: 'SAVED_SHIFT_REVENUE' } }
 const result = derivePhaseOnePerformanceOverview(snapshot, range, metrics)
 assert.equal(result.completedRides, 1)
 assert.equal(result.cancellationFees, 250)
+assert.equal(result.recordedRevenue, 1250)
 assert.equal(result.fareIncome, 1000)
 assert.equal(result.fuelSpending, 300)
 assert.equal(result.fuelCostPerKm, 2.5)
