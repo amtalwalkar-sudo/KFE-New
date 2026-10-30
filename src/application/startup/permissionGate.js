@@ -1,9 +1,8 @@
 import { reactive } from 'vue'
-import { Capacitor, registerPlugin } from '@capacitor/core'
+import { WorkRuntimePorts } from '../work/workRuntimePorts.js'
 import { findFirstMissingNativeCheck } from './permissionStartupChecks.js'
 
-const NativeGate = registerPlugin('KfeNativeSystem')
-const native = () => Capacitor?.isNativePlatform?.() === true
+const native = () => { try { return WorkRuntimePorts.platform.getPlatform() !== 'web' } catch (_) { return false } }
 const attempted = new Set()
 const runtimeRequested = new Set()
 let activeRun = null
@@ -40,7 +39,7 @@ function waitForForegroundReturn() {
 
 async function getFirstMissing() {
   if (native()) {
-    const status = await NativeGate.getStartupPermissionStatus()
+    const status = await WorkRuntimePorts.platform.getStartupPermissionStatus()
     return findFirstMissingNativeCheck(status, confirmedOemSettings)
   }
   return null
@@ -65,10 +64,10 @@ export function runStartupPermissionGate() {
       permissionGateState.current = missing; permissionGateState.message = missing.message; permissionGateState.actionLabel = missing.actionLabel || 'Open setting'
       if (!attempted.has(missing.key)) {
         attempted.add(missing.key)
-        if (native() && missing.request && !runtimeRequested.has(missing.key)) { runtimeRequested.add(missing.key); permissionGateState.status = 'checking'; try { await NativeGate.requestStartupPermission({ permission: missing.request }) } catch (_) {} continue }
+        if (native() && missing.request && !runtimeRequested.has(missing.key)) { runtimeRequested.add(missing.key); permissionGateState.status = 'checking'; try { await WorkRuntimePorts.platform.requestStartupPermission({ permission: missing.request }) } catch (_) {} continue }
         if (native()) {
           permissionGateState.status = 'checking'; const returned = waitForForegroundReturn()
-          try { await NativeGate.openStartupSetting({ setting: missing.setting }) } catch (error) { permissionGateState.error = error?.message || String(error) }
+          try { await WorkRuntimePorts.platform.openStartupSetting({ setting: missing.setting }) } catch (error) { permissionGateState.error = error?.message || String(error) }
           await returned; continue
         }
       }
