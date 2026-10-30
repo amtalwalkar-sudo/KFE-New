@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { LocalityResolutionService, MapplsGatewayLocationNameAdapter, PhotonLocationNameAdapter } from '../application/location/locationNameService.js'
+import { LocalityResolutionService, MapplsGatewayLocationNameAdapter, PhotonLocationNameAdapter, getCachedLocationName } from '../application/location/locationNameService.js'
 
 const previousDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
 const values = new Map()
@@ -14,7 +14,13 @@ Object.defineProperty(globalThis, 'localStorage', {
 })
 
 try {
-  const cacheKey = 'kfe:locality-cache:v2'
+  const cacheKey = 'kfe:locality-cache:v3'
+  const legacyCoordinateKey = '19.07500:72.87700'
+  values.set('kfe:locality-cache:v2', JSON.stringify({
+    [legacyCoordinateKey]: { placeName: 'Legacy incorrect area', provider: 'old-provider', resolvedAt: '2026-10-28T00:00:00.000Z' },
+  }))
+  assert.equal(getCachedLocationName({ latitude: 19.075, longitude: 72.877 }), null,
+    'labels produced by the older locality parser must not remain visible after the quality-contract change')
   const coordinateKey = '19.07600:72.87770'
   values.set(cacheKey, JSON.stringify({
     [coordinateKey]: { placeName: 'Stale incorrect area', provider: 'old-provider', resolvedAt: '2026-10-29T00:00:00.000Z' },
