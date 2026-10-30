@@ -30,7 +30,6 @@ assert.ok(performanceView.includes('Maintenance, EMI and other costs are not inc
 assert.ok(!performanceView.includes('Actual P/L') && !performanceView.includes('Provisional P/L') && !performanceView.includes('maintenanceProvision') && !performanceView.includes('loanProvision'))
 assert.ok(performanceView.includes('overview.incomeAfterFuel'))
 assert.ok(performanceView.includes('Maintenance, EMI and other costs are not included in Phase 1'))
-assert.doesNotMatch(performanceView, /Actual P\\/L|Provisional P\\/L|maintenanceProvision|loanProvision/)
 assert.doesNotMatch(performanceView, /Provisional Profit \/ Loss = Authoritative Revenue/)
 
 const snapshot = buildSyntheticSnapshot(1826, { fullTimeline: true })
