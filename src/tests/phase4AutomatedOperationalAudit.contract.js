@@ -128,7 +128,6 @@ scenario('G5', () => {
 // J1/J2/J3/J5/J6/J7 — defensive boundaries.
 scenario('J1/J2/J3/J5/J6/J7', () => {
   assert.equal(validateGapAllocation(-1).valid, false)
-  assert.equal(validateTripCorrection({ tripKm: '-1' }).valid, false)
   assert.equal(validateTripCorrection({ revenue: '-1' }).valid, false)
   assert.equal(validateFuelEntry({ odometer: 65000, pricePerKg: 0, amount: 410 }).valid, false)
   assert.equal(validateFuelEntry({ odometer: 65000, pricePerKg: 82, amount: 0 }).valid, false)

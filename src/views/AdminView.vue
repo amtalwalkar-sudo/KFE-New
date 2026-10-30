@@ -110,9 +110,6 @@ async function save(values){if(saving.value)return;clearMessages();formErrors.va
    const saved=await AdminService.save(selected.value,payload,id)
    if(!saved?.id)throw new Error('The record was not confirmed by the canonical repository.')
    await clearFormDraft(draftIdentity)
-   // Source records are obligations/expense facts. Actual cash settlement is a
-   // separate authoritative record with its own actual payment date.
-   // Never synthesize a payment merely because a source record was saved.
    notice.value=(id!==null?'Record updated.':'Record created.');formOpen.value=false;editing.value=null;await load()
 }catch(e){formErrors.value=e.validation&&typeof e.validation==='object'?e.validation:{};error.value=e.validation?Object.values(e.validation).flat().join(' '):e.message||'Save failed.'}finally{saving.value=false}}
 async function remove(record){if(!confirm('Delete this record? Related records may prevent deletion.'))return;clearMessages();loading.value=true;try{await AdminService.remove(selected.value,record.id);notice.value='Record deleted.';await load()}catch(e){error.value=e.message||'Delete failed.'}finally{loading.value=false}}
