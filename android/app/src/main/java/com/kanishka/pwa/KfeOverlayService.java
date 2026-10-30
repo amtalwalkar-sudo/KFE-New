@@ -1222,8 +1222,6 @@ public class KfeOverlayService extends Service {
       trip.remove("revenueAuthority");
       trip.put("toll",input.optString("toll","").trim().isEmpty()?0d:Double.parseDouble(input.optString("toll")));
       trip.put("parking",input.optString("parking","").trim().isEmpty()?0d:Double.parseDouble(input.optString("parking")));
-      trip.put("tollTreatment",input.optString("tollTreatment","INCLUDED"));
-      trip.put("parkingTreatment",input.optString("parkingTreatment","INCLUDED"));
     }else if("CANCEL".equals(mode)){
       trip.put("status","CANCELLED");
       trip.put("cancelReason",input.optString("reason",""));
