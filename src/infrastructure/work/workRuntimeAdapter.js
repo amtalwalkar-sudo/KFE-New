@@ -7,6 +7,7 @@ import { BrowserCanonicalWorkService } from './browserCanonicalWork.js'
 import { GpsStatusAdapter } from '../android/gpsStatusAdapter.js'
 import { DiagnosticService as InfrastructureDiagnosticService } from '../diagnostics/diagnosticService.js'
 import { PlatformStartup } from '../startup/platformStartup.js'
+import { LocalityResolutionAdapter } from '../location/localityResolutionAdapter.js'
 
 export const installWorkRuntimeAdapter = () => configureWorkRuntimePorts({
   nativeWorkActions: NativeWorkActionsService,
@@ -17,4 +18,5 @@ export const installWorkRuntimeAdapter = () => configureWorkRuntimePorts({
   androidOverlay: AndroidOverlay,
   platform: PlatformStartup,
   tripBoundaryLocation: TripBoundaryLocationAdapter,
+  locationNames: LocalityResolutionAdapter,
 })
