@@ -19,7 +19,7 @@ The five audit passes have been performed against the PR branch and corrective c
 - The architecture contract defines the logical canonical model and the platform-specific persistence boundary: browser PWA IndexedDB and Android native SQLite are separate physical stores, converging on one logical business model.
 - Domain modules are isolated from presentation, repositories, application, and infrastructure imports by the architecture contract.
 - Canonical runtime code is guarded against imports from the legacy `src/services/` directory.
-- The repository contains an executable architecture contract and a canonical contract runner.
+- The repository contains an executable architecture contract and a canonical contract runner. The current runner contains 134 maintained suites; Phase 0, Phase 1 and build/release-gated audits remain separate workflows, rather than being indiscriminately executed before their prerequisites.
 
 ### Corrections in this PR
 - `spec/architecture/layers.json` previously allowed presentation to import domain and infrastructure directly, contradicting the human-readable architecture/UI contracts. The machine-readable rule now restricts presentation imports to application contracts and explicitly forbids presentation-to-infrastructure imports.
@@ -82,6 +82,7 @@ The domain engines now preserve the signed balance (`accumulated provision - act
 
 ### Corrections in this PR
 - Corrected the EMI and Maintenance provision balance formulas to follow BR-10A.
+- Found two implementations of fuel quantity division in Work and Calculations. Work now delegates to the shared `calculateFuelQuantityKg` domain formula, so validation remains in Work while the arithmetic has one owner.
 - Moved Admin's prepayment tenure reduction and remaining-interest projection into `loanEngine.js`; the view now renders the domain result.
 - Moved Admin's schedule paid/due/overdue status projection out of the Vue component.
 - Centralized fuel quantity derivation through `calculateFuelQuantityKg` via `CalculationsService`.
@@ -96,7 +97,7 @@ The domain engines now preserve the signed balance (`accumulated provision - act
 ## 5. Cross-layer verification and release evidence
 
 ### Corrections in this PR
-- The canonical runner now registers every discovered contract suite (142 at the time of this audit) and checks for unregistered suites at runtime.
+- The canonical runner now registers the maintained 134-suite set, including the new Admin read-model, monthly break-even, and event-bound lifecycle regressions. Stale/standalone phase audits are kept in their own workflows; an obsolete duplicate Phase 8 Android contract was removed rather than blindly added to the runner.
 - Added focused Admin read-model tests for payment totals, malformed payment data, overpayment visibility, IST validity dates, EMI status, effective driver targets, and effective maintenance rates.
 - Strengthened architecture and calculation-boundary contracts to detect presentation-to-domain/infrastructure dependencies, shell DOM coupling, and known financial formulas leaking into views.
 - Registered the calculation matrix and five-year Phase 5 traceability suites after correcting their stale Timeline path assumptions.
@@ -113,13 +114,14 @@ The domain engines now preserve the signed balance (`accumulated provision - act
 |---|---|---|---|
 | KFE-E2E-01 | Architecture | Machine-readable presentation dependency rules contradicted architecture/UI authorities | Corrected; CI pending |
 | KFE-E2E-02 | Architecture | Calculation metadata referenced stale/non-existent implementation paths | Corrected; CI pending |
-| KFE-E2E-03 | Test governance | Ten existing contract suites were not registered | Registered all suites; dynamic omission guard added |
+| KFE-E2E-03 | Test governance | Contract inventory mixed current suites with standalone/build-gated and stale historical contracts | Maintained 134-suite canonical runner; registered relevant new regressions, kept Phase 0/1/release workflows separate, and removed obsolete duplicate Phase 8 contract |
 | KFE-E2E-04 | Shell | Admin view queried shell-owned scroll DOM | Replaced with shell viewport event |
 | KFE-E2E-11 | Platform boundaries | GPS status, diagnostics and backup components directly accessed native/infrastructure providers; GPS status polled every 5 seconds | Application services and infrastructure adapters added; status polling removed |
 | KFE-E2E-12 | Admin UI | Unreachable legacy Ledger screen remained in Admin source despite no approved Ledger navigation | Removed obsolete component and branch |
+| KFE-E2E-13 | Calculations | Work and Calculations had separate fuel quantity division implementations | Both now use the single canonical `calculateFuelQuantityKg` formula |
 | KFE-E2E-05 | UI/calculations | Admin and Calculations views contained domain-derived arithmetic/projections | Moved to application/domain owners; focused tests added |
 | KFE-E2E-06 | Business rules | EMI and Maintenance provision buckets were zero-clamped contrary to BR-10A | Corrected to signed balances; side ledgers removed |
-| KFE-E2E-07 | Calculation traceability | Calculation evidence contracts were stale/unregistered | Paths corrected; suites registered |
+| KFE-E2E-07 | Calculation traceability | Calculation evidence contracts made unsupported Phase 1 UI claims and contained stale Timeline paths | Paths and UI-scope assertions corrected; rendered advanced UI remains NOT PROVEN |
 | KFE-E2E-08 | Cross-layer UI | Current rendered UI and persisted E2E proof incomplete | Open — browser verification required |
 | KFE-E2E-09 | Native runtime | Physical-device offline GPS and restart acceptance not available from repository CI | Open — device acceptance required |
 | KFE-E2E-10 | UI uncoupling | Work view still owns some transient workflow state/transitions | Partially extracted; further separation remains open |
