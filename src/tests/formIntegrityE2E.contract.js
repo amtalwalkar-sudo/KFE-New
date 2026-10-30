@@ -52,8 +52,10 @@ for (const key of ['businessSetup','vehicle','driver','compliance','maintenance'
   assertHas(definitions, new RegExp('^\\s*'+key+'\\s*:', 'm'), 'Missing Admin form definition: '+key)
 }
 
-assertHas(performanceRepo, /PERFORMANCE_STORES = Object\.freeze\(\['shifts', 'trips', 'fuel_logs'\]\)/, 'Basic Performance must read only saved ride and fuel facts')
-assert.doesNotMatch(performanceRepo, /vehicles|drivers|compliance_records|maintenance_records|loan_payments|prepayments|driver_targets|break_even_inputs|settlements|settings/, 'Basic Performance must not read retired planning/finance sources')
+assertHas(performanceRepo, /PERFORMANCE_STORES = Object\.freeze\(\['shifts', 'trips', 'fuel_logs', 'settings'\]\)/, 'Basic Performance must read only ride, fuel, and business-boundary facts')
+assertHas(performanceRepo, /filter\(record => record\?\.settingKey === 'businessSetup' && !record\?\.deletedAt/, 'Business boundary must ignore deleted settings')
+assertHas(performanceRepo, /sort\(\(a, b\) => String\(b\.updatedAt/, 'Business boundary must use the latest saved setting')
+assert.doesNotMatch(performanceRepo, /vehicles|drivers|compliance_records|maintenance_records|loan_payments|prepayments|driver_targets|break_even_inputs|settlements/, 'Basic Performance must not read retired planning/finance sources')
 assertHas(performance, /PerformanceRepository\.getSnapshot\(\)/, 'Basic Performance must read saved canonical records')
 assertHas(performance, /calculateFuelPeriodSummary/, 'Basic Performance must summarize recorded fuel')
 assert.doesNotMatch(performance, /driverTarget|breakEvenInputs|amortization|forecast|provision/i)

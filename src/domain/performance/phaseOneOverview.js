@@ -25,7 +25,7 @@ export function derivePhaseOnePerformanceOverview(snapshot, range, metrics) {
     .reduce((sum, trip) => sum + amount(trip.cancelledRevenue ?? trip.revenue), 0)
   const recordedRevenue = shifts.reduce((sum, shift) => sum + amount(shift.revenue), 0)
   const fuelSpending = Number.isFinite(Number(metrics?.fuelCost)) ? Number(metrics.fuelCost) : 0
-  const fuelCostPerKm = Number.isFinite(Number(metrics?.fuelCostPerKm)) ? Number(metrics.fuelCostPerKm) : null
+  const fuelCostPerKm = metrics?.fuelCostPerKm != null && metrics.fuelCostPerKm !== '' && Number.isFinite(Number(metrics.fuelCostPerKm)) ? Number(metrics.fuelCostPerKm) : null
   return {
     completedRides,
     cancellationFees,

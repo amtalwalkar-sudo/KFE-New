@@ -1,6 +1,6 @@
 import { initializeCanonicalStorage } from '../utils/indexedDB.js'
 
-const PERFORMANCE_STORES = Object.freeze(['shifts', 'trips', 'fuel_logs'])
+const PERFORMANCE_STORES = Object.freeze(['shifts', 'trips', 'fuel_logs', 'settings'])
 
 const readSnapshot = async () => {
   const db = await initializeCanonicalStorage()
@@ -24,6 +24,9 @@ const readSnapshot = async () => {
 export const PerformanceRepository = {
   async getSnapshot() {
     const data = await readSnapshot()
-    return { shifts: data.shifts, trips: data.trips, fuelLogs: data.fuel_logs }
+    const businessSetup = (data.settings || [])
+      .filter(record => record?.settingKey === 'businessSetup' && !record?.deletedAt && record?.deleted !== true)
+      .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')))[0]?.values || null
+    return { shifts: data.shifts, trips: data.trips, fuelLogs: data.fuel_logs, businessSetup }
   }
 }

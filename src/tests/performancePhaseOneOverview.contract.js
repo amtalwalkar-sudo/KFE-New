@@ -19,6 +19,8 @@ assert.equal(result.fareIncome, 1000)
 assert.equal(result.fuelSpending, 300)
 assert.equal(result.fuelCostPerKm, 2.5)
 assert.equal(result.incomeAfterFuel, 950, 'income after fuel includes cancellation fees')
+const noInterval = derivePhaseOnePerformanceOverview(snapshot, range, { fuelCost: 0, fuelCostPerKm: null, fuelCostPerKmSource: null })
+assert.equal(noInterval.fuelCostPerKm, null, 'fuel cost/km is unavailable without a valid full-tank interval')
 assert.throws(() => derivePhaseOnePerformanceOverview(snapshot, { from: new Date('2026-10-27'), to: new Date('2026-10-26') }, metrics), /invalid/i)
 
 const service = readFileSync(new URL('../application/performance/phaseOnePerformanceService.js', import.meta.url), 'utf8')
