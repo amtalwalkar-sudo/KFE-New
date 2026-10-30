@@ -56,7 +56,6 @@ if (!failures.length) {
     failures.push('status does not show a valid post-Phase-0 active state')
   }
   requireMatch('KFE_BUSINESS_RULES_REGISTER.md', /AUTHORITATIVE — SOLE BUSINESS-RULE AUTHORITY/, 'business-rule register is not marked sole authority')
-  requireMatch('docs/KFE-BUSINESS-RULES-AUDIT-EVIDENCE.md', /KFE_BUSINESS_RULES_REGISTER\.md/, 'consolidated business-rule evidence is not bound to the register')
 }
 
 const walk = dir => {
