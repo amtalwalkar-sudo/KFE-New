@@ -83,8 +83,9 @@ assert.match(router, /path: '\/performance'/, 'Performance is an active route an
 assert.match(router, /path: '\/admin'/, 'Admin is an active route and must remain in the route inventory')
 assert.doesNotMatch(router, /VehicleModuleView|MaintenanceModuleView|LoanModuleView|ComplianceModuleView|KfeFinancialModuleView/, 'Secondary legacy module components are not direct routes in the current PWA router')
 assert.match(performanceRepo, /'shifts', 'trips', 'fuel_logs', 'vehicles'/, 'Performance snapshot must include operational and vehicle records')
-assert.match(performanceService, /normalizeCalculationSnapshot\(snapshot\)/, 'Performance must normalize source snapshot before calculations')
-assert.ok(calculations.includes('PerformanceService'), 'Calculations view must use the calculation application boundary')
+assert.match(performanceService, /PerformanceRepository\.getSnapshot\(\)/, 'Basic Performance must read saved canonical records')
+assert.match(performanceService, /calculateFuelPeriodSummary/, 'Basic Performance must summarize saved fuel facts')
+assert.doesNotMatch(performanceService, /driverTarget|breakEvenInputs|amortization|forecast|provision/i)
 
 console.log('PWA Form Save-Path Regression Contract: PASS')
-console.log(JSON.stringify({adminForms:adminKeys,workForms:['shift start','trip details/fare','cancellation','fuel','odometer-only end shift'],otherForms:['first-run setup','cloud backup setup','settings backup/restore/reset','Admin backup/restore','calculations'],status:'source-level save-path and consumer checks passed'}))
+console.log(JSON.stringify({adminForms:adminKeys,workForms:['shift start','trip details/fare','cancellation','fuel','odometer-only end shift'],otherForms:['first-run basic setup','cloud backup setup','settings backup/restore/reset','Admin backup/restore'],status:'source-level save-path and consumer checks passed'}))
