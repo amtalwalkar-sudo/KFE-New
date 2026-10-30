@@ -35,8 +35,7 @@ final class KfeNativeTripFormDraftStore {
         prefs.getString("cancelReason", ""),
         prefs.getBoolean("cancelFormPwaSynchronized", false),
         prefs.getBoolean("tollExpanded", false),
-        prefs.getBoolean("parkingExpanded", false),
-        false, false);
+        prefs.getBoolean("parkingExpanded", false));
   }
 
   static void save(SharedPreferences prefs, Draft draft) {
@@ -55,7 +54,6 @@ final class KfeNativeTripFormDraftStore {
   static void clear(SharedPreferences prefs) {
     prefs.edit().remove("formMode").remove("formValue").remove("tollValue")
         .remove("parkingValue").remove("cancelReason").remove("cancelFormPwaSynchronized")
-        .remove("tollExpanded").remove("parkingExpanded").remove("tollExcluded")
-.apply();
+        .remove("tollExpanded").remove("parkingExpanded").apply();
   }
 }
