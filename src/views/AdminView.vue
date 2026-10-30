@@ -107,7 +107,8 @@ async function save(values){if(saving.value)return;clearMessages();formErrors.va
   const id=editing.value
   const draftIdentity = sourceFormDraftIdentity.value
   const payload=(selected.value==='compliance'||selected.value==='maintenance')?{...values,cost:Number(values.cost)||0}:values
-   await AdminService.save(selected.value,payload,id)
+   const saved=await AdminService.save(selected.value,payload,id)
+   if(!saved?.id)throw new Error('The record was not confirmed by the canonical repository.')
    await clearFormDraft(draftIdentity)
    // Source records are obligations/expense facts. Actual cash settlement is a
    // separate authoritative record with its own actual payment date.
