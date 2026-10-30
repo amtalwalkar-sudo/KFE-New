@@ -8,7 +8,6 @@ const overview = ref(null)
 const loading = ref(false)
 const error = ref('')
 let requestVersion = 0
-let unsubscribe = null
 
 const money = value => value == null || !Number.isFinite(Number(value))
   ? 'Unavailable'
@@ -41,12 +40,13 @@ const load = async ({ force = false } = {}) => {
 }
 watch(period, () => { void load({ force: true }) })
 onMounted(() => {
+  // Read a consistent snapshot on entry. Avoid starting a second IndexedDB
+  // snapshot from cross-tab change notifications while the same view is alive;
+  // leaving and re-entering Performance refreshes from canonical data.
   void load()
-  unsubscribe = PhaseOnePerformanceService.subscribeDataChanges(() => { void load() })
 })
 onUnmounted(() => {
   requestVersion += 1
-  if (typeof unsubscribe === 'function') unsubscribe()
 })
 </script>
 
