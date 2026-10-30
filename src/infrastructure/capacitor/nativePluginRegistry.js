@@ -10,5 +10,6 @@ export const NativePlugins = Object.freeze({
   overlay: registerPlugin('KfeOverlay'),
   tripBoundaryLocation: registerPlugin('KfeTripBoundaryLocation'),
   secureStorage: registerPlugin('KfeSecureStorage'),
+  backupFile: registerPlugin('KfeBackupFile'),
   system: registerPlugin('KfeNativeSystem'),
 })
