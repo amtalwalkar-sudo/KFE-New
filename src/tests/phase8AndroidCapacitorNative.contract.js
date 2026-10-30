@@ -59,7 +59,7 @@ assert.match(overlayPlugin, /Settings\.canDrawOverlays/)
 assert.match(overlayPlugin, /ACTION_MANAGE_OVERLAY_PERMISSION/)
 assert.match(overlay, /ContextCompat\.startForegroundService/)
 assert.match(overlay, /TYPE_APPLICATION_OVERLAY/)
-assert.match(overlay, /String\[\] labels=\{"TARGET",phaseLabel,"REVENUE"\}/)
+assert.match(overlay, /String\[\] labels=\{"RIDES",phaseLabel,"REVENUE"\}/)
 assert.match(overlay, /for\(int i=0;i<3;i\+\+\)/)
 
 assert.match(overlayLifecycle, /deriveWorkCockpitState/)
