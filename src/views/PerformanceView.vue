@@ -22,7 +22,11 @@ const sourceLabel = source => source === 'FULL_TANK_INTERVAL'
     ? 'Indicative: period fuel spending ÷ recorded vehicle KM'
     : 'Unavailable until sufficient valid fuel and mileage records exist'
 
-const load = async () => {
+const load = async ({ force = false } = {}) => {
+  // Canonical change notifications can arrive during the initial snapshot read.
+  // Do not supersede a valid in-flight load with a duplicate read; the active
+  // request already reads a transactionally consistent canonical snapshot.
+  if (loading.value && !force) return
   const version = ++requestVersion
   loading.value = true
   error.value = ''
@@ -35,7 +39,7 @@ const load = async () => {
     if (version === requestVersion) loading.value = false
   }
 }
-watch(period, () => { void load() })
+watch(period, () => { void load({ force: true }) })
 onMounted(() => {
   void load()
   unsubscribe = PhaseOnePerformanceService.subscribeDataChanges(() => { void load() })
