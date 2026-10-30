@@ -31,6 +31,7 @@ assert.match(plugin, /ACCESS_BACKGROUND_LOCATION/,
   'native permission checks must include Android background location')
 assert.match(plugin, /openBackgroundLocationSettings/, 'Android versions requiring Settings must have a user-triggered permission fallback')
 assert.match(plugin, /backgroundCaptureAllowed/,
+assert.match(plugin, /pendingCount > 0 && fine && background\) KfeOverlayService\.retryPendingLocations\(context\)/, 'saved GPS events resume on explicit app status refresh without permission prompts or periodic polling')
   'the native status response must expose whether background capture is allowed')
 assert.match(plugin, /Background location permission was not granted\. Background GPS capture remains disabled\./,
   'denied background permission must be treated as disabled, not bypassed')
