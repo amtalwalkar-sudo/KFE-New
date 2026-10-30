@@ -38,9 +38,12 @@ assert.doesNotMatch(workUnmountCleanup, /androidOverlay\.hide\(/,
 const syncStart = workView.indexOf('async function syncOverlay()')
 const syncEnd = workView.indexOf('async function openStart()', syncStart)
 const sync = workView.slice(syncStart, syncEnd)
-assert.match(sync, /if \(!store\.isOnline \|\| document\.visibilityState === 'visible'\)/)
-assert.match(sync, /androidOverlay\.hide\(\)/,
-  'PWA shift end must cause overlay hide through the online-state reconciliation.')
+assert.match(sync, /if \(document\.visibilityState === 'visible'\) return/,
+  'Foreground minimization belongs to the shared Android lifecycle controller.')
+assert.match(sync, /if \(!store\.isOnline\) \{[\s\S]*?androidOverlay\.hide\(\)/,
+  'A hidden Work view must hide the overlay when its canonical shift has ended.')
+assert.doesNotMatch(workView, /addEventListener\('visibilitychange', syncOverlay\)/,
+  'The shared lifecycle controller must be the single visibility-change owner.')
 
 assert.match(overlayLifecycle, /if \(!active\?\.shift\?\.id\) return null/)
 assert.match(overlayLifecycle, /if \(state\) await AndroidOverlay\.show\(state\)\s*else await AndroidOverlay\.hide\(\)/)
