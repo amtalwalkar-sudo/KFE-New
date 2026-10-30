@@ -14,10 +14,10 @@ const overlay = fs.readFileSync(path.join(root, '..', 'android', 'app', 'src', '
 console.log('--- Running KFE Canonical Trip Lifecycle Gate ---')
 
 const active = { id: 'trip-1', shiftId: 'shift-1', status: TRIP_STATES.ACTIVE, revenue: null }
-const completed = transitionTrip(active, TRIP_STATES.COMPLETED, { tripEndAt: '2026-09-24T12:00:00.000Z', tripKm: 12.4, tripKmAuthority: 'GPS_ESTIMATE' })
+const completed = transitionTrip(active, TRIP_STATES.COMPLETED, { tripEndAt: '2026-09-24T12:00:00.000Z' })
 assert(completed.status === 'COMPLETED', 'END_RIDE must produce one COMPLETED canonical Trip')
 assert(completed.id === active.id, 'Trip ID must remain stable across END_RIDE')
-assert(completed.tripKm === 12.4, 'Completed trip must retain canonical trip distance')
+assert(completed.tripKm === undefined, 'Ride lifecycle must not calculate or capture trip distance')
 
 const priced = { ...completed, revenue: 250, revenueAuthority: 'SUPPORTING_ONLY' }
 assert(priced.id === active.id && priced.status === 'COMPLETED', 'Fare must update the same completed Trip, not create another record')
