@@ -172,6 +172,20 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertEquals(1000d, store.getRecord("SHIFT", shiftId).getJSONObject("record").getDouble("startOdometer"), 0.001d);
   }
 
+  @Test public void nativeGpsCaptureRejectsProviderFixesThatPreDateTheRideEvent() {
+    long eventAt = System.currentTimeMillis();
+    assertFalse("A cached fix from before the swipe must not be attached to the event.",
+        KfeOverlayService.isEventGpsFixAtOrAfter(java.time.Instant.ofEpochMilli(eventAt).toString(), eventAt - 1L));
+    assertTrue("A fix at the event timestamp is valid.",
+        KfeOverlayService.isEventGpsFixAtOrAfter(java.time.Instant.ofEpochMilli(eventAt).toString(), eventAt));
+    assertTrue("The first subsequent provider fix is valid.",
+        KfeOverlayService.isEventGpsFixAtOrAfter(java.time.Instant.ofEpochMilli(eventAt).toString(), eventAt + 1L));
+    assertFalse("An invalid event timestamp must fail closed.",
+        KfeOverlayService.isEventGpsFixAtOrAfter("not-an-instant", eventAt + 1L));
+    assertFalse("A provider fix without a timestamp must fail closed.",
+        KfeOverlayService.isEventGpsFixAtOrAfter("", 0L));
+  }
+
   @Test public void fourEventGpsSnapshotsRemainSeparateFromTripBusinessVersions() throws Exception {
     Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
     String suffix = Long.toString(System.currentTimeMillis());
