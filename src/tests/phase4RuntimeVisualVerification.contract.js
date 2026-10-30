@@ -16,7 +16,7 @@ const pagesWorkflow=readFileSync('.github/workflows/consolidated-baseline.yml','
 
 for(const route of ['.work-canonical','.activity-timeline-page','.performance-page','.admin-page']) assert.ok(smoke.includes(route),'Phase 4 smoke must cover '+route)
 assert.ok(smoke.includes("route('timeline','.activity-timeline-page'"),'Timeline runtime smoke must verify the live Timeline surface')
-assert.ok(smoke.includes("route('performance','.performance-page'"),'Performance must use the live read-only Performance surface')
+assert.ok(smoke.includes("getByRole('link',{name:'Performance',exact:true}).click()"),'Performance must use the live read-only Performance surface')
 assert.ok(smoke.includes("['Timeline','Performance']"),'Timeline and Performance must retain their bottom navigation entries')
 assert.match(router,/path: '\/timeline', name: 'Timeline', component: ActivityTimelineView/,'Timeline route must render the live read-only Timeline')
 assert.match(router,/path: '\/performance', name: 'Performance', component: PerformanceView/,'Performance route must render the read-only Performance view')
@@ -35,7 +35,7 @@ assert.doesNotMatch(calculationSmoke,/route\(page, 'timeline', '\.performance-pa
 assert.ok(semanticAudit.includes("page.locator('.activity-timeline-page')"),'Semantic audit must verify the live Timeline route')
 assert.ok(semanticAudit.includes("Timeline did not render the cancelled trip") && semanticAudit.includes("Timeline did not render the completed ride after shift closure"),'Semantic audit must verify completed and cancelled Timeline records')
 assert.doesNotMatch(semanticAudit,/Timeline must remain blank|Timeline and Performance intentionally render blank/,'Semantic audit must not retain the retired blank-Timeline assumption')
-assert.ok(smoke.includes("route('performance','.performance-page'"),'Performance must use the live read-only Performance surface')
+assert.ok(smoke.includes("getByRole('link',{name:'Performance',exact:true}).click()"),'Performance must use the live read-only Performance surface')
 assert.ok(smoke.includes("route('admin','.admin-page'"),'Admin must use the full four-section workspace')
 assert.ok(smoke.includes("page.locator('.activity-timeline-page').count()===1"),'Timeline smoke must verify the live Timeline surface')
 assert.ok(smoke.includes("page.locator('.performance-page').count()===1"),'Performance smoke must guard against the unexpected Performance presentation')
