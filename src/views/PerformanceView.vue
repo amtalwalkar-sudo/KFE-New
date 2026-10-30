@@ -99,7 +99,7 @@ onUnmounted(() => {
           <small>Fare income + cancellation fees − fuel spending</small>
         </article>
       </section>
-      <p class="performance-footnote">Income after fuel is recorded shift revenue (including cancellation fees), less recorded fuel spending. Other costs are not included.</p>
+      <p class="performance-footnote">Income after fuel is recorded shift revenue (including cancellation fees), less recorded fuel spending. Maintenance and EMI costs are not included in Phase 1.</p>
     </template>
   </section>
 </template>
