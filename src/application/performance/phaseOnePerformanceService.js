@@ -10,9 +10,7 @@ const inRange = (value, range) => { const time = at(value); return time != null 
 const amount = value => value != null && value !== '' && Number.isFinite(Number(value)) && Number(value) >= 0 ? Number(value) : 0
 
 /**
- * Basic read-only Performance: recorded shift revenue, completed rides,
- * cancellation fees and recorded fuel only. No targets, forecasts, provisions,
- * loan amortization, break-even model, or maintenance projections.
+ * Basic read-only Performance summary from saved revenue and fuel observations.
  */
 export const PhaseOnePerformanceService = Object.freeze({
   async getOverview(period = 'DAY', now = getKfeReferenceNow()) {
