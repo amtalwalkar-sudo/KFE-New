@@ -44,5 +44,5 @@ const adminSave = adminService.slice(adminService.indexOf('async save('), adminS
 assert.ok(adminSave.indexOf('validateAdminForm') < adminSave.indexOf('await AdminRepository.save'), 'Admin validation must precede canonical persistence.')
 assert.ok(adminSave.indexOf('await AdminRepository.save') < adminSave.indexOf('checkpoint()'), 'The local checkpoint request must follow the confirmed canonical write.')
 assert.ok(adminSave.indexOf('checkpoint()') < adminSave.indexOf('return saved'), 'Admin must not acknowledge save before the canonical repository result exists.')
-assert.match(adminView, /const saved=await AdminService\.save\(selected\.value,payload,id\)\s*await clearFormDraft\(draftIdentity\)/, 'Create/edit drafts may clear only after the awaited canonical save.')
+assert.match(adminView, /const saved=await AdminService\.save\(selected\.value,payload,id\)[\s\S]*?if\(!saved\?\.id\)[\s\S]*?await clearFormDraft\(draftIdentity\)/, 'Create/edit drafts may clear only after the awaited canonical save is confirmed.')
 console.log('Admin draft recovery contract passed: unique workflow identities, reload recovery, parent isolation, local focus and duplicate-submit guards.')
