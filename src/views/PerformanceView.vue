@@ -15,12 +15,6 @@ const money = value => value == null || !Number.isFinite(Number(value))
 const costPerKm = value => value == null || !Number.isFinite(Number(value))
   ? 'Unavailable'
   : `${money(value)}/km`
-const sourceLabel = source => source === 'FULL_TANK_INTERVAL'
-  ? 'Based on qualified full-tank intervals'
-  : source === 'OBSERVED_PERIOD'
-    ? 'Indicative: period fuel spending ÷ recorded vehicle KM'
-    : 'Unavailable until sufficient valid fuel and mileage records exist'
-
 const load = async ({ force = false } = {}) => {
   // Canonical change notifications can arrive during the initial snapshot read.
   // Do not supersede a valid in-flight load with a duplicate read; the active
@@ -97,7 +91,7 @@ onUnmounted(() => {
         <article class="performance-metric">
           <span>Fuel cost per km</span>
           <strong>{{ costPerKm(overview.fuelCostPerKm) }}</strong>
-          <small>{{ sourceLabel(overview.fuelCostPerKmSource) }}</small>
+          <small>{{ overview.fuelCostPerKmSource === 'FULL_TANK_INTERVAL' ? 'From consecutive full-tank odometer readings' : 'Unavailable until two valid full-tank readings exist' }}</small>
         </article>
         <article class="performance-metric performance-metric-highlight">
           <span>Income after fuel</span>
@@ -105,23 +99,7 @@ onUnmounted(() => {
           <small>Fare income + cancellation fees − fuel spending</small>
         </article>
       </section>
-      <section class="performance-provisions" aria-labelledby="performance-provisions-title">
-        <h2 id="performance-provisions-title">Cumulative provision balances</h2>
-        <p class="performance-period-note">Signed balances as of {{ new Date(overview.provisionBalances.asOf).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) }}. Negative means payments exceed provision accrued; the balance is not clamped to zero.</p>
-        <div class="performance-metric-grid" aria-label="Cumulative provision balances">
-          <article class="performance-metric">
-            <span>EMI provision balance</span>
-            <strong>{{ overview.provisionBalances.emi.available ? money(overview.provisionBalances.emi.balance) : 'Unavailable' }}</strong>
-            <small>{{ overview.provisionBalances.emi.available ? 'Accumulated EMI provision less actual EMI payments' : 'No complete active loan calculation is available' }}</small>
-          </article>
-          <article class="performance-metric">
-            <span>Maintenance provision balance</span>
-            <strong>{{ overview.provisionBalances.maintenance.available ? money(overview.provisionBalances.maintenance.balance) : 'Unavailable' }}</strong>
-            <small>{{ overview.provisionBalances.maintenance.available ? 'Accumulated maintenance provision less actual maintenance payments' : 'A valid maintenance-rate history is required' }}</small>
-          </article>
-        </div>
-      </section>
-      <p class="performance-footnote">Income after fuel is an operating summary, not net profit; Maintenance, EMI and other costs are not included in Phase 1 income-after-fuel. Signed provision balances are shown separately and are not subtracted a second time.</p>
+      <p class="performance-footnote">Income after fuel is recorded shift revenue plus cancellation fees, less recorded fuel spending. Other costs are not included.</p>
     </template>
   </section>
 </template>
