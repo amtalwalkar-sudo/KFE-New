@@ -11,7 +11,7 @@ const backup = read('src/application/backup/backupService.js')
 
 assert.match(repository, /const ACTIVE_ADMIN_FORM_KEYS = new Set\(\['businessSetup','vehicle','driver','compliance','maintenance','loan'\]\)/)
 assert.match(repository, /if \(!ACTIVE_ADMIN_FORM_KEYS\.has\(formKey\)\) throw new Error/)
-assert.match(repository, /async remove\(formKey, id\) \{\s*if \(!ACTIVE_ADMIN_FORM_KEYS\.has\(formKey\)\)/)
+assert.match(repository, /async remove\(formKey,\s*id\) \{\s*if \(!ACTIVE_ADMIN_FORM_KEYS\.has\(formKey\)\)/)
 assert.doesNotMatch(repository, /formKey === 'settlement'|correctLoan|loanEngine|calculateEmi|calculatePrepaymentEstimate/)
 assert.match(repository, /readLiveSettlementsForSource/)
 assert.match(repository, /assertSourceHasNoSettlements/)
