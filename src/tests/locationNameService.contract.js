@@ -40,7 +40,7 @@ try {
     primary: { endpoint: 'mock://primary', resolve: async () => 'Verified area, Mumbai, Maharashtra' },
     fallback: { resolve: async () => null },
   })
-  const resolved = await replacement.resolveDetailed({ latitude: 19.076, longitude: 72.8777 }, { forceRefresh: true })
+  const resolved = await replacement.resolveDetailed({ latitude: 19.076, longitude: 72.8777, accuracy: 10 }, { forceRefresh: true })
   assert.equal(resolved.placeName, 'Verified area, Mumbai, Maharashtra')
   assert.equal(resolved.state, 'RESOLVED')
   assert.equal(JSON.parse(values.get(cacheKey))[coordinateKey].placeName, 'Verified area, Mumbai, Maharashtra')
