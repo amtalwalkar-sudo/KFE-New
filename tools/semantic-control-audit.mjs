@@ -415,9 +415,9 @@ try {
   await settings.getByRole('heading', { name: 'Backup & Restore', exact: true }).waitFor({ state: 'visible', timeout: 30000 })
   assert(await settings.getByRole('button', { name: 'Create backup', exact: true }).count() === 1, 'Admin Create backup action missing')
   assert(await settings.getByRole('button', { name: 'Restore from phone', exact: true }).count() === 1, 'Admin Restore from phone action missing')
-  assert(await settings.getByRole('checkbox', { name: 'Enable automatic backup', exact: true }).count() === 0, 'Automatic network backup must not be part of the offline-first basic Admin scope')
-  assert(await settings.getByText('Dropbox', { exact: true }).count() === 0, 'Retired Dropbox integration must not appear in basic Admin')
-  assert(await settings.getByLabel('Dropbox access token', { exact: true }).count() === 0, 'Retired Dropbox credentials must not appear in basic Admin')
+  assert(await settings.getByRole('checkbox', { name: 'Enable automatic backup', exact: true }).count() === 1, 'Admin Dropbox automatic-backup option missing')
+  assert(await settings.getByText('Dropbox', { exact: true }).count() === 1, 'Admin Dropbox connection section missing')
+  assert(await settings.getByLabel('Dropbox access token', { exact: true }).count() === 1, 'Admin Dropbox token configuration missing')
   // Settings destinations are separate Admin workspace entries, not duplicate cards inside Settings.
   await page.goto(new URL('admin', base).href, { waitUntil: 'domcontentloaded' })
   await page.locator('.admin-page').getByRole('heading', { name: 'Admin workspace', exact: true }).waitFor({ state: 'visible', timeout: 30000 })
