@@ -1091,14 +1091,18 @@ public class KfeOverlayService extends Service {
     }
   }
 
-  private static boolean isValidPersistedEventGpsSnapshot(JSONObject snapshot){
+  static boolean isValidPersistedEventGpsSnapshot(JSONObject snapshot){
     if(snapshot==null)return false;
     double latitude=snapshot.optDouble("latitude",Double.NaN);
     double longitude=snapshot.optDouble("longitude",Double.NaN);
     String capturedAt=snapshot.optString("capturedAt","");
-    return Double.isFinite(latitude)&&Math.abs(latitude)<=90d
-      &&Double.isFinite(longitude)&&Math.abs(longitude)<=180d
-      &&!capturedAt.trim().isEmpty()&&!"null".equalsIgnoreCase(capturedAt.trim());
+    Object rawEventAt=snapshot.opt("eventAt");
+    String eventAt=rawEventAt==null||rawEventAt==JSONObject.NULL?"":String.valueOf(rawEventAt);
+    if(!Double.isFinite(latitude)||Math.abs(latitude)>90d
+      ||!Double.isFinite(longitude)||Math.abs(longitude)>180d
+      ||capturedAt.trim().isEmpty()||"null".equalsIgnoreCase(capturedAt.trim()))return false;
+    try{return isEventGpsFixAtOrAfter(eventAt,java.time.Instant.parse(capturedAt).toEpochMilli());}
+    catch(Exception error){return false;}
   }
 
   static boolean isEventGpsFixAtOrAfter(String eventAt,long fixTime){
