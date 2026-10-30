@@ -50,7 +50,7 @@ assertIncludes(store, 'WorkService.completeTrip', 'PWA Work must end a ride thro
 assertIncludes(workView, 'deriveWorkCockpitState', 'PWA must derive presentation from the shared cockpit state.')
 assertIncludes(overlayLifecycle, 'deriveWorkCockpitState', 'Android overlay lifecycle must derive from the same cockpit state.')
 assertIncludes(overlayLifecycle, 'WorkService.getActiveState', 'Overlay reconstruction must read canonical active state.')
-assertIncludes(overlayBridge, 'registerPlugin(\'KfeOverlay\')', 'PWA overlay bridge must use the native KfeOverlay plugin.')
+assertIncludes(overlayBridge, 'NativePlugins.overlay', 'PWA overlay bridge must use the shared native KfeOverlay plugin registration.')
 assertIncludes(nativeOverlay, 'emitAction("GO_TO_PICKUP",pendingTripId', 'Native GO TO PICKUP must return to the PWA command path.')
 assertIncludes(nativeOverlay, 'emitAction("START_RIDE",pendingTripId', 'Native START TRIP must return to the PWA command path.')
 assertIncludes(nativeOverlay, 'emitAction("END_RIDE",pendingTripId', 'Native END TRIP must return to the PWA command path.')
