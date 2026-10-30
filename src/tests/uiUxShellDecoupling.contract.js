@@ -84,7 +84,7 @@ assert.match(workView, /store\.startRide\(/, 'Trip start must route through the 
 assert.match(workView, /store\.endTrip\(/, 'Trip completion must route through the application-backed Work store')
 assert.match(workView, /createWorkDraftController\(/, 'Durable draft persistence must remain in its application controller')
 assert.match(workView, /createNativeWorkActionController\(/, 'Native action replay and acknowledgement must remain in its application controller')
-assert.doesNotMatch(workView, /WorkDraftService\.(?:save|clear)\(/, 'Work view must persist and clear drafts only through its application controller')
+assert.doesNotMatch(workView, /WorkDraftService/, 'Work view must not import or call the draft service directly; the application controller owns the service dependency')
 assert.doesNotMatch(workView, /draftWriteQueue/, 'Work view must not reference the controller private write queue')
 
 console.log('UI/UX shell decoupling contract: PASS — one authority, shell boundary checked, Work commands routed through application-backed store/controllers, impact-warning workflow retained.')
