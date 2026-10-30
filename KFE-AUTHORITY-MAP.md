@@ -47,6 +47,7 @@ Anything outside these five capabilities is out of product scope. Do not restore
 
 ### Current UI and basic Performance evidence
 
+- docs/KFE-BUSINESS-RULES-AUDIT-EVIDENCE.md — current scope evidence; the business-rule register remains the sole authority.
 ### Data / persistence / operational evidence
 - docs/KFE-PHASE-2-PERSISTENCE-CONTRACT.md — persistence implementation/evidence under canonical data contract.
 - docs/KFE-PHASE-3-RIDE-CAPTURE-CONTRACT.md — ingestion adapter implementation/evidence under canonical Trip data.
