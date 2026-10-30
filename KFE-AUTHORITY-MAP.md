@@ -23,7 +23,7 @@ KFE contains only these product capabilities:
 4. Basic Admin: the existing essential forms and their saved records. Forms store source data; they must not grow into a separate calculations or planning product.
 5. Capacitor + PWA: the PWA owns shared UI and workflows; Capacitor/native Android owns Android-specific capabilities, including the ride overlay and native GPS collection.
 
-Anything outside these five capabilities is out of product scope. Do not restore it from historical phase notes, audit files, old calculation specifications, unused screens, or tests. Remove obsolete code, wiring, tests, and documentation when no longer needed by the five capabilities. Preserve existing business records and required form data while removing obsolete derived features. Do not introduce replacement features without an explicit request.
+Anything outside these five capabilities is out of product scope. Do not restore it from historical phase notes, audit files, unused screens, or tests. Remove obsolete code, wiring, tests, and documentation when no longer needed by the five capabilities. Preserve existing business records and required form data while removing obsolete derived features. Do not introduce replacement features without an explicit request.
 
 ## 2. Canonical human-readable authorities
 
@@ -47,7 +47,6 @@ Anything outside these five capabilities is out of product scope. Do not restore
 
 ### Current UI and basic Performance evidence
 
-- docs/KFE-BUSINESS-RULES-AUDIT-EVIDENCE.md — current scope evidence; the business-rule register remains the sole authority.
 ### Data / persistence / operational evidence
 - docs/KFE-PHASE-2-PERSISTENCE-CONTRACT.md — persistence implementation/evidence under canonical data contract.
 - KFE_DATA_RECOVERY_GATE_PHASE7.md — recovery gate/evidence.
