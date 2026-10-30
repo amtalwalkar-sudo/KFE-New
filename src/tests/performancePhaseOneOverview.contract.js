@@ -32,6 +32,7 @@ const viewSource = readFileSync(new URL('../views/PerformanceView.vue', import.m
 const adminSource = readFileSync(new URL('../views/AdminView.vue', import.meta.url), 'utf8')
 assert.ok(serviceSource.includes('balanceMetrics.loanProvisionBalance'))
 assert.ok(serviceSource.includes('balanceMetrics.maintenanceProvisionBalance'))
+assert.match(serviceSource, /const balanceFrom = new Date\(0\)/, 'cumulative balances must not reset to the selected reporting period')
 assert.ok(viewSource.includes('money(overview.provisionBalances.emi.balance)'))
 assert.ok(viewSource.includes('money(overview.provisionBalances.maintenance.balance)'))
 assert.ok(viewSource.includes('Negative means payments exceed provision accrued'))
