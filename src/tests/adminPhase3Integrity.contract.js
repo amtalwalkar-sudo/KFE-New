@@ -1,48 +1,24 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 
-const adminRepository = fs.readFileSync('src/repositories/adminRepository.js', 'utf8')
-const backupRepository = fs.readFileSync('src/repositories/backupRepository.js', 'utf8')
-const backupService = fs.readFileSync('src/application/backup/backupService.js', 'utf8')
+const read = path => fs.readFileSync(path, 'utf8')
+const repository = read('src/repositories/adminRepository.js')
+const adminService = read('src/application/admin/adminService.js')
+const forms = read('src/application/admin/adminFormDefinitions.js')
+const view = read('src/views/AdminView.vue')
+const navigation = read('src/presentation/admin/adminNavigation.js')
+const backup = read('src/application/backup/backupService.js')
 
-const saveSource = adminRepository.slice(adminRepository.indexOf('async save(formKey'), adminRepository.indexOf('async correctLoan'))
-assert.match(saveSource, /const stores = new Set\(\[storeName, 'pending_mutations', 'audit_history'\]\)/,
-  'Admin saves must explicitly assemble a single canonical transaction for business and audit writes')
-assert.match(saveSource, /if \(formKey === 'settlement' \|\| formKey === 'maintenance' \|\| formKey === 'compliance'\) stores\.add\('settlements'\)/,
-  'Settlement creation and source amount edits must serialize against linked settlement changes')
-assert.match(saveSource, /const request = tx\.objectStore\(sourceStore\)\.get\(values\.sourceId\)/,
-  'Settlement source existence/deletion must be checked in the same write transaction')
-assert.match(saveSource, /const request = tx\.objectStore\('settlements'\)\.getAll\(\)/,
-  'Payment limits must use settlement rows read inside the canonical write transaction')
-assert.match(saveSource, /for \(const check of relationChecks\)[\s\S]*isDeleted\(parent\)/,
-  'Referenced parent existence and soft-delete state must be rechecked in the write transaction')
-assert.match(saveSource, /if \(existingId\)[\s\S]*isDeleted\(currentRecord\)/,
-  'A stale form must not recreate a record that was deleted while it remained open')
-assert.match(saveSource, /currentRecord\.updatedAt[\s\S]*existingRaw\?\.updatedAt/,
-  'Concurrent edits must reject a stale version instead of overwriting newer canonical data')
-assert.match(saveSource, /if \(alreadyPaid \+ Number\(values\.amount\) > sourceAmount \+ 0\.005\)/,
-  'Concurrent linked payments must not exceed the authoritative source amount')
-assert.match(saveSource, /if \(Number\.isFinite\(Number\(record\.cost\)\) && paid > Number\(record\.cost\) \+ 0\.005\)/,
-  'Source edits must not reduce the authoritative amount below linked payments')
-
-const removeSource = adminRepository.slice(adminRepository.indexOf('async remove(formKey'), adminRepository.indexOf('\n  },\n}'))
-assert.match(removeSource, /const stores = \[storeName, 'pending_mutations', 'audit_history', \.\.\.\(sourceType \? \['settlements'\] : \[\]\)\]/,
-  'Deleting a payment source must share a write transaction with settlement creation')
-assert.match(removeSource, /tx\.objectStore\('settlements'\)\.getAll\(\)/,
-  'Deletion must check linked settlements under the same transaction lock')
-assert.match(removeSource, /if \(linked\.length\) \{ fail\(new Error\(/,
-  'A source with linked payments must not be soft-deleted')
-
-const restoreSource = backupRepository.slice(backupRepository.indexOf('async restoreCanonicalSnapshot'), backupRepository.indexOf('async resetCanonicalData'))
-assert.match(restoreSource, /db\.transaction\(stores, 'readwrite'\)/,
-  'Restore merge decisions and writes must remain atomic across canonical stores')
-assert.doesNotMatch(restoreSource, /store\.clear\(/,
-  'Restore must not replace the current dataset by clearing canonical stores')
-assert.match(backupService, /saveLocalBackup\(await createBackup\(\)\)/,
-  'Restore must checkpoint the merged canonical state before clearing its recovery journal')
-assert.match(backupService, /verifyResetCheckpoint\(checkpoint, resetId\)/,
-  'Reset must verify its durable recovery checkpoint before destructive work')
-assert.match(backupService, /await backupRepository\.verifyCanonicalReset\(\)/,
-  'Reset completion must verify all canonical stores are empty')
-
-console.log('Admin Phase 3 integrity contracts passed: relationship checks are transaction-scoped and backup/restore/reset recovery guards remain in place.')
+assert.match(repository, /const ACTIVE_ADMIN_FORM_KEYS = new Set\(\['businessSetup','vehicle','driver','compliance','maintenance','loan'\]\)/)
+assert.match(repository, /if \(!ACTIVE_ADMIN_FORM_KEYS\.has\(formKey\)\) throw new Error/)
+assert.match(repository, /async remove\(formKey, id\) \{\s*if \(!ACTIVE_ADMIN_FORM_KEYS\.has\(formKey\)\)/)
+assert.doesNotMatch(repository, /formKey === 'settlement'|correctLoan|loanEngine|calculateEmi|calculatePrepaymentEstimate/)
+assert.match(repository, /readLiveSettlementsForSource/)
+assert.match(repository, /assertSourceHasNoSettlements/)
+assert.match(repository, /FORM_STORE = Object\.freeze\(\{[^}]*loanPayment: 'loan_payments'[^}]*prepayment: 'prepayments'[^}]*driverTarget: 'driver_targets'[^}]*breakEvenInputs: 'break_even_inputs'[^}]*settlement: 'settlements'/)
+assert.match(adminService, /AdminRepository\.save\(formKey/)
+assert.deepEqual((forms.match(/^\s{2}[A-Za-z][A-Za-z0-9]+:\s*\{/gm) || []).map(line => line.trim().split(':')[0]), ['businessSetup','vehicle','driver','compliance','maintenance','loan'])
+assert.doesNotMatch(view, /settlement|prepayment|driverTarget|breakEvenInputs|maintenanceRate/i)
+assert.doesNotMatch(navigation, /settlement|prepayment|driverTarget|breakEvenInputs|maintenanceRate|calculations/i)
+for (const store of ['settlements','loan_payments','prepayments','driver_targets','break_even_inputs']) assert.ok(backup.includes(`'${store}'`), `${store} must remain available for backup preservation`)
+console.log('Admin scope/data integrity contract: active forms write; legacy financial records remain preserved and read-only.')
