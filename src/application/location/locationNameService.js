@@ -7,12 +7,17 @@ const propertiesOf = p => p?.features?.[0]?.properties || p?.result?.address || 
 // Display area/locality names only. Never use a POI name or street as the visible label.
 const formatProperties = p => {
   if (!p || typeof p !== 'object') return null
-  const parts=[]
-  for (const v of [p.suburb || p.neighbourhood || p.neighborhood || p.locality || p.district || p.county || p.city_district || p.area || p.subDistrict,p.city || p.town || p.village || p.municipality || p.cityName,p.state || p.stateName]) {
-    const s=typeof v==='string'?v.trim():''
-    if(s&&!parts.some(x=>x.toLowerCase()===s.toLowerCase())) parts.push(s)
+  // Require an area/locality-level field. District/county/city-only results are
+  // too broad to label a pickup/drop area reliably, so they remain unavailable.
+  const area = [p.subLocality, p.sub_locality, p.suburb, p.neighbourhood, p.neighborhood, p.locality, p.city_district, p.area, p.village, p.town]
+    .find(value => typeof value === 'string' && value.trim())
+  if (!area) return null
+  const parts = [area.trim()]
+  for (const v of [p.city || p.municipality || p.cityName, p.state || p.stateName]) {
+    const s = typeof v === 'string' ? v.trim() : ''
+    if (s && !parts.some(x => x.toLowerCase() === s.toLowerCase())) parts.push(s)
   }
-  return parts.join(', ')||null
+  return parts.join(', ')
 }
 const fetchLabel = async (endpoint,l,fetchImpl) => {
   if(!keyFor(l)||!endpoint||typeof fetchImpl!=='function') return null
