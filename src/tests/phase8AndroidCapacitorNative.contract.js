@@ -42,6 +42,7 @@ for (const plugin of ['KfeSecureStoragePlugin', 'KfeNativeWorkActionsPlugin', 'K
 }
 
 assert.match(manifest, /android\.permission\.FOREGROUND_SERVICE/)
+assert.doesNotMatch(manifest, /android\.permission\.(?:ACCESS_NETWORK_STATE|WAKE_LOCK)/, 'No network-state polling or explicit wake-lock permission is required by the offline-first overlay.')
 assert.match(manifest, /FOREGROUND_SERVICE_LOCATION/)
 assert.match(manifest, /foregroundServiceType="specialUse\|location"/)
 assert.match(manifest, /ACCESS_BACKGROUND_LOCATION/)
