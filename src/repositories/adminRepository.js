@@ -1,4 +1,4 @@
-import { initializeCanonicalStorage, getActiveDataSource, notifyCanonicalDataChanged } from '../utils/indexedDB.js'
+import { initializeCanonicalStorage, notifyCanonicalDataChanged } from '../utils/indexedDB.js'
 import { generateUUID } from '../utils/uuid.js'
 import { writeMutationAndAudit } from './mutationRepository.js'
 import { getAdminFormDefinition } from '../application/admin/adminFormDefinitions.js'
@@ -181,7 +181,7 @@ export const AdminRepository = {
       tx.oncomplete = () => {
         if (settled) return
         settled = true
-        if (getActiveDataSource() === 'canonical') notifyCanonicalDataChanged({ stores: [storeName], reason: `admin:${action}` })
+        notifyCanonicalDataChanged({ stores: [storeName], reason: `admin:${action}` })
         resolve(toFormRecord(formKey, record))
       }
       tx.onerror = () => fail(tx.error || new Error(`Failed to save ${formKey}.`))
@@ -231,7 +231,7 @@ export const AdminRepository = {
       tx.oncomplete = () => {
         if (settled) return
         settled = true
-        if (getActiveDataSource() === 'canonical') notifyCanonicalDataChanged({ stores: [storeName], reason: 'admin:DELETE' })
+        notifyCanonicalDataChanged({ stores: [storeName], reason: 'admin:DELETE' })
         resolve(true)
       }
       tx.onerror = () => fail(tx.error || new Error(`Failed to delete ${formKey}.`))
