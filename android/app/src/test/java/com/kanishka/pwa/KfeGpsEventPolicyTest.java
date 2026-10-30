@@ -17,8 +17,8 @@ public class KfeGpsEventPolicyTest {
   @Test public void preservesExistingTripJournalKeys() {
     assertEquals("trip-123::TRIP_START",
       KfeGpsEventPolicy.key("TRIP", "trip-123", "TRIP_START"));
-    assertEquals("TRIP::trip-123::TRIP_START",
-      KfeGpsEventPolicy.key("TRIP", "trip-123", "TRIP_START").replace("trip-123::", "TRIP::trip-123::"));
+    assertEquals("VEHICLE::vehicle-9::TRIP_START",
+      KfeGpsEventPolicy.key("VEHICLE", "vehicle-9", "TRIP_START"));
   }
 
   @Test public void preservesCanonicalSnapshotIds() {
