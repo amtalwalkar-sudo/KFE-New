@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { LocalityResolutionService } from '../application/location/locationNameService.js'
+import { LocalityResolutionService, MapplsGatewayLocationNameAdapter, PhotonLocationNameAdapter } from '../application/location/locationNameService.js'
 
 const previousDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
 const values = new Map()
@@ -52,5 +52,28 @@ try {
   if (previousDescriptor) Object.defineProperty(globalThis, 'localStorage', previousDescriptor)
   else delete globalThis.localStorage
 }
+
+const mappls = new MapplsGatewayLocationNameAdapter({
+  endpoint: 'mock://mappls',
+  fetchImpl: async () => ({ ok: true, json: async () => ({ result: { address: {
+    subLocality: 'Dadar Parsi Colony', city: 'Mumbai', state: 'Maharashtra', district: 'Mumbai Suburban'
+  } } }) }),
+})
+assert.equal(
+  await mappls.resolve({ latitude: 19.025, longitude: 72.842 }),
+  'Dadar Parsi Colony, Mumbai, Maharashtra',
+  'a verified sub-locality may be shown with city/state context',
+)
+const broadOnly = new PhotonLocationNameAdapter({
+  endpoint: 'mock://photon',
+  fetchImpl: async () => ({ ok: true, json: async () => ({ features: [{ properties: {
+    district: 'Mumbai Suburban', county: 'Mumbai', city: 'Mumbai', state: 'Maharashtra'
+  } }] }) }),
+})
+assert.equal(
+  await broadOnly.resolve({ latitude: 19.025, longitude: 72.842 }),
+  null,
+  'district/county/city-only results must not be presented as a pickup/drop area',
+)
 
 console.log('Locality resolution contract: manual refresh cannot preserve stale labels or schedule automatic retries.')
