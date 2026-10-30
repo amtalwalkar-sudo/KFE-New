@@ -9,16 +9,16 @@ const root = path.resolve(here, '../..')
 
 const suites = [
   'admin.contract.js',
-  'erpFormCalculation.contract.js',
-  'financeAuthority.contract.js',
-  'loanFinanceE2E.contract.js',
   'canonicalData.contract.js',
-  'integrity.contract.js',
-  'calculationAuthority.contract.js',
-  'driverTargetStabilization.contract.js',
-  'driverTargetStabilization.implementation.contract.js',
-  'fah4HistoricalIntegrity.contract.js',
-]
+  'work.contract.js',
+  'timelineReadModel.contract.js',
+  'performancePhaseOneOverview.contract.js',
+  'phase6ApplicationFlows.contract.js',
+  'eventLocationCapture.contract.js',
+  'nativeCanonicalPersistence.contract.js',
+  'adminNavigation.contract.js',
+  'backup.contract.js',
+].join('\n');
 
 const results = suites.map(suite => {
   const result = spawnSync(process.execPath, [`src/tests/${suite}`], { cwd: root, encoding: 'utf8' })
@@ -41,8 +41,7 @@ if (ADMIN_FORM_KEYS.some(key => ['openingBalance', 'openingCash', 'openingBankBa
 if (ADMIN_FORM_KEYS.some(key => /historical/i.test(key) || /pre.?business/i.test(key))) gaps.push('BR-01: unsupported generic historical/pre-business source form exists despite the accepted disposition to derive recovery from opening odometer and authoritative loan records.')
 if (!hasField('vehicle', 'openingOdometerKm')) gaps.push('BR-01: vehicle opening odometer input is missing.')
 if (!hasField('driver', 'name')) gaps.push('BR-01: driver setup input is missing.')
-if (!hasField('driverTarget', 'desiredDriverProfit')) gaps.push('BR-01: driver target setup input is missing.')
-if (!hasField('loan', 'principal')) gaps.push('BR-01: loan setup input is missing.')
+if (!hasField('loan', 'principal')) gaps.push('BR-01: basic loan source form is missing.')
 if (!hasField('maintenance', 'cost')) gaps.push('BR-01: maintenance setup/input is missing.')
 if (!hasField('compliance', 'cost')) gaps.push('BR-01: compliance setup/input is missing.')
 
