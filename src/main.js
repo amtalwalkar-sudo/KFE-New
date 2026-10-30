@@ -66,14 +66,30 @@ void (async () => {
     configureAndroidOverlayLifecycle()
 
     startKfeThemeController()
-    try {
-      globalThis.localStorage?.removeItem('kfe.backup.configuration.v1')
-      globalThis.localStorage?.removeItem('kfe.backup.configuration.v2')
-      const { SecureSecretStore } = await import('./infrastructure/security/secureSecretStore.js')
-      await SecureSecretStore.remove('kfe.dropbox.access-token')
-    } catch (error) {
-      console.warn('Could not clear retired backup settings; startup will continue.', error)
+    const [
+      { BackupConfig },
+      { CloudBackupLifecycle },
+      { createBackupConfigAdapter },
+      { createCloudBackupScheduler }
+    ] = await Promise.all([
+      import('./application/backup/backupConfig.js'),
+      import('./application/backup/cloudBackupLifecycle.js'),
+      import('./infrastructure/backup/backupConfigAdapter.js'),
+      import('./infrastructure/backup/cloudBackupScheduler.js')
+    ])
+    BackupConfig.configureBackupConfig(createBackupConfigAdapter())
+    CloudBackupLifecycle.configureCloudBackupScheduler(createCloudBackupScheduler())
+    const retryDropboxBackup = () => {
+      if (document.visibilityState === 'hidden' || navigator.onLine === false) return
+      void CloudBackupLifecycle.maybeDailyCloudBackup().then(result => {
+        if (result?.status === 'failed') console.warn('Dropbox backup needs attention:', result.error)
+      })
     }
+    window.addEventListener('online', retryDropboxBackup)
+    window.addEventListener('pageshow', retryDropboxBackup)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') retryDropboxBackup()
+    })
 
     if (typeof formSystem === 'object') void formSystem
 
