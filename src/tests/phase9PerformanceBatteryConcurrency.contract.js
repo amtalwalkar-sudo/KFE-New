@@ -9,7 +9,10 @@ const nativeOverlay = fs.readFileSync('android/app/src/main/java/com/kanishka/pw
 
 assert.match(work, /clock = ref\(Date\.now\(\)/)
 assert.match(work, /const refreshClock = \(\) => \{ clock\.value = Date\.now\(\) \}/)
-assert.match(work, /setInterval\(refreshClock, 1000\)/)
+assert.match(work, /const startClock = \(\) => \{[\s\S]*?window\.setInterval\(refreshClock, 1000\)/)
+assert.match(work, /const stopClock = \(\) => \{[\s\S]*?window\.clearInterval\(timer\)/)
+assert.match(work, /document\.visibilityState === 'visible'[\s\S]*?startClock\(\)[\s\S]*?stopClock\(\)/)
+assert.doesNotMatch(work, /nativeReplayTimer|setInterval\(\(\) => \{ void replayFailedNativeActions\(\) \}, 5000\)/, 'Native action replay must be event-driven, not polled every five seconds.')
 assert.match(work, /const tripTimer = computed/)
 
 for (const file of [
