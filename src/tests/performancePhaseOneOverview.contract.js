@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { derivePhaseOnePerformanceOverview } from '../domain/performance/phaseOneOverview.js'
 
 const range = { from: new Date('2026-10-26T00:00:00+05:30'), to: new Date('2026-10-26T23:59:59.999+05:30') }
@@ -25,4 +26,17 @@ assert.equal(result.fuelCostPerKm, 2.5)
 assert.equal(result.incomeAfterFuel, 950, 'net after fuel includes cancellation fees')
 assert.equal(result.revenueAuthority, 'SHIFT_END_REVENUE')
 assert.throws(() => derivePhaseOnePerformanceOverview(snapshot, { from: new Date('2026-10-27'), to: new Date('2026-10-26') }, metrics), /invalid/i)
-console.log('Performance Phase 1 overview contract: PASS')
+// Cross-layer display contract: signed domain balances must reach visible UI bindings unchanged.
+const serviceSource = readFileSync(new URL('../application/performance/phaseOnePerformanceService.js', import.meta.url), 'utf8')
+const viewSource = readFileSync(new URL('../views/PerformanceView.vue', import.meta.url), 'utf8')
+const adminSource = readFileSync(new URL('../views/AdminView.vue', import.meta.url), 'utf8')
+assert.ok(serviceSource.includes('balanceMetrics.loanProvisionBalance'))
+assert.ok(serviceSource.includes('balanceMetrics.maintenanceProvisionBalance'))
+assert.ok(viewSource.includes('money(overview.provisionBalances.emi.balance)'))
+assert.ok(viewSource.includes('money(overview.provisionBalances.maintenance.balance)'))
+assert.ok(viewSource.includes('Negative means payments exceed provision accrued'))
+assert.ok(adminSource.includes('money(entityFinancial(record).provisionBalance)'), 'Finance must render the signed EMI provision balance')
+assert.ok(adminSource.includes('money(performanceMetrics?.maintenanceProvisionBalance)'), 'Admin maintenance planning must render the signed maintenance balance')
+assert.ok(!viewSource.includes('Math.max(0, overview.provisionBalances.emi.balance)'), 'presentation must not clamp signed EMI balances')
+assert.ok(!viewSource.includes('Math.max(0, overview.provisionBalances.maintenance.balance)'), 'presentation must not clamp signed maintenance balances')
+console.log('Performance overview + signed provision display contract: PASS')
