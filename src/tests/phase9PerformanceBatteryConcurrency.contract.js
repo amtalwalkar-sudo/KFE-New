@@ -4,6 +4,8 @@ import fs from 'node:fs'
 const work = fs.readFileSync('src/views/WorkModuleView.vue', 'utf8')
 const backup = fs.readFileSync('src/application/backup/backupService.js', 'utf8')
 const manifest = fs.readFileSync('android/app/src/main/AndroidManifest.xml', 'utf8')
+const overlayLifecycle = fs.readFileSync('src/infrastructure/android/androidOverlayLifecycle.js', 'utf8')
+const nativeOverlay = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java', 'utf8')
 
 assert.match(work, /clock = ref\(Date\.now\(\)/)
 assert.match(work, /const refreshClock = \(\) => \{ clock\.value = Date\.now\(\) \}/)
@@ -20,6 +22,8 @@ assert.match(manifest, /ACCESS_COARSE_LOCATION/)
 assert.match(manifest, /FOREGROUND_SERVICE_LOCATION/)
 assert.match(manifest, /foregroundServiceType="specialUse\|location"/)
 assert.match(manifest, /ACCESS_BACKGROUND_LOCATION/)
+assert.doesNotMatch(overlayLifecycle, /setInterval|setTimeout|updateOverlayIfNeeded/, 'Background overlay state must not use a recurring JavaScript poll.')
+assert.match(nativeOverlay, /postInvalidateDelayed\(1000\)/, 'The native overlay may refresh its elapsed-time display without polling canonical storage.')
 
 assert.match(backup, /checkpointTimer !== null/)
 assert.match(backup, /setTimeout\(async \(\) =>/)
