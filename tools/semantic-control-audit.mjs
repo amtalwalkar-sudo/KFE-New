@@ -35,8 +35,6 @@ const reset = async page => {
         r.onblocked = () => reject(new Error('DB delete blocked: ' + name))
       })
     }
-    const { setActiveDataSource } = await import(location.origin + '/src/utils/indexedDB.js')
-    setActiveDataSource('canonical')
     const { AdminRepository } = await import(location.origin + '/src/repositories/adminRepository.js')
     await AdminRepository.saveSetting('kfe-first-run-setup', 'firstRunSetup', { version: 1, status: 'completed', steps: {}, completedAt: new Date().toISOString() })
   })
