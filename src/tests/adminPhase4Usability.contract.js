@@ -7,9 +7,10 @@ const form = read('src/components/admin/AdminSourceForm.vue')
 const css = read('src/styles/kfe-ui.css')
 
 // Remove cumulative provision aggregation/display while retaining the approved effective-dated rate input.
-for (const token of ['PerformanceService.getMetrics', 'provisionRange', 'performanceProvisionMetrics', 'maintenanceProvisionTotal', 'maintenanceProvisionBalance', 'provisionAccumulated', 'provisionBalance', 'Total maintenance provision', 'Maintenance pool balance']) {
-  assert.equal(admin.includes(token), false, `Cumulative maintenance provision wiring/UI must remain removed: ${token}`)
+for (const token of ['complianceProvisionAccumulatedById', 'complianceProvisionBalance', 'Compliance provision balance', 'Cumulative Compliance provision']) {
+  assert.equal(admin.includes(token), false, `Cumulative Compliance provision wiring/UI must remain removed: ${token}`)
 }
+assert.match(admin, /Maintenance provision balance/, 'BR-10A signed Maintenance bucket must remain visible in the maintenance planning read model')
 assert.ok(admin.includes('maintenanceProvisionPerKm'), 'The approved effective-dated maintenance rate input must remain.')
 assert.ok(admin.includes('Remaining cost'))
 assert.ok(admin.includes('Total maintenance paid'))
