@@ -1101,6 +1101,13 @@ public class KfeOverlayService extends Service {
       &&!capturedAt.trim().isEmpty()&&!"null".equalsIgnoreCase(capturedAt.trim());
   }
 
+  static boolean isEventGpsFixAtOrAfter(String eventAt,long fixTime){
+    if(fixTime<=0L)return false;
+    if(eventAt==null||eventAt.trim().isEmpty())return true;
+    try{return fixTime>=java.time.Instant.parse(eventAt.trim()).toEpochMilli();}
+    catch(Exception error){return false;}
+  }
+
   private boolean persistOneShotEventLocation(String tripId,String eventType,Location location){return persistOneShotEventLocation("TRIP",tripId,eventType,"",location);}
   private boolean persistOneShotEventLocation(String entityType,String entityId,String eventType,String suppliedEventAt,Location location){
     try{
@@ -1114,6 +1121,12 @@ public class KfeOverlayService extends Service {
       if(eventAt.isEmpty()&&parent!=null){
         if("TRIP".equals(entityType)){if("TRIP_START".equals(eventType))eventAt=parent.optString("tripStartAt","");else if("PICKUP_START".equals(eventType))eventAt=parent.optString("createdAt",parent.optString("tripStartAt",""));else eventAt=parent.optString("tripEndAt","");}
         else if("SHIFT".equals(entityType))eventAt="SHIFT_START".equals(eventType)?parent.optString("shiftStartAt",""):parent.optString("shiftEndAt","");
+      }
+      // Android may return a cached GPS fix. Never attach a pre-event fix to
+      // this ride boundary; leave the durable request pending for a later fix.
+      if(!isEventGpsFixAtOrAfter(eventAt,fixTime)){
+        Log.w("KFE-GPS","Event GPS snapshot skipped: provider fix predates or cannot be compared with the ride event.");
+        return false;
       }
       JSONObject snapshot=new JSONObject();snapshot.put("id",snapshotId);snapshot.put("entityType",entityType);snapshot.put("entityId",entityId);
       snapshot.put("eventType",eventType);snapshot.put("eventAt",eventAt.isEmpty()?JSONObject.NULL:eventAt);
