@@ -184,6 +184,8 @@ public class KfeNativeFullShiftAcceptanceTest {
         KfeOverlayService.isEventGpsFixAtOrAfter("not-an-instant", eventAt + 1L));
     assertFalse("A provider fix without a timestamp must fail closed.",
         KfeOverlayService.isEventGpsFixAtOrAfter("", 0L));
+    assertFalse("A provider fix without an event timestamp must fail closed.",
+        KfeOverlayService.isEventGpsFixAtOrAfter("", eventAt + 1L));
     String eventTime = java.time.Instant.ofEpochMilli(eventAt).toString();
     JSONObject staleSnapshot = new JSONObject().put("latitude", 19.0760d).put("longitude", 72.8777d)
         .put("eventAt", eventTime).put("capturedAt", java.time.Instant.ofEpochMilli(eventAt - 1L).toString());
