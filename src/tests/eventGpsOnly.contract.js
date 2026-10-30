@@ -14,7 +14,7 @@ for (const event of ['PICKUP_START','TRIP_CANCELLED','TRIP_START','TRIP_END']) {
 }
 assert.match(workService, /captureAndPersistEventLocation\('TRIP', result\.id, 'TRIP_START'/)
 assert.match(workService, /captureAndPersistEventLocation\('TRIP', data\?\.id, 'TRIP_END'/)
-assert.match(eventLocations, /captureTripBoundaryLocation/)
+assert.match(eventLocations, /WorkRuntimePorts\.tripBoundaryLocation\.captureOneShotLocation/)
 assert.doesNotMatch(eventLocations, /ConnectivityService|resolveLocationName|locality|enrichment/i)
 assert.doesNotMatch(tripBoundary, /watchPosition|setInterval|routeTrace|fetch\(/)
 assert.doesNotMatch(overlay, /requestLocationUpdates|startLocationUpdates|routeTrace|calculateTraceDistanceKm/)
