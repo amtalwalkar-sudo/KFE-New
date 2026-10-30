@@ -49,8 +49,10 @@ assert.match(overlayLifecycle, /if \(!active\?\.shift\?\.id\) return null/)
 assert.match(overlayLifecycle, /if \(state\) await AndroidOverlay\.show\(state\)\s*else await AndroidOverlay\.hide\(\)/)
 assert.match(overlayLifecycle, /hiddenHandler = \(\) => \{[\s\S]*?showOverlayIfNeeded\(\)/,
   'Background overlay restoration must load canonical state once when the app becomes hidden.')
-assert.doesNotMatch(overlayLifecycle, /setInterval|updateOverlayIfNeeded|AndroidOverlay\.update/,
-  'The hidden overlay must not poll canonical storage on a recurring timer.')
+assert.doesNotMatch(overlayLifecycle, /setInterval|setTimeout|updateOverlayIfNeeded/,
+  'The overlay lifecycle must not poll canonical storage on a recurring timer.')
+assert.match(overlayLifecycle, /const collapseOverlayToBubble = async \(\) => \{[\s\S]*?activeOverlayState\(\)[\s\S]*?AndroidOverlay\.update\(state\)[\s\S]*?AndroidOverlay\.minimize\(\)/,
+  'Foreground resume must refresh the bubble once from canonical records before minimizing.')
 assert.match(nativeOverlayService, /refreshRideCountForShift\(store,shift\.optString\("id",""\)\)/,
   'Native ride count refresh must follow canonical lifecycle commits.')
 assert.match(nativeOverlayService, /refreshRideCountForShift\(canonical,trip\.optString\("shiftId",""\)\)/,
