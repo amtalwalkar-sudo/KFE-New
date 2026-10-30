@@ -28,8 +28,8 @@ export const TripBoundaryLocationAdapter = Object.freeze({
             accuracy: position.coords.accuracy,
             capturedAt: position.timestamp,
           })
-          const eventTime = eventAt == null || eventAt === '' ? null : Date.parse(eventAt)
-          resolve(location && (eventTime == null || !Number.isFinite(eventTime) || Date.parse(location.capturedAt) >= eventTime) ? location : null)
+          const eventTime = eventAt == null || eventAt === '' ? NaN : Date.parse(eventAt)
+          resolve(location && Number.isFinite(eventTime) && eventTime > 0 && Date.parse(location.capturedAt) >= eventTime ? location : null)
         },
         () => resolve(null),
         { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
