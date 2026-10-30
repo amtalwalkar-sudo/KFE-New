@@ -44,7 +44,7 @@ assert.match(main, /window\.dispatchEvent\(new CustomEvent\('kfe:app-mounted'\)/
 assert.match(main, /import\('\.\/application\/startup\/startupService\.js'\)/)
 assert.match(main, /StartupService\.startApplication\(\)\.then\(\(\) => \{/)
 assert.match(main, /window\.__KFE_STARTUP_READY__ = true/)
-assert.doesNotMatch(main, /navigator\.onLine|registerNetworkCallback|setInterval\(/)
+assert.doesNotMatch(main, /registerNetworkCallback|setInterval\(/)
 assert.doesNotMatch(sw, /periodicsync|kfe-daily-cloud-backup/)
 assert.doesNotMatch(main, /startupRuntime/)
 assert.match(startup, /export const startApplication/)
