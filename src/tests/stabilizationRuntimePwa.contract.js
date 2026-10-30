@@ -49,7 +49,7 @@ assert.doesNotMatch(backupRepository, /initializeCanonicalStorage\(/)
 assert.match(backupRepository, /restoreCanonicalSnapshot\(snapshot, \{ sourceExportedAt = null, authoritativeRecords = null \} = \{\}\) \{[\s\S]*const db = await openCanonicalDB\(\)/)
 assert.match(backupRepository, /resetCanonicalData\(\{ resetId \} = \{\}\) \{[\s\S]*const db = await openCanonicalDB\(\)/)
 assert.match(backupService, /source: \{ dbName: 'kanishka_kfe_canonical_db', dbVersion: CANONICAL_DB_VERSION \}/)
-assert.match(mutation, /canonical local mutation journal/)
+assert.match(mutation, /export const MutationRepository = \{/)
 assert.doesNotMatch(mutation, /initializeCanonicalStorage\(/)
 for (const method of ['recoverStaleSyncing']) {
   const start = mutation.indexOf('async ' + method)
