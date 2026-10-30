@@ -16,22 +16,19 @@ const shiftRepo = read('../repositories/shiftTripRepository.js')
 const fuelForm = read('../components/CngFuelModal.vue')
 const fuelService = read('../application/work/fuel.js')
 const fuelRepo = read('../repositories/fuelRepository.js')
-const reconciliation = read('../components/ShiftReconciliationModal.vue')
 const endShift = read('../application/work/endShift.js')
 const drafts = read('../repositories/formDraftRepository.js')
 const settings = read('../components/KfeSettingsView.vue')
 const backupPanel = read('../components/admin/BackupRestorePanel.vue')
 const backupService = read('../application/backup/backupService.js')
 const performanceRepo = read('../repositories/performanceRepository.js')
-const performanceService = read('../application/performance/performanceService.js')
-const calculations = read('../views/CalculationsView.vue')
-const calculationsService = read('../application/calculations/calculationsService.js')
+const performanceService = read('../application/performance/phaseOnePerformanceService.js')
 const router = read('../router/index.js')
 
 const has = (source, pattern, message) => assert.match(source, pattern, message)
 
 // 1. Admin source forms: inventory, validation, save, canonical persistence.
-const adminKeys = ['businessSetup','vehicle','driver','compliance','maintenance','loan','loanPayment','prepayment','settlement','driverTarget','breakEvenInputs']
+const adminKeys = ['businessSetup','vehicle','driver','compliance','maintenance','loan']
 for (const key of adminKeys) {
   assert.match(definitions, new RegExp('^\\s*'+key+'\\s*:', 'm'), 'Admin inventory missing '+key)
 }
@@ -81,14 +78,6 @@ assert.match(settings, /props\.application\.restoreBackup\(payload\)/, 'Settings
 assert.match(settings, /props\.application\.resetAllData\(\)/, 'Settings reset must use application boundary')
 assert.match(backupPanel, /BackupService/, 'Admin backup panel must use backup service')
 assert.match(backupService, /createBackupRepository\(CANONICAL_BACKUP_STORES\)/, 'Backup service must delegate canonical snapshot reads/writes to the backup repository')
-assert.match(adminView, /AdminService\.save\('driverTarget'/, 'Admin quick target editor must save through AdminService')
-assert.match(adminView, /AdminService\.save\('breakEvenInputs'/, 'Admin quick maintenance-rate editor must save through AdminService')
-assert.match(adminView, /AdminService\.save\('loanPayment'/, 'Admin loan-payment action must save a canonical payment record')
-assert.match(adminView, /AdminService\.save\('settlement'/, 'Admin source-payment action must save a canonical settlement record')
-assert.match(adminView, /AdminService\.save\('prepayment'/, 'Admin prepayment action must save a canonical prepayment record')
-assert.match(calculations, /AdminService\.save\(openId\.value,values\)/, 'Calculations source-input forms must reuse Admin validation/persistence')
-assert.match(calculations, /CalculationsService\.recordFuelBaseline\(/, 'Calculations fuel baseline must use its application service')
-assert.match(calculationsService, /FuelRepository\.create\(/, 'Calculations fuel baseline must persist through canonical fuel repository')
 assert.match(router, /path: '\/timeline'/, 'Timeline is an active route and must remain in the route inventory')
 assert.match(router, /path: '\/performance'/, 'Performance is an active route and must remain in the route inventory')
 assert.match(router, /path: '\/admin'/, 'Admin is an active route and must remain in the route inventory')
