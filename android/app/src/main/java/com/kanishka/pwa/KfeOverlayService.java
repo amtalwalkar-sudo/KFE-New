@@ -1158,7 +1158,7 @@ public class KfeOverlayService extends Service {
         for(int index=0;index<records.length();index++){
           JSONObject trip=records.optJSONObject(index);
           if(trip==null||!shiftId.equals(trip.optString("shiftId","")))continue;
-          if((trip.has("deletedAt")&&!trip.isNull("deletedAt"))||trip.optBoolean("deleted",false))continue;
+          if(!trip.optString("deletedAt","").trim().isEmpty()||trip.optBoolean("deleted",false))continue;
           count++;
         }
         if(records.length()==0)break;
