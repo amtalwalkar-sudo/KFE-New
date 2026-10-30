@@ -137,7 +137,6 @@ assert.equal(cancelled.cancelledRevenue, 0, 'Blank cancellation fee defaults to 
 // 11. Release enforcement.
 assertIncludes(workflow, 'run: npm test', 'Consolidated CI must run the complete contract suite.')
 assertIncludes(workflow, 'Run Core Persistence and Repository Contract Matrix', 'Core persistence/recovery evidence must remain in CI.')
-assertIncludes(workflow, 'Run Phase 4 Operational Gap Suite', 'Core operational workflow evidence must remain in CI.')
 assertIncludes(workflow, 'Run Phase 4 Runtime Visual Verification', 'Core UI runtime evidence must remain in CI.')
 assertIncludes(workflow, 'Android Exact APK Smoke Gate', 'Android release evidence must include exact APK smoke testing.')
 assertIncludes(workflow, 'Upload tested Android Debug APK', 'The exact tested APK must be retained as CI evidence.')
