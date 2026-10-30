@@ -14,10 +14,13 @@ Object.defineProperty(globalThis, 'localStorage', {
 })
 
 try {
-  const cacheKey = 'kfe:locality-cache:v3'
+  const cacheKey = 'kfe:locality-cache:v4'
   const legacyCoordinateKey = '19.07500:72.87700'
   values.set('kfe:locality-cache:v2', JSON.stringify({
     [legacyCoordinateKey]: { placeName: 'Legacy incorrect area', provider: 'old-provider', resolvedAt: '2026-10-28T00:00:00.000Z' },
+  }))
+  values.set('kfe:locality-cache:v3', JSON.stringify({
+    [legacyCoordinateKey]: { placeName: 'Stale v3 incorrect area', provider: 'old-provider', resolvedAt: '2026-10-30T00:00:00.000Z' },
   }))
   assert.equal(getCachedLocationName({ latitude: 19.075, longitude: 72.877 }), null,
     'labels produced by the older locality parser must not remain visible after the quality-contract change')
