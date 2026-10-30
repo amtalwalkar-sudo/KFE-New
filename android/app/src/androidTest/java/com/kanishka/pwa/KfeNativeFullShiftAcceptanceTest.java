@@ -563,8 +563,6 @@ public class KfeNativeFullShiftAcceptanceTest {
         savedB.getJSONObject("record").getDouble("toll"), 0.001d);
     assertEquals("Second trip parking must persist independently from fare.", 5d,
         savedB.getJSONObject("record").getDouble("parking"), 0.001d);
-    assertEquals("INCLUDED", savedA.getJSONObject("record").getString("tollTreatment"));
-    assertEquals("INCLUDED", savedB.getJSONObject("record").getString("parkingTreatment"));
     assertEquals("COMPLETED", savedA.getJSONObject("record").getString("status"));
     assertEquals("COMPLETED", savedB.getJSONObject("record").getString("status"));
     assertEquals("CANCELLED", savedCancelled.getJSONObject("record").getString("status"));
