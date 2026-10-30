@@ -6,7 +6,6 @@ import { WorkService } from '../application/work/workService.js'
 import { createWorkDraftController } from '../application/work/workDraftController.js'
 import { createNativeWorkActionController } from '../application/work/nativeWorkActionController.js'
 import { WorkflowTimerService, WorkWorkflowSessionService } from '../application/work/workflowTimerService.js'
-import { PerformanceService } from '../application/performance/performanceService.js'
 import { WorkRuntimePorts } from '../application/work/workRuntimePorts.js'
 import { CanonicalWorkBoundary } from '../application/work/canonicalWorkBoundary.js'
 import { isAcceptedNativeTripFormOperation } from '../application/work/nativeTripFormRecovery.js'
@@ -66,8 +65,6 @@ const closingOdo = ref('')
 const endBusy = ref(false)
 const largeDistanceConfirmation = ref('')
 
-const target = ref(null)
-const targetAchieved = ref(0)
 const clock = ref(Date.now())
 const track = ref(null)
 const swipe = ref({ down: false, start: 0, offset: 0 })
@@ -158,10 +155,6 @@ watch([closingOdo, endStage, largeDistanceConfirmation], () => {
 
 const gap = computed(() => store.calculateGap(startOdo.value))
 const gapKm = computed(() => Number(gap.value?.gapKm || 0))
-const targetValue = computed(() => target.value?.target == null ? null : Number(target.value.target))
-const targetProgress = computed(() => targetValue.value > 0
-  ? Math.min(100, Math.round(targetAchieved.value / targetValue.value * 100))
-  : 0)
 
 const completed = computed(() => store.completedTrips.filter(t => t.status === 'COMPLETED'))
 const liveRevenue = computed(() => deriveLiveRevenue(store.registeredTrips.filter(trip => trip.shiftId === store.shift?.id)))
@@ -181,8 +174,6 @@ const cockpit = computed(() => deriveWorkCockpitState({
   shift: store.shift,
   trip: store.trip,
   pendingFareId: pendingFare.value?.id || '',
-  target: targetValue.value == null ? '—' : money(targetValue.value),
-  targetProgress: targetProgress.value,
   revenue: money(liveRevenue.value),
   asOf: clock.value
 }))
@@ -265,17 +256,6 @@ const stateTimer = computed(() => formatElapsed(clock.value - stateTimerStartAt.
 const endReady = computed(() => closingOdo.value.trim() !== '')
 const fuelQty = computed(() => fuel.calculateQuantity(fuelPrice.value, fuelAmount.value))
 
-async function targetRefresh() {
-  try {
-    const snapshot = await PerformanceService.getDailyTargetSnapshot()
-    target.value = snapshot.target
-    targetAchieved.value = Number(snapshot.achieved || 0)
-  } catch (_) {
-    target.value = null
-    targetAchieved.value = 0
-  }
-}
-
 async function syncOverlay() {
   if (!store.isOnline || document.visibilityState === 'visible') {
     await WorkRuntimePorts.androidOverlay.hide().catch(() => {})
@@ -311,8 +291,6 @@ async function syncOverlay() {
       status: store.trip.status,
       tripStage: store.trip.tripStage
     } : null,
-    target: state.target,
-    targetProgress: state.targetProgress,
     rides: String(trips.length),
     revenue: state.revenue,
     tripStartAt: state.tripStartAt,
@@ -374,7 +352,6 @@ async function submitStart() {
     startOdo.value = ''
     startAck.value = false
     gapChoice.value = ''
-    await targetRefresh()
     await WorkRuntimePorts.androidOverlay.prepare().catch(() => {})
     await syncOverlay()
     notify('Online — shift started.')
@@ -504,8 +481,7 @@ async function saveFare(fromNative = false, operationId = '') {
     tripParkingTreatment.value = 'INCLUDED'
     if (!fromNative) await WorkRuntimePorts.androidOverlay.fareSaved().catch(() => {})
     if (!fromNative) await WorkRuntimePorts.nativeWorkActions.clearPendingAction().catch(() => {})
-    await targetRefresh()
-    await syncOverlay()
+      await syncOverlay()
     notify('Trip details saved.')
     return true
   } finally {
@@ -1093,13 +1069,6 @@ onBeforeUnmount(() => {
     </section>
 
     <template v-if="store.isOnline">
-      <section class="instrument target-instrument">
-        <div><span class="eyebrow">TODAY'S TARGET</span><strong>{{ targetValue==null ? '—' : money(targetValue) }}</strong></div>
-        <div class="target-meta"><span>PROGRESS</span><strong>{{ targetProgress }}%</strong><span>SHIFT {{ shiftTimer }}</span></div>
-        <div class="progress-track"><i :style="{width:targetProgress+'%'}"/></div>
-      </section>
-
-
 
       <section v-if="!fuelOpen && !endOpen && !cancelOpen" class="action-instrument work-fixed-action">
         <div ref="track" class="swipe trip-swipe" :class="{threshold:swipeProgress>=SWIPE_CONFIG.commitThresholdPercent,committing:busy,'semantic-go':cockpit.action==='GO_TO_PICKUP','semantic-start':cockpit.action==='START_RIDE','semantic-end':cockpit.action==='END_RIDE'}" :style="swipeStyle" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up">
