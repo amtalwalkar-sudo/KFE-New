@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { LocalityResolutionService, MapplsGatewayLocationNameAdapter, PhotonLocationNameAdapter, getCachedLocationName } from '../application/location/locationNameService.js'
+import { LocalityResolutionService, MapplsGatewayLocationNameAdapter, PhotonLocationNameAdapter, getCachedLocationName } from '../infrastructure/location/localityResolutionAdapter.js'
 
 const previousDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
 const values = new Map()
