@@ -14,7 +14,7 @@ export const EventLocationService = {
       if (prior) return
       // Android durably queues the event natively. Browser fallback uses one fix.
       if (await WorkRuntimePorts.tripBoundaryLocation.queueEventLocationCapture(entityType, entityId, eventType, eventAt)) return
-      const location = await WorkRuntimePorts.tripBoundaryLocation.captureOneShotLocation()
+      const location = await WorkRuntimePorts.tripBoundaryLocation.captureOneShotLocation(eventAt)
       if (!location) return
       const snapshot = await LocationRepository.record({
         id: stableId(entityType, entityId, eventType), entityType, entityId, eventType, eventAt,
