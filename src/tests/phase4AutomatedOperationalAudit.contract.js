@@ -222,17 +222,17 @@ scenario('D3/E4 — reload/restart persistence and canonical source isolation co
   assert.match(repo, /readAll\('shifts'\)/)
   assert.match(repo, /readAll\('trips'\)/)
   assert.match(db, /kanishka_kfe_canonical_db/)
-  assert.match(db, /kanishka_kfe_synthetic_db/)
+  assert.doesNotMatch(db, /kanishka_kfe_synthetic_db/)
 })
 
-scenario('D4 — synthetic/canonical mutation boundary', () => {
+scenario('D4 — canonical-only mutation boundary', () => {
   const db = read('utils/indexedDB.js')
   const mutation = read('repositories/mutationRepository.js')
   assert.match(db, /export const openCanonicalDB = initializeCanonicalStorage/)
   assert.doesNotMatch(db, /SYNTHETIC_DB_NAME|setActiveDataSource|initializeSyntheticStorage/)
   assert.match(mutation, /openCanonicalDB\(\)/)
-  assert.match(mutation, /canonical storage only/)
-  assert.match(db, /if \(source === 'canonical'\) sessionStorage\.removeItem\('kfe:synthetic-date-context'\)/)
+  assert.match(mutation, /single canonical synchronization queue/)
+  assert.doesNotMatch(db, /synthetic-date-context|source === 'canonical'/)
 })
 
 // Explicitly document the device-only remainder: these are not simulated as PASS.
