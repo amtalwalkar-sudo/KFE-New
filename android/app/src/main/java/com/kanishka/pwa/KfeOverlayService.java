@@ -135,11 +135,11 @@ public class KfeOverlayService extends Service {
     return queueEventLocationCapture(context,"TRIP",tripId,eventType,"");
   }
   static boolean queueEventLocationCapture(Context context,String entityType,String entityId,String eventType,String eventAt){
-    if(entityType==null||entityType.trim().isEmpty()||entityId==null||entityId.trim().isEmpty()||!isSupportedEventLocationType(entityType,eventType))return false;
+    if(entityType==null||entityType.trim().isEmpty()||entityId==null||entityId.trim().isEmpty()||!KfeGpsEventPolicy.supports(entityType,eventType))return false;
     try{
       android.content.SharedPreferences prefs=context.getSharedPreferences("kfe_overlay",Context.MODE_PRIVATE);
       JSONArray items=new JSONArray(prefs.getString(PENDING_GPS_KEY,"[]"));
-      String key=gpsEventKey(entityType,entityId,eventType);
+      String key=KfeGpsEventPolicy.key(entityType,entityId,eventType);
       boolean found=false;
       for(int i=0;i<items.length();i++){JSONObject item=items.optJSONObject(i);if(item!=null&&key.equals(item.optString("key",""))){found=true;break;}}
       if(!found){
@@ -156,14 +156,7 @@ public class KfeOverlayService extends Service {
       return true;
     }catch(Exception error){Log.e("KFE-GPS","Could not queue PWA event GPS capture.",error);return false;}
   }
-  private static boolean isSupportedEventLocationType(String entityType,String eventType){
-    return "TRIP".equals(entityType)
-      && ("PICKUP_START".equals(eventType)||"TRIP_CANCELLED".equals(eventType)
-        ||"TRIP_START".equals(eventType)||"TRIP_END".equals(eventType));
-  }
-  private static String eventLocationSnapshotId(String entityType,String entityId,String eventType){
-    return "TRIP".equals(entityType)?"native-event-location-"+entityId+"-"+eventType:"native-event-location-"+entityType+"-"+entityId+"-"+eventType;
-  }
+  
   public static void hide(Context context){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_HIDE);context.startService(i);}
   public static boolean isResumableState(String raw){
     if(raw==null||raw.trim().isEmpty())return false;
@@ -916,8 +909,7 @@ public class KfeOverlayService extends Service {
 
   // Each event is journaled in app-private storage before a location request.
   // The original event identity survives timeout, process death, and retry.
-  private static String gpsEventKey(String entityId,String eventType){return entityId+"::"+eventType;}
-  private static String gpsEventKey(String entityType,String entityId,String eventType){return "TRIP".equals(entityType)?gpsEventKey(entityId,eventType):entityType+"::"+entityId+"::"+eventType;}
+  
   private synchronized boolean enqueuePendingEventLocation(String entityId,String eventType){return enqueuePendingEventLocation("TRIP",entityId,eventType,"");}
   private synchronized boolean enqueuePendingEventLocation(String entityType,String entityId,String eventType,String eventAt){
     try{
@@ -1045,7 +1037,7 @@ public class KfeOverlayService extends Service {
   private void captureOneShotEventLocation(String entityType,String entityId,String eventType,String eventAt){
     if(entityId==null||entityId.trim().isEmpty()||!isSupportedEventLocationType(entityType,eventType))return;
     if(!enqueuePendingEventLocation(entityType,entityId,eventType,eventAt))return;
-    String snapshotId=eventLocationSnapshotId(entityType,entityId,eventType);
+    String snapshotId=KfeGpsEventPolicy.snapshotId(entityType,entityId,eventType);
     try{
       JSONObject existing=KfeCanonicalWorkStore.get(this).getRecord("GPS_SNAPSHOT",snapshotId);
       JSONObject snapshot=existing.optJSONObject("record");
