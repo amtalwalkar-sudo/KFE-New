@@ -8,7 +8,7 @@
 
 Phase 2 realizes the frozen Phase 1 canonical contract as durable, provider-independent local persistence. KFE must remain usable and retain its canonical dataset on-device without cloud availability.
 
-Cloud backup and multi-device synchronization are later phases and must not become dependencies of local persistence.
+Remote synchronization is not part of the current product scope. Local persistence must remain fully usable without cloud services; no cloud backup or multi-device synchronization workflow is implemented.
 
 ## 2. Local-first invariant
 
