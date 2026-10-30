@@ -26,6 +26,8 @@
 
 ## Architecture
 
+The presentation boundary is governed by `docs/UI-UX-SHELL-CONTRACT.md`; this baseline defines only the Work-specific operational presentation.
+
 - Work view → application-backed Work store/controllers → canonical repositories/native bridge.
 - Shift start/end remain PWA-owned.
 - Native Android code owns Android-specific overlay and GPS behavior.
