@@ -45,18 +45,12 @@ Anything outside these five capabilities is out of product scope. Do not restore
 
 ## 3. Supporting documents — not competing authorities
 
-### Business / calculation evidence
-- docs/KFE-BUSINESS-RULES-AUDIT-EVIDENCE.md — consolidated business-rule audit, re-audit, and defect evidence.
+### Current UI and basic Performance evidence
 
 ### Data / persistence / operational evidence
 - docs/KFE-PHASE-2-PERSISTENCE-CONTRACT.md — persistence implementation/evidence under canonical data contract.
 - docs/KFE-PHASE-3-RIDE-CAPTURE-CONTRACT.md — ingestion adapter implementation/evidence under canonical Trip data.
-- docs/KFE-PHASE-4-OPERATIONAL-RECORDS-CONTRACT.md — operational reconstruction/evidence under canonical data + lifecycle.
 - KFE_DATA_RECOVERY_GATE_PHASE7.md — recovery gate/evidence.
-- KFE_OPERATIONAL_AUDIT_PHASE4.md — operational audit/evidence.
-- KFE_OPERATIONAL_REAUDIT_PHASE6.md — operational re-audit/evidence.
-- KFE_PHASE4_AUTOMATED_AUDIT.md — automated audit/evidence.
-- KFE_PHASE4_STATE_FORM_GATE_AUDIT.md — state/form audit/evidence.
 - docs/PRELAUNCH-SOURCE-RECONCILIATION-2026-10-02.md — reconciliation evidence.
 
 ### UI / interaction evidence
@@ -71,7 +65,6 @@ Anything outside these five capabilities is out of product scope. Do not restore
 - KFE_PRODUCTION_CONFIGURATION_GATE_PHASE9.md — production configuration gate evidence.
 - KFE_RELEASE_CANDIDATE_PHASE10.md — release-candidate gate evidence.
 - KFE_CONTROLLED_PILOT_GATE_PHASE11.md — controlled-pilot gate evidence.
-- docs/KFE-RIDE-NOTIFICATION-CAPABILITY-FUTURE.md — future capability boundary.
 - docs/FOUNDATION-SECURITY-PERFORMANCE.md — foundation constraints/reference.
 - docs/LOCAL-HTTPS.md — development infrastructure reference.
 
