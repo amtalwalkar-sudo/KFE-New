@@ -136,6 +136,13 @@ provider
 
 Business logic must never become provider-specific.
 
+## 7.1 Capacitor plugin registration
+
+- `src/infrastructure/capacitor/nativePluginRegistry.js` is the only JavaScript module allowed to import `@capacitor/core` or call `registerPlugin()`.
+- Android capability adapters consume the registered plugin instances and translate them into narrow KFE infrastructure services.
+- Presentation, application and domain layers must never import Capacitor plugins or register native plugins.
+- Adding or replacing a native plugin requires updating the registry and the architecture contract test; it must not create a parallel registration path.
+
 ## 8. Ride capture boundary
 
 Ride capture is an input pipeline, not a new business-data authority.
