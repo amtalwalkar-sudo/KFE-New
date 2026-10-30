@@ -31,8 +31,14 @@ for (const file of files(['views', 'components', 'presentation'])) {
 const adminView = source('views/AdminView.vue')
 const calculationsView = source('views/CalculationsView.vue')
 const workFuelDomain = source('domain/work/fuel.js')
+const maintenanceEngine = source('domain/performance/performanceEngineV2.js')
+const loanEngine = source('domain/finance/loanEngine.js')
+if (!maintenanceEngine.includes('maintenanceProvisionAccumulated - maintenancePaymentsAccumulated')) violations.push('Maintenance provision must preserve signed balances.')
+if (maintenanceEngine.includes('maintenanceProvisionExcessPayments')) violations.push('Maintenance overpayment must not create a parallel excess-payment ledger.')
+if (!loanEngine.includes('provisionAccumulatedPaise - actualPaidPaise')) violations.push('EMI provision must preserve signed balances.')
+if (loanEngine.includes('paymentsAheadOfAccrual')) violations.push('EMI overpayment must not create a parallel ahead-of-accrual ledger.')
 if (!workFuelDomain.includes('calculateFuelQuantityKg')) violations.push('Work fuel validation must delegate quantity arithmetic to the shared canonical formula.')
-if (/total\\s*\\/\\s*price/.test(workFuelDomain)) violations.push('Work fuel domain must not duplicate the quantity division formula.')
+if (workFuelDomain.includes('quantityKg: total / price')) violations.push('Work fuel domain must not duplicate the quantity division formula.')
 for (const [name, text] of [['AdminView.vue', adminView], ['CalculationsView.vue', calculationsView]]) {
   for (const pattern of [
     /const\s+sumPayments\s*=/,
