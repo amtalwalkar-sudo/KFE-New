@@ -71,8 +71,23 @@ const showOverlayIfNeeded = async () => {
   }
 }
 
-const collapseOverlayToBubble = () => {
-  void AndroidOverlay.minimize().catch(() => {})
+const collapseOverlayToBubble = async () => {
+  if (showing) return
+  showing = true
+  try {
+    const permission = await AndroidOverlay.canDrawOverlays()
+    if (!permission.granted) { await AndroidOverlay.hide(); return }
+    const state = await activeOverlayState()
+    if (state) {
+      await AndroidOverlay.update(state)
+      await AndroidOverlay.minimize()
+    } else {
+      await AndroidOverlay.hide()
+    }
+  } catch (_) {
+  } finally {
+    showing = false
+  }
 }
 
 export const configureAndroidOverlayLifecycle = () => {
