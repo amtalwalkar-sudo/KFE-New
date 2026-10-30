@@ -87,14 +87,13 @@ public class KfeOverlayService extends Service {
   private boolean tollExpanded=false;
   private boolean parkingExpanded=false;
   private String theme="dark";
-  private String target="—", rides="0", revenue="₹0", pendingTripId="", pendingFareTripId="", cancellationRevenue="₹0";
+  private String rides="0", revenue="₹0", pendingTripId="", pendingFareTripId="", cancellationRevenue="₹0";
   private long tripStartAt=0L;
   private long phaseStartAt=0L;
   private String phaseLabel="TRIP TIME";
   private String defaultOperator="";
   private int swipeCommitThresholdPercent=70, swipeReturnDurationMs=220;
   private int swipePickupColor=Color.rgb(120,162,255), swipeStartColor=Color.rgb(98,209,138), swipeEndColor=Color.rgb(255,133,133);
-  private int targetProgress=0;
   private boolean minimized=false;
   private String formMode=null;
   private String formValue="";
@@ -335,8 +334,6 @@ public class KfeOverlayService extends Service {
         return;
       }
       theme="dark";
-      target=root.optString("target","—");
-      targetProgress=Math.max(0,Math.min(100,root.optInt("targetProgress",0)));
       rides=root.optString("rides","0");
       defaultOperator=root.optString("defaultOperator",defaultOperator);
       JSONObject swipeConfig=root.optJSONObject("swipeConfig");
@@ -1290,7 +1287,6 @@ public class KfeOverlayService extends Service {
     if("CANCELLED".equals(actionStage)||"CANCEL_RIDE".equals(actionStage))return dark()?Color.rgb(255,190,80):Color.rgb(190,120,0);
     return swipePickupColor;}
   private String formatPhaseTime(){long start=phaseStartAt;if("END_RIDE".equals(actionStage)&&tripStartAt>0L)start=tripStartAt;if(start<=0L)return "00:00:00";long elapsed=Math.max(0L,System.currentTimeMillis()-start)/1000L;long h=elapsed/3600L,m=(elapsed%3600L)/60L,s=elapsed%60L;return String.format(java.util.Locale.US,"%02d:%02d:%02d",h,m,s);}
-  private int targetColor(){if(targetProgress>=100)return dark()?Color.rgb(80,220,130):Color.rgb(20,145,75);if(targetProgress>=70)return dark()?Color.rgb(255,205,90):Color.rgb(190,125,0);return actionColor();}
   // KFE is dark-only: ignore stale persisted theme values so white action text can never land on a white overlay surface.
   private boolean dark(){return true;}
   private void removeOverlay(){removeOverlay(false);}
@@ -1353,9 +1349,9 @@ public class KfeOverlayService extends Service {
       rect.set(8,barTop,(w-8)*progress+8,barTop+barH);c.drawRoundRect(rect,dp(22),dp(22),paint);
       // Trip lifecycle transitions do not require location access.
       float[] cols={.18f,.50f,.82f};
-      String[] labels={"TARGET",phaseLabel,"REVENUE"};
-      String[] values={target,formatPhaseTime(),revenue};
-      for(int i=0;i<3;i++){text(9,mutedColor(),true);center(c,labels[i],w*cols[i],barTop+dp(23));text(15,i==0?targetColor():textColor(),true);center(c,values[i],w*cols[i],barTop+dp(44));}
+      String[] labels={"RIDES",phaseLabel,"REVENUE"};
+      String[] values={rides,formatPhaseTime(),revenue};
+      for(int i=0;i<3;i++){text(9,mutedColor(),true);center(c,labels[i],w*cols[i],barTop+dp(23));text(15,textColor(),true);center(c,values[i],w*cols[i],barTop+dp(44));}
       if("END_RIDE".equals(actionStage)||"START_RIDE".equals(actionStage)||phaseStartAt>0L) postInvalidateDelayed(1000);
       if("CANCELLED".equals(actionStage)){
         text(11,a,true);center(c,"CANCELLED · "+cancellationRevenue,w*.50f,barTop+dp(77));
