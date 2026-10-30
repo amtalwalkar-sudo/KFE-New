@@ -407,15 +407,11 @@ async function endTrip() {
     fare.value = ''
     tripToll.value = ''
     tripParking.value = ''
-    tripTollTreatment.value = 'INCLUDED'
-    tripParkingTreatment.value = 'INCLUDED'
     const draft = await restoreDraft(tripDraftIdentity('work-trip-details', 'ENTER_FARE', tripId))
     if (draft?.values) {
       fare.value = String(draft.values.fare ?? '')
       tripToll.value = String(draft.values.tripToll ?? '')
       tripParking.value = String(draft.values.tripParking ?? '')
-      tripTollTreatment.value = String(draft.values.tripTollTreatment || 'INCLUDED')
-      tripParkingTreatment.value = String(draft.values.tripParkingTreatment || 'INCLUDED')
     }
     restoringDrafts = false
     await syncOverlay()
@@ -443,8 +439,6 @@ async function saveFare(fromNative = false, operationId = '') {
       fareDetailsSkipped: fare.value === '',
       toll: tripToll.value === '' ? 0 : Number(tripToll.value),
       parking: tripParking.value === '' ? 0 : Number(tripParking.value),
-      tollTreatment: tripTollTreatment.value,
-      parkingTreatment: tripParkingTreatment.value
     }
     const fareDraft = tripDraftIdentity('work-trip-details', 'ENTER_FARE', pendingFare.value.id)
     const result = await store.updateTrip(details)
@@ -467,8 +461,6 @@ async function saveFare(fromNative = false, operationId = '') {
     fare.value = ''
     tripToll.value = ''
     tripParking.value = ''
-    tripTollTreatment.value = 'INCLUDED'
-    tripParkingTreatment.value = 'INCLUDED'
     if (!fromNative) await WorkRuntimePorts.androidOverlay.fareSaved().catch(() => {})
     if (!fromNative) await WorkRuntimePorts.nativeWorkActions.clearPendingAction().catch(() => {})
       await syncOverlay()
@@ -491,8 +483,6 @@ async function skipTripDetails() {
     fare.value = ''
     tripToll.value = ''
     tripParking.value = ''
-    tripTollTreatment.value = 'INCLUDED'
-    tripParkingTreatment.value = 'INCLUDED'
     await WorkRuntimePorts.androidOverlay.fareSaved().catch(() => {})
     await WorkRuntimePorts.nativeWorkActions.clearPendingAction().catch(() => {})
     await syncOverlay()
@@ -869,14 +859,10 @@ const handleNativeAction = async event => {
       fare.value = payload.fare == null ? '' : String(payload.fare)
       tripToll.value = payload.toll == null ? '' : String(payload.toll)
       tripParking.value = payload.parking == null ? '' : String(payload.parking)
-      tripTollTreatment.value = String(payload.tollTreatment || 'INCLUDED')
-      tripParkingTreatment.value = String(payload.parkingTreatment || 'INCLUDED')
     } catch (_) {
       fare.value = String(event.input)
       tripToll.value = ''
       tripParking.value = ''
-      tripTollTreatment.value = 'INCLUDED'
-      tripParkingTreatment.value = 'INCLUDED'
     }
     return Boolean(await saveFare(true, String(event?.eventId || '')))
   }
@@ -916,8 +902,6 @@ onMounted(async () => {
       fare.value = String(draft.values.fare ?? '')
       tripToll.value = String(draft.values.tripToll ?? '')
       tripParking.value = String(draft.values.tripParking ?? '')
-      tripTollTreatment.value = String(draft.values.tripTollTreatment || 'INCLUDED')
-      tripParkingTreatment.value = String(draft.values.tripParkingTreatment || 'INCLUDED')
     }
     restoringDrafts = false
   }
@@ -1083,13 +1067,9 @@ onBeforeUnmount(() => {
       :fare="fare"
       :trip-toll="tripToll"
       :trip-parking="tripParking"
-      :trip-toll-treatment="tripTollTreatment"
-      :trip-parking-treatment="tripParkingTreatment"
       @update:fare="fare=$event"
       @update:trip-toll="tripToll=$event"
       @update:trip-parking="tripParking=$event"
-      @update:trip-toll-treatment="tripTollTreatment=$event"
-      @update:trip-parking-treatment="tripParkingTreatment=$event"
       @action="handleContextAction"
     />
 
