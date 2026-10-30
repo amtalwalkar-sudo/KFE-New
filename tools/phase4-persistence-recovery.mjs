@@ -25,7 +25,7 @@ const stop = async () => {
   await new Promise(resolve => setTimeout(resolve, 400))
 }
 const run = async page => page.evaluate(async () => {
-  const { setActiveDataSource, openCanonicalDB } = await import('/src/utils/indexedDB.js')
+  const { openCanonicalDB } = await import('/src/utils/indexedDB.js')
   const { FuelRepository } = await import('/src/repositories/fuelRepository.js')
   const { MutationRepository } = await import('/src/repositories/mutationRepository.js')
   const { createBackupRepository } = await import('/src/repositories/backupRepository.js')
@@ -55,7 +55,6 @@ const run = async page => page.evaluate(async () => {
     })
   }
   await deleteDb('kanishka_kfe_canonical_db')
-  setActiveDataSource('canonical')
 
   const first = await FuelRepository.create({
     id: 'phase4-recovery-fuel', clientMutationId: 'phase4-recovery-client',
