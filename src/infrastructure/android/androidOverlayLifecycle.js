@@ -1,6 +1,5 @@
 import { AndroidOverlay } from './kfeOverlay.js'
 import { WorkService } from '../../application/work/workService.js'
-import { PerformanceService } from '../../application/performance/performanceService.js'
 import { deriveWorkCockpitState } from '../../application/work/workCockpit.js'
 
 let configured = false
@@ -15,24 +14,8 @@ const activeOverlayState = async () => {
   const active = await WorkService.getActiveState()
   if (!active?.shift?.id) return null
 
-  let target = '—'
-  let targetProgress = 0
-  let liveKm = '0.0 km'
-  let deadKm = '—'
   let revenue = '₹0'
   let trips = []
-
-  try {
-    const daily = await PerformanceService.getDailyTargetSnapshot()
-    const targetAmount = Number(daily?.target)
-    const achieved = Number(daily?.achieved)
-    if (Number.isFinite(targetAmount) && targetAmount >= 0) {
-      target = `₹${targetAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
-      targetProgress = targetAmount > 0 && Number.isFinite(achieved)
-        ? Math.min(100, Math.round((achieved / targetAmount) * 100))
-        : 0
-    }
-  } catch (_) {}
 
   try {
     trips = await WorkService.getTripsForShift(active.shift.id)
@@ -45,20 +28,6 @@ const activeOverlayState = async () => {
     revenue = `₹${authoritativeRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
   }
 
-  if (active.trip?.id) {
-    try {
-      const distance = await WorkService.getTripGpsDistanceKm(active.trip.id)
-      if (Number.isFinite(Number(distance))) liveKm = `${Number(distance).toFixed(1)} km`
-    } catch (_) {}
-  }
-
-  if (active.trip?.id) {
-    try {
-      const distance = await WorkService.getTripDeadMovementDistanceKm(active.trip.id)
-      if (distance !== null && distance !== undefined && Number.isFinite(Number(distance))) deadKm = `${Number(distance).toFixed(1)} km`
-    } catch (_) {}
-  }
-
   const pendingFareId = trips
     .filter(item => item?.status === 'COMPLETED' && item?.fareDetailsSkipped !== true &&
       (item?.revenue === null || item?.revenue === undefined || item?.revenue === ''))
@@ -69,19 +38,12 @@ const activeOverlayState = async () => {
     trip: active.trip,
     trips,
     pendingFareId,
-    target,
-    targetProgress,
-    liveKm,
     revenue
   })
 
   return {
     ...active,
-    target: state.target,
-    targetProgress: state.targetProgress,
     rides: String(trips.length),
-    liveKm: state.liveKm,
-    deadKm,
     revenue: state.revenue,
     tripStartAt: state.tripStartAt,
     // A completed trip awaiting fare takes precedence over the idle
