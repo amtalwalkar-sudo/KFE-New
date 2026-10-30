@@ -3,7 +3,6 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useShiftTripStore } from '../stores/shiftTrip.js'
 import { useFuelStore } from '../stores/fuel.js'
 import { WorkService } from '../application/work/workService.js'
-import { WorkDraftService } from '../application/work/workDraftService.js'
 import { createWorkDraftController } from '../application/work/workDraftController.js'
 import { createNativeWorkActionController } from '../application/work/nativeWorkActionController.js'
 import { WorkflowTimerService, WorkWorkflowSessionService } from '../application/work/workflowTimerService.js'
@@ -111,7 +110,6 @@ const fuelDraftIdentity = () => store.shift?.id
   ? shiftDraftIdentity('work-fuel', 'RECORD_FUEL')
   : { formId: 'work-fuel', workflowStep: 'RECORD_FUEL', parentType: 'WORKFLOW', workflowId: fuelWorkflowId.value }
 const draftController = createWorkDraftController({
-  service: WorkDraftService,
   isRestoring: () => restoringDrafts,
   onFailure: fail,
 })
@@ -339,7 +337,7 @@ async function openStart() {
   startOdo.value = store.lastKnownOdometer == null ? '' : String(store.lastKnownOdometer)
   startAck.value = false
   gapChoice.value = ''
-  startWorkflowId.value = (await WorkDraftService.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || WorkDraftService.newWorkflowId()
+  startWorkflowId.value = (await draftController.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || draftController.newWorkflowId()
   const draft = await restoreDraft(startDraftIdentity())
   if (draft?.values) {
     startOdo.value = String(draft.values.startOdo ?? startOdo.value)
@@ -371,7 +369,7 @@ async function submitStart() {
     const result = await store.startShift(startOdo.value, gapKm.value ? { category: gapChoice.value } : null, startWorkflowId.value)
     if (!result?.ok) return fail(result?.reason || 'Could not start the shift.')
     await clearCommittedDraft(startDraftIdentity())
-    startWorkflowId.value = WorkDraftService.newWorkflowId()
+    startWorkflowId.value = draftController.newWorkflowId()
     startOpen.value = false
     startOdo.value = ''
     startAck.value = false
@@ -395,7 +393,7 @@ async function goPickup(nativeTripId = '') {
     if (!createIntentKey) {
       const identity = tripCreateDraftIdentity()
       const draft = await restoreDraft(identity)
-      createIntentKey = String(draft?.values?.createIntentKey || tripCreateWorkflowId.value || WorkDraftService.newWorkflowId())
+      createIntentKey = String(draft?.values?.createIntentKey || tripCreateWorkflowId.value || draftController.newWorkflowId())
       tripCreateWorkflowId.value = createIntentKey
       // Fail closed if the retry token cannot be made durable before the native create.
       await saveDraftBeforeCommit(identity, { createIntentKey })
@@ -610,7 +608,7 @@ async function toggleFuel() {
   fuelPrice.value = ''
   fuelAmount.value = ''
   fuelFull.value = true
-  if (!store.shift?.id) fuelWorkflowId.value = (await WorkDraftService.latestWorkflow('work-fuel', 'RECORD_FUEL'))?.workflowId || WorkDraftService.newWorkflowId()
+  if (!store.shift?.id) fuelWorkflowId.value = (await draftController.latestWorkflow('work-fuel', 'RECORD_FUEL'))?.workflowId || draftController.newWorkflowId()
   const draft = await restoreDraft(fuelDraftIdentity())
   if (draft?.values) {
     fuelOdo.value = String(draft.values.fuelOdo ?? '')
@@ -941,8 +939,8 @@ onMounted(async () => {
   nativeReplayTimer = setInterval(() => { void replayFailedNativeActions() }, 5000)
   await store.initialize()
   await fuel.refresh().catch(() => {})
-  startWorkflowId.value = (await WorkDraftService.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || WorkDraftService.newWorkflowId()
-  fuelWorkflowId.value = (await WorkDraftService.latestWorkflow('work-fuel', 'RECORD_FUEL'))?.workflowId || WorkDraftService.newWorkflowId()
+  startWorkflowId.value = (await draftController.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || draftController.newWorkflowId()
+  fuelWorkflowId.value = (await draftController.latestWorkflow('work-fuel', 'RECORD_FUEL'))?.workflowId || draftController.newWorkflowId()
   await targetRefresh()
   operator.value = store.defaultOperator
   if (pendingFare.value?.id && store.shift?.id) {
