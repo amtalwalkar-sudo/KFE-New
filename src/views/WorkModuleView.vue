@@ -278,8 +278,6 @@ async function syncOverlay() {
     trip: store.trip,
     trips,
     pendingFareId: recoveredPendingFareId,
-    target: targetValue.value == null ? '—' : money(targetValue.value),
-    targetProgress: targetProgress.value,
     revenue
   })
 
