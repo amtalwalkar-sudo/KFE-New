@@ -1,6 +1,6 @@
 # KFE Business Rules Register
 
-**Status:** Authoritative scope and business-fact contract.
+**Status:** AUTHORITATIVE — SOLE BUSINESS-RULE AUTHORITY
 
 This register intentionally defines only the current KFE product scope. Historical calculation specifications are not active product requirements.
 
