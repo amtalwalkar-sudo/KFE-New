@@ -11,10 +11,8 @@ const inRange = (value, range) => {
 }
 
 /**
- * Phase 1 Performance summary. The existing PerformanceService remains the
- * authority for shift revenue and fuel economics; this projection only splits
- * cancellation fees out for display and computes the requested net-after-fuel
- * figure. It never writes or repairs operational records.
+ * Basic Performance projection from saved revenue and fuel facts. It only
+ * summarizes the selected period and never writes or repairs operational records.
  */
 export function derivePhaseOnePerformanceOverview(snapshot, range, metrics) {
   if (!range?.from || !range?.to || range.to < range.from) throw new Error('Performance reporting period is invalid.')
@@ -35,7 +33,7 @@ export function derivePhaseOnePerformanceOverview(snapshot, range, metrics) {
     fareIncome: recordedRevenue - cancellationFees,
     fuelSpending,
     fuelCostPerKm,
-    fuelCostPerKmSource: metrics?.breakEvenInputs?.fuelCostPerKmSource || null,
+    fuelCostPerKmSource: metrics?.fuelCostPerKmSource || null,
     incomeAfterFuel: recordedRevenue - fuelSpending,
     range: { from: range.from.toISOString(), to: range.to.toISOString() },
     revenueAuthority: metrics?.authority?.revenue || 'SHIFT_END_REVENUE',
