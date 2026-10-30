@@ -44,8 +44,14 @@ assert.match(sync, /androidOverlay\.hide\(\)/,
 
 assert.match(overlayLifecycle, /if \(!active\?\.shift\?\.id\) return null/)
 assert.match(overlayLifecycle, /if \(state\) await AndroidOverlay\.show\(state\)\s*else await AndroidOverlay\.hide\(\)/)
-assert.match(overlayLifecycle, /if \(state\) await AndroidOverlay\.update\(state\)\s*else await AndroidOverlay\.hide\(\)/,
-  'Background overlay restoration must hide rather than revive an overlay when no active shift exists.')
+assert.match(overlayLifecycle, /hiddenHandler = \(\) => \{[\s\S]*?showOverlayIfNeeded\(\)/,
+  'Background overlay restoration must load canonical state once when the app becomes hidden.')
+assert.doesNotMatch(overlayLifecycle, /setInterval|updateOverlayIfNeeded|AndroidOverlay\.update/,
+  'The hidden overlay must not poll canonical storage on a recurring timer.')
+assert.match(nativeOverlayService, /refreshRideCountForShift\(store,shift\.optString\("id",""\)\)/,
+  'Native ride count refresh must follow canonical lifecycle commits.')
+assert.match(nativeOverlayService, /refreshRideCountForShift\(canonical,trip\.optString\("shiftId",""\)\)/,
+  'Native ride count refresh must follow canonical fare/cancellation commits.')
 
 assert.match(nativeOverlayService, /isCanonicalActiveShiftState\(context,\s*saved\)/,
   'Persisted overlay resume must consult canonical SQLite shift status, not trust a stale snapshot ID.')
@@ -69,4 +75,4 @@ assert.match(appEntry, /app\.config\.errorHandler\s*=\s*\(err,\s*instance,\s*inf
 assert.match(appEntry, /err\?\.stack/)
 assert.match(appEntry, /info/)
 
-console.log('PASS: PWA owns shift lifecycle; overlay visibility reconciles against active canonical shift; runtime screen exposes actionable diagnostics.')
+console.log('PASS: PWA owns shift lifecycle; overlay visibility reconciles against canonical shift; no recurring overlay poll remains.')
