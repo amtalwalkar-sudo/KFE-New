@@ -264,7 +264,10 @@ const endReady = computed(() => closingOdo.value.trim() !== '')
 const fuelQty = computed(() => fuel.calculateQuantity(fuelPrice.value, fuelAmount.value))
 
 async function syncOverlay() {
-  if (!store.isOnline || document.visibilityState === 'visible') {
+  // The shared Android lifecycle controller owns foreground minimization and
+  // background restoration. Work only reconciles native state while hidden.
+  if (document.visibilityState === 'visible') return
+  if (!store.isOnline) {
     await WorkRuntimePorts.androidOverlay.hide().catch(() => {})
     return
   }
@@ -896,7 +899,6 @@ const processNativeEvent = nativeActionController.process
 const replayFailedNativeActions = nativeActionController.replay
 
 onMounted(async () => {
-  document.addEventListener('visibilitychange', syncOverlay)
   document.addEventListener('visibilitychange', replayFailedNativeActions)
   window.addEventListener('pageshow', replayFailedNativeActions)
   window.addEventListener('focus', replayFailedNativeActions)
@@ -979,7 +981,6 @@ watch(cancelOpen, () => { void syncOverlay() })
 
 
 onBeforeUnmount(() => {
-  document.removeEventListener('visibilitychange', syncOverlay)
   document.removeEventListener('visibilitychange', replayFailedNativeActions)
   window.removeEventListener('pageshow', replayFailedNativeActions)
   window.removeEventListener('focus', replayFailedNativeActions)
