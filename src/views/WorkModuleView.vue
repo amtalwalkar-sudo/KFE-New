@@ -189,11 +189,6 @@ const actionLabel = computed(() => {
   if (cockpit.value.action === 'START_RIDE') return 'START TRIP'
   return 'GO TO PICKUP'
 })
-const shiftTimer = computed(() => {
-  const elapsed = Math.max(0, Number(cockpit.value.shiftDurationMs || 0))
-  const seconds = Math.floor(elapsed / 1000)
-  return `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds % 3600 / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
-})
 const formatElapsed = elapsedMs => {
   const seconds = Math.max(0, Math.floor(Number(elapsedMs || 0) / 1000))
   return `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds % 3600 / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
