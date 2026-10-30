@@ -11,6 +11,7 @@ const breakEven = read('../components/admin/AdminBreakEven.vue')
 const finance = read('../components/admin/AdminFinanceView.vue')
 const loanEngine = read('../domain/finance/loanEngine.js')
 const performanceEngine = read('../domain/performance/performanceEngineV2.js')
+const performanceAdapter = read('../domain/performance/financePerformanceAdapter.js')
 const periodSnapshot = read('../domain/finance/periodSnapshot.js')
 
 const ids = Array.from({ length: 30 }, (_, i) => `CV-${String(i + 1).padStart(2, '0')}`)
@@ -56,7 +57,7 @@ assert.match(performance, /Maintenance, EMI and other costs are not included in 
 assert.doesNotMatch(performance, /driverTargetSurplusCredit|maintenanceProvision|loanProvision/, 'Future layers must not be claimed as current Phase 1 UI')
 
 for (const [id, item] of Object.entries(evidence)) {
-  assert.ok(item.calc.test(matrix) || item.calc.test(performance) || item.calc.test(work) || item.calc.test(timeline) || item.calc.test(admin) || item.calc.test(breakEven) || item.calc.test(finance) || item.calc.test(loanEngine) || item.calc.test(periodSnapshot) || item.calc.test(performanceEngine), `${id} calculation evidence token missing`)
+  assert.ok(item.calc.test(matrix) || item.calc.test(performance) || item.calc.test(work) || item.calc.test(timeline) || item.calc.test(admin) || item.calc.test(breakEven) || item.calc.test(finance) || item.calc.test(loanEngine) || item.calc.test(periodSnapshot) || item.calc.test(performanceEngine) || item.calc.test(performanceAdapter), `${id} calculation evidence token missing`)
   // UI evidence is explicitly NOT PROVEN in the authority matrix; do not treat source presence as rendered proof.
   assert.ok(item.e2e.test(matrix), `${id} E2E evidence reference missing from matrix`)
 }
