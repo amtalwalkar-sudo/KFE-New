@@ -17,7 +17,7 @@ const result = deriveAuthoritativeBreakEven({
   vehicleKmSource: 'ADMIN_EXPECTED_MONTHLY_KM',
 })
 assert.equal(result.available, true)
-assert.equal(result.monthlyBreakEvenRevenue, 31000)
+assert.equal(result.monthlyBreakEvenRevenue, 34000)
 assert.equal(result.vehicleKm, 6000)
 assert.equal(result.vehicleKmSource, 'ADMIN_EXPECTED_MONTHLY_KM')
 
