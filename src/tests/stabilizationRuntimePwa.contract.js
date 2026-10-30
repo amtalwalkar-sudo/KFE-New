@@ -20,7 +20,7 @@ assert.match(platform, /registration\.update\(\)\.catch/)
 
 assert.match(db, /CANONICAL_DB_NAME\s*=\s*'kanishka_kfe_canonical_db'/)
 assert.doesNotMatch(db, /SYNTHETIC_DB_NAME|setActiveDataSource|initializeSyntheticStorage/)
-assert.match(db, /const getActiveSource = \(\) =>/)
+assert.doesNotMatch(db, /getActiveSource|dbNameFor|dbVersionFor/)
 assert.match(db, /indexedDB\.open\(name, CANONICAL_DB_VERSION\)/)
 assert.match(db, /export const initializeCanonicalStorage = async \(\) => initializeDatabase\(CANONICAL_DB_NAME\)/)
 assert.match(db, /export const openCanonicalDB = initializeCanonicalStorage/)
