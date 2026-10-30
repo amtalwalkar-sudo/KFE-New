@@ -3,6 +3,7 @@ const requiredMethods = Object.freeze({
   canonicalWork: ['putRecord', 'getRecord', 'listRecords', 'getOperation', 'isAvailable'],
   androidOverlay: ['hide', 'update', 'prepare', 'fareSaved', 'cancelSaved'],
   platform: ['getPlatform'],
+  tripBoundaryLocation: ['queueEventLocationCapture', 'captureOneShotLocation'],
 })
 
 let configuredPorts = null
@@ -33,4 +34,5 @@ export const WorkRuntimePorts = Object.freeze({
   canonicalWork: createPortProxy('canonicalWork'),
   androidOverlay: createPortProxy('androidOverlay'),
   platform: createPortProxy('platform'),
+  tripBoundaryLocation: createPortProxy('tripBoundaryLocation'),
 })
