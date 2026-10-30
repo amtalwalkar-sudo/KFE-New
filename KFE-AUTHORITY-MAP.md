@@ -77,7 +77,6 @@ Anything outside these five capabilities is out of product scope. Do not restore
 - KFE_PR_MERGE_DISCIPLINE.md — merge process.
 - docs/KFE-EFFICIENT-PHASE-EXECUTION-PROTOCOL.md — execution process.
 - docs/KFE-HOLISTIC-CI-FAILURE-PROTOCOL.md — CI failure process.
-- docs/PRE-CI-HOLISTIC-AUDIT.md — pre-CI audit evidence.
 - spec/KFE-SPECIFICATION.md — top-level product index; it points to the canonical authorities and must not duplicate their rules.
 
 ## 4. Phase freeze documents
@@ -87,7 +86,6 @@ The following are historical/frozen phase evidence and are not independent autho
 - docs/KFE-PHASE-1-FREEZE.md
 - docs/KFE-PHASE-2-FREEZE.md
 - docs/KFE-PHASE-3-FREEZE.md
-- docs/KFE-PHASE-4-FREEZE.md
 - docs/KFE-PHASE-6-FREEZE.md
 - docs/KFE-PHASE-7-FREEZE.md
 - docs/KFE-PHASE-8-FREEZE.md
