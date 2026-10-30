@@ -33,6 +33,14 @@ This report records findings from source inspection and the corrective changes m
 
 **Correction:** Clarified the boundary: native capture remains offline, one-shot, and network-free; Timeline may resolve saved coordinates only on explicit pull-down while online. Locality is display-only enrichment, never business data. Failed/unresolved lookups must not fabricate a name, and cancellation location must not appear as a passenger drop-off.
 
+### KFE-AUD-005 — Cumulative provision display was period-bound
+
+**Finding:** The Performance screen obtained cumulative EMI and Maintenance balances by calling the broad metrics engine with the selected period start as its lower boundary. That could reset a purported cumulative balance when switching Today / This week / This month. Extending the broad metrics range back to loan inception would repeat unrelated historical target calculations and risk expensive work.
+
+**Correction:** Added a focused as-of calculation path: EMI balance delegates to the canonical loan engine; Maintenance balance accumulates qualifying historical shifts and subtracts actual maintenance payments through the as-of date. The Performance view no longer derives these balances from the selected-period metrics call.
+
+**Regression coverage:** The Phase 1 Performance contract asserts that the service uses the focused read model and seeds shifts before and within the selected period so earlier provision remains included. Current-head CI must pass this regression before the change is considered verified.
+
 ### KFE-AUD-004 — Business-rule authority incorrectly listed Compliance as a cumulative provision bucket
 
 **Finding:** The business-rule register listed EMI, Maintenance, and Compliance as cumulative provision buckets, conflicting with the previously accepted requirement to remove cumulative Compliance provision and its wiring/UI.
