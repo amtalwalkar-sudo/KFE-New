@@ -16,11 +16,11 @@ assert.match(backupService, /setCanonicalResetBarrier\(resetId\)[\s\S]*state: 'C
   'Reset must block writes before taking and verifying its durable checkpoint.')
 assert.match(backupService, /setCanonicalResetBarrier\(resetId\)[\s\S]*saveResetJournal\([\s\S]*state: 'CHECKPOINTING'/,
   'Reset must establish a synchronous mutation barrier and durable reset journal before either store is cleared.')
-assert.match(backupService, /await NativeCanonicalWorkService\.beginCanonicalReset\(resetId\)/,
+assert.match(backupService, /await WorkRuntimePorts\.canonicalWork\.beginCanonicalReset\(resetId\)/,
   'Native reset intent must be durable before native canonical records are cleared.')
-assert.match(backupService, /await backupRepository\.resetCanonicalData\(\{ resetId \}\)[\s\S]*await NativeCanonicalWorkService\.clearCanonicalReset\(resetId\)/,
+assert.match(backupService, /await backupRepository\.resetCanonicalData\(\{ resetId \}\)[\s\S]*await WorkRuntimePorts\.canonicalWork\.clearCanonicalReset\(resetId\)/,
   'Browser and native clear phases must use the same reset ID and be retryable.')
-assert.match(backupService, /await NativeCanonicalWorkService\.completeCanonicalReset\(resetId\)[\s\S]*nativeState\.state !== 'COMPLETE'/,
+assert.match(backupService, /await WorkRuntimePorts\.canonicalWork\.completeCanonicalReset\(resetId\)[\s\S]*nativeState\.state !== 'COMPLETE'/,
   'Reset must verify native completion before reporting success.')
 assert.match(backupService, /getBackupSummary\(after\)\.totalRecords !== 0/,
   'Reset must verify that the browser canonical stores are empty.')
