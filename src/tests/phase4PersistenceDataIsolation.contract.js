@@ -9,7 +9,7 @@ const backupRepo = read('src/repositories/backupRepository.js')
 const backup = read('src/application/backup/backupService.js')
 
 assert.match(indexedDB, /const CANONICAL_DB_NAME = 'kanishka_kfe_canonical_db'/)
-assert.match(indexedDB, /const CANONICAL_DB_VERSION = 15/)
+assert.match(indexedDB, /import \{ CANONICAL_DB_VERSION \} from '..\/constants\/canonicalDatabase\.js'/)
 assert.match(indexedDB, /indexedDB\.open\(name, CANONICAL_DB_VERSION\)/)
 assert.match(indexedDB, /export const initializeCanonicalStorage = async \(\) => initializeDatabase\(CANONICAL_DB_NAME\)/)
 assert.match(indexedDB, /export const openCanonicalDB = initializeCanonicalStorage/)
