@@ -1,4 +1,3 @@
-import { Capacitor } from '@capacitor/core'
 import { configureWorkRuntimePorts } from '../../application/work/workRuntimePorts.js'
 import { NativeWorkActionsService } from '../android/nativeWorkActions.js'
 import { NativeCanonicalWorkService } from '../android/nativeCanonicalWork.js'
@@ -7,6 +6,7 @@ import { TripBoundaryLocationAdapter } from '../android/tripBoundaryLocationAdap
 import { BrowserCanonicalWorkService } from './browserCanonicalWork.js'
 import { GpsStatusAdapter } from '../android/gpsStatusAdapter.js'
 import { DiagnosticService as InfrastructureDiagnosticService } from '../diagnostics/diagnosticService.js'
+import { PlatformStartup } from '../startup/platformStartup.js'
 
 export const installWorkRuntimeAdapter = () => configureWorkRuntimePorts({
   nativeWorkActions: NativeWorkActionsService,
@@ -15,6 +15,6 @@ export const installWorkRuntimeAdapter = () => configureWorkRuntimePorts({
   gpsPermissions: GpsStatusAdapter,
   diagnostics: InfrastructureDiagnosticService,
   androidOverlay: AndroidOverlay,
-  platform: { getPlatform: () => Capacitor.getPlatform() },
+  platform: PlatformStartup,
   tripBoundaryLocation: TripBoundaryLocationAdapter,
 })
