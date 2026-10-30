@@ -1,7 +1,7 @@
 const PHOTON = 'https://photon.komoot.io/reverse'
 const gateway = () => { try { return globalThis.__KFE_MAPPLS_GEOCODER_GATEWAY__ || import.meta.env?.VITE_MAPPLS_GEOCODER_GATEWAY_ENDPOINT || '' } catch { return globalThis.__KFE_MAPPLS_GEOCODER_GATEWAY__ || '' } }
 const photonEndpoint = () => { try { return globalThis.__KFE_REVERSE_GEOCODER_ENDPOINT__ || import.meta.env?.VITE_REVERSE_GEOCODER_ENDPOINT || PHOTON } catch { return globalThis.__KFE_REVERSE_GEOCODER_ENDPOINT__ || PHOTON } }
-const CACHE_KEY = 'kfe:locality-cache:v3'
+const CACHE_KEY = 'kfe:locality-cache:v4'
 const MAX_LOCALITY_ACCURACY_METERS = 150
 const hasReliableAccuracy = location => {
   const accuracy = Number(location?.accuracy)
