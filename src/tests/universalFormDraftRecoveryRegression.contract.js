@@ -29,7 +29,7 @@ check('Admin draft clearing is tied to successful parent save', () => {
 
 check('Work draft writes cannot race commit-time clearing', () => {
   assert.doesNotMatch(workView, /void saveDraft\(/, 'Draft writes must be serialized/awaitable, not fire-and-forget')
-  assert.match(workView, /await\s+saveDraft\(/, 'Create commits must await the application draft controller before canonical writes')
+  assert.match(workView, /await\s+saveDraftBeforeCommit\(/, 'Create commits must await the application draft controller before canonical writes')
   assert.match(workView, /clearCommittedDraft\(/, 'Committed forms must clear drafts through the application controller')
   assert.match(workDraftController, /let writeQueue = Promise\.resolve\(\)/, 'Application draft controller must serialize writes')
   assert.match(workDraftController, /await writeQueue/, 'Commit-time clearing must wait for pending draft writes')
