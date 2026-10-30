@@ -31,7 +31,6 @@ Anything outside these five capabilities is out of product scope. Do not restore
 |---|---|---|
 | Governance / authority map | KFE-AUTHORITY-MAP.md | This index only |\n| Stable functional baseline | KFE_STABLE_FUNCTIONAL_BASELINE.md | Top-level stable starting-point record; references domain authorities and does not duplicate them |
 | Business meaning and business rules | KFE_BUSINESS_RULES_REGISTER.md | Rule meaning, invariants, business semantics |
-| Basic Performance calculations | docs/KFE-CALCULATION-SPECIFICATION.md | Only recorded revenue, fuel spending, full-tank fuel cost/km, and income after fuel |
 | Architecture / ownership / layer boundaries | docs/KFE-ARCHITECTURE-CONTRACT.md | Responsibility and implementation boundaries |
 | Canonical domain/data model | docs/KFE-CANONICAL-DATA-CONTRACT.md | Entities, fields, relationships, source-of-truth data |
 | Operational lifecycle/state machine | docs/KFE-OPERATIONAL-LIFECYCLE-CONTRACT.md | Shift/trip/cancellation/reconciliation transitions across surfaces |
