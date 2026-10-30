@@ -5,7 +5,7 @@ const requiredMethods = Object.freeze({
   gpsPermissions: ['isNativePlatform', 'getLocationStatus', 'openBackgroundLocationSettings', 'requestLocationPermissions', 'requestBackgroundLocationPermission'],
   diagnostics: ['start', 'waiting', 'checkpoint', 'error', 'complete', 'snapshot', 'subscribe', 'clear'],
   androidOverlay: ['hide', 'update', 'prepare', 'fareSaved', 'cancelSaved'],
-  platform: ['getPlatform'],
+  platform: ['getPlatform', 'getStartupPermissionStatus', 'requestStartupPermission', 'openStartupSetting'],
   tripBoundaryLocation: ['queueEventLocationCapture', 'captureOneShotLocation'],
 })
 
