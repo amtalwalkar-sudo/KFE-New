@@ -27,7 +27,7 @@ assert.ok(overlayService.includes('.putRecord(operationId,"GPS_SNAPSHOT",snapsho
 assert.ok(!overlayService.includes('persistTripBoundarySnapshot('), 'Native overlay must not write a separate GPS copy onto the TRIP record.')
 assert.ok(!overlayService.includes('store.putRecord("native-trip-location-'), 'Boundary GPS must not rewrite a stale full-trip payload.')
 
-assert.match(boundary, /BrowserCanonicalWorkService\.putRecord/)
+assert.match(boundary, /WorkRuntimePorts\.browserCanonicalWork\.putRecord/)
 assert.doesNotMatch(boundary, /persistTripBoundarySnapshot|updateTripBoundaryPlaceName/, 'The application boundary must expose only the shared GPS_SNAPSHOT pathway.')
 assert.match(boundary, /WorkRuntimePorts\.canonicalWork\.isAvailable\(\)/)
 assert.match(read('src/infrastructure/work/browserCanonicalWork.js'), /STORE_BY_ENTITY/)
