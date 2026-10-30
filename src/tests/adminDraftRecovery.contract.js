@@ -20,9 +20,6 @@ const resumedDraftA = formDraftIdentity({ formId: 'admin-vehicle', workflowStep:
 assert.notEqual(createDraftA.id, createDraftB.id, 'Different workflow IDs must isolate drafts for the same Admin form.')
 assert.equal(createDraftA.id, resumedDraftA.id, 'Reload/resume must preserve the existing workflow identity.')
 assert.notEqual(
-  formDraftIdentity({ formId: 'admin-loan-payment-loan-1', workflowStep: 'LOAN_PAYMENT', parentType: 'ADMIN_RECORD', parentId: 'loan-1' }).id,
-  formDraftIdentity({ formId: 'admin-loan-payment-loan-2', workflowStep: 'LOAN_PAYMENT', parentType: 'ADMIN_RECORD', parentId: 'loan-2' }).id,
-  'Parent-scoped actions must not leak drafts across records.',
 )
 
 assert.match(adminView, /FormDraftService\.newWorkflowId\(\)/, 'Each new parentless Admin workflow needs a fresh workflow ID.')
