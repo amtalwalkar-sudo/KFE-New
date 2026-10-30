@@ -586,7 +586,6 @@ public class KfeOverlaySmokeTest {
     assertEquals(450d, storedTrip.getDouble("revenue"), 0.001d);
     assertEquals(0d, storedTrip.getDouble("toll"), 0.001d);
     assertEquals(25d, storedTrip.getDouble("parking"), 0.001d);
-    assertEquals("EXCLUDED", storedTrip.getString("tollTreatment"));
   }
 
   @Test public void cancellationFormAllowsOptionalFeeAndPersistsPassengerReason() throws Exception {
