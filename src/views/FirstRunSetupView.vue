@@ -12,19 +12,15 @@ const emit = defineEmits(['complete'])
 const loading = ref(true), saving = ref(false), error = ref(''), stepIndex = ref(0)
 const state = ref({ version: 1, status: 'not-started', steps: {} })
 const form = ref({}), cloud = ref({ enabled: false, accessToken: '', hasAccessToken: false })
-const data = ref({ vehicle: [], driver: [], loan: [] })
+const data = ref({ vehicle: [] })
 
 const steps = [
-  { key: 'businessSetup', title: 'Business start', intro: 'Set the Business Start Date. This is the boundary used by the real-life calculations.', form: 'businessSetup', optional: true },
-  { key: 'vehicle', title: 'Vehicle', intro: 'Add the vehicle and opening odometer used for movement and cost calculations.', form: 'vehicle', optional: true },
-  { key: 'driver', title: 'Driver', intro: 'Add the active driver/operator used by Work and Driver Target calculations.', form: 'driver', optional: true },
-  { key: 'breakEvenInputs', title: 'Calculation inputs', intro: 'Set the effective Maintenance per KM planning input. Other derived values are calculated by KFE.', form: 'breakEvenInputs', optional: true },
-  { key: 'driverTarget', title: 'Driver target', intro: 'Add the monthly driver profit/take-home target. You can skip it and fill it later.', form: 'driverTarget', optional: true },
-  { key: 'loan', title: 'Loan & pre-business obligations', intro: 'If the vehicle is financed, enter the contractual loan. If the loan started before the Business Start Date, KFE derives the pre-business recovery automatically. You can skip this and complete it later.', form: 'loan', optional: true },
-  { key: 'historicalRecords', title: 'History', intro: 'Enter historical compliance and maintenance records that should affect calculations, or skip and fill them later.', form: null, optional: true },
-  { key: 'fuelBaseline', title: 'Fuel evidence', intro: 'Real refuelling records are the authoritative fuel evidence. Record the first real refill in Work; you can skip this startup step.', form: null, optional: true },
-  { key: 'cloudBackup', title: 'Cloud backup', intro: 'Connect Dropbox for daily cloud backup. Local data remains authoritative and the app continues to work offline. You can connect later in Admin → Settings → Backup & Restore.', form: null, optional: true },
-]
+  { key: 'businessSetup', title: 'Business start', intro: 'Save the business start date used as a basic reporting boundary.', form: 'businessSetup', optional: true },
+  { key: 'vehicle', title: 'Vehicle', intro: 'Save vehicle identity and the opening odometer for Work.', form: 'vehicle', optional: true },
+  { key: 'driver', title: 'Driver', intro: 'Save the driver/operator details used by Work.', form: 'driver', optional: true },
+  { key: 'loan', title: 'Loan details', intro: 'Optionally save basic loan source details for your records. KFE will not create repayment projections.', form: 'loan', optional: true },
+  { key: 'cloudBackup', title: 'Cloud backup', intro: 'Optionally connect Dropbox for backup. Local data remains authoritative and KFE continues to work offline. You can configure backup later in Admin Settings.', form: null, optional: true },
+];
 
 const current = computed(() => steps[stepIndex.value])
 const definition = computed(() => {
@@ -34,8 +30,6 @@ const definition = computed(() => {
   for (const field of d.fields || []) delete field.defaultValue
   for (const field of d.fields || []) {
     if (field.key === 'vehicleId') field.options = data.value.vehicle.map(x => ({ value: x.id, label: `${x.values?.registrationNumber || x.id} · ${x.values?.make || ''} ${x.values?.model || ''}`.trim() }))
-    if (field.key === 'driverId') field.options = data.value.driver.map(x => ({ value: x.id, label: x.values?.name || x.id }))
-    if (field.key === 'loanId') field.options = data.value.loan.map(x => ({ value: x.id, label: `${x.values?.lender || ''} · ${x.values?.accountReference || x.id}`.trim() }))
   }
   return d
 })
@@ -47,8 +41,8 @@ const load = async () => {
   try {
     state.value = await FirstRunSetupService.getFirstRunSetupState()
     cloud.value = await BackupConfig.getBackupConfiguration()
-    const [vehicle, driver, loan] = await Promise.all([AdminService.list('vehicle'), AdminService.list('driver'), AdminService.list('loan')])
-    data.value = { vehicle, driver, loan }
+    const vehicle = await AdminService.list('vehicle')
+    data.value = { vehicle }
     const firstIncomplete = steps.findIndex(s => state.value.steps?.[s.key]?.status !== 'COMPLETE' && state.value.steps?.[s.key]?.status !== 'NOT_APPLICABLE')
     stepIndex.value = firstIncomplete >= 0 ? firstIncomplete : 0
   } catch (e) { error.value = e?.message || 'Unable to load setup.' }
@@ -79,10 +73,7 @@ const saveStep = async () => {
       await FirstRunSetupService.setStepState(key, { status: 'COMPLETE' })
       await FormDraftService.clear(firstRunDraftIdentity.value, { committed: true })
       form.value = {}
-      if (key === 'vehicle' || key === 'driver' || key === 'loan') {
-        const [vehicle, driver, loan] = await Promise.all([AdminService.list('vehicle'), AdminService.list('driver'), AdminService.list('loan')])
-        data.value = { vehicle, driver, loan }
-      }
+      if (key === 'vehicle') data.value = { vehicle: await AdminService.list('vehicle') }
     } catch (e) { error.value = e?.validation ? Object.values(e.validation).join(' ') : (e?.message || 'Could not save this step.'); return }
     finally { saving.value = false }
   } else {
@@ -112,7 +103,7 @@ onMounted(load)
 <section class="first-run" aria-label="KFE first-time setup">
   <div v-if="loading" class="setup-loading">Preparing your KFE setup…</div>
   <template v-else>
-    <header class="setup-header"><div><div class="eyebrow">FIRST-TIME SETUP</div><h1>Let's set up KFE</h1><p>We'll collect the information KFE needs for real-life calculations. You can skip historical information and fill it later; skipped inputs stay visible in Admin → Calculations.</p></div><strong>{{ progress }}%</strong></header>
+    <header class="setup-header"><div><div class="eyebrow">FIRST-TIME SETUP</div><h1>Let's set up KFE</h1><p>We'll collect the basic information KFE needs for Work. You can skip optional setup and complete basic records later in Admin.</p></div><strong>{{ progress }}%</strong></header>
     <div class="setup-progress"><span :style="{ width: progress + '%' }"></span></div>
     <section class="setup-card"><div class="step-count">STEP {{ stepIndex + 1 }} OF {{ steps.length }}</div><h2>{{ current.title }}</h2><p>{{ current.intro }}</p>
       <AdminSourceForm v-if="definition" :fields="definition.fields||[]" :model-value="form" :draft-identity="firstRunDraftIdentity" :busy="saving" submit-label="Save & Continue" @submit="values=>{form=values;saveStep()}" @cancel="skip" />
