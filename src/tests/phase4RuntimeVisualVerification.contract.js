@@ -32,7 +32,7 @@ assert.ok(smoke.includes("Cumulative provision balances"), 'Rendered Performance
 assert.match(performanceView, /if \(loading\.value && !force\) return/, 'Performance data-change refreshes must not supersede an in-flight snapshot')
 assert.ok(smoke.includes("Cumulative provision balances"), 'Rendered Performance smoke must verify the cumulative provision section is present')
 assert.ok(smoke.includes("route('admin','.admin-page','Admin')"), 'Rendered Admin smoke must verify the Admin shell remains navigable')
-assert.ok(smoke.includes("Admin field round-trip audit") || smoke.includes("phase4-operational-gap-suite.mjs"), 'Admin financial form persistence remains covered by the operational suite')
+assert.ok(smoke.includes("artifacts/phase4-runtime/admin-mobile.png"), 'Rendered Admin mobile viewport evidence must be captured')
 assert.doesNotMatch(calculationSmoke,/route\(page, 'timeline', '\.performance-page'/,'Calculation matrix smoke must not expect Timeline to be blank')
 assert.ok(semanticAudit.includes("page.locator('.activity-timeline-page')"),'Semantic audit must verify the live Timeline route')
 assert.ok(semanticAudit.includes("Timeline did not render the cancelled trip") && semanticAudit.includes("Timeline did not render the completed ride after shift closure"),'Semantic audit must verify completed and cancelled Timeline records')
