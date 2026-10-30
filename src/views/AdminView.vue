@@ -57,20 +57,20 @@ const buildDraftIdentity = (formId, parentId = null, workflowStep = 'EDIT') => {
   }
 }
 const sourceFormDraftIdentity = computed(() => buildDraftIdentity(selected.value || 'source', editing.value, editing.value !== null ? 'EDIT' : 'CREATE'))
-async function clearFormDraft(identity) {async function clearFormDraft(identity) {
+async function clearFormDraft(identity) {
   if (!identity) return
   try { await FormDraftService.clear(identity, { committed: true }) }
   catch (_) { notice.value = (notice.value ? notice.value + ' ' : '') + 'Saved successfully; an unfinished draft could not be cleared. Reopen the form and verify before continuing.' }
 }
-const money=const money=v=>v===null||v===undefined||v===''?'—':Number.isFinite(Number(v))?'₹'+Number(v).toLocaleString('en-IN',{maximumFractionDigits:2}):'—'
+const money=v=>v===null||v===undefined||v===''?'—':Number.isFinite(Number(v))?'₹'+Number(v).toLocaleString('en-IN',{maximumFractionDigits:2}):'—'
 const clone=v=>structuredClone(toRaw(v))
 function label(key,record){const v=record?.values||record||{};if(key==='businessSetup')return v.businessStartDate ? `Business start · ${v.businessStartDate}` : 'Business Setup';if(key==='vehicle')return [v.registrationNumber,v.make,v.model].filter(Boolean).join(' · ')||record?.id;if(key==='driver')return v.name||record?.id;if(key==='loan')return [v.lender,v.accountReference].filter(Boolean).join(' · ')||record?.id;if(key==='compliance')return v.complianceType||record?.id;if(key==='maintenance')return v.maintenanceType||record?.id;return record?.id||'—'}
 const currentItem=computed(()=>items.find(x=>x.key===selected.value)||null)
 const masterMode=computed(()=>['vehicle','driver','compliance'].includes(selected.value))
 const masterRecord=computed(()=>masterSelected.value?records.value.find(x=>x.id===masterSelected.value)||null:null)
-const currentDefinition=computedconst currentDefinition=computed(()=>currentItem.value?ADMIN_FORM_DEFINITIONS[currentItem.value.key]:null)
+const currentDefinition=computed(()=>currentItem.value?ADMIN_FORM_DEFINITIONS[currentItem.value.key]:null)
 const activeDefinition=computed(()=>{if(!currentDefinition.value)return null;const d=clone(currentDefinition.value);for(const f of d.fields||[]){if(f.key==='vehicleId')f.options=all.value.vehicle.map(x=>({value:x.id,label:label('vehicle',x)}));if(f.key==='driverId')f.options=all.value.driver.map(x=>({value:x.id,label:label('driver',x)}));if(f.key==='loanId')f.options=all.value.loan.map(x=>({value:x.id,label:label('loan',x)}))}return d})
-const groupedItems=computedconst groupedItems=computed(()=>groupAdminNavigationItems(items,categories))
+const groupedItems=computed(()=>groupAdminNavigationItems(items,categories))
 const visibleGroupedItems=computed(()=>{const q=adminSearch.value.trim().toLowerCase();return groupedItems.value.map(group=>({...group,items:group.items.filter(item=>!q||`${item.title} ${item.category} ${item.key}`.toLowerCase().includes(q))})).filter(group=>group.items.length)})
 const filteredRecords=computed(()=>{const q=recordSearch.value.trim().toLowerCase();return records.value.filter(record=>!q||`${label(selected.value,record)} ${JSON.stringify(record.values||{})}`.toLowerCase().includes(q))})
 function readNotificationsPreference(){return ApplicationSettingsService.getNotificationsEnabled()}
