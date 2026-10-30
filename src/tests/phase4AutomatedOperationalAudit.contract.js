@@ -211,7 +211,7 @@ scenario('D4 — canonical-only mutation boundary', () => {
   assert.match(db, /export const openCanonicalDB = initializeCanonicalStorage/)
   assert.doesNotMatch(db, /SYNTHETIC_DB_NAME|setActiveDataSource|initializeSyntheticStorage/)
   assert.match(mutation, /openCanonicalDB\(\)/)
-  assert.match(mutation, /single canonical synchronization queue/)
+  assert.match(mutation, /export const MutationRepository = \{/)
   assert.doesNotMatch(db, /synthetic-date-context|source === 'canonical'/)
 })
 
