@@ -43,7 +43,7 @@ assert.ok(admin.includes('Backup & Restore') || admin.includes('Backup and Resto
 
 // Explicitly reject reintroduction of the previously removed cumulative-provision feature.
 for (const token of ['complianceProvisionAccumulatedById', 'complianceProvisionBalance', 'Compliance provision balance', 'Cumulative Compliance provision']) {
-  assert.equal(admin.includes(token), false, 'Rejected cumulative maintenance-provision UI/wiring must stay absent: ' + token)
+  assert.equal(admin.includes(token), false, 'Cumulative Compliance provision UI/wiring must stay absent: ' + token)
 }
 assert.ok(admin.includes('maintenanceProvisionPerKm'), 'Approved effective-dated per-kilometre rate input must remain.')
 assert.ok(admin.includes('Total maintenance paid'), 'Actual payment history/summary must remain.')
