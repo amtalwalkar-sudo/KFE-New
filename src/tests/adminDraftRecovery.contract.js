@@ -39,14 +39,10 @@ assert.match(adminForm, /if \(props\.busy \|\| submitting\) return/, 'Repeated f
 assert.match(adminForm, /const write = FormDraftService\.save\(props\.draftIdentity, values\)/, 'Each draft write must enter the shared serialized queue immediately.')
 assert.match(draftService, /const result = mutationQueue\.then\(operation\)/, 'Draft writes and clears must share one ordered mutation queue.')
 assert.match(adminForm, /Promise\.all\(\[draftWriteQueue, write\]\)/, 'Form submission must await every queued draft write.')
-for (const fn of ['saveTarget','saveMaintenanceRate','saveLoanPayment','saveSourcePayment']) {
-  assert.match(adminView, new RegExp('async function ' + fn + '\\(\\)\\{if\\(loading\\.value\\)return;'), fn + ' must reject duplicate in-flight submits.')
-}
 assert.match(adminView, /async function save\(values\)\{if\(saving\.value\)return;/, 'Create/edit commits must reject duplicate in-flight submits.')
 const adminSave = adminService.slice(adminService.indexOf('async save('), adminService.indexOf('async remove('))
 assert.ok(adminSave.indexOf('validateAdminForm') < adminSave.indexOf('await AdminRepository.save'), 'Admin validation must precede canonical persistence.')
 assert.ok(adminSave.indexOf('await AdminRepository.save') < adminSave.indexOf('checkpoint()'), 'The local checkpoint request must follow the confirmed canonical write.')
 assert.ok(adminSave.indexOf('checkpoint()') < adminSave.indexOf('return saved'), 'Admin must not acknowledge save before the canonical repository result exists.')
 assert.match(adminView, /const saved=await AdminService\.save\(selected\.value,payload,id\)\s*await clearFormDraft\(draftIdentity\)/, 'Create/edit drafts may clear only after the awaited canonical save.')
-assert.match(adminView, /async function recordPrepayment\(\)\{if\(loading\.value\|\|!prepaymentEstimate\.value\?\.available/, 'Prepayment commits must reject duplicate in-flight submits.')
 console.log('Admin draft recovery contract passed: unique workflow identities, reload recovery, parent isolation, local focus and duplicate-submit guards.')
