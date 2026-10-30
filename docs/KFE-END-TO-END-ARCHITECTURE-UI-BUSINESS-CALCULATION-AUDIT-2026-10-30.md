@@ -44,7 +44,7 @@ The five audit passes have been performed against the PR branch and corrective c
 - Removed the unreachable legacy Finance Ledger panel from Admin; the approved Admin navigation remains Business Setup, Vehicle Records, Finance, and Settings.
 - Admin presentation previously calculated source payment balances, compliance-validity revenue summaries, loan schedule status, and prepayment tenure/interest impact. These projections now use application read models or the canonical loan domain engine.
 - `CalculationsView.vue` previously imported domain time utilities and repeated the fuel quantity formula. Reporting-period and fuel-quantity access now go through `CalculationsService`, which delegates to the domain formula.
-- Admin's effective driver-target and maintenance-rate selection now goes through the Admin read-model service rather than reimplementing effective-date selection in the Vue screen.
+- Admin's effective driver-target and maintenance-rate selection now goes through the Admin read-model service, which delegates to the same domain selectors used by the performance engine. This prevents inactive/expired records and differing tie-break rules from producing a different Admin answer.
 - Admin's duplicate form-level business validation was removed where the authoritative Admin form service already validates the same fields.
 
 ### Remaining proof
@@ -83,6 +83,7 @@ The domain engines now preserve the signed balance (`accumulated provision - act
 ### Corrections in this PR
 - Corrected the EMI and Maintenance provision balance formulas to follow BR-10A.
 - Found two implementations of fuel quantity division in Work and Calculations. Work now delegates to the shared `calculateFuelQuantityKg` domain formula, so validation remains in Work while the arithmetic has one owner.
+- Effective maintenance-rate selection is now one domain function shared by Performance and Admin; driver-target selection delegates to the canonical domain selector, including active/inactive and effective-until rules.
 - Moved Admin's prepayment tenure reduction and remaining-interest projection into `loanEngine.js`; the view now renders the domain result.
 - Moved Admin's schedule paid/due/overdue status projection out of the Vue component.
 - Centralized fuel quantity derivation through `calculateFuelQuantityKg` via `CalculationsService`.
