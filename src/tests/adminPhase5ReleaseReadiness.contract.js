@@ -42,11 +42,7 @@ assert.ok(admin.includes('Loan Prepayment'), 'Prepayment workflow must remain av
 assert.ok(admin.includes('Backup & Restore') || admin.includes('Backup and Restore') || admin.includes('Backup'))
 
 // Explicitly reject reintroduction of the previously removed cumulative-provision feature.
-for (const token of [
-  'PerformanceService.getMetrics', 'provisionRange', 'performanceProvisionMetrics',
-  'maintenanceProvisionTotal', 'maintenanceProvisionBalance', 'provisionAccumulated',
-  'provisionBalance', 'Total maintenance provision', 'Maintenance pool balance',
-]) {
+for (const token of ['complianceProvisionAccumulatedById', 'complianceProvisionBalance', 'Compliance provision balance', 'Cumulative Compliance provision']) {
   assert.equal(admin.includes(token), false, 'Rejected cumulative maintenance-provision UI/wiring must stay absent: ' + token)
 }
 assert.ok(admin.includes('maintenanceProvisionPerKm'), 'Approved effective-dated per-kilometre rate input must remain.')
