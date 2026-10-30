@@ -35,5 +35,8 @@ export const createWorkDraftController = ({ service, isRestoring = () => false, 
     }
   }
 
-  return Object.freeze({ restore, save, clearCommitted })
+  const latestWorkflow = (...args) => service.latestWorkflow(...args)
+  const newWorkflowId = () => service.newWorkflowId()
+
+  return Object.freeze({ restore, save, clearCommitted, latestWorkflow, newWorkflowId })
 }
