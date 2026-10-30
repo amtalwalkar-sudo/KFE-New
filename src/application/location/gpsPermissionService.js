@@ -1,9 +1,9 @@
-import { GpsStatusAdapter } from '../../infrastructure/android/gpsStatusAdapter.js'
+import { WorkRuntimePorts } from '../work/workRuntimePorts.js'
 
 export const GpsPermissionService = Object.freeze({
-  isNativePlatform() { return GpsStatusAdapter.isNativePlatform() },
-  getStatus() { return GpsStatusAdapter.getLocationStatus() },
-  openBackgroundSettings() { return GpsStatusAdapter.openBackgroundLocationSettings() },
-  requestForegroundPermissions() { return GpsStatusAdapter.requestLocationPermissions() },
-  requestBackgroundPermission() { return GpsStatusAdapter.requestBackgroundLocationPermission() },
+  isNativePlatform() { return WorkRuntimePorts.gpsPermissions.isNativePlatform() },
+  getStatus() { return WorkRuntimePorts.gpsPermissions.getLocationStatus() },
+  openBackgroundSettings() { return WorkRuntimePorts.gpsPermissions.openBackgroundLocationSettings() },
+  requestForegroundPermissions() { return WorkRuntimePorts.gpsPermissions.requestLocationPermissions() },
+  requestBackgroundPermission() { return WorkRuntimePorts.gpsPermissions.requestBackgroundLocationPermission() },
 })
