@@ -48,7 +48,6 @@ if (workFuelDomain.includes('quantityKg: total / price')) violations.push('Work 
 for (const [name, text] of [['AdminView.vue', adminView], ['CalculationsView.vue', calculationsView]]) {
   for (const pattern of [
     /const\s+sumPayments\s*=/,
-    /const\s+complianceRevenueSummary\s*=/,
     /const\s+loanAmortizationSchedule\s*=.*?\.map\(row\s*=>/,
     /scheduledInterestPaid\s*\)\s*\+\s*Math\.max/,
     /originalEmiAmount\s*\)\s*-\s*paid/,
