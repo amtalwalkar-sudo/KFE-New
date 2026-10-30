@@ -25,10 +25,10 @@ assert.equal(istDateKey(new Date('2026-09-10T18:30:00Z')), '2026-09-11')
 assert.equal(istDateKey('2026-09-10'), '2026-09-10')
 
 const shift = normalizeShiftInput({ start_odometer: '1000', end_odometer: '1200', toll_cost: '50' })
-const trip = normalizeTripInput({ shiftId: 's1', trip_km: '18.4', fare: '327' })
+const trip = normalizeTripInput({ shiftId: 's1', fare: '327' })
 const fuel = normalizeFuelInput({ odometer_km: '1200', total_cost: '820', kg: '10', created_at: '2026-09-10T18:00:00+05:30' })
 assert.equal(shift.startOdometer, 1000); assert.equal(shift.endOdometer, 1200); assert.equal(shift.toll, 50)
-assert.equal(trip.tripKm, 18.4); assert.equal(trip.revenue, 327)
+assert.equal(trip.tripKm, undefined); assert.equal(trip.revenue, 327)
 assert.equal(fuel.odometer, 1200); assert.equal(fuel.amount, 820); assert.equal(fuel.quantityKg, 10); assert.equal(fuel.capturedAt, '2026-09-10T18:00:00+05:30')
 assert.match(normalization, /normalizeShiftInput/); assert.match(normalization, /normalizeTripInput/); assert.match(normalization, /normalizeFuelInput/)
 
