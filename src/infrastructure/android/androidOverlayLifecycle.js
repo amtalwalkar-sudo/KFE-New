@@ -71,10 +71,6 @@ const showOverlayIfNeeded = async () => {
   }
 }
 
-const hideOverlay = () => {
-  void AndroidOverlay.hide().catch(() => {})
-}
-
 const collapseOverlayToBubble = () => {
   void AndroidOverlay.minimize().catch(() => {})
 }
