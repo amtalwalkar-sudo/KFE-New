@@ -48,9 +48,9 @@ const evidence = {
   'CV-30': { calc:/buildPeriodSnapshot|verifyPeriodSnapshot/, ui:[finance,/Finance/], e2e:/fah4HistoricalIntegrity/ },
 }
 
-assert.match(performance, /overview\\.fareIncome/)
-assert.match(performance, /overview\\.fuelSpending/)
-assert.match(performance, /overview\\.incomeAfterFuel/)
+assert.ok(performance.includes('overview.fareIncome'))
+assert.ok(performance.includes('overview.fuelSpending'))
+assert.ok(performance.includes('overview.incomeAfterFuel'))
 assert.match(performance, /Maintenance, EMI and other costs are not included in Phase 1/)
 assert.doesNotMatch(performance, /driverTargetSurplusCredit|maintenanceProvision|loanProvision/, 'Future layers must not be claimed as current Phase 1 UI')
 
