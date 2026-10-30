@@ -41,7 +41,7 @@ for (const key of ADMIN_FORM_KEYS) {
 assert.ok(admin.includes('Loan Prepayment'), 'Prepayment workflow must remain available inside Loan, not as a top-level menu item.')
 assert.ok(admin.includes('Backup & Restore') || admin.includes('Backup and Restore') || admin.includes('Backup'))
 
-// Explicitly reject reintroduction of the previously removed cumulative-provision feature.
+// Explicitly reject reintroduction of the removed cumulative Compliance provision feature.
 for (const token of ['complianceProvisionAccumulatedById', 'complianceProvisionBalance', 'Compliance provision balance', 'Cumulative Compliance provision']) {
   assert.equal(admin.includes(token), false, 'Cumulative Compliance provision UI/wiring must stay absent: ' + token)
 }
