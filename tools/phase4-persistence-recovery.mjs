@@ -134,9 +134,8 @@ try {
   const page2 = await context2.newPage()
   await page2.goto(base, { waitUntil: 'domcontentloaded', timeout: 30000 })
   const afterRestart = await page2.evaluate(async () => {
-    const { setActiveDataSource, openCanonicalDB } = await import('/src/utils/indexedDB.js')
+    const { openCanonicalDB } = await import('/src/utils/indexedDB.js')
     const { FuelRepository } = await import('/src/repositories/fuelRepository.js')
-    setActiveDataSource('canonical')
     const db = await openCanonicalDB()
     const directIds = await new Promise((resolve, reject) => {
       const request = db.transaction('fuel_logs', 'readonly').objectStore('fuel_logs').getAll()
