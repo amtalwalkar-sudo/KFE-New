@@ -27,14 +27,17 @@ const load = async ({ force = false } = {}) => {
   // request already reads a transactionally consistent canonical snapshot.
   if (loading.value && !force) return
   const version = ++requestVersion
+  console.info('[PERF-AUDIT] view-load-start', version, force)
   loading.value = true
   error.value = ''
   try {
     const result = await PhaseOnePerformanceService.getOverview(period.value)
+    console.info('[PERF-AUDIT] view-load-result', version, requestVersion, Boolean(result))
     if (version === requestVersion) overview.value = result
   } catch (cause) {
     if (version === requestVersion) error.value = cause?.message || 'Performance could not be loaded.'
   } finally {
+    console.info('[PERF-AUDIT] view-load-finally', version, requestVersion)
     if (version === requestVersion) loading.value = false
   }
 }
@@ -46,6 +49,7 @@ onMounted(() => {
   void load()
 })
 onUnmounted(() => {
+  console.info('[PERF-AUDIT] view-unmounted', requestVersion)
   requestVersion += 1
 })
 </script>
