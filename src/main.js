@@ -72,7 +72,7 @@ void (async () => {
       const { SecureSecretStore } = await import('./infrastructure/security/secureSecretStore.js')
       await SecureSecretStore.remove('kfe.dropbox.access-token')
     } catch (error) {
-      console.warn('Could not clear retired cloud-backup settings; startup will continue.', error)
+      console.warn('Could not clear retired backup settings; startup will continue.', error)
     }
 
     if (typeof formSystem === 'object') void formSystem

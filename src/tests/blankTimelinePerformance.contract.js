@@ -5,6 +5,7 @@ const router = fs.readFileSync('src/router/index.js', 'utf8')
 const shell = fs.readFileSync('src/components/shell/KfeShell.vue', 'utf8')
 const performanceView = fs.readFileSync('src/views/PerformanceView.vue', 'utf8')
 const performanceService = fs.readFileSync('src/application/performance/phaseOnePerformanceService.js', 'utf8')
+const performanceOverview = fs.readFileSync('src/domain/performance/phaseOneOverview.js', 'utf8')
 const performanceStyles = fs.readFileSync('src/styles/performance.css', 'utf8')
 
 assert.match(router, /path: '\/timeline', name: 'Timeline', component: ActivityTimelineView/)

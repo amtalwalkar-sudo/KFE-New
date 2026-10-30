@@ -19,5 +19,5 @@ assert.match(onboarding, /vehicle|driver/i, 'First-run setup must remain limited
 assert.doesNotMatch(onboarding, /pre-business obligations|break.?even|driver target|provision|amortization/i, 'First-run setup must not require retired financial planning inputs')
 assert.match(backupPanel, /Create backup/, 'Local phone backup must remain user-accessible')
 assert.match(backupPanel, /Restore from phone/, 'Local phone restore must remain user-accessible')
-assert.doesNotMatch(backupPanel, /Dropbox|CloudBackupLifecycle|ConnectivityService/i)
+assert.doesNotMatch(backupPanel, /navigator\.onLine|registerNetworkCallback|setInterval\(/i)
 console.log('Prelaunch readiness contract: basic setup and recovery only')
