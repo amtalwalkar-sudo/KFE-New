@@ -77,7 +77,7 @@ Shift is the authoritative operational boundary for shift lifecycle and start/en
 
 ### Trip / Ride
 
-Trip records represent the ride workflow and remain linked to a Shift through `shiftId`. Completed and cancelled outcomes remain distinct. Cancellation is a retained status, not deletion. Saved fare and cancellation-fee facts remain distinct.
+Trip records represent the ride workflow and remain linked to a Shift through `shiftId`. Completed and cancelled outcomes remain distinct. Cancellation is a retained status, not deletion. Saved fare and cancellation-fee facts remain distinct. Trip.revenue is supporting detail for the canonical Shift.revenue projection, not an independent shift-level revenue authority.
 
 Ride-distance fields may remain in historical records for compatibility, but the current Timeline and Performance screens must not derive or display ride-distance metrics.
 
