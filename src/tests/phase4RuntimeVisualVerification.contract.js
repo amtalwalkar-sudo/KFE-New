@@ -28,9 +28,7 @@ assert.match(crossSurfaceSmoke,/else \{[\s\S]*?\.performance-page/,'Cross-surfac
 assert.ok(calculationSmoke.includes("route(page, 'timeline', '.activity-timeline-page', 'Timeline')"),'Calculation matrix smoke must verify the live Timeline route')
 assert.ok(calculationSmoke.includes("Average fuel cost/km") && calculationSmoke.includes("Total amount refilled"),'Calculation matrix smoke must verify both Timeline fuel summary headers')
 assert.ok(calculationSmoke.includes("route(page, 'performance', '.performance-page', 'Performance')"),'Calculation matrix smoke must verify read-only Performance')
-assert.ok(smoke.includes("Cumulative provision balances"), 'Rendered Performance smoke must verify the cumulative provision section is present')
 assert.match(performanceView, /if \(loading\.value && !force\) return/, 'Performance data-change refreshes must not supersede an in-flight snapshot')
-assert.ok(smoke.includes("Cumulative provision balances"), 'Rendered Performance smoke must verify the cumulative provision section is present')
 assert.ok(smoke.includes("route('admin','.admin-page','Admin')"), 'Rendered Admin smoke must verify the Admin shell remains navigable')
 assert.ok(smoke.includes("artifacts/phase4-runtime/admin-mobile.png"), 'Rendered Admin mobile viewport evidence must be captured')
 assert.doesNotMatch(calculationSmoke,/route\(page, 'timeline', '\.performance-page'/,'Calculation matrix smoke must not expect Timeline to be blank')
@@ -80,3 +78,5 @@ assert.match(deployedSmoke,/response\.status\(\) !== 200/,'deployed route smoke 
 assert.match(deployedSmoke,/refreshedResponse\.status\(\) !== 200/,'deployed route smoke must reject non-200 refresh responses')
 assert.doesNotMatch(deployedSmoke,/\[200, 404\]/,'a rendered screen behind HTTP 404 must not count as a passing deployment')
 console.log('Phase 4 runtime visual verification contract: PASS')
+
+assert.doesNotMatch(smoke, /Cumulative provision balances/, 'Runtime smoke must not require the retired provision panel')
