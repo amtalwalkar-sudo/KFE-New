@@ -59,17 +59,17 @@ assert.ok(workService.includes("commitPreparedCreateIntent('TRIP', record, tripD
   'Android trip creation must pass through the durable SQLite create-intent journal')
 
 const submitStart = workView.slice(workView.indexOf('async function submitStart()'), workView.indexOf('async function goPickup('))
-assert.ok(submitStart.indexOf('await saveDraft(startDraftIdentity()') >= 0,
+assert.ok(submitStart.indexOf('await saveDraftBeforeCommit(startDraftIdentity()') >= 0,
   'Shift create intent must be durably drafted before starting the shift')
-assert.ok(submitStart.indexOf('await saveDraft(startDraftIdentity()') < submitStart.indexOf('store.startShift('),
+assert.ok(submitStart.indexOf('await saveDraftBeforeCommit(startDraftIdentity()') < submitStart.indexOf('store.startShift('),
   'Shift create intent must be saved before the canonical create request')
 assert.ok(submitStart.includes('createIntentKey: startWorkflowId.value') && submitStart.includes('store.startShift('),
   'Shift retries must submit the same workflow token that was saved locally')
 
 const goPickup = workView.slice(workView.indexOf('async function goPickup('), workView.indexOf('async function startTrip()'))
-assert.ok(goPickup.indexOf('await saveDraft(identity, { createIntentKey })') >= 0,
+assert.ok(goPickup.indexOf('await saveDraftBeforeCommit(identity, { createIntentKey })') >= 0,
   'Trip create intent must be durably drafted before starting pickup')
-assert.ok(goPickup.indexOf('await saveDraft(identity, { createIntentKey })') < goPickup.indexOf('store.beginPickup('),
+assert.ok(goPickup.indexOf('await saveDraftBeforeCommit(identity, { createIntentKey })') < goPickup.indexOf('store.beginPickup('),
   'Trip create intent must be saved before the canonical create request')
 assert.ok(goPickup.includes('store.beginPickup(operator.value || store.defaultOperator, nativeTripId || null, createIntentKey)'),
   'Trip retries must submit the same workflow token that was saved locally')
