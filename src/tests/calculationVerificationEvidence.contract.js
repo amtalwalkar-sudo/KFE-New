@@ -72,7 +72,7 @@ console.log('Calculation verification evidence contract: PASS')
 console.log(JSON.stringify({
   rows: ids.length,
   calculation: 'explicit independent-oracle + canonical contract evidence',
-  ui: 'explicit consuming-screen source binding + rendered runtime surface evidence',
+  ui: 'Phase 1 source bindings only; advanced UI and persisted-input E2E remain NOT PROVEN',
   e2e: 'explicit executable contract/runtime evidence reference per row',
   requiredRunEvidence,
 }))
