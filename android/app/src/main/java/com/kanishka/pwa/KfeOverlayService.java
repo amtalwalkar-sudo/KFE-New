@@ -1107,7 +1107,7 @@ public class KfeOverlayService extends Service {
 
   static boolean isEventGpsFixAtOrAfter(String eventAt,long fixTime){
     if(fixTime<=0L)return false;
-    if(eventAt==null||eventAt.trim().isEmpty())return true;
+    if(eventAt==null||eventAt.trim().isEmpty())return false;
     try{return fixTime>=java.time.Instant.parse(eventAt.trim()).toEpochMilli();}
     catch(Exception error){return false;}
   }
