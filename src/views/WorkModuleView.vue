@@ -915,7 +915,6 @@ onMounted(async () => {
   await fuel.refresh().catch(() => {})
   startWorkflowId.value = (await draftController.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || draftController.newWorkflowId()
   fuelWorkflowId.value = (await draftController.latestWorkflow('work-fuel', 'RECORD_FUEL'))?.workflowId || draftController.newWorkflowId()
-  await targetRefresh()
   operator.value = store.defaultOperator
   if (pendingFare.value?.id && store.shift?.id) {
     fareTripId.value = pendingFare.value.id
