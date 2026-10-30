@@ -2,8 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 
 const read = path => fs.readFileSync(path, 'utf8')
-const exists = path => assert.ok(fs.existsSync(path), `Missing authoritative application path: ${path}`)
-
+const exists = path => assert.ok(fs.existsSync(path), `Missing in-scope path: ${path}`)
 const work = read('src/views/WorkModuleView.vue')
 const timeline = read('src/views/ActivityTimelineView.vue')
 const performance = read('src/views/PerformanceView.vue')
@@ -12,47 +11,36 @@ const timelineRead = read('src/application/timeline/activityTimelineReadService.
 const locationService = read('src/application/location/eventLocationService.js')
 const locationNames = read('src/application/location/locationNameService.js')
 const businessRules = read('KFE_BUSINESS_RULES_REGISTER.md')
-const complianceView = read('src/components/ComplianceModuleView.vue')
 const architecture = read('docs/KFE-ARCHITECTURE-CONTRACT.md')
-const canonicalData = read('docs/KFE-CANONICAL-DATA-CONTRACT.md')
 
 for (const path of [
   'src/application/work/workService.js',
   'src/application/timeline/activityTimelineReadService.js',
   'src/application/performance/phaseOnePerformanceService.js',
-  'src/application/performance/performanceService.js',
-  'src/application/performance/driverTargetService.js',
   'src/application/admin/adminService.js',
-  'src/application/admin/adminReadModelService.js',
   'src/repositories/shiftTripRepository.js',
   'src/repositories/fuelRepository.js',
   'src/repositories/locationRepository.js',
   'src/domain/work/tripLifecycle.js',
-  'src/domain/finance/loanEngine.js',
-  'src/domain/performance/calculationAuthority.js',
+  'src/infrastructure/android/nativeCanonicalWork.js',
+  'android/app/src/main/java/com/kanishka/pwa/KfeTripBoundaryLocationPlugin.java',
 ]) exists(path)
 
-// Each production screen delegates durable operations/read models to application
-// services. Presentation files must not create their own IndexedDB authority.
 assert.match(work, /WorkService/)
-assert.match(work, /PerformanceService/)
 assert.match(timeline, /ActivityTimelineReadService/)
 assert.match(performance, /PhaseOnePerformanceService/)
 assert.match(admin, /AdminService/)
-assert.ok(businessRules.includes('The only cumulative provision buckets are:') && businessRules.includes('1. EMI\n2. Maintenance'), 'only EMI and Maintenance may be cumulative provision buckets')
-assert.match(businessRules, /not a cumulative provision bucket/)
-assert.doesNotMatch(complianceView, /complianceProvisionAccumulated|cumulative provision|provision balance/i, 'Compliance UI must not reintroduce cumulative provision presentation')
-assert.match(admin, /AdminReadModelService/)
-assert.match(architecture, /ONE LOGICAL CANONICAL STATE/)
-assert.match(architecture, /native SQLite as the durable commit authority/)
-assert.match(canonicalData, /Stable record and operation identities, idempotent replay, stale-write rejection, and canonical reconstruction/)
+assert.match(businessRules, /Basic Performance/)
+assert.match(businessRules, /PICKUP_START/)
+assert.match(businessRules, /manual-only/)
+assert.match(architecture, /Capacitor\/native boundary/)
+assert.match(architecture, /Basic Performance calculation boundary/)
 for (const [name, source] of [['Work', work], ['Timeline', timeline], ['Performance', performance], ['Admin', admin]]) {
   assert.doesNotMatch(source, /indexedDB|objectStore\s*\(/, `${name} view must not own persistence`)
 }
-assert.doesNotMatch(admin, /createRide|createShift|driverCollectedData/, 'Admin must not create operational Work records')
+assert.doesNotMatch(admin, /driverTarget|maintenanceRate|prepayment|amortization|break.?even|provision/i, 'Admin must not expose retired calculation workflows')
+assert.doesNotMatch(performance, /forecast|break.?even|provision|amortization|driver target/i, 'Performance must stay within basic recorded-data scope')
 
-// Timeline is a read projection. Network locality resolution is allowed only
-// through the explicit user pull-down gesture; read-model refresh stays cache-only.
 assert.match(timelineRead, /getCachedLocationName/)
 assert.doesNotMatch(timelineRead, /resolveLocationName|fetch\s*\(|reverseGeocod|navigator\.onLine/)
 assert.match(timeline, /@touchstart\.passive="onTouchStart"/)
@@ -64,12 +52,7 @@ assert.match(locationService, /const RIDE_EVENTS = new Set\(\['PICKUP_START', 'T
 assert.doesNotMatch(locationService, /setInterval|setTimeout\s*\(/, 'GPS capture service must not poll or retry automatically')
 assert.doesNotMatch(locationNames, /RETRY_SCHEDULED/, 'locality lookup must not claim an automatic retry is scheduled')
 assert.match(locationNames, /if \(forceRefresh && this\.cacheEnabled && cache\[key\]\)/, 'failed manual refresh must invalidate stale cached locality labels')
-
-// Presentation uses service/domain results rather than becoming a competing
-// business-rule owner for calculations.
 assert.match(performance, /overview\.incomeAfterFuel/)
 assert.match(performance, /overview\.fuelCostPerKm/)
 assert.match(timeline, /snapshot\.fuelSummary/)
-assert.match(admin, /AdminService/)
-
-console.log('KFE Phase 6 application-flow ownership contract: PASS')
+console.log('KFE in-scope application-flow ownership contract: PASS')
