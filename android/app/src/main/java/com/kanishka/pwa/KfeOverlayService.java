@@ -1145,6 +1145,29 @@ public class KfeOverlayService extends Service {
     }catch(Exception error){Log.w("KFE-GPS","Unable to persist event GPS snapshot for "+entityType+"/"+entityId,error);return false;}
   }
 
+  private void refreshRideCountForShift(KfeCanonicalWorkStore store,String shiftId){
+    if(store==null||shiftId==null||shiftId.trim().isEmpty())return;
+    try{
+      int count=0,offset=0;
+      long totalCount=0L;
+      do{
+        JSONObject page=store.listRecords("TRIP",500,offset);
+        org.json.JSONArray records=page.optJSONArray("records");
+        if(records==null)break;
+        totalCount=page.optLong("totalCount",records.length());
+        for(int index=0;index<records.length();index++){
+          JSONObject trip=records.optJSONObject(index);
+          if(trip==null||!shiftId.equals(trip.optString("shiftId","")))continue;
+          if((trip.has("deletedAt")&&!trip.isNull("deletedAt"))||trip.optBoolean("deleted",false))continue;
+          count++;
+        }
+        if(records.length()==0)break;
+        offset+=records.length();
+      }while(offset<totalCount);
+      rides=String.valueOf(count);
+    }catch(Exception error){Log.w("KFE-OVERLAY","Unable to refresh native ride count from canonical SQLite.",error);}
+  }
+
   private boolean persistCanonicalTripStage(String stage, boolean rideStarted, String eventId){
     try{
       JSONObject root=new JSONObject(getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(LAST_STATE_KEY,"{}"));
@@ -1188,10 +1211,12 @@ public class KfeOverlayService extends Service {
           &&stage.equals(latestTrip.optString("tripStage",""))
           &&("COMPLETED".equals(stage)?"COMPLETED":"ACTIVE").equals(latestTrip.optString("status",""))
           &&eventTimestamp.equals(latestTrip.optString("updatedAt",""))){
+        refreshRideCountForShift(store,shift.optString("id",""));
         return true;
       }
       KfeCanonicalWorkStore.Outcome outcome=store.putRecord("native-trip-stage-"+eventId,"TRIP",trip);
       if(!outcome.accepted)throw new IllegalStateException("Canonical trip lifecycle stage was not acknowledged.");
+      refreshRideCountForShift(store,shift.optString("id",""));
       return true;
     }catch(Exception error){Log.e("KFE-CANONICAL","Could not persist native trip stage",error);return false;}
   }
@@ -1251,6 +1276,7 @@ public class KfeOverlayService extends Service {
     if(!outcome.accepted)throw new IllegalStateException("Canonical trip form was not accepted.");
     // The trip and derived Shift.revenue are committed in the same SQLite transaction.
     revenue="₹"+String.format(java.util.Locale.US,"%.0f",outcome.result.optDouble("revenue",0d));
+    refreshRideCountForShift(canonical,trip.optString("shiftId",""));
     if(overlay!=null)overlay.postInvalidate();
   }
 
