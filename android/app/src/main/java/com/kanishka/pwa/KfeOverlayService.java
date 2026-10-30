@@ -36,7 +36,6 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.Toast;
 import android.widget.Button;
-import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -395,8 +394,7 @@ public class KfeOverlayService extends Service {
   private void persistNativeForm(){
     KfeNativeTripFormDraftStore.save(getSharedPreferences("kfe_overlay",MODE_PRIVATE),
         new KfeNativeTripFormDraftStore.Draft(formMode,formValue,tollValue,parkingValue,cancelReason,
-            cancelFormPwaSynchronized,tollExpanded,parkingExpanded,
-);
+            cancelFormPwaSynchronized,tollExpanded,parkingExpanded));
   }
 
   private void applyFareDraft(JSONObject draft){
@@ -407,8 +405,6 @@ public class KfeOverlayService extends Service {
     if(formInput!=null)formInput.setText(formValue);
     if(tollInput!=null){tollInput.setText(tollValue);tollInput.setVisibility(tollExpanded?View.VISIBLE:View.GONE);}
     if(parkingInput!=null){parkingInput.setText(parkingValue);parkingInput.setVisibility(parkingExpanded?View.VISIBLE:View.GONE);}
-    if(tollTreatmentInput!=null){tollTreatmentInput.setChecked("EXCLUDED".equals(draft.optString("tripTollTreatment","INCLUDED")));tollTreatmentInput.setVisibility(tollExpanded?View.VISIBLE:View.GONE);}
-    if(parkingTreatmentInput!=null){parkingTreatmentInput.setChecked("EXCLUDED".equals(draft.optString("tripParkingTreatment","INCLUDED")));parkingTreatmentInput.setVisibility(parkingExpanded?View.VISIBLE:View.GONE);}
     if(tollToggle!=null)tollToggle.setText(tollExpanded?"− Toll":"+ Toll");
     if(parkingToggle!=null)parkingToggle.setText(parkingExpanded?"− Parking":"+ Parking");
     persistNativeForm();
@@ -447,8 +443,6 @@ public class KfeOverlayService extends Service {
     cancelFormPwaSynchronized=draft.cancelFormPwaSynchronized;
     boolean savedTollExpanded=draft.tollExpanded;
     boolean savedParkingExpanded=draft.parkingExpanded;
-    boolean savedTollExcluded=draft.tollExcluded;
-    boolean savedParkingExcluded=draft.parkingExcluded;
     if("FARE".equals(mode)&&"ENTER_FARE".equals(actionStage))openFareForm();
     else if("CANCEL".equals(mode)&&"START_RIDE".equals(actionStage))openCancelForm();
     else return;
@@ -457,8 +451,6 @@ public class KfeOverlayService extends Service {
     if(formInput!=null)formInput.setText(formValue);
     if(tollInput!=null){tollInput.setText(tollValue);tollInput.setVisibility(tollExpanded?View.VISIBLE:View.GONE);}
     if(parkingInput!=null){parkingInput.setText(parkingValue);parkingInput.setVisibility(parkingExpanded?View.VISIBLE:View.GONE);}
-    if(tollTreatmentInput!=null){tollTreatmentInput.setChecked(savedTollExcluded);tollTreatmentInput.setVisibility(tollExpanded?View.VISIBLE:View.GONE);}
-    if(parkingTreatmentInput!=null){parkingTreatmentInput.setChecked(savedParkingExcluded);parkingTreatmentInput.setVisibility(parkingExpanded?View.VISIBLE:View.GONE);}
     if(tollToggle!=null)tollToggle.setText(tollExpanded?"− Toll":"+ Toll");
     if(parkingToggle!=null)parkingToggle.setText(parkingExpanded?"− Parking":"+ Parking");
     if("CANCEL".equals(mode))restoreCancelReasonSelection();
@@ -746,11 +738,6 @@ public class KfeOverlayService extends Service {
       parkingToggle=new Button(this);parkingToggle.setText("+ Parking");parkingToggle.setAllCaps(false);parkingToggle.setTextSize(11);
       optionalActions.addView(tollToggle,new LinearLayout.LayoutParams(0,dp(38),1));optionalActions.addView(parkingToggle,new LinearLayout.LayoutParams(0,dp(38),1));
       formPanel.addView(optionalActions,new LinearLayout.LayoutParams(-1,dp(40)));
-      tollTreatmentInput=new CheckBox(this);tollTreatmentInput.setText("Toll paid separately");tollTreatmentInput.setTextColor(textColor());tollTreatmentInput.setTextSize(11);
-      parkingTreatmentInput=new CheckBox(this);parkingTreatmentInput.setText("Parking paid separately");parkingTreatmentInput.setTextColor(textColor());parkingTreatmentInput.setTextSize(11);
-      tollInput.setVisibility(View.GONE);tollTreatmentInput.setVisibility(View.GONE);parkingInput.setVisibility(View.GONE);parkingTreatmentInput.setVisibility(View.GONE);
-      formPanel.addView(tollInput,new LinearLayout.LayoutParams(-1,dp(44)));formPanel.addView(tollTreatmentInput,new LinearLayout.LayoutParams(-1,dp(32)));
-      formPanel.addView(parkingInput,new LinearLayout.LayoutParams(-1,dp(44)));formPanel.addView(parkingTreatmentInput,new LinearLayout.LayoutParams(-1,dp(32)));
       tollToggle.setOnClickListener(v->{tollExpanded=!tollExpanded;tollInput.setVisibility(tollExpanded?View.VISIBLE:View.GONE);tollToggle.setText(tollExpanded?"− Toll":"+ Toll");persistNativeForm();resizeForm();});
       parkingToggle.setOnClickListener(v->{parkingExpanded=!parkingExpanded;parkingInput.setVisibility(parkingExpanded?View.VISIBLE:View.GONE);parkingToggle.setText(parkingExpanded?"− Parking":"+ Parking");persistNativeForm();resizeForm();});
     }
@@ -865,8 +852,6 @@ public class KfeOverlayService extends Service {
       try {
         JSONObject payload=KfeNativeTripFormRules.buildFarePayload(
           formValue,tollValue,parkingValue,
-          tollTreatmentInput!=null&&tollTreatmentInput.isChecked(),
-          parkingTreatmentInput!=null&&parkingTreatmentInput.isChecked());
         // Commit the business record before reporting success to the overlay.
         // The deterministic operation ID makes process-death/retry safe; the
         // separate native event remains queued so the PWA's IndexedDB read model
