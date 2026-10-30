@@ -1,4 +1,4 @@
-import { openCanonicalDB, notifyCanonicalDataChanged, withCanonicalResetWritePermission, setCanonicalResetBarrier, getCanonicalResetBarrier, clearCanonicalResetBarrier, setActiveDataSource } from '../utils/indexedDB.js'
+import { openCanonicalDB, notifyCanonicalDataChanged, withCanonicalResetWritePermission, setCanonicalResetBarrier, getCanonicalResetBarrier, clearCanonicalResetBarrier } from '../utils/indexedDB.js'
 
 export const LOCAL_BACKUP_DB_NAME = 'kanishka_kfe_local_backup_db'
 export const LOCAL_BACKUP_DB_VERSION = 3
@@ -101,7 +101,7 @@ export const createBackupRepository = stores => Object.freeze({
   setCanonicalResetBarrier(resetId) { return setCanonicalResetBarrier(resetId) },
   getCanonicalResetBarrier() { return getCanonicalResetBarrier() },
   clearCanonicalResetBarrier(resetId) { return clearCanonicalResetBarrier(resetId) },
-  resetSessionPreferencesToDefaults() { return setActiveDataSource('canonical') },
+  resetSessionPreferencesToDefaults() { if (typeof sessionStorage !== 'undefined') { sessionStorage.removeItem('kfe:active-data-source'); sessionStorage.removeItem('kfe:synthetic-date-context') } return 'canonical' },
   async readCanonicalSnapshot() {
     const db = await openCanonicalDB()
     return new Promise((resolve, reject) => {
