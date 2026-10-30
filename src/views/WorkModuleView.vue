@@ -362,8 +362,7 @@ async function submitStart() {
   startBusy.value = true
   try {
     // Persist the workflow token before any native write so a process restart can retry the same create intent.
-    await draftWriteQueue
-    await WorkDraftService.save(startDraftIdentity(), { startOdo: startOdo.value, startAck: startAck.value, gapChoice: gapChoice.value, createIntentKey: startWorkflowId.value })
+    await saveDraft(startDraftIdentity(), { startOdo: startOdo.value, startAck: startAck.value, gapChoice: gapChoice.value, createIntentKey: startWorkflowId.value })
     const result = await store.startShift(startOdo.value, gapKm.value ? { category: gapChoice.value } : null, startWorkflowId.value)
     if (!result?.ok) return fail(result?.reason || 'Could not start the shift.')
     await clearCommittedDraft(startDraftIdentity())
@@ -394,7 +393,7 @@ async function goPickup(nativeTripId = '') {
       createIntentKey = String(draft?.values?.createIntentKey || tripCreateWorkflowId.value || WorkDraftService.newWorkflowId())
       tripCreateWorkflowId.value = createIntentKey
       // Fail closed if the retry token cannot be made durable before the native create.
-      await WorkDraftService.save(identity, { createIntentKey })
+      await saveDraft(identity, { createIntentKey })
     }
     const result = await store.beginPickup(operator.value || store.defaultOperator, nativeTripId || null, createIntentKey)
     if (!result?.ok) {
@@ -403,7 +402,7 @@ async function goPickup(nativeTripId = '') {
     }
     await syncOverlay()
     if (!nativeTripId) {
-      try { await WorkDraftService.clear(tripCreateDraftIdentity(), { committed: true }) } catch (_) { /* canonical Trip is already committed; draft cleanup is recoverable */ }
+      await clearCommittedDraft(tripCreateDraftIdentity(), { quiet: true })
       tripCreateWorkflowId.value = ''
     }
     // Keep state transitions silent; the cockpit/action label reflects the new state.
