@@ -1,6 +1,6 @@
 import { LocationRepository } from '../../repositories/locationRepository.js'
 import { CanonicalWorkBoundary } from '../work/canonicalWorkBoundary.js'
-import { captureTripBoundaryLocation, queueTripBoundaryEventLocation } from '../work/tripBoundaryLocation.js'
+import { WorkRuntimePorts } from '../work/workRuntimePorts.js'
 
 const RIDE_EVENTS = new Set(['PICKUP_START', 'TRIP_CANCELLED', 'TRIP_START', 'TRIP_END'])
 const stableId = (entityType, entityId, eventType) => `event-location-${entityType}-${entityId}-${eventType}`
@@ -13,8 +13,8 @@ export const EventLocationService = {
       const prior = (await this.forEntity(entityType, entityId)).find(item => item.eventType === eventType)
       if (prior) return
       // Android durably queues the event natively. Browser fallback uses one fix.
-      if (await queueTripBoundaryEventLocation(entityType, entityId, eventType, eventAt)) return
-      const location = await captureTripBoundaryLocation()
+      if (await WorkRuntimePorts.tripBoundaryLocation.queueEventLocationCapture(entityType, entityId, eventType, eventAt)) return
+      const location = await WorkRuntimePorts.tripBoundaryLocation.captureOneShotLocation()
       if (!location) return
       const snapshot = await LocationRepository.record({
         id: stableId(entityType, entityId, eventType), entityType, entityId, eventType, eventAt,
