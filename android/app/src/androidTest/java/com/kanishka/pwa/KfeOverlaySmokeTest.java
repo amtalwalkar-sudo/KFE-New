@@ -543,7 +543,7 @@ public class KfeOverlaySmokeTest {
     assertTrue("Overlay form flow must not retain an activity-launch fallback", hasNoActivityLaunchFallback());
   }
 
-  @Test public void fareFormSendsOptionalTollParkingAndTreatmentFlags() throws Exception {
+  @Test public void fareFormSendsOptionalTollAndParkingAmounts() throws Exception {
     clearPending();
     seedCanonicalShift("fare-shift");
     seedCanonicalTrip(new JSONObject().put("id", "fare-trip").put("shiftId", "fare-shift")
@@ -569,7 +569,6 @@ public class KfeOverlaySmokeTest {
         ((EditText) fieldValue(service, "formInput")).setText("450");
         ((EditText) fieldValue(service, "tollInput")).setText("0");
         ((EditText) fieldValue(service, "parkingInput")).setText("25");
-        ((android.widget.CheckBox) fieldValue(service, "tollTreatmentInput")).setChecked(true);
         java.lang.reflect.Method submit = KfeOverlayService.class.getDeclaredMethod("submitNumericForm");
         submit.setAccessible(true);
         submit.invoke(service);
@@ -580,8 +579,6 @@ public class KfeOverlaySmokeTest {
     assertEquals("450", payload.getString("fare"));
     assertEquals("0", payload.getString("toll"));
     assertEquals("25", payload.getString("parking"));
-    assertEquals("EXCLUDED", payload.getString("tollTreatment"));
-    assertEquals("INCLUDED", payload.getString("parkingTreatment"));
     JSONObject storedOutcome = KfeCanonicalWorkStore.get(context).getRecord("TRIP", "fare-trip");
     assertTrue("Fare must commit to native canonical storage", storedOutcome.optBoolean("found", false));
     JSONObject storedTrip = storedOutcome.getJSONObject("record");
@@ -886,8 +883,6 @@ public class KfeOverlaySmokeTest {
     assertEquals("425",fareCommand.getString("fare"));
     assertEquals("12.5",fareCommand.getString("toll"));
     assertEquals("",fareCommand.getString("parking"));
-    assertEquals("EXCLUDED",fareCommand.getString("tollTreatment"));
-    assertEquals("INCLUDED",fareCommand.getString("parkingTreatment"));
     JSONObject cancellationCommand=KfeNativeTripFormRules.buildCancellationPayload(" 0 ","PASSENGER");
     assertEquals("0",cancellationCommand.getString("revenue"));
     assertEquals("PASSENGER",cancellationCommand.getString("reason"));
