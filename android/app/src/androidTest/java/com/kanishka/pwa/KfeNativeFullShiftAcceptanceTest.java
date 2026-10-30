@@ -184,6 +184,15 @@ public class KfeNativeFullShiftAcceptanceTest {
         KfeOverlayService.isEventGpsFixAtOrAfter("not-an-instant", eventAt + 1L));
     assertFalse("A provider fix without a timestamp must fail closed.",
         KfeOverlayService.isEventGpsFixAtOrAfter("", 0L));
+    String eventTime = java.time.Instant.ofEpochMilli(eventAt).toString();
+    JSONObject staleSnapshot = new JSONObject().put("latitude", 19.0760d).put("longitude", 72.8777d)
+        .put("eventAt", eventTime).put("capturedAt", java.time.Instant.ofEpochMilli(eventAt - 1L).toString());
+    assertFalse("An already-persisted pre-event snapshot must not be treated as complete.",
+        KfeOverlayService.isValidPersistedEventGpsSnapshot(staleSnapshot));
+    JSONObject freshSnapshot = new JSONObject(staleSnapshot.toString())
+        .put("capturedAt", java.time.Instant.ofEpochMilli(eventAt + 1L).toString());
+    assertTrue("A persisted subsequent fix is a valid event snapshot.",
+        KfeOverlayService.isValidPersistedEventGpsSnapshot(freshSnapshot));
   }
 
   @Test public void fourEventGpsSnapshotsRemainSeparateFromTripBusinessVersions() throws Exception {
