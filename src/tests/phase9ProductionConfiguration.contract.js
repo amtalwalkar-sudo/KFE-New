@@ -21,7 +21,8 @@ assert.ok(existsSync('icon-512.png'))
 
 assert.match(sw, /CACHE_NAME = 'kfe-pwa-shell-__KFE_BUILD_ID__'/)
 assert.match(sw, /kfe-outbox-retry/)
-assert.match(sw, /kfe-daily-cloud-backup/)
+assert.match(sw, /kfe-outbox-retry/)
+assert.doesNotMatch(sw, /periodicsync|daily-cloud-backup/)
 assert.doesNotMatch(sw, /localhost|127\.0\.0\.1|192\.168\.|10\.0\.2\.2/)
 
 assert.match(androidManifest, /FOREGROUND_SERVICE_LOCATION/)
@@ -33,8 +34,8 @@ assert.match(androidManifest, /android:allowBackup="false"/)
 
 const sourceFiles = [
   'src/application/startup/startupService.js',
-  'src/infrastructure/backup/backupConfigAdapter.js',
-  'src/application/sync/cloudSyncService.js'
+  'src/application/backup/backupService.js',
+  'src/main.js'
 ]
 for (const file of sourceFiles) {
   assert.ok(existsSync(file), file + ' must exist')
@@ -45,4 +46,9 @@ for (const file of sourceFiles) {
 
 assert.match(roadmap, /## Phase 9 — Production Configuration Gate/)
 assert.match(roadmap, /Phase 9 — Production Configuration Gate/)
-console.log('KFE Phase 9 production configuration gate contract: PASS')
+const main = readFileSync('src/main.js', 'utf8')
+const backupPanel = readFileSync('src/components/admin/BackupRestorePanel.vue', 'utf8')
+assert.doesNotMatch([sw, main, backupPanel].join('\n'), /Dropbox|CloudBackupLifecycle|ConnectivityService|kfe-daily-cloud-backup|retryCloudBackup|periodicsync/i)
+assert.match(backupPanel, /Create backup/)
+assert.match(backupPanel, /Restore from phone/)
+console.log('KFE production configuration contract: local backup only; no automatic connectivity or cloud-backup loop.')

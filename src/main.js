@@ -66,6 +66,14 @@ void (async () => {
     configureAndroidOverlayLifecycle()
 
     startKfeThemeController()
+    try {
+      globalThis.localStorage?.removeItem('kfe.backup.configuration.v1')
+      globalThis.localStorage?.removeItem('kfe.backup.configuration.v2')
+      const { SecureSecretStore } = await import('./infrastructure/security/secureSecretStore.js')
+      await SecureSecretStore.remove('kfe.dropbox.access-token')
+    } catch (error) {
+      console.warn('Could not clear retired cloud-backup settings; startup will continue.', error)
+    }
 
     if (typeof formSystem === 'object') void formSystem
 

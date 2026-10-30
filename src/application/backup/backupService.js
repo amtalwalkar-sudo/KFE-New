@@ -412,9 +412,4 @@ export const maybeDailyLocalBackup = async () => { const current = await getLoca
 let checkpointTimer = null
 let checkpointRunning = false
 let checkpointRequested = false
-let cloudProvider = null
-export const registerCloudBackupProvider = provider => { if (!provider || typeof provider.upload !== 'function' || typeof provider.download !== 'function') throw new Error('Cloud backup provider must expose upload() and download().'); cloudProvider = provider; return provider.name || 'Cloud' }
-export const getCloudBackupProviderName = () => cloudProvider?.name || null
-export const backupToCloud = async backup => { if (!cloudProvider) throw new Error('No cloud backup provider is configured.'); return cloudProvider.upload(validateBackup(backup)) }
-export const restoreFromCloud = async () => { if (!cloudProvider) throw new Error('No cloud backup provider is configured.'); const backup = validateBackup(await cloudProvider.download()); return restoreBackup(backup) }
-export const BackupService = Object.freeze({ createBackup, validateBackup, serializeBackup, getBackupSummary, saveLocalBackup, getLocalBackup, restoreBackup, recoverPendingRestore, resetData, recoverPendingReset, readBackupText, requestLocalBackupCheckpoint, maybeDailyLocalBackup, registerCloudBackupProvider, getCloudBackupProviderName, backupToCloud, restoreFromCloud })
+export const BackupService = Object.freeze({ createBackup, validateBackup, serializeBackup, getBackupSummary, saveLocalBackup, getLocalBackup, restoreBackup, recoverPendingRestore, resetData, recoverPendingReset, readBackupText, requestLocalBackupCheckpoint, maybeDailyLocalBackup })
