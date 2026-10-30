@@ -13,7 +13,24 @@ export const PhaseOnePerformanceService = Object.freeze({
     }
     const snapshot = await PerformanceService.getSnapshot()
     const metrics = PerformanceService.getMetrics(snapshot, range)
-    return derivePhaseOnePerformanceOverview(snapshot, range, metrics)
+    const asOf = new Date(now)
+    const balanceFrom = range.from <= asOf ? range.from : asOf
+    const balanceMetrics = PerformanceService.getMetrics(snapshot, { from: balanceFrom, to: asOf })
+    return {
+      ...derivePhaseOnePerformanceOverview(snapshot, range, metrics),
+      // Cumulative signed buckets as of now; do not subtract these again from Phase 1 income-after-fuel.
+      provisionBalances: {
+        asOf: asOf.toISOString(),
+        emi: {
+          available: balanceMetrics.completeness?.loan === true && Number.isFinite(balanceMetrics.loanProvisionBalance),
+          balance: balanceMetrics.loanProvisionBalance,
+        },
+        maintenance: {
+          available: balanceMetrics.maintenanceProvisionEvidenceStatus === 'AUTHORITATIVE' && Number.isFinite(balanceMetrics.maintenanceProvisionBalance),
+          balance: balanceMetrics.maintenanceProvisionBalance,
+        },
+      },
+    }
   },
   subscribeDataChanges(callback) {
     return PerformanceService.subscribeDataChanges(callback)
