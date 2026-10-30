@@ -8,8 +8,6 @@ import { ADMIN_FORM_DEFINITIONS } from '../application/admin/adminFormDefinition
 import { AdminService } from '../application/admin/adminService.js'
 import { FormDraftService } from '../application/forms/formDraftService.js'
 import { BackupService } from '../application/backup/backupService.js'
-import { PerformanceService } from '../application/performance/performanceService.js'
-import { AdminReadModelService } from '../application/admin/adminReadModelService.js'
 import { ApplicationSettingsService } from '../presentation/settings/settingsPreferenceService.js'
 
 import {
@@ -22,14 +20,9 @@ import {
 const selected=ref(null),settingsOpen=ref(false),settingsSelected=ref('backup'),masterSelected=ref(null)
 const adminSearch=ref(''),recordSearch=ref('')
 const notificationsEnabled=ref(readNotificationsPreference())
-const records=ref([]),all=ref({vehicle:[],driver:[],loan:[],compliance:[],maintenance:[],driverTarget:[],breakEvenInputs:[],loanPayment:[],prepayment:[],settlement:[]})
-const performanceSnapshot=ref(null),performanceMetrics=ref(null),loading=ref(false),saving=ref(false),error=ref(''),notice=ref('')
+const records=ref([]),all=ref({vehicle:[],driver:[],loan:[],compliance:[],maintenance:[]})
+const loading=ref(false),saving=ref(false),error=ref(''),notice=ref('')
 const formOpen=ref(false),editing=ref(null),draft=ref({}),formErrors=ref({})
-const actionKey=ref(null),actionRecord=ref(null),actionDraft=ref({}),paymentCalculated=ref(false),paymentConfirmed=ref(false)
-const expandedLoanSchedules=ref({})
-const prepaymentDraft=ref({loanId:'',paidOn:AdminReadModelService.dateKey(AdminReadModelService.referenceNow()),amount:0,reason:'',notes:''}),prepaymentCalculated=ref(false),prepaymentConfirmed=ref(false)
-const targetDraft=ref({driverId:'',month:AdminReadModelService.dateKey(AdminReadModelService.referenceNow()).slice(0,7),desiredDriverProfit:0,nonWorkingDates:'',targetHours:'',targetKm:''})
-const maintenanceRateDraft=ref({rate:'',changeDate:AdminReadModelService.dateKey(AdminReadModelService.referenceNow())})
 const draftWorkflowIds = ref({})
 const draftWorkflowResolutions = new Map()
 const draftWorkflowKey = (formId, workflowStep, parentId = null) => [formId, workflowStep, parentId || ''].join(':')
@@ -64,103 +57,36 @@ const buildDraftIdentity = (formId, parentId = null, workflowStep = 'EDIT') => {
   }
 }
 const sourceFormDraftIdentity = computed(() => buildDraftIdentity(selected.value || 'source', editing.value, editing.value !== null ? 'EDIT' : 'CREATE'))
-const targetFormDraftIdentity = computed(() => buildDraftIdentity('driver-target', null, 'EDIT_TARGET'))
-const maintenanceRateFormDraftIdentity = computed(() => buildDraftIdentity('maintenance-rate', null, 'EDIT_RATE'))
-const prepaymentFormDraftIdentity = computed(() => buildDraftIdentity('prepayment', null, 'PREPAYMENT'))
-const actionFormDraftIdentity = computed(() => buildDraftIdentity(
-  actionKey.value === 'loanPayment' ? 'loan-payment-' + (actionRecord.value?.id || 'new') : 'settlement-' + (actionRecord.value?.id || 'new'),
-  actionRecord.value?.id || null,
-  actionKey.value === 'loanPayment' ? 'LOAN_PAYMENT' : 'SETTLEMENT'
-))
-async function clearFormDraft(identity) {
+async function clearFormDraft(identity) {async function clearFormDraft(identity) {
   if (!identity) return
   try { await FormDraftService.clear(identity, { committed: true }) }
   catch (_) { notice.value = (notice.value ? notice.value + ' ' : '') + 'Saved successfully; an unfinished draft could not be cleared. Reopen the form and verify before continuing.' }
 }
-const targetFields=computed(()=>[
- {key:'driverId',label:'Driver',type:'select',section:'Target period',required:true,options:all.value.driver.map(d=>({value:d.id,label:label('driver',d)}))},
- {key:'month',label:'Month',type:'month',section:'Target period',required:true},
- {key:'desiredDriverProfit',label:'Desired driver profit / take-home',type:'number',section:'Target amount',required:true,min:0,step:0.01,help:'The target engine derives break-even and provision amounts separately.'},
- {key:'nonWorkingDates',label:'Planned non-working / holiday dates',type:'textarea',section:'Availability',placeholder:'YYYY-MM-DD, one per line or comma separated'},
- {key:'active',label:'Active',type:'checkbox',section:'Availability',defaultValue:true,toggleLabel:'Target active'},
- {key:'notes',label:'Notes',type:'textarea',section:'Additional context'}
-])
-const prepaymentFields=computed(()=>[
- {key:'loanId',label:'Loan',type:'select',section:'Loan to prepay',required:true,options:all.value.loan.map(x=>({value:x.id,label:label('loan',x)}))},
- {key:'amount',label:'Actual prepayment amount',type:'number',section:'Prepayment details',required:true,min:0,step:0.01},
- {key:'paidOn',label:'Payment date',type:'date',section:'Prepayment details',required:true},
- {key:'reason',label:'Reason',type:'textarea',section:'Additional context'},
- {key:'notes',label:'Notes',type:'textarea',section:'Additional context'}
-])
-const loanPaymentFields=[
- {key:'paidOn',label:'Payment date',type:'date',section:'Actual payment',required:true},
- {key:'amount',label:'Actual amount paid',type:'number',section:'Actual payment',required:true,min:0,step:0.01},
- {key:'notes',label:'Notes',type:'textarea',section:'Additional context'}
-]
-const settlementFields=[
- {key:'settledOn',label:'Payment date',type:'date',section:'Payment details',required:true},
- {key:'amount',label:'Amount paid',type:'number',section:'Payment details',required:true,min:0,step:0.01},
- {key:'paymentMethod',label:'Payment method',type:'select',section:'Payment reference',options:['Cash','Bank transfer','UPI','Card','Cheque','Other'],defaultValue:'Cash'},
- {key:'referenceNumber',label:'Payment reference',type:'text',section:'Payment reference'},
- {key:'notes',label:'Notes',type:'textarea',section:'Additional context'}
-]
-const money=v=>v===null||v===undefined||v===''?'—':Number.isFinite(Number(v))?'₹'+Number(v).toLocaleString('en-IN',{maximumFractionDigits:2}):'—'
+const money=const money=v=>v===null||v===undefined||v===''?'—':Number.isFinite(Number(v))?'₹'+Number(v).toLocaleString('en-IN',{maximumFractionDigits:2}):'—'
 const clone=v=>structuredClone(toRaw(v))
-const live=xs=>(xs||[]).filter(x=>!x?.deletedAt&&!x?.deleted)
 function label(key,record){const v=record?.values||record||{};if(key==='businessSetup')return v.businessStartDate ? `Business start · ${v.businessStartDate}` : 'Business Setup';if(key==='vehicle')return [v.registrationNumber,v.make,v.model].filter(Boolean).join(' · ')||record?.id;if(key==='driver')return v.name||record?.id;if(key==='loan')return [v.lender,v.accountReference].filter(Boolean).join(' · ')||record?.id;if(key==='compliance')return v.complianceType||record?.id;if(key==='maintenance')return v.maintenanceType||record?.id;return record?.id||'—'}
-const currentItem=computed(()=>items.find(x=>x.key===selected.value)||(selected.value==='prepayment'?{key:'prepayment',category:'Finance',title:'Loan Prepayment',icon:'↘'}:null))
+const currentItem=computed(()=>items.find(x=>x.key===selected.value)||null)
 const masterMode=computed(()=>['vehicle','driver','compliance'].includes(selected.value))
 const masterRecord=computed(()=>masterSelected.value?records.value.find(x=>x.id===masterSelected.value)||null:null)
-const complianceRevenueSummary=computed(()=>AdminReadModelService.getComplianceRevenueSummary({record:masterRecord.value,shifts:performanceSnapshot.value?.shifts,asOf:AdminReadModelService.referenceNow()}))
-const currentDefinition=computed(()=>currentItem.value?ADMIN_FORM_DEFINITIONS[currentItem.value.key]:null)
+const currentDefinition=computedconst currentDefinition=computed(()=>currentItem.value?ADMIN_FORM_DEFINITIONS[currentItem.value.key]:null)
 const activeDefinition=computed(()=>{if(!currentDefinition.value)return null;const d=clone(currentDefinition.value);for(const f of d.fields||[]){if(f.key==='vehicleId')f.options=all.value.vehicle.map(x=>({value:x.id,label:label('vehicle',x)}));if(f.key==='driverId')f.options=all.value.driver.map(x=>({value:x.id,label:label('driver',x)}));if(f.key==='loanId')f.options=all.value.loan.map(x=>({value:x.id,label:label('loan',x)}))}return d})
-const sourcePayments=id=>live(performanceSnapshot.value?.settlements).filter(x=>x.sourceId===id&&String(x.direction||(x.settlementType==='Receipt'?'IN':'OUT')).toUpperCase()==='OUT')
-const entityFinancial=record=>{if(!record)return null;if(selected.value==='loan'){const loan=live(performanceSnapshot.value?.loans).find(x=>x.id===record.id)||record;const position=AdminReadModelService.getLoanPosition({loan,payments:live(performanceSnapshot.value?.loanPayments),prepayments:live(performanceSnapshot.value?.prepayments),asOf:AdminReadModelService.referenceNow()});return AdminReadModelService.getLoanFinancialSummary({loan,position})}if(selected.value==='maintenance'||selected.value==='compliance')return AdminReadModelService.getSourceFinancialPosition({record,payments:performanceSnapshot.value?.settlements});return null}
-const loanHistory=record=>{const s=performanceSnapshot.value||{};return [...live(s.loanPayments).filter(x=>x.loanId===record.id).map(x=>({kind:'EMI payment',date:x.paidOn,amount:Number(x.amount)||0})),...live(s.prepayments).filter(x=>x.loanId===record.id).map(x=>({kind:'Prepayment',date:x.paidOn,amount:Number(x.amount)||0}))].sort((a,b)=>String(b.date).localeCompare(String(a.date)))}
-const sourceHistory=record=>sourcePayments(record.id).sort((a,b)=>String(b.settledOn||'').localeCompare(String(a.settledOn||'')))
-const loanPosition=record=>{const loan=live(performanceSnapshot.value?.loans).find(x=>x.id===record.id)||record;return AdminReadModelService.getLoanPosition({loan,payments:live(performanceSnapshot.value?.loanPayments),prepayments:live(performanceSnapshot.value?.prepayments),asOf:AdminReadModelService.referenceNow()})}
-const loanSchedule=record=>loanPosition(record).overdue||[]
-const loanAmortizationSchedule=record=>AdminReadModelService.getLoanAmortizationSchedule({schedule:loanPosition(record).schedule||[],asOf:AdminReadModelService.referenceNow()})
-function toggleLoanSchedule(loanId){expandedLoanSchedules.value={...expandedLoanSchedules.value,[loanId]:!expandedLoanSchedules.value[loanId]}}
-const currentMonth=computed(()=>AdminReadModelService.dateKey(AdminReadModelService.referenceNow()).slice(0,7))
-const currentMaintenanceRate=computed(()=>AdminReadModelService.getEffectiveMaintenanceRate({records:all.value.breakEvenInputs,asOf:AdminReadModelService.referenceNow()}))
-const targetHistory=computed(()=>live(all.value.driverTarget).sort((a,b)=>String(b.values?.effectiveFrom||'').localeCompare(String(a.values?.effectiveFrom||''))))
-const currentTarget=computed(()=>{
-  const driverId=targetDraft.value.driverId
-  const month=targetDraft.value.month||currentMonth.value
-  const effectiveMonth=monthStart(month)
-  const matches=live(all.value.driverTarget).filter(x=>x.values?.driverId===driverId&&String(x.values?.effectiveFrom||'')<=effectiveMonth)
-  return matches.sort((a,b)=>String(b.values?.effectiveFrom||'').localeCompare(String(a.values?.effectiveFrom||'')))[0]||null
-})
-const currentTargetHistory=computed(()=>targetHistory.value.filter(x=>x.id!==currentTarget.value?.id))
-
-const maintenanceHistory=computed(()=>live(all.value.breakEvenInputs).filter(x=>x.values?.maintenanceProvisionPerKm!=null).sort((a,b)=>String(b.values?.effectiveFrom||'').localeCompare(String(a.values?.effectiveFrom||''))))
-const driverNames=computed(()=>Object.fromEntries(all.value.driver.map(x=>[x.id,label('driver',x)])))
-const groupedItems=computed(()=>groupAdminNavigationItems(items,categories))
+const groupedItems=computedconst groupedItems=computed(()=>groupAdminNavigationItems(items,categories))
 const visibleGroupedItems=computed(()=>{const q=adminSearch.value.trim().toLowerCase();return groupedItems.value.map(group=>({...group,items:group.items.filter(item=>!q||`${item.title} ${item.category} ${item.key}`.toLowerCase().includes(q))})).filter(group=>group.items.length)})
 const filteredRecords=computed(()=>{const q=recordSearch.value.trim().toLowerCase();return records.value.filter(record=>!q||`${label(selected.value,record)} ${JSON.stringify(record.values||{})}`.toLowerCase().includes(q))})
 function readNotificationsPreference(){return ApplicationSettingsService.getNotificationsEnabled()}
 function chooseNotifications(enabled){notificationsEnabled.value=ApplicationSettingsService.setNotificationsEnabled(enabled);clearMessages()}
 function clearMessages(){error.value='';notice.value=''}
 function onDraftError(cause){error.value=cause?.message||'Unable to preserve unfinished form draft.'}
-function closeAction(){actionKey.value=null;actionRecord.value=null;actionDraft.value={};paymentCalculated.value=false;paymentConfirmed.value=false}
-async function openItem(key, options = {}){
+async function openItem(key){
   if(isAdminSettingsItem(key)){clearMessages();selected.value=null;settingsOpen.value=true;settingsSelected.value=getAdminSettingsKey(key);return}
   clearMessages()
-  if(key==='prepayment'&&!await beginDraftWorkflow('prepayment','PREPAYMENT'))return
-  if(key==='driverTarget'&&!await beginDraftWorkflow('driver-target','EDIT_TARGET'))return
-  if(key==='maintenanceRate'&&!await beginDraftWorkflow('maintenance-rate','EDIT_RATE'))return
-  settingsOpen.value=false;selected.value=key;masterSelected.value=null;formOpen.value=false;editing.value=null;draft.value={};closeAction()
-  if(key==='prepayment'){resetPrepayment();if(options.loanId)selectPrepaymentLoan(options.loanId)}
-  if(key==='driverTarget')resetTarget()
-  if(key==='maintenanceRate')resetMaintenanceRate()
+  settingsOpen.value=false;selected.value=key;masterSelected.value=null;formOpen.value=false;editing.value=null;draft.value={}
   load()
 }
 function openMasterRecord(record){clearMessages();masterSelected.value=record.id;formOpen.value=false;editing.value=null;draft.value={}}
 function backMasterList(){clearMessages();masterSelected.value=null;formOpen.value=false;editing.value=null;draft.value={}}
 function masterFieldValue(field,record){const v=record?.values?.[field.key];if(v===undefined||v===null||v==='')return '—';if(field.type==='checkbox')return v?'Yes':'No';if(field.type==='select'){if(field.key==='vehicleId')return label('vehicle',all.value.vehicle.find(x=>x.id===v));if(field.key==='driverId')return label('driver',all.value.driver.find(x=>x.id===v));const opts=field.options||[];const found=opts.find(x=>x?.value===v);return found?.label||v}return String(v)}
-function back(){selected.value=null;settingsOpen.value=false;formOpen.value=false;editing.value=null;draft.value={};closeAction();clearMessages()}
-function openLoanPrepayment(record){return openItem('prepayment',{loanId:record.id})}
+function back(){selected.value=null;settingsOpen.value=false;formOpen.value=false;editing.value=null;draft.value={};clearMessages()}
 function chooseSetting(key){settingsSelected.value=key;clearMessages()}
 async function add(){
   if(saving.value)return
@@ -175,62 +101,22 @@ async function edit(record){
   editing.value=record.id;draft.value=clone(record.values||{});formOpen.value=true
 }
 function updateDraft(v){draft.value={...v}}
-async function openAction(kind,record){
-  const formId=kind==='loanPayment'?'loan-payment-'+record.id:'settlement-'+record.id
-  const workflowStep=kind==='loanPayment'?'LOAN_PAYMENT':'SETTLEMENT'
-  if(!await beginDraftWorkflow(formId,workflowStep,record.id))return
-  actionKey.value=kind;actionRecord.value=record;paymentCalculated.value=false;paymentConfirmed.value=false
-  const f=entityFinancial(record)
-  actionDraft.value=kind==='loanPayment'?{loanId:record.id,paidOn:AdminReadModelService.dateKey(AdminReadModelService.referenceNow()),amount:Math.max(0,Number(f?.overdue||f?.emi||0)),notes:''}:{settledOn:AdminReadModelService.dateKey(AdminReadModelService.referenceNow()),amount:Math.max(0,Number(f?.remaining||0)),paymentMethod:'Cash',referenceNumber:'',notes:''}
-}
-const loanPaymentPreview=computed(()=>{if(actionKey.value!=='loanPayment'||!actionRecord.value||!paymentCalculated.value)return null;const loan=live(performanceSnapshot.value?.loans).find(x=>x.id===actionRecord.value.id)||actionRecord.value;return AdminReadModelService.previewPaymentAllocation({loan,payments:live(performanceSnapshot.value?.loanPayments),prepayments:live(performanceSnapshot.value?.prepayments),amount:Number(actionDraft.value.amount)||0,paidOn:actionDraft.value.paidOn})})
-function resetPrepayment(){prepaymentDraft.value={loanId:'',paidOn:AdminReadModelService.dateKey(AdminReadModelService.referenceNow()),amount:0,reason:'',notes:''};prepaymentCalculated.value=false;prepaymentConfirmed.value=false}
-function selectPrepaymentLoan(id){const loan=all.value.loan.find(x=>x.id===id);const p=loan?AdminReadModelService.getLoanPosition({loan,payments:live(performanceSnapshot.value?.loanPayments),prepayments:live(performanceSnapshot.value?.prepayments),asOf:AdminReadModelService.referenceNow()}):null;prepaymentDraft.value={...prepaymentDraft.value,loanId:id,amount:Math.max(0,Number(p?.outstandingPrincipal||0))};prepaymentCalculated.value=false;prepaymentConfirmed.value=false}
-const selectedPrepaymentLoan=computed(()=>all.value.loan.find(x=>x.id===prepaymentDraft.value.loanId)||null)
-const selectedPrepaymentPosition=computed(()=>selectedPrepaymentLoan.value?AdminReadModelService.getLoanPosition({loan:selectedPrepaymentLoan.value,payments:live(performanceSnapshot.value?.loanPayments),prepayments:live(performanceSnapshot.value?.prepayments),asOf:AdminReadModelService.referenceNow()}):null)
-const prepaymentEstimate=computed(()=>{const loan=selectedPrepaymentLoan.value;if(!loan||!prepaymentCalculated.value)return null;return AdminReadModelService.estimatePrepayment({loan,payments:live(performanceSnapshot.value?.loanPayments),prepayments:live(performanceSnapshot.value?.prepayments),amount:Number(prepaymentDraft.value.amount)||0,paidOn:prepaymentDraft.value.paidOn})})
-function resetTarget(){
-  const month=currentMonth.value
-  const current=live(all.value.driverTarget).filter(x=>String(x.values?.effectiveFrom||'')===monthStart(month)).sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')))[0]||null
-  targetDraft.value={driverId:current?.values?.driverId||'',month,desiredDriverProfit:current?.values?.desiredDriverProfit??0,nonWorkingDates:Array.isArray(current?.values?.nonWorkingDates)?current.values.nonWorkingDates.join('\n'):String(current?.values?.nonWorkingDates||''),active:current?.values?.active!==false,notes:String(current?.values?.notes||'')}
-}
-
-function onTargetFieldChange({key,value}){targetDraft.value={...targetDraft.value,[key]:value};if(key==='driverId'||key==='month')syncTargetFromSelection()}
-function onPrepaymentFieldChange({key,value}){if(key==='loanId'){selectPrepaymentLoan(value);return}prepaymentDraft.value={...prepaymentDraft.value,[key]:value};prepaymentCalculated.value=false;prepaymentConfirmed.value=false}
-function onActionFieldChange({key,value}){actionDraft.value={...actionDraft.value,[key]:value};if(actionKey.value==='loanPayment'){paymentCalculated.value=false;paymentConfirmed.value=false}}
-function submitTargetForm(values){targetDraft.value={...targetDraft.value,...values};saveTarget()}
-function submitMaintenanceRateForm(values){maintenanceRateDraft.value={...maintenanceRateDraft.value,...values};saveMaintenanceRate()}
-function submitPrepaymentForm(values){prepaymentDraft.value={...prepaymentDraft.value,...values};prepaymentCalculated.value=true}
-function submitActionForm(values){actionDraft.value={...actionDraft.value,...values};if(actionKey.value==='loanPayment'){paymentCalculated.value=true;paymentConfirmed.value=false}else saveSourcePayment()}
-function syncTargetFromSelection(){
-  const current=currentTarget.value
-  targetDraft.value={...targetDraft.value,desiredDriverProfit:current?.values?.desiredDriverProfit??0,nonWorkingDates:Array.isArray(current?.values?.nonWorkingDates)?current.values.nonWorkingDates.join('\n'):String(current?.values?.nonWorkingDates||'')}
-}
-function resetMaintenanceRate(){maintenanceRateDraft.value={rate:currentMaintenanceRate.value?.values?.maintenanceProvisionPerKm??'',changeDate:AdminReadModelService.dateKey(AdminReadModelService.referenceNow()),notes:String(currentMaintenanceRate.value?.values?.notes||'')}}
-function monthStart(m){return (m||currentMonth.value)+'-01'}
-async function saveTarget(){if(loading.value)return;clearMessages();loading.value=true;try{await AdminService.save('driverTarget',{driverId:targetDraft.value.driverId,effectiveFrom:monthStart(targetDraft.value.month),desiredDriverProfit:Number(targetDraft.value.desiredDriverProfit),nonWorkingDates:String(targetDraft.value.nonWorkingDates||''),active:targetDraft.value.active!==false,notes:String(targetDraft.value.notes||'')});await clearFormDraft(targetFormDraftIdentity.value);notice.value='Monthly driver target saved.';await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Unable to save target.'}finally{loading.value=false}}
-async function saveMaintenanceRate(){if(loading.value)return;clearMessages();loading.value=true;try{await AdminService.save('breakEvenInputs',{effectiveFrom:maintenanceRateDraft.value.changeDate,maintenanceProvisionPerKm:Number(maintenanceRateDraft.value.rate),notes:String(maintenanceRateDraft.value.notes||'')});await clearFormDraft(maintenanceRateFormDraftIdentity.value);notice.value='Maintenance per KM rate saved.';await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Unable to save rate.'}finally{loading.value=false}}
 function clearFieldError({key}){if(!(key in formErrors.value))return;const next={...formErrors.value};delete next[key];formErrors.value=next}
 function onSourceFieldChange(change){draft.value={...draft.value,[change.key]:change.value};clearFieldError(change)}
 async function save(values){if(saving.value)return;clearMessages();formErrors.value={};saving.value=true;try{
   const id=editing.value
   const draftIdentity = sourceFormDraftIdentity.value
-  const sourceType=selected.value==='maintenance'?'Maintenance':'Compliance'
-  const isSource=selected.value==='compliance'||selected.value==='maintenance'
-  const payload=isSource?{...values,cost:Number(values.cost)||0}:values
-   const saved=await AdminService.save(selected.value,payload,id)
+  const payload=(selected.value==='compliance'||selected.value==='maintenance')?{...values,cost:Number(values.cost)||0}:values
+   await AdminService.save(selected.value,payload,id)
    await clearFormDraft(draftIdentity)
    // Source records are obligations/expense facts. Actual cash settlement is a
    // separate authoritative record with its own actual payment date.
    // Never synthesize a payment merely because a source record was saved.
    notice.value=(id!==null?'Record updated.':'Record created.');formOpen.value=false;editing.value=null;await load()
 }catch(e){formErrors.value=e.validation&&typeof e.validation==='object'?e.validation:{};error.value=e.validation?Object.values(e.validation).flat().join(' '):e.message||'Save failed.'}finally{saving.value=false}}
-async function saveLoanPayment(){if(loading.value)return;clearMessages();loading.value=true;try{await AdminService.save('loanPayment',{...actionDraft.value,amount:Number(actionDraft.value.amount)});await clearFormDraft(actionFormDraftIdentity.value);notice.value='Loan payment recorded.';closeAction();await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Payment failed.'}finally{loading.value=false}}
-async function saveSourcePayment(){if(loading.value)return;clearMessages();loading.value=true;try{await AdminService.save('settlement',{settlementType:'Payment',sourceType:selected.value==='maintenance'?'Maintenance':'Compliance',sourceId:actionRecord.value.id,settledOn:actionDraft.value.settledOn,amount:Number(actionDraft.value.amount),paymentMethod:actionDraft.value.paymentMethod,referenceNumber:String(actionDraft.value.referenceNumber||''),notes:String(actionDraft.value.notes||'')});await clearFormDraft(actionFormDraftIdentity.value);notice.value='Payment recorded.';closeAction();await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Payment failed.'}finally{loading.value=false}}
-async function recordPrepayment(){if(loading.value||!prepaymentEstimate.value?.available||!prepaymentConfirmed.value)return;clearMessages();loading.value=true;try{await AdminService.save('prepayment',{loanId:prepaymentDraft.value.loanId,paidOn:prepaymentDraft.value.paidOn,amount:prepaymentEstimate.value.appliedAmount,reason:String(prepaymentDraft.value.reason||''),notes:String(prepaymentDraft.value.notes||'')});await clearFormDraft(prepaymentFormDraftIdentity.value);notice.value='Prepayment recorded.';resetPrepayment();await load()}catch(e){error.value=e.validation?Object.values(e.validation).join(' '):e.message||'Prepayment failed.'}finally{loading.value=false}}
 async function remove(record){if(!confirm('Delete this record? Related records may prevent deletion.'))return;clearMessages();loading.value=true;try{await AdminService.remove(selected.value,record.id);notice.value='Record deleted.';await load()}catch(e){error.value=e.message||'Delete failed.'}finally{loading.value=false}}
 async function resetData(){if(!confirm('Reset all KFE data? Business records will be erased and application preferences restored to defaults. A recovery checkpoint will be retained.'))return;if(!confirm('Final confirmation: erase all current KFE business records and reset application preferences to defaults? A recovery checkpoint will be retained.'))return;loading.value=true;clearMessages();try{await BackupService.resetData();const defaults=ApplicationSettingsService.resetPreferences();notificationsEnabled.value=defaults.notificationsEnabled;notice.value='All canonical KFE data has been reset. Application preferences restored to defaults.'}catch(e){error.value=e.message||'Data reset failed.'}finally{loading.value=false}}
-async function load(){loading.value=true;error.value='';try{for(const k of Object.keys(all.value))all.value[k]=await AdminService.list(k);records.value=selected.value&&!['prepayment','driverTarget','maintenanceRate','calculations'].includes(selected.value)?await AdminService.list(selected.value):[];performanceSnapshot.value=await PerformanceService.getSnapshot();performanceMetrics.value=selected.value==='maintenanceRate'?PerformanceService.getMetrics(performanceSnapshot.value,AdminReadModelService.currentMonthRange()):null}catch(e){error.value=e.message||'Unable to load Admin data.'}finally{loading.value=false}}
+async function load(){loading.value=true;error.value='';try{for(const k of Object.keys(all.value))all.value[k]=await AdminService.list(k);records.value=selected.value?await AdminService.list(selected.value):[]}catch(e){error.value=e.message||'Unable to load Admin data.'}finally{loading.value=false}}
 // The Android system Back button must unwind Admin's in-view selection before the WebView exits.
 let stopAdminBackStateWatch = null
 function handleAdminPopState() {
@@ -289,7 +175,7 @@ onBeforeUnmount(()=>{
       <div class="admin-category-grid">
         <button v-for="item in group.items" :key="item.key" type="button" class="admin-item" @click="openItem(item.key)">
           <span class="admin-item-icon" aria-hidden="true">{{item.icon}}</span>
-          <span class="admin-item-copy"><strong>{{item.title}}</strong><small>{{item.key==='businessSetup'?'Set the business start boundary':item.key==='vehicle'?'Vehicle identity and lifecycle':item.key==='driver'?'Driver identity and assignment':item.key==='compliance'?'Validity and compliance cost':item.key==='maintenance'?'Authoritative actual maintenance':item.key==='settingsBackup'?'Export, restore and protect KFE data':item.key==='settingsApplication'?'Theme and notification preferences':item.key==='settingsReset'?'Reset business data with recovery safeguards':'Loan terms, payments, prepayments and repayment schedule'}}</small></span>
+          <span class="admin-item-copy"><strong>{{item.title}}</strong><small>{{item.key==='businessSetup'?'Set the business start boundary':item.key==='vehicle'?'Vehicle identity and lifecycle':item.key==='driver'?'Driver identity and assignment':item.key==='compliance'?'Validity and compliance cost':item.key==='maintenance'?'Authoritative actual maintenance':item.key==='settingsBackup'?'Export, restore and protect KFE data':item.key==='settingsApplication'?'Theme and notification preferences':item.key==='settingsReset'?'Reset business data with recovery safeguards':'Loan details and saved records'}}</small></span>
           <span class="admin-item-arrow" aria-hidden="true">›</span>
         </button>
       </div>
@@ -303,7 +189,7 @@ onBeforeUnmount(()=>{
 
 
 <template v-else-if="selected">
-<section class="detail-screen" :aria-busy="loading" aria-labelledby="admin-detail-title"><div class="detail-title"><span class="item-icon" aria-hidden="true">{{currentItem.icon}}</span><div><div class="category-label">{{currentItem.category}}</div><h1 id="admin-detail-title">{{currentItem.title}}</h1></div></div><p class="detail-intro">{{selected==='businessSetup'?'Set the business start date used by KFE planning.':selected==='vehicle'?'Maintain the vehicle identity and lifecycle details used across KFE.':selected==='driver'?'Manage driver identity and assignment details.':selected==='compliance'?'Track compliance validity, costs, payments, and supporting records.':selected==='maintenance'?'Record actual maintenance costs and payments. The effective-dated per-kilometre rate is managed separately.':selected==='loan'?'Manage loan terms, actual EMI payments, prepayments, and repayment history.':selected==='driverTarget'?'Set the driver-entered monthly profit target and review its history.':selected==='maintenanceRate'?'Maintain the effective-dated maintenance rate used by planning calculations.':selected==='prepayment'?'Review the calculated effect before confirming a loan prepayment.':'Review and manage the selected Admin records.'}}</p><p v-if="error" class="message error" role="alert" aria-live="assertive">{{error}}</p><p v-if="notice" class="message notice" role="status" aria-live="polite">✓ {{notice}}</p>
+<section class="detail-screen" :aria-busy="loading" aria-labelledby="admin-detail-title"><div class="detail-title"><span class="item-icon" aria-hidden="true">{{currentItem.icon}}</span><div><div class="category-label">{{currentItem.category}}</div><h1 id="admin-detail-title">{{currentItem.title}}</h1></div></div><p class="detail-intro">{{selected==='businessSetup'?'Set the business start date used by KFE planning.':selected==='vehicle'?'Maintain the vehicle identity and lifecycle details used across KFE.':selected==='driver'?'Manage driver identity and assignment details.':selected==='compliance'?'Track compliance validity, costs, payments, and supporting records.':selected==='maintenance'?'Record actual maintenance details.':selected==='loan'?'Maintain saved loan details.':'Review and manage the selected Admin records.'}}</p><p v-if="error" class="message error" role="alert" aria-live="assertive">{{error}}</p><p v-if="notice" class="message notice" role="status" aria-live="polite">✓ {{notice}}</p>
 
 <template v-if="masterMode">
 <div v-if="!masterSelected && formOpen" class="admin-record-form-screen">
