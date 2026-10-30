@@ -1,73 +1,33 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 1,
   "authorities": {
     "businessRules": "../../KFE_BUSINESS_RULES_REGISTER.md",
     "calculationSpecification": "../../docs/KFE-CALCULATION-SPECIFICATION.md",
     "architectureContract": "../../docs/KFE-ARCHITECTURE-CONTRACT.md"
   },
-  "calculations": {
-    "financialModel": {
-      "version": 3,
-      "layers": {
-        "revenue": {
-          "definition": "Financial Revenue derived from the canonical customer-paid Shift.revenue projection, which is recomputed from eligible completed-trip fares plus cancellation fees; blank/not-applicable cancellation fees are zero.",
-          "formula": "sum(completedShift financial revenue after INCLUDED toll/parking treatment)",
-          "authority": "BR-11_CANONICAL_SHIFT_REVENUE_PROJECTION_AND_FINANCIAL_TREATMENT"
-        },
-        "operatingCost": {
-          "definition": "Actual operating costs not already removed from Financial Revenue; INCLUDED toll/parking are pass-throughs and must not be deducted twice.",
-          "formula": "fuel + excludedToll + excludedParking + actualMaintenance",
-          "authority": "BR-11_TOLL_PARKING_TREATMENT_PLUS_ACTUAL_OPERATING_COSTS"
-        },
-        "operatingProfit": {
-          "definition": "Financial Revenue remaining after actual non-pass-through operating costs.",
-          "formula": "financialRevenue - operatingCost"
-        },
-        "availableCash": {
-          "definition": "Actual cash remaining after actual financing outflows recorded for the reporting period. Provisions are not deducted from this actual result.",
-          "formula": "operatingProfit - actualLoanPayments - actualAppliedPrepayments",
-          "authority": "LOAN_PAYMENT_RECORDS_PLUS_APPLIED_PREPAYMENT_RECORDS"
-        },
-        "provisionPlanning": {
-          "definition": "Planned amounts to reserve for future defined costs. These remain visible for planning and are not deducted from actual performance or available cash.",
-          "formula": "maintenanceProvision + renewalProvision + otherProvision"
-        },
-        "financingDetail": {
-          "definition": "Loan schedule and actual financing detail shown separately from operating profit and available cash.",
-          "rule": "Amortization separates principal and interest. Scheduled obligation is informational; actual loan payments and applied prepayments affect available cash."
-        }
-      },
-      "loanComponents": {
-        "rule": "Amortization separates principal and interest using actual days/365 interest; prepayment has zero prepayment charge. Principal reduces outstanding debt, interest is a financing cost, actual payment is a cash outflow, and no financing amount is deducted twice."
-      },
-      "movementEconomics": {
-        "rule": "Vehicle KM is the denominator for Revenue/KM, Profit/KM, Cost/KM and vehicle-based break-even. Dead KM is reported separately for knowledge but remains included in vehicle KM."
-      },
-      "unmodeledOtherBusinessCosts": {
-        "rule": "No unsupported other-business-cost amount is invented. A future authoritative input must be added before such costs enter the financial model."
-      }
+  "supportedPerformance": {
+    "recordedRevenue": {
+      "definition": "Saved fares from completed rides plus saved cancellation fees; missing cancellation fees contribute zero.",
+      "source": "Canonical saved ride/shift records",
+      "formula": "sum(eligible completed ride fares) + sum(saved cancellation fees)"
+    },
+    "fuelSpending": {
+      "definition": "Sum of recorded refill amounts in the selected period, including partial refills.",
+      "source": "Saved fuel records",
+      "formula": "sum(recorded refill amount)"
     },
     "fuelCostPerKm": {
-      "version": 2,
-      "rule": "Full-tank-to-full-tank intervals only; first full-tank fill establishes baseline; partial fills are recorded but excluded; use latest 10 completed full-tank interval observations, and while the current interval is open use the previous completed observations.",
-      "target": "src/domain/math/fuel.js"
+      "definition": "Fuel cost per kilometre from consecutive valid full-tank odometer readings only; partial fills do not create intervals.",
+      "source": "Saved fuel records",
+      "formula": "recorded cost for qualified full-tank interval / interval kilometres"
     },
-    "maintenance": {
-      "version": 1,
-      "rule": "exactly one dimension per maintenance item: KM or TIME; provision and actual invoice remain separate",
-      "target": "src/domain/performance/performanceEngineV2.js",
-      "inputValidationTarget": "src/application/admin/universalFormRules.js"
-    },
-    "currency": {
-      "version": 1,
-      "rule": "safe integer paise at monetary boundaries",
-      "target": "src/domain/math/currency.js"
-    },
-    "loan": {
-      "version": 2,
-      "rule": "reducing-balance amortization with actual days/365 interest; prepayment has zero prepayment charge",
-      "target": "src/domain/finance/loanEngine.js"
+    "incomeAfterFuel": {
+      "definition": "Recorded revenue less recorded fuel spending. Revenue includes cancellation fees.",
+      "source": "Recorded revenue and fuel spending",
+      "formula": "recordedRevenue - recordedFuelSpending"
     }
   },
-  "goldenPolicy": "Every changed financial formula requires a deterministic regression vector before deployment."
+  "excluded": {
+    "rule": "No forecasts, targets, break-even models, provisions, profitability models, loan amortization, prepayment estimates, maintenance projections, compliance provisions, recovery balances, or unrelated financial calculations."
+  }
 }
