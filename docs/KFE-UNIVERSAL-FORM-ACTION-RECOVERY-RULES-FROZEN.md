@@ -127,7 +127,7 @@ Odometer entry remains editable before confirmation. If the delta requires alloc
 Trip start may be immediately undone while no downstream operation depends on it. Trip end is a completion workflow: capture required completion details, then commit. Immediate safe mistakes may be undone; once downstream activity exists, use correction rather than rewriting history.
 
 ### Financial records
-An immediate safe reversal may use Undo. Once a transaction participates in reports, allocations, settlements, or other downstream calculations, use correction/reversal and preserve the original event.
+An immediate safe reversal may use Undo. Once a transaction participates in reports or other downstream records, use correction/reversal and preserve the original event.
 
 ## 13. Universal design checklist
 
