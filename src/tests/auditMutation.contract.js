@@ -36,7 +36,6 @@ const mutationWriters = [
   'repositories/fuelRepository.js',
   'repositories/odoGapRepository.js',
   'repositories/shiftTripRepository.js',
-  'repositories/movementArtifactRepository.js',
   'repositories/locationRepository.js'
 ]
 for (const relative of mutationWriters) {

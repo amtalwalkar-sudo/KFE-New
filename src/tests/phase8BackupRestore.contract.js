@@ -6,7 +6,7 @@ const stores = Object.fromEntries(CANONICAL_BACKUP_STORES.map(store => [store, [
 const snapshot = { format: BACKUP_FORMAT, formatVersion: BACKUP_FORMAT_VERSION, source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: 13 }, exportedAt: '2026-09-17T00:00:00.000Z', stores }
 const backupPanel = await (await import('node:fs/promises')).readFile(new URL('../components/admin/BackupRestorePanel.vue', import.meta.url), 'utf8')
 assert.match(backupPanel, /Create a JSON backup file you can keep on your phone or move elsewhere\./)
-assert.match(backupPanel, /separate private recovery copy inside the app/)
+assert.match(backupPanel, /private in-app recovery copy/)
 assert.match(backupPanel, /KFE private recovery copy/)
 assert.equal(typeof BackupService.createBackup, 'function'); assert.equal(typeof BackupService.serializeBackup, 'function'); assert.equal(typeof BackupService.readBackupText, 'function'); assert.equal(typeof BackupService.saveLocalBackup, 'function'); assert.equal(typeof BackupService.getLocalBackup, 'function'); assert.equal(typeof BackupService.restoreBackup, 'function'); assert.equal(typeof BackupService.requestLocalBackupCheckpoint, 'function'); assert.equal(typeof BackupService.maybeDailyLocalBackup, 'function')
 assert.equal(CANONICAL_BACKUP_STORES.length, 21); assert.equal(CANONICAL_BACKUP_STORES.includes('driver_collected_data'), false)
