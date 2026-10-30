@@ -68,6 +68,7 @@ configureWorkRuntimePorts({
     beginCanonicalReset: noop, clearCanonicalReset: noop, completeCanonicalReset: noop, releaseCanonicalReset: noop, getCanonicalResetState: noop,
   },
   browserCanonicalWork: { putRecord: noop, getRecord: noop, listRecords: noop, getOperation: noop },
+  tripBoundaryLocation: { queueEventLocationCapture: noop, captureOneShotLocation: noop },
   gpsPermissions: { isNativePlatform: () => true, getLocationStatus: noop, openBackgroundLocationSettings: noop, requestLocationPermissions: noop, requestBackgroundLocationPermission: noop },
   diagnostics: { start: noop, waiting: noop, checkpoint: noop, error: noop, complete: noop, snapshot: noop, subscribe: noop, clear: noop },
   androidOverlay: { hide: noop, update: noop, prepare: noop, fareSaved: noop, cancelSaved: noop },
