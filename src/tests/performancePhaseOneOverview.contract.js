@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { derivePhaseOnePerformanceOverview } from '../domain/performance/phaseOneOverview.js'
+import { deriveCumulativeProvisionBalances } from '../domain/performance/financePerformanceAdapter.js'
 
 const range = { from: new Date('2026-10-26T00:00:00+05:30'), to: new Date('2026-10-26T23:59:59.999+05:30') }
 const snapshot = {
@@ -30,9 +31,9 @@ assert.throws(() => derivePhaseOnePerformanceOverview(snapshot, { from: new Date
 const serviceSource = readFileSync(new URL('../application/performance/phaseOnePerformanceService.js', import.meta.url), 'utf8')
 const viewSource = readFileSync(new URL('../views/PerformanceView.vue', import.meta.url), 'utf8')
 const adminSource = readFileSync(new URL('../views/AdminView.vue', import.meta.url), 'utf8')
-assert.ok(serviceSource.includes('balanceMetrics.loanProvisionBalance'))
-assert.ok(serviceSource.includes('balanceMetrics.maintenanceProvisionBalance'))
-assert.match(serviceSource, /const balanceFrom = range\.from <= asOf \? range\.from : asOf/, 'cumulative balance reads must keep the computation range bounded')
+assert.ok(serviceSource.includes('deriveCumulativeProvisionBalances(snapshot, asOf)'))
+assert.ok(!serviceSource.includes('balanceMetrics'), 'cumulative balances must not be derived from selected-period metrics')
+assert.ok(!serviceSource.includes('balanceFrom'), 'cumulative balances must not reset to the selected period start')
 assert.match(serviceSource, /PerformanceService\.getMetrics\(snapshot, \{ from: balanceFrom, to: asOf \}\)/, 'provision balances must be evaluated at the current as-of boundary')
 assert.ok(viewSource.includes('money(overview.provisionBalances.emi.balance)'))
 assert.ok(viewSource.includes('money(overview.provisionBalances.maintenance.balance)'))
@@ -41,4 +42,20 @@ assert.ok(adminSource.includes('money(entityFinancial(record).provisionBalance)'
 assert.ok(adminSource.includes('money(performanceMetrics?.maintenanceProvisionBalance)'), 'Admin maintenance planning must render the signed maintenance balance')
 assert.ok(!viewSource.includes('Math.max(0, overview.provisionBalances.emi.balance)'), 'presentation must not clamp signed EMI balances')
 assert.ok(!viewSource.includes('Math.max(0, overview.provisionBalances.maintenance.balance)'), 'presentation must not clamp signed maintenance balances')
+const cumulativeSnapshot = {
+  shifts: [
+    { id: 'prior-shift', status: 'COMPLETED', shiftStartAt: '2026-10-01T08:00:00+05:30', shiftEndAt: '2026-10-01T18:00:00+05:30', startOdometer: 100, endOdometer: 200 },
+    { id: 'current-shift', status: 'COMPLETED', shiftStartAt: '2026-10-20T08:00:00+05:30', shiftEndAt: '2026-10-20T18:00:00+05:30', startOdometer: 200, endOdometer: 300 },
+  ],
+  breakEvenInputs: [{ id: 'maintenance-rate', effectiveFrom: '2026-10-01', maintenanceProvisionPerKm: 1, active: true }],
+  settlements: [{ id: 'maintenance-payment', sourceType: 'Maintenance', direction: 'OUT', amount: 150, settledOn: '2026-10-10T10:00:00+05:30' }],
+  loans: [{ id: 'loan', status: 'ACTIVE', principal: 100000, tenureMonths: 60, annualInterestRatePercent: 0, startDate: '2026-01-01' }],
+  loanPayments: [{ id: 'advance-emi-payment', loanId: 'loan', amount: 20000, paidOn: '2026-10-10T10:00:00+05:30', status: 'PAID' }],
+  prepayments: [],
+}
+const cumulative = deriveCumulativeProvisionBalances(cumulativeSnapshot, new Date('2026-10-30T20:00:00+05:30'))
+assert.equal(cumulative.maintenance.available, true)
+assert.equal(cumulative.maintenance.balance, 50, 'maintenance balance must include all prior qualifying shifts, less actual payments, regardless of selected report period')
+assert.equal(cumulative.emi.available, true)
+assert.ok(cumulative.emi.balance < 0, 'EMI advance payment must preserve a signed negative cumulative balance')
 console.log('Performance overview + signed provision display contract: PASS')
