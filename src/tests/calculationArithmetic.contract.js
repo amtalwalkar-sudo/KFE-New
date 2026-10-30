@@ -30,6 +30,9 @@ for (const file of files(['views', 'components', 'presentation'])) {
 // Screen projections must delegate financial arithmetic to application/domain owners.
 const adminView = source('views/AdminView.vue')
 const calculationsView = source('views/CalculationsView.vue')
+const workFuelDomain = source('domain/work/fuel.js')
+if (!workFuelDomain.includes('calculateFuelQuantityKg')) violations.push('Work fuel validation must delegate quantity arithmetic to the shared canonical formula.')
+if (/total\\s*\\/\\s*price/.test(workFuelDomain)) violations.push('Work fuel domain must not duplicate the quantity division formula.')
 for (const [name, text] of [['AdminView.vue', adminView], ['CalculationsView.vue', calculationsView]]) {
   for (const pattern of [
     /const\s+sumPayments\s*=/,
