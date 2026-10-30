@@ -13,20 +13,6 @@ export const transitionTrip = (trip, to, data = {}) => {
   const next = { ...trip, status: to }
   if (data.tripEndAt) next.tripEndAt = data.tripEndAt
   if (data.tripEndLocation) next.tripEndLocation = data.tripEndLocation
-  if (to === TRIP_STATES.COMPLETED && data.tripKm !== undefined && Number.isFinite(Number(data.tripKm)) && Number(data.tripKm) >= 0) {
-    next.tripKm = Number(data.tripKm)
-    next.tripKmAuthority = data.tripKmAuthority || 'GPS_ESTIMATE'
-    next.tripKmProvenance = data.tripKmProvenance || null
-  }
-  if (to === TRIP_STATES.CANCELLED) {
-    const revenue = data.revenue === undefined || data.revenue === '' || data.revenue === null ? 0 : Number(data.revenue)
-    if (revenue !== null && (!Number.isFinite(revenue) || revenue < 0)) throw new Error('Cancelled trip revenue must be a non-negative number.')
-    next.cancelledRevenue = revenue
-    next.cancelReason = data.reason || 'DRIVER_MISTAKE'
-    next.revenue = revenue
-    next.revenueAuthority = 'SUPPORTING_ONLY'
-    if (data.revenueProvenance !== undefined) next.revenueProvenance = data.revenueProvenance
-  }
   return next
 }
 
