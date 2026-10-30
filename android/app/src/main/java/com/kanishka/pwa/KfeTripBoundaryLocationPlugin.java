@@ -46,7 +46,11 @@ public class KfeTripBoundaryLocationPlugin extends Plugin {
     status.put("backgroundGranted", background);
     status.put("gpsEnabled", gpsEnabled);
     status.put("backgroundCaptureAllowed", fine && background);
-    status.put("pendingCount", KfeOverlayService.pendingEventLocationCount(context));
+    int pendingCount = KfeOverlayService.pendingEventLocationCount(context);
+    status.put("pendingCount", pendingCount);
+    // Resume only already-queued event captures when the app is opened or the
+    // GPS status is explicitly refreshed. No permission prompt or polling.
+    if (pendingCount > 0 && fine && background) KfeOverlayService.retryPendingLocations(context);
     call.resolve(status);
   }
 
