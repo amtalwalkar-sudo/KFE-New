@@ -95,5 +95,27 @@ const obsoleteFiles = [
 ]
 for (const relativePath of obsoleteFiles) if (fs.existsSync(path.join(root, relativePath))) violations.push(`Obsolete implementation still exists: ${relativePath}`)
 
+
+// Native Capacitor plugin registration is centralized. Capability adapters may
+// consume registry exports, but must not create independent plugin instances.
+const infrastructureRoot = path.join(root, 'infrastructure')
+for (const file of readFiles(infrastructureRoot)) {
+  const relativePath = path.relative(infrastructureRoot, file).split(path.sep).join('/')
+  if (relativePath === 'capacitor/nativePluginRegistry.js') continue
+  const source = fs.readFileSync(file, 'utf8')
+  if (/\bregisterPlugin\s*\(/.test(source) || /from\s+['"]@capacitor\/core['"]/.test(source)) {
+    violations.push(`Native Capacitor access must use the shared registry: infrastructure/${relativePath}`)
+  }
+}
+const pluginRegistryPath = path.join(infrastructureRoot, 'capacitor/nativePluginRegistry.js')
+if (!fs.existsSync(pluginRegistryPath)) {
+  violations.push('Shared Capacitor native plugin registry is missing.')
+} else {
+  const registry = fs.readFileSync(pluginRegistryPath, 'utf8')
+  for (const pluginName of ['KfeNativeWorkActions', 'KfeCanonicalWork', 'KfeOverlay', 'KfeTripBoundaryLocation', 'KfeSecureStorage', 'KfeNativeSystem']) {
+    if (!registry.includes(`registerPlugin('${pluginName}')`)) violations.push(`Shared Capacitor registry is missing ${pluginName}.`)
+  }
+}
+
 if (violations.length) { console.error(violations.join('\n')); process.exit(1) }
 console.log('Architecture contract passed: presentation, application, domain, persistence, infrastructure and obsolete-code boundaries are clean.')
