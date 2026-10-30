@@ -1,7 +1,7 @@
-import { registerPlugin, Capacitor } from '@capacitor/core'
+import { Capacitor, NativePlugins } from '../capacitor/nativePluginRegistry.js'
 import { getCanonicalResetBarrier } from '../../utils/indexedDB.js'
 
-const NativeCanonicalWork = registerPlugin('KfeCanonicalWork')
+const NativeCanonicalWork = NativePlugins.canonicalWork
 const native = () => Capacitor?.isNativePlatform?.() === true
 const assertNoResetInProgress = () => {
   const resetId = getCanonicalResetBarrier()
