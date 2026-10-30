@@ -78,7 +78,7 @@ try {
 
 const mappls = new MapplsGatewayLocationNameAdapter({
   endpoint: 'mock://mappls',
-  fetchImpl: async () => ({ ok: true, json: async () => ({ result: { address: {
+  fetchImpl: async () => ({ ok: true, json: async () => ({ result: { lat: 19.025, lng: 72.842, address: {
     subLocality: 'Dadar Parsi Colony', city: 'Mumbai', state: 'Maharashtra', district: 'Mumbai Suburban'
   } } }) }),
 })
