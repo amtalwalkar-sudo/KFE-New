@@ -88,6 +88,19 @@ const maintenanceProvisionThrough = (shifts, inputs, asOf) => {
   if(rows.some(x=>!Number.isFinite(x.rate)))return NaN
   return rows.reduce((sum,x)=>sum+shiftKm(x.shift)*x.rate,0)
 }
+export function deriveCumulativeMaintenanceProvisionBalance({ shifts = [], breakEvenInputs = [], settlements = [], asOf = new Date() } = {}) {
+  const boundary = d(asOf)
+  if (!boundary) return { available: false, balance: NaN, provision: NaN, payments: NaN }
+  const provision = maintenanceProvisionThrough(shifts, breakEvenInputs, boundary)
+  const payments = live(settlements)
+    .filter(row => String(row.sourceType || '') === 'Maintenance'
+      && String(row.direction || 'OUT').toUpperCase() === 'OUT')
+    .filter(row => { const paidAt = d(row.settledOn || row.paidOn || row.createdAt); return paidAt && paidAt <= boundary })
+    .reduce((sum, row) => sum + n(row.amount), 0)
+  const available = Number.isFinite(provision)
+  return { available, balance: available ? provision - payments : NaN, provision, payments }
+}
+
 const inclusiveCalendarDays = (fromKey, toKey) => {
   const from = dateKeyDate(fromKey), to = dateKeyDate(toKey)
   if (!from || !to || to < from) return 0
