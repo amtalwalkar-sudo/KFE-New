@@ -1,4 +1,5 @@
 import { reactive } from 'vue'
+import { DiagnosticService } from '../diagnostics/diagnosticService.js'
 
 const startupState = reactive({
   status: 'starting',
@@ -30,11 +31,9 @@ export const initializeApplication = async () => {
   const [
     { MutationRepository },
     { BackupService },
-    { DiagnosticService },
   ] = await Promise.all([
     import('../../repositories/mutationRepository.js'),
     import('../backup/backupService.js'),
-    import('../../infrastructure/diagnostics/diagnosticService.js'),
   ])
 
   DiagnosticService.start('KFE startup')
