@@ -117,7 +117,7 @@ onUnmounted(() => {
           </article>
         </div>
       </section>
-      <p class="performance-footnote">Income after fuel is an operating summary, not net profit; maintenance, EMI and other costs are not included in Phase 1 income-after-fuel. Signed provision balances are shown separately and are not subtracted a second time.</p>
+      <p class="performance-footnote">Income after fuel is an operating summary, not net profit; Maintenance, EMI and other costs are not included in Phase 1 income-after-fuel. Signed provision balances are shown separately and are not subtracted a second time.</p>
     </template>
   </section>
 </template>
