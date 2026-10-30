@@ -40,7 +40,7 @@ assert.match(smoke,/route\('performance','\.performance-page'/,'Performance must
 assert.match(smoke,/route\('admin','\.admin-page'/,'Admin must use the canonical Settings surface')
 assert.match(smoke,/\.activity-timeline-page/,'Timeline smoke must verify the live Timeline presentation')
 assert.match(smoke,/\.performance-page'\)\.count\(\)===1/,'Performance smoke must verify the live Performance presentation')
-for(const token of ['CNG refuelling','Timeline shows locality only after manual resolution and Performance remains read-only','Work technical surface','kfe.visual.theme.mode','reducedMotion','1280','390']) assert.ok(smoke.includes(token),'Phase 4 runtime smoke missing '+token)
+for(const token of ['CNG refuelling','persisted shift/trip/fuel records produce the expected rendered fare, fuel and income-after-fuel values','Work technical surface','kfe.visual.theme.mode','reducedMotion','1280','390']) assert.ok(smoke.includes(token),'Phase 4 runtime smoke missing '+token)
 assert.match(smoke,/kanishka_kfe_canonical_db/)
 assert.match(smoke,/kanishka_kfe_synthetic_db/)
 assert.match(db,/CANONICAL_DB_NAME = 'kanishka_kfe_canonical_db'/)
