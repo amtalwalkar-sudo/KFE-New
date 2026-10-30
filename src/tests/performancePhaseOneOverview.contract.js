@@ -34,7 +34,6 @@ const adminSource = readFileSync(new URL('../views/AdminView.vue', import.meta.u
 assert.ok(serviceSource.includes('deriveCumulativeProvisionBalances(snapshot, asOf)'))
 assert.ok(!serviceSource.includes('balanceMetrics'), 'cumulative balances must not be derived from selected-period metrics')
 assert.ok(!serviceSource.includes('balanceFrom'), 'cumulative balances must not reset to the selected period start')
-assert.match(serviceSource, /PerformanceService\.getMetrics\(snapshot, \{ from: balanceFrom, to: asOf \}\)/, 'provision balances must be evaluated at the current as-of boundary')
 assert.ok(viewSource.includes('money(overview.provisionBalances.emi.balance)'))
 assert.ok(viewSource.includes('money(overview.provisionBalances.maintenance.balance)'))
 assert.ok(viewSource.includes('Negative means payments exceed provision accrued'))
