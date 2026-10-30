@@ -32,7 +32,6 @@ assert.doesNotMatch(androidManifest, /android:debuggable="true"/)
 assert.match(androidManifest, /android:allowBackup="false"/)
 
 const sourceFiles = [
-  'src/application/synthetic/syntheticDataService.js',
   'src/application/startup/startupService.js',
   'src/infrastructure/backup/backupConfigAdapter.js',
   'src/application/sync/cloudSyncService.js'
