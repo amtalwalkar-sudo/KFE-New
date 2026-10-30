@@ -41,8 +41,6 @@ const fareTripId = ref(null)
 const fare = ref('')
 const tripToll = ref('')
 const tripParking = ref('')
-const tripTollTreatment = ref('INCLUDED')
-const tripParkingTreatment = ref('INCLUDED')
 const fareBusy = ref(false)
 
 
@@ -123,14 +121,13 @@ watch([startOdo, startAck, gapChoice], () => {
   if (!startOpen.value || !startWorkflowId.value || restoringDrafts) return
   saveDraft(startDraftIdentity(), { startOdo: startOdo.value, startAck: startAck.value, gapChoice: gapChoice.value })
 })
-watch([fare, tripToll, tripParking, tripTollTreatment, tripParkingTreatment], () => {
+watch([fare, tripToll, tripParking], () => {
   // Persist only against the trip explicitly opened in the fare form; never
   // let a reset after commit overwrite the next pending trip's draft.
   const tripId = fareTripId.value
   if (!tripId || !store.shift?.id || restoringDrafts) return
   saveDraft(tripDraftIdentity('work-trip-details', 'ENTER_FARE', tripId), {
-    fare: fare.value, tripToll: tripToll.value, tripParking: tripParking.value,
-    tripTollTreatment: tripTollTreatment.value, tripParkingTreatment: tripParkingTreatment.value
+    fare: fare.value, tripToll: tripToll.value, tripParking: tripParking.value
   })
 })
 watch([cancelReason, cancelFare], () => {
@@ -296,7 +293,7 @@ async function syncOverlay() {
     pendingFareId: state.pendingFareId,
     cancelOpen: cancelOpen.value,
     cancelDraft: { cancelReason: cancelReason.value, cancelFare: cancelFare.value },
-    fareDraft: { fare: fare.value, tripToll: tripToll.value, tripParking: tripParking.value, tripTollTreatment: tripTollTreatment.value, tripParkingTreatment: tripParkingTreatment.value }
+    fareDraft: { fare: fare.value, tripToll: tripToll.value, tripParking: tripParking.value }
   }).catch(() => {})
 }
 
