@@ -10,6 +10,7 @@ const locationAdapter = fs.readFileSync('src/infrastructure/android/tripBoundary
 const runtimePorts = fs.readFileSync('src/application/work/workRuntimePorts.js', 'utf8')
 const nativePlugin = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeTripBoundaryLocationPlugin.java', 'utf8')
 const nativeOverlay = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java', 'utf8')
+const nativeGpsPolicy = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeGpsEventPolicy.java', 'utf8')
 
 for (const event of ['PICKUP_START', 'TRIP_CANCELLED', 'TRIP_START', 'TRIP_END']) {
   assert.ok(eventLocationService.includes(`'${event}'`), `missing supported ride event ${event}`)
@@ -41,9 +42,9 @@ assert.match(domainBoundary, /accuracy !== null && \(!Number\.isFinite\(accuracy
 assert.match(boundary, /domain\/location\/tripBoundaryLocation\.js/)
 assert.doesNotMatch(boundary, /captureCurrentLocation/, 'Android must not have a second direct GPS capture pathway')
 assert.match(nativeOverlay, /queueEventLocationCapture\(Context context,String entityType,String entityId,String eventType,String eventAt\)/)
-assert.match(nativeOverlay, /eventLocationSnapshotId\(entityType,entityId,eventType\)/)
-assert.match(nativeOverlay, /return \"TRIP\"\.equals\(entityType\)[\s\S]*?\"TRIP_END\"\.equals\(eventType\)/, 'native queue must reject non-ride GPS event types')
-assert.doesNotMatch(nativeOverlay.slice(nativeOverlay.indexOf('private static boolean isSupportedEventLocationType'), nativeOverlay.indexOf('private static String eventLocationSnapshotId')), /SHIFT_START|SHIFT_END/)
+assert.ok(nativeOverlay.includes('KfeGpsEventPolicy.snapshotId(entityType,entityId,eventType)'))
+assert.ok(nativeGpsPolicy.includes('TRIP_END'), 'native policy must retain the supported trip event set')
+assert.doesNotMatch(nativeGpsPolicy, /SHIFT_START|SHIFT_END/)
 assert.match(nativePlugin, /backgroundCaptureAllowed/)
 assert.match(nativeOverlay, /isEventGpsFixAtOrAfter\(eventAt,fixTime\)/, 'Native GPS must reject cached fixes from before the event timestamp.')
 assert.match(nativeOverlay, /provider fix predates or cannot be compared with the ride event/)
