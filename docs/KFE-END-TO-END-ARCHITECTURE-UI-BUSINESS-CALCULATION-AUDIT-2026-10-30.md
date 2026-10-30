@@ -113,8 +113,8 @@ The domain engines now preserve the signed balance (`accumulated provision - act
 
 | ID | Area | Finding | Action / status |
 |---|---|---|---|
-| KFE-E2E-01 | Architecture | Machine-readable presentation dependency rules contradicted architecture/UI authorities | Corrected; CI pending |
-| KFE-E2E-02 | Architecture | Calculation metadata referenced stale/non-existent implementation paths | Corrected; CI pending |
+| KFE-E2E-01 | Architecture | Machine-readable presentation dependency rules contradicted architecture/UI authorities | Corrected; current-head CI green (run `41084522888`) |
+| KFE-E2E-02 | Architecture | Calculation metadata referenced stale/non-existent implementation paths | Corrected; current-head CI green (run `41084522888`) |
 | KFE-E2E-03 | Test governance | Contract inventory mixed current suites with standalone/build-gated and stale historical contracts | Maintained 134-suite canonical runner; registered relevant new regressions, kept Phase 0/1/release workflows separate, and removed obsolete duplicate Phase 8 contract |
 | KFE-E2E-04 | Shell | Admin view queried shell-owned scroll DOM | Replaced with shell viewport event |
 | KFE-E2E-11 | Platform boundaries | GPS status, diagnostics and backup components directly accessed native/infrastructure providers; GPS status polled every 5 seconds | Application services and infrastructure adapters added; status polling removed |
@@ -129,9 +129,10 @@ The domain engines now preserve the signed balance (`accumulated provision - act
 
 ## Final status
 
-**Audit coverage:** all five requested areas inspected and findings recorded.  
-**Corrections:** material source, contract, metadata, and documentation corrections pushed to PR #412.  
-**Verification:** pending current-head CI; no green status is claimed in this report.  
-**Release sign-off:** NOT COMPLETE until current CI, rendered browser E2E, emulator, and required physical-device evidence are available.
+**Audit coverage:** all five requested areas inspected; findings and residual risks are recorded.  
+**Corrections:** source, contract, calculation-ownership, metadata, and documentation corrections are pushed to PR #412.  
+**Verification:** Current head `877ed29d7358072a0e978768b9250594948ecca6` passed KFE 2.0 single CI run `41084522888` (Build and test, Android release gate, 134/134 contract suites), UI Isolation Gate run `41084523013`, Phase 0 Governance Gate run `41084522702`, and Phase 1 Business Foundation Audit run `41084522756`. The rendered Phase 4 canonical fixture asserted fare income, completed rides, fuel spending, and income after fuel from persisted records. CI artifacts include runtime screenshots, Android instrumentation logs, Android debug APK, and release/golden-gate identity evidence.  
+**Still open:** the Work view retains some transient workflow state; advanced Finance/Admin rendered calculations are not proven by the Phase 1 smoke; native SQLite ↔ PWA IndexedDB convergence and offline four-event GPS behavior require real-device acceptance. CI green is not physical-device sign-off.  
+**Release sign-off:** NOT COMPLETE until remaining cross-runtime and physical-device evidence is available.
 
 No merge is authorized by this audit report.
