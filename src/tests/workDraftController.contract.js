@@ -13,12 +13,18 @@ const service = {
     calls.push(['save:end', values.amount])
   },
   async clear(key, options) { calls.push(['clear', options]) },
+  async latestWorkflow(formId, step) { calls.push(['latestWorkflow', formId, step]); return { workflowId: 'restored-workflow-id' } },
+  newWorkflowId() { calls.push(['newWorkflowId']); return 'new-workflow-id' },
 }
 let restoring = false
 const failures = []
 const controller = createWorkDraftController({ service, isRestoring: () => restoring, onFailure: message => failures.push(message) })
 
 assert.deepEqual(await controller.restore(identity), { values: { amount: '10' } })
+assert.deepEqual(await controller.latestWorkflow('work-start-shift', 'START_SHIFT'), { workflowId: 'restored-workflow-id' })
+assert.equal(controller.newWorkflowId(), 'new-workflow-id')
+assert.ok(calls.some(call => call[0] === 'latestWorkflow'))
+assert.ok(calls.some(call => call[0] === 'newWorkflowId'))
 restoring = true
 await controller.save(identity, { amount: 'ignored-during-restore' })
 restoring = false
