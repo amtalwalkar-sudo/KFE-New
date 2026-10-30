@@ -3,12 +3,11 @@ const text=(key,label,options={})=>({key,label,type:'text',...options});
 const number=(key,label,options={})=>({key,label,type:'number',...options});
 const date=(key,label,options={})=>({key,label,type:'date',...options});
 const select=(key,label,options=[],extra={})=>({key,label,type:'select',options,...extra});
-const checkbox=(key,label,options={})=>({key,label,type:'checkbox',...options});
 const textarea=(key,label,options={})=>({key,label,type:'textarea',...options});
 
 export const ADMIN_FORM_DEFINITIONS={
   businessSetup:{
-    key:'businessSetup',title:'Business Setup',createLabel:'Business Setup',category:'businessSetup',calculationRole:'authoritative',
+    key:'businessSetup',title:'Business Setup',createLabel:'Business Setup',category:'businessSetup',
     fields:[
       date('businessStartDate','Business Start Date',{section:'Business boundary',required:true,help:'All business reporting periods begin on this IST calendar date.'}),
       textarea('notes','Notes',{section:'Additional context'})
@@ -57,7 +56,7 @@ export const ADMIN_FORM_DEFINITIONS={
     ]
   },
   maintenance:{
-    key:'maintenance',title:'Maintenance',createLabel:'Maintenance Record',category:'vehicleRecords',calculationRole:'authoritative-actual-maintenance',
+    key:'maintenance',title:'Maintenance',createLabel:'Maintenance Record',category:'vehicleRecords',
     fields:[
       date('performedOn','Date',{section:'Maintenance record',required:true}),
       number('odometerKm','Odometer (km)',{section:'Maintenance record',required:true,min:0,step:1}),
