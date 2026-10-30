@@ -88,6 +88,13 @@ assert.match(adminSourceForm, /overflow-wrap:anywhere/)
 assert.match(adminLayoutCss, /@media \(max-width:760px\)\s*\{\s*\.admin-page \.source-form-actions\s*\{\s*position:static !important;/)
 assert.match(adminLayoutCss, /\.admin-page \.source-form-actions\s*\{[\s\S]*?backdrop-filter:none;\s*box-shadow:none;/)
 
+
+const adminViewSource = await readFile(new URL('../views/AdminView.vue', import.meta.url), 'utf8')
+const shellSource = await readFile(new URL('../components/shell/KfeShell.vue', import.meta.url), 'utf8')
+assert.ok(adminViewSource.includes('kfe:shell-scroll-top'), 'Admin must emit a shell-owned viewport reset intent')
+assert.ok(shellSource.includes('kfe:shell-scroll-top'), 'Shared shell must own the viewport reset operation')
+assert.equal(adminViewSource.includes("document.querySelector('.content-scroll-area')"), false, 'Admin must not query shell-owned DOM')
+
 console.log('Admin navigation contract: PASS — approved four categories/nine entries and settings routing are fixed.')
 
 const adminShell = await readFile(new URL('../components/admin/AdminShell.vue', import.meta.url), 'utf8')
