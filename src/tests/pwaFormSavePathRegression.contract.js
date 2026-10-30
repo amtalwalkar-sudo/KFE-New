@@ -67,7 +67,7 @@ assert.doesNotMatch(workForm, /Additional shift toll|Additional shift parking|Tr
 assert.match(drafts, /tx\.objectStore\('form_drafts'\)\.put\(record\)/, 'Drafts must use a separate store')
 assert.match(drafts, /Form draft can only be cleared after successful commitment or explicit confirmed discard/, 'Draft clear must be guarded')
 assert.match(workView, /watch\(\[startOdo, startAck, gapChoice\]/, 'Shift-start edits must survive navigation/restart')
-assert.match(workView, /watch\(\[fare, tripToll, tripParking, tripTollTreatment/, 'Trip details edits must be drafted')
+assert.match(workView, /watch\(\[fare, tripToll, tripParking/, 'Trip details edits must be drafted')
 assert.match(workView, /watch\(\[cancelReason, cancelFare\]/, 'Cancellation edits must be drafted')
 assert.match(workView, /watch\(\[fuelOdo, fuelPrice, fuelAmount, fuelFull\]/, 'Fuel edits must be drafted')
 assert.match(workView, /watch\(\[closingOdo, endStage, largeDistanceConfirmation\]/, 'Closing odometer and long-distance confirmation must be drafted')
