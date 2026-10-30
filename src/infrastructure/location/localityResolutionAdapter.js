@@ -75,3 +75,10 @@ export const getCachedLocationName = l => {
     return typeof entry?.placeName === 'string' && entry.placeName.trim() ? entry.placeName.trim() : null
   } catch { return null }
 }
+
+export const LocalityResolutionAdapter = Object.freeze({
+  resolveLocationNameDetailed,
+  resolveLocationName,
+  localityResolutionCacheKey,
+  getCachedLocationName,
+})
