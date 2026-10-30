@@ -11,7 +11,6 @@ import { WorkRuntimePorts } from './workRuntimePorts.js'
 import { EventLocationService } from '../location/eventLocationService.js'
 import { CanonicalWorkBoundary } from './canonicalWorkBoundary.js'
 import { recoverCanonicalWorkSnapshot } from './canonicalWorkRecovery.js'
-import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
 import { normalizeShiftInput, normalizeTripInput } from '../../domain/canonicalNormalization.js'
 import { transitionTrip, transitionTripStage } from '../../domain/work/tripLifecycle.js'
 import { deriveLiveRevenue } from '../../domain/work/liveRevenue.js'
@@ -292,12 +291,6 @@ export const WorkService = Object.freeze({
       const completedShift = {
         ...shift,
         revenue, liveFareRevenue: revenue, revenueSource: 'TRIP_FARES',
-        revenueReconciliation: reconcileShiftRevenue({
-          shiftRevenue: revenue, trips: shiftTrips, toll: shift.toll, parking: shift.parking,
-          tollTreatment: shift.tollTreatment, parkingTreatment: shift.parkingTreatment,
-          tollParkingCaptureMode: shift.tollParkingCaptureMode,
-          tollParkingRevenueTreatment: shift.tollParkingRevenueTreatment,
-        }),
         endOdometer: validation.closingOdometer,
         totalDistance: validation.closingOdometer - Number(shift.startOdometer),
         ...(data?.movementReconciliation ? { movementReconciliation: data.movementReconciliation } : {}),
