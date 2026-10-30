@@ -30,7 +30,7 @@ try {
     primary: { endpoint: 'mock://primary', resolve: async () => null },
     fallback: { resolve: async () => null },
   })
-  const unresolved = await service.resolveDetailed({ latitude: 19.076, longitude: 72.8777 }, { forceRefresh: true })
+  const unresolved = await service.resolveDetailed({ latitude: 19.076, longitude: 72.8777, accuracy: 10 }, { forceRefresh: true })
   assert.equal(unresolved.placeName, null)
   assert.equal(unresolved.state, 'NO_LOCALITY_MATCH')
   assert.equal(JSON.parse(values.get(cacheKey))[coordinateKey], undefined,
@@ -44,6 +44,20 @@ try {
   assert.equal(resolved.placeName, 'Verified area, Mumbai, Maharashtra')
   assert.equal(resolved.state, 'RESOLVED')
   assert.equal(JSON.parse(values.get(cacheKey))[coordinateKey].placeName, 'Verified area, Mumbai, Maharashtra')
+
+  const lowAccuracyService = new LocalityResolutionService({
+    primary: { endpoint: 'mock://primary', resolve: async () => 'Unverified area' },
+    fallback: { resolve: async () => 'Unverified fallback' },
+  })
+  const lowAccuracy = await lowAccuracyService.resolveDetailed(
+    { latitude: 19.076, longitude: 72.8777, accuracy: 450 },
+    { forceRefresh: true },
+  )
+  assert.equal(lowAccuracy.placeName, null)
+  assert.equal(lowAccuracy.state, 'LOW_ACCURACY')
+  assert.equal(getCachedLocationName({ latitude: 19.076, longitude: 72.8777, accuracy: 450 }), null)
+  assert.equal(getCachedLocationName({ latitude: 19.076, longitude: 72.8777 }), null,
+    'missing accuracy must not make an old locality label look reliable')
 
   const offlineStyleFailure = new LocalityResolutionService({
     primary: { endpoint: 'mock://primary', resolve: async () => { throw new Error('network unavailable') } },
@@ -66,7 +80,7 @@ const mappls = new MapplsGatewayLocationNameAdapter({
   } } }) }),
 })
 assert.equal(
-  await mappls.resolve({ latitude: 19.025, longitude: 72.842 }),
+  await mappls.resolve({ latitude: 19.025, longitude: 72.842, accuracy: 10 }),
   'Dadar Parsi Colony, Mumbai, Maharashtra',
   'a verified sub-locality may be shown with city/state context',
 )
@@ -82,4 +96,4 @@ assert.equal(
   'district/county/city-only results must not be presented as a pickup/drop area',
 )
 
-console.log('Locality resolution contract: manual refresh cannot preserve stale labels or schedule automatic retries.')
+console.log('Locality resolution contract: manual refresh cannot preserve stale labels or schedule automatic retries; low-accuracy fixes remain unavailable.')
