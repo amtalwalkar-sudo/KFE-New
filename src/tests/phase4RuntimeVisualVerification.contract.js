@@ -40,7 +40,7 @@ assert.ok(smoke.includes("route('admin','.admin-page'"),'Admin must use the full
 assert.ok(smoke.includes("page.locator('.activity-timeline-page').count()===1"),'Timeline smoke must verify the live Timeline surface')
 assert.ok(smoke.includes("page.locator('.performance-page').count()===1"),'Performance smoke must guard against the unexpected Performance presentation')
 assert.match(smoke,/route\('timeline','\.activity-timeline-page'/,'Timeline must use the live Timeline surface')
-assert.match(smoke,/route\('performance','\.performance-page'/,'Performance must use the live read-only Performance surface')
+assert.ok(smoke.includes("getByRole('link',{name:'Performance',exact:true}).click()"),'Performance must use the live read-only Performance surface')
 assert.match(smoke,/route\('admin','\.admin-page'/,'Admin must use the canonical Settings surface')
 assert.match(smoke,/\.activity-timeline-page/,'Timeline smoke must verify the live Timeline presentation')
 assert.match(smoke,/\.performance-page'\)\.count\(\)===1/,'Performance smoke must verify the live Performance presentation')
