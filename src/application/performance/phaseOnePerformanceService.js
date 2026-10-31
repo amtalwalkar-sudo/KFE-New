@@ -30,7 +30,6 @@ export const PhaseOnePerformanceService = Object.freeze({
       fuelCost: fuelSummary.totalFuelAmount,
       fuelCostPerKm: fuelSummary.averageCostPerKm,
       fuelCostPerKmSource: fuelSummary.intervalCount ? 'FULL_TANK_INTERVAL' : null,
-      authority: { revenue: 'SAVED_SHIFT_REVENUE' },
     })
   },
 })
