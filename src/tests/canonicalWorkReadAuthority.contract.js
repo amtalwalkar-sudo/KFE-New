@@ -26,7 +26,7 @@ for (const snippet of [
   "async createTrip(data) { await ensureCanonicalReadBoundary();",
   "async setTripStage(id, stage) { await ensureCanonicalReadBoundary();",
   "async _finishTrip(data, status) { await ensureCanonicalReadBoundary();",
-  "async updateTrip(data) { await ensureCanonicalReadBoundary();",
+  "async saveTripDetails(data) { await ensureCanonicalReadBoundary();",
 ]) assert.ok(repository.includes(snippet), 'missing pre-write canonical reconciliation: ' + snippet)
 
 assert.ok(!repository.includes('../application/'), 'repository must not depend on application-layer modules')
