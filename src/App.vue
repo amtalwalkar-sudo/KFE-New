@@ -1,10 +1,16 @@
 <script setup>
-import { ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import KfeShell from './components/shell/KfeShell.vue'
 import { StartupService, startupState } from './application/startup/startupService.js'
 import { permissionGateState, retryStartupPermissionGate } from './application/startup/permissionGate.js'
 
 const renderError = ref(null)
+const handleRuntimeError = event => {
+  const detail = event?.detail || {}
+  renderError.value = [detail.message || 'Unknown runtime error', detail.component ? 'Component: ' + detail.component : '', detail.phase ? 'Phase: ' + detail.phase : '', detail.stack].filter(Boolean).join('\\n\\n')
+}
+onMounted(() => window.addEventListener('kfe:runtime-error', handleRuntimeError))
+onUnmounted(() => window.removeEventListener('kfe:runtime-error', handleRuntimeError))
 const recoverApp = () => {
   renderError.value = null
   void StartupService.resetStartupAttempt().catch(error => console.error('KFE startup retry failed:', error))
@@ -13,11 +19,11 @@ const recoverApp = () => {
 
 <template>
   <KfeShell>
-    <div v-if="permissionGateState.status !== 'ready'" class="kfe-permission-gate" role="dialog" aria-modal="true" aria-live="polite" style="position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--kfe-bg,#101820);color:var(--kfe-text,#fff)">
-      <div style="width:min(100%,420px);padding:24px;border-radius:16px;background:var(--kfe-surface,#1d2935);box-shadow:0 12px 40px #0005">
+    <div v-if="permissionGateState.status !== 'ready'" class="kfe-permission-gate" role="dialog" aria-modal="true" aria-live="polite" >
+      <div class="kfe-permission-gate__card">
         <strong>{{ permissionGateState.status === 'checking' ? 'Checking phone permissions' : 'Permission required to continue' }}</strong>
         <p style="margin:12px 0 20px">{{ permissionGateState.message }}</p>
-        <button v-if="permissionGateState.status === 'blocked'" type="button" @click="retryStartupPermissionGate" style="width:100%;min-height:48px">{{ permissionGateState.actionLabel || 'Open setting' }}</button>
+        <button v-if="permissionGateState.status === 'blocked'" type="button" @click="retryStartupPermissionGate" class="kfe-permission-gate__action">{{ permissionGateState.actionLabel || 'Open setting' }}</button>
       </div>
     </div>
     <div v-if="permissionGateState.status === 'ready' && renderError" class="error-container kfe-runtime-error" role="alert">
@@ -46,7 +52,7 @@ const recoverApp = () => {
       <span>Local storage is initializing in the background.</span>
     </div>
 
-    <router-view v-if="permissionGateState.status === 'ready'" v-slot="{ Component }">
+    <router-view v-if="permissionGateState.status === 'ready' && !renderError" v-slot="{ Component }">
       <component :is="Component" />
     </router-view>
   </KfeShell>
