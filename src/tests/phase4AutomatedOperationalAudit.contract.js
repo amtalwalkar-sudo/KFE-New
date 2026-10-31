@@ -92,7 +92,7 @@ scenario('I1/I3/I4/J4', () => {
 
 // I2 — multi-day odometer carry must remain monotonic.
 scenario('I2', () => {
-  const day1 = validateEndShiftEntry({ closingOdometer: 65040, startOdometer: 65000, revenue: 800 })
+  const day1 = validateEndShiftEntry({ closingOdometer: 65040, startOdometer: 65000 })
   const day2 = validateShiftStartOdometer(65040, 65040)
   const day3 = validateShiftStartOdometer(65041, 65040)
   assert.equal(day1.valid, true)
