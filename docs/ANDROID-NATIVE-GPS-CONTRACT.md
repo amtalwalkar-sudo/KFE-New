@@ -24,7 +24,7 @@ The PWA owns reverse geocoding and permanent locality persistence. Native Androi
 - Successful locality names are saved permanently in PWA IndexedDB, keyed by canonical GPS snapshot ID. They are not keyed only by coordinates and are not subject to a 500-entry cache cap.
 - Existing successful locality names are not silently overwritten by ordinary retries.
 - No continuous network polling, automatic connectivity monitoring, or unbounded retry loop is permitted.
-- A provider result is accepted only when it includes coordinates within the saved GPS fix's accuracy-aware proximity bound (100–300 metres). A locality name without verifiable nearby result coordinates is rejected.
+- A provider result is accepted only when it includes coordinates within the saved GPS fix's accuracy-aware proximity bound (100–150 metres). A locality name without verifiable nearby result coordinates is rejected.
 - Never present guessed/fabricated localities or reuse legacy trip-location fields. Pickup and drop presentation rules remain separate: pickup uses `PICKUP_START`; only a completed ride's drop uses `TRIP_END`. Cancellation location is not a passenger drop-off.
 
 ## Platform adapters and verification
