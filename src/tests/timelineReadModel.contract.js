@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { calculateFuelPeriodSummary } from '../domain/math/fuel.js'
+import { tripPeriodTime, locationLabel } from '../application/timeline/activityTimelineReadService.js'
 
 const fullTank = (id, capturedAt, odometer, amount) => ({
   id, vehicleId: 'vehicle-1', capturedAt, odometer, amount,
@@ -29,6 +30,14 @@ const invalidRange = calculateFuelPeriodSummary([current], { from: 'bad', to: 'a
 assert.equal(invalidRange.totalFuelAmount, 0)
 assert.equal(invalidRange.averageCostPerKm, null)
 
+const cancelledAt = Date.parse('2026-10-02T18:45:00.000Z')
+assert.equal(tripPeriodTime({ status: 'CANCELLED', tripStartAt: '2026-10-02T17:00:00.000Z', tripEndAt: '2026-10-02T18:45:00.000Z' }), cancelledAt, 'cancelled rides are ordered by their actual cancellation/end event time')
+assert.equal(tripPeriodTime({ status: 'CANCELLED', tripStartAt: '2026-10-02T17:00:00.000Z' }), Date.parse('2026-10-02T17:00:00.000Z'), 'legacy cancelled rides without an end time retain a deterministic fallback')
+assert.equal(tripPeriodTime({ status: 'COMPLETED', tripStartAt: '2026-10-02T17:00:00.000Z', tripEndAt: '2026-10-02T18:00:00.000Z' }), Date.parse('2026-10-02T17:00:00.000Z'), 'completed rides remain ordered by start time')
+for (const snapshot of [null, {}, { latitude: null, longitude: 72.8 }, { latitude: 19.1, longitude: null }, { latitude: '', longitude: 72.8 }, { latitude: 91, longitude: 72.8 }, { latitude: 19.1, longitude: 181 }]) {
+  assert.equal(locationLabel(snapshot), 'Location unavailable', 'missing or invalid coordinates must never resolve as a locality')
+}
+
 const service = fs.readFileSync('src/application/timeline/activityTimelineReadService.js', 'utf8')
 const view = fs.readFileSync('src/views/ActivityTimelineView.vue', 'utf8')
 const router = fs.readFileSync('src/router/index.js', 'utf8')
@@ -40,6 +49,9 @@ assert.doesNotMatch(service, /ShiftTripRepository\.(create|update|remove|complet
 assert.doesNotMatch(service, /resolveLocationName|reconcilePersistedTripLocations|tripStartLocation|tripEndLocation/, 'Timeline reads only the four shared GPS event snapshots')
 assert.doesNotMatch(view, /captureTripBoundaryLocation/, 'Timeline must not capture GPS')
 assert.match(view, /resolveLocationNameDetailed\(location, undefined, \{ forceRefresh: true \}\)/, 'Timeline may invoke geocoding only through the explicit pull-to-refresh handler')
+assert.match(view, /location\.eventType === 'PICKUP_START'/, 'manual refresh resolves only the displayed pickup event')
+assert.match(view, /ride\.status === 'COMPLETED' && location\.eventType === 'TRIP_END'/, 'manual refresh resolves drop locations only for completed rides')
+assert.doesNotMatch(view, /const key = `\$\{Number\(location\.latitude\)/, 'distinct event snapshots must not be collapsed merely because their coordinates match')
 assert.match(view, /refreshLocationNames/, 'Timeline locality lookups are explicit user-triggered refreshes')
 assert.match(view, /@touchend\.passive="onTouchEnd"/, 'Timeline supports pull-to-refresh')
 assert.match(view, /Average fuel cost\/km/)
@@ -52,6 +64,7 @@ assert.match(service, /pickupArea: pickupName/, 'pickup display must use the dis
 assert.match(service, /locationLabel\(locations\.end\)/, 'Timeline should show the trip-end snapshot')
 assert.doesNotMatch(service, /trip\.tripEndLocation/, 'Timeline must not display legacy trip-level drop labels')
 assert.match(service, /dropArea: trip\.status === 'COMPLETED' \? dropName : 'Location unavailable'/, 'cancelled trips must not claim a cancellation GPS fix as a passenger drop-off')
+assert.match(service, /trip\?\.status === 'CANCELLED'\) return validTime\(trip\.tripEndAt\)/, 'cancelled rides must use their cancellation/end timestamp')
 assert.match(service, /EventLocationService\.forEntities\('TRIP'/, 'Timeline reads persisted trip locations through the shared event-location service')
 assert.match(service, /Location unavailable/)
 assert.match(router, /path: '\/timeline', name: 'Timeline', component: ActivityTimelineView/)
