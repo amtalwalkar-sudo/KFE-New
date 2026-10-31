@@ -206,6 +206,12 @@ No active domain finance/loan engine, forecast, break-even, driver-target, provi
 
 **Change:** Locality eligibility now requires valid coordinates and recorded accuracy from 0 through 75 metres before provider traffic. Timeline displays saved labels only for snapshots meeting that same accuracy gate; otherwise it shows coordinates offline or “Location unavailable” online. Connectivity state is read through `WorkRuntimePorts.platform.isOnline()`, and offline feedback is derived from the locality service result. Contracts cover missing accuracy, poor accuracy, invalid coordinates, and the presentation boundary.
 
+### 25. Android backup could silently omit native-only Work and GPS records
+
+**Finding:** Backup export treated an unavailable native canonical adapter as browser-only mode. On Android, this could produce a syntactically valid JSON backup containing stale IndexedDB Work projections but omitting the authoritative SQLite Shift, Trip and GPS snapshot records. Restore had the same risk when native storage could not be read.
+
+**Change:** Native snapshot collection now distinguishes browser PWA from Android. Browser backup remains IndexedDB-only; Android backup/restore fails closed unless native SQLite is available and its paginated Work/GPS snapshot can be read completely. Regression coverage protects both platform branches.
+
 ## Verification
 
 The following are enforced by regression contracts:
