@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { deriveWorkCockpitState, WORK_COCKPIT_STATES } from '../application/work/workCockpit.js'
 import { WorkService } from '../application/work/workService.js'
-import { WorkflowTimerService, WorkWorkflowSessionService } from '../application/work/workflowTimerService.js'
+import { WorkflowTimerService, WorkWorkflowSessionService } from '../presentation/workflowUiState.js'
 import { deriveLiveRevenue } from '../domain/work/liveRevenue.js'
 assert.equal(deriveLiveRevenue([{status:'COMPLETED',revenue:250},{status:'COMPLETED',revenue:150}]),400)
 assert.equal(deriveLiveRevenue([{status:'COMPLETED',revenue:250},{status:'CANCELLED',cancelledRevenue:75}]),325)
