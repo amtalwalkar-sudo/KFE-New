@@ -9,8 +9,6 @@ import WorkNumericKeypad from './WorkNumericKeypad.vue'
 
 const props = defineProps({
   type: { type: String, required: true },
-  gap: { type: Object, default: () => ({}) },
-  gapKm: { type: Number, default: 0 },
   endStage: { type: String, default: 'CLOSE' },
   endReady: { type: Boolean, default: false },
   endBusy: { type: Boolean, default: false },
@@ -24,7 +22,6 @@ const props = defineProps({
   money: { type: Function, required: true },
   startOdo: { type: String, default: '' },
   startAck: { type: Boolean, default: false },
-  gapChoice: { type: String, default: '' },
   closingOdo: { type: String, default: '' },
   tripTollTreatment: { type: String, default: 'INCLUDED' },
   tripParkingTreatment: { type: String, default: 'INCLUDED' },
@@ -44,7 +41,6 @@ const emit = defineEmits([
   'action',
   'update:start-odo',
   'update:start-ack',
-  'update:gap-choice',
   'update:closing-odo',
   'update:large-distance-confirmed-for',
   'update:trip-toll-treatment',
@@ -113,10 +109,6 @@ function emitNumeric(name, value) {
 
 const endTitle = computed(() => props.endStage === 'ENDED' ? 'Shift ended' : 'Close shift')
 
-function chooseGap(choice) {
-  emit('update:gap-choice', choice)
-}
-
 function submitForm() {
   if (props.type === 'start') {
     emit('action', { name: 'submit-start', startOdo: props.startOdo, startAck: props.startAck === true })
@@ -137,7 +129,7 @@ const updateMap = (name, map, id, value) => {
 
 <template>
   <section class="work-context-form contextual-form" :class="['form-' + type, type === 'start' ? 'start-shift-gate' : '', type === 'end' ? 'end-gate' : '', ['fare', 'cancel', 'fuel'].includes(type) ? 'focus-surface' : '']">
-    <WorkStartShiftForm v-if="type === 'start'" :start-odo="startOdo" :start-ack="startAck" :gap-choice="gapChoice" :gap-km="gapKm" :start-busy="startBusy" @action="emit('action', $event)" @focus-numeric="activateNumeric" @update:start-ack="emit('update:start-ack', $event)" @update:gap-choice="emit('update:gap-choice', $event)" />
+    <WorkStartShiftForm v-if="type === 'start'" :start-odo="startOdo" :start-ack="startAck"  :start-busy="startBusy" @action="emit('action', $event)" @focus-numeric="activateNumeric" @update:start-ack="emit('update:start-ack', $event)" />
 
     <WorkFareForm v-else-if="type === 'fare'" :fare="fare" :fare-busy="fareBusy" :trip-toll="tripToll" :trip-parking="tripParking" :trip-toll-treatment="tripTollTreatment" :trip-parking-treatment="tripParkingTreatment" :show-save-action="!activeNumeric" @action="emit('action', $event)" @focus-numeric="activateNumeric" @dismiss-numeric="dismissNumeric" @update:trip-toll-treatment="emit('update:trip-toll-treatment', $event)" @update:trip-parking-treatment="emit('update:trip-parking-treatment', $event)" />
 
