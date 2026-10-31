@@ -70,7 +70,7 @@ const refreshLocationNames = async () => {
     const eligible = locations.filter(location => visibleRideById.has(location.entityId))
     const results = await EventLocalityService.resolveSnapshots(eligible)
     const resolvedCount = results.filter(result => result?.state === 'RESOLVED' && !result.cacheHit).length
-    const attemptedCount = results.filter(result => !['NOT_ELIGIBLE', 'OFFLINE'].includes(result?.state)).length
+    const attemptedCount = results.filter(result => !['NOT_ELIGIBLE', 'OFFLINE'].includes(result?.state) && !result?.cacheHit).length
     await load()
     refreshMessage.value = attemptedCount === 0
       ? 'No unresolved GPS snapshots from the last seven days are ready for locality lookup.'
