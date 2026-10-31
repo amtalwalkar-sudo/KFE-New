@@ -53,15 +53,13 @@ void (async () => {
       { configureAndroidOverlayLifecycle },
       { StartupService },
       { runStartupPermissionGate },
-      { startKfeThemeController },
-      { default: formSystem }
+      { startKfeThemeController }
     ] = await Promise.all([
       import('./infrastructure/startup/platformStartup.js'),
       import('./infrastructure/android/androidOverlayLifecycle.js'),
       import('./application/startup/startupService.js'),
       import('./application/startup/permissionGate.js'),
-      import('./presentation/theme/kfeThemeController.js'),
-      import('./presentation/forms/universalFormSystem.js').then(module => ({ default: module }))
+      import('./presentation/theme/kfeThemeController.js')
     ])
 
     StartupService.configureStartupPlatform(PlatformStartup)
@@ -98,7 +96,8 @@ void (async () => {
       if (document.visibilityState === 'visible') retryDropboxBackup()
     })
 
-    if (typeof formSystem === 'object') void formSystem
+    // The form module installs its shared keyboard/viewport behavior on import.
+    await import('./presentation/forms/universalFormSystem.js')
 
     window.__KFE_STARTUP_READY__ = false
     await runStartupPermissionGate()
