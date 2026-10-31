@@ -317,6 +317,8 @@ Presentation may:
 - maintain transient UI state;
 - communicate validation/recovery status.
 
+The Work-only timer identity and interrupted-form session marker live in `src/presentation/workflowUiState.js`. They are non-authoritative UI restoration hints only; field drafts use the form-draft application/repository path, and canonical Shift/Trip state is always reconstructed from authoritative records.
+
 Presentation must not:
 
 - become the source of truth;
