@@ -58,18 +58,17 @@ The deterministic conformance scenario is:
 
 ```
 OFFLINE
-→ START SHIFT
-→ ODOMETER / GAP GATE
-→ ONLINE / READY
-→ GO TO PICKUP
-→ READY FOR TRIP
-→ TRIP ACTIVE
-→ TRIP COMPLETION
-→ FARE / COMPLETION CONFIRMATION
-→ NEXT PICKUP
-→ END SHIFT
-→ RECONCILIATION
-→ SHIFT REVIEW
+→ START SHIFT (PWA; opening odometer)
+→ SHIFT ACTIVE
+→ GO TO PICKUP (PWA or Android overlay)
+→ READY FOR RIDE
+→ START RIDE
+→ RIDE ACTIVE
+→ END RIDE
+→ COMPLETED
+→ FARE ENTRY OR EXPLICIT SKIP
+→ NEXT PICKUP OR END SHIFT
+→ END SHIFT (PWA; closing odometer)
 → SHIFT ENDED
 → OFFLINE
 ```
@@ -82,6 +81,7 @@ The scenario additionally verifies:
 - pending native actions are replayable and acknowledged only after canonical persistence;
 - native GPS is enrichment and cannot block authoritative lifecycle commits;
 - authoritative shift revenue remains the ERP revenue source;
+- no personal/dead-kilometre classification, gap allocation, manual reconciliation, or shift-review workflow is part of the current product;
 - a reload/restart reconstructs state from canonical persistence rather than the last rendered surface.
 
 ## Proof levels
