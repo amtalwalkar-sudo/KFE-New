@@ -31,7 +31,6 @@ export const normalizeTripInput = input => {
   for (const [canonical, candidates] of Object.entries(aliases)) { const source = first(input[canonical], ...candidates.map(key => input[key])); if (source !== undefined && source !== null && source !== '') value[canonical] = ['revenue', 'toll', 'parking'].includes(canonical) ? number(source, canonical) : source; for (const alias of candidates) delete value[alias] }
   delete value.tollTreatment; delete value.parkingTreatment; delete value.tollParkingRevenueTreatment
   delete value.tripKm; delete value.tripKmAuthority; delete value.tripKmProvenance; delete value.trip_km; delete value.distanceKm; delete value.distance_km; delete value.distanceProvenance
-  if (input.revenueProvenance !== undefined) value.revenueProvenance = input.revenueProvenance
   if (input.cancelReason !== undefined) value.cancelReason = String(input.cancelReason)
   return value
 }
