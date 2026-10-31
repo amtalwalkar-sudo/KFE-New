@@ -46,5 +46,5 @@ KFE consists only of these capabilities:
 - Product/business scope: `KFE_BUSINESS_RULES_REGISTER.md`.
 - Architecture and ownership boundaries: `docs/KFE-ARCHITECTURE-CONTRACT.md`.
 - Canonical stored facts and preservation rules: `docs/KFE-CANONICAL-DATA-CONTRACT.md`.
-- Basic Performance calculations only: `docs/KFE-CALCULATION-SPECIFICATION.md`.
+- Basic Performance metric meaning and calculations: `KFE_BUSINESS_RULES_REGISTER.md` (sole business-rule authority).
 - Current authority index: `KFE-AUTHORITY-MAP.md`.
