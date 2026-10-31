@@ -2,11 +2,9 @@
 const props = defineProps({
   startOdo: { type: String, default: '' },
   startAck: { type: Boolean, default: false },
-  gapChoice: { type: String, default: '' },
-  gapKm: { type: Number, default: 0 },
   startBusy: { type: Boolean, default: false },
 })
-const emit = defineEmits(['action', 'focus-numeric', 'update:start-ack', 'update:gap-choice'])
+const emit = defineEmits(['action', 'focus-numeric', 'update:start-ack'])
 const submit = () => emit('action', { name: 'submit-start', startOdo: props.startOdo, startAck: props.startAck === true })
 </script>
 
@@ -25,13 +23,6 @@ const submit = () => emit('action', { name: 'submit-start', startOdo: props.star
       <input type="checkbox" :checked="startAck" :disabled="!startOdo" aria-label="Confirm current vehicle odometer" @change="emit('update:start-ack', $event.target.checked)">
       <span>I confirm this is the current odometer.</span>
     </label>
-    <div v-if="gapKm > 0" class="gap-panel">
-      <div><span class="eyebrow">ODOMETER GAP</span><strong>{{ gapKm }} km</strong><p>Classify the full gap.</p></div>
-      <div class="choice-row">
-        <button type="button" :class="{selected:gapChoice==='PERSONAL'}" @click="emit('update:gap-choice', 'PERSONAL')">Personal KM</button>
-        <button type="button" :class="{selected:gapChoice==='DEAD'}" @click="emit('update:gap-choice', 'DEAD')">Dead KM</button>
-      </div>
-    </div>
     <button type="submit" class="primary-action" :disabled="startBusy">{{ startBusy ? 'STARTING…' : 'CONFIRM & GO ONLINE' }}</button>
   </form>
 </template>
