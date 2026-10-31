@@ -45,6 +45,7 @@ export function applyTripDetails(trip, data, now) {
   // Retire the old per-Trip revenue authority marker. Shift.revenue is the
   // sole shift-level projection; Trip fare is a supporting source fact.
   delete next.revenueAuthority
+  delete next.revenueProvenance
   next.updatedAt = now
   return next
 }
