@@ -26,6 +26,7 @@ assert.match(release, /Physical-device validation: \*\*deferred until after Phas
 
 const roadmap = readFileSync('KFE_LAUNCH_MASTER_PLAN.md', 'utf8')
 assert.match(roadmap, /\| 10 \| Release Candidate Freeze \|/, 'Phase 10 release-candidate phase must remain present')
-assert.match(roadmap, /exact release candidate/, 'release-candidate control must remain documented')
+assert.match(roadmap, /exact release candidate/i, 'exact release-candidate control must remain documented')
+assert.match(roadmap, /Physical Android\/phone testing is part of Phase 11/i, 'physical-device acceptance must be part of Phase 11')
 
 console.log('Phase 10 hardening/release contract passed')
