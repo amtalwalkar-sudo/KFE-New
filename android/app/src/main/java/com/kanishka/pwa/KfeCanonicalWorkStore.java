@@ -251,7 +251,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
    */
   synchronized Outcome commitTripLifecycle(String operationId, String action, JSONObject trip,
       String expectedUpdatedAt, boolean expectAbsent) throws Exception {
-    if (!"GO_TO_PICKUP".equals(action) && !"START_RIDE".equals(action) && !"END_RIDE".equals(action)) {
+    if (!"GO_TO_PICKUP".equals(action) && !"START_RIDE".equals(action) && !"END_RIDE".equals(action) && !"CANCEL_RIDE".equals(action)) {
       throw new IllegalArgumentException("Unsupported native Trip lifecycle action.");
     }
     return putRecordInternal(operationId, "TRIP", trip, expectedUpdatedAt, expectAbsent, action);
@@ -499,6 +499,15 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     String currentVersion = existing.optString("updatedAt", "");
     if (empty(expectedUpdatedAt) || !expectedUpdatedAt.equals(currentVersion)) {
       throw new IllegalArgumentException("Native Trip lifecycle version changed before commit.");
+    }
+    if ("CANCEL_RIDE".equals(action)) {
+      if (!("GOING_TO_PICKUP".equals(currentStage) || "PICKUP".equals(currentStage))
+          || !"CANCELLED".equals(incomingStatus)
+          || !currentStage.equals(incomingStage)
+          || empty(incoming.optString("tripEndAt", ""))) {
+        throw new IllegalArgumentException("CANCEL_RIDE is allowed only before START_RIDE and must preserve the pickup stage.");
+      }
+      return;
     }
     if ("START_RIDE".equals(action)) {
       if (!("GOING_TO_PICKUP".equals(currentStage) || "PICKUP".equals(currentStage))
