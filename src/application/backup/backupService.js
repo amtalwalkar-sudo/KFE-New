@@ -73,7 +73,15 @@ const readAllNativeWorkRecords = async entityType => {
 }
 
 const readNativeWorkSnapshot = async () => {
-  if (!WorkRuntimePorts.canonicalWork.isAvailable()) return null
+  const platform = WorkRuntimePorts.platform.getPlatform()
+  const nativeAvailable = WorkRuntimePorts.canonicalWork.isAvailable()
+  if (platform === 'web') {
+    if (nativeAvailable) throw new Error('Browser backup must not depend on a native canonical store.')
+    return null
+  }
+  if (platform !== 'android' || !nativeAvailable) {
+    throw new Error('Android canonical SQLite is unavailable; backup or restore cannot safely omit native Work and GPS records.')
+  }
   const [shifts, trips, gps_snapshots] = await Promise.all([
     readAllNativeWorkRecords('SHIFT'),
     readAllNativeWorkRecords('TRIP'),
