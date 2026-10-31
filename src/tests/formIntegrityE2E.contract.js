@@ -25,7 +25,7 @@ assertHas(shiftStore, /const startShift = async/, 'Shift store must own Start Sh
 assertHas(workService, /async startShift\(data\)[\s\S]*ShiftTripRepository\.createShift/, 'Start Shift must persist through WorkService to the canonical shift repository')
 assertHas(workRepo, /createShift\(data\)/, 'Shift repository must own canonical shift persistence')
 
-assertHas(work, /await store\.saveTripDetails\(details\)/, 'Fare save must commit through the shift store')
+assertHas(work, /await store\.saveTripDetails\(details, operationId\)/, 'Fare save must commit through the shift store')
 assertHas(workService, /async saveTripDetails\(data\)[\s\S]*ShiftTripRepository\.saveTripDetails/, 'Fare/trip correction must reach the canonical trip repository')
 assertHas(work, /fareDetailsSkipped: fare\.value === ''/, 'Fare skip must be an explicit persisted terminal flag')
 assertHas(work, /await store\.saveTripDetails\(\{ id: pendingFare\.value\.id, fareDetailsSkipped: true \}\)/, 'Skip must update the exact completed trip and not create a blank record')
