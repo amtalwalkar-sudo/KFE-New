@@ -448,20 +448,8 @@ async function saveFare(fromNative = false, operationId = '') {
       parking: tripParking.value === '' ? 0 : Number(tripParking.value),
     }
     const fareDraft = tripDraftIdentity('work-trip-details', 'ENTER_FARE', pendingFare.value.id)
-    const result = await store.updateTrip(details)
+    const result = await store.updateTrip(details, operationId)
     if (!result?.ok) { fail(result?.reason || 'Trip details could not be saved.'); return false }
-
-    // Android's native canonical record is authoritative for the overlay.
-    // Mirror the exact saved trip snapshot under the durable event ID so replay
-    // after an interrupted acknowledgement cannot count fare/toll/parking twice.
-    if (nativeAndroid) {
-      const savedTrip = { ...(pendingFare.value || {}), ...details, status: 'COMPLETED', updatedAt: new Date().toISOString() }
-      await CanonicalWorkBoundary.putRecord({
-        operationId: operationId || CanonicalWorkBoundary.createOperationId(),
-        entityType: 'TRIP',
-        record: savedTrip
-      })
-    }
 
     await clearCommittedDraft(fareDraft)
     fareTripId.value = null
@@ -531,23 +519,8 @@ async function saveCancel(fromNative = false, operationId = '') {
     const result = await store.cancelTrip({
       reason: cancellationReason,
       revenue: cancelFare.value
-    })
+    }, operationId)
     if (!result?.ok) { fail(result?.reason || 'Cancellation could not be saved.'); return false }
-
-    if (nativeAndroid && cancelledTripSnapshot) {
-      await CanonicalWorkBoundary.putRecord({
-        operationId: operationId || CanonicalWorkBoundary.createOperationId(),
-        entityType: 'TRIP',
-        record: {
-          ...cancelledTripSnapshot,
-          status: 'CANCELLED',
-          cancelReason: cancellationReason,
-          cancelledRevenue: cancellationRevenue,
-          tripEndAt: cancelledTripSnapshot.tripEndAt || new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      })
-    }
 
     await clearCommittedDraft(cancellationDraft)
     cancelOpen.value = false
