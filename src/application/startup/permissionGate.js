@@ -20,44 +20,30 @@ export const subscribePermissionGateState = listener => {
   return () => permissionGateListeners.delete(listener)
 }
 
-const OEM_CONFIRMATIONS_KEY = 'kfe.startup.oemSettingsConfirmed.v1'
-
-function loadConfirmedOemSettings() {
-  try {
-    const stored = JSON.parse(globalThis.localStorage?.getItem(OEM_CONFIRMATIONS_KEY) || '[]')
-    return Array.isArray(stored) ? stored.filter(key => key === 'oemAutostart' || key === 'oemBattery') : []
-  } catch (_) { return [] }
+const confirmedOemSettings = new Set()
+let confirmedOemSettingsLoaded = false
+async function loadConfirmedOemSettings() {
+  if (confirmedOemSettingsLoaded) return
+  const stored = await WorkRuntimePorts.platform.getConfirmedOemSettings()
+  for (const key of stored || []) if (key === 'oemAutostart' || key === 'oemBattery') confirmedOemSettings.add(key)
+  confirmedOemSettingsLoaded = true
 }
-const confirmedOemSettings = new Set(loadConfirmedOemSettings())
-function persistConfirmedOemSettings() {
-  try { globalThis.localStorage?.setItem(OEM_CONFIRMATIONS_KEY, JSON.stringify([...confirmedOemSettings])) } catch (_) {}
-}
-
-
-function waitForForegroundReturn() {
-  return new Promise(resolve => {
-    let leftApp = false, settled = false
-    const cleanup = () => { window.removeEventListener('blur', onBlur); window.removeEventListener('focus', onFocus); document.removeEventListener('visibilitychange', onVisibility); clearTimeout(timeout) }
-    const finish = () => { if (settled) return; settled = true; cleanup(); resolve() }
-    const onBlur = () => { leftApp = true }
-    const onFocus = () => { if (leftApp) finish() }
-    const onVisibility = () => { if (document.visibilityState === 'hidden') leftApp = true; else if (leftApp && document.visibilityState === 'visible') finish() }
-    const timeout = setTimeout(finish, 120000)
-    window.addEventListener('blur', onBlur); window.addEventListener('focus', onFocus); document.addEventListener('visibilitychange', onVisibility)
-  })
+async function persistConfirmedOemSettings() {
+  await WorkRuntimePorts.platform.saveConfirmedOemSettings([...confirmedOemSettings])
 }
 
 async function getFirstMissing() {
   if (native()) {
+    await loadConfirmedOemSettings()
     const status = await WorkRuntimePorts.platform.getStartupPermissionStatus()
     return findFirstMissingNativeCheck(status, confirmedOemSettings)
   }
   return null
 }
 function waitForRetry() { return new Promise(resolve => { retryCurrent = resolve }) }
-export function retryStartupPermissionGate() {
+export async function retryStartupPermissionGate() {
   if (permissionGateState.current?.key) attempted.delete(permissionGateState.current.key)
-  if (permissionGateState.current?.manualConfirmation) { confirmedOemSettings.add(permissionGateState.current.key); persistConfirmedOemSettings() }
+  if (permissionGateState.current?.manualConfirmation) { confirmedOemSettings.add(permissionGateState.current.key); await persistConfirmedOemSettings() }
   const resolve = retryCurrent; retryCurrent = null
   if (resolve) resolve(); else if (!activeRun) void runStartupPermissionGate()
 }
