@@ -56,6 +56,7 @@ export const CanonicalWorkBoundary = Object.freeze({
     const pageSize = 500
     let offset = 0
     let expectedTotal = null
+    const seenIds = new Set()
     do {
       const page = await WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'GPS_SNAPSHOT', limit: pageSize, offset })
       const rows = Array.isArray(page?.records) ? page.records : []
@@ -65,6 +66,10 @@ export const CanonicalWorkBoundary = Object.freeze({
       if (expectedTotal === null) expectedTotal = page.totalCount
       else if (page.totalCount !== expectedTotal) throw new Error('Native GPS history changed during paginated retrieval.')
       if (!rows.length && offset < expectedTotal) throw new Error(`Native GPS history stopped at ${offset} of ${expectedTotal} snapshots.`)
+      for (const row of rows) {
+        if (!row?.id || seenIds.has(row.id)) throw new Error('Native GPS history pagination returned a missing or duplicate snapshot ID.')
+        seenIds.add(row.id)
+      }
       records.push(...rows)
       offset += rows.length
       if (records.length > expectedTotal) throw new Error('Native GPS history pagination returned duplicate or extra snapshots.')
