@@ -1,5 +1,4 @@
 import { reactive } from 'vue'
-import { DiagnosticService } from '../diagnostics/diagnosticService.js'
 
 const startupState = reactive({
   status: 'starting',
@@ -36,44 +35,29 @@ export const initializeApplication = async () => {
     import('../backup/backupService.js'),
   ])
 
-  DiagnosticService.start('KFE startup')
   void platform.registerServiceWorker()
-    .then(() => DiagnosticService.checkpoint('Service worker lifecycle scheduled'))
     .catch(error => {
-      DiagnosticService.error('Service worker lifecycle failed', error)
       console.warn('KFE service worker registration unavailable:', error)
     })
 
-  DiagnosticService.waiting('Storage initialization', 'Opening the active KFE IndexedDB database.')
   try {
     await platform.initializeStorage()
-    DiagnosticService.checkpoint('Storage initialized')
     // A pending reset must finish before stale outbox/create-intent work can replay.
-    DiagnosticService.waiting('Reset recovery', 'Checking for an interrupted cross-store reset.')
     await BackupService.recoverPendingReset()
-    DiagnosticService.checkpoint('Reset recovery complete')
     // A restore journal may represent a process death between SQLite and
     // IndexedDB. Finish the same idempotent restore before replaying mutations.
-    DiagnosticService.waiting('Backup restore recovery', 'Resuming an interrupted offline backup restore if needed.')
     await BackupService.recoverPendingRestore()
-    DiagnosticService.checkpoint('Backup restore recovery complete')
-    DiagnosticService.waiting('Mutation recovery', 'Recovering stale canonical SYNCING mutations.')
     await MutationRepository.recoverStaleSyncing()
-    DiagnosticService.checkpoint('Mutation recovery complete')
   } catch (error) {
-    DiagnosticService.error('Critical startup recovery failed', error)
     throw error
   }
 
-  DiagnosticService.checkpoint('First-render infrastructure ready')
   void (async () => {
     try {
       // Trip lifecycle and canonical work records are persisted by the work
       // lifecycle; startup does not collect or recover continuous movement traces.
       await BackupService.maybeDailyLocalBackup()
-      DiagnosticService.checkpoint('Local backup lifecycle scheduled')
     } catch (error) {
-      DiagnosticService.error('Local backup deferred', error)
       console.warn('KFE local backup deferred:', error)
     }
   })()
