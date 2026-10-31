@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { validateShiftStartOdometer, validateFirstDayShiftStartOdometer } from '../domain/work/shift.js'
 import { validateEndShiftEntry } from '../domain/work/endShift.js'
-import { validateTripCorrection } from '../domain/work/trip.js'
+import { validateTripDetails } from '../domain/work/trip.js'
 import { TRIP_STATES, canTransitionTrip, transitionTrip } from '../domain/work/tripLifecycle.js'
 import { calculateFuelQuantity, validateFuelEntry } from '../domain/work/fuel.js'
 import { deriveLiveRevenue } from '../domain/work/liveRevenue.js'
@@ -56,7 +56,7 @@ scenario('A2/A3/B5/E1/E2/E3/J7', () => {
   const replay = transitionTrip(priced, TRIP_STATES.COMPLETED)
   assert.equal(replay.id, trip.id)
   assert.equal(replay.status, TRIP_STATES.COMPLETED)
-  assert.equal(validateTripCorrection({ operator: 'Uber', revenue: '250' }).valid, true)
+  assert.equal(validateTripDetails({ revenue: '250' }).valid, true)
   const cancelled = transitionTrip(trip, TRIP_STATES.CANCELLED, { reason: 'DRIVER_MISTAKE', revenue: 0 })
   assert.equal(cancelled.status, TRIP_STATES.CANCELLED)
   assert.equal(cancelled.revenue, 0)
@@ -121,7 +121,7 @@ scenario('G5', () => {
 
 // J1/J2/J3/J5/J6/J7 — defensive boundaries.
 scenario('J1/J2/J3/J5/J6/J7', () => {
-  assert.equal(validateTripCorrection({ revenue: '-1' }).valid, false)
+  assert.equal(validateTripDetails({ revenue: '-1' }).valid, false)
   assert.equal(validateFuelEntry({ odometer: 65000, pricePerKg: 0, amount: 410 }).valid, false)
   assert.equal(validateFuelEntry({ odometer: 65000, pricePerKg: 82, amount: 0 }).valid, false)
 })
