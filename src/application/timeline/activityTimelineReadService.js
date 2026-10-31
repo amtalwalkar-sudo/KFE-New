@@ -28,7 +28,8 @@ export const locationLabel = (snapshot, localityBySnapshotId = new Map(), offlin
   if (!snapshot || !hasCoordinate(snapshot.latitude) || !hasCoordinate(snapshot.longitude)) return 'Location unavailable'
   const latitude = Number(snapshot.latitude)
   const longitude = Number(snapshot.longitude)
-  if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return 'Location unavailable'
+  const accuracy = snapshot.accuracy == null || snapshot.accuracy === '' ? NaN : Number(snapshot.accuracy)
+  if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180 || !Number.isFinite(accuracy) || accuracy < 0 || accuracy > 75) return 'Location unavailable'
   const saved = localityBySnapshotId.get(snapshot.id)?.placeName
   if (typeof saved === 'string' && saved.trim()) return saved.trim()
   return offline ? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}` : 'Location unavailable'
