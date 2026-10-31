@@ -144,9 +144,11 @@ Users enter source facts through the Work or Admin forms. Only the explicitly su
 
 Timeline is a read-only projection of saved ride and fuel records. It must not create or alter business facts.
 
-- Locality resolution is manual-only through the user's Timeline pull-to-refresh while online.
-- No automatic locality retry, polling, background connectivity check, or queued resolution job is permitted.
-- A reliable resolved locality may be shown; otherwise show `Location unavailable`. Do not show raw coordinates as a locality or retain a stale label after a failed manual refresh.
+- After any of the four GPS event snapshots is durably captured, the PWA starts reverse geocoding asynchronously when online; ride actions never wait for the provider.
+- New reverse geocoding is limited to event timestamps within the latest seven days. Native Android stores coordinates only.
+- Successful locality names are stored permanently in PWA IndexedDB keyed by canonical GPS snapshot ID. A saved name is not silently overwritten by ordinary retries.
+- If the PWA is offline, show a saved locality when available or the original coordinates when unresolved. Manual Timeline pull-to-refresh retries unresolved eligible snapshots when online.
+- Do not use continuous connectivity polling, automatic locality retry loops, or a background geocoding queue. Reject unreliable accuracy, invalid coordinates, distant provider matches, and broad-only locality results.
 - Location evidence keeps the provider capture timestamp (`capturedAt`) distinct from the ride event timestamp (`eventAt`).
 - A cancellation location is cancellation evidence, not a drop-off location.
 
