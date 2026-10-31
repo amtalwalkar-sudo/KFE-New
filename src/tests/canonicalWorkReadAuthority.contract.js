@@ -34,6 +34,7 @@ assert.ok(repository.includes('!t?.deletedAt && t?.deleted !== true'), 'Operatio
 assert.ok(repository.includes("s.status === 'COMPLETED' && !s?.deletedAt && s?.deleted !== true"), 'Last completed Shift lookup must ignore soft-deleted records.')
 assert.ok(repository.includes("t.status === 'COMPLETED' && !t?.deletedAt && t?.deleted !== true"), 'Last completed Trip lookup must ignore soft-deleted records.')
 assert.ok(service.includes('configureCanonicalReadBoundary(reconcileCanonicalReads)'))
+assert.match(service, /const reconcileCanonicalReads = \(\) => \{[\s\S]*?const nativeAvailable = requireLifecycleStorage\(\)/, 'Android canonical reads must fail closed when SQLite is unavailable instead of displaying stale IndexedDB data.')
 assert.ok(repository.includes('outcome?.accepted !== true') === false, 'native acknowledgement check belongs to the injected application boundary')
 assert.ok(service.includes('outcome?.accepted !== true'), 'native write acknowledgement must be required')
 assert.ok(service.includes('markCanonicalSyncPending'), 'a durable pending operation must be journaled before crossing the native bridge')
