@@ -7,7 +7,6 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.os.Looper;
-import android.os.CancellationSignal;
 import android.location.LocationManager;
 import android.location.LocationListener;
 import android.location.Location;
