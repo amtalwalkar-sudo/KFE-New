@@ -4,7 +4,7 @@ const requiredMethods = Object.freeze({
   browserCanonicalWork: ['putRecord', 'getRecord', 'listRecords', 'getOperation'],
   gpsPermissions: ['isNativePlatform', 'getLocationStatus', 'openBackgroundLocationSettings', 'requestLocationPermissions', 'requestBackgroundLocationPermission'],
   androidOverlay: ['hide', 'update', 'prepare', 'fareSaved', 'cancelSaved'],
-  platform: ['getPlatform', 'getStartupPermissionStatus', 'requestStartupPermission', 'openStartupSetting', 'getConfirmedOemSettings', 'saveConfirmedOemSettings', 'waitForForegroundReturn'],
+  platform: ['getPlatform', 'isOnline', 'getStartupPermissionStatus', 'requestStartupPermission', 'openStartupSetting', 'getConfirmedOemSettings', 'saveConfirmedOemSettings', 'waitForForegroundReturn'],
   tripBoundaryLocation: ['queueEventLocationCapture', 'captureOneShotLocation'],
   locationNames: ['resolveLocationNameDetailed', 'resolveLocationName'],
 })
