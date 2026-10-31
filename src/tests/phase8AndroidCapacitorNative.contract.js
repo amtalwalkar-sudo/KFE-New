@@ -6,6 +6,7 @@ const manifest = fs.readFileSync('android/app/src/main/AndroidManifest.xml', 'ut
 const mainActivity = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/MainActivity.java', 'utf8')
 const overlay = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java', 'utf8')
 const overlayPlugin = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeOverlayPlugin.java', 'utf8')
+const nativeSystemPlugin = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeNativeSystemPlugin.java', 'utf8')
 const nativeWorkActions = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeNativeWorkActionsPlugin.java', 'utf8')
 const nativeEventStore = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeNativeEventStore.java', 'utf8')
 
@@ -57,7 +58,8 @@ assert.match(manifest, /foregroundServiceType="specialUse\|location"/)
 assert.match(gradle, /implementation project\(':capacitor-android'\)/)
 
 assert.match(overlayPlugin, /Settings\.canDrawOverlays/)
-assert.match(overlayPlugin, /ACTION_MANAGE_OVERLAY_PERMISSION/)
+assert.doesNotMatch(overlayPlugin, /ACTION_MANAGE_OVERLAY_PERMISSION/)
+assert.match(nativeSystemPlugin, /ACTION_MANAGE_OVERLAY_PERMISSION/)
 assert.match(overlay, /ContextCompat\.startForegroundService/)
 assert.match(overlay, /TYPE_APPLICATION_OVERLAY/)
 assert.match(overlay, /String\[\] labels=\{"RIDES",phaseLabel,"REVENUE"\}/)
