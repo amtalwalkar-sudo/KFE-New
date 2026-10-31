@@ -33,7 +33,7 @@ assert.match(eventLocationService, /CanonicalWorkBoundary\.persistEventLocationS
 assert.match(locationAdapter, /maximumAge: 0/)
 assert.match(locationAdapter, /\[0, 3000, 7000, 12000, 20000, 27000\]/)
 assert.match(locationAdapter, /30000 - \(Date\.now\(\) - startedAt\)/)
-assert.match(locationAdapter, /const accuracyValid = !hasAccuracy/
+assert.match(locationAdapter, /const accuracyValid = !hasAccuracy/)
 assert.match(runtimePorts, /tripBoundaryLocation: \['queueEventLocationCapture', 'captureOneShotLocation'\]/)
 assert.match(domainBoundary, /accuracy !== null && \(!Number\.isFinite\(accuracy\) \|\| accuracy < 0\)/)
 assert.match(boundary, /domain\/location\/tripBoundaryLocation\.js/)
