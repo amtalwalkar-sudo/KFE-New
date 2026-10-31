@@ -7,6 +7,7 @@ const RIDE_EVENTS = new Set(['PICKUP_START', 'TRIP_CANCELLED', 'TRIP_START', 'TR
 const stableId = (entityType, entityId, eventType) => `event-location-${entityType}-${entityId}-${eventType}`
 const nativeSnapshotId = (entityId, eventType) => `native-event-location-${entityId}-${eventType}`
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms))
+const nativeSnapshotWaits = new Map()
 
 /** One offline-capable, one-shot GPS pathway for the four ride events. */
 export const EventLocationService = {
@@ -32,16 +33,22 @@ export const EventLocationService = {
     })().catch(error => console.warn('Ride GPS capture failed:', entityId, eventType, error))
   },
   async resolveNativeSnapshotAfterCapture(entityId, eventType) {
-    const delays = [250, 500, 1000, 2000, 4000, 6000, 8000, 10000]
-    for (const delay of delays) {
-      await wait(delay)
-      const snapshot = await CanonicalWorkBoundary.getEventLocationSnapshot(nativeSnapshotId(entityId, eventType)).catch(() => null)
-      if (snapshot?.id && snapshot?.capturedAt) {
-        void EventLocalityService.resolveSnapshot(snapshot)
-        return snapshot
+    const key = `${entityId}::${eventType}`
+    if (nativeSnapshotWaits.has(key)) return nativeSnapshotWaits.get(key)
+    const attempt = (async () => {
+      const delays = [250, 500, 1000, 2000, 4000, 6000, 8000, 10000]
+      for (const delay of delays) {
+        await wait(delay)
+        const snapshot = await CanonicalWorkBoundary.getEventLocationSnapshot(nativeSnapshotId(entityId, eventType)).catch(() => null)
+        if (snapshot?.id && snapshot?.capturedAt) {
+          void EventLocalityService.resolveSnapshot(snapshot)
+          return snapshot
+        }
       }
-    }
-    return null
+      return null
+    })().finally(() => nativeSnapshotWaits.delete(key))
+    nativeSnapshotWaits.set(key, attempt)
+    return attempt
   },
   async forEntity(entityType, entityId) { return this.forEntities(entityType, [entityId]) },
   async forEntities(entityType, entityIds = [], eventTypes = [...RIDE_EVENTS]) {
