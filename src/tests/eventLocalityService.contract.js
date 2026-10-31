@@ -18,6 +18,7 @@ assert.equal(isEligibleForLocalityResolution({ eventType: 'TRIP_END', eventAt: n
 
 const repository = fs.readFileSync('src/repositories/localityRepository.js', 'utf8')
 const captureService = fs.readFileSync('src/application/location/eventLocationService.js', 'utf8')
+const localityService = fs.readFileSync('src/application/location/eventLocalityService.js', 'utf8')
 const timeline = fs.readFileSync('src/views/ActivityTimelineView.vue', 'utf8')
 assert.match(captureService, /if \(prior\) return/)
 assert.doesNotMatch(captureService, /if \(prior\)[^\n]*resolveSnapshot/)
