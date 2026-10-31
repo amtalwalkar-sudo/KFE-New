@@ -682,6 +682,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
         }
       }
       trip.remove("revenueAuthority");
+      trip.remove("revenueProvenance");
       assertTripFormMutationScope(existingTrip, trip, mode);
       String oldTripVersion = existingTrip.optString("updatedAt", "");
       String newTripVersion = trip.optString("updatedAt", "");
