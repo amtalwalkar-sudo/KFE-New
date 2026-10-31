@@ -1268,8 +1268,8 @@ public class KfeOverlaySmokeTest {
   }
 
   @Test public void gpsSnapshotEventTypeAllowlistContainsOnlyFourRideBoundaries() throws Exception {
-    Method supported = KfeOverlayService.class.getDeclaredMethod(
-      "isSupportedEventLocationType", String.class, String.class);
+    Method supported = KfeGpsEventPolicy.class.getDeclaredMethod(
+      "supports", String.class, String.class);
     supported.setAccessible(true);
     for (String event : new String[]{"PICKUP_START", "TRIP_CANCELLED", "TRIP_START", "TRIP_END"}) {
       assertTrue("Ride event must support a durable GPS snapshot: " + event,
