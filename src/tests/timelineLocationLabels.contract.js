@@ -9,10 +9,11 @@ const localityRepository = fs.readFileSync('src/repositories/localityRepository.
 const indexedDb = fs.readFileSync('src/utils/indexedDB.js', 'utf8')
 const canonicalBoundary = fs.readFileSync('src/application/work/canonicalWorkBoundary.js', 'utf8')
 
-assert.match(eventLocationService, /async forEntities\(entityType, entityIds = \[\]\)/)
+assert.match(eventLocationService, /async forEntities\(entityType, entityIds = \[\], eventTypes = \[\.\.\.RIDE_EVENTS\]\)/)
 assert.match(eventLocationService, /getEventLocationSnapshot/)
 assert.match(eventLocationService, /RIDE_EVENTS/)
 assert.match(readService, /EventLocationService\.forEntities\('TRIP', periodTrips\.map/)
+assert.match(readService, /\['PICKUP_START', 'TRIP_END'\]/, 'Timeline reads only pickup and trip-end snapshots; locality resolution still covers all four events')
 assert.match(readService, /LocalityRepository\.forSnapshotIds/)
 assert.match(readService, /locationLabel\(locations\.pickup, localityBySnapshotId, offline\)/)
 assert.match(readService, /locationLabel\(locations\.end, localityBySnapshotId, offline\)/)
