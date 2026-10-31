@@ -32,7 +32,7 @@ No retired targets, provisions, forecasts, break-even, profitability, loan amort
 | 7 | Data / Recovery Gate | Backup/export/restore, reset and recovery safeguards verified |
 | 8 | Security / Permissions Gate | Permission denial, Android capability and security boundaries verified |
 | 9 | Production Configuration Gate | Production PWA and Android configuration verified |
-| 10 | Release Candidate Freeze | Exact source commit, PWA build and APK identity fixed for acceptance |
+| 10 | Release Candidate Freeze | Freeze the exact release candidate source commit, PWA build and APK identity for acceptance |
 | 11 | Controlled Real-World / Physical-Device Pilot | Exact APK exercised on the target phone; real-world workflow and GPS evidence recorded |
 | 12 | Pilot Reconciliation | Phone activity, saved rides/fuel, Timeline, Performance, Admin and backup state reconcile |
 | 13 | Final Release Gate | Latest exact revision has green CI, required device evidence and no unresolved release blocker |
