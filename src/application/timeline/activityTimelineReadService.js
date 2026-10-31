@@ -42,9 +42,9 @@ const durationMs = trip => {
   return start != null && end != null && end >= start ? end - start : null
 }
 const amount = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) && Number(value) >= 0
-const farePresentation = trip => {
+export const farePresentation = trip => {
   if (trip.status === 'CANCELLED') {
-    const fee = trip.cancelledRevenue ?? trip.revenue
+    const fee = trip.cancelledRevenue
     return { label: 'Cancellation fee', value: amount(fee) ? Number(fee) : null, state: amount(fee) ? 'recorded' : 'unavailable' }
   }
   if (trip.fareDetailsSkipped === true) return { label: 'Fare', value: null, state: 'skipped' }
