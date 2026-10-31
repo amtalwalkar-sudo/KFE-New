@@ -35,7 +35,7 @@ if (fs.existsSync(workServicePath)) {
 }
 
 assertForbidden(['domain'], [ /from\s+['"][^'"]*\/repositories\//, /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/, /from\s+['"][^'"]*\/application\//, /from\s+['"][^'"]*\/infrastructure\//, /from\s+['"][^'"]*\/presentation\// ], 'Domain must remain independent of outer layers')
-assertForbidden(['application'], [ /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/, /from\s+['"][^'"]*\/presentation\//, /from\s+['"][^'"]*\/infrastructure\//, /from\s+['"]@capacitor\// ], 'Application must not depend on raw persistence, presentation, infrastructure, or Capacitor plugins')
+assertForbidden(['application'], [ /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/, /from\s+['"][^'"]*\/presentation\//, /from\s+['"][^'"]*\/infrastructure\//, /from\s+['"]@capacitor\//, /from\s+['"]vue['"]/, /from\s+['"]pinia['"]/, /from\s+['"]@vue\// ], 'Application must not depend on raw persistence, presentation, infrastructure, Capacitor plugins, or UI frameworks')
 assertForbidden(['application'], [ /\bfetch\s*\(/, /navigator\.geolocation/ ], 'Application must not own network requests or platform location acquisition')
 assertForbidden(['views', 'components', 'presentation', 'application', 'infrastructure'], [ /from\s+['"][^'"]*\/services\// ], 'Canonical runtime must not depend on legacy src/services')
 assertForbidden(['views', 'components', 'presentation', 'application'], [ /['"][^'"]*\bjs\/app\.js['"]/ ], 'Current architecture must not reference removed legacy js application')
@@ -48,6 +48,7 @@ if (fs.existsSync(appPath)) {
   const app = fs.readFileSync(appPath, 'utf8')
   if (/<style\b|\sstyle\s*=/.test(app)) violations.push('App.vue must use shared presentation styles rather than inline styling.')
   if (/ShellService|BackupService|CloudBackupLifecycle|initializeCanonicalStorage|indexedDB|serviceWorker/i.test(app)) violations.push('App.vue still owns application/infrastructure startup concerns.')
+if (!app.includes("from './presentation/startup/useStartupUiState.js'")) violations.push('App.vue must consume startup and permission state through presentation-owned reactive state.')
 }
 
 const legacyPaths = ['views/DashboardView.vue','presentation/shell','stores/workCycle.js','stores/performanceStore.js','stores/records.js','stores/recordsStore.js','stores/offlineQueue.js','stores/offlineQueueStore.js','stores/index.js','services/syncEngine.js','usecases','composables/useForm.js','composables/useRecordForm.js','composables/useToast.js','layouts/FormLayout.vue','views/AdminSettingsOnlyView.vue','views/BlankWorkspaceView.vue','components/VehicleModuleView.vue','components/ComplianceModuleView.vue','components/MaintenanceModuleView.vue']
