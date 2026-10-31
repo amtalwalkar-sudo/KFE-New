@@ -44,7 +44,7 @@ assert.match(workView, /await store\.startShift\(startOdo\.value,/, 'Start Shift
 assert.match(shiftStore, /const startShift = async/, 'Shift store must own Start Shift transition')
 assert.ok(workService.includes('createNativeShiftRecord(data); return await commitPreparedCreateIntent(\'SHIFT\', record, data)'), 'Start Shift must journal intent and commit to native canonical storage before refreshing IndexedDB')
 assert.match(shiftRepo, /createShift\(data\)/, 'Shift repository must create canonical shift')
-assert.match(workView, /await store\.saveTripDetails\(details\)/, 'Trip details/fare save must update the existing trip')
+assert.match(workView, /await store\.saveTripDetails\(details, operationId\)/, 'Trip details/fare save must update the existing trip')
 assert.match(workView, /await store\.cancelTrip\(\{/, 'Cancellation must use canonical trip lifecycle')
 assert.match(shiftStore, /const cancelTrip = async/, 'Cancellation transition must be store-owned')
 assert.match(workView, /WorkService\.recordFuel\(\{/, 'Fuel form must use Work service')
