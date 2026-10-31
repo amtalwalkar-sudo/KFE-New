@@ -43,13 +43,13 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
   }
 
   const initialize = async () => { if (!initialized.value) await refresh() }
-  const calculateGap = odo => firstKfeDay.value
+  const validateStartOdometer = odo => firstKfeDay.value
     ? WorkService.validateFirstDayShiftStartOdometer(odo, businessStartBaseline.value?.businessStartOdometer)
     : WorkService.validateShiftStartOdometer(odo, lastKnownOdometer.value)
 
   const startShift = async (odo, createIntentKey = '') => {
     if (isShiftActive.value) return { ok: false, reason: 'A Shift is already active.' }
-    const check = calculateGap(odo)
+    const check = validateStartOdometer(odo)
     if (!check.valid) return { ok: false, reason: check.reason }
     const record = await WorkService.startShift({ startOdometer: Number(odo), createIntentKey })
     // The shift write is authoritative. Do not turn a successful persisted
