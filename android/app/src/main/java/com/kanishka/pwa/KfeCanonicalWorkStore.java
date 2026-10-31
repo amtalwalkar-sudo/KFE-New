@@ -692,15 +692,9 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       if ("FARE".equals(mode) && !"COMPLETED".equals(existingStatus)) {
         throw new IllegalArgumentException("Fare submission requires the canonical trip to be completed.");
       }
-      if ("CANCEL".equals(mode) && !"ACTIVE".equals(existingStatus)) {
-        throw new IllegalArgumentException("Cancellation requires a non-terminal active trip.");
-      }
       if ("CANCEL".equals(mode)) {
-        String existingStage = existingTrip.optString("tripStage", "");
-        if (!("GOING_TO_PICKUP".equals(existingStage) || "PICKUP".equals(existingStage))
-            || !existingStage.equals(trip.optString("tripStage", ""))) {
-          throw new IllegalArgumentException("Cancellation is allowed only before the ride starts and cannot change Trip stage.");
-        }
+        validateNativeTripLifecycleTransition(db, "CANCEL_RIDE", trip, existingTrip,
+            existingTrip.optString("updatedAt", ""), false);
       }
       trip.remove("revenueAuthority");
       trip.remove("revenueProvenance");
