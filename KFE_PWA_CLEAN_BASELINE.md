@@ -13,7 +13,7 @@
 ## Active product
 
 - Work: shift start/end, pickup, trip start/end, cancellation, fare entry, and fuel recording.
-- Timeline: saved rides/fuel and event GPS snapshots; area-name lookup is manual pull-to-refresh only.
+- Timeline: saved rides/fuel and four event GPS snapshots; PWA starts asynchronous locality lookup after each durable snapshot for events within seven days, saves successful names permanently by snapshot ID, and uses manual pull-to-refresh only as fallback for unresolved eligible snapshots.
 - Performance: recorded revenue, completed rides, cancellation fees, fuel spending, fuel cost/km from valid consecutive full-tank readings, and income after fuel.
 - Admin: Business Setup, Vehicle, Driver, Compliance, Maintenance, Loan details, and data backup/recovery settings.
 - Android overlay: ride actions only during an active shift; no continuous tracking.
