@@ -108,7 +108,6 @@ public class KfeOverlayService extends Service {
   private android.os.Handler foregroundHandler;
   private final java.util.Set<String> gpsCaptureInFlight=java.util.Collections.synchronizedSet(new java.util.HashSet<>());
   private final Runnable pendingGpsRetry=()->retryPendingEventLocations();
-  private static final long[] GPS_RETRY_DELAYS_MS={30_000L,60_000L,2*60_000L,5*60_000L,15*60_000L,30*60_000L};
 
   static String resolveFareActionTripId(String pendingFareTripId, String currentTripId){
     if(pendingFareTripId!=null&&!pendingFareTripId.isEmpty())return pendingFareTripId;
