@@ -212,6 +212,12 @@ No active domain finance/loan engine, forecast, break-even, driver-target, provi
 
 **Change:** Native snapshot collection now distinguishes browser PWA from Android. Browser backup remains IndexedDB-only; Android backup/restore fails closed unless native SQLite is available and its paginated Work/GPS snapshot can be read completely. Regression coverage protects both platform branches.
 
+### 26. PWA Trip creation and Shift lifecycle did not fully enforce native invariants
+
+**Finding:** PWA-originated Android Start Trip used the generic create-intent record write, so it did not share the active-Shift transaction guard used by the overlay. PWA Start Shift also relied on application state to prevent a second active Shift, and Shift close checked active Trips before entering SQLite but did not repeat that invariant atomically at the persistence boundary.
+
+**Change:** PWA Start Trip now commits its durable create intent through the same `GO_TO_PICKUP` lifecycle transaction as the overlay. Native SQLite rejects a second active Shift and rejects ACTIVE-to-COMPLETED Shift writes while any non-deleted Trip remains active. Instrumentation covers both invariants and verifies that a rejected close leaves the Shift active.
+
 ## Verification
 
 The following are enforced by regression contracts:
