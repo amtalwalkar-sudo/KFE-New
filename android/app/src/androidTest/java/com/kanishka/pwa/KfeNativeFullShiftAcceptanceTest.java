@@ -176,12 +176,15 @@ public class KfeNativeFullShiftAcceptanceTest {
     Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
     String suffix = Long.toString(System.currentTimeMillis());
     String shiftId = "native-lifecycle-guard-shift-" + suffix;
+    String secondShiftId = "native-lifecycle-guard-second-shift-" + suffix;
     String tripId = "native-lifecycle-guard-trip-" + suffix;
     String cancelledTripId = "native-lifecycle-guard-cancel-trip-" + suffix;
     String invalidFeeTripId = "native-lifecycle-guard-invalid-fee-trip-" + suffix;
     KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
     SQLiteDatabase database = store.getWritableDatabase();
     String shiftCreate = "native-lifecycle-guard-shift-create-" + suffix;
+    String secondShiftCreate = "native-lifecycle-guard-second-shift-create-" + suffix;
+    String prematureShiftEndOp = "native-lifecycle-guard-premature-shift-end-" + suffix;
     String pickupOp = "native-lifecycle-guard-pickup-" + suffix;
     String genericBypassOp = "native-lifecycle-guard-generic-bypass-" + suffix;
     String cancelPickupOp = "native-lifecycle-guard-cancel-pickup-" + suffix;
@@ -199,6 +202,12 @@ public class KfeNativeFullShiftAcceptanceTest {
       assertTrue(store.putRecord(shiftCreate, "SHIFT", new JSONObject()
           .put("id", shiftId).put("status", "ACTIVE").put("startOdometer", 1000)
           .put("revenue", 0d).put("updatedAt", t0)).accepted);
+      boolean secondActiveShiftRejected = false;
+      try { store.putRecord(secondShiftCreate, "SHIFT", new JSONObject()
+          .put("id", secondShiftId).put("status", "ACTIVE").put("startOdometer", 1200)
+          .put("revenue", 0d).put("updatedAt", t0), null, true); }
+      catch (IllegalArgumentException expected) { secondActiveShiftRejected = true; }
+      assertTrue("Native canonical storage must reject a second active Shift.", secondActiveShiftRejected);
 
       JSONObject pickup = new JSONObject().put("id", tripId).put("shiftId", shiftId)
           .put("status", "ACTIVE").put("tripStage", "GOING_TO_PICKUP")
@@ -282,6 +291,19 @@ public class KfeNativeFullShiftAcceptanceTest {
       assertTrue("The guarded native lifecycle command must also reject cancellation after START_RIDE.",
           lifecycleCancellationAfterStartRejected);
 
+      JSONObject shiftBeforePrematureEnd = store.getRecord("SHIFT", shiftId).getJSONObject("record");
+      String prematureShiftEndAt = java.time.Instant.parse(t2).plusMillis(6).toString();
+      JSONObject prematureShiftEnd = new JSONObject(shiftBeforePrematureEnd.toString())
+          .put("status", "COMPLETED").put("shiftEndAt", prematureShiftEndAt)
+          .put("endOdometer", 1001).put("updatedAt", prematureShiftEndAt);
+      boolean activeTripBlocksShiftEnd = false;
+      try { store.putRecord(prematureShiftEndOp, "SHIFT", prematureShiftEnd,
+          shiftBeforePrematureEnd.getString("updatedAt"), false); }
+      catch (IllegalArgumentException expected) { activeTripBlocksShiftEnd = true; }
+      assertTrue("Native canonical storage must reject Shift completion while a Trip remains active.", activeTripBlocksShiftEnd);
+      assertEquals("Rejected Shift completion must preserve the active Shift.", "ACTIVE",
+          store.getRecord("SHIFT", shiftId).getJSONObject("record").getString("status"));
+
       String t3 = java.time.Instant.parse(t2).plusMillis(10).toString();
       JSONObject duplicateStart = new JSONObject(started.toString()).put("updatedAt", t3)
           .put("tripStartAt", t3);
@@ -326,12 +348,12 @@ public class KfeNativeFullShiftAcceptanceTest {
       catch (IllegalArgumentException expected) { inactiveShiftRejected = true; }
       assertTrue("GO_TO_PICKUP must be rejected after the PWA-owned Shift has ended.", inactiveShiftRejected);
     } finally {
-      database.delete("canonical_records", "entity_id IN (?,?,?,?)", new String[]{shiftId, tripId, cancelledTripId, invalidFeeTripId});
-      String[] operations = {shiftCreate, pickupOp, genericBypassOp, cancelPickupOp, cancelOp, invalidFeePickupOp, invalidFeeCancelOp, prematureEndOp, startOp, duplicateStartOp,
+      database.delete("canonical_records", "entity_id IN (?,?,?,?,?)", new String[]{shiftId, secondShiftId, tripId, cancelledTripId, invalidFeeTripId});
+      String[] operations = {shiftCreate, secondShiftCreate, prematureShiftEndOp, pickupOp, genericBypassOp, cancelPickupOp, cancelOp, invalidFeePickupOp, invalidFeeCancelOp, prematureEndOp, startOp, duplicateStartOp,
           endOp, shiftEndOp, afterEndPickupOp, duplicateStartOp + "-terminal",
           "native-lifecycle-guard-cancel-after-start-" + suffix,
           "native-lifecycle-guard-lifecycle-cancel-after-start-" + suffix};
-      String placeholders = "?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?";
+      String placeholders = "?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?";
       database.delete("canonical_operations", "operation_id IN (" + placeholders + ")", operations);
       database.delete("canonical_audit", "operation_id IN (" + placeholders + ")", operations);
     }
