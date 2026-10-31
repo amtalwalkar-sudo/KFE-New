@@ -30,6 +30,8 @@ for (const snapshot of [null, {}, { latitude: null, longitude: 72.8 }, { latitud
 }
 assert.equal(locationLabel({ id: 'gps-1', latitude: 19.076, longitude: 72.8777, accuracy: 10 }, new Map(), true), '19.07600, 72.87770',
   'coordinates are the offline fallback only')
+assert.equal(locationLabel({ id: 'gps-unknown-accuracy', latitude: 19.076, longitude: 72.8777 }, new Map(), true), '19.07600, 72.87770', 'missing provider accuracy may retain raw coordinates offline')
+assert.equal(locationLabel({ id: 'gps-poor-accuracy', latitude: 19.076, longitude: 72.8777, accuracy: 100 }, new Map(), true), 'Location unavailable', 'poor-accuracy coordinates must not be shown as reliable')
 assert.equal(locationLabel({ id: 'gps-1', latitude: 19.076, longitude: 72.8777, accuracy: 10 }, new Map(), false), 'Location unavailable')
 assert.equal(locationLabel({ id: 'gps-1', latitude: 19.076, longitude: 72.8777, accuracy: 10 }, new Map([['gps-1', { placeName: 'Verified locality' }]]), false), 'Verified locality')
 
