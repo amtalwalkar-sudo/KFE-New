@@ -38,6 +38,7 @@ for (const file of readFiles(path.join(srcRoot, 'views'))) {
   if (/<style\b/.test(source)) violations.push('View-local style block reintroduced: ' + path.relative(srcRoot, file))
   if (/(?:#[0-9a-fA-F]{3,8}\b|rgba?\(|border-radius\s*:|(?:padding|margin|gap)\s*:)/.test(source)) violations.push('View contains raw presentation declaration: ' + path.relative(srcRoot, file))
 }
+// Component-local styles are permitted only for isolated third-party widgets; app components must use the shared stylesheet.
 for (const file of readFiles(path.join(srcRoot, 'components'))) {
   const source = fs.readFileSync(file, 'utf8')
   if (/<style\b/.test(source)) violations.push('Component-local style block reintroduced: ' + path.relative(srcRoot, file))
