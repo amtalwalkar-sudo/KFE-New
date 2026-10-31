@@ -35,9 +35,10 @@ export const TripBoundaryLocationAdapter = Object.freeze({
               accuracy: position.coords.accuracy,
               capturedAt: position.timestamp,
             })
-            const accuracy = Number(normalized?.accuracy)
-            resolve(normalized && Number.isFinite(accuracy) && accuracy >= 0 && accuracy <= 75
-              && Date.parse(normalized.capturedAt) >= eventTime ? normalized : null)
+            const hasAccuracy = normalized?.accuracy !== null && normalized?.accuracy !== undefined && normalized?.accuracy !== ''
+            const accuracy = hasAccuracy ? Number(normalized.accuracy) : NaN
+            const accuracyValid = !hasAccuracy || (Number.isFinite(accuracy) && accuracy >= 0 && accuracy <= 75)
+            resolve(normalized && accuracyValid && Date.parse(normalized.capturedAt) >= eventTime ? normalized : null)
           },
           () => resolve(null),
           { enableHighAccuracy: true, maximumAge: 0, timeout: Math.min(2500, remaining) },
