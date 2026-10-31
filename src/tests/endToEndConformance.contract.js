@@ -51,9 +51,12 @@ assertIncludes(workView, 'deriveWorkCockpitState', 'PWA must derive presentation
 assertIncludes(overlayLifecycle, 'deriveWorkCockpitState', 'Android overlay lifecycle must derive from the same cockpit state.')
 assertIncludes(overlayLifecycle, 'WorkService.getActiveState', 'Overlay reconstruction must read canonical active state.')
 assertIncludes(overlayBridge, 'NativePlugins.overlay', 'PWA overlay bridge must use the shared native KfeOverlay plugin registration.')
-assertIncludes(nativeOverlay, 'emitAction("GO_TO_PICKUP",pendingTripId', 'Native GO TO PICKUP must return to the PWA command path.')
-assertIncludes(nativeOverlay, 'emitAction("START_RIDE",pendingTripId', 'Native START TRIP must return to the PWA command path.')
-assertIncludes(nativeOverlay, 'emitAction("END_RIDE",pendingTripId', 'Native END TRIP must return to the PWA command path.')
+assertIncludes(nativeOverlay, 'persistLifecycleAction("GO_TO_PICKUP","GOING_TO_PICKUP",false)', 'Native GO TO PICKUP must commit through the native command adapter.')
+assertIncludes(nativeOverlay, 'emitAction("GO_TO_PICKUP",pendingTripId', 'Native GO TO PICKUP must publish its durable event for PWA synchronization.')
+assertIncludes(nativeOverlay, 'persistLifecycleAction("START_RIDE","RIDE_STARTED",true)', 'Native START RIDE must commit through the native command adapter.')
+assertIncludes(nativeOverlay, 'emitAction("START_RIDE",pendingTripId', 'Native START RIDE must publish its durable event for PWA synchronization.')
+assertIncludes(nativeOverlay, 'persistLifecycleAction("END_RIDE","COMPLETED",false)', 'Native END RIDE must commit through the native command adapter.')
+assertIncludes(nativeOverlay, 'emitAction("END_RIDE",pendingTripId', 'Native END RIDE must publish its durable event for PWA synchronization.')
 assertIncludes(nativeOverlay, 'KfeNativeWorkActionsPlugin.recordPendingAction', 'Overlay actions must enter the independent durable native action bridge.')
 assertIncludes(nativeWorkActions, 'recordPendingAction(Context context', 'Overlay actions must be durably recorded before PWA processing.')
 
@@ -93,12 +96,12 @@ assert.equal(canTransitionTrip(TRIP_STATES.COMPLETED, TRIP_STATES.CANCELLED), fa
 assert.equal(canTransitionTrip(TRIP_STATES.CANCELLED, TRIP_STATES.COMPLETED), false)
 assert.equal(canTransitionTrip(TRIP_STATES.COMPLETED, TRIP_STATES.COMPLETED), true)
 
-// 7. Calculation convergence / no native competing business authority.
+// 7. Calculation convergence / one native persistence projection with domain parity.
 assertIncludes(dataContract, 'Shift.revenue', 'Canonical data contract must identify Shift revenue authority.')
 assertIncludes(dataContract, 'Trip.revenue', 'Trip revenue must remain supporting detail.')
 assertIncludes(workView, 'deriveLiveRevenue(trips)', 'PWA live revenue must be derived from saved Trip fares.')
 assertIncludes(nativeOverlay, 'canonical.commitTripForm(operationId,mode,trip)', 'Native fare/cancellation must commit the canonical Trip and Shift.revenue projection atomically.')
-assertIncludes(readRepo('android/app/src/main/java/com/kanishka/pwa/KfeCanonicalWorkStore.java'), 'double revenue = 0d;', 'Canonical native store must derive revenue from canonical Trip records in the same transaction.')
+assertIncludes(readRepo('android/app/src/main/java/com/kanishka/pwa/KfeCanonicalWorkStore.java'), 'double revenue = 0d;', 'Native SQLite must mirror the domain revenue rule transactionally as a persistence projection.')
 assertIncludes(workService, 'ShiftTripRepository.setTripStage', 'Start Trip must persist its canonical stage.')
 assertIncludes(workService, 'ShiftTripRepository.completeTrip', 'End Trip must persist its canonical terminal state.')
 assert.match(workService, /captureAndPersistEventLocation\('TRIP'/, 'PWA trip start/end must use the shared event-location service.')
