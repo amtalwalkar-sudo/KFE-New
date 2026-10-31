@@ -179,7 +179,7 @@ application use cases
 - Native Android owns event-time coordinate capture at exactly `PICKUP_START`, `TRIP_START`, `TRIP_END` and `TRIP_CANCELLED`; no continuous tracking or GPS-derived ride distance is permitted.
 - The native journal is committed before location acquisition. A bounded 30-second request may accept the first valid fix at 75 metres or better; a valid fix without accuracy metadata may be stored but is not eligible for locality lookup.
 - If capture fails, stop active location requests and retain the pending event. Resume only on a later ride event, app open, or explicit GPS-status refresh. Never schedule a timed/idle GPS retry.
-- PWA locality resolution makes one immediate, non-blocking attempt for a newly captured eligible snapshot. Duplicate event delivery must not trigger another attempt. Later locality retries are user-initiated only through Timeline pull-to-refresh; no connectivity polling, automatic locality retry timer, or background geocoding queue is allowed.
+- GPS capture never initiates locality resolution or polls for a newly captured snapshot. PWA locality resolution is initiated only by the explicit Timeline pull-to-refresh action, for eligible unresolved snapshots. No connectivity polling, automatic locality attempt, locality retry timer, or background geocoding queue is allowed.
 - Timeline pull-to-refresh is the single manual entry point for unresolved eligible snapshots across all four event types. Display semantics remain separate: pickup uses `PICKUP_START`, completed drop uses `TRIP_END`, and cancellation is never presented as a passenger drop-off.
 
 ## 8. Work and event capture boundary
