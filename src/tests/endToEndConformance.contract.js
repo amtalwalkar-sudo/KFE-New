@@ -138,7 +138,7 @@ assert.equal(fareUpdate.status, TRIP_STATES.COMPLETED)
 const cancelled = transitionTrip(
   { id: 'trip-cancel', shiftId: shift.id, status: TRIP_STATES.ACTIVE, tripStage: TRIP_STAGES.GOING_TO_PICKUP },
   TRIP_STATES.CANCELLED,
-  { revenue: '', reason: 'DRIVER_MISTAKE' }
+  { cancelledRevenue: '', reason: 'DRIVER_MISTAKE' }
 )
 assert.equal(cancelled.id, 'trip-cancel')
 assert.equal(cancelled.cancelledRevenue, 0, 'Blank cancellation fee defaults to zero')
