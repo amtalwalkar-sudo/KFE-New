@@ -1,5 +1,6 @@
 import { LocalityRepository } from '../../repositories/localityRepository.js'
 import { resolveLocationNameDetailed } from './locationNameService.js'
+import { WorkRuntimePorts } from '../work/workRuntimePorts.js'
 
 export const LOCALITY_RESOLUTION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
 const EVENTS = new Set(['PICKUP_START', 'TRIP_START', 'TRIP_END', 'TRIP_CANCELLED'])
@@ -26,7 +27,7 @@ export const EventLocalityService = Object.freeze({
     }
     const existing = await LocalityRepository.getBySnapshotId(snapshot.id)
     if (existing?.placeName) return { ...existing, state: 'RESOLVED', cacheHit: true }
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) return { placeName: null, state: 'OFFLINE' }
+    if (!WorkRuntimePorts.platform.isOnline()) return { placeName: null, state: 'OFFLINE' }
     if (inFlight.has(snapshot.id)) return inFlight.get(snapshot.id)
     const attempt = (async () => {
       const resolution = await resolveLocationNameDetailed(snapshot)
