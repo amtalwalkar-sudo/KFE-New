@@ -16,24 +16,35 @@ export const TripBoundaryLocationAdapter = Object.freeze({
 
   async captureOneShotLocation(eventAt = null) {
     // Android has one authoritative pathway: its durable native event queue.
-    // Browser PWA fallback uses one fresh, one-shot location request.
     if (Capacitor.isNativePlatform()) return null
     try {
       if (typeof navigator === 'undefined' || !navigator.geolocation) return null
-      return await new Promise(resolve => navigator.geolocation.getCurrentPosition(
-        position => {
-          const location = normalizeTripBoundaryLocation({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            accuracy: position.coords.accuracy,
-            capturedAt: position.timestamp,
-          })
-          const eventTime = eventAt == null || eventAt === '' ? NaN : Date.parse(eventAt)
-          resolve(location && Number.isFinite(eventTime) && eventTime > 0 && Date.parse(location.capturedAt) >= eventTime ? location : null)
-        },
-        () => resolve(null),
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
-      ))
+      const eventTime = eventAt == null || eventAt === '' ? NaN : Date.parse(eventAt)
+      if (!Number.isFinite(eventTime) || eventTime <= 0) return null
+      const startedAt = Date.now()
+      for (const targetElapsed of [0, 3000, 7000, 12000, 20000, 27000]) {
+        const waitMs = Math.max(0, targetElapsed - (Date.now() - startedAt))
+        if (waitMs) await new Promise(resolve => setTimeout(resolve, waitMs))
+        const remaining = 30000 - (Date.now() - startedAt)
+        if (remaining <= 0) break
+        const location = await new Promise(resolve => navigator.geolocation.getCurrentPosition(
+          position => {
+            const normalized = normalizeTripBoundaryLocation({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracy: position.coords.accuracy,
+              capturedAt: position.timestamp,
+            })
+            const accuracy = Number(normalized?.accuracy)
+            resolve(normalized && Number.isFinite(accuracy) && accuracy >= 0 && accuracy <= 75
+              && Date.parse(normalized.capturedAt) >= eventTime ? normalized : null)
+          },
+          () => resolve(null),
+          { enableHighAccuracy: true, maximumAge: 0, timeout: Math.min(2500, remaining) },
+        ))
+        if (location) return location
+      }
+      return null
     } catch (_) {
       return null
     }
