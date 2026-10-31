@@ -36,7 +36,7 @@ for (const id of Array.from({ length: 11 }, (_, index) => String(index + 1))) {
 }
 assertIncludes(runAll, 'endToEndConformance.contract.js', 'The conformance gate must be part of the full contract suite.')
 
-// 2. One canonical state/command path.
+// 2. One canonical record model/history with platform-specific command adapters.
 assertIncludes(lifecycleContract, 'not a second set of trips or a second record history.', 'Lifecycle authority must forbid private surface mutation paths.')
 assertIncludes(workService, 'ShiftTripRepository.createTrip', 'START/GO TO PICKUP must use the canonical Trip repository.')
 assertIncludes(workService, 'ShiftTripRepository.setTripStage', 'START TRIP must use the canonical Trip stage repository.')
@@ -149,7 +149,7 @@ assertIncludes(workflow, 'Android Exact APK Smoke Gate', 'Android release eviden
 assertIncludes(workflow, 'Upload tested Android Debug APK', 'The exact tested APK must be retained as CI evidence.')
 
 console.log('✓ 1/11 Frozen requirements are executable and gated')
-console.log('✓ 2/11 Canonical command/repository path is enforced')
+console.log('✓ 2/11 Canonical record model and platform command adapters are enforced')
 console.log('✓ 3/11 PWA ↔ Android parity is source-gated')
 console.log('✓ 4/11 Golden Ride reaches the full operational lifecycle')
 console.log('✓ 5/11 Restart/interruption recovery is durable and replayable')
