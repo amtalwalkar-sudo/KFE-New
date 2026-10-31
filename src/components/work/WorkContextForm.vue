@@ -10,7 +10,6 @@ import WorkNumericKeypad from './WorkNumericKeypad.vue'
 const props = defineProps({
   type: { type: String, required: true },
   endStage: { type: String, default: 'CLOSE' },
-  endReady: { type: Boolean, default: false },
   endBusy: { type: Boolean, default: false },
   endLargeDistanceKm: { type: Number, default: 0 },
   largeDistanceConfirmedFor: { type: String, default: '' },
@@ -19,7 +18,6 @@ const props = defineProps({
   fareBusy: { type: Boolean, default: false },
   cancelBusy: { type: Boolean, default: false },
   fuelBusy: { type: Boolean, default: false },
-  money: { type: Function, required: true },
   startOdo: { type: String, default: '' },
   startAck: { type: Boolean, default: false },
   closingOdo: { type: String, default: '' },
@@ -116,10 +114,6 @@ function submitForm() {
     : props.endStage === 'CLOSE' ? 'close-end'
     : 'finish-ended'
   emit('action', action)
-}
-
-const updateMap = (name, map, id, value) => {
-  emit('update:' + name, { ...map, [id]: value })
 }
 </script>
 
