@@ -1,10 +1,10 @@
-import { WorkDraftService } from './workDraftService.js'
+import { FormDraftService } from '../forms/formDraftService.js'
 
 /**
  * Owns serialized Work-form draft persistence independently of the view.
  * Drafts are recovery aids only: they are never auto-submitted.
  */
-export const createWorkDraftController = ({ service = WorkDraftService, isRestoring = () => false, onFailure = () => {} } = {}) => {
+export const createWorkDraftController = ({ service = FormDraftService, isRestoring = () => false, onFailure = () => {} } = {}) => {
   if (!service || typeof service.get !== 'function' || typeof service.save !== 'function' || typeof service.clear !== 'function') {
     throw new TypeError('A complete Work draft service is required.')
   }
