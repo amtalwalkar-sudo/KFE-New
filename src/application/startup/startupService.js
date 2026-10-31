@@ -45,17 +45,13 @@ export const initializeApplication = async () => {
       console.warn('KFE service worker registration unavailable:', error)
     })
 
-  try {
-    await platform.initializeStorage()
-    // A pending reset must finish before stale outbox/create-intent work can replay.
-    await BackupService.recoverPendingReset()
-    // A restore journal may represent a process death between SQLite and
-    // IndexedDB. Finish the same idempotent restore before replaying mutations.
-    await BackupService.recoverPendingRestore()
-    await MutationRepository.recoverStaleSyncing()
-  } catch (error) {
-    throw error
-  }
+  await platform.initializeStorage()
+  // A pending reset must finish before stale outbox/create-intent work can replay.
+  await BackupService.recoverPendingReset()
+  // A restore journal may represent a process death between SQLite and
+  // IndexedDB. Finish the same idempotent restore before replaying mutations.
+  await BackupService.recoverPendingRestore()
+  await MutationRepository.recoverStaleSyncing()
 
   void (async () => {
     try {
@@ -91,9 +87,7 @@ export const startApplication = () => {
 export const resetStartupAttempt = () => {
   activeAttempt = null
   clearTimer()
-  startupState.status = 'starting'
-  startupState.error = null
-  startupState.elapsedMs = 0
+  updateStartupState({ status: 'starting', error: null, elapsedMs: 0 })
   return startApplication()
 }
 
