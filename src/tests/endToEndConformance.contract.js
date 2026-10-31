@@ -37,7 +37,7 @@ for (const id of Array.from({ length: 11 }, (_, index) => String(index + 1))) {
 assertIncludes(runAll, 'endToEndConformance.contract.js', 'The conformance gate must be part of the full contract suite.')
 
 // 2. One canonical state/command path.
-assertIncludes(lifecycleContract, 'PWA and Android overlay actions must invoke the same authoritative command/mutation path', 'Lifecycle authority must forbid private surface mutation paths.')
+assertIncludes(lifecycleContract, 'Native action events are durable, replay-safe commands/evidence for the same canonical records, not a second set of trips.', 'Lifecycle authority must forbid private surface mutation paths.')
 assertIncludes(workService, 'ShiftTripRepository.createTrip', 'START/GO TO PICKUP must use the canonical Trip repository.')
 assertIncludes(workService, 'ShiftTripRepository.setTripStage', 'START TRIP must use the canonical Trip stage repository.')
 assertIncludes(workService, 'ShiftTripRepository.completeTrip', 'END TRIP must use the canonical Trip repository.')
