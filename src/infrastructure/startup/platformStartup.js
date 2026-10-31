@@ -48,6 +48,8 @@ const getWebAppBase = () => {
 
 export const PlatformStartup = Object.freeze({
   getPlatform: () => Capacitor.getPlatform(),
+  // Connectivity is exposed through the platform port; application services do not read browser globals.
+  isOnline: () => globalThis.navigator?.onLine !== false,
   getStartupPermissionStatus: () => NativeGate.getStartupPermissionStatus(),
   requestStartupPermission: args => NativeGate.requestStartupPermission(args),
   openStartupSetting: args => NativeGate.openStartupSetting(args),
