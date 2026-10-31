@@ -18,7 +18,7 @@ When two documents appear to define the same responsibility, the authority liste
 KFE contains only these product capabilities:
 
 1. Ride and shift workflow. Shift start/end and driver setup are owned by the PWA main app; the native Android overlay handles ride actions during an active shift.
-2. Timeline: read-only ride and fuel history, including the four offline-capable event-time GPS snapshots and explicitly manual-only locality refresh.
+2. Timeline: read-only ride and fuel history, including the four offline-capable event-time GPS snapshots; asynchronous locality resolution for all four events within seven days, permanently saved in PWA storage, with manual refresh for unresolved offline captures.
 3. Basic Performance: recorded shift revenue, completed rides, cancellation fees, recorded fuel spending, fuel cost/km from valid consecutive full-tank odometer readings, and income after fuel. Income after fuel includes cancellation fees. Do not add forecasts, targets, break-even models, provisions, profitability models, or unrelated financial calculations.
 4. Basic Admin: the existing essential forms and their saved records. Forms store source data; they must not grow into a separate calculations or planning product.
 5. Capacitor + PWA: the PWA owns shared UI and workflows; Capacitor/native Android owns Android-specific capabilities, including the ride overlay and native GPS collection.
