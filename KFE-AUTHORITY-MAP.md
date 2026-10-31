@@ -52,7 +52,7 @@ Anything outside these five capabilities is out of product scope. Do not restore
 ### Data / persistence / operational evidence
 - docs/KFE-PHASE-2-PERSISTENCE-CONTRACT.md — historical persistence implementation/evidence under the canonical data contract.
 - KFE_DATA_RECOVERY_GATE_PHASE7.md — recovery gate/evidence.
-- docs/PRELAUNCH-SOURCE-RECONCILIATION-2026-10-02.md — reconciliation evidence.
+
 
 ### UI / interaction evidence
 - docs/KFE-PWA-VISUAL-APPLICATION.md — presentation implementation/reference.
