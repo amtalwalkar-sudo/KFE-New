@@ -65,15 +65,20 @@ const refreshLocationNames = async () => {
   refreshing.value = true
   try {
     const rideIds = snapshot.value.rides.map(ride => ride.id).filter(Boolean)
-    const locations = await EventLocationService.forEntities('TRIP', rideIds)
-    const seen = new Set()
+    const visibleRideById = new Map(snapshot.value.rides.map(ride => [ride.id, ride]))
+    const locations = (await EventLocationService.forEntities('TRIP', rideIds)).filter(location => {
+      const ride = visibleRideById.get(location.entityId)
+      if (!ride) return false
+      if (location.eventType === 'PICKUP_START') return true
+      return ride.status === 'COMPLETED' && location.eventType === 'TRIP_END'
+    })
     let resolvedCount = 0
     let lowAccuracyCount = 0
     let attemptedCount = 0
     for (const location of locations) {
-      const key = `${Number(location.latitude).toFixed(5)}:${Number(location.longitude).toFixed(5)}`
-      if (seen.has(key)) continue
-      seen.add(key)
+      const hasCoordinates = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value))
+      if (!hasCoordinates(location.latitude) || !hasCoordinates(location.longitude)
+        || Math.abs(Number(location.latitude)) > 90 || Math.abs(Number(location.longitude)) > 180) continue
       attemptedCount += 1
       const resolution = await resolveLocationNameDetailed(location, undefined, { forceRefresh: true })
       if (resolution?.placeName) resolvedCount += 1
@@ -81,7 +86,7 @@ const refreshLocationNames = async () => {
     }
     await load()
     refreshMessage.value = attemptedCount === 0
-      ? 'No saved GPS snapshots are available to resolve yet.'
+      ? 'No valid pickup or completed drop GPS snapshots are available to resolve yet.'
       : resolvedCount > 0
         ? `Resolved ${resolvedCount} of ${attemptedCount} area names. ${lowAccuracyCount ? `${lowAccuracyCount} low-accuracy snapshots remain Location unavailable.` : ''} Saved ride GPS snapshots remain unchanged.`
         : lowAccuracyCount > 0
