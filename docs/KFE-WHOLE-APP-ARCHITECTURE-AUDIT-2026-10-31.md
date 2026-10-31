@@ -200,6 +200,12 @@ No active domain finance/loan engine, forecast, break-even, driver-target, provi
 
 **Change:** Exposed `WorkService.ensureCanonicalReadModel()` as the application-owned reconciliation use case and made `PhaseOnePerformanceService` call it before reading the Performance snapshot. The shared read boundary also fails closed on Android if SQLite is unavailable, rather than serving stale IndexedDB data; browser-only PWA operation remains IndexedDB-authoritative. A regression contract verifies reconciliation precedes the snapshot read.
 
+### 24. Locality eligibility and Timeline connectivity ownership were inconsistent
+
+**Finding:** Timeline display rejected fixes with supplied accuracy above 75 metres, but the application locality-resolution eligibility path did not require recorded accuracy. It could send a missing/poor-accuracy fix to a provider. Timeline could also display a previously saved label for a snapshot with no accuracy metadata, and the presentation read `navigator.onLine` directly despite an existing platform connectivity port.
+
+**Change:** Locality eligibility now requires valid coordinates and recorded accuracy from 0 through 75 metres before provider traffic. Timeline displays saved labels only for snapshots meeting that same accuracy gate; otherwise it shows coordinates offline or “Location unavailable” online. Connectivity state is read through `WorkRuntimePorts.platform.isOnline()`, and offline feedback is derived from the locality service result. Contracts cover missing accuracy, poor accuracy, invalid coordinates, and the presentation boundary.
+
 ## Verification
 
 The following are enforced by regression contracts:
