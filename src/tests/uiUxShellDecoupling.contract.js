@@ -55,6 +55,11 @@ assert.equal(packageJson.scripts['ui:impact'], 'node tools/presentation-impact.m
 assert.match(impactTool, /PROTECTED_PREFIXES/)
 assert.match(impactTool, /CHANGE IMPACT WARNING/)
 assert.match(contract, /impact tool checks local import dependencies and reports shared class\/ID hooks/)
+assert.match(contract, /Dark Only/, 'The authoritative shell contract must preserve the dark-only product setting.')
+assert.doesNotMatch(contract, /Auto \/ Light \/ Dark|odometer gap gate|shift review|movement reconciliation|target\/progress/i, 'The shell contract must not restore retired themes, Work stages or targets.')
+assert.match(contract, /native command\/persistence adapter/, 'The native overlay must be documented as a platform-specific durable command adapter.')
+assert.doesNotMatch(contract, /Both surfaces .*same authoritative command path/, 'PWA and native overlay command adapters are distinct while sharing domain rules and canonical records.')
+
 
 // Shell may own routing and platform-level GPS status, but not business state,
 // business calculations, direct persistence or screen-store orchestration.
