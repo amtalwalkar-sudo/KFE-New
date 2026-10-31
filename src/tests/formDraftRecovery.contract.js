@@ -40,7 +40,7 @@ assert.match(repository, /tx\.objectStore\('form_drafts'\)\.put\(record\)/, 'Dra
 assert.match(repository, /Form draft can only be cleared after successful commitment or explicit confirmed discard/, 'Clear must enforce the frozen recovery rule')
 assert.match(repository, /record\.ownerId !== identity\.ownerId/, 'Restore must verify parent ownership scope')
 assert.match(repository, /record\.workflowStep !== identity\.workflowStep/, 'Restore must verify workflow-step identity')
-assert.match(workView, /watch\(\[startOdo, startAck, gapChoice\]/, 'Shift-start draft must persist edits')
+assert.match(workView, /watch\(\[startOdo, startAck\]/, 'Shift-start draft must persist only the current odometer and confirmation')
 assert.match(workView, /watch\(\[fare, tripToll, tripParking/, 'Trip detail draft must persist edits')
 assert.match(workView, /watch\(\[cancelReason, cancelFare\]/, 'Cancellation draft must persist edits')
 assert.match(workView, /watch\(\[fuelOdo, fuelPrice, fuelAmount, fuelFull\]/, 'Fuel draft must persist edits')
