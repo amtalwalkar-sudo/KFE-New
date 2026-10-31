@@ -14,7 +14,7 @@ export const EventLocationService = {
     if (entityType !== 'TRIP' || !entityId || !RIDE_EVENTS.has(eventType)) return
     void (async () => {
       const prior = (await this.forEntity(entityType, entityId)).find(item => item.eventType === eventType)
-      if (prior) return
+      if (prior) { void EventLocalityService.resolveSnapshot(prior); return }
       // Android durably queues the event natively. Browser fallback uses one fix.
       if (await WorkRuntimePorts.tripBoundaryLocation.queueEventLocationCapture(entityType, entityId, eventType, eventAt)) {
         void this.resolveNativeSnapshotAfterCapture(entityId, eventType)
