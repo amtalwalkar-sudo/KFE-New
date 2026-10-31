@@ -114,6 +114,20 @@ const layerRegistry = JSON.parse(fs.readFileSync(path.join(projectRoot, 'spec/ar
 if ((layerRegistry.allowedImports.application || []).includes('infrastructure')) {
   violations.push('Application may depend only on domain, repository boundaries and application-owned ports—not infrastructure implementations.')
 }
+if (!(layerRegistry.allowedImports.infrastructure || []).includes('application')) {
+  violations.push('Infrastructure must be allowed to implement application-owned runtime ports at the composition boundary.')
+}
+const mainActivityPath = path.join(projectRoot, 'android/app/src/main/java/com/kanishka/pwa/MainActivity.java')
+const mainActivity = fs.readFileSync(mainActivityPath, 'utf8')
+const registeredJsPlugins = [...registry.matchAll(/registerPlugin\('([^']+)'\)/g)].map(match => match[1]).sort()
+const registeredNativePlugins = [...mainActivity.matchAll(/registerPlugin\((Kfe[A-Za-z0-9]+)\.class\)/g)].map(match => match[1].replace(/^Kfe/, 'Kfe')).sort()
+const expectedNativePlugins = ['KfeNativeWorkActions','KfeCanonicalWork','KfeOverlay','KfeTripBoundaryLocation','KfeSecureStorage','KfeBackupFile','KfeNativeSystem'].sort()
+if (registeredJsPlugins.length !== expectedNativePlugins.length || registeredJsPlugins.some((name,index) => name !== expectedNativePlugins[index])) {
+  violations.push('JavaScript Capacitor plugin registry must contain exactly the seven active native capabilities.')
+}
+if (registeredNativePlugins.length !== expectedNativePlugins.length || registeredNativePlugins.some((name,index) => name !== expectedNativePlugins[index])) {
+  violations.push('MainActivity must register exactly the native counterparts of the seven JavaScript plugin capabilities.')
+}
 const mainPath = path.join(root, 'main.js')
 const mainSource = fs.readFileSync(mainPath, 'utf8')
 if (/document\.createElement|style\.cssText/.test(mainSource)) violations.push('main.js must dispatch runtime errors to the App shell, not build presentation DOM.')
