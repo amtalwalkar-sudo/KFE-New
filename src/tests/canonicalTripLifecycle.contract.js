@@ -34,11 +34,14 @@ assert.equal(priced.revenueAuthority, undefined, 'Trip fare remains a supporting
 const cancelled = transitionTrip(active, TRIP_STATES.CANCELLED, { revenue: 0, reason: 'DRIVER_MISTAKE' })
 assert(cancelled.status === 'CANCELLED', 'Cancellation must produce one CANCELLED canonical Trip')
 assert(cancelled.id === active.id, 'Cancellation must retain the canonical Trip ID')
-assert(cancelled.cancelledRevenue === 0 && cancelled.revenue === 0, 'Cancellation default revenue must be ₹0')
+assert(cancelled.cancelledRevenue === 0 && cancelled.revenue === null, 'Cancellation fee must be recorded separately and must not become a Trip fare.')
 const cancelledBlank = transitionTrip(active, TRIP_STATES.CANCELLED, { revenue: '', reason: 'DRIVER_MISTAKE' })
-assert(cancelledBlank.cancelledRevenue === 0 && cancelledBlank.revenue === 0, 'Blank cancellation fee must default to ₹0')
+assert(cancelledBlank.cancelledRevenue === 0 && cancelledBlank.revenue === null, 'Blank cancellation fee defaults to zero without creating a Trip fare.')
 const cancelledZero = transitionTrip(active, TRIP_STATES.CANCELLED, { revenue: 0, reason: 'DRIVER_MISTAKE' })
-assert(cancelledZero.cancelledRevenue === 0 && cancelledZero.revenue === 0, 'Explicit zero cancellation fee must remain numeric zero')
+assert(cancelledZero.cancelledRevenue === 0 && cancelledZero.revenue === null, 'Explicit zero cancellation fee remains distinct from Trip fare.')
+const cancelledWithPriorFare = transitionTrip({ ...active, revenue: 300 }, TRIP_STATES.CANCELLED, { revenue: 20, reason: 'PASSENGER' })
+assert.equal(cancelledWithPriorFare.cancelledRevenue, 20)
+assert.equal(cancelledWithPriorFare.revenue, 300, 'Cancellation must not overwrite a pre-existing fare fact with the cancellation fee.')
 let invalidCancellationRejected = false
 try { transitionTrip(active, TRIP_STATES.CANCELLED, { revenue: 'not-a-number' }) } catch (_) { invalidCancellationRejected = true }
 assert(invalidCancellationRejected, 'Invalid cancellation fee must be rejected')
@@ -81,7 +84,7 @@ assert(workView.includes('TRIP COMPLETED') && workView.includes('Trip fare') && 
 assert(overlay.includes('"START_RIDE".equals(actionStage)') && overlay.includes('openCancelForm()'), 'Overlay cancellation must be available only on the pre-ride START_RIDE state')
 
 console.log('✓ END_RIDE → COMPLETED → fare preserves one Trip ID')
-console.log('✓ CANCEL_RIDE → CANCELLED ₹0 preserves one Trip ID')
+console.log('✓ CANCEL_RIDE → CANCELLED stores a distinct cancellation fee and preserves any Trip fare fact')
 console.log('✓ Terminal replay is idempotent; cross-terminal mutation is blocked')
 console.log('✓ Main app and overlay command paths converge on the canonical Trip repository')
 console.log('✓ Work cockpit and overlay share pickup/start/end/fare/cancel state semantics')
