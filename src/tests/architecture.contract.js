@@ -34,6 +34,12 @@ if (fs.existsSync(workServicePath)) {
   if (/from\s+['"][^'"]*\/infrastructure\//.test(workService)) violations.push('WorkService must use application runtime ports instead of importing infrastructure adapters directly.')
 }
 
+const workflowUiStatePath = path.join(root, 'presentation/workflowUiState.js')
+if (!fs.existsSync(workflowUiStatePath)) violations.push('Work timer/session restoration must live in the presentation UI-state owner.')
+const workViewSource = fs.readFileSync(workViewPath, 'utf8')
+if (!workViewSource.includes("../presentation/workflowUiState.js")) violations.push('Work view must consume presentation-owned workflow UI state.')
+if (fs.existsSync(path.join(root, 'application/work/workflowTimerService.js'))) violations.push('Application must not own browser-backed Work UI session state.')
+
 assertForbidden(['domain'], [ /from\s+['"][^'"]*\/repositories\//, /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/, /from\s+['"][^'"]*\/application\//, /from\s+['"][^'"]*\/infrastructure\//, /from\s+['"][^'"]*\/presentation\// ], 'Domain must remain independent of outer layers')
 assertForbidden(['application'], [ /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/, /from\s+['"][^'"]*\/presentation\//, /from\s+['"][^'"]*\/infrastructure\//, /from\s+['"]@capacitor\//, /from\s+['"]vue['"]/, /from\s+['"]pinia['"]/, /from\s+['"]@vue\// ], 'Application must not depend on raw persistence, presentation, infrastructure, Capacitor plugins, or UI frameworks')
 assertForbidden(['application'], [ /\bfetch\s*\(/, /navigator\.geolocation/ ], 'Application must not own network requests or platform location acquisition')
