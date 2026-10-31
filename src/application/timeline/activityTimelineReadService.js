@@ -71,7 +71,7 @@ export const ActivityTimelineReadService = Object.freeze({
       ShiftTripRepository.getAllTrips(),
       FuelRepository.getAll(),
     ])
-    const trips = Array.isArray(allTrips) ? allTrips : []
+    const trips = (Array.isArray(allTrips) ? allTrips : []).filter(trip => !trip?.deletedAt && trip?.deleted !== true)
     const periodTrips = trips.filter(trip => (trip?.status === 'COMPLETED' || trip?.status === 'CANCELLED') && inRange(tripPeriodTime(trip), range))
     const tripLocations = await EventLocationService.forEntities('TRIP', periodTrips.map(trip => trip?.id), ['PICKUP_START', 'TRIP_END'])
     const localityRows = await LocalityRepository.forSnapshotIds(tripLocations.map(location => location.id))
