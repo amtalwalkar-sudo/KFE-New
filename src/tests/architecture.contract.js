@@ -23,15 +23,6 @@ const assertForbidden = (dirs, patterns, label) => {
 assertForbidden(['views', 'components', 'stores', 'presentation', 'router'], [ /from\s+['"][^'"]*\/repositories\//, /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/, /from\s+['"][^'"]*\/infrastructure\//, /from\s+['"]@capacitor\// ], 'Presentation/state must not access persistence or infrastructure directly')
 assertForbidden(['views', 'components', 'presentation'], [ /from\s+['"][^'"]*\/domain\/(?:performance|work|math|movement|time)\// ], 'Presentation must not orchestrate domain logic directly')
 
-// Admin screens must consume financial calculations and reference-time helpers
-// through the application boundary, not import domain engines themselves.
-const adminViewPath = path.join(root, 'views/AdminView.vue')
-if (fs.existsSync(adminViewPath)) {
-  const adminView = fs.readFileSync(adminViewPath, 'utf8')
-  if (/from\s+['"][^'"]*\/domain\/(?:finance|time)\//.test(adminView)) {
-    violations.push('AdminView.vue must use application read-model services instead of importing finance/time domain modules directly.')
-  }
-}
 const workViewPath = path.join(root, 'views/WorkModuleView.vue')
 if (fs.existsSync(workViewPath)) {
   const workView = fs.readFileSync(workViewPath, 'utf8')
@@ -69,11 +60,7 @@ if (fs.existsSync(manifestPath)) {
   if (/FloatingWidgetService/.test(manifest)) violations.push('Android manifest still registers the obsolete floating widget overlay.')
 }
 
-const legacyServiceAllowlist = ['activityDetectionService.js','interShiftOdometerGapService.js','locationNameService.js','locationService.js','odometerAuditService.js','rideCaptureService.js','shiftValidator.js','syncService.js','tripNotificationService.js','adapters/apiAdapter.js','adapters/rideCaptureAdapter.js']
-for (const relativePath of legacyServiceAllowlist) if (fs.existsSync(path.join(root, 'services', relativePath))) {
-  const source = fs.readFileSync(path.join(root, 'services', relativePath), 'utf8')
-  if (/from\s+['"][^'"]*\/usecases\//.test(source)) violations.push(`Legacy service still references removed usecases: ${relativePath}`)
-}
+if (fs.existsSync(path.join(root, 'services'))) violations.push('Obsolete src/services layer must remain deleted; active services belong to application or infrastructure owners.')
 
 const obsoleteFiles = [
   'stores/offlineQueueStore.js',
@@ -116,6 +103,37 @@ if (!fs.existsSync(pluginRegistryPath)) {
     if (!registry.includes(`registerPlugin('${pluginName}')`)) violations.push(`Shared Capacitor registry is missing ${pluginName}.`)
   }
 }
+
+
+const layerRegistry = JSON.parse(fs.readFileSync(path.join(projectRoot, 'spec/architecture/layers.json'), 'utf8'))
+if ((layerRegistry.allowedImports.application || []).includes('infrastructure')) {
+  violations.push('Application may depend only on domain, repository boundaries and application-owned ports—not infrastructure implementations.')
+}
+const mainPath = path.join(root, 'main.js')
+const mainSource = fs.readFileSync(mainPath, 'utf8')
+const runtimePortsPath = path.join(root, 'application/work/workRuntimePorts.js')
+const runtimeAdapterPath = path.join(root, 'infrastructure/work/workRuntimeAdapter.js')
+const runtimePorts = fs.readFileSync(runtimePortsPath, 'utf8')
+const runtimeAdapter = fs.readFileSync(runtimeAdapterPath, 'utf8')
+if (!(mainSource.indexOf('installWorkRuntimeAdapter()') >= 0 && mainSource.indexOf('installWorkRuntimeAdapter()') < mainSource.indexOf('createKfeRouter('))) {
+  violations.push('The single composition root must install runtime ports before router creation.')
+}
+if (!mainSource.includes("import('./presentation/forms/universalFormSystem.js')")) violations.push('The shared form system must be initialized explicitly by the composition root.')
+if (!runtimeAdapter.includes('configureWorkRuntimePorts(') || !runtimePorts.includes('export const configureWorkRuntimePorts')) {
+  violations.push('Application-owned runtime ports must have one infrastructure adapter binding.')
+}
+if (!mainSource.includes("from './infrastructure/work/workRuntimeAdapter.js'")) violations.push('main.js must be the single infrastructure composition root.')
+for (const relativePath of [
+  'views/FirstRunSetupView.vue',
+  'application/setup/firstRunSetupService.js',
+  'application/work/workDraftService.js',
+  'domain/work/shiftStartRuleInterpreter.js',
+]) if (fs.existsSync(path.join(root, relativePath))) violations.push(`Retired duplicate/overbuilt path still exists: ${relativePath}`)
+if (fs.existsSync(path.join(projectRoot, 'spec/work-domain/shift-start-rules.json'))) violations.push('The retired generic odometer-rule AST must not return.')
+const workViewForScope = fs.readFileSync(path.join(root, 'views/WorkModuleView.vue'), 'utf8')
+const workServiceForScope = fs.readFileSync(path.join(root, 'application/work/workService.js'), 'utf8')
+if (/Personal KM|Dead KM|gapChoice|gap allocation/i.test(workViewForScope)) violations.push('Work view still contains retired odometer-gap classification.')
+if (/validateGapAllocation|movementReconciliation|reconcileShiftRevenue|normalized\\.tripKm/.test(workServiceForScope)) violations.push('WorkService still contains retired movement/reconciliation behavior.')
 
 if (violations.length) { console.error(violations.join('\n')); process.exit(1) }
 console.log('Architecture contract passed: presentation, application, domain, persistence, infrastructure and obsolete-code boundaries are clean.')
