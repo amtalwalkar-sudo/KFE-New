@@ -136,7 +136,7 @@ public class KfeOverlayService extends Service {
       boolean fine=ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED;
       boolean background=Build.VERSION.SDK_INT<Build.VERSION_CODES.Q||ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_BACKGROUND_LOCATION)==PackageManager.PERMISSION_GRANTED;
       if(fine&&background)retryPendingLocations(context);
-      else Log.i("KFE-GPS","Event "+key+" durably queued; background capture is disabled until required permissions are granted.");
+      else Log.i("KFE-GPS","Event "+KfeGpsEventPolicy.key(entityType,entityId,eventType)+" durably queued; background capture is disabled until required permissions are granted.");
       return true;
     }catch(Exception error){Log.e("KFE-GPS","Could not queue PWA event GPS capture.",error);return false;}
   }
