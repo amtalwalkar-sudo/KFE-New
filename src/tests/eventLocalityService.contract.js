@@ -4,14 +4,24 @@ import { isEligibleForLocalityResolution, LOCALITY_RESOLUTION_MAX_AGE_MS } from 
 
 const now = Date.parse('2026-10-31T12:00:00.000Z')
 assert.equal(LOCALITY_RESOLUTION_MAX_AGE_MS, 7 * 24 * 60 * 60 * 1000)
+const eligibleSnapshot = (eventType, eventAt) => ({
+  id: 'gps-' + eventType, eventType, eventAt,
+  latitude: 19.076, longitude: 72.8777, accuracy: 30,
+})
 for (const eventType of ['PICKUP_START', 'TRIP_START', 'TRIP_END', 'TRIP_CANCELLED']) {
-  assert.equal(isEligibleForLocalityResolution({ id: 'gps-' + eventType, eventType, eventAt: new Date(now - 1000).toISOString() }, now), true,
-    eventType + ' must be geocoded')
-  assert.equal(isEligibleForLocalityResolution({ id: 'gps-' + eventType, eventType, eventAt: new Date(now - LOCALITY_RESOLUTION_MAX_AGE_MS).toISOString() }, now), true,
+  assert.equal(isEligibleForLocalityResolution(eligibleSnapshot(eventType, new Date(now - 1000).toISOString()), now), true,
+    eventType + ' with a valid fix must be geocoded')
+  assert.equal(isEligibleForLocalityResolution(eligibleSnapshot(eventType, new Date(now - LOCALITY_RESOLUTION_MAX_AGE_MS).toISOString()), now), true,
     eventType + ' at the seven-day boundary remains eligible')
-  assert.equal(isEligibleForLocalityResolution({ id: 'gps-' + eventType, eventType, eventAt: new Date(now - LOCALITY_RESOLUTION_MAX_AGE_MS - 1).toISOString() }, now), false,
+  assert.equal(isEligibleForLocalityResolution(eligibleSnapshot(eventType, new Date(now - LOCALITY_RESOLUTION_MAX_AGE_MS - 1).toISOString()), now), false,
     eventType + ' older than seven days must not be sent to a provider')
 }
+assert.equal(isEligibleForLocalityResolution({ ...eligibleSnapshot('TRIP_START', new Date(now - 1000).toISOString()), accuracy: null }, now), false,
+  'GPS fixes without recorded accuracy must not be sent to a locality provider')
+assert.equal(isEligibleForLocalityResolution({ ...eligibleSnapshot('TRIP_START', new Date(now - 1000).toISOString()), accuracy: 75.01 }, now), false,
+  'GPS fixes worse than 75 metres must not be sent to a locality provider')
+assert.equal(isEligibleForLocalityResolution({ ...eligibleSnapshot('TRIP_START', new Date(now - 1000).toISOString()), latitude: 91 }, now), false,
+  'Invalid coordinates must not be sent to a locality provider')
 assert.equal(isEligibleForLocalityResolution({ eventType: 'TRIP_START', eventAt: new Date(now + 1).toISOString() }, now), false)
 assert.equal(isEligibleForLocalityResolution({ eventType: 'LOCATION_POLL', eventAt: new Date(now - 1000).toISOString() }, now), false)
 assert.equal(isEligibleForLocalityResolution({ eventType: 'TRIP_END', eventAt: null }, now), false)
@@ -22,6 +32,7 @@ const localityService = fs.readFileSync('src/application/location/eventLocalityS
 const timeline = fs.readFileSync('src/views/ActivityTimelineView.vue', 'utf8')
 assert.match(captureService, /if \(prior\) return/)
 assert.match(localityService, /WorkRuntimePorts\.platform\.isOnline\(\)/)
+assert.match(localityService, /accuracy <= 75/, 'Locality resolution must require a recorded GPS accuracy of 75 metres or better.')
 assert.doesNotMatch(localityService, /navigator\.onLine/)
 assert.doesNotMatch(timeline, /navigator\.onLine/, 'Timeline presentation must not bypass the platform connectivity adapter.')
 assert.match(timeline, /results\.some\(result => result\?\.state === 'OFFLINE'\)/, 'Timeline must render offline state from the locality service result.')
