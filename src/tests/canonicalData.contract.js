@@ -58,7 +58,7 @@ for (const store of ['shifts','trips','fuel_logs','vehicles','drivers','complian
 assert.doesNotMatch(indexedDB, /createSimpleStore\(db, 'driver_collected_data'/)
 assert.match(indexedDB, /deleteObjectStore\('driver_collected_data'\)/)
 assert.equal(CANONICAL_BACKUP_STORES.includes('driver_collected_data'), false)
-assert.equal(BACKUP_FORMAT_VERSION, 4)
+assert.equal(BACKUP_FORMAT_VERSION, 5)
 assert.match(backupSource, /formatVersion === 2/)
 assert.match(backupSource, /driver_collected_data: _removed/)
 assert.match(dataContract, /Preserve those records during scope cleanup and backup\/restore/)
@@ -68,6 +68,6 @@ assert.doesNotMatch(dataContract, /deriveAuthoritativeBreakEven|Driver Target do
 const legacyStores = ['shifts','fuel_logs','odoGaps','pending_mutations','days','trips','gps_snapshots','movement_artifacts','vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history']
 const stores = Object.fromEntries([...legacyStores.map(store => [store, []]), ['driver_collected_data', []]])
 const migrated = validateBackup({ format: 'KFE_BACKUP', formatVersion: 2, source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: 9 }, exportedAt: new Date().toISOString(), stores })
-assert.equal(migrated.formatVersion, 4); assert.equal('driver_collected_data' in migrated.stores, false)
+assert.equal(migrated.formatVersion, 5); assert.equal('driver_collected_data' in migrated.stores, false)
 for (const store of ['days','odoGaps','gps_snapshots','movement_artifacts']) assert.match(indexedDB, new RegExp(`['\\\"]${store}['\\\"]`))
 console.log('Canonical data contract: core facts normalized; legacy saved records preserved without retired calculation models.')
