@@ -182,6 +182,12 @@ No active domain finance/loan engine, forecast, break-even, driver-target, provi
 
 **Change:** The domain transition now permits cancellation only at GOING_TO_PICKUP/PICKUP. Native SQLite independently enforces the same stage and refuses a form payload that changes the canonical stage. Regression and Android instrumentation tests verify that post-start cancellation is rejected while pre-ride cancellation and optional cancellation fees remain supported.
 
+### 21. Native form transaction accepted unrelated Trip field changes
+
+**Finding:** The native form transaction checked Shift identity and form status but wrote the entire submitted Trip payload. A stale or malformed fare/cancellation payload could therefore change lifecycle stage or unrelated Trip fields while saving a form.
+
+**Change:** Native form commits now compare the submitted record with the canonical Trip after removing only fields owned by that form. Fare forms can update only fare/toll/parking/skipped-fare facts and update time. Cancellation forms can update only status, cancellation reason/fee, cancellation event time and update time. The old per-Trip revenue-authority marker is removed on form write. Android instrumentation verifies a fare form cannot change a completed Trip's lifecycle stage.
+
 ## Verification
 
 The following are enforced by regression contracts:
