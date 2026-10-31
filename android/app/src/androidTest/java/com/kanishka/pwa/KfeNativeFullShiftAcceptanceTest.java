@@ -182,6 +182,7 @@ public class KfeNativeFullShiftAcceptanceTest {
     SQLiteDatabase database = store.getWritableDatabase();
     String shiftCreate = "native-lifecycle-guard-shift-create-" + suffix;
     String pickupOp = "native-lifecycle-guard-pickup-" + suffix;
+    String genericBypassOp = "native-lifecycle-guard-generic-bypass-" + suffix;
     String cancelPickupOp = "native-lifecycle-guard-cancel-pickup-" + suffix;
     String cancelOp = "native-lifecycle-guard-cancel-" + suffix;
     String prematureEndOp = "native-lifecycle-guard-premature-end-" + suffix;
@@ -205,6 +206,14 @@ public class KfeNativeFullShiftAcceptanceTest {
       KfeCanonicalWorkStore.Outcome pickupRetry =
           store.commitTripLifecycle(pickupOp, "GO_TO_PICKUP", new JSONObject(pickup.toString()), null, true);
       assertTrue("GO_TO_PICKUP lost-ack retry must be idempotent.", pickupRetry.accepted && pickupRetry.duplicate);
+
+      String t1 = java.time.Instant.parse(t0).plusMillis(10).toString();
+      JSONObject genericLifecycleBypass = new JSONObject(pickup.toString())
+          .put("tripStage", "RIDE_STARTED").put("tripStartAt", t1).put("updatedAt", t1);
+      boolean genericLifecycleWriteRejected = false;
+      try { store.putRecord(genericBypassOp, "TRIP", genericLifecycleBypass, t0, false); }
+      catch (IllegalArgumentException expected) { genericLifecycleWriteRejected = true; }
+      assertTrue("Generic native Trip writes must not bypass commitTripLifecycle.", genericLifecycleWriteRejected);
 
       String t1 = java.time.Instant.parse(t0).plusMillis(10).toString();
       JSONObject cancelPickup = new JSONObject().put("id", cancelledTripId).put("shiftId", shiftId)
@@ -300,11 +309,11 @@ public class KfeNativeFullShiftAcceptanceTest {
       assertTrue("GO_TO_PICKUP must be rejected after the PWA-owned Shift has ended.", inactiveShiftRejected);
     } finally {
       database.delete("canonical_records", "entity_id IN (?,?,?)", new String[]{shiftId, tripId, cancelledTripId});
-      String[] operations = {shiftCreate, pickupOp, cancelPickupOp, cancelOp, prematureEndOp, startOp, duplicateStartOp,
+      String[] operations = {shiftCreate, pickupOp, genericBypassOp, cancelPickupOp, cancelOp, prematureEndOp, startOp, duplicateStartOp,
           endOp, shiftEndOp, afterEndPickupOp, duplicateStartOp + "-terminal",
           "native-lifecycle-guard-cancel-after-start-" + suffix,
           "native-lifecycle-guard-lifecycle-cancel-after-start-" + suffix};
-      String placeholders = "?,?,?,?,?,?,?,?,?,?,?,?,?";
+      String placeholders = "?,?,?,?,?,?,?,?,?,?,?,?,?,?";
       database.delete("canonical_operations", "operation_id IN (" + placeholders + ")", operations);
       database.delete("canonical_audit", "operation_id IN (" + placeholders + ")", operations);
     }
