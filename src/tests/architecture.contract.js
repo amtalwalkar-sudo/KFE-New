@@ -49,7 +49,7 @@ if (fs.existsSync(appPath)) {
   if (/ShellService|BackupService|CloudBackupLifecycle|initializeCanonicalStorage|indexedDB|serviceWorker/i.test(app)) violations.push('App.vue still owns application/infrastructure startup concerns.')
 }
 
-const legacyPaths = ['views/DashboardView.vue','presentation/shell','stores/workCycle.js','stores/performanceStore.js','stores/records.js','stores/recordsStore.js','stores/offlineQueue.js','stores/offlineQueueStore.js','stores/index.js','services/syncEngine.js','usecases']
+const legacyPaths = ['views/DashboardView.vue','presentation/shell','stores/workCycle.js','stores/performanceStore.js','stores/records.js','stores/recordsStore.js','stores/offlineQueue.js','stores/offlineQueueStore.js','stores/index.js','services/syncEngine.js','usecases','composables/useForm.js','composables/useRecordForm.js','composables/useToast.js','layouts/FormLayout.vue','views/AdminSettingsOnlyView.vue','views/BlankWorkspaceView.vue','components/VehicleModuleView.vue','components/ComplianceModuleView.vue','components/MaintenanceModuleView.vue']
 for (const relativePath of legacyPaths) if (fs.existsSync(path.join(root, relativePath))) violations.push(`Legacy duplicate path still exists: ${relativePath}`)
 
 const obsoleteAndroidPaths = ['android/app/src/main/java/com/kanishka/pwa/FloatingWidgetService.java','android/app/src/main/res/layout/layout_floating_widget.xml']
@@ -79,6 +79,10 @@ const obsoleteFiles = [
   'services/movementAccountingService.js',
   'services/mileageAccountingService.js',
   'services/revenueReconciliationService.js',
+  'repositories/odoGapRepository.js',
+  'application/platform/kfeNativeContract.js',
+  'application/diagnostics/diagnosticService.js',
+  'infrastructure/diagnostics/diagnosticService.js',
 ]
 for (const relativePath of obsoleteFiles) if (fs.existsSync(path.join(root, relativePath))) violations.push(`Obsolete implementation still exists: ${relativePath}`)
 
