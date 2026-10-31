@@ -56,7 +56,10 @@ assert.match(overlayService, /captureOneShotEventLocation/)
 assert.match(overlayService, /persistOneShotEventLocation/)
 assert.match(overlayService, /activateOneShotLocationForeground/)
 assert.match(overlayService, /restoreOverlayForegroundType/)
-assert.doesNotMatch(overlayService, /requestLocationUpdates|startLocationUpdates/)
+assert.match(overlayService, /requestLocationUpdates\(provider,3000L,0f/)
+assert.match(overlayService, /handler\.postDelayed\(stop,30000L/)
+assert.match(overlayService, /removeUpdates\(this\)/)
+assert.doesNotMatch(overlayService, /startLocationUpdates/)
 
 // Overlay actions retain their own durable bridge and do not route through notifications.
 assert.match(mainActivity, /registerPlugin\(KfeNativeWorkActionsPlugin\.class\)/)
