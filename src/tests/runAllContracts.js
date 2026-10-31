@@ -15,6 +15,7 @@ const suites = [
   'phase6ApplicationFlows.contract.js',
   'timelineLocationLabels.contract.js',
   'locationNameService.contract.js',
+  'eventLocalityService.contract.js',
 
   'tripBoundaryTimestamp.contract.js',
   'canonicalWorkReadAuthority.contract.js','browserCanonicalWriteContract.contract.js','canonicalWorkRecordFactory.contract.js','lifecycleStorageGuard.contract.js','nativeFirstWorkMutations.contract.js',
