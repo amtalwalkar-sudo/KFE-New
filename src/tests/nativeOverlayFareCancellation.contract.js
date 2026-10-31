@@ -34,6 +34,7 @@ assert.match(overlay, /if\("START_RIDE"\.equals\(actionStage\)\)\{[\s\S]*?captur
 assert.match(overlay, /finishNativeFormCommit\(\)/)
 assert.ok(store.includes('operationId was already used for a different trip form'))
 assert.ok(store.includes('Outcome commitTripForm(String operationId, String mode, JSONObject trip)'))
+assert.ok(store.includes('assertTripFormMutationScope(existingTrip, trip, mode)'), 'Native fare/cancellation forms must mutate only their owned fields.')
 assert.ok(store.includes('db.beginTransaction()'))
 assert.ok(store.includes('canonical_operations'))
 assert.ok(store.includes('canonical_audit'))
