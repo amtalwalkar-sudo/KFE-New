@@ -21,7 +21,7 @@ The current source and documentation audit is still being completed. The physica
 | 2 — Fix Business-Rule Defects | **COMPLETE / CLOSED** |
 | 3 — Business Rules Re-Audit | **COMPLETE / CLOSED** |
 | 4 — Whole-Application Architecture Audit | **SOURCE / AUTOMATION CHECKPOINT COMPLETE; final follow-up audit in progress** |
-| 5 — Architecture and Product Cleanup | **IN PROGRESS — source, contracts and documentation aligned on PR #412** |
+| 5 — Architecture and Product Cleanup | **ACTIVE** — source, contracts and documentation aligned on PR #412 |
 | 6 — Operational Re-Audit | **PENDING fresh verification on the final cleanup head** |
 | 7 — Data / Recovery Gate | **PENDING fresh verification on the final cleanup head** |
 | 8 — Security / Permissions Gate | **PENDING fresh verification on the final cleanup head** |
