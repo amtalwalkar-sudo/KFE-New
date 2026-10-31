@@ -5,7 +5,7 @@ import { recordFuelEntry } from './fuel.js'
 import { validateShiftStartOdometer, validateFirstDayShiftStartOdometer } from '../../domain/work/shift.js'
 import { calculateFuelQuantity, validateFuelEntry } from '../../domain/work/fuel.js'
 import { calculateRollingFuelCostPerKm } from '../../domain/math/fuel.js'
-import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } from '../../domain/work/trip.js'
+import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripDetails } from '../../domain/work/trip.js'
 import { BackupService } from '../backup/backupService.js'
 import { WorkRuntimePorts } from './workRuntimePorts.js'
 import { EventLocationService } from '../location/eventLocationService.js'
@@ -179,12 +179,11 @@ const createNativeShiftRecord = data => createCanonicalShiftRecord(data, {
 const createNativeTripRecord = data => createCanonicalTripRecord(data, {
   createId: () => CanonicalWorkBoundary.createOperationId(),
 })
-const correctNativeTrip = (trip, data, now) => {
+const applyTripDetails = (trip, data, now) => {
   const normalized = normalizeTripInput(data)
   const next = { ...trip }
-  if (normalized.operator !== undefined) next.operator = normalized.operator
-  if (normalized.revenue !== undefined) { next.revenue = normalized.revenue; if (next.status === 'CANCELLED') next.cancelledRevenue = normalized.revenue; next.revenueAuthority = 'SUPPORTING_ONLY'; if (normalized.revenueProvenance !== undefined) next.revenueProvenance = normalized.revenueProvenance }
-  for (const field of ['toll', 'parking', 'cancelReason', 'fareDetailsSkipped']) if (normalized[field] !== undefined) next[field] = normalized[field]
+  if (normalized.revenue !== undefined) { next.revenue = normalized.revenue; next.revenueAuthority = 'SUPPORTING_ONLY' }
+  for (const field of ['toll', 'parking', 'fareDetailsSkipped']) if (normalized[field] !== undefined) next[field] = normalized[field]
   next.updatedAt = now
   return next
 }
@@ -195,7 +194,7 @@ const captureAndPersistEventLocation = (entityType, entityId, eventType, eventAt
 export const WorkService = Object.freeze({
   getTripOperators() { return WORK_TRIP_OPERATORS },
   validateTripOperator(operator) { return validateTripOperator(operator) },
-  validateTripCorrection(data) { return validateTripCorrection(data) },
+  validateTripDetails(data) { return validateTripCorrection(data) },
   validateFuelEntry(data) { return validateFuelEntry(data) },
   async getActiveState() {
     // The repository owns the single-flight canonical read boundary so startup,
@@ -256,11 +255,11 @@ export const WorkService = Object.freeze({
     captureAndPersistEventLocation('TRIP', data?.id, 'TRIP_CANCELLED', data?.tripEndAt || new Date().toISOString())
     return result
   },
-  async updateTrip(data, operationId = '') {
+  async saveTripDetails(data, operationId = '') {
     const nativeAvailable = requireLifecycleStorage()
     const validation = validateTripCorrection(data)
     if (!validation.valid) return { ok: false, reason: validation.reason }
-    const correction = { ...data, ...validation }; const result = nativeAvailable ? await (async () => { const trip = await findNativeRecord('TRIP', data?.id); if (!trip) throw new Error('Trip not found.'); if (!['COMPLETED', 'CANCELLED'].includes(trip.status)) throw new Error('Only completed or cancelled trips can be corrected.'); const next = correctNativeTrip(trip, correction, nextCanonicalTimestamp(trip.updatedAt)); await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt, operationId }); return true })() : await ShiftTripRepository.updateTrip(correction); if (!nativeAvailable) await mirrorCanonicalTripById(data?.id); checkpoint(); return result
+    const correction = { ...data, ...validation }; const result = nativeAvailable ? await (async () => { const trip = await findNativeRecord('TRIP', data?.id); if (!trip) throw new Error('Trip not found.'); if (trip.status !== 'COMPLETED') throw new Error('Trip details can only be saved after a completed ride.'); const next = applyTripDetails(trip, correction, nextCanonicalTimestamp(trip.updatedAt)); await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt, operationId }); return true })() : await ShiftTripRepository.saveTripDetails(correction); if (!nativeAvailable) await mirrorCanonicalTripById(data?.id); checkpoint(); return result
   },
   async updateFuel(data) { const result = await FuelRepository.update(data.id, data); checkpoint(); return { ok: true, record: result } },
   async deleteFuel(id) { const result = await FuelRepository.remove(id); checkpoint(); return { ok: result } },
