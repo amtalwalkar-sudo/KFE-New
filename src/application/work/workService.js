@@ -152,10 +152,10 @@ const commitPreparedCreateIntent = async (entityType, proposedRecord, data) => {
   await ShiftTripRepository.syncCanonicalRecords(snapshot)
   return intent.record
 }
-const commitNativeFirst = async (entityType, record, { expectedUpdatedAt = null, expectAbsent = false } = {}) => {
+const commitNativeFirst = async (entityType, record, { expectedUpdatedAt = null, expectAbsent = false, operationId = '' } = {}) => {
   if (!nativeCanonicalAvailable()) throw new Error('Native-first lifecycle writes require Android canonical storage.')
-  const operationId = `pwa-${entityType.toLowerCase()}-${record.id}-${record.updatedAt}`
-  const result = await CanonicalWorkBoundary.putRecord({ operationId, entityType, record, expectedUpdatedAt, expectAbsent })
+  const durableOperationId = operationId || `pwa-${entityType.toLowerCase()}-${record.id}-${record.updatedAt}`
+  const result = await CanonicalWorkBoundary.putRecord({ operationId: durableOperationId, entityType, record, expectedUpdatedAt, expectAbsent })
   if (result?.accepted !== true || !result?.outcome?.record) {
     throw new Error(`Native canonical ${entityType} commit was not acknowledged.`)
   }
@@ -248,19 +248,19 @@ export const WorkService = Object.freeze({
     captureAndPersistEventLocation('TRIP', data?.id, 'TRIP_END', data?.tripEndAt || new Date().toISOString())
     return result
   },
-  async cancelTrip(data) {
+  async cancelTrip(data, operationId = '') {
     const nativeAvailable = requireLifecycleStorage()
-    const result = nativeAvailable ? await (async () => { const trip = await findNativeRecord('TRIP', data?.id); if (!trip) throw new Error('Trip not found.'); const now = new Date().toISOString(); const next = transitionTrip(trip, 'CANCELLED', data); next.tripEndAt = data.tripEndAt || trip.tripEndAt || now; next.updatedAt = nextCanonicalTimestamp(trip.updatedAt); await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt }); return true })() : await ShiftTripRepository.cancelTrip(data)
+    const result = nativeAvailable ? await (async () => { const trip = await findNativeRecord('TRIP', data?.id); if (!trip) throw new Error('Trip not found.'); const now = new Date().toISOString(); const next = transitionTrip(trip, 'CANCELLED', data); next.tripEndAt = data.tripEndAt || trip.tripEndAt || now; next.updatedAt = nextCanonicalTimestamp(trip.updatedAt); await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt, operationId }); return true })() : await ShiftTripRepository.cancelTrip(data)
     if (!nativeAvailable) await mirrorCanonicalTripById(data?.id)
     checkpoint()
     captureAndPersistEventLocation('TRIP', data?.id, 'TRIP_CANCELLED', data?.tripEndAt || new Date().toISOString())
     return result
   },
-  async updateTrip(data) {
+  async updateTrip(data, operationId = '') {
     const nativeAvailable = requireLifecycleStorage()
     const validation = validateTripCorrection(data)
     if (!validation.valid) return { ok: false, reason: validation.reason }
-    const correction = { ...data, ...validation }; const result = nativeAvailable ? await (async () => { const trip = await findNativeRecord('TRIP', data?.id); if (!trip) throw new Error('Trip not found.'); if (!['COMPLETED', 'CANCELLED'].includes(trip.status)) throw new Error('Only completed or cancelled trips can be corrected.'); const next = correctNativeTrip(trip, correction, nextCanonicalTimestamp(trip.updatedAt)); await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt }); return true })() : await ShiftTripRepository.updateTrip(correction); if (!nativeAvailable) await mirrorCanonicalTripById(data?.id); checkpoint(); return result
+    const correction = { ...data, ...validation }; const result = nativeAvailable ? await (async () => { const trip = await findNativeRecord('TRIP', data?.id); if (!trip) throw new Error('Trip not found.'); if (!['COMPLETED', 'CANCELLED'].includes(trip.status)) throw new Error('Only completed or cancelled trips can be corrected.'); const next = correctNativeTrip(trip, correction, nextCanonicalTimestamp(trip.updatedAt)); await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt, operationId }); return true })() : await ShiftTripRepository.updateTrip(correction); if (!nativeAvailable) await mirrorCanonicalTripById(data?.id); checkpoint(); return result
   },
   async updateFuel(data) { const result = await FuelRepository.update(data.id, data); checkpoint(); return { ok: true, record: result } },
   async deleteFuel(id) { const result = await FuelRepository.remove(id); checkpoint(); return { ok: result } },
