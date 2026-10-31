@@ -13,15 +13,23 @@ const inRange = (value, range) => {
 /**
  * Basic Performance projection from saved revenue and fuel facts. It only
  * summarizes the selected period and never writes or repairs operational records.
+ * Shift-owned revenue and ride counts follow the shift end date (or start date
+ * for an ongoing shift); unlinked trips fall back to their event timestamp.
  */
 export function derivePhaseOnePerformanceOverview(snapshot, range, metrics) {
   if (!range?.from || !range?.to || range.to < range.from) throw new Error('Performance reporting period is invalid.')
   const shifts = live(snapshot?.shifts).filter(shift => inRange(shift.shiftEndAt || shift.shiftStartAt, range))
   const shiftIds = new Set(shifts.map(shift => shift.id).filter(Boolean))
   const trips = live(snapshot?.trips)
-  const completedRides = trips.filter(trip => trip.status === 'COMPLETED' && inRange(trip.tripEndAt || trip.tripStartAt, range)).length
+  const eventTimeFor = trip => trip.status === 'CANCELLED'
+    ? trip.tripEndAt || trip.cancelledAt || trip.tripStartAt || trip.createdAt
+    : trip.tripEndAt || trip.tripStartAt
+  const belongsToPeriod = trip => trip.shiftId
+    ? shiftIds.has(trip.shiftId)
+    : inRange(eventTimeFor(trip), range)
+  const completedRides = trips.filter(trip => trip.status === 'COMPLETED' && belongsToPeriod(trip)).length
   const cancellationFees = trips
-    .filter(trip => trip.status === 'CANCELLED' && (trip.shiftId ? shiftIds.has(trip.shiftId) : inRange(trip.tripEndAt || trip.cancelledAt || trip.tripStartAt || trip.createdAt, range)))
+    .filter(trip => trip.status === 'CANCELLED' && belongsToPeriod(trip))
     .reduce((sum, trip) => sum + amount(trip.cancelledRevenue ?? trip.revenue), 0)
   const recordedRevenue = shifts.reduce((sum, shift) => sum + amount(shift.revenue), 0)
   const fuelSpending = Number.isFinite(Number(metrics?.fuelCost)) ? Number(metrics.fuelCost) : 0
