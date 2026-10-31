@@ -170,6 +170,18 @@ No active domain finance/loan engine, forecast, break-even, driver-target, provi
 
 **Change:** Shift normalization now accepts only opening/closing odometer and lifecycle timestamp aliases. Retired gap-allocation, manual revenue, per-shift toll/parking and supplied distance inputs are discarded from normalized new Shift input. Existing stored/backup records are not migrated or deleted by this change.
 
+### 19. Native overlay lifecycle bypassed transition validation
+
+**Finding:** Native overlay GO_TO_PICKUP, START_RIDE and END_RIDE assembled canonical Trip payloads and wrote them through generic `putRecord`. The UI stage normally constrained these actions, but the SQLite persistence boundary did not verify the prior canonical Trip stage or compare-and-set version. A stale native workflow snapshot could therefore attempt a stage regression or terminal Trip reopening.
+
+**Change:** Added `commitTripLifecycle` as a dedicated native transaction boundary. It validates the active canonical Shift, expected prior Trip stage, target status/stage, stable Shift identity and expected Trip version inside the same SQLite transaction as the write. The overlay no longer uses generic record replacement for lifecycle transitions. Android instrumentation tests cover valid ordered transitions, idempotent retry, END before START, duplicate START, terminal reopening and Shift-ended rejection.
+
+### 20. Cancellation was not guarded by the canonical pre-ride stage
+
+**Finding:** The UI hid cancellation after ride start, but the shared domain transition and native SQLite form transaction relied primarily on status=ACTIVE. A stale or alternate caller could attempt to cancel a Trip after RIDE_STARTED.
+
+**Change:** The domain transition now permits cancellation only at GOING_TO_PICKUP/PICKUP. Native SQLite independently enforces the same stage and refuses a form payload that changes the canonical stage. Regression and Android instrumentation tests verify that post-start cancellation is rejected while pre-ride cancellation and optional cancellation fees remain supported.
+
 ## Verification
 
 The following are enforced by regression contracts:
