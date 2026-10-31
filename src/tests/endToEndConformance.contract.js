@@ -124,6 +124,8 @@ assertIncludes(matrix, 'A passing repository or emulator gate does **not** subst
 // 10. Golden Ride is one deterministic scenario, not disconnected screenshots.
 assertIncludes(matrix, '## Golden Ride scenario', 'Golden Ride must be explicitly documented.')
 assertIncludes(matrix, 'one stable Trip ID from pickup through completion and fare', 'Golden Ride must verify identity continuity.')
+assert.doesNotMatch(matrix, /ODOMETER \/ GAP GATE|RECONCILIATION|SHIFT REVIEW/, 'Golden Ride evidence must not retain retired gap/reconciliation workflows.')
+assertIncludes(matrix, 'END SHIFT (PWA; closing odometer)', 'Golden Ride must end through the PWA-owned shift workflow.')
 assert.equal(trip.id, 'trip-1', 'Golden Ride must preserve one Trip ID through completion.')
 const fareUpdate = { ...trip, revenue: 250, revenueAuthority: 'SUPPORTING_ONLY' }
 assert.equal(fareUpdate.id, trip.id)
