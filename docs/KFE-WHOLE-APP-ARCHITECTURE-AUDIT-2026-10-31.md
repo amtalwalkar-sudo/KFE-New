@@ -104,6 +104,12 @@ No active domain finance/loan engine, forecast, break-even, driver-target, provi
 - Native GPS is isolated to the four event snapshots; PWA locality lookup is explicit Timeline pull-to-refresh only.
 - Dropbox remains an app/WebView backup integration. No native background upload or service-worker cloud polling path is part of this architecture.
 
+### 11. Work UI state was in the wrong layer
+
+**Finding:** The Work timer identity and interrupted-form session marker were stored in `application/work/workflowTimerService.js` using browser `localStorage`. These are presentation restoration hints, not application business rules or canonical records.
+
+**Change:** The module now lives at `presentation/workflowUiState.js`, and WorkModuleView consumes it from the presentation layer. Form field drafts remain with the shared form-draft application/repository path. The application layer is now guarded against direct browser-global storage and platform access, and the architecture contract enforces this ownership.
+
 ## Verification
 
 The following are enforced by regression contracts:
