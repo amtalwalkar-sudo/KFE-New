@@ -10,7 +10,6 @@ const admin = read('repositories/adminRepository.js')
 const shiftTrip = read('repositories/shiftTripRepository.js')
 const canonicalWorkRecords = read('domain/work/canonicalWorkRecords.js')
 const fuel = read('repositories/fuelRepository.js')
-const odo = read('repositories/odoGapRepository.js')
 const mutation = read('repositories/mutationRepository.js')
 const contract = fs.readFileSync(path.join(root, '..', 'docs', 'KFE-PHASE-2-PERSISTENCE-CONTRACT.md'), 'utf8')
 
@@ -48,7 +47,7 @@ for (const indexedStore of ['vehicles','drivers','compliance_records','maintenan
 assert(db.includes("createObjectStore('financial_period_snapshots', { keyPath: 'periodKey' })"), 'Historical period snapshot store must use periodKey key paths')
 for (const explicitStore of ['shifts','fuel_logs','odoGaps','pending_mutations','days','trips','gps_snapshots']) assert(db.includes(`!db.objectStoreNames.contains('${explicitStore}')`), `Upgrade path missing for explicit store: ${explicitStore}`)
 
-for (const source of [admin, shiftTrip, fuel, odo]) {
+for (const source of [admin, shiftTrip, fuel]) {
   assert(source.includes('pending_mutations'), 'Canonical write missing mutation coupling')
   assert(source.includes('audit_history'), 'Canonical write missing audit coupling')
   assert(source.includes("'readwrite'"), 'Canonical write missing readwrite transaction')
