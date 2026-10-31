@@ -48,7 +48,7 @@ Do not restore dormant or historical features because a test, document, componen
 | Ride/shift workflow | `src/domain/work/tripLifecycle.js` → `src/application/work/workService.js` → `src/repositories/shiftTripRepository.js` |
 | Fuel records | `src/domain/work/fuel.js` → `src/application/work/fuel.js` → `src/repositories/fuelRepository.js` |
 | GPS event snapshots | `src/application/location/eventLocationService.js` and native Capacitor GPS plugin; event snapshots persist separately from ride facts |
-| Timeline | `src/application/timeline/activityTimelineReadService.js`; `src/application/location/eventLocalityService.js` starts asynchronous capture-time locality lookup, with manual Timeline refresh as fallback |
+| Timeline | `src/application/timeline/activityTimelineReadService.js`; `src/application/location/eventLocalityService.js` is invoked only by explicit Timeline pull-to-refresh |
 | Basic Performance | `src/application/performance/phaseOnePerformanceService.js` using `src/repositories/performanceRepository.js`; canonical changes refresh the open read-only view |
 | Admin forms/data | `src/application/admin/adminService.js` → `src/repositories/adminRepository.js` |
 | Android overlay | `src/infrastructure/android/androidOverlayLifecycle.js` → `src/infrastructure/android/kfeOverlay.js` → native `KfeOverlayService` |
