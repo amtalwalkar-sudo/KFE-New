@@ -12,6 +12,7 @@ const nativePlugin = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa
 const nativeOverlay = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java', 'utf8')
 const nativeGpsPolicy = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeGpsEventPolicy.java', 'utf8')
 const journal = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/KfeGpsEventJournal.java', 'utf8')
+const timeline = fs.readFileSync('src/views/ActivityTimelineView.vue', 'utf8')
 
 for (const event of ['PICKUP_START', 'TRIP_CANCELLED', 'TRIP_START', 'TRIP_END']) {
   assert.ok(eventLocationService.includes(`'${event}'`))
@@ -23,9 +24,14 @@ assert.match(workService, /captureAndPersistEventLocation\('TRIP', result\.id, '
 assert.match(workService, /captureAndPersistEventLocation\('TRIP', data\?\.id, 'TRIP_END'/)
 assert.match(workService, /captureAndPersistEventLocation\('TRIP', data\?\.id, 'TRIP_CANCELLED'/)
 assert.doesNotMatch(workService, /captureAndPersistEventLocation\('(SHIFT|FUEL)'/)
-assert.match(eventLocationService, /EventLocalityService\.resolveSnapshot\(snapshot\)/)
-assert.match(eventLocationService, /resolveNativeSnapshotAfterCapture/)
-assert.match(eventLocationService, /CanonicalWorkBoundary\.getEventLocationSnapshot/)
+assert.doesNotMatch(eventLocationService, /EventLocalityService|resolveSnapshot|resolveNativeSnapshotAfterCapture|setTimeout|setInterval/,
+  'GPS capture must never trigger or poll for locality resolution')
+assert.match(eventLocationService, /if \(prior\) return/)
+assert.match(eventLocationService, /queueEventLocationCapture\(entityType, entityId, eventType, eventAt\)/)
+assert.match(eventLocationService, /CanonicalWorkBoundary\.getEventLocationSnapshot/,
+  'Timeline reads discover native snapshots without a capture-time polling loop')
+assert.match(timeline, /EventLocalityService\.resolveSnapshots\(eligible\)/,
+  'only the explicit Timeline refresh handler may resolve localities')
 assert.match(locationRepository, /GPS snapshot requires the location provider fix timestamp/)
 assert.match(locationRepository, /capturedAt: new Date\(fixTimestamp\)\.toISOString\(\)/)
 assert.match(eventLocationService, /LocationRepository\.record\(/)
@@ -53,4 +59,4 @@ assert.doesNotMatch(nativeGpsPolicy, /SHIFT_START|SHIFT_END/)
 assert.match(nativePlugin, /backgroundCaptureAllowed/)
 assert.match(nativeOverlay, /isEventGpsFixAtOrAfter\(eventAt,fixTime\)/)
 assert.match(nativeOverlay, /isValidPersistedEventGpsSnapshot\(JSONObject snapshot\)/)
-console.log('PASS: four event GPS capture uses bounded multi-fix retries and durable pending retry')
+console.log('PASS: four-event offline GPS capture is separate from user-initiated locality resolution')
