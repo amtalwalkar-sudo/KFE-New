@@ -52,8 +52,19 @@ export const CanonicalWorkBoundary = Object.freeze({
   },
   async listEventLocationSnapshots() {
     if (!WorkRuntimePorts.canonicalWork.isAvailable()) return []
-    const result = await WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'GPS_SNAPSHOT', limit: 1000 })
-    return Array.isArray(result?.records) ? result.records : []
+    const records = []
+    const pageSize = 500
+    let offset = 0
+    let totalCount = Infinity
+    while (offset < totalCount) {
+      const page = await WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'GPS_SNAPSHOT', limit: pageSize, offset })
+      const rows = Array.isArray(page?.records) ? page.records : []
+      totalCount = Number(page?.totalCount ?? page?.count ?? rows.length)
+      records.push(...rows)
+      if (!rows.length) break
+      offset += rows.length
+    }
+    return records
   },
   async getEventLocationSnapshot(snapshotId) {
     if (!snapshotId || !WorkRuntimePorts.canonicalWork.isAvailable()) return null
