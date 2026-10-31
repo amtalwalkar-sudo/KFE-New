@@ -23,8 +23,6 @@ const props = defineProps({
   startOdo: { type: String, default: '' },
   startAck: { type: Boolean, default: false },
   closingOdo: { type: String, default: '' },
-  tripTollTreatment: { type: String, default: 'INCLUDED' },
-  tripParkingTreatment: { type: String, default: 'INCLUDED' },
   fare: { type: String, default: '' },
   tripToll: { type: String, default: '' },
   tripParking: { type: String, default: '' },
@@ -43,8 +41,6 @@ const emit = defineEmits([
   'update:start-ack',
   'update:closing-odo',
   'update:large-distance-confirmed-for',
-  'update:trip-toll-treatment',
-  'update:trip-parking-treatment',
   'update:fare',
   'update:trip-toll',
   'update:trip-parking',
@@ -131,7 +127,7 @@ const updateMap = (name, map, id, value) => {
   <section class="work-context-form contextual-form" :class="['form-' + type, type === 'start' ? 'start-shift-gate' : '', type === 'end' ? 'end-gate' : '', ['fare', 'cancel', 'fuel'].includes(type) ? 'focus-surface' : '']">
     <WorkStartShiftForm v-if="type === 'start'" :start-odo="startOdo" :start-ack="startAck"  :start-busy="startBusy" @action="emit('action', $event)" @focus-numeric="activateNumeric" @update:start-ack="emit('update:start-ack', $event)" />
 
-    <WorkFareForm v-else-if="type === 'fare'" :fare="fare" :fare-busy="fareBusy" :trip-toll="tripToll" :trip-parking="tripParking" :trip-toll-treatment="tripTollTreatment" :trip-parking-treatment="tripParkingTreatment" :show-save-action="!activeNumeric" @action="emit('action', $event)" @focus-numeric="activateNumeric" @dismiss-numeric="dismissNumeric" @update:trip-toll-treatment="emit('update:trip-toll-treatment', $event)" @update:trip-parking-treatment="emit('update:trip-parking-treatment', $event)" />
+    <WorkFareForm v-else-if="type === 'fare'" :fare="fare" :fare-busy="fareBusy" :trip-toll="tripToll" :trip-parking="tripParking" :show-save-action="!activeNumeric" @action="emit('action', $event)" @focus-numeric="activateNumeric" @dismiss-numeric="dismissNumeric"" />
 
     <WorkCancellationForm v-else-if="type === 'cancel'" :cancel-reason="cancelReason" :cancel-fare="cancelFare" :cancel-busy="cancelBusy" @action="emit('action', $event)" @focus-numeric="activateNumeric" @update:cancel-reason="emit('update:cancel-reason', $event)" />
 
