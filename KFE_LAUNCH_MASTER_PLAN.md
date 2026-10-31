@@ -1,85 +1,42 @@
-# KFE Launch Master Plan
+# KFE Current Release Plan
 
-**Status:** Authoritative
-**Version:** 1.0
-**Created:** 2026-09-24
+**Status:** CURRENT — applies to the simplified KFE product on PR #412.
+**Product scope authority:** `KFE_BUSINESS_RULES_REGISTER.md`.
+**Android acceptance details:** `KFE_ANDROID_RELEASE_GATE.md`.
 
-## Critical device-testing sequencing rule
+This plan replaces the older numbered ERP phase sequence for current release work. Historical phase/freeze files remain evidence only and must not expand current scope.
 
-**Physical Android/phone testing is deferred until after Phase 13 — Final Release Gate.** It is the final validation activity of the entire launch plan, not a prerequisite for Phases 5–13.
+## Current product boundary
 
-Device-only scenarios must remain explicitly deferred and must never be marked PASS from CI, browser automation, simulation, emulator evidence, or documentation alone.
+1. PWA-owned shift start/end and shared Work workflow.
+2. Native Android ride overlay for ride actions during an active shift.
+3. Four offline-capable, event-time GPS snapshots.
+4. Read-only Timeline with manual-only locality resolution.
+5. Basic recorded-data Performance.
+6. Basic Admin forms and saved data.
+7. Essential local backup, Dropbox backup, restore and recovery safeguards.
 
-## Phase sequence
+No retired targets, provisions, forecasts, break-even, profitability, loan amortization, ride-distance, route-tracing, OCR/import, or separate notification product may be reintroduced without an explicit request.
 
-| Phase | Name | Exit |
+## Release sequence
+
+| Step | Gate | Exit condition |
 |---|---|---|
-| 0 | Roadmap Control | Control documents agree |
-| 1 | Business Rules Audit | Rule inventory and audit complete |
-| 2 | Fix Business-Rule Defects | Accepted defects fixed/dispositioned |
-| 3 | Business Rules Re-Audit | Business rules clean |
-| 4 | Real-World Operational Audit | Non-device audit complete; device-only scenarios deferred |
-| 5 | Fix Operational Defects | Accepted non-device defects fixed/dispositioned |
-| 6 | Operational Re-Audit | Non-device operational scenarios clean |
-| 7 | Data / Recovery Gate | Backup/export/restore, isolation, reset/recovery evidence complete |
-| 8 | Security / Permissions Gate | Practical security/permission checks complete |
-| 9 | Production Configuration Gate | Production configuration verified |
-| 10 | Release Candidate Freeze | Exact commit/PWA/APK/version frozen |
-| 11 | Controlled Real-World Pilot | Controlled real business activity complete |
-| 12 | Pilot Reconciliation | Pilot activity reconciles |
-| 13 | Final Release Gate | Exact release candidate satisfies launch evidence |
-| Launch | Real-world operation | Phase 13 pass |
+| 1 | Scope and documentation | Product, business rules, data model, architecture and current acceptance docs agree |
+| 2 | Source audit and cleanup | One active owner/path per responsibility; obsolete active code/docs removed or clearly historical |
+| 3 | Automated verification | Latest commit passes contract, conformance, persistence/recovery, PWA build/runtime, UI isolation and Android exact-APK emulator gates |
+| 4 | Physical Android acceptance | Exact APK passes the phone scenarios in `KFE_ANDROID_RELEASE_GATE.md` |
+| 5 | Defect closure | Any device defect is fixed, regression-tested and all affected gates rerun |
+| 6 | Merge decision | Latest head is green, device evidence is recorded, and user authorizes merge |
 
-## Phase 6 — Operational Re-Audit
+## Evidence rules
 
-2026-09-26 exit: PASS. CI #1738 completed successfully on commit 4b38fecbdd165a63b2c2e97d8f5cf528039c4349, with the applicable non-device operational regression evidence passing and no new non-device operational defect identified.
+- CI and emulator evidence do not prove physical-device behavior.
+- A new commit requires CI verification against that new head.
+- A successful build is not a substitute for persisted-state and recovery assertions.
+- Missing evidence is recorded as pending, never inferred as pass.
+- Do not merge PR #412 without explicit user authorization.
 
-Physical-device-only scenarios remain deferred and cannot be converted to PASS.
+## Historical material
 
-## Phase 7 — Data / Recovery Gate
-
-2026-09-26 exit: PASS — non-device automated gate.
-
-Evidence includes backup/export validation and migration, canonical-only restore enforcement, atomic restore/reset transaction contracts, local backup checkpoint logic, and canonical physical-database preservation and backup/restore. The new Phase 7 data/recovery contract is included in the consolidated contract runner.
-
-No physical-device scenario was used or converted to PASS.
-
-## Phase 8 — Security / Permissions Gate
-
-2026-09-26 exit: PASS — non-device automated gate.
-
-Evidence covers required permission declarations, denial-safe overlay behavior, runtime notification permission handling, least-privilege Android component exposure, disabled Android backup, Android Keystore AES-GCM secure storage, notification opt-out behavior, and accidental-secret pattern checks.
-
-No physical-device scenario was used or converted to PASS.
-
-## Phase 9 — Production Configuration Gate
-
-2026-09-26 exit: PASS — non-device automated gate.
-
-Evidence covers package/app configuration, PWA manifest and production assets, service-worker production boundary, Android production manifest settings, backup/debug restrictions, and accidental credential pattern checks.
-
-No physical-device scenario was used or converted to PASS.
-
-## Phase 10 — Release Candidate Freeze
-
-2026-09-26 exit: PASS — non-device release freeze.
-
-The release candidate is version 2.0.0 with app ID com.kanishka.pwa. The final Phase 10 PR revision is the frozen source revision for production PWA and Android APK generation. Consolidated CI remains the production PWA gate, while the repository's exact-revision APK workflow produces the Android artifact.
-
-No physical-device result was used or converted to PASS.
-
-## Phase 11 — Controlled Real-World Pilot
-
-**ACTIVE.**
-
-Use KFE for actual business activity in a controlled manner and capture reconciliation evidence.
-
-## Phase 12 — Pilot Reconciliation
-
-Verify trips, fares, cancellations, odometer, four-event GPS snapshots, fuel records, shift totals, read-only Timeline, basic Performance, Admin forms/data, native overlay, and backup/restore.
-
-## Phase 13 — Final Release Gate
-
-Confirm the exact release candidate satisfies all preceding launch evidence.
-
-**After Phase 13:** execute the deferred physical-device audit as the final validation activity of the entire launch plan.
+Older phase numbers, frozen phase decisions, and historical CI/APK hashes describe earlier repository states. They are not current release instructions and cannot override this plan, the business-rule register, or the current Android acceptance gate.
