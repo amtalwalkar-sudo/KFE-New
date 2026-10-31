@@ -1027,15 +1027,16 @@ public class KfeOverlayService extends Service {
       @Override public void onLocationChanged(Location location){
         if(finished.get()||location==null)return;
         long fixTime=location.getTime();
-        float accuracy=location.hasAccuracy()?location.getAccuracy():Float.NaN;
+        boolean accuracySupplied=location.hasAccuracy();
+        float accuracy=accuracySupplied?location.getAccuracy():Float.NaN;
         boolean timestampValid=isEventGpsFixAtOrAfter(eventAt,fixTime);
         boolean coordinatesValid=Double.isFinite(location.getLatitude())&&Math.abs(location.getLatitude())<=90d
           &&Double.isFinite(location.getLongitude())&&Math.abs(location.getLongitude())<=180d;
-        boolean accuracyValid=!Float.isNaN(accuracy)&&!Float.isInfinite(accuracy)&&accuracy>=0f;
+        boolean accuracyValid=!accuracySupplied||(!Float.isNaN(accuracy)&&!Float.isInfinite(accuracy)&&accuracy>=0f);
         if(!timestampValid||!coordinatesValid||!accuracyValid)return;
         // A fix at 75m or better is accepted immediately. Less accurate fixes
         // remain candidates while the provider continues its 3-second updates.
-        if(accuracy>75f)return;
+        if(accuracySupplied&&accuracy>75f)return;
         if(!finished.compareAndSet(false,true))return;
         handler.removeCallbacks(stop);
         try{manager.removeUpdates(this);}catch(Exception ignored){}
@@ -1066,13 +1067,15 @@ public class KfeOverlayService extends Service {
     if(snapshot==null)return false;
     double latitude=snapshot.optDouble("latitude",Double.NaN);
     double longitude=snapshot.optDouble("longitude",Double.NaN);
-    double accuracy=snapshot.optDouble("accuracy",Double.NaN);
+    Object rawAccuracy=snapshot.opt("accuracy");
+    boolean accuracySupplied=rawAccuracy!=null&&rawAccuracy!=JSONObject.NULL;
+    double accuracy=accuracySupplied?snapshot.optDouble("accuracy",Double.NaN):Double.NaN;
     String capturedAt=snapshot.optString("capturedAt","");
     Object rawEventAt=snapshot.opt("eventAt");
     String eventAt=rawEventAt==null||rawEventAt==JSONObject.NULL?"":String.valueOf(rawEventAt);
     if(!Double.isFinite(latitude)||Math.abs(latitude)>90d
       ||!Double.isFinite(longitude)||Math.abs(longitude)>180d
-      ||!Double.isFinite(accuracy)||accuracy<0d||accuracy>75d
+      ||(accuracySupplied&&(!Double.isFinite(accuracy)||accuracy<0d||accuracy>75d))
       ||capturedAt.trim().isEmpty()||"null".equalsIgnoreCase(capturedAt.trim()))return false;
     try{return isEventGpsFixAtOrAfter(eventAt,java.time.Instant.parse(capturedAt).toEpochMilli());}
     catch(Exception error){return false;}
@@ -1091,7 +1094,7 @@ public class KfeOverlayService extends Service {
       if(location==null)return false;
       long fixTime=location.getTime();
       if(fixTime<=0L){Log.w("KFE-GPS","Event GPS snapshot skipped: GPS fix has no valid provider timestamp.");return false;}
-      if(!location.hasAccuracy()||Float.isNaN(location.getAccuracy())||Float.isInfinite(location.getAccuracy())||location.getAccuracy()<0f||location.getAccuracy()>75f){Log.w("KFE-GPS","Event GPS snapshot skipped: provider accuracy is missing or worse than 75 metres.");return false;}
+      if(location.hasAccuracy()&&(Float.isNaN(location.getAccuracy())||Float.isInfinite(location.getAccuracy())||location.getAccuracy()<0f||location.getAccuracy()>75f)){Log.w("KFE-GPS","Event GPS snapshot skipped: provider accuracy is invalid or worse than 75 metres.");return false;}
       String snapshotId=KfeGpsEventPolicy.snapshotId(entityType,entityId,eventType),now=java.time.Instant.now().toString();
       JSONObject parentResult=KfeCanonicalWorkStore.get(this).getRecord(entityType,entityId),parent=parentResult.optJSONObject("record");
       String eventAt=suppliedEventAt==null?"":suppliedEventAt;
