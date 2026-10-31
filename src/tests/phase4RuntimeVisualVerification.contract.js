@@ -25,7 +25,7 @@ assert.match(pagesSmoke,/Average fuel cost\/km/,'Pages runtime smoke must verify
 assert.ok(coreAppSmoke.includes("route(page, 'timeline', '.activity-timeline-page', 'Timeline')"),'Core app smoke must verify the live Timeline route')
 assert.ok(coreAppSmoke.includes("Average fuel cost/km") && coreAppSmoke.includes("Total amount refilled"),'Core app smoke must verify both Timeline fuel summary headers')
 assert.ok(coreAppSmoke.includes("route(page, 'performance', '.performance-page', 'Performance')"),'Core app smoke must verify read-only Performance')
-assert.match(performanceView, /PhaseOnePerformanceService\\.subscribeDataChanges/,'Performance must refresh when canonical source records change')
+assert.match(performanceView, /PhaseOnePerformanceService\.subscribeDataChanges/, 'Performance must refresh when canonical source records change')
 assert.match(performanceView, /createCoalescedRefresh/,'Performance data-change refreshes must serialize and coalesce rather than overlap')
 assert.ok(smoke.includes("route('admin','.admin-page','Admin')"), 'Rendered Admin smoke must verify the Admin shell remains navigable')
 assert.ok(smoke.includes("artifacts/phase4-runtime/admin-mobile.png"), 'Rendered Admin mobile viewport evidence must be captured')
