@@ -1,16 +1,8 @@
 /** Canonical validation for the six active Admin source-record forms. */
-export const UNIVERSAL_FORM_RULES = Object.freeze({
-  trimText: true,
-  rejectUnknownFields: true,
-  requiredFieldsMustBePresent: true,
-  numbersMustBeFinite: true,
-  numbersMustRespectBounds: true,
-  datesMustBeValid: true,
-  selectValuesMustBeAllowed: true,
-})
+export const UNIVERSAL_FORM_RULES={trimText:true,rejectUnknownFields:true,requiredFieldsMustBePresent:true,numbersMustBeFinite:true,numbersMustRespectBounds:true,datesMustBeValid:true,selectValuesMustBeAllowed:true,validateBeforeSave:true}
 
 const blank = value => value === undefined || value === null || String(value).trim() === ''
-const optionValue = option => option && typeof option === 'object' && 'value' in option ? option.value : option
+const optionValue=option=>option&&typeof option==='object'&&'value' in option?option.value:option
 
 function isValidDate(value) {
   if (typeof value !== 'string') return false
@@ -33,7 +25,7 @@ export function normalizeFormValues(definition, values = {}) {
     if (['text', 'textarea', 'select'].includes(field.type) && typeof value === 'string' && UNIVERSAL_FORM_RULES.trimText) value = value.trim()
     if (field.type === 'number' && !blank(value)) value = Number(value)
     if (field.type === 'checkbox') {
-      value = typeof value === 'string' ? ['true', '1', 'yes', 'on'].includes(value.trim().toLowerCase()) : Boolean(value)
+      value = typeof value === 'string' ? ['true','1','yes','on'].includes(value.trim().toLowerCase()) : Boolean(value)
     }
     normalized[field.key] = value
   }
@@ -46,7 +38,7 @@ export function validateAdminForm(definition, values = {}, context = {}) {
   const fields = definition.fields ?? []
   const allowed = new Set(fields.map(field => field.key))
 
-  if (UNIVERSAL_FORM_RULES.rejectUnknownFields) {
+  if(UNIVERSAL_FORM_RULES.rejectUnknownFields){
     for (const key of Object.keys(values)) {
       if (!allowed.has(key)) errors[key] = 'Unknown field is not permitted.'
     }
