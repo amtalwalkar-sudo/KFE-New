@@ -20,21 +20,17 @@ for (const pattern of [/from\s+['"][^'"]*\/domain\//, /from\s+['"][^'"]*\/reposi
 }
 assert.match(shell, /route\.meta\?\.shell/)
 
-// 3B — Shared UI primitives cannot depend on screen/domain/application layers.
-for (const file of readFiles(path.join(srcRoot, 'components/ui'))) {
-  const source = fs.readFileSync(file, 'utf8')
-  for (const pattern of [/from\s+['"][^'"]*\/views\//, /from\s+['"][^'"]*\/domain\//, /from\s+['"][^'"]*\/application\//, /from\s+['"][^'"]*\/repositories\//, /from\s+['"][^'"]*\/services\//, /from\s+['"][^'"]*\/infrastructure\//]) if (pattern.test(source)) violations.push('Shared UI boundary violation: ' + path.relative(srcRoot, file) + ' matches ' + pattern)
-}
+// 3B — Unused generic UI primitive layer is removed; active components are screen-owned.
+if (fs.existsSync(path.join(srcRoot, 'components/ui'))) violations.push('Retired generic components/ui layer must remain deleted.')
 
 // 3C — One canonical button vocabulary.
-const allSource = readFiles(path.join(srcRoot, 'views')).concat(readFiles(path.join(srcRoot, 'components/ui'))).concat([path.join(srcRoot,'styles/kfe-ui.css')])
+const allSource = readFiles(path.join(srcRoot, 'views')).concat(readFiles(path.join(srcRoot, 'components'))).concat([path.join(srcRoot,'styles/kfe-ui.css')])
 for (const file of allSource) {
   const source = fs.readFileSync(file, 'utf8')
   for (const pattern of [/\bbase-btn\b/, /\bbtn-(?:primary|secondary|danger|ghost|sm|md|lg)\b/, /\bbase-button\b/]) if (pattern.test(source)) violations.push('Legacy button vocabulary remains: ' + path.relative(srcRoot, file) + ' matches ' + pattern)
 }
-const baseButton = read('components/ui/BaseButton.vue')
 const uiCss = read('styles/kfe-ui.css')
-for (const token of ['kfe-ui-button', 'is-primary', 'is-secondary', 'is-danger', 'is-sm', 'is-md', 'is-lg']) assert.ok(baseButton.includes(token) || uiCss.includes(token), 'Missing canonical button token: ' + token)
+assert.ok(uiCss.includes('--kfe-ui-bg') && uiCss.includes('--kfe-ui-surface') && uiCss.includes('--kfe-ui-text'), 'Shared UI theme tokens must remain authoritative.')
 
 // 3D — Screen presentation stays in the canonical stylesheet.
 for (const file of readFiles(path.join(srcRoot, 'views'))) {
@@ -42,9 +38,9 @@ for (const file of readFiles(path.join(srcRoot, 'views'))) {
   if (/<style\b/.test(source)) violations.push('View-local style block reintroduced: ' + path.relative(srcRoot, file))
   if (/(?:#[0-9a-fA-F]{3,8}\b|rgba?\(|border-radius\s*:|(?:padding|margin|gap)\s*:)/.test(source)) violations.push('View contains raw presentation declaration: ' + path.relative(srcRoot, file))
 }
-for (const file of readFiles(path.join(srcRoot, 'components/ui'))) {
+for (const file of readFiles(path.join(srcRoot, 'components'))) {
   const source = fs.readFileSync(file, 'utf8')
-  if (/<style\b/.test(source)) violations.push('Shared UI local style block reintroduced: ' + path.relative(srcRoot, file))
+  if (/<style\b/.test(source)) violations.push('Component-local style block reintroduced: ' + path.relative(srcRoot, file))
 }
 
 // 3E — Specialized modes may differ, but inherit the shared visual authority.
