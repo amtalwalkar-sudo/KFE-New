@@ -194,6 +194,12 @@ No active domain finance/loan engine, forecast, break-even, driver-target, provi
 
 **Change:** Exposed `commitTripLifecycle` through the Capacitor plugin, infrastructure adapter and application boundary. PWA-originated Android ride transitions now use the same SQLite transaction as overlay transitions. The native store rejects lifecycle-field changes through generic Trip writes, preventing future callers from bypassing the guard. Regression coverage verifies PWA wiring, valid pre-ride cancellation, post-start cancellation rejection and generic-write bypass rejection.
 
+### 23. Direct Performance launch could read a stale Android PWA projection
+
+**Finding:** Timeline reads Trips through `ShiftTripRepository`, which triggers the canonical read boundary. Basic Performance instead read shifts and trips directly through `PerformanceRepository`. If Android overlay commits existed in native SQLite while IndexedDB was stale, opening Performance directly after restart could calculate from the older projection without first reconciling native records.
+
+**Change:** Exposed `WorkService.ensureCanonicalReadModel()` as the application-owned reconciliation use case and made `PhaseOnePerformanceService` call it before reading the Performance snapshot. Browser-only PWA operation remains a no-op at this boundary. A regression contract verifies reconciliation precedes the snapshot read.
+
 ## Verification
 
 The following are enforced by regression contracts:
