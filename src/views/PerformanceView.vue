@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { PhaseOnePerformanceService } from '../application/performance/phaseOnePerformanceService.js'
+import { createCoalescedRefresh } from '../application/performance/performanceRefreshCoordinator.js'
 import '../styles/performance.css'
 
 const period = ref('DAY')
@@ -8,18 +9,10 @@ const overview = ref(null)
 const loading = ref(false)
 const error = ref('')
 let requestVersion = 0
+let unsubscribeCanonicalChanges = null
 
-const money = value => value == null || !Number.isFinite(Number(value))
-  ? 'Unavailable'
-  : new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(value))
-const costPerKm = value => value == null || !Number.isFinite(Number(value))
-  ? 'Unavailable'
-  : `${money(value)}/km`
-const load = async ({ force = false } = {}) => {
-  // Canonical change notifications can arrive during the initial snapshot read.
-  // Do not supersede a valid in-flight load with a duplicate read; the active
-  // request already reads a transactionally consistent canonical snapshot.
-  if (loading.value && !force) return
+const relevantStores = new Set(['shifts', 'trips', 'fuel_logs', 'settings'])
+const refresh = createCoalescedRefresh(async () => {
   const version = ++requestVersion
   loading.value = true
   error.value = ''
@@ -31,15 +24,26 @@ const load = async ({ force = false } = {}) => {
   } finally {
     if (version === requestVersion) loading.value = false
   }
-}
-watch(period, () => { void load({ force: true }) })
+})
+const load = () => refresh.request()
+
+const money = value => value == null || !Number.isFinite(Number(value))
+  ? 'Unavailable'
+  : new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(value))
+const costPerKm = value => value == null || !Number.isFinite(Number(value))
+  ? 'Unavailable'
+  : `${money(value)}/km`
+
+watch(period, () => { void load() })
 onMounted(() => {
-  // Read a consistent snapshot on entry. Avoid starting a second IndexedDB
-  // snapshot from cross-tab change notifications while the same view is alive;
-  // leaving and re-entering Performance refreshes from canonical data.
   void load()
+  unsubscribeCanonicalChanges = PhaseOnePerformanceService.subscribeDataChanges(({ stores = [] } = {}) => {
+    if (!stores.length || stores.some(store => relevantStores.has(store))) void load()
+  })
 })
 onUnmounted(() => {
+  unsubscribeCanonicalChanges?.()
+  refresh.dispose()
   requestVersion += 1
 })
 </script>
