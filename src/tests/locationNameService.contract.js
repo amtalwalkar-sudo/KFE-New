@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { LocalityResolutionService, MapplsGatewayLocationNameAdapter, PhotonLocationNameAdapter, getCachedLocationName } from '../infrastructure/location/localityResolutionAdapter.js'
+import { LocalityResolutionService, MapplsGatewayLocationNameAdapter, PhotonLocationNameAdapter } from '../infrastructure/location/localityResolutionAdapter.js'
 
 const service = new LocalityResolutionService({
   primary: { endpoint: 'mock://primary', resolve: async () => null },
@@ -8,9 +8,6 @@ const service = new LocalityResolutionService({
 const unresolved = await service.resolveDetailed({ latitude: 19.076, longitude: 72.8777, accuracy: 10 })
 assert.equal(unresolved.placeName, null)
 assert.equal(unresolved.state, 'NO_LOCALITY_MATCH')
-assert.equal(getCachedLocationName({ latitude: 19.076, longitude: 72.8777, accuracy: 10 }), null,
-  'coordinate-keyed localStorage caching is retired; permanent labels belong to PWA IndexedDB by snapshot ID')
-
 const lowAccuracyService = new LocalityResolutionService({
   primary: { endpoint: 'mock://primary', resolve: async () => 'Unverified area' },
   fallback: { resolve: async () => 'Unverified fallback' },
