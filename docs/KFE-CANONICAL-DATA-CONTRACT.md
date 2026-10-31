@@ -1,6 +1,5 @@
 # KFE Canonical Data Contract
 
-**Phase:** Canonical Domain & Data Model / ERP input audit  
 **Status:** AUTHORITATIVE  
 **Calendar timezone:** `Asia/Kolkata` (IST)  
 **Scope:** Canonical persisted/application data boundary for the single-vehicle KFE ERP
@@ -12,7 +11,7 @@ This document defines the canonical data contract that implementation, repositor
 The contract is provider-independent. Storage, OCR/AI provider, backup provider, cloud provider, and sync provider must not redefine canonical business meaning.
 
 ```text
-External / UI / OCR / import / legacy shape
+External / UI / imported or legacy shape
                   ↓
              NORMALIZATION
                   ↓
@@ -53,7 +52,7 @@ Business calendar dates (`effectiveFrom`, `validUntil`, `performedOn`) are IST d
 
 ## 3. Provenance and authority
 
-Provenance records where a value came from: manual, OCR/multimodal, imported/restored, synthetic/test, or system-derived as applicable.
+Provenance records where a value came from: manual, imported/restored, synthetic/test, or system-derived as applicable.
 
 Authority is separate from provenance. A value being manually entered or OCR-derived does not by itself make it authoritative. Calculation authority is defined explicitly below.
 
@@ -144,10 +143,10 @@ Users enter source facts through the Work or Admin forms. Only the explicitly su
 
 Timeline is a read-only projection of saved ride and fuel records. It must not create or alter business facts.
 
-- After any of the four GPS event snapshots is durably captured, the PWA starts reverse geocoding asynchronously when online; ride actions never wait for the provider.
+- GPS capture never starts reverse geocoding. The only locality-resolution entry point is an explicit user-initiated Timeline pull-to-refresh; it may resolve eligible unresolved snapshots when online. Ride actions, app startup, resume, and native snapshot discovery never initiate lookup.
 - New reverse geocoding is limited to event timestamps within the latest seven days. Native Android stores coordinates only.
 - Successful locality names are stored permanently in PWA IndexedDB keyed by canonical GPS snapshot ID. A saved name is not silently overwritten by ordinary retries.
-- If the PWA is offline, show a saved locality when available or the original coordinates when unresolved. Manual Timeline pull-to-refresh retries unresolved eligible snapshots when online.
+- If the PWA is offline, show a saved locality when available or the original coordinates when unresolved. Manual Timeline pull-to-refresh is the only action that requests locality resolution; no automatic retry or connectivity polling is permitted.
 - Do not use continuous connectivity polling, automatic locality retry loops, or a background geocoding queue. Reject unreliable accuracy, invalid coordinates, distant provider matches, and broad-only locality results.
 - Location evidence keeps the provider capture timestamp (`capturedAt`) distinct from the ride event timestamp (`eventAt`).
 - A cancellation location is cancellation evidence, not a drop-off location.
