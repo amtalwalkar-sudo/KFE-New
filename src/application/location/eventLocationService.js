@@ -44,15 +44,16 @@ export const EventLocationService = {
     return null
   },
   async forEntity(entityType, entityId) { return this.forEntities(entityType, [entityId]) },
-  async forEntities(entityType, entityIds = []) {
+  async forEntities(entityType, entityIds = [], eventTypes = [...RIDE_EVENTS]) {
     const ids = [...new Set((entityIds || []).filter(Boolean))]
     if (!entityType || !ids.length) return []
+    const requestedEvents = [...new Set((eventTypes || []).filter(eventType => RIDE_EVENTS.has(eventType)))]
     const nativeReads = WorkRuntimePorts.canonicalWork.isAvailable()
-      ? await Promise.all(ids.flatMap(id => [...RIDE_EVENTS].map(eventType => CanonicalWorkBoundary.getEventLocationSnapshot(nativeSnapshotId(id, eventType)).catch(() => null))))
+      ? await Promise.all(ids.flatMap(id => requestedEvents.map(eventType => CanonicalWorkBoundary.getEventLocationSnapshot(nativeSnapshotId(id, eventType)).catch(() => null))))
       : []
     const localGroups = await Promise.all(ids.map(id => LocationRepository.forEntity(entityType, id).catch(() => [])))
     const byId = new Map()
-    for (const item of [...localGroups.flat(), ...nativeReads.filter(Boolean)]) {
+    for (const item of [...localGroups.flat().filter(item => requestedEvents.includes(item.eventType)), ...nativeReads.filter(Boolean)]) {
       if (item?.id) byId.set(item.id, { ...byId.get(item.id), ...item })
     }
     return [...byId.values()].filter(item => item.entityType === entityType && allowed.has(item.entityId))
