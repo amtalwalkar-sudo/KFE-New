@@ -42,6 +42,7 @@ Presentation owns navigation, transient UI state and input rendering. AdminServi
 - **Removed retired form rules.** The shared Admin validation module now contains only general field constraints and active Vehicle, Compliance and Driver integrity rules. Retired ride, driver-target, break-even, loan-payment, prepayment and settlement rules were removed.
 - **Closed the vehicle-delete integrity gap.** Driver, Compliance and Maintenance references are checked inside the same IndexedDB read/write transaction that soft-deletes a Vehicle. The application service no longer performs a separate, incomplete preflight read.
 - **Prevented stale Admin reads from winning.** Admin list snapshots load together and use a generation guard so a slower previous section load cannot overwrite the currently selected section.
+- **Removed the unused direct Settings read/write bypass.** Business Setup settings now use the same AdminService/AdminRepository transaction, mutation record and audit path as other Admin source forms.
 - **Removed obsolete Loan calculation metadata.** The active Loan form remains a source-fact form only; it does not calculate EMI, amortization or repayment schedules.
 - **Corrected stale Settings and Compliance descriptions.** Application Settings is described as Dark-only appearance; Compliance describes recorded validity and cost, not retired payment workflows.
 - **Updated the architecture and universal form contracts** to describe the single Admin path, ownership rules and non-authoritative draft boundary.
