@@ -73,7 +73,7 @@ configureWorkRuntimePorts({
   gpsPermissions: { isNativePlatform: () => true, getLocationStatus: noop, openBackgroundLocationSettings: noop, requestLocationPermissions: noop, requestBackgroundLocationPermission: noop },
   diagnostics: { start: noop, waiting: noop, checkpoint: noop, error: noop, complete: noop, snapshot: noop, subscribe: noop, clear: noop },
   androidOverlay: { hide: noop, update: noop, prepare: noop, fareSaved: noop, cancelSaved: noop },
-  platform: { getPlatform: () => 'android', getStartupPermissionStatus: noop, requestStartupPermission: noop, openStartupSetting: noop, getConfirmedOemSettings: async () => [], saveConfirmedOemSettings: noop, waitForForegroundReturn: async () => {} },
+  platform: { getPlatform: () => 'android', isOnline: () => true, getStartupPermissionStatus: noop, requestStartupPermission: noop, openStartupSetting: noop, getConfirmedOemSettings: async () => [], saveConfirmedOemSettings: noop, waitForForegroundReturn: async () => {} },
 })
 await assert.rejects(
   CanonicalWorkBoundary.putRecord({ operationId: 'op-1', entityType: 'TRIP', record: { id: 'trip-1', shiftId: 'shift-1' } }),
