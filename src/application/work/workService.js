@@ -211,10 +211,6 @@ export const WorkService = Object.freeze({
     await ShiftTripRepository.getPrimaryVehicleId()
     return FuelRepository.getAll()
   },
-  async getFuelMetrics() {
-    await ShiftTripRepository.getPrimaryVehicleId()
-    return calculateRollingFuelCostPerKm(await FuelRepository.getAll())
-  },
   validateShiftStartOdometer(currentOdometer, previousOdometer) { return validateShiftStartOdometer(currentOdometer, previousOdometer) },
   validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer) { return validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer) },
   calculateFuelQuantity(pricePerKg, amount) { return calculateFuelQuantity({ pricePerKg, amount }) },
