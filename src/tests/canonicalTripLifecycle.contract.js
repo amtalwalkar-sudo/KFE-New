@@ -86,6 +86,6 @@ assert(overlay.includes('"START_RIDE".equals(actionStage)') && overlay.includes(
 console.log('✓ END_RIDE → COMPLETED → fare preserves one Trip ID')
 console.log('✓ CANCEL_RIDE → CANCELLED stores a distinct cancellation fee and preserves any Trip fare fact')
 console.log('✓ Terminal replay is idempotent; cross-terminal mutation is blocked')
-console.log('✓ Main app and overlay command paths converge on the canonical Trip repository')
+console.log('✓ PWA and native command adapters preserve the same Trip lifecycle and canonical data semantics')
 console.log('✓ Work cockpit and overlay share pickup/start/end/fare/cancel state semantics')
 console.log('✅ Canonical Trip Lifecycle Gate Passed Successfully!')
