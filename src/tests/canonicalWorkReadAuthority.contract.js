@@ -81,6 +81,6 @@ assert.ok(service.includes("const record = createNativeTripRecord(tripData); ret
 assert.ok(service.includes("transitionTripStage(trip, 'RIDE_STARTED'"), 'Android ride-stage transition must be prepared from native canonical state')
 assert.ok(service.includes("await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt })"), 'Android trip lifecycle changes must commit native first')
 assert.ok(service.includes('await ShiftTripRepository.syncCanonicalRecords(snapshot)'), 'IndexedDB must refresh after native write acknowledgement')
-assert.ok(service.includes('const operationId = `pwa-\u0024{entityType.toLowerCase()}-\u0024{record.id}-\u0024{record.updatedAt}`'), 'operation id must be deterministic for the same record version')
+assert.ok(service.includes('const durableOperationId = operationId || `pwa-\u0024{entityType.toLowerCase()}-\u0024{record.id}-\u0024{record.updatedAt}`'), 'operation id must be deterministic for the same record version')
 
 console.log('PASS: canonical read/write recovery, native-first Android lifecycle ordering, revenue read-model wiring, and GPS-free native/PWA lifecycle')
