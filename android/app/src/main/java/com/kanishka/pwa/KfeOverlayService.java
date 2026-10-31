@@ -1048,11 +1048,13 @@ public class KfeOverlayService extends Service {
     if(snapshot==null)return false;
     double latitude=snapshot.optDouble("latitude",Double.NaN);
     double longitude=snapshot.optDouble("longitude",Double.NaN);
+    double accuracy=snapshot.optDouble("accuracy",Double.NaN);
     String capturedAt=snapshot.optString("capturedAt","");
     Object rawEventAt=snapshot.opt("eventAt");
     String eventAt=rawEventAt==null||rawEventAt==JSONObject.NULL?"":String.valueOf(rawEventAt);
     if(!Double.isFinite(latitude)||Math.abs(latitude)>90d
       ||!Double.isFinite(longitude)||Math.abs(longitude)>180d
+      ||!Double.isFinite(accuracy)||accuracy<0d||accuracy>75d
       ||capturedAt.trim().isEmpty()||"null".equalsIgnoreCase(capturedAt.trim()))return false;
     try{return isEventGpsFixAtOrAfter(eventAt,java.time.Instant.parse(capturedAt).toEpochMilli());}
     catch(Exception error){return false;}
