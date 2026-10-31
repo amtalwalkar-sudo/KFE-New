@@ -1,23 +1,21 @@
 # Performance Foundation
 
-**Scope:** This document covers only the basic read-only Performance screen.
+**Status:** SUPPORTING — subordinate to `KFE_BUSINESS_RULES_REGISTER.md`.
 
-## Supported summary
+## Scope
 
-- Recorded revenue from completed ride fares plus saved cancellation fees.
-- Completed ride count.
-- Recorded fuel spending, including partial refills.
-- Fuel cost/km from consecutive valid full-tank odometer readings only.
-- Income after fuel = recorded revenue − recorded fuel spending.
-
-## Exclusions
-
-No targets, forecasts, break-even models, provisions, profitability projections, loan amortization, maintenance projections, or other derived financial models.
+This document describes the supporting read architecture and presentation boundary for the basic read-only Performance screen. It is not a business-rule or calculation authority.
 
 ## Ownership
 
 - Read saved canonical records through `PerformanceRepository`.
-- Keep calculation logic in the application/domain layer, not in the view.
-- Performance is read-only and must not mutate rides, shifts, fuel records, or Admin forms.
+- `PhaseOnePerformanceService` coordinates the reporting range, canonical snapshot, and fuel summary.
+- Domain projection logic derives the view model; the Vue view only presents it.
+- Performance subscribes to canonical changes affecting shifts, trips, fuel logs, and business settings. Notifications received during a read are coalesced into one follow-up snapshot.
+- Keep Performance read-only. It must not mutate rides, shifts, fuel records, or Admin forms.
 - Timeline and Performance may share saved source facts but do not own a second persistence authority.
-- Any new calculation requires an explicit user request and an update to the business-rule register first.
+- The sole business authority for supported metrics, formulas, and reporting-period attribution is `KFE_BUSINESS_RULES_REGISTER.md`.
+
+## Exclusions
+
+No targets, forecasts, break-even models, provisions, profitability projections, loan amortization, maintenance projections, or other derived financial models belong in the current Performance screen.
