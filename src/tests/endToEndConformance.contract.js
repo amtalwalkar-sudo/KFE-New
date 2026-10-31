@@ -132,7 +132,7 @@ assertIncludes(matrix, 'one stable Trip ID from pickup through completion and fa
 assert.doesNotMatch(matrix, /ODOMETER \/ GAP GATE|RECONCILIATION|SHIFT REVIEW/, 'Golden Ride evidence must not retain retired gap/reconciliation workflows.')
 assertIncludes(matrix, 'END SHIFT (PWA; closing odometer)', 'Golden Ride must end through the PWA-owned shift workflow.')
 assert.equal(trip.id, 'trip-1', 'Golden Ride must preserve one Trip ID through completion.')
-const fareUpdate = { ...trip, revenue: 250, revenueAuthority: 'SUPPORTING_ONLY' }
+const fareUpdate = { ...trip, revenue: 250 }
 assert.equal(fareUpdate.id, trip.id)
 assert.equal(fareUpdate.status, TRIP_STATES.COMPLETED)
 const cancelled = transitionTrip(
