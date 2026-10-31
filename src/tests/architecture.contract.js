@@ -115,6 +115,7 @@ if ((layerRegistry.allowedImports.application || []).includes('infrastructure'))
 }
 const mainPath = path.join(root, 'main.js')
 const mainSource = fs.readFileSync(mainPath, 'utf8')
+if (/document\\.createElement|style\\.cssText/.test(mainSource)) violations.push('main.js must dispatch runtime errors to the App shell, not build presentation DOM.')
 const runtimePortsPath = path.join(root, 'application/work/workRuntimePorts.js')
 const runtimeAdapterPath = path.join(root, 'infrastructure/work/workRuntimeAdapter.js')
 const runtimePorts = fs.readFileSync(runtimePortsPath, 'utf8')
