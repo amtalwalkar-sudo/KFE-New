@@ -73,7 +73,7 @@ for (const source of [adminRepo, workRepo, fuelRepo]) {
 
 console.log('Form Integrity E2E Contract: PASS')
 console.log(JSON.stringify({
-  chains: ['Work Start Shift','Trip Fare/Skip','Cancellation','Fuel','End Shift/Reconciliation','Admin Source Records'],
+  chains: ['Work Start Shift','Trip Fare/Skip','Cancellation','Fuel','End Shift','Admin Source Records'],
   persistence: 'canonical IndexedDB + mutation/audit coupling',
   downstream: 'Basic Performance summary from saved ride and fuel facts',
   status: 'source-level end-to-end wiring verified'
