@@ -50,8 +50,10 @@ assert.match(timeline, /EventLocalityService\.resolveSnapshots\(eligible\)/)
 assert.match(timeline, /refreshLocationNames/)
 assert.match(timeline, /navigator\.onLine/)
 assert.match(locationService, /const RIDE_EVENTS = new Set\(\['PICKUP_START', 'TRIP_CANCELLED', 'TRIP_START', 'TRIP_END'\]\)/)
-assert.match(locationService, /resolveNativeSnapshotAfterCapture/)
-assert.doesNotMatch(locationService, /setInterval/, 'GPS capture service must not run a continuous polling loop')
+assert.doesNotMatch(locationService, /EventLocalityService|resolveSnapshot|resolveNativeSnapshotAfterCapture|setTimeout|setInterval/,
+  'GPS capture must not trigger locality resolution or poll for a native snapshot')
+assert.match(timeline, /EventLocalityService\\.resolveSnapshots\\(eligible\\)/,
+  'locality resolution is initiated only by explicit Timeline pull-to-refresh')
 assert.doesNotMatch(locationNames, /RETRY_SCHEDULED/, 'locality lookup must not claim an automatic retry is scheduled')
 assert.doesNotMatch(locationNamePort, /fetch\s*\(|localStorage|navigator\.geolocation/, 'application locality port must not own network, cache, or GPS acquisition')
 assert.doesNotMatch(locationNames, /localStorage|CACHE_KEY|slice\(0,500\)/, 'locality persistence is owned by the permanent PWA IndexedDB repository')
