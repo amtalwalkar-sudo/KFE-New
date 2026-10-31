@@ -47,6 +47,7 @@ export const EventLocationService = {
   async forEntities(entityType, entityIds = [], eventTypes = [...RIDE_EVENTS]) {
     const ids = [...new Set((entityIds || []).filter(Boolean))]
     if (!entityType || !ids.length) return []
+    const allowed = new Set(ids)
     const requestedEvents = [...new Set((eventTypes || []).filter(eventType => RIDE_EVENTS.has(eventType)))]
     const nativeReads = WorkRuntimePorts.canonicalWork.isAvailable()
       ? await Promise.all(ids.flatMap(id => requestedEvents.map(eventType => CanonicalWorkBoundary.getEventLocationSnapshot(nativeSnapshotId(id, eventType)).catch(() => null))))
