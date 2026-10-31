@@ -20,7 +20,7 @@ This is the pragmatic split between **simple accumulation** and **complex busine
 - The JavaScript domain rule remains the semantic authority; the native helper is only the atomic SQLite persistence mirror and is checked for parity by `nativeCanonicalPersistence.contract.js`.
 - Repeated use of the same operation ID and identical payload returns the durable prior result without applying the command again. Reuse with a different command/payload is rejected.
 - `KfeOverlayService.persistCanonicalTripForm` now calls this single transaction instead of committing the trip and revenue projection in separate transactions. Trip fare remains supporting detail (`revenueAuthority: SUPPORTING_ONLY`); `Shift.revenue` remains the sole canonical shift-level projection.
-- Native form amount and cancellation-reason validation lives in the Android-independent `KfeNativeTripFormRules` helper, so presentation changes do not own the validation policy; canonical store validation remains the final persistence boundary.
+- Native form amount and cancellation-reason validation is implemented in the Android-independent `KfeNativeTripFormRules` helper and mirrors the PWA domain constraints; canonical store validation remains the final persistence boundary. The shared revenue parity vector is covered by the JS domain contract and Android instrumentation.
 - Blank optional amounts remain valid; negative, malformed, and non-finite amounts are rejected before command creation, and the canonical SQLite transaction independently enforces persistence-critical amount invariants.
 - Android instrumentation exercises atomic fare projection and idempotent retry. Full-shift acceptance exercises multiple fares, cancellation fees, blank cancellation fees, replay and store reopen; the release gate also verifies native-only operation with WebView unavailable.
 
@@ -34,7 +34,7 @@ This is the pragmatic split between **simple accumulation** and **complex busine
 
 ## Native form command construction boundary
 
-- The native overlay reads current widget/draft values and invokes `KfeNativeTripFormRules` to build the bounded fare or cancellation payload. The helper owns trimming/null normalization and the explicit INCLUDED/EXCLUDED treatment values; it does not access Android views or commit data.
+- The native overlay reads current widget/draft values and invokes `KfeNativeTripFormRules` to build the bounded fare or cancellation payload. The helper owns trimming/null normalization and optional amount validation; it does not access Android views or commit data.
 - `KfeOverlayService` remains responsible for active-shift verification, durable event identity/queueing, canonical SQLite commit, and reporting the outcome. Payload construction extraction must not move or split that transaction.
 - The WebView-disabled native trip-form instrumentation checks payload values and treatment mapping through the native submission workflow; it does not move shift start/end ownership to Android.
 - Native form draft serialization now lives in `KfeNativeTripFormDraftStore`: it loads, saves, and clears draft values and expansion/treatment flags without creating views or committing canonical business records. The overlay remains responsible for applying the restored draft to widgets; canonical trip-form submission remains unchanged.
