@@ -997,24 +997,61 @@ public class KfeOverlayService extends Service {
     if(!gpsCaptureInFlight.add(key))return;
     LocationManager manager=(LocationManager)getSystemService(Context.LOCATION_SERVICE);
     if(manager==null){finishPendingGpsAttempt(entityType,entityId,eventType,false);return;}
+    boolean providerAvailable=false;
     try{
-      if(!manager.isProviderEnabled(LocationManager.GPS_PROVIDER)){Log.w("KFE-GPS","GPS_PROVIDER is disabled; event remains durably pending.");finishPendingGpsAttempt(entityType,entityId,eventType,false);return;}
-    }catch(Exception error){Log.w("KFE-GPS","Unable to verify GPS_PROVIDER state.",error);finishPendingGpsAttempt(entityType,entityId,eventType,false);return;}
+      providerAvailable=manager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+        || manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+    }catch(Exception error){Log.w("KFE-GPS","Unable to inspect location providers.",error);}
+    if(!providerAvailable){Log.w("KFE-GPS","No location provider is enabled; event remains durably pending.");finishPendingGpsAttempt(entityType,entityId,eventType,false);return;}
     if(!activateOneShotLocationForeground()){finishPendingGpsAttempt(entityType,entityId,eventType,false);return;}
     Handler handler=new Handler(Looper.getMainLooper());
-    if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.R){
-      CancellationSignal cancellation=new CancellationSignal();AtomicBoolean finished=new AtomicBoolean(false);
-      Runnable timeout=()->{if(!finished.compareAndSet(false,true))return;cancellation.cancel();restoreOverlayForegroundType();Log.w("KFE-GPS","Timed out waiting for event GPS fix; durable request remains pending.");finishPendingGpsAttempt(entityType,entityId,eventType,false);};
-      handler.postDelayed(timeout,30000L);
-      try{manager.getCurrentLocation(LocationManager.GPS_PROVIDER,cancellation,getMainExecutor(),location->{if(!finished.compareAndSet(false,true))return;handler.removeCallbacks(timeout);boolean saved=location!=null&&persistOneShotEventLocation(entityType,entityId,eventType,eventAt,location);restoreOverlayForegroundType();finishPendingGpsAttempt(entityType,entityId,eventType,saved);});}
-      catch(Exception error){if(finished.compareAndSet(false,true)){handler.removeCallbacks(timeout);cancellation.cancel();restoreOverlayForegroundType();finishPendingGpsAttempt(entityType,entityId,eventType,false);Log.w("KFE-GPS","Event GPS request failed.",error);}}
-    }else{
-      AtomicBoolean finished=new AtomicBoolean(false);final LocationListener[] listener=new LocationListener[1];
-      Runnable timeout=()->{if(!finished.compareAndSet(false,true))return;try{manager.removeUpdates(listener[0]);}catch(Exception ignored){}restoreOverlayForegroundType();finishPendingGpsAttempt(entityType,entityId,eventType,false);Log.w("KFE-GPS","Timed out waiting for event GPS fix; durable request remains pending.");};
-      listener[0]=new LocationListener(){@Override public void onLocationChanged(Location location){if(!finished.compareAndSet(false,true))return;handler.removeCallbacks(timeout);try{manager.removeUpdates(this);}catch(Exception ignored){}boolean saved=persistOneShotEventLocation(entityType,entityId,eventType,eventAt,location);restoreOverlayForegroundType();finishPendingGpsAttempt(entityType,entityId,eventType,saved);}@Override public void onProviderEnabled(String provider){}@Override public void onProviderDisabled(String provider){}@SuppressWarnings("deprecation") @Override public void onStatusChanged(String provider,int status,android.os.Bundle extras){}};
-      handler.postDelayed(timeout,30000L);
-      try{manager.requestSingleUpdate(LocationManager.GPS_PROVIDER,listener[0],Looper.getMainLooper());}
-      catch(Exception error){if(finished.compareAndSet(false,true)){handler.removeCallbacks(timeout);try{manager.removeUpdates(listener[0]);}catch(Exception ignored){}restoreOverlayForegroundType();finishPendingGpsAttempt(entityType,entityId,eventType,false);Log.w("KFE-GPS","Event GPS request failed.",error);}}
+    AtomicBoolean finished=new AtomicBoolean(false);
+    final Location[] best=new Location[1];
+    final LocationListener[] listener=new LocationListener[1];
+    Runnable stop=()->{
+      if(!finished.compareAndSet(false,true))return;
+      try{manager.removeUpdates(listener[0]);}catch(Exception ignored){}
+      restoreOverlayForegroundType();
+      Log.w("KFE-GPS","No acceptable event GPS fix within 30 seconds; durable request remains pending.");
+      finishPendingGpsAttempt(entityType,entityId,eventType,false);
+    };
+    listener[0]=new LocationListener(){
+      @Override public void onLocationChanged(Location location){
+        if(finished.get()||location==null)return;
+        long fixTime=location.getTime();
+        float accuracy=location.hasAccuracy()?location.getAccuracy():Float.NaN;
+        boolean timestampValid=isEventGpsFixAtOrAfter(eventAt,fixTime);
+        boolean coordinatesValid=Double.isFinite(location.getLatitude())&&Math.abs(location.getLatitude())<=90d
+          &&Double.isFinite(location.getLongitude())&&Math.abs(location.getLongitude())<=180d;
+        boolean accuracyValid=!Float.isNaN(accuracy)&&!Float.isInfinite(accuracy)&&accuracy>=0f;
+        if(!timestampValid||!coordinatesValid||!accuracyValid)return;
+        if(best[0]==null||accuracy<best[0].getAccuracy())best[0]=new Location(location);
+        // A fix at 75m or better is accepted immediately. Less accurate fixes
+        // remain candidates while the provider continues its 3-second updates.
+        if(accuracy>75f)return;
+        if(!finished.compareAndSet(false,true))return;
+        handler.removeCallbacks(stop);
+        try{manager.removeUpdates(this);}catch(Exception ignored){}
+        boolean saved=persistOneShotEventLocation(entityType,entityId,eventType,eventAt,location);
+        restoreOverlayForegroundType();
+        finishPendingGpsAttempt(entityType,entityId,eventType,saved);
+      }
+      @Override public void onProviderEnabled(String provider){}
+      @Override public void onProviderDisabled(String provider){}
+      @SuppressWarnings("deprecation") @Override public void onStatusChanged(String provider,int status,android.os.Bundle extras){}
+    };
+    handler.postDelayed(stop,30000L);
+    boolean requested=false;
+    for(String provider:new String[]{LocationManager.GPS_PROVIDER,LocationManager.NETWORK_PROVIDER}){
+      try{
+        if(manager.isProviderEnabled(provider)){
+          manager.requestLocationUpdates(provider,3000L,0f,listener[0],Looper.getMainLooper());
+          requested=true;
+        }
+      }catch(Exception error){Log.w("KFE-GPS","Could not request "+provider+" event location updates.",error);}
+    }
+    if(!requested&&finished.compareAndSet(false,true)){
+      handler.removeCallbacks(stop);restoreOverlayForegroundType();finishPendingGpsAttempt(entityType,entityId,eventType,false);
     }
   }
 
@@ -1045,7 +1082,7 @@ public class KfeOverlayService extends Service {
       if(location==null)return false;
       long fixTime=location.getTime();
       if(fixTime<=0L){Log.w("KFE-GPS","Event GPS snapshot skipped: GPS fix has no valid provider timestamp.");return false;}
-      if(location.hasAccuracy()&&(Float.isNaN(location.getAccuracy())||Float.isInfinite(location.getAccuracy())||location.getAccuracy()<0f)){Log.w("KFE-GPS","Event GPS snapshot skipped: provider accuracy is invalid.");return false;}
+      if(!location.hasAccuracy()||Float.isNaN(location.getAccuracy())||Float.isInfinite(location.getAccuracy())||location.getAccuracy()<0f||location.getAccuracy()>75f){Log.w("KFE-GPS","Event GPS snapshot skipped: provider accuracy is missing or worse than 75 metres.");return false;}
       String snapshotId=KfeGpsEventPolicy.snapshotId(entityType,entityId,eventType),now=java.time.Instant.now().toString();
       JSONObject parentResult=KfeCanonicalWorkStore.get(this).getRecord(entityType,entityId),parent=parentResult.optJSONObject("record");
       String eventAt=suppliedEventAt==null?"":suppliedEventAt;
