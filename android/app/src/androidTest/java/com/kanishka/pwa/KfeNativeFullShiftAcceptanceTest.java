@@ -178,6 +178,7 @@ public class KfeNativeFullShiftAcceptanceTest {
     String shiftId = "native-lifecycle-guard-shift-" + suffix;
     String tripId = "native-lifecycle-guard-trip-" + suffix;
     String cancelledTripId = "native-lifecycle-guard-cancel-trip-" + suffix;
+    String invalidFeeTripId = "native-lifecycle-guard-invalid-fee-trip-" + suffix;
     KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
     SQLiteDatabase database = store.getWritableDatabase();
     String shiftCreate = "native-lifecycle-guard-shift-create-" + suffix;
@@ -185,6 +186,8 @@ public class KfeNativeFullShiftAcceptanceTest {
     String genericBypassOp = "native-lifecycle-guard-generic-bypass-" + suffix;
     String cancelPickupOp = "native-lifecycle-guard-cancel-pickup-" + suffix;
     String cancelOp = "native-lifecycle-guard-cancel-" + suffix;
+    String invalidFeePickupOp = "native-lifecycle-guard-invalid-fee-pickup-" + suffix;
+    String invalidFeeCancelOp = "native-lifecycle-guard-invalid-fee-cancel-" + suffix;
     String prematureEndOp = "native-lifecycle-guard-premature-end-" + suffix;
     String startOp = "native-lifecycle-guard-start-" + suffix;
     String duplicateStartOp = "native-lifecycle-guard-duplicate-start-" + suffix;
@@ -229,6 +232,21 @@ public class KfeNativeFullShiftAcceptanceTest {
       JSONObject cancelledCanonical = store.getRecord("TRIP", cancelledTripId).getJSONObject("record");
       assertEquals("Cancellation must preserve the pre-ride stage.", "GOING_TO_PICKUP", cancelledCanonical.getString("tripStage"));
       assertEquals("Cancellation fee must remain a distinct source fact.", 25d, cancelledCanonical.getDouble("cancelledRevenue"), 0.001d);
+
+      JSONObject invalidFeePickup = new JSONObject().put("id", invalidFeeTripId).put("shiftId", shiftId)
+          .put("status", "ACTIVE").put("tripStage", "GOING_TO_PICKUP")
+          .put("createdAt", t0).put("updatedAt", t0);
+      assertTrue("Invalid-fee Trip fixture must be created.",
+          store.commitTripLifecycle(invalidFeePickupOp, "GO_TO_PICKUP", invalidFeePickup, null, true).accepted);
+      JSONObject negativeFee = new JSONObject(invalidFeePickup.toString())
+          .put("status", "CANCELLED").put("cancelReason", "PASSENGER")
+          .put("cancelledRevenue", -1d).put("tripEndAt", t1).put("updatedAt", t1);
+      boolean negativeCancellationFeeRejected = false;
+      try { store.commitTripLifecycle(invalidFeeCancelOp, "CANCEL_RIDE", negativeFee, t0, false); }
+      catch (IllegalArgumentException expected) { negativeCancellationFeeRejected = true; }
+      assertTrue("Native lifecycle cancellation must reject a negative fee.", negativeCancellationFeeRejected);
+      assertEquals("Rejected cancellation must leave the canonical Trip active.", "ACTIVE",
+          store.getRecord("TRIP", invalidFeeTripId).getJSONObject("record").getString("status"));
 
       JSONObject prematureEnd = new JSONObject(pickup.toString())
           .put("status", "COMPLETED").put("tripStage", "COMPLETED")
@@ -307,12 +325,12 @@ public class KfeNativeFullShiftAcceptanceTest {
       catch (IllegalArgumentException expected) { inactiveShiftRejected = true; }
       assertTrue("GO_TO_PICKUP must be rejected after the PWA-owned Shift has ended.", inactiveShiftRejected);
     } finally {
-      database.delete("canonical_records", "entity_id IN (?,?,?)", new String[]{shiftId, tripId, cancelledTripId});
-      String[] operations = {shiftCreate, pickupOp, genericBypassOp, cancelPickupOp, cancelOp, prematureEndOp, startOp, duplicateStartOp,
+      database.delete("canonical_records", "entity_id IN (?,?,?,?)", new String[]{shiftId, tripId, cancelledTripId, invalidFeeTripId});
+      String[] operations = {shiftCreate, pickupOp, genericBypassOp, cancelPickupOp, cancelOp, invalidFeePickupOp, invalidFeeCancelOp, prematureEndOp, startOp, duplicateStartOp,
           endOp, shiftEndOp, afterEndPickupOp, duplicateStartOp + "-terminal",
           "native-lifecycle-guard-cancel-after-start-" + suffix,
           "native-lifecycle-guard-lifecycle-cancel-after-start-" + suffix};
-      String placeholders = "?,?,?,?,?,?,?,?,?,?,?,?,?,?";
+      String placeholders = "?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?";
       database.delete("canonical_operations", "operation_id IN (" + placeholders + ")", operations);
       database.delete("canonical_audit", "operation_id IN (" + placeholders + ")", operations);
     }
