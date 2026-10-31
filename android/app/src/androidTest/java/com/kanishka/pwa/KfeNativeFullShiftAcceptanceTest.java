@@ -1069,13 +1069,23 @@ public class KfeNativeFullShiftAcceptanceTest {
         String tripId = "lifecycle-fault-trip-" + suffix + "-" + caseId;
         String eventStage = stages[stageIndex];
         long startAt = System.currentTimeMillis() - 5000L;
+        String initialVersion = java.time.Instant.ofEpochMilli(startAt - 1000L).toString();
         SharedPreferences prefs = context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE);
         KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
         JSONObject shift = new JSONObject()
             .put("id", shiftId).put("status", "ACTIVE").put("revenue", 0)
-            .put("updatedAt", java.time.Instant.now().toString());
+            .put("updatedAt", initialVersion);
         assertTrue("Fault fixture shift must commit.",
             store.putRecord("lifecycle-fault-shift-create-" + tripId, "SHIFT", shift).accepted);
+        if (stageIndex > 0) {
+          JSONObject priorTrip = new JSONObject().put("id", tripId).put("shiftId", shiftId)
+              .put("status", "ACTIVE")
+              .put("tripStage", stageIndex == 1 ? "GOING_TO_PICKUP" : "RIDE_STARTED")
+              .put("createdAt", initialVersion).put("updatedAt", initialVersion);
+          if (stageIndex == 2) priorTrip.put("tripStartAt", new java.util.Date(startAt).toInstant().toString());
+          assertTrue("Fault fixture must seed the canonical prior Trip stage.",
+              store.putRecord("lifecycle-fault-trip-create-" + tripId, "TRIP", priorTrip).accepted);
+        }
 
         prepareSnapshot(prefs, shiftId, tripId);
         AttachedOverlayService firstAttempt = new AttachedOverlayService();
