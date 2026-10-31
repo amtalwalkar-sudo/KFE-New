@@ -2,7 +2,7 @@ import { ShiftTripRepository, configureCanonicalReadBoundary } from '../../repos
 import { FuelRepository } from '../../repositories/fuelRepository.js'
 import { completeEndShift } from './endShift.js'
 import { recordFuelEntry } from './fuel.js'
-import { validateShiftStartOdometer, validateFirstDayShiftStartOdometer, validateGapAllocation } from '../../domain/work/shift.js'
+import { validateShiftStartOdometer, validateFirstDayShiftStartOdometer } from '../../domain/work/shift.js'
 import { calculateFuelQuantity, validateFuelEntry } from '../../domain/work/fuel.js'
 import { calculateRollingFuelCostPerKm } from '../../domain/math/fuel.js'
 import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } from '../../domain/work/trip.js'
@@ -183,9 +183,8 @@ const correctNativeTrip = (trip, data, now) => {
   const normalized = normalizeTripInput(data)
   const next = { ...trip }
   if (normalized.operator !== undefined) next.operator = normalized.operator
-  if (normalized.tripKm !== undefined) { next.tripKm = normalized.tripKm; next.tripKmAuthority = 'MANUAL'; if (normalized.tripKmProvenance !== undefined) next.tripKmProvenance = normalized.tripKmProvenance }
   if (normalized.revenue !== undefined) { next.revenue = normalized.revenue; if (next.status === 'CANCELLED') next.cancelledRevenue = normalized.revenue; next.revenueAuthority = 'SUPPORTING_ONLY'; if (normalized.revenueProvenance !== undefined) next.revenueProvenance = normalized.revenueProvenance }
-  for (const field of ['toll', 'parking', 'tollTreatment', 'parkingTreatment', 'cancelReason', 'fareDetailsSkipped']) if (normalized[field] !== undefined) next[field] = normalized[field]
+  for (const field of ['toll', 'parking', 'cancelReason', 'fareDetailsSkipped']) if (normalized[field] !== undefined) next[field] = normalized[field]
   next.updatedAt = now
   return next
 }
@@ -221,9 +220,7 @@ export const WorkService = Object.freeze({
   },
   validateShiftStartOdometer(currentOdometer, previousOdometer) { return validateShiftStartOdometer(currentOdometer, previousOdometer) },
   validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer) { return validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer) },
-  validateGapAllocation(gapKm, category) { return validateGapAllocation(gapKm, category) },
   calculateFuelQuantity(pricePerKg, amount) { return calculateFuelQuantity({ pricePerKg, amount }) },
-  reconcileShiftRevenue(data) { return reconcileShiftRevenue(data) },
   async startShift(data) { const nativeAvailable = requireLifecycleStorage(); const result = nativeAvailable ? await (async () => { const record = createNativeShiftRecord(data); return await commitPreparedCreateIntent('SHIFT', record, data) })() : await ShiftTripRepository.createShift(data); if (!nativeAvailable) await mirrorCanonicalRecord('SHIFT', result); checkpoint(); return result },
   async startTrip(data) {
     const nativeAvailable = requireLifecycleStorage()
@@ -293,7 +290,6 @@ export const WorkService = Object.freeze({
         revenue, liveFareRevenue: revenue, revenueSource: 'TRIP_FARES',
         endOdometer: validation.closingOdometer,
         totalDistance: validation.closingOdometer - Number(shift.startOdometer),
-        ...(data?.movementReconciliation ? { movementReconciliation: data.movementReconciliation } : {}),
         shiftEndAt: now,
         shiftDurationMs: Math.max(0, Date.parse(now) - Date.parse(shift.shiftStartAt || now)),
         status: 'COMPLETED', updatedAt: now,
@@ -304,13 +300,8 @@ export const WorkService = Object.freeze({
       return { ok: true, endOdometer: validation.closingOdometer, distanceKm: validation.distanceKm }
     }
 
-    const active = await ShiftTripRepository.getActive()
     const result = await completeEndShift(data)
     checkpoint()
-    if (result?.ok && active.shift?.id) {
-      const localShifts = await ShiftTripRepository.getAllShifts({ skipCanonicalReadBoundary: true })
-      const completedShift = localShifts.find(shift => shift.id === active.shift.id && shift.status === 'COMPLETED') || null
-    }
     return result
   },
   async recordFuel(data) {
