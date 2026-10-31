@@ -17,6 +17,11 @@ assert.equal(isEligibleForLocalityResolution({ eventType: 'LOCATION_POLL', event
 assert.equal(isEligibleForLocalityResolution({ eventType: 'TRIP_END', eventAt: null }, now), false)
 
 const repository = fs.readFileSync('src/repositories/localityRepository.js', 'utf8')
+const captureService = fs.readFileSync('src/application/location/eventLocationService.js', 'utf8')
+const timeline = fs.readFileSync('src/views/ActivityTimelineView.vue', 'utf8')
+assert.match(captureService, /if \(prior\) return/)
+assert.doesNotMatch(captureService, /if \(prior\)[^\n]*resolveSnapshot/)
+assert.match(timeline, /forEntities\('TRIP', rideIds, \['PICKUP_START', 'TRIP_END'\]\)/)
 const adapter = fs.readFileSync('src/infrastructure/location/localityResolutionAdapter.js', 'utf8')
 assert.match(repository, /snapshotId, placeName/)
 assert.match(repository, /store\.add\(saved\)/)
