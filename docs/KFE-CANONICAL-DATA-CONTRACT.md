@@ -162,6 +162,6 @@ If a data rule is discovered in a supporting document, it must be migrated here 
 
 `driver_collected_data` is not part of the current canonical model. The former store was supporting-only and did not own an independent calculation authority; its operational fields duplicated facts already owned by Shift/Work or had no authoritative ERP calculation role.
 
-The canonical database migration from version 9 to version 10 explicitly removes the obsolete store. New backups no longer contain it. Backup format version 3 remains backward-compatible with legacy format versions 1 and 2 by accepting and discarding the removed `driver_collected_data` payload during validation/upgrade before restore.
+The canonical database migration from version 9 to version 10 explicitly removes the obsolete store. New backups no longer contain it. Backup format version 5 preserves permanent PWA locality labels and native GPS snapshots. It remains backward-compatible with format versions 1 through 4 by adding an empty locality-label store when upgrading older backups and by accepting and discarding the removed `driver_collected_data` payload during validation/upgrade before restore.
 
 There is intentionally no replacement Admin entry for generic driver-collected data. Operational facts have one natural entry point and one authority.
