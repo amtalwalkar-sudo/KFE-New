@@ -593,50 +593,15 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       tripValues.put("updated_at", now);
       db.insertWithOnConflict("canonical_records", null, tripValues, SQLiteDatabase.CONFLICT_REPLACE);
 
-      double revenue = 0d;
-      java.time.Instant latest = java.time.Instant.parse(newTripVersion);
-      String oldShiftVersion = shift.optString("updatedAt", "");
-      if (!empty(oldShiftVersion)) {
-        java.time.Instant shiftInstant = java.time.Instant.parse(oldShiftVersion);
-        if (shiftInstant.isAfter(latest)) latest = shiftInstant;
+      // Keep one native persistence-projection implementation for both
+      // ordinary Trip writes and native overlay form commits.
+      refreshShiftRevenueProjection(db, shiftId, now);
+      try (Cursor refreshedShift = db.query("canonical_records", new String[]{"payload"},
+          "entity_type='SHIFT' AND entity_id=?", new String[]{shiftId}, null, null, null, "1")) {
+        if (!refreshedShift.moveToFirst()) throw new IllegalArgumentException("Canonical shift disappeared during form commit.");
+        shift = new JSONObject(refreshedShift.getString(0));
       }
-      try (Cursor trips = db.query("canonical_records", new String[]{"payload"},
-          "entity_type='TRIP'", null, null, null, null)) {
-        while (trips.moveToNext()) {
-          JSONObject item = new JSONObject(trips.getString(0));
-          if (!shiftId.equals(item.optString("shiftId", ""))
-              || item.has("deletedAt") && !item.isNull("deletedAt")
-              || item.optBoolean("deleted", false)) continue;
-          String status = item.optString("status", "");
-          if ("COMPLETED".equals(status) && !item.optBoolean("fareDetailsSkipped", false)) {
-            Object amount = item.opt("revenue");
-            if (amount instanceof Number && Double.isFinite(((Number) amount).doubleValue())
-                && ((Number) amount).doubleValue() >= 0d) revenue += ((Number) amount).doubleValue();
-          } else if ("CANCELLED".equals(status)) {
-            Object amount = item.has("cancelledRevenue") ? item.opt("cancelledRevenue") : JSONObject.NULL;
-            if (amount instanceof Number && Double.isFinite(((Number) amount).doubleValue())
-                && ((Number) amount).doubleValue() >= 0d) revenue += ((Number) amount).doubleValue();
-          }
-          String itemVersion = item.optString("updatedAt", "");
-          if (!empty(itemVersion)) {
-            java.time.Instant itemInstant = java.time.Instant.parse(itemVersion);
-            if (itemInstant.isAfter(latest)) latest = itemInstant;
-          }
-        }
-      }
-      java.time.Instant nowInstant = java.time.Instant.parse(now);
-      if (!nowInstant.isAfter(latest)) latest = latest.plusMillis(1);
-      String shiftUpdatedAt = latest.toString();
-      shift.put("revenue", revenue);
-      shift.put("liveFareRevenue", revenue);
-      shift.put("revenueSource", "TRIP_FARES");
-      shift.put("updatedAt", shiftUpdatedAt);
-      ContentValues shiftValues = new ContentValues();
-      shiftValues.put("entity_type", "SHIFT");
-      shiftValues.put("entity_id", shiftId);
-      shiftValues.put("payload", shift.toString());
-      shiftValues.put("updated_at", now);
-      db.insertWithOnConflict("canonical_records", null, shiftValues, SQLiteDatabase.CONFLICT_REPLACE);
+      double revenue = shift.optDouble("revenue", 0d);
 
       JSONObject result = new JSONObject().put("operationId", operationId).put("mode", mode)
           .put("tripId", tripId).put("shiftId", shiftId).put("trip", trip)
