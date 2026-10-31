@@ -152,6 +152,24 @@ No active domain finance/loan engine, forecast, break-even, driver-target, provi
 
 **Change:** Status now correctly identifies Phase 5 as active, requires fresh CI on the final cleanup head, and keeps Phases 10–13 locked until their prerequisites and evidence are complete. CI and physical-device acceptance remain separate proof levels.
 
+### 16. Duplicate Trip form mutation and retired revenue metadata
+
+**Finding:** Browser repository writes and the native-first Work service each contained their own Trip-detail mutation helper. Both also wrote the obsolete per-Trip `revenueAuthority: SUPPORTING_ONLY` marker, while native form commits removed it. New Trip creation still added that marker. This was unnecessary duplicated domain behavior and produced cross-runtime payload differences.
+
+**Change:** Trip-detail application now lives in one domain function used by both browser repository and native-first Work paths. New Trip records no longer create the per-Trip revenue-authority marker; native commit cleanup and regression tests prevent its return. The single Shift revenue projection remains the semantic financial authority.
+
+### 17. Cancellation fee / fare separation and Timeline integrity
+
+**Finding:** The shared Trip lifecycle transition copied a cancellation fee into `Trip.revenue`, conflating two distinct source facts. Timeline also fell back from a missing cancellation fee to the Trip fare field, which could display an old fare as a cancellation fee. Timeline did not explicitly filter soft-deleted Trip rows.
+
+**Change:** Cancellation transitions now update only `cancelledRevenue` and preserve any separate fare fact. Timeline displays only the saved cancellation fee and shows it unavailable when absent; it never falls back to Trip fare. Timeline now excludes soft-deleted Trips. Domain, Timeline and native acceptance tests cover the separation and shared revenue parity vector.
+
+### 18. Shift normalization narrowed to current facts
+
+**Finding:** The active Shift normalizer still mapped retired Personal KM, Dead KM, per-shift toll/parking, supplied distance and manual revenue aliases even though the current canonical Shift factory and end-shift path do not use those inputs.
+
+**Change:** Shift normalization now accepts only opening/closing odometer and lifecycle timestamp aliases. Retired gap-allocation, manual revenue, per-shift toll/parking and supplied distance inputs are discarded from normalized new Shift input. Existing stored/backup records are not migrated or deleted by this change.
+
 ## Verification
 
 The following are enforced by regression contracts:
