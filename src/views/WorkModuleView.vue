@@ -512,10 +512,7 @@ async function saveCancel(fromNative = false, operationId = '') {
   cancelBusy.value = true
   try {
     const cancellationDraft = tripDraftIdentity('work-cancellation', 'CANCEL_TRIP')
-    const cancelledTripSnapshot = store.trip ? { ...store.trip } : null
-    const cancelledTripId = store.trip?.id
     const cancellationReason = cancelReason.value.trim()
-    const cancellationRevenue = Number(cancelFare.value)
     const result = await store.cancelTrip({
       reason: cancellationReason,
       revenue: cancelFare.value
