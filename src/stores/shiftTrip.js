@@ -47,13 +47,11 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     ? WorkService.validateFirstDayShiftStartOdometer(odo, businessStartBaseline.value?.businessStartOdometer)
     : WorkService.validateShiftStartOdometer(odo, lastKnownOdometer.value)
 
-  const startShift = async (odo, allocation = null, createIntentKey = '') => {
+  const startShift = async (odo, createIntentKey = '') => {
     if (isShiftActive.value) return { ok: false, reason: 'A Shift is already active.' }
     const check = calculateGap(odo)
     if (!check.valid) return { ok: false, reason: check.reason }
-    const allocationCheck = WorkService.validateGapAllocation(check.gapKm, allocation?.category)
-    if (!allocationCheck.valid) return allocationCheck
-    const record = await WorkService.startShift({ startOdometer: Number(odo), openingPersonalKm: allocationCheck.personalKm, openingDeadKm: allocationCheck.deadKm, openingPersonalToll: Number(allocation?.personalToll || 0), openingPersonalParking: Number(allocation?.personalParking || 0), openingBaselineType: firstKfeDay.value ? 'BUSINESS_START_FIRST_DAY' : 'POST_KFE_GAP', historicalOdometerGapKm: firstKfeDay.value ? Number(check.historicalKm || 0) : 0, businessStartDate: businessStartBaseline.value?.businessStartDate || null, businessStartOdometer: businessStartBaseline.value?.businessStartOdometer ?? null, createIntentKey })
+    const record = await WorkService.startShift({ startOdometer: Number(odo), createIntentKey })
     // The shift write is authoritative. Do not turn a successful persisted
     // start into a false failure because a post-write refresh/enrichment read fails.
     shift.value = record
