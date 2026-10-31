@@ -46,7 +46,7 @@ assert.match(nativeOverlay, /queueEventLocationCapture\(Context context,String e
 assert.ok(nativeOverlay.includes('KfeGpsEventPolicy.snapshotId(entityType,entityId,eventType)'))
 assert.match(journal, /RETRY_DELAYS_MS = \{30_000L, 60_000L, 2\*60_000L/)
 assert.doesNotMatch(nativeOverlay, /schedulePendingGpsRetry/)
-assert.match(nativeOverlay, /later event, app-open, or explicit status refresh/
+assert.match(nativeOverlay, /later event, app-open, or explicit status refresh/)
 assert.ok(nativeGpsPolicy.includes('TRIP_END'))
 assert.doesNotMatch(nativeGpsPolicy, /SHIFT_START|SHIFT_END/)
 assert.match(nativePlugin, /backgroundCaptureAllowed/)
