@@ -222,6 +222,15 @@ public class KfeNativeFullShiftAcceptanceTest {
           store.commitTripLifecycle(startOp, "START_RIDE", new JSONObject(started.toString()), t0, false);
       assertTrue("START_RIDE lost-ack retry must be idempotent.", startRetry.accepted && startRetry.duplicate);
 
+      JSONObject cancellationAfterStart = new JSONObject(started.toString())
+          .put("status", "CANCELLED").put("cancelReason", "PASSENGER")
+          .put("cancelledRevenue", 20d).put("updatedAt", java.time.Instant.parse(t2).plusMillis(5).toString());
+      boolean cancellationAfterStartRejected = false;
+      try { store.commitTripForm("native-lifecycle-guard-cancel-after-start-" + suffix,
+          "CANCEL", cancellationAfterStart); }
+      catch (IllegalArgumentException expected) { cancellationAfterStartRejected = true; }
+      assertTrue("Native cancellation form must reject a Trip after START_RIDE.", cancellationAfterStartRejected);
+
       String t3 = java.time.Instant.parse(t2).plusMillis(10).toString();
       JSONObject duplicateStart = new JSONObject(started.toString()).put("updatedAt", t3)
           .put("tripStartAt", t3);
