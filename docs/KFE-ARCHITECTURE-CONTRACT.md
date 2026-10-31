@@ -30,17 +30,16 @@ This is a permanent KFE implementation rule.
 ```text
 Presentation
     ↓
-Application
-    ↓
-Domain
-    ↓
-Repository Contracts
-    ↓
-Persistence / Infrastructure
-    ↓
-Runtime persistence adapter
-    ├─ Browser PWA: IndexedDB
-    └─ Android native operational commit: SQLite
+Application use cases / orchestration
+    ├── Domain rules and calculations
+    └── Repository boundary
+             ↓
+       Persistence adapters
+          ├─ Browser PWA: IndexedDB
+          └─ Android Work/GPS: SQLite
+
+Infrastructure platform adapters implement application-owned runtime ports.
+The composition root selects those adapters; the application never imports them.
 
 ONE LOGICAL CANONICAL STATE — DURABLE PLATFORM STORES MUST CONVERGE
 ```
@@ -167,12 +166,12 @@ application use cases
 - `src/main.js` is the single JavaScript composition root. It installs runtime ports, mounts the Vue application, and starts the post-mount bootstrap once.
 - `src/infrastructure/capacitor/nativePluginRegistry.js` is the sole JavaScript plugin-registration point. `MainActivity` registers the matching native plugin classes once. The architecture contract test compares both registration lists and fails on missing, duplicate, or extra plugin registrations.
 - `PlatformStartup` owns browser service-worker registration; no view, store or other startup module registers another service worker.
-- `StartupService` owns canonical IndexedDB initialization and recovery ordering. The root may configure platform adapters and invoke startup, but must not duplicate storage recovery.
+- `StartupService` owns canonical IndexedDB initialization and recovery ordering. Startup and permission-gate application services publish plain state snapshots; `src/presentation/startup/useStartupUiState.js` owns Vue reactivity and subscribes to those snapshots. Application services must not import Vue/Pinia or expose framework-reactive state.
 - On browser PWA, IndexedDB is the durable canonical store. On Android, SQLite is the durable Work/GPS event store; IndexedDB is the synchronized PWA read model. Stable IDs, idempotent operations and explicit acknowledgements preserve one logical record history.
 - Native overlay commands are Android capability commands. Shift start/end remain PWA-owned. Native ride commands are constrained to the active canonical shift and are replayed/acknowledged through the durable native event journal.
 - Native GPS collection owns only the four event-time coordinate snapshots. It does not own ride timestamps, locality labels, ride distance or Timeline presentation.
 - Dropbox backup runs in the live app/WebView context only; no service-worker or native background polling is used.
-- `App.vue` owns permission-gate and runtime-error presentation. `main.js` configures the Vue error handler and dispatches a runtime-error event; it does not construct fallback presentation DOM.
+- `App.vue` owns permission-gate and runtime-error presentation. Its reactive state comes from the presentation startup composable. `main.js` configures the Vue error handler and dispatches a runtime-error event; it does not construct fallback presentation DOM.
 - App presentation uses the shared presentation stylesheets. Do not add inline `style` attributes or component-local `<style>` blocks to App, views or app components.
 
 ### 7.3 GPS and locality retry ownership
