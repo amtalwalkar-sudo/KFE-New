@@ -1,7 +1,7 @@
 import { initializeCanonicalStorage, notifyCanonicalDataChanged } from '../utils/indexedDB.js'
 import { generateUUID } from '../utils/uuid.js'
 import { writeMutationAndAudit } from './mutationRepository.js'
-import { normalizeShiftInput, normalizeTripInput } from '../domain/canonicalNormalization.js'
+import { normalizeShiftInput } from '../domain/canonicalNormalization.js'
 import { deriveLiveRevenue } from '../domain/work/liveRevenue.js'
 import { createCanonicalShiftRecord, createCanonicalTripRecord } from '../domain/work/canonicalWorkRecords.js'
 import { transitionTrip, transitionTripStage, TRIP_STATES } from '../domain/work/tripLifecycle.js'
