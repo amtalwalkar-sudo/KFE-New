@@ -12,7 +12,7 @@ The native Android overlay and main PWA are two surfaces over one canonical work
 |---|---|---|
 | Shift lifecycle | Read canonical shift state; refuse trip commands once the canonical shift is no longer active | Sole owner of shift start/end and closing odometer |
 | Trip lifecycle while a shift is active | Execute overlay trip commands (pickup, ride start/end) and durably commit trip lifecycle state even when the WebView is closed | Render the same trip state; reconcile/mirror the native canonical result into IndexedDB |
-| Fare/cancellation/expenses | Capture and validate raw form values; durably commit fare, toll, parking, cancellation fee and reason to the trip record while offline | Read the same committed trip values, apply domain validation/read models, and reconcile projections on resume |
+| Fare/cancellation form values | Capture and validate raw form values; durably commit fare, toll, parking, cancellation fee and reason to the trip record while offline | Read the same committed trip values, apply domain validation/read models, and reconcile projections on resume |
 | Background execution | Overlay foreground-service lifecycle, durable workflow checkpoints, and OS restart recovery | Refresh canonical work state and reconcile the IndexedDB projection when available |
 | Trip-boundary location evidence | On request, capture and persist one GPS coordinate snapshot at pickup start, trip start, trip end, and cancellation; no continuous collection, routing, or ride-distance calculation | Display the persisted boundary snapshot when available; missing GPS evidence must not block trip workflow |
 | Overlay UI | Render the current canonical/read-model state and pending/error feedback | Supply refreshed work state to the overlay when available |
