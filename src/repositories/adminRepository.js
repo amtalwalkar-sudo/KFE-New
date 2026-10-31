@@ -40,14 +40,6 @@ const dependentRecordStores = Object.freeze({
   ],
 })
 export const AdminRepository = {
-  async getSetting(id) { return toFormRecord('businessSetup', await readOne('settings', id)) },
-  async saveSetting(id, settingKey, values) {
-    const now = new Date().toISOString()
-    const record = { id, settingKey, values: structuredClone(values), createdAt: now, updatedAt: now }
-    const db = await initializeCanonicalStorage()
-    await new Promise((resolve, reject) => { const tx = db.transaction('settings', 'readwrite'); tx.objectStore('settings').put(record); tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error || new Error('Failed to save setting.')); tx.onabort = () => reject(tx.error || new Error('Save setting transaction aborted.')) })
-    return structuredClone(values)
-  },
   async list(formKey) { if (!ACTIVE_ADMIN_FORM_KEYS.has(formKey)) throw new Error(`Admin form '${formKey}' is retired and read-only.`); const records = await readAll(storeFor(formKey)); return records.filter(record => !isDeleted(record) && (!isSettingsForm(formKey) || record.settingKey === formKey)).map(record => toFormRecord(formKey, record)).sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''))) },
   async get(formKey, id) { if (!ACTIVE_ADMIN_FORM_KEYS.has(formKey)) throw new Error(`Admin form '${formKey}' is retired and read-only.`); return toFormRecord(formKey, await readOne(storeFor(formKey), id)) },
   async save(formKey, values, existingId = null) {
