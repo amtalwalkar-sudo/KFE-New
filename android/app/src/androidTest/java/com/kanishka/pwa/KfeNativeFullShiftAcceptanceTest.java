@@ -254,7 +254,6 @@ public class KfeNativeFullShiftAcceptanceTest {
       catch (IllegalArgumentException expected) { fareStageMutationRejected = true; }
       assertTrue("Fare form must not mutate the completed Trip lifecycle stage.", fareStageMutationRejected);
 
-      String t5unused = java.time.Instant.parse(t4).plusMillis(10).toString();
       JSONObject reopened = new JSONObject(completed.toString()).put("status", "ACTIVE")
           .put("tripStage", "RIDE_STARTED").put("updatedAt", t5);
       boolean terminalReopenRejected = false;
