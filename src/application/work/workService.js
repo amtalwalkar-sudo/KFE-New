@@ -211,7 +211,6 @@ export const WorkService = Object.freeze({
     await ShiftTripRepository.getPrimaryVehicleId()
     return FuelRepository.getAll()
   },
-  calculateFuelMetrics(logs = []) { return calculateRollingFuelCostPerKm(logs) },
   async getFuelMetrics() {
     await ShiftTripRepository.getPrimaryVehicleId()
     return calculateRollingFuelCostPerKm(await FuelRepository.getAll())
