@@ -43,7 +43,7 @@ if (fs.existsSync(path.join(root, 'application/work/workflowTimerService.js'))) 
 assertForbidden(['domain'], [ /from\s+['"][^'"]*\/repositories\//, /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/, /from\s+['"][^'"]*\/application\//, /from\s+['"][^'"]*\/infrastructure\//, /from\s+['"][^'"]*\/presentation\// ], 'Domain must remain independent of outer layers')
 assertForbidden(['application'], [ /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/, /from\s+['"][^'"]*\/presentation\//, /from\s+['"][^'"]*\/infrastructure\//, /from\s+['"]@capacitor\//, /from\s+['"]vue['"]/, /from\s+['"]pinia['"]/, /from\s+['"]@vue\// ], 'Application must not depend on raw persistence, presentation, infrastructure, Capacitor plugins, or UI frameworks')
 assertForbidden(['application'], [ /\bfetch\s*\(/, /navigator\.geolocation/ ], 'Application must not own network requests or platform location acquisition')
-assertForbidden(['application'], [ /\b(?:window|document|navigator|localStorage|sessionStorage|indexedDB)\s*(?:\.|\[)/ ], 'Application must use runtime ports instead of browser globals')
+assertForbidden(['application'], [ /\b(?:window|document|navigator|localStorage|sessionStorage|indexedDB)\s*(?:\?\.|\.|\[)/ ], 'Application must use runtime ports instead of browser globals')
 
 assertForbidden(['views', 'components', 'presentation', 'application', 'infrastructure'], [ /from\s+['"][^'"]*\/services\// ], 'Canonical runtime must not depend on legacy src/services')
 assertForbidden(['views', 'components', 'presentation', 'application'], [ /['"][^'"]*\bjs\/app\.js['"]/ ], 'Current architecture must not reference removed legacy js application')
