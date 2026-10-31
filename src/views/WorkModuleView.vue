@@ -471,7 +471,7 @@ async function skipTripDetails() {
   fareBusy.value = true
   try {
     const fareDraft = tripDraftIdentity('work-trip-details', 'ENTER_FARE', pendingFare.value.id)
-    const result = await store.updateTrip({ id: pendingFare.value.id, fareDetailsSkipped: true })
+    const result = await store.saveTripDetails({ id: pendingFare.value.id, fareDetailsSkipped: true })
     if (!result?.ok) return fail(result?.reason || 'Trip detail skip could not be saved.')
     await clearCommittedDraft(fareDraft)
     fareTripId.value = null
