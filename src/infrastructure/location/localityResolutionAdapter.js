@@ -86,8 +86,8 @@ export class PhotonLocationNameAdapter {
 }
 /** Shared locality contract. Mappls credentials stay server-side; Photon is fallback. */
 export class LocalityResolutionService {
-  constructor({primary=new MapplsGatewayLocationNameAdapter(),fallback=new PhotonLocationNameAdapter(),cacheEnabled=true}={}){this.primary=primary;this.fallback=fallback;this.cacheEnabled=cacheEnabled}
-  async resolveDetailed(l,{forceRefresh=false}={}){
+  constructor({primary=new MapplsGatewayLocationNameAdapter(),fallback=new PhotonLocationNameAdapter()}={}){this.primary=primary;this.fallback=fallback}
+  async resolveDetailed(l){
     const key=keyFor(l);if(!key)return {placeName:null,state:'INVALID_COORDINATES',provider:null,cacheHit:false}
     if(!hasReliableAccuracy(l))return {placeName:null,state:'LOW_ACCURACY',provider:null,cacheHit:false}
       let lastError=null
@@ -103,8 +103,8 @@ export class LocalityResolutionService {
   async resolve(l){return (await this.resolveDetailed(l)).placeName}
 }
 const defaultResolver=new LocalityResolutionService()
-export const resolveLocationNameDetailed=async(l,resolver=defaultResolver,options={})=>{
-  try{if(resolver?.resolveDetailed)return await resolver.resolveDetailed(l,options);const placeName=resolver?.resolve?await resolver.resolve(l):null;return {placeName:placeName||null,state:placeName?'RESOLVED':'NO_LOCALITY_MATCH',provider:null,cacheHit:false}}
+export const resolveLocationNameDetailed=async(l,resolver=defaultResolver)=>{
+  try{if(resolver?.resolveDetailed)return await resolver.resolveDetailed(l);const placeName=resolver?.resolve?await resolver.resolve(l):null;return {placeName:placeName||null,state:placeName?'RESOLVED':'NO_LOCALITY_MATCH',provider:null,cacheHit:false}}
   catch(e){console.warn('Location name resolution unavailable; coordinates remain authoritative.',e);return {placeName:null,state:'PROVIDER_UNAVAILABLE',provider:null,cacheHit:false,error:'PROVIDER_UNAVAILABLE'}}
 }
 export const resolveLocationName=async(l,resolver=defaultResolver)=>(await resolveLocationNameDetailed(l,resolver)).placeName
