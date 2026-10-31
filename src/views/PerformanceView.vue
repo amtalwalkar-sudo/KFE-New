@@ -36,10 +36,10 @@ const costPerKm = value => value == null || !Number.isFinite(Number(value))
 
 watch(period, () => { void load() })
 onMounted(() => {
-  void load()
   unsubscribeCanonicalChanges = PhaseOnePerformanceService.subscribeDataChanges(({ stores = [] } = {}) => {
     if (!stores.length || stores.some(store => relevantStores.has(store))) void load()
   })
+  void load()
 })
 onUnmounted(() => {
   unsubscribeCanonicalChanges?.()
