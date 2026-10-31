@@ -86,7 +86,10 @@ const mirrorCanonicalTripById = async id => {
 
 let canonicalReadAttempt = null
 const reconcileCanonicalReads = () => {
-  if (!nativeCanonicalAvailable()) return Promise.resolve()
+  // Android reads must never silently fall back to a stale IndexedDB projection
+  // when SQLite is unavailable. Browser-only PWA remains IndexedDB-authoritative.
+  const nativeAvailable = requireLifecycleStorage()
+  if (!nativeAvailable) return Promise.resolve()
   if (canonicalReadAttempt) return canonicalReadAttempt
   canonicalReadAttempt = recoverCanonicalWorkSnapshot({
     readCanonical: async () => {
