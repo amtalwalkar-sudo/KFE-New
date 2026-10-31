@@ -194,7 +194,7 @@ const captureAndPersistEventLocation = (entityType, entityId, eventType, eventAt
 export const WorkService = Object.freeze({
   getTripOperators() { return WORK_TRIP_OPERATORS },
   validateTripOperator(operator) { return validateTripOperator(operator) },
-  validateTripDetails(data) { return validateTripCorrection(data) },
+  validateTripDetails(data) { return validateTripDetails(data) },
   validateFuelEntry(data) { return validateFuelEntry(data) },
   async getActiveState() {
     // The repository owns the single-flight canonical read boundary so startup,
@@ -257,9 +257,9 @@ export const WorkService = Object.freeze({
   },
   async saveTripDetails(data, operationId = '') {
     const nativeAvailable = requireLifecycleStorage()
-    const validation = validateTripCorrection(data)
+    const validation = validateTripDetails(data)
     if (!validation.valid) return { ok: false, reason: validation.reason }
-    const correction = { ...data, ...validation }; const result = nativeAvailable ? await (async () => { const trip = await findNativeRecord('TRIP', data?.id); if (!trip) throw new Error('Trip not found.'); if (trip.status !== 'COMPLETED') throw new Error('Trip details can only be saved after a completed ride.'); const next = applyTripDetails(trip, correction, nextCanonicalTimestamp(trip.updatedAt)); await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt, operationId }); return true })() : await ShiftTripRepository.saveTripDetails(correction); if (!nativeAvailable) await mirrorCanonicalTripById(data?.id); checkpoint(); return result
+    const details = { ...data, ...validation }; const result = nativeAvailable ? await (async () => { const trip = await findNativeRecord('TRIP', data?.id); if (!trip) throw new Error('Trip not found.'); if (trip.status !== 'COMPLETED') throw new Error('Trip details can only be saved after a completed ride.'); const next = applyTripDetails(trip, details, nextCanonicalTimestamp(trip.updatedAt)); await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt, operationId }); return true })() : await ShiftTripRepository.saveTripDetails(details); if (!nativeAvailable) await mirrorCanonicalTripById(data?.id); checkpoint(); return result
   },
   async updateFuel(data) { const result = await FuelRepository.update(data.id, data); checkpoint(); return { ok: true, record: result } },
   async deleteFuel(id) { const result = await FuelRepository.remove(id); checkpoint(); return { ok: result } },
