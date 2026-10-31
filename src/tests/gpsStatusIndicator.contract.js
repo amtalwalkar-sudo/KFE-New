@@ -44,8 +44,10 @@ assert.match(manifest, /uses-permission android:name="android\.permission\.ACCES
 assert.match(gpsJournal, /pendingEventGpsCaptures\.v1/,
   'the extracted durable GPS journal must preserve pending events across WebView reloads and process death')
 assert.match(overlayService, /Discarded pending GPS request for missing trip/, 'a reset/deleted trip must not receive a later orphan GPS snapshot')
-assert.match(overlayService, /schedulePendingGpsRetry/,
-  'failed fixes must be retried while required permissions remain granted')
+assert.doesNotMatch(overlayService, /schedulePendingGpsRetry/,
+  'failed fixes must not keep an idle foreground service alive for timed retries')
+assert.match(overlayService, /recordPendingGpsFailure/,
+  'failed fixes must remain durable for a later eligible retry')
 assert.match(overlayService, /PICKUP_START/,
   'native overlay must queue pickup-origin location')
 assert.match(overlayService, /TRIP_CANCELLED/,
