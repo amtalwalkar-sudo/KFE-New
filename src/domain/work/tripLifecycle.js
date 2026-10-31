@@ -17,9 +17,9 @@ export const transitionTrip = (trip, to, data = {}) => {
     if (!['GOING_TO_PICKUP', 'PICKUP'].includes(trip.tripStage)) {
       throw new Error('A Trip can only be cancelled before the ride starts.')
     }
-    const hasFee = Object.prototype.hasOwnProperty.call(data, 'cancelledRevenue') || Object.prototype.hasOwnProperty.call(data, 'revenue')
+    const hasFee = Object.prototype.hasOwnProperty.call(data, 'cancelledRevenue')
     if (trip.status !== TRIP_STATES.CANCELLED || hasFee) {
-      const rawFee = Object.prototype.hasOwnProperty.call(data, 'cancelledRevenue') ? data.cancelledRevenue : data.revenue
+      const rawFee = data.cancelledRevenue
       const fee = rawFee == null || String(rawFee).trim() === '' ? 0 : Number(rawFee)
       if (!Number.isFinite(fee) || fee < 0) throw new Error('Cancellation fee must be a finite non-negative amount.')
       next.cancelledRevenue = fee
