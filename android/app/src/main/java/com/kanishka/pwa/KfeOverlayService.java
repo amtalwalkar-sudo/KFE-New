@@ -106,7 +106,6 @@ public class KfeOverlayService extends Service {
   private LinearLayout cancelReasonPanel;
   private android.os.Handler foregroundHandler;
   private final java.util.Set<String> gpsCaptureInFlight=java.util.Collections.synchronizedSet(new java.util.HashSet<>());
-  private final Runnable pendingGpsRetry=()->retryPendingEventLocations();
 
   static String resolveFareActionTripId(String pendingFareTripId, String currentTripId){
     if(pendingFareTripId!=null&&!pendingFareTripId.isEmpty())return pendingFareTripId;
@@ -909,12 +908,6 @@ public class KfeOverlayService extends Service {
     if(ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)return false;
     return Build.VERSION.SDK_INT<Build.VERSION_CODES.Q || ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_BACKGROUND_LOCATION)==PackageManager.PERMISSION_GRANTED;
   }
-  private void scheduleNextPendingGpsSoon(){
-    if(!hasPendingEventLocations()||!hasBackgroundLocationPermission())return;
-    Handler handler=foregroundHandler!=null?foregroundHandler:new Handler(Looper.getMainLooper());
-    handler.removeCallbacks(pendingGpsRetry);
-    handler.postDelayed(pendingGpsRetry,1000L);
-  }
   private void recordPendingGpsFailure(String tripId,String eventType){recordPendingGpsFailure("TRIP",tripId,eventType);}
   private void recordPendingGpsFailure(String entityType,String entityId,String eventType){
     if(!gpsJournal().recordFailure(entityType,entityId,eventType,System.currentTimeMillis()))
@@ -946,7 +939,6 @@ public class KfeOverlayService extends Service {
     gpsCaptureInFlight.remove(KfeGpsEventPolicy.key(entityType,entityId,eventType));
     if(saved){
       removePendingEventLocation(entityType,entityId,eventType);
-      if(hasPendingEventLocations())scheduleNextPendingGpsSoon();
       else if(overlay==null&&!hasPersistedOverlayState(this)){
         stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();
       }
@@ -974,7 +966,7 @@ public class KfeOverlayService extends Service {
       JSONObject canonicalRecord=KfeCanonicalWorkStore.get(this).getRecord(entityType,entityId);
       JSONObject parent=canonicalRecord.optJSONObject("record");
       if(!canonicalRecord.optBoolean("found",false)||parent==null){
-        removePendingEventLocation(entityType,entityId,eventType);scheduleNextPendingGpsSoon();
+        removePendingEventLocation(entityType,entityId,eventType);
         if("TRIP".equals(entityType))Log.w("KFE-GPS","Discarded pending GPS request for missing trip "+entityId+"; no orphan snapshot will be written.");
         else Log.w("KFE-GPS","Discarded pending GPS request for missing "+entityType+" record "+entityId+"; no orphan snapshot will be written.");
         return;
@@ -1289,7 +1281,7 @@ public class KfeOverlayService extends Service {
   private boolean dark(){return true;}
   private void removeOverlay(){removeOverlay(false);}
   private void removeOverlay(boolean preserveFormDraft){closeForm(!preserveFormDraft);if(windowManager!=null&&overlayRoot!=null){try{windowManager.removeView(overlayRoot);}catch(Exception ignored){}}overlayRoot=null;overlay=null;}
-  @Override public void onDestroy(){if(foregroundHandler!=null)foregroundHandler.removeCallbacks(pendingGpsRetry);removeOverlay(true);if(instance==this)instance=null;super.onDestroy();}
+  @Override public void onDestroy(){removeOverlay(true);if(instance==this)instance=null;super.onDestroy();}
   @Override public IBinder onBind(Intent intent){return null;}
   private Notification buildNotification(){
     // This notice exists for the Android foreground-service lifecycle only.
