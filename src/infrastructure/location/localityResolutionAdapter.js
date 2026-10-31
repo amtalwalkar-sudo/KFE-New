@@ -108,11 +108,7 @@ export const resolveLocationNameDetailed=async(l,resolver=defaultResolver,option
   catch(e){console.warn('Location name resolution unavailable; coordinates remain authoritative.',e);return {placeName:null,state:'PROVIDER_UNAVAILABLE',provider:null,cacheHit:false,error:'PROVIDER_UNAVAILABLE'}}
 }
 export const resolveLocationName=async(l,resolver=defaultResolver)=>(await resolveLocationNameDetailed(l,resolver)).placeName
-export const localityResolutionCacheKey=keyFor
-export const getCachedLocationName = () => null // Locality persistence belongs to the PWA IndexedDB repository, keyed by snapshot ID.
 export const LocalityResolutionAdapter = Object.freeze({
   resolveLocationNameDetailed,
   resolveLocationName,
-  localityResolutionCacheKey,
-  getCachedLocationName,
 })
