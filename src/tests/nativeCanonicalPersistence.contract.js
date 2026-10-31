@@ -22,6 +22,7 @@ assert.match(browserCanonical, /jsonEquivalent\(previous\.outcome\.record, recor
 assert.match(browserCanonical, /operationId was already used with a different payload/)
 assert.match(store, /CREATE TABLE canonical_records/)
 assert.doesNotMatch(store, /revenueAuthority/, 'Native canonical records must not store the retired Trip-level revenue authority marker.')
+assert.match(store, /record\.remove\("revenueProvenance"\)/, 'Native canonical writes must retire unused Trip revenue provenance metadata.')
 assert.doesNotMatch(read('src/domain/work/canonicalWorkRecords.js'), /revenueAuthority/, 'Canonical Trip factory must not recreate the retired Trip-level revenue authority marker.')
 assert.ok(!store.includes('persistTripBoundarySnapshot('), 'Legacy trip-boundary snapshot writer must be removed.')
 assert.ok(!store.includes('SAVE_TRIP_BOUNDARY_SNAPSHOT'))
