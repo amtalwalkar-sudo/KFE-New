@@ -9,7 +9,7 @@
 - The Android overlay exposes ride actions only while a canonical Shift is active.
 - The PWA browser runtime persists canonical Work records in IndexedDB.
 - On Android, native SQLite is the durable canonical Work store; the PWA IndexedDB copy is the synchronized read model.
-- The PWA and native overlay must preserve the same transition invariants and stable record identities. PWA and Android overlay actions invoke the same authoritative command/mutation path. Native action events are durable, replay-safe commands/evidence for the same canonical records, not a second set of trips.
+- The PWA and native overlay must preserve the same transition invariants and stable record identities, but their command adapters are platform-specific: PWA actions use the Work application service; Android overlay actions use the native command service and commit to canonical SQLite even when the WebView is unavailable. Native action events are durably journaled and replayed to synchronize/acknowledge the PWA projection; they are not a second set of trips or a second record history.
 - Business meaning is defined only by `KFE_BUSINESS_RULES_REGISTER.md`; stored fields and relationships are defined by `docs/KFE-CANONICAL-DATA-CONTRACT.md`.
 
 ## 2. Canonical lifecycle
@@ -40,7 +40,7 @@ A cancelled Trip is not a completed Trip. A completed Trip remains history. A Sh
 | Start Ride | PWA Work application or Android overlay command adapter |
 | Cancel Trip / optional cancellation fee | PWA Work application or Android overlay command adapter |
 | End Ride / completion timestamp | PWA Work application or Android overlay command adapter |
-| Fare entry or explicit skip | PWA Work application, with native overlay handoff where active |
+| Fare entry or explicit skip | PWA Work application, or native SQLite form transaction when submitted in the Android overlay; PWA replay synchronizes the read model |
 | End Shift / closing odometer | PWA Work application |
 | GPS event snapshot capture | Native Android capability on Android; PWA browser adapter only where supported |
 | Locality resolution and Timeline labels | PWA application and IndexedDB |
