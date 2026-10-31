@@ -136,7 +136,6 @@ export const ShiftTripRepository = {
             shift.endOdometer = requireFinite(normalized.endOdometer, 'endOdometer')
             if (shift.endOdometer < shift.startOdometer) throw new Error('endOdometer cannot be less than startOdometer.')
             shift.totalDistance = shift.endOdometer - shift.startOdometer
-            if (data.movementReconciliation) shift.movementReconciliation = data.movementReconciliation
             shift.shiftEndAt = now
             shift.shiftDurationMs = Math.max(0, Date.parse(now) - Date.parse(shift.shiftStartAt || now))
             shift.status = 'COMPLETED'
