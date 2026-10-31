@@ -19,6 +19,7 @@ assert.match(shell, /import GpsStatusIndicator from '\.\/GpsStatusIndicator\.vue
 assert.match(shell, /<GpsStatusIndicator \/>/,
   'the GPS status indicator must be visible from the shared shell')
 assert.doesNotMatch(indicator, /setInterval|setTimeout/, 'GPS status must not run a periodic polling loop')
+assert.doesNotMatch(indicator, /label: 'Retrying '/, 'pending events must not be presented as actively retrying when no capture request is running')
 assert.match(indicator, /GpsPermissionService/, 'GPS status UI must use the application permission service')
 assert.doesNotMatch(indicator, /@capacitor|registerPlugin|NativeGps/, 'GPS status UI must not own native plugin access')
 assert.match(gpsService, /WorkRuntimePorts\.gpsPermissions/, 'application permission service must delegate to the native adapter')
