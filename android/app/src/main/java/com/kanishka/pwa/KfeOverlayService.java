@@ -997,6 +997,7 @@ public class KfeOverlayService extends Service {
       Log.w("KFE-GPS","Canonical "+entityType+" record could not be verified; pending GPS request remains queued.",error);
       recordPendingGpsFailure(entityType,entityId,eventType);if(overlay==null&&!hasPersistedOverlayState(this)){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();}return;
     }
+    final String canonicalEventAt=eventAt;
     if(!hasBackgroundLocationPermission()){
       Log.w("KFE-GPS","Background "+eventType+" GPS capture is pending; required precise/background permissions are not granted. No location request was started.");
       if(overlay==null&&!hasPersistedOverlayState(this)){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();}
@@ -1029,7 +1030,7 @@ public class KfeOverlayService extends Service {
         long fixTime=location.getTime();
         boolean accuracySupplied=location.hasAccuracy();
         float accuracy=accuracySupplied?location.getAccuracy():Float.NaN;
-        boolean timestampValid=isEventGpsFixAtOrAfter(eventAt,fixTime);
+        boolean timestampValid=isEventGpsFixAtOrAfter(canonicalEventAt,fixTime);
         boolean coordinatesValid=Double.isFinite(location.getLatitude())&&Math.abs(location.getLatitude())<=90d
           &&Double.isFinite(location.getLongitude())&&Math.abs(location.getLongitude())<=180d;
         boolean accuracyValid=!accuracySupplied||(!Float.isNaN(accuracy)&&!Float.isInfinite(accuracy)&&accuracy>=0f);
@@ -1040,7 +1041,7 @@ public class KfeOverlayService extends Service {
         if(!finished.compareAndSet(false,true))return;
         handler.removeCallbacks(stop);
         try{manager.removeUpdates(this);}catch(Exception ignored){}
-        boolean saved=persistOneShotEventLocation(entityType,entityId,eventType,eventAt,location);
+        boolean saved=persistOneShotEventLocation(entityType,entityId,eventType,canonicalEventAt,location);
         restoreOverlayForegroundType();
         finishPendingGpsAttempt(entityType,entityId,eventType,saved);
       }
