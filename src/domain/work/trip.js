@@ -31,12 +31,6 @@ export function validateTripCorrection(data = {}) {
     if (!Number.isFinite(amount) || amount < 0) return { valid: false, reason: `Trip ${field} must be a non-negative number.` }
     result[field] = amount
   }
-  for (const field of ['tollTreatment', 'parkingTreatment']) {
-    if (data[field] === undefined) continue
-    const treatment = String(data[field] || '').toUpperCase()
-    if (!['INCLUDED', 'EXCLUDED'].includes(treatment)) return { valid: false, reason: `Trip ${field} must be INCLUDED or EXCLUDED.` }
-    result[field] = treatment
-  }
   if (data.cancelReason !== undefined) {
     const cancelReason = String(data.cancelReason || '').trim()
     if (!cancelReason) return { valid: false, reason: 'Cancellation reason is required.' }
@@ -49,12 +43,3 @@ export function validateTripCorrection(data = {}) {
   return { valid: true, ...result }
 }
 
-export function calculateTripRevenueDetail(trips = []) {
-  // Supporting ride-detail total only. ERP revenue authority remains Shift.revenue.
-  return trips
-    .filter(trip => trip?.status === 'COMPLETED')
-    .reduce((total, trip) => {
-      const revenue = Number(trip?.revenue)
-      return total + (Number.isFinite(revenue) && revenue >= 0 ? revenue : 0)
-    }, 0)
-}
