@@ -70,6 +70,11 @@ const transactionCommitIndex = store.indexOf('db.setTransactionSuccessful();', a
 assert.ok(recordWriteIndex >= 0 && operationWriteIndex > recordWriteIndex && auditWriteIndex > operationWriteIndex && transactionCommitIndex > auditWriteIndex, 'record, idempotency outcome and audit must commit in one ordered SQLite transaction')
 assert.ok(overlayService.includes('createdAtMillis(eventId)'), 'native lifecycle retries must derive timestamps from the durable outbox event')
 assert.ok(overlayService.includes('native-trip-stage-"+eventId'), 'each durable lifecycle event must have its own canonical operation ID')
+assert.ok(overlayService.includes('store.commitTripLifecycle('), 'Native overlay lifecycle stages must use the guarded canonical lifecycle transaction.')
+assert.ok(!overlayService.includes('store.putRecord("native-trip-stage-'), 'Native overlay lifecycle stages must not bypass transition guards through generic record writes.')
+assert.match(store, /synchronized Outcome commitTripLifecycle\(/, 'Native canonical store must expose a dedicated lifecycle command boundary.')
+assert.match(store, /validateNativeTripLifecycleTransition\(/, 'Native lifecycle transition validation must execute inside the SQLite write transaction.')
+assert.match(store, /requires an active canonical Shift/, 'Native lifecycle transaction must verify active Shift ownership.')
 assert.ok(overlayService.includes('trip.put("updatedAt",eventTimestamp)'), 'lifecycle retry payload must preserve its original version timestamp');
 assert.ok(overlayService.includes('persistCanonicalTripForm("FARE",actionTripId,payload,eventId)'), 'fare canonical writes must use the durable outbox event ID');
 assert.ok(overlayService.includes('persistCanonicalTripForm("CANCEL",pendingTripId,input,eventId)'), 'cancellation canonical writes must use the durable outbox event ID');
