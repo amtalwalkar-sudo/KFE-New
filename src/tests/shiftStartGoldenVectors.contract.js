@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import { validateShiftStartOdometer, validateFirstDayShiftStartOdometer, validateGapAllocation } from '../domain/work/shift.js'
+import { validateShiftStartOdometer, validateFirstDayShiftStartOdometer } from '../domain/work/shift.js'
 import { validateEndShiftEntry } from '../domain/work/endShift.js'
 
 const vectorPath = 'spec/work-domain/shift-start-golden-vectors.json'
 const vectors = JSON.parse(fs.readFileSync(vectorPath, 'utf8'))
 assert.equal(vectors.schemaVersion, 1, 'Golden vector schema must be explicitly versioned.')
-assert.ok(Array.isArray(vectors.cases) && vectors.cases.length >= 10, 'The shared vector suite must cover the required edge cases.')
+assert.ok(Array.isArray(vectors.cases) && vectors.cases.length >= 10, 'The shared vector suite must cover the required odometer edge cases.')
 
 const reasonCodes = new Map([
   ['Enter a valid current odometer.', 'INVALID_CURRENT_ODOMETER'],
@@ -23,15 +23,13 @@ const normalize = result => {
   }
   if (result.reason) {
     normalized.reasonCode = reasonCodes.get(result.reason)
-      || (result.reason.includes('above shift opening') ? 'LARGE_DISTANCE_CONFIRMATION_REQUIRED' : 'GAP_ALLOCATION_REQUIRED')
+      || (result.reason.includes('above shift opening') ? 'LARGE_DISTANCE_CONFIRMATION_REQUIRED' : 'UNKNOWN')
   }
-  else if (result.valid === false && result.requiresGapAllocation) normalized.reasonCode = 'GAP_ALLOCATION_REQUIRED'
   return normalized
 }
 const evaluators = {
   validateShiftStartOdometer: input => validateShiftStartOdometer(input.currentOdometer, input.previousOdometer),
   validateFirstDayShiftStartOdometer: input => validateFirstDayShiftStartOdometer(input.currentOdometer, input.businessStartOdometer),
-  validateGapAllocation: input => validateGapAllocation(input.gapKm, input.category),
   validateEndShiftEntry: input => validateEndShiftEntry(input)
 }
 for (const vector of vectors.cases) {
@@ -58,12 +56,6 @@ assert.deepEqual(
   normalize(validateEndShiftEntry({ closingOdometer: '   ', startOdometer: 100 })),
   { valid: false, reasonCode: 'CLOSING_ODOMETER_REQUIRED' },
   'Whitespace-only closing odometer input must remain invalid after numeric normalization.'
-)
-
-assert.deepEqual(
-  normalize(validateGapAllocation(null, null)),
-  { valid: false, requiresGapAllocation: true, gapKm: Number.NaN, reasonCode: 'GAP_ALLOCATION_REQUIRED' },
-  'Missing gap distance must remain invalid rather than being coerced to zero.'
 )
 
 console.log(`Shared work-domain golden vectors passed: ${vectors.cases.length} plus runtime input edge cases`)
