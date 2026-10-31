@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { deriveLiveRevenue } from '../domain/work/liveRevenue.js'
-import { SWIPE_CONFIG } from '../domain/work/swipeConfig.js'
+import { SWIPE_CONFIG } from '../presentation/work/swipeConfiguration.js'
 assert.equal(deriveLiveRevenue([{status:'COMPLETED',revenue:250},{status:'COMPLETED',revenue:150}]),400)
 assert.equal(deriveLiveRevenue([{status:'COMPLETED',revenue:250},{status:'CANCELLED',revenue:40,cancelledRevenue:40},{status:'ACTIVE',revenue:900},{status:'COMPLETED',revenue:null,fareDetailsSkipped:true}]),290)
 assert.equal(deriveLiveRevenue([{status:'COMPLETED',revenue:-1},{status:'COMPLETED',revenue:'invalid'}]),0)
