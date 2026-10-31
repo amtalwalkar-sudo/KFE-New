@@ -72,7 +72,7 @@ Vehicle and Driver are authoritative Admin master records. Preserve their identi
 
 Shift is the authoritative operational boundary for shift lifecycle and start/end odometer observations. Shift start/end remain PWA-owned.
 
-`Shift.revenue` is the canonical projection of saved fares on completed Trips plus saved cancellation fees. A missing cancellation fee contributes zero. Shift revenue is not manually entered at shift end.
+`Shift.revenue` is the canonical projection of saved fares on completed Trips plus saved cancellation fees. A missing cancellation fee contributes zero. Shift revenue is not manually entered at shift end. The domain rule is the semantic authority; Android SQLite mirrors that exact rule transactionally as a persistence invariant for native overlay commits made while the WebView is unavailable. That mirror must use one native helper and remain covered by cross-runtime parity tests; it cannot add or alter business rules.
 
 ### Trip / Ride
 
