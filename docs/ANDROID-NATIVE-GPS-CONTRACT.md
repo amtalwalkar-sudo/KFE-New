@@ -1,6 +1,6 @@
 # Android Ride GPS Contract
 
-**Scope:** Native/PWA event-time GPS capture. After each durable snapshot, the PWA starts one asynchronous locality lookup when online; manual Timeline pull-to-refresh is a fallback for unresolved eligible snapshots. Locality enrichment never blocks ride actions.
+**Scope:** Native/PWA event-time GPS capture. GPS capture stores coordinates only and never initiates reverse geocoding. Locality resolution is user-initiated exclusively through Timeline pull-to-refresh for unresolved eligible snapshots. Locality enrichment never blocks ride actions.
 
 KFE captures one GPS snapshot at exactly four ride workflow events:
 
@@ -17,10 +17,10 @@ GPS capture is local and does not require internet. Android durably queues each 
 
 The PWA owns reverse geocoding and permanent locality persistence. Native Android stores coordinates only and never performs geocoding.
 
-- After each of the four event snapshots is durably saved, the PWA starts reverse geocoding asynchronously when available; ride actions never wait for it.
+- Saving any of the four event snapshots never starts reverse geocoding. No automatic or capture-triggered lookup is performed.
 - All four event types are eligible for locality resolution.
 - New geocoding is limited to events whose `eventAt` is within the most recent seven days.
-- If the PWA is offline, show the saved locality if one exists; otherwise show the saved coordinates. A manual Timeline pull-to-refresh retries unresolved eligible events when online.
+- If the PWA is offline, show the saved locality if one exists; otherwise show the saved coordinates. Only a user-initiated Timeline pull-to-refresh may request locality resolution when online.
 - Successful locality names are saved permanently in PWA IndexedDB, keyed by canonical GPS snapshot ID. They are not keyed only by coordinates and are not subject to a 500-entry cache cap.
 - Existing successful locality names are not silently overwritten by ordinary retries.
 - No continuous network polling, automatic connectivity monitoring, or unbounded retry loop is permitted.
@@ -31,4 +31,4 @@ The PWA owns reverse geocoding and permanent locality persistence. Native Androi
 
 The browser PWA uses one-shot browser geolocation and local snapshot persistence. Android uses the native durable event queue. These are platform adapters for the same four-event snapshot contract, not competing business writers. Android event capture must not require internet.
 
-Physical-device verification must test all four events offline, permission denial, app/service reopening, stable event identity, asynchronous locality lookup after capture, manual fallback refresh online/offline, and that ride timestamps/fares remain unchanged.
+Physical-device verification must test all four events offline, permission denial, app/service reopening, stable event identity, no locality request during capture or app startup, manual Timeline pull-to-refresh online/offline, and that ride timestamps/fares remain unchanged.
