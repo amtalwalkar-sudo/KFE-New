@@ -14,6 +14,9 @@ export const transitionTrip = (trip, to, data = {}) => {
   if (data.tripEndAt) next.tripEndAt = data.tripEndAt
   if (data.tripEndLocation) next.tripEndLocation = data.tripEndLocation
   if (to === TRIP_STATES.CANCELLED) {
+    if (!['GOING_TO_PICKUP', 'PICKUP'].includes(trip.tripStage)) {
+      throw new Error('A Trip can only be cancelled before the ride starts.')
+    }
     const hasFee = Object.prototype.hasOwnProperty.call(data, 'cancelledRevenue') || Object.prototype.hasOwnProperty.call(data, 'revenue')
     if (trip.status !== TRIP_STATES.CANCELLED || hasFee) {
       const rawFee = Object.prototype.hasOwnProperty.call(data, 'cancelledRevenue') ? data.cancelledRevenue : data.revenue
