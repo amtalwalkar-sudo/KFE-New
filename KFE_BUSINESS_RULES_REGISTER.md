@@ -72,6 +72,12 @@ Use only existing recorded data. The current supported summary is:
 - Fuel cost per kilometre from valid consecutive full-tank readings.
 - Income after fuel = recorded revenue − recorded fuel spending.
 
+Reporting attribution:
+- Attribute a shift's revenue, completed rides, and cancellation fees to the reporting period containing that shift's end timestamp. For an ongoing shift without an end timestamp, use its start timestamp.
+- A trip linked to a shift follows that shift's reporting period, even when the trip itself crosses midnight or a week/month boundary. Do not split one shift's revenue and ride count across reporting periods.
+- For a legacy trip without a shift ID, use its completion/cancellation event timestamp (falling back to its start timestamp) for period attribution.
+- Fuel spending and fuel cost/km remain attributed by the recorded fuel-entry/interval dates.
+
 No forecast, target, break-even, provision, loan-amortization, projected-maintenance, or other derived financial model belongs in the current Performance screen.
 
 ## 7. Admin and persistence
