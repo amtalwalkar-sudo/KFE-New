@@ -15,7 +15,7 @@ for (const [method, nextMethod] of [
   ['async startShift(data)', 'async startTrip(data)'],
   ['async startTrip(data)', 'async startRide(data)'],
   ['async startRide(data)', 'async completeTrip(data)'],
-  ['async completeTrip(data)', 'async cancelTrip(data)'],
+  ['async completeTrip(data)', 'async cancelTrip(data, operationId = \'\')'],
   ['async cancelTrip(data, operationId = \'\')', 'async saveTripDetails(data, operationId = \'\')'],
   ['async saveTripDetails(data, operationId = \'\')', 'async updateFuel(data)'],
   ['async endShift(data)', 'async recordFuel(data)'],
