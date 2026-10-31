@@ -186,20 +186,26 @@ application use cases
 Work capture is an operational workflow, not a new business-data authority.
 
 ```text
-PWA Work screen / Android ride overlay
+PWA Work screen
         ↓
-Application Work command path
+WorkService + Domain rules
         ↓
-Domain lifecycle validation and transitions
+Browser IndexedDB / Android SQLite adapter
+
+Android ride overlay (WebView may be closed)
         ↓
-Authoritative runtime store
-  Browser: IndexedDB | Android: SQLite
+Native overlay command service + bounded native invariants
         ↓
-PWA read model → Timeline / basic Performance
+Android SQLite canonical records + durable native event journal
+        ↓
+PWA event replay / acknowledgement → IndexedDB projection
+
+Timeline / basic Performance read the canonical PWA application model
 ```
 
-- Shift start/end are PWA-owned. Native overlay ride actions are durable commands for the same canonical Trip records; they are not a second lifecycle or business-data path.
-- Fare, cancellation and fuel entries use their single Work application-service/repository paths. UI forms do not write canonical records directly.
+- Shift start/end are PWA-owned. PWA Work actions use WorkService; Android overlay ride actions use the native command adapter because the WebView may be unavailable. Both mutate the same canonical Shift/Trip model and must preserve the same lifecycle invariants; there is one record history, not two.
+- PWA fare/cancellation/fuel forms use the Work application-service/repository path. Android overlay fare/cancellation forms use the single native SQLite transaction boundary documented in `docs/NATIVE-TRIP-FORM-TRANSACTION.md`; the PWA replays the durable event to synchronize and acknowledge, not to create a second commit. Native input and persistence guards are bounded to the same canonical validation rules.
+- UI forms do not write canonical records directly; the native overlay calls the native command/persistence adapter, not the database from a view/widget.
 - Timeline is read-only. It does not capture GPS or mutate Work records.
 
 ## 9. Change isolation / bounded impact
