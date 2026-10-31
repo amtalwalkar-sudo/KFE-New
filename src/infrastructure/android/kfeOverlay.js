@@ -9,10 +9,6 @@ export const AndroidOverlay = Object.freeze({
     if (!isAndroid()) return { supported: false, granted: false }
     return KfeOverlay.canDrawOverlays()
   },
-  async openPermissionSettings() {
-    if (!isAndroid()) return
-    return KfeOverlay.openPermissionSettings()
-  },
   async prepare() {
     if (!isAndroid()) return
     return KfeOverlay.prepare()
