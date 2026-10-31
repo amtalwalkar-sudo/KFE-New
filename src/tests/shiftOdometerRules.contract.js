@@ -15,10 +15,10 @@ assert.deepEqual(validateEndShiftEntry({ closingOdometer: '   ', startOdometer: 
 assert.deepEqual(validateEndShiftEntry({ closingOdometer: -1, startOdometer: 100 }), { valid: false, reason: 'CLOSING_ODOMETER_REQUIRED' })
 assert.deepEqual(validateEndShiftEntry({ closingOdometer: 99, startOdometer: 100 }), { valid: false, reason: 'Closing odometer cannot be lower than the shift opening odometer.' })
 assert.equal(LARGE_DISTANCE_WARNING_KM, 500)
-assert.deepEqual(validateEndShiftEntry({ closingOdometer: '600', startOdometer: 100 }), {
+assert.deepEqual(validateEndShiftEntry({ closingOdometer: '601', startOdometer: 100 }), {
   valid: false,
-  reason: 'Closing odometer is 500 km above shift opening. Confirm this unusually high daily distance before ending the Shift.',
-  distanceKm: 500,
+  reason: 'Closing odometer is 501 km above shift opening. Confirm this unusually high daily distance before ending the Shift.',
+  distanceKm: 501,
   requiresConfirmation: true,
 })
 assert.deepEqual(validateEndShiftEntry({ closingOdometer: 601, startOdometer: 100, confirmLargeDistance: true }), { valid: true, closingOdometer: 601, distanceKm: 501 })
