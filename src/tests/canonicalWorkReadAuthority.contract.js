@@ -30,6 +30,9 @@ for (const snippet of [
 ]) assert.ok(repository.includes(snippet), 'missing pre-write canonical reconciliation: ' + snippet)
 
 assert.ok(!repository.includes('../application/'), 'repository must not depend on application-layer modules')
+assert.ok(repository.includes('!t?.deletedAt && t?.deleted !== true'), 'Operational Shift Trip lists must exclude soft-deleted Trip records.')
+assert.ok(repository.includes("s.status === 'COMPLETED' && !s?.deletedAt && s?.deleted !== true"), 'Last completed Shift lookup must ignore soft-deleted records.')
+assert.ok(repository.includes("t.status === 'COMPLETED' && !t?.deletedAt && t?.deleted !== true"), 'Last completed Trip lookup must ignore soft-deleted records.')
 assert.ok(service.includes('configureCanonicalReadBoundary(reconcileCanonicalReads)'))
 assert.ok(repository.includes('outcome?.accepted !== true') === false, 'native acknowledgement check belongs to the injected application boundary')
 assert.ok(service.includes('outcome?.accepted !== true'), 'native write acknowledgement must be required')
