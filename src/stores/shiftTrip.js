@@ -17,7 +17,6 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
   const isShiftActive = computed(() => shift.value?.status === 'ACTIVE')
   const isTripActive = computed(() => trip.value?.status === 'ACTIVE')
   const isOnline = isShiftActive
-  const isFinancialDayActive = computed(() => isShiftActive.value && registeredTrips.value.length > 0)
   const headerShiftStatus = computed(() => isShiftActive.value ? 'ONLINE' : 'OFFLINE')
   const headerTripStatus = computed(() => isTripActive.value ? 'ON' : 'OFF')
   const startOdometer = computed(() => shift.value?.startOdometer ?? lastKnownOdometer.value)
@@ -141,5 +140,5 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     return result
   }
 
-  return { shift, trip, registeredTrips, completedTrips, operators, defaultOperator, lastKnownOdometer, businessStartBaseline, firstKfeDay, startOdometer, isShiftActive, isTripActive, isOnline, isFinancialDayActive, headerShiftStatus, headerTripStatus, initialize, refresh, calculateGap, startShift, beginPickup, startRide, startTrip, endTrip, cancelTrip, updateTrip, endShift }
+  return { shift, trip, registeredTrips, completedTrips, operators, defaultOperator, lastKnownOdometer, businessStartBaseline, firstKfeDay, startOdometer, isShiftActive, isTripActive, isOnline, headerShiftStatus, headerTripStatus, initialize, refresh, startShift, beginPickup, startRide, startTrip, endTrip, cancelTrip, updateTrip, endShift }
 })
