@@ -21,6 +21,7 @@ const selected=ref(null),settingsOpen=ref(false),settingsSelected=ref('backup'),
 const adminSearch=ref(''),recordSearch=ref('')
 const records=ref([]),all=ref({vehicle:[],driver:[],loan:[],compliance:[],maintenance:[]})
 const loading=ref(false),saving=ref(false),error=ref(''),notice=ref('')
+let loadGeneration = 0
 const formOpen=ref(false),editing=ref(null),draft=ref({}),formErrors=ref({})
 const draftWorkflowIds = ref({})
 const draftWorkflowResolutions = new Map()
@@ -111,7 +112,23 @@ async function save(values){if(saving.value)return;clearMessages();formErrors.va
 }catch(e){formErrors.value=e.validation&&typeof e.validation==='object'?e.validation:{};error.value=e.validation?Object.values(e.validation).flat().join(' '):e.message||'Save failed.'}finally{saving.value=false}}
 async function remove(record){if(!confirm('Delete this record? Related records may prevent deletion.'))return;clearMessages();loading.value=true;try{await AdminService.remove(selected.value,record.id);notice.value='Record deleted.';await load()}catch(e){error.value=e.message||'Delete failed.'}finally{loading.value=false}}
 async function resetData(){if(!confirm('Reset all KFE data? Business records will be erased and application preferences restored to defaults. A recovery checkpoint will be retained.'))return;if(!confirm('Final confirmation: erase all current KFE business records and reset application preferences to defaults? A recovery checkpoint will be retained.'))return;loading.value=true;clearMessages();try{await BackupService.resetData();ApplicationSettingsService.resetPreferences();notice.value='All canonical KFE data has been reset. Application preferences restored to defaults.'}catch(e){error.value=e.message||'Data reset failed.'}finally{loading.value=false}}
-async function load(){loading.value=true;error.value='';try{for(const k of Object.keys(all.value))all.value[k]=await AdminService.list(k);records.value=selected.value?await AdminService.list(selected.value):[]}catch(e){error.value=e.message||'Unable to load Admin data.'}finally{loading.value=false}}
+async function load(){
+  const generation = ++loadGeneration
+  const section = selected.value
+  loading.value = true
+  error.value = ''
+  try {
+    const entries = await Promise.all(Object.keys(all.value).map(async key => [key, await AdminService.list(key)]))
+    const sectionRecords = section ? await AdminService.list(section) : []
+    if (generation !== loadGeneration) return
+    all.value = Object.fromEntries(entries)
+    records.value = sectionRecords
+  } catch (cause) {
+    if (generation === loadGeneration) error.value = cause.message || 'Unable to load Admin data.'
+  } finally {
+    if (generation === loadGeneration) loading.value = false
+  }
+}
 // The Android system Back button must unwind Admin's in-view selection before the WebView exits.
 let stopAdminBackStateWatch = null
 function handleAdminPopState() {
