@@ -1,4 +1,5 @@
 import { PerformanceRepository } from '../../repositories/performanceRepository.js'
+import { subscribeCanonicalDataChanges } from '../../repositories/canonicalDataChangeRepository.js'
 import { calculateFuelPeriodSummary } from '../../domain/math/fuel.js'
 import { getKfeReferenceNow, istDayRange, reportingRangeFor } from '../../domain/time/ist.js'
 import { derivePhaseOnePerformanceOverview } from '../../domain/performance/phaseOneOverview.js'
@@ -8,6 +9,9 @@ const live = records => (Array.isArray(records) ? records : []).filter(row => !r
 
 /** Read-only summary of saved ride revenue and fuel observations. */
 export const PhaseOnePerformanceService = Object.freeze({
+  subscribeDataChanges(callback) {
+    return subscribeCanonicalDataChanges(callback)
+  },
   async getOverview(period = 'DAY', now = getKfeReferenceNow()) {
     const selectedPeriod = PERIODS[period] || PERIODS.DAY
     const range = reportingRangeFor(selectedPeriod, now)
