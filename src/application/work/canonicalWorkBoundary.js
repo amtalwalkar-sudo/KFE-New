@@ -38,6 +38,26 @@ export const CanonicalWorkBoundary = Object.freeze({
     if (nativeAvailable) return WorkRuntimePorts.canonicalWork.putRecord(normalized)
     return WorkRuntimePorts.browserCanonicalWork.putRecord(normalized)
   },
+  async commitTripLifecycle(input) {
+    const normalized = {
+      operationId: requireText(input?.operationId, 'operationId'),
+      action: requireText(input?.action, 'action'),
+      record: input?.record,
+      expectedUpdatedAt: input?.expectedUpdatedAt ?? null,
+      expectAbsent: input?.expectAbsent === true,
+    }
+    if (!normalized.record || typeof normalized.record !== 'object' || Array.isArray(normalized.record) || !normalized.record.id) {
+      throw new Error('A canonical Trip record is required.')
+    }
+    if (requireCanonicalWriteRoute()) return WorkRuntimePorts.canonicalWork.commitTripLifecycle(normalized)
+    return WorkRuntimePorts.browserCanonicalWork.putRecord({
+      operationId: normalized.operationId,
+      entityType: 'TRIP',
+      record: normalized.record,
+      expectedUpdatedAt: normalized.expectedUpdatedAt,
+      expectAbsent: normalized.expectAbsent,
+    })
+  },
   async persistEventLocationSnapshot(snapshot) {
     if (!snapshot?.id || !snapshot?.entityType || !snapshot?.entityId || !snapshot?.eventType) {
       throw new Error('A complete event location snapshot is required.')
