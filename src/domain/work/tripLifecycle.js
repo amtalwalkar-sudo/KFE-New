@@ -11,6 +11,8 @@ export const transitionTrip = (trip, to, data = {}) => {
   if (!trip || !trip.id) throw new Error('Trip is required.')
   if (!canTransitionTrip(trip.status, to)) throw new Error(`Trip cannot transition from ${trip.status} to ${to}.`)
   const next = { ...trip, status: to }
+  delete next.revenueAuthority
+  delete next.revenueProvenance
   if (data.tripEndAt) next.tripEndAt = data.tripEndAt
   if (data.tripEndLocation) next.tripEndLocation = data.tripEndLocation
   if (to === TRIP_STATES.CANCELLED) {
