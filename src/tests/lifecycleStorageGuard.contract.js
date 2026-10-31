@@ -27,8 +27,8 @@ for (const [method, nextMethod] of [
   ['async startTrip(data)', 'async startRide(data)'],
   ['async startRide(data)', 'async completeTrip(data)'],
   ['async completeTrip(data)', 'async cancelTrip(data)'],
-  ['async cancelTrip(data)', 'async updateTrip(data)'],
-  ['async updateTrip(data)', 'async updateFuel(data)'],
+  ['async cancelTrip(data, operationId = \'\')', 'async saveTripDetails(data, operationId = \'\')'],
+  ['async saveTripDetails(data, operationId = \'\')', 'async updateFuel(data)']
   ['async endShift(data)', 'async recordFuel(data)'],
 ]) {
   const start = service.indexOf(method)
