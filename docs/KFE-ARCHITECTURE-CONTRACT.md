@@ -44,7 +44,7 @@ The composition root selects those adapters; the application never imports them.
 ONE LOGICAL CANONICAL STATE — DURABLE PLATFORM STORES MUST CONVERGE
 ```
 
-External providers sit behind infrastructure adapters.
+Any external provider used by an explicitly approved current capability sits behind an infrastructure adapter.
 
 ## 3. Ownership
 
@@ -114,7 +114,6 @@ Derived values must be reconstructable from authoritative persisted records wher
 
 The following are replaceable infrastructure concerns:
 
-- OCR/AI provider
 - cloud backup provider
 - sync provider
 - native storage capability
