@@ -7,7 +7,7 @@ import { permissionGateState, retryStartupPermissionGate } from './application/s
 const renderError = ref(null)
 const handleRuntimeError = event => {
   const detail = event?.detail || {}
-  renderError.value = [detail.message || 'Unknown runtime error', detail.component ? 'Component: ' + detail.component : '', detail.phase ? 'Phase: ' + detail.phase : '', detail.stack].filter(Boolean).join('\\n\\n')
+  renderError.value = [detail.message || 'Unknown runtime error', detail.component ? 'Component: ' + detail.component : '', detail.phase ? 'Phase: ' + detail.phase : '', detail.stack].filter(Boolean).join('\n\n')
 }
 onMounted(() => window.addEventListener('kfe:runtime-error', handleRuntimeError))
 onUnmounted(() => window.removeEventListener('kfe:runtime-error', handleRuntimeError))
@@ -22,7 +22,7 @@ const recoverApp = () => {
     <div v-if="permissionGateState.status !== 'ready'" class="kfe-permission-gate" role="dialog" aria-modal="true" aria-live="polite" >
       <div class="kfe-permission-gate__card">
         <strong>{{ permissionGateState.status === 'checking' ? 'Checking phone permissions' : 'Permission required to continue' }}</strong>
-        <p style="margin:12px 0 20px">{{ permissionGateState.message }}</p>
+        <p class="kfe-permission-gate__message">{{ permissionGateState.message }}</p>
         <button v-if="permissionGateState.status === 'blocked'" type="button" @click="retryStartupPermissionGate" class="kfe-permission-gate__action">{{ permissionGateState.actionLabel || 'Open setting' }}</button>
       </div>
     </div>
