@@ -22,6 +22,10 @@ currentMergeSnapshot.shifts = [
   { id: 'shift-conflict', status: 'ACTIVE', revenue: 75, updatedAt: '2026-10-20T11:00:00.000Z' },
 ]
 const importedMergeSnapshot = structuredClone(emptyStores)
+currentMergeSnapshot.gps_snapshots = [{ id: 'gps-current', entityType: 'TRIP', entityId: 'trip-current', eventType: 'PICKUP_START' }]
+currentMergeSnapshot.locality_labels = [{ id: 'gps-current', snapshotId: 'gps-current', placeName: 'Permanently saved locality' }]
+importedMergeSnapshot.gps_snapshots = [{ id: 'gps-imported', entityType: 'TRIP', entityId: 'trip-imported', eventType: 'TRIP_END' }]
+importedMergeSnapshot.locality_labels = [{ id: 'gps-imported', snapshotId: 'gps-imported', placeName: 'Restored locality' }]
 importedMergeSnapshot.shifts = [
   { id: 'shift-current', status: 'ACTIVE', updatedAt: '2026-10-20T10:00:00.000Z' },
   { id: 'shift-conflict', status: 'COMPLETED', revenue: 500, updatedAt: '2026-10-19T11:00:00.000Z' },
@@ -32,6 +36,8 @@ const mergedBackup = mergeCanonicalBackupSnapshot(currentMergeSnapshot, imported
 assert.equal(mergedBackup.snapshot.shifts.find(record => record.id === 'shift-conflict').status, 'ACTIVE', 'restore must not replace an existing same-ID record with older/conflicting backup data')
 assert.ok(mergedBackup.snapshot.shifts.some(record => record.id === 'shift-from-backup'), 'restore must add backup-only records')
 assert.ok(mergedBackup.snapshot.trips.some(record => record.id === 'trip-from-backup'), 'restore must merge related trip history')
+assert.equal(mergedBackup.snapshot.gps_snapshots.length, 2, 'backup merge must retain both current and imported GPS evidence')
+assert.equal(mergedBackup.snapshot.locality_labels.find(record => record.id === 'gps-imported').placeName, 'Restored locality', 'permanent PWA locality labels must survive backup merge')
 assert.equal(mergedBackup.conflicts, 1)
 assert.equal(mergedBackup.archivedConflicts, 1)
 assert.ok(mergedBackup.snapshot.audit_history.some(record => record.action === 'RESTORE_CONFLICT_ARCHIVE' && record.entityId === 'shift-conflict' && record.payload.status === 'COMPLETED'), 'conflicting backup payload must remain recoverable in durable audit history')
