@@ -11,6 +11,10 @@ const commit = service.slice(service.indexOf('const commitNativeFirst'), service
 assert.ok(commit.indexOf('await CanonicalWorkBoundary.putRecord') < commit.indexOf('await ShiftTripRepository.syncCanonicalRecords'), 'native acknowledgement must precede IndexedDB refresh')
 assert.ok(commit.includes('result?.accepted !== true || !result?.outcome?.record'), 'unacknowledged native commits must fail closed')
 assert.ok(commit.includes('const durableOperationId ='), 'native operation identity must be stable for the record version')
+assert.ok(commit.includes('await CanonicalWorkBoundary.commitTripLifecycle('), 'PWA-originated Android lifecycle writes must use the guarded native transition boundary.')
+for (const action of ["lifecycleAction: 'START_RIDE'", "lifecycleAction: 'END_RIDE'", "lifecycleAction: 'CANCEL_RIDE'"]) {
+  assert.ok(service.includes(action), `PWA Android lifecycle must route ${action} through the native guard.`)
+}
 for (const [method, nextMethod] of [
   ['async startShift(data)', 'async startTrip(data)'],
   ['async startTrip(data)', 'async startRide(data)'],
