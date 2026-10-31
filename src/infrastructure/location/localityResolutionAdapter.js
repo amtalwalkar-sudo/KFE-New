@@ -1,7 +1,6 @@
 const PHOTON = 'https://photon.komoot.io/reverse'
 const gateway = () => { try { return globalThis.__KFE_MAPPLS_GEOCODER_GATEWAY__ || import.meta.env?.VITE_MAPPLS_GEOCODER_GATEWAY_ENDPOINT || '' } catch { return globalThis.__KFE_MAPPLS_GEOCODER_GATEWAY__ || '' } }
 const photonEndpoint = () => { try { return globalThis.__KFE_REVERSE_GEOCODER_ENDPOINT__ || import.meta.env?.VITE_REVERSE_GEOCODER_ENDPOINT || PHOTON } catch { return globalThis.__KFE_REVERSE_GEOCODER_ENDPOINT__ || PHOTON } }
-const CACHE_KEY = 'kfe:locality-cache:v5'
 const MAX_LOCALITY_ACCURACY_METERS = 150
 const hasReliableAccuracy = location => {
   const accuracy = Number(location?.accuracy)
@@ -90,20 +89,13 @@ export class LocalityResolutionService {
   async resolveDetailed(l,{forceRefresh=false}={}){
     const key=keyFor(l);if(!key)return {placeName:null,state:'INVALID_COORDINATES',provider:null,cacheHit:false}
     if(!hasReliableAccuracy(l))return {placeName:null,state:'LOW_ACCURACY',provider:null,cacheHit:false}
-    let cache={};try{cache=JSON.parse(globalThis.localStorage?.getItem(CACHE_KEY)||'{}')||{}}catch{}
-    if(this.cacheEnabled&&!forceRefresh&&cache[key]?.placeName)return {placeName:cache[key].placeName,state:'RESOLVED',provider:cache[key].provider||'cache',cacheHit:true}
-    let lastError=null
+      let lastError=null
     for(const [name,provider] of [['mappls-gateway',this.primary],['photon',this.fallback]]){
       if(!provider||(name==='mappls-gateway'&&!provider.endpoint))continue
       try{
         const placeName=await provider.resolve(l);if(!placeName)continue
-        if(this.cacheEnabled){cache[key]={placeName,provider:name,resolvedAt:new Date().toISOString()};const ordered=Object.entries(cache).sort((a,b)=>String(b[1]?.resolvedAt||'').localeCompare(String(a[1]?.resolvedAt||''))).slice(0,500);try{globalThis.localStorage?.setItem(CACHE_KEY,JSON.stringify(Object.fromEntries(ordered)))}catch{}}
         return {placeName,state:'RESOLVED',provider:name,cacheHit:false}
       }catch(e){lastError=e}
-    }
-    if (forceRefresh && this.cacheEnabled && cache[key]) {
-      delete cache[key]
-      try { globalThis.localStorage?.setItem(CACHE_KEY, JSON.stringify(cache)) } catch {}
     }
     return {placeName:null,state:lastError?.status===429?'RATE_LIMITED':lastError?'PROVIDER_UNAVAILABLE':'NO_LOCALITY_MATCH',provider:null,cacheHit:false,error:lastError?.status===429?'RATE_LIMITED':lastError?'PROVIDER_UNAVAILABLE':'NO_LOCALITY_MATCH'}
   }
@@ -116,15 +108,7 @@ export const resolveLocationNameDetailed=async(l,resolver=defaultResolver,option
 }
 export const resolveLocationName=async(l,resolver=defaultResolver)=>(await resolveLocationNameDetailed(l,resolver)).placeName
 export const localityResolutionCacheKey=keyFor
-export const getCachedLocationName = l => {
-  if (!hasReliableAccuracy(l)) return null
-  const key = keyFor(l)
-  if (!key) return null
-  try {
-    const entry = JSON.parse(globalThis.localStorage?.getItem(CACHE_KEY) || '{}')?.[key]
-    return typeof entry?.placeName === 'string' && entry.placeName.trim() ? entry.placeName.trim() : null
-  } catch { return null }
-}
+export const getCachedLocationName = () => null // Locality persistence belongs to the PWA IndexedDB repository, keyed by snapshot ID.
 export const LocalityResolutionAdapter = Object.freeze({
   resolveLocationNameDetailed,
   resolveLocationName,
