@@ -66,7 +66,7 @@ export const ADMIN_FORM_DEFINITIONS={
     ]
   },
   loan:{
-    key:'loan',title:'Loan',collectionTitle:'Loans',createLabel:'Loan',category:'finance',calculationRole:'authoritative',
+    key:'loan',title:'Loan',collectionTitle:'Loans',createLabel:'Loan',category:'finance',
     fields:[
       text('lender','Lender',{section:'Lender & agreement',required:true}),
       text('accountReference','Account reference',{section:'Lender & agreement'}),
