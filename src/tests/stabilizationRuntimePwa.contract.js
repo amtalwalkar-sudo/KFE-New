@@ -34,7 +34,6 @@ assert.doesNotMatch(odo, /Number\(completed\[0\]\.endOdometer\) \|\| 0/)
 const writers = [
   'repositories/adminRepository.js',
   'repositories/fuelRepository.js',
-  'repositories/odoGapRepository.js',
   'repositories/shiftTripRepository.js',
   'repositories/locationRepository.js'
 ]
