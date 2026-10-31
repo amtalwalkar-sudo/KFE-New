@@ -80,7 +80,7 @@ assert.match(read('src/application/work/workService.js'), /lifecycleAction: 'STA
 assert.match(read('src/application/work/workService.js'), /lifecycleAction: 'END_RIDE'/, 'PWA END RIDE must use the guarded native lifecycle command.')
 assert.match(read('src/application/work/workService.js'), /lifecycleAction: 'CANCEL_RIDE'/, 'PWA cancellation must use the guarded native lifecycle command.')
 assert.match(store, /validateNativeTripLifecycleTransition\(/, 'Native lifecycle transition validation must execute inside the SQLite write transaction.')
-assert.match(store, /Cancellation is allowed only before the ride starts/, 'Native cancellation form must enforce the pre-ride stage invariant.')
+assert.match(store, /CANCEL_RIDE is allowed only before START_RIDE/, 'Native cancellation form must reuse the pre-ride lifecycle transition validator.')
 assert.match(store, /assertTripFormMutationScope\(existingTrip, trip, mode\)/, 'Native Trip forms must be restricted to their owned source fields.')
 assert.match(store, /Trip form attempted to mutate fields outside its canonical form ownership/, 'Native Trip form boundary must reject unrelated record mutations.')
 assert.match(store, /requires an active canonical Shift/, 'Native lifecycle transaction must verify active Shift ownership.')
